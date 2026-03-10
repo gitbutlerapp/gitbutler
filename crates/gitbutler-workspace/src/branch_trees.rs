@@ -8,7 +8,11 @@ use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_stack::VirtualBranchesHandle;
 
-use crate::{submodules::has_submodules_configured, workspace_base, workspace_base_from_heads};
+use crate::{
+    submodules::remove_untracked_excluding_submodule_paths,
+    workspace_base,
+    workspace_base_from_heads,
+};
 
 /// A snapshot of the workspace at a point in time.
 #[derive(Debug)]
@@ -97,7 +101,6 @@ pub fn update_uncommitted_changes_with_tree(
     _perm: &mut RepoExclusive,
 ) -> Result<()> {
     let repo = &*ctx.git2_repo.get()?;
-    let has_submodules = has_submodules_configured(repo);
 
     if let Some(worktree_id) = old_uncommitted_changes {
         let mut new_uncommitted_changes =
@@ -113,13 +116,9 @@ pub fn update_uncommitted_changes_with_tree(
 
         let mut checkout = git2::build::CheckoutBuilder::new();
         checkout.force().conflict_style_diff3(true);
-        // Submodule worktrees can be deleted by aggressive untracked cleanup.
-        // Keep that cleanup only for repos without configured submodules.
-        if !has_submodules {
-            checkout.remove_untracked(true);
-        }
 
         repo.checkout_index(Some(&mut new_uncommitted_changes), Some(&mut checkout))?;
+        remove_untracked_excluding_submodule_paths(repo)?;
     } else {
         let old_tree_id = merge_workspace(repo, old)?.to_gix();
         let new_tree_id = merge_workspace(repo, new)?.to_gix();
