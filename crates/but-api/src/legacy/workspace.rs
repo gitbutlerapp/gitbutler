@@ -396,9 +396,10 @@ mod json {
 
     impl From<MoveChangesResult> for UIMoveChangesResult {
         fn from(value: MoveChangesResult) -> Self {
+            let MoveChangesResult { replaced_commits } = value;
+
             Self {
-                replaced_commits: value
-                    .replaced_commits
+                replaced_commits: replaced_commits
                     .into_iter()
                     .map(|(x, y)| (x.into(), y.into()))
                     .collect(),

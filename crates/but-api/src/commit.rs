@@ -69,9 +69,10 @@ pub mod json {
 
     impl From<MoveChangesResult> for UIMoveChangesResult {
         fn from(value: MoveChangesResult) -> Self {
+            let MoveChangesResult { replaced_commits } = value;
+
             Self {
-                replaced_commits: value
-                    .replaced_commits
+                replaced_commits: replaced_commits
                     .into_iter()
                     .map(|(old, new)| (old.into(), new.into()))
                     .collect(),
@@ -104,15 +105,19 @@ pub mod json {
 
     impl From<CommitCreateResult> for UICommitCreateResult {
         fn from(value: CommitCreateResult) -> Self {
+            let CommitCreateResult {
+                new_commit,
+                rejected_specs,
+                replaced_commits,
+            } = value;
+
             Self {
-                new_commit: value.new_commit.map(Into::into),
-                paths_to_rejected_changes: value
-                    .rejected_specs
+                new_commit: new_commit.map(Into::into),
+                paths_to_rejected_changes: rejected_specs
                     .into_iter()
                     .map(|(reason, diff)| (reason, diff.path.into()))
                     .collect(),
-                replaced_commits: value
-                    .replaced_commits
+                replaced_commits: replaced_commits
                     .into_iter()
                     .map(|(old, new)| (old.into(), new.into()))
                     .collect(),
@@ -139,10 +144,14 @@ pub mod json {
 
     impl From<CommitRewordResult> for UICommitRewordResult {
         fn from(value: CommitRewordResult) -> Self {
+            let CommitRewordResult {
+                new_commit,
+                replaced_commits,
+            } = value;
+
             Self {
-                new_commit: value.new_commit.into(),
-                replaced_commits: value
-                    .replaced_commits
+                new_commit: new_commit.into(),
+                replaced_commits: replaced_commits
                     .into_iter()
                     .map(|(old, new)| (old.into(), new.into()))
                     .collect(),
@@ -169,10 +178,14 @@ pub mod json {
 
     impl From<CommitInsertBlankResult> for UICommitInsertBlankResult {
         fn from(value: CommitInsertBlankResult) -> Self {
+            let CommitInsertBlankResult {
+                new_commit,
+                replaced_commits,
+            } = value;
+
             Self {
-                new_commit: value.new_commit.into(),
-                replaced_commits: value
-                    .replaced_commits
+                new_commit: new_commit.into(),
+                replaced_commits: replaced_commits
                     .into_iter()
                     .map(|(old, new)| (old.into(), new.into()))
                     .collect(),

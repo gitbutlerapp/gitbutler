@@ -28,10 +28,19 @@ pub mod json {
 
     impl<'a> From<but_workspace::branch::apply::Outcome<'a>> for ApplyOutcome {
         fn from(value: but_workspace::branch::apply::Outcome<'a>) -> Self {
+            let workspace_changed = value.workspace_changed();
+            let but_workspace::branch::apply::Outcome {
+                workspace: _,
+                applied_branches,
+                workspace_ref_created,
+                workspace_merge: _,
+                conflicting_stack_ids: _,
+            } = value;
+
             ApplyOutcome {
-                workspace_changed: value.workspace_changed(),
-                applied_branches: value.applied_branches.into_iter().map(Into::into).collect(),
-                workspace_ref_created: value.workspace_ref_created,
+                workspace_changed,
+                applied_branches: applied_branches.into_iter().map(Into::into).collect(),
+                workspace_ref_created,
             }
         }
     }
