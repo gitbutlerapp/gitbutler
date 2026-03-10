@@ -35,8 +35,8 @@ function setup-remote-and-vbtoml () {
 EOF
 
   # Make sure the target is set.
-  mkdir .git/gitbutler
-  cat <<EOF >>.git/gitbutler/virtual_branches.toml
+  mkdir .git/gitbutler.dev
+  cat <<EOF >>.git/gitbutler.dev/virtual_branches.toml
 [default_target]
    branchName = "main"
    remoteName = "origin"

@@ -3,8 +3,8 @@ use std::path::{Component, Path, PathBuf};
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_error::Code;
 
-use super::{Project, ProjectId, storage, storage::UpdateRequest};
-use crate::{AuthKey, project::AddProjectOutcome};
+use super::{Project, storage, storage::UpdateRequest};
+use crate::{AuthKey, ProjectHandle, ProjectHandleOrLegacyProjectId, project::AddProjectOutcome};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Controller {
@@ -132,7 +132,9 @@ impl Controller {
             }
         };
 
-        let id = ProjectId::generate();
+        let id = ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(
+            repo.git_dir(),
+        )?);
 
         // Resolve the path first to get the actual directory name
         let title_is_not_normal_component = worktree_dir
@@ -146,7 +148,7 @@ impl Controller {
         };
 
         let title = path_for_title.file_name().map_or_else(
-            || id.to_string(),
+            || resolved_path.display().to_string(),
             |name| name.to_string_lossy().into_owned(),
         );
 
@@ -163,9 +165,16 @@ impl Controller {
             .add(&project)
             .context("failed to add project to storage")?;
 
-        // Create a .git/gitbutler directory for app data
-        if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
-            tracing::error!(project_id = %project.id, ?error, "failed to create {:?} on project add", project.gb_dir());
+        // Create the repository-local GitButler storage directory for app data.
+        match project.gb_dir() {
+            Ok(gb_dir) => {
+                if let Err(error) = std::fs::create_dir_all(&gb_dir) {
+                    tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project add", gb_dir.display());
+                }
+            }
+            Err(error) => {
+                tracing::error!(project_id = %project.id, ?error, "failed to resolve storage directory on project add");
+            }
         }
 
         Ok(AddProjectOutcome::Added(project))
@@ -204,13 +213,13 @@ impl Controller {
         self.projects_storage.update(project)
     }
 
-    pub(crate) fn get(&self, id: ProjectId) -> Result<Project> {
+    pub(crate) fn get(&self, id: ProjectHandleOrLegacyProjectId) -> Result<Project> {
         self.get_inner(id, false)
     }
 
     /// Only get the project information. No state validation is done.
     /// This is intended to be used only when updating the path of a missing project.
-    pub(crate) fn get_raw(&self, id: ProjectId) -> Result<Project> {
+    pub(crate) fn get_raw(&self, id: ProjectHandleOrLegacyProjectId) -> Result<Project> {
         #[cfg_attr(not(windows), allow(unused_mut))]
         let project = self.projects_storage.get(id)?;
         Ok(project)
@@ -218,11 +227,11 @@ impl Controller {
 
     /// Like [`Self::get()`], but will assure the project still exists and is valid by
     /// opening a git repository. This should only be done for critical points in time.
-    pub(crate) fn get_validated(&self, id: ProjectId) -> Result<Project> {
+    pub(crate) fn get_validated(&self, id: ProjectHandleOrLegacyProjectId) -> Result<Project> {
         self.get_inner(id, true)
     }
 
-    fn get_inner(&self, id: ProjectId, validate: bool) -> Result<Project> {
+    fn get_inner(&self, id: ProjectHandleOrLegacyProjectId, validate: bool) -> Result<Project> {
         #[cfg_attr(not(windows), allow(unused_mut))]
         let mut project = self.projects_storage.get(id)?;
         // BACKWARD-COMPATIBLE MIGRATION
@@ -243,10 +252,17 @@ impl Controller {
             }
         }
 
-        if !project.gb_dir().exists()
-            && let Err(error) = std::fs::create_dir_all(project.gb_dir())
-        {
-            tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project get", project.gb_dir().display());
+        match project.gb_dir() {
+            Ok(gb_dir) => {
+                if !gb_dir.exists()
+                    && let Err(error) = std::fs::create_dir_all(&gb_dir)
+                {
+                    tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project get", gb_dir.display());
+                }
+            }
+            Err(error) => {
+                tracing::error!(project_id = %project.id, ?error, "failed to resolve storage directory on project get");
+            }
         }
         // Clean up old virtual_branches.toml that was never used
         let old_virtual_branches_path = project.git_dir().join("virtual_branches.toml");
@@ -268,23 +284,31 @@ impl Controller {
         self.projects_storage.list()
     }
 
-    pub(crate) fn delete(&self, id: ProjectId) -> Result<()> {
-        let Some(project) = self.projects_storage.try_get(id)? else {
+    pub(crate) fn delete(&self, id: ProjectHandleOrLegacyProjectId) -> Result<()> {
+        let Some(project) = self.projects_storage.try_get(id.clone())? else {
             return Ok(());
         };
 
-        self.projects_storage.purge(project.id)?;
+        let project_id = project.id.clone();
+        self.projects_storage.purge(project_id.clone())?;
 
-        if let Err(error) = std::fs::remove_dir_all(self.project_metadata_dir(project.id))
+        if let Err(error) = std::fs::remove_dir_all(self.project_metadata_dir(project_id))
             && error.kind() != std::io::ErrorKind::NotFound
         {
             tracing::error!(project_id = %id, ?error, "failed to remove project data",);
         }
 
-        if project.gb_dir().exists()
-            && let Err(error) = std::fs::remove_dir_all(project.gb_dir())
-        {
-            tracing::error!(project_id = %project.id, ?error, "failed to remove {:?} on project delete", project.gb_dir());
+        match project.gb_dir() {
+            Ok(gb_dir) => {
+                if gb_dir.exists()
+                    && let Err(error) = std::fs::remove_dir_all(&gb_dir)
+                {
+                    tracing::error!(project_id = %project.id, ?error, "failed to remove \"{}\" on project delete", gb_dir.display());
+                }
+            }
+            Err(error) => {
+                tracing::error!(project_id = %project.id, ?error, "failed to resolve storage directory on project delete");
+            }
         }
 
         // Delete references in the gitbutler namespace
@@ -298,7 +322,7 @@ impl Controller {
         Ok(())
     }
 
-    fn project_metadata_dir(&self, id: ProjectId) -> PathBuf {
+    fn project_metadata_dir(&self, id: ProjectHandleOrLegacyProjectId) -> PathBuf {
         self.local_data_dir.join("projects").join(id.to_string())
     }
 }

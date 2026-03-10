@@ -460,7 +460,7 @@ pub struct ClaudeAskUserQuestionRequest {
     /// None if not yet answered
     pub answers: Option<std::collections::HashMap<String, String>>,
     /// The stack ID this question is associated with
-    pub stack_id: Option<gitbutler_stack::StackId>,
+    pub stack_id: Option<but_core::ref_metadata::StackId>,
 }
 
 /// Represents the thinking level for Claude Code.
@@ -529,7 +529,7 @@ pub fn send_claude_message(
     content: MessagePayload,
 ) -> Result<()> {
     let message = db::save_new_message(ctx, session_id, content.clone())?;
-    let project_id = ctx.legacy_project.id;
+    let project_id = ctx.legacy_project.id.clone();
 
     broadcaster.send(FrontendEvent {
         name: format!("project://{project_id}/claude/{stack_id}/message_received"),

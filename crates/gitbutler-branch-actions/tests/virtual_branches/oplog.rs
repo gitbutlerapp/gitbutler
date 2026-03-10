@@ -365,7 +365,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
 // test operations-log.toml head is not a commit
 #[test]
 fn head_corrupt_is_recreated_automatically() {
-    let Test { repo, ctx, .. } = &mut Test::default();
+    let Test { ctx, .. } = &mut Test::default();
 
     let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
@@ -392,7 +392,7 @@ fn head_corrupt_is_recreated_automatically() {
     );
 
     // overwrite oplog head with a non-commit sha
-    let oplog_path = repo.path().join(".git/gitbutler/operations-log.toml");
+    let oplog_path = ctx.project_data_dir().join("operations-log.toml");
     fs::write(
         oplog_path,
         "head_sha = \"758d54f587227fba3da3b61fbb54a99c17903d59\"",

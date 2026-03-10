@@ -1,9 +1,10 @@
+use but_core::RepositoryExt;
 use but_oxidize::{OidExt, TimeExt};
 use colored::Colorize;
 use gitbutler_oplog::entry::{OperationKind, Snapshot};
-use gix::date::time::CustomFormat;
+use gix::{date::time::CustomFormat, prelude::ObjectIdExt};
 
-use crate::utils::{Confirm, ConfirmDefault, OutputChannel};
+use crate::utils::{Confirm, ConfirmDefault, OutputChannel, shorten_object_id};
 
 pub const ISO8601_NO_TZ: CustomFormat = CustomFormat::new("%Y-%m-%d %H:%M:%S");
 
@@ -57,17 +58,24 @@ pub(crate) fn show_oplog(
     if let Some(out) = out.for_json() {
         out.write_value(&snapshots)?;
     } else if let Some(out) = out.for_human() {
+        let repo = ctx.repo.get()?.clone().for_commit_shortening();
         writeln!(out, "{}", "Operations History".blue().bold())?;
         writeln!(out, "{}", "─".repeat(50).dimmed())?;
+        // Find the longest short ID length to keep all lines aligned.
+        let longest_short_id_len = snapshots
+            .iter()
+            .filter_map(|s| {
+                let prefix = s.commit_id.to_gix().attach(&repo).shorten().ok()?;
+                Some(prefix.hex_len())
+            })
+            .max()
+            .unwrap_or(7);
 
         for snapshot in snapshots {
             let time_string = snapshot_time_string(&snapshot);
-
-            let commit_id = format!(
-                "{}{}",
-                &snapshot.commit_id.to_string()[..7].blue().bold(),
-                &snapshot.commit_id.to_string()[7..12].blue().dimmed()
-            );
+            let short = snapshot.commit_id.to_gix();
+            let short = short.to_hex_with_len(longest_short_id_len);
+            let commit_id = short.to_string().blue().bold();
 
             let (operation_type, title) = if let Some(details) = &snapshot.details {
                 let op_type = match details.operation {
@@ -169,8 +177,10 @@ pub(crate) fn restore_to_oplog(
 ) -> anyhow::Result<()> {
     let commit_id = ctx.repo.get()?.rev_parse_single(oplog_sha)?.detach();
     let target_snapshot = &but_api::legacy::oplog::get_snapshot(ctx, commit_id)?;
-
-    let commit_sha_string = commit_id.to_string();
+    let commit_short = {
+        let repo = ctx.repo.get()?;
+        shorten_object_id(&repo, commit_id)
+    };
 
     let target_operation = target_snapshot
         .details
@@ -189,7 +199,7 @@ pub(crate) fn restore_to_oplog(
             target_operation.green(),
             target_time.dimmed()
         )?;
-        writeln!(out, "  Snapshot: {}", commit_sha_string[..7].cyan().bold())?;
+        writeln!(out, "  Snapshot: {}", commit_short.cyan().bold())?;
 
         // Confirm the restoration (safety check)
         if !force {
@@ -266,17 +276,14 @@ pub(crate) fn undo_last_operation(
     but_api::legacy::oplog::restore_snapshot(ctx, target_snapshot.commit_id.to_gix())?;
 
     if let Some(out) = out.for_human() {
-        let restore_commit_short = format!(
-            "{}{}",
-            &target_snapshot.commit_id.to_string()[..7].blue().bold(),
-            &target_snapshot.commit_id.to_string()[7..12].blue().dimmed()
-        );
+        let repo = ctx.repo.get()?;
+        let short = shorten_object_id(&repo, target_snapshot.commit_id.to_gix());
 
         writeln!(
             out,
             "{} Undo completed successfully! Restored to snapshot: {}",
             "✓".green().bold(),
-            restore_commit_short
+            short.blue().bold()
         )?;
     }
 
@@ -297,24 +304,20 @@ pub(crate) fn create_snapshot(
             "operation": "create_snapshot"
         }))?;
     } else if let Some(out) = out.for_human() {
+        let repo = ctx.repo.get()?;
+        let short = shorten_object_id(&repo, snapshot_id);
         writeln!(out, "{}", "Snapshot created successfully!".green().bold())?;
 
         if let Some(msg) = message {
             writeln!(out, "  Message: {}", msg.cyan())?;
         }
 
-        writeln!(
-            out,
-            "  Snapshot ID: {}{}",
-            snapshot_id.to_string()[..7].blue().bold(),
-            snapshot_id.to_string()[7..12].blue().dimmed()
-        )?;
-
+        writeln!(out, "  Snapshot ID: {}", short.blue().bold(),)?;
         writeln!(
             out,
             "\n{} Use 'but oplog restore {}' to restore to this snapshot later.",
             "💡".bright_blue(),
-            &snapshot_id.to_string()[..7]
+            short
         )?;
     }
 

@@ -21,6 +21,26 @@
 		after: ImageSource | null;
 	};
 
+	function buildImageDataUrl(
+		content: string | undefined,
+		mimeType: string | undefined,
+		path: string,
+	): string | null {
+		if (!content) return null;
+
+		if (mimeType) {
+			return `data:${mimeType};base64,${content}`;
+		}
+
+		// SVG files are often returned as plain UTF-8 text with no mime type.
+		// Build a UTF-8 data URL fallback so they can still be previewed as images.
+		if (path.toLowerCase().endsWith(".svg")) {
+			return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(content)}`;
+		}
+
+		return null;
+	}
+
 	const { projectId, change, commitId }: Props = $props();
 	const fileService = inject(FILE_SERVICE);
 
@@ -115,11 +135,7 @@
 
 			if (signal?.aborted) return null;
 
-			if (fileInfo?.content && fileInfo?.mimeType) {
-				return `data:${fileInfo.mimeType};base64,${fileInfo.content}`;
-			}
-
-			return null;
+			return buildImageDataUrl(fileInfo?.content, fileInfo?.mimeType, source.path);
 		} catch (err) {
 			if (signal?.aborted) return null;
 			console.warn(`Failed to load image from ${source.type}: ${source.path}`, err);

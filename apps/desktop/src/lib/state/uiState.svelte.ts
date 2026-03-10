@@ -3,18 +3,13 @@ import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { type Reactive } from "@gitbutler/shared/storeUtils";
 import { isStr } from "@gitbutler/ui/utils/string";
-import {
-	createEntityAdapter,
-	createSlice,
-	type EntityState,
-	type ThunkDispatch,
-	type UnknownAction,
-} from "@reduxjs/toolkit";
+import { createEntityAdapter, createSlice, type EntityState } from "@reduxjs/toolkit";
 import type { ThinkingLevel, ModelType, PermissionMode } from "$lib/codegen/types";
 import type { GeneralSettingsPageId } from "$lib/settings/generalSettingsPages";
 import type { ProjectSettingsPageId } from "$lib/settings/projectSettingsPages";
 import type { StackDetails } from "$lib/stacks/stack";
 import type { RejectionReason } from "$lib/stacks/stackService.svelte";
+import type { AppDispatch } from "$lib/state/clientState.svelte";
 
 export type StackSelection = {
 	branchName?: string;
@@ -203,7 +198,7 @@ export class UiState {
 
 	constructor(
 		reactiveState: Reactive<typeof this.state>,
-		private dispatch: ThunkDispatch<any, any, UnknownAction>,
+		private dispatch: AppDispatch,
 	) {
 		$effect(() => {
 			this.state = reactiveState.current;

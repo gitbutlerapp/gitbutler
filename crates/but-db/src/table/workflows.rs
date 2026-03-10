@@ -2,10 +2,11 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DbHandle, M, Transaction};
+use crate::{DbHandle, M, SchemaVersion, Transaction};
 
 pub(crate) const M: &[M<'static>] = &[M::up(
     20250619192246,
+    SchemaVersion::Zero,
     "CREATE TABLE `workflows`(
 	`id` TEXT NOT NULL PRIMARY KEY,
 	`created_at` TIMESTAMP NOT NULL,

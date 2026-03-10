@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
@@ -11,32 +11,199 @@ use but_rebase::graph_rebase::{
 };
 use tracing::instrument;
 
-use crate::json;
-
 /// Outcome after creating a commit
 pub struct CommitCreateResult {
     /// If the commit was successfully created. This should only be none if all the DiffSpecs were rejected.
     pub new_commit: Option<gix::ObjectId>,
     /// Any specs that failed to be committed.
     pub rejected_specs: Vec<(RejectionReason, DiffSpec)>,
+    /// Commits that were replaced by this operation. Maps `old_id → new_id`.
+    pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
 }
 
 /// Outcome after moving changes between commits.
 pub struct MoveChangesResult {
-    /// Commits that have been mapped from one thing to another.
-    pub replaced_commits: Vec<(gix::ObjectId, gix::ObjectId)>,
+    /// Commits that were replaced by this operation. Maps `old_id → new_id`.
+    pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+}
+
+/// Outcome after rewording a commit.
+pub struct CommitRewordResult {
+    /// The ID of the newly created commit with the updated message.
+    pub new_commit: gix::ObjectId,
+    /// Commits that were replaced by this operation. Maps `old_id → new_id`.
+    pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+}
+
+/// Outcome after inserting a blank commit.
+pub struct CommitInsertBlankResult {
+    /// The ID of the newly inserted blank commit.
+    pub new_commit: gix::ObjectId,
+    /// Commits that were replaced by this operation. Maps `old_id → new_id`.
+    pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+}
+
+/// JSON transport types for commit APIs.
+pub mod json {
+    use serde::Serialize;
+
+    use crate::json::HexHash;
+
+    use super::{
+        CommitCreateResult, CommitInsertBlankResult, CommitRewordResult, MoveChangesResult,
+    };
+
+    /// UI type for a move changes between commits result.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct UIMoveChangesResult {
+        /// Commits that have been mapped from one thing to another.
+        /// Maps `oldId → newId`.
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(with = "std::collections::BTreeMap<String, String>")
+        )]
+        pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
+    }
+
+    impl From<MoveChangesResult> for UIMoveChangesResult {
+        fn from(value: MoveChangesResult) -> Self {
+            let MoveChangesResult { replaced_commits } = value;
+
+            Self {
+                replaced_commits: replaced_commits
+                    .into_iter()
+                    .map(|(old, new)| (old.into(), new.into()))
+                    .collect(),
+            }
+        }
+    }
+
+    /// UI type for creating a commit in the rebase graph.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct UICommitCreateResult {
+        /// The new commit if one was created.
+        #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
+        pub new_commit: Option<HexHash>,
+        /// Paths that contained at least one rejected hunk, matching legacy rejection reporting semantics.
+        #[cfg_attr(feature = "export-schema", schemars(with = "Vec<(String, String)>"))]
+        pub paths_to_rejected_changes: Vec<(
+            but_core::tree::create_tree::RejectionReason,
+            but_serde::BStringForFrontend,
+        )>,
+        /// Commits that have been replaced as a side-effect of the create/amend.
+        /// Maps `oldId → newId`.
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(with = "std::collections::BTreeMap<String, String>")
+        )]
+        pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
+    }
+
+    impl From<CommitCreateResult> for UICommitCreateResult {
+        fn from(value: CommitCreateResult) -> Self {
+            let CommitCreateResult {
+                new_commit,
+                rejected_specs,
+                replaced_commits,
+            } = value;
+
+            Self {
+                new_commit: new_commit.map(Into::into),
+                paths_to_rejected_changes: rejected_specs
+                    .into_iter()
+                    .map(|(reason, diff)| (reason, diff.path.into()))
+                    .collect(),
+                replaced_commits: replaced_commits
+                    .into_iter()
+                    .map(|(old, new)| (old.into(), new.into()))
+                    .collect(),
+            }
+        }
+    }
+
+    /// UI type for rewording a commit.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct UICommitRewordResult {
+        /// The new commit ID after rewording.
+        #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+        pub new_commit: HexHash,
+        /// Commits that have been replaced as a side-effect of the reword.
+        /// Maps `oldId → newId`.
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(with = "std::collections::BTreeMap<String, String>")
+        )]
+        pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
+    }
+
+    impl From<CommitRewordResult> for UICommitRewordResult {
+        fn from(value: CommitRewordResult) -> Self {
+            let CommitRewordResult {
+                new_commit,
+                replaced_commits,
+            } = value;
+
+            Self {
+                new_commit: new_commit.into(),
+                replaced_commits: replaced_commits
+                    .into_iter()
+                    .map(|(old, new)| (old.into(), new.into()))
+                    .collect(),
+            }
+        }
+    }
+
+    /// UI type for inserting a blank commit.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct UICommitInsertBlankResult {
+        /// The new blank commit ID.
+        #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+        pub new_commit: HexHash,
+        /// Commits that have been replaced as a side-effect of the insertion.
+        /// Maps `oldId → newId`.
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(with = "std::collections::BTreeMap<String, String>")
+        )]
+        pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
+    }
+
+    impl From<CommitInsertBlankResult> for UICommitInsertBlankResult {
+        fn from(value: CommitInsertBlankResult) -> Self {
+            let CommitInsertBlankResult {
+                new_commit,
+                replaced_commits,
+            } = value;
+
+            Self {
+                new_commit: new_commit.into(),
+                replaced_commits: replaced_commits
+                    .into_iter()
+                    .map(|(old, new)| (old.into(), new.into()))
+                    .collect(),
+            }
+        }
+    }
 }
 
 /// Rewords a commit
 ///
-/// Returns the ID of the newly renamed commit
-#[but_api]
+/// Returns the result including the new commit ID and any replaced commits.
+#[but_api(json::UICommitRewordResult)]
 #[instrument(err(Debug))]
 pub fn commit_reword_only(
     ctx: &mut but_ctx::Context,
     commit_id: gix::ObjectId,
     message: BString,
-) -> anyhow::Result<gix::ObjectId> {
+) -> anyhow::Result<CommitRewordResult> {
     let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
     let editor = ws.graph.to_editor(&repo)?;
 
@@ -45,20 +212,24 @@ pub fn commit_reword_only(
 
     let outcome = outcome.materialize()?;
     let id = outcome.lookup_pick(edited_commit_selector)?;
+    let replaced_commits = outcome.history.commit_mappings();
 
-    Ok(id)
+    Ok(CommitRewordResult {
+        new_commit: id,
+        replaced_commits,
+    })
 }
 
-/// Rewords a commit, but without updating the oplog.
+/// Rewords a commit, with oplog support.
 ///
-/// Returns the ID of the newly renamed commit
-#[but_api(napi)]
+/// Returns the result including the new commit ID and any replaced commits.
+#[but_api(napi, json::UICommitRewordResult)]
 #[instrument(err(Debug))]
 pub fn commit_reword(
     ctx: &mut but_ctx::Context,
     commit_id: gix::ObjectId,
     message: BString,
-) -> anyhow::Result<gix::ObjectId> {
+) -> anyhow::Result<CommitRewordResult> {
     // NOTE: since this is optional by nature, the same would be true if snapshotting/undo would be disabled via `ctx` app settings, for instance.
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
         ctx,
@@ -117,27 +288,27 @@ pub mod ui {
 
 /// Inserts a blank commit relative to either a commit or a reference
 ///
-/// Returns the ID of the newly created blank commit
-#[but_api(json::HexHash)]
+/// Returns the result including the new commit ID and any replaced commits.
+#[but_api(json::UICommitInsertBlankResult)]
 #[instrument(err(Debug))]
 pub fn commit_insert_blank_only(
     ctx: &mut but_ctx::Context,
     relative_to: ui::RelativeTo,
     side: InsertSide,
-) -> anyhow::Result<gix::ObjectId> {
+) -> anyhow::Result<CommitInsertBlankResult> {
     let mut guard = ctx.exclusive_worktree_access();
     commit_insert_blank_only_impl(ctx, relative_to, side, guard.write_permission())
 }
 
 /// Implementation of inserting a blank commit relative to either a commit or a reference
 ///
-/// Returns the ID of the newly created blank commit
+/// Returns the result including the new commit ID and any replaced commits.
 pub(crate) fn commit_insert_blank_only_impl(
     ctx: &mut but_ctx::Context,
     relative_to: ui::RelativeTo,
     side: InsertSide,
     perm: &mut RepoExclusive,
-) -> anyhow::Result<gix::ObjectId> {
+) -> anyhow::Result<CommitInsertBlankResult> {
     let meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let editor = ws.graph.to_editor(&repo)?;
@@ -149,23 +320,27 @@ pub(crate) fn commit_insert_blank_only_impl(
 
     let outcome = outcome.materialize()?;
     let id = outcome.lookup_pick(blank_commit_selector)?;
+    let replaced_commits = outcome.history.commit_mappings();
 
     // Play it safe and refresh the workspace - who knows how the context is used after this.
     ws.refresh_from_head(&repo, &meta)?;
 
-    Ok(id)
+    Ok(CommitInsertBlankResult {
+        new_commit: id,
+        replaced_commits,
+    })
 }
 
 /// Inserts a blank commit relative to either a commit or a reference, with oplog support
 ///
-/// Returns the ID of the newly created blank commit
-#[but_api(napi, json::HexHash)]
+/// Returns the result including the new commit ID and any replaced commits.
+#[but_api(napi, json::UICommitInsertBlankResult)]
 #[instrument(err(Debug))]
 pub fn commit_insert_blank(
     ctx: &mut but_ctx::Context,
     relative_to: ui::RelativeTo,
     side: InsertSide,
-) -> anyhow::Result<gix::ObjectId> {
+) -> anyhow::Result<CommitInsertBlankResult> {
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
         ctx,
         SnapshotDetails::new(OperationKind::InsertBlankCommit),
@@ -231,12 +406,14 @@ pub(crate) fn commit_create_only_impl(
         context_lines,
     )?;
 
-    let new_commit = match commit_selector {
+    let (new_commit, replaced_commits) = match commit_selector {
         Some(commit_selector) => {
             let materialized = rebase.materialize()?;
-            Some(materialized.lookup_pick(commit_selector)?)
+            let new_commit = materialized.lookup_pick(commit_selector)?;
+            let replaced_commits = materialized.history.commit_mappings();
+            (Some(new_commit), replaced_commits)
         }
-        None => None,
+        None => (None, BTreeMap::new()),
     };
 
     ws.refresh_from_head(&repo, &meta)?;
@@ -244,6 +421,7 @@ pub(crate) fn commit_create_only_impl(
     Ok(CommitCreateResult {
         new_commit,
         rejected_specs,
+        replaced_commits,
     })
 }
 
@@ -317,12 +495,14 @@ pub(crate) fn commit_amend_only_impl(
         rejected_specs,
     } = but_workspace::commit::commit_amend(editor, commit_id, changes, context_lines)?;
 
-    let new_commit = match commit_selector {
+    let (new_commit, replaced_commits) = match commit_selector {
         Some(commit_selector) => {
             let materialized = rebase.materialize()?;
-            Some(materialized.lookup_pick(commit_selector)?)
+            let new_commit = materialized.lookup_pick(commit_selector)?;
+            let replaced_commits = materialized.history.commit_mappings();
+            (Some(new_commit), replaced_commits)
         }
-        None => None,
+        None => (None, BTreeMap::new()),
     };
 
     ws.refresh_from_head(&repo, &meta)?;
@@ -330,6 +510,7 @@ pub(crate) fn commit_amend_only_impl(
     Ok(CommitCreateResult {
         new_commit,
         rejected_specs,
+        replaced_commits,
     })
 }
 
@@ -390,16 +571,11 @@ pub fn commit_move_changes_between_only(
         context_lines,
     )?;
     let materialized = outcome.rebase.materialize()?;
-    let new_source_commit_id = materialized.lookup_pick(outcome.source_selector)?;
-    let new_destination_commit_id = materialized.lookup_pick(outcome.destination_selector)?;
 
     ws.refresh_from_head(&repo, &meta)?;
 
     Ok(MoveChangesResult {
-        replaced_commits: vec![
-            (source_commit_id, new_source_commit_id),
-            (destination_commit_id, new_destination_commit_id),
-        ],
+        replaced_commits: materialized.history.commit_mappings(),
     })
 }
 
@@ -473,7 +649,6 @@ pub fn commit_uncommit_changes_only(
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
 
     let materialized = outcome.rebase.materialize_without_checkout()?;
-    let new_commit_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     ws.refresh_from_head(&repo, &meta)?;
     if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
@@ -513,7 +688,7 @@ pub fn commit_uncommit_changes_only(
     }
 
     Ok(MoveChangesResult {
-        replaced_commits: vec![(commit_id, new_commit_id)],
+        replaced_commits: materialized.history.commit_mappings(),
     })
 }
 

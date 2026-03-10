@@ -1,7 +1,7 @@
 import { GitHub } from "$lib/forge/github/github";
 import { setupMockGitHubApi } from "$lib/testing/mockGitHubApi.svelte";
 import { expect, test, describe, vi } from "vitest";
-import type { BackendApi } from "$lib/state/clientState.svelte";
+import type { AppDispatch, BackendApi } from "$lib/state/clientState.svelte";
 
 describe("GitHub", () => {
 	const { gitHubApi, gitHubClient } = setupMockGitHubApi();
@@ -26,7 +26,7 @@ describe("GitHub", () => {
 			baseBranch: id,
 			authenticated: true,
 			isLoading: false,
-			dispatch: () => {},
+			dispatch: vi.fn() as unknown as AppDispatch,
 		});
 		const url = gh.commitUrl(id);
 		expect(url).toMatch(new RegExp(`/${id}$`));
@@ -46,7 +46,7 @@ describe("GitHub", () => {
 			baseBranch: id,
 			authenticated: true,
 			isLoading: false,
-			dispatch: () => {},
+			dispatch: vi.fn() as unknown as AppDispatch,
 		});
 
 		expect(gh.commitUrl("abc123")).toBe("https://github.com/test-owner/test-repo/commit/abc123");
@@ -66,7 +66,7 @@ describe("GitHub", () => {
 			baseBranch: "main",
 			authenticated: true,
 			isLoading: false,
-			dispatch: () => {},
+			dispatch: vi.fn() as unknown as AppDispatch,
 		});
 
 		const branch = gh.branch("feature-branch");
@@ -89,7 +89,7 @@ describe("GitHub", () => {
 			baseBranch: id,
 			authenticated: true,
 			isLoading: false,
-			dispatch: () => {},
+			dispatch: vi.fn() as unknown as AppDispatch,
 		});
 
 		expect(gh.commitUrl("abc123")).toBe("https://github.com/test-owner/test-repo/commit/abc123");
@@ -111,7 +111,7 @@ describe("GitHub", () => {
 			baseBranch: id,
 			authenticated: true,
 			isLoading: false,
-			dispatch: () => {},
+			dispatch: vi.fn() as unknown as AppDispatch,
 		});
 
 		expect(gh.commitUrl("abc123")).toBe(

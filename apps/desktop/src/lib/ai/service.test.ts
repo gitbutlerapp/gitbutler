@@ -27,6 +27,7 @@ import { mockCreateBackend } from "$lib/testing/mockBackend";
 import { HttpClient } from "@gitbutler/shared/network/httpClient";
 import { expect, test, describe, vi } from "vitest";
 import type { SecretsService } from "$lib/secrets/secretsService";
+import type { AppDispatch } from "$lib/state/clientState.svelte";
 import type { GitConfigSettings } from "@gitbutler/core/api";
 
 const defaultGitConfig = Object.freeze({
@@ -45,13 +46,10 @@ const defaultSecretsConfig = Object.freeze({
 class DummyGitConfigService extends GitConfigService {
 	constructor(private config: { [index: string]: string | undefined }) {
 		const backend = mockCreateBackend();
-		const MockClientState = vi.fn();
-		MockClientState.prototype.dispatch = vi.fn();
-		MockClientState.prototype.backendApi = {
-			injectEndpoints: vi.fn(),
-		};
-		const mockClientState = new MockClientState();
-		super(mockClientState, backend);
+		const MockBackendApi = vi.fn();
+		MockBackendApi.prototype.injectEndpoints = vi.fn();
+		const mockBackendApi = new MockBackendApi();
+		super(mockBackendApi, vi.fn() as unknown as AppDispatch, backend);
 	}
 	async getGbConfig(_projectId: string): Promise<GitConfigSettings> {
 		throw new Error("Method not implemented.");

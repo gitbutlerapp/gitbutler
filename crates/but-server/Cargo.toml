@@ -25,9 +25,7 @@ but-path.workspace = true
 but-settings.workspace = true
 but-feedback.workspace = true
 but-secret.workspace = true
-but-ctx.workspace = true
-
-gitbutler-project.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
 gitbutler-watcher.workspace = true
 gitbutler-repo-actions.workspace = true
 
@@ -38,6 +36,7 @@ futures-util = { version = "0.3", default-features = false, features = [
     "std",
 ] }
 tower-http = { version = "0.6.8", features = ["cors"] }
+tower = { version = "0.5.3" }
 tokio = { workspace = true, features = ["full"] }
 anyhow.workspace = true
 serde_json.workspace = true

@@ -5,6 +5,9 @@ pub use output_channel::{
     Confirm, ConfirmDefault, ConfirmOrEmpty, InputOutputChannel, OutputChannel, WriteWithUtils,
 };
 
+mod object_id;
+pub use object_id::{shorten_hex_object_id, shorten_object_id, split_short_id};
+
 mod pager;
 
 pub mod metrics;

@@ -5,13 +5,13 @@ use but_core::{
     DiffSpec, HunkHeader, RepositoryExt, UnifiedPatch, ref_metadata::StackId,
     worktree::checkout::UncommitedWorktreeChanges,
 };
+use but_ctx::{ProjectHandle, ProjectHandleOrLegacyProjectId};
 use but_db::poll::ItemKind;
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
     create_reference::{Anchor, Position},
 };
-use gitbutler_project::ProjectId;
 use gix::{
     bstr::{BString, ByteSlice},
     refs::Category,
@@ -352,8 +352,10 @@ pub async fn watch(args: &super::Args, watch_mode: Option<&str>) -> anyhow::Resu
     let (tx, mut rx) = unbounded_channel();
     let start = std::time::Instant::now();
     let workdir = ctx.workdir_or_fail()?;
+    let project_id =
+        ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&workdir)?);
     let _monitor = gitbutler_filemonitor::spawn(
-        ProjectId::generate(),
+        project_id,
         &workdir,
         tx,
         watch_mode.and_then(|m| m.parse().ok()).unwrap_or_default(),
@@ -387,7 +389,11 @@ pub fn watch_db(args: &super::Args) -> anyhow::Result<()> {
 
 pub fn operating_mode(args: &super::Args) -> anyhow::Result<()> {
     let ctx = Context::discover(&args.current_dir)?;
-    debug_print(gitbutler_operating_modes::operating_mode(&ctx))
+    let guard = ctx.shared_worktree_access();
+    debug_print(gitbutler_operating_modes::operating_mode(
+        &ctx,
+        guard.read_permission(),
+    )?)
 }
 
 pub fn ref_info(args: &super::Args, ref_name: Option<&str>, expensive: bool) -> anyhow::Result<()> {

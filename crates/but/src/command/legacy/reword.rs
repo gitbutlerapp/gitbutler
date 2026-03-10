@@ -142,7 +142,7 @@ fn edit_commit_message_by_id(
             out,
             "Updated commit message for {} (now {})",
             commit_oid.attach(&repo).shorten_or_id(),
-            new_commit_oid.attach(&repo).shorten_or_id()
+            new_commit_oid.new_commit.attach(&repo).shorten_or_id()
         )?;
     }
 

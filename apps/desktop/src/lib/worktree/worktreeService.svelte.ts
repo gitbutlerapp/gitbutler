@@ -11,7 +11,7 @@ import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
 import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
 import type { IgnoredChange, TreeChange, WorktreeChanges } from "$lib/hunks/change";
-import type { ClientState } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/clientState.svelte";
 
 export const WORKTREE_SERVICE = new InjectionToken<WorktreeService>("WorktreeService");
 
@@ -24,8 +24,8 @@ export const WORKTREE_SERVICE = new InjectionToken<WorktreeService>("WorktreeSer
 export class WorktreeService {
 	private api: ReturnType<typeof injectEndpoints>;
 
-	constructor(state: ClientState) {
-		this.api = injectEndpoints(state.backendApi);
+	constructor(api: BackendApi) {
+		this.api = injectEndpoints(api);
 	}
 
 	treeChanges(projectId: string) {
@@ -80,7 +80,7 @@ export class WorktreeService {
 	}
 }
 
-function injectEndpoints(api: ClientState["backendApi"]) {
+function injectEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			/**

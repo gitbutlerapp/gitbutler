@@ -3,7 +3,6 @@ import { ConflictEntries, type ConflictEntriesObj } from "$lib/files/conflicts";
 import { sortLikeFileTree } from "$lib/files/filetreeV3";
 import { showToast } from "$lib/notifications/toasts";
 import { hasBackendExtra } from "$lib/state/backendQuery";
-import { ClientState, type BackendApi } from "$lib/state/clientState.svelte";
 import { createSelectByIds, createSelectNth } from "$lib/state/customSelectors";
 import {
 	invalidatesItem,
@@ -23,12 +22,7 @@ import { getBranchNameFromRef } from "$lib/utils/branch";
 import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
-import {
-	createEntityAdapter,
-	type EntityState,
-	type ThunkDispatch,
-	type UnknownAction,
-} from "@reduxjs/toolkit";
+import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
 import { get } from "svelte/store";
 import type { StackOrder } from "$lib/branches/branch";
 import type { Commit, CommitDetails, UpstreamCommit } from "$lib/branches/v3";
@@ -46,6 +40,7 @@ import type {
 	MoveBranchResult,
 	GerritPushFlag,
 } from "$lib/stacks/stack";
+import type { AppDispatch, BackendApi } from "$lib/state/clientState.svelte";
 import type { ReduxError } from "$lib/state/reduxError";
 import type { HunkAssignment } from "@gitbutler/core/api";
 
@@ -143,10 +138,41 @@ export const REJECTTION_REASONS = [
 
 export type RejectionReason = (typeof REJECTTION_REASONS)[number];
 
+type ReplacedCommit = [string, string];
+
+type BackendCreateCommitOutcome = {
+	newCommit?: string | null;
+	pathsToRejectedChanges: [RejectionReason, string][];
+	replacedCommits: Record<string, string>;
+};
+
 export type CreateCommitOutcome = {
 	newCommit: string | null;
 	pathsToRejectedChanges: [RejectionReason, string][];
+	replacedCommits?: ReplacedCommit[];
 };
+
+type BackendCommitRewordResult = {
+	newCommit: string;
+	replacedCommits: Record<string, string>;
+};
+
+type BackendCommitInsertBlankResult = {
+	newCommit: string;
+	replacedCommits: Record<string, string>;
+};
+
+type BackendMoveChangesResult = {
+	replacedCommits: Record<string, string>;
+};
+
+function normalizeCreateCommitOutcome(response: BackendCreateCommitOutcome): CreateCommitOutcome {
+	return {
+		newCommit: response.newCommit ?? null,
+		pathsToRejectedChanges: response.pathsToRejectedChanges,
+		replacedCommits: Object.entries(response.replacedCommits),
+	};
+}
 
 export type RelativeTo =
 	| {
@@ -165,7 +191,7 @@ export class StackService {
 
 	constructor(
 		backendApi: BackendApi,
-		private dispatch: ThunkDispatch<any, any, UnknownAction>,
+		private dispatch: AppDispatch,
 		private forgeFactory: DefaultForgeFactory,
 		private uiState: UiState,
 	) {
@@ -997,7 +1023,7 @@ function toCommitCreatePlacement(args: CreateCommitRequest): {
 	};
 }
 
-function injectEndpoints(api: ClientState["backendApi"], uiState: UiState) {
+function injectEndpoints(api: BackendApi, uiState: UiState) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			stacks: build.query<EntityState<Stack, string>, { projectId: string; all?: boolean }>({
@@ -1217,6 +1243,7 @@ function injectEndpoints(api: ClientState["backendApi"], uiState: UiState) {
 						message: args.message,
 					};
 				},
+				transformResponse: normalizeCreateCommitOutcome,
 				invalidatesTags: [
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
@@ -1290,6 +1317,7 @@ function injectEndpoints(api: ClientState["backendApi"], uiState: UiState) {
 					actionName: "Update Commit Message",
 				},
 				query: (args) => args,
+				transformResponse: (response: BackendCommitRewordResult) => response.newCommit,
 				invalidatesTags: [invalidatesList(ReduxTag.HeadSha)],
 			}),
 			newBranch: build.mutation<
@@ -1356,12 +1384,13 @@ function injectEndpoints(api: ClientState["backendApi"], uiState: UiState) {
 					commitId,
 					changes: worktreeChanges,
 				}),
-				transformResponse: (response: CreateCommitOutcome) => {
-					if (response.newCommit) {
-						return response.newCommit;
+				transformResponse: (response: BackendCreateCommitOutcome) => {
+					const normalizedResponse = normalizeCreateCommitOutcome(response);
+					if (normalizedResponse.newCommit) {
+						return normalizedResponse.newCommit;
 					}
 
-					const rejected = response.pathsToRejectedChanges
+					const rejected = normalizedResponse.pathsToRejectedChanges
 						.map(([reason, path]) => `${reason}: ${path}`)
 						.join(", ");
 					const details = rejected ? ` Rejected changes: ${rejected}` : "";
@@ -1407,6 +1436,7 @@ function injectEndpoints(api: ClientState["backendApi"], uiState: UiState) {
 					actionName: "Insert Blank Commit",
 				},
 				query: (args) => args,
+				transformResponse: (response: BackendCommitInsertBlankResult) => response.newCommit,
 				invalidatesTags: [invalidatesList(ReduxTag.HeadSha)],
 			}),
 			discardChanges: build.mutation<
@@ -1451,7 +1481,9 @@ function injectEndpoints(api: ClientState["backendApi"], uiState: UiState) {
 				},
 			}),
 			commitMoveChangesBetween: build.mutation<
-				{ replacedCommits: [string, string][] },
+				{
+					replacedCommits: ReplacedCommit[];
+				},
 				{
 					projectId: string;
 					changes: DiffSpec[];
@@ -1464,6 +1496,9 @@ function injectEndpoints(api: ClientState["backendApi"], uiState: UiState) {
 					actionName: "Move Changes Between Commits",
 				},
 				query: (args) => args,
+				transformResponse: (a: BackendMoveChangesResult) => ({
+					replacedCommits: Object.entries(a.replacedCommits),
+				}),
 				invalidatesTags: [
 					invalidatesList(ReduxTag.HeadSha),
 					invalidatesList(ReduxTag.WorktreeChanges),
@@ -1494,7 +1529,9 @@ function injectEndpoints(api: ClientState["backendApi"], uiState: UiState) {
 				},
 			}),
 			commitUncommitChanges: build.mutation<
-				{ replacedCommits: [string, string][] },
+				{
+					replacedCommits: ReplacedCommit[];
+				},
 				{
 					projectId: string;
 					changes: DiffSpec[];
@@ -1507,6 +1544,9 @@ function injectEndpoints(api: ClientState["backendApi"], uiState: UiState) {
 					actionName: "Uncommit Changes",
 				},
 				query: (args) => args,
+				transformResponse: (a: BackendMoveChangesResult) => ({
+					replacedCommits: Object.entries(a.replacedCommits),
+				}),
 				invalidatesTags() {
 					return [
 						invalidatesList(ReduxTag.HeadSha),
@@ -1643,7 +1683,7 @@ function injectEndpoints(api: ClientState["backendApi"], uiState: UiState) {
 				}
 			>({
 				extraOptions: {
-					command: "move_branch",
+					command: "move_branch_legacy",
 					actionName: "Move Branch",
 				},
 				query: (args) => args,

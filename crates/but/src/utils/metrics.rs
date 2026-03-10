@@ -57,7 +57,9 @@ impl Subcommands {
     pub(crate) fn to_metrics_command(&self) -> CommandName {
         use CommandName::*;
 
-        use crate::args::{alias as alias_args, branch, claude, cursor, forge, skill, worktree};
+        use crate::args::{
+            alias as alias_args, branch, claude, cursor, forge, link, skill, worktree,
+        };
         match self {
             #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
@@ -71,6 +73,7 @@ impl Subcommands {
             Subcommands::Pull { .. } => Pull,
             #[cfg(feature = "legacy")]
             Subcommands::Fetch => Pull,
+            Subcommands::Stack { .. } => BranchMove,
             Subcommands::Branch(branch::Platform { cmd }) => match cmd {
                 None => BranchList,
                 #[cfg(feature = "legacy")]
@@ -81,6 +84,7 @@ impl Subcommands {
                 Some(branch::Subcommands::Delete { .. }) => BranchDelete,
                 #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Show { .. }) => BranchShow,
+                Some(branch::Subcommands::Move { .. }) => BranchMove,
                 #[cfg(not(feature = "legacy"))]
                 Some(branch::Subcommands::Apply { .. }) => BranchApply,
             },
@@ -194,6 +198,7 @@ impl Subcommands {
                 skill::Subcommands::Check { .. } => SkillCheck,
             },
             Subcommands::Edit { .. } => Edit,
+            Subcommands::Link(link::Platform { .. }) => Unknown,
             Subcommands::Onboarding | Subcommands::EvalHook => Unknown,
         }
     }
@@ -396,7 +401,40 @@ impl<T> ResultMetricsExt for anyhow::Result<T> {
             return self.map(|_| ());
         };
 
-        let binary_path = std::env::current_exe().unwrap_or_default();
+        let binary_path = {
+            #[cfg(target_os = "linux")]
+            {
+                // Under Linux, the /proc/self/exe magic symlink is maintained by the kernel to
+                // point to the executable. The kernel keeps the executable's inode alive even if
+                // the file has been moved or deleted, and therefore this symlink can be executed
+                // as long as the process is running.
+                //
+                // Resolving the symlink with std::env::current_exe() and executing that fails if
+                // the binary has been removed, which is the case when emitting metrics for the
+                // `update install` command (the executable removes itself at the end of the
+                // command).
+                std::path::PathBuf::from("/proc/self/exe")
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                // Under macOS and Windows, there's no equivalent to Linux's /proc/self/exe, so we
+                // can't easily refer to the "current process' program" like we can there.
+                //
+                // On macOS, std::env::current_exe() is implemented with _NSGetExecutablePath,
+                // which provides the path the executable was launched with, so in the `but update
+                // install` case, metrics will actually be emitted with the _new_ version rather
+                // than the one that actually ran the command. The only way around this is to emit
+                // metrics before cleaning up the old version, but that does not seem worthwhile at
+                // the moment.
+                //
+                // On Windows, current_exe() is implemented with GetModuleFileNameW, which also
+                // returns the path with which the executable was launched, and so has the same
+                // problem. Although at the time of writing, `update install` is not implemented
+                // for Windows.
+                std::env::current_exe()?
+            }
+        };
+
         tokio::process::Command::new(binary_path)
             .arg("metrics")
             .arg("--command-name")

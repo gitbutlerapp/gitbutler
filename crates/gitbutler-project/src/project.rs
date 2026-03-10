@@ -4,9 +4,10 @@ use std::{
 };
 
 use anyhow::Context as _;
+use but_core::RepositoryExt;
 use serde::{Deserialize, Serialize};
 
-use crate::default_true::DefaultTrue;
+use crate::{ProjectHandle, ProjectHandleOrLegacyProjectId, default_true::DefaultTrue};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -74,8 +75,6 @@ pub struct CodePushState {
     pub timestamp: time::SystemTime,
 }
 
-pub type ProjectId = but_core::Id<'P'>;
-
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct Project {
@@ -85,7 +84,7 @@ pub struct Project {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::project_id")
     )]
-    pub id: ProjectId,
+    pub id: ProjectHandleOrLegacyProjectId,
     pub title: String,
     pub description: Option<String>,
     /// The worktree directory of the project's repository.
@@ -144,7 +143,7 @@ pub struct Project {
 
 impl Project {
     /// Return a new instance with `id` and all other fields defaulted.
-    pub fn default_with_id(id: ProjectId) -> Self {
+    pub fn default_with_id(id: ProjectHandleOrLegacyProjectId) -> Self {
         Project {
             id,
             title: "".to_string(),
@@ -186,10 +185,14 @@ impl Project {
 impl Project {
     /// A special constructor needed as `worktree_dir` isn't accessible anymore.
     pub fn new_for_gitbutler_testsupport(title: String, worktree_dir: PathBuf) -> Self {
+        let project_id = ProjectHandleOrLegacyProjectId::ProjectHandle(
+            ProjectHandle::from_path(&worktree_dir)
+                .expect("testsupport projects require a valid path for ProjectHandle"),
+        );
         Project {
             title,
             worktree_dir,
-            ..Project::default_with_id(ProjectId::generate())
+            ..Project::default_with_id(project_id)
         }
         .migrated()
         .unwrap()
@@ -197,10 +200,14 @@ impl Project {
 
     /// A special constructor needed as `worktree_dir` isn't accessible anymore.
     pub fn new_for_gitbutler_repo(worktree_dir: PathBuf, preferred_key: AuthKey) -> Self {
+        let project_id = ProjectHandleOrLegacyProjectId::ProjectHandle(
+            ProjectHandle::from_path(&worktree_dir)
+                .expect("repo projects require a valid path for ProjectHandle"),
+        );
         Project {
             worktree_dir,
             preferred_key,
-            ..Project::default_with_id(ProjectId::generate())
+            ..Project::default_with_id(project_id)
         }
         .migrated()
         .unwrap()
@@ -250,9 +257,11 @@ impl Project {
             .workdir()
             .context("Bare repositories aren't supported")?
             .to_owned();
+        let project_id =
+            ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&worktree_dir)?);
         Project {
             worktree_dir,
-            ..Project::default_with_id(ProjectId::generate())
+            ..Project::default_with_id(project_id)
         }
         .migrated()
     }
@@ -339,9 +348,14 @@ impl Project {
 
     /// Returns the path to the directory containing the `GitButler` state for this project.
     ///
-    /// Normally this is `.git/gitbutler` in the project's repository.
-    pub(crate) fn gb_dir(&self) -> PathBuf {
-        self.git_dir().join("gitbutler")
+    /// By default this is `.git/gitbutler` for release builds and `.git/gitbutler.<channel>`
+    /// for non-release builds. It can be overridden by setting `gitbutler.storagePath`
+    /// on release, or `gitbutler.<channel>.storagePath` on non-release builds. Relative
+    /// configured values are resolved against `.git`; if they stay inside `.git`, they must
+    /// live under a top-level directory whose name starts with `gitbutler`. Any resolved path
+    /// outside `.git` gets a project-handle suffix to keep different projects isolated.
+    pub(crate) fn gb_dir(&self) -> anyhow::Result<PathBuf> {
+        gix::open(self.git_dir())?.gitbutler_storage_path()
     }
 }
 

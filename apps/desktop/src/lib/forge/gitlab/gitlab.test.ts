@@ -1,21 +1,16 @@
 import { GitLab } from "$lib/forge/gitlab/gitlab";
 import { expect, test, describe, vi } from "vitest";
 import type { GitLabClient } from "$lib/forge/gitlab/gitlabClient.svelte";
-import type { BackendApi, GitLabApi } from "$lib/state/clientState.svelte";
+import type { AppDispatch, BackendApi, GitLabApi } from "$lib/state/clientState.svelte";
 
 describe("GitLab", () => {
 	// Mock GitLab API and client
-	const gitLabApi: GitLabApi = {
+	const gitLabApi = {
 		endpoints: {},
 		reducerPath: "gitlab",
-		internalActions: undefined as any,
-		util: undefined as any,
-		reducer: undefined as any,
-		middleware: undefined as any,
 		injectEndpoints: vi.fn(),
-		enhanceEndpoints: undefined as any,
-	};
-	const gitLabClient = { onReset: () => {} } as any as GitLabClient;
+	} as unknown as GitLabApi;
+	const gitLabClient = { onReset: () => {} } as unknown as GitLabClient;
 
 	const MockBackendApi = vi.fn();
 	MockBackendApi.prototype.injectEndpoints = vi.fn();
@@ -36,7 +31,7 @@ describe("GitLab", () => {
 			repo: baseRepo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {},
+			dispatch: vi.fn() as unknown as AppDispatch,
 			isLoading: false,
 		});
 
@@ -58,7 +53,7 @@ describe("GitLab", () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {},
+			dispatch: vi.fn() as unknown as AppDispatch,
 			isLoading: false,
 		});
 
@@ -80,7 +75,7 @@ describe("GitLab", () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {},
+			dispatch: vi.fn() as unknown as AppDispatch,
 			isLoading: false,
 		});
 
@@ -102,7 +97,7 @@ describe("GitLab", () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {},
+			dispatch: vi.fn() as unknown as AppDispatch,
 			isLoading: false,
 		});
 
@@ -124,7 +119,7 @@ describe("GitLab", () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {},
+			dispatch: vi.fn() as unknown as AppDispatch,
 			isLoading: false,
 		});
 
@@ -147,7 +142,7 @@ describe("GitLab", () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {},
+			dispatch: vi.fn() as unknown as AppDispatch,
 			isLoading: false,
 		});
 
@@ -169,7 +164,7 @@ describe("GitLab", () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {},
+			dispatch: vi.fn() as unknown as AppDispatch,
 			isLoading: false,
 		});
 
@@ -192,7 +187,7 @@ describe("GitLab", () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {},
+			dispatch: vi.fn() as unknown as AppDispatch,
 			isLoading: false,
 		});
 
@@ -216,7 +211,7 @@ describe("GitLab", () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {},
+			dispatch: vi.fn() as unknown as AppDispatch,
 			isLoading: false,
 		});
 

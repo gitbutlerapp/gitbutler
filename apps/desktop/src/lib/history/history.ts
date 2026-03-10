@@ -5,7 +5,7 @@ import { plainToInstance } from "class-transformer";
 import { get, writable } from "svelte/store";
 import type { IBackend } from "$lib/backend";
 import type { TreeChange } from "$lib/hunks/change";
-import type { BackendApi, ClientState } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/clientState.svelte";
 
 const snapshotDiffAdapter = createEntityAdapter({
 	selectId: (tc: TreeChange) => tc.path,
@@ -139,7 +139,7 @@ export function createdOnDay(d: Date) {
 	return `${t.toDateString() === d.toDateString() ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" })}, ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 }
 
-function injectEndpoints(api: ClientState["backendApi"]) {
+function injectEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			snapshotDiff: build.query<EntityState<TreeChange, string>, SnapshotDiffParams>({

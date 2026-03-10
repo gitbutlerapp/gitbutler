@@ -123,7 +123,7 @@
 	bind:this={contextMenu}
 	rightClickTrigger={trigger}
 	align="start"
-	side="right"
+	side="bottom"
 >
 	{#snippet children(item)}
 		{#if isHunkContextItem(item)}

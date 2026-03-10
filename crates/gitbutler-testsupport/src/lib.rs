@@ -1,10 +1,11 @@
-pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
-
 use but_ctx::Context;
 use but_oxidize::OidExt;
 use but_workspace::{legacy::StacksFilter, ui::StackDetails};
 use gitbutler_stack::StackId;
 use gix::bstr::BStr;
+
+pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
+
 /// Direct access to lower-level utilities for cases where this is enough.
 ///
 /// Prefer to use [`read_only`] and [`writable`] otherwise.
@@ -93,7 +94,7 @@ pub mod writable {
         let (project, tempdir) = fixture_project(script_name, project_directory)?;
         let mut settings = AppSettings::default();
         change_settings(&mut settings);
-        let ctx = Context::new_from_legacy_project_and_settings(&project, settings);
+        let ctx = Context::new_from_legacy_project_and_settings(&project, settings)?;
         Ok((ctx, tempdir))
     }
     pub fn fixture_project(
@@ -111,6 +112,7 @@ pub mod writable {
             project_directory.to_owned(),
             root.path().join(project_directory),
         );
+        crate::set_storage_path_for_testing(project.git_dir())?;
         Ok((project, root))
     }
 
@@ -131,7 +133,7 @@ pub mod writable {
         let (project, tempdir) = but_fixture_project(script_name, project_directory)?;
         let mut settings = AppSettings::default();
         change_settings(&mut settings);
-        let ctx = Context::new_from_legacy_project_and_settings(&project, settings);
+        let ctx = Context::new_from_legacy_project_and_settings(&project, settings)?;
         Ok((ctx, tempdir))
     }
 
@@ -151,6 +153,7 @@ pub mod writable {
             project_directory.to_owned(),
             root.path().join(project_directory),
         );
+        crate::set_storage_path_for_testing(project.git_dir())?;
         Ok((project, root))
     }
 }
@@ -256,10 +259,7 @@ pub mod read_only {
     /// Returns the project that is strictly for read-only use.
     pub fn fixture(script_name: &str, project_directory: &str) -> anyhow::Result<Context> {
         let project = fixture_project(script_name, project_directory)?;
-        Ok(Context::new_from_legacy_project_and_settings(
-            &project,
-            AppSettings::default(),
-        ))
+        Context::new_from_legacy_project_and_settings(&project, AppSettings::default())
     }
 
     /// As [fixture()], but allows setting `features` in the app settings
@@ -269,13 +269,13 @@ pub mod read_only {
         features: FeatureFlags,
     ) -> anyhow::Result<Context> {
         let project = fixture_project(script_name, project_directory)?;
-        Ok(Context::new_from_legacy_project_and_settings(
+        Context::new_from_legacy_project_and_settings(
             &project,
             AppSettings {
                 feature_flags: features,
                 ..Default::default()
             },
-        ))
+        )
     }
 
     /// Like [`fixture()`], but will return only the `Project` at `project_directory` after executing `script_name`.
@@ -305,11 +305,23 @@ pub mod read_only {
                 project_worktree_dir,
             )
         };
+        super::set_storage_path_for_testing(project.git_dir())?;
         Ok(project)
     }
 }
 
-use std::path::{Path, PathBuf};
+fn set_storage_path_for_testing(git_dir: &Path) -> anyhow::Result<()> {
+    git2::Repository::open(git_dir)?.config()?.set_str(
+        but_project_handle::storage_path_config_key(),
+        "gitbutler.dev",
+    )?;
+    Ok(())
+}
+
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
 use gix::{bstr::ByteSlice, prelude::ObjectIdExt};
 use once_cell::sync::Lazy;
@@ -322,13 +334,11 @@ pub(crate) static DRIVER: Lazy<PathBuf> = Lazy::new(|| {
         .expect("cargo should run fine");
     assert!(res.success(), "cargo invocation should be successful");
 
-    let path = Path::new("../../target")
-        .join("debug")
-        .join(if cfg!(windows) {
-            "gitbutler-cli.exe"
-        } else {
-            "gitbutler-cli"
-        });
+    let path = cargo_target_dir().join("debug").join(if cfg!(windows) {
+        "gitbutler-cli.exe"
+    } else {
+        "gitbutler-cli"
+    });
     assert!(
         path.is_file(),
         "Expecting driver to be located at {path:?} - we also assume a certain crate location"
@@ -345,7 +355,7 @@ pub(crate) static BUT_DRIVER: Lazy<PathBuf> = Lazy::new(|| {
         .expect("cargo should run fine");
     assert!(res.success(), "cargo invocation should be successful");
 
-    let path = Path::new("../../target")
+    let path = cargo_target_dir()
         .join("debug")
         .join(if cfg!(windows) { "but.exe" } else { "but" });
     assert!(
@@ -355,6 +365,14 @@ pub(crate) static BUT_DRIVER: Lazy<PathBuf> = Lazy::new(|| {
     path.canonicalize()
         .expect("canonicalization works as the CWD is valid and there are no symlinks to resolve")
 });
+
+fn cargo_target_dir() -> PathBuf {
+    let cargo_target_dir_env_var = std::env::var_os("CARGO_TARGET_DIR");
+    let target_dir = cargo_target_dir_env_var
+        .as_deref()
+        .unwrap_or_else(|| OsStr::new("../../target"));
+    PathBuf::from(target_dir)
+}
 
 /// A secrets store to prevent secrets to be written into the systems own store.
 ///

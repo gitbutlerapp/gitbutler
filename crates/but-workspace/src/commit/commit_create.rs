@@ -78,8 +78,11 @@ pub(crate) mod function {
             });
         };
 
-        let commit_selector =
-            editor.insert(relative_to_selector, Step::new_pick(new_commit_id), side)?;
+        let commit_selector = editor.insert(
+            relative_to_selector,
+            Step::new_untracked_pick(new_commit_id),
+            side,
+        )?;
 
         Ok(CommitCreateOutcome {
             rebase: editor.rebase()?,
@@ -99,9 +102,7 @@ pub(crate) mod function {
                 let commit = editor.find_commit(id)?;
                 commit.parents.first().copied()
             }
-            (Step::Reference { refname }, _) => {
-                Some(editor.find_reference_target(refname)?.1.id.detach())
-            }
+            (Step::Reference { refname }, _) => Some(editor.find_reference_target(refname)?.1.id),
             (Step::None, _) => None,
         })
     }

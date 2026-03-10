@@ -1,20 +1,20 @@
 use std::{fs, path, path::PathBuf, str::FromStr};
 
-use but_ctx::Context;
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_error::Marker;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_settings::AppSettings;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::GITBUTLER_WORKSPACE_COMMIT_TITLE;
 use gitbutler_oplog::{OplogExt, SnapshotExt};
-use gitbutler_project::{self as projects, ProjectId};
+use gitbutler_project::{self as projects};
 use gitbutler_stack::StackId;
 use gitbutler_testsupport::{TestProject, VAR_NO_CLEANUP, paths};
 use tempfile::TempDir;
 
 struct Test {
     repo: TestProject,
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     data_dir: Option<TempDir>,
     ctx: Context,
 }
@@ -30,7 +30,8 @@ impl Test {
         let project = outcome.unwrap_project();
         let mut settings = AppSettings::default();
         change_settings(&mut settings);
-        let ctx = Context::new_from_legacy_project_and_settings(&project, settings);
+        let ctx = Context::new_from_legacy_project_and_settings(&project, settings)
+            .expect("can create context");
         Self {
             repo: test_project,
             project_id: project.id,

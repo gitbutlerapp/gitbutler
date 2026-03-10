@@ -1,7 +1,7 @@
 use anyhow::Result;
 use but_api_macros::but_api;
 use but_core::{RepositoryExt, settings::git::ui::GitConfigSettings};
-use but_serde::bstring_opt_lossy;
+use but_serde::bstring_lossy_opt;
 use gix::bstr::BString;
 use serde::Serialize;
 use tracing::instrument;
@@ -39,10 +39,10 @@ pub fn store_author_globally_if_unset(
 #[derive(Clone, Serialize)]
 pub struct AuthorInfo {
     /// The name of the author.
-    #[serde(with = "bstring_opt_lossy")]
+    #[serde(with = "bstring_lossy_opt")]
     pub name: Option<BString>,
     /// The email of the author.
-    #[serde(with = "bstring_opt_lossy")]
+    #[serde(with = "bstring_lossy_opt")]
     pub email: Option<BString>,
 }
 

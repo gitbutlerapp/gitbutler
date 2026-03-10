@@ -20,7 +20,6 @@
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { throttle } from "$lib/utils/misc";
 	import { inject } from "@gitbutler/core/context";
-	import { persisted } from "@gitbutler/shared/persisted";
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
 	import { resizeObserver } from "@gitbutler/ui/utils/resizeObserver";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
@@ -41,8 +40,44 @@
 	const stackService = inject(STACK_SERVICE);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
 
-	// Persisted folded stacks state per project (without expiration)
-	const foldedStacks = persisted<string[]>([], `folded-stacks-${projectId}`);
+	// Persisted folded stacks state per project using pure $state + localStorage
+	const storageKey = $derived(`folded-stacks-${projectId}`);
+
+	function readFoldedStacks(key: string): string[] {
+		try {
+			const raw = localStorage.getItem(key);
+			if (!raw) return [];
+			const parsed = JSON.parse(raw);
+			if (!Array.isArray(parsed)) return [];
+			return parsed.filter((id): id is string => typeof id === "string");
+		} catch {
+			return [];
+		}
+	}
+
+	// Track local writes separately so $derived can stay pure
+	let foldedOverride = $state<{ key: string; ids: string[] } | null>(null);
+
+	// Reactively pick from override (if for current key) or localStorage
+	const foldedStackIds = $derived.by(() => {
+		if (foldedOverride?.key === storageKey) return foldedOverride.ids;
+		return readFoldedStacks(storageKey);
+	});
+
+	function writeFoldedStacks(ids: string[]): void {
+		localStorage.setItem(storageKey, JSON.stringify(ids));
+		foldedOverride = { key: storageKey, ids };
+	}
+
+	function unfoldStack(stackId: string | null | undefined): void {
+		if (!stackId) return;
+		writeFoldedStacks(foldedStackIds.filter((id) => id !== stackId));
+	}
+
+	function foldStack(stackId: string | null | undefined): void {
+		if (!stackId || foldedStackIds.includes(stackId)) return;
+		writeFoldedStacks([...foldedStackIds, stackId]);
+	}
 
 	let lanesScrollableEl = $state<HTMLDivElement>();
 	let lanesScrollableWidth = $state<number>(0);
@@ -50,7 +85,7 @@
 	let stackElements = $state<Record<string, HTMLElement>>({});
 
 	let laneWidths = $state<number[]>([]);
-	let lineHights = $state<number[]>([]);
+	let lineHeights = $state<number[]>([]);
 	let isNotEnoughHorzSpace = $derived(
 		(lanesScrollableWidth ?? 0) < laneWidths.length * (laneWidths[0] ?? 0),
 	);
@@ -195,7 +230,7 @@
 				onmousedown={onReorderMouseDown}
 				ondragstart={(e) => {
 					if (!stack.id) return;
-					const isCollapsedLane = $foldedStacks.includes(stack.id);
+					const isCollapsedLane = foldedStackIds.includes(stack.id);
 					onReorderStart(
 						e,
 						stack.id,
@@ -214,20 +249,20 @@
 					onReorderEnd();
 				}}
 			>
-				{#if stack.id && $foldedStacks.includes(stack.id)}
+				{#if stack.id && foldedStackIds.includes(stack.id)}
 					<CollapsedLane
-						stackId={stack.id}
 						branchNames={stack.heads.map((head) => head.name)}
-						{projectId}
+						onUnfold={() => unfoldStack(stack.id)}
 					/>
 				{:else}
 					<StackView
 						{projectId}
 						laneId={stack.id || "banana"}
 						stackId={stack.id ?? undefined}
+						onFoldStack={() => foldStack(stack.id)}
 						topBranchName={stack.heads.at(0)?.name}
 						bind:clientWidth={laneWidths[i]}
-						bind:clientHeight={lineHights[i]}
+						bind:clientHeight={lineHeights[i]}
 						onVisible={(visible) => {
 							if (visible) {
 								visibleIndexes = [...visibleIndexes, i];

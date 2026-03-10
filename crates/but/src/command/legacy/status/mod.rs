@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use assignment::FileAssignment;
 use bstr::{BStr, BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
-use but_core::{TreeStatus, ui};
+use but_core::{RepositoryExt, TreeStatus, ui};
 use but_ctx::Context;
 use but_forge::ForgeReview;
 use but_oxidize::OidExt;
@@ -16,7 +16,7 @@ use serde::Serialize;
 
 use crate::{
     CLI_DATE,
-    id::{SegmentWithId, StackWithId, TreeChangeWithId},
+    id::{SegmentWithId, ShortId, StackWithId, TreeChangeWithId},
     tui::text::truncate_text,
     utils::{WriteWithUtils, time::format_relative_time_verbose},
 };
@@ -35,7 +35,11 @@ enum CommitClassification {
 pub(crate) mod assignment;
 pub(crate) mod json;
 
-use crate::{IdMap, command::legacy::forge::review, utils::OutputChannel};
+use crate::{
+    IdMap,
+    command::legacy::forge::review,
+    utils::{OutputChannel, shorten_hex_object_id, shorten_object_id, split_short_id},
+};
 
 type StackDetail = (Option<StackWithId>, Vec<FileAssignment>);
 type StackEntry = (Option<gitbutler_stack::StackId>, StackDetail);
@@ -81,7 +85,7 @@ pub(crate) async fn worktree(
     hint: bool,
 ) -> anyhow::Result<()> {
     // Check if we're in edit mode first, before doing any expensive operations
-    let mode = gitbutler_operating_modes::operating_mode(ctx);
+    let mode = but_api::legacy::modes::operating_mode(ctx)?.operating_mode;
     if let gitbutler_operating_modes::OperatingMode::Edit(_metadata) = mode {
         // In edit mode, show the conflict resolution status
         return show_edit_mode_status(ctx, out);
@@ -159,7 +163,7 @@ pub(crate) async fn worktree(
         let author = base_commit_decoded.author()?;
         let common_merge_base_data = CommonMergeBase {
             target_name: target_name.clone(),
-            common_merge_base: target.sha.to_string()[..7].to_string(),
+            common_merge_base: shorten_object_id(&repo, target.sha.to_gix()),
             message: full_message,
             commit_date: formatted_date,
             commit_id: target.sha.to_gix(),
@@ -199,7 +203,7 @@ pub(crate) async fn worktree(
                                 Some(UpstreamState {
                                     target_name: base_branch.branch_name.clone(),
                                     behind_count: base_branch.behind,
-                                    latest_commit: commit_id.to_string()[..7].to_string(),
+                                    latest_commit: shorten_object_id(&repo, commit_id.to_gix()),
                                     message,
                                     commit_date: formatted_date,
                                     last_fetched_ms: last_fetched,
@@ -281,7 +285,9 @@ pub(crate) async fn worktree(
                 .segments
                 .first()
                 .map_or(Some(BStr::new(b"")), SegmentWithId::branch_name);
+            let repo = ctx.repo.get()?;
             print_assignments(
+                &repo,
                 stack_id,
                 &id_map,
                 branch_name,
@@ -338,17 +344,15 @@ pub(crate) async fn worktree(
             if let Some(ref base_branch) = base_branch
                 && !base_branch.upstream_commits.is_empty()
             {
+                let repo = ctx.repo.get()?;
                 let commits = base_branch.upstream_commits.iter().take(8);
                 for commit in commits {
                     // Measure prefix width using plain text (no ANSI codes)
+                    let commit_short = shorten_hex_object_id(&repo, &commit.id);
                     let truncated_msg = out
                         .truncate_if_unpaged(&commit.description.to_string().replace('\n', " "), 72)
                         .dimmed();
-                    writeln!(
-                        out,
-                        "┊{dot} {short_id} {truncated_msg}",
-                        short_id = commit.id[..7].yellow()
-                    )?;
+                    writeln!(out, "┊{dot} {} {truncated_msg}", commit_short.yellow())?;
                 }
                 let hidden_commits = base_branch.behind.saturating_sub(8);
                 if hidden_commits > 0 {
@@ -463,7 +467,9 @@ fn ci_map(
     Ok(ci_map)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn print_assignments(
+    repo: &gix::Repository,
     stack: Option<StackId>,
     id_map: &IdMap,
     branch_name: Option<&BStr>,
@@ -523,7 +529,11 @@ fn print_assignments(
             .map(|l| l.commit_id.to_string())
             .collect::<std::collections::BTreeSet<_>>()
             .into_iter()
-            .map(|commit_id| format!("{}{}", commit_id[..2].blue().bold(), commit_id[2..7].blue()))
+            .map(|commit_id| {
+                let short_id = shorten_hex_object_id(repo, &commit_id);
+                let (lead, rest) = split_short_id(&short_id, 2);
+                format!("{}{}", lead.blue().bold(), rest.blue())
+            })
             .collect::<Vec<_>>()
             .join(", ");
 
@@ -560,7 +570,10 @@ pub fn print_group(
     out: &mut dyn WriteWithUtils,
     id_map: &IdMap,
 ) -> anyhow::Result<()> {
-    let repo = ctx.legacy_project.open_isolated_repo()?;
+    let repo = ctx
+        .legacy_project
+        .open_isolated_repo()?
+        .for_commit_shortening();
     if let Some(stack_with_id) = stack_with_id {
         let mut first = true;
         for segment in &stack_with_id.segments {
@@ -650,6 +663,7 @@ pub fn print_group(
                 let details =
                     but_api::diff::commit_details(ctx, commit.commit_id(), ComputeLineStats::No)?;
                 print_commit(
+                    &repo,
                     commit.short_id.clone(),
                     &commit.inner,
                     CommitChanges::Remote(&details.diff_with_first_parent),
@@ -683,6 +697,7 @@ pub fn print_group(
                 };
 
                 print_commit(
+                    &repo,
                     commit.short_id.clone(),
                     &commit.inner.inner,
                     CommitChanges::Workspace(&commit.tree_changes_using_repo(&repo)?),
@@ -707,7 +722,7 @@ pub fn print_group(
             "unstaged changes".to_string().cyan().bold(),
             stack_mark.clone().unwrap_or_default()
         )?;
-        print_assignments(None, id_map, None, &assignments, changes, true, out)?;
+        print_assignments(&repo, None, id_map, None, &assignments, changes, true, out)?;
     }
     if !first {
         writeln!(out, "├╯")?;
@@ -769,7 +784,8 @@ enum CommitChanges<'a> {
 
 #[expect(clippy::too_many_arguments)]
 fn print_commit(
-    short_id: String,
+    repo: &gix::Repository,
+    short_id: ShortId,
     commit: &but_workspace::ref_info::Commit,
     commit_changes: CommitChanges,
     classification: CommitClassification,
@@ -796,6 +812,7 @@ fn print_commit(
     let upstream_commit = matches!(commit_changes, CommitChanges::Remote(_));
 
     let details_string = display_cli_commit_details(
+        repo,
         short_id,
         commit,
         match commit_changes {
@@ -879,17 +896,22 @@ impl CliDisplay for but_core::TreeChange {
 }
 
 fn display_cli_commit_details(
-    short_id: String,
+    repo: &gix::Repository,
+    short_id: ShortId,
     commit: &but_workspace::ref_info::Commit,
     has_changes: bool,
     verbose: bool,
     is_paged: bool,
 ) -> String {
-    let end_id = if short_id.len() >= 7 {
+    let commit_id_short = shorten_object_id(repo, commit.id);
+    let end_id = if short_id.len() >= commit_id_short.len() {
         "".to_string()
     } else {
-        let commit_id = commit.id.to_string();
-        commit_id[short_id.len()..7].dimmed().to_string()
+        commit_id_short
+            .get(short_id.len()..commit_id_short.len())
+            .unwrap_or("")
+            .dimmed()
+            .to_string()
     };
     let start_id = short_id.blue().bold();
 
@@ -1043,6 +1065,17 @@ impl CliDisplay for but_update::AvailableUpdate {
             self.available_version.green().bold()
         );
 
+        let upgrade_hint = {
+            #[cfg(feature = "packaged-but-distribution")]
+            {
+                "upgrade with your package manager"
+            }
+            #[cfg(not(feature = "packaged-but-distribution"))]
+            {
+                "upgrade with `but update install`"
+            }
+        };
+
         if verbose {
             if let Some(url) = &self.url {
                 format!(
@@ -1057,7 +1090,7 @@ impl CliDisplay for but_update::AvailableUpdate {
             format!(
                 "Update available: {} {}",
                 version_info,
-                "(you can run `but update install` or `but update suppress` to dismiss)".dimmed()
+                format!("({upgrade_hint} or `but update suppress` to dismiss)").dimmed(),
             )
         }
     }

@@ -392,13 +392,14 @@ pub fn discard_worktree_changes(
 mod json {
     use but_workspace::legacy::MoveChangesResult;
 
-    pub use crate::json::UIMoveChangesResult;
+    pub use crate::commit::json::UIMoveChangesResult;
 
     impl From<MoveChangesResult> for UIMoveChangesResult {
         fn from(value: MoveChangesResult) -> Self {
+            let MoveChangesResult { replaced_commits } = value;
+
             Self {
-                replaced_commits: value
-                    .replaced_commits
+                replaced_commits: replaced_commits
                     .into_iter()
                     .map(|(x, y)| (x.into(), y.into()))
                     .collect(),

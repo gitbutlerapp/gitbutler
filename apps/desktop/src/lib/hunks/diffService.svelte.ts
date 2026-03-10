@@ -4,7 +4,7 @@ import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import type { TreeChange } from "$lib/hunks/change";
 import type { UnifiedDiff } from "$lib/hunks/diff";
 import type { AssignmentRejection, HunkAssignmentRequest } from "$lib/hunks/hunk";
-import type { ClientState } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/clientState.svelte";
 
 export type ChangeDiff = {
 	path: string;
@@ -16,8 +16,8 @@ export const DIFF_SERVICE = new InjectionToken<DiffService>("DiffService");
 export class DiffService {
 	private api: ReturnType<typeof injectEndpoints>;
 
-	constructor(state: ClientState) {
-		this.api = injectEndpoints(state.backendApi);
+	constructor(api: BackendApi) {
+		this.api = injectEndpoints(api);
 	}
 
 	getDiff(projectId: string, change: TreeChange) {
@@ -56,7 +56,7 @@ export class DiffService {
 		return responses.filter(isDefined);
 	}
 }
-function injectEndpoints(api: ClientState["backendApi"]) {
+function injectEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			getDiff: build.query<UnifiedDiff | null, { projectId: string; change: TreeChange }>({

@@ -4,6 +4,7 @@ use gix::{
     merge::tree::{Options, TreatAsUnresolved},
     prelude::ObjectIdExt,
 };
+use std::path::PathBuf;
 
 use crate::{GitConfigSettings, commit::TreeKind};
 
@@ -11,6 +12,22 @@ use crate::{GitConfigSettings, commit::TreeKind};
 pub trait RepositoryExt: Sized {
     /// Returns a bundle of settings by querying the git configuration itself, assuring fresh data is loaded.
     fn git_settings(&self) -> anyhow::Result<GitConfigSettings>;
+    /// Return the path to store per-project GitButler data, which is guaranteed to be inside
+    /// of the `.git` directory, or in a unique folder outside of it.
+    ///
+    /// Resolution:
+    /// * `gitbutler.storagePath` on release builds, or `gitbutler.<channel>.storagePath`
+    ///   on non-release builds, with values like `gitbutler-alt`, `gitbutler-alt/nested`, or
+    ///   `~/gitbutler-projects`.
+    /// * If it is relative, it is interpreted relative to [`gix::Repository::git_dir`].
+    ///   Paths that stay inside `.git` must live under a top-level directory whose name starts
+    ///   with `gitbutler`.
+    /// * If the resolved path is outside of [`gix::Repository::git_dir`], the storage path
+    ///   becomes `<configured-path>/<project-handle>` so multiple projects can share one base path
+    ///   without clobbering each other. This also applies to relative paths like `../../shared`.
+    /// * Otherwise defaults to `<git-dir>/gitbutler` for release builds and
+    ///   `<git-dir>/gitbutler.<channel>` for non-release builds.
+    fn gitbutler_storage_path(&self) -> anyhow::Result<PathBuf>;
     /// Set all fields in `config` that are not `None` to disk into local repository configuration, or none of them.
     fn set_git_settings(&self, config: &GitConfigSettings) -> anyhow::Result<()>;
     /// Return all signatures that would be needed to perform a commit as configured in Git: `(author, committer)`.
@@ -38,6 +55,10 @@ pub trait RepositoryExt: Sized {
     /// Configure the repository for diff operations between trees.
     /// This means it needs an object cache relative to the amount of files in the repository.
     fn for_tree_diffing(self) -> anyhow::Result<Self>;
+
+    /// Return a repository configured for commit shortening,
+    /// i.e. with an object database configured to *not* check for new packs.
+    fn for_commit_shortening(self) -> Self;
 
     /// Just like the above, but with `gix` types.
     fn merges_cleanly(
@@ -80,6 +101,72 @@ pub trait RepositoryExt: Sized {
 }
 
 impl RepositoryExt for gix::Repository {
+    fn git_settings(&self) -> anyhow::Result<GitConfigSettings> {
+        GitConfigSettings::try_from_snapshot(&self.config_snapshot())
+    }
+
+    fn gitbutler_storage_path(&self) -> anyhow::Result<PathBuf> {
+        but_project_handle::gitbutler_storage_path(self)
+    }
+
+    fn set_git_settings(&self, settings: &GitConfigSettings) -> anyhow::Result<()> {
+        settings.persist_to_local_config(self)
+    }
+
+    fn commit_signatures(&self) -> anyhow::Result<(gix::actor::Signature, gix::actor::Signature)> {
+        let author = self
+            .author()
+            .transpose()?
+            .context("No author is configured in Git")
+            .context(Code::AuthorMissing)?;
+
+        let commit_as_gitbutler = self
+            .config_snapshot()
+            .boolean("gitbutler.gitbutlerCommitter")
+            .unwrap_or_default();
+        let committer = if commit_as_gitbutler {
+            committer_signature()
+        } else {
+            self.committer()
+                .transpose()?
+                .and_then(|s| s.to_owned().ok())
+                .unwrap_or_else(committer_signature)
+        };
+
+        Ok((author.into(), committer))
+    }
+
+    fn local_common_config_for_editing(&self) -> anyhow::Result<gix::config::File<'static>> {
+        let local_config_path = self.common_dir().join("config");
+        let config = gix::config::File::from_path_no_includes(
+            local_config_path.clone(),
+            gix::config::Source::Local,
+        )?;
+        Ok(config)
+    }
+
+    fn write_local_common_config(&self, local_config: &gix::config::File) -> anyhow::Result<()> {
+        use std::io::Write;
+        // Note: we don't use a lock file here to not risk changing the mode, and it's what Git does.
+        //       But we lock the file so there is no raciness.
+        let local_config_path = self.common_dir().join("config");
+        let _lock = gix::lock::Marker::acquire_to_hold_resource(
+            &local_config_path,
+            gix::lock::acquire::Fail::Immediately,
+            None,
+        )?;
+        let mut config_file = std::io::BufWriter::new(
+            std::fs::File::options()
+                .write(true)
+                .truncate(true)
+                .create(false)
+                .open(local_config_path)?,
+        );
+        local_config.write_to(&mut config_file)?;
+        config_file.flush()?;
+        Ok(())
+    }
+
     fn cherry_pick_commits_to_tree(
         &self,
         new_base_commit_id: gix::ObjectId,
@@ -116,72 +203,15 @@ impl RepositoryExt for gix::Repository {
         .context("failed to merge trees for cherry pick")
     }
 
-    fn commit_signatures(&self) -> anyhow::Result<(gix::actor::Signature, gix::actor::Signature)> {
-        let author = self
-            .author()
-            .transpose()?
-            .context("No author is configured in Git")
-            .context(Code::AuthorMissing)?;
-
-        let commit_as_gitbutler = self
-            .config_snapshot()
-            .boolean("gitbutler.gitbutlerCommitter")
-            .unwrap_or_default();
-        let committer = if commit_as_gitbutler {
-            committer_signature()
-        } else {
-            self.committer()
-                .transpose()?
-                .and_then(|s| s.to_owned().ok())
-                .unwrap_or_else(committer_signature)
-        };
-
-        Ok((author.into(), committer))
-    }
-
-    fn git_settings(&self) -> anyhow::Result<GitConfigSettings> {
-        GitConfigSettings::try_from_snapshot(&self.config_snapshot())
-    }
-
-    fn set_git_settings(&self, settings: &GitConfigSettings) -> anyhow::Result<()> {
-        settings.persist_to_local_config(self)
-    }
-
-    fn local_common_config_for_editing(&self) -> anyhow::Result<gix::config::File<'static>> {
-        let local_config_path = self.common_dir().join("config");
-        let config = gix::config::File::from_path_no_includes(
-            local_config_path.clone(),
-            gix::config::Source::Local,
-        )?;
-        Ok(config)
-    }
-
-    fn write_local_common_config(&self, local_config: &gix::config::File) -> anyhow::Result<()> {
-        use std::io::Write;
-        // Note: we don't use a lock file here to not risk changing the mode, and it's what Git does.
-        //       But we lock the file so there is no raciness.
-        let local_config_path = self.common_dir().join("config");
-        let _lock = gix::lock::Marker::acquire_to_hold_resource(
-            &local_config_path,
-            gix::lock::acquire::Fail::Immediately,
-            None,
-        )?;
-        let mut config_file = std::io::BufWriter::new(
-            std::fs::File::options()
-                .write(true)
-                .truncate(true)
-                .create(false)
-                .open(local_config_path)?,
-        );
-        local_config.write_to(&mut config_file)?;
-        config_file.flush()?;
-        Ok(())
-    }
-
     fn for_tree_diffing(mut self) -> anyhow::Result<Self> {
         let bytes = self.compute_object_cache_size_for_tree_diffs(&***self.index_or_empty()?);
         self.object_cache_size_if_unset(bytes);
         Ok(self)
+    }
+
+    fn for_commit_shortening(mut self) -> Self {
+        self.objects.refresh = gix::odb::store::RefreshMode::Never;
+        self
     }
 
     fn merges_cleanly(

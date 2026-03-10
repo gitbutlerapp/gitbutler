@@ -1,17 +1,37 @@
 mod run {
     use std::time::{Duration, Instant};
 
-    use but_db::{M, migration};
+    use but_db::{M, SchemaVersion, migration};
 
     use crate::migration::util::{dump_data, dump_schema};
+    const ZERO: SchemaVersion = SchemaVersion::Zero;
+
+    fn run_with_backoff<'a>(
+        conn: &mut rusqlite::Connection,
+        migrations: &[M<'a>],
+    ) -> Result<usize, migration::Error> {
+        let mut count = 0;
+        let policy = backoff::ExponentialBackoffBuilder::new()
+            .with_initial_interval(Duration::from_millis(10))
+            .with_randomization_factor(0.0)
+            .with_multiplier(1.0)
+            .with_max_interval(Duration::from_millis(10))
+            .with_max_elapsed_time(Some(Duration::from_secs(1)))
+            .build();
+        backoff::retry(policy, || {
+            count = migration::run(conn, migrations.iter().copied())?;
+            Ok::<_, migration::Error>(())
+        })?;
+        Ok(count)
+    }
 
     #[test]
     fn all_or_nothing() -> anyhow::Result<()> {
         let mut db = rusqlite::Connection::open_in_memory()?;
 
         let (good, bad) = (
-            M::up(0, "CREATE TABLE T1 ( first TEXT PRIMARY KEY );"),
-            M::up(1, "bad"),
+            M::up(0, ZERO, "CREATE TABLE T1 ( first TEXT PRIMARY KEY );"),
+            M::up(1, ZERO, "bad"),
         );
         let err = migration::run(&mut db, [good, bad]).unwrap_err();
         assert!(matches!(err, backoff::Error::Permanent(_)));
@@ -30,8 +50,8 @@ mod run {
         let mut db2 = rusqlite::Connection::open(&db_path)?;
 
         let migrations = [
-            M::up(0, "CREATE TABLE T1 ( first TEXT PRIMARY KEY );"),
-            M::up(1, "CREATE TABLE T2 ( first TEXT PRIMARY KEY );"),
+            M::up(0, ZERO, "CREATE TABLE T1 ( first TEXT PRIMARY KEY );"),
+            M::up(1, ZERO, "CREATE TABLE T2 ( first TEXT PRIMARY KEY );"),
         ];
 
         {
@@ -41,6 +61,7 @@ mod run {
             let busy_timeout = Duration::from_millis(100);
             db2.busy_timeout(busy_timeout)?;
             let err = migration::run(&mut db2, migrations).unwrap_err();
+            let elapsed = start.elapsed();
             assert!(
                 matches!(
                     err,
@@ -52,9 +73,8 @@ mod run {
                 "it wants to write, but can't, but knows it's a locking issue"
             );
             assert!(
-                start.elapsed() >= busy_timeout,
-                "busy timeout should block: {:?}",
-                start.elapsed()
+                elapsed < busy_timeout / 2,
+                "initial migration attempt should fail before busy_timeout when the deferred read snapshot cannot be upgraded: {elapsed:?}"
             );
         }
 
@@ -66,6 +86,12 @@ mod run {
 
             let count = migration::run(&mut db2, migrations)?;
             assert_eq!(count, 0, "It reads first which doesn't run into the lock");
+
+            let count = migration::run(&mut db2, [migrations[0]])?;
+            assert_eq!(
+                count, 0,
+                "older compatible migration lists also stay read-only despite extra migration rows in the DB"
+            );
         }
 
         insta::assert_snapshot!(dump_schema(&db1)?, @"
@@ -97,7 +123,7 @@ mod run {
     }
 
     #[test]
-    fn waits_for_locks_with_busy_timeout_in_threads() -> anyhow::Result<()> {
+    fn initialization_retries_lock_failures_with_backoff_in_threads() -> anyhow::Result<()> {
         use rusqlite::TransactionBehavior;
 
         let tmp = tempfile::TempDir::new()?;
@@ -116,8 +142,12 @@ mod run {
 
                 started_tx.send(())?;
                 let start = Instant::now();
-                let migrations = [M::up(0, "CREATE TABLE T1 ( first TEXT PRIMARY KEY );")];
-                let count = migration::run(&mut db, migrations)?;
+                let migrations = [M::up(
+                    0,
+                    ZERO,
+                    "CREATE TABLE T1 ( first TEXT PRIMARY KEY );",
+                )];
+                let count = run_with_backoff(&mut db, &migrations)?;
                 assert_eq!(count, 1, "migration succeeds once the lock is released");
                 Ok(start.elapsed())
             }
@@ -144,8 +174,8 @@ mod run {
         let mut db = rusqlite::Connection::open_in_memory()?;
 
         let (old, new) = (
-            M::up(0, "CREATE TABLE T1 ( first VARCHAR(50) PRIMARY KEY )"),
-            M::up(1, "ALTER TABLE `T1` ADD COLUMN `two` TEXT"),
+            M::up(0, ZERO, "CREATE TABLE T1 ( first VARCHAR(50) PRIMARY KEY )"),
+            M::up(1, ZERO, "ALTER TABLE `T1` ADD COLUMN `two` TEXT"),
         );
         let incorrectly_ordered = [new, old];
         let count = migration::run(&mut db, incorrectly_ordered)?;
@@ -174,13 +204,126 @@ mod run {
         first | two
         "#);
 
-        let err = migration::run(&mut db, [old]).expect_err("cannot omit prior migrations");
-        assert!(matches!(err, backoff::Error::Permanent(_)));
+        let count = migration::run(&mut db, [old])
+            .expect("older migration list is accepted if DB is compatible");
+        assert_eq!(
+            count, 0,
+            "extra migrations in the DB are tolerated when forward-compatibility allows it"
+        );
 
-        let newer_new = M::up(2, "ALTER TABLE `T1` ADD COLUMN `two` TEXT");
+        let newer_new = M::up(2, ZERO, "ALTER TABLE `T1` ADD COLUMN `two` TEXT");
         let err = migration::run(&mut db, [old, /* 'new' missing */ newer_new])
             .expect_err("cannot skip a migration");
         assert!(matches!(err, backoff::Error::Permanent(_)));
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_forward_incompatible_database() -> anyhow::Result<()> {
+        let mut db = rusqlite::Connection::open_in_memory()?;
+
+        db.execute_batch(&format!(
+            "PRAGMA user_version = {};",
+            SchemaVersion::One as u32
+        ))?;
+        let err = migration::run(
+            &mut db,
+            [M::up(
+                0,
+                ZERO,
+                "CREATE TABLE T1 ( first TEXT PRIMARY KEY );",
+            )],
+        )
+        .expect_err("future forward-compatibility version must be rejected");
+        assert!(matches!(err, backoff::Error::Permanent(_)));
+        Ok(())
+    }
+
+    #[test]
+    fn schema_version_is_derived_from_passed_migrations() -> anyhow::Result<()> {
+        let mut db = rusqlite::Connection::open_in_memory()?;
+        let forward_incompatible = [M::up(
+            0,
+            SchemaVersion::One,
+            "CREATE TABLE T1 ( first TEXT PRIMARY KEY );",
+        )];
+
+        migration::run(&mut db, forward_incompatible)?;
+        let version: u32 = db.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        assert_eq!(version, SchemaVersion::One as u32);
+
+        let err = migration::run(
+            &mut db,
+            [M::up(
+                0,
+                ZERO,
+                "CREATE TABLE T1 ( first TEXT PRIMARY KEY );",
+            )],
+        )
+        .expect_err("older binaries must reject newer schema versions");
+        assert!(matches!(err, backoff::Error::Permanent(_)));
+        Ok(())
+    }
+
+    #[test]
+    fn schema_version_bumps_even_if_all_migrations_are_already_applied() -> anyhow::Result<()> {
+        let mut db = rusqlite::Connection::open_in_memory()?;
+        let compatible = [M::up(
+            0,
+            ZERO,
+            "CREATE TABLE T1 ( first TEXT PRIMARY KEY );",
+        )];
+        migration::run(&mut db, compatible)?;
+
+        let initial_version: u32 = db.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        assert_eq!(initial_version, ZERO as u32);
+
+        let forward_incompatible = [M::up(
+            0,
+            SchemaVersion::One,
+            "CREATE TABLE T1 ( first TEXT PRIMARY KEY );",
+        )];
+        let count = migration::run(&mut db, forward_incompatible)?;
+        assert_eq!(
+            count, 0,
+            "no SQL migration reruns when only the schema version changes"
+        );
+
+        let bumped_version: u32 = db.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        assert_eq!(
+            bumped_version,
+            SchemaVersion::One as u32,
+            "schema version is still bumped when the migration list is otherwise up-to-date"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn schema_version_bumps_even_if_database_has_extra_migrations() -> anyhow::Result<()> {
+        let mut db = rusqlite::Connection::open_in_memory()?;
+        let first_sql = "CREATE TABLE T1 ( first TEXT PRIMARY KEY );";
+        let compatible = [
+            M::up(0, ZERO, first_sql),
+            M::up(1, ZERO, "CREATE TABLE T2 ( first TEXT PRIMARY KEY );"),
+        ];
+        migration::run(&mut db, compatible)?;
+
+        let initial_version: u32 = db.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        assert_eq!(initial_version, ZERO as u32);
+
+        let forward_incompatible = [M::up(0, SchemaVersion::One, first_sql)];
+        let count = migration::run(&mut db, forward_incompatible)?;
+        assert_eq!(
+            count, 0,
+            "no SQL migration reruns when only the schema version changes and the DB already has extra compatible migrations"
+        );
+
+        let bumped_version: u32 = db.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        assert_eq!(
+            bumped_version,
+            SchemaVersion::One as u32,
+            "schema version is still bumped when the DB contains additional compatible migrations"
+        );
         Ok(())
     }
 

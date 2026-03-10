@@ -3,8 +3,9 @@
 //! This crate exists to give trybuild UI tests a small, controlled environment that
 //! resembles the parts of `but-api` the `#[but_api]` macro expands against.
 //! In particular it provides lightweight stand-ins for modules and types the *macro*
-//! references directly (for example `json`, `panic_capture`) so expansion can be
-//! validated without depending on the full `but-api` crate graph.
+//! references directly from the `but-api` crate, (for example `json`, `panic_capture`) so
+//! expansion can be validated without running the macro from the `but-api` crate that
+//! it was designed for.
 //!
 //! Keep this crate intentionally minimal. Extend it only when macro output starts
 //! referencing new paths, traits, or conversion behavior that existing test shims

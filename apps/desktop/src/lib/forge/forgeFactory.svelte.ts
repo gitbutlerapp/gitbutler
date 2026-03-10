@@ -10,11 +10,10 @@ import type { PostHogWrapper } from "$lib/analytics/posthog";
 import type { ForgeProvider } from "$lib/baseBranch/baseBranch";
 import type { GitLabClient } from "$lib/forge/gitlab/gitlabClient.svelte";
 import type { Forge, ForgeName } from "$lib/forge/interface/forge";
-import type { BackendApi, GitHubApi, GitLabApi } from "$lib/state/clientState.svelte";
+import type { AppDispatch, BackendApi, GitHubApi, GitLabApi } from "$lib/state/clientState.svelte";
 import type { ReduxTag } from "$lib/state/tags";
 import type { RepoInfo } from "$lib/url/gitUrl";
 import type { Reactive } from "@gitbutler/shared/storeUtils";
-import type { ThunkDispatch, UnknownAction } from "@reduxjs/toolkit";
 import type { TagDescription } from "@reduxjs/toolkit/query";
 
 export type ForgeConfig = {
@@ -57,7 +56,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			gitLabClient: GitLabClient;
 			gitLabApi: GitLabApi;
 			posthog: PostHogWrapper;
-			dispatch: ThunkDispatch<any, any, UnknownAction>;
+			dispatch: AppDispatch;
 		},
 	) {}
 

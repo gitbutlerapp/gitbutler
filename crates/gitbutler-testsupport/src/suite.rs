@@ -104,7 +104,8 @@ impl Drop for Case {
 
 impl Case {
     fn new(project: gitbutler_project::Project, project_tmp: TempDir) -> Case {
-        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default())
+            .expect("can create context");
         Case {
             project,
             ctx,
@@ -113,8 +114,10 @@ impl Case {
     }
 
     pub fn refresh(mut self, _suite: &Suite) -> Self {
-        let project = gitbutler_project::get(self.project.id).expect("failed to get project");
-        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+        let project =
+            gitbutler_project::get(self.project.id.clone()).expect("failed to get project");
+        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default())
+            .expect("can create context");
         Self {
             ctx,
             project,

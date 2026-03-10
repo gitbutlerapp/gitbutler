@@ -2,8 +2,6 @@ import { InjectionToken } from "@gitbutler/core/context";
 import { shallowCompare } from "@gitbutler/shared/compare";
 import { chipToasts } from "@gitbutler/ui/components/chipToast/chipToastStore";
 import { createEntityAdapter, createSlice } from "@reduxjs/toolkit";
-import { persistReducer } from "redux-persist";
-import storage from "redux-persist/lib/storage";
 import type { PromptAttachment } from "$lib/codegen/types";
 import type { ClientState } from "$lib/state/clientState.svelte";
 
@@ -15,23 +13,10 @@ export class AttachmentService {
 	private state = $state.raw(promptattachmentSlice.getInitialState());
 
 	constructor(private clientState: ClientState) {
-		const persistConfig = {
-			key: promptattachmentSlice.reducerPath,
-			storage: storage,
-		};
-
-		clientState.inject(
-			promptattachmentSlice.reducerPath,
-			persistReducer(persistConfig, promptattachmentSlice.reducer),
-		);
+		const getSlice = clientState.injectPersistedSlice(promptattachmentSlice);
 
 		$effect(() => {
-			if (clientState.reactiveState) {
-				if (promptattachmentSlice.reducerPath in clientState.reactiveState) {
-					// @ts-expect-error code-splitting means it's not defined in client state.
-					this.state = clientState.reactiveState[promptattachmentSlice.reducerPath] as IRCState;
-				}
-			}
+			this.state = getSlice() ?? promptattachmentSlice.getInitialState();
 		});
 	}
 

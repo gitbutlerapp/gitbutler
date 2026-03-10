@@ -21,7 +21,8 @@ fn works_on_integration_branch() -> anyhow::Result<()> {
     );
 
     // Should not throw verification error until migration is complete.
-    let result = ensure_open_workspace_mode(&ctx);
+    let guard = ctx.shared_worktree_access();
+    let result = ensure_open_workspace_mode(&ctx, guard.read_permission());
     assert!(result.is_ok());
 
     // Updating workspace commit should put us on the workspace branch.

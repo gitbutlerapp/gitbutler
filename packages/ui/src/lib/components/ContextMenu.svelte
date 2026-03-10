@@ -2,7 +2,7 @@
 	import { focusable } from "$lib/focus/focusable";
 	import { menuManager } from "$lib/utils/menuManager";
 	import { portal } from "$lib/utils/portal";
-	import { setContext, onDestroy } from "svelte";
+	import { setContext, onDestroy, tick } from "svelte";
 	import { type Snippet } from "svelte";
 
 	// Context key for submenu coordination
@@ -79,10 +79,7 @@
 		}
 	});
 
-	function calculatePosition(
-		target: HTMLElement | MouseEvent,
-		alignOverride?: "start" | "center" | "end",
-	): { x: number; y: number } {
+	function calculatePosition(target: HTMLElement | MouseEvent): { x: number; y: number } {
 		const rect =
 			target instanceof HTMLElement
 				? target.getBoundingClientRect()
@@ -94,47 +91,46 @@
 		// Get menu dimensions for proper positioning
 		const menuWidth = menuContainer?.offsetWidth || 0;
 		const menuHeight = menuContainer?.offsetHeight || 0;
-		const useAlign = alignOverride ?? align;
 
 		// Position based on side
 		if (side === "top") {
 			y = rect.y - menuHeight;
 			// Adjust horizontal alignment for top/bottom
-			if (useAlign === "start") {
+			if (align === "start") {
 				x = rect.x;
-			} else if (useAlign === "center") {
+			} else if (align === "center") {
 				x = rect.x + rect.width / 2 - menuWidth / 2;
-			} else if (useAlign === "end") {
+			} else if (align === "end") {
 				x = rect.x + rect.width - menuWidth;
 			}
 		} else if (side === "bottom") {
 			y = rect.y + rect.height;
 			// Adjust horizontal alignment for top/bottom
-			if (useAlign === "start") {
+			if (align === "start") {
 				x = rect.x;
-			} else if (useAlign === "center") {
+			} else if (align === "center") {
 				x = rect.x + rect.width / 2 - menuWidth / 2;
-			} else if (useAlign === "end") {
+			} else if (align === "end") {
 				x = rect.x + rect.width - menuWidth;
 			}
 		} else if (side === "left") {
 			x = rect.x - menuWidth;
 			// Adjust vertical alignment for left/right
-			if (useAlign === "start") {
+			if (align === "start") {
 				y = rect.y;
-			} else if (useAlign === "center") {
+			} else if (align === "center") {
 				y = rect.y + rect.height / 2 - menuHeight / 2;
-			} else if (useAlign === "end") {
+			} else if (align === "end") {
 				y = rect.y + rect.height - menuHeight;
 			}
 		} else if (side === "right") {
 			x = rect.x + rect.width;
 			// Adjust vertical alignment for left/right
-			if (useAlign === "start") {
+			if (align === "start") {
 				y = rect.y;
-			} else if (useAlign === "center") {
+			} else if (align === "center") {
 				y = rect.y + rect.height / 2 - menuHeight / 2;
-			} else if (useAlign === "end") {
+			} else if (align === "end") {
 				y = rect.y + rect.height - menuHeight;
 			}
 		}
@@ -177,34 +173,9 @@
 		}
 	}
 
-	function setPosition(e?: MouseEvent, element?: HTMLElement) {
-		const isRightClick = Boolean(e && rightClickTrigger);
-		const target = e
-			? element || rightClickTrigger || leftClickTrigger
-			: element || leftClickTrigger || rightClickTrigger;
-
-		if (!target) return;
-
-		// For right-click: try align 'start', then 'end', then 'center' if needed
-		if (isRightClick && menuContainer) {
-			let pos = calculatePosition(target, "start");
-			let constrained = constrainToViewport(pos);
-			if (constrained.x !== pos.x || constrained.y !== pos.y) {
-				// 'start' would go offscreen, try 'end'
-				pos = calculatePosition(target, "end");
-				constrained = constrainToViewport(pos);
-				if (constrained.x !== pos.x || constrained.y !== pos.y) {
-					// 'end' would go offscreen, try 'center'
-					pos = calculatePosition(target, "center");
-					constrained = constrainToViewport(pos);
-				}
-			}
-			menuPosition = constrained;
-		} else {
-			// For left-click, use the align prop as before
-			const basePosition = calculatePosition(target);
-			menuPosition = menuContainer ? constrainToViewport(basePosition) : basePosition;
-		}
+	function setPosition(target: MouseEvent | HTMLElement) {
+		const basePosition = calculatePosition(target);
+		menuPosition = menuContainer ? constrainToViewport(basePosition) : basePosition;
 	}
 
 	// Recalculate position when menu dimensions become available
@@ -215,47 +186,33 @@
 			menuContainer.offsetWidth > 0 &&
 			menuContainer.offsetHeight > 0
 		) {
-			// Recalculate with proper dimensions
-			const isRightClick = rightClickTrigger && savedMouseEvent;
-			const target = isRightClick ? savedMouseEvent : leftClickTrigger;
+			const target = savedMouseEvent ?? savedElement ?? leftClickTrigger ?? rightClickTrigger;
 			if (target) {
-				if (isRightClick) {
-					let pos = calculatePosition(target, "start");
-					let constrained = constrainToViewport(pos);
-					if (constrained.x !== pos.x || constrained.y !== pos.y) {
-						pos = calculatePosition(target, "end");
-						constrained = constrainToViewport(pos);
-						if (constrained.x !== pos.x || constrained.y !== pos.y) {
-							pos = calculatePosition(target, "center");
-							constrained = constrainToViewport(pos);
-						}
-					}
-					menuPosition = constrained;
-				} else {
-					const basePosition = calculatePosition(target);
-					menuPosition = constrainToViewport(basePosition);
-				}
+				setPosition(target);
 			}
 		}
 	});
 
 	let savedMouseEvent: MouseEvent | undefined = $state();
+	let savedElement: HTMLElement | undefined = $state();
 
-	export function open(e?: MouseEvent | HTMLElement, newItem?: T) {
+	export async function open(e?: MouseEvent | HTMLElement, newItem?: T) {
 		if (isVisible) return;
 
-		// Save the mouse event for repositioning
-		if (e instanceof MouseEvent) savedMouseEvent = e;
-
-		// Calculate position first (before showing) using the triggering event
-		if (e instanceof MouseEvent) {
-			setPosition(e);
-		} else {
-			setPosition(undefined, e);
+		// Save the open target for repositioning after layout
+		if (e instanceof MouseEvent || e instanceof PointerEvent) {
+			savedMouseEvent = e;
+			savedElement = undefined;
+		} else if (e instanceof HTMLElement) {
+			savedElement = e;
+			savedMouseEvent = undefined;
 		}
 
 		isVisible = true;
 		if (newItem !== undefined) item = newItem;
+		await tick();
+
+		if (e) setPosition(e);
 
 		// Register with menu manager once the menu is rendered
 		setTimeout(() => {
@@ -263,11 +220,12 @@
 				menuManager.register({
 					id: menuId,
 					element: menuContainer,
-					triggerElement: leftClickTrigger,
+					triggerElement: leftClickTrigger ?? savedElement,
 					parentMenuId,
 					close: () => {
 						isVisible = false;
 						savedMouseEvent = undefined;
+						savedElement = undefined;
 						onclose?.();
 						if (ontoggle) executeByTrigger(ontoggle);
 					},
@@ -287,6 +245,7 @@
 
 		isVisible = false;
 		savedMouseEvent = undefined;
+		savedElement = undefined;
 		onclose?.();
 		if (ontoggle) executeByTrigger(ontoggle);
 	}
@@ -337,6 +296,20 @@
 		}
 	}
 
+	// Close on any scroll event (use capture since scroll doesn't bubble).
+	$effect(() => {
+		if (!isVisible) return;
+
+		function onScroll(e: Event) {
+			// Don't close if the scroll is inside the menu itself.
+			if (menuContainer?.contains(e.target as Node)) return;
+			close();
+		}
+
+		document.addEventListener("scroll", onScroll, true);
+		return () => document.removeEventListener("scroll", onScroll, true);
+	});
+
 	$effect(() => {
 		if (!menuContainer) return;
 		const config = { attributes: false, childList: true, subtree: true };
@@ -346,8 +319,9 @@
 				if (mutation.type === "childList") {
 					// Only reposition if we don't have open submenus
 					// This prevents the menu from jumping when submenus open
-					if (isVisible && savedMouseEvent && !submenuCoordination.hasOpenSubmenus()) {
-						setPosition(savedMouseEvent);
+					const target = savedMouseEvent ?? savedElement;
+					if (isVisible && target && !submenuCoordination.hasOpenSubmenus()) {
+						setPosition(target);
 					}
 				}
 			}

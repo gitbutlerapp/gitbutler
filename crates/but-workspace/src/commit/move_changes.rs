@@ -63,6 +63,7 @@ pub(crate) mod function {
 
         // Step 1: Get the source commit and its tree
         let source_tree_id = {
+            let source_commit = source_commit.clone().attach(editor.repo());
             if source_commit.is_conflicted() {
                 bail!("Source commit must not be conflicted")
             }
@@ -72,7 +73,7 @@ pub(crate) mod function {
         let (source_tree_without_changes_id, dropped_diffs) = create_tree_without_diff(
             editor.repo(),
             ChangesSource::Commit {
-                id: source_commit.id.into(),
+                id: source_commit.id,
             },
             changes_to_move,
             context_lines,
@@ -95,6 +96,8 @@ pub(crate) mod function {
         let (_, rebased_destination_commit) =
             editor.find_selectable_commit(destination_selector)?;
         let destination_tree_id = {
+            let rebased_destination_commit =
+                rebased_destination_commit.clone().attach(editor.repo());
             if rebased_destination_commit.is_conflicted() {
                 bail!("Destination commit must not be conflicted")
             }

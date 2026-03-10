@@ -35,7 +35,8 @@ pub fn create_branch(ctx: &mut Context, stack_id: StackId, req: CreateSeriesRequ
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_create_dependent_branch(&req.name, guard.write_permission());
-    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Requires an open workspace mode")?;
     let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&req.name)?;
     let repo = ctx.repo.get()?;
@@ -72,7 +73,8 @@ pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: &str) ->
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_remove_dependent_branch(branch_name, guard.write_permission());
-    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Requires an open workspace mode")?;
     let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     stack.remove_branch(ctx, branch_name)
 }
@@ -88,7 +90,8 @@ pub fn update_branch_name(
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_update_dependent_branch_name(&branch_name, guard.write_permission());
-    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Requires an open workspace mode")?;
     let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&new_name)?;
     stack.update_branch(
@@ -121,7 +124,8 @@ pub fn update_branch_pr_number(
         SnapshotDetails::new(OperationKind::UpdateDependentBranchPrNumber),
         guard.write_permission(),
     );
-    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Requires an open workspace mode")?;
     let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     stack.set_pr_number(ctx, &branch_name, pr_number)
 }
@@ -139,7 +143,8 @@ pub fn push_stack(
 ) -> Result<PushResult> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Requires an open workspace mode")?;
     let state = ctx.virtual_branches();
     let stack = state.get_stack(stack_id)?;
 

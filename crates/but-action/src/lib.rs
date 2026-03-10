@@ -7,12 +7,11 @@ use std::{
 };
 
 use but_core::{TreeChange, sync::RepoExclusiveGuard};
-use but_ctx::{Context, access::RepoExclusive};
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId, access::RepoExclusive};
 use but_hunk_assignment::CommitAbsorption;
 use but_oxidize::ObjectIdExt;
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_project::ProjectId;
 use gitbutler_stack::{Target, VirtualBranchesHandle};
 use serde::{Deserialize, Serialize};
 
@@ -43,7 +42,7 @@ pub fn branch_changes(
 
 #[allow(clippy::too_many_arguments)]
 pub fn auto_commit(
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     repo: &gix::Repository,
     project_data_dir: &Path,
     context_lines: u32,

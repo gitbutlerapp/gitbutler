@@ -14,9 +14,10 @@ pub(crate) mod function {
         relative_to: impl ToSelector,
     ) -> Result<(SuccessfulRebase, Selector)> {
         let commit = editor.empty_commit()?;
-        let new_id = editor.new_commit(commit, DateMode::CommitterUpdateAuthorUpdate)?;
+        let new_id = editor.new_commit_untracked(commit, DateMode::CommitterUpdateAuthorUpdate)?;
 
-        let blank_commit_selector = editor.insert(relative_to, Step::new_pick(new_id), side)?;
+        let blank_commit_selector =
+            editor.insert(relative_to, Step::new_untracked_pick(new_id), side)?;
 
         let outcome = editor.rebase()?;
 

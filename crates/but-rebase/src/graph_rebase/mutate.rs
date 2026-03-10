@@ -242,6 +242,9 @@ impl Editor {
     /// `target` delimiter's child and parent can be the same node.
     /// This is the way to disconnect a single node.
     ///
+    /// All disconnected children will be reconnected to all the disconnected parents unless
+    /// the `skip_reconnect_step` is set to true.
+    ///
     /// Returns an error when:
     /// - `parents_to_disconnect` is `SelectorSet::None`
     /// - `parents_to_disconnect` contains any parent that is not a direct parent of `target.parent`
@@ -251,6 +254,7 @@ impl Editor {
         target: SegmentDelimiter<C, P>,
         children_to_disconnect: SelectorSet,
         parents_to_disconnect: SelectorSet,
+        skip_reconnect_step: bool,
     ) -> Result<()>
     where
         C: ToSelector,
@@ -363,7 +367,12 @@ impl Editor {
                 .as_ref()
                 .is_none_or(|ids| ids.contains(&edge_source));
             if should_disconnect {
-                self.reconnect_edges_to_parents(&disconnected_parent_edges, edge_id, edge_source);
+                // Remove the child edge.
+                self.graph.remove_edge(edge_id);
+                // Reconnect the child node to all the disconnected parents.
+                if !skip_reconnect_step {
+                    self.reconnect_edges_to_parents(&disconnected_parent_edges, edge_source);
+                }
             }
         }
 
@@ -374,11 +383,8 @@ impl Editor {
     fn reconnect_edges_to_parents(
         &mut self,
         disconnected_parent_edges: &[(Edge, petgraph::prelude::NodeIndex)],
-        child_edge_id: petgraph::prelude::EdgeIndex,
         child_node: petgraph::prelude::NodeIndex,
     ) {
-        // Remove the child edge.
-        self.graph.remove_edge(child_edge_id);
         // Reconnect the child node to all the disconnected parents.
         for (parent_edge_weight, edge_target) in disconnected_parent_edges {
             self.graph

@@ -53,6 +53,7 @@ export interface Settings {
 	pathFirst: boolean;
 	allInOneDiff: boolean;
 	highlightDiffs: boolean;
+	svgAsImage: boolean;
 }
 
 const defaults: Settings = {
@@ -80,6 +81,7 @@ const defaults: Settings = {
 	pathFirst: true,
 	allInOneDiff: false,
 	highlightDiffs: false,
+	svgAsImage: true,
 };
 
 export function loadUserSettings(platformName: string): Writable<Settings> {

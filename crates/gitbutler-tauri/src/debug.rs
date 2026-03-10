@@ -51,10 +51,22 @@ fn open_existing(dir: impl AsRef<Path>) -> Result<(), Error> {
     // can right-click it to see the package contents. Better than nothing.
     // Maybe we can rename the application ID at some point.
     if is_macos_stable_build {
-        opener::reveal(dir).map_err(anyhow::Error::from)
+        reveal_directory(dir)
     } else {
         open::that(dir).map_err(anyhow::Error::from)
     }
-    .with_context(|| format!("Failed to open directory at '{}'", dir.display()))
+    .with_context(|| format!("Failed to open directory at '{dir}'", dir = dir.display()))
     .map_err(Into::into)
+}
+
+/// Reveal a directory in the platform file manager when the optional feature is available.
+#[cfg(feature = "opener")]
+fn reveal_directory(dir: &Path) -> anyhow::Result<()> {
+    opener::reveal(dir).map_err(anyhow::Error::from)
+}
+
+/// Fall back to normal opening when reveal support is not compiled in.
+#[cfg(not(feature = "opener"))]
+fn reveal_directory(dir: &Path) -> anyhow::Result<()> {
+    open::that(dir).map_err(anyhow::Error::from)
 }

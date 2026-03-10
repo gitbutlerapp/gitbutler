@@ -31,7 +31,8 @@ impl TestCase<'_> {
             repo.workdir().unwrap().to_path_buf(),
             self.preferred_key.clone(),
         );
-        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default())
+            .expect("can create context");
 
         let git2_repo = &*ctx.git2_repo.get().unwrap();
         let flow = help(git2_repo, &ctx.legacy_project, "origin").unwrap();

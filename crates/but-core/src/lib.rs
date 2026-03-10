@@ -421,7 +421,7 @@ pub struct IgnoredWorktreeChange {
     #[serde(serialize_with = "but_serde::bstring_lossy::serialize")]
     #[cfg_attr(
         feature = "export-schema",
-        schemars(schema_with = "but_schemars::bstring")
+        schemars(schema_with = "but_schemars::bstring_lossy")
     )]
     pub path: BString,
     /// The status that caused this change to be ignored.

@@ -3,7 +3,8 @@ import { butlerModule } from "$lib/state/butlerModule";
 import { createGitHubApi } from "$lib/state/clientState.svelte";
 import { mockCreateBackend } from "$lib/testing/mockBackend";
 import { Octokit } from "@octokit/rest";
-import { configureStore, type ThunkDispatch, type UnknownAction } from "@reduxjs/toolkit";
+import { configureStore } from "@reduxjs/toolkit";
+import type { AppDispatch } from "$lib/state/clientState.svelte";
 
 /**
  * Mock for GitHub RTKQ.
@@ -24,7 +25,7 @@ import { configureStore, type ThunkDispatch, type UnknownAction } from "@reduxjs
 
 export function setupMockGitHubApi() {
 	let state = {};
-	let dispatch: ThunkDispatch<any, any, UnknownAction> | undefined = undefined;
+	let dispatch: AppDispatch | undefined = undefined;
 
 	const backend = mockCreateBackend();
 	const octokit = new Octokit();

@@ -69,7 +69,7 @@ export function persisted<T>(initial: T, key: string): Persisted<T> {
 		synchronize(set);
 	});
 
-	async function set(value: T) {
+	function set(value: T) {
 		setAndPersist(value, thisStore.set);
 	}
 
@@ -148,7 +148,7 @@ export function persistWithExpiration<T>(
 		synchronize(set);
 	});
 
-	async function set(value: T) {
+	function set(value: T) {
 		setAndPersist(value, thisStore.set);
 	}
 

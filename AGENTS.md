@@ -6,4 +6,6 @@ When working on the `but` CLI (Rust command-line tool in `crates/but`), please r
 
 ## Skills
 
-If you have access to it, load the `but` (gitbutler) skill for any and all version control tasks.
+Always load the `but` (gitbutler) skill at the start of every turn in this repository when the skill is available.
+Use it as the default operating mode for all version control and source control actions.
+Treat the installed `but` skill as the source of truth for current command usage and coordination behavior.

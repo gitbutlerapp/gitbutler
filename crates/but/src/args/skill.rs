@@ -47,6 +47,12 @@ pub enum Subcommands {
     /// ```text
     /// but skill install --detect
     /// ```
+    ///
+    /// Install the optional coordination-enabled skill:
+    ///
+    /// ```text
+    /// but skill install --with-link
+    /// ```
     #[clap(verbatim_doc_comment)]
     Install {
         /// Install the skill globally instead of in the current repository
@@ -59,6 +65,9 @@ pub enum Subcommands {
         /// Automatically detect where to install by finding existing installation
         #[clap(long, short = 'd')]
         detect: bool,
+        /// Install the optional skill variant that includes `but link` coordination workflow instructions
+        #[clap(long)]
+        with_link: bool,
     },
     /// Check if installed GitButler skills are up to date with the CLI version
     ///

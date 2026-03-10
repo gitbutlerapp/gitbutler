@@ -161,6 +161,8 @@ cargo clippy --all-targets
 - Group imports: Std, External, Crate
 - Imports granularity: Crate level
 
+**temporary directories** - use `but-testsupport` for scenario creation. Read-only functions should use read-only fixtures. DO NOT USE the `std::env::temp_dir().join(format!(…)` pattern.
+
 ## Dependency Management
 
 ### Adding JavaScript/TypeScript Dependencies
