@@ -129,7 +129,7 @@ fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck,
         }
         Err(_) => {
             // Fallback to the stored SHA if remote branch doesn't exist
-            git2_repo.find_commit(target.sha)?
+            git2_repo.find_commit(target.sha.to_git2())?
         }
     };
 
@@ -329,7 +329,7 @@ fn get_commits_ahead(
         Ok(reference) => reference.id().detach(),
         Err(_) => {
             // Fallback to the stored SHA if remote branch doesn't exist
-            target.sha.to_gix()
+            target.sha
         }
     };
 

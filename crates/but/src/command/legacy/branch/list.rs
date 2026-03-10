@@ -385,7 +385,7 @@ fn check_branches_merge_cleanly(
         }
         Err(_) => {
             // Fallback to the stored SHA if remote branch doesn't exist
-            git2_repo.find_commit(target.sha)?
+            git2_repo.find_commit(target.sha.to_git2())?
         }
     };
 
@@ -482,7 +482,7 @@ fn calculate_commits_ahead(
         Ok(mut reference) => reference.peel_to_commit()?.id,
         Err(_) => {
             // Fallback to the stored SHA if remote branch doesn't exist
-            target.sha.to_gix()
+            target.sha
         }
     };
 
@@ -762,6 +762,6 @@ fn get_target_oid(ctx: &Context) -> anyhow::Result<git2::Oid> {
     );
     match git2_repo.find_reference(&target_ref) {
         Ok(r) => Ok(r.peel(git2::ObjectType::Commit)?.id()),
-        Err(_) => Ok(target.sha),
+        Err(_) => Ok(target.sha.to_git2()),
     }
 }

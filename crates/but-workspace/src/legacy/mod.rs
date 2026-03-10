@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use but_ctx::Context;
-use but_oxidize::OidExt;
 use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
@@ -35,10 +34,7 @@ pub mod stack_ext;
 /// Returns the last-seen fork-point that the workspace has with the target branch with which it wants to integrate.
 // TODO: at some point this should be optional, integration branch doesn't have to be defined.
 pub fn common_merge_base_with_target_branch(gb_dir: &Path) -> anyhow::Result<gix::ObjectId> {
-    Ok(VirtualBranchesHandle::new(gb_dir)
-        .get_default_target()?
-        .sha
-        .to_gix())
+    Ok(VirtualBranchesHandle::new(gb_dir).get_default_target()?.sha)
 }
 
 /// Return a list of commits on the target branch

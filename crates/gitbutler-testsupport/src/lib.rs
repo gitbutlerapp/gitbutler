@@ -31,6 +31,7 @@ pub mod paths {
 
 pub mod virtual_branches {
     use but_ctx::Context;
+    use but_oxidize::OidExt;
     use gitbutler_stack::{Target, VirtualBranchesHandle};
 
     use crate::empty_bare_repository;
@@ -48,7 +49,7 @@ pub mod virtual_branches {
             .set_default_target(Target {
                 branch: "refs/remotes/origin/master".parse().unwrap(),
                 remote_url: remote_repo.path().to_str().unwrap().parse().unwrap(),
-                sha: remote_repo.head().unwrap().target().unwrap(),
+                sha: remote_repo.head().unwrap().target().unwrap().to_gix(),
                 push_remote_name: None,
             })
             .expect("failed to write target");

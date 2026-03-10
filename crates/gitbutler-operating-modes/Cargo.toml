@@ -18,7 +18,7 @@ but-ctx.workspace = true
 
 serde.workspace = true
 tracing.workspace = true
-git2.workspace = true
+gix.workspace = true
 anyhow.workspace = true
 toml.workspace = true
 bstr.workspace = true

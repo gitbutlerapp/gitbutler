@@ -23,7 +23,7 @@ pub fn merge_worktree_with_workspace<'a>(
 
     // The tree of where the gitbutler workspace is at
     let workspace_tree = gix_repo
-        .find_commit(super::remerged_workspace_commit_v2(ctx)?.to_gix())?
+        .find_commit(super::remerged_workspace_commit_v2(ctx)?)?
         .tree_id()?
         .detach();
 
@@ -46,7 +46,7 @@ pub fn merge_worktree_with_workspace<'a>(
 pub fn remerged_workspace_tree_v2(
     ctx: &Context,
     repo: &gix::Repository,
-) -> Result<(git2::Oid, Vec<Stack>, git2::Oid)> {
+) -> Result<(gix::ObjectId, Vec<Stack>, gix::ObjectId)> {
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let target = vb_state
         .get_default_target()
@@ -54,12 +54,15 @@ pub fn remerged_workspace_tree_v2(
     let git2_repo = &*ctx.git2_repo.get()?;
     let mut stacks: Vec<Stack> = vb_state.list_stacks_in_workspace()?;
 
-    let target_commit = git2_repo.find_commit(target.sha)?;
+    let target_commit = git2_repo.find_commit(target.sha.to_git2())?;
     let workspace_tree = git2_repo.find_real_tree(&target_commit, Default::default())?;
     let mut workspace_tree_id = workspace_tree.id().to_gix();
 
     let (merge_options_fail_fast, conflict_kind) = repo.merge_options_fail_fast()?;
-    let merge_tree_id = git2_repo.find_commit(target.sha)?.tree_id().to_gix();
+    let merge_tree_id = git2_repo
+        .find_commit(target.sha.to_git2())?
+        .tree_id()
+        .to_gix();
     for stack in stacks.iter_mut() {
         let branch_head = git2_repo.find_commit(stack.head_oid(ctx)?.to_git2())?;
         let branch_tree_id = git2_repo
@@ -84,7 +87,7 @@ pub fn remerged_workspace_tree_v2(
             vb_state.set_stack(stack.clone())?;
         }
     }
-    Ok((workspace_tree_id.to_git2(), stacks, target_commit.id()))
+    Ok((workspace_tree_id, stacks, target.sha))
 }
 
 /// Creates and returns a merge commit of all active branch heads.
@@ -96,11 +99,11 @@ pub fn remerged_workspace_tree_v2(
 /// done from `update_workspace_commit()`, after any of its input changes.
 /// This is namely the conflicting state, or any head of the virtual branches.
 #[instrument(level = "debug", skip(ctx))]
-pub fn remerged_workspace_commit_v2(ctx: &Context) -> Result<git2::Oid> {
+pub fn remerged_workspace_commit_v2(ctx: &Context) -> Result<gix::ObjectId> {
     let git2_repo = &*ctx.git2_repo.get()?;
     let repo = ctx.clone_repo_for_merging()?;
     let (workspace_tree_id, stacks, target_commit) = remerged_workspace_tree_v2(ctx, &repo)?;
-    let workspace_tree = git2_repo.find_tree(workspace_tree_id)?;
+    let workspace_tree = git2_repo.find_tree(workspace_tree_id.to_git2())?;
 
     let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;
     let author = gitbutler_repo::signature(SignaturePurpose::Author)?;
@@ -111,7 +114,7 @@ pub fn remerged_workspace_commit_v2(ctx: &Context) -> Result<git2::Oid> {
         .collect();
 
     if heads.is_empty() {
-        heads = vec![git2_repo.find_commit(target_commit)?]
+        heads = vec![git2_repo.find_commit(target_commit.to_git2())?]
     }
 
     // TODO: Why does commit only accept a slice of commits? Feels like we
@@ -126,5 +129,5 @@ pub fn remerged_workspace_commit_v2(ctx: &Context) -> Result<git2::Oid> {
         &workspace_tree,
         head_refs.as_slice(),
     )?;
-    Ok(workspace_head_id)
+    Ok(workspace_head_id.to_gix())
 }

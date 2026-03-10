@@ -15,13 +15,13 @@ use crate::VirtualBranchesExt;
 pub(crate) fn move_commit(
     ctx: &Context,
     target_stack_id: StackId,
-    subject_commit_oid: git2::Oid,
+    subject_commit_oid: gix::ObjectId,
     perm: &mut RepoExclusive,
     source_stack_id: StackId,
 ) -> Result<Option<MoveCommitIllegalAction>> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let vb_state = ctx.virtual_branches();
-    let repo = &*ctx.git2_repo.get()?;
+    let git2_repo = &*ctx.git2_repo.get()?;
 
     let applied_stacks = vb_state
         .list_stacks_in_workspace()
@@ -39,8 +39,8 @@ pub(crate) fn move_commit(
         .try_stack(target_stack_id)?
         .ok_or(anyhow!("Destination branch not found"))?;
 
-    let subject_commit = repo
-        .find_commit(subject_commit_oid)
+    let subject_commit = git2_repo
+        .find_commit(subject_commit_oid.to_git2())
         .with_context(|| format!("commit {subject_commit_oid} to be moved could not be found"))?;
 
     take_commit_from_source_stack(ctx, &mut source_stack, subject_commit)?;
@@ -105,7 +105,7 @@ fn move_commit_to_destination_stack(
     vb_state: &VirtualBranchesHandle,
     ctx: &Context,
     mut destination_stack: gitbutler_stack::Stack,
-    commit_id: git2::Oid,
+    commit_id: gix::ObjectId,
 ) -> Result<(), anyhow::Error> {
     let gix_repo = ctx.repo.get()?;
     let merge_base = destination_stack.merge_base(ctx)?;
@@ -114,7 +114,7 @@ fn move_commit_to_destination_stack(
     steps.insert(
         steps.len() - 1,
         RebaseStep::Pick {
-            commit_id: commit_id.to_gix(),
+            commit_id,
             new_message: None,
         },
     );

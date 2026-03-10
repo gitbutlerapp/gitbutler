@@ -39,7 +39,7 @@ fn undo_commit_simple() -> anyhow::Result<()> {
     fs::write(repo.path().join("file4.txt"), "content4").unwrap();
     let _commit3_id = super::create_commit(ctx, stack_entry.id, "commit three").unwrap();
 
-    gitbutler_branch_actions::undo_commit(ctx, stack_entry.id, commit2_id).unwrap();
+    gitbutler_branch_actions::undo_commit(ctx, stack_entry.id, commit2_id.to_gix()).unwrap();
 
     // should be two uncommitted files now (file2.txt and file3.txt)
     let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
@@ -117,7 +117,7 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
     .unwrap();
     drop(guard);
 
-    gitbutler_branch_actions::undo_commit(ctx, stack_entry.id, commit2_id).unwrap();
+    gitbutler_branch_actions::undo_commit(ctx, stack_entry.id, commit2_id.to_gix()).unwrap();
 
     // should be two uncommitted files now (file2.txt and file3.txt)
     let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;

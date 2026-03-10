@@ -63,7 +63,7 @@ pub(crate) struct IsCommitIntegrated<'repo, 'cache, 'graph> {
     graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
     target_commit_id: gix::ObjectId,
     upstream_tree_id: gix::ObjectId,
-    upstream_commits: Vec<git2::Oid>,
+    upstream_commits: Vec<gix::ObjectId>,
     upstream_change_ids: Vec<String>,
 }
 
@@ -81,8 +81,11 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
         let remote_head = remote_branch.get().peel_to_commit()?;
         let upstream_tree_id = git2_repo.find_commit(remote_head.id())?.tree_id();
 
-        let upstream_commits =
-            git2_repo.log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
+        let upstream_commits = git2_repo.log(
+            remote_head.id(),
+            LogUntil::Commit(target.sha.to_git2()),
+            true,
+        )?;
         let upstream_change_ids = upstream_commits
             .iter()
             .filter_map(|commit| {
@@ -96,13 +99,13 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             .collect();
         let upstream_commits = upstream_commits
             .iter()
-            .map(|commit| commit.id())
+            .map(|commit| commit.id().to_gix())
             .sorted()
             .collect();
         Ok(Self {
             gix_repo,
             graph,
-            target_commit_id: target.sha.to_gix(),
+            target_commit_id: target.sha,
             upstream_tree_id: upstream_tree_id.to_gix(),
             upstream_commits,
             upstream_change_ids,
@@ -111,8 +114,8 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
 }
 
 impl IsCommitIntegrated<'_, '_, '_> {
-    pub(crate) fn is_integrated(&mut self, commit: &git2::Commit) -> Result<bool> {
-        if self.target_commit_id == commit.id().to_gix() {
+    pub(crate) fn is_integrated(&mut self, commit_id: gix::ObjectId) -> Result<bool> {
+        if self.target_commit_id == commit_id {
             // could not be integrated if heads are the same.
             return Ok(false);
         }
@@ -122,7 +125,7 @@ impl IsCommitIntegrated<'_, '_, '_> {
             return Ok(false);
         }
 
-        let gix_commit = self.gix_repo.find_commit(commit.id().to_gix())?;
+        let gix_commit = self.gix_repo.find_commit(commit_id)?;
 
         if let Some(change_id) = gix_commit.change_id()
             && self
@@ -133,16 +136,14 @@ impl IsCommitIntegrated<'_, '_, '_> {
             return Ok(true);
         }
 
-        if self.upstream_commits.binary_search(&commit.id()).is_ok() {
+        if self.upstream_commits.binary_search(&commit_id).is_ok() {
             return Ok(true);
         }
 
-        let merge_base_id = self.gix_repo.merge_base_with_graph(
-            self.target_commit_id,
-            commit.id().to_gix(),
-            self.graph,
-        )?;
-        if merge_base_id.to_git2().eq(&commit.id()) {
+        let merge_base_id =
+            self.gix_repo
+                .merge_base_with_graph(self.target_commit_id, commit_id, self.graph)?;
+        if merge_base_id == commit_id {
             // if merge branch is the same as branch head and there are upstream commits
             // then it's integrated
             return Ok(true);
@@ -160,7 +161,7 @@ impl IsCommitIntegrated<'_, '_, '_> {
             .gix_repo
             .merge_trees(
                 merge_base_tree_id,
-                commit.tree_id().to_gix(),
+                gix_commit.tree_id()?,
                 self.upstream_tree_id,
                 Default::default(),
                 merge_options,
@@ -195,7 +196,7 @@ pub(crate) fn update_commit_message(
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     let branch_commit_oids = ctx.git2_repo.get()?.l(
         stack.head_oid(ctx)?.to_git2(),
-        LogUntil::Commit(default_target.sha),
+        LogUntil::Commit(default_target.sha.to_git2()),
         false,
     )?;
 

@@ -1,7 +1,7 @@
 use std::{collections::HashSet, path::PathBuf};
 
 use anyhow::{Context as _, bail};
-use bstr::{BString, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 use gix::prelude::ObjectIdExt;
 use serde::{Deserialize, Serialize};
 
@@ -59,14 +59,23 @@ impl Headers {
 
     /// Extract header information from the given `commit`, or return `None` if not present.
     pub fn try_from_commit(commit: &gix::objs::Commit) -> Option<Self> {
-        let change_id = commit
-            .extra_headers()
+        Self::try_from_commit_headers(|| commit.extra_headers())
+    }
+
+    /// Extract header information from the given [`extra_headers`](gix::objs::Commit::extra_headers()) function,
+    /// or return `None` if not present.
+    pub fn try_from_commit_headers<'a, I>(
+        extra_headers: impl Fn() -> gix::objs::commit::ExtraHeaders<I>,
+    ) -> Option<Self>
+    where
+        I: Iterator<Item = (&'a BStr, &'a BStr)>,
+    {
+        let change_id = extra_headers()
             .find(HEADERS_NEW_CHANGE_ID_FIELD)
-            .or_else(|| commit.extra_headers().find(HEADERS_CHANGE_ID_FIELD))
+            .or_else(|| extra_headers().find(HEADERS_CHANGE_ID_FIELD))
             .map(ChangeId::from);
 
-        let conflicted = commit
-            .extra_headers()
+        let conflicted = extra_headers()
             .find(HEADERS_CONFLICTED_FIELD)
             .and_then(|value| value.to_str().ok()?.parse::<u64>().ok());
 

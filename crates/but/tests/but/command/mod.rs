@@ -3,6 +3,7 @@
 //! **Only** test the *happy path* of a typical user journey, while keeping details in unit tests with private module access.
 #[cfg(feature = "legacy")]
 mod absorb;
+mod alias;
 mod branch;
 #[cfg(feature = "legacy")]
 mod claude;

@@ -31,20 +31,20 @@ pub struct BaseBranch {
     pub remote_url: String,
     pub push_remote_name: Option<String>,
     pub push_remote_url: String,
-    #[serde(with = "but_serde::oid")]
-    pub base_sha: git2::Oid,
-    #[serde(with = "but_serde::oid")]
-    pub current_sha: git2::Oid,
+    #[serde(with = "but_serde::object_id")]
+    pub base_sha: gix::ObjectId,
+    #[serde(with = "but_serde::object_id")]
+    pub current_sha: gix::ObjectId,
     pub behind: usize,
     pub upstream_commits: Vec<RemoteCommit>,
     pub recent_commits: Vec<RemoteCommit>,
     pub last_fetched_ms: Option<u128>,
     pub conflicted: bool,
     pub diverged: bool,
-    #[serde(with = "but_serde::oid_vec")]
-    pub diverged_ahead: Vec<git2::Oid>,
-    #[serde(with = "but_serde::oid_vec")]
-    pub diverged_behind: Vec<git2::Oid>,
+    #[serde(with = "but_serde::object_id_vec")]
+    pub diverged_ahead: Vec<gix::ObjectId>,
+    #[serde(with = "but_serde::object_id_vec")]
+    pub diverged_behind: Vec<gix::ObjectId>,
 }
 
 impl BaseBranch {
@@ -116,9 +116,8 @@ fn go_back_to_integration(ctx: &Context, default_target: &Target) -> Result<Base
     if ctx.settings.feature_flags.cv3 {
         let workspace_commit_to_checkout =
             but_workspace::legacy::remerged_workspace_commit_v2(ctx)?;
-        let tree_to_checkout_to_avoid_ref_update = repo
-            .find_commit(workspace_commit_to_checkout.to_gix())?
-            .tree_id()?;
+        let tree_to_checkout_to_avoid_ref_update =
+            repo.find_commit(workspace_commit_to_checkout)?.tree_id()?;
         but_core::worktree::safe_checkout(
             repo.head_id()?.detach(),
             tree_to_checkout_to_avoid_ref_update.detach(),
@@ -205,7 +204,7 @@ pub(crate) fn set_base_branch(
     let target = Target {
         branch: target_branch_ref.clone(),
         remote_url: remote_url.to_string(),
-        sha: target_commit_oid,
+        sha: target_commit_oid.to_gix(),
         push_remote_name: None,
     };
 
@@ -225,7 +224,7 @@ pub(crate) fn set_base_branch(
         // put them into a virtual branch
 
         let changes = but_core::diff::worktree_changes(&*ctx.repo.get()?)?.changes;
-        if !changes.is_empty() || current_head_commit.id() != target.sha {
+        if !changes.is_empty() || current_head_commit.id() != target.sha.to_git2() {
             let (upstream, branch_matches_target) = if let Refname::Local(head_name) = &head_name {
                 let upstream_name = target_branch_ref.with_branch(head_name.branch());
                 if upstream_name.eq(target_branch_ref) {
@@ -249,14 +248,14 @@ pub(crate) fn set_base_branch(
             };
 
             let branch = if branch_matches_target {
-                Stack::new_empty(ctx, branch_name, current_head_commit.id(), 0)
+                Stack::new_empty(ctx, branch_name, current_head_commit.id().to_gix(), 0)
             } else {
                 Stack::new_from_existing(
                     ctx,
                     branch_name,
                     Some(head_name),
                     upstream,
-                    current_head_commit.id(),
+                    current_head_commit.id().to_gix(),
                     0,
                 )
             }?;
@@ -332,13 +331,17 @@ pub(crate) fn target_to_base_branch(ctx: &Context, target: &Target) -> Result<Ba
 
     // determine if the base branch is behind its upstream
     let (number_commits_ahead, number_commits_behind) =
-        repo.graph_ahead_behind(target.sha, target_commit_id)?;
+        repo.graph_ahead_behind(target.sha.to_git2(), target_commit_id)?;
 
     let diverged_ahead = repo
-        .log(target.sha, LogUntil::Take(number_commits_ahead), false)
+        .log(
+            target.sha.to_git2(),
+            LogUntil::Take(number_commits_ahead),
+            false,
+        )
         .context("failed to get fork point")?
         .iter()
-        .map(|commit| commit.id())
+        .map(|commit| commit.id().to_gix())
         .collect::<Vec<_>>();
 
     let diverged_behind = repo
@@ -349,7 +352,7 @@ pub(crate) fn target_to_base_branch(ctx: &Context, target: &Target) -> Result<Ba
         )
         .context("failed to get fork point")?
         .iter()
-        .map(|commit| commit.id())
+        .map(|commit| commit.id().to_gix())
         .collect::<Vec<_>>();
 
     // if there are commits ahead of the base branch consider it diverged
@@ -357,7 +360,11 @@ pub(crate) fn target_to_base_branch(ctx: &Context, target: &Target) -> Result<Ba
 
     // gather a list of commits between oid and target.sha
     let upstream_commits = repo
-        .l(target_commit_id, LogUntil::Commit(target.sha), false)
+        .l(
+            target_commit_id,
+            LogUntil::Commit(target.sha.to_git2()),
+            false,
+        )
         .context("failed to get upstream commits")?
         .iter()
         .map(|id| {
@@ -368,7 +375,7 @@ pub(crate) fn target_to_base_branch(ctx: &Context, target: &Target) -> Result<Ba
 
     // get some recent commits
     let recent_commits = repo
-        .l(target.sha, LogUntil::Take(20), false)
+        .l(target.sha.to_git2(), LogUntil::Take(20), false)
         .context("failed to get recent commits")?
         .iter()
         .map(|id| {
@@ -414,7 +421,7 @@ pub(crate) fn target_to_base_branch(ctx: &Context, target: &Target) -> Result<Ba
         push_remote_name: target.push_remote_name.clone(),
         push_remote_url,
         base_sha: target.sha,
-        current_sha: target_commit_id,
+        current_sha: target_commit_id.to_gix(),
         behind: upstream_commits.len(),
         upstream_commits,
         recent_commits,
@@ -467,8 +474,7 @@ fn inferred_default_target(repo: &gix::Repository, remote_name: &str) -> Result<
         let sha = head_ref
             .peel_to_commit()
             .context("Remote HEAD did not point to a commit")?
-            .id
-            .to_git2();
+            .id;
         return Ok(Some(Target {
             branch,
             remote_url,
@@ -485,8 +491,7 @@ fn inferred_default_target(repo: &gix::Repository, remote_name: &str) -> Result<
                 .with_context(|| {
                     format!("Fallback target '{full_name}' did not point to a commit")
                 })?
-                .id
-                .to_git2();
+                .id;
             return Ok(Some(Target {
                 branch: full_name.parse()?,
                 remote_url,
@@ -502,7 +507,7 @@ fn inferred_default_target(repo: &gix::Repository, remote_name: &str) -> Result<
 pub(crate) fn push(ctx: &Context, with_force: bool) -> Result<()> {
     let target = default_target(&ctx.project_data_dir())?;
     let _ = ctx.push(
-        target.sha,
+        target.sha.to_git2(),
         &target.branch,
         with_force,
         ctx.legacy_project.force_push_protection,

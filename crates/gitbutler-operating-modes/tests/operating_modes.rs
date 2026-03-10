@@ -19,7 +19,7 @@ fn create_edit_mode_metadata(ctx: &Context) {
     write_edit_mode_metadata(
         ctx,
         &EditModeMetadata {
-            commit_oid: git2::Oid::zero(),
+            commit_oid: gix::ObjectId::null(gix::hash::Kind::Sha1),
             stack_id: uuid::Uuid::new_v4().into(),
         },
     )

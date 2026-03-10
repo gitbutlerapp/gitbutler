@@ -1,6 +1,5 @@
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
-use but_oxidize::ObjectIdExt;
 use colored::Colorize;
 use gix::ObjectId;
 
@@ -11,7 +10,7 @@ pub(crate) fn commit(
     oid: &ObjectId,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    gitbutler_branch_actions::undo_commit(ctx, stack_id_by_commit_id(ctx, oid)?, oid.to_git2())?;
+    gitbutler_branch_actions::undo_commit(ctx, stack_id_by_commit_id(ctx, oid)?, *oid)?;
     if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?;
         writeln!(out, "Uncommitted {}", shorten_object_id(&repo, *oid).blue())?;

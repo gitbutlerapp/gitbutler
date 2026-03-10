@@ -66,7 +66,7 @@ fn add_series_top_base() -> Result<()> {
     let git2_repo = ctx.git2_repo.get()?;
     let merge_base = git2_repo.find_commit(git2_repo.merge_base(
         test_ctx.stack.head_oid(&ctx)?.to_git2(),
-        test_ctx.default_target.sha,
+        test_ctx.default_target.sha.to_git2(),
     )?)?;
     let reference = StackBranch::new(merge_base.id().to_gix(), "asdf".into(), &*ctx.repo.get()?)?;
     let result = test_ctx.stack.add_series(&ctx, reference, None);
@@ -780,13 +780,13 @@ fn test_ctx(ctx: &Context) -> Result<TestContext> {
     let git2_repo = ctx.git2_repo.get()?;
     let mut branch_commits = git2_repo.log(
         stack.head_oid(ctx)?.to_git2(),
-        LogUntil::Commit(target.sha),
+        LogUntil::Commit(target.sha.to_git2()),
         false,
     )?;
     branch_commits.reverse();
     let mut other_commits = git2_repo.log(
         other_stack.head_oid(ctx)?.to_git2(),
-        LogUntil::Commit(target.sha),
+        LogUntil::Commit(target.sha.to_git2()),
         false,
     )?;
     other_commits.reverse();
@@ -1125,7 +1125,7 @@ fn stack_target(branch: &str, sha: &str) -> Result<gitbutler_stack::Target> {
     Ok(gitbutler_stack::Target {
         branch: RemoteRefname::new("origin", branch),
         remote_url: "https://example.invalid/repo".into(),
-        sha: oid,
+        sha: oid.to_gix(),
         push_remote_name: Some("origin".into()),
     })
 }

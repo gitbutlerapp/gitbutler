@@ -353,7 +353,7 @@ pub fn upstream_integration_statuses(
         ..
     } = context;
     let git2_repo = &*ctx.git2_repo.get()?;
-    let old_target = git2_repo.find_commit(target.sha)?;
+    let old_target = git2_repo.find_commit(target.sha.to_git2())?;
 
     let repo = context.ctx.clone_repo_for_merging()?;
     let repo_in_memory = repo.clone().with_object_memory();
@@ -576,7 +576,7 @@ pub(crate) fn integrate_upstream(
         let mut stacks = virtual_branches_state.list_stacks_in_workspace()?;
 
         virtual_branches_state.set_default_target(Target {
-            sha: context.new_target,
+            sha: context.new_target.to_gix(),
             ..default_target
         })?;
 
@@ -652,14 +652,14 @@ pub(crate) fn resolve_upstream_integration(
     let context = UpstreamIntegrationContext::open(ctx, None, permission, &gix_repo, review_map)?;
     let repo = &*ctx.git2_repo.get()?;
     let new_target_id = context.new_target;
-    let old_target_id = context.target.sha;
+    let old_target_id = context.target.sha.to_git2();
     let fork_point = repo.merge_base(old_target_id, new_target_id)?;
 
     match resolution_approach {
         BaseBranchResolutionApproach::HardReset => Ok(new_target_id),
         BaseBranchResolutionApproach::Merge => {
             let branch_name = context.target.branch.to_string();
-            let old_target = repo.find_commit(context.target.sha)?;
+            let old_target = repo.find_commit(context.target.sha.to_git2())?;
             let new_head = gitbutler_merge_commits(
                 repo,
                 old_target,
@@ -751,7 +751,7 @@ fn compute_resolutions(
                     // If the base branch needs to resolve its divergence
                     // pick only the commits that are ahead of the old target head
                     let lower_bound = if base_branch_resolution_approach.is_some() {
-                        target.sha
+                        target.sha.to_git2()
                     } else {
                         *new_target
                     };

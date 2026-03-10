@@ -2,7 +2,6 @@ use anyhow::Context as _;
 use bstr::{BStr, ByteSlice};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
-use but_oxidize::OidExt;
 use but_workspace::ui::Commit;
 use cli_prompts::DisplayPrompt;
 use colored::{ColoredString, Colorize};
@@ -529,7 +528,7 @@ fn prompt_for_branch_selection(
     out: &mut OutputChannel,
 ) -> anyhow::Result<Vec<String>> {
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
-    let base_branch_id = base_branch.current_sha.to_gix();
+    let base_branch_id = base_branch.current_sha;
     let repo = &*ctx.repo.get()?;
 
     // Collect all branches with their information

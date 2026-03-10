@@ -230,7 +230,7 @@ impl BranchManager<'_> {
                 branch_name.clone(),
                 Some(target.clone()),
                 upstream_branch,
-                head_commit.id(),
+                head_commit.id().to_gix(),
                 order,
             )?
         };
@@ -277,7 +277,10 @@ impl BranchManager<'_> {
         // if not, we need to merge or rebase the branch to get it up to date
 
         let merge_base = repo
-            .merge_base(default_target.sha, stack.head_oid(self.ctx)?.to_git2())
+            .merge_base(
+                default_target.sha.to_git2(),
+                stack.head_oid(self.ctx)?.to_git2(),
+            )
             .context(format!(
                 "failed to find merge base between {} and {}",
                 default_target.sha,
@@ -334,9 +337,9 @@ impl BranchManager<'_> {
             .is_some();
         // If the branch has no change ID for the head commit, we want to rebase it even if the base is the same
         // This way stacking functionality which relies on change IDs will work as expected
-        if merge_base != default_target.sha || !has_change_id {
+        if merge_base != default_target.sha.to_git2() || !has_change_id {
             let steps = stack.as_rebase_steps(self.ctx)?;
-            let mut rebase = but_rebase::Rebase::new(&gix_repo, default_target.sha.to_gix(), None)?;
+            let mut rebase = but_rebase::Rebase::new(&gix_repo, default_target.sha, None)?;
             rebase.steps(steps)?;
             rebase.rebase_noops(true);
             let output = rebase.rebase()?;
