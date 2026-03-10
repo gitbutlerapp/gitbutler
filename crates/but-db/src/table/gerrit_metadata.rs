@@ -3,10 +3,11 @@
 use rusqlite::OptionalExtension;
 use serde::{Deserialize, Serialize};
 
-use crate::{DbHandle, M, Transaction};
+use crate::{DbHandle, M, SchemaVersion, Transaction};
 
 pub(crate) const M: &[M<'static>] = &[M::up(
     20251015212443,
+    SchemaVersion::Zero,
     "CREATE TABLE `gerrit_metadata`(
 	`change_id` TEXT NOT NULL PRIMARY KEY,
 	`commit_id` TEXT NOT NULL,

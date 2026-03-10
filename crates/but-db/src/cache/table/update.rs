@@ -1,9 +1,10 @@
 use chrono::{DateTime, Utc};
 
-use crate::{AppCacheHandle, M, Transaction};
+use crate::{AppCacheHandle, M, SchemaVersion, Transaction};
 
 pub(crate) const M: &[M<'static>] = &[M::up(
     2026_01_19__15_00_00,
+    SchemaVersion::Zero,
     "CREATE TABLE `update-check`(
     `id` INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
     `checked_at` TIMESTAMP NOT NULL,

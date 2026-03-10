@@ -2,11 +2,12 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DbHandle, M, Transaction};
+use crate::{DbHandle, M, SchemaVersion, Transaction};
 
 pub(crate) const M: &[M<'static>] = &[
     M::up(
         20250529110746,
+        SchemaVersion::Zero,
         "CREATE TABLE `butler_actions`(
 	`id` TEXT NOT NULL PRIMARY KEY,
 	`created_at` TIMESTAMP NOT NULL,
@@ -24,6 +25,7 @@ CREATE INDEX `idx_butler_actions_created_at` ON `butler_actions`(`created_at`);
     ),
     M::up(
         20250530112246,
+        SchemaVersion::Zero,
         "ALTER TABLE `butler_actions` DROP COLUMN `external_prompt`;
 ALTER TABLE `butler_actions` ADD COLUMN `external_summary` TEXT NOT NULL;
 ALTER TABLE `butler_actions` ADD COLUMN `external_prompt` TEXT;
@@ -31,10 +33,12 @@ ALTER TABLE `butler_actions` ADD COLUMN `external_prompt` TEXT;
     ),
     M::up(
         20250616090656,
+        SchemaVersion::Zero,
         "ALTER TABLE `butler_actions` ADD COLUMN `source` TEXT;",
     ),
     M::up(
         20250619181700,
+        SchemaVersion::Zero,
         "ALTER TABLE `butler_actions` DROP COLUMN `handler_prompt`;",
     ),
 ];

@@ -14,6 +14,13 @@
 //! final shape of the data, along with the shape of the corresponding Rust structure, which helps with
 //! precision and type-safety.
 //!
+//! Each migration also passes a [`SchemaVersion`] into [`M::up`]. That version is about
+//! forward-compatibility, not ordering. Keep the current version when older binaries can
+//! still open the database safely after the migration, for example when the change is
+//! additive or only affects data that older code ignores. Add the next schema-version
+//! variant only when an older binary must reject the migrated database, for example after
+//! dropping or repurposing persisted data that older code still depends on.
+//!
 //! ## ORM Types - for `Connection` and `Transaction`
 //!
 //! All ORM types are split into read-only and mutating versions, and they are thin wrappers around a
@@ -101,6 +108,31 @@ pub struct M<'a> {
     up: &'a str,
     /// The creation time of the `up` field, in a format like `20250529110746`, so it's suitable for sorting
     up_created_at: u64,
+    /// The forward-compatibility schema version after this migration has been applied.
+    schema_version: SchemaVersion,
+}
+
+/// Documents the forward-compatibility boundary associated with a migration.
+///
+/// The numeric migration id remains the source of truth for ordering. This enum exists so
+/// each migration must state whether it crosses into a new forward-incompatible database
+/// shape or remains readable by older client binaries.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum SchemaVersion {
+    /// The current forward-compatible schema line.
+    ///
+    /// Keep using `Zero` for migrations that older binaries can still tolerate after the
+    /// migration runs, such as adding tables or columns that they don't require.
+    ///
+    /// Switch to `One` only once a migration makes the database unsafe for binaries that only
+    /// understand `Zero`, such as removing or reinterpreting persisted data they still use.
+    Zero = 0,
+    /// The first forward-incompatible schema line.
+    ///
+    /// Use `One` once a migration requires older `Zero`-only binaries to reject the
+    /// database, and keep using it until the next forward-incompatible boundary is introduced.
+    /// Document here WHY the schema is breaking application forward compatibility.
+    One = 1,
 }
 
 /// A structure to receive an application-wide cache.
