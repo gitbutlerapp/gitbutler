@@ -7,7 +7,7 @@ use but_core::{RepositoryExt, TreeStatus, ui};
 use but_ctx::Context;
 use but_forge::ForgeReview;
 use but_oxidize::OidExt;
-use but_workspace::{ref_info::LocalCommitRelation, ui::PushStatus};
+use but_workspace::ui::{CommitState, PushStatus};
 use colored::{ColoredString, Colorize};
 use gitbutler_branch_actions::upstream_integration::BranchStatus as UpstreamBranchStatus;
 use gitbutler_stack::StackId;
@@ -15,7 +15,6 @@ use gix::date::time::CustomFormat;
 use serde::Serialize;
 
 use crate::{
-    CLI_DATE,
     id::{SegmentWithId, ShortId, StackWithId, TreeChangeWithId},
     tui::text::truncate_text,
     utils::{WriteWithUtils, time::format_relative_time_verbose},
@@ -105,17 +104,7 @@ pub(crate) async fn worktree(
         let mut guard = ctx.exclusive_worktree_access();
         but_rules::process_rules(ctx, guard.write_permission()).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
 
-        // TODO: use this for JSON status information (regular status information
-        //       already uses this)
-        let meta = ctx.meta()?;
-        but_workspace::head_info(
-            &*ctx.repo.get()?,
-            &meta,
-            but_workspace::ref_info::Options {
-                expensive_commit_info: true,
-                ..Default::default()
-            },
-        )?
+        but_api::legacy::workspace::head_info(ctx)?
     };
 
     let cache_config = if refresh_prs {
@@ -646,26 +635,36 @@ pub fn print_group(
             first = false;
 
             if !segment.remote_commits.is_empty() {
-                let tracking_branch = segment
+                let tracking_branch_display = segment
                     .inner
                     .remote_tracking_ref_name
                     .as_ref()
-                    .and_then(|rtb| rtb.as_bstr().strip_prefix(b"refs/remotes/"))
-                    .unwrap_or(b"unknown");
+                    .map(|rtb| format!("{}/{}", rtb.remote_name, rtb.display_name))
+                    .unwrap_or_else(|| "unknown".to_string());
                 writeln!(out, "┊┊")?;
                 writeln!(
                     out,
                     "┊╭┄┄{}",
-                    format!("(upstream: on {})", BStr::new(tracking_branch)).yellow()
+                    format!("(upstream: on {tracking_branch_display})").yellow()
                 )?;
             }
             for commit in &segment.remote_commits {
                 let details =
                     but_api::diff::commit_details(ctx, commit.commit_id(), ComputeLineStats::No)?;
+                let ui_commit = but_workspace::ui::Commit {
+                    id: commit.inner.id,
+                    parent_ids: Vec::new(),
+                    message: commit.inner.message.clone(),
+                    has_conflicts: false,
+                    state: CommitState::LocalOnly,
+                    created_at: commit.inner.created_at,
+                    author: commit.inner.author.clone(),
+                    gerrit_review_url: None,
+                };
                 print_commit(
                     &repo,
                     commit.short_id.clone(),
-                    &commit.inner,
+                    &ui_commit,
                     CommitChanges::Remote(&details.diff_with_first_parent),
                     CommitClassification::Upstream,
                     false,
@@ -684,22 +683,22 @@ pub fn print_group(
                     commit.commit_id().to_string(),
                 )
                 .unwrap_or_default();
-                let classification = match commit.relation() {
-                    LocalCommitRelation::LocalOnly => CommitClassification::LocalOnly,
-                    LocalCommitRelation::LocalAndRemote(object_id) => {
-                        if object_id == commit.commit_id() {
+                let classification = match commit.state() {
+                    CommitState::LocalOnly => CommitClassification::LocalOnly,
+                    CommitState::LocalAndRemote(object_id) => {
+                        if *object_id == commit.commit_id() {
                             CommitClassification::Pushed
                         } else {
                             CommitClassification::Modified
                         }
                     }
-                    LocalCommitRelation::Integrated(_) => CommitClassification::Integrated,
+                    CommitState::Integrated => CommitClassification::Integrated,
                 };
 
                 print_commit(
                     &repo,
                     commit.short_id.clone(),
-                    &commit.inner.inner,
+                    &commit.inner,
                     CommitChanges::Workspace(&commit.tree_changes_using_repo(&repo)?),
                     classification,
                     marked,
@@ -786,7 +785,7 @@ enum CommitChanges<'a> {
 fn print_commit(
     repo: &gix::Repository,
     short_id: ShortId,
-    commit: &but_workspace::ref_info::Commit,
+    commit: &but_workspace::ui::Commit,
     commit_changes: CommitChanges,
     classification: CommitClassification,
     marked: bool,
@@ -898,7 +897,7 @@ impl CliDisplay for but_core::TreeChange {
 fn display_cli_commit_details(
     repo: &gix::Repository,
     short_id: ShortId,
-    commit: &but_workspace::ref_info::Commit,
+    commit: &but_workspace::ui::Commit,
     has_changes: bool,
     verbose: bool,
     is_paged: bool,
@@ -929,8 +928,7 @@ fn display_cli_commit_details(
 
     if verbose {
         // No message when verbose since it goes to the next line
-        let created_at = commit.author.time;
-        let formatted_time = created_at.format_or_unix(CLI_DATE);
+        let formatted_time = json::i128_to_rfc3339(commit.created_at);
         format!(
             "{}{} {} {}{}{}",
             start_id,

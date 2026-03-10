@@ -13,7 +13,7 @@ use bstr::{BStr, BString, ByteSlice};
 use but_core::{ChangeId, ref_metadata::StackId};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
-use but_workspace::{branch::Stack, ref_info::LocalCommitRelation};
+use but_workspace::ui::{self as ws_ui, CommitState, ref_info::Stack};
 use nonempty::NonEmpty;
 use self_cell::self_cell;
 
@@ -153,20 +153,20 @@ pub struct WorkspaceCommitWithId {
     /// The short ID.
     pub short_id: ShortId,
     /// The original workspace commit.
-    pub inner: but_workspace::ref_info::LocalCommit,
+    pub inner: ws_ui::Commit,
 }
 impl WorkspaceCommitWithId {
     /// The object ID of the commit.
     pub fn commit_id(&self) -> gix::ObjectId {
-        self.inner.inner.id
+        self.inner.id
     }
     /// The ID of the first parent if the commit has parents.
     pub fn first_parent_id(&self) -> Option<gix::ObjectId> {
-        self.inner.inner.parent_ids.first().cloned()
+        self.inner.parent_ids.first().cloned()
     }
     /// State in relation to its remote tracking branch.
-    pub fn relation(&self) -> LocalCommitRelation {
-        self.inner.relation
+    pub fn state(&self) -> &CommitState {
+        &self.inner.state
     }
 }
 /// Methods to calculate the short IDs of committed files.
@@ -250,7 +250,7 @@ pub struct RemoteCommitWithId {
     /// The short ID.
     pub short_id: ShortId,
     /// The original remote commit.
-    pub inner: but_workspace::ref_info::Commit,
+    pub inner: ws_ui::UpstreamCommit,
 }
 impl RemoteCommitWithId {
     /// The object ID of the commit.
@@ -290,7 +290,7 @@ pub struct SegmentWithId {
     pub is_auto_id: bool,
     /// The original segment except that `commits` and `commits_on_remote` are
     /// blank to save memory.
-    pub inner: but_workspace::ref_info::Segment,
+    pub inner: ws_ui::ref_info::Segment,
     /// The original `inner.commits` with additional information.
     pub workspace_commits: Vec<WorkspaceCommitWithId>,
     /// The original `inner.commits_on_remote` with additional information.
@@ -304,19 +304,16 @@ impl SegmentWithId {
     /// Returns the branch name.
     pub fn branch_name(&self) -> Option<&BStr> {
         self.inner
-            .ref_info
+            .ref_name
             .as_ref()
-            .map(|ref_info| ref_info.ref_name.shorten())
+            .map(|br| br.display_name.as_bytes().as_bstr())
     }
     /// Returns the linked worktree ID.
     pub fn linked_worktree_id(&self) -> Option<&BStr> {
-        if let Some(ref_info) = &self.inner.ref_info
-            && let Some(but_graph::Worktree::LinkedId(id)) = &ref_info.worktree
-        {
-            Some(id.as_bstr())
-        } else {
-            None
-        }
+        self.inner
+            .linked_worktree_id
+            .as_ref()
+            .map(|id| id.as_bstr())
     }
     /// Returns the PR number.
     pub fn pr_number(&self) -> Option<usize> {
@@ -566,7 +563,8 @@ impl IdMap {
                 ..Default::default()
             },
         )?;
-        Self::new(head_info.stacks, hunk_assignments)
+        let ui_ref_info = ws_ui::RefInfo::for_ui(head_info, &repo)?;
+        Self::new(ui_ref_info.stacks, hunk_assignments)
     }
 }
 

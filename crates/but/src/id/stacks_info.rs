@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use bstr::BString;
-use but_workspace::branch::Stack;
+use but_workspace::ui::ref_info::Stack;
 
 use crate::id::{
     RemoteCommitWithId, SegmentWithId, ShortId, StackWithId, UNASSIGNED, WorkspaceCommitWithId,

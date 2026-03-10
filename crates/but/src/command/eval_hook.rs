@@ -106,7 +106,7 @@ fn collect_stacks(ctx: &but_ctx::Context, repo: &gix::Repository) -> Vec<StackIn
     let Ok(meta) = ctx.meta() else {
         return Vec::new();
     };
-    let info = match but_workspace::head_info(
+    let raw_info = match but_workspace::head_info(
         repo,
         &meta,
         but_workspace::ref_info::Options {
@@ -120,6 +120,13 @@ fn collect_stacks(ctx: &but_ctx::Context, repo: &gix::Repository) -> Vec<StackIn
             return Vec::new();
         }
     };
+    let info = match but_workspace::ui::RefInfo::for_ui(raw_info, repo) {
+        Ok(info) => info,
+        Err(e) => {
+            tracing::debug!(?e, "eval-hook: failed to convert to UI types");
+            return Vec::new();
+        }
+    };
     info.stacks
         .iter()
         .map(|stack| StackInfo {
@@ -127,7 +134,7 @@ fn collect_stacks(ctx: &but_ctx::Context, repo: &gix::Repository) -> Vec<StackIn
                 .segments
                 .iter()
                 .filter_map(|seg| {
-                    let name = seg.ref_info.as_ref()?.ref_name.shorten().to_string();
+                    let name = seg.ref_name.as_ref()?.display_name.clone();
                     Some(BranchInfo {
                         name,
                         commit_count: seg.commits.len(),

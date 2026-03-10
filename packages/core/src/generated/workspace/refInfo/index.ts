@@ -134,6 +134,10 @@ export type Segment = {
 	 */
 	isEntrypoint: boolean;
 	/**
+	 * The ID of a linked worktree associated with this segment, if any.
+	 */
+	linkedWorktreeId: number[] | null;
+	/**
 	 * A derived value to help the UI decide which functions to make available.
 	 */
 	pushStatus: PushStatus;
