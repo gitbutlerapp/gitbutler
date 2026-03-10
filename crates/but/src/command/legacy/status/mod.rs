@@ -267,53 +267,21 @@ pub(crate) async fn worktree(
         return Ok(());
     };
 
-    // Drop repo to release the borrow on ctx before the loop
+    // Drop repo to release the borrow on ctx before printing status details.
     drop(repo);
 
-    for (i, (stack_id, (stack_with_id, assignments))) in stack_details.into_iter().enumerate() {
-        let mut stack_mark = stack_id.and_then(|stack_id| {
-            if crate::command::legacy::mark::stack_marked(ctx, stack_id).unwrap_or_default() {
-                Some("◀ Marked ▶".red().bold())
-            } else {
-                None
-            }
-        });
-
-        // assignments to the stack
-        if let Some(stack_with_id) = &stack_with_id {
-            let branch_name = stack_with_id
-                .segments
-                .first()
-                .map_or(Some(BStr::new(b"")), SegmentWithId::branch_name);
-            let repo = ctx.repo.get()?;
-            print_assignments(
-                &repo,
-                stack_id,
-                &id_map,
-                branch_name,
-                &assignments,
-                &worktree_changes.worktree_changes.changes,
-                false,
-                out,
-            )?;
-        }
-
-        print_group(
-            &stack_with_id,
-            assignments,
-            &worktree_changes.worktree_changes.changes,
-            show_files,
-            verbose,
-            &mut stack_mark,
-            ctx,
-            i == 0,
-            &review_map,
-            &ci_map,
-            &branch_merge_statuses,
-            out,
-            &id_map,
-        )?;
-    }
+    print_status(
+        ctx,
+        out,
+        stack_details,
+        &id_map,
+        &worktree_changes.worktree_changes.changes,
+        show_files,
+        verbose,
+        &review_map,
+        &ci_map,
+        &branch_merge_statuses,
+    )?;
 
     // Format the last fetched time as relative time, unless NO_BG_TASKS is set
     let last_checked_text = if std::env::var("NO_BG_TASKS").is_ok() {
@@ -436,6 +404,68 @@ pub(crate) async fn worktree(
         } else {
             writeln!(out, "{}", "Hint: run `but help` for all commands".dimmed())?;
         }
+    }
+
+    Ok(())
+}
+
+/// Print per-stack status sections for human-readable output.
+#[expect(clippy::too_many_arguments)]
+fn print_status(
+    ctx: &mut Context,
+    out: &mut dyn WriteWithUtils,
+    stack_details: Vec<StackEntry>,
+    id_map: &IdMap,
+    changes: &[ui::TreeChange],
+    show_files: bool,
+    verbose: bool,
+    review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
+    ci_map: &BTreeMap<String, Vec<but_forge::CiCheck>>,
+    branch_merge_statuses: &BTreeMap<String, UpstreamBranchStatus>,
+) -> anyhow::Result<()> {
+    for (i, (stack_id, (stack_with_id, assignments))) in stack_details.into_iter().enumerate() {
+        let mut stack_mark = stack_id.and_then(|stack_id| {
+            if crate::command::legacy::mark::stack_marked(ctx, stack_id).unwrap_or_default() {
+                Some("◀ Marked ▶".red().bold())
+            } else {
+                None
+            }
+        });
+
+        // assignments to the stack
+        if let Some(stack_with_id) = &stack_with_id {
+            let branch_name = stack_with_id
+                .segments
+                .first()
+                .map_or(Some(BStr::new(b"")), SegmentWithId::branch_name);
+            let repo = ctx.repo.get()?;
+            print_assignments(
+                &repo,
+                stack_id,
+                id_map,
+                branch_name,
+                &assignments,
+                changes,
+                false,
+                out,
+            )?;
+        }
+
+        print_group(
+            &stack_with_id,
+            assignments,
+            changes,
+            show_files,
+            verbose,
+            &mut stack_mark,
+            ctx,
+            i == 0,
+            review_map,
+            ci_map,
+            branch_merge_statuses,
+            out,
+            id_map,
+        )?;
     }
 
     Ok(())
