@@ -392,7 +392,7 @@ pub fn discard_worktree_changes(
 mod json {
     use but_workspace::legacy::MoveChangesResult;
 
-    pub use crate::json::UIMoveChangesResult;
+    pub use crate::commit::json::UIMoveChangesResult;
 
     impl From<MoveChangesResult> for UIMoveChangesResult {
         fn from(value: MoveChangesResult) -> Self {
