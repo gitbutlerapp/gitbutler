@@ -7,7 +7,6 @@
 	import ReduxResult from "$components/ReduxResult.svelte";
 	import Resizer from "$components/Resizer.svelte";
 	import UnifiedDiffView from "$components/UnifiedDiffView.svelte";
-	import { FileContextMenuState } from "$lib/diffState/fileContextMenuState.svelte";
 	import FloatingModal from "$lib/floating/FloatingModal.svelte";
 	import { isExecutableStatus, type TreeChange } from "$lib/hunks/change";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
@@ -72,7 +71,8 @@
 	let fileListEl = $state<HTMLDivElement>();
 	let fileListContextMenu = $state<ReturnType<typeof ChangedFilesContextMenu>>();
 	let visibleRange = $state<{ start: number; end: number } | undefined>(undefined);
-	const menuState = new FileContextMenuState<ReturnType<typeof ChangedFilesContextMenu>>();
+	let contextMenu = $state<ChangedFilesContextMenu>();
+	let activeMenuPath = $state<string | undefined>();
 
 	const selectedChange = $derived(changes[selectedIndex] ?? changes[0]);
 
@@ -181,6 +181,15 @@
 					<Button kind="ghost" icon="cross" size="tag" onclick={onclose} />
 				</div>
 			{/if}
+			<ChangedFilesContextMenu
+				bind:this={contextMenu}
+				{projectId}
+				{stackId}
+				{selectionId}
+				onclose={() => {
+					activeMenuPath = undefined;
+				}}
+			/>
 			<!-- Diff area (single-file or virtual list depending on user setting) -->
 			<div class="diff-area" bind:this={diffScrollContainer}>
 				{#if !allInOneDiff}
@@ -204,40 +213,24 @@
 							{/snippet}
 
 							{#snippet actions()}
-								<ChangedFilesContextMenu
-									bind:this={menuState.contextMenus[selectedChange.path]}
-									{projectId}
-									{stackId}
-									{selectionId}
-									leftClickTrigger={menuState.buttonElements[selectedChange.path]}
-									trigger={menuState.buttonElements[selectedChange.path]}
-									onopen={() => {
-										menuState.menuOpenStates[selectedChange.path] = true;
-									}}
-									onclose={() => {
-										menuState.menuOpenStates[selectedChange.path] = false;
-									}}
-								/>
 								<Button
-									bind:el={menuState.buttonElements[selectedChange.path]}
 									kind="ghost"
 									icon="kebab"
 									size="tag"
-									activated={menuState.menuOpenStates[selectedChange.path]}
-									onclick={async () => {
-										const contextMenu = menuState.contextMenus[selectedChange.path];
-										const buttonEl = menuState.buttonElements[selectedChange.path];
-										if (!contextMenu || !buttonEl) return;
-
-										const allChanges = await idSelection.treeChanges(projectId, selectionId);
-										if (
-											idSelection.has(selectedChange.path, selectionId) &&
-											allChanges.length > 0
-										) {
-											contextMenu.open(buttonEl, { changes: allChanges });
-										} else {
-											contextMenu.open(buttonEl, { changes: [selectedChange] });
+									activated={activeMenuPath === selectedChange.path}
+									onclick={async (e) => {
+										if (!contextMenu || !(e.target instanceof HTMLElement)) return;
+										if (activeMenuPath === selectedChange.path) {
+											contextMenu.close();
+											return;
 										}
+										const changes = await idSelection.treeChanges(projectId, selectionId);
+										if (idSelection.has(selectedChange.path, selectionId) && changes.length > 0) {
+											contextMenu.open(e.target, { changes: changes });
+										} else {
+											contextMenu.open(e.target, { changes: [selectedChange] });
+										}
+										activeMenuPath = selectedChange.path;
 									}}
 								/>
 							{/snippet}
@@ -303,7 +296,7 @@
 								}}
 							>
 								{#snippet header()}
-									<div class="full-width" bind:this={menuState.headerTriggers[change.path]}>
+									<div class="full-width">
 										<FileViewHeader
 											filePath={change.path}
 											fileStatus={computeChangeStatus(change)}
@@ -315,37 +308,24 @@
 								{/snippet}
 
 								{#snippet actions()}
-									<ChangedFilesContextMenu
-										bind:this={menuState.contextMenus[change.path]}
-										{projectId}
-										{stackId}
-										{selectionId}
-										leftClickTrigger={menuState.buttonElements[change.path]}
-										trigger={menuState.headerTriggers[change.path]}
-										onopen={() => {
-											menuState.menuOpenStates[change.path] = true;
-										}}
-										onclose={() => {
-											menuState.menuOpenStates[change.path] = false;
-										}}
-									/>
 									<Button
-										bind:el={menuState.buttonElements[change.path]}
 										kind="ghost"
 										icon="kebab"
 										size="tag"
-										activated={menuState.menuOpenStates[change.path]}
-										onclick={async () => {
-											const contextMenu = menuState.contextMenus[change.path];
-											const buttonEl = menuState.buttonElements[change.path];
-											if (!contextMenu || !buttonEl) return;
-
+										activated={activeMenuPath === change.path}
+										onclick={async (e) => {
+											if (!contextMenu || !(e.currentTarget instanceof HTMLElement)) return;
+											if (activeMenuPath === change.path) {
+												contextMenu.close();
+												return;
+											}
 											const allChanges = await idSelection.treeChanges(projectId, selectionId);
 											if (idSelection.has(change.path, selectionId) && allChanges.length > 0) {
-												contextMenu.open(buttonEl, { changes: allChanges });
+												contextMenu.open(e.currentTarget, { changes: allChanges });
 											} else {
-												contextMenu.open(buttonEl, { changes: [change] });
+												contextMenu.open(e.currentTarget, { changes: [change] });
 											}
+											activeMenuPath = change.path;
 										}}
 									/>
 								{/snippet}
