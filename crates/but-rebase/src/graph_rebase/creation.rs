@@ -6,18 +6,37 @@ use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{
     Checkout, Edge, Editor, Pick, RevisionHistory, Selector, Step, StepGraph, StepGraphIndex,
-    SuccessfulRebase, util,
+    SuccessfulRebase, cherry_pick::PickSignMode, util,
 };
 
 /// Provides an extension for creating an Editor out of the segment graph
 pub trait GraphExt {
     /// Creates an editor.
+    ///
+    /// This editor signs commits in the legacy capacity if gitbutler.signCommits is enabled.
     fn to_editor(&self, repo: &gix::Repository) -> Result<Editor>;
+
+    /// Creates an editor that attempts to sign its commits.
+    ///
+    /// Only use this if the user has configured signing.
+    fn to_editor_signed(&self, repo: &gix::Repository) -> Result<Editor>;
+
+    /// TODO this shouldn't be here
+    fn to_editor_impl(&self, repo: &gix::Repository, sign_commits: bool) -> Result<Editor>;
 }
 
 impl GraphExt for Graph {
-    /// Creates an editor out of the segment graph.
+    /// Creates an editor out of the segment graph that signs commits.
+    fn to_editor_signed(&self, repo: &gix::Repository) -> Result<Editor> {
+        self.to_editor_impl(repo, true)
+    }
+
     fn to_editor(&self, repo: &gix::Repository) -> Result<Editor> {
+        self.to_editor_impl(repo, false)
+    }
+
+    /// Creates an editor out of the segment graph.
+    fn to_editor_impl(&self, repo: &gix::Repository, sign_commits: bool) -> Result<Editor> {
         // This first creates runs of nodes and associates them with the
         // but-graph segments. We then do a second pass over all the segments
         // and use the but_graph to connect up the runs. Finally, we validate
@@ -88,7 +107,11 @@ impl GraphExt for Graph {
                     let pick = if workspace_commit_id == Some(commit.id) {
                         Pick::new_workspace_pick(commit.id)
                     } else {
-                        Pick::new_pick(commit.id)
+                        let mut pick = Pick::new_pick(commit.id);
+                        if sign_commits {
+                            pick.sign_mode = PickSignMode::IfChanged
+                        }
+                        pick
                     };
                     let ix = graph.add_node(Step::Pick(pick));
                     commit_to_pick_ix.insert(commit.id, ix);

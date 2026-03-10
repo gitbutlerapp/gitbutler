@@ -2,7 +2,7 @@ use std::str;
 
 use anyhow::{Context as _, Result, anyhow, bail};
 use bstr::{BStr, BString};
-use but_core::{RepositoryExt as RepositoryExtGix, commit::Headers};
+use but_core::{RepositoryExt as RepositoryExtGix, commit::{Headers, SignMode}};
 use but_error::Code;
 use but_oxidize::{
     ObjectIdExt as _, OidExt, git2_signature_to_gix_signature, gix_to_git2_signature,
@@ -64,7 +64,7 @@ fn commit_gix(
     tree: gix::ObjectId,
     parents: &[gix::ObjectId],
     commit_headers: Option<Headers>,
-    sign_if_configured: bool,
+    sign_mode: SignMode,
 ) -> Result<gix::ObjectId> {
     let mut commit = gix::objs::Commit {
         message: message.into(),
@@ -87,7 +87,7 @@ fn commit_gix(
         repo,
         commit,
         update_ref.as_ref().map(|name| name.as_ref()),
-        sign_if_configured,
+        sign_mode,
     )
 }
 
@@ -112,7 +112,8 @@ pub fn commit_with_signature_gix(
         tree,
         parents,
         commit_headers,
-        true,
+        // TODO what to do here?
+        SignMode::LegacyIfSignCommitsEnabled,
     )
 }
 
@@ -137,7 +138,7 @@ pub fn commit_without_signature_gix(
         tree,
         parents,
         commit_headers,
-        false,
+        SignMode::No,
     )
 }
 

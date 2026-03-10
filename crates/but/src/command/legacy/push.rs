@@ -1,10 +1,12 @@
 use std::fmt::Write;
 
-use but_core::{RepositoryExt, ref_metadata::StackId};
+use but_core::{RepositoryExt, ref_metadata::StackId, settings::git::SignModeSetting};
 use but_ctx::Context;
+use but_rebase::graph_rebase::GraphExt;
 use cli_prompts::DisplayPrompt;
 use colored::Colorize;
 use gitbutler_branch_actions::internal::PushResult;
+use gix::ObjectId;
 use serde::Serialize;
 
 use crate::{
@@ -47,15 +49,18 @@ pub fn handle(
 ) -> anyhow::Result<()> {
     let id_map = IdMap::new_from_context(ctx, None)?;
 
-    // Check gerrit mode early
-    let gerrit_mode = {
+    let (gerrit_mode, sign_on_push) = {
         let repo = ctx.repo.get()?;
-        repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false)
+        let git_settings = repo.git_settings()?;
+        (
+            git_settings.gitbutler_gerrit_mode.unwrap_or(false),
+            git_settings.gitbutler_sign_mode == Some(SignModeSetting::OnPush),
+        )
     };
 
     // If dry-run, show what would be pushed
     if args.dry_run {
-        return handle_dry_run(ctx, &args.branch_id, out);
+        return handle_dry_run(ctx, &args.branch_id, sign_on_push, out);
     }
 
     // If no branch_id is provided, show all branches and prompt or push all
@@ -64,20 +69,20 @@ pub fn handle(
         let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
         BranchSelection::Single(branch_name)
     } else {
-        handle_no_branch_specified(ctx, out)?
+        handle_no_branch_specified(ctx, sign_on_push, out)?
     };
 
     // Handle branch selection
     match branch_selection {
-        BranchSelection::All => push_all_branches(ctx, &args, gerrit_mode, out),
+        BranchSelection::All => push_all_branches(ctx, &args, gerrit_mode, sign_on_push, out),
         BranchSelection::Single(branch_name) => {
-            push_single_branch(ctx, &branch_name, &args, gerrit_mode, out)
+            push_single_branch(ctx, &branch_name, &args, gerrit_mode, sign_on_push, out)
         }
         BranchSelection::None => Ok(()),
     }
 }
 
-/// Information about what would be pushed for a branch
+/// I;nformation about what would be pushed for a branch
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DryRunBranchInfo {
@@ -87,6 +92,11 @@ struct DryRunBranchInfo {
     stack_name: String,
     /// Number of unpushed commits
     unpushed_commits: usize,
+    /// The minimum amount of commits that must be signed before pushing
+    ///
+    /// If there are already signed commits on top of any these, those commits will require
+    /// re-signing
+    commits_to_force_sign: usize,
     /// The remote where it will be pushed
     remote: String,
     /// The remote ref name where it will be pushed
@@ -109,6 +119,7 @@ struct DryRunBranchInfo {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DryRunCommit {
+    /// whatever
     /// Short SHA
     sha_short: String,
     /// Full SHA
@@ -139,6 +150,7 @@ struct DryRunResult {
 fn handle_dry_run(
     ctx: &mut Context,
     branch_id: &Option<String>,
+    sign_on_push: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let mut progress = out.progress_channel();
@@ -149,7 +161,7 @@ fn handle_dry_run(
     but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("dry_run_push".into()))?;
 
     // Get all branches with info
-    let branches_with_info = get_branches_with_unpushed_info(ctx)?;
+    let branches_with_info = get_branches_with_unpushed_info(ctx, sign_on_push)?;
 
     // Filter based on branch_id if provided
     let branches_to_show: Vec<_> = if let Some(branch_id) = branch_id {
@@ -159,13 +171,16 @@ fn handle_dry_run(
 
         branches_with_info
             .into_iter()
-            .filter(|(name, count, _)| name == &branch_name && *count > 0)
+            .filter(|info| {
+                info.branch_name == branch_name && info.unpushed_count > 0
+                    || !info.commits_to_force_sign.is_empty()
+            })
             .collect()
     } else {
         // Show all branches with unpushed commits
         branches_with_info
             .into_iter()
-            .filter(|(_, count, _)| *count > 0)
+            .filter(|info| info.unpushed_count > 0 || !info.commits_to_force_sign.is_empty())
             .collect()
     };
 
@@ -196,7 +211,7 @@ fn handle_dry_run(
     let remote = default_target.push_remote_name();
     let repo = ctx.repo.get()?.clone().for_commit_shortening();
     let remote_names = repo.remote_names();
-    for (branch_name, unpushed_count, stack_name) in &branches_to_show {
+    for info in &branches_to_show {
         // Find the stack containing this branch
         for stack_entry in &stacks {
             if let Some(stack_id) = stack_entry.id {
@@ -206,13 +221,13 @@ fn handle_dry_run(
                 if let Some(branch_detail) = stack_details
                     .branch_details
                     .iter()
-                    .find(|b| b.name == branch_name.as_str())
+                    .find(|b| b.name == info.branch_name.as_str())
                 {
                     // Get the actual Stack to call push_details
                     let stack = vb_state.get_stack(stack_id)?;
 
                     // Get push details to determine remote ref
-                    let push_details = match stack.push_details(ctx, branch_name.clone()) {
+                    let push_details = match stack.push_details(ctx, info.branch_name.clone()) {
                         Ok(details) => details,
                         Err(_) => continue, // Skip if we can't get push details
                     };
@@ -268,7 +283,12 @@ fn handle_dry_run(
                     let requires_force = matches!(
                         branch_detail.push_status,
                         but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce
-                    );
+                    ) || branch_detail.commits.iter().any(|c| {
+                        // A LocalAndRemote commit that requires signing _always_ requires
+                        // force-pushing
+                        matches!(c.state, but_workspace::ui::CommitState::LocalAndRemote(_))
+                            && info.commits_to_force_sign.contains(&c.id)
+                    });
 
                     let warning = if !upstream_commits.is_empty() && !requires_force {
                         Some(format!(
@@ -297,9 +317,10 @@ fn handle_dry_run(
                         .map(|b| b.name.to_string());
 
                     dry_run_infos.push(DryRunBranchInfo {
-                        branch_name: branch_name.clone(),
-                        stack_name: stack_name.clone(),
-                        unpushed_commits: *unpushed_count,
+                        branch_name: info.branch_name.clone(),
+                        stack_name: info.stack_name.clone(),
+                        unpushed_commits: info.unpushed_count,
+                        commits_to_force_sign: info.commits_to_force_sign.len(),
                         remote: remote.clone(),
                         remote_ref: push_details.remote_refname.to_string().try_into()?,
                         commits,
@@ -443,7 +464,7 @@ fn handle_dry_run(
                 "Would push to:".dimmed(),
                 format!("{}/{}", info.remote, branch_name).yellow()
             )?;
-            writeln!(
+            write!(
                 progress,
                 "{}  {} {}",
                 line_prefix.dimmed(),
@@ -455,6 +476,31 @@ fn handle_dry_run(
                 )
                 .yellow()
             )?;
+
+            if info.commits_to_force_sign > 0 {
+                writeln!(
+                    progress,
+                    "{}",
+                    format!(
+                        ", {} commit{} to sign",
+                        info.commits_to_force_sign,
+                        if info.commits_to_force_sign == 1 {
+                            ""
+                        } else {
+                            "s"
+                        }
+                    )
+                    .yellow()
+                )?;
+
+                writeln!(
+                    progress,
+                    "{}  {}",
+                    line_prefix.dimmed(),
+                    "(signing may trigger additional signing of descendants)".dimmed(),
+                )?;
+            }
+            writeln!(progress)?;
 
             if !info.commits.is_empty() {
                 if is_in_stack {
@@ -582,9 +628,10 @@ fn push_single_branch(
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
+    sign_on_push: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let result = push_single_branch_impl(ctx, branch_name, args, gerrit_mode)?;
+    let result = push_single_branch_impl(ctx, branch_name, args, gerrit_mode, sign_on_push)?;
     let mut progress = out.progress_channel();
 
     if let Some(out) = out.for_json() {
@@ -631,12 +678,26 @@ fn push_single_branch_impl(
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
+    sign_on_push: bool,
 ) -> anyhow::Result<PushResult> {
     // Check for conflicted commits before pushing
     check_for_conflicted_commits(ctx, branch_name)?;
 
     // Find stack_id from branch name
     let stack_id = find_stack_id_by_branch_name(ctx, branch_name)?;
+
+    if sign_on_push {
+        // TODO fetch just before signing
+        let meta = ctx.meta()?;
+        let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
+        let unsigned_commits =
+            but_workspace::commit::commits_list_unsigned(&ws, &repo, Some(stack_id))?;
+        let editor = ws.graph.to_editor_signed(&repo)?;
+        let outcome =
+            but_workspace::commit::commits_sign(editor, unsigned_commits.unsigned_commits)?;
+        outcome.rebase.materialize()?;
+        ws.refresh_from_head(&repo, &meta)?;
+    }
 
     // Convert CLI args to gerrit flags with validation
     let gerrit_flags = get_gerrit_flags(args, branch_name, gerrit_mode)?;
@@ -659,15 +720,15 @@ fn push_all_branches(
     ctx: &mut Context,
     args: &Command,
     gerrit_mode: bool,
+    sign_on_push: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let mut progress = out.progress_channel();
-    let branches_with_info = get_branches_with_unpushed_info(ctx)?;
+    let branches_with_info = get_branches_with_unpushed_info(ctx, sign_on_push)?;
 
-    // Filter to only branches with unpushed commits
     let branches_to_push: Vec<_> = branches_with_info
         .into_iter()
-        .filter(|(_, count, _)| *count > 0)
+        .filter(|info| info.unpushed_count > 0 || !info.commits_to_force_sign.is_empty())
         .collect();
 
     if branches_to_push.is_empty() {
@@ -696,24 +757,24 @@ fn push_all_branches(
     let mut pushed_results = Vec::new();
     let mut failed_branches = Vec::new();
 
-    for (branch_name, unpushed_count, _) in branches_to_push {
-        write!(progress, "  {} {}... ", "→".cyan(), branch_name.bold())?;
+    for info in branches_to_push {
+        write!(progress, "  {} {}... ", "→".cyan(), info.branch_name.bold())?;
 
-        match push_single_branch_impl(ctx, &branch_name, args, gerrit_mode) {
+        match push_single_branch_impl(ctx, &info.branch_name, args, gerrit_mode, sign_on_push) {
             Ok(result) => {
-                total_commits_pushed += unpushed_count;
+                total_commits_pushed += info.unpushed_count;
                 writeln!(
                     progress,
                     "{} ({} commit{})",
                     "✓".green(),
-                    unpushed_count.to_string().yellow(),
-                    if unpushed_count == 1 { "" } else { "s" }
+                    info.unpushed_count.to_string().yellow(),
+                    if info.unpushed_count == 1 { "" } else { "s" }
                 )?;
                 pushed_results.push(result);
             }
             Err(e) => {
                 failed_branches.push(FailedBranch {
-                    branch_name: branch_name.clone(),
+                    branch_name: info.branch_name.clone(),
                     error: e.to_string(),
                 });
                 writeln!(progress, "{} {}", "✗".red(), e.to_string().red())?;
@@ -800,10 +861,11 @@ fn push_all_branches(
 }
 
 fn handle_no_branch_specified(
-    ctx: &Context,
+    ctx: &mut Context,
+    sign_on_push: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<BranchSelection> {
-    let branches_with_info = get_branches_with_unpushed_info(ctx)?;
+    let branches_with_info = get_branches_with_unpushed_info(ctx, sign_on_push)?;
 
     if branches_with_info.is_empty() {
         // Treat an empty workspace as a no-op push instead of an error.
@@ -825,7 +887,7 @@ fn handle_no_branch_specified(
     // Collect branches with unpushed commits
     let branches_with_unpushed: Vec<_> = branches_with_info
         .iter()
-        .filter(|(_, unpushed_count, _)| *unpushed_count > 0)
+        .filter(|info| info.unpushed_count > 0 || !info.commits_to_force_sign.is_empty())
         .collect();
 
     if branches_with_unpushed.is_empty() {
@@ -840,20 +902,21 @@ fn handle_no_branch_specified(
 
     // If there's only one branch with unpushed commits, push it automatically
     if branches_with_unpushed.len() == 1 {
-        let (branch_name, _unpushed_count, _) = branches_with_unpushed[0];
-        return Ok(BranchSelection::Single(branch_name.clone()));
+        return Ok(BranchSelection::Single(
+            branches_with_unpushed[0].branch_name.clone(),
+        ));
     }
 
     writeln!(progress)?;
 
     // Multiple branches with unpushed commits - let the prompt handle it
     let mut options = vec!["all - Push all branches with unpushed commits".to_string()];
-    for (branch_name, unpushed_count, _) in &branches_with_unpushed {
+    for info in &branches_with_unpushed {
         options.push(format!(
             "{} - {} unpushed commit{}",
-            branch_name,
-            unpushed_count,
-            if *unpushed_count == 1 { "" } else { "s" }
+            info.branch_name,
+            info.unpushed_count,
+            if info.unpushed_count == 1 { "" } else { "s" }
         ));
     }
 
@@ -879,13 +942,28 @@ fn handle_no_branch_specified(
     }
 }
 
-fn get_branches_with_unpushed_info(ctx: &Context) -> anyhow::Result<Vec<(String, usize, String)>> {
+struct BranchUnpushedInfo {
+    branch_name: String,
+    unpushed_count: usize,
+    stack_name: String,
+    commits_to_force_sign: Vec<ObjectId>,
+}
+
+fn get_branches_with_unpushed_info(
+    ctx: &mut Context,
+    sign_on_push: bool,
+) -> anyhow::Result<Vec<BranchUnpushedInfo>> {
     let stacks = but_api::legacy::workspace::stacks(
         ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
 
     let mut branches_info = Vec::new();
+
+    let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
+
+    let unsigned_commits =
+        but_workspace::commit::commits_list_unsigned(&ws, &repo, None)?.unsigned_commits;
 
     for stack in stacks {
         if let Some(stack_id) = stack.id {
@@ -900,10 +978,11 @@ fn get_branches_with_unpushed_info(ctx: &Context) -> anyhow::Result<Vec<(String,
                 let branch_name = head.name.to_string();
 
                 // Find the corresponding branch details to count unpushed commits
-                let unpushed_count = if let Some(branch_detail) = stack_details
-                    .branch_details
-                    .iter()
-                    .find(|b| b.name == head.name)
+                let (unpushed_count, commits_to_force_sign) = if let Some(branch_detail) =
+                    stack_details
+                        .branch_details
+                        .iter()
+                        .find(|b| b.name == head.name)
                 {
                     // Count only commits that are LocalOnly (not pushed to remote)
                     // LocalAndRemote means it exists on both, Integrated means it's already in base
@@ -913,32 +992,55 @@ fn get_branches_with_unpushed_info(ctx: &Context) -> anyhow::Result<Vec<(String,
                         .filter(|c| matches!(c.state, but_workspace::ui::CommitState::LocalOnly))
                         .count();
 
+                    let commits_to_force_sign = if sign_on_push {
+                        branch_detail
+                            .commits
+                            .iter()
+                            .map(|c| c.id.to_owned())
+                            .filter(|id| unsigned_commits.contains(id))
+                            .collect()
+                    } else {
+                        Vec::new()
+                    };
+
                     // Additionally check if push_status indicates there are unpushed commits
                     // even if we don't find any LocalOnly commits (e.g., for new branches)
-                    match branch_detail.push_status {
-                        but_workspace::ui::PushStatus::CompletelyUnpushed => {
-                            // All commits on the branch need to be pushed
-                            branch_detail.commits.len().max(local_only_count)
-                        }
-                        but_workspace::ui::PushStatus::UnpushedCommits
-                        | but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce => {
-                            // There are commits to push
-                            local_only_count.max(1) // At least 1 if push_status says so
-                        }
-                        _ => local_only_count,
-                    }
+                    (
+                        match branch_detail.push_status {
+                            but_workspace::ui::PushStatus::CompletelyUnpushed => {
+                                // All commits on the branch need to be pushed
+                                branch_detail.commits.len().max(local_only_count)
+                            }
+                            but_workspace::ui::PushStatus::UnpushedCommits
+                            | but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce => {
+                                // There are commits to push
+                                local_only_count.max(1) // At least 1 if push_status says so
+                            }
+                            _ => local_only_count,
+                        },
+                        commits_to_force_sign,
+                    )
                 } else {
                     // If no detailed branch info found, assume no unpushed commits
-                    0
+                    (0, Vec::new())
                 };
 
-                branches_info.push((branch_name, unpushed_count, stack_name.clone()));
+                branches_info.push(BranchUnpushedInfo {
+                    branch_name,
+                    unpushed_count,
+                    stack_name: stack_name.clone(),
+                    commits_to_force_sign,
+                });
             }
         }
     }
 
     // Sort by stack name and then by branch name for consistent ordering
-    branches_info.sort_by(|a, b| a.2.cmp(&b.2).then(a.0.cmp(&b.0)));
+    branches_info.sort_by(|a, b| {
+        a.stack_name
+            .cmp(&b.stack_name)
+            .then(a.branch_name.cmp(&b.branch_name))
+    });
 
     Ok(branches_info)
 }

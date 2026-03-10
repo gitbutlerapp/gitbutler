@@ -1,6 +1,6 @@
 use anyhow::{Context as _, bail};
 use bstr::BStr;
-use but_core::RepositoryExt;
+use but_core::{RepositoryExt, commit::SignMode};
 use gix::config::Source;
 
 /// What to do with the committer (actor) and the commit time when [creating a new commit](create()).
@@ -82,11 +82,18 @@ pub fn save_author_if_unset_in_repo<'a, 'b>(
 ///
 /// Signatures will be removed automatically if signing is disabled to prevent an amended commit
 /// to use the old signature.
+///
+/// `sign_if_configured_legacy` - If true, maintains the legacy behavior of signing the commit only
+/// if gitbutler.signCommits is set to true. This is deprecated and will be removed in the future.
+///
+/// `sign_commit` - If true, attempts to sign the commit regardless of settings. It's up to the
+/// caller to determine Completely
+/// overrides the `sign_if_configured_legacy` parameter.
 pub fn create(
     repo: &gix::Repository,
     mut commit: gix::objs::Commit,
     committer: DateMode,
-    sign_if_configured: bool,
+    sign_mode: SignMode,
 ) -> anyhow::Result<gix::ObjectId> {
     match committer {
         DateMode::CommitterUpdateAuthorKeep => {
@@ -102,7 +109,7 @@ pub fn create(
     if settings.gitbutler_gerrit_mode.unwrap_or(false) {
         but_gerrit::set_trailers(&mut commit);
     }
-    but_core::commit::create(repo, commit, None, sign_if_configured)
+    but_core::commit::create(repo, commit, None, sign_mode)
 }
 
 /// Update the committer of `commit` to be the current one.

@@ -148,6 +148,17 @@ impl From<&Headers> for Vec<(BString, BString)> {
     }
 }
 
+/// Determines how to sign commits.
+#[derive(PartialEq, Copy, Clone, Debug)]
+pub enum SignMode {
+    /// Sign
+    Yes,
+    /// Do not sign
+    No,
+    /// **Deprecated:** Legacy behavior, signs the commit if gitbutler.signCommits=true
+    LegacyIfSignCommitsEnabled,
+}
+
 /// Write `commit` into `repo`, removing any existing commit signature first, optionally creating a
 /// new one based on repository configuration, and optionally updating `update_ref` to the new ID.
 ///
@@ -156,7 +167,7 @@ pub fn create(
     repo: &gix::Repository,
     mut commit: gix::objs::Commit,
     update_ref: Option<&gix::refs::FullNameRef>,
-    sign_if_configured: bool,
+    sign_mode: SignMode,
 ) -> anyhow::Result<gix::ObjectId> {
     if let Some(pos) = commit
         .extra_headers()
@@ -165,7 +176,7 @@ pub fn create(
         commit.extra_headers.remove(pos);
     }
 
-    if sign_if_configured && repo.git_settings()?.gitbutler_sign_commits.unwrap_or(false) {
+    if sign_mode == SignMode::LegacyIfSignCommitsEnabled && repo.git_settings()?.gitbutler_sign_commits.unwrap_or(false) || sign_mode == SignMode::Yes {
         let mut buf = Vec::new();
         commit.write_to(&mut buf)?;
         match sign_buffer(repo, &buf) {
@@ -175,26 +186,29 @@ pub fn create(
                     .push((gix::objs::commit::SIGNATURE_FIELD_NAME.into(), signature));
             }
             Err(err) => {
-                if repo
-                    .config_snapshot()
-                    .boolean_filter("gitbutler.signCommits", |md| {
-                        md.source != gix::config::Source::Local
-                    })
+                tracing::warn!("Commit signing failed with sign_mode={sign_mode:?}");
+                if sign_mode == SignMode::LegacyIfSignCommitsEnabled {
+                    if repo
+                        .config_snapshot()
+                            .boolean_filter("gitbutler.signCommits", |md| {
+                                md.source != gix::config::Source::Local
+                            })
                     .is_none()
-                {
-                    repo.set_git_settings(&GitConfigSettings {
-                        gitbutler_sign_commits: Some(false),
-                        ..GitConfigSettings::default()
-                    })?;
-                    return Err(
-                        anyhow!("Failed to sign commit: {err}").context(Code::CommitSigningFailed)
-                    );
-                } else {
-                    tracing::warn!(
-                        "Commit signing failed but remains enabled as gitbutler.signCommits is explicitly enabled globally"
-                    );
-                    return Err(err);
+                    {
+                        repo.set_git_settings(&GitConfigSettings {
+                            gitbutler_sign_commits: Some(false),
+                            ..GitConfigSettings::default()
+                        })?;
+                        return Err(
+                            anyhow!("Failed to sign commit: {err}").context(Code::CommitSigningFailed)
+                        );
+                    } else {
+                        tracing::warn!(
+                            "Commit signing failed but remains enabled as gitbutler.signCommits is explicitly enabled globally"
+                        );
+                    }
                 }
+                return Err(err);
             }
         }
     }

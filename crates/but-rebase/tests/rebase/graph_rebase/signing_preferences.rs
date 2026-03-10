@@ -1,9 +1,9 @@
 use std::fs;
 
-/// These tests cover the `sign_if_configured` property on the Step::Pick.
+/// These tests cover the `sign_if_configured_legacy` property on the Step::Pick.
 use anyhow::Result;
 use but_graph::Graph;
-use but_rebase::graph_rebase::{GraphExt, Pick, Step};
+use but_rebase::graph_rebase::{GraphExt, Pick, Step, cherry_pick::PickSignMode};
 use but_testsupport::{cat_commit, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable_with_signing, standard_options};
@@ -65,7 +65,7 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
     let c = repo.rev_parse_single("c")?;
     let c_sel = editor.select_commit(c.detach())?;
     let mut pick = Pick::new_pick(c.detach());
-    pick.sign_if_configured = false;
+    pick.sign_mode = PickSignMode::Never;
     editor.replace(c_sel, Step::Pick(pick))?;
 
     let outcome = editor.rebase()?;
@@ -152,7 +152,7 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     let c = repo.rev_parse_single("c")?;
     let c_sel = editor.select_commit(c.detach())?;
     let mut pick = Pick::new_pick(c.detach());
-    pick.sign_if_configured = false;
+    pick.sign_mode = PickSignMode::Never;
     editor.replace(c_sel, Step::Pick(pick))?;
 
     // Remove the "b" commit so "c" gets cherry-picked

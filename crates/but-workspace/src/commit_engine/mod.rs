@@ -3,7 +3,7 @@
 use anyhow::bail;
 use but_core::{
     DiffSpec, RepositoryExt,
-    commit::Headers,
+    commit::{Headers, SignMode},
     ref_metadata::StackId,
     tree::{CreateTreeOutcome, create_tree, create_tree::RejectionReason},
 };
@@ -195,7 +195,7 @@ pub fn create_commit(
                     repo,
                     commit.inner,
                     DateMode::CommitterUpdateAuthorKeep,
-                    true,
+                    SignMode::LegacyIfSignCommitsEnabled,
                 )?)
             }
         }
@@ -233,5 +233,10 @@ fn create_possibly_signed_commit(
             .unwrap_or_else(|| Headers::from_config(&repo.config_snapshot())))
             .into(),
     };
-    but_rebase::commit::create(repo, commit, DateMode::CommitterKeepAuthorKeep, true)
+    but_rebase::commit::create(
+        repo,
+        commit,
+        DateMode::CommitterKeepAuthorKeep,
+        SignMode::LegacyIfSignCommitsEnabled,
+    )
 }

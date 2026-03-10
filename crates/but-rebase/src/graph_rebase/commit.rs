@@ -1,6 +1,7 @@
 //! Provides some slightly higher level tools to help with manipulating commits, in preparation for use in the editor.
 
 use anyhow::{Context, Result, bail};
+use but_core::commit::SignMode;
 use gix::prelude::ObjectIdExt;
 
 use crate::{
@@ -74,8 +75,13 @@ impl Editor {
         date_mode: DateMode,
     ) -> Result<gix::ObjectId> {
         // TODO(GB-983): As part of moving to only signing at the materializing
-        // step, this should have sign_if_configured false here.
-        create(&self.repo, commit.inner, date_mode, true)
+        // step, this should have sign_if_configured_legacy false here.
+        create(
+            &self.repo,
+            commit.inner,
+            date_mode,
+            SignMode::LegacyIfSignCommitsEnabled,
+        )
     }
 
     /// Writes a commit with correct signing to the in memory repository.

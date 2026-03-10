@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow, bail};
 use bstr::{BString, ByteSlice};
-use but_core::{RepositoryExt, commit::TreeKind};
+use but_core::{RepositoryExt, commit::{SignMode, TreeKind}};
 use gix::prelude::ObjectIdExt;
 
 use crate::commit::DateMode;
@@ -95,7 +95,7 @@ pub fn octopus(
             repo,
             target_merge_commit,
             DateMode::CommitterUpdateAuthorKeep,
-            true,
+            SignMode::LegacyIfSignCommitsEnabled,
         )
     } else {
         crate::commit::update_committer(repo, &mut target_merge_commit)?;

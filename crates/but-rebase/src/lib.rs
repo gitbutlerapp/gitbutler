@@ -5,10 +5,11 @@
 
 use anyhow::{Context as _, Ok, Result, anyhow, bail};
 use bstr::BString;
+use but_core::commit::SignMode;
 use gix::prelude::ObjectIdExt;
 use tracing::instrument;
 
-use crate::commit::DateMode;
+use crate::commit::{DateMode};
 
 /// Tools for manipulating commits
 pub mod graph_rebase;
@@ -294,7 +295,7 @@ fn rebase(
                                 repo,
                                 new_commit,
                                 DateMode::CommitterUpdateAuthorKeep,
-                                true,
+                                SignMode::LegacyIfSignCommitsEnabled,
                             )?);
                         }
                         None => {
@@ -329,8 +330,12 @@ fn rebase(
                 if let Some(new_message) = new_message {
                     new_commit.message = new_message;
                 }
-                *cursor =
-                    commit::create(repo, new_commit, DateMode::CommitterUpdateAuthorKeep, true)?;
+                *cursor = commit::create(
+                    repo,
+                    new_commit,
+                    DateMode::CommitterUpdateAuthorKeep,
+                    SignMode::LegacyIfSignCommitsEnabled,
+                )?;
             }
             RebaseStep::Reference(reference) => {
                 references.push(ReferenceSpec {
@@ -374,7 +379,7 @@ fn reword_commit(
         repo,
         new_commit,
         DateMode::CommitterUpdateAuthorKeep,
-        true,
+        SignMode::LegacyIfSignCommitsEnabled,
     )?)
 }
 
@@ -390,7 +395,7 @@ pub fn replace_commit_tree(
         repo,
         new_commit,
         DateMode::CommitterUpdateAuthorKeep,
-        true,
+        SignMode::LegacyIfSignCommitsEnabled,
     )?)
 }
 

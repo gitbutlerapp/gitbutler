@@ -162,7 +162,7 @@ mod headers {
 mod create {
     use anyhow::Context as _;
     use bstr::ByteSlice;
-    use but_core::commit;
+    use but_core::commit::{self, SignMode};
     use but_testsupport::writable_scenario_with_ssh_key;
     use gix::{objs::commit::SIGNATURE_FIELD_NAME, refs};
 
@@ -170,7 +170,7 @@ mod create {
     fn signs_commits_when_enabled() -> anyhow::Result<()> {
         let (repo, _tmp) = writable_scenario_with_ssh_key("single-signed");
 
-        let oid = commit::create(&repo, commit_from_head(&repo, "signed again")?, None, true)?;
+        let oid = commit::create(&repo, commit_from_head(&repo, "signed again")?, None, SignMode::LegacyIfSignCommitsEnabled)?;
         let commit = repo.find_commit(oid)?;
         let commit = commit.decode()?;
 
@@ -193,7 +193,7 @@ mod create {
             "the fixture starts with a signed commit"
         );
 
-        let oid = commit::create(&repo, commit_from_head(&repo, "unsigned")?, None, false)?;
+        let oid = commit::create(&repo, commit_from_head(&repo, "unsigned")?, None, SignMode::No)?;
         let commit = repo.find_commit(oid)?;
         let commit = commit.decode()?;
 
@@ -214,7 +214,7 @@ mod create {
             &repo,
             commit_from_head(&repo, "updates ref")?,
             Some(update_ref.as_ref()),
-            false,
+            SignMode::No,
         )?;
         let reference = repo.find_reference(update_ref.as_ref())?;
 
@@ -238,7 +238,7 @@ mod create {
             .extra_headers
             .push(("x-test-header".into(), "kept".into()));
 
-        let oid = commit::create(&repo, new_commit, None, false)?;
+        let oid = commit::create(&repo, new_commit, None, SignMode::No)?;
         let commit = repo.find_commit(oid)?;
         let commit = commit.decode()?;
 
