@@ -1520,6 +1520,9 @@ function injectEndpoints(api: BackendApi, uiState: UiState) {
 					actionName: "Uncommit Changes",
 				},
 				query: (args) => args,
+				transformResponse: (a: BackendMoveChangesResult) => ({
+					replacedCommits: Object.entries(a.replacedCommits),
+				}),
 				invalidatesTags(_result, _error, args) {
 					return [
 						invalidatesList(ReduxTag.HeadSha),
