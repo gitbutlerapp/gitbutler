@@ -304,27 +304,12 @@ pub(crate) async fn worktree(
         &last_checked_text,
     )?;
 
-    let first_line = common_merge_base_data.message.lines().next().unwrap_or("");
-    let connector = if upstream_state.is_some() {
-        "├╯"
-    } else {
-        "┴"
-    };
-    let first_line = out.truncate_if_unpaged(first_line, 40);
-    writeln!(
-        out,
-        "{} {} [{}] {} {first_line}",
-        connector,
-        common_merge_base_data.common_merge_base.dimmed(),
-        common_merge_base_data.target_name.green().bold(),
-        common_merge_base_data.commit_date.dimmed(),
-    )?;
+    print_common_merge_base_summary(out, &common_merge_base_data, upstream_state.is_some())?;
 
     let not_on_workspace = matches!(
         mode,
         gitbutler_operating_modes::OperatingMode::OutsideWorkspace(_)
     );
-
     if not_on_workspace {
         writeln!(
             out,
@@ -428,6 +413,26 @@ fn print_upstream_state(
         )?;
     }
 
+    Ok(())
+}
+
+/// Print the common merge-base summary line at the bottom of the status tree.
+fn print_common_merge_base_summary(
+    out: &mut dyn WriteWithUtils,
+    common_merge_base_data: &CommonMergeBase,
+    has_upstream_state: bool,
+) -> anyhow::Result<()> {
+    let first_line = common_merge_base_data.message.lines().next().unwrap_or("");
+    let connector = if has_upstream_state { "├╯" } else { "┴" };
+    let first_line = out.truncate_if_unpaged(first_line, 40);
+    writeln!(
+        out,
+        "{} {} [{}] {} {first_line}",
+        connector,
+        common_merge_base_data.common_merge_base.dimmed(),
+        common_merge_base_data.target_name.green().bold(),
+        common_merge_base_data.commit_date.dimmed(),
+    )?;
     Ok(())
 }
 
