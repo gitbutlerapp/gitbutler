@@ -112,7 +112,7 @@ pub fn apply_only(
 }
 
 /// Just like [apply_only()], but will create an oplog entry as well on success.
-#[but_api(json::ApplyOutcome)]
+#[but_api(napi, json::ApplyOutcome)]
 #[instrument(err(Debug))]
 pub fn apply(
     ctx: &mut but_ctx::Context,
