@@ -1,5 +1,6 @@
 use super::*;
 
+mod commit;
 mod reword;
 
 #[test]

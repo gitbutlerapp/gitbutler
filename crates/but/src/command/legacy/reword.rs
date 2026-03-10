@@ -4,6 +4,7 @@ use but_api::diff::ComputeLineStats;
 use but_ctx::Context;
 use gix::prelude::ObjectIdExt;
 
+use super::{ShowDiffInEditor, estimate_diff_blob_size};
 use crate::{CliId, IdMap, tui, utils::OutputChannel};
 
 pub(crate) fn reword_target(
@@ -38,6 +39,9 @@ pub(crate) fn reword_target(
             if format {
                 bail!("--format flag can only be used with commits, not branches");
             }
+            if !matches!(show_diff_in_editor, ShowDiffInEditor::Unspecified) {
+                bail!("--diff and --no-diff flags can only be used with commits, not branches");
+            }
             edit_branch_name(ctx, name, out, message)?;
         }
         CliId::Commit { commit_id: oid, .. } => {
@@ -52,27 +56,6 @@ pub(crate) fn reword_target(
     }
 
     Ok(())
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub(crate) enum ShowDiffInEditor {
-    /// The user requested we always show the diff.
-    Always,
-    /// The user requested we never show the diff.
-    Never,
-    /// The user didn't specify a preference.
-    Unspecified,
-}
-
-impl ShowDiffInEditor {
-    pub(crate) fn from_args(diff: bool, no_diff: bool) -> Option<Self> {
-        match (diff, no_diff) {
-            (true, true) => None,
-            (true, false) => Some(Self::Always),
-            (false, true) => Some(Self::Never),
-            (false, false) => Some(Self::Unspecified),
-        }
-    }
 }
 
 fn edit_branch_name(
@@ -121,14 +104,6 @@ fn prepare_provided_message(msg: Option<&str>, entity: &str) -> Option<Result<St
     })
 }
 
-/// The maximum total blob size (in bytes) for which we'll show the diff in the editor
-/// when the user hasn't specified a preference. This uses object header lookups
-/// which are cheap compared to actually computing diffs.
-///
-/// 900KB is very roughly 15,000 lines at ~60 bytes per line. Just to protect the user from
-/// stalling their system if they accidentally commit a big log file.
-const MAX_DIFF_BLOB_SIZE_FOR_EDITOR_IF_UNSPECIFIED: u64 = 900_000;
-
 fn edit_commit_message_by_id(
     ctx: &mut Context,
     commit_oid: gix::ObjectId,
@@ -152,15 +127,9 @@ fn edit_commit_message_by_id(
         prepare_provided_message(message, "commit message").unwrap_or_else(|| {
             let changed_files = get_changed_files_from_commit_details(&commit_details);
 
-            let should_show_diff = match show_diff_in_editor {
-                ShowDiffInEditor::Always => true,
-                ShowDiffInEditor::Never => false,
-                ShowDiffInEditor::Unspecified => {
-                    let total_blob_size =
-                        estimate_diff_blob_size(&commit_details.diff_with_first_parent, ctx)?;
-                    total_blob_size <= MAX_DIFF_BLOB_SIZE_FOR_EDITOR_IF_UNSPECIFIED
-                }
-            };
+            let should_show_diff = show_diff_in_editor.should_show_diff(|| {
+                estimate_diff_blob_size(&commit_details.diff_with_first_parent, ctx)
+            })?;
             let diff = should_show_diff
                 .then(|| {
                     commit_details
@@ -198,40 +167,6 @@ fn edit_commit_message_by_id(
     }
 
     Ok(())
-}
-
-/// Sum the blob sizes involved in the given tree changes using cheap object header lookups.
-/// For modifications/renames, uses the larger of the two sides as an upper bound.
-fn estimate_diff_blob_size(changes: &[but_core::TreeChange], ctx: &mut Context) -> Result<u64> {
-    fn blob_size(repo: &gix::Repository, id: &gix::ObjectId) -> u64 {
-        repo.find_header(*id).map(|h| h.size()).unwrap_or(0)
-    }
-
-    let repo = ctx.repo.get()?;
-
-    Ok(changes
-        .iter()
-        .map(|change| match &change.status {
-            but_core::TreeStatus::Addition { state, .. } => blob_size(&repo, &state.id),
-            but_core::TreeStatus::Deletion { previous_state } => {
-                blob_size(&repo, &previous_state.id)
-            }
-            but_core::TreeStatus::Modification {
-                previous_state,
-                state,
-                ..
-            }
-            | but_core::TreeStatus::Rename {
-                previous_state,
-                state,
-                ..
-            } => {
-                let a = blob_size(&repo, &previous_state.id);
-                let b = blob_size(&repo, &state.id);
-                a.max(b)
-            }
-        })
-        .fold(0, |a, b| a.saturating_add(b)))
 }
 
 fn get_changed_files_from_commit_details(
@@ -348,24 +283,5 @@ mod tests {
                 "Aborting due to empty message"
             );
         }
-    }
-    #[test]
-    fn test_show_diff_in_editor() {
-        assert_eq!(
-            Some(ShowDiffInEditor::Always),
-            ShowDiffInEditor::from_args(true, false)
-        );
-
-        assert_eq!(
-            Some(ShowDiffInEditor::Never),
-            ShowDiffInEditor::from_args(false, true)
-        );
-
-        assert_eq!(
-            Some(ShowDiffInEditor::Unspecified),
-            ShowDiffInEditor::from_args(false, false)
-        );
-
-        assert_eq!(None, ShowDiffInEditor::from_args(true, true));
     }
 }

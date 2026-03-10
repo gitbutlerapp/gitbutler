@@ -11,6 +11,7 @@ use but_rebase::graph_rebase::mutate::InsertSide;
 use colored::Colorize;
 use gitbutler_repo::hooks;
 
+use super::{ShowDiffInEditor, estimate_diff_blob_size};
 use crate::{
     CliId, IdMap,
     command::legacy::status::assignment::{CLIHunkAssignment, FileAssignment},
@@ -293,6 +294,7 @@ pub(crate) fn commit(
     create_branch: bool,
     no_hooks: bool,
     generate_message: Option<Option<String>>,
+    show_diff_in_editor: ShowDiffInEditor,
 ) -> anyhow::Result<()> {
     let id_map = IdMap::new_from_context(ctx, None)?;
 
@@ -393,7 +395,7 @@ pub(crate) fn commit(
                 "In JSON mode, a commit message must be provided via --message (-m), --message-file, or --ai (-i)"
             );
         }
-        get_commit_message_from_editor(&files_to_commit, &changes)?
+        get_commit_message_from_editor(ctx, &files_to_commit, &changes, show_diff_in_editor)?
     };
 
     if commit_message.trim().is_empty() {
@@ -678,8 +680,10 @@ fn prompt_for_stack_selection(
 }
 
 fn get_commit_message_from_editor(
+    ctx: &mut but_ctx::Context,
     files_to_commit: &[FileAssignment],
     changes: &[TreeChange],
+    show_diff_in_editor: ShowDiffInEditor,
 ) -> anyhow::Result<String> {
     // Generate commit message template
     let mut template = String::new();
@@ -694,12 +698,32 @@ fn get_commit_message_from_editor(
     }
     template.push_str("#\n");
 
-    // TODO(david): show diff in editor
-    let todo_ = ();
+    // Compute diff for the editor if requested
+    let should_show_diff = show_diff_in_editor.should_show_diff(|| {
+        // Convert ui::TreeChange to core::TreeChange for blob size estimation
+        let core_changes: Vec<but_core::TreeChange> = changes
+            .iter()
+            .filter(|c| files_to_commit.iter().any(|f| f.path == c.path_bytes))
+            .cloned()
+            .map(but_core::TreeChange::from)
+            .collect();
+        estimate_diff_blob_size(&core_changes, ctx)
+    })?;
+
+    let diff_text = if should_show_diff {
+        let diff = generate_unified_diff(ctx, files_to_commit, changes)?;
+        if diff.is_empty() { None } else { Some(diff) }
+    } else {
+        None
+    };
 
     // Read the result from the editor and strip comments
-    let lossy_message =
-        tui::get_text::from_editor_no_comments("commit_msg", &template)?.to_string();
+    let lossy_message = tui::get_text::from_editor_no_comments_as_patch(
+        "commit_msg",
+        &template,
+        diff_text.as_deref(),
+    )?
+    .to_string();
     Ok(lossy_message)
 }
 

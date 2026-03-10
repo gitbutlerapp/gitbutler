@@ -38,6 +38,7 @@ use colored::Colorize;
 use gix::date::time::CustomFormat;
 
 use crate::{
+    command::legacy::ShowDiffInEditor,
     setup::{BackgroundSync, InitCtxOptions},
     utils::{
         OneshotMetricsContext, OutputChannel, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
@@ -740,6 +741,12 @@ async fn match_subcommand(
                     if commit_args.ai.is_some() {
                         anyhow::bail!("--ai cannot be used with 'commit empty'.");
                     }
+                    if commit_args.diff {
+                        anyhow::bail!("--diff cannot be used with 'commit empty'.");
+                    }
+                    if commit_args.no_diff {
+                        anyhow::bail!("--no-diff cannot be used with 'commit empty'.");
+                    }
                     // Note: --paths with commit empty is rejected by clap at parse time
                     // because --paths is not a flag on the empty subcommand
 
@@ -843,6 +850,8 @@ async fn match_subcommand(
                         commit_args.create,
                         commit_args.no_hooks,
                         commit_args.ai.clone(),
+                        ShowDiffInEditor::from_args(commit_args.diff, commit_args.no_diff)
+                            .unwrap_or(ShowDiffInEditor::Unspecified),
                     )
                     .emit_metrics(metrics_ctx)
                 }
@@ -864,8 +873,6 @@ async fn match_subcommand(
             diff,
             no_diff,
         } => {
-            use crate::command::legacy::reword::ShowDiffInEditor;
-
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
