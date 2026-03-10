@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::{Context, bail};
 use but_graph::projection::{Stack, StackSegment};
 use but_rebase::graph_rebase::{
     Editor, Selector, SuccessfulRebase,
@@ -162,11 +162,16 @@ fn get_disconnect_parameters(
         }
     };
 
+    // The delimiter for the segment we want to move, is the reference selector
+    // as the child, and the last commit inside the branch as the parent.
+    // If the branch is empty, we take the reference selector as the parent as well.
     let delimiter = SegmentDelimiter {
         child: delimiter_child,
         parent: delimiter_parent,
     };
 
+    // The parent segment in the stack if any.
+    // This will be `None` if the branch we want to move is at the bottom of the stack.
     let stack_base_segment = subject_segment.base_segment_id.and_then(|base_segment_id| {
         source_stack
             .segments
@@ -174,6 +179,9 @@ fn get_disconnect_parameters(
             .find(|segment| segment.id == base_segment_id)
     });
 
+    // The parent segment in the graph.
+    // If the `stack_base_segment` is `None` but there's a `base_segment_id` defined, it means we'll find it in the
+    // graph data, and it's probably the target branch, which is not included in the workspace.
     let graph_base_segment = subject_segment
         .base_segment_id
         .map(|segment_idx| &workspace.graph[segment_idx]);
@@ -194,8 +202,13 @@ fn get_disconnect_parameters(
         let reference_selector = editor.select_reference(ref_name)?;
         let selectors = SomeSelectors::new(vec![reference_selector])?;
         SelectorSet::Some(selectors)
+    } else if subject_segment.base_segment_id.is_some() {
+        // Base segment could not be found, but there is an ID defined. Error out.
+        bail!(
+            "Failed to find the base segment of the subject we want to move, even if it seems to be defined"
+        );
     } else {
-        // No parents could be determined. Detach all.
+        // Nothing found. Remove all parents.
         SelectorSet::All
     };
 
@@ -214,6 +227,10 @@ fn get_disconnect_parameters(
     let child_segment = source_stack.segments.get(index_of_segment - 1).context(
         "BUG: Unable to find child segment of subject segment but expected it to exist.",
     )?;
+
+    // If branch stacked on top of the branch we want to move is empty, we only need to disconnect
+    // the reference from it.
+    // Otherwise, disconnect the last commit on the segment.
     let child_selector = match child_segment.commits.last() {
         Some(last_commit) => editor
             .select_commit(last_commit.id)
