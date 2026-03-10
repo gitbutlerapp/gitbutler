@@ -1,10 +1,11 @@
-pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
-
 use but_ctx::Context;
 use but_oxidize::OidExt;
 use but_workspace::{legacy::StacksFilter, ui::StackDetails};
 use gitbutler_stack::StackId;
 use gix::bstr::BStr;
+
+pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
+
 /// Direct access to lower-level utilities for cases where this is enough.
 ///
 /// Prefer to use [`read_only`] and [`writable`] otherwise.
@@ -317,7 +318,10 @@ fn set_storage_path_for_testing(git_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-use std::path::{Path, PathBuf};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
 use gix::{bstr::ByteSlice, prelude::ObjectIdExt};
 use once_cell::sync::Lazy;
@@ -330,13 +334,11 @@ pub(crate) static DRIVER: Lazy<PathBuf> = Lazy::new(|| {
         .expect("cargo should run fine");
     assert!(res.success(), "cargo invocation should be successful");
 
-    let path = Path::new("../../target")
-        .join("debug")
-        .join(if cfg!(windows) {
-            "gitbutler-cli.exe"
-        } else {
-            "gitbutler-cli"
-        });
+    let path = cargo_target_dir().join("debug").join(if cfg!(windows) {
+        "gitbutler-cli.exe"
+    } else {
+        "gitbutler-cli"
+    });
     assert!(
         path.is_file(),
         "Expecting driver to be located at {path:?} - we also assume a certain crate location"
@@ -353,7 +355,7 @@ pub(crate) static BUT_DRIVER: Lazy<PathBuf> = Lazy::new(|| {
         .expect("cargo should run fine");
     assert!(res.success(), "cargo invocation should be successful");
 
-    let path = Path::new("../../target")
+    let path = cargo_target_dir()
         .join("debug")
         .join(if cfg!(windows) { "but.exe" } else { "but" });
     assert!(
@@ -363,6 +365,14 @@ pub(crate) static BUT_DRIVER: Lazy<PathBuf> = Lazy::new(|| {
     path.canonicalize()
         .expect("canonicalization works as the CWD is valid and there are no symlinks to resolve")
 });
+
+fn cargo_target_dir() -> PathBuf {
+    let cargo_target_dir_env_var = std::env::var_os("CARGO_TARGET_DIR");
+    let target_dir = cargo_target_dir_env_var
+        .as_deref()
+        .unwrap_or_else(|| OsStr::new("../../target"));
+    PathBuf::from(target_dir)
+}
 
 /// A secrets store to prevent secrets to be written into the systems own store.
 ///
