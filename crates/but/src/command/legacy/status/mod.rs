@@ -306,10 +306,29 @@ pub(crate) async fn worktree(
 
     print_common_merge_base_summary(out, &common_merge_base_data, upstream_state.is_some())?;
 
+    let not_on_workspace = print_outside_workspace_warning(&mode, out)?;
+
+    print_hint(
+        out,
+        hint,
+        not_on_workspace,
+        has_branches,
+        &worktree_changes.worktree_changes.changes,
+    )?;
+
+    Ok(())
+}
+
+/// Print a warning when operating outside the GitButler workspace.
+fn print_outside_workspace_warning(
+    mode: &gitbutler_operating_modes::OperatingMode,
+    out: &mut dyn WriteWithUtils,
+) -> anyhow::Result<bool> {
     let not_on_workspace = matches!(
         mode,
         gitbutler_operating_modes::OperatingMode::OutsideWorkspace(_)
     );
+
     if not_on_workspace {
         writeln!(
             out,
@@ -320,35 +339,48 @@ pub(crate) async fn worktree(
         )?;
     }
 
-    if hint {
-        writeln!(out)?;
+    Ok(not_on_workspace)
+}
 
-        // Determine what hint to show based on workspace state
-        let has_uncommitted_files = !worktree_changes.worktree_changes.changes.is_empty();
+/// Print a contextual hint at the end of status output when hints are enabled.
+fn print_hint(
+    out: &mut dyn WriteWithUtils,
+    hint: bool,
+    not_on_workspace: bool,
+    has_branches: bool,
+    changes: &[ui::TreeChange],
+) -> anyhow::Result<()> {
+    if !hint {
+        return Ok(());
+    }
 
-        // Check whether we're inside the workspace
-        if not_on_workspace {
-            writeln!(
-                out,
-                "{}",
-                "Hint: run `but setup` to switch back to GitButler managed mode.".dimmed()
-            )?;
-        } else if !has_branches {
-            writeln!(
-                out,
-                "{}",
-                "Hint: run `but branch new` to create a new branch to work on".dimmed()
-            )?;
-        } else if has_uncommitted_files {
-            writeln!(
-                out,
-                "{}",
-                "Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch"
-                    .dimmed()
-            )?;
-        } else {
-            writeln!(out, "{}", "Hint: run `but help` for all commands".dimmed())?;
-        }
+    writeln!(out)?;
+
+    // Determine what hint to show based on workspace state
+    let has_uncommitted_files = !changes.is_empty();
+
+    // Check whether we're inside the workspace
+    if not_on_workspace {
+        writeln!(
+            out,
+            "{}",
+            "Hint: run `but setup` to switch back to GitButler managed mode.".dimmed()
+        )?;
+    } else if !has_branches {
+        writeln!(
+            out,
+            "{}",
+            "Hint: run `but branch new` to create a new branch to work on".dimmed()
+        )?;
+    } else if has_uncommitted_files {
+        writeln!(
+            out,
+            "{}",
+            "Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch"
+                .dimmed()
+        )?;
+    } else {
+        writeln!(out, "{}", "Hint: run `but help` for all commands".dimmed())?;
     }
 
     Ok(())
