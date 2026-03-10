@@ -11,8 +11,6 @@ use but_rebase::graph_rebase::{
 };
 use tracing::instrument;
 
-use crate::json;
-
 /// Outcome after creating a commit
 pub struct CommitCreateResult {
     /// If the commit was successfully created. This should only be none if all the DiffSpecs were rejected.
@@ -43,6 +41,157 @@ pub struct CommitInsertBlankResult {
     pub new_commit: gix::ObjectId,
     /// Commits that were replaced by this operation. Maps `old_id → new_id`.
     pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+}
+
+/// JSON transport types for commit APIs.
+pub mod json {
+    use serde::Serialize;
+
+    use crate::json::HexHash;
+
+    use super::{
+        CommitCreateResult, CommitInsertBlankResult, CommitRewordResult, MoveChangesResult,
+    };
+
+    /// UI type for a move changes between commits result.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct UIMoveChangesResult {
+        /// Commits that have been mapped from one thing to another.
+        /// Maps `oldId → newId`.
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(with = "std::collections::BTreeMap<String, String>")
+        )]
+        pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
+    }
+
+    impl From<MoveChangesResult> for UIMoveChangesResult {
+        fn from(value: MoveChangesResult) -> Self {
+            let MoveChangesResult { replaced_commits } = value;
+
+            Self {
+                replaced_commits: replaced_commits
+                    .into_iter()
+                    .map(|(old, new)| (old.into(), new.into()))
+                    .collect(),
+            }
+        }
+    }
+
+    /// UI type for creating a commit in the rebase graph.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct UICommitCreateResult {
+        /// The new commit if one was created.
+        #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
+        pub new_commit: Option<HexHash>,
+        /// Paths that contained at least one rejected hunk, matching legacy rejection reporting semantics.
+        #[cfg_attr(feature = "export-schema", schemars(with = "Vec<(String, String)>"))]
+        pub paths_to_rejected_changes: Vec<(
+            but_core::tree::create_tree::RejectionReason,
+            but_serde::BStringForFrontend,
+        )>,
+        /// Commits that have been replaced as a side-effect of the create/amend.
+        /// Maps `oldId → newId`.
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(with = "std::collections::BTreeMap<String, String>")
+        )]
+        pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
+    }
+
+    impl From<CommitCreateResult> for UICommitCreateResult {
+        fn from(value: CommitCreateResult) -> Self {
+            let CommitCreateResult {
+                new_commit,
+                rejected_specs,
+                replaced_commits,
+            } = value;
+
+            Self {
+                new_commit: new_commit.map(Into::into),
+                paths_to_rejected_changes: rejected_specs
+                    .into_iter()
+                    .map(|(reason, diff)| (reason, diff.path.into()))
+                    .collect(),
+                replaced_commits: replaced_commits
+                    .into_iter()
+                    .map(|(old, new)| (old.into(), new.into()))
+                    .collect(),
+            }
+        }
+    }
+
+    /// UI type for rewording a commit.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct UICommitRewordResult {
+        /// The new commit ID after rewording.
+        #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+        pub new_commit: HexHash,
+        /// Commits that have been replaced as a side-effect of the reword.
+        /// Maps `oldId → newId`.
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(with = "std::collections::BTreeMap<String, String>")
+        )]
+        pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
+    }
+
+    impl From<CommitRewordResult> for UICommitRewordResult {
+        fn from(value: CommitRewordResult) -> Self {
+            let CommitRewordResult {
+                new_commit,
+                replaced_commits,
+            } = value;
+
+            Self {
+                new_commit: new_commit.into(),
+                replaced_commits: replaced_commits
+                    .into_iter()
+                    .map(|(old, new)| (old.into(), new.into()))
+                    .collect(),
+            }
+        }
+    }
+
+    /// UI type for inserting a blank commit.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct UICommitInsertBlankResult {
+        /// The new blank commit ID.
+        #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+        pub new_commit: HexHash,
+        /// Commits that have been replaced as a side-effect of the insertion.
+        /// Maps `oldId → newId`.
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(with = "std::collections::BTreeMap<String, String>")
+        )]
+        pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
+    }
+
+    impl From<CommitInsertBlankResult> for UICommitInsertBlankResult {
+        fn from(value: CommitInsertBlankResult) -> Self {
+            let CommitInsertBlankResult {
+                new_commit,
+                replaced_commits,
+            } = value;
+
+            Self {
+                new_commit: new_commit.into(),
+                replaced_commits: replaced_commits
+                    .into_iter()
+                    .map(|(old, new)| (old.into(), new.into()))
+                    .collect(),
+            }
+        }
+    }
 }
 
 /// Rewords a commit

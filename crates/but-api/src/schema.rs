@@ -139,19 +139,19 @@ pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
             },
             TypeSchemaEntry {
                 name: "UICommitCreateResult",
-                schema_fn: || schema_for!(crate::json::UICommitCreateResult),
+                schema_fn: || schema_for!(crate::commit::json::UICommitCreateResult),
             },
             TypeSchemaEntry {
                 name: "UIMoveChangesResult",
-                schema_fn: || schema_for!(crate::json::UIMoveChangesResult),
+                schema_fn: || schema_for!(crate::commit::json::UIMoveChangesResult),
             },
             TypeSchemaEntry {
                 name: "UICommitInsertBlankResult",
-                schema_fn: || schema_for!(crate::json::UICommitInsertBlankResult),
+                schema_fn: || schema_for!(crate::commit::json::UICommitInsertBlankResult),
             },
             TypeSchemaEntry {
                 name: "UICommitRewordResult",
-                schema_fn: || schema_for!(crate::json::UICommitRewordResult),
+                schema_fn: || schema_for!(crate::commit::json::UICommitRewordResult),
             },
         ]
         .into_iter()
