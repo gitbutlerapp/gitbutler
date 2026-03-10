@@ -455,6 +455,28 @@
 			}
 
 			await tick();
+
+			// Synchronously measure items that just entered at the top and
+			// compensate scrollTop before the browser paints. This preempts
+			// the ResizeObserver (which fires one frame late) and prevents
+			// visible jitter when measured heights differ from estimates.
+			if (start < oldStart && viewport) {
+				let heightDrift = 0;
+				for (let i = start; i < Math.min(oldStart, end); i++) {
+					const el = visibleRowElements?.[i - start];
+					if (!el) continue;
+					const measured = el.clientHeight;
+					const estimated = heightMap[i] || defaultHeight;
+					if (measured !== estimated) {
+						heightDrift += measured - estimated;
+						heightMap[i] = measured;
+					}
+				}
+				if (heightDrift !== 0) {
+					viewport.scrollTop += heightDrift;
+					skipNextScrollEvent = true;
+				}
+			}
 		}
 
 		if (visibleStart !== visibleRange.start || visibleEnd !== visibleRange.end) {
@@ -604,9 +626,11 @@
 			offset.top !== viewport.scrollTop &&
 			renderRange.start === index
 		) {
+			const compensation = heightMap[index] - oldHeight;
+			if (compensation === 0) return;
 			// When scrolling up, compensate for the height change of the topmost
 			// visible element to prevent content from jumping downward.
-			viewport.scrollBy({ top: heightMap[index] - oldHeight });
+			viewport.scrollBy({ top: compensation });
 		} else if ((lastJumpToIndex !== undefined || startIndex) && lastScrollDirection === undefined) {
 			// After jumping to an index, maintain position as off-viewport elements
 			// resize. Scroll direction is undefined during jumps.
