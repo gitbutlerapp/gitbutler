@@ -2,6 +2,7 @@
 
 use anyhow::{Context, Result, bail};
 use but_core::RefMetadata;
+use but_core::commit::SignCommit;
 use gix::prelude::ObjectIdExt;
 
 use crate::{
@@ -74,9 +75,12 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         commit: but_core::CommitOwned,
         date_mode: DateMode,
     ) -> Result<gix::ObjectId> {
-        // TODO(GB-983): As part of moving to only signing at the materializing
-        // step, this should have sign_if_configured false here.
-        create(&self.repo, commit.inner, date_mode, true)
+        create(
+            &self.repo,
+            commit.inner,
+            date_mode,
+            SignCommit::LegacyIfSignCommitsEnabled,
+        )
     }
 
     /// Writes a commit with correct signing to the in memory repository.

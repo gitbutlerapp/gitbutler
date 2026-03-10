@@ -1,5 +1,7 @@
 mod commit_amend;
 mod commit_create;
+mod commits_list_unsigned;
+mod commits_sign;
 mod insert_blank_commit;
 mod move_changes;
 mod move_commit;

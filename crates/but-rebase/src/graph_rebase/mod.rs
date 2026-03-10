@@ -10,7 +10,10 @@ use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result, bail};
 use but_core::RefMetadata;
+pub use creation::GraphEditorOptions;
 use gix::refs::transaction::RefEdit;
+
+use crate::graph_rebase::cherry_pick::PickSignMode;
 pub mod cherry_pick;
 pub mod commit;
 pub mod materialize;
@@ -38,9 +41,8 @@ pub struct Pick {
     /// If set to true, a rebase will fail if not all of the parents (outgoing
     /// nodes) are references.
     pub parents_must_be_references: bool,
-    /// If set to true, the rebase engine will try to sign the commit if it
-    /// gets cherry-picked and the user has configured signing.
-    pub sign_if_configured: bool,
+    /// Determines how the picked commit is signed, if at all
+    pub sign_mode: PickSignMode,
     /// Exclude the commit from being included in the
     /// [`RevisionHistory::commit_mappings()`]. This is helpful if we are
     /// creating a new commit since the the mappings will be non-sensical to the
@@ -56,7 +58,7 @@ impl Pick {
             preserved_parents: None,
             conflictable: true,
             parents_must_be_references: false,
-            sign_if_configured: true,
+            sign_mode: PickSignMode::LegacyIfSignCommitsEnabled,
             exclude_from_tracking: false,
         }
     }
@@ -78,7 +80,7 @@ impl Pick {
             preserved_parents: None,
             conflictable: false,
             parents_must_be_references: true,
-            sign_if_configured: false,
+            sign_mode: PickSignMode::Never,
             exclude_from_tracking: false,
         }
     }
@@ -102,6 +104,13 @@ impl Step {
     /// Creates a pick with the expected defaults
     pub fn new_pick(id: gix::ObjectId) -> Self {
         Self::Pick(Pick::new_pick(id))
+    }
+
+    /// Creates a pick with the given sign mode.
+    pub fn new_pick_with_sign_mode(id: gix::ObjectId, sign_mode: PickSignMode) -> Self {
+        let mut pick = Pick::new_pick(id);
+        pick.sign_mode = sign_mode;
+        Self::Pick(pick)
     }
 
     /// Creates a pick with the expected defaults, but is excluded from being
@@ -354,7 +363,7 @@ impl RevisionHistory {
 mod test {
     use std::str::FromStr;
 
-    use crate::graph_rebase::Pick;
+    use crate::graph_rebase::{Pick, cherry_pick::PickSignMode};
 
     #[test]
     fn workspace_commit_defaults() -> anyhow::Result<()> {
@@ -367,7 +376,7 @@ mod test {
                 preserved_parents: None,
                 conflictable: false,
                 parents_must_be_references: true,
-                sign_if_configured: false,
+                sign_mode: PickSignMode::Never,
                 exclude_from_tracking: false
             }
         );
@@ -386,7 +395,7 @@ mod test {
                 preserved_parents: None,
                 conflictable: true,
                 parents_must_be_references: false,
-                sign_if_configured: true,
+                sign_mode: PickSignMode::LegacyIfSignCommitsEnabled,
                 exclude_from_tracking: false
             }
         );

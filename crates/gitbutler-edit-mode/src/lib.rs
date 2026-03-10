@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use anyhow::{Context as _, Result, bail};
 use bstr::BString;
 use but_core::{
-    Commit, RepositoryExt, TreeChange, commit::Headers, ref_metadata::StackId,
+    Commit, RepositoryExt, TreeChange,
+    commit::{Headers, SignCommit},
+    ref_metadata::StackId,
     update_head_reference,
 };
 use but_ctx::{
@@ -327,7 +329,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
             ..commit.inner
         },
         but_rebase::commit::DateMode::CommitterUpdateAuthorKeep,
-        true,
+        SignCommit::LegacyIfSignCommitsEnabled,
     )?;
 
     editor.replace(target_selector, Step::new_pick(new_commit_oid))?;
