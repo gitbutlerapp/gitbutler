@@ -86,7 +86,7 @@ pub fn create(
     repo: &gix::Repository,
     mut commit: gix::objs::Commit,
     committer: DateMode,
-    sign_if_configured: bool,
+    sign_commit: SignCommit,
 ) -> anyhow::Result<gix::ObjectId> {
     match committer {
         DateMode::CommitterUpdateAuthorKeep => {
@@ -102,16 +102,7 @@ pub fn create(
     if settings.gitbutler_gerrit_mode.unwrap_or(false) {
         but_gerrit::set_trailers(&mut commit);
     }
-    but_core::commit::create(
-        repo,
-        commit,
-        None,
-        if sign_if_configured {
-            SignCommit::IfSignCommitsEnabled
-        } else {
-            SignCommit::No
-        },
-    )
+    but_core::commit::create(repo, commit, None, sign_commit)
 }
 
 /// Update the committer of `commit` to be the current one.
