@@ -110,6 +110,8 @@
 	const claudeSettings = $derived($settingsService?.claude);
 
 	const claudeAvailable = $derived(claudeCodeService.checkAvailable(undefined));
+	// const canEnterChat = $derived(claudeAvailable.status === "available" && !!projectRegistered);
+	const canEnterChat = $derived(!!projectRegistered);
 
 	let clearContextModal = $state<Modal>();
 	let modelContextMenu = $state<ContextMenu>();
@@ -495,9 +497,15 @@
 								Let's build something amazing
 							{/snippet}
 							{#snippet caption()}
-								Your canvas is clear
-								<br />
-								Let the code take shape
+								{#if canEnterChat}
+									Your canvas is clear
+									<br />
+									Let the code take shape
+								{:else}
+									Run `claude` once
+									<br />
+									to initialise the chat
+								{/if}
 							{/snippet}
 						</EmptyStatePlaceholder>
 					</div>
