@@ -1,4 +1,4 @@
-use std::{future::Future, net::SocketAddr, sync::Arc};
+use std::{convert::Infallible, future::Future, net::SocketAddr, sync::Arc};
 
 use axum::{
     Json, Router,
@@ -10,7 +10,7 @@ use axum::{
     http::StatusCode,
     middleware::{self, Next},
     response::IntoResponse,
-    routing::{any, post},
+    routing::{MethodRouter, any, post},
 };
 use but_api::{commit, diff, github, gitlab, json, legacy, platform};
 use but_claude::{Broadcaster, Claude};
@@ -60,43 +60,31 @@ struct ClaudeGetSessionDetailsParams {
     session_id: uuid::Uuid,
 }
 
-/// Wraps a synchronous command handler that takes `serde_json::Value` params and returns
-/// `anyhow::Result<serde_json::Value>` into an axum handler.
-// TODO: implement these as actual `Handler`s so that boxing isn't required.
-//       Maybe this could also be defined generically.
-fn json_response<F>(
-    handler: F,
-) -> impl Fn(
-    Json<serde_json::Value>,
-) -> std::pin::Pin<Box<dyn Future<Output = Json<serde_json::Value>> + Send>>
-+ Clone
-+ Send
+/// Converts a synchronous command handler into an axum `MethodRouter` that works with
+/// `Router::route`.
+fn but_post<F, S>(f: F) -> MethodRouter<S, Infallible>
 where
-    F: Fn(serde_json::Value) -> anyhow::Result<serde_json::Value> + Clone + Send + 'static,
+    F: Fn(serde_json::Value) -> anyhow::Result<serde_json::Value> + Copy + Send + Sync + 'static,
+    S: Clone + Send + Sync + 'static,
 {
-    move |Json(params)| {
-        let res = handler(params);
-        Box::pin(async move { cmd_result_to_json(res) })
-    }
+    post(move |Json(params)| async move {
+        let res = f(params);
+        cmd_result_to_json(res)
+    })
 }
 
-/// Wraps an async command handler that takes `serde_json::Value` params and returns
-/// `anyhow::Result<serde_json::Value>` into an axum handler.
-fn json_response_async<F, Fut>(
-    handler: F,
-) -> impl Fn(
-    Json<serde_json::Value>,
-) -> std::pin::Pin<Box<dyn Future<Output = Json<serde_json::Value>> + Send>>
-+ Clone
-+ Send
+/// Converts an asynchronous command handler into an axum `MethodRouter` that works with
+/// `Router::route`.
+fn but_post_async<F, Fut, S>(f: F) -> MethodRouter<S, Infallible>
 where
-    F: Fn(serde_json::Value) -> Fut + Clone + Send + 'static,
-    Fut: Future<Output = anyhow::Result<serde_json::Value>> + Send + 'static,
+    F: Fn(serde_json::Value) -> Fut + Copy + Send + Sync + 'static,
+    Fut: Future<Output = anyhow::Result<serde_json::Value>> + Send,
+    S: Clone + Send + Sync + 'static,
 {
-    move |Json(params)| {
-        let handler = handler.clone();
-        Box::pin(async move { cmd_result_to_json(handler(params).await) })
-    }
+    post(move |Json(params)| async move {
+        let res = f(params).await;
+        cmd_result_to_json(res)
+    })
 }
 
 fn cmd_result_to_json(res: anyhow::Result<serde_json::Value>) -> Json<serde_json::Value> {
@@ -165,591 +153,440 @@ pub async fn run() {
     let app = Router::new()
         .route(
             "/git_remote_branches",
-            post(json_response(legacy::git::git_remote_branches_cmd)),
+            but_post(legacy::git::git_remote_branches_cmd),
         )
-        .route(
-            "/git_test_push",
-            post(json_response(legacy::git::git_test_push_cmd)),
-        )
-        .route(
-            "/git_test_fetch",
-            post(json_response(legacy::git::git_test_fetch_cmd)),
-        )
-        .route(
-            "/git_index_size",
-            post(json_response(legacy::git::git_index_size_cmd)),
-        )
+        .route("/git_test_push", but_post(legacy::git::git_test_push_cmd))
+        .route("/git_test_fetch", but_post(legacy::git::git_test_fetch_cmd))
+        .route("/git_index_size", but_post(legacy::git::git_index_size_cmd))
         .route(
             "/delete_all_data",
-            post(json_response(legacy::git::delete_all_data_cmd)),
+            but_post(legacy::git::delete_all_data_cmd),
         )
         .route(
             "/git_set_global_config",
-            post(json_response(legacy::git::git_set_global_config_cmd)),
+            but_post(legacy::git::git_set_global_config_cmd),
         )
         .route(
             "/git_remove_global_config",
-            post(json_response(legacy::git::git_remove_global_config_cmd)),
+            but_post(legacy::git::git_remove_global_config_cmd),
         )
         .route(
             "/git_get_global_config",
-            post(json_response(legacy::git::git_get_global_config_cmd)),
+            but_post(legacy::git::git_get_global_config_cmd),
         )
         .route(
             "/tree_change_diffs",
-            post(json_response(legacy::diff::tree_change_diffs_cmd)),
+            but_post(legacy::diff::tree_change_diffs_cmd),
         )
         .route(
             "/commit_details_with_line_stats",
-            post(json_response(diff::commit_details_with_line_stats_cmd)),
+            but_post(diff::commit_details_with_line_stats_cmd),
         )
-        .route(
-            "/branch_diff",
-            post(json_response(but_api::branch::branch_diff_cmd)),
-        )
+        .route("/branch_diff", but_post(but_api::branch::branch_diff_cmd))
         .route(
             "/changes_in_worktree",
-            post(json_response(legacy::diff::changes_in_worktree_cmd)),
+            but_post(legacy::diff::changes_in_worktree_cmd),
         )
-        .route(
-            "/assign_hunk",
-            post(json_response(legacy::diff::assign_hunk_cmd)),
-        )
+        .route("/assign_hunk", but_post(legacy::diff::assign_hunk_cmd))
         .route(
             "/cherry_apply_status",
-            post(json_response(legacy::cherry_apply::cherry_apply_status_cmd)),
+            but_post(legacy::cherry_apply::cherry_apply_status_cmd),
         )
         .route(
             "/cherry_apply",
-            post(json_response(legacy::cherry_apply::cherry_apply_cmd)),
+            but_post(legacy::cherry_apply::cherry_apply_cmd),
         )
-        .route(
-            "/stacks",
-            post(json_response(legacy::workspace::stacks_cmd)),
-        )
-        .route(
-            "/head_info",
-            post(json_response(legacy::workspace::head_info_cmd)),
-        );
+        .route("/stacks", but_post(legacy::workspace::stacks_cmd))
+        .route("/head_info", but_post(legacy::workspace::head_info_cmd));
 
     #[cfg(unix)]
     let app = app.route(
         "/show_graph_svg",
-        post(json_response(legacy::workspace::show_graph_svg_cmd)),
+        but_post(legacy::workspace::show_graph_svg_cmd),
     );
 
     let app = app
         .route(
             "/stack_details",
-            post(json_response(legacy::workspace::stack_details_cmd)),
+            but_post(legacy::workspace::stack_details_cmd),
         )
         .route(
             "/branch_details",
-            post(json_response(legacy::workspace::branch_details_cmd)),
+            but_post(legacy::workspace::branch_details_cmd),
         )
         .route(
             "/create_commit_from_worktree_changes",
-            post(json_response(
-                legacy::workspace::create_commit_from_worktree_changes_cmd,
-            )),
+            but_post(legacy::workspace::create_commit_from_worktree_changes_cmd),
         )
         .route(
             "/amend_commit_from_worktree_changes",
-            post(json_response(
-                legacy::workspace::amend_commit_from_worktree_changes_cmd,
-            )),
+            but_post(legacy::workspace::amend_commit_from_worktree_changes_cmd),
         )
         .route(
             "/discard_worktree_changes",
-            post(json_response(
-                legacy::workspace::discard_worktree_changes_cmd,
-            )),
+            but_post(legacy::workspace::discard_worktree_changes_cmd),
         )
         .route(
             "/move_changes_between_commits",
-            post(json_response(
-                legacy::workspace::move_changes_between_commits_cmd,
-            )),
+            but_post(legacy::workspace::move_changes_between_commits_cmd),
         )
         .route(
             "/split_branch",
-            post(json_response(legacy::workspace::split_branch_cmd)),
+            but_post(legacy::workspace::split_branch_cmd),
         )
         .route(
             "/split_branch_into_dependent_branch",
-            post(json_response(
-                legacy::workspace::split_branch_into_dependent_branch_cmd,
-            )),
+            but_post(legacy::workspace::split_branch_into_dependent_branch_cmd),
         )
         .route(
             "/uncommit_changes",
-            post(json_response(legacy::workspace::uncommit_changes_cmd)),
+            but_post(legacy::workspace::uncommit_changes_cmd),
         )
         .route(
             "/stash_into_branch",
-            post(json_response(legacy::workspace::stash_into_branch_cmd)),
+            but_post(legacy::workspace::stash_into_branch_cmd),
         )
         .route(
             "/canned_branch_name",
-            post(json_response(legacy::workspace::canned_branch_name_cmd)),
+            but_post(legacy::workspace::canned_branch_name_cmd),
         )
         .route(
             "/target_commits",
-            post(json_response(legacy::workspace::target_commits_cmd)),
+            but_post(legacy::workspace::target_commits_cmd),
         )
         .route(
             "/secret_get_global",
-            post(json_response(legacy::secret::secret_get_global_cmd)),
+            but_post(legacy::secret::secret_get_global_cmd),
         )
         .route(
             "/secret_set_global",
-            post(json_response(legacy::secret::secret_set_global_cmd)),
+            but_post(legacy::secret::secret_set_global_cmd),
         )
         .route(
             "/secret_delete_global",
-            post(json_response(legacy::secret::secret_delete_global_cmd)),
+            but_post(legacy::secret::secret_delete_global_cmd),
         )
         // User management
-        .route(
-            "/get_user",
-            post(json_response(legacy::users::get_user_cmd)),
-        )
-        .route(
-            "/set_user",
-            post(json_response(legacy::users::set_user_cmd)),
-        )
-        .route(
-            "/delete_user",
-            post(json_response(legacy::users::delete_user_cmd)),
-        )
+        .route("/get_user", but_post(legacy::users::get_user_cmd))
+        .route("/set_user", but_post(legacy::users::set_user_cmd))
+        .route("/delete_user", but_post(legacy::users::delete_user_cmd))
         .route(
             "/update_project",
-            post(json_response(legacy::projects::update_project_cmd)),
+            but_post(legacy::projects::update_project_cmd),
         )
-        .route(
-            "/add_project",
-            post(json_response(legacy::projects::add_project_cmd)),
-        )
+        .route("/add_project", but_post(legacy::projects::add_project_cmd))
         .route(
             "/add_project_best_effort",
-            post(json_response(legacy::projects::add_project_best_effort_cmd)),
+            but_post(legacy::projects::add_project_best_effort_cmd),
         )
-        .route(
-            "/get_project",
-            post(json_response(legacy::projects::get_project_cmd)),
-        )
+        .route("/get_project", but_post(legacy::projects::get_project_cmd))
         .route(
             "/delete_project",
-            post(json_response(legacy::projects::delete_project_cmd)),
+            but_post(legacy::projects::delete_project_cmd),
         )
-        .route(
-            "/is_gerrit",
-            post(json_response(legacy::projects::is_gerrit_cmd)),
-        )
+        .route("/is_gerrit", but_post(legacy::projects::is_gerrit_cmd))
         // Virtual branches commands
         .route(
             "/normalize_branch_name",
-            post(json_response(
-                legacy::virtual_branches::normalize_branch_name_cmd,
-            )),
+            but_post(legacy::virtual_branches::normalize_branch_name_cmd),
         )
         .route(
             "/create_virtual_branch",
-            post(json_response(
-                legacy::virtual_branches::create_virtual_branch_cmd,
-            )),
+            but_post(legacy::virtual_branches::create_virtual_branch_cmd),
         )
         .route(
             "/delete_local_branch",
-            post(json_response(
-                legacy::virtual_branches::delete_local_branch_cmd,
-            )),
+            but_post(legacy::virtual_branches::delete_local_branch_cmd),
         )
         .route(
             "/create_virtual_branch_from_branch",
-            post(json_response(
-                legacy::virtual_branches::create_virtual_branch_from_branch_cmd,
-            )),
+            but_post(legacy::virtual_branches::create_virtual_branch_from_branch_cmd),
         )
         .route(
             "/integrate_upstream_commits",
-            post(json_response(
-                legacy::virtual_branches::integrate_upstream_commits_cmd,
-            )),
+            but_post(legacy::virtual_branches::integrate_upstream_commits_cmd),
         )
         .route(
             "/get_initial_integration_steps_for_branch",
-            post(json_response(
-                legacy::virtual_branches::get_initial_integration_steps_for_branch_cmd,
-            )),
+            but_post(legacy::virtual_branches::get_initial_integration_steps_for_branch_cmd),
         )
         .route(
             "/integrate_branch_with_steps",
-            post(json_response(
-                legacy::virtual_branches::integrate_branch_with_steps_cmd,
-            )),
+            but_post(legacy::virtual_branches::integrate_branch_with_steps_cmd),
         )
         .route(
             "/get_base_branch_data",
-            post(json_response(
-                legacy::virtual_branches::get_base_branch_data_cmd,
-            )),
+            but_post(legacy::virtual_branches::get_base_branch_data_cmd),
         )
         .route(
             "/set_base_branch",
-            post(json_response(legacy::virtual_branches::set_base_branch_cmd)),
+            but_post(legacy::virtual_branches::set_base_branch_cmd),
         )
         .route(
             "/switch_back_to_workspace",
-            post(json_response(
-                legacy::virtual_branches::switch_back_to_workspace_cmd,
-            )),
+            but_post(legacy::virtual_branches::switch_back_to_workspace_cmd),
         )
         .route(
             "/push_base_branch",
-            post(json_response(
-                legacy::virtual_branches::push_base_branch_cmd,
-            )),
+            but_post(legacy::virtual_branches::push_base_branch_cmd),
         )
         .route(
             "/update_stack_order",
-            post(json_response(
-                legacy::virtual_branches::update_stack_order_cmd,
-            )),
+            but_post(legacy::virtual_branches::update_stack_order_cmd),
         )
         .route(
             "/unapply_stack",
-            post(json_response(legacy::virtual_branches::unapply_stack_cmd)),
+            but_post(legacy::virtual_branches::unapply_stack_cmd),
         )
         .route(
             "/amend_virtual_branch",
-            post(json_response(
-                legacy::virtual_branches::amend_virtual_branch_cmd,
-            )),
+            but_post(legacy::virtual_branches::amend_virtual_branch_cmd),
         )
         .route(
             "/undo_commit",
-            post(json_response(legacy::virtual_branches::undo_commit_cmd)),
+            but_post(legacy::virtual_branches::undo_commit_cmd),
         )
         .route(
             "/reorder_stack",
-            post(json_response(legacy::virtual_branches::reorder_stack_cmd)),
+            but_post(legacy::virtual_branches::reorder_stack_cmd),
         )
         .route(
             "/commit_insert_blank",
-            post(json_response(commit::commit_insert_blank_cmd)),
+            but_post(commit::commit_insert_blank_cmd),
         )
         .route(
             "/list_branches",
-            post(json_response(legacy::virtual_branches::list_branches_cmd)),
+            but_post(legacy::virtual_branches::list_branches_cmd),
         )
         .route(
             "/get_branch_listing_details",
-            post(json_response(
-                legacy::virtual_branches::get_branch_listing_details_cmd,
-            )),
+            but_post(legacy::virtual_branches::get_branch_listing_details_cmd),
         )
         .route(
             "/squash_commits",
-            post(json_response(legacy::virtual_branches::squash_commits_cmd)),
+            but_post(legacy::virtual_branches::squash_commits_cmd),
         )
         .route(
             "/fetch_from_remotes",
-            post(json_response(
-                legacy::virtual_branches::fetch_from_remotes_cmd,
-            )),
+            but_post(legacy::virtual_branches::fetch_from_remotes_cmd),
         )
         .route(
             "/move_commit",
-            post(json_response(legacy::virtual_branches::move_commit_cmd)),
+            but_post(legacy::virtual_branches::move_commit_cmd),
         )
         .route(
             "/move_branch_legacy",
-            post(json_response(
-                legacy::virtual_branches::move_branch_legacy_cmd,
-            )),
+            but_post(legacy::virtual_branches::move_branch_legacy_cmd),
         )
         .route(
             "/tear_off_branch",
-            post(json_response(legacy::virtual_branches::tear_off_branch_cmd)),
+            but_post(legacy::virtual_branches::tear_off_branch_cmd),
         )
         .route(
             "/update_commit_message",
-            post(json_response(
-                legacy::virtual_branches::update_commit_message_cmd,
-            )),
+            but_post(legacy::virtual_branches::update_commit_message_cmd),
         )
         .route(
             "/operating_mode",
-            post(json_response(legacy::modes::operating_mode_cmd)),
+            but_post(legacy::modes::operating_mode_cmd),
         )
-        .route(
-            "/head_sha",
-            post(json_response(legacy::modes::head_sha_cmd)),
-        )
+        .route("/head_sha", but_post(legacy::modes::head_sha_cmd))
         .route(
             "/enter_edit_mode",
-            post(json_response(legacy::modes::enter_edit_mode_cmd)),
+            but_post(legacy::modes::enter_edit_mode_cmd),
         )
         .route(
             "/abort_edit_and_return_to_workspace",
-            post(json_response(
-                legacy::modes::abort_edit_and_return_to_workspace_cmd,
-            )),
+            but_post(legacy::modes::abort_edit_and_return_to_workspace_cmd),
         )
         .route(
             "/save_edit_and_return_to_workspace",
-            post(json_response(
-                legacy::modes::save_edit_and_return_to_workspace_cmd,
-            )),
+            but_post(legacy::modes::save_edit_and_return_to_workspace_cmd),
         )
         .route(
             "/edit_initial_index_state",
-            post(json_response(legacy::modes::edit_initial_index_state_cmd)),
+            but_post(legacy::modes::edit_initial_index_state_cmd),
         )
         .route(
             "/edit_changes_from_initial",
-            post(json_response(legacy::modes::edit_changes_from_initial_cmd)),
+            but_post(legacy::modes::edit_changes_from_initial_cmd),
         )
         .route(
             "/check_signing_settings",
-            post(json_response(legacy::repo::check_signing_settings_cmd)),
+            but_post(legacy::repo::check_signing_settings_cmd),
         )
         .route(
             "/git_clone_repository",
-            post(json_response_async(legacy::repo::git_clone_repository_cmd)),
+            but_post_async(legacy::repo::git_clone_repository_cmd),
         )
         .route(
             "/get_commit_file",
-            post(json_response(legacy::repo::get_commit_file_cmd)),
+            but_post(legacy::repo::get_commit_file_cmd),
         )
         .route(
             "/get_workspace_file",
-            post(json_response(legacy::repo::get_workspace_file_cmd)),
+            but_post(legacy::repo::get_workspace_file_cmd),
         )
-        .route(
-            "/get_blob_file",
-            post(json_response(legacy::repo::get_blob_file_cmd)),
-        )
-        .route(
-            "/find_files",
-            post(json_response(legacy::repo::find_files_cmd)),
-        )
+        .route("/get_blob_file", but_post(legacy::repo::get_blob_file_cmd))
+        .route("/find_files", but_post(legacy::repo::find_files_cmd))
         .route(
             "/pre_commit_hook_diffspecs",
-            post(json_response(legacy::repo::pre_commit_hook_diffspecs_cmd)),
+            but_post(legacy::repo::pre_commit_hook_diffspecs_cmd),
         )
         .route(
             "/post_commit_hook",
-            post(json_response(legacy::repo::post_commit_hook_cmd)),
+            but_post(legacy::repo::post_commit_hook_cmd),
         )
-        .route(
-            "/message_hook",
-            post(json_response(legacy::repo::message_hook_cmd)),
-        )
-        .route(
-            "/create_branch",
-            post(json_response(legacy::stack::create_branch_cmd)),
-        )
+        .route("/message_hook", but_post(legacy::repo::message_hook_cmd))
+        .route("/create_branch", but_post(legacy::stack::create_branch_cmd))
         .route(
             "/create_reference",
-            post(json_response(legacy::stack::create_reference_cmd)),
+            but_post(legacy::stack::create_reference_cmd),
         )
-        .route(
-            "/remove_branch",
-            post(json_response(legacy::stack::remove_branch_cmd)),
-        )
+        .route("/remove_branch", but_post(legacy::stack::remove_branch_cmd))
         .route(
             "/update_branch_name",
-            post(json_response(legacy::stack::update_branch_name_cmd)),
+            but_post(legacy::stack::update_branch_name_cmd),
         )
         .route(
             "/update_branch_pr_number",
-            post(json_response(legacy::stack::update_branch_pr_number_cmd)),
+            but_post(legacy::stack::update_branch_pr_number_cmd),
         )
-        .route(
-            "/push_stack",
-            post(json_response(legacy::stack::push_stack_cmd)),
-        )
+        .route("/push_stack", but_post(legacy::stack::push_stack_cmd))
         // Undo/Snapshot commands
         .route(
             "/list_snapshots",
-            post(json_response(legacy::oplog::list_snapshots_cmd)),
+            but_post(legacy::oplog::list_snapshots_cmd),
         )
         .route(
             "/restore_snapshot",
-            post(json_response(legacy::oplog::restore_snapshot_cmd)),
+            but_post(legacy::oplog::restore_snapshot_cmd),
         )
-        .route(
-            "/snapshot_diff",
-            post(json_response(legacy::oplog::snapshot_diff_cmd)),
-        )
+        .route("/snapshot_diff", but_post(legacy::oplog::snapshot_diff_cmd))
         .route(
             "/get_gb_config",
-            post(json_response(legacy::config::get_gb_config_cmd)),
+            but_post(legacy::config::get_gb_config_cmd),
         )
         .route(
             "/set_gb_config",
-            post(json_response(legacy::config::set_gb_config_cmd)),
+            but_post(legacy::config::set_gb_config_cmd),
         )
         .route(
             "/store_author_globally_if_unset",
-            post(json_response(
-                legacy::config::store_author_globally_if_unset_cmd,
-            )),
+            but_post(legacy::config::store_author_globally_if_unset_cmd),
         )
         .route(
             "/get_author_info",
-            post(json_response(legacy::config::get_author_info_cmd)),
+            but_post(legacy::config::get_author_info_cmd),
         )
-        .route(
-            "/list_remotes",
-            post(json_response(legacy::remotes::list_remotes_cmd)),
-        )
-        .route(
-            "/add_remote",
-            post(json_response(legacy::remotes::add_remote_cmd)),
-        )
+        .route("/list_remotes", but_post(legacy::remotes::list_remotes_cmd))
+        .route("/add_remote", but_post(legacy::remotes::add_remote_cmd))
         .route(
             "/create_workspace_rule",
-            post(json_response(legacy::rules::create_workspace_rule_cmd)),
+            but_post(legacy::rules::create_workspace_rule_cmd),
         )
         .route(
             "/delete_workspace_rule",
-            post(json_response(legacy::rules::delete_workspace_rule_cmd)),
+            but_post(legacy::rules::delete_workspace_rule_cmd),
         )
         .route(
             "/update_workspace_rule",
-            post(json_response(legacy::rules::update_workspace_rule_cmd)),
+            but_post(legacy::rules::update_workspace_rule_cmd),
         )
         .route(
             "/list_workspace_rules",
-            post(json_response(legacy::rules::list_workspace_rules_cmd)),
+            but_post(legacy::rules::list_workspace_rules_cmd),
         )
         .route(
             "/forget_github_account",
-            post(json_response(github::forget_github_account_cmd)),
+            but_post(github::forget_github_account_cmd),
         )
         .route(
             "/list_known_github_accounts",
-            post(json_response(github::list_known_github_accounts_cmd)),
+            but_post(github::list_known_github_accounts_cmd),
         )
         .route(
             "/clear_all_github_tokens",
-            post(json_response(github::clear_all_github_tokens_cmd)),
+            but_post(github::clear_all_github_tokens_cmd),
         )
         .route(
             "/forget_gitlab_account",
-            post(json_response(gitlab::forget_gitlab_account_cmd)),
+            but_post(gitlab::forget_gitlab_account_cmd),
         )
         .route(
             "/list_known_gitlab_accounts",
-            post(json_response(gitlab::list_known_gitlab_accounts_cmd)),
+            but_post(gitlab::list_known_gitlab_accounts_cmd),
         )
         .route(
             "/clear_all_gitlab_tokens",
-            post(json_response(gitlab::clear_all_gitlab_tokens_cmd)),
+            but_post(gitlab::clear_all_gitlab_tokens_cmd),
         )
         // Forge commands
-        .route(
-            "/pr_templates",
-            post(json_response(legacy::forge::pr_templates_cmd)),
-        )
-        .route(
-            "/pr_template",
-            post(json_response(legacy::forge::pr_template_cmd)),
-        )
+        .route("/pr_templates", but_post(legacy::forge::pr_templates_cmd))
+        .route("/pr_template", but_post(legacy::forge::pr_template_cmd))
         .route(
             "/forge_provider",
-            post(json_response(legacy::forge::forge_provider_cmd)),
+            but_post(legacy::forge::forge_provider_cmd),
         )
-        .route(
-            "/install_cli",
-            post(json_response(legacy::cli::install_cli_cmd)),
-        )
-        .route("/cli_path", post(json_response(legacy::cli::cli_path_cmd)))
-        .route("/open_url", post(json_response(legacy::open::open_url_cmd)))
+        .route("/install_cli", but_post(legacy::cli::install_cli_cmd))
+        .route("/cli_path", but_post(legacy::cli::cli_path_cmd))
+        .route("/open_url", but_post(legacy::open::open_url_cmd))
         .route(
             "/open_in_terminal",
-            post(json_response(legacy::open::open_in_terminal_cmd)),
+            but_post(legacy::open::open_in_terminal_cmd),
         )
         .route(
             "/show_in_finder",
-            post(json_response(legacy::open::show_in_finder_cmd)),
+            but_post(legacy::open::show_in_finder_cmd),
         )
-        .route("/absorb", post(json_response(legacy::absorb::absorb_cmd)))
+        .route("/absorb", but_post(legacy::absorb::absorb_cmd))
         .route(
             "/absorption_plan",
-            post(json_response(legacy::absorb::absorption_plan_cmd)),
+            but_post(legacy::absorb::absorption_plan_cmd),
         )
         .route(
             "/claude_get_user_message",
-            post(json_response(legacy::claude::claude_get_user_message_cmd)),
+            but_post(legacy::claude::claude_get_user_message_cmd),
         )
         .route(
             "/claude_list_permission_requests",
-            post(json_response(
-                legacy::claude::claude_list_permission_requests_cmd,
-            )),
+            but_post(legacy::claude::claude_list_permission_requests_cmd),
         )
         .route(
             "/claude_update_permission_request",
-            post(json_response(
-                legacy::claude::claude_update_permission_request_cmd,
-            )),
+            but_post(legacy::claude::claude_update_permission_request_cmd),
         )
         .route(
             "/claude_answer_ask_user_question",
-            post(json_response(
-                legacy::claude::claude_answer_ask_user_question_cmd,
-            )),
+            but_post(legacy::claude::claude_answer_ask_user_question_cmd),
         )
         .route(
             "/claude_list_prompt_templates",
-            post(json_response(
-                legacy::claude::claude_list_prompt_templates_cmd,
-            )),
+            but_post(legacy::claude::claude_list_prompt_templates_cmd),
         )
         .route(
             "/claude_get_prompt_dirs",
-            post(json_response(legacy::claude::claude_get_prompt_dirs_cmd)),
+            but_post(legacy::claude::claude_get_prompt_dirs_cmd),
         )
         .route(
             "/claude_maybe_create_prompt_dir",
-            post(json_response(
-                legacy::claude::claude_maybe_create_prompt_dir_cmd,
-            )),
+            but_post(legacy::claude::claude_maybe_create_prompt_dir_cmd),
         )
-        .route(
-            "/commit_reword",
-            post(json_response(commit::commit_reword_cmd)),
-        )
-        .route(
-            "/commit_create",
-            post(json_response(commit::commit_create_cmd)),
-        )
-        .route(
-            "/commit_amend",
-            post(json_response(commit::commit_amend_cmd)),
-        )
+        .route("/commit_reword", but_post(commit::commit_reword_cmd))
+        .route("/commit_create", but_post(commit::commit_create_cmd))
+        .route("/commit_amend", but_post(commit::commit_amend_cmd))
         .route(
             "/commit_move_changes_between",
-            post(json_response(commit::commit_move_changes_between_cmd)),
+            but_post(commit::commit_move_changes_between_cmd),
         )
         .route(
             "/commit_uncommit_changes",
-            post(json_response(commit::commit_uncommit_changes_cmd)),
+            but_post(commit::commit_uncommit_changes_cmd),
         )
-        .route("/build_type", post(json_response(platform::build_type_cmd)))
+        .route("/build_type", but_post(platform::build_type_cmd))
         // Catch-all for commands that need special handling (app, extra, app_settings_sync)
         .route("/{command}", post(post_handle_command_with_path))
-        .route(
-            "/ws",
-            any({
-                let broadcaster = broadcaster.clone();
-                async move |req| handle_ws_request(req, broadcaster).await
-            }),
-        )
+        .route("/ws", any(move |req| handle_ws_request(req, broadcaster)))
         // Spawning in a separate thread to prevent abort if the client
         // disconnects. We need this to ensure locks are removed after
         // the claude processes finishes.
