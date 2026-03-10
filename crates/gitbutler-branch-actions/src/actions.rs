@@ -1,6 +1,9 @@
 use anyhow::{Context as _, Result};
 use but_core::DiffSpec;
-use but_ctx::{Context, access::RepoExclusive};
+use but_ctx::{
+    Context,
+    access::{RepoExclusive, RepoShared},
+};
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_workspace::legacy::{commit_engine, stack_heads_info, ui};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
@@ -38,7 +41,8 @@ pub fn create_virtual_branch(
     perm: &mut RepoExclusive,
 ) -> Result<ui::StackEntryNoOpt> {
     ctx.verify(perm)?;
-    ensure_open_workspace_mode(ctx).context("Creating a branch requires open workspace mode")?;
+    ensure_open_workspace_mode(ctx, perm.read_permission())
+        .context("Creating a branch requires open workspace mode")?;
     let branch_manager = ctx.branch_manager();
     let stack = branch_manager.create_virtual_branch(create, perm)?;
     let repo = ctx.repo.get()?;
@@ -114,7 +118,7 @@ pub fn integrate_upstream_commits(
 ) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx)
+    ensure_open_workspace_mode(ctx, guard.read_permission())
         .context("Integrating upstream commits requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::MergeUpstream),
@@ -133,8 +137,9 @@ pub fn get_initial_integration_steps_for_branch(
     ctx: &Context,
     stack_id: Option<StackId>,
     branch_name: String,
+    perm: &RepoShared,
 ) -> Result<Vec<branch_upstream_integration::InteractiveIntegrationStep>> {
-    ensure_open_workspace_mode(ctx)
+    ensure_open_workspace_mode(ctx, perm)
         .context("Getting initial integration steps requires open workspace mode")?;
     branch_upstream_integration::get_initial_integration_steps_for_branch(
         ctx,
@@ -151,7 +156,7 @@ pub fn integrate_branch_with_steps(
 ) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx)
+    ensure_open_workspace_mode(ctx, guard.read_permission())
         .context("Integrating a branch with steps requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::MergeUpstream),
@@ -169,7 +174,7 @@ pub fn integrate_branch_with_steps(
 pub fn update_stack_order(ctx: &mut Context, updates: Vec<BranchUpdateRequest>) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx)
+    ensure_open_workspace_mode(ctx, guard.read_permission())
         .context("Updating branch order requires open workspace mode")?;
     for stack_update in updates {
         let stack = ctx
@@ -190,7 +195,7 @@ pub fn unapply_stack(
     assigned_diffspec: Vec<DiffSpec>,
 ) -> Result<String> {
     ctx.verify(perm)?;
-    ensure_open_workspace_mode(ctx)
+    ensure_open_workspace_mode(ctx, perm.read_permission())
         .context("Deleting a branch order requires open workspace mode")?;
     let branch_manager = ctx.branch_manager();
     // NB: unapply_without_saving is also called from save_and_unapply
@@ -215,7 +220,8 @@ pub fn amend(
 ) -> Result<git2::Oid> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx).context("Amending a commit requires open workspace mode")?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Amending a commit requires open workspace mode")?;
     {
         // commit_engine::create_commit_and_update_refs_with_project is also doing a write lock,
         // so we want to allow this guard to be dropped first
@@ -259,7 +265,8 @@ fn amend_with_commit_engine(
 pub fn undo_commit(ctx: &mut Context, stack_id: StackId, commit_oid: git2::Oid) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx).context("Undoing a commit requires open workspace mode")?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Undoing a commit requires open workspace mode")?;
     let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
     let result: Result<()> =
         crate::undo_commit::undo_commit(ctx, stack_id, commit_oid, guard.write_permission())
@@ -278,7 +285,8 @@ pub fn undo_commit(ctx: &mut Context, stack_id: StackId, commit_oid: git2::Oid) 
 pub fn reorder_stack(ctx: &mut Context, stack_id: StackId, stack_order: StackOrder) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx).context("Reordering a commit requires open workspace mode")?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Reordering a commit requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::ReorderCommit),
         guard.write_permission(),
@@ -295,7 +303,8 @@ pub fn squash_commits(
 ) -> Result<git2::Oid> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx).context("Squashing a commit requires open workspace mode")?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Squashing a commit requires open workspace mode")?;
     crate::squash::squash_commits(
         ctx,
         stack_id,
@@ -313,7 +322,7 @@ pub fn update_commit_message(
 ) -> Result<git2::Oid> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx)
+    ensure_open_workspace_mode(ctx, guard.read_permission())
         .context("Updating a commit message requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::UpdateCommitMessage),
@@ -357,7 +366,8 @@ pub fn move_commit(
 ) -> Result<Option<MoveCommitIllegalAction>> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx).context("Moving a commit requires open workspace mode")?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Moving a commit requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::MoveCommit),
         guard.write_permission(),
@@ -380,7 +390,8 @@ pub fn move_branch(
 ) -> Result<MoveBranchResult> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx).context("Moving a branch requires open workspace mode")?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Moving a branch requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::MoveBranch),
         guard.write_permission(),
@@ -402,7 +413,8 @@ pub fn tear_off_branch(
 ) -> Result<MoveBranchResult> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx).context("Moving a branch requires open workspace mode")?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Moving a branch requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::TearOffBranch),
         guard.write_permission(),
@@ -424,7 +436,7 @@ pub fn create_virtual_branch_from_branch(
 ) -> Result<(StackId, Vec<StackId>, Vec<String>)> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx)
+    ensure_open_workspace_mode(ctx, guard.read_permission())
         .context("Creating a virtual branch from a branch open workspace mode")?;
     let branch_manager = ctx.branch_manager();
     branch_manager.create_virtual_branch_from_branch(

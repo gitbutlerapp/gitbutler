@@ -199,7 +199,7 @@ impl Handler {
                         self.emit_app_event(Change::GitHead {
                             project_id: project_id.clone(),
                             head: head.to_string(),
-                            operating_mode: operating_mode(ctx),
+                            operating_mode: operating_mode(ctx, perm.read_permission())?,
                         })?;
                     }
                 }
