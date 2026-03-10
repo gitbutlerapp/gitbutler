@@ -248,7 +248,7 @@ pub fn update_stack_order(
     Ok(())
 }
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn unapply_stack(ctx: &mut Context, stack_id: StackId) -> Result<()> {
     let context_lines = ctx.settings.context_lines;
