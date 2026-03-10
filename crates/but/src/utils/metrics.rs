@@ -198,6 +198,7 @@ impl Subcommands {
                 skill::Subcommands::Check { .. } => SkillCheck,
             },
             Subcommands::Edit { .. } => Edit,
+            Subcommands::Open { .. } => Open,
             Subcommands::Link(link::Platform { .. }) => Unknown,
             Subcommands::Onboarding | Subcommands::EvalHook => Unknown,
         }

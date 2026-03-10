@@ -1,10 +1,25 @@
 //! Various functions that involve launching the Git editor (i.e. `GIT_EDITOR`).
 //!
 //! When no external editor is configured, falls back to the built-in TUI editor.
-use std::ffi::OsStr;
+use std::{ffi::OsStr, path::Path};
 
 use anyhow::{Result, bail};
 use bstr::{BStr, BString, ByteSlice};
+
+/// Opens the provided filepath in the user's preferred editor.
+///
+/// # Note
+///
+/// The user-configured editor command is allowed to be a shell expression (e.g. `"code --wait"`),
+/// and is therefore executed within a shell. As such, the path passed into this function **must be
+/// safe to use in a shell context**. Never pass in user-supplied strings that have not been
+/// verified to point to a file that `but` is supposed to be allowed to open.
+pub fn launch_editor(path: &Path) -> Result<()> {
+    match get_editor_command() {
+        Some(editor_cmd) => launch_external_editor(&editor_cmd, path),
+        None => bail!("Built-in editor not yet supported"),
+    }
+}
 
 /// Launches the user's preferred text editor to edit some `initial_text`,
 /// identified by a `filename_safe_intent` to help the user understand what's wanted of them.
@@ -68,20 +83,30 @@ fn from_external_editor(
         .tempfile()?;
     std::fs::write(&tempfile, initial_text)?;
 
-    // The editor command is allowed to be a shell expression, e.g. "code --wait" is somewhat common.
-    // We need to execute within a shell to make sure we don't get "No such file or directory" errors.
+    launch_external_editor(editor_cmd, tempfile.path())?;
+    Ok(std::fs::read(&tempfile)?.into())
+}
+
+/// Launch an external editor.
+///
+/// # Note
+///
+/// The editor command is allowed to be a shell expression (e.g. `"code --wait"`),
+/// so it is executed within a shell to avoid "No such file or directory" errors.
+fn launch_external_editor(editor_cmd: &str, path_safe_intent: &Path) -> Result<(), anyhow::Error> {
     let status = gix::command::prepare(editor_cmd)
-        .arg(tempfile.path())
+        .arg(path_safe_intent)
         .stdin(std::process::Stdio::inherit())
         .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
         .with_shell()
         .spawn()?
         .wait()?;
-
     if !status.success() {
         bail!("Editor exited with non-zero status");
     }
-    Ok(std::fs::read(&tempfile)?.into())
+
+    Ok(())
 }
 
 /// Launch the built-in TUI editor.

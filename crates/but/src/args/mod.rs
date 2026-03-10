@@ -216,6 +216,24 @@ pub enum Subcommands {
         file: String,
     },
 
+    /// Open a file with uncommitted changes in the workspace using your configured editor.
+    ///
+    /// This is a shorthand command to be able to open a file in the workspace using a CLI ID. The
+    /// primary use case is to run `but status` followed by `but open <id>` using one of the IDs
+    /// emitted by `status`.
+    ///
+    /// ## Examples
+    ///
+    /// ```text
+    /// but open nt
+    /// ```
+    ///
+    #[clap(verbatim_doc_comment)]
+    Open {
+        /// The CLI ID of the entity to open in your editor
+        target: String,
+    },
+
     /// Shows detailed information about a commit or branch.
     ///
     /// When given a commit ID, displays the full commit message, author information,

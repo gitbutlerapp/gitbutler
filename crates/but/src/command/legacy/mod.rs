@@ -13,6 +13,7 @@ pub mod mark;
 pub mod mcp;
 pub mod mcp_internal;
 pub mod merge;
+pub mod open;
 pub mod oplog;
 pub mod pick;
 pub mod pull;
