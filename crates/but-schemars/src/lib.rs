@@ -226,6 +226,7 @@ struct GixTime {
     seconds: i64,
     offset: i32,
 }
+register_sdk_type!(GixTime);
 
 /// Use on optional `gix::date::Time` fields that should keep the same
 /// `{ seconds, offset }` shape as the serialized value.
@@ -251,6 +252,7 @@ enum EntryKindSchema {
     Link,
     Commit,
 }
+register_sdk_type!(EntryKindSchema);
 
 /// Use on `gix::object::tree::EntryKind` fields that should export the stable
 /// enum used by the frontend.
@@ -274,6 +276,7 @@ struct SerdeErrorSchema {
     description: String,
     source: Option<Box<SerdeErrorSchema>>,
 }
+register_sdk_type!(SerdeErrorSchema);
 
 /// Use on `serde_error::Error` fields.
 ///
@@ -299,4 +302,76 @@ pub fn serde_error(generate: &mut schemars::SchemaGenerator) -> schemars::Schema
 /// ```
 pub fn serde_error_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
     generate.subschema_for::<Option<SerdeErrorSchema>>()
+}
+
+/// A Schema registered from around the codebase
+///
+/// This is used internally for the but-ts schema registration. You probably
+/// never need to use this struct directly or indirectly.
+///
+/// If you want to register a `JsonSchema`, use the [`register_sdk_type!`]
+/// macro.
+#[derive(Debug)]
+pub struct SchemarEntry {
+    /// The name of the schema getting registered
+    pub name: fn() -> Cow<'static, str>,
+    /// The qualified type that was registered
+    pub type_name: &'static str,
+    /// The location of the register call
+    pub registration_location: &'static str,
+    /// The actual schema of the type getting registered
+    pub schema: fn() -> schemars::Schema,
+}
+
+inventory::collect!(SchemarEntry);
+
+use std::borrow::Cow;
+
+#[doc(hidden)]
+pub use inventory::submit as internal_submit;
+#[doc(hidden)]
+pub use schemars::JsonSchema as InternalJsonSchema;
+#[doc(hidden)]
+pub use schemars::schema_for as internal_schema_for;
+
+/// Register a type deriving `JsonSchema` to be included as a type in the
+/// packages/but-sdk.
+///
+/// This can be used across crates. Any crate that is linked into the `but-ts`
+/// crate will have its [`register_sdk_type!`] calls picked up.
+///
+/// Currently we explicitly link the `but-api` crate in the `but-ts` crate which
+/// also includes the dependencies of `but-api`.
+///
+/// If the type being registered has a schema name collision with another
+/// registered type, when type but-sdk types are generated at runtime an error
+/// will be thrown.
+///
+/// If the type being registered references types that are not also registered
+/// for the but-sdk, when type but-sdk types are generated at runtime an error
+/// will be thrown.
+///
+/// ```rust
+/// #[derive(schemars::JsonSchema)]
+/// struct Example {
+///     foo: i64
+/// }
+///
+/// register_sdk_type!(Example);
+/// ```
+#[macro_export]
+macro_rules! register_sdk_type {
+    ($ty:ty) => {
+        const _: () = {
+            use $crate::InternalJsonSchema as _;
+            $crate::internal_submit! {
+                $crate::SchemarEntry {
+                    name: <$ty>::schema_name,
+                    type_name: concat!(module_path!(), "::", stringify!($ty)),
+                    registration_location: concat!(file!(), ":", line!()),
+                    schema: || $crate::internal_schema_for!($ty)
+                }
+            }
+        };
+    };
 }

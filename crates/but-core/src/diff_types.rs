@@ -30,6 +30,8 @@ pub struct DiffSpec {
     /// Otherwise, the whole file is being deleted.
     pub hunk_headers: Vec<HunkHeader>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(DiffSpec);
 
 impl From<&TreeChange> for DiffSpec {
     fn from(change: &crate::TreeChange) -> Self {
@@ -67,6 +69,8 @@ pub struct HunkHeader {
     /// The non-zero number of lines included in the new version of the file.
     pub new_lines: u32,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HunkHeader);
 
 impl From<&crate::unified_diff::DiffHunk> for HunkHeader {
     fn from(

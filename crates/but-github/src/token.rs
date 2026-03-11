@@ -63,6 +63,8 @@ pub enum GithubAccountIdentifier {
     PatUsername { username: String },
     Enterprise { username: String, host: String },
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(GithubAccountIdentifier);
 
 impl GithubAccountIdentifier {
     pub fn oauth(username: &str) -> Self {

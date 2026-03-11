@@ -42,6 +42,8 @@ pub struct CalculationError {
     )]
     pub path: BString,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(CalculationError);
 
 #[derive(Debug, Default)]
 struct StackRanges {

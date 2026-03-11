@@ -1152,6 +1152,7 @@ fn type_to_ts_name(ty: &syn::Type) -> String {
                 "HexHash" | "HexHashString" => "string".to_string(),
                 "ObjectId" => "string".to_string(),
                 "BString" => "string".to_string(),
+                "StackId" => "string".to_string(),
                 // Named types — use their name as-is (these will be defined in the generated .d.ts)
                 other => other.to_string(),
             }

@@ -62,6 +62,8 @@ pub enum GitlabAccountIdentifier {
     PatUsername { username: String },
     SelfHosted { username: String, host: String },
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(GitlabAccountIdentifier);
 
 impl GitlabAccountIdentifier {
     pub fn pat(username: &str) -> Self {

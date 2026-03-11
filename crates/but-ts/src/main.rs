@@ -16,13 +16,25 @@
 //! ```
 //!
 
-use std::{collections::BTreeMap, fmt::Write, path::PathBuf};
+use anyhow::bail;
+// Link but-api to ensure types are correctly collected.
+use but_api as _;
+use serde_json::Value;
+
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, HashMap},
+    fmt::Write,
+    path::PathBuf,
+};
+
+use but_schemars::SchemarEntry;
 
 fn main() -> anyhow::Result<()> {
     let output_path = parse_args()?;
 
     // Collect schemas from the but-api schema registry
-    let schemas = but_api::schema::collect_all_schemas();
+    let schemas = collect_all_schemas()?;
 
     eprintln!("Collected {} unique type schemas", schemas.len());
 
@@ -52,36 +64,8 @@ fn main() -> anyhow::Result<()> {
         sorted.insert(name.as_str(), schema);
     }
 
-    // First pass: collect all $defs from all schemas.
-    let mut all_defs: BTreeMap<String, serde_json::Value> = BTreeMap::new();
-    for schema in sorted.values() {
-        if let Some(obj) = schema.as_object()
-            && let Some(serde_json::Value::Object(defs)) =
-                obj.get("$defs").or_else(|| obj.get("definitions"))
-        {
-            for (def_name, def_schema) in defs {
-                all_defs
-                    .entry(def_name.clone())
-                    .or_insert_with(|| def_schema.clone());
-            }
-        }
-    }
-
     // Generate top-level types
     for (name, schema) in &sorted {
-        if let Some(desc) = get_description(schema) {
-            write!(ts_output, "{}", format_jsdoc(&desc, 0))?;
-        }
-        let ts_type = schema_to_ts(schema, 0);
-        writeln!(ts_output, "export type {name} = {ts_type};\n")?;
-    }
-
-    // Generate types from $defs
-    for (name, schema) in &all_defs {
-        // Skip if already generated as a top-level type
-        if sorted.contains_key(name.as_str()) {
-            continue;
-        }
         if let Some(desc) = get_description(schema) {
             write!(ts_output, "{}", format_jsdoc(&desc, 0))?;
         }
@@ -104,6 +88,138 @@ fn main() -> anyhow::Result<()> {
     eprintln!("Written to {}", output_path.display());
 
     Ok(())
+}
+
+struct CollectedSchemarEntry {
+    /// The name of the schema getting registered
+    pub name: Cow<'static, str>,
+    /// The qualified type that was registered
+    pub type_name: &'static str,
+    /// The location of the register call
+    pub registration_location: &'static str,
+    /// The actual schema of the type getting registered
+    pub schema: schemars::Schema,
+}
+
+/// Collect all registered type schemas.
+///
+/// Returns a list of `(name, schema)` pairs for all registered types.
+/// This is used by the `but-ts` tool to produce TypeScript definitions.
+fn collect_all_schemas() -> anyhow::Result<Vec<(String, schemars::Schema)>> {
+    let mut types = inventory::iter::<SchemarEntry>()
+        .map(|s| CollectedSchemarEntry {
+            name: (s.name)(),
+            type_name: s.type_name,
+            registration_location: s.registration_location,
+            schema: (s.schema)(),
+        })
+        .collect::<Vec<_>>();
+
+    // Order by registration location for a stable checking order
+    types.sort_by_cached_key(|s| s.registration_location);
+
+    let mut existing_names = HashMap::<&str, &CollectedSchemarEntry>::new();
+
+    for t in &types {
+        if let Some(duplicate) = existing_names.get(t.name.as_ref()) {
+            bail!(
+                "Error when registering schema {} for type {} registered at {}\n\nDuplicate type {} was registered at {}. Consider renaming one of the types with either `#[serde(rename = ...)]` or `#[schemars(rename = ...)]`.\n",
+                t.name,
+                t.type_name,
+                t.registration_location,
+                duplicate.type_name,
+                duplicate.registration_location
+            );
+        } else {
+            existing_names.insert(t.name.as_ref(), t);
+        }
+    }
+
+    for t in &types {
+        if let Some(obj) = t.schema.as_object()
+            && let Some(serde_json::Value::Object(defs)) =
+                obj.get("$defs").or_else(|| obj.get("definitions"))
+        {
+            for (def_name, def_schema) in defs {
+                if let Some(entry) = existing_names.get(&def_name.as_ref()) {
+                    let entry_schema = entry.schema.clone().to_value();
+                    if !root_equals_def(&entry_schema, def_schema, def_name) {
+                        bail!(
+                            "Error when registering schema {} for type {} registered at {}\n\nThe registered dependent type {} has a different signature than what is expected. This indicates a potential name collision. Consider renaming one of the types with either `#[serde(rename = ...)]` or `#[schemars(rename = ...)]`.\n",
+                            t.name,
+                            t.type_name,
+                            t.registration_location,
+                            def_name
+                        )
+                    }
+                } else {
+                    bail!(
+                        "Error when registering schema {} for type {} registered at {}\n\nMissing dependent type {}. Consider deriving `JsonSchema` on the type and registering it with `register_sdk_type!()`.\n",
+                        t.name,
+                        t.type_name,
+                        t.registration_location,
+                        def_name
+                    )
+                }
+            }
+        }
+    }
+
+    // Order output types by name
+    types.sort_by_cached_key(|t| t.name.to_string());
+
+    Ok(types
+        .into_iter()
+        .map(|s| (s.name.to_string(), s.schema))
+        .collect())
+}
+
+/// Determines whether a root schema and a reference schema are equal by the
+/// definitions of the types.
+///
+/// The first argument must be a root schema from schemars and the second
+/// argument must be a `$defs` schema from schemars.
+///
+/// Self-referential references are different between root and def schemas - a
+/// self referential root schema uses just `#` where as a def schema uses
+/// `#/$defs/{type_name}`. To account for this, any value in the root schema
+/// that equals `#` is assumed to be `#/$defs/{typename}` when comparing against
+/// the def schema.
+fn root_equals_def(root_schema: &Value, def_schema: &Value, type_name: &str) -> bool {
+    ["properties", "description", "required"]
+        .iter()
+        .all(|key| root_equals_def_inner(&root_schema[key], &def_schema[key], type_name))
+}
+
+fn root_equals_def_inner(root_schema: &Value, def_schema: &Value, type_name: &str) -> bool {
+    if let (Some(a), Some(b)) = (root_schema.as_object(), def_schema.as_object()) {
+        if a.len() == b.len() {
+            a.iter().all(|(ak, av)| {
+                b.get(ak)
+                    .is_some_and(|bv| root_equals_def(av, bv, type_name))
+            })
+        } else {
+            false
+        }
+    } else if let (Some(a), Some(b)) = (root_schema.as_array(), def_schema.as_array()) {
+        if a.len() == b.len() {
+            a.iter()
+                .zip(b)
+                .all(|(a, b)| root_equals_def(a, b, type_name))
+        } else {
+            false
+        }
+    } else if let (Some(a), Some(b)) = (root_schema.as_str(), def_schema.as_str()) {
+        if a == b {
+            true
+        } else {
+            // If the root_schema is self-referential, try compare against the
+            // name used in a self-referential $def schema.
+            a == "#" && format!("#/$defs/{type_name}") == b
+        }
+    } else {
+        root_schema == def_schema
+    }
 }
 
 fn parse_args() -> anyhow::Result<PathBuf> {

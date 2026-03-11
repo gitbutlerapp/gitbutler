@@ -35,6 +35,8 @@ pub mod json {
         /// Whether the workspace reference had to be created.
         pub workspace_ref_created: bool,
     }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(ApplyOutcome);
 
     impl<'a> From<but_workspace::branch::apply::Outcome<'a>> for ApplyOutcome {
         fn from(value: but_workspace::branch::apply::Outcome<'a>) -> Self {
@@ -68,6 +70,8 @@ pub mod json {
         )]
         pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
     }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(UIMoveBranchResult);
 
     impl From<MoveBranchResult> for UIMoveBranchResult {
         fn from(value: MoveBranchResult) -> Self {

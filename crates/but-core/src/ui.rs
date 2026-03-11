@@ -7,6 +7,9 @@ use serde::{Deserialize, Serialize};
 use crate::IgnoredWorktreeChange;
 
 /// The type returned by [`crate::diff::worktree_changes()`].
+///
+/// Not registered as a frontend type library because it is flattened into a
+/// super WorktreeChanges type.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct WorktreeChanges {
@@ -52,6 +55,8 @@ pub struct TreeChanges {
     /// The stats of the changes.
     pub stats: TreeStats,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(TreeChanges);
 
 impl TreeChanges {
     pub fn try_to_unidiff(
@@ -101,6 +106,8 @@ pub struct TreeChange {
     pub path_bytes: BString,
     pub status: TreeStatus,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(TreeChange);
 
 impl From<gix::object::tree::diff::Stats> for TreeStats {
     fn from(stats: gix::object::tree::diff::Stats) -> Self {
@@ -123,6 +130,8 @@ pub struct TreeStats {
     /// The number of files added, removed or modified.
     pub files_changed: u64,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(TreeStats);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
@@ -167,6 +176,8 @@ pub enum TreeStatus {
         flags: Option<ModeFlags>,
     },
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(TreeStatus);
 
 impl From<TreeStatus> for crate::TreeStatus {
     fn from(value: TreeStatus) -> Self {
@@ -267,6 +278,8 @@ pub struct ChangeState {
     )]
     pub kind: EntryKind,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ChangeState);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
@@ -280,6 +293,8 @@ pub enum ModeFlags {
     TypeChangeLinkToFile,
     TypeChange,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ModeFlags);
 
 impl From<TreeChange> for crate::TreeChange {
     fn from(

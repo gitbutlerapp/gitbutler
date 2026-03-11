@@ -31,6 +31,8 @@ pub struct BranchIdentity(
     #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub gix::refs::PartialName,
 );
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(BranchIdentity);
 
 impl Serialize for BranchIdentity {
     fn serialize<S>(&self, s: S) -> std::result::Result<S::Ok, S::Error>

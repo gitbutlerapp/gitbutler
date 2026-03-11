@@ -1,5 +1,5 @@
-import { listProjectsNapi } from "@gitbutler/but-sdk";
+import { listProjectsStatelessNapi } from "@gitbutler/but-sdk";
 
 export async function listProjects() {
-	return await listProjectsNapi([]);
+	return await listProjectsStatelessNapi();
 }

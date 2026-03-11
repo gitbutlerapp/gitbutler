@@ -389,6 +389,8 @@ pub struct FullRefName {
     #[schemars(schema_with = "bstring_schema")]
     pub full_bytes: bstr::BString,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(FullRefName);
 
 impl From<gix::refs::FullName> for FullRefName {
     fn from(value: gix::refs::FullName) -> Self {

@@ -57,6 +57,10 @@ pub struct HunkAssignment {
     pub path_bytes: BString,
     /// The stack to which the hunk is assigned. If None, the hunk is not assigned to any stack.
     #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::stack_id_opt")
+    )]
     pub stack_id: Option<StackId>,
     /// The dependencies(locks) that this hunk has. This determines where the hunk can be assigned.
     /// This field is ignored when HunkAssignment is passed by the UI to create a new assignment.
@@ -70,6 +74,8 @@ pub struct HunkAssignment {
     #[serde(skip)]
     pub diff: Option<BString>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HunkAssignment);
 
 impl HunkAssignment {
     pub fn from_tree_change(change: &TreeChange, patch: Option<UnifiedPatch>) -> Vec<Self> {
@@ -260,6 +266,8 @@ pub struct AssignmentRejection {
     /// The locks that caused the rejection.
     locks: Vec<HunkLock>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(AssignmentRejection);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -279,8 +287,14 @@ pub struct HunkAssignmentRequest {
     pub path_bytes: BString,
     /// The stack to which the hunk is assigned. If set to None, the hunk is set as "unassigned".
     /// If a stack id is set, it must be one of the applied stacks.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::stack_id_opt")
+    )]
     pub stack_id: Option<StackId>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HunkAssignmentRequest);
 
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -302,6 +316,8 @@ pub struct WorktreeChanges {
     )]
     pub dependencies_error: Option<serde_error::Error>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(WorktreeChanges);
 
 impl From<but_core::ui::WorktreeChanges> for WorktreeChanges {
     fn from(worktree_changes: but_core::ui::WorktreeChanges) -> Self {

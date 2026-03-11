@@ -44,6 +44,8 @@ pub struct DiffHunk {
     )]
     pub diff: BString,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(DiffHunk);
 
 impl std::fmt::Debug for DiffHunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
