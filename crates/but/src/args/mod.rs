@@ -391,7 +391,7 @@ pub enum Subcommands {
         delete: bool,
     },
 
-    /// Removes any marks from the workspace
+    /// Removes any marks from the workspace.
     ///
     /// This will unmark anything that has been marked by the `but mark` command.
     ///
