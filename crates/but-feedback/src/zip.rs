@@ -68,7 +68,16 @@ where
 
         // Write file or directory explicitly
         // Some unzip tools unzip files with directory paths correctly, some do not!
-        if path.is_file() {
+        if entry.path_is_symlink() && !name.as_os_str().is_empty() {
+            // Avoid following symlinks to prevent getting files we don't want, we just write down
+            // the file path to make note there was something there.
+            let resolved_path = path.read_link()?;
+            buffer.write_all(b"symlink: ")?;
+            buffer.write_all(resolved_path.to_string_lossy().as_bytes())?;
+            zip.start_file_from_path(name, options)?;
+            zip.write_all(&buffer)?;
+            buffer.clear();
+        } else if path.is_file() {
             zip.start_file_from_path(name, options)?;
             let mut f = fs::File::open(path)?;
 
