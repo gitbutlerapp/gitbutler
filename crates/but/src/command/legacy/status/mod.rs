@@ -70,6 +70,26 @@ struct UpstreamState {
     author_email: String,
 }
 
+#[derive(Copy, Clone)]
+struct StatusContext<'a> {
+    stack_details: &'a [StackEntry],
+    worktree_changes: &'a [ui::TreeChange],
+    common_merge_base_data: &'a CommonMergeBase,
+    upstream_state: Option<&'a UpstreamState>,
+    last_fetched_ms: Option<u128>,
+    review_map: &'a std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
+    ci_map: &'a BTreeMap<String, Vec<but_forge::CiCheck>>,
+    branch_merge_statuses: &'a BTreeMap<String, UpstreamBranchStatus>,
+    show_files: bool,
+    verbose: bool,
+    show_upstream: bool,
+    hint: bool,
+    has_branches: bool,
+    id_map: &'a IdMap,
+    base_branch: Option<&'a gitbutler_branch_actions::BaseBranch>,
+    mode: &'a gitbutler_operating_modes::OperatingMode,
+}
+
 fn show_edit_mode_status(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
     // Delegate to the resolve status logic to show actual conflict details
     crate::command::legacy::resolve::show_resolve_status(ctx, out)
@@ -89,15 +109,6 @@ pub(crate) async fn worktree(
     if let gitbutler_operating_modes::OperatingMode::Edit(_metadata) = mode {
         // In edit mode, show the conflict resolution status
         return show_edit_mode_status(ctx, out);
-    }
-
-    // Check for available updates and display if present
-    if let Some(out) = out.for_human() {
-        let cache = ctx.app_cache.get_cache()?;
-        if let Ok(Some(update)) = but_update::available_update(&cache) {
-            writeln!(out, "{}", update.display_cli(verbose, out.is_paged()))?;
-            writeln!(out)?;
-        }
     }
 
     // Process rules with exclusive access to create repo and workspace
@@ -243,22 +254,27 @@ pub(crate) async fn worktree(
     // Re-acquire repo for use after the async call
     let repo = ctx.repo.get()?;
 
+    let status_ctx = StatusContext {
+        stack_details: &stack_details,
+        worktree_changes: &worktree_changes.worktree_changes.changes,
+        common_merge_base_data: &common_merge_base_data,
+        upstream_state: upstream_state.as_ref(),
+        last_fetched_ms,
+        review_map: &review_map,
+        ci_map: &ci_map,
+        branch_merge_statuses: &branch_merge_statuses,
+        show_files,
+        verbose,
+        show_upstream,
+        hint,
+        has_branches,
+        id_map: &id_map,
+        base_branch: base_branch.as_ref(),
+        mode: &mode,
+    };
+
     if let Some(out) = out.for_json() {
-        let workspace_status = json::build_workspace_status_json(
-            &stack_details,
-            &worktree_changes.worktree_changes.changes,
-            &common_merge_base_data,
-            &upstream_state,
-            last_fetched_ms,
-            &review_map,
-            &ci_map,
-            &branch_merge_statuses,
-            show_files,
-            &repo,
-            &id_map,
-            base_branch.as_ref(),
-            show_upstream,
-        )?;
+        let workspace_status = json::build_workspace_status_json(&status_ctx, &repo)?;
         out.write_value(workspace_status)?;
         return Ok(());
     }
@@ -267,55 +283,136 @@ pub(crate) async fn worktree(
         return Ok(());
     };
 
-    // Drop repo to release the borrow on ctx before the loop
+    // Drop repo to release the borrow on ctx before printing status details.
     drop(repo);
 
-    for (i, (stack_id, (stack_with_id, assignments))) in stack_details.into_iter().enumerate() {
-        let mut stack_mark = stack_id.and_then(|stack_id| {
-            if crate::command::legacy::mark::stack_marked(ctx, stack_id).unwrap_or_default() {
-                Some("◀ Marked ▶".red().bold())
-            } else {
-                None
-            }
-        });
+    print_human_status(ctx, out, status_ctx)?;
 
-        // assignments to the stack
-        if let Some(stack_with_id) = &stack_with_id {
-            let branch_name = stack_with_id
-                .segments
-                .first()
-                .map_or(Some(BStr::new(b"")), SegmentWithId::branch_name);
-            let repo = ctx.repo.get()?;
-            print_assignments(
-                &repo,
-                stack_id,
-                &id_map,
-                branch_name,
-                &assignments,
-                &worktree_changes.worktree_changes.changes,
-                false,
-                out,
-            )?;
-        }
+    Ok(())
+}
 
-        print_group(
-            &stack_with_id,
-            assignments,
-            &worktree_changes.worktree_changes.changes,
-            show_files,
-            verbose,
-            &mut stack_mark,
-            ctx,
-            i == 0,
-            &review_map,
-            &ci_map,
-            &branch_merge_statuses,
+fn print_human_status(
+    ctx: &mut Context,
+    out: &mut dyn WriteWithUtils,
+    status_ctx: StatusContext<'_>,
+) -> anyhow::Result<()> {
+    print_update_notice(ctx, out, status_ctx)?;
+
+    print_worktree_status(ctx, out, status_ctx)?;
+
+    print_upstream_state(ctx, out, status_ctx)?;
+
+    print_common_merge_base_summary(out, status_ctx)?;
+
+    let not_on_workspace = matches!(
+        status_ctx.mode,
+        gitbutler_operating_modes::OperatingMode::OutsideWorkspace(_)
+    );
+
+    print_outside_workspace_warning(not_on_workspace, out)?;
+
+    print_hint(out, not_on_workspace, status_ctx)?;
+
+    Ok(())
+}
+
+/// Print update information for human output when a newer `but` version is available.
+fn print_update_notice(
+    ctx: &mut Context,
+    out: &mut dyn WriteWithUtils,
+    StatusContext { verbose, .. }: StatusContext<'_>,
+) -> anyhow::Result<()> {
+    let cache = ctx.app_cache.get_cache()?;
+    if let Ok(Some(update)) = but_update::available_update(&cache) {
+        writeln!(out, "{}", update.display_cli(verbose, out.is_paged()))?;
+        writeln!(out)?;
+    }
+
+    Ok(())
+}
+
+/// Print a warning when operating outside the GitButler workspace.
+fn print_outside_workspace_warning(
+    not_on_workspace: bool,
+    out: &mut dyn WriteWithUtils,
+) -> anyhow::Result<()> {
+    if not_on_workspace {
+        writeln!(
             out,
-            &id_map,
+            r#"
+⚠️    You are in plain Git mode, directly on a branch. Some commands may be unavailable.    ⚠️
+⚠️    More info: https://github.com/gitbutlerapp/gitbutler/issues/11866                     ⚠️
+"#,
         )?;
     }
 
-    // Format the last fetched time as relative time, unless NO_BG_TASKS is set
+    Ok(())
+}
+
+/// Print a contextual hint at the end of status output when hints are enabled.
+fn print_hint(
+    out: &mut dyn WriteWithUtils,
+    not_on_workspace: bool,
+    StatusContext {
+        hint,
+        worktree_changes,
+        has_branches,
+        ..
+    }: StatusContext<'_>,
+) -> anyhow::Result<()> {
+    if !hint {
+        return Ok(());
+    }
+
+    writeln!(out)?;
+
+    // Determine what hint to show based on workspace state
+    let has_uncommitted_files = !worktree_changes.is_empty();
+
+    // Check whether we're inside the workspace
+    if not_on_workspace {
+        writeln!(
+            out,
+            "{}",
+            "Hint: run `but setup` to switch back to GitButler managed mode.".dimmed()
+        )?;
+    } else if !has_branches {
+        writeln!(
+            out,
+            "{}",
+            "Hint: run `but branch new` to create a new branch to work on".dimmed()
+        )?;
+    } else if has_uncommitted_files {
+        writeln!(
+            out,
+            "{}",
+            "Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch"
+                .dimmed()
+        )?;
+    } else {
+        writeln!(out, "{}", "Hint: run `but help` for all commands".dimmed())?;
+    }
+
+    Ok(())
+}
+
+/// Display upstream state information when upstream has commits ahead of the workspace base.
+fn print_upstream_state(
+    ctx: &mut Context,
+    out: &mut dyn WriteWithUtils,
+    StatusContext {
+        upstream_state,
+        last_fetched_ms,
+        show_upstream,
+        base_branch,
+        ..
+    }: StatusContext<'_>,
+) -> anyhow::Result<()> {
+    let Some(upstream) = upstream_state else {
+        return Ok(());
+    };
+
+    // Format the last fetched time as relative time, unless NO_BG_TASKS is set.
     let last_checked_text = if std::env::var("NO_BG_TASKS").is_ok() {
         String::new()
     } else {
@@ -327,55 +424,64 @@ pub(crate) async fn worktree(
             .unwrap_or_default()
     };
 
-    // Display upstream state if there are new commits
-    if let Some(upstream) = &upstream_state {
-        let dot = "●".yellow();
+    let dot = "●".yellow();
 
-        if show_upstream {
-            // When showing detailed commits, only show count in summary
-            writeln!(
-                out,
-                "┊╭┄(upstream) ⏫ {} new commits{}",
-                upstream.behind_count,
-                last_checked_text.dimmed()
-            )?;
+    if show_upstream {
+        // When showing detailed commits, only show count in summary
+        writeln!(
+            out,
+            "┊╭┄(upstream) ⏫ {} new commits{}",
+            upstream.behind_count,
+            last_checked_text.dimmed()
+        )?;
 
-            // Display detailed list of upstream commits
-            if let Some(ref base_branch) = base_branch
-                && !base_branch.upstream_commits.is_empty()
-            {
-                let repo = ctx.repo.get()?;
-                let commits = base_branch.upstream_commits.iter().take(8);
-                for commit in commits {
-                    // Measure prefix width using plain text (no ANSI codes)
-                    let commit_short = shorten_hex_object_id(&repo, &commit.id);
-                    let truncated_msg = out
-                        .truncate_if_unpaged(&commit.description.to_string().replace('\n', " "), 72)
-                        .dimmed();
-                    writeln!(out, "┊{dot} {} {truncated_msg}", commit_short.yellow())?;
-                }
-                let hidden_commits = base_branch.behind.saturating_sub(8);
-                if hidden_commits > 0 {
-                    writeln!(
-                        out,
-                        "┊    {}",
-                        format!("and {hidden_commits} more…").dimmed()
-                    )?;
-                }
+        // Display detailed list of upstream commits
+        if let Some(base_branch) = base_branch
+            && !base_branch.upstream_commits.is_empty()
+        {
+            let repo = ctx.repo.get()?;
+            let commits = base_branch.upstream_commits.iter().take(8);
+            for commit in commits {
+                // Measure prefix width using plain text (no ANSI codes)
+                let commit_short = shorten_hex_object_id(&repo, &commit.id);
+                let truncated_msg = out
+                    .truncate_if_unpaged(&commit.description.to_string().replace('\n', " "), 72)
+                    .dimmed();
+                writeln!(out, "┊{dot} {} {truncated_msg}", commit_short.yellow())?;
             }
-            writeln!(out, "┊┊")?;
-        } else {
-            // Without --upstream, show the summary with latest commit info
-            writeln!(
-                out,
-                "┊{dot} {} (upstream) ⏫ {} new commits {}",
-                upstream.latest_commit.dimmed(),
-                upstream.behind_count,
-                last_checked_text.dimmed()
-            )?;
+            let hidden_commits = base_branch.behind.saturating_sub(8);
+            if hidden_commits > 0 {
+                writeln!(
+                    out,
+                    "┊    {}",
+                    format!("and {hidden_commits} more…").dimmed()
+                )?;
+            }
         }
+        writeln!(out, "┊┊")?;
+    } else {
+        // Without --upstream, show the summary with latest commit info
+        writeln!(
+            out,
+            "┊{dot} {} (upstream) ⏫ {} new commits {}",
+            upstream.latest_commit.dimmed(),
+            upstream.behind_count,
+            last_checked_text.dimmed()
+        )?;
     }
 
+    Ok(())
+}
+
+/// Print the common merge-base summary line at the bottom of the status tree.
+fn print_common_merge_base_summary(
+    out: &mut dyn WriteWithUtils,
+    StatusContext {
+        common_merge_base_data,
+        upstream_state,
+        ..
+    }: StatusContext<'_>,
+) -> anyhow::Result<()> {
     let first_line = common_merge_base_data.message.lines().next().unwrap_or("");
     let connector = if upstream_state.is_some() {
         "├╯"
@@ -391,51 +497,68 @@ pub(crate) async fn worktree(
         common_merge_base_data.target_name.green().bold(),
         common_merge_base_data.commit_date.dimmed(),
     )?;
+    Ok(())
+}
 
-    let not_on_workspace = matches!(
-        mode,
-        gitbutler_operating_modes::OperatingMode::OutsideWorkspace(_)
-    );
+/// Print per-stack status sections for human-readable output.
+fn print_worktree_status(
+    ctx: &mut Context,
+    out: &mut dyn WriteWithUtils,
+    StatusContext {
+        stack_details,
+        id_map,
+        worktree_changes,
+        show_files,
+        verbose,
+        review_map,
+        ci_map,
+        branch_merge_statuses,
+        ..
+    }: StatusContext<'_>,
+) -> anyhow::Result<()> {
+    for (i, (stack_id, (stack_with_id, assignments))) in stack_details.iter().enumerate() {
+        let mut stack_mark = stack_id.and_then(|stack_id| {
+            if crate::command::legacy::mark::stack_marked(ctx, stack_id).unwrap_or_default() {
+                Some("◀ Marked ▶".red().bold())
+            } else {
+                None
+            }
+        });
 
-    if not_on_workspace {
-        writeln!(
-            out,
-            r#"
-⚠️    You are in plain Git mode, directly on a branch. Some commands may be unavailable.    ⚠️
-⚠️    More info: https://github.com/gitbutlerapp/gitbutler/issues/11866                     ⚠️
-"#,
-        )?;
-    }
-
-    if hint {
-        writeln!(out)?;
-
-        // Determine what hint to show based on workspace state
-        let has_uncommitted_files = !worktree_changes.worktree_changes.changes.is_empty();
-
-        // Check whether we're inside the workspace
-        if not_on_workspace {
-            writeln!(
+        // assignments to the stack
+        if let Some(stack_with_id) = stack_with_id {
+            let branch_name = stack_with_id
+                .segments
+                .first()
+                .map_or(Some(BStr::new(b"")), SegmentWithId::branch_name);
+            let repo = ctx.repo.get()?;
+            print_assignments(
+                &repo,
+                *stack_id,
+                id_map,
+                branch_name,
+                assignments,
+                worktree_changes,
+                false,
                 out,
-                "{}",
-                "Hint: run `but setup` to switch back to GitButler managed mode.".dimmed()
             )?;
-        } else if !has_branches {
-            writeln!(
-                out,
-                "{}",
-                "Hint: run `but branch new` to create a new branch to work on".dimmed()
-            )?;
-        } else if has_uncommitted_files {
-            writeln!(
-                out,
-                "{}",
-                "Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch"
-                    .dimmed()
-            )?;
-        } else {
-            writeln!(out, "{}", "Hint: run `but help` for all commands".dimmed())?;
         }
+
+        print_group(
+            stack_with_id,
+            assignments,
+            worktree_changes,
+            show_files,
+            verbose,
+            &mut stack_mark,
+            ctx,
+            i == 0,
+            review_map,
+            ci_map,
+            branch_merge_statuses,
+            out,
+            id_map,
+        )?;
     }
 
     Ok(())
@@ -473,7 +596,7 @@ fn print_assignments(
     stack: Option<StackId>,
     id_map: &IdMap,
     branch_name: Option<&BStr>,
-    assignments: &Vec<FileAssignment>,
+    assignments: &[FileAssignment],
     changes: &[ui::TreeChange],
     unstaged: bool,
     out: &mut dyn std::fmt::Write,
@@ -557,7 +680,7 @@ fn print_assignments(
 #[expect(clippy::too_many_arguments)]
 pub fn print_group(
     stack_with_id: &Option<StackWithId>,
-    assignments: Vec<FileAssignment>,
+    assignments: &[FileAssignment],
     changes: &[ui::TreeChange],
     show_files: bool,
     verbose: bool,
@@ -722,7 +845,7 @@ pub fn print_group(
             "unstaged changes".to_string().cyan().bold(),
             stack_mark.clone().unwrap_or_default()
         )?;
-        print_assignments(&repo, None, id_map, None, &assignments, changes, true, out)?;
+        print_assignments(&repo, None, id_map, None, assignments, changes, true, out)?;
     }
     if !first {
         writeln!(out, "├╯")?;

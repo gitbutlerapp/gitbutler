@@ -526,39 +526,27 @@ fn convert_branch_to_json(
     )
 }
 
-/// Build the complete WorkspaceStatus JSON structure
-#[expect(clippy::too_many_arguments)]
+/// Build the complete WorkspaceStatus JSON structure.
 pub(super) fn build_workspace_status_json(
-    stack_details: &[super::StackEntry],
-    worktree_changes: &[but_core::ui::TreeChange],
-    common_merge_base: &super::CommonMergeBase,
-    upstream_state: &Option<super::UpstreamState>,
-    last_fetched_ms: Option<u128>,
-    review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
-    ci_map: &BTreeMap<String, Vec<but_forge::CiCheck>>,
-    branch_merge_statuses: &BTreeMap<
-        String,
-        gitbutler_branch_actions::upstream_integration::BranchStatus,
-    >,
-    show_files: bool,
+    status: &super::StatusContext<'_>,
     repo: &gix::Repository,
-    id_map: &crate::IdMap,
-    base_branch: Option<&gitbutler_branch_actions::BaseBranch>,
-    show_upstream: bool,
 ) -> anyhow::Result<WorkspaceStatus> {
     let mut json_stacks = Vec::new();
     let mut json_unassigned_changes = Vec::new();
 
-    for (stack_id, (stack_with_id, assignments)) in stack_details {
+    for (stack_id, (stack_with_id, assignments)) in status.stack_details {
         if stack_id.is_none() {
-            json_unassigned_changes = convert_file_assignments(assignments, worktree_changes);
+            json_unassigned_changes =
+                convert_file_assignments(assignments, status.worktree_changes);
         } else if let (Some(stack_id), Some(stack_with_id)) = (stack_id, stack_with_id) {
-            let stack_cli_id = id_map
+            let stack_cli_id = status
+                .id_map
                 .resolve_stack(*stack_id)
                 .map(|id| id.to_short_string())
                 .unwrap_or_else(|| "unknown".to_string());
 
-            let json_assigned_changes = convert_file_assignments(assignments, worktree_changes);
+            let json_assigned_changes =
+                convert_file_assignments(assignments, status.worktree_changes);
 
             let json_branches = stack_with_id
                 .segments
@@ -567,10 +555,10 @@ pub(super) fn build_workspace_status_json(
                     convert_branch_to_json(
                         repo,
                         segment,
-                        show_files,
-                        review_map,
-                        ci_map,
-                        branch_merge_statuses,
+                        status.show_files,
+                        status.review_map,
+                        status.ci_map,
+                        status.branch_merge_statuses,
                     )
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?;
@@ -580,23 +568,22 @@ pub(super) fn build_workspace_status_json(
         }
     }
 
-    // Create a Commit object for the merge base
-    // We use the author signature from the commit we decoded earlier
-    let base_commit = repo.find_commit(common_merge_base.commit_id)?;
+    // Create a Commit object for the merge base.
+    let base_commit = repo.find_commit(status.common_merge_base_data.commit_id)?;
     let base_commit_decoded = base_commit.decode()?;
     let author: but_workspace::ui::Author = base_commit_decoded.author()?.into();
 
     let merge_base_commit = Commit::from_upstream_commit(
         but_workspace::ui::UpstreamCommit {
-            id: common_merge_base.commit_id,
-            created_at: common_merge_base.created_at,
-            message: common_merge_base.message.clone().into(),
+            id: status.common_merge_base_data.commit_id,
+            created_at: status.common_merge_base_data.created_at,
+            message: status.common_merge_base_data.message.clone().into(),
             author,
         },
         None,
     );
 
-    let upstream_state_json = if let Some(upstream) = upstream_state {
+    let upstream_state_json = if let Some(upstream) = status.upstream_state {
         // Create a Commit object for the latest upstream commit
         let upstream_commit = repo.find_commit(upstream.commit_id)?;
         let upstream_commit_decoded = upstream_commit.decode()?;
@@ -612,11 +599,11 @@ pub(super) fn build_workspace_status_json(
             None,
         );
 
-        let last_fetched = last_fetched_ms.map(|ts| i128_to_rfc3339(ts as i128));
+        let last_fetched = status.last_fetched_ms.map(|ts| i128_to_rfc3339(ts as i128));
 
-        // Populate upstream_commits if show_upstream flag is set and base_branch is available
-        let upstream_commits = if show_upstream {
-            base_branch.and_then(|bb| {
+        // Populate upstream_commits if show_upstream flag is set and base_branch is available.
+        let upstream_commits = if status.show_upstream {
+            status.base_branch.and_then(|bb| {
                 if bb.upstream_commits.is_empty() {
                     None
                 } else {
@@ -657,7 +644,7 @@ pub(super) fn build_workspace_status_json(
         }
     } else {
         // When up to date, use the merge base as the latest commit
-        let last_fetched = last_fetched_ms.map(|ts| i128_to_rfc3339(ts as i128));
+        let last_fetched = status.last_fetched_ms.map(|ts| i128_to_rfc3339(ts as i128));
 
         UpstreamState {
             behind: 0,
