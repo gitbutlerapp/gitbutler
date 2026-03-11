@@ -2,10 +2,6 @@
 
 use anyhow::{Context as _, bail};
 use but_core::ref_metadata::StackId;
-use gitbutler_oplog::{
-    OplogExt,
-    entry::{OperationKind, SnapshotDetails, Trailer},
-};
 
 use crate::{
     CliId, IdMap,
@@ -117,23 +113,6 @@ fn find_stack_by_branch_name(
     bail!("Branch '{branch_name}' not found in any applied stack");
 }
 
-/// Create a snapshot in the oplog before performing an unapply operation
-fn create_snapshot(ctx: &mut but_ctx::Context, branches: &[String]) {
-    let mut guard = ctx.exclusive_worktree_access();
-
-    // Create trailers with branch names
-    let trailers: Vec<Trailer> = branches
-        .iter()
-        .map(|name| Trailer {
-            key: "branch".to_string(),
-            value: name.clone(),
-        })
-        .collect();
-
-    let details = SnapshotDetails::new(OperationKind::UnapplyBranch).with_trailers(trailers);
-    let _snapshot = ctx.create_snapshot(details, guard.write_permission()).ok();
-}
-
 /// Confirm with the user and unapply the stack.
 fn confirm_and_unapply_stack(
     ctx: &mut but_ctx::Context,
@@ -153,9 +132,6 @@ fn confirm_and_unapply_stack(
     {
         bail!("Aborted unapply operation.");
     }
-
-    // Create snapshot before destructive operation
-    create_snapshot(ctx, branches);
 
     but_api::legacy::virtual_branches::unapply_stack(ctx, sid)?;
 

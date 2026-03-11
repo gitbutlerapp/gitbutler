@@ -10,7 +10,7 @@ use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_operating_modes::ensure_open_workspace_mode;
 use gitbutler_oplog::{
     OplogExt, SnapshotExt,
-    entry::{OperationKind, SnapshotDetails},
+    entry::{OperationKind, SnapshotDetails, Trailer},
 };
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -196,7 +196,20 @@ pub fn unapply_stack(
 ) -> Result<String> {
     ctx.verify(perm)?;
     ensure_open_workspace_mode(ctx, perm.read_permission())
-        .context("Deleting a branch order requires open workspace mode")?;
+        .context("Unapplying a stack requires open workspace mode")?;
+    let stack = ctx.virtual_branches().get_stack_in_workspace(stack_id)?;
+
+    let trailers: Vec<Trailer> = stack
+        .heads
+        .iter()
+        .map(|head| Trailer {
+            key: "branch".to_string(),
+            value: head.name.to_string(),
+        })
+        .collect();
+
+    let details = SnapshotDetails::new(OperationKind::UnapplyBranch).with_trailers(trailers);
+    let _snapshot = ctx.create_snapshot(details, perm).ok();
     let branch_manager = ctx.branch_manager();
     // NB: unapply_without_saving is also called from save_and_unapply
     let branch_name = branch_manager.unapply(

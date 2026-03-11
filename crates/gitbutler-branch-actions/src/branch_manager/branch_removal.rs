@@ -3,7 +3,6 @@ use but_core::{DiffSpec, RepositoryExt};
 use but_ctx::access::RepoExclusive;
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_cherry_pick::GixRepositoryExt as _;
-use gitbutler_oplog::SnapshotExt;
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::StackId;
@@ -35,8 +34,6 @@ impl BranchManager<'_> {
                 .full_name()?
                 .to_string());
         }
-
-        _ = self.ctx.snapshot_branch_deletion(stack.name(), perm);
 
         let git2_repo = self.ctx.git2_repo.get()?;
 
