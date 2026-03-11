@@ -41,6 +41,9 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: None,
@@ -123,6 +126,9 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: None,
@@ -207,6 +213,9 @@ fn remote_diverged() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: None,
@@ -301,6 +310,9 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: None,
@@ -381,6 +393,9 @@ fn remote_behind() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: None,
@@ -468,6 +483,9 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: None,
@@ -549,6 +567,9 @@ fn remote_ahead() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: None,
@@ -633,6 +654,9 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: None,

@@ -52,6 +52,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -122,6 +125,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -196,6 +202,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -283,6 +292,9 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -385,6 +397,9 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -498,6 +513,9 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -607,6 +625,9 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -679,6 +700,9 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -778,6 +802,9 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: None,
@@ -859,6 +886,9 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: None,
@@ -958,6 +988,9 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -1052,6 +1085,9 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -1192,6 +1228,9 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -1341,6 +1380,9 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -1491,6 +1533,9 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -1596,6 +1641,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: None,
@@ -1684,6 +1732,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -1772,6 +1823,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -1871,6 +1925,9 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -1968,6 +2025,9 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -2078,6 +2138,9 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -2179,6 +2242,9 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -2277,6 +2343,9 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -2364,6 +2433,9 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -2474,6 +2546,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -2562,6 +2637,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -2649,6 +2727,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -2742,6 +2823,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -2844,6 +2928,7 @@ fn disjoint() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [],
         stacks: [
             Stack {
                 id: Some(
@@ -2916,6 +3001,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -3035,6 +3123,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -3154,6 +3245,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -3274,6 +3368,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -3406,6 +3503,9 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -3471,6 +3571,9 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(
@@ -3539,6 +3642,9 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [],
         target_ref: Some(
             TargetRef {
@@ -3581,6 +3687,9 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 worktree: None,
             },
         ),
+        symbolic_remote_names: [
+            "origin",
+        ],
         stacks: [
             Stack {
                 id: Some(

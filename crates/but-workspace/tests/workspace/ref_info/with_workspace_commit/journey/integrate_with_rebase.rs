@@ -42,6 +42,9 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: None,
@@ -131,6 +134,9 @@ fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: None,
@@ -217,6 +223,9 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: None,
@@ -306,6 +315,9 @@ fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> 
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: None,

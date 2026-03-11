@@ -465,6 +465,7 @@ pub(crate) mod function {
         };
         let mut info = RefInfo {
             workspace_ref_info,
+            symbolic_remote_names: graph.symbolic_remote_names.clone(),
             lower_bound: lower_bound_segment_id,
             extra_target,
             stacks: stacks

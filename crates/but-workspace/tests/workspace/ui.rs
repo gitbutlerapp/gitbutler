@@ -137,11 +137,9 @@ mod changes_in_branch {
             "passing strange ref-names still causes an error - they must exist"
         );
 
-        let mut ref_info = ui::RefInfo::for_ui(
-            but_workspace::head_info(&repo, &*meta, Default::default())?,
-            &repo,
-        )?
-        .pruned_to_entrypoint();
+        let mut ref_info: ui::RefInfo =
+            but_workspace::head_info(&repo, &*meta, Default::default())?.try_into()?;
+        ref_info = ref_info.pruned_to_entrypoint();
         insta::assert_json_snapshot!(&ref_info, @r#"
         {
           "workspaceRef": {

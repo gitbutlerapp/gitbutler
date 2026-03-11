@@ -19,9 +19,9 @@ use tracing::instrument;
 
 use crate::json::HexHash;
 
-#[but_api(napi)]
+#[but_api(napi, try_from = but_workspace::ui::RefInfo)]
 #[instrument(err(Debug))]
-pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::ui::RefInfo> {
+pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.legacy_meta()?;
     but_workspace::head_info(
@@ -32,10 +32,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::ui::RefInfo> {
             expensive_commit_info: true,
         },
     )
-    .and_then(|info| {
-        but_workspace::ui::RefInfo::for_ui(info, &repo)
-            .map(|ref_info| ref_info.pruned_to_entrypoint())
-    })
+    .map(|info| info.pruned_to_entrypoint())
 }
 
 #[but_api]

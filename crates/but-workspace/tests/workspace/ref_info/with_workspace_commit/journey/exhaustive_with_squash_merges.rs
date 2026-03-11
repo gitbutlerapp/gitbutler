@@ -33,6 +33,7 @@ fn j01_unborn() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [],
             stacks: [
                 Stack {
                     id: Some(
@@ -88,6 +89,7 @@ fn j02_first_commit() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [],
             stacks: [
                 Stack {
                     id: Some(
@@ -149,6 +151,7 @@ fn j03_main_pushed() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [],
             stacks: [
                 Stack {
                     id: Some(
@@ -203,6 +206,7 @@ fn j03_main_pushed() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [],
             stacks: [
                 Stack {
                     id: Some(
@@ -267,6 +271,9 @@ fn j04_create_workspace() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [],
             target_ref: Some(
                 TargetRef {
@@ -323,6 +330,9 @@ fn j05_empty_stack() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: Some(
@@ -400,6 +410,9 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: None,
@@ -465,6 +478,9 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: Some(
@@ -544,6 +560,9 @@ fn j07_push_commit() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: Some(
@@ -628,6 +647,9 @@ fn j08_next_local_commit() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: Some(
@@ -711,6 +733,9 @@ fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: Some(
@@ -801,6 +826,9 @@ fn j10_squash_merge_stack() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: Some(
@@ -901,6 +929,9 @@ fn j11_squash_merge_remote_only() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: Some(
@@ -1009,6 +1040,9 @@ fn j12_local_only_multi_segment_squash_merge() -> anyhow::Result<()> {
                     ),
                 },
             ),
+            symbolic_remote_names: [
+                "origin",
+            ],
             stacks: [
                 Stack {
                     id: Some(
