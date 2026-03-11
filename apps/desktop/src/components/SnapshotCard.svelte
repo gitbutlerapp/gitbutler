@@ -104,7 +104,7 @@
 			case "ApplyBranch":
 				return { text: `Apply branch "${entryTrailer("name")}"`, icon: "branch" };
 			case "UnapplyBranch":
-				return { text: `Unapply branch "${trailer("name")}"`, icon: "branch" };
+				return { text: `Unapply branch "${trailer("branch")}"`, icon: "branch" };
 			case "ReorderBranches":
 				return {
 					text: `Reorder branches "${trailer("before")}" and "${trailer("after")}"`,
