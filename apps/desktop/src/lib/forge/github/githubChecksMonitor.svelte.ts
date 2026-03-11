@@ -84,6 +84,7 @@ function injectEndpoints(api: GitHubApi) {
 							extra: api.extra,
 							parameters: {
 								ref,
+								per_page: 100,
 							},
 						});
 					}
