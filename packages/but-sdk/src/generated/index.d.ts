@@ -45,6 +45,20 @@ export declare function commitInsertBlankNapi(projectId: string, relativeTo: Rel
 export declare function commitMoveChangesBetweenNapi(projectId: string, sourceCommitId: string, destinationCommitId: string, changes: Array<DiffSpec>): Promise<UIMoveChangesResult>
 
 /**
+ * Moves a commit within or across stacks.
+ *
+ * Returns the replaced that resulted from the operation.
+ */
+export declare function commitMoveNapi(projectId: string, subjectCommitId: string, anchorCommitId: string, side: InsertSide): Promise<UICommitMoveResult>
+
+/**
+ * Moves a commit to be first commit on a branch.
+ *
+ * Returns the replaced that resulted from the operation.
+ */
+export declare function commitMoveToBranchNapi(projectId: string, subjectCommitId: string, anchorRef: string): Promise<UICommitMoveResult>
+
+/**
  * Rewords a commit, with oplog support.
  *
  * Returns the result including the new commit ID and any replaced commits.
@@ -473,6 +487,15 @@ export type UICommitInsertBlankResult = {
   newCommit: string;
   /**
    * Commits that have been replaced as a side-effect of the insertion.
+   * Maps `oldId → newId`.
+   */
+  replacedCommits: Record<string, string>;
+};
+
+/** UI type for moving a commit. */
+export type UICommitMoveResult = {
+  /**
+   * Commits that have been replaced as a side-effect of the move.
    * Maps `oldId → newId`.
    */
   replacedCommits: Record<string, string>;

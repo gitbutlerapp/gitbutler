@@ -579,7 +579,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { applyNapi, assignHunkNapi, branchDiffNapi, changesInWorktreeNapi, commitAmendNapi, commitCreateNapi, commitDetailsWithLineStatsNapi, commitInsertBlankNapi, commitMoveChangesBetweenNapi, commitRewordNapi, commitUncommitChangesNapi, headInfoNapi, listBranchesNapi, listProjectsNapi, treeChangeDiffsNapi, unapplyStackNapi } = nativeBinding
+const { applyNapi, assignHunkNapi, branchDiffNapi, changesInWorktreeNapi, commitAmendNapi, commitCreateNapi, commitDetailsWithLineStatsNapi, commitInsertBlankNapi, commitMoveChangesBetweenNapi, commitMoveNapi, commitMoveToBranchNapi, commitRewordNapi, commitUncommitChangesNapi, headInfoNapi, listBranchesNapi, listProjectsNapi, treeChangeDiffsNapi, unapplyStackNapi } = nativeBinding
 export { applyNapi }
 export { assignHunkNapi }
 export { branchDiffNapi }
@@ -589,6 +589,8 @@ export { commitCreateNapi }
 export { commitDetailsWithLineStatsNapi }
 export { commitInsertBlankNapi }
 export { commitMoveChangesBetweenNapi }
+export { commitMoveNapi }
+export { commitMoveToBranchNapi }
 export { commitRewordNapi }
 export { commitUncommitChangesNapi }
 export { headInfoNapi }
