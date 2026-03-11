@@ -6,7 +6,6 @@ use tracing::instrument;
 
 use crate::utils::{OutputChannel, shorten_object_id};
 
-#[allow(clippy::too_many_arguments)]
 pub fn show(
     ctx: &mut Context,
     branch_id: &str,

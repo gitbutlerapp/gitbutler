@@ -1590,7 +1590,7 @@ async fn handle_ask_user_question(
 ///    `can_use_tool` callback to work correctly with the SDK's streaming mode.
 /// 2. Performs file locking to track which files are being edited during the session,
 ///    preventing conflicts when Claude modifies files.
-#[allow(unused_variables)]
+#[expect(unused_variables)]
 fn create_pretool_use_hook(
     sync_ctx: ThreadSafeContext,
     stack_id: but_core::ref_metadata::StackId,

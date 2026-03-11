@@ -911,7 +911,7 @@ mod util {
         pub ctx: Context,
         // TODO: make non-optional
         // TODO: remove once we don't need vb.toml anymore which is produced on the fly.
-        #[allow(dead_code)]
+        #[expect(dead_code)]
         tmpdir: Option<tempfile::TempDir>,
     }
 }

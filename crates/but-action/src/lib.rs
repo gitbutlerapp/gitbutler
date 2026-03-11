@@ -40,7 +40,7 @@ pub fn branch_changes(
     branch_changes::branch_changes(ctx, llm, changes, model)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn auto_commit(
     project_id: ProjectHandleOrLegacyProjectId,
     repo: &gix::Repository,

@@ -1,7 +1,7 @@
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[path = "../src/cli.rs"]
 mod cli;
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[path = "../src/repo.rs"]
 mod repo_impl;
 

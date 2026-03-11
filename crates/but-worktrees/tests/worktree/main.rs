@@ -24,7 +24,7 @@ mod util {
         })
     }
 
-    #[allow(unused)]
+    #[expect(unused)]
     pub struct TestContext {
         pub ctx: Context,
         pub handle: VirtualBranchesHandle,

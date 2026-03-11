@@ -321,7 +321,7 @@ mod util {
 
     pub struct TestContext {
         // TODO: remove this once this has been ported to 'modern' code, i.e. uses `but-graph::projection::Workspace`.
-        #[allow(dead_code)]
+        #[expect(dead_code)]
         pub tmpdir: Option<tempfile::TempDir>,
     }
 

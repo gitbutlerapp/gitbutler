@@ -229,7 +229,6 @@ impl<'a> RubOperation<'a> {
 ///
 /// This function is the single source of truth for what operations are valid.
 /// Both `handle()` and disambiguation logic use this function.
-#[allow(private_interfaces)]
 pub(crate) fn route_operation<'a>(
     source: &'a CliId,
     target: &'a CliId,

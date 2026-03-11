@@ -4,22 +4,21 @@ use std::time::Duration;
 use rusqlite::{Connection, params};
 use serde_json::json;
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[path = "../src/services/acquire.rs"]
 mod acquire_impl;
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[path = "../src/cli.rs"]
 mod cli;
-#[allow(dead_code, unused_imports)]
+#[expect(dead_code, unused_imports)]
 #[path = "../src/db/mod.rs"]
 mod db;
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[path = "../src/payloads.rs"]
 mod payloads;
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[path = "../src/repo.rs"]
 mod repo;
-#[allow(dead_code)]
 #[path = "../src/text.rs"]
 mod text;
 

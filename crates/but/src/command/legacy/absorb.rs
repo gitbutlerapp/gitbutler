@@ -122,7 +122,7 @@ pub(crate) fn handle(
 }
 
 /// Absorb a single file into the appropriate commit
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn absorb_assignments(
     absorption_plan: Vec<CommitAbsorption>,
     guard: &mut RepoExclusiveGuard,

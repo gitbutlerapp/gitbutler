@@ -14,7 +14,7 @@ use but_ctx::ProjectHandleOrLegacyProjectId;
 use tauri::State;
 use tracing::instrument;
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 #[tauri::command(async)]
 #[instrument(skip(claude), err(Debug))]
 pub async fn claude_send_message(

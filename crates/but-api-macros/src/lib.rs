@@ -297,7 +297,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         #input_fn
 
         const _: () = {
-            #[allow(dead_code)]
+            #[expect(dead_code)]
             fn keep_json(_json: #json_ty) {}
         };
 

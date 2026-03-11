@@ -229,7 +229,7 @@ mod stack {
         #[derive(Deserialize)]
         enum CommitOrChangeIdHelper {
             CommitId(String),
-            #[allow(dead_code)]
+            #[expect(dead_code)]
             ChangeId(String),
         }
 

@@ -1,13 +1,12 @@
 use rusqlite::{Connection, params};
 use serde_json::{Value, json};
 
-#[allow(dead_code, unused_imports)]
+#[expect(dead_code, unused_imports)]
 #[path = "../src/db/mod.rs"]
 mod db;
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[path = "../src/payloads.rs"]
 mod payloads;
-#[allow(dead_code)]
 #[path = "../src/text.rs"]
 mod text;
 

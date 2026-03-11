@@ -590,7 +590,7 @@ fn ci_map(
     Ok(ci_map)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn print_assignments(
     repo: &gix::Repository,
     stack: Option<StackId>,

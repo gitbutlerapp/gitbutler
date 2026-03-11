@@ -87,7 +87,7 @@ impl HunkDependencies {
 fn hunk_dependency_diffs_schema(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
     /// A mirror of the tuple `(String, DiffHunk, Vec<HunkLock>)` for schema generation.
     #[derive(schemars::JsonSchema)]
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     struct HunkDependencyDiff(String, DiffHunk, Vec<HunkLock>);
 
     generate.subschema_for::<Vec<HunkDependencyDiff>>()

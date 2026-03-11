@@ -20,7 +20,7 @@ impl Default for Lut {
     }
 }
 
-#[allow(clippy::indexing_slicing)]
+#[expect(clippy::indexing_slicing)]
 impl Lut {
     /// Insert a node for each component in slash-separated `rela_path`.
     pub fn track_file(&mut self, rela_path: &BStr) {

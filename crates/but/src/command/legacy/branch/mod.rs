@@ -161,7 +161,7 @@ pub fn show_branches(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn list_branches(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,

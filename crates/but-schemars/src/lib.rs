@@ -221,7 +221,7 @@ pub fn bstring_bytes_opt(generate: &mut schemars::SchemaGenerator) -> schemars::
 }
 
 #[derive(schemars::JsonSchema)]
-#[allow(dead_code)]
+#[expect(dead_code)]
 struct GixTime {
     seconds: i64,
     offset: i32,
@@ -243,7 +243,7 @@ pub fn gix_time_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schem
 
 #[derive(schemars::JsonSchema)]
 #[schemars(rename = "EntryKind")]
-#[allow(dead_code)]
+#[expect(dead_code)]
 enum EntryKindSchema {
     Tree,
     Blob,
@@ -269,7 +269,7 @@ pub fn entry_kind(generate: &mut schemars::SchemaGenerator) -> schemars::Schema 
 /// Schema for `serde_error::Error` which serializes as `{description: string, source?: Error | null}`.
 #[derive(schemars::JsonSchema)]
 #[schemars(rename = "SerdeError")]
-#[allow(dead_code)]
+#[expect(dead_code)]
 struct SerdeErrorSchema {
     description: String,
     source: Option<Box<SerdeErrorSchema>>,

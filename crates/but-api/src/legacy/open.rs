@@ -1,7 +1,6 @@
 //! In place of commands.rs
 use std::env;
 
-#[allow(unused_imports)]
 use anyhow::anyhow;
 use anyhow::{Context as _, Result, bail};
 use but_api_macros::but_api;

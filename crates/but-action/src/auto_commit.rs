@@ -59,7 +59,7 @@ impl AutoCommitEvent {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(crate) fn auto_commit(
     project_id: ProjectHandleOrLegacyProjectId,
     repo: &gix::Repository,
@@ -135,7 +135,7 @@ pub(crate) fn auto_commit_simple(
     )
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn apply_commit_changes(
     project_id: Option<ProjectHandleOrLegacyProjectId>,
     repo: &gix::Repository,

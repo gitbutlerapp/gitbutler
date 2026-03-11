@@ -225,7 +225,6 @@ pub struct Editor {
 }
 
 /// Represents a successful rebase, and any valid, but potentially conflicting scenarios it had.
-#[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct SuccessfulRebase {
     pub(crate) repo: gix::Repository,

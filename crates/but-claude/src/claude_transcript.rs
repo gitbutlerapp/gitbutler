@@ -30,7 +30,7 @@ pub struct AssistantMessage {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
-#[allow(clippy::large_enum_variant)]
+#[expect(clippy::large_enum_variant)]
 pub enum Record {
     #[serde(rename = "summary")]
     Summary {

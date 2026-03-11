@@ -314,7 +314,7 @@ fn squash_commits_internal(
 }
 
 /// Helper function to squash all commits in a branch into the bottom-most commit
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn squash_branch_commits(
     ctx: &mut Context,
     out: &mut OutputChannel,

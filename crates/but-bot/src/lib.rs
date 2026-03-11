@@ -22,7 +22,7 @@ pub fn bot(
     graph.start(&mut but_bot)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn forge_branch_chat(
     project_id: ProjectHandleOrLegacyProjectId,
     branch: String,

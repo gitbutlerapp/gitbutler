@@ -11,7 +11,7 @@ use super::{
 };
 use crate::{IdMap, id::UncommittedCliId, utils::OutputChannel};
 
-#[allow(clippy::large_enum_variant)]
+#[expect(clippy::large_enum_variant)]
 pub(crate) enum Filter {
     Unassigned,
     Uncommitted(UncommittedCliId),
