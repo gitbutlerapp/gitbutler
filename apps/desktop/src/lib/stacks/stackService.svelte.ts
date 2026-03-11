@@ -1479,6 +1479,9 @@ function injectEndpoints(api: BackendApi, uiState: UiState) {
 						...commitChangesTags,
 					];
 				},
+				transformResponse: (a: BackendMoveChangesResult) => ({
+					replacedCommits: Object.entries(a.replacedCommits),
+				}),
 			}),
 			commitMoveChangesBetween: build.mutation<
 				{
