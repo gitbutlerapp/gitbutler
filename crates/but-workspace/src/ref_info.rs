@@ -463,8 +463,14 @@ pub(crate) mod function {
             }
             WorkspaceKind::AdHoc => (graph[id].ref_info.clone(), false, None),
         };
+        let is_entrypoint = graph.lookup_entrypoint()?.segment_index == id;
         let mut info = RefInfo {
             workspace_ref_info,
+            symbolic_remote_names: repo
+                .remote_names()
+                .into_iter()
+                .map(|n| n.into_owned().into())
+                .collect(),
             lower_bound: lower_bound_segment_id,
             extra_target,
             stacks: stacks
@@ -482,7 +488,7 @@ pub(crate) mod function {
             is_managed_ref: metadata.is_some(),
             is_managed_commit,
             ancestor_workspace_commit,
-            is_entrypoint: graph.lookup_entrypoint()?.segment_index == id,
+            is_entrypoint,
         };
 
         if let Some(info) = &info.ancestor_workspace_commit {

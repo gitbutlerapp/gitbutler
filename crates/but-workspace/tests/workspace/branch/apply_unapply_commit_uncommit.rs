@@ -30,13 +30,13 @@ fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
             "ws-ref-ws-commit-one-stack-ws-advanced",
             |_meta| {},
         )?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 0d01196 (HEAD -> gitbutler/workspace) O1
     * 4979833 GitButler Workspace Commit
     * 3183e43 (main, B, A) M1
     ");
     let ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
     └── ≡:2:anon: on 3183e43
         └── :2:anon:
@@ -91,7 +91,7 @@ fn ws_ref_no_ws_commit_two_virtual_stacks_on_same_commit_apply_dependent_first()
     }
     "#);
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
     └── ≡📙:2:B on e5d0542 {1}
         └── 📙:2:B
@@ -100,7 +100,7 @@ fn ws_ref_no_ws_commit_two_virtual_stacks_on_same_commit_apply_dependent_first()
     // Applying A is always a new stack then.
     let out =
         but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
-    insta::assert_snapshot!(graph_workspace(&out.workspace), @r"
+    insta::assert_snapshot!(graph_workspace(&out.workspace), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
     ├── ≡📙:3:A on e5d0542 {41}
     │   └── 📙:3:A
@@ -121,7 +121,7 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
             |_meta| {},
         )?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 6b40b15 (origin/feature) without-local-tracking
     | * 552e7dc (origin/main) only-on-remote
     |/  
@@ -174,7 +174,7 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
     "#);
     let ws = out.workspace.into_owned();
     // both branches, main and feature, are available in the newly created workspace ref.
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
     ├── ≡📙:2:feature on 3183e43 {2ec}
     │   └── 📙:2:feature
@@ -227,7 +227,7 @@ fn workspace_with_out_of_ws_ref_and_anon_stack() -> anyhow::Result<()> {
     ");
 
     let ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
     ├── ≡📙:5:outside →:3: on 3183e43 {1}
     │   └── 📙:5:outside →:3:
@@ -253,7 +253,7 @@ fn workspace_with_out_of_ws_ref_and_anon_stack() -> anyhow::Result<()> {
     }
     "#);
 
-    insta::assert_snapshot!(graph_workspace(&out.workspace), @r"
+    insta::assert_snapshot!(graph_workspace(&out.workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
     ├── ≡📙:4:feature on 3183e43 {2ec}
     │   └── 📙:4:feature
@@ -291,7 +291,7 @@ fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
     }
     "#);
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
     └── ≡📙:2:A on e5d0542 {41}
         └── 📙:2:A
@@ -310,7 +310,7 @@ fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
     "#);
     // Note how it will create a new stack (to keep it simple),
     // in theory we could also add B as dependent branch.
-    insta::assert_snapshot!(graph_workspace(&out.workspace), @r"
+    insta::assert_snapshot!(graph_workspace(&out.workspace), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
     ├── ≡📙:3:B on e5d0542 {42}
     │   └── 📙:3:B
@@ -371,7 +371,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     }
     "#);
 
-    insta::assert_snapshot!(graph_workspace(&out.workspace), @r"
+    insta::assert_snapshot!(graph_workspace(&out.workspace), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
     ├── ≡📙:3:A on e5d0542 {41}
     │   └── 📙:3:A
@@ -401,7 +401,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     }
     "#);
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
     ├── ≡📙:4:A on e5d0542 {41}
     │   └── 📙:4:A
@@ -425,7 +425,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
         .graph
         .redo_traversal_with_overlay(&repo, &meta, Overlay::default())?
         .into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓!
     └── ≡:1:anon: {41}
         └── :1:anon:
@@ -443,13 +443,13 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
         },
     )?;
     // A workspace commit was created, even though it does nothing.
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 6277161 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * e5d0542 (origin/main, main, B, A) A
     ");
 
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓!
     └── ≡📙:2:A {41}
         └── 📙:2:A
@@ -475,7 +475,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     ");
 
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
     ├── ≡📙:3:A on e5d0542 {41}
     │   └── 📙:3:A
@@ -518,7 +518,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
     "#);
 
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
     └── ≡📙:3:A on e5d0542 {41}
         └── 📙:3:A
@@ -537,7 +537,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
     }
     "#);
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
     ├── ≡📙:4:B on e5d0542 {42}
     │   └── 📙:4:B
@@ -600,7 +600,7 @@ fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> any
 
     let ws = out.workspace.into_owned();
     // This apply brings both branches into the existing workspace, and it's where HEAD points to.
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
     ├── ≡📙:3:A on e5d0542 {41}
     │   └── 📙:3:A
@@ -621,7 +621,7 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
             meta.data_mut().default_target = None;
         })?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * bf53300 (A) add A
     | * b1540e5 (HEAD -> main) M
     |/  
@@ -652,7 +652,7 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
     "#);
 
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on e31e6ca
     ├── ≡📙:2:A on e31e6ca {41}
     │   └── 📙:2:A
@@ -689,7 +689,7 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
     "#);
 
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on e31e6ca
     ├── ≡📙:3:B on e31e6ca {42}
     │   └── 📙:3:B
@@ -722,7 +722,7 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
             "single-stack-two-segments",
             |_meta| {},
         )?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f1889e7 (A2) add A2
     * 7de99e1 (A1) add A1
     | * 53ad0c2 (unrelated) add U1
@@ -758,7 +758,7 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
     }
     "#);
     // TODO: should this not avoid creating a workspace commit?
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f1889e7 (A2) add A2
     * 7de99e1 (A1) add A1
     | * 6848743 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -780,7 +780,7 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
     "#);
 
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
     ├── ≡📙:4:A1 on 3183e43 {72}
     │   └── 📙:4:A1
@@ -810,7 +810,7 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
     "#);
 
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
     ├── ≡📙:4:A2 on 3183e43 {73}
     │   ├── 📙:4:A2
@@ -875,7 +875,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
             "detached-with-multiple-branches",
             |_meta| {},
         )?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 49d4b34 (A) A1
     | * f57c528 (B) B1
     |/  
@@ -903,7 +903,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
     "#);
 
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
     └── ≡📙:2:C on 3183e43 {43}
         └── 📙:2:C
@@ -911,7 +911,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
     ");
     // A new workspace reference was created, and checked out, without enforcing a workspace commit
     // as there is no need.
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 49d4b34 (A) A1
     | * f57c528 (B) B1
     |/  
@@ -943,7 +943,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
     ");
 
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
     ├── ≡📙:3:B on 3183e43 {42}
     │   └── 📙:3:B
@@ -973,7 +973,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
     }
     "#);
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
     ├── ≡📙:4:B on 3183e43 {42}
     │   └── 📙:4:B
@@ -1009,7 +1009,7 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
                 add_stack_with_segments(meta, 2, "B", StackState::Inactive, &["D"]);
             },
         )?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f084d61 (C, B, A) A2
     * 7076dee (E, D) A1
     * 85efbe4 (HEAD -> main, origin/main) M
@@ -1034,7 +1034,7 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     "#);
 
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     └── ≡📙:4:E on 85efbe4 {1}
         └── 📙:4:E
@@ -1046,7 +1046,7 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     let out =
         but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, default_options())?;
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:5:C on 7076dee {43}
     │   └── 📙:5:C
@@ -1072,7 +1072,7 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     let out =
         but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())?;
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:6:B on 7076dee {2}
     │   └── 📙:6:B
@@ -1089,7 +1089,7 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
         but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, default_options())
             .unwrap();
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:5:C on 7076dee {2}
     │   ├── 📙:5:C
@@ -1110,7 +1110,7 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
             "no-ws-ref-stack-and-dependent-branch",
             |_meta| {},
         )?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f084d61 (C, B, A) A2
     * 7076dee (E, D) A1
     * 85efbe4 (HEAD -> main, origin/main) M
@@ -1134,14 +1134,14 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
     }
     "#);
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     └── ≡📙:3:A on 85efbe4 {41}
         └── 📙:3:A
             ├── ·f084d61 (🏘️) ►B, ►C
             └── ·7076dee (🏘️) ►D, ►E
     ");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 773e030 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * f084d61 (C, B, A) A2
     * 7076dee (E, D) A1
@@ -1161,7 +1161,7 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
     "#);
 
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     └── ≡📙:4:B on 85efbe4 {41}
         ├── 📙:4:B
@@ -1169,7 +1169,7 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
             ├── ·f084d61 (🏘️) ►C
             └── ·7076dee (🏘️) ►D, ►E
     ");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * b390237 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * f084d61 (C, B, A) A2
     * 7076dee (E, D) A1
@@ -1188,7 +1188,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
             |_meta| {},
         )?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * d3cce74 (clean-A) add A
     | * 115e41b (clean-B) add B
     |/  
@@ -1235,7 +1235,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
         ws = out.workspace.into_owned();
     }
 
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on 85efbe4
     ├── ≡📙:6:clean-C on 85efbe4 {273}
     │   └── 📙:6:clean-C
@@ -1297,7 +1297,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
     "#);
     let ws = out.workspace.into_owned();
     // By default, it fails and just reports the conflicting stacks, so it's the same as it was before.
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on 85efbe4
     ├── ≡📙:6:clean-C on 85efbe4 {273}
     │   └── 📙:6:clean-C
@@ -1355,7 +1355,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
 
     // Now the other stacks are unapplied.
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on 85efbe4
     ├── ≡📙:5:conflict-hero on 85efbe4 {52d}
     │   └── 📙:5:conflict-hero
@@ -1498,7 +1498,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A");
 
     let ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
     ├── ≡📙:3:B on e5d0542 {2}
     │   └── 📙:3:B
@@ -1530,7 +1530,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
         standard_traversal_options_with_extra_target(&repo),
     )?
     .into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:1:gitbutler/workspace[🌳] <> ✓! on e5d0542
     ├── ≡👉📙:3:B on e5d0542 {2}
     │   └── 👉📙:3:B
@@ -1561,7 +1561,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
 
     // Now the workspace ref itself is checked out.
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
     ├── ≡📙:3:B on e5d0542 {2}
     │   └── 📙:3:B
@@ -1584,7 +1584,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
         standard_traversal_options_with_extra_target(&repo),
     )?
     .into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:1:gitbutler/workspace[🌳] <> ✓! on e5d0542
     └── ≡👉📙:2:B on e5d0542 {2}
         ├── 👉📙:2:B
@@ -1624,7 +1624,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     }
     "#);
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
     └── ≡📙:2:A on e5d0542 {41}
         └── 📙:2:A
@@ -1657,7 +1657,7 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
     ");
 
     let ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:4:B on 85efbe4 {2}
     │   └── 📙:4:B
@@ -1682,7 +1682,7 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
     let ws =
         but_graph::Graph::from_commit_traversal(b_id, b_ref.clone(), &meta, Default::default())?
             .into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:1:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡👉📙:0:B on 85efbe4 {2}
     │   └── 👉📙:0:B
@@ -1724,7 +1724,7 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
     "#);
 
     let ws = out.workspace.into_owned();
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:4:B on 85efbe4 {2}
     │   └── 📙:4:B
@@ -1749,7 +1749,7 @@ fn apply_nonexisting_branch_failure() -> anyhow::Result<()> {
         .sha = gix::hash::Kind::Sha1.null();
     let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
     let ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓!
     └── ≡:1:anon:
         └── :1:anon:

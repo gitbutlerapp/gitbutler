@@ -79,7 +79,7 @@ mod with_workspace {
         let repo =
             read_only_in_memory_scenario_named("with-remotes-no-workspace", "nothing-to-push")?;
 
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
         * 89cc2d3 (HEAD -> A, origin/A) change in A
         * d79bba9 new file in A
         * c166d42 (origin/main, origin/HEAD, main) init-integration
@@ -131,7 +131,7 @@ mod with_workspace {
             "with-remotes-no-workspace",
             "remote-tracking-advanced-ff",
         )?;
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
         * 89cc2d3 (origin/A) change in A
         * d79bba9 (HEAD -> A) new file in A
         * c166d42 (origin/main, origin/HEAD, main) init-integration
@@ -212,7 +212,7 @@ mod with_workspace {
     fn remote_tracking_diverged() -> anyhow::Result<()> {
         let repo =
             read_only_in_memory_scenario_named("with-remotes-no-workspace", "remote-diverged")?;
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
         * 1a265a4 (HEAD -> A) local change in A
         | * 89cc2d3 (origin/A) change in A
         |/  

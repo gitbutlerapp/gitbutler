@@ -73,10 +73,12 @@ pub fn absorb_impl(
             repo,
             data_dir,
         )?;
-        for mapping in &outcome.commit_mapping {
-            commit_map.add_mapping(mapping.0, mapping.1);
+        if let Some(rebase_output) = &outcome.rebase_output {
+            for (_base, old, new) in &rebase_output.commit_mapping {
+                commit_map.add_mapping(*old, *new);
+            }
         }
-        total_rejected += outcome.paths_to_rejected_changes.len();
+        total_rejected += outcome.rejected_specs.len();
     }
     Ok(total_rejected)
 }

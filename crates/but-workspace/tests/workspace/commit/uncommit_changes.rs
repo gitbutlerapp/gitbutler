@@ -19,7 +19,7 @@ fn diff_spec_for_file(path: &str) -> DiffSpec {
 fn uncommit_file_from_head() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -44,7 +44,7 @@ fn uncommit_file_from_head() -> Result<()> {
     let new_commit_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     // Graph structure should be maintained (commit hash will change)
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 832a93c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -65,7 +65,7 @@ fn uncommit_file_from_head() -> Result<()> {
 fn uncommit_file_from_parent() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -89,7 +89,7 @@ fn uncommit_file_from_parent() -> Result<()> {
     let new_commit_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     // Graph structure should be maintained
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 2c4471e (HEAD -> three) commit three
     * 0f198e0 (two) commit two
     | * 16fd221 (origin/two) commit two
@@ -120,7 +120,7 @@ fn uncommit_file_from_parent() -> Result<()> {
 fn uncommit_file_from_root_commit() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -143,7 +143,7 @@ fn uncommit_file_from_root_commit() -> Result<()> {
     let new_commit_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     // Graph structure should be maintained
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 72f5d24 (HEAD -> three) commit three
     * 0a49f31 (two) commit two
     * 7fcda42 (one) commit one
@@ -191,7 +191,7 @@ fn error_when_changes_not_found() -> Result<()> {
 fn uncommit_empty_changes_is_noop() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -206,7 +206,7 @@ fn uncommit_empty_changes_is_noop() -> Result<()> {
     outcome.rebase.materialize()?;
 
     // Graph should be unchanged
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * fbb2bd1 (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one

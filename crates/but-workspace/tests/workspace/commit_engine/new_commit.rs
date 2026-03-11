@@ -23,7 +23,7 @@ fn from_unborn_head() -> anyhow::Result<()> {
             stack_segment: None,
         },
     )?;
-    insta::assert_debug_snapshot!(&outcome, @r"
+    insta::assert_debug_snapshot!(&outcome, @"
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
@@ -67,7 +67,7 @@ fn from_unborn_head() -> anyhow::Result<()> {
         },
     )?;
 
-    insta::assert_debug_snapshot!(&outcome, @r"
+    insta::assert_debug_snapshot!(&outcome, @"
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
@@ -1078,7 +1078,7 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
             stack_segment: None,
         },
     )?;
-    insta::assert_debug_snapshot!(&outcome, @r"
+    insta::assert_debug_snapshot!(&outcome, @"
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
@@ -1117,7 +1117,7 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
         },
     )?;
 
-    insta::assert_debug_snapshot!(&outcome, @r"
+    insta::assert_debug_snapshot!(&outcome, @"
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(

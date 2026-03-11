@@ -69,15 +69,13 @@ pub fn pr_template(
         .context("PR template was not valid UTF-8")
 }
 
-mod json {
-    /// Information about the project's review template.
-    #[derive(Debug, Clone, serde::Serialize)]
-    pub struct ReviewTemplateInfo {
-        /// The relative path to the review template within the repository.
-        pub path: String,
-        /// The content of the review template.
-        pub content: String,
-    }
+/// Information about the project's review template.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ReviewTemplateInfo {
+    /// The relative path to the review template within the repository.
+    pub path: String,
+    /// The content of the review template.
+    pub content: String,
 }
 
 /// Get the review template content for the given project and relative path.
@@ -86,7 +84,7 @@ mod json {
 /// from the git config.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn review_template(ctx: &Context) -> Result<Option<json::ReviewTemplateInfo>> {
+pub fn review_template(ctx: &Context) -> Result<Option<ReviewTemplateInfo>> {
     let project = gitbutler_project::get_validated(ctx.legacy_project.id.clone())?;
     let ctx = Context::new_from_legacy_project(project.clone())?;
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
@@ -117,7 +115,7 @@ pub fn review_template(ctx: &Context) -> Result<Option<json::ReviewTemplateInfo>
                 .content
                 .context("PR template was not valid UTF-8")?;
 
-            Ok(Some(json::ReviewTemplateInfo {
+            Ok(Some(ReviewTemplateInfo {
                 path: template_path,
                 content,
             }))

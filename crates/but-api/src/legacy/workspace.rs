@@ -19,9 +19,9 @@ use tracing::instrument;
 
 use crate::json::HexHash;
 
-#[but_api(napi)]
+#[but_api(napi, try_from = but_workspace::ui::RefInfo)]
 #[instrument(err(Debug))]
-pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::ui::RefInfo> {
+pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.legacy_meta()?;
     but_workspace::head_info(
@@ -32,10 +32,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::ui::RefInfo> {
             expensive_commit_info: true,
         },
     )
-    .and_then(|info| {
-        but_workspace::ui::RefInfo::for_ui(info, &repo)
-            .map(|ref_info| ref_info.pruned_to_entrypoint())
-    })
+    .map(|info| info.pruned_to_entrypoint())
 }
 
 #[but_api]
@@ -269,7 +266,7 @@ pub fn branch_details(
 /// hunks would fail.
 /// `stack_branch_name` is the short name of the reference that the UI knows is present in a given segment.
 /// It is necessary to insert the new commit into the right bucket.
-#[but_api]
+#[but_api(commit_engine::ui::CreateCommitOutcome)]
 #[instrument(err(Debug))]
 pub fn create_commit_from_worktree_changes(
     ctx: &mut but_ctx::Context,
@@ -278,7 +275,7 @@ pub fn create_commit_from_worktree_changes(
     worktree_changes: Vec<but_core::DiffSpec>,
     message: String,
     stack_branch_name: String,
-) -> Result<commit_engine::ui::CreateCommitOutcome> {
+) -> Result<commit_engine::CreateCommitOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
     let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
 
@@ -302,8 +299,7 @@ pub fn create_commit_from_worktree_changes(
         )
     });
 
-    let outcome = outcome?;
-    Ok(outcome.into())
+    outcome
 }
 
 /// Amend all `changes` to `commit_id`, keeping its commit message exactly as is.
@@ -311,14 +307,14 @@ pub fn create_commit_from_worktree_changes(
 /// All `changes` are meant to be relative to the worktree.
 /// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
 /// hunks would fail.
-#[but_api]
+#[but_api(commit_engine::ui::CreateCommitOutcome)]
 #[instrument(err(Debug))]
 pub fn amend_commit_from_worktree_changes(
     ctx: &mut Context,
     stack_id: StackId,
     commit_id: gix::ObjectId,
     worktree_changes: Vec<but_core::DiffSpec>,
-) -> Result<commit_engine::ui::CreateCommitOutcome> {
+) -> Result<commit_engine::CreateCommitOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
     let repo = ctx.repo.get()?;
     let data_dir = ctx.project_data_dir();
@@ -340,7 +336,7 @@ pub fn amend_commit_and_count_failures(
     guard: &mut RepoExclusiveGuard,
     repo: &gix::Repository,
     data_dir: &std::path::Path,
-) -> anyhow::Result<commit_engine::ui::CreateCommitOutcome> {
+) -> anyhow::Result<commit_engine::CreateCommitOutcome> {
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         repo,
@@ -358,7 +354,7 @@ pub fn amend_commit_and_count_failures(
     if !outcome.rejected_specs.is_empty() {
         tracing::warn!(?outcome.rejected_specs, "Failed to commit at least one hunk");
     }
-    Ok(outcome.into())
+    Ok(outcome)
 }
 
 /// Discard all worktree changes that match the specs in `worktree_changes`.
@@ -408,7 +404,7 @@ mod json {
     }
 }
 
-#[but_api]
+#[but_api(json::UIMoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn move_changes_between_commits(
     ctx: &mut Context,
@@ -417,7 +413,7 @@ pub fn move_changes_between_commits(
     destination_stack_id: StackId,
     destination_commit_id: gix::ObjectId,
     changes: Vec<but_core::DiffSpec>,
-) -> Result<json::UIMoveChangesResult> {
+) -> Result<but_workspace::legacy::MoveChangesResult> {
     let mut guard = ctx.exclusive_worktree_access();
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::AmendCommit),
@@ -437,10 +433,10 @@ pub fn move_changes_between_commits(
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
 
-    Ok(result.into())
+    Ok(result)
 }
 
-#[but_api]
+#[but_api(json::UIMoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn split_branch(
     ctx: &mut Context,
@@ -448,7 +444,7 @@ pub fn split_branch(
     source_branch_name: String,
     new_branch_name: String,
     file_changes_to_split_off: Vec<String>,
-) -> Result<json::UIMoveChangesResult> {
+) -> Result<but_workspace::legacy::MoveChangesResult> {
     let mut guard = ctx.exclusive_worktree_access();
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::SplitBranch),
@@ -482,10 +478,10 @@ pub fn split_branch(
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
     ws.refresh_from_head(&repo, &meta)?;
 
-    Ok(move_changes_result.into())
+    Ok(move_changes_result)
 }
 
-#[but_api]
+#[but_api(json::UIMoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn split_branch_into_dependent_branch(
     ctx: &mut but_ctx::Context,
@@ -493,7 +489,7 @@ pub fn split_branch_into_dependent_branch(
     source_branch_name: String,
     new_branch_name: String,
     file_changes_to_split_off: Vec<String>,
-) -> Result<json::UIMoveChangesResult> {
+) -> Result<but_workspace::legacy::MoveChangesResult> {
     let mut guard = ctx.exclusive_worktree_access();
 
     let _ = ctx.create_snapshot(
@@ -513,7 +509,7 @@ pub fn split_branch_into_dependent_branch(
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
 
-    Ok(move_changes_result.into())
+    Ok(move_changes_result)
 }
 
 /// Uncommits the changes specified in the `diffspec`.
@@ -521,7 +517,7 @@ pub fn split_branch_into_dependent_branch(
 /// If `assign_to` is provided, the changes will be assigned to the stack
 /// specified.
 /// If `assign_to` is not provided, the changes will be unassigned.
-#[but_api]
+#[but_api(json::UIMoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn uncommit_changes(
     ctx: &mut Context,
@@ -529,7 +525,7 @@ pub fn uncommit_changes(
     commit_id: gix::ObjectId,
     changes: Vec<but_core::DiffSpec>,
     assign_to: Option<StackId>,
-) -> Result<json::UIMoveChangesResult> {
+) -> Result<but_workspace::legacy::MoveChangesResult> {
     let mut guard = ctx.exclusive_worktree_access();
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::DiscardChanges),
@@ -608,20 +604,20 @@ pub fn uncommit_changes(
         )?;
     }
 
-    Ok(result.into())
+    Ok(result)
 }
 
 /// This API allows the user to quickly "stash" a bunch of uncommitted changes - getting them out of the worktree.
 /// Unlike the regular stash, the user specifies a new branch where those changes will be 'saved'/committed.
 /// Immediately after the changes are committed, the branch is unapplied from the workspace, and the "stash" branch can be re-applied at a later time
 /// In theory it should be possible to specify an existing "dumping" branch for this, but currently this endpoint expects a new branch.
-#[but_api]
+#[but_api(commit_engine::ui::CreateCommitOutcome)]
 #[instrument(err(Debug))]
 pub fn stash_into_branch(
     ctx: &mut Context,
     branch_name: String,
     worktree_changes: Vec<but_core::DiffSpec>,
-) -> Result<commit_engine::ui::CreateCommitOutcome> {
+) -> Result<commit_engine::CreateCommitOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
 
@@ -670,8 +666,7 @@ pub fn stash_into_branch(
         ctx.settings.feature_flags.cv3,
     )?;
 
-    let outcome = outcome?;
-    Ok(outcome.into())
+    outcome
 }
 
 /// Returns a new available branch name based on a simple template - user_initials-branch-count
