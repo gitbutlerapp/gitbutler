@@ -235,6 +235,17 @@ async fn match_subcommand(
             Ok(())
         }
         Subcommands::Gui => command::gui::open(&args.current_dir).emit_metrics(metrics_ctx),
+        Subcommands::Open { target } => {
+            let mut ctx = setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled,
+                    ..Default::default()
+                },
+                out,
+            )?;
+            command::legacy::open::open_target(&mut ctx, target.as_ref()).emit_metrics(metrics_ctx)
+        }
         Subcommands::Completions { shell } => {
             command::completions::generate_completions(shell).emit_metrics(metrics_ctx)
         }
