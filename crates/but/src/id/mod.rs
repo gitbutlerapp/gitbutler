@@ -1042,11 +1042,21 @@ impl PartialEq for CliId {
                 Self::Uncommitted(UncommittedCliId { id: l_id, .. }),
                 Self::Uncommitted(UncommittedCliId { id: r_id, .. }),
             ) => l_id == r_id,
-            (Self::CommittedFile { id: l_id, .. }, Self::CommittedFile { id: r_id, .. }) => {
-                l_id == r_id
-            }
+            (
+                Self::CommittedFile {
+                    id: l_id,
+                    path: l_path,
+                    ..
+                },
+                Self::CommittedFile {
+                    id: r_id,
+                    path: r_path,
+                    ..
+                },
+            ) => l_id == r_id && l_path == r_path,
             (Self::Branch { id: l_id, .. }, Self::Branch { id: r_id, .. }) => l_id == r_id,
             (Self::Commit { id: l_id, .. }, Self::Commit { id: r_id, .. }) => l_id == r_id,
+            (Self::Stack { id: l_id, .. }, Self::Stack { id: r_id, .. }) => l_id == r_id,
             (Self::Unassigned { .. }, Self::Unassigned { .. }) => true,
             _ => false,
         }

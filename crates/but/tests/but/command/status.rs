@@ -549,6 +549,36 @@ fn status_upstream_detailed_truncates_after_8() -> anyhow::Result<()> {
 }
 
 #[test]
+fn status_upstream_and_merge_base_messages_truncate_when_unpaged() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-long-messages")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("status --upstream")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A] [✓ upstream merges cleanly]
+┊●   601614c add A
+├╯
+┊
+┊╭┄(upstream) ⏫ 1 new commits
+┊● 67247ca add upstream-commit-message-that-is-intentionally-very-very-long-to-exc…
+┊┊
+├╯ 9fd740d [origin/main] 2000-01-02 add merge-base-message-that-is-intentio…
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
 fn status_upstream_merge_status_integrated() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "upstream-integrated-with-updates",

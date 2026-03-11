@@ -7,6 +7,7 @@ pub enum CommandName {
     Absorb,
     Discard,
     Status,
+    Tui,
     Stf,
     Rub,
     Diff,

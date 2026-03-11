@@ -1,0 +1,553 @@
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
+use but_ctx::Context;
+use crossterm::event::{self, Event};
+use gitbutler_operating_modes::OperatingMode;
+use ratatui::{
+    Frame,
+    prelude::*,
+    widgets::{Block, Borders, Clear, List, ListItem, Padding, Paragraph, Wrap},
+};
+
+use crate::{
+    CliId,
+    args::OutputFormat,
+    command::legacy::{
+        rub::{RubOperation, route_operation},
+        status::{
+            StatusFlags, StatusOutput, StatusOutputLine, build_status_context, build_status_output,
+            tui::{
+                cursor::Cursor,
+                error::{AppError, TuiResultExt},
+                key_bind::{KEY_BINDS, KeyBind},
+            },
+        },
+    },
+    tui::TerminalGuard,
+    utils::OutputChannel,
+};
+
+mod cursor;
+mod error;
+mod key_bind;
+
+const CURSOR_BG: Color = Color::Rgb(69, 71, 90);
+
+pub(super) async fn render_tui(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    mode: &OperatingMode,
+    flags: StatusFlags,
+    output: StatusOutput,
+    debug: bool,
+) -> anyhow::Result<()> {
+    let mut guard = TerminalGuard::new(true)?;
+
+    let mut app = App::new(output, flags, debug);
+
+    let mut messages = Vec::new();
+
+    // second buffer so we can send messages from `App::handle_message`
+    let mut other_messages = Vec::new();
+
+    loop {
+        if std::mem::take(&mut app.should_render) {
+            guard.terminal_mut().draw(|frame| {
+                app.renders += 1;
+                app.render(frame)
+            })?;
+        }
+
+        // poll for events
+        if event::poll(Duration::from_millis(30))? {
+            let ev = event::read()?;
+            event_to_messages(ev, app.key_binds, &app.mode, &mut messages);
+        }
+
+        // handle messages
+        loop {
+            if messages.is_empty() {
+                break;
+            }
+
+            for msg in messages.drain(..) {
+                app.handle_message(ctx, out, mode, &mut other_messages, msg)
+                    .await;
+            }
+            std::mem::swap(&mut messages, &mut other_messages);
+        }
+
+        // dismiss errors
+        let now = Instant::now();
+        let errors_before = app.errors.len();
+        app.errors.retain(|err| err.dismiss_at > now);
+        if app.errors.len() != errors_before {
+            app.should_render = true;
+        }
+
+        if app.should_quit {
+            break;
+        }
+    }
+
+    Ok(())
+}
+
+#[derive(Debug)]
+struct App {
+    status_lines: Vec<StatusOutputLine>,
+    flags: StatusFlags,
+    should_quit: bool,
+    should_render: bool,
+    cursor: Cursor,
+    mode: Mode,
+    key_binds: &'static [KeyBind],
+    debug_enabled: bool,
+    errors: Vec<AppError>,
+    renders: u64,
+}
+
+impl App {
+    fn new(output: StatusOutput, flags: StatusFlags, debug: bool) -> Self {
+        let StatusOutput { lines } = output;
+
+        let cursor = Cursor::new(&lines);
+
+        Self {
+            status_lines: lines,
+            flags,
+            cursor,
+            should_quit: false,
+            should_render: true,
+            mode: Mode::default(),
+            key_binds: KEY_BINDS,
+            debug_enabled: debug,
+            errors: Vec::new(),
+            renders: 0,
+        }
+    }
+
+    async fn handle_message(
+        &mut self,
+        ctx: &mut Context,
+        out: &mut OutputChannel,
+        mode: &OperatingMode,
+        messages: &mut Vec<Message>,
+        msg: Message,
+    ) {
+        self.should_render = true;
+
+        match msg {
+            Message::Quit => {
+                self.should_quit = true;
+            }
+            Message::MoveCursorUp => self.cursor.move_up(&self.status_lines, &self.mode),
+            Message::MoveCursorDown => self.cursor.move_down(&self.status_lines, &self.mode),
+            Message::StartRub => {
+                let Some(selected_line) = self.cursor.selected_line(&self.status_lines) else {
+                    return;
+                };
+
+                let Some(cli_id) = selected_line.data.cli_id() else {
+                    return;
+                };
+
+                let available_targets = self
+                    .status_lines
+                    .iter()
+                    .filter_map(|line| line.data.cli_id())
+                    .filter(|target| *target == cli_id || route_operation(cli_id, target).is_some())
+                    .cloned()
+                    .collect::<Vec<_>>();
+
+                self.mode = Mode::Rub {
+                    source: Arc::clone(cli_id),
+                    available_targets,
+                };
+
+                if self
+                    .cursor
+                    .selected_line(&self.status_lines)
+                    .is_some_and(|line| cursor::is_selectable_in_mode(line, &self.mode))
+                {
+                    return;
+                }
+
+                let previous_cursor = self.cursor;
+                self.cursor.move_down(&self.status_lines, &self.mode);
+                if self.cursor == previous_cursor {
+                    self.cursor.move_up(&self.status_lines, &self.mode);
+                }
+            }
+            Message::EnterNormalMode => {
+                self.mode = Mode::Normal;
+            }
+            Message::ToggleFiles => {
+                self.flags.show_files = !self.flags.show_files;
+                messages.push(Message::Reload);
+            }
+            Message::ConfirmRub => {
+                if let Mode::Rub { source, .. } = &self.mode
+                    && let Some(selected_line) = self.cursor.selected_line(&self.status_lines)
+                    && let Some(target) = selected_line.data.cli_id()
+                    && let Some(operation) = route_operation(source, target)
+                {
+                    let mut noop_out =
+                        OutputChannel::new_without_pager_non_json(OutputFormat::None);
+                    operation
+                        .execute(ctx, &mut noop_out)
+                        .show_error_in_tui(messages);
+                }
+
+                messages.extend([Message::EnterNormalMode, Message::Reload]);
+            }
+            Message::Reload => {
+                let Some(status_output) = build_status_context(
+                    ctx,
+                    out,
+                    mode,
+                    self.flags,
+                    crate::command::legacy::status::StatusRenderMode::Tui {
+                        debug: self.debug_enabled,
+                    },
+                )
+                .await
+                .and_then(|status_ctx| build_status_output(ctx, &status_ctx))
+                .show_error_in_tui(messages) else {
+                    return;
+                };
+
+                let new_lines = status_output.lines;
+
+                let previously_selected_cli_id = self
+                    .cursor
+                    .selection_cli_id_for_reload(&self.status_lines, self.flags.show_files);
+
+                let cursor = previously_selected_cli_id
+                    .and_then(|previously_selected_cli_id| {
+                        Cursor::restore(previously_selected_cli_id, &new_lines)
+                    })
+                    .unwrap_or_else(|| Cursor::new(&new_lines));
+
+                self.status_lines = new_lines;
+                self.cursor = cursor;
+            }
+            Message::ShowError(err) => {
+                self.errors.push(AppError {
+                    inner: err,
+                    dismiss_at: Instant::now() + Duration::from_secs(5),
+                });
+            }
+        }
+    }
+
+    fn render(&self, frame: &mut Frame) {
+        let content_layout =
+            Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(frame.area());
+
+        self.render_status(content_layout[0], frame);
+        self.render_hotbar(content_layout[1], frame);
+    }
+
+    fn render_status(&self, area: Rect, frame: &mut Frame) {
+        let (content_area, debug_area) = if self.debug_enabled {
+            let layout =
+                Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                    .split(area);
+            (layout[0], Some(layout[1]))
+        } else {
+            (area, None)
+        };
+
+        let items = self
+            .cursor
+            .iter_lines(&self.status_lines)
+            .map(|(tui_line, is_selected)| self.render_status_list_item(tui_line, is_selected));
+        let list = List::new(items);
+
+        frame.render_widget(list, content_area);
+
+        self.render_errors(content_area, frame);
+
+        if let Some(debug_area) = debug_area {
+            self.render_debug(debug_area, frame);
+        }
+    }
+
+    fn render_status_list_item(
+        &self,
+        tui_line: &StatusOutputLine,
+        is_selected: bool,
+    ) -> ListItem<'_> {
+        let StatusOutputLine {
+            connector,
+            line: content_line,
+            data,
+        } = tui_line;
+
+        let mut line = Line::default();
+
+        if let Some(connector) = connector {
+            line.extend(connector.clone());
+        }
+
+        if is_selected {
+            match &self.mode {
+                Mode::Normal => {}
+                Mode::Rub {
+                    source,
+                    available_targets: _,
+                } => {
+                    if let Some(target) = data.cli_id() {
+                        if target == source {
+                            line.extend([
+                                Span::raw("<< source >>").black().on_green(),
+                                Span::raw(" "),
+                            ]);
+                        }
+
+                        let rub_operation_display =
+                            rub_operation_display(source, target).unwrap_or("invalid");
+                        line.extend([
+                            Span::raw("<< ").black().on_blue(),
+                            Span::raw(rub_operation_display).black().on_blue(),
+                            Span::raw(" >>").black().on_blue(),
+                            Span::raw(" "),
+                        ]);
+                    }
+                }
+            }
+        } else {
+            match &self.mode {
+                Mode::Normal => {}
+                Mode::Rub {
+                    source,
+                    available_targets: _,
+                } => {
+                    if let Some(cli_id) = data.cli_id()
+                        && cli_id == source
+                    {
+                        line.extend([Span::raw("<< source >>").black().on_green(), Span::raw(" ")]);
+                    }
+                }
+            }
+        }
+
+        match &self.mode {
+            Mode::Normal => {
+                line.extend(content_line.clone());
+            }
+            Mode::Rub {
+                source: _,
+                available_targets,
+            } => {
+                let can_rub_here = if let Some(cli_id) = data.cli_id() {
+                    available_targets.contains(cli_id)
+                } else {
+                    false
+                };
+
+                if can_rub_here {
+                    line.extend(content_line.clone());
+                } else {
+                    line.extend(
+                        content_line
+                            .iter()
+                            .cloned()
+                            .map(|span| span.style(Style::default().dim())),
+                    );
+                }
+            }
+        }
+
+        if is_selected {
+            line = line.style(Style::default().bg(CURSOR_BG));
+        }
+
+        ListItem::new(line)
+    }
+
+    fn render_hotbar(&self, area: Rect, frame: &mut Frame) {
+        let mode_span = match self.mode {
+            Mode::Normal => Span::styled("  normal  ", Style::default().black().on_green()),
+            Mode::Rub { .. } => Span::styled("  rub  ", Style::default().black().on_magenta()),
+        };
+
+        let padding = Span::raw(" ");
+
+        let mut line = Line::from_iter([mode_span, padding]);
+
+        let mut key_binds_iter = self
+            .key_binds
+            .iter()
+            .copied()
+            .filter(|key_bind| key_bind.available_in_mode(&self.mode))
+            .filter(|key_bind| !key_bind.hidden)
+            .peekable();
+        while let Some(key_bind) = key_binds_iter.next() {
+            line.extend([
+                Span::styled(key_bind.code_display, Style::default().blue()),
+                Span::raw(" "),
+                Span::styled(key_bind.short_description, Style::default().dim()),
+            ]);
+
+            if key_binds_iter.peek().is_some() {
+                line.push_span(Span::styled(" • ", Style::default().dim()));
+            }
+        }
+
+        frame.render_widget(line, area);
+    }
+
+    fn render_errors(&self, area: Rect, frame: &mut Frame) {
+        for (idx, err) in self.errors.iter().rev().enumerate() {
+            let formatted_err = format!("{}", err.inner);
+            render_error_popup(
+                frame,
+                area,
+                PopupMargin {
+                    right: 1 + idx as u16,
+                    bottom: idx as _,
+                },
+                &formatted_err,
+            );
+        }
+    }
+
+    fn render_debug(&self, area: Rect, frame: &mut Frame) {
+        let list = List::new(
+            std::iter::once(ListItem::new(format!("Renders: {}", self.renders))).chain(
+                self.cursor
+                    .selected_line(&self.status_lines)
+                    .map(|selected_line| ListItem::new(format!("{selected_line:#?}"))),
+            ),
+        );
+
+        frame.render_widget(list, area);
+    }
+}
+
+fn event_to_messages(ev: Event, key_binds: &[KeyBind], mode: &Mode, messages: &mut Vec<Message>) {
+    match ev {
+        Event::Key(key) => {
+            for key_bind in key_binds.iter().copied() {
+                if key_bind.matches(&key, mode) {
+                    messages.push(key_bind.message.clone());
+                }
+            }
+        }
+        Event::FocusGained
+        | Event::FocusLost
+        | Event::Mouse(_)
+        | Event::Paste(_)
+        | Event::Resize(_, _) => {}
+    }
+}
+
+#[derive(Debug, Clone)]
+enum Message {
+    Quit,
+    MoveCursorUp,
+    MoveCursorDown,
+    StartRub,
+    EnterNormalMode,
+    ConfirmRub,
+    Reload,
+    ToggleFiles,
+    ShowError(Arc<anyhow::Error>),
+}
+
+#[derive(Debug, Default, strum::EnumDiscriminants)]
+enum Mode {
+    #[default]
+    Normal,
+    Rub {
+        source: Arc<CliId>,
+        available_targets: Vec<Arc<CliId>>,
+    },
+}
+
+fn rub_operation_display(source: &CliId, target: &CliId) -> Option<&'static str> {
+    if source == target {
+        return Some("no operation");
+    }
+
+    Some(match route_operation(source, target)? {
+        RubOperation::UnassignUncommitted(..) => "unassign hunks",
+        RubOperation::UncommittedToCommit(..) => "amend commit",
+        RubOperation::UncommittedToBranch(..) => "assign hunks",
+        RubOperation::UncommittedToStack(..) => "assign hunks",
+        RubOperation::StackToUnassigned(..) => "unassign hunks",
+        RubOperation::StackToStack { .. } => "reassign hunks",
+        RubOperation::StackToBranch { .. } => "reassign hunks",
+        RubOperation::UnassignedToCommit(..) => "amend commit",
+        RubOperation::UnassignedToBranch(..) => "assign hunks",
+        RubOperation::UnassignedToStack(..) => "assign hunks",
+        RubOperation::UndoCommit(..) => "undo commit",
+        RubOperation::SquashCommits { .. } => "squash commits",
+        RubOperation::MoveCommitToBranch(..) => "move commit",
+        RubOperation::BranchToUnassigned(..) => "unassign hunks",
+        RubOperation::BranchToStack { .. } => "reassign hunks",
+        RubOperation::BranchToCommit(..) => "amend commit",
+        RubOperation::BranchToBranch { .. } => "reassign hunks",
+        RubOperation::CommittedFileToBranch(..) => "extract file",
+        RubOperation::CommittedFileToCommit(..) => "move file",
+        RubOperation::CommittedFileToUnassigned(..) => "extract file",
+    })
+}
+
+struct PopupMargin {
+    right: u16,
+    bottom: u16,
+}
+
+fn render_error_popup(frame: &mut Frame, area: Rect, margin: PopupMargin, text: &str) {
+    let horizontal_padding: u16 = 1;
+    let vertical_padding: u16 = 0;
+
+    let height = text.lines().count() as u16 + 2 + (vertical_padding * 2);
+    let width = 45;
+
+    let PopupMargin {
+        right: right_margin,
+        bottom: bottom_margin,
+    } = margin;
+
+    let width = width.min(area.width.max(1));
+    let height = height.min(area.height.max(1));
+
+    let x = area.x.saturating_add(
+        area.width
+            .saturating_sub(right_margin)
+            .saturating_sub(width),
+    );
+    let y = area.y.saturating_add(
+        area.height
+            .saturating_sub(bottom_margin)
+            .saturating_sub(height),
+    );
+
+    let popup_area = Rect::new(x, y, width, height);
+
+    frame.render_widget(Clear, popup_area);
+
+    let widget = Paragraph::new(text)
+        .block(
+            Block::default()
+                .title("⚠️ Error")
+                .borders(Borders::ALL)
+                .border_style(Style::default().red())
+                .padding(Padding::new(
+                    horizontal_padding,
+                    horizontal_padding,
+                    vertical_padding,
+                    vertical_padding,
+                )),
+        )
+        .wrap(Wrap { trim: false });
+
+    frame.render_widget(widget, popup_area);
+}
