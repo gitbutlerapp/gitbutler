@@ -24,7 +24,7 @@ pub fn gitbutler_storage_path(repo: &gix::Repository) -> anyhow::Result<PathBuf>
         Some(Err(err)) => {
             Err(err).with_context(|| format!("{storage_key} contains an invalid path"))
         }
-        None => Ok(git_dir.join(default_gitbutler_storage_dir_name(&channel))),
+        None => Ok(git_dir.join(default_gitbutler_storage_dir_name())),
     }
 }
 
@@ -98,12 +98,8 @@ fn validate_in_git_storage_path(
     Ok(())
 }
 
-fn default_gitbutler_storage_dir_name(channel: &AppChannel) -> &'static str {
-    match channel {
-        AppChannel::Release => "gitbutler",
-        AppChannel::Nightly => "gitbutler.nightly",
-        AppChannel::Dev => "gitbutler.dev",
-    }
+fn default_gitbutler_storage_dir_name() -> &'static str {
+    "gitbutler"
 }
 
 fn storage_path_config_key_for_channel(channel: &AppChannel) -> &'static str {

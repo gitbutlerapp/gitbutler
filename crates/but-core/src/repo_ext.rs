@@ -25,8 +25,9 @@ pub trait RepositoryExt: Sized {
     /// * If the resolved path is outside of [`gix::Repository::git_dir`], the storage path
     ///   becomes `<configured-path>/<project-handle>` so multiple projects can share one base path
     ///   without clobbering each other. This also applies to relative paths like `../../shared`.
-    /// * Otherwise defaults to `<git-dir>/gitbutler` for release builds and
-    ///   `<git-dir>/gitbutler.<channel>` for non-release builds.
+    /// * Otherwise defaults to `<git-dir>/gitbutler` on all channels.
+    //    The idea is to support one storage location per channel once we can make sure that the previously
+    //    used metadata doesn't get lost, like the target branch, for instance by copying it over from stable.
     fn gitbutler_storage_path(&self) -> anyhow::Result<PathBuf>;
     /// Set all fields in `config` that are not `None` to disk into local repository configuration, or none of them.
     fn set_git_settings(&self, config: &GitConfigSettings) -> anyhow::Result<()>;

@@ -1,6 +1,5 @@
 use std::path::{Path, PathBuf};
 
-use but_path::AppChannel;
 use but_project_handle::{ProjectHandle, gitbutler_storage_path, storage_path_config_key};
 use but_testsupport::{CommandExt as _, git, gix_testtools, open_repo};
 use gix_testtools::tempfile::TempDir;
@@ -23,11 +22,7 @@ fn set_git_config(
 }
 
 fn default_storage_dir_name() -> &'static str {
-    match AppChannel::new() {
-        AppChannel::Release => "gitbutler",
-        AppChannel::Nightly => "gitbutler.nightly",
-        AppChannel::Dev => "gitbutler.dev",
-    }
+    "gitbutler"
 }
 
 #[test]

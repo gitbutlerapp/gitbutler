@@ -311,10 +311,9 @@ pub mod read_only {
 }
 
 fn set_storage_path_for_testing(git_dir: &Path) -> anyhow::Result<()> {
-    git2::Repository::open(git_dir)?.config()?.set_str(
-        but_project_handle::storage_path_config_key(),
-        "gitbutler.dev",
-    )?;
+    git2::Repository::open(git_dir)?
+        .config()?
+        .set_str(but_project_handle::storage_path_config_key(), "gitbutler")?;
     Ok(())
 }
 
