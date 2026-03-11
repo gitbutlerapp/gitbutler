@@ -26,10 +26,8 @@
 	import { IRC_CLIENT } from "$lib/irc/ircClient.svelte";
 	import { IRC_SERVICE } from "$lib/irc/ircService.svelte";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
-	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { SHORTCUT_SERVICE } from "$lib/shortcuts/shortcutService";
 	import { CLIENT_STATE } from "$lib/state/clientState.svelte";
-	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { USER_SERVICE } from "$lib/user/userService";
 	import { createKeybind } from "$lib/utils/hotkeys";
 	import { inject } from "@gitbutler/core/context";
@@ -125,8 +123,6 @@
 	// Debug services (only used for development)
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
-	const uiState = inject(UI_STATE);
-	const idSelection = inject(FILE_SELECTION_MANAGER);
 
 	function handleKeyDown(e: KeyboardEvent) {
 		// Explicitly detect cmd/ctrl + A since Tauri gets in the way of default behavior.
@@ -174,12 +170,6 @@
 	$effect(() => {
 		focusManager.setFModeEnabled($fModeEnabled);
 	});
-
-	// Expose debugging objects to window
-	(window as any)["uiState"] = uiState;
-	(window as any)["idSelection"] = idSelection;
-	(window as any)["clientState"] = clientState;
-	(window as any)["focusManager"] = focusManager;
 </script>
 
 <svelte:window
