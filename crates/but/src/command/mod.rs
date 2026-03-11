@@ -4,6 +4,7 @@ pub mod legacy;
 
 pub mod alias;
 pub mod branch;
+pub mod commit;
 pub mod completions;
 pub mod config;
 pub mod eval_hook;

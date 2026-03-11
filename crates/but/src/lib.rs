@@ -1269,24 +1269,16 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Move {
             source_commit,
             target,
             after,
         } => {
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
+            let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
             out.begin_status_after(status_after);
             let result =
-                command::legacy::rub::r#move::handle(&mut ctx, out, &source_commit, &target, after)
+                command::commit::r#move::handle(&mut ctx, out, &source_commit, &target, after)
                     .context("Failed to move commit.")
                     .emit_metrics(metrics_ctx);
             maybe_run_status_after(status_after, &result, &mut ctx, out).await;

@@ -35,7 +35,7 @@ fn move_commit_before_another_commit() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Moved [..] before [..]
+Moved 23e1bf8 → before fce8ecc
 
 "#]]);
 
@@ -75,7 +75,7 @@ fn move_commit_after_another_commit() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Moved [..] after [..]
+Moved fce8ecc → after 23e1bf8
 
 "#]]);
 
@@ -231,7 +231,7 @@ Failed to move commit. Target 'nonexistent' not found. If you just performed a G
 }
 
 #[test]
-fn move_cross_stack_shows_helpful_error() -> anyhow::Result<()> {
+fn move_cross_stack_works_yay() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
     env.setup_metadata(&["A", "B"])?;
@@ -251,12 +251,12 @@ fn move_cross_stack_shows_helpful_error() -> anyhow::Result<()> {
         .as_str()
         .unwrap();
 
-    // Try to move commit from A to specific position in B (should show helpful error)
+    // Try to move commit from A to specific position in B (should work amazingly)
     env.but(format!("move {commit_a_id} {commit_b_id}"))
         .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Failed to move commit. Cannot move commit to specific position in another stack
+        .success()
+        .stdout_eq(str![[r#"
+Moved c629281 → before ae3978a
 
 "#]]);
 
