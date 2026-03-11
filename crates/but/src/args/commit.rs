@@ -40,6 +40,15 @@ pub struct Platform {
         conflicts_with = "only"
     )]
     pub changes: Vec<String>,
+    /// Always show diff inside the editor.
+    ///
+    /// By default the diff will be shown unless it's large. The diff will always be shown if
+    /// `--diff` is passed, regardless of the size of the diff.
+    #[clap(long = "diff", default_value_t, conflicts_with_all = &["no_diff", "message", "message_file", "ai"])]
+    pub diff: bool,
+    /// Never show the diff inside the editor.
+    #[clap(long = "no-diff", default_value_t, conflicts_with_all = &["diff", "message", "message_file", "ai"])]
+    pub no_diff: bool,
     #[clap(subcommand)]
     pub cmd: Option<Subcommands>,
 }

@@ -1,9 +1,10 @@
 use anyhow::{Result, bail};
-use bstr::BString;
+use bstr::{BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
 use but_ctx::Context;
 use gix::prelude::ObjectIdExt;
 
+use super::{ShowDiffInEditor, estimate_diff_blob_size};
 use crate::{CliId, IdMap, tui, utils::OutputChannel};
 
 pub(crate) fn reword_target(
@@ -12,6 +13,7 @@ pub(crate) fn reword_target(
     target: &str,
     message: Option<&str>,
     format: bool,
+    show_diff_in_editor: ShowDiffInEditor,
 ) -> Result<()> {
     let id_map = IdMap::new_from_context(ctx, None)?;
 
@@ -37,10 +39,13 @@ pub(crate) fn reword_target(
             if format {
                 bail!("--format flag can only be used with commits, not branches");
             }
+            if !matches!(show_diff_in_editor, ShowDiffInEditor::Unspecified) {
+                bail!("--diff and --no-diff flags can only be used with commits, not branches");
+            }
             edit_branch_name(ctx, name, out, message)?;
         }
         CliId::Commit { commit_id: oid, .. } => {
-            edit_commit_message_by_id(ctx, *oid, out, message, format)?;
+            edit_commit_message_by_id(ctx, *oid, out, message, format, show_diff_in_editor)?;
         }
         _ => {
             bail!(
@@ -105,6 +110,7 @@ fn edit_commit_message_by_id(
     out: &mut OutputChannel,
     message: Option<&str>,
     format: bool,
+    show_diff_in_editor: ShowDiffInEditor,
 ) -> Result<()> {
     // Get commit details directly - no need to iterate through stacks
     let commit_details = but_api::diff::commit_details(ctx, commit_oid, ComputeLineStats::No)?;
@@ -121,8 +127,22 @@ fn edit_commit_message_by_id(
         prepare_provided_message(message, "commit message").unwrap_or_else(|| {
             let changed_files = get_changed_files_from_commit_details(&commit_details);
 
+            let should_show_diff = show_diff_in_editor.should_show_diff(|| {
+                estimate_diff_blob_size(&commit_details.diff_with_first_parent, ctx)
+            })?;
+            let diff = should_show_diff
+                .then(|| {
+                    commit_details
+                        .diff_with_first_parent
+                        .iter()
+                        .map(|change| change.unified_diff(&*ctx.repo.get()?, 3))
+                        .filter_map(|diff| diff.transpose())
+                        .collect::<Result<Vec<_>>>()
+                })
+                .transpose()?;
+
             // Open editor with current message and file list
-            get_commit_message_from_editor(&current_message, &changed_files)
+            get_commit_message_from_editor(&current_message, &changed_files, diff.as_deref())
         })?
     };
 
@@ -173,6 +193,7 @@ fn get_changed_files_from_commit_details(
 fn get_commit_message_from_editor(
     current_message: &str,
     changed_files: &[String],
+    diff: Option<&[BString]>,
 ) -> Result<String> {
     // Generate commit message template with current message
     let mut template = String::new();
@@ -190,9 +211,22 @@ fn get_commit_message_from_editor(
     }
     template.push_str("#\n");
 
+    let mut template_rest = String::new();
+    if let Some(diff) = diff
+        && !diff.is_empty()
+    {
+        for line in diff {
+            template_rest.push_str(&line.to_str_lossy());
+        }
+    }
+
     // Read the result and strip comments
-    let lossy_message =
-        tui::get_text::from_editor_no_comments("commit_msg", &template)?.to_string();
+    let lossy_message = tui::get_text::from_editor_no_comments_as_patch(
+        "commit_msg",
+        &template,
+        Some(template_rest.as_str()).filter(|s| !s.is_empty()),
+    )?
+    .to_string();
 
     if lossy_message.is_empty() {
         bail!("Aborting due to empty commit message");
@@ -223,9 +257,10 @@ fn get_branch_name_from_editor(current_name: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
 
     mod prepare_provided_message {
-        use super::super::*;
+        use super::*;
 
         #[test]
         fn empty_is_fails() {
