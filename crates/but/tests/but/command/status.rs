@@ -1,3 +1,4 @@
+use super::util::{enter_edit_mode_with_conflicted_commit, status_json};
 use crate::utils::{CommandExt as _, Sandbox};
 
 #[test]
@@ -383,6 +384,279 @@ fn long_cli_ids_json() -> anyhow::Result<()> {
 ...
 
 "#]]);
+
+    Ok(())
+}
+
+#[test]
+fn status_hint_with_uncommitted_changes() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+    env.file("new-file.txt", "content");
+
+    env.but("status")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/hints/status-hint-with-uncommitted-changes.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
+fn status_hint_clean_workspace() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("status")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/hints/status-hint-clean-workspace.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
+fn status_hint_when_no_branches() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("unapply A").assert().success();
+
+    env.but("status")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/hints/status-hint-no-branches.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
+fn status_no_hint_flag_suppresses_hint() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("status --no-hint")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/hints/status-no-hint.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
+fn status_shows_no_commits_label_for_empty_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.but("status")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/classification/status-shows-no-commits-label.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
+fn status_upstream_merge_status_empty() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.but("status --upstream")
+        .env("NO_BG_TASKS", "1")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/upstream/status-upstream-merge-status-empty.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
+fn status_upstream_summary_without_flag() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/upstream/status-upstream-summary.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
+fn status_upstream_detailed_with_flag() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("status --upstream")
+        .env("NO_BG_TASKS", "1")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/upstream/status-upstream-detailed.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
+fn status_upstream_detailed_truncates_after_8() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("status --upstream")
+        .env("NO_BG_TASKS", "1")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/upstream/status-upstream-truncates-after-8.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
+fn status_upstream_merge_status_integrated() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "upstream-integrated-with-updates",
+    )?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.but("status --upstream")
+        .env("NO_BG_TASKS", "1")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/upstream/status-upstream-merge-status-integrated.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
+fn status_upstream_merge_status_conflicted() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-conflicted")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("status --upstream")
+        .env("NO_BG_TASKS", "1")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/upstream/status-upstream-merge-status-conflicted.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
+fn status_shows_pushed_commit_marker() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("status-pushed")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("status")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/classification/status-shows-pushed-commit-marker.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
+fn status_shows_rewritten_branch_with_remote_and_local_commits() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("status-modified")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("status")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/classification/status-shows-rewritten-branch-with-remote-and-local-commits.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
+fn status_in_edit_mode_delegates_to_resolve_status() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    enter_edit_mode_with_conflicted_commit(&env)?;
+
+    env.but("status")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/edit-mode/status-delegates-to-resolve-status.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
+fn status_shows_marked_stack() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    let status = status_json(&env)?;
+    let branch_cli_id = status["stacks"][0]["branches"][0]["cliId"]
+        .as_str()
+        .expect("branch cli id should exist");
+
+    env.but(format!("mark {branch_cli_id}")).assert().success();
+
+    env.but("status")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/mark/status-shows-marked-stack.stdout.term.svg"
+        ]);
 
     Ok(())
 }
