@@ -138,7 +138,9 @@
 			throw new Error("window.ResizeObserver is missing.");
 		}
 
-		const observerSize = new ResizeObserver(() => updateTrack());
+		const observerSize = new ResizeObserver(() => {
+			updateTrack();
+		});
 		observerSize.observe(viewport);
 
 		const content = viewport.children.item(0);
@@ -146,13 +148,21 @@
 			throw new Error("Expected to find content container");
 		}
 
-		// Sometimes the content size changes before scrollTop, so we
-		// compensate here to avoid jumpiness. The position will be reset
-		// on next scroll event.
+		// Sometimes the content size changes before the browser fires a
+		// scroll event, so we compensate here to avoid thumb jumpiness.
+		// However, if viewport.scrollTop has already been adjusted by
+		// another component (e.g. VirtualList's scroll compensation),
+		// we must use the actual value to avoid double-compensating.
 		const observerContentSize = new ResizeObserver(() => {
 			if (lastHeight) {
 				const diff = content.scrollHeight - lastHeight;
-				scrollTop = viewport.scrollTop + diff;
+				// If viewport.scrollTop diverged from our last-known value,
+				// another component (e.g. VirtualList) already compensated.
+				if (viewport.scrollTop !== scrollTop) {
+					scrollTop = viewport.scrollTop;
+				} else if (diff !== 0) {
+					scrollTop = viewport.scrollTop + diff;
+				}
 			}
 			lastHeight = content.scrollHeight;
 		});
