@@ -6,8 +6,6 @@ use std::{
 use anyhow::{Result, anyhow};
 use but_error::Code;
 use but_meta::virtual_branches_legacy_types;
-use but_oxidize::{ObjectIdExt, RepoExt};
-use git2::Repository;
 use gitbutler_reference::Refname;
 use gitbutler_repo::commit_message::CommitMessage;
 use itertools::Itertools;
@@ -331,7 +329,7 @@ impl VirtualBranchesHandle {
     ///   2. They have no regular commits
     ///
     /// Also collects branches with a head oid pointing to a commit that can't be found in the repo
-    pub fn garbage_collect(&self, repo: &Repository) -> Result<()> {
+    pub fn garbage_collect(&self, repo: &gix::Repository) -> Result<()> {
         let target = self.get_default_target()?;
         let stacks_not_in_workspace = self
             .list_all_stacks()?
@@ -339,17 +337,16 @@ impl VirtualBranchesHandle {
             .filter(|b| !b.in_workspace)
             .collect_vec();
         let mut to_remove: Vec<StackId> = vec![];
-        let gix_repo = repo.to_gix_repo()?;
-        let ctx = but_ctx::Context::try_from(gix_repo)?;
+        let ctx = but_ctx::Context::try_from(repo.clone())?;
         for branch in stacks_not_in_workspace {
-            if let Ok(branch_head) = branch.head_oid(&ctx).map(|h| h.to_git2()) {
+            if let Ok(branch_head) = branch.head_oid(&ctx) {
                 if repo.find_commit(branch_head).is_err() {
                     // if the head commit can't be found, we can GC the branch
                     to_remove.push(branch.id);
                 } else {
                     // if there are no commits between the head and the merge base,
                     // i.e. the head is the merge base, we can GC the branch
-                    if branch_head == repo.merge_base(branch_head, target.sha.to_git2())? {
+                    if branch_head == repo.merge_base(branch_head, target.sha)?.detach() {
                         to_remove.push(branch.id);
                     }
                 }

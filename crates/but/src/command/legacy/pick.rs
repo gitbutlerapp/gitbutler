@@ -6,7 +6,7 @@ use but_api::legacy::{cherry_apply, virtual_branches, workspace};
 use but_cherry_apply::CherryApplyStatus;
 use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::ObjectIdExt;
 use but_workspace::legacy::{StacksFilter, ui::StackEntry};
 use cli_prompts::DisplayPrompt;
 use colored::Colorize;
@@ -195,23 +195,23 @@ Run 'but status' to see available CLI IDs, or 'but branch list' to see branches.
 fn select_commits_from_branch(
     ctx: &mut Context,
     out: &mut OutputChannel,
-    branch_head: git2::Oid,
+    branch_head: gix::ObjectId,
     branch_name: &str,
 ) -> Result<Vec<gix::ObjectId>> {
     use gix::prelude::ObjectIdExt as _;
 
     let git2_repo = ctx.git2_repo.get()?;
-    let gix_repo = ctx.repo.get()?;
+    let repo = ctx.repo.get()?;
 
     // Get the target branch to find merge base
     let vb_state = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
     let default_target = vb_state.get_default_target()?;
 
-    let branch_head_gix = branch_head.to_gix();
+    let branch_head_gix = branch_head;
     let target_oid_gix = default_target.sha;
 
     // Find merge base
-    let merge_base = gix_repo
+    let merge_base = repo
         .merge_base(branch_head_gix, target_oid_gix)
         .context("Failed to find merge base")?;
 
@@ -226,7 +226,7 @@ fn select_commits_from_branch(
 
     // Interactive mode: walk commits from branch head to merge base
     let traversal = branch_head_gix
-        .attach(&gix_repo)
+        .attach(&repo)
         .ancestors()
         .sorting(Sorting::ByCommitTime(CommitTimeOrder::NewestFirst))
         .with_hidden(Some(merge_base))
@@ -259,7 +259,7 @@ fn select_commits_from_branch(
         .iter()
         .enumerate()
         .map(|(i, (oid, c))| {
-            let short_id = shorten_object_id(&gix_repo, *oid);
+            let short_id = shorten_object_id(&repo, *oid);
             let message = c.summary().unwrap_or("(no message)");
             let display = out.truncate_if_unpaged(message, 60);
             format!("[{}] {} {}", i + 1, short_id, display)

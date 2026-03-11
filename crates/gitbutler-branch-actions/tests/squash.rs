@@ -1,7 +1,7 @@
 use anyhow::Result;
 use bstr::ByteSlice;
 use but_ctx::Context;
-use but_oxidize::ObjectIdExt;
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_workspace::ui::Commit;
 use gitbutler_branch_actions::squash_commits;
 use gitbutler_stack::{StackBranch, VirtualBranchesHandle};
@@ -25,7 +25,12 @@ use tempfile::TempDir;
 fn squash_without_affecting_stack() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(&mut ctx, test.stack.id, vec![test.commit_3], test.commit_2)?;
+    squash_commits(
+        &mut ctx,
+        test.stack.id,
+        vec![test.commit_3.to_gix()],
+        test.commit_2.to_gix(),
+    )?;
 
     let branches = list_branches(&ctx)?;
     // branch 1
@@ -65,7 +70,12 @@ fn squash_without_affecting_stack() -> Result<()> {
 fn squash_below() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(&mut ctx, test.stack.id, vec![test.commit_4], test.commit_2)?;
+    squash_commits(
+        &mut ctx,
+        test.stack.id,
+        vec![test.commit_4.to_gix()],
+        test.commit_2.to_gix(),
+    )?;
 
     let branches = list_branches(&ctx)?;
     // branch 1
@@ -111,7 +121,12 @@ fn squash_below() -> Result<()> {
 fn squash_above() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(&mut ctx, test.stack.id, vec![test.commit_1], test.commit_3)?;
+    squash_commits(
+        &mut ctx,
+        test.stack.id,
+        vec![test.commit_1.to_gix()],
+        test.commit_3.to_gix(),
+    )?;
 
     let branches = list_branches(&ctx)?;
     // branch 1
@@ -155,7 +170,12 @@ fn squash_above() -> Result<()> {
 fn squash_upwards_works() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(&mut ctx, test.stack.id, vec![test.commit_2], test.commit_3)?;
+    squash_commits(
+        &mut ctx,
+        test.stack.id,
+        vec![test.commit_2.to_gix()],
+        test.commit_3.to_gix(),
+    )?;
 
     let branches = list_branches(&ctx)?;
     // branch 1
@@ -196,7 +216,12 @@ fn squash_upwards_works() -> Result<()> {
 fn squash_down_with_overlap_ok() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(&mut ctx, test.stack.id, vec![test.commit_3], test.commit_2)?;
+    squash_commits(
+        &mut ctx,
+        test.stack.id,
+        vec![test.commit_3.to_gix()],
+        test.commit_2.to_gix(),
+    )?;
     let branches = list_branches(&ctx)?;
 
     // branch 1
@@ -235,7 +260,12 @@ fn squash_down_with_overlap_ok() -> Result<()> {
 fn squash_below_into_stack_head() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(&mut ctx, test.stack.id, vec![test.commit_4], test.commit_1)?;
+    squash_commits(
+        &mut ctx,
+        test.stack.id,
+        vec![test.commit_4.to_gix()],
+        test.commit_1.to_gix(),
+    )?;
     let branches = list_branches(&ctx)?;
 
     // branch 1
@@ -281,8 +311,8 @@ fn squash_multiple() -> Result<()> {
     squash_commits(
         &mut ctx,
         test.stack.id,
-        vec![test.commit_4, test.commit_2],
-        test.commit_1,
+        vec![test.commit_4.to_gix(), test.commit_2.to_gix()],
+        test.commit_1.to_gix(),
     )?;
     let branches = list_branches(&ctx)?;
 
@@ -335,8 +365,8 @@ fn squash_multiple_from_heads() -> Result<()> {
     squash_commits(
         &mut ctx,
         test.stack.id,
-        vec![test.commit_5, test.commit_4],
-        test.commit_2,
+        vec![test.commit_5.to_gix(), test.commit_4.to_gix()],
+        test.commit_2.to_gix(),
     )?;
     let branches = list_branches(&ctx)?;
 
@@ -390,8 +420,8 @@ fn squash_multiple_above_and_below() -> Result<()> {
     squash_commits(
         &mut ctx,
         test.stack.id,
-        vec![test.commit_5, test.commit_1],
-        test.commit_3,
+        vec![test.commit_5.to_gix(), test.commit_1.to_gix()],
+        test.commit_3.to_gix(),
     )?;
     let branches = list_branches(&ctx)?;
 

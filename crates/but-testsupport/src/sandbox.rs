@@ -248,14 +248,12 @@ impl Sandbox {
 
     /// Return a context configured to interact with this repository.
     ///
-    /// Note that in legacy mode, it will provide a minimal `LegacyProject` as well, but with all settings defaulted.
-    ///
     /// ### Not for plumbing
     ///
     /// This feature is only meant for higher-level Client or API tests. Plumbing crates must not use the [`but_ctx::Context`].
     #[cfg(feature = "sandbox-but-api")]
     pub fn context(&self) -> anyhow::Result<but_ctx::Context> {
-        self.open_repo()?.try_into()
+        but_ctx::Context::from_repo(self.open_repo()?)
     }
 
     /// Return the graph at `HEAD`, along with the `(graph, repo, meta)` repository and metadata used to create it.

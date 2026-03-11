@@ -2,14 +2,9 @@
 //!
 //! This code is a fork of the [`gitbutler_branch_actions::virtual::IsCommitIntegrated`]
 
-use anyhow::{Context as _, Result, anyhow};
+use anyhow::{Context as _, Result};
 use but_core::{RepositoryExt, commit::Headers};
-use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_repo::{
-    RepositoryExt as _,
-    logging::{LogUntil, RepositoryExt as _},
-};
 use gitbutler_stack::Target;
 use itertools::Itertools;
 
@@ -27,41 +22,36 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
     /// See [`Self::new_with_gix()`] for the pure-gix version.
     pub(crate) fn new(
         repo: &'repo gix::Repository,
-        git2_repo: &git2::Repository,
         target: &Target,
         graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
     ) -> anyhow::Result<Self> {
-        let remote_branch = git2_repo
-            .maybe_find_branch_by_refname(&target.branch.clone().into())?
-            .ok_or(anyhow!("failed to get branch"))?;
-        let remote_head = remote_branch.get().peel_to_commit()?;
-        let upstream_tree_id = git2_repo.find_commit(remote_head.id())?.tree_id();
-
-        let upstream_commits = git2_repo.log(
-            remote_head.id(),
-            LogUntil::Commit(target.sha.to_git2()),
-            true,
-        )?;
+        let remote_head = repo
+            .find_reference(&target.branch.to_string())?
+            .peel_to_commit()?;
+        let upstream_tree_id = remote_head.tree_id()?.detach();
+        let upstream_commits = remote_head
+            .id()
+            .ancestors()
+            .with_hidden(Some(target.sha))
+            .all()?
+            .filter_map(Result::ok)
+            .map(|info| info.id)
+            .collect_vec();
         let upstream_change_ids = upstream_commits
             .iter()
-            .filter_map(|commit| {
-                repo.find_commit(commit.id().to_gix())
+            .filter_map(|commit_id| {
+                repo.find_commit(*commit_id)
                     .ok()
                     .and_then(|c| c.change_id())
                     .map(|cid| cid.to_string())
             })
             .sorted()
             .collect();
-        let upstream_commits = upstream_commits
-            .iter()
-            .map(|commit| commit.id().to_gix())
-            .sorted()
-            .collect();
         Ok(Self {
             repo,
             graph,
             target_commit_id: target.sha,
-            upstream_tree_id: upstream_tree_id.to_gix(),
+            upstream_tree_id,
             upstream_commits,
             upstream_change_ids,
         })

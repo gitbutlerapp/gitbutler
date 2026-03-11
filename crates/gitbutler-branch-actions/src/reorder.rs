@@ -2,9 +2,9 @@ use anyhow::{Context as _, Result, bail};
 use but_ctx::{Context, access::RepoExclusive};
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{RebaseOutput, RebaseStep};
-use git2::Oid;
 use gitbutler_stack::{Stack, StackId};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
+use gix::ObjectId;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -29,23 +29,24 @@ pub fn reorder_stack(
 ) -> Result<RebaseOutput> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let state = ctx.virtual_branches();
-    let repo = &*ctx.git2_repo.get()?;
+    let git2_repo = &*ctx.git2_repo.get()?;
     let mut stack = state.get_stack(stack_id)?;
     let current_order = commits_order(ctx, &stack)?;
     new_order.validate(current_order.clone())?;
 
-    let gix_repo = ctx.repo.get()?;
+    let repo = ctx.repo.get()?;
     let default_target = state.get_default_target()?;
-    let default_target_commit = repo
+    let default_target_commit = git2_repo
         .find_reference(&default_target.branch.to_string())?
         .peel_to_commit()?;
-    let merge_base = repo.merge_base(default_target_commit.id(), stack.head_oid(ctx)?.to_git2())?;
+    let merge_base =
+        git2_repo.merge_base(default_target_commit.id(), stack.head_oid(ctx)?.to_git2())?;
 
     let mut steps: Vec<RebaseStep> = Vec::new();
     for series in new_order.series.iter().rev() {
         for oid in series.commit_ids.iter().rev() {
             steps.push(RebaseStep::Pick {
-                commit_id: oid.to_gix(),
+                commit_id: *oid,
                 new_message: None,
             });
         }
@@ -53,7 +54,7 @@ pub fn reorder_stack(
             series.name.clone(),
         )));
     }
-    let mut builder = but_rebase::Rebase::new(&gix_repo, merge_base.to_gix(), None)?;
+    let mut builder = but_rebase::Rebase::new(&repo, merge_base.to_gix(), None)?;
     let builder = builder.steps(steps)?;
     builder.rebase_noops(false);
     let output = builder.rebase()?;
@@ -61,7 +62,7 @@ pub fn reorder_stack(
     let new_head = output.top_commit.to_git2();
 
     // Ensure the stack head is set to the new oid after rebasing
-    stack.set_stack_head(&state, &gix_repo, new_head)?;
+    stack.set_stack_head(&state, &repo, new_head.to_gix())?;
 
     stack.set_heads_from_rebase_output(ctx, output.references.clone())?;
 
@@ -91,8 +92,8 @@ pub struct SeriesOrder {
     /// This is the desired commit order for the series. Because the commits will be rabased,
     /// naturally, the the commit ids will be different after updating.
     /// The changes are ordered from newest to oldest (most recent changes go first)
-    #[serde(with = "but_serde::oid_vec")]
-    pub commit_ids: Vec<Oid>,
+    #[serde(with = "but_serde::object_id_vec")]
+    pub commit_ids: Vec<ObjectId>,
 }
 
 impl StackOrder {
@@ -188,7 +189,7 @@ pub fn commits_order(ctx: &Context, stack: &Stack) -> Result<StackOrder> {
                     .local_commits
                     .iter()
                     .rev()
-                    .map(|c| c.id())
+                    .map(|c| c.id().to_gix())
                     .collect(),
             })
         })
@@ -200,25 +201,21 @@ pub fn commits_order(ctx: &Context, stack: &Stack) -> Result<StackOrder> {
 mod test {
     use super::*;
 
+    fn oid(hex: &str) -> ObjectId {
+        ObjectId::from_hex(format!("{hex:0<40}").as_bytes()).unwrap()
+    }
+
     #[test]
     fn validation_ok() -> Result<()> {
         let new_order = StackOrder {
             series: vec![
                 SeriesOrder {
                     name: "branch-2".to_string(),
-                    commit_ids: vec![
-                        Oid::from_str("6").unwrap(),
-                        Oid::from_str("5").unwrap(),
-                        Oid::from_str("4").unwrap(),
-                    ],
+                    commit_ids: vec![oid("6"), oid("5"), oid("4")],
                 },
                 SeriesOrder {
                     name: "branch-1".to_string(),
-                    commit_ids: vec![
-                        Oid::from_str("3").unwrap(),
-                        Oid::from_str("1").unwrap(), // swapped with below
-                        Oid::from_str("2").unwrap(),
-                    ],
+                    commit_ids: vec![oid("3"), oid("1"), oid("2")], // swapped with below
                 },
             ],
         };
@@ -243,19 +240,11 @@ mod test {
             series: vec![
                 SeriesOrder {
                     name: "branch-2".to_string(),
-                    commit_ids: vec![
-                        Oid::from_str("6").unwrap(),
-                        Oid::from_str("5").unwrap(),
-                        Oid::from_str("4").unwrap(),
-                    ],
+                    commit_ids: vec![oid("6"), oid("5"), oid("4")],
                 },
                 SeriesOrder {
                     name: "branch-1".to_string(),
-                    commit_ids: vec![
-                        Oid::from_str("3").unwrap(),
-                        Oid::from_str("9").unwrap(), // does not exist
-                        Oid::from_str("1").unwrap(),
-                    ],
+                    commit_ids: vec![oid("3"), oid("9"), oid("1")], // does not exist
                 },
             ],
         };
@@ -273,18 +262,11 @@ mod test {
             series: vec![
                 SeriesOrder {
                     name: "branch-2".to_string(),
-                    commit_ids: vec![
-                        Oid::from_str("6").unwrap(),
-                        Oid::from_str("5").unwrap(),
-                        Oid::from_str("4").unwrap(),
-                    ],
+                    commit_ids: vec![oid("6"), oid("5"), oid("4")],
                 },
                 SeriesOrder {
                     name: "branch-1".to_string(),
-                    commit_ids: vec![
-                        Oid::from_str("3").unwrap(), // missing
-                        Oid::from_str("1").unwrap(),
-                    ],
+                    commit_ids: vec![oid("3"), oid("1")], // missing
                 },
             ],
         };
@@ -302,19 +284,11 @@ mod test {
             series: vec![
                 SeriesOrder {
                     name: "branch-1".to_string(), // wrong order
-                    commit_ids: vec![
-                        Oid::from_str("6").unwrap(),
-                        Oid::from_str("5").unwrap(),
-                        Oid::from_str("4").unwrap(),
-                    ],
+                    commit_ids: vec![oid("6"), oid("5"), oid("4")],
                 },
                 SeriesOrder {
                     name: "branch-2".to_string(), // wrong order
-                    commit_ids: vec![
-                        Oid::from_str("3").unwrap(),
-                        Oid::from_str("2").unwrap(),
-                        Oid::from_str("1").unwrap(),
-                    ],
+                    commit_ids: vec![oid("3"), oid("2"), oid("1")],
                 },
             ],
         };
@@ -332,19 +306,11 @@ mod test {
             series: vec![
                 SeriesOrder {
                     name: "does-not-exist".to_string(), // invalid series name
-                    commit_ids: vec![
-                        Oid::from_str("6").unwrap(),
-                        Oid::from_str("5").unwrap(),
-                        Oid::from_str("4").unwrap(),
-                    ],
+                    commit_ids: vec![oid("6"), oid("5"), oid("4")],
                 },
                 SeriesOrder {
                     name: "branch-1".to_string(),
-                    commit_ids: vec![
-                        Oid::from_str("3").unwrap(),
-                        Oid::from_str("2").unwrap(),
-                        Oid::from_str("1").unwrap(),
-                    ],
+                    commit_ids: vec![oid("3"), oid("2"), oid("1")],
                 },
             ],
         };
@@ -361,11 +327,7 @@ mod test {
         let new_order = StackOrder {
             series: vec![SeriesOrder {
                 name: "branch-1".to_string(),
-                commit_ids: vec![
-                    Oid::from_str("3").unwrap(),
-                    Oid::from_str("2").unwrap(),
-                    Oid::from_str("1").unwrap(),
-                ],
+                commit_ids: vec![oid("3"), oid("2"), oid("1")],
             }],
         };
         let result = new_order.validate(existing_order());
@@ -381,19 +343,11 @@ mod test {
             series: vec![
                 SeriesOrder {
                     name: "branch-2".to_string(),
-                    commit_ids: vec![
-                        Oid::from_str("6").unwrap(),
-                        Oid::from_str("5").unwrap(),
-                        Oid::from_str("4").unwrap(),
-                    ],
+                    commit_ids: vec![oid("6"), oid("5"), oid("4")],
                 },
                 SeriesOrder {
                     name: "branch-1".to_string(),
-                    commit_ids: vec![
-                        Oid::from_str("3").unwrap(),
-                        Oid::from_str("2").unwrap(),
-                        Oid::from_str("1").unwrap(),
-                    ],
+                    commit_ids: vec![oid("3"), oid("2"), oid("1")],
                 },
             ],
         }

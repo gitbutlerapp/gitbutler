@@ -1,6 +1,6 @@
 use std::{fs, path, path::PathBuf, str::FromStr};
 
-use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId, RepoOpenMode};
 use but_error::Marker;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_settings::AppSettings;
@@ -30,8 +30,12 @@ impl Test {
         let project = outcome.unwrap_project();
         let mut settings = AppSettings::default();
         change_settings(&mut settings);
-        let ctx = Context::new_from_legacy_project_and_settings(&project, settings)
-            .expect("can create context");
+        let ctx = Context::new_from_legacy_project_and_settings_with_repo_open_mode(
+            &project,
+            settings,
+            RepoOpenMode::Isolated,
+        )
+        .expect("can create context");
         Self {
             repo: test_project,
             project_id: project.id,

@@ -1,7 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_core::ref_metadata::StackId;
 use but_ctx::{Context, access::RepoExclusive};
-use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseStep};
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_reference::{LocalRefname, Refname};
@@ -188,7 +187,7 @@ fn inject_branch_steps_into_destination(
 
     destination_stack.add_series(ctx, new_head, Some(target_branch_name.to_string()))?;
 
-    destination_stack.set_stack_head(vb_state, repo, new_destination_head.id().to_git2())?;
+    destination_stack.set_stack_head(vb_state, repo, new_destination_head.id().detach())?;
 
     destination_stack
         .set_heads_from_rebase_output(ctx, destination_rebase_result.clone().references)?;
@@ -224,7 +223,7 @@ fn extract_and_rebase_source_branch(
 
         source_stack.remove_branch(ctx, subject_branch_name)?;
 
-        source_stack.set_stack_head(vb_state, repository, new_source_head.id().to_git2())?;
+        source_stack.set_stack_head(vb_state, repository, new_source_head.id().detach())?;
 
         source_stack.set_heads_from_rebase_output(ctx, source_rebase_result.clone().references)?;
     }

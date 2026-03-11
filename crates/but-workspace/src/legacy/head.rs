@@ -107,11 +107,11 @@ pub fn remerged_workspace_commit_v2(ctx: &Context) -> Result<gix::ObjectId> {
 
     let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;
     let author = gitbutler_repo::signature(SignaturePurpose::Author)?;
-    let mut heads: Vec<git2::Commit<'_>> = stacks
+    let mut heads = stacks
         .iter()
         .filter_map(|stack| stack.head_oid(ctx).ok())
         .filter_map(|h| git2_repo.find_commit(h.to_git2()).ok())
-        .collect();
+        .collect::<Vec<_>>();
 
     if heads.is_empty() {
         heads = vec![git2_repo.find_commit(target_commit.to_git2())?]
@@ -119,7 +119,7 @@ pub fn remerged_workspace_commit_v2(ctx: &Context) -> Result<gix::ObjectId> {
 
     // TODO: Why does commit only accept a slice of commits? Feels like we
     //       could make use of AsRef with the right traits.
-    let head_refs: Vec<&git2::Commit<'_>> = heads.iter().collect();
+    let head_refs: Vec<_> = heads.iter().collect();
 
     let workspace_head_id = git2_repo.commit(
         None,

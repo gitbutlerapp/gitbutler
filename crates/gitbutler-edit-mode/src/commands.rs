@@ -1,7 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_core::{ref_metadata::StackId, ui::TreeChange};
 use but_ctx::Context;
-use but_oxidize::ObjectIdExt as _;
 use gitbutler_operating_modes::{EditModeMetadata, ensure_edit_mode, ensure_open_workspace_mode};
 use gitbutler_oplog::{
     OplogExt,
@@ -20,17 +19,12 @@ pub fn enter_edit_mode(
     ensure_open_workspace_mode(ctx, guard.read_permission())
         .context("Entering edit mode may only be done when the workspace is open")?;
 
-    let git2_repo = ctx.git2_repo.get()?;
-    let commit = git2_repo
-        .find_commit(commit_oid.to_git2())
-        .context("Failed to find commit")?;
-
     let snapshot = ctx
         .prepare_snapshot(guard.read_permission())
         .context("Failed to prepare snapshot")?;
 
     let edit_mode_metadata =
-        crate::enter_edit_mode(ctx, commit, stack_id, guard.write_permission())?;
+        crate::enter_edit_mode(ctx, commit_oid, stack_id, guard.write_permission())?;
 
     let _ = ctx.commit_snapshot(
         snapshot,

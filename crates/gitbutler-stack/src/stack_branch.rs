@@ -1,10 +1,10 @@
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use bstr::{BString, ByteSlice};
 use but_ctx::Context;
 use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{ObjectIdExt, RepoExt};
 use git2::Commit;
-use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
+use gitbutler_repo::logging::{LogUntil, RepositoryExt};
 use gix::refs::{
     Target,
     transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
@@ -84,7 +84,7 @@ impl StackBranch {
             archived: false,
             review_id: None,
         };
-        branch.set_real_reference(repo, &branch.head)?;
+        branch.set_real_reference(repo, branch.head)?;
         Ok(branch)
     }
 
@@ -117,7 +117,7 @@ impl StackBranch {
         target: gix::ObjectId,
         repo: &gix::Repository,
     ) -> Result<Option<BString>> {
-        let refname = self.set_real_reference(repo, &target)?;
+        let refname = self.set_real_reference(repo, target)?;
         self.head = target;
         Ok(refname)
     }
@@ -203,11 +203,11 @@ impl StackBranch {
     fn set_real_reference(
         &self,
         repo: &gix::Repository,
-        new_head: &gix::ObjectId,
+        new_head: gix::ObjectId,
     ) -> Result<Option<BString>> {
         let reference = repo.reference(
             qualified_reference_name(self.name()),
-            *new_head,
+            new_head,
             PreviousValue::Any,
             "GitButler reference",
         )?;
@@ -219,7 +219,7 @@ impl StackBranch {
             let commit = reference.peel_to_commit()?;
             Ok(commit.id)
         } else {
-            self.set_real_reference(repo, &self.head)?;
+            self.set_real_reference(repo, self.head)?;
             Ok(self.head)
         }
     }
@@ -229,7 +229,7 @@ impl StackBranch {
     /// This is basically the opposite of `sync_with_reference` and is something to do only after restoring from a snapshot.
     /// Only works if the head is a commit id (as opposed to legacy change id value)
     pub fn set_reference_to_head_value(&self, repo: &gix::Repository) -> Result<()> {
-        self.set_real_reference(repo, &self.head)?;
+        self.set_real_reference(repo, self.head)?;
         Ok(())
     }
 
