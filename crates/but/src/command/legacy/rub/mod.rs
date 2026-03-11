@@ -5,9 +5,6 @@ use but_ctx::Context;
 use colored::Colorize;
 mod amend;
 mod assign;
-mod commits;
-pub(crate) mod r#move;
-mod move_commit;
 pub(crate) mod squash;
 mod undo;
 pub(crate) use assign::branch_name_to_stack_id;
@@ -19,34 +16,10 @@ use nonempty::NonEmpty;
 
 use crate::{
     CliId, IdMap,
+    command::commit::r#move::move_commit_to_branch,
     id::parser::{parse_sources_with_disambiguation, prompt_for_disambiguation},
     utils::OutputChannel,
 };
-
-/// Serialize a [`gitbutler_branch_actions::MoveCommitIllegalAction`] to a structured JSON value.
-///
-/// Shared between `move.rs` and `move_commit.rs` to avoid duplicated match arms.
-pub(crate) fn illegal_move_to_json(
-    action: &gitbutler_branch_actions::MoveCommitIllegalAction,
-) -> serde_json::Value {
-    let (reason, deps) = match action {
-        gitbutler_branch_actions::MoveCommitIllegalAction::DependsOnCommits(deps) => {
-            ("depends_on_commits", Some(deps.clone()))
-        }
-        gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentChanges(deps) => {
-            ("has_dependent_changes", Some(deps.clone()))
-        }
-        gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentUncommittedChanges => {
-            ("has_dependent_uncommitted_changes", None)
-        }
-    };
-    serde_json::json!({
-        "ok": false,
-        "error": "illegal_move",
-        "reason": reason,
-        "dependencies": deps,
-    })
-}
 
 /// A description of a set of hunks.
 type Description = String;
@@ -179,8 +152,7 @@ impl<'a> RubOperation<'a> {
                 squash::commits(ctx, source, destination, None, out)
             }
             RubOperation::MoveCommitToBranch(oid, name) => {
-                create_snapshot(ctx, OperationKind::MoveCommit);
-                move_commit::to_branch(ctx, oid, name, out)
+                move_commit_to_branch(ctx, oid, name, out)
             }
             RubOperation::BranchToUnassigned(from) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);
@@ -210,15 +182,21 @@ impl<'a> RubOperation<'a> {
             }
             RubOperation::CommittedFileToBranch(path, commit_oid, name) => {
                 create_snapshot(ctx, OperationKind::FileChanges);
-                commits::uncommit_file(ctx, path, *commit_oid, Some(name), out)
+                crate::command::commit::file::uncommit_file(ctx, path, *commit_oid, Some(name), out)
             }
             RubOperation::CommittedFileToCommit(path, commit_oid, oid) => {
                 create_snapshot(ctx, OperationKind::FileChanges);
-                commits::commited_file_to_another_commit(ctx, path, *commit_oid, *oid, out)
+                crate::command::commit::file::commited_file_to_another_commit(
+                    ctx,
+                    path,
+                    *commit_oid,
+                    *oid,
+                    out,
+                )
             }
             RubOperation::CommittedFileToUnassigned(path, commit_oid) => {
                 create_snapshot(ctx, OperationKind::FileChanges);
-                commits::uncommit_file(ctx, path, *commit_oid, None, out)
+                crate::command::commit::file::uncommit_file(ctx, path, *commit_oid, None, out)
             }
         }
     }

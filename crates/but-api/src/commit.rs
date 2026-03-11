@@ -11,7 +11,7 @@ use but_rebase::graph_rebase::{
 };
 use tracing::instrument;
 
-/// Outcome after creating a commit
+/// Outcome after creating a commit.
 pub struct CommitCreateResult {
     /// If the commit was successfully created. This should only be none if all the DiffSpecs were rejected.
     pub new_commit: Option<gix::ObjectId>,
@@ -35,6 +35,12 @@ pub struct CommitRewordResult {
     pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
 }
 
+/// Outcome of moving a commit.
+pub struct CommitMoveResult {
+    /// Commits that were replaced by this operation. Maps `old_id → new_id`.
+    pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+}
+
 /// Outcome after inserting a blank commit.
 pub struct CommitInsertBlankResult {
     /// The ID of the newly inserted blank commit.
@@ -47,7 +53,7 @@ pub struct CommitInsertBlankResult {
 pub mod json {
     use serde::Serialize;
 
-    use crate::json::HexHash;
+    use crate::{commit::CommitMoveResult, json::HexHash};
 
     use super::{
         CommitCreateResult, CommitInsertBlankResult, CommitRewordResult, MoveChangesResult,
@@ -185,6 +191,33 @@ pub mod json {
 
             Self {
                 new_commit: new_commit.into(),
+                replaced_commits: replaced_commits
+                    .into_iter()
+                    .map(|(old, new)| (old.into(), new.into()))
+                    .collect(),
+            }
+        }
+    }
+
+    /// UI type for moving a commit.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct UICommitMoveResult {
+        /// Commits that have been replaced as a side-effect of the move.
+        /// Maps `oldId → newId`.
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(with = "std::collections::BTreeMap<String, String>")
+        )]
+        pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
+    }
+
+    impl From<CommitMoveResult> for UICommitMoveResult {
+        fn from(value: CommitMoveResult) -> Self {
+            let CommitMoveResult { replaced_commits } = value;
+
+            Self {
                 replaced_commits: replaced_commits
                     .into_iter()
                     .map(|(old, new)| (old.into(), new.into()))
@@ -602,6 +635,109 @@ pub fn commit_move_changes_between(
         destination_commit_id,
         changes,
     );
+    if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
+        let mut guard = ctx.exclusive_worktree_access();
+        snapshot.commit(ctx, guard.write_permission()).ok();
+    };
+    res
+}
+
+/// Moves commit, no snapshots. No strings attached.
+///
+/// Returns the replaced that resulted from the operation.
+pub fn commit_move_only(
+    ctx: &mut but_ctx::Context,
+    subject_commit_id: gix::ObjectId,
+    anchor_commit_id: gix::ObjectId,
+    side: InsertSide,
+) -> anyhow::Result<CommitMoveResult> {
+    let meta = ctx.meta()?;
+    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
+    let editor = ws.graph.to_editor(&repo)?;
+    let anchor_selector = editor.select_commit(anchor_commit_id)?;
+
+    let rebase =
+        but_workspace::commit::move_commit(&ws, editor, subject_commit_id, anchor_selector, side)?;
+
+    let materialized = rebase.materialize()?;
+    ws.refresh_from_head(&repo, &meta)?;
+
+    Ok(CommitMoveResult {
+        replaced_commits: materialized.history.commit_mappings(),
+    })
+}
+
+/// Moves a commit within or across stacks.
+///
+/// Returns the replaced that resulted from the operation.
+#[but_api(napi, json::UICommitMoveResult)]
+#[instrument(err(Debug))]
+pub fn commit_move(
+    ctx: &mut but_ctx::Context,
+    subject_commit_id: gix::ObjectId,
+    anchor_commit_id: gix::ObjectId,
+    side: InsertSide,
+) -> anyhow::Result<CommitMoveResult> {
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
+        ctx,
+        SnapshotDetails::new(OperationKind::MoveCommit),
+    )
+    .ok();
+
+    let res = commit_move_only(ctx, subject_commit_id, anchor_commit_id, side);
+    if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
+        let mut guard = ctx.exclusive_worktree_access();
+        snapshot.commit(ctx, guard.write_permission()).ok();
+    };
+    res
+}
+
+/// Moves a commit to be first commit on a branch, no snapshots. No strings attached.
+///
+/// Returns the replaced that resulted from the operation.
+pub fn commit_move_to_branch_only(
+    ctx: &mut but_ctx::Context,
+    subject_commit_id: gix::ObjectId,
+    anchor_ref: &gix::refs::FullNameRef,
+) -> anyhow::Result<CommitMoveResult> {
+    let meta = ctx.meta()?;
+    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
+    let editor = ws.graph.to_editor(&repo)?;
+    let anchor_selector = editor.select_reference(anchor_ref)?;
+
+    let rebase = but_workspace::commit::move_commit(
+        &ws,
+        editor,
+        subject_commit_id,
+        anchor_selector,
+        InsertSide::Below,
+    )?;
+
+    let materialized = rebase.materialize()?;
+    ws.refresh_from_head(&repo, &meta)?;
+
+    Ok(CommitMoveResult {
+        replaced_commits: materialized.history.commit_mappings(),
+    })
+}
+
+/// Moves a commit to be first commit on a branch.
+///
+/// Returns the replaced that resulted from the operation.
+#[but_api(napi, json::UICommitMoveResult)]
+#[instrument(err(Debug))]
+pub fn commit_move_to_branch(
+    ctx: &mut but_ctx::Context,
+    subject_commit_id: gix::ObjectId,
+    anchor_ref: &gix::refs::FullNameRef,
+) -> anyhow::Result<CommitMoveResult> {
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
+        ctx,
+        SnapshotDetails::new(OperationKind::MoveCommit),
+    )
+    .ok();
+
+    let res = commit_move_to_branch_only(ctx, subject_commit_id, anchor_ref);
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
         let mut guard = ctx.exclusive_worktree_access();
         snapshot.commit(ctx, guard.write_permission()).ok();

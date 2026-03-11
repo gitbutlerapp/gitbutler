@@ -882,7 +882,6 @@ pub enum Subcommands {
     /// ```text
     /// but move abc123 my-feature-branch
     /// ```
-    #[cfg(feature = "legacy")]
     #[clap(verbatim_doc_comment)]
     Move {
         /// Commit ID to move

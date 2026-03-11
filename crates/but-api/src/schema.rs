@@ -157,6 +157,10 @@ pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
                 schema_fn: || schema_for!(crate::commit::json::UICommitRewordResult),
             },
             TypeSchemaEntry {
+                name: "UICommitMoveResult",
+                schema_fn: || schema_for!(crate::commit::json::UICommitMoveResult),
+            },
+            TypeSchemaEntry {
                 name: "BranchListingFilter",
                 schema_fn: || schema_for!(BranchListingFilter)
             },

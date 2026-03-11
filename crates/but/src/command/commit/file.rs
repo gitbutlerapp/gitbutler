@@ -5,7 +5,7 @@ use but_ctx::Context;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_stack::VirtualBranchesHandle;
 
-use crate::{command::legacy::rub::assign::branch_name_to_stack_id, utils::OutputChannel};
+use crate::utils::OutputChannel;
 
 pub fn commited_file_to_another_commit(
     ctx: &mut Context,
@@ -49,10 +49,7 @@ pub fn uncommit_file(
     out: &mut OutputChannel,
 ) -> Result<()> {
     // Convert target_branch to StackId if provided (for hunk assignment after uncommit)
-    let assign_to = target_branch
-        .map(|branch| branch_name_to_stack_id(ctx, Some(branch)))
-        .transpose()?
-        .flatten();
+    let assign_to = find_stack_id_for_branch(ctx, target_branch)?;
 
     let relevant_changes = {
         let repo = ctx.repo.get()?;
@@ -80,4 +77,19 @@ pub fn uncommit_file(
     }
 
     Ok(())
+}
+
+/// Determine which stack contains the target branch, if any.
+fn find_stack_id_for_branch(
+    ctx: &Context,
+    target_branch: Option<&str>,
+) -> Result<Option<but_core::Id<'S'>>, anyhow::Error> {
+    let (_guard, _, workspace, _) = ctx.workspace_and_db()?;
+    let target_branch_full_name = target_branch
+        .map(|branch| gix::refs::FullName::try_from(format!("refs/heads/{branch}")))
+        .transpose()?;
+    let assign_to = target_branch_full_name
+        .and_then(|full_name| workspace.find_segment_and_stack_by_refname(full_name.as_ref()))
+        .and_then(|(stack, _)| stack.id);
+    Ok(assign_to)
 }
