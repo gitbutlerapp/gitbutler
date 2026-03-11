@@ -169,6 +169,10 @@ pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
                 schema_fn: || schema_for!(BranchListing)
             },
             TypeSchemaEntry {
+                name: "BranchDetails",
+                schema_fn: || schema_for!(but_workspace::ui::BranchDetails)
+            },
+            TypeSchemaEntry {
                 name: "ApplyOutcome",
                 schema_fn: || schema_for!(ApplyOutcome)
             }

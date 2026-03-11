@@ -221,7 +221,7 @@ fn handle_gerrit(
     Ok(())
 }
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn branch_details(
     ctx: &but_ctx::Context,
