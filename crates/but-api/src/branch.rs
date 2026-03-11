@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use but_api_macros::but_api;
 use but_core::{RefMetadata, ui::TreeChanges, worktree::checkout::UncommitedWorktreeChanges};
 use but_ctx::Context;
@@ -9,9 +11,17 @@ use but_workspace::branch::{
 };
 use tracing::instrument;
 
+/// Outcome after moving a branch.
+pub struct MoveBranchResult {
+    /// Commits that were replaced while transplanting a branch.
+    pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+}
+
 /// JSON transport types for branch APIs.
 pub mod json {
     use serde::Serialize;
+
+    use crate::{branch::MoveBranchResult, json::HexHash};
 
     /// JSON sibling of [`but_workspace::branch::apply::Outcome`].
     #[derive(Debug, Serialize)]
@@ -41,6 +51,32 @@ pub mod json {
                 workspace_changed,
                 applied_branches: applied_branches.into_iter().map(Into::into).collect(),
                 workspace_ref_created,
+            }
+        }
+    }
+
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    /// UI type for moving a branch.
+    pub struct UIMoveBranchResult {
+        /// Commits that have been replaced after transplanting a branch.
+        /// Maps `oldId → newId`.
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(with = "std::collections::BTreeMap<String, String>")
+        )]
+        pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
+    }
+
+    impl From<MoveBranchResult> for UIMoveBranchResult {
+        fn from(value: MoveBranchResult) -> Self {
+            Self {
+                replaced_commits: value
+                    .replaced_commits
+                    .into_iter()
+                    .map(|(old, new)| (old.into(), new.into()))
+                    .collect(),
             }
         }
     }
@@ -76,7 +112,7 @@ pub fn apply_only(
 }
 
 /// Just like [apply_only()], but will create an oplog entry as well on success.
-#[but_api(json::ApplyOutcome)]
+#[but_api(napi, json::ApplyOutcome)]
 #[instrument(err(Debug))]
 pub fn apply(
     ctx: &mut but_ctx::Context,
@@ -110,13 +146,13 @@ pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges>
 }
 
 /// Move a branch on top of another
-#[but_api]
+#[but_api(json::UIMoveBranchResult)]
 #[instrument(err(Debug))]
 pub fn move_branch(
     ctx: &mut but_ctx::Context,
     subject_branch: &gix::refs::FullNameRef,
     target_branch: &gix::refs::FullNameRef,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<MoveBranchResult> {
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
         ctx,
         SnapshotDetails::new(OperationKind::MoveBranch),
@@ -136,14 +172,14 @@ fn move_branch_impl(
     ctx: &mut but_ctx::Context,
     subject_branch: &gix::refs::FullNameRef,
     target_branch: &gix::refs::FullNameRef,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<MoveBranchResult> {
     let mut meta = ctx.meta()?;
     let (_guard, repo, mut workspace, _) = ctx.workspace_mut_and_db()?;
     let editor = workspace.graph.to_editor(&repo)?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(&workspace, editor, subject_branch, target_branch)?;
 
-    rebase.materialize()?;
+    let materialization = rebase.materialize()?;
     if let Some((ws_meta, ref_name)) = ws_meta.zip(workspace.ref_name()) {
         let mut md = meta.workspace(ref_name)?;
         *md = ws_meta;
@@ -151,5 +187,7 @@ fn move_branch_impl(
     }
     workspace.refresh_from_head(&repo, &meta)?;
 
-    Ok(())
+    Ok(MoveBranchResult {
+        replaced_commits: materialization.history.commit_mappings(),
+    })
 }

@@ -28,7 +28,10 @@ pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
                 ref_info::{BranchReference, RemoteTrackingReference, Segment, Stack, Target},
             },
         };
+        use gitbutler_branch_actions::{BranchListing, BranchListingFilter};
         use schemars::schema_for;
+
+        use crate::branch::json::ApplyOutcome;
 
         // Register types that have JsonSchema derives. Add more entries here as derives
         // are added across the codebase.
@@ -153,6 +156,18 @@ pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
                 name: "UICommitRewordResult",
                 schema_fn: || schema_for!(crate::commit::json::UICommitRewordResult),
             },
+            TypeSchemaEntry {
+                name: "BranchListingFilter",
+                schema_fn: || schema_for!(BranchListingFilter)
+            },
+            TypeSchemaEntry {
+                name: "BranchListing",
+                schema_fn: || schema_for!(BranchListing)
+            },
+            TypeSchemaEntry {
+                name: "ApplyOutcome",
+                schema_fn: || schema_for!(ApplyOutcome)
+            }
         ]
         .into_iter()
         .map(|entry| (entry.name, (entry.schema_fn)()))

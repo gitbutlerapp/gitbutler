@@ -52,6 +52,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     let vis = &input_fn.vis;
     let sig = &input_fn.sig;
     let fn_name = &sig.ident;
+    let napi_doc_attrs = doc_attributes(&input_fn.attrs);
     let asyncness = &sig.asyncness;
     let input = &sig.inputs;
     let output = &sig.output;
@@ -263,7 +264,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let napi_fn_block = if opts.napi {
         quote! {
-            /// napi function - strongly typed params, serde_json::Value output, automatic error conversion.
+            #(#napi_doc_attrs)*
             #napi_legacy_cfg
             #[napi_derive::napi(ts_return_type = #ts_return_type_str)]
             #vis async fn #fn_napi_name(
@@ -579,6 +580,14 @@ fn single_generic_type_arg<'a>(path: &'a syn::Path, expected: &str) -> Option<&'
     }
 }
 
+fn doc_attributes(attrs: &[syn::Attribute]) -> Vec<syn::Attribute> {
+    attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("doc"))
+        .cloned()
+        .collect()
+}
+
 struct JsonParameterMapping {
     /// The mapped type to which the actual type can be converted.
     json_ty: syn::Path,
@@ -631,10 +640,7 @@ fn build_json_type_mapping<'a>(
             ));
         }
 
-        let last = &segments.last().unwrap().ident;
-        let (name, mapping) = if (last == "Context" || last == "ThreadSafeContext")
-            && (segments.len() == 1 || segments[0].ident == "but_ctx")
-        {
+        let (name, mapping) = if is_context_path(path) {
             (
                 pat_ident.ident.to_string(),
                 JsonParameterMapping {
@@ -642,7 +648,7 @@ fn build_json_type_mapping<'a>(
                     json_ident: Some(syn::parse_str("project_id")?),
                 },
             )
-        } else if last == "ObjectId" && (segments.len() == 1 || segments[0].ident == "gix") {
+        } else if is_object_id_path(path) {
             (
                 pat_ident.ident.to_string(),
                 JsonParameterMapping {
@@ -650,10 +656,18 @@ fn build_json_type_mapping<'a>(
                     json_ident: None,
                 },
             )
+        } else if is_full_name_ref_path(path) {
+            (
+                pat_ident.ident.to_string(),
+                JsonParameterMapping {
+                    json_ty: syn::parse_str("gix::refs::FullName")?,
+                    json_ident: None,
+                },
+            )
         } else if is_reference {
             return Err(syn::Error::new_spanned(
                 ty,
-                "Only `&Context` or `&but_ctx::Context` may be references",
+                "Only `&Context`, `&but_ctx::Context`, `&ThreadSafeContext`, or `&gix::refs::FullNameRef` may be references",
             ));
         } else {
             continue;
@@ -913,6 +927,18 @@ fn build_napi_params<'a>(
                     _ => quote! { #ident },
                 };
                 call_arg_idents.push(call_ident);
+            } else if *last_ident == "FullName" {
+                // FullNameRef via FullName transport → String, then parse
+                params.push(quote! { #param_name: String });
+                conversions.push(quote! {
+                    let #ident: gix::refs::FullName = gix::refs::FullName::try_from(#param_name)
+                        .map_err(|e: gix::refs::name::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
+                });
+                let call_ident = match &*pat_ty.ty {
+                    syn::Type::Reference(_) => quote! { #ident.as_ref() },
+                    _ => quote! { #ident },
+                };
+                call_arg_idents.push(call_ident);
             } else {
                 // Fallback: use serde_json::Value with ts_arg_type for proper TS typing
                 let ts_type_str = type_to_ts_name(&pat_ty.ty);
@@ -1146,12 +1172,35 @@ fn type_to_ts_name(ty: &syn::Type) -> String {
 #[cfg(test)]
 mod tests {
     use quote::quote;
-    use syn::{FnArg, parse_quote};
+    use syn::{FnArg, ItemFn, parse_quote};
 
     use super::{
         WrapperCallArgKind, WrapperConversionKind, build_wrapper_parameter_mapping,
-        build_wrapper_params,
+        build_wrapper_params, doc_attributes,
     };
+
+    #[test]
+    fn collects_only_doc_attributes_for_napi_forwarding() {
+        let item_fn: ItemFn = parse_quote! {
+            #[doc = "First line."]
+            #[cfg(feature = "napi")]
+            #[doc = "Second line."]
+            pub fn my_api() -> anyhow::Result<()> {
+                Ok(())
+            }
+        };
+
+        let attrs = doc_attributes(&item_fn.attrs);
+
+        assert_eq!(
+            quote!(#(#attrs)*).to_string(),
+            quote!(
+                #[doc = "First line."]
+                #[doc = "Second line."]
+            )
+            .to_string()
+        );
+    }
 
     #[test]
     fn maps_object_id_to_hex_hash_transport() {

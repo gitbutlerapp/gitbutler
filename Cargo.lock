@@ -3830,6 +3830,7 @@ dependencies = [
  "gix",
  "itertools",
  "lazy_static",
+ "schemars 1.2.1",
  "serde",
 ]
 
@@ -3875,6 +3876,7 @@ dependencies = [
  "itertools",
  "md5",
  "pretty_assertions",
+ "schemars 1.2.1",
  "serde",
  "tempfile",
  "tracing",

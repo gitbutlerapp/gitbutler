@@ -9,6 +9,13 @@ rust-version.workspace = true
 [lib]
 doctest = false
 
+[features]
+export-schema = [
+  "but-workspace/export-schema",
+  "gitbutler-project/export-schema",
+  "gitbutler-branch/export-schema",
+]
+
 [dependencies]
 but-error.workspace = true
 but-serde = { workspace = true, features = ["legacy"] }
@@ -49,6 +56,7 @@ bstr.workspace = true
 url = { version = "2.5.4", features = ["serde"] }
 md5.workspace = true
 itertools.workspace = true
+schemars.workspace = true
 
 [dev-dependencies]
 pretty_assertions = "1.4"
