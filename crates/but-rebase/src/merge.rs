@@ -78,7 +78,7 @@ pub fn octopus(
                             .join(", ")
                     )
                 } else {
-                    format!(" and tree {tree_to_merge}")
+                    format!(" and tree {}", successfully_merged[0])
                 }
             )
             .context(ConflictErrorContext {
