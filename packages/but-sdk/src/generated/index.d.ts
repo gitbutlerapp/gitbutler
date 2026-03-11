@@ -5,6 +5,8 @@ export declare function applyNapi(projectId: string, existingBranch: string): Pr
 
 export declare function assignHunkNapi(projectId: string, assignments: Array<HunkAssignmentRequest>): Promise<Array<AssignmentRejection>>
 
+export declare function branchDetailsNapi(projectId: string, branchName: string, remote: string | null): Promise<BranchDetails>
+
 /** Gets the changes for a given branch. */
 export declare function branchDiffNapi(projectId: string, branch: string): Promise<TreeChanges>
 
@@ -106,6 +108,50 @@ export type AssignmentRejection = {
   request: HunkAssignmentRequest;
   /** The locks that caused the rejection. */
   locks: Array<HunkLock>;
+};
+
+/** Information about the current state of a branch. */
+export type BranchDetails = {
+  /** The name of the branch. This is the "given name" IE, just `foo` out of `refs/heads/foo` */
+  name: string;
+  /** The full reference of the branch */
+  reference: string;
+  /**
+   * The id of the linked worktree that has the reference of `name` checked out.
+   * Note that we don't list the main worktree here.
+   */
+  linkedWorktreeId: string | null;
+  /** Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements` */
+  remoteTrackingBranch: string | null;
+  /** The pull(merge) request associated with the branch, or None if no such entity has not been created. */
+  prNumber?: number | null;
+  /** A unique identifier for the GitButler review associated with the branch, if any. */
+  reviewId?: string | null;
+  /**
+   * This is the last commit in the branch, aka the tip of the branch.
+   * If this is the only branch in the stack or the top-most branch, this is the tip of the stack.
+   */
+  tip: string;
+  /**
+   * This is the base commit from the perspective of this branch.
+   * If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
+   * If this branch is at the bottom of the stack, this is the merge base of the stack.
+   */
+  baseCommit: string;
+  /** The pushable status for the branch. */
+  pushStatus: PushStatus;
+  /** Last time, the branch was updated in Epoch milliseconds. */
+  lastUpdatedAt?: number | null;
+  /** All authors of the commits in the branch. */
+  authors: Array<Author>;
+  /** Whether the branch is conflicted. */
+  isConflicted: boolean;
+  /** The commits contained in the branch, excluding the upstream commits. */
+  commits: Array<Commit>;
+  /** The commits that are only at the remote. */
+  upstreamCommits: Array<UpstreamCommit>;
+  /** Whether it's representing a remote head */
+  isRemoteHead: boolean;
 };
 
 /**
@@ -610,50 +656,6 @@ export type BranchAuthor = {
   /** The email of the author as configured in the git config */
   email?: string | null;
   gravatarUrl?: string | null;
-};
-
-/** Information about the current state of a branch. */
-export type BranchDetails = {
-  /** The name of the branch. This is the "given name" IE, just `foo` out of `refs/heads/foo` */
-  name: string;
-  /** The full reference of the branch */
-  reference: string;
-  /**
-   * The id of the linked worktree that has the reference of `name` checked out.
-   * Note that we don't list the main worktree here.
-   */
-  linkedWorktreeId: string | null;
-  /** Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements` */
-  remoteTrackingBranch: string | null;
-  /** The pull(merge) request associated with the branch, or None if no such entity has not been created. */
-  prNumber?: number | null;
-  /** A unique identifier for the GitButler review associated with the branch, if any. */
-  reviewId?: string | null;
-  /**
-   * This is the last commit in the branch, aka the tip of the branch.
-   * If this is the only branch in the stack or the top-most branch, this is the tip of the stack.
-   */
-  tip: string;
-  /**
-   * This is the base commit from the perspective of this branch.
-   * If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
-   * If this branch is at the bottom of the stack, this is the merge base of the stack.
-   */
-  baseCommit: string;
-  /** The pushable status for the branch. */
-  pushStatus: PushStatus;
-  /** Last time, the branch was updated in Epoch milliseconds. */
-  lastUpdatedAt?: number | null;
-  /** All authors of the commits in the branch. */
-  authors: Array<Author>;
-  /** Whether the branch is conflicted. */
-  isConflicted: boolean;
-  /** The commits contained in the branch, excluding the upstream commits. */
-  commits: Array<Commit>;
-  /** The commits that are only at the remote. */
-  upstreamCommits: Array<UpstreamCommit>;
-  /** Whether it's representing a remote head */
-  isRemoteHead: boolean;
 };
 
 /**
