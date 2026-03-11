@@ -74,7 +74,7 @@ pub fn init_opts_bare() -> git2::RepositoryInitOptions {
 }
 
 pub mod writable {
-    use but_ctx::Context;
+    use but_ctx::{Context, RepoOpenMode};
     use but_settings::AppSettings;
     use gitbutler_project::Project;
     use tempfile::TempDir;
@@ -95,7 +95,11 @@ pub mod writable {
         let (project, tempdir) = fixture_project(script_name, project_directory)?;
         let mut settings = AppSettings::default();
         change_settings(&mut settings);
-        let ctx = Context::new_from_legacy_project_and_settings(&project, settings)?;
+        let ctx = Context::new_from_legacy_project_and_settings_with_repo_open_mode(
+            &project,
+            settings,
+            RepoOpenMode::Isolated,
+        )?;
         Ok((ctx, tempdir))
     }
     pub fn fixture_project(
@@ -134,7 +138,11 @@ pub mod writable {
         let (project, tempdir) = but_fixture_project(script_name, project_directory)?;
         let mut settings = AppSettings::default();
         change_settings(&mut settings);
-        let ctx = Context::new_from_legacy_project_and_settings(&project, settings)?;
+        let ctx = Context::new_from_legacy_project_and_settings_with_repo_open_mode(
+            &project,
+            settings,
+            RepoOpenMode::Isolated,
+        )?;
         Ok((ctx, tempdir))
     }
 
@@ -243,7 +251,7 @@ pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
 pub mod read_only {
     use std::collections::BTreeSet;
 
-    use but_ctx::Context;
+    use but_ctx::{Context, RepoOpenMode};
     use but_settings::{AppSettings, app_settings::FeatureFlags};
     use gitbutler_project::Project;
     use once_cell::sync::Lazy;
@@ -260,7 +268,11 @@ pub mod read_only {
     /// Returns the project that is strictly for read-only use.
     pub fn fixture(script_name: &str, project_directory: &str) -> anyhow::Result<Context> {
         let project = fixture_project(script_name, project_directory)?;
-        Context::new_from_legacy_project_and_settings(&project, AppSettings::default())
+        Context::new_from_legacy_project_and_settings_with_repo_open_mode(
+            &project,
+            AppSettings::default(),
+            RepoOpenMode::Isolated,
+        )
     }
 
     /// As [fixture()], but allows setting `features` in the app settings
@@ -270,12 +282,13 @@ pub mod read_only {
         features: FeatureFlags,
     ) -> anyhow::Result<Context> {
         let project = fixture_project(script_name, project_directory)?;
-        Context::new_from_legacy_project_and_settings(
+        Context::new_from_legacy_project_and_settings_with_repo_open_mode(
             &project,
             AppSettings {
                 feature_flags: features,
                 ..Default::default()
             },
+            RepoOpenMode::Isolated,
         )
     }
 

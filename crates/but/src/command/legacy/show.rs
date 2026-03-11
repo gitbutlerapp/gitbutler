@@ -1,7 +1,8 @@
 use anyhow::{Result, bail};
 use bstr::ByteSlice;
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_ctx::access::RepoShared;
+use but_oxidize::ObjectIdExt;
 use colored::Colorize;
 
 use crate::{
@@ -442,7 +443,7 @@ struct StackChainBranch {
 }
 
 /// Helper function to find a branch OID by name, checking both list_branches and stacks
-fn find_branch_oid(ctx: &Context, branch_name: &str) -> Result<git2::Oid> {
+fn find_branch_oid(ctx: &Context, branch_name: &str) -> Result<gix::ObjectId> {
     // First check list_branches
     let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
     if let Some(branch) = branches.iter().find(|b| b.name.to_string() == branch_name) {
@@ -458,7 +459,7 @@ fn find_branch_oid(ctx: &Context, branch_name: &str) -> Result<git2::Oid> {
     for stack in &stacks {
         for head in &stack.heads {
             if head.name.to_str_lossy() == branch_name {
-                return Ok(git2::Oid::from_bytes(head.tip.as_slice())?);
+                return Ok(head.tip);
             }
         }
     }
@@ -473,20 +474,15 @@ fn get_branch_commits(
 ) -> Result<(Vec<BranchCommitInfo>, Option<BranchCommitInfo>)> {
     use gix::prelude::ObjectIdExt as _;
 
-    let repo = &*ctx.git2_repo.get()?;
-    let gix_repo = ctx.repo.get()?;
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
 
-    // Get the target from workspace
-    let guard = ctx.shared_worktree_access();
-    let (_, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
     // Find the branch by name
     let branch_oid = find_branch_oid(ctx, branch_name)?;
-    let branch_commit = repo.find_commit(branch_oid)?;
 
     // Find merge base
-    let Some(merge_base) = ws
-        .merge_base_with_target_branch(branch_commit.id().to_gix())
-        .map(|t| t.0)
+    let guard = ctx.shared_worktree_access();
+    let Some(merge_base) = merge_base_with_target_branch(ctx, guard.read_permission(), branch_oid)?
     else {
         tracing::warn!(
             branch_name,
@@ -496,9 +492,8 @@ fn get_branch_commits(
     };
 
     // Walk from branch head to merge base, collecting commits
-    let branch_gix_oid = branch_commit.id().to_gix();
-    let traversal = branch_gix_oid
-        .attach(&gix_repo)
+    let traversal = branch_oid
+        .attach(&repo)
         .ancestors()
         .with_hidden(Some(merge_base))
         .all()?;
@@ -507,7 +502,7 @@ fn get_branch_commits(
     for info in traversal {
         let info = info?;
         let oid = info.id.to_git2();
-        let commit = repo.find_commit(oid)?;
+        let commit = git2_repo.find_commit(oid)?;
         let author = commit.author();
 
         let full_message = commit.message().map(|m| m.to_string());
@@ -527,7 +522,7 @@ fn get_branch_commits(
             } else {
                 None
             };
-            let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
+            let diff = git2_repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
             let stats = diff.stats()?;
 
             let mut file_changes = Vec::new();
@@ -591,7 +586,7 @@ fn get_branch_commits(
 
         commits.push(BranchCommitInfo {
             sha: oid.to_string(),
-            short_sha: shorten_object_id(&gix_repo, info.id),
+            short_sha: shorten_object_id(&repo, info.id),
             message,
             full_message,
             author_name: author.name().unwrap_or("Unknown").to_string(),
@@ -606,8 +601,7 @@ fn get_branch_commits(
 
     // Get base commit info
     let base_commit_info = if verbose {
-        let merge_base_git2 = merge_base.to_git2();
-        let base_commit = repo.find_commit(merge_base_git2)?;
+        let base_commit = git2_repo.find_commit(merge_base.to_git2())?;
         let base_author = base_commit.author();
         let base_message = base_commit
             .message()
@@ -618,8 +612,8 @@ fn get_branch_commits(
             .to_string();
 
         Some(BranchCommitInfo {
-            sha: merge_base_git2.to_string(),
-            short_sha: shorten_object_id(&gix_repo, merge_base),
+            sha: merge_base.to_string(),
+            short_sha: shorten_object_id(&repo, merge_base),
             message: base_message,
             full_message: None,
             author_name: base_author.name().unwrap_or("Unknown").to_string(),
@@ -635,6 +629,17 @@ fn get_branch_commits(
     };
 
     Ok((commits, base_commit_info))
+}
+
+fn merge_base_with_target_branch(
+    ctx: &Context,
+    perm: &RepoShared,
+    branch_oid: gix::ObjectId,
+) -> Result<Option<gix::ObjectId>> {
+    let (_, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
+    Ok(workspace
+        .merge_base_with_target_branch(branch_oid)
+        .map(|t| t.0))
 }
 
 fn format_timestamp(timestamp: i64) -> String {
@@ -784,19 +789,12 @@ fn get_stack_chain(ctx: &Context, branch_name: &str) -> Result<Vec<StackChainBra
 fn get_branch_commit_count(ctx: &Context, branch_name: &str) -> Result<usize> {
     use gix::prelude::ObjectIdExt as _;
 
-    let repo = &*ctx.git2_repo.get()?;
-    let gix_repo = ctx.repo.get()?;
-
-    // Get the target from workspace
-    let guard = ctx.shared_worktree_access();
-    let (_, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+    let repo = ctx.repo.get()?;
 
     // Find the branch OID
     let branch_oid = find_branch_oid(ctx, branch_name)?;
-    let branch_commit = repo.find_commit(branch_oid)?;
-    let Some(merge_base) = ws
-        .merge_base_with_target_branch(branch_commit.id().to_gix())
-        .map(|t| t.0)
+    let guard = ctx.shared_worktree_access();
+    let Some(merge_base) = merge_base_with_target_branch(ctx, guard.read_permission(), branch_oid)?
     else {
         tracing::warn!(
             branch_name,
@@ -806,9 +804,8 @@ fn get_branch_commit_count(ctx: &Context, branch_name: &str) -> Result<usize> {
     };
 
     // Count commits
-    let branch_gix_oid = branch_commit.id().to_gix();
-    let traversal = branch_gix_oid
-        .attach(&gix_repo)
+    let traversal = branch_oid
+        .attach(&repo)
         .ancestors()
         .with_hidden(Some(merge_base))
         .all()?;

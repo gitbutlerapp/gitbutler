@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::ObjectIdExt;
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
 
@@ -44,7 +44,7 @@ pub fn list(
     )?;
 
     // Filter out empty branches unless --empty is requested
-    let target_oid_for_filter: Option<git2::Oid> = if !show_empty {
+    let target_oid_for_filter: Option<gix::ObjectId> = if !show_empty {
         get_target_oid(ctx).ok()
     } else {
         None
@@ -55,7 +55,7 @@ pub fn list(
         // heads[0] is topmost; head[i] is empty if its tip == heads[i+1].tip (non-last)
         // or tip == target_oid (last/bottommost head).
         for stack in &mut applied_stacks {
-            let tips: Vec<git2::Oid> = stack.heads.iter().map(|h| h.tip.to_git2()).collect();
+            let tips: Vec<gix::ObjectId> = stack.heads.iter().map(|h| h.tip).collect();
             let non_empty: Vec<bool> = tips
                 .iter()
                 .enumerate()
@@ -126,19 +126,19 @@ pub fn list(
     // A branch has 0 commits ahead when its tip equals the target, or when it is an
     // ancestor of the target (all its commits are already in the target).
     if let Some(target_oid) = target_oid_for_filter {
-        let git2_repo = ctx.git2_repo.get()?;
+        let repo = ctx.repo.get()?;
+        let cache = repo.commit_graph_if_enabled()?;
+        let mut graph = repo.revision_graph(cache.as_ref());
         branches.retain(|branch| {
             if branch.head == target_oid {
                 return false;
             }
-            // graph_descendant_of(a, b) = "is a descended from b?"
-            // So graph_descendant_of(target, branch.head) = "is branch.head an ancestor of target?"
-            // If true, all branch commits are already in the target → 0 commits ahead.
-            !git2_repo
-                .graph_descendant_of(target_oid, branch.head)
-                .unwrap_or(false)
+            // If the merge-base equals the branch head, the branch is already fully contained
+            // in the target and has no commits ahead to show.
+            repo.merge_base_with_graph(branch.head, target_oid, &mut graph)
+                .map(|merge_base| merge_base.detach() != branch.head)
+                .unwrap_or(true)
         });
-        drop(git2_repo);
     }
 
     // Filter out dependabot branches unless --all is specified
@@ -366,7 +366,6 @@ fn check_branches_merge_cleanly(
 ) -> Result<HashMap<String, bool>, anyhow::Error> {
     use but_core::RepositoryExt;
 
-    let git2_repo = &*ctx.git2_repo.get()?;
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
 
     let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -378,16 +377,16 @@ fn check_branches_merge_cleanly(
         target.branch.remote(),
         target.branch.branch()
     );
-    let target_commit = match repo.find_reference(&target_ref_name) {
-        Ok(reference) => {
-            let target_oid = reference.id();
-            git2_repo.find_commit(target_oid.to_git2())?
-        }
+    let target_commit_id = match repo.find_reference(&target_ref_name) {
+        Ok(reference) => reference.id().detach(),
         Err(_) => {
             // Fallback to the stored SHA if remote branch doesn't exist
-            git2_repo.find_commit(target.sha.to_git2())?
+            target.sha
         }
     };
+    let target_tree_id = repo.find_commit(target_commit_id)?.tree_id()?.detach();
+    let cache = repo.commit_graph_if_enabled()?;
+    let mut graph = repo.revision_graph(cache.as_ref());
 
     let mut result = HashMap::new();
 
@@ -395,19 +394,20 @@ fn check_branches_merge_cleanly(
     for stack_entry in applied_stacks {
         for head in &stack_entry.heads {
             let branch_name = head.name.to_string();
-            match git2_repo.find_commit(head.tip.to_git2()) {
+            match repo.find_commit(head.tip) {
                 Ok(branch_commit) => {
                     // Find merge base
-                    match git2_repo.merge_base(target_commit.id(), branch_commit.id()) {
+                    match repo.merge_base_with_graph(target_commit_id, head.tip, &mut graph) {
                         Ok(merge_base) => {
-                            let merge_base_commit = git2_repo.find_commit(merge_base)?;
+                            let merge_base_tree_id =
+                                repo.find_commit(merge_base.detach())?.tree_id()?.detach();
 
                             // Check if branch merges cleanly into target
                             let merges_cleanly = repo
                                 .merges_cleanly(
-                                    merge_base_commit.tree_id().to_gix(),
-                                    target_commit.tree_id().to_gix(),
-                                    branch_commit.tree_id().to_gix(),
+                                    merge_base_tree_id,
+                                    target_tree_id,
+                                    branch_commit.tree_id()?.detach(),
                                 )
                                 .unwrap_or(false);
 
@@ -429,19 +429,20 @@ fn check_branches_merge_cleanly(
     // Check unapplied branches
     for branch in branches {
         let branch_name = branch.name.to_string();
-        match git2_repo.find_commit(branch.head) {
+        match repo.find_commit(branch.head) {
             Ok(branch_commit) => {
                 // Find merge base
-                match git2_repo.merge_base(target_commit.id(), branch_commit.id()) {
+                match repo.merge_base_with_graph(target_commit_id, branch.head, &mut graph) {
                     Ok(merge_base) => {
-                        let merge_base_commit = git2_repo.find_commit(merge_base)?;
+                        let merge_base_tree_id =
+                            repo.find_commit(merge_base.detach())?.tree_id()?.detach();
 
                         // Check if branch merges cleanly into target
                         let merges_cleanly = repo
                             .merges_cleanly(
-                                merge_base_commit.tree_id().to_gix(),
-                                target_commit.tree_id().to_gix(),
-                                branch_commit.tree_id().to_gix(),
+                                merge_base_tree_id,
+                                target_tree_id,
+                                branch_commit.tree_id()?.detach(),
                             )
                             .unwrap_or(false);
 
@@ -489,7 +490,7 @@ fn calculate_commits_ahead(
     let mut result = HashMap::new();
 
     for branch in branches {
-        let branch_oid = branch.head.to_gix();
+        let branch_oid = branch.head;
 
         // Count commits ahead using merge base
         let merge_base = match repo.merge_base(branch_oid, target_oid) {
@@ -751,17 +752,17 @@ fn print_branches_table(
     Ok(())
 }
 
-fn get_target_oid(ctx: &Context) -> anyhow::Result<git2::Oid> {
+fn get_target_oid(ctx: &Context) -> anyhow::Result<gix::ObjectId> {
     let handle = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
     let target = handle.get_default_target()?;
-    let git2_repo = ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
     let target_ref = format!(
         "refs/remotes/{}/{}",
         target.branch.remote(),
         target.branch.branch()
     );
-    match git2_repo.find_reference(&target_ref) {
-        Ok(r) => Ok(r.peel(git2::ObjectType::Commit)?.id()),
-        Err(_) => Ok(target.sha.to_git2()),
+    match repo.find_reference(&target_ref) {
+        Ok(mut reference) => Ok(reference.peel_to_commit()?.id),
+        Err(_) => Ok(target.sha),
     }
 }

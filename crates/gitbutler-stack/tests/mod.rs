@@ -580,10 +580,10 @@ fn set_stack_head_commit_invalid() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let gix_repo = ctx.repo.get()?;
+    let repo = ctx.repo.get()?;
     let result = test_ctx
         .stack
-        .set_stack_head(&vb_state, &gix_repo, git2::Oid::zero());
+        .set_stack_head(&vb_state, &repo, git2::Oid::zero().to_gix());
     assert!(result.is_err());
     Ok(())
 }
@@ -594,10 +594,10 @@ fn set_stack_head() -> Result<()> {
     let mut test_ctx = test_ctx(&ctx)?;
     let commit = test_ctx.other_commits.last().unwrap();
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let gix_repo = ctx.repo.get()?;
+    let repo = ctx.repo.get()?;
     let result = test_ctx
         .stack
-        .set_stack_head(&vb_state, &gix_repo, commit.id());
+        .set_stack_head(&vb_state, &repo, commit.id().to_gix());
     assert!(result.is_ok());
     let branches = test_ctx.stack.branches();
     assert_eq!(

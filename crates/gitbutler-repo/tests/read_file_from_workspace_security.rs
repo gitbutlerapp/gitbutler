@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use but_ctx::Context;
+use but_ctx::{Context, RepoOpenMode};
 use but_settings::AppSettings;
 use gitbutler_project as projects;
 use gitbutler_repo::RepoCommands;
@@ -11,8 +11,12 @@ fn context_for_repo(repo: &git2::Repository) -> Context {
         repo.workdir().expect("workdir exists").to_path_buf(),
         projects::AuthKey::default(),
     );
-    Context::new_from_legacy_project_and_settings(&project, AppSettings::default())
-        .expect("can create context")
+    Context::new_from_legacy_project_and_settings_with_repo_open_mode(
+        &project,
+        AppSettings::default(),
+        RepoOpenMode::Isolated,
+    )
+    .expect("can create context")
 }
 
 #[test]

@@ -13,7 +13,7 @@ pub(crate) fn uncommitted_to_commit(
     ctx: &mut Context,
     hunk_assignments: NonEmpty<&HunkAssignment>,
     description: String,
-    oid: &ObjectId,
+    oid: ObjectId,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let first_hunk_assignment = hunk_assignments.first();
@@ -26,7 +26,7 @@ pub(crate) fn uncommitted_to_commit(
 
     let outcome = {
         let mut guard = ctx.exclusive_worktree_access();
-        amend_diff_specs(ctx, diff_specs, stack_id, *oid, guard.write_permission())?
+        amend_diff_specs(ctx, diff_specs, stack_id, oid, guard.write_permission())?
     };
     if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?;
@@ -51,7 +51,7 @@ pub(crate) fn uncommitted_to_commit(
 pub(crate) fn assignments_to_commit(
     ctx: &mut Context,
     branch_name: Option<&str>,
-    oid: &ObjectId,
+    oid: ObjectId,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let stack_id = branch_name_to_stack_id(ctx, branch_name)?;
@@ -61,7 +61,7 @@ pub(crate) fn assignments_to_commit(
         .map(|assignment| assignment.into())
         .collect();
     let mut guard = ctx.exclusive_worktree_access();
-    let outcome = amend_diff_specs(ctx, diff_specs, stack_id, *oid, guard.write_permission())?;
+    let outcome = amend_diff_specs(ctx, diff_specs, stack_id, oid, guard.write_permission())?;
     drop(guard);
     if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?;

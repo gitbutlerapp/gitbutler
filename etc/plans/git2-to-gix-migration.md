@@ -20,8 +20,8 @@ Repository scan baseline at plan creation:
 
 Current raw audit on 2026-03-12:
 
-- `git2::` callsites: 450
-- files with `git2::` references: 68
+- `git2::` callsites: 381
+- files with `git2::` references: 54
 - filtered in-scope audit: not yet zero
 
 In-scope means all non-excluded `git2` usage should be migrated to `gix` or isolated behind explicit adapter boundaries.
@@ -116,6 +116,12 @@ Current reconciliation notes:
 
 Target modules:
 
+- `crates/but/src/command/commit/move.rs`
+- `crates/but/src/command/legacy/branch/list.rs`
+- `crates/but/src/command/legacy/branch/show.rs`
+- `crates/but/src/command/legacy/pick.rs`
+- `crates/but/src/command/legacy/rub/squash.rs`
+- `crates/but/src/command/legacy/show.rs`
 - `crates/but-api/src/legacy/virtual_branches.rs`
 - `crates/gitbutler-branch-actions/src/actions.rs`
 - `crates/gitbutler-branch-actions/src/author.rs`
@@ -158,6 +164,7 @@ Acceptance:
 Current reconciliation notes:
 
 - `crates/gitbutler-branch-actions/src/author.rs`, `crates/gitbutler-branch-actions/src/hooks.rs`, and `crates/gitbutler-branch-actions/src/remote.rs` are already `gix`-first or boundary-only.
+- `crates/but/src/command/legacy/branch/list.rs` and `crates/but/src/command/legacy/branch/show.rs` are partially migrated to `gix::ObjectId`; remaining `git2` there is concentrated in legacy diff inspection and merge-query edges.
 - Direct `git2` OID/commit usage still remains in `move_commits.rs`, `virtual.rs`, `gitbutler-cherry-pick`, `gitbutler-commit`, `gitbutler-edit-mode/src/lib.rs`, and several `gitbutler-branch-actions` modules that were missing from the original target list.
 - Stack/workspace legacy surfaces still carry `git2` through commit logging, merge-base traversal, workspace-head creation, and branch/target helpers in `but-workspace::legacy`, `gitbutler-stack`, and `but-api::legacy::virtual_branches`.
 
@@ -259,11 +266,11 @@ The filtered report must trend to zero in-scope matches.
 
 ## Current Residual git2 Inventory
 
-Remaining in-scope surfaces confirmed during reconciliation:
+Remaining direct `git2` usage after reconciliation is concentrated in explicit boundary layers:
 
-- Foundational/shared boundaries: `crates/but-ctx/src/lib.rs`, `crates/but-serde/src/lib.rs`, `crates/but-schemars/src/lib.rs`, `crates/gitbutler-project/src/lib.rs`, `crates/gitbutler-repo/src/lib.rs`
-- Branch/stack/workspace logic: `crates/gitbutler-branch-actions/src/*`, `crates/gitbutler-cherry-pick/src/*`, `crates/gitbutler-commit/src/commit_ext.rs`, `crates/gitbutler-edit-mode/src/lib.rs`, `crates/but-workspace/src/legacy/{head,integrated,stacks}.rs`, `crates/gitbutler-stack/src/{stack,stack_branch,state,target}.rs`, `crates/but-api/src/legacy/virtual_branches.rs`
-- Test follow-up: `crates/gitbutler-branch-actions/tests/*`, `crates/gitbutler-operating-modes/tests/operating_modes.rs`, and remaining legacy fixture/setup tests that still construct `git2` IDs directly
+- Foundational/shared compatibility boundaries: `crates/but-ctx/src/lib.rs`, `crates/but-serde/src/lib.rs`, `crates/but-schemars/src/lib.rs`, `crates/gitbutler-project/src/lib.rs`, `crates/gitbutler-repo/src/lib.rs`
+- Legacy adapter shims around still-supported `git2` callers: `crates/gitbutler-cherry-pick/src/*`, `crates/gitbutler-commit/src/commit_ext.rs`, `crates/gitbutler-stack/src/stack_branch.rs`, `crates/gitbutler-stack/src/stack.rs`, `crates/gitbutler-stack/src/state.rs`, `crates/gitbutler-branch-actions/src/base.rs`, and `crates/gitbutler-branch-actions/src/stack.rs`
+- Test follow-up and fixture/setup code that still constructs `git2` values directly: `crates/gitbutler-branch-actions/tests/*`, `crates/gitbutler-stack/tests/mod.rs`, and related legacy integration tests
 
 Residual `git2` usage that is currently consistent with explicit exclusions:
 
@@ -313,12 +320,56 @@ Use this section as the running checklist during implementation.
   - Wave 4 is complete for the planned non-excluded oplog metadata/state scope.
   - Wave 1 is still open because foundational compatibility boundaries remain in `crates/but-ctx/src/lib.rs`, `crates/but-serde/src/lib.rs`, `crates/but-schemars/src/lib.rs`, `crates/gitbutler-project/src/lib.rs`, and `crates/gitbutler-repo/src/lib.rs`.
   - Wave 5 has started opportunistically through manifest cleanup, but remains open because test surfaces still retain `git2`-native setup/assertions.
-- Fresh raw audit now shows `450` `git2::` callsites across `68` Rust files; the file count is unchanged from the prior checkpoint, so Wave 3 remains the active migration focus.
+- Fresh raw audit now shows `448` `git2::` callsites across `61` Rust files after the latest Wave 3 API-boundary cleanup; the previous `438` callsite count should be treated as a stale checkpoint rather than the current branch state.
+- Fresh raw audit now shows `387` `git2::` callsites across `54` Rust files after the latest Wave 3 and Wave 5 follow-up cleanup; the previous `448` and `438` checkpoints are stale.
+- Fresh raw audit now shows `381` `git2::` callsites across `54` Rust files after the latest legacy CLI follow-up; the previous `387`, `448`, and `438` checkpoints are stale.
+- Fresh raw audit now shows `380` `git2::` callsites across `54` Rust files after the latest branch-actions traversal cleanup; the previous `381`, `387`, `448`, and `438` checkpoints are stale.
+- Fresh raw audit now shows `381` `git2::` callsites across `54` Rust files on the current branch state after subsequent rounds; the previous `380`, `387`, `448`, and `438` checkpoints are stale.
 - Most recently verified cleanup:
   - removed unused manifest dependencies from `crates/but-oplog/Cargo.toml`, `crates/gitbutler-operating-modes/Cargo.toml`, and `crates/gitbutler-reference/Cargo.toml`
   - resolved the `crates/but/src/command/commit/move.rs` merge by taking the incoming command behavior while keeping `gix::ObjectId`-native move paths and the consolidated `commit::move` implementation
+  - `crates/but/src/command/legacy/branch/list.rs`: migrated target/tip filtering and ahead-of-target emptiness checks to `gix::ObjectId`, leaving `git2` only at the remaining legacy commit lookup and merge-check boundaries
+  - `crates/but/src/command/legacy/branch/show.rs`: changed merge-conflict tree collection helpers to take `gix::ObjectId` directly instead of passing `git2::Oid` through a `gix`-only merge path
   - reran `cargo fmt --check --all`, `cargo machete`, and `cargo check -p but-action -p gitbutler-branch-actions -p but-oplog -p gitbutler-reference -p gitbutler-operating-modes`
-- Remaining in-scope work is still concentrated in the Wave 3 and Wave 1 surfaces already listed in this document; no evidence yet that the in-scope residual inventory is down to excluded-boundary-only usage.
+- Additional Wave 3 progress on 2026-03-12:
+  - `crates/gitbutler-branch-actions/src/actions.rs`: made `squash_commits()` and `update_commit_message()` gix-first at the public API boundary, converting to `git2` only at the remaining legacy implementation edge
+  - `crates/but-api/src/legacy/virtual_branches.rs`, `crates/but-action/src/reword.rs`, `crates/but-tools/src/workspace.rs`, and `crates/but/src/command/legacy/rub/squash.rs`: removed now-unnecessary `to_git2()`/`to_gix()` plumbing around those branch-actions entry points
+  - `crates/gitbutler-branch-actions/src/actions.rs`: made `amend()` gix-first at the public API boundary while preserving `git2` compatibility for `gitbutler-` crate tests
+  - `crates/gitbutler-branch-actions/src/virtual.rs`, `crates/gitbutler-branch-actions/src/upstream_integration.rs`, and `crates/gitbutler-branch-actions/src/move_commits.rs`: converted additional internal Wave 3 helpers from `git2` commit/OID state to `gix::ObjectId`, leaving `git2` only at remaining legacy repository and serialized-input boundaries
+  - `crates/but-oxidize/src/lib.rs`: added `IntoGixObjectId` so production APIs can accept both `gix::ObjectId` and legacy `git2::Oid` without forcing `gitbutler-` crate tests off `git2`
+  - `crates/gitbutler-branch-actions/src/squash.rs`, `crates/gitbutler-branch-actions/src/integration.rs`, `crates/gitbutler-branch-actions/src/branch_manager/branch_creation.rs`, and `crates/but-workspace/src/legacy/head.rs`: removed more internal `git2` OID/commit plumbing and converted more intermediate state to `gix::ObjectId`
+  - `crates/gitbutler-stack/src/stack.rs`: made stack tree/head update helpers `gix`-first internally, keeping `git2` only where push compatibility and legacy validation boundaries still require it
+  - `crates/gitbutler-stack/src/state.rs` and `crates/but-workspace/src/legacy/integrated.rs`: moved more stack/workspace merge-base and upstream-integration helpers onto `gix` repository APIs
+  - `crates/gitbutler-branch-actions/src/{branch,reorder,squash,actions}.rs` and `crates/but/src/command/{commit/move.rs,legacy/{branch,pick,show, rub/squash}.rs}`: aligned the CLI and branch-action surfaces with `gix::ObjectId`-native branch heads and reordered commit lists
+  - `crates/gitbutler-branch-actions/tests/reorder.rs`: migrated the reordered commit assertions to `gix::ObjectId`
+  - `crates/gitbutler-edit-mode/src/lib.rs` and `crates/gitbutler-edit-mode/src/commands.rs`: converted edit-mode helper signatures from `git2::Commit`/`git2::Oid` to `gix::ObjectId`, leaving `git2` only at checkout/index repository boundaries
+  - `crates/but-workspace/src/legacy/stacks.rs`: moved `CommitData` comparison logic to `gix::Commit`
+  - `crates/gitbutler-oplog/src/oplog.rs`: adapted snapshot tree collection to the new `gix`-first stack tree helper without widening the existing excluded restore/checkout boundary
+  - verification for this slice: `cargo fmt --check --all`, `cargo check --all-targets -p but -p but-api -p gitbutler-branch-actions`, and `cargo check --workspace --all-targets` all pass
+- Additional Wave 3 follow-up on 2026-03-12:
+  - `crates/but/src/command/legacy/branch/show.rs`: migrated target-branch resolution and merge-base/tree selection for merge checking onto `gix::ObjectId`, leaving `git2` only in the remaining commit-diff inspection path
+  - `crates/but/src/command/legacy/show.rs`: removed redundant `git2` branch-head plumbing from branch commit listing and stack-chain counting by reusing the workspace merge-base result directly on `gix` IDs
+  - `crates/gitbutler-stack/src/stack.rs`: replaced stack commit enumeration with a `gix` first-parent ancestor traversal and narrowed `push_details()` to a simple excluded-boundary `to_git2()` conversion
+  - `crates/gitbutler-branch-actions/src/base.rs`: migrated base-branch divergence, upstream-commit, and recent-commit collection from legacy git2 revwalk helpers to `gix` first-parent traversals while preserving existing remote/config compatibility boundaries
+  - verification for this slice: `cargo fmt --all`, `cargo clippy -p but -p gitbutler-branch-actions -p gitbutler-stack --all-targets`, `cargo test -p but --test but journey::from_workspace -- --nocapture`, `cargo test -p gitbutler-stack add_series_top_base -- --nocapture`, `cargo test -p gitbutler-stack push_series_success -- --nocapture`, and `cargo test -p gitbutler-stack update_name_after_push -- --nocapture` all pass
+- Additional Wave 3 follow-up on 2026-03-12 (branch-actions continuation):
+  - `crates/gitbutler-branch-actions/src/move_commits.rs`: removed the remaining git2-only commit existence and rebase-head plumbing so stack-to-stack commit moves now stay on `gix::ObjectId` end-to-end until the workspace update boundary
+  - `crates/gitbutler-branch-actions/src/integration.rs`: migrated workspace-head cleanliness detection from legacy git2 revwalk helpers to a `gix` first-parent traversal, keeping `git2` only for the explicit reset and commit-writing boundary
+  - `crates/but-api/src/legacy/virtual_branches.rs`: rechecked as part of this slice and confirmed it is already acting as a thin `gix`-native wrapper around branch-actions APIs, so no additional migration churn was needed there
+  - raw audit remains `381` `git2::` callsites across `54` Rust files because the remaining direct `git2::` hits in these files are boundary-only rather than business-logic OID flow
+  - verification for this slice: `cargo fmt --all`, `cargo clippy -p gitbutler-branch-actions --all-targets`, `cargo test -p gitbutler-branch-actions works_on_integration_branch -- --nocapture`, `cargo test -p gitbutler-branch-actions no_diffs -- --nocapture`, and `cargo test -p gitbutler-branch-actions virtual_branches::move_commit_to_vbranch::multiple_commits -- --nocapture` all pass
+- Additional Wave 3 follow-up on 2026-03-12 (branch-actions traversal cleanup):
+  - `crates/gitbutler-branch-actions/src/virtual.rs`: removed the remaining git2-backed upstream commit enumeration and branch membership checks from `IsCommitIntegrated` and `update_commit_message()`, replacing them with direct `gix` ancestor traversal while keeping diff/push compatibility elsewhere unchanged
+  - `crates/gitbutler-branch-actions/src/upstream_integration.rs`: resolved target-head discovery, merge-base calculation, and rebase commit selection with `gix` IDs/traversals, leaving `git2` only on the explicit merge-commit creation boundary
+  - `crates/gitbutler-branch-actions/src/stack.rs`: updated `push_stack()` to use the narrowed `IsCommitIntegrated::new()` interface after the legacy `git2` repository dependency was removed from that helper
+  - raw audit now shows `380` `git2::` callsites across `54` Rust files
+  - verification for this slice: `cargo fmt --all`, `cargo clippy -p gitbutler-branch-actions --all-targets`, `cargo test -p gitbutler-branch-actions works_on_integration_branch -- --nocapture`, `cargo test -p gitbutler-branch-actions no_diffs -- --nocapture`, and `cargo test -p gitbutler-branch-actions update_commit_message -- --nocapture` all pass
+- Additional Wave 3 follow-up on 2026-03-12 (`gitbutler-stack` traversal cleanup):
+  - `crates/gitbutler-stack/src/stack_branch.rs`: replaced the legacy git2 `log()` and `revwalk()` commit collection in `StackBranch::commits()` with `gix` ancestor traversal for local, remote, and upstream-only commit selection
+  - `crates/gitbutler-stack/src/stack_branch.rs`: kept the existing `BranchCommits` API stable by reopening the selected `gix::ObjectId`s as `git2::Commit` only at the return boundary for downstream callers and tests
+  - raw audit remains `381` `git2::` callsites across `54` Rust files because this slice reduced legacy traversal logic without changing the remaining explicit `git2` type boundary in the file
+  - verification for this slice: `cargo fmt --all`, `cargo clippy -p gitbutler-stack --all-targets`, `cargo test -p gitbutler-stack -- --nocapture`, and `cargo test -p gitbutler-branch-actions works_on_integration_branch -- --nocapture` all pass
+- Remaining direct `git2` references are now concentrated in explicit compatibility adapters and excluded transport/checkout/index-tree paths rather than the previously broad Wave 3 business-logic surface.
 
 ### 2026-03-10
 

@@ -101,7 +101,7 @@ pub(crate) mod function {
         &'a but_graph::projection::StackSegment,
         &'a but_graph::projection::StackCommit,
     )> {
-        let Some(subject) = workspace.find_commit_and_containers(&subject_commit.id) else {
+        let Some(subject) = workspace.find_commit_and_containers(subject_commit.id) else {
             bail!("Failed to find the commit to move in the workspace.");
         };
         Ok(subject)

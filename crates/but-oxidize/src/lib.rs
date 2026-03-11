@@ -146,16 +146,3 @@ pub fn gix_to_git2_index(index: &gix::index::State) -> anyhow::Result<git2::Inde
     }
     Ok(out)
 }
-
-pub fn print_tree(tree: gix::Tree<'_>) {
-    let mut recorder = gix::traverse::tree::Recorder::default();
-    tree.traverse().breadthfirst(&mut recorder).unwrap();
-    let repo = tree.repo;
-    for record in recorder.records {
-        println!(
-            "{}: {}",
-            record.filepath,
-            repo.find_blob(record.oid).unwrap().data.as_bstr()
-        );
-    }
-}

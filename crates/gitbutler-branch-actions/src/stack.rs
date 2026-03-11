@@ -194,8 +194,7 @@ pub fn push_stack(
             continue;
         }
         let mut graph = gix_repo.revision_graph(cache.as_ref());
-        let mut check_commit =
-            IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
+        let mut check_commit = IsCommitIntegrated::new(&default_target, &gix_repo, &mut graph)?;
         if branch_integrated(&mut check_commit, &branch, &gix_repo)? {
             // Already integrated, nothing to push
             tracing::debug!(branch = branch.name, "Skipping push for integrated branch");

@@ -135,7 +135,6 @@ serde_json.workspace = true
 tracing.workspace = true
 serde-error = "0.1.3"
 gix = { workspace = true, features = ["worktree-mutation"] }
-git2.workspace = true
 open.workspace = true
 url = { version = "2.5", optional = true }
 uuid.workspace = true

@@ -1,6 +1,6 @@
 use but_ctx::Context;
 use but_llm::ChatMessage;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::ObjectIdExt;
 use colored::Colorize;
 use tracing::instrument;
 
@@ -109,8 +109,8 @@ fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck,
     use but_core::RepositoryExt;
 
     let git2_repo = &*ctx.git2_repo.get()?;
-    let gix_repo = ctx.repo.get()?;
-    let repo = ctx.clone_repo_for_merging_non_persisting()?;
+    let repo = ctx.repo.get()?;
+    let merge_repo = ctx.clone_repo_for_merging_non_persisting()?;
 
     // Get the target (remote tracking branch like origin/master)
     let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -122,15 +122,9 @@ fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck,
         target.branch.remote(),
         target.branch.branch()
     );
-    let target_commit = match repo.find_reference(&target_ref_name) {
-        Ok(reference) => {
-            let target_oid = reference.id();
-            git2_repo.find_commit(target_oid.to_git2())?
-        }
-        Err(_) => {
-            // Fallback to the stored SHA if remote branch doesn't exist
-            git2_repo.find_commit(target.sha.to_git2())?
-        }
+    let target_commit_id = match merge_repo.find_reference(&target_ref_name) {
+        Ok(mut reference) => reference.peel_to_commit()?.id,
+        Err(_) => target.sha,
     };
 
     // Find the branch by name
@@ -140,52 +134,31 @@ fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck,
         .find(|b| b.name.to_string() == branch_name)
         .ok_or_else(|| anyhow::anyhow!("Branch '{branch_name}' not found"))?;
 
-    let branch_commit = git2_repo.find_commit(branch.head)?;
-
     // Find merge base
-    let merge_base = git2_repo.merge_base(target_commit.id(), branch_commit.id())?;
-    let merge_base_commit = git2_repo.find_commit(merge_base)?;
+    let merge_base = repo.merge_base(branch.head, target_commit_id)?.detach();
+    let merge_base_tree_id = repo.find_commit(merge_base)?.tree_id()?.detach();
+    let target_tree_id = repo.find_commit(target_commit_id)?.tree_id()?.detach();
+    let branch_tree_id = repo.find_commit(branch.head)?.tree_id()?.detach();
 
     // Check if branch merges cleanly into target
-    let merges_cleanly = repo.merges_cleanly(
-        merge_base_commit.tree_id().to_gix(),
-        target_commit.tree_id().to_gix(),
-        branch_commit.tree_id().to_gix(),
-    )?;
+    let merges_cleanly =
+        merge_repo.merges_cleanly(merge_base_tree_id, target_tree_id, branch_tree_id)?;
 
     let mut conflicting_files = Vec::new();
 
     // If there are conflicts, identify which files conflict and which commits modified them
     if !merges_cleanly {
         // Get the list of conflicting files from the merge
-        let conflict_paths = get_merge_conflict_paths(
-            &repo,
-            merge_base_commit.tree_id(),
-            target_commit.tree_id(),
-            branch_commit.tree_id(),
-        )?;
-
-        let merge_base_gix = merge_base.to_gix();
-        let branch_commit_gix = branch_commit.id().to_gix();
-        let target_commit_gix = target_commit.id().to_gix();
+        let conflict_paths =
+            get_merge_conflict_paths(&repo, merge_base_tree_id, target_tree_id, branch_tree_id)?;
 
         // For each conflicting file, find which commits on both sides modified it
         for path in conflict_paths {
-            let branch_commits = find_commits_modifying_file(
-                git2_repo,
-                &gix_repo,
-                &path,
-                merge_base_gix,
-                branch_commit_gix,
-            )?;
+            let branch_commits =
+                find_commits_modifying_file(git2_repo, &repo, &path, merge_base, branch.head)?;
 
-            let upstream_commits = find_commits_modifying_file(
-                git2_repo,
-                &gix_repo,
-                &path,
-                merge_base_gix,
-                target_commit_gix,
-            )?;
+            let upstream_commits =
+                find_commits_modifying_file(git2_repo, &repo, &path, merge_base, target_commit_id)?;
 
             conflicting_files.push(ConflictingFile {
                 path,
@@ -203,17 +176,17 @@ fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck,
 
 fn get_merge_conflict_paths(
     gix_repo: &gix::Repository,
-    base_tree: git2::Oid,
-    ours_tree: git2::Oid,
-    theirs_tree: git2::Oid,
+    base_tree: gix::ObjectId,
+    ours_tree: gix::ObjectId,
+    theirs_tree: gix::ObjectId,
 ) -> Result<Vec<String>, anyhow::Error> {
     use but_core::RepositoryExt;
 
     let (options, conflict_kind) = gix_repo.merge_options_fail_fast()?;
     let merge_result = gix_repo.merge_trees(
-        base_tree.to_gix(),
-        ours_tree.to_gix(),
-        theirs_tree.to_gix(),
+        base_tree,
+        ours_tree,
+        theirs_tree,
         gix_repo.default_merge_labels(),
         options,
     )?;
@@ -312,8 +285,8 @@ fn get_commits_ahead(
 ) -> Result<Vec<CommitInfo>, anyhow::Error> {
     use gix::prelude::ObjectIdExt as _;
 
-    let repo = &*ctx.git2_repo.get()?;
-    let gix_repo = ctx.repo.get()?;
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
 
     // Get the target (remote tracking branch like origin/master)
     let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -325,12 +298,9 @@ fn get_commits_ahead(
         target.branch.remote(),
         target.branch.branch()
     );
-    let target_oid_gix = match gix_repo.find_reference(&target_ref_name) {
-        Ok(reference) => reference.id().detach(),
-        Err(_) => {
-            // Fallback to the stored SHA if remote branch doesn't exist
-            target.sha
-        }
+    let target_oid_gix = match repo.find_reference(&target_ref_name) {
+        Ok(mut reference) => reference.peel_to_commit()?.id,
+        Err(_) => target.sha,
     };
 
     // Find the branch by name
@@ -340,14 +310,14 @@ fn get_commits_ahead(
         .find(|b| b.name.to_string() == branch_name)
         .ok_or_else(|| anyhow::anyhow!("Branch '{branch_name}' not found"))?;
 
-    let branch_oid_gix = branch.head.to_gix();
+    let branch_oid_gix = branch.head;
 
     // Find merge base
-    let merge_base = gix_repo.merge_base(branch_oid_gix, target_oid_gix)?;
+    let merge_base = repo.merge_base(branch_oid_gix, target_oid_gix)?;
 
     // Walk from branch head to merge base, collecting commits
     let traversal = branch_oid_gix
-        .attach(&gix_repo)
+        .attach(&repo)
         .ancestors()
         .with_hidden(Some(merge_base))
         .all()?;
@@ -356,7 +326,7 @@ fn get_commits_ahead(
     for info in traversal {
         let info = info?;
         let oid = info.id.to_git2();
-        let commit = repo.find_commit(oid)?;
+        let commit = git2_repo.find_commit(oid)?;
         let author = commit.author();
 
         // Calculate diff stats
@@ -366,7 +336,7 @@ fn get_commits_ahead(
         } else {
             None
         };
-        let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
+        let diff = git2_repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
         let stats = diff.stats()?;
 
         // Collect per-file stats if requested
@@ -429,7 +399,7 @@ fn get_commits_ahead(
 
         commits.push(CommitInfo {
             sha: oid.to_string(),
-            short_sha: shorten_object_id(&gix_repo, info.id),
+            short_sha: shorten_object_id(&repo, info.id),
             message: commit
                 .message()
                 .unwrap_or("(no message)")

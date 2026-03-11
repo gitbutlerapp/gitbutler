@@ -1,6 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_ctx::{Context, access::RepoExclusive};
-use but_oxidize::ObjectIdExt;
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_stack::{Stack, StackId};
@@ -50,7 +50,7 @@ pub(crate) fn undo_commit(
     let output = rebase.rebase()?;
 
     let new_head = output.top_commit.to_git2();
-    stack.set_stack_head(&vb_state, &repo, new_head)?;
+    stack.set_stack_head(&vb_state, &repo, new_head.to_gix())?;
 
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 

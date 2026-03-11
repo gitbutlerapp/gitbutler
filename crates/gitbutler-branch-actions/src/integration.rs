@@ -9,10 +9,7 @@ use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_branch::{self, BranchCreateRequest, GITBUTLER_WORKSPACE_REFERENCE};
 use gitbutler_commit::commit_ext::CommitMessageBstr as _;
 use gitbutler_operating_modes::OPEN_WORKSPACE_REFS;
-use gitbutler_repo::{
-    RepositoryExt, SignaturePurpose,
-    logging::{LogUntil, RepositoryExt as _},
-};
+use gitbutler_repo::{RepositoryExt, SignaturePurpose, first_parent_commit_ids_until};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use tracing::instrument;
 
@@ -44,8 +41,8 @@ fn read_workspace_file(path: &PathBuf) -> Result<Option<PreviousHead>> {
     }
 }
 
-fn write_workspace_file(head: &git2::Reference, path: PathBuf) -> Result<()> {
-    let sha = head.target().unwrap().to_string();
+fn write_workspace_file(head_target: gix::ObjectId, path: PathBuf) -> Result<()> {
+    let sha = head_target.to_string();
     std::fs::write(path, format!(":{sha}"))?;
     Ok(())
 }
@@ -54,12 +51,12 @@ pub fn update_workspace_commit(
     vb_state: &VirtualBranchesHandle,
     ctx: &Context,
     checkout_new_worktree: bool,
-) -> Result<git2::Oid> {
+) -> Result<gix::ObjectId> {
     let target = vb_state
         .get_default_target()
         .context("failed to get target")?;
 
-    let repo: &git2::Repository = &*ctx.git2_repo.get()?;
+    let repo = &*ctx.git2_repo.get()?;
     let gix_repo = repo.to_gix_repo()?;
 
     // get current repo head for reference
@@ -71,7 +68,10 @@ pub fn update_workspace_commit(
     {
         // we are moving from a regular branch to our gitbutler workspace branch, write a file to
         // .git/workspace with the previous head and name
-        write_workspace_file(&head_ref, workspace_filepath)?;
+        write_workspace_file(
+            head_ref.target().map(|oid| oid.to_gix()).unwrap(),
+            workspace_filepath,
+        )?;
         prev_branch = Some(PreviousHead {
             head: head_ref.target().unwrap().to_string(),
             sha: head_ref.target().unwrap().to_string(),
@@ -188,7 +188,7 @@ pub fn update_workspace_commit(
         res?;
     }
 
-    Ok(final_commit)
+    Ok(final_commit.to_gix())
 }
 
 pub fn verify_branch(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
@@ -233,39 +233,36 @@ fn verify_current_branch_name(ctx: &Context) -> Result<&Context> {
 // TODO(ST): Probably there should not be an implicit vbranch creation here.
 fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     let git2_repo = &*ctx.git2_repo.get()?;
-    let head_commit = git2_repo
-        .head()
-        .context("failed to get head")?
-        .peel_to_commit()
-        .context("failed to peel to commit")?;
+    let gix_repo = git2_repo.to_gix_repo()?;
+    let head_commit_id = gix_repo.head_id()?.detach();
 
     let vb_handle = VirtualBranchesHandle::new(ctx.project_data_dir());
     let default_target = vb_handle
         .get_default_target()
         .context("failed to get default target")?;
 
-    let commits = git2_repo
-        .log(
-            head_commit.id(),
-            LogUntil::Commit(default_target.sha.to_git2()),
-            false,
-        )
+    let commit_ids = first_parent_commit_ids_until(&gix_repo, head_commit_id, default_target.sha)
         .context("failed to get log")?;
-
-    let workspace_index = commits
+    let workspace_index = commit_ids
         .iter()
-        .position(|commit| {
-            commit.message().is_some_and(|message| {
-                message.starts_with(GITBUTLER_WORKSPACE_COMMIT_TITLE)
-                    || message.starts_with(GITBUTLER_INTEGRATION_COMMIT_TITLE)
-            })
+        .position(|commit_id| {
+            git2_repo
+                .find_commit(commit_id.to_git2())
+                .ok()
+                .and_then(|commit| {
+                    commit.message().map(|message| {
+                        message.starts_with(GITBUTLER_WORKSPACE_COMMIT_TITLE)
+                            || message.starts_with(GITBUTLER_INTEGRATION_COMMIT_TITLE)
+                    })
+                })
+                .unwrap_or(false)
         })
         .context("GitButler workspace commit not found")?;
-    let workspace_commit = &commits[workspace_index];
-    let mut extra_commits = commits[..workspace_index].to_vec();
-    extra_commits.reverse();
+    let workspace_commit = git2_repo.find_commit(commit_ids[workspace_index].to_git2())?;
+    let mut extra_commit_ids = commit_ids[..workspace_index].to_vec();
+    extra_commit_ids.reverse();
 
-    if extra_commits.is_empty() {
+    if extra_commit_ids.is_empty() {
         // no extra commits found, so we're good
         return Ok(());
     }
@@ -278,9 +275,14 @@ fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     let mut new_branch = branch_manager
         .create_virtual_branch(
             &BranchCreateRequest {
-                name: extra_commits
+                name: extra_commit_ids
                     .last()
-                    .map(|commit| commit.message_bstr().to_string()),
+                    .map(|commit_id| {
+                        git2_repo
+                            .find_commit(commit_id.to_git2())
+                            .map(|commit| commit.message_bstr().to_string())
+                    })
+                    .transpose()?,
                 ..Default::default()
             },
             perm,
@@ -288,12 +290,14 @@ fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
         .context("failed to create virtual branch")?;
 
     // rebasing the extra commits onto the new branch
-    let gix_repo = git2_repo.to_gix_repo()?;
-    let mut head = new_branch.head_oid(ctx)?.to_git2();
-    for commit in extra_commits {
+    let mut head = new_branch.head_oid(ctx)?;
+    for commit_id in extra_commit_ids {
         let new_branch_head = git2_repo
-            .find_commit(head)
+            .find_commit(head.to_git2())
             .context("failed to find new branch head")?;
+        let commit = git2_repo
+            .find_commit(commit_id.to_git2())
+            .with_context(|| format!("failed to find extra commit {commit_id}"))?;
 
         let rebased_commit_oid = git2_repo
             .commit_with_signature(
@@ -310,13 +314,8 @@ fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
                 commit.id()
             ))?;
 
-        let rebased_commit = git2_repo.find_commit(rebased_commit_oid).context(format!(
-            "failed to find rebased commit {rebased_commit_oid}"
-        ))?;
-
-        new_branch.set_stack_head(&vb_handle, &gix_repo, rebased_commit.id())?;
-
-        head = rebased_commit.id();
+        head = rebased_commit_oid.to_gix();
+        new_branch.set_stack_head(&vb_handle, &gix_repo, head)?;
     }
     Ok(())
 }

@@ -84,8 +84,8 @@ pub(crate) fn estimate_diff_blob_size(
     changes: &[but_core::TreeChange],
     ctx: &but_ctx::Context,
 ) -> Result<u64> {
-    fn blob_size(repo: &gix::Repository, id: &gix::ObjectId) -> u64 {
-        repo.find_header(*id).map(|h| h.size()).unwrap_or(0)
+    fn blob_size(repo: &gix::Repository, id: gix::ObjectId) -> u64 {
+        repo.find_header(id).map(|h| h.size()).unwrap_or(0)
     }
 
     let repo = ctx.repo.get()?;
@@ -93,9 +93,9 @@ pub(crate) fn estimate_diff_blob_size(
     Ok(changes
         .iter()
         .map(|change| match &change.status {
-            but_core::TreeStatus::Addition { state, .. } => blob_size(&repo, &state.id),
+            but_core::TreeStatus::Addition { state, .. } => blob_size(&repo, state.id),
             but_core::TreeStatus::Deletion { previous_state } => {
-                blob_size(&repo, &previous_state.id)
+                blob_size(&repo, previous_state.id)
             }
             but_core::TreeStatus::Modification {
                 previous_state,
@@ -107,8 +107,8 @@ pub(crate) fn estimate_diff_blob_size(
                 state,
                 ..
             } => {
-                let a = blob_size(&repo, &previous_state.id);
-                let b = blob_size(&repo, &state.id);
+                let a = blob_size(&repo, previous_state.id);
+                let b = blob_size(&repo, state.id);
                 a.max(b)
             }
         })

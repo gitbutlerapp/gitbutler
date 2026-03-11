@@ -93,20 +93,20 @@ pub(crate) fn handle(
 enum MoveOperation<'a> {
     /// Move a commit to be before/after another commit
     CommitToCommit {
-        source: &'a gix::ObjectId,
-        target: &'a gix::ObjectId,
+        source: gix::ObjectId,
+        target: gix::ObjectId,
         after: bool,
     },
     /// Move a commit to a branch (places at top of the branch)
     CommitToBranch {
-        source: &'a gix::ObjectId,
+        source: gix::ObjectId,
         target_branch: &'a str,
     },
     /// Move a committed file to another commit (delegates to rub)
     CommittedFileToCommit {
         path: &'a bstr::BStr,
-        source_commit: &'a gix::ObjectId,
-        target_commit: &'a gix::ObjectId,
+        source_commit: gix::ObjectId,
+        target_commit: gix::ObjectId,
     },
 }
 
@@ -130,8 +130,8 @@ impl<'a> MoveOperation<'a> {
             } => super::file::commited_file_to_another_commit(
                 ctx,
                 path,
-                *source_commit,
-                *target_commit,
+                source_commit,
+                target_commit,
                 out,
             ),
         }
@@ -141,8 +141,8 @@ impl<'a> MoveOperation<'a> {
 /// Mova a commit to a new position relative to another one.
 pub fn move_commit_to_commit(
     ctx: &mut Context,
-    source: &gix::ObjectId,
-    target: &gix::ObjectId,
+    source: gix::ObjectId,
+    target: gix::ObjectId,
     after: bool,
     out: &mut OutputChannel,
 ) -> Result<(), anyhow::Error> {
@@ -162,7 +162,7 @@ pub fn move_commit_to_commit(
         return Ok(());
     }
 
-    but_api::commit::commit_move(ctx, *source, *target, side)?;
+    but_api::commit::commit_move(ctx, source, target, side)?;
 
     if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?;
@@ -170,9 +170,9 @@ pub fn move_commit_to_commit(
         writeln!(
             out,
             "Moved {} → {} {}",
-            shorten_object_id(&repo, *source).blue(),
+            shorten_object_id(&repo, source).blue(),
             action,
-            shorten_object_id(&repo, *target).green(),
+            shorten_object_id(&repo, target).green(),
         )?;
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({"ok": true}))?;
@@ -183,19 +183,19 @@ pub fn move_commit_to_commit(
 /// Move a commit to the top of a branch
 pub fn move_commit_to_branch(
     ctx: &mut Context,
-    source: &gix::ObjectId,
+    source: gix::ObjectId,
     target_branch: &str,
     out: &mut OutputChannel,
 ) -> Result<(), anyhow::Error> {
     let target_full_name = gix::refs::FullName::try_from(format!("refs/heads/{target_branch}"))?;
-    but_api::commit::commit_move_to_branch(ctx, *source, target_full_name.as_ref())?;
+    but_api::commit::commit_move_to_branch(ctx, source, target_full_name.as_ref())?;
 
     if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?;
         writeln!(
             out,
             "Moved {} → {}",
-            shorten_object_id(&repo, *source).blue(),
+            shorten_object_id(&repo, source).blue(),
             format!("[{target_branch}]").green()
         )?;
     } else if let Some(out) = out.for_json() {
@@ -223,8 +223,8 @@ fn route_move_operation<'a>(
                 commit_id: target, ..
             },
         ) => Some(MoveOperation::CommitToCommit {
-            source,
-            target,
+            source: *source,
+            target: *target,
             after,
         }),
         // Commit -> Branch: move commit to top of branch
@@ -234,7 +234,7 @@ fn route_move_operation<'a>(
             },
             Branch { name, .. },
         ) => Some(MoveOperation::CommitToBranch {
-            source,
+            source: *source,
             target_branch: name,
         }),
         // CommittedFile -> Commit: move a file from one commit to another
@@ -250,8 +250,8 @@ fn route_move_operation<'a>(
             },
         ) => Some(MoveOperation::CommittedFileToCommit {
             path: path.as_ref(),
-            source_commit,
-            target_commit,
+            source_commit: *source_commit,
+            target_commit: *target_commit,
         }),
         // All other combinations are invalid for move
         _ => None,

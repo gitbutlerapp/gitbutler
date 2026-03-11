@@ -3,6 +3,27 @@ use gix::date::parse::TimeBuf;
 pub mod rebase;
 
 mod commands;
+mod traversal {
+    use anyhow::Result;
+
+    /// Return first-parent ancestors from `from` until `stop_before`, excluding `stop_before`.
+    pub fn first_parent_commit_ids_until(
+        repo: &gix::Repository,
+        from: gix::ObjectId,
+        stop_before: gix::ObjectId,
+    ) -> Result<Vec<gix::ObjectId>> {
+        use gix::prelude::ObjectIdExt as _;
+
+        from.attach(repo)
+            .ancestors()
+            .first_parent_only()
+            .with_hidden(Some(stop_before))
+            .all()?
+            .map(|info| Ok(info?.id))
+            .collect()
+    }
+}
+pub use traversal::first_parent_commit_ids_until;
 
 pub use commands::{FileInfo, RepoCommands};
 pub use remote::GitRemote;

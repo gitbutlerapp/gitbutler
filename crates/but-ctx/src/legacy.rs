@@ -3,8 +3,9 @@ use but_settings::AppSettings;
 use tracing::instrument;
 
 use crate::{
-    Context, LegacyProjectId, ProjectHandleOrLegacyProjectId, ThreadSafeContext, app_settings,
-    new_ondemand_app_cache, new_ondemand_db, new_ondemand_git2_repo, new_ondemand_repo,
+    Context, LegacyProjectId, ProjectHandleOrLegacyProjectId, RepoOpenMode, ThreadSafeContext,
+    app_settings, new_ondemand_app_cache, new_ondemand_db, new_ondemand_git2_repo,
+    new_ondemand_repo, open_repo,
 };
 
 pub(crate) mod types {
@@ -25,16 +26,31 @@ impl Context {
         legacy_project: &gitbutler_project::Project,
         settings: AppSettings,
     ) -> anyhow::Result<Self> {
+        Self::new_from_legacy_project_and_settings_with_repo_open_mode(
+            legacy_project,
+            settings,
+            RepoOpenMode::Standard,
+        )
+    }
+
+    /// Open the repository identified by `legacy_project` and `settings`, while controlling
+    /// how the repository sources configuration via `repo_open_mode`.
+    pub fn new_from_legacy_project_and_settings_with_repo_open_mode(
+        legacy_project: &gitbutler_project::Project,
+        settings: AppSettings,
+        repo_open_mode: RepoOpenMode,
+    ) -> anyhow::Result<Self> {
         let gitdir = legacy_project.git_dir().to_owned();
-        let repo = gix::open(&gitdir)?;
+        let repo = open_repo(&gitdir, repo_open_mode)?;
         let project_data_dir = repo.gitbutler_storage_path()?;
         let app_cache_dir = but_path::app_cache_dir().ok();
         Ok(Context {
             settings,
             gitdir: gitdir.clone(),
             project_data_dir: project_data_dir.clone(),
+            repo_open_mode,
             legacy_project: legacy_project.clone(),
-            repo: new_ondemand_repo(gitdir.clone()),
+            repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(project_data_dir),
             app_cache: new_ondemand_app_cache(app_cache_dir.clone()),

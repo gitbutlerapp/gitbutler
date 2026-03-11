@@ -1,7 +1,7 @@
 use anyhow::{Result, bail};
 use but_ctx::{Context, access::RepoExclusive};
 use but_meta::VirtualBranchesTomlMetadata;
-use but_oxidize::ObjectIdExt;
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{Rebase, RebaseStep};
 use but_workspace::{legacy::stack_ext::StackExt, ui::CommitState};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
@@ -164,7 +164,7 @@ pub fn integrate_branch_with_steps(
     let result = rebase.rebase()?;
     let head = result.top_commit.to_git2();
 
-    source_stack.set_stack_head(&vb_state, &repo, head)?;
+    source_stack.set_stack_head(&vb_state, &repo, head.to_gix())?;
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     update_uncommitted_changes(ctx, old_workspace, new_workspace, perm)?;
     source_stack.set_heads_from_rebase_output(ctx, result.references)?;

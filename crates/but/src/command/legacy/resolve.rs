@@ -473,7 +473,7 @@ fn find_conflicted_commits(ctx: &mut Context) -> Result<BTreeMap<String, Vec<Con
     use gix::{prelude::ObjectIdExt as _, revision::walk::Sorting};
 
     let stacks = but_api::legacy::workspace::stacks(ctx, None)?;
-    let gix_repo = ctx.repo.get()?;
+    let repo = ctx.repo.get()?;
     let mut conflicts_by_branch: BTreeMap<String, Vec<ConflictedCommit>> = BTreeMap::new();
 
     for stack in &stacks {
@@ -485,7 +485,7 @@ fn find_conflicted_commits(ctx: &mut Context) -> Result<BTreeMap<String, Vec<Con
             // We use BreadthFirst (topological) and then reverse the results
             let traversal = head
                 .tip
-                .attach(&gix_repo)
+                .attach(&repo)
                 .ancestors()
                 .sorting(Sorting::BreadthFirst)
                 .all()?;
@@ -497,7 +497,7 @@ fn find_conflicted_commits(ctx: &mut Context) -> Result<BTreeMap<String, Vec<Con
                 .collect();
 
             for oid in commit_ids.into_iter().rev() {
-                let commit = gix_repo.find_commit(oid)?;
+                let commit = repo.find_commit(oid)?;
 
                 if commit.is_conflicted() {
                     let message = commit
@@ -512,7 +512,7 @@ fn find_conflicted_commits(ctx: &mut Context) -> Result<BTreeMap<String, Vec<Con
 
                     let conflicted = ConflictedCommit {
                         commit_oid: oid,
-                        commit_short_id: shorten_object_id(&gix_repo, oid),
+                        commit_short_id: shorten_object_id(&repo, oid),
                         commit_message: message,
                     };
 
