@@ -20,7 +20,7 @@ mod from_new_merge_with_metadata {
     fn without_conflict_journey() -> anyhow::Result<()> {
         let (repo, mut meta) =
             named_read_only_in_memory_scenario("various-heads-for-clean-merge", "")?;
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
         * d3cce74 (add-A) add A
         | * 115e41b (add-B) add B
         |/  
@@ -43,7 +43,7 @@ mod from_new_merge_with_metadata {
         )?;
         let commit = out.workspace_commit_id.attach(&repo).object()?;
         // This commit is never signed.
-        insta::assert_snapshot!(commit.data.as_bstr(), @r"
+        insta::assert_snapshot!(commit.data.as_bstr(), @"
         tree f53c91092dbda83f3565e78c285f3e2ab0cfd968
         parent d3cce74a69ee3b0e1cbea65b53908d602d6bda26
         author GitButler <gitbutler@gitbutler.com> 946771200 +0000
@@ -107,7 +107,7 @@ mod from_new_merge_with_metadata {
         "#);
         let commit = out.workspace_commit_id.attach(&repo).object()?;
         // This commit is never signed.
-        insta::assert_snapshot!(commit.data.as_bstr(), @r"
+        insta::assert_snapshot!(commit.data.as_bstr(), @"
         tree 94e1f0c26d5b13dc3a95a88e64d82155373b5780
         parent 27ab782831b1145249092d54c520a15bb6425cda
         parent d3cce74a69ee3b0e1cbea65b53908d602d6bda26
@@ -154,7 +154,7 @@ mod from_new_merge_with_metadata {
     fn with_multi_line_conflict_journey() -> anyhow::Result<()> {
         let (repo, mut meta) =
             named_read_only_in_memory_scenario("various-heads-for-multi-line-merge-conflict", "")?;
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
         * d3cce74 (clean-A) add A
         | * 115e41b (clean-B) add B
         |/  
@@ -263,7 +263,7 @@ mod from_new_merge_with_metadata {
     fn with_conflict_commits() -> anyhow::Result<()> {
         let (_tmp, mut graph, repo, mut meta, _description) =
             named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
         * 8450331 (HEAD -> main, tag: conflicted) GitButler WIP Commit
         * a047f81 (tag: normal) init
         ");
@@ -276,7 +276,7 @@ mod from_new_merge_with_metadata {
             "#,
             &repo,
         );
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
         * 8450331 (tag: conflicted, tip-conflicted) GitButler WIP Commit
         | * 8ab1c4d (HEAD -> unrelated) unrelated
         |/  
@@ -336,7 +336,7 @@ mod from_new_merge_with_metadata {
     fn with_conflict_journey() -> anyhow::Result<()> {
         let (repo, mut meta) =
             named_read_only_in_memory_scenario("various-heads-for-merge-conflict", "")?;
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
         * d3cce74 (clean-A) add A
         | * 115e41b (clean-B) add B
         |/  
@@ -380,7 +380,7 @@ mod from_new_merge_with_metadata {
         "#);
         let commit = out.workspace_commit_id.attach(&repo).object()?;
         // In absence of a hero stack, the conflicting stack is simply not assigned.
-        insta::assert_snapshot!(commit.data.as_bstr(), @r"
+        insta::assert_snapshot!(commit.data.as_bstr(), @"
         tree fc2bf71918ed072ec412bdebb04ec7322f2cfb72
         parent d3cce74a69ee3b0e1cbea65b53908d602d6bda26
         parent 6777bd8aff28a87a07739e2f309d3699d93685f9
@@ -444,7 +444,7 @@ mod from_new_merge_with_metadata {
         }
         "#);
         let commit = out.workspace_commit_id.attach(&repo).object()?;
-        insta::assert_snapshot!(commit.data.as_bstr(), @r"
+        insta::assert_snapshot!(commit.data.as_bstr(), @"
         tree 39ba52245958cf3a0544caf68c75665b9ad6ea4f
         parent d3cce74a69ee3b0e1cbea65b53908d602d6bda26
         parent 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea

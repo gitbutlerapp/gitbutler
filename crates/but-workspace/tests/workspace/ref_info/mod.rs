@@ -26,7 +26,7 @@ fn unborn_untracked() -> anyhow::Result<()> {
                 ),
             },
         ),
-        symbolic_remote_names: [],
+        symbolic_remote_names: {},
         stacks: [
             Stack {
                 id: Some(
@@ -123,7 +123,7 @@ fn detached() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(&info, @r#"
     RefInfo {
         workspace_ref_info: None,
-        symbolic_remote_names: [],
+        symbolic_remote_names: {},
         stacks: [
             Stack {
                 id: Some(
@@ -187,7 +187,7 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
                 ),
             },
         ),
-        symbolic_remote_names: [],
+        symbolic_remote_names: {},
         stacks: [
             Stack {
                 id: Some(
@@ -304,7 +304,7 @@ fn single_branch() -> anyhow::Result<()> {
                 ),
             },
         ),
-        symbolic_remote_names: [],
+        symbolic_remote_names: {},
         stacks: [
             Stack {
                 id: Some(
@@ -430,7 +430,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                 ),
             },
         ),
-        symbolic_remote_names: [],
+        symbolic_remote_names: {},
         stacks: [
             Stack {
                 id: Some(

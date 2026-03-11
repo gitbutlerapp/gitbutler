@@ -206,19 +206,15 @@ impl inner::RefInfo {
             is_entrypoint,
         }: crate::RefInfo,
     ) -> anyhow::Result<Self> {
-        let remote_names: gix::remote::Names<'static> = symbolic_remote_names
-            .iter()
-            .map(|name| std::borrow::Cow::Owned(name.clone().into()))
-            .collect();
         let stacks: Vec<_> = stacks
             .into_iter()
-            .map(|stack| Stack::for_ui(stack, &remote_names))
+            .map(|stack| Stack::for_ui(stack, &symbolic_remote_names))
             .collect::<Result<_, _>>()?;
         Ok(inner::RefInfo {
             workspace_ref: workspace_ref_info.map(|ri| ri.ref_name.into()),
             stacks,
             target: target_ref
-                .map(|t| Target::for_ui(t, &remote_names))
+                .map(|t| Target::for_ui(t, &symbolic_remote_names))
                 .transpose()?,
             is_managed_ref,
             is_managed_commit,

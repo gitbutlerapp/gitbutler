@@ -12,7 +12,7 @@ use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_
 fn insert_below_commit() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -26,7 +26,7 @@ fn insert_below_commit() -> Result<()> {
         .0
         .materialize()?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 70ba329 (HEAD -> three) commit three
     * 0f4f9d0 (two) commit two
     * b3b14c2 
@@ -44,7 +44,7 @@ fn insert_below_commit() -> Result<()> {
 fn insert_above_commit() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -58,7 +58,7 @@ fn insert_above_commit() -> Result<()> {
         .0
         .materialize()?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 8e87ff3 (HEAD -> three) commit three
     * 024b774 (two) 
     * 16fd221 (origin/two) commit two
@@ -74,7 +74,7 @@ fn insert_above_commit() -> Result<()> {
 fn insert_below_reference() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -92,7 +92,7 @@ fn insert_below_reference() -> Result<()> {
     .0
     .materialize()?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 8e87ff3 (HEAD -> three) commit three
     * 024b774 (two) 
     * 16fd221 (origin/two) commit two
@@ -108,7 +108,7 @@ fn insert_below_reference() -> Result<()> {
 fn insert_above_reference() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -126,7 +126,7 @@ fn insert_above_reference() -> Result<()> {
     .0
     .materialize()?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 8e87ff3 (HEAD -> three) commit three
     * 024b774 
     * 16fd221 (origin/two, two) commit two

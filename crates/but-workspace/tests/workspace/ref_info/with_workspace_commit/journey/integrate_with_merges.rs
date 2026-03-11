@@ -13,12 +13,12 @@ use crate::ref_info::{
 #[test]
 fn two_commits_require_force_push() -> anyhow::Result<()> {
     let (repo, meta, description) = scenario("01-one-rewritten-one-local-after-push")?;
-    insta::assert_snapshot!(description, @r"
+    insta::assert_snapshot!(description, @"
     A setup that demands for a force-push
 
     We change the name of the first commit and also need the similarity to be detected by changeset
     ");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 946cdb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * f9c2b14 (A) A2
     * e1f216e A1
@@ -41,9 +41,9 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: None,
@@ -101,7 +101,7 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
 fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
     let (repo, meta, description) = scenario("01.5-one-rewritten-one-local-after-push-merge")?;
     insta::assert_snapshot!(description, @"On the remote, a rewritten/rebased commit we have locally is merged back into target.");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 946cdb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * f9c2b14 (A) A2
     * e1f216e A1
@@ -126,9 +126,9 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: None,
@@ -185,12 +185,12 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
 #[test]
 fn remote_diverged() -> anyhow::Result<()> {
     let (repo, meta, description) = scenario("02-diverged-remote")?;
-    insta::assert_snapshot!(description, @r"
+    insta::assert_snapshot!(description, @"
     A setup that demands for a force-push
 
     The tip of the local branch isn't in the ancestry of the remote anymore.
     ");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 3ea2742 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * a62b0de (A) A2
     | * 0c06863 (origin/A) A3
@@ -213,9 +213,9 @@ fn remote_diverged() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: None,
@@ -274,7 +274,7 @@ fn remote_diverged() -> anyhow::Result<()> {
 #[test]
 fn remote_diverged_merge() -> anyhow::Result<()> {
     let (repo, meta, description) = scenario("02.5-diverged-remote-merge")?;
-    insta::assert_snapshot!(description, @r"
+    insta::assert_snapshot!(description, @"
     A remote sharing a commit with a stack and its own commit gets merged.
 
     We'd not want to see the remote unique commit anymore as it's also considered integrated.
@@ -310,9 +310,9 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: None,
@@ -372,7 +372,7 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
 fn remote_behind() -> anyhow::Result<()> {
     let (repo, meta, description) = scenario("03-remote-one-behind")?;
     insta::assert_snapshot!(description, @"A can be pushed as it has local, unpushed commits");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 3ea2742 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * a62b0de (A) A2
     * 120a217 (origin/A) A1
@@ -393,9 +393,9 @@ fn remote_behind() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: None,
@@ -483,9 +483,9 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: None,
@@ -545,7 +545,7 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
 fn remote_ahead() -> anyhow::Result<()> {
     let (repo, meta, description) = scenario("04-remote-one-ahead-ff")?;
     insta::assert_snapshot!(description, @"There are no unpushed local commits, the remote is one ahead (FF)");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 8ee08de (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | * a62b0de (origin/A) A2
     |/  
@@ -567,9 +567,9 @@ fn remote_ahead() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: None,
@@ -628,7 +628,7 @@ fn remote_ahead() -> anyhow::Result<()> {
 fn remote_ahead_merge_ff() -> anyhow::Result<()> {
     let (repo, meta, description) = scenario("04.5-remote-one-ahead-ff-merge")?;
     insta::assert_snapshot!(description, @"Remote origin/A is merged back (fast-forward), bringing all into the target branch");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 8ee08de (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | * a62b0de (origin/main, origin/A, main) A2
     |/  
@@ -654,9 +654,9 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: None,

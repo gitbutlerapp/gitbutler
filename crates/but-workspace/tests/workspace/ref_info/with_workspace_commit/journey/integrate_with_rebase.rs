@@ -10,12 +10,12 @@ use crate::ref_info::{
 #[test]
 fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
     let (repo, meta, description) = scenario("01-one-rewritten-one-local-after-push")?;
-    insta::assert_snapshot!(description, @r"
+    insta::assert_snapshot!(description, @"
     two local commits pushed to a remote, then rebased onto target.
 
     The branch should then be considered integrated
     ");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 946cdb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * f9c2b14 (origin/A, A) A2
     * e1f216e A1
@@ -42,9 +42,9 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: None,
@@ -101,12 +101,12 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
 #[test]
 fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()> {
     let (repo, meta, description) = scenario("01-with-local-amended-after-integration")?;
-    insta::assert_snapshot!(description, @r"
+    insta::assert_snapshot!(description, @"
     two local commits pushed to a remote, then rebased onto target, and local amended
 
     The branch should then *not* be considered integrated anymore as A2 has changed
     ");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 4c3a992 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 5039218 (origin/A, A) A2
     * e1f216e A1
@@ -134,9 +134,9 @@ fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: None,
@@ -193,13 +193,13 @@ fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()
 #[test]
 fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
     let (repo, meta, description) = scenario("01-rewritten-local-commit-is-paired-with-remote")?;
-    insta::assert_snapshot!(description, @r"
+    insta::assert_snapshot!(description, @"
     two local commits pushed to a remote, then changed locally.
 
     One is changed locally and matched by message, the other one is matched by change-id
     as the content is too different.
     ");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 0b1ed50 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * e9c9d74 (A) A2
     * 550b6ac A1
@@ -223,9 +223,9 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: None,
@@ -283,12 +283,12 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
 fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> {
     let (repo, meta, description) =
         scenario("01-one-rewritten-one-local-after-push-author-date-change")?;
-    insta::assert_snapshot!(description, @r"
+    insta::assert_snapshot!(description, @"
     two local commits pushed to a remote, then rebased onto target, but with the author date adjusted.
 
     This prevents quick-checks to work.
     ");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f1caa51 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * f9c2b14 (origin/A, A) A2
     * e1f216e A1
@@ -315,9 +315,9 @@ fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> 
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: None,

@@ -8,7 +8,7 @@ mod changes_in_branch {
     #[test]
     fn multiple_inside_and_outside_of_workspace() -> anyhow::Result<()> {
         let (repo, meta) = read_only_in_memory_scenario("remote-advanced-ff")?;
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
         * fb27086 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
         | * 89cc2d3 (origin/A) change in A
         |/  
@@ -118,7 +118,7 @@ mod changes_in_branch {
         "#);
 
         // Nothing here, it's the target.
-        insta::assert_debug_snapshot!(ui::diff::changes_in_branch(&repo, &ws, r("refs/remotes/origin/main"))?, @r"
+        insta::assert_debug_snapshot!(ui::diff::changes_in_branch(&repo, &ws, r("refs/remotes/origin/main"))?, @"
         TreeChanges {
             changes: [],
             stats: TreeStats {

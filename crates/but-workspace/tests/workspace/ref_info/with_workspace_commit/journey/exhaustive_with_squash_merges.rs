@@ -33,7 +33,7 @@ fn j01_unborn() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [],
+            symbolic_remote_names: {},
             stacks: [
                 Stack {
                     id: Some(
@@ -89,7 +89,7 @@ fn j02_first_commit() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [],
+            symbolic_remote_names: {},
             stacks: [
                 Stack {
                     id: Some(
@@ -130,7 +130,7 @@ fn j02_first_commit() -> anyhow::Result<()> {
 #[test]
 fn j03_main_pushed() -> anyhow::Result<()> {
     let (repo, meta, description) = step("03-main-pushed")?;
-    insta::assert_snapshot!(description, @r"
+    insta::assert_snapshot!(description, @"
     main was pushed so it can now serve as target.
 
     However, without an official workspace it still won't be acting as a target.
@@ -151,7 +151,9 @@ fn j03_main_pushed() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [],
+            symbolic_remote_names: {
+                "origin",
+            },
             stacks: [
                 Stack {
                     id: Some(
@@ -206,7 +208,9 @@ fn j03_main_pushed() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [],
+            symbolic_remote_names: {
+                "origin",
+            },
             stacks: [
                 Stack {
                     id: Some(
@@ -250,7 +254,7 @@ fn j03_main_pushed() -> anyhow::Result<()> {
 fn j04_create_workspace() -> anyhow::Result<()> {
     let (repo, meta, description) = step("04-create-workspace")?;
     insta::assert_snapshot!(description, @"An official workspace was created, with nothing in it");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * a26ae77 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * fafd9d0 (origin/main, main) init
     ");
@@ -271,9 +275,9 @@ fn j04_create_workspace() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [],
             target_ref: Some(
                 TargetRef {
@@ -308,7 +312,7 @@ fn j04_create_workspace() -> anyhow::Result<()> {
 fn j05_empty_stack() -> anyhow::Result<()> {
     let (repo, mut meta, description) = step("05-empty-stack")?;
     insta::assert_snapshot!(description, @"an empty stack with nothing in it");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * a26ae77 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * fafd9d0 (origin/main, main, S1) init
     ");
@@ -330,9 +334,9 @@ fn j05_empty_stack() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: Some(
@@ -389,7 +393,7 @@ fn j05_empty_stack() -> anyhow::Result<()> {
 fn j06_create_commit_in_stack() -> anyhow::Result<()> {
     let (repo, mut meta, description) = step("06-create-commit-in-stack")?;
     insta::assert_snapshot!(description, @"Create a new commit in the newly added stack S1");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 9a8283b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * ba16348 (S1) one
     * fafd9d0 (origin/main, main) init
@@ -410,9 +414,9 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: None,
@@ -478,9 +482,9 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: Some(
@@ -539,7 +543,7 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
 fn j07_push_commit() -> anyhow::Result<()> {
     let (repo, mut meta, description) = step("07-push-commit")?;
     insta::assert_snapshot!(description, @"push S1 to the remote which is then up-to-date");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 9a8283b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * ba16348 (origin/S1, S1) one
     * fafd9d0 (origin/main, main) init
@@ -560,9 +564,9 @@ fn j07_push_commit() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: Some(
@@ -620,12 +624,12 @@ fn j07_push_commit() -> anyhow::Result<()> {
 #[test]
 fn j08_next_local_commit() -> anyhow::Result<()> {
     let (repo, mut meta, description) = step("08-new-local-commit")?;
-    insta::assert_snapshot!(description, @r"
+    insta::assert_snapshot!(description, @"
     Create a new local commit right after the previous pushed one
 
       This leaves the stack in a state where it can be pushed.
     ");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 9e1f264 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 9f4d478 (S1) two
     * ba16348 (origin/S1) one
@@ -647,9 +651,9 @@ fn j08_next_local_commit() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: Some(
@@ -709,7 +713,7 @@ fn j08_next_local_commit() -> anyhow::Result<()> {
 fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
     let (repo, mut meta, description) = step("09-rewritten-local-commit")?;
     insta::assert_snapshot!(description, @"The new local commit was rewritten after pushing it to the remote");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 4d23090 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 314cacb (S1) two
     | * 9a2fcdf (origin/S1) two
@@ -733,9 +737,9 @@ fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: Some(
@@ -794,12 +798,12 @@ fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
 #[test]
 fn j10_squash_merge_stack() -> anyhow::Result<()> {
     let (repo, mut meta, description) = step("10-squash-merge-stack")?;
-    insta::assert_snapshot!(description, @r"
+    insta::assert_snapshot!(description, @"
     The remote squash-merges S1 *and* changes the 'file' so it looks entirely different in another commit.
 
       The squash merge should still be detected.
     ");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 4d23090 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 314cacb (S1) two
     | * 9a2fcdf (origin/S1) two
@@ -826,9 +830,9 @@ fn j10_squash_merge_stack() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: Some(
@@ -887,7 +891,7 @@ fn j10_squash_merge_stack() -> anyhow::Result<()> {
 #[test]
 fn j11_squash_merge_remote_only() -> anyhow::Result<()> {
     let (repo, mut meta, description) = step("11-remote-only")?;
-    insta::assert_snapshot!(description, @r"
+    insta::assert_snapshot!(description, @"
     The remote was reused and merged once more with more changes.
 
       After S1 was squash-merged, someone else reused the branch, pushed two commits
@@ -895,7 +899,7 @@ fn j11_squash_merge_remote_only() -> anyhow::Result<()> {
 
       Here we assure that these integrated remote commits don't mess with our logic.
     ");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 4d23090 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 314cacb (S1) two
     | * 16d0628 (origin/S1) add other remote file
@@ -929,9 +933,9 @@ fn j11_squash_merge_remote_only() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: Some(
@@ -993,7 +997,7 @@ fn j11_squash_merge_remote_only() -> anyhow::Result<()> {
 #[test]
 fn j12_local_only_multi_segment_squash_merge() -> anyhow::Result<()> {
     let (repo, mut meta, description) = step("12-local-only-multi-segment-squash-merge")?;
-    insta::assert_snapshot!(description, @r"
+    insta::assert_snapshot!(description, @"
     A new multi-segment stack is created without remote and squash merged locally.
 
       There is no need to add the local branches to the workspace officially, they are still picked up.
@@ -1040,9 +1044,9 @@ fn j12_local_only_multi_segment_squash_merge() -> anyhow::Result<()> {
                     ),
                 },
             ),
-            symbolic_remote_names: [
+            symbolic_remote_names: {
                 "origin",
-            ],
+            },
             stacks: [
                 Stack {
                     id: Some(
