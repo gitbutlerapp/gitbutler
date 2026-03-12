@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 use gitbutler_reference::RemoteRefname;
 use gitbutler_stack::StackId;
@@ -268,6 +268,12 @@ pub enum Subcommands {
         keep_metadata: bool,
         /// the short-name of the reference to delete.
         short_name: String,
+    },
+    /// Run the proof-of-concept long-running operation with progress rendering and interrupt handling.
+    LongRunning {
+        /// How long the proof-of-concept task should run, like `5s`, `250ms`, or `1m`.
+        #[arg(short = 'd', long, default_value = "5s", value_parser = humantime::parse_duration)]
+        duration: Duration,
     },
 }
 

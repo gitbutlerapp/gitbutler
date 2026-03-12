@@ -82,6 +82,45 @@ export declare function listBranchesNapi(projectId: string, filter: BranchListin
 export declare function listProjectsNapi(openedProjects: Array<ProjectHandleOrLegacyProjectId>): Promise<Array<ProjectForFrontend>>
 
 /**
+ * Interrupt a task started with [`long_running_start_tsfn()`].
+ *
+ * Returns `true` if interruption was requested successfully.
+ */
+export declare function longRunningCancelTsfn(taskId: number): boolean
+
+/** Event payload for Node callbacks. */
+export interface LongRunningEvent {
+  /** The id of the task that emitted this event. */
+  taskId: number
+  /** The event category. */
+  kind: LongRunningEventKind
+  /** The latest completed step if available. */
+  step?: number
+  /** An optional error message for failed tasks. */
+  message?: string
+}
+
+/** Kinds of events emitted to JavaScript while a long-running task executes. */
+export declare const enum LongRunningEventKind {
+  /** The task produced an intermediate progress update. */
+  Progress = 'Progress',
+  /** The task finished successfully. */
+  Done = 'Done',
+  /** The task stopped because interruption was requested. */
+  Cancelled = 'Cancelled',
+  /** The task failed with an error. */
+  Error = 'Error'
+}
+
+/**
+ * Start a long-running task and stream progress to `callback` via a ThreadsafeFunction.
+ *
+ * Returns the task id, which can be used to interrupt processing with
+ * [`long_running_cancel_tsfn()`].
+ */
+export declare function longRunningStartTsfn(durationMs: number, callback: ((err: Error | null, arg: LongRunningEvent) => any)): number
+
+/**
  * Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
  * or if it involves a change to a [submodule](gix::object::Kind::Commit).
  */

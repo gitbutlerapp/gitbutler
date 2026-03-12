@@ -1560,6 +1560,7 @@ name = "but-testing"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-api",
  "but-core",
  "but-ctx",
  "but-db",
@@ -1580,7 +1581,9 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-stack",
  "gix",
+ "humantime",
  "itertools",
+ "prodash",
  "serde_json",
  "tokio",
  "tracing",
@@ -2422,6 +2425,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acdd7c62a3665c7f6830a51635d9ac9b23ed385797f70a83bb8bafe9c572ab2b"
 dependencies = [
  "winapi",
+]
+
+[[package]]
+name = "crosstermion"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6ae462f0b868614980d59df41e217a77648de7ad7cf8b2a407155659896d889"
+dependencies = [
+ "crossterm",
+ "nu-ansi-term",
 ]
 
 [[package]]
@@ -4387,7 +4400,9 @@ dependencies = [
  "gix-worktree-state",
  "gix-worktree-stream",
  "nonempty",
+ "parking_lot",
  "serde",
+ "signal-hook 0.4.3",
  "smallvec",
  "thiserror 2.0.18",
 ]
@@ -8135,7 +8150,11 @@ version = "31.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "962200e2d7d551451297d9fdce85138374019ada198e30ea9ede38034e27604c"
 dependencies = [
+ "crosstermion",
+ "is-terminal",
+ "jiff",
  "parking_lot",
+ "unicode-width",
 ]
 
 [[package]]

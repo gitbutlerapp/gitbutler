@@ -15,7 +15,7 @@
 		"declaration": true,
 		"declarationMap": true,
 		"verbatimModuleSyntax": false,
-		"isolatedModules": true,
+		"isolatedModules": false,
 		"outDir": "dist",
 		"rootDir": "src"
 	},
