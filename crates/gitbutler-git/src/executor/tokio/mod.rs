@@ -36,19 +36,10 @@ unsafe impl super::GitExecutor for TokioExecutor {
         cmd.kill_on_drop(true);
         cmd.current_dir(cwd);
 
-        #[cfg(not(windows))]
         cmd.args(args);
 
         #[cfg(windows)]
         {
-            // On Windows, we have to pass the arguments
-            // as-is using a special method since Windows
-            // seems to parse backslashes for some unknown
-            // reason.
-            for arg in args {
-                cmd.raw_arg(arg);
-            }
-
             // On windows, CLI applications that aren't the `windows` subsystem
             // will create and show a console window that pops up next to the
             // main application window when run. We disable this behavior when
