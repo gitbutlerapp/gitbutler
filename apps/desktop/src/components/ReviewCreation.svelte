@@ -157,6 +157,8 @@
 	async function pushIfNeeded(
 		branchName: string,
 	): Promise<[string | undefined, BranchPushResult | undefined]> {
+		if (!stackId) return [undefined, undefined];
+
 		if (pushBeforeCreate) {
 			const firstPush = branchDetails?.pushStatus === "completelyUnpushed";
 			const withForce = partialStackRequestsForcePush(branchName, branches);

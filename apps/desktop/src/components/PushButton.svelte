@@ -94,6 +94,8 @@
 		skipForcePushProtection: boolean;
 		gerritFlags: GerritPushFlag[];
 	}) {
+		if (!stackId) return;
+
 		const { withForce, skipForcePushProtection, gerritFlags } = args;
 		try {
 			const pushResult = await pushStack({

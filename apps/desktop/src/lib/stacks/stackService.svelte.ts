@@ -105,7 +105,9 @@ on fetching and pushing for ways to resolve the problem.
 	}
 }
 
-export type SeriesIntegrationStrategy = "merge" | "rebase";
+export type SeriesIntegrationStrategy = {
+	type: "merge" | "rebase";
+};
 
 export interface BranchPushResult {
 	/**
@@ -149,7 +151,7 @@ type BackendCreateCommitOutcome = {
 export type CreateCommitOutcome = {
 	newCommit: string | null;
 	pathsToRejectedChanges: [RejectionReason, string][];
-	replacedCommits?: ReplacedCommit[];
+	commitMapping: ReplacedCommit[];
 };
 
 type BackendCommitRewordResult = {
@@ -170,7 +172,7 @@ function normalizeCreateCommitOutcome(response: BackendCreateCommitOutcome): Cre
 	return {
 		newCommit: response.newCommit ?? null,
 		pathsToRejectedChanges: response.pathsToRejectedChanges,
-		replacedCommits: Object.entries(response.replacedCommits),
+		commitMapping: Object.entries(response.replacedCommits),
 	};
 }
 
@@ -1175,7 +1177,7 @@ function injectEndpoints(api: BackendApi, uiState: UiState) {
 				BranchPushResult,
 				{
 					projectId: string;
-					stackId?: string;
+					stackId: string;
 					withForce: boolean;
 					skipForcePushProtection: boolean;
 					branch: string;
@@ -1410,7 +1412,7 @@ function injectEndpoints(api: BackendApi, uiState: UiState) {
 				query: (args) => args,
 			}),
 			absorb: build.mutation<
-				void,
+				number,
 				{ projectId: string; absorptionPlan: HunkAssignment.CommitAbsorption[] }
 			>({
 				extraOptions: {
@@ -1479,9 +1481,6 @@ function injectEndpoints(api: BackendApi, uiState: UiState) {
 						...commitChangesTags,
 					];
 				},
-				transformResponse: (a: BackendMoveChangesResult) => ({
-					replacedCommits: Object.entries(a.replacedCommits),
-				}),
 			}),
 			commitMoveChangesBetween: build.mutation<
 				{
@@ -1523,9 +1522,6 @@ function injectEndpoints(api: BackendApi, uiState: UiState) {
 					actionName: "Uncommit Changes",
 				},
 				query: (args) => args,
-				transformResponse: (a: BackendMoveChangesResult) => ({
-					replacedCommits: Object.entries(a.replacedCommits),
-				}),
 				invalidatesTags(_result, _error, args) {
 					return [
 						invalidatesList(ReduxTag.HeadSha),
@@ -1594,7 +1590,7 @@ function injectEndpoints(api: BackendApi, uiState: UiState) {
 					projectId: string;
 					stackId: string;
 					branchName: string;
-					prNumber: number;
+					prNumber?: number;
 				}
 			>({
 				extraOptions: {
@@ -1727,7 +1723,7 @@ function injectEndpoints(api: BackendApi, uiState: UiState) {
 					projectId: string;
 					stackId: string;
 					seriesName: string;
-					strategy: SeriesIntegrationStrategy | undefined;
+					integrationStrategy: SeriesIntegrationStrategy | undefined;
 				}
 			>({
 				extraOptions: {
@@ -1738,6 +1734,7 @@ function injectEndpoints(api: BackendApi, uiState: UiState) {
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.HeadSha),
 					invalidatesList(ReduxTag.WorktreeChanges),
+					invalidatesItem(ReduxTag.StackDetails, args.stackId),
 					invalidatesItem(ReduxTag.BranchChanges, args.stackId),
 				],
 			}),
@@ -1766,6 +1763,7 @@ function injectEndpoints(api: BackendApi, uiState: UiState) {
 				query: (args) => args,
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesList(ReduxTag.HeadSha),
+					invalidatesItem(ReduxTag.StackDetails, args.stackId),
 					invalidatesItem(ReduxTag.IntegrationSteps, args.stackId + args.branchName),
 					invalidatesItem(ReduxTag.BranchDetails, args.branchName),
 					invalidatesItem(ReduxTag.BranchChanges, args.stackId),
