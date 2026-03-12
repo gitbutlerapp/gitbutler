@@ -4,6 +4,7 @@ use but_settings::AppSettings;
 use clap::ValueEnum;
 use command_group::AsyncCommandGroup;
 use posthog_rs::Client;
+use rand::{Rng, distr::OpenClosed01};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -44,6 +45,19 @@ pub enum EventKind {
     McpInternal,
     #[strum(serialize = "Cli")]
     Cli(CommandName),
+}
+
+impl EventKind {
+    /// Percentage sample rate, between 0 and 1.
+    ///
+    /// 1 indicates that the command should always be submitted to posthog, and
+    /// 0 should never be submitted to posthog.
+    pub fn sample_rate(&self) -> f32 {
+        match self {
+            Self::Mcp | Self::McpInternal => 1.0,
+            Self::Cli(c) => c.sample_rate(),
+        }
+    }
 }
 
 impl Subcommands {
@@ -342,11 +356,15 @@ pub async fn capture_event_blocking(app_settings: &AppSettings, event: Event) {
 }
 
 /// Note that `client` is *only* available if telemetry is enabled.
-fn do_capture(
+async fn do_capture(
     client: &Client,
     event: Event,
     app_settings: &AppSettings,
-) -> impl Future<Output = Result<(), posthog_rs::Error>> {
+) -> Result<(), posthog_rs::Error> {
+    if event.event_name.sample_rate() < rand::rng().sample::<f32, _>(OpenClosed01) {
+        return Ok(());
+    }
+
     let id = if let Some(id) = app_settings.telemetry.app_distinct_id.clone() {
         id
     } else if app_settings.telemetry.app_non_anon_metrics_enabled {
@@ -358,7 +376,7 @@ fn do_capture(
     for (key, prop) in event.props {
         let _ = posthog_event.insert_prop(key, prop);
     }
-    client.capture(posthog_event)
+    client.capture(posthog_event).await
 }
 
 fn machine() -> String {
