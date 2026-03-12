@@ -112,8 +112,7 @@ impl ClaudeProjectConfig {
         let Some(projects) = &claude_json.projects else {
             return false;
         };
-        let path_str = self.project_path.to_string_lossy().to_string();
-        projects.contains_key(&path_str)
+        find_project(projects, &self.project_path).is_some()
     }
 
     /// Collects servers from all sources, applying settings filters.
@@ -126,10 +125,7 @@ impl ClaudeProjectConfig {
             let project_servers = claude_json
                 .projects
                 .as_ref()
-                .and_then(|projects| {
-                    let path_str = self.project_path.to_string_lossy().to_string();
-                    projects.get(&path_str).cloned()
-                })
+                .and_then(|projects| find_project(projects, &self.project_path).cloned())
                 .and_then(|project| project.mcp_servers);
 
             if let Some(project_servers) = project_servers {
@@ -208,8 +204,35 @@ pub async fn is_project_registered(project_path: &Path) -> bool {
     let Some(projects) = &claude_json.projects else {
         return false;
     };
-    let path_str = project_path.to_string_lossy().to_string();
-    projects.contains_key(&path_str)
+    find_project(projects, project_path).is_some()
+}
+
+/// Defensively find a `project_path` in `projects`, dealing with special cases on Windows
+/// where Claude stores them with slashes in paths, but we handle them with backslashes.
+/// As `projects` is based on an unmodified `~/.claude.json` file, we try harder to
+/// find a path match.
+fn find_project<'a>(
+    projects: &'a HashMap<String, Project>,
+    project_path: &Path,
+) -> Option<&'a Project> {
+    fn backslashes_to_slashes(path: &str) -> String {
+        path.replace('\\', "/")
+    }
+
+    let path = project_path.to_string_lossy();
+    if let Some(project) = projects.get(path.as_ref()) {
+        return Some(project);
+    }
+
+    let path_with_slashes = backslashes_to_slashes(path.as_ref());
+    // We might not have found it with backslashes, try again with slashes.
+    if path.contains('\\') {
+        if let Some(project) = projects.get(&path_with_slashes) {
+            return Some(project);
+        }
+    }
+
+    None
 }
 
 async fn read_claude_json() -> Option<ClaudeJson> {
@@ -225,4 +248,50 @@ async fn read_mcp_json(project_path: &Path) -> Option<McpJsonFile> {
     let string = fs::read_to_string(&path).await.ok()?;
     let out = serde_json_lenient::from_str(&string).ok()?;
     Some(out)
+}
+
+#[cfg(test)]
+mod find_project_tests {
+    use std::{collections::HashMap, path::PathBuf};
+
+    use super::{Project, find_project};
+
+    #[test]
+    fn matches_windows_and_posix_separators() {
+        let mut projects = HashMap::new();
+        projects.insert(
+            "C:/Users/test/workspace/repo".to_string(),
+            Project { mcp_servers: None },
+        );
+
+        let project = find_project(&projects, &PathBuf::from(r"C:\Users\test\workspace\repo"));
+        assert!(project.is_some());
+    }
+
+    #[test]
+    fn we_must_use_filesystem_paths() {
+        let mut projects = HashMap::new();
+        projects.insert(
+            "C:\\Users\\test\\workspace\\repo".to_string(),
+            Project { mcp_servers: None },
+        );
+
+        let project = find_project(&projects, &PathBuf::from("C:/Users/test/workspace/repo"));
+        assert!(
+            project.is_none(),
+            "if we were to use slashes in paths and claude.json doesn't, paths won't match"
+        );
+    }
+
+    #[test]
+    fn matches_direct_path_without_normalization() {
+        let mut projects = HashMap::new();
+        projects.insert(
+            "/home/test/workspace/repo".to_string(),
+            Project { mcp_servers: None },
+        );
+
+        let project = find_project(&projects, &PathBuf::from("/home/test/workspace/repo"));
+        assert!(project.is_some());
+    }
 }
