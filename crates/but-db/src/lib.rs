@@ -144,6 +144,14 @@ pub struct AppCacheHandle {
     path: PathBuf,
 }
 
+/// A structure to receive a project-local cache.
+pub struct CacheHandle {
+    /// The open connection to the cache.
+    conn: rusqlite::Connection,
+    /// The path to the project-local cache.
+    path: PathBuf,
+}
+
 /// An abstraction over an open database connection, and for access to the ORM layer and [transactions](DbHandle::transaction()).
 ///
 /// The underlying sqlite database is set up to use Rusts borrow-checker,

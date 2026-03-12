@@ -4,7 +4,8 @@ use tracing::instrument;
 
 use crate::{
     Context, LegacyProjectId, ProjectHandleOrLegacyProjectId, ThreadSafeContext, app_settings,
-    new_ondemand_app_cache, new_ondemand_db, new_ondemand_git2_repo, new_ondemand_repo,
+    new_ondemand_app_cache, new_ondemand_cache, new_ondemand_db, new_ondemand_git2_repo,
+    new_ondemand_repo,
 };
 
 pub(crate) mod types {
@@ -36,7 +37,8 @@ impl Context {
             legacy_project: legacy_project.clone(),
             repo: new_ondemand_repo(gitdir.clone()),
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-            db: new_ondemand_db(project_data_dir),
+            db: new_ondemand_db(project_data_dir.clone()),
+            cache: new_ondemand_cache(project_data_dir),
             app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
             app_cache_dir,
             workspace: Default::default(),
