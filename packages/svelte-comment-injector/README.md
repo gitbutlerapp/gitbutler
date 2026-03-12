@@ -25,7 +25,7 @@ Add the preprocessor to your Svelte configuration:
 
 ```js
 // svelte.config.js
-import svelteInjectComment from "svelte-devtools-comment";
+import svelteInjectComment from "@gitbutler/svelte-comment-injector";
 
 export default {
 	preprocess: [svelteInjectComment()],
@@ -39,7 +39,7 @@ You can customize the comment format by passing options to the preprocessor:
 
 ```js
 // svelte.config.js
-import svelteInjectComment from "svelte-devtools-comment";
+import svelteInjectComment from "@gitbutler/svelte-comment-injector";
 
 export default {
 	preprocess: [
