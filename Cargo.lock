@@ -806,6 +806,7 @@ dependencies = [
  "minus",
  "nonempty",
  "posthog-rs",
+ "rand 0.9.2",
  "ratatui",
  "regex",
  "rmcp",

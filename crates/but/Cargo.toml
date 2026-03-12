@@ -140,6 +140,7 @@ tempfile.workspace = true
 nonempty.workspace = true
 itertools.workspace = true
 self_cell.workspace = true
+rand.workspace = true
 
 [dev-dependencies]
 but-graph.workspace = true

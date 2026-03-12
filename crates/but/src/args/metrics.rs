@@ -62,3 +62,16 @@ pub enum CommandName {
     #[default]
     Unknown,
 }
+
+impl CommandName {
+    /// Percentage sample rate, between 0 and 1.
+    ///
+    /// 1 indicates that the command should always be submitted to posthog, and
+    /// 0 should never be submitted to posthog.
+    pub fn sample_rate(&self) -> f32 {
+        match self {
+            Self::Unknown | Self::Completions | Self::Status => 0.05,
+            _ => 1.0,
+        }
+    }
+}
