@@ -250,7 +250,7 @@ mod tests {
             use std::os::unix::ffi::OsStrExt as _;
 
             let bytes = b"/tmp/\xF1\xF2\xF3\xC0\xC1\xC2";
-            #[allow(invalid_from_utf8)]
+            #[expect(invalid_from_utf8)]
             let res = std::str::from_utf8(bytes);
             assert!(res.is_err(), "this is illformed UTF8");
             let encoded = encode(bytes);

@@ -14,7 +14,7 @@ use gitbutler_repo::{
 use gitbutler_stack::{Stack, StackId};
 
 use crate::askpass;
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub trait RepoActionsExt {
     fn fetch(&self, remote_name: &str, askpass: Option<String>) -> Result<()>;
     /// Returns the stderr output of the git executable if used.

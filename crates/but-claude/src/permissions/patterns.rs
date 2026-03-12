@@ -148,7 +148,6 @@ impl PathPattern {
 }
 
 /// What kind of pattern to serialize as.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum PathPatternKind {
     HomeRelative,

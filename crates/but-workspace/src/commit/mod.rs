@@ -141,7 +141,7 @@ pub mod merge {
                 tips.into_iter().map(|t| (I::Merge, t)).collect();
 
             let mut ran_merge_trials_loop_safety = false;
-            #[allow(clippy::indexing_slicing)]
+            #[expect(clippy::indexing_slicing)]
             'retry_loop: loop {
                 let mut prev_base_sidx = None;
                 let mut merge_tree_id = None;

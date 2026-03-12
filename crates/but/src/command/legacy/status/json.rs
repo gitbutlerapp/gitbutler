@@ -289,7 +289,6 @@ impl From<Vec<but_forge::CiCheck>> for Ci {
 }
 
 impl Branch {
-    #[allow(clippy::too_many_arguments)]
     pub fn from_branch_details(
         repo: &gix::Repository,
         cli_id: String,

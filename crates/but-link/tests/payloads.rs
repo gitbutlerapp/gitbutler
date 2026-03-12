@@ -1,7 +1,5 @@
-#[allow(dead_code)]
 #[path = "../src/payloads.rs"]
 mod payloads_impl;
-#[allow(dead_code)]
 #[path = "../src/text.rs"]
 mod text;
 

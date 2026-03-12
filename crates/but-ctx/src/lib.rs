@@ -380,7 +380,7 @@ impl Context {
     /// # IMPORTANT
     /// * if the workspace was changed, write the new workspace back into `&mut ws`.
     #[instrument(name = "Context::workspace_mut_and_db_mut", level = "debug", skip_all)]
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     pub fn workspace_mut_and_db_mut(
         &mut self,
     ) -> anyhow::Result<(
@@ -442,7 +442,7 @@ impl Context {
     /// * if the workspace was changed, write it back into `&mut ws`.
     /// * Keep the guard alive like `let (_guard, …) = …`!
     #[instrument(name = "Context::workspace_and_db_mut", level = "debug", skip_all)]
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     pub fn workspace_and_db_mut(
         &mut self,
     ) -> anyhow::Result<(
@@ -469,7 +469,6 @@ impl Context {
         level = "debug",
         skip_all
     )]
-    #[allow(clippy::type_complexity)]
     pub fn workspace_and_db_mut_with_perm(
         &mut self,
         _perm: &RepoShared,
@@ -501,7 +500,7 @@ impl Context {
     /// * if the workspace was changed, write it back into `&mut ws`.
     /// * Keep the guard alive like `let (_guard, …) = …`!
     #[instrument(name = "Context::workspace_mut_from_head", level = "debug", skip_all)]
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     pub fn workspace_mut_and_db(
         &mut self,
     ) -> anyhow::Result<(
@@ -526,7 +525,6 @@ impl Context {
         level = "debug",
         skip_all
     )]
-    #[allow(clippy::type_complexity)]
     pub fn workspace_mut_and_db_with_perm(
         &self,
         _perm: &RepoExclusive,
@@ -558,7 +556,7 @@ impl Context {
     /// # IMPORTANT
     /// * Keep the guard alive like `let (_guard, …) = …`!
     #[instrument(name = "Context::workspace_from_head", level = "debug", skip_all)]
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     pub fn workspace_and_db(
         &self,
     ) -> anyhow::Result<(
@@ -580,7 +578,6 @@ impl Context {
         level = "debug",
         skip_all
     )]
-    #[allow(clippy::type_complexity)]
     pub fn workspace_and_db_with_perm(
         &self,
         _perm: &RepoShared,

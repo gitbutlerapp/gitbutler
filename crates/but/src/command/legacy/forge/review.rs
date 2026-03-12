@@ -278,7 +278,7 @@ pub fn set_review_template(
 /// Create a new forge review for a branch.
 /// If no branch is specified, prompts the user to select one.
 /// If there is only one branch without a an acco, asks for confirmation.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub async fn create_review(
     ctx: &mut Context,
     branch: Option<String>,
@@ -447,7 +447,7 @@ fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<St
     Ok(branch_ids)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub async fn handle_multiple_branches_in_workspace(
     ctx: &mut Context,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
@@ -612,7 +612,7 @@ fn prompt_for_branch_selection(
     Ok(selected_branches)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 async fn publish_reviews_for_branch_and_dependents(
     ctx: &mut Context,
     branch_name: &str,
@@ -857,7 +857,7 @@ pub fn parse_review_message(content: &str) -> anyhow::Result<ForgeReviewMessage>
     Ok(ForgeReviewMessage { title, body })
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 async fn publish_review_for_branch(
     ctx: &mut Context,
     stack_id: Option<StackId>,

@@ -7,7 +7,7 @@ use gitbutler_branch_actions::BranchListingFilter;
 
 use crate::utils::OutputChannel;
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn list(
     ctx: &mut but_ctx::Context,
     local: bool,
@@ -236,7 +236,7 @@ pub fn list(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn output_json(
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
     branches: &[gitbutler_branch_actions::BranchListing],

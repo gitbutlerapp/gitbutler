@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use clap::{CommandFactory, Parser, error::ErrorKind};
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 #[path = "../src/cli.rs"]
 mod cli_impl;
 

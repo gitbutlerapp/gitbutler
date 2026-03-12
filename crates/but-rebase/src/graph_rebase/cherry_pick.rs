@@ -307,7 +307,7 @@ fn commit_from_unconflicted_tree<'repo>(
     .attach(repo))
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn commit_from_conflicted_tree<'repo>(
     parents: &[gix::ObjectId],
     mut to_rebase: but_core::Commit<'repo>,

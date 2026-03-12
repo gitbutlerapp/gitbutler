@@ -113,12 +113,10 @@ impl std::fmt::Display for GitlabAccountIdentifier {
 }
 
 pub enum GitLabAccount {
-    #[allow(dead_code)]
     Pat {
         username: String,
         access_token: Sensitive<String>,
     },
-    #[allow(dead_code)]
     SelfHosted {
         username: String,
         host: String,
