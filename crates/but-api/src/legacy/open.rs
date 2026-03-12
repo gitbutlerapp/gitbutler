@@ -1,7 +1,6 @@
 //! In place of commands.rs
 use std::env;
 
-use anyhow::anyhow;
 use anyhow::{Context as _, Result, bail};
 use but_api_macros::but_api;
 use tracing::instrument;
@@ -406,20 +405,26 @@ pub fn show_in_finder(path: String) -> Result<()> {
     {
         // For directories, open the directory directly
         if std::path::Path::new(&path).is_dir() {
-            open_that(&Url::from_file_path(&path).map_err(|_| anyhow!("Failed to parse URL"))?)
-                .with_context(|| format!("Failed to open directory '{path}' in file manager"))?;
+            open_that(
+                &Url::from_file_path(&path).map_err(|_| anyhow::anyhow!("Failed to parse URL"))?,
+            )
+            .with_context(|| format!("Failed to open directory '{path}' in file manager"))?;
         } else {
             // For files, try to open the parent directory
             if let Some(parent) = std::path::Path::new(&path).parent() {
                 open_that(
-                    &Url::from_file_path(parent).map_err(|_| anyhow!("Failed to parse URL"))?,
+                    &Url::from_file_path(parent)
+                        .map_err(|_| anyhow::anyhow!("Failed to parse URL"))?,
                 )
                 .with_context(|| {
                     format!("Failed to open parent directory of '{path}' in file manager",)
                 })?;
             } else {
-                open_that(&Url::from_file_path(&path).map_err(|_| anyhow!("Failed to parse URL"))?)
-                    .with_context(|| format!("Failed to open '{path}' in file manager"))?;
+                open_that(
+                    &Url::from_file_path(&path)
+                        .map_err(|_| anyhow::anyhow!("Failed to parse URL"))?,
+                )
+                .with_context(|| format!("Failed to open '{path}' in file manager"))?;
             }
         }
     }
