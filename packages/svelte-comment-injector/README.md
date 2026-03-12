@@ -16,7 +16,7 @@ A Svelte preprocessor that injects an HTML comment at the top of every component
 ## 📦 Installation
 
 ```bash
-npm install svelte-devtools-comment --save-dev
+npm install @gitbutler/svelte-comment-injector --save-dev
 ```
 
 ## ⚙️ Usage
