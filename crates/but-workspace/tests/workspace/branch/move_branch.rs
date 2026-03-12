@@ -43,8 +43,8 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     // Put C on top of A
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
-            &ws,
             editor,
+            &ws,
             "refs/heads/C".try_into()?,
             "refs/heads/A".try_into()?,
         )?;
@@ -115,8 +115,8 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     let editor = ws.graph.to_editor(&repo)?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
-            &ws,
             editor,
+            &ws,
             "refs/heads/B".try_into()?,
             "refs/heads/A".try_into()?,
         )?;
@@ -188,8 +188,8 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     // Put A on top of C
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
-            &ws,
             editor,
+            &ws,
             "refs/heads/A".try_into()?,
             "refs/heads/C".try_into()?,
         )?;
@@ -258,8 +258,8 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
     // Put B on top of C
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
-            &ws,
             editor,
+            &ws,
             "refs/heads/B".try_into()?,
             "refs/heads/C".try_into()?,
         )?;
@@ -331,8 +331,8 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
     // Put A on top of B, and below C
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
-            &ws,
             editor,
+            &ws,
             "refs/heads/A".try_into()?,
             "refs/heads/B".try_into()?,
         )?;
@@ -393,8 +393,8 @@ fn move_empty_branch() -> anyhow::Result<()> {
     // Put B on top of A
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
-            &ws,
             editor,
+            &ws,
             "refs/heads/B".try_into()?,
             "refs/heads/A".try_into()?,
         )?;
@@ -449,8 +449,8 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
     // Put A on top of B
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
-            &ws,
             editor,
+            &ws,
             "refs/heads/A".try_into()?,
             "refs/heads/B".try_into()?,
         )?;

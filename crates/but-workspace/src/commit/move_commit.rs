@@ -9,11 +9,23 @@ pub(crate) mod function {
 
     /// Move a commit.
     ///
+    /// `editor` is assumed to have been generated from the given `workspace`
+    /// and therefore aligned.
+    ///
+    /// `workspace` - Used for getting the surrounding context of the commit being moved.
+    ///     In the future, we should not rely on the projection and do it fully on the graph.
+    ///
+    /// `subject_commit` - The commit to be moved.
+    ///
+    /// `anchor` - A git graph node selector to move the subject commit relative to.
+    ///
+    /// `side` - The side relative to the anchor at which to insert the subject commit.
+    ///
     /// The subject commit will be detached from the source segment, and inserted relative
     /// to a given anchor (branch or commit).
     pub fn move_commit(
-        workspace: &but_graph::projection::Workspace,
         mut editor: Editor,
+        workspace: &but_graph::projection::Workspace,
         subject_commit: impl ToCommitSelector,
         anchor: impl ToSelector,
         side: InsertSide,
@@ -21,9 +33,7 @@ pub(crate) mod function {
         let (subject_commit_selector, subject_commit) =
             editor.find_selectable_commit(subject_commit)?;
 
-        let Some(subject) = workspace.find_commit_and_containers(&subject_commit.id) else {
-            bail!("Failed to find the commit to move in the workspace.");
-        };
+        let subject = retrieve_commit_and_containers(workspace, &subject_commit)?;
 
         let (source_stack, source_segment, _) = subject;
 
@@ -50,14 +60,51 @@ pub(crate) mod function {
             index_of_subject_commit,
         )?;
 
+        // Step 2: Disconnect
         editor.disconnect_segment_from(
             commit_delimiter.clone(),
             child_to_disconnect,
             parent_to_disconnect,
             false,
         )?;
+
+        // Step 3: Insert
         editor.insert_segment(anchor, commit_delimiter, side)?;
         editor.rebase()
+    }
+
+    /// Determine the surrounding context of the commit to be moved
+    ///
+    /// Currently, this looks into the workspace projection in order to determine **where to take the commit from**.
+    ///
+    /// ### The issue
+    /// It's impossible to know for sure what is the exact intention of 'moving a commit' inside a complex git graph.
+    /// A commit, can have N children and M parents. 'Moving' it somewhere else can imply:
+    /// - Disconnecting all parents and children, and inserting it somewhere else.
+    /// - Disconnecting the first parent and all children, and then inserting.
+    /// - Disconnecting *some* parents and *some* children, and then inserting it.
+    ///
+    /// ### The GitButler assumption
+    /// In the context of a GitButler workspace (as of this writing), we want to disconnect the commit from the linear
+    /// segments and move them to another position in the same or other segment. That way, any other parents and
+    /// children that are not part of the source segment are kept.
+    ///
+    /// ### What the future holds
+    /// In the future, where we're not afraid of complex graphs, we've figured out UX and data wrangling,
+    /// the concept of a segment might not hold, and hence we'll have to figure out a better way of determining
+    /// what to cut (e.g. letting the clients decide what to cut).
+    fn retrieve_commit_and_containers<'a>(
+        workspace: &'a but_graph::projection::Workspace,
+        subject_commit: &but_core::CommitOwned,
+    ) -> anyhow::Result<(
+        &'a but_graph::projection::Stack,
+        &'a but_graph::projection::StackSegment,
+        &'a but_graph::projection::StackCommit,
+    )> {
+        let Some(subject) = workspace.find_commit_and_containers(&subject_commit.id) else {
+            bail!("Failed to find the commit to move in the workspace.");
+        };
+        Ok(subject)
     }
 
     /// Determine which children to disconnect, based on the position of the subject commit in the segment.
