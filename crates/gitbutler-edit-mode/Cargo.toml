@@ -10,7 +10,7 @@ rust-version.workspace = true
 doctest = false
 
 [dependencies]
-but-workspace.workspace = true
+but-graph.workspace = true
 but-rebase.workspace = true
 but-core.workspace = true
 but-oxidize.workspace = true
