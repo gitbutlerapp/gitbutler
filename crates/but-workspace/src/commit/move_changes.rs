@@ -92,7 +92,7 @@ pub(crate) mod function {
         editor.replace(source_selector, Step::new_pick(new_source_commit_id))?;
 
         // Rebase and get potentially rebased destination commit
-        let mut editor = editor.rebase()?.to_editor();
+        let mut editor = editor.rebase()?.into_editor();
         let (_, rebased_destination_commit) =
             editor.find_selectable_commit(destination_selector)?;
         let destination_tree_id = {
