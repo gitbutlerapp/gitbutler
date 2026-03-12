@@ -17,13 +17,8 @@ pub fn commit_changes_with_line_stats_by_worktree_dir(
     repo: &gix::Repository,
     commit_id: gix::ObjectId,
 ) -> anyhow::Result<TreeChanges> {
-    let parent_id = commit_id
-        .attach(repo)
-        .object()?
-        .into_commit()
-        .parent_ids()
-        .map(|id| id.detach())
-        .next();
+    let commit = commit_id.attach(repo).object()?.into_commit();
+    let parent_id = super::diff_base_commit_id(repo, commit.parent_ids().map(|id| id.detach()))?;
     let (changes, stats) = super::tree_changes_with_line_stats(repo, parent_id, commit_id)
         .map(|(c, s)| (c.into_iter().map(Into::into).collect(), s.into()))?;
     Ok(TreeChanges { changes, stats })

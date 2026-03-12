@@ -89,7 +89,7 @@ pub fn list_commit_files(
         gix::prelude::ObjectIdExt::attach(commit_id, &repo),
         false,
     )
-    .map(|d| d.diff_with_first_parent)
+    .map(|d| d.changes)
 }
 
 pub fn create_commit(

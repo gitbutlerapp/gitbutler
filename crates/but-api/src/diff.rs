@@ -35,14 +35,14 @@ pub mod json {
         fn from(value: but_core::diff::CommitDetails) -> Self {
             let but_core::diff::CommitDetails {
                 commit,
-                diff_with_first_parent,
+                changes,
                 line_stats,
                 conflict_entries,
             } = value;
 
             CommitDetails {
                 commit: commit.into(),
-                changes: diff_with_first_parent.into_iter().map(Into::into).collect(),
+                changes: changes.into_iter().map(Into::into).collect(),
                 line_stats,
                 conflict_entries,
             }

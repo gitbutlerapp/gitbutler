@@ -789,7 +789,7 @@ pub fn print_group(
                     &repo,
                     commit.short_id.clone(),
                     &commit.inner,
-                    CommitChanges::Remote(&details.diff_with_first_parent),
+                    CommitChanges::Remote(&details.changes),
                     CommitClassification::Upstream,
                     false,
                     show_files,

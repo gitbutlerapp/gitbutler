@@ -116,7 +116,7 @@ impl DiffFileEntry {
             but_api::diff::commit_details(ctx, commit_id, but_api::diff::ComputeLineStats::No)?;
 
         result
-            .diff_with_first_parent
+            .changes
             .into_iter()
             .filter(|change| path_filter.as_ref().is_none_or(|p| p == &change.path))
             .map(|change| {

@@ -107,6 +107,30 @@ impl ModeFlags {
         }
     }
 }
+/// Select the commit/tree to diff against:
+/// - root commits use `None` (empty tree),
+/// - regular commits use their first and only parent,
+/// - merge commits use the merge-base of all parents.
+pub(crate) fn diff_base_commit_id(
+    repo: &gix::Repository,
+    mut parent_ids: impl Iterator<Item = gix::ObjectId>,
+) -> anyhow::Result<Option<gix::ObjectId>> {
+    let Some(first_parent_id) = parent_ids.next() else {
+        return Ok(None);
+    };
+    let Some(second_parent_id) = parent_ids.next() else {
+        return Ok(Some(first_parent_id));
+    };
+
+    Ok(Some(
+        repo.merge_base_octopus(
+            [first_parent_id, second_parent_id]
+                .into_iter()
+                .chain(parent_ids),
+        )?
+        .detach(),
+    ))
+}
 
 #[cfg(test)]
 mod tests {

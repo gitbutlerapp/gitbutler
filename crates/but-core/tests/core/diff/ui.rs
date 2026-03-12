@@ -739,3 +739,48 @@ pub fn repo(name: &str) -> anyhow::Result<gix::Repository> {
         gix::open::Options::isolated(),
     )?)
 }
+
+#[test]
+fn merge_commit_ui_diff_uses_merge_base() -> anyhow::Result<()> {
+    let repo =
+        but_testsupport::read_only_in_memory_scenario("merge-with-two-branches-line-offset")?;
+    let merge_commit_id = repo.rev_parse_single("merge")?.detach();
+    let actual =
+        but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(&repo, merge_commit_id)?;
+    assert_eq!(actual.stats.lines_added, 19);
+    assert_eq!(actual.stats.lines_removed, 0);
+    assert_eq!(actual.stats.files_changed, 1);
+
+    let actual_diff = actual.try_to_unidiff(&repo, 0)?;
+    let actual_diff: &[u8] = actual_diff.as_ref();
+    assert_eq!(
+        actual_diff,
+        br#"--- a/file
++++ b/file
+@@ -1,0 +1,9 @@
++1
++2
++3
++4
++5
++6
++7
++8
++9
+@@ -12,0 +21,10 @@
++21
++22
++23
++24
++25
++26
++27
++28
++29
++30
+
+"#
+    );
+
+    Ok(())
+}

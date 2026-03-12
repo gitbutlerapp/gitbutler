@@ -106,7 +106,7 @@ pub(crate) fn commit(
 
     if let Some(json_out) = out.for_json() {
         let changes: Vec<JsonChange> = result
-            .diff_with_first_parent
+            .changes
             .into_iter()
             .filter(|change| path.as_ref().is_none_or(|p| p == &change.path))
             .map(|change| {
@@ -120,7 +120,7 @@ pub(crate) fn commit(
         let output = JsonDiffOutput { changes };
         json_out.write_value(output)?;
     } else if let Some(out) = out.for_human_or_shell() {
-        for change in result.diff_with_first_parent {
+        for change in result.changes {
             if path.as_ref().is_none_or(|p| p == &change.path) {
                 let patch = but_api::legacy::diff::tree_change_diffs(ctx, change.clone().into())
                     .ok()

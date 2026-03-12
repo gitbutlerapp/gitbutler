@@ -3,8 +3,9 @@
 pub struct CommitDetails {
     /// The fully decoded commit.
     pub commit: crate::CommitOwned,
-    /// The changes between the tree of the first parent and this commit.
-    pub diff_with_first_parent: Vec<crate::TreeChange>,
+    /// The changes between the tree of the first parent and this commit, or the merge-base between
+    /// all parents of this commit and this commit if it's a merge-commit.
+    pub changes: Vec<crate::TreeChange>,
     /// The stats of the changes, which are computed only when explicitly requested.
     pub line_stats: Option<LineStats>,
     /// Represents what was causing a particular commit to conflict when rebased.
@@ -30,7 +31,8 @@ impl CommitDetails {
     pub fn from_commit_id(commit_id: gix::Id, line_stats: bool) -> anyhow::Result<Self> {
         let repo = commit_id.repo;
         let commit = repo.find_commit(commit_id)?;
-        let first_parent_commit_id = commit.parent_ids().map(|id| id.detach()).next();
+        let first_parent_commit_id =
+            super::diff_base_commit_id(repo, commit.parent_ids().map(|id| id.detach()))?;
 
         let changes =
             crate::diff::TreeChanges::from_trees(repo, first_parent_commit_id, commit_id.detach())?;
@@ -42,7 +44,7 @@ impl CommitDetails {
         let conflict_entries = commit.conflict_entries()?;
         Ok(CommitDetails {
             commit: commit.detach(),
-            diff_with_first_parent: changes.into_tree_changes(),
+            changes: changes.into_tree_changes(),
             line_stats: line_stats.map(Into::into),
             conflict_entries,
         })
