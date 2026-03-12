@@ -237,7 +237,7 @@ impl GraphExt for Graph {
 
 impl SuccessfulRebase {
     /// Converts a SuccessfulRebase back into another editor for multi-step operations
-    pub fn to_editor(self) -> Editor {
+    pub fn into_editor(self) -> Editor {
         Editor {
             graph: self.graph,
             initial_references: self.initial_references,
