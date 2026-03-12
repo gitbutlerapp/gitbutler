@@ -19,6 +19,35 @@ use tracing::instrument;
 
 use crate::json::HexHash;
 
+mod json {
+    use but_workspace::legacy::MoveChangesResult;
+    use serde::Serialize;
+
+    use crate::json::HexHash;
+
+    /// UI type for a move changes between commits result.
+    #[derive(Debug, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    /// UI type for a move changes between commits result
+    pub struct UIMoveChangesResult {
+        /// Commits that have been mapped from one thing to another
+        pub replaced_commits: Vec<(HexHash, HexHash)>,
+    }
+
+    impl From<MoveChangesResult> for UIMoveChangesResult {
+        fn from(value: MoveChangesResult) -> Self {
+            let MoveChangesResult { replaced_commits } = value;
+
+            Self {
+                replaced_commits: replaced_commits
+                    .into_iter()
+                    .map(|(x, y)| (x.into(), y.into()))
+                    .collect(),
+            }
+        }
+    }
+}
+
 #[but_api(napi, try_from = but_workspace::ui::RefInfo)]
 #[instrument(err(Debug))]
 pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
@@ -383,25 +412,6 @@ pub fn discard_worktree_changes(
         tracing::warn!(?refused, "Failed to discard at least one hunk");
     }
     Ok(refused)
-}
-
-mod json {
-    use but_workspace::legacy::MoveChangesResult;
-
-    pub use crate::commit::json::UIMoveChangesResult;
-
-    impl From<MoveChangesResult> for UIMoveChangesResult {
-        fn from(value: MoveChangesResult) -> Self {
-            let MoveChangesResult { replaced_commits } = value;
-
-            Self {
-                replaced_commits: replaced_commits
-                    .into_iter()
-                    .map(|(x, y)| (x.into(), y.into()))
-                    .collect(),
-            }
-        }
-    }
 }
 
 #[but_api(json::UIMoveChangesResult)]

@@ -128,7 +128,7 @@
 			projectId,
 			stackId,
 			seriesName: branchName,
-			strategy: "rebase",
+			integrationStrategy: { type: "rebase" },
 		});
 	}
 
