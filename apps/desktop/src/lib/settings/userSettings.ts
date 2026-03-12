@@ -54,6 +54,8 @@ export interface Settings {
 	allInOneDiff: boolean;
 	highlightDiffs: boolean;
 	svgAsImage: boolean;
+	syntaxThemeLight: string;
+	syntaxThemeDark: string;
 }
 
 const defaults: Settings = {
@@ -82,6 +84,8 @@ const defaults: Settings = {
 	allInOneDiff: false,
 	highlightDiffs: false,
 	svgAsImage: true,
+	syntaxThemeLight: "github-light",
+	syntaxThemeDark: "github-dark",
 };
 
 export function loadUserSettings(platformName: string): Writable<Settings> {

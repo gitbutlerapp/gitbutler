@@ -2,6 +2,7 @@
 	import HunkDiffRow, { type ContextMenuParams } from "$components/hunkDiff/HunkDiffRow.svelte";
 	import LineSelection from "$components/hunkDiff/lineSelection.svelte";
 	import {
+		clearHighlightingCaches,
 		type ContentSection,
 		type DependencyLock,
 		generateRows,
@@ -12,6 +13,7 @@
 		type Row,
 		SectionType,
 	} from "$lib/utils/diffParsing";
+	import { onHighlighterChange } from "$lib/utils/shikiHighlighter";
 	import type { LineSelectionParams } from "$components/hunkDiff/lineSelection.svelte";
 	import type { Snippet } from "svelte";
 
@@ -54,10 +56,23 @@
 	}: Props = $props();
 
 	const lineSelection = new LineSelection();
+
+	// Reactive trigger: re-compute rows when shiki highlighter becomes ready
+	// or the app theme (light/dark) changes.
+	let highlighterVersion = $state(0);
+	$effect(() => {
+		return onHighlighterChange(() => {
+			clearHighlightingCaches();
+			highlighterVersion += 1;
+		});
+	});
+
 	const parser = $derived(parserFromFilename(filePath));
-	const renderRows = $derived(
-		generateRows(filePath, content, inlineUnifiedDiffs, parser, undefined, lineLocks),
-	);
+	const renderRows = $derived.by(() => {
+		// Access highlighterVersion so rows recompute when shiki finishes loading
+		void highlighterVersion;
+		return generateRows(filePath, content, inlineUnifiedDiffs, parser, undefined, lineLocks);
+	});
 	const clickable = $derived(!!isSelectable);
 	const maxLineNumber = $derived.by(() => {
 		if (renderRows.length === 0) return 0;
