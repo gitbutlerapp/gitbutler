@@ -177,7 +177,7 @@ fn move_branch_impl(
     let (_guard, repo, mut workspace, _) = ctx.workspace_mut_and_db()?;
     let editor = workspace.graph.to_editor(&repo)?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
-        but_workspace::branch::move_branch(&workspace, editor, subject_branch, target_branch)?;
+        but_workspace::branch::move_branch(editor, &workspace, subject_branch, target_branch)?;
 
     let materialization = rebase.materialize()?;
     if let Some((ws_meta, ref_name)) = ws_meta.zip(workspace.ref_name()) {

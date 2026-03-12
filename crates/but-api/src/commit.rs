@@ -657,7 +657,7 @@ pub fn commit_move_only(
     let anchor_selector = editor.select_commit(anchor_commit_id)?;
 
     let rebase =
-        but_workspace::commit::move_commit(&ws, editor, subject_commit_id, anchor_selector, side)?;
+        but_workspace::commit::move_commit(editor, &ws, subject_commit_id, anchor_selector, side)?;
 
     let materialized = rebase.materialize()?;
     ws.refresh_from_head(&repo, &meta)?;
@@ -706,8 +706,8 @@ pub fn commit_move_to_branch_only(
     let anchor_selector = editor.select_reference(anchor_ref)?;
 
     let rebase = but_workspace::commit::move_commit(
-        &ws,
         editor,
+        &ws,
         subject_commit_id,
         anchor_selector,
         InsertSide::Below,

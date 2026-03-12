@@ -30,6 +30,12 @@ pub(super) mod function {
 
     /// Move a branch between stacks in the `workspace`.
     ///
+    /// `editor` is assumed to have been generated from the given `workspace`
+    /// and therefore aligned.
+    ///
+    /// `workspace` - Used for getting the surrounding context of the commit being moved.
+    ///     In the future, we should not rely on the projection and do it fully on the graph.
+    ///
     /// `subject_branch_name` is the full reference name of the branch to move.
     ///
     /// `target_branch_name` is the full reference name of the branch to move the subject
@@ -38,23 +44,13 @@ pub(super) mod function {
     /// Returns:
     /// - Successful rebase
     pub fn move_branch(
-        workspace: &but_graph::projection::Workspace,
         mut editor: Editor,
+        workspace: &but_graph::projection::Workspace,
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
     ) -> anyhow::Result<Outcome> {
-        let Some(source) = workspace.find_segment_and_stack_by_refname(subject_branch_name) else {
-            bail!(
-                "Couldn't find branch to move in workspace with reference name: {subject_branch_name}"
-            );
-        };
-
-        let Some(destination) = workspace.find_segment_and_stack_by_refname(target_branch_name)
-        else {
-            bail!(
-                "Couldn't find target branch to move in workspace with reference name: {target_branch_name}"
-            );
-        };
+        let (source, destination) =
+            retrieve_branches_and_containers(workspace, subject_branch_name, target_branch_name)?;
 
         let Some(workspace_head) = workspace.tip_commit().map(|commit| commit.id) else {
             bail!("Couldn't find workspace head.")
@@ -122,6 +118,56 @@ pub(super) mod function {
             rebase: editor.rebase()?,
             ws_meta,
         })
+    }
+
+    /// A segment and its container stack.
+    type WorkspaceSegmentContext<'a> = (
+        &'a but_graph::projection::Stack,
+        &'a but_graph::projection::StackSegment,
+    );
+
+    /// Determine the surrounding context of the subject and target branches.
+    ///
+    /// Currently, this looks into the workspace projection in order to determine **where to take the branch from and to**.
+    ///
+    /// ### The issue
+    /// It's impossible to know for sure what is the exact intention of 'moving a branch' inside a complex git graph.
+    /// Any commit, can have N children and M parents. 'Moving' it somewhere else can imply:
+    /// - Disconnecting all parents and children, and inserting it somewhere else.
+    /// - Disconnecting the first parent and all children, and then inserting.
+    /// - Disconnecting *some* parents and *some* children, and then inserting it.
+    ///
+    /// This condition holds for every commit in a branch.
+    ///
+    /// ### The GitButler assumption
+    /// In the context of a GitButler workspace (as of this writing), we want to disconnect the branch (segment) from
+    /// the stack, and insert it on top of another. In graph terms, this means that we:
+    /// - Disconnect the reference node from the base segment (the branch under the subject or the target base)
+    /// - Disconnect the last commit node of the child segment (the branch over the subject or the workspace commit)
+    /// - Nothing else. Other parentage and children are kept, since this is what we care about in a GB workspace world.
+    ///
+    /// ### What the future holds
+    /// In the future, where we're not afraid of complex graphs, we've figured out UX and data wrangling,
+    /// the concept of a segment might not hold, and hence we'll have to figure out a better way of determining
+    /// what to cut (e.g. letting the clients decide what to cut).
+    fn retrieve_branches_and_containers<'a>(
+        workspace: &'a but_graph::projection::Workspace,
+        subject_branch_name: &FullNameRef,
+        target_branch_name: &FullNameRef,
+    ) -> anyhow::Result<(WorkspaceSegmentContext<'a>, WorkspaceSegmentContext<'a>)> {
+        let Some(source) = workspace.find_segment_and_stack_by_refname(subject_branch_name) else {
+            bail!(
+                "Couldn't find branch to move in workspace with reference name: {subject_branch_name}"
+            );
+        };
+
+        let Some(destination) = workspace.find_segment_and_stack_by_refname(target_branch_name)
+        else {
+            bail!(
+                "Couldn't find target branch to move in workspace with reference name: {target_branch_name}"
+            );
+        };
+        Ok((source, destination))
     }
 }
 
