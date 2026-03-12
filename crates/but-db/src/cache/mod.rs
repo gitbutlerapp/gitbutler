@@ -16,6 +16,7 @@ mod table;
 
 #[rustfmt::skip]
 pub use table::{
+    analytics::{AnalyticsHandle, AnalyticsHandleMut},
     update::{CachedCheckResult, CheckUpdateStatus},
 };
 

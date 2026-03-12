@@ -1,5 +1,6 @@
 use std::{collections::HashMap, env};
 
+use but_db::AppCacheHandle;
 use but_settings::AppSettings;
 use clap::ValueEnum;
 use command_group::AsyncCommandGroup;
@@ -338,7 +339,7 @@ impl BackgroundMetrics {
             tokio::task::spawn(async move {
                 let client = client_future.await;
                 while let Some(event) = receiver.recv().await {
-                    do_capture(&client, event, &app_settings).await.ok();
+                    do_capture(&client, &app_settings, event).await.ok();
                 }
             });
         }
@@ -356,16 +357,35 @@ impl BackgroundMetrics {
 /// Capture an event *only* if `app_settings.telemetry.app_metrics_enabled` is `true`.
 pub async fn capture_event_blocking(app_settings: &AppSettings, event: Event) {
     if let Some(client) = posthog_client(app_settings.clone()) {
-        do_capture(&client.await, event, app_settings).await.ok();
+        do_capture(&client.await, app_settings, event).await.ok();
     }
+}
+
+fn should_send_metrics() -> anyhow::Result<bool> {
+    let app_cache_dir = but_path::app_cache_dir().ok();
+    let mut cache = AppCacheHandle::new_in_directory(app_cache_dir);
+    let mut tx = cache.deferred_transaction()?;
+    let count = tx.analytics().get_current_period();
+    // 1000 posthog events have been collected in the last day, we are probably
+    // in a tight loop.
+    if count >= 1000 {
+        return Ok(false);
+    }
+    tx.analytics_mut()?.record_event_sent()?;
+    tx.commit()?;
+    Ok(true)
 }
 
 /// Note that `client` is *only* available if telemetry is enabled.
 async fn do_capture(
     client: &Client,
-    event: Event,
     app_settings: &AppSettings,
-) -> Result<(), posthog_rs::Error> {
+    event: Event,
+) -> anyhow::Result<()> {
+    if !tokio::task::spawn_blocking(should_send_metrics).await?? {
+        return Ok(());
+    }
+
     if event.event_name.sample_rate() < rand::rng().sample::<f32, _>(OpenClosed01) {
         return Ok(());
     }
@@ -381,7 +401,10 @@ async fn do_capture(
     for (key, prop) in event.props {
         let _ = posthog_event.insert_prop(key, prop);
     }
-    client.capture(posthog_event).await
+    client
+        .capture(posthog_event)
+        .await
+        .map_err(|_| anyhow::anyhow!("Failed to capture posthog event"))
 }
 
 fn machine() -> String {

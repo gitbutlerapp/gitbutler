@@ -1,1 +1,2 @@
+mod analytics;
 mod update;
