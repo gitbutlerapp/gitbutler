@@ -43,8 +43,8 @@ function init-repo-with-files-and-remote () {
 EOF
 
   # Make sure the target is set.
-  mkdir .git/gitbutler.dev
-  cat <<EOF >>.git/gitbutler.dev/virtual_branches.toml
+  mkdir .git/gitbutler
+  cat <<EOF >>.git/gitbutler/virtual_branches.toml
 [default_target]
    branchName = "main"
    remoteName = "origin"
@@ -62,4 +62,3 @@ function commit() {
   local message=${1:?first argument is the commit message}
   git commit -am "$message" --allow-empty
 }
-
