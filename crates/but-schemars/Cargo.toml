@@ -14,6 +14,7 @@ legacy = []
 
 [dependencies]
 schemars.workspace = true
+inventory.workspace = true
 
 [lints]
 workspace = true

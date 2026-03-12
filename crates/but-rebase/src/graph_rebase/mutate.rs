@@ -13,6 +13,7 @@ use crate::graph_rebase::{
 /// Describes where relative to the selector a step should be inserted
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub enum InsertSide {
     /// When inserting above, any nodes that point to the selector will now
     /// point to the inserted node instead.
@@ -25,6 +26,8 @@ pub enum InsertSide {
     /// IE: Any parent commits will become a parent of what is getting inserted.
     Below,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(InsertSide);
 
 /// Defines the start and end of a segment by pointing to it's parent-most and child-most nodes.
 #[derive(Debug, Clone)]

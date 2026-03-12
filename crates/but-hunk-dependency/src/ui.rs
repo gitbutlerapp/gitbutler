@@ -37,15 +37,13 @@ pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct HunkDependencies {
     /// A map from hunk diffs to stack and commit dependencies.
-    #[cfg_attr(
-        feature = "export-schema",
-        schemars(schema_with = "hunk_dependency_diffs_schema")
-    )]
     pub diffs: Vec<(String, DiffHunk, Vec<HunkLock>)>,
     /// Errors that occurred during the calculation that should be presented in some way.
     // TODO: Does the UI really use whatever partial result that there may be? Should this be a real error?
     pub errors: Vec<crate::CalculationError>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HunkDependencies);
 
 impl HunkDependencies {
     /// Calculate all hunk dependencies using a preparepd [`crate::WorkspaceRanges`].
@@ -83,16 +81,6 @@ impl HunkDependencies {
     }
 }
 
-#[cfg(feature = "export-schema")]
-fn hunk_dependency_diffs_schema(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
-    /// A mirror of the tuple `(String, DiffHunk, Vec<HunkLock>)` for schema generation.
-    #[derive(schemars::JsonSchema)]
-    #[expect(dead_code)]
-    struct HunkDependencyDiff(String, DiffHunk, Vec<HunkLock>);
-
-    generate.subschema_for::<Vec<HunkDependencyDiff>>()
-}
-
 /// A commit that owns this lock, along with the stack that owns it.
 /// A hunk is locked when it depends on changes in commits that are in your workspace. A hunk can
 /// be locked to more than one branch if it overlaps with more than one committed hunk.
@@ -111,6 +99,8 @@ pub struct HunkLock {
     )]
     pub commit_id: gix::ObjectId,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HunkLock);
 
 /// The target of a hunk lock. If a stack is identifiable, then it's StackId
 /// will be provided.
@@ -119,13 +109,21 @@ pub struct HunkLock {
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum HunkLockTarget {
     /// References a stack that has a StackId.
-    Stack(StackId),
+    Stack(
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(schema_with = "but_schemars::stack_id")
+        )]
+        StackId,
+    ),
     /// The hunk is locked to a stack that we can't reference because it didn't
     /// have a StackId. This is likely because the stack that the change is
     /// locked to doesn't have any associated metadata or doesn't have anything
     /// we can use to associate it with metadata.
     Unidentified,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HunkLockTarget);
 
 impl From<HunkLockTarget> for Option<StackId> {
     fn from(val: HunkLockTarget) -> Self {

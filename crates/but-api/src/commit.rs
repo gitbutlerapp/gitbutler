@@ -72,6 +72,8 @@ pub mod json {
         )]
         pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
     }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(UIMoveChangesResult);
 
     impl From<MoveChangesResult> for UIMoveChangesResult {
         fn from(value: MoveChangesResult) -> Self {
@@ -108,6 +110,8 @@ pub mod json {
         )]
         pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
     }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(UICommitCreateResult);
 
     impl From<CommitCreateResult> for UICommitCreateResult {
         fn from(value: CommitCreateResult) -> Self {
@@ -147,6 +151,8 @@ pub mod json {
         )]
         pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
     }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(UICommitRewordResult);
 
     impl From<CommitRewordResult> for UICommitRewordResult {
         fn from(value: CommitRewordResult) -> Self {
@@ -181,6 +187,8 @@ pub mod json {
         )]
         pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
     }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(UICommitInsertBlankResult);
 
     impl From<CommitInsertBlankResult> for UICommitInsertBlankResult {
         fn from(value: CommitInsertBlankResult) -> Self {
@@ -212,6 +220,8 @@ pub mod json {
         )]
         pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
     }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(UICommitMoveResult);
 
     impl From<CommitMoveResult> for UICommitMoveResult {
         fn from(value: CommitMoveResult) -> Self {
@@ -297,6 +307,8 @@ pub mod ui {
         #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
         Reference(gix::refs::FullName),
     }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(RelativeTo);
 
     impl From<but_rebase::graph_rebase::mutate::RelativeTo<'_>> for RelativeTo {
         fn from(value: but_rebase::graph_rebase::mutate::RelativeTo) -> Self {

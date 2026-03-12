@@ -34,6 +34,8 @@ pub enum ForgeUser {
     GitHub(but_github::GithubAccountIdentifier),
     GitLab(but_gitlab::GitlabAccountIdentifier),
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ForgeUser);
 
 impl ForgeUser {
     pub fn github(&self) -> Option<&but_github::GithubAccountIdentifier> {

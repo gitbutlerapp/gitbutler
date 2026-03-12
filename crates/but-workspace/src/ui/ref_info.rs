@@ -32,6 +32,8 @@ pub struct BranchReference {
     /// The short version of `full_name_bytes` for display.
     pub display_name: String,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(BranchReference);
 
 impl From<gix::refs::FullName> for BranchReference {
     fn from(value: gix::refs::FullName) -> Self {
@@ -64,6 +66,8 @@ pub struct RemoteTrackingReference {
     /// The symbolic name of the remote, like `origin`, or `origin/other`.
     pub remote_name: String,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(RemoteTrackingReference);
 
 impl RemoteTrackingReference {
     /// Create a new instance from `ref_name` and `remote_names`, essentially splitting the remote
@@ -112,6 +116,8 @@ pub struct Target {
     /// The amount of commits that aren't reachable by any segment in the workspace, they are in its future.
     pub commits_ahead: usize,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(Target);
 
 impl Target {
     fn for_ui(
@@ -169,6 +175,8 @@ pub(crate) mod inner {
         /// The workspace represents what `HEAD` is pointing to.
         pub is_entrypoint: bool,
     }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(RefInfo);
 
     impl RefInfo {
         /// Make sure only the stack and segment that is the entrypoint remains.
@@ -263,6 +271,8 @@ pub struct Stack {
     /// This array is never empty.
     pub segments: Vec<Segment>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(Stack);
 
 impl Stack {
     fn for_ui(
@@ -340,6 +350,8 @@ pub struct Segment {
     )]
     pub base: Option<gix::ObjectId>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(Segment);
 
 impl Segment {
     fn for_ui(

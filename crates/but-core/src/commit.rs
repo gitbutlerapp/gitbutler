@@ -329,6 +329,8 @@ pub struct ConflictEntries {
     /// The theirs side entries that were conflicted
     pub their_entries: Vec<PathBuf>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ConflictEntries);
 
 impl ConflictEntries {
     /// If there are any conflict entries

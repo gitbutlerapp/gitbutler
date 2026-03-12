@@ -511,6 +511,8 @@ pub struct BranchListingFilter {
     /// If the value is false, the listing will only include branches that are not applied in the workspace.
     pub applied: Option<bool>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(BranchListingFilter);
 
 /// Represents a branch that exists for the repository
 /// This also combines the concept of a remote, local and virtual branch in order to provide a unified interface for the UI
@@ -545,6 +547,8 @@ pub struct BranchListing {
     #[serde(skip)]
     pub head: git2::Oid,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(BranchListing);
 
 /// Represents a "commit author" or "signature", based on the data from the git history
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
@@ -562,6 +566,8 @@ pub struct Author {
     #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
     pub gravatar_url: Option<BStringForFrontend>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(Author);
 
 impl From<git2::Signature<'_>> for Author {
     fn from(value: git2::Signature) -> Self {
@@ -607,6 +613,10 @@ pub struct StackReference {
     /// A non-normalized name of the branch, set by the user
     pub given_name: String,
     /// Virtual Branch UUID identifier
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::stack_id")
+    )]
     pub id: StackId,
     /// Determines if the virtual branch is applied in the workspace
     pub in_workspace: bool,
@@ -616,6 +626,8 @@ pub struct StackReference {
     /// Pull Request numbers by branch name associated with the stack
     pub pull_requests: HashMap<String, usize>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(StackReference);
 
 /// Takes a list of `branch_names` (the given name, as returned by `BranchListing`) and returns
 /// a list of enriched branch data.

@@ -277,6 +277,8 @@ pub enum UnifiedPatch {
         lines_removed: u32,
     },
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(UnifiedPatch);
 
 /// Either git reference or a virtual reference (i.e. a reference not visible in Git).
 #[derive(Debug, Clone, PartialEq)]
@@ -412,6 +414,8 @@ pub enum IgnoredWorktreeTreeChangeStatus {
     /// is the same as what Git is currently tracking.
     TreeIndexWorktreeChangeIneffective,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(IgnoredWorktreeTreeChangeStatus);
 
 /// A way to indicate that a path in the index isn't suitable for committing and needs to be dealt with.
 #[derive(Clone, Serialize)]
@@ -427,6 +431,8 @@ pub struct IgnoredWorktreeChange {
     /// The status that caused this change to be ignored.
     pub status: IgnoredWorktreeTreeChangeStatus,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(IgnoredWorktreeChange);
 
 /// The type returned by [`worktree_changes()`](diff::worktree_changes).
 #[derive(Clone)]

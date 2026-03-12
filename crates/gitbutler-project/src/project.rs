@@ -22,6 +22,8 @@ pub enum AuthKey {
     #[default]
     SystemExecutable,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(AuthKey);
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -44,6 +46,8 @@ pub struct ApiProject {
     #[serde(default)]
     pub reviews: bool,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ApiProject);
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -75,6 +79,7 @@ pub struct CodePushState {
     pub timestamp: time::SystemTime,
 }
 
+/// Not registered for the frontend types because it is consumed flattened
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct Project {
@@ -123,10 +128,13 @@ pub struct Project {
     pub husky_hooks_enabled: bool,
     pub api: Option<ApiProject>,
     #[serde(default)]
+    #[cfg_attr(feature = "export-schema", schemars(skip))]
     pub gitbutler_data_last_fetch: Option<FetchResult>,
     #[serde(default)]
+    #[cfg_attr(feature = "export-schema", schemars(skip))]
     pub gitbutler_code_push_state: Option<CodePushState>,
     #[serde(default)]
+    #[cfg_attr(feature = "export-schema", schemars(skip))]
     pub project_data_last_fetch: Option<FetchResult>,
     #[serde(default)]
     pub omit_certificate_check: Option<bool>,

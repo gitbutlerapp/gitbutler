@@ -59,6 +59,7 @@ pub fn cherry_pick(
     sign_if_configured: bool,
 ) -> Result<CherryPickOutcome> {
     let target = but_core::Commit::from_id(target.attach(repo))?;
+
     if ontos == target.parents.as_slice() {
         // We don't need to rebase
         return Ok(CherryPickOutcome::Identity(target.id.detach()));

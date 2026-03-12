@@ -17,6 +17,8 @@ pub struct Author {
     #[cfg_attr(feature = "export-schema", schemars(schema_with = "but_schemars::url"))]
     pub gravatar_url: url::Url,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(Author);
 
 impl std::fmt::Debug for Author {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -30,6 +30,8 @@ pub mod json {
         /// Conflicting entries in `commit` as stored in the conflict commit metadata.
         pub conflict_entries: Option<but_core::commit::ConflictEntries>,
     }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(CommitDetails);
 
     impl From<but_core::diff::CommitDetails> for CommitDetails {
         fn from(value: but_core::diff::CommitDetails) -> Self {

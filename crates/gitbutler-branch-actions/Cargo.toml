@@ -14,6 +14,8 @@ export-schema = [
   "but-workspace/export-schema",
   "gitbutler-project/export-schema",
   "gitbutler-branch/export-schema",
+  "dep:schemars",
+  "dep:but-schemars",
 ]
 
 [dependencies]
@@ -56,7 +58,8 @@ bstr.workspace = true
 url = { version = "2.5.4", features = ["serde"] }
 md5.workspace = true
 itertools.workspace = true
-schemars.workspace = true
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 pretty_assertions = "1.4"

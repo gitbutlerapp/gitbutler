@@ -66,6 +66,12 @@ pub fn get_project(
 
 #[but_api(napi)]
 #[instrument(err(Debug))]
+pub fn list_projects_stateless() -> Result<Vec<ProjectForFrontend>> {
+    list_projects(vec![])
+}
+
+#[but_api]
+#[instrument(err(Debug))]
 pub fn list_projects(
     opened_projects: Vec<ProjectHandleOrLegacyProjectId>,
 ) -> Result<Vec<ProjectForFrontend>> {
@@ -130,3 +136,5 @@ pub struct ProjectForFrontend {
     /// Tell if the project is known to be open in a Window in the frontend.
     pub is_open: bool,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ProjectForFrontend);
