@@ -33,13 +33,13 @@
 		}
 	},
 	"dependencies": {
-		"@tanstack/react-router": "^1.163.2",
+		"@tanstack/react-router": "^1.166.2",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",
 		"@gitbutler/but-sdk": "workspace:*"
 	},
 	"devDependencies": {
-		"@types/node": "^22.19.11",
+		"@types/node": "^22.19.13",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.1.7",
 		"@vitejs/plugin-react": "^5.0.2",
