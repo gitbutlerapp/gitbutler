@@ -1,6 +1,6 @@
 {
 	"name": "@gitbutler/svelte-comment-injector",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "A Svelte preprocessor that injects HTML comments for identifying components in browser DevTools.",
 	"type": "module",
 	"exports": {
