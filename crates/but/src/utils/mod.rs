@@ -15,6 +15,7 @@ pub mod metrics;
 pub use metrics::types::BackgroundMetrics;
 pub use metrics::types::OneshotMetricsContext;
 
+pub mod detect_agent;
 pub mod time;
 
 /// Utilities attached to `anyhow::Result<impl serde::Serialize>`.

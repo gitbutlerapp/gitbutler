@@ -294,6 +294,9 @@ impl Event {
         event.insert_prop("appName", option_env!("CARGO_BIN_NAME").unwrap_or_default());
         event.insert_prop("OS", Event::normalize_os(env::consts::OS));
         event.insert_prop("Arch", env::consts::ARCH);
+        if let Some(agent) = super::detect_agent::detect() {
+            event.insert_prop("agent", agent.name());
+        }
         event.clone()
     }
 
