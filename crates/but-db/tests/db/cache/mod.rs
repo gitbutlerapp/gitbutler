@@ -58,13 +58,16 @@ mod handle {
         }
 
         #[test]
-        fn new_falls_back_to_memory_if_unwritable() {
-            let handle = but_db::CacheHandle::new_at_path("/proc/cannot-be-created.sqlite");
+        fn new_falls_back_to_memory_if_unwritable() -> anyhow::Result<()> {
+            // Use a directory path where a file-backed database cannot be created reliably
+            let tmp = tempfile::TempDir::new()?;
+            let handle = but_db::CacheHandle::new_at_path(tmp.path());
             assert_eq!(
                 format!("{handle:?}"),
                 MEM_DB_DEBUG,
                 "permanent failures to open fall back to an in-memory project cache"
             );
+            Ok(())
         }
     }
 }
