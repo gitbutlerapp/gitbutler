@@ -1,36 +1,10 @@
-import { cpp } from "@codemirror/lang-cpp";
-import { css } from "@codemirror/lang-css";
-import { go } from "@codemirror/lang-go";
-import { html } from "@codemirror/lang-html";
-import { java } from "@codemirror/lang-java";
-import { javascript } from "@codemirror/lang-javascript";
-import { json } from "@codemirror/lang-json";
-import { markdown } from "@codemirror/lang-markdown";
-import { php } from "@codemirror/lang-php";
-import { python } from "@codemirror/lang-python";
-// import { svelte } from '@replit/codemirror-lang-svelte';
-import { rust } from "@codemirror/lang-rust";
-import { vue } from "@codemirror/lang-vue";
-import { wast } from "@codemirror/lang-wast";
-import { xml } from "@codemirror/lang-xml";
-import { yaml } from "@codemirror/lang-yaml";
-import { HighlightStyle, StreamLanguage } from "@codemirror/language";
-import { kotlin } from "@codemirror/legacy-modes/mode/clike";
-import { commonLisp } from "@codemirror/legacy-modes/mode/commonlisp";
-import { dockerFile } from "@codemirror/legacy-modes/mode/dockerfile";
-import { jinja2 } from "@codemirror/legacy-modes/mode/jinja2";
-import { lua } from "@codemirror/legacy-modes/mode/lua";
-import { powerShell } from "@codemirror/legacy-modes/mode/powershell";
-import { protobuf } from "@codemirror/legacy-modes/mode/protobuf";
-import { ruby } from "@codemirror/legacy-modes/mode/ruby";
-import { shell } from "@codemirror/legacy-modes/mode/shell";
-import { swift } from "@codemirror/legacy-modes/mode/swift";
-import { toml } from "@codemirror/legacy-modes/mode/toml";
-import { NodeType, Tree, Parser } from "@lezer/common";
-import { tags, highlightTree } from "@lezer/highlight";
-import { nix } from "@replit/codemirror-lang-nix";
-import { elixir } from "codemirror-lang-elixir";
-import { hcl } from "codemirror-lang-hcl";
+import {
+	getHighlighter,
+	langFromExtension as shikiLangFromExtension,
+	langFromFilename as shikiLangFromFilename,
+	SFC_LANGUAGES,
+	tokenizeLine,
+} from "$lib/utils/shikiHighlighter";
 import diff_match_patch from "diff-match-patch";
 import type { BrandedId } from "$lib/utils/branding";
 
@@ -217,249 +191,12 @@ function lineType(line: string): SectionType {
 	}
 }
 
-const t = tags;
-
-const highlightStyle: HighlightStyle = HighlightStyle.define([
-	{ tag: t.variableName, class: "token-variable" },
-	{ tag: t.definition(t.variableName), class: "token-definition" },
-	{ tag: t.propertyName, class: "token-property" },
-	{ tag: [t.typeName, t.className, t.namespace, t.macroName], class: "token-type" },
-	{ tag: [t.special(t.name), t.constant(t.className)], class: "token-variable-special" },
-	{ tag: t.standard(t.variableName), class: "token-builtin" },
-
-	{ tag: [t.number, t.literal, t.unit], class: "token-number" },
-	{ tag: t.string, class: "token-string" },
-	{ tag: [t.special(t.string), t.regexp, t.escape], class: "token-string-special" },
-	{ tag: [], class: "token-atom" },
-
-	{ tag: t.keyword, class: "token-keyword" },
-	{ tag: [t.comment, t.quote], class: "token-comment" },
-	{ tag: t.meta, class: "token-meta" },
-	{ tag: t.invalid, class: "token-invalid" },
-
-	{ tag: t.tagName, class: "token-tag" },
-	{ tag: t.attributeName, class: "token-attribute" },
-	{ tag: t.attributeValue, class: "token-attribute-value" },
-
-	{ tag: t.inserted, class: "token-inserted" },
-	{ tag: t.deleted, class: "token-deleted" },
-	{ tag: t.heading, class: "token-heading" },
-	{ tag: t.link, class: "token-link" },
-	{ tag: t.strikethrough, class: "token-strikethrough" },
-	{ tag: t.strong, class: "token-strong" },
-	{ tag: t.emphasis, class: "token-emphasis" },
-]);
-
-function create(code: string, parser: Parser | undefined): CodeHighlighter {
-	let tree: Tree;
-	if (parser) {
-		tree = parser.parse(code);
-	} else {
-		tree = new Tree(NodeType.none, [], [], code.length);
-	}
-	return new CodeHighlighter(code, tree);
+export function parserFromExtension(extension: string): string | undefined {
+	return shikiLangFromExtension(extension);
 }
 
-export function parserFromExtension(extension: string): Parser | undefined {
-	switch (extension) {
-		case "jsx":
-		case "js":
-			// We intentionally allow JSX in normal .js as well as .jsx files,
-			// because there are simply too many existing applications and
-			// examples out there that use JSX within .js files, and we don't
-			// want to break them.
-			return javascript({ jsx: true }).language.parser;
-		case "ts":
-			return javascript({ typescript: true }).language.parser;
-		case "tsx":
-			return javascript({ typescript: true, jsx: true }).language.parser;
-		case "jsonc":
-		case "json5":
-			return javascript().language.parser;
-
-		case "ahk":
-			return StreamLanguage.define(powerShell).parser;
-
-		case "css":
-			return css().language.parser;
-
-		case "html":
-			return html({ selfClosingTags: true }).language.parser;
-
-		case "xml":
-			return xml().language.parser;
-
-		case "wasm":
-			return wast().language.parser;
-
-		case "c":
-		case "h":
-		case "cc":
-		case "cpp":
-		case "c++":
-		case "hpp":
-		case "h++":
-		case "hxx":
-			return cpp().language.parser;
-
-		case "ex":
-		case "exs":
-			return elixir().language.parser;
-
-		case "go":
-			return go().language.parser;
-
-		case "hcl":
-		case "hcl2":
-		case "nomad":
-		case "tf":
-		case "tfvars":
-			return hcl().language.parser;
-
-		case "java":
-			return java().language.parser;
-
-		case "j2":
-		case "jinja":
-		case "jinja2":
-			return StreamLanguage.define(jinja2).parser;
-
-		case "kt":
-		case "kts":
-			return StreamLanguage.define(kotlin).parser;
-
-		case "json":
-		case "jsonl":
-			return json().language.parser;
-
-		case "lisp":
-		case "lsp":
-		case "cl": // Common Lisp
-		case "el": // Emacs Lisp
-			return StreamLanguage.define(commonLisp).parser;
-
-		case "lua":
-			return StreamLanguage.define(lua).parser;
-
-		case "php":
-			return php().language.parser;
-
-		case "py":
-		case "python":
-			return python().language.parser;
-
-		case "proto":
-			return StreamLanguage.define(protobuf).parser;
-
-		case "md":
-			return markdown().language.parser;
-
-		case "nix":
-			return nix().language.parser;
-
-		// case 'text/x-coffeescript':
-		//     return new LanguageSupport(await CodeMirror.coffeescript());
-
-		// case 'text/x-clojure':
-		//     return new LanguageSupport(await CodeMirror.clojure());
-
-		// case 'application/vnd.dart':
-		//     return new LanguageSupport(await CodeMirror.dart());
-
-		// case 'text/x-gss':
-		//     return new LanguageSupport(await CodeMirror.gss());
-
-		// case 'text/x-less':
-		//     return new CodeMirror.LanguageSupport(await CodeMirror.less());
-
-		// case 'text/x-sass':
-		//     return new LanguageSupport(await CodeMirror.sass());
-
-		// case 'text/x-scala':
-		//     return new LanguageSupport(await CodeMirror.scala());
-
-		// case 'text/x-scss':
-		//     return new LanguageSupport(await CodeMirror.scss());
-
-		case "svelte":
-			// TODO: is codemirror-lang-svelte broken or just not used correctly?
-			// return svelte();
-
-			// highlighting svelte with js + jsx works much better than the above
-			return javascript({ typescript: true, jsx: true }).language.parser;
-
-		case "sh":
-		case "bash":
-		case "zsh":
-			return StreamLanguage.define(shell).parser;
-
-		case "swift":
-			return StreamLanguage.define(swift).parser;
-
-		case "vue":
-			return vue().language.parser;
-
-		case "rs":
-			return rust().language.parser;
-
-		case "rb":
-			return StreamLanguage.define(ruby).parser;
-
-		case "toml":
-			return StreamLanguage.define(toml).parser;
-
-		case "yml":
-		case "yaml":
-			return yaml().language.parser;
-
-		default:
-			return undefined;
-	}
-}
-
-export function parserFromFilename(filename: string): Parser | undefined {
-	const basename = filename.split("/").pop() || "";
-	const ext = basename.split(".").pop()?.toLowerCase();
-
-	// Handle Dockerfiles (with common variations).
-	if (basename === "Dockerfile" || basename.startsWith("Dockerfile.") || ext === "dockerfile") {
-		return StreamLanguage.define(dockerFile).parser;
-	}
-
-	if (!ext) return undefined;
-	return parserFromExtension(ext);
-}
-
-class CodeHighlighter {
-	constructor(
-		readonly code: string,
-		readonly tree: Tree,
-	) {}
-
-	highlight(token: (text: string, style: string) => void): void {
-		this.highlightRange(0, this.code.length, token);
-	}
-
-	highlightRange(from: number, to: number, token: (text: string, style: string) => void): void {
-		let pos = from;
-		const flush = (to: number, style: string): void => {
-			if (to > pos) {
-				token(this.code.slice(pos, to), style);
-				pos = to;
-			}
-		};
-		highlightTree(
-			this.tree,
-			highlightStyle,
-			(from, to, style) => {
-				flush(from, "");
-				flush(to, style);
-			},
-			from,
-			to,
-		);
-		flush(to, "");
-	}
+export function parserFromFilename(filename: string): string | undefined {
+	return shikiLangFromFilename(filename);
 }
 
 export type DiffLineKey = BrandedId<"DiffLine">;
@@ -595,7 +332,7 @@ type SelectionParams = {
 function createBaseRowData(
 	fileName: string,
 	section: ContentSection,
-	parser: Parser | undefined,
+	parser: string | undefined,
 ): BaseRow[] {
 	return section.lines.map((line) => ({
 		encodedLineId: encodeDiffFileLine(fileName, line.beforeLineNumber, line.afterLineNumber),
@@ -609,10 +346,13 @@ function createBaseRowData(
 	}));
 }
 
-function sanitize(text: string) {
-	const element = document.createElement("div");
-	element.innerText = text;
-	return element.innerHTML;
+function sanitize(text: string): string {
+	return text
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;")
+		.replaceAll('"', "&quot;")
+		.replaceAll("'", "&#39;");
 }
 
 /**
@@ -647,67 +387,115 @@ class LRUCache<V> {
 		}
 		this.cache.set(key, value);
 	}
+
+	clear(): void {
+		this.cache.clear();
+	}
 }
 
 /**
- * Helper to get or create a cache for a given parser.
- * Uses WeakMap for parsers (auto-cleanup) and a fallback cache for undefined parser.
+ * Helper to get or create a cache for a given language.
  */
-function getParserCache<V>(
-	cachesByParser: WeakMap<Parser, LRUCache<V>>,
-	noParsersCache: LRUCache<V>,
-	parser: Parser | undefined,
+function getLangCache<V>(
+	cachesByLang: Map<string, LRUCache<V>>,
+	noLangCache: LRUCache<V>,
+	lang: string | undefined,
 	cacheSize: number,
 ): LRUCache<V> {
-	if (parser === undefined) {
-		return noParsersCache;
+	if (lang === undefined) {
+		return noLangCache;
 	}
 
-	let cache = cachesByParser.get(parser);
+	let cache = cachesByLang.get(lang);
 	if (!cache) {
 		cache = new LRUCache<V>(cacheSize);
-		cachesByParser.set(parser, cache);
+		cachesByLang.set(lang, cache);
 	}
 	return cache;
 }
 
-// Two-level cache: WeakMap by parser (auto-cleans when parser is GC'd),
-// then LRU cache by line content (bounded size prevents memory leaks).
-const tokenCacheByParser = new WeakMap<Parser, LRUCache<string[]>>();
-const tokenCacheNoParser = new LRUCache<string[]>(2000);
+// Cache keyed by language, then LRU cache by line content.
+const tokenCacheByLang = new Map<string, LRUCache<string[]>>();
+const tokenCacheNoLang = new LRUCache<string[]>(2000);
 
-function toTokens(inputLine: string, parser: Parser | undefined): string[] {
-	const cache = getParserCache(tokenCacheByParser, tokenCacheNoParser, parser, 2000);
-
-	const cached = cache.get(inputLine);
-	if (cached !== undefined) {
-		return cached;
-	}
-
-	const highlighter = create(inputLine, parser);
-	const tokens: string[] = [];
-	highlighter.highlight((text, classNames) => {
-		const token = classNames
-			? `<span data-no-drag class=${classNames}>${sanitize(text)}</span>`
-			: `<span data-no-drag>${sanitize(text)}</span>`;
-
-		tokens.push(token);
-	});
-
-	cache.set(inputLine, tokens);
-	return tokens;
+/**
+ * Returns true if the shiki highlighter is currently loaded and ready.
+ */
+export function isHighlighterReady(): boolean {
+	return getHighlighter() !== undefined;
 }
 
-export function codeContentToTokens(content: string, parser: Parser | undefined): string[][] {
+/**
+ * Clear all highlighting caches. Called when the app theme changes
+ * so that tokens are re-generated with the new theme's colors.
+ */
+export function clearHighlightingCaches(): void {
+	tokenCacheByLang.clear();
+	tokenCacheNoLang.clear();
+	baseRowsCacheByLang.clear();
+	baseRowsCacheNoLang.clear();
+}
+
+/**
+ * Count the number of distinct non-undefined colors in a token array.
+ * Used to decide whether a grammar produced meaningful highlighting.
+ */
+function countDistinctColors(tokens: { color?: string }[]): number {
+	const colors = new Set<string>();
+	for (const t of tokens) {
+		if (t.color) colors.add(t.color);
+	}
+	return colors.size;
+}
+
+function toTokens(inputLine: string, lang: string | undefined): string[] {
+	// Don't cache results when highlighter isn't ready (plain text fallback)
+	const highlighterReady = getHighlighter() !== undefined;
+
+	if (highlighterReady) {
+		const cache = getLangCache(tokenCacheByLang, tokenCacheNoLang, lang, 2000);
+		const cached = cache.get(inputLine);
+		if (cached !== undefined) {
+			return cached;
+		}
+
+		let themedTokens = tokenizeLine(inputLine, lang);
+
+		// SFC languages (Svelte, Vue) need full-file context to highlight
+		// embedded JS/TS properly. Line-by-line tokenization often produces
+		// poorly-colored tokens for script-block code. Compare with TypeScript
+		// and pick whichever grammar produces more distinct colors.
+		if (themedTokens && lang && SFC_LANGUAGES.has(lang) && inputLine.trim().length > 0) {
+			const tsTokens = tokenizeLine(inputLine, "typescript");
+			if (tsTokens && countDistinctColors(tsTokens) > countDistinctColors(themedTokens)) {
+				themedTokens = tsTokens;
+			}
+		}
+
+		if (themedTokens) {
+			const tokens = themedTokens.map((t) => {
+				const style = t.color ? ` style="color:${t.color}"` : "";
+				return `<span data-no-drag${style}>${sanitize(t.content)}</span>`;
+			});
+			cache.set(inputLine, tokens);
+			return tokens;
+		}
+	}
+
+	// Fallback: no highlighting
+	return [`<span data-no-drag>${sanitize(inputLine)}</span>`];
+}
+
+export function codeContentToTokens(content: string, lang: string | undefined): string[][] {
 	const lines = content.split("\n");
-	return lines.map((line) => toTokens(line, parser));
+	return lines.map((line) => toTokens(line, lang));
 }
 
 function computeBaseWordDiff(
 	filename: string,
 	prevSection: ContentSection,
 	nextSection: ContentSection,
-	parser: Parser | undefined,
+	parser: string | undefined,
 ): BaseDiffRows {
 	const numberOfLines = nextSection.lines.length;
 	const returnRows: BaseDiffRows = {
@@ -779,7 +567,7 @@ function computeBaseInlineWordDiff(
 	fileName: string,
 	prevSection: ContentSection,
 	nextSection: ContentSection,
-	parser: Parser | undefined,
+	parser: string | undefined,
 ): BaseRow[] {
 	const numberOfLines = nextSection.lines.length;
 	const rows: BaseRow[] = [];
@@ -863,7 +651,7 @@ function generateBaseRows(
 	filePath: string,
 	subsections: ContentSection[],
 	inlineUnifiedDiffs: boolean,
-	parser: Parser | undefined,
+	parser: string | undefined,
 ): BaseRow[] {
 	const rows = subsections.reduce((acc, nextSection, i) => {
 		const prevSection = subsections[i - 1];
@@ -962,26 +750,34 @@ function hashSubsections(subsections: ContentSection[]): number {
 	return hash >>> 0;
 }
 
-// Cache for base rows: keyed by content, bounded by LRU eviction
-const baseRowsCacheByParser = new WeakMap<Parser, LRUCache<BaseRow[]>>();
-const baseRowsCacheNoParser = new LRUCache<BaseRow[]>(100);
+// Cache for base rows: keyed by language, bounded by LRU eviction
+const baseRowsCacheByLang = new Map<string, LRUCache<BaseRow[]>>();
+const baseRowsCacheNoLang = new LRUCache<BaseRow[]>(100);
 
 function getCachedBaseRows(
 	filePath: string,
 	subsections: ContentSection[],
 	inlineUnifiedDiffs: boolean,
-	parser: Parser | undefined,
+	parser: string | undefined,
 ): BaseRow[] {
-	const cache = getParserCache(baseRowsCacheByParser, baseRowsCacheNoParser, parser, 100);
+	// Don't use cache when highlighter isn't ready — avoids caching un-highlighted rows
+	// that would persist after shiki loads.
+	const highlighterReady = getHighlighter() !== undefined;
 
+	const cache = getLangCache(baseRowsCacheByLang, baseRowsCacheNoLang, parser, 100);
 	const cacheKey = `${filePath}|${inlineUnifiedDiffs}|${hashSubsections(subsections)}`;
-	const cached = cache.get(cacheKey);
-	if (cached !== undefined) {
-		return cached;
+
+	if (highlighterReady) {
+		const cached = cache.get(cacheKey);
+		if (cached !== undefined) {
+			return cached;
+		}
 	}
 
 	const baseRows = generateBaseRows(filePath, subsections, inlineUnifiedDiffs, parser);
-	cache.set(cacheKey, baseRows);
+	if (highlighterReady) {
+		cache.set(cacheKey, baseRows);
+	}
 	return baseRows;
 }
 
@@ -1026,7 +822,7 @@ export function generateRows(
 	filePath: string,
 	subsections: ContentSection[],
 	inlineUnifiedDiffs: boolean,
-	parser: Parser | undefined,
+	parser: string | undefined,
 	selectedLines: LineSelector[] | undefined,
 	lineLocks: LineLock[] | undefined,
 ): Row[] {
