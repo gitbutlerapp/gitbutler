@@ -51,6 +51,30 @@ pub mod poc {
         time::{Duration, Instant},
     };
 
+    #[cfg(feature = "napi")]
+    use std::{
+        collections::HashMap,
+        sync::{Mutex, OnceLock, atomic::AtomicU32},
+    };
+
+    #[cfg(feature = "napi")]
+    use napi::threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode};
+
+    #[cfg(feature = "napi")]
+    static NEXT_TASK_ID: AtomicU32 = AtomicU32::new(1);
+    #[cfg(feature = "napi")]
+    static TASK_INTERRUPTS: OnceLock<Mutex<HashMap<u32, Arc<AtomicBool>>>> = OnceLock::new();
+
+    #[cfg(feature = "napi")]
+    fn task_interrupts() -> &'static Mutex<HashMap<u32, Arc<AtomicBool>>> {
+        TASK_INTERRUPTS.get_or_init(|| Mutex::new(HashMap::new()))
+    }
+
+    #[cfg(feature = "napi")]
+    fn emit_event(callback: &ThreadsafeFunction<LongRunningEvent>, event: LongRunningEvent) {
+        let _ = callback.call(Ok(event), ThreadsafeFunctionCallMode::NonBlocking);
+    }
+
     /// Either the actual data that is more and more complete, or increments that can be merged
     /// into the actual data by the receiver.
     /// Sending all data whenever it changes is probably better.
@@ -103,6 +127,143 @@ pub mod poc {
         let (tx, rx) = mpsc::channel();
         scope.spawn(move || run_long_running_worker(duration, progres, should_interrupt, tx));
         rx
+    }
+
+    /// Kinds of events emitted to JavaScript while a long-running task executes.
+    #[cfg(feature = "napi")]
+    #[napi_derive::napi(string_enum)]
+    pub enum LongRunningEventKind {
+        /// The task produced an intermediate progress update.
+        Progress,
+        /// The task finished successfully.
+        Done,
+        /// The task stopped because interruption was requested.
+        Cancelled,
+        /// The task failed with an error.
+        Error,
+    }
+
+    /// Event payload for Node callbacks.
+    #[cfg(feature = "napi")]
+    #[napi_derive::napi(object)]
+    pub struct LongRunningEvent {
+        /// The id of the task that emitted this event.
+        pub task_id: u32,
+        /// The event category.
+        pub kind: LongRunningEventKind,
+        /// The latest completed step if available.
+        pub step: Option<u32>,
+        /// An optional error message for failed tasks.
+        pub message: Option<String>,
+    }
+
+    /// Start a long-running task and stream progress to `callback` via a ThreadsafeFunction.
+    ///
+    /// Returns the task id, which can be used to interrupt processing with
+    /// [`long_running_cancel_tsfn()`].
+    #[cfg(feature = "napi")]
+    #[napi_derive::napi(js_name = "longRunningStartTsfn")]
+    pub fn long_running_start_tsfn(
+        duration_ms: u32,
+        callback: ThreadsafeFunction<LongRunningEvent>,
+    ) -> napi::Result<u32> {
+        let task_id = NEXT_TASK_ID.fetch_add(1, Ordering::Relaxed);
+        let should_interrupt = Arc::new(AtomicBool::new(false));
+
+        let mut tasks = task_interrupts().lock().map_err(|_| {
+            napi::Error::new(
+                napi::Status::GenericFailure,
+                "task registry is poisoned".to_string(),
+            )
+        })?;
+        tasks.insert(task_id, should_interrupt.clone());
+        drop(tasks);
+
+        let rx = long_running_non_blocking_thread(
+            Duration::from_millis(u64::from(duration_ms)),
+            gix::progress::Discard,
+            should_interrupt.clone(),
+        );
+
+        thread::spawn(move || {
+            let mut last_step = None;
+            let mut failed = false;
+
+            for result in rx {
+                match result {
+                    Ok(data) => {
+                        let step = u32::try_from(data.0).unwrap_or(u32::MAX);
+                        last_step = Some(step);
+                        emit_event(
+                            &callback,
+                            LongRunningEvent {
+                                task_id,
+                                kind: LongRunningEventKind::Progress,
+                                step: Some(step),
+                                message: None,
+                            },
+                        );
+                    }
+                    Err(err) => {
+                        failed = true;
+                        emit_event(
+                            &callback,
+                            LongRunningEvent {
+                                task_id,
+                                kind: LongRunningEventKind::Error,
+                                step: last_step,
+                                message: Some(format!("{err:#}")),
+                            },
+                        );
+                        break;
+                    }
+                }
+            }
+
+            if !failed {
+                let kind = if should_interrupt.load(Ordering::Relaxed) {
+                    LongRunningEventKind::Cancelled
+                } else {
+                    LongRunningEventKind::Done
+                };
+                emit_event(
+                    &callback,
+                    LongRunningEvent {
+                        task_id,
+                        kind,
+                        step: last_step,
+                        message: None,
+                    },
+                );
+            }
+
+            if let Ok(mut tasks) = task_interrupts().lock() {
+                tasks.remove(&task_id);
+            }
+        });
+
+        Ok(task_id)
+    }
+
+    /// Interrupt a task started with [`long_running_start_tsfn()`].
+    ///
+    /// Returns `true` if interruption was requested successfully.
+    #[cfg(feature = "napi")]
+    #[napi_derive::napi(js_name = "longRunningCancelTsfn")]
+    pub fn long_running_cancel_tsfn(task_id: u32) -> napi::Result<bool> {
+        let tasks = task_interrupts().lock().map_err(|_| {
+            napi::Error::new(
+                napi::Status::GenericFailure,
+                "task registry is poisoned".to_string(),
+            )
+        })?;
+
+        if let Some(flag) = tasks.get(&task_id) {
+            flag.store(true, Ordering::Relaxed);
+            return Ok(true);
+        }
+
+        Ok(false)
     }
 
     /// Like [`long_running_non_blocking_scoped_thread()`], but uses a regular thread and an owned
