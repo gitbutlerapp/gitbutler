@@ -276,7 +276,7 @@ jobs:
       - name: Dependencies for 'keyring'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
       - name: Check documentation
-        run: cargo doc --workspace --no-deps --exclude gitbutler-tauri
+        run: cargo doc --workspace --no-deps --exclude gitbutler-tauri --exclude but-api-macros-tests
 
   rust-test:
     needs: changes
@@ -299,7 +299,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Dependencies for 'keyring'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
-      - run: cargo test --workspace --exclude gitbutler-tauri --exclude but-server
+      - run: cargo test --workspace --exclude gitbutler-tauri --exclude but-server --exclude but-api-macros-tests
       # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
       - run: cargo test -p but
       - run: cargo test -p but-server
@@ -308,6 +308,32 @@ jobs:
           set -x
           (cd crates/gitbutler-filemonitor/vendor/debouncer && cargo test)
           (cd crates/but/vendor/cli-prompts && cargo test)
+
+  rust-test-but-api-macros:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image@sha256:3eaeae1b07072796a53dc1e7585cdc1f462d0b11d10ecd3685c6fa8082d647dd
+    env:
+      CARGO_TERM_COLOR: always
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          shared-key: cargo-test-but-api-macros
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Test but-api-macros feature matrix
+        run: make test-but-api-macros
 
   rust-test-tauri:
     needs: changes
@@ -339,8 +365,6 @@ jobs:
             cargo check -p gitbutler-tauri --no-default-features --features "$feature"
           done
         name: Test Tauri and Check Tauri App Features
-      - name: Test but-api-macros feature matrix
-        run: make test-but-api-macros
 
   check-rust-windows:
     needs: changes
@@ -555,6 +579,7 @@ jobs:
       - changes
       - check-rust-windows
       - rust-test
+      - rust-test-but-api-macros
       - rust-test-tauri
       - rust-lint
       - cargo-machete
