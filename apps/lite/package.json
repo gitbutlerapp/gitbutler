@@ -20,8 +20,6 @@
 		"build:ui": "vite build --config ui/vite.config.ts",
 		"build:electron": "tsgo -p electron/tsconfig.json",
 		"check": "tsgo -p ui/tsconfig.json --noEmit && tsgo -p electron/tsconfig.json --noEmit",
-		"oxlint": "oxlint --type-aware --deny-warnings --report-unused-disable-directives",
-		"oxlint:fix": "pnpm run oxlint --fix",
 		"test": "vitest run --config ui/vitest.config.ts --passWithNoTests",
 		"bundle": "pnpm build && electron-builder"
 	},
@@ -63,7 +61,6 @@
 		"electron": "^41.0.0",
 		"electron-builder": "^26.8.1",
 		"jsdom": "28.1.0",
-		"oxlint": "^1.53.0",
 		"vite": "catalog:",
 		"vitest": "catalog:",
 		"wait-on": "^9.0.4"

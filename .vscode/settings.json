@@ -6,8 +6,6 @@
 	"prettier.configPath": ".prettierrc.mjs",
 	"prettier.useEditorConfig": false,
 	"editor.defaultFormatter": null,
-	"oxc.typeAware": true,
-	"oxc.unusedDisableDirectives": "warn",
 	"files.associations": {
 		"*.cts": "typescript"
 	},

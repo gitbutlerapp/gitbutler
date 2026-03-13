@@ -160,6 +160,9 @@ importers:
       globals:
         specifier: ^15.15.0
         version: 15.15.0
+      oxlint:
+        specifier: ^1.53.0
+        version: 1.53.0(oxlint-tsgolint@0.15.0)
       oxlint-tsgolint:
         specifier: ^0.15.0
         version: 0.15.0
@@ -456,9 +459,6 @@ importers:
       jsdom:
         specifier: 28.1.0
         version: 28.1.0
-      oxlint:
-        specifier: ^1.53.0
-        version: 1.53.0(oxlint-tsgolint@0.15.0)
       vite:
         specifier: 'catalog:'
         version: 6.4.1(@types/node@22.19.15)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)
