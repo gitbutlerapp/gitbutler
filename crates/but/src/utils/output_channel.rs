@@ -407,6 +407,19 @@ impl InputOutputChannel<'_> {
         )
     }
 
+    /// Like [`Self::prompt`] but without a newline between the prompt and the input.
+    pub fn prompt_single_line(
+        &mut self,
+        prompt: impl AsRef<str>,
+    ) -> anyhow::Result<Option<String>> {
+        Ok(
+            match self.readline(&format!("{} ", prompt.as_ref()), InputEcho::Visible)? {
+                ReadlineInput::Text(line) => Some(line),
+                ReadlineInput::Empty | ReadlineInput::EndOfInput => None,
+            },
+        )
+    }
+
     /// Prompt for a non-empty secret string from the user, or `None` if the
     /// input was empty.
     ///

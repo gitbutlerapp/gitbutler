@@ -31,11 +31,23 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
     KeyBind {
         chord: KeyChord {
             modifiers: KeyModifiers::NONE,
+            keys: &[KeyCode::Enter],
+        },
+        kind: KeyEventKind::Press,
+        message: &Message::RunCommand,
+        modes: KeyBindMode::Only(&[ModeDiscriminants::Command]),
+        short_description: "run",
+        code_display: "enter",
+        hidden: false,
+    },
+    KeyBind {
+        chord: KeyChord {
+            modifiers: KeyModifiers::NONE,
             keys: &[KeyCode::Char('j'), KeyCode::Down],
         },
         kind: KeyEventKind::Press,
         message: &Message::MoveCursorDown,
-        modes: KeyBindMode::AllExceptInlineReword,
+        modes: KeyBindMode::AllExceptTextInputModes,
         short_description: "down",
         code_display: "↓/j",
         hidden: false,
@@ -47,7 +59,7 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
         },
         kind: KeyEventKind::Press,
         message: &Message::MoveCursorUp,
-        modes: KeyBindMode::AllExceptInlineReword,
+        modes: KeyBindMode::AllExceptTextInputModes,
         short_description: "up",
         code_display: "↑/k",
         hidden: false,
@@ -59,7 +71,7 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
         },
         kind: KeyEventKind::Press,
         message: &Message::MoveCursorNextSection,
-        modes: KeyBindMode::AllExceptInlineReword,
+        modes: KeyBindMode::AllExceptTextInputModes,
         short_description: "next section",
         code_display: "J",
         hidden: false,
@@ -71,7 +83,7 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
         },
         kind: KeyEventKind::Press,
         message: &Message::MoveCursorPreviousSection,
-        modes: KeyBindMode::AllExceptInlineReword,
+        modes: KeyBindMode::AllExceptTextInputModes,
         short_description: "prev section",
         code_display: "K",
         hidden: false,
@@ -131,7 +143,7 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
         },
         kind: KeyEventKind::Press,
         message: &Message::ToggleFiles,
-        modes: KeyBindMode::AllExceptInlineReword,
+        modes: KeyBindMode::AllExceptTextInputModes,
         short_description: "files",
         code_display: "f",
         hidden: false,
@@ -146,6 +158,18 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
         modes: KeyBindMode::AllExceptNormal,
         short_description: "back",
         code_display: "esc",
+        hidden: false,
+    },
+    KeyBind {
+        chord: KeyChord {
+            modifiers: KeyModifiers::NONE,
+            keys: &[KeyCode::Char(':')],
+        },
+        kind: KeyEventKind::Press,
+        message: &Message::EnterCommandMode,
+        modes: KeyBindMode::Only(&[ModeDiscriminants::Normal]),
+        short_description: "command",
+        code_display: ":",
         hidden: false,
     },
     KeyBind {
@@ -167,7 +191,7 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
         },
         kind: KeyEventKind::Press,
         message: &Message::Quit,
-        modes: KeyBindMode::AllExceptInlineReword,
+        modes: KeyBindMode::AllExceptTextInputModes,
         short_description: "quit",
         code_display: "q",
         hidden: false,
@@ -225,7 +249,9 @@ impl KeyBind {
 
     pub(super) fn available_in_mode(self, mode: &Mode) -> bool {
         match self.modes {
-            KeyBindMode::AllExceptInlineReword => !matches!(mode, Mode::InlineReword { .. }),
+            KeyBindMode::AllExceptTextInputModes => {
+                !matches!(mode, Mode::InlineReword { .. } | Mode::Command { .. })
+            }
             KeyBindMode::Only(supported_modes) => supported_modes
                 .iter()
                 .copied()
@@ -244,10 +270,8 @@ pub(super) struct KeyChord {
 /// The modes a key binding is available in.
 #[derive(Debug, Copy, Clone)]
 pub(super) enum KeyBindMode {
-    /// Available in all modes except inline reword.
-    ///
-    /// Inline reword is special since it shows a text area that eats all inputs.
-    AllExceptInlineReword,
+    /// Available in all modes except modes that use text input such as inline reword and command.
+    AllExceptTextInputModes,
     /// Available in all modes except normal mode.
     AllExceptNormal,
     /// Only available in these modes.
