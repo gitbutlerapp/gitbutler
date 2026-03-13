@@ -8,7 +8,10 @@ use but_core::{
         WorkspaceStack, WorkspaceStackBranch,
     },
 };
-use but_meta::{VirtualBranchesTomlMetadata, virtual_branches_legacy_types::Target};
+use but_meta::{
+    VirtualBranchesTomlMetadata,
+    virtual_branches_legacy_types::{Stack as LegacyStack, StackBranch, Target},
+};
 use but_testsupport::{
     debug_str,
     gix_testtools::tempfile::{TempDir, tempdir},
@@ -1306,19 +1309,30 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
     )?;
     insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?), @"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-    └── ≡📙:2:main[🌳] <> origin/main →:1: on 3183e43 {1}
+    ├── ≡📙:4:confidence on 3183e43 {1}
+    │   └── 📙:4:confidence
+    └── ≡📙:2:main[🌳] <> origin/main →:1: on 3183e43 {2}
         └── 📙:2:main[🌳] <> origin/main →:1:
             └── ❄️bce0c5e (🏘️|✓)
     ");
 
     let (actual, _uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
-    // Now both stacks are outside workspace, as is indicated by the workspace above.
-    // Also, their uniqueness constraint is enforced.
-    // AND: The above is no more and it's all just weird.
+    // The legacy metadata still carries both stacks, even though they overlap on the same
+    // underlying segment.
     insta::assert_snapshot!(actual, @r#"
     [
         WorkspaceStack {
             id: 1,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/confidence",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Outside,
+        },
+        WorkspaceStack {
+            id: 2,
             branches: [
                 WorkspaceStackBranch {
                     ref_name: "refs/heads/main",
@@ -1331,29 +1345,31 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
             ],
             workspacecommit_relation: Merged,
         },
+        WorkspaceStack {
+            id: 3,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/confidence",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Merged,
+        },
     ]
     "#);
 
-    // Now that there is one stack left, we can manipulate it and look at vb.toml data directly.
-    // AND: this makes no sense with the lack of a `Stack::name` field.
+    // Mutate one of the underlying stacks directly to keep exercising reconciliation.
     store
         .data_mut()
         .branches
         .values_mut()
         .next()
-        .expect("exactly one")
+        .expect("at least one stack remains")
         .id = StackId::from_number_for_testing(8);
     // Now the ID and the ID used for storage are out of sync.
-    snapbox::assert_data_eq!(
-        debug_str(&store.data().branches),
-        snapbox::str![[r#"
-{
-    1819a203-26ef-477c-ac56-2d07a034ddb8: Stack {
-...
-        id: 00000000-0000-0000-0000-000000000008,
-...
-}
-"#]]
+    assert!(
+        debug_str(&store.data().branches).contains("id: 00000000-0000-0000-0000-000000000008"),
+        "the mutated stack id should be visible before reconciliation",
     );
     store.write_reconciled(&repo)?;
 
@@ -1457,6 +1473,106 @@ fn legacy_change_id_deserializes_as_null_sha() -> anyhow::Result<()> {
         stack.heads[0].head,
         gix::hash::Kind::Sha1.null(),
         "legacy ChangeId should deserialize as null SHA to allow loading old toml files"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn preserves_duplicate_heads_if_they_point_to_the_same_commit() -> anyhow::Result<()> {
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+    let head = gix::ObjectId::from_str("1111111111111111111111111111111111111111")?;
+
+    let first = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head,
+            name: "shared".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        0,
+        true,
+    );
+    let second = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head,
+            name: "shared".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        1,
+        true,
+    );
+    let first_id = first.id;
+    let second_id = second.id;
+    store.data_mut().branches.insert(first_id, first);
+    store.data_mut().branches.insert(second_id, second);
+    store.set_changed_to_necessitate_write();
+
+    let path = store.path().to_owned();
+    drop(store);
+
+    let store = VirtualBranchesTomlMetadata::from_path(path)?;
+    let shared_heads = store
+        .data()
+        .branches
+        .values()
+        .flat_map(|stack| stack.heads.iter())
+        .filter(|head| head.name == "shared")
+        .count();
+    assert_eq!(shared_heads, 2, "identical heads should be preserved");
+
+    Ok(())
+}
+
+#[test]
+fn removes_duplicate_heads_if_they_point_to_different_commits() -> anyhow::Result<()> {
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+
+    let first = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head: gix::ObjectId::from_str("1111111111111111111111111111111111111111")?,
+            name: "shared".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        0,
+        true,
+    );
+    let second = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head: gix::ObjectId::from_str("2222222222222222222222222222222222222222")?,
+            name: "shared".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        1,
+        true,
+    );
+    let first_id = first.id;
+    let second_id = second.id;
+    store.data_mut().branches.insert(first_id, first);
+    store.data_mut().branches.insert(second_id, second);
+    store.set_changed_to_necessitate_write();
+
+    let path = store.path().to_owned();
+    drop(store);
+
+    let store = VirtualBranchesTomlMetadata::from_path(path)?;
+    let shared_heads = store
+        .data()
+        .branches
+        .values()
+        .flat_map(|stack| stack.heads.iter())
+        .filter(|head| head.name == "shared")
+        .count();
+    assert_eq!(
+        shared_heads, 1,
+        "conflicting heads should still be deduplicated"
     );
 
     Ok(())
