@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { LiteElectronApi } from "#electron/ipc";
+import type { LiteElectronApi } from "./ipc";
 import type {
 	ApplyOutcome,
 	AssignmentRejection,
