@@ -1,10 +1,5 @@
 <script lang="ts">
-	import {
-		clearHighlightingCaches,
-		codeContentToTokens,
-		parserFromExtension,
-	} from "@gitbutler/ui/utils/diffParsing";
-	import { onHighlighterChange } from "@gitbutler/ui/utils/shikiHighlighter";
+	import { codeContentToTokens, parserFromExtension } from "@gitbutler/ui/utils/diffParsing";
 
 	interface Props {
 		text: string;
@@ -13,21 +8,8 @@
 
 	const { text, lang }: Props = $props();
 
-	// Reactive trigger: re-derive when shiki highlighter becomes ready
-	// or the app theme (light/dark) changes.
-	let highlighterVersion = $state(0);
-	$effect(() => {
-		return onHighlighterChange(() => {
-			clearHighlightingCaches();
-			highlighterVersion += 1;
-		});
-	});
-
-	const langId = $derived(parserFromExtension(lang));
-	const lines = $derived.by(() => {
-		void highlighterVersion;
-		return codeContentToTokens(text, langId);
-	});
+	const parser = $derived(parserFromExtension(lang));
+	const lines = $derived(codeContentToTokens(text, parser));
 </script>
 
 <div class="code-wrapper scrollbar">
