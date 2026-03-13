@@ -167,16 +167,12 @@ impl GitHubClient {
     }
 
     /// The actual REST API call to fetch a page of the checks.
-    async fn fetch_check_runs(
-        &self,
-        url: &str,
-        page: usize,
-    ) -> Result<reqwest::Response> {
+    async fn fetch_check_runs(&self, url: &str, page: usize) -> Result<reqwest::Response> {
         let response = self
             .client
             .get(url)
             .query(&CheckRunsQuery {
-                filter: "all",
+                filter: "latest",
                 per_page: 100,
                 page,
             })
