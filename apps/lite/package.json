@@ -7,10 +7,7 @@
 	"imports": {
 		"#ui/*": "./ui/src/*",
 		"#ui/hooks/*": "./ui/src/hooks/*",
-		"#electron/*": {
-			"types": "./electron/src/*.ts",
-			"default": "./dist/electron/*.js"
-		}
+		"#electron/*": "./electron/src/*"
 	},
 	"scripts": {
 		"dev": "concurrently -k \"pnpm dev:ui\" \"pnpm dev:electron\"",
@@ -45,6 +42,7 @@
 		"@tanstack/react-router": "^1.166.7",
 		"effect": "^3.19.19",
 		"electron-devtools-installer": "^4.0.0",
+		"electron": "^41.0.0",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4"
 	},
@@ -58,7 +56,6 @@
 		"babel-plugin-react-compiler": "^1.0.0",
 		"concurrently": "^9.2.1",
 		"cross-env": "^10.1.0",
-		"electron": "^41.0.0",
 		"electron-builder": "^26.8.1",
 		"jsdom": "28.1.0",
 		"vite": "catalog:",

@@ -15,7 +15,7 @@ import {
 	type TreeChangeDiffParams,
 	type ApplyParams,
 	type UnapplyStackParams,
-} from "#electron/ipc";
+} from "./ipc.js";
 import {
 	apply,
 	assignHunk,
