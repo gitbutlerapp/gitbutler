@@ -45,7 +45,14 @@ pub(crate) fn reword_target(
             edit_branch_name(ctx, name, out, message)?;
         }
         CliId::Commit { commit_id: oid, .. } => {
-            edit_commit_message_by_id(ctx, *oid, out, message, format, show_diff_in_editor)?;
+            edit_commit_message_by_id_and_reword_commit(
+                ctx,
+                *oid,
+                out,
+                message,
+                format,
+                show_diff_in_editor,
+            )?;
         }
         _ => {
             bail!(
@@ -104,7 +111,39 @@ fn prepare_provided_message(msg: Option<&str>, entity: &str) -> Option<Result<St
     })
 }
 
-fn edit_commit_message_by_id(
+pub(crate) fn get_commit_message_from_editor(
+    ctx: &mut Context,
+    commit_details: but_core::diff::CommitDetails,
+    current_message: String,
+    show_diff_in_editor: ShowDiffInEditor,
+) -> Result<Option<String>> {
+    let changed_files = get_changed_files_from_commit_details(&commit_details);
+
+    let should_show_diff = show_diff_in_editor.should_show_diff(|| {
+        estimate_diff_blob_size(&commit_details.diff_with_first_parent, ctx)
+    })?;
+    let diff = should_show_diff
+        .then(|| {
+            commit_details
+                .diff_with_first_parent
+                .iter()
+                .map(|change| change.unified_diff(&*ctx.repo.get()?, 3))
+                .filter_map(|diff| diff.transpose())
+                .collect::<Result<Vec<_>>>()
+        })
+        .transpose()?;
+
+    let new_message =
+        actually_get_commit_message_from_editor(&current_message, &changed_files, diff.as_deref())?;
+
+    if new_message.trim() == current_message.trim() {
+        Ok(None)
+    } else {
+        Ok(Some(new_message.trim().to_owned()))
+    }
+}
+
+fn edit_commit_message_by_id_and_reword_commit(
     ctx: &mut Context,
     commit_oid: gix::ObjectId,
     out: &mut OutputChannel,
@@ -122,51 +161,42 @@ fn edit_commit_message_by_id(
             bail!("Cannot use both --format and --message flags together");
         }
         // Format the current message without opening an editor
-        but_action::commit_format::format_commit_message(&current_message)
+        Some(but_action::commit_format::format_commit_message(
+            &current_message,
+        ))
+    } else if let Some(message) = prepare_provided_message(message, "commit message") {
+        Some(message?)
     } else {
-        prepare_provided_message(message, "commit message").unwrap_or_else(|| {
-            let changed_files = get_changed_files_from_commit_details(&commit_details);
+        get_commit_message_from_editor(
+            ctx,
+            commit_details,
+            current_message.clone(),
+            show_diff_in_editor,
+        )?
+    }
+    .filter(|new_message| new_message.trim() != current_message.trim());
 
-            let should_show_diff = show_diff_in_editor.should_show_diff(|| {
-                estimate_diff_blob_size(&commit_details.diff_with_first_parent, ctx)
-            })?;
-            let diff = should_show_diff
-                .then(|| {
-                    commit_details
-                        .diff_with_first_parent
-                        .iter()
-                        .map(|change| change.unified_diff(&*ctx.repo.get()?, 3))
-                        .filter_map(|diff| diff.transpose())
-                        .collect::<Result<Vec<_>>>()
-                })
-                .transpose()?;
+    if let Some(new_message) = new_message {
+        let new_commit_oid =
+            but_api::commit::commit_reword_only(ctx, commit_oid, BString::from(new_message))?;
 
-            // Open editor with current message and file list
-            get_commit_message_from_editor(&current_message, &changed_files, diff.as_deref())
-        })?
-    };
+        if let Some(out) = out.for_human() {
+            let repo = ctx.repo.get()?;
+            writeln!(
+                out,
+                "Updated commit message for {} (now {})",
+                commit_oid.attach(&repo).shorten_or_id(),
+                new_commit_oid.new_commit.attach(&repo).shorten_or_id()
+            )?;
+        }
 
-    if new_message.trim() == current_message.trim() {
+        Ok(())
+    } else {
         if let Some(out) = out.for_human() {
             writeln!(out, "No changes to commit message - nothing to be done")?;
         }
-        return Ok(());
+        Ok(())
     }
-
-    let new_commit_oid =
-        but_api::commit::commit_reword_only(ctx, commit_oid, BString::from(new_message))?;
-
-    if let Some(out) = out.for_human() {
-        let repo = ctx.repo.get()?;
-        writeln!(
-            out,
-            "Updated commit message for {} (now {})",
-            commit_oid.attach(&repo).shorten_or_id(),
-            new_commit_oid.new_commit.attach(&repo).shorten_or_id()
-        )?;
-    }
-
-    Ok(())
 }
 
 fn get_changed_files_from_commit_details(
@@ -190,7 +220,7 @@ fn get_changed_files_from_commit_details(
     files
 }
 
-fn get_commit_message_from_editor(
+fn actually_get_commit_message_from_editor(
     current_message: &str,
     changed_files: &[String],
     diff: Option<&[BString]>,

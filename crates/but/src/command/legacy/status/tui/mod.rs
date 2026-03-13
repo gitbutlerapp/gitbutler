@@ -3,7 +3,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-use but_api::commit::{commit_insert_blank, ui::RelativeTo};
+use anyhow::Context as _;
+use bstr::BString;
+use but_api::{
+    commit::{commit_insert_blank, ui::RelativeTo},
+    diff::ComputeLineStats,
+};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
 use crossterm::event::{self, Event};
@@ -18,6 +23,8 @@ use crate::{
     CliId,
     args::OutputFormat,
     command::legacy::{
+        ShowDiffInEditor,
+        reword::get_commit_message_from_editor,
         rub::{RubOperation, route_operation},
         status::{
             StatusFlags, StatusOutput, StatusOutputLine, build_status_context, build_status_output,
@@ -76,7 +83,7 @@ pub(super) async fn render_tui(
             }
 
             for msg in messages.drain(..) {
-                app.handle_message(ctx, out, mode, &mut other_messages, msg)
+                app.handle_message(ctx, out, mode, &mut guard, &mut other_messages, msg)
                     .await;
             }
             std::mem::swap(&mut messages, &mut other_messages);
@@ -135,10 +142,14 @@ impl App {
         ctx: &mut Context,
         out: &mut OutputChannel,
         mode: &OperatingMode,
+        guard: &mut TerminalGuard,
         messages: &mut Vec<Message>,
         msg: Message,
     ) {
-        if let Err(err) = self.try_handle_message(ctx, out, mode, messages, msg).await {
+        if let Err(err) = self
+            .try_handle_message(ctx, out, mode, guard, messages, msg)
+            .await
+        {
             messages.push(Message::ShowError(Arc::new(err)));
         }
     }
@@ -148,6 +159,7 @@ impl App {
         ctx: &mut Context,
         out: &mut OutputChannel,
         mode: &OperatingMode,
+        guard: &mut TerminalGuard,
         messages: &mut Vec<Message>,
         msg: Message,
     ) -> anyhow::Result<()> {
@@ -328,6 +340,66 @@ impl App {
                     | StatusOutputLineData::NoAssignmentsUnstaged => {}
                 }
             }
+            Message::RewordWithEditor => {
+                if !matches!(self.mode, Mode::Normal) {
+                    return Ok(());
+                }
+                let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+                    return Ok(());
+                };
+
+                let cli_id = match &selection.data {
+                    StatusOutputLineData::Commit { cli_id } => cli_id,
+                    StatusOutputLineData::UpdateNotice
+                    | StatusOutputLineData::Connector
+                    | StatusOutputLineData::StagedChanges { .. }
+                    | StatusOutputLineData::StagedFile { .. }
+                    | StatusOutputLineData::UnstagedChanges { .. }
+                    | StatusOutputLineData::UnstagedFile { .. }
+                    | StatusOutputLineData::Branch { .. }
+                    | StatusOutputLineData::CommitMessage
+                    | StatusOutputLineData::EmptyCommitMessage
+                    | StatusOutputLineData::File { .. }
+                    | StatusOutputLineData::MergeBase
+                    | StatusOutputLineData::UpstreamChanges
+                    | StatusOutputLineData::Warning
+                    | StatusOutputLineData::Hint
+                    | StatusOutputLineData::NoAssignmentsUnstaged => {
+                        return Ok(());
+                    }
+                };
+
+                let CliId::Commit { commit_id, .. } = &**cli_id else {
+                    return Ok(());
+                };
+
+                let commit_details =
+                    but_api::diff::commit_details(ctx, *commit_id, ComputeLineStats::No)?;
+                let current_message = commit_details.commit.inner.message.to_string();
+
+                let _suspend_guard = guard.suspend()?;
+                let new_message = get_commit_message_from_editor(
+                    ctx,
+                    commit_details,
+                    current_message,
+                    ShowDiffInEditor::Unspecified,
+                )?;
+
+                let Some(new_message) = new_message else {
+                    return Ok(());
+                };
+
+                let reword_result = but_api::commit::commit_reword_only(
+                    ctx,
+                    *commit_id,
+                    BString::from(new_message),
+                )
+                .with_context(|| format!("failed to reword {}", commit_id.to_hex_with_len(7)))?;
+
+                messages.push(Message::Reload(Some(SelectAfterReload::Commit(
+                    reword_result.new_commit,
+                ))));
+            }
         }
 
         Ok(())
@@ -493,7 +565,7 @@ impl App {
 
     fn render_errors(&self, area: Rect, frame: &mut Frame) {
         for (idx, err) in self.errors.iter().rev().enumerate() {
-            let formatted_err = format!("{}", err.inner);
+            let formatted_err = format!("{:#}", err.inner);
             render_error_popup(
                 frame,
                 area,
@@ -548,6 +620,7 @@ enum Message {
     ToggleFiles,
     ShowError(Arc<anyhow::Error>),
     CreateEmptyCommit,
+    RewordWithEditor,
 }
 
 #[derive(Debug, Default, strum::EnumDiscriminants)]

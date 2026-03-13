@@ -66,6 +66,18 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
     },
     KeyBind {
         chord: KeyChord {
+            modifiers: KeyModifiers::SHIFT,
+            keys: &[KeyCode::Enter],
+        },
+        kind: KeyEventKind::Press,
+        message: &Message::RewordWithEditor,
+        modes: KeyBindMode::Only(&[ModeDiscriminants::Normal]),
+        short_description: "reword",
+        code_display: "shift+enter",
+        hidden: false,
+    },
+    KeyBind {
+        chord: KeyChord {
             modifiers: KeyModifiers::NONE,
             keys: &[KeyCode::Char('f')],
         },
@@ -97,7 +109,7 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
         message: &Message::Reload(None),
         modes: KeyBindMode::Only(&[ModeDiscriminants::Normal]),
         short_description: "reload",
-        code_display: "ctrl-r",
+        code_display: "ctrl+r",
         hidden: false,
     },
     KeyBind {

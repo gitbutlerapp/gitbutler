@@ -28,6 +28,7 @@ type PanicHook = Box<dyn Fn(&std::panic::PanicHookInfo<'_>) + Send + Sync>;
 
 /// RAII guard that ensures the terminal is restored to its original state,
 /// even if an error occurs or a panic is caught.
+#[must_use]
 pub(crate) struct TerminalGuard {
     terminal: Terminal<CrosstermBackend<io::Stdout>>,
     mouse_captured: bool,
@@ -80,6 +81,28 @@ impl TerminalGuard {
     pub fn terminal_mut(&mut self) -> &mut Terminal<CrosstermBackend<io::Stdout>> {
         &mut self.terminal
     }
+
+    /// Temporarily leaves raw mode and the alternate screen to run an external interactive program.
+    ///
+    /// This can for example be used to suspend a TUI and bring up and editor or run an external
+    /// command.
+    ///
+    /// Returns a RAII guard that restores terminal state when dropped.
+    pub fn suspend(&mut self) -> anyhow::Result<SuspendGuard<'_>> {
+        disable_raw_mode()?;
+
+        if self.mouse_captured {
+            crossterm::execute!(
+                self.terminal.backend_mut(),
+                DisableMouseCapture,
+                LeaveAlternateScreen
+            )?;
+        } else {
+            crossterm::execute!(self.terminal.backend_mut(), LeaveAlternateScreen)?;
+        }
+
+        Ok(SuspendGuard(self))
+    }
 }
 
 impl Drop for TerminalGuard {
@@ -100,5 +123,25 @@ impl Drop for TerminalGuard {
         if let Some(hook) = self.original_hook.lock().ok().and_then(|mut h| h.take()) {
             std::panic::set_hook(hook);
         }
+    }
+}
+
+/// RAII guard that resumes terminal state suspended by [`TerminalGuard::suspend`].
+#[must_use]
+pub(crate) struct SuspendGuard<'a>(&'a mut TerminalGuard);
+
+impl Drop for SuspendGuard<'_> {
+    fn drop(&mut self) {
+        _ = enable_raw_mode();
+        if self.0.mouse_captured {
+            _ = crossterm::execute!(
+                self.0.terminal.backend_mut(),
+                EnterAlternateScreen,
+                EnableMouseCapture
+            );
+        } else {
+            _ = crossterm::execute!(self.0.terminal.backend_mut(), EnterAlternateScreen);
+        }
+        _ = self.0.terminal.clear();
     }
 }
