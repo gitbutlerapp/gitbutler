@@ -169,9 +169,9 @@ impl GitHubClient {
     /// The actual REST API call to fetch a page of the checks.
     async fn fetch_check_runs(
         &self,
-        url: &String,
+        url: &str,
         page: usize,
-    ) -> Result<reqwest::Response, anyhow::Error> {
+    ) -> Result<reqwest::Response> {
         let response = self
             .client
             .get(url)
