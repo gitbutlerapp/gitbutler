@@ -293,7 +293,7 @@ const BranchDetailsLane: FC<{
 const ProjectBranchesPage: FC = () => {
 	const { id } = projectBranchesRoute.useParams();
 	const [selectedBranchName, setSelectedBranchName] = useLocalStorageState<string | null>(
-		"selectedBranchName",
+		`selectedBranchName:${id}`,
 		null,
 	);
 
