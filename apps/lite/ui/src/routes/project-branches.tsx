@@ -14,7 +14,7 @@ import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { BranchListing, Commit, TreeChange } from "@gitbutler/but-sdk";
 import styles from "./project-branches.module.css";
 import sharedStyles from "./project-shared.module.css";
-import { useLocalStorageState } from "#ui/hooks/use-local-storage-state.ts";
+import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
 import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/mutations.ts";
 import {
 	branchDetailsQueryOptions,

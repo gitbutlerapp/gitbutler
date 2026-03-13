@@ -31,7 +31,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { useLocalStorageState } from "#ui/hooks/use-local-storage-state.ts";
+import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
 import {
 	CommitButton,
 	CommitDetails,
