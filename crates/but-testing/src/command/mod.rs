@@ -189,6 +189,7 @@ pub mod stacks {
                 &ref_name,
                 Some(remote_ref_name),
                 None,
+                None,
             )?;
 
             let repo = ctx.repo.get()?;

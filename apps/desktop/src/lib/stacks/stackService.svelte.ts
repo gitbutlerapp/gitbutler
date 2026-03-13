@@ -1771,7 +1771,7 @@ function injectEndpoints(api: BackendApi, uiState: UiState) {
 			}),
 			createVirtualBranchFromBranch: build.mutation<
 				CreateBranchFromBranchOutcome,
-				{ projectId: string; branch: string; remote?: string; prNumber?: number }
+				{ projectId: string; branch: string; remote?: string; prNumber?: number; order?: number }
 			>({
 				extraOptions: {
 					command: "create_virtual_branch_from_branch",

@@ -11,6 +11,7 @@
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 
 	import { inject } from "@gitbutler/core/context";
+	import { persisted } from "@gitbutler/shared/persisted";
 	import { Button, Modal, TestId, Textbox } from "@gitbutler/ui";
 	import type { DetailedPullRequest } from "$lib/forge/interface/types";
 
@@ -33,6 +34,8 @@
 
 	const remotesService = inject(REMOTES_SERVICE);
 	const stackService = inject(STACK_SERVICE);
+
+	const addToLeftmost = persisted<boolean>(false, "branch-placement-leftmost");
 
 	let createRemoteModal = $state<Modal>();
 	let inputRemoteName = $state<string>();
@@ -71,6 +74,7 @@
 				branch: remoteRef,
 				remote: remoteRef,
 				prNumber,
+				order: $addToLeftmost ? 0 : undefined,
 			});
 
 			handleCreateBranchFromBranchOutcome(outcome);

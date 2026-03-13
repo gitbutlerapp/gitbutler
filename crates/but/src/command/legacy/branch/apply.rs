@@ -33,6 +33,7 @@ pub fn apply(ctx: &mut Context, branch_name: &str, out: &mut OutputChannel) -> a
             ref_name,
             remote_ref_name,
             None,
+            None,
         )?;
         r
     } else if let Some((remote_ref, r)) = find_remote_reference(&repo, branch_name)? {
@@ -47,6 +48,7 @@ pub fn apply(ctx: &mut Context, branch_name: &str, out: &mut OutputChannel) -> a
             ctx,
             ref_name,
             Some(remote_ref.clone()),
+            None,
             None,
         )?;
         r
@@ -90,6 +92,7 @@ pub fn apply(ctx: &mut Context, branch_name: &str, out: &mut OutputChannel) -> a
                     ref_name,
                     remote_ref_name,
                     None,
+                    None,
                 )?;
                 r
             }
@@ -109,6 +112,7 @@ pub fn apply(ctx: &mut Context, branch_name: &str, out: &mut OutputChannel) -> a
                     ctx,
                     ref_name,
                     Some(remote_ref),
+                    None,
                     None,
                 )?;
                 r
