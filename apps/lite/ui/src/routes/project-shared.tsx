@@ -10,7 +10,7 @@ import { Match } from "effect";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { FC, ComponentPropsWithoutRef, ReactNode } from "react";
 import styles from "./project-shared.module.css";
-import { commitDetailsWithLineStatsQueryOptions, treeChangeDiffsQueryOptions } from "../queries";
+import { commitDetailsWithLineStatsQueryOptions, treeChangeDiffsQueryOptions } from "#ui/queries.ts";
 
 /**
  * @example

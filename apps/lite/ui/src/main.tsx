@@ -1,7 +1,7 @@
 import { Toast } from "@base-ui/react/toast";
 import * as ReactQuery from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
-import { App } from "./App";
+import { App } from "#ui/App.tsx";
 import "./global.css";
 
 // By default React Query uses `visibilitychange`, but this doesn't seem to work

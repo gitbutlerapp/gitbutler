@@ -3,8 +3,8 @@ import {
 	changesInWorktreeQueryOptions,
 	headInfoQueryOptions,
 	listBranchesQueryOptions,
-} from "./queries";
-import { rub } from "./rub";
+} from "#ui/queries.ts";
+import { rub } from "#ui/rub.ts";
 
 export const applyBranchMutationOptions = mutationOptions({
 	mutationFn: window.lite.apply,

@@ -49,17 +49,17 @@ import {
 	commitRewordMutationOptions,
 	rubMutationOptions,
 	unapplyStackMutationOptions,
-} from "../mutations";
+} from "#ui/mutations.ts";
 import {
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
-} from "../queries";
-import { type ChangeUnit } from "../ChangeUnit";
-import { type RubSource } from "../rub";
-import { projectRootRoute } from "./project-root";
-import { createDiffSpec } from "../DiffSpec";
+} from "#ui/queries.ts";
+import { type ChangeUnit } from "#ui/ChangeUnit.ts";
+import { type RubSource } from "#ui/rub.ts";
+import { projectRootRoute } from "#ui/routes/project-root.tsx";
+import { createDiffSpec } from "#ui/DiffSpec.ts";
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
 

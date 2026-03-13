@@ -15,14 +15,14 @@ import { BranchListing, Commit, TreeChange } from "@gitbutler/but-sdk";
 import styles from "./project-branches.module.css";
 import sharedStyles from "./project-shared.module.css";
 import { useLocalStorageState } from "#ui/hooks/use-local-storage-state.ts";
-import { applyBranchMutationOptions, unapplyStackMutationOptions } from "../mutations";
+import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/mutations.ts";
 import {
 	branchDetailsQueryOptions,
 	branchDiffQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
-} from "../queries";
+} from "#ui/queries.ts";
 
 type Selection = {
 	commitId: string;

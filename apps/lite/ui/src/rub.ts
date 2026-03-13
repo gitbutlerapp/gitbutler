@@ -1,7 +1,7 @@
 import { HunkAssignmentRequest, HunkHeader, TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
-import { type ChangeUnit } from "./ChangeUnit";
-import { createDiffSpec } from "./DiffSpec";
+import { type ChangeUnit } from "#ui/ChangeUnit.ts";
+import { createDiffSpec } from "#ui/DiffSpec.ts";
 
 export type RubSource = {
 	parent: ChangeUnit;
