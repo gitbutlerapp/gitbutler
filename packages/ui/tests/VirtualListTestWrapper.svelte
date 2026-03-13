@@ -12,6 +12,7 @@
 		showBottomButton?: boolean;
 		onVisibleChange?: (change: { start: number; end: number } | undefined) => void;
 		renderDistance?: number;
+		initSettleMs?: number;
 		/**
 		 * When set, onloadmore will automatically prepend this many items.
 		 * Simulates the IRC history-loading pattern where scrolling near the top
@@ -43,6 +44,7 @@
 		showBottomButton = false,
 		onVisibleChange,
 		renderDistance = 0,
+		initSettleMs,
 		loadMorePrependCount,
 		variableHeights = false,
 		itemHeight,
@@ -198,6 +200,7 @@
 		{startIndex}
 		{showBottomButton}
 		{renderDistance}
+		{initSettleMs}
 		onloadmore={onloadmore || loadMorePrependCount ? handleLoadMore : undefined}
 		onVisibleChange={handleVisibleChange}
 		visibility="hover"

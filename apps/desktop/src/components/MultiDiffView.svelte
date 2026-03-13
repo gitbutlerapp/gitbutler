@@ -223,6 +223,7 @@
 				defaultHeight={102}
 				visibility="scroll"
 				renderDistance={100}
+				initSettleMs={1000}
 				onVisibleChange={(range) => {
 					if (range) {
 						const activeIndex = scrollLock.resolve(range);
