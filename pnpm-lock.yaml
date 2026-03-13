@@ -410,6 +410,9 @@ importers:
       effect:
         specifier: ^3.19.19
         version: 3.19.19
+      electron-devtools-installer:
+        specifier: ^4.0.0
+        version: 4.0.0
       react:
         specifier: ^19.2.4
         version: 19.2.4
@@ -450,9 +453,6 @@ importers:
       electron-builder:
         specifier: ^26.8.1
         version: 26.8.1(electron-builder-squirrel-windows@26.7.0)
-      electron-devtools-installer:
-        specifier: ^4.0.0
-        version: 4.0.0
       jsdom:
         specifier: 26.1.0
         version: 26.1.0

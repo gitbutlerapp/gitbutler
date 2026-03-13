@@ -46,6 +46,7 @@
 		"@tanstack/react-query-devtools": "^5.90.21",
 		"@tanstack/react-router": "^1.163.2",
 		"effect": "^3.19.19",
+		"electron-devtools-installer": "^4.0.0",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4"
 	},
@@ -61,7 +62,6 @@
 		"cross-env": "^10.1.0",
 		"electron": "^37.4.0",
 		"electron-builder": "^26.8.1",
-		"electron-devtools-installer": "^4.0.0",
 		"jsdom": "26.1.0",
 		"oxlint": "^1.50.0",
 		"vite": "catalog:",
