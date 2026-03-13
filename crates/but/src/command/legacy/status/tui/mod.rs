@@ -21,7 +21,6 @@ use crate::{
             StatusFlags, StatusOutput, StatusOutputLine, build_status_context, build_status_output,
             tui::{
                 cursor::Cursor,
-                error::{AppError, TuiResultExt},
                 key_bind::{KEY_BINDS, KeyBind},
             },
         },
@@ -31,7 +30,6 @@ use crate::{
 };
 
 mod cursor;
-mod error;
 mod key_bind;
 
 const CURSOR_BG: Color = Color::Rgb(69, 71, 90);
@@ -136,6 +134,19 @@ impl App {
         messages: &mut Vec<Message>,
         msg: Message,
     ) {
+        if let Err(err) = self.try_handle_message(ctx, out, mode, messages, msg).await {
+            messages.push(Message::ShowError(Arc::new(err)));
+        }
+    }
+
+    async fn try_handle_message(
+        &mut self,
+        ctx: &mut Context,
+        out: &mut OutputChannel,
+        mode: &OperatingMode,
+        messages: &mut Vec<Message>,
+        msg: Message,
+    ) -> anyhow::Result<()> {
         self.should_render = true;
 
         match msg {
@@ -147,11 +158,11 @@ impl App {
             Message::MoveCursorDown => self.cursor.move_down(&self.status_lines, &self.mode),
             Message::StartRub => {
                 let Some(selected_line) = self.cursor.selected_line(&self.status_lines) else {
-                    return;
+                    return Ok(());
                 };
 
                 let Some(cli_id) = selected_line.data.cli_id() else {
-                    return;
+                    return Ok(());
                 };
 
                 let available_targets = self
@@ -172,7 +183,7 @@ impl App {
                     .selected_line(&self.status_lines)
                     .is_some_and(|line| cursor::is_selectable_in_mode(line, &self.mode))
                 {
-                    return;
+                    return Ok(());
                 }
 
                 let previous_cursor = self.cursor;
@@ -196,9 +207,7 @@ impl App {
                 {
                     let mut noop_out =
                         OutputChannel::new_without_pager_non_json(OutputFormat::None);
-                    operation
-                        .execute(ctx, &mut noop_out)
-                        .show_error_in_tui(messages);
+                    operation.execute(ctx, &mut noop_out)?;
                 }
 
                 messages.extend([Message::EnterNormalMode, Message::Reload]);
@@ -212,7 +221,7 @@ impl App {
 
                 let mut new_lines = Vec::new();
 
-                if build_status_context(
+                build_status_context(
                     ctx,
                     out,
                     mode,
@@ -230,12 +239,7 @@ impl App {
                             lines: &mut new_lines,
                         },
                     )
-                })
-                .show_error_in_tui(messages)
-                .is_none()
-                {
-                    return;
-                }
+                })?;
 
                 let previously_selected_cli_id = self
                     .cursor
@@ -257,6 +261,8 @@ impl App {
                 });
             }
         }
+
+        Ok(())
     }
 
     fn render(&self, frame: &mut Frame) {
@@ -565,4 +571,10 @@ fn render_error_popup(frame: &mut Frame, area: Rect, margin: PopupMargin, text: 
         .wrap(Wrap { trim: false });
 
     frame.render_widget(widget, popup_area);
+}
+
+#[derive(Debug)]
+pub(super) struct AppError {
+    pub(super) inner: Arc<anyhow::Error>,
+    pub(super) dismiss_at: Instant,
 }
