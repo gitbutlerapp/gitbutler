@@ -9,12 +9,12 @@ import {
 	FileButton,
 	HunkDiff,
 	hunkKey,
-} from "#ui/routes/project-shared";
-import { projectRootRoute } from "#ui/routes/project-root";
+} from "#ui/routes/project-shared.tsx";
+import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { BranchListing, Commit, TreeChange } from "@gitbutler/but-sdk";
 import styles from "./project-branches.module.css";
 import sharedStyles from "./project-shared.module.css";
-import { useLocalStorageState } from "#ui/hooks/use-local-storage-state";
+import { useLocalStorageState } from "#ui/hooks/use-local-storage-state.ts";
 import { applyBranchMutationOptions, unapplyStackMutationOptions } from "../mutations";
 import {
 	branchDetailsQueryOptions,

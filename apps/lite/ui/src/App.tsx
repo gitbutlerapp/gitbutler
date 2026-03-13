@@ -1,4 +1,4 @@
-import { router } from "#ui/router";
+import { router } from "#ui/router.tsx";
 import { Toast, ToastManager } from "@base-ui/react/toast";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";

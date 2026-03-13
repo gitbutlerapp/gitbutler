@@ -5,8 +5,8 @@
 	"type": "module",
 	"main": "dist/electron/main.js",
 	"imports": {
-		"#ui/*": "./ui/src/*.tsx",
-		"#ui/hooks/*": "./ui/src/hooks/*.ts",
+		"#ui/*": "./ui/src/*",
+		"#ui/hooks/*": "./ui/src/hooks/*",
 		"#electron/*": {
 			"types": "./electron/src/*.ts",
 			"default": "./dist/electron/*.js"

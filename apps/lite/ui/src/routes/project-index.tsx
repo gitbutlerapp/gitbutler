@@ -31,7 +31,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { useLocalStorageState } from "#ui/hooks/use-local-storage-state";
+import { useLocalStorageState } from "#ui/hooks/use-local-storage-state.ts";
 import {
 	CommitButton,
 	CommitDetails,
@@ -40,7 +40,7 @@ import {
 	FileDiff,
 	HunkDiff,
 	hunkKey,
-} from "#ui/routes/project-shared";
+} from "#ui/routes/project-shared.tsx";
 import {
 	commitInsertBlankMutationOptions,
 	commitMoveMutationOptions,
