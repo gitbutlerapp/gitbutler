@@ -2,37 +2,54 @@ use std::sync::Arc;
 
 use ratatui::text::Span;
 
-use crate::CliId;
+use crate::{CliId, command::legacy::status::render_oneshot, utils::WriteWithUtils};
 
-#[derive(Default)]
-pub(super) struct StatusOutput {
-    pub(super) lines: Vec<StatusOutputLine>,
+pub(super) enum StatusOutput<'a> {
+    /// Immediately print the outputs as it's being generated.
+    ///
+    /// This is used when running the status command in one-shot mode.
+    Immediate { out: &'a mut dyn WriteWithUtils },
+    /// Buffer the output so it can be rendered in the TUI.
+    Buffer {
+        lines: &'a mut Vec<StatusOutputLine>,
+    },
 }
 
-impl StatusOutput {
+impl StatusOutput<'_> {
     fn push_line(
         &mut self,
         connector: Option<Vec<Span<'static>>>,
         line: Vec<Span<'static>>,
         data: StatusOutputLineData,
-    ) {
-        self.lines.push(StatusOutputLine {
+    ) -> anyhow::Result<()> {
+        let output_line = StatusOutputLine {
             connector,
             line,
             data,
-        });
+        };
+
+        match self {
+            StatusOutput::Immediate { out } => {
+                render_oneshot::render_oneshot(output_line, *out)?;
+            }
+            StatusOutput::Buffer { lines } => {
+                lines.push(output_line);
+            }
+        }
+
+        Ok(())
     }
 
-    pub(super) fn update_notice(&mut self, line: Vec<Span<'static>>) {
-        self.push_line(None, line, StatusOutputLineData::UpdateNotice);
+    pub(super) fn update_notice(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
+        self.push_line(None, line, StatusOutputLineData::UpdateNotice)
     }
 
-    pub(super) fn connector(&mut self, connector: Vec<Span<'static>>) {
+    pub(super) fn connector(&mut self, connector: Vec<Span<'static>>) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
             <_>::default(),
             StatusOutputLineData::Connector,
-        );
+        )
     }
 
     pub(super) fn staged_changes(
@@ -40,14 +57,14 @@ impl StatusOutput {
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
         id: CliId,
-    ) {
+    ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
             line,
             StatusOutputLineData::StagedChanges {
                 cli_id: Arc::new(id),
             },
-        );
+        )
     }
 
     pub(super) fn staged_file(
@@ -55,14 +72,14 @@ impl StatusOutput {
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
         id: CliId,
-    ) {
+    ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
             line,
             StatusOutputLineData::StagedFile {
                 cli_id: Arc::new(id),
             },
-        );
+        )
     }
 
     pub(super) fn unstaged_changes(
@@ -70,14 +87,14 @@ impl StatusOutput {
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
         id: CliId,
-    ) {
+    ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
             line,
             StatusOutputLineData::UnstagedChanges {
                 cli_id: Arc::new(id),
             },
-        );
+        )
     }
 
     pub(super) fn unstaged_file(
@@ -85,14 +102,14 @@ impl StatusOutput {
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
         id: CliId,
-    ) {
+    ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
             line,
             StatusOutputLineData::UnstagedFile {
                 cli_id: Arc::new(id),
             },
-        );
+        )
     }
 
     pub(super) fn branch(
@@ -100,14 +117,14 @@ impl StatusOutput {
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
         id: CliId,
-    ) {
+    ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
             line,
             StatusOutputLineData::Branch {
                 cli_id: Arc::new(id),
             },
-        );
+        )
     }
 
     pub(super) fn file(
@@ -115,14 +132,14 @@ impl StatusOutput {
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
         id: CliId,
-    ) {
+    ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
             line,
             StatusOutputLineData::File {
                 cli_id: Arc::new(id),
             },
-        );
+        )
     }
 
     pub(super) fn commit(
@@ -130,66 +147,70 @@ impl StatusOutput {
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
         id: CliId,
-    ) {
+    ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
             line,
             StatusOutputLineData::Commit {
                 cli_id: Arc::new(id),
             },
-        );
+        )
     }
 
     pub(super) fn commit_message(
         &mut self,
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
-    ) {
-        self.push_line(Some(connector), line, StatusOutputLineData::CommitMessage);
+    ) -> anyhow::Result<()> {
+        self.push_line(Some(connector), line, StatusOutputLineData::CommitMessage)
     }
 
     pub(super) fn empty_commit_message(
         &mut self,
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
             line,
             StatusOutputLineData::EmptyCommitMessage,
-        );
+        )
     }
 
-    pub(super) fn warning(&mut self, line: Vec<Span<'static>>) {
-        self.push_line(None, line, StatusOutputLineData::Warning);
+    pub(super) fn warning(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
+        self.push_line(None, line, StatusOutputLineData::Warning)
     }
 
-    pub(super) fn hint(&mut self, line: Vec<Span<'static>>) {
-        self.push_line(None, line, StatusOutputLineData::Hint);
+    pub(super) fn hint(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
+        self.push_line(None, line, StatusOutputLineData::Hint)
     }
 
     pub(super) fn no_assignments_unstaged(
         &mut self,
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
-    ) {
+    ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
             line,
             StatusOutputLineData::NoAssignmentsUnstaged,
-        );
+        )
     }
 
-    pub(super) fn merge_base(&mut self, connector: Vec<Span<'static>>, line: Vec<Span<'static>>) {
-        self.push_line(Some(connector), line, StatusOutputLineData::MergeBase);
+    pub(super) fn merge_base(
+        &mut self,
+        connector: Vec<Span<'static>>,
+        line: Vec<Span<'static>>,
+    ) -> anyhow::Result<()> {
+        self.push_line(Some(connector), line, StatusOutputLineData::MergeBase)
     }
 
     pub(super) fn upstream_changes(
         &mut self,
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
-    ) {
-        self.push_line(Some(connector), line, StatusOutputLineData::UpstreamChanges);
+    ) -> anyhow::Result<()> {
+        self.push_line(Some(connector), line, StatusOutputLineData::UpstreamChanges)
     }
 }
 

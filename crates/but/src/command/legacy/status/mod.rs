@@ -157,13 +157,16 @@ pub(crate) async fn worktree(
         return Ok(());
     };
 
-    let status_output = build_status_output(ctx, &status_ctx)?;
     match render_mode {
         StatusRenderMode::Oneshot => {
-            render_oneshot::render_oneshot(status_output, human_out)?;
+            let mut output = StatusOutput::Immediate { out: human_out };
+            build_status_output(ctx, &status_ctx, &mut output)?;
         }
         StatusRenderMode::Tui { debug } => {
-            tui::render_tui(ctx, out, &mode, flags, status_output, debug).await?;
+            let mut lines = Vec::new();
+            let mut output = StatusOutput::Buffer { lines: &mut lines };
+            build_status_output(ctx, &status_ctx, &mut output)?;
+            tui::render_tui(ctx, out, &mode, flags, lines, debug).await?;
         }
     }
 
@@ -347,26 +350,26 @@ fn truncation_policy(render_mode: StatusRenderMode, is_paged: bool) -> bool {
 fn build_status_output(
     ctx: &mut Context,
     status_ctx: &StatusContext<'_>,
-) -> anyhow::Result<StatusOutput> {
-    let mut output = StatusOutput::default();
-    print_update_notice(ctx, status_ctx, &mut output)?;
-    print_worktree_status(ctx, status_ctx, &mut output)?;
-    print_upstream_state(ctx, status_ctx, &mut output)?;
-    print_common_merge_base_summary(status_ctx, &mut output)?;
+    output: &mut StatusOutput<'_>,
+) -> anyhow::Result<()> {
+    print_update_notice(ctx, status_ctx, output)?;
+    print_worktree_status(ctx, status_ctx, output)?;
+    print_upstream_state(ctx, status_ctx, output)?;
+    print_common_merge_base_summary(status_ctx, output)?;
     let not_on_workspace = matches!(
         status_ctx.mode,
         gitbutler_operating_modes::OperatingMode::OutsideWorkspace(_)
     );
-    print_outside_workspace_warning(not_on_workspace, &mut output)?;
-    print_hint(status_ctx, not_on_workspace, &mut output)?;
-    Ok(output)
+    print_outside_workspace_warning(not_on_workspace, output)?;
+    print_hint(status_ctx, not_on_workspace, output)?;
+    Ok(())
 }
 
 /// Print update information for human output when a newer `but` version is available.
 fn print_update_notice(
     ctx: &mut Context,
     status_ctx: &StatusContext<'_>,
-    output: &mut StatusOutput,
+    output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     let cache = ctx.app_cache.get_cache()?;
     if let Ok(Some(update)) = but_update::available_update(&cache) {
@@ -378,8 +381,8 @@ fn print_update_notice(
                 )
                 .into_iter()
                 .collect(),
-        );
-        output.connector(Vec::from([Span::raw("")]));
+        )?;
+        output.connector(Vec::from([Span::raw("")]))?;
     }
 
     Ok(())
@@ -388,15 +391,15 @@ fn print_update_notice(
 /// Print a warning when operating outside the GitButler workspace.
 fn print_outside_workspace_warning(
     not_on_workspace: bool,
-    output: &mut StatusOutput,
+    output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     if not_on_workspace {
         output.warning(Vec::from([Span::raw(
             "⚠️    You are in plain Git mode, directly on a branch. Some commands may be unavailable.    ⚠️",
-        )]));
+        )]))?;
         output.warning(Vec::from([Span::raw(
             "⚠️    More info: https://github.com/gitbutlerapp/gitbutler/issues/11866                     ⚠️",
-        )]));
+        )]))?;
     }
 
     Ok(())
@@ -406,13 +409,13 @@ fn print_outside_workspace_warning(
 fn print_hint(
     status_ctx: &StatusContext<'_>,
     not_on_workspace: bool,
-    output: &mut StatusOutput,
+    output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     if !status_ctx.flags.hint {
         return Ok(());
     }
 
-    output.connector(Vec::from([Span::raw("")]));
+    output.connector(Vec::from([Span::raw("")]))?;
 
     // Determine what hint to show based on workspace state
     let has_uncommitted_files = !status_ctx.worktree_changes.is_empty();
@@ -427,7 +430,7 @@ fn print_hint(
         "Hint: run `but help` for all commands"
     };
 
-    output.hint(Vec::from([Span::styled(hint_text, Style::default().dim())]));
+    output.hint(Vec::from([Span::styled(hint_text, Style::default().dim())]))?;
 
     Ok(())
 }
@@ -436,7 +439,7 @@ fn print_hint(
 fn print_upstream_state(
     ctx: &mut Context,
     status_ctx: &StatusContext<'_>,
-    output: &mut StatusOutput,
+    output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     let Some(upstream) = &status_ctx.upstream_state else {
         return Ok(());
@@ -470,7 +473,7 @@ fn print_upstream_state(
                 Style::default().dim(),
             ));
         }
-        output.upstream_changes(Vec::from([Span::raw("┊╭┄")]), upstream_summary);
+        output.upstream_changes(Vec::from([Span::raw("┊╭┄")]), upstream_summary)?;
 
         // Display detailed list of upstream commits
         if let Some(base_branch) = &status_ctx.base_branch
@@ -493,7 +496,7 @@ fn print_upstream_state(
                         Span::raw(" "),
                         Span::styled(truncated_msg, Style::default().dim()),
                     ]),
-                );
+                )?;
             }
             let hidden_commits = base_branch.behind.saturating_sub(8);
             if hidden_commits > 0 {
@@ -503,10 +506,10 @@ fn print_upstream_state(
                         format!("and {hidden_commits} more…"),
                         Style::default().dim(),
                     )]),
-                );
+                )?;
             }
         }
-        output.connector(Vec::from([Span::raw("┊┊")]));
+        output.connector(Vec::from([Span::raw("┊┊")]))?;
     } else {
         // Without --upstream, show the summary with latest commit info
         let mut upstream_summary = Vec::from([
@@ -523,7 +526,7 @@ fn print_upstream_state(
         output.upstream_changes(
             Vec::from([Span::raw("┊"), dot, Span::raw(" ")]),
             upstream_summary,
-        );
+        )?;
     }
 
     Ok(())
@@ -532,7 +535,7 @@ fn print_upstream_state(
 /// Print the common merge-base summary line at the bottom of the status tree.
 fn print_common_merge_base_summary(
     status_ctx: &StatusContext<'_>,
-    output: &mut StatusOutput,
+    output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     let first_line = status_ctx
         .common_merge_base_data
@@ -566,7 +569,7 @@ fn print_common_merge_base_summary(
             Span::raw(" "),
             Span::raw(first_line.to_string()),
         ]),
-    );
+    )?;
     Ok(())
 }
 
@@ -574,7 +577,7 @@ fn print_common_merge_base_summary(
 fn print_worktree_status(
     ctx: &mut Context,
     status_ctx: &StatusContext<'_>,
-    output: &mut StatusOutput,
+    output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     for (i, (stack_id, (stack_with_id, assignments))) in status_ctx.stack_details.iter().enumerate()
     {
@@ -651,14 +654,14 @@ fn print_assignments(
     branch_name: Option<&BStr>,
     assignments: &[FileAssignment],
     unstaged: bool,
-    output: &mut StatusOutput,
+    output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     // if there are no assignments and we're in the unstaged section, print "(no changes)" and return
     if assignments.is_empty() && unstaged {
         output.no_assignments_unstaged(
             Vec::from([Span::raw("┊     ")]),
             Vec::from([Span::styled("no changes", Style::default().dim().italic())]),
-        );
+        )?;
         return Ok(());
     }
 
@@ -687,7 +690,7 @@ fn print_assignments(
                 Span::raw("]"),
             ]),
             staged_changes_cli_id,
-        );
+        )?;
     }
 
     let max_id_width = assignments
@@ -759,14 +762,14 @@ fn print_assignments(
         }
 
         if unstaged {
-            output.unstaged_file(Vec::from([Span::raw("┊   ")]), file_line, file_cli_id);
+            output.unstaged_file(Vec::from([Span::raw("┊   ")]), file_line, file_cli_id)?;
         } else {
-            output.staged_file(Vec::from([Span::raw("┊  │ ")]), file_line, file_cli_id);
+            output.staged_file(Vec::from([Span::raw("┊  │ ")]), file_line, file_cli_id)?;
         }
     }
 
     if !unstaged && !assignments.is_empty() {
-        output.connector(Vec::from([Span::raw("┊  │")]));
+        output.connector(Vec::from([Span::raw("┊  │")]))?;
     }
 
     Ok(())
@@ -779,7 +782,7 @@ fn print_group(
     assignments: &[FileAssignment],
     stack_mark: &mut Option<Span<'static>>,
     first: bool,
-    output: &mut StatusOutput,
+    output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     let repo = ctx
         .legacy_project
@@ -790,7 +793,7 @@ fn print_group(
         for segment in &stack_with_id.segments {
             let notch = if first { "╭" } else { "├" };
             if !first {
-                output.connector(Vec::from([Span::raw("┊│")]));
+                output.connector(Vec::from([Span::raw("┊│")]))?;
             }
 
             let no_commits = if segment.workspace_commits.is_empty() {
@@ -901,7 +904,7 @@ fn print_group(
                 Vec::from([Span::raw(format!("┊{notch}┄"))]),
                 branch_line,
                 branch_cli_id,
-            );
+            )?;
 
             *stack_mark = None; // Only show the stack mark for the first branch
             first = false;
@@ -913,14 +916,14 @@ fn print_group(
                     .as_ref()
                     .and_then(|rtb| rtb.as_bstr().strip_prefix(b"refs/remotes/"))
                     .unwrap_or(b"unknown");
-                output.connector(Vec::from([Span::raw("┊┊")]));
+                output.connector(Vec::from([Span::raw("┊┊")]))?;
                 output.upstream_changes(
                     Vec::from([Span::raw("┊╭┄┄")]),
                     Vec::from([Span::styled(
                         format!("(upstream: on {})", BStr::new(tracking_branch)),
                         Style::default().yellow(),
                     )]),
-                );
+                )?;
             }
             for commit in &segment.remote_commits {
                 let details =
@@ -938,7 +941,7 @@ fn print_group(
                 )?;
             }
             if !segment.remote_commits.is_empty() {
-                output.connector(Vec::from([Span::raw("┊-")]));
+                output.connector(Vec::from([Span::raw("┊-")]))?;
             }
             for commit in segment.workspace_commits.iter() {
                 let marked = crate::command::legacy::mark::commit_marked(
@@ -989,13 +992,13 @@ fn print_group(
             line.push(Span::raw(" "));
             line.push(stack_mark.clone());
         }
-        output.unstaged_changes(Vec::from([Span::raw("╭┄")]), line, cli_id.clone());
+        output.unstaged_changes(Vec::from([Span::raw("╭┄")]), line, cli_id.clone())?;
         print_assignments(&repo, status_ctx, None, None, assignments, true, output)?;
     }
     if !first {
-        output.connector(Vec::from([Span::raw("├╯")]));
+        output.connector(Vec::from([Span::raw("├╯")]))?;
     }
-    output.connector(Vec::from([Span::raw("┊")]));
+    output.connector(Vec::from([Span::raw("┊")]))?;
     Ok(())
 }
 
@@ -1081,7 +1084,7 @@ fn print_commit(
     classification: CommitClassification,
     marked: bool,
     review_url: Option<String>,
-    output: &mut StatusOutput,
+    output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     let dot = match classification {
         CommitClassification::Upstream => Span::styled("●", Style::default().yellow()),
@@ -1181,7 +1184,7 @@ fn print_commit(
                 )
                 .collect(),
             commit_cli_id.clone(),
-        );
+        )?;
         let (message, is_empty_message) = commit_message_display_cli(
             &commit.message,
             status_ctx.flags.verbose,
@@ -1196,9 +1199,9 @@ fn print_commit(
         );
         let line = Vec::from([message]);
         if is_empty_message {
-            output.empty_commit_message(Vec::from([Span::raw("┊│     ")]), line);
+            output.empty_commit_message(Vec::from([Span::raw("┊│     ")]), line)?;
         } else {
-            output.commit_message(Vec::from([Span::raw("┊│     ")]), line);
+            output.commit_message(Vec::from([Span::raw("┊│     ")]), line)?;
         }
     } else {
         output.commit(
@@ -1226,7 +1229,7 @@ fn print_commit(
                 )
                 .collect(),
             commit_cli_id.clone(),
-        );
+        )?;
     }
     if status_ctx.flags.show_files {
         match commit_changes {
@@ -1248,7 +1251,7 @@ fn print_commit(
                         .chain(inner.display_cli(false, status_ctx.should_truncate_for_terminal))
                         .collect(),
                         file_cli_id,
-                    );
+                    )?;
                 }
             }
             CommitChanges::Remote(tree_changes) => {
@@ -1260,7 +1263,7 @@ fn print_commit(
                             .into_iter()
                             .collect(),
                         commit_cli_id.clone(),
-                    );
+                    )?;
                 }
             }
         }

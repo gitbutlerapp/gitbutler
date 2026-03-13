@@ -4,46 +4,39 @@ use ratatui::{
     text::Line,
 };
 
-use crate::{
-    command::legacy::status::{StatusOutput, StatusOutputLine},
-    utils::WriteWithUtils,
-};
+use crate::{command::legacy::status::StatusOutputLine, utils::WriteWithUtils};
 
-/// Print the status output.
+/// Print one line of status output.
 ///
 /// Works by translating the ratatui lines and spans into `colored` text and printing it.
 pub(super) fn render_oneshot(
-    output: StatusOutput,
+    line: StatusOutputLine,
     out: &mut dyn WriteWithUtils,
 ) -> anyhow::Result<()> {
-    let StatusOutput { lines } = output;
+    let StatusOutputLine {
+        connector,
+        line: content_line,
+        data: _,
+    } = line;
 
     let should_colorize = colored::control::SHOULD_COLORIZE.should_colorize();
 
-    for output_line in lines {
-        let StatusOutputLine {
-            connector,
-            line: content_line,
-            data: _,
-        } = output_line;
-
-        let mut line = Line::default();
-        if let Some(connector) = connector {
-            line.extend(connector);
-        }
-        line.extend(content_line);
-
-        for span in line.spans {
-            let style = line.style.patch(span.style);
-            let rendered = render_span_with_colored(&span.content, style, should_colorize);
-            write!(out, "{rendered}")?;
-            if should_colorize && style_has_effect(style) {
-                write!(out, "\x1b[0m")?;
-            }
-        }
-
-        writeln!(out)?;
+    let mut line = Line::default();
+    if let Some(connector) = connector {
+        line.extend(connector);
     }
+    line.extend(content_line);
+
+    for span in line.spans {
+        let style = line.style.patch(span.style);
+        let rendered = render_span_with_colored(&span.content, style, should_colorize);
+        write!(out, "{rendered}")?;
+        if should_colorize && style_has_effect(style) {
+            write!(out, "\x1b[0m")?;
+        }
+    }
+
+    writeln!(out)?;
 
     Ok(())
 }
