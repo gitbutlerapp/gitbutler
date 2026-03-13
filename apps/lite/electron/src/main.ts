@@ -17,25 +17,25 @@ import {
 	type UnapplyStackParams,
 } from "#electron/ipc";
 import {
-	applyNapi,
-	assignHunkNapi,
-	branchDetailsNapi,
-	branchDiffNapi,
-	changesInWorktreeNapi,
-	commitAmendNapi,
-	commitCreateNapi,
-	commitInsertBlankNapi,
-	commitRewordNapi,
-	commitUncommitChangesNapi,
-	headInfoNapi,
-	commitMoveNapi,
-	commitMoveToBranchNapi,
-	commitDetailsWithLineStatsNapi,
-	commitMoveChangesBetweenNapi,
-	listBranchesNapi,
-	listProjectsStatelessNapi,
-	treeChangeDiffsNapi,
-	unapplyStackNapi,
+	apply,
+	assignHunk,
+	branchDetails,
+	branchDiff,
+	changesInWorktree,
+	commitAmend,
+	commitCreate,
+	commitInsertBlank,
+	commitReword,
+	commitUncommitChanges,
+	headInfo,
+	commitMove,
+	commitMoveToBranch,
+	commitDetailsWithLineStats,
+	commitMoveChangesBetween,
+	listBranches,
+	listProjectsStateless,
+	treeChangeDiffs,
+	unapplyStack,
 	BranchListingFilter,
 } from "@gitbutler/but-sdk";
 import { app, BrowserWindow, ipcMain } from "electron";
@@ -48,86 +48,85 @@ const currentDirPath = path.dirname(currentFilePath);
 
 function registerIpcHandlers(): void {
 	ipcMain.handle(liteIpcChannels.apply, (_e, { projectId, existingBranch }: ApplyParams) =>
-		applyNapi(projectId, existingBranch),
+		apply(projectId, existingBranch),
 	);
 	ipcMain.handle(liteIpcChannels.assignHunk, (_e, { projectId, assignments }: AssignHunkParams) =>
-		assignHunkNapi(projectId, assignments),
+		assignHunk(projectId, assignments),
 	);
 	ipcMain.handle(
 		liteIpcChannels.branchDetails,
 		(_e, { projectId, branchName, remote }: BranchDetailsParams) =>
-			branchDetailsNapi(projectId, branchName, remote),
+			branchDetails(projectId, branchName, remote),
 	);
 	ipcMain.handle(liteIpcChannels.branchDiff, (_e, { projectId, branch }: BranchDiffParams) =>
-		branchDiffNapi(projectId, branch),
+		branchDiff(projectId, branch),
 	);
 	ipcMain.handle(liteIpcChannels.changesInWorktree, (_e, projectId: string) =>
-		changesInWorktreeNapi(projectId),
+		changesInWorktree(projectId),
 	);
 	ipcMain.handle(
 		liteIpcChannels.commitAmend,
 		(_e, { projectId, commitId, changes }: CommitAmendParams) =>
-			commitAmendNapi(projectId, commitId, changes),
+			commitAmend(projectId, commitId, changes),
 	);
 	ipcMain.handle(
 		liteIpcChannels.commitCreate,
 		(_e, { projectId, relativeTo, side, changes, message }: CommitCreateParams) =>
-			commitCreateNapi(projectId, relativeTo, side, changes, message),
+			commitCreate(projectId, relativeTo, side, changes, message),
 	);
 	ipcMain.handle(
 		liteIpcChannels.commitDetailsWithLineStats,
 		(_e, { projectId, commitId }: CommitDetailsWithLineStatsParams) =>
-			commitDetailsWithLineStatsNapi(projectId, commitId),
+			commitDetailsWithLineStats(projectId, commitId),
 	);
 	ipcMain.handle(
 		liteIpcChannels.commitInsertBlank,
 		(_e, { projectId, relativeTo, side }: CommitInsertBlankParams) =>
-			commitInsertBlankNapi(projectId, relativeTo, side),
+			commitInsertBlank(projectId, relativeTo, side),
 	);
 	ipcMain.handle(
 		liteIpcChannels.commitMove,
 		(_e, { projectId, subjectCommitId, anchorCommitId, side }: CommitMoveParams) =>
-			commitMoveNapi(projectId, subjectCommitId, anchorCommitId, side),
+			commitMove(projectId, subjectCommitId, anchorCommitId, side),
 	);
 	ipcMain.handle(
 		liteIpcChannels.commitMoveToBranch,
 		(_e, { projectId, subjectCommitId, anchorRef }: CommitMoveToBranchParams) =>
-			commitMoveToBranchNapi(projectId, subjectCommitId, anchorRef),
+			commitMoveToBranch(projectId, subjectCommitId, anchorRef),
 	);
 	ipcMain.handle(
 		liteIpcChannels.commitReword,
 		(_e, { projectId, commitId, message }: CommitRewordParams) =>
-			commitRewordNapi(projectId, commitId, message),
+			commitReword(projectId, commitId, message),
 	);
 	ipcMain.handle(
 		liteIpcChannels.commitMoveChangesBetween,
 		(
 			_e,
 			{ projectId, sourceCommitId, destinationCommitId, changes }: CommitMoveChangesBetweenParams,
-		) => commitMoveChangesBetweenNapi(projectId, sourceCommitId, destinationCommitId, changes),
+		) => commitMoveChangesBetween(projectId, sourceCommitId, destinationCommitId, changes),
 	);
 	ipcMain.handle(
 		liteIpcChannels.commitUncommitChanges,
 		(_e, { projectId, commitId, changes, assignTo }: CommitUncommitChangesParams) =>
-			commitUncommitChangesNapi(projectId, commitId, changes, assignTo),
+			commitUncommitChanges(projectId, commitId, changes, assignTo),
 	);
 	ipcMain.handle(liteIpcChannels.getVersion, () => Promise.resolve(app.getVersion()));
-	ipcMain.handle(liteIpcChannels.headInfo, (_e, projectId: string) => headInfoNapi(projectId));
+	ipcMain.handle(liteIpcChannels.headInfo, (_e, projectId: string) => headInfo(projectId));
 	ipcMain.handle(
 		liteIpcChannels.listBranches,
-		(_e, projectId: string, filter: BranchListingFilter | null) =>
-			listBranchesNapi(projectId, filter),
+		(_e, projectId: string, filter: BranchListingFilter | null) => listBranches(projectId, filter),
 	);
-	ipcMain.handle(liteIpcChannels.listProjects, () => listProjectsStatelessNapi());
+	ipcMain.handle(liteIpcChannels.listProjects, () => listProjectsStateless());
 	ipcMain.handle(liteIpcChannels.ping, (_event, input: string) =>
 		Promise.resolve(`pong: ${input}`),
 	);
 	ipcMain.handle(
 		liteIpcChannels.treeChangeDiffs,
-		(_e, { projectId, change }: TreeChangeDiffParams) => treeChangeDiffsNapi(projectId, change),
+		(_e, { projectId, change }: TreeChangeDiffParams) => treeChangeDiffs(projectId, change),
 	);
 	ipcMain.handle(liteIpcChannels.unapplyStack, (_e, { projectId, stackId }: UnapplyStackParams) =>
-		unapplyStackNapi(projectId, stackId),
+		unapplyStack(projectId, stackId),
 	);
 }
 

@@ -579,23 +579,23 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { applyNapi, assignHunkNapi, branchDetailsNapi, branchDiffNapi, changesInWorktreeNapi, commitAmendNapi, commitCreateNapi, commitDetailsWithLineStatsNapi, commitInsertBlankNapi, commitMoveChangesBetweenNapi, commitMoveNapi, commitMoveToBranchNapi, commitRewordNapi, commitUncommitChangesNapi, headInfoNapi, listBranchesNapi, listProjectsStatelessNapi, treeChangeDiffsNapi, unapplyStackNapi } = nativeBinding
-export { applyNapi }
-export { assignHunkNapi }
-export { branchDetailsNapi }
-export { branchDiffNapi }
-export { changesInWorktreeNapi }
-export { commitAmendNapi }
-export { commitCreateNapi }
-export { commitDetailsWithLineStatsNapi }
-export { commitInsertBlankNapi }
-export { commitMoveChangesBetweenNapi }
-export { commitMoveNapi }
-export { commitMoveToBranchNapi }
-export { commitRewordNapi }
-export { commitUncommitChangesNapi }
-export { headInfoNapi }
-export { listBranchesNapi }
-export { listProjectsStatelessNapi }
-export { treeChangeDiffsNapi }
-export { unapplyStackNapi }
+const { apply, assignHunk, branchDetails, branchDiff, changesInWorktree, commitAmend, commitCreate, commitDetailsWithLineStats, commitInsertBlank, commitMove, commitMoveChangesBetween, commitMoveToBranch, commitReword, commitUncommitChanges, headInfo, listBranches, listProjectsStateless, treeChangeDiffs, unapplyStack } = nativeBinding
+export { apply }
+export { assignHunk }
+export { branchDetails }
+export { branchDiff }
+export { changesInWorktree }
+export { commitAmend }
+export { commitCreate }
+export { commitDetailsWithLineStats }
+export { commitInsertBlank }
+export { commitMove }
+export { commitMoveChangesBetween }
+export { commitMoveToBranch }
+export { commitReword }
+export { commitUncommitChanges }
+export { headInfo }
+export { listBranches }
+export { listProjectsStateless }
+export { treeChangeDiffs }
+export { unapplyStack }
