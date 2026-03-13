@@ -24,7 +24,7 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:assign-hunk", params) as Promise<Array<AssignmentRejection>>,
 	branchDetails: (params) =>
 		ipcRenderer.invoke("workspace:branch-details", params) as Promise<BranchDetails>,
-	branch_diff: (params) =>
+	branchDiff: (params) =>
 		ipcRenderer.invoke("workspace:branch-diff", params) as Promise<TreeChanges>,
 	changesInWorktree: (projectId) =>
 		ipcRenderer.invoke("workspace:changes-in-worktree", projectId) as Promise<WorktreeChanges>,

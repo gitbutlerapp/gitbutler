@@ -1,0 +1,17 @@
+.branchesLayout {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	column-gap: 16px;
+	align-items: start;
+}
+
+.branchesList {
+	padding-left: 0;
+	padding: 8px;
+	border: 1px solid;
+	list-style: none;
+}
+
+.branchesDetailsPane {
+	min-width: 0;
+}

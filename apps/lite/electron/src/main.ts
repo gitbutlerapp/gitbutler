@@ -142,10 +142,12 @@ async function createMainWindow(): Promise<void> {
 		},
 	});
 
+	mainWindow.maximize();
+
 	const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 	if (devServerUrl !== undefined) {
 		await mainWindow.loadURL(devServerUrl);
-		mainWindow.webContents.openDevTools({ mode: "detach" });
+		mainWindow.webContents.openDevTools({ mode: "bottom" });
 		return;
 	}
 

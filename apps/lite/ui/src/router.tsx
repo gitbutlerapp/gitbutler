@@ -1,57 +1,13 @@
-import { Outlet, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
-import type { ProjectForFrontend } from "@gitbutler/but-sdk";
+import { createRouter } from "@tanstack/react-router";
 
-function RootLayout(): React.JSX.Element {
-	return (
-		<main style={{ fontFamily: "system-ui", margin: "2rem" }}>
-			<h1>GitButler Lite</h1>
-			<Outlet />
-		</main>
-	);
-}
+import { indexRoute } from "#ui/routes/index.tsx";
+import { projectBranchesRoute } from "#ui/routes/project-branches.tsx";
+import { projectIndexRoute } from "#ui/routes/project-index.tsx";
+import { projectRootRoute } from "#ui/routes/project-root.tsx";
+import { rootRoute } from "#ui/routes/root.tsx";
 
-const rootRoute = createRootRoute({
-	component: RootLayout,
-});
-
-const indexRoute = createRoute({
-	getParentRoute: () => rootRoute,
-	path: "/",
-	component: HomePage,
-	loader: async () => {
-		const projects = await window.lite.listProjects();
-		return { projects };
-	},
-});
-
-function HomePage(): React.JSX.Element {
-	const { projects } = indexRoute.useLoaderData();
-	return (
-		<section>
-			<p>Electron + Vite + TanStack Router scaffold is ready.</p>
-			<h2>Projects list</h2>
-			<ProjectsList projects={projects} />
-		</section>
-	);
-}
-
-interface ProjectsListProps {
-	projects: Array<ProjectForFrontend>;
-}
-
-function ProjectsList(props: ProjectsListProps) {
-	if (props.projects.length === 0) return <p> no projects :(</p>;
-
-	return (
-		<div>
-			{props.projects.map((project) => (
-				<p key={project.id}>{project.title}</p>
-			))}
-		</div>
-	);
-}
-
-const routeTree = rootRoute.addChildren([indexRoute]);
+const projectRouteTree = projectRootRoute.addChildren([projectIndexRoute, projectBranchesRoute]);
+const routeTree = rootRoute.addChildren([indexRoute, projectRouteTree]);
 
 export const router = createRouter({ routeTree });
 

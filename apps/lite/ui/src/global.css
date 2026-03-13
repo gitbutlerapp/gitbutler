@@ -1,0 +1,45 @@
+:root {
+	font-family: system-ui;
+}
+
+body {
+	margin: 0;
+}
+
+input,
+textarea,
+select {
+	font: inherit;
+	line-height: inherit;
+}
+
+button {
+	border: 1px solid;
+	border-color: black;
+	font: inherit;
+	line-height: inherit;
+	text-align: left;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	margin-block: 0;
+}
+
+ul,
+pre {
+	margin-block: 0;
+}
+
+textarea,
+button {
+	padding: 2px 4px;
+}
