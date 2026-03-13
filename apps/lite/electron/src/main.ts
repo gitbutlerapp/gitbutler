@@ -15,6 +15,8 @@ import {
 	type TreeChangeDiffParams,
 	type ApplyParams,
 	type UnapplyStackParams,
+	type WatcherSubscribeParams,
+	type WatcherUnsubscribeParams,
 } from "#electron/ipc";
 import {
 	applyNapi,
@@ -36,15 +38,184 @@ import {
 	listProjectsStatelessNapi,
 	treeChangeDiffsNapi,
 	unapplyStackNapi,
+	watcherStartNapi,
 	BranchListingFilter,
+	type WatcherHandleNapi,
+	type WatcherEvent,
 } from "@gitbutler/but-sdk";
 import { app, BrowserWindow, ipcMain } from "electron";
 import { REACT_DEVELOPER_TOOLS, installExtension } from "electron-devtools-installer";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
+
+type ProjectWatcherState = {
+	handle: WatcherHandleNapi;
+	subscriptionIds: Set<string>;
+};
+
+type WatcherSubscription = {
+	projectId: string;
+	sender: Electron.WebContents;
+	senderId: number;
+	eventChannel: string;
+};
+
+const projectWatchers = new Map<string, ProjectWatcherState>();
+const pendingProjectWatchers = new Map<string, Promise<ProjectWatcherState>>();
+const watcherSubscriptions = new Map<string, WatcherSubscription>();
+const senderSubscriptions = new Map<number, Set<string>>();
+
+function removeSubscription(subscriptionId: string): boolean {
+	const subscription = watcherSubscriptions.get(subscriptionId);
+	if (!subscription) return false;
+
+	watcherSubscriptions.delete(subscriptionId);
+
+	const senderIds = senderSubscriptions.get(subscription.senderId);
+	if (senderIds) {
+		senderIds.delete(subscriptionId);
+		if (senderIds.size === 0) senderSubscriptions.delete(subscription.senderId);
+	}
+
+	const projectWatcher = projectWatchers.get(subscription.projectId);
+	if (projectWatcher) {
+		projectWatcher.subscriptionIds.delete(subscriptionId);
+		if (projectWatcher.subscriptionIds.size === 0) {
+			try {
+				projectWatcher.handle.stop();
+			} catch (error) {
+				// oxlint-disable-next-line no-console
+				console.warn("Failed to stop project watcher", error);
+			}
+			projectWatchers.delete(subscription.projectId);
+		}
+	}
+
+	return true;
+}
+
+function removeSenderSubscriptions(senderId: number): void {
+	const subscriptionIds = senderSubscriptions.get(senderId);
+	if (!subscriptionIds) return;
+
+	for (const subscriptionId of subscriptionIds)
+		removeSubscription(subscriptionId);
+
+
+	senderSubscriptions.delete(senderId);
+}
+
+function forwardWatcherEvent(projectId: string, event: WatcherEvent): void {
+	const projectWatcher = projectWatchers.get(projectId);
+	if (!projectWatcher) return;
+
+	const deadSubscriptions: Array<string> = [];
+	for (const subscriptionId of projectWatcher.subscriptionIds) {
+		const subscription = watcherSubscriptions.get(subscriptionId);
+		if (!subscription || subscription.sender.isDestroyed()) {
+			deadSubscriptions.push(subscriptionId);
+			continue;
+		}
+
+		try {
+			subscription.sender.send(subscription.eventChannel, event);
+		} catch (sendError) {
+			// oxlint-disable-next-line no-console
+			console.warn("Failed to forward watcher event to renderer", sendError);
+			deadSubscriptions.push(subscriptionId);
+		}
+	}
+
+	for (const subscriptionId of deadSubscriptions)
+		removeSubscription(subscriptionId);
+
+}
+
+async function ensureProjectWatcher(projectId: string): Promise<ProjectWatcherState> {
+	const existing = projectWatchers.get(projectId);
+	if (existing) return existing;
+
+	const pending = pendingProjectWatchers.get(projectId);
+	if (pending) return pending;
+
+	const creation = Promise.resolve(
+		watcherStartNapi(projectId, (err, event) => {
+			if (err) {
+				// oxlint-disable-next-line no-console
+				console.warn("Watcher callback failed", err);
+				return;
+			}
+			forwardWatcherEvent(projectId, event);
+		}),
+	)
+		.then((handle) => {
+			const watcherState: ProjectWatcherState = {
+				handle,
+				subscriptionIds: new Set(),
+			};
+			projectWatchers.set(projectId, watcherState);
+			return watcherState;
+		})
+		.finally(() => {
+			pendingProjectWatchers.delete(projectId);
+		});
+
+	pendingProjectWatchers.set(projectId, creation);
+	return creation;
+}
+
+function stopAllWatchersForShutdown(): number {
+	const stopped = watcherSubscriptions.size;
+
+	for (const [projectId, projectWatcher] of projectWatchers)
+		try {
+			projectWatcher.handle.stop();
+		} catch (error) {
+			// oxlint-disable-next-line no-console
+			console.warn(`Failed to stop project watcher for ${projectId}`, error);
+		}
+
+
+	pendingProjectWatchers.clear();
+	projectWatchers.clear();
+	watcherSubscriptions.clear();
+	senderSubscriptions.clear();
+
+	return stopped;
+}
+
+function registerSenderCleanup(sender: Electron.WebContents): void {
+	const senderId = sender.id;
+	if (senderSubscriptions.has(senderId)) return;
+
+	senderSubscriptions.set(senderId, new Set());
+	sender.once("destroyed", () => {
+		removeSenderSubscriptions(senderId);
+	});
+}
+
+function addSenderSubscription(senderId: number, subscriptionId: string): void {
+	const subscriptions = senderSubscriptions.get(senderId);
+	if (!subscriptions) {
+		senderSubscriptions.set(senderId, new Set([subscriptionId]));
+		return;
+	}
+
+	subscriptions.add(subscriptionId);
+}
+
+function stopAllWatchersForShutdownSafely(): void {
+	try {
+		stopAllWatchersForShutdown();
+	} catch (error) {
+		// oxlint-disable-next-line no-console
+		console.warn("Failed to stop project watchers during shutdown", error);
+	}
+}
 
 function registerIpcHandlers(): void {
 	ipcMain.handle(liteIpcChannels.apply, (_e, { projectId, existingBranch }: ApplyParams) =>
@@ -129,6 +300,32 @@ function registerIpcHandlers(): void {
 	ipcMain.handle(liteIpcChannels.unapplyStack, (_e, { projectId, stackId }: UnapplyStackParams) =>
 		unapplyStackNapi(projectId, stackId),
 	);
+	ipcMain.handle(
+		liteIpcChannels.watcherSubscribe,
+		async (event, { projectId }: WatcherSubscribeParams) => {
+			const projectWatcher = await ensureProjectWatcher(projectId);
+			registerSenderCleanup(event.sender);
+
+			const subscriptionId = randomUUID();
+			const eventChannel = `workspace:watcher-event:${randomUUID()}`;
+
+			watcherSubscriptions.set(subscriptionId, {
+				projectId,
+				sender: event.sender,
+				senderId: event.sender.id,
+				eventChannel,
+			});
+			projectWatcher.subscriptionIds.add(subscriptionId);
+			addSenderSubscription(event.sender.id, subscriptionId);
+
+			return { subscriptionId, eventChannel };
+		},
+	);
+	ipcMain.handle(
+		liteIpcChannels.watcherUnsubscribe,
+		(_e, { subscriptionId }: WatcherUnsubscribeParams) => removeSubscription(subscriptionId),
+	);
+	ipcMain.handle(liteIpcChannels.watcherStopAll, () => stopAllWatchersForShutdown());
 }
 
 async function createMainWindow(): Promise<void> {
@@ -164,6 +361,11 @@ void app.whenReady().then(async () => {
 	});
 });
 
+app.on("before-quit", () => {
+	stopAllWatchersForShutdownSafely();
+});
+
 app.on("window-all-closed", () => {
+	stopAllWatchersForShutdownSafely();
 	if (process.platform !== "darwin") app.quit();
 });

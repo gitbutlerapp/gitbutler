@@ -55,6 +55,7 @@ import {
 	commitDetailsWithLineStatsQueryOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
+	useWatcher,
 } from "#ui/queries.ts";
 import { type ChangeUnit } from "#ui/ChangeUnit.ts";
 import { type RubSource } from "#ui/rub.ts";
@@ -1359,6 +1360,8 @@ const StackLane: FC<{
 
 const ProjectPage: FC = () => {
 	const { id } = projectRootRoute.useParams();
+	// Subscribe/unsubscribe to watcher.
+	useWatcher(id);
 	const rubSourceRef = useRef<RubSource | null>(null);
 	const commitMoveSourceIdRef = useRef<string | null>(null);
 
