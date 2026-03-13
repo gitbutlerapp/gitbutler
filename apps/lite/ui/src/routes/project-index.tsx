@@ -1048,19 +1048,19 @@ const StackLane: FC<{
 };
 
 const ProjectPage: FC = () => {
-	const { id } = projectRootRoute.useParams();
+	const { projectId } = projectRootRoute.useLoaderData();
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 	const [draggedSourceItem, setDraggedSourceItem] = useState<SourceItem | null>(null);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 
-	const project = projects.find((project) => project.id === id);
+	const project = projects.find((project) => project.id === projectId);
 
 	// TODO: handle project not found error. or only run when project is not null? waterfall.
-	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(id));
+	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
 
-	useMonitorDraggedSourceItem({ projectId: id, setDraggedSourceItem });
+	useMonitorDraggedSourceItem({ projectId, setDraggedSourceItem });
 
 	// TODO: dedupe
 	if (!project) return <p>Project not found.</p>;

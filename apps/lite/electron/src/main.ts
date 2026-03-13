@@ -1,3 +1,4 @@
+import WatcherManager from "./watcher.js";
 import {
 	liteIpcChannels,
 	type AssignHunkParams,
@@ -15,6 +16,8 @@ import {
 	type TreeChangeDiffParams,
 	type ApplyParams,
 	type UnapplyStackParams,
+	WatcherSubscribeParams,
+	WatcherUnsubscribeParams,
 } from "./ipc.js";
 import {
 	apply,
@@ -128,6 +131,19 @@ function registerIpcHandlers(): void {
 	ipcMain.handle(liteIpcChannels.unapplyStack, (_e, { projectId, stackId }: UnapplyStackParams) =>
 		unapplyStack(projectId, stackId),
 	);
+	ipcMain.handle(
+		liteIpcChannels.watcherSubscribe,
+		async (event, { projectId }: WatcherSubscribeParams) =>
+			WatcherManager.getInstance().subscribeToProject(projectId, event),
+	);
+	ipcMain.handle(
+		liteIpcChannels.watcherUnsubscribe,
+		(_e, { subscriptionId }: WatcherUnsubscribeParams) =>
+			WatcherManager.getInstance().removeSubscription(subscriptionId),
+	);
+	ipcMain.handle(liteIpcChannels.watcherStopAll, () =>
+		WatcherManager.getInstance().stopAllWatchersForShutdown(),
+	);
 }
 
 async function createMainWindow(): Promise<void> {
@@ -163,6 +179,11 @@ void app.whenReady().then(async () => {
 	});
 });
 
+app.on("before-quit", () => {
+	WatcherManager.getInstance().destroy();
+});
+
 app.on("window-all-closed", () => {
+	WatcherManager.getInstance().destroy();
 	if (process.platform !== "darwin") app.quit();
 });

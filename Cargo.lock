@@ -1386,10 +1386,19 @@ dependencies = [
 name = "but-napi"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
  "but-api",
+ "but-ctx",
+ "but-error",
+ "but-path",
+ "but-settings",
+ "git2",
+ "gitbutler-watcher",
  "napi",
  "napi-build",
  "napi-derive",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]
@@ -4031,10 +4040,12 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-fs",
+ "but-schemars",
  "but-serde",
  "but-workspace",
  "gitbutler-testsupport",
  "gix",
+ "schemars 1.2.1",
  "serde",
  "toml 0.9.12+spec-1.1.0",
  "tracing",

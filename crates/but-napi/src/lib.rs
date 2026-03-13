@@ -10,5 +10,183 @@
 
 #![deny(clippy::all)]
 
+use anyhow::Context as _;
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
+use but_settings::AppSettingsWithDiskSync;
+use napi::{
+    Status,
+    threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode},
+};
+use napi_derive::napi;
+
 // Force but-api to be linked so napi-rs discovers its #[napi] functions.
-use but_api as _;
+use but_api::{
+    self as _,
+    watcher::{
+        WatcherGitActivityPayload, WatcherGitFetchPayload, WatcherGitHeadPayload, WatcherPayload,
+        WatcherWorktreeChangesPayload,
+    },
+};
+
+type EventCallback = ThreadsafeFunction<WatcherEvent>;
+
+#[derive(Clone)]
+#[napi(object)]
+pub struct WatcherEvent {
+    pub name: String,
+    #[napi(ts_type = "WatcherPayload")]
+    pub payload: serde_json::Value,
+}
+
+#[napi]
+pub struct WatcherHandle {
+    watcher: Option<gitbutler_watcher::WatcherHandle>,
+}
+
+impl WatcherHandle {
+    fn new(watcher: gitbutler_watcher::WatcherHandle) -> Self {
+        Self {
+            watcher: Some(watcher),
+        }
+    }
+}
+
+#[napi]
+impl WatcherHandle {
+    /// Stop the underlying watcher if it is still active.
+    #[napi]
+    pub fn stop(&mut self) -> bool {
+        self.watcher.take().is_some()
+    }
+
+    /// Returns true if this handle still owns a running watcher.
+    #[napi(getter)]
+    pub fn active(&self) -> bool {
+        self.watcher.is_some()
+    }
+}
+
+fn to_napi_err(err: anyhow::Error) -> napi::Error {
+    napi::Error::from_reason(format!("{err:#}"))
+}
+
+fn app_settings_sync() -> anyhow::Result<AppSettingsWithDiskSync> {
+    let config_dir = but_path::app_config_dir().context("missing app config dir")?;
+    std::fs::create_dir_all(&config_dir).with_context(|| {
+        format!(
+            "failed to create app config dir at '{}'",
+            config_dir.display()
+        )
+    })?;
+    AppSettingsWithDiskSync::new_with_customization(config_dir, None)
+}
+
+fn open_prepared_context(project_id: &ProjectHandleOrLegacyProjectId) -> anyhow::Result<Context> {
+    // We don't get a validated legacy object here, but that's fine as we're only opening repos/watchers.
+    let mut ctx: Context = project_id.clone().try_into()?;
+    let repo = git2::Repository::open(&ctx.gitdir).map_err(|err| {
+        let code = err.code();
+        let err = anyhow::Error::from(err);
+        if code == git2::ErrorCode::Owner {
+            err.context(but_error::Code::RepoOwnership)
+        } else {
+            err
+        }
+    })?;
+    // Keep this before any database usage on `ctx`.
+    ctx = ctx.with_git2_repo(repo);
+    but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
+    Ok(ctx)
+}
+
+fn event_from_change(change: gitbutler_watcher::Change) -> WatcherEvent {
+    match change {
+        gitbutler_watcher::Change::GitFetch(project_id) => WatcherEvent {
+            name: format!("project://{project_id}/git/fetch"),
+            payload: serde_json::json!(WatcherPayload::GitFetch(WatcherGitFetchPayload)),
+        },
+        gitbutler_watcher::Change::GitHead {
+            project_id,
+            head,
+            operating_mode,
+        } => WatcherEvent {
+            name: format!("project://{project_id}/git/head"),
+            payload: serde_json::json!(WatcherPayload::GitHead(WatcherGitHeadPayload {
+                head,
+                operating_mode,
+            })),
+        },
+        gitbutler_watcher::Change::GitActivity {
+            project_id,
+            head_sha,
+        } => WatcherEvent {
+            name: format!("project://{project_id}/git/activity"),
+            payload: serde_json::json!(WatcherPayload::GitActivity(WatcherGitActivityPayload {
+                head_sha
+            })),
+        },
+        gitbutler_watcher::Change::WorktreeChanges {
+            project_id,
+            changes,
+        } => WatcherEvent {
+            name: format!("project://{project_id}/worktree_changes"),
+            payload: serde_json::json!(WatcherPayload::WorktreeChanges(
+                WatcherWorktreeChangesPayload { changes }
+            )),
+        },
+    }
+}
+
+fn start_project_watcher(
+    project_id: ProjectHandleOrLegacyProjectId,
+    callback: EventCallback,
+) -> anyhow::Result<gitbutler_watcher::WatcherHandle> {
+    let ctx = open_prepared_context(&project_id)?;
+    let app_settings = app_settings_sync()?;
+    let watch_mode = gitbutler_watcher::WatchMode::from_env_or_settings(
+        &app_settings.get()?.feature_flags.watch_mode,
+        |key| std::env::var(key).ok(),
+    );
+
+    let handler = gitbutler_watcher::Handler::new({
+        let watched_project = project_id.clone();
+        move |change| {
+            let event = event_from_change(change);
+            let status = callback.call(Ok(event), ThreadsafeFunctionCallMode::NonBlocking);
+            if status != Status::Ok {
+                tracing::warn!(
+                    %watched_project,
+                    %status,
+                    "watcher callback call failed"
+                );
+            }
+
+            Ok(())
+        }
+    });
+
+    gitbutler_watcher::watch_in_background(
+        handler,
+        ctx.workdir_or_fail()?,
+        project_id,
+        app_settings,
+        watch_mode,
+    )
+}
+
+/// Start a project watcher and forward events to `callback`.
+///
+/// `project_id` can be a project handle or legacy project id.
+/// `callback` receives watcher events shaped as `{ name, payload }`.
+#[napi]
+pub async fn watcher_start(
+    project_id: String,
+    callback: ThreadsafeFunction<WatcherEvent>,
+) -> napi::Result<WatcherHandle> {
+    let project_id: ProjectHandleOrLegacyProjectId = project_id
+        .parse()
+        .map_err(|err| napi::Error::from_reason(format!("invalid project id: {err}")))?;
+
+    let watcher = start_project_watcher(project_id, callback).map_err(to_napi_err)?;
+    Ok(WatcherHandle::new(watcher))
+}
