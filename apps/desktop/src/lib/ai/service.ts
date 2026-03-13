@@ -153,7 +153,7 @@ export class AIService {
 		return await this.secretsService.get(AISecretHandle.OpenAIKey);
 	}
 
-	async getOpenAIModleName() {
+	async getOpenAIModelName() {
 		const defaultModel = OpenAIModelName.GPT5Nano;
 		const stored = await this.gitConfig.getWithDefault<string>(
 			GitAIConfigKey.OpenAIModelName,
@@ -314,7 +314,7 @@ export class AIService {
 		}
 
 		if (modelKind === ModelKind.OpenAI) {
-			const openAIModelName = await this.getOpenAIModleName();
+			const openAIModelName = await this.getOpenAIModelName();
 			const openAIKey = await this.getOpenAIKey();
 			const openAICustomEndpoint = await this.getOpenAICustomEndpoint();
 

@@ -59,7 +59,7 @@
 		modelKind = await aiService.getModelKind();
 
 		openAIKeyOption = await aiService.getOpenAIKeyOption();
-		openAIModelName = await aiService.getOpenAIModleName();
+		openAIModelName = await aiService.getOpenAIModelName();
 		openAIKey = await aiService.getOpenAIKey();
 		openAICustomEndpoint = await aiService.getOpenAICustomEndpoint();
 
