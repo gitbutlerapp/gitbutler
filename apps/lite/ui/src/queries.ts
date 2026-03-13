@@ -15,7 +15,7 @@ export const branchDetailsQueryOptions = (params: BranchDetailsParams) =>
 export const branchDiffQueryOptions = (params: BranchDiffParams) =>
 	queryOptions({
 		queryKey: ["branchDiff", params],
-		queryFn: () => window.lite.branch_diff(params),
+		queryFn: () => window.lite.branchDiff(params),
 	});
 
 export const changesInWorktreeQueryOptions = (projectId: string) =>

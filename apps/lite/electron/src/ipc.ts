@@ -115,7 +115,7 @@ export interface LiteElectronApi {
 	apply: (params: ApplyParams) => Promise<ApplyOutcome>;
 	assignHunk: (params: AssignHunkParams) => Promise<Array<AssignmentRejection>>;
 	branchDetails: (params: BranchDetailsParams) => Promise<BranchDetails>;
-	branch_diff: (params: BranchDiffParams) => Promise<TreeChanges>;
+	branchDiff: (params: BranchDiffParams) => Promise<TreeChanges>;
 	changesInWorktree: (projectId: string) => Promise<WorktreeChanges>;
 	commitAmend: (params: CommitAmendParams) => Promise<UICommitCreateResult>;
 	commitCreate: (params: CommitCreateParams) => Promise<UICommitCreateResult>;
