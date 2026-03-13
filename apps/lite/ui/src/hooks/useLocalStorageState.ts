@@ -1,5 +1,9 @@
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 
+/**
+ * When changing the value type, also change the key to avoid parsing errors
+ * from previous values.
+ */
 export const useLocalStorageState = <T>(
 	key: string,
 	initialValue: T,
