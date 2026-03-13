@@ -761,7 +761,6 @@ dependencies = [
  "but-gerrit",
  "but-github",
  "but-gitlab",
- "but-graph",
  "but-hunk-assignment",
  "but-installer",
  "but-link",

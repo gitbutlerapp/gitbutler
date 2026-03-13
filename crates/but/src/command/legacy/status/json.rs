@@ -354,18 +354,16 @@ impl Commit {
             None
         };
 
-        let commit = &commit.inner.inner;
+        let commit = &commit.inner;
         Ok(Commit {
             cli_id,
             commit_id: commit.id.to_string(),
-            created_at: gix_time_to_rfc3339(&commit.author.time),
+            created_at: i128_to_rfc3339(commit.created_at),
             message: commit.message.to_string(),
             author_name: commit.author.name.to_string(),
             author_email: commit.author.email.to_string(),
             conflicted: Some(commit.has_conflicts),
-            // TODO: populate but_workspace::ref_info::LocalCommit with the
-            // Gerrit URL
-            review_id: None,
+            review_id: commit.gerrit_review_url.clone(),
             changes,
         })
     }
@@ -378,7 +376,7 @@ impl Commit {
         Commit {
             cli_id,
             commit_id: commit.id.to_string(),
-            created_at: gix_time_to_rfc3339(&commit.author.time),
+            created_at: i128_to_rfc3339(commit.created_at),
             message: commit.message.to_string(),
             author_name: commit.author.name.to_string(),
             author_email: commit.author.email.to_string(),
@@ -437,14 +435,6 @@ pub(crate) fn i128_to_rfc3339(ts_millis: i128) -> String {
     let nanos = ((ts_millis % 1000) * 1_000_000) as u32;
 
     DateTime::<Utc>::from_timestamp(seconds, nanos)
-        .map(|dt| dt.to_rfc3339())
-        .unwrap_or_default()
-}
-
-pub(crate) fn gix_time_to_rfc3339(time: &gix::date::Time) -> String {
-    let seconds = time.seconds;
-
-    DateTime::<Utc>::from_timestamp(seconds, 0)
         .map(|dt| dt.to_rfc3339())
         .unwrap_or_default()
 }

@@ -62,7 +62,6 @@ but-forge.workspace = true
 but-forge-storage.workspace = true
 but-workspace = { workspace = true }
 but-api = { workspace = true, features = ["path-bytes"] }
-but-graph.workspace = true
 but-llm.workspace = true
 but-link.workspace = true
 
@@ -143,7 +142,6 @@ self_cell.workspace = true
 rand.workspace = true
 
 [dev-dependencies]
-but-graph.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
 but-testsupport = { workspace = true, features = ["sandbox-but-api"] }
 snapbox = { workspace = true, features = ["term-svg"] }

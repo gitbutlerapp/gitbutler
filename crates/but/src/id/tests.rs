@@ -2,7 +2,7 @@ use anyhow::bail;
 use but_core::ref_metadata::StackId;
 use but_hunk_assignment::HunkAssignment;
 use but_testsupport::{hex_to_id, hunk_header};
-use but_workspace::branch::Stack;
+use but_workspace::ui::ref_info::Stack;
 
 use crate::{CliId, IdMap, id::id_usage::UintId};
 
@@ -1504,9 +1504,9 @@ mod util {
     use bstr::BString;
     use but_core::ref_metadata::StackId;
     use but_hunk_assignment::HunkAssignment;
-    use but_workspace::{
-        branch::Stack,
-        ref_info::{Commit, LocalCommit, Segment},
+    use but_workspace::ui::{
+        self as ws_ui,
+        ref_info::{BranchReference, Segment, Stack},
     };
     use itertools::Itertools;
 
@@ -1522,46 +1522,48 @@ mod util {
         base: Option<gix::ObjectId>,
         remote_commit_ids: [gix::ObjectId; N2],
     ) -> Segment {
-        fn commit(id: gix::ObjectId, parent_id: Option<gix::ObjectId>) -> Commit {
-            Commit {
+        fn commit(id: gix::ObjectId, parent_id: Option<gix::ObjectId>) -> ws_ui::Commit {
+            ws_ui::Commit {
                 id,
                 parent_ids: parent_id.into_iter().collect::<Vec<gix::ObjectId>>(),
-                tree_id: gix::index::hash::Kind::Sha1.empty_tree(),
                 message: Default::default(),
-                author: Default::default(),
-                refs: Vec::new(),
-                flags: Default::default(),
                 has_conflicts: false,
-                change_id: None,
+                state: ws_ui::CommitState::LocalOnly,
+                created_at: 0,
+                author: gix::actor::SignatureRef::default().into(),
+                gerrit_review_url: None,
             }
         }
 
-        let ref_info = Some(but_graph::RefInfo {
-            ref_name: gix::refs::FullName::try_from(format!("refs/heads/{shortened_branch_name}"))
-                .expect("could not generate ref name"),
-            worktree: None,
+        fn upstream_commit(id: gix::ObjectId) -> ws_ui::UpstreamCommit {
+            ws_ui::UpstreamCommit {
+                id,
+                message: Default::default(),
+                created_at: 0,
+                author: gix::actor::SignatureRef::default().into(),
+            }
+        }
+
+        let ref_name = Some(BranchReference {
+            full_name_bytes: format!("refs/heads/{shortened_branch_name}").into(),
+            display_name: shortened_branch_name.to_string(),
         });
-        let mut commits: Vec<LocalCommit> = Vec::new();
+        let mut commits: Vec<ws_ui::Commit> = Vec::new();
         for (i, id) in local_commit_ids.iter().enumerate() {
             let parent_id = local_commit_ids.get(i + 1).or(base.as_ref());
-            commits.push(LocalCommit {
-                inner: commit(*id, parent_id.cloned()),
-                relation: Default::default(),
-            });
+            commits.push(commit(*id, parent_id.cloned()));
         }
-        let mut commits_on_remote: Vec<Commit> = Vec::new();
-        for id in remote_commit_ids {
-            commits_on_remote.push(commit(id, None))
-        }
+        let commits_on_remote: Vec<ws_ui::UpstreamCommit> =
+            remote_commit_ids.into_iter().map(upstream_commit).collect();
         Segment {
-            ref_info,
-            id: Default::default(),
+            ref_name,
             remote_tracking_ref_name: None,
             commits,
             commits_on_remote,
             commits_outside: None,
             metadata: None,
             is_entrypoint: false,
+            linked_worktree_id: None,
             push_status: but_workspace::ui::PushStatus::NothingToPush,
             base,
         }

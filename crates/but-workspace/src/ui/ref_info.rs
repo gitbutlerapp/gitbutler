@@ -334,6 +334,14 @@ pub struct Segment {
     /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
     /// *Note* that this segment can be listed in *multiple stacks* as it's reachable from multiple 'ahead' segments.
     pub is_entrypoint: bool,
+    /// The ID of a linked worktree associated with this segment, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "export-ts", ts(type = "number[] | null"))]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::bstring_bytes_opt")
+    )]
+    pub linked_worktree_id: Option<BString>,
     /// A derived value to help the UI decide which functions to make available.
     pub push_status: ui::PushStatus,
     /// This is always the `first()` commit in `commits` of the next stacksegment, or the first commit of
@@ -369,6 +377,13 @@ impl Segment {
         }: crate::ref_info::Segment,
         names: &gix::remote::Names,
     ) -> anyhow::Result<Self> {
+        let linked_worktree_id = ref_info.as_ref().and_then(|ri| {
+            if let Some(but_graph::Worktree::LinkedId(id)) = &ri.worktree {
+                Some(id.clone())
+            } else {
+                None
+            }
+        });
         Ok(Segment {
             ref_name: ref_info.map(|ri| ri.ref_name.into()),
             remote_tracking_ref_name: remote_tracking_ref_name
@@ -390,6 +405,7 @@ impl Segment {
             }),
             metadata,
             is_entrypoint,
+            linked_worktree_id,
             push_status,
             base,
         })
