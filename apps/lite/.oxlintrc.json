@@ -1,5 +1,5 @@
 {
-	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"$schema": "../../node_modules/oxlint/configuration_schema.json",
 	"jsPlugins": [
 		// The builtin plugin isn't 1:1 at time of writing.
 		{ "name": "react-hooks-js", "specifier": "eslint-plugin-react-hooks" },
