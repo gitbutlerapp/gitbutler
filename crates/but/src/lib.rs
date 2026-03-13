@@ -573,6 +573,36 @@ async fn match_subcommand(
             upstream,
             no_hint,
         } => {
+            use crate::command::legacy::status::StatusFlags;
+
+            let mut ctx = setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled,
+                    ..Default::default()
+                },
+                out,
+            )?;
+            let flags = StatusFlags {
+                show_files,
+                verbose,
+                refresh_prs: sync_prs,
+                show_upstream: upstream,
+                hint: !no_hint,
+            };
+            command::legacy::status::worktree(
+                &mut ctx,
+                out,
+                flags,
+                command::legacy::status::StatusRenderMode::Oneshot,
+            )
+            .await
+            .emit_metrics(metrics_ctx)
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Tui { debug } => {
+            use crate::command::legacy::status::{StatusFlags, StatusRenderMode};
+
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -582,7 +612,10 @@ async fn match_subcommand(
                 out,
             )?;
             command::legacy::status::worktree(
-                &mut ctx, out, show_files, verbose, sync_prs, upstream, !no_hint,
+                &mut ctx,
+                out,
+                StatusFlags::all_false(),
+                StatusRenderMode::Tui { debug },
             )
             .await
             .emit_metrics(metrics_ctx)
@@ -1391,10 +1424,17 @@ async fn run_status_after(
     out: &mut OutputChannel,
     mutation_json: Option<serde_json::Value>,
 ) {
+    use crate::command::legacy::status::StatusFlags;
+
     if out.is_json() {
         out.start_json_buffering();
-        let status_result =
-            command::legacy::status::worktree(ctx, out, false, false, false, false, false).await;
+        let status_result = command::legacy::status::worktree(
+            ctx,
+            out,
+            StatusFlags::all_false(),
+            command::legacy::status::StatusRenderMode::Oneshot,
+        )
+        .await;
         let status_json = out.take_json_buffer().unwrap_or(serde_json::Value::Null);
 
         let combined = match status_result {
@@ -1419,8 +1459,16 @@ async fn run_status_after(
         if let Some(human) = out.for_human() {
             writeln!(human).ok();
         }
-        if let Err(err) =
-            command::legacy::status::worktree(ctx, out, false, false, false, false, true).await
+        if let Err(err) = command::legacy::status::worktree(
+            ctx,
+            out,
+            StatusFlags {
+                hint: true,
+                ..StatusFlags::all_false()
+            },
+            command::legacy::status::StatusRenderMode::Oneshot,
+        )
+        .await
         {
             eprintln!(
                 "warning: --status-after failed: {err:#}. Run 'but status' separately to check workspace state."

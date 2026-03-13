@@ -8,20 +8,63 @@ use but_ctx::Context;
 use but_forge::ForgeReview;
 use but_oxidize::OidExt;
 use but_workspace::{ref_info::LocalCommitRelation, ui::PushStatus};
-use colored::{ColoredString, Colorize};
 use gitbutler_branch_actions::upstream_integration::BranchStatus as UpstreamBranchStatus;
+use gitbutler_operating_modes::OperatingMode;
 use gitbutler_stack::StackId;
 use gix::date::time::CustomFormat;
+use ratatui::{
+    style::{Modifier, Style},
+    text::{Line, Span},
+};
 use serde::Serialize;
 
 use crate::{
-    CLI_DATE,
+    CLI_DATE, CliId, IdMap,
+    command::legacy::forge::review,
+    command::legacy::status::output::{StatusOutput, StatusOutputLine},
     id::{SegmentWithId, ShortId, StackWithId, TreeChangeWithId},
     tui::text::truncate_text,
-    utils::{WriteWithUtils, time::format_relative_time_verbose},
+    utils::{
+        OutputChannel, WriteWithUtils, shorten_hex_object_id, shorten_object_id, split_short_id,
+        time::format_relative_time_verbose,
+    },
 };
 
+pub(crate) mod assignment;
+pub(crate) mod json;
+
+mod output;
+mod render_oneshot;
+mod tui;
+
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
+
+#[derive(Debug, Copy, Clone)]
+pub struct StatusFlags {
+    pub show_files: bool,
+    pub verbose: bool,
+    pub refresh_prs: bool,
+    pub show_upstream: bool,
+    pub hint: bool,
+}
+
+impl StatusFlags {
+    pub fn all_false() -> Self {
+        Self {
+            show_files: false,
+            verbose: false,
+            refresh_prs: false,
+            show_upstream: false,
+            hint: false,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum StatusRenderMode {
+    Oneshot,
+    Tui { debug: bool },
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum CommitClassification {
@@ -31,15 +74,6 @@ enum CommitClassification {
     Modified,
     Integrated,
 }
-
-pub(crate) mod assignment;
-pub(crate) mod json;
-
-use crate::{
-    IdMap,
-    command::legacy::forge::review,
-    utils::{OutputChannel, shorten_hex_object_id, shorten_object_id, split_short_id},
-};
 
 type StackDetail = (Option<StackWithId>, Vec<FileAssignment>);
 type StackEntry = (Option<gitbutler_stack::StackId>, StackDetail);
@@ -70,23 +104,21 @@ struct UpstreamState {
     author_email: String,
 }
 
-#[derive(Copy, Clone)]
 struct StatusContext<'a> {
-    stack_details: &'a [StackEntry],
-    worktree_changes: &'a [ui::TreeChange],
-    common_merge_base_data: &'a CommonMergeBase,
-    upstream_state: Option<&'a UpstreamState>,
+    flags: StatusFlags,
+    stack_details: Vec<StackEntry>,
+    worktree_changes: Vec<ui::TreeChange>,
+    common_merge_base_data: CommonMergeBase,
+    upstream_state: Option<UpstreamState>,
     last_fetched_ms: Option<u128>,
-    review_map: &'a std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
-    ci_map: &'a BTreeMap<String, Vec<but_forge::CiCheck>>,
-    branch_merge_statuses: &'a BTreeMap<String, UpstreamBranchStatus>,
-    show_files: bool,
-    verbose: bool,
-    show_upstream: bool,
-    hint: bool,
+    review_map: std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
+    ci_map: BTreeMap<String, Vec<but_forge::CiCheck>>,
+    branch_merge_statuses: BTreeMap<String, UpstreamBranchStatus>,
     has_branches: bool,
-    id_map: &'a IdMap,
-    base_branch: Option<&'a gitbutler_branch_actions::BaseBranch>,
+    is_paged: bool,
+    should_truncate_for_terminal: bool,
+    id_map: IdMap,
+    base_branch: Option<gitbutler_branch_actions::BaseBranch>,
     mode: &'a gitbutler_operating_modes::OperatingMode,
 }
 
@@ -98,11 +130,8 @@ fn show_edit_mode_status(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::
 pub(crate) async fn worktree(
     ctx: &mut Context,
     out: &mut OutputChannel,
-    show_files: bool,
-    verbose: bool,
-    refresh_prs: bool,
-    show_upstream: bool,
-    hint: bool,
+    flags: StatusFlags,
+    render_mode: StatusRenderMode,
 ) -> anyhow::Result<()> {
     // Check if we're in edit mode first, before doing any expensive operations
     let mode = but_api::legacy::modes::operating_mode(ctx)?.operating_mode;
@@ -111,6 +140,43 @@ pub(crate) async fn worktree(
         return show_edit_mode_status(ctx, out);
     }
 
+    let status_ctx = build_status_context(ctx, out, &mode, flags, render_mode).await?;
+
+    {
+        // Re-acquire repo for use after the async call
+        let repo = ctx.repo.get()?;
+
+        if let Some(out) = out.for_json() {
+            let workspace_status = json::build_workspace_status_json(&status_ctx, &repo)?;
+            out.write_value(workspace_status)?;
+            return Ok(());
+        }
+    }
+
+    let Some(human_out) = out.for_human() else {
+        return Ok(());
+    };
+
+    let status_output = build_status_output(ctx, &status_ctx)?;
+    match render_mode {
+        StatusRenderMode::Oneshot => {
+            render_oneshot::render_oneshot(status_output, human_out)?;
+        }
+        StatusRenderMode::Tui { debug } => {
+            tui::render_tui(ctx, out, &mode, flags, status_output, debug).await?;
+        }
+    }
+
+    Ok(())
+}
+
+async fn build_status_context<'a>(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    mode: &'a OperatingMode,
+    flags: StatusFlags,
+    render_mode: StatusRenderMode,
+) -> anyhow::Result<StatusContext<'a>> {
     // Process rules with exclusive access to create repo and workspace
     let head_info = {
         let mut guard = ctx.exclusive_worktree_access();
@@ -129,7 +195,7 @@ pub(crate) async fn worktree(
         )?
     };
 
-    let cache_config = if refresh_prs {
+    let cache_config = if flags.refresh_prs {
         but_forge::CacheConfig::NoCache
     } else {
         but_forge::CacheConfig::CacheOnly
@@ -146,7 +212,7 @@ pub(crate) async fn worktree(
 
     let assignments_by_file: BTreeMap<BString, FileAssignment> =
         FileAssignment::get_assignments_by_file(&id_map);
-    let mut stack_details: Vec<StackEntry> = vec![];
+    let mut stack_details: Vec<StackEntry> = Vec::new();
 
     let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
     stack_details.push((None, (None, unassigned)));
@@ -245,87 +311,75 @@ pub(crate) async fn worktree(
     // Compute upstream integration statuses if --upstream flag is set
     // We need to drop locks before computing merge statuses
     // because upstream_integration_statuses requires exclusive access
-    let branch_merge_statuses: BTreeMap<String, UpstreamBranchStatus> = if show_upstream {
+    let branch_merge_statuses: BTreeMap<String, UpstreamBranchStatus> = if flags.show_upstream {
         compute_branch_merge_statuses(ctx).await?
     } else {
         BTreeMap::new()
     };
 
-    // Re-acquire repo for use after the async call
-    let repo = ctx.repo.get()?;
+    let is_paged = out.is_paged();
+    let should_truncate_for_terminal = truncation_policy(render_mode, is_paged);
 
-    let status_ctx = StatusContext {
-        stack_details: &stack_details,
-        worktree_changes: &worktree_changes.worktree_changes.changes,
-        common_merge_base_data: &common_merge_base_data,
-        upstream_state: upstream_state.as_ref(),
+    Ok(StatusContext {
+        stack_details,
+        worktree_changes: worktree_changes.worktree_changes.changes,
+        common_merge_base_data,
+        upstream_state,
         last_fetched_ms,
-        review_map: &review_map,
-        ci_map: &ci_map,
-        branch_merge_statuses: &branch_merge_statuses,
-        show_files,
-        verbose,
-        show_upstream,
-        hint,
+        review_map,
+        ci_map,
+        branch_merge_statuses,
+        flags,
         has_branches,
-        id_map: &id_map,
-        base_branch: base_branch.as_ref(),
-        mode: &mode,
-    };
-
-    if let Some(out) = out.for_json() {
-        let workspace_status = json::build_workspace_status_json(&status_ctx, &repo)?;
-        out.write_value(workspace_status)?;
-        return Ok(());
-    }
-
-    let Some(out) = out.for_human() else {
-        return Ok(());
-    };
-
-    // Drop repo to release the borrow on ctx before printing status details.
-    drop(repo);
-
-    print_human_status(ctx, out, status_ctx)?;
-
-    Ok(())
+        is_paged,
+        should_truncate_for_terminal,
+        id_map,
+        base_branch,
+        mode,
+    })
 }
 
-fn print_human_status(
+/// Decide if status text should be pre-truncated for terminal output.
+fn truncation_policy(render_mode: StatusRenderMode, is_paged: bool) -> bool {
+    matches!(render_mode, StatusRenderMode::Oneshot) && !is_paged
+}
+
+fn build_status_output(
     ctx: &mut Context,
-    out: &mut dyn WriteWithUtils,
-    status_ctx: StatusContext<'_>,
-) -> anyhow::Result<()> {
-    print_update_notice(ctx, out, status_ctx)?;
-
-    print_worktree_status(ctx, out, status_ctx)?;
-
-    print_upstream_state(ctx, out, status_ctx)?;
-
-    print_common_merge_base_summary(out, status_ctx)?;
-
+    status_ctx: &StatusContext<'_>,
+) -> anyhow::Result<StatusOutput> {
+    let mut output = StatusOutput::default();
+    print_update_notice(ctx, status_ctx, &mut output)?;
+    print_worktree_status(ctx, status_ctx, &mut output)?;
+    print_upstream_state(ctx, status_ctx, &mut output)?;
+    print_common_merge_base_summary(status_ctx, &mut output)?;
     let not_on_workspace = matches!(
         status_ctx.mode,
         gitbutler_operating_modes::OperatingMode::OutsideWorkspace(_)
     );
-
-    print_outside_workspace_warning(not_on_workspace, out)?;
-
-    print_hint(out, not_on_workspace, status_ctx)?;
-
-    Ok(())
+    print_outside_workspace_warning(not_on_workspace, &mut output)?;
+    print_hint(status_ctx, not_on_workspace, &mut output)?;
+    Ok(output)
 }
 
 /// Print update information for human output when a newer `but` version is available.
 fn print_update_notice(
     ctx: &mut Context,
-    out: &mut dyn WriteWithUtils,
-    StatusContext { verbose, .. }: StatusContext<'_>,
+    status_ctx: &StatusContext<'_>,
+    output: &mut StatusOutput,
 ) -> anyhow::Result<()> {
     let cache = ctx.app_cache.get_cache()?;
     if let Ok(Some(update)) = but_update::available_update(&cache) {
-        writeln!(out, "{}", update.display_cli(verbose, out.is_paged()))?;
-        writeln!(out)?;
+        output.update_notice(
+            update
+                .display_cli(
+                    status_ctx.flags.verbose,
+                    status_ctx.should_truncate_for_terminal,
+                )
+                .into_iter()
+                .collect(),
+        );
+        output.connector(Vec::from([Span::raw("")]));
     }
 
     Ok(())
@@ -334,16 +388,15 @@ fn print_update_notice(
 /// Print a warning when operating outside the GitButler workspace.
 fn print_outside_workspace_warning(
     not_on_workspace: bool,
-    out: &mut dyn WriteWithUtils,
+    output: &mut StatusOutput,
 ) -> anyhow::Result<()> {
     if not_on_workspace {
-        writeln!(
-            out,
-            r#"
-⚠️    You are in plain Git mode, directly on a branch. Some commands may be unavailable.    ⚠️
-⚠️    More info: https://github.com/gitbutlerapp/gitbutler/issues/11866                     ⚠️
-"#,
-        )?;
+        output.warning(Vec::from([Span::raw(
+            "⚠️    You are in plain Git mode, directly on a branch. Some commands may be unavailable.    ⚠️",
+        )]));
+        output.warning(Vec::from([Span::raw(
+            "⚠️    More info: https://github.com/gitbutlerapp/gitbutler/issues/11866                     ⚠️",
+        )]));
     }
 
     Ok(())
@@ -351,47 +404,30 @@ fn print_outside_workspace_warning(
 
 /// Print a contextual hint at the end of status output when hints are enabled.
 fn print_hint(
-    out: &mut dyn WriteWithUtils,
+    status_ctx: &StatusContext<'_>,
     not_on_workspace: bool,
-    StatusContext {
-        hint,
-        worktree_changes,
-        has_branches,
-        ..
-    }: StatusContext<'_>,
+    output: &mut StatusOutput,
 ) -> anyhow::Result<()> {
-    if !hint {
+    if !status_ctx.flags.hint {
         return Ok(());
     }
 
-    writeln!(out)?;
+    output.connector(Vec::from([Span::raw("")]));
 
     // Determine what hint to show based on workspace state
-    let has_uncommitted_files = !worktree_changes.is_empty();
+    let has_uncommitted_files = !status_ctx.worktree_changes.is_empty();
 
-    // Check whether we're inside the workspace
-    if not_on_workspace {
-        writeln!(
-            out,
-            "{}",
-            "Hint: run `but setup` to switch back to GitButler managed mode.".dimmed()
-        )?;
-    } else if !has_branches {
-        writeln!(
-            out,
-            "{}",
-            "Hint: run `but branch new` to create a new branch to work on".dimmed()
-        )?;
+    let hint_text = if not_on_workspace {
+        "Hint: run `but setup` to switch back to GitButler managed mode."
+    } else if !status_ctx.has_branches {
+        "Hint: run `but branch new` to create a new branch to work on"
     } else if has_uncommitted_files {
-        writeln!(
-            out,
-            "{}",
-            "Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch"
-                .dimmed()
-        )?;
+        "Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch"
     } else {
-        writeln!(out, "{}", "Hint: run `but help` for all commands".dimmed())?;
-    }
+        "Hint: run `but help` for all commands"
+    };
+
+    output.hint(Vec::from([Span::styled(hint_text, Style::default().dim())]));
 
     Ok(())
 }
@@ -399,16 +435,10 @@ fn print_hint(
 /// Display upstream state information when upstream has commits ahead of the workspace base.
 fn print_upstream_state(
     ctx: &mut Context,
-    out: &mut dyn WriteWithUtils,
-    StatusContext {
-        upstream_state,
-        last_fetched_ms,
-        show_upstream,
-        base_branch,
-        ..
-    }: StatusContext<'_>,
+    status_ctx: &StatusContext<'_>,
+    output: &mut StatusOutput,
 ) -> anyhow::Result<()> {
-    let Some(upstream) = upstream_state else {
+    let Some(upstream) = &status_ctx.upstream_state else {
         return Ok(());
     };
 
@@ -416,7 +446,8 @@ fn print_upstream_state(
     let last_checked_text = if std::env::var("NO_BG_TASKS").is_ok() {
         String::new()
     } else {
-        last_fetched_ms
+        status_ctx
+            .last_fetched_ms
             .map(|ms| {
                 let relative_time = format_relative_time_verbose(std::time::SystemTime::now(), ms);
                 format!("(checked {relative_time})")
@@ -424,53 +455,75 @@ fn print_upstream_state(
             .unwrap_or_default()
     };
 
-    let dot = "●".yellow();
+    let dot = Span::styled("●", Style::default().yellow());
 
-    if show_upstream {
+    if status_ctx.flags.show_upstream {
         // When showing detailed commits, only show count in summary
-        writeln!(
-            out,
-            "┊╭┄(upstream) ⏫ {} new commits{}",
-            upstream.behind_count,
-            last_checked_text.dimmed()
-        )?;
+        let mut upstream_summary = Vec::from([Span::raw(format!(
+            "(upstream) ⏫ {} new commits",
+            upstream.behind_count
+        ))]);
+        if !last_checked_text.is_empty() {
+            upstream_summary.push(Span::raw(" "));
+            upstream_summary.push(Span::styled(
+                last_checked_text.clone(),
+                Style::default().dim(),
+            ));
+        }
+        output.upstream_changes(Vec::from([Span::raw("┊╭┄")]), upstream_summary);
 
         // Display detailed list of upstream commits
-        if let Some(base_branch) = base_branch
+        if let Some(base_branch) = &status_ctx.base_branch
             && !base_branch.upstream_commits.is_empty()
         {
             let repo = ctx.repo.get()?;
             let commits = base_branch.upstream_commits.iter().take(8);
             for commit in commits {
-                // Measure prefix width using plain text (no ANSI codes)
                 let commit_short = shorten_hex_object_id(&repo, &commit.id);
                 let message = commit.description.to_string().replace('\n', " ");
-                let message = message.trim_end();
-                let truncated_msg = out.truncate_if_unpaged(message, 72).dimmed();
-                writeln!(out, "┊{dot} {} {truncated_msg}", commit_short.yellow())?;
+                let message = message.trim_end().to_string();
+                let truncated_msg =
+                    truncate_when_needed(&message, 72, status_ctx.should_truncate_for_terminal);
+                output.upstream_changes(
+                    Vec::from([Span::raw("┊")]),
+                    Vec::from([
+                        dot.clone(),
+                        Span::raw(" "),
+                        Span::styled(commit_short, Style::default().yellow()),
+                        Span::raw(" "),
+                        Span::styled(truncated_msg, Style::default().dim()),
+                    ]),
+                );
             }
             let hidden_commits = base_branch.behind.saturating_sub(8);
             if hidden_commits > 0 {
-                writeln!(
-                    out,
-                    "┊    {}",
-                    format!("and {hidden_commits} more…").dimmed()
-                )?;
+                output.upstream_changes(
+                    Vec::from([Span::raw("┊    ")]),
+                    Vec::from([Span::styled(
+                        format!("and {hidden_commits} more…"),
+                        Style::default().dim(),
+                    )]),
+                );
             }
         }
-        writeln!(out, "┊┊")?;
+        output.connector(Vec::from([Span::raw("┊┊")]));
     } else {
         // Without --upstream, show the summary with latest commit info
-        let mut line = format!(
-            "┊{dot} {} (upstream) ⏫ {} new commits",
-            upstream.latest_commit.dimmed(),
-            upstream.behind_count,
-        );
+        let mut upstream_summary = Vec::from([
+            Span::styled(upstream.latest_commit.clone(), Style::default().dim()),
+            Span::raw(format!(
+                " (upstream) ⏫ {} new commits",
+                upstream.behind_count
+            )),
+        ]);
         if !last_checked_text.is_empty() {
-            line.push(' ');
-            line.push_str(&last_checked_text.dimmed().to_string());
+            upstream_summary.push(Span::raw(" "));
+            upstream_summary.push(Span::styled(last_checked_text, Style::default().dim()));
         }
-        writeln!(out, "{line}")?;
+        output.upstream_changes(
+            Vec::from([Span::raw("┊"), dot, Span::raw(" ")]),
+            upstream_summary,
+        );
     }
 
     Ok(())
@@ -478,51 +531,56 @@ fn print_upstream_state(
 
 /// Print the common merge-base summary line at the bottom of the status tree.
 fn print_common_merge_base_summary(
-    out: &mut dyn WriteWithUtils,
-    StatusContext {
-        common_merge_base_data,
-        upstream_state,
-        ..
-    }: StatusContext<'_>,
+    status_ctx: &StatusContext<'_>,
+    output: &mut StatusOutput,
 ) -> anyhow::Result<()> {
-    let first_line = common_merge_base_data.message.lines().next().unwrap_or("");
-    let connector = if upstream_state.is_some() {
+    let first_line = status_ctx
+        .common_merge_base_data
+        .message
+        .lines()
+        .next()
+        .unwrap_or("");
+    let connector = if status_ctx.upstream_state.is_some() {
         "├╯"
     } else {
         "┴"
     };
-    let first_line = out.truncate_if_unpaged(first_line, 40);
-    writeln!(
-        out,
-        "{} {} [{}] {} {first_line}",
-        connector,
-        common_merge_base_data.common_merge_base.dimmed(),
-        common_merge_base_data.target_name.green().bold(),
-        common_merge_base_data.commit_date.dimmed(),
-    )?;
+    let first_line = truncate_when_needed(first_line, 40, status_ctx.should_truncate_for_terminal);
+    output.merge_base(
+        Vec::from([Span::raw(connector), Span::raw(" ")]),
+        Vec::from([
+            Span::styled(
+                status_ctx.common_merge_base_data.common_merge_base.clone(),
+                Style::default().dim(),
+            ),
+            Span::raw(" ["),
+            Span::styled(
+                status_ctx.common_merge_base_data.target_name.clone(),
+                Style::default().green().bold(),
+            ),
+            Span::raw("] "),
+            Span::styled(
+                status_ctx.common_merge_base_data.commit_date.clone(),
+                Style::default().dim(),
+            ),
+            Span::raw(" "),
+            Span::raw(first_line.to_string()),
+        ]),
+    );
     Ok(())
 }
 
 /// Print per-stack status sections for human-readable output.
 fn print_worktree_status(
     ctx: &mut Context,
-    out: &mut dyn WriteWithUtils,
-    StatusContext {
-        stack_details,
-        id_map,
-        worktree_changes,
-        show_files,
-        verbose,
-        review_map,
-        ci_map,
-        branch_merge_statuses,
-        ..
-    }: StatusContext<'_>,
+    status_ctx: &StatusContext<'_>,
+    output: &mut StatusOutput,
 ) -> anyhow::Result<()> {
-    for (i, (stack_id, (stack_with_id, assignments))) in stack_details.iter().enumerate() {
+    for (i, (stack_id, (stack_with_id, assignments))) in status_ctx.stack_details.iter().enumerate()
+    {
         let mut stack_mark = stack_id.and_then(|stack_id| {
             if crate::command::legacy::mark::stack_marked(ctx, stack_id).unwrap_or_default() {
-                Some("◀ Marked ▶".red().bold())
+                Some(Span::styled("◀ Marked ▶", Style::default().red().bold()))
             } else {
                 None
             }
@@ -537,30 +595,23 @@ fn print_worktree_status(
             let repo = ctx.repo.get()?;
             print_assignments(
                 &repo,
+                status_ctx,
                 *stack_id,
-                id_map,
                 branch_name,
                 assignments,
-                worktree_changes,
                 false,
-                out,
+                output,
             )?;
         }
 
         print_group(
+            ctx,
+            status_ctx,
             stack_with_id,
             assignments,
-            worktree_changes,
-            show_files,
-            verbose,
             &mut stack_mark,
-            ctx,
             i == 0,
-            review_map,
-            ci_map,
-            branch_merge_statuses,
-            out,
-            id_map,
+            output,
         )?;
     }
 
@@ -593,39 +644,50 @@ fn ci_map(
     Ok(ci_map)
 }
 
-#[expect(clippy::too_many_arguments)]
 fn print_assignments(
     repo: &gix::Repository,
+    status_ctx: &StatusContext<'_>,
     stack: Option<StackId>,
-    id_map: &IdMap,
     branch_name: Option<&BStr>,
     assignments: &[FileAssignment],
-    changes: &[ui::TreeChange],
     unstaged: bool,
-    out: &mut dyn std::fmt::Write,
-) -> std::fmt::Result {
+    output: &mut StatusOutput,
+) -> anyhow::Result<()> {
     // if there are no assignments and we're in the unstaged section, print "(no changes)" and return
     if assignments.is_empty() && unstaged {
-        writeln!(out, "┊     {}", "no changes".dimmed().italic())?;
+        output.no_assignments_unstaged(
+            Vec::from([Span::raw("┊     ")]),
+            Vec::from([Span::styled("no changes", Style::default().dim().italic())]),
+        );
         return Ok(());
     }
 
     let id = stack
-        .and_then(|s| id_map.resolve_stack(s))
-        .map(|s| s.to_short_string().bold().blue())
+        .and_then(|s| status_ctx.id_map.resolve_stack(s))
+        .map(|s| Span::styled(s.to_short_string(), Style::default().bold().blue()))
         .unwrap_or_default();
 
     if !unstaged && !assignments.is_empty() {
-        writeln!(
-            out,
-            "┊  ╭┄{id} [{}]",
-            branch_name
-                .as_ref()
-                .map(|name| format!("staged to {name}"))
-                .unwrap_or_else(|| "staged to ".to_string())
-                .cyan()
-                .bold(),
-        )?;
+        let staged_changes_cli_id = stack
+            .and_then(|stack_id| status_ctx.id_map.resolve_stack(stack_id).cloned())
+            .ok_or_else(|| anyhow::anyhow!("Could not resolve stack CLI id for staged changes"))?;
+
+        output.staged_changes(
+            Vec::from([Span::raw("┊  ╭┄")]),
+            Vec::from([
+                id,
+                Span::raw(" ["),
+                Span::styled(
+                    branch_name
+                        .as_ref()
+                        .map(|name| format!("staged to {name}"))
+                        .unwrap_or_else(|| "staged to ".to_string()),
+                    Style::default().cyan().bold(),
+                ),
+                Span::raw("]"),
+            ]),
+            staged_changes_cli_id,
+        );
     }
 
     let max_id_width = assignments
@@ -635,19 +697,28 @@ fn print_assignments(
         .unwrap_or(0);
 
     for fa in assignments {
-        let state = status_from_changes(changes, fa.path.clone());
+        let state = status_from_changes(&status_ctx.worktree_changes, fa.path.clone());
         let path = match &state {
             Some(state) => path_with_color_ui(state, fa.path.to_string()),
-            None => fa.path.to_string().normal(),
+            None => Span::raw(fa.path.to_string()),
         };
 
         let status = state.as_ref().map(status_letter_ui).unwrap_or_default();
 
-        let cli_id = &fa.assignments[0].cli_id;
+        let first_assignment = &fa.assignments[0];
+        let cli_id = &first_assignment.cli_id;
         let pad = max_id_width.saturating_sub(cli_id.len());
-        let id = format!("{:pad$}{}", "", cli_id.bold().blue());
+        let id_padding = " ".repeat(pad);
 
-        let mut locks = fa
+        let file_cli_id = lookup_cli_id_for_short_id(
+            &status_ctx.id_map,
+            repo,
+            cli_id,
+            |id| matches!(id, CliId::Uncommitted(uncommitted) if uncommitted.is_entire_file),
+            "uncommitted file",
+        )?;
+
+        let lock_items: Vec<(String, String)> = fa
             .assignments
             .iter()
             .flat_map(|a| a.inner.hunk_locks.iter())
@@ -658,49 +729,57 @@ fn print_assignments(
             .map(|commit_id| {
                 let short_id = shorten_hex_object_id(repo, &commit_id);
                 let (lead, rest) = split_short_id(&short_id, 2);
-                format!("{}{}", lead.blue().bold(), rest.blue())
+                (lead.to_string(), rest.to_string())
             })
-            .collect::<Vec<_>>()
-            .join(", ");
+            .collect();
 
-        if !locks.is_empty() {
-            locks = format!("🔒 {locks}");
-        }
-        if unstaged {
-            if locks.is_empty() {
-                writeln!(out, "┊   {id} {status} {path}")?;
-            } else {
-                writeln!(out, "┊   {id} {status} {path} {locks}")?;
+        let mut lock_spans: Vec<Span<'static>> = Vec::new();
+        if !lock_items.is_empty() {
+            lock_spans.push(Span::raw("🔒 "));
+            for (i, (lead, rest)) in lock_items.into_iter().enumerate() {
+                if i > 0 {
+                    lock_spans.push(Span::raw(", "));
+                }
+                lock_spans.push(Span::styled(lead, Style::default().blue().bold()));
+                lock_spans.push(Span::styled(rest, Style::default().blue()));
             }
-        } else if locks.is_empty() {
-            writeln!(out, "┊  {} {id} {status} {path}", "│".dimmed())?;
+        }
+
+        let mut file_line = Vec::from([
+            Span::raw(id_padding.clone()),
+            Span::styled(cli_id.to_string(), Style::default().bold().blue()),
+            Span::raw(" "),
+            Span::raw(status.to_string()),
+            Span::raw(" "),
+            path,
+        ]);
+        if !lock_spans.is_empty() {
+            file_line.push(Span::raw(" "));
+            file_line.extend(lock_spans);
+        }
+
+        if unstaged {
+            output.unstaged_file(Vec::from([Span::raw("┊   ")]), file_line, file_cli_id);
         } else {
-            writeln!(out, "┊  {} {id} {status} {path} {locks}", "│".dimmed())?;
+            output.staged_file(Vec::from([Span::raw("┊  │ ")]), file_line, file_cli_id);
         }
     }
 
     if !unstaged && !assignments.is_empty() {
-        writeln!(out, "┊  {}", "│".dimmed())?;
+        output.connector(Vec::from([Span::raw("┊  │")]));
     }
 
     Ok(())
 }
 
-#[expect(clippy::too_many_arguments)]
-pub fn print_group(
+fn print_group(
+    ctx: &mut Context,
+    status_ctx: &StatusContext<'_>,
     stack_with_id: &Option<StackWithId>,
     assignments: &[FileAssignment],
-    changes: &[ui::TreeChange],
-    show_files: bool,
-    verbose: bool,
-    stack_mark: &mut Option<ColoredString>,
-    ctx: &mut Context,
+    stack_mark: &mut Option<Span<'static>>,
     first: bool,
-    review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
-    ci_map: &BTreeMap<String, Vec<but_forge::CiCheck>>,
-    branch_merge_statuses: &BTreeMap<String, UpstreamBranchStatus>,
-    out: &mut dyn WriteWithUtils,
-    id_map: &IdMap,
+    output: &mut StatusOutput,
 ) -> anyhow::Result<()> {
     let repo = ctx
         .legacy_project
@@ -709,44 +788,72 @@ pub fn print_group(
     if let Some(stack_with_id) = stack_with_id {
         let mut first = true;
         for segment in &stack_with_id.segments {
-            let id = segment.short_id.bold().blue();
             let notch = if first { "╭" } else { "├" };
             if !first {
-                writeln!(out, "┊│")?;
+                output.connector(Vec::from([Span::raw("┊│")]));
             }
 
             let no_commits = if segment.workspace_commits.is_empty() {
-                Some("(no commits)".dimmed().italic().to_string())
+                "(no commits)"
             } else {
-                None
+                ""
             };
 
-            let review = segment
+            let review_spans: Vec<Span<'static>> = segment
                 .branch_name()
                 .and_then(|branch_name| {
-                    review::from_branch_details(review_map, branch_name, segment.pr_number())
+                    review::from_branch_details(
+                        &status_ctx.review_map,
+                        branch_name,
+                        segment.pr_number(),
+                    )
                 })
-                .map(|r| format!(" {}", r.display_cli(verbose, out.is_paged())))
+                .map(|r| {
+                    [Span::raw(" ")]
+                        .into_iter()
+                        .chain(r.display_cli(
+                            status_ctx.flags.verbose,
+                            status_ctx.should_truncate_for_terminal,
+                        ))
+                        .chain([Span::raw(" ")])
+                        .collect()
+                })
                 .unwrap_or_default();
 
-            let ci = segment
+            let ci_spans: Vec<Span<'static>> = segment
                 .branch_name()
-                .and_then(|branch_name| ci_map.get(&branch_name.to_string()))
+                .and_then(|branch_name| status_ctx.ci_map.get(&branch_name.to_string()))
                 .map(CiChecks::from)
-                .map(|c| c.display_cli(verbose, out.is_paged()))
+                .map(|c| {
+                    c.display_cli(
+                        status_ctx.flags.verbose,
+                        status_ctx.should_truncate_for_terminal,
+                    )
+                    .into_iter()
+                    .collect::<Vec<_>>()
+                })
                 .unwrap_or_default();
 
             let merge_status = segment
                 .branch_name()
-                .and_then(|branch_name| branch_merge_statuses.get(&branch_name.to_string()))
-                .map(|status| match status {
-                    UpstreamBranchStatus::SaflyUpdatable => " [✓ upstream merges cleanly]".blue(),
-                    UpstreamBranchStatus::Integrated => " [⬆ integrated upstream]".purple(),
-                    UpstreamBranchStatus::Conflicted { .. } => " [⚠ upstream conflicts]".red(),
-                    UpstreamBranchStatus::Empty => " ○ empty".dimmed(),
+                .and_then(|branch_name| {
+                    status_ctx
+                        .branch_merge_statuses
+                        .get(&branch_name.to_string())
                 })
-                .map(|s| s.to_string())
-                .unwrap_or_default();
+                .map(|status| match status {
+                    UpstreamBranchStatus::SaflyUpdatable => {
+                        Span::styled(" [✓ upstream merges cleanly]", Style::default().blue())
+                    }
+                    UpstreamBranchStatus::Integrated => {
+                        Span::styled(" [⬆ integrated upstream]", Style::default().magenta())
+                    }
+                    UpstreamBranchStatus::Conflicted { .. } => {
+                        Span::styled(" [⚠ upstream conflicts]", Style::default().red())
+                    }
+                    UpstreamBranchStatus::Empty => Span::styled(" ○ empty", Style::default().dim()),
+                })
+                .unwrap_or(Span::raw(""));
 
             let workspace = segment
                 .linked_worktree_id()
@@ -760,24 +867,41 @@ pub fn print_group(
                     format!(" 📁 {base}", base = base.display()).into()
                 })
                 .unwrap_or_default();
-            let mut line = format!(
-                "┊{notch}┄{id} [{branch}{workspace}]{ci}{merge_status}{review}",
-                branch = segment
-                    .branch_name()
-                    .unwrap_or(BStr::new(""))
-                    .to_string()
-                    .green()
-                    .bold(),
+
+            let branch = segment.branch_name().unwrap_or(BStr::new("")).to_string();
+            let branch_cli_id = lookup_cli_id_for_short_id(
+                &status_ctx.id_map,
+                &repo,
+                &segment.short_id,
+                |id| matches!(id, CliId::Branch { .. }),
+                "branch",
+            )?;
+            let mut branch_line = Vec::from([
+                Span::styled(segment.short_id.clone(), Style::default().blue().bold()),
+                Span::raw(" ["),
+                Span::styled(branch, Style::default().green().bold()),
+                Span::raw(workspace),
+                Span::raw("]"),
+            ]);
+            branch_line.extend(ci_spans);
+            if !merge_status.content.is_empty() {
+                branch_line.push(merge_status);
+            }
+            branch_line.extend(review_spans);
+            if !no_commits.is_empty() {
+                branch_line.push(Span::raw(" "));
+                branch_line.push(Span::styled(no_commits, Style::default().dim().italic()));
+            }
+            if let Some(stack_mark) = stack_mark.as_ref().cloned() {
+                branch_line.push(Span::raw(" "));
+                branch_line.push(stack_mark);
+            }
+
+            output.branch(
+                Vec::from([Span::raw(format!("┊{notch}┄"))]),
+                branch_line,
+                branch_cli_id,
             );
-            if let Some(no_commits) = no_commits {
-                line.push(' ');
-                line.push_str(&no_commits);
-            }
-            if let Some(stack_mark) = stack_mark.clone() {
-                line.push(' ');
-                line.push_str(&stack_mark.to_string());
-            }
-            writeln!(out, "{line}")?;
 
             *stack_mark = None; // Only show the stack mark for the first branch
             first = false;
@@ -789,31 +913,32 @@ pub fn print_group(
                     .as_ref()
                     .and_then(|rtb| rtb.as_bstr().strip_prefix(b"refs/remotes/"))
                     .unwrap_or(b"unknown");
-                writeln!(out, "┊┊")?;
-                writeln!(
-                    out,
-                    "┊╭┄┄{}",
-                    format!("(upstream: on {})", BStr::new(tracking_branch)).yellow()
-                )?;
+                output.connector(Vec::from([Span::raw("┊┊")]));
+                output.upstream_changes(
+                    Vec::from([Span::raw("┊╭┄┄")]),
+                    Vec::from([Span::styled(
+                        format!("(upstream: on {})", BStr::new(tracking_branch)),
+                        Style::default().yellow(),
+                    )]),
+                );
             }
             for commit in &segment.remote_commits {
                 let details =
                     but_api::diff::commit_details(ctx, commit.commit_id(), ComputeLineStats::No)?;
                 print_commit(
                     &repo,
+                    status_ctx,
                     commit.short_id.clone(),
                     &commit.inner,
                     CommitChanges::Remote(&details.diff_with_first_parent),
                     CommitClassification::Upstream,
                     false,
-                    show_files,
-                    verbose,
                     None,
-                    out,
+                    output,
                 )?;
             }
             if !segment.remote_commits.is_empty() {
-                writeln!(out, "┊-")?;
+                output.connector(Vec::from([Span::raw("┊-")]));
             }
             for commit in segment.workspace_commits.iter() {
                 let marked = crate::command::legacy::mark::commit_marked(
@@ -835,40 +960,64 @@ pub fn print_group(
 
                 print_commit(
                     &repo,
+                    status_ctx,
                     commit.short_id.clone(),
                     &commit.inner.inner,
                     CommitChanges::Workspace(&commit.tree_changes_using_repo(&repo)?),
                     classification,
                     marked,
-                    show_files,
-                    verbose,
                     // TODO: populate the Gerrit review URL. It
                     // seems to be populated in handle_gerrit in
                     // crates/but-api/src/legacy/workspace.rs
                     None,
-                    out,
+                    output,
                 )?;
             }
         }
     } else {
-        let id = id_map.unassigned().to_short_string().bold().blue();
-        let mut line = format!(
-            "╭┄{} [{}]",
-            id,
-            "unstaged changes".to_string().cyan().bold(),
-        );
-        if let Some(stack_mark) = stack_mark.clone() {
-            line.push(' ');
-            line.push_str(&stack_mark.to_string());
+        let cli_id = status_ctx.id_map.unassigned();
+        let mut line = Vec::from([
+            Span::styled(
+                cli_id.to_short_string().to_string(),
+                Style::default().bold().blue(),
+            ),
+            Span::raw(" ["),
+            Span::styled("unstaged changes", Style::default().bold().cyan()),
+            Span::raw("]"),
+        ]);
+        if let Some(stack_mark) = stack_mark {
+            line.push(Span::raw(" "));
+            line.push(stack_mark.clone());
         }
-        writeln!(out, "{line}")?;
-        print_assignments(&repo, None, id_map, None, assignments, changes, true, out)?;
+        output.unstaged_changes(Vec::from([Span::raw("╭┄")]), line, cli_id.clone());
+        print_assignments(&repo, status_ctx, None, None, assignments, true, output)?;
     }
     if !first {
-        writeln!(out, "├╯")?;
+        output.connector(Vec::from([Span::raw("├╯")]));
     }
-    writeln!(out, "┊")?;
+    output.connector(Vec::from([Span::raw("┊")]));
     Ok(())
+}
+
+fn lookup_cli_id_for_short_id(
+    id_map: &IdMap,
+    repo: &gix::Repository,
+    short_id: &str,
+    predicate: impl Fn(&CliId) -> bool,
+    kind: &str,
+) -> anyhow::Result<CliId> {
+    let mut matches = id_map.parse_using_repo(short_id, repo)?;
+    matches.retain(|id| id.to_short_string() == short_id && predicate(id));
+
+    match matches.len() {
+        1 => Ok(matches.remove(0)),
+        0 => Err(anyhow::anyhow!(
+            "Could not find {kind} CLI id '{short_id}' in IdMap"
+        )),
+        _ => Err(anyhow::anyhow!(
+            "CLI id '{short_id}' is ambiguous for {kind} in IdMap"
+        )),
+    }
 }
 
 fn status_letter(status: &TreeStatus) -> char {
@@ -889,21 +1038,21 @@ pub fn status_letter_ui(status: &ui::TreeStatus) -> char {
     }
 }
 
-pub fn path_with_color_ui(status: &ui::TreeStatus, path: String) -> ColoredString {
+pub fn path_with_color_ui(status: &ui::TreeStatus, path: String) -> Span<'static> {
     match status {
-        ui::TreeStatus::Addition { .. } => path.green(),
-        ui::TreeStatus::Deletion { .. } => path.red(),
-        ui::TreeStatus::Modification { .. } => path.yellow(),
-        ui::TreeStatus::Rename { .. } => path.purple(),
+        ui::TreeStatus::Addition { .. } => Span::styled(path, Style::default().green()),
+        ui::TreeStatus::Deletion { .. } => Span::styled(path, Style::default().red()),
+        ui::TreeStatus::Modification { .. } => Span::styled(path, Style::default().yellow()),
+        ui::TreeStatus::Rename { .. } => Span::styled(path, Style::default().magenta()),
     }
 }
 
-fn path_with_color(status: &TreeStatus, path: String) -> ColoredString {
+fn path_with_color(status: &TreeStatus, path: String) -> Span<'static> {
     match status {
-        TreeStatus::Addition { .. } => path.green(),
-        TreeStatus::Deletion { .. } => path.red(),
-        TreeStatus::Modification { .. } => path.yellow(),
-        TreeStatus::Rename { .. } => path.purple(),
+        TreeStatus::Addition { .. } => Span::styled(path, Style::default().green()),
+        TreeStatus::Deletion { .. } => Span::styled(path, Style::default().red()),
+        TreeStatus::Modification { .. } => Span::styled(path, Style::default().yellow()),
+        TreeStatus::Rename { .. } => Span::styled(path, Style::default().magenta()),
     }
 }
 
@@ -925,100 +1074,193 @@ enum CommitChanges<'a> {
 #[expect(clippy::too_many_arguments)]
 fn print_commit(
     repo: &gix::Repository,
+    status_ctx: &StatusContext<'_>,
     short_id: ShortId,
     commit: &but_workspace::ref_info::Commit,
     commit_changes: CommitChanges,
     classification: CommitClassification,
     marked: bool,
-    show_files: bool,
-    verbose: bool,
     review_url: Option<String>,
-    out: &mut dyn WriteWithUtils,
+    output: &mut StatusOutput,
 ) -> anyhow::Result<()> {
-    let mark = if marked {
-        Some("◀ Marked ▶".red().bold())
-    } else {
-        None
-    };
-
     let dot = match classification {
-        CommitClassification::Upstream => "●".yellow(),
-        CommitClassification::LocalOnly => "●".normal(),
-        CommitClassification::Pushed => "●".green(),
-        CommitClassification::Modified => "◐".green(),
-        CommitClassification::Integrated => "●".purple(),
+        CommitClassification::Upstream => Span::styled("●", Style::default().yellow()),
+        CommitClassification::LocalOnly => Span::raw("●"),
+        CommitClassification::Pushed => Span::styled("●", Style::default().green()),
+        CommitClassification::Modified => Span::styled("◐", Style::default().green()),
+        CommitClassification::Integrated => Span::styled("●", Style::default().magenta()),
     };
 
     let upstream_commit = matches!(commit_changes, CommitChanges::Remote(_));
 
-    let details_string = display_cli_commit_details(
+    let (details_line, _) = display_cli_commit_details(
         repo,
-        short_id,
+        short_id.clone(),
         commit,
         match commit_changes {
             CommitChanges::Workspace(tree_changes) => !tree_changes.is_empty(),
             CommitChanges::Remote(tree_changes) => !tree_changes.is_empty(),
         },
-        verbose,
-        out.is_paged(),
+        status_ctx.flags.verbose,
+        status_ctx.is_paged,
     );
-    let details_string = if upstream_commit {
-        details_string.dimmed().to_string()
+    let commit_cli_id = lookup_cli_id_for_short_id(
+        &status_ctx.id_map,
+        repo,
+        &short_id,
+        |id| matches!(id, CliId::Commit { commit_id, .. } if *commit_id == commit.id),
+        "commit",
+    )?;
+
+    let details_spans = if upstream_commit {
+        let mut spans = details_line.spans.into_iter();
+        if let Some(first) = spans.next() {
+            let mut out = Vec::from([Span::styled(
+                first.content,
+                first.style.add_modifier(Modifier::DIM),
+            )]);
+            if let Some(second) = spans.next() {
+                out.push(Span::styled(
+                    second.content,
+                    second.style.add_modifier(Modifier::DIM),
+                ));
+            }
+            let mut dim_text = String::new();
+
+            for span in spans {
+                let style = span.style.add_modifier(Modifier::DIM);
+                let is_dim_only =
+                    style.fg.is_none() && style.bg.is_none() && style.add_modifier == Modifier::DIM;
+                if is_dim_only {
+                    dim_text.push_str(&span.content);
+                } else {
+                    if !dim_text.is_empty() {
+                        out.push(Span::styled(
+                            std::mem::take(&mut dim_text),
+                            Style::default().dim(),
+                        ));
+                    }
+                    out.push(Span::styled(span.content, style));
+                }
+            }
+
+            if !dim_text.is_empty() {
+                out.push(Span::styled(dim_text, Style::default().dim()));
+            }
+            out
+        } else {
+            Vec::new()
+        }
     } else {
-        details_string
+        details_line.spans
     };
 
-    let review_url = review_url.map(|r| format!("◖{}◗", r.underline().blue()));
-
-    if verbose {
-        // Verbose format: author and timestamp on first line, message on second line
-        let mut line = format!("┊{dot} {details_string}");
-        if let Some(review_url) = review_url {
-            line.push(' ');
-            line.push_str(&review_url);
-        }
-        if let Some(mark) = mark {
-            line.push(' ');
-            line.push_str(&mark.to_string());
-        }
-        writeln!(out, "{line}")?;
-        let message =
-            commit_message_display_cli(&commit.message, verbose, out.is_paged(), |truncated| {
+    if status_ctx.flags.verbose {
+        output.commit(
+            Vec::from([Span::raw("┊"), dot, Span::raw(" ")]),
+            details_spans
+                .into_iter()
+                .chain(review_url.as_ref().into_iter().flat_map(|review_url| {
+                    [
+                        Span::raw(" "),
+                        Span::raw("◖"),
+                        Span::styled(review_url.to_owned(), Style::default().underlined().blue()),
+                        Span::raw("◗"),
+                    ]
+                }))
+                .chain(
+                    marked
+                        .then(|| {
+                            [
+                                Span::raw(" "),
+                                Span::styled("◀ Marked ▶", Style::default().red().bold()),
+                            ]
+                        })
+                        .into_iter()
+                        .flatten(),
+                )
+                .collect(),
+            commit_cli_id.clone(),
+        );
+        let (message, is_empty_message) = commit_message_display_cli(
+            &commit.message,
+            status_ctx.flags.verbose,
+            status_ctx.is_paged,
+            |truncated| {
                 if upstream_commit {
-                    truncated.dimmed().to_string()
+                    Span::styled(truncated, Style::default().dim())
                 } else {
-                    truncated
+                    Span::raw(truncated)
                 }
-            });
-        writeln!(out, "┊│     {message}")?;
+            },
+        );
+        let line = Vec::from([message]);
+        if is_empty_message {
+            output.empty_commit_message(Vec::from([Span::raw("┊│     ")]), line);
+        } else {
+            output.commit_message(Vec::from([Span::raw("┊│     ")]), line);
+        }
     } else {
-        // Original format: everything on one line
-        let mut line = format!("┊{dot}   {details_string}");
-        if let Some(review_url) = review_url {
-            line.push(' ');
-            line.push_str(&review_url);
-        }
-        if let Some(mark) = mark {
-            line.push(' ');
-            line.push_str(&mark.to_string());
-        }
-        writeln!(out, "{line}")?;
+        output.commit(
+            Vec::from([Span::raw("┊"), dot, Span::raw("   ")]),
+            details_spans
+                .into_iter()
+                .chain(review_url.as_ref().into_iter().flat_map(|review_url| {
+                    [
+                        Span::raw(" "),
+                        Span::raw("◖"),
+                        Span::styled(review_url.to_owned(), Style::default().underlined().blue()),
+                        Span::raw("◗"),
+                    ]
+                }))
+                .chain(
+                    marked
+                        .then(|| {
+                            [
+                                Span::raw(" "),
+                                Span::styled("◀ Marked ▶", Style::default().red().bold()),
+                            ]
+                        })
+                        .into_iter()
+                        .flatten(),
+                )
+                .collect(),
+            commit_cli_id.clone(),
+        );
     }
-    if show_files {
+    if status_ctx.flags.show_files {
         match commit_changes {
             CommitChanges::Workspace(tree_changes) => {
                 for TreeChangeWithId { short_id, inner } in tree_changes {
-                    let cid = short_id.blue().bold();
-                    writeln!(
-                        out,
-                        "┊│     {cid} {}",
-                        inner.display_cli(false, out.is_paged())
-                    )?;
+                    let file_cli_id = CliId::CommittedFile {
+                        commit_id: commit.id,
+                        path: inner.path.clone(),
+                        id: short_id.to_owned(),
+                    };
+
+                    output.file(
+                        Vec::from([Span::raw("┊│     ")]),
+                        [
+                            Span::styled(short_id.to_owned(), Style::default().blue().bold()),
+                            Span::raw(" "),
+                        ]
+                        .into_iter()
+                        .chain(inner.display_cli(false, status_ctx.should_truncate_for_terminal))
+                        .collect(),
+                        file_cli_id,
+                    );
                 }
             }
             CommitChanges::Remote(tree_changes) => {
                 for change in tree_changes {
-                    writeln!(out, "┊│     {}", change.display_cli(false, out.is_paged()))?;
+                    output.file(
+                        Vec::from([Span::raw("┊│     ")]),
+                        change
+                            .display_cli(false, status_ctx.should_truncate_for_terminal)
+                            .into_iter()
+                            .collect(),
+                        commit_cli_id.clone(),
+                    );
                 }
             }
         }
@@ -1027,14 +1269,22 @@ fn print_commit(
 }
 
 trait CliDisplay {
-    fn display_cli(&self, verbose: bool, is_paged: bool) -> String;
+    fn display_cli(
+        &self,
+        verbose: bool,
+        should_truncate_for_terminal: bool,
+    ) -> impl IntoIterator<Item = Span<'static>>;
 }
 
 impl CliDisplay for but_core::TreeChange {
-    fn display_cli(&self, _verbose: bool, _is_paged: bool) -> String {
+    fn display_cli(
+        &self,
+        _verbose: bool,
+        _should_truncate_for_terminal: bool,
+    ) -> impl IntoIterator<Item = Span<'static>> {
         let path = path_with_color(&self.status, self.path.to_string());
         let status_letter = status_letter(&self.status);
-        format!("{status_letter} {path}")
+        [Span::raw(format!("{status_letter} ")), path]
     }
 }
 
@@ -1045,48 +1295,58 @@ fn display_cli_commit_details(
     has_changes: bool,
     verbose: bool,
     is_paged: bool,
-) -> String {
+) -> (Line<'static>, bool) {
     let commit_id_short = shorten_object_id(repo, commit.id);
     let end_id = if short_id.len() >= commit_id_short.len() {
-        "".to_string()
+        Span::raw("")
     } else {
-        commit_id_short
-            .get(short_id.len()..commit_id_short.len())
-            .unwrap_or("")
-            .dimmed()
-            .to_string()
+        Span::styled(
+            commit_id_short
+                .get(short_id.len()..commit_id_short.len())
+                .unwrap_or("")
+                .to_string(),
+            Style::default().dim(),
+        )
     };
-    let start_id = short_id.blue().bold();
+    let start_id = Span::styled(short_id.to_string(), Style::default().blue().bold());
 
-    let conflicted_str = if commit.has_conflicts {
-        " {conflicted}".red()
+    let conflicted_span = if commit.has_conflicts {
+        Span::styled(" {conflicted}", Style::default().red())
     } else {
-        "".normal()
+        Span::raw("")
     };
 
     let no_changes = if has_changes {
-        "".to_string().normal()
+        Span::raw("")
     } else {
-        " (no changes)".dimmed().italic()
+        Span::styled(" (no changes)", Style::default().dim().italic())
     };
 
     if verbose {
         // No message when verbose since it goes to the next line
         let created_at = commit.author.time;
         let formatted_time = created_at.format_or_unix(CLI_DATE);
-        format!(
-            "{}{} {} {}{}{}",
-            start_id,
-            end_id,
-            commit.author.name,
-            formatted_time.dimmed(),
-            no_changes,
-            conflicted_str,
+        (
+            Line::from_iter([
+                start_id,
+                end_id,
+                Span::raw(" "),
+                Span::raw(commit.author.name.to_string()),
+                Span::raw(" "),
+                Span::styled(formatted_time, Style::default().dim()),
+                no_changes,
+                conflicted_span,
+            ]),
+            false,
         )
     } else {
-        let message =
-            commit_message_display_cli(&commit.message, verbose, is_paged, std::convert::identity);
-        format!("{start_id}{end_id} {message}{no_changes}{conflicted_str}",)
+        let (message, is_empty_message) =
+            commit_message_display_cli(&commit.message, verbose, is_paged, Span::raw);
+        let message = Span::styled(format!(" {}", message.content), message.style);
+        (
+            Line::from_iter([start_id, end_id, message, no_changes, conflicted_span]),
+            is_empty_message,
+        )
     }
 }
 
@@ -1099,8 +1359,8 @@ fn commit_message_display_cli(
     message: &BString,
     verbose: bool,
     is_paged: bool,
-    transform: impl FnOnce(String) -> String,
-) -> String {
+    transform: impl FnOnce(String) -> Span<'static>,
+) -> (Span<'static>, bool) {
     let message = message.to_string();
     let text = if verbose {
         message.replace('\n', " ")
@@ -1109,33 +1369,58 @@ fn commit_message_display_cli(
     };
 
     if text.is_empty() {
-        "(no commit message)".dimmed().italic().to_string()
+        (
+            Span::styled("(no commit message)", Style::default().dim().italic()),
+            true,
+        )
     } else if is_paged {
-        text
+        (Span::raw(text), false)
     } else {
-        transform(text)
+        (transform(text), false)
+    }
+}
+
+/// Truncate `text` to `max_width` when terminal rendering policy requires it.
+fn truncate_when_needed(
+    text: &str,
+    max_width: usize,
+    should_truncate_for_terminal: bool,
+) -> String {
+    if should_truncate_for_terminal {
+        truncate_text(text, max_width).into_owned()
+    } else {
+        text.to_owned()
     }
 }
 
 impl CliDisplay for ForgeReview {
-    fn display_cli(&self, verbose: bool, is_paged: bool) -> String {
+    fn display_cli(
+        &self,
+        verbose: bool,
+        should_truncate_for_terminal: bool,
+    ) -> impl IntoIterator<Item = Span<'static>> {
         if verbose {
-            format!(
-                "#{}: {}",
-                self.number.to_string().bold(),
-                self.html_url.underline().blue(),
-            )
+            Vec::from([
+                Span::raw("#"),
+                Span::styled(self.number.to_string(), Style::default().bold()),
+                Span::raw(": "),
+                Span::styled(
+                    self.html_url.to_string(),
+                    Style::default().underlined().blue(),
+                ),
+            ])
         } else {
             let trimmed: String = self
                 .title
                 .trim_end_matches(|c: char| !c.is_ascii() && !c.is_alphanumeric())
                 .to_string();
-            let title = if is_paged {
-                trimmed
-            } else {
-                truncate_text(&trimmed, 50).into_owned()
-            };
-            format!("#{}: {}", self.number.to_string().bold(), title)
+            let title = truncate_when_needed(&trimmed, 50, should_truncate_for_terminal);
+            Vec::from([
+                Span::raw("#"),
+                Span::styled(self.number.to_string(), Style::default().bold()),
+                Span::raw(": "),
+                Span::raw(title),
+            ])
         }
     }
 }
@@ -1150,7 +1435,11 @@ impl From<&Vec<but_forge::CiCheck>> for CiChecks {
 }
 
 impl CliDisplay for CiChecks {
-    fn display_cli(&self, _verbose: bool, _is_paged: bool) -> String {
+    fn display_cli(
+        &self,
+        _verbose: bool,
+        _should_truncate_for_terminal: bool,
+    ) -> impl IntoIterator<Item = Span<'static>> {
         let success = self
             .0
             .iter()
@@ -1189,25 +1478,23 @@ impl CliDisplay for CiChecks {
             .count();
 
         if failed > 0 {
-            " CI: ❌".to_string()
+            [Span::raw(" CI: ❌")]
         } else if in_progress > 0 {
-            " CI: ⏳".to_string()
+            [Span::raw(" CI: ⏳")]
         } else if success > 0 {
-            " CI: ✅".to_string()
+            [Span::raw(" CI: ✅")]
         } else {
-            "".to_string()
+            [Span::raw("")]
         }
     }
 }
 
 impl CliDisplay for but_update::AvailableUpdate {
-    fn display_cli(&self, verbose: bool, _is_paged: bool) -> String {
-        let version_info = format!(
-            "{} → {}",
-            self.current_version.dimmed(),
-            self.available_version.green().bold()
-        );
-
+    fn display_cli(
+        &self,
+        verbose: bool,
+        _should_truncate_for_terminal: bool,
+    ) -> impl IntoIterator<Item = Span<'static>> {
         let upgrade_hint = {
             #[cfg(feature = "packaged-but-distribution")]
             {
@@ -1219,23 +1506,33 @@ impl CliDisplay for but_update::AvailableUpdate {
             }
         };
 
+        let mut spans = Vec::from([
+            Span::raw("Update available: "),
+            Span::styled(self.current_version.to_string(), Style::default().dim()),
+            Span::raw(" → "),
+            Span::styled(
+                self.available_version.to_string(),
+                Style::default().green().bold(),
+            ),
+        ]);
+
         if verbose {
             if let Some(url) = &self.url {
-                format!(
-                    "Update available: {} {}",
-                    version_info,
-                    url.underline().blue()
-                )
-            } else {
-                format!("Update available: {version_info}")
+                spans.push(Span::raw(" "));
+                spans.push(Span::styled(
+                    url.to_string(),
+                    Style::default().underlined().blue(),
+                ));
             }
         } else {
-            format!(
-                "Update available: {} {}",
-                version_info,
-                format!("({upgrade_hint} or `but update suppress` to dismiss)").dimmed(),
-            )
+            spans.push(Span::raw(" "));
+            spans.push(Span::styled(
+                format!("({upgrade_hint} or `but update suppress` to dismiss)"),
+                Style::default().dim(),
+            ));
         }
+
+        spans
     }
 }
 
@@ -1260,4 +1557,46 @@ async fn compute_branch_merge_statuses(
     }
 
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{StatusRenderMode, truncate_when_needed, truncation_policy};
+
+    #[test]
+    fn truncate_when_needed_truncates_text_when_policy_requests_it() {
+        assert_eq!(truncate_when_needed("hello world", 5, true), "hell…");
+    }
+
+    #[test]
+    fn truncate_when_needed_keeps_text_when_policy_disables_it() {
+        assert_eq!(truncate_when_needed("hello world", 5, false), "hello world");
+    }
+
+    #[test]
+    fn truncate_when_needed_keeps_short_text_when_policy_requests_truncation() {
+        assert_eq!(truncate_when_needed("hello", 5, true), "hello");
+    }
+
+    #[test]
+    fn truncation_policy_enables_truncation_for_oneshot_unpaged() {
+        assert!(truncation_policy(StatusRenderMode::Oneshot, false));
+    }
+
+    #[test]
+    fn truncation_policy_disables_truncation_for_oneshot_paged() {
+        assert!(!truncation_policy(StatusRenderMode::Oneshot, true));
+    }
+
+    #[test]
+    fn truncation_policy_disables_truncation_for_tui() {
+        assert!(!truncation_policy(
+            StatusRenderMode::Tui { debug: false },
+            false,
+        ));
+        assert!(!truncation_policy(
+            StatusRenderMode::Tui { debug: false },
+            true,
+        ));
+    }
 }

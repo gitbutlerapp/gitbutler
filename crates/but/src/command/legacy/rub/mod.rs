@@ -82,7 +82,7 @@ pub(crate) enum RubOperation<'a> {
 
 impl<'a> RubOperation<'a> {
     /// Executes this operation, creating snapshots and performing the necessary actions.
-    fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
         match self {
             RubOperation::UnassignUncommitted(hunk_assignments, description) => {
                 create_snapshot(ctx, OperationKind::MoveHunk);

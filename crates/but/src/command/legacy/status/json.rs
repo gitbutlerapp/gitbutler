@@ -9,12 +9,12 @@
 //! Non-goals:
 //! - Completeness: The output structures do not include all the data that the internal but-api has.
 
-use std::collections::BTreeMap;
-
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::id::{RemoteCommitWithId, SegmentWithId, WorkspaceCommitWithId};
+
+use super::StatusContext;
 
 /// JSON output for the `but status` command
 /// This represents the status of the GitButler "workspace".
@@ -468,13 +468,7 @@ fn convert_file_assignments(
 fn convert_branch_to_json(
     repo: &gix::Repository,
     segment: &SegmentWithId,
-    show_files: bool,
-    review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
-    ci_map: &BTreeMap<String, Vec<but_forge::CiCheck>>,
-    branch_merge_statuses: &BTreeMap<
-        String,
-        gitbutler_branch_actions::upstream_integration::BranchStatus,
-    >,
+    status_ctx: &StatusContext,
 ) -> anyhow::Result<Branch> {
     let cli_id = segment.short_id.clone();
 
@@ -482,7 +476,7 @@ fn convert_branch_to_json(
         crate::command::legacy::forge::review::get_review_numbers(
             &segment.branch_name().unwrap_or_default().to_string(),
             &segment.pr_number(),
-            review_map,
+            &status_ctx.review_map,
         )
         .split_whitespace()
         .next()
@@ -491,10 +485,11 @@ fn convert_branch_to_json(
 
     let ci = segment
         .branch_name()
-        .and_then(|name| ci_map.get(&name.to_string()).cloned());
+        .and_then(|name| status_ctx.ci_map.get(&name.to_string()).cloned());
 
     let merge_status = segment.branch_name().and_then(|name| {
-        branch_merge_statuses
+        status_ctx
+            .branch_merge_statuses
             .get(&name.to_string())
             .map(|status| match status {
                 gitbutler_branch_actions::upstream_integration::BranchStatus::SaflyUpdatable => {
@@ -519,7 +514,7 @@ fn convert_branch_to_json(
         cli_id,
         segment.clone(),
         review_id,
-        show_files,
+        status_ctx.flags.show_files,
         ci,
         merge_status,
     )
@@ -527,39 +522,30 @@ fn convert_branch_to_json(
 
 /// Build the complete WorkspaceStatus JSON structure.
 pub(super) fn build_workspace_status_json(
-    status: &super::StatusContext<'_>,
+    status_ctx: &StatusContext,
     repo: &gix::Repository,
 ) -> anyhow::Result<WorkspaceStatus> {
     let mut json_stacks = Vec::new();
     let mut json_unassigned_changes = Vec::new();
 
-    for (stack_id, (stack_with_id, assignments)) in status.stack_details {
+    for (stack_id, (stack_with_id, assignments)) in &status_ctx.stack_details {
         if stack_id.is_none() {
             json_unassigned_changes =
-                convert_file_assignments(assignments, status.worktree_changes);
+                convert_file_assignments(assignments, &status_ctx.worktree_changes);
         } else if let (Some(stack_id), Some(stack_with_id)) = (stack_id, stack_with_id) {
-            let stack_cli_id = status
+            let stack_cli_id = status_ctx
                 .id_map
                 .resolve_stack(*stack_id)
                 .map(|id| id.to_short_string())
                 .unwrap_or_else(|| "unknown".to_string());
 
             let json_assigned_changes =
-                convert_file_assignments(assignments, status.worktree_changes);
+                convert_file_assignments(assignments, &status_ctx.worktree_changes);
 
             let json_branches = stack_with_id
                 .segments
                 .iter()
-                .map(|segment| {
-                    convert_branch_to_json(
-                        repo,
-                        segment,
-                        status.show_files,
-                        status.review_map,
-                        status.ci_map,
-                        status.branch_merge_statuses,
-                    )
-                })
+                .map(|segment| convert_branch_to_json(repo, segment, status_ctx))
                 .collect::<anyhow::Result<Vec<_>>>()?;
 
             let stack = Stack::new(stack_cli_id, json_assigned_changes, json_branches);
@@ -568,21 +554,21 @@ pub(super) fn build_workspace_status_json(
     }
 
     // Create a Commit object for the merge base.
-    let base_commit = repo.find_commit(status.common_merge_base_data.commit_id)?;
+    let base_commit = repo.find_commit(status_ctx.common_merge_base_data.commit_id)?;
     let base_commit_decoded = base_commit.decode()?;
     let author: but_workspace::ui::Author = base_commit_decoded.author()?.into();
 
     let merge_base_commit = Commit::from_upstream_commit(
         but_workspace::ui::UpstreamCommit {
-            id: status.common_merge_base_data.commit_id,
-            created_at: status.common_merge_base_data.created_at,
-            message: status.common_merge_base_data.message.clone().into(),
+            id: status_ctx.common_merge_base_data.commit_id,
+            created_at: status_ctx.common_merge_base_data.created_at,
+            message: status_ctx.common_merge_base_data.message.clone().into(),
             author,
         },
         None,
     );
 
-    let upstream_state_json = if let Some(upstream) = status.upstream_state {
+    let upstream_state_json = if let Some(upstream) = &status_ctx.upstream_state {
         // Create a Commit object for the latest upstream commit
         let upstream_commit = repo.find_commit(upstream.commit_id)?;
         let upstream_commit_decoded = upstream_commit.decode()?;
@@ -598,11 +584,13 @@ pub(super) fn build_workspace_status_json(
             None,
         );
 
-        let last_fetched = status.last_fetched_ms.map(|ts| i128_to_rfc3339(ts as i128));
+        let last_fetched = status_ctx
+            .last_fetched_ms
+            .map(|ts| i128_to_rfc3339(ts as i128));
 
         // Populate upstream_commits if show_upstream flag is set and base_branch is available.
-        let upstream_commits = if status.show_upstream {
-            status.base_branch.and_then(|bb| {
+        let upstream_commits = if status_ctx.flags.show_upstream {
+            status_ctx.base_branch.as_ref().and_then(|bb| {
                 if bb.upstream_commits.is_empty() {
                     None
                 } else {
@@ -643,7 +631,9 @@ pub(super) fn build_workspace_status_json(
         }
     } else {
         // When up to date, use the merge base as the latest commit
-        let last_fetched = status.last_fetched_ms.map(|ts| i128_to_rfc3339(ts as i128));
+        let last_fetched = status_ctx
+            .last_fetched_ms
+            .map(|ts| i128_to_rfc3339(ts as i128));
 
         UpstreamState {
             behind: 0,

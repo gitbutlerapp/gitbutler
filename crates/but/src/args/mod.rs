@@ -1093,6 +1093,15 @@ pub enum Subcommands {
     #[clap(hide = true)]
     #[clap(verbatim_doc_comment)]
     EvalHook,
+
+    /// Show an interactive TUI.
+    #[clap(verbatim_doc_comment, hide = true)]
+    #[cfg(feature = "legacy")]
+    Tui {
+        /// Show debug pane with selected-line metadata.
+        #[clap(long, default_value_t = false)]
+        debug: bool,
+    },
 }
 
 pub mod alias;

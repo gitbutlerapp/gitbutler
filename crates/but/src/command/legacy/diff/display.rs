@@ -2,7 +2,17 @@ use but_core::{UnifiedPatch, ui, unified_diff::DiffHunk};
 use but_hunk_assignment::HunkAssignment;
 use colored::Colorize;
 
-use crate::command::legacy::status::{path_with_color_ui, status_letter_ui};
+use crate::command::legacy::status::status_letter_ui;
+
+// TODO: replace this with `crate::command::legacy::status::path_with_color_ui`
+fn path_with_color_ui(status: &ui::TreeStatus, path: String) -> colored::ColoredString {
+    match status {
+        ui::TreeStatus::Addition { .. } => path.green(),
+        ui::TreeStatus::Deletion { .. } => path.red(),
+        ui::TreeStatus::Modification { .. } => path.yellow(),
+        ui::TreeStatus::Rename { .. } => path.purple(),
+    }
+}
 
 /// Trait for types that can provide diff display information.
 ///
