@@ -153,11 +153,14 @@ export class AIService {
 		return await this.secretsService.get(AISecretHandle.OpenAIKey);
 	}
 
-	async getOpenAIModleName() {
-		return await this.gitConfig.getWithDefault<OpenAIModelName>(
+	async getOpenAIModelName() {
+		const defaultModel = OpenAIModelName.GPT5Nano;
+		const stored = await this.gitConfig.getWithDefault<string>(
 			GitAIConfigKey.OpenAIModelName,
-			OpenAIModelName.GPT4oMini,
+			defaultModel,
 		);
+		const validModels: string[] = Object.values(OpenAIModelName);
+		return validModels.includes(stored) ? (stored as OpenAIModelName) : defaultModel;
 	}
 
 	async getAnthropicKeyOption() {
@@ -172,10 +175,13 @@ export class AIService {
 	}
 
 	async getAnthropicModelName() {
-		return await this.gitConfig.getWithDefault<AnthropicModelName>(
+		const defaultModel = AnthropicModelName.Haiku;
+		const stored = await this.gitConfig.getWithDefault<string>(
 			GitAIConfigKey.AnthropicModelName,
-			AnthropicModelName.Haiku,
+			defaultModel,
 		);
+		const validModels: string[] = Object.values(AnthropicModelName);
+		return validModels.includes(stored) ? (stored as AnthropicModelName) : defaultModel;
 	}
 
 	async getDiffLengthLimit() {
@@ -308,7 +314,7 @@ export class AIService {
 		}
 
 		if (modelKind === ModelKind.OpenAI) {
-			const openAIModelName = await this.getOpenAIModleName();
+			const openAIModelName = await this.getOpenAIModelName();
 			const openAIKey = await this.getOpenAIKey();
 			const openAICustomEndpoint = await this.getOpenAICustomEndpoint();
 

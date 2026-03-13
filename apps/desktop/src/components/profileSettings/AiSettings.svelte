@@ -59,7 +59,7 @@
 		modelKind = await aiService.getModelKind();
 
 		openAIKeyOption = await aiService.getOpenAIKeyOption();
-		openAIModelName = await aiService.getOpenAIModleName();
+		openAIModelName = await aiService.getOpenAIModelName();
 		openAIKey = await aiService.getOpenAIKey();
 		openAICustomEndpoint = await aiService.getOpenAICustomEndpoint();
 
@@ -94,55 +94,31 @@
 
 	const openAIModelOptions = [
 		{
-			label: "GPT 5",
-			value: OpenAIModelName.GPT5,
-		},
-		{
 			label: "GPT 5 Mini",
 			value: OpenAIModelName.GPT5Mini,
 		},
 		{
-			label: "o3 Mini",
-			value: OpenAIModelName.O3mini,
+			label: "GPT 5 Nano (recommended)",
+			value: OpenAIModelName.GPT5Nano,
 		},
 		{
-			label: "o1 Mini",
-			value: OpenAIModelName.O1mini,
-		},
-		{
-			label: "GPT 4o mini",
-			value: OpenAIModelName.GPT4oMini,
-		},
-		{
-			label: "GPT 4.1",
-			value: OpenAIModelName.GPT4_1,
-		},
-		{
-			label: "GPT 4.1 mini (recommended)",
-			value: OpenAIModelName.GPT4_1Mini,
+			label: "GPT 5.4",
+			value: OpenAIModelName.GPT5,
 		},
 	];
 
 	const anthropicModelOptions = [
 		{
-			label: "Haiku",
+			label: "Haiku (recommended)",
 			value: AnthropicModelName.Haiku,
 		},
 		{
-			label: "Sonnet 3.5",
-			value: AnthropicModelName.Sonnet35,
+			label: "Sonnet",
+			value: AnthropicModelName.Sonnet,
 		},
 		{
-			label: "Sonnet 3.7 (recommended)",
-			value: AnthropicModelName.Sonnet37,
-		},
-		{
-			label: "Sonnet 4",
-			value: AnthropicModelName.Sonnet4,
-		},
-		{
-			label: "Opus 4",
-			value: AnthropicModelName.Opus4,
+			label: "Opus",
+			value: AnthropicModelName.Opus,
 		},
 	];
 

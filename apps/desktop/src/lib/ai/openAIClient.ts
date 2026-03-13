@@ -33,6 +33,7 @@ export class OpenAIClient implements AIClient {
 			messages: prompt,
 			model: this.modelName,
 			stream: true,
+			reasoning_effort: "low",
 		});
 
 		const buffer: string[] = [];

@@ -33,7 +33,7 @@ import type { GitConfigSettings } from "@gitbutler/core/api";
 const defaultGitConfig = Object.freeze({
 	[GitAIConfigKey.ModelProvider]: ModelKind.OpenAI,
 	[GitAIConfigKey.OpenAIKeyOption]: KeyOption.ButlerAPI,
-	[GitAIConfigKey.OpenAIModelName]: OpenAIModelName.GPT4oMini,
+	[GitAIConfigKey.OpenAIModelName]: OpenAIModelName.GPT5Nano,
 	[GitAIConfigKey.AnthropicKeyOption]: KeyOption.ButlerAPI,
 	[GitAIConfigKey.AnthropicModelName]: AnthropicModelName.Haiku,
 });
