@@ -92,16 +92,19 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
     // Sort by order to ensure we get the leftmost (lowest order) stack first
     stacks.sort_by_key(|s| s.order.unwrap_or(usize::MAX));
 
-    let target_stack = stacks
-        .first()
-        .ok_or_else(|| anyhow::anyhow!("No active branches found"))?;
-
-    // Get the name of the top branch in the stack
-    let target_branch_name = target_stack
-        .heads
-        .first()
-        .map(|h| h.name.to_string())
-        .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
+    let target_branch_name = if let Some(target_stack) = stacks.first() {
+        target_stack
+            .heads
+            .first()
+            .map(|h| h.name.to_string())
+            .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?
+    } else {
+        gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir())
+            .get_default_target()?
+            .branch
+            .branch()
+            .to_string()
+    };
 
     if let Some(out) = out.for_human() {
         writeln!(
