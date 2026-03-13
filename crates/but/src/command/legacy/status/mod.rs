@@ -444,9 +444,9 @@ fn print_upstream_state(
             for commit in commits {
                 // Measure prefix width using plain text (no ANSI codes)
                 let commit_short = shorten_hex_object_id(&repo, &commit.id);
-                let truncated_msg = out
-                    .truncate_if_unpaged(&commit.description.to_string().replace('\n', " "), 72)
-                    .dimmed();
+                let message = commit.description.to_string().replace('\n', " ");
+                let message = message.trim_end();
+                let truncated_msg = out.truncate_if_unpaged(message, 72).dimmed();
                 writeln!(out, "┊{dot} {} {truncated_msg}", commit_short.yellow())?;
             }
             let hidden_commits = base_branch.behind.saturating_sub(8);
@@ -461,13 +461,16 @@ fn print_upstream_state(
         writeln!(out, "┊┊")?;
     } else {
         // Without --upstream, show the summary with latest commit info
-        writeln!(
-            out,
-            "┊{dot} {} (upstream) ⏫ {} new commits {}",
+        let mut line = format!(
+            "┊{dot} {} (upstream) ⏫ {} new commits",
             upstream.latest_commit.dimmed(),
             upstream.behind_count,
-            last_checked_text.dimmed()
-        )?;
+        );
+        if !last_checked_text.is_empty() {
+            line.push(' ');
+            line.push_str(&last_checked_text.dimmed().to_string());
+        }
+        writeln!(out, "{line}")?;
     }
 
     Ok(())
@@ -664,7 +667,13 @@ fn print_assignments(
             locks = format!("🔒 {locks}");
         }
         if unstaged {
-            writeln!(out, "┊   {id} {status} {path} {locks}")?;
+            if locks.is_empty() {
+                writeln!(out, "┊   {id} {status} {path}")?;
+            } else {
+                writeln!(out, "┊   {id} {status} {path} {locks}")?;
+            }
+        } else if locks.is_empty() {
+            writeln!(out, "┊  {} {id} {status} {path}", "│".dimmed())?;
         } else {
             writeln!(out, "┊  {} {id} {status} {path} {locks}", "│".dimmed())?;
         }
@@ -707,19 +716,17 @@ pub fn print_group(
             }
 
             let no_commits = if segment.workspace_commits.is_empty() {
-                "(no commits)".to_string()
+                Some("(no commits)".dimmed().italic().to_string())
             } else {
-                "".to_string()
-            }
-            .dimmed()
-            .italic();
+                None
+            };
 
             let review = segment
                 .branch_name()
                 .and_then(|branch_name| {
                     review::from_branch_details(review_map, branch_name, segment.pr_number())
                 })
-                .map(|r| format!(" {} ", r.display_cli(verbose, out.is_paged())))
+                .map(|r| format!(" {}", r.display_cli(verbose, out.is_paged())))
                 .unwrap_or_default();
 
             let ci = segment
@@ -753,17 +760,24 @@ pub fn print_group(
                     format!(" 📁 {base}", base = base.display()).into()
                 })
                 .unwrap_or_default();
-            writeln!(
-                out,
-                "┊{notch}┄{id} [{branch}{workspace}]{ci}{merge_status}{review} {no_commits} {stack_mark}",
-                stack_mark = stack_mark.clone().unwrap_or_default(),
+            let mut line = format!(
+                "┊{notch}┄{id} [{branch}{workspace}]{ci}{merge_status}{review}",
                 branch = segment
                     .branch_name()
                     .unwrap_or(BStr::new(""))
                     .to_string()
                     .green()
                     .bold(),
-            )?;
+            );
+            if let Some(no_commits) = no_commits {
+                line.push(' ');
+                line.push_str(&no_commits);
+            }
+            if let Some(stack_mark) = stack_mark.clone() {
+                line.push(' ');
+                line.push_str(&stack_mark.to_string());
+            }
+            writeln!(out, "{line}")?;
 
             *stack_mark = None; // Only show the stack mark for the first branch
             first = false;
@@ -838,13 +852,16 @@ pub fn print_group(
         }
     } else {
         let id = id_map.unassigned().to_short_string().bold().blue();
-        writeln!(
-            out,
-            "╭┄{} [{}] {}",
+        let mut line = format!(
+            "╭┄{} [{}]",
             id,
             "unstaged changes".to_string().cyan().bold(),
-            stack_mark.clone().unwrap_or_default()
-        )?;
+        );
+        if let Some(stack_mark) = stack_mark.clone() {
+            line.push(' ');
+            line.push_str(&stack_mark.to_string());
+        }
+        writeln!(out, "{line}")?;
         print_assignments(&repo, None, id_map, None, assignments, changes, true, out)?;
     }
     if !first {
@@ -951,17 +968,20 @@ fn print_commit(
         details_string
     };
 
+    let review_url = review_url.map(|r| format!("◖{}◗", r.underline().blue()));
+
     if verbose {
         // Verbose format: author and timestamp on first line, message on second line
-        writeln!(
-            out,
-            "┊{dot} {} {} {}",
-            details_string,
-            review_url
-                .map(|r| format!("◖{}◗", r.underline().blue()))
-                .unwrap_or_default(),
-            mark.unwrap_or_default()
-        )?;
+        let mut line = format!("┊{dot} {details_string}");
+        if let Some(review_url) = review_url {
+            line.push(' ');
+            line.push_str(&review_url);
+        }
+        if let Some(mark) = mark {
+            line.push(' ');
+            line.push_str(&mark.to_string());
+        }
+        writeln!(out, "{line}")?;
         let message =
             commit_message_display_cli(&commit.message, verbose, out.is_paged(), |truncated| {
                 if upstream_commit {
@@ -973,16 +993,16 @@ fn print_commit(
         writeln!(out, "┊│     {message}")?;
     } else {
         // Original format: everything on one line
-        let review_url = review_url
-            .map(|r| format!("◖{}◗", r.underline().blue()))
-            .unwrap_or_default();
-        writeln!(
-            out,
-            "┊{dot}   {} {} {}",
-            details_string,
-            review_url,
-            mark.unwrap_or_default()
-        )?;
+        let mut line = format!("┊{dot}   {details_string}");
+        if let Some(review_url) = review_url {
+            line.push(' ');
+            line.push_str(&review_url);
+        }
+        if let Some(mark) = mark {
+            line.push(' ');
+            line.push_str(&mark.to_string());
+        }
+        writeln!(out, "{line}")?;
     }
     if show_files {
         match commit_changes {

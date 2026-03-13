@@ -290,24 +290,24 @@ k0 a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊   nk M a.txt 🔒 889385c, a7aa4ef, f4ea7f8
 ┊
-┊╭┄g0 [A]  
-┊●   a7aa4ef partial change to a.txt 3  
+┊╭┄g0 [A]
+┊●   a7aa4ef partial change to a.txt 3
 ┊│     a7:nk M a.txt
-┊●   889385c partial change to a.txt 2  
+┊●   889385c partial change to a.txt 2
 ┊│     88:nk M a.txt
-┊●   8dc39e0 partial change to a.txt 1  
+┊●   8dc39e0 partial change to a.txt 1
 ┊│     8d:nk M a.txt
-┊●   f4ea7f8 a.txt  
+┊●   f4ea7f8 a.txt
 ┊│     f4:nk A a.txt
-┊●   9477ae7 add A  
+┊●   9477ae7 add A
 ┊│     94:tm A A
 ├╯
 ┊
-┊╭┄h0 [B]  
-┊●   d3e2ba3 add B  
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
 ┊│     d3:pl A B
 ├╯
 ┊
@@ -342,24 +342,24 @@ Hint: you can run `but undo` to undo these changes
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [A]  
-┊●   4822140 partial change to a.txt 3  
+┊╭┄g0 [A]
+┊●   4822140 partial change to a.txt 3
 ┊│     48:nk M a.txt
-┊●   4593422 partial change to a.txt 2  
+┊●   4593422 partial change to a.txt 2
 ┊│     45:nk M a.txt
-┊●   8dc39e0 partial change to a.txt 1  
+┊●   8dc39e0 partial change to a.txt 1
 ┊│     8d:nk M a.txt
-┊●   f4ea7f8 a.txt  
+┊●   f4ea7f8 a.txt
 ┊│     f4:nk A a.txt
-┊●   9477ae7 add A  
+┊●   9477ae7 add A
 ┊│     94:tm A A
 ├╯
 ┊
-┊╭┄h0 [B]  
-┊●   d3e2ba3 add B  
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
 ┊│     d3:pl A B
 ├╯
 ┊
@@ -463,17 +463,17 @@ Hint: you can run `but undo` to undo these changes
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [A]  
-┊●   27686df [AUTO-COMMIT] Generated commit message  
-┊●   f4ea7f8 a.txt  
-┊●   9477ae7 add A  
+┊╭┄g0 [A]
+┊●   27686df [AUTO-COMMIT] Generated commit message
+┊●   f4ea7f8 a.txt
+┊●   9477ae7 add A
 ├╯
 ┊
-┊╭┄h0 [B]  
-┊●   d3e2ba3 add B  
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
@@ -580,17 +580,17 @@ Hint: you can run `but undo` to undo these changes
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊   nk M a.txt 🔒 f4ea7f8
 ┊
-┊╭┄g0 [A]  
-┊●   5a72bff [AUTO-COMMIT] Generated commit message  
-┊●   f4ea7f8 a.txt  
-┊●   9477ae7 add A  
+┊╭┄g0 [A]
+┊●   5a72bff [AUTO-COMMIT] Generated commit message
+┊●   f4ea7f8 a.txt
+┊●   9477ae7 add A
 ├╯
 ┊
-┊╭┄h0 [B]  
-┊●   d3e2ba3 add B  
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M

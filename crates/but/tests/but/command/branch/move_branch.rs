@@ -21,18 +21,18 @@ fn move_branch_by_name_to_the_top_of_another() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [A]  
-┊●   9477ae7 add A  
+┊╭┄g0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
-┊╭┄h0 [C]  
-┊●   3842fc0 add C  
+┊╭┄h0 [C]
+┊●   3842fc0 add C
 ┊│
-┊├┄i0 [B]  
-┊●   d3e2ba3 add B  
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
@@ -57,17 +57,17 @@ Moved branch 'A' on top of 'C'.
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [A]  
-┊●   afff88e add A  
+┊╭┄g0 [A]
+┊●   afff88e add A
 ┊│
-┊├┄h0 [C]  
-┊●   3842fc0 add C  
+┊├┄h0 [C]
+┊●   3842fc0 add C
 ┊│
-┊├┄i0 [B]  
-┊●   d3e2ba3 add B  
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
@@ -99,18 +99,18 @@ fn move_branch_by_cli_id_to_the_top_of_another() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [A]  
-┊●   9477ae7 add A  
+┊╭┄g0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
-┊╭┄h0 [C]  
-┊●   3842fc0 add C  
+┊╭┄h0 [C]
+┊●   3842fc0 add C
 ┊│
-┊├┄i0 [B]  
-┊●   d3e2ba3 add B  
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
@@ -135,17 +135,17 @@ Moved branch 'A' on top of 'C'.
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [A]  
-┊●   afff88e add A  
+┊╭┄g0 [A]
+┊●   afff88e add A
 ┊│
-┊├┄h0 [C]  
-┊●   3842fc0 add C  
+┊├┄h0 [C]
+┊●   3842fc0 add C
 ┊│
-┊├┄i0 [B]  
-┊●   d3e2ba3 add B  
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
@@ -177,18 +177,18 @@ fn move_branch_by_cli_id_to_the_middle_of_another() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [A]  
-┊●   9477ae7 add A  
+┊╭┄g0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
-┊╭┄h0 [C]  
-┊●   3842fc0 add C  
+┊╭┄h0 [C]
+┊●   3842fc0 add C
 ┊│
-┊├┄i0 [B]  
-┊●   d3e2ba3 add B  
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
@@ -213,17 +213,17 @@ Moved branch 'A' on top of 'B'.
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [C]  
-┊●   c946b0e add C  
+┊╭┄g0 [C]
+┊●   c946b0e add C
 ┊│
-┊├┄h0 [A]  
-┊●   8f3ad84 add A  
+┊├┄h0 [A]
+┊●   8f3ad84 add A
 ┊│
-┊├┄i0 [B]  
-┊●   d3e2ba3 add B  
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
@@ -255,18 +255,18 @@ fn move_branch_by_cli_id_from_the_bottom_to_the_top_of_another() -> anyhow::Resu
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [A]  
-┊●   9477ae7 add A  
+┊╭┄g0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
-┊╭┄h0 [C]  
-┊●   3842fc0 add C  
+┊╭┄h0 [C]
+┊●   3842fc0 add C
 ┊│
-┊├┄i0 [B]  
-┊●   d3e2ba3 add B  
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
@@ -291,18 +291,18 @@ Moved branch 'B' on top of 'A'.
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [B]  
-┊●   b40d58b add B  
+┊╭┄g0 [B]
+┊●   b40d58b add B
 ┊│
-┊├┄h0 [A]  
-┊●   9477ae7 add A  
+┊├┄h0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
-┊╭┄i0 [C]  
-┊●   31e83cd add C  
+┊╭┄i0 [C]
+┊●   31e83cd add C
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
@@ -334,18 +334,18 @@ fn reorder_branch_within_stack() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [A]  
-┊●   9477ae7 add A  
+┊╭┄g0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
-┊╭┄h0 [C]  
-┊●   3842fc0 add C  
+┊╭┄h0 [C]
+┊●   3842fc0 add C
 ┊│
-┊├┄i0 [B]  
-┊●   d3e2ba3 add B  
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
@@ -370,18 +370,18 @@ Moved branch 'B' on top of 'C'.
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [A]  
-┊●   9477ae7 add A  
+┊╭┄g0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
-┊╭┄h0 [B]  
-┊●   958528a add B  
+┊╭┄h0 [B]
+┊●   958528a add B
 ┊│
-┊├┄i0 [C]  
-┊●   31e83cd add C  
+┊├┄i0 [C]
+┊●   31e83cd add C
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
@@ -410,14 +410,14 @@ fn move_empty_branch_to_top_of_another_stack() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [A]  
-┊●   9477ae7 add A  
+┊╭┄g0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
-┊╭┄h0 [B] (no commits) 
+┊╭┄h0 [B] (no commits)
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
@@ -442,13 +442,13 @@ Moved branch 'B' on top of 'A'.
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [B] (no commits) 
+┊╭┄g0 [B] (no commits)
 ┊│
-┊├┄h0 [A]  
-┊●   9477ae7 add A  
+┊├┄h0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
@@ -477,14 +477,14 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [A]  
-┊●   9477ae7 add A  
+┊╭┄g0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
-┊╭┄h0 [B] (no commits) 
+┊╭┄h0 [B] (no commits)
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
@@ -509,13 +509,13 @@ Moved branch 'A' on top of 'B'.
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [A]  
-┊●   9477ae7 add A  
+┊╭┄g0 [A]
+┊●   9477ae7 add A
 ┊│
-┊├┄h0 [B] (no commits) 
+┊├┄h0 [B] (no commits)
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
