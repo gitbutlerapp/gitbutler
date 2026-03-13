@@ -41,12 +41,12 @@ pub(super) async fn render_tui(
     out: &mut OutputChannel,
     mode: &OperatingMode,
     flags: StatusFlags,
-    output: StatusOutput,
+    status_lines: Vec<StatusOutputLine>,
     debug: bool,
 ) -> anyhow::Result<()> {
     let mut guard = TerminalGuard::new(true)?;
 
-    let mut app = App::new(output, flags, debug);
+    let mut app = App::new(status_lines, flags, debug);
 
     let mut messages = Vec::new();
 
@@ -111,13 +111,11 @@ struct App {
 }
 
 impl App {
-    fn new(output: StatusOutput, flags: StatusFlags, debug: bool) -> Self {
-        let StatusOutput { lines } = output;
-
-        let cursor = Cursor::new(&lines);
+    fn new(status_lines: Vec<StatusOutputLine>, flags: StatusFlags, debug: bool) -> Self {
+        let cursor = Cursor::new(&status_lines);
 
         Self {
-            status_lines: lines,
+            status_lines,
             flags,
             cursor,
             should_quit: false,
@@ -205,7 +203,9 @@ impl App {
                 messages.extend([Message::EnterNormalMode, Message::Reload]);
             }
             Message::Reload => {
-                let Some(status_output) = build_status_context(
+                let mut new_lines = Vec::new();
+
+                if build_status_context(
                     ctx,
                     out,
                     mode,
@@ -215,12 +215,20 @@ impl App {
                     },
                 )
                 .await
-                .and_then(|status_ctx| build_status_output(ctx, &status_ctx))
-                .show_error_in_tui(messages) else {
+                .and_then(|status_ctx| {
+                    build_status_output(
+                        ctx,
+                        &status_ctx,
+                        &mut StatusOutput::Buffer {
+                            lines: &mut new_lines,
+                        },
+                    )
+                })
+                .show_error_in_tui(messages)
+                .is_none()
+                {
                     return;
-                };
-
-                let new_lines = status_output.lines;
+                }
 
                 let previously_selected_cli_id = self
                     .cursor
