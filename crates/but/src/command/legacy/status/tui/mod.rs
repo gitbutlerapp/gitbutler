@@ -204,6 +204,12 @@ impl App {
                 messages.extend([Message::EnterNormalMode, Message::Reload]);
             }
             Message::Reload => {
+                {
+                    let meta = ctx.meta()?;
+                    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
+                    ws.refresh_from_head(&repo, &meta)?;
+                }
+
                 let mut new_lines = Vec::new();
 
                 if build_status_context(
