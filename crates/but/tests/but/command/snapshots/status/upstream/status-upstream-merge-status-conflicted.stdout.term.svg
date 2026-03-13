@@ -24,15 +24,15 @@
   <rect width="100%" height="100%" y="0" rx="4.5" class="bg" />
 
   <text xml:space="preserve" class="container fg">
-    <tspan x="10px" y="28px"><tspan>╭┄</tspan><tspan class="fg-blue bold">zz</tspan><tspan> [</tspan><tspan class="fg-cyan bold">unstaged changes</tspan><tspan>] </tspan>
+    <tspan x="10px" y="28px"><tspan>╭┄</tspan><tspan class="fg-blue bold">zz</tspan><tspan> [</tspan><tspan class="fg-cyan bold">unstaged changes</tspan><tspan>]</tspan>
 </tspan>
     <tspan x="10px" y="46px"><tspan>┊     </tspan><tspan class="italic dimmed">no changes</tspan>
 </tspan>
     <tspan x="10px" y="64px"><tspan>┊</tspan>
 </tspan>
-    <tspan x="10px" y="82px"><tspan>┊╭┄</tspan><tspan class="fg-blue bold">g0</tspan><tspan> [</tspan><tspan class="fg-green bold">A</tspan><tspan>]</tspan><tspan class="fg-red"> [⚠ upstream conflicts]</tspan><tspan> </tspan><tspan> </tspan>
+    <tspan x="10px" y="82px"><tspan>┊╭┄</tspan><tspan class="fg-blue bold">g0</tspan><tspan> [</tspan><tspan class="fg-green bold">A</tspan><tspan>]</tspan><tspan class="fg-red"> [⚠ upstream conflicts]</tspan>
 </tspan>
-    <tspan x="10px" y="100px"><tspan>┊●   </tspan><tspan class="fg-blue bold">92</tspan><tspan class="dimmed">83fc1</tspan><tspan> A-change  </tspan>
+    <tspan x="10px" y="100px"><tspan>┊●   </tspan><tspan class="fg-blue bold">92</tspan><tspan class="dimmed">83fc1</tspan><tspan> A-change</tspan>
 </tspan>
     <tspan x="10px" y="118px"><tspan>├╯</tspan>
 </tspan>
@@ -40,7 +40,7 @@
 </tspan>
     <tspan x="10px" y="154px"><tspan>┊╭┄(upstream) ⏫ 1 new commits</tspan>
 </tspan>
-    <tspan x="10px" y="172px"><tspan>┊</tspan><tspan class="fg-yellow">●</tspan><tspan> </tspan><tspan class="fg-yellow">bdfcf28</tspan><tspan> </tspan><tspan class="dimmed">main-change </tspan>
+    <tspan x="10px" y="172px"><tspan>┊</tspan><tspan class="fg-yellow">●</tspan><tspan> </tspan><tspan class="fg-yellow">bdfcf28</tspan><tspan> </tspan><tspan class="dimmed">main-change</tspan>
 </tspan>
     <tspan x="10px" y="190px"><tspan>┊┊</tspan>
 </tspan>

@@ -22,15 +22,15 @@
   <rect width="100%" height="100%" y="0" rx="4.5" class="bg" />
 
   <text xml:space="preserve" class="container fg">
-    <tspan x="10px" y="28px"><tspan>╭┄</tspan><tspan class="fg-blue bold">zz</tspan><tspan> [</tspan><tspan class="fg-cyan bold">unstaged changes</tspan><tspan>] </tspan>
+    <tspan x="10px" y="28px"><tspan>╭┄</tspan><tspan class="fg-blue bold">zz</tspan><tspan> [</tspan><tspan class="fg-cyan bold">unstaged changes</tspan><tspan>]</tspan>
 </tspan>
     <tspan x="10px" y="46px"><tspan>┊     </tspan><tspan class="italic dimmed">no changes</tspan>
 </tspan>
     <tspan x="10px" y="64px"><tspan>┊</tspan>
 </tspan>
-    <tspan x="10px" y="82px"><tspan>┊╭┄</tspan><tspan class="fg-blue bold">g0</tspan><tspan> [</tspan><tspan class="fg-green bold">A</tspan><tspan>] </tspan><tspan> </tspan>
+    <tspan x="10px" y="82px"><tspan>┊╭┄</tspan><tspan class="fg-blue bold">g0</tspan><tspan> [</tspan><tspan class="fg-green bold">A</tspan><tspan>]</tspan>
 </tspan>
-    <tspan x="10px" y="100px"><tspan>┊●   </tspan><tspan class="fg-blue bold">94</tspan><tspan class="dimmed">77ae7</tspan><tspan> add A  </tspan>
+    <tspan x="10px" y="100px"><tspan>┊●   </tspan><tspan class="fg-blue bold">94</tspan><tspan class="dimmed">77ae7</tspan><tspan> add A</tspan>
 </tspan>
     <tspan x="10px" y="118px"><tspan>├╯</tspan>
 </tspan>
