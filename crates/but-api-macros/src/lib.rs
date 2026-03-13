@@ -268,10 +268,11 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         .enumerate()
         .map(|(idx, word)| {
             if idx == 0 {
-                word.to_string()
-            } else {
-                let (head, tail) = word.split_at(1);
+                word.into()
+            } else if let Some((head, tail)) = word.split_at_checked(1) {
                 [head.to_uppercase(), tail.to_string()].concat()
+            } else {
+                word.into()
             }
         })
         .reduce(|a, b| format!("{a}{b}"));
