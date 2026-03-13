@@ -19,7 +19,7 @@ use std::{
 };
 
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture},
+    event::{DisableFocusChange, DisableMouseCapture, EnableFocusChange, EnableMouseCapture},
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
@@ -50,10 +50,14 @@ impl TerminalGuard {
         std::panic::set_hook(Box::new(move |panic_info| {
             let _ = disable_raw_mode();
             if mouse {
-                let _ =
-                    crossterm::execute!(io::stdout(), DisableMouseCapture, LeaveAlternateScreen);
+                let _ = crossterm::execute!(
+                    io::stdout(),
+                    DisableMouseCapture,
+                    DisableFocusChange,
+                    LeaveAlternateScreen
+                );
             } else {
-                let _ = crossterm::execute!(io::stdout(), LeaveAlternateScreen);
+                let _ = crossterm::execute!(io::stdout(), DisableFocusChange, LeaveAlternateScreen);
             }
             // Take the original hook so it won't be restored on drop after a panic
             if let Some(hook) = hook_ref.lock().ok().and_then(|mut h| h.take()) {
@@ -64,9 +68,14 @@ impl TerminalGuard {
         enable_raw_mode()?;
         let mut stdout = io::stdout();
         if enable_mouse {
-            crossterm::execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+            crossterm::execute!(
+                stdout,
+                EnterAlternateScreen,
+                EnableMouseCapture,
+                EnableFocusChange
+            )?;
         } else {
-            crossterm::execute!(stdout, EnterAlternateScreen)?;
+            crossterm::execute!(stdout, EnterAlternateScreen, EnableFocusChange)?;
         }
         let backend = CrosstermBackend::new(stdout);
         let terminal = Terminal::new(backend)?;
@@ -95,10 +104,15 @@ impl TerminalGuard {
             crossterm::execute!(
                 self.terminal.backend_mut(),
                 DisableMouseCapture,
+                DisableFocusChange,
                 LeaveAlternateScreen
             )?;
         } else {
-            crossterm::execute!(self.terminal.backend_mut(), LeaveAlternateScreen)?;
+            crossterm::execute!(
+                self.terminal.backend_mut(),
+                DisableFocusChange,
+                LeaveAlternateScreen
+            )?;
         }
 
         Ok(SuspendGuard(self))
@@ -112,10 +126,15 @@ impl Drop for TerminalGuard {
             let _ = crossterm::execute!(
                 self.terminal.backend_mut(),
                 DisableMouseCapture,
+                DisableFocusChange,
                 LeaveAlternateScreen
             );
         } else {
-            let _ = crossterm::execute!(self.terminal.backend_mut(), LeaveAlternateScreen);
+            let _ = crossterm::execute!(
+                self.terminal.backend_mut(),
+                DisableFocusChange,
+                LeaveAlternateScreen
+            );
         }
         let _ = self.terminal.show_cursor();
 
@@ -137,10 +156,15 @@ impl Drop for SuspendGuard<'_> {
             _ = crossterm::execute!(
                 self.0.terminal.backend_mut(),
                 EnterAlternateScreen,
-                EnableMouseCapture
+                EnableMouseCapture,
+                EnableFocusChange
             );
         } else {
-            _ = crossterm::execute!(self.0.terminal.backend_mut(), EnterAlternateScreen);
+            _ = crossterm::execute!(
+                self.0.terminal.backend_mut(),
+                EnterAlternateScreen,
+                EnableFocusChange
+            );
         }
         _ = self.0.terminal.clear();
     }
