@@ -7,7 +7,7 @@
 	"imports": {
 		"#ui/*": "./ui/src/*",
 		"#ui/hooks/*": "./ui/src/hooks/*",
-		"#electron/*": "./electron/src/*.ts"
+		"#electron/*": "./electron/src/*"
 	},
 	"scripts": {
 		"dev": "concurrently -k \"pnpm dev:ui\" \"pnpm dev:electron\"",

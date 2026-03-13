@@ -3,7 +3,7 @@ import type {
 	BranchDiffParams,
 	CommitDetailsWithLineStatsParams,
 	TreeChangeDiffParams,
-} from "#electron/ipc";
+} from "#electron/ipc.ts";
 import { queryOptions } from "@tanstack/react-query";
 
 export const branchDetailsQueryOptions = (params: BranchDetailsParams) =>
