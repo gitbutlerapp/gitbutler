@@ -3,7 +3,7 @@
 	"type": "module",
 	"devDependencies": {
 		"@playwright/test": "1.58.2",
-		"@types/node": "^22.19.11",
+		"@types/node": "^22.19.15",
 		"@wdio/cli": "^9.24.0",
 		"@wdio/globals": "^9.23.0",
 		"@wdio/local-runner": "^9.24.0",
