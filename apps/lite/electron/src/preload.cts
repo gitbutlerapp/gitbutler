@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { LiteElectronApi } from "#electron/ipc";
+import { type LiteElectronApi, type WatcherSubscribeResult } from "#electron/ipc";
 import type {
 	ApplyOutcome,
 	AssignmentRejection,
@@ -15,8 +15,17 @@ import type {
 	UICommitRewordResult,
 	UIMoveChangesResult,
 	UnifiedPatch,
+	WatcherEvent,
 	WorktreeChanges,
 } from "@gitbutler/but-sdk";
+
+const watcherListenerBySubscription = new Map<
+	string,
+	{
+		eventChannel: string;
+		listener: (_event: Electron.IpcRendererEvent, payload: WatcherEvent) => void;
+	}
+>();
 
 const api: LiteElectronApi = {
 	apply: (params) => ipcRenderer.invoke("workspace:apply", params) as Promise<ApplyOutcome>,
@@ -66,6 +75,35 @@ const api: LiteElectronApi = {
 	treeChangeDiffs: (params) =>
 		ipcRenderer.invoke("workspace:tree-change-diffs", params) as Promise<UnifiedPatch | null>,
 	unapplyStack: (params) => ipcRenderer.invoke("workspace:unapply-stack", params) as Promise<void>,
+	watcherSubscribe: async (projectId, callback) => {
+		const { subscriptionId, eventChannel } = (await ipcRenderer.invoke(
+			"workspace:watcher-subscribe",
+			{ projectId },
+		)) as WatcherSubscribeResult;
+		const listener = (_event: Electron.IpcRendererEvent, payload: WatcherEvent) => {
+			callback(payload);
+		};
+		watcherListenerBySubscription.set(subscriptionId, { eventChannel, listener });
+		ipcRenderer.on(eventChannel, listener);
+		return subscriptionId;
+	},
+	watcherUnsubscribe: async (subscriptionId) => {
+		const registration = watcherListenerBySubscription.get(subscriptionId);
+		if (registration) {
+			ipcRenderer.removeListener(registration.eventChannel, registration.listener);
+			watcherListenerBySubscription.delete(subscriptionId);
+		}
+		return ipcRenderer.invoke("workspace:watcher-unsubscribe", {
+			subscriptionId,
+		}) as Promise<boolean>;
+	},
+	watcherStopAll: async () => {
+		for (const { eventChannel, listener } of watcherListenerBySubscription.values()) 
+			ipcRenderer.removeListener(eventChannel, listener);
+		
+		watcherListenerBySubscription.clear();
+		return ipcRenderer.invoke("workspace:watcher-stop-all") as Promise<number>;
+	},
 };
 
 contextBridge.exposeInMainWorld("lite", api);

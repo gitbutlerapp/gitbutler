@@ -32,7 +32,7 @@ default = []
 tauri = ["dep:tauri", "legacy"]
 ## Provide napi bindings for Node.js via napi-rs.
 ## Needs "legacy" as long as it needs legacy project support.
-napi = ["dep:napi", "dep:napi-derive", "legacy"]
+napi = ["dep:napi", "dep:napi-derive", "legacy", "export-schema"]
 ## When paths are turned into strings they are lossy. Also provide a `_bytes` variant of such fields with the original value
 ## for lossless use.
 path-bytes = []
@@ -43,6 +43,7 @@ export-schema = [
     "gitbutler-project/export-schema",
     "but-rebase/export-schema",
     "gitbutler-branch-actions/export-schema",
+    "gitbutler-operating-modes/export-schema",
 ]
 ## Make legacy functionality available.
 legacy = [
