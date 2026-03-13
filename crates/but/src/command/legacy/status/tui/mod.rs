@@ -173,6 +173,12 @@ impl App {
             Message::Noop => {}
             Message::MoveCursorUp => self.cursor.move_up(&self.status_lines, &self.mode),
             Message::MoveCursorDown => self.cursor.move_down(&self.status_lines, &self.mode),
+            Message::MoveCursorPreviousSection => self
+                .cursor
+                .move_previous_section(&self.status_lines, &self.mode),
+            Message::MoveCursorNextSection => self
+                .cursor
+                .move_next_section(&self.status_lines, &self.mode),
             Message::StartRub => self.handle_start_rub(),
             Message::EnterNormalMode => {
                 self.mode = Mode::Normal;
@@ -807,6 +813,8 @@ enum Message {
     Quit,
     MoveCursorUp,
     MoveCursorDown,
+    MoveCursorPreviousSection,
+    MoveCursorNextSection,
     StartRub,
     EnterNormalMode,
     ConfirmRub,

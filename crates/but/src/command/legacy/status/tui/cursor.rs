@@ -124,6 +124,57 @@ impl Cursor {
             self.0 = idx;
         }
     }
+
+    /// Moves the cursor to the next selectable jump-target line after the current cursor position.
+    pub(super) fn move_next_section(&mut self, lines: &[StatusOutputLine], mode: &Mode) {
+        if let Some((idx, _)) = lines
+            .iter()
+            .enumerate()
+            .skip(self.0 + 1)
+            .find(|(_, line)| is_jump_target_in_mode(line, mode))
+        {
+            self.0 = idx;
+        }
+    }
+
+    /// Moves the cursor to the previous selectable jump-target line before the current cursor position.
+    ///
+    /// If the current line is inside a section (for example, a file or commit row), moving to the
+    /// previous section skips the current section header and jumps to the section before it.
+    pub(super) fn move_previous_section(&mut self, lines: &[StatusOutputLine], mode: &Mode) {
+        let current_line_is_jump_target = lines
+            .get(self.0)
+            .is_some_and(|line| is_jump_target_in_mode(line, mode));
+
+        let previous_jump_targets: Vec<usize> = lines
+            .iter()
+            .enumerate()
+            .rev()
+            .skip(lines.len() - self.0)
+            .filter_map(|(idx, line)| is_jump_target_in_mode(line, mode).then_some(idx))
+            .collect();
+
+        let target_idx = if current_line_is_jump_target {
+            previous_jump_targets.first().copied()
+        } else {
+            previous_jump_targets.get(1).copied()
+        };
+
+        if let Some(target_idx) = target_idx {
+            self.0 = target_idx;
+        }
+    }
+}
+
+/// Returns true if a line is selectable and is a jump target in the given mode.
+fn is_jump_target_in_mode(line: &StatusOutputLine, mode: &Mode) -> bool {
+    is_selectable_in_mode(line, mode)
+        && matches!(
+            line.data,
+            StatusOutputLineData::Branch { .. }
+                | StatusOutputLineData::StagedChanges { .. }
+                | StatusOutputLineData::UnstagedChanges { .. }
+        )
 }
 
 pub(super) fn is_selectable_in_mode(line: &StatusOutputLine, mode: &Mode) -> bool {
@@ -139,7 +190,89 @@ pub(super) fn is_selectable_in_mode(line: &StatusOutputLine, mode: &Mode) -> boo
                     .cli_id()
                     .is_some_and(|cli_id| available_targets.contains(cli_id))
         }
-        // its not possible to move the cursor in this mode
+        // its not possible to move the cursor in these modes
         Mode::InlineReword { .. } => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::Cursor;
+    use crate::{
+        CliId,
+        command::legacy::status::{
+            output::{StatusOutputContent, StatusOutputLine, StatusOutputLineData},
+            tui::Mode,
+        },
+    };
+
+    fn line(data: StatusOutputLineData) -> StatusOutputLine {
+        StatusOutputLine {
+            connector: None,
+            content: StatusOutputContent::Plain(Vec::new()),
+            data,
+        }
+    }
+
+    #[test]
+    fn move_previous_section_skips_current_section_when_cursor_is_inside_it() {
+        let lines = vec![
+            line(StatusOutputLineData::UnstagedChanges {
+                cli_id: Arc::new(CliId::Unassigned { id: "u0".into() }),
+            }),
+            line(StatusOutputLineData::UnstagedFile {
+                cli_id: Arc::new(CliId::Unassigned { id: "u1".into() }),
+            }),
+            line(StatusOutputLineData::StagedChanges {
+                cli_id: Arc::new(CliId::Unassigned { id: "s0".into() }),
+            }),
+            line(StatusOutputLineData::StagedFile {
+                cli_id: Arc::new(CliId::Unassigned { id: "s1".into() }),
+            }),
+        ];
+
+        let mut cursor = Cursor(3);
+        cursor.move_previous_section(&lines, &Mode::Normal);
+
+        assert_eq!(cursor, Cursor(0));
+    }
+
+    #[test]
+    fn move_previous_section_moves_to_immediate_previous_when_already_on_section_header() {
+        let lines = vec![
+            line(StatusOutputLineData::UnstagedChanges {
+                cli_id: Arc::new(CliId::Unassigned { id: "u0".into() }),
+            }),
+            line(StatusOutputLineData::UnstagedFile {
+                cli_id: Arc::new(CliId::Unassigned { id: "u1".into() }),
+            }),
+            line(StatusOutputLineData::StagedChanges {
+                cli_id: Arc::new(CliId::Unassigned { id: "s0".into() }),
+            }),
+        ];
+
+        let mut cursor = Cursor(2);
+        cursor.move_previous_section(&lines, &Mode::Normal);
+
+        assert_eq!(cursor, Cursor(0));
+    }
+
+    #[test]
+    fn move_previous_section_does_not_move_when_only_current_section_exists_above_cursor() {
+        let lines = vec![
+            line(StatusOutputLineData::UnstagedChanges {
+                cli_id: Arc::new(CliId::Unassigned { id: "u0".into() }),
+            }),
+            line(StatusOutputLineData::UnstagedFile {
+                cli_id: Arc::new(CliId::Unassigned { id: "u1".into() }),
+            }),
+        ];
+
+        let mut cursor = Cursor(1);
+        cursor.move_previous_section(&lines, &Mode::Normal);
+
+        assert_eq!(cursor, Cursor(1));
     }
 }

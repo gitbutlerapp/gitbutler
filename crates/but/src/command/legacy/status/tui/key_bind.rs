@@ -54,6 +54,30 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
     },
     KeyBind {
         chord: KeyChord {
+            modifiers: KeyModifiers::SHIFT,
+            keys: &[KeyCode::Char('J')],
+        },
+        kind: KeyEventKind::Press,
+        message: &Message::MoveCursorNextSection,
+        modes: KeyBindMode::AllExceptInlineReword,
+        short_description: "next section",
+        code_display: "J",
+        hidden: false,
+    },
+    KeyBind {
+        chord: KeyChord {
+            modifiers: KeyModifiers::SHIFT,
+            keys: &[KeyCode::Char('K')],
+        },
+        kind: KeyEventKind::Press,
+        message: &Message::MoveCursorPreviousSection,
+        modes: KeyBindMode::AllExceptInlineReword,
+        short_description: "prev section",
+        code_display: "K",
+        hidden: false,
+    },
+    KeyBind {
+        chord: KeyChord {
             modifiers: KeyModifiers::NONE,
             keys: &[KeyCode::Char('r')],
         },
