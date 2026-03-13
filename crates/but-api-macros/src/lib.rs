@@ -262,11 +262,25 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {}
     };
 
+    let js_name = fn_name
+        .to_string()
+        .split("_")
+        .enumerate()
+        .map(|(idx, word)| {
+            if idx == 0 {
+                word.to_string()
+            } else {
+                let (head, tail) = word.split_at(1);
+                [head.to_uppercase(), tail.to_string()].concat()
+            }
+        })
+        .reduce(|a, b| format!("{a}{b}"));
+
     let napi_fn_block = if opts.napi {
         quote! {
             #(#napi_doc_attrs)*
             #napi_legacy_cfg
-            #[napi_derive::napi(ts_return_type = #ts_return_type_str)]
+            #[napi_derive::napi(ts_return_type = #ts_return_type_str, js_name = #js_name)]
             #vis async fn #fn_napi_name(
                 #(#napi_fn_params),*
             ) -> napi::Result<::serde_json::Value> {
