@@ -21,19 +21,19 @@ catalog:
 catalogs:
   postcss:
     "@types/postcss-pxtorem": "6.1.0"
-    "postcss": "8.5.6"
+    "postcss": "8.5.8"
     "postcss-custom-media": "11.0.6"
     "postcss-cli": "11.0.1"
     "postcss-load-config": "5.1.0"
     "postcss-nesting": "12.1.5"
     "postcss-pxtorem": "6.1.0"
   svelte:
-    "@sentry/sveltekit": "10.40.0"
+    "@sentry/sveltekit": "10.42.0"
     "@sveltejs/adapter-static": "3.0.10"
     "@sveltejs/kit": "2.52.2"
     "@sveltejs/package": "2.5.7"
     "@sveltejs/vite-plugin-svelte": "6.2.4"
-    "svelte": "5.53.5"
-    "svelte-check": "4.4.3"
+    "svelte": "5.53.7"
+    "svelte-check": "4.4.4"
   redux:
     "@reduxjs/toolkit": "2.11.2"
