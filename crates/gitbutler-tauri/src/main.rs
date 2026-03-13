@@ -192,8 +192,21 @@ fn main() -> anyhow::Result<()> {
                 app_handle.manage(app_settings);
                 app_handle.manage(claude);
 
-                tauri_app.on_menu_event(move |_handle, event| {
-                    menu::handle_event(&window.clone(), &event)
+                tauri_app.on_menu_event(move |handle, event| {
+                    let target_window = handle
+                        .webview_windows()
+                        .into_values()
+                        .find(|webview| webview.is_focused().unwrap_or(false))
+                        .or_else(|| handle.get_webview_window("main"));
+
+                    if let Some(webview) = target_window {
+                        menu::handle_event(&webview, &event);
+                    } else {
+                        tracing::warn!(
+                            menu_event = %event.id().as_ref(),
+                            "no webview window available to handle menu event"
+                        );
+                    }
                 });
 
                 let app_handle_for_deep_link = app_handle.clone();
