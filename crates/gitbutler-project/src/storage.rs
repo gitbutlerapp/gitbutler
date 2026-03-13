@@ -189,7 +189,7 @@ impl Storage {
         let project = projects
             .iter_mut()
             .find(|p| p.id == id)
-            .with_context(|| "project {id} not found for update")?;
+            .with_context(|| format!("project {id} not found for update"))?;
 
         if let Some(title) = title {
             project.title = title;
