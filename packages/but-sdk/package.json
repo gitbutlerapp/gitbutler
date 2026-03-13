@@ -44,7 +44,7 @@
 	},
 	"devDependencies": {
 		"@napi-rs/cli": "^3.5.1",
-		"@types/node": "^22.19.11",
+		"@types/node": "^22.19.15",
 		"ts-node": "^10.9.2"
 	},
 	"files": [

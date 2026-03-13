@@ -44,7 +44,7 @@
 		"@gitbutler/but-sdk": "workspace:*",
 		"@tanstack/react-query": "^5.90.21",
 		"@tanstack/react-query-devtools": "^5.90.21",
-		"@tanstack/react-router": "^1.163.2",
+		"@tanstack/react-router": "^1.166.2",
 		"effect": "^3.19.19",
 		"electron-devtools-installer": "^4.0.0",
 		"react": "^19.2.4",
@@ -52,7 +52,7 @@
 	},
 	"devDependencies": {
 		"@tanstack/eslint-plugin-query": "^5.91.4",
-		"@types/node": "^22.19.11",
+		"@types/node": "^22.19.15",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.1.7",
 		"@typescript/native-preview": "7.0.0-dev.20260301.1",
@@ -63,7 +63,7 @@
 		"electron": "^37.4.0",
 		"electron-builder": "^26.8.1",
 		"jsdom": "26.1.0",
-		"oxlint": "^1.50.0",
+		"oxlint": "^1.51.0",
 		"vite": "catalog:",
 		"vitest": "catalog:",
 		"wait-on": "^8.0.5"
