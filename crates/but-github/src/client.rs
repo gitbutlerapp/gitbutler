@@ -176,7 +176,7 @@ impl GitHubClient {
             .client
             .get(url)
             .query(&CheckRunsQuery {
-                filter: "all",
+                filter: "latest",
                 per_page: 100,
                 page,
             })
