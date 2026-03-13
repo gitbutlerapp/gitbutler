@@ -65,7 +65,7 @@ pub fn worktree_integrate(
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
 ) -> Result<()> {
-    let before = WorkspaceState::create(ctx, perm.read_permission())?;
+    let before = workspace_state_from_applied_stack_heads(ctx, perm.read_permission())?;
 
     let result = worktree_integration_inner(ctx, perm.read_permission(), id, target)?;
     let (WorktreeIntegrationStatus::Integratable { .. }, Some(mut status)) = result else {
@@ -75,7 +75,7 @@ pub fn worktree_integrate(
     status
         .stack
         .set_heads_from_rebase_output(ctx, status.rebase_output.references)?;
-    let after = WorkspaceState::create(ctx, perm.read_permission())?;
+    let after = workspace_state_from_applied_stack_heads(ctx, perm.read_permission())?;
     update_uncommitted_changes(ctx, before, after, perm)?;
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
@@ -88,6 +88,24 @@ pub fn worktree_integrate(
 struct IntegrationResult {
     rebase_output: RebaseOutput,
     stack: Stack,
+}
+
+/// Snapshot the workspace from the currently applied stack heads.
+///
+/// Worktree integration updates stack refs before it refreshes the managed workspace commit, so
+/// using the workspace projection here can lag behind the actual applied stacks. This helper keeps
+/// the legacy semantics by deriving the snapshot directly from the current stack heads.
+fn workspace_state_from_applied_stack_heads(
+    ctx: &Context,
+    perm: &RepoShared,
+) -> Result<WorkspaceState> {
+    let vb_handle = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let heads = vb_handle
+        .list_stacks_in_workspace()?
+        .iter()
+        .map(|stack| stack.head_oid(ctx))
+        .collect::<Result<Vec<_>>>()?;
+    WorkspaceState::create_from_heads(ctx, perm, &heads)
 }
 
 /// Performs the workspace integration operations in memory, returning the

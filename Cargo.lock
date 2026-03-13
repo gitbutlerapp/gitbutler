@@ -4335,11 +4335,11 @@ dependencies = [
  "anyhow",
  "but-core",
  "but-ctx",
+ "but-graph",
  "but-oxidize",
  "git2",
  "gitbutler-cherry-pick",
  "gitbutler-repo",
- "gitbutler-stack",
  "gix",
 ]
 

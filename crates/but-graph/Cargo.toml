@@ -7,6 +7,9 @@ description = "Types to represent Git commit graphs as connected segments, and p
 publish = false
 rust-version.workspace = true
 
+[features]
+legacy = []
+
 [lib]
 doctest = false
 

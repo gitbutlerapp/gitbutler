@@ -14,8 +14,8 @@ doctest = false
 but-oxidize.workspace = true
 but-core.workspace = true
 but-ctx.workspace = true
+but-graph = { workspace = true, features = ["legacy"] }
 
-gitbutler-stack.workspace = true
 gitbutler-repo.workspace = true
 gitbutler-cherry-pick.workspace = true
 
