@@ -1,5 +1,6 @@
 import noRelativeImportPaths from "@gitbutler/no-relative-imports";
 import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import prettier from "eslint-config-prettier";
 import { createNextImportResolver } from "eslint-import-resolver-next";
 import pluginImportX from "eslint-plugin-import-x";
@@ -7,7 +8,7 @@ import svelte from "eslint-plugin-svelte";
 import globals from "globals";
 import ts from "typescript-eslint";
 
-export default ts.config(
+export default defineConfig(
 	js.configs.recommended,
 	...ts.configs.recommended,
 	...svelte.configs.recommended,
@@ -132,6 +133,7 @@ export default ts.config(
 	},
 	{
 		ignores: [
+			"apps/lite/**",
 			"**/.*", // dotfiles aren't ignored by default in FlatConfig
 			".*", // dotfiles aren't ignored by default in FlatConfig
 			"**/.DS_Store",

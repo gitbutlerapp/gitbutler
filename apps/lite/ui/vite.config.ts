@@ -8,15 +8,16 @@ const currentDirPath = path.dirname(currentFilePath);
 
 export default defineConfig({
 	root: currentDirPath,
-	plugins: [react()],
+	plugins: [
+		react({
+			babel: {
+				plugins: ["babel-plugin-react-compiler"],
+			},
+		}),
+	],
 	build: {
 		outDir: "../dist/ui",
 		emptyOutDir: true,
-	},
-	resolve: {
-		alias: {
-			"@": path.resolve(currentDirPath, "./src"),
-		},
 	},
 	server: {
 		port: 5173,

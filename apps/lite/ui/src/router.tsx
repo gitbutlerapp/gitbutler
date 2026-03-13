@@ -36,13 +36,12 @@ function HomePage(): React.JSX.Element {
 }
 
 interface ProjectsListProps {
-	projects: ProjectForFrontend[];
+	projects: Array<ProjectForFrontend>;
 }
 
 function ProjectsList(props: ProjectsListProps) {
-	if (props.projects.length === 0) {
-		return <p> no projects :(</p>;
-	}
+	if (props.projects.length === 0) return <p> no projects :(</p>;
+
 	return (
 		<div>
 			{props.projects.map((project) => (

@@ -5,7 +5,11 @@
 	"type": "module",
 	"main": "dist/electron/main.js",
 	"imports": {
-		"#electron/*": "./dist/electron/*.js"
+		"#ui/*": "./ui/src/*.tsx",
+		"#electron/*": {
+			"types": "./electron/src/*.ts",
+			"default": "./dist/electron/*.js"
+		}
 	},
 	"scripts": {
 		"dev": "concurrently -k \"pnpm dev:ui\" \"pnpm dev:electron\"",
@@ -13,8 +17,10 @@
 		"dev:electron": "pnpm build:electron && wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron dist/electron/main.js",
 		"build": "pnpm build:ui && pnpm build:electron",
 		"build:ui": "vite build --config ui/vite.config.ts",
-		"build:electron": "tsc -p electron/tsconfig.json",
-		"check": "tsc -p ui/tsconfig.json --noEmit && tsc -p electron/tsconfig.json --noEmit",
+		"build:electron": "tsgo -p electron/tsconfig.json",
+		"check": "tsgo -p ui/tsconfig.json --noEmit && tsgo -p electron/tsconfig.json --noEmit",
+		"oxlint": "oxlint --type-aware --deny-warnings --report-unused-disable-directives",
+		"oxlint:fix": "pnpm run oxlint --fix",
 		"test": "vitest run --config ui/vitest.config.ts --passWithNoTests",
 		"bundle": "pnpm build && electron-builder"
 	},
@@ -33,22 +39,28 @@
 		}
 	},
 	"dependencies": {
+		"@gitbutler/but-sdk": "workspace:*",
+		"@tanstack/react-query": "^5.90.21",
+		"@tanstack/react-query-devtools": "^5.90.21",
 		"@tanstack/react-router": "^1.163.2",
 		"react": "^19.2.4",
-		"react-dom": "^19.2.4",
-		"@gitbutler/but-sdk": "workspace:*"
+		"react-dom": "^19.2.4"
 	},
 	"devDependencies": {
+		"@tanstack/eslint-plugin-query": "^5.91.4",
 		"@types/node": "^22.19.11",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.1.7",
+		"@typescript/native-preview": "7.0.0-dev.20260301.1",
 		"@vitejs/plugin-react": "^5.0.2",
+		"babel-plugin-react-compiler": "^1.0.0",
 		"concurrently": "^9.2.1",
 		"cross-env": "^10.1.0",
 		"electron": "^37.4.0",
 		"electron-builder": "^26.8.1",
+		"electron-devtools-installer": "^4.0.0",
 		"jsdom": "26.1.0",
-		"typescript": "catalog:",
+		"oxlint": "^1.50.0",
 		"vite": "catalog:",
 		"vitest": "catalog:",
 		"wait-on": "^8.0.5"

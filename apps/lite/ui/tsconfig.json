@@ -5,15 +5,12 @@
 		"moduleResolution": "bundler",
 		"jsx": "react-jsx",
 		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"noImplicitReturns": true,
 		"noEmit": true,
 		"allowImportingTsExtensions": true,
 		"isolatedModules": true,
 		"skipLibCheck": true,
-		"baseUrl": ".",
-		"paths": {
-			"@/*": ["./src/*"],
-			"#electron/*": ["../electron/src/*"]
-		},
 		"types": ["vite/client"]
 	},
 	"include": ["src", "../electron/src/ipc.ts", "vite.config.ts", "vitest.config.ts"]
