@@ -142,6 +142,7 @@ impl App {
             Message::Quit => {
                 self.should_quit = true;
             }
+            Message::Noop => {}
             Message::MoveCursorUp => self.cursor.move_up(&self.status_lines, &self.mode),
             Message::MoveCursorDown => self.cursor.move_down(&self.status_lines, &self.mode),
             Message::StartRub => {
@@ -447,16 +448,16 @@ fn event_to_messages(ev: Event, key_binds: &[KeyBind], mode: &Mode, messages: &m
                 }
             }
         }
-        Event::FocusGained
-        | Event::FocusLost
-        | Event::Mouse(_)
-        | Event::Paste(_)
-        | Event::Resize(_, _) => {}
+        Event::Resize(_, _) | Event::Paste(_) => {
+            messages.push(Message::Noop); // trigger a render
+        }
+        Event::FocusGained | Event::FocusLost | Event::Mouse(_) => {}
     }
 }
 
 #[derive(Debug, Clone)]
 enum Message {
+    Noop,
     Quit,
     MoveCursorUp,
     MoveCursorDown,
