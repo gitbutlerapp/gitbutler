@@ -5,7 +5,7 @@ use but_settings::AppSettingsWithDiskSync;
 #[cfg(target_os = "macos")]
 use tauri::menu::AboutMetadata;
 use tauri::{
-    AppHandle, Emitter, Manager, Runtime, WebviewWindow,
+    AppHandle, Emitter, EventTarget, Manager, Runtime, WebviewWindow,
     menu::{Menu, MenuEvent, MenuItemBuilder, PredefinedMenuItem, Submenu, SubmenuBuilder},
 };
 use tracing::instrument;
@@ -416,7 +416,7 @@ pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
 }
 
 fn emit<R: Runtime>(window: &WebviewWindow<R>, event: &str, shortcut: &str) {
-    if let Err(err) = window.emit(event, shortcut) {
+    if let Err(err) = window.emit_to(EventTarget::window(window.label()), event, shortcut) {
         tracing::error!(error = ?err, "failed to emit event");
     }
 }
