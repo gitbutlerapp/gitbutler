@@ -9,6 +9,7 @@ export type RubSource = {
 	hunkHeaders: Array<HunkHeader>;
 };
 
+/** @public */
 export type RubResult = {
 	replacedCommits?: Record<string, string>;
 	newCommit?: string | null;
