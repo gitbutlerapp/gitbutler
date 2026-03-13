@@ -76,7 +76,7 @@ Electron + React (Vite) + TanStack Router scaffold.
 
 ## ESLint
 
-No app-local ESLint config is added. This app uses the monorepo root flat config in `eslint.config.js`.
+No app-local ESLint config is added. The monorepo root flat config in `eslint.config.js` ignores `apps/lite/**`, and Lite is linted via `oxlint` instead.
 
 ## IPC contract
 
@@ -88,7 +88,7 @@ No app-local ESLint config is added. This app uses the monorepo root flat config
 
 `apps/lite` consumes Rust bindings via `@gitbutler/but-sdk` using a strict process boundary:
 
-1. **Electron main process** calls native bindings (for example `listProjectsStatelessNapi`) in `electron/src/model/projects.ts`.
+1. **Electron main process** defines IPC handlers in `electron/src/main.ts` that call native bindings (for example `listProjectsStatelessNapi`).
 2. **IPC layer** defines request/response contracts in `electron/src/ipc.ts` and carries SDK-generated types such as `ProjectForFrontend`.
 3. **Preload** forwards approved methods through `contextBridge` in `electron/src/preload.cts`.
 4. **Renderer** calls `window.lite.*` and never imports or calls native bindings directly.
