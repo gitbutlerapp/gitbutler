@@ -207,32 +207,41 @@ pub async fn is_project_registered(project_path: &Path) -> bool {
     find_project(projects, project_path).is_some()
 }
 
-/// Defensively find a `project_path` in `projects`, dealing with special cases on Windows
-/// where Claude stores them with slashes in paths, but we handle them with backslashes.
-/// As `projects` is based on an unmodified `~/.claude.json` file, we try harder to
-/// find a path match.
+/// Find a `project_path` in `projects`, dealing with special cases on Windows
+/// where Claude stores them with slashes in paths, while we see them with backslashes
+/// in native OS paths. This handling is only active on Windows to avoid the possibility
+/// of false-positives on Linux.
+/// As `projects` is based on an unmodified `~/.claude.json` file, this function
+/// will have to adapt to changes without anticipating every possible future case.
 fn find_project<'a>(
     projects: &'a HashMap<String, Project>,
     project_path: &Path,
 ) -> Option<&'a Project> {
-    fn backslashes_to_slashes(path: &str) -> String {
-        path.replace('\\', "/")
-    }
-
     let path = project_path.to_string_lossy();
-    if let Some(project) = projects.get(path.as_ref()) {
-        return Some(project);
+    #[cfg(not(windows))]
+    {
+        projects.get(path.as_ref())
     }
+    #[cfg(windows)]
+    {
+        fn backslashes_to_slashes(path: &str) -> String {
+            path.replace('\\', "/")
+        }
 
-    let path_with_slashes = backslashes_to_slashes(path.as_ref());
-    // We might not have found it with backslashes, try again with slashes.
-    if path.contains('\\') {
-        if let Some(project) = projects.get(&path_with_slashes) {
+        if let Some(project) = projects.get(path.as_ref()) {
             return Some(project);
         }
-    }
 
-    None
+        // We might not have found it with backslashes, try again with slashes.
+        if path.contains('\\') {
+            let path_with_slashes = backslashes_to_slashes(path.as_ref());
+            if let Some(project) = projects.get(&path_with_slashes) {
+                return Some(project);
+            }
+        }
+
+        None
+    }
 }
 
 async fn read_claude_json() -> Option<ClaudeJson> {
@@ -265,7 +274,11 @@ mod find_project_tests {
         );
 
         let project = find_project(&projects, &PathBuf::from(r"C:\Users\test\workspace\repo"));
-        assert!(project.is_some());
+        assert_eq!(
+            project.is_some(),
+            cfg!(windows),
+            "On Windows, we match this path, on Unix we never do a conversion and paths have to match verbatim"
+        );
     }
 
     #[test]
