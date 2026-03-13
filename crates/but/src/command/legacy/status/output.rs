@@ -19,12 +19,12 @@ impl StatusOutput<'_> {
     fn push_line(
         &mut self,
         connector: Option<Vec<Span<'static>>>,
-        line: Vec<Span<'static>>,
+        content: StatusOutputContent,
         data: StatusOutputLineData,
     ) -> anyhow::Result<()> {
         let output_line = StatusOutputLine {
             connector,
-            line,
+            content,
             data,
         };
 
@@ -41,13 +41,17 @@ impl StatusOutput<'_> {
     }
 
     pub(super) fn update_notice(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
-        self.push_line(None, line, StatusOutputLineData::UpdateNotice)
+        self.push_line(
+            None,
+            StatusOutputContent::Plain(line),
+            StatusOutputLineData::UpdateNotice,
+        )
     }
 
     pub(super) fn connector(&mut self, connector: Vec<Span<'static>>) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            <_>::default(),
+            StatusOutputContent::Plain(<_>::default()),
             StatusOutputLineData::Connector,
         )
     }
@@ -60,7 +64,7 @@ impl StatusOutput<'_> {
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            line,
+            StatusOutputContent::Plain(line),
             StatusOutputLineData::StagedChanges {
                 cli_id: Arc::new(id),
             },
@@ -75,7 +79,7 @@ impl StatusOutput<'_> {
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            line,
+            StatusOutputContent::Plain(line),
             StatusOutputLineData::StagedFile {
                 cli_id: Arc::new(id),
             },
@@ -90,7 +94,7 @@ impl StatusOutput<'_> {
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            line,
+            StatusOutputContent::Plain(line),
             StatusOutputLineData::UnstagedChanges {
                 cli_id: Arc::new(id),
             },
@@ -105,7 +109,7 @@ impl StatusOutput<'_> {
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            line,
+            StatusOutputContent::Plain(line),
             StatusOutputLineData::UnstagedFile {
                 cli_id: Arc::new(id),
             },
@@ -120,7 +124,7 @@ impl StatusOutput<'_> {
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            line,
+            StatusOutputContent::Plain(line),
             StatusOutputLineData::Branch {
                 cli_id: Arc::new(id),
             },
@@ -135,7 +139,7 @@ impl StatusOutput<'_> {
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            line,
+            StatusOutputContent::Plain(line),
             StatusOutputLineData::File {
                 cli_id: Arc::new(id),
             },
@@ -145,12 +149,12 @@ impl StatusOutput<'_> {
     pub(super) fn commit(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        line: CommitLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            line,
+            StatusOutputContent::Commit(line),
             StatusOutputLineData::Commit {
                 cli_id: Arc::new(id),
             },
@@ -162,7 +166,11 @@ impl StatusOutput<'_> {
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
     ) -> anyhow::Result<()> {
-        self.push_line(Some(connector), line, StatusOutputLineData::CommitMessage)
+        self.push_line(
+            Some(connector),
+            StatusOutputContent::Plain(line),
+            StatusOutputLineData::CommitMessage,
+        )
     }
 
     pub(super) fn empty_commit_message(
@@ -172,17 +180,25 @@ impl StatusOutput<'_> {
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            line,
+            StatusOutputContent::Plain(line),
             StatusOutputLineData::EmptyCommitMessage,
         )
     }
 
     pub(super) fn warning(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
-        self.push_line(None, line, StatusOutputLineData::Warning)
+        self.push_line(
+            None,
+            StatusOutputContent::Plain(line),
+            StatusOutputLineData::Warning,
+        )
     }
 
     pub(super) fn hint(&mut self, line: Vec<Span<'static>>) -> anyhow::Result<()> {
-        self.push_line(None, line, StatusOutputLineData::Hint)
+        self.push_line(
+            None,
+            StatusOutputContent::Plain(line),
+            StatusOutputLineData::Hint,
+        )
     }
 
     pub(super) fn no_assignments_unstaged(
@@ -192,7 +208,7 @@ impl StatusOutput<'_> {
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            line,
+            StatusOutputContent::Plain(line),
             StatusOutputLineData::NoAssignmentsUnstaged,
         )
     }
@@ -202,7 +218,11 @@ impl StatusOutput<'_> {
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
     ) -> anyhow::Result<()> {
-        self.push_line(Some(connector), line, StatusOutputLineData::MergeBase)
+        self.push_line(
+            Some(connector),
+            StatusOutputContent::Plain(line),
+            StatusOutputLineData::MergeBase,
+        )
     }
 
     pub(super) fn upstream_changes(
@@ -210,8 +230,30 @@ impl StatusOutput<'_> {
         connector: Vec<Span<'static>>,
         line: Vec<Span<'static>>,
     ) -> anyhow::Result<()> {
-        self.push_line(Some(connector), line, StatusOutputLineData::UpstreamChanges)
+        self.push_line(
+            Some(connector),
+            StatusOutputContent::Plain(line),
+            StatusOutputLineData::UpstreamChanges,
+        )
     }
+}
+
+/// The non-connector content rendered for one status line.
+#[derive(Debug)]
+pub(super) enum StatusOutputContent {
+    /// Generic status content represented as one flat list of spans.
+    Plain(Vec<Span<'static>>),
+    /// Structured content for commit rows where SHA and message are split.
+    Commit(CommitLineContent),
+}
+
+/// Structured content for a commit row in status output.
+#[derive(Debug, Default)]
+pub(super) struct CommitLineContent {
+    pub(super) sha: Vec<Span<'static>>,
+    pub(super) author: Vec<Span<'static>>,
+    pub(super) message: Vec<Span<'static>>,
+    pub(super) suffix: Vec<Span<'static>>,
 }
 
 #[derive(Debug)]
@@ -231,8 +273,8 @@ pub(super) struct StatusOutputLine {
     /// ┊● 7cd07f6 (upstream) ⏫ 1 new commits (checked 34 seconds ago) | Some("┊● ")
     /// ├╯ 8678259 [origin/main] 2026-03-11 nix                         | Some("├╯ ")
     pub(super) connector: Option<Vec<Span<'static>>>,
-    /// The content of the line such as the commit, branch, etc.
-    pub(super) line: Vec<Span<'static>>,
+    /// The content of the line such as the commit, branch, or file.
+    pub(super) content: StatusOutputContent,
     /// The backing data associated with this line.
     ///
     /// This tells the TUI what data the actual line is showing. Used for performing operations on

@@ -13,14 +13,16 @@ use gitbutler_stack::StackId;
 use gix::date::time::CustomFormat;
 use ratatui::{
     style::{Modifier, Style},
-    text::{Line, Span},
+    text::Span,
 };
 use serde::Serialize;
 
 use crate::{
     CLI_DATE, CliId, IdMap,
-    command::legacy::forge::review,
-    command::legacy::status::output::{StatusOutput, StatusOutputLine},
+    command::legacy::{
+        forge::review,
+        status::output::{CommitLineContent, StatusOutput, StatusOutputLine},
+    },
     id::{SegmentWithId, ShortId, StackWithId, TreeChangeWithId},
     tui::text::truncate_text,
     utils::{
@@ -1121,74 +1123,46 @@ fn print_commit(
         "commit",
     )?;
 
-    let details_spans = if upstream_commit {
-        let mut spans = details_line.spans.into_iter();
-        if let Some(first) = spans.next() {
-            let mut out = Vec::from([Span::styled(
-                first.content,
-                first.style.add_modifier(Modifier::DIM),
-            )]);
-            if let Some(second) = spans.next() {
-                out.push(Span::styled(
-                    second.content,
-                    second.style.add_modifier(Modifier::DIM),
-                ));
-            }
-            let mut dim_text = String::new();
-
-            for span in spans {
-                let style = span.style.add_modifier(Modifier::DIM);
-                let is_dim_only =
-                    style.fg.is_none() && style.bg.is_none() && style.add_modifier == Modifier::DIM;
-                if is_dim_only {
-                    dim_text.push_str(&span.content);
-                } else {
-                    if !dim_text.is_empty() {
-                        out.push(Span::styled(
-                            std::mem::take(&mut dim_text),
-                            Style::default().dim(),
-                        ));
-                    }
-                    out.push(Span::styled(span.content, style));
-                }
-            }
-
-            if !dim_text.is_empty() {
-                out.push(Span::styled(dim_text, Style::default().dim()));
-            }
-            out
-        } else {
-            Vec::new()
-        }
+    let details_line = if upstream_commit {
+        dim_commit_line_content(details_line)
     } else {
-        details_line.spans
+        details_line
     };
 
     if status_ctx.flags.verbose {
         output.commit(
             Vec::from([Span::raw("┊"), dot, Span::raw(" ")]),
-            details_spans
-                .into_iter()
-                .chain(review_url.as_ref().into_iter().flat_map(|review_url| {
-                    [
-                        Span::raw(" "),
-                        Span::raw("◖"),
-                        Span::styled(review_url.to_owned(), Style::default().underlined().blue()),
-                        Span::raw("◗"),
-                    ]
-                }))
-                .chain(
-                    marked
-                        .then(|| {
-                            [
-                                Span::raw(" "),
-                                Span::styled("◀ Marked ▶", Style::default().red().bold()),
-                            ]
-                        })
-                        .into_iter()
-                        .flatten(),
-                )
-                .collect(),
+            CommitLineContent {
+                sha: details_line.sha,
+                author: details_line.author,
+                message: details_line.message,
+                suffix: details_line
+                    .suffix
+                    .into_iter()
+                    .chain(review_url.as_ref().into_iter().flat_map(|review_url| {
+                        [
+                            Span::raw(" "),
+                            Span::raw("◖"),
+                            Span::styled(
+                                review_url.to_owned(),
+                                Style::default().underlined().blue(),
+                            ),
+                            Span::raw("◗"),
+                        ]
+                    }))
+                    .chain(
+                        marked
+                            .then(|| {
+                                [
+                                    Span::raw(" "),
+                                    Span::styled("◀ Marked ▶", Style::default().red().bold()),
+                                ]
+                            })
+                            .into_iter()
+                            .flatten(),
+                    )
+                    .collect(),
+            },
             commit_cli_id.clone(),
         )?;
         let (message, is_empty_message) = commit_message_display_cli(
@@ -1212,28 +1186,37 @@ fn print_commit(
     } else {
         output.commit(
             Vec::from([Span::raw("┊"), dot, Span::raw("   ")]),
-            details_spans
-                .into_iter()
-                .chain(review_url.as_ref().into_iter().flat_map(|review_url| {
-                    [
-                        Span::raw(" "),
-                        Span::raw("◖"),
-                        Span::styled(review_url.to_owned(), Style::default().underlined().blue()),
-                        Span::raw("◗"),
-                    ]
-                }))
-                .chain(
-                    marked
-                        .then(|| {
-                            [
-                                Span::raw(" "),
-                                Span::styled("◀ Marked ▶", Style::default().red().bold()),
-                            ]
-                        })
-                        .into_iter()
-                        .flatten(),
-                )
-                .collect(),
+            CommitLineContent {
+                sha: details_line.sha,
+                author: details_line.author,
+                message: details_line.message,
+                suffix: details_line
+                    .suffix
+                    .into_iter()
+                    .chain(review_url.as_ref().into_iter().flat_map(|review_url| {
+                        [
+                            Span::raw(" "),
+                            Span::raw("◖"),
+                            Span::styled(
+                                review_url.to_owned(),
+                                Style::default().underlined().blue(),
+                            ),
+                            Span::raw("◗"),
+                        ]
+                    }))
+                    .chain(
+                        marked
+                            .then(|| {
+                                [
+                                    Span::raw(" "),
+                                    Span::styled("◀ Marked ▶", Style::default().red().bold()),
+                                ]
+                            })
+                            .into_iter()
+                            .flatten(),
+                    )
+                    .collect(),
+            },
             commit_cli_id.clone(),
         )?;
     }
@@ -1304,7 +1287,7 @@ fn display_cli_commit_details(
     has_changes: bool,
     verbose: bool,
     is_paged: bool,
-) -> (Line<'static>, bool) {
+) -> (CommitLineContent, bool) {
     let commit_id_short = shorten_object_id(repo, commit.id);
     let end_id = if short_id.len() >= commit_id_short.len() {
         Span::raw("")
@@ -1319,16 +1302,19 @@ fn display_cli_commit_details(
     };
     let start_id = Span::styled(short_id.to_string(), Style::default().blue().bold());
 
-    let conflicted_span = if commit.has_conflicts {
-        Span::styled(" {conflicted}", Style::default().red())
+    let no_changes = if has_changes {
+        None
     } else {
-        Span::raw("")
+        Some(Span::styled(
+            "(no changes)",
+            Style::default().dim().italic(),
+        ))
     };
 
-    let no_changes = if has_changes {
-        Span::raw("")
+    let conflicted = if commit.has_conflicts {
+        Some(Span::styled("{conflicted}", Style::default().red()))
     } else {
-        Span::styled(" (no changes)", Style::default().dim().italic())
+        None
     };
 
     if verbose {
@@ -1336,27 +1322,92 @@ fn display_cli_commit_details(
         let created_at = commit.author.time;
         let formatted_time = created_at.format_or_unix(CLI_DATE);
         (
-            Line::from_iter([
-                start_id,
-                end_id,
-                Span::raw(" "),
-                Span::raw(commit.author.name.to_string()),
-                Span::raw(" "),
-                Span::styled(formatted_time, Style::default().dim()),
-                no_changes,
-                conflicted_span,
-            ]),
+            CommitLineContent {
+                sha: Vec::from_iter([start_id, end_id]),
+                author: Vec::from_iter([Span::raw(" "), Span::raw(commit.author.name.to_string())]),
+                message: Vec::new(),
+                suffix: Vec::from_iter(
+                    [
+                        Span::raw(" "),
+                        Span::styled(formatted_time, Style::default().dim()),
+                    ]
+                    .into_iter()
+                    .chain(maybe_with_leading_space(no_changes, conflicted)),
+                ),
+            },
             false,
         )
     } else {
         let (message, is_empty_message) =
             commit_message_display_cli(&commit.message, verbose, is_paged, Span::raw);
-        let message = Span::styled(format!(" {}", message.content), message.style);
+        let message = Span::styled(format!("{}", message.content), message.style);
         (
-            Line::from_iter([start_id, end_id, message, no_changes, conflicted_span]),
+            CommitLineContent {
+                sha: Vec::from([start_id, end_id]),
+                author: Vec::new(),
+                message: Vec::from_iter([Span::raw(" "), message]),
+                suffix: maybe_with_leading_space(no_changes, conflicted),
+            },
             is_empty_message,
         )
     }
+}
+
+fn maybe_with_leading_space(
+    a: Option<Span<'static>>,
+    b: Option<Span<'static>>,
+) -> Vec<Span<'static>> {
+    fn with_leading_space(span: Span<'static>) -> Span<'static> {
+        Span::styled(format!(" {}", span.content), span.style)
+    }
+
+    match (a, b) {
+        (None, None) => Vec::new(),
+        (None, Some(b)) => Vec::from([with_leading_space(b)]),
+        (Some(a), None) => Vec::from([with_leading_space(a)]),
+        (Some(a), Some(b)) => Vec::from([with_leading_space(a), with_leading_space(b)]),
+    }
+}
+
+fn dim_commit_line_content(content: CommitLineContent) -> CommitLineContent {
+    let sha = dim_spans(content.sha);
+    let mut author = dim_spans(content.author);
+    let message = dim_spans(content.message);
+    let mut suffix = dim_spans(content.suffix);
+
+    if message.is_empty()
+        && let (Some(last_author), Some(first_suffix)) = (author.last_mut(), suffix.first())
+        && last_author.style == first_suffix.style
+    {
+        let first_suffix = suffix.remove(0);
+        last_author.content.to_mut().push_str(&first_suffix.content);
+    }
+
+    CommitLineContent {
+        sha,
+        author,
+        message,
+        suffix,
+    }
+}
+
+fn dim_spans(spans: Vec<Span<'static>>) -> Vec<Span<'static>> {
+    let mut output: Vec<Span<'static>> = Vec::new();
+
+    for span in spans {
+        let style = span.style.add_modifier(Modifier::DIM);
+        let content = span.content.into_owned();
+
+        if let Some(last) = output.last_mut()
+            && last.style == style
+        {
+            last.content.to_mut().push_str(&content);
+        } else {
+            output.push(Span::styled(content, style));
+        }
+    }
+
+    output
 }
 
 /// Return the plain (uncolored, unstyled) message text.

@@ -1,10 +1,13 @@
 use colored::{ColoredString, Colorize};
-use ratatui::{
-    style::{Color, Modifier, Style},
-    text::Line,
-};
+use ratatui::style::{Color, Modifier, Style};
 
-use crate::{command::legacy::status::StatusOutputLine, utils::WriteWithUtils};
+use crate::{
+    command::legacy::status::{
+        StatusOutputLine,
+        output::{CommitLineContent, StatusOutputContent},
+    },
+    utils::WriteWithUtils,
+};
 
 /// Print one line of status output.
 ///
@@ -15,20 +18,35 @@ pub(super) fn render_oneshot(
 ) -> anyhow::Result<()> {
     let StatusOutputLine {
         connector,
-        line: content_line,
+        content,
         data: _,
     } = line;
 
     let should_colorize = colored::control::SHOULD_COLORIZE.should_colorize();
 
-    let mut line = Line::default();
-    if let Some(connector) = connector {
-        line.extend(connector);
+    let mut spans = Vec::new();
+    if let Some(mut connector) = connector {
+        spans.append(&mut connector);
     }
-    line.extend(content_line);
+    match content {
+        StatusOutputContent::Plain(mut content) => {
+            spans.append(&mut content);
+        }
+        StatusOutputContent::Commit(CommitLineContent {
+            mut sha,
+            mut author,
+            mut message,
+            mut suffix,
+        }) => {
+            spans.append(&mut sha);
+            spans.append(&mut author);
+            spans.append(&mut message);
+            spans.append(&mut suffix);
+        }
+    }
 
-    for span in line.spans {
-        let style = line.style.patch(span.style);
+    for span in spans {
+        let style = span.style;
         let rendered = render_span_with_colored(&span.content, style, should_colorize);
         write!(out, "{rendered}")?;
         if should_colorize && style_has_effect(style) {

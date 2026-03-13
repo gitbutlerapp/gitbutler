@@ -142,6 +142,7 @@ nonempty.workspace = true
 itertools.workspace = true
 self_cell.workspace = true
 rand.workspace = true
+ratatui-textarea = "0.8.0"
 
 [dev-dependencies]
 but-graph.workspace = true

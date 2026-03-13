@@ -139,5 +139,7 @@ pub(super) fn is_selectable_in_mode(line: &StatusOutputLine, mode: &Mode) -> boo
                     .cli_id()
                     .is_some_and(|cli_id| available_targets.contains(cli_id))
         }
+        // its not possible to move the cursor in this mode
+        Mode::InlineReword { .. } => false,
     }
 }

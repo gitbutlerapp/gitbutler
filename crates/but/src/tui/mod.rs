@@ -84,7 +84,7 @@ impl TerminalGuard {
 
     /// Temporarily leaves raw mode and the alternate screen to run an external interactive program.
     ///
-    /// This can for example be used to suspend a TUI and bring up and editor or run an external
+    /// This can for example be used to suspend a TUI and bring up an editor or run an external
     /// command.
     ///
     /// Returns a RAII guard that restores terminal state when dropped.
