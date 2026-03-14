@@ -89,8 +89,8 @@ export const rub = async ({
 
 type RubOperation = "Amend" | "Uncommit" | "Assign" | "Unassign";
 
-export const rubOperationFor = (source: ChangeUnit, target: ChangeUnit): RubOperation | null =>
-	Match.value(source).pipe(
+export const rubOperationFor = (rubSource: RubSource, target: ChangeUnit): RubOperation | null =>
+	Match.value(rubSource.parent).pipe(
 		Match.tag("commit", (source) =>
 			Match.value(target).pipe(
 				Match.tag("commit", (target): RubOperation | null => {
