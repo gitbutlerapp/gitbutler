@@ -881,7 +881,7 @@ const Changes: FC<{
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
 
 	return (
-		<ChangesTarget projectId={projectId} stackId={stackId}>
+		<ChangesRubTarget projectId={projectId} stackId={stackId}>
 			<div className={className}>
 				{changes.length === 0 ? (
 					<>No changes.</>
@@ -929,11 +929,11 @@ const Changes: FC<{
 					</ul>
 				)}
 			</div>
-		</ChangesTarget>
+		</ChangesRubTarget>
 	);
 };
 
-const ChangesTarget: FC<{
+const ChangesRubTarget: FC<{
 	projectId: string;
 	stackId: string | null;
 	children: React.ReactElement;
