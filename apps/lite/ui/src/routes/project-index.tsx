@@ -575,6 +575,7 @@ const CommitTarget: FC<{
 								anchorCommitId: changeUnit.commitId,
 								side: commitMoveSide,
 							});
+
 							break;
 						}
 						case event.dataTransfer.types.includes(rubSourceMimeType): {
@@ -593,6 +594,7 @@ const CommitTarget: FC<{
 								source: rubSource,
 								target: changeUnit,
 							});
+
 							break;
 						}
 					}
