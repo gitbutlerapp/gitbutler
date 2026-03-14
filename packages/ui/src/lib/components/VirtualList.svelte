@@ -99,6 +99,11 @@
 		 */
 		renderDistance?: number;
 		/**
+		 * Distance in pixels from the loading edge at which `onloadmore` fires.
+		 * Defaults to 300.
+		 */
+		loadMoreThreshold?: number;
+		/**
 		 * Whether to show the "Scroll to bottom" button when user scrolls up.
 		 * Defaults to false.
 		 */
@@ -114,11 +119,24 @@
 
 		/** Returns a stable identifier for an item, used to detect head/tail changes. */
 		getId: (item: T) => string | undefined;
+		/**
+		 * Optional static content rendered at the top of the scroll area, before
+		 * any list items. Not tracked as a virtual list item.
+		 */
+		banner?: Snippet<[]>;
+		/**
+		 * Grace period in milliseconds to wait after rendering each item during
+		 * initialization. Allows items to resize (e.g. async content like diffs
+		 * expanding) before deciding whether more items fit in the viewport.
+		 * This prevents eagerly rendering many items that will immediately be
+		 * pushed out of range when the first item expands. Defaults to 0.
+		 */
+		initSettleMs?: number;
 	};
 
 	/** Distance from bottom (px) within which the user is considered "at the bottom". */
 	const NEAR_BOTTOM_THRESHOLD = 70;
-	const LOAD_MORE_THRESHOLD = 300;
+	const DEFAULT_LOAD_MORE_THRESHOLD = 300;
 	const DEBOUNCE_DELAY = 50;
 	const HEIGHT_LOCK_DURATION = 250;
 
@@ -134,9 +152,12 @@
 		stickToBottom,
 		startIndex,
 		renderDistance = 0,
+		loadMoreThreshold = DEFAULT_LOAD_MORE_THRESHOLD,
 		showBottomButton = false,
 		onVisibleChange,
 		getId,
+		banner,
+		initSettleMs = 0,
 	}: Props = $props();
 
 	let viewport = $state<HTMLDivElement>();
@@ -164,12 +185,22 @@
 	let hasNewItemsAtBottom = $state(false);
 	let isRecalculating = false;
 	let isInitializing = false;
+	// Incremented each time initializeAt is called; stale inits detect the
+	// mismatch after each await and bail out.
+	let initGeneration = 0;
 	let lastScrollTop: number | undefined = undefined;
 	let lastScrollDirection: "up" | "down" | undefined;
 	let lastJumpToIndex: number | undefined;
+	// True while the startIndex position-hold is active. Cleared once the
+	// user scrolls manually, so resizes no longer snap back to startIndex.
+	let holdStartIndex = false;
 	// Suppresses the next onscroll so programmatic scrollTo calls don't
 	// trigger recalculation or direction-tracking side effects.
 	let skipNextScrollEvent = false;
+	// Callback for the ResizeObserver to notify settle() that an item resized.
+	// Includes the generation so stale timeouts don't clobber a newer settle.
+	let initSettleNotify: { index: number; generation: number; resolve: () => void } | undefined;
+	let initSettleTimeout: number | undefined;
 
 	const debouncedLoadMore = $derived(debounce(() => onloadmore?.(), DEBOUNCE_DELAY));
 
@@ -177,6 +208,30 @@
 
 	function isInitialized() {
 		return renderRange.end !== 0;
+	}
+
+	/**
+	 * Waits for the ResizeObserver to report a height change on the given item,
+	 * or falls back to `initSettleMs` timeout if no resize occurs.
+	 * Resolves immediately when the observer fires, so items that resize fast
+	 * don't block initialization.
+	 */
+	function settle(index: number): Promise<void> {
+		if (initSettleMs <= 0) return Promise.resolve();
+		const gen = initGeneration;
+		return new Promise((resolve) => {
+			function done() {
+				clearTimeout(initSettleTimeout);
+				// Only clear the global notify if it still belongs to this settle.
+				if (initSettleNotify?.generation === gen) {
+					initSettleNotify = undefined;
+					initSettleTimeout = undefined;
+				}
+				resolve();
+			}
+			initSettleTimeout = window.setTimeout(done, initSettleMs);
+			initSettleNotify = { index, generation: gen, resolve: done };
+		});
 	}
 
 	function getItemHeight(index: number): number {
@@ -218,11 +273,11 @@
 		if (viewport.scrollHeight <= viewport.clientHeight) return true;
 		if (stickToBottom) {
 			// In stick-to-bottom mode, load more when near the TOP (older content)
-			return viewport.scrollTop < LOAD_MORE_THRESHOLD;
+			return viewport.scrollTop < loadMoreThreshold;
 		}
 		// In normal mode, load more when near the BOTTOM (newer content)
 		const distance = getDistanceFromBottom();
-		return distance >= 0 && distance < LOAD_MORE_THRESHOLD;
+		return distance >= 0 && distance < loadMoreThreshold;
 	}
 
 	/**
@@ -336,68 +391,104 @@
 	async function initializeAt(startingAt: number): Promise<void> {
 		if (!viewport) return;
 		isInitializing = true;
+		// Cancel any outstanding settle from a previous init.
+		clearTimeout(initSettleTimeout);
+		initSettleNotify = undefined;
+		initSettleTimeout = undefined;
+		const generation = ++initGeneration;
 		renderRange.start = startingAt;
-		for (let i = startingAt; i < items.length; i++) {
-			if (heightMap[i] !== undefined) {
-				lockRowHeight(i);
-			}
-			renderRange.end = i + 1;
-			await tick(); // Wait for element to be added
-			if (!viewport) return;
-			const element = visibleRowElements?.[i - startingAt];
-			if (!element) {
-				// Can happen if a concurrent reactive update resets renderRange during tick().
-				console.warn("[VList:init] element missing after tick, aborting");
-				return;
-			}
-			heightMap[i] = element.clientHeight;
-			if (
-				calculateHeightSum(startingAt, renderRange.end) >
-				viewport.clientHeight + renderDistance
-			) {
-				break;
-			}
+
+		/** True if the rendered items fill the viewport (plus the given padding). */
+		function isFull(padding: number): boolean {
+			return (
+				calculateHeightSum(renderRange.start, renderRange.end) > viewport!.clientHeight + padding
+			);
 		}
 
-		// Fill upwards if the viewport has remaining space.
-		for (let i = startingAt - 1; i >= 0; i--) {
-			if (heightMap[i] !== undefined) {
-				lockRowHeight(i);
+		try {
+			// Position at an estimated offset so items don't flash at the stale
+			// scrollTop. bottom padding must be ≥ viewportHeight so the browser
+			// doesn't clamp the scrollTop we're about to set.
+			const estimatedOffset = calculateHeightSum(0, startingAt);
+			offset = { top: estimatedOffset, bottom: viewport.clientHeight };
+			await tick();
+			if (!viewport || generation !== initGeneration) return;
+			viewport.scrollTop = estimatedOffset;
+
+			// Forward fill: render items from startingAt until the viewport is full.
+			for (let i = startingAt; i < items.length; i++) {
+				if (heightMap[i] !== undefined) lockRowHeight(i);
+				renderRange.end = i + 1;
+				await tick();
+				if (!viewport || generation !== initGeneration) return;
+				const element = visibleRowElements?.[i - startingAt];
+				if (!element) {
+					console.warn("[VList:init] element missing after tick, aborting");
+					return;
+				}
+				const measuredHeight = element.clientHeight;
+				heightMap[i] = measuredHeight;
+
+				if (isFull(renderDistance)) break;
+
+				// Wait for async resize before deciding if the viewport is full.
+				await settle(i);
+				if (!viewport || generation !== initGeneration) return;
+				if (heightMap[i] !== measuredHeight && isFull(renderDistance)) break;
 			}
-			renderRange.start = i;
-			await tick(); // Wait for element to be added
-			if (!viewport) return;
-			const element = visibleRowElements?.[0];
-			if (!element) {
-				console.warn("[VList:init] element missing after tick, aborting");
-				return;
+
+			// Backward fill: render items above startingAt if space remains.
+			for (let i = startingAt - 1; i >= 0; i--) {
+				if (heightMap[i] !== undefined) lockRowHeight(i);
+
+				// Shrink offset.top before the item renders so both changes
+				// land in the same tick — no visual flash.
+				const expectedHeight = lockedHeights[i] || defaultHeight;
+				offset = { top: offset.top - expectedHeight, bottom: offset.bottom };
+				renderRange.start = i;
+				await tick();
+				if (!viewport || generation !== initGeneration) return;
+				const element = visibleRowElements?.[0];
+				if (!element) {
+					console.warn("[VList:init] element missing after tick, aborting");
+					return;
+				}
+
+				// Compensate scrollTop for estimate vs actual height difference.
+				const measuredHeight = element.clientHeight;
+				const heightDiff = measuredHeight - expectedHeight;
+				if (heightDiff !== 0) viewport.scrollTop += heightDiff;
+				heightMap[i] = measuredHeight;
+
+				if (isFull(2 * renderDistance)) break;
+
+				await settle(i);
+				if (!viewport || generation !== initGeneration) return;
+
+				// Item is above startingAt — its growth pushes content down.
+				const settleDiff = heightMap[i] - measuredHeight;
+				if (settleDiff !== 0) viewport.scrollTop += settleDiff;
+
+				if (isFull(2 * renderDistance)) break;
 			}
-			const heightDiff = element.clientHeight - (lockedHeights[i] || defaultHeight);
-			if (heightDiff !== 0) {
-				viewport.scrollTop += heightDiff;
-			}
-			heightMap[i] = element.clientHeight;
-			if (
-				calculateHeightSum(renderRange.start, renderRange.end) >
-				viewport.clientHeight + 2 * renderDistance
-			) {
-				break;
+
+			if (!isInitialized() || generation !== initGeneration) return;
+
+			updateOffsets();
+			await tick();
+			if (!viewport || generation !== initGeneration) return;
+
+			const targetScrollTop = calculateHeightSum(0, startingAt);
+			viewport.scrollTop = targetScrollTop;
+			lastScrollTop = viewport.scrollTop;
+		} finally {
+			if (generation === initGeneration) {
+				isInitializing = false;
+				// Establish visibleRange, previousDistance, and fire loadMore
+				// since scroll events were suppressed during init.
+				await recalculateRanges();
 			}
 		}
-
-		if (!isInitialized()) {
-			return;
-		}
-
-		updateOffsets();
-		await tick();
-
-		// Guard: viewport can become undefined during unmount due to reactive teardown.
-		if (viewport) {
-			viewport.scrollTop = calculateHeightSum(0, startingAt);
-		}
-
-		isInitializing = false;
 	}
 
 	async function recalculateRanges(): Promise<void> {
@@ -514,15 +605,15 @@
 		// Fast path: if the target is already within the render range, just
 		// scroll to it without tearing down and rebuilding the DOM.
 		if (isInitialized() && index >= renderRange.start && index < renderRange.end) {
+			const target = offset.top + calculateHeightSum(renderRange.start, index);
 			skipNextScrollEvent = true;
-			viewport.scrollTop = offset.top + calculateHeightSum(renderRange.start, index);
+			viewport.scrollTop = target;
 			await recalculateRanges();
 			return;
 		}
 
-		skipNextScrollEvent = true;
 		lockRowHeight(index);
-		initializeAt(index);
+		await initializeAt(index);
 	}
 
 	/**
@@ -568,8 +659,19 @@
 			await recalculateRanges();
 		} else if (stickToBottom && tailChanged && !headChanged) {
 			const distance = getDistanceFromBottom();
-			await tick();
 			if (isNearBottom(previousDistance) || isNearBottom(distance)) {
+				// When more items arrive than are currently rendered, the incremental
+				// path would render at the old scrollTop (top of list) then scroll down,
+				// causing a flash and potential drift from height estimate errors.
+				// Re-initializing from the bottom builds the correct render range directly.
+				const renderedCount = renderRange.end - renderRange.start;
+				if (countDelta > renderedCount) {
+					renderRange = { start: 0, end: 0 };
+					await initializeAt(items.length - 1);
+					scrollToBottom();
+					return;
+				}
+				await tick();
 				await recalculateRanges();
 				scrollToBottom();
 			} else {
@@ -598,6 +700,7 @@
 
 		if (!isInitialized() && items.length > 0) {
 			const initAt = stickToBottom ? items.length - 1 : startIndex || 0;
+			holdStartIndex = !!startIndex;
 			await initializeAt(initAt);
 			if (stickToBottom) {
 				scrollToBottom();
@@ -631,18 +734,21 @@
 			// When scrolling up, compensate for the height change of the topmost
 			// visible element to prevent content from jumping downward.
 			viewport.scrollBy({ top: compensation });
-		} else if ((lastJumpToIndex !== undefined || startIndex) && lastScrollDirection === undefined) {
-			// After jumping to an index, maintain position as off-viewport elements
-			// resize. Scroll direction is undefined during jumps.
-			viewport.scrollTop = calculateHeightSum(0, lastJumpToIndex || startIndex || 0);
+		} else if (
+			(lastJumpToIndex !== undefined || holdStartIndex) &&
+			lastScrollDirection === undefined &&
+			!isInitializing
+		) {
+			// Maintain position as off-viewport elements resize after a jump.
+			// Skip during init — heightMap is incomplete.
+			const target = calculateHeightSum(0, lastJumpToIndex || startIndex || 0);
+			// Subpixel tolerance: scrollTop is fractional, heightSum is integer.
+			if (Math.abs(viewport.scrollTop - target) < 1) return;
+			viewport.scrollTop = target;
 			skipNextScrollEvent = true;
 		} else if (isNearBottom(previousDistance) && lastScrollDirection !== "up") {
-			// Near bottom — snap back to bottom when:
-			// 1. stickToBottom is on and we drifted >2px (the guard prevents a
-			//    subpixel oscillation cascade from scrollToBottom bouncing by 1px)
-			// 2. The very last item resized while we're not at scrollTop=0
-			// Skip when scrolling up — the user is intentionally moving away from
-			// the bottom, and snapping back creates a fight-the-user cascade.
+			// Snap back to bottom when stickToBottom drifted >2px, or the last
+			// item resized. The >2px guard prevents subpixel oscillation.
 			const shouldSnap =
 				(stickToBottom && getDistanceFromBottom() > 2) ||
 				(index === items.length - 1 && viewport.scrollTop !== 0);
@@ -669,6 +775,10 @@
 				const oldHeight = getItemHeight(index);
 				if (target.clientHeight !== heightMap[index]) {
 					heightMap[index] = target.clientHeight;
+					// During initialization, notify settle() that this item resized.
+					if (initSettleNotify?.index === index) {
+						initSettleNotify.resolve();
+					}
 				}
 				compensateScrollForResize(index, oldHeight);
 			}
@@ -739,7 +849,28 @@
 	// avoid re-triggering on the state mutations that handler makes.
 	$effect(() => {
 		if (!viewport) return;
-		if (!items || items.length === 0) return;
+		if (!items || items.length === 0) {
+			if (previousLength > 0) {
+				heightMap = [];
+				renderRange = { start: 0, end: 0 };
+				offset = { top: 0, bottom: 0 };
+				previousLength = 0;
+				previousHeadId = undefined;
+				previousTailId = undefined;
+				lastOffsetItemCount = 0;
+				for (const t of heightUnlockTimeouts) clearTimeout(t);
+				heightUnlockTimeouts = [];
+				lockedHeights = [];
+			}
+			// Empty list with viewport — content is shorter than viewport,
+			// so trigger onloadmore if available.
+			untrack(() => {
+				if (shouldTriggerLoadMore()) {
+					debouncedLoadMore();
+				}
+			});
+			return;
+		}
 		const currentHeadId = getId(items[0]);
 		const currentTailId = getId(items.at(-1)!);
 		const countDelta = items.length - previousLength;
@@ -777,17 +908,31 @@
 	zIndex="3"
 	onscroll={() => {
 		if (!viewport) return;
+		// During initialization, ignore all scroll events — init manages its
+		// own scroll positioning and heightMap is incomplete.
+		if (isInitializing) return;
 		if (skipNextScrollEvent) {
 			skipNextScrollEvent = false;
-			return;
+			// If the scroll moved less than half the viewport, it's a small
+			// compensation — skip it. Large jumps override a potentially stale flag.
+			const delta = Math.abs(viewport.scrollTop - (lastScrollTop ?? 0));
+			if (delta < viewport.clientHeight / 2) {
+				return;
+			}
 		}
 		updateScrollDirection();
+		// Once the user scrolls manually, stop holding the jump/start position.
+		if (lastScrollDirection !== undefined) {
+			lastJumpToIndex = undefined;
+			holdStartIndex = false;
+		}
 		recalculateRanges();
 	}}
 	wide={grow}
 	whenToShow={visibility}
 	{padding}
 >
+	{@render banner?.()}
 	<div
 		bind:this={container}
 		data-remove-from-panning
@@ -855,7 +1000,6 @@
 <style>
 	.list-row {
 		display: block;
-		background-color: var(--clr-bg-1);
 	}
 
 	.padded-contents {
