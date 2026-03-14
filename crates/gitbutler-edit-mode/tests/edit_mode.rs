@@ -1,15 +1,66 @@
 use anyhow::{Result, anyhow};
+use but_core::{
+    RefMetadata, RepositoryExt,
+    ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
+};
 use but_ctx::Context;
+use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::OidExt as _;
+use but_testsupport::{gix_testtools, open_repo};
 use git2::build::CheckoutBuilder;
 use gitbutler_edit_mode::commands::{
     abort_and_return_to_workspace, enter_edit_mode, save_and_return_to_workspace,
 };
-use gitbutler_stack::VirtualBranchesHandle;
+use gitbutler_stack::{Target, VirtualBranchesHandle};
 use tempfile::TempDir;
 
 fn command_ctx(folder: &str) -> Result<(Context, TempDir)> {
-    gitbutler_testsupport::writable::fixture("edit_mode.sh", folder)
+    let folder = folder.to_owned();
+    let folder_for_post = folder.clone();
+    let (tmp, _) = gix_testtools::scripted_fixture_writable_with_args_with_post(
+        "edit_mode.sh",
+        None::<String>,
+        gix_testtools::Creation::Execute,
+        2,
+        move |fixture| {
+            if fixture.is_uninitialized() {
+                let repo = open_repo(&fixture.path().join(&folder_for_post))?;
+                seed_metadata(&repo)?;
+            }
+            Ok(())
+        },
+    )
+    .map_err(anyhow::Error::from_boxed)?;
+    let repo = open_repo(tmp.path().join(folder).as_path())?;
+    Ok((Context::from_repo(repo)?, tmp))
+}
+
+fn seed_metadata(repo: &gix::Repository) -> Result<()> {
+    let mut meta = VirtualBranchesTomlMetadata::from_path(
+        repo.gitbutler_storage_path()?.join("virtual_branches.toml"),
+    )?;
+    let mut ws = meta.workspace("refs/heads/gitbutler/workspace".try_into()?)?;
+    ws.stacks.clear();
+    ws.stacks.push(WorkspaceStack {
+        id: StackId::from_number_for_testing(1),
+        branches: vec![WorkspaceStackBranch {
+            ref_name: "refs/heads/branchy".try_into()?,
+            archived: false,
+        }],
+        workspacecommit_relation: WorkspaceCommitRelation::Merged,
+    });
+    meta.set_workspace(&ws)?;
+    meta.set_changed_to_necessitate_write();
+    meta.write_unreconciled()?;
+
+    let target = Target {
+        branch: "refs/remotes/origin/main".parse()?,
+        remote_url: ".".to_owned(),
+        sha: repo.rev_parse_single("refs/remotes/origin/main")?.detach(),
+        push_remote_name: Some("origin".to_owned()),
+    };
+    VirtualBranchesHandle::new(repo.gitbutler_storage_path()?).set_default_target(target)?;
+    Ok(())
 }
 
 // Fixture:
