@@ -670,10 +670,14 @@ export function getTodos(events: ClaudeMessage[]): ClaudeTodo[] {
 		if (event.payload.source !== "claude") continue;
 		const content = event.payload.data;
 		if (content.type !== "assistant") continue;
-		const msgContent = content.message.content[0]!;
-		if (msgContent.type !== "tool_use") continue;
-		if (msgContent.name !== "TodoWrite") continue;
-		todos = (msgContent.input as { todos: ClaudeTodo[] }).todos;
+		const todoContent = content.message.content.find(
+			(c) => c.type === "tool_use" && c.name === "TodoWrite",
+		);
+		if (!todoContent || todoContent.type !== "tool_use") continue;
+		const maybeTodos = (todoContent.input as { todos: ClaudeTodo[] }).todos;
+		if (Array.isArray(maybeTodos)) {
+			todos = maybeTodos;
+		}
 		break;
 	}
 	return todos ?? [];
