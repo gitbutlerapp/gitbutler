@@ -1138,7 +1138,6 @@ const BranchTarget: FC<{
 					setIsDragOver(true);
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-
 					if (!isValidCommitMoveTarget) return;
 
 					event.preventDefault();
@@ -1156,8 +1155,8 @@ const BranchTarget: FC<{
 					event.preventDefault();
 
 					setSourceItem(null);
-					if (sourceItem?._tag !== "Commit") return;
 
+					if (sourceItem?._tag !== "Commit") return;
 					if (!isValidCommitMoveTarget) return;
 
 					commitMoveToBranch.mutate({
