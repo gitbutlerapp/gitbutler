@@ -1116,7 +1116,7 @@ type StackLaneSelection =
 			path: string;
 	  };
 
-const BranchTarget: FC<{
+const CommitMoveToBranchTarget: FC<{
 	projectId: string;
 	anchorRef: string | null;
 	firstCommitId: string | undefined;
@@ -1266,13 +1266,13 @@ const StackLane: FC<{
 						const anchorRef = segment.refName ? decodeRefName(segment.refName.fullNameBytes) : null;
 						return (
 							<li key={branchName}>
-								<BranchTarget
+								<CommitMoveToBranchTarget
 									projectId={projectId}
 									anchorRef={anchorRef}
 									firstCommitId={segment.commits[0]?.id}
 								>
 									<h3>{branchName}</h3>
-								</BranchTarget>
+								</CommitMoveToBranchTarget>
 
 								<h4>Commits</h4>
 								<CommitsList commits={segment.commits}>
