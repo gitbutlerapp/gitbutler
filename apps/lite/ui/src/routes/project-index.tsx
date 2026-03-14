@@ -77,7 +77,7 @@ type Patch = Extract<UnifiedPatch, { type: "Patch" }>;
 type SourceItem =
 	| { _tag: "Commit"; commitId: string }
 	| {
-			_tag: "FilePatch";
+			_tag: "TreeChange";
 			source: {
 				parent: ChangeUnit;
 				change: TreeChange;
@@ -107,8 +107,8 @@ const rubSourceFor = (item: SourceItem): RubSource => {
 	switch (item._tag) {
 		case "Commit":
 			return { _tag: "Commit", source: { commitId: item.commitId } };
-		case "FilePatch":
-			return { _tag: "FilePatch", source: item.source };
+		case "TreeChange":
+			return { _tag: "TreeChange", source: item.source };
 	}
 };
 
@@ -177,7 +177,7 @@ const HunkListItem: FC<{
 			onDragStart={(event) => {
 				setIsDragging(true);
 				setSourceItem({
-					_tag: "FilePatch",
+					_tag: "TreeChange",
 					source: {
 						parent: changeUnit,
 						change,
@@ -318,7 +318,7 @@ const FileListItem: FC<{
 			onDragStart={(event) => {
 				setIsDragging(true);
 				setSourceItem({
-					_tag: "FilePatch",
+					_tag: "TreeChange",
 					source: {
 						parent: changeUnit,
 						change,

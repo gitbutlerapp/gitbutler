@@ -3,7 +3,7 @@ import { Match } from "effect";
 import { type ChangeUnit } from "#ui/ChangeUnit.ts";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
 
-export type FilePatchRubSource = {
+export type TreeChangeRubSource = {
 	parent: ChangeUnit;
 	change: TreeChange;
 	hunkHeaders: Array<HunkHeader>;
@@ -14,7 +14,7 @@ export type CommitRubSource = {
 };
 
 export type RubSource =
-	| { _tag: "FilePatch"; source: FilePatchRubSource }
+	| { _tag: "TreeChange"; source: TreeChangeRubSource }
 	| { _tag: "Commit"; source: CommitRubSource };
 
 /** @public */
@@ -34,7 +34,7 @@ export const rub = async ({
 	target: ChangeUnit;
 }): Promise<RubResult> =>
 	Match.value(source).pipe(
-		Match.tag("FilePatch", ({ source }) => {
+		Match.tag("TreeChange", ({ source }) => {
 			const changes = [createDiffSpec(source.change, source.hunkHeaders)];
 
 			return Match.value(source.parent).pipe(
@@ -108,7 +108,7 @@ type RubOperation = "Amend" | "Uncommit" | "Assign" | "Unassign" | "Squash";
 export const rubOperationFor = (rubSource: RubSource, target: ChangeUnit): RubOperation | null =>
 	Match.value(rubSource).pipe(
 		Match.withReturnType<RubOperation | null>(),
-		Match.tag("FilePatch", ({ source }) =>
+		Match.tag("TreeChange", ({ source }) =>
 			Match.value(source.parent).pipe(
 				Match.withReturnType<RubOperation | null>(),
 				Match.tag("commit", (source) =>
