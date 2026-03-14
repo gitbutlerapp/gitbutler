@@ -527,7 +527,7 @@ const CommitTarget: FC<{
 								previousCommitId,
 								nextCommitId,
 							});
-							if (commitMoveSide !== newCommitMoveSide) setCommitMoveSide(newCommitMoveSide);
+							setCommitMoveSide(newCommitMoveSide);
 							if (newCommitMoveSide === null) return;
 
 							event.preventDefault();
@@ -537,7 +537,7 @@ const CommitTarget: FC<{
 							if (!rubSource) return;
 
 							const newRubOperation = rubOperationFor(rubSource.parent, changeUnit);
-							if (rubOperation !== newRubOperation) setRubOperation(newRubOperation);
+							setRubOperation(newRubOperation);
 							if (newRubOperation === null) return;
 
 							event.preventDefault();
@@ -548,8 +548,8 @@ const CommitTarget: FC<{
 				onDragLeave={(event) => {
 					if (dragLeaveIsWithinTarget(event)) return;
 
-					if (rubOperation !== null) setRubOperation(null);
-					if (commitMoveSide !== null) setCommitMoveSide(null);
+					setRubOperation(null);
+					setCommitMoveSide(null);
 				}}
 				onDrop={(event) => {
 					switch (true) {
@@ -981,7 +981,7 @@ const ChangesTarget: FC<{
 					if (!rubSource) return;
 
 					const newRubOperation = rubOperationFor(rubSource.parent, changeUnit);
-					if (rubOperation !== newRubOperation) setRubOperation(newRubOperation);
+					setRubOperation(newRubOperation);
 					if (newRubOperation === null) return;
 
 					event.preventDefault();
@@ -989,7 +989,7 @@ const ChangesTarget: FC<{
 				onDragLeave={(event) => {
 					if (dragLeaveIsWithinTarget(event)) return;
 
-					if (rubOperation !== null) setRubOperation(null);
+					setRubOperation(null);
 				}}
 				onDrop={(event) => {
 					if (!event.dataTransfer.types.includes(rubSourceMimeType)) return;
@@ -1164,8 +1164,7 @@ const BranchTarget: FC<{
 					if (commitMoveSourceId == null) return;
 
 					const newIsCommitMoveTarget = anchorRef !== null && firstCommitId !== commitMoveSourceId;
-					if (isCommitMoveTarget !== newIsCommitMoveTarget)
-						setIsCommitMoveTarget(newIsCommitMoveTarget);
+					setIsCommitMoveTarget(newIsCommitMoveTarget);
 					if (!newIsCommitMoveTarget) return;
 
 					event.preventDefault();
@@ -1173,7 +1172,7 @@ const BranchTarget: FC<{
 				onDragLeave={(event) => {
 					if (dragLeaveIsWithinTarget(event)) return;
 
-					if (isCommitMoveTarget) setIsCommitMoveTarget(false);
+					setIsCommitMoveTarget(false);
 				}}
 				onDrop={(event) => {
 					if (!event.dataTransfer.types.includes(commitMoveSourceIdMimeType)) return;
