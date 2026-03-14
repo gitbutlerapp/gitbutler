@@ -151,12 +151,6 @@ type CommitMoveSourceIdState = [string | null, Dispatch<SetStateAction<string | 
 const RubSourceContext = createContext<RubSourceState | null>(null);
 const CommitMoveSourceIdContext = createContext<CommitMoveSourceIdState | null>(null);
 
-const parseRubSource = (dataTransfer: DataTransfer): RubSource | null => {
-	const data = dataTransfer.getData(rubSourceMimeType);
-	if (data.length === 0) return null;
-	return JSON.parse(data) as RubSource;
-};
-
 const parseCommitMoveSourceId = (dataTransfer: DataTransfer): string | null => {
 	const data = dataTransfer.getData(commitMoveSourceIdMimeType);
 	if (data.length === 0) return null;
@@ -505,17 +499,21 @@ const CommitTarget: FC<{
 	const [rubSource, setRubSource] = assert(use(RubSourceContext));
 	const [commitMoveSourceId, setCommitMoveSourceId] = assert(use(CommitMoveSourceIdContext));
 
-	const [rubOperation, setRubOperation] = useState<RubOperation | null>(null);
+	const [isDragOver, setIsDragOver] = useState(false);
 	const [commitMoveSide, setCommitMoveSide] = useState<InsertSide | null>(null);
+
+	const rubOperation = rubSource ? rubOperationFor(rubSource.parent, changeUnit) : null;
 
 	const rubMutation = useMutation(rubMutationOptions);
 	const commitMove = useMutation(commitMoveMutationOptions);
 
 	return (
-		<Tooltip.Root open={rubOperation !== null}>
+		<Tooltip.Root open={isDragOver && rubOperation !== null}>
 			<Tooltip.Trigger
 				render={children}
 				onDragOver={(event) => {
+					setIsDragOver(true);
+
 					switch (true) {
 						case event.dataTransfer.types.includes(commitMoveSourceIdMimeType): {
 							if (commitMoveSourceId == null) return;
@@ -531,16 +529,14 @@ const CommitTarget: FC<{
 							if (newCommitMoveSide === null) return;
 
 							event.preventDefault();
+
 							break;
 						}
 						case event.dataTransfer.types.includes(rubSourceMimeType): {
-							if (!rubSource) return;
-
-							const newRubOperation = rubOperationFor(rubSource.parent, changeUnit);
-							setRubOperation(newRubOperation);
-							if (newRubOperation === null) return;
+							if (rubOperation === null) return;
 
 							event.preventDefault();
+
 							break;
 						}
 					}
@@ -548,10 +544,12 @@ const CommitTarget: FC<{
 				onDragLeave={(event) => {
 					if (dragLeaveIsWithinTarget(event)) return;
 
-					setRubOperation(null);
+					setIsDragOver(false);
 					setCommitMoveSide(null);
 				}}
 				onDrop={(event) => {
+					setIsDragOver(false);
+
 					switch (true) {
 						case event.dataTransfer.types.includes(commitMoveSourceIdMimeType): {
 							event.preventDefault();
@@ -581,13 +579,10 @@ const CommitTarget: FC<{
 						}
 						case event.dataTransfer.types.includes(rubSourceMimeType): {
 							event.preventDefault();
-							setRubOperation(null);
 
-							const rubSource = parseRubSource(event.dataTransfer);
 							setRubSource(null);
-							if (!rubSource) return;
 
-							const rubOperation = rubOperationFor(rubSource.parent, changeUnit);
+							if (!rubSource) return;
 							if (rubOperation === null) return;
 
 							rubMutation.mutate({
@@ -601,7 +596,7 @@ const CommitTarget: FC<{
 					}
 				}}
 				style={{
-					...(rubOperation !== null && { outline: "2px dashed" }),
+					...(isDragOver && rubOperation !== null && { outline: "2px dashed" }),
 					...(commitMoveSide === "above" && {
 						boxShadow: "inset 0 2px 0 0 currentColor",
 					}),
@@ -968,40 +963,38 @@ const ChangesTarget: FC<{
 	const changeUnit: ChangeUnit = { _tag: "changes", stackId };
 
 	const [rubSource, setRubSource] = assert(use(RubSourceContext));
-	const [rubOperation, setRubOperation] = useState<RubOperation | null>(null);
+	const [isDragOver, setIsDragOver] = useState(false);
+	const rubOperation = rubSource ? rubOperationFor(rubSource.parent, changeUnit) : null;
 	const rubMutation = useMutation(rubMutationOptions);
 
 	return (
-		<Tooltip.Root open={rubOperation !== null}>
+		<Tooltip.Root open={isDragOver && rubOperation !== null}>
 			<Tooltip.Trigger
 				render={children}
 				onDragOver={(event) => {
+					setIsDragOver(true);
+
 					if (!event.dataTransfer.types.includes(rubSourceMimeType)) return;
 
-					if (!rubSource) return;
-
-					const newRubOperation = rubOperationFor(rubSource.parent, changeUnit);
-					setRubOperation(newRubOperation);
-					if (newRubOperation === null) return;
+					if (rubOperation === null) return;
 
 					event.preventDefault();
 				}}
 				onDragLeave={(event) => {
 					if (dragLeaveIsWithinTarget(event)) return;
 
-					setRubOperation(null);
+					setIsDragOver(false);
 				}}
 				onDrop={(event) => {
+					setIsDragOver(false);
+
 					if (!event.dataTransfer.types.includes(rubSourceMimeType)) return;
 
 					event.preventDefault();
-					setRubOperation(null);
 
-					const rubSource = parseRubSource(event.dataTransfer);
 					setRubSource(null);
-					if (!rubSource) return;
 
-					const rubOperation = rubOperationFor(rubSource.parent, changeUnit);
+					if (!rubSource) return;
 					if (rubOperation === null) return;
 
 					rubMutation.mutate({
@@ -1010,7 +1003,7 @@ const ChangesTarget: FC<{
 						target: changeUnit,
 					});
 				}}
-				style={rubOperation !== null ? { outline: "2px dashed" } : undefined}
+				style={isDragOver && rubOperation !== null ? { outline: "2px dashed" } : undefined}
 			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
