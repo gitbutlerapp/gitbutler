@@ -131,10 +131,10 @@ const commitMoveSideFor = ({
 
 const sourceItemMimeType = "application/x-gitbutler-source-item";
 
-const rubSourceFor = (item: SourceItem): RubSource | null => {
+const rubSourceFor = (item: SourceItem): RubSource => {
 	switch (item._tag) {
 		case "Commit":
-			return null;
+			return { _tag: "Commit", source: { commitId: item.commitId } };
 		case "FilePatch":
 			return { _tag: "FilePatch", source: item.source };
 	}
@@ -495,8 +495,7 @@ const CommitTarget: FC<{
 	const [isDragOver, setIsDragOver] = useState(false);
 	const [commitMoveSide, setCommitMoveSide] = useState<InsertSide | null>(null);
 
-	const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
-	const rubOperation = rubSource ? rubOperationFor(rubSource, changeUnit) : null;
+	const rubOperation = sourceItem ? rubOperationFor(rubSourceFor(sourceItem), changeUnit) : null;
 
 	const rubMutation = useMutation(rubMutationOptions);
 	const commitMove = useMutation(commitMoveMutationOptions);
@@ -570,12 +569,11 @@ const CommitTarget: FC<{
 							break;
 						}
 						case "FilePatch": {
-							if (!rubSource) return;
 							if (rubOperation === null) return;
 
 							rubMutation.mutate({
 								projectId,
-								source: rubSource,
+								source: rubSourceFor(sourceItem),
 								target: changeUnit,
 							});
 
@@ -956,8 +954,7 @@ const ChangesTarget: FC<{
 
 	const [sourceItem, setSourceItem] = assert(use(SourceItemStateContext));
 	const [isDragOver, setIsDragOver] = useState(false);
-	const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
-	const rubOperation = rubSource ? rubOperationFor(rubSource, changeUnit) : null;
+	const rubOperation = sourceItem ? rubOperationFor(rubSourceFor(sourceItem), changeUnit) : null;
 	const rubMutation = useMutation(rubMutationOptions);
 
 	return (
@@ -990,12 +987,11 @@ const ChangesTarget: FC<{
 					setSourceItem(null);
 
 					if (!sourceItem) return;
-					if (!rubSource) return;
 					if (rubOperation === null) return;
 
 					rubMutation.mutate({
 						projectId,
-						source: rubSource,
+						source: rubSourceFor(sourceItem),
 						target: changeUnit,
 					});
 				}}
