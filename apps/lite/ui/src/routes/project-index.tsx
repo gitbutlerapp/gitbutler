@@ -945,8 +945,10 @@ const ChangesRubTarget: FC<{
 	const rubOperation = sourceItem ? rubOperationFor(rubSourceFor(sourceItem), changeUnit) : null;
 	const rubMutation = useMutation(rubMutationOptions);
 
+	const tooltip = isDragOver ? rubOperation : undefined;
+
 	return (
-		<Tooltip.Root open={isDragOver && rubOperation !== null}>
+		<Tooltip.Root open={tooltip != null}>
 			<Tooltip.Trigger
 				render={children}
 				onDragOver={(event) => {
@@ -989,7 +991,7 @@ const ChangesRubTarget: FC<{
 			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={styles.tooltip}>{rubOperation}</Tooltip.Popup>
+					<Tooltip.Popup className={styles.tooltip}>{tooltip}</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>
