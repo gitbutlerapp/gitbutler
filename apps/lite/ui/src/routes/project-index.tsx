@@ -101,34 +101,6 @@ const commonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 
 const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
-const commitMoveSideFor = ({
-	event,
-	source,
-	targetCommitId,
-	previousCommitId,
-	nextCommitId,
-}: {
-	event: DragEvent<HTMLElement>;
-	source: SourceItem;
-	targetCommitId: string;
-	previousCommitId: string | undefined;
-	nextCommitId: string | undefined;
-}): InsertSide | null => {
-	if (source._tag !== "Commit") return null;
-
-	const targetRect = event.currentTarget.getBoundingClientRect();
-
-	const side: InsertSide =
-		event.clientY < targetRect.top + targetRect.height / 2 ? "above" : "below";
-
-	const isNoOp =
-		source.commitId === targetCommitId ||
-		(side === "above" && previousCommitId === source.commitId) ||
-		(side === "below" && nextCommitId === source.commitId);
-
-	return isNoOp ? null : side;
-};
-
 const sourceItemMimeType = "application/x-gitbutler-source-item";
 
 const rubSourceFor = (item: SourceItem): RubSource => {
@@ -481,24 +453,20 @@ const SelectedCommitDiff: FC<{
 	);
 };
 
-const CommitTarget: FC<{
+const CommitRubTarget: FC<{
 	projectId: string;
 	commitId: string;
-	previousCommitId: string | undefined;
-	nextCommitId: string | undefined;
 	children: React.ReactElement;
-}> = ({ projectId, commitId, previousCommitId, nextCommitId, children }) => {
+}> = ({ projectId, commitId, children }) => {
 	const changeUnit: ChangeUnit = { _tag: "commit", commitId };
 
 	const [sourceItem, setSourceItem] = assert(use(SourceItemStateContext));
 
 	const [isDragOver, setIsDragOver] = useState(false);
-	const [commitMoveSide, setCommitMoveSide] = useState<InsertSide | null>(null);
 
 	const rubOperation = sourceItem ? rubOperationFor(rubSourceFor(sourceItem), changeUnit) : null;
 
 	const rubMutation = useMutation(rubMutationOptions);
-	const commitMove = useMutation(commitMoveMutationOptions);
 
 	const tooltip = isDragOver && rubOperation !== null ? rubOperation : undefined;
 
@@ -511,37 +479,14 @@ const CommitTarget: FC<{
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
 					if (!sourceItem) return;
+					if (rubOperation === null) return;
 
-					switch (sourceItem._tag) {
-						case "Commit": {
-							const newCommitMoveSide = commitMoveSideFor({
-								event,
-								source: sourceItem,
-								targetCommitId: changeUnit.commitId,
-								previousCommitId,
-								nextCommitId,
-							});
-							setCommitMoveSide(newCommitMoveSide);
-							if (newCommitMoveSide === null) return;
-
-							event.preventDefault();
-
-							break;
-						}
-						case "FilePatch": {
-							if (rubOperation === null) return;
-
-							event.preventDefault();
-
-							break;
-						}
-					}
+					event.preventDefault();
 				}}
 				onDragLeave={(event) => {
 					if (dragLeaveIsWithinTarget(event)) return;
 
 					setIsDragOver(false);
-					setCommitMoveSide(null);
 				}}
 				onDrop={(event) => {
 					setIsDragOver(false);
@@ -550,45 +495,19 @@ const CommitTarget: FC<{
 
 					event.preventDefault();
 
-					setCommitMoveSide(null);
 					setSourceItem(null);
 
 					if (!sourceItem) return;
+					if (rubOperation === null) return;
 
-					switch (sourceItem._tag) {
-						case "Commit": {
-							if (commitMoveSide === null) return;
-
-							commitMove.mutate({
-								projectId,
-								subjectCommitId: sourceItem.commitId,
-								anchorCommitId: changeUnit.commitId,
-								side: commitMoveSide,
-							});
-
-							break;
-						}
-						case "FilePatch": {
-							if (rubOperation === null) return;
-
-							rubMutation.mutate({
-								projectId,
-								source: rubSourceFor(sourceItem),
-								target: changeUnit,
-							});
-
-							break;
-						}
-					}
+					rubMutation.mutate({
+						projectId,
+						source: rubSourceFor(sourceItem),
+						target: changeUnit,
+					});
 				}}
 				style={{
 					...(isDragOver && rubOperation !== null && { outline: "2px dashed" }),
-					...(commitMoveSide === "above" && {
-						boxShadow: "inset 0 2px 0 0 currentColor",
-					}),
-					...(commitMoveSide === "below" && {
-						boxShadow: "inset 0 -2px 0 0 currentColor",
-					}),
 				}}
 			/>
 			<Tooltip.Portal>
@@ -597,6 +516,67 @@ const CommitTarget: FC<{
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>
+	);
+};
+
+const CommitMoveTarget: FC<{
+	projectId: string;
+	commitId: string;
+	side: InsertSide;
+	previousCommitId: string | undefined;
+	nextCommitId: string | undefined;
+}> = ({ projectId, commitId, side, previousCommitId, nextCommitId }) => {
+	const [sourceItem, setSourceItem] = assert(use(SourceItemStateContext));
+	const [isDragOver, setIsDragOver] = useState(false);
+	const commitMove = useMutation(commitMoveMutationOptions);
+
+	const isNoOp = (sourceCommitId: string): boolean =>
+		sourceCommitId === commitId ||
+		(side === "above" && previousCommitId === sourceCommitId) ||
+		(side === "below" && nextCommitId === sourceCommitId);
+	const isCommitSourceItem = sourceItem?._tag === "Commit";
+	const isActiveMoveTarget = isDragOver && isCommitSourceItem && !isNoOp(sourceItem.commitId);
+
+	return (
+		<div
+			className={classes(
+				styles.commitMoveTarget,
+				isActiveMoveTarget && styles.commitMoveTargetActive,
+			)}
+			onDragOver={(event) => {
+				setIsDragOver(true);
+
+				if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
+				if (sourceItem?._tag !== "Commit") return;
+
+				if (isNoOp(sourceItem.commitId)) return;
+
+				event.preventDefault();
+			}}
+			onDragLeave={(event) => {
+				if (dragLeaveIsWithinTarget(event)) return;
+
+				setIsDragOver(false);
+			}}
+			onDrop={(event) => {
+				setIsDragOver(false);
+
+				if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
+				if (sourceItem?._tag !== "Commit") return;
+
+				if (isNoOp(sourceItem.commitId)) return;
+
+				event.preventDefault();
+				setSourceItem(null);
+
+				commitMove.mutate({
+					projectId,
+					subjectCommitId: sourceItem.commitId,
+					anchorCommitId: commitId,
+					side,
+				});
+			}}
+		/>
 	);
 };
 
@@ -776,13 +756,15 @@ const CommitC: FC<{
 	);
 
 	return (
-		<CommitTarget
-			projectId={projectId}
-			commitId={commit.id}
-			previousCommitId={previousCommitId}
-			nextCommitId={nextCommitId}
-		>
-			<li className={sharedStyles.commitsListItem}>
+		<li className={sharedStyles.commitsListItem}>
+			<CommitMoveTarget
+				projectId={projectId}
+				commitId={commit.id}
+				side="above"
+				previousCommitId={previousCommitId}
+				nextCommitId={nextCommitId}
+			/>
+			<CommitRubTarget projectId={projectId} commitId={commit.id}>
 				<div className={styles.commitRow}>
 					{isEditingMessage ? (
 						<InlineCommitMessageEditor
@@ -849,29 +831,38 @@ const CommitC: FC<{
 						</Menu.Portal>
 					</Menu.Root>
 				</div>
-				{expanded && (
-					<div className={sharedStyles.commitDetails}>
-						<Suspense fallback={<div>Loading changed details…</div>}>
-							<CommitDetails
-								projectId={projectId}
-								commitId={commit.id}
-								renderFile={(change) => (
-									<FileListItem key={change.path} change={change} changeUnit={changeUnit}>
-										<div className={sharedStyles.fileRow}>
-											<FileButton
-												change={change}
-												isSelected={isFileSelected(change.path)}
-												toggleSelect={() => toggleFileSelect(change.path)}
-											/>
-										</div>
-									</FileListItem>
-								)}
-							/>
-						</Suspense>
-					</div>
-				)}
-			</li>
-		</CommitTarget>
+			</CommitRubTarget>
+			{expanded && (
+				<div className={sharedStyles.commitDetails}>
+					<Suspense fallback={<div>Loading changed details…</div>}>
+						<CommitDetails
+							projectId={projectId}
+							commitId={commit.id}
+							renderFile={(change) => (
+								<FileListItem key={change.path} change={change} changeUnit={changeUnit}>
+									<div className={sharedStyles.fileRow}>
+										<FileButton
+											change={change}
+											isSelected={isFileSelected(change.path)}
+											toggleSelect={() => toggleFileSelect(change.path)}
+										/>
+									</div>
+								</FileListItem>
+							)}
+						/>
+					</Suspense>
+				</div>
+			)}
+			{nextCommitId === undefined && (
+				<CommitMoveTarget
+					projectId={projectId}
+					commitId={commit.id}
+					side="below"
+					previousCommitId={previousCommitId}
+					nextCommitId={nextCommitId}
+				/>
+			)}
+		</li>
 	);
 };
 
