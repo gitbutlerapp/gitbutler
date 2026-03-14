@@ -793,7 +793,8 @@ const CommitC: FC<{
 												commitId: commit.id,
 											};
 											setSourceItem(sourceItem);
-											event.dataTransfer.setData(sourceItemMimeType, JSON.stringify(sourceItem));
+											const payload = JSON.stringify(sourceItem);
+											event.dataTransfer.setData(sourceItemMimeType, payload);
 											event.dataTransfer.effectAllowed = "move";
 										}}
 										onDragEnd={() => {
