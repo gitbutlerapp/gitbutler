@@ -184,9 +184,8 @@ const HunkListItem: FC<{
 						hunkHeaders: [hunk],
 					},
 				};
-				const payload = JSON.stringify(sourceItem);
 				setSourceItem(sourceItem);
-				event.dataTransfer.setData(sourceItemMimeType, payload);
+				event.dataTransfer.setData(sourceItemMimeType, "");
 				event.dataTransfer.effectAllowed = "move";
 			}}
 			onDragEnd={() => {
@@ -332,9 +331,8 @@ const FileListItem: FC<{
 							: [],
 					},
 				};
-				const payload = JSON.stringify(sourceItem);
 				setSourceItem(sourceItem);
-				event.dataTransfer.setData(sourceItemMimeType, payload);
+				event.dataTransfer.setData(sourceItemMimeType, "");
 				event.dataTransfer.effectAllowed = "move";
 			}}
 			onDragEnd={() => {
@@ -793,8 +791,7 @@ const CommitC: FC<{
 												commitId: commit.id,
 											};
 											setSourceItem(sourceItem);
-											const payload = JSON.stringify(sourceItem);
-											event.dataTransfer.setData(sourceItemMimeType, payload);
+											event.dataTransfer.setData(sourceItemMimeType, "");
 											event.dataTransfer.effectAllowed = "move";
 										}}
 										onDragEnd={() => {
