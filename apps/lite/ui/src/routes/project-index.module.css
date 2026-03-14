@@ -43,11 +43,25 @@
 }
 
 .commitMoveTarget {
-	height: 2px;
+	--hit-area: 19px;
+	--indicator-height: 3px;
+
+	z-index: 1;
+	position: relative;
+	height: var(--indicator-height);
+}
+
+.commitMoveTargetEnabled {
+	&:after {
+		position: absolute;
+		inset-block: calc(((var(--hit-area) - var(--indicator-height)) / 2) * -1);
+		inset-inline: 0;
+		content: "";
+	}
 }
 
 .commitMoveTargetActive {
-	box-shadow: inset 0 2px 0 0 currentColor;
+	background-color: black;
 }
 
 .commitMessageInput {

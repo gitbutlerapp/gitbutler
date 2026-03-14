@@ -540,7 +540,11 @@ const CommitMoveTarget: FC<{
 
 	return (
 		<div
-			className={classes(styles.commitMoveTarget, isActive && styles.commitMoveTargetActive)}
+			className={classes(
+				styles.commitMoveTarget,
+				isEnabled && styles.commitMoveTargetEnabled,
+				isActive && styles.commitMoveTargetActive,
+			)}
 			onDragOver={(event) => {
 				setIsDragOver(true);
 
