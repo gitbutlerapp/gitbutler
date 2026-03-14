@@ -151,12 +151,6 @@ type CommitMoveSourceIdState = [string | null, Dispatch<SetStateAction<string | 
 const RubSourceContext = createContext<RubSourceState | null>(null);
 const CommitMoveSourceIdContext = createContext<CommitMoveSourceIdState | null>(null);
 
-const parseCommitMoveSourceId = (dataTransfer: DataTransfer): string | null => {
-	const data = dataTransfer.getData(commitMoveSourceIdMimeType);
-	if (data.length === 0) return null;
-	return data;
-};
-
 const dragLeaveIsWithinTarget = (event: DragEvent<HTMLElement>): boolean =>
 	event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget);
 
@@ -1136,43 +1130,41 @@ const BranchTarget: FC<{
 	children: React.ReactElement;
 }> = ({ projectId, anchorRef, firstCommitId, children }) => {
 	const [commitMoveSourceId, setCommitMoveSourceId] = assert(use(CommitMoveSourceIdContext));
-
-	const [isCommitMoveTarget, setIsCommitMoveTarget] = useState(false);
+	const [isDragOver, setIsDragOver] = useState(false);
+	const isValidCommitMoveTarget =
+		commitMoveSourceId != null && anchorRef !== null && firstCommitId !== commitMoveSourceId;
 
 	const commitMoveToBranch = useMutation(commitMoveToBranchMutationOptions);
 
 	return (
-		<Tooltip.Root open={isCommitMoveTarget}>
+		<Tooltip.Root open={isDragOver && isValidCommitMoveTarget}>
 			<Tooltip.Trigger
 				render={children}
 				onDragOver={(event) => {
+					setIsDragOver(true);
+
 					if (!event.dataTransfer.types.includes(commitMoveSourceIdMimeType)) return;
 
-					if (commitMoveSourceId == null) return;
-
-					const newIsCommitMoveTarget = anchorRef !== null && firstCommitId !== commitMoveSourceId;
-					setIsCommitMoveTarget(newIsCommitMoveTarget);
-					if (!newIsCommitMoveTarget) return;
+					if (!isValidCommitMoveTarget) return;
 
 					event.preventDefault();
 				}}
 				onDragLeave={(event) => {
 					if (dragLeaveIsWithinTarget(event)) return;
 
-					setIsCommitMoveTarget(false);
+					setIsDragOver(false);
 				}}
 				onDrop={(event) => {
+					setIsDragOver(false);
+
 					if (!event.dataTransfer.types.includes(commitMoveSourceIdMimeType)) return;
 
 					event.preventDefault();
-					setIsCommitMoveTarget(false);
 
-					const commitMoveSourceId = parseCommitMoveSourceId(event.dataTransfer);
 					setCommitMoveSourceId(null);
 					if (commitMoveSourceId == null) return;
 
-					const isCommitMoveTarget = anchorRef !== null && firstCommitId !== commitMoveSourceId;
-					if (!isCommitMoveTarget) return;
+					if (!isValidCommitMoveTarget) return;
 
 					commitMoveToBranch.mutate({
 						projectId,
@@ -1181,7 +1173,7 @@ const BranchTarget: FC<{
 					});
 				}}
 				style={{
-					...(isCommitMoveTarget && { outline: "2px dashed" }),
+					...(isDragOver && isValidCommitMoveTarget && { outline: "2px dashed" }),
 				}}
 			/>
 			<Tooltip.Portal>
