@@ -9,7 +9,13 @@ export type FilePatchRubSource = {
 	hunkHeaders: Array<HunkHeader>;
 };
 
-export type RubSource = { _tag: "FilePatch"; source: FilePatchRubSource };
+export type CommitRubSource = {
+	commitId: string;
+};
+
+export type RubSource =
+	| { _tag: "FilePatch"; source: FilePatchRubSource }
+	| { _tag: "Commit"; source: CommitRubSource };
 
 /** @public */
 export type RubResult = {
@@ -90,10 +96,12 @@ export const rub = async ({
 				Match.exhaustive,
 			);
 		}),
+		// TODO: implement squashing when API is ready
+		Match.tag("Commit", async (): Promise<RubResult> => ({})),
 		Match.exhaustive,
 	);
 
-type RubOperation = "Amend" | "Uncommit" | "Assign" | "Unassign";
+type RubOperation = "Amend" | "Uncommit" | "Assign" | "Unassign" | "Squash";
 
 export const rubOperationFor = (rubSource: RubSource, target: ChangeUnit): RubOperation | null =>
 	Match.value(rubSource).pipe(
@@ -119,6 +127,16 @@ export const rubOperationFor = (rubSource: RubSource, target: ChangeUnit): RubOp
 						Match.exhaustive,
 					),
 				),
+				Match.exhaustive,
+			),
+		),
+		Match.tag("Commit", (source) =>
+			Match.value(target).pipe(
+				Match.tag("commit", (target): RubOperation | null => {
+					if (source.source.commitId === target.commitId) return null;
+					return "Squash";
+				}),
+				Match.tag("changes", (): RubOperation | null => null),
 				Match.exhaustive,
 			),
 		),
