@@ -1003,7 +1003,9 @@ const ChangesTarget: FC<{
 						target: changeUnit,
 					});
 				}}
-				style={isDragOver && rubOperation !== null ? { outline: "2px dashed" } : undefined}
+				style={{
+					...(isDragOver && rubOperation !== null && { outline: "2px dashed" }),
+				}}
 			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
