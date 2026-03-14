@@ -541,6 +541,8 @@ const CommitMoveTarget: FC<{
 		<div
 			className={classes(
 				styles.commitMoveTarget,
+				side === "above" ? styles.commitMoveTargetAbove : styles.commitMoveTargetBelow,
+				isCommitSourceItem && styles.commitMoveTargetEnabled,
 				isActiveMoveTarget && styles.commitMoveTargetActive,
 			)}
 			onDragOver={(event) => {

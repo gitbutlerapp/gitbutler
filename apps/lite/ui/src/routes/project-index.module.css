@@ -43,11 +43,36 @@
 }
 
 .commitMoveTarget {
-	height: 2px;
+	z-index: 1;
+	position: absolute;
+	right: 0;
+	left: 0;
+	height: 19px;
+	pointer-events: none;
+}
+
+.commitMoveTargetEnabled {
+	pointer-events: auto;
+}
+
+.commitMoveTargetAbove {
+	top: 0;
+	transform: translateY(-50%);
+}
+
+.commitMoveTargetBelow {
+	bottom: 0;
+	transform: translateY(50%);
 }
 
 .commitMoveTargetActive {
-	box-shadow: inset 0 2px 0 0 currentColor;
+	background-image: linear-gradient(
+		to bottom,
+		transparent 8px,
+		black 8px,
+		black 11px,
+		transparent 11px
+	);
 }
 
 .commitMessageInput {

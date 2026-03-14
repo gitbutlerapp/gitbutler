@@ -20,6 +20,7 @@
 
 .commitsListItem {
 	display: flex;
+	position: relative;
 	flex-direction: column;
 }
 
