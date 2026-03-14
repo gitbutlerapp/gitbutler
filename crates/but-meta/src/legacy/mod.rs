@@ -59,10 +59,9 @@ impl Snapshot {
             || self.has_null_head_hash()
             || self.clone().enforce_constraints(None)
         {
-            storage::write_virtual_branches_and_sync(
-                &self.path,
-                &self.to_consistent_data(reconcile),
-            )?;
+            let data = self.to_consistent_data(reconcile);
+            storage::write_virtual_branches_and_sync(&self.path, &data)?;
+            self.content = data;
             self.changed_at.take();
         }
         Ok(())
@@ -391,6 +390,15 @@ impl VirtualBranchesTomlMetadata {
         self.snapshot.reconcile_and_fix_vb_toml(repo)?;
 
         // Then write changes back.
+        self.snapshot
+            .write_if_changed(ReconcileWithWorkspace::Disallow)
+    }
+
+    /// Write pending changes without reconciling the metadata against the workspace.
+    ///
+    /// This is useful for tests that intentionally seed legacy metadata and need the write to be
+    /// deterministic across cold and warm fixture creation paths.
+    pub fn write_unreconciled(&mut self) -> anyhow::Result<()> {
         self.snapshot
             .write_if_changed(ReconcileWithWorkspace::Disallow)
     }

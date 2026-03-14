@@ -1,31 +1,32 @@
 #!/usr/bin/env bash
 set -eu -o pipefail
-CLI=${1:?The first argument is the GitButler CLI}
-
-
-git init remote
+git init --initial-branch=main remote
 (cd remote
+  git config user.name "Author"
+  git config user.email "author@example.com"
   echo first > file
   git add . && git commit -m "init"
 )
 
-export GITBUTLER_CLI_DATA_DIR=../user/gitbutler/app-data
 git clone remote multiple-commits 
 (cd multiple-commits
   git config user.name "Author"
   git config user.email "author@example.com"
   git branch existing-branch
-  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
 
-  $CLI branch create --set-default first_branch
+  git checkout -b first_branch
   echo asdf >> foo
-  $CLI branch commit first_branch -m "some commit"
+  git add foo && git commit -m "some commit"
 
-  $CLI branch create --set-default virtual
+  git checkout main
+  git checkout -b virtual
   echo change >> file
-  $CLI branch commit virtual -m "first commit"
+  git add file && git commit -m "first commit"
   echo change2 >> file
-  $CLI branch commit virtual -m "second commit"
+  git add file && git commit -m "second commit"
   echo change3 >> file
-  $CLI branch commit virtual -m "third commit"
+  git add file && git commit -m "third commit"
+
+  git checkout -b gitbutler/workspace
+  git merge --no-ff -m "GitButler Workspace Commit" first_branch
 )

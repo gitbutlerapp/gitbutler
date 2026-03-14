@@ -1,15 +1,15 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use but_core::{RepositoryExt as _, git_config::set_config_value};
-use but_ctx::{Context, RepoOpenMode};
+use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt};
-use but_settings::AppSettings;
 use gitbutler_branch_actions::{StackOrder, reorder::SeriesOrder, reorder_stack};
 use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_testsupport::testing_repository::assert_commit_tree_matches;
 use itertools::Itertools;
 use tempfile::TempDir;
+
+use crate::driverless;
 
 #[test]
 fn noop_reorder_errors() -> Result<()> {
@@ -467,18 +467,7 @@ fn file(ctx: &Context, commit_id: gix::ObjectId) -> String {
 }
 
 fn command_ctx(name: &str) -> Result<(Context, TempDir)> {
-    let (project, temp_dir) = gitbutler_testsupport::writable::fixture_project("reorder.sh", name)?;
-    let repo = gix::open(project.git_dir())?;
-    let mut config = repo.local_common_config_for_editing()?;
-    set_config_value(&mut config, "gitbutler.signCommits", "false")?;
-    set_config_value(&mut config, "commit.gpgsign", "false")?;
-    repo.write_local_common_config(&config)?;
-    let ctx = Context::new_from_legacy_project_and_settings_with_repo_open_mode(
-        &project,
-        AppSettings::default(),
-        RepoOpenMode::Isolated,
-    )?;
-    Ok((ctx, temp_dir))
+    driverless::writable_context("reorder.sh", name)
 }
 
 fn test_ctx(ctx: &Context) -> Result<TestContext> {

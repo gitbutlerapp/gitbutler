@@ -107,7 +107,7 @@ mod util {
     }
 
     pub fn project_ctx(name: &str) -> anyhow::Result<Context> {
-        gitbutler_testsupport::read_only::fixture("for-details.sh", name)
+        crate::driverless::read_only_context("for-details.sh", name)
     }
 }
 use util::{branch_details, default_author, project_ctx};

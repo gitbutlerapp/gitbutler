@@ -9,10 +9,8 @@ use gitbutler_stack::VirtualBranchesHandle;
 /// with the new name.
 #[test]
 fn works_on_integration_branch() -> anyhow::Result<()> {
-    let (ctx, _temp_dir) = gitbutler_testsupport::writable::fixture(
-        "for-workspace-migration.sh",
-        "workspace-migration",
-    )?;
+    let (ctx, _temp_dir) =
+        crate::driverless::writable_context("for-workspace-migration.sh", "workspace-migration")?;
 
     // Check that we are on the old `gitbutler/integration` branch.
     assert_eq!(

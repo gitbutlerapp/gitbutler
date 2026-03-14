@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 set -eu -o pipefail
-CLI=${1:?The first argument is the GitButler CLI}
-
-export GITBUTLER_CLI_DATA_DIR=../user/gitbutler/app-data
-
-git init repo
+git init --initial-branch=main repo
 (cd repo
   git config user.name "Author"
   git config user.email "author@example.com"
@@ -33,10 +29,11 @@ git clone repo conficted_entries_get_written_when_leaving_edit_mode
   echo right > conflict
   git add . && git commit -m "right"
   git checkout main
-  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name origin/main)"
+  git checkout -b branchy
   echo b > file
-  $CLI branches create --set-default branchy
-  $CLI branches commit  branchy --message foobar
+  git add file && git commit -m "foobar"
+  git checkout -b gitbutler/workspace
+  git commit --allow-empty -m "GitButler Workspace Commit"
 )
 
 git clone repo enter_edit_mode_with_conflicted_commit
@@ -44,10 +41,11 @@ git clone repo enter_edit_mode_with_conflicted_commit
   git config user.name "Author"
   git config user.email "author@example.com"
 
-  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name origin/main)"
+  git checkout -b branchy
   echo b > file
-  $CLI branches create --set-default branchy
-  $CLI branches commit branchy --message foobar
+  git add file && git commit -m "foobar"
+  git checkout -b gitbutler/workspace
+  git commit --allow-empty -m "GitButler Workspace Commit"
 
   base_blob=$(printf "base\n" | git hash-object -wt blob --stdin)
   ours_blob=$(printf "left\n" | git hash-object -wt blob --stdin)
