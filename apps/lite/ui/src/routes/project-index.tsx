@@ -457,11 +457,8 @@ const CommitRubTarget: FC<{
 	const changeUnit: ChangeUnit = { _tag: "commit", commitId };
 
 	const [sourceItem, setSourceItem] = assert(use(SourceItemStateContext));
-
 	const [isDragOver, setIsDragOver] = useState(false);
-
 	const rubOperation = sourceItem ? rubOperationFor(rubSourceFor(sourceItem), changeUnit) : null;
-
 	const rubMutation = useMutation(rubMutationOptions);
 
 	const tooltip = isDragOver ? rubOperation : undefined;
