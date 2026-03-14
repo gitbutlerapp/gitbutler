@@ -40,7 +40,8 @@ export const rub = async ({
 			return Match.value(source.parent).pipe(
 				Match.tag("commit", (source) =>
 					Match.value(target).pipe(
-						Match.tag("commit", async (target): Promise<RubResult> => {
+						Match.withReturnType<Promise<RubResult>>(),
+						Match.tag("commit", async (target) => {
 							const response = await window.lite.commitMoveChangesBetween({
 								projectId,
 								sourceCommitId: source.commitId,
@@ -49,7 +50,7 @@ export const rub = async ({
 							});
 							return { replacedCommits: response.replacedCommits };
 						}),
-						Match.tag("changes", async (target): Promise<RubResult> => {
+						Match.tag("changes", async (target) => {
 							const response = await window.lite.commitUncommitChanges({
 								projectId,
 								commitId: source.commitId,
@@ -65,7 +66,8 @@ export const rub = async ({
 				),
 				Match.tag("changes", () =>
 					Match.value(target).pipe(
-						Match.tag("commit", async (target): Promise<RubResult> => {
+						Match.withReturnType<Promise<RubResult>>(),
+						Match.tag("commit", async (target) => {
 							const response = await window.lite.commitAmend({
 								projectId,
 								commitId: target.commitId,
@@ -77,7 +79,7 @@ export const rub = async ({
 								amendedCommitId: target.commitId,
 							};
 						}),
-						Match.tag("changes", async (target): Promise<RubResult> => {
+						Match.tag("changes", async (target) => {
 							await window.lite.assignHunk({
 								projectId,
 								assignments: source.hunkHeaders.map(
@@ -105,22 +107,26 @@ type RubOperation = "Amend" | "Uncommit" | "Assign" | "Unassign" | "Squash";
 
 export const rubOperationFor = (rubSource: RubSource, target: ChangeUnit): RubOperation | null =>
 	Match.value(rubSource).pipe(
+		Match.withReturnType<RubOperation | null>(),
 		Match.tag("FilePatch", ({ source }) =>
 			Match.value(source.parent).pipe(
+				Match.withReturnType<RubOperation | null>(),
 				Match.tag("commit", (source) =>
 					Match.value(target).pipe(
-						Match.tag("commit", (target): RubOperation | null => {
+						Match.withReturnType<RubOperation | null>(),
+						Match.tag("commit", (target) => {
 							if (source.commitId === target.commitId) return null;
 							return "Amend";
 						}),
-						Match.tag("changes", (): RubOperation => "Uncommit"),
+						Match.tag("changes", () => "Uncommit"),
 						Match.exhaustive,
 					),
 				),
 				Match.tag("changes", (source) =>
 					Match.value(target).pipe(
-						Match.tag("commit", (): RubOperation => "Amend"),
-						Match.tag("changes", (target): RubOperation | null => {
+						Match.withReturnType<RubOperation | null>(),
+						Match.tag("commit", () => "Amend"),
+						Match.tag("changes", (target) => {
 							if (source.stackId === target.stackId) return null;
 							return target.stackId === null ? "Unassign" : "Assign";
 						}),
@@ -132,11 +138,12 @@ export const rubOperationFor = (rubSource: RubSource, target: ChangeUnit): RubOp
 		),
 		Match.tag("Commit", (source) =>
 			Match.value(target).pipe(
-				Match.tag("commit", (target): RubOperation | null => {
+				Match.withReturnType<RubOperation | null>(),
+				Match.tag("commit", (target) => {
 					if (source.source.commitId === target.commitId) return null;
 					return "Squash";
 				}),
-				Match.tag("changes", (): RubOperation | null => null),
+				Match.tag("changes", () => null),
 				Match.exhaustive,
 			),
 		),
