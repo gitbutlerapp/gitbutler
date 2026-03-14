@@ -10,6 +10,8 @@ use gitbutler_testsupport::testing_repository::assert_commit_tree_matches;
 use itertools::Itertools;
 use tempfile::TempDir;
 
+use crate::driverless;
+
 #[test]
 fn noop_reorder_errors() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx("multiple-commits")?;
@@ -466,7 +468,7 @@ fn file(ctx: &Context, commit_id: gix::ObjectId) -> String {
 }
 
 fn command_ctx(name: &str) -> Result<(Context, TempDir)> {
-    gitbutler_testsupport::writable::fixture_with_settings("reorder.sh", name, |_settings| {})
+    driverless::writable_context("reorder.sh", name)
 }
 
 fn test_ctx(ctx: &Context) -> Result<TestContext> {

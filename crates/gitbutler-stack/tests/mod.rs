@@ -1,17 +1,21 @@
 use std::{fs, path::Path, thread, time::Duration};
 
 use anyhow::{Context as _, Result, bail};
-use but_core::Reference;
+use but_core::{
+    RefMetadata, Reference, RepositoryExt,
+    ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
+};
 use but_ctx::Context;
 use but_db::DbHandle;
 use but_meta::virtual_branches_legacy_types as legacy_types;
 use but_oxidize::{ObjectIdExt, OidExt};
+use but_testsupport::{gix_testtools, open_repo};
 use filetime::{FileTime, set_file_mtime};
 use git2::Commit;
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{PatchReferenceUpdate, Stack, StackBranch, VirtualBranchesHandle};
+use gitbutler_stack::{PatchReferenceUpdate, Stack, StackBranch, Target, VirtualBranchesHandle};
 use gix::refs::transaction::PreviousValue;
 use itertools::Itertools;
 use tempfile::TempDir;
@@ -759,7 +763,63 @@ fn add_head_with_archived_bottom_head() -> Result<()> {
 }
 
 fn command_ctx(name: &str) -> Result<(Context, TempDir)> {
-    gitbutler_testsupport::writable::fixture("stacking.sh", name)
+    let name = name.to_owned();
+    let name_for_post = name.clone();
+    let (tmp, _) = gix_testtools::scripted_fixture_writable_with_args_with_post(
+        "stacking.sh",
+        None::<String>,
+        gix_testtools::Creation::CopyFromReadOnly,
+        2,
+        move |fixture| {
+            let repo = open_repo(&fixture.path().join(&name_for_post))?;
+            Ok(seed_metadata(&repo, &name_for_post)?)
+        },
+    )
+    .map_err(anyhow::Error::from_boxed)?;
+    let repo = open_repo(tmp.path().join(name).as_path())?;
+    Ok((Context::from_repo(repo)?, tmp))
+}
+
+fn seed_metadata(repo: &gix::Repository, name: &str) -> Result<()> {
+    if name != "multiple-commits" {
+        bail!("unsupported driverless stacking fixture: {name}");
+    }
+
+    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+        repo.gitbutler_storage_path()?.join("virtual_branches.toml"),
+    )?;
+    let mut ws = meta.workspace("refs/heads/gitbutler/workspace".try_into()?)?;
+    ws.stacks.clear();
+    ws.stacks.push(WorkspaceStack {
+        id: StackId::from_number_for_testing(1),
+        branches: vec![WorkspaceStackBranch {
+            ref_name: "refs/heads/first_branch".try_into()?,
+            archived: false,
+        }],
+        workspacecommit_relation: WorkspaceCommitRelation::Merged,
+    });
+    ws.stacks.push(WorkspaceStack {
+        id: StackId::from_number_for_testing(2),
+        branches: vec![WorkspaceStackBranch {
+            ref_name: "refs/heads/virtual".try_into()?,
+            archived: false,
+        }],
+        workspacecommit_relation: WorkspaceCommitRelation::Merged,
+    });
+    meta.set_workspace(&ws)?;
+    drop(meta);
+
+    let target = Target {
+        branch: "refs/remotes/origin/main".parse()?,
+        remote_url: ".".to_owned(),
+        sha: repo
+            .rev_parse_single("refs/remotes/origin/main")?
+            .detach()
+            .to_git2(),
+        push_remote_name: Some("origin".to_owned()),
+    };
+    VirtualBranchesHandle::new(repo.gitbutler_storage_path()?).set_default_target(target)?;
+    Ok(())
 }
 
 fn head_names(test_ctx: &TestContext) -> Vec<String> {

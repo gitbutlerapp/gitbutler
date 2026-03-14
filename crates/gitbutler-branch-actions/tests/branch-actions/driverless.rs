@@ -1,0 +1,183 @@
+use anyhow::Result;
+use but_core::{
+    RefMetadata, RepositoryExt,
+    ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
+};
+use but_ctx::Context;
+use but_meta::VirtualBranchesTomlMetadata;
+use but_testsupport::{gix_testtools, open_repo};
+use tempfile::TempDir;
+
+#[derive(Clone, Copy)]
+struct StackSpec<'a> {
+    id: u128,
+    branches_base_to_top: &'a [&'a str],
+    in_workspace: bool,
+}
+
+pub fn writable_context(script_name: &str, repo_name: &str) -> Result<(Context, TempDir)> {
+    let script_name = script_name.to_owned();
+    let repo_name = repo_name.to_owned();
+    let repo_name_for_post = repo_name.clone();
+    let script_name_for_post = script_name.clone();
+    let (tmp, _) = gix_testtools::scripted_fixture_writable_with_args_with_post(
+        script_name.clone(),
+        None::<String>,
+        gix_testtools::Creation::CopyFromReadOnly,
+        3,
+        move |fixture| {
+            let repo = open_repo(&fixture.path().join(&repo_name_for_post))?;
+            Ok(seed_fixture(
+                &repo,
+                &script_name_for_post,
+                &repo_name_for_post,
+            )?)
+        },
+    )
+    .map_err(anyhow::Error::from_boxed)?;
+    let repo = open_repo(tmp.path().join(repo_name).as_path())?;
+    Ok((Context::from_repo(repo)?, tmp))
+}
+
+pub fn read_only_context(script_name: &str, repo_name: &str) -> Result<Context> {
+    let script_name = script_name.to_owned();
+    let repo_name = repo_name.to_owned();
+    let repo_name_for_post = repo_name.clone();
+    let script_name_for_post = script_name.clone();
+    let (root, _) = gix_testtools::scripted_fixture_read_only_with_post(
+        script_name.clone(),
+        3,
+        move |fixture| {
+            let repo = open_repo(&fixture.path().join(&repo_name_for_post))?;
+            Ok(seed_fixture(
+                &repo,
+                &script_name_for_post,
+                &repo_name_for_post,
+            )?)
+        },
+    )
+    .map_err(anyhow::Error::from_boxed)?;
+    let repo = open_repo(root.join(repo_name).as_path())?;
+    Context::from_repo(repo)
+}
+
+fn seed_fixture(repo: &gix::Repository, script_name: &str, repo_name: &str) -> Result<()> {
+    let stacks = match (script_name, repo_name) {
+        ("reorder.sh", "multiple-commits") => vec![
+            StackSpec {
+                id: 1,
+                branches_base_to_top: &["other_stack"],
+                in_workspace: true,
+            },
+            StackSpec {
+                id: 2,
+                branches_base_to_top: &["my_stack", "top-series"],
+                in_workspace: true,
+            },
+        ],
+        ("reorder.sh", "multiple-commits-small") => vec![
+            StackSpec {
+                id: 1,
+                branches_base_to_top: &["other_stack"],
+                in_workspace: true,
+            },
+            StackSpec {
+                id: 2,
+                branches_base_to_top: &["my_stack", "top-series"],
+                in_workspace: true,
+            },
+        ],
+        ("reorder.sh", "multiple-commits-empty-top") => vec![
+            StackSpec {
+                id: 1,
+                branches_base_to_top: &["other_stack"],
+                in_workspace: true,
+            },
+            StackSpec {
+                id: 2,
+                branches_base_to_top: &["my_stack", "top-series"],
+                in_workspace: true,
+            },
+        ],
+        ("reorder.sh", "overlapping-commits") => vec![
+            StackSpec {
+                id: 1,
+                branches_base_to_top: &["other_stack"],
+                in_workspace: true,
+            },
+            StackSpec {
+                id: 2,
+                branches_base_to_top: &["my_stack", "top-series"],
+                in_workspace: true,
+            },
+        ],
+        ("squash.sh", "multiple-commits") => vec![StackSpec {
+            id: 1,
+            branches_base_to_top: &["my_stack", "a-branch-2", "a-branch-3"],
+            in_workspace: true,
+        }],
+        ("for-workspace-migration.sh", "workspace-migration") => vec![StackSpec {
+            id: 1,
+            branches_base_to_top: &["virtual"],
+            in_workspace: true,
+        }],
+        ("for-listing.sh", "one-vbranch-in-workspace") => vec![StackSpec {
+            id: 1,
+            branches_base_to_top: &["virtual"],
+            in_workspace: true,
+        }],
+        ("for-listing.sh", "one-vbranch-in-workspace-one-commit") => vec![StackSpec {
+            id: 1,
+            branches_base_to_top: &["virtual"],
+            in_workspace: true,
+        }],
+        ("for-details.sh", "complex-repo") => vec![StackSpec {
+            id: 1,
+            branches_base_to_top: &["a-branch-1"],
+            in_workspace: true,
+        }],
+        unsupported => anyhow::bail!("unsupported driverless fixture {unsupported:?}"),
+    };
+
+    write_workspace_metadata(repo, &stacks)?;
+    Ok(())
+}
+
+fn write_workspace_metadata(repo: &gix::Repository, stacks: &[StackSpec<'_>]) -> Result<()> {
+    let mut meta = VirtualBranchesTomlMetadata::from_path(
+        repo.gitbutler_storage_path()?.join("virtual_branches.toml"),
+    )?;
+    let workspace_ref = gix::refs::FullName::try_from("refs/heads/gitbutler/workspace")?;
+    let mut workspace = meta.workspace(workspace_ref.as_ref())?;
+    workspace.target_ref = Some(gix::refs::FullName::try_from("refs/remotes/origin/main")?);
+    workspace.target_commit_id = Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach());
+    workspace.push_remote = Some("origin".to_owned());
+    workspace.stacks = stacks
+        .iter()
+        .map(|stack| {
+            Ok(WorkspaceStack {
+                id: StackId::from_number_for_testing(stack.id),
+                workspacecommit_relation: if stack.in_workspace {
+                    WorkspaceCommitRelation::Merged
+                } else {
+                    WorkspaceCommitRelation::Outside
+                },
+                branches: stack
+                    .branches_base_to_top
+                    .iter()
+                    .rev()
+                    .map(|name| {
+                        Ok(WorkspaceStackBranch {
+                            ref_name: gix::refs::FullName::try_from(format!("refs/heads/{name}"))?,
+                            archived: false,
+                        })
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    meta.set_workspace(&workspace)?;
+    meta.set_changed_to_necessitate_write();
+    drop(meta);
+    Ok(())
+}

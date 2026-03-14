@@ -8,6 +8,8 @@ use gitbutler_stack::{StackBranch, VirtualBranchesHandle};
 use itertools::Itertools;
 use tempfile::TempDir;
 
+use crate::driverless;
+
 // Squash commit into it's parent without affecting stack heads
 //
 // - commit 5 (a-branch-3)
@@ -425,7 +427,7 @@ fn squash_multiple_above_and_below() -> Result<()> {
 }
 
 fn command_ctx() -> Result<(Context, TempDir)> {
-    gitbutler_testsupport::writable::fixture("squash.sh", "multiple-commits")
+    driverless::writable_context("squash.sh", "multiple-commits")
 }
 
 fn test_ctx(ctx: &Context) -> Result<TestContext> {
