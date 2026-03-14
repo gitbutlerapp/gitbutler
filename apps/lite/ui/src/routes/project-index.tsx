@@ -503,8 +503,10 @@ const CommitTarget: FC<{
 	const rubMutation = useMutation(rubMutationOptions);
 	const commitMove = useMutation(commitMoveMutationOptions);
 
+	const tooltip = isDragOver && rubOperation !== null ? rubOperation : undefined;
+
 	return (
-		<Tooltip.Root open={isDragOver && rubOperation !== null}>
+		<Tooltip.Root open={tooltip !== undefined}>
 			<Tooltip.Trigger
 				render={children}
 				onDragOver={(event) => {
@@ -595,7 +597,7 @@ const CommitTarget: FC<{
 			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={styles.tooltip}>{rubOperation}</Tooltip.Popup>
+					<Tooltip.Popup className={styles.tooltip}>{tooltip}</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>
