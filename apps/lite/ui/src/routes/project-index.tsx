@@ -57,7 +57,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/queries.ts";
 import { type ChangeUnit } from "#ui/ChangeUnit.ts";
-import { type RubSource } from "#ui/rub.ts";
+import { rubOperationFor, type RubSource } from "#ui/rub.ts";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
 
@@ -117,33 +117,6 @@ const commitMoveSideFor = ({
 
 const rubSourceMimeType = "application/x-gitbutler-rub-source";
 const commitMoveSourceIdMimeType = "application/x-gitbutler-commit-move-source-id";
-
-type RubOperation = "Amend" | "Uncommit" | "Assign" | "Unassign";
-
-const rubOperationFor = (source: ChangeUnit, target: ChangeUnit): RubOperation | null =>
-	Match.value(source).pipe(
-		Match.tag("commit", (source) =>
-			Match.value(target).pipe(
-				Match.tag("commit", (target): RubOperation | null => {
-					if (source.commitId === target.commitId) return null;
-					return "Amend";
-				}),
-				Match.tag("changes", (): RubOperation => "Uncommit"),
-				Match.exhaustive,
-			),
-		),
-		Match.tag("changes", (source) =>
-			Match.value(target).pipe(
-				Match.tag("commit", (): RubOperation => "Amend"),
-				Match.tag("changes", (target): RubOperation | null => {
-					if (source.stackId === target.stackId) return null;
-					return target.stackId === null ? "Unassign" : "Assign";
-				}),
-				Match.exhaustive,
-			),
-		),
-		Match.exhaustive,
-	);
 
 type UseState<T> = [T, Dispatch<SetStateAction<T>>];
 

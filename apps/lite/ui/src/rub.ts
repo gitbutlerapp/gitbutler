@@ -86,3 +86,30 @@ export const rub = async ({
 		Match.exhaustive,
 	);
 };
+
+type RubOperation = "Amend" | "Uncommit" | "Assign" | "Unassign";
+
+export const rubOperationFor = (source: ChangeUnit, target: ChangeUnit): RubOperation | null =>
+	Match.value(source).pipe(
+		Match.tag("commit", (source) =>
+			Match.value(target).pipe(
+				Match.tag("commit", (target): RubOperation | null => {
+					if (source.commitId === target.commitId) return null;
+					return "Amend";
+				}),
+				Match.tag("changes", (): RubOperation => "Uncommit"),
+				Match.exhaustive,
+			),
+		),
+		Match.tag("changes", (source) =>
+			Match.value(target).pipe(
+				Match.tag("commit", (): RubOperation => "Amend"),
+				Match.tag("changes", (target): RubOperation | null => {
+					if (source.stackId === target.stackId) return null;
+					return target.stackId === null ? "Unassign" : "Assign";
+				}),
+				Match.exhaustive,
+			),
+		),
+		Match.exhaustive,
+	);
