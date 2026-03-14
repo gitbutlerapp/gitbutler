@@ -3,7 +3,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+use but_api::commit::{commit_insert_blank, ui::RelativeTo};
 use but_ctx::Context;
+use but_rebase::graph_rebase::mutate::InsertSide;
 use crossterm::event::{self, Event};
 use gitbutler_operating_modes::OperatingMode;
 use ratatui::{
@@ -28,6 +30,8 @@ use crate::{
     tui::TerminalGuard,
     utils::OutputChannel,
 };
+
+use super::output::StatusOutputLineData;
 
 mod cursor;
 mod key_bind;
@@ -197,7 +201,7 @@ impl App {
             }
             Message::ToggleFiles => {
                 self.flags.show_files = !self.flags.show_files;
-                messages.push(Message::Reload);
+                messages.push(Message::Reload(None));
             }
             Message::ConfirmRub => {
                 if let Mode::Rub { source, .. } = &self.mode
@@ -205,14 +209,12 @@ impl App {
                     && let Some(target) = selected_line.data.cli_id()
                     && let Some(operation) = route_operation(source, target)
                 {
-                    let mut noop_out =
-                        OutputChannel::new_without_pager_non_json(OutputFormat::None);
-                    operation.execute(ctx, &mut noop_out)?;
+                    with_noop_output(|out| operation.execute(ctx, out))?;
                 }
 
-                messages.extend([Message::EnterNormalMode, Message::Reload]);
+                messages.extend([Message::EnterNormalMode, Message::Reload(None)]);
             }
-            Message::Reload => {
+            Message::Reload(select_after_reload) => {
                 {
                     let meta = ctx.meta()?;
                     let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
@@ -241,24 +243,90 @@ impl App {
                     )
                 })?;
 
-                let previously_selected_cli_id = self
-                    .cursor
-                    .selection_cli_id_for_reload(&self.status_lines, self.flags.show_files);
-
-                let cursor = previously_selected_cli_id
-                    .and_then(|previously_selected_cli_id| {
-                        Cursor::restore(previously_selected_cli_id, &new_lines)
-                    })
-                    .unwrap_or_else(|| Cursor::new(&new_lines));
+                self.cursor = if let Some(select_after_reload) = select_after_reload {
+                    match select_after_reload {
+                        SelectAfterReload::Commit(commit_id) => {
+                            Cursor::select(commit_id, &new_lines)
+                        }
+                    }
+                } else {
+                    self.cursor
+                        .selection_cli_id_for_reload(&self.status_lines, self.flags.show_files)
+                        .and_then(|previously_selected_cli_id| {
+                            Cursor::restore(previously_selected_cli_id, &new_lines)
+                        })
+                }
+                .unwrap_or_else(|| Cursor::new(&new_lines));
 
                 self.status_lines = new_lines;
-                self.cursor = cursor;
             }
             Message::ShowError(err) => {
                 self.errors.push(AppError {
                     inner: err,
                     dismiss_at: Instant::now() + Duration::from_secs(5),
                 });
+            }
+            Message::CreateEmptyCommit => {
+                if !matches!(self.mode, Mode::Normal) {
+                    return Ok(());
+                }
+
+                let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+                    return Ok(());
+                };
+
+                match &selection.data {
+                    StatusOutputLineData::Branch { cli_id } => {
+                        let CliId::Branch { name, .. } = &**cli_id else {
+                            return Ok(());
+                        };
+
+                        let full_name = {
+                            let repo = ctx.repo.get()?;
+                            let reference = repo.find_reference(name)?;
+                            reference.name().to_owned()
+                        };
+
+                        let commit_result = commit_insert_blank(
+                            ctx,
+                            RelativeTo::Reference(full_name),
+                            InsertSide::Below,
+                        )?;
+
+                        messages.push(Message::Reload(Some(SelectAfterReload::Commit(
+                            commit_result.new_commit,
+                        ))));
+                    }
+                    StatusOutputLineData::Commit { cli_id } => {
+                        let CliId::Commit { commit_id, .. } = &**cli_id else {
+                            return Ok(());
+                        };
+
+                        let commit_result = commit_insert_blank(
+                            ctx,
+                            RelativeTo::Commit(*commit_id),
+                            InsertSide::Above,
+                        )?;
+
+                        messages.push(Message::Reload(Some(SelectAfterReload::Commit(
+                            commit_result.new_commit,
+                        ))));
+                    }
+                    StatusOutputLineData::UpdateNotice
+                    | StatusOutputLineData::Connector
+                    | StatusOutputLineData::StagedChanges { .. }
+                    | StatusOutputLineData::StagedFile { .. }
+                    | StatusOutputLineData::UnstagedChanges { .. }
+                    | StatusOutputLineData::UnstagedFile { .. }
+                    | StatusOutputLineData::CommitMessage
+                    | StatusOutputLineData::EmptyCommitMessage
+                    | StatusOutputLineData::File { .. }
+                    | StatusOutputLineData::MergeBase
+                    | StatusOutputLineData::UpstreamChanges
+                    | StatusOutputLineData::Warning
+                    | StatusOutputLineData::Hint
+                    | StatusOutputLineData::NoAssignmentsUnstaged => {}
+                }
             }
         }
 
@@ -476,9 +544,10 @@ enum Message {
     StartRub,
     EnterNormalMode,
     ConfirmRub,
-    Reload,
+    Reload(Option<SelectAfterReload>),
     ToggleFiles,
     ShowError(Arc<anyhow::Error>),
+    CreateEmptyCommit,
 }
 
 #[derive(Debug, Default, strum::EnumDiscriminants)]
@@ -489,6 +558,13 @@ enum Mode {
         source: Arc<CliId>,
         available_targets: Vec<Arc<CliId>>,
     },
+}
+
+/// What to select after reloading
+#[derive(Debug, Clone, Copy)]
+enum SelectAfterReload {
+    /// Select a specific commit
+    Commit(gix::ObjectId),
 }
 
 fn rub_operation_display(source: &CliId, target: &CliId) -> Option<&'static str> {
@@ -571,6 +647,14 @@ fn render_error_popup(frame: &mut Frame, area: Rect, margin: PopupMargin, text: 
         .wrap(Wrap { trim: false });
 
     frame.render_widget(widget, popup_area);
+}
+
+fn with_noop_output<F, T>(f: F) -> T
+where
+    F: FnOnce(&mut OutputChannel) -> T,
+{
+    let mut noop_out = OutputChannel::new_without_pager_non_json(OutputFormat::None);
+    f(&mut noop_out)
 }
 
 #[derive(Debug)]

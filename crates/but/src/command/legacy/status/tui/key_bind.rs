@@ -55,6 +55,18 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
     KeyBind {
         chord: KeyChord {
             modifiers: KeyModifiers::NONE,
+            keys: &[KeyCode::Char('n')],
+        },
+        kind: KeyEventKind::Press,
+        message: &Message::CreateEmptyCommit,
+        modes: KeyBindMode::Only(&[ModeDiscriminants::Normal]),
+        short_description: "new commit",
+        code_display: "n",
+        hidden: false,
+    },
+    KeyBind {
+        chord: KeyChord {
+            modifiers: KeyModifiers::NONE,
             keys: &[KeyCode::Char('f')],
         },
         kind: KeyEventKind::Press,
@@ -82,7 +94,7 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
             keys: &[KeyCode::Char('r')],
         },
         kind: KeyEventKind::Press,
-        message: &Message::Reload,
+        message: &Message::Reload(None),
         modes: KeyBindMode::Only(&[ModeDiscriminants::Normal]),
         short_description: "reload",
         code_display: "ctrl-r",
