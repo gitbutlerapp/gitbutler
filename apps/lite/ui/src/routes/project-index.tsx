@@ -186,9 +186,12 @@ const HunkListItem: FC<{
 			onDragStart={(event) => {
 				setIsDragging(true);
 				const rubSource: RubSource = {
-					parent: changeUnit,
-					change,
-					hunkHeaders: [hunk],
+					_tag: "FilePatch",
+					source: {
+						parent: changeUnit,
+						change,
+						hunkHeaders: [hunk],
+					},
 				};
 				const payload = JSON.stringify(rubSource);
 				setRubSource(rubSource);
@@ -326,14 +329,17 @@ const FileListItem: FC<{
 			onDragStart={(event) => {
 				setIsDragging(true);
 				const rubSource: RubSource = {
-					parent: changeUnit,
-					change,
-					hunkHeaders: assignments
-						? assignments.flatMap((assignment) =>
-								// TODO: is this correct?
-								assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
-							)
-						: [],
+					_tag: "FilePatch",
+					source: {
+						parent: changeUnit,
+						change,
+						hunkHeaders: assignments
+							? assignments.flatMap((assignment) =>
+									// TODO: is this correct?
+									assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
+								)
+							: [],
+					},
 				};
 				const payload = JSON.stringify(rubSource);
 				setRubSource(rubSource);
@@ -1259,7 +1265,10 @@ const StackLane: FC<{
 								<h4>Commits</h4>
 								<CommitsList commits={segment.commits}>
 									{(commit, index) => {
-										const changeUnit: ChangeUnit = { _tag: "commit", commitId: commit.id };
+										const changeUnit: ChangeUnit = {
+											_tag: "commit",
+											commitId: commit.id,
+										};
 										return (
 											<CommitC
 												key={commit.id}
