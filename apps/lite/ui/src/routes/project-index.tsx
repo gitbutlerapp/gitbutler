@@ -553,19 +553,11 @@ const CommitTarget: FC<{
 					switch (true) {
 						case event.dataTransfer.types.includes(commitMoveSourceIdMimeType): {
 							event.preventDefault();
+
 							setCommitMoveSide(null);
-
-							const commitMoveSourceId = parseCommitMoveSourceId(event.dataTransfer);
 							setCommitMoveSourceId(null);
-							if (commitMoveSourceId == null) return;
 
-							const commitMoveSide = commitMoveSideFor({
-								event,
-								sourceCommitId: commitMoveSourceId,
-								targetCommitId: changeUnit.commitId,
-								previousCommitId,
-								nextCommitId,
-							});
+							if (commitMoveSourceId == null) return;
 							if (commitMoveSide === null) return;
 
 							commitMove.mutate({
