@@ -21,14 +21,14 @@ import { Match } from "effect";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import {
 	createContext,
+	Dispatch,
 	DragEvent,
 	FC,
-	RefObject,
+	SetStateAction,
 	startTransition,
 	Suspense,
 	use,
 	useOptimistic,
-	useRef,
 	useState,
 } from "react";
 import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
@@ -145,8 +145,11 @@ const rubOperationFor = (source: ChangeUnit, target: ChangeUnit): RubOperation |
 		Match.exhaustive,
 	);
 
-const RubSourceContext = createContext<RefObject<RubSource | null> | null>(null);
-const CommitMoveSourceIdContext = createContext<RefObject<string | null> | null>(null);
+type RubSourceState = [RubSource | null, Dispatch<SetStateAction<RubSource | null>>];
+type CommitMoveSourceIdState = [string | null, Dispatch<SetStateAction<string | null>>];
+
+const RubSourceContext = createContext<RubSourceState | null>(null);
+const CommitMoveSourceIdContext = createContext<CommitMoveSourceIdState | null>(null);
 
 const parseRubSource = (dataTransfer: DataTransfer): RubSource | null => {
 	const data = dataTransfer.getData(rubSourceMimeType);
@@ -210,7 +213,7 @@ const HunkListItem: FC<{
 	hunk: DiffHunk;
 	children: React.ReactNode;
 }> = ({ patch, changeUnit, change, hunk, children }) => {
-	const rubSourceRef = assert(use(RubSourceContext));
+	const [, setRubSource] = assert(use(RubSourceContext));
 	const [isDragging, setIsDragging] = useState(false);
 
 	return (
@@ -225,13 +228,13 @@ const HunkListItem: FC<{
 					hunkHeaders: [hunk],
 				};
 				const payload = JSON.stringify(rubSource);
-				rubSourceRef.current = rubSource;
+				setRubSource(rubSource);
 				event.dataTransfer.setData(rubSourceMimeType, payload);
 				event.dataTransfer.effectAllowed = "move";
 			}}
 			onDragEnd={() => {
 				setIsDragging(false);
-				rubSourceRef.current = null;
+				setRubSource(null);
 			}}
 		>
 			{children}
@@ -350,7 +353,7 @@ const FileListItem: FC<{
 	assignments?: Array<HunkAssignment>;
 	children: React.ReactNode;
 }> = ({ change, changeUnit, assignments, children }) => {
-	const rubSourceRef = assert(use(RubSourceContext));
+	const [, setRubSource] = assert(use(RubSourceContext));
 	const [isDragging, setIsDragging] = useState(false);
 
 	return (
@@ -370,13 +373,13 @@ const FileListItem: FC<{
 						: [],
 				};
 				const payload = JSON.stringify(rubSource);
-				rubSourceRef.current = rubSource;
+				setRubSource(rubSource);
 				event.dataTransfer.setData(rubSourceMimeType, payload);
 				event.dataTransfer.effectAllowed = "move";
 			}}
 			onDragEnd={() => {
 				setIsDragging(false);
-				rubSourceRef.current = null;
+				setRubSource(null);
 			}}
 		>
 			{children}
@@ -499,8 +502,8 @@ const CommitTarget: FC<{
 }> = ({ projectId, commitId, previousCommitId, nextCommitId, children }) => {
 	const changeUnit: ChangeUnit = { _tag: "commit", commitId };
 
-	const rubSourceRef = assert(use(RubSourceContext));
-	const commitMoveSourceIdRef = assert(use(CommitMoveSourceIdContext));
+	const [rubSource, setRubSource] = assert(use(RubSourceContext));
+	const [commitMoveSourceId, setCommitMoveSourceId] = assert(use(CommitMoveSourceIdContext));
 
 	const [rubOperation, setRubOperation] = useState<RubOperation | null>(null);
 	const [commitMoveSide, setCommitMoveSide] = useState<InsertSide | null>(null);
@@ -515,7 +518,6 @@ const CommitTarget: FC<{
 				onDragOver={(event) => {
 					switch (true) {
 						case event.dataTransfer.types.includes(commitMoveSourceIdMimeType): {
-							const commitMoveSourceId = commitMoveSourceIdRef.current;
 							if (commitMoveSourceId == null) return;
 
 							const newCommitMoveSide = commitMoveSideFor({
@@ -532,7 +534,6 @@ const CommitTarget: FC<{
 							break;
 						}
 						case event.dataTransfer.types.includes(rubSourceMimeType): {
-							const rubSource = rubSourceRef.current;
 							if (!rubSource) return;
 
 							const newRubOperation = rubOperationFor(rubSource.parent, changeUnit);
@@ -557,7 +558,7 @@ const CommitTarget: FC<{
 							setCommitMoveSide(null);
 
 							const commitMoveSourceId = parseCommitMoveSourceId(event.dataTransfer);
-							commitMoveSourceIdRef.current = null;
+							setCommitMoveSourceId(null);
 							if (commitMoveSourceId == null) return;
 
 							const commitMoveSide = commitMoveSideFor({
@@ -583,7 +584,7 @@ const CommitTarget: FC<{
 							setRubOperation(null);
 
 							const rubSource = parseRubSource(event.dataTransfer);
-							rubSourceRef.current = null;
+							setRubSource(null);
 							if (!rubSource) return;
 
 							const rubOperation = rubOperationFor(rubSource.parent, changeUnit);
@@ -772,7 +773,7 @@ const CommitC: FC<{
 	toggleSelect,
 	toggleFileSelect,
 }) => {
-	const commitMoveSourceIdRef = assert(use(CommitMoveSourceIdContext));
+	const [, setCommitMoveSourceId] = assert(use(CommitMoveSourceIdContext));
 	const expanded = isSelected || isAnyFileSelected;
 	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
 	const [isEditingMessage, setIsEditingMessage] = useState(false);
@@ -822,13 +823,13 @@ const CommitC: FC<{
 										draggable
 										onDragStart={(event) => {
 											setIsDragging(true);
-											commitMoveSourceIdRef.current = commit.id;
+											setCommitMoveSourceId(commit.id);
 											event.dataTransfer.setData(commitMoveSourceIdMimeType, commit.id);
 											event.dataTransfer.effectAllowed = "move";
 										}}
 										onDragEnd={() => {
 											setIsDragging(false);
-											commitMoveSourceIdRef.current = null;
+											setCommitMoveSourceId(null);
 										}}
 										className={classes(isDragging && styles.dragging)}
 										commit={{ ...commit, message: optimisticMessage }}
@@ -966,7 +967,7 @@ const ChangesTarget: FC<{
 }> = ({ projectId, stackId, children }) => {
 	const changeUnit: ChangeUnit = { _tag: "changes", stackId };
 
-	const rubSourceRef = assert(use(RubSourceContext));
+	const [rubSource, setRubSource] = assert(use(RubSourceContext));
 	const [rubOperation, setRubOperation] = useState<RubOperation | null>(null);
 	const rubMutation = useMutation(rubMutationOptions);
 
@@ -977,7 +978,6 @@ const ChangesTarget: FC<{
 				onDragOver={(event) => {
 					if (!event.dataTransfer.types.includes(rubSourceMimeType)) return;
 
-					const rubSource = rubSourceRef.current;
 					if (!rubSource) return;
 
 					const newRubOperation = rubOperationFor(rubSource.parent, changeUnit);
@@ -998,7 +998,7 @@ const ChangesTarget: FC<{
 					setRubOperation(null);
 
 					const rubSource = parseRubSource(event.dataTransfer);
-					rubSourceRef.current = null;
+					setRubSource(null);
 					if (!rubSource) return;
 
 					const rubOperation = rubOperationFor(rubSource.parent, changeUnit);
@@ -1148,7 +1148,7 @@ const BranchTarget: FC<{
 	firstCommitId: string | undefined;
 	children: React.ReactElement;
 }> = ({ projectId, anchorRef, firstCommitId, children }) => {
-	const commitMoveSourceIdRef = assert(use(CommitMoveSourceIdContext));
+	const [commitMoveSourceId, setCommitMoveSourceId] = assert(use(CommitMoveSourceIdContext));
 
 	const [isCommitMoveTarget, setIsCommitMoveTarget] = useState(false);
 
@@ -1161,7 +1161,6 @@ const BranchTarget: FC<{
 				onDragOver={(event) => {
 					if (!event.dataTransfer.types.includes(commitMoveSourceIdMimeType)) return;
 
-					const commitMoveSourceId = commitMoveSourceIdRef.current;
 					if (commitMoveSourceId == null) return;
 
 					const newIsCommitMoveTarget = anchorRef !== null && firstCommitId !== commitMoveSourceId;
@@ -1183,7 +1182,7 @@ const BranchTarget: FC<{
 					setIsCommitMoveTarget(false);
 
 					const commitMoveSourceId = parseCommitMoveSourceId(event.dataTransfer);
-					commitMoveSourceIdRef.current = null;
+					setCommitMoveSourceId(null);
 					if (commitMoveSourceId == null) return;
 
 					const isCommitMoveTarget = anchorRef !== null && firstCommitId !== commitMoveSourceId;
@@ -1361,8 +1360,8 @@ const StackLane: FC<{
 
 const ProjectPage: FC = () => {
 	const { id } = projectRootRoute.useParams();
-	const rubSourceRef = useRef<RubSource | null>(null);
-	const commitMoveSourceIdRef = useRef<string | null>(null);
+	const rubSourceState = useState<RubSource | null>(null);
+	const commitMoveSourceIdState = useState<string | null>(null);
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 
@@ -1383,8 +1382,8 @@ const ProjectPage: FC = () => {
 	};
 
 	return (
-		<RubSourceContext value={rubSourceRef}>
-			<CommitMoveSourceIdContext value={commitMoveSourceIdRef}>
+		<RubSourceContext value={rubSourceState}>
+			<CommitMoveSourceIdContext value={commitMoveSourceIdState}>
 				<h2>{project.title} workspace</h2>
 
 				<ul className={styles.lanes}>
