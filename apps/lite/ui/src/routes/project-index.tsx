@@ -176,15 +176,14 @@ const HunkListItem: FC<{
 			draggable={!patch.subject.isResultOfBinaryToTextConversion}
 			onDragStart={(event) => {
 				setIsDragging(true);
-				const sourceItem: SourceItem = {
+				setSourceItem({
 					_tag: "FilePatch",
 					source: {
 						parent: changeUnit,
 						change,
 						hunkHeaders: [hunk],
 					},
-				};
-				setSourceItem(sourceItem);
+				});
 				event.dataTransfer.setData(sourceItemMimeType, "");
 				event.dataTransfer.effectAllowed = "move";
 			}}
@@ -318,7 +317,7 @@ const FileListItem: FC<{
 			draggable
 			onDragStart={(event) => {
 				setIsDragging(true);
-				const sourceItem: SourceItem = {
+				setSourceItem({
 					_tag: "FilePatch",
 					source: {
 						parent: changeUnit,
@@ -330,8 +329,7 @@ const FileListItem: FC<{
 								)
 							: [],
 					},
-				};
-				setSourceItem(sourceItem);
+				});
 				event.dataTransfer.setData(sourceItemMimeType, "");
 				event.dataTransfer.effectAllowed = "move";
 			}}
@@ -786,11 +784,10 @@ const CommitC: FC<{
 										draggable
 										onDragStart={(event) => {
 											setIsDragging(true);
-											const sourceItem: SourceItem = {
+											setSourceItem({
 												_tag: "Commit",
 												commitId: commit.id,
-											};
-											setSourceItem(sourceItem);
+											});
 											event.dataTransfer.setData(sourceItemMimeType, "");
 											event.dataTransfer.effectAllowed = "move";
 										}}
