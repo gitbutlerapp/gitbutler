@@ -471,7 +471,7 @@ const CommitTarget: FC<{
 	const [isDragOver, setIsDragOver] = useState(false);
 	const [commitMoveSide, setCommitMoveSide] = useState<InsertSide | null>(null);
 
-	const rubOperation = rubSource ? rubOperationFor(rubSource.parent, changeUnit) : null;
+	const rubOperation = rubSource ? rubOperationFor(rubSource, changeUnit) : null;
 
 	const rubMutation = useMutation(rubMutationOptions);
 	const commitMove = useMutation(commitMoveMutationOptions);
@@ -927,7 +927,7 @@ const ChangesTarget: FC<{
 
 	const [rubSource, setRubSource] = assert(use(RubSourceStateContext));
 	const [isDragOver, setIsDragOver] = useState(false);
-	const rubOperation = rubSource ? rubOperationFor(rubSource.parent, changeUnit) : null;
+	const rubOperation = rubSource ? rubOperationFor(rubSource, changeUnit) : null;
 	const rubMutation = useMutation(rubMutationOptions);
 
 	return (
