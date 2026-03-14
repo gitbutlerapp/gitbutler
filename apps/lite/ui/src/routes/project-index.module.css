@@ -42,6 +42,14 @@
 	column-gap: 4px;
 }
 
+.commitMoveTarget {
+	height: 2px;
+}
+
+.commitMoveTargetActive {
+	box-shadow: inset 0 2px 0 0 currentColor;
+}
+
 .commitMessageInput {
 	flex-grow: 1;
 	field-sizing: content;
