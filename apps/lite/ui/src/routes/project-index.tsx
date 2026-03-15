@@ -562,6 +562,7 @@ const CommitMoveTarget: FC<{
 				if (isNoOp(sourceItem.commitId)) return;
 
 				event.preventDefault();
+
 				setSourceItem(null);
 
 				commitMove.mutate({
