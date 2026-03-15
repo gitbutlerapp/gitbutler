@@ -123,6 +123,9 @@ impl GitHubClient {
     }
 
     /// Fetch the CI checks for a given branch reference
+    ///
+    /// Will fetch max 100 CI checks, and if the actual total checks
+    /// excede that, it will paginate until all checks are fetched
     pub async fn list_checks_for_ref(
         &self,
         owner: &str,
@@ -131,6 +134,7 @@ impl GitHubClient {
     ) -> Result<Vec<CheckRun>> {
         #[derive(Deserialize)]
         struct CheckRunsResponse {
+            total_count: usize,
             check_runs: Vec<CheckRun>,
         }
 
@@ -139,10 +143,43 @@ impl GitHubClient {
             self.base_url, owner, repo, reference
         );
 
+        let mut page = 1;
+
+        let response = self.fetch_check_runs(&url, page).await?;
+
+        let result: CheckRunsResponse = response.json().await?;
+        let total_count = result.total_count;
+        let mut check_runs = result.check_runs;
+
+        while check_runs.len() < total_count {
+            page += 1;
+
+            let response = self.fetch_check_runs(&url, page).await?;
+            let result: CheckRunsResponse = response.json().await?;
+            if result.check_runs.is_empty() {
+                break;
+            }
+
+            check_runs.extend(result.check_runs);
+        }
+
+        Ok(check_runs)
+    }
+
+    /// The actual REST API call to fetch a page of the checks.
+    async fn fetch_check_runs(
+        &self,
+        url: &str,
+        page: usize,
+    ) -> Result<reqwest::Response> {
         let response = self
             .client
-            .get(&url)
-            .query(&[("filter", "latest")])
+            .get(url)
+            .query(&CheckRunsQuery {
+                filter: "latest",
+                per_page: 100,
+                page,
+            })
             .send()
             .await?;
 
@@ -150,8 +187,7 @@ impl GitHubClient {
             bail!("Failed to list checks for ref: {}", response.status());
         }
 
-        let result: CheckRunsResponse = response.json().await?;
-        Ok(result.check_runs)
+        Ok(response)
     }
 
     /// Fetch the list of the open PRs on a repo.
@@ -1040,6 +1076,12 @@ pub(crate) fn resolve_account(
     Ok(account.to_owned())
 }
 
+#[derive(Serialize)]
+struct CheckRunsQuery<'a> {
+    filter: &'a str,
+    per_page: usize,
+    page: usize,
+}
 #[cfg(test)]
 mod tests {
     use super::*;
