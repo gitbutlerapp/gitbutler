@@ -464,10 +464,10 @@ const CommitRubTarget: FC<{
 	const isEnabled = sourceItem !== null && rubOperation !== null;
 	const isActive = isDragOver && isEnabled;
 
-	const tooltip = isActive ? rubOperation : undefined;
+	const tooltip = isActive ? rubOperation : null;
 
 	return (
-		<Tooltip.Root open={tooltip != null}>
+		<Tooltip.Root open={tooltip !== null}>
 			<Tooltip.Trigger
 				render={children}
 				onDragOver={(event) => {
@@ -938,10 +938,10 @@ const ChangesRubTarget: FC<{
 	const isEnabled = sourceItem?._tag === "TreeChange" && rubOperation !== null;
 	const isActive = isDragOver && isEnabled;
 
-	const tooltip = isActive ? rubOperation : undefined;
+	const tooltip = isActive ? rubOperation : null;
 
 	return (
-		<Tooltip.Root open={tooltip != null}>
+		<Tooltip.Root open={tooltip !== null}>
 			<Tooltip.Trigger
 				render={children}
 				onDragOver={(event) => {
