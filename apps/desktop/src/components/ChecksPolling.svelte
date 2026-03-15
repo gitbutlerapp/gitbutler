@@ -10,6 +10,7 @@
 	type Props = {
 		projectId: string;
 		branchName: string;
+		prUpdatedAt?: string;
 		hasChecks?: boolean;
 		isFork?: boolean;
 		isMerged?: boolean;
@@ -24,7 +25,14 @@
 		tooltip?: string;
 	};
 
-	let { projectId, branchName, isFork, isMerged, hasChecks = $bindable() }: Props = $props();
+	let {
+		projectId,
+		branchName,
+		prUpdatedAt,
+		isFork,
+		isMerged,
+		hasChecks = $bindable(),
+	}: Props = $props();
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const uiState = inject(UI_STATE);
@@ -115,9 +123,18 @@
 	// This should **not** be a derived, since we want to track the previous state, not the current one.
 	let prevIsDone = $state(false);
 	let prevChecksStartedAt = $state<string>();
+	let prevPrUpdatedAt = $state<string>();
 
-	// Checks have reached a terminal state or there are no checks to monitor
-	const shouldStop = $derived(checksQuery?.response?.completed || checksQuery?.response === null);
+	// After a PR update (e.g. push), GitHub may still return old completed checks
+	// before creating the new check runs. We prevent polling from stopping for a
+	// grace period after prUpdatedAt changes, to give GitHub time to catch up.
+	const STALE_GRACE_PERIOD_MS = 60_000;
+	let prUpdatedAtChangedTime = $state<number>();
+
+	// Checks have reached a terminal state or there are no checks to monitor.
+	// Note: shouldStop is computed in the $effect below since the grace period
+	// depends on wall-clock time (Date.now()) which isn't reactive.
+	let shouldStop = $state(false);
 
 	$effect(() => {
 		// If polling was previously done but now should restart (e.g., after a force push)
@@ -135,16 +152,34 @@
 			loadedOnce = true;
 		}
 
-		// If checks are completed, we've loaded them at least once and we are not loading anymore.
-		// Stop polling
+		// Compute shouldStop fresh each time the effect runs, since the grace
+		// period depends on wall-clock time.
+		const withinGracePeriod =
+			prUpdatedAtChangedTime !== undefined &&
+			Date.now() - prUpdatedAtChangedTime < STALE_GRACE_PERIOD_MS;
+		const checksCompleted = checksQuery?.response?.completed || checksQuery?.response === null;
+		shouldStop = !withinGracePeriod && checksCompleted;
+
 		if (!isDone && loadedOnce && !loading && shouldStop) {
 			projectState.branchesToPoll.remove(branchName);
 		}
 
+		// Reset polling frequency when the PR is updated (e.g. after a push).
+		if (prUpdatedAt && prUpdatedAt !== prevPrUpdatedAt) {
+			const parsed = Date.parse(prUpdatedAt);
+			if (!Number.isNaN(parsed)) {
+				elapsedMs = Date.now() - parsed;
+				prUpdatedAtChangedTime = Date.now();
+			}
+			prevPrUpdatedAt = prUpdatedAt;
+		}
+
 		// Update elapsed time and hasChecks if checks have started
 		if (checks?.startedAt && checks.startedAt !== prevChecksStartedAt) {
-			const lastUpdatedMs = Date.parse(checks.startedAt);
-			elapsedMs = Date.now() - lastUpdatedMs;
+			const parsed = Date.parse(checks.startedAt);
+			if (!Number.isNaN(parsed)) {
+				elapsedMs = Date.now() - parsed;
+			}
 			hasChecks = true;
 			prevChecksStartedAt = checks.startedAt;
 		}

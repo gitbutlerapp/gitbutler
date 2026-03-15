@@ -521,14 +521,21 @@ export class StackService {
 
 	get pushStack() {
 		return this.api.endpoints.pushStack.useMutation({
-			sideEffect: (_, args) => {
+			sideEffect: (result, _) => {
 				// Timeout to accommodate eventual consistency.
 				setTimeout(() => {
-					this.forgeFactory.invalidate([
-						invalidatesItem(ReduxTag.PullRequests, args.stackId),
-						invalidatesItem(ReduxTag.Checks, args.stackId),
-						invalidatesList(ReduxTag.PullRequests),
-					]);
+					const invalidations = [invalidatesList(ReduxTag.PullRequests)];
+
+					if (result) {
+						const upstreamBranchNames = result.branchToRemote
+							.map(([_, refname]) => getBranchNameFromRef(refname, result.remote))
+							.filter(isDefined);
+						for (const name of upstreamBranchNames) {
+							invalidations.push(invalidatesItem(ReduxTag.Checks, name));
+						}
+					}
+
+					this.forgeFactory.invalidate(invalidations);
 				}, 2000);
 			},
 			onError: (commandError: ReduxError) => {
@@ -1190,27 +1197,10 @@ function injectEndpoints(api: BackendApi, uiState: UiState) {
 					actionName: "Push",
 				},
 				query: (args) => args,
-				invalidatesTags: (result, _error, args) => {
-					const invalidations = [
-						invalidatesList(ReduxTag.Checks),
-						invalidatesItem(ReduxTag.PullRequests, args.stackId),
-						invalidatesItem(ReduxTag.StackDetails, args.stackId), // Is this still needed?
-						invalidatesList(ReduxTag.BranchListing),
-					];
-
-					if (!result) return invalidations;
-
-					const upstreamBranchNames = result.branchToRemote
-						.map(([_, refname]) => getBranchNameFromRef(refname, result.remote))
-						.filter(isDefined);
-					if (upstreamBranchNames.length === 0) return invalidations;
-
-					for (const upstreamBranchName of upstreamBranchNames) {
-						invalidations.push(invalidatesItem(ReduxTag.Checks, upstreamBranchName));
-					}
-
-					return invalidations;
-				},
+				invalidatesTags: (_result, _error, args) => [
+					invalidatesItem(ReduxTag.StackDetails, args.stackId), // Is this still needed?
+					invalidatesList(ReduxTag.BranchListing),
+				],
 			}),
 			legacyCreateCommit: build.mutation<
 				CreateCommitOutcome,
