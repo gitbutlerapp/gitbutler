@@ -1125,20 +1125,20 @@ const CommitMoveToBranchTarget: FC<{
 }> = ({ projectId, anchorRef, firstCommitId, children }) => {
 	const [sourceItem, setSourceItem] = assert(use(SourceItemStateContext));
 	const [isDragOver, setIsDragOver] = useState(false);
-	const isValidCommitMoveTarget =
+	const isValidTarget =
 		sourceItem?._tag === "Commit" && anchorRef !== null && firstCommitId !== sourceItem.commitId;
 
 	const commitMoveToBranch = useMutation(commitMoveToBranchMutationOptions);
 
 	return (
-		<Tooltip.Root open={isDragOver && isValidCommitMoveTarget}>
+		<Tooltip.Root open={isDragOver && isValidTarget}>
 			<Tooltip.Trigger
 				render={children}
 				onDragOver={(event) => {
 					setIsDragOver(true);
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-					if (!isValidCommitMoveTarget) return;
+					if (!isValidTarget) return;
 
 					event.preventDefault();
 				}}
@@ -1157,7 +1157,7 @@ const CommitMoveToBranchTarget: FC<{
 					setSourceItem(null);
 
 					if (sourceItem?._tag !== "Commit") return;
-					if (!isValidCommitMoveTarget) return;
+					if (!isValidTarget) return;
 
 					commitMoveToBranch.mutate({
 						projectId,
@@ -1166,7 +1166,7 @@ const CommitMoveToBranchTarget: FC<{
 					});
 				}}
 				style={{
-					...(isDragOver && isValidCommitMoveTarget && { outline: "2px dashed" }),
+					...(isDragOver && isValidTarget && { outline: "2px dashed" }),
 				}}
 			/>
 			<Tooltip.Portal>
