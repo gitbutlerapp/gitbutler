@@ -42,6 +42,39 @@
 	column-gap: 4px;
 }
 
+.commitMoveTarget {
+	z-index: 1;
+	position: absolute;
+	right: 0;
+	left: 0;
+	height: 19px;
+	pointer-events: none;
+}
+
+.commitMoveTargetEnabled {
+	pointer-events: auto;
+}
+
+.commitMoveTargetAbove {
+	top: 0;
+	transform: translateY(-50%);
+}
+
+.commitMoveTargetBelow {
+	bottom: 0;
+	transform: translateY(50%);
+}
+
+.commitMoveTargetActive {
+	background-image: linear-gradient(
+		to bottom,
+		transparent 8px,
+		black 8px,
+		black 11px,
+		transparent 11px
+	);
+}
+
 .commitMessageInput {
 	flex-grow: 1;
 	field-sizing: content;

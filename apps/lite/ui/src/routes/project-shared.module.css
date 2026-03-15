@@ -20,8 +20,8 @@
 
 .commitsListItem {
 	display: flex;
+	position: relative;
 	flex-direction: column;
-	padding-block: 2px;
 }
 
 .commitDetails {
