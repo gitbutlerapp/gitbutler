@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CardOverlay from "$components/CardOverlay.svelte";
 	import Dropzone from "$components/Dropzone.svelte";
+	import ErrorBoundary from "$components/ErrorBoundary.svelte";
 	import ReduxResult from "$components/ReduxResult.svelte";
 	import { ATTACHMENT_SERVICE } from "$lib/codegen/attachmentService.svelte";
 	import { CLAUDE_CODE_SERVICE } from "$lib/codegen/claude";
@@ -99,70 +100,77 @@
 	{#snippet overlay({ hovered, activated })}
 		<CardOverlay {hovered} {activated} label="Reference" />
 	{/snippet}
+	<ErrorBoundary compact>
+		{#if draft}
+			<!-- Draft mode: simple placeholder -->
+			<div class="codegen-row">
+				<Icon name="ai" color="var(--clr-theme-purple-element)" />
+				<h3 class="text-13 text-semibold truncate codegen-row__title">
+					AI session will start here
+				</h3>
+			</div>
+		{:else if projectId && messages && permissionRequests}
+			<ReduxResult {projectId} result={combineResults(messages.result, permissionRequests.result)}>
+				{#snippet children([messages, permissionReqs])}
+					{@const lastMessage = extractLastMessage(messages)}
+					{@const lastSummary = lastMessage ? truncate(lastMessage, 360, 8) : undefined}
+					{@const todos = getTodos(messages)}
+					{@const completedCount = todos.filter((t) => t.status === "completed").length}
+					{@const totalCount = todos.length}
+					{@const formattedMessages = formatMessages(
+						messages,
+						permissionReqs,
+						status === "running",
+					)}
+					{@const feedbackStatus = userFeedbackStatus(formattedMessages)}
+					{@const hasPendingQuestion = hasPendingAskUserQuestion(formattedMessages)}
+					{@const hasPendingApproval = feedbackStatus.waitingForFeedback}
+					{@const hasPendingAction = hasPendingApproval || hasPendingQuestion}
 
-	{#if draft}
-		<!-- Draft mode: simple placeholder -->
-		<div class="codegen-row">
-			<Icon name="ai" color="var(--clr-theme-purple-element)" />
-			<h3 class="text-13 text-semibold truncate codegen-row__title">AI session will start here</h3>
-		</div>
-	{:else if projectId && messages && permissionRequests}
-		<ReduxResult {projectId} result={combineResults(messages.result, permissionRequests.result)}>
-			{#snippet children([messages, permissionReqs])}
-				{@const lastMessage = extractLastMessage(messages)}
-				{@const lastSummary = lastMessage ? truncate(lastMessage, 360, 8) : undefined}
-				{@const todos = getTodos(messages)}
-				{@const completedCount = todos.filter((t) => t.status === "completed").length}
-				{@const totalCount = todos.length}
-				{@const formattedMessages = formatMessages(messages, permissionReqs, status === "running")}
-				{@const feedbackStatus = userFeedbackStatus(formattedMessages)}
-				{@const hasPendingQuestion = hasPendingAskUserQuestion(formattedMessages)}
-				{@const hasPendingApproval = feedbackStatus.waitingForFeedback}
-				{@const hasPendingAction = hasPendingApproval || hasPendingQuestion}
-
-				<button
-					type="button"
-					class="codegen-row"
-					class:selected
-					class:active
-					class:codegen-row--wiggle={hasPendingAction && !selected}
-					onclick={toggleSelection}
-					use:focusable={{
-						onAction: toggleSelection,
-						onActive: (value) => (active = value),
-						focusable: true,
-					}}
-				>
-					{#if selected}
-						<div
-							class="indicator"
-							class:selected
-							class:active
-							in:slide={{ axis: "x", duration: 150 }}
-						></div>
-					{/if}
-
-					<Icon
-						name={getCurrentIconName(hasPendingAction)}
-						color="var(--clr-theme-purple-element)"
-					/>
-					<h3 class="text-13 text-semibold truncate codegen-row__title">{lastSummary}</h3>
-
-					{#if hasPendingAction}
-						<Badge style="pop" tooltip="Waiting for action">Action needed</Badge>
-					{/if}
-
-					{#if totalCount > 1}
-						<span class="text-12 codegen-row__todos">Todos ({completedCount}/{totalCount})</span>
-
-						{#if completedCount === totalCount}
-							<Icon name="tick-circle" color="var(--clr-theme-safe-element)" />
+					<button
+						type="button"
+						class="codegen-row"
+						class:selected
+						class:active
+						class:codegen-row--wiggle={hasPendingAction && !selected}
+						onclick={toggleSelection}
+						use:focusable={{
+							onAction: toggleSelection,
+							onActive: (value) => (active = value),
+							focusable: true,
+						}}
+					>
+						{#if selected}
+							<div
+								class="indicator"
+								class:selected
+								class:active
+								in:slide={{ axis: "x", duration: 150 }}
+							></div>
 						{/if}
-					{/if}
-				</button>
-			{/snippet}
-		</ReduxResult>
-	{/if}
+
+						<Icon
+							name={getCurrentIconName(hasPendingAction)}
+							color="var(--clr-theme-purple-element)"
+						/>
+						<h3 class="text-13 text-semibold truncate codegen-row__title">{lastSummary}</h3>
+
+						{#if hasPendingAction}
+							<Badge style="pop" tooltip="Waiting for action">Action needed</Badge>
+						{/if}
+
+						{#if totalCount > 1}
+							<span class="text-12 codegen-row__todos">Todos ({completedCount}/{totalCount})</span>
+
+							{#if completedCount === totalCount}
+								<Icon name="tick-circle" color="var(--clr-theme-safe-element)" />
+							{/if}
+						{/if}
+					</button>
+				{/snippet}
+			</ReduxResult>
+		{/if}
+	</ErrorBoundary>
 </Dropzone>
 
 <style lang="postcss">
