@@ -539,8 +539,7 @@ const CommitMoveTarget: FC<{
 				setIsDragOver(true);
 
 				if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-				if (sourceItem?._tag !== "Commit") return;
-				if (isNoOp(sourceItem.commitId)) return;
+				if (!isEnabled) return;
 
 				event.preventDefault();
 			}}
@@ -553,8 +552,7 @@ const CommitMoveTarget: FC<{
 				setIsDragOver(false);
 
 				if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-				if (sourceItem?._tag !== "Commit") return;
-				if (isNoOp(sourceItem.commitId)) return;
+				if (!isEnabled) return;
 
 				event.preventDefault();
 
