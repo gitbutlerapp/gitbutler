@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CollapsedLane from "$components/CollapsedLane.svelte";
 	import CreateBranchModal from "$components/CreateBranchModal.svelte";
+	import ErrorBoundary from "$components/ErrorBoundary.svelte";
 	import MultiStackOfflaneDropzone from "$components/MultiStackOfflaneDropzone.svelte";
 	import MultiStackPagination, { scrollToLane } from "$components/MultiStackPagination.svelte";
 	import Scrollbar from "$components/Scrollbar.svelte";
@@ -255,22 +256,24 @@
 						onUnfold={() => unfoldStack(stack.id)}
 					/>
 				{:else}
-					<StackView
-						{projectId}
-						laneId={stack.id || "banana"}
-						stackId={stack.id ?? undefined}
-						onFoldStack={() => foldStack(stack.id)}
-						topBranchName={stack.heads.at(0)?.name}
-						bind:clientWidth={laneWidths[i]}
-						bind:clientHeight={lineHeights[i]}
-						onVisible={(visible) => {
-							if (visible) {
-								visibleIndexes = [...visibleIndexes, i];
-							} else {
-								visibleIndexes = visibleIndexes.filter((index) => index !== i);
-							}
-						}}
-					/>
+					<ErrorBoundary title="Something went wrong in this stack">
+						<StackView
+							{projectId}
+							laneId={stack.id || "banana"}
+							stackId={stack.id ?? undefined}
+							onFoldStack={() => foldStack(stack.id)}
+							topBranchName={stack.heads.at(0)?.name}
+							bind:clientWidth={laneWidths[i]}
+							bind:clientHeight={lineHeights[i]}
+							onVisible={(visible) => {
+								if (visible) {
+									visibleIndexes = [...visibleIndexes, i];
+								} else {
+									visibleIndexes = visibleIndexes.filter((index) => index !== i);
+								}
+							}}
+						/>
+					</ErrorBoundary>
 				{/if}
 			</div>
 		{/each}

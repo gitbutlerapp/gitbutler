@@ -3,6 +3,7 @@
 	import ChromeHeader from "$components/ChromeHeader.svelte";
 	import ChromeSidebar from "$components/ChromeSidebar.svelte";
 	import EnsureAuthorInfo from "$components/EnsureAuthorInfo.svelte";
+	import ErrorBoundary from "$components/ErrorBoundary.svelte";
 	import ReduxResult from "$components/ReduxResult.svelte";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
@@ -27,7 +28,9 @@
 				<EnsureAuthorInfo {projectId} />
 				<ChromeSidebar {projectId} disabled={sidebarDisabled} />
 				<div class="chrome-content">
-					{@render children2()}
+					<ErrorBoundary>
+						{@render children2()}
+					</ErrorBoundary>
 				</div>
 			</div>
 		</div>

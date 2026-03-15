@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
+	import ErrorBoundary from "$components/ErrorBoundary.svelte";
 	import PreviewHeader from "$components/PreviewHeader.svelte";
 	import ReduxResult from "$components/ReduxResult.svelte";
 	import AddedDirectories from "$components/codegen/AddedDirectories.svelte";
@@ -319,354 +320,356 @@
 </script>
 
 <div class="chat" use:focusable={{ vertical: true }}>
-	<ReduxResult result={claudeAvailable.result}>
-		{#snippet loading()}
-			<PreviewHeader {onclose}>
-				{#snippet content()}
-					<h3 class="text-14 text-semibold truncate">Chat for {branchName}</h3>
-				{/snippet}
-				{#snippet actions()}
-					<div class="flex gap-4 items-center">
-						<SkeletonBone width="2.5rem" height="1.2rem" />
-						<SkeletonBone width="1.5rem" height="1.2rem" />
+	<ErrorBoundary title="Something went wrong in the chat">
+		<ReduxResult result={claudeAvailable.result}>
+			{#snippet loading()}
+				<PreviewHeader {onclose}>
+					{#snippet content()}
+						<h3 class="text-14 text-semibold truncate">Chat for {branchName}</h3>
+					{/snippet}
+					{#snippet actions()}
+						<div class="flex gap-4 items-center">
+							<SkeletonBone width="2.5rem" height="1.2rem" />
+							<SkeletonBone width="1.5rem" height="1.2rem" />
+						</div>
+					{/snippet}
+				</PreviewHeader>
+
+				<div class="chat-skeleton">
+					<div class="chat-skeleton__user">
+						<SkeletonBone
+							width="80%"
+							height="3rem"
+							color="var(--clr-bg-3)"
+							opacity={0.4}
+							radius="var(--radius-ml) var(--radius-ml) 0 var(--radius-ml)"
+						/>
 					</div>
-				{/snippet}
-			</PreviewHeader>
+					<div class="chat-skeleton__assistant">
+						<SkeletonBone width="100%" height="1rem" />
+						<SkeletonBone width="90%" height="1rem" />
+						<SkeletonBone width="95%" height="1rem" />
+					</div>
+					<div class="chat-skeleton__user">
+						<SkeletonBone
+							width="50%"
+							height="3rem"
+							color="var(--clr-bg-3)"
+							opacity={0.4}
+							radius="var(--radius-ml) var(--radius-ml) 0 var(--radius-ml)"
+						/>
+					</div>
+					<div class="chat-skeleton__assistant">
+						<SkeletonBone width="90%" height="1rem" />
+						<SkeletonBone width="70%" height="1rem" />
+					</div>
+				</div>
 
-			<div class="chat-skeleton">
-				<div class="chat-skeleton__user">
-					<SkeletonBone
-						width="80%"
-						height="3rem"
-						color="var(--clr-bg-3)"
-						opacity={0.4}
-						radius="var(--radius-ml) var(--radius-ml) 0 var(--radius-ml)"
-					/>
-				</div>
-				<div class="chat-skeleton__assistant">
-					<SkeletonBone width="100%" height="1rem" />
-					<SkeletonBone width="90%" height="1rem" />
-					<SkeletonBone width="95%" height="1rem" />
-				</div>
-				<div class="chat-skeleton__user">
-					<SkeletonBone
-						width="50%"
-						height="3rem"
-						color="var(--clr-bg-3)"
-						opacity={0.4}
-						radius="var(--radius-ml) var(--radius-ml) 0 var(--radius-ml)"
-					/>
-				</div>
-				<div class="chat-skeleton__assistant">
-					<SkeletonBone width="90%" height="1rem" />
-					<SkeletonBone width="70%" height="1rem" />
-				</div>
-			</div>
-
-			<div class="dialog-wrapper">
-				<div class="input-skeleton">
-					<div class="input-skeleton__text"><SkeletonBone width="60%" height="1rem" /></div>
-					<div class="input-skeleton__actions">
-						<SkeletonBone width="4rem" height="var(--size-button)" radius="var(--radius-btn)" />
-						<div class="flex gap-8">
+				<div class="dialog-wrapper">
+					<div class="input-skeleton">
+						<div class="input-skeleton__text"><SkeletonBone width="60%" height="1rem" /></div>
+						<div class="input-skeleton__actions">
 							<SkeletonBone width="4rem" height="var(--size-button)" radius="var(--radius-btn)" />
-							<SkeletonBone
-								width="calc(var(--size-button) + 0.188rem)"
-								height="var(--size-button)"
-								color="var(--clr-theme-pop-element)"
-								radius="var(--radius-btn)"
-							/>
+							<div class="flex gap-8">
+								<SkeletonBone width="4rem" height="var(--size-button)" radius="var(--radius-btn)" />
+								<SkeletonBone
+									width="calc(var(--size-button) + 0.188rem)"
+									height="var(--size-button)"
+									color="var(--clr-theme-pop-element)"
+									radius="var(--radius-btn)"
+								/>
+							</div>
 						</div>
 					</div>
 				</div>
-			</div>
-		{/snippet}
-		{#snippet children(claudeAvailable)}
-			{@const todos = getTodos(events)}
+			{/snippet}
+			{#snippet children(claudeAvailable)}
+				{@const todos = getTodos(events)}
 
-			<!-- TODO: remove this header when we move to the workspace layout -->
-			<PreviewHeader {onclose}>
-				{#snippet content()}
-					<h3 class="text-14 text-semibold truncate">Chat for {branchName}</h3>
-				{/snippet}
+				<!-- TODO: remove this header when we move to the workspace layout -->
+				<PreviewHeader {onclose}>
+					{#snippet content()}
+						<h3 class="text-14 text-semibold truncate">Chat for {branchName}</h3>
+					{/snippet}
 
-				{#snippet actions()}
-					{@const stats = usageStats(events)}
-					{@const contextUsage = Math.round(stats.contextUtilization * 100)}
+					{#snippet actions()}
+						{@const stats = usageStats(events)}
+						{@const contextUsage = Math.round(stats.contextUtilization * 100)}
 
-					<div class="flex gap-10 items-center">
-						{#if stats.tokens > 0}
-							<Tooltip text="Tokens: {stats.tokens.toLocaleString()} / ${stats.cost.toFixed(2)}">
-								<span class="text-12 clr-text-2">
-									{formatCompactNumber(stats.tokens)}
-								</span>
-							</Tooltip>
+						<div class="flex gap-10 items-center">
+							{#if stats.tokens > 0}
+								<Tooltip text="Tokens: {stats.tokens.toLocaleString()} / ${stats.cost.toFixed(2)}">
+									<span class="text-12 clr-text-2">
+										{formatCompactNumber(stats.tokens)}
+									</span>
+								</Tooltip>
 
-							<Tooltip text="{contextUsage}% context used">
-								<div
-									class="context-utilization-scale"
-									style="--context-utilization: {contextUsage}"
-								>
-									<svg viewBox="0 0 17 17">
-										<circle class="bg-circle" cx="8.5" cy="8.5" r="6.5" />
-										<circle class="progress-circle" cx="8.5" cy="8.5" r="6.5" />
-									</svg>
-								</div>
-							</Tooltip>
-						{/if}
+								<Tooltip text="{contextUsage}% context used">
+									<div
+										class="context-utilization-scale"
+										style="--context-utilization: {contextUsage}"
+									>
+										<svg viewBox="0 0 17 17">
+											<circle class="bg-circle" cx="8.5" cy="8.5" r="6.5" />
+											<circle class="progress-circle" cx="8.5" cy="8.5" r="6.5" />
+										</svg>
+									</div>
+								</Tooltip>
+							{/if}
 
-						<KebabButton>
-							{#snippet contextMenu({ close })}
-								{@const isDisabled =
-									!hasRulesToClear ||
-									!events ||
-									events.length === 0 ||
-									["running", "compacting"].includes(currentStatus(events, isStackActive))}
+							<KebabButton>
+								{#snippet contextMenu({ close })}
+									{@const isDisabled =
+										!hasRulesToClear ||
+										!events ||
+										events.length === 0 ||
+										["running", "compacting"].includes(currentStatus(events, isStackActive))}
 
-								{#if onMcpSettings}
+									{#if onMcpSettings}
+										<ContextMenuSection>
+											<ContextMenuItem
+												label="MCP settings"
+												icon="mcp"
+												onclick={() => {
+													onMcpSettings?.();
+													close();
+												}}
+											/>
+										</ContextMenuSection>
+									{/if}
 									<ContextMenuSection>
 										<ContextMenuItem
-											label="MCP settings"
-											icon="mcp"
+											label="Clear context"
+											icon="eraser"
+											disabled={isDisabled}
 											onclick={() => {
-												onMcpSettings?.();
+												clearContextAndRules();
+												close();
+											}}
+										/>
+										<ContextMenuItem
+											label="Compact context"
+											icon="compact"
+											disabled={isDisabled}
+											onclick={() => {
+												compactContext();
 												close();
 											}}
 										/>
 									</ContextMenuSection>
-								{/if}
-								<ContextMenuSection>
-									<ContextMenuItem
-										label="Clear context"
-										icon="eraser"
-										disabled={isDisabled}
-										onclick={() => {
-											clearContextAndRules();
-											close();
-										}}
-									/>
-									<ContextMenuItem
-										label="Compact context"
-										icon="compact"
-										disabled={isDisabled}
-										onclick={() => {
-											compactContext();
-											close();
-										}}
-									/>
-								</ContextMenuSection>
-							{/snippet}
-						</KebabButton>
-					</div>
-				{/snippet}
-			</PreviewHeader>
-
-			<div class="chat-container">
-				{#if claudeAvailable.status !== "available" && formattedMessages.length === 0}
-					<ConfigurableScrollableContainer childrenWrapDisplay="contents">
-						<div class="no-agent-placeholder">
-							<div class="no-agent-placeholder__content">
-								{@html noClaudeCodeSvg}
-								<h2 class="text-serif-42">Connect Claude Code</h2>
-								<p class="text-13 text-body clr-text-2">
-									<br />
-									Click the button below to check if Claude Code is now available.
-								</p>
-
-								<ClaudeCheck />
-							</div>
-
-							<p class="text-12 text-body clr-text-2">
-								Having trouble connecting?
-								<br />
-								Check the <Link href="https://docs.claude.com/en/docs/claude-code/troubleshooting"
-									>troubleshooting guide</Link
-								> for common issues and solutions.
-							</p>
+								{/snippet}
+							</KebabButton>
 						</div>
-					</ConfigurableScrollableContainer>
-				{:else if !isStackActive && formattedMessages.length === 0}
-					<div class="chat-view__placeholder">
-						<EmptyStatePlaceholder
-							image={laneNewSvg}
-							width={320}
-							topBottomPadding={0}
-							bottomMargin={0}
-						>
-							{#snippet title()}
-								Let's build something amazing
-							{/snippet}
-							{#snippet caption()}
-								{#if canEnterChat}
-									Your canvas is clear
-									<br />
-									Let the code take shape
-								{:else}
-									Run `claude` once
-									<br />
-									to initialise the chat
-								{/if}
-							{/snippet}
-						</EmptyStatePlaceholder>
-					</div>
-				{:else}
-					<VirtualList
-						bind:this={virtualList}
-						grow
-						stickToBottom
-						showBottomButton
-						items={messagesForList}
-						visibility={$userSettings.scrollbarVisibilityState}
-						padding={{ left: 20, right: 20, top: 12, bottom: 12 }}
-						defaultHeight={65}
-						getId={(item) => item.createdAt}
-					>
-						{#snippet template(message)}
-							<CodegenClaudeMessage
-								{projectId}
-								{message}
-								{onPermissionDecision}
-								{toolCallExpandedState}
-							/>
-						{/snippet}
-						{@const thinkingStatus = currentStatus(events, isStackActive)}
-						{@const startAt = thinkingOrCompactingStartedAt(events)}
-						{#if ["running", "compacting"].includes(thinkingStatus) && startAt}
-							{@const status = userFeedbackStatus(formattedMessages)}
-							{#if status.waitingForFeedback}
-								<CodegenServiceMessageUseTool toolCall={status.toolCall} />
-							{:else if !pendingAskUserQuestion}
-								<CodegenServiceMessageThinking
-									{startAt}
-									msSpentWaiting={status.msSpentWaiting}
-									overrideWord={thinkingStatus === "compacting" ? "compacting" : undefined}
-								/>
-							{/if}
-						{/if}
-					</VirtualList>
-				{/if}
-				{#if todos.length > 0}
-					<CodegenTodoAccordion {todos} />
-				{/if}
-			</div>
-			{#if claudeAvailable.status !== "available"}
-				{#if formattedMessages.length > 0}
-					<CodegenChatClaudeNotAvaliableBanner
-						onSettingsBtnClick={() => {
-							uiState.global.modal.set({
-								type: "project-settings",
-								projectId,
-								selectedId: "agent",
-							});
-						}}
-					/>
-				{/if}
-			{:else if !projectRegistered}
-				{#if formattedMessages.length > 0}
-					<CodegenChatClaudeNotRegistered {onRetryConfig} />
-				{/if}
-			{:else}
-				{@const status = currentStatus(events, isStackActive)}
-				{@const laneState = uiState.lane(laneId)}
-				{@const addedDirs = laneState.addedDirs.current}
+					{/snippet}
+				</PreviewHeader>
 
-				<div class="dialog-wrapper">
-					{#if pendingAskUserQuestion}
-						<CodegenAskUserQuestion
-							questions={pendingAskUserQuestion.questions}
-							answered={pendingAskUserQuestion.answered}
-							onSubmitAnswers={async (answers) => {
-								await onAnswerQuestion?.(answers);
-							}}
-							onCancel={async () => {
-								dismissedAskUserQuestions = {
-									...dismissedAskUserQuestions,
-									[pendingAskUserQuestion.toolUseId]: true,
-								};
-								await onAbort?.();
-							}}
-						/>
-					{:else}
-						<AddedDirectories
-							{addedDirs}
-							onRemoveDir={(dir) => {
-								laneState.addedDirs.remove(dir);
-							}}
-						/>
+				<div class="chat-container">
+					{#if claudeAvailable.status !== "available" && formattedMessages.length === 0}
+						<ConfigurableScrollableContainer childrenWrapDisplay="contents">
+							<div class="no-agent-placeholder">
+								<div class="no-agent-placeholder__content">
+									{@html noClaudeCodeSvg}
+									<h2 class="text-serif-42">Connect Claude Code</h2>
+									<p class="text-13 text-body clr-text-2">
+										<br />
+										Click the button below to check if Claude Code is now available.
+									</p>
 
-						<CodegenInput
-							bind:this={inputRef}
-							{projectId}
-							{stackId}
-							branchName={stableBranchName}
-							value={initialPrompt || ""}
-							loading={["running", "compacting"].includes(status)}
-							compacting={status === "compacting"}
-							{onChange}
-							onSubmit={async (prompt) => {
-								await onSubmit?.(prompt);
-								setTimeout(() => {
-									virtualList?.scrollToBottom();
-								}, 100);
-							}}
-							{onAbort}
-							onCancel={onclose}
-						>
-							{#snippet actionsOnLeft()}
-								{@const permissionModeLabel = permissionModeOptions.find(
-									(a) => a.value === selectedPermissionMode,
-								)?.label}
-
-								<div class="flex m-right-4 gap-2">
-									<Button
-										bind:el={templateTrigger}
-										kind="ghost"
-										icon="script"
-										tooltip="Insert template"
-										onclick={(e) => templateContextMenu?.toggle(e)}
-									/>
-									<Button
-										bind:el={thinkingModeTrigger}
-										kind="ghost"
-										icon="thinking"
-										reversedDirection
-										onclick={() => thinkingModeContextMenu?.toggle()}
-										tooltip="Thinking mode"
-										children={selectedThinkingLevel === "normal" ? undefined : thinkingBtnText}
-									/>
-									<Button
-										bind:el={permissionModeTrigger}
-										kind="ghost"
-										icon={getPermissionModeIcon(selectedPermissionMode)}
-										shrinkable
-										onclick={() => permissionModeContextMenu?.toggle()}
-										tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
-											? "Permission modes disable when all permissions are allowed"
-											: permissionModeLabel}
-										disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
-									/>
+									<ClaudeCheck />
 								</div>
-							{/snippet}
 
-							{#snippet actionsOnRight()}
-								{#if !claudeSettings?.useConfiguredModel}
-									<Button
-										bind:el={modelTrigger}
-										kind="ghost"
-										icon="chevron-down"
-										shrinkable
-										onclick={() => modelContextMenu?.toggle()}
-									>
-										{modelOptions.find((a) => a.value === selectedModel)?.label}
-									</Button>
-								{/if}
+								<p class="text-12 text-body clr-text-2">
+									Having trouble connecting?
+									<br />
+									Check the <Link href="https://docs.claude.com/en/docs/claude-code/troubleshooting"
+										>troubleshooting guide</Link
+									> for common issues and solutions.
+								</p>
+							</div>
+						</ConfigurableScrollableContainer>
+					{:else if !isStackActive && formattedMessages.length === 0}
+						<div class="chat-view__placeholder">
+							<EmptyStatePlaceholder
+								image={laneNewSvg}
+								width={320}
+								topBottomPadding={0}
+								bottomMargin={0}
+							>
+								{#snippet title()}
+									Let's build something amazing
+								{/snippet}
+								{#snippet caption()}
+									{#if canEnterChat}
+										Your canvas is clear
+										<br />
+										Let the code take shape
+									{:else}
+										Run `claude` once
+										<br />
+										to initialise the chat
+									{/if}
+								{/snippet}
+							</EmptyStatePlaceholder>
+						</div>
+					{:else}
+						<VirtualList
+							bind:this={virtualList}
+							grow
+							stickToBottom
+							showBottomButton
+							items={messagesForList}
+							visibility={$userSettings.scrollbarVisibilityState}
+							padding={{ left: 20, right: 20, top: 12, bottom: 12 }}
+							defaultHeight={65}
+							getId={(item) => item.createdAt}
+						>
+							{#snippet template(message)}
+								<CodegenClaudeMessage
+									{projectId}
+									{message}
+									{onPermissionDecision}
+									{toolCallExpandedState}
+								/>
 							{/snippet}
-						</CodegenInput>
+							{@const thinkingStatus = currentStatus(events, isStackActive)}
+							{@const startAt = thinkingOrCompactingStartedAt(events)}
+							{#if ["running", "compacting"].includes(thinkingStatus) && startAt}
+								{@const status = userFeedbackStatus(formattedMessages)}
+								{#if status.waitingForFeedback}
+									<CodegenServiceMessageUseTool toolCall={status.toolCall} />
+								{:else if !pendingAskUserQuestion}
+									<CodegenServiceMessageThinking
+										{startAt}
+										msSpentWaiting={status.msSpentWaiting}
+										overrideWord={thinkingStatus === "compacting" ? "compacting" : undefined}
+									/>
+								{/if}
+							{/if}
+						</VirtualList>
+					{/if}
+					{#if todos.length > 0}
+						<CodegenTodoAccordion {todos} />
 					{/if}
 				</div>
-			{/if}
-		{/snippet}
-	</ReduxResult>
+				{#if claudeAvailable.status !== "available"}
+					{#if formattedMessages.length > 0}
+						<CodegenChatClaudeNotAvaliableBanner
+							onSettingsBtnClick={() => {
+								uiState.global.modal.set({
+									type: "project-settings",
+									projectId,
+									selectedId: "agent",
+								});
+							}}
+						/>
+					{/if}
+				{:else if !projectRegistered}
+					{#if formattedMessages.length > 0}
+						<CodegenChatClaudeNotRegistered {onRetryConfig} />
+					{/if}
+				{:else}
+					{@const status = currentStatus(events, isStackActive)}
+					{@const laneState = uiState.lane(laneId)}
+					{@const addedDirs = laneState.addedDirs.current}
+
+					<div class="dialog-wrapper">
+						{#if pendingAskUserQuestion}
+							<CodegenAskUserQuestion
+								questions={pendingAskUserQuestion.questions}
+								answered={pendingAskUserQuestion.answered}
+								onSubmitAnswers={async (answers) => {
+									await onAnswerQuestion?.(answers);
+								}}
+								onCancel={async () => {
+									dismissedAskUserQuestions = {
+										...dismissedAskUserQuestions,
+										[pendingAskUserQuestion.toolUseId]: true,
+									};
+									await onAbort?.();
+								}}
+							/>
+						{:else}
+							<AddedDirectories
+								{addedDirs}
+								onRemoveDir={(dir) => {
+									laneState.addedDirs.remove(dir);
+								}}
+							/>
+
+							<CodegenInput
+								bind:this={inputRef}
+								{projectId}
+								{stackId}
+								branchName={stableBranchName}
+								value={initialPrompt || ""}
+								loading={["running", "compacting"].includes(status)}
+								compacting={status === "compacting"}
+								{onChange}
+								onSubmit={async (prompt) => {
+									await onSubmit?.(prompt);
+									setTimeout(() => {
+										virtualList?.scrollToBottom();
+									}, 100);
+								}}
+								{onAbort}
+								onCancel={onclose}
+							>
+								{#snippet actionsOnLeft()}
+									{@const permissionModeLabel = permissionModeOptions.find(
+										(a) => a.value === selectedPermissionMode,
+									)?.label}
+
+									<div class="flex m-right-4 gap-2">
+										<Button
+											bind:el={templateTrigger}
+											kind="ghost"
+											icon="script"
+											tooltip="Insert template"
+											onclick={(e) => templateContextMenu?.toggle(e)}
+										/>
+										<Button
+											bind:el={thinkingModeTrigger}
+											kind="ghost"
+											icon="thinking"
+											reversedDirection
+											onclick={() => thinkingModeContextMenu?.toggle()}
+											tooltip="Thinking mode"
+											children={selectedThinkingLevel === "normal" ? undefined : thinkingBtnText}
+										/>
+										<Button
+											bind:el={permissionModeTrigger}
+											kind="ghost"
+											icon={getPermissionModeIcon(selectedPermissionMode)}
+											shrinkable
+											onclick={() => permissionModeContextMenu?.toggle()}
+											tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
+												? "Permission modes disable when all permissions are allowed"
+												: permissionModeLabel}
+											disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
+										/>
+									</div>
+								{/snippet}
+
+								{#snippet actionsOnRight()}
+									{#if !claudeSettings?.useConfiguredModel}
+										<Button
+											bind:el={modelTrigger}
+											kind="ghost"
+											icon="chevron-down"
+											shrinkable
+											onclick={() => modelContextMenu?.toggle()}
+										>
+											{modelOptions.find((a) => a.value === selectedModel)?.label}
+										</Button>
+									{/if}
+								{/snippet}
+							</CodegenInput>
+						{/if}
+					</div>
+				{/if}
+			{/snippet}
+		</ReduxResult>
+	</ErrorBoundary>
 </div>
 
 {#snippet thinkingBtnText()}
