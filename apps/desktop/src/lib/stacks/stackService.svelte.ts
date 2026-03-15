@@ -521,15 +521,19 @@ export class StackService {
 
 	get pushStack() {
 		return this.api.endpoints.pushStack.useMutation({
-			sideEffect: (_, args) => {
+			sideEffect: (result, _) => {
 				// Timeout to accommodate eventual consistency.
 				setTimeout(() => {
-					this.forgeFactory.invalidate([
-						invalidatesItem(ReduxTag.PullRequests, args.stackId),
-						invalidatesItem(ReduxTag.Checks, args.stackId),
-						invalidatesList(ReduxTag.PullRequests),
-					]);
-				}, 2000);
+					if (result) {
+						const upstreamBranchNames = result.branchToRemote
+							.map(([_, refname]) => getBranchNameFromRef(refname, result.remote))
+							.filter(isDefined);
+						const invalidations = upstreamBranchNames.map((name) =>
+							invalidatesItem(ReduxTag.Checks, name),
+						);
+						this.forgeFactory.invalidate(invalidations);
+					}
+				}, 3000);
 			},
 			onError: (commandError: ReduxError) => {
 				const { code, message } = commandError;
@@ -1193,7 +1197,6 @@ function injectEndpoints(api: BackendApi, uiState: UiState) {
 				invalidatesTags: (result, _error, args) => {
 					const invalidations = [
 						invalidatesList(ReduxTag.Checks),
-						invalidatesItem(ReduxTag.PullRequests, args.stackId),
 						invalidatesItem(ReduxTag.StackDetails, args.stackId), // Is this still needed?
 						invalidatesList(ReduxTag.BranchListing),
 					];
