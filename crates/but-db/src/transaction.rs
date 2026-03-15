@@ -1,6 +1,6 @@
 use rusqlite::{ErrorCode, TransactionBehavior};
 
-use crate::{AppCacheHandle, DbHandle, Transaction, migration::BUSY_TIMEOUT};
+use crate::{AppCacheHandle, CacheHandle, DbHandle, Transaction, migration::BUSY_TIMEOUT};
 
 impl<'conn> From<rusqlite::Transaction<'conn>> for Transaction<'conn> {
     fn from(trans: rusqlite::Transaction<'conn>) -> Self {
@@ -87,6 +87,45 @@ impl DbHandle {
 
 /// Transactions
 impl AppCacheHandle {
+    /// Create a new *deferred* transaction which can be used to create new table-handles on.
+    /// *Deferred* means that the transaction does not block other writers until the first
+    /// read or write actually happens, and hold the database lock while the transaction is alive.
+    /// It will, however, freeze what's read to the current state of the database, so changes
+    /// won't be observable until commit/rollback.
+    /// This is a feature - readers will always read from the original data.
+    ///
+    /// When used while a write-lock is taken elsewhere, *any read or write at a later time will block at first*,
+    /// and fail after a timeout.
+    ///
+    /// # IMPORTANT: run `commit()`
+    /// Don't forget to call [commit()](Transaction::commit()) to actually persist the result.
+    /// On drop, no changes will be persisted and the transaction is implicitly rolled back.
+    pub fn deferred_transaction(&mut self) -> rusqlite::Result<Transaction<'_>> {
+        Ok(self
+            .conn
+            .transaction_with_behavior(TransactionBehavior::Deferred)?
+            .into())
+    }
+
+    /// Create a new *immediate* transaction which can be used to create new table-handles on,
+    /// preventing all writes to the entire database while it is held, or return `None` while the database lock
+    /// is held elsewhere.
+    /// It will freeze what's read to the current state of the database, so changes
+    /// won't be observable until commit/rollback.
+    /// Readers will always read from the original data.
+    ///
+    /// # IMPORTANT: run `commit()`
+    /// Don't forget to call [commit()](Transaction::commit()) to actually persist the result.
+    /// On drop, no changes will be persisted and the transaction is implicitly rolled back.
+    pub fn immediate_transaction_nonblocking(
+        &mut self,
+    ) -> rusqlite::Result<Option<Transaction<'_>>> {
+        immediate_optional_transaction(&mut self.conn)
+    }
+}
+
+/// Transactions
+impl CacheHandle {
     /// Create a new *deferred* transaction which can be used to create new table-handles on.
     /// *Deferred* means that the transaction does not block other writers until the first
     /// read or write actually happens, and hold the database lock while the transaction is alive.

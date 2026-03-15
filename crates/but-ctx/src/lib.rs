@@ -111,6 +111,8 @@ pub struct Context {
     /// An open handle to the database. It's initialized lazily upon first access.
     /// It is also what makes this type non-Clone, which is fair.
     pub db: OnDemand<but_db::DbHandle>,
+    /// An open handle to the project-local cache, initialized lazily on first access and only fallible if it's already borrowed.
+    pub cache: OnDemandCache<but_db::CacheHandle>,
     /// An open handle to the cache, initialized lazily on first access and only fallible if it's already borrowed.
     pub app_cache: OnDemandCache<but_db::AppCacheHandle>,
     /// The legacy implementation, for all the old code.
@@ -160,6 +162,7 @@ impl From<ThreadSafeContext> for Context {
             repo: ondemand,
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(project_data_dir.clone()),
+            cache: new_ondemand_cache(project_data_dir.clone()),
             app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
             gitdir,
             project_data_dir,
@@ -234,7 +237,8 @@ impl Context {
                 settings,
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-                db: new_ondemand_db(project_data_dir),
+                db: new_ondemand_db(project_data_dir.clone()),
+                cache: new_ondemand_cache(project_data_dir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
                 app_cache_dir,
                 workspace: Default::default(),
@@ -256,7 +260,8 @@ impl Context {
                 legacy_project,
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-                db: new_ondemand_db(project_data_dir),
+                db: new_ondemand_db(project_data_dir.clone()),
+                cache: new_ondemand_cache(project_data_dir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
                 app_cache_dir,
                 workspace: Default::default(),
@@ -305,7 +310,8 @@ impl Context {
                 legacy_project,
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-                db: new_ondemand_db(project_data_dir),
+                db: new_ondemand_db(project_data_dir.clone()),
+                cache: new_ondemand_cache(project_data_dir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
                 app_cache_dir,
                 workspace: Default::default(),
@@ -322,7 +328,8 @@ impl Context {
                 settings: app_settings(but_path::app_config_dir()?)?,
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-                db: new_ondemand_db(project_data_dir),
+                db: new_ondemand_db(project_data_dir.clone()),
+                cache: new_ondemand_cache(project_data_dir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
                 app_cache_dir,
                 workspace: Default::default(),
@@ -349,7 +356,8 @@ impl Context {
             settings,
             repo: new_ondemand_repo(gitdir.clone()),
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-            db: new_ondemand_db(project_data_dir),
+            db: new_ondemand_db(project_data_dir.clone()),
+            cache: new_ondemand_cache(project_data_dir),
             app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
             app_cache_dir,
             workspace: Default::default(),
@@ -663,6 +671,7 @@ impl Context {
             mut repo,
             git2_repo: _,
             db: _,
+            cache: _,
             app_cache: _,
             app_cache_dir,
             #[cfg(feature = "legacy")]
@@ -782,6 +791,11 @@ fn new_ondemand_git2_repo(gitdir: PathBuf) -> OnDemand<git2::Repository> {
 #[instrument(level = "trace")]
 fn new_ondemand_db(project_data_dir: PathBuf) -> OnDemand<but_db::DbHandle> {
     OnDemand::new(move || but_db::DbHandle::new_in_directory(project_data_dir.clone()))
+}
+
+#[instrument(level = "trace")]
+fn new_ondemand_cache(project_data_dir: PathBuf) -> OnDemandCache<but_db::CacheHandle> {
+    OnDemandCache::new(move || but_db::CacheHandle::new_in_directory(project_data_dir.clone()))
 }
 
 #[instrument(level = "trace")]

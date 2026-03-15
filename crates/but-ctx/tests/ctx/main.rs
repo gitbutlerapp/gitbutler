@@ -69,6 +69,11 @@ fn project_data_dir_comes_from_git_config() -> anyhow::Result<()> {
         ctx.project_data_dir().join("but.sqlite").exists(),
         "database should be created in configured project-data directory"
     );
+    let _cache = ctx.cache.get_cache()?;
+    assert!(
+        ctx.project_data_dir().join("but_cache.sqlite").exists(),
+        "project cache should be created in configured project-data directory"
+    );
     Ok(())
 }
 
@@ -82,5 +87,13 @@ fn sync_context_preserves_project_data_dir() -> anyhow::Result<()> {
     let sync = ctx.to_sync();
     let restored = sync.into_thread_local();
     assert_eq!(ctx.project_data_dir(), restored.project_data_dir());
+    let _cache = restored.cache.get_cache()?;
+    assert!(
+        restored
+            .project_data_dir()
+            .join("but_cache.sqlite")
+            .exists(),
+        "thread-local restoration should still initialize the project cache in the project data dir"
+    );
     Ok(())
 }
