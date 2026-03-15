@@ -1862,3 +1862,42 @@ test("should settle faster when ResizeObserver fires before timeout", async ({ m
 	expect(await getVisibleItemIndices(viewport)).toContain(0);
 	expect(await viewport.locator(".async-content").count()).toBeGreaterThan(0);
 });
+
+test("should not wait full initSettleMs when items render at final height immediately", async ({
+	mount,
+}) => {
+	// Reproduces the bug seen in MultiDiffView: jumpToIndex renders items
+	// whose final height differs from defaultHeight but that have no async
+	// expansion. settle() should skip the wait when it detects that the
+	// measured height diverged from defaultHeight by more than 1px (meaning
+	// the item rendered its final content directly, not a skeleton).
+	const component = await mount(VirtualListTestWrapper, {
+		props: {
+			itemCount: 50,
+			defaultHeight: 30,
+			// No asyncContent — items render at final size immediately (100px
+			// from CSS min-height, which differs from defaultHeight: 30).
+			initSettleMs: 2000,
+		},
+	});
+
+	const viewport = component.locator(".viewport");
+	await waitForScrollStability(viewport);
+
+	// jumpToIndex triggers initializeAt which calls settle() per item.
+	const input = component.getByTestId("jump-to-index-input");
+	await input.fill("25");
+	const startTime = Date.now();
+	await component.getByTestId("jump-to-index-button").click();
+	await waitForScrollStability(viewport);
+	const elapsed = Date.now() - startTime;
+
+	// Without the fix, each item blocks for the full 2000ms settle timeout.
+	// With ~2 items needing settle, that's 4000ms+.
+	// With the fix, settle skips immediately when it detects the item
+	// rendered at a height far from defaultHeight, so this completes fast.
+	expect(elapsed).toBeLessThan(2000);
+
+	const indices = await getVisibleItemIndices(viewport);
+	expect(indices).toContain(25);
+});
