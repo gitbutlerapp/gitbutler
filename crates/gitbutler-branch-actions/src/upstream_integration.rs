@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anyhow::{Context as _, Result, anyhow, bail};
+use anyhow::{Context as _, Result, bail};
 use bstr::ByteSlice;
 use but_core::{Reference, RepositoryExt};
 use but_ctx::{Context, access::RepoExclusive};
@@ -11,9 +11,7 @@ use but_serde::BStringForFrontend;
 use but_workspace::{legacy::stack_ext::StackDetailsExt, ref_info::Options};
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_repo::{
-    RepositoryExt as _,
-    logging::{LogUntil, RepositoryExt as _},
-    rebase::gitbutler_merge_commits,
+    RepositoryExt as _, first_parent_commit_ids_until, rebase::gitbutler_merge_commits,
 };
 use gitbutler_stack::{StackId, Target, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
@@ -87,8 +85,8 @@ pub enum ResolutionApproach {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct BaseBranchResolution {
-    #[serde(with = "but_serde::oid")]
-    target_commit_oid: git2::Oid,
+    #[serde(with = "but_serde::object_id")]
+    target_commit_oid: gix::ObjectId,
     approach: BaseBranchResolutionApproach,
 }
 
@@ -154,7 +152,7 @@ pub struct Resolution {
 
 enum IntegrationResult {
     UpdatedObjects {
-        head: git2::Oid,
+        head: gix::ObjectId,
         rebase_output: Option<RebaseOutput>,
         for_archival: Vec<Reference>,
     },
@@ -166,7 +164,7 @@ pub struct UpstreamIntegrationContext<'a> {
     _permission: Option<&'a mut RepoExclusive>,
     ctx: &'a Context,
     stacks_in_workspace: Vec<but_workspace::legacy::ui::StackEntry>,
-    new_target: git2::Oid,
+    new_target: gix::ObjectId,
     target: Target,
     gix_repo: &'a gix::Repository,
     review_map: &'a HashMap<String, but_forge::ForgeReview>,
@@ -175,14 +173,13 @@ pub struct UpstreamIntegrationContext<'a> {
 impl<'a> UpstreamIntegrationContext<'a> {
     pub(crate) fn open(
         ctx: &'a Context,
-        target_commit_oid: Option<git2::Oid>,
+        target_commit_oid: Option<gix::ObjectId>,
         permission: &'a mut RepoExclusive,
         gix_repo: &'a gix::Repository,
         review_map: &'a HashMap<String, but_forge::ForgeReview>,
     ) -> Result<Self> {
         let meta = ctx.meta()?;
         let repo = ctx.repo.get()?;
-        let git2_repo = &*ctx.git2_repo.get()?;
         let _ref_info = but_workspace::head_info(
             &repo,
             &meta,
@@ -194,16 +191,15 @@ impl<'a> UpstreamIntegrationContext<'a> {
 
         let virtual_branches_handle = ctx.virtual_branches();
         let target = virtual_branches_handle.get_default_target()?;
-        let target_branch = git2_repo
-            .maybe_find_branch_by_refname(&target.branch.clone().into())?
-            .ok_or(anyhow!("Branch not found"))?;
-
-        let new_target = target_commit_oid
-            .map_or_else(
-                || target_branch.get().peel_to_commit(),
-                |oid| git2_repo.find_commit(oid),
-            )?
-            .id();
+        let new_target = match target_commit_oid {
+            Some(oid) => oid,
+            None => {
+                gix_repo
+                    .find_reference(&target.branch.to_string())?
+                    .peel_to_commit()?
+                    .id
+            }
+        };
 
         let stacks_in_workspace = stacks(ctx, gix_repo)?;
 
@@ -253,7 +249,7 @@ fn get_stack_status(
     review_map: &HashMap<String, but_forge::ForgeReview>,
     ctx: &Context,
 ) -> Result<StackStatus> {
-    let mut last_head: git2::Oid = new_target_commit_id.to_git2();
+    let mut last_head = new_target_commit_id;
 
     let mut branch_statuses: Vec<NameAndStatus> = vec![];
 
@@ -312,11 +308,11 @@ fn get_stack_status(
                 new_message: None,
             })
             .collect();
-        let mut rebase = but_rebase::Rebase::new(gix_repo, Some(rebase_base.to_gix()), None)?;
+        let mut rebase = but_rebase::Rebase::new(gix_repo, Some(rebase_base), None)?;
         rebase.rebase_noops(false);
         rebase.steps(steps)?;
         let output = rebase.rebase()?;
-        let new_head_oid = output.top_commit.to_git2();
+        let new_head_oid = output.top_commit;
 
         let any_conflicted = output.commit_mapping.iter().any(|(_base, _old, new)| {
             if let Ok(commit) = gix_repo.find_commit(*new) {
@@ -352,22 +348,18 @@ pub fn upstream_integration_statuses(
         ctx,
         ..
     } = context;
-    let git2_repo = &*ctx.git2_repo.get()?;
-    let old_target = git2_repo.find_commit(target.sha)?;
 
-    let repo = context.ctx.clone_repo_for_merging()?;
+    let repo = ctx.clone_repo_for_merging()?;
     let repo_in_memory = repo.clone().with_object_memory();
 
-    if *new_target == old_target.id() {
+    if *new_target == target.sha {
         return Ok(StackStatuses::UpToDate);
     };
-
-    let new_target_id = new_target.to_gix();
 
     let heads = stacks_in_workspace
         .iter()
         .map(|stack| stack.tip)
-        .chain(std::iter::once(new_target_id))
+        .chain(std::iter::once(*new_target))
         .collect::<Vec<_>>();
 
     // The merge base tree of all of the applied stacks plus the new target
@@ -387,7 +379,7 @@ pub fn upstream_integration_statuses(
         .to_gix();
 
     // The target tree
-    let target_tree = repo.find_commit(new_target.to_gix())?.tree_id()?;
+    let target_tree = repo.find_commit(*new_target)?.tree_id()?;
 
     let (merge_options_fail_fast, _conflict_kind) = repo.merge_options_no_rewrites_fail_fast()?;
 
@@ -427,7 +419,7 @@ pub fn upstream_integration_statuses(
                 stack.id,
                 get_stack_status(
                     &repo_in_memory,
-                    new_target.to_gix(),
+                    *new_target,
                     stack.id,
                     review_map,
                     context.ctx,
@@ -455,14 +447,9 @@ pub(crate) fn integrate_upstream(
         .map(|r| (Some(r.target_commit_oid), Some(r.approach)))
         .unwrap_or((None, None));
 
-    let gix_repo = ctx.repo.get()?;
-    let context = UpstreamIntegrationContext::open(
-        ctx,
-        target_commit_oid,
-        permission,
-        &gix_repo,
-        review_map,
-    )?;
+    let repo = ctx.repo.get()?;
+    let context =
+        UpstreamIntegrationContext::open(ctx, target_commit_oid, permission, &repo, review_map)?;
     let virtual_branches_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let default_target = virtual_branches_state.get_default_target()?;
 
@@ -539,7 +526,7 @@ pub(crate) fn integrate_upstream(
             if delete_local_refs {
                 for head in &stack.heads {
                     let branch_name = head.name.to_str().context("Invalid branch name")?;
-                    match head.delete_reference(&gix_repo) {
+                    match head.delete_reference(&repo) {
                         Ok(_) => {
                             deleted_branches.push(branch_name.to_string());
                         }
@@ -615,7 +602,7 @@ pub(crate) fn integrate_upstream(
                 }
             }
 
-            stack.set_stack_head(&virtual_branches_state, &gix_repo, *head)?;
+            stack.set_stack_head(&virtual_branches_state, &repo, *head)?;
 
             let delete_local_refs = resolutions
                 .iter()
@@ -624,7 +611,7 @@ pub(crate) fn integrate_upstream(
                 .unwrap_or(false);
 
             let stack_branches_deleted =
-                stack.archive_integrated_heads(ctx, &gix_repo, for_archival, delete_local_refs)?;
+                stack.archive_integrated_heads(ctx, &repo, for_archival, delete_local_refs)?;
             deleted_branches.extend(stack_branches_deleted);
         }
 
@@ -647,46 +634,42 @@ pub(crate) fn resolve_upstream_integration(
     resolution_approach: BaseBranchResolutionApproach,
     review_map: &HashMap<String, but_forge::ForgeReview>,
     permission: &mut RepoExclusive,
-) -> Result<git2::Oid> {
-    let gix_repo = ctx.repo.get()?;
-    let context = UpstreamIntegrationContext::open(ctx, None, permission, &gix_repo, review_map)?;
-    let repo = &*ctx.git2_repo.get()?;
+) -> Result<gix::ObjectId> {
+    let repo = ctx.repo.get()?;
+    let context = UpstreamIntegrationContext::open(ctx, None, permission, &repo, review_map)?;
+    let git2_repo = &*ctx.git2_repo.get()?;
     let new_target_id = context.new_target;
     let old_target_id = context.target.sha;
-    let fork_point = repo.merge_base(old_target_id, new_target_id)?;
+    let fork_point = repo.merge_base(old_target_id, new_target_id)?.detach();
 
     match resolution_approach {
         BaseBranchResolutionApproach::HardReset => Ok(new_target_id),
         BaseBranchResolutionApproach::Merge => {
             let branch_name = context.target.branch.to_string();
-            let old_target = repo.find_commit(context.target.sha)?;
+            let old_target = git2_repo.find_commit(old_target_id.to_git2())?;
             let new_head = gitbutler_merge_commits(
-                repo,
+                git2_repo,
                 old_target,
-                repo.find_commit(context.new_target)?,
+                git2_repo.find_commit(context.new_target.to_git2())?,
                 &branch_name,
                 &branch_name,
             )?;
 
-            Ok(new_head.id())
+            Ok(new_head.id().to_gix())
         }
         BaseBranchResolutionApproach::Rebase => {
-            let commits = repo.l(old_target_id, LogUntil::Commit(fork_point), false)?;
-            let steps = commits
-                .iter()
-                .map(|commit| RebaseStep::Pick {
-                    commit_id: commit.to_gix(),
+            let steps = first_parent_commit_ids_until(&repo, old_target_id, fork_point)?
+                .into_iter()
+                .map(|commit_id| RebaseStep::Pick {
+                    commit_id,
                     new_message: None,
                 })
                 .collect::<Vec<_>>();
-            let mut rebase =
-                but_rebase::Rebase::new(&gix_repo, Some(new_target_id.to_gix()), None)?;
+            let mut rebase = but_rebase::Rebase::new(&repo, Some(new_target_id), None)?;
             rebase.steps(steps)?;
             rebase.rebase_noops(false);
             let outcome = rebase.rebase()?;
-            let new_head = outcome.top_commit.to_git2();
-
-            Ok(new_head)
+            Ok(outcome.top_commit)
         }
     }
 }
@@ -730,7 +713,7 @@ fn compute_resolutions(
                     let new_head = gitbutler_merge_commits(
                         repo,
                         target_commit,
-                        repo.find_commit(*new_target)?,
+                        repo.find_commit(new_target.to_git2())?,
                         target_branch_name,
                         &incoming_branch_name,
                     )?;
@@ -738,7 +721,7 @@ fn compute_resolutions(
                     Ok((
                         stack.id,
                         IntegrationResult::UpdatedObjects {
-                            head: new_head.id(),
+                            head: new_head.id().to_gix(),
                             rebase_output: None,
                             for_archival: vec![],
                         },
@@ -799,15 +782,12 @@ fn compute_resolutions(
                         }
                     }
 
-                    let mut rebase = but_rebase::Rebase::new(
-                        context.gix_repo,
-                        Some(lower_bound.to_gix()),
-                        None,
-                    )?;
+                    let mut rebase =
+                        but_rebase::Rebase::new(context.gix_repo, Some(lower_bound), None)?;
                     rebase.rebase_noops(false);
                     rebase.steps(steps)?;
                     let output = rebase.rebase()?;
-                    let new_head = output.top_commit.to_git2();
+                    let new_head = output.top_commit;
 
                     Ok((
                         stack.id,

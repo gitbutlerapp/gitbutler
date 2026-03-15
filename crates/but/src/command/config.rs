@@ -6,12 +6,15 @@
 use std::fmt::{Display, Write};
 
 use anyhow::{Context as _, Result};
+use but_core::git_config::{remove_config_value, set_config_value};
 use but_ctx::Context;
 use but_settings::{AppSettingsWithDiskSync, api::TelemetryUpdate};
 use cfg_if::cfg_if;
 use colored::Colorize;
+use gix::bstr::ByteSlice as _;
 use serde::Serialize;
 
+use super::git_config::edit_git_config;
 use crate::{
     args::config::{ForgeSubcommand, MetricsStatus, Subcommands, UiSubcommand, UserSubcommand},
     tui,
@@ -53,9 +56,9 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
 
     // Get user info from git config
     let user_info = {
-        let git2_repo = &*ctx.git2_repo.get()?;
-        let git2_config = git2_repo.config()?;
-        get_user_config_info(&git2_config)?
+        let repo = ctx.repo.get()?;
+        let config = repo.config_snapshot();
+        get_user_config_info(&config)
     };
 
     // Get target branch
@@ -113,9 +116,9 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
 
         // UI section
         {
-            let git2_repo = &*ctx.git2_repo.get()?;
-            let git2_config = git2_repo.config()?;
-            let tui_enabled = get_tui_enabled(&git2_config);
+            let repo = ctx.repo.get()?;
+            let config = repo.config_snapshot();
+            let tui_enabled = get_tui_enabled(&config);
             writeln!(out, "{}:", "UI".bold())?;
             writeln!(
                 out,
@@ -260,28 +263,29 @@ struct UserConfigInfo {
     name: Option<String>,
     email: Option<String>,
     editor: Option<String>,
-    name_scope: Option<String>,
-    email_scope: Option<String>,
-    editor_scope: Option<String>,
+    #[serde(serialize_with = "serialize_config_source")]
+    name_scope: Option<gix::config::Source>,
+    #[serde(serialize_with = "serialize_config_source")]
+    email_scope: Option<gix::config::Source>,
+    #[serde(serialize_with = "serialize_config_source")]
+    editor_scope: Option<gix::config::Source>,
 }
 
 /// Get user configuration info from git config
-fn get_user_config_info(config: &git2::Config) -> Result<UserConfigInfo> {
-    let name = config.get_string("user.name").ok();
-    let email = config.get_string("user.email").ok();
-    let name_scope = get_config_scope(config, "user.name");
-    let email_scope = get_config_scope(config, "user.email");
-    let editor_scope = get_config_scope(config, "core.editor");
+fn get_user_config_info(config: &gix::config::Snapshot<'_>) -> UserConfigInfo {
+    let (name, name_scope) = get_config_string_and_scope(config, "user.name");
+    let (email, email_scope) = get_config_string_and_scope(config, "user.email");
+    let (_editor, editor_scope) = get_config_string_and_scope(config, "core.editor");
     let editor = tui::get_text::get_editor_command();
 
-    Ok(UserConfigInfo {
+    UserConfigInfo {
         name,
         email,
         editor,
         name_scope,
         email_scope,
         editor_scope,
-    })
+    }
 }
 
 /// Write user config info in human-readable format
@@ -294,7 +298,7 @@ fn write_user_config_human(out: &mut dyn std::fmt::Write, info: &UserConfigInfo)
             .as_deref()
             .map(|n| n.cyan())
             .unwrap_or_else(|| "(not set)".red()),
-        format_scope(&info.name_scope)
+        format_scope(info.name_scope)
     )?;
     writeln!(
         out,
@@ -304,14 +308,14 @@ fn write_user_config_human(out: &mut dyn std::fmt::Write, info: &UserConfigInfo)
             .as_deref()
             .map(|e| e.cyan())
             .unwrap_or_else(|| "(not set)".red()),
-        format_scope(&info.email_scope)
+        format_scope(info.email_scope)
     )?;
     writeln!(
         out,
         "  {}: {} {}",
         "Editor".dimmed(),
         info.editor.as_deref().unwrap_or("(built-in)").cyan(),
-        format_scope(&info.editor_scope)
+        format_scope(info.editor_scope)
     )?;
     writeln!(out)?;
     Ok(())
@@ -323,13 +327,13 @@ async fn user_config(
     out: &mut OutputChannel,
     cmd: Option<UserSubcommand>,
 ) -> Result<()> {
-    let repo = &*ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
 
     match cmd {
         // View user config
         None => {
-            let config = repo.config()?;
-            let user_info = get_user_config_info(&config)?;
+            let config = repo.config_snapshot();
+            let user_info = get_user_config_info(&config);
 
             if let Some(out) = out.for_human() {
                 writeln!(out, "{}:", "\nUser Configuration".bold())?;
@@ -355,15 +359,10 @@ async fn user_config(
         // Set user config
         Some(UserSubcommand::Set { key, value, global }) => {
             let git_key = key.to_git_key();
-
-            let mut config = if global {
-                let all = git2::Config::open_default()?;
-                all.open_level(git2::ConfigLevel::Global)?
-            } else {
-                repo.config()?
-            };
-
-            config.set_str(git_key, &value)?;
+            edit_git_config(&repo, global.into(), |config| {
+                set_config_value(config, git_key, &value)?;
+                Ok(true)
+            })?;
 
             if let Some(out) = out.for_human() {
                 writeln!(
@@ -388,15 +387,10 @@ async fn user_config(
         // Unset user config
         Some(UserSubcommand::Unset { key, global }) => {
             let git_key = key.to_git_key();
-
-            let mut config = if global {
-                let all = git2::Config::open_default()?;
-                all.open_level(git2::ConfigLevel::Global)?
-            } else {
-                repo.config()?
-            };
-
-            config.remove(git_key)?;
+            edit_git_config(&repo, global.into(), |config| {
+                remove_config_value(config, git_key)?;
+                Ok(true)
+            })?;
 
             if let Some(out) = out.for_human() {
                 writeln!(out, "{} Removed {}", "✓".green(), git_key.green(),)?;
@@ -1047,11 +1041,11 @@ async fn target_config(
 
 /// Handle UI config subcommand
 fn ui_config(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<UiSubcommand>) -> Result<()> {
-    let repo = &*ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
 
     match cmd {
         None => {
-            let config = repo.config()?;
+            let config = repo.config_snapshot();
             let tui_enabled = get_tui_enabled(&config);
             let tui_scope = get_config_scope(&config, "but.ui.tui");
 
@@ -1067,7 +1061,7 @@ fn ui_config(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<UiSubcomman
                     } else {
                         "disabled".red()
                     },
-                    format_scope(&tui_scope)
+                    format_scope(tui_scope)
                 )?;
                 writeln!(out)?;
                 writeln!(out, "{}:", "To change".dimmed())?;
@@ -1081,18 +1075,16 @@ fn ui_config(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<UiSubcomman
         }
         Some(UiSubcommand::Set { key, value, global }) => {
             let git_key = key.to_git_key();
-            let bool_value = parse_bool_value(&value).ok_or_else(|| {
-                anyhow::anyhow!("Invalid value '{value}'. Use true/false or 1/0.")
+            let bool_value = gix::config::Boolean::try_from(value.as_bytes().as_bstr())
+                .with_context(|| {
+                    anyhow::anyhow!("Invalid value '{value}'. Use true/false or 1/0.")
+                })?
+                .0;
+            let serialized = if bool_value { "true" } else { "false" };
+            edit_git_config(&repo, global.into(), |config| {
+                set_config_value(config, git_key, serialized)?;
+                Ok(true)
             })?;
-
-            let mut config = if global {
-                let all = git2::Config::open_default()?;
-                all.open_level(git2::ConfigLevel::Global)?
-            } else {
-                repo.config()?
-            };
-
-            config.set_bool(git_key, bool_value)?;
 
             if let Some(out) = out.for_human() {
                 writeln!(
@@ -1120,15 +1112,10 @@ fn ui_config(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<UiSubcomman
         }
         Some(UiSubcommand::Unset { key, global }) => {
             let git_key = key.to_git_key();
-
-            let mut config = if global {
-                let all = git2::Config::open_default()?;
-                all.open_level(git2::ConfigLevel::Global)?
-            } else {
-                repo.config()?
-            };
-
-            config.remove(git_key)?;
+            edit_git_config(&repo, global.into(), |config| {
+                remove_config_value(config, git_key)?;
+                Ok(true)
+            })?;
 
             if let Some(out) = out.for_human() {
                 writeln!(out, "{} Removed {}", "✓".green(), git_key.green())?;
@@ -1149,48 +1136,61 @@ fn ui_config(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<UiSubcomman
 }
 
 /// Check if TUI mode is enabled in git config. Defaults to false.
-pub(crate) fn get_tui_enabled(config: &git2::Config) -> bool {
-    config.get_bool("but.ui.tui").unwrap_or(false)
-}
-
-/// Parse a string as a boolean value (true/false, 1/0, yes/no, on/off).
-fn parse_bool_value(value: &str) -> Option<bool> {
-    match value.to_lowercase().as_str() {
-        "true" | "1" | "yes" | "on" => Some(true),
-        "false" | "0" | "no" | "off" => Some(false),
-        _ => None,
-    }
+pub(crate) fn get_tui_enabled(config: &gix::config::Snapshot<'_>) -> bool {
+    config.boolean("but.ui.tui").unwrap_or(false)
 }
 
 /// Get the scope (local/global) where a config key is set
-fn get_config_scope(config: &git2::Config, key: &str) -> Option<String> {
-    // Try to get value at local level first
-    if let Ok(local_config) = config.open_level(git2::ConfigLevel::Local)
-        && local_config.get_string(key).is_ok()
-    {
-        return Some("local".to_string());
-    }
+fn get_config_scope(config: &gix::config::Snapshot<'_>, key: &str) -> Option<gix::config::Source> {
+    get_config_string_and_scope(config, key).1
+}
 
-    // Check global level
-    if let Ok(global_config) = config.open_level(git2::ConfigLevel::Global)
-        && global_config.get_string(key).is_ok()
-    {
-        return Some("global".to_string());
-    }
+fn get_config_string_and_scope(
+    config: &gix::config::Snapshot<'_>,
+    key: &str,
+) -> (Option<String>, Option<gix::config::Source>) {
+    let mut scope = None;
+    let value_opt = config.string_filter(key, |meta| {
+        scope = Some(meta.source);
+        true
+    });
+    (value_opt.map(|s| s.to_string()), scope)
+}
 
-    // Check system level
-    if let Ok(system_config) = config.open_level(git2::ConfigLevel::System)
-        && system_config.get_string(key).is_ok()
-    {
-        return Some("system".to_string());
+fn config_source_scope(source: gix::config::Source) -> &'static str {
+    use gix::config::Source;
+    match source {
+        Source::Local | Source::Worktree => "local",
+        Source::User | Source::Git => "global",
+        Source::System => "system",
+        Source::GitInstallation => "git-installation",
+        Source::Env => "env",
+        Source::Cli => "cli",
+        Source::Api => "api",
+        Source::EnvOverride => "env-override",
     }
-    None
 }
 
 /// Format the scope for display
-fn format_scope(scope: &Option<String>) -> String {
+fn format_scope(scope: Option<gix::config::Source>) -> String {
     match scope {
-        Some(s) => format!("({s})").dimmed().to_string(),
+        Some(source) => format!("({})", config_source_scope(source))
+            .dimmed()
+            .to_string(),
         None => String::new(),
+    }
+}
+
+/// Serialize an optional config source using the user-facing scope labels.
+fn serialize_config_source<S>(
+    scope: &Option<gix::config::Source>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match scope {
+        Some(source) => serializer.serialize_some(config_source_scope(*source)),
+        None => serializer.serialize_none(),
     }
 }

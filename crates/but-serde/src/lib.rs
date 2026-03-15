@@ -155,6 +155,22 @@ where
     v.seconds().serialize(s)
 }
 
+/// Use on `gix::date::Time` fields that should serialize as Unix seconds.
+///
+/// ```rust
+/// #[derive(serde::Serialize)]
+/// struct Example {
+///     #[serde(serialize_with = "but_serde::as_time_seconds_from_unix_epoch_gix")]
+///     created_at: gix::date::Time,
+/// }
+/// ```
+pub fn as_time_seconds_from_unix_epoch_gix<S>(v: &gix::date::Time, s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    v.seconds.serialize(s)
+}
+
 #[cfg(feature = "legacy")]
 /// Use on `Option<git2::Oid>` fields serialized as `string | null`.
 ///

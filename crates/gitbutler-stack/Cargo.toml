@@ -34,7 +34,7 @@ name = "stack"
 path = "tests/mod.rs"
 
 [dev-dependencies]
-gitbutler-testsupport.workspace = true
+but-testsupport.workspace = true
 gitbutler-repo-actions.workspace = true
 tempfile.workspace = true
 but-db.workspace = true

@@ -11,7 +11,6 @@ use anyhow::{Context as _, Result, bail};
 use bstr::{BStr, BString, ByteSlice};
 use but_core::RepositoryExt;
 use but_ctx::Context;
-use but_oxidize::{self, ObjectIdExt, OidExt};
 use but_serde::BStringForFrontend;
 use gitbutler_branch::{BranchIdentity, ReferenceExtGix};
 use gitbutler_reference::{RemoteRefname, normalize_branch_name};
@@ -297,7 +296,7 @@ fn branch_group_to_branch(
     }
     .context("Could not get any valid reference in order to build branch stats")?;
 
-    let head = head_commit.detach().to_git2();
+    let head = head_commit.detach();
     let head_commit = head_commit.object()?.try_into_commit()?;
     let head_commit = head_commit.decode()?;
     let last_modified_ms = max(
@@ -545,7 +544,7 @@ pub struct BranchListing {
     /// 2. The head of the first local branch
     /// 3. The head of the first remote branch
     #[serde(skip)]
-    pub head: git2::Oid,
+    pub head: gix::ObjectId,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(BranchListing);
@@ -568,26 +567,6 @@ pub struct Author {
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(Author);
-
-impl From<git2::Signature<'_>> for Author {
-    fn from(value: git2::Signature) -> Self {
-        let name = value.name().map(str::to_string).map(Into::into);
-        let email = value.email().map(str::to_string).map(Into::into);
-
-        let gravatar_url = match value.email() {
-            Some(email) => gravatar_url_from_email(email)
-                .map(|url| url.as_ref().into())
-                .ok(),
-            None => None,
-        };
-
-        Author {
-            name,
-            email,
-            gravatar_url,
-        }
-    }
-}
 
 impl From<gix::actor::SignatureRef<'_>> for Author {
     fn from(value: gix::actor::SignatureRef<'_>) -> Self {
@@ -652,7 +631,7 @@ pub fn get_branch_listing_details(
         let target_branch_name = target_branch_name.as_str();
         let mut target_branch = repo.find_reference(target_branch_name)?;
 
-        (target_branch.peel_to_commit()?.id.to_git2(), target.sha)
+        (target_branch.peel_to_commit()?.id, target.sha)
     };
 
     let mut enriched_branches = Vec::new();
@@ -722,13 +701,8 @@ pub fn get_branch_listing_details(
                     let cache = repo.commit_graph_if_enabled()?;
                     let mut graph = repo.revision_graph(cache.as_ref());
                     for (other_branch_commit_id, branch_head) in all_other_branch_commit_ids {
-                        let branch_head = branch_head.to_gix();
                         let base = repo
-                            .merge_base_with_graph(
-                                other_branch_commit_id.to_gix(),
-                                branch_head,
-                                &mut graph,
-                            )
+                            .merge_base_with_graph(other_branch_commit_id, branch_head, &mut graph)
                             .ok()
                             .map(gix::Id::detach);
                         let res = match base {
@@ -770,7 +744,7 @@ pub fn get_branch_listing_details(
                 continue;
             };
 
-            let branch_head = branch.head.to_gix();
+            let branch_head = branch.head;
             let base_commit = repo.find_object(base)?.try_into_commit()?;
             let base_tree = base_commit.tree()?;
             let head_tree = repo.find_object(branch_head)?.peel_to_tree()?;

@@ -1,5 +1,5 @@
 use but_core::{DiffSpec, HunkHeader};
-use but_oxidize::ObjectIdExt;
+use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_testsupport::stack_details;
 
@@ -75,7 +75,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
                 new_lines: 1,
             }],
         }];
-        gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_id, to_amend).unwrap();
+        gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_id.to_gix(), to_amend).unwrap();
 
         let (_, b) = stack_details(ctx)
             .into_iter()
@@ -136,7 +136,8 @@ fn non_locked_hunk() -> anyhow::Result<()> {
                 new_lines: 1,
             }],
         }];
-        gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid, to_amend).unwrap();
+        gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid.to_gix(), to_amend)
+            .unwrap();
 
         let (_, b) = stack_details(ctx)
             .into_iter()
@@ -197,7 +198,7 @@ fn non_existing_ownership() {
             }],
         }];
         assert_eq!(
-            gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid, to_amend)
+            gitbutler_branch_actions::amend(ctx, stack_entry.id, commit_oid.to_gix(), to_amend)
                 .unwrap_err()
                 .to_string(),
             r#"Failed to amend with commit engine. Rejected specs: [(NoEffectiveChanges, DiffSpec { previous_path: None, path: "file2.txt", hunk_headers: [HunkHeader("-1,0", "+1,1")] })]"#,

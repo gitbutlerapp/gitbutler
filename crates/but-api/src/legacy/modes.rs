@@ -3,7 +3,6 @@ use anyhow::Result;
 use but_api_macros::but_api;
 use but_core::{ref_metadata::StackId, ui::TreeChange};
 use but_ctx::Context;
-use but_oxidize::ObjectIdExt;
 use gitbutler_edit_mode::ConflictEntryPresence;
 use gitbutler_operating_modes::{EditModeMetadata, OperatingMode};
 use tracing::instrument;
@@ -60,7 +59,7 @@ pub fn enter_edit_mode(
     commit_id: gix::ObjectId,
     stack_id: StackId,
 ) -> Result<EditModeMetadata> {
-    gitbutler_edit_mode::commands::enter_edit_mode(ctx, commit_id.to_git2(), stack_id)
+    gitbutler_edit_mode::commands::enter_edit_mode(ctx, commit_id, stack_id)
 }
 
 #[but_api]

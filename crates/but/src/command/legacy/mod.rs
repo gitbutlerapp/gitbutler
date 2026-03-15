@@ -2,6 +2,7 @@
 //! Doing so means that no legacy-APIs are used.
 
 use anyhow::Result;
+use bstr::ByteSlice;
 
 pub mod absorb;
 pub mod actions;
@@ -84,8 +85,8 @@ pub(crate) fn estimate_diff_blob_size(
     changes: &[but_core::TreeChange],
     ctx: &but_ctx::Context,
 ) -> Result<u64> {
-    fn blob_size(repo: &gix::Repository, id: &gix::ObjectId) -> u64 {
-        repo.find_header(*id).map(|h| h.size()).unwrap_or(0)
+    fn blob_size(repo: &gix::Repository, id: gix::ObjectId) -> u64 {
+        repo.find_header(id).map(|h| h.size()).unwrap_or(0)
     }
 
     let repo = ctx.repo.get()?;
@@ -93,9 +94,9 @@ pub(crate) fn estimate_diff_blob_size(
     Ok(changes
         .iter()
         .map(|change| match &change.status {
-            but_core::TreeStatus::Addition { state, .. } => blob_size(&repo, &state.id),
+            but_core::TreeStatus::Addition { state, .. } => blob_size(&repo, state.id),
             but_core::TreeStatus::Deletion { previous_state } => {
-                blob_size(&repo, &previous_state.id)
+                blob_size(&repo, previous_state.id)
             }
             but_core::TreeStatus::Modification {
                 previous_state,
@@ -107,12 +108,70 @@ pub(crate) fn estimate_diff_blob_size(
                 state,
                 ..
             } => {
-                let a = blob_size(&repo, &previous_state.id);
-                let b = blob_size(&repo, &state.id);
+                let a = blob_size(&repo, previous_state.id);
+                let b = blob_size(&repo, state.id);
                 a.max(b)
             }
         })
         .fold(0, |a, b| a.saturating_add(b)))
+}
+
+/// Return the commit message summary, or `(no message)` if the summary is empty.
+pub(crate) fn commit_summary(commit: &gix::objs::CommitRef<'_>) -> String {
+    let summary = commit.message().summary();
+    if summary.is_empty() {
+        "(no message)".to_string()
+    } else {
+        summary.to_string()
+    }
+}
+
+/// A summarized file change used by legacy show-style command output.
+#[derive(Debug, serde::Serialize)]
+pub(crate) struct FileChange {
+    /// The repository-relative path of the changed file.
+    path: String,
+    /// The simplified change kind, for example `added` or `modified`.
+    status: String,
+    /// The number of inserted lines in the rendered patch, if any.
+    insertions: usize,
+    /// The number of deleted lines in the rendered patch, if any.
+    deletions: usize,
+}
+
+/// Convert a tree change into the legacy file summary shape.
+pub(crate) fn file_change_from_tree_change(
+    repo: &gix::Repository,
+    change: but_core::TreeChange,
+) -> Result<FileChange> {
+    let (insertions, deletions) = match change.unified_patch(repo, 0)? {
+        Some(but_core::UnifiedPatch::Patch {
+            lines_added,
+            lines_removed,
+            ..
+        }) => (
+            usize::try_from(lines_added).unwrap_or(usize::MAX),
+            usize::try_from(lines_removed).unwrap_or(usize::MAX),
+        ),
+        _ => (0, 0),
+    };
+
+    Ok(FileChange {
+        path: change.path.to_str_lossy().to_string(),
+        status: change_status(&change).to_string(),
+        insertions,
+        deletions,
+    })
+}
+
+/// Convert a tree change kind to the human and JSON status strings used by legacy show output.
+fn change_status(change: &but_core::TreeChange) -> &'static str {
+    match change.status {
+        but_core::TreeStatus::Addition { .. } => "added",
+        but_core::TreeStatus::Deletion { .. } => "deleted",
+        but_core::TreeStatus::Modification { .. } => "modified",
+        but_core::TreeStatus::Rename { .. } => "renamed",
+    }
 }
 
 #[cfg(test)]

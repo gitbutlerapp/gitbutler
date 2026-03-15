@@ -14,4 +14,4 @@ pub use stack::PatchReferenceUpdate;
 #[expect(deprecated)]
 mod stack_branch;
 pub use stack::canned_branch_name;
-pub use stack_branch::StackBranch;
+pub use stack_branch::{BranchCommitIds, StackBranch};

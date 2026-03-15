@@ -1,27 +1,25 @@
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
-use but_oxidize::ObjectIdExt;
 use colored::Colorize;
-use gix::ObjectId;
 
 use crate::utils::{OutputChannel, shorten_object_id};
 
 pub(crate) fn commit(
     ctx: &mut Context,
-    oid: &ObjectId,
+    oid: gix::ObjectId,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    gitbutler_branch_actions::undo_commit(ctx, stack_id_by_commit_id(ctx, oid)?, oid.to_git2())?;
+    gitbutler_branch_actions::undo_commit(ctx, stack_id_by_commit_id(ctx, oid)?, oid)?;
     if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?;
-        writeln!(out, "Uncommitted {}", shorten_object_id(&repo, *oid).blue())?;
+        writeln!(out, "Uncommitted {}", shorten_object_id(&repo, oid).blue())?;
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({"ok": true}))?;
     }
     Ok(())
 }
 
-pub(crate) fn stack_id_by_commit_id(ctx: &Context, oid: &ObjectId) -> anyhow::Result<StackId> {
+pub(crate) fn stack_id_by_commit_id(ctx: &Context, oid: gix::ObjectId) -> anyhow::Result<StackId> {
     let stacks = crate::legacy::commits::stacks(ctx)?
         .iter()
         .filter_map(|s| {
@@ -33,7 +31,7 @@ pub(crate) fn stack_id_by_commit_id(ctx: &Context, oid: &ObjectId) -> anyhow::Re
         stack
             .branch_details
             .iter()
-            .any(|branch| branch.commits.iter().any(|commit| commit.id == *oid))
+            .any(|branch| branch.commits.iter().any(|commit| commit.id == oid))
     }) {
         return Ok(*id);
     }

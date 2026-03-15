@@ -6,7 +6,6 @@ use bstr::BString;
 use but_core::RefMetadata;
 use but_ctx::Context;
 use but_meta::VirtualBranchesTomlMetadata;
-use but_oxidize::{OidExt, git2_signature_to_gix_signature};
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use gitbutler_stack::{Stack, StackId};
 use gix::date::parse::TimeBuf;
@@ -537,33 +536,32 @@ pub fn local_and_remote_commits(
         .context("failed to get default target")?;
     let cache = repo.commit_graph_if_enabled()?;
     let mut graph = repo.revision_graph(cache.as_ref());
-    let git2_repo = ctx.git2_repo.get()?;
-    let mut check_commit = IsCommitIntegrated::new(repo, &git2_repo, &default_target, &mut graph)?;
+    let mut check_commit = IsCommitIntegrated::new(repo, &default_target, &mut graph)?;
 
-    let branch_commits = stack_branch.commits(&git2_repo, ctx, stack)?;
+    let branch_commits = stack_branch.commit_ids(repo, ctx, stack)?;
     let mut local_and_remote: Vec<ui::Commit> = vec![];
     let mut is_integrated = false;
 
     let remote_commit_data = branch_commits
         .remote_commits
         .iter()
-        .filter_map(|commit| {
-            let data = CommitData::try_from(commit).ok()?;
-            Some((data, commit.id()))
+        .filter_map(|commit_id| {
+            let gix_commit = repo.find_commit(*commit_id).ok()?;
+            let data = CommitData::try_from(&gix_commit).ok()?;
+            Some((data, *commit_id))
         })
         .collect::<HashMap<_, _>>();
 
     // Local and remote
     // Reverse first instead of later, so that we catch the first integrated commit
-    for commit in branch_commits.clone().local_commits.iter().rev() {
+    for commit_id in branch_commits.local_commits.iter().rev() {
         if !is_integrated {
-            is_integrated = check_commit.is_integrated(commit)?;
+            is_integrated = check_commit.is_integrated(*commit_id)?;
         }
-        let copied_from_remote_id = CommitData::try_from(commit)
+        let gix_commit = repo.find_commit(*commit_id)?;
+        let copied_from_remote_id = CommitData::try_from(&gix_commit)
             .ok()
             .and_then(|data| remote_commit_data.get(&data).copied());
-
-        let gix_commit = repo.find_commit(commit.id().to_gix())?;
         let change_id = gix_commit.change_id();
 
         let state = if is_integrated {
@@ -574,38 +572,38 @@ pub fn local_and_remote_commits(
             // - the commit has an identical sha as the remote commit (the no brainer case)
             // - the commit has a change id that matches a remote commit
             if let Some(remote_id) = copied_from_remote_id {
-                CommitState::LocalAndRemote(remote_id.to_gix())
+                CommitState::LocalAndRemote(remote_id)
             } else if let Some(remote_id) = branch_commits
                 .remote_commits
                 .iter()
-                .find(|c| {
-                    if c.id() == commit.id() {
+                .find(|remote_id| {
+                    if **remote_id == *commit_id {
                         return true;
                     }
 
-                    repo.find_commit(c.id().to_gix())
+                    repo.find_commit(**remote_id)
                         .ok()
                         .map(|c| c.change_id() == change_id)
                         .unwrap_or(false)
                 })
-                .map(|c| c.id())
+                .copied()
             {
-                CommitState::LocalAndRemote(remote_id.to_gix())
+                CommitState::LocalAndRemote(remote_id)
             } else {
                 CommitState::LocalOnly
             }
         };
 
-        let created_at = i128::from(commit.time().seconds()) * 1000;
+        let created_at = i128::from(gix_commit.time()?.seconds) * 1000;
 
         let api_commit = ui::Commit {
-            id: commit.id().to_gix(),
-            parent_ids: commit.parents().map(|p| p.id().to_gix()).collect(),
+            id: *commit_id,
+            parent_ids: gix_commit.parent_ids().map(|id| id.detach()).collect(),
             message: gix_commit.message_bstr().into(),
             has_conflicts: gix_commit.is_conflicted(),
             state,
             created_at,
-            author: commit.author().into(),
+            author: gix_commit.author()?.into(),
             gerrit_review_url: None,
         };
         local_and_remote.push(api_commit);
@@ -623,13 +621,13 @@ pub(crate) struct CommitData {
     author: gix::actor::Signature,
 }
 
-impl TryFrom<&git2::Commit<'_>> for CommitData {
+impl TryFrom<&gix::Commit<'_>> for CommitData {
     type Error = anyhow::Error;
 
-    fn try_from(commit: &git2::Commit<'_>) -> std::result::Result<Self, Self::Error> {
+    fn try_from(commit: &gix::Commit<'_>) -> std::result::Result<Self, Self::Error> {
         Ok(CommitData {
-            message: commit.message_raw_bytes().into(),
-            author: git2_signature_to_gix_signature(commit.author()),
+            message: commit.message_bstr().into(),
+            author: commit.author()?.into(),
         })
     }
 }

@@ -67,3 +67,12 @@ git init many-in-tree
 
   git add . && git commit -m "change"
 )
+
+git init binary-only-in-tree
+(cd binary-only-in-tree
+  printf '\0before\0' >file.binary
+  git add . && git commit -m "init"
+
+  printf '\0after\0' >file.binary
+  git add . && git commit -m "change"
+)

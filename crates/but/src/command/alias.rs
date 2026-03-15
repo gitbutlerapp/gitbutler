@@ -4,12 +4,13 @@
 
 use std::collections::HashMap;
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
 use but_ctx::Context;
 use colored::Colorize;
 use serde::Serialize;
 
+use super::git_config::{EditGlobalConfig, edit_git_config};
 use crate::utils::OutputChannel;
 
 /// Represents where an alias is configured
@@ -244,24 +245,19 @@ pub fn add(
     out: &mut OutputChannel,
     name: &str,
     value: &str,
-    global: bool,
+    global: EditGlobalConfig,
 ) -> Result<()> {
     // Validate alias name doesn't conflict with known commands
     if crate::alias::is_known_subcommand(name) {
         anyhow::bail!("Cannot create alias '{name}': it conflicts with a built-in command");
     }
 
-    // ok, let's set the value in git config (using git2)
-    let key = format!("but.alias.{name}");
-    let repo = &*ctx.git2_repo.get()?;
-    if global {
-        let all = git2::Config::open_default()?;
-        let mut global = all.open_level(git2::ConfigLevel::Global)?;
-        global.set_str(&key, value)?;
-    } else {
-        let mut cfg = repo.config()?; // repo (local) config
-        cfg.set_str(&key, value)?;
-    }
+    let is_global: bool = global.into();
+    let repo = ctx.repo.get()?;
+    edit_git_config(&repo, global, |config| {
+        set_alias(config, name, value)?;
+        Ok(true)
+    })?;
 
     if let Some(out) = out.for_human() {
         writeln!(
@@ -272,14 +268,14 @@ pub fn add(
             "→".dimmed(),
             value.cyan()
         )?;
-        if global {
+        if is_global {
             writeln!(out, "  (configured globally)")?;
         }
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({
             "name": name,
             "value": value,
-            "scope": if global { "global" } else { "local" }
+            "scope": if is_global { "global" } else { "local" }
         }))?;
     }
 
@@ -287,25 +283,15 @@ pub fn add(
 }
 
 /// Remove an alias
-pub fn remove(ctx: &mut Context, out: &mut OutputChannel, name: &str, global: bool) -> Result<()> {
-    // ok, let's try to remove the value in git config (using git2)
-    let mut success = false;
-    let key = format!("but.alias.{name}");
-    let repo = &*ctx.git2_repo.get()?;
-    if global {
-        let all = git2::Config::open_default()?;
-        let mut global = all.open_level(git2::ConfigLevel::Global)?;
-        if global.get_entry(&key).is_ok() {
-            global.remove(&key)?;
-            success = true;
-        }
-    } else {
-        let mut cfg = repo.config()?; // repo (local) config
-        if cfg.get_entry(&key).is_ok() {
-            cfg.remove(&key)?;
-            success = true;
-        }
-    }
+pub fn remove(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    name: &str,
+    global: EditGlobalConfig,
+) -> Result<()> {
+    let is_global: bool = global.into();
+    let repo = ctx.repo.get()?;
+    let success = edit_git_config(&repo, global, |config| Ok(remove_alias(config, name)))?;
 
     if let Some(out) = out.for_human() {
         if !success {
@@ -313,17 +299,35 @@ pub fn remove(ctx: &mut Context, out: &mut OutputChannel, name: &str, global: bo
             return Ok(());
         } else {
             writeln!(out, "Alias '{}' removed", name.green())?;
-            if global {
+            if is_global {
                 writeln!(out, "  (globally)")?;
             }
         }
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({
             "name": name,
-            "scope": if global { "global" } else { "local" },
+            "scope": if is_global { "global" } else { "local" },
             "removed": success
         }))?;
     }
 
+    Ok(())
+}
+
+fn remove_alias(config: &mut gix::config::File<'_>, name: &str) -> bool {
+    config
+        .section_mut("but", Some("alias".into()))
+        .ok()
+        .and_then(|mut section| section.remove(name))
+        .is_some()
+}
+
+fn set_alias(config: &mut gix::config::File<'static>, name: &str, value: &str) -> Result<()> {
+    let mut section = config.section_mut_or_create_new("but", Some("alias".into()))?;
+    section.set(
+        gix::config::parse::section::ValueName::try_from(name.to_owned())
+            .with_context(|| format!("invalid alias name for git config: {name}"))?,
+        value.into(),
+    );
     Ok(())
 }

@@ -35,7 +35,7 @@ pub(crate) enum RubOperation<'a> {
     UncommittedToCommit(
         NonEmpty<&'a but_hunk_assignment::HunkAssignment>,
         Description,
-        &'a gix::ObjectId,
+        gix::ObjectId,
     ),
     UncommittedToBranch(
         NonEmpty<&'a but_hunk_assignment::HunkAssignment>,
@@ -56,28 +56,28 @@ pub(crate) enum RubOperation<'a> {
         from: StackId,
         to: &'a str,
     },
-    UnassignedToCommit(&'a gix::ObjectId),
+    UnassignedToCommit(gix::ObjectId),
     UnassignedToBranch(&'a str),
     UnassignedToStack(StackId),
-    UndoCommit(&'a gix::ObjectId),
+    UndoCommit(gix::ObjectId),
     SquashCommits {
-        source: &'a gix::ObjectId,
-        destination: &'a gix::ObjectId,
+        source: gix::ObjectId,
+        destination: gix::ObjectId,
     },
-    MoveCommitToBranch(&'a gix::ObjectId, &'a str),
+    MoveCommitToBranch(gix::ObjectId, &'a str),
     BranchToUnassigned(&'a str),
     BranchToStack {
         from: &'a str,
         to: StackId,
     },
-    BranchToCommit(&'a str, &'a gix::ObjectId),
+    BranchToCommit(&'a str, gix::ObjectId),
     BranchToBranch {
         from: &'a str,
         to: &'a str,
     },
-    CommittedFileToBranch(&'a BStr, &'a gix::ObjectId, &'a str),
-    CommittedFileToCommit(&'a BStr, &'a gix::ObjectId, &'a gix::ObjectId),
-    CommittedFileToUnassigned(&'a BStr, &'a gix::ObjectId),
+    CommittedFileToBranch(&'a BStr, gix::ObjectId, &'a str),
+    CommittedFileToCommit(&'a BStr, gix::ObjectId, gix::ObjectId),
+    CommittedFileToUnassigned(&'a BStr, gix::ObjectId),
 }
 
 impl<'a> RubOperation<'a> {
@@ -182,21 +182,17 @@ impl<'a> RubOperation<'a> {
             }
             RubOperation::CommittedFileToBranch(path, commit_oid, name) => {
                 create_snapshot(ctx, OperationKind::FileChanges);
-                crate::command::commit::file::uncommit_file(ctx, path, *commit_oid, Some(name), out)
+                crate::command::commit::file::uncommit_file(ctx, path, commit_oid, Some(name), out)
             }
             RubOperation::CommittedFileToCommit(path, commit_oid, oid) => {
                 create_snapshot(ctx, OperationKind::FileChanges);
                 crate::command::commit::file::commited_file_to_another_commit(
-                    ctx,
-                    path,
-                    *commit_oid,
-                    *oid,
-                    out,
+                    ctx, path, commit_oid, oid, out,
                 )
             }
             RubOperation::CommittedFileToUnassigned(path, commit_oid) => {
                 create_snapshot(ctx, OperationKind::FileChanges);
-                crate::command::commit::file::uncommit_file(ctx, path, *commit_oid, None, out)
+                crate::command::commit::file::uncommit_file(ctx, path, commit_oid, None, out)
             }
         }
     }
@@ -229,7 +225,7 @@ pub(crate) fn route_operation<'a>(
             Some(RubOperation::UncommittedToCommit(
                 hunk_assignments,
                 description,
-                commit_id,
+                *commit_id,
             ))
         }
         (Uncommitted(uncommitted), Branch { name, .. }) => {
@@ -277,7 +273,7 @@ pub(crate) fn route_operation<'a>(
             Some(RubOperation::UncommittedToCommit(
                 hunk_assignments,
                 "hunk(s)".to_string(),
-                commit_id,
+                *commit_id,
             ))
         }
         (
@@ -325,14 +321,14 @@ pub(crate) fn route_operation<'a>(
         }
         // Unassigned -> *
         (Unassigned { .. }, Commit { commit_id, .. }) => {
-            Some(RubOperation::UnassignedToCommit(commit_id))
+            Some(RubOperation::UnassignedToCommit(*commit_id))
         }
         (Unassigned { .. }, Branch { name, .. }) => Some(RubOperation::UnassignedToBranch(name)),
         (Unassigned { .. }, Stack { stack_id, .. }) => {
             Some(RubOperation::UnassignedToStack(*stack_id))
         }
         // Commit -> *
-        (Commit { commit_id, .. }, Unassigned { .. }) => Some(RubOperation::UndoCommit(commit_id)),
+        (Commit { commit_id, .. }, Unassigned { .. }) => Some(RubOperation::UndoCommit(*commit_id)),
         (
             Commit {
                 commit_id: source, ..
@@ -342,11 +338,11 @@ pub(crate) fn route_operation<'a>(
                 ..
             },
         ) => Some(RubOperation::SquashCommits {
-            source,
-            destination,
+            source: *source,
+            destination: *destination,
         }),
         (Commit { commit_id, .. }, Branch { name, .. }) => {
-            Some(RubOperation::MoveCommitToBranch(commit_id, name))
+            Some(RubOperation::MoveCommitToBranch(*commit_id, name))
         }
         // Branch -> *
         (Branch { name, .. }, Unassigned { .. }) => Some(RubOperation::BranchToUnassigned(name)),
@@ -355,7 +351,7 @@ pub(crate) fn route_operation<'a>(
             to: *stack_id,
         }),
         (Branch { name, .. }, Commit { commit_id, .. }) => {
-            Some(RubOperation::BranchToCommit(name, commit_id))
+            Some(RubOperation::BranchToCommit(name, *commit_id))
         }
         (Branch { name: from, .. }, Branch { name: to, .. }) => {
             Some(RubOperation::BranchToBranch { from, to })
@@ -368,7 +364,7 @@ pub(crate) fn route_operation<'a>(
             Branch { name, .. },
         ) => Some(RubOperation::CommittedFileToBranch(
             path.as_ref(),
-            commit_id,
+            *commit_id,
             name,
         )),
         (
@@ -382,8 +378,8 @@ pub(crate) fn route_operation<'a>(
             },
         ) => Some(RubOperation::CommittedFileToCommit(
             path.as_ref(),
-            source,
-            target,
+            *source,
+            *target,
         )),
         (
             CommittedFile {
@@ -392,7 +388,7 @@ pub(crate) fn route_operation<'a>(
             Unassigned { .. },
         ) => Some(RubOperation::CommittedFileToUnassigned(
             path.as_ref(),
-            commit_id,
+            *commit_id,
         )),
         // All other combinations are invalid
         _ => None,

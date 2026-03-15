@@ -90,20 +90,6 @@ impl FromStr for Refname {
     }
 }
 
-impl TryFrom<&git2::Branch<'_>> for Refname {
-    type Error = Error;
-
-    fn try_from(value: &git2::Branch<'_>) -> std::result::Result<Self, Self::Error> {
-        let refname = String::from_utf8(value.get().name_bytes().to_vec()).map_err(Error::Utf8)?;
-
-        if !value.get().is_remote() {
-            return Err(Error::NotRemote(refname));
-        }
-
-        refname.parse()
-    }
-}
-
 impl PartialEq<FullNameRef> for Refname {
     fn eq(&self, other: &FullNameRef) -> bool {
         let Some((category, shortname)) = other.category_and_short_name() else {

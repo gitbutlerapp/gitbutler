@@ -1,6 +1,6 @@
 use std::{path::PathBuf, str};
 
-use but_ctx::Context;
+use but_ctx::{Context, RepoOpenMode};
 use but_settings::AppSettings;
 use gitbutler_project as projects;
 use gitbutler_repo::credentials::{Credential, SshCredential, help};
@@ -31,8 +31,12 @@ impl TestCase<'_> {
             repo.workdir().unwrap().to_path_buf(),
             self.preferred_key.clone(),
         );
-        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default())
-            .expect("can create context");
+        let ctx = Context::new_from_legacy_project_and_settings_with_repo_open_mode(
+            &project,
+            AppSettings::default(),
+            RepoOpenMode::Isolated,
+        )
+        .expect("can create context");
 
         let git2_repo = &*ctx.git2_repo.get().unwrap();
         let flow = help(git2_repo, &ctx.legacy_project, "origin").unwrap();

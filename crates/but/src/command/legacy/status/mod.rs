@@ -6,7 +6,6 @@ use but_api::diff::ComputeLineStats;
 use but_core::{RepositoryExt, TreeStatus, ui};
 use but_ctx::Context;
 use but_forge::ForgeReview;
-use but_oxidize::OidExt;
 use but_workspace::{ref_info::LocalCommitRelation, ui::PushStatus};
 use gitbutler_branch_actions::upstream_integration::BranchStatus as UpstreamBranchStatus;
 use gitbutler_operating_modes::OperatingMode;
@@ -243,7 +242,7 @@ async fn build_status_context<'a>(
         let target = stack.get_default_target()?;
         let target_name = format!("{}/{}", target.branch.remote(), target.branch.branch());
         let repo = ctx.repo.get()?;
-        let base_commit = repo.find_commit(target.sha.to_gix())?;
+        let base_commit = repo.find_commit(target.sha)?;
         let base_commit_decoded = base_commit.decode()?;
         let full_message = base_commit_decoded.message.to_string();
         let formatted_date = base_commit_decoded
@@ -253,10 +252,10 @@ async fn build_status_context<'a>(
         let author = base_commit_decoded.author()?;
         let common_merge_base_data = CommonMergeBase {
             target_name: target_name.clone(),
-            common_merge_base: shorten_object_id(&repo, target.sha.to_gix()),
+            common_merge_base: shorten_object_id(&repo, target.sha),
             message: full_message,
             commit_date: formatted_date,
-            commit_id: target.sha.to_gix(),
+            commit_id: target.sha,
             created_at: base_commit_decoded.committer()?.time()?.seconds as i128 * 1000,
             author_name: author.name.to_string(),
             author_email: author.email.to_string(),
@@ -272,39 +271,36 @@ async fn build_status_context<'a>(
                     let state = if base_branch.behind > 0 {
                         // Get the latest commit on the upstream branch (current_sha is the tip of the remote branch)
                         let commit_id = base_branch.current_sha;
-                        repo.find_commit(commit_id.to_gix())
-                            .ok()
-                            .and_then(|commit_obj| {
-                                let commit = commit_obj.decode().ok()?;
-                                let message = out.truncate_if_unpaged(
-                                    &commit.message.to_string().replace('\n', " "),
-                                    30,
-                                );
+                        repo.find_commit(commit_id).ok().and_then(|commit_obj| {
+                            let commit = commit_obj.decode().ok()?;
+                            let message = out.truncate_if_unpaged(
+                                &commit.message.to_string().replace('\n', " "),
+                                30,
+                            );
 
-                                let formatted_date = commit
-                                    .committer()
-                                    .ok()?
-                                    .time()
-                                    .ok()?
-                                    .format_or_unix(DATE_ONLY);
+                            let formatted_date = commit
+                                .committer()
+                                .ok()?
+                                .time()
+                                .ok()?
+                                .format_or_unix(DATE_ONLY);
 
-                                let author = commit.author().ok()?;
+                            let author = commit.author().ok()?;
 
-                                Some(UpstreamState {
-                                    target_name: base_branch.branch_name.clone(),
-                                    behind_count: base_branch.behind,
-                                    latest_commit: shorten_object_id(&repo, commit_id.to_gix()),
-                                    message,
-                                    commit_date: formatted_date,
-                                    last_fetched_ms: last_fetched,
-                                    commit_id: commit_id.to_gix(),
-                                    created_at: commit.committer().ok()?.time().ok()?.seconds
-                                        as i128
-                                        * 1000,
-                                    author_name: author.name.to_string(),
-                                    author_email: author.email.to_string(),
-                                })
+                            Some(UpstreamState {
+                                target_name: base_branch.branch_name.clone(),
+                                behind_count: base_branch.behind,
+                                latest_commit: shorten_object_id(&repo, commit_id),
+                                message,
+                                commit_date: formatted_date,
+                                last_fetched_ms: last_fetched,
+                                commit_id,
+                                created_at: commit.committer().ok()?.time().ok()?.seconds as i128
+                                    * 1000,
+                                author_name: author.name.to_string(),
+                                author_email: author.email.to_string(),
                             })
+                        })
                     } else {
                         None
                     };

@@ -64,7 +64,7 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
     let previous_files_count = wd_file_count(&worktree_dir)?;
     assert_eq!(previous_files_count, 3, "one file per round");
     let mut guard = ctx.exclusive_worktree_access();
-    ctx.restore_snapshot(snapshots[0].commit_id, guard.write_permission())
+    ctx.restore_snapshot(snapshots[0].commit_id.to_git2(), guard.write_permission())
         .expect("restoration succeeds");
 
     assert_eq!(
@@ -185,7 +185,10 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     {
         let mut guard = ctx.exclusive_worktree_access();
-        ctx.restore_snapshot(snapshots[1].clone().commit_id, guard.write_permission())?;
+        ctx.restore_snapshot(
+            snapshots[1].clone().commit_id.to_git2(),
+            guard.write_permission(),
+        )?;
     }
 
     // restores the conflict files
@@ -196,7 +199,10 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     {
         let mut guard = ctx.exclusive_worktree_access();
-        ctx.restore_snapshot(snapshots[2].clone().commit_id, guard.write_permission())?;
+        ctx.restore_snapshot(
+            snapshots[2].clone().commit_id.to_git2(),
+            guard.write_permission(),
+        )?;
     }
 
     // the restore removed our new branch
@@ -225,7 +231,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     {
         let mut guard = ctx.exclusive_worktree_access();
         // The ctx stores the `git2` repo
-        ctx.restore_snapshot(snapshots[1].commit_id, guard.write_permission())?;
+        ctx.restore_snapshot(snapshots[1].commit_id.to_git2(), guard.write_permission())?;
     }
 
     // test missing commits are recreated
@@ -313,7 +319,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     );
 
     let mut guard = ctx.exclusive_worktree_access();
-    ctx.restore_snapshot(snapshots[0].commit_id, guard.write_permission())
+    ctx.restore_snapshot(snapshots[0].commit_id.to_git2(), guard.write_permission())
         .expect("can restore the most recent snapshot, to undo commit 2, resetting to commit 1");
     drop(guard);
 
@@ -444,7 +450,7 @@ fn first_snapshot_diff_works() -> anyhow::Result<()> {
 
     // Test snapshot_diff on all snapshots to make sure none fail (including the first one)
     for snapshot in &snapshots {
-        let diff_result = ctx.snapshot_diff(snapshot.commit_id);
+        let diff_result = ctx.snapshot_diff(snapshot.commit_id.to_git2());
         assert!(
             diff_result.is_ok(),
             "snapshot_diff should work for snapshot {}, got error: {:?}",

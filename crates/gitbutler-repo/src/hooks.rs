@@ -7,6 +7,7 @@ use std::{
 use anyhow::Result;
 use bstr::ByteSlice;
 use but_ctx::Context;
+use but_oxidize::ObjectIdExt;
 use git2_hooks::{self, HookResult as H};
 use serde::Serialize;
 
@@ -76,7 +77,7 @@ pub fn commit_msg(ctx: &Context, mut message: String) -> Result<MessageHookResul
     }
 }
 
-pub fn pre_commit_with_tree(ctx: &Context, tree_id: git2::Oid) -> Result<HookResult> {
+pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<HookResult> {
     let repo = &*ctx.git2_repo.get()?;
     let original_tree = repo.index()?.write_tree()?;
 
@@ -89,7 +90,7 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: git2::Oid) -> Result<HookRes
     });
 
     let mut index = repo.index()?;
-    index.read_tree(&repo.find_tree(tree_id)?)?;
+    index.read_tree(&repo.find_tree(tree_id.to_git2())?)?;
     index.write()?;
 
     Ok(

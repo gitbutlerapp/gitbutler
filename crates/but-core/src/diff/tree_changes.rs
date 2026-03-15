@@ -66,6 +66,7 @@ impl TreeChanges {
         let mut resource_cache = repo.diff_resource_cache_for_tree_diff()?;
         for change in self.0.iter() {
             let change = change.attach(repo, repo);
+            stats.files_changed += 1;
             resource_cache.clear_resource_cache_keep_allocation();
             if let Some(counts) = change
                 .diff(&mut resource_cache)
@@ -73,7 +74,6 @@ impl TreeChanges {
                 .and_then(|mut platform| platform.line_counts().ok())
                 .flatten()
             {
-                stats.files_changed += 1;
                 stats.lines_added += u64::from(counts.insertions);
                 stats.lines_removed += u64::from(counts.removals);
             }
@@ -94,6 +94,18 @@ pub fn tree_changes(
     rhs: gix::ObjectId,
 ) -> anyhow::Result<Vec<TreeChange>> {
     Ok(TreeChanges::from_trees(repo, lhs, rhs)?.into_tree_changes())
+}
+
+/// Compute the tree-diff for `commit_id` with its first parent.
+pub fn commit_changes(commit_id: gix::Id<'_>) -> anyhow::Result<TreeChanges> {
+    let repo = commit_id.repo;
+    let parent_id = commit_id
+        .object()?
+        .into_commit()
+        .parent_ids()
+        .map(|id| id.detach())
+        .next();
+    TreeChanges::from_trees(repo, parent_id, commit_id.detach())
 }
 
 /// See [TreeChanges::from_trees()], but with [TreeChanges::compute_line_stats()] automatically called.

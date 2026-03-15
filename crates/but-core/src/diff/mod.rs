@@ -5,7 +5,7 @@ use crate::{
 };
 
 pub(crate) mod tree_changes;
-pub use tree_changes::{TreeChanges, tree_changes, tree_changes_with_line_stats};
+pub use tree_changes::{TreeChanges, commit_changes, tree_changes, tree_changes_with_line_stats};
 
 mod worktree;
 pub use worktree::{worktree_changes, worktree_changes_no_renames};

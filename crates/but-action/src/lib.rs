@@ -9,7 +9,6 @@ use std::{
 use but_core::{TreeChange, sync::RepoExclusiveGuard};
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId, access::RepoExclusive};
 use but_hunk_assignment::CommitAbsorption;
-use but_oxidize::ObjectIdExt;
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_stack::{Target, VirtualBranchesHandle};
@@ -127,7 +126,7 @@ fn default_target_setting_if_none(
     let target = Target {
         branch: remote_refname,
         remote_url: "".to_string(),
-        sha: head_commit.id.to_git2(),
+        sha: head_commit.id,
         push_remote_name: None,
     };
 

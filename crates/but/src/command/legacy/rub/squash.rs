@@ -2,7 +2,6 @@ use anyhow::bail;
 use bstr::BString;
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
 use colored::Colorize;
 use gix::ObjectId;
 
@@ -15,16 +14,16 @@ use crate::{
 
 pub(crate) fn commits(
     ctx: &mut Context,
-    source: &ObjectId,
-    destination: &ObjectId,
+    source: ObjectId,
+    destination: ObjectId,
     custom_message: Option<&str>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Delegate to the shared squashing logic
     squash_commits_internal(
         ctx,
-        vec![*source],
-        *destination,
+        vec![source],
+        destination,
         false,
         custom_message,
         None,
@@ -186,9 +185,9 @@ fn squash_commits_internal(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Validate all commits are on the same stack
-    let target_stack = stack_id_by_commit_id(ctx, &target_oid)?;
+    let target_stack = stack_id_by_commit_id(ctx, target_oid)?;
     for source_oid in &source_oids {
-        let source_stack = stack_id_by_commit_id(ctx, source_oid)?;
+        let source_stack = stack_id_by_commit_id(ctx, *source_oid)?;
         if source_stack != target_stack {
             bail!(
                 "Commits must be on the same stack to squash them together. Try squashing commits within a single branch or stack."
@@ -246,8 +245,8 @@ fn squash_commits_internal(
     let new_commit_oid = gitbutler_branch_actions::squash_commits(
         ctx,
         target_stack,
-        source_oids.iter().map(|oid| oid.to_git2()).collect(),
-        target_oid.to_git2(),
+        source_oids.clone(),
+        target_oid,
     )?;
 
     // Determine the final message and apply if needed
@@ -259,25 +258,13 @@ fn squash_commits_internal(
             destination_message.unwrap_or_default(),
             user_summary,
         )?;
-        but_api::commit::commit_reword_only(
-            ctx,
-            new_commit_oid.to_gix(),
-            BString::from(ai_message),
-        )?
-        .new_commit
-        .to_git2()
-    } else if let Some(msg) = custom_message {
-        but_api::commit::commit_reword_only(ctx, new_commit_oid.to_gix(), BString::from(msg))?
+        but_api::commit::commit_reword_only(ctx, new_commit_oid, BString::from(ai_message))?
             .new_commit
-            .to_git2()
+    } else if let Some(msg) = custom_message {
+        but_api::commit::commit_reword_only(ctx, new_commit_oid, BString::from(msg))?.new_commit
     } else if let Some(target_msg) = target_message {
-        but_api::commit::commit_reword_only(
-            ctx,
-            new_commit_oid.to_gix(),
-            BString::from(target_msg),
-        )?
-        .new_commit
-        .to_git2()
+        but_api::commit::commit_reword_only(ctx, new_commit_oid, BString::from(target_msg))?
+            .new_commit
     } else {
         new_commit_oid
     };
@@ -285,7 +272,7 @@ fn squash_commits_internal(
     // Output message based on context
     if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?;
-        let final_short = shorten_object_id(&repo, final_commit_oid.to_gix());
+        let final_short = shorten_object_id(&repo, final_commit_oid);
         if source_oids.len() == 1 {
             // Single commit squash (for backwards compatibility with `but rub`)
             writeln!(
@@ -306,7 +293,7 @@ fn squash_commits_internal(
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({
             "ok": true,
-            "new_commit_id": final_commit_oid.to_gix().to_string(),
+            "new_commit_id": final_commit_oid.to_string(),
             "squashed_count": source_oids.len(),
         }))?;
     }
@@ -428,8 +415,8 @@ fn parse_commit_range(
     };
 
     // Verify both commits are on the same stack FIRST
-    let start_stack = stack_id_by_commit_id(ctx, start_commit_oid)?;
-    let end_stack = stack_id_by_commit_id(ctx, end_commit_oid)?;
+    let start_stack = stack_id_by_commit_id(ctx, *start_commit_oid)?;
+    let end_stack = stack_id_by_commit_id(ctx, *end_commit_oid)?;
     if start_stack != end_stack {
         bail!(
             "Range endpoints must be on the same stack. '{start_str}' and '{end_str}' are on different stacks."

@@ -8,7 +8,6 @@ use anyhow::Context as _;
 use bstr::BString;
 use but_core::{TreeChange, UnifiedPatch, ref_metadata::StackId};
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
 use but_workspace::legacy::{CommmitSplitOutcome, ui::StackEntryNoOpt};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_oplog::{
@@ -992,16 +991,12 @@ pub fn squash_commits(
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> Result<gix::ObjectId, anyhow::Error> {
     let destination_id = gix::ObjectId::from_str(&params.destination_commit_id)
-        .map(|id| find_the_right_commit_id(id, commit_mapping))?
-        .to_git2();
+        .map(|id| find_the_right_commit_id(id, commit_mapping))?;
     let source_ids = params
         .source_commit_ids
         .iter()
         .map(|id| {
-            gix::ObjectId::from_str(id).map(|oid| {
-                let id = find_the_right_commit_id(oid, commit_mapping);
-                id.to_git2()
-            })
+            gix::ObjectId::from_str(id).map(|oid| find_the_right_commit_id(oid, commit_mapping))
         })
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -1024,9 +1019,9 @@ pub fn squash_commits(
     )?;
 
     // Update the commit mapping with the new commit id.
-    commit_mapping.insert(destination_id.to_gix(), new_commit_id.to_gix());
+    commit_mapping.insert(destination_id, new_commit_id);
 
-    Ok(new_commit_id.to_gix())
+    Ok(new_commit_id)
 }
 
 pub struct SplitBranch;
@@ -1660,9 +1655,7 @@ fn changes_in_branch_inner(
     } else {
         let start_commit_id = repo.find_reference(&branch_name)?.peel_to_commit()?.id;
         let target = state.get_default_target()?;
-        let merge_base = repo
-            .merge_base(start_commit_id, target.sha.to_gix())?
-            .detach();
+        let merge_base = repo.merge_base(start_commit_id, target.sha)?.detach();
         Ok((start_commit_id, merge_base))
     }?;
 

@@ -76,7 +76,6 @@ pub mod legacy {
 #[cfg(feature = "legacy")]
 mod oplog_snapshot {
     use but_ctx::{Context, access::RepoExclusive};
-    use but_oxidize::{ObjectIdExt, OidExt};
     use gitbutler_oplog::OplogExt;
 
     use crate::UnmaterializedOplogSnapshot;
@@ -91,7 +90,7 @@ mod oplog_snapshot {
         ) -> anyhow::Result<Self> {
             // TODO: these guards are probably something to remove as they don't belong into a plumbing crate, neither does Context.
             let guard = ctx.shared_worktree_access();
-            let tree_id = ctx.prepare_snapshot(guard.read_permission())?.to_gix();
+            let tree_id = ctx.prepare_snapshot(guard.read_permission())?;
             Ok(Self { tree_id, details })
         }
     }
@@ -100,7 +99,7 @@ mod oplog_snapshot {
         /// Call this method only if the main effect succeeded so the snapshot should be added to the operation log,
         /// using `ctx` with granted edit `perm`ission.
         pub fn commit(self, ctx: &Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {
-            let _commit_id = ctx.commit_snapshot(self.tree_id.to_git2(), self.details, perm)?;
+            let _commit_id = ctx.commit_snapshot(self.tree_id, self.details, perm)?;
             Ok(())
         }
     }

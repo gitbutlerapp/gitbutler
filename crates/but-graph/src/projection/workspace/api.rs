@@ -307,13 +307,13 @@ impl Workspace {
     /// Try to find a commit in the workspace and return it along with the segment and stack containing it.
     pub fn find_commit_and_containers(
         &self,
-        commit_id: &gix::ObjectId,
+        commit_id: gix::ObjectId,
     ) -> Option<(&Stack, &StackSegment, &StackCommit)> {
         self.stacks.iter().find_map(|stack| {
             stack.segments.iter().find_map(|seg| {
                 seg.commits
                     .iter()
-                    .find(|commit| commit.id == *commit_id)
+                    .find(|commit| commit.id == commit_id)
                     .map(|commit| (stack, seg, commit))
             })
         })

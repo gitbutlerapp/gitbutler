@@ -23,7 +23,7 @@ use crate::VirtualBranchesExt as _;
 pub(crate) fn undo_commit(
     ctx: &Context,
     stack_id: StackId,
-    commit_to_remove: git2::Oid,
+    commit_to_remove: gix::ObjectId,
     _perm: &mut RepoExclusive,
 ) -> Result<Stack> {
     let vb_state = ctx.virtual_branches();
@@ -39,7 +39,7 @@ pub(crate) fn undo_commit(
             RebaseStep::Pick {
                 commit_id,
                 new_message: _,
-            } => commit_id != &commit_to_remove.to_gix(),
+            } => commit_id != &commit_to_remove,
             _ => true,
         })
         .collect::<Vec<_>>();
@@ -50,7 +50,7 @@ pub(crate) fn undo_commit(
     let output = rebase.rebase()?;
 
     let new_head = output.top_commit.to_git2();
-    stack.set_stack_head(&vb_state, &repo, new_head)?;
+    stack.set_stack_head(&vb_state, &repo, new_head.to_gix())?;
 
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 

@@ -11,7 +11,6 @@ use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo::hooks;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{PatchReferenceUpdate, StackBranch, StackId};
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -152,7 +151,9 @@ pub fn push_stack(
     let default_target = state.get_default_target()?;
     let gix_repo = ctx.clone_repo_for_merging_non_persisting()?;
     let merge_base_id = git2_repo
-        .find_commit(git2_repo.merge_base(stack.head_oid(ctx)?.to_git2(), default_target.sha)?)?
+        .find_commit(
+            git2_repo.merge_base(stack.head_oid(ctx)?.to_git2(), default_target.sha.to_git2())?,
+        )?
         .id()
         .to_gix();
 
@@ -193,9 +194,8 @@ pub fn push_stack(
             continue;
         }
         let mut graph = gix_repo.revision_graph(cache.as_ref());
-        let mut check_commit =
-            IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
-        if branch_integrated(&mut check_commit, &branch, &git2_repo, &gix_repo)? {
+        let mut check_commit = IsCommitIntegrated::new(&default_target, &gix_repo, &mut graph)?;
+        if branch_integrated(&mut check_commit, &branch, &gix_repo)? {
             // Already integrated, nothing to push
             tracing::debug!(branch = branch.name, "Skipping push for integrated branch");
             continue;
@@ -264,11 +264,7 @@ pub fn push_stack(
         drop(git2_repo);
         if gerrit_mode {
             let push_output = but_gerrit::parse::push_output(&out)?;
-            let stacks = stack
-                .commits(ctx)?
-                .iter()
-                .map(|id| id.to_gix())
-                .collect_vec();
+            let stacks = stack.commits(ctx)?;
             but_gerrit::record_push_metadata(ctx, stacks, push_output)?;
         }
 
@@ -295,13 +291,11 @@ pub fn push_stack(
 pub(crate) fn branch_integrated(
     check_commit: &mut IsCommitIntegrated,
     branch: &StackBranch,
-    repo: &git2::Repository,
     gix_repo: &gix::Repository,
 ) -> Result<bool> {
     if branch.archived {
         return Ok(true);
     }
     let oid = branch.head_oid(gix_repo)?;
-    let branch_head = repo.find_commit(oid.to_git2())?;
-    check_commit.is_integrated(&branch_head)
+    check_commit.is_integrated(oid)
 }
