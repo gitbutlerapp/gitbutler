@@ -543,7 +543,6 @@ const CommitMoveTarget: FC<{
 
 				if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
 				if (sourceItem?._tag !== "Commit") return;
-
 				if (isNoOp(sourceItem.commitId)) return;
 
 				event.preventDefault();
@@ -558,7 +557,6 @@ const CommitMoveTarget: FC<{
 
 				if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
 				if (sourceItem?._tag !== "Commit") return;
-
 				if (isNoOp(sourceItem.commitId)) return;
 
 				event.preventDefault();
@@ -955,7 +953,6 @@ const ChangesRubTarget: FC<{
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
 					if (!sourceItem) return;
 					if (sourceItem._tag === "Commit") return;
-
 					if (rubOperation === null) return;
 
 					event.preventDefault();
