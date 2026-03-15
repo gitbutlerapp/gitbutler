@@ -1124,7 +1124,6 @@ const CommitMoveToBranchTarget: FC<{
 					setIsDragOver(true);
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-					if (sourceItem?._tag !== "Commit") return;
 					if (!isEnabled) return;
 
 					event.preventDefault();
@@ -1138,7 +1137,6 @@ const CommitMoveToBranchTarget: FC<{
 					setIsDragOver(false);
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-					if (sourceItem?._tag !== "Commit") return;
 					if (!isEnabled) return;
 
 					event.preventDefault();
