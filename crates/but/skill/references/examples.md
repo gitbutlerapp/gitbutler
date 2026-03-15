@@ -173,7 +173,34 @@ but branch new feature-b    # Creates branch bv
 but move c3 bv --json --status-after    # Move c3 to top of branch bv
 ```
 
-## Example 5: Using Marks for Focused Work
+## Example 5: Stacking Existing Branches
+
+**Scenario:** Two independent branches exist, but one now depends on the other. Stack them.
+
+```bash
+# 1. Check current state — two independent branches in separate stacks
+but status --json
+
+# Output:
+# Stack 1: feature/backend (bu) — 2 commits
+# Stack 2: feature/frontend (bv) — 1 commit
+
+# 2. Frontend now depends on backend API — stack frontend on backend
+#    IMPORTANT: Use full branch NAMES here, not CLI IDs
+but branch move feature/frontend feature/backend
+
+# Result: Both branches are now in the same stack:
+# Stack 1: feature/backend → feature/frontend (stacked)
+
+# 3. Continue working — commits go to the right branch
+but status --json
+but commit bu -m "Add caching layer" --changes <id> --json --status-after   # To backend
+but commit bv -m "Add dialog component" --changes <id> --json --status-after # To frontend
+```
+
+**Key point:** `but branch move` takes full branch **names** (like `feature/frontend`), NOT CLI IDs (like `bv`). This is different from `but move` which takes commit IDs.
+
+## Example 6: Using Marks for Focused Work
 
 **Scenario:** Working on a large refactor, want all changes to automatically stage to that branch.
 
@@ -216,7 +243,7 @@ but show c5 --json    # Shows accumulated changes
 but unmark
 ```
 
-## Example 6: Conflict Resolution
+## Example 7: Conflict Resolution
 
 **Scenario:** After `but pull`, conflicts appear in a commit.
 
@@ -241,8 +268,11 @@ but resolve c3
 # Entering resolution mode for commit c3
 # Fix conflicts in: api/users.js, api/validation.js
 
-# 4. Edit files to resolve conflicts
-# (open files, remove <<< === >>> markers)
+# 4. Read each conflicted file and edit to resolve
+# IMPORTANT: You MUST edit the files — do NOT just run `but resolve finish`
+# NEVER use `git add`, `git checkout --theirs/--ours`, or any git write command — just edit the files directly with the Edit tool, then `but resolve finish`
+cat api/users.js           # Read to see conflict markers
+# (edit to remove <<<<<<< ======= >>>>>>> markers and keep correct content)
 
 # 5. Check progress
 but resolve status
@@ -260,7 +290,7 @@ but resolve finish
 # Back to normal workspace mode
 ```
 
-## Example 7: Complete Feature Development Workflow
+## Example 8: Complete Feature Development Workflow
 
 **Scenario:** Building a complete feature from start to finish.
 
@@ -308,7 +338,7 @@ but pr new bu --json
 but pull --json
 ```
 
-## Example 8: Working with Applied/Unapplied Branches
+## Example 9: Working with Applied/Unapplied Branches
 
 **Scenario:** Have 3 branches, but two are causing conflicts. Temporarily unapply them.
 
@@ -343,7 +373,7 @@ but apply bw
 but resolve ...
 ```
 
-## Example 9: Fixing History Before Pushing
+## Example 10: Fixing History Before Pushing
 
 **Scenario:** Made several commits, realized you need to reword messages and reorder.
 
@@ -381,7 +411,7 @@ but squash c2 c3 --json --status-after    # Combine error handling commits
 but push bu --json
 ```
 
-## Example 10: Daily Development Workflow
+## Example 11: Daily Development Workflow
 
 **Typical day working with GitButler:**
 
@@ -427,7 +457,7 @@ but absorb bu --json --status-after          # Absorb all changes staged to bu
 but push bu --with-force --json   # Force push updated history
 ```
 
-## Example 11: Recovering from Mistakes
+## Example 12: Recovering from Mistakes
 
 **Scenario:** Made changes you didn't mean to, need to undo.
 

@@ -239,8 +239,10 @@ fn show_branch(
     branch_name: &str,
     verbose: bool,
 ) -> Result<()> {
-    // Get the commits for the branch
-    let (commits, base_commit_info) = get_branch_commits(ctx, branch_name, verbose)?;
+    // In JSON mode, always include file info (verbose) so agents and tools
+    // get complete data without needing to pass extra flags.
+    let effective_verbose = verbose || out.is_json();
+    let (commits, base_commit_info) = get_branch_commits(ctx, branch_name, effective_verbose)?;
 
     // Get the stack chain (branches this branch is stacked on)
     let stack_chain = get_stack_chain(ctx, branch_name)?;

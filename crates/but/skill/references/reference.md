@@ -131,6 +131,18 @@ but branch show <id> --check  # Check if branch merges cleanly into upstream
 but branch show <id> -r       # Fetch and display review information (PRs/MRs)
 ```
 
+### `but branch move <branch> <target-branch>`
+
+Move an existing branch on top of another branch, stacking them.
+
+```bash
+but branch move feature/frontend feature/backend    # Stack frontend on top of backend
+```
+
+**This is the primary command for stacking existing branches.** Use it when two branches already exist and one needs to depend on the other. Uses full branch **names**, not CLI IDs.
+
+Alias: `but stack <branch> <target-branch>`
+
 ### `but pick <source> [target]`
 
 Cherry-pick commits from unapplied branches into applied branches.
@@ -343,7 +355,7 @@ but discard <hunk-id>         # Discard hunk changes
 
 ## Conflict Resolution
 
-When commits have conflicts (shown in `but status`):
+When commits have conflicts (shown in `but status` — look for `conflicted: true`):
 
 ### `but resolve <commit>`
 
@@ -379,10 +391,14 @@ but resolve cancel
 
 **Workflow:**
 
-1. `but resolve <commit>` - Enter mode
-2. Edit files to resolve conflicts
-3. `but resolve status` - Check progress
-4. `but resolve finish` - Complete
+1. `but status --json` — identify conflicted commits (look for `conflicted: true`)
+2. `but resolve <commit-id>` — enter resolution mode for the conflicted commit
+3. Edit the conflicted files — remove `<<<<<<<`, `=======`, `>>>>>>>` markers and keep the correct content
+4. `but resolve status` — verify no conflicts remain
+5. `but resolve finish` — finalize and return to normal mode
+6. If multiple commits are conflicted, repeat steps 2-5 for each one
+
+**Important:** Never use `git add`, `git commit`, or other git write commands during conflict resolution. Only use `but resolve` commands and edit files directly.
 
 ## Remote Operations
 

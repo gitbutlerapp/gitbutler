@@ -85,7 +85,9 @@ Example: Adding a new API endpoint and updating button styles are independent.
 
 ### Stacked Branches (Dependent Work)
 
-Create with `but branch new <name> -a <anchor>`:
+**To stack an existing branch** on top of another: `but branch move <child-branch-name> <parent-branch-name>` — this is the primary way to stack branches.
+
+**To create a new stacked branch** from scratch: `but branch new <name> -a <anchor>` — only use this when the child branch doesn't exist yet.
 
 ```
 main ── authentication ── user-profile ── settings-page
@@ -99,6 +101,12 @@ Use when:
 - Creating a series of related changes
 
 Example: User profile page needs authentication to be implemented first.
+
+**Stacking two existing branches:** If both branches already exist and you need to make one depend on the other, use `but branch move`:
+```bash
+but branch move feature/frontend feature/backend
+# Now frontend is stacked on top of backend — both in the same stack
+```
 
 **Dependency tracking:** GitButler automatically tracks which changes depend on which commits. You can't stage dependent changes to the wrong branch.
 
