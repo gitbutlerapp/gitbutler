@@ -61,7 +61,7 @@
 		},
 		{
 			"title": "Integrate with any Agent",
-			"description": "Use GitButler for you automatic version control with Cursor or Claude hooks, or with any other agent via our MCP server.",
+			"description": "Use GitButler for your automatic version control with Cursor or Claude hooks, or with any other agent via our MCP server.",
 			"link": "https://docs.gitbutler.com/features/ai-integration/ai-overview",
 			"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 49 24\"><rect width=\"16.5\" height=\"16.5\" x=\"4.75\" y=\"5.25\" stroke=\"currentColor\" stroke-width=\"1.5\" rx=\"4.25\"/><path stroke=\"currentColor\" stroke-linecap=\"round\" stroke-width=\"1.5\" d=\"M9.576 15.793c2.104 1.215 4.557 1.323 6.85 0\"/><circle cx=\"10\" cy=\"11.672\" r=\"1.5\" fill=\"currentColor\"/><circle cx=\"16\" cy=\"11.672\" r=\"1.5\" fill=\"currentColor\"/><path fill=\"currentColor\" d=\"M21.25 9c.697 0 1.046 0 1.335.058a3 3 0 0 1 2.357 2.357c.058.29.058.638.058 1.335s0 1.046-.058 1.335a3 3 0 0 1-2.357 2.357c-.29.058-.638.058-1.335.058h-.75V9h.75ZM8.5 6c0-1.398 0-2.097.228-2.648a3 3 0 0 1 1.624-1.624C10.903 1.5 11.602 1.5 13 1.5c1.398 0 2.097 0 2.648.228a3 3 0 0 1 1.624 1.624c.228.551.228 1.25.228 2.648h-9ZM4.75 9c-.697 0-1.045 0-1.335.058a3 3 0 0 0-2.357 2.357C1 11.705 1 12.053 1 12.75s0 1.046.058 1.335a3 3 0 0 0 2.357 2.357c.29.058.638.058 1.335.058h.75V9h-.75Z\"/><path stroke=\"currentColor\" stroke-width=\"1.5\" d=\"M36 3.75h8A3.25 3.25 0 0 1 47.25 7v11A3.25 3.25 0 0 1 44 21.25h-8A3.25 3.25 0 0 1 32.75 18V7A3.25 3.25 0 0 1 36 3.75ZM26 12.5h5\"/><path stroke=\"currentColor\" stroke-width=\"1.5\" d=\"m36 12.539 1.948 1.648a2 2 0 0 0 2.84-.26L44 10\"/></svg>"
 		}
