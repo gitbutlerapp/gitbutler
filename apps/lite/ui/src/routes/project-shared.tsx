@@ -8,7 +8,7 @@ import {
 } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { FC, ComponentPropsWithoutRef, ReactNode } from "react";
+import { FC, ReactNode, ComponentProps } from "react";
 import styles from "./project-shared.module.css";
 import {
 	commitDetailsWithLineStatsQueryOptions,
@@ -144,7 +144,7 @@ export const CommitButton: FC<
 		isAnyFileSelected: boolean;
 		isHighlighted: boolean;
 		toggleSelect: () => void;
-	} & ComponentPropsWithoutRef<"button">
+	} & ComponentProps<"button">
 > = ({
 	commit,
 	isSelected,
