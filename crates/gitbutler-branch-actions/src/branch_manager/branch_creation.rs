@@ -101,6 +101,7 @@ impl BranchManager<'_> {
         target: &Refname,
         upstream_branch: Option<RemoteRefname>,
         pr_number: Option<usize>,
+        order: Option<usize>,
         perm: &mut RepoExclusive,
     ) -> Result<(StackId, Vec<StackId>, Vec<String>)> {
         let branch_name = target
@@ -129,7 +130,7 @@ impl BranchManager<'_> {
                         OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
                     workspace_reference_naming: WorkspaceReferenceNaming::Default,
                     uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
-                    order: None,
+                    order,
                     new_stack_id: None,
                 },
             )?;
@@ -211,7 +212,7 @@ impl BranchManager<'_> {
             .peel_to_commit()
             .context("failed to peel to commit")?;
 
-        let order = vb_state.next_order_index()?;
+        let order = order.unwrap_or(vb_state.next_order_index()?);
 
         let mut branch = if let Some(mut branch) = vb_state
             .find_by_top_reference_name_where_not_in_workspace(&target.to_string())?

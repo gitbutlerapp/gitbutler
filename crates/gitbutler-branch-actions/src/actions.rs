@@ -446,6 +446,7 @@ pub fn create_virtual_branch_from_branch(
     branch: &Refname,
     remote: Option<RemoteRefname>,
     pr_number: Option<usize>,
+    order: Option<usize>,
 ) -> Result<(StackId, Vec<StackId>, Vec<String>)> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
@@ -456,6 +457,7 @@ pub fn create_virtual_branch_from_branch(
         branch,
         remote,
         pr_number,
+        order,
         guard.write_permission(),
     )
 }

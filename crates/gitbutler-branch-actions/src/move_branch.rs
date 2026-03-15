@@ -136,6 +136,7 @@ pub(crate) fn tear_off_branch(
             &Refname::Local(LocalRefname::new(subject_branch_name, None)),
             None,
             None,
+            None,
             perm,
         )?;
 
