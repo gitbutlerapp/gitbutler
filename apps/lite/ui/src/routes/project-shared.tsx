@@ -8,7 +8,7 @@ import {
 } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { FC, ReactNode, ComponentProps } from "react";
+import { ComponentProps, FC, ReactNode, Ref } from "react";
 import styles from "./project-shared.module.css";
 import {
 	commitDetailsWithLineStatsQueryOptions,
@@ -86,8 +86,10 @@ export const FileButton: FC<{
 	change: TreeChange;
 	isSelected: boolean;
 	toggleSelect: () => void;
-}> = ({ change, isSelected, toggleSelect }) => (
+	ref?: Ref<HTMLButtonElement>;
+}> = ({ change, isSelected, toggleSelect, ref }) => (
 	<button
+		ref={ref}
 		type="button"
 		className={classes(styles.fileButton, isSelected && styles.selected)}
 		onClick={toggleSelect}
