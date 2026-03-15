@@ -295,14 +295,10 @@ impl Project {
                 // longest first
                 .reverse()
         });
-        let resolved_path = if worktree_dir.is_relative() {
-            worktree_dir
-                .canonicalize()
-                .context("Failed to canonicalize path")?
-        } else {
-            worktree_dir.to_path_buf()
-        };
 
+        let resolved_path = worktree_dir
+            .canonicalize()
+            .context("Failed to canonicalize path")?;
         let Some(project) = projects.into_iter().find(|p| {
             // Canonicalize project path for comparison
             match p.worktree_dir.canonicalize() {
