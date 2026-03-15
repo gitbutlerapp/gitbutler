@@ -21,6 +21,7 @@ const CHANGE_ID_REVERSE_BYTE_LEN: usize = CHANGE_ID_REVERSE_HEX_LEN / 2;
 #[derive(Clone, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ChangeId(BString);
 
+/// Lifecycle
 impl ChangeId {
     /// Creates a ChangeId from a number for testing purposes.
     pub fn from_number_for_testing(value: u128) -> Self {
@@ -46,6 +47,34 @@ impl ChangeId {
         }
 
         Self(out.into())
+    }
+}
+
+impl ChangeId {
+    /// Return the raw bytes backing this `ChangeId`.
+    pub fn as_bytes(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+
+    /// Try to return the compact bytes represented by this reverse-hex `ChangeId`,
+    /// or `None` if this instance is not a standard 32-byte reverse-hex value.
+    /// Remember that this type can represent any ChangeId that might be in a Git
+    /// header field.
+    pub fn decode_reverse_hex_bytes(&self) -> Option<Vec<u8>> {
+        let bytes = self.as_bytes();
+        if bytes.len() != CHANGE_ID_REVERSE_HEX_LEN {
+            return None;
+        }
+
+        bytes
+            .chunks_exact(2)
+            .map(|pair| {
+                Some(
+                    (reverse_hex_char_to_nibble(pair[0])? << 4)
+                        | reverse_hex_char_to_nibble(pair[1])?,
+                )
+            })
+            .collect()
     }
 }
 
@@ -75,6 +104,10 @@ fn byte_to_reverse_hex(byte: u8) -> [u8; 2] {
         b'z' - nibble
     }
     [nibble_to_reverse(byte >> 4), nibble_to_reverse(byte)]
+}
+
+fn reverse_hex_char_to_nibble(byte: u8) -> Option<u8> {
+    (b'k'..=b'z').contains(&byte).then_some(b'z' - byte)
 }
 
 impl Deref for ChangeId {
