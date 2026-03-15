@@ -100,11 +100,11 @@ mod snapshot_details {
 
     #[test]
     fn new() {
-        let commit_sha = git2::Oid::zero();
+        let commit_sha = gix::ObjectId::null(gix::hash::Kind::Sha1);
         let commit_message =
             "Create a new snapshot\n\nBody text 1\nBody text2\n\nBody text 3\n\nVersion: 3\nOperation: CreateCommit\nFoo: Bar\n".to_string();
         let timezone_offset_does_not_matter = 1234;
-        let created_at = git2::Time::new(1234567890, timezone_offset_does_not_matter);
+        let created_at = gix::date::Time::new(1234567890, timezone_offset_does_not_matter * 60);
         let details = SnapshotDetails::from_str(&commit_message.clone()).unwrap();
         let snapshot = Snapshot {
             commit_id: commit_sha,

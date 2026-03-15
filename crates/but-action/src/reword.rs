@@ -1,5 +1,4 @@
 use but_ctx::{Context, ThreadSafeContext};
-use but_oxidize::{ObjectIdExt, OidExt};
 use but_workspace::legacy::{StacksFilter, ui::StackEntry};
 use uuid::Uuid;
 
@@ -53,7 +52,7 @@ pub fn commit(
     let result = gitbutler_branch_actions::update_commit_message(
         &mut ctx,
         stack_id,
-        event.commit_id.to_git2(),
+        event.commit_id,
         &message,
     );
     let status = match &result {
@@ -61,7 +60,7 @@ pub fn commit(
         Err(e) => workflow::Status::Failed(e.to_string()),
     };
 
-    let new_commit_id = result.map(|id| id.to_gix()).ok();
+    let new_commit_id = result.ok();
     let output_commits = new_commit_id.map(|id| vec![id]).unwrap_or_default();
 
     Workflow::new(

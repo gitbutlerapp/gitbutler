@@ -232,7 +232,7 @@ pub fn split_into_dependent_branch(
         Some(source_branch_name),
     )?;
 
-    source_stack.set_stack_head(&vb_state, &repo, new_head.id().to_git2())?;
+    source_stack.set_stack_head(&vb_state, &repo, new_head.id().detach())?;
     source_stack.set_heads_from_rebase_output(ctx, source_result.clone().references)?;
 
     let move_changes_result = MoveChangesResult {

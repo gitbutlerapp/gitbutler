@@ -238,6 +238,7 @@ keyring = { version = "3.6.3", features = [
 ] }
 anyhow = "1.0.100"
 parking_lot = "0.12.4"
+boolean-enums = { version = "0.4.1", features = ["serde"] }
 futures = "0.3.31"
 toml = "0.9.10"
 tracing = "0.1.44"

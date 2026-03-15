@@ -8,6 +8,7 @@ pub mod commit;
 pub mod completions;
 pub mod config;
 pub mod eval_hook;
+pub(crate) mod git_config;
 pub mod gui;
 pub mod help;
 pub mod onboarding;

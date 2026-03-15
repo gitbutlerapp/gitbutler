@@ -1,8 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_meta::virtual_branches_legacy_types;
-use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_reference::RemoteRefname;
-use gitbutler_repo::RepositoryExt;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Target {
@@ -21,7 +19,7 @@ pub struct Target {
     // TODO(ST): is it safe/correct to rename this to `branch_target_id`? Should be!
     //           It's just a bit strange it starts life as merge-base, but maybe it ends
     //           up the same anyway? Definitely could use a test then.
-    pub sha: git2::Oid,
+    pub sha: gix::ObjectId,
     /// The name of the remote to push to.
     pub push_remote_name: Option<String>,
 }
@@ -35,13 +33,12 @@ impl Target {
     }
 
     /// Returns the head sha of the remote branch this target is tracking.
-    pub fn remote_head(&self, repo: &git2::Repository) -> Result<git2::Oid> {
-        let branch = repo.find_branch_by_refname(&self.branch.clone().into())?;
-        let oid = branch
-            .get()
-            .target()
+    pub fn remote_head(&self, repo: &gix::Repository) -> Result<gix::ObjectId> {
+        let oid = repo
+            .find_reference(&self.branch.to_string())?
+            .try_id()
             .context("failed to get default commit")?;
-        Ok(oid)
+        Ok(oid.detach())
     }
 }
 
@@ -57,7 +54,7 @@ impl From<virtual_branches_legacy_types::Target> for Target {
         Target {
             branch,
             remote_url,
-            sha: sha.to_git2(),
+            sha,
             push_remote_name,
         }
     }
@@ -75,7 +72,7 @@ impl From<Target> for virtual_branches_legacy_types::Target {
         virtual_branches_legacy_types::Target {
             branch,
             remote_url,
-            sha: sha.to_gix(),
+            sha,
             push_remote_name,
         }
     }

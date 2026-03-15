@@ -72,6 +72,10 @@ pub mod commit;
 /// Utilities related to branches
 pub mod branch;
 
+/// Utilities for editing Git configuration files.
+// TODO(gix): this should be so easy that nobody needs helpers.
+pub mod git_config;
+
 /// Types for use in the user interface.
 pub mod ui;
 

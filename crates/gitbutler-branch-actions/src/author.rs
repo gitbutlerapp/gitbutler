@@ -11,21 +11,6 @@ pub struct Author {
     pub gravatar_url: url::Url,
 }
 
-impl From<git2::Signature<'_>> for Author {
-    fn from(value: git2::Signature) -> Self {
-        let name = value.name().unwrap_or_default().to_string();
-        let email = value.email().unwrap_or_default().to_string();
-
-        let gravatar_url = gravatar_url_from_email(email.as_str()).unwrap();
-
-        Author {
-            name,
-            email,
-            gravatar_url,
-        }
-    }
-}
-
 impl From<gix::actor::SignatureRef<'_>> for Author {
     fn from(value: gix::actor::SignatureRef<'_>) -> Self {
         let gravatar_url = gravatar_url_from_email(&value.email.to_str_lossy()).unwrap();

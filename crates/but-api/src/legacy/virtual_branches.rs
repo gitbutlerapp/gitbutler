@@ -4,7 +4,6 @@ use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::but_api;
 use but_core::{DiffSpec, sync::RepoExclusive};
 use but_ctx::{Context, ThreadSafeContext};
-use but_oxidize::ObjectIdExt;
 use but_workspace::legacy::ui::{StackEntryNoOpt, StackHeadInfo};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::{
@@ -287,8 +286,7 @@ pub fn amend_virtual_branch(
     commit_id: gix::ObjectId,
     worktree_changes: Vec<DiffSpec>,
 ) -> Result<String> {
-    let oid =
-        gitbutler_branch_actions::amend(ctx, stack_id, commit_id.to_git2(), worktree_changes)?;
+    let oid = gitbutler_branch_actions::amend(ctx, stack_id, commit_id, worktree_changes)?;
     Ok(oid.to_string())
 }
 
@@ -299,7 +297,7 @@ pub fn undo_commit(
     stack_id: StackId,
     commit_id: gix::ObjectId,
 ) -> Result<()> {
-    gitbutler_branch_actions::undo_commit(ctx, stack_id, commit_id.to_git2())?;
+    gitbutler_branch_actions::undo_commit(ctx, stack_id, commit_id)?;
     Ok(())
 }
 
@@ -343,16 +341,7 @@ pub fn squash_commits(
     source_commit_ids: Vec<gix::ObjectId>,
     target_commit_id: gix::ObjectId,
 ) -> Result<()> {
-    let source_commit_ids: Vec<git2::Oid> = source_commit_ids
-        .into_iter()
-        .map(|oid| oid.to_git2())
-        .collect();
-    gitbutler_branch_actions::squash_commits(
-        ctx,
-        stack_id,
-        source_commit_ids,
-        target_commit_id.to_git2(),
-    )?;
+    gitbutler_branch_actions::squash_commits(ctx, stack_id, source_commit_ids, target_commit_id)?;
     Ok(())
 }
 
@@ -389,12 +378,7 @@ pub fn move_commit(
     target_stack_id: StackId,
     source_stack_id: StackId,
 ) -> Result<Option<MoveCommitIllegalAction>> {
-    gitbutler_branch_actions::move_commit(
-        ctx,
-        target_stack_id,
-        commit_id.to_git2(),
-        source_stack_id,
-    )
+    gitbutler_branch_actions::move_commit(ctx, target_stack_id, commit_id, source_stack_id)
 }
 
 #[but_api]
@@ -433,12 +417,8 @@ pub fn update_commit_message(
     commit_id: gix::ObjectId,
     message: String,
 ) -> Result<String> {
-    let new_commit_id = gitbutler_branch_actions::update_commit_message(
-        ctx,
-        stack_id,
-        commit_id.to_git2(),
-        &message,
-    )?;
+    let new_commit_id =
+        gitbutler_branch_actions::update_commit_message(ctx, stack_id, commit_id, &message)?;
     Ok(new_commit_id.to_string())
 }
 
@@ -450,13 +430,12 @@ pub async fn upstream_integration_statuses(
     target_commit_id: Option<gix::ObjectId>,
 ) -> Result<StackStatuses> {
     let (base_branch, commit_id, ctx) = {
-        let commit_id = target_commit_id.map(|commit_id| commit_id.to_git2());
         let ctx = ctx.into_thread_local();
 
         // Get all the actively applied reviews
         (
             gitbutler_branch_actions::base::get_base_branch_data(&ctx)?,
-            commit_id,
+            target_commit_id,
             ctx.into_sync(),
         )
     };
@@ -508,8 +487,7 @@ pub async fn resolve_upstream_integration(
         resolution_approach,
         &resolved_reviews,
     )?;
-    let commit_id = git2::Oid::to_string(&new_target_id);
-    Ok(commit_id)
+    Ok(new_target_id.to_string())
 }
 
 /// Resolve all actively applied reviews for the given project and command context

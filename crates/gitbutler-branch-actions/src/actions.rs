@@ -4,7 +4,6 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_oxidize::{ObjectIdExt, OidExt};
 use but_workspace::legacy::{commit_engine, stack_heads_info, ui};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_operating_modes::ensure_open_workspace_mode;
@@ -61,7 +60,7 @@ pub fn create_virtual_branch(
 pub fn delete_local_branch(ctx: &mut Context, refname: &Refname, given_name: String) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    let repo = &*ctx.git2_repo.get()?;
+    let repo = &*ctx.repo.get()?;
     let handle = ctx.virtual_branches();
     let stack = handle.list_all_stacks()?.into_iter().find(|stack| {
         stack
@@ -87,9 +86,10 @@ pub fn delete_local_branch(ctx: &mut Context, refname: &Refname, given_name: Str
     }
 
     // If a branch reference for this can be found, delete it
-    if let Ok(mut branch) = repo.find_branch(&given_name, git2::BranchType::Local) {
-        branch.delete()?;
-    };
+    let full_name = format!("refs/heads/{given_name}");
+    if let Some(reference) = repo.try_find_reference(&full_name)? {
+        but_core::branch::SafeDelete::new(repo)?.delete_reference(&reference)?;
+    }
     Ok(())
 }
 
@@ -228,9 +228,9 @@ pub fn unapply_stack(
 pub fn amend(
     ctx: &mut Context,
     stack_id: StackId,
-    commit_oid: git2::Oid,
+    commit_oid: gix::ObjectId,
     worktree_changes: Vec<DiffSpec>,
-) -> Result<git2::Oid> {
+) -> Result<gix::ObjectId> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     ensure_open_workspace_mode(ctx, guard.read_permission())
@@ -251,9 +251,9 @@ pub fn amend(
 fn amend_with_commit_engine(
     ctx: &mut Context,
     stack_id: StackId,
-    commit_oid: git2::Oid,
+    commit_oid: gix::ObjectId,
     worktree_changes: Vec<DiffSpec>,
-) -> Result<git2::Oid> {
+) -> Result<gix::ObjectId> {
     let mut guard = ctx.exclusive_worktree_access();
 
     let outcome = commit_engine::create_commit_and_update_refs_with_project(
@@ -261,7 +261,7 @@ fn amend_with_commit_engine(
         &ctx.project_data_dir(),
         Some(stack_id),
         but_workspace::commit_engine::Destination::AmendCommit {
-            commit_id: commit_oid.to_gix(),
+            commit_id: commit_oid,
             new_message: None,
         },
         worktree_changes,
@@ -272,10 +272,10 @@ fn amend_with_commit_engine(
         "Failed to amend with commit engine. Rejected specs: {:?}",
         outcome.rejected_specs
     ))?;
-    Ok(new_commit.to_git2())
+    Ok(new_commit)
 }
 
-pub fn undo_commit(ctx: &mut Context, stack_id: StackId, commit_oid: git2::Oid) -> Result<()> {
+pub fn undo_commit(ctx: &mut Context, stack_id: StackId, commit_oid: gix::ObjectId) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     ensure_open_workspace_mode(ctx, guard.read_permission())
@@ -311,9 +311,9 @@ pub fn reorder_stack(ctx: &mut Context, stack_id: StackId, stack_order: StackOrd
 pub fn squash_commits(
     ctx: &mut Context,
     stack_id: StackId,
-    source_ids: Vec<git2::Oid>,
-    destination_id: git2::Oid,
-) -> Result<git2::Oid> {
+    source_ids: Vec<gix::ObjectId>,
+    destination_id: gix::ObjectId,
+) -> Result<gix::ObjectId> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     ensure_open_workspace_mode(ctx, guard.read_permission())
@@ -330,9 +330,9 @@ pub fn squash_commits(
 pub fn update_commit_message(
     ctx: &mut Context,
     stack_id: StackId,
-    commit_oid: git2::Oid,
+    commit_oid: gix::ObjectId,
     message: &str,
-) -> Result<git2::Oid> {
+) -> Result<gix::ObjectId> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     ensure_open_workspace_mode(ctx, guard.read_permission())
@@ -366,7 +366,7 @@ pub fn fetch_from_remotes(ctx: &Context, askpass: Option<String>) -> Result<Fetc
     };
     let state = ctx.virtual_branches();
 
-    state.garbage_collect(&*ctx.git2_repo.get()?)?;
+    state.garbage_collect(&*ctx.repo.get()?)?;
 
     Ok(project_data_last_fetched)
 }
@@ -374,7 +374,7 @@ pub fn fetch_from_remotes(ctx: &Context, askpass: Option<String>) -> Result<Fetc
 pub fn move_commit(
     ctx: &mut Context,
     target_stack_id: StackId,
-    commit_oid: git2::Oid,
+    commit_oid: gix::ObjectId,
     source_stack_id: StackId,
 ) -> Result<Option<MoveCommitIllegalAction>> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -462,17 +462,17 @@ pub fn create_virtual_branch_from_branch(
 
 pub fn upstream_integration_statuses(
     ctx: &mut Context,
-    target_commit_oid: Option<git2::Oid>,
+    target_commit_oid: Option<gix::ObjectId>,
     review_map: &std::collections::HashMap<String, but_forge::ForgeReview>,
 ) -> Result<StackStatuses> {
     let mut guard = ctx.exclusive_worktree_access();
 
-    let gix_repo = ctx.repo.get()?;
+    let repo = ctx.repo.get()?;
     let context = UpstreamIntegrationContext::open(
         ctx,
         target_commit_oid,
         guard.write_permission(),
-        &gix_repo,
+        &repo,
         review_map,
     )?;
 
@@ -505,7 +505,7 @@ pub fn resolve_upstream_integration(
     ctx: &mut Context,
     resolution_approach: BaseBranchResolutionApproach,
     review_map: &std::collections::HashMap<String, but_forge::ForgeReview>,
-) -> Result<git2::Oid> {
+) -> Result<gix::ObjectId> {
     let mut guard = ctx.exclusive_worktree_access();
 
     upstream_integration::resolve_upstream_integration(

@@ -123,7 +123,7 @@ mod util {
     }
 
     pub fn project_ctx(name: &str) -> Result<Context> {
-        gitbutler_testsupport::read_only::fixture("for-listing.sh", name)
+        crate::driverless::read_only_context("for-listing.sh", name)
     }
 
     pub fn list_branches(

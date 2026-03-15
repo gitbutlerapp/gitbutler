@@ -261,10 +261,11 @@ async fn match_subcommand(
                     name,
                     value,
                     global,
-                }) => command::alias::add(&mut ctx, out, &name, &value, global)
+                }) => command::alias::add(&mut ctx, out, &name, &value, global.into())
                     .emit_metrics(metrics_ctx),
                 Some(alias_args::Subcommands::Remove { name, global }) => {
-                    command::alias::remove(&mut ctx, out, &name, global).emit_metrics(metrics_ctx)
+                    command::alias::remove(&mut ctx, out, &name, global.into())
+                        .emit_metrics(metrics_ctx)
                 }
             }
         }
@@ -658,11 +659,10 @@ async fn match_subcommand(
                 false
             } else {
                 // Check git config for but.ui.tui
-                ctx.git2_repo
+                ctx.repo
                     .get()
                     .ok()
-                    .and_then(|repo| repo.config().ok())
-                    .map(|config| command::config::get_tui_enabled(&config))
+                    .map(|repo| command::config::get_tui_enabled(&repo.config_snapshot()))
                     .unwrap_or(false)
             };
             if use_tui {

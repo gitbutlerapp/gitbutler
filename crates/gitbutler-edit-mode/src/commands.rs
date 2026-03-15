@@ -11,7 +11,7 @@ use crate::ConflictEntryPresence;
 
 pub fn enter_edit_mode(
     ctx: &mut Context,
-    commit_oid: git2::Oid,
+    commit_oid: gix::ObjectId,
     stack_id: StackId,
 ) -> Result<EditModeMetadata> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -19,17 +19,12 @@ pub fn enter_edit_mode(
     ensure_open_workspace_mode(ctx, guard.read_permission())
         .context("Entering edit mode may only be done when the workspace is open")?;
 
-    let git2_repo = ctx.git2_repo.get()?;
-    let commit = git2_repo
-        .find_commit(commit_oid)
-        .context("Failed to find commit")?;
-
     let snapshot = ctx
         .prepare_snapshot(guard.read_permission())
         .context("Failed to prepare snapshot")?;
 
     let edit_mode_metadata =
-        crate::enter_edit_mode(ctx, commit, stack_id, guard.write_permission())?;
+        crate::enter_edit_mode(ctx, commit_oid, stack_id, guard.write_permission())?;
 
     let _ = ctx.commit_snapshot(
         snapshot,

@@ -224,7 +224,10 @@ impl RepositoryExt for git2::Repository {
         self.branches(Some(git2::BranchType::Remote))?
             .flatten()
             .map(|(branch, _)| {
-                RemoteRefname::try_from(&branch).context("failed to convert branch to remote name")
+                String::from_utf8(branch.get().name_bytes().to_vec())
+                    .context("failed to read remote branch name as utf-8")?
+                    .parse()
+                    .context("failed to convert branch to remote name")
             })
             .collect::<Result<Vec<_>>>()
     }
@@ -240,7 +243,7 @@ impl RepositoryExt for git2::Repository {
             .context("No author is configured in Git")
             .context(Code::AuthorMissing)?;
 
-        let config: Config = self.into();
+        let config: Config = (&repo).into();
         let committer = if config.user_real_comitter()? {
             repo.committer()
                 .transpose()?

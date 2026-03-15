@@ -199,10 +199,12 @@ fn worktree_integration_inner(
 
     // Does the new stack tip conflict with any of the other stacks.
     let tip_tree = repo.find_commit(output.top_commit)?.tree_id()?;
+    let cache = repo.commit_graph_if_enabled()?;
+    let mut graph = repo.revision_graph(cache.as_ref());
     for stack in stacks.iter().filter(|s| s.id != stack.id) {
         let head_id = stack.head_oid(ctx)?;
         let head_tree = repo.find_commit(head_id)?.tree_id()?;
-        let merge_base = repo.merge_base(head_id, output.top_commit)?;
+        let merge_base = repo.merge_base_with_graph(head_id, output.top_commit, &mut graph)?;
         let merge_base_tree = repo.find_commit(merge_base)?.tree_id()?;
 
         if !repo.merges_cleanly(

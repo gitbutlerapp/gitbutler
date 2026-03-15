@@ -1,5 +1,4 @@
 use but_core::RepositoryExt;
-use but_oxidize::{OidExt, TimeExt};
 use colored::Colorize;
 use gitbutler_oplog::entry::{OperationKind, Snapshot};
 use gix::{date::time::CustomFormat, prelude::ObjectIdExt};
@@ -65,7 +64,7 @@ pub(crate) fn show_oplog(
         let longest_short_id_len = snapshots
             .iter()
             .filter_map(|s| {
-                let prefix = s.commit_id.to_gix().attach(&repo).shorten().ok()?;
+                let prefix = s.commit_id.attach(&repo).shorten().ok()?;
                 Some(prefix.hex_len())
             })
             .max()
@@ -73,7 +72,7 @@ pub(crate) fn show_oplog(
 
         for snapshot in snapshots {
             let time_string = snapshot_time_string(&snapshot);
-            let short = snapshot.commit_id.to_gix();
+            let short = snapshot.commit_id;
             let short = short.to_hex_with_len(longest_short_id_len);
             let commit_id = short.to_string().blue().bold();
 
@@ -163,7 +162,7 @@ pub(crate) fn show_oplog(
 }
 
 fn snapshot_time_string(snapshot: &Snapshot) -> String {
-    let time = snapshot.created_at.to_gix();
+    let time = snapshot.created_at;
     // TODO: use `format_or_unix`.
     time.format(ISO8601_NO_TZ)
         .unwrap_or_else(|_| time.seconds.to_string())
@@ -273,11 +272,11 @@ pub(crate) fn undo_last_operation(
 
     // Restore to the previous snapshot using the but_api
     // TODO: Why does this not require force? It will also overwrite user changes (I think).
-    but_api::legacy::oplog::restore_snapshot(ctx, target_snapshot.commit_id.to_gix())?;
+    but_api::legacy::oplog::restore_snapshot(ctx, target_snapshot.commit_id)?;
 
     if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?;
-        let short = shorten_object_id(&repo, target_snapshot.commit_id.to_gix());
+        let short = shorten_object_id(&repo, target_snapshot.commit_id);
 
         writeln!(
             out,

@@ -2,13 +2,14 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use but_ctx::Context;
-use but_oxidize::ObjectIdExt;
-use git2::Oid;
+use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_branch_actions::{StackOrder, reorder::SeriesOrder, reorder_stack};
 use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_testsupport::testing_repository::assert_commit_tree_matches;
 use itertools::Itertools;
 use tempfile::TempDir;
+
+use crate::driverless;
 
 #[test]
 fn noop_reorder_errors() -> Result<()> {
@@ -346,10 +347,10 @@ fn conflicting_reorder_stack() -> Result<()> {
 
     {
         let repo = &*ctx.git2_repo.get()?;
-        let commit_1_prime = repo.find_commit(commits[1].ids()[0])?;
+        let commit_1_prime = repo.find_commit(commits[1].ids()[0].to_git2())?;
         assert_commit_tree_matches(repo, &commit_1_prime, &[("file", b"x\n")]);
 
-        let commit_2_prime = repo.find_commit(commits[1].ids()[1])?;
+        let commit_2_prime = repo.find_commit(commits[1].ids()[1].to_git2())?;
         assert_commit_tree_matches(
             repo,
             &commit_2_prime,
@@ -383,17 +384,17 @@ fn conflicting_reorder_stack() -> Result<()> {
 
     {
         let repo = &*ctx.git2_repo.get()?;
-        let commit_2_prime_prime = repo.find_commit(commits[1].ids()[0])?;
+        let commit_2_prime_prime = repo.find_commit(commits[1].ids()[0].to_git2())?;
         assert_commit_tree_matches(repo, &commit_2_prime_prime, &[("file", b"y\n")]);
 
-        let commit_1_prime_prime = repo.find_commit(commits[1].ids()[1])?;
+        let commit_1_prime_prime = repo.find_commit(commits[1].ids()[1].to_git2())?;
         assert_commit_tree_matches(repo, &commit_1_prime_prime, &[("file", b"x\n")]);
     }
 
     Ok(())
 }
 
-fn order(series: Vec<Vec<Oid>>) -> StackOrder {
+fn order(series: Vec<Vec<gix::ObjectId>>) -> StackOrder {
     StackOrder {
         series: vec![
             SeriesOrder {
@@ -410,16 +411,16 @@ fn order(series: Vec<Vec<Oid>>) -> StackOrder {
 
 trait CommitHelpers {
     fn msgs(&self) -> Vec<String>;
-    fn ids(&self) -> Vec<Oid>;
+    fn ids(&self) -> Vec<gix::ObjectId>;
     fn conflicted(&self) -> Vec<bool>;
     fn timestamps(&self) -> Vec<u128>;
 }
 
-impl CommitHelpers for Vec<(Oid, String, bool, u128)> {
+impl CommitHelpers for Vec<(gix::ObjectId, String, bool, u128)> {
     fn msgs(&self) -> Vec<String> {
         self.iter().map(|(_, msg, _, _)| msg.clone()).collect_vec()
     }
-    fn ids(&self) -> Vec<Oid> {
+    fn ids(&self) -> Vec<gix::ObjectId> {
         self.iter().map(|(id, _, _, _)| *id).collect_vec()
     }
     fn conflicted(&self) -> Vec<bool> {
@@ -433,7 +434,7 @@ impl CommitHelpers for Vec<(Oid, String, bool, u128)> {
 }
 
 /// Commits from list_virtual_branches
-fn vb_commits(ctx: &Context) -> Vec<Vec<(git2::Oid, String, bool, u128)>> {
+fn vb_commits(ctx: &Context) -> Vec<Vec<(gix::ObjectId, String, bool, u128)>> {
     let details = gitbutler_testsupport::stack_details(ctx);
     let (_, my_stack) = details
         .iter()
@@ -445,7 +446,7 @@ fn vb_commits(ctx: &Context) -> Vec<Vec<(git2::Oid, String, bool, u128)>> {
         let mut commits = vec![];
         for c in b.commits.iter() {
             commits.push((
-                c.id.to_git2(),
+                c.id,
                 c.message.to_string(),
                 c.has_conflicts,
                 c.created_at as u128,
@@ -466,7 +467,7 @@ fn file(ctx: &Context, commit_id: gix::ObjectId) -> String {
 }
 
 fn command_ctx(name: &str) -> Result<(Context, TempDir)> {
-    gitbutler_testsupport::writable::fixture_with_settings("reorder.sh", name, |_settings| {})
+    driverless::writable_context("reorder.sh", name)
 }
 
 fn test_ctx(ctx: &Context) -> Result<TestContext> {
@@ -476,17 +477,17 @@ fn test_ctx(ctx: &Context) -> Result<TestContext> {
 
     let branches = stack.branches();
     let git2_repo = &*ctx.git2_repo.get()?;
-    let top_commits: HashMap<String, git2::Oid> = branches[1]
+    let top_commits: HashMap<String, gix::ObjectId> = branches[1]
         .commits(git2_repo, ctx, stack)?
         .local_commits
         .iter()
-        .map(|c| (c.message().unwrap().to_string(), c.id()))
+        .map(|c| (c.message().unwrap().to_string(), c.id().to_gix()))
         .collect();
-    let bottom_commits: HashMap<String, git2::Oid> = branches[0]
+    let bottom_commits: HashMap<String, gix::ObjectId> = branches[0]
         .commits(git2_repo, ctx, stack)?
         .local_commits
         .iter()
-        .map(|c| (c.message().unwrap().to_string(), c.id()))
+        .map(|c| (c.message().unwrap().to_string(), c.id().to_gix()))
         .collect();
 
     Ok(TestContext {
@@ -497,6 +498,6 @@ fn test_ctx(ctx: &Context) -> Result<TestContext> {
 }
 struct TestContext {
     stack: gitbutler_stack::Stack,
-    top_commits: HashMap<String, git2::Oid>,
-    bottom_commits: HashMap<String, git2::Oid>,
+    top_commits: HashMap<String, gix::ObjectId>,
+    bottom_commits: HashMap<String, gix::ObjectId>,
 }

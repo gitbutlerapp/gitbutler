@@ -99,6 +99,8 @@ pub struct Context {
     pub project_data_dir: PathBuf,
     /// The directory to store application caches in.
     pub app_cache_dir: Option<PathBuf>,
+    /// How repositories opened through this context should source their configuration.
+    pub repo_open_mode: RepoOpenMode,
     /// The most recently opened repository of the project, which also provides access to the `git_dir`.
     ///
     /// # Tree-Diff optimization present
@@ -133,6 +135,8 @@ pub struct ThreadSafeContext {
     pub project_data_dir: PathBuf,
     /// The directory to store application caches in.
     pub app_cache_dir: Option<PathBuf>,
+    /// How repositories opened through this context should source their configuration.
+    pub repo_open_mode: RepoOpenMode,
     /// The most recently opened repository of the project, which also provides access to the `git_dir`.
     pub repo: Option<gix::ThreadSafeRepository>,
     /// The legacy implementation, for all the old code.
@@ -147,16 +151,18 @@ impl From<ThreadSafeContext> for Context {
             gitdir,
             project_data_dir,
             app_cache_dir,
+            repo_open_mode,
             repo,
             #[cfg(feature = "legacy")]
             legacy_project,
         } = value;
-        let mut ondemand = new_ondemand_repo(gitdir.clone());
+        let mut ondemand = new_ondemand_repo(gitdir.clone(), repo_open_mode);
         if let Some(repo) = repo {
             ondemand.assign(repo.to_thread_local());
         }
         Context {
             settings,
+            repo_open_mode,
             repo: ondemand,
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(project_data_dir.clone()),
@@ -212,6 +218,16 @@ impl std::fmt::Debug for ThreadSafeContext {
     }
 }
 
+/// Control how `gix` repositories opened through a [`Context`] source configuration.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum RepoOpenMode {
+    /// Use Git's normal config discovery, including user and environment-provided config.
+    #[default]
+    Standard,
+    /// Read repository-local configuration only and ignore environment-provided config.
+    Isolated,
+}
+
 /// Lifecycle
 impl Context {
     /// Create a new instance from just the `gitdir` of the repository we should provide context for.
@@ -222,9 +238,25 @@ impl Context {
         app_config_dir: impl AsRef<Path>,
         app_cache_dir: Option<PathBuf>,
     ) -> anyhow::Result<Context> {
+        Self::new_with_repo_open_mode(
+            gitdir,
+            app_config_dir,
+            app_cache_dir,
+            RepoOpenMode::Standard,
+        )
+    }
+
+    /// Just like [`Context::new()`], but allows controlling how the repository
+    /// sources configuration via `repo_open_mode`.
+    pub fn new_with_repo_open_mode(
+        gitdir: impl Into<PathBuf>,
+        app_config_dir: impl AsRef<Path>,
+        app_cache_dir: Option<PathBuf>,
+        repo_open_mode: RepoOpenMode,
+    ) -> anyhow::Result<Context> {
         let gitdir = gitdir.into();
         let settings = app_settings(app_config_dir)?;
-        let repo = gix::open(&gitdir)?;
+        let repo = open_repo(&gitdir, repo_open_mode)?;
         let project_data_dir = repo.gitbutler_storage_path()?;
         #[cfg(not(feature = "legacy"))]
         {
@@ -232,7 +264,8 @@ impl Context {
                 gitdir: gitdir.clone(),
                 project_data_dir: project_data_dir.clone(),
                 settings,
-                repo: new_ondemand_repo(gitdir.clone()),
+                repo_open_mode,
+                repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(project_data_dir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
@@ -253,8 +286,9 @@ impl Context {
                 settings,
                 gitdir: gitdir.clone(),
                 project_data_dir: project_data_dir.clone(),
+                repo_open_mode,
                 legacy_project,
-                repo: new_ondemand_repo(gitdir.clone()),
+                repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(project_data_dir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
@@ -267,26 +301,57 @@ impl Context {
 
     /// Discover the Git repository in `directory`, or search upwards until one is found, and return it as context.
     pub fn discover(directory: impl AsRef<Path>) -> anyhow::Result<Context> {
+        Self::discover_with_repo_open_mode(directory, RepoOpenMode::Standard)
+    }
+
+    /// Discover the Git repository in `directory`, or search upwards until one is found, and return it as context
+    /// while controlling how the repository sources configuration via `repo_open_mode`.
+    pub fn discover_with_repo_open_mode(
+        directory: impl AsRef<Path>,
+        repo_open_mode: RepoOpenMode,
+    ) -> anyhow::Result<Context> {
         let directory = directory.as_ref();
-        let repo = gix::discover(directory)?;
-        Self::from_repo_with_legacy_support(repo)
+        let gitdir = gix::discover(directory)?.git_dir().to_owned();
+        let repo = open_repo(&gitdir, repo_open_mode)?;
+        Self::from_repo_with_legacy_support(repo, repo_open_mode)
     }
 
     /// Create a context from a `project_handle`, which directly encodes the repository path.
     pub fn new_from_project_handle(project_handle: ProjectHandle) -> anyhow::Result<Self> {
+        Self::new_from_project_handle_with_repo_open_mode(project_handle, RepoOpenMode::Standard)
+    }
+
+    /// Create a context from a `project_handle`, which directly encodes the repository path,
+    /// while controlling how the repository sources configuration via `repo_open_mode`.
+    pub fn new_from_project_handle_with_repo_open_mode(
+        project_handle: ProjectHandle,
+        repo_open_mode: RepoOpenMode,
+    ) -> anyhow::Result<Self> {
         let repository_path = project_handle.into_path()?;
-        let repo = gix::open(repository_path)?;
-        Self::from_repo_with_legacy_support(repo)
+        let repo = open_repo(&repository_path, repo_open_mode)?;
+        Self::from_repo_with_legacy_support(repo, repo_open_mode)
     }
 
     /// Open the Git repository in `directory` and return it as context.
     pub fn open(directory: impl AsRef<Path>) -> anyhow::Result<Context> {
-        let directory = directory.as_ref();
-        let repo = gix::open(directory)?;
-        Self::from_repo_with_legacy_support(repo)
+        Self::open_with_repo_open_mode(directory, RepoOpenMode::Standard)
     }
 
-    fn from_repo_with_legacy_support(repo: gix::Repository) -> anyhow::Result<Context> {
+    /// Open the Git repository in `directory` and return it as context while controlling how
+    /// the repository sources configuration via `repo_open_mode`.
+    pub fn open_with_repo_open_mode(
+        directory: impl AsRef<Path>,
+        repo_open_mode: RepoOpenMode,
+    ) -> anyhow::Result<Context> {
+        let directory = directory.as_ref();
+        let repo = open_repo(directory, repo_open_mode)?;
+        Self::from_repo_with_legacy_support(repo, repo_open_mode)
+    }
+
+    fn from_repo_with_legacy_support(
+        repo: gix::Repository,
+        repo_open_mode: RepoOpenMode,
+    ) -> anyhow::Result<Context> {
         let app_cache_dir = but_path::app_cache_dir().ok();
         let project_data_dir = repo.gitbutler_storage_path()?;
         #[cfg(feature = "legacy")]
@@ -302,8 +367,9 @@ impl Context {
                 settings: app_settings(but_path::app_config_dir()?)?,
                 gitdir: gitdir.clone(),
                 project_data_dir: project_data_dir.clone(),
+                repo_open_mode,
                 legacy_project,
-                repo: new_ondemand_repo(gitdir.clone()),
+                repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(project_data_dir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
@@ -320,7 +386,8 @@ impl Context {
                 gitdir: gitdir.clone(),
                 project_data_dir: project_data_dir.clone(),
                 settings: app_settings(but_path::app_config_dir()?)?,
-                repo: new_ondemand_repo(gitdir.clone()),
+                repo_open_mode,
+                repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(project_data_dir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
@@ -340,6 +407,12 @@ impl Context {
         let project_data_dir = repo.gitbutler_storage_path()?;
         let settings = app_settings(but_path::app_config_dir()?)?;
         let app_cache_dir = but_path::app_cache_dir().ok();
+        let repo_open_mode =
+            if repo.open_options().permissions == gix::open::Permissions::isolated() {
+                RepoOpenMode::Isolated
+            } else {
+                RepoOpenMode::Standard
+            };
 
         Ok(Context {
             #[cfg(feature = "legacy")]
@@ -347,7 +420,8 @@ impl Context {
             gitdir: gitdir.clone(),
             project_data_dir: project_data_dir.clone(),
             settings,
-            repo: new_ondemand_repo(gitdir.clone()),
+            repo_open_mode,
+            repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(project_data_dir),
             app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
@@ -648,6 +722,7 @@ impl Context {
             gitdir: self.gitdir.clone(),
             project_data_dir: self.project_data_dir.clone(),
             app_cache_dir: self.app_cache_dir.clone(),
+            repo_open_mode: self.repo_open_mode,
             repo: self.repo.get_opt().clone().map(|r| r.into_sync()),
             #[cfg(feature = "legacy")]
             legacy_project: self.legacy_project.clone(),
@@ -665,6 +740,7 @@ impl Context {
             db: _,
             app_cache: _,
             app_cache_dir,
+            repo_open_mode,
             #[cfg(feature = "legacy")]
             legacy_project,
             workspace: _,
@@ -674,6 +750,7 @@ impl Context {
             gitdir,
             project_data_dir,
             app_cache_dir,
+            repo_open_mode,
             repo: repo.take().map(|r| r.into_sync()),
             #[cfg(feature = "legacy")]
             legacy_project,
@@ -759,16 +836,20 @@ impl Context {
 
 /// For now, always make sure we have object caches setup to make diffs fast in the common case.
 /// Optimizing this based on better heuristics can be done with [Context::clone_repo_for_merging()].
-#[instrument(level = "trace")]
-fn new_ondemand_repo(gitdir: PathBuf) -> OnDemand<gix::Repository> {
+fn new_ondemand_repo(gitdir: PathBuf, repo_open_mode: RepoOpenMode) -> OnDemand<gix::Repository> {
     OnDemand::new(move || {
-        gix::open(&gitdir)
-            .map_err(anyhow::Error::from)
-            .map(|mut repo| {
-                repo.object_cache_size_if_unset(100 * 1024 * 1024);
-                repo
-            })
+        open_repo(&gitdir, repo_open_mode).map(|mut repo| {
+            repo.object_cache_size_if_unset(100 * 1024 * 1024);
+            repo
+        })
     })
+}
+
+fn open_repo(gitdir: &Path, repo_open_mode: RepoOpenMode) -> anyhow::Result<gix::Repository> {
+    match repo_open_mode {
+        RepoOpenMode::Standard => Ok(gix::open(gitdir)?),
+        RepoOpenMode::Isolated => Ok(gix::open_opts(gitdir, gix::open::Options::isolated())?),
+    }
 }
 
 #[instrument(level = "trace")]
