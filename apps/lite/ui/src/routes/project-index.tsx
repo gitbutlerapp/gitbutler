@@ -1125,10 +1125,10 @@ const CommitMoveToBranchTarget: FC<{
 }> = ({ projectId, anchorRef, firstCommitId, children }) => {
 	const [sourceItem, setSourceItem] = assert(use(SourceItemStateContext));
 	const [isDragOver, setIsDragOver] = useState(false);
+	const commitMoveToBranch = useMutation(commitMoveToBranchMutationOptions);
+
 	const isValidTarget =
 		sourceItem?._tag === "Commit" && anchorRef !== null && firstCommitId !== sourceItem.commitId;
-
-	const commitMoveToBranch = useMutation(commitMoveToBranchMutationOptions);
 
 	return (
 		<Tooltip.Root open={isDragOver && isValidTarget}>
