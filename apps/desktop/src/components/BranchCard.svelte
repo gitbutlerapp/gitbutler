@@ -265,6 +265,7 @@
 									<ChecksPolling
 										{projectId}
 										branchName={pr.sourceBranch}
+										prUpdatedAt={pr.updatedAt}
 										isFork={pr.fork}
 										isMerged={pr.merged}
 									/>
