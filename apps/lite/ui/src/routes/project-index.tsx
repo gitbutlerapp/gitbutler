@@ -449,19 +449,20 @@ const SelectedCommitDiff: FC<{
 	);
 };
 
-const CommitRubTarget: FC<{
+const RubTarget: FC<{
 	projectId: string;
-	commitId: string;
+	target: ChangeUnit;
 	children: React.ReactElement;
-}> = ({ projectId, commitId, children }) => {
-	const changeUnit: ChangeUnit = { _tag: "commit", commitId };
-
+}> = ({ projectId, target, children }) => {
 	const [sourceItem] = assert(use(SourceItemStateContext));
 	const [isDragOver, setIsDragOver] = useState(false);
-	const rubOperation = sourceItem ? rubOperationFor(rubSourceFor(sourceItem), changeUnit) : null;
+	const rubOperation = sourceItem ? rubOperationFor(rubSourceFor(sourceItem), target) : null;
 	const rubMutation = useMutation(rubMutationOptions);
 
-	const isEnabled = sourceItem !== null && rubOperation !== null;
+	const isEnabled =
+		sourceItem !== null &&
+		(target._tag === "changes" ? sourceItem._tag === "TreeChange" : true) &&
+		rubOperation !== null;
 	const isActive = isDragOver && isEnabled;
 
 	const tooltip = isActive ? rubOperation : null;
@@ -494,7 +495,7 @@ const CommitRubTarget: FC<{
 					rubMutation.mutate({
 						projectId,
 						source: rubSourceFor(sourceItem),
-						target: changeUnit,
+						target,
 					});
 				}}
 				style={{
@@ -752,7 +753,7 @@ const CommitC: FC<{
 				previousCommitId={previousCommitId}
 				nextCommitId={nextCommitId}
 			/>
-			<CommitRubTarget projectId={projectId} commitId={commit.id}>
+			<RubTarget projectId={projectId} target={changeUnit}>
 				<div className={styles.commitRow}>
 					{isEditingMessage ? (
 						<InlineCommitMessageEditor
@@ -818,7 +819,7 @@ const CommitC: FC<{
 						</Menu.Portal>
 					</Menu.Root>
 				</div>
-			</CommitRubTarget>
+			</RubTarget>
 			{expanded && (
 				<div className={sharedStyles.commitDetails}>
 					<Suspense fallback={<div>Loading changed details…</div>}>
@@ -870,8 +871,10 @@ const Changes: FC<{
 
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
 
+	const changeUnit: ChangeUnit = { _tag: "changes", stackId };
+
 	return (
-		<ChangesRubTarget projectId={projectId} stackId={stackId}>
+		<RubTarget projectId={projectId} target={changeUnit}>
 			<div className={className}>
 				{changes.length === 0 ? (
 					<>No changes.</>
@@ -889,7 +892,7 @@ const Changes: FC<{
 								<FileListItem
 									key={change.path}
 									change={change}
-									changeUnit={{ _tag: "changes", stackId }}
+									changeUnit={changeUnit}
 									assignments={assignments}
 								>
 									<div className={sharedStyles.fileRow}>
@@ -919,68 +922,7 @@ const Changes: FC<{
 					</ul>
 				)}
 			</div>
-		</ChangesRubTarget>
-	);
-};
-
-const ChangesRubTarget: FC<{
-	projectId: string;
-	stackId: string | null;
-	children: React.ReactElement;
-}> = ({ projectId, stackId, children }) => {
-	const changeUnit: ChangeUnit = { _tag: "changes", stackId };
-
-	const [sourceItem] = assert(use(SourceItemStateContext));
-	const [isDragOver, setIsDragOver] = useState(false);
-	const rubOperation = sourceItem ? rubOperationFor(rubSourceFor(sourceItem), changeUnit) : null;
-	const rubMutation = useMutation(rubMutationOptions);
-
-	const isEnabled = sourceItem?._tag === "TreeChange" && rubOperation !== null;
-	const isActive = isDragOver && isEnabled;
-
-	const tooltip = isActive ? rubOperation : null;
-
-	return (
-		<Tooltip.Root open={tooltip !== null}>
-			<Tooltip.Trigger
-				render={children}
-				onDragOver={(event) => {
-					setIsDragOver(true);
-
-					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-					if (!isEnabled) return;
-
-					event.preventDefault();
-				}}
-				onDragLeave={(event) => {
-					if (dragLeaveIsWithinTarget(event)) return;
-
-					setIsDragOver(false);
-				}}
-				onDrop={(event) => {
-					setIsDragOver(false);
-
-					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-					if (!isEnabled) return;
-
-					event.preventDefault();
-
-					rubMutation.mutate({
-						projectId,
-						source: rubSourceFor(sourceItem),
-						target: changeUnit,
-					});
-				}}
-				style={{
-					...(isActive && { outline: "2px dashed" }),
-				}}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={styles.tooltip}>{tooltip}</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+		</RubTarget>
 	);
 };
 
