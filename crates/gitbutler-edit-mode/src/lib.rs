@@ -7,8 +7,8 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_oxidize::{ObjectIdExt, OidExt, RepoExt, gix_to_git2_index};
-use but_workspace::legacy::stack_ext::StackExt;
+use but_oxidize::{OidExt, RepoExt, gix_to_git2_index};
+use but_rebase::graph_rebase::{GraphExt as _, Step};
 use git2::build::CheckoutBuilder;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
@@ -256,8 +256,6 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     let gix_commit = gix_repo.find_commit(commit.id().to_gix())?;
     let commit_obj = gix_commit.decode()?.into_owned()?;
 
-    let mut stack = vb_state.get_stack_in_workspace(edit_mode_metadata.stack_id)?;
-
     let parents = commit.parents().collect::<Vec<_>>();
 
     // Write out all the changes, including unstaged changes to a tree for re-committing
@@ -285,24 +283,26 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         )
         .context("Failed to commit new commit")?;
 
-    let gix_repo = repo.to_gix_repo()?;
-
-    let mut steps = stack.as_rebase_steps(ctx)?;
-    // swap out the old commit with the new, updated one
-    steps.iter_mut().for_each(|step| {
-        if let but_rebase::RebaseStep::Pick { commit_id, .. } = step
-            && commit.id() == commit_id.to_git2()
-        {
-            *commit_id = new_commit_oid.to_gix();
-        }
-    });
-    let merge_base = stack.merge_base(ctx)?;
-    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base), None)?;
-    rebase.rebase_noops(false);
-    rebase.steps(steps)?;
-    let output = rebase.rebase()?;
-
-    stack.set_heads_from_rebase_output(ctx, output.references)?;
+    let workspace_commit = gix_repo
+        .find_reference(WORKSPACE_BRANCH_REF)?
+        .peel_to_commit()?;
+    let meta = ctx.meta()?;
+    let graph = but_graph::Graph::from_commit_traversal(
+        workspace_commit.id(),
+        Some(gix::refs::FullName::try_from(WORKSPACE_BRANCH_REF)?),
+        &meta,
+        but_graph::init::Options::limited(),
+    )?;
+    let mut editor = graph.to_editor(gix_repo)?;
+    let (target_selector, _commit) = editor.find_selectable_commit(gix_commit.id)?;
+    editor.replace(target_selector, Step::new_pick(new_commit_oid.to_gix()))?;
+    let outcome = editor.rebase()?;
+    // HEAD is EDIT_BRANCH_REF and we do not need to re-checkout it (we
+    // are checking out WORKSPACE_BRANCH_REF after this). As for needing to
+    // "cherry pick" uncommitted changes from the old HEAD, we do not need to,
+    // because there are none (they have been written to a tree earlier in this
+    // function). Therefore, use `materialize_without_checkout`.
+    outcome.materialize_without_checkout()?;
 
     // Switch branch to gitbutler/workspace
     repo.set_head(WORKSPACE_BRANCH_REF)
