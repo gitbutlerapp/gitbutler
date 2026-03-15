@@ -456,7 +456,7 @@ const CommitRubTarget: FC<{
 }> = ({ projectId, commitId, children }) => {
 	const changeUnit: ChangeUnit = { _tag: "commit", commitId };
 
-	const [sourceItem, setSourceItem] = assert(use(SourceItemStateContext));
+	const [sourceItem] = assert(use(SourceItemStateContext));
 	const [isDragOver, setIsDragOver] = useState(false);
 	const rubOperation = sourceItem ? rubOperationFor(rubSourceFor(sourceItem), changeUnit) : null;
 	const rubMutation = useMutation(rubMutationOptions);
@@ -491,8 +491,6 @@ const CommitRubTarget: FC<{
 
 					event.preventDefault();
 
-					setSourceItem(null);
-
 					rubMutation.mutate({
 						projectId,
 						source: rubSourceFor(sourceItem),
@@ -519,7 +517,7 @@ const CommitMoveTarget: FC<{
 	previousCommitId: string | undefined;
 	nextCommitId: string | undefined;
 }> = ({ projectId, commitId, side, previousCommitId, nextCommitId }) => {
-	const [sourceItem, setSourceItem] = assert(use(SourceItemStateContext));
+	const [sourceItem] = assert(use(SourceItemStateContext));
 	const [isDragOver, setIsDragOver] = useState(false);
 	const commitMove = useMutation(commitMoveMutationOptions);
 
@@ -560,8 +558,6 @@ const CommitMoveTarget: FC<{
 				if (isNoOp(sourceItem.commitId)) return;
 
 				event.preventDefault();
-
-				setSourceItem(null);
 
 				commitMove.mutate({
 					projectId,
@@ -936,7 +932,7 @@ const ChangesRubTarget: FC<{
 }> = ({ projectId, stackId, children }) => {
 	const changeUnit: ChangeUnit = { _tag: "changes", stackId };
 
-	const [sourceItem, setSourceItem] = assert(use(SourceItemStateContext));
+	const [sourceItem] = assert(use(SourceItemStateContext));
 	const [isDragOver, setIsDragOver] = useState(false);
 	const rubOperation = sourceItem ? rubOperationFor(rubSourceFor(sourceItem), changeUnit) : null;
 	const rubMutation = useMutation(rubMutationOptions);
@@ -971,8 +967,6 @@ const ChangesRubTarget: FC<{
 					if (rubOperation === null) return;
 
 					event.preventDefault();
-
-					setSourceItem(null);
 
 					rubMutation.mutate({
 						projectId,
@@ -1120,7 +1114,7 @@ const CommitMoveToBranchTarget: FC<{
 	firstCommitId: string | undefined;
 	children: React.ReactElement;
 }> = ({ projectId, anchorRef, firstCommitId, children }) => {
-	const [sourceItem, setSourceItem] = assert(use(SourceItemStateContext));
+	const [sourceItem] = assert(use(SourceItemStateContext));
 	const [isDragOver, setIsDragOver] = useState(false);
 	const commitMoveToBranch = useMutation(commitMoveToBranchMutationOptions);
 
@@ -1153,8 +1147,6 @@ const CommitMoveToBranchTarget: FC<{
 					if (!isEnabled) return;
 
 					event.preventDefault();
-
-					setSourceItem(null);
 
 					commitMoveToBranch.mutate({
 						projectId,
