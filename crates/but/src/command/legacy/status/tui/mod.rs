@@ -45,7 +45,7 @@ pub(super) async fn render_tui(
     flags: StatusFlags,
     status_lines: Vec<StatusOutputLine>,
     debug: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Vec<StatusOutputLine>> {
     let mut guard = TerminalGuard::new(true)?;
 
     let mut app = App::new(status_lines, flags, debug);
@@ -95,7 +95,7 @@ pub(super) async fn render_tui(
         }
     }
 
-    Ok(())
+    Ok(app.status_lines)
 }
 
 #[derive(Debug)]
