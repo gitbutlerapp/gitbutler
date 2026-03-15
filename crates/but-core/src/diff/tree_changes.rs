@@ -66,6 +66,7 @@ impl TreeChanges {
         let mut resource_cache = repo.diff_resource_cache_for_tree_diff()?;
         for change in self.0.iter() {
             let change = change.attach(repo, repo);
+            stats.files_changed += 1;
             resource_cache.clear_resource_cache_keep_allocation();
             if let Some(counts) = change
                 .diff(&mut resource_cache)
@@ -73,7 +74,6 @@ impl TreeChanges {
                 .and_then(|mut platform| platform.line_counts().ok())
                 .flatten()
             {
-                stats.files_changed += 1;
                 stats.lines_added += u64::from(counts.insertions);
                 stats.lines_removed += u64::from(counts.removals);
             }

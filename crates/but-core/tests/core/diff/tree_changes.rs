@@ -500,3 +500,26 @@ fn changes_between_conflicted_and_conflicted_commit() -> anyhow::Result<()> {
     ");
     Ok(())
 }
+
+#[test]
+fn binary_only_changes_count_as_files_changed() -> anyhow::Result<()> {
+    let repo = repo("binary-only-in-tree")?;
+    let previous_commit_id = repo.rev_parse_single("@~1")?;
+    let current_commit_id = repo.rev_parse_single("@")?;
+    let (changes, stats) = but_core::diff::tree_changes_with_line_stats(
+        &repo,
+        Some(previous_commit_id.into()),
+        current_commit_id.into(),
+    )?;
+
+    assert_eq!(changes.len(), 1);
+    assert_eq!(changes[0].path.as_slice(), b"file.binary");
+    assert!(matches!(
+        changes[0].status,
+        but_core::TreeStatus::Modification { flags: None, .. }
+    ));
+    assert_eq!(stats.lines_added, 0);
+    assert_eq!(stats.lines_removed, 0);
+    assert_eq!(stats.files_changed, 1);
+    Ok(())
+}
