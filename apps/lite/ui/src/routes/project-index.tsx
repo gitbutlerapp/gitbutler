@@ -486,12 +486,12 @@ const CommitRubTarget: FC<{
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
 
+					if (!sourceItem) return;
+					if (rubOperation === null) return;
+
 					event.preventDefault();
 
 					setSourceItem(null);
-
-					if (!sourceItem) return;
-					if (rubOperation === null) return;
 
 					rubMutation.mutate({
 						projectId,
@@ -967,12 +967,12 @@ const ChangesRubTarget: FC<{
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
 
+					if (!sourceItem) return;
+					if (rubOperation === null) return;
+
 					event.preventDefault();
 
 					setSourceItem(null);
-
-					if (!sourceItem) return;
-					if (rubOperation === null) return;
 
 					rubMutation.mutate({
 						projectId,
@@ -1149,12 +1149,12 @@ const CommitMoveToBranchTarget: FC<{
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
 
+					if (sourceItem?._tag !== "Commit") return;
+					if (!isEnabled) return;
+
 					event.preventDefault();
 
 					setSourceItem(null);
-
-					if (sourceItem?._tag !== "Commit") return;
-					if (!isEnabled) return;
 
 					commitMoveToBranch.mutate({
 						projectId,
