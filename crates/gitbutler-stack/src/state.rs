@@ -338,6 +338,8 @@ impl VirtualBranchesHandle {
             .collect_vec();
         let mut to_remove: Vec<StackId> = vec![];
         let ctx = but_ctx::Context::try_from(repo.clone())?;
+        let cache = repo.commit_graph_if_enabled()?;
+        let mut graph = repo.revision_graph(cache.as_ref());
         for branch in stacks_not_in_workspace {
             if let Ok(branch_head) = branch.head_oid(&ctx) {
                 if repo.find_commit(branch_head).is_err() {
@@ -346,7 +348,11 @@ impl VirtualBranchesHandle {
                 } else {
                     // if there are no commits between the head and the merge base,
                     // i.e. the head is the merge base, we can GC the branch
-                    if branch_head == repo.merge_base(branch_head, target.sha)?.detach() {
+                    if branch_head
+                        == repo
+                            .merge_base_with_graph(branch_head, target.sha, &mut graph)?
+                            .detach()
+                    {
                         to_remove.push(branch.id);
                     }
                 }

@@ -2,7 +2,6 @@ use anyhow::{Result, bail};
 use bstr::ByteSlice;
 use but_ctx::Context;
 use but_ctx::access::RepoShared;
-use but_oxidize::ObjectIdExt;
 use colored::Colorize;
 
 use crate::{
@@ -474,7 +473,6 @@ fn get_branch_commits(
 ) -> Result<(Vec<BranchCommitInfo>, Option<BranchCommitInfo>)> {
     use gix::prelude::ObjectIdExt as _;
 
-    let git2_repo = &*ctx.git2_repo.get()?;
     let repo = ctx.repo.get()?;
 
     // Find the branch by name
@@ -501,11 +499,12 @@ fn get_branch_commits(
     let mut commits = Vec::new();
     for info in traversal {
         let info = info?;
-        let oid = info.id.to_git2();
-        let commit = git2_repo.find_commit(oid)?;
-        let author = commit.author();
+        let commit = repo.find_commit(info.id)?;
+        let decoded = commit.decode()?;
+        let author = decoded.author()?;
+        let committer = decoded.committer()?;
 
-        let full_message = commit.message().map(|m| m.to_string());
+        let full_message = (!decoded.message.is_empty()).then(|| decoded.message.to_string());
         let message = full_message
             .as_deref()
             .unwrap_or("(no message)")
@@ -515,69 +514,18 @@ fn get_branch_commits(
             .to_string();
 
         let (files_changed, insertions, deletions, files) = if verbose {
-            // Calculate diff stats and collect file information
-            let tree = commit.tree()?;
-            let parent_tree = if commit.parent_count() > 0 {
-                Some(commit.parent(0)?.tree()?)
-            } else {
-                None
-            };
-            let diff = git2_repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
-            let stats = diff.stats()?;
-
-            let mut file_changes = Vec::new();
-            for delta_idx in 0..diff.deltas().len() {
-                let delta = diff.get_delta(delta_idx).unwrap();
-
-                let path = delta
-                    .new_file()
-                    .path()
-                    .or_else(|| delta.old_file().path())
-                    .and_then(|p| p.to_str())
-                    .unwrap_or("(unknown)")
-                    .to_string();
-
-                let status = match delta.status() {
-                    git2::Delta::Added => "added",
-                    git2::Delta::Deleted => "deleted",
-                    git2::Delta::Modified => "modified",
-                    git2::Delta::Renamed => "renamed",
-                    git2::Delta::Copied => "copied",
-                    git2::Delta::Typechange => "typechange",
-                    _ => "unknown",
-                };
-
-                // Get patch for this specific file to count lines
-                let patch = git2::Patch::from_diff(&diff, delta_idx)?;
-                let mut insertions = 0;
-                let mut deletions = 0;
-
-                if let Some(patch) = patch {
-                    for hunk_idx in 0..patch.num_hunks() {
-                        let hunk_lines = patch.num_lines_in_hunk(hunk_idx)?;
-                        for line_idx in 0..hunk_lines {
-                            let line = patch.line_in_hunk(hunk_idx, line_idx)?;
-                            match line.origin() {
-                                '+' => insertions += 1,
-                                '-' => deletions += 1,
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-
-                file_changes.push(FileChange {
-                    path,
-                    status: status.to_string(),
-                    insertions,
-                    deletions,
-                });
-            }
+            let changes = but_core::diff::commit_changes(&repo, info.id)?;
+            let stats = changes.compute_line_stats(&repo)?;
+            let file_changes = changes
+                .into_tree_changes()
+                .into_iter()
+                .map(|change| file_change_from_tree_change(&repo, change))
+                .collect::<Result<Vec<_>>>()?;
 
             (
-                Some(stats.files_changed()),
-                Some(stats.insertions()),
-                Some(stats.deletions()),
+                Some(usize::try_from(stats.files_changed).unwrap_or(usize::MAX)),
+                Some(usize::try_from(stats.lines_added).unwrap_or(usize::MAX)),
+                Some(usize::try_from(stats.lines_removed).unwrap_or(usize::MAX)),
                 Some(file_changes),
             )
         } else {
@@ -585,13 +533,13 @@ fn get_branch_commits(
         };
 
         commits.push(BranchCommitInfo {
-            sha: oid.to_string(),
+            sha: info.id.to_string(),
             short_sha: shorten_object_id(&repo, info.id),
             message,
             full_message,
-            author_name: author.name().unwrap_or("Unknown").to_string(),
-            author_email: author.email().unwrap_or("").to_string(),
-            timestamp: commit.time().seconds(),
+            author_name: author.name.to_str_lossy().to_string(),
+            author_email: author.email.to_str_lossy().to_string(),
+            timestamp: committer.time()?.seconds,
             files_changed,
             insertions,
             deletions,
@@ -601,11 +549,12 @@ fn get_branch_commits(
 
     // Get base commit info
     let base_commit_info = if verbose {
-        let base_commit = git2_repo.find_commit(merge_base.to_git2())?;
-        let base_author = base_commit.author();
-        let base_message = base_commit
-            .message()
-            .unwrap_or("(no message)")
+        let base_commit = repo.find_commit(merge_base)?;
+        let base_decoded = base_commit.decode()?;
+        let base_author = base_decoded.author()?;
+        let base_message = base_decoded
+            .message
+            .to_str_lossy()
             .lines()
             .next()
             .unwrap_or("(no message)")
@@ -616,9 +565,9 @@ fn get_branch_commits(
             short_sha: shorten_object_id(&repo, merge_base),
             message: base_message,
             full_message: None,
-            author_name: base_author.name().unwrap_or("Unknown").to_string(),
-            author_email: base_author.email().unwrap_or("").to_string(),
-            timestamp: base_commit.time().seconds(),
+            author_name: base_author.name.to_str_lossy().to_string(),
+            author_email: base_author.email.to_str_lossy().to_string(),
+            timestamp: base_decoded.committer()?.time()?.seconds,
             files_changed: None,
             insertions: None,
             deletions: None,
@@ -629,6 +578,41 @@ fn get_branch_commits(
     };
 
     Ok((commits, base_commit_info))
+}
+
+/// Convert a tree change into the file summary shape used by branch output.
+fn file_change_from_tree_change(
+    repo: &gix::Repository,
+    change: but_core::TreeChange,
+) -> Result<FileChange> {
+    let (insertions, deletions) = match change.unified_patch(repo, 0)? {
+        Some(but_core::UnifiedPatch::Patch {
+            lines_added,
+            lines_removed,
+            ..
+        }) => (
+            usize::try_from(lines_added).unwrap_or(usize::MAX),
+            usize::try_from(lines_removed).unwrap_or(usize::MAX),
+        ),
+        _ => (0, 0),
+    };
+
+    Ok(FileChange {
+        path: change.path.to_str_lossy().to_string(),
+        status: change_status(&change).to_string(),
+        insertions,
+        deletions,
+    })
+}
+
+/// Convert a tree change kind to the human and JSON status strings used by this command.
+fn change_status(change: &but_core::TreeChange) -> &'static str {
+    match change.status {
+        but_core::TreeStatus::Addition { .. } => "added",
+        but_core::TreeStatus::Deletion { .. } => "deleted",
+        but_core::TreeStatus::Modification { .. } => "modified",
+        but_core::TreeStatus::Rename { .. } => "renamed",
+    }
 }
 
 fn merge_base_with_target_branch(

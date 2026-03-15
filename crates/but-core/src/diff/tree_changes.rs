@@ -96,6 +96,19 @@ pub fn tree_changes(
     Ok(TreeChanges::from_trees(repo, lhs, rhs)?.into_tree_changes())
 }
 
+/// Compute the tree-diff for `commit_id` with its first parent.
+pub fn commit_changes(
+    repo: &gix::Repository,
+    commit_id: gix::ObjectId,
+) -> anyhow::Result<TreeChanges> {
+    let parent_id = repo
+        .find_commit(commit_id)?
+        .parent_ids()
+        .map(|id| id.detach())
+        .next();
+    TreeChanges::from_trees(repo, parent_id, commit_id)
+}
+
 /// See [TreeChanges::from_trees()], but with [TreeChanges::compute_line_stats()] automatically called.
 pub fn tree_changes_with_line_stats(
     repo: &gix::Repository,
