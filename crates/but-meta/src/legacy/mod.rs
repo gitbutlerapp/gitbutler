@@ -122,33 +122,15 @@ impl Snapshot {
     fn enforce_constraints(&mut self, repo: Option<&gix::Repository>) -> bool {
         let mut changed = false;
         let mut empty_stacks_to_remove = Vec::new();
-        let mut seen_refnames = BTreeSet::new();
+        let null_id = gix::hash::Kind::Sha1.null();
+        let mut seen_refnames = BTreeMap::<String, gix::ObjectId>::new();
         for (stack_id, stack) in self
             .content
             .branches
             .iter_mut()
             .sorted_by(|(_, a), (_, b)| order_then_name(&&**a, &&**b))
         {
-            let head_indices_to_remove: Vec<_> = stack
-                .heads
-                .iter()
-                .enumerate()
-                .filter_map(|(head_idx, head)| {
-                    (!seen_refnames.insert(head.name.clone())).then_some(head_idx)
-                })
-                .collect();
-            for head_idx in head_indices_to_remove.into_iter().rev() {
-                let head = stack.heads.remove(head_idx);
-                tracing::warn!(
-                    "Removed '{head_name}' from stack {stack_id} as it was already used in another stack",
-                    head_name = head.name
-                );
-                changed = true;
-            }
-
             if let Some(repo) = repo {
-                let null_id = gix::hash::Kind::Sha1.null();
-
                 for segment in &mut stack.heads {
                     if segment.head == null_id {
                         let Ok(mut r) = repo.find_reference(&segment.name) else {
@@ -160,6 +142,28 @@ impl Snapshot {
                         }
                     }
                 }
+            }
+
+            let head_indices_to_remove: Vec<_> = stack
+                .heads
+                .iter()
+                .enumerate()
+                .filter_map(|(head_idx, head)| {
+                    let seen_head = seen_refnames.entry(head.name.clone()).or_insert(head.head);
+                    if *seen_head == null_id && head.head != null_id {
+                        *seen_head = head.head;
+                    }
+                    (*seen_head != null_id && head.head != null_id && *seen_head != head.head)
+                        .then_some(head_idx)
+                })
+                .collect();
+            for head_idx in head_indices_to_remove.into_iter().rev() {
+                let head = stack.heads.remove(head_idx);
+                tracing::warn!(
+                    "Removed '{head_name}' from stack {stack_id} as it resolved to a different head in another stack",
+                    head_name = head.name,
+                );
+                changed = true;
             }
 
             if stack.heads.is_empty() {
