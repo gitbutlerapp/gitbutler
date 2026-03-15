@@ -153,20 +153,30 @@ pub(crate) async fn worktree(
         }
     }
 
-    let Some(human_out) = out.for_human() else {
-        return Ok(());
-    };
-
     match render_mode {
         StatusRenderMode::Oneshot => {
+            let Some(human_out) = out.for_human() else {
+                return Ok(());
+            };
+
             let mut output = StatusOutput::Immediate { out: human_out };
             build_status_output(ctx, &status_ctx, &mut output)?;
         }
         StatusRenderMode::Tui { debug } => {
+            if out.for_human().is_none() {
+                return Ok(());
+            }
+
             let mut lines = Vec::new();
             let mut output = StatusOutput::Buffer { lines: &mut lines };
             build_status_output(ctx, &status_ctx, &mut output)?;
-            tui::render_tui(ctx, out, &mode, flags, lines, debug).await?;
+            let final_lines = tui::render_tui(ctx, out, &mode, flags, lines, debug).await?;
+
+            if let Some(human_out) = out.for_human() {
+                for line in final_lines {
+                    render_oneshot::render_oneshot(line, human_out)?;
+                }
+            }
         }
     }
 
