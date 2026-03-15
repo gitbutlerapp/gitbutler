@@ -946,8 +946,7 @@ const ChangesRubTarget: FC<{
 					setIsDragOver(true);
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-					if (!sourceItem) return;
-					if (sourceItem._tag === "Commit") return;
+					if (sourceItem?._tag !== "TreeChange") return;
 					if (rubOperation === null) return;
 
 					event.preventDefault();
@@ -961,8 +960,7 @@ const ChangesRubTarget: FC<{
 					setIsDragOver(false);
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-					if (!sourceItem) return;
-					if (sourceItem._tag === "Commit") return;
+					if (sourceItem?._tag !== "TreeChange") return;
 					if (rubOperation === null) return;
 
 					event.preventDefault();
