@@ -107,6 +107,14 @@ impl ModeFlags {
         }
     }
 }
+/// Select the commit/tree to diff against:
+/// - root commits use `None` (empty tree),
+/// - all non-root commits (including merge commits) use the first parent.
+pub(crate) fn diff_base_commit_id(
+    parent_ids: impl Iterator<Item = gix::ObjectId>,
+) -> anyhow::Result<Option<gix::ObjectId>> {
+    Ok(parent_ids.into_iter().next())
+}
 
 #[cfg(test)]
 mod tests {

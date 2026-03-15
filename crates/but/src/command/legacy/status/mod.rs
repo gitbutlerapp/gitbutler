@@ -933,7 +933,7 @@ fn print_group(
                     status_ctx,
                     commit.short_id.clone(),
                     &commit.inner,
-                    CommitChanges::Remote(&details.diff_with_first_parent),
+                    CommitChanges::Remote(&details.changes),
                     CommitClassification::Upstream,
                     false,
                     None,

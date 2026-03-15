@@ -127,13 +127,12 @@ fn edit_commit_message_by_id(
         prepare_provided_message(message, "commit message").unwrap_or_else(|| {
             let changed_files = get_changed_files_from_commit_details(&commit_details);
 
-            let should_show_diff = show_diff_in_editor.should_show_diff(|| {
-                estimate_diff_blob_size(&commit_details.diff_with_first_parent, ctx)
-            })?;
+            let should_show_diff = show_diff_in_editor
+                .should_show_diff(|| estimate_diff_blob_size(&commit_details.changes, ctx))?;
             let diff = should_show_diff
                 .then(|| {
                     commit_details
-                        .diff_with_first_parent
+                        .changes
                         .iter()
                         .map(|change| change.unified_diff(&*ctx.repo.get()?, 3))
                         .filter_map(|diff| diff.transpose())
@@ -174,7 +173,7 @@ fn get_changed_files_from_commit_details(
 ) -> Vec<String> {
     let mut files = Vec::new();
 
-    for change in &commit_details.diff_with_first_parent {
+    for change in &commit_details.changes {
         let status = match &change.status {
             but_core::TreeStatus::Addition { .. } => "new file:",
             but_core::TreeStatus::Deletion { .. } => "deleted:",
