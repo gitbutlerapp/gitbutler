@@ -11,9 +11,7 @@ use but_meta::virtual_branches_legacy_types as legacy_types;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_testsupport::{gix_testtools, open_repo};
 use filetime::{FileTime, set_file_mtime};
-use git2::Commit;
 use gitbutler_reference::RemoteRefname;
-use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{PatchReferenceUpdate, Stack, StackBranch, Target, VirtualBranchesHandle};
 use gix::refs::transaction::PreviousValue;
@@ -67,12 +65,12 @@ fn add_series_top_of_stack() -> Result<()> {
 fn add_series_top_base() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
-    let git2_repo = ctx.git2_repo.get()?;
-    let merge_base = git2_repo.find_commit(git2_repo.merge_base(
-        test_ctx.stack.head_oid(&ctx)?.to_git2(),
-        test_ctx.default_target.sha.to_git2(),
-    )?)?;
-    let reference = StackBranch::new(merge_base.id().to_gix(), "asdf".into(), &*ctx.repo.get()?)?;
+    let merge_base = ctx
+        .repo
+        .get()?
+        .merge_base(test_ctx.stack.head_oid(&ctx)?, test_ctx.default_target.sha)?
+        .detach();
+    let reference = StackBranch::new(merge_base, "asdf".into(), &*ctx.repo.get()?)?;
     let result = test_ctx.stack.add_series(&ctx, reference, None);
     println!("{result:?}");
     // Assert persisted
@@ -834,24 +832,24 @@ fn test_ctx(ctx: &Context) -> Result<TestContext> {
     let stack = stacks.iter().find(|b| b.name() == "virtual").unwrap();
     let other_stack = stacks.iter().find(|b| b.name() != "virtual").unwrap();
     let target = handle.get_default_target()?;
-    let git2_repo = ctx.git2_repo.get()?;
-    let mut branch_commits = git2_repo.log(
-        stack.head_oid(ctx)?.to_git2(),
-        LogUntil::Commit(target.sha.to_git2()),
-        false,
-    )?;
+    let repo = ctx.repo.get()?;
+    let mut branch_commits = stack
+        .commits(ctx)?
+        .into_iter()
+        .map(|id| bake_commit(&repo, id))
+        .collect::<Result<Vec<_>>>()?;
     branch_commits.reverse();
-    let mut other_commits = git2_repo.log(
-        other_stack.head_oid(ctx)?.to_git2(),
-        LogUntil::Commit(target.sha.to_git2()),
-        false,
-    )?;
+    let mut other_commits = other_stack
+        .commits(ctx)?
+        .into_iter()
+        .map(|id| bake_commit(&repo, id))
+        .collect::<Result<Vec<_>>>()?;
     other_commits.reverse();
     Ok(TestContext {
         stack: stack.clone(),
-        commits: branch_commits.into_iter().map(Into::into).collect(),
+        commits: branch_commits,
         // other_branch: other_branch.clone(),
-        other_commits: other_commits.into_iter().map(Into::into).collect(),
+        other_commits,
         handle,
         default_target: target,
     })
@@ -871,13 +869,12 @@ struct BakedCommit {
     parents: Vec<git2::Oid>,
 }
 
-impl From<git2::Commit<'_>> for BakedCommit {
-    fn from(c: Commit<'_>) -> Self {
-        BakedCommit {
-            id: c.id(),
-            parents: c.parents().map(|p| p.id()).collect(),
-        }
-    }
+fn bake_commit(repo: &gix::Repository, id: gix::ObjectId) -> Result<BakedCommit> {
+    let commit = repo.find_commit(id)?;
+    Ok(BakedCommit {
+        id: id.to_git2(),
+        parents: commit.parent_ids().map(|parent| parent.to_git2()).collect(),
+    })
 }
 
 impl BakedCommit {

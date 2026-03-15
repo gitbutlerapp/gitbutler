@@ -2,7 +2,7 @@ use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::{RepositoryExt, worktree::checkout::UncommitedWorktreeChanges};
 use but_ctx::access::RepoExclusive;
 use but_error::Marker;
-use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
+use but_oxidize::ObjectIdExt;
 use but_workspace::{
     branch::{
         OnWorkspaceMergeConflict,
@@ -15,7 +15,6 @@ use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{Stack, StackId};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
@@ -163,15 +162,13 @@ impl BranchManager<'_> {
                 conflicted_stack_short_names_for_display,
             ));
         }
-        let old_cwd = (!self.ctx.settings.feature_flags.cv3)
-            .then(|| {
-                self.ctx
-                    .git2_repo
-                    .get()?
-                    .create_wd_tree(0)
-                    .map(|tree| tree.id().to_gix())
-            })
-            .transpose()?;
+        let old_cwd = if self.ctx.settings.feature_flags.cv3 {
+            None
+        } else {
+            let repo = self.ctx.repo.get()?;
+            #[expect(deprecated)]
+            Some(repo.create_wd_tree(0)?)
+        };
         let old_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
         // only set upstream if it's not the default target
         let upstream_branch = match upstream_branch {
@@ -198,16 +195,10 @@ impl BranchManager<'_> {
             bail!("cannot create a branch from default target")
         }
 
-        let git2_repo = self.ctx.git2_repo.get()?;
-        let head_reference =
-            git2_repo
-                .find_reference(&target.to_string())
-                .map_err(|err| match err {
-                    err if err.code() == git2::ErrorCode::NotFound => {
-                        anyhow!("branch {target} was not found")
-                    }
-                    err => err.into(),
-                })?;
+        let repo = self.ctx.repo.get()?;
+        let mut head_reference = repo
+            .try_find_reference(&target.to_string())?
+            .ok_or_else(|| anyhow!("branch {target} was not found"))?;
         let head_commit = head_reference
             .peel_to_commit()
             .context("failed to peel to commit")?;
@@ -231,7 +222,7 @@ impl BranchManager<'_> {
                 branch_name.clone(),
                 Some(target.clone()),
                 upstream_branch,
-                head_commit.id().to_gix(),
+                head_commit.id,
                 order,
             )?
         };
@@ -239,11 +230,7 @@ impl BranchManager<'_> {
         if let (Some(pr_number), Some(head)) = (pr_number, branch.heads(false).last()) {
             branch.set_pr_number(self.ctx, head, Some(pr_number))?;
         }
-        branch.set_stack_head(
-            &mut vb_state,
-            &(&*git2_repo).to_isolated_gix_repo()?,
-            head_commit.id().to_gix(),
-        )?;
+        branch.set_stack_head(&mut vb_state, &repo, head_commit.id)?;
         self.ctx.add_branch_reference(&branch)?;
 
         match self.apply_branch(branch.id, perm, old_workspace, old_cwd) {
@@ -271,47 +258,43 @@ impl BranchManager<'_> {
         workspace_state: WorkspaceState,
         old_cwd: Option<gix::ObjectId>,
     ) -> Result<(String, Vec<StackId>)> {
-        let git2_repo = &*self.ctx.git2_repo.get()?;
-
         let mut vb_state = self.ctx.virtual_branches();
         let default_target = vb_state.get_default_target()?;
+        let repo = self.ctx.repo.get()?;
 
         let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
+        let stack_head = stack.head_oid(self.ctx)?;
 
         // calculate the merge base and make sure it's the same as the target commit
         // if not, we need to merge or rebase the branch to get it up to date
 
-        let merge_base = git2_repo
-            .merge_base(
-                default_target.sha.to_git2(),
-                stack.head_oid(self.ctx)?.to_git2(),
-            )
+        let merge_base = repo
+            .merge_base(default_target.sha, stack_head)
             .context(format!(
                 "failed to find merge base between {} and {}",
-                default_target.sha,
-                stack.head_oid(self.ctx)?
+                default_target.sha, stack_head
             ))?;
 
         // Branch is out of date, merge or rebase it
-        let merge_base_tree_id = git2_repo
-            .find_commit(merge_base)
+        let merge_base_tree_id = repo
+            .find_commit(merge_base.detach())
             .context(format!("failed to find merge base commit {merge_base}"))?
-            .tree()
-            .context("failed to find merge base tree")?
-            .id();
+            .tree_id()?
+            .detach();
         let branch_tree_id = stack.tree(self.ctx)?;
 
         let mut unapplied_stacks = vec![];
 
         // We don't support having two branches applied that conflict with each other
         {
-            let uncommited_changes_tree_id = git2_repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?.id();
             let gix_repo = self.ctx.clone_repo_for_merging_non_persisting()?;
+            #[expect(deprecated)]
+            let uncommited_changes_tree_id = gix_repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?;
             let merges_cleanly = gix_repo
                 .merges_cleanly(
-                    merge_base_tree_id.to_gix(),
+                    merge_base_tree_id,
                     branch_tree_id,
-                    uncommited_changes_tree_id.to_gix(),
+                    uncommited_changes_tree_id,
                 )
                 .context("failed to merge trees")?;
 
@@ -335,22 +318,16 @@ impl BranchManager<'_> {
         }
 
         // Do we need to rebase the branch on top of the default target?
-        let repo = self.ctx.repo.get()?;
-        let has_change_id = repo
-            .find_commit(stack.head_oid(self.ctx)?)?
-            .change_id()
-            .is_some();
+        let has_change_id = repo.find_commit(stack_head)?.change_id().is_some();
         // If the branch has no change ID for the head commit, we want to rebase it even if the base is the same
         // This way stacking functionality which relies on change IDs will work as expected
-        if merge_base != default_target.sha.to_git2() || !has_change_id {
+        if merge_base.detach() != default_target.sha || !has_change_id {
             let steps = stack.as_rebase_steps(self.ctx)?;
             let mut rebase = but_rebase::Rebase::new(&repo, default_target.sha, None)?;
             rebase.steps(steps)?;
             rebase.rebase_noops(true);
             let output = rebase.rebase(&*self.ctx.cache.get_cache()?)?;
-            let new_head = git2_repo.find_commit(output.top_commit.to_git2())?;
-
-            stack.set_stack_head(&mut vb_state, &repo, new_head.id().to_gix())?;
+            stack.set_stack_head(&mut vb_state, &repo, output.top_commit)?;
 
             stack.set_heads_from_rebase_output(self.ctx, output.references)?;
         }

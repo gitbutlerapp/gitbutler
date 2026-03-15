@@ -11,6 +11,7 @@ use gitbutler_filemonitor::{
     FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR,
 };
 use gitbutler_operating_modes::operating_mode;
+use gix::bstr::ByteSlice as _;
 use tracing::instrument;
 
 use crate::Change;
@@ -188,12 +189,12 @@ impl Handler {
                     let _ = self.emit_worktree_changes(project_id.clone(), ctx, perm);
                 }
                 HEAD => {
-                    let git2_repo = ctx.git2_repo.get()?;
-                    let head_ref = git2_repo.head().context("failed to get head")?;
-                    if let Some(head) = head_ref.name() {
+                    let repo = ctx.repo.get()?;
+                    let head_ref = repo.head().context("failed to get head")?;
+                    if let Some(head) = head_ref.referent_name() {
                         self.emit_app_event(Change::GitHead {
                             project_id: project_id.clone(),
-                            head: head.to_string(),
+                            head: head.as_bstr().to_str_lossy().into_owned(),
                             operating_mode: operating_mode(ctx, perm.read_permission())?,
                         })?;
                     }
@@ -206,13 +207,16 @@ impl Handler {
 }
 
 fn head_info(ctx: &mut Context) -> Result<(String, String)> {
-    let repo = &*ctx.git2_repo.get()?;
-    let head_ref = repo.head().context("failed to get head")?;
-    let head_name = head_ref.name().map(|s| s.to_string()).unwrap_or_default();
+    let repo = &*ctx.repo.get()?;
+    let mut head_ref = repo.head().context("failed to get head")?;
+    let head_name = head_ref
+        .referent_name()
+        .map(|name| name.as_bstr().to_str_lossy().into_owned())
+        .unwrap_or_default();
     let head_sha = head_ref
         .peel_to_commit()
         .context("failed to get head commit")?
-        .id()
+        .id
         .to_string();
     Ok((head_name, head_sha))
 }

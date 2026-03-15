@@ -1,7 +1,7 @@
 use anyhow::{Context as _, Result};
 use but_core::RepositoryExt;
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::OidExt;
 use gitbutler_operating_modes::ensure_open_workspace_mode;
 use gitbutler_oplog::{
     OplogExt, SnapshotExt,
@@ -147,15 +147,11 @@ pub fn push_stack(
     let state = ctx.virtual_branches();
     let stack = state.get_stack(stack_id)?;
 
-    let git2_repo = ctx.git2_repo.get()?;
     let default_target = state.get_default_target()?;
     let gix_repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let merge_base_id = git2_repo
-        .find_commit(
-            git2_repo.merge_base(stack.head_oid(ctx)?.to_git2(), default_target.sha.to_git2())?,
-        )?
-        .id()
-        .to_gix();
+    let merge_base_id = gix_repo
+        .merge_base(stack.head_oid(ctx)?, default_target.sha)?
+        .detach();
 
     // First fetch, because we dont want to push integrated series
     ctx.fetch(
@@ -177,9 +173,7 @@ pub fn push_stack(
     let force_push_protection =
         !skip_force_push_protection && ctx.legacy_project.force_push_protection;
 
-    drop(git2_repo);
     for branch in stack_branches {
-        let git2_repo = ctx.git2_repo.get()?;
         if branch.archived {
             // Nothing to push for this one
             tracing::debug!(branch = branch.name, "skipping archived branch for pushing");
@@ -204,24 +198,27 @@ pub fn push_stack(
         let push_details = stack.push_details(ctx, branch.name().to_owned())?;
 
         // Capture the SHA before push (remote ref if exists, otherwise zero)
-        let before_sha = git2_repo
-            .find_reference(&push_details.remote_refname.to_string())
-            .and_then(|r| r.peel_to_commit())
-            .map(|c| c.id())
-            .unwrap_or_else(|_| git2::Oid::zero());
+        let before_sha = gix_repo
+            .try_find_reference(&push_details.remote_refname.to_string())?
+            .map(|mut reference| reference.peel_to_commit())
+            .transpose()?
+            .map(|commit| commit.id)
+            .unwrap_or(gix_repo.object_hash().null());
         let local_sha = push_details.head;
 
         if run_hooks {
             let remote_name = default_target.push_remote_name();
-            let remote = git2_repo.find_remote(&remote_name)?;
-            let url = &remote
-                .url()
+            let remote = gix_repo.find_remote(remote_name.as_str())?;
+            let url = remote
+                .url(gix::remote::Direction::Push)
+                .or_else(|| remote.url(gix::remote::Direction::Fetch))
+                .map(|url| url.to_bstring().to_string())
                 .with_context(|| format!("Remote named {remote_name} didn't have a URL"))?;
             match hooks::pre_push(
-                &git2_repo,
+                &gix_repo,
                 &remote_name,
-                url,
-                push_details.head,
+                &url,
+                push_details.head.to_gix(),
                 &push_details.remote_refname,
                 ctx.legacy_project.husky_hooks_enabled,
             )? {
@@ -261,7 +258,6 @@ pub fn push_stack(
             push_opts,
         )?;
 
-        drop(git2_repo);
         if gerrit_mode {
             let push_output = but_gerrit::parse::push_output(&out)?;
             let stacks = stack.commits(ctx)?;

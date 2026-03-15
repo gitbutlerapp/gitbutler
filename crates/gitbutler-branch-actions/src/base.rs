@@ -1,10 +1,13 @@
 use std::{path::Path, time};
 
 use anyhow::{Context as _, Result, anyhow};
-use but_core::worktree::checkout::UncommitedWorktreeChanges;
+use but_core::{
+    RepositoryExt as _, git_config::ensure_config_value,
+    worktree::checkout::UncommitedWorktreeChanges,
+};
 use but_ctx::Context;
 use but_error::Marker;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::ObjectIdExt;
 use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -153,7 +156,7 @@ pub(crate) fn set_base_branch(
     ctx: &Context,
     target_branch_ref: &RemoteRefname,
 ) -> Result<BaseBranch> {
-    let git2_repo = &*ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
 
     // if target exists, and it is the same as the requested branch, we should go back
     if let Ok(target) = default_target(&ctx.project_data_dir())
@@ -163,44 +166,48 @@ pub(crate) fn set_base_branch(
     }
 
     // lookup a branch by name
-    let target_branch = git2_repo
-        .maybe_find_branch_by_refname(&target_branch_ref.clone().into())?
+    let mut target_branch = repo
+        .try_find_reference(target_branch_ref.to_string().as_str())?
         .ok_or(anyhow!("remote branch '{target_branch_ref}' not found"))?;
 
-    let remote = git2_repo
+    let remote = repo
         .find_remote(target_branch_ref.remote())
         .context(format!(
-            "failed to find remote for branch {}",
-            target_branch.get().name().unwrap()
+            "failed to find remote for branch {target_branch_ref}"
         ))?;
-    let remote_url = remote.url().context(format!(
-        "failed to get remote url for {}",
-        target_branch_ref.remote()
-    ))?;
+    let remote_url = remote
+        .url(gix::remote::Direction::Fetch)
+        .map(|url| url.to_bstring().to_string())
+        .context(format!(
+            "failed to get remote url for {}",
+            target_branch_ref.remote()
+        ))?;
 
-    let target_branch_head = target_branch.get().peel_to_commit().context(format!(
-        "failed to peel branch {} to commit",
-        target_branch.get().name().unwrap()
-    ))?;
+    let target_branch_head = target_branch
+        .peel_to_commit()
+        .context(format!(
+            "failed to peel branch {target_branch_ref} to commit"
+        ))?
+        .id;
 
-    let current_head = git2_repo.head().context("Failed to get HEAD reference")?;
+    let mut current_head = repo.head().context("Failed to get HEAD reference")?;
     let current_head_commit = current_head
         .peel_to_commit()
-        .context("Failed to peel HEAD reference to commit")?;
+        .context("Failed to peel HEAD reference to commit")?
+        .id;
 
     // calculate the commit as the merge-base between HEAD in ctx and this target commit
-    let target_commit_oid = git2_repo
-        .merge_base(current_head_commit.id(), target_branch_head.id())
+    let target_commit_oid = repo
+        .merge_base(current_head_commit, target_branch_head)
+        .map(|id| id.detach())
         .context(format!(
-            "Failed to calculate merge base between {} and {}",
-            current_head_commit.id(),
-            target_branch_head.id()
+            "Failed to calculate merge base between {current_head_commit} and {target_branch_head}"
         ))?;
 
     let target = Target {
         branch: target_branch_ref.clone(),
-        remote_url: remote_url.to_string(),
-        sha: target_commit_oid.to_gix(),
+        remote_url,
+        sha: target_commit_oid,
         push_remote_name: None,
     };
 
@@ -209,8 +216,12 @@ pub(crate) fn set_base_branch(
 
     // TODO: make sure this is a real branch
     let head_name: Refname = current_head
-        .name()
-        .map(|name| name.parse().expect("libgit2 provides valid refnames"))
+        .referent_name()
+        .map(|name| {
+            name.to_string()
+                .parse()
+                .expect("BUG: we have to avoid using these legacy types")
+        })
         .context("Failed to get HEAD reference name")?;
     if !head_name
         .to_string()
@@ -220,18 +231,16 @@ pub(crate) fn set_base_branch(
         // put them into a virtual branch
 
         let changes = but_core::diff::worktree_changes(&*ctx.repo.get()?)?.changes;
-        if !changes.is_empty() || current_head_commit.id() != target.sha.to_git2() {
+        if !changes.is_empty() || current_head_commit != target.sha {
             let (upstream, branch_matches_target) = if let Refname::Local(head_name) = &head_name {
                 let upstream_name = target_branch_ref.with_branch(head_name.branch());
                 if upstream_name.eq(target_branch_ref) {
                     (None, true)
                 } else {
-                    match git2_repo.find_reference(&Refname::from(&upstream_name).to_string()) {
-                        Ok(_upstream) => Ok((Some(upstream_name), false)),
-                        Err(err) if err.code() == git2::ErrorCode::NotFound => Ok((None, false)),
-                        Err(error) => Err(error),
-                    }
-                    .context(format!("failed to find upstream for {head_name}"))?
+                    let upstream = repo
+                        .try_find_reference(Refname::from(&upstream_name).to_string().as_str())
+                        .with_context(|| format!("failed to find upstream for {head_name}"))?;
+                    (upstream.map(|_| upstream_name), false)
                 }
             } else {
                 (None, false)
@@ -244,14 +253,14 @@ pub(crate) fn set_base_branch(
             };
 
             let branch = if branch_matches_target {
-                Stack::new_empty(ctx, branch_name, current_head_commit.id().to_gix(), 0)
+                Stack::new_empty(ctx, branch_name, current_head_commit, 0)
             } else {
                 Stack::new_from_existing(
                     ctx,
                     branch_name,
                     Some(head_name),
                     upstream,
-                    current_head_commit.id().to_gix(),
+                    current_head_commit,
                     0,
                 )
             }?;
@@ -269,18 +278,14 @@ pub(crate) fn set_base_branch(
 }
 
 pub(crate) fn set_target_push_remote(ctx: &Context, push_remote_name: &str) -> Result<()> {
-    let git2_repo = &*ctx.git2_repo.get()?;
-    let remote = git2_repo
+    ctx.repo
+        .get()?
         .find_remote(push_remote_name)
         .context(format!("failed to find remote {push_remote_name}"))?;
 
     // if target exists, and it is the same as the requested branch, we should go back
     let mut target = default_target(&ctx.project_data_dir())?;
-    target.push_remote_name = remote
-        .name()
-        .context("failed to get remote name")?
-        .to_string()
-        .into();
+    target.push_remote_name = Some(push_remote_name.to_owned());
     let mut vb_state = ctx.virtual_branches();
     vb_state.set_default_target(target)?;
 
@@ -288,11 +293,13 @@ pub(crate) fn set_target_push_remote(ctx: &Context, push_remote_name: &str) -> R
 }
 
 fn set_exclude_decoration(ctx: &Context) -> Result<()> {
-    let repo = &*ctx.git2_repo.get()?;
-    let mut config = repo.config()?;
-    config
-        .set_multivar("log.excludeDecoration", "refs/gitbutler", "refs/gitbutler")
+    let repo = ctx.repo.get()?;
+    let mut config = repo.local_common_config_for_editing()?;
+    let changed = ensure_config_value(&mut config, "log.excludeDecoration", "refs/gitbutler")
         .context("failed to set log.excludeDecoration")?;
+    if changed {
+        repo.write_local_common_config(&config)?;
+    }
     Ok(())
 }
 

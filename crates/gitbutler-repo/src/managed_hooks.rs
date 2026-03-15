@@ -176,11 +176,28 @@ impl ManagedHookType {
     }
 }
 
+fn hooks_dir_from_git_dir_and_config_path(git_dir: &Path, hooks_path: Option<PathBuf>) -> PathBuf {
+    hooks_path.unwrap_or_else(|| git_dir.join("hooks"))
+}
+
 /// Get the hooks directory, respecting core.hooksPath configuration
 fn get_hooks_dir(repo: &git2::Repository) -> PathBuf {
-    repo.config()
-        .and_then(|config| config.get_path("core.hooksPath"))
-        .unwrap_or_else(|_| repo.path().join("hooks"))
+    hooks_dir_from_git_dir_and_config_path(
+        repo.path(),
+        repo.config()
+            .and_then(|config| config.get_path("core.hooksPath"))
+            .ok(),
+    )
+}
+
+/// Get the hooks directory for a `gix` repository, respecting `core.hooksPath`.
+fn get_hooks_dir_gix(repo: &gix::Repository) -> PathBuf {
+    hooks_dir_from_git_dir_and_config_path(
+        repo.git_dir(),
+        repo.config_snapshot()
+            .string("core.hooksPath")
+            .map(|value| gix::path::from_bstr(value.as_ref()).into_owned()),
+    )
 }
 
 /// Check if a hook file contains our signature
@@ -265,11 +282,21 @@ fn uninstall_hook(hooks_dir: &Path, hook_type: ManagedHookType) -> Result<HookIn
 /// Called after switching HEAD to gitbutler/workspace
 pub fn install_managed_hooks(repo: &git2::Repository) -> Result<HookInstallationResult> {
     let hooks_dir = get_hooks_dir(repo);
+    install_managed_hooks_at(&hooks_dir)
+}
+
+/// Install all GitButler managed hooks for a `gix` repository.
+pub fn install_managed_hooks_gix(repo: &gix::Repository) -> Result<HookInstallationResult> {
+    let hooks_dir = get_hooks_dir_gix(repo);
+    install_managed_hooks_at(&hooks_dir)
+}
+
+fn install_managed_hooks_at(hooks_dir: &Path) -> Result<HookInstallationResult> {
     let mut warnings = Vec::new();
     let mut already_configured_count = 0;
 
     for hook_type in [ManagedHookType::PreCommit, ManagedHookType::PostCheckout] {
-        match install_hook(&hooks_dir, hook_type) {
+        match install_hook(hooks_dir, hook_type) {
             Ok(HookInstallationResult::Success) => {
                 tracing::debug!("Installed {} hook", hook_type.hook_name());
             }
@@ -305,10 +332,20 @@ pub fn install_managed_hooks(repo: &git2::Repository) -> Result<HookInstallation
 /// Called during teardown
 pub fn uninstall_managed_hooks(repo: &git2::Repository) -> Result<HookInstallationResult> {
     let hooks_dir = get_hooks_dir(repo);
+    uninstall_managed_hooks_at(&hooks_dir)
+}
+
+/// Uninstall all GitButler managed hooks for a `gix` repository.
+pub fn uninstall_managed_hooks_gix(repo: &gix::Repository) -> Result<HookInstallationResult> {
+    let hooks_dir = get_hooks_dir_gix(repo);
+    uninstall_managed_hooks_at(&hooks_dir)
+}
+
+fn uninstall_managed_hooks_at(hooks_dir: &Path) -> Result<HookInstallationResult> {
     let mut warnings = Vec::new();
 
     for hook_type in [ManagedHookType::PreCommit, ManagedHookType::PostCheckout] {
-        match uninstall_hook(&hooks_dir, hook_type) {
+        match uninstall_hook(hooks_dir, hook_type) {
             Ok(HookInstallationResult::Success) => {
                 tracing::debug!("Uninstalled {} hook", hook_type.hook_name());
             }

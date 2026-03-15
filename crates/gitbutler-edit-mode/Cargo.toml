@@ -12,7 +12,6 @@ doctest = false
 [dependencies]
 but-graph.workspace = true
 but-rebase.workspace = true
-but-status.workspace = true
 but-core.workspace = true
 but-oxidize.workspace = true
 but-ctx.workspace = true

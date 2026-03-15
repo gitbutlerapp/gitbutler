@@ -135,26 +135,25 @@ pub fn post_commit(ctx: &Context) -> Result<HookResult> {
 // TODO: double-check this with what should happen according to Git; contribute to `git2-hooks` possibly.
 /// Since git2-hooks doesn't support pre-push yet, we implement it ourselves
 /// following the same pattern as the existing hooks
-/// Use `oid` and `remote_tracking_branch` to deduce the refspec information. Note that this isn't general, but should
-/// work for us.
+/// Use `local_commit` and `remote_tracking_branch` to deduce the refspec information. Note that
+/// this isn't general, but should work for us.
 pub fn pre_push(
-    repo: &git2::Repository,
+    repo: &gix::Repository,
     remote_name: &str,
     remote_url: &str,
-    local_commit: git2::Oid,
+    local_commit: gix::ObjectId,
     remote_tracking_branch: &gitbutler_reference::RemoteRefname,
     run_husky_hooks: bool,
 ) -> Result<HookResult> {
     let hooks_dir = repo
-        .config()
-        .and_then(|config| config.get_path("core.hooksPath"))
-        .unwrap_or_else(|_| repo.path().join("hooks"));
+        .config_snapshot()
+        .trusted_path("core.hooksPath")
+        .and_then(|res| res.ok().map(|p| p.into_owned()))
+        .unwrap_or_else(|| repo.git_dir().join("hooks"));
     let hooks_path = hooks_dir.join("pre-push");
     let husky_path = run_husky_hooks.then(|| {
-        repo.path()
-            .parent()
-            .and_then(|p| p.parent())
-            .map(|p| p.join(".husky").join("pre-push"))
+        repo.workdir()
+            .map(|workdir| workdir.join(".husky").join("pre-push"))
     });
 
     // Check for hook in .git/hooks/pre-push first, then ../.husky/pre-push
@@ -182,7 +181,7 @@ pub fn pre_push(
         }
         prep.arg(remote_name).arg(remote_url)
     })
-    .current_dir(repo.workdir().unwrap_or_else(|| repo.path()))
+    .current_dir(repo.workdir().unwrap_or(repo.git_dir()))
     .stdin(Stdio::piped())
     .spawn()?;
 
@@ -196,10 +195,10 @@ pub fn pre_push(
         }
 
         let remote_commit = repo
-            .find_reference(&remote_tracking_branch.to_string())
-            .ok()
-            .and_then(|r| r.target())
-            .unwrap_or_else(git2::Oid::zero);
+            .try_find_reference(&remote_tracking_branch.to_string())?
+            .map(|mut reference| reference.peel_to_id().map(|id| id.detach()))
+            .transpose()?
+            .unwrap_or_else(|| repo.object_hash().null());
         // THIS IS WRONG: but is correct in the common case. This also is an issue when the ref is actually pushed,
         // but we can fix it when moving everything to `gix`.
         let local_tracking_branch_deduced =
@@ -224,7 +223,7 @@ pub fn pre_push(
     }
 }
 
-fn path_is_in_husky_dir(repo: &git2::Repository, path: &Path) -> bool {
+fn path_is_in_husky_dir(repo: &gix::Repository, path: &Path) -> bool {
     let Some(workdir) = repo.workdir() else {
         return false;
     };

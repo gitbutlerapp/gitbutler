@@ -4,16 +4,12 @@ use anyhow::Context as _;
 use bstr::ByteSlice;
 use but_oxidize::ObjectIdExt;
 use gix::{
-    diff::rewrites::tracker::ChangeKind,
-    index::entry::Stage,
-    objs::TreeRefIter,
-    prelude::ObjectIdExt as _,
-    refs::{
-        Target,
-        transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
-    },
+    diff::rewrites::tracker::ChangeKind, index::entry::Stage, objs::TreeRefIter,
+    prelude::ObjectIdExt as _, refs::Target,
 };
 use tracing::instrument;
+
+use crate::update_head_reference;
 
 use super::{Options, Outcome, utils::merge_worktree_changes_into_destination_or_keep_snapshot};
 
@@ -169,25 +165,16 @@ pub fn safe_checkout(
             .id()
             .is_none_or(|actual_head_id| actual_head_id != new_head_id);
         if needs_update {
-            let edits = repo.edit_reference(RefEdit {
-                change: Change::Update {
-                    log: LogChange {
-                        mode: RefLog::AndReference,
-                        force_create_reflog: false,
-                        message: gix::reference::log::message(
-                            "safe checkout",
-                            "GitButler".into(),
-                            new_object.into_commit().parent_ids().count(),
-                        ),
-                    },
-                    // We play it loose here, as we assume a repository lock so we won't interfere with ourselves.
-                    // Git itself enforces no lock either, so we rely on basic locking ref-locking here. Good enough.
-                    expected: PreviousValue::Any,
-                    new: Target::Object(new_head_id),
-                },
-                name: "HEAD".try_into().expect("root refs are always valid"),
-                deref: true,
-            })?;
+            // We play it loose here, as we assume a repository lock so we won't interfere with ourselves.
+            // Git itself enforces no lock either, so we rely on basic locking ref-locking here. Good enough.
+            let edits = update_head_reference(
+                repo,
+                Target::Object(new_head_id),
+                true,
+                "safe checkout",
+                "GitButler".into(),
+                new_object.into_commit().parent_ids().count(),
+            )?;
             head_update = Some(edits);
         }
     }

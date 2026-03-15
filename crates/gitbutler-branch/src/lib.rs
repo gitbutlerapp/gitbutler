@@ -1,5 +1,5 @@
 mod reference_ext;
-pub use reference_ext::{ReferenceExt, ReferenceExtGix};
+pub use reference_ext::ReferenceExtGix;
 mod dedup;
 pub use dedup::dedup;
 mod branch;

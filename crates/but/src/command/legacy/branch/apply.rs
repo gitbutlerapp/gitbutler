@@ -52,10 +52,8 @@ pub fn apply(ctx: &mut Context, branch_name: &str, out: &mut OutputChannel) -> a
         r
     } else {
         // No exact match - look for branches whose names contain the given string
-        let git2_repo = ctx.git2_repo.get()?;
-        let mut partial = find_partial_matches(&git2_repo, branch_name)?;
+        let mut partial = find_partial_matches(&repo, branch_name)?;
         drop(repo);
-        drop(git2_repo);
 
         if partial.is_empty() {
             // NOTE: this is aligned with the 'modern' version for now which doesn't handle this specifically.
@@ -71,11 +69,13 @@ pub fn apply(ctx: &mut Context, branch_name: &str, out: &mut OutputChannel) -> a
         // Apply the chosen match using the same logic as the exact-match paths above
         let repo = ctx.repo.get()?;
         match chosen {
-            PartialMatch::Local { branch, .. } => {
+            PartialMatch::Local {
+                display, full_name, ..
+            } => {
                 let r = repo
-                    .try_find_reference(&branch)?
-                    .ok_or_else(|| anyhow::anyhow!("Branch '{branch}' not found"))?;
-                let ref_name = gitbutler_reference::Refname::from_str(&r.name().to_string())?;
+                    .try_find_reference(&full_name)?
+                    .ok_or_else(|| anyhow::anyhow!("Branch '{display}' not found"))?;
+                let ref_name = gitbutler_reference::Refname::from_str(&full_name.to_string())?;
                 let remote_ref_name = r
                     .remote_ref_name(gix::remote::Direction::Push)
                     .transpose()?
@@ -93,16 +93,14 @@ pub fn apply(ctx: &mut Context, branch_name: &str, out: &mut OutputChannel) -> a
                 )?;
                 r
             }
-            PartialMatch::Remote { remote, branch, .. } => {
-                let remote_ref = RemoteRefname::new(&remote, &branch);
-                let ref_name = gitbutler_reference::Refname::from_str(&format!(
-                    "refs/remotes/{remote}/{branch}"
-                ))?;
+            PartialMatch::Remote {
+                display, full_name, ..
+            } => {
+                let remote_ref = RemoteRefname::from_str(&full_name.to_string())?;
+                let ref_name = gitbutler_reference::Refname::from_str(&full_name.to_string())?;
                 let r = repo
-                    .try_find_reference(&remote_ref.fullname())?
-                    .ok_or_else(|| {
-                        anyhow::anyhow!("Branch 'refs/remotes/{remote}/{branch}' not found")
-                    })?;
+                    .try_find_reference(&full_name)?
+                    .ok_or_else(|| anyhow::anyhow!("Branch '{display}' not found"))?;
                 let r = r.detach();
                 drop(repo);
                 but_api::legacy::virtual_branches::create_virtual_branch_from_branch(
@@ -140,13 +138,12 @@ pub fn apply(ctx: &mut Context, branch_name: &str, out: &mut OutputChannel) -> a
 enum PartialMatch {
     Local {
         display: String,
-        branch: String,
+        full_name: gix::refs::FullName,
         timestamp: i64,
     },
     Remote {
         display: String,
-        remote: String,
-        branch: String,
+        full_name: gix::refs::FullName,
         timestamp: i64,
     },
 }
@@ -167,60 +164,54 @@ impl PartialMatch {
 
 /// Find all local and remote branches whose names contain `pattern` (case-insensitive).
 fn find_partial_matches(
-    repo: &git2::Repository,
+    repo: &gix::Repository,
     pattern: &str,
 ) -> anyhow::Result<Vec<PartialMatch>> {
+    fn reference_timestamp(reference: &mut gix::Reference<'_>) -> i64 {
+        reference
+            .peel_to_commit()
+            .ok()
+            .and_then(|commit| commit.time().ok())
+            .map(|time| time.seconds)
+            .unwrap_or(0)
+    }
+
     let pattern_lower = pattern.to_lowercase();
     let mut matches = Vec::new();
 
-    for reference in repo.references()? {
-        let reference = reference?;
-        let full_name = match reference.name() {
-            Some(n) => n,
-            None => continue,
+    for mut reference in repo.references()?.all()?.filter_map(Result::ok) {
+        let full_name = reference.name().to_owned();
+        let Some((category, short_name)) = full_name.category_and_short_name() else {
+            continue;
         };
+        let display = short_name.to_string();
 
-        if let Some(branch) = full_name.strip_prefix("refs/heads/") {
-            if !branch.to_lowercase().contains(&pattern_lower) {
-                continue;
+        match category {
+            Category::LocalBranch => {
+                if !display.to_lowercase().contains(&pattern_lower) {
+                    continue;
+                }
+                matches.push(PartialMatch::Local {
+                    display,
+                    full_name,
+                    timestamp: reference_timestamp(&mut reference),
+                });
             }
-            let timestamp = reference
-                .peel(git2::ObjectType::Commit)
-                .ok()
-                .and_then(|o| o.into_commit().ok())
-                .map(|c| c.time().seconds())
-                .unwrap_or(0);
-            matches.push(PartialMatch::Local {
-                display: branch.to_string(),
-                branch: branch.to_string(),
-                timestamp,
-            });
-        } else if let Some(remote_branch) = full_name.strip_prefix("refs/remotes/") {
-            // Skip symbolic HEAD refs like "origin/HEAD"
-            if remote_branch.ends_with("/HEAD") {
-                continue;
+            Category::RemoteBranch => {
+                // Skip symbolic HEAD refs like "origin/HEAD"
+                if display.ends_with("/HEAD") {
+                    continue;
+                }
+                if !display.to_lowercase().contains(&pattern_lower) {
+                    continue;
+                }
+                matches.push(PartialMatch::Remote {
+                    display,
+                    full_name,
+                    timestamp: reference_timestamp(&mut reference),
+                });
             }
-            if !remote_branch.to_lowercase().contains(&pattern_lower) {
-                continue;
-            }
-            let slash = match remote_branch.find('/') {
-                Some(p) => p,
-                None => continue,
-            };
-            let remote = remote_branch[..slash].to_string();
-            let branch = remote_branch[slash + 1..].to_string();
-            let timestamp = reference
-                .peel(git2::ObjectType::Commit)
-                .ok()
-                .and_then(|o| o.into_commit().ok())
-                .map(|c| c.time().seconds())
-                .unwrap_or(0);
-            matches.push(PartialMatch::Remote {
-                display: remote_branch.to_string(),
-                remote,
-                branch,
-                timestamp,
-            });
+            _ => {}
         }
     }
 

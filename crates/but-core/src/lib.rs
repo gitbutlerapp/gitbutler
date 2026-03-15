@@ -114,7 +114,7 @@ mod ext;
 pub use ext::ObjectStorageExt;
 
 mod repo_ext;
-pub use repo_ext::RepositoryExt;
+pub use repo_ext::{RepositoryExt, update_head_reference};
 
 /// Return `true` if `ref_name` looks like the standard GitButler workspace.
 ///
@@ -297,10 +297,10 @@ pub enum Reference {
 impl std::fmt::Display for Reference {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Reference::Git(r) => {
-                let s = r.to_string();
-                s.strip_prefix("refs/heads/").unwrap_or_default().fmt(f)
-            }
+            Reference::Git(r) => match r.category_and_short_name() {
+                Some((gix::refs::Category::LocalBranch, short_name)) => short_name.fmt(f),
+                _ => "".fmt(f),
+            },
             Reference::Virtual(r) => r.fmt(f),
         }
     }

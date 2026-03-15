@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use anyhow::{Context as _, Result, bail};
 use bstr::BString;
-use but_core::{Commit, RepositoryExt, TreeChange, commit::Headers, ref_metadata::StackId};
+use but_core::{
+    Commit, RepositoryExt, TreeChange, commit::Headers, ref_metadata::StackId,
+    update_head_reference,
+};
 use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
@@ -13,7 +16,7 @@ use git2::build::CheckoutBuilder;
 use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _, RepositoryExt as _};
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use gitbutler_operating_modes::{
-    EDIT_BRANCH_REF, EditModeMetadata, OPEN_WORKSPACE_REFS, OperatingMode, WORKSPACE_BRANCH_REF,
+    EDIT_BRANCH_REF, EditModeMetadata, INTEGRATION_BRANCH_REF, OperatingMode, WORKSPACE_BRANCH_REF,
     operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
 };
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
@@ -126,7 +129,8 @@ fn find_or_create_base_commit(
 
 fn commit_uncommited_changes(ctx: &Context) -> Result<()> {
     let repo = &*ctx.repo.get()?;
-    let uncommitted_changes = but_status::create_wd_tree(repo, 0)?;
+    #[expect(deprecated)]
+    let uncommitted_changes = repo.create_wd_tree(0)?;
     repo.reference(
         UNCOMMITTED_CHANGES_REF,
         uncommitted_changes,
@@ -146,15 +150,29 @@ fn get_uncommited_changes(ctx: &Context) -> Result<gix::ObjectId> {
 }
 
 fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
-    let repo = &*ctx.git2_repo.get()?;
-    let commit = repo.find_commit(commit_id.to_git2())?;
+    let repo = &*ctx.repo.get()?;
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let commit = git2_repo.find_commit(commit_id.to_git2())?;
 
     // Checkout commits's parent
-    let commit_parent_id = find_or_create_base_commit(&*ctx.repo.get()?, commit_id)?;
-    let commit_parent = repo.find_commit(commit_parent_id.to_git2())?;
-    repo.reference(EDIT_BRANCH_REF, commit_parent_id.to_git2(), true, "")?;
-    repo.set_head(EDIT_BRANCH_REF)?;
-    repo.checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))?;
+    let commit_parent_id = find_or_create_base_commit(repo, commit_id)?;
+    let commit_parent = git2_repo.find_commit(commit_parent_id.to_git2())?;
+    let edit_branch_ref: gix::refs::FullName = EDIT_BRANCH_REF.try_into()?;
+    repo.reference(
+        edit_branch_ref.as_ref(),
+        commit_parent_id,
+        gix::refs::transaction::PreviousValue::Any,
+        "enter edit mode",
+    )?;
+    update_head_reference(
+        repo,
+        gix::refs::Target::Symbolic(edit_branch_ref),
+        false,
+        "enter edit mode",
+        EDIT_BRANCH_REF.into(),
+        0,
+    )?;
+    git2_repo.checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))?;
 
     // Checkout the commit as unstaged changes
     let mut index = get_commit_index(ctx, commit_id)?;
@@ -173,7 +191,7 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
         .unwrap_or("".into());
     let our_label = format!("New base: {our_commit_msg}");
 
-    repo.checkout_index(
+    git2_repo.checkout_index(
         Some(&mut index),
         Some(
             CheckoutBuilder::new()
@@ -190,13 +208,13 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
 }
 
 fn open_workspace_ref<'repo>(repo: &'repo gix::Repository) -> Result<gix::Reference<'repo>> {
-    OPEN_WORKSPACE_REFS
+    [WORKSPACE_BRANCH_REF, INTEGRATION_BRANCH_REF]
         .iter()
         .find_map(|&name| repo.find_reference(name).ok())
         .with_context(|| {
             format!(
                 "expected one of the open workspace refs to exist: {}",
-                OPEN_WORKSPACE_REFS.join(", ")
+                [WORKSPACE_BRANCH_REF, INTEGRATION_BRANCH_REF].join(", ")
             )
         })
 }
@@ -275,7 +293,8 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
 
     // Write out all the changes, including unstaged changes to a tree for re-committing
-    let tree_id = but_status::create_wd_tree(repo, 0)?;
+    #[expect(deprecated)]
+    let tree_id = repo.create_wd_tree(0)?;
 
     let workspace_commit = repo
         .find_reference(WORKSPACE_BRANCH_REF)?
@@ -427,7 +446,8 @@ pub(crate) fn changes_from_initial(ctx: &Context, perm: &RepoShared) -> Result<V
     let repo = &*ctx.repo.get()?;
     let commit = repo.find_commit(metadata.commit_oid)?;
     let base = repo.find_real_tree(&commit, Default::default())?;
-    let head = but_status::create_wd_tree(repo, 0)?;
+    #[expect(deprecated)]
+    let head = repo.create_wd_tree(0)?;
 
     let repo = ctx.repo.get()?;
     let tree_changes = but_core::diff::tree_changes(&repo, Some(base.into()), head)?;

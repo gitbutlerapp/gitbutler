@@ -1,6 +1,5 @@
 use anyhow::{Context as _, Result, bail};
 use but_ctx::{Context, access::RepoExclusive};
-use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{RebaseOutput, RebaseStep};
 use gitbutler_stack::{Stack, StackId};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
@@ -29,18 +28,19 @@ pub fn reorder_stack(
 ) -> Result<RebaseOutput> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let mut state = ctx.virtual_branches();
-    let git2_repo = &*ctx.git2_repo.get()?;
     let mut stack = state.get_stack(stack_id)?;
     let current_order = commits_order(ctx, &stack)?;
     new_order.validate(current_order.clone())?;
 
     let repo = ctx.repo.get()?;
     let default_target = state.get_default_target()?;
-    let default_target_commit = git2_repo
+    let target_branch_tip = repo
         .find_reference(&default_target.branch.to_string())?
-        .peel_to_commit()?;
-    let merge_base =
-        git2_repo.merge_base(default_target_commit.id(), stack.head_oid(ctx)?.to_git2())?;
+        .peel_to_commit()?
+        .id;
+    let merge_base = repo
+        .merge_base(target_branch_tip, stack.head_oid(ctx)?)?
+        .detach();
 
     let mut steps: Vec<RebaseStep> = Vec::new();
     for series in new_order.series.iter().rev() {
@@ -54,15 +54,13 @@ pub fn reorder_stack(
             series.name.clone(),
         )));
     }
-    let mut builder = but_rebase::Rebase::new(&repo, merge_base.to_gix(), None)?;
+    let mut builder = but_rebase::Rebase::new(&repo, Some(merge_base), None)?;
     let builder = builder.steps(steps)?;
     builder.rebase_noops(false);
     let output = builder.rebase(&*ctx.cache.get_cache()?)?;
 
-    let new_head = output.top_commit.to_git2();
-
     // Ensure the stack head is set to the new oid after rebasing
-    stack.set_stack_head(&mut state, &repo, new_head.to_gix())?;
+    stack.set_stack_head(&mut state, &repo, output.top_commit)?;
 
     stack.set_heads_from_rebase_output(ctx, output.references.clone())?;
 

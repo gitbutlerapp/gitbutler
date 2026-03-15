@@ -1,18 +1,36 @@
 use but_ctx::Context;
 use gitbutler_operating_modes::{EditModeMetadata, write_edit_mode_metadata};
+use gix::refs::{
+    Target,
+    transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
+};
 
 /// Creates a branch from the head commit
 fn create_and_checkout_branch(ctx: &Context, branch_name: &str) {
-    let repo = &*ctx.git2_repo.get().unwrap();
-    repo.branch(
-        branch_name,
-        &repo.head().unwrap().peel_to_commit().unwrap(),
-        true,
+    let repo = &*ctx.repo.get().unwrap();
+    let head_commit = repo.head_commit().unwrap().id;
+    let branch_ref: gix::refs::FullName = format!("refs/heads/{branch_name}").try_into().unwrap();
+    repo.reference(
+        branch_ref.clone(),
+        head_commit,
+        PreviousValue::Any,
+        "test branch creation",
     )
     .unwrap();
-
-    repo.set_head(format!("refs/heads/{branch_name}").as_str())
-        .unwrap();
+    repo.edit_reference(RefEdit {
+        change: Change::Update {
+            log: LogChange {
+                mode: RefLog::AndReference,
+                force_create_reflog: false,
+                message: gix::reference::log::message("test", "switch HEAD".into(), 0),
+            },
+            expected: PreviousValue::Any,
+            new: Target::Symbolic(branch_ref),
+        },
+        name: "HEAD".try_into().unwrap(),
+        deref: false,
+    })
+    .unwrap();
 }
 
 fn create_edit_mode_metadata(ctx: &Context) {
@@ -27,6 +45,24 @@ fn create_edit_mode_metadata(ctx: &Context) {
 }
 
 mod operating_modes {
+    mod workspace_ref_names {
+        use gitbutler_operating_modes::{
+            INTEGRATION_BRANCH_REF, WORKSPACE_BRANCH_REF, is_well_known_workspace_ref,
+        };
+
+        #[test]
+        fn recognizes_well_known_workspace_refs() {
+            let workspace_ref: &gix::refs::FullNameRef = WORKSPACE_BRANCH_REF.try_into().unwrap();
+            let integration_ref: &gix::refs::FullNameRef =
+                INTEGRATION_BRANCH_REF.try_into().unwrap();
+            let other_ref: &gix::refs::FullNameRef = "refs/heads/feature".try_into().unwrap();
+
+            assert!(is_well_known_workspace_ref(workspace_ref));
+            assert!(is_well_known_workspace_ref(integration_ref));
+            assert!(!is_well_known_workspace_ref(other_ref));
+        }
+    }
+
     mod open_workspace_mode {
         use gitbutler_operating_modes::{ensure_open_workspace_mode, in_open_workspace_mode};
         use gitbutler_testsupport::{Case, Suite};

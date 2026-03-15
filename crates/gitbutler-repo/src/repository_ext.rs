@@ -1,18 +1,13 @@
 use std::str;
 
 use anyhow::{Context as _, Result, anyhow, bail};
-use bstr::BString;
-use but_core::{GitConfigSettings, RepositoryExt as RepositoryExtGix, commit::Headers};
+use bstr::{BStr, BString};
+use but_core::{RepositoryExt as RepositoryExtGix, commit::Headers};
 use but_error::Code;
 use but_oxidize::{
     ObjectIdExt as _, OidExt, git2_signature_to_gix_signature, gix_to_git2_signature,
 };
-use but_rebase::commit::sign_buffer;
-use but_status::create_wd_tree;
-use git2::Tree;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gix::objs::WriteTo;
-use tracing::instrument;
 
 use crate::{Config, SignaturePurpose};
 
@@ -38,16 +33,6 @@ pub trait RepositoryExt {
     fn sign_buffer(&self, buffer: &[u8]) -> Result<BString>;
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler<'a>;
     fn maybe_find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch<'_>>>;
-    /// Add all untracked and modified files in the worktree to
-    /// the object database, and create a tree from it.
-    ///
-    /// Use `untracked_limit_in_bytes` to control the maximum file size for untracked files
-    /// before we stop tracking them automatically. Set it to 0 to disable the limit.
-    ///
-    /// It should also be noted that this will fail if run on an empty branch
-    /// or if the HEAD branch has no commits.
-    fn create_wd_tree(&self, untracked_limit_in_bytes: u64) -> Result<Tree<'_>>;
-
     /// Returns the `gitbutler/workspace` branch if the head currently points to it, or fail otherwise.
     /// Use it before any modification to the repository, or extra defensively each time the
     /// workspace is needed.
@@ -66,6 +51,43 @@ pub trait RepositoryExt {
         parents: &[&git2::Commit<'_>],
         commit_headers: Option<Headers>,
     ) -> Result<git2::Oid>;
+}
+
+/// Create a commit with GitButler signing and trailer behavior using `gix`-native inputs.
+#[expect(clippy::too_many_arguments)]
+pub fn commit_with_signature_gix(
+    repo: &gix::Repository,
+    update_ref: Option<&Refname>,
+    author: gix::actor::Signature,
+    committer: gix::actor::Signature,
+    message: &BStr,
+    tree: gix::ObjectId,
+    parents: &[gix::ObjectId],
+    commit_headers: Option<Headers>,
+) -> Result<gix::ObjectId> {
+    let mut commit = gix::objs::Commit {
+        message: message.into(),
+        tree,
+        author,
+        committer,
+        encoding: None,
+        parents: parents.to_vec().into(),
+        extra_headers: commit_headers.map(|h| (&h).into()).unwrap_or_default(),
+    };
+
+    if repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false) {
+        but_gerrit::set_trailers(&mut commit);
+    }
+
+    let update_ref = update_ref
+        .map(|refname| gix::refs::FullName::try_from(refname.to_string()))
+        .transpose()?;
+    but_core::commit::create(
+        repo,
+        commit,
+        update_ref.as_ref().map(|name| name.as_ref()),
+        true,
+    )
 }
 
 impl RepositoryExt for git2::Repository {
@@ -108,26 +130,6 @@ impl RepositoryExt for git2::Repository {
         Ok(branch)
     }
 
-    /// Creates a tree containing the uncommitted changes in the project.
-    /// This includes files in the index that are considered conflicted.
-    #[instrument(level = "debug", skip(self, untracked_limit_in_bytes), err(Debug))]
-    fn create_wd_tree(&self, untracked_limit_in_bytes: u64) -> Result<Tree<'_>> {
-        let repo = gix::open_opts(
-            self.path(),
-            gix::open::Options::default().permissions(gix::open::Permissions {
-                config: gix::open::permissions::Config {
-                    // Whenever we deal with worktree filters, we'd want to have the installation configuration as well.
-                    git_binary: cfg!(windows),
-                    ..Default::default()
-                },
-                ..Default::default()
-            }),
-        )?;
-
-        let tree = create_wd_tree(&repo, untracked_limit_in_bytes)?;
-        Ok(self.find_tree(tree.to_git2())?)
-    }
-
     fn workspace_ref_from_head(&self) -> Result<git2::Reference<'_>> {
         let head_ref = self.head().context("BUG: head must point to a reference")?;
         if head_ref.name_bytes() == b"refs/heads/gitbutler/workspace" {
@@ -150,86 +152,53 @@ impl RepositoryExt for git2::Repository {
         commit_headers: Option<Headers>,
     ) -> Result<git2::Oid> {
         let repo = gix::open(self.path())?;
-        let mut commit = gix::objs::Commit {
-            message: message.into(),
-            tree: tree.id().to_gix(),
-            author: git2_signature_to_gix_signature(author),
-            committer: git2_signature_to_gix_signature(committer),
-            encoding: None,
-            parents: parents.iter().map(|commit| commit.id().to_gix()).collect(),
-            extra_headers: commit_headers.map(|h| (&h).into()).unwrap_or_default(),
-        };
-
-        if repo.git_settings()?.gitbutler_sign_commits.unwrap_or(false) {
-            let mut buf = Vec::new();
-            commit.write_to(&mut buf)?;
-            let signature = sign_buffer(&repo, &buf);
-            match signature {
-                Ok(signature) => {
-                    commit.extra_headers.push(("gpgsig".into(), signature));
-                }
-                Err(err) => {
-                    // If signing fails, set the "gitbutler.signCommits" config to false before erroring out
-                    if repo
-                        .config_snapshot()
-                        .boolean_filter("gitbutler.signCommits", |md| {
-                            md.source != gix::config::Source::Local
-                        })
-                        .is_none()
-                    {
-                        repo.set_git_settings(&GitConfigSettings {
-                            gitbutler_sign_commits: Some(false),
-                            ..Default::default()
-                        })?;
-                        return Err(anyhow!("Failed to sign commit: {err}")
-                            .context(Code::CommitSigningFailed));
-                    } else {
-                        tracing::warn!(
-                            "Commit signing failed but remains enabled as gitbutler.signCommits is explicitly enabled globally"
-                        );
-                        return Err(err);
-                    }
-                }
-            }
-        }
-
-        if repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false) {
-            but_gerrit::set_trailers(&mut commit);
-        }
-
-        // TODO: extra-headers should be supported in `gix` directly.
-        let oid = repo.write_object(&commit)?.to_git2();
-
-        // update reference
-        if let Some(refname) = update_ref {
-            self.reference(&refname.to_string(), oid, true, message)?;
-        }
-        Ok(oid)
+        commit_with_signature_gix(
+            &repo,
+            update_ref,
+            git2_signature_to_gix_signature(author),
+            git2_signature_to_gix_signature(committer),
+            message.into(),
+            tree.id().to_gix(),
+            &parents
+                .iter()
+                .map(|commit| commit.id().to_gix())
+                .collect::<Vec<_>>(),
+            commit_headers,
+        )
+        .map(|oid| oid.to_git2())
     }
 
     fn sign_buffer(&self, buffer: &[u8]) -> Result<BString> {
-        but_rebase::commit::sign_buffer(&gix::open(self.path())?, buffer)
+        but_core::commit::sign_buffer(&gix::open(self.path())?, buffer)
     }
 
     fn remotes_as_string(&self) -> Result<Vec<String>> {
-        Ok(self.remotes().map(|string_array| {
-            string_array
-                .iter()
-                .filter_map(|s| s.map(String::from))
-                .collect()
-        })?)
+        Ok(gix::open(self.path())?
+            .remote_names()
+            .iter()
+            .map(|name| name.to_string())
+            .collect())
     }
 
     fn remote_branches(&self) -> Result<Vec<RemoteRefname>> {
-        self.branches(Some(git2::BranchType::Remote))?
-            .flatten()
-            .map(|(branch, _)| {
-                String::from_utf8(branch.get().name_bytes().to_vec())
-                    .context("failed to read remote branch name as utf-8")?
+        use bstr::ByteSlice;
+
+        let repo = gix::open_opts(self.path(), gix::open::Options::isolated())?;
+        repo.references()?
+            .remote_branches()?
+            .filter_map(Result::ok)
+            // TODO: the question is if we really need this? Probably not, but it's part
+            // of the `gix` migration and we'd rather play it safe. Goal is for `gitbutler-` crates
+            // to not exist anyway.
+            .filter(|reference| !reference.name().as_bstr().ends_with_str("/HEAD"))
+            .map(|reference| {
+                reference
+                    .name()
+                    .to_string()
                     .parse()
                     .context("failed to convert branch to remote name")
             })
-            .collect::<Result<Vec<_>>>()
+            .collect()
     }
 
     fn signatures(&self) -> Result<(git2::Signature<'_>, git2::Signature<'_>)> {

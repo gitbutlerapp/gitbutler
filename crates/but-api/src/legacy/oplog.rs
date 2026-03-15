@@ -18,7 +18,6 @@
 //!
 use anyhow::Result;
 use but_api_macros::but_api;
-use but_oxidize::ObjectIdExt;
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, Snapshot, SnapshotDetails},
@@ -105,7 +104,7 @@ pub fn create_snapshot(
 #[instrument(err(Debug))]
 pub fn restore_snapshot(ctx: &mut but_ctx::Context, sha: gix::ObjectId) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
-    ctx.restore_snapshot(sha.to_git2(), guard.write_permission())?;
+    ctx.restore_snapshot(sha, guard.write_permission())?;
     Ok(())
 }
 
@@ -126,7 +125,7 @@ pub fn snapshot_diff(
     ctx: &but_ctx::Context,
     sha: gix::ObjectId,
 ) -> Result<Vec<but_core::ui::TreeChange>> {
-    let diff = ctx.snapshot_diff(sha.to_git2())?;
+    let diff = ctx.snapshot_diff(sha)?;
     let diff: Vec<but_core::ui::TreeChange> = diff.into_iter().map(Into::into).collect();
     Ok(diff)
 }

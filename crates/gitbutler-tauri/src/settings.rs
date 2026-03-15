@@ -1,4 +1,3 @@
-#![allow(deprecated)]
 use but_api::{json::Error, legacy::settings};
 use but_settings::{
     AppSettings, AppSettingsWithDiskSync,

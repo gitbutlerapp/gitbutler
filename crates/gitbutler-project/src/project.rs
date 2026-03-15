@@ -325,12 +325,6 @@ impl Project {
             gix::open::Options::isolated(),
         )?)
     }
-
-    /// Open a git2 repository.
-    /// Deprecated, but still in use.
-    pub fn open_git2(&self) -> anyhow::Result<git2::Repository> {
-        Ok(git2::Repository::open(self.git_dir())?)
-    }
 }
 
 impl Project {
