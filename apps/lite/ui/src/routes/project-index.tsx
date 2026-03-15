@@ -485,7 +485,6 @@ const CommitRubTarget: FC<{
 					setIsDragOver(false);
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-
 					if (!sourceItem) return;
 					if (rubOperation === null) return;
 
@@ -962,7 +961,6 @@ const ChangesRubTarget: FC<{
 					setIsDragOver(false);
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-
 					if (!sourceItem) return;
 					if (rubOperation === null) return;
 
@@ -1142,7 +1140,6 @@ const CommitMoveToBranchTarget: FC<{
 					setIsDragOver(false);
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-
 					if (sourceItem?._tag !== "Commit") return;
 					if (!isEnabled) return;
 
