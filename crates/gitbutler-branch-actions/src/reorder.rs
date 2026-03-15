@@ -175,7 +175,7 @@ impl StackOrder {
 }
 
 pub fn commits_order(ctx: &Context, stack: &Stack) -> Result<StackOrder> {
-    let git2_repo = &*ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
     let order: Result<Vec<SeriesOrder>> = stack
         .branches()
         .iter()
@@ -185,11 +185,11 @@ pub fn commits_order(ctx: &Context, stack: &Stack) -> Result<StackOrder> {
             Ok(SeriesOrder {
                 name: b.name().to_owned(),
                 commit_ids: b
-                    .commits(git2_repo, ctx, stack)?
+                    .commit_ids(&repo, ctx, stack)?
                     .local_commits
                     .iter()
                     .rev()
-                    .map(|c| c.id().to_gix())
+                    .copied()
                     .collect(),
             })
         })

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use bstr::ByteSlice;
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::ObjectIdExt;
 use but_workspace::ui::Commit;
 use gitbutler_branch_actions::squash_commits;
 use gitbutler_stack::{StackBranch, VirtualBranchesHandle};
@@ -27,12 +27,7 @@ use crate::driverless;
 fn squash_without_affecting_stack() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(
-        &mut ctx,
-        test.stack.id,
-        vec![test.commit_3.to_gix()],
-        test.commit_2.to_gix(),
-    )?;
+    squash_commits(&mut ctx, test.stack.id, vec![test.commit_3], test.commit_2)?;
 
     let branches = list_branches(&ctx)?;
     // branch 1
@@ -72,12 +67,7 @@ fn squash_without_affecting_stack() -> Result<()> {
 fn squash_below() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(
-        &mut ctx,
-        test.stack.id,
-        vec![test.commit_4.to_gix()],
-        test.commit_2.to_gix(),
-    )?;
+    squash_commits(&mut ctx, test.stack.id, vec![test.commit_4], test.commit_2)?;
 
     let branches = list_branches(&ctx)?;
     // branch 1
@@ -123,12 +113,7 @@ fn squash_below() -> Result<()> {
 fn squash_above() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(
-        &mut ctx,
-        test.stack.id,
-        vec![test.commit_1.to_gix()],
-        test.commit_3.to_gix(),
-    )?;
+    squash_commits(&mut ctx, test.stack.id, vec![test.commit_1], test.commit_3)?;
 
     let branches = list_branches(&ctx)?;
     // branch 1
@@ -172,12 +157,7 @@ fn squash_above() -> Result<()> {
 fn squash_upwards_works() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(
-        &mut ctx,
-        test.stack.id,
-        vec![test.commit_2.to_gix()],
-        test.commit_3.to_gix(),
-    )?;
+    squash_commits(&mut ctx, test.stack.id, vec![test.commit_2], test.commit_3)?;
 
     let branches = list_branches(&ctx)?;
     // branch 1
@@ -218,12 +198,7 @@ fn squash_upwards_works() -> Result<()> {
 fn squash_down_with_overlap_ok() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(
-        &mut ctx,
-        test.stack.id,
-        vec![test.commit_3.to_gix()],
-        test.commit_2.to_gix(),
-    )?;
+    squash_commits(&mut ctx, test.stack.id, vec![test.commit_3], test.commit_2)?;
     let branches = list_branches(&ctx)?;
 
     // branch 1
@@ -262,12 +237,7 @@ fn squash_down_with_overlap_ok() -> Result<()> {
 fn squash_below_into_stack_head() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(
-        &mut ctx,
-        test.stack.id,
-        vec![test.commit_4.to_gix()],
-        test.commit_1.to_gix(),
-    )?;
+    squash_commits(&mut ctx, test.stack.id, vec![test.commit_4], test.commit_1)?;
     let branches = list_branches(&ctx)?;
 
     // branch 1
@@ -313,8 +283,8 @@ fn squash_multiple() -> Result<()> {
     squash_commits(
         &mut ctx,
         test.stack.id,
-        vec![test.commit_4.to_gix(), test.commit_2.to_gix()],
-        test.commit_1.to_gix(),
+        vec![test.commit_4, test.commit_2],
+        test.commit_1,
     )?;
     let branches = list_branches(&ctx)?;
 
@@ -367,8 +337,8 @@ fn squash_multiple_from_heads() -> Result<()> {
     squash_commits(
         &mut ctx,
         test.stack.id,
-        vec![test.commit_5.to_gix(), test.commit_4.to_gix()],
-        test.commit_2.to_gix(),
+        vec![test.commit_5, test.commit_4],
+        test.commit_2,
     )?;
     let branches = list_branches(&ctx)?;
 
@@ -422,8 +392,8 @@ fn squash_multiple_above_and_below() -> Result<()> {
     squash_commits(
         &mut ctx,
         test.stack.id,
-        vec![test.commit_5.to_gix(), test.commit_1.to_gix()],
-        test.commit_3.to_gix(),
+        vec![test.commit_5, test.commit_1],
+        test.commit_3,
     )?;
     let branches = list_branches(&ctx)?;
 
@@ -466,24 +436,25 @@ fn test_ctx(ctx: &Context) -> Result<TestContext> {
     let stack = stacks.iter().find(|b| b.name() == "my_stack").unwrap();
     let branches = stack.branches();
     let branch_1 = branches.iter().find(|b| b.name() == "my_stack").unwrap();
-    let git2_repo = &*ctx.git2_repo.get()?;
-    let commit_1 = branch_1.commits(git2_repo, ctx, stack)?.local_commits[0].clone();
+    let repo = ctx.repo.get()?;
+    let commit_1 = branch_1.commit_ids(&repo, ctx, stack)?.local_commits[0];
     let branch_2 = branches.iter().find(|b| b.name() == "a-branch-2").unwrap();
-    let commit_2 = branch_2.commits(git2_repo, ctx, stack)?.local_commits[0].clone();
-    let commit_3 = branch_2.commits(git2_repo, ctx, stack)?.local_commits[1].clone();
-    let commit_4 = branch_2.commits(git2_repo, ctx, stack)?.local_commits[2].clone();
+    let branch_2_commits = branch_2.commit_ids(&repo, ctx, stack)?.local_commits;
+    let commit_2 = branch_2_commits[0];
+    let commit_3 = branch_2_commits[1];
+    let commit_4 = branch_2_commits[2];
     let branch_3 = branches.iter().find(|b| b.name() == "a-branch-3").unwrap();
-    let commit_5 = branch_3.commits(git2_repo, ctx, stack)?.local_commits[0].clone();
+    let commit_5 = branch_3.commit_ids(&repo, ctx, stack)?.local_commits[0];
     Ok(TestContext {
         stack: stack.clone(),
         branch_1: branch_1.clone(),
         branch_2: branch_2.clone(),
         branch_3: branch_3.clone(),
-        commit_1: commit_1.id(),
-        commit_2: commit_2.id(),
-        commit_3: commit_3.id(),
-        commit_4: commit_4.id(),
-        commit_5: commit_5.id(),
+        commit_1,
+        commit_2,
+        commit_3,
+        commit_4,
+        commit_5,
     })
 }
 
@@ -499,11 +470,11 @@ struct TestContext {
     branch_1: StackBranch,
     branch_2: StackBranch,
     branch_3: StackBranch,
-    commit_1: git2::Oid,
-    commit_2: git2::Oid,
-    commit_3: git2::Oid,
-    commit_4: git2::Oid,
-    commit_5: git2::Oid,
+    commit_1: gix::ObjectId,
+    commit_2: gix::ObjectId,
+    commit_3: gix::ObjectId,
+    commit_4: gix::ObjectId,
+    commit_5: gix::ObjectId,
 }
 
 /// Stack branches, but from the list API

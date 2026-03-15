@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::ObjectIdExt;
 use gitbutler_branch_actions::{StackOrder, reorder::SeriesOrder, reorder_stack};
+use gitbutler_commit::commit_ext::CommitMessageBstr as _;
 use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_testsupport::testing_repository::assert_commit_tree_matches;
 use itertools::Itertools;
@@ -476,18 +477,24 @@ fn test_ctx(ctx: &Context) -> Result<TestContext> {
     let stack = stacks.iter().find(|b| b.name() == "my_stack").unwrap();
 
     let branches = stack.branches();
-    let git2_repo = &*ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
     let top_commits: HashMap<String, gix::ObjectId> = branches[1]
-        .commits(git2_repo, ctx, stack)?
+        .commit_ids(&repo, ctx, stack)?
         .local_commits
         .iter()
-        .map(|c| (c.message().unwrap().to_string(), c.id().to_gix()))
+        .map(|id| {
+            let commit = repo.find_commit(*id).unwrap();
+            (commit.message_bstr().to_string(), *id)
+        })
         .collect();
     let bottom_commits: HashMap<String, gix::ObjectId> = branches[0]
-        .commits(git2_repo, ctx, stack)?
+        .commit_ids(&repo, ctx, stack)?
         .local_commits
         .iter()
-        .map(|c| (c.message().unwrap().to_string(), c.id().to_gix()))
+        .map(|id| {
+            let commit = repo.find_commit(*id).unwrap();
+            (commit.message_bstr().to_string(), *id)
+        })
         .collect();
 
     Ok(TestContext {

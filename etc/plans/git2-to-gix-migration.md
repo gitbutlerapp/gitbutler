@@ -18,10 +18,10 @@ Repository scan baseline at plan creation:
 - files with `git2::` references: 88
 - files currently in-scope under exclusions: 35
 
-Current raw audit on 2026-03-12:
+Current raw audit on 2026-03-15:
 
-- `git2::` callsites: 381
-- files with `git2::` references: 54
+- `git2::` callsites: 357
+- files with `git2::` references: 51
 - filtered in-scope audit: not yet zero
 
 In-scope means all non-excluded `git2` usage should be migrated to `gix` or isolated behind explicit adapter boundaries.
@@ -166,7 +166,8 @@ Current reconciliation notes:
 - `crates/gitbutler-branch-actions/src/author.rs`, `crates/gitbutler-branch-actions/src/hooks.rs`, and `crates/gitbutler-branch-actions/src/remote.rs` are already `gix`-first or boundary-only.
 - `crates/but/src/command/legacy/branch/list.rs` and `crates/but/src/command/legacy/branch/show.rs` are partially migrated to `gix::ObjectId`; remaining `git2` there is concentrated in legacy diff inspection and merge-query edges.
 - Direct `git2` OID/commit usage still remains in `move_commits.rs`, `virtual.rs`, `gitbutler-cherry-pick`, `gitbutler-commit`, `gitbutler-edit-mode/src/lib.rs`, and several `gitbutler-branch-actions` modules that were missing from the original target list.
-- Stack/workspace legacy surfaces still carry `git2` through commit logging, merge-base traversal, workspace-head creation, and branch/target helpers in `but-workspace::legacy`, `gitbutler-stack`, and `but-api::legacy::virtual_branches`.
+- `crates/gitbutler-stack/src/stack_branch.rs` now computes local/remote/upstream commit membership with `gix` traversals and keeps `git2` only at the legacy commit-return boundary; `crates/gitbutler-branch-actions/src/reorder.rs` and `crates/but-workspace/src/legacy/stacks.rs` now consume the `gix`-first path directly.
+- Stack/workspace legacy surfaces still carry `git2` through workspace-head creation, push/transport helpers, and branch/target adapters in `gitbutler-stack`, `gitbutler-branch-actions`, and `but-api::legacy::virtual_branches`.
 
 ### Workstream D: Oplog Metadata and State Modernization (Non-Excluded)
 
@@ -311,6 +312,17 @@ Use this section as the running checklist during implementation.
 - [ ] Residual `git2` usage is excluded-boundary only
 
 ## Progress Log
+
+### 2026-03-15
+
+- Reconciled this plan again against the current branch after the latest Wave 3 stack/workspace traversal cleanup.
+- Fresh raw audit now shows `357` `git2::` callsites across `51` Rust files; the previous `381` across `54` files checkpoint from 2026-03-12 is stale.
+- Additional Wave 3 progress on 2026-03-15:
+  - `crates/gitbutler-stack/src/stack_branch.rs`: introduced a `gix`-first `commit_ids()` path for local, remote, and upstream-only branch commit selection, leaving `git2` only in the compatibility `commits()` return boundary for legacy callers and tests.
+  - `crates/but-workspace/src/legacy/stacks.rs`: switched stack branch local/remote commit materialization to the new `gix` commit-ID path and removed direct `git2` author/time/parent traversal from that UI-facing flow.
+  - `crates/gitbutler-branch-actions/src/reorder.rs`, `crates/gitbutler-branch-actions/tests/branch-actions/reorder.rs`, `crates/gitbutler-stack/tests/mod.rs`, and `crates/gitbutler-branch-actions/tests/branch-actions/squash.rs`: moved reorder/stack/squash test commit enumeration onto `gix::ObjectId`, leaving the touched test files with only unrelated fixture/blob helpers on `git2`.
+  - raw audit on the touched production files now shows only the expected `git2` compatibility boundary in `crates/gitbutler-stack/src/stack_branch.rs`
+  - verification for this slice: `cargo fmt --all`, `cargo check -p gitbutler-stack -p gitbutler-branch-actions -p but-workspace --all-targets`, `cargo test -p gitbutler-stack list_series_default_head -- --nocapture`, `cargo test -p gitbutler-branch-actions reorder_in_top_series -- --nocapture`, and `cargo test -p gitbutler-branch-actions squash_without_affecting_stack -- --nocapture` all pass
 
 ### 2026-03-12
 

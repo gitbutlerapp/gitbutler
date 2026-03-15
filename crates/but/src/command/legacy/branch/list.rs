@@ -488,12 +488,14 @@ fn calculate_commits_ahead(
     };
 
     let mut result = HashMap::new();
+    let cache = repo.commit_graph_if_enabled()?;
+    let mut graph = repo.revision_graph(cache.as_ref());
 
     for branch in branches {
         let branch_oid = branch.head;
 
         // Count commits ahead using merge base
-        let merge_base = match repo.merge_base(branch_oid, target_oid) {
+        let merge_base = match repo.merge_base_with_graph(branch_oid, target_oid, &mut graph) {
             Ok(base) => base,
             Err(_) => continue, // Skip if no merge base found
         };
