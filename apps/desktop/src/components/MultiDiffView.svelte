@@ -220,10 +220,10 @@
 				{startIndex}
 				grow
 				items={changes}
-				defaultHeight={102}
+				defaultHeight={173}
 				visibility="scroll"
 				renderDistance={100}
-				initSettleMs={1000}
+				initSettleMs={500}
 				onVisibleChange={(range) => {
 					if (range) {
 						const activeIndex = scrollLock.resolve(range);

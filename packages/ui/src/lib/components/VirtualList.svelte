@@ -216,8 +216,17 @@
 	 * Resolves immediately when the observer fires, so items that resize fast
 	 * don't block initialization.
 	 */
-	function settle(index: number): Promise<void> {
+	function settle(index: number, measuredHeight: number): Promise<void> {
 		if (initSettleMs <= 0) return Promise.resolve();
+
+		// If the measured height already differs significantly from
+		// defaultHeight, the item rendered its final content directly
+		// (skipping the skeleton/loading placeholder). No async expansion
+		// is expected, so we can proceed immediately.
+		if (Math.abs(measuredHeight - defaultHeight) > 1) {
+			return Promise.resolve();
+		}
+
 		const gen = initGeneration;
 		return new Promise((resolve) => {
 			function done() {
@@ -432,7 +441,7 @@
 				if (isFull(renderDistance)) break;
 
 				// Wait for async resize before deciding if the viewport is full.
-				await settle(i);
+				await settle(i, measuredHeight);
 				if (!viewport || generation !== initGeneration) return;
 				if (heightMap[i] !== measuredHeight && isFull(renderDistance)) break;
 			}
@@ -462,7 +471,7 @@
 
 				if (isFull(2 * renderDistance)) break;
 
-				await settle(i);
+				await settle(i, measuredHeight);
 				if (!viewport || generation !== initGeneration) return;
 
 				// Item is above startingAt — its growth pushes content down.
