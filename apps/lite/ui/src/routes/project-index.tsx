@@ -461,7 +461,10 @@ const CommitRubTarget: FC<{
 	const rubOperation = sourceItem ? rubOperationFor(rubSourceFor(sourceItem), changeUnit) : null;
 	const rubMutation = useMutation(rubMutationOptions);
 
-	const tooltip = isDragOver ? rubOperation : undefined;
+	const isEnabled = sourceItem !== null && rubOperation !== null;
+	const isActive = isDragOver && isEnabled;
+
+	const tooltip = isActive ? rubOperation : undefined;
 
 	return (
 		<Tooltip.Root open={tooltip != null}>
@@ -471,8 +474,7 @@ const CommitRubTarget: FC<{
 					setIsDragOver(true);
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-					if (!sourceItem) return;
-					if (rubOperation === null) return;
+					if (!isEnabled) return;
 
 					event.preventDefault();
 				}}
@@ -485,8 +487,7 @@ const CommitRubTarget: FC<{
 					setIsDragOver(false);
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-					if (!sourceItem) return;
-					if (rubOperation === null) return;
+					if (!isEnabled) return;
 
 					event.preventDefault();
 
@@ -497,7 +498,7 @@ const CommitRubTarget: FC<{
 					});
 				}}
 				style={{
-					...(isDragOver && rubOperation !== null && { outline: "2px dashed" }),
+					...(isActive && { outline: "2px dashed" }),
 				}}
 			/>
 			<Tooltip.Portal>
@@ -934,7 +935,10 @@ const ChangesRubTarget: FC<{
 	const rubOperation = sourceItem ? rubOperationFor(rubSourceFor(sourceItem), changeUnit) : null;
 	const rubMutation = useMutation(rubMutationOptions);
 
-	const tooltip = isDragOver ? rubOperation : undefined;
+	const isEnabled = sourceItem?._tag === "TreeChange" && rubOperation !== null;
+	const isActive = isDragOver && isEnabled;
+
+	const tooltip = isActive ? rubOperation : undefined;
 
 	return (
 		<Tooltip.Root open={tooltip != null}>
@@ -944,8 +948,7 @@ const ChangesRubTarget: FC<{
 					setIsDragOver(true);
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-					if (sourceItem?._tag !== "TreeChange") return;
-					if (rubOperation === null) return;
+					if (!isEnabled) return;
 
 					event.preventDefault();
 				}}
@@ -958,8 +961,7 @@ const ChangesRubTarget: FC<{
 					setIsDragOver(false);
 
 					if (!event.dataTransfer.types.includes(sourceItemMimeType)) return;
-					if (sourceItem?._tag !== "TreeChange") return;
-					if (rubOperation === null) return;
+					if (!isEnabled) return;
 
 					event.preventDefault();
 
@@ -970,7 +972,7 @@ const ChangesRubTarget: FC<{
 					});
 				}}
 				style={{
-					...(isDragOver && rubOperation !== null && { outline: "2px dashed" }),
+					...(isActive && { outline: "2px dashed" }),
 				}}
 			/>
 			<Tooltip.Portal>
