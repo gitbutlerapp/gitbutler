@@ -3,7 +3,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-use but_api::commit::{commit_insert_blank, ui::RelativeTo};
+use anyhow::Context as _;
+use bstr::BString;
+use but_api::{
+    commit::{commit_insert_blank, ui::RelativeTo},
+    diff::ComputeLineStats,
+};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
 use crossterm::event::{self, Event};
@@ -13,11 +18,14 @@ use ratatui::{
     prelude::*,
     widgets::{Block, Borders, Clear, List, ListItem, Padding, Paragraph, Wrap},
 };
+use ratatui_textarea::{CursorMove, TextArea};
 
 use crate::{
     CliId,
     args::OutputFormat,
     command::legacy::{
+        ShowDiffInEditor,
+        reword::get_commit_message_from_editor,
         rub::{RubOperation, route_operation},
         status::{
             StatusFlags, StatusOutput, StatusOutputLine, build_status_context, build_status_output,
@@ -31,7 +39,7 @@ use crate::{
     utils::OutputChannel,
 };
 
-use super::output::StatusOutputLineData;
+use super::output::{StatusOutputContent, StatusOutputLineData};
 
 mod cursor;
 mod key_bind;
@@ -76,7 +84,7 @@ pub(super) async fn render_tui(
             }
 
             for msg in messages.drain(..) {
-                app.handle_message(ctx, out, mode, &mut other_messages, msg)
+                app.handle_message(ctx, out, mode, &mut guard, &mut other_messages, msg)
                     .await;
             }
             std::mem::swap(&mut messages, &mut other_messages);
@@ -135,10 +143,14 @@ impl App {
         ctx: &mut Context,
         out: &mut OutputChannel,
         mode: &OperatingMode,
+        guard: &mut TerminalGuard,
         messages: &mut Vec<Message>,
         msg: Message,
     ) {
-        if let Err(err) = self.try_handle_message(ctx, out, mode, messages, msg).await {
+        if let Err(err) = self
+            .try_handle_message(ctx, out, mode, guard, messages, msg)
+            .await
+        {
             messages.push(Message::ShowError(Arc::new(err)));
         }
     }
@@ -148,6 +160,7 @@ impl App {
         ctx: &mut Context,
         out: &mut OutputChannel,
         mode: &OperatingMode,
+        guard: &mut TerminalGuard,
         messages: &mut Vec<Message>,
         msg: Message,
     ) -> anyhow::Result<()> {
@@ -328,6 +341,165 @@ impl App {
                     | StatusOutputLineData::NoAssignmentsUnstaged => {}
                 }
             }
+            Message::RewordWithEditor => {
+                if !matches!(self.mode, Mode::Normal) {
+                    return Ok(());
+                }
+                let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+                    return Ok(());
+                };
+
+                let cli_id = match &selection.data {
+                    StatusOutputLineData::Commit { cli_id } => cli_id,
+                    StatusOutputLineData::UpdateNotice
+                    | StatusOutputLineData::Connector
+                    | StatusOutputLineData::StagedChanges { .. }
+                    | StatusOutputLineData::StagedFile { .. }
+                    | StatusOutputLineData::UnstagedChanges { .. }
+                    | StatusOutputLineData::UnstagedFile { .. }
+                    | StatusOutputLineData::Branch { .. }
+                    | StatusOutputLineData::CommitMessage
+                    | StatusOutputLineData::EmptyCommitMessage
+                    | StatusOutputLineData::File { .. }
+                    | StatusOutputLineData::MergeBase
+                    | StatusOutputLineData::UpstreamChanges
+                    | StatusOutputLineData::Warning
+                    | StatusOutputLineData::Hint
+                    | StatusOutputLineData::NoAssignmentsUnstaged => {
+                        return Ok(());
+                    }
+                };
+
+                let CliId::Commit { commit_id, .. } = &**cli_id else {
+                    return Ok(());
+                };
+
+                let commit_details =
+                    but_api::diff::commit_details(ctx, *commit_id, ComputeLineStats::No)?;
+                let current_message = commit_details.commit.inner.message.to_string();
+
+                let _suspend_guard = guard.suspend()?;
+                let new_message = get_commit_message_from_editor(
+                    ctx,
+                    commit_details,
+                    current_message.clone(),
+                    ShowDiffInEditor::Unspecified,
+                )?;
+
+                let Some(new_message) = new_message else {
+                    return Ok(());
+                };
+
+                if new_message == current_message {
+                    return Ok(());
+                }
+
+                let reword_result = but_api::commit::commit_reword_only(
+                    ctx,
+                    *commit_id,
+                    BString::from(new_message),
+                )
+                .with_context(|| format!("failed to reword {}", commit_id.to_hex_with_len(7)))?;
+
+                messages.push(Message::Reload(Some(SelectAfterReload::Commit(
+                    reword_result.new_commit,
+                ))));
+            }
+            Message::StartRewordInline => {
+                if !matches!(self.mode, Mode::Normal) {
+                    return Ok(());
+                }
+                let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+                    return Ok(());
+                };
+
+                let cli_id = match &selection.data {
+                    StatusOutputLineData::Commit { cli_id } => cli_id,
+                    StatusOutputLineData::UpdateNotice
+                    | StatusOutputLineData::Connector
+                    | StatusOutputLineData::StagedChanges { .. }
+                    | StatusOutputLineData::StagedFile { .. }
+                    | StatusOutputLineData::UnstagedChanges { .. }
+                    | StatusOutputLineData::UnstagedFile { .. }
+                    | StatusOutputLineData::Branch { .. }
+                    | StatusOutputLineData::CommitMessage
+                    | StatusOutputLineData::EmptyCommitMessage
+                    | StatusOutputLineData::File { .. }
+                    | StatusOutputLineData::MergeBase
+                    | StatusOutputLineData::UpstreamChanges
+                    | StatusOutputLineData::Warning
+                    | StatusOutputLineData::Hint
+                    | StatusOutputLineData::NoAssignmentsUnstaged => {
+                        return Ok(());
+                    }
+                };
+
+                let CliId::Commit { commit_id, .. } = &**cli_id else {
+                    return Ok(());
+                };
+
+                let commit_details =
+                    but_api::diff::commit_details(ctx, *commit_id, ComputeLineStats::No)?;
+                let current_message = commit_details.commit.inner.message.to_string();
+
+                if current_message.split_once('\n').is_some() {
+                    messages.push(Message::RewordWithEditor);
+                    return Ok(());
+                }
+
+                let first_line = current_message.lines().next().unwrap_or("").to_string();
+
+                let mut textarea = TextArea::from([first_line]);
+                textarea.set_cursor_line_style(Style::default()); // remove underline
+                textarea.move_cursor(CursorMove::End);
+
+                self.mode = Mode::InlineReword {
+                    commit_id: *commit_id,
+                    textarea: Box::new(textarea),
+                };
+            }
+            Message::RewordInlineInput(ev) => {
+                if let Mode::InlineReword { textarea, .. } = &mut self.mode {
+                    textarea.input(ev);
+                }
+            }
+            Message::ConfirmInlineReword => {
+                let Mode::InlineReword {
+                    commit_id,
+                    textarea,
+                } = &self.mode
+                else {
+                    return Ok(());
+                };
+
+                let commit_details =
+                    but_api::diff::commit_details(ctx, *commit_id, ComputeLineStats::No)?;
+                let current_message = commit_details.commit.inner.message.to_string();
+                let new_subject = textarea
+                    .lines()
+                    .first()
+                    .map(std::string::String::as_str)
+                    .unwrap_or("");
+
+                let new_message = new_subject.to_string();
+
+                if new_message == current_message {
+                    messages.push(Message::EnterNormalMode);
+                    return Ok(());
+                }
+
+                let reword_result = but_api::commit::commit_reword_only(
+                    ctx,
+                    *commit_id,
+                    BString::from(new_message),
+                )
+                .with_context(|| format!("failed to reword {}", commit_id.to_hex_with_len(7)))?;
+
+                messages.extend([
+                    Message::EnterNormalMode,
+                    Message::Reload(Some(SelectAfterReload::Commit(reword_result.new_commit))),
+                ]);
+            }
         }
 
         Ok(())
@@ -359,6 +531,8 @@ impl App {
 
         frame.render_widget(list, content_area);
 
+        self.render_inline_reword(content_area, frame);
+
         self.render_errors(content_area, frame);
 
         if let Some(debug_area) = debug_area {
@@ -373,7 +547,7 @@ impl App {
     ) -> ListItem<'_> {
         let StatusOutputLine {
             connector,
-            line: content_line,
+            content,
             data,
         } = tui_line;
 
@@ -385,7 +559,7 @@ impl App {
 
         if is_selected {
             match &self.mode {
-                Mode::Normal => {}
+                Mode::Normal | Mode::InlineReword { .. } => {}
                 Mode::Rub {
                     source,
                     available_targets: _,
@@ -411,7 +585,7 @@ impl App {
             }
         } else {
             match &self.mode {
-                Mode::Normal => {}
+                Mode::Normal | Mode::InlineReword { .. } => {}
                 Mode::Rub {
                     source,
                     available_targets: _,
@@ -425,9 +599,30 @@ impl App {
             }
         }
 
+        let content_spans = match content {
+            StatusOutputContent::Plain(spans) => spans.clone(),
+            StatusOutputContent::Commit(commit_content) => {
+                let mut spans = Vec::new();
+                spans.extend(commit_content.sha.iter().cloned());
+                spans.extend(commit_content.author.iter().cloned());
+                spans.extend(commit_content.message.iter().cloned());
+                spans.extend(commit_content.suffix.iter().cloned());
+                spans
+            }
+        };
+
         match &self.mode {
             Mode::Normal => {
-                line.extend(content_line.clone());
+                line.extend(content_spans);
+            }
+            Mode::InlineReword { .. } => {
+                if is_selected {
+                    if let StatusOutputContent::Commit(commit_content) = content {
+                        line.extend(commit_content.sha.iter().cloned());
+                    }
+                } else {
+                    line.extend(content_spans);
+                }
             }
             Mode::Rub {
                 source: _,
@@ -438,14 +633,12 @@ impl App {
                 } else {
                     false
                 };
-
                 if can_rub_here {
-                    line.extend(content_line.clone());
+                    line.extend(content_spans);
                 } else {
                     line.extend(
-                        content_line
-                            .iter()
-                            .cloned()
+                        content_spans
+                            .into_iter()
                             .map(|span| span.style(Style::default().dim())),
                     );
                 }
@@ -463,6 +656,9 @@ impl App {
         let mode_span = match self.mode {
             Mode::Normal => Span::styled("  normal  ", Style::default().black().on_green()),
             Mode::Rub { .. } => Span::styled("  rub  ", Style::default().black().on_magenta()),
+            Mode::InlineReword { .. } => {
+                Span::styled("  reword  ", Style::default().black().on_blue())
+            }
         };
 
         let padding = Span::raw(" ");
@@ -493,7 +689,7 @@ impl App {
 
     fn render_errors(&self, area: Rect, frame: &mut Frame) {
         for (idx, err) in self.errors.iter().rev().enumerate() {
-            let formatted_err = format!("{}", err.inner);
+            let formatted_err = format!("{:#}", err.inner);
             render_error_popup(
                 frame,
                 area,
@@ -504,6 +700,41 @@ impl App {
                 &formatted_err,
             );
         }
+    }
+
+    fn render_inline_reword(&self, area: Rect, frame: &mut Frame) {
+        let Mode::InlineReword { textarea, .. } = &self.mode else {
+            return;
+        };
+        let Some((idx, (line, _))) = self
+            .cursor
+            .iter_lines(&self.status_lines)
+            .enumerate()
+            .find(|(_, (_, is_selected))| *is_selected)
+        else {
+            return;
+        };
+        let StatusOutputLineData::Commit { .. } = &line.data else {
+            return;
+        };
+        let Some(connector) = &line.connector else {
+            return;
+        };
+        let StatusOutputContent::Commit(commit_content) = &line.content else {
+            return;
+        };
+        let connector_and_sha_width = connector
+            .iter()
+            .chain(&commit_content.sha)
+            .map(|span| span.width() as u16)
+            .sum::<u16>();
+        let padding_between_sha_and_message = 1;
+
+        let start_x = connector_and_sha_width + padding_between_sha_and_message;
+        let x = area.x.saturating_add(start_x);
+        let width = area.right().saturating_sub(x);
+        let area = Rect::new(x, area.y.saturating_add(idx as u16), width, 1);
+        frame.render_widget(&**textarea, area);
     }
 
     fn render_debug(&self, area: Rect, frame: &mut Frame) {
@@ -522,9 +753,20 @@ impl App {
 fn event_to_messages(ev: Event, key_binds: &[KeyBind], mode: &Mode, messages: &mut Vec<Message>) {
     match ev {
         Event::Key(key) => {
+            let mut handled = false;
             for key_bind in key_binds.iter().copied() {
                 if key_bind.matches(&key, mode) {
                     messages.push(key_bind.message.clone());
+                    handled = true;
+                }
+            }
+
+            if !handled {
+                match mode {
+                    Mode::InlineReword { .. } => {
+                        messages.push(Message::RewordInlineInput(ev));
+                    }
+                    Mode::Normal | Mode::Rub { .. } => {}
                 }
             }
         }
@@ -548,6 +790,10 @@ enum Message {
     ToggleFiles,
     ShowError(Arc<anyhow::Error>),
     CreateEmptyCommit,
+    RewordWithEditor,
+    StartRewordInline,
+    ConfirmInlineReword,
+    RewordInlineInput(Event),
 }
 
 #[derive(Debug, Default, strum::EnumDiscriminants)]
@@ -557,6 +803,10 @@ enum Mode {
     Rub {
         source: Arc<CliId>,
         available_targets: Vec<Arc<CliId>>,
+    },
+    InlineReword {
+        commit_id: gix::ObjectId,
+        textarea: Box<TextArea<'static>>,
     },
 }
 

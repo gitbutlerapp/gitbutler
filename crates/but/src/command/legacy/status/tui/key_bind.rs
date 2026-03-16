@@ -19,11 +19,23 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
     KeyBind {
         chord: KeyChord {
             modifiers: KeyModifiers::NONE,
+            keys: &[KeyCode::Enter],
+        },
+        kind: KeyEventKind::Press,
+        message: &Message::ConfirmInlineReword,
+        modes: KeyBindMode::Only(&[ModeDiscriminants::InlineReword]),
+        short_description: "confirm",
+        code_display: "enter",
+        hidden: false,
+    },
+    KeyBind {
+        chord: KeyChord {
+            modifiers: KeyModifiers::NONE,
             keys: &[KeyCode::Char('j'), KeyCode::Down],
         },
         kind: KeyEventKind::Press,
         message: &Message::MoveCursorDown,
-        modes: KeyBindMode::All,
+        modes: KeyBindMode::AllExceptInlineReword,
         short_description: "down",
         code_display: "↓/j",
         hidden: false,
@@ -35,7 +47,7 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
         },
         kind: KeyEventKind::Press,
         message: &Message::MoveCursorUp,
-        modes: KeyBindMode::All,
+        modes: KeyBindMode::AllExceptInlineReword,
         short_description: "up",
         code_display: "↑/k",
         hidden: false,
@@ -67,11 +79,35 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
     KeyBind {
         chord: KeyChord {
             modifiers: KeyModifiers::NONE,
+            keys: &[KeyCode::Enter],
+        },
+        kind: KeyEventKind::Press,
+        message: &Message::StartRewordInline,
+        modes: KeyBindMode::Only(&[ModeDiscriminants::Normal]),
+        short_description: "reword inline",
+        code_display: "enter",
+        hidden: false,
+    },
+    KeyBind {
+        chord: KeyChord {
+            modifiers: KeyModifiers::SHIFT,
+            keys: &[KeyCode::Enter],
+        },
+        kind: KeyEventKind::Press,
+        message: &Message::RewordWithEditor,
+        modes: KeyBindMode::Only(&[ModeDiscriminants::Normal]),
+        short_description: "reword",
+        code_display: "shift+enter",
+        hidden: false,
+    },
+    KeyBind {
+        chord: KeyChord {
+            modifiers: KeyModifiers::NONE,
             keys: &[KeyCode::Char('f')],
         },
         kind: KeyEventKind::Press,
         message: &Message::ToggleFiles,
-        modes: KeyBindMode::All,
+        modes: KeyBindMode::AllExceptInlineReword,
         short_description: "files",
         code_display: "f",
         hidden: false,
@@ -97,7 +133,7 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
         message: &Message::Reload(None),
         modes: KeyBindMode::Only(&[ModeDiscriminants::Normal]),
         short_description: "reload",
-        code_display: "ctrl-r",
+        code_display: "ctrl+r",
         hidden: false,
     },
     KeyBind {
@@ -107,7 +143,7 @@ pub(super) static KEY_BINDS: &[KeyBind] = &[
         },
         kind: KeyEventKind::Press,
         message: &Message::Quit,
-        modes: KeyBindMode::All,
+        modes: KeyBindMode::AllExceptInlineReword,
         short_description: "quit",
         code_display: "q",
         hidden: false,
@@ -165,7 +201,7 @@ impl KeyBind {
 
     pub(super) fn available_in_mode(self, mode: &Mode) -> bool {
         match self.modes {
-            KeyBindMode::All => true,
+            KeyBindMode::AllExceptInlineReword => !matches!(mode, Mode::InlineReword { .. }),
             KeyBindMode::Only(supported_modes) => supported_modes
                 .iter()
                 .copied()
@@ -184,8 +220,10 @@ pub(super) struct KeyChord {
 /// The modes a key binding is available in.
 #[derive(Debug, Copy, Clone)]
 pub(super) enum KeyBindMode {
-    /// Available in all modes.
-    All,
+    /// Available in all modes except inline reword.
+    ///
+    /// Inline reword is special since it shows a text area that eats all inputs.
+    AllExceptInlineReword,
     /// Available in all modes except normal mode.
     AllExceptNormal,
     /// Only available in these modes.
