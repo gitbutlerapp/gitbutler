@@ -200,6 +200,11 @@ else
 	exit 1
 fi
 
+# Enable IRC collaboration feature for dev and nightly, but not release.
+if [ "$CHANNEL" != "release" ]; then
+	FEATURES="$FEATURES irc"
+fi
+
 # update the version in the tauri release config
 jq  --arg version "$VERSION"\
     --argjson externalBin "$EXTERNAL_BIN"\
