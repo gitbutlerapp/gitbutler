@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RouterProvider } from "@tanstack/react-router";
 import { FC, StrictMode } from "react";
 import styles from "./App.module.css";
+import { Tooltip } from "@base-ui/react";
 
 const Toasts: FC = () => {
 	const { toasts } = Toast.useToastManager();
@@ -33,8 +34,10 @@ export const App: React.FC<{
 	<StrictMode>
 		<QueryClientProvider client={queryClient}>
 			<Toast.Provider toastManager={toastManager}>
-				<RouterProvider router={router} />
-				<Toasts />
+				<Tooltip.Provider>
+					<RouterProvider router={router} />
+					<Toasts />
+				</Tooltip.Provider>
 			</Toast.Provider>
 			<ReactQueryDevtools />
 		</QueryClientProvider>
