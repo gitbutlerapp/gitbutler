@@ -5,6 +5,7 @@ import sharedStyles from "./project-shared.module.css";
 import { Menu } from "@base-ui/react";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { Tooltip } from "@base-ui/react/tooltip";
+import { useRender } from "@base-ui/react/use-render";
 import { DragDropProvider, useDraggable, useDragOperation, useDroppable } from "@dnd-kit/react";
 import {
 	RefInfo,
@@ -221,14 +222,15 @@ const assignedChangesDiffSpecs = (
 		];
 	});
 
-const HunkListItem: FC<{
-	patch: Patch;
-	stackId: string | null;
-	changeUnit: ChangeUnit;
-	change: TreeChange;
-	hunk: DiffHunk;
-	children: React.ReactNode;
-}> = ({ patch, stackId, changeUnit, change, hunk, children }) => {
+const DraggableHunk: FC<
+	{
+		patch: Patch;
+		stackId: string | null;
+		changeUnit: ChangeUnit;
+		change: TreeChange;
+		hunk: DiffHunk;
+	} & useRender.ComponentProps<"div">
+> = ({ patch, stackId, changeUnit, change, hunk, render, ...props }) => {
 	const sourceItem: SourceItem = {
 		_tag: "TreeChange",
 		source: {
@@ -243,11 +245,30 @@ const HunkListItem: FC<{
 		disabled: patch.subject.isResultOfBinaryToTextConversion,
 	});
 
-	return (
-		<li ref={dragRef} className={styles.hunkListItem}>
-			{children}
-		</li>
-	);
+	return useRender({
+		render,
+		ref: dragRef,
+		props,
+	});
+};
+
+const DraggableCommit: FC<
+	{
+		commitId: string;
+		stackId: string;
+	} & useRender.ComponentProps<"div">
+> = ({ commitId, stackId, render, ...props }) => {
+	const sourceItem: SourceItem = { _tag: "Commit", commitId };
+	const { ref: dragRef } = useDraggable({
+		id: sourceItemKey(sourceItem, stackId),
+		data: { sourceItem } as DragData,
+	});
+
+	return useRender({
+		render,
+		ref: dragRef,
+		props,
+	});
 };
 
 const ChangesHunkListItem: FC<{
@@ -264,27 +285,30 @@ const ChangesHunkListItem: FC<{
 		: [];
 
 	return (
-		<HunkListItem
+		<DraggableHunk
 			patch={patch}
 			stackId={stackId}
 			changeUnit={changeUnit}
 			change={change}
 			hunk={hunk}
-		>
-			{dependencyCommitIds.length > 0 && (
-				<span
-					onMouseEnter={() => {
-						onLockHover(dependencyCommitIds);
-					}}
-					onMouseLeave={() => {
-						onLockHover(null);
-					}}
-				>
-					🔒
-				</span>
-			)}
-			<HunkDiff diff={hunk.diff} />
-		</HunkListItem>
+			render={
+				<li className={styles.hunkListItem}>
+					{dependencyCommitIds.length > 0 && (
+						<span
+							onMouseEnter={() => {
+								onLockHover(dependencyCommitIds);
+							}}
+							onMouseLeave={() => {
+								onLockHover(null);
+							}}
+						>
+							🔒
+						</span>
+					)}
+					<HunkDiff diff={hunk.diff} />
+				</li>
+			}
+		/>
 	);
 };
 
@@ -295,9 +319,18 @@ const CommitHunkListItem: FC<{
 	change: TreeChange;
 	hunk: DiffHunk;
 }> = ({ patch, stackId, changeUnit, change, hunk }) => (
-	<HunkListItem patch={patch} stackId={stackId} changeUnit={changeUnit} change={change} hunk={hunk}>
-		<HunkDiff diff={hunk.diff} />
-	</HunkListItem>
+	<DraggableHunk
+		patch={patch}
+		stackId={stackId}
+		changeUnit={changeUnit}
+		change={change}
+		hunk={hunk}
+		render={
+			<li className={styles.hunkListItem}>
+				<HunkDiff diff={hunk.diff} />
+			</li>
+		}
+	/>
 );
 
 const hunkContainsHunk = (a: DiffHunk, b: DiffHunk): boolean =>
@@ -363,14 +396,14 @@ const dependencyCommitIdsForFile = (
 	return Array.from(commitIds);
 };
 
-const DraggableFileButton: FC<{
-	change: TreeChange;
-	stackId: string | null;
-	changeUnit: ChangeUnit;
-	assignments?: Array<HunkAssignment>;
-	isSelected: boolean;
-	toggleSelect: () => void;
-}> = ({ change, stackId, changeUnit, assignments, isSelected, toggleSelect }) => {
+const DraggableFile: FC<
+	{
+		change: TreeChange;
+		stackId: string | null;
+		changeUnit: ChangeUnit;
+		assignments?: Array<HunkAssignment>;
+	} & useRender.ComponentProps<"div">
+> = ({ change, stackId, changeUnit, assignments, render, ...props }) => {
 	const sourceItem: SourceItem = {
 		_tag: "TreeChange",
 		source: {
@@ -389,9 +422,11 @@ const DraggableFileButton: FC<{
 		data: { sourceItem } as DragData,
 	});
 
-	return (
-		<FileButton ref={dragRef} change={change} isSelected={isSelected} toggleSelect={toggleSelect} />
-	);
+	return useRender({
+		render,
+		ref: dragRef,
+		props,
+	});
 };
 
 const SelectedChangesFileDiff: FC<{
@@ -745,11 +780,6 @@ const CommitC: FC<{
 	const [isEditingMessage, setIsEditingMessage] = useState(false);
 
 	const changeUnit: ChangeUnit = { _tag: "commit", commitId: commit.id };
-	const sourceItem: SourceItem = { _tag: "Commit", commitId: commit.id };
-	const { ref: dragRef } = useDraggable({
-		id: sourceItemKey(sourceItem, stackId),
-		data: { sourceItem } as DragData,
-	});
 
 	const insertBlankCommit = (side: InsertSide) => {
 		commitInsertBlank.mutate({
@@ -791,13 +821,18 @@ const CommitC: FC<{
 						<ContextMenu.Root>
 							<ContextMenu.Trigger
 								render={
-									<CommitButton
-										ref={dragRef}
-										commit={{ ...commit, message: optimisticMessage }}
-										isSelected={isSelected}
-										isAnyFileSelected={isAnyFileSelected}
-										isHighlighted={isHighlighted}
-										toggleSelect={toggleSelect}
+									<DraggableCommit
+										commitId={commit.id}
+										stackId={stackId}
+										render={
+											<CommitButton
+												commit={{ ...commit, message: optimisticMessage }}
+												isSelected={isSelected}
+												isAnyFileSelected={isAnyFileSelected}
+												isHighlighted={isHighlighted}
+												toggleSelect={toggleSelect}
+											/>
+										}
 									/>
 								}
 							/>
@@ -835,12 +870,17 @@ const CommitC: FC<{
 							renderFile={(change) => (
 								<li key={change.path}>
 									<div className={sharedStyles.fileRow}>
-										<DraggableFileButton
+										<DraggableFile
 											change={change}
 											stackId={stackId}
 											changeUnit={changeUnit}
-											isSelected={isFileSelected(change.path)}
-											toggleSelect={() => toggleFileSelect(change.path)}
+											render={
+												<FileButton
+													change={change}
+													isSelected={isFileSelected(change.path)}
+													toggleSelect={() => toggleFileSelect(change.path)}
+												/>
+											}
 										/>
 									</div>
 								</li>
@@ -899,15 +939,20 @@ const Changes: FC<{
 							return (
 								<li key={change.path}>
 									<div className={sharedStyles.fileRow}>
-										<DraggableFileButton
+										<DraggableFile
 											change={change}
 											stackId={stackId}
 											changeUnit={changeUnit}
 											assignments={assignments}
-											isSelected={isFileSelected(change.path)}
-											toggleSelect={() => {
-												toggleFileSelect(change.path);
-											}}
+											render={
+												<FileButton
+													change={change}
+													isSelected={isFileSelected(change.path)}
+													toggleSelect={() => {
+														toggleFileSelect(change.path);
+													}}
+												/>
+											}
 										/>
 										{dependencyCommitIds.length > 0 && (
 											<span
