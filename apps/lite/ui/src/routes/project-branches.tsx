@@ -9,6 +9,7 @@ import {
 	FileButton,
 	HunkListItem,
 	hunkKey,
+	classes,
 } from "#ui/routes/project-shared.tsx";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { BranchListing, Commit, TreeChange } from "@gitbutler/but-sdk";
@@ -345,7 +346,7 @@ const ProjectBranchesPage: FC = () => {
 								<li key={branch.name}>
 									<button
 										type="button"
-										className={isSelected ? sharedStyles.selected : undefined}
+										className={classes(isSelected && sharedStyles.selected)}
 										onClick={() => {
 											setSelectedBranchName(branch.name);
 										}}
