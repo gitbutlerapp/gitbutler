@@ -1,16 +1,3 @@
-.lanes {
-	display: flex;
-	column-gap: 16px;
-	flex-grow: 1;
-
-	/* Temporary hack to prevent scroll jumping when diff view collapses. */
-	&:after {
-		flex-shrink: 0;
-		width: 1000px;
-		content: "";
-	}
-}
-
 .unassignedChanges {
 	flex-grow: 1;
 	min-height: 300px;

@@ -1,19 +1,35 @@
-.lane {
-	display: grid;
-	grid-auto-columns: 350px;
-	grid-auto-flow: column;
-	column-gap: 8px;
-	padding: 8px;
-	border: 1px solid;
+.lanes {
+	display: flex;
+	column-gap: 16px;
+	flex-grow: 1;
+
+	& > * {
+		padding: 8px;
+		border: 1px solid;
+	}
+
+	/* Temporary hack to prevent scroll jumping when diff view collapses. */
+	&:after {
+		flex-shrink: 0;
+		width: 1000px;
+		content: "";
+	}
 }
 
-.laneMain {
+.laneColumns {
+	display: flex;
+	column-gap: 8px;
+}
+
+.laneMainColumn {
 	display: flex;
 	row-gap: 16px;
 	flex-direction: column;
+	width: 350px;
 }
 
-.laneDiffPane {
+.laneDiffColumn {
+	width: 500px;
 	border: 1px solid;
 }
 

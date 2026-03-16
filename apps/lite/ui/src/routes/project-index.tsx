@@ -377,44 +377,42 @@ const SelectedChangesFileDiff: FC<{
 	if (!assignments || !change) return null;
 
 	return (
-		<div className={sharedStyles.laneDiffPane}>
-			<FileDiff
-				projectId={projectId}
-				change={change}
-				assignments={assignments}
-				renderHunk={(hunk, patch) => {
-					const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(path);
+		<FileDiff
+			projectId={projectId}
+			change={change}
+			assignments={assignments}
+			renderHunk={(hunk, patch) => {
+				const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(path);
 
-					const dependencyCommitIds = hunkDependencyDiffs
-						? dependencyCommitIdsForHunk(hunk, hunkDependencyDiffs)
-						: [];
+				const dependencyCommitIds = hunkDependencyDiffs
+					? dependencyCommitIdsForHunk(hunk, hunkDependencyDiffs)
+					: [];
 
-					return (
-						<HunkListItem
-							key={hunkKey(hunk)}
-							patch={patch}
-							changeUnit={{ _tag: "changes", stackId }}
-							change={change}
-							hunk={hunk}
-							headerStart={
-								dependencyCommitIds.length > 0 && (
-									<span
-										onMouseEnter={() => {
-											onLockHover(dependencyCommitIds);
-										}}
-										onMouseLeave={() => {
-											onLockHover(null);
-										}}
-									>
-										🔒
-									</span>
-								)
-							}
-						/>
-					);
-				}}
-			/>
-		</div>
+				return (
+					<HunkListItem
+						key={hunkKey(hunk)}
+						patch={patch}
+						changeUnit={{ _tag: "changes", stackId }}
+						change={change}
+						hunk={hunk}
+						headerStart={
+							dependencyCommitIds.length > 0 && (
+								<span
+									onMouseEnter={() => {
+										onLockHover(dependencyCommitIds);
+									}}
+									onMouseLeave={() => {
+										onLockHover(null);
+									}}
+								>
+									🔒
+								</span>
+							)
+						}
+					/>
+				);
+			}}
+		/>
 	);
 };
 
@@ -431,21 +429,19 @@ const SelectedCommitFileDiff: FC<{
 	if (!change) return null;
 
 	return (
-		<div className={sharedStyles.laneDiffPane}>
-			<FileDiff
-				projectId={projectId}
-				change={change}
-				renderHunk={(hunk, patch) => (
-					<HunkListItem
-						key={hunkKey(hunk)}
-						patch={patch}
-						changeUnit={{ _tag: "commit", commitId }}
-						change={change}
-						hunk={hunk}
-					/>
-				)}
-			/>
-		</div>
+		<FileDiff
+			projectId={projectId}
+			change={change}
+			renderHunk={(hunk, patch) => (
+				<HunkListItem
+					key={hunkKey(hunk)}
+					patch={patch}
+					changeUnit={{ _tag: "commit", commitId }}
+					change={change}
+					hunk={hunk}
+				/>
+			)}
+		/>
 	);
 };
 
@@ -460,28 +456,26 @@ const SelectedCommitDiff: FC<{
 	if (data.changes.length === 0) return null;
 
 	return (
-		<div className={sharedStyles.laneDiffPane}>
-			<ul className={sharedStyles.hunks}>
-				{data.changes.map((change) => (
-					<li key={change.path}>
-						<h5>{change.path}</h5>
-						<FileDiff
-							projectId={projectId}
-							change={change}
-							renderHunk={(hunk, patch) => (
-								<HunkListItem
-									key={hunkKey(hunk)}
-									patch={patch}
-									changeUnit={{ _tag: "commit", commitId }}
-									change={change}
-									hunk={hunk}
-								/>
-							)}
-						/>
-					</li>
-				))}
-			</ul>
-		</div>
+		<ul className={sharedStyles.hunks}>
+			{data.changes.map((change) => (
+				<li key={change.path}>
+					<h5>{change.path}</h5>
+					<FileDiff
+						projectId={projectId}
+						change={change}
+						renderHunk={(hunk, patch) => (
+							<HunkListItem
+								key={hunkKey(hunk)}
+								patch={patch}
+								changeUnit={{ _tag: "commit", commitId }}
+								change={change}
+								hunk={hunk}
+							/>
+						)}
+					/>
+				</li>
+			))}
+		</ul>
 	);
 };
 
@@ -992,8 +986,8 @@ const UnassignedLane: FC<{
 		isFileSelected(path) ? null : { path };
 
 	return (
-		<div className={sharedStyles.lane}>
-			<div className={sharedStyles.laneMain}>
+		<div className={sharedStyles.laneColumns}>
+			<div className={sharedStyles.laneMainColumn}>
 				<div>
 					<h3>Unassigned changes</h3>
 					<Changes
@@ -1010,14 +1004,16 @@ const UnassignedLane: FC<{
 			</div>
 
 			{selection !== null && (
-				<Suspense fallback={<div>Loading diff…</div>}>
-					<SelectedChangesFileDiff
-						projectId={projectId}
-						stackId={null}
-						path={selection.path}
-						onLockHover={onLockHover}
-					/>
-				</Suspense>
+				<div className={sharedStyles.laneDiffColumn}>
+					<Suspense fallback={<div>Loading diff…</div>}>
+						<SelectedChangesFileDiff
+							projectId={projectId}
+							stackId={null}
+							path={selection.path}
+							onLockHover={onLockHover}
+						/>
+					</Suspense>
+				</div>
 			)}
 		</div>
 	);
@@ -1122,8 +1118,8 @@ const StackLane: FC<{
 	const changesChangeUnit: ChangeUnit = { _tag: "changes", stackId };
 
 	return (
-		<div className={sharedStyles.lane}>
-			<div className={sharedStyles.laneMain}>
+		<div className={sharedStyles.laneColumns}>
+			<div className={sharedStyles.laneMainColumn}>
 				<Menu.Root>
 					<Menu.Trigger className={styles.stackMenu}>m</Menu.Trigger>
 					<Menu.Portal>
@@ -1196,26 +1192,28 @@ const StackLane: FC<{
 			</div>
 
 			{selection !== null && (
-				<Suspense fallback={<div>Loading diff…</div>}>
-					{Match.value(selection).pipe(
-						Match.tag("changes", ({ path }) => (
-							<SelectedChangesFileDiff
-								projectId={projectId}
-								stackId={stackId}
-								path={path}
-								onLockHover={onLockHover}
-							/>
-						)),
-						Match.tag("commit", ({ commitId, path }) =>
-							path !== undefined ? (
-								<SelectedCommitFileDiff projectId={projectId} commitId={commitId} path={path} />
-							) : (
-								<SelectedCommitDiff projectId={projectId} commitId={commitId} />
+				<div className={sharedStyles.laneDiffColumn}>
+					<Suspense fallback={<div>Loading diff…</div>}>
+						{Match.value(selection).pipe(
+							Match.tag("changes", ({ path }) => (
+								<SelectedChangesFileDiff
+									projectId={projectId}
+									stackId={stackId}
+									path={path}
+									onLockHover={onLockHover}
+								/>
+							)),
+							Match.tag("commit", ({ commitId, path }) =>
+								path !== undefined ? (
+									<SelectedCommitFileDiff projectId={projectId} commitId={commitId} path={path} />
+								) : (
+									<SelectedCommitDiff projectId={projectId} commitId={commitId} />
+								),
 							),
-						),
-						Match.exhaustive,
-					)}
-				</Suspense>
+							Match.exhaustive,
+						)}
+					</Suspense>
+				</div>
 			)}
 		</div>
 	);
@@ -1249,7 +1247,7 @@ const ProjectPage: FC = () => {
 		<DraggedSourceItemContext.Provider value={draggedSourceItem}>
 			<h2>{project.title} workspace</h2>
 
-			<div className={styles.lanes}>
+			<div className={sharedStyles.lanes}>
 				<UnassignedLane projectId={project.id} onLockHover={highlightCommits} />
 
 				{headInfo.stacks.map((stack) => (

@@ -1,14 +1,6 @@
-.branchesLayout {
-	display: flex;
-	column-gap: 16px;
-	flex-grow: 1;
-}
-
 .branchesList {
 	flex-shrink: 0;
 	width: 350px;
-	padding: 8px;
-	border: 1px solid;
 	list-style: none;
 }
 

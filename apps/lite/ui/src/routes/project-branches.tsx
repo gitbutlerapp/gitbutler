@@ -163,21 +163,19 @@ const SelectedCommitFileDiff: FC<{
 	if (!change) return null;
 
 	return (
-		<div className={sharedStyles.laneDiffPane}>
-			<FileDiff
-				projectId={projectId}
-				change={change}
-				renderHunk={(hunk, patch) => (
-					<HunkListItem
-						key={hunkKey(hunk)}
-						patch={patch}
-						changeUnit={{ _tag: "commit", commitId }}
-						change={change}
-						hunk={hunk}
-					/>
-				)}
-			/>
-		</div>
+		<FileDiff
+			projectId={projectId}
+			change={change}
+			renderHunk={(hunk, patch) => (
+				<HunkListItem
+					key={hunkKey(hunk)}
+					patch={patch}
+					changeUnit={{ _tag: "commit", commitId }}
+					change={change}
+					hunk={hunk}
+				/>
+			)}
+		/>
 	);
 };
 
@@ -192,28 +190,26 @@ const SelectedCommitDiff: FC<{
 	if (data.changes.length === 0) return null;
 
 	return (
-		<div className={sharedStyles.laneDiffPane}>
-			<ul className={sharedStyles.hunks}>
-				{data.changes.map((change) => (
-					<li key={change.path}>
-						<h5>{change.path}</h5>
-						<FileDiff
-							projectId={projectId}
-							change={change}
-							renderHunk={(hunk, patch) => (
-								<HunkListItem
-									key={hunkKey(hunk)}
-									patch={patch}
-									changeUnit={{ _tag: "commit", commitId }}
-									change={change}
-									hunk={hunk}
-								/>
-							)}
-						/>
-					</li>
-				))}
-			</ul>
-		</div>
+		<ul className={sharedStyles.hunks}>
+			{data.changes.map((change) => (
+				<li key={change.path}>
+					<h5>{change.path}</h5>
+					<FileDiff
+						projectId={projectId}
+						change={change}
+						renderHunk={(hunk, patch) => (
+							<HunkListItem
+								key={hunkKey(hunk)}
+								patch={patch}
+								changeUnit={{ _tag: "commit", commitId }}
+								change={change}
+								hunk={hunk}
+							/>
+						)}
+					/>
+				</li>
+			))}
+		</ul>
 	);
 };
 
@@ -240,29 +236,27 @@ const SelectedBranchDiff: FC<{
 	if (data.changes.length === 0) return <div>No file changes.</div>;
 
 	return (
-		<div className={sharedStyles.laneDiffPane}>
-			<ul className={sharedStyles.hunks}>
-				{data.changes.map((change) => (
-					<li key={change.path}>
-						<h5>{change.path}</h5>
-						<FileDiff
-							projectId={projectId}
-							change={change}
-							renderHunk={(hunk, patch) => (
-								<HunkListItem
-									key={hunkKey(hunk)}
-									patch={patch}
-									// TODO: this doesn't make sense
-									changeUnit={{ _tag: "changes", stackId: null }}
-									change={change}
-									hunk={hunk}
-								/>
-							)}
-						/>
-					</li>
-				))}
-			</ul>
-		</div>
+		<ul className={sharedStyles.hunks}>
+			{data.changes.map((change) => (
+				<li key={change.path}>
+					<h5>{change.path}</h5>
+					<FileDiff
+						projectId={projectId}
+						change={change}
+						renderHunk={(hunk, patch) => (
+							<HunkListItem
+								key={hunkKey(hunk)}
+								patch={patch}
+								// TODO: this doesn't make sense
+								changeUnit={{ _tag: "changes", stackId: null }}
+								change={change}
+								hunk={hunk}
+							/>
+						)}
+					/>
+				</li>
+			))}
+		</ul>
 	);
 };
 
@@ -278,8 +272,8 @@ const BranchDetailsLane: FC<{
 	);
 
 	return (
-		<div className={sharedStyles.lane}>
-			<div className={sharedStyles.laneMain}>
+		<div className={sharedStyles.laneColumns}>
+			<div className={sharedStyles.laneMainColumn}>
 				<Suspense fallback={<div>Loading branch details…</div>}>
 					<BranchDetails
 						projectId={projectId}
@@ -291,15 +285,17 @@ const BranchDetailsLane: FC<{
 				</Suspense>
 			</div>
 
-			<Suspense fallback={<div>Loading diff…</div>}>
-				{selection !== null ? (
-					<SelectedLaneDiff projectId={projectId} selection={selection} />
-				) : branchRef !== null ? (
-					<SelectedBranchDiff projectId={projectId} branch={branchRef} />
-				) : (
-					<div>No branch diff available.</div>
-				)}
-			</Suspense>
+			<div className={sharedStyles.laneDiffColumn}>
+				<Suspense fallback={<div>Loading diff…</div>}>
+					{selection !== null ? (
+						<SelectedLaneDiff projectId={projectId} selection={selection} />
+					) : branchRef !== null ? (
+						<SelectedBranchDiff projectId={projectId} branch={branchRef} />
+					) : (
+						<div>No branch diff available.</div>
+					)}
+				</Suspense>
+			</div>
 		</div>
 	);
 };
@@ -333,7 +329,7 @@ const ProjectBranchesPage: FC = () => {
 			{sortedBranches.length === 0 ? (
 				<p>No branches found.</p>
 			) : (
-				<div className={styles.branchesLayout}>
+				<div className={sharedStyles.lanes}>
 					<ul className={styles.branchesList}>
 						{sortedBranches.map((branch) => {
 							const ref = getBranchRef(branch);
