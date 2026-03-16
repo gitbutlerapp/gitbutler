@@ -420,56 +420,16 @@ const DraggableCommit: FC<
 	});
 };
 
-const ChangesHunkListItem: FC<{
+const HunkListItem: FC<{
 	patch: Patch;
 	changeUnit: ChangeUnit;
 	change: TreeChange;
 	hunk: DiffHunk;
-	hunkDependencyDiffs: Array<HunkDependencyDiff> | undefined;
-	onLockHover: (commitIds: Array<string> | null) => void;
-}> = ({ patch, changeUnit, change, hunk, hunkDependencyDiffs, onLockHover }) => {
-	const dependencyCommitIds = hunkDependencyDiffs
-		? dependencyCommitIdsForHunk(hunk, hunkDependencyDiffs)
-		: [];
-
-	return (
-		<li className={styles.hunkListItem}>
-			<div className={styles.hunkHeaderRow}>
-				{dependencyCommitIds.length > 0 && (
-					<span
-						onMouseEnter={() => {
-							onLockHover(dependencyCommitIds);
-						}}
-						onMouseLeave={() => {
-							onLockHover(null);
-						}}
-					>
-						🔒
-					</span>
-				)}
-				<DraggableHunk
-					patch={patch}
-					changeUnit={changeUnit}
-					change={change}
-					hunk={hunk}
-					render={<button type="button" className={styles.hunkDragHandle} />}
-				>
-					-{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines}
-				</DraggableHunk>
-			</div>
-			<HunkDiff diff={hunk.diff} />
-		</li>
-	);
-};
-
-const CommitHunkListItem: FC<{
-	patch: Patch;
-	changeUnit: ChangeUnit;
-	change: TreeChange;
-	hunk: DiffHunk;
-}> = ({ patch, changeUnit, change, hunk }) => (
+	headerStart?: ReactNode;
+}> = ({ patch, changeUnit, change, hunk, headerStart }) => (
 	<li className={styles.hunkListItem}>
 		<div className={styles.hunkHeaderRow}>
+			{headerStart}
 			<DraggableHunk
 				patch={patch}
 				changeUnit={changeUnit}
@@ -604,17 +564,36 @@ const SelectedChangesFileDiff: FC<{
 				projectId={projectId}
 				change={change}
 				assignments={assignments}
-				renderHunk={(hunk, patch) => (
-					<ChangesHunkListItem
-						key={hunkKey(hunk)}
-						patch={patch}
-						changeUnit={{ _tag: "changes", stackId }}
-						change={change}
-						hunk={hunk}
-						hunkDependencyDiffs={hunkDependencyDiffsByPath.get(path)}
-						onLockHover={onLockHover}
-					/>
-				)}
+				renderHunk={(hunk, patch) => {
+					const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(path);
+
+					const dependencyCommitIds = hunkDependencyDiffs
+						? dependencyCommitIdsForHunk(hunk, hunkDependencyDiffs)
+						: [];
+
+					return (
+						<HunkListItem
+							patch={patch}
+							changeUnit={{ _tag: "changes", stackId }}
+							change={change}
+							hunk={hunk}
+							headerStart={
+								dependencyCommitIds.length > 0 && (
+									<span
+										onMouseEnter={() => {
+											onLockHover(dependencyCommitIds);
+										}}
+										onMouseLeave={() => {
+											onLockHover(null);
+										}}
+									>
+										🔒
+									</span>
+								)
+							}
+						/>
+					);
+				}}
 			/>
 		</div>
 	);
@@ -638,7 +617,7 @@ const SelectedCommitFileDiff: FC<{
 				projectId={projectId}
 				change={change}
 				renderHunk={(hunk, patch) => (
-					<CommitHunkListItem
+					<HunkListItem
 						key={hunkKey(hunk)}
 						patch={patch}
 						changeUnit={{ _tag: "commit", commitId }}
@@ -671,7 +650,7 @@ const SelectedCommitDiff: FC<{
 							projectId={projectId}
 							change={change}
 							renderHunk={(hunk, patch) => (
-								<CommitHunkListItem
+								<HunkListItem
 									key={hunkKey(hunk)}
 									patch={patch}
 									changeUnit={{ _tag: "commit", commitId }}
