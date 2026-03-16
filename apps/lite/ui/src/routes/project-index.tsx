@@ -391,6 +391,7 @@ const SelectedChangesFileDiff: FC<{
 
 					return (
 						<HunkListItem
+							key={hunkKey(hunk)}
 							patch={patch}
 							changeUnit={{ _tag: "changes", stackId }}
 							change={change}
