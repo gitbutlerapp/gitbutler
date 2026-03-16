@@ -952,6 +952,7 @@ const CommitForm: FC<{
 			}}
 		>
 			<textarea
+				className={styles.commitFormMessageInput}
 				placeholder="Commit message"
 				value={message}
 				onChange={(event) => {
