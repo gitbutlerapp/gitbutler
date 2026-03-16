@@ -952,6 +952,7 @@ const CommitForm: FC<{
 			}}
 		>
 			<textarea
+				// TODO: inline editor uses enter to submit, this doesn't
 				className={styles.commitFormMessageInput}
 				placeholder="Commit message"
 				value={message}
