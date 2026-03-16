@@ -319,9 +319,7 @@ const ProjectBranchesPage: FC = () => {
 
 	const sortedBranches = branches.slice().sort((a, b) => a.name.localeCompare(b.name));
 	const selectedBranch =
-		sortedBranches.find((branch) => branch.name === selectedBranchName) ??
-		sortedBranches[0] ??
-		null;
+		sortedBranches.find((branch) => branch.name === selectedBranchName) ?? sortedBranches[0];
 	const selectedBranchResolvedName = selectedBranch?.name ?? null;
 
 	const selectedRemote =
