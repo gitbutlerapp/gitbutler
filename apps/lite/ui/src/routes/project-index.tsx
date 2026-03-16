@@ -246,8 +246,11 @@ const DraggableCommit: FC<
 	const sourceItem: SourceItem = { _tag: "Commit", commitId };
 	const { ref: dragRef, isDragging } = useDraggable({
 		data: { sourceItem } satisfies DragData,
-		preview: <CommitLabel commit={commit} />,
-		previewClassName: sharedStyles.dragPreview,
+		preview: (
+			<div className={sharedStyles.dragPreview}>
+				<CommitLabel commit={commit} />
+			</div>
+		),
 	});
 
 	return useRender({
@@ -344,8 +347,7 @@ const DraggableFile: FC<
 	};
 	const { ref: dragRef, isDragging } = useDraggable({
 		data: { sourceItem } satisfies DragData,
-		preview: change.path,
-		previewClassName: sharedStyles.dragPreview,
+		preview: <div className={sharedStyles.dragPreview}>{change.path}</div>,
 	});
 
 	return useRender({

@@ -14,12 +14,10 @@ import { createRoot } from "react-dom/client";
 export const useDraggable = <TData extends Record<string, unknown>>({
 	data,
 	preview,
-	previewClassName,
 	disabled = false,
 }: {
 	data: TData;
 	preview: ReactNode;
-	previewClassName?: string;
 	disabled?: boolean;
 }): {
 	ref: RefCallback<HTMLElement>;
@@ -35,7 +33,7 @@ export const useDraggable = <TData extends Record<string, unknown>>({
 				getOffset: centerUnderPointer,
 				render: ({ container }) => {
 					const root = createRoot(container);
-					root.render(<div className={previewClassName}>{preview}</div>);
+					root.render(preview);
 					return () => {
 						root.unmount();
 					};

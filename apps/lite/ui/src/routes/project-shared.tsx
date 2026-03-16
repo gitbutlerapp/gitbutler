@@ -84,11 +84,10 @@ const DraggableHunk: FC<
 	const { ref: dragRef, isDragging } = useDraggable({
 		data: { sourceItem } satisfies DragData,
 		preview: (
-			<>
+			<div className={styles.dragPreview}>
 				Hunk -{hunk.oldStart},{hunk.oldLines}, +{hunk.newStart},{hunk.newLines}
-			</>
+			</div>
 		),
-		previewClassName: styles.dragPreview,
 		disabled: patch.subject.isResultOfBinaryToTextConversion,
 	});
 
