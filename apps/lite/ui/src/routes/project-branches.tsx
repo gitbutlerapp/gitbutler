@@ -392,15 +392,13 @@ const ProjectBranchesPage: FC = () => {
 					</ul>
 
 					{selectedBranchResolvedName !== null && (
-						<div className={styles.branchesDetailsPane}>
-							<BranchDetailsLane
-								key={selectedBranchResolvedName}
-								projectId={id}
-								branchName={selectedBranchResolvedName}
-								branchRef={selectedBranch ? getBranchRef(selectedBranch) : null}
-								remote={selectedRemote}
-							/>
-						</div>
+						<BranchDetailsLane
+							key={selectedBranchResolvedName}
+							projectId={id}
+							branchName={selectedBranchResolvedName}
+							branchRef={selectedBranch ? getBranchRef(selectedBranch) : null}
+							remote={selectedRemote}
+						/>
 					)}
 				</div>
 			)}

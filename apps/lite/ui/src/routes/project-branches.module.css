@@ -18,7 +18,3 @@
 .branchButton {
 	flex-grow: 1;
 }
-
-.branchesDetailsPane {
-	min-width: 0;
-}
