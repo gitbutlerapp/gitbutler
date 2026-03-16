@@ -81,6 +81,16 @@ export declare function listBranches(projectId: string, filter: BranchListingFil
 
 export declare function listProjectsStateless(): Promise<Array<ProjectForFrontend>>
 
+/** Move a branch on top of another */
+export declare function moveBranch(projectId: string, subjectBranch: string, targetBranch: string): Promise<UIMoveBranchResult>
+
+/**
+ * Take a branch out of a stack
+ *
+ * `subject_branch` - The branch to take out of its stack, and create a new one out of.
+ */
+export declare function tearOffBranch(projectId: string, subjectBranch: string): Promise<UIMoveBranchResult>
+
 /**
  * Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
  * or if it involves a change to a [submodule](gix::object::Kind::Commit).

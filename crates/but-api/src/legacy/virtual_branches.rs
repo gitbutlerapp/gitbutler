@@ -401,7 +401,7 @@ pub fn move_branch_legacy(
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn tear_off_branch(
+pub fn tear_off_branch_legacy(
     ctx: &mut but_ctx::Context,
     source_stack_id: StackId,
     subject_branch_name: String,

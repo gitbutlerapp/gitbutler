@@ -379,8 +379,8 @@ pub async fn run() {
             but_post(legacy::virtual_branches::move_branch_legacy_cmd),
         )
         .route(
-            "/tear_off_branch",
-            but_post(legacy::virtual_branches::tear_off_branch_cmd),
+            "/tear_off_branch_legacy",
+            but_post(legacy::virtual_branches::tear_off_branch_legacy_cmd),
         )
         .route(
             "/update_commit_message",

@@ -1695,7 +1695,7 @@ function injectEndpoints(api: BackendApi, uiState: UiState) {
 				}
 			>({
 				extraOptions: {
-					command: "tear_off_branch",
+					command: "tear_off_branch_legacy",
 					actionName: "Tear Off Branch",
 				},
 				query: (args) => args,
