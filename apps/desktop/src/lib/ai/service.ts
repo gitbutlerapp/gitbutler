@@ -364,7 +364,7 @@ export class AIService {
 			);
 
 			const extraConcisePart = useHaiku
-				? "Compose the commit message in the form of a haiku. A haiku is a three-line poem with a 5-7-5 syllable structure."
+				? "Write the commit body as a haiku (a three-line poem with a 5-7-5 syllable structure). The title should still be a normal short summary of the changes."
 				: useExtraConciseStyle
 					? "Keep the commit message extra concise: output only the title line, no body or description. Keep it as short as possible."
 					: "";
