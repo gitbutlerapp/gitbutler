@@ -515,12 +515,7 @@ const RubTarget: FC<{
 		id: `stack:${stackId ?? "null"}:rub:${changeUnitKey(target)}`,
 		accept: (source) => {
 			const sourceItem = getSourceItemFromData(source.data);
-			const rubOperation = sourceItem ? rubOperationFor(rubSourceFor(sourceItem), target) : null;
-			return (
-				sourceItem !== null &&
-				(target._tag === "changes" ? sourceItem._tag === "TreeChange" : true) &&
-				rubOperation !== null
-			);
+			return !!sourceItem && rubOperationFor(rubSourceFor(sourceItem), target) !== null;
 		},
 		data: {
 			_tag: "Rub",
