@@ -704,6 +704,50 @@ fn move_next_section_skips_non_jump_targets_like_commits() {
 }
 
 #[test]
+fn move_next_section_can_jump_to_merge_base_line() {
+    let lines = vec![
+        line(StatusOutputLineData::Branch {
+            cli_id: Arc::new(CliId::Branch {
+                name: "main".into(),
+                id: "b0".into(),
+                stack_id: None,
+            }),
+        }),
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
+        }),
+        line(StatusOutputLineData::MergeBase),
+    ];
+
+    let mut cursor = Cursor(0);
+    cursor.move_next_section(&lines, &Mode::Normal);
+
+    assert_eq!(cursor, Cursor(2));
+}
+
+#[test]
+fn move_previous_section_can_jump_from_merge_base_line() {
+    let lines = vec![
+        line(StatusOutputLineData::Branch {
+            cli_id: Arc::new(CliId::Branch {
+                name: "main".into(),
+                id: "b0".into(),
+                stack_id: None,
+            }),
+        }),
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
+        }),
+        line(StatusOutputLineData::MergeBase),
+    ];
+
+    let mut cursor = Cursor(2);
+    cursor.move_previous_section(&lines, &Mode::Normal);
+
+    assert_eq!(cursor, Cursor(0));
+}
+
+#[test]
 fn move_next_section_in_rub_mode_skips_unavailable_sections() {
     let allowed = Arc::new(CliId::Branch {
         name: "main".into(),

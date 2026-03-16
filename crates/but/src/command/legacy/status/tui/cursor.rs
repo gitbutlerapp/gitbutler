@@ -190,6 +190,7 @@ fn is_section_header(line: &StatusOutputLine) -> bool {
         StatusOutputLineData::Branch { .. }
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::UnstagedChanges { .. }
+            | StatusOutputLineData::MergeBase
     )
 }
 
