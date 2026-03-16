@@ -836,21 +836,19 @@ const CommitC: FC<{
 							projectId={projectId}
 							commitId={commit.id}
 							renderFile={(change) => (
-								<li key={change.path}>
-									<div className={sharedStyles.fileRow}>
-										<DraggableFile
-											change={change}
-											changeUnit={changeUnit}
-											render={
-												<FileButton
-													change={change}
-													isSelected={isFileSelected(change.path)}
-													toggleSelect={() => toggleFileSelect(change.path)}
-												/>
-											}
-										/>
-									</div>
-								</li>
+								<div className={sharedStyles.fileRow}>
+									<DraggableFile
+										change={change}
+										changeUnit={changeUnit}
+										render={
+											<FileButton
+												change={change}
+												isSelected={isFileSelected(change.path)}
+												toggleSelect={() => toggleFileSelect(change.path)}
+											/>
+										}
+									/>
+								</div>
 							)}
 						/>
 					</Suspense>

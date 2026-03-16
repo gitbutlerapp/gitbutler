@@ -216,7 +216,11 @@ export const CommitDetails: FC<{
 			)}
 
 			{data.changes.length > 0 && (
-				<ul className={styles.fileList}>{data.changes.map(renderFile)}</ul>
+				<ul className={styles.fileList}>
+					{data.changes.map((file) => (
+						<li key={file.path}>{renderFile(file)}</li>
+					))}
+				</ul>
 			)}
 		</>
 	);

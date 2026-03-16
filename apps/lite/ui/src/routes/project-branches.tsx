@@ -41,11 +41,9 @@ const File: FC<{
 	isSelected: boolean;
 	toggleSelect: () => void;
 }> = ({ change, isSelected, toggleSelect }) => (
-	<li>
-		<div className={sharedStyles.fileRow}>
-			<FileButton change={change} isSelected={isSelected} toggleSelect={toggleSelect} />
-		</div>
-	</li>
+	<div className={sharedStyles.fileRow}>
+		<FileButton change={change} isSelected={isSelected} toggleSelect={toggleSelect} />
+	</div>
 );
 
 const CommitC: FC<{
@@ -84,7 +82,6 @@ const CommitC: FC<{
 							commitId={commit.id}
 							renderFile={(change) => (
 								<File
-									key={change.path}
 									isSelected={isFileSelected(change.path)}
 									toggleSelect={() => toggleFileSelect(change.path)}
 									change={change}
