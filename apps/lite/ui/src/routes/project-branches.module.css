@@ -1,7 +1,7 @@
 .branchesLayout {
 	display: flex;
 	column-gap: 16px;
-	align-items: start;
+	flex-grow: 1;
 }
 
 .branchesList {
