@@ -1,5 +1,5 @@
 {
-	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"$schema": "../../node_modules/oxlint/configuration_schema.json",
 	"jsPlugins": [
 		// The builtin plugin isn't 1:1 at time of writing.
 		{ "name": "react-hooks-js", "specifier": "eslint-plugin-react-hooks" },
@@ -8,19 +8,29 @@
 	"plugins": ["eslint", "jsx-a11y", "oxc", "react", "typescript", "unicorn"],
 	"rules": {
 		"arrow-body-style": ["error", "as-needed"],
-		"default-param-last": "error",
-		"no-cond-assign": ["warn", "always"],
 		"curly": ["warn", "multi"],
+		"default-param-last": "error",
 		"no-console": "warn",
+		"no-cond-assign": ["warn", "always"],
 		"no-fallthrough": "error",
 		"no-param-reassign": "error",
-		"prefer-template": "warn",
+		// Default config has catch violations.
+		"no-unused-vars": [
+			"warn",
+			{
+				"caughtErrorsIgnorePattern": "^_",
+				// These are the defaults that are unset by diverging our config at all.
+				"argsIgnorePattern": "^_",
+				"varsIgnorePattern": "^_"
+			}
+		],
 		"oxc/no-barrel-file": ["warn", { "threshold": 0 }],
-		"unicorn/no-document-cookie": "warn",
-		"unicorn/prefer-number-properties": "error",
+		"prefer-template": "warn",
 		"react/button-has-type": "error",
 		"react/jsx-boolean-value": "warn",
 		"react/jsx-fragments": "warn",
+		// Lots of false positives on sums.
+		"react/jsx-key": "off",
 		"react/jsx-no-useless-fragment": "warn",
 		"react/no-array-index-key": "warn",
 		"react/no-danger": "error",
@@ -28,21 +38,22 @@
 		// "react/only-export-components": "error",
 		"react/self-closing-comp": "warn",
 		"typescript/array-type": ["warn", { "default": "generic" }],
+		"typescript/await-thenable": "error",
 		"typescript/ban-ts-comment": "warn",
-		"typescript/parameter-properties": "error",
 		"typescript/no-explicit-any": "error",
+		"typescript/no-floating-promises": "error",
 		"typescript/no-inferrable-types": "warn",
+		"typescript/no-misused-promises": "error",
+		"typescript/no-misused-spread": "error",
 		"typescript/no-non-null-assertion": "warn",
 		"typescript/no-unnecessary-condition": "warn",
 		"typescript/no-unnecessary-template-expression": "warn",
-		"typescript/restrict-template-expressions": [
-			"warn",
-			{
-				"allowAny": false,
-				"allowNullish": false,
-				"allowRegExp": false
-			}
-		],
+		"typescript/no-unsafe-argument": "error",
+		"typescript/no-unsafe-assignment": "error",
+		"typescript/no-unsafe-call": "error",
+		"typescript/no-unsafe-member-access": "error",
+		"typescript/no-unsafe-return": "error",
+		"typescript/parameter-properties": "error",
 		"typescript/restrict-plus-operands": [
 			"error",
 			{
@@ -50,6 +61,14 @@
 				"allowBoolean": false,
 				"allowNullish": false,
 				"allowNumberAndString": false,
+				"allowRegExp": false
+			}
+		],
+		"typescript/restrict-template-expressions": [
+			"warn",
+			{
+				"allowAny": false,
+				"allowNullish": false,
 				"allowRegExp": false
 			}
 		],
@@ -64,38 +83,16 @@
 				"allowNullableBoolean": true
 			}
 		],
-		"typescript/await-thenable": "error",
-		"typescript/no-misused-promises": "error",
-		"typescript/no-floating-promises": "error",
-		"typescript/no-misused-spread": "error",
-		"typescript/no-unsafe-argument": "error",
-		"typescript/no-unsafe-assignment": "error",
-		"typescript/no-unsafe-call": "error",
-		"typescript/no-unsafe-member-access": "error",
-		"typescript/no-unsafe-return": "error",
 		"typescript/unbound-method": "error",
-
-		// Default config has catch violations.
-		"no-unused-vars": [
-			"warn",
-			{
-				"caughtErrorsIgnorePattern": "^_",
-				// These are the defaults that are unset by diverging our config at all.
-				"argsIgnorePattern": "^_",
-				"varsIgnorePattern": "^_"
-			}
-		],
-
-		// Lots of false positives on sums.
-		"react/jsx-key": "off",
+		"unicorn/no-document-cookie": "warn",
+		"unicorn/prefer-number-properties": "error",
 
 		// Enable the recommended rules in the JS plugin as per:
 		//   https://react.dev/reference/eslint-plugin-react-hooks#recommended
-		"react-hooks-js/exhaustive-deps": "error",
-		"react-hooks-js/rules-of-hooks": "error",
 		"react-hooks-js/component-hook-factories": "error",
 		"react-hooks-js/config": "error",
 		"react-hooks-js/error-boundaries": "error",
+		"react-hooks-js/exhaustive-deps": "error",
 		"react-hooks-js/gating": "error",
 		"react-hooks-js/globals": "error",
 		"react-hooks-js/immutability": "error",
@@ -103,6 +100,7 @@
 		"react-hooks-js/preserve-manual-memoization": "error",
 		"react-hooks-js/purity": "error",
 		"react-hooks-js/refs": "error",
+		"react-hooks-js/rules-of-hooks": "error",
 		"react-hooks-js/set-state-in-effect": "error",
 		"react-hooks-js/set-state-in-render": "error",
 		"react-hooks-js/static-components": "error",
@@ -111,9 +109,9 @@
 
 		// Enable the recommended rules in the JS plugin.
 		"react-query-js/exhaustive-deps": "error",
+		"react-query-js/infinite-query-property-order": "error",
 		"react-query-js/no-rest-destructuring": "warn",
-		"react-query-js/stable-query-client": "error",
 		"react-query-js/no-unstable-deps": "error",
-		"react-query-js/infinite-query-property-order": "error"
+		"react-query-js/stable-query-client": "error"
 	}
 }
