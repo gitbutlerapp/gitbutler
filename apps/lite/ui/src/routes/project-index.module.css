@@ -71,6 +71,8 @@
 .editCommitMessageInput {
 	flex-grow: 1;
 	field-sizing: content;
+	box-sizing: content-box;
+	min-height: calc(2lh);
 }
 
 .tooltip {
