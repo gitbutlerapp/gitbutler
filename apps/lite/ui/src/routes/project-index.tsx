@@ -109,14 +109,14 @@ const changeUnitKey = (changeUnit: ChangeUnit, stackId: string | null): string =
 			`stack:${stackId ?? "null"};commit:${changeUnit.commitId}`
 		: `stack:${changeUnit.stackId ?? "null"};changes`;
 
-const getSourceItemFromData = (data: unknown): SourceItem | null => {
+const parseDragData = (data: unknown): SourceItem | null => {
 	if (typeof data !== "object" || data === null || !("sourceItem" in data)) return null;
 	return (data as DragData).sourceItem;
 };
 
 const useDraggedSourceItem = (): SourceItem | null => {
 	const operation = useDragOperation();
-	return getSourceItemFromData(operation.source?.data);
+	return parseDragData(operation.source?.data);
 };
 
 type OperationTarget =
@@ -545,7 +545,7 @@ const RubTarget: FC<{
 	const { ref: dropRef, isDropTarget } = useDroppable({
 		id: `${changeUnitKey(target, stackId)};rub`,
 		accept: (source) => {
-			const sourceItem = getSourceItemFromData(source.data);
+			const sourceItem = parseDragData(source.data);
 			return !!sourceItem && rubOperationLabel(rubSourceFor(sourceItem), target) !== null;
 		},
 		data: {
@@ -589,7 +589,7 @@ const CommitMoveTarget: FC<{
 	const { ref: dropRef, isDropTarget } = useDroppable({
 		id: `stack:${stackId};commit-move:${commitId};side:${side}`,
 		accept: (source) => {
-			const sourceItem = getSourceItemFromData(source.data);
+			const sourceItem = parseDragData(source.data);
 			return sourceItem?._tag === "Commit" && !isNoOp(sourceItem.commitId);
 		},
 		data: {
@@ -1103,7 +1103,7 @@ const CommitMoveToBranchTarget: FC<{
 	const { ref: dropRef, isDropTarget } = useDroppable({
 		id: `stack:${stackId};branch:${anchorRef ?? "null"}`,
 		accept: (source) => {
-			const sourceItem = getSourceItemFromData(source.data);
+			const sourceItem = parseDragData(source.data);
 			return sourceItem?._tag === "Commit" && firstCommitId !== sourceItem.commitId;
 		},
 		disabled: anchorRef === null,
@@ -1318,7 +1318,7 @@ const ProjectPage: FC = () => {
 			onDragEnd={(event) => {
 				if (event.canceled) return;
 
-				const sourceItem = getSourceItemFromData(event.operation.source?.data);
+				const sourceItem = parseDragData(event.operation.source?.data);
 				const operationTarget = getOperationTargetFromData(event.operation.target?.data);
 				if (!sourceItem || !operationTarget) return;
 
