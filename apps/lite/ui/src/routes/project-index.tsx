@@ -2,10 +2,10 @@ import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/ad
 import { createRoute } from "@tanstack/react-router";
 import styles from "./project-index.module.css";
 import sharedStyles from "./project-shared.module.css";
-import { Menu } from "@base-ui/react";
+import { Menu, Tooltip } from "@base-ui/react";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { mergeProps } from "@base-ui/react/merge-props";
-import { Tooltip } from "@base-ui/react/tooltip";
+import { Popover } from "@base-ui/react/popover";
 import { useRender } from "@base-ui/react/use-render";
 import {
 	RefInfo,
@@ -95,25 +95,25 @@ const LockIndicator: FC<{
 		branchNames.length > 0 ? `Depends on ${branchNames.join(", ")}` : "Unknown dependencies";
 
 	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
+		<Popover.Root>
+			<Popover.Trigger
+				openOnHover
 				onMouseEnter={() => {
 					onHover(commitIds);
 				}}
 				onMouseLeave={() => {
 					onHover(null);
 				}}
-				render={<div />}
 				aria-label={tooltip}
 			>
 				🔒
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={styles.tooltip}>{tooltip}</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+			</Popover.Trigger>
+			<Popover.Portal>
+				<Popover.Positioner sideOffset={8}>
+					<Popover.Popup className={styles.tooltip}>{tooltip}</Popover.Popup>
+				</Popover.Positioner>
+			</Popover.Portal>
+		</Popover.Root>
 	);
 };
 
