@@ -400,29 +400,32 @@ const ChangesHunkListItem: FC<{
 		: [];
 
 	return (
-		<DraggableHunk
-			patch={patch}
-			changeUnit={changeUnit}
-			change={change}
-			hunk={hunk}
-			render={
-				<li className={styles.hunkListItem}>
-					{dependencyCommitIds.length > 0 && (
-						<span
-							onMouseEnter={() => {
-								onLockHover(dependencyCommitIds);
-							}}
-							onMouseLeave={() => {
-								onLockHover(null);
-							}}
-						>
-							🔒
-						</span>
-					)}
-					<HunkDiff diff={hunk.diff} />
-				</li>
-			}
-		/>
+		<li className={styles.hunkListItem}>
+			<div className={styles.hunkHeaderRow}>
+				{dependencyCommitIds.length > 0 && (
+					<span
+						onMouseEnter={() => {
+							onLockHover(dependencyCommitIds);
+						}}
+						onMouseLeave={() => {
+							onLockHover(null);
+						}}
+					>
+						🔒
+					</span>
+				)}
+				<DraggableHunk
+					patch={patch}
+					changeUnit={changeUnit}
+					change={change}
+					hunk={hunk}
+					render={<button type="button" className={styles.hunkDragHandle} />}
+				>
+					-{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines}
+				</DraggableHunk>
+			</div>
+			<HunkDiff diff={hunk.diff} />
+		</li>
 	);
 };
 
@@ -432,17 +435,20 @@ const CommitHunkListItem: FC<{
 	change: TreeChange;
 	hunk: DiffHunk;
 }> = ({ patch, changeUnit, change, hunk }) => (
-	<DraggableHunk
-		patch={patch}
-		changeUnit={changeUnit}
-		change={change}
-		hunk={hunk}
-		render={
-			<li className={styles.hunkListItem}>
-				<HunkDiff diff={hunk.diff} />
-			</li>
-		}
-	/>
+	<li className={styles.hunkListItem}>
+		<div className={styles.hunkHeaderRow}>
+			<DraggableHunk
+				patch={patch}
+				changeUnit={changeUnit}
+				change={change}
+				hunk={hunk}
+				render={<button type="button" className={styles.hunkDragHandle} />}
+			>
+				-{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines}
+			</DraggableHunk>
+		</div>
+		<HunkDiff diff={hunk.diff} />
+	</li>
 );
 
 const hunkContainsHunk = (a: DiffHunk, b: DiffHunk): boolean =>

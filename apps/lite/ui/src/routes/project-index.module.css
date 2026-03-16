@@ -76,7 +76,19 @@
 
 .hunkListItem {
 	display: flex;
-	align-items: start;
+	row-gap: 4px;
+	flex-direction: column;
+}
+
+.hunkHeaderRow {
+	display: flex;
+	column-gap: 4px;
+	align-items: center;
+}
+
+.hunkDragHandle {
+	flex-grow: 1;
+	cursor: grab;
 }
 
 .tooltip {
