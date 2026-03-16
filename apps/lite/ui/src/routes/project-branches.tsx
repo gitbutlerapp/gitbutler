@@ -320,10 +320,10 @@ const ProjectBranchesPage: FC = () => {
 	const sortedBranches = branches.slice().sort((a, b) => a.name.localeCompare(b.name));
 	const selectedBranch =
 		sortedBranches.find((branch) => branch.name === selectedBranchName) ?? sortedBranches[0];
-	const selectedBranchResolvedName = selectedBranch?.name ?? null;
+	const selectedBranchResolvedName = selectedBranch?.name;
 
 	const selectedRemote =
-		selectedBranch && !selectedBranch.hasLocal ? (selectedBranch.remotes[0] ?? null) : null;
+		selectedBranch && !selectedBranch.hasLocal ? selectedBranch.remotes[0] : null;
 
 	// TODO: dedupe
 	if (!project) return <p>Project not found.</p>;
@@ -389,13 +389,13 @@ const ProjectBranchesPage: FC = () => {
 						})}
 					</ul>
 
-					{selectedBranchResolvedName !== null && (
+					{selectedBranchResolvedName != null && (
 						<BranchDetailsLane
 							key={selectedBranchResolvedName}
 							projectId={id}
 							branchName={selectedBranchResolvedName}
 							branchRef={selectedBranch ? getBranchRef(selectedBranch) : null}
-							remote={selectedRemote}
+							remote={selectedRemote ?? null}
 						/>
 					)}
 				</div>
