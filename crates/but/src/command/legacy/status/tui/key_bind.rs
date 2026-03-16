@@ -1,279 +1,351 @@
+use std::collections::HashMap;
+
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use strum::IntoEnumIterator;
 
-use crate::command::legacy::status::tui::{Message, Mode, ModeDiscriminants};
+use crate::command::legacy::status::tui::{Message, Mode, ModeDiscriminant};
 
-/// The default set of key binds for the TUI.
-pub(super) static KEY_BINDS: &[KeyBind] = &[
-    KeyBind {
-        chord: KeyChord {
-            modifiers: KeyModifiers::NONE,
-            keys: &[KeyCode::Enter],
-        },
-        kind: KeyEventKind::Press,
-        message: &Message::ConfirmRub,
-        modes: KeyBindMode::Only(&[ModeDiscriminants::Rub]),
-        short_description: "confirm",
-        code_display: "enter",
-        hidden: false,
-    },
-    KeyBind {
-        chord: KeyChord {
-            modifiers: KeyModifiers::NONE,
-            keys: &[KeyCode::Enter],
-        },
-        kind: KeyEventKind::Press,
-        message: &Message::ConfirmInlineReword,
-        modes: KeyBindMode::Only(&[ModeDiscriminants::InlineReword]),
-        short_description: "confirm",
-        code_display: "enter",
-        hidden: false,
-    },
-    KeyBind {
-        chord: KeyChord {
-            modifiers: KeyModifiers::NONE,
-            keys: &[KeyCode::Enter],
-        },
-        kind: KeyEventKind::Press,
-        message: &Message::RunCommand,
-        modes: KeyBindMode::Only(&[ModeDiscriminants::Command]),
-        short_description: "run",
-        code_display: "enter",
-        hidden: false,
-    },
-    KeyBind {
-        chord: KeyChord {
-            modifiers: KeyModifiers::NONE,
-            keys: &[KeyCode::Char('j'), KeyCode::Down],
-        },
-        kind: KeyEventKind::Press,
-        message: &Message::MoveCursorDown,
-        modes: KeyBindMode::AllExceptTextInputModes,
-        short_description: "down",
-        code_display: "↓/j",
-        hidden: false,
-    },
-    KeyBind {
-        chord: KeyChord {
-            modifiers: KeyModifiers::NONE,
-            keys: &[KeyCode::Char('k'), KeyCode::Up],
-        },
-        kind: KeyEventKind::Press,
-        message: &Message::MoveCursorUp,
-        modes: KeyBindMode::AllExceptTextInputModes,
-        short_description: "up",
-        code_display: "↑/k",
-        hidden: false,
-    },
-    KeyBind {
-        chord: KeyChord {
-            modifiers: KeyModifiers::SHIFT,
-            keys: &[KeyCode::Char('J')],
-        },
-        kind: KeyEventKind::Press,
-        message: &Message::MoveCursorNextSection,
-        modes: KeyBindMode::AllExceptTextInputModes,
-        short_description: "next section",
-        code_display: "J",
-        hidden: false,
-    },
-    KeyBind {
-        chord: KeyChord {
-            modifiers: KeyModifiers::SHIFT,
-            keys: &[KeyCode::Char('K')],
-        },
-        kind: KeyEventKind::Press,
-        message: &Message::MoveCursorPreviousSection,
-        modes: KeyBindMode::AllExceptTextInputModes,
-        short_description: "prev section",
-        code_display: "K",
-        hidden: false,
-    },
-    KeyBind {
-        chord: KeyChord {
-            modifiers: KeyModifiers::NONE,
-            keys: &[KeyCode::Char('r')],
-        },
-        kind: KeyEventKind::Press,
-        message: &Message::StartRub,
-        modes: KeyBindMode::Only(&[ModeDiscriminants::Normal]),
-        short_description: "rub",
-        code_display: "r",
-        hidden: false,
-    },
-    KeyBind {
-        chord: KeyChord {
-            modifiers: KeyModifiers::NONE,
-            keys: &[KeyCode::Char('n')],
-        },
-        kind: KeyEventKind::Press,
-        message: &Message::CreateEmptyCommit,
-        modes: KeyBindMode::Only(&[ModeDiscriminants::Normal]),
-        short_description: "new commit",
-        code_display: "n",
-        hidden: false,
-    },
-    KeyBind {
-        chord: KeyChord {
-            modifiers: KeyModifiers::NONE,
-            keys: &[KeyCode::Enter],
-        },
-        kind: KeyEventKind::Press,
-        message: &Message::StartRewordInline,
-        modes: KeyBindMode::Only(&[ModeDiscriminants::Normal]),
-        short_description: "reword inline",
-        code_display: "enter",
-        hidden: false,
-    },
-    KeyBind {
-        chord: KeyChord {
-            modifiers: KeyModifiers::SHIFT,
-            keys: &[KeyCode::Enter],
-        },
-        kind: KeyEventKind::Press,
-        message: &Message::RewordWithEditor,
-        modes: KeyBindMode::Only(&[ModeDiscriminants::Normal]),
-        short_description: "reword",
-        code_display: "shift+enter",
-        hidden: false,
-    },
-    KeyBind {
-        chord: KeyChord {
-            modifiers: KeyModifiers::NONE,
-            keys: &[KeyCode::Char('f')],
-        },
-        kind: KeyEventKind::Press,
-        message: &Message::ToggleFiles,
-        modes: KeyBindMode::AllExceptTextInputModes,
-        short_description: "files",
-        code_display: "f",
-        hidden: false,
-    },
-    KeyBind {
-        chord: KeyChord {
-            modifiers: KeyModifiers::NONE,
-            keys: &[KeyCode::Esc],
-        },
-        kind: KeyEventKind::Press,
-        message: &Message::EnterNormalMode,
-        modes: KeyBindMode::AllExceptNormal,
-        short_description: "back",
-        code_display: "esc",
-        hidden: false,
-    },
-    KeyBind {
-        chord: KeyChord {
-            modifiers: KeyModifiers::NONE,
-            keys: &[KeyCode::Char(':')],
-        },
-        kind: KeyEventKind::Press,
-        message: &Message::EnterCommandMode,
-        modes: KeyBindMode::Only(&[ModeDiscriminants::Normal]),
-        short_description: "command",
-        code_display: ":",
-        hidden: false,
-    },
-    KeyBind {
-        chord: KeyChord {
-            modifiers: KeyModifiers::CONTROL,
-            keys: &[KeyCode::Char('r')],
-        },
-        kind: KeyEventKind::Press,
-        message: &Message::Reload(None),
-        modes: KeyBindMode::Only(&[ModeDiscriminants::Normal]),
-        short_description: "reload",
-        code_display: "ctrl+r",
-        hidden: false,
-    },
-    KeyBind {
-        chord: KeyChord {
-            modifiers: KeyModifiers::NONE,
-            keys: &[KeyCode::Char('q')],
-        },
-        kind: KeyEventKind::Press,
-        message: &Message::Quit,
-        modes: KeyBindMode::AllExceptTextInputModes,
-        short_description: "quit",
-        code_display: "q",
-        hidden: false,
-    },
-];
+pub(super) fn default_key_binds() -> KeyBinds {
+    let mut key_binds = KeyBinds::new();
 
-/// A key binding for the TUI.
-#[derive(Debug, Copy, Clone)]
-pub(super) struct KeyBind {
-    /// The chord required to pass.
-    ///
-    /// Either single keys or full modifier combos.
-    pub(super) chord: KeyChord,
-    /// Trigger on press or release?
-    pub(super) kind: KeyEventKind,
-    /// The message to send when the key binding is triggered.
-    pub(super) message: &'static Message,
-    /// The modes in which the key bind is available.
-    pub(super) modes: KeyBindMode,
-    /// The description of the key bind shown in the hotbar.
-    pub(super) short_description: &'static str,
-    /// The key code shown in the hotbar.
-    // TODO: build this dynamically from `chord`
-    pub(super) code_display: &'static str,
-    /// Hidden key binds aren't shown in the hotbar.
-    pub(super) hidden: bool,
+    register_global_key_binds(&mut key_binds);
+
+    for mode in ModeDiscriminant::iter() {
+        match mode {
+            ModeDiscriminant::Normal => {
+                register_normal_mode_key_binds(&mut key_binds);
+            }
+            ModeDiscriminant::Rub => {
+                register_rub_mode_key_binds(&mut key_binds);
+            }
+            ModeDiscriminant::InlineReword => {
+                register_inline_reword_mode_key_binds(&mut key_binds);
+            }
+            ModeDiscriminant::Command => {
+                register_command_mode_key_binds(&mut key_binds);
+            }
+        }
+    }
+
+    key_binds
 }
 
-impl KeyBind {
-    pub(super) fn matches(self, ev: &KeyEvent, mode: &Mode) -> bool {
+fn register_global_key_binds(key_binds: &mut KeyBinds) {
+    let all_except_text_input_modes = ModeDiscriminant::iter()
+        .filter(|mode| match mode {
+            ModeDiscriminant::Normal | ModeDiscriminant::Rub => true,
+            ModeDiscriminant::InlineReword | ModeDiscriminant::Command => false,
+        })
+        .collect::<Vec<_>>();
+
+    key_binds.register(StaticKeyBind {
+        short_description: "down",
+        chord_display: "↓/j",
+        key_matcher: press().code(KeyCode::Char('j')).alt_code(KeyCode::Down),
+        modes: all_except_text_input_modes.clone(),
+        message: Message::MoveCursorDown,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "up",
+        chord_display: "↑/k",
+        key_matcher: press().code(KeyCode::Char('k')).alt_code(KeyCode::Up),
+        modes: all_except_text_input_modes.clone(),
+        message: Message::MoveCursorUp,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "next section",
+        chord_display: "shift+j",
+        key_matcher: press().shift().code(KeyCode::Char('J')),
+        modes: all_except_text_input_modes.clone(),
+        message: Message::MoveCursorNextSection,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "prev section",
+        chord_display: "shift+k",
+        key_matcher: press().shift().code(KeyCode::Char('K')),
+        modes: all_except_text_input_modes.clone(),
+        message: Message::MoveCursorPreviousSection,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "files",
+        chord_display: "f",
+        key_matcher: press().code(KeyCode::Char('f')),
+        modes: all_except_text_input_modes.clone(),
+        message: Message::ToggleFiles,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "quit",
+        chord_display: "q",
+        key_matcher: press().code(KeyCode::Char('q')),
+        modes: all_except_text_input_modes.clone(),
+        message: Message::Quit,
+    });
+}
+
+fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
+    key_binds.register(StaticKeyBind {
+        short_description: "rub",
+        chord_display: "r",
+        key_matcher: press().code(KeyCode::Char('r')),
+        modes: Vec::from([ModeDiscriminant::Normal]),
+        message: Message::StartRub,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "new commit",
+        chord_display: "n",
+        key_matcher: press().code(KeyCode::Char('n')),
+        modes: Vec::from([ModeDiscriminant::Normal]),
+        message: Message::CreateEmptyCommit,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "reword inline",
+        chord_display: "enter",
+        key_matcher: press().code(KeyCode::Enter),
+        modes: Vec::from([ModeDiscriminant::Normal]),
+        message: Message::StartRewordInline,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "reword",
+        chord_display: "shift+enter",
+        key_matcher: press().shift().code(KeyCode::Enter),
+        modes: Vec::from([ModeDiscriminant::Normal]),
+        message: Message::RewordWithEditor,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "command",
+        chord_display: ":",
+        key_matcher: press().code(KeyCode::Char(':')),
+        modes: Vec::from([ModeDiscriminant::Normal]),
+        message: Message::EnterCommandMode,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "reload",
+        chord_display: "ctrl+r",
+        key_matcher: press().control().code(KeyCode::Char('r')),
+        modes: Vec::from([ModeDiscriminant::Normal]),
+        message: Message::Reload(None),
+    });
+}
+
+fn register_rub_mode_key_binds(key_binds: &mut KeyBinds) {
+    key_binds.register(StaticKeyBind {
+        short_description: "confirm",
+        chord_display: "enter",
+        key_matcher: press().code(KeyCode::Enter),
+        modes: Vec::from([ModeDiscriminant::Rub]),
+        message: Message::ConfirmRub,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "back",
+        chord_display: "esc",
+        key_matcher: press().code(KeyCode::Esc),
+        modes: Vec::from([ModeDiscriminant::Rub]),
+        message: Message::EnterNormalMode,
+    });
+}
+
+fn register_inline_reword_mode_key_binds(key_binds: &mut KeyBinds) {
+    key_binds.register(StaticKeyBind {
+        short_description: "confirm",
+        chord_display: "enter",
+        key_matcher: press().code(KeyCode::Enter),
+        modes: Vec::from([ModeDiscriminant::InlineReword]),
+        message: Message::ConfirmInlineReword,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "back",
+        chord_display: "esc",
+        key_matcher: press().code(KeyCode::Esc),
+        modes: Vec::from([ModeDiscriminant::InlineReword]),
+        message: Message::EnterNormalMode,
+    });
+}
+
+fn register_command_mode_key_binds(key_binds: &mut KeyBinds) {
+    key_binds.register(StaticKeyBind {
+        short_description: "run",
+        chord_display: "enter",
+        key_matcher: press().code(KeyCode::Enter),
+        modes: Vec::from([ModeDiscriminant::Command]),
+        message: Message::RunCommand,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "back",
+        chord_display: "esc",
+        key_matcher: press().code(KeyCode::Esc),
+        modes: Vec::from([ModeDiscriminant::Command]),
+        message: Message::EnterNormalMode,
+    });
+}
+
+#[derive(Clone, Copy, Debug)]
+struct KeyBindId(usize);
+
+#[derive(Debug)]
+pub(super) struct KeyBinds {
+    /// All registered key binds.
+    all_key_binds: Vec<Box<dyn KeyBind>>,
+    /// Which key binds are available in which modes?
+    mode_to_key_binds: HashMap<ModeDiscriminant, Vec<KeyBindId>>,
+}
+
+impl KeyBinds {
+    fn new() -> Self {
+        KeyBinds {
+            mode_to_key_binds: Default::default(),
+            all_key_binds: Default::default(),
+        }
+    }
+
+    fn register<T>(&mut self, key_bind: T) -> KeyBindId
+    where
+        T: KeyBind,
+    {
+        let id = KeyBindId(self.all_key_binds.len());
+
+        for mode in ModeDiscriminant::iter() {
+            if key_bind.available_in_mode(mode) {
+                self.mode_to_key_binds.entry(mode).or_default().push(id);
+            }
+        }
+
+        self.all_key_binds.push(Box::new(key_bind));
+
+        id
+    }
+
+    pub(super) fn iter_key_binds_available_in_mode(
+        &self,
+        mode: &Mode,
+    ) -> impl Iterator<Item = &dyn KeyBind> {
+        let mode = ModeDiscriminant::from(mode);
+        self.mode_to_key_binds
+            .get(&mode)
+            .into_iter()
+            .flatten()
+            .copied()
+            .map(|KeyBindId(idx)| &*self.all_key_binds[idx])
+    }
+}
+
+pub(super) trait KeyBind: std::fmt::Debug + 'static {
+    fn short_description(&self) -> &'static str;
+
+    fn chord_display(&self) -> &'static str;
+
+    fn hide(&self) -> bool {
+        false
+    }
+
+    fn available_in_mode(&self, mode: ModeDiscriminant) -> bool;
+
+    fn matches(&self, ev: &KeyEvent) -> bool;
+
+    fn message(&self) -> Message;
+}
+
+#[derive(Debug)]
+struct StaticKeyBind {
+    short_description: &'static str,
+    chord_display: &'static str,
+    key_matcher: KeyMatcher,
+    modes: Vec<ModeDiscriminant>,
+    message: Message,
+}
+
+impl KeyBind for StaticKeyBind {
+    fn short_description(&self) -> &'static str {
+        self.short_description
+    }
+
+    fn chord_display(&self) -> &'static str {
+        self.chord_display
+    }
+
+    fn available_in_mode(&self, mode: ModeDiscriminant) -> bool {
+        self.modes.contains(&mode)
+    }
+
+    fn matches(&self, ev: &KeyEvent) -> bool {
+        self.key_matcher.matches(ev)
+    }
+
+    fn message(&self) -> Message {
+        self.message.clone()
+    }
+}
+
+#[inline]
+fn press() -> KeyMatcher {
+    KeyMatcher {
+        kind: KeyEventKind::Press,
+        modifiers: KeyModifiers::NONE,
+        codes: [None, None],
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+struct KeyMatcher {
+    kind: KeyEventKind,
+    modifiers: KeyModifiers,
+    codes: [Option<KeyCode>; 2],
+}
+
+impl KeyMatcher {
+    #[inline]
+    fn shift(self) -> Self {
+        self.modifiers(KeyModifiers::SHIFT)
+    }
+
+    #[inline]
+    fn control(self) -> Self {
+        self.modifiers(KeyModifiers::CONTROL)
+    }
+
+    #[inline]
+    fn modifiers(mut self, modifiers: KeyModifiers) -> Self {
+        self.modifiers = modifiers;
+        self
+    }
+
+    #[inline]
+    fn code(mut self, code: KeyCode) -> Self {
+        self.codes[0] = Some(code);
+        self
+    }
+
+    #[inline]
+    fn alt_code(mut self, code: KeyCode) -> Self {
+        self.codes[1] = Some(code);
+        self
+    }
+
+    #[inline]
+    fn matches(self, ev: &KeyEvent) -> bool {
         if self.kind != ev.kind {
             return false;
         }
 
-        if self.chord.modifiers != ev.modifiers {
+        if self.modifiers != ev.modifiers {
             return false;
         }
 
-        if !self.available_in_mode(mode) {
-            return false;
-        }
-
-        if self
-            .chord
-            .keys
-            .iter()
-            .copied()
-            .all(|key_code| key_code != ev.code)
-        {
-            return false;
-        }
-
-        true
+        self.codes
+            .into_iter()
+            .flatten()
+            .any(|key_code| key_code == ev.code)
     }
-
-    pub(super) fn available_in_mode(self, mode: &Mode) -> bool {
-        match self.modes {
-            KeyBindMode::AllExceptTextInputModes => {
-                !matches!(mode, Mode::InlineReword { .. } | Mode::Command { .. })
-            }
-            KeyBindMode::Only(supported_modes) => supported_modes
-                .iter()
-                .copied()
-                .any(|supported_mode| supported_mode == ModeDiscriminants::from(mode)),
-            KeyBindMode::AllExceptNormal => !matches!(mode, Mode::Normal),
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-pub(super) struct KeyChord {
-    pub(super) modifiers: KeyModifiers,
-    pub(super) keys: &'static [KeyCode],
-}
-
-/// The modes a key binding is available in.
-#[derive(Debug, Copy, Clone)]
-pub(super) enum KeyBindMode {
-    /// Available in all modes except modes that use text input such as inline reword and command.
-    AllExceptTextInputModes,
-    /// Available in all modes except normal mode.
-    AllExceptNormal,
-    /// Only available in these modes.
-    Only(&'static [ModeDiscriminants]),
 }

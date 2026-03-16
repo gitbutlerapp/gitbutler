@@ -33,7 +33,7 @@ use crate::{
             StatusFlags, StatusOutput, StatusOutputLine, build_status_context, build_status_output,
             tui::{
                 cursor::Cursor,
-                key_bind::{KEY_BINDS, KeyBind},
+                key_bind::{KeyBinds, default_key_binds},
             },
         },
     },
@@ -76,7 +76,7 @@ pub(super) async fn render_tui(
         // poll for events
         if event::poll(Duration::from_millis(30))? {
             let ev = event::read()?;
-            event_to_messages(ev, app.key_binds, &app.mode, &mut messages);
+            event_to_messages(ev, &app.key_binds, &app.mode, &mut messages);
         }
 
         // handle messages
@@ -116,7 +116,7 @@ struct App {
     should_render: bool,
     cursor: Cursor,
     mode: Mode,
-    key_binds: &'static [KeyBind],
+    key_binds: KeyBinds,
     debug_enabled: bool,
     errors: Vec<AppError>,
     renders: u64,
@@ -133,7 +133,7 @@ impl App {
             should_quit: false,
             should_render: true,
             mode: Mode::default(),
-            key_binds: KEY_BINDS,
+            key_binds: default_key_binds(),
             debug_enabled: debug,
             errors: Vec::new(),
             renders: 0,
@@ -776,16 +776,14 @@ impl App {
                 let mut line = Line::default();
                 let mut key_binds_iter = self
                     .key_binds
-                    .iter()
-                    .copied()
-                    .filter(|key_bind| key_bind.available_in_mode(&self.mode))
-                    .filter(|key_bind| !key_bind.hidden)
+                    .iter_key_binds_available_in_mode(&self.mode)
+                    .filter(|key_bind| !key_bind.hide())
                     .peekable();
                 while let Some(key_bind) = key_binds_iter.next() {
                     line.extend([
-                        Span::styled(key_bind.code_display, Style::default().blue()),
+                        Span::styled(key_bind.chord_display(), Style::default().blue()),
                         Span::raw(" "),
-                        Span::styled(key_bind.short_description, Style::default().dim()),
+                        Span::styled(key_bind.short_description(), Style::default().dim()),
                     ]);
 
                     if key_binds_iter.peek().is_some() {
@@ -869,13 +867,13 @@ impl App {
     }
 }
 
-fn event_to_messages(ev: Event, key_binds: &[KeyBind], mode: &Mode, messages: &mut Vec<Message>) {
+fn event_to_messages(ev: Event, key_binds: &KeyBinds, mode: &Mode, messages: &mut Vec<Message>) {
     match ev {
         Event::Key(key) => {
             let mut handled = false;
-            for key_bind in key_binds.iter().copied() {
-                if key_bind.matches(&key, mode) {
-                    messages.push(key_bind.message.clone());
+            for key_bind in key_binds.iter_key_binds_available_in_mode(mode) {
+                if key_bind.matches(&key) {
+                    messages.push(key_bind.message());
                     handled = true;
                 }
             }
@@ -938,6 +936,8 @@ enum Message {
 }
 
 #[derive(Debug, Default, strum::EnumDiscriminants)]
+#[strum_discriminants(derive(strum::EnumIter, Hash))]
+#[strum_discriminants(name(ModeDiscriminant))]
 enum Mode {
     #[default]
     Normal,
