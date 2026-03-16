@@ -331,7 +331,7 @@ const ProjectBranchesPage: FC = () => {
 	if (!project) return <p>Project not found.</p>;
 
 	return (
-		<section>
+		<>
 			<h2>{project.title} branches</h2>
 			{sortedBranches.length === 0 ? (
 				<p>No branches found.</p>
@@ -404,7 +404,7 @@ const ProjectBranchesPage: FC = () => {
 					)}
 				</div>
 			)}
-		</section>
+		</>
 	);
 };
 
