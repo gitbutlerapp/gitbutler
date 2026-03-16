@@ -65,8 +65,25 @@ import { type ChangeUnit } from "#ui/ChangeUnit.ts";
 import { rubOperationLabel, type RubSource } from "#ui/rub.ts";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
+import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
+
+const LockIndicator: FC<{
+	commitIds: NonEmptyArray<string>;
+	onHover?: (commitIds: Array<string> | null) => void;
+}> = ({ commitIds, onHover }) => (
+	<span
+		onMouseEnter={() => {
+			onHover?.(commitIds);
+		}}
+		onMouseLeave={() => {
+			onHover?.(null);
+		}}
+	>
+		🔒
+	</span>
+);
 
 /**
  * @example
@@ -396,17 +413,8 @@ const SelectedChangesFileDiff: FC<{
 						change={change}
 						hunk={hunk}
 						headerStart={
-							dependencyCommitIds.length > 0 && (
-								<span
-									onMouseEnter={() => {
-										onLockHover(dependencyCommitIds);
-									}}
-									onMouseLeave={() => {
-										onLockHover(null);
-									}}
-								>
-									🔒
-								</span>
+							isNonEmptyArray(dependencyCommitIds) && (
+								<LockIndicator commitIds={dependencyCommitIds} onHover={onLockHover} />
 							)
 						}
 					/>
@@ -882,17 +890,8 @@ const Changes: FC<{
 												/>
 											}
 										/>
-										{dependencyCommitIds.length > 0 && (
-											<span
-												onMouseEnter={() => {
-													onLockHover?.(dependencyCommitIds);
-												}}
-												onMouseLeave={() => {
-													onLockHover?.(null);
-												}}
-											>
-												🔒
-											</span>
+										{isNonEmptyArray(dependencyCommitIds) && (
+											<LockIndicator commitIds={dependencyCommitIds} onHover={onLockHover} />
 										)}
 									</div>
 								</li>
