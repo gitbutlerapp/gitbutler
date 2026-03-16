@@ -992,7 +992,7 @@ const UnassignedLane: FC<{
 		isFileSelected(path) ? null : { path };
 
 	return (
-		<li className={sharedStyles.lane}>
+		<div className={sharedStyles.lane}>
 			<div className={sharedStyles.laneMain}>
 				<div>
 					<h3>Unassigned changes</h3>
@@ -1019,7 +1019,7 @@ const UnassignedLane: FC<{
 					/>
 				</Suspense>
 			)}
-		</li>
+		</div>
 	);
 };
 
@@ -1122,7 +1122,7 @@ const StackLane: FC<{
 	const changesChangeUnit: ChangeUnit = { _tag: "changes", stackId };
 
 	return (
-		<li className={sharedStyles.lane}>
+		<div className={sharedStyles.lane}>
 			<div className={sharedStyles.laneMain}>
 				<Menu.Root>
 					<Menu.Trigger className={styles.stackMenu}>m</Menu.Trigger>
@@ -1217,7 +1217,7 @@ const StackLane: FC<{
 					)}
 				</Suspense>
 			)}
-		</li>
+		</div>
 	);
 };
 
@@ -1249,7 +1249,7 @@ const ProjectPage: FC = () => {
 		<DraggedSourceItemContext.Provider value={draggedSourceItem}>
 			<h2>{project.title} workspace</h2>
 
-			<ul className={styles.lanes}>
+			<div className={styles.lanes}>
 				<UnassignedLane projectId={project.id} onLockHover={highlightCommits} />
 
 				{headInfo.stacks.map((stack) => (
@@ -1261,7 +1261,7 @@ const ProjectPage: FC = () => {
 						onLockHover={highlightCommits}
 					/>
 				))}
-			</ul>
+			</div>
 
 			{baseId !== undefined && <>{shortCommitId(baseId)} (common base commit)</>}
 		</DraggedSourceItemContext.Provider>
