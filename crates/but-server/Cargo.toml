@@ -16,12 +16,13 @@ path = "src/main.rs"
 doctest = false
 
 [features]
+irc = ["dep:but-irc"]
 
 [dependencies]
 but-api = { workspace = true, features = ["path-bytes", "legacy"] }
 but-claude.workspace = true
 but-db.workspace = true
-but-irc.workspace = true
+but-irc = { workspace = true, optional = true }
 but-path.workspace = true
 but-settings.workspace = true
 but-feedback.workspace = true

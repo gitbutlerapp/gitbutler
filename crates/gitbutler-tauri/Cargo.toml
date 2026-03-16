@@ -40,7 +40,7 @@ but-ctx = { workspace = true, features = ["legacy"] }
 but-forge.workspace = true
 but-llm.workspace = true
 but-hunk-assignment.workspace = true
-but-irc.workspace = true
+but-irc = { workspace = true, optional = true }
 notify-rust.workspace = true
 
 gitbutler-repo-actions.workspace = true
@@ -96,6 +96,8 @@ workspace = true
 
 [features]
 default = ["custom-protocol", "devtools", "opener"]
+## Enable IRC-based real-time collaboration features.
+irc = ["dep:but-irc"]
 #! ## Build- and package-related Options
 ## If enabled, we will pretend to be `but` when the binary filename is `but`.
 builtin-but = ["dep:but", "but-action/builtin-but"]
