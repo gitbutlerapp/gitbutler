@@ -266,9 +266,6 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     let parents = commit.parents().collect::<Vec<_>>();
 
     // Write out all the changes, including unstaged changes to a tree for re-committing
-    let mut index = git2_repo.index()?;
-    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
-    index.write()?;
     let tree = git2_repo.create_wd_tree(0)?;
 
     let (_, committer) = git2_repo.signatures()?;
