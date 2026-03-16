@@ -12,6 +12,14 @@
 	list-style: none;
 }
 
+.branchesListItem {
+	display: flex;
+}
+
+.branchButton {
+	flex-grow: 1;
+}
+
 .branchesDetailsPane {
 	min-width: 0;
 }

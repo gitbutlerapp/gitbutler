@@ -343,10 +343,10 @@ const ProjectBranchesPage: FC = () => {
 							const stackId = branch.stack?.id;
 							const isSelected = selectedBranchResolvedName === branch.name;
 							return (
-								<li key={branch.name}>
+								<li key={branch.name} className={styles.branchesListItem}>
 									<button
 										type="button"
-										className={classes(isSelected && sharedStyles.selected)}
+										className={classes(styles.branchButton, isSelected && sharedStyles.selected)}
 										onClick={() => {
 											setSelectedBranchName(branch.name);
 										}}
