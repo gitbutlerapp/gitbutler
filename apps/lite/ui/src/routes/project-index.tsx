@@ -1,7 +1,4 @@
-import {
-	dropTargetForElements,
-	monitorForElements,
-} from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
+import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { createRoute } from "@tanstack/react-router";
 import styles from "./project-index.module.css";
 import sharedStyles from "./project-shared.module.css";
@@ -27,16 +24,15 @@ import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import {
 	createContext,
 	FC,
-	RefCallback,
 	startTransition,
 	Suspense,
 	useContext,
 	useEffect,
-	useEffectEvent,
 	useOptimistic,
-	useRef,
 	useState,
 } from "react";
+import { useDraggable } from "#ui/hooks/useDraggable.tsx";
+import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
 import {
 	CommitButton,
@@ -49,7 +45,6 @@ import {
 	HunkListItem,
 	type SourceItem,
 	hunkKey,
-	useDraggable,
 } from "#ui/routes/project-shared.tsx";
 import {
 	commitInsertBlankMutationOptions,
@@ -131,51 +126,6 @@ type OperationTarget =
 const parseDropTargetData = (data: unknown): OperationTarget | null => {
 	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
 	return data as OperationTarget;
-};
-
-const useDroppable = ({
-	canDrop,
-	data,
-	disabled = false,
-}: {
-	canDrop: (dragData: unknown) => boolean;
-	data: OperationTarget;
-	disabled?: boolean;
-}): {
-	ref: RefCallback<HTMLElement>;
-	isDropTarget: boolean;
-} => {
-	const ref = useRef<HTMLElement>(null);
-	const [isDropTarget, setIsDropTarget] = useState(false);
-	const getData = useEffectEvent(() => data);
-	const canDropForSource = useEffectEvent((dragData: unknown) => canDrop(dragData));
-
-	useEffect(() => {
-		const element = ref.current;
-		if (!element || disabled) return;
-
-		return dropTargetForElements({
-			element,
-			canDrop: ({ source }) => canDropForSource(source.data),
-			getData,
-			onDragEnter: () => {
-				setIsDropTarget(true);
-			},
-			onDragLeave: () => {
-				setIsDropTarget(false);
-			},
-			onDrop: () => {
-				setIsDropTarget(false);
-			},
-		});
-	}, [disabled]);
-
-	return {
-		ref: (element) => {
-			ref.current = element;
-		},
-		isDropTarget,
-	};
 };
 
 const useMonitorDraggedSourceItem = ({
@@ -297,6 +247,7 @@ const DraggableCommit: FC<
 	const { ref: dragRef, isDragging } = useDraggable({
 		data: { sourceItem } satisfies DragData,
 		preview: <CommitLabel commit={commit} />,
+		previewClassName: sharedStyles.dragPreview,
 	});
 
 	return useRender({
@@ -394,6 +345,7 @@ const DraggableFile: FC<
 	const { ref: dragRef, isDragging } = useDraggable({
 		data: { sourceItem } satisfies DragData,
 		preview: change.path,
+		previewClassName: sharedStyles.dragPreview,
 	});
 
 	return useRender({
