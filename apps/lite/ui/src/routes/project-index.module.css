@@ -39,7 +39,6 @@
 
 .commitRow {
 	display: flex;
-	column-gap: 4px;
 }
 
 .commitMoveTarget {
