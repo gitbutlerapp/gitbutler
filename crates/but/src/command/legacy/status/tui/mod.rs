@@ -1,4 +1,6 @@
 use std::{
+    ffi::OsString,
+    process::Command,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -189,7 +191,7 @@ impl App {
                 self.handle_reload(ctx, out, mode, select_after_reload)
                     .await?
             }
-            Message::ShowError(err) => self.handle_show_error(err),
+            Message::ShowError(err) => self.handle_show_error(err, messages),
             Message::CreateEmptyCommit => self.handle_create_empty_commit(ctx, messages)?,
             Message::RewordWithEditor => {
                 self.handle_reword_with_editor(ctx, guard, messages)?;
@@ -197,6 +199,9 @@ impl App {
             Message::StartRewordInline => self.handle_start_reword_inline(ctx, messages)?,
             Message::RewordInlineInput(ev) => self.handle_reword_inline_input(ev),
             Message::ConfirmInlineReword => self.handle_confirm_inline_reword(ctx, messages)?,
+            Message::EnterCommandMode => self.handle_enter_command_mode(),
+            Message::CommandInput(ev) => self.handle_command_input(ev),
+            Message::RunCommand => self.handle_run_command(guard, out, messages)?,
         }
 
         Ok(())
@@ -322,11 +327,15 @@ impl App {
     }
 
     /// Handles showing a transient UI error.
-    fn handle_show_error(&mut self, err: Arc<anyhow::Error>) {
+    fn handle_show_error(&mut self, err: Arc<anyhow::Error>, messages: &mut Vec<Message>) {
         self.errors.push(AppError {
             inner: err,
             dismiss_at: Instant::now() + Duration::from_secs(5),
         });
+
+        // ensure we always enter normal mode when something does wrong
+        // so we don't get stuck in whatever mode we were in previously
+        messages.push(Message::EnterNormalMode);
     }
 
     /// Handles creating an empty commit relative to the current selection.
@@ -520,6 +529,63 @@ impl App {
         Ok(())
     }
 
+    fn handle_enter_command_mode(&mut self) {
+        if !matches!(self.mode, Mode::Normal) {
+            return;
+        }
+
+        let mut textarea = TextArea::default();
+        textarea.set_cursor_line_style(Style::default());
+        textarea.move_cursor(CursorMove::End);
+
+        self.mode = Mode::Command {
+            textarea: Box::new(textarea),
+        };
+    }
+
+    fn handle_command_input(&mut self, ev: Event) {
+        if let Mode::Command { textarea } = &mut self.mode {
+            textarea.input(ev);
+        }
+    }
+
+    fn handle_run_command(
+        &mut self,
+        guard: &mut TerminalGuard,
+        out: &mut OutputChannel,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        let Mode::Command { textarea } = &self.mode else {
+            messages.push(Message::EnterNormalMode);
+            return Ok(());
+        };
+
+        let Some(input) = textarea.lines().first() else {
+            return Ok(());
+        };
+
+        let binary_path = std::env::current_exe().unwrap_or_default();
+        let args = shell_words::split(input)?.into_iter().map(OsString::from);
+
+        let mut cmd = Command::new(binary_path);
+        cmd.args(args);
+
+        let _suspend_guard = guard.suspend()?;
+        cmd.spawn()?.wait()?;
+
+        let mut input_channel = out
+            .prepare_for_terminal_input()
+            .context("failed to prepare input")?;
+
+        input_channel.prompt_single_line("\npress enter to continue...")?;
+
+        drop(_suspend_guard);
+
+        messages.extend([Message::EnterNormalMode, Message::Reload(None)]);
+
+        Ok(())
+    }
+
     /// Returns the currently selected commit id when the selected line is a commit.
     fn selected_commit_id(&self) -> Option<gix::ObjectId> {
         let selection = self.cursor.selected_line(&self.status_lines)?;
@@ -589,7 +655,7 @@ impl App {
 
         if is_selected {
             match &self.mode {
-                Mode::Normal | Mode::InlineReword { .. } => {}
+                Mode::Normal | Mode::InlineReword { .. } | Mode::Command { .. } => {}
                 Mode::Rub {
                     source,
                     available_targets: _,
@@ -615,7 +681,7 @@ impl App {
             }
         } else {
             match &self.mode {
-                Mode::Normal | Mode::InlineReword { .. } => {}
+                Mode::Normal | Mode::InlineReword { .. } | Mode::Command { .. } => {}
                 Mode::Rub {
                     source,
                     available_targets: _,
@@ -642,7 +708,7 @@ impl App {
         };
 
         match &self.mode {
-            Mode::Normal => {
+            Mode::Normal | Mode::Command { .. } => {
                 line.extend(content_spans);
             }
             Mode::InlineReword { .. } => {
@@ -675,7 +741,7 @@ impl App {
             }
         }
 
-        if is_selected {
+        if is_selected && !matches!(self.mode, Mode::Command { .. }) {
             line = line.style(Style::default().bg(CURSOR_BG));
         }
 
@@ -689,32 +755,55 @@ impl App {
             Mode::InlineReword { .. } => {
                 Span::styled("  reword  ", Style::default().black().on_blue())
             }
+            Mode::Command { .. } => {
+                Span::styled("  command  ", Style::default().black().on_yellow())
+            }
         };
 
-        let padding = Span::raw(" ");
+        let layout = Layout::horizontal([
+            Constraint::Length(mode_span.width() as _),
+            Constraint::Length(1),
+            Constraint::Min(1),
+        ])
+        .split(area);
 
-        let mut line = Line::from_iter([mode_span, padding]);
+        frame.render_widget(mode_span, layout[0]);
 
-        let mut key_binds_iter = self
-            .key_binds
-            .iter()
-            .copied()
-            .filter(|key_bind| key_bind.available_in_mode(&self.mode))
-            .filter(|key_bind| !key_bind.hidden)
-            .peekable();
-        while let Some(key_bind) = key_binds_iter.next() {
-            line.extend([
-                Span::styled(key_bind.code_display, Style::default().blue()),
-                Span::raw(" "),
-                Span::styled(key_bind.short_description, Style::default().dim()),
-            ]);
+        frame.render_widget(" ", layout[1]);
 
-            if key_binds_iter.peek().is_some() {
-                line.push_span(Span::styled(" • ", Style::default().dim()));
+        match &self.mode {
+            Mode::Normal | Mode::Rub { .. } | Mode::InlineReword { .. } => {
+                let mut line = Line::default();
+                let mut key_binds_iter = self
+                    .key_binds
+                    .iter()
+                    .copied()
+                    .filter(|key_bind| key_bind.available_in_mode(&self.mode))
+                    .filter(|key_bind| !key_bind.hidden)
+                    .peekable();
+                while let Some(key_bind) = key_binds_iter.next() {
+                    line.extend([
+                        Span::styled(key_bind.code_display, Style::default().blue()),
+                        Span::raw(" "),
+                        Span::styled(key_bind.short_description, Style::default().dim()),
+                    ]);
+
+                    if key_binds_iter.peek().is_some() {
+                        line.push_span(Span::styled(" • ", Style::default().dim()));
+                    }
+                }
+
+                frame.render_widget(line, layout[2]);
+            }
+            Mode::Command { textarea } => {
+                let command_layout =
+                    Layout::horizontal([Constraint::Length(4), Constraint::Min(1)])
+                        .split(layout[2]);
+
+                frame.render_widget("but ", command_layout[0]);
+                frame.render_widget(&**textarea, command_layout[1]);
             }
         }
-
-        frame.render_widget(line, area);
     }
 
     fn render_errors(&self, area: Rect, frame: &mut Frame) {
@@ -796,13 +885,27 @@ fn event_to_messages(ev: Event, key_binds: &[KeyBind], mode: &Mode, messages: &m
                     Mode::InlineReword { .. } => {
                         messages.push(Message::RewordInlineInput(ev));
                     }
+                    Mode::Command { .. } => {
+                        messages.push(Message::CommandInput(ev));
+                    }
                     Mode::Normal | Mode::Rub { .. } => {}
                 }
             }
         }
-        Event::Resize(_, _) | Event::Paste(_) => {
-            messages.push(Message::Noop); // trigger a render
+        Event::Resize(_, _) => {
+            messages.push(Message::Noop);
         }
+        Event::Paste(_) => match mode {
+            Mode::InlineReword { .. } => {
+                messages.push(Message::RewordInlineInput(ev));
+            }
+            Mode::Command { .. } => {
+                messages.push(Message::CommandInput(ev));
+            }
+            Mode::Normal | Mode::Rub { .. } => {
+                messages.push(Message::Noop);
+            }
+        },
         Event::FocusGained => {
             messages.push(Message::Reload(None));
         }
@@ -829,6 +932,9 @@ enum Message {
     StartRewordInline,
     ConfirmInlineReword,
     RewordInlineInput(Event),
+    EnterCommandMode,
+    CommandInput(Event),
+    RunCommand,
 }
 
 #[derive(Debug, Default, strum::EnumDiscriminants)]
@@ -841,6 +947,9 @@ enum Mode {
     },
     InlineReword {
         commit_id: gix::ObjectId,
+        textarea: Box<TextArea<'static>>,
+    },
+    Command {
         textarea: Box<TextArea<'static>>,
     },
 }
