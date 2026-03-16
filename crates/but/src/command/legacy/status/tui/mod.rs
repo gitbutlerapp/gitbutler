@@ -49,6 +49,7 @@ use super::output::{StatusOutputContent, StatusOutputLineData};
 
 mod cursor;
 mod key_bind;
+mod rub_api;
 
 #[cfg(test)]
 mod tests;
@@ -250,7 +251,13 @@ impl App {
             Message::MoveCursorNextSection => self
                 .cursor
                 .move_next_section(&self.status_lines, &self.mode),
-            Message::StartRub => self.handle_start_rub(),
+            Message::StartRub { using_but_api } => {
+                if using_but_api {
+                    self.handle_start_rub_using_but_api()
+                } else {
+                    self.handle_start_rub()
+                }
+            }
             Message::EnterNormalMode => {
                 self.mode = Mode::Normal;
             }
@@ -318,6 +325,47 @@ impl App {
         }
     }
 
+    fn handle_start_rub_using_but_api(&mut self) {
+        if !matches!(self.mode, Mode::Normal) {
+            return;
+        }
+
+        let Some(selected_line) = self.cursor.selected_line(&self.status_lines) else {
+            return;
+        };
+
+        let Some(cli_id) = selected_line.data.cli_id() else {
+            return;
+        };
+
+        let available_targets = self
+            .status_lines
+            .iter()
+            .filter_map(|line| line.data.cli_id())
+            .filter(|target| *target == cli_id || route_operation(cli_id, target).is_some())
+            .cloned()
+            .collect::<Vec<_>>();
+
+        self.mode = Mode::RubButApi {
+            source: Arc::clone(cli_id),
+            available_targets,
+        };
+
+        if self
+            .cursor
+            .selected_line(&self.status_lines)
+            .is_some_and(|line| cursor::is_selectable_in_mode(line, &self.mode))
+        {
+            return;
+        }
+
+        let previous_cursor = self.cursor;
+        self.cursor.move_down(&self.status_lines, &self.mode);
+        if self.cursor == previous_cursor {
+            self.cursor.move_up(&self.status_lines, &self.mode);
+        }
+    }
+
     /// Handles toggling file visibility and requests a status reload.
     fn handle_toggle_files(&mut self, messages: &mut Vec<Message>) {
         self.flags.show_files = !self.flags.show_files;
@@ -330,15 +378,47 @@ impl App {
         ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
-        if let Mode::Rub { source, .. } = &self.mode
-            && let Some(selected_line) = self.cursor.selected_line(&self.status_lines)
-            && let Some(target) = selected_line.data.cli_id()
-            && let Some(operation) = route_operation(source, target)
-        {
-            with_noop_output(|out| operation.execute(ctx, out))?;
-        }
+        let reload_message = match &self.mode {
+            Mode::Rub {
+                source,
+                available_targets: _,
+            } => {
+                if let Some(selected_line) = self.cursor.selected_line(&self.status_lines)
+                    && let Some(target) = selected_line.data.cli_id()
+                    && let Some(operation) = route_operation(source, target)
+                {
+                    with_noop_output(|out| operation.execute(ctx, out))?;
+                }
+                None
+            }
+            Mode::RubButApi {
+                source,
+                available_targets: _,
+            } => {
+                if let Some(selected_line) = self.cursor.selected_line(&self.status_lines)
+                    && let Some(target) = selected_line.data.cli_id()
+                    && let Some(operation) = route_operation(source, target)
+                {
+                    if let Some(what_to_select) = rub_api::perform_operation(ctx, &operation)? {
+                        Some(Message::Reload(Some(what_to_select)))
+                    } else {
+                        messages.push(Message::ShowError(Arc::new(anyhow::Error::from(
+                            rub_api::OperationNotSupported::new(&operation),
+                        ))));
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            Mode::Normal | Mode::InlineReword { .. } | Mode::Command { .. } => None,
+        };
 
-        messages.extend([Message::EnterNormalMode, Message::Reload(None)]);
+        messages.extend([
+            Message::EnterNormalMode,
+            reload_message.unwrap_or(Message::Reload(None)),
+        ]);
+
         Ok(())
     }
 
@@ -380,7 +460,11 @@ impl App {
 
         self.cursor = if let Some(select_after_reload) = select_after_reload {
             match select_after_reload {
-                SelectAfterReload::Commit(commit_id) => Cursor::select(commit_id, &new_lines),
+                SelectAfterReload::Commit(commit_id) => {
+                    Cursor::select_commit(commit_id, &new_lines)
+                }
+                SelectAfterReload::Branch(branch) => Cursor::select_branch(branch, &new_lines),
+                SelectAfterReload::Unassigned => Cursor::select_unassigned(&new_lines),
             }
         } else {
             self.cursor
@@ -746,7 +830,7 @@ impl App {
                         }
 
                         let rub_operation_display =
-                            rub_operation_display(source, target).unwrap_or("invalid");
+                            rub_operation_display_legacy(source, target).unwrap_or("invalid");
                         line.extend([
                             Span::raw("<< ").black().on_blue(),
                             Span::raw(rub_operation_display).black().on_blue(),
@@ -755,11 +839,49 @@ impl App {
                         ]);
                     }
                 }
+                Mode::RubButApi {
+                    source,
+                    available_targets: _,
+                } => {
+                    if let Some(target) = data.cli_id() {
+                        if target == source {
+                            line.extend([
+                                Span::raw("<< source >>").black().on_green(),
+                                Span::raw(" "),
+                            ]);
+                        }
+
+                        match rub_api::rub_operation_display(source, target)
+                            .unwrap_or(rub_api::RubOperationDisplay::Supported("invalid"))
+                        {
+                            rub_api::RubOperationDisplay::Supported(display) => {
+                                line.extend([
+                                    Span::raw("<< ").black().on_blue(),
+                                    Span::raw(display).black().on_blue(),
+                                    Span::raw(" >>").black().on_blue(),
+                                    Span::raw(" "),
+                                ]);
+                            }
+                            rub_api::RubOperationDisplay::NotSupported(_, discriminant) => {
+                                line.extend([
+                                    Span::raw("<< ").black().on_red(),
+                                    Span::raw(format!("{discriminant:?}")).black().on_red(),
+                                    Span::raw(" is not supported >>").black().on_red(),
+                                    Span::raw(" "),
+                                ]);
+                            }
+                        }
+                    }
+                }
             }
         } else {
             match &self.mode {
                 Mode::Normal | Mode::InlineReword { .. } | Mode::Command { .. } => {}
                 Mode::Rub {
+                    source,
+                    available_targets: _,
+                }
+                | Mode::RubButApi {
                     source,
                     available_targets: _,
                 } => {
@@ -800,6 +922,10 @@ impl App {
             Mode::Rub {
                 source: _,
                 available_targets,
+            }
+            | Mode::RubButApi {
+                source: _,
+                available_targets,
             } => {
                 let can_rub_here = if let Some(cli_id) = data.cli_id() {
                     available_targets.contains(cli_id)
@@ -829,6 +955,9 @@ impl App {
         let mode_span = match self.mode {
             Mode::Normal => Span::styled("  normal  ", Style::default().black().on_green()),
             Mode::Rub { .. } => Span::styled("  rub  ", Style::default().black().on_magenta()),
+            Mode::RubButApi { .. } => {
+                Span::styled("  rub (api)  ", Style::default().black().on_magenta())
+            }
             Mode::InlineReword { .. } => {
                 Span::styled("  reword  ", Style::default().black().on_blue())
             }
@@ -849,7 +978,10 @@ impl App {
         frame.render_widget(" ", layout[1]);
 
         match &self.mode {
-            Mode::Normal | Mode::Rub { .. } | Mode::InlineReword { .. } => {
+            Mode::Normal
+            | Mode::Rub { .. }
+            | Mode::RubButApi { .. }
+            | Mode::InlineReword { .. } => {
                 let mut line = Line::default();
                 let mut key_binds_iter = self
                     .key_binds
@@ -963,7 +1095,7 @@ fn event_to_messages(ev: Event, key_binds: &KeyBinds, mode: &Mode, messages: &mu
                     Mode::Command { .. } => {
                         messages.push(Message::CommandInput(ev));
                     }
-                    Mode::Normal | Mode::Rub { .. } => {}
+                    Mode::Normal | Mode::Rub { .. } | Mode::RubButApi { .. } => {}
                 }
             }
         }
@@ -977,7 +1109,7 @@ fn event_to_messages(ev: Event, key_binds: &KeyBinds, mode: &Mode, messages: &mu
             Mode::Command { .. } => {
                 messages.push(Message::CommandInput(ev));
             }
-            Mode::Normal | Mode::Rub { .. } => {
+            Mode::Normal | Mode::Rub { .. } | Mode::RubButApi { .. } => {
                 messages.push(Message::Noop);
             }
         },
@@ -996,7 +1128,7 @@ enum Message {
     MoveCursorDown,
     MoveCursorPreviousSection,
     MoveCursorNextSection,
-    StartRub,
+    StartRub { using_but_api: bool },
     EnterNormalMode,
     ConfirmRub,
     Reload(Option<SelectAfterReload>),
@@ -1022,6 +1154,10 @@ enum Mode {
         source: Arc<CliId>,
         available_targets: Vec<Arc<CliId>>,
     },
+    RubButApi {
+        source: Arc<CliId>,
+        available_targets: Vec<Arc<CliId>>,
+    },
     InlineReword {
         commit_id: gix::ObjectId,
         textarea: Box<TextArea<'static>>,
@@ -1032,39 +1168,11 @@ enum Mode {
 }
 
 /// What to select after reloading
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 enum SelectAfterReload {
-    /// Select a specific commit
     Commit(gix::ObjectId),
-}
-
-fn rub_operation_display(source: &CliId, target: &CliId) -> Option<&'static str> {
-    if source == target {
-        return Some("no operation");
-    }
-
-    Some(match route_operation(source, target)? {
-        RubOperation::UnassignUncommitted(..) => "unassign hunks",
-        RubOperation::UncommittedToCommit(..) => "amend commit",
-        RubOperation::UncommittedToBranch(..) => "assign hunks",
-        RubOperation::UncommittedToStack(..) => "assign hunks",
-        RubOperation::StackToUnassigned(..) => "unassign hunks",
-        RubOperation::StackToStack { .. } => "reassign hunks",
-        RubOperation::StackToBranch { .. } => "reassign hunks",
-        RubOperation::UnassignedToCommit(..) => "amend commit",
-        RubOperation::UnassignedToBranch(..) => "assign hunks",
-        RubOperation::UnassignedToStack(..) => "assign hunks",
-        RubOperation::UndoCommit(..) => "undo commit",
-        RubOperation::SquashCommits { .. } => "squash commits",
-        RubOperation::MoveCommitToBranch(..) => "move commit",
-        RubOperation::BranchToUnassigned(..) => "unassign hunks",
-        RubOperation::BranchToStack { .. } => "reassign hunks",
-        RubOperation::BranchToCommit(..) => "amend commit",
-        RubOperation::BranchToBranch { .. } => "reassign hunks",
-        RubOperation::CommittedFileToBranch(..) => "extract file",
-        RubOperation::CommittedFileToCommit(..) => "move file",
-        RubOperation::CommittedFileToUnassigned(..) => "extract file",
-    })
+    Branch(String),
+    Unassigned,
 }
 
 struct PopupMargin {
@@ -1132,4 +1240,33 @@ where
 pub(super) struct AppError {
     pub(super) inner: Arc<anyhow::Error>,
     pub(super) dismiss_at: Instant,
+}
+
+fn rub_operation_display_legacy(source: &CliId, target: &CliId) -> Option<&'static str> {
+    if source == target {
+        return Some("noop");
+    }
+
+    Some(match route_operation(source, target)? {
+        RubOperation::UnassignUncommitted(..) => "unassign hunks",
+        RubOperation::UncommittedToCommit(..) => "amend commit",
+        RubOperation::UncommittedToBranch(..) => "assign hunks",
+        RubOperation::UncommittedToStack(..) => "assign hunks",
+        RubOperation::StackToUnassigned(..) => "unassign hunks",
+        RubOperation::StackToStack { .. } => "reassign hunks",
+        RubOperation::StackToBranch { .. } => "reassign hunks",
+        RubOperation::UnassignedToCommit(..) => "amend commit",
+        RubOperation::UnassignedToBranch(..) => "assign hunks",
+        RubOperation::UnassignedToStack(..) => "assign hunks",
+        RubOperation::UndoCommit(..) => "undo commit",
+        RubOperation::SquashCommits { .. } => "squash commits",
+        RubOperation::MoveCommitToBranch(..) => "move commit",
+        RubOperation::BranchToUnassigned(..) => "unassign hunks",
+        RubOperation::BranchToStack { .. } => "reassign hunks",
+        RubOperation::BranchToCommit(..) => "amend commit",
+        RubOperation::BranchToBranch { .. } => "reassign hunks",
+        RubOperation::CommittedFileToBranch(..) => "extract file",
+        RubOperation::CommittedFileToCommit(..) => "move file",
+        RubOperation::CommittedFileToUnassigned(..) => "extract file",
+    })
 }
