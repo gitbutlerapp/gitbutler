@@ -255,6 +255,39 @@ const useDroppable = ({
 	};
 };
 
+const useMonitorDraggedSourceItem = ({
+	projectId,
+	setDraggedSourceItem,
+}: {
+	projectId: string;
+	setDraggedSourceItem: (sourceItem: SourceItem | null) => void;
+}): void => {
+	const runOperation = useRunOperation(projectId);
+
+	useEffect(
+		() =>
+			monitorForElements({
+				canMonitor: ({ source }) => parseDragData(source.data) !== null,
+				onDragStart: ({ source }) => {
+					setDraggedSourceItem(parseDragData(source.data));
+				},
+				onDrop: ({ source, location }) => {
+					setDraggedSourceItem(null);
+
+					const sourceItem = parseDragData(source.data);
+					const operationTarget = location.current.dropTargets
+						.map((dropTarget) => parseDropTargetData(dropTarget.data))
+						.find((target) => target);
+
+					if (!sourceItem || !operationTarget) return;
+
+					runOperation(sourceItem, operationTarget);
+				},
+			}),
+		[runOperation, setDraggedSourceItem],
+	);
+};
+
 const useRunOperation = (projectId: string) => {
 	const rubMutation = useMutation(rubMutationOptions);
 	const commitMove = useMutation(commitMoveMutationOptions);
@@ -1390,7 +1423,6 @@ const StackLane: FC<{
 
 const ProjectPage: FC = () => {
 	const { id } = projectRootRoute.useParams();
-	const runOperation = useRunOperation(id);
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 	const [draggedSourceItem, setDraggedSourceItem] = useState<SourceItem | null>(null);
@@ -1402,28 +1434,7 @@ const ProjectPage: FC = () => {
 	// TODO: handle project not found error. or only run when project is not null? waterfall.
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(id));
 
-	useEffect(
-		() =>
-			monitorForElements({
-				canMonitor: ({ source }) => parseDragData(source.data) !== null,
-				onDragStart: ({ source }) => {
-					setDraggedSourceItem(parseDragData(source.data));
-				},
-				onDrop: ({ source, location }) => {
-					setDraggedSourceItem(null);
-
-					const sourceItem = parseDragData(source.data);
-					const operationTarget = location.current.dropTargets
-						.map((dropTarget) => parseDropTargetData(dropTarget.data))
-						.find((target) => target);
-
-					if (!sourceItem || !operationTarget) return;
-
-					runOperation(sourceItem, operationTarget);
-				},
-			}),
-		[runOperation],
-	);
+	useMonitorDraggedSourceItem({ projectId: id, setDraggedSourceItem });
 
 	// TODO: dedupe
 	if (!project) return <p>Project not found.</p>;
