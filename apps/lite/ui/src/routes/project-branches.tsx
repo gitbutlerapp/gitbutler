@@ -345,7 +345,9 @@ const ProjectBranchesPage: FC = () => {
 										type="button"
 										className={classes(styles.branchButton, isSelected && sharedStyles.selected)}
 										onClick={() => {
-											setSelectedBranchName(branch.name);
+											setSelectedBranchName((selected) =>
+												selected === branch.name ? null : branch.name,
+											);
 										}}
 									>
 										{branch.name}
