@@ -381,7 +381,7 @@ const DraggableHunk: FC<
 		},
 	};
 	const { ref: dragRef, isDragging } = useDraggable({
-		data: { sourceItem } as DragData,
+		data: { sourceItem } satisfies DragData,
 		preview: (
 			<>
 				Hunk -{hunk.oldStart},{hunk.oldLines}, +{hunk.newStart},{hunk.newLines}
@@ -407,7 +407,7 @@ const DraggableCommit: FC<
 	const { id: commitId } = commit;
 	const sourceItem: SourceItem = { _tag: "Commit", commitId };
 	const { ref: dragRef, isDragging } = useDraggable({
-		data: { sourceItem } as DragData,
+		data: { sourceItem } satisfies DragData,
 		preview: <CommitLabel commit={commit} />,
 	});
 
@@ -528,7 +528,7 @@ const DraggableFile: FC<
 		},
 	};
 	const { ref: dragRef, isDragging } = useDraggable({
-		data: { sourceItem } as DragData,
+		data: { sourceItem } satisfies DragData,
 		preview: change.path,
 	});
 
