@@ -589,7 +589,7 @@ const InlineCommitMessageEditor: FC<{
 			}}
 			defaultValue={message}
 			className={classes(
-				styles.commitMessageInput,
+				styles.editCommitMessageInput,
 				isSelected
 					? sharedStyles.selected
 					: isAnyFileSelected

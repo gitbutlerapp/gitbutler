@@ -68,7 +68,7 @@
 	background-color: black;
 }
 
-.commitMessageInput {
+.editCommitMessageInput {
 	flex-grow: 1;
 	field-sizing: content;
 }
