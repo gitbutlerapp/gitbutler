@@ -1,18 +1,3 @@
-.lanes {
-	display: flex;
-	column-gap: 16px;
-	flex-grow: 1;
-	padding-left: 0;
-	list-style: none;
-
-	/* Temporary hack to prevent scroll jumping when diff view collapses. */
-	&:after {
-		flex-shrink: 0;
-		width: 1000px;
-		content: "";
-	}
-}
-
 .unassignedChanges {
 	flex-grow: 1;
 	min-height: 300px;
@@ -29,6 +14,12 @@
 	flex-direction: column;
 }
 
+.commitFormMessageInput {
+	field-sizing: content;
+	box-sizing: content-box;
+	min-height: calc(2lh);
+}
+
 .segments {
 	display: flex;
 	row-gap: 16px;
@@ -39,7 +30,6 @@
 
 .commitRow {
 	display: flex;
-	column-gap: 4px;
 }
 
 .commitMoveTarget {
@@ -69,9 +59,11 @@
 	background-color: black;
 }
 
-.commitMessageInput {
+.editCommitMessageInput {
 	flex-grow: 1;
 	field-sizing: content;
+	box-sizing: content-box;
+	min-height: calc(2lh);
 }
 
 .tooltip {

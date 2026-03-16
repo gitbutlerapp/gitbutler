@@ -7,8 +7,8 @@ import {
 	CommitsList,
 	FileDiff,
 	FileButton,
-	HunkListItem,
-	hunkKey,
+	Hunk,
+	classes,
 } from "#ui/routes/project-shared.tsx";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { BranchListing, Commit, TreeChange } from "@gitbutler/but-sdk";
@@ -41,11 +41,9 @@ const File: FC<{
 	isSelected: boolean;
 	toggleSelect: () => void;
 }> = ({ change, isSelected, toggleSelect }) => (
-	<li>
-		<div className={sharedStyles.fileRow}>
-			<FileButton change={change} isSelected={isSelected} toggleSelect={toggleSelect} />
-		</div>
-	</li>
+	<div className={sharedStyles.fileRow}>
+		<FileButton change={change} isSelected={isSelected} toggleSelect={toggleSelect} />
+	</div>
 );
 
 const CommitC: FC<{
@@ -68,7 +66,7 @@ const CommitC: FC<{
 	const expanded = isSelected || isAnyFileSelected;
 
 	return (
-		<li className={sharedStyles.commitsListItem}>
+		<div className={sharedStyles.commit}>
 			<CommitButton
 				commit={commit}
 				isSelected={isSelected}
@@ -84,7 +82,6 @@ const CommitC: FC<{
 							commitId={commit.id}
 							renderFile={(change) => (
 								<File
-									key={change.path}
 									isSelected={isFileSelected(change.path)}
 									toggleSelect={() => toggleFileSelect(change.path)}
 									change={change}
@@ -94,7 +91,7 @@ const CommitC: FC<{
 					</Suspense>
 				</div>
 			)}
-		</li>
+		</div>
 	);
 };
 
@@ -130,7 +127,6 @@ const BranchDetails: FC<{
 			<CommitsList commits={branchDetails.commits}>
 				{(commit) => (
 					<CommitC
-						key={commit.id}
 						projectId={projectId}
 						commit={commit}
 						isSelected={isCommitSelected(commit.id)}
@@ -162,21 +158,13 @@ const SelectedCommitFileDiff: FC<{
 	if (!change) return null;
 
 	return (
-		<div className={sharedStyles.laneDiffPane}>
-			<FileDiff
-				projectId={projectId}
-				change={change}
-				renderHunk={(hunk, patch) => (
-					<HunkListItem
-						key={hunkKey(hunk)}
-						patch={patch}
-						changeUnit={{ _tag: "commit", commitId }}
-						change={change}
-						hunk={hunk}
-					/>
-				)}
-			/>
-		</div>
+		<FileDiff
+			projectId={projectId}
+			change={change}
+			renderHunk={(hunk, patch) => (
+				<Hunk patch={patch} changeUnit={{ _tag: "commit", commitId }} change={change} hunk={hunk} />
+			)}
+		/>
 	);
 };
 
@@ -191,28 +179,25 @@ const SelectedCommitDiff: FC<{
 	if (data.changes.length === 0) return null;
 
 	return (
-		<div className={sharedStyles.laneDiffPane}>
-			<ul className={sharedStyles.hunks}>
-				{data.changes.map((change) => (
-					<li key={change.path}>
-						<h5>{change.path}</h5>
-						<FileDiff
-							projectId={projectId}
-							change={change}
-							renderHunk={(hunk, patch) => (
-								<HunkListItem
-									key={hunkKey(hunk)}
-									patch={patch}
-									changeUnit={{ _tag: "commit", commitId }}
-									change={change}
-									hunk={hunk}
-								/>
-							)}
-						/>
-					</li>
-				))}
-			</ul>
-		</div>
+		<ul className={sharedStyles.hunks}>
+			{data.changes.map((change) => (
+				<li key={change.path}>
+					<h5>{change.path}</h5>
+					<FileDiff
+						projectId={projectId}
+						change={change}
+						renderHunk={(hunk, patch) => (
+							<Hunk
+								patch={patch}
+								changeUnit={{ _tag: "commit", commitId }}
+								change={change}
+								hunk={hunk}
+							/>
+						)}
+					/>
+				</li>
+			))}
+		</ul>
 	);
 };
 
@@ -239,29 +224,26 @@ const SelectedBranchDiff: FC<{
 	if (data.changes.length === 0) return <div>No file changes.</div>;
 
 	return (
-		<div className={sharedStyles.laneDiffPane}>
-			<ul className={sharedStyles.hunks}>
-				{data.changes.map((change) => (
-					<li key={change.path}>
-						<h5>{change.path}</h5>
-						<FileDiff
-							projectId={projectId}
-							change={change}
-							renderHunk={(hunk, patch) => (
-								<HunkListItem
-									key={hunkKey(hunk)}
-									patch={patch}
-									// TODO: this doesn't make sense
-									changeUnit={{ _tag: "changes", stackId: null }}
-									change={change}
-									hunk={hunk}
-								/>
-							)}
-						/>
-					</li>
-				))}
-			</ul>
-		</div>
+		<ul className={sharedStyles.hunks}>
+			{data.changes.map((change) => (
+				<li key={change.path}>
+					<h5>{change.path}</h5>
+					<FileDiff
+						projectId={projectId}
+						change={change}
+						renderHunk={(hunk, patch) => (
+							<Hunk
+								patch={patch}
+								// TODO: this doesn't make sense
+								changeUnit={{ _tag: "changes", stackId: null }}
+								change={change}
+								hunk={hunk}
+							/>
+						)}
+					/>
+				</li>
+			))}
+		</ul>
 	);
 };
 
@@ -277,8 +259,8 @@ const BranchDetailsLane: FC<{
 	);
 
 	return (
-		<div className={sharedStyles.lane}>
-			<div className={sharedStyles.laneMain}>
+		<div className={sharedStyles.laneColumns}>
+			<div className={sharedStyles.laneMainColumn}>
 				<Suspense fallback={<div>Loading branch details…</div>}>
 					<BranchDetails
 						projectId={projectId}
@@ -290,15 +272,17 @@ const BranchDetailsLane: FC<{
 				</Suspense>
 			</div>
 
-			<Suspense fallback={<div>Loading diff…</div>}>
-				{selection !== null ? (
-					<SelectedLaneDiff projectId={projectId} selection={selection} />
-				) : branchRef !== null ? (
-					<SelectedBranchDiff projectId={projectId} branch={branchRef} />
-				) : (
-					<div>No branch diff available.</div>
-				)}
-			</Suspense>
+			<div className={sharedStyles.laneDiffColumn}>
+				<Suspense fallback={<div>Loading diff…</div>}>
+					{selection !== null ? (
+						<SelectedLaneDiff projectId={projectId} selection={selection} />
+					) : branchRef !== null ? (
+						<SelectedBranchDiff projectId={projectId} branch={branchRef} />
+					) : (
+						<div>No branch diff available.</div>
+					)}
+				</Suspense>
+			</div>
 		</div>
 	);
 };
@@ -317,37 +301,36 @@ const ProjectBranchesPage: FC = () => {
 	const unapplyStack = useMutation(unapplyStackMutationOptions);
 
 	const sortedBranches = branches.slice().sort((a, b) => a.name.localeCompare(b.name));
-	const selectedBranch =
-		sortedBranches.find((branch) => branch.name === selectedBranchName) ??
-		sortedBranches[0] ??
-		null;
-	const selectedBranchResolvedName = selectedBranch?.name ?? null;
+	const selectedBranch = sortedBranches.find((branch) => branch.name === selectedBranchName);
+	const selectedBranchResolvedName = selectedBranch?.name;
 
 	const selectedRemote =
-		selectedBranch && !selectedBranch.hasLocal ? (selectedBranch.remotes[0] ?? null) : null;
+		selectedBranch && !selectedBranch.hasLocal ? selectedBranch.remotes[0] : null;
 
 	// TODO: dedupe
 	if (!project) return <p>Project not found.</p>;
 
 	return (
-		<section>
+		<>
 			<h2>{project.title} branches</h2>
 			{sortedBranches.length === 0 ? (
 				<p>No branches found.</p>
 			) : (
-				<div className={styles.branchesLayout}>
+				<div className={sharedStyles.lanes}>
 					<ul className={styles.branchesList}>
 						{sortedBranches.map((branch) => {
 							const ref = getBranchRef(branch);
 							const stackId = branch.stack?.id;
 							const isSelected = selectedBranchResolvedName === branch.name;
 							return (
-								<li key={branch.name}>
+								<li key={branch.name} className={styles.branchesListItem}>
 									<button
 										type="button"
-										className={isSelected ? sharedStyles.selected : undefined}
+										className={classes(styles.branchButton, isSelected && sharedStyles.selected)}
 										onClick={() => {
-											setSelectedBranchName(branch.name);
+											setSelectedBranchName((selected) =>
+												selected === branch.name ? null : branch.name,
+											);
 										}}
 									>
 										{branch.name}
@@ -390,20 +373,18 @@ const ProjectBranchesPage: FC = () => {
 						})}
 					</ul>
 
-					{selectedBranchResolvedName !== null && (
-						<div className={styles.branchesDetailsPane}>
-							<BranchDetailsLane
-								key={selectedBranchResolvedName}
-								projectId={id}
-								branchName={selectedBranchResolvedName}
-								branchRef={selectedBranch ? getBranchRef(selectedBranch) : null}
-								remote={selectedRemote}
-							/>
-						</div>
+					{selectedBranchResolvedName != null && (
+						<BranchDetailsLane
+							key={selectedBranchResolvedName}
+							projectId={id}
+							branchName={selectedBranchResolvedName}
+							branchRef={selectedBranch ? getBranchRef(selectedBranch) : null}
+							remote={selectedRemote ?? null}
+						/>
 					)}
 				</div>
 			)}
-		</section>
+		</>
 	);
 };
 

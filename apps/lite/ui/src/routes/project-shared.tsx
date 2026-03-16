@@ -23,7 +23,7 @@ import { useDraggable } from "#ui/hooks/useDraggable.tsx";
  * @example
  * classes("foo", undefined, "bar", "", "baz") === "foo bar baz"
  */
-const classes = (...xs: Array<string | null | undefined | false>): string =>
+export const classes = (...xs: Array<string | null | undefined | false>): string =>
 	// oxlint-disable-next-line typescript/strict-boolean-expressions
 	xs.reduce((acc: string, x) => (x ? (acc ? `${acc} ${x}` : x) : acc), "");
 
@@ -102,16 +102,16 @@ const DraggableHunk: FC<
 
 const HunkDiff: FC<{
 	diff: string;
-}> = ({ diff }) => <pre className={styles.hunkDiff}>{diff}</pre>;
+}> = ({ diff }) => <pre className={styles.hunkDiff}>{diff.split("\n").slice(1).join("\n")}</pre>;
 
-export const HunkListItem: FC<{
+export const Hunk: FC<{
 	patch: Patch;
 	changeUnit: ChangeUnit;
 	change: TreeChange;
 	hunk: DiffHunk;
 	headerStart?: ReactNode;
 }> = ({ patch, changeUnit, change, hunk, headerStart }) => (
-	<li className={styles.hunkListItem}>
+	<div>
 		<div className={styles.hunkHeaderRow}>
 			{headerStart}
 			<DraggableHunk
@@ -119,16 +119,16 @@ export const HunkListItem: FC<{
 				changeUnit={changeUnit}
 				change={change}
 				hunk={hunk}
-				render={<button type="button" className={styles.hunkDragHandle} />}
+				className={styles.hunkHeader}
 			>
 				-{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines}
 			</DraggableHunk>
 		</div>
 		<HunkDiff diff={hunk.diff} />
-	</li>
+	</div>
 );
 
-export const hunkKey = (hunk: HunkHeader): string =>
+const hunkKey = (hunk: HunkHeader): string =>
 	`${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`;
 
 export const FileDiff: FC<{
@@ -153,7 +153,11 @@ export const FileDiff: FC<{
 			if (visibleHunks.length === 0) return <div>No hunks.</div>;
 
 			return (
-				<ul className={styles.hunks}>{visibleHunks.map((hunk) => renderHunk(hunk, patch))}</ul>
+				<ul className={styles.hunks}>
+					{visibleHunks.map((hunk) => (
+						<li key={hunkKey(hunk)}>{renderHunk(hunk, patch)}</li>
+					))}
+				</ul>
 			);
 		}),
 		Match.exhaustive,
@@ -212,7 +216,11 @@ export const CommitDetails: FC<{
 			)}
 
 			{data.changes.length > 0 && (
-				<ul className={styles.fileList}>{data.changes.map(renderFile)}</ul>
+				<ul className={styles.fileList}>
+					{data.changes.map((file) => (
+						<li key={file.path}>{renderFile(file)}</li>
+					))}
+				</ul>
 			)}
 		</>
 	);
@@ -269,7 +277,9 @@ export const CommitsList: FC<{
 
 	return (
 		<ul className={styles.commitsList}>
-			{commits.map((commit, index) => children(commit, index))}
+			{commits.map((commit, index) => (
+				<li key={commit.id}>{children(commit, index)}</li>
+			))}
 		</ul>
 	);
 };
