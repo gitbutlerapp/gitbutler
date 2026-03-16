@@ -149,7 +149,7 @@ type OperationTarget =
 			firstCommitId: string | undefined;
 	  };
 
-const getOperationTargetFromData = (data: unknown): OperationTarget | null => {
+const parseDropTargetData = (data: unknown): OperationTarget | null => {
 	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
 	return data as OperationTarget;
 };
@@ -1408,7 +1408,7 @@ const ProjectPage: FC = () => {
 
 					const sourceItem = parseDragData(source.data);
 					const operationTarget = location.current.dropTargets
-						.map((dropTarget) => getOperationTargetFromData(dropTarget.data))
+						.map((dropTarget) => parseDropTargetData(dropTarget.data))
 						.find((target) => target);
 
 					if (!sourceItem || !operationTarget) return;
