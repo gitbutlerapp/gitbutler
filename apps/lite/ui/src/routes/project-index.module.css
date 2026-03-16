@@ -91,6 +91,10 @@
 	background-color: white;
 }
 
+.dragging {
+	opacity: 0.4;
+}
+
 .menuPopup {
 	border: 1px solid;
 	background-color: white;

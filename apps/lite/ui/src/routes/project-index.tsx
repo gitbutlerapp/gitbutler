@@ -10,6 +10,7 @@ import styles from "./project-index.module.css";
 import sharedStyles from "./project-shared.module.css";
 import { Menu } from "@base-ui/react";
 import { ContextMenu } from "@base-ui/react/context-menu";
+import { mergeProps } from "@base-ui/react/merge-props";
 import { Tooltip } from "@base-ui/react/tooltip";
 import { useRender } from "@base-ui/react/use-render";
 import {
@@ -160,8 +161,12 @@ const useDraggable = ({
 	data: DragData;
 	preview: ReactNode;
 	disabled?: boolean;
-}): RefCallback<HTMLElement> => {
+}): {
+	ref: RefCallback<HTMLElement>;
+	isDragging: boolean;
+} => {
 	const [element, setElement] = useState<HTMLElement | null>(null);
+	const [isDragging, setIsDragging] = useState(false);
 	const getInitialData = useEffectEvent(() => data);
 	const onGenerateDragPreview = useEffectEvent(
 		({ nativeSetDragImage }: { nativeSetDragImage: DataTransfer["setDragImage"] | null }) => {
@@ -186,10 +191,16 @@ const useDraggable = ({
 			element,
 			getInitialData,
 			onGenerateDragPreview,
+			onDragStart: () => {
+				setIsDragging(true);
+			},
+			onDrop: () => {
+				setIsDragging(false);
+			},
 		});
 	}, [disabled, element]);
 
-	return setElement;
+	return { ref: setElement, isDragging };
 };
 
 const useDroppable = ({
@@ -323,7 +334,7 @@ const DraggableHunk: FC<
 			hunkHeaders: [hunk],
 		},
 	};
-	const dragRef = useDraggable({
+	const { ref: dragRef, isDragging } = useDraggable({
 		data: { sourceItem } as DragData,
 		preview: (
 			<>
@@ -336,7 +347,9 @@ const DraggableHunk: FC<
 	return useRender({
 		render,
 		ref: dragRef,
-		props,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && styles.dragging),
+		}),
 	});
 };
 
@@ -347,7 +360,7 @@ const DraggableCommit: FC<
 > = ({ commit, render, ...props }) => {
 	const { id: commitId } = commit;
 	const sourceItem: SourceItem = { _tag: "Commit", commitId };
-	const dragRef = useDraggable({
+	const { ref: dragRef, isDragging } = useDraggable({
 		data: { sourceItem } as DragData,
 		preview: <CommitLabel commit={commit} />,
 	});
@@ -355,7 +368,9 @@ const DraggableCommit: FC<
 	return useRender({
 		render,
 		ref: dragRef,
-		props,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && styles.dragging),
+		}),
 	});
 };
 
@@ -500,7 +515,7 @@ const DraggableFile: FC<
 				: [],
 		},
 	};
-	const dragRef = useDraggable({
+	const { ref: dragRef, isDragging } = useDraggable({
 		data: { sourceItem } as DragData,
 		preview: change.path,
 	});
@@ -508,7 +523,9 @@ const DraggableFile: FC<
 	return useRender({
 		render,
 		ref: dragRef,
-		props,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && styles.dragging),
+		}),
 	});
 };
 
