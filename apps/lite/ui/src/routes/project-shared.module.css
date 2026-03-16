@@ -1,6 +1,5 @@
 .lanes {
 	display: flex;
-	column-gap: 16px;
 	flex-grow: 1;
 
 	& > * {
