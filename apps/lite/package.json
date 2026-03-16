@@ -35,9 +35,8 @@
 		}
 	},
 	"dependencies": {
+		"@atlaskit/pragmatic-drag-and-drop": "^1.7.9",
 		"@base-ui/react": "^1.2.0",
-		"@dnd-kit/dom": "^0.3.2",
-		"@dnd-kit/react": "^0.3.2",
 		"@gitbutler/but-sdk": "workspace:*",
 		"@tanstack/react-query": "^5.90.21",
 		"@tanstack/react-query-devtools": "^5.91.3",

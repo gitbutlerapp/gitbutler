@@ -1,4 +1,8 @@
-import { Feedback } from "@dnd-kit/dom";
+import {
+	draggable,
+	dropTargetForElements,
+	monitorForElements,
+} from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { createRoute } from "@tanstack/react-router";
 import styles from "./project-index.module.css";
 import sharedStyles from "./project-shared.module.css";
@@ -6,7 +10,6 @@ import { Menu } from "@base-ui/react";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { Tooltip } from "@base-ui/react/tooltip";
 import { useRender } from "@base-ui/react/use-render";
-import { DragDropProvider, useDraggable, useDragOperation, useDroppable } from "@dnd-kit/react";
 import {
 	RefInfo,
 	Commit,
@@ -23,7 +26,18 @@ import {
 } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
-import { FC, startTransition, Suspense, useOptimistic, useState } from "react";
+import {
+	createContext,
+	FC,
+	RefCallback,
+	startTransition,
+	Suspense,
+	useContext,
+	useEffect,
+	useEffectEvent,
+	useOptimistic,
+	useState,
+} from "react";
 import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
 import {
 	CommitButton,
@@ -101,23 +115,14 @@ type DragData = {
 	sourceItem: SourceItem;
 };
 
-const changeUnitKey = (changeUnit: ChangeUnit, stackId: string | null): string =>
-	changeUnit._tag === "commit"
-		? // The stack ID prefix is necessary whilst we still have the possibility of
-			// the same commit appearing in multiple stacks (e.g. if X and Y both depend
-			// on A then A will be shown twice).
-			`stack:${stackId ?? "null"};commit:${changeUnit.commitId}`
-		: `stack:${changeUnit.stackId ?? "null"};changes`;
+const DraggedSourceItemContext = createContext<SourceItem | null>(null);
 
 const parseDragData = (data: unknown): SourceItem | null => {
 	if (typeof data !== "object" || data === null || !("sourceItem" in data)) return null;
 	return (data as DragData).sourceItem;
 };
 
-const useDraggedSourceItem = (): SourceItem | null => {
-	const operation = useDragOperation();
-	return parseDragData(operation.source?.data);
-};
+const useDraggedSourceItem = (): SourceItem | null => useContext(DraggedSourceItemContext);
 
 type OperationTarget =
 	| {
@@ -140,6 +145,67 @@ type OperationTarget =
 const getOperationTargetFromData = (data: unknown): OperationTarget | null => {
 	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
 	return data as OperationTarget;
+};
+
+const useDraggable = ({
+	data,
+	disabled = false,
+}: {
+	data: DragData;
+	disabled?: boolean;
+}): RefCallback<HTMLElement> => {
+	const [element, setElement] = useState<HTMLElement | null>(null);
+	const getInitialData = useEffectEvent(() => data);
+
+	useEffect(() => {
+		if (!element || disabled) return;
+
+		return draggable({
+			element,
+			getInitialData,
+		});
+	}, [disabled, element]);
+
+	return setElement;
+};
+
+const useDroppable = ({
+	canDrop,
+	data,
+	disabled = false,
+}: {
+	canDrop: (dragData: unknown) => boolean;
+	data: OperationTarget;
+	disabled?: boolean;
+}): {
+	ref: RefCallback<HTMLElement>;
+	isDropTarget: boolean;
+} => {
+	const [element, setElement] = useState<HTMLElement | null>(null);
+	const [isDropTarget, setIsDropTarget] = useState(false);
+	const getData = useEffectEvent(() => data);
+	const canDropForSource = useEffectEvent((dragData: unknown) => canDrop(dragData));
+
+	useEffect(() => {
+		if (!element || disabled) return;
+
+		return dropTargetForElements({
+			element,
+			canDrop: ({ source }) => canDropForSource(source.data),
+			getData,
+			onDragEnter: () => {
+				setIsDropTarget(true);
+			},
+			onDragLeave: () => {
+				setIsDropTarget(false);
+			},
+			onDrop: () => {
+				setIsDropTarget(false);
+			},
+		});
+	}, [disabled, element]);
+
+	return { ref: setElement, isDropTarget };
 };
 
 const useRunOperation = (projectId: string) => {
@@ -221,12 +287,11 @@ const assignedChangesDiffSpecs = (
 const DraggableHunk: FC<
 	{
 		patch: Patch;
-		stackId: string | null;
 		changeUnit: ChangeUnit;
 		change: TreeChange;
 		hunk: DiffHunk;
 	} & useRender.ComponentProps<"div">
-> = ({ patch, stackId, changeUnit, change, hunk, render, ...props }) => {
+> = ({ patch, changeUnit, change, hunk, render, ...props }) => {
 	const sourceItem: SourceItem = {
 		_tag: "TreeChange",
 		source: {
@@ -235,8 +300,7 @@ const DraggableHunk: FC<
 			hunkHeaders: [hunk],
 		},
 	};
-	const { ref: dragRef } = useDraggable({
-		id: `${changeUnitKey(changeUnit, stackId)};file:${change.path};hunk:${hunkKey(hunk)}`,
+	const dragRef = useDraggable({
 		data: { sourceItem } as DragData,
 		disabled: patch.subject.isResultOfBinaryToTextConversion,
 	});
@@ -251,14 +315,10 @@ const DraggableHunk: FC<
 const DraggableCommit: FC<
 	{
 		commitId: string;
-		stackId: string;
 	} & useRender.ComponentProps<"div">
-> = ({ commitId, stackId, render, ...props }) => {
+> = ({ commitId, render, ...props }) => {
 	const sourceItem: SourceItem = { _tag: "Commit", commitId };
-	const { ref: dragRef } = useDraggable({
-		id: changeUnitKey({ _tag: "commit", commitId }, stackId),
-		data: { sourceItem } as DragData,
-	});
+	const dragRef = useDraggable({ data: { sourceItem } as DragData });
 
 	return useRender({
 		render,
@@ -269,13 +329,12 @@ const DraggableCommit: FC<
 
 const ChangesHunkListItem: FC<{
 	patch: Patch;
-	stackId: string | null;
 	changeUnit: ChangeUnit;
 	change: TreeChange;
 	hunk: DiffHunk;
 	hunkDependencyDiffs: Array<HunkDependencyDiff> | undefined;
 	onLockHover: (commitIds: Array<string> | null) => void;
-}> = ({ patch, stackId, changeUnit, change, hunk, hunkDependencyDiffs, onLockHover }) => {
+}> = ({ patch, changeUnit, change, hunk, hunkDependencyDiffs, onLockHover }) => {
 	const dependencyCommitIds = hunkDependencyDiffs
 		? dependencyCommitIdsForHunk(hunk, hunkDependencyDiffs)
 		: [];
@@ -283,7 +342,6 @@ const ChangesHunkListItem: FC<{
 	return (
 		<DraggableHunk
 			patch={patch}
-			stackId={stackId}
 			changeUnit={changeUnit}
 			change={change}
 			hunk={hunk}
@@ -310,14 +368,12 @@ const ChangesHunkListItem: FC<{
 
 const CommitHunkListItem: FC<{
 	patch: Patch;
-	stackId: string | null;
 	changeUnit: ChangeUnit;
 	change: TreeChange;
 	hunk: DiffHunk;
-}> = ({ patch, stackId, changeUnit, change, hunk }) => (
+}> = ({ patch, changeUnit, change, hunk }) => (
 	<DraggableHunk
 		patch={patch}
-		stackId={stackId}
 		changeUnit={changeUnit}
 		change={change}
 		hunk={hunk}
@@ -395,11 +451,10 @@ const dependencyCommitIdsForFile = (
 const DraggableFile: FC<
 	{
 		change: TreeChange;
-		stackId: string | null;
 		changeUnit: ChangeUnit;
 		assignments?: Array<HunkAssignment>;
 	} & useRender.ComponentProps<"div">
-> = ({ change, stackId, changeUnit, assignments, render, ...props }) => {
+> = ({ change, changeUnit, assignments, render, ...props }) => {
 	const sourceItem: SourceItem = {
 		_tag: "TreeChange",
 		source: {
@@ -413,10 +468,7 @@ const DraggableFile: FC<
 				: [],
 		},
 	};
-	const { ref: dragRef } = useDraggable({
-		id: `${changeUnitKey(changeUnit, stackId)};file:${change.path}`,
-		data: { sourceItem } as DragData,
-	});
+	const dragRef = useDraggable({ data: { sourceItem } as DragData });
 
 	return useRender({
 		render,
@@ -452,7 +504,6 @@ const SelectedChangesFileDiff: FC<{
 					<ChangesHunkListItem
 						key={hunkKey(hunk)}
 						patch={patch}
-						stackId={stackId}
 						changeUnit={{ _tag: "changes", stackId }}
 						change={change}
 						hunk={hunk}
@@ -467,10 +518,9 @@ const SelectedChangesFileDiff: FC<{
 
 const SelectedCommitFileDiff: FC<{
 	projectId: string;
-	stackId: string;
 	commitId: string;
 	path: string;
-}> = ({ projectId, stackId, commitId, path }) => {
+}> = ({ projectId, commitId, path }) => {
 	const { data } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
@@ -487,7 +537,6 @@ const SelectedCommitFileDiff: FC<{
 					<CommitHunkListItem
 						key={hunkKey(hunk)}
 						patch={patch}
-						stackId={stackId}
 						changeUnit={{ _tag: "commit", commitId }}
 						change={change}
 						hunk={hunk}
@@ -500,9 +549,8 @@ const SelectedCommitFileDiff: FC<{
 
 const SelectedCommitDiff: FC<{
 	projectId: string;
-	stackId: string;
 	commitId: string;
-}> = ({ projectId, stackId, commitId }) => {
+}> = ({ projectId, commitId }) => {
 	const { data } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
@@ -522,7 +570,6 @@ const SelectedCommitDiff: FC<{
 								<CommitHunkListItem
 									key={hunkKey(hunk)}
 									patch={patch}
-									stackId={stackId}
 									changeUnit={{ _tag: "commit", commitId }}
 									change={change}
 									hunk={hunk}
@@ -538,14 +585,12 @@ const SelectedCommitDiff: FC<{
 
 const RubTarget: FC<{
 	target: ChangeUnit;
-	stackId: string | null;
 	children: React.ReactElement;
-}> = ({ target, stackId, children }) => {
+}> = ({ target, children }) => {
 	const sourceItem = useDraggedSourceItem();
 	const { ref: dropRef, isDropTarget } = useDroppable({
-		id: `${changeUnitKey(target, stackId)};rub`,
-		accept: (source) => {
-			const sourceItem = parseDragData(source.data);
+		canDrop: (dragData) => {
+			const sourceItem = parseDragData(dragData);
 			return !!sourceItem && rubOperationLabel(rubSourceFor(sourceItem), target) !== null;
 		},
 		data: {
@@ -574,12 +619,11 @@ const RubTarget: FC<{
 };
 
 const CommitMoveTarget: FC<{
-	stackId: string;
 	commitId: string;
 	side: InsertSide;
 	previousCommitId: string | undefined;
 	nextCommitId: string | undefined;
-}> = ({ stackId, commitId, side, previousCommitId, nextCommitId }) => {
+}> = ({ commitId, side, previousCommitId, nextCommitId }) => {
 	const sourceItem = useDraggedSourceItem();
 	const isNoOp = (sourceCommitId: string): boolean =>
 		sourceCommitId === commitId ||
@@ -587,9 +631,8 @@ const CommitMoveTarget: FC<{
 		(side === "below" && nextCommitId === sourceCommitId);
 
 	const { ref: dropRef, isDropTarget } = useDroppable({
-		id: `stack:${stackId};commit-move:${commitId};side:${side}`,
-		accept: (source) => {
-			const sourceItem = parseDragData(source.data);
+		canDrop: (dragData) => {
+			const sourceItem = parseDragData(dragData);
 			return sourceItem?._tag === "Commit" && !isNoOp(sourceItem.commitId);
 		},
 		data: {
@@ -748,7 +791,6 @@ const StackMenuPopup: FC<{
 
 const CommitC: FC<{
 	projectId: string;
-	stackId: string;
 	commit: Commit;
 	previousCommitId: string | undefined;
 	nextCommitId: string | undefined;
@@ -760,7 +802,6 @@ const CommitC: FC<{
 	toggleFileSelect: (path: string) => void;
 }> = ({
 	projectId,
-	stackId,
 	commit,
 	previousCommitId,
 	nextCommitId,
@@ -793,13 +834,12 @@ const CommitC: FC<{
 	return (
 		<li className={sharedStyles.commitsListItem}>
 			<CommitMoveTarget
-				stackId={stackId}
 				commitId={commit.id}
 				side="above"
 				previousCommitId={previousCommitId}
 				nextCommitId={nextCommitId}
 			/>
-			<RubTarget target={changeUnit} stackId={stackId}>
+			<RubTarget target={changeUnit}>
 				<div className={styles.commitRow}>
 					{isEditingMessage ? (
 						<InlineCommitMessageEditor
@@ -819,7 +859,6 @@ const CommitC: FC<{
 								render={
 									<DraggableCommit
 										commitId={commit.id}
-										stackId={stackId}
 										render={
 											<CommitButton
 												commit={{ ...commit, message: optimisticMessage }}
@@ -868,7 +907,6 @@ const CommitC: FC<{
 									<div className={sharedStyles.fileRow}>
 										<DraggableFile
 											change={change}
-											stackId={stackId}
 											changeUnit={changeUnit}
 											render={
 												<FileButton
@@ -887,7 +925,6 @@ const CommitC: FC<{
 			)}
 			{nextCommitId === undefined && (
 				<CommitMoveTarget
-					stackId={stackId}
 					commitId={commit.id}
 					side="below"
 					previousCommitId={previousCommitId}
@@ -918,7 +955,7 @@ const Changes: FC<{
 	const changeUnit: ChangeUnit = { _tag: "changes", stackId };
 
 	return (
-		<RubTarget target={changeUnit} stackId={stackId}>
+		<RubTarget target={changeUnit}>
 			<div className={className}>
 				{changes.length === 0 ? (
 					<>No changes.</>
@@ -937,7 +974,6 @@ const Changes: FC<{
 									<div className={sharedStyles.fileRow}>
 										<DraggableFile
 											change={change}
-											stackId={stackId}
 											changeUnit={changeUnit}
 											assignments={assignments}
 											render={
@@ -1095,15 +1131,13 @@ type StackLaneSelection =
 	  };
 
 const CommitMoveToBranchTarget: FC<{
-	stackId: string;
 	anchorRef: string | null;
 	firstCommitId: string | undefined;
 	children: React.ReactElement;
-}> = ({ stackId, anchorRef, firstCommitId, children }) => {
+}> = ({ anchorRef, firstCommitId, children }) => {
 	const { ref: dropRef, isDropTarget } = useDroppable({
-		id: `stack:${stackId};branch:${anchorRef ?? "null"}`,
-		accept: (source) => {
-			const sourceItem = parseDragData(source.data);
+		canDrop: (dragData) => {
+			const sourceItem = parseDragData(dragData);
 			return sourceItem?._tag === "Commit" && firstCommitId !== sourceItem.commitId;
 		},
 		disabled: anchorRef === null,
@@ -1217,7 +1251,6 @@ const StackLane: FC<{
 						return (
 							<li key={branchName}>
 								<CommitMoveToBranchTarget
-									stackId={stackId}
 									anchorRef={anchorRef}
 									firstCommitId={segment.commits[0]?.id}
 								>
@@ -1235,7 +1268,6 @@ const StackLane: FC<{
 											<CommitC
 												key={commit.id}
 												projectId={projectId}
-												stackId={stackId}
 												commit={commit}
 												previousCommitId={segment.commits[index - 1]?.id}
 												nextCommitId={segment.commits[index + 1]?.id}
@@ -1272,14 +1304,9 @@ const StackLane: FC<{
 						)),
 						Match.tag("commit", ({ commitId, path }) =>
 							path !== undefined ? (
-								<SelectedCommitFileDiff
-									projectId={projectId}
-									stackId={stackId}
-									commitId={commitId}
-									path={path}
-								/>
+								<SelectedCommitFileDiff projectId={projectId} commitId={commitId} path={path} />
 							) : (
-								<SelectedCommitDiff projectId={projectId} stackId={stackId} commitId={commitId} />
+								<SelectedCommitDiff projectId={projectId} commitId={commitId} />
 							),
 						),
 						Match.exhaustive,
@@ -1295,6 +1322,7 @@ const ProjectPage: FC = () => {
 	const runOperation = useRunOperation(id);
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
+	const [draggedSourceItem, setDraggedSourceItem] = useState<SourceItem | null>(null);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 
@@ -1302,6 +1330,29 @@ const ProjectPage: FC = () => {
 
 	// TODO: handle project not found error. or only run when project is not null? waterfall.
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(id));
+
+	useEffect(
+		() =>
+			monitorForElements({
+				canMonitor: ({ source }) => parseDragData(source.data) !== null,
+				onDragStart: ({ source }) => {
+					setDraggedSourceItem(parseDragData(source.data));
+				},
+				onDrop: ({ source, location }) => {
+					setDraggedSourceItem(null);
+
+					const sourceItem = parseDragData(source.data);
+					const operationTarget = location.current.dropTargets
+						.map((dropTarget) => getOperationTargetFromData(dropTarget.data))
+						.find((target) => target);
+
+					if (!sourceItem || !operationTarget) return;
+
+					runOperation(sourceItem, operationTarget);
+				},
+			}),
+		[runOperation],
+	);
 
 	// TODO: dedupe
 	if (!project) return <p>Project not found.</p>;
@@ -1313,18 +1364,7 @@ const ProjectPage: FC = () => {
 	};
 
 	return (
-		<DragDropProvider
-			plugins={(defaults) => [...defaults, Feedback.configure({ dropAnimation: null })]}
-			onDragEnd={(event) => {
-				if (event.canceled) return;
-
-				const sourceItem = parseDragData(event.operation.source?.data);
-				const operationTarget = getOperationTargetFromData(event.operation.target?.data);
-				if (!sourceItem || !operationTarget) return;
-
-				runOperation(sourceItem, operationTarget);
-			}}
-		>
+		<DraggedSourceItemContext.Provider value={draggedSourceItem}>
 			<h2>{project.title} workspace</h2>
 
 			<ul className={styles.lanes}>
@@ -1342,7 +1382,7 @@ const ProjectPage: FC = () => {
 			</ul>
 
 			{baseId !== undefined && <>{shortCommitId(baseId)} (common base commit)</>}
-		</DragDropProvider>
+		</DraggedSourceItemContext.Provider>
 	);
 };
 
