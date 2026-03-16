@@ -74,6 +74,31 @@ Updated commit message for [..] (now [..])
 // Note: Branch rename test is omitted because the test scenario uses single-character
 // branch names ("A") which don't meet the 2-character minimum requirement for CLI IDs.
 // The branch rename functionality with -m flag is tested manually and works correctly.
+#[test]
+fn reword_branch_from_editor_trims_trailing_newlines_in_confirmation_output() -> anyhow::Result<()>
+{
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+
+    env.setup_metadata(&["A"])?;
+    env.but("branch new branch-to-rename-123")
+        .assert()
+        .success();
+
+    env.file(
+        "editor.sh",
+        "#!/usr/bin/env bash\nprintf 'renamed-branch\\n\\n' > \"$1\"\n",
+    );
+    env.but("reword branch-to-rename-123")
+        .env("EDITOR", "bash editor.sh")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Renamed branch 'branch-to-rename-123' to 'renamed-branch'
+
+"#]]);
+
+    Ok(())
+}
 
 #[test]
 fn reword_commit_with_same_message_succeeds_as_noop() -> anyhow::Result<()> {

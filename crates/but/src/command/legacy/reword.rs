@@ -247,12 +247,13 @@ fn get_branch_name_from_editor(current_name: &str) -> Result<String> {
 
     let branch_name_lossy =
         tui::get_text::from_editor_no_comments("branch_name", &template)?.to_string();
+    let branch_name = branch_name_lossy.trim();
 
-    if branch_name_lossy.is_empty() {
+    if branch_name.is_empty() {
         bail!("Aborting due to empty branch name");
     }
 
-    Ok(branch_name_lossy)
+    Ok(branch_name.to_string())
 }
 
 #[cfg(test)]
