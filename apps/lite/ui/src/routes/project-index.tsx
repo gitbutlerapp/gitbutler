@@ -71,14 +71,14 @@ type HunkDependencyDiff = HunkDependencies["diffs"][number];
 
 const LockIndicator: FC<{
 	commitIds: NonEmptyArray<string>;
-	onHover?: (commitIds: Array<string> | null) => void;
+	onHover: (commitIds: Array<string> | null) => void;
 }> = ({ commitIds, onHover }) => (
 	<span
 		onMouseEnter={() => {
-			onHover?.(commitIds);
+			onHover(commitIds);
 		}}
 		onMouseLeave={() => {
-			onHover?.(null);
+			onHover(null);
 		}}
 	>
 		🔒
@@ -844,7 +844,7 @@ const Changes: FC<{
 	stackId: string | null;
 	isFileSelected: (path: string) => boolean;
 	toggleFileSelect: (path: string) => void;
-	onLockHover?: (commitIds: Array<string> | null) => void;
+	onLockHover: (commitIds: Array<string> | null) => void;
 	className?: string;
 }> = ({ projectId, stackId, isFileSelected, toggleFileSelect, onLockHover, className }) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
