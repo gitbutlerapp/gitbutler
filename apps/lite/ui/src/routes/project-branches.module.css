@@ -1,11 +1,11 @@
 .branchesLayout {
-	display: grid;
-	grid-template-columns: max-content minmax(0, 1fr);
+	display: flex;
 	column-gap: 16px;
 	align-items: start;
 }
 
 .branchesList {
+	flex-shrink: 0;
 	padding: 8px;
 	border: 1px solid;
 	list-style: none;
