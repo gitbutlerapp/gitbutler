@@ -617,6 +617,7 @@ const InlineCommitMessageEditor: FC<{
 	onExit,
 }) => {
 	const commitReword = useMutation(commitRewordMutationOptions);
+	const initialMessage = message.trim();
 
 	return (
 		<textarea
@@ -626,7 +627,7 @@ const InlineCommitMessageEditor: FC<{
 				const cursorPosition = el.value.length;
 				el.setSelectionRange(cursorPosition, cursorPosition);
 			}}
-			defaultValue={message}
+			defaultValue={initialMessage}
 			className={classes(
 				styles.editCommitMessageInput,
 				isSelected
@@ -648,7 +649,7 @@ const InlineCommitMessageEditor: FC<{
 
 					const newMessage = event.currentTarget.value.trim();
 
-					if (newMessage !== message)
+					if (newMessage !== initialMessage)
 						startTransition(async () => {
 							await setMessageAction(newMessage);
 							await commitReword.mutateAsync({
