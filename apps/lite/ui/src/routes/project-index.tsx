@@ -49,7 +49,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/queries.ts";
 import { type ChangeUnit } from "#ui/ChangeUnit.ts";
-import { rubOperationFor, type RubSource } from "#ui/rub.ts";
+import { rubOperationLabel, type RubSource } from "#ui/rub.ts";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
 
@@ -515,7 +515,7 @@ const RubTarget: FC<{
 		id: `stack:${stackId ?? "null"}:rub:${changeUnitKey(target)}`,
 		accept: (source) => {
 			const sourceItem = getSourceItemFromData(source.data);
-			return !!sourceItem && rubOperationFor(rubSourceFor(sourceItem), target) !== null;
+			return !!sourceItem && rubOperationLabel(rubSourceFor(sourceItem), target) !== null;
 		},
 		data: {
 			_tag: "Rub",
@@ -524,7 +524,7 @@ const RubTarget: FC<{
 	});
 
 	const tooltip =
-		isDropTarget && sourceItem ? rubOperationFor(rubSourceFor(sourceItem), target) : null;
+		isDropTarget && sourceItem ? rubOperationLabel(rubSourceFor(sourceItem), target) : null;
 
 	return (
 		<Tooltip.Root open={tooltip !== null}>

@@ -105,17 +105,20 @@ export const rub = async ({
 		Match.exhaustive,
 	);
 
-type RubOperation = "Amend" | "Uncommit" | "Assign" | "Unassign" | "Squash";
+type RubOperationLabel = "Amend" | "Uncommit" | "Assign" | "Unassign" | "Squash";
 
-export const rubOperationFor = (rubSource: RubSource, target: ChangeUnit): RubOperation | null =>
+export const rubOperationLabel = (
+	rubSource: RubSource,
+	target: ChangeUnit,
+): RubOperationLabel | null =>
 	Match.value(rubSource).pipe(
-		Match.withReturnType<RubOperation | null>(),
+		Match.withReturnType<RubOperationLabel | null>(),
 		Match.tag("TreeChange", ({ source }) =>
 			Match.value(source.parent).pipe(
-				Match.withReturnType<RubOperation | null>(),
+				Match.withReturnType<RubOperationLabel | null>(),
 				Match.tag("commit", (source) =>
 					Match.value(target).pipe(
-						Match.withReturnType<RubOperation | null>(),
+						Match.withReturnType<RubOperationLabel | null>(),
 						Match.tag("commit", (target) => {
 							if (source.commitId === target.commitId) return null;
 							return "Amend";
@@ -126,7 +129,7 @@ export const rubOperationFor = (rubSource: RubSource, target: ChangeUnit): RubOp
 				),
 				Match.tag("changes", (source) =>
 					Match.value(target).pipe(
-						Match.withReturnType<RubOperation | null>(),
+						Match.withReturnType<RubOperationLabel | null>(),
 						Match.tag("commit", () => "Amend"),
 						Match.tag("changes", (target) => {
 							if (source.stackId === target.stackId) return null;
@@ -140,7 +143,7 @@ export const rubOperationFor = (rubSource: RubSource, target: ChangeUnit): RubOp
 		),
 		Match.tag("Commit", ({ source }) =>
 			Match.value(target).pipe(
-				Match.withReturnType<RubOperation | null>(),
+				Match.withReturnType<RubOperationLabel | null>(),
 				Match.tag("commit", (target) => {
 					if (source.commitId === target.commitId) return null;
 					return "Squash";
