@@ -40,6 +40,7 @@ import {
 	useEffect,
 	useEffectEvent,
 	useOptimistic,
+	useRef,
 	useState,
 } from "react";
 import { createRoot } from "react-dom/client";
@@ -165,7 +166,7 @@ const useDraggable = ({
 	ref: RefCallback<HTMLElement>;
 	isDragging: boolean;
 } => {
-	const [element, setElement] = useState<HTMLElement | null>(null);
+	const ref = useRef<HTMLElement>(null);
 	const [isDragging, setIsDragging] = useState(false);
 	const getInitialData = useEffectEvent(() => data);
 	const onGenerateDragPreview = useEffectEvent(
@@ -185,6 +186,7 @@ const useDraggable = ({
 	);
 
 	useEffect(() => {
+		const element = ref.current;
 		if (!element || disabled) return;
 
 		return draggable({
@@ -198,9 +200,14 @@ const useDraggable = ({
 				setIsDragging(false);
 			},
 		});
-	}, [disabled, element]);
+	}, [disabled]);
 
-	return { ref: setElement, isDragging };
+	return {
+		ref: (element) => {
+			ref.current = element;
+		},
+		isDragging,
+	};
 };
 
 const useDroppable = ({
@@ -215,12 +222,13 @@ const useDroppable = ({
 	ref: RefCallback<HTMLElement>;
 	isDropTarget: boolean;
 } => {
-	const [element, setElement] = useState<HTMLElement | null>(null);
+	const ref = useRef<HTMLElement>(null);
 	const [isDropTarget, setIsDropTarget] = useState(false);
 	const getData = useEffectEvent(() => data);
 	const canDropForSource = useEffectEvent((dragData: unknown) => canDrop(dragData));
 
 	useEffect(() => {
+		const element = ref.current;
 		if (!element || disabled) return;
 
 		return dropTargetForElements({
@@ -237,9 +245,14 @@ const useDroppable = ({
 				setIsDropTarget(false);
 			},
 		});
-	}, [disabled, element]);
+	}, [disabled]);
 
-	return { ref: setElement, isDropTarget };
+	return {
+		ref: (element) => {
+			ref.current = element;
+		},
+		isDropTarget,
+	};
 };
 
 const useRunOperation = (projectId: string) => {
