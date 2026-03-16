@@ -74,37 +74,10 @@
 	field-sizing: content;
 }
 
-.hunkListItem {
-	display: flex;
-	row-gap: 4px;
-	flex-direction: column;
-}
-
-.hunkHeaderRow {
-	display: flex;
-	column-gap: 4px;
-	align-items: center;
-}
-
-.hunkDragHandle {
-	flex-grow: 1;
-	cursor: grab;
-}
-
 .tooltip {
 	padding: 4px 8px;
 	border: 1px solid;
 	background-color: white;
-}
-
-.dragPreview {
-	padding: 4px 8px;
-	border: 1px solid;
-	background-color: white;
-}
-
-.dragging {
-	opacity: 0.4;
 }
 
 .menuPopup {

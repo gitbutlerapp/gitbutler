@@ -1,3 +1,8 @@
+import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
+import { centerUnderPointer } from "@atlaskit/pragmatic-drag-and-drop/element/center-under-pointer";
+import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview";
+import { mergeProps } from "@base-ui/react/merge-props";
+import { useRender } from "@base-ui/react/use-render";
 import {
 	Commit,
 	DiffHunk,
@@ -8,12 +13,23 @@ import {
 } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { ComponentProps, FC, ReactNode } from "react";
+import {
+	ComponentProps,
+	FC,
+	ReactNode,
+	RefCallback,
+	useEffect,
+	useEffectEvent,
+	useRef,
+	useState,
+} from "react";
+import { createRoot } from "react-dom/client";
 import styles from "./project-shared.module.css";
 import {
 	commitDetailsWithLineStatsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/queries.ts";
+import { type ChangeUnit } from "#ui/ChangeUnit.ts";
 
 /**
  * @example
@@ -24,6 +40,77 @@ const classes = (...xs: Array<string | null | undefined | false>): string =>
 	xs.reduce((acc: string, x) => (x ? (acc ? `${acc} ${x}` : x) : acc), "");
 
 type Patch = Extract<UnifiedPatch, { type: "Patch" }>;
+
+export type SourceItem =
+	| { _tag: "Commit"; commitId: string }
+	| {
+			_tag: "TreeChange";
+			source: {
+				parent: ChangeUnit;
+				change: TreeChange;
+				hunkHeaders: Array<HunkHeader>;
+			};
+	  };
+
+export type DragData = {
+	sourceItem: SourceItem;
+};
+
+export const useDraggable = ({
+	data,
+	preview,
+	disabled = false,
+}: {
+	data: DragData;
+	preview: ReactNode;
+	disabled?: boolean;
+}): {
+	ref: RefCallback<HTMLElement>;
+	isDragging: boolean;
+} => {
+	const ref = useRef<HTMLElement>(null);
+	const [isDragging, setIsDragging] = useState(false);
+	const getInitialData = useEffectEvent(() => data);
+	const onGenerateDragPreview = useEffectEvent(
+		({ nativeSetDragImage }: { nativeSetDragImage: DataTransfer["setDragImage"] | null }) => {
+			setCustomNativeDragPreview({
+				nativeSetDragImage,
+				getOffset: centerUnderPointer,
+				render: ({ container }) => {
+					const root = createRoot(container);
+					root.render(<div className={styles.dragPreview}>{preview}</div>);
+					return () => {
+						root.unmount();
+					};
+				},
+			});
+		},
+	);
+
+	useEffect(() => {
+		const element = ref.current;
+		if (!element || disabled) return;
+
+		return draggable({
+			element,
+			getInitialData,
+			onGenerateDragPreview,
+			onDragStart: () => {
+				setIsDragging(true);
+			},
+			onDrop: () => {
+				setIsDragging(false);
+			},
+		});
+	}, [disabled]);
+
+	return {
+		ref: (element) => {
+			ref.current = element;
+		},
+		isDragging,
+	};
+};
 
 const hunkHeaderEquals = (a: HunkHeader, b: HunkHeader): boolean =>
 	a.oldStart === b.oldStart &&
@@ -46,9 +133,68 @@ const assignedHunks = (
 	);
 };
 
-export const HunkDiff: FC<{
+const DraggableHunk: FC<
+	{
+		patch: Patch;
+		changeUnit: ChangeUnit;
+		change: TreeChange;
+		hunk: DiffHunk;
+	} & useRender.ComponentProps<"div">
+> = ({ patch, changeUnit, change, hunk, render, ...props }) => {
+	const sourceItem: SourceItem = {
+		_tag: "TreeChange",
+		source: {
+			parent: changeUnit,
+			change,
+			hunkHeaders: [hunk],
+		},
+	};
+	const { ref: dragRef, isDragging } = useDraggable({
+		data: { sourceItem } satisfies DragData,
+		preview: (
+			<>
+				Hunk -{hunk.oldStart},{hunk.oldLines}, +{hunk.newStart},{hunk.newLines}
+			</>
+		),
+		disabled: patch.subject.isResultOfBinaryToTextConversion,
+	});
+
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && styles.dragging),
+		}),
+	});
+};
+
+const HunkDiff: FC<{
 	diff: string;
 }> = ({ diff }) => <pre className={styles.hunkDiff}>{diff}</pre>;
+
+export const HunkListItem: FC<{
+	patch: Patch;
+	changeUnit: ChangeUnit;
+	change: TreeChange;
+	hunk: DiffHunk;
+	headerStart?: ReactNode;
+}> = ({ patch, changeUnit, change, hunk, headerStart }) => (
+	<li className={styles.hunkListItem}>
+		<div className={styles.hunkHeaderRow}>
+			{headerStart}
+			<DraggableHunk
+				patch={patch}
+				changeUnit={changeUnit}
+				change={change}
+				hunk={hunk}
+				render={<button type="button" className={styles.hunkDragHandle} />}
+			>
+				-{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines}
+			</DraggableHunk>
+		</div>
+		<HunkDiff diff={hunk.diff} />
+	</li>
+);
 
 export const hunkKey = (hunk: HunkHeader): string =>
 	`${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`;
