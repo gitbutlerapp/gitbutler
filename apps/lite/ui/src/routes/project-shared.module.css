@@ -79,11 +79,6 @@
 	list-style: none;
 }
 
-.hunkListItem {
-	display: flex;
-	flex-direction: column;
-}
-
 .hunkHeaderRow {
 	display: flex;
 	column-gap: 4px;

@@ -111,7 +111,7 @@ export const HunkListItem: FC<{
 	hunk: DiffHunk;
 	headerStart?: ReactNode;
 }> = ({ patch, changeUnit, change, hunk, headerStart }) => (
-	<li className={styles.hunkListItem}>
+	<li>
 		<div className={styles.hunkHeaderRow}>
 			{headerStart}
 			<DraggableHunk
