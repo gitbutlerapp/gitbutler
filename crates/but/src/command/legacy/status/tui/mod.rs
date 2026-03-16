@@ -27,6 +27,10 @@ use crate::{
     args::OutputFormat,
     command::legacy::{
         ShowDiffInEditor,
+        commit_message_prep::{
+            commit_message_has_multiple_lines, normalize_commit_message,
+            should_update_commit_message,
+        },
         reword::get_commit_message_from_editor,
         rub::{RubOperation, route_operation},
         status::{
@@ -432,7 +436,7 @@ impl App {
             return Ok(());
         };
 
-        if new_message == current_message {
+        if !should_update_commit_message(&current_message, &new_message) {
             return Ok(());
         }
 
@@ -463,7 +467,7 @@ impl App {
         let commit_details = but_api::diff::commit_details(ctx, commit_id, ComputeLineStats::No)?;
         let current_message = commit_details.commit.inner.message.to_string();
 
-        if current_message.split_once('\n').is_some() {
+        if commit_message_has_multiple_lines(&current_message) {
             messages.push(Message::RewordWithEditor);
             return Ok(());
         }
@@ -510,9 +514,9 @@ impl App {
             .first()
             .map(std::string::String::as_str)
             .unwrap_or("");
-        let new_message = new_subject.to_string();
+        let new_message = normalize_commit_message(new_subject).to_string();
 
-        if new_message == current_message {
+        if !should_update_commit_message(&current_message, &new_message) {
             messages.push(Message::EnterNormalMode);
             return Ok(());
         }
