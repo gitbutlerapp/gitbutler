@@ -42,18 +42,36 @@
 	column-gap: 4px;
 }
 
+.commitMoveTarget {
+	--hit-area: 19px;
+	--indicator-height: 3px;
+
+	display: flex;
+	position: relative;
+	flex-direction: column;
+	justify-content: center;
+	height: var(--hit-area);
+	margin-block: calc(((var(--hit-area) - var(--indicator-height)) / 2) * -1);
+	pointer-events: none;
+
+	&:before {
+		display: block;
+		height: var(--indicator-height);
+		content: "";
+	}
+}
+
+.commitMoveTargetEnabled {
+	pointer-events: auto;
+}
+
+.commitMoveTargetActive:before {
+	background-color: black;
+}
+
 .commitMessageInput {
 	flex-grow: 1;
 	field-sizing: content;
-}
-
-.dragging {
-	opacity: 0.1;
-}
-
-.hunkListItem {
-	display: flex;
-	align-items: start;
 }
 
 .tooltip {

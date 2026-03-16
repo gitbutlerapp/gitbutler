@@ -21,7 +21,6 @@
 .commitsListItem {
 	display: flex;
 	flex-direction: column;
-	padding-block: 2px;
 }
 
 .commitDetails {
@@ -65,6 +64,33 @@
 	list-style: none;
 }
 
+.hunkListItem {
+	display: flex;
+	row-gap: 4px;
+	flex-direction: column;
+}
+
+.hunkHeaderRow {
+	display: flex;
+	column-gap: 4px;
+	align-items: center;
+}
+
+.hunkDragHandle {
+	flex-grow: 1;
+	cursor: grab;
+}
+
 .hunkDiff {
 	overflow: auto;
+}
+
+.dragPreview {
+	padding: 4px 8px;
+	border: 1px solid;
+	background-color: white;
+}
+
+.dragging {
+	opacity: 0.4;
 }

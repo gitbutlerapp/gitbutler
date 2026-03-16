@@ -1,9 +1,12 @@
+import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { createRoute } from "@tanstack/react-router";
 import styles from "./project-index.module.css";
 import sharedStyles from "./project-shared.module.css";
 import { Menu } from "@base-ui/react";
 import { ContextMenu } from "@base-ui/react/context-menu";
+import { mergeProps } from "@base-ui/react/merge-props";
 import { Tooltip } from "@base-ui/react/tooltip";
+import { useRender } from "@base-ui/react/use-render";
 import {
 	RefInfo,
 	Commit,
@@ -11,7 +14,6 @@ import {
 	HunkAssignment,
 	InsertSide,
 	TreeChange,
-	UnifiedPatch,
 	DiffSpec,
 	RelativeTo,
 	Stack,
@@ -21,24 +23,27 @@ import { Match } from "effect";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import {
 	createContext,
-	DragEvent,
 	FC,
-	RefObject,
 	startTransition,
 	Suspense,
-	use,
+	useContext,
+	useEffect,
 	useOptimistic,
-	useRef,
 	useState,
 } from "react";
+import { useDraggable } from "#ui/hooks/useDraggable.tsx";
+import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
 import {
 	CommitButton,
+	CommitLabel,
 	CommitDetails,
 	CommitsList,
+	type DragData,
 	FileButton,
 	FileDiff,
-	HunkDiff,
+	HunkListItem,
+	type SourceItem,
 	hunkKey,
 } from "#ui/routes/project-shared.tsx";
 import {
@@ -57,7 +62,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/queries.ts";
 import { type ChangeUnit } from "#ui/ChangeUnit.ts";
-import { type RubSource } from "#ui/rub.ts";
+import { rubOperationLabel, type RubSource } from "#ui/rub.ts";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
 
@@ -71,13 +76,6 @@ const classes = (...xs: Array<string | null | undefined | false>): string =>
 	// oxlint-disable-next-line typescript/strict-boolean-expressions
 	xs.reduce((acc: string, x) => (x ? (acc ? `${acc} ${x}` : x) : acc), "");
 
-type Patch = Extract<UnifiedPatch, { type: "Patch" }>;
-
-const assert = <T,>(value: T | null): T => {
-	if (value === null) throw new Error("Expected value to exist.");
-	return value;
-};
-
 const commonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 	const bases = headInfo.stacks
 		.map((stack) => stack.base)
@@ -89,79 +87,115 @@ const commonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 
 const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
-const commitMoveSideFor = ({
-	event,
-	sourceCommitId,
-	targetCommitId,
-	previousCommitId,
-	nextCommitId,
+const rubSourceFor = (item: SourceItem): RubSource => {
+	switch (item._tag) {
+		case "Commit":
+			return { _tag: "Commit", source: { commitId: item.commitId } };
+		case "TreeChange":
+			return { _tag: "TreeChange", source: item.source };
+	}
+};
+
+const DraggedSourceItemContext = createContext<SourceItem | null>(null);
+
+const parseDragData = (data: unknown): SourceItem | null => {
+	if (typeof data !== "object" || data === null || !("sourceItem" in data)) return null;
+	return (data as DragData).sourceItem;
+};
+
+const useDraggedSourceItem = (): SourceItem | null => useContext(DraggedSourceItemContext);
+
+type OperationTarget =
+	| {
+			_tag: "Rub";
+			target: ChangeUnit;
+	  }
+	| {
+			_tag: "CommitMove";
+			anchorCommitId: string;
+			side: InsertSide;
+			previousCommitId: string | undefined;
+			nextCommitId: string | undefined;
+	  }
+	| {
+			_tag: "CommitMoveToBranch";
+			anchorRef: string | null;
+			firstCommitId: string | undefined;
+	  };
+
+const parseDropTargetData = (data: unknown): OperationTarget | null => {
+	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
+	return data as OperationTarget;
+};
+
+const useMonitorDraggedSourceItem = ({
+	projectId,
+	setDraggedSourceItem,
 }: {
-	event: DragEvent<HTMLElement>;
-	sourceCommitId: string;
-	targetCommitId: string;
-	previousCommitId: string | undefined;
-	nextCommitId: string | undefined;
-}): InsertSide | null => {
-	const targetRect = event.currentTarget.getBoundingClientRect();
+	projectId: string;
+	setDraggedSourceItem: (sourceItem: SourceItem | null) => void;
+}): void => {
+	const runOperation = useRunOperation(projectId);
 
-	const side: InsertSide =
-		event.clientY < targetRect.top + targetRect.height / 2 ? "above" : "below";
+	useEffect(
+		() =>
+			monitorForElements({
+				canMonitor: ({ source }) => parseDragData(source.data) !== null,
+				onDragStart: ({ source }) => {
+					setDraggedSourceItem(parseDragData(source.data));
+				},
+				onDrop: ({ source, location }) => {
+					setDraggedSourceItem(null);
 
-	const isNoOp =
-		sourceCommitId === targetCommitId ||
-		(side === "above" && previousCommitId === sourceCommitId) ||
-		(side === "below" && nextCommitId === sourceCommitId);
+					const sourceItem = parseDragData(source.data);
+					const operationTarget = location.current.dropTargets
+						.map((dropTarget) => parseDropTargetData(dropTarget.data))
+						.find((target) => target);
 
-	return isNoOp ? null : side;
-};
+					if (!sourceItem || !operationTarget) return;
 
-const rubSourceMimeType = "application/x-gitbutler-rub-source";
-const commitMoveSourceIdMimeType = "application/x-gitbutler-commit-move-source-id";
-
-type RubOperation = "Amend" | "Uncommit" | "Assign" | "Unassign";
-
-const rubOperationFor = (source: ChangeUnit, target: ChangeUnit): RubOperation | null =>
-	Match.value(source).pipe(
-		Match.tag("commit", (source) =>
-			Match.value(target).pipe(
-				Match.tag("commit", (target): RubOperation | null => {
-					if (source.commitId === target.commitId) return null;
-					return "Amend";
-				}),
-				Match.tag("changes", (): RubOperation => "Uncommit"),
-				Match.exhaustive,
-			),
-		),
-		Match.tag("changes", (source) =>
-			Match.value(target).pipe(
-				Match.tag("commit", (): RubOperation => "Amend"),
-				Match.tag("changes", (target): RubOperation | null => {
-					if (source.stackId === target.stackId) return null;
-					return target.stackId === null ? "Unassign" : "Assign";
-				}),
-				Match.exhaustive,
-			),
-		),
-		Match.exhaustive,
+					runOperation(sourceItem, operationTarget);
+				},
+			}),
+		[runOperation, setDraggedSourceItem],
 	);
-
-const RubSourceContext = createContext<RefObject<RubSource | null> | null>(null);
-const CommitMoveSourceIdContext = createContext<RefObject<string | null> | null>(null);
-
-const parseRubSource = (dataTransfer: DataTransfer): RubSource | null => {
-	const data = dataTransfer.getData(rubSourceMimeType);
-	if (data.length === 0) return null;
-	return JSON.parse(data) as RubSource;
 };
 
-const parseCommitMoveSourceId = (dataTransfer: DataTransfer): string | null => {
-	const data = dataTransfer.getData(commitMoveSourceIdMimeType);
-	if (data.length === 0) return null;
-	return data;
-};
+const useRunOperation = (projectId: string) => {
+	const rubMutation = useMutation(rubMutationOptions);
+	const commitMove = useMutation(commitMoveMutationOptions);
+	const commitMoveToBranch = useMutation(commitMoveToBranchMutationOptions);
 
-const dragLeaveIsWithinTarget = (event: DragEvent<HTMLElement>): boolean =>
-	event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget);
+	return (sourceItem: SourceItem, operationTarget: OperationTarget): void => {
+		Match.value(operationTarget).pipe(
+			Match.tag("Rub", (operationTarget) => {
+				rubMutation.mutate({
+					projectId,
+					source: rubSourceFor(sourceItem),
+					target: operationTarget.target,
+				});
+			}),
+			Match.tag("CommitMove", (operationTarget) => {
+				if (sourceItem._tag !== "Commit") return;
+				commitMove.mutate({
+					projectId,
+					subjectCommitId: sourceItem.commitId,
+					anchorCommitId: operationTarget.anchorCommitId,
+					side: operationTarget.side,
+				});
+			}),
+			Match.tag("CommitMoveToBranch", (operationTarget) => {
+				if (sourceItem._tag !== "Commit" || operationTarget.anchorRef === null) return;
+				commitMoveToBranch.mutate({
+					projectId,
+					subjectCommitId: sourceItem.commitId,
+					anchorRef: operationTarget.anchorRef,
+				});
+			}),
+			Match.exhaustive,
+		);
+	};
+};
 
 // https://linear.app/gitbutler/issue/GB-1128/references-in-mutations-should-use-bytes-instead-of-strings
 const decodeRefName = (fullNameBytes: Array<number>): string =>
@@ -203,83 +237,30 @@ const assignedChangesDiffSpecs = (
 		];
 	});
 
-const HunkListItem: FC<{
-	patch: Patch;
-	changeUnit: ChangeUnit;
-	change: TreeChange;
-	hunk: DiffHunk;
-	children: React.ReactNode;
-}> = ({ patch, changeUnit, change, hunk, children }) => {
-	const rubSourceRef = assert(use(RubSourceContext));
-	const [isDragging, setIsDragging] = useState(false);
+const DraggableCommit: FC<
+	{
+		commit: Commit;
+	} & useRender.ComponentProps<"div">
+> = ({ commit, render, ...props }) => {
+	const { id: commitId } = commit;
+	const sourceItem: SourceItem = { _tag: "Commit", commitId };
+	const { ref: dragRef, isDragging } = useDraggable({
+		data: { sourceItem } satisfies DragData,
+		preview: (
+			<div className={sharedStyles.dragPreview}>
+				<CommitLabel commit={commit} />
+			</div>
+		),
+	});
 
-	return (
-		<li
-			className={classes(styles.hunkListItem, isDragging && styles.dragging)}
-			draggable={!patch.subject.isResultOfBinaryToTextConversion}
-			onDragStart={(event) => {
-				setIsDragging(true);
-				const rubSource: RubSource = {
-					parent: changeUnit,
-					change,
-					hunkHeaders: [hunk],
-				};
-				const payload = JSON.stringify(rubSource);
-				rubSourceRef.current = rubSource;
-				event.dataTransfer.setData(rubSourceMimeType, payload);
-				event.dataTransfer.effectAllowed = "move";
-			}}
-			onDragEnd={() => {
-				setIsDragging(false);
-				rubSourceRef.current = null;
-			}}
-		>
-			{children}
-		</li>
-	);
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && sharedStyles.dragging),
+		}),
+	});
 };
-
-const ChangesHunkListItem: FC<{
-	patch: Patch;
-	changeUnit: ChangeUnit;
-	change: TreeChange;
-	hunk: DiffHunk;
-	hunkDependencyDiffs: Array<HunkDependencyDiff> | undefined;
-	onLockHover: (commitIds: Array<string> | null) => void;
-}> = ({ patch, changeUnit, change, hunk, hunkDependencyDiffs, onLockHover }) => {
-	const dependencyCommitIds = hunkDependencyDiffs
-		? dependencyCommitIdsForHunk(hunk, hunkDependencyDiffs)
-		: [];
-
-	return (
-		<HunkListItem patch={patch} changeUnit={changeUnit} change={change} hunk={hunk}>
-			{dependencyCommitIds.length > 0 && (
-				<span
-					onMouseEnter={() => {
-						onLockHover(dependencyCommitIds);
-					}}
-					onMouseLeave={() => {
-						onLockHover(null);
-					}}
-				>
-					🔒
-				</span>
-			)}
-			<HunkDiff diff={hunk.diff} />
-		</HunkListItem>
-	);
-};
-
-const CommitHunkListItem: FC<{
-	patch: Patch;
-	changeUnit: ChangeUnit;
-	change: TreeChange;
-	hunk: DiffHunk;
-}> = ({ patch, changeUnit, change, hunk }) => (
-	<HunkListItem patch={patch} changeUnit={changeUnit} change={change} hunk={hunk}>
-		<HunkDiff diff={hunk.diff} />
-	</HunkListItem>
-);
 
 const hunkContainsHunk = (a: DiffHunk, b: DiffHunk): boolean =>
 	a.oldStart <= b.oldStart &&
@@ -344,44 +325,38 @@ const dependencyCommitIdsForFile = (
 	return Array.from(commitIds);
 };
 
-const FileListItem: FC<{
-	change: TreeChange;
-	changeUnit: ChangeUnit;
-	assignments?: Array<HunkAssignment>;
-	children: React.ReactNode;
-}> = ({ change, changeUnit, assignments, children }) => {
-	const rubSourceRef = assert(use(RubSourceContext));
-	const [isDragging, setIsDragging] = useState(false);
+const DraggableFile: FC<
+	{
+		change: TreeChange;
+		changeUnit: ChangeUnit;
+		assignments?: Array<HunkAssignment>;
+	} & useRender.ComponentProps<"div">
+> = ({ change, changeUnit, assignments, render, ...props }) => {
+	const sourceItem: SourceItem = {
+		_tag: "TreeChange",
+		source: {
+			parent: changeUnit,
+			change,
+			hunkHeaders: assignments
+				? assignments.flatMap((assignment) =>
+						// TODO: is this correct?
+						assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
+					)
+				: [],
+		},
+	};
+	const { ref: dragRef, isDragging } = useDraggable({
+		data: { sourceItem } satisfies DragData,
+		preview: <div className={sharedStyles.dragPreview}>{change.path}</div>,
+	});
 
-	return (
-		<li
-			className={classes(isDragging && styles.dragging)}
-			draggable
-			onDragStart={(event) => {
-				setIsDragging(true);
-				const rubSource: RubSource = {
-					parent: changeUnit,
-					change,
-					hunkHeaders: assignments
-						? assignments.flatMap((assignment) =>
-								// TODO: is this correct?
-								assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
-							)
-						: [],
-				};
-				const payload = JSON.stringify(rubSource);
-				rubSourceRef.current = rubSource;
-				event.dataTransfer.setData(rubSourceMimeType, payload);
-				event.dataTransfer.effectAllowed = "move";
-			}}
-			onDragEnd={() => {
-				setIsDragging(false);
-				rubSourceRef.current = null;
-			}}
-		>
-			{children}
-		</li>
-	);
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && sharedStyles.dragging),
+		}),
+	});
 };
 
 const SelectedChangesFileDiff: FC<{
@@ -407,17 +382,36 @@ const SelectedChangesFileDiff: FC<{
 				projectId={projectId}
 				change={change}
 				assignments={assignments}
-				renderHunk={(hunk, patch) => (
-					<ChangesHunkListItem
-						key={hunkKey(hunk)}
-						patch={patch}
-						changeUnit={{ _tag: "changes", stackId }}
-						change={change}
-						hunk={hunk}
-						hunkDependencyDiffs={hunkDependencyDiffsByPath.get(path)}
-						onLockHover={onLockHover}
-					/>
-				)}
+				renderHunk={(hunk, patch) => {
+					const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(path);
+
+					const dependencyCommitIds = hunkDependencyDiffs
+						? dependencyCommitIdsForHunk(hunk, hunkDependencyDiffs)
+						: [];
+
+					return (
+						<HunkListItem
+							patch={patch}
+							changeUnit={{ _tag: "changes", stackId }}
+							change={change}
+							hunk={hunk}
+							headerStart={
+								dependencyCommitIds.length > 0 && (
+									<span
+										onMouseEnter={() => {
+											onLockHover(dependencyCommitIds);
+										}}
+										onMouseLeave={() => {
+											onLockHover(null);
+										}}
+									>
+										🔒
+									</span>
+								)
+							}
+						/>
+					);
+				}}
 			/>
 		</div>
 	);
@@ -441,7 +435,7 @@ const SelectedCommitFileDiff: FC<{
 				projectId={projectId}
 				change={change}
 				renderHunk={(hunk, patch) => (
-					<CommitHunkListItem
+					<HunkListItem
 						key={hunkKey(hunk)}
 						patch={patch}
 						changeUnit={{ _tag: "commit", commitId }}
@@ -474,7 +468,7 @@ const SelectedCommitDiff: FC<{
 							projectId={projectId}
 							change={change}
 							renderHunk={(hunk, patch) => (
-								<CommitHunkListItem
+								<HunkListItem
 									key={hunkKey(hunk)}
 									patch={patch}
 									changeUnit={{ _tag: "commit", commitId }}
@@ -490,129 +484,78 @@ const SelectedCommitDiff: FC<{
 	);
 };
 
-const CommitTarget: FC<{
-	projectId: string;
-	commitId: string;
-	previousCommitId: string | undefined;
-	nextCommitId: string | undefined;
+const RubTarget: FC<{
+	target: ChangeUnit;
 	children: React.ReactElement;
-}> = ({ projectId, commitId, previousCommitId, nextCommitId, children }) => {
-	const changeUnit: ChangeUnit = { _tag: "commit", commitId };
+}> = ({ target, children }) => {
+	const sourceItem = useDraggedSourceItem();
+	const { ref: dropRef, isDropTarget } = useDroppable({
+		canDrop: (dragData) => {
+			const sourceItem = parseDragData(dragData);
+			return !!sourceItem && rubOperationLabel(rubSourceFor(sourceItem), target) !== null;
+		},
+		data: {
+			_tag: "Rub",
+			target,
+		} satisfies OperationTarget,
+	});
 
-	const rubSourceRef = assert(use(RubSourceContext));
-	const commitMoveSourceIdRef = assert(use(CommitMoveSourceIdContext));
-
-	const [rubOperation, setRubOperation] = useState<RubOperation | null>(null);
-	const [commitMoveSide, setCommitMoveSide] = useState<InsertSide | null>(null);
-
-	const rubMutation = useMutation(rubMutationOptions);
-	const commitMove = useMutation(commitMoveMutationOptions);
+	const tooltip =
+		isDropTarget && sourceItem ? rubOperationLabel(rubSourceFor(sourceItem), target) : null;
 
 	return (
-		<Tooltip.Root open={rubOperation !== null}>
+		<Tooltip.Root open={tooltip !== null}>
 			<Tooltip.Trigger
+				ref={dropRef}
 				render={children}
-				onDragOver={(event) => {
-					switch (true) {
-						case event.dataTransfer.types.includes(commitMoveSourceIdMimeType): {
-							const commitMoveSourceId = commitMoveSourceIdRef.current;
-							if (commitMoveSourceId == null) return;
-
-							const newCommitMoveSide = commitMoveSideFor({
-								event,
-								sourceCommitId: commitMoveSourceId,
-								targetCommitId: changeUnit.commitId,
-								previousCommitId,
-								nextCommitId,
-							});
-							if (commitMoveSide !== newCommitMoveSide) setCommitMoveSide(newCommitMoveSide);
-							if (newCommitMoveSide === null) return;
-
-							event.preventDefault();
-							break;
-						}
-						case event.dataTransfer.types.includes(rubSourceMimeType): {
-							const rubSource = rubSourceRef.current;
-							if (!rubSource) return;
-
-							const newRubOperation = rubOperationFor(rubSource.parent, changeUnit);
-							if (rubOperation !== newRubOperation) setRubOperation(newRubOperation);
-							if (newRubOperation === null) return;
-
-							event.preventDefault();
-							break;
-						}
-					}
-				}}
-				onDragLeave={(event) => {
-					if (dragLeaveIsWithinTarget(event)) return;
-
-					if (rubOperation !== null) setRubOperation(null);
-					if (commitMoveSide !== null) setCommitMoveSide(null);
-				}}
-				onDrop={(event) => {
-					switch (true) {
-						case event.dataTransfer.types.includes(commitMoveSourceIdMimeType): {
-							event.preventDefault();
-							setCommitMoveSide(null);
-
-							const commitMoveSourceId = parseCommitMoveSourceId(event.dataTransfer);
-							commitMoveSourceIdRef.current = null;
-							if (commitMoveSourceId == null) return;
-
-							const commitMoveSide = commitMoveSideFor({
-								event,
-								sourceCommitId: commitMoveSourceId,
-								targetCommitId: changeUnit.commitId,
-								previousCommitId,
-								nextCommitId,
-							});
-							if (commitMoveSide === null) return;
-
-							commitMove.mutate({
-								projectId,
-								subjectCommitId: commitMoveSourceId,
-								anchorCommitId: changeUnit.commitId,
-								side: commitMoveSide,
-							});
-							break;
-						}
-						case event.dataTransfer.types.includes(rubSourceMimeType): {
-							event.preventDefault();
-							setRubOperation(null);
-
-							const rubSource = parseRubSource(event.dataTransfer);
-							rubSourceRef.current = null;
-							if (!rubSource) return;
-
-							const rubOperation = rubOperationFor(rubSource.parent, changeUnit);
-							if (rubOperation === null) return;
-
-							rubMutation.mutate({
-								projectId,
-								source: rubSource,
-								target: changeUnit,
-							});
-							break;
-						}
-					}
-				}}
-				style={{
-					...(rubOperation !== null && { outline: "2px dashed" }),
-					...(commitMoveSide === "above" && {
-						boxShadow: "inset 0 2px 0 0 currentColor",
-					}),
-					...(commitMoveSide === "below" && {
-						boxShadow: "inset 0 -2px 0 0 currentColor",
-					}),
-				}}
+				style={{ ...(isDropTarget && { outline: "2px dashed" }) }}
 			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={styles.tooltip}>{rubOperation}</Tooltip.Popup>
+					<Tooltip.Popup className={styles.tooltip}>{tooltip}</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>
+	);
+};
+
+const CommitMoveTarget: FC<{
+	commitId: string;
+	side: InsertSide;
+	previousCommitId: string | undefined;
+	nextCommitId: string | undefined;
+}> = ({ commitId, side, previousCommitId, nextCommitId }) => {
+	const sourceItem = useDraggedSourceItem();
+	const isNoOp = (sourceCommitId: string): boolean =>
+		sourceCommitId === commitId ||
+		(side === "above" && previousCommitId === sourceCommitId) ||
+		(side === "below" && nextCommitId === sourceCommitId);
+
+	const { ref: dropRef, isDropTarget } = useDroppable({
+		canDrop: (dragData) => {
+			const sourceItem = parseDragData(dragData);
+			return sourceItem?._tag === "Commit" && !isNoOp(sourceItem.commitId);
+		},
+		data: {
+			_tag: "CommitMove",
+			anchorCommitId: commitId,
+			side,
+			previousCommitId,
+			nextCommitId,
+		} satisfies OperationTarget,
+	});
+
+	return (
+		<div
+			ref={dropRef}
+			className={classes(
+				styles.commitMoveTarget,
+				sourceItem?._tag === "Commit" &&
+					!isNoOp(sourceItem.commitId) &&
+					styles.commitMoveTargetEnabled,
+				isDropTarget && styles.commitMoveTargetActive,
+			)}
+		/>
 	);
 };
 
@@ -770,11 +713,9 @@ const CommitC: FC<{
 	toggleSelect,
 	toggleFileSelect,
 }) => {
-	const commitMoveSourceIdRef = assert(use(CommitMoveSourceIdContext));
 	const expanded = isSelected || isAnyFileSelected;
 	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
 	const [isEditingMessage, setIsEditingMessage] = useState(false);
-	const [isDragging, setIsDragging] = useState(false);
 
 	const changeUnit: ChangeUnit = { _tag: "commit", commitId: commit.id };
 
@@ -792,13 +733,14 @@ const CommitC: FC<{
 	);
 
 	return (
-		<CommitTarget
-			projectId={projectId}
-			commitId={commit.id}
-			previousCommitId={previousCommitId}
-			nextCommitId={nextCommitId}
-		>
-			<li className={sharedStyles.commitsListItem}>
+		<li className={sharedStyles.commitsListItem}>
+			<CommitMoveTarget
+				commitId={commit.id}
+				side="above"
+				previousCommitId={previousCommitId}
+				nextCommitId={nextCommitId}
+			/>
+			<RubTarget target={changeUnit}>
 				<div className={styles.commitRow}>
 					{isEditingMessage ? (
 						<InlineCommitMessageEditor
@@ -816,24 +758,17 @@ const CommitC: FC<{
 						<ContextMenu.Root>
 							<ContextMenu.Trigger
 								render={
-									<CommitButton
-										draggable
-										onDragStart={(event) => {
-											setIsDragging(true);
-											commitMoveSourceIdRef.current = commit.id;
-											event.dataTransfer.setData(commitMoveSourceIdMimeType, commit.id);
-											event.dataTransfer.effectAllowed = "move";
-										}}
-										onDragEnd={() => {
-											setIsDragging(false);
-											commitMoveSourceIdRef.current = null;
-										}}
-										className={classes(isDragging && styles.dragging)}
+									<DraggableCommit
 										commit={{ ...commit, message: optimisticMessage }}
-										isSelected={isSelected}
-										isAnyFileSelected={isAnyFileSelected}
-										isHighlighted={isHighlighted}
-										toggleSelect={toggleSelect}
+										render={
+											<CommitButton
+												commit={{ ...commit, message: optimisticMessage }}
+												isSelected={isSelected}
+												isAnyFileSelected={isAnyFileSelected}
+												isHighlighted={isHighlighted}
+												toggleSelect={toggleSelect}
+											/>
+										}
 									/>
 								}
 							/>
@@ -861,29 +796,43 @@ const CommitC: FC<{
 						</Menu.Portal>
 					</Menu.Root>
 				</div>
-				{expanded && (
-					<div className={sharedStyles.commitDetails}>
-						<Suspense fallback={<div>Loading changed details…</div>}>
-							<CommitDetails
-								projectId={projectId}
-								commitId={commit.id}
-								renderFile={(change) => (
-									<FileListItem key={change.path} change={change} changeUnit={changeUnit}>
-										<div className={sharedStyles.fileRow}>
-											<FileButton
-												change={change}
-												isSelected={isFileSelected(change.path)}
-												toggleSelect={() => toggleFileSelect(change.path)}
-											/>
-										</div>
-									</FileListItem>
-								)}
-							/>
-						</Suspense>
-					</div>
-				)}
-			</li>
-		</CommitTarget>
+			</RubTarget>
+			{expanded && (
+				<div className={sharedStyles.commitDetails}>
+					<Suspense fallback={<div>Loading changed details…</div>}>
+						<CommitDetails
+							projectId={projectId}
+							commitId={commit.id}
+							renderFile={(change) => (
+								<li key={change.path}>
+									<div className={sharedStyles.fileRow}>
+										<DraggableFile
+											change={change}
+											changeUnit={changeUnit}
+											render={
+												<FileButton
+													change={change}
+													isSelected={isFileSelected(change.path)}
+													toggleSelect={() => toggleFileSelect(change.path)}
+												/>
+											}
+										/>
+									</div>
+								</li>
+							)}
+						/>
+					</Suspense>
+				</div>
+			)}
+			{nextCommitId === undefined && (
+				<CommitMoveTarget
+					commitId={commit.id}
+					side="below"
+					previousCommitId={previousCommitId}
+					nextCommitId={nextCommitId}
+				/>
+			)}
+		</li>
 	);
 };
 
@@ -904,8 +853,10 @@ const Changes: FC<{
 
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
 
+	const changeUnit: ChangeUnit = { _tag: "changes", stackId };
+
 	return (
-		<ChangesTarget projectId={projectId} stackId={stackId}>
+		<RubTarget target={changeUnit}>
 			<div className={className}>
 				{changes.length === 0 ? (
 					<>No changes.</>
@@ -920,19 +871,21 @@ const Changes: FC<{
 								: [];
 
 							return (
-								<FileListItem
-									key={change.path}
-									change={change}
-									changeUnit={{ _tag: "changes", stackId }}
-									assignments={assignments}
-								>
+								<li key={change.path}>
 									<div className={sharedStyles.fileRow}>
-										<FileButton
+										<DraggableFile
 											change={change}
-											isSelected={isFileSelected(change.path)}
-											toggleSelect={() => {
-												toggleFileSelect(change.path);
-											}}
+											changeUnit={changeUnit}
+											assignments={assignments}
+											render={
+												<FileButton
+													change={change}
+													isSelected={isFileSelected(change.path)}
+													toggleSelect={() => {
+														toggleFileSelect(change.path);
+													}}
+												/>
+											}
 										/>
 										{dependencyCommitIds.length > 0 && (
 											<span
@@ -947,75 +900,13 @@ const Changes: FC<{
 											</span>
 										)}
 									</div>
-								</FileListItem>
+								</li>
 							);
 						})}
 					</ul>
 				)}
 			</div>
-		</ChangesTarget>
-	);
-};
-
-const ChangesTarget: FC<{
-	projectId: string;
-	stackId: string | null;
-	children: React.ReactElement;
-}> = ({ projectId, stackId, children }) => {
-	const changeUnit: ChangeUnit = { _tag: "changes", stackId };
-
-	const rubSourceRef = assert(use(RubSourceContext));
-	const [rubOperation, setRubOperation] = useState<RubOperation | null>(null);
-	const rubMutation = useMutation(rubMutationOptions);
-
-	return (
-		<Tooltip.Root open={rubOperation !== null}>
-			<Tooltip.Trigger
-				render={children}
-				onDragOver={(event) => {
-					if (!event.dataTransfer.types.includes(rubSourceMimeType)) return;
-
-					const rubSource = rubSourceRef.current;
-					if (!rubSource) return;
-
-					const newRubOperation = rubOperationFor(rubSource.parent, changeUnit);
-					if (rubOperation !== newRubOperation) setRubOperation(newRubOperation);
-					if (newRubOperation === null) return;
-
-					event.preventDefault();
-				}}
-				onDragLeave={(event) => {
-					if (dragLeaveIsWithinTarget(event)) return;
-
-					if (rubOperation !== null) setRubOperation(null);
-				}}
-				onDrop={(event) => {
-					if (!event.dataTransfer.types.includes(rubSourceMimeType)) return;
-
-					event.preventDefault();
-					setRubOperation(null);
-
-					const rubSource = parseRubSource(event.dataTransfer);
-					rubSourceRef.current = null;
-					if (!rubSource) return;
-
-					const rubOperation = rubOperationFor(rubSource.parent, changeUnit);
-					if (rubOperation === null) return;
-
-					rubMutation.mutate({
-						projectId,
-						source: rubSource,
-						target: changeUnit,
-					});
-				}}
-				style={rubOperation !== null ? { outline: "2px dashed" } : undefined}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={styles.tooltip}>{rubOperation}</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+		</RubTarget>
 	);
 };
 
@@ -1140,62 +1031,30 @@ type StackLaneSelection =
 			path: string;
 	  };
 
-const BranchTarget: FC<{
-	projectId: string;
+const CommitMoveToBranchTarget: FC<{
 	anchorRef: string | null;
 	firstCommitId: string | undefined;
 	children: React.ReactElement;
-}> = ({ projectId, anchorRef, firstCommitId, children }) => {
-	const commitMoveSourceIdRef = assert(use(CommitMoveSourceIdContext));
-
-	const [isCommitMoveTarget, setIsCommitMoveTarget] = useState(false);
-
-	const commitMoveToBranch = useMutation(commitMoveToBranchMutationOptions);
+}> = ({ anchorRef, firstCommitId, children }) => {
+	const { ref: dropRef, isDropTarget } = useDroppable({
+		canDrop: (dragData) => {
+			const sourceItem = parseDragData(dragData);
+			return sourceItem?._tag === "Commit" && firstCommitId !== sourceItem.commitId;
+		},
+		disabled: anchorRef === null,
+		data: {
+			_tag: "CommitMoveToBranch",
+			anchorRef,
+			firstCommitId,
+		} satisfies OperationTarget,
+	});
 
 	return (
-		<Tooltip.Root open={isCommitMoveTarget}>
+		<Tooltip.Root open={isDropTarget}>
 			<Tooltip.Trigger
+				ref={dropRef}
 				render={children}
-				onDragOver={(event) => {
-					if (!event.dataTransfer.types.includes(commitMoveSourceIdMimeType)) return;
-
-					const commitMoveSourceId = commitMoveSourceIdRef.current;
-					if (commitMoveSourceId == null) return;
-
-					const newIsCommitMoveTarget = anchorRef !== null && firstCommitId !== commitMoveSourceId;
-					if (isCommitMoveTarget !== newIsCommitMoveTarget)
-						setIsCommitMoveTarget(newIsCommitMoveTarget);
-					if (!newIsCommitMoveTarget) return;
-
-					event.preventDefault();
-				}}
-				onDragLeave={(event) => {
-					if (dragLeaveIsWithinTarget(event)) return;
-
-					if (isCommitMoveTarget) setIsCommitMoveTarget(false);
-				}}
-				onDrop={(event) => {
-					if (!event.dataTransfer.types.includes(commitMoveSourceIdMimeType)) return;
-
-					event.preventDefault();
-					setIsCommitMoveTarget(false);
-
-					const commitMoveSourceId = parseCommitMoveSourceId(event.dataTransfer);
-					commitMoveSourceIdRef.current = null;
-					if (commitMoveSourceId == null) return;
-
-					const isCommitMoveTarget = anchorRef !== null && firstCommitId !== commitMoveSourceId;
-					if (!isCommitMoveTarget) return;
-
-					commitMoveToBranch.mutate({
-						projectId,
-						subjectCommitId: commitMoveSourceId,
-						anchorRef,
-					});
-				}}
-				style={{
-					...(isCommitMoveTarget && { outline: "2px dashed" }),
-				}}
+				style={{ ...(isDropTarget && { outline: "2px dashed" }) }}
 			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
@@ -1292,18 +1151,20 @@ const StackLane: FC<{
 						const anchorRef = segment.refName ? decodeRefName(segment.refName.fullNameBytes) : null;
 						return (
 							<li key={branchName}>
-								<BranchTarget
-									projectId={projectId}
+								<CommitMoveToBranchTarget
 									anchorRef={anchorRef}
 									firstCommitId={segment.commits[0]?.id}
 								>
 									<h3>{branchName}</h3>
-								</BranchTarget>
+								</CommitMoveToBranchTarget>
 
 								<h4>Commits</h4>
 								<CommitsList commits={segment.commits}>
 									{(commit, index) => {
-										const changeUnit: ChangeUnit = { _tag: "commit", commitId: commit.id };
+										const changeUnit: ChangeUnit = {
+											_tag: "commit",
+											commitId: commit.id,
+										};
 										return (
 											<CommitC
 												key={commit.id}
@@ -1359,10 +1220,9 @@ const StackLane: FC<{
 
 const ProjectPage: FC = () => {
 	const { id } = projectRootRoute.useParams();
-	const rubSourceRef = useRef<RubSource | null>(null);
-	const commitMoveSourceIdRef = useRef<string | null>(null);
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
+	const [draggedSourceItem, setDraggedSourceItem] = useState<SourceItem | null>(null);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 
@@ -1370,6 +1230,8 @@ const ProjectPage: FC = () => {
 
 	// TODO: handle project not found error. or only run when project is not null? waterfall.
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(id));
+
+	useMonitorDraggedSourceItem({ projectId: id, setDraggedSourceItem });
 
 	// TODO: dedupe
 	if (!project) return <p>Project not found.</p>;
@@ -1381,27 +1243,25 @@ const ProjectPage: FC = () => {
 	};
 
 	return (
-		<RubSourceContext value={rubSourceRef}>
-			<CommitMoveSourceIdContext value={commitMoveSourceIdRef}>
-				<h2>{project.title} workspace</h2>
+		<DraggedSourceItemContext.Provider value={draggedSourceItem}>
+			<h2>{project.title} workspace</h2>
 
-				<ul className={styles.lanes}>
-					<UnassignedLane projectId={project.id} onLockHover={highlightCommits} />
+			<ul className={styles.lanes}>
+				<UnassignedLane projectId={project.id} onLockHover={highlightCommits} />
 
-					{headInfo.stacks.map((stack) => (
-						<StackLane
-							key={stack.id}
-							projectId={project.id}
-							stack={stack}
-							highlightedCommitIds={highlightedCommitIds}
-							onLockHover={highlightCommits}
-						/>
-					))}
-				</ul>
+				{headInfo.stacks.map((stack) => (
+					<StackLane
+						key={stack.id}
+						projectId={project.id}
+						stack={stack}
+						highlightedCommitIds={highlightedCommitIds}
+						onLockHover={highlightCommits}
+					/>
+				))}
+			</ul>
 
-				{baseId !== undefined && <>{shortCommitId(baseId)} (common base commit)</>}
-			</CommitMoveSourceIdContext>
-		</RubSourceContext>
+			{baseId !== undefined && <>{shortCommitId(baseId)} (common base commit)</>}
+		</DraggedSourceItemContext.Provider>
 	);
 };
 

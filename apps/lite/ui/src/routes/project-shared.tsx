@@ -1,3 +1,5 @@
+import { mergeProps } from "@base-ui/react/merge-props";
+import { useRender } from "@base-ui/react/use-render";
 import {
 	Commit,
 	DiffHunk,
@@ -8,12 +10,14 @@ import {
 } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { FC, ComponentPropsWithoutRef, ReactNode } from "react";
+import { ComponentProps, FC, ReactNode } from "react";
 import styles from "./project-shared.module.css";
 import {
 	commitDetailsWithLineStatsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/queries.ts";
+import { type ChangeUnit } from "#ui/ChangeUnit.ts";
+import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 
 /**
  * @example
@@ -24,6 +28,21 @@ const classes = (...xs: Array<string | null | undefined | false>): string =>
 	xs.reduce((acc: string, x) => (x ? (acc ? `${acc} ${x}` : x) : acc), "");
 
 type Patch = Extract<UnifiedPatch, { type: "Patch" }>;
+
+export type SourceItem =
+	| { _tag: "Commit"; commitId: string }
+	| {
+			_tag: "TreeChange";
+			source: {
+				parent: ChangeUnit;
+				change: TreeChange;
+				hunkHeaders: Array<HunkHeader>;
+			};
+	  };
+
+export type DragData = {
+	sourceItem: SourceItem;
+};
 
 const hunkHeaderEquals = (a: HunkHeader, b: HunkHeader): boolean =>
 	a.oldStart === b.oldStart &&
@@ -46,9 +65,68 @@ const assignedHunks = (
 	);
 };
 
-export const HunkDiff: FC<{
+const DraggableHunk: FC<
+	{
+		patch: Patch;
+		changeUnit: ChangeUnit;
+		change: TreeChange;
+		hunk: DiffHunk;
+	} & useRender.ComponentProps<"div">
+> = ({ patch, changeUnit, change, hunk, render, ...props }) => {
+	const sourceItem: SourceItem = {
+		_tag: "TreeChange",
+		source: {
+			parent: changeUnit,
+			change,
+			hunkHeaders: [hunk],
+		},
+	};
+	const { ref: dragRef, isDragging } = useDraggable({
+		data: { sourceItem } satisfies DragData,
+		preview: (
+			<div className={styles.dragPreview}>
+				Hunk -{hunk.oldStart},{hunk.oldLines}, +{hunk.newStart},{hunk.newLines}
+			</div>
+		),
+		disabled: patch.subject.isResultOfBinaryToTextConversion,
+	});
+
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && styles.dragging),
+		}),
+	});
+};
+
+const HunkDiff: FC<{
 	diff: string;
 }> = ({ diff }) => <pre className={styles.hunkDiff}>{diff}</pre>;
+
+export const HunkListItem: FC<{
+	patch: Patch;
+	changeUnit: ChangeUnit;
+	change: TreeChange;
+	hunk: DiffHunk;
+	headerStart?: ReactNode;
+}> = ({ patch, changeUnit, change, hunk, headerStart }) => (
+	<li className={styles.hunkListItem}>
+		<div className={styles.hunkHeaderRow}>
+			{headerStart}
+			<DraggableHunk
+				patch={patch}
+				changeUnit={changeUnit}
+				change={change}
+				hunk={hunk}
+				render={<button type="button" className={styles.hunkDragHandle} />}
+			>
+				-{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines}
+			</DraggableHunk>
+		</div>
+		<HunkDiff diff={hunk.diff} />
+	</li>
+);
 
 export const hunkKey = (hunk: HunkHeader): string =>
 	`${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`;
@@ -82,14 +160,17 @@ export const FileDiff: FC<{
 	);
 };
 
-export const FileButton: FC<{
-	change: TreeChange;
-	isSelected: boolean;
-	toggleSelect: () => void;
-}> = ({ change, isSelected, toggleSelect }) => (
+export const FileButton: FC<
+	{
+		change: TreeChange;
+		isSelected: boolean;
+		toggleSelect: () => void;
+	} & ComponentProps<"button">
+> = ({ change, isSelected, toggleSelect, className, ...restProps }) => (
 	<button
+		{...restProps}
 		type="button"
-		className={classes(styles.fileButton, isSelected && styles.selected)}
+		className={classes(className, styles.fileButton, isSelected && styles.selected)}
 		onClick={toggleSelect}
 	>
 		{change.path}
@@ -137,6 +218,15 @@ export const CommitDetails: FC<{
 	);
 };
 
+export const CommitLabel: FC<{
+	commit: Commit;
+}> = ({ commit }) => (
+	<>
+		{commit.message === "" ? <>(no message)</> : commit.message.split("\n")[0]}
+		{commit.hasConflicts && " ⚠️"}
+	</>
+);
+
 export const CommitButton: FC<
 	{
 		commit: Commit;
@@ -144,7 +234,7 @@ export const CommitButton: FC<
 		isAnyFileSelected: boolean;
 		isHighlighted: boolean;
 		toggleSelect: () => void;
-	} & ComponentPropsWithoutRef<"button">
+	} & ComponentProps<"button">
 > = ({
 	commit,
 	isSelected,
@@ -167,8 +257,7 @@ export const CommitButton: FC<
 			...(isHighlighted && { backgroundColor: "yellow" }),
 		}}
 	>
-		{commit.message === "" ? <>(no message)</> : commit.message.split("\n")[0]}
-		{commit.hasConflicts && " ⚠️"}
+		<CommitLabel commit={commit} />
 	</button>
 );
 
