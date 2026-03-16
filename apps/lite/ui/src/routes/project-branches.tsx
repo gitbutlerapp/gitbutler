@@ -318,8 +318,7 @@ const ProjectBranchesPage: FC = () => {
 	const unapplyStack = useMutation(unapplyStackMutationOptions);
 
 	const sortedBranches = branches.slice().sort((a, b) => a.name.localeCompare(b.name));
-	const selectedBranch =
-		sortedBranches.find((branch) => branch.name === selectedBranchName) ?? sortedBranches[0];
+	const selectedBranch = sortedBranches.find((branch) => branch.name === selectedBranchName);
 	const selectedBranchResolvedName = selectedBranch?.name;
 
 	const selectedRemote =
