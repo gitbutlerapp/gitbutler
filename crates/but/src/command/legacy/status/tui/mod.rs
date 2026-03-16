@@ -803,7 +803,10 @@ fn event_to_messages(ev: Event, key_binds: &[KeyBind], mode: &Mode, messages: &m
         Event::Resize(_, _) | Event::Paste(_) => {
             messages.push(Message::Noop); // trigger a render
         }
-        Event::FocusGained | Event::FocusLost | Event::Mouse(_) => {}
+        Event::FocusGained => {
+            messages.push(Message::Reload(None));
+        }
+        Event::FocusLost | Event::Mouse(_) => {}
     }
 }
 
