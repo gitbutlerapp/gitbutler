@@ -5,6 +5,9 @@ use crate::{
     command::legacy::status::{StatusOutputLine, output::StatusOutputLineData, tui::Mode},
 };
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub(super) struct Cursor(usize);
 
@@ -103,6 +106,10 @@ impl Cursor {
     }
 
     pub(super) fn move_up(&mut self, lines: &[StatusOutputLine], mode: &Mode) {
+        if self.0 >= lines.len() {
+            return;
+        }
+
         if let Some((idx, _)) = lines
             .iter()
             .enumerate()
@@ -115,6 +122,10 @@ impl Cursor {
     }
 
     pub(super) fn move_down(&mut self, lines: &[StatusOutputLine], mode: &Mode) {
+        if self.0 >= lines.len() {
+            return;
+        }
+
         if let Some((idx, _)) = lines
             .iter()
             .enumerate()
@@ -124,6 +135,67 @@ impl Cursor {
             self.0 = idx;
         }
     }
+
+    /// Moves the cursor to the next selectable jump-target line after the current cursor position.
+    pub(super) fn move_next_section(&mut self, lines: &[StatusOutputLine], mode: &Mode) {
+        if self.0 >= lines.len() {
+            return;
+        }
+
+        if let Some((idx, _)) = lines
+            .iter()
+            .enumerate()
+            .skip(self.0 + 1)
+            .find(|(_, line)| is_jump_target_in_mode(line, mode))
+        {
+            self.0 = idx;
+        }
+    }
+
+    /// Moves the cursor to the previous selectable jump-target line before the current cursor position.
+    ///
+    /// If the current line is inside a section (for example, a file or commit row), moving to the
+    /// previous section skips the current section header and jumps to the section before it.
+    pub(super) fn move_previous_section(&mut self, lines: &[StatusOutputLine], mode: &Mode) {
+        if self.0 >= lines.len() {
+            return;
+        }
+
+        let current_line_is_section_header = lines.get(self.0).is_some_and(is_section_header);
+
+        let previous_jump_targets: Vec<usize> = lines
+            .iter()
+            .enumerate()
+            .rev()
+            .skip(lines.len() - self.0)
+            .filter_map(|(idx, line)| is_jump_target_in_mode(line, mode).then_some(idx))
+            .collect();
+
+        let target_idx = if current_line_is_section_header {
+            previous_jump_targets.first().copied()
+        } else {
+            previous_jump_targets.get(1).copied()
+        };
+
+        if let Some(target_idx) = target_idx {
+            self.0 = target_idx;
+        }
+    }
+}
+
+/// Returns true if a line is a section header row.
+fn is_section_header(line: &StatusOutputLine) -> bool {
+    matches!(
+        line.data,
+        StatusOutputLineData::Branch { .. }
+            | StatusOutputLineData::StagedChanges { .. }
+            | StatusOutputLineData::UnstagedChanges { .. }
+    )
+}
+
+/// Returns true if a line is selectable and is a jump target in the given mode.
+fn is_jump_target_in_mode(line: &StatusOutputLine, mode: &Mode) -> bool {
+    is_selectable_in_mode(line, mode) && is_section_header(line)
 }
 
 pub(super) fn is_selectable_in_mode(line: &StatusOutputLine, mode: &Mode) -> bool {
@@ -139,7 +211,7 @@ pub(super) fn is_selectable_in_mode(line: &StatusOutputLine, mode: &Mode) -> boo
                     .cli_id()
                     .is_some_and(|cli_id| available_targets.contains(cli_id))
         }
-        // its not possible to move the cursor in this mode
+        // its not possible to move the cursor in these modes
         Mode::InlineReword { .. } => false,
     }
 }
