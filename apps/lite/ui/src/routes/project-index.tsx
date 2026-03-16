@@ -101,24 +101,6 @@ type DragData = {
 	sourceItem: SourceItem;
 };
 
-type OperationTarget =
-	| {
-			_tag: "Rub";
-			target: ChangeUnit;
-	  }
-	| {
-			_tag: "CommitMove";
-			anchorCommitId: string;
-			side: InsertSide;
-			previousCommitId: string | undefined;
-			nextCommitId: string | undefined;
-	  }
-	| {
-			_tag: "CommitMoveToBranch";
-			anchorRef: string | null;
-			firstCommitId: string | undefined;
-	  };
-
 const changeUnitKey = (changeUnit: ChangeUnit, stackId: string | null): string =>
 	changeUnit._tag === "commit"
 		? // The stack ID prefix is necessary whilst we still have the possibility of
@@ -136,6 +118,24 @@ const useDraggedSourceItem = (): SourceItem | null => {
 	const operation = useDragOperation();
 	return getSourceItemFromData(operation.source?.data);
 };
+
+type OperationTarget =
+	| {
+			_tag: "Rub";
+			target: ChangeUnit;
+	  }
+	| {
+			_tag: "CommitMove";
+			anchorCommitId: string;
+			side: InsertSide;
+			previousCommitId: string | undefined;
+			nextCommitId: string | undefined;
+	  }
+	| {
+			_tag: "CommitMoveToBranch";
+			anchorRef: string | null;
+			firstCommitId: string | undefined;
+	  };
 
 const getOperationTargetFromData = (data: unknown): OperationTarget | null => {
 	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
