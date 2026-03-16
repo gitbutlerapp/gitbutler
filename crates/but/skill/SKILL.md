@@ -42,7 +42,8 @@ but <mutation> ... --json --status-after
 - Commit: `but commit <branch> -m "<msg>" --changes <id>,<id> --json --status-after`
 - Commit + create branch: `but commit <branch> -c -m "<msg>" --changes <id> --json --status-after`
 - Amend: `but amend <file-id> <commit-id> --json --status-after`
-- Reorder: `but move <source-commit-id> <target-commit-id> --json --status-after`
+- Reorder commits: `but move <source-commit-id> <target-commit-id> --json --status-after` (**commit IDs**, not branch names)
+- Stack branches: `but branch move <branch-name> <target-branch-name>` (**branch names**, not IDs — e.g. `but branch move feature/frontend feature/backend`)
 - Push: `but push` or `but push <branch-id>`
 - Pull: `but pull --check --json` then `but pull --json --status-after`
 
@@ -54,6 +55,7 @@ but <mutation> ... --json --status-after
 2. Find the `cliId` for each file you want to commit.
 3. `but commit <branch> -m "<msg>" --changes <id1>,<id2> --json --status-after`
    Use `-c` to create the branch if it doesn't exist. Omit IDs you don't want committed.
+4. **Check the `--status-after` output** for remaining uncommitted changes. If the file still appears in `unassignedChanges` or `assignedChanges` after commit, it may be dependency-locked to another branch. See "Stacked dependency / commit-lock recovery" below.
 
 ### Amend into existing commit
 
@@ -61,19 +63,65 @@ but <mutation> ... --json --status-after
 2. Locate file ID and target commit ID.
 3. `but amend <file-id> <commit-id> --json --status-after`
 
-### Reorder commits
+### Reorder commits (not branches)
+
+**`but move` reorders commits within a branch. To stack branches, use `but branch move` instead.**
 
 1. `but status --json`
-2. `but move <commit-a> <commit-b> --json --status-after`
+2. `but move <commit-a> <commit-b> --json --status-after` — uses commit IDs like `c3`, `c5`
 3. Refresh IDs from the returned status, then run the inverse: `but move <commit-b> <commit-a> --json --status-after`
+
+### Stack existing branches
+
+To make one existing branch depend on (stack on top of) another, use `but branch move`:
+
+```bash
+but branch move feature/frontend feature/backend
+```
+
+This moves the frontend branch on top of the backend branch in one step.
+
+**DO NOT** use `uncommit` + `branch delete` + `branch new -a` to stack existing branches. That approach fails because git branch names persist even after `but branch delete`. Always use `but branch move`.
+
+**To unstack** (make a stacked branch independent again):
+
+```bash
+but branch new temp-unstack              # create an empty dummy branch
+but branch move feature/logging temp-unstack   # move the branch to the dummy
+but branch delete temp-unstack           # delete the dummy, leaving branch independent
+```
+
+**Note:** `but branch move` uses branch **names** (like `feature/frontend`), while `but move` uses commit **IDs** (like `c3`). Do not confuse them. Do NOT use `but undo` to unstack — it may revert more than intended and lose commits.
 
 ### Stacked dependency / commit-lock recovery
 
-If your change depends on another branch, or `but commit` fails with a lock error:
+A **dependency lock** occurs when a file was originally committed on branch A, but you're trying to commit changes to it on branch B. Symptoms:
+- `but commit` succeeds but the file still appears in `unassignedChanges` in the `--status-after` output
+- The file shows as "unassigned" instead of being staged to any branch
 
-1. `but status --json` — confirm stack context.
-2. `but branch new <child-branch> -a <base-branch>`
-3. Continue mutations on the aligned branch.
+**Recovery:** Stack your branch on the dependency branch, then commit:
+
+1. `but status --json` — identify which branch originally owns the file (check commit history).
+2. `but branch move <your-branch-name> <dependency-branch-name>` — stack your branch on the dependency. Uses full branch **names**, not CLI IDs.
+3. `but status --json` — the file should now be assignable. Commit it.
+4. `but commit <branch> -m "<msg>" --changes <id> --json --status-after`
+
+**If `but branch move` fails:** Do NOT try `uncommit`, `squash`, or `undo` to work around it — these will leave the workspace in a worse state. Instead, re-run `but status --json` to confirm both branches still exist and are applied, then retry `but branch move` with exact branch names from the status output.
+
+### Resolve conflicts after reorder/move
+
+**NEVER use `git add`, `git commit`, `git checkout --theirs`, `git checkout --ours`, or any git write commands during resolution.** Only use `but resolve` commands and edit files directly with the Edit tool.
+
+If `but move` causes conflicts (`"conflicted": true` in status):
+
+1. `but status --json` — find commits with `"conflicted": true`.
+2. `but resolve <commit-id>` — enter resolution mode. This puts conflict markers in the files.
+3. **Read the conflicted files** to see the `<<<<<<<` / `=======` / `>>>>>>>` markers.
+4. **Edit the files** to resolve conflicts by choosing the correct content and removing markers.
+5. `but resolve finish` — finalize. Do NOT run this without editing the files first.
+6. Repeat for any remaining conflicted commits.
+
+**Common mistakes:** Do NOT use `but amend` on conflicted commits (it won't work). Do NOT skip step 4 — you must actually edit the files to remove conflict markers before finishing.
 
 ## Git-to-But Map
 
@@ -84,14 +132,17 @@ If your change depends on another branch, or `but commit` fails with a lock erro
 | `git checkout -b` | `but branch new <name>` |
 | `git push` | `but push` |
 | `git rebase -i` | `but move`, `but squash`, `but reword` |
+| `git rebase --onto` | `but branch move <branch> <new-base>` |
 | `git cherry-pick` | `but pick` |
 
 ## Notes
 
 - Prefer explicit IDs over file paths for mutations.
 - `--changes` accepts comma-separated values (`--changes a1,b2`) or repeated flags (`--changes a1 --changes b2`), not space-separated.
-- Read-only git inspection (`git log`, `git blame`) is allowed.
+- Read-only git inspection (`git log`, `git blame`, `git show --stat`) is allowed.
 - After a successful `--status-after`, don't run a redundant `but status` unless you need new IDs.
+- Use `but show <branch-id> --json` to see commit details for a branch, including per-commit file changes and line counts.
+- **Per-commit file counts**: `but status --json` does NOT include per-commit file counts. Use `but show <branch-id> --json` or `git show --stat <commit-hash>` to get them.
 - Avoid `--help` probes; use this skill and `references/reference.md` first. Only use `--help` after a failed attempt.
 - Run `but skill check` only when command behavior diverges from this skill, not as routine preflight.
 - For command syntax and flags: `references/reference.md`

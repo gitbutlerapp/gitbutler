@@ -130,7 +130,8 @@ but link resolve --block-id <id> --agent-id <id>
 - Commit: `but commit <branch> -m "<msg>" --changes <id>,<id> --json --status-after`
 - Commit + create branch: `but commit <branch> -c -m "<msg>" --changes <id> --json --status-after`
 - Amend: `but amend <file-id> <commit-id> --json --status-after`
-- Reorder: `but move <source-commit-id> <target-commit-id> --json --status-after`
+- Reorder commits: `but move <source-commit-id> <target-commit-id> --json --status-after` (**commit IDs**, not branch names)
+- Stack branches: `but branch move <branch-name> <target-branch-name>` (**branch names**, not IDs — e.g. `but branch move feature/frontend feature/backend`)
 - Push: `but push` or `but push <branch-id>`
 - Pull: `but pull --check --json` then `but pull --json --status-after`
 
@@ -167,6 +168,7 @@ Use this for PR review, comment triage, investigation, or validation-only work.
 2. Find the `cliId` for each file you want to commit.
 3. `but commit <branch> -m "<msg>" --changes <id1>,<id2> --json --status-after`
    Use `-c` to create the branch if it doesn't exist. Omit IDs you don't want committed.
+4. **Check the `--status-after` output** for remaining uncommitted changes. If the file still appears in `unassignedChanges` or `assignedChanges` after commit, it may be dependency-locked to another branch. See "Stacked dependency / commit-lock recovery" below.
 
 ### Amend into existing commit
 
@@ -180,14 +182,28 @@ Use this for PR review, comment triage, investigation, or validation-only work.
 2. `but move <commit-a> <commit-b> --json --status-after`
 3. Refresh IDs from the returned status, then run the inverse: `but move <commit-b> <commit-a> --json --status-after`
 
+### Stack existing branches
+
+To make one existing branch depend on (stack on top of) another:
+
+1. `but status --json` — confirm both branches exist and note their full branch names.
+2. `but branch move <child-branch-name> <base-branch-name>` — uses full branch names (e.g. `feature/frontend`), NOT CLI IDs.
+
+**Note:** `but branch move` uses branch **names** (like `feature/frontend`), while `but move` uses commit **IDs** (like `c3`). Do not confuse them.
+
 ### Stacked dependency / commit-lock recovery
 
-If your change depends on another agent's branch, or `but commit` fails with a lock error:
+A **dependency lock** occurs when a file was originally committed on branch A, but you're trying to commit changes to it on branch B. Symptoms:
+- `but commit` succeeds but the file still appears in `unassignedChanges` in the `--status-after` output
+- The file shows as "unassigned" instead of being staged to any branch
 
-1. `but status --json` — confirm stack context.
-2. `but link post "Blocked on <base-branch>: <reason>" --agent-id <id>`
-3. `but branch new <child-branch> -a <base-branch>`
-4. Continue mutations on the aligned branch.
+**Recovery:** Stack your branch on the dependency branch, then commit:
+
+1. `but status --json` — identify which branch originally owns the file.
+2. `but link post "Blocked on <base-branch>: dependency lock" --agent-id <id>`
+3. `but branch move <your-branch-name> <dependency-branch-name>` — stack your branch on the dependency. Uses full branch **names**, not CLI IDs.
+4. `but status --json` — the file should now be assignable.
+5. `but commit <branch> -m "<msg>" --changes <id> --json --status-after`
 
 ## Git-to-But Map
 
@@ -204,8 +220,10 @@ If your change depends on another agent's branch, or `but commit` fails with a l
 
 - Prefer explicit IDs over file paths for mutations.
 - `--changes` accepts comma-separated values (`--changes a1,b2`) or repeated flags (`--changes a1 --changes b2`), not space-separated.
-- Read-only git inspection (`git log`, `git blame`) is allowed.
+- Read-only git inspection (`git log`, `git blame`, `git show --stat`) is allowed.
 - After a successful `--status-after`, don't run a redundant `but status` unless you need new IDs.
+- Use `but show <branch-id> --json` to see commit details for a branch (includes per-commit file changes and line counts automatically in JSON mode).
+- **Per-commit file counts**: `but status --json` does NOT include per-commit file counts. Use `but show <branch-id> --json` or `git show --stat <commit-hash>` to get them.
 - Avoid `--help` probes; use this skill and `references/reference.md` first. Only use `--help` after a failed attempt.
 - Run `but skill check` only when command behavior diverges from this skill, not as routine preflight.
 - For coordination protocol details: `references/link.md`
