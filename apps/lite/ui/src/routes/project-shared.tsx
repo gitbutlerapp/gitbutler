@@ -140,6 +140,15 @@ export const CommitDetails: FC<{
 	);
 };
 
+export const CommitLabel: FC<{
+	commit: Commit;
+}> = ({ commit }) => (
+	<>
+		{commit.message === "" ? <>(no message)</> : commit.message.split("\n")[0]}
+		{commit.hasConflicts && " ⚠️"}
+	</>
+);
+
 export const CommitButton: FC<
 	{
 		commit: Commit;
@@ -170,8 +179,7 @@ export const CommitButton: FC<
 			...(isHighlighted && { backgroundColor: "yellow" }),
 		}}
 	>
-		{commit.message === "" ? <>(no message)</> : commit.message.split("\n")[0]}
-		{commit.hasConflicts && " ⚠️"}
+		<CommitLabel commit={commit} />
 	</button>
 );
 

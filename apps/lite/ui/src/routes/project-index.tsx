@@ -3,6 +3,8 @@ import {
 	dropTargetForElements,
 	monitorForElements,
 } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
+import { centerUnderPointer } from "@atlaskit/pragmatic-drag-and-drop/element/center-under-pointer";
+import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview";
 import { createRoute } from "@tanstack/react-router";
 import styles from "./project-index.module.css";
 import sharedStyles from "./project-shared.module.css";
@@ -29,6 +31,7 @@ import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import {
 	createContext,
 	FC,
+	ReactNode,
 	RefCallback,
 	startTransition,
 	Suspense,
@@ -38,9 +41,11 @@ import {
 	useOptimistic,
 	useState,
 } from "react";
+import { createRoot } from "react-dom/client";
 import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
 import {
 	CommitButton,
+	CommitLabel,
 	CommitDetails,
 	CommitsList,
 	FileButton,
@@ -149,13 +154,30 @@ const getOperationTargetFromData = (data: unknown): OperationTarget | null => {
 
 const useDraggable = ({
 	data,
+	preview,
 	disabled = false,
 }: {
 	data: DragData;
+	preview: ReactNode;
 	disabled?: boolean;
 }): RefCallback<HTMLElement> => {
 	const [element, setElement] = useState<HTMLElement | null>(null);
 	const getInitialData = useEffectEvent(() => data);
+	const onGenerateDragPreview = useEffectEvent(
+		({ nativeSetDragImage }: { nativeSetDragImage: DataTransfer["setDragImage"] | null }) => {
+			setCustomNativeDragPreview({
+				nativeSetDragImage,
+				getOffset: centerUnderPointer,
+				render: ({ container }) => {
+					const root = createRoot(container);
+					root.render(<div className={styles.dragPreview}>{preview}</div>);
+					return () => {
+						root.unmount();
+					};
+				},
+			});
+		},
+	);
 
 	useEffect(() => {
 		if (!element || disabled) return;
@@ -163,6 +185,7 @@ const useDraggable = ({
 		return draggable({
 			element,
 			getInitialData,
+			onGenerateDragPreview,
 		});
 	}, [disabled, element]);
 
@@ -302,6 +325,11 @@ const DraggableHunk: FC<
 	};
 	const dragRef = useDraggable({
 		data: { sourceItem } as DragData,
+		preview: (
+			<>
+				Hunk -{hunk.oldStart},{hunk.oldLines}, +{hunk.newStart},{hunk.newLines}
+			</>
+		),
 		disabled: patch.subject.isResultOfBinaryToTextConversion,
 	});
 
@@ -314,11 +342,15 @@ const DraggableHunk: FC<
 
 const DraggableCommit: FC<
 	{
-		commitId: string;
+		commit: Commit;
 	} & useRender.ComponentProps<"div">
-> = ({ commitId, render, ...props }) => {
+> = ({ commit, render, ...props }) => {
+	const { id: commitId } = commit;
 	const sourceItem: SourceItem = { _tag: "Commit", commitId };
-	const dragRef = useDraggable({ data: { sourceItem } as DragData });
+	const dragRef = useDraggable({
+		data: { sourceItem } as DragData,
+		preview: <CommitLabel commit={commit} />,
+	});
 
 	return useRender({
 		render,
@@ -468,7 +500,10 @@ const DraggableFile: FC<
 				: [],
 		},
 	};
-	const dragRef = useDraggable({ data: { sourceItem } as DragData });
+	const dragRef = useDraggable({
+		data: { sourceItem } as DragData,
+		preview: change.path,
+	});
 
 	return useRender({
 		render,
@@ -858,7 +893,7 @@ const CommitC: FC<{
 							<ContextMenu.Trigger
 								render={
 									<DraggableCommit
-										commitId={commit.id}
+										commit={{ ...commit, message: optimisticMessage }}
 										render={
 											<CommitButton
 												commit={{ ...commit, message: optimisticMessage }}
