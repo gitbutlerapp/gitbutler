@@ -119,10 +119,13 @@ type OperationTarget =
 			firstCommitId: string | undefined;
 	  };
 
-const changeUnitKey = (changeUnit: ChangeUnit): string =>
+const changeUnitKey = (changeUnit: ChangeUnit, stackId: string | null): string =>
 	changeUnit._tag === "commit"
-		? `commit:${changeUnit.commitId}`
-		: `changes:${changeUnit.stackId ?? "null"}`;
+		? // The stack ID prefix is necessary whilst we still have the possibility of
+			// the same commit appearing in multiple stacks (e.g. if X and Y both depend
+			// on A then A will be shown twice).
+			`stack:${stackId ?? "null"};commit:${changeUnit.commitId}`
+		: `stack:${changeUnit.stackId ?? "null"};changes`;
 
 const getSourceItemFromData = (data: unknown): SourceItem | null => {
 	if (typeof data !== "object" || data === null || !("sourceItem" in data)) return null;
@@ -233,7 +236,7 @@ const DraggableHunk: FC<
 		},
 	};
 	const { ref: dragRef } = useDraggable({
-		id: `stack:${stackId ?? "null"};change:${changeUnitKey(changeUnit)};file:${change.path};hunk:${hunkKey(hunk)}`,
+		id: `${changeUnitKey(changeUnit, stackId)};file:${change.path};hunk:${hunkKey(hunk)}`,
 		data: { sourceItem } as DragData,
 		disabled: patch.subject.isResultOfBinaryToTextConversion,
 	});
@@ -253,7 +256,7 @@ const DraggableCommit: FC<
 > = ({ commitId, stackId, render, ...props }) => {
 	const sourceItem: SourceItem = { _tag: "Commit", commitId };
 	const { ref: dragRef } = useDraggable({
-		id: `stack:${stackId};commit:${commitId}`,
+		id: changeUnitKey({ _tag: "commit", commitId }, stackId),
 		data: { sourceItem } as DragData,
 	});
 
@@ -411,7 +414,7 @@ const DraggableFile: FC<
 		},
 	};
 	const { ref: dragRef } = useDraggable({
-		id: `stack:${stackId ?? "null"};change:${changeUnitKey(changeUnit)};file:${change.path}`,
+		id: `${changeUnitKey(changeUnit, stackId)};file:${change.path}`,
 		data: { sourceItem } as DragData,
 	});
 
@@ -540,7 +543,7 @@ const RubTarget: FC<{
 }> = ({ target, stackId, children }) => {
 	const sourceItem = useDraggedSourceItem();
 	const { ref: dropRef, isDropTarget } = useDroppable({
-		id: `stack:${stackId ?? "null"};change:${changeUnitKey(target)};rub`,
+		id: `${changeUnitKey(target, stackId)};rub`,
 		accept: (source) => {
 			const sourceItem = getSourceItemFromData(source.data);
 			return !!sourceItem && rubOperationLabel(rubSourceFor(sourceItem), target) !== null;
