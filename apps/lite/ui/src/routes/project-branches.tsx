@@ -7,8 +7,7 @@ import {
 	CommitsList,
 	FileDiff,
 	FileButton,
-	HunkListItem,
-	hunkKey,
+	Hunk,
 	classes,
 } from "#ui/routes/project-shared.tsx";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
@@ -167,13 +166,7 @@ const SelectedCommitFileDiff: FC<{
 			projectId={projectId}
 			change={change}
 			renderHunk={(hunk, patch) => (
-				<HunkListItem
-					key={hunkKey(hunk)}
-					patch={patch}
-					changeUnit={{ _tag: "commit", commitId }}
-					change={change}
-					hunk={hunk}
-				/>
+				<Hunk patch={patch} changeUnit={{ _tag: "commit", commitId }} change={change} hunk={hunk} />
 			)}
 		/>
 	);
@@ -198,8 +191,7 @@ const SelectedCommitDiff: FC<{
 						projectId={projectId}
 						change={change}
 						renderHunk={(hunk, patch) => (
-							<HunkListItem
-								key={hunkKey(hunk)}
+							<Hunk
 								patch={patch}
 								changeUnit={{ _tag: "commit", commitId }}
 								change={change}
@@ -244,8 +236,7 @@ const SelectedBranchDiff: FC<{
 						projectId={projectId}
 						change={change}
 						renderHunk={(hunk, patch) => (
-							<HunkListItem
-								key={hunkKey(hunk)}
+							<Hunk
 								patch={patch}
 								// TODO: this doesn't make sense
 								changeUnit={{ _tag: "changes", stackId: null }}

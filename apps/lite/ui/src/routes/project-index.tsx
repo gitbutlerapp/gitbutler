@@ -42,9 +42,8 @@ import {
 	type DragData,
 	FileButton,
 	FileDiff,
-	HunkListItem,
+	Hunk,
 	type SourceItem,
-	hunkKey,
 } from "#ui/routes/project-shared.tsx";
 import {
 	commitInsertBlankMutationOptions,
@@ -439,8 +438,7 @@ const SelectedChangesFileDiff: FC<{
 					: [];
 
 				return (
-					<HunkListItem
-						key={hunkKey(hunk)}
+					<Hunk
 						patch={patch}
 						changeUnit={{ _tag: "changes", stackId }}
 						change={change}
@@ -478,13 +476,7 @@ const SelectedCommitFileDiff: FC<{
 			projectId={projectId}
 			change={change}
 			renderHunk={(hunk, patch) => (
-				<HunkListItem
-					key={hunkKey(hunk)}
-					patch={patch}
-					changeUnit={{ _tag: "commit", commitId }}
-					change={change}
-					hunk={hunk}
-				/>
+				<Hunk patch={patch} changeUnit={{ _tag: "commit", commitId }} change={change} hunk={hunk} />
 			)}
 		/>
 	);
@@ -509,8 +501,7 @@ const SelectedCommitDiff: FC<{
 						projectId={projectId}
 						change={change}
 						renderHunk={(hunk, patch) => (
-							<HunkListItem
-								key={hunkKey(hunk)}
+							<Hunk
 								patch={patch}
 								changeUnit={{ _tag: "commit", commitId }}
 								change={change}

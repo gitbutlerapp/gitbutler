@@ -104,14 +104,14 @@ const HunkDiff: FC<{
 	diff: string;
 }> = ({ diff }) => <pre className={styles.hunkDiff}>{diff.split("\n").slice(1).join("\n")}</pre>;
 
-export const HunkListItem: FC<{
+export const Hunk: FC<{
 	patch: Patch;
 	changeUnit: ChangeUnit;
 	change: TreeChange;
 	hunk: DiffHunk;
 	headerStart?: ReactNode;
 }> = ({ patch, changeUnit, change, hunk, headerStart }) => (
-	<li>
+	<div>
 		<div className={styles.hunkHeaderRow}>
 			{headerStart}
 			<DraggableHunk
@@ -125,10 +125,10 @@ export const HunkListItem: FC<{
 			</DraggableHunk>
 		</div>
 		<HunkDiff diff={hunk.diff} />
-	</li>
+	</div>
 );
 
-export const hunkKey = (hunk: HunkHeader): string =>
+const hunkKey = (hunk: HunkHeader): string =>
 	`${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`;
 
 export const FileDiff: FC<{
@@ -153,7 +153,11 @@ export const FileDiff: FC<{
 			if (visibleHunks.length === 0) return <div>No hunks.</div>;
 
 			return (
-				<ul className={styles.hunks}>{visibleHunks.map((hunk) => renderHunk(hunk, patch))}</ul>
+				<ul className={styles.hunks}>
+					{visibleHunks.map((hunk) => (
+						<li key={hunkKey(hunk)}>{renderHunk(hunk, patch)}</li>
+					))}
+				</ul>
 			);
 		}),
 		Match.exhaustive,
