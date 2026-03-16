@@ -97,13 +97,6 @@ const rubSourceFor = (item: SourceItem): RubSource => {
 	}
 };
 
-const sourceItemKey = (sourceItem: SourceItem, stackId: string | null): string =>
-	`stack:${stackId ?? "null"}:${
-		sourceItem._tag === "Commit"
-			? `commit:${sourceItem.commitId}`
-			: `change:${changeUnitKey(sourceItem.source.parent)}:${sourceItem.source.change.path}:${sourceItem.source.hunkHeaders.map(hunkKey).join(",")}`
-	}`;
-
 type DragData = {
 	sourceItem: SourceItem;
 };
@@ -240,7 +233,7 @@ const DraggableHunk: FC<
 		},
 	};
 	const { ref: dragRef } = useDraggable({
-		id: sourceItemKey(sourceItem, stackId),
+		id: `stack:${stackId ?? "null"};change:${changeUnitKey(changeUnit)};file:${change.path};hunk:${hunkKey(hunk)}`,
 		data: { sourceItem } as DragData,
 		disabled: patch.subject.isResultOfBinaryToTextConversion,
 	});
@@ -260,7 +253,7 @@ const DraggableCommit: FC<
 > = ({ commitId, stackId, render, ...props }) => {
 	const sourceItem: SourceItem = { _tag: "Commit", commitId };
 	const { ref: dragRef } = useDraggable({
-		id: sourceItemKey(sourceItem, stackId),
+		id: `stack:${stackId};commit:${commitId}`,
 		data: { sourceItem } as DragData,
 	});
 
@@ -418,7 +411,7 @@ const DraggableFile: FC<
 		},
 	};
 	const { ref: dragRef } = useDraggable({
-		id: sourceItemKey(sourceItem, stackId),
+		id: `stack:${stackId ?? "null"};change:${changeUnitKey(changeUnit)};file:${change.path}`,
 		data: { sourceItem } as DragData,
 	});
 
@@ -547,7 +540,7 @@ const RubTarget: FC<{
 }> = ({ target, stackId, children }) => {
 	const sourceItem = useDraggedSourceItem();
 	const { ref: dropRef, isDropTarget } = useDroppable({
-		id: `stack:${stackId ?? "null"}:rub:${changeUnitKey(target)}`,
+		id: `stack:${stackId ?? "null"};change:${changeUnitKey(target)};rub`,
 		accept: (source) => {
 			const sourceItem = getSourceItemFromData(source.data);
 			return !!sourceItem && rubOperationLabel(rubSourceFor(sourceItem), target) !== null;
@@ -591,7 +584,7 @@ const CommitMoveTarget: FC<{
 		(side === "below" && nextCommitId === sourceCommitId);
 
 	const { ref: dropRef, isDropTarget } = useDroppable({
-		id: `stack:${stackId}:commit-move:${commitId}:${side}`,
+		id: `stack:${stackId};commit-move:${commitId};side:${side}`,
 		accept: (source) => {
 			const sourceItem = getSourceItemFromData(source.data);
 			return sourceItem?._tag === "Commit" && !isNoOp(sourceItem.commitId);
@@ -1105,7 +1098,7 @@ const CommitMoveToBranchTarget: FC<{
 	children: React.ReactElement;
 }> = ({ stackId, anchorRef, firstCommitId, children }) => {
 	const { ref: dropRef, isDropTarget } = useDroppable({
-		id: `stack:${stackId}:branch:${anchorRef ?? "none"}`,
+		id: `stack:${stackId};branch:${anchorRef ?? "null"}`,
 		accept: (source) => {
 			const sourceItem = getSourceItemFromData(source.data);
 			return sourceItem?._tag === "Commit" && firstCommitId !== sourceItem.commitId;
