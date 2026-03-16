@@ -252,3 +252,144 @@ fn insert_multi_node_segment_below() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
+    let (repo, _tmp, meta) = fixture_writable("three-branches-merged")?;
+    insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
+    *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
+    |\ \  
+    | | * 930563a (C) C: add another 10 lines to new file
+    | | * 68a2fc3 C: add 10 lines to new file
+    | | * 984fd1c C: new file with 10 lines
+    | * | a748762 (B) B: another 10 lines at the bottom
+    | * | 62e05ba B: 10 lines at the bottom
+    | |/  
+    * / add59d2 (A) A: 10 lines on top
+    |/  
+    * 8f0d338 (tag: base) base
+    ");
+    insta::assert_snapshot!(git_status(&repo)?, @"");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let mut editor = graph.to_editor(&repo)?;
+
+    let a = repo.rev_parse_single("A")?.detach();
+    let a_selector = editor
+        .select_commit(a)
+        .context("Failed to find commit a in editor graph")?;
+    let b = repo.rev_parse_single("B")?.detach();
+    let b_selector = editor
+        .select_commit(b)
+        .context("Failed to find commit b in editor graph")?;
+    let c = repo.rev_parse_single("C")?.detach();
+    let c_selector = editor
+        .select_commit(c)
+        .context("Failed to find commit c in editor graph")?;
+
+    let delimiter = mutate::SegmentDelimiter {
+        child: a_selector,
+        parent: a_selector,
+    };
+
+    editor.insert_segment_into(
+        b_selector,
+        delimiter,
+        mutate::InsertSide::Above,
+        Some(mutate::SomeSelectors::new(vec![c_selector])?),
+    )?;
+
+    let outcome = editor.rebase()?;
+    outcome.materialize()?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *-.   a14ecd6 (HEAD -> main) Merge branches 'A', 'B' and 'C'
+    |\ \  
+    | | *   53c45c8 (C) C: add another 10 lines to new file
+    | | |\  
+    | |_|/  
+    |/| |   
+    * | | 77b07be (A) A: 10 lines on top
+    |\| | 
+    | * | a748762 (B) B: another 10 lines at the bottom
+    | * | 62e05ba B: 10 lines at the bottom
+    |/ /  
+    | * 68a2fc3 C: add 10 lines to new file
+    | * 984fd1c C: new file with 10 lines
+    |/  
+    * 8f0d338 (tag: base) base
+    ");
+    insta::assert_snapshot!(git_status(&repo)?, @"");
+
+    Ok(())
+}
+
+#[test]
+fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
+    let (repo, _tmp, meta) = fixture_writable("three-branches-merged")?;
+    insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
+    *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
+    |\ \  
+    | | * 930563a (C) C: add another 10 lines to new file
+    | | * 68a2fc3 C: add 10 lines to new file
+    | | * 984fd1c C: new file with 10 lines
+    | * | a748762 (B) B: another 10 lines at the bottom
+    | * | 62e05ba B: 10 lines at the bottom
+    | |/  
+    * / add59d2 (A) A: 10 lines on top
+    |/  
+    * 8f0d338 (tag: base) base
+    ");
+    insta::assert_snapshot!(git_status(&repo)?, @"");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let mut editor = graph.to_editor(&repo)?;
+
+    let a = repo.rev_parse_single("A")?.detach();
+    let a_selector = editor
+        .select_commit(a)
+        .context("Failed to find commit a in editor graph")?;
+    let b = repo.rev_parse_single("B")?.detach();
+    let b_selector = editor
+        .select_commit(b)
+        .context("Failed to find commit b in editor graph")?;
+    let c = repo.rev_parse_single("C")?.detach();
+    let c_selector = editor
+        .select_commit(c)
+        .context("Failed to find commit c in editor graph")?;
+
+    let delimiter = mutate::SegmentDelimiter {
+        child: b_selector,
+        parent: b_selector,
+    };
+
+    editor.insert_segment_into(
+        a_selector,
+        delimiter,
+        mutate::InsertSide::Below,
+        Some(mutate::SomeSelectors::new(vec![c_selector])?),
+    )?;
+
+    let outcome = editor.rebase()?;
+    outcome.materialize()?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *-.   9cf36b2 (HEAD -> main) Merge branches 'A', 'B' and 'C'
+    |\ \  
+    * | | 37fb54d (A) A: 10 lines on top
+    |\| | 
+    | * | d202f84 (B) B: another 10 lines at the bottom
+    | |\| 
+    | | * 930563a (C) C: add another 10 lines to new file
+    | | * 68a2fc3 C: add 10 lines to new file
+    | | * 984fd1c C: new file with 10 lines
+    | |/  
+    |/|   
+    | * 62e05ba B: 10 lines at the bottom
+    |/  
+    * 8f0d338 (tag: base) base
+    ");
+    insta::assert_snapshot!(git_status(&repo)?, @"");
+
+    Ok(())
+}

@@ -490,4 +490,4 @@ pub use create_reference::function::create_reference;
 
 /// Functions and types related to moving branches across stacks.
 pub mod move_branch;
-pub use move_branch::function::move_branch;
+pub use move_branch::function::{move_branch, tear_off_branch};
