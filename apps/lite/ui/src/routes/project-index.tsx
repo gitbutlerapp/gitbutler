@@ -105,6 +105,7 @@ const LockIndicator: FC<{
 					onHover(null);
 				}}
 				aria-label={tooltip}
+				style={{ lineHeight: 1 }}
 			>
 				🔒
 			</Popover.Trigger>
