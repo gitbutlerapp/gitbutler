@@ -19,7 +19,7 @@ import {
 	Stack,
 	HunkDependencies,
 } from "@gitbutler/but-sdk";
-import { Match } from "effect";
+import { Array, Match } from "effect";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import {
 	createContext,
@@ -69,21 +69,54 @@ import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
 
+const getBranchNameByCommitId = (headInfo: RefInfo): Map<string, string> => {
+	const byCommitId = new Map<string, string>();
+
+	for (const stack of headInfo.stacks)
+		for (const segment of stack.segments) {
+			const branchName = segment.refName?.displayName ?? "Untitled";
+			for (const commit of segment.commits) byCommitId.set(commit.id, branchName);
+		}
+
+	return byCommitId;
+};
+
 const LockIndicator: FC<{
+	projectId: string;
 	commitIds: NonEmptyArray<string>;
 	onHover: (commitIds: Array<string> | null) => void;
-}> = ({ commitIds, onHover }) => (
-	<span
-		onMouseEnter={() => {
-			onHover(commitIds);
-		}}
-		onMouseLeave={() => {
-			onHover(null);
-		}}
-	>
-		🔒
-	</span>
-);
+}> = ({ projectId, commitIds, onHover }) => {
+	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
+	// TODO: expensive
+	const branchNameByCommitId = getBranchNameByCommitId(headInfo);
+	const branchNames = Array.flatMapNullable(commitIds, (commitId) =>
+		branchNameByCommitId.get(commitId),
+	);
+	const tooltip =
+		branchNames.length > 0 ? `Depends on ${branchNames.join(", ")}` : "Unknown dependencies";
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				onMouseEnter={() => {
+					onHover(commitIds);
+				}}
+				onMouseLeave={() => {
+					onHover(null);
+				}}
+				render={<div />}
+				aria-label={tooltip}
+			>
+				🔒
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={8}>
+					<Tooltip.Popup className={styles.tooltip}>{tooltip}</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
 
 /**
  * @example
@@ -328,7 +361,7 @@ const dependencyCommitIdsForHunk = (
 		for (const lock of locks) commitIds.add(lock.commitId);
 	}
 
-	return Array.from(commitIds);
+	return globalThis.Array.from(commitIds);
 };
 
 const dependencyCommitIdsForFile = (
@@ -339,7 +372,7 @@ const dependencyCommitIdsForFile = (
 	for (const [, , locks] of hunkDependencyDiffs)
 		for (const lock of locks) commitIds.add(lock.commitId);
 
-	return Array.from(commitIds);
+	return globalThis.Array.from(commitIds);
 };
 
 const DraggableFile: FC<
@@ -414,7 +447,11 @@ const SelectedChangesFileDiff: FC<{
 						hunk={hunk}
 						headerStart={
 							isNonEmptyArray(dependencyCommitIds) && (
-								<LockIndicator commitIds={dependencyCommitIds} onHover={onLockHover} />
+								<LockIndicator
+									projectId={projectId}
+									commitIds={dependencyCommitIds}
+									onHover={onLockHover}
+								/>
 							)
 						}
 					/>
@@ -891,7 +928,11 @@ const Changes: FC<{
 											}
 										/>
 										{isNonEmptyArray(dependencyCommitIds) && (
-											<LockIndicator commitIds={dependencyCommitIds} onHover={onLockHover} />
+											<LockIndicator
+												projectId={projectId}
+												commitIds={dependencyCommitIds}
+												onHover={onLockHover}
+											/>
 										)}
 									</div>
 								</li>

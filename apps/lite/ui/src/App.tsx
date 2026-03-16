@@ -34,7 +34,10 @@ export const App: React.FC<{
 	<StrictMode>
 		<QueryClientProvider client={queryClient}>
 			<Toast.Provider toastManager={toastManager}>
-				<Tooltip.Provider>
+				<Tooltip.Provider
+					// Workaround for flicker on lock indicator
+					delay={0}
+				>
 					<RouterProvider router={router} />
 					<Toasts />
 				</Tooltip.Provider>
