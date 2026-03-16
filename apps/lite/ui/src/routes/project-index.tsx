@@ -817,7 +817,7 @@ const CommitC: FC<{
 						</ContextMenu.Root>
 					)}
 					<Menu.Root>
-						<Menu.Trigger>m</Menu.Trigger>
+						<Menu.Trigger style={{ lineHeight: 1 }}>𑁔</Menu.Trigger>
 						<Menu.Portal>
 							<Menu.Positioner align="end">
 								<CommitMenuPopup
@@ -1152,7 +1152,9 @@ const StackLane: FC<{
 		<div className={sharedStyles.laneColumns}>
 			<div className={sharedStyles.laneMainColumn}>
 				<Menu.Root>
-					<Menu.Trigger className={styles.stackMenu}>m</Menu.Trigger>
+					<Menu.Trigger className={styles.stackMenu} style={{ lineHeight: 1 }}>
+						𑁔
+					</Menu.Trigger>
 					<Menu.Portal>
 						<Menu.Positioner align="end">
 							<StackMenuPopup projectId={projectId} stackId={stackId} />
