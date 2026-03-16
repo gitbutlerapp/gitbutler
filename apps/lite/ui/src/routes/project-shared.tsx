@@ -120,7 +120,7 @@ export const HunkListItem: FC<{
 				change={change}
 				hunk={hunk}
 				aria-label="Drag hunk"
-				render={<button type="button" className={styles.hunkDragHandle} />}
+				render={<button type="button" className={styles.hunkHeader} />}
 			>
 				-{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines}
 			</DraggableHunk>

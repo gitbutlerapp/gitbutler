@@ -76,7 +76,7 @@
 	align-items: center;
 }
 
-.hunkDragHandle {
+.hunkHeader {
 	flex-grow: 1;
 	cursor: grab;
 }
