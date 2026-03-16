@@ -66,7 +66,7 @@ const CommitC: FC<{
 	const expanded = isSelected || isAnyFileSelected;
 
 	return (
-		<li className={sharedStyles.commitsListItem}>
+		<div className={sharedStyles.commit}>
 			<CommitButton
 				commit={commit}
 				isSelected={isSelected}
@@ -91,7 +91,7 @@ const CommitC: FC<{
 					</Suspense>
 				</div>
 			)}
-		</li>
+		</div>
 	);
 };
 
@@ -127,7 +127,6 @@ const BranchDetails: FC<{
 			<CommitsList commits={branchDetails.commits}>
 				{(commit) => (
 					<CommitC
-						key={commit.id}
 						projectId={projectId}
 						commit={commit}
 						isSelected={isCommitSelected(commit.id)}

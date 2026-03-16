@@ -277,7 +277,9 @@ export const CommitsList: FC<{
 
 	return (
 		<ul className={styles.commitsList}>
-			{commits.map((commit, index) => children(commit, index))}
+			{commits.map((commit, index) => (
+				<li key={commit.id}>{children(commit, index)}</li>
+			))}
 		</ul>
 	);
 };

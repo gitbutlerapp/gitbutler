@@ -33,7 +33,7 @@
 	border: 1px solid;
 }
 
-.commitsListItem {
+.commit {
 	display: flex;
 	flex-direction: column;
 }

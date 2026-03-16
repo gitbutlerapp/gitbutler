@@ -765,7 +765,7 @@ const CommitC: FC<{
 	);
 
 	return (
-		<li className={sharedStyles.commitsListItem}>
+		<div className={sharedStyles.commit}>
 			<CommitMoveTarget
 				commitId={commit.id}
 				side="above"
@@ -862,7 +862,7 @@ const CommitC: FC<{
 					nextCommitId={nextCommitId}
 				/>
 			)}
-		</li>
+		</div>
 	);
 };
 
@@ -1196,7 +1196,6 @@ const StackLane: FC<{
 										};
 										return (
 											<CommitC
-												key={commit.id}
 												projectId={projectId}
 												commit={commit}
 												previousCommitId={segment.commits[index - 1]?.id}
