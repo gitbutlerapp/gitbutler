@@ -59,8 +59,6 @@ const api: LiteElectronApi = {
 		) as Promise<UICommitInsertBlankResult>,
 	commitMove: (params) =>
 		ipcRenderer.invoke("workspace:commit-move", params) as Promise<UICommitMoveResult>,
-	commitMoveToBranch: (params) =>
-		ipcRenderer.invoke("workspace:commit-move-to-branch", params) as Promise<UICommitMoveResult>,
 	commitReword: (params) =>
 		ipcRenderer.invoke("workspace:commit-reword", params) as Promise<UICommitRewordResult>,
 	commitMoveChangesBetween: (params) =>

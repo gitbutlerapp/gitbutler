@@ -657,16 +657,17 @@ pub fn commit_move_changes_between(
 pub fn commit_move_only(
     ctx: &mut but_ctx::Context,
     subject_commit_id: gix::ObjectId,
-    anchor_commit_id: gix::ObjectId,
+    relative_to: ui::RelativeTo,
     side: InsertSide,
 ) -> anyhow::Result<CommitMoveResult> {
     let meta = ctx.meta()?;
     let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
     let editor = ws.graph.to_editor(&repo)?;
-    let anchor_selector = editor.select_commit(anchor_commit_id)?;
+
+    let relative_to: RelativeTo = (&relative_to).into();
 
     let rebase =
-        but_workspace::commit::move_commit(editor, &ws, subject_commit_id, anchor_selector, side)?;
+        but_workspace::commit::move_commit(editor, &ws, subject_commit_id, relative_to, side)?;
 
     let materialized = rebase.materialize()?;
     ws.refresh_from_head(&repo, &meta)?;
@@ -684,7 +685,7 @@ pub fn commit_move_only(
 pub fn commit_move(
     ctx: &mut but_ctx::Context,
     subject_commit_id: gix::ObjectId,
-    anchor_commit_id: gix::ObjectId,
+    relative_to: ui::RelativeTo,
     side: InsertSide,
 ) -> anyhow::Result<CommitMoveResult> {
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
@@ -693,60 +694,7 @@ pub fn commit_move(
     )
     .ok();
 
-    let res = commit_move_only(ctx, subject_commit_id, anchor_commit_id, side);
-    if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
-        let mut guard = ctx.exclusive_worktree_access();
-        snapshot.commit(ctx, guard.write_permission()).ok();
-    };
-    res
-}
-
-/// Moves a commit to be first commit on a branch, no snapshots. No strings attached.
-///
-/// Returns the replaced that resulted from the operation.
-pub fn commit_move_to_branch_only(
-    ctx: &mut but_ctx::Context,
-    subject_commit_id: gix::ObjectId,
-    anchor_ref: &gix::refs::FullNameRef,
-) -> anyhow::Result<CommitMoveResult> {
-    let meta = ctx.meta()?;
-    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
-    let editor = ws.graph.to_editor(&repo)?;
-    let anchor_selector = editor.select_reference(anchor_ref)?;
-
-    let rebase = but_workspace::commit::move_commit(
-        editor,
-        &ws,
-        subject_commit_id,
-        anchor_selector,
-        InsertSide::Below,
-    )?;
-
-    let materialized = rebase.materialize()?;
-    ws.refresh_from_head(&repo, &meta)?;
-
-    Ok(CommitMoveResult {
-        replaced_commits: materialized.history.commit_mappings(),
-    })
-}
-
-/// Moves a commit to be first commit on a branch.
-///
-/// Returns the replaced that resulted from the operation.
-#[but_api(napi, json::UICommitMoveResult)]
-#[instrument(err(Debug))]
-pub fn commit_move_to_branch(
-    ctx: &mut but_ctx::Context,
-    subject_commit_id: gix::ObjectId,
-    anchor_ref: &gix::refs::FullNameRef,
-) -> anyhow::Result<CommitMoveResult> {
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
-        ctx,
-        SnapshotDetails::new(OperationKind::MoveCommit),
-    )
-    .ok();
-
-    let res = commit_move_to_branch_only(ctx, subject_commit_id, anchor_ref);
+    let res = commit_move_only(ctx, subject_commit_id, relative_to, side);
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
         let mut guard = ctx.exclusive_worktree_access();
         snapshot.commit(ctx, guard.write_permission()).ok();

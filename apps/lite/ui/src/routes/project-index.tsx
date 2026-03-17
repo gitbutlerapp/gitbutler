@@ -36,7 +36,6 @@ import {
 } from "#ui/routes/project-shared.tsx";
 import {
 	commitMoveMutationOptions,
-	commitMoveToBranchMutationOptions,
 	commitMutationOptions,
 	rubMutationOptions,
 	unapplyStackMutationOptions,
@@ -201,7 +200,6 @@ const useMonitorDraggedSourceItem = ({
 const useRunOperation = (projectId: string) => {
 	const rubMutation = useMutation(rubMutationOptions);
 	const commitMove = useMutation(commitMoveMutationOptions);
-	const commitMoveToBranch = useMutation(commitMoveToBranchMutationOptions);
 
 	return (sourceItem: SourceItem, operationTarget: OperationTarget): void => {
 		Match.value(operationTarget).pipe(
@@ -217,16 +215,17 @@ const useRunOperation = (projectId: string) => {
 				commitMove.mutate({
 					projectId,
 					subjectCommitId: sourceItem.commitId,
-					anchorCommitId: operationTarget.anchorCommitId,
+					relativeTo: { type: "commit", subject: operationTarget.anchorCommitId },
 					side: operationTarget.side,
 				});
 			}),
 			Match.tag("CommitMoveToBranch", (operationTarget) => {
 				if (sourceItem._tag !== "Commit" || operationTarget.anchorRef === null) return;
-				commitMoveToBranch.mutate({
+				commitMove.mutate({
 					projectId,
 					subjectCommitId: sourceItem.commitId,
-					anchorRef: operationTarget.anchorRef,
+					relativeTo: { type: "reference", subject: operationTarget.anchorRef },
+					side: "below",
 				});
 			}),
 			Match.exhaustive,

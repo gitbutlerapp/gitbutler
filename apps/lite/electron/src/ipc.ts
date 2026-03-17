@@ -73,14 +73,8 @@ export interface CommitMoveChangesBetweenParams {
 export interface CommitMoveParams {
 	projectId: string;
 	subjectCommitId: string;
-	anchorCommitId: string;
+	relativeTo: RelativeTo;
 	side: InsertSide;
-}
-
-export interface CommitMoveToBranchParams {
-	projectId: string;
-	subjectCommitId: string;
-	anchorRef: string;
 }
 
 export interface CommitInsertBlankParams {
@@ -136,7 +130,6 @@ export interface LiteElectronApi {
 	commitDetailsWithLineStats: (params: CommitDetailsWithLineStatsParams) => Promise<CommitDetails>;
 	commitInsertBlank: (params: CommitInsertBlankParams) => Promise<UICommitInsertBlankResult>;
 	commitMove: (params: CommitMoveParams) => Promise<UICommitMoveResult>;
-	commitMoveToBranch: (params: CommitMoveToBranchParams) => Promise<UICommitMoveResult>;
 	commitReword: (params: CommitRewordParams) => Promise<UICommitRewordResult>;
 	commitMoveChangesBetween: (
 		params: CommitMoveChangesBetweenParams,
@@ -168,7 +161,6 @@ export const liteIpcChannels = {
 	commitDetailsWithLineStats: "workspace:commit-details-with-line-stats",
 	commitInsertBlank: "workspace:commit-insert-blank",
 	commitMove: "workspace:commit-move",
-	commitMoveToBranch: "workspace:commit-move-to-branch",
 	commitReword: "workspace:commit-reword",
 	commitMoveChangesBetween: "workspace:commit-move-changes-between",
 	commitUncommitChanges: "workspace:commit-uncommit-changes",

@@ -44,7 +44,7 @@ export declare function commitInsertBlank(projectId: string, relativeTo: Relativ
  *
  * Returns the replaced that resulted from the operation.
  */
-export declare function commitMove(projectId: string, subjectCommitId: string, anchorCommitId: string, side: InsertSide): Promise<UICommitMoveResult>
+export declare function commitMove(projectId: string, subjectCommitId: string, relativeTo: RelativeTo, side: InsertSide): Promise<UICommitMoveResult>
 
 /**
  * Moves changes between two commits
@@ -52,13 +52,6 @@ export declare function commitMove(projectId: string, subjectCommitId: string, a
  * Returns where the source and destination commits were mapped to.
  */
 export declare function commitMoveChangesBetween(projectId: string, sourceCommitId: string, destinationCommitId: string, changes: Array<DiffSpec>): Promise<UIMoveChangesResult>
-
-/**
- * Moves a commit to be first commit on a branch.
- *
- * Returns the replaced that resulted from the operation.
- */
-export declare function commitMoveToBranch(projectId: string, subjectCommitId: string, anchorRef: string): Promise<UICommitMoveResult>
 
 /**
  * Rewords a commit, with oplog support.
