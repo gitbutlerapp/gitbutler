@@ -19,6 +19,12 @@ import { type ChangeUnit } from "#ui/ChangeUnit.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { commitInsertBlankMutationOptions, commitRewordMutationOptions } from "#ui/mutations.ts";
 
+/** @public */
+export const assert = <T,>(t: T | null | undefined): T => {
+	if (t == null) throw new Error("Expected value to be non-null and defined");
+	return t;
+};
+
 /**
  * @example
  * classes("foo", undefined, "bar", "", "baz") === "foo bar baz"
