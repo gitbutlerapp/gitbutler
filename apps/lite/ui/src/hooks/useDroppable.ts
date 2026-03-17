@@ -2,7 +2,7 @@ import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element
 import { type RefCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 
 export const useDroppable = <TData extends Record<string | symbol, unknown>>({
-	canDrop,
+	canDrop: canDropProp,
 	getData: getDataProp,
 	disabled = false,
 }: {
@@ -13,7 +13,7 @@ export const useDroppable = <TData extends Record<string | symbol, unknown>>({
 	const ref = useRef<HTMLElement>(null);
 	const [isDropTarget, setIsDropTarget] = useState(false);
 	const getData = useEffectEvent((dragData: unknown) => getDataProp(dragData));
-	const canDropForSource = useEffectEvent((dragData: unknown) => canDrop(dragData));
+	const canDrop = useEffectEvent((dragData: unknown) => canDropProp(dragData));
 
 	useEffect(() => {
 		const element = ref.current;
@@ -21,7 +21,7 @@ export const useDroppable = <TData extends Record<string | symbol, unknown>>({
 
 		return dropTargetForElements({
 			element,
-			canDrop: ({ source }) => canDropForSource(source.data),
+			canDrop: ({ source }) => canDrop(source.data),
 			getData: ({ source }) => getData(source.data),
 			onDragEnter: () => {
 				setIsDropTarget(true);
