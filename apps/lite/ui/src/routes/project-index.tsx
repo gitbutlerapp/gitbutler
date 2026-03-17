@@ -13,6 +13,7 @@ import {
 	RelativeTo,
 	Stack,
 	HunkDependencies,
+	HunkHeader,
 } from "@gitbutler/but-sdk";
 import { Array, Match } from "effect";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
@@ -257,7 +258,7 @@ const assignedChangesDiffSpecs = (
 		];
 	});
 
-const hunkContainsHunk = (a: DiffHunk, b: DiffHunk): boolean =>
+const hunkContainsHunk = (a: HunkHeader, b: HunkHeader): boolean =>
 	a.oldStart <= b.oldStart &&
 	a.oldStart + a.oldLines - 1 >= b.oldStart + b.oldLines - 1 &&
 	a.newStart <= b.newStart &&
