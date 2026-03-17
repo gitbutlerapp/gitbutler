@@ -7,12 +7,12 @@ export const useDroppable = <TData extends Record<string | symbol, unknown>>({
 	disabled = false,
 }: {
 	canDrop: (dragData: unknown) => boolean;
-	getData: () => TData;
+	getData: (dragData: unknown) => TData;
 	disabled?: boolean;
 }): [boolean, RefCallback<HTMLElement>] => {
 	const ref = useRef<HTMLElement>(null);
 	const [isDropTarget, setIsDropTarget] = useState(false);
-	const getData = useEffectEvent(() => getDataProp());
+	const getData = useEffectEvent((dragData: unknown) => getDataProp(dragData));
 	const canDropForSource = useEffectEvent((dragData: unknown) => canDrop(dragData));
 
 	useEffect(() => {
@@ -22,7 +22,7 @@ export const useDroppable = <TData extends Record<string | symbol, unknown>>({
 		return dropTargetForElements({
 			element,
 			canDrop: ({ source }) => canDropForSource(source.data),
-			getData,
+			getData: ({ source }) => getData(source.data),
 			onDragEnter: () => {
 				setIsDropTarget(true);
 			},
