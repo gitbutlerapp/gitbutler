@@ -22,13 +22,6 @@ export const commitMoveMutationOptions = mutationOptions({
 	},
 });
 
-export const commitMoveToBranchMutationOptions = mutationOptions({
-	mutationFn: window.lite.commitMoveToBranch,
-	onSuccess: async (_data, _input, _ctx, { client }) => {
-		await client.invalidateQueries();
-	},
-});
-
 export const commitMutationOptions = mutationOptions({
 	mutationFn: window.lite.commitCreate,
 	onSuccess: async (_data, _input, _ctx, { client }) => {

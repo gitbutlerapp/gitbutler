@@ -9,7 +9,6 @@ import {
 	type CommitDetailsWithLineStatsParams,
 	type CommitInsertBlankParams,
 	type CommitMoveParams,
-	type CommitMoveToBranchParams,
 	type CommitRewordParams,
 	type CommitMoveChangesBetweenParams,
 	type CommitUncommitChangesParams,
@@ -32,7 +31,6 @@ import {
 	commitUncommitChanges,
 	headInfo,
 	commitMove,
-	commitMoveToBranch,
 	commitDetailsWithLineStats,
 	commitMoveChangesBetween,
 	listBranches,
@@ -89,13 +87,8 @@ function registerIpcHandlers(): void {
 	);
 	ipcMain.handle(
 		liteIpcChannels.commitMove,
-		(_e, { projectId, subjectCommitId, anchorCommitId, side }: CommitMoveParams) =>
-			commitMove(projectId, subjectCommitId, anchorCommitId, side),
-	);
-	ipcMain.handle(
-		liteIpcChannels.commitMoveToBranch,
-		(_e, { projectId, subjectCommitId, anchorRef }: CommitMoveToBranchParams) =>
-			commitMoveToBranch(projectId, subjectCommitId, anchorRef),
+		(_e, { projectId, subjectCommitId, relativeTo, side }: CommitMoveParams) =>
+			commitMove(projectId, subjectCommitId, relativeTo, side),
 	);
 	ipcMain.handle(
 		liteIpcChannels.commitReword,
