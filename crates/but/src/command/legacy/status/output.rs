@@ -239,7 +239,7 @@ impl StatusOutput<'_> {
 }
 
 /// The non-connector content rendered for one status line.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) enum StatusOutputContent {
     /// Generic status content represented as one flat list of spans.
     Plain(Vec<Span<'static>>),
@@ -248,7 +248,7 @@ pub(super) enum StatusOutputContent {
 }
 
 /// Structured content for a commit row in status output.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub(super) struct CommitLineContent {
     pub(super) sha: Vec<Span<'static>>,
     pub(super) author: Vec<Span<'static>>,
@@ -256,7 +256,7 @@ pub(super) struct CommitLineContent {
     pub(super) suffix: Vec<Span<'static>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct StatusOutputLine {
     /// The span holding the connector, if any, for this line. Includes padding and indicators that
     /// might be shown along side the connector.
@@ -305,7 +305,7 @@ impl StatusOutputLine {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) enum StatusOutputLineData {
     UpdateNotice,
     Connector,

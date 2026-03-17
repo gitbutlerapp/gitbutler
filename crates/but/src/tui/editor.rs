@@ -15,6 +15,8 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph},
 };
 
+use crate::tui::TerminalGuard as _;
+
 // ── Hard wrap utility for commit messages ───────────────────────────────────
 
 /// Hard wraps commit message text at 72 characters.
@@ -1074,7 +1076,7 @@ pub fn run_builtin_editor(
     initial_content: &str,
     mode: EditorMode,
 ) -> anyhow::Result<Option<String>> {
-    let mut guard = super::TerminalGuard::new(true)?;
+    let mut guard = super::CrosstermTerminalGuard::new(true)?;
     let mut app = EditorApp::new(filename, initial_content, mode);
 
     loop {

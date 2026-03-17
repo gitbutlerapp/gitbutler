@@ -21,6 +21,11 @@ impl Cursor {
         )
     }
 
+    #[cfg(test)]
+    pub(super) fn index(self) -> usize {
+        self.0
+    }
+
     pub(super) fn restore(selected_cli_id: &CliId, lines: &[StatusOutputLine]) -> Option<Self> {
         let idx = lines
             .iter()

@@ -41,7 +41,7 @@ use crate::{
             },
         },
     },
-    tui::TerminalGuard,
+    tui::{CrosstermTerminalGuard, TerminalGuard},
     utils::OutputChannel,
 };
 
@@ -49,6 +49,9 @@ use super::output::{StatusOutputContent, StatusOutputLineData};
 
 mod cursor;
 mod key_bind;
+
+#[cfg(test)]
+mod tests;
 
 const CURSOR_BG: Color = Color::Rgb(69, 71, 90);
 
@@ -60,7 +63,7 @@ pub(super) async fn render_tui(
     status_lines: Vec<StatusOutputLine>,
     debug: bool,
 ) -> anyhow::Result<Vec<StatusOutputLine>> {
-    let mut guard = TerminalGuard::new(true)?;
+    let mut terminal_guard = CrosstermTerminalGuard::new(true)?;
 
     let mut app = App::new(status_lines, flags, debug);
 
@@ -69,40 +72,20 @@ pub(super) async fn render_tui(
     // second buffer so we can send messages from `App::handle_message`
     let mut other_messages = Vec::new();
 
+    let event_polling = CrosstermEventPolling;
+
     loop {
-        if std::mem::take(&mut app.should_render) {
-            guard.terminal_mut().draw(|frame| {
-                app.renders += 1;
-                app.render(frame)
-            })?;
-        }
-
-        // poll for events
-        if event::poll(Duration::from_millis(30))? {
-            let ev = event::read()?;
-            event_to_messages(ev, &app.key_binds, &app.mode, &mut messages);
-        }
-
-        // handle messages
-        loop {
-            if messages.is_empty() {
-                break;
-            }
-
-            for msg in messages.drain(..) {
-                app.handle_message(ctx, out, mode, &mut guard, &mut other_messages, msg)
-                    .await;
-            }
-            std::mem::swap(&mut messages, &mut other_messages);
-        }
-
-        // dismiss errors
-        let now = Instant::now();
-        let errors_before = app.errors.len();
-        app.errors.retain(|err| err.dismiss_at > now);
-        if app.errors.len() != errors_before {
-            app.should_render = true;
-        }
+        render_loop_once(
+            &mut app,
+            &mut terminal_guard,
+            event_polling,
+            &mut messages,
+            &mut other_messages,
+            ctx,
+            out,
+            mode,
+        )
+        .await?;
 
         if app.should_quit {
             break;
@@ -110,6 +93,81 @@ pub(super) async fn render_tui(
     }
 
     Ok(app.status_lines)
+}
+
+/// Trait for abstracting event polling so we can hardcode events in tests.
+trait EventPolling {
+    type Error: std::error::Error + Send + Sync + 'static;
+
+    fn poll(self) -> Result<impl IntoIterator<Item = Event>, Self::Error>;
+}
+
+/// An [`EventPolling`] implementation that polls events for real using crossterm.
+#[derive(Copy, Clone)]
+struct CrosstermEventPolling;
+
+impl EventPolling for CrosstermEventPolling {
+    type Error = std::io::Error;
+
+    fn poll(self) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+        if event::poll(Duration::from_millis(30))? {
+            Ok(Some(event::read()?))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+#[expect(clippy::too_many_arguments)]
+async fn render_loop_once<T, E>(
+    app: &mut App,
+    terminal_guard: &mut T,
+    event_polling: E,
+    messages: &mut Vec<Message>,
+    other_messages: &mut Vec<Message>,
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    mode: &OperatingMode,
+) -> anyhow::Result<()>
+where
+    T: TerminalGuard,
+    anyhow::Error: From<<T::Backend as Backend>::Error>,
+    E: EventPolling,
+{
+    // poll events
+    for event in event_polling.poll()? {
+        event_to_messages(event, &app.key_binds, &app.mode, messages);
+    }
+
+    // handle messages
+    loop {
+        if messages.is_empty() {
+            break;
+        }
+        for msg in messages.drain(..) {
+            app.handle_message(ctx, out, mode, terminal_guard, other_messages, msg)
+                .await;
+        }
+        std::mem::swap(messages, other_messages);
+    }
+
+    // dismiss errors
+    let now = Instant::now();
+    let errors_before = app.errors.len();
+    app.errors.retain(|err| err.dismiss_at > now);
+    if app.errors.len() != errors_before {
+        app.should_render = true;
+    }
+
+    // render
+    if std::mem::take(&mut app.should_render) {
+        terminal_guard.terminal_mut().draw(|frame| {
+            app.renders += 1;
+            app.render(frame)
+        })?;
+    }
+
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -144,32 +202,39 @@ impl App {
         }
     }
 
-    async fn handle_message(
+    async fn handle_message<T>(
         &mut self,
         ctx: &mut Context,
         out: &mut OutputChannel,
         mode: &OperatingMode,
-        guard: &mut TerminalGuard,
+        terminal_guard: &mut T,
         messages: &mut Vec<Message>,
         msg: Message,
-    ) {
+    ) where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+    {
         if let Err(err) = self
-            .try_handle_message(ctx, out, mode, guard, messages, msg)
+            .try_handle_message(ctx, out, mode, terminal_guard, messages, msg)
             .await
         {
             messages.push(Message::ShowError(Arc::new(err)));
         }
     }
 
-    async fn try_handle_message(
+    async fn try_handle_message<T>(
         &mut self,
         ctx: &mut Context,
         out: &mut OutputChannel,
         mode: &OperatingMode,
-        guard: &mut TerminalGuard,
+        terminal_guard: &mut T,
         messages: &mut Vec<Message>,
         msg: Message,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+    {
         self.should_render = true;
 
         match msg {
@@ -198,14 +263,14 @@ impl App {
             Message::ShowError(err) => self.handle_show_error(err, messages),
             Message::CreateEmptyCommit => self.handle_create_empty_commit(ctx, messages)?,
             Message::RewordWithEditor => {
-                self.handle_reword_with_editor(ctx, guard, messages)?;
+                self.handle_reword_with_editor(ctx, terminal_guard, messages)?;
             }
             Message::StartRewordInline => self.handle_start_reword_inline(ctx, messages)?,
             Message::RewordInlineInput(ev) => self.handle_reword_inline_input(ev),
             Message::ConfirmInlineReword => self.handle_confirm_inline_reword(ctx, messages)?,
             Message::EnterCommandMode => self.handle_enter_command_mode(),
             Message::CommandInput(ev) => self.handle_command_input(ev),
-            Message::RunCommand => self.handle_run_command(guard, out, messages)?,
+            Message::RunCommand => self.handle_run_command(terminal_guard, out, messages)?,
         }
 
         Ok(())
@@ -407,12 +472,16 @@ impl App {
     }
 
     /// Handles opening the full-screen commit reword editor for the selected commit.
-    fn handle_reword_with_editor(
+    fn handle_reword_with_editor<T>(
         &mut self,
         ctx: &mut Context,
-        guard: &mut TerminalGuard,
+        terminal_guard: &mut T,
         messages: &mut Vec<Message>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+    {
         if !matches!(self.mode, Mode::Normal) {
             return Ok(());
         }
@@ -424,7 +493,7 @@ impl App {
         let commit_details = but_api::diff::commit_details(ctx, commit_id, ComputeLineStats::No)?;
         let current_message = commit_details.commit.inner.message.to_string();
 
-        let _suspend_guard = guard.suspend()?;
+        let _suspend_guard = terminal_guard.suspend()?;
         let new_message = get_commit_message_from_editor(
             ctx,
             commit_details,
@@ -553,12 +622,16 @@ impl App {
         }
     }
 
-    fn handle_run_command(
+    fn handle_run_command<T>(
         &mut self,
-        guard: &mut TerminalGuard,
+        terminal_guard: &mut T,
         out: &mut OutputChannel,
         messages: &mut Vec<Message>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+    {
         let Mode::Command { textarea } = &self.mode else {
             messages.push(Message::EnterNormalMode);
             return Ok(());
@@ -574,7 +647,7 @@ impl App {
         let mut cmd = Command::new(binary_path);
         cmd.args(args);
 
-        let _suspend_guard = guard.suspend()?;
+        let _suspend_guard = terminal_guard.suspend()?;
         cmd.spawn()?.wait()?;
 
         let mut input_channel = out
