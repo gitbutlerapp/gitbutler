@@ -14,11 +14,10 @@ use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use gitbutler_operating_modes::{
-    EDIT_BRANCH_REF, EditModeMetadata, OperatingMode, WORKSPACE_BRANCH_REF, operating_mode,
-    read_edit_mode_metadata, write_edit_mode_metadata,
+    EDIT_BRANCH_REF, EditModeMetadata, OPEN_WORKSPACE_REFS, OperatingMode, WORKSPACE_BRANCH_REF,
+    operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
 };
 use gitbutler_repo::{RepositoryExt as _, SignaturePurpose, signature};
-use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
 use serde::Serialize;
 
@@ -198,6 +197,36 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     Ok(())
 }
 
+fn open_workspace_ref<'repo>(repo: &'repo gix::Repository) -> Result<gix::Reference<'repo>> {
+    OPEN_WORKSPACE_REFS
+        .iter()
+        .find_map(|&name| repo.find_reference(name).ok())
+        .with_context(|| {
+            format!(
+                "expected one of the open workspace refs to exist: {}",
+                OPEN_WORKSPACE_REFS.join(", ")
+            )
+        })
+}
+
+fn workspace_from_workspace_ref(ctx: &Context) -> Result<but_graph::projection::Workspace> {
+    let repo = ctx.repo.get()?;
+    let meta = ctx.meta()?;
+    let mut workspace_ref = open_workspace_ref(&repo)?;
+    let graph = but_graph::Graph::from_commit_traversal(
+        workspace_ref.peel_to_id()?,
+        Some(workspace_ref.inner.name.clone()),
+        &meta,
+        but_graph::init::Options::limited(),
+    )?;
+    graph.into_workspace()
+}
+
+fn ensure_stack_in_workspace(ctx: &Context, stack_id: StackId) -> Result<()> {
+    workspace_from_workspace_ref(ctx)?.try_find_stack_by_id(stack_id)?;
+    Ok(())
+}
+
 pub(crate) fn enter_edit_mode(
     ctx: &Context,
     commit_oid: gix::ObjectId,
@@ -209,9 +238,7 @@ pub(crate) fn enter_edit_mode(
         stack_id,
     };
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    // Validate the stack_id
-    vb_state.get_stack_in_workspace(stack_id)?;
+    ensure_stack_in_workspace(ctx, stack_id)?;
 
     commit_uncommited_changes(ctx)?;
     write_edit_mode_metadata(ctx, &edit_mode_metadata).context("Failed to persist metadata")?;
@@ -252,7 +279,6 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     let edit_mode_metadata = read_edit_mode_metadata(ctx).context("Failed to read metadata")?;
     let git2_repo = &*ctx.git2_repo.get()?;
     let repo = &*ctx.repo.get()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
 
@@ -317,7 +343,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         .context("Failed to set head reference")?;
     git2_repo.checkout_head(Some(CheckoutBuilder::new().force()))?;
 
-    update_workspace_commit(&vb_state, ctx, false)?;
+    update_workspace_commit(ctx, false)?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let uncommtied_changes = get_uncommited_changes(ctx)?;

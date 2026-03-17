@@ -14,7 +14,7 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
 };
 use gitbutler_reference::{LocalRefname, Refname};
-use gitbutler_stack::{StackId, VirtualBranchesHandle};
+use gitbutler_stack::StackId;
 use tracing::instrument;
 
 use crate::json::HexHash;
@@ -440,8 +440,7 @@ pub fn move_changes_between_commits(
     )?;
 
     // TODO(ctx): remove this, with the rebase engine this is done above - needs at least manual testing to be sure
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    update_workspace_commit(&vb_state, ctx, false)?;
+    update_workspace_commit(ctx, false)?;
 
     Ok(result)
 }
@@ -471,8 +470,7 @@ pub fn split_branch(
     )?;
 
     // TODO(ctx): remove this, it's done above
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    update_workspace_commit(&vb_state, ctx, false)?;
+    update_workspace_commit(ctx, false)?;
 
     let refname = Refname::Local(LocalRefname::new(&new_branch_name, None));
     let branch_manager = ctx.branch_manager();
@@ -516,8 +514,7 @@ pub fn split_branch_into_dependent_branch(
         guard.write_permission(),
     )?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    update_workspace_commit(&vb_state, ctx, false)?;
+    update_workspace_commit(ctx, false)?;
 
     Ok(move_changes_result)
 }
@@ -574,8 +571,7 @@ pub fn uncommit_changes(
         guard.write_permission(),
     )?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    update_workspace_commit(&vb_state, ctx, false)?;
+    update_workspace_commit(ctx, false)?;
 
     if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
@@ -664,8 +660,7 @@ pub fn stash_into_branch(
         perm,
     );
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    gitbutler_branch_actions::update_workspace_commit(&vb_state, ctx, false)
+    gitbutler_branch_actions::update_workspace_commit(ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     branch_manager.unapply(

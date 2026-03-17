@@ -52,7 +52,7 @@ pub mod virtual_branches {
             })
             .expect("failed to write target");
 
-        gitbutler_branch_actions::update_workspace_commit(&vb_state, ctx, false)
+        gitbutler_branch_actions::update_workspace_commit_with_vb_state(&vb_state, ctx, false)
             .expect("failed to update workspace");
 
         Ok(())

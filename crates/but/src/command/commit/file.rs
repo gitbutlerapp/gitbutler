@@ -3,7 +3,6 @@ use bstr::BStr;
 use but_core::{DiffSpec, diff::tree_changes};
 use but_ctx::Context;
 use gitbutler_branch_actions::update_workspace_commit;
-use gitbutler_stack::VirtualBranchesHandle;
 
 use crate::utils::OutputChannel;
 
@@ -29,8 +28,7 @@ pub fn commited_file_to_another_commit(
 
     but_api::commit::commit_move_changes_between_only(ctx, source_id, target_id, relevant_changes)?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    update_workspace_commit(&vb_state, ctx, false)?;
+    update_workspace_commit(ctx, false)?;
 
     if let Some(out) = out.for_human() {
         writeln!(out, "Moved files between commits!")?;
@@ -67,8 +65,7 @@ pub fn uncommit_file(
 
     but_api::commit::commit_uncommit_changes_only(ctx, source_id, relevant_changes, assign_to)?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    update_workspace_commit(&vb_state, ctx, false)?;
+    update_workspace_commit(ctx, false)?;
 
     if let Some(out) = out.for_human() {
         writeln!(out, "Uncommitted changes")?;

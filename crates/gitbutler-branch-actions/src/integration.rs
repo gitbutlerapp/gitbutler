@@ -46,8 +46,31 @@ fn write_workspace_file(head_target: gix::ObjectId, path: PathBuf) -> Result<()>
     std::fs::write(path, format!(":{sha}"))?;
     Ok(())
 }
-#[instrument(level = "debug", skip(vb_state, ctx), err(Debug))]
+
+/// Update `gitbutler/workspace` using the current virtual branch state from `ctx`.
+///
+/// Prefer this helper unless the caller is already carrying a `VirtualBranchesHandle` through a
+/// stack/target mutation flow. In those cases use [`update_workspace_commit_with_vb_state()`] so
+/// the dependency on that handle stays explicit at the call-site.
 pub fn update_workspace_commit(
+    ctx: &Context,
+    checkout_new_worktree: bool,
+) -> Result<gix::ObjectId> {
+    update_workspace_commit_with_vb_state(&ctx.virtual_branches(), ctx, checkout_new_worktree)
+}
+
+/// Update `gitbutler/workspace` using the caller-provided virtual branch state handle.
+///
+/// This variant exists for flows that have just mutated stacks or the default target through an
+/// already-existing `VirtualBranchesHandle`. Passing that handle keeps it obvious that the
+/// workspace commit must be rebuilt from the same state mutation sequence instead of implicitly
+/// reacquiring a fresh handle from `ctx`.
+///
+/// Most callers should use [`update_workspace_commit()`]. Reach for this helper only when the
+/// handle is already part of the operation itself, such as branch creation, base-branch changes,
+/// or rebases that update stack metadata before refreshing the workspace commit.
+#[instrument(level = "debug", skip(vb_state, ctx), err(Debug))]
+pub fn update_workspace_commit_with_vb_state(
     vb_state: &VirtualBranchesHandle,
     ctx: &Context,
     checkout_new_worktree: bool,
@@ -78,8 +101,6 @@ pub fn update_workspace_commit(
         });
     }
     let prev_head_id = head_ref.target();
-
-    let vb_state = ctx.virtual_branches();
 
     // get all virtual branches, we need to try to update them all
     let virtual_branches: Vec<Stack> = vb_state

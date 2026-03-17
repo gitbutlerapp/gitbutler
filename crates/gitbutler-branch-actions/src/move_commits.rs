@@ -48,7 +48,7 @@ pub(crate) fn move_commit(
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     // Even if this fails, it's not actionable
     let _ = update_uncommitted_changes(ctx, old_workspace, new_workspace, perm);
-    crate::integration::update_workspace_commit(&vb_state, ctx, false)
+    crate::integration::update_workspace_commit_with_vb_state(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     Ok(None)

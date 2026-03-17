@@ -268,7 +268,7 @@ fn do_squash_commits(
 
         let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
         update_uncommitted_changes(ctx, old_workspace, new_workspace, perm)?;
-        crate::integration::update_workspace_commit(&vb_state, ctx, false)
+        crate::integration::update_workspace_commit_with_vb_state(&vb_state, ctx, false)
             .context("failed to update gitbutler workspace")?;
         stack.set_heads_from_rebase_output(ctx, output.references)?;
         new_commit_oid.to_gix()

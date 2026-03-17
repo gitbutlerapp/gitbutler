@@ -145,8 +145,7 @@ fn go_back_to_integration(ctx: &Context, default_target: &Target) -> Result<Base
     }
 
     let base = target_to_base_branch(ctx, default_target)?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    update_workspace_commit(&vb_state, ctx, false)?;
+    update_workspace_commit(ctx, false)?;
     Ok(base)
 }
 
@@ -263,7 +262,7 @@ pub(crate) fn set_base_branch(
 
     set_exclude_decoration(ctx)?;
 
-    update_workspace_commit(&vb_state, ctx, true)?;
+    crate::integration::update_workspace_commit_with_vb_state(&vb_state, ctx, true)?;
 
     let base = target_to_base_branch(ctx, &target)?;
     Ok(base)
