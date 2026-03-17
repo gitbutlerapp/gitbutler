@@ -13,6 +13,7 @@ import type {
 	UICommitInsertBlankResult,
 	UICommitMoveResult,
 	UICommitRewordResult,
+	UIMoveBranchResult,
 	UIMoveChangesResult,
 	UnifiedPatch,
 	WatcherEvent,
@@ -75,6 +76,8 @@ const api: LiteElectronApi = {
 			Array<BranchListing>
 		>,
 	listProjects: () => ipcRenderer.invoke("projects:list") as Promise<Array<ProjectForFrontend>>,
+	moveBranch: (params) =>
+		ipcRenderer.invoke("workspace:move-branch", params) as Promise<UIMoveBranchResult>,
 	ping: (input) => ipcRenderer.invoke("lite:ping", input) as Promise<string>,
 	treeChangeDiffs: (params) =>
 		ipcRenderer.invoke("workspace:tree-change-diffs", params) as Promise<UnifiedPatch | null>,
