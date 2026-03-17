@@ -65,7 +65,7 @@ const getBranchNameByCommitId = (headInfo: RefInfo): Map<string, string> => {
 	return byCommitId;
 };
 
-const LockIndicator: FC<{
+const DependencyIndicator: FC<{
 	projectId: string;
 	commitIds: NonEmptyArray<string>;
 	onHover: (commitIds: Array<string> | null) => void;
@@ -92,7 +92,7 @@ const LockIndicator: FC<{
 				aria-label={tooltip}
 				style={{ lineHeight: 1 }}
 			>
-				🔒
+				🔗
 			</Popover.Trigger>
 			<Popover.Portal>
 				<Popover.Positioner sideOffset={8}>
@@ -312,7 +312,7 @@ const dependencyCommitIdsForHunk = (
 
 	for (const [, dependencyHunk, locks] of hunkDependencyDiffs) {
 		if (!hunkContainsHunk(hunk, dependencyHunk)) continue;
-		for (const lock of locks) commitIds.add(lock.commitId);
+		for (const dependency of locks) commitIds.add(dependency.commitId);
 	}
 
 	return globalThis.Array.from(commitIds);
@@ -324,7 +324,7 @@ const dependencyCommitIdsForFile = (
 	const commitIds = new Set<string>();
 
 	for (const [, , locks] of hunkDependencyDiffs)
-		for (const lock of locks) commitIds.add(lock.commitId);
+		for (const dependency of locks) commitIds.add(dependency.commitId);
 
 	return globalThis.Array.from(commitIds);
 };
@@ -368,8 +368,8 @@ const SelectedChangesFileDiff: FC<{
 	projectId: string;
 	stackId: string | null;
 	path: string;
-	onLockHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, stackId, path, onLockHover }) => {
+	onDependencyHover: (commitIds: Array<string> | null) => void;
+}> = ({ projectId, stackId, path, onDependencyHover }) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
 	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
@@ -401,10 +401,10 @@ const SelectedChangesFileDiff: FC<{
 						hunk={hunk}
 						headerStart={
 							isNonEmptyArray(dependencyCommitIds) && (
-								<LockIndicator
+								<DependencyIndicator
 									projectId={projectId}
 									commitIds={dependencyCommitIds}
-									onHover={onLockHover}
+									onHover={onDependencyHover}
 								/>
 							)
 						}
@@ -661,9 +661,9 @@ const Changes: FC<{
 	stackId: string | null;
 	isFileSelected: (path: string) => boolean;
 	toggleFileSelect: (path: string) => void;
-	onLockHover: (commitIds: Array<string> | null) => void;
+	onDependencyHover: (commitIds: Array<string> | null) => void;
 	className?: string;
-}> = ({ projectId, stackId, isFileSelected, toggleFileSelect, onLockHover, className }) => {
+}> = ({ projectId, stackId, isFileSelected, toggleFileSelect, onDependencyHover, className }) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
 	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
@@ -708,10 +708,10 @@ const Changes: FC<{
 											}
 										/>
 										{isNonEmptyArray(dependencyCommitIds) && (
-											<LockIndicator
+											<DependencyIndicator
 												projectId={projectId}
 												commitIds={dependencyCommitIds}
-												onHover={onLockHover}
+												onHover={onDependencyHover}
 											/>
 										)}
 									</div>
@@ -796,8 +796,8 @@ type UnassignedLaneSelection = {
 
 const UnassignedLane: FC<{
 	projectId: string;
-	onLockHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, onLockHover }) => {
+	onDependencyHover: (commitIds: Array<string> | null) => void;
+}> = ({ projectId, onDependencyHover }) => {
 	const [selection, select] = useLocalStorageState<UnassignedLaneSelection | null>(
 		`project:${projectId}:unassignedChangesLaneSelection`,
 		null,
@@ -820,7 +820,7 @@ const UnassignedLane: FC<{
 						toggleFileSelect={(path) => {
 							select(toggleFileSelection(path));
 						}}
-						onLockHover={onLockHover}
+						onDependencyHover={onDependencyHover}
 						className={styles.unassignedChanges}
 					/>
 				</div>
@@ -833,7 +833,7 @@ const UnassignedLane: FC<{
 							projectId={projectId}
 							stackId={null}
 							path={selection.path}
-							onLockHover={onLockHover}
+							onDependencyHover={onDependencyHover}
 						/>
 					</Suspense>
 				</div>
@@ -891,8 +891,8 @@ const StackLane: FC<{
 	projectId: string;
 	stack: Stack;
 	highlightedCommitIds: Set<string>;
-	onLockHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, stack, highlightedCommitIds, onLockHover }) => {
+	onDependencyHover: (commitIds: Array<string> | null) => void;
+}> = ({ projectId, stack, highlightedCommitIds, onDependencyHover }) => {
 	// From Caleb:
 	// > There shouldn't be a way within GitButler to end up with a stack without a
 	//   StackId. Users can disrupt our matching against our metadata by playing
@@ -963,7 +963,7 @@ const StackLane: FC<{
 						toggleFileSelect={(path) => {
 							select(toggleChangeUnitFileSelection(changesChangeUnit, path));
 						}}
-						onLockHover={onLockHover}
+						onDependencyHover={onDependencyHover}
 						className={styles.assignedChanges}
 					/>
 					<CommitForm projectId={projectId} stack={stack} />
@@ -1024,7 +1024,7 @@ const StackLane: FC<{
 									projectId={projectId}
 									stackId={stackId}
 									path={path}
-									onLockHover={onLockHover}
+									onDependencyHover={onDependencyHover}
 								/>
 							)),
 							Match.tag("commit", ({ commitId, path }) =>
@@ -1072,7 +1072,7 @@ const ProjectPage: FC = () => {
 			<h2>{project.title} workspace</h2>
 
 			<div className={sharedStyles.lanes}>
-				<UnassignedLane projectId={project.id} onLockHover={highlightCommits} />
+				<UnassignedLane projectId={project.id} onDependencyHover={highlightCommits} />
 
 				{headInfo.stacks.map((stack) => (
 					<StackLane
@@ -1080,7 +1080,7 @@ const ProjectPage: FC = () => {
 						projectId={project.id}
 						stack={stack}
 						highlightedCommitIds={highlightedCommitIds}
-						onLockHover={highlightCommits}
+						onDependencyHover={highlightCommits}
 					/>
 				))}
 			</div>
