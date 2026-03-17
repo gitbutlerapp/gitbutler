@@ -11,7 +11,7 @@ import {
 	classes,
 } from "#ui/routes/project-shared.tsx";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
-import { BranchListing, Commit, TreeChange } from "@gitbutler/but-sdk";
+import { BranchListing, Commit } from "@gitbutler/but-sdk";
 import styles from "./project-branches.module.css";
 import sharedStyles from "./project-shared.module.css";
 import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
@@ -35,16 +35,6 @@ const getBranchRef = (branch: BranchListing): string | null => {
 	if (remote === undefined) return null;
 	return `refs/remotes/${remote}/${branch.name}`;
 };
-
-const File: FC<{
-	change: TreeChange;
-	isSelected: boolean;
-	toggleSelect: () => void;
-}> = ({ change, isSelected, toggleSelect }) => (
-	<div className={sharedStyles.fileRow}>
-		<FileButton change={change} isSelected={isSelected} toggleSelect={toggleSelect} />
-	</div>
-);
 
 const CommitC: FC<{
 	projectId: string;
@@ -82,11 +72,13 @@ const CommitC: FC<{
 							projectId={projectId}
 							commitId={commit.id}
 							renderFile={(change) => (
-								<File
-									isSelected={isFileSelected(change.path)}
-									toggleSelect={() => toggleFileSelect(change.path)}
-									change={change}
-								/>
+								<div className={sharedStyles.fileRow}>
+									<FileButton
+										change={change}
+										isSelected={isFileSelected(change.path)}
+										toggleSelect={() => toggleFileSelect(change.path)}
+									/>
+								</div>
 							)}
 						/>
 					</Suspense>
