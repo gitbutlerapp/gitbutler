@@ -361,14 +361,25 @@ const CommitMenuPopup: FC<{
 	);
 };
 
-export const CommitRow: FC<{
-	projectId: string;
-	commit: Commit;
-	isSelected: boolean;
-	isAnyFileSelected: boolean;
-	isHighlighted: boolean;
-	toggleSelect: () => void;
-}> = ({ projectId, commit, isSelected, isAnyFileSelected, isHighlighted, toggleSelect }) => {
+export const CommitRow: FC<
+	{
+		projectId: string;
+		commit: Commit;
+		isSelected: boolean;
+		isAnyFileSelected: boolean;
+		isHighlighted: boolean;
+		toggleSelect: () => void;
+	} & ComponentProps<"div">
+> = ({
+	projectId,
+	commit,
+	isSelected,
+	isAnyFileSelected,
+	isHighlighted,
+	toggleSelect,
+	className,
+	...restProps
+}) => {
 	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
 	const [isEditingMessage, setIsEditingMessage] = useState(false);
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
@@ -387,7 +398,7 @@ export const CommitRow: FC<{
 	};
 
 	return (
-		<div className={styles.commitRow}>
+		<div {...restProps} className={classes(styles.commitRow, className)}>
 			{isEditingMessage ? (
 				<InlineCommitMessageEditor
 					projectId={projectId}
