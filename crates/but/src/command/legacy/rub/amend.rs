@@ -3,6 +3,7 @@ use but_ctx::{Context, access::RepoExclusive};
 use but_hunk_assignment::HunkAssignment;
 use but_workspace::commit_engine::{self, CreateCommitOutcome};
 use colored::Colorize;
+use gitbutler_branch_actions::update_workspace_commit;
 use gix::ObjectId;
 use nonempty::NonEmpty;
 
@@ -28,6 +29,7 @@ pub(crate) fn uncommitted_to_commit(
         let mut guard = ctx.exclusive_worktree_access();
         amend_diff_specs(ctx, diff_specs, stack_id, oid, guard.write_permission())?
     };
+    update_workspace_commit(ctx, false)?;
     if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?;
         let new_commit = outcome
@@ -63,6 +65,7 @@ pub(crate) fn assignments_to_commit(
     let mut guard = ctx.exclusive_worktree_access();
     let outcome = amend_diff_specs(ctx, diff_specs, stack_id, oid, guard.write_permission())?;
     drop(guard);
+    update_workspace_commit(ctx, false)?;
     if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?;
         let new_commit = outcome

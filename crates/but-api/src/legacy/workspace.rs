@@ -2,7 +2,7 @@ use std::{collections::HashSet, str::FromStr};
 
 use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
-use but_core::{RepositoryExt, sync::RepoExclusiveGuard};
+use but_core::{RepositoryExt, sync::RepoExclusive};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_settings::AppSettings;
@@ -347,14 +347,21 @@ pub fn amend_commit_from_worktree_changes(
     let mut guard = ctx.exclusive_worktree_access();
     let repo = ctx.repo.get()?;
     let data_dir = ctx.project_data_dir();
-    amend_commit_and_count_failures(
+    let outcome = amend_commit_and_count_failures(
         stack_id,
         commit_id,
         worktree_changes,
-        &mut guard,
+        guard.write_permission(),
         &repo,
         &data_dir,
-    )
+    )?;
+
+    // Refresh the workspace commit so `gitbutler/workspace` HEAD stays in sync
+    // with the rewritten branch commits. Without this, tools that inspect HEAD
+    // (e.g. pre-push hooks that stash against it) see a stale synthetic commit.
+    update_workspace_commit(ctx, false)?;
+
+    Ok(outcome)
 }
 
 /// Amend a commit with the given changes and return the number of rejected files
@@ -362,7 +369,7 @@ pub fn amend_commit_and_count_failures(
     stack_id: StackId,
     commit_id: gix::ObjectId,
     worktree_changes: Vec<but_core::DiffSpec>,
-    guard: &mut RepoExclusiveGuard,
+    perm: &mut RepoExclusive,
     repo: &gix::Repository,
     data_dir: &std::path::Path,
 ) -> anyhow::Result<commit_engine::CreateCommitOutcome> {
@@ -378,7 +385,7 @@ pub fn amend_commit_and_count_failures(
         },
         worktree_changes,
         app_settings.context_lines,
-        guard.write_permission(),
+        perm,
     )?;
     if !outcome.rejected_specs.is_empty() {
         tracing::warn!(?outcome.rejected_specs, "Failed to commit at least one hunk");

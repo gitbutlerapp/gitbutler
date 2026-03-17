@@ -74,6 +74,10 @@ pub fn try_exclusive_inter_process_access(
 /// blocking while waiting for someone else to release it, or for all readers to disappear.
 /// Locking is fair.
 ///
+/// Use this only at the boundary where the lock is acquired. Keep the returned [`RepoExclusiveGuard`]
+/// alive in the caller that owns the lock, and pass [`RepoExclusive`] further down instead via
+/// [`RepoExclusiveGuard::write_permission()`].
+///
 /// Note that this **in-process** locking works only under the assumption that no two instances of
 /// GitButler are able to read or write the same repository.
 pub fn exclusive_repo_access(git_dir: impl Into<PathBuf>) -> RepoExclusiveGuard {
@@ -89,13 +93,24 @@ pub fn exclusive_repo_access(git_dir: impl Into<PathBuf>) -> RepoExclusiveGuard 
 /// and block while waiting for writers to disappear.
 /// There can be multiple readers, but only a single writer. Waiting writers will be handled with priority,
 /// thus block readers to prevent writer starvation.
+///
+/// Use this only at the boundary where the lock is acquired. Keep the returned [`RepoSharedGuard`]
+/// alive in the caller that owns the lock, and pass [`RepoShared`] further down instead via
+/// [`RepoSharedGuard::read_permission()`].
 pub fn shared_repo_access(git_dir: impl Into<PathBuf>) -> RepoSharedGuard {
     let mut map = WORKTREE_LOCKS.lock();
     let git_dir = git_dir.into();
     RepoSharedGuard(Some(map.entry(git_dir).or_default().read_arc()))
 }
 
-/// A utility that drops an exclusive lock on drop.
+/// Owns an *exclusive* in-process repository lock and releases it on drop.
+///
+/// This type is for lock acquisition and lock lifetime management only.
+/// Keep it in the top-level caller that actually acquires the lock.
+///
+/// Do not pass this type through application APIs unless the API itself is responsible for lock
+/// ownership. Instead, derive a [`RepoExclusive`] with [`Self::write_permission()`] and pass that
+/// permission token to lower-level functions while keeping the guard alive in the caller.
 #[must_use]
 pub struct RepoExclusiveGuard {
     inner: Option<parking_lot::ArcRwLockWriteGuard<RawRwLock, ()>>,
@@ -123,43 +138,64 @@ impl Drop for RepoSharedGuard {
 }
 
 impl RepoExclusiveGuard {
-    /// Signal that a write-permission is available - useful as API-marker to assure these
-    /// can only be called when the respective protection/permission is present.
+    /// Borrow the exclusive permission token tied to this guard.
+    ///
+    /// Pass the returned [`RepoExclusive`] to callees that require proof that the caller already
+    /// holds the exclusive lock.
     pub fn write_permission(&mut self) -> &mut RepoExclusive {
         &mut self.perm
     }
 
-    /// Signal that a read-permission is available - useful as API-marker to assure these
-    /// can only be called when the respective protection/permission is present.
+    /// Borrow the shared read permission implied by exclusive access.
+    ///
+    /// This is useful for APIs that only need read access but still participate in the permission
+    /// system to prevent concurrent writes.
     pub fn read_permission(&self) -> &RepoShared {
         self.perm.read_permission()
     }
 }
 
-/// A utility that drops a shared lock on drop.
+/// Owns a *shared* in-process repository lock and releases it on drop.
+///
+/// This type is for lock acquisition and lock lifetime management only.
+/// Keep it in the top-level caller that actually acquires the lock.
+///
+/// Do not pass this type through application APIs unless the API itself is responsible for lock
+/// ownership. Instead, derive a [`RepoShared`] with [`Self::read_permission()`] and pass that
+/// permission token to lower-level functions while keeping the guard alive in the caller.
 #[must_use]
 pub struct RepoSharedGuard(Option<ArcRwLockReadGuard<RawRwLock, ()>>);
 
 impl RepoSharedGuard {
-    /// Signal that a read-permission is available - useful as API-marker to assure these
-    /// can only be called when the respective protection/permission is present.
+    /// Borrow the shared read permission token tied to this guard.
+    ///
+    /// Pass the returned [`RepoShared`] to callees that require proof that the caller already
+    /// holds shared or exclusive read access.
     pub fn read_permission(&self) -> &RepoShared {
         static READ: RepoShared = RepoShared(());
         &READ
     }
 }
 
-/// A token to indicate read-only access was granted to the repository, assuring there are no writers
-/// *within this process*.
+/// A permission token proving read-only repository access was granted within this process.
+///
+/// Use this as a function parameter when a callee only needs proof that no writer is active.
+/// It does not acquire or release locks by itself; that remains the job of [`RepoSharedGuard`] or
+/// [`RepoExclusiveGuard`] in the caller.
 pub struct RepoShared(());
 
-/// A token to indicate exclusive access was granted to the repository, assuring there are no readers or other writers
-/// *within this process*.
+/// A permission token proving exclusive repository access was granted within this process.
+///
+/// Use this as a function parameter when a callee needs proof that no other reader or writer is
+/// active.
+/// It does not acquire or release locks by itself; that remains the job of [`RepoExclusiveGuard`] in the caller.
 pub struct RepoExclusive(());
 
 impl RepoExclusive {
-    /// Signal that a read-permission is available - useful as API-marker to assure these
-    /// can only be called when the respective protection/permission is present.
+    /// Borrow the read permission implied by exclusive access.
+    ///
+    /// This allows code that only needs read access to accept [`RepoShared`] even when the caller
+    /// holds exclusive access.
     pub fn read_permission(&self) -> &RepoShared {
         static READ: RepoShared = RepoShared(());
         &READ

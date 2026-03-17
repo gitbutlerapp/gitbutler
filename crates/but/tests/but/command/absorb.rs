@@ -726,6 +726,14 @@ Dry run complete. No changes were made.
         "Status should be unchanged after dry-run"
     );
 
+    // Also verify the workspace commit did NOT change during dry-run
+    let repo = env.open_repo()?;
+    let ws_id = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
+    // Re-run dry-run and confirm workspace is still the same
+    env.but("absorb i0 --dry-run").assert().success();
+    let ws_id_after = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
+    assert_eq!(ws_id, ws_id_after, "dry-run must not touch workspace HEAD");
+
     // Verify the file content wasn't actually changed
     let repo = env.open_repo()?;
     let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
@@ -759,6 +767,34 @@ Dry run complete. No changes were made.
 ...
 
 "#]]);
+
+    Ok(())
+}
+
+/// Regression test for https://github.com/gitbutlerapp/gitbutler/issues/12750
+/// After absorb, the `gitbutler/workspace` HEAD must be refreshed so that
+/// tools inspecting HEAD (e.g. pre-push hooks that stash against it) see
+/// an up-to-date synthetic commit rather than a stale one.
+#[test]
+fn workspace_head_is_refreshed_after_absorb() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    // Record the workspace commit *before* absorb.
+    let repo = env.open_repo()?;
+    let ws_before = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
+
+    env.but("absorb i0").assert().success().stderr_eq(str![""]);
+
+    // After absorb the workspace commit must have changed.
+    let ws_after = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
+
+    assert_ne!(
+        ws_before, ws_after,
+        "gitbutler/workspace HEAD should be refreshed after absorb"
+    );
 
     Ok(())
 }
