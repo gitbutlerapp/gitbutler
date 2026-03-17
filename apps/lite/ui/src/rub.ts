@@ -57,7 +57,7 @@ const assignmentRejectionMessage = (rejections: Array<AssignmentRejection>): str
 	return `Failed to assign: ${messages.join("; ")}.`;
 };
 
-type RubParams = {
+export type RubParams = {
 	projectId: string;
 	source: RubSource;
 	target: ChangeUnit;

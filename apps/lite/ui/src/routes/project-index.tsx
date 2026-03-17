@@ -44,10 +44,11 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/queries.ts";
 import { type ChangeUnit } from "#ui/ChangeUnit.ts";
-import { rubOperationLabel, type RubSource } from "#ui/rub.ts";
+import { rubOperationLabel, RubParams, type RubSource } from "#ui/rub.ts";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
+import { CommitMoveParams } from "#electron/ipc.ts";
 
 const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
@@ -139,15 +140,12 @@ const parseDragData = (data: unknown): SourceItem | null => {
 const useDraggedSourceItem = (): SourceItem | null => useContext(DraggedSourceItemContext);
 
 type OperationTarget =
-	| {
+	| ({
 			_tag: "Rub";
-			target: ChangeUnit;
-	  }
-	| {
+	  } & Omit<RubParams, "projectId" | "source">)
+	| ({
 			_tag: "CommitMove";
-			relativeTo: RelativeTo;
-			side: InsertSide;
-	  }
+	  } & Omit<CommitMoveParams, "projectId" | "subjectCommitId">)
 	| {
 			_tag: "CommitMoveToBranch";
 			anchorRef: Array<number>;
