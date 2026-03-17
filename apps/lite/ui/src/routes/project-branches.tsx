@@ -247,7 +247,7 @@ const BranchDetailsLane: FC<{
 	remote: string | null;
 }> = ({ projectId, branchName, branchRef, remote }) => {
 	const [selection, select] = useLocalStorageState<Selection | null>(
-		`branchSelection:${projectId}:${branchName}`,
+		`project:${projectId}:branchSelection:${branchName}`,
 		null,
 	);
 
@@ -283,7 +283,7 @@ const BranchDetailsLane: FC<{
 const ProjectBranchesPage: FC = () => {
 	const { id } = projectBranchesRoute.useParams();
 	const [selectedBranchName, setSelectedBranchName] = useLocalStorageState<string | null>(
-		`selectedBranchName:${id}`,
+		`project:${id}:selectedBranchName`,
 		null,
 	);
 

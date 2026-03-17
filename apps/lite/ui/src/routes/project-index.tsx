@@ -736,8 +736,11 @@ const CommitForm: FC<{
 	projectId: string;
 	stack: Stack;
 }> = ({ projectId, stack }) => {
-	// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
-	const [message, setMessage] = useLocalStorageState(`commitMessage:${projectId}:${stack.id!}`, "");
+	const [message, setMessage] = useLocalStorageState(
+		// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
+		`project:${projectId}:commitMessage:${stack.id!}`,
+		"",
+	);
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
 	const relativeTo = stackRelativeTo(stack);
@@ -803,7 +806,7 @@ const UnassignedLane: FC<{
 	onLockHover: (commitIds: Array<string> | null) => void;
 }> = ({ projectId, onLockHover }) => {
 	const [selection, select] = useLocalStorageState<UnassignedLaneSelection | null>(
-		`unassignedChangesLaneSelection:${projectId}`,
+		`project:${projectId}:unassignedChangesLaneSelection`,
 		null,
 	);
 
@@ -908,7 +911,7 @@ const StackLane: FC<{
 	const stackId = stack.id!;
 
 	const [selection, select] = useLocalStorageState<StackLaneSelection | null>(
-		`stackLaneSelection:${projectId}:${stackId}`,
+		`project:${projectId}:stackLaneSelection:${stackId}`,
 		null,
 	);
 
