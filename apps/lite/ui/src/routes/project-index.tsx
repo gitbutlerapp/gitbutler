@@ -479,10 +479,11 @@ const SelectedCommitDiff: FC<{
 	);
 };
 
-const RubTarget: FC<{
-	target: ChangeUnit;
-	children: React.ReactElement;
-}> = ({ target, children }) => {
+const RubTarget: FC<
+	{
+		target: ChangeUnit;
+	} & useRender.ComponentProps<"div">
+> = ({ target, render, ...props }) => {
 	const sourceItem = useDraggedSourceItem();
 	const [isDropTarget, dropRef] = useDroppable({
 		canDrop: ({ source }) => {
@@ -502,9 +503,13 @@ const RubTarget: FC<{
 	return (
 		<Tooltip.Root open={tooltip !== null}>
 			<Tooltip.Trigger
-				ref={dropRef}
-				render={children}
-				style={{ ...(isDropTarget && { outline: "2px dashed" }) }}
+				render={useRender({
+					render,
+					ref: dropRef,
+					props: mergeProps(props, {
+						style: { ...(isDropTarget && { outline: "2px dashed" }) },
+					}),
+				})}
 			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
@@ -618,16 +623,19 @@ const CommitC: FC<{
 				previousCommitId={previousCommitId}
 				nextCommitId={nextCommitId}
 			/>
-			<RubTarget target={changeUnit}>
-				<CommitRow
-					projectId={projectId}
-					commit={commit}
-					isSelected={isSelected}
-					isAnyFileSelected={isAnyFileSelected}
-					isHighlighted={isHighlighted}
-					toggleSelect={toggleSelect}
-				/>
-			</RubTarget>
+			<RubTarget
+				target={changeUnit}
+				render={
+					<CommitRow
+						projectId={projectId}
+						commit={commit}
+						isSelected={isSelected}
+						isAnyFileSelected={isAnyFileSelected}
+						isHighlighted={isHighlighted}
+						toggleSelect={toggleSelect}
+					/>
+				}
+			/>
 			{expanded && (
 				<div className={sharedStyles.commitDetails}>
 					<Suspense fallback={<div>Loading changed details…</div>}>
@@ -685,52 +693,55 @@ const Changes: FC<{
 	const changeUnit: ChangeUnit = { _tag: "changes", stackId };
 
 	return (
-		<RubTarget target={changeUnit}>
-			<div className={className}>
-				{changes.length === 0 ? (
-					<>No changes.</>
-				) : (
-					<ul className={sharedStyles.fileList}>
-						{changes.map((change) => {
-							const assignments = assignmentsByPath.get(change.path);
-							const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
+		<RubTarget
+			target={changeUnit}
+			render={
+				<div className={className}>
+					{changes.length === 0 ? (
+						<>No changes.</>
+					) : (
+						<ul className={sharedStyles.fileList}>
+							{changes.map((change) => {
+								const assignments = assignmentsByPath.get(change.path);
+								const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
 
-							const dependencyCommitIds = hunkDependencyDiffs
-								? dependencyCommitIdsForFile(hunkDependencyDiffs)
-								: [];
+								const dependencyCommitIds = hunkDependencyDiffs
+									? dependencyCommitIdsForFile(hunkDependencyDiffs)
+									: [];
 
-							return (
-								<li key={change.path}>
-									<div className={sharedStyles.fileRow}>
-										<DraggableFile
-											change={change}
-											changeUnit={changeUnit}
-											assignments={assignments}
-											render={
-												<FileButton
-													change={change}
-													isSelected={isFileSelected(change.path)}
-													toggleSelect={() => {
-														toggleFileSelect(change.path);
-													}}
-												/>
-											}
-										/>
-										{isNonEmptyArray(dependencyCommitIds) && (
-											<DependencyIndicator
-												projectId={projectId}
-												commitIds={dependencyCommitIds}
-												onHover={onDependencyHover}
+								return (
+									<li key={change.path}>
+										<div className={sharedStyles.fileRow}>
+											<DraggableFile
+												change={change}
+												changeUnit={changeUnit}
+												assignments={assignments}
+												render={
+													<FileButton
+														change={change}
+														isSelected={isFileSelected(change.path)}
+														toggleSelect={() => {
+															toggleFileSelect(change.path);
+														}}
+													/>
+												}
 											/>
-										)}
-									</div>
-								</li>
-							);
-						})}
-					</ul>
-				)}
-			</div>
-		</RubTarget>
+											{isNonEmptyArray(dependencyCommitIds) && (
+												<DependencyIndicator
+													projectId={projectId}
+													commitIds={dependencyCommitIds}
+													onHover={onDependencyHover}
+												/>
+											)}
+										</div>
+									</li>
+								);
+							})}
+						</ul>
+					)}
+				</div>
+			}
+		/>
 	);
 };
 
@@ -862,11 +873,12 @@ type StackLaneSelection =
 			path: string;
 	  };
 
-const CommitMoveToBranchTarget: FC<{
-	anchorRef: Array<number> | null;
-	firstCommitId: string | undefined;
-	children: React.ReactElement;
-}> = ({ anchorRef, firstCommitId, children }) => {
+const CommitMoveToBranchTarget: FC<
+	{
+		anchorRef: Array<number> | null;
+		firstCommitId: string | undefined;
+	} & useRender.ComponentProps<"div">
+> = ({ anchorRef, firstCommitId, render, ...props }) => {
 	const getOperationTarget = (sourceItem: SourceItem): OperationTarget | null => {
 		if (anchorRef === null) return null;
 		if (sourceItem._tag !== "Commit") return null;
@@ -895,9 +907,13 @@ const CommitMoveToBranchTarget: FC<{
 	return (
 		<Tooltip.Root open={isDropTarget}>
 			<Tooltip.Trigger
-				ref={dropRef}
-				render={children}
-				style={{ ...(isDropTarget && { outline: "2px dashed" }) }}
+				render={useRender({
+					render,
+					ref: dropRef,
+					props: mergeProps(props, {
+						style: { ...(isDropTarget && { outline: "2px dashed" }) },
+					}),
+				})}
 			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
@@ -999,9 +1015,8 @@ const StackLane: FC<{
 								<CommitMoveToBranchTarget
 									anchorRef={anchorRef}
 									firstCommitId={segment.commits[0]?.id}
-								>
-									<h3>{branchName}</h3>
-								</CommitMoveToBranchTarget>
+									render={<h3>{branchName}</h3>}
+								/>
 
 								<h4>Commits</h4>
 								<CommitsList commits={segment.commits}>
