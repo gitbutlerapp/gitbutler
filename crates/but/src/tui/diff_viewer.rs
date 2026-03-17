@@ -10,7 +10,7 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
 };
 
-use crate::id::UncommittedCliId;
+use crate::{id::UncommittedCliId, tui::TerminalGuard as _};
 
 /// A single file's diff information for TUI display.
 pub(crate) struct DiffFileEntry {
@@ -554,7 +554,7 @@ fn ui(frame: &mut ratatui::Frame, app: &mut DiffViewerApp) {
 }
 
 pub(crate) fn run_diff_viewer(files: Vec<DiffFileEntry>) -> anyhow::Result<()> {
-    let mut guard = super::TerminalGuard::new(true)?;
+    let mut guard = super::CrosstermTerminalGuard::new(true)?;
     let mut app = DiffViewerApp::new(files);
 
     loop {

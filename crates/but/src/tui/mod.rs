@@ -29,7 +29,7 @@ type PanicHook = Box<dyn Fn(&std::panic::PanicHookInfo<'_>) + Send + Sync>;
 /// RAII guard that ensures the terminal is restored to its original state,
 /// even if an error occurs or a panic is caught.
 #[must_use]
-pub(crate) struct TerminalGuard {
+pub(crate) struct CrosstermTerminalGuard {
     terminal: Terminal<CrosstermBackend<io::Stdout>>,
     mouse_captured: bool,
     /// Holds the original panic hook so we can restore it on drop.
@@ -37,7 +37,7 @@ pub(crate) struct TerminalGuard {
     original_hook: Arc<Mutex<Option<PanicHook>>>,
 }
 
-impl TerminalGuard {
+impl CrosstermTerminalGuard {
     /// Enter raw mode, alternate screen, and optionally enable mouse capture.
     /// Returns a guard that will restore the terminal on drop.
     pub fn new(enable_mouse: bool) -> anyhow::Result<Self> {
@@ -86,40 +86,9 @@ impl TerminalGuard {
             original_hook,
         })
     }
-
-    pub fn terminal_mut(&mut self) -> &mut Terminal<CrosstermBackend<io::Stdout>> {
-        &mut self.terminal
-    }
-
-    /// Temporarily leaves raw mode and the alternate screen to run an external interactive program.
-    ///
-    /// This can for example be used to suspend a TUI and bring up an editor or run an external
-    /// command.
-    ///
-    /// Returns a RAII guard that restores terminal state when dropped.
-    pub fn suspend(&mut self) -> anyhow::Result<SuspendGuard<'_>> {
-        disable_raw_mode()?;
-
-        if self.mouse_captured {
-            crossterm::execute!(
-                self.terminal.backend_mut(),
-                DisableMouseCapture,
-                DisableFocusChange,
-                LeaveAlternateScreen
-            )?;
-        } else {
-            crossterm::execute!(
-                self.terminal.backend_mut(),
-                DisableFocusChange,
-                LeaveAlternateScreen
-            )?;
-        }
-
-        Ok(SuspendGuard(self))
-    }
 }
 
-impl Drop for TerminalGuard {
+impl Drop for CrosstermTerminalGuard {
     fn drop(&mut self) {
         let _ = disable_raw_mode();
         if self.mouse_captured {
@@ -145,9 +114,59 @@ impl Drop for TerminalGuard {
     }
 }
 
+pub(crate) trait TerminalGuard {
+    type Backend: ratatui::backend::Backend;
+
+    type SuspendGuard<'a>
+    where
+        Self: 'a;
+
+    /// Temporarily leaves raw mode and the alternate screen to run an external interactive program.
+    ///
+    /// This can for example be used to suspend a TUI and bring up an editor or run an external
+    /// command.
+    ///
+    /// Returns a RAII guard that restores terminal state when dropped.
+    fn suspend(&mut self) -> anyhow::Result<Self::SuspendGuard<'_>>;
+
+    /// Get a mutable reference to the guard's terminal.
+    fn terminal_mut(&mut self) -> &mut Terminal<Self::Backend>;
+}
+
+impl TerminalGuard for CrosstermTerminalGuard {
+    type Backend = CrosstermBackend<io::Stdout>;
+
+    type SuspendGuard<'a> = SuspendGuard<'a>;
+
+    fn suspend(&mut self) -> anyhow::Result<Self::SuspendGuard<'_>> {
+        disable_raw_mode()?;
+
+        if self.mouse_captured {
+            crossterm::execute!(
+                self.terminal.backend_mut(),
+                DisableMouseCapture,
+                DisableFocusChange,
+                LeaveAlternateScreen
+            )?;
+        } else {
+            crossterm::execute!(
+                self.terminal.backend_mut(),
+                DisableFocusChange,
+                LeaveAlternateScreen
+            )?;
+        }
+
+        Ok(SuspendGuard(self))
+    }
+
+    fn terminal_mut(&mut self) -> &mut Terminal<CrosstermBackend<io::Stdout>> {
+        &mut self.terminal
+    }
+}
+
 /// RAII guard that resumes terminal state suspended by [`TerminalGuard::suspend`].
 #[must_use]
-pub(crate) struct SuspendGuard<'a>(&'a mut TerminalGuard);
+pub(crate) struct SuspendGuard<'a>(&'a mut CrosstermTerminalGuard);
 
 impl Drop for SuspendGuard<'_> {
     fn drop(&mut self) {
