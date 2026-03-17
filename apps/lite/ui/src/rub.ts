@@ -57,15 +57,13 @@ const assignmentRejectionMessage = (rejections: Array<AssignmentRejection>): str
 	return `Failed to assign: ${messages.join("; ")}.`;
 };
 
-export const rub = async ({
-	projectId,
-	source,
-	target,
-}: {
+type RubParams = {
 	projectId: string;
 	source: RubSource;
 	target: ChangeUnit;
-}): Promise<RubResult> =>
+};
+
+export const rub = async ({ projectId, source, target }: RubParams): Promise<RubResult> =>
 	Match.value(source).pipe(
 		Match.tag("TreeChange", ({ source }) => {
 			const changes = [createDiffSpec(source.change, source.hunkHeaders)];
