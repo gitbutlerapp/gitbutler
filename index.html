@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkyMappers — Commercial Drone Mapping</title>
+  <meta name="description" content="High-resolution drone mapping for construction, real estate, roofing, and land surveys. FAA Part 107 certified pilots. Fast turnaround, ready-to-use deliverables." />
+  <style>
+    /* ─── CSS Variables ─────────────────────────────────────────── */
+    :root {
+      --slate:      #0f172a;
+      --slate-700:  #1e293b;
+      --slate-600:  #334155;
+      --slate-400:  #94a3b8;
+      --slate-200:  #e2e8f0;
+      --blue:       #2563eb;
+      --blue-dark:  #1d4ed8;
+      --blue-light: #dbeafe;
+      --accent:     #facc15;
+      --accent-dark:#eab308;
+      --white:      #ffffff;
+      --off-white:  #f8fafc;
+      --text:       #0f172a;
+      --text-muted: #475569;
+      --radius:     12px;
+      --shadow:     0 4px 24px rgba(15,23,42,.10);
+      --shadow-lg:  0 8px 40px rgba(15,23,42,.18);
+      --transition: 0.25s ease;
+      --font: "Inter", "Segoe UI", "Helvetica Neue", sans-serif;
+    }
+
+    /* ─── Reset & Base ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+    body {
+      font-family: var(--font);
+      color: var(--text);
+      background: var(--white);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    img { display: block; max-width: 100%; }
+    a { color: inherit; text-decoration: none; }
+    ul { list-style: none; }
+    button { font-family: var(--font); cursor: pointer; border: none; }
+
+    /* ─── Focus Visible ─────────────────────────────────────────── */
+    :focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+
+    /* ─── Fade-in Animation ─────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .fade-in.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ─── Typography Helpers ────────────────────────────────────── */
+    .section-label {
+      display: inline-block;
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: .75rem;
+    }
+    h2.section-title {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 800;
+      line-height: 1.2;
+      color: var(--slate);
+    }
+    .section-sub {
+      margin-top: .75rem;
+      font-size: 1.0625rem;
+      color: var(--text-muted);
+      max-width: 560px;
+    }
+
+    /* ─── Buttons ───────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .75rem 1.625rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--blue);
+      color: var(--white);
+    }
+    .btn-primary:hover { background: var(--blue-dark); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(37,99,235,.35); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-accent {
+      background: var(--accent);
+      color: var(--slate);
+    }
+    .btn-accent:hover { background: var(--accent-dark); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(250,204,21,.4); }
+    .btn-accent:active { transform: translateY(0); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--white);
+      border: 2px solid rgba(255,255,255,.45);
+    }
+    .btn-ghost:hover { border-color: var(--white); background: rgba(255,255,255,.1); }
+    .btn-outline {
+      background: transparent;
+      color: var(--blue);
+      border: 2px solid var(--blue);
+    }
+    .btn-outline:hover { background: var(--blue-light); }
+
+    /* ─── Container ─────────────────────────────────────────────── */
+    .container {
+      width: 100%;
+      max-width: 1140px;
+      margin-inline: auto;
+      padding-inline: 1.25rem;
+    }
+
+    /* ─── NAV ───────────────────────────────────────────────────── */
+    #nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15,23,42,.96);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -.01em;
+    }
+    .nav-logo .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--blue);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .nav-logo .logo-icon svg { width: 18px; height: 18px; fill: var(--white); }
+    .nav-logo span.accent { color: var(--accent); }
+
+    .nav-links {
+      display: none;
+      gap: 2rem;
+    }
+    .nav-links a {
+      color: rgba(255,255,255,.8);
+      font-size: .9375rem;
+      font-weight: 500;
+      transition: color var(--transition);
+    }
+    .nav-links a:hover { color: var(--white); }
+    .nav-cta { display: none; }
+
+    .nav-hamburger {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding: 6px;
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+    .nav-hamburger span {
+      display: block;
+      width: 24px;
+      height: 2px;
+      background: var(--white);
+      border-radius: 2px;
+      transition: transform var(--transition), opacity var(--transition);
+    }
+    .nav-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .nav-hamburger.open span:nth-child(2) { opacity: 0; }
+    .nav-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    .nav-mobile {
+      display: none;
+      flex-direction: column;
+      background: var(--slate-700);
+      border-top: 1px solid rgba(255,255,255,.07);
+      padding: 1rem 1.25rem 1.5rem;
+      gap: .25rem;
+    }
+    .nav-mobile.open { display: flex; }
+    .nav-mobile a {
+      color: rgba(255,255,255,.85);
+      font-size: 1rem;
+      font-weight: 500;
+      padding: .65rem .5rem;
+      border-radius: 6px;
+      transition: background var(--transition), color var(--transition);
+    }
+    .nav-mobile a:hover { background: rgba(255,255,255,.07); color: var(--white); }
+    .nav-mobile .btn { margin-top: .75rem; align-self: flex-start; }
+
+    @media (min-width: 768px) {
+      .nav-links { display: flex; }
+      .nav-cta { display: inline-flex; }
+      .nav-hamburger { display: none; }
+      .nav-mobile { display: none !important; }
+    }
+
+    /* ─── HERO ──────────────────────────────────────────────────── */
+    #hero {
+      position: relative;
+      min-height: 100svh;
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      background: var(--slate);
+    }
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background-image: url("https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=1800&auto=format&fit=crop&q=80");
+      background-size: cover;
+      background-position: center 60%;
+      opacity: .28;
+    }
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(15,23,42,.85) 0%, rgba(37,99,235,.25) 100%);
+    }
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      padding-block: 6rem 5rem;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      background: rgba(37,99,235,.25);
+      border: 1px solid rgba(37,99,235,.5);
+      color: var(--blue-light);
+      font-size: .8125rem;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: .35rem .875rem;
+      border-radius: 100px;
+      margin-bottom: 1.5rem;
+    }
+    .hero-badge::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+    h1.hero-title {
+      font-size: clamp(2.25rem, 7vw, 4rem);
+      font-weight: 900;
+      line-height: 1.1;
+      color: var(--white);
+      letter-spacing: -.02em;
+      max-width: 680px;
+    }
+    h1.hero-title em {
+      font-style: normal;
+      color: var(--accent);
+    }
+    .hero-sub {
+      margin-top: 1.25rem;
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      color: rgba(255,255,255,.7);
+      max-width: 520px;
+      line-height: 1.65;
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 2.25rem;
+    }
+    .hero-trust {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      margin-top: 3rem;
+      padding-top: 2rem;
+      border-top: 1px solid rgba(255,255,255,.12);
+    }
+    .hero-trust-item {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      color: rgba(255,255,255,.7);
+      font-size: .875rem;
+      font-weight: 500;
+    }
+    .hero-trust-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+    /* ─── SECTION WRAPPER ───────────────────────────────────────── */
+    .section { padding-block: 5rem; }
+    .section-alt { background: var(--off-white); }
+    .section-dark { background: var(--slate); }
+    .section-header { margin-bottom: 3rem; }
+    .section-header.center { text-align: center; }
+    .section-header.center .section-sub { margin-inline: auto; }
+
+    /* ─── SERVICES ──────────────────────────────────────────────── */
+    .services-grid {
+      display: grid;
+      gap: 1.5rem;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 600px) { .services-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 900px) { .services-grid { grid-template-columns: repeat(3, 1fr); } }
+
+    .service-card {
+      background: var(--white);
+      border: 1px solid var(--slate-200);
+      border-radius: var(--radius);
+      padding: 2rem 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      box-shadow: var(--shadow);
+      transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+    }
+    .service-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); border-color: var(--blue); }
+    .service-icon {
+      width: 52px;
+      height: 52px;
+      background: var(--blue-light);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .service-icon svg { width: 26px; height: 26px; stroke: var(--blue); fill: none; stroke-width: 1.75; }
+    .service-card h3 { font-size: 1.125rem; font-weight: 700; color: var(--slate); }
+    .service-card p { font-size: .9375rem; color: var(--text-muted); line-height: 1.65; flex: 1; }
+    .service-tag {
+      align-self: flex-start;
+      font-size: .75rem;
+      font-weight: 600;
+      padding: .25rem .625rem;
+      border-radius: 4px;
+      background: var(--blue-light);
+      color: var(--blue-dark);
+    }
+
+    .coming-soon-card {
+      background: linear-gradient(135deg, var(--slate) 0%, var(--slate-700) 100%);
+      border: 2px dashed rgba(250,204,21,.4);
+      border-radius: var(--radius);
+      padding: 2rem 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .coming-soon-card::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 160px; height: 160px;
+      background: radial-gradient(circle, rgba(250,204,21,.12) 0%, transparent 70%);
+    }
+    .coming-soon-badge {
+      align-self: flex-start;
+      background: var(--accent);
+      color: var(--slate);
+      font-size: .75rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: .25rem .625rem;
+      border-radius: 4px;
+    }
+    .coming-soon-card h3 { font-size: 1.125rem; font-weight: 700; color: var(--white); }
+    .coming-soon-card p { font-size: .9375rem; color: rgba(255,255,255,.65); line-height: 1.65; }
+    .coming-soon-features {
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+    }
+    .coming-soon-features li {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      font-size: .875rem;
+      color: rgba(255,255,255,.75);
+    }
+    .coming-soon-features li::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ─── WORKFLOW ──────────────────────────────────────────────── */
+    .workflow-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      position: relative;
+    }
+    .workflow-steps::before {
+      content: '';
+      position: absolute;
+      left: 28px;
+      top: 28px;
+      bottom: 28px;
+      width: 2px;
+      background: linear-gradient(to bottom, var(--blue), rgba(37,99,235,.1));
+    }
+    @media (min-width: 768px) {
+      .workflow-steps {
+        flex-direction: row;
+        gap: 2rem;
+      }
+      .workflow-steps::before {
+        top: 28px;
+        left: 28px;
+        right: 28px;
+        bottom: auto;
+        width: auto;
+        height: 2px;
+        background: linear-gradient(to right, var(--blue), rgba(37,99,235,.1));
+      }
+    }
+    .workflow-step {
+      display: flex;
+      flex-direction: row;
+      gap: 1.25rem;
+      padding: 1.5rem 1rem 1.5rem 0;
+      flex: 1;
+    }
+    @media (min-width: 768px) {
+      .workflow-step {
+        flex-direction: column;
+        padding: 0;
+        padding-top: 0;
+        align-items: flex-start;
+      }
+    }
+    .step-number {
+      width: 56px;
+      height: 56px;
+      min-width: 56px;
+      background: var(--blue);
+      color: var(--white);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      font-weight: 900;
+      position: relative;
+      z-index: 1;
+      box-shadow: 0 0 0 6px var(--off-white);
+    }
+    @media (min-width: 768px) {
+      .step-number { margin-bottom: 1.5rem; }
+    }
+    .step-content h3 { font-size: 1.125rem; font-weight: 700; color: var(--slate); margin-bottom: .5rem; }
+    .step-content p { font-size: .9375rem; color: var(--text-muted); line-height: 1.65; }
+    .step-content .step-detail {
+      margin-top: .75rem;
+      display: flex;
+      flex-direction: column;
+      gap: .375rem;
+    }
+    .step-content .step-detail span {
+      display: flex;
+      align-items: center;
+      gap: .375rem;
+      font-size: .8125rem;
+      color: var(--blue-dark);
+      font-weight: 500;
+    }
+    .step-content .step-detail span::before {
+      content: '✓';
+      width: 16px; height: 16px;
+      background: var(--blue-light);
+      color: var(--blue);
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .65rem;
+      font-weight: 900;
+      flex-shrink: 0;
+    }
+
+    /* ─── PORTFOLIO ─────────────────────────────────────────────── */
+    .portfolio-grid {
+      display: grid;
+      gap: 1.25rem;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 600px) { .portfolio-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 900px) { .portfolio-grid { grid-template-columns: repeat(3, 1fr); } }
+
+    .portfolio-item {
+      border-radius: var(--radius);
+      overflow: hidden;
+      position: relative;
+      aspect-ratio: 4/3;
+      background: var(--slate-200);
+      box-shadow: var(--shadow);
+    }
+    .portfolio-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s ease;
+    }
+    .portfolio-item:hover img { transform: scale(1.06); }
+    .portfolio-caption {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(15,23,42,.82) 0%, transparent 55%);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 1.25rem;
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .portfolio-item:hover .portfolio-caption { opacity: 1; }
+    .portfolio-caption h4 { color: var(--white); font-size: 1rem; font-weight: 700; }
+    .portfolio-caption p { color: rgba(255,255,255,.75); font-size: .8125rem; margin-top: .2rem; }
+    .portfolio-tag {
+      align-self: flex-start;
+      background: var(--accent);
+      color: var(--slate);
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: .2rem .5rem;
+      border-radius: 4px;
+      margin-bottom: .5rem;
+    }
+    /* Always-visible subtle caption on mobile */
+    .portfolio-label {
+      padding: .875rem 1rem;
+      background: var(--white);
+    }
+    .portfolio-label h4 { font-size: .9375rem; font-weight: 600; color: var(--slate); }
+    .portfolio-label p { font-size: .8125rem; color: var(--text-muted); margin-top: .15rem; }
+    @media (min-width: 768px) { .portfolio-label { display: none; } }
+
+    /* ─── FAQ ───────────────────────────────────────────────────── */
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: .75rem;
+      max-width: 760px;
+      margin-inline: auto;
+    }
+    .faq-item {
+      background: var(--white);
+      border: 1px solid var(--slate-200);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      transition: border-color var(--transition);
+    }
+    .faq-item.open { border-color: var(--blue); }
+    .faq-question {
+      width: 100%;
+      text-align: left;
+      background: none;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--slate);
+      transition: background var(--transition);
+    }
+    .faq-question:hover { background: var(--off-white); }
+    .faq-icon {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      background: var(--blue-light);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background var(--transition), transform var(--transition);
+    }
+    .faq-icon svg { width: 14px; height: 14px; stroke: var(--blue); fill: none; stroke-width: 2.5; transition: transform var(--transition); }
+    .faq-item.open .faq-icon { background: var(--blue); }
+    .faq-item.open .faq-icon svg { stroke: var(--white); transform: rotate(45deg); }
+    .faq-answer {
+      display: none;
+      padding: 0 1.5rem 1.25rem;
+      font-size: .9375rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+    .faq-item.open .faq-answer { display: block; }
+
+    /* ─── CONTACT ───────────────────────────────────────────────── */
+    #contact.section-dark {
+      background: linear-gradient(135deg, var(--slate) 0%, #1a2744 100%);
+    }
+    .contact-inner {
+      display: grid;
+      gap: 3rem;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 768px) { .contact-inner { grid-template-columns: 1fr 1fr; align-items: center; } }
+    .contact-copy .section-title { color: var(--white); }
+    .contact-copy .section-sub { color: rgba(255,255,255,.65); }
+    .contact-copy .btn { margin-top: 2rem; }
+    .contact-info {
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: var(--radius);
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    .contact-info-title {
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--slate-400);
+      margin-bottom: .25rem;
+    }
+    .contact-info-item {
+      display: flex;
+      align-items: flex-start;
+      gap: .875rem;
+    }
+    .contact-info-icon {
+      width: 38px;
+      height: 38px;
+      min-width: 38px;
+      background: rgba(37,99,235,.25);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: .1rem;
+    }
+    .contact-info-icon svg { width: 18px; height: 18px; stroke: var(--blue-light); fill: none; stroke-width: 1.75; }
+    .contact-info-item strong { display: block; color: var(--white); font-size: .9375rem; font-weight: 600; }
+    .contact-info-item span { color: rgba(255,255,255,.55); font-size: .875rem; }
+
+    /* ─── FOOTER ────────────────────────────────────────────────── */
+    footer {
+      background: #080f1e;
+      padding-block: 2rem;
+      border-top: 1px solid rgba(255,255,255,.06);
+    }
+    .footer-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      text-align: center;
+    }
+    @media (min-width: 600px) {
+      .footer-inner { flex-direction: row; justify-content: space-between; text-align: left; }
+    }
+    .footer-logo { font-size: 1.1rem; font-weight: 800; color: var(--white); }
+    .footer-logo span { color: var(--accent); }
+    .footer-copy { font-size: .8125rem; color: rgba(255,255,255,.35); }
+    .footer-links { display: flex; gap: 1.25rem; flex-wrap: wrap; justify-content: center; }
+    .footer-links a { font-size: .8125rem; color: rgba(255,255,255,.45); transition: color var(--transition); }
+    .footer-links a:hover { color: rgba(255,255,255,.8); }
+
+    /* ─── Scroll-to-top ─────────────────────────────────────────── */
+    #scroll-top {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 50;
+      width: 44px;
+      height: 44px;
+      background: var(--blue);
+      color: var(--white);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-lg);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition), transform var(--transition);
+      transform: translateY(10px);
+    }
+    #scroll-top.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+    #scroll-top:hover { background: var(--blue-dark); }
+    #scroll-top svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2.5; }
+  </style>
+</head>
+<body>
+
+<!-- ─── NAV ──────────────────────────────────────────────────────── -->
+<header id="nav" role="banner">
+  <div class="container">
+    <nav class="nav-inner" aria-label="Main navigation">
+      <a href="#hero" class="nav-logo" aria-label="SkyMappers home">
+        <div class="logo-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L3 7l9 5 9-5-9-5zM3 17l9 5 9-5M3 12l9 5 9-5"/></svg>
+        </div>
+        Sky<span class="accent">Mappers</span>
+      </a>
+
+      <ul class="nav-links" role="list">
+        <li><a href="#services">Services</a></li>
+        <li><a href="#workflow">Workflow</a></li>
+        <li><a href="#portfolio">Portfolio</a></li>
+        <li><a href="#faq">FAQs</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+
+      <a href="mailto:hello@skymappers.com" class="btn btn-accent nav-cta" aria-label="Request a mapping quote via email">
+        Request a Quote
+      </a>
+
+      <button class="nav-hamburger" id="hamburger" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open navigation menu">
+        <span></span><span></span><span></span>
+      </button>
+    </nav>
+  </div>
+  <nav class="nav-mobile" id="mobile-menu" aria-label="Mobile navigation">
+    <a href="#services">Services</a>
+    <a href="#workflow">Workflow</a>
+    <a href="#portfolio">Portfolio</a>
+    <a href="#faq">FAQs</a>
+    <a href="#contact">Contact</a>
+    <a href="mailto:hello@skymappers.com" class="btn btn-accent">Request a Quote</a>
+  </nav>
+</header>
+
+<!-- ─── HERO ──────────────────────────────────────────────────────── -->
+<section id="hero" aria-label="Hero">
+  <div class="hero-bg" role="img" aria-label="Aerial drone footage of a construction site"></div>
+  <div class="hero-overlay"></div>
+  <div class="container">
+    <div class="hero-content fade-in visible">
+      <div class="hero-badge">FAA Part 107 Certified Pilots</div>
+      <h1 class="hero-title">
+        Precision Drone Mapping<br />
+        <em>From Above, On Time.</em>
+      </h1>
+      <p class="hero-sub">
+        High-resolution orthomosaics, 3D models, and inspection imagery
+        delivered fast — for construction, real estate, roofing, and beyond.
+      </p>
+      <div class="hero-actions">
+        <a href="mailto:hello@skymappers.com" class="btn btn-accent">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.92 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.92 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          Request a Mapping Quote
+        </a>
+        <a href="#services" class="btn btn-ghost">
+          See Services
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      </div>
+      <div class="hero-trust" role="list" aria-label="Key credentials">
+        <div class="hero-trust-item" role="listitem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          FAA Certified &amp; Insured
+        </div>
+        <div class="hero-trust-item" role="listitem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          48-hr Turnaround
+        </div>
+        <div class="hero-trust-item" role="listitem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          Ready-to-Use Deliverables
+        </div>
+        <div class="hero-trust-item" role="listitem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+          GIS-Compatible Exports
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── SERVICES ─────────────────────────────────────────────────── -->
+<section id="services" class="section section-alt" aria-labelledby="services-heading">
+  <div class="container">
+    <div class="section-header fade-in">
+      <span class="section-label">What We Do</span>
+      <h2 class="section-title" id="services-heading">Commercial Drone Mapping Services</h2>
+      <p class="section-sub">
+        We capture precise aerial data and turn it into actionable deliverables your team can
+        use immediately — no GIS expertise required.
+      </p>
+    </div>
+
+    <div class="services-grid">
+      <!-- Card 1 -->
+      <article class="service-card fade-in">
+        <div class="service-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        </div>
+        <h3>Construction Mapping</h3>
+        <p>
+          Track build progress with repeat orthomosaic flights, volumetric cut/fill calculations,
+          and timestamped photo documentation for stakeholders and lenders.
+        </p>
+        <ul class="step-detail" role="list">
+          <span>Progress orthos &amp; point clouds</span>
+          <span>Stockpile volume reports</span>
+          <span>BIM / CAD overlay ready</span>
+        </ul>
+        <span class="service-tag">Available Now</span>
+      </article>
+
+      <!-- Card 2 -->
+      <article class="service-card fade-in">
+        <div class="service-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <h3>Realty &amp; Land Survey</h3>
+        <p>
+          High-resolution listing imagery and survey-grade orthomosaics that close deals faster.
+          Geo-referenced maps exportable to GIS, PDF, or client portals.
+        </p>
+        <ul class="step-detail" role="list">
+          <span>2 cm/px ground resolution</span>
+          <span>Elevation models (DSM/DTM)</span>
+          <span>Boundary &amp; parcel overlays</span>
+        </ul>
+        <span class="service-tag">Available Now</span>
+      </article>
+
+      <!-- Card 3 -->
+      <article class="service-card fade-in">
+        <div class="service-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </div>
+        <h3>Roof &amp; Infrastructure Inspection</h3>
+        <p>
+          Safe, thorough roof condition reports and infrastructure assessments without lifts or
+          scaffolding. High-res imagery with annotated defect callouts.
+        </p>
+        <ul class="step-detail" role="list">
+          <span>20 MP close-range capture</span>
+          <span>Annotated defect reports</span>
+          <span>Insurance-ready deliverables</span>
+        </ul>
+        <span class="service-tag">Available Now</span>
+      </article>
+
+      <!-- Coming Soon -->
+      <article class="coming-soon-card fade-in" style="grid-column: 1 / -1;">
+        <span class="coming-soon-badge">Coming Soon</span>
+        <h3>Agricultural Drone Services</h3>
+        <p>
+          Precision ag mapping is on the horizon — multispectral analysis and smart irrigation insights
+          for row crops, orchards, vineyards, and large-scale farmland.
+        </p>
+        <ul class="coming-soon-features" role="list">
+          <li>Multispectral NDVI &amp; crop-health maps</li>
+          <li>Irrigation stress &amp; water-use monitoring</li>
+          <li>Variable-rate application (VRA) prescription exports</li>
+          <li>Seasonal trend reporting &amp; yield forecasting support</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ─── WORKFLOW ──────────────────────────────────────────────────── -->
+<section id="workflow" class="section" aria-labelledby="workflow-heading">
+  <div class="container">
+    <div class="section-header center fade-in">
+      <span class="section-label">How It Works</span>
+      <h2 class="section-title" id="workflow-heading">Three Steps to Actionable Maps</h2>
+      <p class="section-sub">
+        From first contact to final deliverable, our streamlined process gets you
+        precise aerial data without the guesswork.
+      </p>
+    </div>
+
+    <div class="workflow-steps" role="list">
+      <div class="workflow-step fade-in" role="listitem">
+        <div class="step-number" aria-hidden="true">1</div>
+        <div class="step-content">
+          <h3>Plan the Flight</h3>
+          <p>
+            We consult on your project goals, scope the site, file airspace authorizations
+            (LAANC), and plan an optimal flight path for maximum data quality.
+          </p>
+          <div class="step-detail">
+            <span>Site &amp; scope consultation</span>
+            <span>Airspace authorization (LAANC)</span>
+            <span>GCP placement planning</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="workflow-step fade-in" role="listitem">
+        <div class="step-number" aria-hidden="true">2</div>
+        <div class="step-content">
+          <h3>Capture &amp; Process</h3>
+          <p>
+            FAA-certified pilots fly the mission and our photogrammetry pipeline stitches
+            raw imagery into georeferenced maps and models — typically within 24 hours.
+          </p>
+          <div class="step-detail">
+            <span>Automated precision flight</span>
+            <span>RTK/PPK geo-referencing</span>
+            <span>Photogrammetry processing</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="workflow-step fade-in" role="listitem">
+        <div class="step-number" aria-hidden="true">3</div>
+        <div class="step-content">
+          <h3>Receive Deliverables</h3>
+          <p>
+            Download your orthomosaic, point cloud, elevation models, or inspection
+            report from a secure client portal — formatted and ready to use.
+          </p>
+          <div class="step-detail">
+            <span>GeoTIFF, LAS, PDF exports</span>
+            <span>Secure cloud delivery</span>
+            <span>Revision support included</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── PORTFOLIO ─────────────────────────────────────────────────── -->
+<section id="portfolio" class="section section-alt" aria-labelledby="portfolio-heading">
+  <div class="container">
+    <div class="section-header center fade-in">
+      <span class="section-label">Our Work</span>
+      <h2 class="section-title" id="portfolio-heading">Recent Project Highlights</h2>
+      <p class="section-sub">
+        A glimpse of the aerial data we've delivered for clients across the region.
+      </p>
+    </div>
+
+    <div class="portfolio-grid">
+      <figure class="portfolio-item fade-in">
+        <img
+          src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&auto=format&fit=crop&q=75"
+          alt="Aerial orthomosaic of an active construction site showing earthworks and foundations"
+          loading="lazy"
+          width="800"
+          height="600"
+        />
+        <figcaption class="portfolio-caption" aria-hidden="true">
+          <span class="portfolio-tag">Construction</span>
+          <h4>Mixed-Use Development — Phase 2</h4>
+          <p>Weekly progress orthomosaics &amp; earthwork volumes</p>
+        </figcaption>
+      </figure>
+      <div class="portfolio-label" aria-hidden="true">
+        <h4>Mixed-Use Development — Phase 2</h4>
+        <p>Weekly progress orthomosaics &amp; earthwork volumes</p>
+      </div>
+
+      <figure class="portfolio-item fade-in">
+        <img
+          src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&auto=format&fit=crop&q=75"
+          alt="High-resolution aerial photograph of a residential property for real estate listing"
+          loading="lazy"
+          width="800"
+          height="600"
+        />
+        <figcaption class="portfolio-caption" aria-hidden="true">
+          <span class="portfolio-tag">Real Estate</span>
+          <h4>Luxury Residential Listing</h4>
+          <p>Orthomosaic + cinematic listing stills</p>
+        </figcaption>
+      </figure>
+      <div class="portfolio-label" aria-hidden="true">
+        <h4>Luxury Residential Listing</h4>
+        <p>Orthomosaic + cinematic listing stills</p>
+      </div>
+
+      <figure class="portfolio-item fade-in">
+        <img
+          src="https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800&auto=format&fit=crop&q=75"
+          alt="Aerial survey of agricultural land showing field parcels and terrain"
+          loading="lazy"
+          width="800"
+          height="600"
+        />
+        <figcaption class="portfolio-caption" aria-hidden="true">
+          <span class="portfolio-tag">Land Survey</span>
+          <h4>Agricultural Parcel Survey</h4>
+          <p>DTM, boundary mapping, acreage calculation</p>
+        </figcaption>
+      </figure>
+      <div class="portfolio-label" aria-hidden="true">
+        <h4>Agricultural Parcel Survey</h4>
+        <p>DTM, boundary mapping, acreage calculation</p>
+      </div>
+
+      <figure class="portfolio-item fade-in">
+        <img
+          src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&auto=format&fit=crop&q=75"
+          alt="Close-range drone photograph of a commercial building roof showing condition details"
+          loading="lazy"
+          width="800"
+          height="600"
+        />
+        <figcaption class="portfolio-caption" aria-hidden="true">
+          <span class="portfolio-tag">Inspection</span>
+          <h4>Commercial Flat-Roof Inspection</h4>
+          <p>Defect mapping &amp; annotated condition report</p>
+        </figcaption>
+      </figure>
+      <div class="portfolio-label" aria-hidden="true">
+        <h4>Commercial Flat-Roof Inspection</h4>
+        <p>Defect mapping &amp; annotated condition report</p>
+      </div>
+
+      <figure class="portfolio-item fade-in">
+        <img
+          src="https://images.unsplash.com/photo-1486325212027-8081e485255e?w=800&auto=format&fit=crop&q=75"
+          alt="Aerial view of a highway interchange and surrounding urban development"
+          loading="lazy"
+          width="800"
+          height="600"
+        />
+        <figcaption class="portfolio-caption" aria-hidden="true">
+          <span class="portfolio-tag">Infrastructure</span>
+          <h4>Highway Corridor Mapping</h4>
+          <p>Point cloud &amp; surface model for DOT review</p>
+        </figcaption>
+      </figure>
+      <div class="portfolio-label" aria-hidden="true">
+        <h4>Highway Corridor Mapping</h4>
+        <p>Point cloud &amp; surface model for DOT review</p>
+      </div>
+
+      <figure class="portfolio-item fade-in">
+        <img
+          src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&auto=format&fit=crop&q=75"
+          alt="Aerial photograph of open farmland under a dramatic sky"
+          loading="lazy"
+          width="800"
+          height="600"
+        />
+        <figcaption class="portfolio-caption" aria-hidden="true">
+          <span class="portfolio-tag">Coming Soon</span>
+          <h4>Crop Health Analysis</h4>
+          <p>Multispectral NDVI mapping — agricultural services launching soon</p>
+        </figcaption>
+      </figure>
+      <div class="portfolio-label" aria-hidden="true">
+        <h4>Crop Health Analysis</h4>
+        <p>Multispectral NDVI mapping — agricultural services launching soon</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FAQ ───────────────────────────────────────────────────────── -->
+<section id="faq" class="section" aria-labelledby="faq-heading">
+  <div class="container">
+    <div class="section-header center fade-in">
+      <span class="section-label">Got Questions?</span>
+      <h2 class="section-title" id="faq-heading">Frequently Asked Questions</h2>
+      <p class="section-sub">
+        Everything you need to know before booking your first flight.
+      </p>
+    </div>
+
+    <div class="faq-list fade-in" role="list">
+
+      <div class="faq-item" role="listitem">
+        <button class="faq-question" aria-expanded="false">
+          Are your pilots FAA certified? Is SkyMappers insured?
+          <span class="faq-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </span>
+        </button>
+        <div class="faq-answer">
+          Yes — all SkyMappers pilots hold active FAA Part 107 Remote Pilot Certificates and carry
+          commercial drone liability insurance (minimum $1M per occurrence). We file LAANC
+          authorizations for every controlled-airspace flight and maintain current waivers for
+          night operations and beyond-visual-line-of-sight work where required. Certificates are
+          available upon request before any engagement.
+        </div>
+      </div>
+
+      <div class="faq-item" role="listitem">
+        <button class="faq-question" aria-expanded="false">
+          How fast can I receive my deliverables after a flight?
+          <span class="faq-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </span>
+        </button>
+        <div class="faq-answer">
+          Standard turnaround is <strong>24–48 hours</strong> from the time the flight is completed.
+          Orthomosaics and basic inspection reports are typically available within 24 hours; complex
+          deliverables such as full point clouds, 3D meshes, or detailed volumetric reports may take
+          up to 48 hours. Rush delivery (same-day or next-morning) is available for an additional fee
+          — just mention it when you request your quote.
+        </div>
+      </div>
+
+      <div class="faq-item" role="listitem">
+        <button class="faq-question" aria-expanded="false">
+          What file formats and deliverables do I receive?
+          <span class="faq-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </span>
+        </button>
+        <div class="faq-answer">
+          Deliverables vary by service but typically include: geo-referenced <strong>GeoTIFF orthomosaics</strong>,
+          <strong>LAS/LAZ point clouds</strong>, <strong>DSM/DTM elevation rasters</strong>, and high-resolution
+          <strong>JPEG inspection imagery</strong>. Reports are provided as PDF. All spatial data is projected
+          in NAD83 / State Plane or WGS84 UTM by default — custom projections available on request.
+          Files are delivered via a secure, time-limited download link; we can also upload directly
+          to your preferred cloud storage or GIS platform.
+        </div>
+      </div>
+
+      <div class="faq-item" role="listitem">
+        <button class="faq-question" aria-expanded="false">
+          When will agricultural drone services be available?
+          <span class="faq-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </span>
+        </button>
+        <div class="faq-answer">
+          We're actively building out our agricultural service line, including <strong>multispectral NDVI
+          mapping</strong>, <strong>irrigation stress monitoring</strong>, and <strong>variable-rate application (VRA)
+          prescription exports</strong>. We expect a limited pilot program to open for select growers in the
+          upcoming growing season. If you'd like to be notified when ag services launch — or if you
+          want to participate in our pilot program — email us at
+          <a href="mailto:hello@skymappers.com" style="color:var(--blue);font-weight:600;">hello@skymappers.com</a>
+          and we'll add you to the early-access list.
+        </div>
+      </div>
+
+      <div class="faq-item" role="listitem">
+        <button class="faq-question" aria-expanded="false">
+          What service area do you cover?
+          <span class="faq-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </span>
+        </button>
+        <div class="faq-answer">
+          SkyMappers currently serves a regional area with no travel surcharge for sites within
+          75 miles of our base. Projects beyond that range are welcome — a modest travel fee
+          applies for mobilization. For large-scale or multi-site contracts requiring extended stays,
+          contact us directly and we'll build a custom scope. We're expanding our crew footprint, so
+          don't hesitate to reach out even if you're further afield.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ─── CONTACT ───────────────────────────────────────────────────── -->
+<section id="contact" class="section section-dark" aria-labelledby="contact-heading">
+  <div class="container">
+    <div class="contact-inner">
+      <div class="contact-copy fade-in">
+        <span class="section-label" style="color:var(--accent);">Get In Touch</span>
+        <h2 class="section-title" id="contact-heading">Ready to Map Your Next Project?</h2>
+        <p class="section-sub">
+          Tell us about your site and goals — we'll send a tailored quote within one business day.
+          No commitment required.
+        </p>
+        <a href="mailto:hello@skymappers.com" class="btn btn-accent">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Request a Mapping Quote
+        </a>
+      </div>
+
+      <div class="contact-info fade-in" role="complementary" aria-label="Contact details">
+        <p class="contact-info-title">Quick Info</p>
+
+        <div class="contact-info-item">
+          <div class="contact-info-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </div>
+          <div>
+            <strong>Service Area</strong>
+            <span>Regional coverage · 75-mile no-surcharge radius · extended range available</span>
+          </div>
+        </div>
+
+        <div class="contact-info-item">
+          <div class="contact-info-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div>
+            <strong>Hours</strong>
+            <span>Mon – Fri, 7 am – 6 pm · Weekend flights available by appointment</span>
+          </div>
+        </div>
+
+        <div class="contact-info-item">
+          <div class="contact-info-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </div>
+          <div>
+            <strong>Email</strong>
+            <span><a href="mailto:hello@skymappers.com" style="color:rgba(255,255,255,.65);text-decoration:underline;text-underline-offset:3px;">hello@skymappers.com</a></span>
+          </div>
+        </div>
+
+        <div class="contact-info-item">
+          <div class="contact-info-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          </div>
+          <div>
+            <strong>Certifications</strong>
+            <span>FAA Part 107 · Commercial liability insured · LAANC authorized</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FOOTER ────────────────────────────────────────────────────── -->
+<footer role="contentinfo">
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-logo">Sky<span>Mappers</span></div>
+      <p class="footer-copy">&copy; 2025 SkyMappers LLC. All rights reserved.</p>
+      <nav class="footer-links" aria-label="Footer navigation">
+        <a href="#services">Services</a>
+        <a href="#workflow">Workflow</a>
+        <a href="#portfolio">Portfolio</a>
+        <a href="#faq">FAQs</a>
+        <a href="mailto:hello@skymappers.com">Contact</a>
+      </nav>
+    </div>
+  </div>
+</footer>
+
+<!-- ─── Scroll-to-top button ─────────────────────────────────────── -->
+<button id="scroll-top" aria-label="Scroll back to top" title="Back to top">
+  <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <line x1="12" y1="19" x2="12" y2="5"/>
+    <polyline points="5 12 12 5 19 12"/>
+  </svg>
+</button>
+
+<!-- ─── JAVASCRIPT ────────────────────────────────────────────────── -->
+<script>
+  // ── Hamburger nav toggle ──────────────────────────────────────────
+  const hamburger = document.getElementById('hamburger');
+  const mobileMenu = document.getElementById('mobile-menu');
+  hamburger.addEventListener('click', () => {
+    const isOpen = mobileMenu.classList.toggle('open');
+    hamburger.classList.toggle('open', isOpen);
+    hamburger.setAttribute('aria-expanded', String(isOpen));
+  });
+
+  // Close mobile nav when a link is clicked
+  mobileMenu.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', () => {
+      mobileMenu.classList.remove('open');
+      hamburger.classList.remove('open');
+      hamburger.setAttribute('aria-expanded', 'false');
+    });
+  });
+
+  // ── Scroll-triggered fade-in ──────────────────────────────────────
+  const fadeEls = document.querySelectorAll('.fade-in:not(.visible)');
+  const fadeObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        // Stagger siblings within the same parent
+        const siblings = Array.from(entry.target.parentElement.querySelectorAll('.fade-in'));
+        const delay = siblings.indexOf(entry.target) * 80;
+        setTimeout(() => {
+          entry.target.classList.add('visible');
+        }, delay);
+        fadeObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  fadeEls.forEach(el => fadeObserver.observe(el));
+
+  // ── FAQ accordion ─────────────────────────────────────────────────
+  document.querySelectorAll('.faq-question').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = btn.closest('.faq-item');
+      const isOpen = item.classList.contains('open');
+      // Close all
+      document.querySelectorAll('.faq-item.open').forEach(openItem => {
+        openItem.classList.remove('open');
+        openItem.querySelector('.faq-question').setAttribute('aria-expanded', 'false');
+      });
+      // Open clicked if it was closed
+      if (!isOpen) {
+        item.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+      }
+    });
+  });
+
+  // ── Scroll-to-top button ──────────────────────────────────────────
+  const scrollTopBtn = document.getElementById('scroll-top');
+  window.addEventListener('scroll', () => {
+    scrollTopBtn.classList.toggle('visible', window.scrollY > 500);
+  }, { passive: true });
+  scrollTopBtn.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  // ── Active nav link on scroll ─────────────────────────────────────
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.nav-links a');
+  const navObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(link => {
+          link.style.color = link.getAttribute('href') === '#' + entry.target.id
+            ? 'var(--white)'
+            : '';
+        });
+      }
+    });
+  }, { threshold: 0.4 });
+  sections.forEach(s => navObserver.observe(s));
+</script>
+</body>
+</html>
