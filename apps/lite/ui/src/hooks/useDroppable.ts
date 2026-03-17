@@ -1,13 +1,13 @@
 import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { type RefCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 
-export const useDroppable = <TData extends Record<string | symbol, unknown>>({
+export const useDroppable = ({
 	canDrop: canDropProp,
 	getData: getDataProp,
 	disabled = false,
 }: {
 	canDrop: (dragData: unknown) => boolean;
-	getData: (dragData: unknown) => TData;
+	getData: (dragData: unknown) => Record<string | symbol, unknown>;
 	disabled?: boolean;
 }): [boolean, RefCallback<HTMLElement>] => {
 	const ref = useRef<HTMLElement>(null);

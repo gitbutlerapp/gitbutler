@@ -11,12 +11,12 @@ import {
 } from "react";
 import { createRoot } from "react-dom/client";
 
-export const useDraggable = <TData extends Record<string, unknown>>({
+export const useDraggable = ({
 	getInitialData: getInitialDataProp,
 	preview,
 	disabled = false,
 }: {
-	getInitialData: () => TData;
+	getInitialData: () => Record<string, unknown>;
 	preview: ReactNode;
 	disabled?: boolean;
 }): [boolean, RefCallback<HTMLElement>] => {
