@@ -437,6 +437,8 @@ but pr new <branch-id> -m "Title..."        # Inline message: first line is titl
 but pr new <branch-id> -t     # Use default content (commit message), skip prompts
 but pr                        # Create PR (prompts for branch)
 but pr template               # Configure PR description template
+but pr open                   # Open review URL in browser (prompts for selection)
+but pr open <selector>        # Open review URL for specific branch/PR
 ```
 
 **Key behavior:** `but pr new` automatically pushes the branch to remote before creating the PR. No need to run `but push` first. Force push (`--with-force`) and pre-push hooks (`--run-hooks`) are enabled by default.

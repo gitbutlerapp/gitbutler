@@ -115,6 +115,7 @@ rmcp.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
 gix = { workspace = true, features = ["tracing", "tracing-detail"] }
 colored = "3.0.0"
+open.workspace = true
 serde_json.workspace = true
 boolean-enums.workspace = true
 terminal_size = "0.4.3"
