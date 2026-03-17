@@ -479,8 +479,8 @@ const RubTarget: FC<{
 }> = ({ target, children }) => {
 	const sourceItem = useDraggedSourceItem();
 	const [isDropTarget, dropRef] = useDroppable({
-		canDrop: (dragData) => {
-			const sourceItem = parseDragData(dragData);
+		canDrop: ({ source }) => {
+			const sourceItem = parseDragData(source.data);
 			const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
 			return rubSource !== null && rubOperationLabel(rubSource, target) !== null;
 		},
@@ -522,8 +522,8 @@ const CommitMoveTarget: FC<{
 		(side === "below" && nextCommitId === sourceCommitId);
 
 	const [isDropTarget, dropRef] = useDroppable({
-		canDrop: (dragData) => {
-			const sourceItem = parseDragData(dragData);
+		canDrop: ({ source }) => {
+			const sourceItem = parseDragData(source.data);
 			return sourceItem?._tag === "Commit" && !isNoOp(sourceItem.commitId);
 		},
 		getData: (): OperationTarget => ({
@@ -862,8 +862,8 @@ const CommitMoveToBranchTarget: FC<{
 	children: React.ReactElement;
 }> = ({ anchorRef, firstCommitId, children }) => {
 	const [isDropTarget, dropRef] = useDroppable({
-		canDrop: (dragData) => {
-			const sourceItem = parseDragData(dragData);
+		canDrop: ({ source }) => {
+			const sourceItem = parseDragData(source.data);
 			return sourceItem?._tag === "Commit" && firstCommitId !== sourceItem.commitId;
 		},
 		disabled: anchorRef === null,
