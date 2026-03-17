@@ -3998,6 +3998,7 @@ dependencies = [
  "but-meta",
  "but-oxidize",
  "but-rebase",
+ "but-status",
  "but-testsupport",
  "git2",
  "gitbutler-branch-actions",
