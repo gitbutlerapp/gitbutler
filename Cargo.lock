@@ -3971,7 +3971,6 @@ dependencies = [
  "gitbutler-operating-modes",
  "gitbutler-oplog",
  "gitbutler-repo",
- "gitbutler-stack",
  "gitbutler-workspace",
  "gix",
  "insta",

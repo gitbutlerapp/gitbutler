@@ -70,7 +70,7 @@ pub(crate) fn move_branch(
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let _ = update_uncommitted_changes(ctx, old_workspace, new_workspace, perm);
-    crate::integration::update_workspace_commit(&vb_state, ctx, false)
+    crate::integration::update_workspace_commit_with_vb_state(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     Ok(MoveBranchResult {
@@ -126,7 +126,7 @@ pub(crate) fn tear_off_branch(
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let _ = update_uncommitted_changes(ctx, old_workspace, new_workspace, perm);
-    crate::integration::update_workspace_commit(&vb_state, ctx, false)
+    crate::integration::update_workspace_commit_with_vb_state(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     let branch_manager = ctx.branch_manager();

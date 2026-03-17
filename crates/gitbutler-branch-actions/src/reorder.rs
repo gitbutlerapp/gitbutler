@@ -69,7 +69,7 @@ pub fn reorder_stack(
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     // Even if this fails, it's not actionable
     let _ = update_uncommitted_changes(ctx, old_workspace, new_workspace, perm);
-    crate::integration::update_workspace_commit(&state, ctx, false)
+    crate::integration::update_workspace_commit_with_vb_state(&state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     Ok(output)

@@ -117,7 +117,7 @@ impl BranchManager<'_> {
 
         vb_state.update_ordering()?;
 
-        crate::integration::update_workspace_commit(&vb_state, self.ctx, false)
+        crate::integration::update_workspace_commit_with_vb_state(&vb_state, self.ctx, false)
             .context("failed to update gitbutler workspace")?;
 
         Ok(stack

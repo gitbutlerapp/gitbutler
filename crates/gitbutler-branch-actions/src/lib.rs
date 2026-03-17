@@ -27,7 +27,10 @@ pub use base::BaseBranch;
 pub mod upstream_integration;
 
 mod integration;
-pub use integration::{GITBUTLER_WORKSPACE_COMMIT_TITLE, update_workspace_commit};
+pub use integration::{
+    GITBUTLER_WORKSPACE_COMMIT_TITLE, update_workspace_commit,
+    update_workspace_commit_with_vb_state,
+};
 
 mod remote;
 

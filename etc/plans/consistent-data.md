@@ -56,9 +56,18 @@ The `but_ctx::Context` is the solution to this problem, and is passed around as 
 
 - [ ] [in progress](https://github.com/gitbutlerapp/gitbutler/issues/12075)
 
-### 2. Port consumers of `gitbutler_stack::VirtualBranchesHandle` to `ctx.ws`
+### 2. Port legacy virtual-branches consumers to `ctx.ws`
 
-Crates with references to `VirtualBranchesHandle`: 15
+Track all remaining access paths to `.git/gitbutler/virtual-branches.toml`, including:
+
+- `gitbutler_stack::VirtualBranchesHandle`
+- `ctx.virtual_branches()`
+- `but_meta::legacy_storage::read_synced_virtual_branches()`
+- `but_meta::legacy_storage::write_virtual_branches_and_sync()`
+
+The crate list below started from direct `VirtualBranchesHandle` references and should also cover
+callers that only touch the same legacy state via `ctx.virtual_branches()` or the legacy
+read/write helpers.
 
 #### but-api (1)
 
@@ -72,17 +81,28 @@ Crates with references to `VirtualBranchesHandle`: 15
 
 - [ ] `crates/but-tools/src/workspace.rs`
 
-#### gitbutler-cli (1)
+#### but (10)
 
-- [ ] `crates/gitbutler-cli/src/command/vbranch.rs`
+- [ ] `crates/but/src/command/legacy/branch/list.rs`
+- [ ] `crates/but/src/command/legacy/branch/show.rs`
+- [ ] `crates/but/src/command/legacy/mcp_internal/commit.rs`
+- [ ] `crates/but/src/command/legacy/mcp_internal/stack.rs`
+- [ ] `crates/but/src/command/legacy/pick.rs`
+- [ ] `crates/but/src/command/legacy/push.rs`
+- [ ] `crates/but/src/command/legacy/rub/commits.rs`
+- [ ] `crates/but/src/command/legacy/rub/move.rs`
+- [ ] `crates/but/src/command/legacy/rub/move_commit.rs`
+- [ ] `crates/but/src/command/legacy/status/mod.rs`
 
-#### gitbutler-operating-modes (1)
+#### but-workspace (7)
 
-- [ ] `crates/gitbutler-operating-modes/src/lib.rs`
-
-#### gitbutler-testsupport (1)
-
-- [ ] `crates/gitbutler-testsupport/src/lib.rs`
+- [ ] `crates/but-workspace/src/legacy/commit_engine/mod.rs`
+- [ ] `crates/but-workspace/src/legacy/head.rs`
+- [ ] `crates/but-workspace/src/legacy/mod.rs`
+- [ ] `crates/but-workspace/src/legacy/tree_manipulation/move_between_commits.rs`
+- [ ] `crates/but-workspace/src/legacy/tree_manipulation/remove_changes_from_commit_in_stack.rs`
+- [ ] `crates/but-workspace/src/legacy/tree_manipulation/split_branch.rs`
+- [ ] `crates/but-workspace/src/legacy/tree_manipulation/split_commit.rs`
 
 #### but-action (2)
 
@@ -99,10 +119,45 @@ Crates with references to `VirtualBranchesHandle`: 15
 - [ ] `crates/but-worktrees/src/integrate.rs`
 - [ ] `crates/but-worktrees/tests/worktree/main.rs`
 
+#### Reconciliation for workspace-commit refresh
+
+`VirtualBranchesHandle` is only a concurrency-safe handle to `virtual_branches.toml`, not an
+in-memory snapshot of workspace state. The same applies to `ctx.virtual_branches()`, which merely
+creates another handle to the same file. Passing a `VBH` around explicitly should therefore not be
+treated as its own consistency boundary.
+
+The special case in this migration is `gitbutler-branch-actions::update_workspace_commit()`.
+Today it still reads applied stacks from `VirtualBranchesHandle` and delegates the actual merge
+shape to `but_workspace::legacy::remerged_workspace_commit_v2()`. That means the relevant VBH
+work is not "port this function to `ctx.ws` line-by-line", but rather:
+
+- [ ] make `update_workspace_commit()` build the workspace commit via
+      `WorkspaceCommit::from_new_merge_with_tips()`
+- [ ] treat `crates/gitbutler-branch-actions/src/integration.rs` and
+      `crates/but-workspace/src/legacy/head.rs` as one migration cluster
+- [ ] only after that, remove leftover explicit `VirtualBranchesHandle` threading that existed
+      solely to support workspace-commit refresh
+
+Until that refactor lands, the `gitbutler-branch-actions` items below should be read as
+"remaining legacy virtual-branches consumers", including `ctx.virtual_branches()` call sites,
+not as independent stateful-handle flows.
+
+#### gitbutler-cli (1)
+
+- [ ] `crates/gitbutler-cli/src/command/vbranch.rs`
+
+#### gitbutler-operating-modes (1)
+
+- [ ] `crates/gitbutler-operating-modes/src/lib.rs`
+
+#### gitbutler-testsupport (1)
+
+- [ ] `crates/gitbutler-testsupport/src/lib.rs`
+
 #### gitbutler-edit-mode (2)
 
-- [ ] `crates/gitbutler-edit-mode/src/lib.rs`
-- [ ] `crates/gitbutler-edit-mode/tests/edit_mode.rs`
+- [x] `crates/gitbutler-edit-mode/src/lib.rs`
+- [x] `crates/gitbutler-edit-mode/tests/edit_mode.rs`
 
 #### gitbutler-oplog (2)
 
@@ -121,29 +176,6 @@ Crates with references to `VirtualBranchesHandle`: 15
 - [ ] `crates/gitbutler-stack/src/stack_branch.rs`
 - [ ] `crates/gitbutler-stack/src/state.rs`
 - [ ] `crates/gitbutler-stack/tests/mod.rs`
-
-#### but-workspace (7)
-
-- [ ] `crates/but-workspace/src/legacy/commit_engine/mod.rs`
-- [ ] `crates/but-workspace/src/legacy/head.rs`
-- [ ] `crates/but-workspace/src/legacy/mod.rs`
-- [ ] `crates/but-workspace/src/legacy/tree_manipulation/move_between_commits.rs`
-- [ ] `crates/but-workspace/src/legacy/tree_manipulation/remove_changes_from_commit_in_stack.rs`
-- [ ] `crates/but-workspace/src/legacy/tree_manipulation/split_branch.rs`
-- [ ] `crates/but-workspace/src/legacy/tree_manipulation/split_commit.rs`
-
-#### but (10)
-
-- [ ] `crates/but/src/command/legacy/branch/list.rs`
-- [ ] `crates/but/src/command/legacy/branch/show.rs`
-- [ ] `crates/but/src/command/legacy/mcp_internal/commit.rs`
-- [ ] `crates/but/src/command/legacy/mcp_internal/stack.rs`
-- [ ] `crates/but/src/command/legacy/pick.rs`
-- [ ] `crates/but/src/command/legacy/push.rs`
-- [ ] `crates/but/src/command/legacy/rub/commits.rs`
-- [ ] `crates/but/src/command/legacy/rub/move.rs`
-- [ ] `crates/but/src/command/legacy/rub/move_commit.rs`
-- [ ] `crates/but/src/command/legacy/status/mod.rs`
 
 #### gitbutler-branch-actions (11)
 

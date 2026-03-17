@@ -169,7 +169,7 @@ pub fn integrate_branch_with_steps(
     update_uncommitted_changes(ctx, old_workspace, new_workspace, perm)?;
     source_stack.set_heads_from_rebase_output(ctx, result.references)?;
 
-    crate::integration::update_workspace_commit(&vb_state, ctx, false)?;
+    crate::integration::update_workspace_commit_with_vb_state(&vb_state, ctx, false)?;
 
     Ok(())
 }

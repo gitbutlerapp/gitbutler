@@ -620,7 +620,11 @@ pub(crate) fn integrate_upstream(
             update_uncommitted_changes(ctx, old_workspace, new_workspace, permission)?;
         }
 
-        crate::integration::update_workspace_commit(&virtual_branches_state, ctx, false)?;
+        crate::integration::update_workspace_commit_with_vb_state(
+            &virtual_branches_state,
+            ctx,
+            false,
+        )?;
     }
 
     deleted_branches.sort();

@@ -77,8 +77,7 @@ pub fn worktree_integrate(
         .set_heads_from_rebase_output(ctx, status.rebase_output.references)?;
     let after = WorkspaceState::create(ctx, perm.read_permission())?;
     update_uncommitted_changes(ctx, before, after, perm)?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    update_workspace_commit(&vb_state, ctx, false)?;
+    update_workspace_commit(ctx, false)?;
 
     git_worktree_remove(ctx.repo.get()?.common_dir(), id, true)?;
 

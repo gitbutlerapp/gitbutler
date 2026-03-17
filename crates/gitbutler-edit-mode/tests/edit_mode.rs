@@ -1,18 +1,21 @@
-use anyhow::{Result, anyhow};
+use anyhow::{Context as _, Result, anyhow};
 use bstr::ByteSlice as _;
 use but_core::{
     RefMetadata, RepositoryExt,
     ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
 };
 use but_ctx::Context;
-use but_meta::VirtualBranchesTomlMetadata;
+use but_meta::{
+    VirtualBranchesTomlMetadata,
+    legacy_storage::{read_synced_virtual_branches, write_virtual_branches_and_sync},
+    virtual_branches_legacy_types::Target,
+};
 use but_oxidize::OidExt as _;
 use but_testsupport::{gix_testtools, open_repo};
 use git2::build::CheckoutBuilder;
 use gitbutler_edit_mode::commands::{
     abort_and_return_to_workspace, enter_edit_mode, save_and_return_to_workspace,
 };
-use gitbutler_stack::{Target, VirtualBranchesHandle};
 use tempfile::TempDir;
 
 fn command_ctx(folder: &str) -> Result<(Context, TempDir)> {
@@ -60,8 +63,21 @@ fn seed_metadata(repo: &gix::Repository) -> Result<()> {
         sha: repo.rev_parse_single("refs/remotes/origin/main")?.detach(),
         push_remote_name: Some("origin".to_owned()),
     };
-    VirtualBranchesHandle::new(repo.gitbutler_storage_path()?).set_default_target(target)?;
+    let state_path = repo.gitbutler_storage_path()?.join("virtual_branches.toml");
+    let mut vb = read_synced_virtual_branches(&state_path)?;
+    vb.default_target = Some(target);
+    write_virtual_branches_and_sync(&state_path, &vb)?;
     Ok(())
+}
+
+fn stack_id(ctx: &Context) -> Result<StackId> {
+    let guard = ctx.shared_worktree_access();
+    let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+    ws.stacks
+        .first()
+        .context("expected workspace stack")?
+        .id
+        .context("expected workspace stack id")
 }
 
 #[test]
@@ -71,12 +87,10 @@ fn basic_leaving_edit_mode() -> Result<()> {
 
     let foobar = repo.head()?.peel_to_commit()?.parent(0)?.id();
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let stacks = vb_state.list_stacks_in_workspace()?;
-    let stack = stacks.first().unwrap();
     let worktree_dir = repo.path().parent().unwrap().to_path_buf();
     drop(repo);
-    enter_edit_mode(&mut ctx, foobar.to_gix(), stack.id)?;
+    let stack_id = stack_id(&ctx)?;
+    enter_edit_mode(&mut ctx, foobar.to_gix(), stack_id)?;
 
     std::fs::write(worktree_dir.join("file"), "edited during edit mode\n")?;
     std::fs::write(worktree_dir.join("newfile"), "created during edit mode\n")?;
@@ -108,11 +122,9 @@ fn conficted_entries_get_written_when_leaving_edit_mode() -> Result<()> {
 
     let foobar = repo.head()?.peel_to_commit()?.parent(0)?.id();
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let stacks = vb_state.list_stacks_in_workspace()?;
-    let stack = stacks.first().unwrap();
     drop(repo);
-    enter_edit_mode(&mut ctx, foobar.to_gix(), stack.id)?;
+    let stack_id = stack_id(&ctx)?;
+    enter_edit_mode(&mut ctx, foobar.to_gix(), stack_id)?;
 
     let repo = ctx.git2_repo.get()?;
     let init = repo.find_reference("refs/heads/main")?.peel_to_commit()?;
@@ -161,12 +173,10 @@ fn abort_requires_force_when_changes_were_made() -> Result<()> {
     let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
     let repo = ctx.git2_repo.get()?;
     let foobar = repo.head()?.peel_to_commit()?.parent(0)?.id();
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let stacks = vb_state.list_stacks_in_workspace()?;
-    let stack = stacks.first().unwrap();
     drop(repo);
 
-    enter_edit_mode(&mut ctx, foobar.to_gix(), stack.id)?;
+    let stack_id = stack_id(&ctx)?;
+    enter_edit_mode(&mut ctx, foobar.to_gix(), stack_id)?;
 
     let repo = ctx.git2_repo.get()?;
     insta::assert_debug_snapshot!(
@@ -225,12 +235,10 @@ fn enter_edit_mode_checks_out_conflicted_commit() -> Result<()> {
         .peel_to_commit()?
         .id();
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let stacks = vb_state.list_stacks_in_workspace()?;
-    let stack = stacks.first().unwrap();
     drop(repo);
 
-    enter_edit_mode(&mut ctx, conflicted_commit.to_gix(), stack.id)?;
+    let stack_id = stack_id(&ctx)?;
+    enter_edit_mode(&mut ctx, conflicted_commit.to_gix(), stack_id)?;
 
     let repo = ctx.git2_repo.get()?;
     insta::assert_debug_snapshot!(

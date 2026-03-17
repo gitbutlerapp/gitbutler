@@ -702,8 +702,7 @@ fn move_file_changes(
     )?;
 
     // TODO(ctx): remove this, with the rebase engine this is done above
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    gitbutler_branch_actions::update_workspace_commit(&vb_state, ctx, false)?;
+    gitbutler_branch_actions::update_workspace_commit(ctx, false)?;
 
     // Update the commit mapping with the new commit ids.
     for (old_commit_id, new_commit_id) in result.replaced_commits.clone().iter() {
@@ -1113,7 +1112,6 @@ pub fn split_branch(
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> Result<StackId, anyhow::Error> {
     let mut guard = ctx.exclusive_worktree_access();
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let stacks = stacks(ctx)?;
     let source_stack_id = stacks
@@ -1141,7 +1139,7 @@ pub fn split_branch(
         guard.write_permission(),
     )?;
 
-    update_workspace_commit(&vb_state, ctx, false)?;
+    update_workspace_commit(ctx, false)?;
 
     let refname = Refname::Local(LocalRefname::new(&params.new_branch_name, None));
     let branch_manager = ctx.branch_manager();

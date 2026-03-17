@@ -23,7 +23,7 @@ use serde::Serialize;
 use tracing::instrument;
 
 use super::BranchManager;
-use crate::{VirtualBranchesExt, integration::update_workspace_commit};
+use crate::VirtualBranchesExt;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -91,7 +91,7 @@ impl BranchManager<'_> {
         vb_state.set_stack(branch.clone())?;
         self.ctx.add_branch_reference(&branch)?;
 
-        update_workspace_commit(&vb_state, self.ctx, false)?;
+        crate::integration::update_workspace_commit_with_vb_state(&vb_state, self.ctx, false)?;
 
         Ok(branch)
     }
@@ -374,7 +374,7 @@ impl BranchManager<'_> {
         }
         res?;
 
-        update_workspace_commit(&vb_state, self.ctx, false)?;
+        crate::integration::update_workspace_commit_with_vb_state(&vb_state, self.ctx, false)?;
 
         Ok((stack.name(), unapplied_stacks))
     }

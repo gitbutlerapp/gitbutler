@@ -54,7 +54,7 @@ pub(crate) fn undo_commit(
 
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
-    crate::integration::update_workspace_commit(&vb_state, ctx, false)
+    crate::integration::update_workspace_commit_with_vb_state(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     Ok(stack)

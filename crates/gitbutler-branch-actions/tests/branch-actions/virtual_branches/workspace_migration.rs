@@ -2,7 +2,6 @@ use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_operating_modes::{
     INTEGRATION_BRANCH_REF, WORKSPACE_BRANCH_REF, ensure_open_workspace_mode,
 };
-use gitbutler_stack::VirtualBranchesHandle;
 
 /// Tests that "verify branch" won't complain if we are on the old integration
 /// branch, and that `update_workspace_commit` will put us back on the a branch
@@ -24,11 +23,7 @@ fn works_on_integration_branch() -> anyhow::Result<()> {
     assert!(result.is_ok());
 
     // Updating workspace commit should put us on the workspace branch.
-    update_workspace_commit(
-        &VirtualBranchesHandle::new(ctx.project_data_dir()),
-        &ctx,
-        false,
-    )?;
+    update_workspace_commit(&ctx, false)?;
     assert_eq!(
         ctx.git2_repo.get()?.head()?.name(),
         Some(WORKSPACE_BRANCH_REF)
