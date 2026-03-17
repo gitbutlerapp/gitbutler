@@ -14,8 +14,8 @@ use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use gitbutler_operating_modes::{
-    EDIT_BRANCH_REF, EditModeMetadata, OperatingMode, WORKSPACE_BRANCH_REF, operating_mode,
-    read_edit_mode_metadata, write_edit_mode_metadata,
+    EDIT_BRANCH_REF, EditModeMetadata, OPEN_WORKSPACE_REFS, OperatingMode, WORKSPACE_BRANCH_REF,
+    operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
 };
 use gitbutler_repo::{RepositoryExt as _, SignaturePurpose, signature};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
@@ -197,13 +197,25 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     Ok(())
 }
 
+fn open_workspace_ref<'repo>(repo: &'repo gix::Repository) -> Result<gix::Reference<'repo>> {
+    OPEN_WORKSPACE_REFS
+        .iter()
+        .find_map(|&name| repo.find_reference(name).ok())
+        .with_context(|| {
+            format!(
+                "expected one of the open workspace refs to exist: {}",
+                OPEN_WORKSPACE_REFS.join(", ")
+            )
+        })
+}
+
 fn workspace_from_workspace_ref(ctx: &Context) -> Result<but_graph::projection::Workspace> {
     let repo = ctx.repo.get()?;
     let meta = ctx.meta()?;
-    let mut workspace_ref = repo.find_reference(WORKSPACE_BRANCH_REF)?;
+    let mut workspace_ref = open_workspace_ref(&repo)?;
     let graph = but_graph::Graph::from_commit_traversal(
         workspace_ref.peel_to_id()?,
-        Some(gix::refs::FullName::try_from(WORKSPACE_BRANCH_REF)?),
+        Some(workspace_ref.inner.name.clone()),
         &meta,
         but_graph::init::Options::limited(),
     )?;

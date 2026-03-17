@@ -31,7 +31,7 @@ use but_ctx::{
 use but_meta::VirtualBranchesTomlMetadata;
 use but_rebase::Rebase;
 use but_workspace::legacy::{StacksFilter, stack_ext::StackExt, stacks_v3};
-use gitbutler_branch_actions::update_workspace_commit;
+use gitbutler_branch_actions::update_workspace_commit_with_vb_state;
 use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
 use gix::{ObjectId, Repository};
@@ -147,7 +147,7 @@ pub fn cherry_apply(
         update_uncommitted_changes(ctx, old_workspace, new_workspace, perm)?;
     }
 
-    update_workspace_commit(ctx, false)?;
+    update_workspace_commit_with_vb_state(&vb_state, ctx, false)?;
 
     Ok(())
 }

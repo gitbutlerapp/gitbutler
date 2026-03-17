@@ -5,17 +5,14 @@ use but_core::{
     ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
 };
 use but_ctx::Context;
-use but_meta::{
-    VirtualBranchesTomlMetadata,
-    legacy_storage::{read_synced_virtual_branches, write_virtual_branches_and_sync},
-    virtual_branches_legacy_types::Target,
-};
+use but_meta::{VirtualBranchesTomlMetadata, virtual_branches_legacy_types::Target};
 use but_oxidize::OidExt as _;
 use but_testsupport::{gix_testtools, open_repo};
 use git2::build::CheckoutBuilder;
 use gitbutler_edit_mode::commands::{
     abort_and_return_to_workspace, enter_edit_mode, save_and_return_to_workspace,
 };
+use gitbutler_operating_modes::INTEGRATION_BRANCH_REF;
 use tempfile::TempDir;
 
 fn command_ctx(folder: &str) -> Result<(Context, TempDir)> {
@@ -53,20 +50,16 @@ fn seed_metadata(repo: &gix::Repository) -> Result<()> {
         }],
         workspacecommit_relation: WorkspaceCommitRelation::Merged,
     });
-    meta.set_workspace(&ws)?;
-    meta.set_changed_to_necessitate_write();
-    meta.write_unreconciled()?;
-
     let target = Target {
         branch: "refs/remotes/origin/main".parse()?,
         remote_url: ".".to_owned(),
         sha: repo.rev_parse_single("refs/remotes/origin/main")?.detach(),
         push_remote_name: Some("origin".to_owned()),
     };
-    let state_path = repo.gitbutler_storage_path()?.join("virtual_branches.toml");
-    let mut vb = read_synced_virtual_branches(&state_path)?;
-    vb.default_target = Some(target);
-    write_virtual_branches_and_sync(&state_path, &vb)?;
+    meta.set_workspace(&ws)?;
+    meta.data_mut().default_target = Some(target);
+    meta.set_changed_to_necessitate_write();
+    meta.write_unreconciled()?;
     Ok(())
 }
 
@@ -278,6 +271,36 @@ fn enter_edit_mode_checks_out_conflicted_commit() -> Result<()> {
         @r#"
     Some(
         "refs/heads/gitbutler/workspace",
+    )
+    "#
+    );
+
+    Ok(())
+}
+
+#[test]
+fn enter_edit_mode_works_with_only_integration_ref_present() -> Result<()> {
+    let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
+    let foobar = {
+        let repo = ctx.git2_repo.get()?;
+        let workspace_head = repo.head()?.peel_to_commit()?;
+        let foobar = workspace_head.parent(0)?.id();
+        repo.reference(INTEGRATION_BRANCH_REF, workspace_head.id(), true, "")?;
+        repo.set_head(INTEGRATION_BRANCH_REF)?;
+        repo.find_reference("refs/heads/gitbutler/workspace")?
+            .delete()
+            .context("expected workspace ref to exist")?;
+        foobar
+    };
+
+    let stack_id = stack_id(&ctx)?;
+    enter_edit_mode(&mut ctx, foobar.to_gix(), stack_id)?;
+
+    insta::assert_debug_snapshot!(
+        ctx.git2_repo.get()?.head()?.name(),
+        @r#"
+    Some(
+        "refs/heads/gitbutler/edit",
     )
     "#
     );
