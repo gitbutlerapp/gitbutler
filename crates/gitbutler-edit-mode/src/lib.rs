@@ -10,7 +10,6 @@ use but_ctx::{
 use but_oxidize::{ObjectIdExt as _, OidExt, RepoExt, gix_to_git2_index};
 use but_rebase::graph_rebase::{GraphExt as _, Step};
 use git2::build::CheckoutBuilder;
-use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use gitbutler_operating_modes::{
@@ -332,8 +331,6 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         .set_head(WORKSPACE_BRANCH_REF)
         .context("Failed to set head reference")?;
     git2_repo.checkout_head(Some(CheckoutBuilder::new().force()))?;
-
-    update_workspace_commit(ctx, false)?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let uncommtied_changes = get_uncommited_changes(ctx)?;

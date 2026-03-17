@@ -4001,7 +4001,6 @@ dependencies = [
  "but-status",
  "but-testsupport",
  "git2",
- "gitbutler-branch-actions",
  "gitbutler-cherry-pick",
  "gitbutler-commit",
  "gitbutler-operating-modes",
