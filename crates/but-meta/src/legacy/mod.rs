@@ -64,11 +64,28 @@ impl Snapshot {
             .then(|| gix::discover(self.path.parent().expect("at least a file")).ok())
             .flatten();
         let repo = repo.or(discovered_repo.as_ref());
-        if self.changed_at.is_some()
-            || self.has_null_head_hash()
-            || self.clone().enforce_constraints(repo)
-        {
-            let data = self.to_consistent_data(reconcile, repo);
+        let mut projected_workspace = None;
+        self.write_if_changed_with_projection(reconcile, repo, &mut projected_workspace)
+    }
+
+    fn write_if_changed_with_projection(
+        &mut self,
+        reconcile: ReconcileWithWorkspace,
+        repo: Option<&gix::Repository>,
+        projected_workspace: &mut Option<Option<but_graph::projection::Workspace>>,
+    ) -> anyhow::Result<()> {
+        if self.changed_at.is_some() || self.has_null_head_hash() || {
+            let mut snapshot = self.clone();
+            snapshot.enforce_constraints(
+                repo,
+                self.project_workspace_if_uncached(repo, projected_workspace),
+            )
+        } {
+            let data = self.to_consistent_data(
+                reconcile,
+                repo,
+                self.project_workspace_if_uncached(repo, projected_workspace),
+            );
             storage::write_virtual_branches_and_sync(&self.path, &data)?;
             self.content = data;
             self.changed_at.take();
@@ -106,6 +123,7 @@ impl Snapshot {
         &self,
         reconcile: ReconcileWithWorkspace,
         repo: Option<&gix::Repository>,
+        projected_workspace: Option<&but_graph::projection::Workspace>,
     ) -> VirtualBranches {
         // EVIL HACK: assure we fill-in the CommitIDs of heads or else everything breaks.
         //            this probably won't be needed once no old code is running, and by then
@@ -115,9 +133,11 @@ impl Snapshot {
             .as_ref()
             .filter(|_| matches!(reconcile, ReconcileWithWorkspace::Allow))
         {
-            clone.reconcile_and_fix_vb_toml(repo).ok();
+            clone
+                .reconcile_and_fix_vb_toml(repo, projected_workspace)
+                .ok();
         }
-        clone.enforce_constraints(repo);
+        clone.enforce_constraints(repo, projected_workspace);
         clone.content
     }
 
@@ -135,12 +155,28 @@ impl Snapshot {
     /// * Use `repo` to fill in object hashes which were set with `<null>`
     /// * each ref-name is used once, unless the workspace projection shows duplicates
     ///   refer to the same segment.
-    fn enforce_constraints(&mut self, repo: Option<&gix::Repository>) -> bool {
+    fn enforce_constraints(
+        &mut self,
+        repo: Option<&gix::Repository>,
+        projected_workspace: Option<&but_graph::projection::Workspace>,
+    ) -> bool {
         let mut changed = false;
         let mut empty_stacks_to_remove = Vec::new();
         let null_id = gix::hash::Kind::Sha1.null();
-        let projected_segment_ids =
-            repo.and_then(|repo| self.projected_segment_ids_by_head_name(repo));
+        let projected_segment_ids = projected_workspace
+            .filter(|workspace| workspace.kind.has_managed_commit())
+            .map(|workspace| {
+                workspace
+                    .stacks
+                    .iter()
+                    .flat_map(|stack| stack.segments.iter())
+                    .filter_map(|segment| {
+                        segment
+                            .ref_name()
+                            .map(|ref_name| (ref_name.shorten().to_string(), segment.id))
+                    })
+                    .collect::<BTreeMap<_, _>>()
+            });
         let mut seen_refnames = BTreeMap::<String, Option<but_graph::SegmentIndex>>::new();
         for (stack_id, stack) in self
             .content
@@ -208,23 +244,15 @@ impl Snapshot {
         changed
     }
 
-    /// Note that the returned map is from `short name -> segment index`.
-    fn projected_segment_ids_by_head_name(
+    fn project_workspace_if_uncached<'a>(
         &self,
-        repo: &gix::Repository,
-    ) -> Option<BTreeMap<String, but_graph::SegmentIndex>> {
-        let ws = self.project_workspace(repo).ok()?;
-        ws.kind.has_managed_commit().then(|| {
-            ws.stacks
-                .iter()
-                .flat_map(|stack| stack.segments.iter())
-                .filter_map(|segment| {
-                    segment
-                        .ref_name()
-                        .map(|ref_name| (ref_name.shorten().to_string(), segment.id))
-                })
-                .collect()
-        })
+        repo: Option<&gix::Repository>,
+        cache: &'a mut Option<Option<but_graph::projection::Workspace>>,
+    ) -> Option<&'a but_graph::projection::Workspace> {
+        if cache.is_none() {
+            *cache = Some(repo.and_then(|repo| self.project_workspace(repo).ok()));
+        }
+        cache.as_ref().and_then(Option::as_ref)
     }
 
     fn project_workspace(
@@ -249,8 +277,12 @@ impl Snapshot {
         graph.into_workspace()
     }
 
-    #[instrument(level = "debug", skip(self, repo))]
-    fn reconcile_and_fix_vb_toml(&mut self, repo: &gix::Repository) -> anyhow::Result<()> {
+    #[instrument(level = "debug", skip(self, repo, projected_workspace))]
+    fn reconcile_and_fix_vb_toml(
+        &mut self,
+        repo: &gix::Repository,
+        projected_workspace: Option<&but_graph::projection::Workspace>,
+    ) -> anyhow::Result<()> {
         fn make_heads_match(ws_stack: &but_graph::projection::Stack, vb_stack: &mut Stack) -> bool {
             // Always leave extra segments.
 
@@ -304,7 +336,13 @@ impl Snapshot {
             vb_stack.heads != previous_heads
         }
 
-        let ws = self.project_workspace(repo)?;
+        let owned_workspace;
+        let ws = if let Some(workspace) = projected_workspace {
+            workspace
+        } else {
+            owned_workspace = self.project_workspace(repo)?;
+            &owned_workspace
+        };
         if !ws.kind.has_managed_commit() {
             tracing::debug!("Avoiding workspace->vb-toml reconciliation in unmanaged workspace");
             return Ok(());
@@ -447,13 +485,20 @@ impl VirtualBranchesTomlMetadata {
     /// `repo` is expected to be the repository this instance relates to.
     /// Consume this instance to prevent double-reconciliation which also happens on drop.
     pub fn write_reconciled(mut self, repo: &gix::Repository) -> anyhow::Result<()> {
+        let mut projected_workspace = None;
         // First possibly change our data…
-        self.snapshot.reconcile_and_fix_vb_toml(repo)?;
+        self.snapshot.reconcile_and_fix_vb_toml(
+            repo,
+            self.snapshot
+                .project_workspace_if_uncached(Some(repo), &mut projected_workspace),
+        )?;
 
         // Then write changes back.
-        let res = self
-            .snapshot
-            .write_if_changed(ReconcileWithWorkspace::Disallow, Some(repo));
+        let res = self.snapshot.write_if_changed_with_projection(
+            ReconcileWithWorkspace::Disallow,
+            Some(repo),
+            &mut projected_workspace,
+        );
         self.write_on_drop = false;
         res
     }
