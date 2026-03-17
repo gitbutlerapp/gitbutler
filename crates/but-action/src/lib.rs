@@ -6,8 +6,8 @@ use std::{
     str::FromStr,
 };
 
-use but_core::{TreeChange, sync::RepoExclusiveGuard};
-use but_ctx::{Context, ProjectHandleOrLegacyProjectId, access::RepoExclusive};
+use but_core::{TreeChange, sync::RepoExclusive};
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_hunk_assignment::CommitAbsorption;
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_branch::BranchCreateRequest;
@@ -48,7 +48,7 @@ pub fn auto_commit(
     llm: Option<&but_llm::LLMProvider>,
     emitter: impl Fn(&str, serde_json::Value) + Send + Sync + 'static,
     absorption_plan: Vec<CommitAbsorption>,
-    guard: &mut RepoExclusiveGuard,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<usize> {
     auto_commit::auto_commit(
         project_id,
@@ -58,7 +58,7 @@ pub fn auto_commit(
         llm,
         emitter,
         absorption_plan,
-        guard,
+        perm,
     )
 }
 
@@ -68,7 +68,7 @@ pub fn auto_commit_simple(
     context_lines: u32,
     llm: Option<&but_llm::LLMProvider>,
     absorption_plan: Vec<CommitAbsorption>,
-    guard: &mut RepoExclusiveGuard,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<usize> {
     auto_commit::auto_commit_simple(
         repo,
@@ -76,7 +76,7 @@ pub fn auto_commit_simple(
         context_lines,
         llm,
         absorption_plan,
-        guard,
+        perm,
     )
 }
 

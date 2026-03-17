@@ -5,7 +5,7 @@ use std::{
 
 use bstr::ByteSlice;
 use but_api_macros::but_api;
-use but_core::sync::{RepoExclusive, RepoExclusiveGuard};
+use but_core::sync::RepoExclusive;
 use but_ctx::Context;
 use but_hunk_assignment::{
     AbsorptionReason, AbsorptionTarget, CommitAbsorption, CommitMap, FileAbsorption,
@@ -43,7 +43,7 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
         )
         .ok(); // Ignore errors for snapshot creation
 
-    let total_rejected = absorb_impl(absorption_plan, &mut guard, &repo, &data_dir)?;
+    let total_rejected = absorb_impl(absorption_plan, guard.write_permission(), &repo, &data_dir)?;
 
     // Refresh the workspace commit so `gitbutler/workspace` HEAD stays in sync
     // with the rewritten branch commits. Without this, tools that inspect HEAD
@@ -55,7 +55,7 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
 
 pub fn absorb_impl(
     absorption_plan: Vec<CommitAbsorption>,
-    guard: &mut RepoExclusiveGuard,
+    perm: &mut RepoExclusive,
     repo: &gix::Repository,
     data_dir: &Path,
 ) -> anyhow::Result<usize> {
@@ -76,7 +76,7 @@ pub fn absorb_impl(
             absorption.stack_id,
             commit_id,
             diff_specs,
-            guard,
+            perm,
             repo,
             data_dir,
         )?;

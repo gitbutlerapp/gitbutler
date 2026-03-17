@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use but_core::{RepositoryExt, sync::RepoExclusiveGuard};
+use but_core::{RepositoryExt, sync::RepoExclusive};
 use but_ctx::Context;
 use but_hunk_assignment::{
     AbsorptionTarget, CommitAbsorption, HunkAssignment, JsonAbsorbOutput, JsonCommitAbsorption,
@@ -111,7 +111,7 @@ pub(crate) fn handle(
     absorb_assignments(
         ctx,
         absorption_plan,
-        &mut guard,
+        guard.write_permission(),
         &repo,
         &data_dir,
         out,
@@ -128,7 +128,7 @@ pub(crate) fn handle(
 fn absorb_assignments(
     ctx: &Context,
     absorption_plan: Vec<CommitAbsorption>,
-    guard: &mut RepoExclusiveGuard,
+    perm: &mut RepoExclusive,
     repo: &gix::Repository,
     data_dir: &Path,
     out: &mut OutputChannel,
@@ -137,9 +137,9 @@ fn absorb_assignments(
     plan_json: Option<JsonAbsorbOutput>,
 ) -> anyhow::Result<()> {
     let total_rejected = if new {
-        but_action::auto_commit_simple(repo, data_dir, context_lines, None, absorption_plan, guard)?
+        but_action::auto_commit_simple(repo, data_dir, context_lines, None, absorption_plan, perm)?
     } else {
-        but_api::legacy::absorb::absorb_impl(absorption_plan, guard, repo, data_dir)?
+        but_api::legacy::absorb::absorb_impl(absorption_plan, perm, repo, data_dir)?
     };
 
     // Refresh the workspace commit so `gitbutler/workspace` HEAD stays in sync

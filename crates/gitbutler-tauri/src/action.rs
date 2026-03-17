@@ -98,7 +98,7 @@ pub fn auto_commit(
         llm.as_ref(),
         emitter,
         absorption_plan,
-        &mut guard,
+        guard.write_permission(),
     )
     .map_err(|e| Error::from(anyhow::anyhow!(e)))?;
     Ok(())
