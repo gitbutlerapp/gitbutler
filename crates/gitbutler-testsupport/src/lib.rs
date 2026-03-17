@@ -133,7 +133,8 @@ pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
     let repo = ctx.clone_repo_for_merging_non_persisting().unwrap();
     let stacks = {
         let meta = ctx.legacy_meta().unwrap();
-        but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
+        let mut cache = ctx.cache.get_cache_mut().unwrap();
+        but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None, &mut cache)
     }
     .unwrap();
     let mut details = vec![];
@@ -145,7 +146,8 @@ pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
             stack_id,
             {
                 let meta = ctx.legacy_meta().unwrap();
-                but_workspace::legacy::stack_details_v3(stack_id.into(), &repo, &meta)
+                let mut cache = ctx.cache.get_cache_mut().unwrap();
+                but_workspace::legacy::stack_details_v3(stack_id.into(), &repo, &meta, &mut cache)
             }
             .unwrap(),
         ));

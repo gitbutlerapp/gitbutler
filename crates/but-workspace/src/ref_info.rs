@@ -337,6 +337,8 @@ impl std::fmt::Debug for Segment {
 }
 
 pub(crate) mod function {
+    use std::collections::{HashMap, HashSet};
+
     use anyhow::bail;
     use but_core::{is_workspace_ref_name, ref_metadata::ValueInfo};
     use but_graph::{
@@ -361,6 +363,7 @@ pub(crate) mod function {
         repo: &gix::Repository,
         meta: &impl but_core::RefMetadata,
         opts: super::Options,
+        cache: &mut but_db::CacheHandle,
     ) -> anyhow::Result<RefInfo> {
         let graph = Graph::from_head(repo, meta, opts.traversal.clone())?;
         if graph.hard_limit_hit() {
@@ -368,7 +371,7 @@ pub(crate) mod function {
                 "Commit-graph traversal might be incorrect as it was stopped too early due to hard limit",
             );
         }
-        graph_to_ref_info(graph, repo, opts)
+        graph_to_ref_info(graph, repo, opts, cache)
     }
 
     /// Gather information about the commit at `existing_ref` and the workspace that might be associated with it,
@@ -384,6 +387,7 @@ pub(crate) mod function {
         mut existing_ref: gix::Reference<'_>,
         meta: &impl but_core::RefMetadata,
         opts: super::Options,
+        cache: &mut but_db::CacheHandle,
     ) -> anyhow::Result<RefInfo> {
         let id = existing_ref.peel_to_id()?;
         let repo = id.repo;
@@ -393,7 +397,7 @@ pub(crate) mod function {
             meta,
             opts.traversal.clone(),
         )?;
-        graph_to_ref_info(graph, repo, opts)
+        graph_to_ref_info(graph, repo, opts, cache)
     }
 
     pub(crate) fn find_ancestor_workspace_commit(
@@ -440,6 +444,7 @@ pub(crate) mod function {
         graph: Graph,
         repo: &gix::Repository,
         opts: super::Options,
+        cache: &mut but_db::CacheHandle,
     ) -> anyhow::Result<RefInfo> {
         let but_graph::projection::Workspace {
             graph,
@@ -508,8 +513,78 @@ pub(crate) mod function {
             msg.push_str(&format!("    git reset --soft {ws_commit_id}"));
             bail!("{msg}");
         }
+        resolve_change_ids(&mut info, cache)?;
         info.compute_similarity(&graph, repo, opts.expensive_commit_info)?;
         Ok(info)
+    }
+
+    fn resolve_change_ids(
+        info: &mut RefInfo,
+        cache: &mut but_db::CacheHandle,
+    ) -> anyhow::Result<()> {
+        let mut seen_pending = HashSet::<gix::ObjectId>::new();
+        let mut resolved = HashMap::<gix::ObjectId, but_core::ChangeId>::new();
+        let mut generated = Vec::<(gix::ObjectId, but_core::ChangeId)>::new();
+        let mut trans = cache.deferred_transaction()?;
+
+        let looked_up = trans.commit_metadata().change_ids_for_commits(
+            visit_ref_info_commits_mut_iter(info).filter_map(|commit| {
+                (commit.change_id.is_none() && seen_pending.insert(commit.id)).then_some(commit.id)
+            }),
+        )?;
+        for (commit_id, change_id) in looked_up {
+            let change_id = match change_id {
+                Some(change_id) => change_id,
+                None => {
+                    let change_id = but_core::ChangeId::generate();
+                    generated.push((commit_id, change_id.clone()));
+                    change_id
+                }
+            };
+            resolved.insert(commit_id, change_id);
+        }
+
+        for commit in visit_ref_info_commits_mut_iter(info) {
+            if commit.change_id.is_none() {
+                commit.change_id = resolved.remove(&commit.id);
+            }
+        }
+
+        if !generated.is_empty() {
+            trans.commit_metadata_mut()?.set_change_ids(generated)?;
+            trans.commit()?
+        }
+
+        Ok(())
+    }
+
+    /// Return an iterator over all  commits in `info` for mutation.
+    fn visit_ref_info_commits_mut_iter(
+        info: &mut RefInfo,
+    ) -> impl Iterator<Item = &mut crate::ref_info::Commit> {
+        let stacks = info.stacks.iter_mut().flat_map(|stack| {
+            stack.segments.iter_mut().flat_map(|segment| {
+                segment
+                    .commits
+                    .iter_mut()
+                    .map(|commit| &mut commit.inner)
+                    .chain(segment.commits_on_remote.iter_mut())
+                    .chain(
+                        segment
+                            .commits_outside
+                            .iter_mut()
+                            .flat_map(|commits| commits.iter_mut()),
+                    )
+            })
+        });
+        let ancestor_workspace_commit =
+            info.ancestor_workspace_commit
+                .iter_mut()
+                .flat_map(|ancestor_workspace_commit| {
+                    ancestor_workspace_commit.commits_outside.iter_mut()
+                });
+
+        stacks.chain(ancestor_workspace_commit)
     }
 
     impl branch::Stack {

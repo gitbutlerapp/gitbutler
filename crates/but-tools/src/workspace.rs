@@ -1756,10 +1756,12 @@ fn find_the_right_commit_id(
 fn stacks(ctx: &Context) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
     let meta = ctx.legacy_meta()?;
     let repo = &*ctx.repo.get()?;
+    let mut cache = ctx.cache.get_cache_mut()?;
     but_workspace::legacy::stacks_v3(
         repo,
         &meta,
         but_workspace::legacy::StacksFilter::InWorkspace,
         None,
+        &mut cache,
     )
 }

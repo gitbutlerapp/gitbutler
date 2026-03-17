@@ -17,17 +17,21 @@ fn can_create_worktree_from_feature_a() -> anyhow::Result<()> {
             .project_data_dir()
             .join("virtual_branches.toml"),
     )?;
-    let stacks = stacks_v3(
-        &*test_ctx.ctx.repo.get()?,
-        &meta,
-        StacksFilter::InWorkspace,
-        None,
-    )?;
-    let feature_a = stacks
-        .into_iter()
-        .flat_map(|s| s.heads)
-        .find(|h| h.name == b"feature-a")
-        .context("Expect to find feature-a")?;
+    let feature_a = {
+        let mut cache = test_ctx.ctx.cache.get_cache_mut()?;
+        let stacks = stacks_v3(
+            &*test_ctx.ctx.repo.get()?,
+            &meta,
+            StacksFilter::InWorkspace,
+            None,
+            &mut cache,
+        )?;
+        stacks
+            .into_iter()
+            .flat_map(|s| s.heads)
+            .find(|h| h.name == b"feature-a")
+            .context("Expect to find feature-a")?
+    };
 
     let outcome = worktree_new(
         &mut test_ctx.ctx,
@@ -69,17 +73,21 @@ fn can_create_worktree_from_feature_b() -> anyhow::Result<()> {
             .project_data_dir()
             .join("virtual_branches.toml"),
     )?;
-    let stacks = stacks_v3(
-        &*test_ctx.ctx.repo.get()?,
-        &meta,
-        StacksFilter::InWorkspace,
-        None,
-    )?;
-    let feature_b = stacks
-        .into_iter()
-        .flat_map(|s| s.heads)
-        .find(|h| h.name == b"feature-b")
-        .context("Expect to find feature-b")?;
+    let feature_b = {
+        let mut cache = test_ctx.ctx.cache.get_cache_mut()?;
+        let stacks = stacks_v3(
+            &*test_ctx.ctx.repo.get()?,
+            &meta,
+            StacksFilter::InWorkspace,
+            None,
+            &mut cache,
+        )?;
+        stacks
+            .into_iter()
+            .flat_map(|s| s.heads)
+            .find(|h| h.name == b"feature-b")
+            .context("Expect to find feature-b")?
+    };
 
     let outcome = worktree_new(
         &mut test_ctx.ctx,
@@ -121,17 +129,21 @@ fn can_create_worktree_from_feature_c() -> anyhow::Result<()> {
             .project_data_dir()
             .join("virtual_branches.toml"),
     )?;
-    let stacks = stacks_v3(
-        &*test_ctx.ctx.repo.get()?,
-        &meta,
-        StacksFilter::InWorkspace,
-        None,
-    )?;
-    let feature_c = stacks
-        .into_iter()
-        .flat_map(|s| s.heads)
-        .find(|h| h.name == b"feature-c")
-        .context("Expect to find feature-c")?;
+    let feature_c = {
+        let mut cache = test_ctx.ctx.cache.get_cache_mut()?;
+        let stacks = stacks_v3(
+            &*test_ctx.ctx.repo.get()?,
+            &meta,
+            StacksFilter::InWorkspace,
+            None,
+            &mut cache,
+        )?;
+        stacks
+            .into_iter()
+            .flat_map(|s| s.heads)
+            .find(|h| h.name == b"feature-c")
+            .context("Expect to find feature-c")?
+    };
 
     let outcome = worktree_new(
         &mut test_ctx.ctx,

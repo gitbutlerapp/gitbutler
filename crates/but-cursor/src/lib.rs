@@ -149,8 +149,16 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
 
     // Create repo and workspace once at the entry point
     let mut guard = ctx.exclusive_worktree_access();
-    let stacks =
-        but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, StacksFilter::default(), None)?;
+    let stacks = {
+        let mut cache = ctx.cache.get_cache_mut()?;
+        but_workspace::legacy::stacks_v3(
+            &*ctx.repo.get()?,
+            &meta,
+            StacksFilter::default(),
+            None,
+            &mut cache,
+        )?
+    };
     let stack_id = but_claude::hooks::get_or_create_session(
         &mut ctx,
         guard.write_permission(),
@@ -236,8 +244,16 @@ pub async fn handle_stop(
 
     // Create repo and workspace once at the entry point
     let mut guard = ctx.exclusive_worktree_access();
-    let stacks =
-        but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, StacksFilter::default(), None)?;
+    let stacks = {
+        let mut cache = ctx.cache.get_cache_mut()?;
+        but_workspace::legacy::stacks_v3(
+            &*ctx.repo.get()?,
+            &meta,
+            StacksFilter::default(),
+            None,
+            &mut cache,
+        )?
+    };
     let stack_id = but_claude::hooks::get_or_create_session(
         &mut ctx,
         guard.write_permission(),
@@ -268,8 +284,16 @@ pub async fn handle_stop(
         Some(stack_id),
     )?;
 
-    let stacks =
-        but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, StacksFilter::default(), None)?;
+    let stacks = {
+        let mut cache = ctx.cache.get_cache_mut()?;
+        but_workspace::legacy::stacks_v3(
+            &*ctx.repo.get()?,
+            &meta,
+            StacksFilter::default(),
+            None,
+            &mut cache,
+        )?
+    };
 
     // Trigger commit message generation for newly created commits
     // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if available

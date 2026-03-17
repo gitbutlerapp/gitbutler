@@ -538,6 +538,19 @@ impl IdMap {
         assignments: Option<Vec<HunkAssignment>>,
     ) -> anyhow::Result<Self> {
         let meta = ctx.meta()?;
+        let head_info = {
+            let repo = ctx.clone_repo_for_merging_non_persisting()?;
+            let mut cache = ctx.cache.get_cache_mut()?;
+            but_workspace::head_info(
+                &repo,
+                &meta,
+                but_workspace::ref_info::Options {
+                    expensive_commit_info: false,
+                    ..Default::default()
+                },
+                &mut cache,
+            )?
+        };
         let context_lines = ctx.settings.context_lines;
         let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
 
@@ -558,14 +571,6 @@ impl IdMap {
             }
         };
 
-        let head_info = but_workspace::head_info(
-            &repo,
-            &meta,
-            but_workspace::ref_info::Options {
-                expensive_commit_info: false,
-                ..Default::default()
-            },
-        )?;
         Self::new(head_info.stacks, hunk_assignments)
     }
 }

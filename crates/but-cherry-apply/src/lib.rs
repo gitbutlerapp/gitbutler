@@ -28,7 +28,6 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_meta::VirtualBranchesTomlMetadata;
 use but_rebase::Rebase;
 use but_workspace::legacy::{StacksFilter, stack_ext::StackExt, stacks_v3};
 use gitbutler_branch_actions::update_workspace_commit_with_vb_state;
@@ -59,10 +58,9 @@ pub fn cherry_apply_status(
         .for_tree_diffing()?
         .with_object_memory();
 
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project_data_dir().join("virtual_branches.toml"),
-    )?;
-    let stacks = stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)?;
+    let meta = ctx.legacy_meta()?;
+    let mut cache = ctx.cache.get_cache_mut()?;
+    let stacks = stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None, &mut cache)?;
 
     if stacks.is_empty() {
         return Ok(CherryApplyStatus::NoStacks);

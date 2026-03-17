@@ -137,8 +137,10 @@ mod changes_in_branch {
             "passing strange ref-names still causes an error - they must exist"
         );
 
-        let mut ref_info: ui::RefInfo =
-            but_workspace::head_info(&repo, &*meta, Default::default())?.try_into()?;
+        let mut ref_info: ui::RefInfo = {
+            let mut cache = crate::ref_info::in_memory_cache();
+            but_workspace::head_info(&repo, &*meta, Default::default(), &mut cache)?.try_into()?
+        };
         ref_info = ref_info.pruned_to_entrypoint();
         insta::assert_json_snapshot!(&ref_info, @r#"
         {

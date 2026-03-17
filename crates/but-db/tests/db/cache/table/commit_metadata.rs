@@ -14,8 +14,10 @@ fn read_empty() -> anyhow::Result<()> {
             .is_empty()
     );
     assert_eq!(
-        cache.commit_metadata().change_id_for_commit(commit(1))?,
-        None
+        cache
+            .commit_metadata()
+            .change_ids_for_commits([commit(1)])?,
+        vec![(commit(1), None)]
     );
 
     Ok(())
@@ -30,8 +32,10 @@ fn set_and_get_single_pair() -> anyhow::Result<()> {
         .set_change_ids(vec![(commit(1), change_id(1))])?;
 
     assert_eq!(
-        cache.commit_metadata().change_id_for_commit(commit(1))?,
-        Some(change_id(1))
+        cache
+            .commit_metadata()
+            .change_ids_for_commits([commit(1)])?,
+        vec![(commit(1), Some(change_id(1)))]
     );
     assert_eq!(
         cache
@@ -60,8 +64,10 @@ fn set_many_pairs_in_one_batch() -> anyhow::Result<()> {
         vec![commit(1), commit(2)]
     );
     assert_eq!(
-        cache.commit_metadata().change_id_for_commit(commit(3))?,
-        Some(change_id(2))
+        cache
+            .commit_metadata()
+            .change_ids_for_commits([commit(3)])?,
+        vec![(commit(3), Some(change_id(2)))]
     );
 
     Ok(())
@@ -79,8 +85,10 @@ fn set_replaces_existing_change_id_for_commit() -> anyhow::Result<()> {
         .set_change_ids(vec![(commit(1), change_id(2))])?;
 
     assert_eq!(
-        cache.commit_metadata().change_id_for_commit(commit(1))?,
-        Some(change_id(2))
+        cache
+            .commit_metadata()
+            .change_ids_for_commits([commit(1)])?,
+        vec![(commit(1), Some(change_id(2)))]
     );
     assert!(
         cache
@@ -110,8 +118,10 @@ fn delete_commits_removes_metadata_and_change_id_relation() -> anyhow::Result<()
         .delete_commits(vec![commit(1)])?;
 
     assert_eq!(
-        cache.commit_metadata().change_id_for_commit(commit(1))?,
-        None
+        cache
+            .commit_metadata()
+            .change_ids_for_commits([commit(1)])?,
+        vec![(commit(1), None)]
     );
     assert_eq!(
         cache
@@ -134,8 +144,10 @@ fn transaction_commit_persists() -> anyhow::Result<()> {
     trans.commit()?;
 
     assert_eq!(
-        cache.commit_metadata().change_id_for_commit(commit(1))?,
-        Some(change_id(1))
+        cache
+            .commit_metadata()
+            .change_ids_for_commits([commit(1)])?,
+        vec![(commit(1), Some(change_id(1)))]
     );
 
     Ok(())
@@ -152,8 +164,10 @@ fn transaction_rollback_discards() -> anyhow::Result<()> {
     trans.rollback()?;
 
     assert_eq!(
-        cache.commit_metadata().change_id_for_commit(commit(1))?,
-        None
+        cache
+            .commit_metadata()
+            .change_ids_for_commits([commit(1)])?,
+        vec![(commit(1), None)]
     );
 
     Ok(())
@@ -169,8 +183,58 @@ fn arbitrary_change_ids_roundtrip_losslessly() -> anyhow::Result<()> {
         .set_change_ids(vec![(commit(1), arbitrary.clone())])?;
 
     assert_eq!(
-        cache.commit_metadata().change_id_for_commit(commit(1))?,
-        Some(arbitrary.clone())
+        cache
+            .commit_metadata()
+            .change_ids_for_commits([commit(1)])?,
+        vec![(commit(1), Some(arbitrary.clone()))]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn multi_lookup_preserves_input_order_duplicates_and_missing_entries() -> anyhow::Result<()> {
+    let mut cache = in_memory_project_cache();
+
+    cache
+        .commit_metadata_mut()?
+        .set_change_ids(vec![(commit(2), change_id(2)), (commit(1), change_id(1))])?;
+
+    assert_eq!(
+        cache.commit_metadata().change_ids_for_commits([
+            commit(2),
+            commit(3),
+            commit(1),
+            commit(2)
+        ])?,
+        vec![
+            (commit(2), Some(change_id(2))),
+            (commit(3), None),
+            (commit(1), Some(change_id(1))),
+            (commit(2), Some(change_id(2))),
+        ]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn multi_lookup_handles_more_entries_than_sqlite_variable_limit_chunk_size() -> anyhow::Result<()> {
+    const LOOKUP_SIZE: u16 = 1000;
+
+    let mut cache = in_memory_project_cache();
+
+    let entries = (1..=LOOKUP_SIZE).map(|value| (commit(value), change_id((value - 1).into())));
+    cache.commit_metadata_mut()?.set_change_ids(entries)?;
+
+    let lookup = (1..=LOOKUP_SIZE).map(commit);
+    let expected: Vec<_> = (1..=LOOKUP_SIZE)
+        .map(|value| (commit(value), Some(change_id((value - 1).into()))))
+        .collect();
+
+    assert_eq!(
+        cache.commit_metadata().change_ids_for_commits(lookup)?,
+        expected
     );
 
     Ok(())
@@ -180,7 +244,7 @@ fn change_id(value: u128) -> ChangeId {
     ChangeId::from_number_for_testing(value)
 }
 
-fn commit(value: u8) -> ObjectId {
-    ObjectId::from_hex(format!("{value:02x}696678319e0fa3a20e54f22d47fc8cf1ceaade").as_bytes())
+fn commit(value: u16) -> ObjectId {
+    ObjectId::from_hex(format!("{value:04x}6678319e0fa3a20e54f22d47fc8cf1ceaade").as_bytes())
         .expect("statically valid object id")
 }
