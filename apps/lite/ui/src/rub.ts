@@ -71,8 +71,7 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 			return Match.value(source.parent).pipe(
 				Match.tag("commit", (source) =>
 					Match.value(target).pipe(
-						Match.withReturnType<Promise<RubResult>>(),
-						Match.tag("commit", async (target) => {
+						Match.tag("commit", async (target): Promise<RubResult> => {
 							const response = await window.lite.commitMoveChangesBetween({
 								projectId,
 								sourceCommitId: source.commitId,
@@ -81,7 +80,7 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 							});
 							return { replacedCommits: response.replacedCommits };
 						}),
-						Match.tag("changes", async (target) => {
+						Match.tag("changes", async (target): Promise<RubResult> => {
 							const response = await window.lite.commitUncommitChanges({
 								projectId,
 								commitId: source.commitId,
@@ -97,8 +96,7 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 				),
 				Match.tag("changes", () =>
 					Match.value(target).pipe(
-						Match.withReturnType<Promise<RubResult>>(),
-						Match.tag("commit", async (target) => {
+						Match.tag("commit", async (target): Promise<RubResult> => {
 							const response = await window.lite.commitAmend({
 								projectId,
 								commitId: target.commitId,
@@ -110,7 +108,7 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 								amendedCommitId: target.commitId,
 							};
 						}),
-						Match.tag("changes", async (target) => {
+						Match.tag("changes", async (target): Promise<RubResult> => {
 							const response = await window.lite.assignHunk({
 								projectId,
 								assignments: source.hunkHeaders.map(

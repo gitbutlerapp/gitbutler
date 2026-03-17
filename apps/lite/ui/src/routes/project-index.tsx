@@ -124,12 +124,14 @@ const commonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 
 const rubSourceFor = (item: SourceItem): RubSource | null =>
 	Match.value(item).pipe(
-		Match.withReturnType<RubSource | null>(),
-		Match.tag("Commit", ({ commitId }) => ({
+		Match.tag("Commit", ({ commitId }): RubSource | null => ({
 			_tag: "Commit",
 			source: { commitId },
 		})),
-		Match.tag("TreeChange", ({ source }) => ({ _tag: "TreeChange", source })),
+		Match.tag("TreeChange", ({ source }): RubSource | null => ({
+			_tag: "TreeChange",
+			source,
+		})),
 		Match.exhaustive,
 	);
 
@@ -859,8 +861,8 @@ const CommitMoveToBranchTarget: FC<
 	const getOperationTarget = (sourceItem: SourceItem): OperationTarget | null => {
 		if (anchorRef === null) return null;
 		if (sourceItem._tag !== "Commit") return null;
-		if (sourceItem.commitId === firstCommitId) return null;
 
+		if (sourceItem.commitId === firstCommitId) return null;
 		return {
 			_tag: "CommitMove",
 			relativeTo: {
