@@ -1,7 +1,4 @@
-import { Menu } from "@base-ui/react";
-import { ContextMenu } from "@base-ui/react/context-menu";
-import { mergeProps } from "@base-ui/react/merge-props";
-import { useRender } from "@base-ui/react/use-render";
+import { ContextMenu, Menu, mergeProps, useRender } from "@base-ui/react";
 import {
 	Commit,
 	DiffHunk,
@@ -21,6 +18,12 @@ import {
 import { type ChangeUnit } from "#ui/ChangeUnit.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { commitInsertBlankMutationOptions, commitRewordMutationOptions } from "#ui/mutations.ts";
+
+/** @public */
+export const assert = <T,>(t: T | null | undefined): T => {
+	if (t == null) throw new Error("Expected value to be non-null and defined");
+	return t;
+};
 
 /**
  * @example
@@ -53,6 +56,13 @@ const hunkHeaderEquals = (a: HunkHeader, b: HunkHeader): boolean =>
 	a.newStart === b.newStart &&
 	a.newLines === b.newLines;
 
+const formatHunkHeader = (hunk: HunkHeader): string =>
+	`-${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines}`;
+
+export const DragPreview: FC<{
+	children: ReactNode;
+}> = ({ children }) => <div className={styles.dragPreview}>{children}</div>;
+
 const assignedHunks = (
 	hunks: Array<DiffHunk>,
 	assignments: Array<HunkAssignment>,
@@ -77,23 +87,18 @@ const DraggableHunk: FC<
 	} & useRender.ComponentProps<"div">
 > = ({ patch, changeUnit, change, hunk, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
-		getInitialData: () =>
-			({
-				sourceItem: {
-					_tag: "TreeChange",
-					source: {
-						parent: changeUnit,
-						change,
-						hunkHeaders: [hunk],
-					},
+		getInitialData: (): DragData => ({
+			sourceItem: {
+				_tag: "TreeChange",
+				source: {
+					parent: changeUnit,
+					change,
+					hunkHeaders: [hunk],
 				},
-			}) satisfies DragData,
-		preview: (
-			<div className={styles.dragPreview}>
-				Hunk -{hunk.oldStart},{hunk.oldLines}, +{hunk.newStart},{hunk.newLines}
-			</div>
-		),
-		disabled: patch.subject.isResultOfBinaryToTextConversion,
+			},
+		}),
+		preview: <DragPreview>Hunk {formatHunkHeader(hunk)}</DragPreview>,
+		canDrag: () => !patch.subject.isResultOfBinaryToTextConversion,
 	});
 
 	return useRender({
@@ -126,7 +131,7 @@ export const Hunk: FC<{
 				hunk={hunk}
 				className={styles.hunkHeader}
 			>
-				-{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines}
+				{formatHunkHeader(hunk)}
 			</DraggableHunk>
 		</div>
 		<HunkDiff diff={hunk.diff} />
@@ -247,11 +252,13 @@ const DraggableCommit: FC<
 > = ({ commit, render, ...props }) => {
 	const { id: commitId } = commit;
 	const [isDragging, dragRef] = useDraggable({
-		getInitialData: () => ({ sourceItem: { _tag: "Commit", commitId } }) satisfies DragData,
+		getInitialData: (): DragData => ({
+			sourceItem: { _tag: "Commit", commitId },
+		}),
 		preview: (
-			<div className={styles.dragPreview}>
+			<DragPreview>
 				<CommitLabel commit={commit} />
-			</div>
+			</DragPreview>
 		),
 	});
 
@@ -388,7 +395,10 @@ export const CommitRow: FC<
 		(_currentMessage, nextMessage: string) => nextMessage,
 	);
 
-	const commitWithOptimisticMessage: Commit = { ...commit, message: optimisticMessage };
+	const commitWithOptimisticMessage: Commit = {
+		...commit,
+		message: optimisticMessage,
+	};
 
 	const insertBlankCommit = (side: "above" | "below") => {
 		commitInsertBlank.mutate({

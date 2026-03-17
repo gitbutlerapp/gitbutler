@@ -1,27 +1,24 @@
 import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { type RefCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 
-export const useDroppable = <TData extends Record<string | symbol, unknown>>({
-	canDrop,
+type LibParams = Parameters<typeof dropTargetForElements>[0];
+
+export const useDroppable = ({
+	canDrop: canDropProp,
 	getData: getDataProp,
-	disabled = false,
-}: {
-	canDrop: (dragData: unknown) => boolean;
-	getData: () => TData;
-	disabled?: boolean;
-}): [boolean, RefCallback<HTMLElement>] => {
+}: Pick<LibParams, "canDrop" | "getData">): [boolean, RefCallback<HTMLElement>] => {
 	const ref = useRef<HTMLElement>(null);
 	const [isDropTarget, setIsDropTarget] = useState(false);
-	const getData = useEffectEvent(() => getDataProp());
-	const canDropForSource = useEffectEvent((dragData: unknown) => canDrop(dragData));
+	const getData: LibParams["getData"] = useEffectEvent((x) => getDataProp?.(x) ?? {});
+	const canDrop: LibParams["canDrop"] = useEffectEvent((x) => canDropProp?.(x) ?? true);
 
 	useEffect(() => {
 		const element = ref.current;
-		if (!element || disabled) return;
+		if (!element) return;
 
 		return dropTargetForElements({
 			element,
-			canDrop: ({ source }) => canDropForSource(source.data),
+			canDrop,
 			getData,
 			onDragEnter: () => {
 				setIsDropTarget(true);
@@ -33,7 +30,7 @@ export const useDroppable = <TData extends Record<string | symbol, unknown>>({
 				setIsDropTarget(false);
 			},
 		});
-	}, [disabled]);
+	}, []);
 
 	return [
 		isDropTarget,

@@ -1,9 +1,6 @@
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
-import { Menu, Tooltip } from "@base-ui/react";
+import { Menu, mergeProps, Popover, Tooltip, useRender } from "@base-ui/react";
 import { createRoute } from "@tanstack/react-router";
-import { mergeProps } from "@base-ui/react/merge-props";
-import { Popover } from "@base-ui/react/popover";
-import { useRender } from "@base-ui/react/use-render";
 import {
 	RefInfo,
 	Commit,
@@ -29,6 +26,7 @@ import {
 	CommitRow,
 	CommitsList,
 	type DragData,
+	DragPreview,
 	FileButton,
 	FileDiff,
 	Hunk,
@@ -47,10 +45,11 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/queries.ts";
 import { type ChangeUnit } from "#ui/ChangeUnit.ts";
-import { rubOperationLabel, type RubSource } from "#ui/rub.ts";
+import { rubOperationLabel, RubParams, type RubSource } from "#ui/rub.ts";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
+import { CommitMoveParams } from "#electron/ipc.ts";
 
 const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
@@ -68,7 +67,7 @@ const getBranchNameByCommitId = (headInfo: RefInfo): Map<string, string> => {
 	return byCommitId;
 };
 
-const LockIndicator: FC<{
+const DependencyIndicator: FC<{
 	projectId: string;
 	commitIds: NonEmptyArray<string>;
 	onHover: (commitIds: Array<string> | null) => void;
@@ -95,7 +94,7 @@ const LockIndicator: FC<{
 				aria-label={tooltip}
 				style={{ lineHeight: 1 }}
 			>
-				🔒
+				🔗
 			</Popover.Trigger>
 			<Popover.Portal>
 				<Popover.Positioner sideOffset={8}>
@@ -123,14 +122,18 @@ const commonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 	return bases.every((base) => base === first) ? first : undefined;
 };
 
-const rubSourceFor = (item: SourceItem): RubSource => {
-	switch (item._tag) {
-		case "Commit":
-			return { _tag: "Commit", source: { commitId: item.commitId } };
-		case "TreeChange":
-			return { _tag: "TreeChange", source: item.source };
-	}
-};
+const rubSourceFor = (item: SourceItem): RubSource | null =>
+	Match.value(item).pipe(
+		Match.tag("Commit", ({ commitId }): RubSource | null => ({
+			_tag: "Commit",
+			source: { commitId },
+		})),
+		Match.tag("TreeChange", ({ source }): RubSource | null => ({
+			_tag: "TreeChange",
+			source,
+		})),
+		Match.exhaustive,
+	);
 
 const DraggedSourceItemContext = createContext<SourceItem | null>(null);
 
@@ -142,22 +145,12 @@ const parseDragData = (data: unknown): SourceItem | null => {
 const useDraggedSourceItem = (): SourceItem | null => useContext(DraggedSourceItemContext);
 
 type OperationTarget =
-	| {
+	| ({
 			_tag: "Rub";
-			target: ChangeUnit;
-	  }
-	| {
+	  } & Omit<RubParams, "projectId" | "source">)
+	| ({
 			_tag: "CommitMove";
-			anchorCommitId: string;
-			side: InsertSide;
-			previousCommitId: string | undefined;
-			nextCommitId: string | undefined;
-	  }
-	| {
-			_tag: "CommitMoveToBranch";
-			anchorRef: number[] | null;
-			firstCommitId: string | undefined;
-	  };
+	  } & Omit<CommitMoveParams, "projectId" | "subjectCommitId">);
 
 const parseDropTargetData = (data: unknown): OperationTarget | null => {
 	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
@@ -204,9 +197,11 @@ const useRunOperation = (projectId: string) => {
 	return (sourceItem: SourceItem, operationTarget: OperationTarget): void => {
 		Match.value(operationTarget).pipe(
 			Match.tag("Rub", (operationTarget) => {
+				const rubSource = rubSourceFor(sourceItem);
+				if (!rubSource) return;
 				rubMutation.mutate({
 					projectId,
-					source: rubSourceFor(sourceItem),
+					source: rubSource,
 					target: operationTarget.target,
 				});
 			}),
@@ -215,17 +210,8 @@ const useRunOperation = (projectId: string) => {
 				commitMove.mutate({
 					projectId,
 					subjectCommitId: sourceItem.commitId,
-					relativeTo: { type: "commit", subject: operationTarget.anchorCommitId },
+					relativeTo: operationTarget.relativeTo,
 					side: operationTarget.side,
-				});
-			}),
-			Match.tag("CommitMoveToBranch", (operationTarget) => {
-				if (sourceItem._tag !== "Commit" || operationTarget.anchorRef === null) return;
-				commitMove.mutate({
-					projectId,
-					subjectCommitId: sourceItem.commitId,
-					relativeTo: { type: "referenceBytes", subject: operationTarget.anchorRef },
-					side: "below",
 				});
 			}),
 			Match.exhaustive,
@@ -315,7 +301,7 @@ const dependencyCommitIdsForHunk = (
 
 	for (const [, dependencyHunk, locks] of hunkDependencyDiffs) {
 		if (!hunkContainsHunk(hunk, dependencyHunk)) continue;
-		for (const lock of locks) commitIds.add(lock.commitId);
+		for (const dependency of locks) commitIds.add(dependency.commitId);
 	}
 
 	return globalThis.Array.from(commitIds);
@@ -327,7 +313,7 @@ const dependencyCommitIdsForFile = (
 	const commitIds = new Set<string>();
 
 	for (const [, , locks] of hunkDependencyDiffs)
-		for (const lock of locks) commitIds.add(lock.commitId);
+		for (const dependency of locks) commitIds.add(dependency.commitId);
 
 	return globalThis.Array.from(commitIds);
 };
@@ -340,23 +326,22 @@ const DraggableFile: FC<
 	} & useRender.ComponentProps<"div">
 > = ({ change, changeUnit, assignments, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
-		getInitialData: () =>
-			({
-				sourceItem: {
-					_tag: "TreeChange",
-					source: {
-						parent: changeUnit,
-						change,
-						hunkHeaders: assignments
-							? assignments.flatMap((assignment) =>
-									// TODO: is this correct?
-									assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
-								)
-							: [],
-					},
+		getInitialData: (): DragData => ({
+			sourceItem: {
+				_tag: "TreeChange",
+				source: {
+					parent: changeUnit,
+					change,
+					hunkHeaders: assignments
+						? assignments.flatMap((assignment) =>
+								// TODO: is this correct?
+								assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
+							)
+						: [],
 				},
-			}) satisfies DragData,
-		preview: <div className={sharedStyles.dragPreview}>{change.path}</div>,
+			},
+		}),
+		preview: <DragPreview>{change.path}</DragPreview>,
 	});
 
 	return useRender({
@@ -372,8 +357,8 @@ const SelectedChangesFileDiff: FC<{
 	projectId: string;
 	stackId: string | null;
 	path: string;
-	onLockHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, stackId, path, onLockHover }) => {
+	onDependencyHover: (commitIds: Array<string> | null) => void;
+}> = ({ projectId, stackId, path, onDependencyHover }) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
 	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
@@ -405,10 +390,10 @@ const SelectedChangesFileDiff: FC<{
 						hunk={hunk}
 						headerStart={
 							isNonEmptyArray(dependencyCommitIds) && (
-								<LockIndicator
+								<DependencyIndicator
 									projectId={projectId}
 									commitIds={dependencyCommitIds}
-									onHover={onLockHover}
+									onHover={onDependencyHover}
 								/>
 							)
 						}
@@ -475,32 +460,37 @@ const SelectedCommitDiff: FC<{
 	);
 };
 
-const RubTarget: FC<{
-	target: ChangeUnit;
-	children: React.ReactElement;
-}> = ({ target, children }) => {
+const RubTarget: FC<
+	{
+		target: ChangeUnit;
+	} & useRender.ComponentProps<"div">
+> = ({ target, render, ...props }) => {
 	const sourceItem = useDraggedSourceItem();
 	const [isDropTarget, dropRef] = useDroppable({
-		canDrop: (dragData) => {
-			const sourceItem = parseDragData(dragData);
-			return !!sourceItem && rubOperationLabel(rubSourceFor(sourceItem), target) !== null;
+		canDrop: ({ source }) => {
+			const sourceItem = parseDragData(source.data);
+			const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
+			return rubSource !== null && rubOperationLabel(rubSource, target) !== null;
 		},
-		getData: () =>
-			({
-				_tag: "Rub",
-				target,
-			}) satisfies OperationTarget,
+		getData: (): OperationTarget => ({
+			_tag: "Rub",
+			target,
+		}),
 	});
 
-	const tooltip =
-		isDropTarget && sourceItem ? rubOperationLabel(rubSourceFor(sourceItem), target) : null;
+	const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
+	const tooltip = isDropTarget && rubSource ? rubOperationLabel(rubSource, target) : null;
 
 	return (
 		<Tooltip.Root open={tooltip !== null}>
 			<Tooltip.Trigger
-				ref={dropRef}
-				render={children}
-				style={{ ...(isDropTarget && { outline: "2px dashed" }) }}
+				render={useRender({
+					render,
+					ref: dropRef,
+					props: mergeProps(props, {
+						style: { ...(isDropTarget && { outline: "2px dashed" }) },
+					}),
+				})}
 			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
@@ -524,18 +514,15 @@ const CommitMoveTarget: FC<{
 		(side === "below" && nextCommitId === sourceCommitId);
 
 	const [isDropTarget, dropRef] = useDroppable({
-		canDrop: (dragData) => {
-			const sourceItem = parseDragData(dragData);
+		canDrop: ({ source }) => {
+			const sourceItem = parseDragData(source.data);
 			return sourceItem?._tag === "Commit" && !isNoOp(sourceItem.commitId);
 		},
-		getData: () =>
-			({
-				_tag: "CommitMove",
-				anchorCommitId: commitId,
-				side,
-				previousCommitId,
-				nextCommitId,
-			}) satisfies OperationTarget,
+		getData: (): OperationTarget => ({
+			_tag: "CommitMove",
+			relativeTo: { type: "commit", subject: commitId },
+			side,
+		}),
 	});
 
 	return (
@@ -615,16 +602,19 @@ const CommitC: FC<{
 				previousCommitId={previousCommitId}
 				nextCommitId={nextCommitId}
 			/>
-			<RubTarget target={changeUnit}>
-				<CommitRow
-					projectId={projectId}
-					commit={commit}
-					isSelected={isSelected}
-					isAnyFileSelected={isAnyFileSelected}
-					isHighlighted={isHighlighted}
-					toggleSelect={toggleSelect}
-				/>
-			</RubTarget>
+			<RubTarget
+				target={changeUnit}
+				render={
+					<CommitRow
+						projectId={projectId}
+						commit={commit}
+						isSelected={isSelected}
+						isAnyFileSelected={isAnyFileSelected}
+						isHighlighted={isHighlighted}
+						toggleSelect={toggleSelect}
+					/>
+				}
+			/>
 			{expanded && (
 				<div className={sharedStyles.commitDetails}>
 					<Suspense fallback={<div>Loading changed details…</div>}>
@@ -667,9 +657,9 @@ const Changes: FC<{
 	stackId: string | null;
 	isFileSelected: (path: string) => boolean;
 	toggleFileSelect: (path: string) => void;
-	onLockHover: (commitIds: Array<string> | null) => void;
+	onDependencyHover: (commitIds: Array<string> | null) => void;
 	className?: string;
-}> = ({ projectId, stackId, isFileSelected, toggleFileSelect, onLockHover, className }) => {
+}> = ({ projectId, stackId, isFileSelected, toggleFileSelect, onDependencyHover, className }) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
 	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
@@ -682,52 +672,55 @@ const Changes: FC<{
 	const changeUnit: ChangeUnit = { _tag: "changes", stackId };
 
 	return (
-		<RubTarget target={changeUnit}>
-			<div className={className}>
-				{changes.length === 0 ? (
-					<>No changes.</>
-				) : (
-					<ul className={sharedStyles.fileList}>
-						{changes.map((change) => {
-							const assignments = assignmentsByPath.get(change.path);
-							const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
+		<RubTarget
+			target={changeUnit}
+			render={
+				<div className={className}>
+					{changes.length === 0 ? (
+						<>No changes.</>
+					) : (
+						<ul className={sharedStyles.fileList}>
+							{changes.map((change) => {
+								const assignments = assignmentsByPath.get(change.path);
+								const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
 
-							const dependencyCommitIds = hunkDependencyDiffs
-								? dependencyCommitIdsForFile(hunkDependencyDiffs)
-								: [];
+								const dependencyCommitIds = hunkDependencyDiffs
+									? dependencyCommitIdsForFile(hunkDependencyDiffs)
+									: [];
 
-							return (
-								<li key={change.path}>
-									<div className={sharedStyles.fileRow}>
-										<DraggableFile
-											change={change}
-											changeUnit={changeUnit}
-											assignments={assignments}
-											render={
-												<FileButton
-													change={change}
-													isSelected={isFileSelected(change.path)}
-													toggleSelect={() => {
-														toggleFileSelect(change.path);
-													}}
-												/>
-											}
-										/>
-										{isNonEmptyArray(dependencyCommitIds) && (
-											<LockIndicator
-												projectId={projectId}
-												commitIds={dependencyCommitIds}
-												onHover={onLockHover}
+								return (
+									<li key={change.path}>
+										<div className={sharedStyles.fileRow}>
+											<DraggableFile
+												change={change}
+												changeUnit={changeUnit}
+												assignments={assignments}
+												render={
+													<FileButton
+														change={change}
+														isSelected={isFileSelected(change.path)}
+														toggleSelect={() => {
+															toggleFileSelect(change.path);
+														}}
+													/>
+												}
 											/>
-										)}
-									</div>
-								</li>
-							);
-						})}
-					</ul>
-				)}
-			</div>
-		</RubTarget>
+											{isNonEmptyArray(dependencyCommitIds) && (
+												<DependencyIndicator
+													projectId={projectId}
+													commitIds={dependencyCommitIds}
+													onHover={onDependencyHover}
+												/>
+											)}
+										</div>
+									</li>
+								);
+							})}
+						</ul>
+					)}
+				</div>
+			}
+		/>
 	);
 };
 
@@ -802,8 +795,8 @@ type UnassignedLaneSelection = {
 
 const UnassignedLane: FC<{
 	projectId: string;
-	onLockHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, onLockHover }) => {
+	onDependencyHover: (commitIds: Array<string> | null) => void;
+}> = ({ projectId, onDependencyHover }) => {
 	const [selection, select] = useLocalStorageState<UnassignedLaneSelection | null>(
 		`project:${projectId}:unassignedChangesLaneSelection`,
 		null,
@@ -826,7 +819,7 @@ const UnassignedLane: FC<{
 						toggleFileSelect={(path) => {
 							select(toggleFileSelection(path));
 						}}
-						onLockHover={onLockHover}
+						onDependencyHover={onDependencyHover}
 						className={styles.unassignedChanges}
 					/>
 				</div>
@@ -839,7 +832,7 @@ const UnassignedLane: FC<{
 							projectId={projectId}
 							stackId={null}
 							path={selection.path}
-							onLockHover={onLockHover}
+							onDependencyHover={onDependencyHover}
 						/>
 					</Suspense>
 				</div>
@@ -859,31 +852,50 @@ type StackLaneSelection =
 			path: string;
 	  };
 
-const CommitMoveToBranchTarget: FC<{
-	anchorRef: number[] | null;
-	firstCommitId: string | undefined;
-	children: React.ReactElement;
-}> = ({ anchorRef, firstCommitId, children }) => {
+const CommitMoveToBranchTarget: FC<
+	{
+		anchorRef: Array<number> | null;
+		firstCommitId: string | undefined;
+	} & useRender.ComponentProps<"div">
+> = ({ anchorRef, firstCommitId, render, ...props }) => {
+	const getOperationTarget = (sourceItem: SourceItem): OperationTarget | null => {
+		if (anchorRef === null) return null;
+		if (sourceItem._tag !== "Commit") return null;
+
+		if (sourceItem.commitId === firstCommitId) return null;
+		return {
+			_tag: "CommitMove",
+			relativeTo: {
+				type: "referenceBytes",
+				subject: anchorRef,
+			},
+			side: "below",
+		};
+	};
+
 	const [isDropTarget, dropRef] = useDroppable({
-		canDrop: (dragData) => {
-			const sourceItem = parseDragData(dragData);
-			return sourceItem?._tag === "Commit" && firstCommitId !== sourceItem.commitId;
+		canDrop: ({ source }) => {
+			const sourceItem = parseDragData(source.data);
+			if (!sourceItem) return false;
+			return !!getOperationTarget(sourceItem);
 		},
-		disabled: anchorRef === null,
-		getData: () =>
-			({
-				_tag: "CommitMoveToBranch",
-				anchorRef,
-				firstCommitId,
-			}) satisfies OperationTarget,
+		getData: ({ source }): OperationTarget | {} => {
+			const sourceItem = parseDragData(source.data);
+			if (!sourceItem) return {};
+			return getOperationTarget(sourceItem) ?? {};
+		},
 	});
 
 	return (
 		<Tooltip.Root open={isDropTarget}>
 			<Tooltip.Trigger
-				ref={dropRef}
-				render={children}
-				style={{ ...(isDropTarget && { outline: "2px dashed" }) }}
+				render={useRender({
+					render,
+					ref: dropRef,
+					props: mergeProps(props, {
+						style: { ...(isDropTarget && { outline: "2px dashed" }) },
+					}),
+				})}
 			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
@@ -898,8 +910,8 @@ const StackLane: FC<{
 	projectId: string;
 	stack: Stack;
 	highlightedCommitIds: Set<string>;
-	onLockHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, stack, highlightedCommitIds, onLockHover }) => {
+	onDependencyHover: (commitIds: Array<string> | null) => void;
+}> = ({ projectId, stack, highlightedCommitIds, onDependencyHover }) => {
 	// From Caleb:
 	// > There shouldn't be a way within GitButler to end up with a stack without a
 	//   StackId. Users can disrupt our matching against our metadata by playing
@@ -970,7 +982,7 @@ const StackLane: FC<{
 						toggleFileSelect={(path) => {
 							select(toggleChangeUnitFileSelection(changesChangeUnit, path));
 						}}
-						onLockHover={onLockHover}
+						onDependencyHover={onDependencyHover}
 						className={styles.assignedChanges}
 					/>
 					<CommitForm projectId={projectId} stack={stack} />
@@ -985,9 +997,8 @@ const StackLane: FC<{
 								<CommitMoveToBranchTarget
 									anchorRef={anchorRef}
 									firstCommitId={segment.commits[0]?.id}
-								>
-									<h3>{branchName}</h3>
-								</CommitMoveToBranchTarget>
+									render={<h3>{branchName}</h3>}
+								/>
 
 								<h4>Commits</h4>
 								<CommitsList commits={segment.commits}>
@@ -1031,7 +1042,7 @@ const StackLane: FC<{
 									projectId={projectId}
 									stackId={stackId}
 									path={path}
-									onLockHover={onLockHover}
+									onDependencyHover={onDependencyHover}
 								/>
 							)),
 							Match.tag("commit", ({ commitId, path }) =>
@@ -1079,7 +1090,7 @@ const ProjectPage: FC = () => {
 			<h2>{project.title} workspace</h2>
 
 			<div className={sharedStyles.lanes}>
-				<UnassignedLane projectId={project.id} onLockHover={highlightCommits} />
+				<UnassignedLane projectId={project.id} onDependencyHover={highlightCommits} />
 
 				{headInfo.stacks.map((stack) => (
 					<StackLane
@@ -1087,7 +1098,7 @@ const ProjectPage: FC = () => {
 						projectId={project.id}
 						stack={stack}
 						highlightedCommitIds={highlightedCommitIds}
-						onLockHover={highlightCommits}
+						onDependencyHover={highlightCommits}
 					/>
 				))}
 			</div>

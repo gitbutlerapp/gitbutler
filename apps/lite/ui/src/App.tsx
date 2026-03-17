@@ -1,10 +1,9 @@
-import { Toast } from "@base-ui/react/toast";
+import { Toast, ToastManager, Tooltip } from "@base-ui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RegisteredRouter, RouterProvider } from "@tanstack/react-router";
 import { FC, StrictMode } from "react";
 import styles from "./App.module.css";
-import { ToastManager, Tooltip } from "@base-ui/react";
 
 const Toasts: FC = () => {
 	const { toasts } = Toast.useToastManager();

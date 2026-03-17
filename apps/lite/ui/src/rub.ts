@@ -57,15 +57,13 @@ const assignmentRejectionMessage = (rejections: Array<AssignmentRejection>): str
 	return `Failed to assign: ${messages.join("; ")}.`;
 };
 
-export const rub = async ({
-	projectId,
-	source,
-	target,
-}: {
+export type RubParams = {
 	projectId: string;
 	source: RubSource;
 	target: ChangeUnit;
-}): Promise<RubResult> =>
+};
+
+export const rub = async ({ projectId, source, target }: RubParams): Promise<RubResult> =>
 	Match.value(source).pipe(
 		Match.tag("TreeChange", ({ source }) => {
 			const changes = [createDiffSpec(source.change, source.hunkHeaders)];
@@ -73,8 +71,7 @@ export const rub = async ({
 			return Match.value(source.parent).pipe(
 				Match.tag("commit", (source) =>
 					Match.value(target).pipe(
-						Match.withReturnType<Promise<RubResult>>(),
-						Match.tag("commit", async (target) => {
+						Match.tag("commit", async (target): Promise<RubResult> => {
 							const response = await window.lite.commitMoveChangesBetween({
 								projectId,
 								sourceCommitId: source.commitId,
@@ -83,7 +80,7 @@ export const rub = async ({
 							});
 							return { replacedCommits: response.replacedCommits };
 						}),
-						Match.tag("changes", async (target) => {
+						Match.tag("changes", async (target): Promise<RubResult> => {
 							const response = await window.lite.commitUncommitChanges({
 								projectId,
 								commitId: source.commitId,
@@ -99,8 +96,7 @@ export const rub = async ({
 				),
 				Match.tag("changes", () =>
 					Match.value(target).pipe(
-						Match.withReturnType<Promise<RubResult>>(),
-						Match.tag("commit", async (target) => {
+						Match.tag("commit", async (target): Promise<RubResult> => {
 							const response = await window.lite.commitAmend({
 								projectId,
 								commitId: target.commitId,
@@ -112,7 +108,7 @@ export const rub = async ({
 								amendedCommitId: target.commitId,
 							};
 						}),
-						Match.tag("changes", async (target) => {
+						Match.tag("changes", async (target): Promise<RubResult> => {
 							const response = await window.lite.assignHunk({
 								projectId,
 								assignments: source.hunkHeaders.map(

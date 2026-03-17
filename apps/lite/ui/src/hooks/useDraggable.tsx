@@ -11,18 +11,21 @@ import {
 } from "react";
 import { createRoot } from "react-dom/client";
 
-export const useDraggable = <TData extends Record<string, unknown>>({
+type LibParams = Parameters<typeof draggable>[0];
+
+export const useDraggable = ({
 	getInitialData: getInitialDataProp,
+	canDrag: canDragProp,
 	preview,
-	disabled = false,
-}: {
-	getInitialData: () => TData;
+}: Pick<LibParams, "canDrag" | "getInitialData"> & {
 	preview: ReactNode;
-	disabled?: boolean;
 }): [boolean, RefCallback<HTMLElement>] => {
 	const ref = useRef<HTMLElement>(null);
 	const [isDragging, setIsDragging] = useState(false);
-	const getInitialData = useEffectEvent(() => getInitialDataProp());
+	const getInitialData: LibParams["getInitialData"] = useEffectEvent(
+		(args) => getInitialDataProp?.(args) ?? {},
+	);
+	const canDrag: LibParams["canDrag"] = useEffectEvent((args) => canDragProp?.(args) ?? true);
 	const onGenerateDragPreview = useEffectEvent(
 		({ nativeSetDragImage }: { nativeSetDragImage: DataTransfer["setDragImage"] | null }) => {
 			setCustomNativeDragPreview({
@@ -41,10 +44,11 @@ export const useDraggable = <TData extends Record<string, unknown>>({
 
 	useEffect(() => {
 		const element = ref.current;
-		if (!element || disabled) return;
+		if (!element) return;
 
 		return draggable({
 			element,
+			canDrag,
 			getInitialData,
 			onGenerateDragPreview,
 			onDragStart: () => {
@@ -54,7 +58,7 @@ export const useDraggable = <TData extends Record<string, unknown>>({
 				setIsDragging(false);
 			},
 		});
-	}, [disabled]);
+	}, []);
 
 	return [
 		isDragging,

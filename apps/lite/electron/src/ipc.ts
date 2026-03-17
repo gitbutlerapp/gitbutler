@@ -17,6 +17,7 @@ import type {
 	UICommitInsertBlankResult,
 	UICommitMoveResult,
 	UICommitRewordResult,
+	UIMoveBranchResult,
 	UIMoveChangesResult,
 	UnifiedPatch,
 	WatcherEvent,
@@ -42,6 +43,12 @@ export interface BranchDetailsParams {
 export interface BranchDiffParams {
 	projectId: string;
 	branch: string;
+}
+
+export interface MoveBranchParams {
+	projectId: string;
+	subjectBranch: string;
+	targetBranch: string;
 }
 
 export interface CommitAmendParams {
@@ -142,6 +149,7 @@ export interface LiteElectronApi {
 		filter: BranchListingFilter | null,
 	) => Promise<Array<BranchListing>>;
 	listProjects: () => Promise<Array<ProjectForFrontend>>;
+	moveBranch: (params: MoveBranchParams) => Promise<UIMoveBranchResult>;
 	ping: (input: string) => Promise<string>;
 	treeChangeDiffs: (params: TreeChangeDiffParams) => Promise<UnifiedPatch | null>;
 	unapplyStack: (params: UnapplyStackParams) => Promise<void>;
@@ -168,6 +176,7 @@ export const liteIpcChannels = {
 	headInfo: "workspace:head-info",
 	listBranches: "workspace:list-branches",
 	listProjects: "projects:list",
+	moveBranch: "workspace:move-branch",
 	ping: "lite:ping",
 	treeChangeDiffs: "workspace:tree-change-diffs",
 	unapplyStack: "workspace:unapply-stack",

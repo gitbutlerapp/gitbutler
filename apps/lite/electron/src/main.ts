@@ -12,6 +12,7 @@ import {
 	type CommitRewordParams,
 	type CommitMoveChangesBetweenParams,
 	type CommitUncommitChangesParams,
+	type MoveBranchParams,
 	type TreeChangeDiffParams,
 	type ApplyParams,
 	type UnapplyStackParams,
@@ -35,6 +36,7 @@ import {
 	commitMoveChangesBetween,
 	listBranches,
 	listProjectsStateless,
+	moveBranch,
 	treeChangeDiffs,
 	unapplyStack,
 	BranchListingFilter,
@@ -114,6 +116,11 @@ function registerIpcHandlers(): void {
 		(_e, projectId: string, filter: BranchListingFilter | null) => listBranches(projectId, filter),
 	);
 	ipcMain.handle(liteIpcChannels.listProjects, () => listProjectsStateless());
+	ipcMain.handle(
+		liteIpcChannels.moveBranch,
+		(_e, { projectId, subjectBranch, targetBranch }: MoveBranchParams) =>
+			moveBranch(projectId, subjectBranch, targetBranch),
+	);
 	ipcMain.handle(liteIpcChannels.ping, (_event, input: string) =>
 		Promise.resolve(`pong: ${input}`),
 	);
