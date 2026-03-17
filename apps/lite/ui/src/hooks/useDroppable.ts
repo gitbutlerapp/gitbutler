@@ -3,11 +3,11 @@ import { type RefCallback, useEffect, useEffectEvent, useRef, useState } from "r
 
 export const useDroppable = <TData extends Record<string | symbol, unknown>>({
 	canDrop,
-	data,
+	getData: getDataProp,
 	disabled = false,
 }: {
 	canDrop: (dragData: unknown) => boolean;
-	data: TData;
+	getData: () => TData;
 	disabled?: boolean;
 }): {
 	ref: RefCallback<HTMLElement>;
@@ -15,7 +15,7 @@ export const useDroppable = <TData extends Record<string | symbol, unknown>>({
 } => {
 	const ref = useRef<HTMLElement>(null);
 	const [isDropTarget, setIsDropTarget] = useState(false);
-	const getData = useEffectEvent(() => data);
+	const getData = useEffectEvent(() => getDataProp());
 	const canDropForSource = useEffectEvent((dragData: unknown) => canDrop(dragData));
 
 	useEffect(() => {
