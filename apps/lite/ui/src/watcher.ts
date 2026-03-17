@@ -13,18 +13,18 @@ export async function subscribeToProject(projectId: string, client: QueryClient)
 	return subscriptionId;
 }
 
-function handleWatcher(event: WatcherEvent, projectId: string, client: QueryClient): boolean {
+function handleWatcher(event: WatcherEvent, projectId: string, client: QueryClient): void {
 	switch (event.payload.type) {
 		case "gitFetch":
 		case "gitHead":
 		case "gitActivity":
-			return false;
+			break;
 		case "worktreeChanges":
 			const workspaceChanges = event.payload.subject.changes;
 			client.setQueryData(
 				changesInWorktreeQueryOptions(projectId).queryKey,
 				() => workspaceChanges,
 			);
-			return true;
+			break;
 	}
 }
