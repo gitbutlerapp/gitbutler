@@ -19,6 +19,12 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 ///     - Use it like `but_api(try_from = JSONReturnType)` where `JSONReturnType::try_from(actual_return_type)?` is implemented.
 ///     - Controls how the actual return value is fallibly converted for JSON serialization in `func_json` and `func_cmd`.
 ///
+/// # Parameter Attributes
+///
+/// Function parameters may use `#[but_api(TransportType)]` to keep the implementation
+/// signature on a pure Rust type while generated wrappers accept a transport-oriented serde type.
+/// This is currently limited to owned parameters and requires `impl From<TransportType> for ParamType`.
+///
 /// These can be combined with commas, e.g. `#[but_api(napi, try_from = json::CommitDetails)]`
 /// or `#[but_api(napi, json::CommitDetails)]`.
 ///
@@ -48,6 +54,7 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 #[proc_macro_attribute]
 pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(item as ItemFn);
+    let sanitized_input_fn = strip_param_but_api_attrs(&input_fn);
 
     let vis = &input_fn.vis;
     let sig = &input_fn.sig;
@@ -309,7 +316,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         // Original function stays
-        #input_fn
+        #sanitized_input_fn
 
         const _: () = {
             #[expect(dead_code)]
@@ -386,6 +393,12 @@ enum WrapperCallArgKind {
     AsRef,
 }
 
+/// A custom wrapper-surface transport type declared on a function parameter via
+/// `#[but_api(TransportType)]`.
+struct ParamTransportMapping {
+    transport_ty: syn::Type,
+}
+
 fn build_wrapper_params<'a>(
     input: impl IntoIterator<Item = &'a syn::FnArg>,
 ) -> Result<WrapperParamsInfo, syn::Error> {
@@ -410,6 +423,19 @@ fn build_wrapper_params<'a>(
             ));
         };
         let ident = &pat_ident.ident;
+
+        if let Some(custom_transport) = parse_param_transport_mapping(pat_ty)? {
+            let transport_ty = &custom_transport.transport_ty;
+            let binding_ty = &pat_ty.ty;
+            param_field_names.push(ident.clone());
+            struct_fields_with_json_types.push(quote! { pub #ident: #transport_ty });
+            json_fn_input_params.push(syn::parse_quote! { #ident: #transport_ty });
+            param_conversions.push(quote! {
+                let mut #ident: #binding_ty = <#binding_ty>::from(#ident);
+            });
+            call_arg_idents.push(quote! { #ident });
+            continue;
+        }
 
         if let Some(mapping) = build_wrapper_parameter_mapping(&pat_ty.ty)? {
             let json_ident = mapping.json_ident.unwrap_or_else(|| ident.clone());
@@ -459,6 +485,78 @@ fn build_wrapper_params<'a>(
         call_arg_idents,
         requires_legacy,
     })
+}
+
+/// Remove parameter-level `#[but_api(...)]` attributes from the original function item before it
+/// is emitted again, as only the proc-macro implementation should interpret them.
+fn strip_param_but_api_attrs(input_fn: &ItemFn) -> ItemFn {
+    let mut stripped = input_fn.clone();
+    for arg in &mut stripped.sig.inputs {
+        let FnArg::Typed(pat_ty) = arg else {
+            continue;
+        };
+        pat_ty.attrs.retain(|attr| !attr.path().is_ident("but_api"));
+    }
+    stripped
+}
+
+/// Parse an optional parameter-local transport override from `#[but_api(TransportType)]`.
+///
+/// This mirrors the top-level `#[but_api(Type)]` shorthand by treating the provided type as the
+/// wrapper-facing transport type and assuming `impl From<TransportType> for ParamType`.
+/// The override is intentionally limited to owned parameters and cannot overlap with built-in
+/// remappings like `Context` or `gix::ObjectId`.
+fn parse_param_transport_mapping(
+    pat_ty: &syn::PatType,
+) -> Result<Option<ParamTransportMapping>, syn::Error> {
+    let mut transport_ty = None;
+
+    for attr in &pat_ty.attrs {
+        if !attr.path().is_ident("but_api") {
+            continue;
+        }
+
+        let parsed: syn::Type = attr.parse_args_with(|input: syn::parse::ParseStream| {
+            if input.peek(syn::Ident) && input.peek2(syn::Token![=]) {
+                let ident: syn::Ident = input.parse()?;
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "Expected `Type`; use `#[but_api(Type)]` instead of `#[but_api(transport = Type)]` for parameter attributes",
+                ));
+            }
+
+            let ty: syn::Type = input.parse()?;
+            if !input.is_empty() {
+                return Err(input.error("Unexpected tokens after parameter transport type"));
+            }
+            Ok(ty)
+        })?;
+
+        if transport_ty.is_some() {
+            return Err(syn::Error::new_spanned(
+                attr,
+                "Only one `#[but_api(Type)]` attribute may be specified per parameter",
+            ));
+        }
+
+        if matches!(&*pat_ty.ty, syn::Type::Reference(_)) {
+            return Err(syn::Error::new_spanned(
+                &pat_ty.ty,
+                "`#[but_api(Type)]` only supports owned parameters",
+            ));
+        }
+
+        if build_wrapper_parameter_mapping(&pat_ty.ty)?.is_some() {
+            return Err(syn::Error::new_spanned(
+                &pat_ty.ty,
+                "`#[but_api(Type)]` cannot be combined with built-in parameter remapping",
+            ));
+        }
+
+        transport_ty = Some(parsed);
+    }
+
+    Ok(transport_ty.map(|transport_ty| ParamTransportMapping { transport_ty }))
 }
 
 fn build_wrapper_parameter_mapping(
@@ -894,6 +992,21 @@ fn build_napi_params<'a>(
             ));
         };
         let ident = &pat_ident.ident;
+
+        if let Some(custom_transport) = parse_param_transport_mapping(pat_ty)? {
+            let transport_ty = &custom_transport.transport_ty;
+            let ts_type_str = type_to_ts_name(transport_ty);
+            let transport_ident = format_ident!("__{}_transport", ident);
+            let actual_ty = &pat_ty.ty;
+            params.push(quote! { #[napi(ts_arg_type = #ts_type_str)] #ident: ::serde_json::Value });
+            conversions.push(quote! {
+                let #transport_ident: #transport_ty = ::serde_json::from_value(#ident)
+                    .map_err(|e| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
+                let #ident: #actual_ty = <#actual_ty>::from(#transport_ident);
+            });
+            call_arg_idents.push(quote! { #ident });
+            continue;
+        }
 
         // Check if this parameter has a json type mapping (Context, ObjectId)
         if let Some(mapping) = json_ty_by_name.get(&ident.to_string()) {

@@ -124,6 +124,28 @@ impl From<(usize, isize)> for ComplexResult {
     }
 }
 
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum UiRelativeTo {
+    Commit(String),
+    Reference(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RelativeTo {
+    Commit(String),
+    Reference(String),
+}
+
+impl From<UiRelativeTo> for RelativeTo {
+    fn from(value: UiRelativeTo) -> Self {
+        match value {
+            UiRelativeTo::Commit(commit) => Self::Commit(commit),
+            UiRelativeTo::Reference(reference) => Self::Reference(reference),
+        }
+    }
+}
+
 pub fn oid_from_hex(hex: &str) -> gix::ObjectId {
     gix::ObjectId::from_str(hex).expect("test literal object ids are valid")
 }

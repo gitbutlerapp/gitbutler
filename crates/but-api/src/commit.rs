@@ -5,10 +5,7 @@ use but_api_macros::but_api;
 use but_core::{DiffSpec, sync::RepoExclusive, tree::create_tree::RejectionReason};
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{
-    GraphExt, LookupStep as _,
-    mutate::{InsertSide, RelativeTo},
-};
+use but_rebase::graph_rebase::{Editor, GraphExt, LookupStep as _, ToSelector, mutate::InsertSide};
 use tracing::instrument;
 
 /// Outcome after creating a commit.
@@ -328,6 +325,38 @@ pub mod ui {
     }
 }
 
+/// Specifies a location relative to which a commit operation should occur.
+/// This is the fully-owned cousin of [but_rebase::graph_rebase::mutate::RelativeTo]
+/// as the [`but_api`] macro doesn't support contained references or referenced parameters
+/// beyond a few well-known ones.
+#[derive(Debug, Clone)]
+pub enum RelativeTo {
+    /// Relative to a commit.
+    Commit(gix::ObjectId),
+    /// Relative to a reference.
+    Reference(gix::refs::FullName),
+}
+
+impl From<ui::RelativeTo> for RelativeTo {
+    fn from(value: ui::RelativeTo) -> Self {
+        match value {
+            ui::RelativeTo::Commit(commit) => Self::Commit(commit),
+            ui::RelativeTo::Reference(reference) | ui::RelativeTo::ReferenceBytes(reference) => {
+                Self::Reference(reference)
+            }
+        }
+    }
+}
+
+impl ToSelector for RelativeTo {
+    fn to_selector(&self, editor: &Editor) -> anyhow::Result<but_rebase::graph_rebase::Selector> {
+        match self {
+            Self::Commit(commit) => editor.select_commit(*commit),
+            Self::Reference(reference) => editor.select_reference(reference.as_ref()),
+        }
+    }
+}
+
 /// Inserts a blank commit relative to either a commit or a reference
 ///
 /// Returns the result including the new commit ID and any replaced commits.
@@ -335,7 +364,7 @@ pub mod ui {
 #[instrument(err(Debug))]
 pub fn commit_insert_blank_only(
     ctx: &mut but_ctx::Context,
-    relative_to: ui::RelativeTo,
+    #[but_api(ui::RelativeTo)] relative_to: RelativeTo,
     side: InsertSide,
 ) -> anyhow::Result<CommitInsertBlankResult> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -347,15 +376,13 @@ pub fn commit_insert_blank_only(
 /// Returns the result including the new commit ID and any replaced commits.
 pub(crate) fn commit_insert_blank_only_impl(
     ctx: &mut but_ctx::Context,
-    relative_to: ui::RelativeTo,
+    relative_to: RelativeTo,
     side: InsertSide,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitInsertBlankResult> {
     let meta = ctx.meta()?;
     let (repo, mut ws, _, _cache) = ctx.workspace_mut_and_db_and_cache_with_perm(perm)?;
     let editor = ws.graph.to_editor(&repo)?;
-
-    let relative_to: RelativeTo = (&relative_to).into();
 
     let (outcome, blank_commit_selector) =
         but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
@@ -380,7 +407,7 @@ pub(crate) fn commit_insert_blank_only_impl(
 #[instrument(err(Debug))]
 pub fn commit_insert_blank(
     ctx: &mut but_ctx::Context,
-    relative_to: ui::RelativeTo,
+    #[but_api(ui::RelativeTo)] relative_to: RelativeTo,
     side: InsertSide,
 ) -> anyhow::Result<CommitInsertBlankResult> {
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
@@ -402,7 +429,7 @@ pub fn commit_insert_blank(
 #[instrument(err(Debug))]
 pub fn commit_create_only(
     ctx: &mut but_ctx::Context,
-    relative_to: ui::RelativeTo,
+    #[but_api(ui::RelativeTo)] relative_to: RelativeTo,
     side: InsertSide,
     changes: Vec<DiffSpec>,
     message: String,
@@ -423,7 +450,7 @@ pub fn commit_create_only(
 /// Creates and inserts a commit relative to either a commit or a reference.
 pub(crate) fn commit_create_only_impl(
     ctx: &mut but_ctx::Context,
-    relative_to: ui::RelativeTo,
+    relative_to: RelativeTo,
     side: InsertSide,
     changes: Vec<DiffSpec>,
     message: String,
@@ -433,8 +460,6 @@ pub(crate) fn commit_create_only_impl(
     let meta = ctx.meta()?;
     let (repo, mut ws, _, _cache) = ctx.workspace_mut_and_db_and_cache_with_perm(perm)?;
     let editor = ws.graph.to_editor(&repo)?;
-    let relative_to: RelativeTo = (&relative_to).into();
-
     let but_workspace::commit::CommitCreateOutcome {
         rebase,
         commit_selector,
@@ -472,7 +497,7 @@ pub(crate) fn commit_create_only_impl(
 #[instrument(err(Debug))]
 pub fn commit_create(
     ctx: &mut but_ctx::Context,
-    relative_to: ui::RelativeTo,
+    #[but_api(ui::RelativeTo)] relative_to: RelativeTo,
     side: InsertSide,
     changes: Vec<DiffSpec>,
     message: String,
@@ -663,7 +688,7 @@ pub fn commit_move_only(
     let meta = ctx.meta()?;
     let (_guard, repo, mut ws, _, _cache) = ctx.workspace_mut_and_db_and_cache()?;
     let editor = ws.graph.to_editor(&repo)?;
-    let relative_to: RelativeTo = (&relative_to).into();
+    let relative_to: RelativeTo = relative_to.into();
 
     let rebase =
         but_workspace::commit::move_commit(editor, &ws, subject_commit_id, relative_to, side)?;

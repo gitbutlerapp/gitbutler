@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fmt::Write as _};
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::{
-    commit::{commit_create, commit_insert_blank},
+    commit::{RelativeTo, commit_create, commit_insert_blank},
     diff,
     legacy::{repo, workspace},
 };
@@ -60,11 +60,7 @@ pub(crate) fn insert_blank_commit(
                 let repo = ctx.repo.get()?;
                 shorten_object_id(&repo, *oid)
             };
-            commit_insert_blank(
-                ctx,
-                but_api::commit::ui::RelativeTo::Commit(*oid),
-                insert_side,
-            )?;
+            commit_insert_blank(ctx, RelativeTo::Commit(*oid), insert_side)?;
             format!("Created blank commit {position_desc} commit {short_oid}")
         }
         CliId::Branch { name, .. } => {
@@ -72,11 +68,7 @@ pub(crate) fn insert_blank_commit(
                 let repo = ctx.repo.get()?;
                 repo.find_reference(name)?.detach()
             };
-            commit_insert_blank(
-                ctx,
-                but_api::commit::ui::RelativeTo::Reference(reference.name),
-                insert_side,
-            )?;
+            commit_insert_blank(ctx, RelativeTo::Reference(reference.name), insert_side)?;
             match insert_side {
                 InsertSide::Above => format!("Created blank commit at the top of stack '{name}'"),
                 InsertSide::Below => {
@@ -464,7 +456,7 @@ pub(crate) fn commit(
     // Insert relative to the branch reference itself so only that branch tip is advanced.
     let outcome = commit_create(
         ctx,
-        but_api::commit::ui::RelativeTo::Reference(target_branch.reference.clone()),
+        RelativeTo::Reference(target_branch.reference.clone()),
         InsertSide::Below,
         diff_specs,
         final_commit_message,
