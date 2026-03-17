@@ -9,6 +9,7 @@ pub mod actions;
 pub mod ai;
 pub mod branch;
 pub mod commit;
+pub mod commit_message_prep;
 pub mod diff;
 pub mod discard;
 pub mod forge;

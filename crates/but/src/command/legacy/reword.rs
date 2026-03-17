@@ -4,7 +4,13 @@ use but_api::diff::ComputeLineStats;
 use but_ctx::Context;
 use gix::prelude::ObjectIdExt;
 
-use super::{ShowDiffInEditor, estimate_diff_blob_size};
+use super::{
+    ShowDiffInEditor,
+    commit_message_prep::{
+        normalize_commit_message, prepare_provided_commit_message, should_update_commit_message,
+    },
+    estimate_diff_blob_size,
+};
 use crate::{CliId, IdMap, tui, utils::OutputChannel};
 
 pub(crate) fn reword_target(
@@ -136,10 +142,10 @@ pub(crate) fn get_commit_message_from_editor(
     let new_message =
         actually_get_commit_message_from_editor(&current_message, &changed_files, diff.as_deref())?;
 
-    if new_message.trim() == current_message.trim() {
-        Ok(None)
+    if should_update_commit_message(&current_message, &new_message) {
+        Ok(Some(normalize_commit_message(&new_message).to_owned()))
     } else {
-        Ok(Some(new_message.trim().to_owned()))
+        Ok(None)
     }
 }
 
@@ -164,8 +170,8 @@ fn edit_commit_message_by_id_and_reword_commit(
         Some(but_action::commit_format::format_commit_message(
             &current_message,
         ))
-    } else if let Some(message) = prepare_provided_message(message, "commit message") {
-        Some(message?)
+    } else if let Some(message) = message {
+        Some(prepare_provided_commit_message(message)?)
     } else {
         get_commit_message_from_editor(
             ctx,
@@ -174,7 +180,7 @@ fn edit_commit_message_by_id_and_reword_commit(
             show_diff_in_editor,
         )?
     }
-    .filter(|new_message| new_message.trim() != current_message.trim());
+    .filter(|new_message| should_update_commit_message(&current_message, new_message));
 
     if let Some(new_message) = new_message {
         let new_commit_oid =
