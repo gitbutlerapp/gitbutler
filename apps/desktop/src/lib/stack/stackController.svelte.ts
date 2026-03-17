@@ -7,17 +7,18 @@
  * Instantiate during component init so that `inject()` and `$effect()` bind
  * to the component lifecycle.
  */
+import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 import {
 	createBranchSelection,
 	createCommitSelection,
 	createWorktreeSelection,
 	readKey,
 	type SelectionId,
+	type SelectedFile,
 } from "$lib/selection/key";
 import { UI_STATE } from "$lib/state/uiState.svelte";
 import { inject } from "@gitbutler/core/context";
 import { getContext, setContext } from "svelte";
-import { get } from "svelte/store";
 import type { FileSelectionManager } from "$lib/selection/fileSelectionManager.svelte";
 import type { ProjectSettingsPageId } from "$lib/settings/projectSettingsPages";
 
@@ -38,8 +39,7 @@ export function getStackContext(): StackController {
 }
 
 export class StackController {
-	/** Exposed for compound children that need direct uiState access (e.g. drop handlers). */
-	uiState;
+	private uiState;
 	private idSelection: FileSelectionManager;
 	private getProjectId: () => string;
 	private getStackId: () => string | undefined;
@@ -55,6 +55,14 @@ export class StackController {
 	private diffJumpHandler?: (index: number) => void;
 	private diffPopoutHandler?: () => void;
 
+	/**
+	 * Reactively-tracked file selection values.
+	 * Updated via $effect subscriptions to the underlying Writable stores,
+	 * so that consumers reading these in $derived/templates get proper updates.
+	 */
+	private _selectedFile = $state<SelectedFile | undefined>();
+	private _assignedKey = $state<SelectedFile | undefined>();
+
 	constructor(params: {
 		projectId: () => string;
 		stackId: () => string | undefined;
@@ -65,9 +73,32 @@ export class StackController {
 		this.getProjectId = params.projectId;
 		this.getStackId = params.stackId;
 		this.getLaneId = params.laneId;
-	}
 
-	// ── Identity ──────────────────────────────────────────────────────
+		// Subscribe to the active selection's lastAdded store so that
+		// selectedFile is properly reactive (not a snapshot via get()).
+		$effect(() => {
+			const store = this.activeLastAdded;
+			if (!store) {
+				this._selectedFile = undefined;
+				return;
+			}
+			return store.subscribe((value) => {
+				this._selectedFile = value?.key ? readKey(value.key) : undefined;
+			});
+		});
+
+		// Same for the worktree-assigned selection.
+		$effect(() => {
+			const store = this.lastAddedAssigned;
+			if (!store) {
+				this._assignedKey = undefined;
+				return;
+			}
+			return store.subscribe((value) => {
+				this._assignedKey = value?.key ? readKey(value.key) : undefined;
+			});
+		});
+	}
 
 	get projectId(): string {
 		return this.getProjectId();
@@ -154,10 +185,7 @@ export class StackController {
 	}
 
 	get selectedFile() {
-		const lastAdded = this.activeLastAdded;
-		if (!lastAdded) return undefined;
-		const value = get(lastAdded);
-		return value?.key ? readKey(value.key) : undefined;
+		return this._selectedFile;
 	}
 
 	private get assignedSelection() {
@@ -169,8 +197,7 @@ export class StackController {
 	}
 
 	get assignedKey() {
-		const value = get(this.lastAddedAssigned);
-		return value?.key ? readKey(value.key) : undefined;
+		return this._assignedKey;
 	}
 
 	get hasActiveSelection(): boolean {
@@ -202,6 +229,14 @@ export class StackController {
 
 	clearWorktreeSelection(): void {
 		this.idSelection.clear({ type: "worktree", stackId: this.stackId });
+	}
+
+	openProjectSettingsModal(selectedId?: ProjectSettingsPageId): void {
+		this.uiState.global.modal.set({
+			type: "project-settings",
+			projectId: this.projectId,
+			selectedId,
+		});
 	}
 
 	// ── Cross-panel diff coordination ─────────────────────────────────

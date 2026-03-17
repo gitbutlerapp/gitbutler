@@ -43,7 +43,6 @@
 		onVisible,
 	}: Props = $props();
 
-	// ── Controller (shared state for compound children) ───────────────
 	const controller = new StackController({
 		projectId: () => projectId,
 		stackId: () => stackId,
@@ -51,7 +50,6 @@
 	});
 	setStackContext(controller);
 
-	// ── Services (only those needed at the composition root level) ────
 	const stackService = inject(STACK_SERVICE);
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const rulesService = inject(RULES_SERVICE);
@@ -59,7 +57,6 @@
 	const ircApiService = inject(IRC_API_SERVICE);
 	const ircSessionBridge = inject(IRC_SESSION_BRIDGE);
 
-	// ── Data queries for ReduxResult ──────────────────────────────────
 	const branchesQuery = $derived(stackService.branches(controller.projectId, controller.stackId));
 	const hasRulesToClear = $derived(
 		rulesService.hasRulesToClear(controller.projectId, controller.stackId),
@@ -68,7 +65,6 @@
 		claudeCodeService.claudeConfig({ projectId: controller.projectId }),
 	);
 
-	// ── Resizer config ────────────────────────────────────────────────
 	const PANEL1_RESIZER = {
 		minWidth: 20,
 		maxWidth: 64,
@@ -86,7 +82,8 @@
 
 	let stackViewEl = $state<HTMLDivElement>();
 
-	// ── Details view width CSS custom property ────────────────────────
+	const isDetailsOpen = $derived(controller.isDetailsViewOpen);
+
 	function updateDetailsViewWidth(width: number) {
 		if (stackViewEl) {
 			stackViewEl.style.setProperty("--details-view-width", `${width}rem`);
@@ -96,7 +93,7 @@
 	$effect(() => {
 		const element = stackViewEl;
 		if (element) {
-			if (controller.isDetailsViewOpen) {
+			if (isDetailsOpen) {
 				const currentWidth = element.style.getPropertyValue("--details-view-width");
 				if (!currentWidth || currentWidth === "0rem") {
 					element.style.setProperty("--details-view-width", `${DETAILS_DEFAULT_WIDTH}rem`);
@@ -113,7 +110,6 @@
 		};
 	});
 
-	// ── IRC bridge lifecycle (needs to run at stack level) ────────────
 	const settingsStore = settingsService.appSettings;
 	const ircSettings = $derived($settingsStore?.irc);
 	const ircEnabled = $derived(
@@ -187,7 +183,7 @@
 	}}
 	use:focusable={{
 		onKeydown: (event) => {
-			if (event.key === "Escape" && controller.isDetailsViewOpen) {
+			if (event.key === "Escape" && isDetailsOpen) {
 				controller.closePreview();
 				event.preventDefault();
 				event.stopPropagation();
@@ -209,7 +205,7 @@
 			<ConfigurableScrollableContainer childrenWrapHeight="100%" enableDragScroll>
 				<div
 					class="stack-view"
-					class:details-open={controller.isDetailsViewOpen}
+					class:details-open={isDetailsOpen}
 					style:width="{$persistedStackWidth}rem"
 					data-fade-on-reorder
 					use:focusable={{
@@ -227,7 +223,7 @@
 							viewport={stackViewEl}
 							zIndex="var(--z-lifted)"
 							direction="right"
-							showBorder={!controller.isDetailsViewOpen}
+							showBorder={!isDetailsOpen}
 							minWidth={PANEL1_RESIZER.minWidth}
 							maxWidth={PANEL1_RESIZER.maxWidth}
 							defaultValue={$persistedStackWidth ?? PANEL1_RESIZER.defaultValue}
@@ -241,7 +237,7 @@
 			</ConfigurableScrollableContainer>
 
 			<!-- DETAILS PANEL -->
-			{#if controller.isDetailsViewOpen}
+			{#if isDetailsOpen}
 				<StackDetails
 					{hasRulesToClear}
 					{claudeConfig}
