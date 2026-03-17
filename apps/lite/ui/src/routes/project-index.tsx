@@ -121,14 +121,16 @@ const commonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 	return bases.every((base) => base === first) ? first : undefined;
 };
 
-const rubSourceFor = (item: SourceItem): RubSource | null => {
-	switch (item._tag) {
-		case "Commit":
-			return { _tag: "Commit", source: { commitId: item.commitId } };
-		case "TreeChange":
-			return { _tag: "TreeChange", source: item.source };
-	}
-};
+const rubSourceFor = (item: SourceItem): RubSource | null =>
+	Match.value(item).pipe(
+		Match.withReturnType<RubSource | null>(),
+		Match.tag("Commit", ({ commitId }) => ({
+			_tag: "Commit",
+			source: { commitId },
+		})),
+		Match.tag("TreeChange", ({ source }) => ({ _tag: "TreeChange", source })),
+		Match.exhaustive,
+	);
 
 const DraggedSourceItemContext = createContext<SourceItem | null>(null);
 
