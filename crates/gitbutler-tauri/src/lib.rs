@@ -35,8 +35,6 @@ pub mod debug;
 pub mod projects;
 
 pub mod settings;
-#[cfg(feature = "irc")]
-pub mod working_files;
 pub mod zip;
 
 pub mod env;

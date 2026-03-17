@@ -1,7 +1,7 @@
 //! IRC Tauri commands — thin wrappers around [`but_irc::commands`].
 
-use crate::working_files::WorkingFilesBroadcast;
 use but_api::json::{Error, ToJsonError};
+use but_irc::WorkingFilesBroadcast;
 use but_irc::commands::{self, ConnectParams, ConnectionStateResponse};
 use but_irc::message_store::Reaction;
 use but_irc::{ChannelInfo, ConnectionId, IrcManager, StoredMessage};

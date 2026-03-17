@@ -1,4 +1,4 @@
-//! Backend-driven working-files broadcast for Tauri.
+//! Backend-driven working-files broadcast.
 //!
 //! Sends the user's modified file list to the project IRC channel
 //! so other users can see what files each person is working on.
@@ -7,12 +7,13 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use but_ctx::ProjectHandleOrLegacyProjectId as ProjectId;
-use but_irc::IrcManager;
+use but_project_handle::ProjectHandleOrLegacyProjectId as ProjectId;
 use serde_json::json;
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use tracing::debug;
+
+use crate::IrcManager;
 
 /// Per-project broadcast state.
 struct ActiveBroadcast {
@@ -120,12 +121,17 @@ impl WorkingFilesBroadcast {
         let connection_id = broadcast.connection_id.clone();
         let channel = broadcast.channel.clone();
 
+        // Don't update previous_files here — only the debounce task that
+        // actually fires should update it. Otherwise, if a second watcher
+        // event cancels and replaces the first debounce task, the diff
+        // baseline is lost and the replacement task sees no change.
         let broadcast_state = self.state.clone();
         let irc_manager = self.irc_manager.clone();
         let spawn_project_id = project_id.clone();
         let handle = tokio::spawn(async move {
             tokio::time::sleep(std::time::Duration::from_millis(DEBOUNCE_MS)).await;
 
+            // Read previous_files and update it atomically at send time.
             let mut state = broadcast_state.write().await;
             let Some(broadcast) = state.get_mut(&spawn_project_id) else {
                 return;
@@ -189,6 +195,7 @@ impl WorkingFilesBroadcast {
 }
 
 /// Serialize a JSON value to a string for use as an IRC data payload.
+/// Base64 encoding is handled at the wire boundary by `IrcClient::send_message_with_data`.
 fn encode_payload(value: &serde_json::Value) -> String {
     serde_json::to_string(value).unwrap_or_else(|e| {
         tracing::warn!(error = %e, "Failed to serialize IRC payload");
