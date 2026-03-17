@@ -155,7 +155,7 @@ type OperationTarget =
 	  }
 	| {
 			_tag: "CommitMoveToBranch";
-			anchorRef: number[] | null;
+			anchorRef: Array<number> | null;
 			firstCommitId: string | undefined;
 	  };
 
@@ -860,7 +860,7 @@ type StackLaneSelection =
 	  };
 
 const CommitMoveToBranchTarget: FC<{
-	anchorRef: number[] | null;
+	anchorRef: Array<number> | null;
 	firstCommitId: string | undefined;
 	children: React.ReactElement;
 }> = ({ anchorRef, firstCommitId, children }) => {
