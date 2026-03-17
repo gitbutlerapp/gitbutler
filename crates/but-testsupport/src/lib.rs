@@ -3,9 +3,11 @@
 
 use std::{collections::HashMap, io::Write, path::Path};
 
+use but_core::ChangeId;
 use gix::{
     bstr::{BStr, ByteSlice},
     config::tree::Key,
+    prelude::ObjectIdExt as _,
 };
 pub use gix_testtools;
 use gix_testtools::{Creation, FixtureState, PostResult, tempfile};
@@ -132,6 +134,35 @@ pub fn open_repo_config() -> anyhow::Result<gix::open::Options> {
 /// turn a 40 byte hex-id into an object ID or panic.
 pub fn hex_to_id(hex: &str) -> gix::ObjectId {
     gix::ObjectId::from_hex(hex.as_bytes()).expect("statically known to be valid")
+}
+
+/// Return stable change-ids for every commit object present in `repo`.
+pub fn stable_change_ids_for_all_commits(
+    repo: &gix::Repository,
+) -> anyhow::Result<HashMap<gix::ObjectId, ChangeId>> {
+    let mut commit_ids = HashMap::<gix::ObjectId, ChangeId>::new();
+
+    for object_id in repo.objects.iter()? {
+        let object_id = object_id?;
+        if object_id.attach(repo).header()?.kind() != gix::object::Kind::Commit {
+            continue;
+        }
+
+        commit_ids.insert(object_id, ChangeId::from_bytes(object_id.as_slice()));
+    }
+
+    Ok(commit_ids)
+}
+
+/// Populate `cache` with stable change-ids for every commit object present in `repo`.
+pub fn seed_cache_with_stable_change_ids_for_all_commits(
+    repo: &gix::Repository,
+    cache: &mut but_db::CacheHandle,
+) -> anyhow::Result<()> {
+    cache
+        .commit_metadata_mut()?
+        .set_change_ids(stable_change_ids_for_all_commits(repo)?)?;
+    Ok(())
 }
 
 /// Sets up an environment that assures commits are reproducible. This is particularly

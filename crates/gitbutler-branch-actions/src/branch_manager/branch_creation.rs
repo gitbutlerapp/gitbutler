@@ -347,7 +347,7 @@ impl BranchManager<'_> {
             let mut rebase = but_rebase::Rebase::new(&repo, default_target.sha, None)?;
             rebase.steps(steps)?;
             rebase.rebase_noops(true);
-            let output = rebase.rebase()?;
+            let output = rebase.rebase(&*self.ctx.cache.get_cache()?)?;
             let new_head = git2_repo.find_commit(output.top_commit.to_git2())?;
 
             stack.set_stack_head(&vb_state, &repo, new_head.id().to_gix())?;

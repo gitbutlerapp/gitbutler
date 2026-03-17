@@ -160,7 +160,7 @@ pub fn integrate_branch_with_steps(
     let mut rebase = Rebase::new(&repo, merge_base, None)?;
     rebase.steps(new_rebase_steps)?;
     rebase.rebase_noops(false);
-    let result = rebase.rebase()?;
+    let result = rebase.rebase(&*ctx.cache.get_cache()?)?;
     let head = result.top_commit.to_git2();
 
     source_stack.set_stack_head(&vb_state, &repo, head.to_gix())?;

@@ -107,7 +107,7 @@ pub(crate) fn tear_off_branch(
     let mut new_stack_rebase = Rebase::new(&repo, source_merge_base, None)?;
     new_stack_rebase.steps(subject_branch_steps)?;
     new_stack_rebase.rebase_noops(false);
-    let new_stack_rebase_output = new_stack_rebase.rebase()?;
+    let new_stack_rebase_output = new_stack_rebase.rebase(&*ctx.cache.get_cache()?)?;
 
     let subject_branch_reference_spec = new_stack_rebase_output
         .clone()
@@ -168,7 +168,7 @@ fn inject_branch_steps_into_destination(
     let mut destination_stack_rebase = Rebase::new(repo, destination_merge_base, None)?;
     destination_stack_rebase.steps(new_destination_steps)?;
     destination_stack_rebase.rebase_noops(false);
-    let destination_rebase_result = destination_stack_rebase.rebase()?;
+    let destination_rebase_result = destination_stack_rebase.rebase(&*ctx.cache.get_cache()?)?;
     let new_destination_head = repo.find_commit(destination_rebase_result.top_commit)?;
     let mut destination_stack = destination_stack;
 
@@ -218,7 +218,7 @@ fn extract_and_rebase_source_branch(
         let mut source_stack_rebase = Rebase::new(repository, source_merge_base, None)?;
         source_stack_rebase.steps(new_source_steps)?;
         source_stack_rebase.rebase_noops(false);
-        let source_rebase_result = source_stack_rebase.rebase()?;
+        let source_rebase_result = source_stack_rebase.rebase(&*ctx.cache.get_cache()?)?;
         let new_source_head = repository.find_commit(source_rebase_result.top_commit)?;
 
         source_stack.remove_branch(ctx, subject_branch_name)?;

@@ -137,7 +137,7 @@ pub fn cherry_apply(
     let mut rebase = Rebase::new(&repo, stack.merge_base(ctx)?, None)?;
     rebase.steps(steps)?;
     rebase.rebase_noops(false);
-    let output = rebase.rebase()?;
+    let output = rebase.rebase(&*ctx.cache.get_cache()?)?;
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
     {
