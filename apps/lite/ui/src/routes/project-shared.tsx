@@ -59,6 +59,10 @@ const hunkHeaderEquals = (a: HunkHeader, b: HunkHeader): boolean =>
 const formatHunkHeader = (hunk: HunkHeader): string =>
 	`-${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines}`;
 
+export const DragPreview: FC<{
+	children: ReactNode;
+}> = ({ children }) => <div className={styles.dragPreview}>{children}</div>;
+
 const assignedHunks = (
 	hunks: Array<DiffHunk>,
 	assignments: Array<HunkAssignment>,
@@ -93,7 +97,7 @@ const DraggableHunk: FC<
 				},
 			},
 		}),
-		preview: <div className={styles.dragPreview}>Hunk {formatHunkHeader(hunk)}</div>,
+		preview: <DragPreview>Hunk {formatHunkHeader(hunk)}</DragPreview>,
 		disabled: patch.subject.isResultOfBinaryToTextConversion,
 	});
 
@@ -248,11 +252,13 @@ const DraggableCommit: FC<
 > = ({ commit, render, ...props }) => {
 	const { id: commitId } = commit;
 	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData => ({ sourceItem: { _tag: "Commit", commitId } }),
+		getInitialData: (): DragData => ({
+			sourceItem: { _tag: "Commit", commitId },
+		}),
 		preview: (
-			<div className={styles.dragPreview}>
+			<DragPreview>
 				<CommitLabel commit={commit} />
-			</div>
+			</DragPreview>
 		),
 	});
 
@@ -389,7 +395,10 @@ export const CommitRow: FC<
 		(_currentMessage, nextMessage: string) => nextMessage,
 	);
 
-	const commitWithOptimisticMessage: Commit = { ...commit, message: optimisticMessage };
+	const commitWithOptimisticMessage: Commit = {
+		...commit,
+		message: optimisticMessage,
+	};
 
 	const insertBlankCommit = (side: "above" | "below") => {
 		commitInsertBlank.mutate({

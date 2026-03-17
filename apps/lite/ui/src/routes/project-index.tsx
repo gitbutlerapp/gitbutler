@@ -26,6 +26,7 @@ import {
 	CommitRow,
 	CommitsList,
 	type DragData,
+	DragPreview,
 	FileButton,
 	FileDiff,
 	Hunk,
@@ -338,7 +339,7 @@ const DraggableFile: FC<
 				},
 			},
 		}),
-		preview: <div className={sharedStyles.dragPreview}>{change.path}</div>,
+		preview: <DragPreview>{change.path}</DragPreview>,
 	});
 
 	return useRender({
