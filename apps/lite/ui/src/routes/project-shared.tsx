@@ -98,7 +98,7 @@ const DraggableHunk: FC<
 			},
 		}),
 		preview: <DragPreview>Hunk {formatHunkHeader(hunk)}</DragPreview>,
-		disabled: patch.subject.isResultOfBinaryToTextConversion,
+		canDrag: () => !patch.subject.isResultOfBinaryToTextConversion,
 	});
 
 	return useRender({
