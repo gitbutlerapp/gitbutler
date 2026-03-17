@@ -53,6 +53,8 @@ import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 
+const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
+
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
 
 const getBranchNameByCommitId = (headInfo: RefInfo): Map<string, string> => {
@@ -121,8 +123,6 @@ const commonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 	if (first === undefined) return undefined;
 	return bases.every((base) => base === first) ? first : undefined;
 };
-
-const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
 const rubSourceFor = (item: SourceItem): RubSource => {
 	switch (item._tag) {

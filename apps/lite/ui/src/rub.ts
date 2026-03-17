@@ -1,7 +1,14 @@
-import { HunkAssignmentRequest, HunkHeader, TreeChange } from "@gitbutler/but-sdk";
+import {
+	AssignmentRejection,
+	HunkAssignmentRequest,
+	HunkHeader,
+	TreeChange,
+} from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { type ChangeUnit } from "#ui/ChangeUnit.ts";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
+
+const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
 export type TreeChangeRubSource = {
 	parent: ChangeUnit;
@@ -22,6 +29,32 @@ export type RubResult = {
 	replacedCommits?: Record<string, string>;
 	newCommit?: string | null;
 	amendedCommitId?: string;
+};
+
+// TODO: we need path on the response?
+const decodePathBytes = (pathBytes: Array<number>): string =>
+	new TextDecoder().decode(Uint8Array.from(pathBytes));
+
+const describeAssignmentRejection = (rejection: AssignmentRejection): string => {
+	const path = decodePathBytes(rejection.request.pathBytes);
+	const hunkHeader = rejection.request.hunkHeader;
+	if (!hunkHeader) return path;
+
+	return `${path} (-${hunkHeader.oldStart},${hunkHeader.oldLines} +${hunkHeader.newStart},${hunkHeader.newLines})`;
+};
+
+const assignmentRejectionMessage = (rejections: Array<AssignmentRejection>): string => {
+	if (rejections.length === 0) return "Failed to assign.";
+
+	const messages = rejections.map((rejection) => {
+		const subject = describeAssignmentRejection(rejection);
+		if (rejection.locks.length === 0) return `${subject}: failed to assign`;
+
+		const commitIds = rejection.locks.map((lock) => shortCommitId(lock.commitId));
+		return `${subject}: depends on ${commitIds.join(", ")}`;
+	});
+
+	return `Failed to assign: ${messages.join("; ")}.`;
 };
 
 export const rub = async ({
@@ -80,7 +113,7 @@ export const rub = async ({
 							};
 						}),
 						Match.tag("changes", async (target) => {
-							await window.lite.assignHunk({
+							const response = await window.lite.assignHunk({
 								projectId,
 								assignments: source.hunkHeaders.map(
 									(hunkHeader): HunkAssignmentRequest => ({
@@ -90,6 +123,8 @@ export const rub = async ({
 									}),
 								),
 							});
+							// TODO: return error instead of throwing so it doesn't get picked up by Sentry
+							if (response.length > 0) throw new Error(assignmentRejectionMessage(response));
 							return {};
 						}),
 						Match.exhaustive,
