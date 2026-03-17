@@ -37,6 +37,10 @@
 	flex-direction: column;
 }
 
+.commitRow {
+	display: flex;
+}
+
 .commitDetails {
 	padding-left: 8px;
 }
@@ -101,4 +105,26 @@
 
 .dragging {
 	opacity: 0.4;
+}
+
+.editCommitMessageInput {
+	flex-grow: 1;
+	field-sizing: content;
+	box-sizing: content-box;
+	min-height: calc(2lh);
+}
+
+.menuPopup {
+	border: 1px solid;
+	background-color: white;
+}
+
+.menuItem {
+	padding: 4px;
+	border: 1px solid;
+	cursor: default;
+
+	&[data-disabled] {
+		opacity: 0.5;
+	}
 }
