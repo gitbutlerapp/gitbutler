@@ -12,20 +12,17 @@ import {
 import { createRoot } from "react-dom/client";
 
 export const useDraggable = <TData extends Record<string, unknown>>({
-	data,
+	getInitialData: getInitialDataProp,
 	preview,
 	disabled = false,
 }: {
-	data: TData;
+	getInitialData: () => TData;
 	preview: ReactNode;
 	disabled?: boolean;
-}): {
-	ref: RefCallback<HTMLElement>;
-	isDragging: boolean;
-} => {
+}): [boolean, RefCallback<HTMLElement>] => {
 	const ref = useRef<HTMLElement>(null);
 	const [isDragging, setIsDragging] = useState(false);
-	const getInitialData = useEffectEvent(() => data);
+	const getInitialData = useEffectEvent(() => getInitialDataProp());
 	const onGenerateDragPreview = useEffectEvent(
 		({ nativeSetDragImage }: { nativeSetDragImage: DataTransfer["setDragImage"] | null }) => {
 			setCustomNativeDragPreview({
@@ -59,10 +56,10 @@ export const useDraggable = <TData extends Record<string, unknown>>({
 		});
 	}, [disabled]);
 
-	return {
-		ref: (element) => {
+	return [
+		isDragging,
+		(element) => {
 			ref.current = element;
 		},
-		isDragging,
-	};
+	];
 };

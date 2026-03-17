@@ -344,21 +344,23 @@ const DraggableFile: FC<
 		assignments?: Array<HunkAssignment>;
 	} & useRender.ComponentProps<"div">
 > = ({ change, changeUnit, assignments, render, ...props }) => {
-	const sourceItem: SourceItem = {
-		_tag: "TreeChange",
-		source: {
-			parent: changeUnit,
-			change,
-			hunkHeaders: assignments
-				? assignments.flatMap((assignment) =>
-						// TODO: is this correct?
-						assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
-					)
-				: [],
-		},
-	};
-	const { ref: dragRef, isDragging } = useDraggable({
-		data: { sourceItem } satisfies DragData,
+	const [isDragging, dragRef] = useDraggable({
+		getInitialData: () =>
+			({
+				sourceItem: {
+					_tag: "TreeChange",
+					source: {
+						parent: changeUnit,
+						change,
+						hunkHeaders: assignments
+							? assignments.flatMap((assignment) =>
+									// TODO: is this correct?
+									assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
+								)
+							: [],
+					},
+				},
+			}) satisfies DragData,
 		preview: <div className={sharedStyles.dragPreview}>{change.path}</div>,
 	});
 
@@ -483,15 +485,16 @@ const RubTarget: FC<{
 	children: React.ReactElement;
 }> = ({ target, children }) => {
 	const sourceItem = useDraggedSourceItem();
-	const { ref: dropRef, isDropTarget } = useDroppable({
+	const [isDropTarget, dropRef] = useDroppable({
 		canDrop: (dragData) => {
 			const sourceItem = parseDragData(dragData);
 			return !!sourceItem && rubOperationLabel(rubSourceFor(sourceItem), target) !== null;
 		},
-		data: {
-			_tag: "Rub",
-			target,
-		} satisfies OperationTarget,
+		getData: () =>
+			({
+				_tag: "Rub",
+				target,
+			}) satisfies OperationTarget,
 	});
 
 	const tooltip =
@@ -525,18 +528,19 @@ const CommitMoveTarget: FC<{
 		(side === "above" && previousCommitId === sourceCommitId) ||
 		(side === "below" && nextCommitId === sourceCommitId);
 
-	const { ref: dropRef, isDropTarget } = useDroppable({
+	const [isDropTarget, dropRef] = useDroppable({
 		canDrop: (dragData) => {
 			const sourceItem = parseDragData(dragData);
 			return sourceItem?._tag === "Commit" && !isNoOp(sourceItem.commitId);
 		},
-		data: {
-			_tag: "CommitMove",
-			anchorCommitId: commitId,
-			side,
-			previousCommitId,
-			nextCommitId,
-		} satisfies OperationTarget,
+		getData: () =>
+			({
+				_tag: "CommitMove",
+				anchorCommitId: commitId,
+				side,
+				previousCommitId,
+				nextCommitId,
+			}) satisfies OperationTarget,
 	});
 
 	return (
@@ -865,17 +869,18 @@ const CommitMoveToBranchTarget: FC<{
 	firstCommitId: string | undefined;
 	children: React.ReactElement;
 }> = ({ anchorRef, firstCommitId, children }) => {
-	const { ref: dropRef, isDropTarget } = useDroppable({
+	const [isDropTarget, dropRef] = useDroppable({
 		canDrop: (dragData) => {
 			const sourceItem = parseDragData(dragData);
 			return sourceItem?._tag === "Commit" && firstCommitId !== sourceItem.commitId;
 		},
 		disabled: anchorRef === null,
-		data: {
-			_tag: "CommitMoveToBranch",
-			anchorRef,
-			firstCommitId,
-		} satisfies OperationTarget,
+		getData: () =>
+			({
+				_tag: "CommitMoveToBranch",
+				anchorRef,
+				firstCommitId,
+			}) satisfies OperationTarget,
 	});
 
 	return (
@@ -1051,7 +1056,7 @@ const StackLane: FC<{
 };
 
 const ProjectPage: FC = () => {
-	const { projectId } = projectRootRoute.useLoaderData();
+	const { id: projectId } = projectRootRoute.useParams();
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 	const [draggedSourceItem, setDraggedSourceItem] = useState<SourceItem | null>(null);
