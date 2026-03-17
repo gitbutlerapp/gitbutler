@@ -347,14 +347,21 @@ pub fn amend_commit_from_worktree_changes(
     let mut guard = ctx.exclusive_worktree_access();
     let repo = ctx.repo.get()?;
     let data_dir = ctx.project_data_dir();
-    amend_commit_and_count_failures(
+    let outcome = amend_commit_and_count_failures(
         stack_id,
         commit_id,
         worktree_changes,
         &mut guard,
         &repo,
         &data_dir,
-    )
+    )?;
+
+    // Refresh the workspace commit so `gitbutler/workspace` HEAD stays in sync
+    // with the rewritten branch commits. Without this, tools that inspect HEAD
+    // (e.g. pre-push hooks that stash against it) see a stale synthetic commit.
+    update_workspace_commit(ctx, false)?;
+
+    Ok(outcome)
 }
 
 /// Amend a commit with the given changes and return the number of rejected files
