@@ -145,7 +145,7 @@ type OperationTarget =
 	  }
 	| {
 			_tag: "CommitMove";
-			anchorCommitId: string;
+			relativeTo: RelativeTo;
 			side: InsertSide;
 	  }
 	| {
@@ -211,10 +211,7 @@ const useRunOperation = (projectId: string) => {
 				commitMove.mutate({
 					projectId,
 					subjectCommitId: sourceItem.commitId,
-					relativeTo: {
-						type: "commit",
-						subject: operationTarget.anchorCommitId,
-					},
+					relativeTo: operationTarget.relativeTo,
 					side: operationTarget.side,
 				});
 			}),
@@ -536,7 +533,7 @@ const CommitMoveTarget: FC<{
 		},
 		getData: (): OperationTarget => ({
 			_tag: "CommitMove",
-			anchorCommitId: commitId,
+			relativeTo: { type: "commit", subject: commitId },
 			side,
 		}),
 	});
