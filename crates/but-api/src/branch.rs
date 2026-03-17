@@ -150,7 +150,7 @@ pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges>
 }
 
 /// Move a branch on top of another
-#[but_api(json::UIMoveBranchResult)]
+#[but_api(napi, json::UIMoveBranchResult)]
 #[instrument(err(Debug))]
 pub fn move_branch(
     ctx: &mut but_ctx::Context,
@@ -172,6 +172,10 @@ pub fn move_branch(
 }
 
 /// Move the branch, updating the workspace and the metadata.
+///
+/// `subject_branch` - The branch to move.
+///
+/// `target_branch` - The branch to move `subject_branch` on top of.
 fn move_branch_impl(
     ctx: &mut but_ctx::Context,
     subject_branch: &gix::refs::FullNameRef,
@@ -182,6 +186,53 @@ fn move_branch_impl(
     let editor = workspace.graph.to_editor(&repo)?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(editor, &workspace, subject_branch, target_branch)?;
+
+    let materialization = rebase.materialize()?;
+    if let Some((ws_meta, ref_name)) = ws_meta.zip(workspace.ref_name()) {
+        let mut md = meta.workspace(ref_name)?;
+        *md = ws_meta;
+        meta.set_workspace(&md)?;
+    }
+    workspace.refresh_from_head(&repo, &meta)?;
+
+    Ok(MoveBranchResult {
+        replaced_commits: materialization.history.commit_mappings(),
+    })
+}
+
+/// Take a branch out of a stack
+///
+/// `subject_branch` - The branch to take out of its stack, and create a new one out of.
+#[but_api(napi, json::UIMoveBranchResult)]
+#[instrument(err(Debug))]
+pub fn tear_off_branch(
+    ctx: &mut but_ctx::Context,
+    subject_branch: &gix::refs::FullNameRef,
+) -> anyhow::Result<MoveBranchResult> {
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
+        ctx,
+        SnapshotDetails::new(OperationKind::TearOffBranch),
+    )
+    .ok();
+
+    let move_branch_result = tear_off_branch_impl(ctx, subject_branch);
+    if let Some(snapshot) = maybe_oplog_entry.filter(|_| move_branch_result.is_ok()) {
+        let mut guard = ctx.exclusive_worktree_access();
+        snapshot.commit(ctx, guard.write_permission()).ok();
+    }
+    move_branch_result
+}
+
+/// Move the branch, updating the workspace and the metadata.
+fn tear_off_branch_impl(
+    ctx: &mut but_ctx::Context,
+    subject_branch: &gix::refs::FullNameRef,
+) -> anyhow::Result<MoveBranchResult> {
+    let mut meta = ctx.meta()?;
+    let (_guard, repo, mut workspace, _) = ctx.workspace_mut_and_db()?;
+    let editor = workspace.graph.to_editor(&repo)?;
+    let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
+        but_workspace::branch::tear_off_branch(editor, &workspace, subject_branch, None)?;
 
     let materialization = rebase.materialize()?;
     if let Some((ws_meta, ref_name)) = ws_meta.zip(workspace.ref_name()) {

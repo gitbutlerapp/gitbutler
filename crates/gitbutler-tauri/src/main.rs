@@ -299,7 +299,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::virtual_branches::tauri_fetch_from_remotes::fetch_from_remotes,
                 legacy::virtual_branches::tauri_move_commit::move_commit,
                 legacy::virtual_branches::tauri_move_branch_legacy::move_branch_legacy,
-                legacy::virtual_branches::tauri_tear_off_branch::tear_off_branch,
+                legacy::virtual_branches::tauri_tear_off_branch_legacy::tear_off_branch_legacy,
                 legacy::virtual_branches::tauri_normalize_branch_name::normalize_branch_name,
                 legacy::virtual_branches::tauri_upstream_integration_statuses::upstream_integration_statuses,
                 legacy::virtual_branches::tauri_integrate_upstream::integrate_upstream,
