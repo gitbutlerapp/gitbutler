@@ -204,20 +204,7 @@
 		<IrcRow stackId={controller.stackId} channel={ircChannel} selected={controller.ircPanelOpen} />
 	{/if}
 
-	<BranchList
-		projectId={controller.projectId}
-		{branches}
-		laneId={controller.laneId}
-		stackId={controller.stackId}
-		active={controller.active}
-		onclick={() => {
-			controller.clearWorktreeSelection();
-		}}
-		onFileClick={(index) => {
-			controller.jumpToIndex(index);
-		}}
-		visibleRange={controller.visibleRange}
-	/>
+	<BranchList {branches} />
 </div>
 
 <style lang="postcss">
