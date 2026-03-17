@@ -20,9 +20,11 @@ function handleWatcher(event: WatcherEvent, projectId: string, client: QueryClie
 		case "gitActivity":
 			return false;
 		case "worktreeChanges":
-			const opts = changesInWorktreeQueryOptions(projectId);
 			const workspaceChanges = event.payload.subject.changes;
-			client.setQueryData(opts.queryKey, () => workspaceChanges);
+			client.setQueryData(
+				changesInWorktreeQueryOptions(projectId).queryKey,
+				() => workspaceChanges,
+			);
 			return true;
 	}
 }
