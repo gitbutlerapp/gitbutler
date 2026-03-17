@@ -1,7 +1,7 @@
 use bstr::{BStr, ByteSlice};
 use but_core::{ChangeId, commit::Headers};
 
-/// Extension trait for `git2::Commit`.
+/// Extension trait for `gix::Commit`.
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Commit`
 pub trait CommitExt {
