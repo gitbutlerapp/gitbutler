@@ -109,6 +109,7 @@ pub(crate) fn handle(
         .create_snapshot(SnapshotDetails::new(operation), guard.write_permission())
         .ok(); // Ignore errors for snapshot creation
     absorb_assignments(
+        ctx,
         absorption_plan,
         &mut guard,
         &repo,
@@ -118,12 +119,6 @@ pub(crate) fn handle(
         new,
         plan_json,
     )?;
-    drop(guard);
-
-    // Refresh the workspace commit so `gitbutler/workspace` HEAD stays in sync
-    // with the rewritten branch commits. Without this, tools that inspect HEAD
-    // (e.g. pre-push hooks that stash against it) see a stale synthetic commit.
-    update_workspace_commit(ctx, false)?;
 
     Ok(())
 }
@@ -131,6 +126,7 @@ pub(crate) fn handle(
 /// Absorb a single file into the appropriate commit
 #[expect(clippy::too_many_arguments)]
 fn absorb_assignments(
+    ctx: &Context,
     absorption_plan: Vec<CommitAbsorption>,
     guard: &mut RepoExclusiveGuard,
     repo: &gix::Repository,
@@ -145,6 +141,11 @@ fn absorb_assignments(
     } else {
         but_api::legacy::absorb::absorb_impl(absorption_plan, guard, repo, data_dir)?
     };
+
+    // Refresh the workspace commit so `gitbutler/workspace` HEAD stays in sync
+    // with the rewritten branch commits. Without this, tools that inspect HEAD
+    // (e.g. pre-push hooks that stash against it) see a stale synthetic commit.
+    update_workspace_commit(ctx, false)?;
 
     // Display completion message
     if let Some(out) = out.for_human() {
