@@ -1,4 +1,5 @@
 use anyhow::{Result, anyhow};
+use bstr::ByteSlice as _;
 use but_core::{
     RefMetadata, RepositoryExt,
     ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
@@ -60,6 +61,34 @@ fn seed_metadata(repo: &gix::Repository) -> Result<()> {
         push_remote_name: Some("origin".to_owned()),
     };
     VirtualBranchesHandle::new(repo.gitbutler_storage_path()?).set_default_target(target)?;
+    Ok(())
+}
+
+#[test]
+fn basic_leaving_edit_mode() -> Result<()> {
+    let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
+    let repo = ctx.git2_repo.get()?;
+
+    let foobar = repo.head()?.peel_to_commit()?.parent(0)?.id();
+
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let stacks = vb_state.list_stacks_in_workspace()?;
+    let stack = stacks.first().unwrap();
+    let worktree_dir = repo.path().parent().unwrap().to_path_buf();
+    drop(repo);
+    enter_edit_mode(&mut ctx, foobar.to_gix(), stack.id)?;
+
+    std::fs::write(worktree_dir.join("file"), "edited during edit mode\n")?;
+    std::fs::write(worktree_dir.join("newfile"), "created during edit mode\n")?;
+
+    save_and_return_to_workspace(&mut ctx)?;
+
+    let repo = ctx.repo.get()?;
+    let blob = repo.rev_parse_single(b"HEAD^{/foobar}:file")?.object()?;
+    insta::assert_snapshot!(blob.data.as_bstr(), @"edited during edit mode");
+    let blob = repo.rev_parse_single(b"HEAD^{/foobar}:newfile")?.object()?;
+    insta::assert_snapshot!(blob.data.as_bstr(), @"created during edit mode");
+
     Ok(())
 }
 
