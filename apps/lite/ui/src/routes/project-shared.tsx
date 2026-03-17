@@ -50,6 +50,9 @@ const hunkHeaderEquals = (a: HunkHeader, b: HunkHeader): boolean =>
 	a.newStart === b.newStart &&
 	a.newLines === b.newLines;
 
+const formatHunkHeader = (hunk: HunkHeader): string =>
+	`-${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines}`;
+
 const assignedHunks = (
 	hunks: Array<DiffHunk>,
 	assignments: Array<HunkAssignment>,
@@ -84,11 +87,7 @@ const DraggableHunk: FC<
 				},
 			},
 		}),
-		preview: (
-			<div className={styles.dragPreview}>
-				Hunk -{hunk.oldStart},{hunk.oldLines}, +{hunk.newStart},{hunk.newLines}
-			</div>
-		),
+		preview: <div className={styles.dragPreview}>Hunk {formatHunkHeader(hunk)}</div>,
 		disabled: patch.subject.isResultOfBinaryToTextConversion,
 	});
 
@@ -122,7 +121,7 @@ export const Hunk: FC<{
 				hunk={hunk}
 				className={styles.hunkHeader}
 			>
-				-{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines}
+				{formatHunkHeader(hunk)}
 			</DraggableHunk>
 		</div>
 		<HunkDiff diff={hunk.diff} />
