@@ -6,10 +6,7 @@ type LibParams = Parameters<typeof dropTargetForElements>[0];
 export const useDroppable = ({
 	canDrop: canDropProp,
 	getData: getDataProp,
-	disabled = false,
-}: Pick<LibParams, "canDrop" | "getData"> & {
-	disabled?: boolean;
-}): [boolean, RefCallback<HTMLElement>] => {
+}: Pick<LibParams, "canDrop" | "getData">): [boolean, RefCallback<HTMLElement>] => {
 	const ref = useRef<HTMLElement>(null);
 	const [isDropTarget, setIsDropTarget] = useState(false);
 	const getData: LibParams["getData"] = useEffectEvent((x) => getDataProp?.(x) ?? {});
@@ -17,7 +14,7 @@ export const useDroppable = ({
 
 	useEffect(() => {
 		const element = ref.current;
-		if (!element || disabled) return;
+		if (!element) return;
 
 		return dropTargetForElements({
 			element,
@@ -33,7 +30,7 @@ export const useDroppable = ({
 				setIsDropTarget(false);
 			},
 		});
-	}, [disabled]);
+	}, []);
 
 	return [
 		isDropTarget,
