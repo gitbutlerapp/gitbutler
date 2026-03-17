@@ -43,7 +43,7 @@ workspace (gitbutler/workspace)
 
 ## CLI IDs: Short Identifiers
 
-Every object gets a short, human-readable CLI ID shown in `but status`. IDs are generated per-session and are unique across all entity types (no two objects share an ID) — always read them from `but status --json`.
+Every object gets a short, human-readable CLI ID shown in `but status`. IDs are generated per-session and are unique across all entity types (no two objects share an ID) — always read them from `but status`.
 
 ```
 Commits:    1b, 8f, c2     (short hex prefixes of the SHA, long enough to be unique)
@@ -345,7 +345,7 @@ Git commands that don't modify state are safe to use:
 **Safe (read-only):**
 
 - `git log` - View history
-- `git diff` - See changes (but prefer `but diff` — it supports CLI IDs and `--json`)
+- `git diff` - See changes (but prefer `but diff` — it supports CLI IDs)
 - `git show` - View commits
 - `git blame` - See line history
 - `git reflog` - View reference log
