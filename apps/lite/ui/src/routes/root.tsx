@@ -1,5 +1,5 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { Link, Outlet, createRootRoute, useMatch } from "@tanstack/react-router";
+import { QueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { Link, Outlet, createRootRouteWithContext, useMatch } from "@tanstack/react-router";
 import { FC } from "react";
 import styles from "./root.module.css";
 
@@ -86,6 +86,10 @@ const RootLayout: FC = () => (
 	</main>
 );
 
-export const rootRoute = createRootRoute({
+interface RouteContext {
+	queryClient: QueryClient;
+}
+
+export const rootRoute = createRootRouteWithContext<RouteContext>()({
 	component: RootLayout,
 });

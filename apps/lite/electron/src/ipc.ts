@@ -19,6 +19,7 @@ import type {
 	UICommitRewordResult,
 	UIMoveChangesResult,
 	UnifiedPatch,
+	WatcherEvent,
 	WorktreeChanges,
 } from "@gitbutler/but-sdk";
 
@@ -111,6 +112,19 @@ export interface UnapplyStackParams {
 	stackId: string;
 }
 
+export interface WatcherSubscribeParams {
+	projectId: string;
+}
+
+export interface WatcherUnsubscribeParams {
+	subscriptionId: string;
+}
+
+export interface WatcherSubscribeResult {
+	subscriptionId: string;
+	eventChannel: string;
+}
+
 export interface LiteElectronApi {
 	apply: (params: ApplyParams) => Promise<ApplyOutcome>;
 	assignHunk: (params: AssignHunkParams) => Promise<Array<AssignmentRejection>>;
@@ -138,6 +152,9 @@ export interface LiteElectronApi {
 	ping: (input: string) => Promise<string>;
 	treeChangeDiffs: (params: TreeChangeDiffParams) => Promise<UnifiedPatch | null>;
 	unapplyStack: (params: UnapplyStackParams) => Promise<void>;
+	watcherSubscribe: (projectId: string, callback: (event: WatcherEvent) => void) => Promise<string>;
+	watcherUnsubscribe: (subscriptionId: string) => Promise<boolean>;
+	watcherStopAll: () => Promise<number>;
 }
 
 export const liteIpcChannels = {
@@ -162,4 +179,7 @@ export const liteIpcChannels = {
 	ping: "lite:ping",
 	treeChangeDiffs: "workspace:tree-change-diffs",
 	unapplyStack: "workspace:unapply-stack",
+	watcherSubscribe: "workspace:watcher-subscribe",
+	watcherUnsubscribe: "workspace:watcher-unsubscribe",
+	watcherStopAll: "workspace:watcher-stop-all",
 } as const;

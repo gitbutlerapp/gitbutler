@@ -1,11 +1,11 @@
-import { router } from "#ui/router.tsx";
-import { Toast, ToastManager } from "@base-ui/react/toast";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toast } from "@base-ui/react/toast";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RouterProvider } from "@tanstack/react-router";
 import { FC, StrictMode } from "react";
 import styles from "./App.module.css";
 import { Tooltip } from "@base-ui/react";
+import { queryClient, router, toastManager } from "#ui/router.tsx";
 
 const Toasts: FC = () => {
 	const { toasts } = Toast.useToastManager();
@@ -26,11 +26,7 @@ const Toasts: FC = () => {
 		</Toast.Portal>
 	);
 };
-
-export const App: React.FC<{
-	queryClient: QueryClient;
-	toastManager: ToastManager;
-}> = ({ queryClient, toastManager }) => (
+export const App: React.FC = () => (
 	<StrictMode>
 		<QueryClientProvider client={queryClient}>
 			<Toast.Provider toastManager={toastManager}>
