@@ -1,7 +1,4 @@
-import { Menu } from "@base-ui/react";
-import { ContextMenu } from "@base-ui/react/context-menu";
-import { mergeProps } from "@base-ui/react/merge-props";
-import { useRender } from "@base-ui/react/use-render";
+import { ContextMenu, Menu, mergeProps, useRender } from "@base-ui/react";
 import {
 	Commit,
 	DiffHunk,

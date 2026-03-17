@@ -1,9 +1,6 @@
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
-import { Menu, Tooltip } from "@base-ui/react";
+import { Menu, mergeProps, Popover, Tooltip, useRender } from "@base-ui/react";
 import { createRoute } from "@tanstack/react-router";
-import { mergeProps } from "@base-ui/react/merge-props";
-import { Popover } from "@base-ui/react/popover";
-import { useRender } from "@base-ui/react/use-render";
 import {
 	RefInfo,
 	Commit,
