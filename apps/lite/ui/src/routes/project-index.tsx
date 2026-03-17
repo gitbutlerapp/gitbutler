@@ -337,22 +337,21 @@ const DraggableFile: FC<
 	} & useRender.ComponentProps<"div">
 > = ({ change, changeUnit, assignments, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
-		getInitialData: () =>
-			({
-				sourceItem: {
-					_tag: "TreeChange",
-					source: {
-						parent: changeUnit,
-						change,
-						hunkHeaders: assignments
-							? assignments.flatMap((assignment) =>
-									// TODO: is this correct?
-									assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
-								)
-							: [],
-					},
+		getInitialData: (): DragData => ({
+			sourceItem: {
+				_tag: "TreeChange",
+				source: {
+					parent: changeUnit,
+					change,
+					hunkHeaders: assignments
+						? assignments.flatMap((assignment) =>
+								// TODO: is this correct?
+								assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
+							)
+						: [],
 				},
-			}) satisfies DragData,
+			},
+		}),
 		preview: <div className={sharedStyles.dragPreview}>{change.path}</div>,
 	});
 
@@ -482,11 +481,10 @@ const RubTarget: FC<{
 			const sourceItem = parseDragData(dragData);
 			return !!sourceItem && rubOperationLabel(rubSourceFor(sourceItem), target) !== null;
 		},
-		getData: () =>
-			({
-				_tag: "Rub",
-				target,
-			}) satisfies OperationTarget,
+		getData: (): OperationTarget => ({
+			_tag: "Rub",
+			target,
+		}),
 	});
 
 	const tooltip =
@@ -525,14 +523,13 @@ const CommitMoveTarget: FC<{
 			const sourceItem = parseDragData(dragData);
 			return sourceItem?._tag === "Commit" && !isNoOp(sourceItem.commitId);
 		},
-		getData: () =>
-			({
-				_tag: "CommitMove",
-				anchorCommitId: commitId,
-				side,
-				previousCommitId,
-				nextCommitId,
-			}) satisfies OperationTarget,
+		getData: (): OperationTarget => ({
+			_tag: "CommitMove",
+			anchorCommitId: commitId,
+			side,
+			previousCommitId,
+			nextCommitId,
+		}),
 	});
 
 	return (
@@ -867,12 +864,11 @@ const CommitMoveToBranchTarget: FC<{
 			return sourceItem?._tag === "Commit" && firstCommitId !== sourceItem.commitId;
 		},
 		disabled: anchorRef === null,
-		getData: () =>
-			({
-				_tag: "CommitMoveToBranch",
-				anchorRef,
-				firstCommitId,
-			}) satisfies OperationTarget,
+		getData: (): OperationTarget => ({
+			_tag: "CommitMoveToBranch",
+			anchorRef,
+			firstCommitId,
+		}),
 	});
 
 	return (

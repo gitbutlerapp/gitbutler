@@ -74,17 +74,16 @@ const DraggableHunk: FC<
 	} & useRender.ComponentProps<"div">
 > = ({ patch, changeUnit, change, hunk, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
-		getInitialData: () =>
-			({
-				sourceItem: {
-					_tag: "TreeChange",
-					source: {
-						parent: changeUnit,
-						change,
-						hunkHeaders: [hunk],
-					},
+		getInitialData: (): DragData => ({
+			sourceItem: {
+				_tag: "TreeChange",
+				source: {
+					parent: changeUnit,
+					change,
+					hunkHeaders: [hunk],
 				},
-			}) satisfies DragData,
+			},
+		}),
 		preview: (
 			<div className={styles.dragPreview}>
 				Hunk -{hunk.oldStart},{hunk.oldLines}, +{hunk.newStart},{hunk.newLines}
@@ -244,7 +243,7 @@ const DraggableCommit: FC<
 > = ({ commit, render, ...props }) => {
 	const { id: commitId } = commit;
 	const [isDragging, dragRef] = useDraggable({
-		getInitialData: () => ({ sourceItem: { _tag: "Commit", commitId } }) satisfies DragData,
+		getInitialData: (): DragData => ({ sourceItem: { _tag: "Commit", commitId } }),
 		preview: (
 			<div className={styles.dragPreview}>
 				<CommitLabel commit={commit} />
