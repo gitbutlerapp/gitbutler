@@ -57,6 +57,7 @@ pub mod message;
 pub mod message_store;
 pub mod protocol;
 pub mod state;
+pub mod working_files;
 
 pub use client::{IrcClient, IrcConfig};
 pub use error::{IrcError, Result};
@@ -65,6 +66,7 @@ pub use message::IrcEvent;
 pub use message_store::{ChannelInfo, MessageDirection, MessageStore, Reaction, StoredMessage};
 pub use protocol::{GitButlerMessage, GitButlerProtocol};
 pub use state::ConnectionState;
+pub use working_files::WorkingFilesBroadcast;
 
 /// Default number of messages to request for chat history (CHATHISTORY LATEST on join
 /// and CHATHISTORY BEFORE for load-more pagination).

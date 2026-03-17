@@ -30,11 +30,9 @@ mod irc;
 #[cfg(feature = "irc")]
 mod irc_lifecycle;
 mod projects;
-#[cfg(feature = "irc")]
-pub(crate) mod working_files;
 use crate::projects::ActiveProjects;
 #[cfg(feature = "irc")]
-use crate::working_files::WorkingFilesBroadcast;
+use but_irc::WorkingFilesBroadcast;
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]

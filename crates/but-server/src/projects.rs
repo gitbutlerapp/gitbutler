@@ -12,7 +12,7 @@ use serde_json::json;
 
 use crate::Extra;
 #[cfg(feature = "irc")]
-use crate::working_files::WorkingFilesBroadcast;
+use but_irc::WorkingFilesBroadcast;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -186,7 +186,7 @@ fn main() -> anyhow::Result<()> {
                 #[cfg(feature = "irc")]
                 {
                     let irc_manager = IrcManager::new();
-                    app_handle.manage(gitbutler_tauri::working_files::WorkingFilesBroadcast::new(irc_manager.clone()));
+                    app_handle.manage(but_irc::WorkingFilesBroadcast::new(irc_manager.clone()));
                     app_handle.manage(irc_manager);
                 }
 
