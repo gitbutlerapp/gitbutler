@@ -54,7 +54,7 @@ The `but_ctx::Context` is the solution to this problem, and is passed around as 
 
 ### 1. Sync `.git/gitbutler/virtual-branches.toml` with database representation
 
-- [ ] [in progress](https://github.com/gitbutlerapp/gitbutler/issues/12075)
+- [x] https://github.com/gitbutlerapp/gitbutler/issues/12075
 
 ### 2. Port legacy virtual-branches consumers to `ctx.ws`
 
@@ -69,9 +69,12 @@ The crate list below started from direct `VirtualBranchesHandle` references and 
 callers that only touch the same legacy state via `ctx.virtual_branches()` or the legacy
 read/write helpers.
 
-#### but-api (1)
+#### but-api (2)
+
+`legacy_meta()` and `legacy_meta_mut()`, needed for stacks/details V3 and vb.toml reconciliation.
 
 - [ ] `crates/but-api/src/legacy/workspace.rs`
+- [ ] `crates/but-api/src/legacy/meta.rs`
 
 #### but-claude (1)
 
