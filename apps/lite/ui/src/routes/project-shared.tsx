@@ -263,40 +263,6 @@ const DraggableCommit: FC<
 	});
 };
 
-const CommitButton: FC<
-	{
-		commit: Commit;
-		isSelected: boolean;
-		isAnyFileSelected: boolean;
-		isHighlighted: boolean;
-		toggleSelect: () => void;
-	} & ComponentProps<"button">
-> = ({
-	commit,
-	isSelected,
-	isAnyFileSelected,
-	isHighlighted,
-	toggleSelect,
-	className,
-	...restProps
-}) => (
-	<button
-		{...restProps}
-		type="button"
-		className={classes(
-			className,
-			styles.commitButton,
-			isSelected ? styles.selected : isAnyFileSelected ? styles.selectedWithin : undefined,
-		)}
-		onClick={toggleSelect}
-		style={{
-			...(isHighlighted && { backgroundColor: "yellow" }),
-		}}
-	>
-		<CommitLabel commit={commit} />
-	</button>
-);
-
 const InlineCommitMessageEditor: FC<{
 	projectId: string;
 	commitId: string;
@@ -441,13 +407,23 @@ export const CommitRow: FC<{
 							<DraggableCommit
 								commit={commitWithOptimisticMessage}
 								render={
-									<CommitButton
-										commit={commitWithOptimisticMessage}
-										isSelected={isSelected}
-										isAnyFileSelected={isAnyFileSelected}
-										isHighlighted={isHighlighted}
-										toggleSelect={toggleSelect}
-									/>
+									<button
+										type="button"
+										className={classes(
+											styles.commitButton,
+											isSelected
+												? styles.selected
+												: isAnyFileSelected
+													? styles.selectedWithin
+													: undefined,
+										)}
+										onClick={toggleSelect}
+										style={{
+											...(isHighlighted && { backgroundColor: "yellow" }),
+										}}
+									>
+										<CommitLabel commit={commitWithOptimisticMessage} />
+									</button>
 								}
 							/>
 						}
