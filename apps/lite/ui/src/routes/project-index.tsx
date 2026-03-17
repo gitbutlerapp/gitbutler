@@ -155,7 +155,7 @@ type OperationTarget =
 	  }
 	| {
 			_tag: "CommitMoveToBranch";
-			anchorRef: string | null;
+			anchorRef: number[] | null;
 			firstCommitId: string | undefined;
 	  };
 
@@ -224,7 +224,7 @@ const useRunOperation = (projectId: string) => {
 				commitMove.mutate({
 					projectId,
 					subjectCommitId: sourceItem.commitId,
-					relativeTo: { type: "reference", subject: operationTarget.anchorRef },
+					relativeTo: { type: "referenceBytes", subject: operationTarget.anchorRef },
 					side: "below",
 				});
 			}),
@@ -233,16 +233,12 @@ const useRunOperation = (projectId: string) => {
 	};
 };
 
-// https://linear.app/gitbutler/issue/GB-1128/references-in-mutations-should-use-bytes-instead-of-strings
-const decodeRefName = (fullNameBytes: Array<number>): string =>
-	new TextDecoder().decode(Uint8Array.from(fullNameBytes));
-
 const stackRelativeTo = (stack: Stack): RelativeTo | null => {
 	const segmentWithRef = stack.segments.find((segment) => segment.refName != null);
 	if (segmentWithRef?.refName)
 		return {
-			type: "reference",
-			subject: decodeRefName(segmentWithRef.refName.fullNameBytes),
+			type: "referenceBytes",
+			subject: segmentWithRef.refName.fullNameBytes,
 		};
 
 	const firstCommit = stack.segments.flatMap((segment) => segment.commits)[0];
@@ -864,7 +860,7 @@ type StackLaneSelection =
 	  };
 
 const CommitMoveToBranchTarget: FC<{
-	anchorRef: string | null;
+	anchorRef: number[] | null;
 	firstCommitId: string | undefined;
 	children: React.ReactElement;
 }> = ({ anchorRef, firstCommitId, children }) => {
@@ -983,7 +979,7 @@ const StackLane: FC<{
 				<ul className={styles.segments}>
 					{stack.segments.map((segment) => {
 						const branchName = segment.refName?.displayName ?? "Untitled";
-						const anchorRef = segment.refName ? decodeRefName(segment.refName.fullNameBytes) : null;
+						const anchorRef = segment.refName ? segment.refName.fullNameBytes : null;
 						return (
 							<li key={branchName}>
 								<CommitMoveToBranchTarget
