@@ -1056,7 +1056,7 @@ const StackLane: FC<{
 };
 
 const ProjectPage: FC = () => {
-	const { projectId } = projectRootRoute.useLoaderData();
+	const { id: projectId } = projectRootRoute.useParams();
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 	const [draggedSourceItem, setDraggedSourceItem] = useState<SourceItem | null>(null);

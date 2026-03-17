@@ -9,7 +9,7 @@ export const projectRootRoute = createRoute({
 		// When loading the project root, subscribe to its events.
 		const projectId = params.id;
 		const subscriptionId = await subscribeToProject(projectId, context.queryClient);
-		return { subscriptionId, projectId };
+		return { subscriptionId };
 	},
 	// oxlint-disable-next-line typescript/no-misused-promises
 	onLeave: async ({ loaderData }) => {
