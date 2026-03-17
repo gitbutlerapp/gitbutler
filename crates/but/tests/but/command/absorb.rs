@@ -729,13 +729,10 @@ Dry run complete. No changes were made.
     // Also verify the workspace commit did NOT change during dry-run
     let repo = env.open_repo()?;
     let ws_id = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
-    drop(repo);
     // Re-run dry-run and confirm workspace is still the same
     env.but("absorb i0 --dry-run").assert().success();
-    let repo = env.open_repo()?;
     let ws_id_after = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
     assert_eq!(ws_id, ws_id_after, "dry-run must not touch workspace HEAD");
-    drop(repo);
 
     // Verify the file content wasn't actually changed
     let repo = env.open_repo()?;
@@ -788,12 +785,10 @@ fn workspace_head_is_refreshed_after_absorb() -> anyhow::Result<()> {
     // Record the workspace commit *before* absorb.
     let repo = env.open_repo()?;
     let ws_before = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
-    drop(repo);
 
     env.but("absorb i0").assert().success().stderr_eq(str![""]);
 
     // After absorb the workspace commit must have changed.
-    let repo = env.open_repo()?;
     let ws_after = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
 
     assert_ne!(
