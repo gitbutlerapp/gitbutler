@@ -10,7 +10,6 @@ use but_ctx::{
 use but_oxidize::{ObjectIdExt as _, OidExt, RepoExt, gix_to_git2_index};
 use but_rebase::graph_rebase::{GraphExt as _, Step};
 use git2::build::CheckoutBuilder;
-use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use gitbutler_operating_modes::{
@@ -282,39 +281,8 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
 
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
 
-    // Get important references
-    let commit = git2_repo
-        .find_commit(edit_mode_metadata.commit_oid.to_git2())
-        .context("Failed to find commit")?;
-    let gix_commit = repo.find_commit(commit.id().to_gix())?;
-    let commit_obj = gix_commit.decode()?;
-
-    let parents = commit.parents().collect::<Vec<_>>();
-
     // Write out all the changes, including unstaged changes to a tree for re-committing
-    let tree = git2_repo.create_wd_tree(0)?;
-
-    let (_, committer) = git2_repo.signatures()?;
-    let commit_headers =
-        Headers::try_from_commit_headers(|| commit_obj.extra_headers()).map(|commit_headers| {
-            Headers {
-                conflicted: None,
-                ..commit_headers
-            }
-        });
-    let new_commit_oid = ctx
-        .git2_repo
-        .get()?
-        .commit_with_signature(
-            None,
-            &commit.author(),
-            &committer, // Use a new committer
-            &commit.message_bstr().to_str_lossy(),
-            &tree,
-            &parents.iter().collect::<Vec<_>>(),
-            commit_headers,
-        )
-        .context("Failed to commit new commit")?;
+    let tree_id = but_status::create_wd_tree(repo, 0)?;
 
     let workspace_commit = repo
         .find_reference(WORKSPACE_BRANCH_REF)?
@@ -327,8 +295,29 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         but_graph::init::Options::limited(),
     )?;
     let mut editor = graph.to_editor(repo)?;
-    let (target_selector, _commit) = editor.find_selectable_commit(gix_commit.id)?;
-    editor.replace(target_selector, Step::new_pick(new_commit_oid.to_gix()))?;
+    let (target_selector, commit) = editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;
+
+    let extra_headers: Vec<(BString, BString)> = Headers::try_from_commit(&commit.inner)
+        .map(|commit_headers| {
+            let headers = Headers {
+                conflicted: None,
+                ..commit_headers
+            };
+            (&headers).into()
+        })
+        .unwrap_or_default();
+    let new_commit_oid = but_rebase::commit::create(
+        repo,
+        gix::objs::Commit {
+            tree: tree_id,
+            extra_headers,
+            ..commit.inner
+        },
+        but_rebase::commit::DateMode::CommitterUpdateAuthorKeep,
+        true,
+    )?;
+
+    editor.replace(target_selector, Step::new_pick(new_commit_oid))?;
     let outcome = editor.rebase()?;
     // HEAD is EDIT_BRANCH_REF and we do not need to re-checkout it (we
     // are checking out WORKSPACE_BRANCH_REF after this). As for needing to
@@ -342,8 +331,6 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         .set_head(WORKSPACE_BRANCH_REF)
         .context("Failed to set head reference")?;
     git2_repo.checkout_head(Some(CheckoutBuilder::new().force()))?;
-
-    update_workspace_commit(ctx, false)?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let uncommtied_changes = get_uncommited_changes(ctx)?;
