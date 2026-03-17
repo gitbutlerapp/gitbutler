@@ -125,6 +125,19 @@ pub fn fullname_lossy(generate: &mut schemars::SchemaGenerator) -> schemars::Sch
     generate.subschema_for::<String>()
 }
 
+/// Use on `gix::refs::FullName` fields serialized to bytes
+///
+/// ```rust
+/// #[derive(serde::Serialize, schemars::JsonSchema)]
+/// struct Example {
+///     #[schemars(schema_with = "but_schemars::fullname_bytes")]
+///     reference: gix::refs::FullName,
+/// }
+/// ```
+pub fn fullname_bytes(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<Vec<u8>>()
+}
+
 /// Use on `url::Url` fields that should appear as strings in schema output.
 ///
 /// ```rust

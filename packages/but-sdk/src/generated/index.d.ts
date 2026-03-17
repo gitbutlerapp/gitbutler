@@ -735,6 +735,9 @@ export type RelativeTo = {
 } | {
   type: "reference";
   subject: string;
+} | {
+  type: "referenceBytes";
+  subject: Array<number>;
 };
 
 /** A reference in `refs/remotes`. */

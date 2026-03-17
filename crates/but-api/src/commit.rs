@@ -306,26 +306,23 @@ pub mod ui {
         #[serde(with = "but_serde::fullname_lossy")]
         #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
         Reference(gix::refs::FullName),
+        /// Relative to a reference, this time with teeth
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(schema_with = "but_schemars::fullname_bytes")
+        )]
+        ReferenceBytes(gix::refs::FullName),
     }
     #[cfg(feature = "export-schema")]
     but_schemars::register_sdk_type!(RelativeTo);
-
-    impl From<but_rebase::graph_rebase::mutate::RelativeTo<'_>> for RelativeTo {
-        fn from(value: but_rebase::graph_rebase::mutate::RelativeTo) -> Self {
-            match value {
-                but_rebase::graph_rebase::mutate::RelativeTo::Commit(c) => Self::Commit(c),
-                but_rebase::graph_rebase::mutate::RelativeTo::Reference(r) => {
-                    Self::Reference(r.into())
-                }
-            }
-        }
-    }
 
     impl<'a> From<&'a RelativeTo> for but_rebase::graph_rebase::mutate::RelativeTo<'a> {
         fn from(value: &'a RelativeTo) -> Self {
             match value {
                 RelativeTo::Commit(c) => Self::Commit(*c),
-                RelativeTo::Reference(r) => Self::Reference(r.as_ref()),
+                RelativeTo::Reference(r) | RelativeTo::ReferenceBytes(r) => {
+                    Self::Reference(r.as_ref())
+                }
             }
         }
     }
