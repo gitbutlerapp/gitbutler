@@ -6,9 +6,6 @@ export async function removeWatcherSubscription(subscriptionId: string) {
 	await window.lite.watcherUnsubscribe(subscriptionId);
 }
 
-/**
- * Subscribe to the project updates.
- */
 export async function subscribeToProject(projectId: string, client: QueryClient): Promise<string> {
 	const subscriptionId = await window.lite.watcherSubscribe(projectId, (event) =>
 		handleWatcher(event, projectId, client),
