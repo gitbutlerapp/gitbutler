@@ -152,7 +152,7 @@ type OperationTarget =
 	  }
 	| {
 			_tag: "CommitMoveToBranch";
-			anchorRef: Array<number> | null;
+			anchorRef: Array<number>;
 			firstCommitId: string | undefined;
 	  };
 
@@ -214,16 +214,22 @@ const useRunOperation = (projectId: string) => {
 				commitMove.mutate({
 					projectId,
 					subjectCommitId: sourceItem.commitId,
-					relativeTo: { type: "commit", subject: operationTarget.anchorCommitId },
+					relativeTo: {
+						type: "commit",
+						subject: operationTarget.anchorCommitId,
+					},
 					side: operationTarget.side,
 				});
 			}),
 			Match.tag("CommitMoveToBranch", (operationTarget) => {
-				if (sourceItem._tag !== "Commit" || operationTarget.anchorRef === null) return;
+				if (sourceItem._tag !== "Commit") return;
 				commitMove.mutate({
 					projectId,
 					subjectCommitId: sourceItem.commitId,
-					relativeTo: { type: "referenceBytes", subject: operationTarget.anchorRef },
+					relativeTo: {
+						type: "referenceBytes",
+						subject: operationTarget.anchorRef,
+					},
 					side: "below",
 				});
 			}),
@@ -861,17 +867,29 @@ const CommitMoveToBranchTarget: FC<{
 	firstCommitId: string | undefined;
 	children: React.ReactElement;
 }> = ({ anchorRef, firstCommitId, children }) => {
-	const [isDropTarget, dropRef] = useDroppable({
-		canDrop: ({ source }) => {
-			const sourceItem = parseDragData(source.data);
-			return sourceItem?._tag === "Commit" && firstCommitId !== sourceItem.commitId;
-		},
-		disabled: anchorRef === null,
-		getData: (): OperationTarget => ({
+	const getOperationTarget = (sourceItem: SourceItem): OperationTarget | null => {
+		if (anchorRef === null) return null;
+		if (sourceItem._tag !== "Commit") return null;
+		if (sourceItem.commitId === firstCommitId) return null;
+
+		return {
 			_tag: "CommitMoveToBranch",
 			anchorRef,
 			firstCommitId,
-		}),
+		};
+	};
+
+	const [isDropTarget, dropRef] = useDroppable({
+		canDrop: ({ source }) => {
+			const sourceItem = parseDragData(source.data);
+			if (!sourceItem) return false;
+			return !!getOperationTarget(sourceItem);
+		},
+		getData: ({ source }): OperationTarget | {} => {
+			const sourceItem = parseDragData(source.data);
+			if (!sourceItem) return {};
+			return getOperationTarget(sourceItem) ?? {};
+		},
 	});
 
 	return (
