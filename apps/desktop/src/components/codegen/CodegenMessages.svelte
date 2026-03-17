@@ -16,7 +16,9 @@
 	import CodegenTodoAccordion from "$components/codegen/CodegenTodoAccordion.svelte";
 	import noClaudeCodeSvg from "$lib/assets/empty-state/claude-disconected.svg?raw";
 	import laneNewSvg from "$lib/assets/empty-state/lane-new.svg?raw";
+	import { ATTACHMENT_SERVICE } from "$lib/codegen/attachmentService.svelte";
 	import { CLAUDE_CODE_SERVICE } from "$lib/codegen/claude";
+	import { MessageSender } from "$lib/codegen/messageQueue.svelte";
 	import {
 		currentStatus,
 		thinkingOrCompactingStartedAt,
@@ -31,10 +33,11 @@
 	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
 	import { RULES_SERVICE } from "$lib/rules/rulesService.svelte";
 	import { SETTINGS } from "$lib/settings/userSettings";
-	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { getStackContext } from "$lib/stack/stackController.svelte";
 	import { formatCompactNumber } from "$lib/utils/number";
 	import { getEditorUri, URL_SERVICE } from "$lib/utils/url";
 	import { inject } from "@gitbutler/core/context";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import {
 		Button,
 		ContextMenu,
@@ -51,67 +54,45 @@
 	import VirtualList from "@gitbutler/ui/components/VirtualList.svelte";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import type {
-		ClaudeMessage,
 		ThinkingLevel,
 		ModelType,
 		PermissionMode,
 		PermissionDecision,
-		ClaudePermissionRequest,
 	} from "$lib/codegen/types";
 
 	type Props = {
-		projectId: string;
-		branchName: string;
-		stackId?: string;
-		laneId: string;
-		initialPrompt?: string;
-		isStackActive?: boolean;
-		projectRegistered?: boolean;
-		events: ClaudeMessage[];
-		permissionRequests: ClaudePermissionRequest[];
-		sessionId?: string;
 		hasRulesToClear?: boolean;
-		onMcpSettings?: () => void;
+		projectRegistered?: boolean;
 		onclose?: () => void;
-		onChange: (value: string) => void;
-		onAbort?: () => Promise<void>;
-		onSubmit?: (prompt: string) => Promise<void>;
-		onAnswerQuestion?: (answers: Record<string, string>) => Promise<void>;
-		onRetryConfig?: () => Promise<void>;
+		onMcpSettings?: () => void;
 	};
-	const {
-		projectId,
-		stackId,
-		laneId,
-		branchName,
-		initialPrompt,
-		isStackActive,
-		projectRegistered,
-		events,
-		permissionRequests,
-		sessionId,
-		hasRulesToClear,
-		onclose,
-		onChange,
-		onAbort,
-		onSubmit,
-		onMcpSettings,
-		onAnswerQuestion,
-		onRetryConfig,
-	}: Props = $props();
+	const { hasRulesToClear, projectRegistered, onclose, onMcpSettings }: Props = $props();
 
-	const stableBranchName = $derived(branchName);
+	const controller = getStackContext();
+	const projectId = $derived(controller.projectId);
+	const stackId = $derived(controller.stackId);
+	const laneId = $derived(controller.laneId);
+	const branchName = $derived(controller.branchName ?? "");
 
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const rulesService = inject(RULES_SERVICE);
-	const uiState = inject(UI_STATE);
 	const urlService = inject(URL_SERVICE);
 	const userSettings = inject(SETTINGS);
 	const settingsService = inject(SETTINGS_SERVICE);
+	const attachmentService = inject(ATTACHMENT_SERVICE);
 	const claudeSettings = $derived($settingsService?.claude);
 
+	const isStackActiveQuery = $derived(claudeCodeService.isStackActive(projectId, stackId));
+	const isStackActive = $derived(isStackActiveQuery?.response || false);
+	const eventsQuery = $derived(claudeCodeService.messages({ projectId, stackId }));
+	const events = $derived(eventsQuery.response || []);
+	const sessionIdQuery = $derived(rulesService.aiSessionId(projectId, stackId));
+	const sessionId = $derived(sessionIdQuery.response);
+	const permissionRequestsQuery = $derived(claudeCodeService.permissionRequests({ projectId }));
+	const permissionRequests = $derived(permissionRequestsQuery.response || []);
+	const attachments = $derived(attachmentService.getByBranch(branchName));
+
 	const claudeAvailable = $derived(claudeCodeService.checkAvailable(undefined));
-	// const canEnterChat = $derived(claudeAvailable.status === "available" && !!projectRegistered);
 	const canEnterChat = $derived(!!projectRegistered);
 
 	let clearContextModal = $state<Modal>();
@@ -176,10 +157,25 @@
 		urlService.openExternalUrl(editorUri);
 	}
 
-	const projectState = uiState.project(projectId);
-	const selectedThinkingLevel = $derived(projectState.thinkingLevel.current);
-	const selectedModel = $derived(projectState.selectedModel.current);
-	const selectedPermissionMode = $derived(uiState.lane(laneId).permissionMode.current);
+	const selectedThinkingLevel = $derived(controller.projectState.thinkingLevel.current);
+	const selectedModel = $derived(controller.projectState.selectedModel.current);
+	const selectedPermissionMode = $derived(controller.laneState.permissionMode.current);
+
+	const messageSender = $derived(
+		stackId && branchName
+			? new MessageSender({
+					projectId: reactive(() => projectId),
+					selectedBranch: reactive(() => ({
+						stackId: stackId!,
+						head: branchName!,
+					})),
+					thinkingLevel: reactive(() => selectedThinkingLevel),
+					model: reactive(() => selectedModel),
+					permissionMode: reactive(() => selectedPermissionMode),
+				})
+			: undefined,
+	);
+	const initialPrompt = $derived(messageSender?.prompt);
 
 	async function onPermissionDecision(
 		id: string,
@@ -195,17 +191,17 @@
 	}
 
 	function selectModel(model: ModelType) {
-		projectState.selectedModel.set(model);
+		controller.projectState.selectedModel.set(model);
 		modelContextMenu?.close();
 	}
 
 	function selectThinkingLevel(level: ThinkingLevel) {
-		projectState.thinkingLevel.set(level);
+		controller.projectState.thinkingLevel.set(level);
 		thinkingModeContextMenu?.close();
 	}
 
 	function selectPermissionMode(mode: PermissionMode) {
-		uiState.lane(laneId).permissionMode.set(mode);
+		controller.laneState.permissionMode.set(mode);
 		permissionModeContextMenu?.close();
 	}
 
@@ -233,17 +229,30 @@
 	async function insertTemplate(templateContent: string) {
 		const currentPrompt = await inputRef?.getText();
 		const newPrompt = currentPrompt + (currentPrompt ? "\n\n" : "") + templateContent;
-		onChange?.(newPrompt);
+		messageSender?.setPrompt(newPrompt);
 		inputRef?.setText(newPrompt);
 		templateContextMenu?.close();
 	}
 
-	// function getCurrentSessionId(events: ClaudeMessage[]): string | undefined {
-	// 	// Get the most recent session ID from the messages
-	// 	if (events.length === 0) return undefined;
-	// 	const lastEvent = events[events.length - 1];
-	// 	return lastEvent?.sessionId;
-	// }
+	async function onAbort() {
+		if (stackId) {
+			await claudeCodeService.cancelSession({ projectId, stackId });
+		}
+	}
+
+	async function sendMessage(prompt: string) {
+		await messageSender?.sendMessage(prompt, attachments);
+		attachmentService.clearByBranch(branchName);
+	}
+
+	async function handleAnswerQuestion(answers: Record<string, string>) {
+		if (!stackId) return;
+		await claudeCodeService.answerAskUserQuestion({ projectId, stackId, answers });
+	}
+
+	async function retryConfig() {
+		await claudeCodeService.fetchClaudeConfig({ projectId }, { forceRefetch: true });
+	}
 
 	function clearContextAndRules() {
 		clearContextModal?.show();
@@ -555,22 +564,17 @@
 					{#if formattedMessages.length > 0}
 						<CodegenChatClaudeNotAvaliableBanner
 							onSettingsBtnClick={() => {
-								uiState.global.modal.set({
-									type: "project-settings",
-									projectId,
-									selectedId: "agent",
-								});
+								controller.openProjectSettingsModal("agent");
 							}}
 						/>
 					{/if}
 				{:else if !projectRegistered}
 					{#if formattedMessages.length > 0}
-						<CodegenChatClaudeNotRegistered {onRetryConfig} />
+						<CodegenChatClaudeNotRegistered onRetryConfig={retryConfig} />
 					{/if}
 				{:else}
 					{@const status = currentStatus(events, isStackActive)}
-					{@const laneState = uiState.lane(laneId)}
-					{@const addedDirs = laneState.addedDirs.current}
+					{@const addedDirs = controller.laneState.addedDirs.current}
 
 					<div class="dialog-wrapper">
 						{#if pendingAskUserQuestion}
@@ -578,21 +582,21 @@
 								questions={pendingAskUserQuestion.questions}
 								answered={pendingAskUserQuestion.answered}
 								onSubmitAnswers={async (answers) => {
-									await onAnswerQuestion?.(answers);
+									await handleAnswerQuestion(answers);
 								}}
 								onCancel={async () => {
 									dismissedAskUserQuestions = {
 										...dismissedAskUserQuestions,
 										[pendingAskUserQuestion.toolUseId]: true,
 									};
-									await onAbort?.();
+									await onAbort();
 								}}
 							/>
 						{:else}
 							<AddedDirectories
 								{addedDirs}
 								onRemoveDir={(dir) => {
-									laneState.addedDirs.remove(dir);
+									controller.laneState.addedDirs.remove(dir);
 								}}
 							/>
 
@@ -600,13 +604,13 @@
 								bind:this={inputRef}
 								{projectId}
 								{stackId}
-								branchName={stableBranchName}
+								{branchName}
 								value={initialPrompt || ""}
 								loading={["running", "compacting"].includes(status)}
 								compacting={status === "compacting"}
-								{onChange}
+								onChange={(prompt) => messageSender?.setPrompt(prompt)}
 								onSubmit={async (prompt) => {
-									await onSubmit?.(prompt);
+									await sendMessage(prompt);
 									setTimeout(() => {
 										virtualList?.scrollToBottom();
 									}, 100);

@@ -131,12 +131,7 @@
 	{#if stackId && selection?.irc && ircChannel}
 		<IrcChannel projectId={controller.projectId} type="group" channel={ircChannel} autojoin />
 	{:else if stackId && selection?.branchName && selection?.codegen}
-		<StackCodegen
-			branchName={selection.branchName}
-			{hasRulesToClear}
-			{claudeConfig}
-			onclose={() => controller.closePreview()}
-		/>
+		<StackCodegen {hasRulesToClear} {claudeConfig} onclose={() => controller.closePreview()} />
 	{:else}
 		{@const commit = commitQuery?.response}
 		{@const dzCommit: DzCommitData | undefined = commit
