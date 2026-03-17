@@ -120,7 +120,7 @@ const commonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 	return bases.every((base) => base === first) ? first : undefined;
 };
 
-const rubSourceFor = (item: SourceItem): RubSource => {
+const rubSourceFor = (item: SourceItem): RubSource | null => {
 	switch (item._tag) {
 		case "Commit":
 			return { _tag: "Commit", source: { commitId: item.commitId } };
@@ -201,9 +201,11 @@ const useRunOperation = (projectId: string) => {
 	return (sourceItem: SourceItem, operationTarget: OperationTarget): void => {
 		Match.value(operationTarget).pipe(
 			Match.tag("Rub", (operationTarget) => {
+				const rubSource = rubSourceFor(sourceItem);
+				if (!rubSource) return;
 				rubMutation.mutate({
 					projectId,
-					source: rubSourceFor(sourceItem),
+					source: rubSource,
 					target: operationTarget.target,
 				});
 			}),
@@ -479,7 +481,8 @@ const RubTarget: FC<{
 	const [isDropTarget, dropRef] = useDroppable({
 		canDrop: (dragData) => {
 			const sourceItem = parseDragData(dragData);
-			return !!sourceItem && rubOperationLabel(rubSourceFor(sourceItem), target) !== null;
+			const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
+			return rubSource !== null && rubOperationLabel(rubSource, target) !== null;
 		},
 		getData: (): OperationTarget => ({
 			_tag: "Rub",
@@ -487,8 +490,8 @@ const RubTarget: FC<{
 		}),
 	});
 
-	const tooltip =
-		isDropTarget && sourceItem ? rubOperationLabel(rubSourceFor(sourceItem), target) : null;
+	const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
+	const tooltip = isDropTarget && rubSource ? rubOperationLabel(rubSource, target) : null;
 
 	return (
 		<Tooltip.Root open={tooltip !== null}>
