@@ -72,6 +72,8 @@ pub struct FeatureFlags {
     pub rules: bool,
     /// Enable single branch mode.
     pub single_branch: bool,
+    /// Enable IRC integration.
+    pub irc: bool,
     /// Control how the filesystem watch should be established.
     /// Possible values: "auto", "legacy", "modern".
     /// "auto" automatically picks based on platform heuristics (default).
@@ -158,4 +160,62 @@ pub struct UiSettings {
         note = "Use AppSettings.app_updates_check_interval_sec instead. This will be removed once GUI migrates away from Tauri's update mechanism."
     )]
     pub check_for_updates_interval_in_seconds: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./settings/appSettings.ts")
+)]
+pub struct IrcSettings {
+    /// IRC server configuration
+    pub server: IrcServerSettings,
+    /// Auto-share new Claude Code sessions to IRC channels
+    pub auto_share: bool,
+    /// Channel to auto-join when opening a project
+    /// If set, joins that channel name (sanitized)
+    /// If null, auto-constructs #project-name
+    pub project_channel: Option<String>,
+    /// IRC connection settings
+    pub connection: IrcConnectionSettings,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./settings/appSettings.ts")
+)]
+pub struct IrcServerSettings {
+    /// IRC server hostname (e.g., "irc.gitbutler.com")
+    pub host: String,
+    /// IRC server port (default: 6697 for TLS)
+    pub port: u16,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./settings/appSettings.ts")
+)]
+pub struct IrcConnectionSettings {
+    /// Whether this connection is enabled (controls connect/disconnect).
+    pub enabled: bool,
+    /// IRC nickname
+    pub nickname: Option<String>,
+    /// Shared server connection password (the gate all clients must pass).
+    ///
+    /// # Security note
+    /// Stored in plaintext on disk. Do not use a password that protects sensitive
+    /// personal accounts — treat this as a low-value shared secret.
+    pub server_password: Option<String>,
+    /// Per-user SASL account password. On first use this registers the account.
+    ///
+    /// # Security note
+    /// Stored in plaintext on disk. Do not reuse a password from another service.
+    pub sasl_password: Option<String>,
+    /// IRC real name
+    pub realname: Option<String>,
 }

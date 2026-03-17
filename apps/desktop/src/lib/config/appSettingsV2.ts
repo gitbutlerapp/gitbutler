@@ -3,6 +3,22 @@ import { writable } from "svelte/store";
 import type { IBackend } from "$lib/backend";
 import type { Settings } from "@gitbutler/core/api";
 
+/** Update request matching the Rust `IrcUpdate` struct. */
+export interface IrcUpdate {
+	server?: { host?: string; port?: number };
+	autoShare?: boolean;
+	projectChannel?: string | null;
+	connection?: IrcConnectionUpdate;
+}
+
+export interface IrcConnectionUpdate {
+	enabled?: boolean;
+	nickname?: string | null;
+	serverPassword?: string | null;
+	saslPassword?: string | null;
+	realname?: string | null;
+}
+
 export const SETTINGS_SERVICE = new InjectionToken<SettingsService>("SettingsService");
 
 export class SettingsService {
@@ -67,6 +83,10 @@ export class SettingsService {
 
 	async updateUi(update: Partial<Settings.AppSettings["ui"]>) {
 		await this.invokeAndRefresh("update_ui", { update });
+	}
+
+	async updateIrc(update: IrcUpdate) {
+		await this.invokeAndRefresh("update_irc", { update });
 	}
 
 	/**

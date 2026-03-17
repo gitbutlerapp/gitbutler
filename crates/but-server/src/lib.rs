@@ -15,6 +15,8 @@ use axum::{
 use but_api::{commit, diff, github, gitlab, json, legacy, platform};
 use but_claude::{Broadcaster, Claude};
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
+#[cfg(feature = "irc")]
+use but_irc::IrcManager;
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
 use serde::{Deserialize, Serialize};
@@ -23,8 +25,16 @@ use tokio::sync::Mutex;
 use tower::ServiceBuilder;
 use tower_http::cors::{self, CorsLayer};
 
+#[cfg(feature = "irc")]
+mod irc;
+#[cfg(feature = "irc")]
+mod irc_lifecycle;
 mod projects;
+#[cfg(feature = "irc")]
+pub(crate) mod working_files;
 use crate::projects::ActiveProjects;
+#[cfg(feature = "irc")]
+use crate::working_files::WorkingFilesBroadcast;
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
@@ -51,6 +61,10 @@ struct AppState {
     app: Claude,
     extra: Extra,
     app_settings: AppSettingsWithDiskSync,
+    #[cfg(feature = "irc")]
+    irc_manager: IrcManager,
+    #[cfg(feature = "irc")]
+    working_files_broadcast: WorkingFilesBroadcast,
 }
 
 #[derive(Deserialize)]
@@ -112,6 +126,23 @@ async fn localhost_only_middleware(
     }
 }
 
+#[cfg(feature = "irc")]
+/// Return a copy of `irc` with `connection.enabled` forced to `false` when
+/// the IRC feature flag is off. This lets the existing reconciliation logic
+/// treat "flag turned off" the same as "user disabled the connection".
+fn effective_irc(
+    irc: &but_settings::app_settings::IrcSettings,
+    feature_enabled: bool,
+) -> but_settings::app_settings::IrcSettings {
+    if feature_enabled {
+        irc.clone()
+    } else {
+        let mut copy = irc.clone();
+        copy.connection.enabled = false;
+        copy
+    }
+}
+
 pub async fn run() {
     but_api::panic_capture::install_panic_hook();
     let cors = CorsLayer::new()
@@ -136,18 +167,74 @@ pub async fn run() {
         active_projects: Arc::new(Mutex::new(ActiveProjects::new())),
         archival,
     };
-    let app_settings = AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), None)
-        .expect("failed to create app settings");
+    #[cfg_attr(not(feature = "irc"), allow(unused_mut))]
+    let mut app_settings =
+        AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), None)
+            .expect("failed to create app settings");
 
     let app = Claude {
         broadcaster: broadcaster.clone(),
         instance_by_stack: Default::default(),
     };
 
+    #[cfg(feature = "irc")]
+    let irc_manager = IrcManager::new();
+
+    // Auto-connect IRC connections based on settings (only when feature flag is on).
+    #[cfg(feature = "irc")]
+    if let Ok(settings) = app_settings.get() {
+        let irc = effective_irc(&settings.irc, settings.feature_flags.irc);
+        irc_lifecycle::auto_connect_on_startup(&irc_manager, &broadcaster, &irc);
+    }
+
+    // Watch for settings changes and reconcile IRC connections.
+    // We track "effective" settings where connection.enabled is forced false
+    // when the feature flag is off, so disabling the flag also disconnects.
+    #[cfg(feature = "irc")]
+    {
+        let irc_manager = irc_manager.clone();
+        let broadcaster = broadcaster.clone();
+        let prev_irc_settings = std::sync::Mutex::new(
+            app_settings
+                .get()
+                .ok()
+                .map(|s| effective_irc(&s.irc, s.feature_flags.irc)),
+        );
+
+        app_settings
+            .watch_in_background(move |app_settings| {
+                let new_irc = effective_irc(&app_settings.irc, app_settings.feature_flags.irc);
+                if let Ok(mut prev) = prev_irc_settings.lock() {
+                    if let Some(old_irc) = prev.as_ref()
+                        && old_irc != &new_irc
+                    {
+                        tracing::info!("IRC settings changed, reconciling connections");
+                        irc_lifecycle::on_settings_changed(
+                            &irc_manager,
+                            &broadcaster,
+                            old_irc,
+                            &new_irc,
+                        );
+                    }
+                    *prev = Some(new_irc);
+                }
+                Ok(())
+            })
+            .expect("failed to start settings watcher");
+    }
+
+    #[cfg(feature = "irc")]
+    let irc_manager_for_shutdown = irc_manager.clone();
+    #[cfg(feature = "irc")]
+    let working_files_broadcast = WorkingFilesBroadcast::new(irc_manager.clone());
     let state = AppState {
         app,
         extra,
         app_settings,
+        #[cfg(feature = "irc")]
+        irc_manager,
+        #[cfg(feature = "irc")]
+        working_files_broadcast,
     };
 
     let app = Router::new()
@@ -583,8 +670,66 @@ pub async fn run() {
             "/commit_uncommit_changes",
             but_post(commit::commit_uncommit_changes_cmd),
         )
-        .route("/build_type", but_post(platform::build_type_cmd))
-        // Catch-all for commands that need special handling (app, extra, app_settings_sync)
+        .route("/build_type", but_post(platform::build_type_cmd));
+
+    // IRC commands — only registered when the `irc` feature is enabled.
+    #[cfg(feature = "irc")]
+    let app = app
+        .route("/irc_connect", post(irc::irc_connect))
+        .route("/irc_disconnect", post(irc::irc_disconnect))
+        .route("/irc_state", post(irc::irc_state))
+        .route("/irc_wait_ready", post(irc::irc_wait_ready))
+        .route("/irc_join", post(irc::irc_join))
+        .route("/irc_part", post(irc::irc_part))
+        .route("/irc_auto_join", post(irc::irc_auto_join))
+        .route("/irc_auto_leave", post(irc::irc_auto_leave))
+        .route("/irc_send_message", post(irc::irc_send_message))
+        .route(
+            "/irc_send_message_with_data",
+            post(irc::irc_send_message_with_data),
+        )
+        .route("/irc_request_history", post(irc::irc_request_history))
+        .route(
+            "/irc_request_history_before",
+            post(irc::irc_request_history_before),
+        )
+        .route("/irc_send_raw", post(irc::irc_send_raw))
+        .route("/irc_send_typing", post(irc::irc_send_typing))
+        .route("/irc_send_reaction", post(irc::irc_send_reaction))
+        .route("/irc_remove_reaction", post(irc::irc_remove_reaction))
+        .route("/irc_redact_message", post(irc::irc_redact_message))
+        .route("/irc_list_connections", post(irc::irc_list_connections))
+        .route("/irc_exists", post(irc::irc_exists))
+        .route("/irc_nick", post(irc::irc_nick))
+        .route("/irc_messages", post(irc::irc_messages))
+        .route("/irc_channels", post(irc::irc_channels))
+        .route("/irc_users", post(irc::irc_users))
+        .route("/irc_mark_read", post(irc::irc_mark_read))
+        .route("/irc_clear_messages", post(irc::irc_clear_messages))
+        .route(
+            "/irc_get_all_commit_reactions",
+            post(irc::irc_get_all_commit_reactions),
+        )
+        .route(
+            "/irc_get_all_message_reactions",
+            post(irc::irc_get_all_message_reactions),
+        )
+        .route(
+            "/irc_get_file_message_reactions",
+            post(irc::irc_get_file_message_reactions),
+        )
+        .route("/irc_get_working_files", post(irc::irc_get_working_files))
+        .route(
+            "/irc_start_working_files_broadcast",
+            post(irc::irc_start_working_files_broadcast),
+        )
+        .route(
+            "/irc_stop_working_files_broadcast",
+            post(irc::irc_stop_working_files_broadcast),
+        );
+
+    // Catch-all for commands that need special handling (app, extra, app_settings_sync)
+    let app = app
         .route("/{command}", post(post_handle_command_with_path))
         .route("/ws", any(move |req| handle_ws_request(req, broadcaster)))
         // Spawning in a separate thread to prevent abort if the client
@@ -618,12 +763,26 @@ pub async fn run() {
     let url = format!("{host}:{port}");
     let listener = tokio::net::TcpListener::bind(&url).await.unwrap();
     println!("Running at {url}");
-    axum::serve(
+    let server = axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
-    )
-    .await
-    .unwrap();
+    );
+
+    tokio::select! {
+        result = server => { result.unwrap(); }
+        _ = tokio::signal::ctrl_c() => {
+            #[cfg(feature = "irc")]
+            {
+                tracing::info!("Shutdown signal received, closing IRC connections…");
+                irc_manager_for_shutdown.shutdown().await;
+            }
+            // The settings file watcher (spawn_blocking with infinite loop) and
+            // other background tasks prevent the tokio runtime from exiting
+            // cleanly. Since we've already sent QUIT to IRC servers, it's safe
+            // to terminate immediately.
+            std::process::exit(0);
+        }
+    }
 }
 
 /// Handler that extracts the command from the URL path.
@@ -636,7 +795,12 @@ async fn post_handle_command_with_path(
     let app = state.app;
     let extra = state.extra;
     let app_settings_sync = state.app_settings;
+    #[cfg(feature = "irc")]
+    let working_files_broadcast = state.working_files_broadcast;
     let req = Request { command, params };
+    #[cfg(feature = "irc")]
+    let res = handle_command(req, app, extra, app_settings_sync, working_files_broadcast).await;
+    #[cfg(not(feature = "irc"))]
     let res = handle_command(req, app, extra, app_settings_sync).await;
     match res {
         Ok(value) => Json(json!(Response::Success(value))),
@@ -689,6 +853,7 @@ async fn handle_command(
     app: Claude,
     extra: Extra,
     app_settings_sync: AppSettingsWithDiskSync,
+    #[cfg(feature = "irc")] working_files_broadcast: WorkingFilesBroadcast,
     // TODO: make this anyhow::Result<serde_json::Value>
 ) -> anyhow::Result<serde_json::Value> {
     let command: &str = &request.command;
@@ -718,9 +883,24 @@ async fn handle_command(
         "update_reviews" => deserialize_json(request.params).and_then(|params| {
             legacy::settings::update_reviews(&app_settings_sync, params).map(|r| json!(r))
         }),
+        "update_irc" => deserialize_json(request.params).and_then(|params| {
+            legacy::settings::update_irc(&app_settings_sync, params).map(|r| json!(r))
+        }),
         // Project management (need extra or app)
         "list_projects" => projects::list_projects(&extra).await,
         "set_project_active" => {
+            #[cfg(feature = "irc")]
+            {
+                return projects::set_project_active(
+                    &app,
+                    &extra,
+                    app_settings_sync,
+                    working_files_broadcast,
+                    request.params,
+                )
+                .await;
+            }
+            #[cfg(not(feature = "irc"))]
             projects::set_project_active(&app, &extra, app_settings_sync, request.params).await
         }
         // Async virtual branches commands (not yet migrated due to different pattern)

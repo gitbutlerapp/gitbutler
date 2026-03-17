@@ -82,6 +82,8 @@ members = [
     "crates/but-cherry-apply", # 📄Apply commits to different stacks.
     # 👉Experimental agent coordination library powering `but link`.
     "crates/but-link",
+    # 👉Experimental IRC support
+    "crates/but-irc", # 📄IRC client with WebSocket transport and GitButler protocol support.
 
     ##
     ### Soon obsolete
@@ -169,6 +171,7 @@ but-claude = { path = "crates/but-claude" }
 but-cursor = { path = "crates/but-cursor" }
 but-gerrit = { path = "crates/but-gerrit" }
 but-cherry-apply = { path = "crates/but-cherry-apply" }
+but-irc = { path = "crates/but-irc" }
 but-github = { path = "crates/but-github" }
 but-gitlab = { path = "crates/but-gitlab" }
 but-error = { path = "crates/but-error" }

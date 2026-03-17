@@ -500,6 +500,5 @@
 		display: flex;
 		flex-grow: 1;
 		flex-direction: column;
-		margin: 12px 0;
 	}
 </style>

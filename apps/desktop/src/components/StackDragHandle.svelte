@@ -1,5 +1,7 @@
 <script lang="ts">
 	import CollapseStackButton from "$components/CollapseStackButton.svelte";
+	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { IRC_SESSION_BRIDGE } from "$lib/irc/sessionBridge.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { ContextMenuItem, ContextMenuSection, Icon, KebabButton } from "@gitbutler/ui";
@@ -8,14 +10,28 @@
 	type Props = {
 		stackId?: string;
 		projectId: string;
+		branchName?: string;
 		disabled?: boolean;
 		onFold?: () => void;
 		onOptionsClick?: () => void;
 	};
 
-	let { stackId, projectId, disabled = false, onFold }: Props = $props();
+	let { stackId, projectId, branchName, disabled = false, onFold }: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
+	const settingsService = inject(SETTINGS_SERVICE);
+	const ircSessionBridge = inject(IRC_SESSION_BRIDGE);
+
+	const settingsStore = settingsService.appSettings;
+	const ircEnabled = $derived(
+		($settingsStore?.featureFlags.irc && $settingsStore?.irc?.connection?.enabled) ?? false,
+	);
+	const isManuallyBridged = $derived(ircSessionBridge.isManuallyBridged(stackId));
+
+	function toggleBridging() {
+		if (!stackId) return;
+		ircSessionBridge.setManualBridge(stackId, !isManuallyBridged.current);
+	}
 
 	// Get all stacks to determine if we can move left/right
 	const stacksQuery = $derived(stackService.stacks(projectId));
@@ -121,6 +137,18 @@
 					}}
 				/>
 			</ContextMenuSection>
+			{#if ircEnabled && stackId && branchName}
+				<ContextMenuSection>
+					<ContextMenuItem
+						label="IRC Bot"
+						icon={isManuallyBridged.current ? "tick" : undefined}
+						onclick={() => {
+							toggleBridging();
+							close();
+						}}
+					/>
+				</ContextMenuSection>
+			{/if}
 		{/snippet}
 	</KebabButton>
 </div>

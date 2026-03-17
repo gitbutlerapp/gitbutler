@@ -2,12 +2,11 @@
 	import { goto } from "$app/navigation";
 	import ProfileButton from "$components/ProfileButton.svelte";
 	import ShareIssueModal from "$components/ShareIssueModal.svelte";
-	import { ircEnabled } from "$lib/config/uiFeatureFlags";
+	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import {
 		branchesPath,
-		ircPath,
 		isBranchesPath,
-		isIrcPath,
 		isWorkspacePath,
 		historyPath,
 		isHistoryPath,
@@ -15,8 +14,16 @@
 	} from "$lib/routes/routes.svelte";
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { SETTINGS } from "$lib/settings/userSettings";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, ContextMenu, ContextMenuItem, ContextMenuSection, TestId } from "@gitbutler/ui";
+	import {
+		Badge,
+		Button,
+		ContextMenu,
+		ContextMenuItem,
+		ContextMenuSection,
+		TestId,
+	} from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 
 	import { slide } from "svelte/transition";
@@ -28,6 +35,17 @@
 	let shareIssueModal = $state<ShareIssueModal>();
 
 	const userSettings = inject(SETTINGS);
+	const uiState = inject(UI_STATE);
+	const settingsService = inject(SETTINGS_SERVICE);
+	const settingsStore = settingsService.appSettings;
+	const ircEnabled = $derived(
+		($settingsStore?.featureFlags.irc && $settingsStore?.irc?.connection?.enabled) ?? false,
+	);
+	const ircApiService = inject(IRC_API_SERVICE);
+	const ircChannelsQuery = $derived(ircEnabled ? ircApiService.channels() : undefined);
+	const ircUnreadChannels = $derived(
+		(ircChannelsQuery?.response ?? []).filter((ch) => ch.unreadCount > 0).length,
+	);
 	const { openGeneralSettings, openProjectSettings } = useSettingsModal();
 </script>
 
@@ -179,20 +197,26 @@
 				{/snippet}
 			</Button>
 		</div>
-		{#if $ircEnabled}
-			<div>
-				{#if isIrcPath()}
+		{#if ircEnabled}
+			{@const ircChatOpen = uiState.global.ircChatOpen}
+			<div class="irc-btn-wrap">
+				{#if ircChatOpen.current}
 					<div class="active-page-indicator" in:slide={{ axis: "x", duration: 150 }}></div>
 				{/if}
 				<Button
 					kind="outline"
-					onclick={() => goto(ircPath(projectId))}
+					onclick={() => ircChatOpen.set(!ircChatOpen.current)}
 					icon="chat"
 					width={34}
-					class={["btn-square", isIrcPath() && "btn-active"]}
-					tooltip="History"
+					class={["btn-square", ircChatOpen.current ? "btn-active" : undefined]}
+					tooltip="IRC Chat"
 					{disabled}
 				/>
+				{#if ircUnreadChannels > 0 && !ircChatOpen.current}
+					<div class="unread-badge">
+						<Badge style="pop" size="icon">{ircUnreadChannels}</Badge>
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</div>
@@ -336,6 +360,17 @@
 		position: relative;
 		flex-direction: column;
 		gap: 2px;
+	}
+
+	.irc-btn-wrap {
+		position: relative;
+	}
+
+	.unread-badge {
+		position: absolute;
+		top: -4px;
+		right: -4px;
+		pointer-events: none;
 	}
 
 	.active-page-indicator {
