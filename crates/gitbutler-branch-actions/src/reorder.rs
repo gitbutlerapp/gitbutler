@@ -28,7 +28,7 @@ pub fn reorder_stack(
     perm: &mut RepoExclusive,
 ) -> Result<RebaseOutput> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let state = ctx.virtual_branches();
+    let mut state = ctx.virtual_branches();
     let git2_repo = &*ctx.git2_repo.get()?;
     let mut stack = state.get_stack(stack_id)?;
     let current_order = commits_order(ctx, &stack)?;
@@ -62,7 +62,7 @@ pub fn reorder_stack(
     let new_head = output.top_commit.to_git2();
 
     // Ensure the stack head is set to the new oid after rebasing
-    stack.set_stack_head(&state, &repo, new_head.to_gix())?;
+    stack.set_stack_head(&mut state, &repo, new_head.to_gix())?;
 
     stack.set_heads_from_rebase_output(ctx, output.references.clone())?;
 

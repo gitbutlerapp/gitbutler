@@ -454,7 +454,7 @@ pub(crate) fn integrate_upstream(
     let repo = ctx.repo.get()?;
     let context =
         UpstreamIntegrationContext::open(ctx, target_commit_oid, permission, &repo, review_map)?;
-    let virtual_branches_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut virtual_branches_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let default_target = virtual_branches_state.get_default_target()?;
 
     let mut deleted_branches = vec![];
@@ -606,7 +606,7 @@ pub(crate) fn integrate_upstream(
                 }
             }
 
-            stack.set_stack_head(&virtual_branches_state, &repo, *head)?;
+            stack.set_stack_head(&mut virtual_branches_state, &repo, *head)?;
 
             let delete_local_refs = resolutions
                 .iter()

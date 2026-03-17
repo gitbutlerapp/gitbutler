@@ -19,7 +19,7 @@ pub(crate) fn move_commit(
     source_stack_id: StackId,
 ) -> Result<Option<MoveCommitIllegalAction>> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let vb_state = ctx.virtual_branches();
+    let mut vb_state = ctx.virtual_branches();
     let repo = ctx.repo.get()?;
 
     let applied_stacks = vb_state
@@ -43,7 +43,7 @@ pub(crate) fn move_commit(
 
     take_commit_from_source_stack(ctx, &mut source_stack, subject_commit_oid)?;
 
-    move_commit_to_destination_stack(&vb_state, ctx, destination_stack, subject_commit_oid)?;
+    move_commit_to_destination_stack(&mut vb_state, ctx, destination_stack, subject_commit_oid)?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     // Even if this fails, it's not actionable
@@ -92,13 +92,14 @@ fn take_commit_from_source_stack(
     let output = rebase.rebase(&*ctx.cache.get_cache()?)?;
 
     source_stack.set_heads_from_rebase_output(ctx, output.references)?;
-    source_stack.set_stack_head(&ctx.virtual_branches(), &repo, output.top_commit)?;
+    let mut vb_state = ctx.virtual_branches();
+    source_stack.set_stack_head(&mut vb_state, &repo, output.top_commit)?;
     Ok(None)
 }
 
 /// Move the commit to the destination stack.
 fn move_commit_to_destination_stack(
-    vb_state: &VirtualBranchesHandle,
+    vb_state: &mut VirtualBranchesHandle,
     ctx: &Context,
     mut destination_stack: gitbutler_stack::Stack,
     commit_id: gix::ObjectId,

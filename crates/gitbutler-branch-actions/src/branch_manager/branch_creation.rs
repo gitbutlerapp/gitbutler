@@ -56,7 +56,7 @@ impl BranchManager<'_> {
         create: &BranchCreateRequest,
         perm: &mut RepoExclusive,
     ) -> Result<Stack> {
-        let vb_state = self.ctx.virtual_branches();
+        let mut vb_state = self.ctx.virtual_branches();
         let default_target = vb_state.get_default_target()?;
 
         let mut all_stacks = vb_state
@@ -188,7 +188,7 @@ impl BranchManager<'_> {
             }
         };
 
-        let vb_state = self.ctx.virtual_branches();
+        let mut vb_state = self.ctx.virtual_branches();
 
         let default_target = vb_state.get_default_target()?;
 
@@ -240,8 +240,8 @@ impl BranchManager<'_> {
             branch.set_pr_number(self.ctx, head, Some(pr_number))?;
         }
         branch.set_stack_head(
-            &vb_state,
-            &(&*git2_repo).to_isolated_gix_repo()?,
+            &mut vb_state,
+            &(&*git2_repo).to_gix_repo()?,
             head_commit.id().to_gix(),
         )?;
         self.ctx.add_branch_reference(&branch)?;
@@ -273,7 +273,7 @@ impl BranchManager<'_> {
     ) -> Result<(String, Vec<StackId>)> {
         let git2_repo = &*self.ctx.git2_repo.get()?;
 
-        let vb_state = self.ctx.virtual_branches();
+        let mut vb_state = self.ctx.virtual_branches();
         let default_target = vb_state.get_default_target()?;
 
         let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
@@ -350,7 +350,7 @@ impl BranchManager<'_> {
             let output = rebase.rebase(&*self.ctx.cache.get_cache()?)?;
             let new_head = git2_repo.find_commit(output.top_commit.to_git2())?;
 
-            stack.set_stack_head(&vb_state, &repo, new_head.id().to_gix())?;
+            stack.set_stack_head(&mut vb_state, &repo, new_head.id().to_gix())?;
 
             stack.set_heads_from_rebase_output(self.ctx, output.references)?;
         }

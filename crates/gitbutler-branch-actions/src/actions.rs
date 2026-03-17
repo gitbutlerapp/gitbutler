@@ -61,7 +61,7 @@ pub fn delete_local_branch(ctx: &mut Context, refname: &Refname, given_name: Str
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let repo = &*ctx.repo.get()?;
-    let handle = ctx.virtual_branches();
+    let mut handle = ctx.virtual_branches();
     let stack = handle.list_all_stacks()?.into_iter().find(|stack| {
         stack
             .source_refname
@@ -364,7 +364,7 @@ pub fn fetch_from_remotes(ctx: &Context, askpass: Option<String>) -> Result<Fetc
             error: fetch_errors.join("\n"),
         }
     };
-    let state = ctx.virtual_branches();
+    let mut state = ctx.virtual_branches();
 
     state.garbage_collect(&*ctx.repo.get()?)?;
 

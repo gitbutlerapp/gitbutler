@@ -257,7 +257,7 @@ fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     let gix_repo = git2_repo.to_gix_repo()?;
     let head_commit_id = gix_repo.head_id()?.detach();
 
-    let vb_handle = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut vb_handle = VirtualBranchesHandle::new(ctx.project_data_dir());
     let default_target = vb_handle
         .get_default_target()
         .context("failed to get default target")?;
@@ -336,7 +336,7 @@ fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
             ))?;
 
         head = rebased_commit_oid.to_gix();
-        new_branch.set_stack_head(&vb_handle, &gix_repo, head)?;
+        new_branch.set_stack_head(&mut vb_handle, &gix_repo, head)?;
     }
     Ok(())
 }

@@ -35,7 +35,7 @@ pub mod virtual_branches {
     use crate::empty_bare_repository;
 
     pub fn set_test_target(ctx: &Context) -> anyhow::Result<()> {
-        let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+        let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
         let (remote_repo, _tmp) = empty_bare_repository();
         let git2_repo = &*ctx.git2_repo.get()?;
         let mut remote = git2_repo

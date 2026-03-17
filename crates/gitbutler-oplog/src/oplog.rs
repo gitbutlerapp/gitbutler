@@ -369,7 +369,7 @@ fn get_workdir_tree(
 pub fn prepare_snapshot(ctx: &Context, _shared_access: &RepoShared) -> Result<git2::Oid> {
     let git2_repo = ctx.git2_repo.get()?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     // grab the target commit
     let default_target_commit =
@@ -409,7 +409,7 @@ pub fn prepare_snapshot(ctx: &Context, _shared_access: &RepoShared) -> Result<gi
         revwalk.hide(default_target_commit.id())?;
 
         // If the references are out of sync, now is a good time to update them
-        stack.sync_heads_with_references(&vb_state, &repo).ok();
+        stack.sync_heads_with_references(&mut vb_state, &repo).ok();
 
         let mut commits_tree_builder = git2_repo.treebuilder(None)?;
         for commit_id in revwalk {
@@ -650,7 +650,7 @@ fn restore_snapshot(
     )?;
 
     // Now that the toml file has been restored, update references to reflect the the values from virtual_branches.toml
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     vb_state.import_toml_into_db_for_restore()?;
     let stacks = vb_state.list_stacks_in_workspace()?;
     for stack in stacks {

@@ -37,7 +37,7 @@ impl From<but_workspace::ui::Author> for crate::author::Author {
 }
 
 pub fn update_stack(ctx: &Context, update: &BranchUpdateRequest) -> Result<Stack> {
-    let vb_state = ctx.virtual_branches();
+    let mut vb_state = ctx.virtual_branches();
     let mut stack = vb_state.get_stack_in_workspace(update.id.context("BUG(opt-stack-id)")?)?;
 
     if let Some(order) = update.order {
@@ -175,7 +175,7 @@ pub(crate) fn update_commit_message(
     if message.is_empty() {
         bail!("commit message can not be empty");
     }
-    let vb_state = ctx.virtual_branches();
+    let mut vb_state = ctx.virtual_branches();
     let default_target = vb_state.get_default_target()?;
     let repo = ctx.repo.get()?;
 
@@ -208,7 +208,7 @@ pub(crate) fn update_commit_message(
         rebase.rebase(&*ctx.cache.get_cache()?)?
     };
 
-    stack.set_stack_head(&vb_state, &repo, output.top_commit)?;
+    stack.set_stack_head(&mut vb_state, &repo, output.top_commit)?;
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
     crate::integration::update_workspace_commit_with_vb_state(&vb_state, ctx, false)

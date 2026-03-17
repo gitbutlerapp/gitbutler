@@ -200,6 +200,23 @@ Also write the database after _each change_ so it's semantically similar to how 
 
 Sync the TOML file _on drop_ only, knowing well that this may write data that is going to be rolled back. The TOML sync is only for backward compatibility with older application versions.
 
+- [ ] First migrate every remaining `ctx.legacy_meta()` caller to `ctx.meta()`
+  - Current baseline:
+    - `crates/but-action/src/lib.rs`
+    - `crates/but-action/src/reword.rs`
+    - `crates/but-cherry-apply/tests/cherry_apply/main.rs`
+    - `crates/but-claude/src/hooks/mod.rs`
+    - `crates/but-cursor/src/lib.rs`
+    - `crates/but-testing/src/command/mod.rs`
+    - `crates/but-tools/src/workspace.rs`
+    - `crates/but-workspace/src/legacy/mod.rs`
+    - `crates/but-worktrees/tests/worktree/main.rs`
+    - `crates/but/src/command/legacy/mcp_internal/stack.rs`
+    - `crates/but/src/legacy/commits.rs`
+    - `crates/gitbutler-branch-actions/src/upstream_integration.rs`
+    - `crates/gitbutler-branch-actions/tests/branch-actions/virtual_branches/mod.rs`
+    - `crates/gitbutler-cli/src/command/vbranch.rs`
+    - `crates/gitbutler-testsupport/src/lib.rs`
 - [ ] Not started
 
 ### 4. Modernize workspace metadata schema

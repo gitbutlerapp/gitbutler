@@ -429,7 +429,7 @@ fn push_series_success() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
 
-    let state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let mut target = state.get_default_target()?;
     target.push_remote_name = Some("origin".into());
     state.set_default_target(target)?;
@@ -444,7 +444,7 @@ fn update_name_after_push() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
 
-    let state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let mut target = state.get_default_target()?;
     target.push_remote_name = Some("origin".into());
     state.set_default_target(target)?;
@@ -578,11 +578,11 @@ fn list_series_two_heads_different_commit() -> Result<()> {
 fn set_stack_head_commit_invalid() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let repo = ctx.repo.get()?;
     let result = test_ctx
         .stack
-        .set_stack_head(&vb_state, &repo, git2::Oid::zero().to_gix());
+        .set_stack_head(&mut vb_state, &repo, git2::Oid::zero().to_gix());
     assert!(result.is_err());
     Ok(())
 }
@@ -592,11 +592,11 @@ fn set_stack_head() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
     let commit = test_ctx.other_commits.last().unwrap();
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let repo = ctx.repo.get()?;
     let result = test_ctx
         .stack
-        .set_stack_head(&vb_state, &repo, commit.id().to_gix());
+        .set_stack_head(&mut vb_state, &repo, commit.id().to_gix());
     assert!(result.is_ok());
     let branches = test_ctx.stack.branches();
     assert_eq!(
@@ -814,7 +814,8 @@ fn seed_metadata(repo: &gix::Repository, name: &str) -> Result<()> {
         sha: repo.rev_parse_single("refs/remotes/origin/main")?.detach(),
         push_remote_name: Some("origin".to_owned()),
     };
-    VirtualBranchesHandle::new(repo.gitbutler_storage_path()?).set_default_target(target)?;
+    let mut handle = VirtualBranchesHandle::new(repo.gitbutler_storage_path()?);
+    handle.set_default_target(target)?;
     Ok(())
 }
 
@@ -963,7 +964,7 @@ fn storage_sync_recreates_toml_when_missing() -> Result<()> {
 #[test]
 fn storage_sync_db_mutation_always_updates_toml_mirror() -> Result<()> {
     let tmp = tempfile::tempdir()?;
-    let handle = VirtualBranchesHandle::new(tmp.path());
+    let mut handle = VirtualBranchesHandle::new(tmp.path());
     let _ = handle.read_file()?;
     let toml_path = tmp.path().join("virtual_branches.toml");
     fs::remove_file(&toml_path)?;
@@ -993,7 +994,7 @@ fn storage_sync_db_mutation_always_updates_toml_mirror() -> Result<()> {
 #[test]
 fn storage_sync_newer_toml_overwrites_db() -> Result<()> {
     let tmp = tempfile::tempdir()?;
-    let handle = VirtualBranchesHandle::new(tmp.path());
+    let mut handle = VirtualBranchesHandle::new(tmp.path());
     let _ = handle.read_file()?;
     handle.set_default_target(stack_target(
         "main",
@@ -1019,7 +1020,7 @@ fn storage_sync_newer_toml_overwrites_db() -> Result<()> {
 #[test]
 fn storage_sync_equal_mtime_and_changed_hash_overwrites_db() -> Result<()> {
     let tmp = tempfile::tempdir()?;
-    let handle = VirtualBranchesHandle::new(tmp.path());
+    let mut handle = VirtualBranchesHandle::new(tmp.path());
     let _ = handle.read_file()?;
     handle.set_default_target(stack_target(
         "main",
@@ -1052,7 +1053,7 @@ fn storage_sync_equal_mtime_and_changed_hash_overwrites_db() -> Result<()> {
 #[test]
 fn storage_sync_older_toml_does_not_overwrite_db() -> Result<()> {
     let tmp = tempfile::tempdir()?;
-    let handle = VirtualBranchesHandle::new(tmp.path());
+    let mut handle = VirtualBranchesHandle::new(tmp.path());
     let _ = handle.read_file()?;
     handle.set_default_target(stack_target(
         "main",
@@ -1096,7 +1097,7 @@ fn storage_sync_older_toml_does_not_overwrite_db() -> Result<()> {
 #[test]
 fn storage_sync_invalid_newer_toml_is_rewritten_from_db() -> Result<()> {
     let tmp = tempfile::tempdir()?;
-    let handle = VirtualBranchesHandle::new(tmp.path());
+    let mut handle = VirtualBranchesHandle::new(tmp.path());
     let _ = handle.read_file()?;
     handle.set_default_target(stack_target(
         "main",
@@ -1130,7 +1131,7 @@ fn storage_sync_invalid_newer_toml_is_rewritten_from_db() -> Result<()> {
 #[test]
 fn storage_sync_restore_import_helper_imports_toml_into_db() -> Result<()> {
     let tmp = tempfile::tempdir()?;
-    let handle = VirtualBranchesHandle::new(tmp.path());
+    let mut handle = VirtualBranchesHandle::new(tmp.path());
     let _ = handle.read_file()?;
     handle.set_default_target(stack_target(
         "db-main",

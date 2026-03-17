@@ -26,7 +26,7 @@ pub(crate) fn undo_commit(
     commit_to_remove: gix::ObjectId,
     _perm: &mut RepoExclusive,
 ) -> Result<Stack> {
-    let vb_state = ctx.virtual_branches();
+    let mut vb_state = ctx.virtual_branches();
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
 
@@ -50,7 +50,7 @@ pub(crate) fn undo_commit(
     let output = rebase.rebase(&*ctx.cache.get_cache()?)?;
 
     let new_head = output.top_commit.to_git2();
-    stack.set_stack_head(&vb_state, &repo, new_head.to_gix())?;
+    stack.set_stack_head(&mut vb_state, &repo, new_head.to_gix())?;
 
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
