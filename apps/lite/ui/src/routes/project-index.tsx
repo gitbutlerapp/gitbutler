@@ -39,6 +39,7 @@ import {
 	CommitsList,
 	type DragData,
 	DragPreview,
+	DraggableBranch,
 	FileButton,
 	FileDiff,
 	Hunk,
@@ -47,6 +48,7 @@ import {
 import {
 	commitMoveMutationOptions,
 	commitCreateMutationOptions,
+	moveBranchMutationOptions,
 	rubMutationOptions,
 	unapplyStackMutationOptions,
 } from "#ui/mutations.ts";
@@ -63,7 +65,11 @@ import { rubOperationLabel, RubParams, type RubSource } from "#ui/rub.ts";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
-import { CommitMoveParams } from "#electron/ipc.ts";
+import { CommitMoveParams, MoveBranchParams } from "#electron/ipc.ts";
+
+// https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
+const decodeRefName = (fullNameBytes: Array<number>): string =>
+	new TextDecoder().decode(Uint8Array.from(fullNameBytes));
 
 const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
@@ -188,6 +194,7 @@ const commonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 
 const rubSourceFor = (item: SourceItem): RubSource | null =>
 	Match.value(item).pipe(
+		Match.tag("Branch", (): RubSource | null => null),
 		Match.tag("Commit", ({ commitId }): RubSource | null => ({
 			_tag: "Commit",
 			source: { commitId },
@@ -214,7 +221,10 @@ type OperationTarget =
 	  } & Omit<RubParams, "projectId" | "source">)
 	| ({
 			_tag: "CommitMove";
-	  } & Omit<CommitMoveParams, "projectId" | "subjectCommitId">);
+	  } & Omit<CommitMoveParams, "projectId" | "subjectCommitId">)
+	| ({
+			_tag: "MoveBranch";
+	  } & Omit<MoveBranchParams, "projectId" | "subjectBranch">);
 
 const parseDropTargetData = (data: unknown): OperationTarget | null => {
 	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
@@ -258,6 +268,7 @@ const useRunOperation = (projectId: string) => {
 	const toastManager = Toast.useToastManager();
 	const rubMutation = useMutation(rubMutationOptions);
 	const commitMove = useMutation(commitMoveMutationOptions);
+	const moveBranch = useMutation(moveBranchMutationOptions);
 
 	return (sourceItem: SourceItem, operationTarget: OperationTarget): void => {
 		Match.value(operationTarget).pipe(
@@ -294,6 +305,15 @@ const useRunOperation = (projectId: string) => {
 					subjectCommitId: sourceItem.commitId,
 					relativeTo: operationTarget.relativeTo,
 					side: operationTarget.side,
+				});
+			}),
+			Match.tag("MoveBranch", (operationTarget) => {
+				if (sourceItem._tag !== "Branch") return;
+				if (!sourceItem.anchorRef) return;
+				moveBranch.mutate({
+					projectId,
+					subjectBranch: decodeRefName(sourceItem.anchorRef),
+					targetBranch: operationTarget.targetBranch,
 				});
 			}),
 			Match.exhaustive,
@@ -1082,26 +1102,39 @@ const CommitForm: FC<{
 	);
 };
 
-const CommitMoveToBranchTarget: FC<
+const BranchTarget: FC<
 	{
 		anchorRef: Array<number> | null;
 		firstCommitId: string | undefined;
 	} & useRender.ComponentProps<"div">
 > = ({ anchorRef, firstCommitId, render, ...props }) => {
-	const getOperationTarget = (sourceItem: SourceItem): OperationTarget | null => {
-		if (anchorRef === null) return null;
-		if (sourceItem._tag !== "Commit") return null;
-
-		if (sourceItem.commitId === firstCommitId) return null;
-		return {
-			_tag: "CommitMove",
-			relativeTo: {
-				type: "referenceBytes",
-				subject: anchorRef,
-			},
-			side: "below",
-		};
-	};
+	const getOperationTarget = (sourceItem: SourceItem): OperationTarget | null =>
+		Match.value(sourceItem).pipe(
+			Match.tag("Branch", (source): OperationTarget | null => {
+				if (
+					anchorRef === null ||
+					source.anchorRef === null ||
+					decodeRefName(anchorRef) === decodeRefName(source.anchorRef)
+				)
+					return null;
+				return {
+					_tag: "MoveBranch",
+					targetBranch: decodeRefName(anchorRef),
+				};
+			}),
+			Match.tag("Commit", ({ commitId }): OperationTarget | null => {
+				if (anchorRef === null || commitId === firstCommitId) return null;
+				return {
+					_tag: "CommitMove",
+					relativeTo: {
+						type: "referenceBytes",
+						subject: anchorRef,
+					},
+					side: "below",
+				};
+			}),
+			Match.orElse(() => null),
+		);
 
 	const [isDropTarget, dropRef] = useDroppable({
 		canDrop: ({ source }) => {
@@ -1124,8 +1157,10 @@ const CommitMoveToBranchTarget: FC<
 		}),
 	});
 
+	const sourceItem = useDraggedSourceItem();
+
 	return (
-		<Tooltip.Root open={isDropTarget}>
+		<Tooltip.Root open={isDropTarget && !!sourceItem && !!getOperationTarget(sourceItem)}>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
@@ -1215,10 +1250,8 @@ const StackC: FC<{
 					const anchorRef = segment.refName ? segment.refName.fullNameBytes : null;
 					return (
 						<li key={branchName}>
-							<CommitMoveToBranchTarget
-								anchorRef={anchorRef}
-								firstCommitId={segment.commits[0]?.id}
-								render={
+							<BranchTarget anchorRef={anchorRef} firstCommitId={segment.commits[0]?.id}>
+								<DraggableBranch anchorRef={anchorRef} label={branchName}>
 									<h3>
 										{branchRef !== null ? (
 											<button
@@ -1237,8 +1270,8 @@ const StackC: FC<{
 											branchName
 										)}
 									</h3>
-								}
-							/>
+								</DraggableBranch>
+							</BranchTarget>
 
 							<CommitsList commits={segment.commits}>
 								{(commit, index) => {
