@@ -147,13 +147,10 @@ type OperationTarget =
 			_tag: "CommitMove";
 			anchorCommitId: string;
 			side: InsertSide;
-			previousCommitId: string | undefined;
-			nextCommitId: string | undefined;
 	  }
 	| {
 			_tag: "CommitMoveToBranch";
 			anchorRef: Array<number>;
-			firstCommitId: string | undefined;
 	  };
 
 const parseDropTargetData = (data: unknown): OperationTarget | null => {
@@ -541,8 +538,6 @@ const CommitMoveTarget: FC<{
 			_tag: "CommitMove",
 			anchorCommitId: commitId,
 			side,
-			previousCommitId,
-			nextCommitId,
 		}),
 	});
 
@@ -887,7 +882,6 @@ const CommitMoveToBranchTarget: FC<
 		return {
 			_tag: "CommitMoveToBranch",
 			anchorRef,
-			firstCommitId,
 		};
 	};
 
