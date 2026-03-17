@@ -1,3 +1,5 @@
+import { Menu } from "@base-ui/react";
+import { ContextMenu } from "@base-ui/react/context-menu";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import {
@@ -9,8 +11,8 @@ import {
 	UnifiedPatch,
 } from "@gitbutler/but-sdk";
 import { Match } from "effect";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { ComponentProps, FC, ReactNode } from "react";
+import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { ComponentProps, FC, ReactNode, startTransition, useOptimistic, useState } from "react";
 import styles from "./project-shared.module.css";
 import {
 	commitDetailsWithLineStatsQueryOptions,
@@ -18,6 +20,7 @@ import {
 } from "#ui/queries.ts";
 import { type ChangeUnit } from "#ui/ChangeUnit.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
+import { commitInsertBlankMutationOptions, commitRewordMutationOptions } from "#ui/mutations.ts";
 
 /**
  * @example
@@ -235,7 +238,32 @@ export const CommitLabel: FC<{
 	</>
 );
 
-export const CommitButton: FC<
+const DraggableCommit: FC<
+	{
+		commit: Commit;
+	} & useRender.ComponentProps<"div">
+> = ({ commit, render, ...props }) => {
+	const { id: commitId } = commit;
+	const sourceItem: SourceItem = { _tag: "Commit", commitId };
+	const { ref: dragRef, isDragging } = useDraggable({
+		data: { sourceItem } satisfies DragData,
+		preview: (
+			<div className={styles.dragPreview}>
+				<CommitLabel commit={commit} />
+			</div>
+		),
+	});
+
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && styles.dragging),
+		}),
+	});
+};
+
+const CommitButton: FC<
 	{
 		commit: Commit;
 		isSelected: boolean;
@@ -268,6 +296,188 @@ export const CommitButton: FC<
 		<CommitLabel commit={commit} />
 	</button>
 );
+
+const InlineCommitMessageEditor: FC<{
+	projectId: string;
+	commitId: string;
+	message: string;
+	setMessageAction: (message: string) => void | Promise<void>;
+	isSelected: boolean;
+	isAnyFileSelected: boolean;
+	onExit: () => void;
+}> = ({
+	projectId,
+	commitId,
+	message,
+	setMessageAction,
+	isSelected,
+	isAnyFileSelected,
+	onExit,
+}) => {
+	const commitReword = useMutation(commitRewordMutationOptions);
+	const initialMessage = message.trim();
+
+	return (
+		<textarea
+			ref={(el) => {
+				if (!el) return;
+				el.focus();
+				const cursorPosition = el.value.length;
+				el.setSelectionRange(cursorPosition, cursorPosition);
+			}}
+			defaultValue={initialMessage}
+			className={classes(
+				styles.editCommitMessageInput,
+				isSelected ? styles.selected : isAnyFileSelected ? styles.selectedWithin : undefined,
+			)}
+			onBlur={onExit}
+			onKeyDown={(event) => {
+				if (event.key === "Escape") {
+					event.preventDefault();
+					onExit();
+				} else if (event.key === "Enter" && !event.shiftKey) {
+					event.preventDefault();
+					onExit();
+
+					const newMessage = event.currentTarget.value.trim();
+
+					if (newMessage !== initialMessage)
+						startTransition(async () => {
+							await setMessageAction(newMessage);
+							await commitReword.mutateAsync({
+								projectId,
+								commitId,
+								message: newMessage,
+							});
+						});
+				}
+			}}
+		/>
+	);
+};
+
+const CommitMenuPopup: FC<{
+	onReword: () => void;
+	onInsertBlank: (side: "above" | "below") => void;
+	parts: typeof Menu | typeof ContextMenu;
+}> = ({ onReword, onInsertBlank, parts }) => {
+	const { Popup, Item, SubmenuRoot, SubmenuTrigger, Positioner } = parts;
+
+	return (
+		<Popup className={styles.menuPopup}>
+			<Item className={styles.menuItem} onClick={onReword}>
+				Edit commit message
+			</Item>
+			<SubmenuRoot>
+				<SubmenuTrigger className={styles.menuItem}>Add empty commit</SubmenuTrigger>
+				<Positioner>
+					<Popup className={styles.menuPopup}>
+						<Item
+							className={styles.menuItem}
+							onClick={() => {
+								onInsertBlank("above");
+							}}
+						>
+							Above
+						</Item>
+						<Item
+							className={styles.menuItem}
+							onClick={() => {
+								onInsertBlank("below");
+							}}
+						>
+							Below
+						</Item>
+					</Popup>
+				</Positioner>
+			</SubmenuRoot>
+		</Popup>
+	);
+};
+
+export const CommitRow: FC<{
+	projectId: string;
+	commit: Commit;
+	isSelected: boolean;
+	isAnyFileSelected: boolean;
+	isHighlighted: boolean;
+	toggleSelect: () => void;
+}> = ({ projectId, commit, isSelected, isAnyFileSelected, isHighlighted, toggleSelect }) => {
+	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
+	const [isEditingMessage, setIsEditingMessage] = useState(false);
+	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
+		commit.message,
+		(_currentMessage, nextMessage: string) => nextMessage,
+	);
+
+	const commitWithOptimisticMessage: Commit = { ...commit, message: optimisticMessage };
+
+	const insertBlankCommit = (side: "above" | "below") => {
+		commitInsertBlank.mutate({
+			projectId,
+			relativeTo: { type: "commit", subject: commit.id },
+			side,
+		});
+	};
+
+	return (
+		<div className={styles.commitRow}>
+			{isEditingMessage ? (
+				<InlineCommitMessageEditor
+					projectId={projectId}
+					commitId={commit.id}
+					message={optimisticMessage}
+					setMessageAction={setOptimisticMessage}
+					isSelected={isSelected}
+					isAnyFileSelected={isAnyFileSelected}
+					onExit={() => {
+						setIsEditingMessage(false);
+					}}
+				/>
+			) : (
+				<ContextMenu.Root>
+					<ContextMenu.Trigger
+						render={
+							<DraggableCommit
+								commit={commitWithOptimisticMessage}
+								render={
+									<CommitButton
+										commit={commitWithOptimisticMessage}
+										isSelected={isSelected}
+										isAnyFileSelected={isAnyFileSelected}
+										isHighlighted={isHighlighted}
+										toggleSelect={toggleSelect}
+									/>
+								}
+							/>
+						}
+					/>
+					<ContextMenu.Portal>
+						<ContextMenu.Positioner>
+							<CommitMenuPopup
+								onReword={() => setIsEditingMessage(true)}
+								onInsertBlank={insertBlankCommit}
+								parts={ContextMenu}
+							/>
+						</ContextMenu.Positioner>
+					</ContextMenu.Portal>
+				</ContextMenu.Root>
+			)}
+			<Menu.Root>
+				<Menu.Trigger style={{ lineHeight: 1 }}>𑁔</Menu.Trigger>
+				<Menu.Portal>
+					<Menu.Positioner align="end">
+						<CommitMenuPopup
+							onReword={() => setIsEditingMessage(true)}
+							onInsertBlank={insertBlankCommit}
+							parts={Menu}
+						/>
+					</Menu.Positioner>
+				</Menu.Portal>
+			</Menu.Root>
+		</div>
+	);
+};
 
 export const CommitsList: FC<{
 	commits: Array<Commit>;

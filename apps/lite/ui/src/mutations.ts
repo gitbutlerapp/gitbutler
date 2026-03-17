@@ -23,6 +23,10 @@ export const commitInsertBlankMutationOptions = mutationOptions({
 		await Promise.all([
 			client.invalidateQueries(headInfoQueryOptions(projectId)),
 			client.invalidateQueries(changesInWorktreeQueryOptions(projectId)),
+			client.invalidateQueries(listBranchesQueryOptions(projectId)),
+			client.invalidateQueries({ queryKey: ["branchDetails"] }),
+			client.invalidateQueries({ queryKey: ["branchDiff"] }),
+			client.invalidateQueries({ queryKey: ["commitDetailsWithLineStats"] }),
 		]);
 	},
 });
@@ -33,6 +37,10 @@ export const commitMoveMutationOptions = mutationOptions({
 		await Promise.all([
 			client.invalidateQueries(headInfoQueryOptions(projectId)),
 			client.invalidateQueries(changesInWorktreeQueryOptions(projectId)),
+			client.invalidateQueries(listBranchesQueryOptions(projectId)),
+			client.invalidateQueries({ queryKey: ["branchDetails"] }),
+			client.invalidateQueries({ queryKey: ["branchDiff"] }),
+			client.invalidateQueries({ queryKey: ["commitDetailsWithLineStats"] }),
 		]);
 	},
 });
@@ -43,6 +51,10 @@ export const commitMoveToBranchMutationOptions = mutationOptions({
 		await Promise.all([
 			client.invalidateQueries(headInfoQueryOptions(projectId)),
 			client.invalidateQueries(changesInWorktreeQueryOptions(projectId)),
+			client.invalidateQueries(listBranchesQueryOptions(projectId)),
+			client.invalidateQueries({ queryKey: ["branchDetails"] }),
+			client.invalidateQueries({ queryKey: ["branchDiff"] }),
+			client.invalidateQueries({ queryKey: ["commitDetailsWithLineStats"] }),
 		]);
 	},
 });
@@ -63,6 +75,10 @@ export const commitRewordMutationOptions = mutationOptions({
 		await Promise.all([
 			client.invalidateQueries(headInfoQueryOptions(projectId)),
 			client.invalidateQueries(changesInWorktreeQueryOptions(projectId)),
+			client.invalidateQueries(listBranchesQueryOptions(projectId)),
+			client.invalidateQueries({ queryKey: ["branchDetails"] }),
+			client.invalidateQueries({ queryKey: ["branchDiff"] }),
+			client.invalidateQueries({ queryKey: ["commitDetailsWithLineStats"] }),
 		]);
 	},
 });

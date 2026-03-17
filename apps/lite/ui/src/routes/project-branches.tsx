@@ -2,8 +2,8 @@ import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { createRoute } from "@tanstack/react-router";
 import { FC, Suspense } from "react";
 import {
-	CommitButton,
 	CommitDetails,
+	CommitRow,
 	CommitsList,
 	FileDiff,
 	FileButton,
@@ -67,7 +67,8 @@ const CommitC: FC<{
 
 	return (
 		<div className={sharedStyles.commit}>
-			<CommitButton
+			<CommitRow
+				projectId={projectId}
 				commit={commit}
 				isSelected={isSelected}
 				isAnyFileSelected={isAnyFileSelected}

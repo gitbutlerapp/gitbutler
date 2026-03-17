@@ -1,9 +1,6 @@
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
-import { createRoute } from "@tanstack/react-router";
-import styles from "./project-index.module.css";
-import sharedStyles from "./project-shared.module.css";
 import { Menu, Tooltip } from "@base-ui/react";
-import { ContextMenu } from "@base-ui/react/context-menu";
+import { createRoute } from "@tanstack/react-router";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { Popover } from "@base-ui/react/popover";
 import { useRender } from "@base-ui/react/use-render";
@@ -21,23 +18,15 @@ import {
 } from "@gitbutler/but-sdk";
 import { Array, Match } from "effect";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
-import {
-	createContext,
-	FC,
-	startTransition,
-	Suspense,
-	useContext,
-	useEffect,
-	useOptimistic,
-	useState,
-} from "react";
+import { createContext, FC, Suspense, useContext, useEffect, useState } from "react";
+import styles from "./project-index.module.css";
+import sharedStyles from "./project-shared.module.css";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
 import {
-	CommitButton,
-	CommitLabel,
 	CommitDetails,
+	CommitRow,
 	CommitsList,
 	type DragData,
 	FileButton,
@@ -46,11 +35,9 @@ import {
 	type SourceItem,
 } from "#ui/routes/project-shared.tsx";
 import {
-	commitInsertBlankMutationOptions,
 	commitMoveMutationOptions,
 	commitMoveToBranchMutationOptions,
 	commitMutationOptions,
-	commitRewordMutationOptions,
 	rubMutationOptions,
 	unapplyStackMutationOptions,
 } from "#ui/mutations.ts";
@@ -286,31 +273,6 @@ const assignedChangesDiffSpecs = (
 			),
 		];
 	});
-
-const DraggableCommit: FC<
-	{
-		commit: Commit;
-	} & useRender.ComponentProps<"div">
-> = ({ commit, render, ...props }) => {
-	const { id: commitId } = commit;
-	const sourceItem: SourceItem = { _tag: "Commit", commitId };
-	const { ref: dragRef, isDragging } = useDraggable({
-		data: { sourceItem } satisfies DragData,
-		preview: (
-			<div className={sharedStyles.dragPreview}>
-				<CommitLabel commit={commit} />
-			</div>
-		),
-	});
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isDragging && sharedStyles.dragging),
-		}),
-	});
-};
 
 const hunkContainsHunk = (a: DiffHunk, b: DiffHunk): boolean =>
 	a.oldStart <= b.oldStart &&
@@ -591,110 +553,6 @@ const CommitMoveTarget: FC<{
 	);
 };
 
-const InlineCommitMessageEditor: FC<{
-	projectId: string;
-	commitId: string;
-	message: string;
-	setMessageAction: (message: string) => void | Promise<void>;
-	isSelected: boolean;
-	isAnyFileSelected: boolean;
-	onExit: () => void;
-}> = ({
-	projectId,
-	commitId,
-	message,
-	setMessageAction,
-	isSelected,
-	isAnyFileSelected,
-	onExit,
-}) => {
-	const commitReword = useMutation(commitRewordMutationOptions);
-	const initialMessage = message.trim();
-
-	return (
-		<textarea
-			ref={(el) => {
-				if (!el) return;
-				el.focus();
-				const cursorPosition = el.value.length;
-				el.setSelectionRange(cursorPosition, cursorPosition);
-			}}
-			defaultValue={initialMessage}
-			className={classes(
-				styles.editCommitMessageInput,
-				isSelected
-					? sharedStyles.selected
-					: isAnyFileSelected
-						? sharedStyles.selectedWithin
-						: undefined,
-			)}
-			onBlur={onExit}
-			onKeyDown={(event) => {
-				if (event.key === "Escape") {
-					event.preventDefault();
-
-					onExit();
-				} else if (event.key === "Enter" && !event.shiftKey) {
-					event.preventDefault();
-
-					onExit();
-
-					const newMessage = event.currentTarget.value.trim();
-
-					if (newMessage !== initialMessage)
-						startTransition(async () => {
-							await setMessageAction(newMessage);
-							await commitReword.mutateAsync({
-								projectId,
-								commitId,
-								message: newMessage,
-							});
-						});
-				}
-			}}
-		/>
-	);
-};
-
-const CommitMenuPopup: FC<{
-	onReword: () => void;
-	onInsertBlank: (side: InsertSide) => void;
-	parts: typeof Menu | typeof ContextMenu;
-}> = ({ onReword, onInsertBlank, parts }) => {
-	const { Popup, Item, SubmenuRoot, SubmenuTrigger, Positioner } = parts;
-
-	return (
-		<Popup className={styles.menuPopup}>
-			<Item className={styles.menuItem} onClick={onReword}>
-				Edit commit message
-			</Item>
-			<SubmenuRoot>
-				<SubmenuTrigger className={styles.menuItem}>Add empty commit</SubmenuTrigger>
-				<Positioner>
-					<Popup className={styles.menuPopup}>
-						<Item
-							className={styles.menuItem}
-							onClick={() => {
-								onInsertBlank("above");
-							}}
-						>
-							Above
-						</Item>
-						<Item
-							className={styles.menuItem}
-							onClick={() => {
-								onInsertBlank("below");
-							}}
-						>
-							Below
-						</Item>
-					</Popup>
-				</Positioner>
-			</SubmenuRoot>
-		</Popup>
-	);
-};
-
 const StackMenuPopup: FC<{
 	projectId: string;
 	stackId: string;
@@ -702,16 +560,16 @@ const StackMenuPopup: FC<{
 	const unapplyStack = useMutation(unapplyStackMutationOptions);
 
 	return (
-		<Menu.Popup className={styles.menuPopup}>
-			<Menu.Item className={styles.menuItem} disabled>
+		<Menu.Popup className={sharedStyles.menuPopup}>
+			<Menu.Item className={sharedStyles.menuItem} disabled>
 				Move to leftmost
 			</Menu.Item>
-			<Menu.Item className={styles.menuItem} disabled>
+			<Menu.Item className={sharedStyles.menuItem} disabled>
 				Move to rightmost
 			</Menu.Item>
 			<Menu.Separator />
 			<Menu.Item
-				className={styles.menuItem}
+				className={sharedStyles.menuItem}
 				disabled={unapplyStack.isPending}
 				onClick={() => {
 					unapplyStack.mutate({ projectId, stackId });
@@ -747,23 +605,8 @@ const CommitC: FC<{
 	toggleFileSelect,
 }) => {
 	const expanded = isSelected || isAnyFileSelected;
-	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
-	const [isEditingMessage, setIsEditingMessage] = useState(false);
 
 	const changeUnit: ChangeUnit = { _tag: "commit", commitId: commit.id };
-
-	const insertBlankCommit = (side: InsertSide) => {
-		commitInsertBlank.mutate({
-			projectId,
-			relativeTo: { type: "commit", subject: commit.id },
-			side,
-		});
-	};
-
-	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
-		commit.message,
-		(_currentMessage, nextMessage: string) => nextMessage,
-	);
 
 	return (
 		<div className={sharedStyles.commit}>
@@ -774,61 +617,14 @@ const CommitC: FC<{
 				nextCommitId={nextCommitId}
 			/>
 			<RubTarget target={changeUnit}>
-				<div className={styles.commitRow}>
-					{isEditingMessage ? (
-						<InlineCommitMessageEditor
-							projectId={projectId}
-							commitId={commit.id}
-							message={optimisticMessage}
-							setMessageAction={setOptimisticMessage}
-							isSelected={isSelected}
-							isAnyFileSelected={isAnyFileSelected}
-							onExit={() => {
-								setIsEditingMessage(false);
-							}}
-						/>
-					) : (
-						<ContextMenu.Root>
-							<ContextMenu.Trigger
-								render={
-									<DraggableCommit
-										commit={{ ...commit, message: optimisticMessage }}
-										render={
-											<CommitButton
-												commit={{ ...commit, message: optimisticMessage }}
-												isSelected={isSelected}
-												isAnyFileSelected={isAnyFileSelected}
-												isHighlighted={isHighlighted}
-												toggleSelect={toggleSelect}
-											/>
-										}
-									/>
-								}
-							/>
-							<ContextMenu.Portal>
-								<ContextMenu.Positioner>
-									<CommitMenuPopup
-										onReword={() => setIsEditingMessage(true)}
-										onInsertBlank={insertBlankCommit}
-										parts={ContextMenu}
-									/>
-								</ContextMenu.Positioner>
-							</ContextMenu.Portal>
-						</ContextMenu.Root>
-					)}
-					<Menu.Root>
-						<Menu.Trigger style={{ lineHeight: 1 }}>𑁔</Menu.Trigger>
-						<Menu.Portal>
-							<Menu.Positioner align="end">
-								<CommitMenuPopup
-									onReword={() => setIsEditingMessage(true)}
-									onInsertBlank={insertBlankCommit}
-									parts={Menu}
-								/>
-							</Menu.Positioner>
-						</Menu.Portal>
-					</Menu.Root>
-				</div>
+				<CommitRow
+					projectId={projectId}
+					commit={commit}
+					isSelected={isSelected}
+					isAnyFileSelected={isAnyFileSelected}
+					isHighlighted={isHighlighted}
+					toggleSelect={toggleSelect}
+				/>
 			</RubTarget>
 			{expanded && (
 				<div className={sharedStyles.commitDetails}>

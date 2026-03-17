@@ -28,10 +28,6 @@
 	list-style: none;
 }
 
-.commitRow {
-	display: flex;
-}
-
 .commitMoveTarget {
 	--hit-area: 19px;
 	--indicator-height: 3px;
@@ -59,32 +55,10 @@
 	background-color: black;
 }
 
-.editCommitMessageInput {
-	flex-grow: 1;
-	field-sizing: content;
-	box-sizing: content-box;
-	min-height: calc(2lh);
-}
-
 .tooltip {
 	padding: 4px 8px;
 	border: 1px solid;
 	background-color: white;
-}
-
-.menuPopup {
-	border: 1px solid;
-	background-color: white;
-}
-
-.menuItem {
-	padding: 4px;
-	border: 1px solid;
-	cursor: default;
-
-	&[data-disabled] {
-		opacity: 0.5;
-	}
 }
 
 .stackMenu {
