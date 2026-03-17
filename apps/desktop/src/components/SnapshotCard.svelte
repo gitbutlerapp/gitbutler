@@ -1,5 +1,6 @@
 <script lang="ts">
-	import FileList from "$components/FileList.svelte";
+	import FileListItems from "$components/FileListItems.svelte";
+	import FileListProvider from "$components/FileListProvider.svelte";
 	import ReduxResult from "$components/ReduxResult.svelte";
 	import SnapshotAttachment from "$components/SnapshotAttachment.svelte";
 	import { createdOnDay, HISTORY_SERVICE } from "$lib/history/history";
@@ -227,28 +228,25 @@
 		<ReduxResult result={snapshotDiff.result} {projectId}>
 			{#snippet children(files)}
 				{#if files.length > 0 && !isRestoreSnapshot}
-					<SnapshotAttachment
-						foldable={files.length > 2}
-						foldedAmount={files.length}
-						foldedHeight="7rem"
+					<FileListProvider
+						changes={files}
+						selectionId={{ type: "snapshot", snapshotId: entry.id }}
+						allowUnselect={false}
 					>
-						<ScrollableContainer>
-							<FileList
-								selectionId={{ type: "snapshot", snapshotId: entry.id }}
-								{projectId}
-								stackId={undefined}
-								changes={files}
-								listMode="list"
-								onFileClick={(index) => {
-									const change = files[index];
-									if (change) {
-										onDiffClick(change.path);
-									}
-								}}
-								allowUnselect={false}
-							/>
-						</ScrollableContainer>
-					</SnapshotAttachment>
+						<SnapshotAttachment
+							foldable={files.length > 2}
+							foldedAmount={files.length}
+							foldedHeight="7rem"
+						>
+							<ScrollableContainer>
+								<FileListItems
+									{projectId}
+									mode="list"
+									onselect={(change) => onDiffClick(change.path)}
+								/>
+							</ScrollableContainer>
+						</SnapshotAttachment>
+					</FileListProvider>
 				{/if}
 			{/snippet}
 		</ReduxResult>

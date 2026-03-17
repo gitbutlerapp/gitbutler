@@ -1,6 +1,8 @@
 <script lang="ts">
 	import ChangedFileStats from "$components/ChangedFileStats.svelte";
-	import FileList from "$components/FileList.svelte";
+	import FileListConflicts from "$components/FileListConflicts.svelte";
+	import FileListItems from "$components/FileListItems.svelte";
+	import FileListProvider from "$components/FileListProvider.svelte";
 	import emptyFolderSvg from "$lib/assets/empty-state/empty-folder.svg?raw";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { readStableSelectionKey, stableSelectionKey, type SelectionId } from "$lib/selection/key";
@@ -116,19 +118,24 @@
 					{/snippet}
 				</EmptyStatePlaceholder>
 			{:else}
-				<FileList
-					{selectionId}
-					{projectId}
-					{stackId}
-					{changes}
-					{listMode}
-					{conflictEntries}
-					{draggableFiles}
-					{ancestorMostConflictedCommitId}
-					{allowUnselect}
-					{visibleRange}
-					{onFileClick}
-				/>
+				<FileListProvider {changes} {selectionId} {allowUnselect}>
+					<FileListConflicts
+						{projectId}
+						{stackId}
+						{conflictEntries}
+						{ancestorMostConflictedCommitId}
+						draggable={draggableFiles}
+					/>
+					<FileListItems
+						{projectId}
+						{stackId}
+						mode={listMode}
+						draggable={draggableFiles}
+						{conflictEntries}
+						{visibleRange}
+						onselect={onFileClick && ((_change, index) => onFileClick(index))}
+					/>
+				</FileListProvider>
 			{/if}
 		{/if}
 	</div>
