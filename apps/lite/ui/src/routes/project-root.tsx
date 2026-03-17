@@ -9,9 +9,8 @@ export const projectRootRoute = createRoute({
 		const subscriptionId = await subscribeToProject(params.id, context.queryClient);
 		return { subscriptionId };
 	},
-	// oxlint-disable-next-line typescript/no-misused-promises
-	onLeave: async ({ loaderData }) => {
-		if (loaderData) await removeWatcherSubscription(loaderData.subscriptionId);
+	onLeave: ({ loaderData }) => {
+		if (loaderData) void removeWatcherSubscription(loaderData.subscriptionId);
 	},
 	path: "/project/$id",
 });
