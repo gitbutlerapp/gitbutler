@@ -7,8 +7,7 @@ export const projectRootRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	loader: async ({ params, context }) => {
 		// When loading the project root, subscribe to its events.
-		const projectId = params.id;
-		const subscriptionId = await subscribeToProject(projectId, context.queryClient);
+		const subscriptionId = await subscribeToProject(params.id, context.queryClient);
 		return { subscriptionId };
 	},
 	// oxlint-disable-next-line typescript/no-misused-promises
