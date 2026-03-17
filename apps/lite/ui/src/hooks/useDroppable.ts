@@ -9,10 +9,7 @@ export const useDroppable = <TData extends Record<string | symbol, unknown>>({
 	canDrop: (dragData: unknown) => boolean;
 	getData: () => TData;
 	disabled?: boolean;
-}): {
-	ref: RefCallback<HTMLElement>;
-	isDropTarget: boolean;
-} => {
+}): [boolean, RefCallback<HTMLElement>] => {
 	const ref = useRef<HTMLElement>(null);
 	const [isDropTarget, setIsDropTarget] = useState(false);
 	const getData = useEffectEvent(() => getDataProp());
@@ -38,10 +35,10 @@ export const useDroppable = <TData extends Record<string | symbol, unknown>>({
 		});
 	}, [disabled]);
 
-	return {
-		ref: (element) => {
+	return [
+		isDropTarget,
+		(element) => {
 			ref.current = element;
 		},
-		isDropTarget,
-	};
+	];
 };

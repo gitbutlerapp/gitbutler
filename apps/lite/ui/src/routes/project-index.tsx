@@ -344,7 +344,7 @@ const DraggableFile: FC<
 		assignments?: Array<HunkAssignment>;
 	} & useRender.ComponentProps<"div">
 > = ({ change, changeUnit, assignments, render, ...props }) => {
-	const { ref: dragRef, isDragging } = useDraggable({
+	const [isDragging, dragRef] = useDraggable({
 		getInitialData: () =>
 			({
 				sourceItem: {
@@ -485,7 +485,7 @@ const RubTarget: FC<{
 	children: React.ReactElement;
 }> = ({ target, children }) => {
 	const sourceItem = useDraggedSourceItem();
-	const { ref: dropRef, isDropTarget } = useDroppable({
+	const [isDropTarget, dropRef] = useDroppable({
 		canDrop: (dragData) => {
 			const sourceItem = parseDragData(dragData);
 			return !!sourceItem && rubOperationLabel(rubSourceFor(sourceItem), target) !== null;
@@ -528,7 +528,7 @@ const CommitMoveTarget: FC<{
 		(side === "above" && previousCommitId === sourceCommitId) ||
 		(side === "below" && nextCommitId === sourceCommitId);
 
-	const { ref: dropRef, isDropTarget } = useDroppable({
+	const [isDropTarget, dropRef] = useDroppable({
 		canDrop: (dragData) => {
 			const sourceItem = parseDragData(dragData);
 			return sourceItem?._tag === "Commit" && !isNoOp(sourceItem.commitId);
@@ -869,7 +869,7 @@ const CommitMoveToBranchTarget: FC<{
 	firstCommitId: string | undefined;
 	children: React.ReactElement;
 }> = ({ anchorRef, firstCommitId, children }) => {
-	const { ref: dropRef, isDropTarget } = useDroppable({
+	const [isDropTarget, dropRef] = useDroppable({
 		canDrop: (dragData) => {
 			const sourceItem = parseDragData(dragData);
 			return sourceItem?._tag === "Commit" && firstCommitId !== sourceItem.commitId;

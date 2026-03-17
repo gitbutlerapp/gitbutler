@@ -76,7 +76,7 @@ const DraggableHunk: FC<
 		hunk: DiffHunk;
 	} & useRender.ComponentProps<"div">
 > = ({ patch, changeUnit, change, hunk, render, ...props }) => {
-	const { ref: dragRef, isDragging } = useDraggable({
+	const [isDragging, dragRef] = useDraggable({
 		getInitialData: () =>
 			({
 				sourceItem: {
@@ -246,7 +246,7 @@ const DraggableCommit: FC<
 	} & useRender.ComponentProps<"div">
 > = ({ commit, render, ...props }) => {
 	const { id: commitId } = commit;
-	const { ref: dragRef, isDragging } = useDraggable({
+	const [isDragging, dragRef] = useDraggable({
 		getInitialData: () => ({ sourceItem: { _tag: "Commit", commitId } }) satisfies DragData,
 		preview: (
 			<div className={styles.dragPreview}>

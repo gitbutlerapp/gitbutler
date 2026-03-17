@@ -19,10 +19,7 @@ export const useDraggable = <TData extends Record<string, unknown>>({
 	getInitialData: () => TData;
 	preview: ReactNode;
 	disabled?: boolean;
-}): {
-	ref: RefCallback<HTMLElement>;
-	isDragging: boolean;
-} => {
+}): [boolean, RefCallback<HTMLElement>] => {
 	const ref = useRef<HTMLElement>(null);
 	const [isDragging, setIsDragging] = useState(false);
 	const getInitialData = useEffectEvent(() => getInitialDataProp());
@@ -59,10 +56,10 @@ export const useDraggable = <TData extends Record<string, unknown>>({
 		});
 	}, [disabled]);
 
-	return {
-		ref: (element) => {
+	return [
+		isDragging,
+		(element) => {
 			ref.current = element;
 		},
-		isDragging,
-	};
+	];
 };
