@@ -145,11 +145,7 @@ type OperationTarget =
 	  } & Omit<RubParams, "projectId" | "source">)
 	| ({
 			_tag: "CommitMove";
-	  } & Omit<CommitMoveParams, "projectId" | "subjectCommitId">)
-	| {
-			_tag: "CommitMoveToBranch";
-			anchorRef: Array<number>;
-	  };
+	  } & Omit<CommitMoveParams, "projectId" | "subjectCommitId">);
 
 const parseDropTargetData = (data: unknown): OperationTarget | null => {
 	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
@@ -211,18 +207,6 @@ const useRunOperation = (projectId: string) => {
 					subjectCommitId: sourceItem.commitId,
 					relativeTo: operationTarget.relativeTo,
 					side: operationTarget.side,
-				});
-			}),
-			Match.tag("CommitMoveToBranch", (operationTarget) => {
-				if (sourceItem._tag !== "Commit") return;
-				commitMove.mutate({
-					projectId,
-					subjectCommitId: sourceItem.commitId,
-					relativeTo: {
-						type: "referenceBytes",
-						subject: operationTarget.anchorRef,
-					},
-					side: "below",
 				});
 			}),
 			Match.exhaustive,
@@ -875,8 +859,12 @@ const CommitMoveToBranchTarget: FC<
 		if (sourceItem.commitId === firstCommitId) return null;
 
 		return {
-			_tag: "CommitMoveToBranch",
-			anchorRef,
+			_tag: "CommitMove",
+			relativeTo: {
+				type: "referenceBytes",
+				subject: anchorRef,
+			},
+			side: "below",
 		};
 	};
 
