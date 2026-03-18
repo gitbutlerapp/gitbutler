@@ -2,24 +2,10 @@
 	display: flex;
 	column-gap: 8px;
 	flex-grow: 1;
-
-	/* Temporary hack to prevent scroll jumping when diff view collapses. */
-	&:after {
-		flex-shrink: 0;
-		width: 1000px;
-		content: "";
-	}
 }
 
-.laneColumns {
-	display: flex;
-	column-gap: 8px;
-}
-
-.laneMainColumn {
-	display: flex;
-	row-gap: 16px;
-	flex-direction: column;
+.commitsLane {
+	flex-shrink: 0;
 	width: 350px;
 }
 
