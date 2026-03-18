@@ -18,6 +18,7 @@ import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { createContext, FC, Suspense, useContext, useEffect, useState } from "react";
 import styles from "./project-index.module.css";
 import sharedStyles from "./project-shared.module.css";
+import { PreviewVisibleContext } from "#ui/contexts/PreviewVisibleContext.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
@@ -31,6 +32,7 @@ import {
 	FileButton,
 	FileDiff,
 	Hunk,
+	assert,
 	type SourceItem,
 } from "#ui/routes/project-shared.tsx";
 import {
@@ -1013,6 +1015,7 @@ const ProjectPage: FC = () => {
 		`project:${projectId}:workspace:selection`,
 		null,
 	);
+	const [previewVisible] = assert(useContext(PreviewVisibleContext));
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 	const [draggedSourceItem, setDraggedSourceItem] = useState<SourceItem | null>(null);
@@ -1122,7 +1125,7 @@ const ProjectPage: FC = () => {
 					})}
 				</div>
 
-				{selection !== null && (
+				{selection !== null && previewVisible && (
 					<Preview
 						projectId={projectId}
 						selection={selection}

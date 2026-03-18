@@ -1,6 +1,6 @@
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { createRoute } from "@tanstack/react-router";
-import { FC, Suspense } from "react";
+import { FC, Suspense, useContext } from "react";
 import {
 	CommitDetails,
 	CommitRow,
@@ -8,12 +8,14 @@ import {
 	FileDiff,
 	FileButton,
 	Hunk,
+	assert,
 	classes,
 } from "#ui/routes/project-shared.tsx";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { BranchListing, Commit } from "@gitbutler/but-sdk";
 import styles from "./project-branches.module.css";
 import sharedStyles from "./project-shared.module.css";
+import { PreviewVisibleContext } from "#ui/contexts/PreviewVisibleContext.ts";
 import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
 import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/mutations.ts";
 import {
@@ -262,6 +264,7 @@ const ProjectBranchesPage: FC = () => {
 		`project:${projectId}:branches:selection`,
 		null,
 	);
+	const [previewVisible] = assert(useContext(PreviewVisibleContext));
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 	const project = projects.find((project) => project.id === projectId);
@@ -391,7 +394,9 @@ const ProjectBranchesPage: FC = () => {
 				)}
 			</div>
 
-			{selection != null && <Preview projectId={projectId} selection={selection} />}
+			{selection != null && previewVisible && (
+				<Preview projectId={projectId} selection={selection} />
+			)}
 		</>
 	);
 };

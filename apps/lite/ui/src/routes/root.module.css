@@ -9,9 +9,16 @@
 }
 
 .topBar {
+	display: flex;
+	row-gap: 8px;
 	grid-area: topBar;
+	align-items: center;
 	padding: 4px;
 	border-bottom: 1px solid;
+}
+
+.topBarPreviewToggle {
+	margin-left: auto;
 }
 
 .sidebar {
