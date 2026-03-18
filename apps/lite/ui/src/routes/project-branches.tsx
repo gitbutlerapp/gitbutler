@@ -13,7 +13,7 @@ import {
 } from "#ui/routes/project-shared.tsx";
 import { ProjectPanelLayout } from "#ui/routes/ProjectPanelLayout.tsx";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
-import { BranchIdentity, BranchListing, Commit } from "@gitbutler/but-sdk";
+import { BranchDetails, BranchIdentity, BranchListing, Commit } from "@gitbutler/but-sdk";
 import styles from "./project-branches.module.css";
 import sharedStyles from "./project-shared.module.css";
 import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/mutations.ts";
@@ -29,6 +29,25 @@ type Selection = {
 	branchName: BranchIdentity;
 	commitId?: string;
 	path?: string;
+};
+
+const normalizeSelectionForBranches = (
+	selection: Selection,
+	branches: Array<BranchListing>,
+): Selection | null => {
+	const branch = branches.find((branch) => branch.name === selection.branchName);
+	if (!branch) return null;
+	return selection;
+};
+
+const normalizeSelectionForBranchDetails = (
+	selection: Selection,
+	branchDetails: BranchDetails,
+): Selection | null => {
+	if (selection.commitId === undefined) return selection;
+	const commitIds = new Set(branchDetails.commits.map((commit) => commit.id));
+	if (commitIds.has(selection.commitId)) return selection;
+	return { branchName: selection.branchName };
 };
 
 const getBranchRef = (branch: BranchListing): string | null => {
@@ -90,7 +109,7 @@ const CommitC: FC<{
 	);
 };
 
-const BranchDetails: FC<{
+const BranchDetailsC: FC<{
 	projectId: string;
 	branchName: string;
 	remote: string | null;
@@ -234,8 +253,20 @@ const ShowBranch: FC<{
 const Preview: FC<{
 	projectId: string;
 	selection: Selection;
+	remote: string | null;
 	selectedBranchRef: string | null;
-}> = ({ projectId, selection, selectedBranchRef }) => {
+}> = ({ projectId, selection: _selection, remote, selectedBranchRef }) => {
+	const { data: branchDetails } = useSuspenseQuery(
+		branchDetailsQueryOptions({
+			projectId,
+			branchName: _selection.branchName,
+			remote,
+		}),
+	);
+	const selection = normalizeSelectionForBranchDetails(_selection, branchDetails);
+
+	if (selection === null) return null;
+
 	if (selection.commitId !== undefined && selection.path !== undefined)
 		return (
 			<CommitFileDiff projectId={projectId} commitId={selection.commitId} path={selection.path} />
@@ -259,11 +290,6 @@ const Preview: FC<{
 const ProjectBranchesPage: FC = () => {
 	const { id: projectId } = projectBranchesRoute.useParams();
 
-	const [selection, select] = useLocalStorageState<Selection | null>(
-		`project:${projectId}:branches:selection`,
-		{ defaultValue: null },
-	);
-
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 	const project = projects.find((project) => project.id === projectId);
 	const { data: branches } = useSuspenseQuery(listBranchesQueryOptions(projectId));
@@ -271,6 +297,11 @@ const ProjectBranchesPage: FC = () => {
 	const unapplyStack = useMutation(unapplyStackMutationOptions);
 
 	const sortedBranches = branches.slice().sort((a, b) => a.name.localeCompare(b.name));
+	const [_selection, select] = useLocalStorageState<Selection | null>(
+		`project:${projectId}:branches:selection`,
+		{ defaultValue: null },
+	);
+	const selection = _selection ? normalizeSelectionForBranches(_selection, sortedBranches) : null;
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
 	const selectedRemote =
 		selectedBranch && !selectedBranch.hasLocal ? selectedBranch.remotes[0] : null;
@@ -313,6 +344,7 @@ const ProjectBranchesPage: FC = () => {
 							projectId={projectId}
 							selection={selection}
 							selectedBranchRef={selectedBranch ? getBranchRef(selectedBranch) : null}
+							remote={selectedRemote ?? null}
 						/>
 					</Suspense>
 				)
@@ -378,7 +410,7 @@ const ProjectBranchesPage: FC = () => {
 				{selectedBranch?.name != null && (
 					<div className={sharedStyles.commitsLane}>
 						<Suspense fallback={<div>Loading branch details…</div>}>
-							<BranchDetails
+							<BranchDetailsC
 								projectId={projectId}
 								branchName={selectedBranch.name}
 								remote={selectedRemote ?? null}

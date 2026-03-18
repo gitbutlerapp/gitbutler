@@ -79,6 +79,19 @@ const getBranchNameByCommitId = (headInfo: RefInfo): Map<string, string> => {
 	return byCommitId;
 };
 
+const getStackIdByCommitId = (headInfo: RefInfo): Map<string, string> => {
+	const byCommitId = new Map<string, string>();
+
+	for (const stack of headInfo.stacks) {
+		if (stack.id == null) continue;
+
+		for (const segment of stack.segments)
+			for (const commit of segment.commits) byCommitId.set(commit.id, stack.id);
+	}
+
+	return byCommitId;
+};
+
 const DependencyIndicator: FC<{
 	projectId: string;
 	commitIds: NonEmptyArray<string>;
@@ -526,6 +539,21 @@ type Selection =
 			commitId: string;
 			path?: string;
 	  };
+
+const normalizeSelection = (
+	selection: Selection,
+	stackIdByCommitId: Map<string, string>,
+): Selection | null =>
+	Match.value(selection).pipe(
+		Match.tag("changes", (selection) => selection),
+		Match.tag("commit", (selection) => {
+			const stackId = stackIdByCommitId.get(selection.commitId);
+			if (stackId === undefined) return null;
+			if (stackId !== selection.stackId) return null;
+			return selection;
+		}),
+		Match.exhaustive,
+	);
 
 const Preview: FC<{
 	projectId: string;
@@ -1055,11 +1083,6 @@ const StackC: FC<{
 const ProjectPage: FC = () => {
 	const { id: projectId } = projectRootRoute.useParams();
 
-	const [selection, select] = useLocalStorageState<Selection | null>(
-		`project:${projectId}:workspace:selection`,
-		{ defaultValue: null },
-	);
-
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 	const [draggedSourceItem, setDraggedSourceItem] = useState<SourceItem | null>(null);
 
@@ -1069,6 +1092,13 @@ const ProjectPage: FC = () => {
 
 	// TODO: handle project not found error. or only run when project is not null? waterfall.
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
+
+	const [_selection, select] = useLocalStorageState<Selection | null>(
+		`project:${projectId}:workspace:selection`,
+		{ defaultValue: null },
+	);
+	const commitStackIds = getStackIdByCommitId(headInfo);
+	const selection = _selection ? normalizeSelection(_selection, commitStackIds) : null;
 
 	useMonitorDraggedSourceItem({ projectId, setDraggedSourceItem });
 
