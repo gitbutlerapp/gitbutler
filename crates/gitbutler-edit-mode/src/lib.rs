@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{Context as _, Result, bail};
 use bstr::BString;
-use but_core::{RepositoryExt, TreeChange, commit::Headers, ref_metadata::StackId};
+use but_core::{Commit, RepositoryExt, TreeChange, commit::Headers, ref_metadata::StackId};
 use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
@@ -17,6 +17,7 @@ use gitbutler_operating_modes::{
     operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
 };
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
+use gix::prelude::ObjectIdExt as _;
 use serde::Serialize;
 
 pub mod commands;
@@ -27,34 +28,17 @@ const UNCOMMITTED_CHANGES_REF: &str = "refs/gitbutler/edit-uncommitted-changes";
 /// if `commit` is conflicted. That tree is turned into an index that records the conflicts that occurred
 /// during the merge.
 fn get_commit_index(ctx: &Context, commit_id: gix::ObjectId) -> Result<git2::Index> {
-    let git2_repo = ctx.git2_repo.get()?;
-    let git2_commit = git2_repo
-        .find_commit(commit_id.to_git2())
-        .context("Failed to find commit")?;
-    let commit_tree = git2_commit.tree().context("Failed to get commit's tree")?;
-    let repo = ctx.repo.get()?;
-    let commit = repo.find_commit(commit_id)?;
-    // Checkout the commit as unstaged changes
-    if commit.is_conflicted() {
-        let base = commit_tree
-            .get_name(".conflict-base-0")
-            .context("Failed to get base")?
-            .id();
-        let ours = commit_tree
-            .get_name(".conflict-side-0")
-            .context("Failed to get base")?
-            .id();
-        let theirs = commit_tree
-            .get_name(".conflict-side-1")
-            .context("Failed to get base")?
-            .id();
+    let repo = &*ctx.repo.get()?;
+    let commit = Commit::from_id(commit_id.attach(repo))?;
 
+    // Checkout the commit as unstaged changes
+    if let Some((base, ours, theirs)) = commit.conflicted_tree_ids()? {
         let repo = repo.clone().for_tree_diffing()?;
         // Merge without favoring a side this time to get a tree containing the actual conflicts.
         let mut merge_result = repo.merge_trees(
-            base.to_gix(),
-            ours.to_gix(),
-            theirs.to_gix(),
+            base,
+            ours,
+            theirs,
             repo.default_merge_labels(),
             repo.tree_merge_options()?,
         )?;
@@ -71,6 +55,8 @@ fn get_commit_index(ctx: &Context, commit_id: gix::ObjectId) -> Result<git2::Ind
         }
         gix_to_git2_index(&index)
     } else {
+        let git2_repo = &*ctx.git2_repo.get()?;
+        let commit_tree = git2_repo.find_tree(commit.tree.to_git2())?;
         let mut index = git2::Index::new()?;
         index.read_tree(&commit_tree)?;
         Ok(index)
