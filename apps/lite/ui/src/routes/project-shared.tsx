@@ -236,7 +236,7 @@ export const CommitDetails: FC<{
 	);
 };
 
-const CommitLabel: FC<{
+export const CommitLabel: FC<{
 	commit: Commit;
 }> = ({ commit }) => (
 	<>

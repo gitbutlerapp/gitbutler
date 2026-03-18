@@ -23,6 +23,7 @@ import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
 import {
 	CommitDetails,
+	CommitLabel,
 	CommitRow,
 	CommitsList,
 	type DragData,
@@ -437,26 +438,38 @@ const SelectedCommitDiff: FC<{
 
 	if (data.changes.length === 0) return null;
 
+	const firstLineEnd = data.commit.message.indexOf("\n");
+	const commitMessageBody =
+		firstLineEnd === -1 ? "" : data.commit.message.slice(firstLineEnd + 1).trim();
+
 	return (
-		<ul className={sharedStyles.hunks}>
-			{data.changes.map((change) => (
-				<li key={change.path}>
-					<h5>{change.path}</h5>
-					<FileDiff
-						projectId={projectId}
-						change={change}
-						renderHunk={(hunk, patch) => (
-							<Hunk
-								patch={patch}
-								changeUnit={{ _tag: "commit", commitId }}
-								change={change}
-								hunk={hunk}
-							/>
-						)}
-					/>
-				</li>
-			))}
-		</ul>
+		<>
+			<h4>
+				<CommitLabel commit={data.commit} />
+			</h4>
+			{commitMessageBody !== "" && (
+				<p className={styles.selectedCommitMessageBody}>{commitMessageBody}</p>
+			)}
+			<ul className={sharedStyles.hunks}>
+				{data.changes.map((change) => (
+					<li key={change.path}>
+						<h5>{change.path}</h5>
+						<FileDiff
+							projectId={projectId}
+							change={change}
+							renderHunk={(hunk, patch) => (
+								<Hunk
+									patch={patch}
+									changeUnit={{ _tag: "commit", commitId }}
+									change={change}
+									hunk={hunk}
+								/>
+							)}
+						/>
+					</li>
+				))}
+			</ul>
+		</>
 	);
 };
 

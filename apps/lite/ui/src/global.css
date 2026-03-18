@@ -35,7 +35,8 @@ h6 {
 }
 
 ul,
-pre {
+pre,
+p {
 	margin-block: 0;
 }
 
