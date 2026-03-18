@@ -44,6 +44,5 @@
 	display: flex;
 	grid-area: content;
 	flex-direction: column;
-	padding: var(--pane-padding);
 	overflow: auto;
 }

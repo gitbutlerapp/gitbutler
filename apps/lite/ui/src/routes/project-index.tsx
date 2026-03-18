@@ -1082,59 +1082,65 @@ const ProjectPage: FC = () => {
 
 	return (
 		<DraggedSourceItemContext.Provider value={draggedSourceItem}>
-			<>
-				<div className={sharedStyles.lanes}>
-					<div className={sharedStyles.commitsLane}>
-						<h3>Unassigned changes</h3>
-						<Changes
-							projectId={project.id}
-							stackId={null}
-							isFileSelected={isUnassignedFileSelected}
-							toggleFileSelect={toggleUnassignedFileSelection}
-							onDependencyHover={highlightCommits}
-							className={styles.unassignedChanges}
-						/>
+			<div className={sharedStyles.pageWithPreview}>
+				<div className={sharedStyles.primaryPane}>
+					<div className={sharedStyles.lanes}>
+						<div className={sharedStyles.commitsLane}>
+							<h3>Unassigned changes</h3>
+							<Changes
+								projectId={project.id}
+								stackId={null}
+								isFileSelected={isUnassignedFileSelected}
+								toggleFileSelect={toggleUnassignedFileSelection}
+								onDependencyHover={highlightCommits}
+								className={styles.unassignedChanges}
+							/>
+						</div>
+
+						{headInfo.stacks.map((stack) => {
+							// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
+							const stackId = stack.id!;
+
+							return (
+								<div key={stack.id} className={sharedStyles.commitsLane}>
+									<StackC
+										key={stack.id}
+										projectId={project.id}
+										stack={stack}
+										isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
+										isCommitAnyFileSelected={(commitId) =>
+											isCommitAnyFileSelected(stackId, commitId)
+										}
+										isChangeUnitFileSelected={(changeUnit, path) =>
+											isChangeUnitFileSelected(stackId, changeUnit, path)
+										}
+										toggleCommitSelection={(commitId) => {
+											toggleCommitSelection(stackId, commitId);
+										}}
+										toggleChangeUnitFileSelection={(changeUnit, path) => {
+											toggleChangeUnitFileSelection(stackId, changeUnit, path);
+										}}
+										highlightedCommitIds={highlightedCommitIds}
+										onDependencyHover={highlightCommits}
+									/>
+								</div>
+							);
+						})}
 					</div>
 
-					{headInfo.stacks.map((stack) => {
-						// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
-						const stackId = stack.id!;
-
-						return (
-							<div key={stack.id} className={sharedStyles.commitsLane}>
-								<StackC
-									key={stack.id}
-									projectId={project.id}
-									stack={stack}
-									isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
-									isCommitAnyFileSelected={(commitId) => isCommitAnyFileSelected(stackId, commitId)}
-									isChangeUnitFileSelected={(changeUnit, path) =>
-										isChangeUnitFileSelected(stackId, changeUnit, path)
-									}
-									toggleCommitSelection={(commitId) => {
-										toggleCommitSelection(stackId, commitId);
-									}}
-									toggleChangeUnitFileSelection={(changeUnit, path) => {
-										toggleChangeUnitFileSelection(stackId, changeUnit, path);
-									}}
-									highlightedCommitIds={highlightedCommitIds}
-									onDependencyHover={highlightCommits}
-								/>
-							</div>
-						);
-					})}
+					{baseId !== undefined && <div>{shortCommitId(baseId)} (common base commit)</div>}
 				</div>
 
 				{selection !== null && previewVisible && (
-					<Preview
-						projectId={projectId}
-						selection={selection}
-						onDependencyHover={highlightCommits}
-					/>
+					<div className={sharedStyles.previewPane}>
+						<Preview
+							projectId={projectId}
+							selection={selection}
+							onDependencyHover={highlightCommits}
+						/>
+					</div>
 				)}
-			</>
-
-			{baseId !== undefined && <>{shortCommitId(baseId)} (common base commit)</>}
+			</div>
 		</DraggedSourceItemContext.Provider>
 	);
 };

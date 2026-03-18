@@ -112,7 +112,7 @@ const DraggableHunk: FC<
 
 const HunkDiff: FC<{
 	diff: string;
-}> = ({ diff }) => <pre className={styles.hunkDiff}>{diff.split("\n").slice(1).join("\n")}</pre>;
+}> = ({ diff }) => <pre>{diff.split("\n").slice(1).join("\n")}</pre>;
 
 export const Hunk: FC<{
 	patch: Patch;

@@ -308,96 +308,100 @@ const ProjectBranchesPage: FC = () => {
 	return sortedBranches.length === 0 ? (
 		<p>No branches found.</p>
 	) : (
-		<>
-			<div className={sharedStyles.lanes}>
-				<ul className={styles.branchesList}>
-					{sortedBranches.map((branch) => {
-						const ref = getBranchRef(branch);
-						const stackId = branch.stack?.id;
-						const isSelected = selectedBranchResolvedName === branch.name;
-						return (
-							<li key={branch.name} className={styles.branchesListItem}>
-								<button
-									type="button"
-									className={classes(styles.branchButton, isSelected && sharedStyles.selected)}
-									onClick={() => {
-										select((selected) =>
-											selected?.branchName === branch.name ? null : { branchName: branch.name },
-										);
-									}}
-								>
-									{branch.name}
-									{branch.stack?.branches && branch.stack.branches.length > 1 && (
-										<> (+{branch.stack.branches.length - 1} more)</>
-									)}
-								</button>
-								{!branch.stack?.inWorkspace ? (
+		<div className={sharedStyles.pageWithPreview}>
+			<div className={sharedStyles.primaryPane}>
+				<div className={sharedStyles.lanes}>
+					<ul className={styles.branchesList}>
+						{sortedBranches.map((branch) => {
+							const ref = getBranchRef(branch);
+							const stackId = branch.stack?.id;
+							const isSelected = selectedBranchResolvedName === branch.name;
+							return (
+								<li key={branch.name} className={styles.branchesListItem}>
 									<button
 										type="button"
-										disabled={applyBranch.isPending || ref === null}
+										className={classes(styles.branchButton, isSelected && sharedStyles.selected)}
 										onClick={() => {
-											if (ref === null) return;
-											applyBranch.mutate({
-												projectId,
-												existingBranch: ref,
-											});
+											select((selected) =>
+												selected?.branchName === branch.name ? null : { branchName: branch.name },
+											);
 										}}
 									>
-										{applyBranch.isPending ? "Applying branch…" : "Apply branch"}
+										{branch.name}
+										{branch.stack?.branches && branch.stack.branches.length > 1 && (
+											<> (+{branch.stack.branches.length - 1} more)</>
+										)}
 									</button>
-								) : (
-									stackId != null && (
+									{!branch.stack?.inWorkspace ? (
 										<button
 											type="button"
-											disabled={unapplyStack.isPending}
+											disabled={applyBranch.isPending || ref === null}
 											onClick={() => {
-												unapplyStack.mutate({
+												if (ref === null) return;
+												applyBranch.mutate({
 													projectId,
-													stackId,
+													existingBranch: ref,
 												});
 											}}
 										>
-											{unapplyStack.isPending ? "Unapplying stack…" : "Unapply stack"}
+											{applyBranch.isPending ? "Applying branch…" : "Apply branch"}
 										</button>
-									)
-								)}
-							</li>
-						);
-					})}
-				</ul>
+									) : (
+										stackId != null && (
+											<button
+												type="button"
+												disabled={unapplyStack.isPending}
+												onClick={() => {
+													unapplyStack.mutate({
+														projectId,
+														stackId,
+													});
+												}}
+											>
+												{unapplyStack.isPending ? "Unapplying stack…" : "Unapply stack"}
+											</button>
+										)
+									)}
+								</li>
+							);
+						})}
+					</ul>
 
-				{selectedBranchResolvedName != null && (
-					<div className={sharedStyles.commitsLane}>
-						<Suspense fallback={<div>Loading branch details…</div>}>
-							<BranchDetails
-								projectId={projectId}
-								branchName={selectedBranchResolvedName}
-								remote={selectedRemote ?? null}
-								isCommitSelected={(commitId) =>
-									isCommitSelected(selectedBranchResolvedName, commitId)
-								}
-								isCommitAnyFileSelected={(commitId) =>
-									isCommitAnyFileSelected(selectedBranchResolvedName, commitId)
-								}
-								isCommitFileSelected={(commitId, path) =>
-									isCommitFileSelected(selectedBranchResolvedName, commitId, path)
-								}
-								toggleCommitSelection={(commitId) =>
-									toggleCommitSelection(selectedBranchResolvedName, commitId)
-								}
-								toggleCommitFileSelection={(commitId, path) =>
-									toggleCommitFileSelection(selectedBranchResolvedName, commitId, path)
-								}
-							/>
-						</Suspense>
-					</div>
-				)}
+					{selectedBranchResolvedName != null && (
+						<div className={sharedStyles.commitsLane}>
+							<Suspense fallback={<div>Loading branch details…</div>}>
+								<BranchDetails
+									projectId={projectId}
+									branchName={selectedBranchResolvedName}
+									remote={selectedRemote ?? null}
+									isCommitSelected={(commitId) =>
+										isCommitSelected(selectedBranchResolvedName, commitId)
+									}
+									isCommitAnyFileSelected={(commitId) =>
+										isCommitAnyFileSelected(selectedBranchResolvedName, commitId)
+									}
+									isCommitFileSelected={(commitId, path) =>
+										isCommitFileSelected(selectedBranchResolvedName, commitId, path)
+									}
+									toggleCommitSelection={(commitId) =>
+										toggleCommitSelection(selectedBranchResolvedName, commitId)
+									}
+									toggleCommitFileSelection={(commitId, path) =>
+										toggleCommitFileSelection(selectedBranchResolvedName, commitId, path)
+									}
+								/>
+							</Suspense>
+						</div>
+					)}
+				</div>
 			</div>
 
 			{selection != null && previewVisible && (
-				<Preview projectId={projectId} selection={selection} />
+				<div className={sharedStyles.previewPane}>
+					<Preview projectId={projectId} selection={selection} />
+				</div>
 			)}
-		</>
+		</div>
 	);
 };
 

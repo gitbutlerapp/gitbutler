@@ -4,6 +4,28 @@
 	flex-grow: 1;
 }
 
+.pageWithPreview {
+	display: flex;
+	flex-grow: 1;
+	min-height: 0;
+}
+
+.primaryPane {
+	display: flex;
+	flex-grow: 1;
+	flex-direction: column;
+	padding: var(--pane-padding);
+	overflow: auto;
+}
+
+.previewPane {
+	flex-shrink: 0;
+	width: 500px;
+	padding: var(--pane-padding);
+	overflow: auto;
+	border-left: 1px solid;
+}
+
 .commitsLane {
 	flex-shrink: 0;
 	width: 350px;
@@ -72,10 +94,6 @@
 	flex-grow: 1;
 	font-family: monospace;
 	cursor: grab;
-}
-
-.hunkDiff {
-	overflow: auto;
 }
 
 .dragPreview {
