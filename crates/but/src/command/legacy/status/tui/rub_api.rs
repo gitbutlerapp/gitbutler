@@ -162,9 +162,7 @@ pub(super) fn perform_operation(
                         db.hunk_assignments_mut()?,
                         &repo,
                         &ws,
-                        false,
                         Some(changes),
-                        None,
                         context_lines,
                     )?;
 
@@ -243,9 +241,7 @@ pub(super) fn perform_operation(
                         db.hunk_assignments_mut()?,
                         &repo,
                         &ws,
-                        false,
                         Some(changes),
-                        None,
                         context_lines,
                     )?;
 
