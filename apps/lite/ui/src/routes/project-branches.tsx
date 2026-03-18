@@ -282,7 +282,6 @@ const ProjectBranchesPage: FC = () => {
 
 	const sortedBranches = branches.slice().sort((a, b) => a.name.localeCompare(b.name));
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
-	const selectedBranchResolvedName = selectedBranch?.name;
 
 	const isCommitSelected = (branchName: string, commitId: string) =>
 		selection?.branchName === branchName &&
@@ -325,7 +324,7 @@ const ProjectBranchesPage: FC = () => {
 					{sortedBranches.map((branch) => {
 						const ref = getBranchRef(branch);
 						const stackId = branch.stack?.id;
-						const isSelected = selectedBranchResolvedName === branch.name;
+						const isSelected = selectedBranch?.name === branch.name;
 						return (
 							<li key={branch.name} className={styles.branchesListItem}>
 								<button
@@ -377,27 +376,25 @@ const ProjectBranchesPage: FC = () => {
 					})}
 				</ul>
 
-				{selectedBranchResolvedName != null && (
+				{selectedBranch?.name != null && (
 					<div className={sharedStyles.commitsLane}>
 						<Suspense fallback={<div>Loading branch details…</div>}>
 							<BranchDetails
 								projectId={projectId}
-								branchName={selectedBranchResolvedName}
+								branchName={selectedBranch.name}
 								remote={selectedRemote ?? null}
-								isCommitSelected={(commitId) =>
-									isCommitSelected(selectedBranchResolvedName, commitId)
-								}
+								isCommitSelected={(commitId) => isCommitSelected(selectedBranch.name, commitId)}
 								isCommitAnyFileSelected={(commitId) =>
-									isCommitAnyFileSelected(selectedBranchResolvedName, commitId)
+									isCommitAnyFileSelected(selectedBranch.name, commitId)
 								}
 								isCommitFileSelected={(commitId, path) =>
-									isCommitFileSelected(selectedBranchResolvedName, commitId, path)
+									isCommitFileSelected(selectedBranch.name, commitId, path)
 								}
 								toggleCommitSelection={(commitId) =>
-									toggleCommitSelection(selectedBranchResolvedName, commitId)
+									toggleCommitSelection(selectedBranch.name, commitId)
 								}
 								toggleCommitFileSelection={(commitId, path) =>
-									toggleCommitFileSelection(selectedBranchResolvedName, commitId, path)
+									toggleCommitFileSelection(selectedBranch.name, commitId, path)
 								}
 							/>
 						</Suspense>
