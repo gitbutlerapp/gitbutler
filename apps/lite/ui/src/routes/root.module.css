@@ -1,22 +1,23 @@
 .layout {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
+	grid-template-columns: max-content minmax(0, 1fr);
+	grid-template-areas:
+		"topBar topBar"
+		"sidebar content";
 	height: 100dvh;
 }
 
 .topBar {
+	grid-area: topBar;
 	padding: 4px;
 	border-bottom: 1px solid;
-}
-
-.mainContent {
-	display: grid;
-	grid-template-columns: max-content 1fr;
 }
 
 .sidebar {
 	display: flex;
 	row-gap: 16px;
+	grid-area: sidebar;
 	flex-direction: column;
 	padding: 16px;
 	border-right: 1px solid;
@@ -34,6 +35,7 @@
 
 .content {
 	display: flex;
+	grid-area: content;
 	flex-direction: column;
 	padding: 16px;
 	overflow: auto;

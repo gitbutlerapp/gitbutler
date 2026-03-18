@@ -78,14 +78,12 @@ const RootLayout: FC = () => (
 		<header className={styles.topBar}>
 			<ProjectSelect />
 		</header>
-		<div className={styles.mainContent}>
-			<aside className={styles.sidebar}>
-				<SidebarNav />
-			</aside>
-			<section className={styles.content}>
-				<Outlet />
-			</section>
-		</div>
+		<aside className={styles.sidebar}>
+			<SidebarNav />
+		</aside>
+		<section className={styles.content}>
+			<Outlet />
+		</section>
 	</main>
 );
 
