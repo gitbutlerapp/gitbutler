@@ -305,15 +305,13 @@ const ProjectBranchesPage: FC = () => {
 			projectId={projectId}
 			preview={
 				selection && (
-					<div>
-						<Suspense fallback={<div>Loading diff…</div>}>
-							<Preview
-								projectId={projectId}
-								selection={selection}
-								selectedBranchRef={selectedBranch ? getBranchRef(selectedBranch) : null}
-							/>
-						</Suspense>
-					</div>
+					<Suspense fallback={<div>Loading diff…</div>}>
+						<Preview
+							projectId={projectId}
+							selection={selection}
+							selectedBranchRef={selectedBranch ? getBranchRef(selectedBranch) : null}
+						/>
+					</Suspense>
 				)
 			}
 		>
