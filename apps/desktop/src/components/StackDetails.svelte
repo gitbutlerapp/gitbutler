@@ -114,7 +114,7 @@
 	const branchName = $derived(controller.branchName);
 	const commitId = $derived(controller.commitId);
 	const upstream = $derived(controller.upstream);
-	const activeLastAdded = $derived(controller.activeLastAdded);
+	const focusedFileStore = $derived(controller.focusedFileStore);
 	const selection = $derived(controller.laneState.selection.current);
 </script>
 
@@ -210,7 +210,7 @@
 										changes={commit.changes}
 										draggable={true}
 										selectable={false}
-										startIndex={activeLastAdded ? get(activeLastAdded)?.index : undefined}
+										startIndex={focusedFileStore ? get(focusedFileStore)?.index : undefined}
 										{onVisibleChange}
 									/>
 								{/snippet}
@@ -251,13 +251,13 @@
 							{projectId}
 							draggable={true}
 							selectable={false}
-							startIndex={activeLastAdded ? get(activeLastAdded)?.index : undefined}
+							startIndex={focusedFileStore ? get(focusedFileStore)?.index : undefined}
 							{onVisibleChange}
 						/>
 					{/snippet}
 				</ReduxResult>
 			</div>
-		{:else if activeLastAdded}
+		{:else if focusedFileStore}
 			<MultiDiffView
 				{stackId}
 				selectionId={{ type: "worktree", stackId }}
@@ -267,7 +267,7 @@
 				draggable={true}
 				selectable={controller.isCommitting}
 				onclose={() => controller.closePreview()}
-				startIndex={activeLastAdded ? get(activeLastAdded)?.index : undefined}
+				startIndex={focusedFileStore ? get(focusedFileStore)?.index : undefined}
 				{onVisibleChange}
 			/>
 		{/if}

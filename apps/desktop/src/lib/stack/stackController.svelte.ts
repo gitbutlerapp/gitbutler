@@ -40,28 +40,19 @@ export function getStackContext(): StackController {
 
 export class StackController {
 	private uiState;
-	private idSelection: FileSelectionManager;
+	private fileSelection: FileSelectionManager;
 	private getProjectId: () => string;
 	private getStackId: () => string | undefined;
 	private getLaneId: () => string;
 
-	/** Whether this stack's focusable region is active. */
 	active = $state(false);
-
-	/** Visible range from MultiDiffView, consumed by WorktreeChanges for notching. */
 	visibleRange = $state<{ start: number; end: number } | undefined>();
 
-	/** Cross-panel diff view coordination. */
 	private diffJumpHandler?: (index: number) => void;
 	private diffPopoutHandler?: () => void;
 
-	/**
-	 * Reactively-tracked file selection values.
-	 * Updated via $effect subscriptions to the underlying Writable stores,
-	 * so that consumers reading these in $derived/templates get proper updates.
-	 */
-	private _selectedFile = $state<SelectedFile | undefined>();
-	private _assignedKey = $state<SelectedFile | undefined>();
+	private _focusedFile = $state<SelectedFile | undefined>();
+	private _stagedFocusedFile = $state<SelectedFile | undefined>();
 
 	constructor(params: {
 		projectId: () => string;
@@ -69,33 +60,30 @@ export class StackController {
 		laneId: () => string;
 	}) {
 		this.uiState = inject(UI_STATE);
-		this.idSelection = inject(FILE_SELECTION_MANAGER);
+		this.fileSelection = inject(FILE_SELECTION_MANAGER);
 		this.getProjectId = params.projectId;
 		this.getStackId = params.stackId;
 		this.getLaneId = params.laneId;
 
-		// Subscribe to the active selection's lastAdded store so that
-		// selectedFile is properly reactive (not a snapshot via get()).
 		$effect(() => {
-			const store = this.activeLastAdded;
+			const store = this.focusedFileStore;
 			if (!store) {
-				this._selectedFile = undefined;
+				this._focusedFile = undefined;
 				return;
 			}
 			return store.subscribe((value) => {
-				this._selectedFile = value?.key ? readKey(value.key) : undefined;
+				this._focusedFile = value?.key ? readKey(value.key) : undefined;
 			});
 		});
 
-		// Same for the worktree-assigned selection.
 		$effect(() => {
-			const store = this.lastAddedAssigned;
+			const store = this.stagedFocusedFileStore;
 			if (!store) {
-				this._assignedKey = undefined;
+				this._stagedFocusedFile = undefined;
 				return;
 			}
 			return store.subscribe((value) => {
-				this._assignedKey = value?.key ? readKey(value.key) : undefined;
+				this._stagedFocusedFile = value?.key ? readKey(value.key) : undefined;
 			});
 		});
 	}
@@ -162,8 +150,6 @@ export class StackController {
 		);
 	}
 
-	// ── Active selection ID (for file selection tracking) ─────────────
-
 	get activeSelectionId(): SelectionId | undefined {
 		if (this.commitId) {
 			return createCommitSelection({ commitId: this.commitId, stackId: this.stackId });
@@ -177,39 +163,39 @@ export class StackController {
 		return createWorktreeSelection({ stackId: this.stackId });
 	}
 
-	get activeLastAdded() {
+	get focusedFileStore() {
 		if (this.activeSelectionId) {
-			return this.idSelection.getById(this.activeSelectionId).lastAdded;
+			return this.fileSelection.getById(this.activeSelectionId).lastAdded;
 		}
 		return undefined;
 	}
 
-	get selectedFile() {
-		return this._selectedFile;
+	get focusedFile() {
+		return this._focusedFile;
 	}
 
-	private get assignedSelection() {
-		return this.idSelection.getById(createWorktreeSelection({ stackId: this.stackId }));
+	private get stagedFileGroup() {
+		return this.fileSelection.getById(createWorktreeSelection({ stackId: this.stackId }));
 	}
 
-	get lastAddedAssigned() {
-		return this.assignedSelection.lastAdded;
+	get stagedFocusedFileStore() {
+		return this.stagedFileGroup.lastAdded;
 	}
 
-	get assignedKey() {
-		return this._assignedKey;
+	get stagedFocusedFile() {
+		return this._stagedFocusedFile;
 	}
 
-	get hasActiveSelection(): boolean {
-		return !!(this.branchName || this.commitId || this.selectedFile);
+	get hasPreviewTarget(): boolean {
+		return !!(this.branchName || this.commitId || this.focusedFile);
 	}
 
-	get isPreviewOpenForSelection(): boolean {
-		return this.hasActiveSelection && !!this.previewOpen;
+	get isSelectionPreviewOpen(): boolean {
+		return this.hasPreviewTarget && !!this.previewOpen;
 	}
 
-	get hasAssignedFiles(): boolean {
-		return !!this.assignedKey;
+	get hasStagedFileFocused(): boolean {
+		return !!this.stagedFocusedFile;
 	}
 
 	get ircPanelOpen(): boolean {
@@ -217,18 +203,18 @@ export class StackController {
 	}
 
 	get isDetailsViewOpen(): boolean {
-		return this.isPreviewOpenForSelection || this.hasAssignedFiles || this.ircPanelOpen;
+		return this.isSelectionPreviewOpen || this.hasStagedFileFocused || this.ircPanelOpen;
 	}
 
 	closePreview(): void {
 		if (this.activeSelectionId) {
-			this.idSelection.clear(this.activeSelectionId);
+			this.fileSelection.clear(this.activeSelectionId);
 		}
 		this.selection.set(undefined);
 	}
 
 	clearWorktreeSelection(): void {
-		this.idSelection.clear({ type: "worktree", stackId: this.stackId });
+		this.fileSelection.clear({ type: "worktree", stackId: this.stackId });
 	}
 
 	openProjectSettingsModal(selectedId?: ProjectSettingsPageId): void {
@@ -238,8 +224,6 @@ export class StackController {
 			selectedId,
 		});
 	}
-
-	// ── Cross-panel diff coordination ─────────────────────────────────
 
 	registerDiffView(handlers: { jump: (index: number) => void; popout: () => void }): void {
 		this.diffJumpHandler = handlers.jump;
