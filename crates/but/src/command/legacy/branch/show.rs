@@ -359,7 +359,7 @@ fn get_unassigned_files(
 
     if let Some(stack_id) = stack_id {
         // Get worktree changes and assignments
-        let worktree_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
+        let worktree_changes = but_api::diff::changes_in_worktree(ctx)?;
 
         let mut by_file: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
         for assignment in worktree_changes.assignments {

@@ -259,10 +259,7 @@ pub async fn run() {
             "/git_get_global_config",
             but_post(legacy::git::git_get_global_config_cmd),
         )
-        .route(
-            "/tree_change_diffs",
-            but_post(legacy::diff::tree_change_diffs_cmd),
-        )
+        .route("/tree_change_diffs", but_post(diff::tree_change_diffs_cmd))
         .route(
             "/commit_details_with_line_stats",
             but_post(diff::commit_details_with_line_stats_cmd),
@@ -270,9 +267,9 @@ pub async fn run() {
         .route("/branch_diff", but_post(but_api::branch::branch_diff_cmd))
         .route(
             "/changes_in_worktree",
-            but_post(legacy::diff::changes_in_worktree_cmd),
+            but_post(diff::changes_in_worktree_cmd),
         )
-        .route("/assign_hunk", but_post(legacy::diff::assign_hunk_cmd))
+        .route("/assign_hunk", but_post(diff::assign_hunk_cmd))
         .route(
             "/cherry_apply_status",
             but_post(legacy::cherry_apply::cherry_apply_status_cmd),

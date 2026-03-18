@@ -124,7 +124,7 @@ impl DiffFileEntry {
                 let ui_change: but_core::ui::TreeChange = change.into();
                 let status = status_char(&ui_change.status);
                 let path = ui_change.path_bytes.to_string();
-                let patch = but_api::legacy::diff::tree_change_diffs(ctx, ui_change)
+                let patch = but_api::diff::tree_change_diffs(ctx, ui_change)
                     .ok()
                     .flatten();
                 let diff_lines = match patch {
@@ -153,9 +153,7 @@ impl DiffFileEntry {
             .map(|change| {
                 let status = status_char(&change.status);
                 let path = change.path_bytes.to_string();
-                let patch = but_api::legacy::diff::tree_change_diffs(ctx, change)
-                    .ok()
-                    .flatten();
+                let patch = but_api::diff::tree_change_diffs(ctx, change).ok().flatten();
                 let diff_lines = match patch {
                     Some(p) => parse_unified_patch(&p),
                     None => vec![DiffLine::Info("(no diff available)".to_string())],
