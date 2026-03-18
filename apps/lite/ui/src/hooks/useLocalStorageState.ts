@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useState } from "react";
 
 export type UseState<T> = [T, Dispatch<SetStateAction<T>>];
 
@@ -7,8 +7,6 @@ export type UseState<T> = [T, Dispatch<SetStateAction<T>>];
  * from previous values.
  */
 export const useLocalStorageState = <T>(key: string, initialState: T): UseState<T> => {
-	const previousKeyRef = useRef(key);
-
 	const [value, setValue] = useState<T>(() => {
 		const storedValue = localStorage.getItem(key);
 		if (storedValue === null) return initialState;
@@ -19,14 +17,6 @@ export const useLocalStorageState = <T>(key: string, initialState: T): UseState<
 			return initialState;
 		}
 	});
-
-	useEffect(() => {
-		const previousKey = previousKeyRef.current;
-		if (previousKey !== key) {
-			localStorage.removeItem(previousKey);
-			previousKeyRef.current = key;
-		}
-	}, [key]);
 
 	useEffect(() => {
 		const serializedValue = JSON.stringify(value);
