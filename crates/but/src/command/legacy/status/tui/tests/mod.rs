@@ -4,6 +4,7 @@ use snapbox::{file, str};
 
 use crate::command::legacy::status::tui::tests::utils::test_tui;
 
+mod commit_tests;
 mod rub_tests;
 mod utils;
 

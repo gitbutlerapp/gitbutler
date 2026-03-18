@@ -2,7 +2,11 @@ use std::sync::Arc;
 
 use crate::{
     CliId,
-    command::legacy::status::{StatusOutputLine, output::StatusOutputLineData, tui::Mode},
+    command::legacy::status::{
+        StatusOutputLine,
+        output::StatusOutputLineData,
+        tui::{Mode, commit_operation_display},
+    },
 };
 
 #[cfg(test)]
@@ -233,23 +237,40 @@ fn is_jump_target_in_mode(line: &StatusOutputLine, mode: &Mode) -> bool {
 }
 
 pub(super) fn is_selectable_in_mode(line: &StatusOutputLine, mode: &Mode) -> bool {
+    if !line.is_selectable() {
+        return false;
+    }
+
+    // selecting the source line should always be possible
     match mode {
-        Mode::Normal => line.is_selectable(),
-        Mode::Rub {
-            source: _,
-            available_targets,
+        Mode::Rub(rub_mode) | Mode::RubButApi(rub_mode) => {
+            if let Some(cli_id) = line.data.cli_id()
+                && &rub_mode.source == cli_id
+            {
+                return true;
+            }
         }
-        | Mode::RubButApi {
-            source: _,
-            available_targets,
-        } => {
-            line.is_selectable()
-                && line
-                    .data
-                    .cli_id()
-                    .is_some_and(|cli_id| available_targets.contains(cli_id))
+        Mode::Commit(commit_mode) => {
+            if let Some(cli_id) = line.data.cli_id()
+                && *commit_mode.source == **cli_id
+            {
+                return true;
+            }
         }
-        // its not possible to move the cursor in these modes
-        Mode::InlineReword { .. } | Mode::Command { .. } => false,
+        Mode::Command(..) | Mode::InlineReword(..) | Mode::Normal => {}
+    }
+
+    match mode {
+        Mode::Normal => true,
+        Mode::Rub(rub_mode) | Mode::RubButApi(rub_mode) => line
+            .data
+            .cli_id()
+            .is_some_and(|cli_id| rub_mode.available_targets.contains(cli_id)),
+        Mode::Commit(commit_mode) => commit_operation_display(&line.data, commit_mode).is_some(),
+        Mode::InlineReword(..) | Mode::Command(..) => {
+            // you can't actually move the selection in these modes
+            // but returning `false` would dim every line which hurts UX
+            true
+        }
     }
 }
