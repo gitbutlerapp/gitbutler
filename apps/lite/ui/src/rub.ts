@@ -3,6 +3,7 @@ import {
 	HunkAssignmentRequest,
 	HunkHeader,
 	TreeChange,
+	UICommitCreateResult,
 } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { type ChangeUnit } from "#ui/ChangeUnit.ts";
@@ -29,6 +30,7 @@ export type RubResult = {
 	replacedCommits?: Record<string, string>;
 	newCommit?: string | null;
 	amendedCommitId?: string;
+	pathsToRejectedChanges?: UICommitCreateResult["pathsToRejectedChanges"];
 };
 
 // TODO: we need path on the response?
@@ -106,6 +108,7 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 								replacedCommits: response.replacedCommits,
 								newCommit: response.newCommit ?? null,
 								amendedCommitId: target.commitId,
+								pathsToRejectedChanges: response.pathsToRejectedChanges,
 							};
 						}),
 						Match.tag("changes", async (target): Promise<RubResult> => {

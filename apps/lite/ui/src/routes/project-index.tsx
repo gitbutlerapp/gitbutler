@@ -1,6 +1,14 @@
 import useLocalStorageState from "use-local-storage-state";
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
-import { Menu, mergeProps, Popover, Tooltip, useRender } from "@base-ui/react";
+import {
+	Menu,
+	mergeProps,
+	Popover,
+	Toast,
+	type ToastManagerAddOptions,
+	Tooltip,
+	useRender,
+} from "@base-ui/react";
 import { createRoute } from "@tanstack/react-router";
 import {
 	RefInfo,
@@ -48,6 +56,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/queries.ts";
 import { type ChangeUnit } from "#ui/ChangeUnit.ts";
+import { RejectedChange, RejectedChanges } from "#ui/components/RejectedChanges.tsx";
 import { rubOperationLabel, RubParams, type RubSource } from "#ui/rub.ts";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
@@ -115,6 +124,18 @@ const DependencyIndicator: FC<{
 const classes = (...xs: Array<string | null | undefined | false>): string =>
 	// oxlint-disable-next-line typescript/strict-boolean-expressions
 	xs.reduce((acc: string, x) => (x ? (acc ? `${acc} ${x}` : x) : acc), "");
+
+const rejectedChangesToastOptions = ({
+	newCommit,
+	pathsToRejectedChanges,
+}: {
+	newCommit?: string | null;
+	pathsToRejectedChanges: Array<RejectedChange>;
+}): ToastManagerAddOptions<never> => ({
+	title: newCommit != null ? "Some changes were not committed" : "Failed to create commit",
+	description: <RejectedChanges rejectedChanges={pathsToRejectedChanges} />,
+	priority: "high",
+});
 
 const commonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 	const bases = headInfo.stacks
@@ -194,6 +215,7 @@ const useMonitorDraggedSourceItem = ({
 };
 
 const useRunOperation = (projectId: string) => {
+	const toastManager = Toast.useToastManager();
 	const rubMutation = useMutation(rubMutationOptions);
 	const commitMove = useMutation(commitMoveMutationOptions);
 
@@ -202,11 +224,27 @@ const useRunOperation = (projectId: string) => {
 			Match.tag("Rub", (operationTarget) => {
 				const rubSource = rubSourceFor(sourceItem);
 				if (!rubSource) return;
-				rubMutation.mutate({
-					projectId,
-					source: rubSource,
-					target: operationTarget.target,
-				});
+				rubMutation.mutate(
+					{
+						projectId,
+						source: rubSource,
+						target: operationTarget.target,
+					},
+					{
+						onSuccess: (response) => {
+							const pathsToRejectedChanges = response.pathsToRejectedChanges ?? [];
+							if (pathsToRejectedChanges.length > 0)
+								toastManager.add(
+									rejectedChangesToastOptions({
+										newCommit: response.newCommit,
+										// Assertion is temporary until API response types have been fixed.
+										pathsToRejectedChanges:
+											response.pathsToRejectedChanges as Array<RejectedChange>,
+									}),
+								);
+						},
+					},
+				);
 			}),
 			Match.tag("CommitMove", (operationTarget) => {
 				if (sourceItem._tag !== "Commit") return;
@@ -790,6 +828,7 @@ const CommitForm: FC<{
 		`project:${projectId}:commitMessage:${stack.id!}`,
 		{ defaultValue: "" },
 	);
+	const toastManager = Toast.useToastManager();
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
 	const relativeTo = stackRelativeTo(stack);
@@ -816,7 +855,17 @@ const CommitForm: FC<{
 						message: message.trim(),
 					},
 					{
-						onSuccess: () => {
+						onSuccess: (response) => {
+							if (response.pathsToRejectedChanges.length > 0)
+								toastManager.add(
+									rejectedChangesToastOptions({
+										newCommit: response.newCommit,
+										// Assertion is temporary until API response types have been fixed.
+										pathsToRejectedChanges:
+											response.pathsToRejectedChanges as Array<RejectedChange>,
+									}),
+								);
+
 							setMessage("");
 						},
 					},
