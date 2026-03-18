@@ -235,22 +235,26 @@ const Preview: FC<{
 	projectId: string;
 	selection: Selection;
 	selectedBranchRef: string | null;
-}> = ({ projectId, selection, selectedBranchRef }) =>
-	selection.commitId !== undefined ? (
-		selection.path !== undefined ? (
+}> = ({ projectId, selection, selectedBranchRef }) => {
+	if (selection.commitId !== undefined && selection.path !== undefined)
+		return (
 			<CommitFileDiff projectId={projectId} commitId={selection.commitId} path={selection.path} />
-		) : (
-			<CommitDiff projectId={projectId} commitId={selection.commitId} />
-		)
-	) : selectedBranchRef !== null ? (
-		<ShowBranch
-			projectId={projectId}
-			branch={selectedBranchRef}
-			branchName={selection.branchName}
-		/>
-	) : (
-		<div>No branch diff available.</div>
-	);
+		);
+
+	if (selection.commitId !== undefined)
+		return <CommitDiff projectId={projectId} commitId={selection.commitId} />;
+
+	if (selectedBranchRef !== null)
+		return (
+			<ShowBranch
+				projectId={projectId}
+				branch={selectedBranchRef}
+				branchName={selection.branchName}
+			/>
+		);
+
+	return <div>No branch diff available.</div>;
+};
 
 const ProjectBranchesPage: FC = () => {
 	const { id: projectId } = projectBranchesRoute.useParams();
