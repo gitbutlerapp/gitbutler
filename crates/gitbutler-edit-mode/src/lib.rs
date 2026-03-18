@@ -16,7 +16,6 @@ use gitbutler_operating_modes::{
     EDIT_BRANCH_REF, EditModeMetadata, OPEN_WORKSPACE_REFS, OperatingMode, WORKSPACE_BRANCH_REF,
     operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
 };
-use gitbutler_repo::RepositoryExt as _;
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
 use serde::Serialize;
 
@@ -140,19 +139,24 @@ fn find_or_create_base_commit(
 }
 
 fn commit_uncommited_changes(ctx: &Context) -> Result<()> {
-    let repo = &*ctx.git2_repo.get()?;
-    let uncommited_changes = repo.create_wd_tree(0)?;
-    repo.reference(UNCOMMITTED_CHANGES_REF, uncommited_changes.id(), true, "")?;
+    let repo = &*ctx.repo.get()?;
+    let uncommitted_changes = but_status::create_wd_tree(repo, 0)?;
+    repo.reference(
+        UNCOMMITTED_CHANGES_REF,
+        uncommitted_changes,
+        gix::refs::transaction::PreviousValue::Any,
+        "",
+    )?;
     Ok(())
 }
 
 fn get_uncommited_changes(ctx: &Context) -> Result<gix::ObjectId> {
-    let repo = &*ctx.git2_repo.get()?;
-    let uncommited_changes = repo
+    let repo = &*ctx.repo.get()?;
+    let uncommitted_changes = repo
         .find_reference(UNCOMMITTED_CHANGES_REF)?
         .peel_to_tree()?
-        .id();
-    Ok(uncommited_changes.to_gix())
+        .id;
+    Ok(uncommitted_changes)
 }
 
 fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
@@ -434,15 +438,12 @@ pub(crate) fn changes_from_initial(ctx: &Context, perm: &RepoShared) -> Result<V
         bail!("Starting index state can only be fetched while in edit mode")
     };
 
-    let git2_repo = &*ctx.git2_repo.get()?;
-    let commit = git2_repo.find_commit(metadata.commit_oid.to_git2())?;
-    let base = git2_repo
-        .find_real_tree(&commit, Default::default())?
-        .id()
-        .to_gix();
-    let head = git2_repo.create_wd_tree(0)?.id().to_gix();
+    let repo = &*ctx.repo.get()?;
+    let commit = repo.find_commit(metadata.commit_oid)?;
+    let base = repo.find_real_tree(&commit, Default::default())?;
+    let head = but_status::create_wd_tree(repo, 0)?;
 
     let repo = ctx.repo.get()?;
-    let tree_changes = but_core::diff::tree_changes(&repo, Some(base), head)?;
+    let tree_changes = but_core::diff::tree_changes(&repo, Some(base.into()), head)?;
     Ok(tree_changes)
 }

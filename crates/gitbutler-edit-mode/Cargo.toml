@@ -18,7 +18,6 @@ but-oxidize.workspace = true
 but-ctx.workspace = true
 
 gitbutler-commit.workspace = true
-gitbutler-repo.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-oplog.workspace = true
 gitbutler-cherry-pick.workspace = true
