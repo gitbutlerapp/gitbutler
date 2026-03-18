@@ -137,7 +137,7 @@ const BranchDetails: FC<{
 	);
 };
 
-const SelectedCommitFileDiff: FC<{
+const CommitFileDiff: FC<{
 	projectId: string;
 	commitId: string;
 	path: string;
@@ -160,7 +160,7 @@ const SelectedCommitFileDiff: FC<{
 	);
 };
 
-const SelectedCommitDiff: FC<{
+const CommitDiff: FC<{
 	projectId: string;
 	commitId: string;
 }> = ({ projectId, commitId }) => {
@@ -193,7 +193,7 @@ const SelectedCommitDiff: FC<{
 	);
 };
 
-const SelectedBranchDiff: FC<{
+const ShowBranch: FC<{
 	projectId: string;
 	branch: string;
 	branchName: string;
@@ -244,16 +244,16 @@ const Preview: FC<{
 			<Suspense fallback={<div>Loading diff…</div>}>
 				{selection.commitId !== undefined ? (
 					selection.path !== undefined ? (
-						<SelectedCommitFileDiff
+						<CommitFileDiff
 							projectId={projectId}
 							commitId={selection.commitId}
 							path={selection.path}
 						/>
 					) : (
-						<SelectedCommitDiff projectId={projectId} commitId={selection.commitId} />
+						<CommitDiff projectId={projectId} commitId={selection.commitId} />
 					)
 				) : selectedBranchRef !== null ? (
-					<SelectedBranchDiff
+					<ShowBranch
 						projectId={projectId}
 						branch={selectedBranchRef}
 						branchName={selection.branchName}
