@@ -84,10 +84,7 @@ function injectBackendEndpoints(api: BackendApi) {
 				},
 				query: (args) => args,
 				providesTags: (_result, _error, { account }) => [
-					...providesItem(
-						ReduxTag.ForgeUser,
-						`gitea:${account.host}:${account.username}`,
-					),
+					...providesItem(ReduxTag.ForgeUser, `gitea:${account.host}:${account.username}`),
 				],
 			}),
 			listKnownGiteaAccounts: build.query<ButGiteaToken.GiteaAccountIdentifier[], void>({

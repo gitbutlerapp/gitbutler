@@ -155,15 +155,15 @@
 <style lang="postcss">
 	.icon-wrapper__logo {
 		display: flex;
-		width: 28px;
-		height: 28px;
 		align-items: center;
 		justify-content: center;
+		width: 28px;
+		height: 28px;
 		border-radius: 999px;
 		background: var(--clr-bg-3);
 		color: var(--clr-text-1);
-		font-size: 11px;
 		font-weight: 700;
+		font-size: 11px;
 		letter-spacing: 0.08em;
 	}
 

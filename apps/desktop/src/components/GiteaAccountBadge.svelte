@@ -10,7 +10,10 @@
 	const { account, class: className }: Props = $props();
 
 	function normalizedHost(host: string): string {
-		return host.replace(/^https?:\/\//, "").replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
+		return host
+			.replace(/^https?:\/\//, "")
+			.replace(/\/api\/v1\/?$/, "")
+			.replace(/\/$/, "");
 	}
 
 	export function badgeText(account: ButGiteaToken.GiteaAccountIdentifier): string {

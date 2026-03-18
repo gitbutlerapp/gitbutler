@@ -120,10 +120,7 @@ impl Controller {
     }
 
     /// Add a Gitea account if it does not already exist.
-    pub fn add_gitea_account(
-        &self,
-        account: &crate::settings::GiteaAccount,
-    ) -> anyhow::Result<()> {
+    pub fn add_gitea_account(&self, account: &crate::settings::GiteaAccount) -> anyhow::Result<()> {
         let mut settings = self.read_settings()?;
 
         if settings.gitea.known_accounts.iter().any(|a| a == account) {

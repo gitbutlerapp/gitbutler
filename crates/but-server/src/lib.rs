@@ -607,6 +607,11 @@ pub async fn run() {
             but_post(gitlab::clear_all_gitlab_tokens_cmd),
         )
         .route(
+            "/store_gitea_account",
+            but_post_async(gitea::store_gitea_account_cmd),
+        )
+        .route("/get_gitea_user", but_post_async(gitea::get_gitea_user_cmd))
+        .route(
             "/forget_gitea_account",
             but_post(gitea::forget_gitea_account_cmd),
         )

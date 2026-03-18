@@ -1,3 +1,10 @@
+//! Minimal Gitea account authentication and token-management support for GitButler.
+//!
+//! The crate is intentionally narrow: it validates a PAT against a Gitea-compatible
+//! host, stores the authenticated account metadata, and lets callers rehydrate or
+//! forget stored accounts later. Higher-level forge features are deliberately left
+//! to follow-up work so this slice stays reviewable.
+
 use anyhow::{Context as _, Result};
 use but_secret::Sensitive;
 
@@ -9,6 +16,10 @@ pub use token::GiteaAccountIdentifier;
 
 #[derive(Debug, Clone)]
 pub struct AuthStatusResponse {
+    /// The access token.
+    ///
+    /// This is returned only so the current desktop integration can continue to
+    /// use the token immediately after storing it.
     pub access_token: Sensitive<String>,
     pub username: String,
     pub name: Option<String>,
@@ -16,6 +27,7 @@ pub struct AuthStatusResponse {
     pub host: String,
 }
 
+/// Validate a Gitea PAT for `host`, persist it securely, and return the resolved account.
 pub async fn store_account(
     host: &str,
     access_token: &Sensitive<String>,
@@ -31,6 +43,7 @@ pub async fn store_account(
     })
 }
 
+/// Fetch the authenticated user from Gitea and persist the token under that account id.
 async fn fetch_and_persist_user_data(
     host: &str,
     access_token: &Sensitive<String>,
@@ -51,6 +64,7 @@ async fn fetch_and_persist_user_data(
     Ok(user)
 }
 
+/// Delete the stored token and metadata for a single Gitea account.
 pub fn forget_gitea_access_token(
     account: &GiteaAccountIdentifier,
     storage: &but_forge_storage::Controller,
@@ -58,6 +72,7 @@ pub fn forget_gitea_access_token(
     token::delete_gitea_access_token(account, storage).context("Failed to delete access token")
 }
 
+/// Resolve a stored Gitea account and return the current authenticated user profile, if any.
 pub async fn get_gitea_user(
     account: &GiteaAccountIdentifier,
     storage: &but_forge_storage::Controller,
@@ -97,18 +112,21 @@ fn is_network_error(err: &reqwest::Error) -> bool {
     err.is_timeout() || err.is_connect() || err.is_request()
 }
 
+/// List all Gitea accounts whose metadata is currently persisted locally.
 pub fn list_known_gitea_accounts(
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<GiteaAccountIdentifier>> {
     token::list_known_gitea_accounts(storage).context("Failed to list known Gitea accounts")
 }
 
+/// Delete all stored Gitea accounts and their associated tokens.
 pub fn clear_all_gitea_tokens(storage: &but_forge_storage::Controller) -> Result<()> {
     token::clear_all_gitea_accounts(storage).context("Failed to clear all Gitea tokens")
 }
 
 #[derive(Debug, Clone)]
 pub struct AuthenticatedUser {
+    /// The access token used to authenticate the live request.
     pub access_token: Sensitive<String>,
     pub username: String,
     pub avatar_url: Option<String>,
@@ -122,6 +140,7 @@ pub mod json {
 
     use crate::{AuthStatusResponse, AuthenticatedUser};
 
+    /// Serializable version of [`AuthStatusResponse`] with the token exposed as a string.
     #[derive(Debug, Serialize)]
     #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
     #[serde(rename_all = "camelCase")]
@@ -154,6 +173,7 @@ pub mod json {
         }
     }
 
+    /// Serializable version of [`AuthenticatedUser`] with the token exposed as a string.
     #[derive(Debug, Serialize)]
     #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
     #[serde(rename_all = "camelCase")]

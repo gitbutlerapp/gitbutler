@@ -1,3 +1,5 @@
+//! Thin Gitea API client used by the authentication slice.
+
 use anyhow::{Context, Result, bail};
 use but_secret::Sensitive;
 use reqwest::header::{ACCEPT, AUTHORIZATION, HeaderMap, HeaderValue, USER_AGENT};
@@ -11,6 +13,7 @@ pub struct GiteaClient {
 }
 
 impl GiteaClient {
+    /// Create an authenticated client for an arbitrary Gitea-compatible host.
     pub fn new_with_host_override(access_token: &Sensitive<String>, host: &str) -> Result<Self> {
         let mut headers = HeaderMap::new();
         headers.insert(USER_AGENT, HeaderValue::from_static("gb-gitea-integration"));
@@ -30,6 +33,7 @@ impl GiteaClient {
         })
     }
 
+    /// Resolve the currently authenticated user from `/api/v1/user`.
     pub async fn get_authenticated(&self) -> Result<AuthenticatedUser> {
         #[derive(Deserialize)]
         struct User {
@@ -69,6 +73,7 @@ fn option_if_non_empty(value: String) -> Option<String> {
     (!value.trim().is_empty()).then_some(value)
 }
 
+/// Normalize either an instance root URL or API root to the `/api/v1` base path.
 fn normalize_api_base_url(host: &str) -> String {
     let trimmed = host.trim_end_matches('/');
     if trimmed.ends_with(GITEA_API_SUFFIX) {
@@ -78,7 +83,11 @@ fn normalize_api_base_url(host: &str) -> String {
     }
 }
 
-pub fn client_for(account: &crate::GiteaAccountIdentifier, access_token: &Sensitive<String>) -> Result<GiteaClient> {
+/// Recreate a client for a previously persisted account identifier.
+pub fn client_for(
+    account: &crate::GiteaAccountIdentifier,
+    access_token: &Sensitive<String>,
+) -> Result<GiteaClient> {
     GiteaClient::new_with_host_override(access_token, &account.host)
         .with_context(|| format!("Failed to create Gitea client for {}", account.host))
 }

@@ -1,3 +1,5 @@
+//! Account identifiers and secure token persistence for Gitea integrations.
+
 use std::sync::Mutex;
 
 use anyhow::Result;
@@ -6,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::client::GiteaClient;
 
+/// Persist a Gitea access token and its corresponding account metadata.
 pub fn persist_gitea_access_token(
     account_id: &GiteaAccountIdentifier,
     access_token: &Sensitive<String>,
@@ -15,6 +18,7 @@ pub fn persist_gitea_access_token(
     persist_gitea_account(&account, storage)
 }
 
+/// Delete a stored Gitea access token for the given account.
 pub fn delete_gitea_access_token(
     account_id: &GiteaAccountIdentifier,
     storage: &but_forge_storage::Controller,
@@ -27,6 +31,7 @@ pub fn delete_gitea_access_token(
     }
 }
 
+/// Retrieve a stored Gitea access token for the given account.
 pub fn get_gitea_access_token(
     account_id: &GiteaAccountIdentifier,
     storage: &but_forge_storage::Controller,
@@ -35,6 +40,7 @@ pub fn get_gitea_access_token(
     Ok(account.map(|account| account.access_token()))
 }
 
+/// List all Gitea accounts currently known to local forge storage.
 pub fn list_known_gitea_accounts(
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<GiteaAccountIdentifier>> {
@@ -45,11 +51,13 @@ pub fn list_known_gitea_accounts(
         .collect::<Vec<_>>())
 }
 
+/// Delete all stored Gitea accounts.
 pub fn clear_all_gitea_accounts(storage: &but_forge_storage::Controller) -> Result<()> {
     delete_all_gitea_accounts(storage)?;
     Ok(())
 }
 
+/// Stable identifier for a persisted Gitea account.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -63,6 +71,7 @@ pub struct GiteaAccountIdentifier {
 but_schemars::register_sdk_type!(GiteaAccountIdentifier);
 
 impl GiteaAccountIdentifier {
+    /// Build an identifier from the authenticated username and host.
     pub fn new(username: &str, host: &str) -> Self {
         Self {
             username: username.to_string(),
@@ -70,6 +79,7 @@ impl GiteaAccountIdentifier {
         }
     }
 
+    /// Recreate a client for this stored account.
     pub fn client(&self, access_token: &Sensitive<String>) -> Result<GiteaClient> {
         crate::client::client_for(self, access_token)
     }
@@ -81,6 +91,7 @@ impl std::fmt::Display for GiteaAccountIdentifier {
     }
 }
 
+/// Persisted Gitea account with its associated secret token.
 pub struct GiteaAccount {
     username: String,
     host: String,

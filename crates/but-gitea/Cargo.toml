@@ -6,7 +6,7 @@ repository.workspace = true
 license-file = "../../LICENSE.md"
 description = "The GitButler Gitea integration"
 authors.workspace = true
-readme = "../../README.md"
+readme = "README.md"
 publish = false
 rust-version.workspace = true
 
