@@ -224,41 +224,6 @@ const SelectedBranchDiff: FC<{
 	);
 };
 
-const BranchDetailsLane: FC<{
-	projectId: string;
-	branchName: string;
-	remote: string | null;
-	isCommitSelected: (commitId: string) => boolean;
-	isCommitAnyFileSelected: (commitId: string) => boolean;
-	isCommitFileSelected: (commitId: string, path: string) => boolean;
-	toggleCommitSelection: (commitId: string) => void;
-	toggleCommitFileSelection: (commitId: string, path: string) => void;
-}> = ({
-	projectId,
-	branchName,
-	remote,
-	isCommitSelected,
-	isCommitAnyFileSelected,
-	isCommitFileSelected,
-	toggleCommitSelection,
-	toggleCommitFileSelection,
-}) => (
-	<div className={sharedStyles.commitsLane}>
-		<Suspense fallback={<div>Loading branch details…</div>}>
-			<BranchDetails
-				projectId={projectId}
-				branchName={branchName}
-				remote={remote}
-				isCommitSelected={isCommitSelected}
-				isCommitAnyFileSelected={isCommitAnyFileSelected}
-				isCommitFileSelected={isCommitFileSelected}
-				toggleCommitSelection={toggleCommitSelection}
-				toggleCommitFileSelection={toggleCommitFileSelection}
-			/>
-		</Suspense>
-	</div>
-);
-
 const ProjectBranchesPage: FC = () => {
 	const { id } = projectBranchesRoute.useParams();
 
@@ -369,25 +334,30 @@ const ProjectBranchesPage: FC = () => {
 				</ul>
 
 				{selectedBranchResolvedName != null && (
-					<BranchDetailsLane
-						key={selectedBranchResolvedName}
-						projectId={id}
-						branchName={selectedBranchResolvedName}
-						remote={selectedRemote ?? null}
-						isCommitSelected={(commitId) => isCommitSelected(selectedBranchResolvedName, commitId)}
-						isCommitAnyFileSelected={(commitId) =>
-							isCommitAnyFileSelected(selectedBranchResolvedName, commitId)
-						}
-						isCommitFileSelected={(commitId, path) =>
-							isCommitFileSelected(selectedBranchResolvedName, commitId, path)
-						}
-						toggleCommitSelection={(commitId) =>
-							toggleCommitSelection(selectedBranchResolvedName, commitId)
-						}
-						toggleCommitFileSelection={(commitId, path) =>
-							toggleCommitFileSelection(selectedBranchResolvedName, commitId, path)
-						}
-					/>
+					<div className={sharedStyles.commitsLane}>
+						<Suspense fallback={<div>Loading branch details…</div>}>
+							<BranchDetails
+								projectId={id}
+								branchName={selectedBranchResolvedName}
+								remote={selectedRemote ?? null}
+								isCommitSelected={(commitId) =>
+									isCommitSelected(selectedBranchResolvedName, commitId)
+								}
+								isCommitAnyFileSelected={(commitId) =>
+									isCommitAnyFileSelected(selectedBranchResolvedName, commitId)
+								}
+								isCommitFileSelected={(commitId, path) =>
+									isCommitFileSelected(selectedBranchResolvedName, commitId, path)
+								}
+								toggleCommitSelection={(commitId) =>
+									toggleCommitSelection(selectedBranchResolvedName, commitId)
+								}
+								toggleCommitFileSelection={(commitId, path) =>
+									toggleCommitFileSelection(selectedBranchResolvedName, commitId, path)
+								}
+							/>
+						</Suspense>
+					</div>
 				)}
 			</div>
 

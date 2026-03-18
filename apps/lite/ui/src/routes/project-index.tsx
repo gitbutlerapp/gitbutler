@@ -815,25 +815,6 @@ const CommitForm: FC<{
 	);
 };
 
-const UnassignedLane: FC<{
-	projectId: string;
-	isFileSelected: (path: string) => boolean;
-	toggleFileSelection: (path: string) => void;
-	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, isFileSelected, toggleFileSelection, onDependencyHover }) => (
-	<div className={sharedStyles.commitsLane}>
-		<h3>Unassigned changes</h3>
-		<Changes
-			projectId={projectId}
-			stackId={null}
-			isFileSelected={isFileSelected}
-			toggleFileSelect={toggleFileSelection}
-			onDependencyHover={onDependencyHover}
-			className={styles.unassignedChanges}
-		/>
-	</div>
-);
-
 const CommitMoveToBranchTarget: FC<
 	{
 		anchorRef: Array<number> | null;
@@ -1071,12 +1052,17 @@ const ProjectPage: FC = () => {
 		<DraggedSourceItemContext.Provider value={draggedSourceItem}>
 			<>
 				<div className={sharedStyles.lanes}>
-					<UnassignedLane
-						projectId={project.id}
-						isFileSelected={isUnassignedFileSelected}
-						toggleFileSelection={toggleUnassignedFileSelection}
-						onDependencyHover={highlightCommits}
-					/>
+					<div className={sharedStyles.commitsLane}>
+						<h3>Unassigned changes</h3>
+						<Changes
+							projectId={project.id}
+							stackId={null}
+							isFileSelected={isUnassignedFileSelected}
+							toggleFileSelect={toggleUnassignedFileSelection}
+							onDependencyHover={highlightCommits}
+							className={styles.unassignedChanges}
+						/>
+					</div>
 
 					{headInfo.stacks.map((stack) => {
 						// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
