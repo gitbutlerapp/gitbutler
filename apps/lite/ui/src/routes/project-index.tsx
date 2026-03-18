@@ -12,6 +12,7 @@ import {
 import { createRoute } from "@tanstack/react-router";
 import {
 	RefInfo,
+	AssignmentRejection,
 	Commit,
 	DiffHunk,
 	HunkAssignment,
@@ -64,6 +65,49 @@ import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 import { CommitMoveParams } from "#electron/ipc.ts";
 
 const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
+
+const listFormatter = new Intl.ListFormat(undefined, {
+	style: "long",
+	type: "conjunction",
+});
+
+// TODO: we need path on the response?
+const decodePathBytes = (pathBytes: Array<number>): string =>
+	new TextDecoder().decode(Uint8Array.from(pathBytes));
+
+const describeAssignmentRejection = (rejection: AssignmentRejection): string => {
+	const path = decodePathBytes(rejection.request.pathBytes);
+	const hunkHeader = rejection.request.hunkHeader;
+	if (!hunkHeader) return path;
+
+	return `${path} (-${hunkHeader.oldStart},${hunkHeader.oldLines} +${hunkHeader.newStart},${hunkHeader.newLines})`;
+};
+
+const AssignmentRejectionMessage: FC<{
+	rejections: Array<AssignmentRejection>;
+}> = ({ rejections }) => (
+	<ul>
+		{rejections.map((rejection) => {
+			const subject = describeAssignmentRejection(rejection);
+			return (
+				<li key={subject}>
+					{rejection.locks.length === 0
+						? `${subject}: unknown reason`
+						: `${subject}: depends on ${listFormatter.format(rejection.locks.map((lock) => shortCommitId(lock.commitId)))}`}
+				</li>
+			);
+		})}
+	</ul>
+);
+
+const assignmentRejectionsToastOptions = (
+	rejections: Array<AssignmentRejection>,
+): ToastManagerAddOptions<never> => ({
+	type: "error",
+	title: "Failed to assign",
+	description: <AssignmentRejectionMessage rejections={rejections} />,
+	priority: "high",
+});
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
 
@@ -232,6 +276,12 @@ const useRunOperation = (projectId: string) => {
 					},
 					{
 						onSuccess: (response) => {
+							const assignmentRejections = response.assignmentRejections ?? [];
+							if (assignmentRejections.length > 0) {
+								toastManager.add(assignmentRejectionsToastOptions(assignmentRejections));
+								return;
+							}
+
 							const pathsToRejectedChanges = response.pathsToRejectedChanges ?? [];
 							if (pathsToRejectedChanges.length > 0)
 								toastManager.add(
@@ -242,6 +292,7 @@ const useRunOperation = (projectId: string) => {
 											response.pathsToRejectedChanges as Array<RejectedChange>,
 									}),
 								);
+							return;
 						},
 					},
 				);
