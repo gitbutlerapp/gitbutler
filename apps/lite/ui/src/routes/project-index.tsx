@@ -21,8 +21,10 @@ import sharedStyles from "./project-shared.module.css";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
+import { ProjectPanelLayout } from "#ui/routes/ProjectPanelLayout.tsx";
 import {
 	CommitDetails,
+	CommitLabel,
 	CommitRow,
 	CommitsList,
 	type DragData,
@@ -353,7 +355,7 @@ const DraggableFile: FC<
 	});
 };
 
-const SelectedChangesFileDiff: FC<{
+const ChangesFileDiff: FC<{
 	projectId: string;
 	stackId: string | null;
 	path: string;
@@ -404,7 +406,7 @@ const SelectedChangesFileDiff: FC<{
 	);
 };
 
-const SelectedCommitFileDiff: FC<{
+const CommitFileDiff: FC<{
 	projectId: string;
 	commitId: string;
 	path: string;
@@ -427,7 +429,7 @@ const SelectedCommitFileDiff: FC<{
 	);
 };
 
-const SelectedCommitDiff: FC<{
+const ShowCommit: FC<{
 	projectId: string;
 	commitId: string;
 }> = ({ projectId, commitId }) => {
@@ -437,28 +439,82 @@ const SelectedCommitDiff: FC<{
 
 	if (data.changes.length === 0) return null;
 
+	const firstLineEnd = data.commit.message.indexOf("\n");
+	const commitMessageBody =
+		firstLineEnd === -1 ? "" : data.commit.message.slice(firstLineEnd + 1).trim();
+
 	return (
-		<ul className={sharedStyles.hunks}>
-			{data.changes.map((change) => (
-				<li key={change.path}>
-					<h5>{change.path}</h5>
-					<FileDiff
-						projectId={projectId}
-						change={change}
-						renderHunk={(hunk, patch) => (
-							<Hunk
-								patch={patch}
-								changeUnit={{ _tag: "commit", commitId }}
-								change={change}
-								hunk={hunk}
-							/>
-						)}
-					/>
-				</li>
-			))}
-		</ul>
+		<>
+			<h3>
+				<CommitLabel commit={data.commit} />
+			</h3>
+			{commitMessageBody !== "" && (
+				<p className={styles.selectedCommitMessageBody}>{commitMessageBody}</p>
+			)}
+			<ul className={sharedStyles.hunks}>
+				{data.changes.map((change) => (
+					<li key={change.path}>
+						<h4>{change.path}</h4>
+						<FileDiff
+							projectId={projectId}
+							change={change}
+							renderHunk={(hunk, patch) => (
+								<Hunk
+									patch={patch}
+									changeUnit={{ _tag: "commit", commitId }}
+									change={change}
+									hunk={hunk}
+								/>
+							)}
+						/>
+					</li>
+				))}
+			</ul>
+		</>
 	);
 };
+
+type Selection =
+	| {
+			_tag: "changes";
+			stackId: string | null;
+			path: string;
+	  }
+	| {
+			_tag: "commit";
+			stackId: string;
+			commitId: string;
+			path?: string;
+	  };
+
+const Preview: FC<{
+	projectId: string;
+	selection: Selection;
+	onDependencyHover: (commitIds: Array<string> | null) => void;
+}> = ({ projectId, selection, onDependencyHover }) => (
+	<div>
+		<Suspense fallback={<div>Loading diff…</div>}>
+			{Match.value(selection).pipe(
+				Match.tag("changes", ({ stackId, path }) => (
+					<ChangesFileDiff
+						projectId={projectId}
+						stackId={stackId}
+						path={path}
+						onDependencyHover={onDependencyHover}
+					/>
+				)),
+				Match.tag("commit", ({ commitId, path }) =>
+					path !== undefined ? (
+						<CommitFileDiff projectId={projectId} commitId={commitId} path={path} />
+					) : (
+						<ShowCommit projectId={projectId} commitId={commitId} />
+					),
+				),
+				Match.exhaustive,
+			)}
+		</Suspense>
+	</div>
+);
 
 const RubTarget: FC<
 	{
@@ -478,20 +534,20 @@ const RubTarget: FC<
 		}),
 	});
 
+	const droppable = useRender({
+		render,
+		ref: dropRef,
+		props: mergeProps(props, {
+			style: { ...(isDropTarget && { outline: "2px dashed" }) },
+		}),
+	});
+
 	const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
 	const tooltip = isDropTarget && rubSource ? rubOperationLabel(rubSource, target) : null;
 
 	return (
 		<Tooltip.Root open={tooltip !== null}>
-			<Tooltip.Trigger
-				render={useRender({
-					render,
-					ref: dropRef,
-					props: mergeProps(props, {
-						style: { ...(isDropTarget && { outline: "2px dashed" }) },
-					}),
-				})}
-			/>
+			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
 					<Tooltip.Popup className={styles.tooltip}>{tooltip}</Tooltip.Popup>
@@ -789,69 +845,6 @@ const CommitForm: FC<{
 	);
 };
 
-type UnassignedLaneSelection = {
-	path: string;
-};
-
-const UnassignedLane: FC<{
-	projectId: string;
-	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, onDependencyHover }) => {
-	const [selection, select] = useLocalStorageState<UnassignedLaneSelection | null>(
-		`project:${projectId}:unassignedChangesLaneSelection`,
-		null,
-	);
-
-	const isFileSelected = (path: string): boolean => selection?.path === path;
-
-	const toggleFileSelection = (path: string): UnassignedLaneSelection | null =>
-		isFileSelected(path) ? null : { path };
-
-	return (
-		<div className={sharedStyles.laneColumns}>
-			<div className={sharedStyles.laneMainColumn}>
-				<div>
-					<h3>Unassigned changes</h3>
-					<Changes
-						projectId={projectId}
-						stackId={null}
-						isFileSelected={isFileSelected}
-						toggleFileSelect={(path) => {
-							select(toggleFileSelection(path));
-						}}
-						onDependencyHover={onDependencyHover}
-						className={styles.unassignedChanges}
-					/>
-				</div>
-			</div>
-
-			{selection !== null && (
-				<div className={sharedStyles.laneDiffColumn}>
-					<Suspense fallback={<div>Loading diff…</div>}>
-						<SelectedChangesFileDiff
-							projectId={projectId}
-							stackId={null}
-							path={selection.path}
-							onDependencyHover={onDependencyHover}
-						/>
-					</Suspense>
-				</div>
-			)}
-		</div>
-	);
-};
-
-type StackLaneSelection =
-	| {
-			_tag: "commit";
-			commitId: string;
-			path?: string;
-	  }
-	| {
-			_tag: "changes";
-			path: string;
-	  };
-
 const CommitMoveToBranchTarget: FC<
 	{
 		anchorRef: Array<number> | null;
@@ -886,17 +879,17 @@ const CommitMoveToBranchTarget: FC<
 		},
 	});
 
+	const droppable = useRender({
+		render,
+		ref: dropRef,
+		props: mergeProps(props, {
+			style: { ...(isDropTarget && { outline: "2px dashed" }) },
+		}),
+	});
+
 	return (
 		<Tooltip.Root open={isDropTarget}>
-			<Tooltip.Trigger
-				render={useRender({
-					render,
-					ref: dropRef,
-					props: mergeProps(props, {
-						style: { ...(isDropTarget && { outline: "2px dashed" }) },
-					}),
-				})}
-			/>
+			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
 					<Tooltip.Popup className={styles.tooltip}>Move here</Tooltip.Popup>
@@ -906,12 +899,27 @@ const CommitMoveToBranchTarget: FC<
 	);
 };
 
-const StackLane: FC<{
+const StackC: FC<{
 	projectId: string;
 	stack: Stack;
+	isCommitSelected: (commitId: string) => boolean;
+	isCommitAnyFileSelected: (commitId: string) => boolean;
+	isChangeUnitFileSelected: (changeUnit: ChangeUnit, path: string) => boolean;
+	toggleCommitSelection: (commitId: string) => void;
+	toggleChangeUnitFileSelection: (changeUnit: ChangeUnit, path: string) => void;
 	highlightedCommitIds: Set<string>;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, stack, highlightedCommitIds, onDependencyHover }) => {
+}> = ({
+	projectId,
+	stack,
+	isCommitSelected,
+	isCommitAnyFileSelected,
+	isChangeUnitFileSelected,
+	toggleCommitSelection,
+	toggleChangeUnitFileSelection,
+	highlightedCommitIds,
+	onDependencyHover,
+}) => {
 	// From Caleb:
 	// > There shouldn't be a way within GitButler to end up with a stack without a
 	//   StackId. Users can disrupt our matching against our metadata by playing
@@ -922,147 +930,90 @@ const StackLane: FC<{
 	// oxlint-disable-next-line typescript/no-non-null-assertion -- [tag:stack-id-required]
 	const stackId = stack.id!;
 
-	const [selection, select] = useLocalStorageState<StackLaneSelection | null>(
-		`project:${projectId}:stackLaneSelection:${stackId}`,
-		null,
-	);
-
-	const isCommitSelected = (commitId: string) =>
-		selection?._tag === "commit" && selection.commitId === commitId && selection.path === undefined;
-
-	const isCommitAnyFileSelected = (commitId: string) =>
-		selection?._tag === "commit" && selection.commitId === commitId && selection.path !== undefined;
-
-	const isChangeUnitFileSelected = (changeUnit: ChangeUnit, path: string) => {
-		if (!selection) return false;
-		if (selection._tag === "commit" && changeUnit._tag === "commit")
-			return selection.commitId === changeUnit.commitId && selection.path === path;
-		if (selection._tag === "changes" && changeUnit._tag === "changes")
-			return selection.path === path;
-		return false;
-	};
-
-	const toggleCommitSelection = (commitId: string): StackLaneSelection | null =>
-		isCommitSelected(commitId) ? null : { _tag: "commit", commitId };
-
-	const toggleChangeUnitFileSelection = (
-		changeUnit: ChangeUnit,
-		path: string,
-	): StackLaneSelection | null =>
-		isChangeUnitFileSelected(changeUnit, path)
-			? changeUnit._tag === "commit"
-				? { _tag: "commit", commitId: changeUnit.commitId }
-				: null
-			: changeUnit._tag === "commit"
-				? { _tag: "commit", commitId: changeUnit.commitId, path }
-				: { _tag: "changes", path };
-
 	const changesChangeUnit: ChangeUnit = { _tag: "changes", stackId };
 
 	return (
-		<div className={sharedStyles.laneColumns}>
-			<div className={sharedStyles.laneMainColumn}>
-				<Menu.Root>
-					<Menu.Trigger className={styles.stackMenu} style={{ lineHeight: 1 }}>
-						𑁔
-					</Menu.Trigger>
-					<Menu.Portal>
-						<Menu.Positioner align="end">
-							<StackMenuPopup projectId={projectId} stackId={stackId} />
-						</Menu.Positioner>
-					</Menu.Portal>
-				</Menu.Root>
+		<div>
+			<Menu.Root>
+				<Menu.Trigger className={styles.stackMenu} style={{ lineHeight: 1 }}>
+					𑁔
+				</Menu.Trigger>
+				<Menu.Portal>
+					<Menu.Positioner align="end">
+						<StackMenuPopup projectId={projectId} stackId={stackId} />
+					</Menu.Positioner>
+				</Menu.Portal>
+			</Menu.Root>
 
-				<div>
-					<h3>Assigned changes</h3>
-					<Changes
-						projectId={projectId}
-						stackId={stack.id}
-						isFileSelected={(path) => isChangeUnitFileSelected(changesChangeUnit, path)}
-						toggleFileSelect={(path) => {
-							select(toggleChangeUnitFileSelection(changesChangeUnit, path));
-						}}
-						onDependencyHover={onDependencyHover}
-						className={styles.assignedChanges}
-					/>
-					<CommitForm projectId={projectId} stack={stack} />
-				</div>
-
-				<ul className={styles.segments}>
-					{stack.segments.map((segment) => {
-						const branchName = segment.refName?.displayName ?? "Untitled";
-						const anchorRef = segment.refName ? segment.refName.fullNameBytes : null;
-						return (
-							<li key={branchName}>
-								<CommitMoveToBranchTarget
-									anchorRef={anchorRef}
-									firstCommitId={segment.commits[0]?.id}
-									render={<h3>{branchName}</h3>}
-								/>
-
-								<h4>Commits</h4>
-								<CommitsList commits={segment.commits}>
-									{(commit, index) => {
-										const changeUnit: ChangeUnit = {
-											_tag: "commit",
-											commitId: commit.id,
-										};
-										return (
-											<CommitC
-												projectId={projectId}
-												commit={commit}
-												previousCommitId={segment.commits[index - 1]?.id}
-												nextCommitId={segment.commits[index + 1]?.id}
-												isHighlighted={highlightedCommitIds.has(commit.id)}
-												isSelected={isCommitSelected(commit.id)}
-												isAnyFileSelected={isCommitAnyFileSelected(commit.id)}
-												isFileSelected={(path) => isChangeUnitFileSelected(changeUnit, path)}
-												toggleSelect={() => {
-													select(toggleCommitSelection(commit.id));
-												}}
-												toggleFileSelect={(path) => {
-													select(toggleChangeUnitFileSelection(changeUnit, path));
-												}}
-											/>
-										);
-									}}
-								</CommitsList>
-							</li>
-						);
-					})}
-				</ul>
+			<div>
+				<h3>Assigned changes</h3>
+				<Changes
+					projectId={projectId}
+					stackId={stack.id}
+					isFileSelected={(path) => isChangeUnitFileSelected(changesChangeUnit, path)}
+					toggleFileSelect={(path) => {
+						toggleChangeUnitFileSelection(changesChangeUnit, path);
+					}}
+					onDependencyHover={onDependencyHover}
+					className={styles.assignedChanges}
+				/>
+				<CommitForm projectId={projectId} stack={stack} />
 			</div>
 
-			{selection !== null && (
-				<div className={sharedStyles.laneDiffColumn}>
-					<Suspense fallback={<div>Loading diff…</div>}>
-						{Match.value(selection).pipe(
-							Match.tag("changes", ({ path }) => (
-								<SelectedChangesFileDiff
-									projectId={projectId}
-									stackId={stackId}
-									path={path}
-									onDependencyHover={onDependencyHover}
-								/>
-							)),
-							Match.tag("commit", ({ commitId, path }) =>
-								path !== undefined ? (
-									<SelectedCommitFileDiff projectId={projectId} commitId={commitId} path={path} />
-								) : (
-									<SelectedCommitDiff projectId={projectId} commitId={commitId} />
-								),
-							),
-							Match.exhaustive,
-						)}
-					</Suspense>
-				</div>
-			)}
+			<ul className={styles.segments}>
+				{stack.segments.map((segment) => {
+					const branchName = segment.refName?.displayName ?? "Untitled";
+					const anchorRef = segment.refName ? segment.refName.fullNameBytes : null;
+					return (
+						<li key={branchName}>
+							<CommitMoveToBranchTarget
+								anchorRef={anchorRef}
+								firstCommitId={segment.commits[0]?.id}
+								render={<h3>{branchName}</h3>}
+							/>
+
+							<h4>Commits</h4>
+							<CommitsList commits={segment.commits}>
+								{(commit, index) => {
+									const changeUnit: ChangeUnit = {
+										_tag: "commit",
+										commitId: commit.id,
+									};
+									return (
+										<CommitC
+											projectId={projectId}
+											commit={commit}
+											previousCommitId={segment.commits[index - 1]?.id}
+											nextCommitId={segment.commits[index + 1]?.id}
+											isHighlighted={highlightedCommitIds.has(commit.id)}
+											isSelected={isCommitSelected(commit.id)}
+											isAnyFileSelected={isCommitAnyFileSelected(commit.id)}
+											isFileSelected={(path) => isChangeUnitFileSelected(changeUnit, path)}
+											toggleSelect={() => {
+												toggleCommitSelection(commit.id);
+											}}
+											toggleFileSelect={(path) => {
+												toggleChangeUnitFileSelection(changeUnit, path);
+											}}
+										/>
+									);
+								}}
+							</CommitsList>
+						</li>
+					);
+				})}
+			</ul>
 		</div>
 	);
 };
 
 const ProjectPage: FC = () => {
 	const { id: projectId } = projectRootRoute.useParams();
+
+	const [selection, select] = useLocalStorageState<Selection | null>(
+		`project:${projectId}:workspace:selection`,
+		null,
+	);
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 	const [draggedSourceItem, setDraggedSourceItem] = useState<SourceItem | null>(null);
@@ -1081,29 +1032,114 @@ const ProjectPage: FC = () => {
 
 	const baseId = commonBaseCommitId(headInfo);
 
+	const isUnassignedFileSelected = (path: string): boolean =>
+		selection?._tag === "changes" && selection.stackId === null && selection.path === path;
+	const toggleUnassignedFileSelection = (path: string) => {
+		select(isUnassignedFileSelected(path) ? null : { _tag: "changes", stackId: null, path });
+	};
+	const isCommitSelected = (stackId: string, commitId: string) =>
+		selection?._tag === "commit" &&
+		selection.stackId === stackId &&
+		selection.commitId === commitId &&
+		selection.path === undefined;
+	const isCommitAnyFileSelected = (stackId: string, commitId: string) =>
+		selection?._tag === "commit" &&
+		selection.stackId === stackId &&
+		selection.commitId === commitId &&
+		selection.path !== undefined;
+	const isChangeUnitFileSelected = (stackId: string, changeUnit: ChangeUnit, path: string) => {
+		if (!selection) return false;
+		if (selection._tag === "commit" && changeUnit._tag === "commit")
+			return (
+				selection.stackId === stackId &&
+				selection.commitId === changeUnit.commitId &&
+				selection.path === path
+			);
+		if (selection._tag === "changes" && changeUnit._tag === "changes")
+			return selection.stackId === stackId && selection.path === path;
+		return false;
+	};
+	const toggleCommitSelection = (stackId: string, commitId: string) => {
+		select(isCommitSelected(stackId, commitId) ? null : { _tag: "commit", stackId, commitId });
+	};
+	const toggleChangeUnitFileSelection = (stackId: string, changeUnit: ChangeUnit, path: string) => {
+		select(
+			isChangeUnitFileSelected(stackId, changeUnit, path)
+				? changeUnit._tag === "commit"
+					? { _tag: "commit", stackId, commitId: changeUnit.commitId }
+					: null
+				: changeUnit._tag === "commit"
+					? { _tag: "commit", stackId, commitId: changeUnit.commitId, path }
+					: { _tag: "changes", stackId, path },
+		);
+	};
+
 	const highlightCommits = (commitIds: Array<string> | null) => {
 		setHighlightedCommitIds(commitIds ? new Set(commitIds) : new Set());
 	};
 
 	return (
 		<DraggedSourceItemContext.Provider value={draggedSourceItem}>
-			<h2>{project.title} workspace</h2>
+			<ProjectPanelLayout
+				projectId={projectId}
+				preview={
+					selection && (
+						<Preview
+							projectId={projectId}
+							selection={selection}
+							onDependencyHover={highlightCommits}
+						/>
+					)
+				}
+			>
+				<>
+					<div className={sharedStyles.lanes}>
+						<div className={sharedStyles.commitsLane}>
+							<h3>Unassigned changes</h3>
+							<Changes
+								projectId={project.id}
+								stackId={null}
+								isFileSelected={isUnassignedFileSelected}
+								toggleFileSelect={toggleUnassignedFileSelection}
+								onDependencyHover={highlightCommits}
+								className={styles.unassignedChanges}
+							/>
+						</div>
 
-			<div className={sharedStyles.lanes}>
-				<UnassignedLane projectId={project.id} onDependencyHover={highlightCommits} />
+						{headInfo.stacks.map((stack) => {
+							// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
+							const stackId = stack.id!;
 
-				{headInfo.stacks.map((stack) => (
-					<StackLane
-						key={stack.id}
-						projectId={project.id}
-						stack={stack}
-						highlightedCommitIds={highlightedCommitIds}
-						onDependencyHover={highlightCommits}
-					/>
-				))}
-			</div>
+							return (
+								<div key={stack.id} className={sharedStyles.commitsLane}>
+									<StackC
+										key={stack.id}
+										projectId={project.id}
+										stack={stack}
+										isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
+										isCommitAnyFileSelected={(commitId) =>
+											isCommitAnyFileSelected(stackId, commitId)
+										}
+										isChangeUnitFileSelected={(changeUnit, path) =>
+											isChangeUnitFileSelected(stackId, changeUnit, path)
+										}
+										toggleCommitSelection={(commitId) => {
+											toggleCommitSelection(stackId, commitId);
+										}}
+										toggleChangeUnitFileSelection={(changeUnit, path) => {
+											toggleChangeUnitFileSelection(stackId, changeUnit, path);
+										}}
+										highlightedCommitIds={highlightedCommitIds}
+										onDependencyHover={highlightCommits}
+									/>
+								</div>
+							);
+						})}
+					</div>
 
-			{baseId !== undefined && <>{shortCommitId(baseId)} (common base commit)</>}
+					{baseId !== undefined && <div>{shortCommitId(baseId)} (common base commit)</div>}
+				</>
+			</ProjectPanelLayout>
 		</DraggedSourceItemContext.Provider>
 	);
 };

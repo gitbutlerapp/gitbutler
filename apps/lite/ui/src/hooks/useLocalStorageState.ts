@@ -1,13 +1,12 @@
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 
+export type UseState<T> = [T, Dispatch<SetStateAction<T>>];
+
 /**
  * When changing the value type, also change the key to avoid parsing errors
  * from previous values.
  */
-export const useLocalStorageState = <T>(
-	key: string,
-	initialValue: T,
-): [T, Dispatch<SetStateAction<T>>] => {
+export const useLocalStorageState = <T>(key: string, initialValue: T): UseState<T> => {
 	const previousKeyRef = useRef(key);
 
 	const [value, setValue] = useState<T>(() => {

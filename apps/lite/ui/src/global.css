@@ -1,5 +1,7 @@
 :root {
 	font-family: system-ui;
+
+	--pane-padding: 16px;
 }
 
 body {
@@ -35,7 +37,8 @@ h6 {
 }
 
 ul,
-pre {
+pre,
+p {
 	margin-block: 0;
 }
 

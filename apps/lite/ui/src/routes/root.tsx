@@ -1,7 +1,10 @@
 import { QueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Link, Outlet, createRootRouteWithContext, useMatch } from "@tanstack/react-router";
-import { FC } from "react";
+import { FC, useContext } from "react";
 import styles from "./root.module.css";
+import { ShowPreviewPanelContext } from "#ui/contexts/ShowPreviewPanelContext.ts";
+import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
+import { assert } from "#ui/routes/project-shared.tsx";
 
 export const lastOpenedProjectKey = "lastProject";
 
@@ -57,6 +60,7 @@ const SidebarNav: FC = () => {
 			<Link
 				to={"/project/$id"}
 				params={{ id: selectedProjectId }}
+				className={styles.navLink}
 				activeProps={{ className: styles.navLinkActive }}
 				activeOptions={{ exact: true }}
 			>
@@ -65,6 +69,7 @@ const SidebarNav: FC = () => {
 			<Link
 				to="/project/$id/branches"
 				params={{ id: selectedProjectId }}
+				className={styles.navLink}
 				activeProps={{ className: styles.navLinkActive }}
 			>
 				Branches
@@ -73,17 +78,44 @@ const SidebarNav: FC = () => {
 	);
 };
 
-const RootLayout: FC = () => (
-	<main className={styles.layout}>
-		<aside className={styles.sidebar}>
-			<h1>GitButler Lite</h1>
+const TopBar: FC = () => {
+	const projectMatch = useMatch({
+		from: "/project/$id",
+		shouldThrow: false,
+	});
+	const [previewVisible, setPreviewVisible] = assert(useContext(ShowPreviewPanelContext));
+
+	return (
+		<header className={styles.topBar}>
 			<ProjectSelect />
-			<SidebarNav />
-		</aside>
-		<section className={styles.content}>
-			<Outlet />
-		</section>
-	</main>
+			{projectMatch && (
+				<button
+					type="button"
+					className={styles.topBarPreviewToggle}
+					aria-pressed={previewVisible}
+					onClick={() => {
+						setPreviewVisible((visible) => !visible);
+					}}
+				>
+					{previewVisible ? "Hide preview" : "Show preview"}
+				</button>
+			)}
+		</header>
+	);
+};
+
+const RootLayout: FC = () => (
+	<ShowPreviewPanelContext value={useLocalStorageState("previewVisible", true)}>
+		<main className={styles.layout}>
+			<TopBar />
+			<aside className={styles.sidebar}>
+				<SidebarNav />
+			</aside>
+			<section className={styles.content}>
+				<Outlet />
+			</section>
+		</main>
+	</ShowPreviewPanelContext>
 );
 
 interface RouteContext {

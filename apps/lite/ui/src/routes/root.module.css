@@ -1,14 +1,32 @@
 .layout {
 	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
 	grid-template-columns: max-content minmax(0, 1fr);
-	min-height: 100dvh;
+	grid-template-areas:
+		"topBar topBar"
+		"sidebar content";
+	height: 100dvh;
+}
+
+.topBar {
+	display: flex;
+	row-gap: 8px;
+	grid-area: topBar;
+	align-items: center;
+	padding: 4px;
+	border-bottom: 1px solid;
+}
+
+.topBarPreviewToggle {
+	margin-left: auto;
 }
 
 .sidebar {
 	display: flex;
 	row-gap: 16px;
+	grid-area: sidebar;
 	flex-direction: column;
-	padding: 16px;
+	padding: var(--pane-padding);
 	border-right: 1px solid;
 }
 
@@ -18,13 +36,18 @@
 	flex-direction: column;
 }
 
+.navLink {
+	color: grey;
+	text-decoration: none;
+}
+
 .navLinkActive {
-	font-weight: 700;
+	color: black;
 }
 
 .content {
 	display: flex;
+	grid-area: content;
 	flex-direction: column;
-	padding: 16px;
 	overflow: auto;
 }

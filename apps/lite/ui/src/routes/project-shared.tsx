@@ -112,7 +112,7 @@ const DraggableHunk: FC<
 
 const HunkDiff: FC<{
 	diff: string;
-}> = ({ diff }) => <pre className={styles.hunkDiff}>{diff.split("\n").slice(1).join("\n")}</pre>;
+}> = ({ diff }) => <pre>{diff.split("\n").slice(1).join("\n")}</pre>;
 
 export const Hunk: FC<{
 	patch: Patch;
@@ -236,7 +236,7 @@ export const CommitDetails: FC<{
 	);
 };
 
-const CommitLabel: FC<{
+export const CommitLabel: FC<{
 	commit: Commit;
 }> = ({ commit }) => (
 	<>
@@ -250,10 +250,9 @@ const DraggableCommit: FC<
 		commit: Commit;
 	} & useRender.ComponentProps<"div">
 > = ({ commit, render, ...props }) => {
-	const { id: commitId } = commit;
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: (): DragData => ({
-			sourceItem: { _tag: "Commit", commitId },
+			sourceItem: { _tag: "Commit", commitId: commit.id },
 		}),
 		preview: (
 			<DragPreview>

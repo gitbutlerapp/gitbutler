@@ -10,8 +10,9 @@ import {
 	Hunk,
 	classes,
 } from "#ui/routes/project-shared.tsx";
+import { ProjectPanelLayout } from "#ui/routes/ProjectPanelLayout.tsx";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
-import { BranchListing, Commit } from "@gitbutler/but-sdk";
+import { BranchIdentity, BranchListing, Commit } from "@gitbutler/but-sdk";
 import styles from "./project-branches.module.css";
 import sharedStyles from "./project-shared.module.css";
 import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
@@ -25,7 +26,8 @@ import {
 } from "#ui/queries.ts";
 
 type Selection = {
-	commitId: string;
+	branchName: BranchIdentity;
+	commitId?: string;
 	path?: string;
 };
 
@@ -92,27 +94,24 @@ const BranchDetails: FC<{
 	projectId: string;
 	branchName: string;
 	remote: string | null;
-	selection: Selection | null;
-	select: (selection: Selection | null) => void;
-}> = ({ projectId, branchName, remote, selection, select }) => {
+	isCommitSelected: (commitId: string) => boolean;
+	isCommitAnyFileSelected: (commitId: string) => boolean;
+	isCommitFileSelected: (commitId: string, path: string) => boolean;
+	toggleCommitSelection: (commitId: string) => void;
+	toggleCommitFileSelection: (commitId: string, path: string) => void;
+}> = ({
+	projectId,
+	branchName,
+	remote,
+	isCommitSelected,
+	isCommitAnyFileSelected,
+	isCommitFileSelected,
+	toggleCommitSelection,
+	toggleCommitFileSelection,
+}) => {
 	const { data: branchDetails } = useSuspenseQuery(
 		branchDetailsQueryOptions({ projectId, branchName, remote }),
 	);
-
-	const isCommitSelected = (commitId: string) =>
-		selection?.commitId === commitId && selection.path === undefined;
-
-	const isCommitAnyFileSelected = (commitId: string) =>
-		selection?.commitId === commitId && selection.path !== undefined;
-
-	const isCommitFileSelected = (commitId: string, path: string) =>
-		selection?.commitId === commitId && selection.path === path;
-
-	const toggleCommitSelection = (commitId: string): Selection | null =>
-		isCommitSelected(commitId) ? null : { commitId };
-
-	const toggleCommitFileSelection = (commitId: string, path: string): Selection | null =>
-		isCommitFileSelected(commitId, path) ? { commitId } : { commitId, path };
 
 	return (
 		<div>
@@ -126,10 +125,10 @@ const BranchDetails: FC<{
 						isAnyFileSelected={isCommitAnyFileSelected(commit.id)}
 						isFileSelected={(path) => isCommitFileSelected(commit.id, path)}
 						toggleSelect={() => {
-							select(toggleCommitSelection(commit.id));
+							toggleCommitSelection(commit.id);
 						}}
 						toggleFileSelect={(path) => {
-							select(toggleCommitFileSelection(commit.id, path));
+							toggleCommitFileSelection(commit.id, path);
 						}}
 					/>
 				)}
@@ -138,7 +137,7 @@ const BranchDetails: FC<{
 	);
 };
 
-const SelectedCommitFileDiff: FC<{
+const CommitFileDiff: FC<{
 	projectId: string;
 	commitId: string;
 	path: string;
@@ -161,7 +160,7 @@ const SelectedCommitFileDiff: FC<{
 	);
 };
 
-const SelectedCommitDiff: FC<{
+const CommitDiff: FC<{
 	projectId: string;
 	commitId: string;
 }> = ({ projectId, commitId }) => {
@@ -194,108 +193,119 @@ const SelectedCommitDiff: FC<{
 	);
 };
 
-const SelectedLaneDiff: FC<{
-	projectId: string;
-	selection: Selection;
-}> = ({ projectId, selection }) =>
-	selection.path !== undefined ? (
-		<SelectedCommitFileDiff
-			projectId={projectId}
-			commitId={selection.commitId}
-			path={selection.path}
-		/>
-	) : (
-		<SelectedCommitDiff projectId={projectId} commitId={selection.commitId} />
-	);
-
-const SelectedBranchDiff: FC<{
+const ShowBranch: FC<{
 	projectId: string;
 	branch: string;
-}> = ({ projectId, branch }) => {
+	branchName: string;
+}> = ({ projectId, branch, branchName }) => {
 	const { data } = useSuspenseQuery(branchDiffQueryOptions({ projectId, branch }));
 
-	if (data.changes.length === 0) return <div>No file changes.</div>;
-
 	return (
-		<ul className={sharedStyles.hunks}>
-			{data.changes.map((change) => (
-				<li key={change.path}>
-					<h5>{change.path}</h5>
-					<FileDiff
-						projectId={projectId}
-						change={change}
-						renderHunk={(hunk, patch) => (
-							<Hunk
-								patch={patch}
-								// TODO: this doesn't make sense
-								changeUnit={{ _tag: "changes", stackId: null }}
+		<>
+			<h3>{branchName}</h3>
+			{data.changes.length === 0 ? (
+				<div>No file changes.</div>
+			) : (
+				<ul className={sharedStyles.hunks}>
+					{data.changes.map((change) => (
+						<li key={change.path}>
+							<h5>{change.path}</h5>
+							<FileDiff
+								projectId={projectId}
 								change={change}
-								hunk={hunk}
+								renderHunk={(hunk, patch) => (
+									<Hunk
+										patch={patch}
+										// TODO: this doesn't make sense
+										changeUnit={{ _tag: "changes", stackId: null }}
+										change={change}
+										hunk={hunk}
+									/>
+								)}
 							/>
-						)}
-					/>
-				</li>
-			))}
-		</ul>
+						</li>
+					))}
+				</ul>
+			)}
+		</>
 	);
 };
 
-const BranchDetailsLane: FC<{
+const Preview: FC<{
 	projectId: string;
-	branchName: string;
-	branchRef: string | null;
-	remote: string | null;
-}> = ({ projectId, branchName, branchRef, remote }) => {
-	const [selection, select] = useLocalStorageState<Selection | null>(
-		`project:${projectId}:branchSelection:${branchName}`,
-		null,
-	);
+	selection: Selection;
+}> = ({ projectId, selection }) => {
+	const { data: branches } = useSuspenseQuery(listBranchesQueryOptions(projectId));
+	const selectedBranch = branches.find((branch) => branch.name === selection.branchName);
+	const selectedBranchRef = selectedBranch ? getBranchRef(selectedBranch) : null;
 
 	return (
-		<div className={sharedStyles.laneColumns}>
-			<div className={sharedStyles.laneMainColumn}>
-				<Suspense fallback={<div>Loading branch details…</div>}>
-					<BranchDetails
-						projectId={projectId}
-						branchName={branchName}
-						remote={remote}
-						selection={selection}
-						select={select}
-					/>
-				</Suspense>
-			</div>
-
-			<div className={sharedStyles.laneDiffColumn}>
-				<Suspense fallback={<div>Loading diff…</div>}>
-					{selection !== null ? (
-						<SelectedLaneDiff projectId={projectId} selection={selection} />
-					) : branchRef !== null ? (
-						<SelectedBranchDiff projectId={projectId} branch={branchRef} />
+		<div>
+			<Suspense fallback={<div>Loading diff…</div>}>
+				{selection.commitId !== undefined ? (
+					selection.path !== undefined ? (
+						<CommitFileDiff
+							projectId={projectId}
+							commitId={selection.commitId}
+							path={selection.path}
+						/>
 					) : (
-						<div>No branch diff available.</div>
-					)}
-				</Suspense>
-			</div>
+						<CommitDiff projectId={projectId} commitId={selection.commitId} />
+					)
+				) : selectedBranchRef !== null ? (
+					<ShowBranch
+						projectId={projectId}
+						branch={selectedBranchRef}
+						branchName={selection.branchName}
+					/>
+				) : (
+					<div>No branch diff available.</div>
+				)}
+			</Suspense>
 		</div>
 	);
 };
 
 const ProjectBranchesPage: FC = () => {
-	const { id } = projectBranchesRoute.useParams();
-	const [selectedBranchName, setSelectedBranchName] = useLocalStorageState<string | null>(
-		`project:${id}:selectedBranchName`,
+	const { id: projectId } = projectBranchesRoute.useParams();
+
+	const [selection, select] = useLocalStorageState<Selection | null>(
+		`project:${projectId}:branches:selection`,
 		null,
 	);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
-	const project = projects.find((project) => project.id === id);
-	const { data: branches } = useSuspenseQuery(listBranchesQueryOptions(id));
+	const project = projects.find((project) => project.id === projectId);
+	const { data: branches } = useSuspenseQuery(listBranchesQueryOptions(projectId));
 	const applyBranch = useMutation(applyBranchMutationOptions);
 	const unapplyStack = useMutation(unapplyStackMutationOptions);
 
 	const sortedBranches = branches.slice().sort((a, b) => a.name.localeCompare(b.name));
-	const selectedBranch = sortedBranches.find((branch) => branch.name === selectedBranchName);
+	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
 	const selectedBranchResolvedName = selectedBranch?.name;
+
+	const isCommitSelected = (branchName: string, commitId: string) =>
+		selection?.branchName === branchName &&
+		selection.commitId === commitId &&
+		selection.path === undefined;
+	const isCommitAnyFileSelected = (branchName: string, commitId: string) =>
+		selection?.branchName === branchName &&
+		selection.commitId === commitId &&
+		selection.path !== undefined;
+	const isCommitFileSelected = (branchName: string, commitId: string, path: string) =>
+		selection?.branchName === branchName &&
+		selection.commitId === commitId &&
+		selection.path === path;
+	const toggleCommitSelection = (branchName: string, commitId: string) => {
+		select(isCommitSelected(branchName, commitId) ? { branchName } : { branchName, commitId });
+	};
+	const toggleCommitFileSelection = (branchName: string, commitId: string, path: string) => {
+		select(
+			isCommitFileSelected(branchName, commitId, path)
+				? { branchName, commitId }
+				: { branchName, commitId, path },
+		);
+	};
 
 	const selectedRemote =
 		selectedBranch && !selectedBranch.hasLocal ? selectedBranch.remotes[0] : null;
@@ -303,81 +313,98 @@ const ProjectBranchesPage: FC = () => {
 	// TODO: dedupe
 	if (!project) return <p>Project not found.</p>;
 
-	return (
-		<>
-			<h2>{project.title} branches</h2>
-			{sortedBranches.length === 0 ? (
-				<p>No branches found.</p>
-			) : (
-				<div className={sharedStyles.lanes}>
-					<ul className={styles.branchesList}>
-						{sortedBranches.map((branch) => {
-							const ref = getBranchRef(branch);
-							const stackId = branch.stack?.id;
-							const isSelected = selectedBranchResolvedName === branch.name;
-							return (
-								<li key={branch.name} className={styles.branchesListItem}>
+	return sortedBranches.length === 0 ? (
+		<p>No branches found.</p>
+	) : (
+		<ProjectPanelLayout
+			projectId={projectId}
+			preview={selection && <Preview projectId={projectId} selection={selection} />}
+		>
+			<div className={sharedStyles.lanes}>
+				<ul className={styles.branchesList}>
+					{sortedBranches.map((branch) => {
+						const ref = getBranchRef(branch);
+						const stackId = branch.stack?.id;
+						const isSelected = selectedBranchResolvedName === branch.name;
+						return (
+							<li key={branch.name} className={styles.branchesListItem}>
+								<button
+									type="button"
+									className={classes(styles.branchButton, isSelected && sharedStyles.selected)}
+									onClick={() => {
+										select((selected) =>
+											selected?.branchName === branch.name ? null : { branchName: branch.name },
+										);
+									}}
+								>
+									{branch.name}
+									{branch.stack?.branches && branch.stack.branches.length > 1 && (
+										<> (+{branch.stack.branches.length - 1} more)</>
+									)}
+								</button>
+								{!branch.stack?.inWorkspace ? (
 									<button
 										type="button"
-										className={classes(styles.branchButton, isSelected && sharedStyles.selected)}
+										disabled={applyBranch.isPending || ref === null}
 										onClick={() => {
-											setSelectedBranchName((selected) =>
-												selected === branch.name ? null : branch.name,
-											);
+											if (ref === null) return;
+											applyBranch.mutate({
+												projectId,
+												existingBranch: ref,
+											});
 										}}
 									>
-										{branch.name}
-										{branch.stack?.branches && branch.stack.branches.length > 1 && (
-											<> (+{branch.stack.branches.length - 1} more)</>
-										)}
+										{applyBranch.isPending ? "Applying branch…" : "Apply branch"}
 									</button>
-									{!branch.stack?.inWorkspace ? (
+								) : (
+									stackId != null && (
 										<button
 											type="button"
-											disabled={applyBranch.isPending || ref === null}
+											disabled={unapplyStack.isPending}
 											onClick={() => {
-												if (ref === null) return;
-												applyBranch.mutate({
-													projectId: id,
-													existingBranch: ref,
+												unapplyStack.mutate({
+													projectId,
+													stackId,
 												});
 											}}
 										>
-											{applyBranch.isPending ? "Applying branch…" : "Apply branch"}
+											{unapplyStack.isPending ? "Unapplying stack…" : "Unapply stack"}
 										</button>
-									) : (
-										stackId != null && (
-											<button
-												type="button"
-												disabled={unapplyStack.isPending}
-												onClick={() => {
-													unapplyStack.mutate({
-														projectId: id,
-														stackId,
-													});
-												}}
-											>
-												{unapplyStack.isPending ? "Unapplying stack…" : "Unapply stack"}
-											</button>
-										)
-									)}
-								</li>
-							);
-						})}
-					</ul>
+									)
+								)}
+							</li>
+						);
+					})}
+				</ul>
 
-					{selectedBranchResolvedName != null && (
-						<BranchDetailsLane
-							key={selectedBranchResolvedName}
-							projectId={id}
-							branchName={selectedBranchResolvedName}
-							branchRef={selectedBranch ? getBranchRef(selectedBranch) : null}
-							remote={selectedRemote ?? null}
-						/>
-					)}
-				</div>
-			)}
-		</>
+				{selectedBranchResolvedName != null && (
+					<div className={sharedStyles.commitsLane}>
+						<Suspense fallback={<div>Loading branch details…</div>}>
+							<BranchDetails
+								projectId={projectId}
+								branchName={selectedBranchResolvedName}
+								remote={selectedRemote ?? null}
+								isCommitSelected={(commitId) =>
+									isCommitSelected(selectedBranchResolvedName, commitId)
+								}
+								isCommitAnyFileSelected={(commitId) =>
+									isCommitAnyFileSelected(selectedBranchResolvedName, commitId)
+								}
+								isCommitFileSelected={(commitId, path) =>
+									isCommitFileSelected(selectedBranchResolvedName, commitId, path)
+								}
+								toggleCommitSelection={(commitId) =>
+									toggleCommitSelection(selectedBranchResolvedName, commitId)
+								}
+								toggleCommitFileSelection={(commitId, path) =>
+									toggleCommitFileSelection(selectedBranchResolvedName, commitId, path)
+								}
+							/>
+						</Suspense>
+					</div>
+				)}
+			</div>
+		</ProjectPanelLayout>
 	);
 };
 

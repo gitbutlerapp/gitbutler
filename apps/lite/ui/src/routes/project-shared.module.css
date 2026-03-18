@@ -1,35 +1,44 @@
 .lanes {
 	display: flex;
-	flex-grow: 1;
-
-	& > * {
-		padding: 8px;
-		border: 1px solid;
-	}
-
-	/* Temporary hack to prevent scroll jumping when diff view collapses. */
-	&:after {
-		flex-shrink: 0;
-		width: 1000px;
-		content: "";
-	}
-}
-
-.laneColumns {
-	display: flex;
 	column-gap: 8px;
+	flex-grow: 1;
 }
 
-.laneMainColumn {
+.pageWithPreview {
+	flex-grow: 1;
+}
+
+.primaryPane {
 	display: flex;
-	row-gap: 16px;
 	flex-direction: column;
+	min-height: 100%;
+	padding: var(--pane-padding);
+}
+
+.previewPane {
+	padding: var(--pane-padding);
+}
+
+.previewDialogPopup {
+	position: fixed;
+	inset: 0;
+	padding: var(--pane-padding);
+	overflow: auto;
+	background-color: white;
+}
+
+.previewResizeHandle {
+	width: 1px;
+	background-color: black;
+}
+
+.commitsLane {
+	flex-shrink: 0;
 	width: 350px;
 }
 
 .laneDiffColumn {
 	width: 500px;
-	border: 1px solid;
 }
 
 .commit {
@@ -91,10 +100,6 @@
 	flex-grow: 1;
 	font-family: monospace;
 	cursor: grab;
-}
-
-.hunkDiff {
-	overflow: auto;
 }
 
 .dragPreview {

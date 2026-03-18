@@ -45,7 +45,8 @@
 		"electron": "^41.0.0",
 		"electron-devtools-installer": "^4.0.0",
 		"react": "^19.2.4",
-		"react-dom": "^19.2.4"
+		"react-dom": "^19.2.4",
+		"react-resizable-panels": "^4.7.3"
 	},
 	"devDependencies": {
 		"@tanstack/eslint-plugin-query": "^5.91.4",
