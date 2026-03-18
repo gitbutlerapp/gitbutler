@@ -491,20 +491,20 @@ const RubTarget: FC<
 		}),
 	});
 
+	const droppable = useRender({
+		render,
+		ref: dropRef,
+		props: mergeProps(props, {
+			style: { ...(isDropTarget && { outline: "2px dashed" }) },
+		}),
+	});
+
 	const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
 	const tooltip = isDropTarget && rubSource ? rubOperationLabel(rubSource, target) : null;
 
 	return (
 		<Tooltip.Root open={tooltip !== null}>
-			<Tooltip.Trigger
-				render={useRender({
-					render,
-					ref: dropRef,
-					props: mergeProps(props, {
-						style: { ...(isDropTarget && { outline: "2px dashed" }) },
-					}),
-				})}
-			/>
+			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
 					<Tooltip.Popup className={styles.tooltip}>{tooltip}</Tooltip.Popup>
@@ -899,17 +899,17 @@ const CommitMoveToBranchTarget: FC<
 		},
 	});
 
+	const droppable = useRender({
+		render,
+		ref: dropRef,
+		props: mergeProps(props, {
+			style: { ...(isDropTarget && { outline: "2px dashed" }) },
+		}),
+	});
+
 	return (
 		<Tooltip.Root open={isDropTarget}>
-			<Tooltip.Trigger
-				render={useRender({
-					render,
-					ref: dropRef,
-					props: mergeProps(props, {
-						style: { ...(isDropTarget && { outline: "2px dashed" }) },
-					}),
-				})}
-			/>
+			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
 					<Tooltip.Popup className={styles.tooltip}>Move here</Tooltip.Popup>
