@@ -774,7 +774,6 @@ pub fn commit_uncommit_changes_only(
             &repo,
             &ws,
             to_assign,
-            None,
             context_lines,
         )?;
     }

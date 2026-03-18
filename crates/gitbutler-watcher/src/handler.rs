@@ -125,12 +125,9 @@ impl Handler {
                 .map(|err| serde_error::Error::new(&**err)),
         };
         drop((repo, ws, db));
-        if let Ok(update_count) = but_rules::handler::process_workspace_rules(
-            ctx,
-            &assignments,
-            &dependencies.as_ref().ok().cloned(),
-            perm,
-        ) && update_count > 0
+        if let Ok(update_count) =
+            but_rules::handler::process_workspace_rules(ctx, &assignments, perm)
+            && update_count > 0
         {
             let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
             // Getting these again since they were updated

@@ -53,7 +53,6 @@ fn unapply_with_data() -> anyhow::Result<()> {
         &repo,
         &ws,
         vec![req],
-        None,
         context_lines,
     )
     .unwrap();

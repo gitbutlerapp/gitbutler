@@ -88,7 +88,6 @@ pub mod assignment {
             &repo,
             &ws,
             vec![assignment],
-            None,
             context_lines,
         )?;
         if use_json {

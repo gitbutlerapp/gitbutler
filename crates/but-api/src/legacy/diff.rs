@@ -69,13 +69,7 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
 
     trans.commit()?;
     drop((repo, ws, db));
-    but_rules::handler::process_workspace_rules(
-        ctx,
-        &assignments,
-        &dependencies.as_ref().ok().cloned(),
-        guard.write_permission(),
-    )
-    .ok();
+    but_rules::handler::process_workspace_rules(ctx, &assignments, guard.write_permission()).ok();
 
     Ok(WorktreeChanges {
         worktree_changes: changes.into(),
@@ -102,7 +96,6 @@ pub fn assign_hunk(
         &repo,
         &ws,
         assignments,
-        None,
         context_lines,
     )?;
     Ok(rejections)

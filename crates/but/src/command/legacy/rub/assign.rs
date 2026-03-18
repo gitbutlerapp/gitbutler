@@ -201,14 +201,8 @@ pub(crate) fn do_assignments(
 ) -> anyhow::Result<()> {
     let context_lines = ctx.settings.context_lines;
     let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-    let rejections = but_hunk_assignment::assign(
-        db.hunk_assignments_mut()?,
-        &repo,
-        &ws,
-        reqs,
-        None,
-        context_lines,
-    )?;
+    let rejections =
+        but_hunk_assignment::assign(db.hunk_assignments_mut()?, &repo, &ws, reqs, context_lines)?;
     if !rejections.is_empty()
         && let Some(out) = out.for_human()
     {

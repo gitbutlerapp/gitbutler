@@ -402,7 +402,6 @@ pub fn assign(
     repo: &gix::Repository,
     workspace: &but_graph::projection::Workspace,
     requests: Vec<HunkAssignmentRequest>,
-    deps: Option<&HunkDependencies>,
     context_lines: u32,
 ) -> Result<Vec<AssignmentRejection>> {
     let identifiable_stacks = workspace
@@ -411,14 +410,6 @@ pub fn assign(
         .filter_map(|s| s.id)
         .collect::<Vec<_>>();
 
-    let owned_deps;
-    let deps = if let Some(deps) = deps {
-        deps
-    } else {
-        owned_deps =
-            hunk_dependencies_for_workspace_changes_by_worktree_dir(repo, workspace, None)?;
-        &owned_deps
-    };
     let worktree_changes: Vec<but_core::TreeChange> =
         but_core::diff::worktree_changes(repo)?.changes;
     let mut worktree_assignments = vec![];
@@ -449,23 +440,13 @@ pub fn assign(
         true,
     );
 
-    // Reconcile with hunk locks
-    let lock_assignments = hunk_dependency_assignments(deps);
-    let with_locks = reconcile::assignments(
-        &with_requests,
-        &lock_assignments,
-        &identifiable_stacks,
-        MultipleOverlapping::SetNone,
-        false,
-    );
-
-    state::set_assignments(db, with_locks.clone())?;
+    state::set_assignments(db, with_requests.clone())?;
 
     // Request where the stack_id is different from the outcome are considered rejections - this is due to locking
     // Collect all the rejected requests together with the locks that caused the rejection
     let mut rejections = vec![];
     for req in requests {
-        let locks = with_locks
+        let locks = with_requests
             .iter()
             .filter(|assignment| {
                 req.matches_assignment(assignment) && req.stack_id != assignment.stack_id

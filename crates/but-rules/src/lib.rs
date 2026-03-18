@@ -304,7 +304,7 @@ pub fn list_rules(ctx: &Context) -> anyhow::Result<Vec<WorkspaceRule>> {
 
 /// NOTE: may create an empty branch!
 pub fn process_rules(ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {
-    let (assignments, dependencies) = {
+    let assignments = {
         let context_lines = ctx.settings.context_lines;
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
         let wt_changes = but_core::diff::worktree_changes(&repo)?;
@@ -325,9 +325,9 @@ pub fn process_rules(ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Res
             context_lines,
         )
         .map_err(|e| anyhow::anyhow!("Failed to get assignments: {e}"))?;
-        (assignments, dependencies)
+        assignments
     };
 
-    handler::process_workspace_rules(ctx, &assignments, &Some(dependencies), perm)?;
+    handler::process_workspace_rules(ctx, &assignments, perm)?;
     Ok(())
 }

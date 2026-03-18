@@ -616,7 +616,6 @@ pub fn uncommit_changes(
             &repo,
             &ws,
             to_assign,
-            None,
             context_lines,
         )?;
     }

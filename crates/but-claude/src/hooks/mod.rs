@@ -486,7 +486,6 @@ pub fn assign_hunks_post_tool_call(
         &repo,
         &ws,
         assignment_reqs,
-        None,
         context_lines,
     )?;
 
