@@ -113,7 +113,6 @@ const DependencyIndicator: FC<{
 	return (
 		<Popover.Root>
 			<Popover.Trigger
-				className={styles.dependencyIndicator}
 				openOnHover
 				onMouseEnter={() => {
 					onHover(commitIds);
@@ -509,7 +508,7 @@ const ShowCommit: FC<{
 			{commitMessageBody !== "" && (
 				<p className={styles.selectedCommitMessageBody}>{commitMessageBody}</p>
 			)}
-			<ul className={sharedStyles.hunks}>
+			<ul>
 				{data.changes.map((change) => (
 					<li key={change.path}>
 						<h4>{change.path}</h4>
@@ -582,7 +581,11 @@ const getDefaultSelection = ({
 	changes: Array<TreeChange>;
 	assignments: Array<HunkAssignment>;
 }): Selection | null => {
-	const firstUnassignedPath = firstSelectablePath({ changes, assignments, stackId: null });
+	const firstUnassignedPath = firstSelectablePath({
+		changes,
+		assignments,
+		stackId: null,
+	});
 	if (firstUnassignedPath !== null)
 		return { _tag: "changes", stackId: null, path: firstUnassignedPath };
 
@@ -595,7 +598,11 @@ const getDefaultSelection = ({
 			stackId: stack.id,
 		});
 		if (firstAssignedPath !== null)
-			return { _tag: "changes", stackId: stack.id, path: firstAssignedPath };
+			return {
+				_tag: "changes",
+				stackId: stack.id,
+				path: firstAssignedPath,
+			};
 
 		for (const segment of stack.segments) {
 			const firstCommit = segment.commits[0];
@@ -858,7 +865,7 @@ const Changes: FC<{
 					{changes.length === 0 ? (
 						<>No changes.</>
 					) : (
-						<ul className={sharedStyles.fileList}>
+						<ul>
 							{changes.map((change) => {
 								const assignments = assignmentsByPath.get(change.path);
 								const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);

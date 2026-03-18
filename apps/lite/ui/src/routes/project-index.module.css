@@ -24,8 +24,6 @@
 	display: flex;
 	row-gap: 16px;
 	flex-direction: column;
-	padding-left: 0;
-	list-style: none;
 }
 
 .commitMoveTarget {
@@ -69,11 +67,6 @@
 	padding: 4px 8px;
 	border: 1px solid;
 	background-color: white;
-}
-
-.dependencyIndicator {
-	background-color: transparent;
-	color: inherit;
 }
 
 .stack {

@@ -163,7 +163,7 @@ export const FileDiff: FC<{
 			if (visibleHunks.length === 0) return <div>No hunks.</div>;
 
 			return (
-				<ul className={styles.hunks}>
+				<ul>
 					{visibleHunks.map((hunk) => (
 						<li key={hunkKey(hunk)}>{renderHunk(hunk, patch)}</li>
 					))}
@@ -216,7 +216,7 @@ export const CommitDetails: FC<{
 			{conflictedPaths.length > 0 && (
 				<div>
 					<div>Conflicts:</div>
-					<ul className={styles.fileList}>
+					<ul>
 						{conflictedPaths.map((path) => (
 							<li key={path}>{path}</li>
 						))}
@@ -225,7 +225,7 @@ export const CommitDetails: FC<{
 			)}
 
 			{data.changes.length > 0 && (
-				<ul className={styles.fileList}>
+				<ul>
 					{data.changes.map((file) => (
 						<li key={file.path}>{renderFile(file)}</li>
 					))}
@@ -440,9 +440,7 @@ export const CommitRow: FC<
 						</ContextMenu.Root>
 					)}
 					<Menu.Root>
-						<Menu.Trigger className={styles.menuTrigger} style={{ lineHeight: 1 }}>
-							𑁔
-						</Menu.Trigger>
+						<Menu.Trigger style={{ lineHeight: 1 }}>𑁔</Menu.Trigger>
 						<Menu.Portal>
 							<Menu.Positioner align="end">
 								<CommitMenuPopup
@@ -466,7 +464,7 @@ export const CommitsList: FC<{
 	if (commits.length === 0) return <div>No commits.</div>;
 
 	return (
-		<ul className={styles.commitsList}>
+		<ul>
 			{commits.map((commit, index) => (
 				<li key={commit.id}>{children(commit, index)}</li>
 			))}

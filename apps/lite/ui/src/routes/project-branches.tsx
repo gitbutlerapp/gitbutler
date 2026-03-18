@@ -197,7 +197,7 @@ const CommitDiff: FC<{
 	if (data.changes.length === 0) return null;
 
 	return (
-		<ul className={sharedStyles.hunks}>
+		<ul>
 			{data.changes.map((change) => (
 				<li key={change.path}>
 					<h5>{change.path}</h5>
@@ -232,7 +232,7 @@ const ShowBranch: FC<{
 			{data.changes.length === 0 ? (
 				<div>No file changes.</div>
 			) : (
-				<ul className={sharedStyles.hunks}>
+				<ul>
 					{data.changes.map((change) => (
 						<li key={change.path}>
 							<h5>{change.path}</h5>
