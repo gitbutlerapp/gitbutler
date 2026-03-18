@@ -88,6 +88,11 @@ impl IrcManager {
         }
     }
 
+    /// Broadcast shutdown to all background tasks immediately.
+    pub fn request_shutdown(&self) {
+        let _ = self.shutdown_tx.send(true);
+    }
+
     /// Register a callback that spawns a full event forwarder for a connection.
     ///
     /// Called by the lifecycle layer so that the reconnection watcher can
@@ -676,10 +681,25 @@ impl IrcManager {
     /// This iterates over all managed connections, sends a QUIT message, and
     /// removes them from the pool. Errors on individual connections are logged
     /// but do not prevent other connections from being shut down.
+    pub fn shutdown_now(&self) {
+        self.request_shutdown();
+
+        match self.connections.try_write() {
+            Ok(mut connections) => Self::drain_connections(&mut connections),
+            Err(_) => {
+                debug!("Skipping immediate IRC drain during shutdown: connections lock busy")
+            }
+        }
+    }
+
     #[instrument(skip(self))]
     pub async fn shutdown(&self) {
-        let _ = self.shutdown_tx.send(true);
+        self.request_shutdown();
         let mut connections = self.connections.write().await;
+        Self::drain_connections(&mut connections);
+    }
+
+    fn drain_connections(connections: &mut HashMap<ConnectionId, ManagedConnection>) {
         for (id, conn) in connections.drain() {
             if let Some(client) = conn.client {
                 match client.quit("GitButler shutting down") {
@@ -1242,5 +1262,14 @@ mod tests {
 
         manager.remove("bot", "test").await.unwrap();
         assert!(!manager.exists("bot").await);
+    }
+
+    #[test]
+    fn test_request_shutdown_sets_flag() {
+        let manager = IrcManager::new();
+
+        manager.request_shutdown();
+
+        assert!(*manager.shutdown_rx.borrow());
     }
 }

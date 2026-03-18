@@ -584,7 +584,7 @@ fn main() -> anyhow::Result<()> {
                 #[cfg(feature = "irc")]
                 if let tauri::RunEvent::Exit = event {
                     let irc_manager = app_handle.state::<IrcManager>();
-                    tauri::async_runtime::block_on(irc_manager.shutdown());
+                    irc_manager.shutdown_now();
                 }
             });
     });
