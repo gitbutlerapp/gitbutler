@@ -242,7 +242,7 @@ impl App {
             Message::Quit => {
                 self.should_quit = true;
             }
-            Message::Noop => {}
+            Message::JustRender => {}
             Message::MoveCursorUp => self.cursor.move_up(&self.status_lines, &self.mode),
             Message::MoveCursorDown => self.cursor.move_down(&self.status_lines, &self.mode),
             Message::MoveCursorPreviousSection => self
@@ -251,33 +251,45 @@ impl App {
             Message::MoveCursorNextSection => self
                 .cursor
                 .move_next_section(&self.status_lines, &self.mode),
-            Message::StartRub { using_but_api } => {
-                if using_but_api {
-                    self.handle_start_rub_using_but_api()
-                } else {
-                    self.handle_start_rub()
+            Message::Rub(rub_message) => match rub_message {
+                RubMessage::Start { using_but_api } => {
+                    if using_but_api {
+                        self.handle_start_rub_using_but_api()
+                    } else {
+                        self.handle_start_rub()
+                    }
                 }
-            }
+                RubMessage::Confirm => self.handle_confirm_rub(ctx, messages)?,
+            },
             Message::EnterNormalMode => {
                 self.mode = Mode::Normal;
             }
-            Message::ToggleFiles => self.handle_toggle_files(messages),
-            Message::ConfirmRub => self.handle_confirm_rub(ctx, messages)?,
+            Message::Files(files_message) => match files_message {
+                FilesMessage::Toggle => self.handle_toggle_files(messages),
+            },
             Message::Reload(select_after_reload) => {
                 self.handle_reload(ctx, out, mode, select_after_reload)
                     .await?
             }
             Message::ShowError(err) => self.handle_show_error(err, messages),
-            Message::CreateEmptyCommit => self.handle_create_empty_commit(ctx, messages)?,
-            Message::RewordWithEditor => {
-                self.handle_reword_with_editor(ctx, terminal_guard, messages)?;
-            }
-            Message::StartRewordInline => self.handle_start_reword_inline(ctx, messages)?,
-            Message::RewordInlineInput(ev) => self.handle_reword_inline_input(ev),
-            Message::ConfirmInlineReword => self.handle_confirm_inline_reword(ctx, messages)?,
-            Message::EnterCommandMode => self.handle_enter_command_mode(),
-            Message::CommandInput(ev) => self.handle_command_input(ev),
-            Message::RunCommand => self.handle_run_command(terminal_guard, out, messages)?,
+            Message::Commit(commit_message) => match commit_message {
+                CommitMessage::CreateEmpty => self.handle_create_empty_commit(ctx, messages)?,
+            },
+            Message::Reword(reword_message) => match reword_message {
+                RewordMessage::WithEditor => {
+                    self.handle_reword_with_editor(ctx, terminal_guard, messages)?;
+                }
+                RewordMessage::InlineStart => self.handle_start_reword_inline(ctx, messages)?,
+                RewordMessage::InlineInput(ev) => self.handle_reword_inline_input(ev),
+                RewordMessage::InlineConfirm => self.handle_confirm_inline_reword(ctx, messages)?,
+            },
+            Message::Command(command_message) => match command_message {
+                CommandMessage::Start => self.handle_enter_command_mode(),
+                CommandMessage::Input(ev) => self.handle_command_input(ev),
+                CommandMessage::Confirm => {
+                    self.handle_run_command(terminal_guard, out, messages)?
+                }
+            },
         }
 
         Ok(())
@@ -621,7 +633,7 @@ impl App {
         let current_message = commit_details.commit.inner.message.to_string();
 
         if commit_message_has_multiple_lines(&current_message) {
-            messages.push(Message::RewordWithEditor);
+            messages.push(Message::Reword(RewordMessage::WithEditor));
             return Ok(());
         }
 
@@ -1090,27 +1102,27 @@ fn event_to_messages(ev: Event, key_binds: &KeyBinds, mode: &Mode, messages: &mu
             if !handled {
                 match mode {
                     Mode::InlineReword { .. } => {
-                        messages.push(Message::RewordInlineInput(ev));
+                        messages.push(Message::Reword(RewordMessage::InlineInput(ev)));
                     }
                     Mode::Command { .. } => {
-                        messages.push(Message::CommandInput(ev));
+                        messages.push(Message::Command(CommandMessage::Input(ev)));
                     }
                     Mode::Normal | Mode::Rub { .. } | Mode::RubButApi { .. } => {}
                 }
             }
         }
         Event::Resize(_, _) => {
-            messages.push(Message::Noop);
+            messages.push(Message::JustRender);
         }
         Event::Paste(_) => match mode {
             Mode::InlineReword { .. } => {
-                messages.push(Message::RewordInlineInput(ev));
+                messages.push(Message::Reword(RewordMessage::InlineInput(ev)));
             }
             Mode::Command { .. } => {
-                messages.push(Message::CommandInput(ev));
+                messages.push(Message::Command(CommandMessage::Input(ev)));
             }
             Mode::Normal | Mode::Rub { .. } | Mode::RubButApi { .. } => {
-                messages.push(Message::Noop);
+                messages.push(Message::JustRender);
             }
         },
         Event::FocusGained => {
@@ -1122,26 +1134,56 @@ fn event_to_messages(ev: Event, key_binds: &KeyBinds, mode: &Mode, messages: &mu
 
 #[derive(Debug, Clone)]
 enum Message {
-    Noop,
+    // Lifecycle
+    JustRender,
     Quit,
+    EnterNormalMode,
+    Reload(Option<SelectAfterReload>),
+    ShowError(Arc<anyhow::Error>),
+
+    // Cursor movement
     MoveCursorUp,
     MoveCursorDown,
     MoveCursorPreviousSection,
     MoveCursorNextSection,
-    StartRub { using_but_api: bool },
-    EnterNormalMode,
-    ConfirmRub,
-    Reload(Option<SelectAfterReload>),
-    ToggleFiles,
-    ShowError(Arc<anyhow::Error>),
-    CreateEmptyCommit,
-    RewordWithEditor,
-    StartRewordInline,
-    ConfirmInlineReword,
-    RewordInlineInput(Event),
-    EnterCommandMode,
-    CommandInput(Event),
-    RunCommand,
+
+    // Features
+    Commit(CommitMessage),
+    Rub(RubMessage),
+    Reword(RewordMessage),
+    Command(CommandMessage),
+    Files(FilesMessage),
+}
+
+#[derive(Debug, Clone)]
+enum RubMessage {
+    Start { using_but_api: bool },
+    Confirm,
+}
+
+#[derive(Debug, Clone)]
+enum RewordMessage {
+    WithEditor,
+    InlineStart,
+    InlineInput(Event),
+    InlineConfirm,
+}
+
+#[derive(Debug, Clone)]
+enum CommandMessage {
+    Start,
+    Input(Event),
+    Confirm,
+}
+
+#[derive(Debug, Clone)]
+enum CommitMessage {
+    CreateEmpty,
+}
+
+#[derive(Debug, Clone)]
+enum FilesMessage {
+    Toggle,
 }
 
 #[derive(Debug, Default, strum::EnumDiscriminants)]

@@ -3,7 +3,11 @@ use std::collections::HashMap;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use strum::IntoEnumIterator;
 
-use crate::command::legacy::status::tui::{Message, Mode, ModeDiscriminant};
+use crate::command::legacy::status::tui::{
+    CommandMessage, Message, Mode, ModeDiscriminant, RewordMessage, RubMessage,
+};
+
+use super::{CommitMessage, FilesMessage};
 
 pub(super) fn default_key_binds() -> KeyBinds {
     let mut key_binds = KeyBinds::new();
@@ -78,7 +82,7 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         chord_display: "f",
         key_matcher: press().code(KeyCode::Char('f')),
         modes: all_except_text_input_modes.clone(),
-        message: Message::ToggleFiles,
+        message: Message::Files(FilesMessage::Toggle),
     });
 
     key_binds.register(StaticKeyBind {
@@ -96,9 +100,9 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         chord_display: "r",
         key_matcher: press().code(KeyCode::Char('r')),
         modes: Vec::from([ModeDiscriminant::Normal]),
-        message: Message::StartRub {
+        message: Message::Rub(RubMessage::Start {
             using_but_api: false,
-        },
+        }),
     });
 
     key_binds.register(StaticKeyBind {
@@ -106,9 +110,9 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         chord_display: "shift+r",
         key_matcher: press().shift().code(KeyCode::Char('R')),
         modes: Vec::from([ModeDiscriminant::Normal]),
-        message: Message::StartRub {
+        message: Message::Rub(RubMessage::Start {
             using_but_api: true,
-        },
+        }),
     });
 
     key_binds.register(StaticKeyBind {
@@ -116,7 +120,7 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         chord_display: "n",
         key_matcher: press().code(KeyCode::Char('n')),
         modes: Vec::from([ModeDiscriminant::Normal]),
-        message: Message::CreateEmptyCommit,
+        message: Message::Commit(CommitMessage::CreateEmpty),
     });
 
     key_binds.register(StaticKeyBind {
@@ -124,7 +128,7 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         chord_display: "enter",
         key_matcher: press().code(KeyCode::Enter),
         modes: Vec::from([ModeDiscriminant::Normal]),
-        message: Message::StartRewordInline,
+        message: Message::Reword(RewordMessage::InlineStart),
     });
 
     key_binds.register(StaticKeyBind {
@@ -132,7 +136,7 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         chord_display: "shift+enter",
         key_matcher: press().shift().code(KeyCode::Enter),
         modes: Vec::from([ModeDiscriminant::Normal]),
-        message: Message::RewordWithEditor,
+        message: Message::Reword(RewordMessage::WithEditor),
     });
 
     key_binds.register(StaticKeyBind {
@@ -140,7 +144,7 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         chord_display: ":",
         key_matcher: press().code(KeyCode::Char(':')),
         modes: Vec::from([ModeDiscriminant::Normal]),
-        message: Message::EnterCommandMode,
+        message: Message::Command(CommandMessage::Start),
     });
 
     key_binds.register(StaticKeyBind {
@@ -158,7 +162,7 @@ fn register_rub_mode_key_binds(key_binds: &mut KeyBinds) {
         chord_display: "enter",
         key_matcher: press().code(KeyCode::Enter),
         modes: Vec::from([ModeDiscriminant::Rub]),
-        message: Message::ConfirmRub,
+        message: Message::Rub(RubMessage::Confirm),
     });
 
     key_binds.register(StaticKeyBind {
@@ -176,7 +180,7 @@ fn register_rub_but_api_mode_key_binds(key_binds: &mut KeyBinds) {
         chord_display: "enter",
         key_matcher: press().code(KeyCode::Enter),
         modes: Vec::from([ModeDiscriminant::RubButApi]),
-        message: Message::ConfirmRub,
+        message: Message::Rub(RubMessage::Confirm),
     });
 
     key_binds.register(StaticKeyBind {
@@ -194,7 +198,7 @@ fn register_inline_reword_mode_key_binds(key_binds: &mut KeyBinds) {
         chord_display: "enter",
         key_matcher: press().code(KeyCode::Enter),
         modes: Vec::from([ModeDiscriminant::InlineReword]),
-        message: Message::ConfirmInlineReword,
+        message: Message::Reword(RewordMessage::InlineConfirm),
     });
 
     key_binds.register(StaticKeyBind {
@@ -212,7 +216,7 @@ fn register_command_mode_key_binds(key_binds: &mut KeyBinds) {
         chord_display: "enter",
         key_matcher: press().code(KeyCode::Enter),
         modes: Vec::from([ModeDiscriminant::Command]),
-        message: Message::RunCommand,
+        message: Message::Command(CommandMessage::Confirm),
     });
 
     key_binds.register(StaticKeyBind {
