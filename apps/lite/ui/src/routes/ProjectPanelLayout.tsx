@@ -20,13 +20,11 @@ export const ProjectPanelLayout: FC<{
 	children: ReactNode;
 	preview: ReactNode | null;
 }> = ({ children, projectId, preview }) => {
-	const [_showPreviewPanel, setShowPreviewPanel] = usePreviewVisible();
-	const [_showPreviewFullscreen, setShowPreviewFullscreen] = useLocalStorageState(
+	const [showPreviewPanel, setShowPreviewPanel] = usePreviewVisible();
+	const [showPreviewFullscreen, setShowPreviewFullscreen] = useLocalStorageState(
 		`project:${projectId}:showPreviewFullscreen`,
 		{ defaultValue: false },
 	);
-	const showPreviewPanel = _showPreviewPanel && preview !== null;
-	const showPreviewFullscreen = _showPreviewFullscreen && preview !== null;
 	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
 		id: `project:${projectId}:layout`,
 		panelIds: showPreviewPanel ? ["primary", "preview"] : ["primary"],
