@@ -36,8 +36,13 @@
 	flex-direction: column;
 }
 
+.navLink {
+	color: grey;
+	text-decoration: none;
+}
+
 .navLinkActive {
-	font-weight: 700;
+	color: black;
 }
 
 .content {

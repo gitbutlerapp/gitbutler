@@ -60,6 +60,7 @@ const SidebarNav: FC = () => {
 			<Link
 				to={"/project/$id"}
 				params={{ id: selectedProjectId }}
+				className={styles.navLink}
 				activeProps={{ className: styles.navLinkActive }}
 				activeOptions={{ exact: true }}
 			>
@@ -68,6 +69,7 @@ const SidebarNav: FC = () => {
 			<Link
 				to="/project/$id/branches"
 				params={{ id: selectedProjectId }}
+				className={styles.navLink}
 				activeProps={{ className: styles.navLinkActive }}
 			>
 				Branches

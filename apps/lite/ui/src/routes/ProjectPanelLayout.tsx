@@ -28,7 +28,7 @@ export const ProjectPanelLayout: FC<{
 			{showPreview && (
 				<>
 					<Separator className={sharedStyles.previewResizeHandle} />
-					<Panel id="preview" minSize={300} defaultSize="40%">
+					<Panel id="preview" minSize={300} defaultSize="50%">
 						<div className={sharedStyles.previewPane}>{preview}</div>
 					</Panel>
 				</>
