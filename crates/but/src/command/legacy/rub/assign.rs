@@ -149,7 +149,6 @@ fn assign_all_inner(
         db.hunk_assignments_mut()?,
         &repo,
         &ws,
-        false,
         Some(changes),
         context_lines,
     )?;

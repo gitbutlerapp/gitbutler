@@ -103,7 +103,6 @@ fn wt_assignments(ctx: &mut Context) -> anyhow::Result<Vec<HunkAssignment>> {
         db.hunk_assignments_mut()?,
         &repo,
         &ws,
-        false,
         Some(changes.clone()),
         context_lines,
     )?;

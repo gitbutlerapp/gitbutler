@@ -42,14 +42,11 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
     );
     let mut trans = db.immediate_transaction()?;
 
-    // If the dependencies calculation failed, we still want to try to get assignments
-    // so we pass an empty HunkDependencies in that case.
     let (assignments, assignments_error) = {
         but_hunk_assignment::assignments_with_fallback(
             trans.hunk_assignments_mut()?,
             &repo,
             &ws,
-            false,
             Some(changes.changes.clone()),
             context_lines,
         )?

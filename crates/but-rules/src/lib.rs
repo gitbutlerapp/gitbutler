@@ -312,7 +312,6 @@ pub fn process_rules(ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Res
             db.hunk_assignments_mut()?,
             &repo,
             &ws,
-            false,
             Some(wt_changes.changes),
             context_lines,
         )

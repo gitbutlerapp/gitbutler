@@ -173,7 +173,6 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
         db.hunk_assignments_mut()?,
         &repo,
         &ws,
-        true,
         Some(changes.clone()),
         context_lines,
     )?;

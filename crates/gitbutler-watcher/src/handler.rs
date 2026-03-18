@@ -229,7 +229,6 @@ fn assignments_and_errors(
             db,
             repo,
             workspace,
-            false,
             Some(tree_changes),
             context_lines,
         )?

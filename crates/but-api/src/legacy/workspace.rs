@@ -564,7 +564,6 @@ pub fn uncommit_changes(
             db.hunk_assignments_mut()?,
             &repo,
             &ws,
-            false,
             None::<Vec<but_core::TreeChange>>,
             context_lines,
         )?;
@@ -589,7 +588,6 @@ pub fn uncommit_changes(
             db.hunk_assignments_mut()?,
             &repo,
             &ws,
-            false,
             None::<Vec<but_core::TreeChange>>,
             context_lines,
         )?;
