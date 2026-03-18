@@ -69,7 +69,7 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().shift().code(KeyCode::Char('J')),
         modes: all_except_text_input_modes.clone(),
         message: Message::MoveCursorNextSection,
-        hide_from_hotbar: false,
+        hide_from_hotbar: true,
     });
 
     key_binds.register(StaticKeyBind {
@@ -78,7 +78,7 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().shift().code(KeyCode::Char('K')),
         modes: all_except_text_input_modes.clone(),
         message: Message::MoveCursorPreviousSection,
-        hide_from_hotbar: false,
+        hide_from_hotbar: true,
     });
 
     key_binds.register(StaticKeyBind {
@@ -120,7 +120,7 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         message: Message::Rub(RubMessage::Start {
             using_but_api: true,
         }),
-        hide_from_hotbar: false,
+        hide_from_hotbar: true,
     });
 
     key_binds.register(StaticKeyBind {

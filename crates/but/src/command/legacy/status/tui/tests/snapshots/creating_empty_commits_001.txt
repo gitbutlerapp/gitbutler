@@ -17,4 +17,4 @@
 "                                                                                                    "
 "                                                                                                    "
 "                                                                                                    "
-"  normal   ↓/j down • ↑/k up • shift+j next section • shift+k prev section • f files • q quit • r ru"
+"  normal   ↓/j down • ↑/k up • f files • q quit • r rub • n new commit • enter reword inline • shift"
