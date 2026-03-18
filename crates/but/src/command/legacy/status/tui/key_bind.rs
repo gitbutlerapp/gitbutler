@@ -51,6 +51,7 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Char('j')).alt_code(KeyCode::Down),
         modes: all_except_text_input_modes.clone(),
         message: Message::MoveCursorDown,
+        hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
@@ -59,6 +60,7 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Char('k')).alt_code(KeyCode::Up),
         modes: all_except_text_input_modes.clone(),
         message: Message::MoveCursorUp,
+        hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
@@ -67,6 +69,7 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().shift().code(KeyCode::Char('J')),
         modes: all_except_text_input_modes.clone(),
         message: Message::MoveCursorNextSection,
+        hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
@@ -75,6 +78,7 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().shift().code(KeyCode::Char('K')),
         modes: all_except_text_input_modes.clone(),
         message: Message::MoveCursorPreviousSection,
+        hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
@@ -83,6 +87,7 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Char('f')),
         modes: all_except_text_input_modes.clone(),
         message: Message::Files(FilesMessage::Toggle),
+        hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
@@ -91,6 +96,7 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Char('q')),
         modes: all_except_text_input_modes.clone(),
         message: Message::Quit,
+        hide_from_hotbar: false,
     });
 }
 
@@ -103,6 +109,7 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         message: Message::Rub(RubMessage::Start {
             using_but_api: false,
         }),
+        hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
@@ -113,6 +120,7 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         message: Message::Rub(RubMessage::Start {
             using_but_api: true,
         }),
+        hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
@@ -121,6 +129,7 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Char('n')),
         modes: Vec::from([ModeDiscriminant::Normal]),
         message: Message::Commit(CommitMessage::CreateEmpty),
+        hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
@@ -129,6 +138,7 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Enter),
         modes: Vec::from([ModeDiscriminant::Normal]),
         message: Message::Reword(RewordMessage::InlineStart),
+        hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
@@ -137,6 +147,7 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().shift().code(KeyCode::Enter),
         modes: Vec::from([ModeDiscriminant::Normal]),
         message: Message::Reword(RewordMessage::WithEditor),
+        hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
@@ -145,6 +156,7 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Char(':')),
         modes: Vec::from([ModeDiscriminant::Normal]),
         message: Message::Command(CommandMessage::Start),
+        hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
@@ -153,6 +165,7 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().control().code(KeyCode::Char('r')),
         modes: Vec::from([ModeDiscriminant::Normal]),
         message: Message::Reload(None),
+        hide_from_hotbar: false,
     });
 }
 
@@ -163,6 +176,7 @@ fn register_rub_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Enter),
         modes: Vec::from([ModeDiscriminant::Rub]),
         message: Message::Rub(RubMessage::Confirm),
+        hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
@@ -171,6 +185,7 @@ fn register_rub_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Esc),
         modes: Vec::from([ModeDiscriminant::Rub]),
         message: Message::EnterNormalMode,
+        hide_from_hotbar: false,
     });
 }
 
@@ -181,6 +196,7 @@ fn register_rub_but_api_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Enter),
         modes: Vec::from([ModeDiscriminant::RubButApi]),
         message: Message::Rub(RubMessage::Confirm),
+        hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
@@ -189,6 +205,7 @@ fn register_rub_but_api_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Esc),
         modes: Vec::from([ModeDiscriminant::RubButApi]),
         message: Message::EnterNormalMode,
+        hide_from_hotbar: false,
     });
 }
 
@@ -199,6 +216,7 @@ fn register_inline_reword_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Enter),
         modes: Vec::from([ModeDiscriminant::InlineReword]),
         message: Message::Reword(RewordMessage::InlineConfirm),
+        hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
@@ -207,6 +225,7 @@ fn register_inline_reword_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Esc),
         modes: Vec::from([ModeDiscriminant::InlineReword]),
         message: Message::EnterNormalMode,
+        hide_from_hotbar: false,
     });
 }
 
@@ -217,6 +236,7 @@ fn register_command_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Enter),
         modes: Vec::from([ModeDiscriminant::Command]),
         message: Message::Command(CommandMessage::Confirm),
+        hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
@@ -225,6 +245,7 @@ fn register_command_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Esc),
         modes: Vec::from([ModeDiscriminant::Command]),
         message: Message::EnterNormalMode,
+        hide_from_hotbar: false,
     });
 }
 
@@ -283,7 +304,7 @@ pub(super) trait KeyBind: std::fmt::Debug + 'static {
 
     fn chord_display(&self) -> &'static str;
 
-    fn hide(&self) -> bool {
+    fn hide_from_hotbar(&self) -> bool {
         false
     }
 
@@ -301,6 +322,7 @@ struct StaticKeyBind {
     key_matcher: KeyMatcher,
     modes: Vec<ModeDiscriminant>,
     message: Message,
+    hide_from_hotbar: bool,
 }
 
 impl KeyBind for StaticKeyBind {
@@ -322,6 +344,10 @@ impl KeyBind for StaticKeyBind {
 
     fn message(&self) -> Message {
         self.message.clone()
+    }
+
+    fn hide_from_hotbar(&self) -> bool {
+        self.hide_from_hotbar
     }
 }
 

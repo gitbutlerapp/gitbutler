@@ -998,7 +998,7 @@ impl App {
                 let mut key_binds_iter = self
                     .key_binds
                     .iter_key_binds_available_in_mode(&self.mode)
-                    .filter(|key_bind| !key_bind.hide())
+                    .filter(|key_bind| !key_bind.hide_from_hotbar())
                     .peekable();
                 while let Some(key_bind) = key_binds_iter.next() {
                     line.extend([
