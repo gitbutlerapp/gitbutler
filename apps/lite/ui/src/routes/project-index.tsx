@@ -486,6 +486,35 @@ type Selection =
 			path?: string;
 	  };
 
+const Preview: FC<{
+	projectId: string;
+	selection: Selection;
+	onDependencyHover: (commitIds: Array<string> | null) => void;
+}> = ({ projectId, selection, onDependencyHover }) => (
+	<div>
+		<Suspense fallback={<div>Loading diff…</div>}>
+			{Match.value(selection).pipe(
+				Match.tag("changes", ({ stackId, path }) => (
+					<ChangesFileDiff
+						projectId={projectId}
+						stackId={stackId}
+						path={path}
+						onDependencyHover={onDependencyHover}
+					/>
+				)),
+				Match.tag("commit", ({ commitId, path }) =>
+					path !== undefined ? (
+						<CommitFileDiff projectId={projectId} commitId={commitId} path={path} />
+					) : (
+						<ShowCommit projectId={projectId} commitId={commitId} />
+					),
+				),
+				Match.exhaustive,
+			)}
+		</Suspense>
+	</div>
+);
+
 const RubTarget: FC<
 	{
 		target: ChangeUnit;
@@ -1094,28 +1123,11 @@ const ProjectPage: FC = () => {
 				</div>
 
 				{selection !== null && (
-					<div>
-						<Suspense fallback={<div>Loading diff…</div>}>
-							{Match.value(selection).pipe(
-								Match.tag("changes", ({ stackId, path }) => (
-									<ChangesFileDiff
-										projectId={projectId}
-										stackId={stackId}
-										path={path}
-										onDependencyHover={highlightCommits}
-									/>
-								)),
-								Match.tag("commit", ({ commitId, path }) =>
-									path !== undefined ? (
-										<CommitFileDiff projectId={projectId} commitId={commitId} path={path} />
-									) : (
-										<ShowCommit projectId={projectId} commitId={commitId} />
-									),
-								),
-								Match.exhaustive,
-							)}
-						</Suspense>
-					</div>
+					<Preview
+						projectId={projectId}
+						selection={selection}
+						onDependencyHover={highlightCommits}
+					/>
 				)}
 			</>
 

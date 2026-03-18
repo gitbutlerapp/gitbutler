@@ -224,6 +224,37 @@ const SelectedBranchDiff: FC<{
 	);
 };
 
+const Preview: FC<{
+	projectId: string;
+	selection: Selection;
+}> = ({ projectId, selection }) => {
+	const { data: branches } = useSuspenseQuery(listBranchesQueryOptions(projectId));
+	const selectedBranch = branches.find((branch) => branch.name === selection.branchName);
+	const selectedBranchRef = selectedBranch ? getBranchRef(selectedBranch) : null;
+
+	return (
+		<div>
+			<Suspense fallback={<div>Loading diff…</div>}>
+				{selection.commitId !== undefined ? (
+					selection.path !== undefined ? (
+						<SelectedCommitFileDiff
+							projectId={projectId}
+							commitId={selection.commitId}
+							path={selection.path}
+						/>
+					) : (
+						<SelectedCommitDiff projectId={projectId} commitId={selection.commitId} />
+					)
+				) : selectedBranchRef !== null ? (
+					<SelectedBranchDiff projectId={projectId} branch={selectedBranchRef} />
+				) : (
+					<div>No branch diff available.</div>
+				)}
+			</Suspense>
+		</div>
+	);
+};
+
 const ProjectBranchesPage: FC = () => {
 	const { id: projectId } = projectBranchesRoute.useParams();
 
@@ -241,7 +272,6 @@ const ProjectBranchesPage: FC = () => {
 	const sortedBranches = branches.slice().sort((a, b) => a.name.localeCompare(b.name));
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
 	const selectedBranchResolvedName = selectedBranch?.name;
-	const selectedBranchRef = selectedBranch ? getBranchRef(selectedBranch) : null;
 
 	const isCommitSelected = (branchName: string, commitId: string) =>
 		selection?.branchName === branchName &&
@@ -361,27 +391,7 @@ const ProjectBranchesPage: FC = () => {
 				)}
 			</div>
 
-			{selection != null && (
-				<div>
-					<Suspense fallback={<div>Loading diff…</div>}>
-						{selection.commitId !== undefined ? (
-							selection.path !== undefined ? (
-								<SelectedCommitFileDiff
-									projectId={projectId}
-									commitId={selection.commitId}
-									path={selection.path}
-								/>
-							) : (
-								<SelectedCommitDiff projectId={projectId} commitId={selection.commitId} />
-							)
-						) : selectedBranchRef !== null ? (
-							<SelectedBranchDiff projectId={projectId} branch={selectedBranchRef} />
-						) : (
-							<div>No branch diff available.</div>
-						)}
-					</Suspense>
-				</div>
-			)}
+			{selection != null && <Preview projectId={projectId} selection={selection} />}
 		</>
 	);
 };
