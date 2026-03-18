@@ -6,17 +6,17 @@ export type UseState<T> = [T, Dispatch<SetStateAction<T>>];
  * When changing the value type, also change the key to avoid parsing errors
  * from previous values.
  */
-export const useLocalStorageState = <T>(key: string, initialValue: T): UseState<T> => {
+export const useLocalStorageState = <T>(key: string, initialState: T): UseState<T> => {
 	const previousKeyRef = useRef(key);
 
 	const [value, setValue] = useState<T>(() => {
 		const storedValue = localStorage.getItem(key);
-		if (storedValue === null) return initialValue;
+		if (storedValue === null) return initialState;
 
 		try {
 			return JSON.parse(storedValue) as T;
 		} catch {
-			return initialValue;
+			return initialState;
 		}
 	});
 
@@ -30,7 +30,7 @@ export const useLocalStorageState = <T>(key: string, initialValue: T): UseState<
 
 	useEffect(() => {
 		const serializedValue = JSON.stringify(value);
-		const serializedInitialValue = JSON.stringify(initialValue);
+		const serializedInitialValue = JSON.stringify(initialState);
 
 		if (serializedValue === serializedInitialValue) {
 			localStorage.removeItem(key);
@@ -38,7 +38,7 @@ export const useLocalStorageState = <T>(key: string, initialValue: T): UseState<
 		}
 
 		localStorage.setItem(key, serializedValue);
-	}, [initialValue, key, value]);
+	}, [initialState, key, value]);
 
 	return [value, setValue];
 };
