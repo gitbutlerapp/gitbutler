@@ -22,7 +22,7 @@ export const commitMoveMutationOptions = mutationOptions({
 	},
 });
 
-export const commitMutationOptions = mutationOptions({
+export const commitCreateMutationOptions = mutationOptions({
 	mutationFn: window.lite.commitCreate,
 	onSuccess: async (_data, _input, _ctx, { client }) => {
 		await client.invalidateQueries();

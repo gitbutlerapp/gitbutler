@@ -31,6 +31,9 @@ pub(super) fn default_key_binds() -> KeyBinds {
             ModeDiscriminant::Command => {
                 register_command_mode_key_binds(&mut key_binds);
             }
+            ModeDiscriminant::Commit => {
+                register_commit_mode_key_binds(&mut key_binds);
+            }
         }
     }
 
@@ -40,7 +43,10 @@ pub(super) fn default_key_binds() -> KeyBinds {
 fn register_global_key_binds(key_binds: &mut KeyBinds) {
     let all_except_text_input_modes = ModeDiscriminant::iter()
         .filter(|mode| match mode {
-            ModeDiscriminant::Normal | ModeDiscriminant::Rub | ModeDiscriminant::RubButApi => true,
+            ModeDiscriminant::Normal
+            | ModeDiscriminant::Rub
+            | ModeDiscriminant::RubButApi
+            | ModeDiscriminant::Commit => true,
             ModeDiscriminant::InlineReword | ModeDiscriminant::Command => false,
         })
         .collect::<Vec<_>>();
@@ -124,6 +130,15 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
     });
 
     key_binds.register(StaticKeyBind {
+        short_description: "commit",
+        chord_display: "c",
+        key_matcher: press().code(KeyCode::Char('c')),
+        modes: Vec::from([ModeDiscriminant::Normal]),
+        message: Message::Commit(CommitMessage::Start),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
         short_description: "new commit",
         chord_display: "n",
         key_matcher: press().code(KeyCode::Char('n')),
@@ -143,8 +158,8 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
 
     key_binds.register(StaticKeyBind {
         short_description: "reword",
-        chord_display: "shift+enter",
-        key_matcher: press().shift().code(KeyCode::Enter),
+        chord_display: "shift+d",
+        key_matcher: press().shift().code(KeyCode::Char('D')),
         modes: Vec::from([ModeDiscriminant::Normal]),
         message: Message::Reword(RewordMessage::WithEditor),
         hide_from_hotbar: false,
@@ -244,6 +259,26 @@ fn register_command_mode_key_binds(key_binds: &mut KeyBinds) {
         chord_display: "esc",
         key_matcher: press().code(KeyCode::Esc),
         modes: Vec::from([ModeDiscriminant::Command]),
+        message: Message::EnterNormalMode,
+        hide_from_hotbar: false,
+    });
+}
+
+fn register_commit_mode_key_binds(key_binds: &mut KeyBinds) {
+    key_binds.register(StaticKeyBind {
+        short_description: "commit",
+        chord_display: "enter",
+        key_matcher: press().code(KeyCode::Enter),
+        modes: Vec::from([ModeDiscriminant::Commit]),
+        message: Message::Commit(CommitMessage::Confirm { with_message: true }),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "back",
+        chord_display: "esc",
+        key_matcher: press().code(KeyCode::Esc),
+        modes: Vec::from([ModeDiscriminant::Commit]),
         message: Message::EnterNormalMode,
         hide_from_hotbar: false,
     });

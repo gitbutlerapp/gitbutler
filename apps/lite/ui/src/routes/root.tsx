@@ -3,6 +3,7 @@ import { Link, Outlet, createRootRouteWithContext, useMatch } from "@tanstack/re
 import { FC } from "react";
 import { usePreviewVisible } from "../hooks/usePreviewVisible";
 import styles from "./root.module.css";
+import { shortcutKeys } from "./shortcuts.ts";
 
 export const lastOpenedProjectKey = "lastProject";
 
@@ -95,7 +96,7 @@ const TopBar: FC = () => {
 						setPreviewVisible((visible) => !visible);
 					}}
 				>
-					{previewVisible ? "Hide preview" : "Show preview"}
+					{previewVisible ? <>Hide preview</> : <>Show preview</>} ({shortcutKeys.togglePreview})
 				</button>
 			)}
 		</header>

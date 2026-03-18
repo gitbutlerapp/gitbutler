@@ -7,7 +7,7 @@ use crate::{
     CliId,
     command::legacy::status::{
         output::{StatusOutputContent, StatusOutputLine, StatusOutputLineData},
-        tui::Mode,
+        tui::{InlineRewordMode, Mode, RubMode},
     },
 };
 
@@ -697,10 +697,10 @@ fn move_up_in_rub_mode_skips_unavailable_targets() {
             cli_id: allowed.clone(),
         }),
     ];
-    let mode = Mode::Rub {
+    let mode = Mode::Rub(RubMode {
         source: unassigned("source"),
         available_targets: vec![allowed],
-    };
+    });
 
     let mut cursor = Cursor(2);
     cursor.move_up(&lines, &mode);
@@ -729,10 +729,10 @@ fn move_down_in_rub_mode_skips_unavailable_targets() {
             cli_id: allowed.clone(),
         }),
     ];
-    let mode = Mode::Rub {
+    let mode = Mode::Rub(RubMode {
         source: unassigned("source"),
         available_targets: vec![allowed],
-    };
+    });
 
     let mut cursor = Cursor(0);
     cursor.move_down(&lines, &mode);
@@ -771,10 +771,10 @@ fn movement_in_rub_mode_handles_starting_on_unavailable_line() {
             cli_id: allowed_b.clone(),
         }),
     ];
-    let mode = Mode::Rub {
+    let mode = Mode::Rub(RubMode {
         source: unassigned("source"),
         available_targets: vec![allowed_a, allowed_b],
-    };
+    });
 
     let mut cursor = Cursor(2);
     cursor.move_up(&lines, &mode);
@@ -878,10 +878,10 @@ fn move_next_section_in_rub_mode_skips_unavailable_sections() {
             cli_id: allowed.clone(),
         }),
     ];
-    let mode = Mode::Rub {
+    let mode = Mode::Rub(RubMode {
         source: unassigned("source"),
         available_targets: vec![allowed],
-    };
+    });
 
     let mut cursor = Cursor(0);
     cursor.move_next_section(&lines, &mode);
@@ -913,10 +913,10 @@ fn move_previous_section_in_rub_mode_skips_unavailable_sections() {
             cli_id: allowed.clone(),
         }),
     ];
-    let mode = Mode::Rub {
+    let mode = Mode::Rub(RubMode {
         source: unassigned("source"),
         available_targets: vec![allowed],
-    };
+    });
 
     let mut cursor = Cursor(3);
     cursor.move_previous_section(&lines, &mode);
@@ -951,10 +951,10 @@ fn move_previous_section_in_rub_mode_from_unavailable_section_header_goes_to_pre
         }),
         line(StatusOutputLineData::UnstagedChanges { cli_id: blocked }),
     ];
-    let mode = Mode::Rub {
+    let mode = Mode::Rub(RubMode {
         source: unassigned("source"),
         available_targets: vec![allowed_a, allowed_b],
-    };
+    });
 
     let mut cursor = Cursor(2);
     cursor.move_previous_section(&lines, &mode);
@@ -963,7 +963,7 @@ fn move_previous_section_in_rub_mode_from_unavailable_section_header_goes_to_pre
 }
 
 #[test]
-fn movement_does_not_change_cursor_in_inline_reword_mode() {
+fn movement_methods_can_move_cursor_in_inline_reword_mode() {
     let lines = vec![
         line(StatusOutputLineData::UnstagedChanges {
             cli_id: unassigned("u0"),
@@ -974,17 +974,19 @@ fn movement_does_not_change_cursor_in_inline_reword_mode() {
     ];
 
     let mut cursor = Cursor(1);
-    let inline_reword = Mode::InlineReword {
+    let inline_reword = Mode::InlineReword(InlineRewordMode {
         commit_id: commit_id("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
         textarea: Box::new(TextArea::default()),
-    };
+    });
 
+    // Inline reword keeps lines selectable to avoid dimming the whole UI.
+    // Actual user navigation is blocked at the keybinding/event layer, not in these cursor helpers.
     cursor.move_up(&lines, &inline_reword);
     cursor.move_down(&lines, &inline_reword);
     cursor.move_next_section(&lines, &inline_reword);
     cursor.move_previous_section(&lines, &inline_reword);
 
-    assert_eq!(cursor, Cursor(1));
+    assert_eq!(cursor, Cursor(0));
 }
 
 #[test]
@@ -1005,10 +1007,10 @@ fn is_selectable_in_rub_mode_requires_available_target() {
     let blocked_line = line(StatusOutputLineData::UnstagedFile { cli_id: blocked });
     let not_selectable_line = line(StatusOutputLineData::Hint);
 
-    let mode = Mode::Rub {
+    let mode = Mode::Rub(RubMode {
         source: unassigned("source"),
         available_targets: vec![allowed],
-    };
+    });
 
     assert!(is_selectable_in_mode(&selectable_line, &mode));
     assert!(!is_selectable_in_mode(&blocked_line, &mode));
@@ -1016,15 +1018,16 @@ fn is_selectable_in_rub_mode_requires_available_target() {
 }
 
 #[test]
-fn is_selectable_is_always_false_in_inline_reword_mode() {
+fn is_selectable_is_true_in_inline_reword_mode() {
     let selectable_line = line(StatusOutputLineData::StagedChanges {
         cli_id: unassigned("s0"),
     });
 
-    let inline_reword = Mode::InlineReword {
+    let inline_reword = Mode::InlineReword(InlineRewordMode {
         commit_id: commit_id("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
         textarea: Box::new(TextArea::default()),
-    };
+    });
 
-    assert!(!is_selectable_in_mode(&selectable_line, &inline_reword));
+    // Inline reword intentionally returns selectable so rows are not dimmed during editing.
+    assert!(is_selectable_in_mode(&selectable_line, &inline_reword));
 }
