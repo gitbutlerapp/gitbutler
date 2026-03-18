@@ -12,7 +12,7 @@ import {
 } from "#ui/routes/project-shared.tsx";
 import { ProjectPanelLayout } from "#ui/routes/ProjectPanelLayout.tsx";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
-import { BranchListing, Commit } from "@gitbutler/but-sdk";
+import { BranchIdentity, BranchListing, Commit } from "@gitbutler/but-sdk";
 import styles from "./project-branches.module.css";
 import sharedStyles from "./project-shared.module.css";
 import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
@@ -26,7 +26,7 @@ import {
 } from "#ui/queries.ts";
 
 type Selection = {
-	branchName: string;
+	branchName: BranchIdentity;
 	commitId?: string;
 	path?: string;
 };
