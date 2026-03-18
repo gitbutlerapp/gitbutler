@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
+import { Dispatch, SetStateAction, useLayoutEffect, useRef, useState } from "react";
 
 export type UseState<T> = [T, Dispatch<SetStateAction<T>>];
 
@@ -13,27 +13,52 @@ export type UseState<T> = [T, Dispatch<SetStateAction<T>>];
 export const useLocalStorageState = <T>(key: string, initialState: T): UseState<T> => {
 	const [value, setValue] = useState<T>(() => {
 		const storedValue = localStorage.getItem(key);
-		if (storedValue === null) return initialState;
-
-		try {
+		if (storedValue != null) {
 			return JSON.parse(storedValue) as T;
-		} catch {
+		} else {
 			return initialState;
 		}
 	});
 
+	const committedValuesRef = useRef<{
+		prevValue: string | null;
+		value: string;
+	}>({
+		prevValue: null,
+		value: JSON.stringify(value),
+	});
+	useLayoutEffect(() => {
+		committedValuesRef.current.prevValue = committedValuesRef.current.value;
+		committedValuesRef.current.value = JSON.stringify(value);
+	});
+
+	// Sync changes from local storage
+	useLayoutEffect(() => {
+		const onStorage = (event: StorageEvent) => {
+			if (key === event.key && event.newValue && event.newValue !== JSON.stringify(value)) {
+				setValue(JSON.parse(event.newValue));
+			}
+		};
+
+		window.addEventListener("storage", onStorage);
+
+		return () => {
+			window.removeEventListener("storage", onStorage);
+		};
+	}, [key, value]);
+
 	// Sync changes to local storage
-	useEffect(() => {
-		const serializedValue = JSON.stringify(value);
-		const serializedInitialValue = JSON.stringify(initialState);
+	useLayoutEffect(() => {
+		window.dispatchEvent(
+			new StorageEvent("storage", {
+				key,
+				newValue: committedValuesRef.current.value || "",
+				oldValue: committedValuesRef.current.prevValue || "",
+			}),
+		);
 
-		if (serializedValue === serializedInitialValue) {
-			localStorage.removeItem(key);
-			return;
-		}
-
-		localStorage.setItem(key, serializedValue);
-	}, [initialState, key, value]);
+		localStorage.setItem(key, committedValuesRef.current.value);
+	}, [key, value]);
 
 	return [value, setValue];
 };
