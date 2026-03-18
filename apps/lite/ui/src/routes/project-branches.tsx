@@ -225,16 +225,16 @@ const SelectedBranchDiff: FC<{
 };
 
 const ProjectBranchesPage: FC = () => {
-	const { id } = projectBranchesRoute.useParams();
+	const { id: projectId } = projectBranchesRoute.useParams();
 
 	const [selection, select] = useLocalStorageState<Selection | null>(
-		`project:${id}:branches:selection`,
+		`project:${projectId}:branches:selection`,
 		null,
 	);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
-	const project = projects.find((project) => project.id === id);
-	const { data: branches } = useSuspenseQuery(listBranchesQueryOptions(id));
+	const project = projects.find((project) => project.id === projectId);
+	const { data: branches } = useSuspenseQuery(listBranchesQueryOptions(projectId));
 	const applyBranch = useMutation(applyBranchMutationOptions);
 	const unapplyStack = useMutation(unapplyStackMutationOptions);
 
@@ -305,7 +305,7 @@ const ProjectBranchesPage: FC = () => {
 										onClick={() => {
 											if (ref === null) return;
 											applyBranch.mutate({
-												projectId: id,
+												projectId,
 												existingBranch: ref,
 											});
 										}}
@@ -319,7 +319,7 @@ const ProjectBranchesPage: FC = () => {
 											disabled={unapplyStack.isPending}
 											onClick={() => {
 												unapplyStack.mutate({
-													projectId: id,
+													projectId,
 													stackId,
 												});
 											}}
@@ -337,7 +337,7 @@ const ProjectBranchesPage: FC = () => {
 					<div className={sharedStyles.commitsLane}>
 						<Suspense fallback={<div>Loading branch details…</div>}>
 							<BranchDetails
-								projectId={id}
+								projectId={projectId}
 								branchName={selectedBranchResolvedName}
 								remote={selectedRemote ?? null}
 								isCommitSelected={(commitId) =>
@@ -367,15 +367,15 @@ const ProjectBranchesPage: FC = () => {
 						{selection.commitId !== undefined ? (
 							selection.path !== undefined ? (
 								<SelectedCommitFileDiff
-									projectId={id}
+									projectId={projectId}
 									commitId={selection.commitId}
 									path={selection.path}
 								/>
 							) : (
-								<SelectedCommitDiff projectId={id} commitId={selection.commitId} />
+								<SelectedCommitDiff projectId={projectId} commitId={selection.commitId} />
 							)
 						) : selectedBranchRef !== null ? (
-							<SelectedBranchDiff projectId={id} branch={selectedBranchRef} />
+							<SelectedBranchDiff projectId={projectId} branch={selectedBranchRef} />
 						) : (
 							<div>No branch diff available.</div>
 						)}
