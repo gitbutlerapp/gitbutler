@@ -99,12 +99,13 @@ const CommitC: FC<{
 							projectId={projectId}
 							commitId={commit.id}
 							renderFile={(change) => (
-								<div className={sharedStyles.fileRow}>
-									<FileButton
-										change={change}
-										isSelected={isFileSelected(change.path)}
-										toggleSelect={() => toggleFileSelect(change.path)}
-									/>
+								<div
+									className={classes(
+										sharedStyles.fileRow,
+										isFileSelected(change.path) && sharedStyles.selected,
+									)}
+								>
+									<FileButton change={change} toggleSelect={() => toggleFileSelect(change.path)} />
 								</div>
 							)}
 						/>

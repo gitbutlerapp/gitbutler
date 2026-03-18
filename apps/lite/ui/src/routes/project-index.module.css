@@ -61,6 +61,11 @@
 	background-color: white;
 }
 
+.dependencyIndicator {
+	background-color: transparent;
+	color: inherit;
+}
+
 .stack {
 	display: flex;
 	row-gap: 16px;

@@ -113,6 +113,7 @@ const DependencyIndicator: FC<{
 	return (
 		<Popover.Root>
 			<Popover.Trigger
+				className={styles.dependencyIndicator}
 				openOnHover
 				onMouseEnter={() => {
 					onHover(commitIds);
@@ -791,14 +792,18 @@ const CommitC: FC<{
 							projectId={projectId}
 							commitId={commit.id}
 							renderFile={(change) => (
-								<div className={sharedStyles.fileRow}>
+								<div
+									className={classes(
+										sharedStyles.fileRow,
+										isFileSelected(change.path) && sharedStyles.selected,
+									)}
+								>
 									<DraggableFile
 										change={change}
 										changeUnit={changeUnit}
 										render={
 											<FileButton
 												change={change}
-												isSelected={isFileSelected(change.path)}
 												toggleSelect={() => toggleFileSelect(change.path)}
 											/>
 										}
@@ -859,7 +864,12 @@ const Changes: FC<{
 
 								return (
 									<li key={change.path}>
-										<div className={sharedStyles.fileRow}>
+										<div
+											className={classes(
+												sharedStyles.fileRow,
+												isFileSelected(change.path) && sharedStyles.selected,
+											)}
+										>
 											<DraggableFile
 												change={change}
 												changeUnit={changeUnit}
@@ -867,7 +877,6 @@ const Changes: FC<{
 												render={
 													<FileButton
 														change={change}
-														isSelected={isFileSelected(change.path)}
 														toggleSelect={() => {
 															toggleFileSelect(change.path);
 														}}

@@ -61,6 +61,8 @@
 
 .commitButton {
 	flex-grow: 1;
+	background-color: transparent;
+	color: inherit;
 }
 
 .fileList {
@@ -74,6 +76,8 @@
 
 .fileButton {
 	flex-grow: 1;
+	background-color: transparent;
+	color: inherit;
 }
 
 .selected {
@@ -83,6 +87,11 @@
 
 .selectedWithin {
 	background-color: lightgray;
+}
+
+.highlighted {
+	background-color: yellow;
+	color: black;
 }
 
 .hunks {
@@ -117,6 +126,13 @@
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);
+	background-color: transparent;
+	color: inherit;
+}
+
+.menuTrigger {
+	background-color: transparent;
+	color: inherit;
 }
 
 .menuPopup {

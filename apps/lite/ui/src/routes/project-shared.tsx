@@ -177,14 +177,13 @@ export const FileDiff: FC<{
 export const FileButton: FC<
 	{
 		change: TreeChange;
-		isSelected: boolean;
 		toggleSelect: () => void;
 	} & ComponentProps<"button">
-> = ({ change, isSelected, toggleSelect, className, ...restProps }) => (
+> = ({ change, toggleSelect, className, ...restProps }) => (
 	<button
 		{...restProps}
 		type="button"
-		className={classes(className, styles.fileButton, isSelected && styles.selected)}
+		className={classes(className, styles.fileButton)}
 		onClick={toggleSelect}
 	>
 		{change.path}
@@ -275,18 +274,8 @@ const InlineCommitMessageEditor: FC<{
 	commitId: string;
 	message: string;
 	setMessageAction: (message: string) => void | Promise<void>;
-	isSelected: boolean;
-	isAnyFileSelected: boolean;
 	onExit: () => void;
-}> = ({
-	projectId,
-	commitId,
-	message,
-	setMessageAction,
-	isSelected,
-	isAnyFileSelected,
-	onExit,
-}) => {
+}> = ({ projectId, commitId, message, setMessageAction, onExit }) => {
 	const commitReword = useMutation(commitRewordMutationOptions);
 	const initialMessage = message.trim();
 
@@ -299,10 +288,7 @@ const InlineCommitMessageEditor: FC<{
 				el.setSelectionRange(cursorPosition, cursorPosition);
 			}}
 			defaultValue={initialMessage}
-			className={classes(
-				styles.editCommitMessageInput,
-				isSelected ? styles.selected : isAnyFileSelected ? styles.selectedWithin : undefined,
-			)}
+			className={styles.editCommitMessageInput}
 			onBlur={onExit}
 			onKeyDown={(event) => {
 				if (event.key === "Escape") {
@@ -408,15 +394,21 @@ export const CommitRow: FC<
 	};
 
 	return (
-		<div {...restProps} className={classes(styles.commitRow, className)}>
+		<div
+			{...restProps}
+			className={classes(
+				styles.commitRow,
+				isSelected ? styles.selected : isAnyFileSelected ? styles.selectedWithin : undefined,
+				isHighlighted && styles.highlighted,
+				className,
+			)}
+		>
 			{isEditingMessage ? (
 				<InlineCommitMessageEditor
 					projectId={projectId}
 					commitId={commit.id}
 					message={optimisticMessage}
 					setMessageAction={setOptimisticMessage}
-					isSelected={isSelected}
-					isAnyFileSelected={isAnyFileSelected}
 					onExit={() => {
 						setIsEditingMessage(false);
 					}}
@@ -428,21 +420,7 @@ export const CommitRow: FC<
 							<DraggableCommit
 								commit={commitWithOptimisticMessage}
 								render={
-									<button
-										type="button"
-										className={classes(
-											styles.commitButton,
-											isSelected
-												? styles.selected
-												: isAnyFileSelected
-													? styles.selectedWithin
-													: undefined,
-										)}
-										onClick={toggleSelect}
-										style={{
-											...(isHighlighted && { backgroundColor: "yellow" }),
-										}}
-									>
+									<button type="button" className={styles.commitButton} onClick={toggleSelect}>
 										<CommitLabel commit={commitWithOptimisticMessage} />
 									</button>
 								}
@@ -461,7 +439,9 @@ export const CommitRow: FC<
 				</ContextMenu.Root>
 			)}
 			<Menu.Root>
-				<Menu.Trigger style={{ lineHeight: 1 }}>𑁔</Menu.Trigger>
+				<Menu.Trigger className={styles.menuTrigger} style={{ lineHeight: 1 }}>
+					𑁔
+				</Menu.Trigger>
 				<Menu.Portal>
 					<Menu.Positioner align="end">
 						<CommitMenuPopup
