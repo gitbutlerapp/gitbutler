@@ -272,6 +272,8 @@ const ProjectBranchesPage: FC = () => {
 
 	const sortedBranches = branches.slice().sort((a, b) => a.name.localeCompare(b.name));
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
+	const selectedRemote =
+		selectedBranch && !selectedBranch.hasLocal ? selectedBranch.remotes[0] : null;
 
 	const isCommitSelected = (branchName: string, commitId: string) =>
 		selection?.branchName === branchName &&
@@ -295,9 +297,6 @@ const ProjectBranchesPage: FC = () => {
 				: { branchName, commitId, path },
 		);
 	};
-
-	const selectedRemote =
-		selectedBranch && !selectedBranch.hasLocal ? selectedBranch.remotes[0] : null;
 
 	// TODO: dedupe
 	if (!project) return <p>Project not found.</p>;
