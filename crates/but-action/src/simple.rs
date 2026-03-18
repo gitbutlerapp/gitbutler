@@ -92,16 +92,13 @@ fn handle_changes_simple_inner(
         }
     }
 
-    // Get any assignments that may have been made, which also includes any hunk locks. Assignments should be updated according to locks where applicable.
     let context_lines = ctx.settings.context_lines;
     let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         db.hunk_assignments_mut()?,
         &repo,
         &ws,
-        true,
         None::<Vec<but_core::TreeChange>>,
-        None,
         context_lines,
     )
     .map_err(|err| serde_error::Error::new(&*err))?;

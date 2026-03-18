@@ -61,9 +61,7 @@ pub mod assignment {
             db.hunk_assignments_mut()?,
             &repo,
             &ws,
-            false,
             None::<Vec<but_core::TreeChange>>,
-            None,
             context_lines,
         )?;
         if use_json {
@@ -88,7 +86,6 @@ pub mod assignment {
             &repo,
             &ws,
             vec![assignment],
-            None,
             context_lines,
         )?;
         if use_json {

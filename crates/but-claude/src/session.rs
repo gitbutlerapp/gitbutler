@@ -1000,9 +1000,7 @@ fn append_assigned_files_info(
         db.hunk_assignments_mut()?,
         &repo,
         &ws,
-        false,
         None::<Vec<but_core::TreeChange>>,
-        None,
         context_lines,
     ) {
         Ok((assignments, _error)) => assignments,

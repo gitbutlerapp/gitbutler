@@ -446,9 +446,7 @@ pub fn assign_hunks_post_tool_call(
         db.hunk_assignments_mut()?,
         &repo,
         &ws,
-        true,
         Some(changes.clone()),
-        None,
         context_lines,
     )?;
 
@@ -486,7 +484,6 @@ pub fn assign_hunks_post_tool_call(
         &repo,
         &ws,
         assignment_reqs,
-        None,
         context_lines,
     )?;
 

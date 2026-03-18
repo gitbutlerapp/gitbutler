@@ -3,9 +3,7 @@ use but_api_macros::but_api;
 use but_core::ui::TreeChange;
 use but_ctx::Context;
 use but_hunk_assignment::{AssignmentRejection, HunkAssignmentRequest, WorktreeChanges};
-use but_hunk_dependency::ui::{
-    HunkDependencies, hunk_dependencies_for_workspace_changes_by_worktree_dir,
-};
+use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use tracing::instrument;
 
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
@@ -44,38 +42,19 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
     );
     let mut trans = db.immediate_transaction()?;
 
-    // If the dependencies calculation failed, we still want to try to get assignments
-    // so we pass an empty HunkDependencies in that case.
-    let (assignments, assignments_error) = match &dependencies {
-        Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
+    let (assignments, assignments_error) = {
+        but_hunk_assignment::assignments_with_fallback(
             trans.hunk_assignments_mut()?,
             &repo,
             &ws,
-            false,
             Some(changes.changes.clone()),
-            Some(dependencies),
             context_lines,
-        )?,
-        Err(_) => but_hunk_assignment::assignments_with_fallback(
-            trans.hunk_assignments_mut()?,
-            &repo,
-            &ws,
-            false,
-            Some(changes.changes.clone()),
-            Some(&HunkDependencies::default()), // empty dependencies on error
-            context_lines,
-        )?,
+        )?
     };
 
     trans.commit()?;
     drop((repo, ws, db));
-    but_rules::handler::process_workspace_rules(
-        ctx,
-        &assignments,
-        &dependencies.as_ref().ok().cloned(),
-        guard.write_permission(),
-    )
-    .ok();
+    but_rules::handler::process_workspace_rules(ctx, &assignments, guard.write_permission()).ok();
 
     Ok(WorktreeChanges {
         worktree_changes: changes.into(),
@@ -102,7 +81,6 @@ pub fn assign_hunk(
         &repo,
         &ws,
         assignments,
-        None,
         context_lines,
     )?;
     Ok(rejections)

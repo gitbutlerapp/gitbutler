@@ -1515,9 +1515,7 @@ pub fn get_filtered_changes(
         db.hunk_assignments_mut()?,
         &repo,
         &ws,
-        false,
         None::<Vec<but_core::TreeChange>>,
-        None,
         context_lines,
     )
     .map_err(|err| serde_error::Error::new(&*err))?;

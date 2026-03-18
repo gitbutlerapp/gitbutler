@@ -18,11 +18,8 @@ use anyhow::Result;
 use bstr::{BString, ByteSlice};
 use but_core::{DiffSpec, HunkHeader, TreeChange, UnifiedPatch, ref_metadata::StackId};
 use but_db::{HunkAssignmentsHandle, HunkAssignmentsHandleMut};
-use but_hunk_dependency::ui::{
-    HunkDependencies, HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir,
-};
+use but_hunk_dependency::ui::{HunkDependencies, HunkLock};
 use gix::ObjectId;
-use itertools::Itertools;
 use reconcile::MultipleOverlapping;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -388,13 +385,7 @@ impl HunkAssignment {
 }
 
 /// Sets the assignment for a hunk. It must be already present in the current assignments, errors out if it isn't.
-/// If the stack is not in the list of applied stacks, it errors out.
 /// Returns the updated assignments list.
-///
-/// Optionally takes pre-computed hunk dependencies. If not provided, they will
-/// be computed using the provided `repo` and `workspace`.
-///
-/// The provided hunk dependencies should be computed for all workspace changes.
 ///
 /// `context_lines` determines the amount of context lines in diffs, and it should match the UI.
 pub fn assign(
@@ -402,7 +393,6 @@ pub fn assign(
     repo: &gix::Repository,
     workspace: &but_graph::projection::Workspace,
     requests: Vec<HunkAssignmentRequest>,
-    deps: Option<&HunkDependencies>,
     context_lines: u32,
 ) -> Result<Vec<AssignmentRejection>> {
     let identifiable_stacks = workspace
@@ -411,14 +401,6 @@ pub fn assign(
         .filter_map(|s| s.id)
         .collect::<Vec<_>>();
 
-    let owned_deps;
-    let deps = if let Some(deps) = deps {
-        deps
-    } else {
-        owned_deps =
-            hunk_dependencies_for_workspace_changes_by_worktree_dir(repo, workspace, None)?;
-        &owned_deps
-    };
     let worktree_changes: Vec<but_core::TreeChange> =
         but_core::diff::worktree_changes(repo)?.changes;
     let mut worktree_assignments = vec![];
@@ -443,92 +425,44 @@ pub fn assign(
     // Reconcile with the requested changes
     let with_requests = reconcile::assignments(
         &with_worktree,
-        &requests_to_assignments(requests.clone()),
+        &requests_to_assignments(requests),
         &identifiable_stacks,
         MultipleOverlapping::SetMostLines,
         true,
     );
 
-    // Reconcile with hunk locks
-    let lock_assignments = hunk_dependency_assignments(deps);
-    let with_locks = reconcile::assignments(
-        &with_requests,
-        &lock_assignments,
-        &identifiable_stacks,
-        MultipleOverlapping::SetNone,
-        false,
-    );
+    state::set_assignments(db, with_requests)?;
 
-    state::set_assignments(db, with_locks.clone())?;
-
-    // Request where the stack_id is different from the outcome are considered rejections - this is due to locking
-    // Collect all the rejected requests together with the locks that caused the rejection
-    let mut rejections = vec![];
-    for req in requests {
-        let locks = with_locks
-            .iter()
-            .filter(|assignment| {
-                req.matches_assignment(assignment) && req.stack_id != assignment.stack_id
-            })
-            .flat_map(|assignment| assignment.hunk_locks.clone().unwrap_or_default())
-            .collect_vec();
-        if !locks.is_empty() {
-            rejections.push(AssignmentRejection {
-                request: req.clone(),
-                locks,
-            });
-        }
-    }
-    Ok(rejections)
+    Ok(vec![])
 }
 
-/// Similar to the `reconcile_with_worktree_and_locks` function.
-/// TODO: figure out a better name for this function
 pub fn assignments_with_fallback(
     db: HunkAssignmentsHandleMut,
     repo: &gix::Repository,
     workspace: &but_graph::projection::Workspace,
-    set_assignment_from_locks: bool,
     worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
-    deps: Option<&HunkDependencies>,
     context_lines: u32,
 ) -> Result<(Vec<HunkAssignment>, Option<anyhow::Error>)> {
-    let hunk_assignments = reconcile_worktree_changes_with_worktree_and_locks(
+    let hunk_assignments = reconcile_worktree_changes_with_worktree(
         db,
         repo,
         workspace,
-        set_assignment_from_locks,
         worktree_changes,
-        deps,
         context_lines,
     )?;
     Ok((hunk_assignments, None))
 }
 
-fn reconcile_worktree_changes_with_worktree_and_locks(
+fn reconcile_worktree_changes_with_worktree(
     db: HunkAssignmentsHandleMut,
     repo: &gix::Repository,
     workspace: &but_graph::projection::Workspace,
-    set_assignment_from_locks: bool,
     worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
-    deps: Option<&HunkDependencies>,
     context_lines: u32,
 ) -> Result<Vec<HunkAssignment>> {
     let worktree_changes: Vec<but_core::TreeChange> = match worktree_changes {
         Some(wtc) => wtc.into_iter().map(Into::into).collect(),
         None => but_core::diff::worktree_changes(repo)?.changes,
-    };
-
-    let owned_deps;
-    let deps = if let Some(deps) = deps {
-        deps
-    } else {
-        owned_deps = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-            repo,
-            workspace,
-            Some(worktree_changes.clone()),
-        )?;
-        &owned_deps
     };
 
     if worktree_changes.is_empty() {
@@ -542,14 +476,7 @@ fn reconcile_worktree_changes_with_worktree_and_locks(
             diff.ok().flatten(),
         ));
     }
-    let reconciled = reconcile_with_worktree_and_locks(
-        db.to_ref(),
-        workspace,
-        set_assignment_from_locks,
-        &worktree_assignments,
-        deps,
-        context_lines,
-    )?;
+    let reconciled = reconcile_with_worktree(db.to_ref(), workspace, &worktree_assignments)?;
 
     state::set_assignments(db, reconciled.clone())?;
     Ok(reconciled)
@@ -568,23 +495,12 @@ fn reconcile_worktree_changes_with_worktree_and_locks(
 ///
 /// If a stack is no longer present in the workspace (either unapplied or deleted), any assignments to it are removed.
 ///
-/// If a hunk has a dependency on a particular stack and it has been previously assigned to another stack, the assignment is updated to reflect that dependency.
-/// If a hunk has a dependency but it has not been previously assigned to any stack, it is left unassigned (stack_id is None). This is so that the hunk assignment workflow can remain optional.
-///
 /// This needs to be ran only after the worktree has changed.
-///
-/// If `worktree_changes` is `None`, they will be fetched automatically.
-///
-/// `context_lines` determines the amount of context lines in diffs, and it should match the UI.
-// TODO: Isn't it usually better to have no context, and look at hunks themselves?
-#[instrument(skip(db, workspace, worktree_assignments, deps), err(Debug))]
-fn reconcile_with_worktree_and_locks(
+#[instrument(skip(db, workspace, worktree_assignments), err(Debug))]
+fn reconcile_with_worktree(
     db: HunkAssignmentsHandle,
     workspace: &but_graph::projection::Workspace,
-    set_assignment_from_locks: bool,
     worktree_assignments: &[HunkAssignment],
-    deps: &HunkDependencies,
-    context_lines: u32,
 ) -> Result<Vec<HunkAssignment>> {
     let identifiable_stacks = workspace
         .stacks
@@ -601,46 +517,7 @@ fn reconcile_with_worktree_and_locks(
         true,
     );
 
-    let lock_assignments = hunk_dependency_assignments(deps);
-    let with_locks = reconcile::assignments(
-        &with_worktree,
-        &lock_assignments,
-        &identifiable_stacks,
-        MultipleOverlapping::SetNone,
-        set_assignment_from_locks,
-    );
-
-    Ok(with_locks)
-}
-
-fn hunk_dependency_assignments(deps: &HunkDependencies) -> Vec<HunkAssignment> {
-    let mut assignments = vec![];
-    for (path, hunk, locks) in &deps.diffs {
-        // If there are locks towards more than one stack, this means double locking and the assignment None - the user can resolve this by partial committing.
-        let locked_to_stack_ids_count = locks
-            .iter()
-            .map(|lock| lock.target)
-            .collect::<std::collections::HashSet<_>>()
-            .len();
-        let stack_id: Option<StackId> = if locked_to_stack_ids_count == 1 {
-            locks[0].target.into()
-        } else {
-            None
-        };
-        let assignment = HunkAssignment {
-            id: None,
-            hunk_header: Some(hunk.into()),
-            path: path.clone(),
-            path_bytes: path.clone().into(),
-            stack_id,
-            hunk_locks: Some(locks.clone()),
-            line_nums_added: None,   // derived data (not persisted)
-            line_nums_removed: None, // derived data (not persisted)
-            diff: None,              // derived data (not persisted)
-        };
-        assignments.push(assignment);
-    }
-    assignments
+    Ok(with_worktree)
 }
 
 /// This also generates a UUID for the assignment

@@ -37,9 +37,7 @@ fn unapply_with_data() -> anyhow::Result<()> {
         db.hunk_assignments_mut()?,
         &repo,
         &ws,
-        false,
         Some(changes.clone()),
-        None,
         context_lines,
     )
     .unwrap();
@@ -53,7 +51,6 @@ fn unapply_with_data() -> anyhow::Result<()> {
         &repo,
         &ws,
         vec![req],
-        None,
         context_lines,
     )
     .unwrap();
@@ -61,9 +58,7 @@ fn unapply_with_data() -> anyhow::Result<()> {
         db.hunk_assignments_mut()?,
         &repo,
         &ws,
-        false,
         Some(changes.clone()),
-        None,
         context_lines,
     )
     .unwrap();

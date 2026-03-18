@@ -726,9 +726,7 @@ pub fn commit_uncommit_changes_only(
             db.hunk_assignments_mut()?,
             &repo,
             &ws,
-            false,
             None::<Vec<but_core::TreeChange>>,
-            None,
             context_lines,
         )?;
         Some(assignments)
@@ -748,9 +746,7 @@ pub fn commit_uncommit_changes_only(
             db.hunk_assignments_mut()?,
             &repo,
             &ws,
-            false,
             None::<Vec<but_core::TreeChange>>,
-            None,
             context_lines,
         )?;
 
@@ -774,7 +770,6 @@ pub fn commit_uncommit_changes_only(
             &repo,
             &ws,
             to_assign,
-            None,
             context_lines,
         )?;
     }
