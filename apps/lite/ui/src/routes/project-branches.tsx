@@ -196,32 +196,38 @@ const SelectedCommitDiff: FC<{
 const SelectedBranchDiff: FC<{
 	projectId: string;
 	branch: string;
-}> = ({ projectId, branch }) => {
+	branchName: string;
+}> = ({ projectId, branch, branchName }) => {
 	const { data } = useSuspenseQuery(branchDiffQueryOptions({ projectId, branch }));
 
-	if (data.changes.length === 0) return <div>No file changes.</div>;
-
 	return (
-		<ul className={sharedStyles.hunks}>
-			{data.changes.map((change) => (
-				<li key={change.path}>
-					<h5>{change.path}</h5>
-					<FileDiff
-						projectId={projectId}
-						change={change}
-						renderHunk={(hunk, patch) => (
-							<Hunk
-								patch={patch}
-								// TODO: this doesn't make sense
-								changeUnit={{ _tag: "changes", stackId: null }}
+		<>
+			<h3>{branchName}</h3>
+			{data.changes.length === 0 ? (
+				<div>No file changes.</div>
+			) : (
+				<ul className={sharedStyles.hunks}>
+					{data.changes.map((change) => (
+						<li key={change.path}>
+							<h5>{change.path}</h5>
+							<FileDiff
+								projectId={projectId}
 								change={change}
-								hunk={hunk}
+								renderHunk={(hunk, patch) => (
+									<Hunk
+										patch={patch}
+										// TODO: this doesn't make sense
+										changeUnit={{ _tag: "changes", stackId: null }}
+										change={change}
+										hunk={hunk}
+									/>
+								)}
 							/>
-						)}
-					/>
-				</li>
-			))}
-		</ul>
+						</li>
+					))}
+				</ul>
+			)}
+		</>
 	);
 };
 
@@ -247,7 +253,11 @@ const Preview: FC<{
 						<SelectedCommitDiff projectId={projectId} commitId={selection.commitId} />
 					)
 				) : selectedBranchRef !== null ? (
-					<SelectedBranchDiff projectId={projectId} branch={selectedBranchRef} />
+					<SelectedBranchDiff
+						projectId={projectId}
+						branch={selectedBranchRef}
+						branchName={selection.branchName}
+					/>
 				) : (
 					<div>No branch diff available.</div>
 				)}
