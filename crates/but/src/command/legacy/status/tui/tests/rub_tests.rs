@@ -63,9 +63,7 @@ fn rub_api_unassigned_to_branch_operation() {
         .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [unstaged changes]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str![
-            "┊╭┄<< UnassignedToBranch is not supported >> [..] [A]"
-        ]);
+        .assert_current_line_eq(str!["┊╭┄<< assign hunks >> [..] [A]"]);
 }
 
 // Tests RubOperation::UnassignUncommitted.
@@ -88,9 +86,7 @@ fn rub_api_unassign_uncommitted_operation() {
         .assert_current_line_eq(str!["┊   << source >> << noop >> [..] A test.txt"]);
 
     tui.input_then_render(KeyCode::Up)
-        .assert_current_line_eq(str![
-            "╭┄<< UnassignUncommitted is not supported >> zz [unstaged changes]"
-        ]);
+        .assert_current_line_eq(str!["╭┄<< unassign hunks >> zz [unstaged changes]"]);
 }
 
 // Tests RubOperation::UncommittedToBranch.
@@ -113,9 +109,7 @@ fn rub_api_uncommitted_to_branch_operation() {
         .assert_current_line_eq(str!["┊   << source >> << noop >> [..] A test.txt"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str![
-            "┊╭┄<< UncommittedToBranch is not supported >> [..] [A]"
-        ]);
+        .assert_current_line_eq(str!["┊╭┄<< assign hunks >> [..] [A]"]);
 }
 
 // Tests RubOperation::UncommittedToCommit.
@@ -159,9 +153,7 @@ fn rub_api_branch_to_unassigned_operation() {
         .assert_current_line_eq(str!["┊╭┄<< source >> << noop >> [..] [A]"]);
 
     tui.input_then_render(KeyCode::Up)
-        .assert_current_line_eq(str![
-            "╭┄<< BranchToUnassigned is not supported >> zz [unstaged changes]"
-        ]);
+        .assert_current_line_eq(str!["╭┄<< unassign hunks >> zz [unstaged changes]"]);
 }
 
 // Tests RubOperation::BranchToCommit.
@@ -203,7 +195,7 @@ fn rub_api_branch_to_branch_operation() {
         .assert_current_line_eq(str!["┊╭┄<< source >> << noop >> [..] [A]"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊╭┄<< BranchToBranch is not supported >> [..] [B]"]);
+        .assert_current_line_eq(str!["┊╭┄<< reassign hunks >> h0 [B]"]);
 }
 
 // Tests RubOperation::MoveCommitToBranch.
@@ -245,9 +237,7 @@ fn rub_api_undo_commit_operation() {
         .assert_current_line_eq(str!["┊●   << source >> << noop >> [..] add A"]);
 
     tui.input_then_render([KeyCode::Up, KeyCode::Up])
-        .assert_current_line_eq(str![
-            "╭┄<< UndoCommit is not supported >> zz [unstaged changes]"
-        ]);
+        .assert_current_line_eq(str!["╭┄<< undo commit >> zz [unstaged changes]"]);
 }
 
 // Tests RubOperation::SquashCommits.
@@ -385,9 +375,7 @@ fn rub_api_unassigned_to_stack_operation() {
         .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [unstaged changes]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str![
-            "┊  ╭┄<< UnassignedToStack is not supported >> [..] [staged to A]"
-        ]);
+        .assert_current_line_eq(str!["┊  ╭┄<< assign hunks >> [..] [staged to A]"]);
 }
 
 // Tests RubOperation::UncommittedToStack.
@@ -423,9 +411,7 @@ fn rub_api_uncommitted_to_stack_operation() {
         .assert_current_line_eq(str!["┊   << source >> << noop >> [..] A z.txt"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str![
-            "┊  ╭┄<< UncommittedToStack is not supported >> [..] [staged to A]"
-        ]);
+        .assert_current_line_eq(str!["┊  ╭┄<< assign hunks >> [..] [staged to A]"]);
 }
 
 // Tests RubOperation::BranchToStack.
@@ -457,9 +443,7 @@ fn rub_api_branch_to_stack_operation() {
         .assert_current_line_eq(str!["┊╭┄<< source >> << noop >> g0 [A]"]);
 
     tui.input_then_render(KeyCode::Up)
-        .assert_current_line_eq(str![
-            "┊  ╭┄<< BranchToStack is not supported >> [..] [staged to A]"
-        ]);
+        .assert_current_line_eq(str!["┊  ╭┄<< reassign hunks >> [..] [staged to A]"]);
 }
 
 // Tests RubOperation::StackToUnassigned.
@@ -497,9 +481,7 @@ fn rub_api_stack_to_unassigned_operation() {
         .assert_current_line_eq(str!["┊  ╭┄<< source >> << noop >> [..] [staged to A]"]);
 
     tui.input_then_render(KeyCode::Up)
-        .assert_current_line_eq(str![
-            "╭┄<< StackToUnassigned is not supported >> zz [unstaged changes]"
-        ]);
+        .assert_current_line_eq(str!["╭┄<< unassign hunks >> zz [unstaged changes]"]);
 }
 
 // Tests RubOperation::StackToBranch.
@@ -537,7 +519,7 @@ fn rub_api_stack_to_branch_operation() {
         .assert_current_line_eq(str!["┊  ╭┄<< source >> << noop >> [..] [staged to A]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊╭┄<< StackToBranch is not supported >> g0 [A]"]);
+        .assert_current_line_eq(str!["┊╭┄<< reassign hunks >> g0 [A]"]);
 }
 
 // Tests RubOperation::StackToStack.
@@ -596,7 +578,5 @@ fn rub_api_stack_to_stack_operation() {
         .assert_current_line_eq(str!["┊  ╭┄<< source >> << noop >> [..] [staged to B]"]);
 
     tui.input_then_render([KeyCode::Up, KeyCode::Up])
-        .assert_current_line_eq(str![
-            "┊  ╭┄<< StackToStack is not supported >> [..] [staged to A]"
-        ]);
+        .assert_current_line_eq(str!["┊  ╭┄<< reassign hunks >> [..] [staged to A]"]);
 }
