@@ -1,3 +1,4 @@
+import useLocalStorageState from "use-local-storage-state";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { createRoute } from "@tanstack/react-router";
 import { FC, Suspense } from "react";
@@ -15,7 +16,6 @@ import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { BranchIdentity, BranchListing, Commit } from "@gitbutler/but-sdk";
 import styles from "./project-branches.module.css";
 import sharedStyles from "./project-shared.module.css";
-import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
 import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/mutations.ts";
 import {
 	branchDetailsQueryOptions,
@@ -271,7 +271,7 @@ const ProjectBranchesPage: FC = () => {
 
 	const [selection, select] = useLocalStorageState<Selection | null>(
 		`project:${projectId}:branches:selection`,
-		null,
+		{ defaultValue: null },
 	);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());

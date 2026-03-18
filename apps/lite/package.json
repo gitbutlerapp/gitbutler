@@ -46,7 +46,8 @@
 		"electron-devtools-installer": "^4.0.0",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",
-		"react-resizable-panels": "^4.7.3"
+		"react-resizable-panels": "^4.7.3",
+		"use-local-storage-state": "^19.5.0"
 	},
 	"devDependencies": {
 		"@tanstack/eslint-plugin-query": "^5.91.4",
