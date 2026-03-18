@@ -29,15 +29,15 @@
 }
 
 .commitMoveTarget {
-	--hit-area: 19px;
+	--hit-area: 17px;
 	--indicator-height: 3px;
 
 	display: flex;
-	position: relative;
+	position: absolute;
 	flex-direction: column;
 	justify-content: center;
 	height: var(--hit-area);
-	margin-block: calc(((var(--hit-area) - var(--indicator-height)) / 2) * -1);
+	inset-inline: 0;
 	pointer-events: none;
 
 	&:before {
@@ -45,6 +45,16 @@
 		height: var(--indicator-height);
 		content: "";
 	}
+}
+
+.commitMoveTargetAbove {
+	top: 0;
+	transform: translateY(calc((var(--hit-area) - var(--indicator-height)) / -2));
+}
+
+.commitMoveTargetBelow {
+	bottom: 0;
+	transform: translateY(calc((var(--hit-area) - var(--indicator-height)) / 2));
 }
 
 .commitMoveTargetEnabled {

@@ -700,6 +700,11 @@ const CommitMoveTarget: FC<{
 			ref={dropRef}
 			className={classes(
 				styles.commitMoveTarget,
+				Match.value(side).pipe(
+					Match.when("above", () => styles.commitMoveTargetAbove),
+					Match.when("below", () => styles.commitMoveTargetBelow),
+					Match.exhaustive,
+				),
 				sourceItem?._tag === "Commit" &&
 					!isNoOp(sourceItem.commitId) &&
 					styles.commitMoveTargetEnabled,
