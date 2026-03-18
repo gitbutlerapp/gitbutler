@@ -16,8 +16,7 @@ select {
 }
 
 button {
-	border: 1px solid;
-	border-color: black;
+	border: none;
 	font: inherit;
 	line-height: inherit;
 	text-align: left;
