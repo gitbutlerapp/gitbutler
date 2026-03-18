@@ -2,7 +2,7 @@ import { QueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Link, Outlet, createRootRouteWithContext, useMatch } from "@tanstack/react-router";
 import { FC, useContext } from "react";
 import styles from "./root.module.css";
-import { PreviewVisibleContext } from "#ui/contexts/PreviewVisibleContext.ts";
+import { ShowPreviewPanelContext } from "#ui/contexts/ShowPreviewPanelContext.ts";
 import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
 import { assert } from "#ui/routes/project-shared.tsx";
 
@@ -83,7 +83,7 @@ const TopBar: FC = () => {
 		from: "/project/$id",
 		shouldThrow: false,
 	});
-	const [previewVisible, setPreviewVisible] = assert(useContext(PreviewVisibleContext));
+	const [previewVisible, setPreviewVisible] = assert(useContext(ShowPreviewPanelContext));
 
 	return (
 		<header className={styles.topBar}>
@@ -105,7 +105,7 @@ const TopBar: FC = () => {
 };
 
 const RootLayout: FC = () => (
-	<PreviewVisibleContext value={useLocalStorageState("previewVisible", true)}>
+	<ShowPreviewPanelContext value={useLocalStorageState("previewVisible", true)}>
 		<main className={styles.layout}>
 			<TopBar />
 			<aside className={styles.sidebar}>
@@ -115,7 +115,7 @@ const RootLayout: FC = () => (
 				<Outlet />
 			</section>
 		</main>
-	</PreviewVisibleContext>
+	</ShowPreviewPanelContext>
 );
 
 interface RouteContext {
