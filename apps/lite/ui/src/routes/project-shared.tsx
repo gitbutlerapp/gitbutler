@@ -250,10 +250,9 @@ const DraggableCommit: FC<
 		commit: Commit;
 	} & useRender.ComponentProps<"div">
 > = ({ commit, render, ...props }) => {
-	const { id: commitId } = commit;
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: (): DragData => ({
-			sourceItem: { _tag: "Commit", commitId },
+			sourceItem: { _tag: "Commit", commitId: commit.id },
 		}),
 		preview: (
 			<DragPreview>
