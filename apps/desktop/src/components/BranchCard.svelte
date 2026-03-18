@@ -168,7 +168,7 @@
 >
 	{#if args.type === "stack-branch"}
 		{@const moveHandler = args.stackId
-			? new MoveCommitDzHandler(stackService, args.stackId, projectId)
+			? new MoveCommitDzHandler(args.stackId, projectId)
 			: undefined}
 		{#if !args.prNumber && args.stackId}
 			<PrNumberUpdater {projectId} stackId={args.stackId} {branchName} />

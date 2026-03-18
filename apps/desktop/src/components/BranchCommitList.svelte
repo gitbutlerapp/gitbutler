@@ -306,8 +306,6 @@
 						{@const { amendHandler, squashHandler, hunkHandler } = createCommitDropHandlers({
 							projectId,
 							stackId,
-							stackService,
-							hooksService,
 							commit: dzCommit,
 							runHooks: $runHooks,
 							okWithForce: true,

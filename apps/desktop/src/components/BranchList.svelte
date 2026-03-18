@@ -145,7 +145,6 @@
 						{lineColor}
 						isCommitting={controller.isCommitting}
 						{baseBranchName}
-						{stackService}
 						prService={forge.current.prService}
 						isFirst={firstBranch}
 					/>

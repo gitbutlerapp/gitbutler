@@ -9,12 +9,13 @@ import {
 	HunkDropDataV3,
 	type ChangeDropData,
 } from "$lib/dragging/draggables";
-import { type HooksService } from "$lib/hooks/hooksService";
+import { HOOKS_SERVICE } from "$lib/hooks/hooksService";
 import { showToast } from "$lib/notifications/toasts";
+import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+import { UI_STATE, type UiState } from "$lib/state/uiState.svelte";
+import { inject } from "@gitbutler/core/context";
 import { untrack } from "svelte";
 import type { DropzoneHandler } from "$lib/dragging/handler";
-import type { StackService } from "$lib/stacks/stackService.svelte";
-import type { UiState } from "$lib/state/uiState.svelte";
 
 /** Details about a commit belonging to a drop zone. */
 export type DzCommitData = {
@@ -37,9 +38,9 @@ export class CommitDropData {
 /** Handler that can move commits between stacks. */
 export class MoveCommitDzHandler implements DropzoneHandler {
 	private readonly uiState = inject(UI_STATE);
+	private readonly stackService = inject(STACK_SERVICE);
 
 	constructor(
-		private stackService: StackService,
 		private stackId: string,
 		private projectId: string,
 	) {}
@@ -83,15 +84,16 @@ export class MoveCommitDzHandler implements DropzoneHandler {
  * Handler that will be able to amend a commit using `TreeChange`.
  */
 export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
+	private readonly uiState = inject(UI_STATE);
+	private readonly stackService = inject(STACK_SERVICE);
+	private readonly hooksService = inject(HOOKS_SERVICE);
+
 	constructor(
 		private projectId: string,
-		private readonly stackService: StackService,
-		private readonly hooksService: HooksService,
 		private stackId: string,
 		private runHooks: boolean,
 		private commit: DzCommitData,
 		private onresult: (result: string) => void,
-		private readonly uiState: UiState,
 	) {}
 	accepts(data: unknown): boolean {
 		if (!(data instanceof FileChangeDropData || data instanceof FolderChangeDropData)) return false;
@@ -156,10 +158,10 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 
 export class UncommitDzHandler implements DropzoneHandler {
 	private readonly uiState = inject(UI_STATE);
+	private readonly stackService = inject(STACK_SERVICE);
 
 	constructor(
 		private projectId: string,
-		private readonly stackService: StackService,
 		private readonly assignTo?: string,
 	) {}
 
@@ -250,11 +252,11 @@ export class UncommitDzHandler implements DropzoneHandler {
  */
 export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 	private readonly uiState = inject(UI_STATE);
+	private readonly stackService = inject(STACK_SERVICE);
+	private readonly hooksService = inject(HOOKS_SERVICE);
 
 	constructor(
 		private args: {
-			stackService: StackService;
-			hooksService: HooksService;
 			okWithForce: boolean;
 			projectId: string;
 			stackId: string;
@@ -276,7 +278,7 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 	}
 
 	async ondrop(data: HunkDropDataV3): Promise<void> {
-		const { stackService, projectId, stackId, commit, okWithForce, runHooks } = this.args;
+		const { projectId, stackId, commit, okWithForce, runHooks } = this.args;
 		if (!okWithForce && commit.isRemote) return;
 
 		if (data instanceof HunkDropDataV3) {
@@ -288,7 +290,7 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 					throw new Error("Can't receive a change without it's source or commit");
 				}
 
-				const { replacedCommits } = await stackService.moveChangesBetweenCommits({
+				const { replacedCommits } = await this.stackService.moveChangesBetweenCommits({
 					projectId,
 					destinationStackId: stackId,
 					destinationCommitId: commit.id,
@@ -334,12 +336,12 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 
 			if (runHooks) {
 				try {
-					await this.args.hooksService.runPreCommitHooks(projectId, worktreeChanges);
+					await this.hooksService.runPreCommitHooks(projectId, worktreeChanges);
 				} catch {
 					return;
 				}
 			}
-			stackService.amendCommitMutation({
+			this.stackService.amendCommitMutation({
 				projectId,
 				stackId,
 				commitId: commit.id,
@@ -347,7 +349,7 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 			});
 			if (runHooks) {
 				try {
-					await this.args.hooksService.runPostCommitHooks(projectId);
+					await this.hooksService.runPostCommitHooks(projectId);
 				} catch {
 					return;
 				}
@@ -360,9 +362,10 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
  * Handler that is able to squash two commits using `DzCommitData`.
  */
 export class SquashCommitDzHandler implements DropzoneHandler {
+	private readonly stackService = inject(STACK_SERVICE);
+
 	constructor(
 		private args: {
-			stackService: StackService;
 			projectId: string;
 			stackId: string;
 			commit: DzCommitData;
@@ -381,9 +384,9 @@ export class SquashCommitDzHandler implements DropzoneHandler {
 	}
 
 	async ondrop(data: unknown) {
-		const { stackService, projectId, stackId, commit } = this.args;
+		const { projectId, stackId, commit } = this.args;
 		if (data instanceof CommitDropData) {
-			await stackService.squashCommits({
+			await this.stackService.squashCommits({
 				projectId,
 				stackId,
 				sourceCommitIds: [data.commit.id],
@@ -413,8 +416,6 @@ function updateUiState(
 export function createCommitDropHandlers(args: {
 	projectId: string;
 	stackId: string | undefined;
-	stackService: StackService;
-	hooksService: HooksService;
 	commit: DzCommitData;
 	runHooks: boolean;
 	onCommitIdChange?: (newCommitId: string) => void;
@@ -436,27 +437,21 @@ export function createCommitDropHandlers(args: {
 
 	const amendHandler = new AmendCommitWithChangeDzHandler(
 		args.projectId,
-		args.stackService,
-		args.hooksService,
 		stackId,
 		args.runHooks,
 		commit,
 		(newId) => {
 			onCommitIdChange?.(newId);
 		},
-		args.uiState,
 	);
 
 	const squashHandler = new SquashCommitDzHandler({
-		stackService: args.stackService,
 		projectId: args.projectId,
 		stackId,
 		commit,
 	});
 
 	const hunkHandler = new AmendCommitWithHunkDzHandler({
-		stackService: args.stackService,
-		hooksService: args.hooksService,
 		projectId: args.projectId,
 		stackId,
 		commit,

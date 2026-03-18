@@ -148,8 +148,6 @@
 				? createCommitDropHandlers({
 						projectId: controller.projectId,
 						stackId: controller.stackId,
-						stackService,
-						hooksService,
 						commit: dzCommit,
 						runHooks: $runHooks,
 						okWithForce: true,

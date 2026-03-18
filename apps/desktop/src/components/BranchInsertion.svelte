@@ -4,7 +4,6 @@
 	import Dropzone from "$components/Dropzone.svelte";
 	import { MoveBranchDzHandler } from "$lib/branches/dropHandler";
 	import type { ForgePrService } from "$lib/forge/interface/forgePrService";
-	import type { StackService } from "$lib/stacks/stackService.svelte";
 
 	interface Props {
 		projectId: string;
@@ -13,7 +12,6 @@
 		lineColor: string;
 		isCommitting: boolean;
 		baseBranchName: string | undefined;
-		stackService: StackService;
 		prService: ForgePrService | undefined;
 		isFirst?: boolean;
 	}
@@ -25,7 +23,6 @@
 		lineColor,
 		isCommitting,
 		baseBranchName,
-		stackService,
 		prService,
 		isFirst = false,
 	}: Props = $props();
@@ -33,7 +30,6 @@
 
 {#if !isCommitting && baseBranchName}
 	{@const moveBranchHandler = new MoveBranchDzHandler(
-		stackService,
 		prService,
 		projectId,
 		stackId,

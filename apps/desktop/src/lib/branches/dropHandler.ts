@@ -1,11 +1,11 @@
 import { FileChangeDropData, FolderChangeDropData, HunkDropDataV3 } from "$lib/dragging/draggables";
 import { updateStackPrs } from "$lib/forge/shared/prFooter";
 import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 import { UI_STATE } from "$lib/state/uiState.svelte";
 import { inject } from "@gitbutler/core/context";
 import type { DropzoneHandler } from "$lib/dragging/handler";
 import type { ForgePrService } from "$lib/forge/interface/forgePrService";
-import type { StackService } from "$lib/stacks/stackService.svelte";
 
 export class BranchDropData {
 	constructor(
@@ -24,8 +24,9 @@ export class BranchDropData {
 }
 
 export class MoveBranchDzHandler implements DropzoneHandler {
+	private readonly stackService = inject(STACK_SERVICE);
+
 	constructor(
-		private readonly stackService: StackService,
 		private readonly prService: ForgePrService | undefined,
 		private readonly projectId: string,
 		private readonly stackId: string,

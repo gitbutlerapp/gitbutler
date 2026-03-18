@@ -18,7 +18,6 @@
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { createWorktreeSelection } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
-	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject, injectOptional } from "@gitbutler/core/context";
 
@@ -61,7 +60,6 @@
 	// Create a unique persist ID based on stackId and mode (both are static props)
 	const persistId = stackId ? `worktree-${mode}-${stackId}` : `worktree-${mode}`;
 
-	const stackService = inject(STACK_SERVICE);
 	const diffService = inject(DIFF_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const uiState = inject(UI_STATE);
@@ -80,7 +78,7 @@
 	// Create selectionId for this worktree lane
 	const selectionId = $derived(createWorktreeSelection({ stackId }));
 
-	const uncommitDzHandler = $derived(new UncommitDzHandler(projectId, stackService, stackId));
+	const uncommitDzHandler = $derived(new UncommitDzHandler(projectId, stackId));
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
