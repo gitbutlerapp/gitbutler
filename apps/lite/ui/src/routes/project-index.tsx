@@ -79,6 +79,19 @@ const getBranchNameByCommitId = (headInfo: RefInfo): Map<string, string> => {
 	return byCommitId;
 };
 
+const getStackIdByCommitId = (headInfo: RefInfo): Map<string, string> => {
+	const byCommitId = new Map<string, string>();
+
+	for (const stack of headInfo.stacks) {
+		if (stack.id == null) continue;
+
+		for (const segment of stack.segments)
+			for (const commit of segment.commits) byCommitId.set(commit.id, stack.id);
+	}
+
+	return byCommitId;
+};
+
 const DependencyIndicator: FC<{
 	projectId: string;
 	commitIds: NonEmptyArray<string>;
@@ -527,34 +540,44 @@ type Selection =
 			path?: string;
 	  };
 
+const normalizeSelection = (
+	selection: Selection,
+	stackIdByCommitId: Map<string, string>,
+): Selection | null =>
+	Match.value(selection).pipe(
+		Match.tag("changes", (selection) => selection),
+		Match.tag("commit", (selection) => {
+			const stackId = stackIdByCommitId.get(selection.commitId);
+			if (stackId === undefined) return null;
+			if (stackId !== selection.stackId) return null;
+			return selection;
+		}),
+		Match.exhaustive,
+	);
+
 const Preview: FC<{
 	projectId: string;
 	selection: Selection;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, selection, onDependencyHover }) => (
-	<div>
-		<Suspense fallback={<div>Loading diff…</div>}>
-			{Match.value(selection).pipe(
-				Match.tag("changes", ({ stackId, path }) => (
-					<ChangesFileDiff
-						projectId={projectId}
-						stackId={stackId}
-						path={path}
-						onDependencyHover={onDependencyHover}
-					/>
-				)),
-				Match.tag("commit", ({ commitId, path }) =>
-					path !== undefined ? (
-						<CommitFileDiff projectId={projectId} commitId={commitId} path={path} />
-					) : (
-						<ShowCommit projectId={projectId} commitId={commitId} />
-					),
-				),
-				Match.exhaustive,
-			)}
-		</Suspense>
-	</div>
-);
+}> = ({ projectId, selection, onDependencyHover }) =>
+	Match.value(selection).pipe(
+		Match.tag("changes", ({ stackId, path }) => (
+			<ChangesFileDiff
+				projectId={projectId}
+				stackId={stackId}
+				path={path}
+				onDependencyHover={onDependencyHover}
+			/>
+		)),
+		Match.tag("commit", ({ commitId, path }) =>
+			path !== undefined ? (
+				<CommitFileDiff projectId={projectId} commitId={commitId} path={path} />
+			) : (
+				<ShowCommit projectId={projectId} commitId={commitId} />
+			),
+		),
+		Match.exhaustive,
+	);
 
 const RubTarget: FC<
 	{
@@ -983,7 +1006,7 @@ const StackC: FC<{
 	const changesChangeUnit: ChangeUnit = { _tag: "changes", stackId };
 
 	return (
-		<div>
+		<div className={styles.stack}>
 			<Menu.Root>
 				<Menu.Trigger className={styles.stackMenu} style={{ lineHeight: 1 }}>
 					𑁔
@@ -1060,11 +1083,6 @@ const StackC: FC<{
 const ProjectPage: FC = () => {
 	const { id: projectId } = projectRootRoute.useParams();
 
-	const [selection, select] = useLocalStorageState<Selection | null>(
-		`project:${projectId}:workspace:selection`,
-		{ defaultValue: null },
-	);
-
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 	const [draggedSourceItem, setDraggedSourceItem] = useState<SourceItem | null>(null);
 
@@ -1074,6 +1092,13 @@ const ProjectPage: FC = () => {
 
 	// TODO: handle project not found error. or only run when project is not null? waterfall.
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
+
+	const [_selection, select] = useLocalStorageState<Selection | null>(
+		`project:${projectId}:workspace:selection`,
+		{ defaultValue: null },
+	);
+	const commitStackIds = getStackIdByCommitId(headInfo);
+	const selection = _selection ? normalizeSelection(_selection, commitStackIds) : null;
 
 	useMonitorDraggedSourceItem({ projectId, setDraggedSourceItem });
 
@@ -1134,11 +1159,13 @@ const ProjectPage: FC = () => {
 				projectId={projectId}
 				preview={
 					selection && (
-						<Preview
-							projectId={projectId}
-							selection={selection}
-							onDependencyHover={highlightCommits}
-						/>
+						<Suspense fallback={<div>Loading diff…</div>}>
+							<Preview
+								projectId={projectId}
+								selection={selection}
+								onDependencyHover={highlightCommits}
+							/>
+						</Suspense>
 					)
 				}
 			>

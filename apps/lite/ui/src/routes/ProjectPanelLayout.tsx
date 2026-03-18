@@ -20,13 +20,11 @@ export const ProjectPanelLayout: FC<{
 	children: ReactNode;
 	preview: ReactNode | null;
 }> = ({ children, projectId, preview }) => {
-	const [_showPreviewPanel, setShowPreviewPanel] = usePreviewVisible();
-	const [_showPreviewFullscreen, setShowPreviewFullscreen] = useLocalStorageState(
+	const [showPreviewPanel, setShowPreviewPanel] = usePreviewVisible();
+	const [showPreviewFullscreen, setShowPreviewFullscreen] = useLocalStorageState(
 		`project:${projectId}:showPreviewFullscreen`,
 		{ defaultValue: false },
 	);
-	const showPreviewPanel = _showPreviewPanel && preview !== null;
-	const showPreviewFullscreen = _showPreviewFullscreen && preview !== null;
 	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
 		id: `project:${projectId}:layout`,
 		panelIds: showPreviewPanel ? ["primary", "preview"] : ["primary"],
@@ -35,7 +33,7 @@ export const ProjectPanelLayout: FC<{
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
 		if (event.defaultPrevented || event.repeat) return;
 		if (event.metaKey || event.ctrlKey || event.altKey) return;
-		if (preview === null || isTypingTarget(event.target)) return;
+		if (isTypingTarget(event.target)) return;
 
 		switch (event.key.toLowerCase()) {
 			case shortcutKeys.togglePreview:
@@ -70,7 +68,7 @@ export const ProjectPanelLayout: FC<{
 				{showPreviewPanel && (
 					<>
 						<Separator className={sharedStyles.previewResizeHandle} />
-						<Panel id="preview" minSize={300} defaultSize="50%">
+						<Panel id="preview" minSize={300} defaultSize="30%">
 							<div className={sharedStyles.previewPane}>
 								<button
 									type="button"
@@ -86,18 +84,16 @@ export const ProjectPanelLayout: FC<{
 					</>
 				)}
 			</Group>
-			{preview !== null && (
-				<Dialog.Root open={showPreviewFullscreen} onOpenChange={setShowPreviewFullscreen}>
-					<Dialog.Portal>
-						<Dialog.Popup aria-label="Preview" className={sharedStyles.previewDialogPopup}>
-							<Dialog.Close>
-								Close fullscreen ({shortcutKeys.toggleFullscreenPreview}/esc)
-							</Dialog.Close>
-							{preview}
-						</Dialog.Popup>
-					</Dialog.Portal>
-				</Dialog.Root>
-			)}
+			<Dialog.Root open={showPreviewFullscreen} onOpenChange={setShowPreviewFullscreen}>
+				<Dialog.Portal>
+					<Dialog.Popup aria-label="Preview" className={sharedStyles.previewDialogPopup}>
+						<Dialog.Close>
+							Close fullscreen ({shortcutKeys.toggleFullscreenPreview}/esc)
+						</Dialog.Close>
+						{preview}
+					</Dialog.Popup>
+				</Dialog.Portal>
+			</Dialog.Root>
 		</>
 	);
 };

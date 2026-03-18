@@ -96,7 +96,7 @@ const TopBar: FC = () => {
 						setPreviewVisible((visible) => !visible);
 					}}
 				>
-					{previewVisible ? <>Hide preview</> : <>Show preview</>} ({shortcutKeys.togglePreview})
+					Toggle preview ({shortcutKeys.togglePreview})
 				</button>
 			)}
 		</header>
