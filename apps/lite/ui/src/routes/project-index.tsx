@@ -18,10 +18,10 @@ import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { createContext, FC, Suspense, useContext, useEffect, useState } from "react";
 import styles from "./project-index.module.css";
 import sharedStyles from "./project-shared.module.css";
-import { PreviewVisibleContext } from "#ui/contexts/PreviewVisibleContext.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
+import { ProjectPanelLayout } from "#ui/routes/ProjectPanelLayout.tsx";
 import {
 	CommitDetails,
 	CommitLabel,
@@ -32,7 +32,6 @@ import {
 	FileButton,
 	FileDiff,
 	Hunk,
-	assert,
 	type SourceItem,
 } from "#ui/routes/project-shared.tsx";
 import {
@@ -1015,7 +1014,6 @@ const ProjectPage: FC = () => {
 		`project:${projectId}:workspace:selection`,
 		null,
 	);
-	const [previewVisible] = assert(useContext(PreviewVisibleContext));
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 	const [draggedSourceItem, setDraggedSourceItem] = useState<SourceItem | null>(null);
@@ -1082,8 +1080,19 @@ const ProjectPage: FC = () => {
 
 	return (
 		<DraggedSourceItemContext.Provider value={draggedSourceItem}>
-			<div className={sharedStyles.pageWithPreview}>
-				<div className={sharedStyles.primaryPane}>
+			<ProjectPanelLayout
+				projectId={projectId}
+				preview={
+					selection && (
+						<Preview
+							projectId={projectId}
+							selection={selection}
+							onDependencyHover={highlightCommits}
+						/>
+					)
+				}
+			>
+				<>
 					<div className={sharedStyles.lanes}>
 						<div className={sharedStyles.commitsLane}>
 							<h3>Unassigned changes</h3>
@@ -1129,18 +1138,8 @@ const ProjectPage: FC = () => {
 					</div>
 
 					{baseId !== undefined && <div>{shortCommitId(baseId)} (common base commit)</div>}
-				</div>
-
-				{selection !== null && previewVisible && (
-					<div className={sharedStyles.previewPane}>
-						<Preview
-							projectId={projectId}
-							selection={selection}
-							onDependencyHover={highlightCommits}
-						/>
-					</div>
-				)}
-			</div>
+				</>
+			</ProjectPanelLayout>
 		</DraggedSourceItemContext.Provider>
 	);
 };
