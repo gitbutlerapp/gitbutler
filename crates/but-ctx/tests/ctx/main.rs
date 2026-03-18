@@ -97,3 +97,18 @@ fn sync_context_preserves_project_data_dir() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn memory_cache_does_not_create_project_cache_file() -> anyhow::Result<()> {
+    let repo_dir = TempDir::new()?;
+    gix::init(repo_dir.path())?;
+    let repo = open_repo(repo_dir.path())?;
+    let ctx = Context::from_repo(repo)?.with_memory_cache();
+
+    let _cache = ctx.cache.get_cache()?;
+    assert!(
+        !ctx.project_data_dir().join("but_cache.sqlite").exists(),
+        "project cache should remain in-memory"
+    );
+    Ok(())
+}

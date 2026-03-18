@@ -99,6 +99,7 @@ pub struct Context {
     pub project_data_dir: PathBuf,
     /// The directory to store application caches in.
     pub app_cache_dir: Option<PathBuf>,
+    cache_mode: CacheMode,
     /// How repositories opened through this context should source their configuration.
     pub repo_open_mode: RepoOpenMode,
     /// The most recently opened repository of the project, which also provides access to the `git_dir`.
@@ -138,6 +139,7 @@ pub struct ThreadSafeContext {
     pub project_data_dir: PathBuf,
     /// The directory to store application caches in.
     pub app_cache_dir: Option<PathBuf>,
+    cache_mode: CacheMode,
     /// How repositories opened through this context should source their configuration.
     pub repo_open_mode: RepoOpenMode,
     /// The most recently opened repository of the project, which also provides access to the `git_dir`.
@@ -154,6 +156,7 @@ impl From<ThreadSafeContext> for Context {
             gitdir,
             project_data_dir,
             app_cache_dir,
+            cache_mode,
             repo_open_mode,
             repo,
             #[cfg(feature = "legacy")]
@@ -169,11 +172,12 @@ impl From<ThreadSafeContext> for Context {
             repo: ondemand,
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(project_data_dir.clone()),
-            cache: new_ondemand_cache(project_data_dir.clone()),
-            app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
+            cache: new_ondemand_cache(project_data_dir.clone(), cache_mode),
+            app_cache: new_ondemand_app_cache(app_cache_dir.clone(), cache_mode),
             gitdir,
             project_data_dir,
             app_cache_dir,
+            cache_mode,
             #[cfg(feature = "legacy")]
             legacy_project,
             workspace: Default::default(),
@@ -232,6 +236,13 @@ pub enum RepoOpenMode {
     Isolated,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+enum CacheMode {
+    #[default]
+    Disk,
+    Memory,
+}
+
 /// Lifecycle
 impl Context {
     /// Create a new instance from just the `gitdir` of the repository we should provide context for.
@@ -268,12 +279,13 @@ impl Context {
                 gitdir: gitdir.clone(),
                 project_data_dir: project_data_dir.clone(),
                 settings,
+                cache_mode: CacheMode::Disk,
                 repo_open_mode,
                 repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(project_data_dir.clone()),
-                cache: new_ondemand_cache(project_data_dir),
-                app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
+                cache: new_ondemand_cache(project_data_dir, CacheMode::Disk),
+                app_cache: new_ondemand_app_cache(app_cache_dir.clone(), CacheMode::Disk),
                 app_cache_dir,
                 workspace: Default::default(),
             }
@@ -287,17 +299,19 @@ impl Context {
                 .context("Bare repositories aren't yet supported.")?;
             let legacy_project = LegacyProject::find_by_worktree_dir(worktree_dir)
                 .unwrap_or_else(|_| default_legacy_project_at_repo(&repo));
+            let cache_mode = CacheMode::Disk;
             Ok(Context {
                 settings,
                 gitdir: gitdir.clone(),
                 project_data_dir: project_data_dir.clone(),
+                cache_mode,
                 repo_open_mode,
                 legacy_project,
                 repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(project_data_dir.clone()),
-                cache: new_ondemand_cache(project_data_dir),
-                app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
+                cache: new_ondemand_cache(project_data_dir, cache_mode),
+                app_cache: new_ondemand_app_cache(app_cache_dir.clone(), cache_mode),
                 app_cache_dir,
                 workspace: Default::default(),
             }
@@ -369,17 +383,19 @@ impl Context {
             let legacy_project = LegacyProject::find_by_worktree_dir(worktree_dir)
                 .unwrap_or_else(|_| default_legacy_project_at_repo(&repo));
             let gitdir = repo.git_dir().to_owned();
+            let cache_mode = CacheMode::Disk;
             Ok(Context {
                 settings: app_settings(but_path::app_config_dir()?)?,
                 gitdir: gitdir.clone(),
                 project_data_dir: project_data_dir.clone(),
+                cache_mode,
                 repo_open_mode,
                 legacy_project,
                 repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(project_data_dir.clone()),
-                cache: new_ondemand_cache(project_data_dir),
-                app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
+                cache: new_ondemand_cache(project_data_dir, cache_mode),
+                app_cache: new_ondemand_app_cache(app_cache_dir.clone(), cache_mode),
                 app_cache_dir,
                 workspace: Default::default(),
             }
@@ -389,16 +405,18 @@ impl Context {
         #[cfg(not(feature = "legacy"))]
         {
             let gitdir = repo.git_dir().to_owned();
+            let cache_mode = CacheMode::Disk;
             Ok(crate::Context {
                 gitdir: gitdir.clone(),
                 project_data_dir: project_data_dir.clone(),
                 settings: app_settings(but_path::app_config_dir()?)?,
+                cache_mode,
                 repo_open_mode,
                 repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
                 db: new_ondemand_db(project_data_dir.clone()),
-                cache: new_ondemand_cache(project_data_dir),
-                app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
+                cache: new_ondemand_cache(project_data_dir, cache_mode),
+                app_cache: new_ondemand_app_cache(app_cache_dir.clone(), cache_mode),
                 app_cache_dir,
                 workspace: Default::default(),
             }
@@ -422,18 +440,20 @@ impl Context {
                 RepoOpenMode::Standard
             };
 
+        let cache_mode = CacheMode::Disk;
         Ok(Context {
             #[cfg(feature = "legacy")]
             legacy_project: default_legacy_project_at_repo(&repo),
             gitdir: gitdir.clone(),
             project_data_dir: project_data_dir.clone(),
             settings,
+            cache_mode,
             repo_open_mode,
             repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(project_data_dir.clone()),
-            cache: new_ondemand_cache(project_data_dir),
-            app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
+            cache: new_ondemand_cache(project_data_dir, cache_mode),
+            app_cache: new_ondemand_app_cache(app_cache_dir.clone(), cache_mode),
             app_cache_dir,
             workspace: Default::default(),
         }
@@ -449,6 +469,17 @@ impl Context {
     /// Use `repo` instead of the default repository that would be opened on first query.
     pub fn with_repo(mut self, repo: gix::Repository) -> Self {
         self.repo.assign(repo);
+        self
+    }
+
+    /// Use in-memory caches instead of project/app cache files.
+    ///
+    /// This is useful for read-only contexts so cache access doesn't create SQLite files on disk.
+    /// Prefer calling it before the first cache access.
+    pub fn with_memory_cache(mut self) -> Self {
+        self.cache_mode = CacheMode::Memory;
+        self.cache = new_ondemand_cache(self.project_data_dir.clone(), self.cache_mode);
+        self.app_cache = new_ondemand_app_cache(self.app_cache_dir.clone(), self.cache_mode);
         self
     }
 }
@@ -907,6 +938,7 @@ impl Context {
             gitdir: self.gitdir.clone(),
             project_data_dir: self.project_data_dir.clone(),
             app_cache_dir: self.app_cache_dir.clone(),
+            cache_mode: self.cache_mode,
             repo_open_mode: self.repo_open_mode,
             repo: self.repo.get_opt().clone().map(|r| r.into_sync()),
             #[cfg(feature = "legacy")]
@@ -926,6 +958,7 @@ impl Context {
             cache: _,
             app_cache: _,
             app_cache_dir,
+            cache_mode,
             repo_open_mode,
             #[cfg(feature = "legacy")]
             legacy_project,
@@ -936,6 +969,7 @@ impl Context {
             gitdir,
             project_data_dir,
             app_cache_dir,
+            cache_mode,
             repo_open_mode,
             repo: repo.take().map(|r| r.into_sync()),
             #[cfg(feature = "legacy")]
@@ -1052,13 +1086,25 @@ fn new_ondemand_db(project_data_dir: PathBuf) -> OnDemand<but_db::DbHandle> {
 }
 
 #[instrument(level = "trace")]
-fn new_ondemand_cache(project_data_dir: PathBuf) -> OnDemandCache<but_db::CacheHandle> {
-    OnDemandCache::new(move || but_db::CacheHandle::new_in_directory(project_data_dir.clone()))
+fn new_ondemand_cache(
+    project_data_dir: PathBuf,
+    cache_mode: CacheMode,
+) -> OnDemandCache<but_db::CacheHandle> {
+    OnDemandCache::new(move || match cache_mode {
+        CacheMode::Disk => but_db::CacheHandle::new_in_directory(project_data_dir.clone()),
+        CacheMode::Memory => but_db::CacheHandle::new_at_path(":memory:"),
+    })
 }
 
 #[instrument(level = "trace")]
-fn new_ondemand_app_cache(cache_dir: Option<PathBuf>) -> OnDemandCache<but_db::AppCacheHandle> {
-    OnDemandCache::new(move || but_db::AppCacheHandle::new_in_directory(cache_dir.clone()))
+fn new_ondemand_app_cache(
+    cache_dir: Option<PathBuf>,
+    cache_mode: CacheMode,
+) -> OnDemandCache<but_db::AppCacheHandle> {
+    OnDemandCache::new(move || match cache_mode {
+        CacheMode::Disk => but_db::AppCacheHandle::new_in_directory(cache_dir.clone()),
+        CacheMode::Memory => but_db::AppCacheHandle::new_at_path(":memory:"),
+    })
 }
 
 fn app_settings(config_dir: impl AsRef<Path>) -> anyhow::Result<AppSettings> {

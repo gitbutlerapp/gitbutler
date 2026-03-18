@@ -103,8 +103,12 @@ pub type Error = ::backoff::Error<rusqlite::Error>;
 pub fn backoff<T, E>(
     operation: impl FnMut() -> Result<T, ::backoff::Error<E>>,
 ) -> Result<T, ::backoff::Error<E>> {
+    // Set this value reasonably high as strong contention can actually lead to failures
+    // if the value is too low (500ms previously). The idea is that failures basically never
+    // happen, but with a low value they are just more likely.
+    let max_duration = std::time::Duration::from_millis(2500);
     let policy = ::backoff::ExponentialBackoffBuilder::new()
-        .with_max_elapsed_time(Some(std::time::Duration::from_millis(500)))
+        .with_max_elapsed_time(Some(max_duration))
         .build();
     ::backoff::retry(policy, operation)
 }
