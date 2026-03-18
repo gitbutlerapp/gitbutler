@@ -371,7 +371,7 @@ impl HunkAssignment {
     }
 }
 
-/// Sets the assignment for a hunk. It must be already present in the current assignments, errors out if it isn't.
+/// Applies assignment requests by reconciling them with the current worktree and persisted assignments.
 /// Persists the updated assignments and returns `Ok(())` on success.
 ///
 /// `context_lines` determines the amount of context lines in diffs, and it should match the UI.
