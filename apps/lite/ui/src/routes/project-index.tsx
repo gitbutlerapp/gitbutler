@@ -354,7 +354,7 @@ const DraggableFile: FC<
 	});
 };
 
-const SelectedChangesFileDiff: FC<{
+const ChangesFileDiff: FC<{
 	projectId: string;
 	stackId: string | null;
 	path: string;
@@ -405,7 +405,7 @@ const SelectedChangesFileDiff: FC<{
 	);
 };
 
-const SelectedCommitFileDiff: FC<{
+const CommitFileDiff: FC<{
 	projectId: string;
 	commitId: string;
 	path: string;
@@ -428,7 +428,7 @@ const SelectedCommitFileDiff: FC<{
 	);
 };
 
-const SelectedCommitDiff: FC<{
+const ShowCommit: FC<{
 	projectId: string;
 	commitId: string;
 }> = ({ projectId, commitId }) => {
@@ -841,7 +841,7 @@ const UnassignedLane: FC<{
 			{selection !== null && (
 				<div className={sharedStyles.laneDiffColumn}>
 					<Suspense fallback={<div>Loading diff…</div>}>
-						<SelectedChangesFileDiff
+						<ChangesFileDiff
 							projectId={projectId}
 							stackId={null}
 							path={selection.path}
@@ -1051,7 +1051,7 @@ const StackLane: FC<{
 					<Suspense fallback={<div>Loading diff…</div>}>
 						{Match.value(selection).pipe(
 							Match.tag("changes", ({ path }) => (
-								<SelectedChangesFileDiff
+								<ChangesFileDiff
 									projectId={projectId}
 									stackId={stackId}
 									path={path}
@@ -1060,9 +1060,9 @@ const StackLane: FC<{
 							)),
 							Match.tag("commit", ({ commitId, path }) =>
 								path !== undefined ? (
-									<SelectedCommitFileDiff projectId={projectId} commitId={commitId} path={path} />
+									<CommitFileDiff projectId={projectId} commitId={commitId} path={path} />
 								) : (
-									<SelectedCommitDiff projectId={projectId} commitId={commitId} />
+									<ShowCommit projectId={projectId} commitId={commitId} />
 								),
 							),
 							Match.exhaustive,
