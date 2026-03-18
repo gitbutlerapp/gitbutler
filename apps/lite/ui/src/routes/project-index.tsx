@@ -444,16 +444,16 @@ const SelectedCommitDiff: FC<{
 
 	return (
 		<>
-			<h4>
+			<h3>
 				<CommitLabel commit={data.commit} />
-			</h4>
+			</h3>
 			{commitMessageBody !== "" && (
 				<p className={styles.selectedCommitMessageBody}>{commitMessageBody}</p>
 			)}
 			<ul className={sharedStyles.hunks}>
 				{data.changes.map((change) => (
 					<li key={change.path}>
-						<h5>{change.path}</h5>
+						<h4>{change.path}</h4>
 						<FileDiff
 							projectId={projectId}
 							change={change}
