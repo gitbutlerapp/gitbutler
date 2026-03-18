@@ -798,8 +798,7 @@ const CommitForm: FC<{
 
 	const commit = useMutation(commitMutationOptions);
 
-	const disabled =
-		commit.isPending || !relativeTo || diffSpecs.length === 0 || message.trim().length === 0;
+	const disabled = commit.isPending || !relativeTo || diffSpecs.length === 0;
 
 	return (
 		<form
