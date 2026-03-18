@@ -523,36 +523,51 @@ pub(crate) mod function {
         cache: &mut but_db::CacheHandle,
     ) -> anyhow::Result<()> {
         let mut seen_pending = HashSet::<gix::ObjectId>::new();
-        let mut resolved = HashMap::<gix::ObjectId, but_core::ChangeId>::new();
-        let mut generated = Vec::<(gix::ObjectId, but_core::ChangeId)>::new();
-        let mut trans = cache.deferred_transaction()?;
-
-        let looked_up = trans.commit_metadata().change_ids_for_commits(
-            visit_ref_info_commits_mut_iter(info).filter_map(|commit| {
+        let pending: Vec<_> = visit_ref_info_commits_mut_iter(info)
+            .filter_map(|commit| {
                 (commit.change_id.is_none() && seen_pending.insert(commit.id)).then_some(commit.id)
-            }),
-        )?;
-        for (commit_id, change_id) in looked_up {
-            let change_id = match change_id {
-                Some(change_id) => change_id,
-                None => {
-                    let change_id = but_core::ChangeId::generate();
-                    generated.push((commit_id, change_id.clone()));
-                    change_id
-                }
-            };
-            resolved.insert(commit_id, change_id);
+            })
+            .collect();
+        if pending.is_empty() {
+            return Ok(());
         }
+
+        let mut resolved = but_db::backoff(|| -> Result<_, but_db::Error> {
+            let mut generated = Vec::<(gix::ObjectId, but_core::ChangeId)>::new();
+            let mut trans = cache.deferred_transaction().map_err(but_db::map_err)?;
+            let looked_up = trans
+                .commit_metadata()
+                .change_ids_for_commits(pending.iter().copied())
+                .map_err(but_db::map_err)?;
+            let mut resolved = HashMap::<gix::ObjectId, but_core::ChangeId>::new();
+            for (commit_id, change_id) in looked_up {
+                let change_id = match change_id {
+                    Some(change_id) => change_id,
+                    None => {
+                        let change_id = but_core::ChangeId::generate();
+                        generated.push((commit_id, change_id.clone()));
+                        change_id
+                    }
+                };
+                resolved.insert(commit_id, change_id);
+            }
+
+            if !generated.is_empty() {
+                trans
+                    .commit_metadata_mut()
+                    .map_err(but_db::map_err)?
+                    .set_change_ids(generated)
+                    .map_err(but_db::map_err)?;
+                trans.commit().map_err(but_db::map_err)?;
+            }
+
+            Ok(resolved)
+        })?;
 
         for commit in visit_ref_info_commits_mut_iter(info) {
             if commit.change_id.is_none() {
                 commit.change_id = resolved.remove(&commit.id);
             }
-        }
-
-        if !generated.is_empty() {
-            trans.commit_metadata_mut()?.set_change_ids(generated)?;
-            trans.commit()?
         }
 
         Ok(())

@@ -46,11 +46,7 @@ impl DbHandle {
 }
 
 fn run_migrations(conn: &mut rusqlite::Connection) -> anyhow::Result<()> {
-    let policy = backoff::ExponentialBackoffBuilder::new()
-        .with_max_elapsed_time(Some(std::time::Duration::from_millis(500)))
-        .build();
-
-    backoff::retry(policy, || {
+    crate::backoff(|| {
         let count = migration::run(conn, migration::ours())?;
         if count > 0 {
             tracing::info!("Database updated with {count} migrations");
