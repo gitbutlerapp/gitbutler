@@ -75,13 +75,17 @@ const SidebarNav: FC = () => {
 
 const RootLayout: FC = () => (
 	<main className={styles.layout}>
-		<aside className={styles.sidebar}>
+		<header className={styles.topBar}>
 			<ProjectSelect />
-			<SidebarNav />
-		</aside>
-		<section className={styles.content}>
-			<Outlet />
-		</section>
+		</header>
+		<div className={styles.mainContent}>
+			<aside className={styles.sidebar}>
+				<SidebarNav />
+			</aside>
+			<section className={styles.content}>
+				<Outlet />
+			</section>
+		</div>
 	</main>
 );
 

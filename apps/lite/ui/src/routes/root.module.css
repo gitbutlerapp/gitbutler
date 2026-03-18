@@ -1,7 +1,17 @@
 .layout {
 	display: grid;
-	grid-template-columns: max-content minmax(0, 1fr);
+	grid-template-rows: auto 1fr;
 	min-height: 100dvh;
+}
+
+.topBar {
+	padding: 4px;
+	border-bottom: 1px solid;
+}
+
+.mainContent {
+	display: grid;
+	grid-template-columns: max-content 1fr;
 }
 
 .sidebar {
