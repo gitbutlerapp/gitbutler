@@ -3,6 +3,7 @@ import { FC, ReactNode, useEffect, useEffectEvent } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import useLocalStorageState from "use-local-storage-state";
 import { usePreviewVisible } from "../hooks/usePreviewVisible";
+import { shortcutKeys } from "./shortcuts.ts";
 import sharedStyles from "./project-shared.module.css";
 
 const isTypingTarget = (target: EventTarget | null) => {
@@ -37,11 +38,11 @@ export const ProjectPanelLayout: FC<{
 		if (preview === null || isTypingTarget(event.target)) return;
 
 		switch (event.key.toLowerCase()) {
-			case "p":
+			case shortcutKeys.togglePreview:
 				event.preventDefault();
 				setShowPreviewPanel((x) => !x);
 				break;
-			case "d":
+			case shortcutKeys.toggleFullscreenPreview:
 				event.preventDefault();
 				setShowPreviewFullscreen((x) => !x);
 				break;
@@ -77,7 +78,7 @@ export const ProjectPanelLayout: FC<{
 										setShowPreviewFullscreen(true);
 									}}
 								>
-									Open fullscreen
+									Open fullscreen ({shortcutKeys.toggleFullscreenPreview})
 								</button>
 								{preview}
 							</div>
@@ -89,7 +90,9 @@ export const ProjectPanelLayout: FC<{
 				<Dialog.Root open={showPreviewFullscreen} onOpenChange={setShowPreviewFullscreen}>
 					<Dialog.Portal>
 						<Dialog.Popup aria-label="Preview" className={sharedStyles.previewDialogPopup}>
-							<Dialog.Close>Close fullscreen</Dialog.Close>
+							<Dialog.Close>
+								Close fullscreen ({shortcutKeys.toggleFullscreenPreview}/esc)
+							</Dialog.Close>
 							{preview}
 						</Dialog.Popup>
 					</Dialog.Portal>
