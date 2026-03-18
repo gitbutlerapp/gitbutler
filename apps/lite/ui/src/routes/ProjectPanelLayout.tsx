@@ -1,17 +1,26 @@
 import { Dialog } from "@base-ui/react";
-import { FC, ReactNode, useContext } from "react";
+import { FC, ReactNode, useContext, useEffect, useEffectEvent } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import { ShowPreviewPanelContext } from "#ui/contexts/ShowPreviewPanelContext.ts";
 import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
 import { assert } from "#ui/routes/project-shared.tsx";
 import sharedStyles from "./project-shared.module.css";
 
+const isTypingTarget = (target: EventTarget | null) => {
+	if (!(target instanceof HTMLElement)) return false;
+	return (
+		target.isContentEditable ||
+		target instanceof HTMLInputElement ||
+		target instanceof HTMLTextAreaElement
+	);
+};
+
 export const ProjectPanelLayout: FC<{
 	projectId: string;
 	children: ReactNode;
 	preview: ReactNode | null;
 }> = ({ children, projectId, preview }) => {
-	const [_showPreviewPanel] = assert(useContext(ShowPreviewPanelContext));
+	const [_showPreviewPanel, setShowPreviewPanel] = assert(useContext(ShowPreviewPanelContext));
 	const [_showPreviewFullscreen, setShowPreviewFullscreen] = useLocalStorageState(
 		`project:${projectId}:showPreviewFullscreen`,
 		false,
@@ -22,6 +31,31 @@ export const ProjectPanelLayout: FC<{
 		id: `project:${projectId}:layout`,
 		panelIds: showPreviewPanel ? ["primary", "preview"] : ["primary"],
 	});
+
+	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
+		if (event.defaultPrevented || event.repeat) return;
+		if (event.metaKey || event.ctrlKey || event.altKey) return;
+		if (preview === null || isTypingTarget(event.target)) return;
+
+		switch (event.key.toLowerCase()) {
+			case "p":
+				event.preventDefault();
+				setShowPreviewPanel((x) => !x);
+				break;
+			case "d":
+				event.preventDefault();
+				setShowPreviewFullscreen((x) => !x);
+				break;
+		}
+	});
+
+	useEffect(() => {
+		window.addEventListener("keydown", handleKeyDown);
+
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+		};
+	}, []);
 
 	return (
 		<>
