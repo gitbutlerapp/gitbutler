@@ -476,11 +476,7 @@ fn reconcile_worktree_changes_with_worktree(
             diff.ok().flatten(),
         ));
     }
-    let reconciled = reconcile_with_worktree(
-        db.to_ref(),
-        workspace,
-        &worktree_assignments,
-    )?;
+    let reconciled = reconcile_with_worktree(db.to_ref(), workspace, &worktree_assignments)?;
 
     state::set_assignments(db, reconciled.clone())?;
     Ok(reconciled)
