@@ -11,10 +11,12 @@ use but_api::{
     commit::{commit_insert_blank, ui::RelativeTo},
     diff::ComputeLineStats,
 };
+use but_core::DiffSpec;
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
 use crossterm::event::{self, Event};
 use gitbutler_operating_modes::OperatingMode;
+use gitbutler_stack::StackId;
 use ratatui::{
     Frame,
     prelude::*,
@@ -36,11 +38,12 @@ use crate::{
         status::{
             StatusFlags, StatusOutput, StatusOutputLine, build_status_context, build_status_output,
             tui::{
-                cursor::Cursor,
+                cursor::{Cursor, is_selectable_in_mode},
                 key_bind::{KeyBinds, default_key_binds},
             },
         },
     },
+    id::{ShortId, UncommittedCliId},
     tui::{CrosstermTerminalGuard, TerminalGuard},
     utils::OutputChannel,
 };
@@ -55,6 +58,7 @@ mod rub_api;
 mod tests;
 
 const CURSOR_BG: Color = Color::Rgb(69, 71, 90);
+const NOOP: &str = "noop";
 
 pub(super) async fn render_tui(
     ctx: &mut Context,
@@ -274,6 +278,10 @@ impl App {
             Message::ShowError(err) => self.handle_show_error(err, messages),
             Message::Commit(commit_message) => match commit_message {
                 CommitMessage::CreateEmpty => self.handle_create_empty_commit(ctx, messages)?,
+                CommitMessage::Start => self.handle_commit_start(ctx),
+                CommitMessage::Confirm { with_message } => {
+                    self.handle_commit_confirm(ctx, messages, with_message)?
+                }
             },
             Message::Reword(reword_message) => match reword_message {
                 RewordMessage::WithEditor => {
@@ -317,10 +325,10 @@ impl App {
             .cloned()
             .collect::<Vec<_>>();
 
-        self.mode = Mode::Rub {
+        self.mode = Mode::Rub(RubMode {
             source: Arc::clone(cli_id),
             available_targets,
-        };
+        });
 
         if self
             .cursor
@@ -358,10 +366,10 @@ impl App {
             .cloned()
             .collect::<Vec<_>>();
 
-        self.mode = Mode::RubButApi {
+        self.mode = Mode::RubButApi(RubMode {
             source: Arc::clone(cli_id),
             available_targets,
-        };
+        });
 
         if self
             .cursor
@@ -391,10 +399,10 @@ impl App {
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
         let reload_message = match &self.mode {
-            Mode::Rub {
+            Mode::Rub(RubMode {
                 source,
                 available_targets: _,
-            } => {
+            }) => {
                 if let Some(selected_line) = self.cursor.selected_line(&self.status_lines)
                     && let Some(target) = selected_line.data.cli_id()
                     && let Some(operation) = route_operation(source, target)
@@ -403,10 +411,10 @@ impl App {
                 }
                 None
             }
-            Mode::RubButApi {
+            Mode::RubButApi(RubMode {
                 source,
                 available_targets: _,
-            } => {
+            }) => {
                 if let Some(selected_line) = self.cursor.selected_line(&self.status_lines)
                     && let Some(target) = selected_line.data.cli_id()
                     && let Some(operation) = route_operation(source, target)
@@ -423,7 +431,7 @@ impl App {
                     None
                 }
             }
-            Mode::Normal | Mode::InlineReword { .. } | Mode::Command { .. } => None,
+            Mode::Normal | Mode::InlineReword(..) | Mode::Command(..) | Mode::Commit(..) => None,
         };
 
         messages.extend([
@@ -567,6 +575,191 @@ impl App {
         Ok(())
     }
 
+    fn handle_commit_start(&mut self, ctx: &mut Context) {
+        if !matches!(self.mode, Mode::Normal) {
+            return;
+        }
+        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+            return;
+        };
+
+        let commit_mode = match &selection.data {
+            StatusOutputLineData::UnstagedChanges { cli_id } => {
+                let Ok(has_unassigned_changes) = has_unassigned_changes(ctx) else {
+                    return;
+                };
+                if !has_unassigned_changes {
+                    return;
+                }
+                let Ok(source) = CommitSource::try_from(Arc::unwrap_or_clone(Arc::clone(cli_id)))
+                else {
+                    return;
+                };
+                CommitMode {
+                    source: Arc::new(source),
+                    scope_to_stack: None,
+                }
+            }
+            StatusOutputLineData::UnstagedFile { cli_id } => {
+                let Ok(source) = CommitSource::try_from(Arc::unwrap_or_clone(Arc::clone(cli_id)))
+                else {
+                    return;
+                };
+                CommitMode {
+                    source: Arc::new(source),
+                    scope_to_stack: None,
+                }
+            }
+            StatusOutputLineData::StagedChanges { cli_id }
+            | StatusOutputLineData::StagedFile { cli_id } => {
+                let Ok(source) = CommitSource::try_from(Arc::unwrap_or_clone(Arc::clone(cli_id)))
+                else {
+                    return;
+                };
+                CommitMode {
+                    source: Arc::new(source),
+                    scope_to_stack: cli_id.stack_id(),
+                }
+            }
+            StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::Connector
+            | StatusOutputLineData::Branch { .. }
+            | StatusOutputLineData::Commit { .. }
+            | StatusOutputLineData::CommitMessage
+            | StatusOutputLineData::EmptyCommitMessage
+            | StatusOutputLineData::File { .. }
+            | StatusOutputLineData::MergeBase
+            | StatusOutputLineData::UpstreamChanges
+            | StatusOutputLineData::Warning
+            | StatusOutputLineData::Hint
+            | StatusOutputLineData::NoAssignmentsUnstaged => return,
+        };
+
+        self.mode = Mode::Commit(commit_mode);
+    }
+
+    fn handle_commit_confirm(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+        with_message: bool,
+    ) -> anyhow::Result<()> {
+        let Mode::Commit(CommitMode {
+            source,
+            scope_to_stack,
+        }) = &self.mode
+        else {
+            return Ok(());
+        };
+
+        // find target
+        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+            return Ok(());
+        };
+
+        if selection
+            .data
+            .cli_id()
+            .is_some_and(|target| **source == **target)
+        {
+            messages.push(Message::EnterNormalMode);
+            return Ok(());
+        }
+
+        let StatusOutputLineData::Branch { cli_id: target } = &selection.data else {
+            return Ok(());
+        };
+
+        let CliId::Branch {
+            name: target_branch_name,
+            ..
+        } = &**target
+        else {
+            return Ok(());
+        };
+        let target_full_name = {
+            let repo = ctx.repo.get()?;
+            let reference = repo.find_reference(target_branch_name)?;
+            RelativeTo::Reference(reference.name().to_owned())
+        };
+
+        // find what to commit
+        let changes_to_commit = match &**source {
+            CommitSource::Unassigned { .. } => {
+                let context_lines = ctx.settings.context_lines;
+                let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+                let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
+                let (assignments, _assignments_error) =
+                    but_hunk_assignment::assignments_with_fallback(
+                        db.hunk_assignments_mut()?,
+                        &repo,
+                        &ws,
+                        Some(changes),
+                        context_lines,
+                    )?;
+                assignments
+                    .into_iter()
+                    .filter(|assignment| assignment.stack_id.is_none())
+                    .map(DiffSpec::from)
+                    .collect::<Vec<_>>()
+            }
+            CommitSource::Uncommitted(uncommitted_cli_id) => uncommitted_cli_id
+                .hunk_assignments
+                .iter()
+                .filter(|assignment| &assignment.stack_id == scope_to_stack)
+                .cloned()
+                .map(DiffSpec::from)
+                .collect::<Vec<_>>(),
+            CommitSource::Stack { stack_id, .. } => {
+                let context_lines = ctx.settings.context_lines;
+                let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+                let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
+                let (assignments, _assignments_error) =
+                    but_hunk_assignment::assignments_with_fallback(
+                        db.hunk_assignments_mut()?,
+                        &repo,
+                        &ws,
+                        Some(changes),
+                        context_lines,
+                    )?;
+                assignments
+                    .into_iter()
+                    .filter(|assignment| assignment.stack_id.is_some_and(|id| &id == stack_id))
+                    .map(DiffSpec::from)
+                    .collect::<Vec<_>>()
+            }
+        };
+
+        // create commit
+        let commit_create_result = but_api::commit::commit_create(
+            ctx,
+            target_full_name,
+            InsertSide::Below,
+            changes_to_commit,
+            // we reword the commit with the editor before the next render
+            String::new(),
+        )
+        .context("failed to create commit")?;
+
+        messages.extend(
+            [
+                Message::EnterNormalMode,
+                Message::Reload(
+                    commit_create_result
+                        .new_commit
+                        .map(SelectAfterReload::Commit),
+                ),
+            ]
+            .into_iter()
+            // TODO(david): don't use a separate reword step, instead get message before creating
+            // commit. However that requires computing the diff which I haven't yet figured out how
+            // to do
+            .chain(with_message.then_some(Message::Reword(RewordMessage::WithEditor))),
+        );
+
+        Ok(())
+    }
+
     /// Handles opening the full-screen commit reword editor for the selected commit.
     fn handle_reword_with_editor<T>(
         &mut self,
@@ -642,17 +835,17 @@ impl App {
         textarea.set_cursor_line_style(Style::default());
         textarea.move_cursor(CursorMove::End);
 
-        self.mode = Mode::InlineReword {
+        self.mode = Mode::InlineReword(InlineRewordMode {
             commit_id,
             textarea: Box::new(textarea),
-        };
+        });
 
         Ok(())
     }
 
     /// Handles key input while inline reword mode is active.
     fn handle_reword_inline_input(&mut self, ev: Event) {
-        if let Mode::InlineReword { textarea, .. } = &mut self.mode {
+        if let Mode::InlineReword(InlineRewordMode { textarea, .. }) = &mut self.mode {
             textarea.input(ev);
         }
     }
@@ -663,10 +856,10 @@ impl App {
         ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
-        let Mode::InlineReword {
+        let Mode::InlineReword(InlineRewordMode {
             commit_id,
             textarea,
-        } = &self.mode
+        }) = &self.mode
         else {
             messages.push(Message::EnterNormalMode);
             return Ok(());
@@ -707,13 +900,13 @@ impl App {
         textarea.set_cursor_line_style(Style::default());
         textarea.move_cursor(CursorMove::End);
 
-        self.mode = Mode::Command {
+        self.mode = Mode::Command(CommandMode {
             textarea: Box::new(textarea),
-        };
+        });
     }
 
     fn handle_command_input(&mut self, ev: Event) {
-        if let Mode::Command { textarea } = &mut self.mode {
+        if let Mode::Command(CommandMode { textarea }) = &mut self.mode {
             textarea.input(ev);
         }
     }
@@ -728,7 +921,7 @@ impl App {
         T: TerminalGuard,
         anyhow::Error: From<<T::Backend as Backend>::Error>,
     {
-        let Mode::Command { textarea } = &self.mode else {
+        let Mode::Command(CommandMode { textarea }) = &self.mode else {
             messages.push(Message::EnterNormalMode);
             return Ok(());
         };
@@ -828,79 +1021,45 @@ impl App {
 
         if is_selected {
             match &self.mode {
-                Mode::Normal | Mode::InlineReword { .. } | Mode::Command { .. } => {}
-                Mode::Rub {
+                Mode::Normal | Mode::InlineReword(..) | Mode::Command(..) => {}
+                Mode::Rub(RubMode {
                     source,
                     available_targets: _,
-                } => {
-                    if let Some(target) = data.cli_id() {
-                        if target == source {
-                            line.extend([
-                                Span::raw("<< source >>").black().on_green(),
-                                Span::raw(" "),
-                            ]);
-                        }
-
-                        let rub_operation_display =
-                            rub_operation_display_legacy(source, target).unwrap_or("invalid");
-                        line.extend([
-                            Span::raw("<< ").black().on_blue(),
-                            Span::raw(rub_operation_display).black().on_blue(),
-                            Span::raw(" >>").black().on_blue(),
-                            Span::raw(" "),
-                        ]);
-                    }
+                }) => {
+                    self.render_rub_inline_labels_for_selected_line(data, source, &mut line);
                 }
-                Mode::RubButApi {
+                Mode::RubButApi(RubMode {
                     source,
                     available_targets: _,
-                } => {
-                    if let Some(target) = data.cli_id() {
-                        if target == source {
-                            line.extend([
-                                Span::raw("<< source >>").black().on_green(),
-                                Span::raw(" "),
-                            ]);
-                        }
-
-                        match rub_api::rub_operation_display(source, target)
-                            .unwrap_or(rub_api::RubOperationDisplay::Supported("invalid"))
-                        {
-                            rub_api::RubOperationDisplay::Supported(display) => {
-                                line.extend([
-                                    Span::raw("<< ").black().on_blue(),
-                                    Span::raw(display).black().on_blue(),
-                                    Span::raw(" >>").black().on_blue(),
-                                    Span::raw(" "),
-                                ]);
-                            }
-                            rub_api::RubOperationDisplay::NotSupported(_, discriminant) => {
-                                line.extend([
-                                    Span::raw("<< ").black().on_red(),
-                                    Span::raw(format!("{discriminant:?}")).black().on_red(),
-                                    Span::raw(" is not supported >>").black().on_red(),
-                                    Span::raw(" "),
-                                ]);
-                            }
-                        }
-                    }
+                }) => {
+                    self.render_rub_api_inline_labels_for_selected_line(data, source, &mut line);
+                }
+                Mode::Commit(mode) => {
+                    self.render_commit_labels_for_selected_line(data, mode, &mut line);
                 }
             }
         } else {
             match &self.mode {
-                Mode::Normal | Mode::InlineReword { .. } | Mode::Command { .. } => {}
-                Mode::Rub {
+                Mode::Normal | Mode::InlineReword(..) | Mode::Command(..) => {}
+                Mode::Rub(RubMode {
                     source,
                     available_targets: _,
-                }
-                | Mode::RubButApi {
+                })
+                | Mode::RubButApi(RubMode {
                     source,
                     available_targets: _,
-                } => {
+                }) => {
                     if let Some(cli_id) = data.cli_id()
                         && cli_id == source
                     {
-                        line.extend([Span::raw("<< source >>").black().on_green(), Span::raw(" ")]);
+                        line.extend([source_span(), Span::raw(" ")]);
+                    }
+                }
+                Mode::Commit(CommitMode { source, .. }) => {
+                    if let Some(cli_id) = data.cli_id()
+                        && **source == **cli_id
+                    {
+                        line.extend([source_span(), Span::raw(" ")]);
                     }
                 }
             }
@@ -919,10 +1078,7 @@ impl App {
         };
 
         match &self.mode {
-            Mode::Normal | Mode::Command { .. } => {
-                line.extend(content_spans);
-            }
-            Mode::InlineReword { .. } => {
+            Mode::InlineReword(..) => {
                 if is_selected {
                     if let StatusOutputContent::Commit(commit_content) = content {
                         line.extend(commit_content.sha.iter().cloned());
@@ -931,20 +1087,12 @@ impl App {
                     line.extend(content_spans);
                 }
             }
-            Mode::Rub {
-                source: _,
-                available_targets,
-            }
-            | Mode::RubButApi {
-                source: _,
-                available_targets,
-            } => {
-                let can_rub_here = if let Some(cli_id) = data.cli_id() {
-                    available_targets.contains(cli_id)
-                } else {
-                    false
-                };
-                if can_rub_here {
+            Mode::Normal
+            | Mode::Command(..)
+            | Mode::Rub(..)
+            | Mode::RubButApi(..)
+            | Mode::Commit(..) => {
+                if is_selectable_in_mode(tui_line, &self.mode) {
                     line.extend(content_spans);
                 } else {
                     line.extend(
@@ -956,27 +1104,115 @@ impl App {
             }
         }
 
-        if is_selected && !matches!(self.mode, Mode::Command { .. }) {
+        if is_selected && !matches!(self.mode, Mode::Command(..)) {
             line = line.style(Style::default().bg(CURSOR_BG));
         }
 
         ListItem::new(line)
     }
 
-    fn render_hotbar(&self, area: Rect, frame: &mut Frame) {
-        let mode_span = match self.mode {
-            Mode::Normal => Span::styled("  normal  ", Style::default().black().on_green()),
-            Mode::Rub { .. } => Span::styled("  rub  ", Style::default().black().on_magenta()),
-            Mode::RubButApi { .. } => {
-                Span::styled("  rub (api)  ", Style::default().black().on_magenta())
-            }
-            Mode::InlineReword { .. } => {
-                Span::styled("  reword  ", Style::default().black().on_blue())
-            }
-            Mode::Command { .. } => {
-                Span::styled("  command  ", Style::default().black().on_yellow())
-            }
+    fn render_rub_inline_labels_for_selected_line(
+        &self,
+        data: &StatusOutputLineData,
+        source: &CliId,
+        line: &mut Line<'static>,
+    ) {
+        let Some(target) = data.cli_id() else {
+            return;
         };
+
+        if &**target == source {
+            line.extend([source_span(), Span::raw(" ")]);
+        }
+
+        let rub_operation_display =
+            rub_operation_display_legacy(source, target).unwrap_or("invalid");
+
+        line.extend([
+            Span::raw("<< ").mode_colors(&self.mode),
+            Span::raw(rub_operation_display).mode_colors(&self.mode),
+            Span::raw(" >>").mode_colors(&self.mode),
+            Span::raw(" "),
+        ]);
+    }
+
+    fn render_rub_api_inline_labels_for_selected_line(
+        &self,
+        data: &StatusOutputLineData,
+        source: &CliId,
+        line: &mut Line<'static>,
+    ) {
+        let Some(target) = data.cli_id() else {
+            return;
+        };
+
+        if &**target == source {
+            line.extend([source_span(), Span::raw(" ")]);
+        }
+
+        match rub_api::rub_operation_display(source, target)
+            .unwrap_or(rub_api::RubOperationDisplay::Supported("invalid"))
+        {
+            rub_api::RubOperationDisplay::Supported(display) => {
+                line.extend([
+                    Span::raw("<< ").mode_colors(&self.mode),
+                    Span::raw(display).mode_colors(&self.mode),
+                    Span::raw(" >>").mode_colors(&self.mode),
+                    Span::raw(" "),
+                ]);
+            }
+            rub_api::RubOperationDisplay::NotSupported(_, discriminant) => {
+                line.extend([
+                    Span::raw("<< ").mode_colors(&self.mode),
+                    Span::raw(format!("{discriminant:?}")).mode_colors(&self.mode),
+                    Span::raw(" is not supported >>").mode_colors(&self.mode),
+                    Span::raw(" "),
+                ]);
+            }
+        }
+    }
+
+    fn render_commit_labels_for_selected_line(
+        &self,
+        data: &StatusOutputLineData,
+        mode: &CommitMode,
+        line: &mut Line<'static>,
+    ) {
+        let Some(target) = data.cli_id() else {
+            return;
+        };
+
+        if *mode.source == **target {
+            line.extend([source_span(), Span::raw(" ")]);
+            line.extend([
+                Span::raw("<< ").mode_colors(&self.mode),
+                Span::raw(NOOP).mode_colors(&self.mode),
+                Span::raw(" >>").mode_colors(&self.mode),
+                Span::raw(" "),
+            ]);
+        } else if let Some(display) = commit_operation_display(data, mode) {
+            line.extend([
+                Span::raw("<< ").mode_colors(&self.mode),
+                Span::raw(display).mode_colors(&self.mode),
+                Span::raw(" >>").mode_colors(&self.mode),
+                Span::raw(" "),
+            ]);
+        }
+    }
+
+    fn render_hotbar(&self, area: Rect, frame: &mut Frame) {
+        let mode_span = Span::raw(format!(
+            "  {}  ",
+            match self.mode {
+                Mode::Normal => "normal",
+                Mode::Rub(..) => "rub",
+                Mode::RubButApi(..) => "rub (api)",
+                Mode::InlineReword(..) => "reword",
+                Mode::Command(..) => "command",
+                Mode::Commit(..) => "commit",
+            }
+        ))
+        .mode_colors(&self.mode);
 
         let layout = Layout::horizontal([
             Constraint::Length(mode_span.width() as _),
@@ -991,9 +1227,10 @@ impl App {
 
         match &self.mode {
             Mode::Normal
-            | Mode::Rub { .. }
-            | Mode::RubButApi { .. }
-            | Mode::InlineReword { .. } => {
+            | Mode::Rub(..)
+            | Mode::RubButApi(..)
+            | Mode::Commit(..)
+            | Mode::InlineReword(..) => {
                 let mut line = Line::default();
                 let mut key_binds_iter = self
                     .key_binds
@@ -1014,7 +1251,7 @@ impl App {
 
                 frame.render_widget(line, layout[2]);
             }
-            Mode::Command { textarea } => {
+            Mode::Command(CommandMode { textarea }) => {
                 let command_layout =
                     Layout::horizontal([Constraint::Length(4), Constraint::Min(1)])
                         .split(layout[2]);
@@ -1041,7 +1278,7 @@ impl App {
     }
 
     fn render_inline_reword(&self, area: Rect, frame: &mut Frame) {
-        let Mode::InlineReword { textarea, .. } = &self.mode else {
+        let Mode::InlineReword(InlineRewordMode { textarea, .. }) = &self.mode else {
             return;
         };
         let Some((idx, (line, _))) = self
@@ -1101,13 +1338,13 @@ fn event_to_messages(ev: Event, key_binds: &KeyBinds, mode: &Mode, messages: &mu
 
             if !handled {
                 match mode {
-                    Mode::InlineReword { .. } => {
+                    Mode::InlineReword(..) => {
                         messages.push(Message::Reword(RewordMessage::InlineInput(ev)));
                     }
-                    Mode::Command { .. } => {
+                    Mode::Command(..) => {
                         messages.push(Message::Command(CommandMessage::Input(ev)));
                     }
-                    Mode::Normal | Mode::Rub { .. } | Mode::RubButApi { .. } => {}
+                    Mode::Normal | Mode::Rub(..) | Mode::RubButApi(..) | Mode::Commit(..) => {}
                 }
             }
         }
@@ -1115,13 +1352,13 @@ fn event_to_messages(ev: Event, key_binds: &KeyBinds, mode: &Mode, messages: &mu
             messages.push(Message::JustRender);
         }
         Event::Paste(_) => match mode {
-            Mode::InlineReword { .. } => {
+            Mode::InlineReword(..) => {
                 messages.push(Message::Reword(RewordMessage::InlineInput(ev)));
             }
-            Mode::Command { .. } => {
+            Mode::Command(..) => {
                 messages.push(Message::Command(CommandMessage::Input(ev)));
             }
-            Mode::Normal | Mode::Rub { .. } | Mode::RubButApi { .. } => {
+            Mode::Normal | Mode::Rub(..) | Mode::RubButApi(..) | Mode::Commit(..) => {
                 messages.push(Message::JustRender);
             }
         },
@@ -1179,6 +1416,8 @@ enum CommandMessage {
 #[derive(Debug, Clone)]
 enum CommitMessage {
     CreateEmpty,
+    Start,
+    Confirm { with_message: bool },
 }
 
 #[derive(Debug, Clone)]
@@ -1192,21 +1431,85 @@ enum FilesMessage {
 enum Mode {
     #[default]
     Normal,
-    Rub {
-        source: Arc<CliId>,
-        available_targets: Vec<Arc<CliId>>,
-    },
-    RubButApi {
-        source: Arc<CliId>,
-        available_targets: Vec<Arc<CliId>>,
-    },
-    InlineReword {
-        commit_id: gix::ObjectId,
-        textarea: Box<TextArea<'static>>,
-    },
-    Command {
-        textarea: Box<TextArea<'static>>,
-    },
+    Rub(RubMode),
+    RubButApi(RubMode),
+    InlineReword(InlineRewordMode),
+    Command(CommandMode),
+    Commit(CommitMode),
+}
+
+#[derive(Debug)]
+struct RubMode {
+    source: Arc<CliId>,
+    available_targets: Vec<Arc<CliId>>,
+}
+
+#[derive(Debug)]
+struct InlineRewordMode {
+    commit_id: gix::ObjectId,
+    textarea: Box<TextArea<'static>>,
+}
+
+#[derive(Debug)]
+struct CommandMode {
+    textarea: Box<TextArea<'static>>,
+}
+
+#[derive(Debug)]
+struct CommitMode {
+    source: Arc<CommitSource>,
+    /// If set, then the commit must be made on this stack
+    ///
+    /// Used when committing changes staged to a specific stack
+    scope_to_stack: Option<StackId>,
+}
+
+/// A subset of [`CliId`] that supports being committed
+#[derive(Debug)]
+enum CommitSource {
+    Unassigned { id: ShortId },
+    Uncommitted(Box<UncommittedCliId>),
+    Stack { id: ShortId, stack_id: StackId },
+}
+
+impl TryFrom<CliId> for CommitSource {
+    type Error = anyhow::Error;
+
+    fn try_from(id: CliId) -> Result<Self, Self::Error> {
+        match id {
+            CliId::Unassigned { id } => Ok(Self::Unassigned { id }),
+            CliId::Uncommitted(uncommitted_cli_id) => {
+                Ok(Self::Uncommitted(Box::new(uncommitted_cli_id)))
+            }
+            CliId::Stack { id, stack_id } => Ok(Self::Stack { id, stack_id }),
+            CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Branch { .. }
+            | CliId::Commit { .. } => anyhow::bail!("cannot commit: {id:?}"),
+        }
+    }
+}
+
+impl PartialEq<CliId> for CommitSource {
+    fn eq(&self, other: &CliId) -> bool {
+        match (self, other) {
+            (Self::Uncommitted(lhs), CliId::Uncommitted(rhs)) => &**lhs == rhs,
+            (Self::Unassigned { id: id_lhs }, CliId::Unassigned { id: id_rhs }) => id_lhs == id_rhs,
+            (
+                Self::Stack {
+                    id: id_lhs,
+                    stack_id: stack_lhs,
+                },
+                CliId::Stack {
+                    id: id_rhs,
+                    stack_id: stack_rhs,
+                },
+            ) => id_lhs == id_rhs && stack_lhs == stack_rhs,
+            (Self::Uncommitted(_), _) => false,
+            (Self::Unassigned { .. }, _) => false,
+            (Self::Stack { .. }, _) => false,
+        }
+    }
 }
 
 /// What to select after reloading
@@ -1278,6 +1581,24 @@ where
     f(&mut noop_out)
 }
 
+fn has_unassigned_changes(ctx: &mut Context) -> anyhow::Result<bool> {
+    let context_lines = ctx.settings.context_lines;
+
+    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+    let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
+    let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
+        db.hunk_assignments_mut()?,
+        &repo,
+        &ws,
+        Some(changes),
+        context_lines,
+    )?;
+
+    Ok(assignments
+        .into_iter()
+        .any(|assignment| assignment.stack_id.is_none()))
+}
+
 #[derive(Debug)]
 pub(super) struct AppError {
     pub(super) inner: Arc<anyhow::Error>,
@@ -1286,7 +1607,7 @@ pub(super) struct AppError {
 
 fn rub_operation_display_legacy(source: &CliId, target: &CliId) -> Option<&'static str> {
     if source == target {
-        return Some("noop");
+        return Some(NOOP);
     }
 
     Some(match route_operation(source, target)? {
@@ -1311,4 +1632,69 @@ fn rub_operation_display_legacy(source: &CliId, target: &CliId) -> Option<&'stat
         RubOperation::CommittedFileToCommit(..) => "move file",
         RubOperation::CommittedFileToUnassigned(..) => "extract file",
     })
+}
+
+fn commit_operation_display(
+    data: &StatusOutputLineData,
+    mode: &CommitMode,
+) -> Option<&'static str> {
+    match data {
+        StatusOutputLineData::Branch { cli_id } => {
+            if let Some(stack_scope) = mode.scope_to_stack
+                && let Some(stack_id) = cli_id.stack_id()
+                && stack_scope != stack_id
+            {
+                // don't allow selecting branches outside the scoped stack
+                None
+            } else {
+                Some("commit")
+            }
+        }
+        StatusOutputLineData::Commit { .. }
+        | StatusOutputLineData::StagedChanges { .. }
+        | StatusOutputLineData::StagedFile { .. }
+        | StatusOutputLineData::UnstagedChanges { .. }
+        | StatusOutputLineData::UnstagedFile { .. }
+        | StatusOutputLineData::UpdateNotice
+        | StatusOutputLineData::Connector
+        | StatusOutputLineData::CommitMessage
+        | StatusOutputLineData::EmptyCommitMessage
+        | StatusOutputLineData::File { .. }
+        | StatusOutputLineData::MergeBase
+        | StatusOutputLineData::UpstreamChanges
+        | StatusOutputLineData::Warning
+        | StatusOutputLineData::Hint
+        | StatusOutputLineData::NoAssignmentsUnstaged => None,
+    }
+}
+
+fn source_span() -> Span<'static> {
+    Span::raw("<< source >>").mode_colors(&Mode::Normal)
+}
+
+trait SpanExt {
+    fn mode_colors(self, mode: &Mode) -> Self;
+}
+
+impl SpanExt for Span<'_> {
+    fn mode_colors(self, mode: &Mode) -> Self {
+        let bg = match mode {
+            Mode::Normal => Color::DarkGray,
+            Mode::Commit(_) => Color::Green,
+            Mode::Rub(_) | Mode::RubButApi(_) => Color::Blue,
+            Mode::InlineReword(_) => Color::Magenta,
+            Mode::Command(_) => Color::Yellow,
+        };
+
+        let fg = match mode {
+            Mode::Normal => Color::White,
+            Mode::Commit(_)
+            | Mode::Rub(_)
+            | Mode::RubButApi(_)
+            | Mode::InlineReword(_)
+            | Mode::Command(_) => Color::Black,
+        };
+
+        self.fg(fg).bg(bg)
+    }
 }

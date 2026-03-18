@@ -882,10 +882,7 @@ impl IdMap {
 
 fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
     match (lhs, rhs) {
-        (CliId::Uncommitted(lhs_uncommitted), CliId::Uncommitted(rhs_uncommitted)) => {
-            lhs_uncommitted.hunk_assignments == rhs_uncommitted.hunk_assignments
-                && lhs_uncommitted.is_entire_file == rhs_uncommitted.is_entire_file
-        }
+        (CliId::Uncommitted(lhs), CliId::Uncommitted(rhs)) => lhs == rhs,
         (
             CliId::Commit {
                 commit_id: lhs_commit_id,
@@ -954,6 +951,13 @@ pub struct UncommittedCliId {
     /// `true` if self represents all hunks in a stack-assignment or file pair.
     /// Note that this file may have hunks with other stack assignments.
     pub is_entire_file: bool,
+}
+
+impl PartialEq for UncommittedCliId {
+    fn eq(&self, other: &Self) -> bool {
+        self.hunk_assignments == other.hunk_assignments
+            && self.is_entire_file == other.is_entire_file
+    }
 }
 
 impl UncommittedCliId {
@@ -1038,6 +1042,7 @@ pub enum CliId {
         stack_id: StackId,
     },
 }
+
 impl PartialEq for CliId {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -1065,6 +1070,7 @@ impl PartialEq for CliId {
         }
     }
 }
+
 impl Eq for CliId {}
 
 /// Methods for accessing `CliId` information.
@@ -1092,6 +1098,21 @@ impl CliId {
             | CliId::Commit { id, .. }
             | CliId::Stack { id, .. }
             | CliId::Unassigned { id, .. } => id.clone(),
+        }
+    }
+
+    /// Get the stack id, if any.
+    pub fn stack_id(&self) -> Option<StackId> {
+        match self {
+            CliId::Branch { stack_id, .. } => *stack_id,
+            CliId::Stack { stack_id, .. } => Some(*stack_id),
+            CliId::Uncommitted(uncommitted_cli_id) => {
+                uncommitted_cli_id.hunk_assignments.first().stack_id
+            }
+            CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Commit { .. }
+            | CliId::Unassigned { .. } => None,
         }
     }
 }
