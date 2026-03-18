@@ -559,6 +559,52 @@ const normalizeSelection = (
 		Match.exhaustive,
 	);
 
+const firstSelectablePath = ({
+	changes,
+	assignments,
+	stackId,
+}: {
+	changes: Array<TreeChange>;
+	assignments: Array<HunkAssignment>;
+	stackId: string | null;
+}): string | null => {
+	const assignmentsByPath = getAssignmentsByPath(assignments, stackId);
+	return changes.find((change) => assignmentsByPath.has(change.path))?.path ?? null;
+};
+
+const getDefaultSelection = ({
+	headInfo,
+	changes,
+	assignments,
+}: {
+	headInfo: RefInfo;
+	changes: Array<TreeChange>;
+	assignments: Array<HunkAssignment>;
+}): Selection | null => {
+	const firstUnassignedPath = firstSelectablePath({ changes, assignments, stackId: null });
+	if (firstUnassignedPath !== null)
+		return { _tag: "changes", stackId: null, path: firstUnassignedPath };
+
+	for (const stack of headInfo.stacks) {
+		if (stack.id == null) continue;
+
+		const firstAssignedPath = firstSelectablePath({
+			changes,
+			assignments,
+			stackId: stack.id,
+		});
+		if (firstAssignedPath !== null)
+			return { _tag: "changes", stackId: stack.id, path: firstAssignedPath };
+
+		for (const segment of stack.segments) {
+			const firstCommit = segment.commits[0];
+			if (firstCommit) return { _tag: "commit", stackId: stack.id, commitId: firstCommit.id };
+		}
+	}
+
+	return null;
+};
+
 const Preview: FC<{
 	projectId: string;
 	selection: Selection;
@@ -1096,13 +1142,20 @@ const ProjectPage: FC = () => {
 
 	// TODO: handle project not found error. or only run when project is not null? waterfall.
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
+	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
 	const [_selection, select] = useLocalStorageState<Selection | null>(
 		`project:${projectId}:workspace:selection`,
 		{ defaultValue: null },
 	);
 	const commitStackIds = getStackIdsByCommitId(headInfo);
-	const selection = _selection ? normalizeSelection(_selection, commitStackIds) : null;
+	const selection =
+		(_selection ? normalizeSelection(_selection, commitStackIds) : null) ??
+		getDefaultSelection({
+			headInfo,
+			changes: worktreeChanges.changes,
+			assignments: worktreeChanges.assignments,
+		});
 
 	useMonitorDraggedSourceItem({ projectId, setDraggedSourceItem });
 

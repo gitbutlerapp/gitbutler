@@ -40,6 +40,12 @@ const normalizeSelectionForBranches = (
 	return selection;
 };
 
+const getDefaultSelection = (branches: Array<BranchListing>): Selection | null => {
+	const firstBranch = branches[0];
+	if (!firstBranch) return null;
+	return { branchName: firstBranch.name };
+};
+
 const normalizeSelectionForBranchDetails = (
 	selection: Selection,
 	branchDetails: BranchDetails,
@@ -301,7 +307,9 @@ const ProjectBranchesPage: FC = () => {
 		`project:${projectId}:branches:selection`,
 		{ defaultValue: null },
 	);
-	const selection = _selection ? normalizeSelectionForBranches(_selection, sortedBranches) : null;
+	const selection =
+		(_selection ? normalizeSelectionForBranches(_selection, sortedBranches) : null) ??
+		getDefaultSelection(sortedBranches);
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
 	const selectedRemote =
 		selectedBranch && !selectedBranch.hasLocal ? selectedBranch.remotes[0] : null;
