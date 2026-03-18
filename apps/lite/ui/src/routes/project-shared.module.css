@@ -49,6 +49,7 @@
 
 .commitRow {
 	display: flex;
+	align-items: baseline;
 }
 
 .commitDetails {
