@@ -18,6 +18,9 @@ pub(super) fn default_key_binds() -> KeyBinds {
             ModeDiscriminant::Rub => {
                 register_rub_mode_key_binds(&mut key_binds);
             }
+            ModeDiscriminant::RubButApi => {
+                register_rub_but_api_mode_key_binds(&mut key_binds);
+            }
             ModeDiscriminant::InlineReword => {
                 register_inline_reword_mode_key_binds(&mut key_binds);
             }
@@ -33,7 +36,7 @@ pub(super) fn default_key_binds() -> KeyBinds {
 fn register_global_key_binds(key_binds: &mut KeyBinds) {
     let all_except_text_input_modes = ModeDiscriminant::iter()
         .filter(|mode| match mode {
-            ModeDiscriminant::Normal | ModeDiscriminant::Rub => true,
+            ModeDiscriminant::Normal | ModeDiscriminant::Rub | ModeDiscriminant::RubButApi => true,
             ModeDiscriminant::InlineReword | ModeDiscriminant::Command => false,
         })
         .collect::<Vec<_>>();
@@ -93,7 +96,19 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         chord_display: "r",
         key_matcher: press().code(KeyCode::Char('r')),
         modes: Vec::from([ModeDiscriminant::Normal]),
-        message: Message::StartRub,
+        message: Message::StartRub {
+            using_but_api: false,
+        },
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "rub (but-api)",
+        chord_display: "shift+r",
+        key_matcher: press().shift().code(KeyCode::Char('R')),
+        modes: Vec::from([ModeDiscriminant::Normal]),
+        message: Message::StartRub {
+            using_but_api: true,
+        },
     });
 
     key_binds.register(StaticKeyBind {
@@ -151,6 +166,24 @@ fn register_rub_mode_key_binds(key_binds: &mut KeyBinds) {
         chord_display: "esc",
         key_matcher: press().code(KeyCode::Esc),
         modes: Vec::from([ModeDiscriminant::Rub]),
+        message: Message::EnterNormalMode,
+    });
+}
+
+fn register_rub_but_api_mode_key_binds(key_binds: &mut KeyBinds) {
+    key_binds.register(StaticKeyBind {
+        short_description: "confirm",
+        chord_display: "enter",
+        key_matcher: press().code(KeyCode::Enter),
+        modes: Vec::from([ModeDiscriminant::RubButApi]),
+        message: Message::ConfirmRub,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "back",
+        chord_display: "esc",
+        key_matcher: press().code(KeyCode::Esc),
+        modes: Vec::from([ModeDiscriminant::RubButApi]),
         message: Message::EnterNormalMode,
     });
 }

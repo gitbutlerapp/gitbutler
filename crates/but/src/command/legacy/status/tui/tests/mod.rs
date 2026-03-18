@@ -164,7 +164,7 @@ fn esc_leaves_rub_mode() {
         .assert_current_line_eq(str!["┊   vo A test.txt"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊   << source >> << no operation >> vo A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vo A test.txt"]);
 
     tui.input_then_render(KeyCode::Esc)
         .assert_current_line_eq(str!["┊   vo A test.txt"]);
@@ -200,7 +200,7 @@ fn rubbing() {
         .assert_current_line_eq(str!["┊   vo A test.txt"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊   << source >> << no operation >> vo A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vo A test.txt"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄<< assign hunks >> g0 [A]"]);

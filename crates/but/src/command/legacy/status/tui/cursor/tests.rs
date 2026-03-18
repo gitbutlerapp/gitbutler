@@ -138,7 +138,10 @@ fn select_finds_commit_line_by_object_id() {
         }),
     ];
 
-    assert_eq!(Cursor::select(commit_id(wanted), &lines), Some(Cursor(1)));
+    assert_eq!(
+        Cursor::select_commit(commit_id(wanted), &lines),
+        Some(Cursor(1))
+    );
 }
 
 #[test]
@@ -148,7 +151,7 @@ fn select_returns_none_when_commit_is_missing() {
     })];
 
     assert_eq!(
-        Cursor::select(
+        Cursor::select_commit(
             commit_id("2222222222222222222222222222222222222222"),
             &lines
         ),
@@ -168,7 +171,114 @@ fn select_uses_first_matching_commit_when_object_id_appears_multiple_times() {
         }),
     ];
 
-    assert_eq!(Cursor::select(commit_id(wanted), &lines), Some(Cursor(0)));
+    assert_eq!(
+        Cursor::select_commit(commit_id(wanted), &lines),
+        Some(Cursor(0))
+    );
+}
+
+#[test]
+fn select_branch_finds_branch_line_by_name() {
+    let lines = vec![
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
+        }),
+        line(StatusOutputLineData::Branch {
+            cli_id: Arc::new(CliId::Branch {
+                name: "main".into(),
+                id: "b0".into(),
+                stack_id: None,
+            }),
+        }),
+    ];
+
+    assert_eq!(
+        Cursor::select_branch("main".into(), &lines),
+        Some(Cursor(1))
+    );
+}
+
+#[test]
+fn select_branch_returns_none_when_branch_is_missing() {
+    let lines = vec![line(StatusOutputLineData::Branch {
+        cli_id: Arc::new(CliId::Branch {
+            name: "main".into(),
+            id: "b0".into(),
+            stack_id: None,
+        }),
+    })];
+
+    assert_eq!(Cursor::select_branch("feature".into(), &lines), None);
+}
+
+#[test]
+fn select_branch_uses_first_matching_line_when_branch_appears_multiple_times() {
+    let lines = vec![
+        line(StatusOutputLineData::Branch {
+            cli_id: Arc::new(CliId::Branch {
+                name: "main".into(),
+                id: "b0".into(),
+                stack_id: None,
+            }),
+        }),
+        line(StatusOutputLineData::StagedChanges {
+            cli_id: Arc::new(CliId::Branch {
+                name: "main".into(),
+                id: "b0".into(),
+                stack_id: None,
+            }),
+        }),
+    ];
+
+    assert_eq!(
+        Cursor::select_branch("main".into(), &lines),
+        Some(Cursor(0))
+    );
+}
+
+#[test]
+fn select_unassigned_finds_unassigned_line() {
+    let lines = vec![
+        line(StatusOutputLineData::Branch {
+            cli_id: Arc::new(CliId::Branch {
+                name: "main".into(),
+                id: "b0".into(),
+                stack_id: None,
+            }),
+        }),
+        line(StatusOutputLineData::UnstagedChanges {
+            cli_id: unassigned("u0"),
+        }),
+    ];
+
+    assert_eq!(Cursor::select_unassigned(&lines), Some(Cursor(1)));
+}
+
+#[test]
+fn select_unassigned_uses_first_matching_line() {
+    let lines = vec![
+        line(StatusOutputLineData::UnstagedChanges {
+            cli_id: unassigned("u0"),
+        }),
+        line(StatusOutputLineData::StagedChanges {
+            cli_id: unassigned("u0"),
+        }),
+    ];
+
+    assert_eq!(Cursor::select_unassigned(&lines), Some(Cursor(0)));
+}
+
+#[test]
+fn select_unassigned_returns_none_when_missing() {
+    let lines = vec![line(StatusOutputLineData::Branch {
+        cli_id: Arc::new(CliId::Branch {
+            name: "main".into(),
+            id: "b0".into(),
+            stack_id: None,
+        }),
+    })];
+
+    assert_eq!(Cursor::select_unassigned(&lines), None);
 }
 
 #[test]

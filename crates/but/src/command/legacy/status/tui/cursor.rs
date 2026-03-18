@@ -44,7 +44,10 @@ impl Cursor {
         Some(Self(idx))
     }
 
-    pub(super) fn select(object_id: gix::ObjectId, lines: &[StatusOutputLine]) -> Option<Self> {
+    pub(super) fn select_commit(
+        object_id: gix::ObjectId,
+        lines: &[StatusOutputLine],
+    ) -> Option<Self> {
         let idx = lines.iter().position(|line| {
             if let Some(CliId::Commit { commit_id, .. }) = line.data.cli_id().map(|id| &**id)
                 && *commit_id == object_id
@@ -53,6 +56,31 @@ impl Cursor {
             } else {
                 false
             }
+        })?;
+        Some(Self(idx))
+    }
+
+    /// Select the first line that points to the given branch name.
+    pub(super) fn select_branch(branch_name: String, lines: &[StatusOutputLine]) -> Option<Self> {
+        let idx = lines.iter().position(|line| {
+            if let Some(CliId::Branch { name, .. }) = line.data.cli_id().map(|id| &**id)
+                && *name == branch_name
+            {
+                true
+            } else {
+                false
+            }
+        })?;
+        Some(Self(idx))
+    }
+
+    /// Select the first line that points to the unassigned section.
+    pub(super) fn select_unassigned(lines: &[StatusOutputLine]) -> Option<Self> {
+        let idx = lines.iter().position(|line| {
+            matches!(
+                line.data.cli_id().map(|id| &**id),
+                Some(CliId::Unassigned { .. })
+            )
         })?;
         Some(Self(idx))
     }
@@ -208,6 +236,10 @@ pub(super) fn is_selectable_in_mode(line: &StatusOutputLine, mode: &Mode) -> boo
     match mode {
         Mode::Normal => line.is_selectable(),
         Mode::Rub {
+            source: _,
+            available_targets,
+        }
+        | Mode::RubButApi {
             source: _,
             available_targets,
         } => {

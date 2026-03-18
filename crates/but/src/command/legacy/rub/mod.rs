@@ -26,7 +26,7 @@ type Description = String;
 
 /// Represents the operation to perform for a given source and target combination.
 /// This enum serves as the single source of truth for valid rub operations.
-#[derive(Debug)]
+#[derive(Debug, strum::EnumDiscriminants)]
 pub(crate) enum RubOperation<'a> {
     UnassignUncommitted(
         NonEmpty<&'a but_hunk_assignment::HunkAssignment>,
