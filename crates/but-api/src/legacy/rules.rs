@@ -44,11 +44,13 @@ pub fn list_workspace_rules(ctx: &mut Context) -> Result<Vec<WorkspaceRule>> {
 
     let in_workspace = {
         let meta = ctx.legacy_meta()?;
+        let mut cache = ctx.cache.get_cache_mut()?;
         but_workspace::legacy::stacks_v3(
             &repo,
             &meta,
             but_workspace::legacy::StacksFilter::InWorkspace,
             None,
+            &mut cache,
         )
     }?
     .iter()

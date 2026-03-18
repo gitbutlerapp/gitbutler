@@ -89,7 +89,7 @@ fn take_commit_from_source_stack(
     let mut rebase = but_rebase::Rebase::new(&repo, Some(merge_base), None)?;
     rebase.rebase_noops(false);
     rebase.steps(steps)?;
-    let output = rebase.rebase()?;
+    let output = rebase.rebase(&*ctx.cache.get_cache()?)?;
 
     source_stack.set_heads_from_rebase_output(ctx, output.references)?;
     source_stack.set_stack_head(&ctx.virtual_branches(), &repo, output.top_commit)?;
@@ -117,7 +117,7 @@ fn move_commit_to_destination_stack(
     let mut rebase = but_rebase::Rebase::new(&repo, Some(merge_base), None)?;
     rebase.rebase_noops(false);
     rebase.steps(steps)?;
-    let output = rebase.rebase()?;
+    let output = rebase.rebase(&*ctx.cache.get_cache()?)?;
 
     destination_stack.set_heads_from_rebase_output(ctx, output.references)?;
     destination_stack.set_stack_head(vb_state, &repo, output.top_commit)?;

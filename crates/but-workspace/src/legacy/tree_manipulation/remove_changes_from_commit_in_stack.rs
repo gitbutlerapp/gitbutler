@@ -48,10 +48,11 @@ pub fn remove_changes_from_commit_in_stack(
 
     let result = {
         let repo = ctx.repo.get()?;
+        let cache = ctx.cache.get_cache()?;
         let mut rebase = Rebase::new(&repo, base, None)?;
         rebase.steps(steps)?;
         rebase.rebase_noops(false);
-        rebase.rebase()?
+        rebase.rebase(&cache)?
     };
     let commit_mapping =
         rebase_mapping_with_overrides(&result, [(source_commit_id, rewritten_source_commit)]);

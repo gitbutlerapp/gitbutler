@@ -53,6 +53,7 @@ mod json {
 pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.legacy_meta()?;
+    let mut cache = ctx.cache.get_cache_mut()?;
     but_workspace::head_info(
         &repo,
         &meta,
@@ -60,6 +61,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
             traversal: but_graph::init::Options::limited(),
             expensive_commit_info: true,
         },
+        &mut cache,
     )
     .map(|info| info.pruned_to_entrypoint())
 }
@@ -72,7 +74,8 @@ pub fn stacks(
 ) -> Result<Vec<StackEntry>> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.legacy_meta()?;
-    but_workspace::legacy::stacks_v3(&repo, &meta, filter.unwrap_or_default(), None)
+    let mut cache = ctx.cache.get_cache_mut()?;
+    but_workspace::legacy::stacks_v3(&repo, &meta, filter.unwrap_or_default(), None, &mut cache)
 }
 
 #[cfg(unix)]
@@ -173,7 +176,8 @@ pub fn stack_details(
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
         let meta = ctx.legacy_meta()?;
-        but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
+        let mut cache = ctx.cache.get_cache_mut()?;
+        but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta, &mut cache)
     }?;
     let repo = ctx.repo.get()?;
     let gerrit_mode = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);

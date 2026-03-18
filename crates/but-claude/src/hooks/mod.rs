@@ -599,13 +599,15 @@ impl OutputClaudeJson for Result<ClaudeHookOutput> {
 fn stack_details(ctx: &Context, stack_id: StackId) -> anyhow::Result<StackDetails> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.legacy_meta()?;
-    but_workspace::legacy::stack_details_v3(Some(stack_id), &repo, &meta)
+    let mut cache = ctx.cache.get_cache_mut()?;
+    but_workspace::legacy::stack_details_v3(Some(stack_id), &repo, &meta, &mut cache)
 }
 
 fn list_stacks(ctx: &Context) -> anyhow::Result<Vec<StackEntry>> {
     let repo = ctx.repo.get()?;
     let meta = ctx.legacy_meta()?;
-    but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
+    let mut cache = ctx.cache.get_cache_mut()?;
+    but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None, &mut cache)
 }
 
 /// Returns true if the session has `is_gui` set to true, and `GUTBUTLER_IN_GUI` is unset

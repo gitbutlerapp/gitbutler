@@ -3,8 +3,8 @@ use but_settings::AppSettings;
 use tracing::instrument;
 
 use crate::{
-    Context, LegacyProjectId, ProjectHandleOrLegacyProjectId, RepoOpenMode, ThreadSafeContext,
-    app_settings, new_ondemand_app_cache, new_ondemand_cache, new_ondemand_db,
+    CacheMode, Context, LegacyProjectId, ProjectHandleOrLegacyProjectId, RepoOpenMode,
+    ThreadSafeContext, app_settings, new_ondemand_app_cache, new_ondemand_cache, new_ondemand_db,
     new_ondemand_git2_repo, new_ondemand_repo, open_repo,
 };
 
@@ -44,17 +44,19 @@ impl Context {
         let repo = open_repo(&gitdir, repo_open_mode)?;
         let project_data_dir = repo.gitbutler_storage_path()?;
         let app_cache_dir = but_path::app_cache_dir().ok();
+        let cache_mode = CacheMode::Disk;
         Ok(Context {
             settings,
             gitdir: gitdir.clone(),
             project_data_dir: project_data_dir.clone(),
+            cache_mode,
             repo_open_mode,
             legacy_project: legacy_project.clone(),
             repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
             db: new_ondemand_db(project_data_dir.clone()),
-            cache: new_ondemand_cache(project_data_dir),
-            app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
+            cache: new_ondemand_cache(project_data_dir, cache_mode),
+            app_cache: new_ondemand_app_cache(app_cache_dir.clone(), cache_mode),
             app_cache_dir,
             workspace: Default::default(),
         }

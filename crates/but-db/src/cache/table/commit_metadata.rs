@@ -1,7 +1,8 @@
+use std::fmt::Write as _;
+
 use bstr::BString;
 use but_core::ChangeId;
 use gix::ObjectId;
-use rusqlite::OptionalExtension;
 
 use crate::{CacheHandle, M, SchemaVersion, Transaction};
 
@@ -60,23 +61,59 @@ impl Transaction<'_> {
 }
 
 impl CommitMetadata<'_> {
-    /// Return the `ChangeId` associated with `commit_hash`, if any.
-    pub fn change_id_for_commit(
+    /// Return the `ChangeId` associated with each `commit_hash`, preserving input order
+    /// in the output `[(hash, Option<ChangeId>)]`.
+    pub fn change_ids_for_commits(
         &self,
-        commit_hash: ObjectId,
-    ) -> rusqlite::Result<Option<ChangeId>> {
-        self.conn
-            .query_row(
-                "SELECT change_id
-                 FROM commit_change_ids
-                 WHERE commit_hash = ?1",
-                [commit_hash.as_slice()],
+        commit_hashes: impl IntoIterator<Item = ObjectId>,
+    ) -> rusqlite::Result<Vec<(ObjectId, Option<ChangeId>)>> {
+        const SQLITE_VARIABLE_LIMIT_CHUNK_SIZE: usize = 400;
+
+        let commit_hashes: Vec<ObjectId> = commit_hashes.into_iter().collect();
+        let mut out = Vec::with_capacity(commit_hashes.len());
+
+        for chunk in commit_hashes.chunks(SQLITE_VARIABLE_LIMIT_CHUNK_SIZE) {
+            let mut values = String::new();
+            for (idx, _) in chunk.iter().enumerate() {
+                if idx > 0 {
+                    values.push_str(", ");
+                }
+                write!(&mut values, "(?{}, {})", idx + 1, idx + 1)
+                    .expect("writing SQL into string");
+            }
+
+            let sql = format!(
+                "WITH requested(commit_hash, ord) AS (
+                     VALUES {values}
+                 )
+                 SELECT requested.commit_hash, commit_change_ids.change_id
+                 FROM requested
+                 LEFT JOIN commit_change_ids ON commit_change_ids.commit_hash = requested.commit_hash
+                 ORDER BY requested.ord"
+            );
+
+            let mut stmt = self.conn.prepare(&sql)?;
+            let rows = stmt.query_map(
+                rusqlite::params_from_iter(chunk.iter().map(|commit_hash| commit_hash.as_slice())),
                 |row| {
-                    let bytes = row.get::<_, Vec<u8>>(0)?;
-                    Ok(decode_change_id(bytes))
+                    let commit_hash = {
+                        let bytes = row.get::<_, Vec<u8>>(0)?;
+                        ObjectId::try_from(bytes.as_slice()).map_err(|err| {
+                            rusqlite::Error::FromSqlConversionFailure(
+                                0,
+                                rusqlite::types::Type::Blob,
+                                Box::new(err),
+                            )
+                        })?
+                    };
+                    let change_id = row.get::<_, Option<Vec<u8>>>(1)?.map(decode_change_id);
+                    Ok((commit_hash, change_id))
                 },
-            )
-            .optional()
+            )?;
+            out.extend(rows.collect::<rusqlite::Result<Vec<_>>>()?);
+        }
+
+        Ok(out)
     }
 
     /// List all commit hashes (ordered) associated with `change_id`.

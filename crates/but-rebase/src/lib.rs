@@ -140,7 +140,10 @@ impl<'repo> Rebase<'repo> {
     ///
     /// **However, note that it will also make all input commits sequential, so the caller must assure
     /// these actually form a 'line'.**
-    pub fn rebase(&mut self) -> Result<RebaseOutput> {
+    // TODO: use the `cache` in all places where a ChangeID would be generated, and pick the cached
+    //       version if available. The idea is that the 'virtual' one from the cache gets persisted
+    //       when needed.
+    pub fn rebase(&mut self, _cache: &but_db::CacheHandle) -> Result<RebaseOutput> {
         if self.steps.is_empty() {
             return Err(anyhow!("No rebase steps provided"));
         }

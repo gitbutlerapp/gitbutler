@@ -100,7 +100,8 @@ pub fn move_changes_between_commits(
     let mut rebase = Rebase::new(&repo, source_stack.merge_base(ctx)?, None)?;
     rebase.steps(source_stack_steps.clone())?;
     rebase.rebase_noops(false);
-    let source_stack_result = rebase.rebase()?;
+    let cache = ctx.cache.get_cache()?;
+    let source_stack_result = rebase.rebase(&cache)?;
 
     let source_stack_mapping = rebase_mapping_with_overrides(
         &source_stack_result,
@@ -155,7 +156,8 @@ pub fn move_changes_between_commits(
         let mut rebase = Rebase::new(&repo, source_stack.merge_base(ctx)?, None)?;
         rebase.steps(source_stack_steps.clone())?;
         rebase.rebase_noops(false);
-        let result = rebase.rebase()?;
+        let cache = ctx.cache.get_cache()?;
+        let result = rebase.rebase(&cache)?;
 
         // Create the output mapping
         let mut output_commit_mapping = source_stack_mapping.clone();
@@ -197,7 +199,8 @@ pub fn move_changes_between_commits(
         let mut rebase = Rebase::new(&repo, destination_stack.merge_base(ctx)?, None)?;
         rebase.steps(destination_stack_steps.clone())?;
         rebase.rebase_noops(false);
-        let result = rebase.rebase()?;
+        let cache = ctx.cache.get_cache()?;
+        let result = rebase.rebase(&cache)?;
         let (mut source_stack, mut destination_stack) = (source_stack, destination_stack);
 
         let output_commit_mapping = source_stack_mapping

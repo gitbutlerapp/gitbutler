@@ -15,8 +15,7 @@ impl Context {
     /// so it can't go stale.
     ///
     /// # IMPORTANT: KEEP THE LOCK ALIVE!
-    // TODO(ctx): make it need &mut
-    pub fn try_exclusive_access(&self) -> anyhow::Result<LockFile> {
+    pub fn try_exclusive_access(&mut self) -> anyhow::Result<LockFile> {
         but_core::sync::try_exclusive_inter_process_access(&self.gitdir, AllOperations)
     }
     /// Return a guard for exclusive (read+write) worktree access, blocking while waiting for someone else,

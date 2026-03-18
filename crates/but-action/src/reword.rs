@@ -88,5 +88,6 @@ pub fn commit(
 fn stacks(ctx: &Context) -> anyhow::Result<Vec<StackEntry>> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.legacy_meta()?;
-    but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
+    let mut cache = ctx.cache.get_cache_mut()?;
+    but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None, &mut cache)
 }

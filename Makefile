@@ -28,6 +28,11 @@ check:
 clippy:
 	cargo clippy --workspace --all-targets -- -D warnings
 
+# Run all tests in the entire workspace and show all failures in the end.
+nextest:
+	cargo nextest run --workspace --no-fail-fast
+.PHONY: nextest
+
 # Format: clippy issues --allow-dirty allows the fix to be run even with a dirty
 # working tree which can technically cause code to break, but I've never seen it
 # happen in practice.

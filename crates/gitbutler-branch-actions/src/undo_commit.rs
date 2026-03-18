@@ -47,7 +47,7 @@ pub(crate) fn undo_commit(
     let mut rebase = but_rebase::Rebase::new(&repo, Some(merge_base), None)?;
     rebase.rebase_noops(false);
     rebase.steps(steps)?;
-    let output = rebase.rebase()?;
+    let output = rebase.rebase(&*ctx.cache.get_cache()?)?;
 
     let new_head = output.top_commit.to_git2();
     stack.set_stack_head(&vb_state, &repo, new_head.to_gix())?;

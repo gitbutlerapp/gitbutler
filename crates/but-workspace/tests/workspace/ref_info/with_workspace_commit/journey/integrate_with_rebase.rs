@@ -3,7 +3,7 @@ use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::visualize_commit_graph_all;
 
 use crate::ref_info::{
-    utils::standard_options,
+    head_info, utils::standard_options,
     with_workspace_commit::utils::named_read_only_in_memory_scenario_with_description,
 };
 
@@ -28,7 +28,7 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
     * fafd9d0 init
     ");
 
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -119,7 +119,7 @@ fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()
     * fafd9d0 init
     ");
 
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     // TODO: A2 shouldn't be integrated.
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
@@ -209,7 +209,7 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
     * fafd9d0 (origin/main, main) init
     ");
 
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -301,7 +301,7 @@ fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> 
     * fafd9d0 init
     ");
 
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {

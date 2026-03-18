@@ -205,7 +205,7 @@ pub(crate) fn update_commit_message(
         let mut rebase = but_rebase::Rebase::new(&repo, Some(merge_base), None)?;
         rebase.rebase_noops(false);
         rebase.steps(steps)?;
-        rebase.rebase()?
+        rebase.rebase(&*ctx.cache.get_cache()?)?
     };
 
     stack.set_stack_head(&vb_state, &repo, output.top_commit)?;

@@ -247,7 +247,7 @@ pub fn commit_reword_only(
     commit_id: gix::ObjectId,
     message: BString,
 ) -> anyhow::Result<CommitRewordResult> {
-    let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
+    let (_guard, repo, ws, _, _cache) = ctx.workspace_and_db_and_cache()?;
     let editor = ws.graph.to_editor(&repo)?;
 
     let (outcome, edited_commit_selector) =
@@ -352,7 +352,7 @@ pub(crate) fn commit_insert_blank_only_impl(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitInsertBlankResult> {
     let meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (repo, mut ws, _, _cache) = ctx.workspace_mut_and_db_and_cache_with_perm(perm)?;
     let editor = ws.graph.to_editor(&repo)?;
 
     let relative_to: RelativeTo = (&relative_to).into();
@@ -431,7 +431,7 @@ pub(crate) fn commit_create_only_impl(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCreateResult> {
     let meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (repo, mut ws, _, _cache) = ctx.workspace_mut_and_db_and_cache_with_perm(perm)?;
     let editor = ws.graph.to_editor(&repo)?;
     let relative_to: RelativeTo = (&relative_to).into();
 
@@ -528,7 +528,7 @@ pub(crate) fn commit_amend_only_impl(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCreateResult> {
     let meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (repo, mut ws, _, _cache) = ctx.workspace_mut_and_db_and_cache_with_perm(perm)?;
     let editor = ws.graph.to_editor(&repo)?;
 
     let but_workspace::commit::CommitAmendOutcome {
@@ -602,7 +602,7 @@ pub fn commit_move_changes_between_only(
 ) -> anyhow::Result<MoveChangesResult> {
     let context_lines = ctx.settings.context_lines;
     let meta = ctx.meta()?;
-    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
+    let (_guard, repo, mut ws, _, _cache) = ctx.workspace_mut_and_db_and_cache()?;
     let editor = ws.graph.to_editor(&repo)?;
 
     let outcome = but_workspace::commit::move_changes_between_commits(
@@ -661,9 +661,8 @@ pub fn commit_move_only(
     side: InsertSide,
 ) -> anyhow::Result<CommitMoveResult> {
     let meta = ctx.meta()?;
-    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
+    let (_guard, repo, mut ws, _, _cache) = ctx.workspace_mut_and_db_and_cache()?;
     let editor = ws.graph.to_editor(&repo)?;
-
     let relative_to: RelativeTo = (&relative_to).into();
 
     let rebase =
@@ -720,7 +719,7 @@ pub fn commit_uncommit_changes_only(
 ) -> anyhow::Result<MoveChangesResult> {
     let context_lines = ctx.settings.context_lines;
     let meta = ctx.meta()?;
-    let (_guard, repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut()?;
+    let (_guard, repo, mut ws, mut db, _cache) = ctx.workspace_mut_and_db_mut_and_cache()?;
 
     let before_assignments = if assign_to.is_some() {
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(

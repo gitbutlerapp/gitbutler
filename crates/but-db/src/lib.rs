@@ -55,6 +55,8 @@
 //! ```
 #![expect(clippy::inconsistent_digit_grouping)]
 #![deny(missing_docs)]
+use rusqlite::ErrorCode;
+use std::path::PathBuf;
 
 #[cfg(feature = "poll")]
 /// Polling helpers to watch for database-backed state changes.
@@ -69,7 +71,6 @@ pub mod cache;
 /// Migration helpers for applying and configuring database schema updates.
 pub mod migration;
 
-use std::path::PathBuf;
 #[rustfmt::skip]
 pub use table::{
     hunk_assignments::{HunkAssignmentsHandleMut, HunkAssignmentsHandle, HunkAssignment},
@@ -83,6 +84,49 @@ pub use table::{
     ci_checks::CiCheck,
     virtual_branches::{VbBranchTarget, VbStack, VbStackHead, VbState, VirtualBranchesSnapshot, VirtualBranchesHandle, VirtualBranchesHandleMut},
 };
+
+/// The *retryable* error type used by [`backoff()`] for SQLite operations.
+pub type Error = ::backoff::Error<rusqlite::Error>;
+
+/// Retry a short SQLite operation that was intentionally configured to fail fast on lock contention.
+///
+/// This is meant for operations that should prefer responsiveness over waiting for a database lock.
+/// You *may* pair it with [`Transaction::set_nonblocking()`] or one of the `*_nonblocking` transaction acquisition
+/// functions so each attempt fails immediately with `SQLITE_BUSY` or `SQLITE_LOCKED` instead of spending
+/// the whole retry budget in one blocking call.
+/// This function *must* be used if a [`Transaction`] is used lock in a read, followed by a write, as the
+/// deferred write lock acquisition may fail immediately if another write happened while you were reading.
+///
+/// Consider using [`map_err()`] to decide which database errors can be retried.
+///
+/// Only lock-contention errors are retried. Everything else is treated as permanent and returned immediately.
+pub fn backoff<T, E>(
+    operation: impl FnMut() -> Result<T, ::backoff::Error<E>>,
+) -> Result<T, ::backoff::Error<E>> {
+    // Set this value reasonably high as strong contention can actually lead to failures
+    // if the value is too low (500ms previously). The idea is that failures basically never
+    // happen, but with a low value they are just more likely.
+    let max_duration = std::time::Duration::from_millis(2500);
+    let policy = ::backoff::ExponentialBackoffBuilder::new()
+        .with_max_elapsed_time(Some(max_duration))
+        .build();
+    ::backoff::retry(policy, operation)
+}
+
+/// Classify SQLite lock-contention failures as transient so [`backoff()`] can retry them.
+///
+/// This is the adapter to use with `Result::map_err()` for database operations that participate in
+/// fail-fast retry loops.
+pub fn map_err(err: rusqlite::Error) -> ::backoff::Error<rusqlite::Error> {
+    if err
+        .sqlite_error_code()
+        .is_some_and(|code| matches!(code, ErrorCode::DatabaseLocked | ErrorCode::DatabaseBusy))
+    {
+        ::backoff::Error::transient(err)
+    } else {
+        ::backoff::Error::permanent(err)
+    }
+}
 
 /// The migrations to run, in any order, as ordering is maintained by their date number.
 pub const MIGRATIONS: &[&[M<'static>]] = &[

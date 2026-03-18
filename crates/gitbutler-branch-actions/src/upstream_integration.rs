@@ -4,7 +4,6 @@ use anyhow::{Context as _, Result, bail};
 use bstr::ByteSlice;
 use but_core::{Reference, RepositoryExt};
 use but_ctx::{Context, access::RepoExclusive};
-use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{RebaseOutput, RebaseStep};
 use but_serde::BStringForFrontend;
@@ -178,16 +177,20 @@ impl<'a> UpstreamIntegrationContext<'a> {
         gix_repo: &'a gix::Repository,
         review_map: &'a HashMap<String, but_forge::ForgeReview>,
     ) -> Result<Self> {
-        let meta = ctx.meta()?;
-        let repo = ctx.repo.get()?;
-        let _ref_info = but_workspace::head_info(
-            &repo,
-            &meta,
-            Options {
-                expensive_commit_info: true,
-                traversal: but_graph::init::Options::limited(),
-            },
-        )?;
+        {
+            let meta = ctx.meta()?;
+            let repo = ctx.repo.get()?;
+            let mut cache = ctx.cache.get_cache_mut()?;
+            let _ref_info = but_workspace::head_info(
+                &repo,
+                &meta,
+                Options {
+                    expensive_commit_info: true,
+                    traversal: but_graph::init::Options::limited(),
+                },
+                &mut cache,
+            )?;
+        }
 
         let virtual_branches_handle = ctx.virtual_branches();
         let target = virtual_branches_handle.get_default_target()?;
@@ -219,14 +222,14 @@ fn stacks(
     ctx: &Context,
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project_data_dir().join("virtual_branches.toml"),
-    )?;
+    let meta = ctx.legacy_meta()?;
+    let mut cache = ctx.cache.get_cache_mut()?;
     but_workspace::legacy::stacks_v3(
         repo,
         &meta,
         but_workspace::legacy::StacksFilter::InWorkspace,
         None,
+        &mut cache,
     )
 }
 
@@ -236,7 +239,8 @@ fn stack_details(
 ) -> anyhow::Result<but_workspace::ui::StackDetails> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.legacy_meta()?;
-    but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
+    let mut cache = ctx.cache.get_cache_mut()?;
+    but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta, &mut cache)
 }
 
 /// Returns the status of a stack
@@ -311,7 +315,7 @@ fn get_stack_status(
         let mut rebase = but_rebase::Rebase::new(gix_repo, Some(rebase_base), None)?;
         rebase.rebase_noops(false);
         rebase.steps(steps)?;
-        let output = rebase.rebase()?;
+        let output = rebase.rebase(&*ctx.cache.get_cache()?)?;
         let new_head_oid = output.top_commit;
 
         let any_conflicted = output.commit_mapping.iter().any(|(_base, _old, new)| {
@@ -672,7 +676,7 @@ pub(crate) fn resolve_upstream_integration(
             let mut rebase = but_rebase::Rebase::new(&repo, Some(new_target_id), None)?;
             rebase.steps(steps)?;
             rebase.rebase_noops(false);
-            let outcome = rebase.rebase()?;
+            let outcome = rebase.rebase(&*ctx.cache.get_cache()?)?;
             Ok(outcome.top_commit)
         }
     }
@@ -790,7 +794,7 @@ fn compute_resolutions(
                         but_rebase::Rebase::new(context.gix_repo, Some(lower_bound), None)?;
                     rebase.rebase_noops(false);
                     rebase.steps(steps)?;
-                    let output = rebase.rebase()?;
+                    let output = rebase.rebase(&*context.ctx.cache.get_cache()?)?;
                     let new_head = output.top_commit;
 
                     Ok((

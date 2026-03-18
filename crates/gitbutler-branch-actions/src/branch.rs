@@ -65,6 +65,7 @@ pub fn list_branches(
         if let Some(workspace_ref) = repo.try_find_reference("refs/heads/gitbutler/workspace")? {
             // Let's get this here for convenience, and hope this isn't ever called by a writer (or there will be a deadlock).
             let meta = ctx.meta()?;
+            let mut cache = ctx.cache.get_cache_mut()?;
             let info = but_workspace::ref_info(
                 workspace_ref,
                 &meta,
@@ -72,6 +73,7 @@ pub fn list_branches(
                     traversal: but_graph::init::Options::limited(),
                     expensive_commit_info: false,
                 },
+                &mut cache,
             )?;
             info.stacks
                 .into_iter()

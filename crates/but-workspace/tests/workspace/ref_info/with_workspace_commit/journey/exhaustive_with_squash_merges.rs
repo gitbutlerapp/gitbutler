@@ -3,6 +3,7 @@ use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::visualize_commit_graph_all;
 
 use crate::ref_info::{
+    head_info,
     utils::standard_options,
     with_workspace_commit::{
         journey::utils::standard_options_with_extra_target,
@@ -19,7 +20,7 @@ fn j01_unborn() -> anyhow::Result<()> {
     insta::assert_snapshot!(description, @"a newly initialized repository");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"");
 
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -75,7 +76,7 @@ fn j02_first_commit() -> anyhow::Result<()> {
     insta::assert_snapshot!(description, @"the root commit is now present locally");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* fafd9d0 (HEAD -> main) init");
 
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -137,7 +138,7 @@ fn j03_main_pushed() -> anyhow::Result<()> {
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* fafd9d0 (HEAD -> main, origin/main) init");
 
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -189,9 +190,9 @@ fn j03_main_pushed() -> anyhow::Result<()> {
     )
     "#);
 
-    let info = but_workspace::head_info(
+    let info = head_info(
         &repo,
-        &*meta,
+        &meta,
         standard_options_with_extra_target(&repo, "origin/main"),
     );
     // As we see this as base, there is no upstream commits to consider, nor is there local commits.
@@ -261,7 +262,7 @@ fn j04_create_workspace() -> anyhow::Result<()> {
 
     // Adding an empty workspace doesn't change the outcome, this is fully graph based
     // (despite the target being set by the test-suite).
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -320,7 +321,7 @@ fn j05_empty_stack() -> anyhow::Result<()> {
     // We need to advertise empty stacks (i.e. independent branches) as they are not discoverable otherwise.
     // This would be configured by the function that creates the empty stack,
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -400,7 +401,7 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
     ");
 
     // Now that there is a commit, the stack is picked up automatically, but without additional data.
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -468,7 +469,7 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
     "#);
 
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -550,7 +551,7 @@ fn j07_push_commit() -> anyhow::Result<()> {
     ");
 
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -637,7 +638,7 @@ fn j08_next_local_commit() -> anyhow::Result<()> {
     ");
 
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -723,7 +724,7 @@ fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
     ");
 
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -816,7 +817,7 @@ fn j10_squash_merge_stack() -> anyhow::Result<()> {
     ");
 
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -917,7 +918,7 @@ fn j11_squash_merge_remote_only() -> anyhow::Result<()> {
     ");
 
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     // TODO: remote-only squashes aren't currently detected (so remote commits are visible),
     //       but could be if it was common.
     insta::assert_debug_snapshot!(info, @r#"
@@ -1030,7 +1031,7 @@ fn j12_local_only_multi_segment_squash_merge() -> anyhow::Result<()> {
     // TODO: if the user now puts another dependent branch, it's breaking down in many ways.
     //       We should be smarter about that and flesh out additional steps on top.
     add_stack_with_segments(&mut meta, 0, "S1", StackState::InWorkspace, &[]);
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {

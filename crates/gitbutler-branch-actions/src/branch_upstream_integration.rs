@@ -1,6 +1,5 @@
 use anyhow::{Result, bail};
 use but_ctx::{Context, access::RepoExclusive};
-use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{Rebase, RebaseStep};
 use but_workspace::{legacy::stack_ext::StackExt, ui::CommitState};
@@ -48,10 +47,10 @@ pub fn get_initial_integration_steps_for_branch(
     branch_name: String,
 ) -> Result<Vec<InteractiveIntegrationStep>> {
     let repo = ctx.repo.get()?;
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project_data_dir().join("virtual_branches.toml"),
-    )?;
-    let stack_details = but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)?;
+    let meta = ctx.legacy_meta()?;
+    let mut cache = ctx.cache.get_cache_mut()?;
+    let stack_details =
+        but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta, &mut cache)?;
 
     let branch_details = stack_details
         .branch_details
@@ -161,7 +160,7 @@ pub fn integrate_branch_with_steps(
     let mut rebase = Rebase::new(&repo, merge_base, None)?;
     rebase.steps(new_rebase_steps)?;
     rebase.rebase_noops(false);
-    let result = rebase.rebase()?;
+    let result = rebase.rebase(&*ctx.cache.get_cache()?)?;
     let head = result.top_commit.to_git2();
 
     source_stack.set_stack_head(&vb_state, &repo, head.to_gix())?;

@@ -194,7 +194,7 @@ fn worktree_integration_inner(
     let mut rebase = Rebase::new(&repo, stack.merge_base(ctx)?, None)?;
     rebase.steps(steps)?;
     rebase.rebase_noops(false);
-    let output = rebase.rebase()?;
+    let output = rebase.rebase(&*ctx.cache.get_cache()?)?;
 
     // Does the new stack tip conflict with any of the other stacks.
     let tip_tree = repo.find_commit(output.top_commit)?.tree_id()?;

@@ -57,7 +57,7 @@ pub fn reorder_stack(
     let mut builder = but_rebase::Rebase::new(&repo, merge_base.to_gix(), None)?;
     let builder = builder.steps(steps)?;
     builder.rebase_noops(false);
-    let output = builder.rebase()?;
+    let output = builder.rebase(&*ctx.cache.get_cache()?)?;
 
     let new_head = output.top_commit.to_git2();
 

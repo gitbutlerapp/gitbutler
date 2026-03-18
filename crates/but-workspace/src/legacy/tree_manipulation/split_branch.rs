@@ -108,10 +108,11 @@ pub fn split_branch(
 
     let result = {
         let repo = ctx.repo.get()?;
+        let cache = ctx.cache.get_cache()?;
         let mut rebase = Rebase::new(&repo, merge_base, None)?;
         rebase.steps(steps)?;
         rebase.rebase_noops(false);
-        rebase.rebase()?
+        rebase.rebase(&cache)?
     };
 
     let new_branch_full_name: gix::refs::FullName = new_branch_ref_name.try_into()?;
@@ -221,7 +222,8 @@ pub fn split_into_dependent_branch(
     let mut source_rebase = Rebase::new(&repo, merge_base, None)?;
     source_rebase.steps(steps)?;
     source_rebase.rebase_noops(false);
-    let source_result = source_rebase.rebase()?;
+    let cache = ctx.cache.get_cache()?;
+    let source_result = source_rebase.rebase(&cache)?;
     let new_head = repo.find_commit(source_result.top_commit)?;
 
     let mut source_stack = source_stack;
@@ -270,10 +272,11 @@ fn filter_file_changes_in_branch(
 
     let source_result = {
         let repo = ctx.repo.get()?;
+        let cache = ctx.cache.get_cache()?;
         let mut source_rebase = Rebase::new(&repo, merge_base, None)?;
         source_rebase.steps(source_steps)?;
         source_rebase.rebase_noops(false);
-        source_rebase.rebase()?
+        source_rebase.rebase(&cache)?
     };
 
     let mut source_stack = source_stack;

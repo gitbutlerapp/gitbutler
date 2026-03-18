@@ -15,6 +15,7 @@ doctest = false
 
 [dependencies]
 but-core.workspace = true
+but-db.workspace = true
 but-gerrit.workspace = true
 but-error.workspace = true
 but-graph.workspace = true

@@ -199,6 +199,7 @@ async fn build_status_context<'a>(
         // TODO: use this for JSON status information (regular status information
         //       already uses this)
         let meta = ctx.meta()?;
+        let mut cache = ctx.cache.get_cache_mut()?;
         but_workspace::head_info(
             &*ctx.repo.get()?,
             &meta,
@@ -206,6 +207,7 @@ async fn build_status_context<'a>(
                 expensive_commit_info: true,
                 ..Default::default()
             },
+            &mut cache,
         )?
     };
 

@@ -80,7 +80,13 @@ fn output_status() -> anyhow::Result<()> {
 
     // Stack/branch info via head_info — graph walk only (expensive_commit_info disabled).
     // Best-effort: if this fails (corrupted refs, etc.), we still report worktree changes.
-    let stacks = collect_stacks(&ctx, &repo);
+    let stacks = match collect_stacks(&ctx, &repo) {
+        Ok(stacks) => stacks,
+        Err(e) => {
+            tracing::debug!(?e, "eval-hook: failed to collect stack info");
+            Vec::new()
+        }
+    };
 
     let status = HookStatus {
         uncommitted_file_count: uncommitted_files.len(),
@@ -101,26 +107,24 @@ fn output_status() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Collect stack/branch info from head_info. Returns empty vec on any error.
-fn collect_stacks(ctx: &but_ctx::Context, repo: &gix::Repository) -> Vec<StackInfo> {
-    let Ok(meta) = ctx.meta() else {
-        return Vec::new();
-    };
-    let info = match but_workspace::head_info(
+/// Collect stack/branch info from `head_info()`.
+fn collect_stacks(
+    ctx: &but_ctx::Context,
+    repo: &gix::Repository,
+) -> anyhow::Result<Vec<StackInfo>> {
+    let meta = ctx.meta()?;
+    let mut cache = ctx.cache.get_cache_mut()?;
+    let info = but_workspace::head_info(
         repo,
         &meta,
         but_workspace::ref_info::Options {
             expensive_commit_info: false,
             ..Default::default()
         },
-    ) {
-        Ok(info) => info,
-        Err(e) => {
-            tracing::debug!(?e, "eval-hook: failed to collect stack info");
-            return Vec::new();
-        }
-    };
-    info.stacks
+        &mut cache,
+    )?;
+    Ok(info
+        .stacks
         .iter()
         .map(|stack| StackInfo {
             branches: stack
@@ -136,7 +140,7 @@ fn collect_stacks(ctx: &but_ctx::Context, repo: &gix::Repository) -> Vec<StackIn
                 })
                 .collect(),
         })
-        .collect()
+        .collect())
 }
 
 #[cfg(test)]

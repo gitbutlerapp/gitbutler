@@ -3,6 +3,7 @@ use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::visualize_commit_graph_all;
 
 use crate::ref_info::{
+    head_info,
     utils::standard_options,
     with_workspace_commit::{
         journey::utils::standard_options_with_extra_target,
@@ -27,7 +28,7 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
     * fafd9d0 (origin/main, main) init
     ");
 
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -112,7 +113,7 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
     * fafd9d0 (main) init
     ");
 
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -199,7 +200,7 @@ fn remote_diverged() -> anyhow::Result<()> {
     * fafd9d0 (origin/main, main) init
     ");
 
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -292,9 +293,9 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
     * fafd9d0 init
     ");
 
-    let info = but_workspace::head_info(
+    let info = head_info(
         &repo,
-        &*meta,
+        &meta,
         standard_options_with_extra_target(&repo, "fafd9d0"),
     );
     insta::assert_debug_snapshot!(info, @r#"
@@ -379,7 +380,7 @@ fn remote_behind() -> anyhow::Result<()> {
     * fafd9d0 (origin/main, main) init
     ");
 
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -465,9 +466,9 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
     * fafd9d0 init
     ");
 
-    let info = but_workspace::head_info(
+    let info = head_info(
         &repo,
-        &*meta,
+        &meta,
         standard_options_with_extra_target(&repo, "fafd9d0"),
     );
     insta::assert_debug_snapshot!(info, @r#"
@@ -553,7 +554,7 @@ fn remote_ahead() -> anyhow::Result<()> {
     * fafd9d0 (origin/main, main) init
     ");
 
-    let info = but_workspace::head_info(&repo, &*meta, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -636,9 +637,9 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
     * fafd9d0 init
     ");
 
-    let info = but_workspace::head_info(
+    let info = head_info(
         &repo,
-        &*meta,
+        &meta,
         standard_options_with_extra_target(&repo, "fafd9d0"),
     );
     insta::assert_debug_snapshot!(info, @r#"
