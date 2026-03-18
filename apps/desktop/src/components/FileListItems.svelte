@@ -127,19 +127,22 @@
 				// 1. Activation keys (Enter/Space/l)
 				if (controller.handleActivation(change, idx, e)) {
 					onselect?.(change, idx);
-					return;
+					return true;
 				}
 				// 2. Extra handlers (e.g. AI shortcuts)
 				if (extraKeyHandlers) {
 					for (const handler of extraKeyHandlers) {
-						if (handler(change, idx, e)) return;
+						if (handler(change, idx, e)) return true;
 					}
 				}
-				// 3. Arrow/vim navigation
+				// 3. Arrow/vim navigation — only claim the event if we moved
 				const navigatedIndex = controller.handleNavigation(e);
-				if (navigatedIndex !== undefined) {
+				if (navigatedIndex !== undefined && navigatedIndex !== idx) {
 					const navigatedChange = controller.changes[navigatedIndex];
-					if (navigatedChange) onselect?.(navigatedChange, navigatedIndex);
+					if (navigatedChange) {
+						onselect?.(navigatedChange, navigatedIndex);
+					}
+					return true;
 				}
 			},
 			focusable: true,
@@ -147,7 +150,9 @@
 		onclick={(e) => {
 			e.stopPropagation();
 			controller.select(e, change, idx);
-			onselect?.(change, idx);
+			if (controller.isSelected(change.path)) {
+				onselect?.(change, idx);
+			}
 		}}
 		{conflictEntries}
 	/>

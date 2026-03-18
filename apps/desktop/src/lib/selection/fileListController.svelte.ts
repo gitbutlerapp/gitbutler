@@ -58,6 +58,10 @@ export class FileListController {
 	private getAllowUnselect: () => boolean;
 
 	active = $state(false);
+	readonly selectedPaths = $derived(new Set(this.selectedFileIds.map((f) => f.path)));
+	readonly hasSelectionInList = $derived(
+		this.changes.some((change) => this.selectedPaths.has(change.path)),
+	);
 
 	constructor(params: {
 		changes: () => TreeChange[];
@@ -70,18 +74,17 @@ export class FileListController {
 		this.getSelectionId = params.selectionId;
 		this.getAllowUnselect = params.allowUnselect ?? (() => true);
 
-		const currentSelection = $derived(this.idSelection.getById(this.getSelectionId()));
-		const lastAdded = $derived(currentSelection.lastAdded);
-		const lastAddedIndex = $derived(get(lastAdded)?.index);
-
 		$effect(() => {
-			if (lastAddedIndex !== undefined) {
-				untrack(() => {
-					if (this.active) {
-						this.focusManager.focusNthSibling(lastAddedIndex);
-					}
-				});
-			}
+			const store = this.idSelection.getById(this.getSelectionId()).lastAdded;
+			return store.subscribe((value) => {
+				if (value?.index !== undefined) {
+					untrack(() => {
+						if (this.active) {
+							this.focusManager.focusNthSibling(value.index);
+						}
+					});
+				}
+			});
 		});
 	}
 
@@ -99,14 +102,6 @@ export class FileListController {
 
 	get selectedFileIds(): SelectedFile[] {
 		return this.idSelection.values(this.selectionId);
-	}
-
-	get selectedPaths(): Set<string> {
-		return new Set(this.selectedFileIds.map((f) => f.path));
-	}
-
-	get hasSelectionInList(): boolean {
-		return this.changes.some((change) => this.selectedPaths.has(change.path));
 	}
 
 	isSelected(path: string): boolean {
