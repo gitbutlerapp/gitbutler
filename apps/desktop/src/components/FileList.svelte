@@ -258,7 +258,10 @@
 	$effect(() => {
 		if (lastAddedIndex !== undefined) {
 			untrack(() => {
-				if (active) {
+				// In tree mode, folder items are also registered as focusable in FocusManager,
+				// so the changes-array index no longer maps to the correct sibling index.
+				// FocusManager already handles focus movement correctly via keyboard navigation.
+				if (active && listMode !== "tree") {
 					focusManager.focusNthSibling(lastAddedIndex);
 				}
 			});
@@ -385,6 +388,7 @@
 				{draggableFiles}
 				{changes}
 				{fileTemplate}
+				{active}
 			/>
 		{:else}
 			<LazyList items={changes} chunkSize={100}>

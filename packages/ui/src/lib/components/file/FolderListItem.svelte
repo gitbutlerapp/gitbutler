@@ -3,6 +3,8 @@
 	import Icon from "$components/Icon.svelte";
 	import FileIcon from "$components/file/FileIcon.svelte";
 	import FileIndent from "$components/file/FileIndent.svelte";
+	import { focusable } from "$lib/focus/focusable";
+	import type { FocusableOptions } from "$lib/focus/focusManager";
 
 	interface Props {
 		name: string;
@@ -13,6 +15,9 @@
 		depth?: number;
 		transparent?: boolean;
 		draggable?: boolean;
+		selected?: boolean;
+		active?: boolean;
+		actionOpts?: FocusableOptions;
 		oncheck?: (
 			e: Event & {
 				currentTarget: EventTarget & HTMLInputElement;
@@ -21,6 +26,7 @@
 		ontoggle?: (expanded: boolean) => void;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
+		onmousedown?: (e: MouseEvent) => void;
 		oncontextmenu?: (e: MouseEvent) => void;
 		testId?: string;
 	}
@@ -34,10 +40,14 @@
 		depth,
 		transparent,
 		draggable = false,
+		selected = false,
+		active = false,
+		actionOpts,
 		oncheck,
 		ontoggle,
 		onclick,
 		onkeydown,
+		onmousedown,
 		oncontextmenu,
 		testId,
 	}: Props = $props();
@@ -46,10 +56,15 @@
 <div
 	data-testid={testId}
 	class="folder-list-item"
-	role="presentation"
-	tabindex="-1"
+	role="option"
+	aria-selected={selected}
+	tabindex="0"
 	class:transparent
 	class:draggable
+	class:selected
+	class:active
+	use:focusable={actionOpts}
+	{onmousedown}
 	onclick={(e) => {
 		e.stopPropagation();
 		onclick?.(e);
@@ -120,11 +135,38 @@
 		background-color: var(--clr-bg-1);
 		cursor: pointer;
 
-		&:hover {
+		&:not(.selected):hover {
 			background-color: var(--hover-bg-1);
 		}
 		&.transparent {
 			background-color: transparent;
+		}
+		&.selected {
+			background-color: var(--clr-selected-not-in-focus-bg);
+
+			&:hover {
+				background-color: color-mix(
+					in srgb,
+					var(--clr-selected-not-in-focus-bg) 96%,
+					var(--clr-theme-gray-element)
+				);
+			}
+		}
+		&.active.selected {
+			background-color: var(--clr-selected-in-focus-bg);
+
+			&:hover {
+				background-color: color-mix(
+					in srgb,
+					var(--clr-selected-in-focus-bg) 95%,
+					var(--clr-theme-pop-element)
+				);
+			}
+		}
+
+		&:focus-visible {
+			outline: none;
+			background-color: var(--clr-selected-in-focus-bg);
 		}
 
 		.draggable-handle {

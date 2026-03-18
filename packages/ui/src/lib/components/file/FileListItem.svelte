@@ -264,9 +264,16 @@
 		}
 
 		&.selected {
-			border-bottom: 1px solid
-				color-mix(in srgb, var(--clr-selected-not-in-focus-bg) 90%, var(--clr-text-1));
 			background-color: var(--clr-selected-not-in-focus-bg);
+
+			&.list-mode {
+				border-bottom: 1px solid
+					color-mix(in srgb, var(--clr-selected-not-in-focus-bg) 90%, var(--clr-text-1));
+
+				&.is-last {
+					border-bottom: none;
+				}
+			}
 
 			&:hover {
 				background-color: color-mix(
