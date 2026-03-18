@@ -314,6 +314,10 @@ const ProjectBranchesPage: FC = () => {
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
 	const selectedRemote =
 		selectedBranch && !selectedBranch.hasLocal ? selectedBranch.remotes[0] : null;
+	const isBranchSelected = (branchName: string) =>
+		selection?.branchName === branchName && selection.commitId === undefined;
+	const isBranchSelectedWithin = (branchName: string) =>
+		selection?.branchName === branchName && selection.commitId !== undefined;
 
 	const isCommitSelected = (branchName: string, commitId: string) =>
 		selection?.branchName === branchName &&
@@ -364,12 +368,20 @@ const ProjectBranchesPage: FC = () => {
 					{sortedBranches.map((branch) => {
 						const ref = getBranchRef(branch);
 						const stackId = branch.stack?.id;
-						const isSelected = selectedBranch?.name === branch.name;
+						const isSelected = isBranchSelected(branch.name);
+						const isSelectedWithin = isBranchSelectedWithin(branch.name);
 						return (
 							<li key={branch.name} className={styles.branchesListItem}>
 								<button
 									type="button"
-									className={classes(styles.branchButton, isSelected && sharedStyles.selected)}
+									className={classes(
+										styles.branchButton,
+										isSelected
+											? sharedStyles.selected
+											: isSelectedWithin
+												? sharedStyles.selectedWithin
+												: undefined,
+									)}
 									onClick={() => {
 										select((selected) =>
 											selected?.branchName === branch.name ? null : { branchName: branch.name },
