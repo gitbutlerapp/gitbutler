@@ -80,9 +80,7 @@
 	// Create selectionId for this worktree lane
 	const selectionId = $derived(createWorktreeSelection({ stackId }));
 
-	const uncommitDzHandler = $derived(
-		new UncommitDzHandler(projectId, stackService, uiState, stackId),
-	);
+	const uncommitDzHandler = $derived(new UncommitDzHandler(projectId, stackService, stackId));
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);

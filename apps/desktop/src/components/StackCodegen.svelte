@@ -13,6 +13,7 @@
 	import CodegenMessages from "$components/codegen/CodegenMessages.svelte";
 	import { CLAUDE_CODE_SERVICE } from "$lib/codegen/claude";
 	import { getStackContext } from "$lib/stack/stackController.svelte";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import type { ClaudeConfig } from "$lib/codegen/types";
 
@@ -25,6 +26,7 @@
 	const { hasRulesToClear, claudeConfig, onclose }: Props = $props();
 
 	const controller = getStackContext();
+	const uiState = inject(UI_STATE);
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 
 	let mcpConfigModal = $state<CodegenMcpConfigModal>();
@@ -48,9 +50,7 @@
 	hideError
 >
 	{#snippet children(config, { stackId: resolvedStackId })}
-		{@const resolvedLaneState = resolvedStackId
-			? controller.uiState.lane(resolvedStackId)
-			: undefined}
+		{@const resolvedLaneState = resolvedStackId ? uiState.lane(resolvedStackId) : undefined}
 		<CodegenMcpConfigModal
 			disabledServers={resolvedLaneState?.disabledMcpServers.current || []}
 			bind:this={mcpConfigModal}

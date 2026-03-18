@@ -34,6 +34,7 @@
 	import { createCommitSelection } from "$lib/selection/key";
 	import { getStackContext } from "$lib/stack/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+
 	import { combineResults } from "$lib/state/helpers";
 	import { ensureValue } from "$lib/utils/validation";
 	import { inject } from "@gitbutler/core/context";
@@ -307,7 +308,6 @@
 							stackId,
 							stackService,
 							hooksService,
-							uiState: controller.uiState,
 							commit: dzCommit,
 							runHooks: $runHooks,
 							okWithForce: true,

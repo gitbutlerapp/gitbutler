@@ -150,7 +150,6 @@
 						stackId: controller.stackId,
 						stackService,
 						hooksService,
-						uiState: controller.uiState,
 						commit: dzCommit,
 						runHooks: $runHooks,
 						okWithForce: true,

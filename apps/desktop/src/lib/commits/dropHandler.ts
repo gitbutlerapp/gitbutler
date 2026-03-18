@@ -36,11 +36,12 @@ export class CommitDropData {
 
 /** Handler that can move commits between stacks. */
 export class MoveCommitDzHandler implements DropzoneHandler {
+	private readonly uiState = inject(UI_STATE);
+
 	constructor(
 		private stackService: StackService,
 		private stackId: string,
 		private projectId: string,
-		private uiState?: UiState,
 	) {}
 
 	accepts(data: unknown): boolean {
@@ -62,11 +63,9 @@ export class MoveCommitDzHandler implements DropzoneHandler {
 
 	ondrop(data: CommitDropData): void {
 		// Clear the selection from the source lane if this commit was selected
-		if (this.uiState) {
-			const sourceSelection = untrack(() => this.uiState!.lane(data.stackId).selection.current);
-			if (sourceSelection?.commitId === data.commit.id) {
-				this.uiState.lane(data.stackId).selection.set(undefined);
-			}
+		const sourceSelection = untrack(() => this.uiState.lane(data.stackId).selection.current);
+		if (sourceSelection?.commitId === data.commit.id) {
+			this.uiState.lane(data.stackId).selection.set(undefined);
 		}
 
 		this.stackService
@@ -156,10 +155,11 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 }
 
 export class UncommitDzHandler implements DropzoneHandler {
+	private readonly uiState = inject(UI_STATE);
+
 	constructor(
 		private projectId: string,
 		private readonly stackService: StackService,
-		private readonly uiState: UiState,
 		private readonly assignTo?: string,
 	) {}
 
@@ -249,6 +249,8 @@ export class UncommitDzHandler implements DropzoneHandler {
  * Handler that is able to amend a commit using `Hunk`.
  */
 export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
+	private readonly uiState = inject(UI_STATE);
+
 	constructor(
 		private args: {
 			stackService: StackService;
@@ -257,7 +259,6 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 			projectId: string;
 			stackId: string;
 			commit: DzCommitData;
-			uiState: UiState;
 			runHooks: boolean;
 		},
 	) {}
@@ -275,7 +276,7 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 	}
 
 	async ondrop(data: HunkDropDataV3): Promise<void> {
-		const { stackService, projectId, stackId, commit, okWithForce, uiState, runHooks } = this.args;
+		const { stackService, projectId, stackId, commit, okWithForce, runHooks } = this.args;
 		if (!okWithForce && commit.isRemote) return;
 
 		if (data instanceof HunkDropDataV3) {
@@ -310,8 +311,8 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 				});
 
 				// Update the project state to point to the new commit if needed.
-				updateUiState(uiState, data.stackId, data.commitId, replacedCommits);
-				updateUiState(uiState, stackId, commit.id, replacedCommits);
+				updateUiState(this.uiState, data.stackId, data.commitId, replacedCommits);
+				updateUiState(this.uiState, stackId, commit.id, replacedCommits);
 
 				return;
 			}
@@ -414,7 +415,6 @@ export function createCommitDropHandlers(args: {
 	stackId: string | undefined;
 	stackService: StackService;
 	hooksService: HooksService;
-	uiState: UiState;
 	commit: DzCommitData;
 	runHooks: boolean;
 	onCommitIdChange?: (newCommitId: string) => void;
@@ -461,7 +461,6 @@ export function createCommitDropHandlers(args: {
 		stackId,
 		commit,
 		okWithForce,
-		uiState: args.uiState,
 		runHooks: args.runHooks,
 	});
 

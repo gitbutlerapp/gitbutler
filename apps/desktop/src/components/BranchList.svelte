@@ -25,6 +25,7 @@
 	import { type BranchDetails } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { combineResults } from "$lib/state/helpers";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { URL_SERVICE } from "$lib/utils/url";
 	import { ensureValue } from "$lib/utils/validation";
 	import { inject } from "@gitbutler/core/context";
@@ -39,6 +40,7 @@
 	const { branches }: Props = $props();
 
 	const controller = getStackContext();
+	const uiState = inject(UI_STATE);
 	const stackService = inject(STACK_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const urlService = inject(URL_SERVICE);
@@ -141,7 +143,7 @@
 					? claudeCodeService.messages({ projectId, stackId })
 					: undefined}
 				{@const startCommittingDz = new StartCommitDzHandler(
-					controller.uiState,
+					uiState,
 					uncommittedService,
 					projectId,
 					stackId,
