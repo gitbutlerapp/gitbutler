@@ -1100,8 +1100,6 @@ const ProjectPage: FC = () => {
 
 	return (
 		<DraggedSourceItemContext.Provider value={draggedSourceItem}>
-			<h2>{project.title} workspace</h2>
-
 			<div className={sharedStyles.lanes}>
 				<UnassignedLane projectId={project.id} onDependencyHover={highlightCommits} />
 

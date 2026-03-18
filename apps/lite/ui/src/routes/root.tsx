@@ -76,7 +76,6 @@ const SidebarNav: FC = () => {
 const RootLayout: FC = () => (
 	<main className={styles.layout}>
 		<aside className={styles.sidebar}>
-			<h1>GitButler Lite</h1>
 			<ProjectSelect />
 			<SidebarNav />
 		</aside>

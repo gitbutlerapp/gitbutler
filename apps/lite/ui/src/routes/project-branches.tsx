@@ -303,81 +303,76 @@ const ProjectBranchesPage: FC = () => {
 	// TODO: dedupe
 	if (!project) return <p>Project not found.</p>;
 
-	return (
-		<>
-			<h2>{project.title} branches</h2>
-			{sortedBranches.length === 0 ? (
-				<p>No branches found.</p>
-			) : (
-				<div className={sharedStyles.lanes}>
-					<ul className={styles.branchesList}>
-						{sortedBranches.map((branch) => {
-							const ref = getBranchRef(branch);
-							const stackId = branch.stack?.id;
-							const isSelected = selectedBranchResolvedName === branch.name;
-							return (
-								<li key={branch.name} className={styles.branchesListItem}>
+	return sortedBranches.length === 0 ? (
+		<p>No branches found.</p>
+	) : (
+		<div className={sharedStyles.lanes}>
+			<ul className={styles.branchesList}>
+				{sortedBranches.map((branch) => {
+					const ref = getBranchRef(branch);
+					const stackId = branch.stack?.id;
+					const isSelected = selectedBranchResolvedName === branch.name;
+					return (
+						<li key={branch.name} className={styles.branchesListItem}>
+							<button
+								type="button"
+								className={classes(styles.branchButton, isSelected && sharedStyles.selected)}
+								onClick={() => {
+									setSelectedBranchName((selected) =>
+										selected === branch.name ? null : branch.name,
+									);
+								}}
+							>
+								{branch.name}
+								{branch.stack?.branches && branch.stack.branches.length > 1 && (
+									<> (+{branch.stack.branches.length - 1} more)</>
+								)}
+							</button>
+							{!branch.stack?.inWorkspace ? (
+								<button
+									type="button"
+									disabled={applyBranch.isPending || ref === null}
+									onClick={() => {
+										if (ref === null) return;
+										applyBranch.mutate({
+											projectId: id,
+											existingBranch: ref,
+										});
+									}}
+								>
+									{applyBranch.isPending ? "Applying branch…" : "Apply branch"}
+								</button>
+							) : (
+								stackId != null && (
 									<button
 										type="button"
-										className={classes(styles.branchButton, isSelected && sharedStyles.selected)}
+										disabled={unapplyStack.isPending}
 										onClick={() => {
-											setSelectedBranchName((selected) =>
-												selected === branch.name ? null : branch.name,
-											);
+											unapplyStack.mutate({
+												projectId: id,
+												stackId,
+											});
 										}}
 									>
-										{branch.name}
-										{branch.stack?.branches && branch.stack.branches.length > 1 && (
-											<> (+{branch.stack.branches.length - 1} more)</>
-										)}
+										{unapplyStack.isPending ? "Unapplying stack…" : "Unapply stack"}
 									</button>
-									{!branch.stack?.inWorkspace ? (
-										<button
-											type="button"
-											disabled={applyBranch.isPending || ref === null}
-											onClick={() => {
-												if (ref === null) return;
-												applyBranch.mutate({
-													projectId: id,
-													existingBranch: ref,
-												});
-											}}
-										>
-											{applyBranch.isPending ? "Applying branch…" : "Apply branch"}
-										</button>
-									) : (
-										stackId != null && (
-											<button
-												type="button"
-												disabled={unapplyStack.isPending}
-												onClick={() => {
-													unapplyStack.mutate({
-														projectId: id,
-														stackId,
-													});
-												}}
-											>
-												{unapplyStack.isPending ? "Unapplying stack…" : "Unapply stack"}
-											</button>
-										)
-									)}
-								</li>
-							);
-						})}
-					</ul>
+								)
+							)}
+						</li>
+					);
+				})}
+			</ul>
 
-					{selectedBranchResolvedName != null && (
-						<BranchDetailsLane
-							key={selectedBranchResolvedName}
-							projectId={id}
-							branchName={selectedBranchResolvedName}
-							branchRef={selectedBranch ? getBranchRef(selectedBranch) : null}
-							remote={selectedRemote ?? null}
-						/>
-					)}
-				</div>
+			{selectedBranchResolvedName != null && (
+				<BranchDetailsLane
+					key={selectedBranchResolvedName}
+					projectId={id}
+					branchName={selectedBranchResolvedName}
+					branchRef={selectedBranch ? getBranchRef(selectedBranch) : null}
+					remote={selectedRemote ?? null}
+				/>
 			)}
-		</>
+		</div>
 	);
 };
 
