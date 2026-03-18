@@ -564,7 +564,6 @@ impl IdMap {
                     &ws,
                     false,
                     Some(changes),
-                    None,
                     context_lines,
                 )?;
                 assignments

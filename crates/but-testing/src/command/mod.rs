@@ -63,7 +63,6 @@ pub mod assignment {
             &ws,
             false,
             None::<Vec<but_core::TreeChange>>,
-            None,
             context_lines,
         )?;
         if use_json {

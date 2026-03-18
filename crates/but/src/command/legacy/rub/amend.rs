@@ -105,7 +105,6 @@ fn wt_assignments(ctx: &mut Context) -> anyhow::Result<Vec<HunkAssignment>> {
         &ws,
         false,
         Some(changes.clone()),
-        None,
         context_lines,
     )?;
     Ok(assignments)

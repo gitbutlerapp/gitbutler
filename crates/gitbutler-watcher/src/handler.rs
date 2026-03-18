@@ -110,7 +110,6 @@ impl Handler {
             &repo,
             &ws,
             wt_changes.changes.clone(),
-            &dependencies,
             context_lines,
         )?;
 
@@ -136,7 +135,6 @@ impl Handler {
                 &repo,
                 &ws,
                 wt_changes.changes.clone(),
-                &dependencies,
                 context_lines,
             )?;
             changes = but_hunk_assignment::WorktreeChanges {
@@ -224,23 +222,17 @@ fn assignments_and_errors(
     repo: &gix::Repository,
     workspace: &but_graph::projection::Workspace,
     tree_changes: Vec<TreeChange>,
-    dependencies: &Result<but_hunk_dependency::ui::HunkDependencies>,
     context_lines: u32,
 ) -> Result<(Vec<HunkAssignment>, Option<serde_error::Error>)> {
-    let (assignments, assignments_error) = match &dependencies {
-        Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
+    let (assignments, assignments_error) = {
+        but_hunk_assignment::assignments_with_fallback(
             db,
             repo,
             workspace,
             false,
             Some(tree_changes),
-            Some(dependencies),
             context_lines,
-        )?,
-        Err(e) => (
-            vec![],
-            Some(anyhow::anyhow!("failed to get hunk dependencies: {e}")),
-        ),
+        )?
     };
     Ok((
         assignments,

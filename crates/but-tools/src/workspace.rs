@@ -1517,7 +1517,6 @@ pub fn get_filtered_changes(
         &ws,
         false,
         None::<Vec<but_core::TreeChange>>,
-        None,
         context_lines,
     )
     .map_err(|err| serde_error::Error::new(&*err))?;

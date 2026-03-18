@@ -258,7 +258,6 @@ pub fn unapply_stack(ctx: &mut Context, stack_id: StackId) -> Result<()> {
         &ws,
         false,
         Some(but_core::diff::ui::worktree_changes(&repo)?.changes),
-        None,
         context_lines,
     )?;
     let assigned_diffspec = but_workspace::flatten_diff_specs(

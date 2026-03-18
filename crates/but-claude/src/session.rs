@@ -1002,7 +1002,6 @@ fn append_assigned_files_info(
         &ws,
         false,
         None::<Vec<but_core::TreeChange>>,
-        None,
         context_lines,
     ) {
         Ok((assignments, _error)) => assignments,

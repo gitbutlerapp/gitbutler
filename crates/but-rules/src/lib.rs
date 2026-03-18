@@ -1,6 +1,5 @@
 use but_core::{ChangeId, sync::RepoExclusive};
 use but_ctx::Context;
-use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use serde::{Deserialize, Serialize};
 
 pub mod db;
@@ -309,19 +308,12 @@ pub fn process_rules(ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Res
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
         let wt_changes = but_core::diff::worktree_changes(&repo)?;
 
-        let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-            &repo,
-            &ws,
-            Some(wt_changes.changes.clone()),
-        )?;
-
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
             db.hunk_assignments_mut()?,
             &repo,
             &ws,
             false,
             Some(wt_changes.changes),
-            Some(&dependencies),
             context_lines,
         )
         .map_err(|e| anyhow::anyhow!("Failed to get assignments: {e}"))?;

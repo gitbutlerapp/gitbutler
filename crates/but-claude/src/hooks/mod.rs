@@ -448,7 +448,6 @@ pub fn assign_hunks_post_tool_call(
         &ws,
         true,
         Some(changes.clone()),
-        None,
         context_lines,
     )?;
 

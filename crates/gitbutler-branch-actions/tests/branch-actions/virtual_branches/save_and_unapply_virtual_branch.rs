@@ -39,7 +39,6 @@ fn unapply_with_data() -> anyhow::Result<()> {
         &ws,
         false,
         Some(changes.clone()),
-        None,
         context_lines,
     )
     .unwrap();
@@ -62,7 +61,6 @@ fn unapply_with_data() -> anyhow::Result<()> {
         &ws,
         false,
         Some(changes.clone()),
-        None,
         context_lines,
     )
     .unwrap();

@@ -151,7 +151,6 @@ fn assign_all_inner(
         &ws,
         false,
         Some(changes),
-        None,
         context_lines,
     )?;
 

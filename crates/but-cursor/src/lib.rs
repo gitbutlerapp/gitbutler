@@ -175,7 +175,6 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
         &ws,
         true,
         Some(changes.clone()),
-        None,
         context_lines,
     )?;
 

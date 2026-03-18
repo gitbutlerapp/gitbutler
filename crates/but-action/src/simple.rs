@@ -101,7 +101,6 @@ fn handle_changes_simple_inner(
         &ws,
         true,
         None::<Vec<but_core::TreeChange>>,
-        None,
         context_lines,
     )
     .map_err(|err| serde_error::Error::new(&*err))?;

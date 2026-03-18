@@ -566,7 +566,6 @@ pub fn uncommit_changes(
             &ws,
             false,
             None::<Vec<but_core::TreeChange>>,
-            None,
             context_lines,
         )?;
         Some(changes.0)
@@ -592,7 +591,6 @@ pub fn uncommit_changes(
             &ws,
             false,
             None::<Vec<but_core::TreeChange>>,
-            None,
             context_lines,
         )?;
 
