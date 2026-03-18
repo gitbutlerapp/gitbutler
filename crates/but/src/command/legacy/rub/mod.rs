@@ -739,7 +739,7 @@ pub(crate) fn handle_stage_tui(
                 unselected.into_iter(),
                 None,
             )?);
-            assign::do_assignments(ctx, reqs, out)?;
+            assign::do_assignments(ctx, reqs)?;
             if let Some(out) = out.for_human() {
                 writeln!(
                     out,

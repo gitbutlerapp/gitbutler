@@ -96,7 +96,7 @@ export function sortLikeFileTree(changes: TreeChange[]): TreeChange[] {
 		const minLength = Math.min(partsA.length, partsB.length);
 
 		for (let i = 0; i < minLength - 1; i++) {
-			const comparison = partsA[i]!.localeCompare(partsB[i]!, FILE_SORT_LOCALE, FILE_SORT_CONFIG);
+			const comparison = partsA[i]!.localeCompare(partsB[i], FILE_SORT_LOCALE, FILE_SORT_CONFIG);
 			if (comparison !== 0) {
 				return comparison;
 			}
@@ -109,7 +109,7 @@ export function sortLikeFileTree(changes: TreeChange[]): TreeChange[] {
 
 		// Same depth, compare final component
 		return partsA[partsA.length - 1]!.localeCompare(
-			partsB[partsB.length - 1]!,
+			partsB[partsB.length - 1],
 			FILE_SORT_LOCALE,
 			FILE_SORT_CONFIG,
 		);

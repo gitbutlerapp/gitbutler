@@ -2,7 +2,7 @@ use anyhow::Result;
 use but_api_macros::but_api;
 use but_core::ui::TreeChange;
 use but_ctx::Context;
-use but_hunk_assignment::{AssignmentRejection, HunkAssignmentRequest, WorktreeChanges};
+use but_hunk_assignment::{HunkAssignmentRequest, WorktreeChanges};
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use tracing::instrument;
 
@@ -73,15 +73,15 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
 pub fn assign_hunk(
     ctx: &mut Context,
     assignments: Vec<HunkAssignmentRequest>,
-) -> anyhow::Result<Vec<AssignmentRejection>> {
+) -> anyhow::Result<()> {
     let context_lines = ctx.settings.context_lines;
     let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-    let rejections = but_hunk_assignment::assign(
+    but_hunk_assignment::assign(
         db.hunk_assignments_mut()?,
         &repo,
         &ws,
         assignments,
         context_lines,
     )?;
-    Ok(rejections)
+    Ok(())
 }

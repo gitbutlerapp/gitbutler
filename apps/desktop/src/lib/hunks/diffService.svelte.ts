@@ -3,7 +3,7 @@ import { InjectionToken } from "@gitbutler/core/context";
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import type { TreeChange } from "$lib/hunks/change";
 import type { UnifiedDiff } from "$lib/hunks/diff";
-import type { AssignmentRejection, HunkAssignmentRequest } from "$lib/hunks/hunk";
+import type { HunkAssignmentRequest } from "$lib/hunks/hunk";
 import type { BackendApi } from "$lib/state/clientState.svelte";
 
 export type ChangeDiff = {
@@ -64,16 +64,15 @@ function injectEndpoints(api: BackendApi) {
 				query: (args) => args,
 				providesTags: [providesList(ReduxTag.Diff)],
 			}),
-			assignHunk: build.mutation<
-				AssignmentRejection[],
-				{ projectId: string; assignments: HunkAssignmentRequest[] }
-			>({
-				extraOptions: {
-					command: "assign_hunk",
+			assignHunk: build.mutation<void, { projectId: string; assignments: HunkAssignmentRequest[] }>(
+				{
+					extraOptions: {
+						command: "assign_hunk",
+					},
+					query: (args) => args,
+					invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)],
 				},
-				query: (args) => args,
-				invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)],
-			}),
+			),
 		}),
 	});
 }

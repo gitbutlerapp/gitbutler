@@ -479,7 +479,7 @@ pub fn assign_hunks_post_tool_call(
         })
         .collect();
 
-    let _rejections = but_hunk_assignment::assign(
+    but_hunk_assignment::assign(
         db.hunk_assignments_mut()?,
         &repo,
         &ws,

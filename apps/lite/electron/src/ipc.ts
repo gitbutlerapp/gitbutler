@@ -1,6 +1,5 @@
 import type {
 	ApplyOutcome,
-	AssignmentRejection,
 	BranchDetails,
 	BranchListing,
 	BranchListingFilter,
@@ -128,7 +127,7 @@ export interface WatcherSubscribeResult {
 
 export interface LiteElectronApi {
 	apply: (params: ApplyParams) => Promise<ApplyOutcome>;
-	assignHunk: (params: AssignHunkParams) => Promise<Array<AssignmentRejection>>;
+	assignHunk: (params: AssignHunkParams) => Promise<void>;
 	branchDetails: (params: BranchDetailsParams) => Promise<BranchDetails>;
 	branchDiff: (params: BranchDiffParams) => Promise<TreeChanges>;
 	changesInWorktree: (projectId: string) => Promise<WorktreeChanges>;

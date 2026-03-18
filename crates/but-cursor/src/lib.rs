@@ -203,7 +203,7 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
         })
         .collect();
 
-    let _rejections = but_hunk_assignment::assign(
+    but_hunk_assignment::assign(
         db.hunk_assignments_mut()?,
         &repo,
         &ws,
