@@ -57,7 +57,7 @@ pub trait GixRepositoryExt {
     /// as the [`side`](ConflictedTreeKey) which will give the automatically resolved resolution
     fn find_real_tree<'repo>(
         &'repo self,
-        commit_id: &gix::oid,
+        commit: &'repo gix::Commit,
         side: ConflictedTreeKey,
     ) -> Result<gix::Id<'repo>>;
 }
@@ -69,9 +69,8 @@ impl RepositoryExt for git2::Repository {
         side: ConflictedTreeKey,
     ) -> Result<git2::Tree<'_>> {
         let gix_repo = self.to_gix_repo()?;
-        let tree_id = gix_repo
-            .find_real_tree(&commit.id().to_gix(), side)?
-            .to_git2();
+        let gix_commit = gix_repo.find_commit(commit.id().to_gix())?;
+        let tree_id = gix_repo.find_real_tree(&gix_commit, side)?.to_git2();
         Ok(self.find_tree(tree_id)?)
     }
 }
@@ -79,10 +78,9 @@ impl RepositoryExt for git2::Repository {
 impl GixRepositoryExt for gix::Repository {
     fn find_real_tree<'repo>(
         &'repo self,
-        commit_id: &gix::oid,
+        commit: &'repo gix::Commit,
         side: ConflictedTreeKey,
     ) -> Result<gix::Id<'repo>> {
-        let commit = self.find_commit(commit_id)?;
         Ok(if commit.is_conflicted() {
             let tree = commit.tree()?;
             let conflicted_side = tree

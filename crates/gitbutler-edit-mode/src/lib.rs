@@ -1,22 +1,22 @@
 use std::collections::HashMap;
 
 use anyhow::{Context as _, Result, bail};
-use bstr::{BString, ByteSlice};
+use bstr::BString;
 use but_core::{RepositoryExt, TreeChange, commit::Headers, ref_metadata::StackId};
 use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_oxidize::{ObjectIdExt as _, OidExt, RepoExt, gix_to_git2_index};
+use but_oxidize::{ObjectIdExt as _, OidExt, gix_to_git2_index};
 use but_rebase::graph_rebase::{GraphExt as _, Step};
 use git2::build::CheckoutBuilder;
-use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
+use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _, RepositoryExt as _};
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use gitbutler_operating_modes::{
     EDIT_BRANCH_REF, EditModeMetadata, OPEN_WORKSPACE_REFS, OperatingMode, WORKSPACE_BRANCH_REF,
     operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
 };
-use gitbutler_repo::{RepositoryExt as _, SignaturePurpose, signature};
+use gitbutler_repo::RepositoryExt as _;
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
 use serde::Serialize;
 
@@ -95,13 +95,12 @@ fn get_commit_index(ctx: &Context, commit_id: gix::ObjectId) -> Result<git2::Ind
 /// Otherwise:
 /// We can simply return the parent commit.
 fn find_or_create_base_commit(
-    repository: &git2::Repository,
+    repo: &gix::Repository,
     commit_id: gix::ObjectId,
 ) -> Result<gix::ObjectId> {
-    let gix_repo = repository.to_gix_repo()?;
-    let gix_commit = gix_repo.find_commit(commit_id)?;
-    let is_conflicted = gix_commit.is_conflicted();
-    let parent = gix_commit
+    let commit = repo.find_commit(commit_id)?;
+    let is_conflicted = commit.is_conflicted();
+    let parent = commit
         .parent_ids()
         .next()
         .context("Expected commit to have a single parent")?
@@ -114,26 +113,30 @@ fn find_or_create_base_commit(
         return Ok(parent.id);
     };
 
-    let commit = repository.find_commit(commit_id.to_git2())?;
     let base_tree = if is_conflicted {
-        repository.find_real_tree(&commit, ConflictedTreeKey::Ours)?
+        repo.find_real_tree(&commit, ConflictedTreeKey::Ours)?
     } else {
-        let parent = commit.parent(0)?;
-        repository.find_real_tree(&parent, ConflictedTreeKey::AutoResolution)?
+        repo.find_real_tree(&parent, ConflictedTreeKey::AutoResolution)?
     };
 
-    let author_signature = signature(SignaturePurpose::Author)?;
-    let committer_signature = signature(SignaturePurpose::Committer)?;
-    let base = repository.commit(
-        None,
-        &author_signature,
-        &committer_signature,
-        &parent.message_bstr().to_str_lossy(),
-        &base_tree,
-        &[],
-    )?;
-
-    Ok(base.to_gix())
+    let author = repo
+        .author()
+        .context("author must be configured")??
+        .to_owned()?;
+    let committer = repo
+        .committer()
+        .context("committer must be configured")??
+        .to_owned()?;
+    let commit = gix::objs::Commit {
+        tree: base_tree.into(),
+        parents: Default::default(),
+        author,
+        committer,
+        encoding: None,
+        message: parent.message_bstr().to_owned(),
+        extra_headers: Vec::new(),
+    };
+    Ok(repo.write_object(&commit)?.detach())
 }
 
 fn commit_uncommited_changes(ctx: &Context) -> Result<()> {
@@ -157,7 +160,7 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     let commit = repo.find_commit(commit_id.to_git2())?;
 
     // Checkout commits's parent
-    let commit_parent_id = find_or_create_base_commit(repo, commit_id)?;
+    let commit_parent_id = find_or_create_base_commit(&*ctx.repo.get()?, commit_id)?;
     let commit_parent = repo.find_commit(commit_parent_id.to_git2())?;
     repo.reference(EDIT_BRANCH_REF, commit_parent_id.to_git2(), true, "")?;
     repo.set_head(EDIT_BRANCH_REF)?;

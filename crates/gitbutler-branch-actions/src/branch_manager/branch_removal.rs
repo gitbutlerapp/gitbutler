@@ -91,7 +91,8 @@ impl BranchManager<'_> {
             let workspace_base = repo
                 .find_commit(workspace_base(self.ctx, perm.read_permission())?)?
                 .tree_id()?;
-            let stack_head = repo.find_real_tree(&stack.head_oid(self.ctx)?, Default::default())?;
+            let commit = repo.find_commit(stack.head_oid(self.ctx)?)?;
+            let stack_head = repo.find_real_tree(&commit, Default::default())?;
 
             let mut merge = repo.merge_trees(
                 stack_head,
