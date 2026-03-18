@@ -234,37 +234,23 @@ const ShowBranch: FC<{
 const Preview: FC<{
 	projectId: string;
 	selection: Selection;
-}> = ({ projectId, selection }) => {
-	const { data: branches } = useSuspenseQuery(listBranchesQueryOptions(projectId));
-	const selectedBranch = branches.find((branch) => branch.name === selection.branchName);
-	const selectedBranchRef = selectedBranch ? getBranchRef(selectedBranch) : null;
-
-	return (
-		<div>
-			<Suspense fallback={<div>Loading diff…</div>}>
-				{selection.commitId !== undefined ? (
-					selection.path !== undefined ? (
-						<CommitFileDiff
-							projectId={projectId}
-							commitId={selection.commitId}
-							path={selection.path}
-						/>
-					) : (
-						<CommitDiff projectId={projectId} commitId={selection.commitId} />
-					)
-				) : selectedBranchRef !== null ? (
-					<ShowBranch
-						projectId={projectId}
-						branch={selectedBranchRef}
-						branchName={selection.branchName}
-					/>
-				) : (
-					<div>No branch diff available.</div>
-				)}
-			</Suspense>
-		</div>
+	selectedBranchRef: string | null;
+}> = ({ projectId, selection, selectedBranchRef }) =>
+	selection.commitId !== undefined ? (
+		selection.path !== undefined ? (
+			<CommitFileDiff projectId={projectId} commitId={selection.commitId} path={selection.path} />
+		) : (
+			<CommitDiff projectId={projectId} commitId={selection.commitId} />
+		)
+	) : selectedBranchRef !== null ? (
+		<ShowBranch
+			projectId={projectId}
+			branch={selectedBranchRef}
+			branchName={selection.branchName}
+		/>
+	) : (
+		<div>No branch diff available.</div>
 	);
-};
 
 const ProjectBranchesPage: FC = () => {
 	const { id: projectId } = projectBranchesRoute.useParams();
@@ -317,7 +303,19 @@ const ProjectBranchesPage: FC = () => {
 	) : (
 		<ProjectPanelLayout
 			projectId={projectId}
-			preview={selection && <Preview projectId={projectId} selection={selection} />}
+			preview={
+				selection && (
+					<div>
+						<Suspense fallback={<div>Loading diff…</div>}>
+							<Preview
+								projectId={projectId}
+								selection={selection}
+								selectedBranchRef={selectedBranch ? getBranchRef(selectedBranch) : null}
+							/>
+						</Suspense>
+					</div>
+				)
+			}
 		>
 			<div className={sharedStyles.lanes}>
 				<ul className={styles.branchesList}>
