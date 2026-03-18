@@ -651,7 +651,7 @@ const RubTarget: FC<
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			style: { ...(isDropTarget && { outline: "2px dashed" }) },
+			style: { ...(isDropTarget && { outline: "2px dashed black" }) },
 		}),
 	});
 
@@ -1006,7 +1006,7 @@ const CommitMoveToBranchTarget: FC<
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			style: { ...(isDropTarget && { outline: "2px dashed" }) },
+			style: { ...(isDropTarget && { outline: "2px dashed black" }) },
 		}),
 	});
 
