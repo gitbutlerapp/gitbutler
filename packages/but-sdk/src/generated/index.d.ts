@@ -3,6 +3,11 @@
 /** Just like [apply_only()], but will create an oplog entry as well on success. */
 export declare function apply(projectId: string, existingBranch: string): Promise<ApplyOutcome>
 
+/**
+ * Persist hunk-to-commit assignments for the current workspace.
+ *
+ * `assignments` is a list of hunk assignment requests produced by the UI.
+ */
 export declare function assignHunk(projectId: string, assignments: Array<HunkAssignmentRequest>): Promise<void>
 
 export declare function branchDetails(projectId: string, branchName: string, remote: string | null): Promise<BranchDetails>
