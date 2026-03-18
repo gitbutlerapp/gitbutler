@@ -3,7 +3,7 @@
 /** Just like [apply_only()], but will create an oplog entry as well on success. */
 export declare function apply(projectId: string, existingBranch: string): Promise<ApplyOutcome>
 
-export declare function assignHunk(projectId: string, assignments: Array<HunkAssignmentRequest>): Promise<Array<AssignmentRejection>>
+export declare function assignHunk(projectId: string, assignments: Array<HunkAssignmentRequest>): Promise<void>
 
 export declare function branchDetails(projectId: string, branchName: string, remote: string | null): Promise<BranchDetails>
 
@@ -139,14 +139,6 @@ export type ApplyOutcome = {
   appliedBranches: Array<FullRefName>;
   /** Whether the workspace reference had to be created. */
   workspaceRefCreated: boolean;
-};
-
-/** Indicates that the assignment request was rejected due to locking - the hunk depends on a commit in the stack it is currently in. */
-export type AssignmentRejection = {
-  /** The request that was rejected. */
-  request: HunkAssignmentRequest;
-  /** The locks that caused the rejection. */
-  locks: Array<HunkLock>;
 };
 
 export type AuthKey = "gitCredentialsHelper" | "systemExecutable" | {

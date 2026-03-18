@@ -223,7 +223,7 @@ fn handle_assign(
         but_hunk_assignment::assignments_to_requests(assignments),
         context_lines,
     )
-    .map(|_| len)
+    .map(|()| len)
     .or_else(|_| Ok(0))
 }
 

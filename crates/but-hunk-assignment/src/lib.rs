@@ -256,19 +256,6 @@ pub struct JsonAbsorbOutput {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-/// Indicates that the assignment request was rejected due to locking - the hunk depends on a commit in the stack it is currently in.
-pub struct AssignmentRejection {
-    /// The request that was rejected.
-    request: HunkAssignmentRequest,
-    /// The locks that caused the rejection.
-    locks: Vec<HunkLock>,
-}
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(AssignmentRejection);
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
 /// A request to update a hunk assignment.
 /// If a a file has multiple hunks, the UI client should send a list of assignment requests with the appropriate hunk headers.
 pub struct HunkAssignmentRequest {
@@ -384,8 +371,8 @@ impl HunkAssignment {
     }
 }
 
-/// Sets the assignment for a hunk. It must be already present in the current assignments, errors out if it isn't.
-/// Returns the updated assignments list.
+/// Applies assignment requests by reconciling them with the current worktree and persisted assignments.
+/// Persists the updated assignments and returns `Ok(())` on success.
 ///
 /// `context_lines` determines the amount of context lines in diffs, and it should match the UI.
 pub fn assign(
@@ -394,7 +381,7 @@ pub fn assign(
     workspace: &but_graph::projection::Workspace,
     requests: Vec<HunkAssignmentRequest>,
     context_lines: u32,
-) -> Result<Vec<AssignmentRejection>> {
+) -> Result<()> {
     let identifiable_stacks = workspace
         .stacks
         .iter()
@@ -433,7 +420,7 @@ pub fn assign(
 
     state::set_assignments(db, with_requests)?;
 
-    Ok(vec![])
+    Ok(())
 }
 
 pub fn assignments_with_fallback(

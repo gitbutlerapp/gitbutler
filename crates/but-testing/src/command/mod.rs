@@ -81,7 +81,7 @@ pub mod assignment {
         let mut ctx = Context::discover(current_dir)?;
         let context_lines = ctx.settings.context_lines;
         let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-        let rejections = but_hunk_assignment::assign(
+        but_hunk_assignment::assign(
             db.hunk_assignments_mut()?,
             &repo,
             &ws,
@@ -89,12 +89,9 @@ pub mod assignment {
             context_lines,
         )?;
         if use_json {
-            let json = serde_json::to_string_pretty(&rejections)?;
-            println!("{json}");
-            Ok(())
-        } else {
-            debug_print(rejections)
+            println!("{{}}");
         }
+        Ok(())
     }
 }
 

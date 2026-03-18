@@ -21,7 +21,7 @@ pub(crate) fn assign_uncommitted_to_branch(
         )
     });
     let reqs = to_assignment_request(ctx, assignments, Some(branch_name))?;
-    do_assignments(ctx, reqs, out)?;
+    do_assignments(ctx, reqs)?;
     if let Some(out) = out.for_human() {
         writeln!(
             out,
@@ -55,7 +55,7 @@ pub(crate) fn assign_uncommitted_to_stack(
             req
         })
         .collect();
-    do_assignments(ctx, reqs, out)?;
+    do_assignments(ctx, reqs)?;
     if let Some(out) = out.for_human() {
         writeln!(
             out,
@@ -82,7 +82,7 @@ pub(crate) fn unassign_uncommitted(
         )
     });
     let reqs = to_assignment_request(ctx, assignments, None)?;
-    do_assignments(ctx, reqs, out)?;
+    do_assignments(ctx, reqs)?;
     if let Some(out) = out.for_human() {
         writeln!(out, "Unstaged {description}")?;
     } else if let Some(out) = out.for_json() {
@@ -164,7 +164,7 @@ fn assign_all_inner(
         }
     }
     drop((repo, ws, db));
-    do_assignments(ctx, reqs, out)?;
+    do_assignments(ctx, reqs)?;
     if let Some(out) = out.for_human() {
         if to_branch.is_some() {
             writeln!(
@@ -195,17 +195,10 @@ fn assign_all_inner(
 pub(crate) fn do_assignments(
     ctx: &mut Context,
     reqs: Vec<HunkAssignmentRequest>,
-    out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let context_lines = ctx.settings.context_lines;
     let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-    let rejections =
-        but_hunk_assignment::assign(db.hunk_assignments_mut()?, &repo, &ws, reqs, context_lines)?;
-    if !rejections.is_empty()
-        && let Some(out) = out.for_human()
-    {
-        writeln!(out, "{rejections:#?}")?;
-    }
+    but_hunk_assignment::assign(db.hunk_assignments_mut()?, &repo, &ws, reqs, context_lines)?;
     Ok(())
 }
 

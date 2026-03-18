@@ -1,5 +1,4 @@
 import {
-	AssignmentRejection,
 	HunkAssignmentRequest,
 	HunkHeader,
 	TreeChange,
@@ -29,7 +28,6 @@ export type RubResult = {
 	newCommit?: string | null;
 	amendedCommitId?: string;
 	pathsToRejectedChanges?: UICommitCreateResult["pathsToRejectedChanges"];
-	assignmentRejections?: Array<AssignmentRejection>;
 };
 
 export type RubParams = {
@@ -85,7 +83,7 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 							};
 						}),
 						Match.tag("changes", async (target): Promise<RubResult> => {
-							const response = await window.lite.assignHunk({
+							await window.lite.assignHunk({
 								projectId,
 								assignments: source.hunkHeaders.map(
 									(hunkHeader): HunkAssignmentRequest => ({
@@ -95,7 +93,7 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 									}),
 								),
 							});
-							return { assignmentRejections: response };
+							return {};
 						}),
 						Match.exhaustive,
 					),
