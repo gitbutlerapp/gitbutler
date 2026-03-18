@@ -67,6 +67,8 @@ members = [
     # 👉lacks top-level docs and docs.
     "crates/but-gitlab", # 📄A thin wrapper of the GitLab API, for authentication and resource access.
     # 👉No tests, lacks top-level docs, purpose somewhat unclear.
+    "crates/but-gitea", # 📄A thin wrapper of the Gitea API, for authentication and resource access.
+    # 👉No tests, lacks top-level docs, purpose somewhat unclear.
     "crates/but-cursor", # 📄Integration with Cursor
     # 👉Kind of no docs, no tests, and unclear purpose.
     "crates/but-forge", # 📄A generalised interface to communicate with forges.
@@ -174,6 +176,7 @@ but-cherry-apply = { path = "crates/but-cherry-apply" }
 but-irc = { path = "crates/but-irc" }
 but-github = { path = "crates/but-github" }
 but-gitlab = { path = "crates/but-gitlab" }
+but-gitea = { path = "crates/but-gitea" }
 but-error = { path = "crates/but-error" }
 but-serde = { path = "crates/but-serde" }
 but-schemars = { path = "crates/but-schemars" }

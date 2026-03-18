@@ -25,6 +25,7 @@ import {
 } from "$lib/dragging/stackingReorderDropzoneManager";
 import { FILE_SERVICE, FileService } from "$lib/files/fileService";
 import { DefaultForgeFactory, DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+import { GITEA_USER_SERVICE, GiteaUserService } from "$lib/forge/gitea/giteaUserService.svelte";
 import { GITHUB_CLIENT, GitHubClient } from "$lib/forge/github/githubClient";
 import { GitHubUserService, GITHUB_USER_SERVICE } from "$lib/forge/github/githubUserService.svelte";
 import { GITLAB_CLIENT, GitLabClient } from "$lib/forge/gitlab/gitlabClient.svelte";
@@ -137,6 +138,7 @@ export function initDependencies(args: {
 
 	const clientState = new ClientState(backend, gitHubClient, gitLabClient, posthog);
 	const githubUserService = new GitHubUserService(clientState.backendApi);
+	const giteaUserService = new GiteaUserService(clientState.backendApi);
 	const gitlabUserService = new GitLabUserService(clientState.backendApi, secretsService);
 
 	const uiState = new UiState(
@@ -346,6 +348,7 @@ export function initDependencies(args: {
 		[FOCUS_MANAGER, focusManager],
 		[GITHUB_CLIENT, gitHubClient],
 		[GITHUB_USER_SERVICE, githubUserService],
+		[GITEA_USER_SERVICE, giteaUserService],
 		[GITLAB_USER_SERVICE, gitlabUserService],
 		[GITLAB_CLIENT, gitLabClient],
 		[GIT_CONFIG_SERVICE, gitConfig],

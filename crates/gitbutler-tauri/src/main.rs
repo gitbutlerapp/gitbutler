@@ -14,7 +14,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, bail};
-use but_api::{commit, diff, github, gitlab, legacy, platform};
+use but_api::{commit, diff, gitea, github, gitlab, legacy, platform};
 use but_claude::{Broadcaster, Claude};
 #[cfg(feature = "irc")]
 use but_irc::IrcManager;
@@ -310,6 +310,11 @@ fn main() -> anyhow::Result<()> {
                 gitlab::tauri_forget_gitlab_account::forget_gitlab_account,
                 gitlab::tauri_list_known_gitlab_accounts::list_known_gitlab_accounts,
                 gitlab::tauri_clear_all_gitlab_tokens::clear_all_gitlab_tokens,
+                gitea::tauri_store_gitea_account::store_gitea_account,
+                gitea::tauri_get_gitea_user::get_gitea_user,
+                gitea::tauri_forget_gitea_account::forget_gitea_account,
+                gitea::tauri_list_known_gitea_accounts::list_known_gitea_accounts,
+                gitea::tauri_clear_all_gitea_tokens::clear_all_gitea_tokens,
                 diff::tauri_commit_details::commit_details,
                 diff::tauri_commit_details_with_line_stats::commit_details_with_line_stats,
                 but_api::branch::tauri_branch_diff::branch_diff,
