@@ -183,8 +183,11 @@ fn edit_commit_message_by_id_and_reword_commit(
     .filter(|new_message| should_update_commit_message(&current_message, new_message));
 
     if let Some(new_message) = new_message {
-        let new_commit_oid =
-            but_api::commit::commit_reword_only(ctx, commit_oid, BString::from(new_message))?;
+        let new_commit_oid = but_api::commit::reword::commit_reword_only(
+            ctx,
+            commit_oid,
+            BString::from(new_message),
+        )?;
 
         if let Some(out) = out.for_human() {
             let repo = ctx.repo.get()?;

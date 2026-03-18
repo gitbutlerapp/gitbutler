@@ -23,7 +23,7 @@ use itertools::Itertools;
 use tracing::instrument;
 
 use crate::{
-    commit::commit_insert_blank_only_impl,
+    commit::insert_blank::commit_insert_blank_only_impl,
     legacy::{diff::changes_in_worktree, workspace::amend_commit_and_count_failures},
 };
 
@@ -292,7 +292,7 @@ fn determine_target_commit(
             .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
         commit_insert_blank_only_impl(
             ctx,
-            crate::commit::ui::RelativeTo::Reference(branch.reference.clone()),
+            crate::commit::json::RelativeTo::Reference(branch.reference.clone()),
             InsertSide::Below,
             perm,
         )?;
@@ -327,7 +327,7 @@ fn determine_target_commit(
             .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
         commit_insert_blank_only_impl(
             ctx,
-            crate::commit::ui::RelativeTo::Reference(branch.reference.clone()),
+            crate::commit::json::RelativeTo::Reference(branch.reference.clone()),
             InsertSide::Below,
             perm,
         )?;

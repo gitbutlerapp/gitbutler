@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fmt::Write as _};
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::{
-    commit::{commit_create, commit_insert_blank},
+    commit::{create::commit_create, insert_blank::commit_insert_blank},
     legacy::{diff, repo, workspace},
 };
 use but_core::{DiffSpec, ui::TreeChange};
@@ -61,7 +61,7 @@ pub(crate) fn insert_blank_commit(
             };
             commit_insert_blank(
                 ctx,
-                but_api::commit::ui::RelativeTo::Commit(*oid),
+                but_api::commit::json::RelativeTo::Commit(*oid),
                 insert_side,
             )?;
             format!("Created blank commit {position_desc} commit {short_oid}")
@@ -73,7 +73,7 @@ pub(crate) fn insert_blank_commit(
             };
             commit_insert_blank(
                 ctx,
-                but_api::commit::ui::RelativeTo::Reference(reference.name),
+                but_api::commit::json::RelativeTo::Reference(reference.name),
                 insert_side,
             )?;
             match insert_side {
@@ -463,7 +463,7 @@ pub(crate) fn commit(
     // Insert relative to the branch reference itself so only that branch tip is advanced.
     let outcome = commit_create(
         ctx,
-        but_api::commit::ui::RelativeTo::Reference(target_branch.reference.clone()),
+        but_api::commit::json::RelativeTo::Reference(target_branch.reference.clone()),
         InsertSide::Below,
         diff_specs,
         final_commit_message,

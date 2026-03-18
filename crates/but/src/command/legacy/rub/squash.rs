@@ -258,12 +258,13 @@ fn squash_commits_internal(
             destination_message.unwrap_or_default(),
             user_summary,
         )?;
-        but_api::commit::commit_reword_only(ctx, new_commit_oid, BString::from(ai_message))?
+        but_api::commit::reword::commit_reword_only(ctx, new_commit_oid, BString::from(ai_message))?
             .new_commit
     } else if let Some(msg) = custom_message {
-        but_api::commit::commit_reword_only(ctx, new_commit_oid, BString::from(msg))?.new_commit
+        but_api::commit::reword::commit_reword_only(ctx, new_commit_oid, BString::from(msg))?
+            .new_commit
     } else if let Some(target_msg) = target_message {
-        but_api::commit::commit_reword_only(ctx, new_commit_oid, BString::from(target_msg))?
+        but_api::commit::reword::commit_reword_only(ctx, new_commit_oid, BString::from(target_msg))?
             .new_commit
     } else {
         new_commit_oid

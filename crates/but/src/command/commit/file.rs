@@ -26,7 +26,12 @@ pub fn commited_file_to_another_commit(
             .collect::<Vec<DiffSpec>>()
     };
 
-    but_api::commit::commit_move_changes_between_only(ctx, source_id, target_id, relevant_changes)?;
+    but_api::commit::move_changes::commit_move_changes_between_only(
+        ctx,
+        source_id,
+        target_id,
+        relevant_changes,
+    )?;
 
     update_workspace_commit(ctx, false)?;
 
@@ -63,7 +68,12 @@ pub fn uncommit_file(
             .collect::<Vec<DiffSpec>>()
     };
 
-    but_api::commit::commit_uncommit_changes_only(ctx, source_id, relevant_changes, assign_to)?;
+    but_api::commit::uncommit_changes::commit_uncommit_changes_only(
+        ctx,
+        source_id,
+        relevant_changes,
+        assign_to,
+    )?;
 
     update_workspace_commit(ctx, false)?;
 
