@@ -434,6 +434,9 @@ importers:
       react-resizable-panels:
         specifier: ^4.7.3
         version: 4.7.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      use-local-storage-state:
+        specifier: ^19.5.0
+        version: 19.5.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
     devDependencies:
       '@tanstack/eslint-plugin-query':
         specifier: ^5.91.4
@@ -9211,6 +9214,13 @@ packages:
 
   urlpattern-polyfill@10.1.0:
     resolution: {integrity: sha512-IGjKp/o0NL3Bso1PymYURCJxMPNAf/ILOpendP9f5B6e1rTJgdgiOvgfoT8VxCAdY+Wisb9uhGaJJf3yZ2V9nw==}
+
+  use-local-storage-state@19.5.0:
+    resolution: {integrity: sha512-sUJAyFvsmqMpBhdwaRr7GTKkkoxb6PWeNVvpBDrLuwQF1PpbJRKIbOYeLLeqJI7B3wdfFlLLCBbmOdopiSTBOw==}
+    engines: {node: '>=14'}
+    peerDependencies:
+      react: '>=18'
+      react-dom: '>=18'
 
   use-sync-external-store@1.6.0:
     resolution: {integrity: sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==}
@@ -18818,6 +18828,11 @@ snapshots:
       punycode: 2.3.1
 
   urlpattern-polyfill@10.1.0: {}
+
+  use-local-storage-state@19.5.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+    dependencies:
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
 
   use-sync-external-store@1.6.0(react@19.2.4):
     dependencies:

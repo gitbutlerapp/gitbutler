@@ -1,8 +1,8 @@
 import { Dialog } from "@base-ui/react";
 import { FC, ReactNode, useContext, useEffect, useEffectEvent } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
+import useLocalStorageState from "use-local-storage-state";
 import { ShowPreviewPanelContext } from "#ui/contexts/ShowPreviewPanelContext.ts";
-import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
 import { assert } from "#ui/routes/project-shared.tsx";
 import sharedStyles from "./project-shared.module.css";
 
@@ -23,7 +23,7 @@ export const ProjectPanelLayout: FC<{
 	const [_showPreviewPanel, setShowPreviewPanel] = assert(useContext(ShowPreviewPanelContext));
 	const [_showPreviewFullscreen, setShowPreviewFullscreen] = useLocalStorageState(
 		`project:${projectId}:showPreviewFullscreen`,
-		false,
+		{ defaultValue: false },
 	);
 	const showPreviewPanel = _showPreviewPanel && preview !== null;
 	const showPreviewFullscreen = _showPreviewFullscreen && preview !== null;

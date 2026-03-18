@@ -1,4 +1,4 @@
 import { createContext } from "react";
-import { UseState } from "#ui/hooks/useLocalStorageState.ts";
+import type { LocalStorageState } from "use-local-storage-state";
 
-export const ShowPreviewPanelContext = createContext<UseState<boolean> | null>(null);
+export const ShowPreviewPanelContext = createContext<LocalStorageState<boolean> | null>(null);

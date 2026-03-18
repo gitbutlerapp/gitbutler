@@ -1,3 +1,4 @@
+import useLocalStorageState from "use-local-storage-state";
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { Menu, mergeProps, Popover, Tooltip, useRender } from "@base-ui/react";
 import { createRoute } from "@tanstack/react-router";
@@ -20,7 +21,6 @@ import styles from "./project-index.module.css";
 import sharedStyles from "./project-shared.module.css";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
-import { useLocalStorageState } from "#ui/hooks/useLocalStorageState.ts";
 import { ProjectPanelLayout } from "#ui/routes/ProjectPanelLayout.tsx";
 import {
 	CommitDetails,
@@ -787,7 +787,7 @@ const CommitForm: FC<{
 	const [message, setMessage] = useLocalStorageState(
 		// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
 		`project:${projectId}:commitMessage:${stack.id!}`,
-		"",
+		{ defaultValue: "" },
 	);
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
@@ -1012,7 +1012,7 @@ const ProjectPage: FC = () => {
 
 	const [selection, select] = useLocalStorageState<Selection | null>(
 		`project:${projectId}:workspace:selection`,
-		null,
+		{ defaultValue: null },
 	);
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
