@@ -532,9 +532,10 @@ pub(crate) mod function {
             return Ok(());
         }
 
-        let mut resolved = but_db::backoff(|| -> Result<_, but_db::Error> {
+        let resolved = but_db::backoff(|| -> Result<_, but_db::Error> {
             let mut generated = Vec::<(gix::ObjectId, but_core::ChangeId)>::new();
             let mut trans = cache.deferred_transaction().map_err(but_db::map_err)?;
+            trans.set_nonblocking().map_err(but_db::map_err)?;
             let looked_up = trans
                 .commit_metadata()
                 .change_ids_for_commits(pending.iter().copied())
@@ -566,7 +567,7 @@ pub(crate) mod function {
 
         for commit in visit_ref_info_commits_mut_iter(info) {
             if commit.change_id.is_none() {
-                commit.change_id = resolved.remove(&commit.id);
+                commit.change_id = resolved.get(&commit.id).cloned();
             }
         }
 

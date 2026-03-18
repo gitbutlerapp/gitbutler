@@ -123,7 +123,7 @@ pub struct Context {
 
     /// A workspace based on any version of `repo`. It's expected to be kept up-to-date
     /// by anyone who changes it.
-    /// It also can't be public as it needs serveral of our cached inputs first.
+    /// It also can't be public as it needs several of our cached inputs first.
     workspace: RefCell<Option<but_graph::projection::Workspace>>,
 }
 
