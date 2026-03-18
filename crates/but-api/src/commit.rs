@@ -54,6 +54,7 @@ pub mod json {
     use serde::Serialize;
 
     use crate::{commit::CommitMoveResult, json::HexHash};
+    use but_core::tree::create_tree::RejectionReason;
 
     use super::{
         CommitCreateResult, CommitInsertBlankResult, CommitRewordResult, MoveChangesResult,
@@ -88,6 +89,19 @@ pub mod json {
         }
     }
 
+    /// A rejected change reported back to the UI as `[reason, path]`.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    pub struct RejectedChange(
+        pub RejectionReason,
+        #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+        pub  but_serde::BStringForFrontend,
+    );
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(RejectedChange);
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(RejectionReason);
+
     /// UI type for creating a commit in the rebase graph.
     #[derive(Debug, Serialize)]
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -97,11 +111,7 @@ pub mod json {
         #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
         pub new_commit: Option<HexHash>,
         /// Paths that contained at least one rejected hunk, matching legacy rejection reporting semantics.
-        #[cfg_attr(feature = "export-schema", schemars(with = "Vec<(String, String)>"))]
-        pub paths_to_rejected_changes: Vec<(
-            but_core::tree::create_tree::RejectionReason,
-            but_serde::BStringForFrontend,
-        )>,
+        pub paths_to_rejected_changes: Vec<RejectedChange>,
         /// Commits that have been replaced as a side-effect of the create/amend.
         /// Maps `oldId → newId`.
         #[cfg_attr(
@@ -125,7 +135,7 @@ pub mod json {
                 new_commit: new_commit.map(Into::into),
                 paths_to_rejected_changes: rejected_specs
                     .into_iter()
-                    .map(|(reason, diff)| (reason, diff.path.into()))
+                    .map(|(reason, diff)| RejectedChange(reason, diff.path.into()))
                     .collect(),
                 replaced_commits: replaced_commits
                     .into_iter()

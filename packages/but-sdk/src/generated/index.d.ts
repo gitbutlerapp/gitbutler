@@ -718,6 +718,12 @@ export type RefInfo = {
   isEntrypoint: boolean;
 };
 
+/** A rejected change reported back to the UI as `[reason, path]`. */
+export type RejectedChange = [RejectionReason, string];
+
+/** Provide a description of why a [`crate::DiffSpec`] was rejected for application to the tree of a commit. */
+export type RejectionReason = "noEffectiveChanges" | "cherryPickMergeConflict" | "workspaceMergeConflict" | "workspaceMergeConflictOfUnrelatedFile" | "worktreeFileMissingForObjectConversion" | "fileToLargeOrBinary" | "pathNotFoundInBaseTree" | "unsupportedDirectoryEntry" | "unsupportedTreeEntry" | "missingDiffSpecAssociation";
+
 /**
  * Specifies a location, usually used to either have something inserted
  * relative to it, or for the selected object to actually be replaced.
@@ -924,7 +930,7 @@ export type UICommitCreateResult = {
   /** The new commit if one was created. */
   newCommit?: string | null;
   /** Paths that contained at least one rejected hunk, matching legacy rejection reporting semantics. */
-  pathsToRejectedChanges: Array<[string, string]>;
+  pathsToRejectedChanges: Array<RejectedChange>;
   /**
    * Commits that have been replaced as a side-effect of the create/amend.
    * Maps `oldId → newId`.
