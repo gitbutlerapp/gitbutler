@@ -10,7 +10,7 @@ export const useLocalStorageState = <T>(key: string, initialValue: T): UseState<
 	const previousKeyRef = useRef(key);
 
 	const [value, setValue] = useState<T>(() => {
-		const storedValue = window.localStorage.getItem(key);
+		const storedValue = localStorage.getItem(key);
 		if (storedValue === null) return initialValue;
 
 		try {
@@ -23,7 +23,7 @@ export const useLocalStorageState = <T>(key: string, initialValue: T): UseState<
 	useEffect(() => {
 		const previousKey = previousKeyRef.current;
 		if (previousKey !== key) {
-			window.localStorage.removeItem(previousKey);
+			localStorage.removeItem(previousKey);
 			previousKeyRef.current = key;
 		}
 	}, [key]);
@@ -33,11 +33,11 @@ export const useLocalStorageState = <T>(key: string, initialValue: T): UseState<
 		const serializedInitialValue = JSON.stringify(initialValue);
 
 		if (serializedValue === serializedInitialValue) {
-			window.localStorage.removeItem(key);
+			localStorage.removeItem(key);
 			return;
 		}
 
-		window.localStorage.setItem(key, serializedValue);
+		localStorage.setItem(key, serializedValue);
 	}, [initialValue, key, value]);
 
 	return [value, setValue];
