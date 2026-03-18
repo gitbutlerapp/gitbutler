@@ -37,7 +37,7 @@ import {
 } from "#ui/routes/project-shared.tsx";
 import {
 	commitMoveMutationOptions,
-	commitMutationOptions,
+	commitCreateMutationOptions,
 	rubMutationOptions,
 	unapplyStackMutationOptions,
 } from "#ui/mutations.ts";
@@ -797,9 +797,9 @@ const CommitForm: FC<{
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
 	const diffSpecs = assignedChangesDiffSpecs(changes, assignmentsByPath);
 
-	const commit = useMutation(commitMutationOptions);
+	const commitCreate = useMutation(commitCreateMutationOptions);
 
-	const disabled = commit.isPending || !relativeTo || diffSpecs.length === 0;
+	const disabled = commitCreate.isPending || !relativeTo || diffSpecs.length === 0;
 
 	return (
 		<form
@@ -807,7 +807,7 @@ const CommitForm: FC<{
 			onSubmit={(event) => {
 				event.preventDefault();
 				if (disabled) return;
-				commit.mutate(
+				commitCreate.mutate(
 					{
 						projectId,
 						relativeTo,
@@ -839,7 +839,7 @@ const CommitForm: FC<{
 				}}
 			/>
 			<button type="submit" disabled={disabled}>
-				{commit.isPending ? "Committing…" : "Commit"}
+				{commitCreate.isPending ? "Committing…" : "Commit"}
 			</button>
 		</form>
 	);
