@@ -1,11 +1,7 @@
 .lanes {
 	display: flex;
+	column-gap: 8px;
 	flex-grow: 1;
-
-	& > * {
-		padding: 8px;
-		border: 1px solid;
-	}
 
 	/* Temporary hack to prevent scroll jumping when diff view collapses. */
 	&:after {
@@ -29,7 +25,6 @@
 
 .laneDiffColumn {
 	width: 500px;
-	border: 1px solid;
 }
 
 .commit {
