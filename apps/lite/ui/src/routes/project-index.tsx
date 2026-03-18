@@ -79,14 +79,18 @@ const getBranchNameByCommitId = (headInfo: RefInfo): Map<string, string> => {
 	return byCommitId;
 };
 
-const getStackIdByCommitId = (headInfo: RefInfo): Map<string, string> => {
-	const byCommitId = new Map<string, string>();
+const getStackIdsByCommitId = (headInfo: RefInfo): Map<string, Set<string>> => {
+	const byCommitId = new Map<string, Set<string>>();
 
 	for (const stack of headInfo.stacks) {
 		if (stack.id == null) continue;
 
 		for (const segment of stack.segments)
-			for (const commit of segment.commits) byCommitId.set(commit.id, stack.id);
+			for (const commit of segment.commits) {
+				const stackIds = byCommitId.get(commit.id) ?? new Set<string>();
+				stackIds.add(stack.id);
+				byCommitId.set(commit.id, stackIds);
+			}
 	}
 
 	return byCommitId;
@@ -542,14 +546,14 @@ type Selection =
 
 const normalizeSelection = (
 	selection: Selection,
-	stackIdByCommitId: Map<string, string>,
+	stackIdsByCommitId: Map<string, Set<string>>,
 ): Selection | null =>
 	Match.value(selection).pipe(
 		Match.tag("changes", (selection) => selection),
 		Match.tag("commit", (selection) => {
-			const stackId = stackIdByCommitId.get(selection.commitId);
-			if (stackId === undefined) return null;
-			if (stackId !== selection.stackId) return null;
+			const stackIds = stackIdsByCommitId.get(selection.commitId);
+			if (stackIds === undefined) return null;
+			if (!stackIds.has(selection.stackId)) return null;
 			return selection;
 		}),
 		Match.exhaustive,
@@ -1097,7 +1101,7 @@ const ProjectPage: FC = () => {
 		`project:${projectId}:workspace:selection`,
 		{ defaultValue: null },
 	);
-	const commitStackIds = getStackIdByCommitId(headInfo);
+	const commitStackIds = getStackIdsByCommitId(headInfo);
 	const selection = _selection ? normalizeSelection(_selection, commitStackIds) : null;
 
 	useMonitorDraggedSourceItem({ projectId, setDraggedSourceItem });
