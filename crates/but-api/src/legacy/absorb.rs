@@ -23,8 +23,8 @@ use itertools::Itertools;
 use tracing::instrument;
 
 use crate::{
-    commit::commit_insert_blank_only_impl,
-    legacy::{diff::changes_in_worktree, workspace::amend_commit_and_count_failures},
+    commit::commit_insert_blank_only_impl, diff::changes_in_worktree,
+    legacy::workspace::amend_commit_and_count_failures,
 };
 
 /// Absorb multiple changes into their target commits as per the provided absorption plan

@@ -256,7 +256,7 @@ pub async fn irc_start_working_files_broadcast(
 
     // Seed initial file list from the current worktree state.
     let initial_files = match but_ctx::Context::try_from(project_id.clone()) {
-        Ok(mut ctx) => match but_api::legacy::diff::changes_in_worktree(&mut ctx) {
+        Ok(mut ctx) => match but_api::diff::changes_in_worktree(&mut ctx) {
             Ok(changes) => changes
                 .worktree_changes
                 .changes

@@ -9,7 +9,6 @@ pub mod cherry_apply;
 pub mod claude;
 pub mod cli;
 pub mod config;
-pub mod diff;
 pub mod forge;
 pub mod git;
 pub mod meta;

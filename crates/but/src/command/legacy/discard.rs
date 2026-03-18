@@ -4,7 +4,7 @@
 
 use anyhow::{Context as _, Result, bail};
 use bstr::ByteSlice;
-use but_api::legacy::diff;
+use but_api::diff;
 use but_core::DiffSpec;
 use but_ctx::Context;
 use gitbutler_oplog::{

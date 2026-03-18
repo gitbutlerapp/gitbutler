@@ -218,7 +218,7 @@ async fn build_status_context<'a>(
     };
     let review_map = review::get_review_map(ctx, Some(cache_config.clone()))?;
 
-    let worktree_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
+    let worktree_changes = but_api::diff::changes_in_worktree(ctx)?;
 
     let id_map = IdMap::new(head_info.stacks, worktree_changes.assignments.clone())?;
 

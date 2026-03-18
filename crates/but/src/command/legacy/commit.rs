@@ -4,7 +4,8 @@ use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::{
     commit::{commit_create, commit_insert_blank},
-    legacy::{diff, repo, workspace},
+    diff,
+    legacy::{repo, workspace},
 };
 use but_core::{DiffSpec, ui::TreeChange};
 use but_rebase::graph_rebase::mutate::InsertSide;
