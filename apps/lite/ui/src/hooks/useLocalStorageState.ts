@@ -18,6 +18,7 @@ export const useLocalStorageState = <T>(key: string, initialState: T): UseState<
 		}
 	});
 
+	// Sync changes to local storage
 	useEffect(() => {
 		const serializedValue = JSON.stringify(value);
 		const serializedInitialValue = JSON.stringify(initialState);
