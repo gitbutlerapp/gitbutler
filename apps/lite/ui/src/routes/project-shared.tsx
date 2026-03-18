@@ -247,8 +247,9 @@ export const CommitLabel: FC<{
 const DraggableCommit: FC<
 	{
 		commit: Commit;
+		canDrag?: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ commit, render, ...props }) => {
+> = ({ commit, canDrag = true, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: (): DragData => ({
 			sourceItem: { _tag: "Commit", commitId: commit.id },
@@ -258,6 +259,7 @@ const DraggableCommit: FC<
 				<CommitLabel commit={commit} />
 			</DragPreview>
 		),
+		canDrag: () => canDrag,
 	});
 
 	return useRender({
@@ -394,65 +396,66 @@ export const CommitRow: FC<
 	};
 
 	return (
-		<div
+		<DraggableCommit
 			{...restProps}
-			className={classes(
-				styles.commitRow,
-				isSelected ? styles.selected : isAnyFileSelected ? styles.selectedWithin : undefined,
-				isHighlighted && styles.highlighted,
-				className,
-			)}
-		>
-			{isEditingMessage ? (
-				<InlineCommitMessageEditor
-					projectId={projectId}
-					commitId={commit.id}
-					message={optimisticMessage}
-					setMessageAction={setOptimisticMessage}
-					onExit={() => {
-						setIsEditingMessage(false);
-					}}
-				/>
-			) : (
-				<ContextMenu.Root>
-					<ContextMenu.Trigger
-						render={
-							<DraggableCommit
-								commit={commitWithOptimisticMessage}
+			canDrag={!isEditingMessage}
+			commit={commitWithOptimisticMessage}
+			render={
+				<div
+					className={classes(
+						styles.commitRow,
+						isSelected ? styles.selected : isAnyFileSelected ? styles.selectedWithin : undefined,
+						isHighlighted && styles.highlighted,
+						className,
+					)}
+				>
+					{isEditingMessage ? (
+						<InlineCommitMessageEditor
+							projectId={projectId}
+							commitId={commit.id}
+							message={optimisticMessage}
+							setMessageAction={setOptimisticMessage}
+							onExit={() => {
+								setIsEditingMessage(false);
+							}}
+						/>
+					) : (
+						<ContextMenu.Root>
+							<ContextMenu.Trigger
 								render={
 									<button type="button" className={styles.commitButton} onClick={toggleSelect}>
 										<CommitLabel commit={commitWithOptimisticMessage} />
 									</button>
 								}
 							/>
-						}
-					/>
-					<ContextMenu.Portal>
-						<ContextMenu.Positioner>
-							<CommitMenuPopup
-								onReword={() => setIsEditingMessage(true)}
-								onInsertBlank={insertBlankCommit}
-								parts={ContextMenu}
-							/>
-						</ContextMenu.Positioner>
-					</ContextMenu.Portal>
-				</ContextMenu.Root>
-			)}
-			<Menu.Root>
-				<Menu.Trigger className={styles.menuTrigger} style={{ lineHeight: 1 }}>
-					𑁔
-				</Menu.Trigger>
-				<Menu.Portal>
-					<Menu.Positioner align="end">
-						<CommitMenuPopup
-							onReword={() => setIsEditingMessage(true)}
-							onInsertBlank={insertBlankCommit}
-							parts={Menu}
-						/>
-					</Menu.Positioner>
-				</Menu.Portal>
-			</Menu.Root>
-		</div>
+							<ContextMenu.Portal>
+								<ContextMenu.Positioner>
+									<CommitMenuPopup
+										onReword={() => setIsEditingMessage(true)}
+										onInsertBlank={insertBlankCommit}
+										parts={ContextMenu}
+									/>
+								</ContextMenu.Positioner>
+							</ContextMenu.Portal>
+						</ContextMenu.Root>
+					)}
+					<Menu.Root>
+						<Menu.Trigger className={styles.menuTrigger} style={{ lineHeight: 1 }}>
+							𑁔
+						</Menu.Trigger>
+						<Menu.Portal>
+							<Menu.Positioner align="end">
+								<CommitMenuPopup
+									onReword={() => setIsEditingMessage(true)}
+									onInsertBlank={insertBlankCommit}
+									parts={Menu}
+								/>
+							</Menu.Positioner>
+						</Menu.Portal>
+					</Menu.Root>
+				</div>
+			}
+		/>
 	);
 };
 

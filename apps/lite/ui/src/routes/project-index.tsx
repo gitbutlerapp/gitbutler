@@ -792,23 +792,23 @@ const CommitC: FC<{
 							projectId={projectId}
 							commitId={commit.id}
 							renderFile={(change) => (
-								<div
-									className={classes(
-										sharedStyles.fileRow,
-										isFileSelected(change.path) && sharedStyles.selected,
-									)}
-								>
-									<DraggableFile
-										change={change}
-										changeUnit={changeUnit}
-										render={
+								<DraggableFile
+									change={change}
+									changeUnit={changeUnit}
+									render={
+										<div
+											className={classes(
+												sharedStyles.fileRow,
+												isFileSelected(change.path) && sharedStyles.selected,
+											)}
+										>
 											<FileButton
 												change={change}
 												toggleSelect={() => toggleFileSelect(change.path)}
 											/>
-										}
-									/>
-								</div>
+										</div>
+									}
+								/>
 							)}
 						/>
 					</Suspense>
@@ -864,33 +864,33 @@ const Changes: FC<{
 
 								return (
 									<li key={change.path}>
-										<div
-											className={classes(
-												sharedStyles.fileRow,
-												isFileSelected(change.path) && sharedStyles.selected,
-											)}
-										>
-											<DraggableFile
-												change={change}
-												changeUnit={changeUnit}
-												assignments={assignments}
-												render={
+										<DraggableFile
+											change={change}
+											changeUnit={changeUnit}
+											assignments={assignments}
+											render={
+												<div
+													className={classes(
+														sharedStyles.fileRow,
+														isFileSelected(change.path) && sharedStyles.selected,
+													)}
+												>
 													<FileButton
 														change={change}
 														toggleSelect={() => {
 															toggleFileSelect(change.path);
 														}}
 													/>
-												}
-											/>
-											{isNonEmptyArray(dependencyCommitIds) && (
-												<DependencyIndicator
-													projectId={projectId}
-													commitIds={dependencyCommitIds}
-													onHover={onDependencyHover}
-												/>
-											)}
-										</div>
+													{isNonEmptyArray(dependencyCommitIds) && (
+														<DependencyIndicator
+															projectId={projectId}
+															commitIds={dependencyCommitIds}
+															onHover={onDependencyHover}
+														/>
+													)}
+												</div>
+											}
+										/>
 									</li>
 								);
 							})}
