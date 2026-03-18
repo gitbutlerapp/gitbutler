@@ -1,9 +1,8 @@
 import { Dialog } from "@base-ui/react";
-import { FC, ReactNode, useContext, useEffect, useEffectEvent } from "react";
+import { FC, ReactNode, useEffect, useEffectEvent } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import useLocalStorageState from "use-local-storage-state";
-import { ShowPreviewPanelContext } from "#ui/contexts/ShowPreviewPanelContext.ts";
-import { assert } from "#ui/routes/project-shared.tsx";
+import { usePreviewVisible } from "../hooks/usePreviewVisible";
 import sharedStyles from "./project-shared.module.css";
 
 const isTypingTarget = (target: EventTarget | null) => {
@@ -20,7 +19,7 @@ export const ProjectPanelLayout: FC<{
 	children: ReactNode;
 	preview: ReactNode | null;
 }> = ({ children, projectId, preview }) => {
-	const [_showPreviewPanel, setShowPreviewPanel] = assert(useContext(ShowPreviewPanelContext));
+	const [_showPreviewPanel, setShowPreviewPanel] = usePreviewVisible();
 	const [_showPreviewFullscreen, setShowPreviewFullscreen] = useLocalStorageState(
 		`project:${projectId}:showPreviewFullscreen`,
 		{ defaultValue: false },
