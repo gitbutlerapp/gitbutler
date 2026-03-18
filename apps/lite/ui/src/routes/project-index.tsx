@@ -869,7 +869,7 @@ const CommitMoveToBranchTarget: FC<
 	);
 };
 
-const StackLane: FC<{
+const StackC: FC<{
 	projectId: string;
 	stack: Stack;
 	isCommitSelected: (commitId: string) => boolean;
@@ -903,7 +903,7 @@ const StackLane: FC<{
 	const changesChangeUnit: ChangeUnit = { _tag: "changes", stackId };
 
 	return (
-		<div className={sharedStyles.commitsLane}>
+		<div>
 			<Menu.Root>
 				<Menu.Trigger className={styles.stackMenu} style={{ lineHeight: 1 }}>
 					𑁔
@@ -1069,24 +1069,26 @@ const ProjectPage: FC = () => {
 						const stackId = stack.id!;
 
 						return (
-							<StackLane
-								key={stack.id}
-								projectId={project.id}
-								stack={stack}
-								isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
-								isCommitAnyFileSelected={(commitId) => isCommitAnyFileSelected(stackId, commitId)}
-								isChangeUnitFileSelected={(changeUnit, path) =>
-									isChangeUnitFileSelected(stackId, changeUnit, path)
-								}
-								toggleCommitSelection={(commitId) => {
-									toggleCommitSelection(stackId, commitId);
-								}}
-								toggleChangeUnitFileSelection={(changeUnit, path) => {
-									toggleChangeUnitFileSelection(stackId, changeUnit, path);
-								}}
-								highlightedCommitIds={highlightedCommitIds}
-								onDependencyHover={highlightCommits}
-							/>
+							<div key={stack.id} className={sharedStyles.commitsLane}>
+								<StackC
+									key={stack.id}
+									projectId={project.id}
+									stack={stack}
+									isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
+									isCommitAnyFileSelected={(commitId) => isCommitAnyFileSelected(stackId, commitId)}
+									isChangeUnitFileSelected={(changeUnit, path) =>
+										isChangeUnitFileSelected(stackId, changeUnit, path)
+									}
+									toggleCommitSelection={(commitId) => {
+										toggleCommitSelection(stackId, commitId);
+									}}
+									toggleChangeUnitFileSelection={(changeUnit, path) => {
+										toggleChangeUnitFileSelection(stackId, changeUnit, path);
+									}}
+									highlightedCommitIds={highlightedCommitIds}
+									onDependencyHover={highlightCommits}
+								/>
+							</div>
 						);
 					})}
 				</div>
