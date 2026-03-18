@@ -983,7 +983,7 @@ const StackC: FC<{
 	const changesChangeUnit: ChangeUnit = { _tag: "changes", stackId };
 
 	return (
-		<div>
+		<div className={styles.stack}>
 			<Menu.Root>
 				<Menu.Trigger className={styles.stackMenu} style={{ lineHeight: 1 }}>
 					𑁔
