@@ -35,7 +35,7 @@ export const ProjectPanelLayout: FC<{
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
 		if (event.defaultPrevented || event.repeat) return;
 		if (event.metaKey || event.ctrlKey || event.altKey) return;
-		if (preview === null || isTypingTarget(event.target)) return;
+		if (isTypingTarget(event.target)) return;
 
 		switch (event.key.toLowerCase()) {
 			case shortcutKeys.togglePreview:
@@ -86,18 +86,16 @@ export const ProjectPanelLayout: FC<{
 					</>
 				)}
 			</Group>
-			{preview !== null && (
-				<Dialog.Root open={showPreviewFullscreen} onOpenChange={setShowPreviewFullscreen}>
-					<Dialog.Portal>
-						<Dialog.Popup aria-label="Preview" className={sharedStyles.previewDialogPopup}>
-							<Dialog.Close>
-								Close fullscreen ({shortcutKeys.toggleFullscreenPreview}/esc)
-							</Dialog.Close>
-							{preview}
-						</Dialog.Popup>
-					</Dialog.Portal>
-				</Dialog.Root>
-			)}
+			<Dialog.Root open={showPreviewFullscreen} onOpenChange={setShowPreviewFullscreen}>
+				<Dialog.Portal>
+					<Dialog.Popup aria-label="Preview" className={sharedStyles.previewDialogPopup}>
+						<Dialog.Close>
+							Close fullscreen ({shortcutKeys.toggleFullscreenPreview}/esc)
+						</Dialog.Close>
+						{preview}
+					</Dialog.Popup>
+				</Dialog.Portal>
+			</Dialog.Root>
 		</>
 	);
 };
