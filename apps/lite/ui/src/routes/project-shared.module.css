@@ -58,6 +58,22 @@
 	align-items: start;
 }
 
+.row {
+}
+
+.rowAction {
+	opacity: 0;
+	transition: opacity 120ms ease;
+
+	.row:hover &,
+	.row:focus-within &,
+	.row:has(.rowAction[aria-expanded="true"]) &,
+	.row.selected &,
+	.row.selectedWithin & {
+		opacity: 1;
+	}
+}
+
 .commitDetails {
 	padding-left: 8px;
 }

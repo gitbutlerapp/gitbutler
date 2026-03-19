@@ -119,7 +119,8 @@ const BranchMenuPopup: FC<{
 const BranchApplyToggle: FC<{
 	branch: BranchListing;
 	projectId: string;
-}> = ({ branch, projectId }) => {
+	className?: string;
+}> = ({ branch, projectId, className }) => {
 	const applyBranch = useMutation(applyBranchMutationOptions);
 	const unapplyStack = useMutation(unapplyStackMutationOptions);
 	const ref = getBranchRef(branch);
@@ -129,7 +130,7 @@ const BranchApplyToggle: FC<{
 	return isApplied ? (
 		<button
 			type="button"
-			className={styles.branchApplyButton}
+			className={classes(styles.branchApplyButton, className)}
 			disabled={stackId === undefined}
 			aria-label={`Unapply branch ${branch.name}`}
 			onClick={() => {
@@ -142,7 +143,7 @@ const BranchApplyToggle: FC<{
 	) : (
 		<button
 			type="button"
-			className={classes(styles.branchApplyButton, styles.branchApplyButtonInactive)}
+			className={classes(styles.branchApplyButton, styles.branchApplyButtonInactive, className)}
 			disabled={ref === null}
 			aria-label={`Apply branch ${branch.name}`}
 			onClick={() => {
@@ -178,6 +179,7 @@ const BranchRow: FC<
 	<div
 		{...restProps}
 		className={classes(
+			sharedStyles.row,
 			styles.branchRow,
 			isSelected
 				? sharedStyles.selected
@@ -204,10 +206,17 @@ const BranchRow: FC<
 				</ContextMenu.Positioner>
 			</ContextMenu.Portal>
 		</ContextMenu.Root>
-		<BranchApplyToggle branch={branch} projectId={projectId} />
+		<BranchApplyToggle
+			branch={branch}
+			projectId={projectId}
+			className={sharedStyles.rowAction}
+		/>
 		<Menu.Root>
 			<Menu.Trigger
-				className={sharedStyles.commitMenuTrigger}
+				className={classes(
+					sharedStyles.commitMenuTrigger,
+					sharedStyles.rowAction,
+				)}
 				aria-label={`Branch ${branch.name} menu`}
 			>
 				<MenuTriggerIcon />
@@ -265,6 +274,7 @@ const CommitC: FC<{
 						renderFile={(change) => (
 							<div
 								className={classes(
+									sharedStyles.row,
 									sharedStyles.fileRow,
 									isFileSelected(change.path) && sharedStyles.selected,
 								)}
