@@ -4,6 +4,7 @@
 	--pane-padding: 16px;
 	--selection-block-padding: 4px;
 	--selection-inline-padding: 8px;
+	--selection-line-height: 19px;
 }
 
 body {
