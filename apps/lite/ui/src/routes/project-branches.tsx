@@ -314,6 +314,7 @@ const ProjectBranchesPage: FC = () => {
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
 	const selectedRemote =
 		selectedBranch && !selectedBranch.hasLocal ? selectedBranch.remotes[0] : null;
+
 	const isBranchSelected = (branchName: string) =>
 		selection?.branchName === branchName && selection.commitId === undefined;
 	const isBranchSelectedWithin = (branchName: string) =>
@@ -331,6 +332,7 @@ const ProjectBranchesPage: FC = () => {
 		selection?.branchName === branchName &&
 		selection.commitId === commitId &&
 		selection.path === path;
+
 	const toggleCommitSelection = (branchName: string, commitId: string) => {
 		select(isCommitSelected(branchName, commitId) ? { branchName } : { branchName, commitId });
 	};

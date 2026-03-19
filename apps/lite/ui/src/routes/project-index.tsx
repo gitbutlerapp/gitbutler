@@ -1178,6 +1178,7 @@ const ProjectPage: FC = () => {
 	const toggleUnassignedFileSelection = (path: string) => {
 		select(isUnassignedFileSelected(path) ? null : { _tag: "changes", stackId: null, path });
 	};
+
 	const isCommitSelected = (stackId: string, commitId: string) =>
 		selection?._tag === "commit" &&
 		selection.stackId === stackId &&
@@ -1200,6 +1201,7 @@ const ProjectPage: FC = () => {
 			return selection.stackId === stackId && selection.path === path;
 		return false;
 	};
+
 	const toggleCommitSelection = (stackId: string, commitId: string) => {
 		select(isCommitSelected(stackId, commitId) ? null : { _tag: "commit", stackId, commitId });
 	};
