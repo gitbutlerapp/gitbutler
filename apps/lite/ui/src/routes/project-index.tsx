@@ -444,7 +444,7 @@ const ChangesFileDiff: FC<{
 				return (
 					<Hunk
 						patch={patch}
-						changeUnit={{ _tag: "changes", stackId }}
+						changeUnit={{ _tag: "Changes", stackId }}
 						change={change}
 						hunk={hunk}
 						headerStart={
@@ -480,7 +480,7 @@ const CommitFileDiff: FC<{
 			projectId={projectId}
 			change={change}
 			renderHunk={(hunk, patch) => (
-				<Hunk patch={patch} changeUnit={{ _tag: "commit", commitId }} change={change} hunk={hunk} />
+				<Hunk patch={patch} changeUnit={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
 			)}
 		/>
 	);
@@ -518,7 +518,7 @@ const ShowCommit: FC<{
 							renderHunk={(hunk, patch) => (
 								<Hunk
 									patch={patch}
-									changeUnit={{ _tag: "commit", commitId }}
+									changeUnit={{ _tag: "Commit", commitId }}
 									change={change}
 									hunk={hunk}
 								/>
@@ -533,12 +533,12 @@ const ShowCommit: FC<{
 
 type Selection =
 	| {
-			_tag: "changes";
+			_tag: "Changes";
 			stackId: string | null;
 			path: string;
 	  }
 	| {
-			_tag: "commit";
+			_tag: "Commit";
 			stackId: string;
 			commitId: string;
 			path?: string;
@@ -549,8 +549,8 @@ const normalizeSelection = (
 	stackIdsByCommitId: Map<string, Set<string>>,
 ): Selection | null =>
 	Match.value(selection).pipe(
-		Match.tag("changes", (selection) => selection),
-		Match.tag("commit", (selection) => {
+		Match.tag("Changes", (selection) => selection),
+		Match.tag("Commit", (selection) => {
 			const stackIds = stackIdsByCommitId.get(selection.commitId);
 			if (stackIds === undefined) return null;
 			if (!stackIds.has(selection.stackId)) return null;
@@ -587,7 +587,7 @@ const getDefaultSelection = ({
 		stackId: null,
 	});
 	if (firstUnassignedPath !== null)
-		return { _tag: "changes", stackId: null, path: firstUnassignedPath };
+		return { _tag: "Changes", stackId: null, path: firstUnassignedPath };
 
 	for (const stack of headInfo.stacks) {
 		if (stack.id == null) continue;
@@ -599,14 +599,14 @@ const getDefaultSelection = ({
 		});
 		if (firstAssignedPath !== null)
 			return {
-				_tag: "changes",
+				_tag: "Changes",
 				stackId: stack.id,
 				path: firstAssignedPath,
 			};
 
 		for (const segment of stack.segments) {
 			const firstCommit = segment.commits[0];
-			if (firstCommit) return { _tag: "commit", stackId: stack.id, commitId: firstCommit.id };
+			if (firstCommit) return { _tag: "Commit", stackId: stack.id, commitId: firstCommit.id };
 		}
 	}
 
@@ -619,7 +619,7 @@ const Preview: FC<{
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 }> = ({ projectId, selection, onDependencyHover }) =>
 	Match.value(selection).pipe(
-		Match.tag("changes", ({ stackId, path }) => (
+		Match.tag("Changes", ({ stackId, path }) => (
 			<ChangesFileDiff
 				projectId={projectId}
 				stackId={stackId}
@@ -627,7 +627,7 @@ const Preview: FC<{
 				onDependencyHover={onDependencyHover}
 			/>
 		)),
-		Match.tag("commit", ({ commitId, path }) =>
+		Match.tag("Commit", ({ commitId, path }) =>
 			path !== undefined ? (
 				<CommitFileDiff projectId={projectId} commitId={commitId} path={path} />
 			) : (
@@ -774,7 +774,7 @@ const CommitC: FC<{
 }) => {
 	const expanded = isSelected || isAnyFileSelected;
 
-	const changeUnit: ChangeUnit = { _tag: "commit", commitId: commit.id };
+	const changeUnit: ChangeUnit = { _tag: "Commit", commitId: commit.id };
 
 	return (
 		<div className={sharedStyles.commit}>
@@ -855,7 +855,7 @@ const Changes: FC<{
 
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
 
-	const changeUnit: ChangeUnit = { _tag: "changes", stackId };
+	const changeUnit: ChangeUnit = { _tag: "Changes", stackId };
 
 	return (
 		<RubTarget
@@ -1074,7 +1074,7 @@ const StackC: FC<{
 	// oxlint-disable-next-line typescript/no-non-null-assertion -- [tag:stack-id-required]
 	const stackId = stack.id!;
 
-	const changesChangeUnit: ChangeUnit = { _tag: "changes", stackId };
+	const changesChangeUnit: ChangeUnit = { _tag: "Changes", stackId };
 
 	return (
 		<div className={styles.stack}>
@@ -1119,7 +1119,7 @@ const StackC: FC<{
 							<CommitsList commits={segment.commits}>
 								{(commit, index) => {
 									const changeUnit: ChangeUnit = {
-										_tag: "commit",
+										_tag: "Commit",
 										commitId: commit.id,
 									};
 									return (
@@ -1185,46 +1185,46 @@ const ProjectPage: FC = () => {
 	const baseId = commonBaseCommitId(headInfo);
 
 	const isUnassignedFileSelected = (path: string): boolean =>
-		selection?._tag === "changes" && selection.stackId === null && selection.path === path;
+		selection?._tag === "Changes" && selection.stackId === null && selection.path === path;
 	const toggleUnassignedFileSelection = (path: string) => {
-		select(isUnassignedFileSelected(path) ? null : { _tag: "changes", stackId: null, path });
+		select(isUnassignedFileSelected(path) ? null : { _tag: "Changes", stackId: null, path });
 	};
 
 	const isCommitSelected = (stackId: string, commitId: string) =>
-		selection?._tag === "commit" &&
+		selection?._tag === "Commit" &&
 		selection.stackId === stackId &&
 		selection.commitId === commitId &&
 		selection.path === undefined;
 	const isCommitAnyFileSelected = (stackId: string, commitId: string) =>
-		selection?._tag === "commit" &&
+		selection?._tag === "Commit" &&
 		selection.stackId === stackId &&
 		selection.commitId === commitId &&
 		selection.path !== undefined;
 	const isChangeUnitFileSelected = (stackId: string, changeUnit: ChangeUnit, path: string) => {
 		if (!selection) return false;
-		if (selection._tag === "commit" && changeUnit._tag === "commit")
+		if (selection._tag === "Commit" && changeUnit._tag === "Commit")
 			return (
 				selection.stackId === stackId &&
 				selection.commitId === changeUnit.commitId &&
 				selection.path === path
 			);
-		if (selection._tag === "changes" && changeUnit._tag === "changes")
+		if (selection._tag === "Changes" && changeUnit._tag === "Changes")
 			return selection.stackId === stackId && selection.path === path;
 		return false;
 	};
 
 	const toggleCommitSelection = (stackId: string, commitId: string) => {
-		select(isCommitSelected(stackId, commitId) ? null : { _tag: "commit", stackId, commitId });
+		select(isCommitSelected(stackId, commitId) ? null : { _tag: "Commit", stackId, commitId });
 	};
 	const toggleChangeUnitFileSelection = (stackId: string, changeUnit: ChangeUnit, path: string) => {
 		select(
 			isChangeUnitFileSelected(stackId, changeUnit, path)
-				? changeUnit._tag === "commit"
-					? { _tag: "commit", stackId, commitId: changeUnit.commitId }
+				? changeUnit._tag === "Commit"
+					? { _tag: "Commit", stackId, commitId: changeUnit.commitId }
 					: null
-				: changeUnit._tag === "commit"
-					? { _tag: "commit", stackId, commitId: changeUnit.commitId, path }
-					: { _tag: "changes", stackId, path },
+				: changeUnit._tag === "Commit"
+					? { _tag: "Commit", stackId, commitId: changeUnit.commitId, path }
+					: { _tag: "Changes", stackId, path },
 		);
 	};
 

@@ -180,7 +180,7 @@ const CommitFileDiff: FC<{
 			projectId={projectId}
 			change={change}
 			renderHunk={(hunk, patch) => (
-				<Hunk patch={patch} changeUnit={{ _tag: "commit", commitId }} change={change} hunk={hunk} />
+				<Hunk patch={patch} changeUnit={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
 			)}
 		/>
 	);
@@ -207,7 +207,7 @@ const CommitDiff: FC<{
 						renderHunk={(hunk, patch) => (
 							<Hunk
 								patch={patch}
-								changeUnit={{ _tag: "commit", commitId }}
+								changeUnit={{ _tag: "Commit", commitId }}
 								change={change}
 								hunk={hunk}
 							/>
@@ -243,7 +243,7 @@ const ShowBranch: FC<{
 									<Hunk
 										patch={patch}
 										// TODO: this doesn't make sense
-										changeUnit={{ _tag: "changes", stackId: null }}
+										changeUnit={{ _tag: "Changes", stackId: null }}
 										change={change}
 										hunk={hunk}
 									/>
