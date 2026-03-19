@@ -952,7 +952,7 @@ impl Graph {
                                     return prune;
                                 }
                                 has_outside_commits |= !segment.commits.is_empty();
-                                !has_outside_commits
+                                has_outside_commits
                             },
                         );
                         has_outside_commits
