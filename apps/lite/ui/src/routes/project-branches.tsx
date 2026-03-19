@@ -3,7 +3,7 @@ import { ContextMenu, Menu } from "@base-ui/react";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createRoute } from "@tanstack/react-router";
 import { ComponentProps, FC, Suspense } from "react";
-import { MenuTriggerIcon } from "#ui/components/icons.tsx";
+import { CheckIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import {
 	CommitDetails,
 	CommitRow,
@@ -116,6 +116,48 @@ const BranchMenuPopup: FC<{
 	);
 };
 
+const BranchApplyToggle: FC<{
+	branch: BranchListing;
+	projectId: string;
+}> = ({ branch, projectId }) => {
+	const applyBranch = useMutation(applyBranchMutationOptions);
+	const unapplyStack = useMutation(unapplyStackMutationOptions);
+	const ref = getBranchRef(branch);
+	const stackId = branch.stack?.id;
+	const isApplied = branch.stack?.inWorkspace ?? false;
+
+	return isApplied ? (
+		<button
+			type="button"
+			className={styles.branchApplyButton}
+			disabled={stackId === undefined}
+			aria-label={`Unapply branch ${branch.name}`}
+			onClick={() => {
+				if (stackId === undefined) return;
+				unapplyStack.mutate({ projectId, stackId });
+			}}
+		>
+			<CheckIcon />
+		</button>
+	) : (
+		<button
+			type="button"
+			className={classes(styles.branchApplyButton, styles.branchApplyButtonInactive)}
+			disabled={ref === null}
+			aria-label={`Apply branch ${branch.name}`}
+			onClick={() => {
+				if (ref === null) return;
+				applyBranch.mutate({
+					projectId,
+					existingBranch: ref,
+				});
+			}}
+		>
+			<CheckIcon />
+		</button>
+	);
+};
+
 const BranchRow: FC<
 	{
 		projectId: string;
@@ -162,6 +204,7 @@ const BranchRow: FC<
 				</ContextMenu.Positioner>
 			</ContextMenu.Portal>
 		</ContextMenu.Root>
+		<BranchApplyToggle branch={branch} projectId={projectId} />
 		<Menu.Root>
 			<Menu.Trigger
 				className={sharedStyles.commitMenuTrigger}
