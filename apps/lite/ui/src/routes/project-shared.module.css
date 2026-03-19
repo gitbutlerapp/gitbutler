@@ -93,6 +93,7 @@
 
 .fileRow {
 	display: flex;
+	align-items: start;
 }
 
 .fileButton {
