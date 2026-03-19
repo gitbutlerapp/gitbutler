@@ -989,6 +989,7 @@ const Changes: FC<{
 															commitIds={dependencyCommitIds}
 															onHover={onDependencyHover}
 															style={{ lineHeight: 1 }}
+															className={sharedStyles.fileRowDependencyIndicator}
 														>
 															🔗
 														</DependencyIndicator>

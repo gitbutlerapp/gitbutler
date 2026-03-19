@@ -82,6 +82,11 @@
 	display: flex;
 }
 
+.fileRowDependencyIndicator {
+	padding-inline: var(--selection-inline-padding);
+	padding-block: var(--selection-block-padding);
+}
+
 .fileButton {
 	flex-grow: 1;
 	padding-inline: var(--selection-inline-padding);
