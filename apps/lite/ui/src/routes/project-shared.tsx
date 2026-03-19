@@ -9,7 +9,15 @@ import {
 } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
-import { ComponentProps, FC, ReactNode, startTransition, useOptimistic, useState } from "react";
+import {
+	ComponentProps,
+	FC,
+	ReactNode,
+	startTransition,
+	useOptimistic,
+	useState,
+	useTransition,
+} from "react";
 import styles from "./project-shared.module.css";
 import {
 	commitDetailsWithLineStatsQueryOptions,
@@ -163,7 +171,7 @@ export const FileDiff: FC<{
 			if (visibleHunks.length === 0) return <div>No hunks.</div>;
 
 			return (
-				<ul className={styles.hunks}>
+				<ul>
 					{visibleHunks.map((hunk) => (
 						<li key={hunkKey(hunk)}>{renderHunk(hunk, patch)}</li>
 					))}
@@ -177,14 +185,13 @@ export const FileDiff: FC<{
 export const FileButton: FC<
 	{
 		change: TreeChange;
-		isSelected: boolean;
 		toggleSelect: () => void;
 	} & ComponentProps<"button">
-> = ({ change, isSelected, toggleSelect, className, ...restProps }) => (
+> = ({ change, toggleSelect, className, ...restProps }) => (
 	<button
 		{...restProps}
 		type="button"
-		className={classes(className, styles.fileButton, isSelected && styles.selected)}
+		className={classes(className, styles.fileButton)}
 		onClick={toggleSelect}
 	>
 		{change.path}
@@ -217,7 +224,7 @@ export const CommitDetails: FC<{
 			{conflictedPaths.length > 0 && (
 				<div>
 					<div>Conflicts:</div>
-					<ul className={styles.fileList}>
+					<ul>
 						{conflictedPaths.map((path) => (
 							<li key={path}>{path}</li>
 						))}
@@ -226,7 +233,7 @@ export const CommitDetails: FC<{
 			)}
 
 			{data.changes.length > 0 && (
-				<ul className={styles.fileList}>
+				<ul>
 					{data.changes.map((file) => (
 						<li key={file.path}>{renderFile(file)}</li>
 					))}
@@ -248,8 +255,9 @@ export const CommitLabel: FC<{
 const DraggableCommit: FC<
 	{
 		commit: Commit;
+		canDrag?: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ commit, render, ...props }) => {
+> = ({ commit, canDrag = true, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: (): DragData => ({
 			sourceItem: { _tag: "Commit", commitId: commit.id },
@@ -259,6 +267,7 @@ const DraggableCommit: FC<
 				<CommitLabel commit={commit} />
 			</DragPreview>
 		),
+		canDrag: () => canDrag,
 	});
 
 	return useRender({
@@ -275,18 +284,8 @@ const InlineCommitMessageEditor: FC<{
 	commitId: string;
 	message: string;
 	setMessageAction: (message: string) => void | Promise<void>;
-	isSelected: boolean;
-	isAnyFileSelected: boolean;
 	onExit: () => void;
-}> = ({
-	projectId,
-	commitId,
-	message,
-	setMessageAction,
-	isSelected,
-	isAnyFileSelected,
-	onExit,
-}) => {
+}> = ({ projectId, commitId, message, setMessageAction, onExit }) => {
 	const commitReword = useMutation(commitRewordMutationOptions);
 	const initialMessage = message.trim();
 
@@ -299,10 +298,7 @@ const InlineCommitMessageEditor: FC<{
 				el.setSelectionRange(cursorPosition, cursorPosition);
 			}}
 			defaultValue={initialMessage}
-			className={classes(
-				styles.editCommitMessageInput,
-				isSelected ? styles.selected : isAnyFileSelected ? styles.selectedWithin : undefined,
-			)}
+			className={styles.editCommitMessageInput}
 			onBlur={onExit}
 			onKeyDown={(event) => {
 				if (event.key === "Escape") {
@@ -375,6 +371,7 @@ export const CommitRow: FC<
 		isSelected: boolean;
 		isAnyFileSelected: boolean;
 		isHighlighted: boolean;
+		toggleExpand: () => Promise<void> | void;
 		toggleSelect: () => void;
 	} & ComponentProps<"div">
 > = ({
@@ -383,12 +380,14 @@ export const CommitRow: FC<
 	isSelected,
 	isAnyFileSelected,
 	isHighlighted,
+	toggleExpand,
 	toggleSelect,
 	className,
 	...restProps
 }) => {
 	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
 	const [isEditingMessage, setIsEditingMessage] = useState(false);
+	const [isExpandPending, startExpandTransition] = useTransition();
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
 		(_currentMessage, nextMessage: string) => nextMessage,
@@ -407,72 +406,85 @@ export const CommitRow: FC<
 		});
 	};
 
+	const startEditingMessage = () => {
+		if (!isSelected) toggleSelect();
+		setIsEditingMessage(true);
+	};
+
 	return (
-		<div {...restProps} className={classes(styles.commitRow, className)}>
-			{isEditingMessage ? (
-				<InlineCommitMessageEditor
-					projectId={projectId}
-					commitId={commit.id}
-					message={optimisticMessage}
-					setMessageAction={setOptimisticMessage}
-					isSelected={isSelected}
-					isAnyFileSelected={isAnyFileSelected}
-					onExit={() => {
-						setIsEditingMessage(false);
-					}}
-				/>
-			) : (
-				<ContextMenu.Root>
-					<ContextMenu.Trigger
-						render={
-							<DraggableCommit
-								commit={commitWithOptimisticMessage}
+		<DraggableCommit
+			{...restProps}
+			canDrag={!isEditingMessage}
+			commit={commitWithOptimisticMessage}
+			render={
+				<div
+					className={classes(
+						styles.commitRow,
+						isSelected ? styles.selected : isAnyFileSelected ? styles.selectedWithin : undefined,
+						isHighlighted && styles.highlighted,
+						className,
+					)}
+					style={{ ...(isExpandPending && { opacity: 0.5 }) }}
+					aria-busy={isExpandPending}
+				>
+					{isEditingMessage ? (
+						<InlineCommitMessageEditor
+							projectId={projectId}
+							commitId={commit.id}
+							message={optimisticMessage}
+							setMessageAction={setOptimisticMessage}
+							onExit={() => {
+								setIsEditingMessage(false);
+							}}
+						/>
+					) : (
+						<ContextMenu.Root>
+							<ContextMenu.Trigger
 								render={
-									<button
-										type="button"
-										className={classes(
-											styles.commitButton,
-											isSelected
-												? styles.selected
-												: isAnyFileSelected
-													? styles.selectedWithin
-													: undefined,
-										)}
-										onClick={toggleSelect}
-										style={{
-											...(isHighlighted && { backgroundColor: "yellow" }),
-										}}
-									>
+									<button type="button" className={styles.commitButton} onClick={toggleSelect}>
 										<CommitLabel commit={commitWithOptimisticMessage} />
 									</button>
 								}
 							/>
-						}
-					/>
-					<ContextMenu.Portal>
-						<ContextMenu.Positioner>
-							<CommitMenuPopup
-								onReword={() => setIsEditingMessage(true)}
-								onInsertBlank={insertBlankCommit}
-								parts={ContextMenu}
-							/>
-						</ContextMenu.Positioner>
-					</ContextMenu.Portal>
-				</ContextMenu.Root>
-			)}
-			<Menu.Root>
-				<Menu.Trigger style={{ lineHeight: 1 }}>𑁔</Menu.Trigger>
-				<Menu.Portal>
-					<Menu.Positioner align="end">
-						<CommitMenuPopup
-							onReword={() => setIsEditingMessage(true)}
-							onInsertBlank={insertBlankCommit}
-							parts={Menu}
-						/>
-					</Menu.Positioner>
-				</Menu.Portal>
-			</Menu.Root>
-		</div>
+							<ContextMenu.Portal>
+								<ContextMenu.Positioner>
+									<CommitMenuPopup
+										onReword={startEditingMessage}
+										onInsertBlank={insertBlankCommit}
+										parts={ContextMenu}
+									/>
+								</ContextMenu.Positioner>
+							</ContextMenu.Portal>
+						</ContextMenu.Root>
+					)}
+					<button
+						className={styles.commitToggleExpandButton}
+						type="button"
+						onClick={() => {
+							startExpandTransition(toggleExpand);
+						}}
+						aria-expanded={isAnyFileSelected}
+						aria-label={isAnyFileSelected ? "Collapse commit" : "Expand commit"}
+					>
+						{isAnyFileSelected ? "-" : "+"}
+					</button>
+					<Menu.Root>
+						<Menu.Trigger style={{ lineHeight: 1 }} className={styles.commitMenuTrigger}>
+							𑁔
+						</Menu.Trigger>
+						<Menu.Portal>
+							<Menu.Positioner align="end">
+								<CommitMenuPopup
+									onReword={startEditingMessage}
+									onInsertBlank={insertBlankCommit}
+									parts={Menu}
+								/>
+							</Menu.Positioner>
+						</Menu.Portal>
+					</Menu.Root>
+				</div>
+			}
+		/>
 	);
 };
 
@@ -483,7 +495,7 @@ export const CommitsList: FC<{
 	if (commits.length === 0) return <div>No commits.</div>;
 
 	return (
-		<ul className={styles.commitsList}>
+		<ul>
 			{commits.map((commit, index) => (
 				<li key={commit.id}>{children(commit, index)}</li>
 			))}

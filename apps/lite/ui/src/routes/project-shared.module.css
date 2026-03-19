@@ -1,3 +1,8 @@
+.button {
+	padding: 2px 4px;
+	background-color: #eee;
+}
+
 .lanes {
 	display: flex;
 	column-gap: 8px;
@@ -43,29 +48,30 @@
 
 .commit {
 	display: flex;
+	position: relative;
 	flex-direction: column;
 }
 
 .commitRow {
 	display: flex;
+	align-items: baseline;
 }
 
 .commitDetails {
 	padding-left: 8px;
 }
 
-.commitsList {
-	padding-left: 0;
-	list-style: none;
-}
-
 .commitButton {
 	flex-grow: 1;
+	padding: 2px 4px;
 }
 
-.fileList {
-	padding-left: 0;
-	list-style: none;
+.commitToggleExpandButton {
+	padding: 2px 4px;
+}
+
+.commitMenuTrigger {
+	padding: 2px 4px;
 }
 
 .fileRow {
@@ -74,6 +80,10 @@
 
 .fileButton {
 	flex-grow: 1;
+	padding: 2px 4px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .selected {
@@ -85,9 +95,9 @@
 	background-color: lightgray;
 }
 
-.hunks {
-	padding-left: 0;
-	list-style: none;
+.highlighted {
+	background-color: yellow;
+	color: black;
 }
 
 .hunkHeaderRow {
@@ -114,6 +124,7 @@
 
 .editCommitMessageInput {
 	flex-grow: 1;
+	padding: 2px 4px;
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);

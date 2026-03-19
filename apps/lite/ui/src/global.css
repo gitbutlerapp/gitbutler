@@ -11,13 +11,19 @@ body {
 input,
 textarea,
 select {
+	padding: 0;
+	border: none;
+	background: none;
+	color: inherit;
 	font: inherit;
 	line-height: inherit;
 }
 
 button {
-	border: 1px solid;
-	border-color: black;
+	padding: 0;
+	border: none;
+	background: none;
+	color: inherit;
 	font: inherit;
 	line-height: inherit;
 	text-align: left;
@@ -42,7 +48,8 @@ p {
 	margin-block: 0;
 }
 
-textarea,
-button {
-	padding: 2px 4px;
+ul,
+ol {
+	padding-left: 0;
+	list-style: none;
 }

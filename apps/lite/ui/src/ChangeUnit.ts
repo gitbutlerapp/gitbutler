@@ -1,9 +1,9 @@
 export type ChangeUnit =
 	| {
-			_tag: "commit";
+			_tag: "Commit";
 			commitId: string;
 	  }
 	| {
-			_tag: "changes";
+			_tag: "Changes";
 			stackId: string | null;
 	  };
