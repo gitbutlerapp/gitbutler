@@ -1109,7 +1109,6 @@ const StackC: FC<{
 								render={<h3>{branchName}</h3>}
 							/>
 
-							<h4>Commits</h4>
 							<CommitsList commits={segment.commits}>
 								{(commit, index) => {
 									const changeUnit: ChangeUnit = {
