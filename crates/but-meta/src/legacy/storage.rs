@@ -317,6 +317,7 @@ fn legacy_to_snapshot(
             upstream,
             order,
             in_workspace,
+            workspace_merge_from: _,
             heads,
             #[expect(deprecated)]
             notes,
@@ -487,6 +488,7 @@ fn snapshot_to_legacy(snapshot: &VirtualBranchesSnapshot) -> anyhow::Result<Virt
                 order: usize::try_from(*sort_order)
                     .with_context(|| format!("Invalid stack sort order '{sort_order}'"))?,
                 in_workspace: *in_workspace,
+                workspace_merge_from: None,
                 heads: Vec::new(),
                 #[expect(deprecated)]
                 notes: legacy_notes.clone(),

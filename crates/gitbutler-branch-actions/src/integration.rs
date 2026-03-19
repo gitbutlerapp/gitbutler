@@ -4,6 +4,7 @@ use anyhow::{Context as _, Result, anyhow};
 use but_core::worktree::checkout::UncommitedWorktreeChanges;
 use but_ctx::{Context, access::RepoExclusive};
 use but_error::Marker;
+use but_graph::projection::WorkspaceKind;
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_branch::{self, BranchCreateRequest, GITBUTLER_WORKSPACE_REFERENCE};
 use gitbutler_operating_modes::is_well_known_workspace_ref;
@@ -263,6 +264,14 @@ fn verify_current_branch_name(ctx: &Context) -> Result<&Context> {
 
 // TODO(ST): Probably there should not be an implicit vbranch creation here.
 fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
+    if ctx.settings.feature_flags.cv3 {
+        #[expect(deprecated)] // used as a temporary bridge while cv3 moves off legacy verification
+        let (_meta, ws) = ctx.workspace_and_meta_from_head(perm)?;
+        if !matches!(ws.kind, WorkspaceKind::AdHoc) {
+            return Ok(());
+        }
+    }
+
     let git2_repo = &*ctx.git2_repo.get()?;
     let gix_repo = ctx.repo.get()?.clone();
     let head_commit_id = gix_repo.head_id()?.detach();

@@ -131,6 +131,68 @@ fn rebase_commit() {
 }
 
 #[test]
+fn reapply_after_cv3_unapply() {
+    let Test { repo, ctx, .. } =
+        &mut Test::new_with_settings(|settings| settings.feature_flags.cv3 = true);
+
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+
+    let stack_id = {
+        let mut guard = ctx.exclusive_worktree_access();
+        let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+            ctx,
+            &BranchCreateRequest::default(),
+            guard.write_permission(),
+        )
+        .unwrap();
+        drop(guard);
+
+        fs::write(repo.path().join("another_file.txt"), "virtual").unwrap();
+        super::create_commit(ctx, stack_entry.id, "virtual commit").unwrap();
+        stack_entry.id
+    };
+
+    let unapplied_branch = {
+        let mut guard = ctx.exclusive_worktree_access();
+        let unapplied_branch = gitbutler_branch_actions::unapply_stack(
+            ctx,
+            guard.write_permission(),
+            stack_id,
+            Vec::new(),
+        )
+        .unwrap();
+        drop(guard);
+
+        assert!(!repo.path().join("another_file.txt").exists());
+        assert_eq!(stack_details(ctx).len(), 0);
+        Refname::from_str(&unapplied_branch).unwrap()
+    };
+
+    let outcome = gitbutler_branch_actions::create_virtual_branch_from_branch(
+        ctx,
+        &unapplied_branch,
+        None,
+        None,
+    )
+    .unwrap();
+
+    let stacks = stack_details(ctx);
+    assert_eq!(stacks.len(), 1);
+    assert_eq!(stacks[0].0, outcome.0);
+    assert_eq!(
+        fs::read_to_string(repo.path().join("another_file.txt")).unwrap(),
+        "virtual"
+    );
+}
+
+#[test]
 fn upstream_integration_status_without_review_map() {
     let Test { repo, ctx, .. } = &mut Test::default();
 

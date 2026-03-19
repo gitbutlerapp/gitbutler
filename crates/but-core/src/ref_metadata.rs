@@ -119,6 +119,7 @@ impl Workspace {
             workspacecommit_relation: relation,
             branches: vec![WorkspaceStackBranch {
                 ref_name: branch.to_owned(),
+                head_commit_id: None,
                 archived: false,
             }],
         };
@@ -153,6 +154,7 @@ impl Workspace {
             segment_idx,
             WorkspaceStackBranch {
                 ref_name: branch.to_owned(),
+                head_commit_id: None,
                 archived: false,
             },
         );
@@ -502,6 +504,10 @@ impl WorkspaceCommitRelation {
 pub struct WorkspaceStackBranch {
     /// The name of the branch.
     pub ref_name: gix::refs::FullName,
+    /// The last known commit id of the branch tip, if available.
+    ///
+    /// This allows operations to reason about stacks even if the live branch ref has gone missing.
+    pub head_commit_id: Option<gix::ObjectId>,
     /// If `true`, the branch is now underneath the lower-base of the workspace after a workspace update.
     /// This means it's not interesting anymore, by all means, but we'd still have to keep it available and list
     /// these segments as being part of the workspace when creating PRs. Their descriptions contain references
@@ -513,11 +519,17 @@ pub struct WorkspaceStackBranch {
 
 impl std::fmt::Debug for WorkspaceStackBranch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let WorkspaceStackBranch { ref_name, archived } = self;
-        f.debug_struct("WorkspaceStackBranch")
-            .field("ref_name", &ref_name.as_bstr())
-            .field("archived", archived)
-            .finish()
+        let WorkspaceStackBranch {
+            ref_name,
+            head_commit_id,
+            archived,
+        } = self;
+        let mut f = f.debug_struct("WorkspaceStackBranch");
+        f.field("ref_name", &ref_name.as_bstr());
+        if let Some(head_commit_id) = head_commit_id.filter(|id| !id.is_null()) {
+            f.field("head_commit_id", &head_commit_id);
+        }
+        f.field("archived", archived).finish()
     }
 }
 
