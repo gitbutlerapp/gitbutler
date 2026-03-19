@@ -36,6 +36,13 @@ export const commitRewordMutationOptions = mutationOptions({
 	},
 });
 
+export const moveBranchMutationOptions = mutationOptions({
+	mutationFn: window.lite.moveBranch,
+	onSuccess: async (_data, _input, _ctx, { client }) => {
+		await client.invalidateQueries();
+	},
+});
+
 export const rubMutationOptions = mutationOptions({
 	mutationFn: rub,
 	onSuccess: async (_data, _input, _ctx, { client }) => {
