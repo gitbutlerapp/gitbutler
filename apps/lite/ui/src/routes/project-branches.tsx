@@ -206,17 +206,10 @@ const BranchRow: FC<
 				</ContextMenu.Positioner>
 			</ContextMenu.Portal>
 		</ContextMenu.Root>
-		<BranchApplyToggle
-			branch={branch}
-			projectId={projectId}
-			className={sharedStyles.rowAction}
-		/>
+		<BranchApplyToggle branch={branch} projectId={projectId} className={sharedStyles.rowAction} />
 		<Menu.Root>
 			<Menu.Trigger
-				className={classes(
-					sharedStyles.commitMenuTrigger,
-					sharedStyles.rowAction,
-				)}
+				className={classes(sharedStyles.commitMenuTrigger, sharedStyles.rowAction)}
 				aria-label={`Branch ${branch.name} menu`}
 			>
 				<MenuTriggerIcon />
