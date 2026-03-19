@@ -26,7 +26,7 @@
 
 .segments {
 	display: flex;
-	row-gap: 16px;
+	row-gap: calc(var(--selection-block-padding) + var(--selection-line-height));
 	flex-direction: column;
 }
 
@@ -81,7 +81,7 @@
 
 .stack {
 	display: flex;
-	row-gap: 16px;
+	row-gap: calc(var(--selection-block-padding) + var(--selection-line-height));
 	flex-direction: column;
 }
 
