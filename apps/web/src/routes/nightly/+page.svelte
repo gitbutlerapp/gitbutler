@@ -8,7 +8,7 @@
 
 	interface Props {
 		data: {
-			nightlies: Release[];
+			otherNightlies: Release[];
 			latestNightly: Release | null;
 			latestNightlyBuilds: LatestReleaseBuilds;
 		};
@@ -16,7 +16,7 @@
 
 	const { data }: Props = $props();
 
-	const { latestNightly, latestNightlyBuilds } = data;
+	const { latestNightly, latestNightlyBuilds, otherNightlies } = data;
 
 	let linuxArch = $state<"x86-64" | "ARM64">("x86-64");
 	let expandedRelease: string | null = $state(null);
@@ -202,13 +202,13 @@
 	{/if}
 </section>
 
-{#if data.nightlies.length > 0}
+{#if otherNightlies.length > 0}
 	<section class="releases">
-		<h3>
+		<h2>
 			Other <i>nightly</i> builds:
-		</h3>
+		</h2>
 
-		{#each data.nightlies as release, index (`${release.version}-${release.sha}-${index}`)}
+		{#each otherNightlies as release, index (`${release.version}-${release.sha}-${index}`)}
 			<div class="release-row">
 				<button
 					type="button"
@@ -474,7 +474,7 @@
 		border-radius: var(--radius-xl);
 		font-family: var(--font-mono);
 
-		& h3 {
+		& h2 {
 			padding: 16px 24px 12px;
 			font-size: 40px;
 			line-height: 1.2;

@@ -178,7 +178,7 @@
 		<div class="nightly-info">
 			<p class="text-14 text-body clr-text-2">
 				Experience GitButler’s newest features before anyone else. ⋆˚₊
-				<a href="/nightly" class="download-link"> Get Nightly </a>
+				<a href="/nightly" class="nightly-info__download-link"> Get Nightly </a>
 				☽˚.⋆
 			</p>
 		</div>
@@ -186,6 +186,10 @@
 </section>
 
 <section class="releases">
+	<h2>
+		Other <i>releases:</i>
+	</h2>
+
 	{#each data.releases.filter((release) => release.version !== latestRelease.version) as release (release.version)}
 		<ReleaseCard
 			{release}
@@ -256,6 +260,14 @@
 		padding-bottom: 40px;
 		font-size: 13px;
 		font-family: var(--font-mono);
+	}
+
+	.nightly-info__download-link {
+		text-decoration: underline;
+
+		&:hover {
+			text-decoration: underline wavy;
+		}
 	}
 
 	/* LINKS */
@@ -413,6 +425,32 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-xl);
 		font-family: var(--font-mono);
+
+		& h2 {
+			position: relative;
+			padding: 16px 24px 12px;
+			font-size: 40px;
+			line-height: 1.2;
+			font-family: var(--font-accent);
+		}
+
+		& h2:after {
+			z-index: 0;
+			position: absolute;
+			right: 24px;
+			bottom: 0;
+			left: 24px;
+			height: 1px;
+			background: repeating-linear-gradient(
+				to right,
+				var(--clr-text-2),
+				var(--clr-text-2) 2px,
+				transparent 2px,
+				transparent 6px
+			);
+			content: "";
+			pointer-events: none;
+		}
 	}
 
 	@media (max-width: 900px) {
