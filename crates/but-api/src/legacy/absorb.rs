@@ -292,7 +292,7 @@ fn determine_target_commit(
             .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
         commit_insert_blank_only_impl(
             ctx,
-            crate::commit::ui::RelativeTo::Reference(branch.reference.clone()),
+            crate::commit::RelativeTo::Reference(branch.reference.clone()),
             InsertSide::Below,
             perm,
         )?;
@@ -327,7 +327,7 @@ fn determine_target_commit(
             .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
         commit_insert_blank_only_impl(
             ctx,
-            crate::commit::ui::RelativeTo::Reference(branch.reference.clone()),
+            crate::commit::RelativeTo::Reference(branch.reference.clone()),
             InsertSide::Below,
             perm,
         )?;

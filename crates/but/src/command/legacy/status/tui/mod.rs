@@ -8,7 +8,7 @@ use std::{
 use anyhow::Context as _;
 use bstr::BString;
 use but_api::{
-    commit::{commit_insert_blank, ui::RelativeTo},
+    commit::{RelativeTo, commit_insert_blank},
     diff::ComputeLineStats,
 };
 use but_core::DiffSpec;

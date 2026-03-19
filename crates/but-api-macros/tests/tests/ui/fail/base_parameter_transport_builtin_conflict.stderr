@@ -1,0 +1,5 @@
+error: `#[but_api(Type)]` cannot be combined with built-in parameter remapping
+ --> tests/ui/fail/base_parameter_transport_builtin_conflict.rs:7:41
+  |
+7 |     #[but_api(UiRelativeTo)] commit_id: gix::ObjectId,
+  |                                         ^^^^^^^^^^^^^
