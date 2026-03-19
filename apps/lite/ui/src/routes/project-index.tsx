@@ -1181,19 +1181,20 @@ const StackC: FC<{
 
 	return (
 		<div className={styles.stack}>
-			<Menu.Root>
-				<Menu.Trigger className={styles.stackMenu}>
-					<MenuTriggerIcon />
-				</Menu.Trigger>
-				<Menu.Portal>
-					<Menu.Positioner align="end">
-						<StackMenuPopup projectId={projectId} stackId={stackId} />
-					</Menu.Positioner>
-				</Menu.Portal>
-			</Menu.Root>
-
 			<div>
-				<h3>Assigned changes</h3>
+				<div className={styles.stackHeader}>
+					<h3>Assigned changes</h3>
+					<Menu.Root>
+						<Menu.Trigger className={styles.stackMenu}>
+							<MenuTriggerIcon />
+						</Menu.Trigger>
+						<Menu.Portal>
+							<Menu.Positioner align="end">
+								<StackMenuPopup projectId={projectId} stackId={stackId} />
+							</Menu.Positioner>
+						</Menu.Portal>
+					</Menu.Root>
+				</div>
 				<Changes
 					projectId={projectId}
 					stackId={stack.id}

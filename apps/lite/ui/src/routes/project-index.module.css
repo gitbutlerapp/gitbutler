@@ -85,8 +85,14 @@
 	flex-direction: column;
 }
 
+.stackHeader {
+	display: flex;
+	column-gap: 8px;
+	align-items: center;
+}
+
 .stackMenu {
-	align-self: end;
+	margin-left: auto;
 }
 
 .selectedCommitMessageBody {
