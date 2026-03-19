@@ -10,7 +10,7 @@ use crate::{
     command::legacy::status::{
         CommitClassification,
         output::{StatusOutputContent, StatusOutputLine, StatusOutputLineData},
-        tui::{CommitMode, CommitSource, InlineRewordMode, Mode, RubMode},
+        tui::{CommitMode, CommitSource, InlineRewordMode, Mode, RubMode, UnassignedCommitSource},
     },
 };
 
@@ -1054,7 +1054,9 @@ fn is_selectable_is_true_in_inline_reword_mode() {
 fn is_selectable_in_commit_mode_scopes_commit_targets_to_stack() {
     let scoped_stack_id = StackId::single_branch_id();
     let mode = Mode::Commit(CommitMode {
-        source: Arc::new(CommitSource::Unassigned { id: "zz".into() }),
+        source: Arc::new(CommitSource::Unassigned(UnassignedCommitSource {
+            id: "zz".into(),
+        })),
         scope_to_stack: Some(scoped_stack_id),
         insert_side: InsertSide::Above,
     });

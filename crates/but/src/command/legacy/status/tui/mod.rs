@@ -788,7 +788,7 @@ impl App {
 
         // find what to commit
         let changes_to_commit = match &**source {
-            CommitSource::Unassigned { .. } => {
+            CommitSource::Unassigned(..) => {
                 let context_lines = ctx.settings.context_lines;
                 let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
                 let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
@@ -813,7 +813,7 @@ impl App {
                 .cloned()
                 .map(DiffSpec::from)
                 .collect::<Vec<_>>(),
-            CommitSource::Stack { stack_id, .. } => {
+            CommitSource::Stack(StackCommitSource { stack_id, .. }) => {
                 let context_lines = ctx.settings.context_lines;
                 let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
                 let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
@@ -1932,9 +1932,20 @@ struct CommitMode {
 /// A subset of [`CliId`] that supports being committed
 #[derive(Debug)]
 enum CommitSource {
-    Unassigned { id: ShortId },
+    Unassigned(UnassignedCommitSource),
     Uncommitted(Box<UncommittedCliId>),
-    Stack { id: ShortId, stack_id: StackId },
+    Stack(StackCommitSource),
+}
+
+#[derive(Debug)]
+struct UnassignedCommitSource {
+    id: ShortId,
+}
+
+#[derive(Debug)]
+struct StackCommitSource {
+    id: ShortId,
+    stack_id: StackId,
 }
 
 impl TryFrom<CliId> for CommitSource {
@@ -1942,11 +1953,11 @@ impl TryFrom<CliId> for CommitSource {
 
     fn try_from(id: CliId) -> Result<Self, Self::Error> {
         match id {
-            CliId::Unassigned { id } => Ok(Self::Unassigned { id }),
+            CliId::Unassigned { id } => Ok(Self::Unassigned(UnassignedCommitSource { id })),
             CliId::Uncommitted(uncommitted_cli_id) => {
                 Ok(Self::Uncommitted(Box::new(uncommitted_cli_id)))
             }
-            CliId::Stack { id, stack_id } => Ok(Self::Stack { id, stack_id }),
+            CliId::Stack { id, stack_id } => Ok(Self::Stack(StackCommitSource { id, stack_id })),
             CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Branch { .. }
@@ -1958,7 +1969,7 @@ impl TryFrom<CliId> for CommitSource {
 impl PartialEq<CliId> for CommitSource {
     fn eq(&self, other: &CliId) -> bool {
         match self {
-            CommitSource::Unassigned { id: lhs_id } => {
+            CommitSource::Unassigned(UnassignedCommitSource { id: lhs_id }) => {
                 if let CliId::Unassigned { id: rhs_id } = other {
                     lhs_id == rhs_id
                 } else {
@@ -1972,10 +1983,10 @@ impl PartialEq<CliId> for CommitSource {
                     false
                 }
             }
-            CommitSource::Stack {
+            CommitSource::Stack(StackCommitSource {
                 id: id_lhs,
                 stack_id: stack_id_lhs,
-            } => {
+            }) => {
                 if let CliId::Stack {
                     id: id_rhs,
                     stack_id: stack_id_rhs,
