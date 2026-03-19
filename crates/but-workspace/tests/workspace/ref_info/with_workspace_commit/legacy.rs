@@ -519,10 +519,9 @@ mod stack_details {
         * 85efbe4 (origin/main, main) M
         ");
 
-        // The raw workspace projection still knows about the advanced tip, but it cannot attach it
-        // to `refs/heads/B` anymore from `HEAD`, so the top segment is already anonymous here.
-        // Strangely enough, the worktree projection is absolutely supposed to be able to see that
-        // if the stack tips are known to the workspace, but it simply doesn't see it here.
+        // The raw workspace projection can now link the advanced tip back to `refs/heads/B` even
+        // though the extra commit sits outside the workspace commit. That sibling link records the
+        // outside commit separately from the in-workspace `B` commit.
         let graph = but_graph::Graph::from_head(
             &repo,
             &meta,
@@ -533,8 +532,9 @@ mod stack_details {
         let ws = graph.into_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @r"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-        └── ≡:5:anon: on 85efbe4 {1}
-            ├── :5:anon:
+        └── ≡📙:5:B →:3: on 85efbe4 {1}
+            ├── 📙:5:B →:3:
+            │   ├── ·cc0bf57*
             │   └── ·d69fe94 (🏘️)
             └── 📙:4:A
                 └── ·09d8e52 (🏘️)
@@ -553,14 +553,18 @@ mod stack_details {
                 },
             },
             stacks: [
-                Stack(≡:5:anon: on 85efbe4 {1}) {
+                Stack(≡📙:5:B →:3: on 85efbe4 {1}) {
                     segments: [
-                        StackSegment(:5:anon:) {
+                        StackSegment(📙:5:B →:3:) {
                             commits: [
                                 "·d69fe94 (🏘\u{fe0f})",
                             ],
                             commits_on_remote: [],
-                            commits_outside: None,
+                            commits_outside: Some(
+                                [
+                                    "·cc0bf57",
+                                ],
+                            ),
                         },
                         StackSegment(📙:4:A) {
                             commits: [
@@ -610,13 +614,10 @@ mod stack_details {
         }
         "#);
 
-        // Looking from `HEAD` means traversing the workspace ref, so `B-outside` is not part of the
-        // traversed graph at all.
-        // The stack is still recognized from metadata, but the advanced tip can no longer be attached
-        // to `refs/heads/B`, so the top segment becomes anonymous and there are no `commits_outside`
-        // to report here. Those are only populated for commits that are visible in the traversal but
-        // sit above the managed workspace commit.
-        // This *should not be*, it should detect this case.
+        // Looking from `HEAD` still traverses the workspace ref, but the projection now preserves a
+        // sibling link back to `refs/heads/B`. That lets `head_info()` keep the original branch name
+        // and surface the advanced `B-outside` commit via `commits_outside` even though it is not
+        // part of the managed workspace commit history itself.
         let info = head_info(&repo, &meta, standard_options())?;
         insta::assert_debug_snapshot!(info, @r#"
         RefInfo {
@@ -644,14 +645,18 @@ mod stack_details {
                     segments: [
                         ref_info::ui::Segment {
                             id: NodeIndex(5),
-                            ref_name: "None",
+                            ref_name: "►B",
                             remote_tracking_ref_name: "None",
                             commits: [
                                 LocalCommit(d69fe94, "B\n", local),
                             ],
                             commits_on_remote: [],
-                            commits_outside: None,
-                            metadata: "None",
+                            commits_outside: Some(
+                                [
+                                    Commit(cc0bf57, "B-outside\n"),
+                                ],
+                            ),
+                            metadata: Branch,
                             push_status: CompletelyUnpushed,
                             base: "09d8e52",
                         },

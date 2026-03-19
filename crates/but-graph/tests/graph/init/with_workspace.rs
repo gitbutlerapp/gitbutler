@@ -158,6 +158,51 @@ fn reproduce_11483() -> anyhow::Result<()> {
 }
 
 #[test]
+fn workspace_projection_with_advanced_stack_tip() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/advanced-stack-tip-outside-workspace")?;
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * cc0bf57 (B) B-outside
+    | * 2076060 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |/  
+    * d69fe94 B
+    * 09d8e52 (A) A
+    * 85efbe4 (origin/main, main) M
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+    
+    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    │   └── ·2076060 (⌂|🏘|01)
+    │       └── ►:5[1]:anon: →:3:
+    │           └── ·d69fe94 (⌂|🏘|01)
+    │               └── 📙►:4[2]:A
+    │                   └── ·09d8e52 (⌂|🏘|01)
+    │                       └── ►:2[3]:main <> origin/main →:1:
+    │                           └── ·85efbe4 (⌂|🏘|✓|11)
+    ├── ►:1[0]:origin/main →:2:
+    │   └── →:2: (main →:1:)
+    └── 📙►:3[0]:B
+        └── ·cc0bf57 (⌂)
+            └── →:5:
+    ");
+    let ws = &graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(ws), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+    └── ≡📙:5:B →:3: on 85efbe4 {1}
+        ├── 📙:5:B →:3:
+        │   ├── ·cc0bf57*
+        │   └── ·d69fe94 (🏘️)
+        └── 📙:4:A
+            └── ·09d8e52 (🏘️)
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn no_overzealous_stacks_due_to_workspace_metadata() -> anyhow::Result<()> {
     // NOTE: Was supposed to reproduce #11459, but it found another issue instead.
     let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11459")?;
@@ -4997,7 +5042,7 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
 
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
     │   └── ·fe6ba62 (⌂|🏘|00001)
-    │       ├── ►:19[3]:anon:
+    │       ├── ►:19[3]:anon: →:4:
     │       │   └── ·a62b0de (⌂|🏘|✓|00011)
     │       │       └── ►:21[4]:anon: →:5:
     │       │           └── ·120a217 (⌂|🏘|✓|00111)
@@ -5080,8 +5125,9 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
     │       ├── ·ff75b80*
     │       ├── ·91bc3fc (🏘️|✓)
     │       └── ·cf9330f (🏘️|✓)
-    └── ≡:19:anon: on fafd9d0 {0}
-        ├── :19:anon:
+    └── ≡📙:19:A →:4: on fafd9d0 {0}
+        ├── 📙:19:A →:4:
+        │   ├── ·c83f258*
         │   └── ·a62b0de (🏘️|✓)
         └── 📙:21:A-middle <> origin/A-middle →:5:
             ├── ·27c2545*
