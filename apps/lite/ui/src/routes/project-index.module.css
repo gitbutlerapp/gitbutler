@@ -91,8 +91,16 @@
 	align-items: center;
 }
 
-.stackMenu {
+.stackMenuTrigger {
+	display: grid;
 	margin-left: auto;
+	padding-inline: 8px;
+	padding-block: 4px;
+
+	svg {
+		width: var(--selection-line-height);
+		height: var(--selection-line-height);
+	}
 }
 
 .selectedCommitMessageBody {
