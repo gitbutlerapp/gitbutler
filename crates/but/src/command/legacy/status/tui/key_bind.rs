@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use but_rebase::graph_rebase::mutate::InsertSide;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use strum::IntoEnumIterator;
 
@@ -271,6 +272,24 @@ fn register_commit_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Enter),
         modes: Vec::from([ModeDiscriminant::Commit]),
         message: Message::Commit(CommitMessage::Confirm { with_message: true }),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "above",
+        chord_display: "a",
+        key_matcher: press().code(KeyCode::Char('a')),
+        modes: Vec::from([ModeDiscriminant::Commit]),
+        message: Message::Commit(CommitMessage::SetInsertSide(InsertSide::Above)),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "below",
+        chord_display: "b",
+        key_matcher: press().code(KeyCode::Char('b')),
+        modes: Vec::from([ModeDiscriminant::Commit]),
+        message: Message::Commit(CommitMessage::SetInsertSide(InsertSide::Below)),
         hide_from_hotbar: false,
     });
 

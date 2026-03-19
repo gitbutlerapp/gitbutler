@@ -941,6 +941,7 @@ fn print_group(
                 print_commit(
                     &repo,
                     status_ctx,
+                    stack_with_id.id,
                     commit.short_id.clone(),
                     &commit.inner,
                     CommitChanges::Remote(&details.diff_with_first_parent),
@@ -974,6 +975,7 @@ fn print_group(
                 print_commit(
                     &repo,
                     status_ctx,
+                    stack_with_id.id,
                     commit.short_id.clone(),
                     &commit.inner.inner,
                     CommitChanges::Workspace(&commit.tree_changes_using_repo(&repo)?),
@@ -1088,6 +1090,7 @@ enum CommitChanges<'a> {
 fn print_commit(
     repo: &gix::Repository,
     status_ctx: &StatusContext<'_>,
+    stack_id: Option<StackId>,
     short_id: ShortId,
     commit: &but_workspace::ref_info::Commit,
     commit_changes: CommitChanges,
@@ -1166,6 +1169,7 @@ fn print_commit(
                     .collect(),
             },
             commit_cli_id.clone(),
+            stack_id,
         )?;
         let (message, is_empty_message) = commit_message_display_cli(
             &commit.message,
@@ -1220,6 +1224,7 @@ fn print_commit(
                     .collect(),
             },
             commit_cli_id.clone(),
+            stack_id,
         )?;
     }
     if status_ctx.flags.show_files {
