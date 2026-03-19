@@ -26,6 +26,10 @@
 	flex-direction: column;
 }
 
+.branchButton {
+	width: 100%;
+}
+
 .commitMoveTarget {
 	--hit-area: 17px;
 	--indicator-height: 3px;

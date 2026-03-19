@@ -50,6 +50,7 @@ import {
 	unapplyStackMutationOptions,
 } from "#ui/mutations.ts";
 import {
+	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	headInfoQueryOptions,
@@ -94,6 +95,24 @@ const getStackIdsByCommitId = (headInfo: RefInfo): Map<string, Set<string>> => {
 	}
 
 	return byCommitId;
+};
+
+const getBranchRefsByStackId = (headInfo: RefInfo): Map<string, Set<string>> => {
+	const refsByStackId = new Map<string, Set<string>>();
+
+	for (const stack of headInfo.stacks) {
+		if (stack.id == null) continue;
+
+		const branchRefs = new Set<string>();
+		for (const segment of stack.segments) {
+			const branchRef = getSegmentBranchRef(segment);
+			if (branchRef !== null) branchRefs.add(branchRef);
+		}
+
+		refsByStackId.set(stack.id, branchRefs);
+	}
+
+	return refsByStackId;
 };
 
 const DependencyIndicator: FC<{
@@ -292,6 +311,9 @@ const stackRelativeTo = (stack: Stack): RelativeTo | null => {
 	return { type: "commit", subject: firstCommit.id };
 };
 
+const getSegmentBranchRef = (segment: Stack["segments"][number]): string | null =>
+	segment.refName ? `refs/heads/${segment.refName.displayName}` : null;
+
 // TODO: check this
 const assignedChangesDiffSpecs = (
 	changes: Array<TreeChange>,
@@ -486,6 +508,43 @@ const CommitFileDiff: FC<{
 	);
 };
 
+const ShowBranch: FC<{
+	projectId: string;
+	branch: string;
+	branchName: string;
+}> = ({ projectId, branch, branchName }) => {
+	const { data } = useSuspenseQuery(branchDiffQueryOptions({ projectId, branch }));
+
+	return (
+		<>
+			<h3>{branchName}</h3>
+			{data.changes.length === 0 ? (
+				<div>No file changes.</div>
+			) : (
+				<ul>
+					{data.changes.map((change) => (
+						<li key={change.path}>
+							<h4>{change.path}</h4>
+							<FileDiff
+								projectId={projectId}
+								change={change}
+								renderHunk={(hunk, patch) => (
+									<Hunk
+										patch={patch}
+										changeUnit={{ _tag: "Changes", stackId: null }}
+										change={change}
+										hunk={hunk}
+									/>
+								)}
+							/>
+						</li>
+					))}
+				</ul>
+			)}
+		</>
+	);
+};
+
 const ShowCommit: FC<{
 	projectId: string;
 	commitId: string;
@@ -533,6 +592,12 @@ const ShowCommit: FC<{
 
 type Selection =
 	| {
+			_tag: "Branch";
+			stackId: string;
+			branchName: string;
+			branchRef: string;
+	  }
+	| {
 			_tag: "ChangesFile";
 			stackId: string | null;
 			path: string;
@@ -552,8 +617,14 @@ type Selection =
 const normalizeSelection = (
 	selection: Selection,
 	stackIdsByCommitId: Map<string, Set<string>>,
+	branchRefsByStackId: Map<string, Set<string>>,
 ): Selection | null =>
 	Match.value(selection).pipe(
+		Match.tag("Branch", (selection) => {
+			const branchRefs = branchRefsByStackId.get(selection.stackId);
+			if (branchRefs === undefined) return null;
+			return branchRefs.has(selection.branchRef) ? selection : null;
+		}),
 		Match.tag("ChangesFile", (selection) => selection),
 		Match.tag("Commit", "CommitFile", (selection) => {
 			const stackIds = stackIdsByCommitId.get(selection.commitId);
@@ -624,6 +695,9 @@ const Preview: FC<{
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 }> = ({ projectId, selection, onDependencyHover }) =>
 	Match.value(selection).pipe(
+		Match.tag("Branch", ({ branchName, branchRef }) => (
+			<ShowBranch projectId={projectId} branch={branchRef} branchName={branchName} />
+		)),
 		Match.tag("ChangesFile", ({ stackId, path }) => (
 			<ChangesFileDiff
 				projectId={projectId}
@@ -1049,6 +1123,8 @@ const CommitMoveToBranchTarget: FC<
 const StackC: FC<{
 	projectId: string;
 	stack: Stack;
+	isBranchSelected: (stackId: string, branchRef: string) => boolean;
+	toggleBranchSelection: (stackId: string, branchName: string, branchRef: string) => void;
 	isCommitSelected: (commitId: string) => boolean;
 	isCommitAnyFileSelected: (commitId: string) => boolean;
 	isChangeUnitFileSelected: (changeUnit: ChangeUnit, path: string) => boolean;
@@ -1060,6 +1136,8 @@ const StackC: FC<{
 }> = ({
 	projectId,
 	stack,
+	isBranchSelected,
+	toggleBranchSelection,
 	isCommitSelected,
 	isCommitAnyFileSelected,
 	isChangeUnitFileSelected,
@@ -1112,13 +1190,33 @@ const StackC: FC<{
 			<ul className={styles.segments}>
 				{stack.segments.map((segment) => {
 					const branchName = segment.refName?.displayName ?? "Untitled";
+					const branchRef = getSegmentBranchRef(segment);
 					const anchorRef = segment.refName ? segment.refName.fullNameBytes : null;
 					return (
 						<li key={branchName}>
 							<CommitMoveToBranchTarget
 								anchorRef={anchorRef}
 								firstCommitId={segment.commits[0]?.id}
-								render={<h3>{branchName}</h3>}
+								render={
+									<h3>
+										{branchRef !== null ? (
+											<button
+												type="button"
+												className={classes(
+													styles.branchButton,
+													isBranchSelected(stackId, branchRef) && sharedStyles.selected,
+												)}
+												onClick={() => {
+													toggleBranchSelection(stackId, branchName, branchRef);
+												}}
+											>
+												{branchName}
+											</button>
+										) : (
+											branchName
+										)}
+									</h3>
+								}
 							/>
 
 							<CommitsList commits={segment.commits}>
@@ -1176,8 +1274,9 @@ const ProjectPage: FC = () => {
 		{ defaultValue: null },
 	);
 	const commitStackIds = getStackIdsByCommitId(headInfo);
+	const branchRefsByStackId = getBranchRefsByStackId(headInfo);
 	const selection =
-		(_selection ? normalizeSelection(_selection, commitStackIds) : null) ??
+		(_selection ? normalizeSelection(_selection, commitStackIds, branchRefsByStackId) : null) ??
 		getDefaultSelection({
 			headInfo,
 			changes: worktreeChanges.changes,
@@ -1195,6 +1294,18 @@ const ProjectPage: FC = () => {
 		selection?._tag === "ChangesFile" && selection.stackId === null && selection.path === path;
 	const toggleUnassignedFileSelection = (path: string) => {
 		select(isUnassignedFileSelected(path) ? null : { _tag: "ChangesFile", stackId: null, path });
+	};
+
+	const isBranchSelected = (stackId: string, branchRef: string) =>
+		selection?._tag === "Branch" &&
+		selection.stackId === stackId &&
+		selection.branchRef === branchRef;
+	const toggleBranchSelection = (stackId: string, branchName: string, branchRef: string) => {
+		select(
+			isBranchSelected(stackId, branchRef)
+				? null
+				: { _tag: "Branch", stackId, branchName, branchRef },
+		);
 	};
 
 	const isCommitSelected = (stackId: string, commitId: string) =>
@@ -1294,6 +1405,8 @@ const ProjectPage: FC = () => {
 										key={stack.id}
 										projectId={project.id}
 										stack={stack}
+										isBranchSelected={isBranchSelected}
+										toggleBranchSelection={toggleBranchSelection}
 										isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
 										isCommitAnyFileSelected={(commitId) =>
 											isCommitAnyFileSelected(stackId, commitId)
