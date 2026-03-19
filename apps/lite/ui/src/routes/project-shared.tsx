@@ -298,7 +298,6 @@ const InlineCommitMessageEditor: FC<{
 			}}
 			defaultValue={initialMessage}
 			className={styles.editCommitMessageInput}
-			onBlur={onExit}
 			onKeyDown={(event) => {
 				if (event.key === "Escape") {
 					event.preventDefault();
