@@ -287,6 +287,7 @@ const InlineCommitMessageEditor: FC<{
 }> = ({ projectId, commitId, message, setMessageAction, onExit }) => {
 	const commitReword = useMutation(commitRewordMutationOptions);
 	const initialMessage = message.trim();
+
 	const saveMessage = (newMessage: string) => {
 		onExit();
 		const trimmed = newMessage.trim();
@@ -302,25 +303,45 @@ const InlineCommitMessageEditor: FC<{
 	};
 
 	return (
-		<textarea
-			ref={(el) => {
-				if (!el) return;
-				el.focus();
-				const cursorPosition = el.value.length;
-				el.setSelectionRange(cursorPosition, cursorPosition);
+		<form
+			className={styles.editCommitMessageForm}
+			onSubmit={(event) => {
+				event.preventDefault();
+				const formData = new FormData(event.currentTarget);
+				saveMessage(formData.get("message") as string);
 			}}
-			defaultValue={initialMessage}
-			className={styles.editCommitMessageInput}
-			onKeyDown={(event) => {
-				if (event.key === "Escape") {
-					event.preventDefault();
-					onExit();
-				} else if (event.key === "Enter" && !event.shiftKey) {
-					event.preventDefault();
-					saveMessage(event.currentTarget.value);
-				}
-			}}
-		/>
+		>
+			<textarea
+				ref={(el) => {
+					if (!el) return;
+					el.focus();
+					const cursorPosition = el.value.length;
+					el.setSelectionRange(cursorPosition, cursorPosition);
+				}}
+				name="message"
+				defaultValue={initialMessage}
+				className={styles.editCommitMessageInput}
+				onKeyDown={(event) => {
+					if (event.key === "Escape") {
+						event.preventDefault();
+						onExit();
+					} else if (event.key === "Enter" && !event.shiftKey) {
+						event.preventDefault();
+						event.currentTarget.form?.requestSubmit();
+					}
+				}}
+			/>
+			<div className={styles.editCommitMessageHelp}>
+				<span>escape to </span>
+				<button type="button" className={styles.editCommitMessageAction} onClick={onExit}>
+					cancel
+				</button>
+				<span> • enter to </span>
+				<button type="submit" className={styles.editCommitMessageAction}>
+					save
+				</button>
+			</div>
+		</form>
 	);
 };
 

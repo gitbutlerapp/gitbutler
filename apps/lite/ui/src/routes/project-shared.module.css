@@ -122,15 +122,38 @@
 	opacity: 0.4;
 }
 
+.editCommitMessageForm {
+	display: flex;
+	flex-grow: 1;
+	flex-direction: column;
+	padding-block: 2px;
+}
+
 .editCommitMessageInput {
 	flex-grow: 1;
-	padding: 2px 4px;
+	padding-inline: 4px;
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);
+	resize: none;
 
 	&:focus {
 		outline: none;
+	}
+}
+
+.editCommitMessageHelp {
+	padding-inline: 4px;
+	color: #ccc;
+	font-size: 11px;
+}
+
+.editCommitMessageAction {
+	color: white;
+	cursor: pointer;
+
+	&:hover {
+		text-decoration: underline;
 	}
 }
 
