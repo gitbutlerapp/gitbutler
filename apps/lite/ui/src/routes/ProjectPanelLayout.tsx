@@ -72,6 +72,7 @@ export const ProjectPanelLayout: FC<{
 							<div className={sharedStyles.previewPane}>
 								<button
 									type="button"
+									className={sharedStyles.button}
 									onClick={() => {
 										setShowPreviewFullscreen(true);
 									}}
@@ -87,7 +88,7 @@ export const ProjectPanelLayout: FC<{
 			<Dialog.Root open={showPreviewFullscreen} onOpenChange={setShowPreviewFullscreen}>
 				<Dialog.Portal>
 					<Dialog.Popup aria-label="Preview" className={sharedStyles.previewDialogPopup}>
-						<Dialog.Close>
+						<Dialog.Close className={sharedStyles.button}>
 							Close fullscreen ({shortcutKeys.toggleFullscreenPreview}/esc)
 						</Dialog.Close>
 						{preview}

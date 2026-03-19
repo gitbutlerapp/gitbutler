@@ -1,3 +1,8 @@
+.button {
+	padding: 2px 4px;
+	background-color: #eee;
+}
+
 .lanes {
 	display: flex;
 	column-gap: 8px;
@@ -58,6 +63,15 @@
 
 .commitButton {
 	flex-grow: 1;
+	padding: 2px 4px;
+}
+
+.commitToggleExpandButton {
+	padding: 2px 4px;
+}
+
+.commitMenuTrigger {
+	padding: 2px 4px;
 }
 
 .fileRow {
@@ -66,6 +80,7 @@
 
 .fileButton {
 	flex-grow: 1;
+	padding: 2px 4px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -109,6 +124,7 @@
 
 .editCommitMessageInput {
 	flex-grow: 1;
+	padding: 2px 4px;
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);

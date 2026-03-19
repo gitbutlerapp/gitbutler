@@ -1,9 +1,11 @@
 import { QueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import sharedStyles from "./project-shared.module.css";
 import { Link, Outlet, createRootRouteWithContext, useMatch } from "@tanstack/react-router";
 import { FC } from "react";
 import { usePreviewVisible } from "../hooks/usePreviewVisible";
 import styles from "./root.module.css";
 import { shortcutKeys } from "./shortcuts.ts";
+import { classes } from "./project-shared.tsx";
 
 export const lastOpenedProjectKey = "lastProject";
 
@@ -90,7 +92,7 @@ const TopBar: FC = () => {
 			{projectMatch && (
 				<button
 					type="button"
-					className={styles.topBarPreviewToggle}
+					className={classes(styles.topBarPreviewToggle, sharedStyles.button)}
 					aria-pressed={previewVisible}
 					onClick={() => {
 						setPreviewVisible((visible) => !visible);

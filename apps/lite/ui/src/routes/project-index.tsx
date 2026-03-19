@@ -1059,7 +1059,7 @@ const CommitForm: FC<{
 					}
 				}}
 			/>
-			<button type="submit" disabled={disabled}>
+			<button type="submit" disabled={disabled} className={sharedStyles.button}>
 				{commitCreate.isPending ? "Committing…" : "Commit"}
 			</button>
 		</form>

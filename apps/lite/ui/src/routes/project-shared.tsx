@@ -458,6 +458,7 @@ export const CommitRow: FC<
 						</ContextMenu.Root>
 					)}
 					<button
+						className={styles.commitToggleExpandButton}
 						type="button"
 						onClick={() => {
 							startExpandTransition(toggleExpand);
@@ -468,7 +469,9 @@ export const CommitRow: FC<
 						{isAnyFileSelected ? "-" : "+"}
 					</button>
 					<Menu.Root>
-						<Menu.Trigger style={{ lineHeight: 1 }}>𑁔</Menu.Trigger>
+						<Menu.Trigger style={{ lineHeight: 1 }} className={styles.commitMenuTrigger}>
+							𑁔
+						</Menu.Trigger>
 						<Menu.Portal>
 							<Menu.Positioner align="end">
 								<CommitMenuPopup
