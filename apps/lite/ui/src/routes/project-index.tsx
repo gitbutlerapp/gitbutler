@@ -1185,7 +1185,7 @@ const StackC: FC<{
 				<div className={styles.stackHeader}>
 					<h3>Assigned changes</h3>
 					<Menu.Root>
-						<Menu.Trigger className={styles.stackMenuTrigger}>
+						<Menu.Trigger className={styles.stackMenuTrigger} aria-label="Stack menu">
 							<MenuTriggerIcon />
 						</Menu.Trigger>
 						<Menu.Portal>

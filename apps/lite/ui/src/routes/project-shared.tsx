@@ -488,7 +488,7 @@ export const CommitRow: FC<
 						<ExpandCollapseIcon isExpanded={isSelectedWithin} />
 					</button>
 					<Menu.Root>
-						<Menu.Trigger className={styles.commitMenuTrigger}>
+						<Menu.Trigger className={styles.commitMenuTrigger} aria-label="Commit menu">
 							<MenuTriggerIcon />
 						</Menu.Trigger>
 						<Menu.Portal>

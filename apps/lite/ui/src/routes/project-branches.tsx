@@ -163,7 +163,10 @@ const BranchRow: FC<
 			</ContextMenu.Portal>
 		</ContextMenu.Root>
 		<Menu.Root>
-			<Menu.Trigger className={sharedStyles.commitMenuTrigger}>
+			<Menu.Trigger
+				className={sharedStyles.commitMenuTrigger}
+				aria-label={`Branch ${branch.name} menu`}
+			>
 				<MenuTriggerIcon />
 			</Menu.Trigger>
 			<Menu.Portal>
