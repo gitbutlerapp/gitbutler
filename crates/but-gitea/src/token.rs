@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::client::GiteaClient;
 
+static FAIR_QUEUE: Mutex<()> = Mutex::new(());
+
 /// Persist a Gitea access token and its corresponding account metadata.
 pub fn persist_gitea_access_token(
     account_id: &GiteaAccountIdentifier,
@@ -23,7 +25,7 @@ pub fn delete_gitea_access_token(
     account_id: &GiteaAccountIdentifier,
     storage: &but_forge_storage::Controller,
 ) -> Result<()> {
-    let account = find_gitea_account(account_id, storage)?;
+    let account = find_persisted_gitea_account(account_id, storage)?;
     if let Some(account) = account {
         delete_gitea_account(&account, storage)
     } else {
@@ -136,7 +138,6 @@ impl GiteaAccount {
 }
 
 fn retrieve_gitea_secret(secret_key: &str) -> Result<Option<Sensitive<String>>> {
-    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
     let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
     secret::retrieve(secret_key, secret::Namespace::BuildKind)
 }
@@ -146,32 +147,33 @@ fn persist_gitea_account(
     storage: &but_forge_storage::Controller,
 ) -> Result<()> {
     let secret_key = account.secret_key();
-    storage.add_gitea_account(&account.into())?;
-
-    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
     let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
     secret::persist(
         &secret_key,
         &account.access_token(),
         secret::Namespace::BuildKind,
-    )
+    )?;
+
+    if let Err(err) = storage.add_gitea_account(&account.into()) {
+        let _ = secret::delete(&secret_key, secret::Namespace::BuildKind);
+        return Err(err);
+    }
+
+    Ok(())
 }
 
 fn delete_gitea_account(
-    account: &GiteaAccount,
+    account: &but_forge_storage::settings::GiteaAccount,
     storage: &but_forge_storage::Controller,
 ) -> Result<()> {
-    let secret_key = account.secret_key();
-    storage.remove_gitea_account(&account.into())?;
+    storage.remove_gitea_account(account)?;
 
-    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
     let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
-    secret::delete(&secret_key, secret::Namespace::BuildKind)
+    secret::delete(account.access_token_key(), secret::Namespace::BuildKind)
 }
 
 fn delete_all_gitea_accounts(storage: &but_forge_storage::Controller) -> Result<()> {
     let keys_to_delete = storage.clear_all_gitea_accounts()?;
-    static FAIR_QUEUE: Mutex<()> = Mutex::new(());
     let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
     for key in keys_to_delete {
         secret::delete(&key, secret::Namespace::BuildKind)?;
@@ -183,22 +185,54 @@ fn find_gitea_account(
     account_id: &GiteaAccountIdentifier,
     storage: &but_forge_storage::Controller,
 ) -> Result<Option<GiteaAccount>> {
-    let accounts = storage.gitea_accounts()?;
-    let result = accounts.iter().find_map(|account| {
-        if account.username == account_id.username
-            && account.host == account_id.host
-            && let Some(access_token) = retrieve_gitea_secret(&account.access_token_key)
-                .ok()
-                .flatten()
-        {
-            return Some(GiteaAccount {
-                username: account.username.clone(),
-                host: account.host.clone(),
+    let result = find_persisted_gitea_account(account_id, storage)?.and_then(|account| {
+        retrieve_gitea_secret(account.access_token_key())
+            .ok()
+            .flatten()
+            .map(|access_token| GiteaAccount {
+                username: account.username,
+                host: account.host,
                 access_token,
-            });
-        }
-        None
+            })
     });
 
     Ok(result)
+}
+
+fn find_persisted_gitea_account(
+    account_id: &GiteaAccountIdentifier,
+    storage: &but_forge_storage::Controller,
+) -> Result<Option<but_forge_storage::settings::GiteaAccount>> {
+    Ok(storage
+        .gitea_accounts()?
+        .into_iter()
+        .find(|account| account.username == account_id.username && account.host == account_id.host))
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::tempdir;
+
+    use super::{GiteaAccountIdentifier, delete_gitea_access_token};
+
+    #[test]
+    fn delete_removes_metadata_even_if_secret_is_missing() {
+        let tempdir = tempdir().unwrap();
+        let storage = but_forge_storage::Controller::from_path(tempdir.path());
+        storage
+            .add_gitea_account(&but_forge_storage::settings::GiteaAccount {
+                host: "https://codeberg.org".into(),
+                username: "demo".into(),
+                access_token_key: "missing-secret".into(),
+            })
+            .unwrap();
+
+        delete_gitea_access_token(
+            &GiteaAccountIdentifier::new("demo", "https://codeberg.org"),
+            &storage,
+        )
+        .unwrap();
+
+        assert!(storage.gitea_accounts().unwrap().is_empty());
+    }
 }

@@ -8,7 +8,6 @@
 
 	const giteaUserService = inject(GITEA_USER_SERVICE);
 
-	const [clearAll, clearingAllResult] = giteaUserService.deleteAllGiteaAccounts();
 	const [storeAccount, storeAccountResult] = giteaUserService.storeGiteaAccount;
 	const accounts = giteaUserService.accounts();
 
@@ -17,6 +16,7 @@
 	let patInput = $state<string>();
 	let hostError = $state<string>();
 	let patError = $state<string>();
+	let retryingAccounts = $state(false);
 
 	function cleanupFlow() {
 		showingFlow = false;
@@ -30,9 +30,13 @@
 		showingFlow = true;
 	}
 
-	async function deleteAllGiteaAccounts() {
-		await clearAll();
-		startFlow();
+	async function retryLoadAccounts() {
+		retryingAccounts = true;
+		try {
+			await accounts.result.refetch();
+		} finally {
+			retryingAccounts = false;
+		}
 	}
 
 	async function storeToken() {
@@ -58,10 +62,8 @@
 					{#snippet title()}
 						Failed to load Gitea accounts
 					{/snippet}
-					<Button
-						style="pop"
-						onclick={deleteAllGiteaAccounts}
-						loading={clearingAllResult.current.isLoading}>Try again</Button
+					<Button style="pop" onclick={retryLoadAccounts} loading={retryingAccounts}
+						>Try again</Button
 					>
 				</CardGroup.Item>
 			{/snippet}

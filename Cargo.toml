@@ -66,7 +66,7 @@ members = [
     "crates/but-github", # 📄A thin wrapper of the GitHub API, for authentication and resource access.
     # 👉lacks top-level docs and docs.
     "crates/but-gitlab", # 📄A thin wrapper of the GitLab API, for authentication and resource access.
-    # 👉No tests, lacks top-level docs, purpose somewhat unclear.
+    # 👉Has basic tests and top-level docs; purpose is intentionally narrow.
     "crates/but-gitea", # 📄A thin wrapper of the Gitea API, for authentication and resource access.
     # 👉No tests, lacks top-level docs, purpose somewhat unclear.
     "crates/but-cursor", # 📄Integration with Cursor
