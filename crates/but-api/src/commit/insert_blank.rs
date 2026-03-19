@@ -1,10 +1,10 @@
 use but_api_macros::but_api;
 use but_core::sync::RepoExclusive;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{GraphExt, LookupStep as _, mutate::InsertSide};
+use but_rebase::graph_rebase::{GraphExt, LookupStep as _, mutate::InsertSide, mutate::RelativeTo};
 use tracing::instrument;
 
-use super::types::{CommitInsertBlankResult, RelativeTo};
+use super::types::CommitInsertBlankResult;
 
 /// Inserts a blank commit relative to either a commit or a reference.
 ///

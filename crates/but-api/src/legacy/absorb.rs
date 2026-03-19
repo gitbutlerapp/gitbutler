@@ -12,7 +12,7 @@ use but_hunk_assignment::{
     GroupedChanges, HunkAssignment, convert_assignments_to_diff_specs,
 };
 use but_hunk_dependency::ui::{HunkLock, HunkLockTarget};
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_workspace::ui::StackDetails;
 use gitbutler_oplog::{
     OplogExt,
@@ -292,7 +292,7 @@ fn determine_target_commit(
             .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
         commit_insert_blank_only_impl(
             ctx,
-            crate::commit::types::RelativeTo::Reference(branch.reference.clone()),
+            RelativeTo::Reference(branch.reference.clone()),
             InsertSide::Below,
             perm,
         )?;
@@ -327,7 +327,7 @@ fn determine_target_commit(
             .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
         commit_insert_blank_only_impl(
             ctx,
-            crate::commit::types::RelativeTo::Reference(branch.reference.clone()),
+            RelativeTo::Reference(branch.reference.clone()),
             InsertSide::Below,
             perm,
         )?;

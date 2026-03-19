@@ -4,11 +4,11 @@
 //! `RubOperationDiscriminants`, and `route_operation`.
 
 use anyhow::Context as _;
-use but_api::commit::types::{CommitCreateResult, CommitMoveResult, MoveChangesResult, RelativeTo};
+use but_api::commit::types::{CommitCreateResult, CommitMoveResult, MoveChangesResult};
 use but_core::{DiffSpec, diff::tree_changes, ref_metadata::StackId};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use gix::refs::FullName;
 
 use crate::{

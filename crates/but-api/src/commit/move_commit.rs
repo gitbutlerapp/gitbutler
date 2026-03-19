@@ -1,9 +1,9 @@
 use but_api_macros::but_api;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{GraphExt, mutate::InsertSide};
+use but_rebase::graph_rebase::{GraphExt, mutate::InsertSide, mutate::RelativeTo};
 use tracing::instrument;
 
-use super::types::{CommitMoveResult, RelativeTo};
+use super::types::CommitMoveResult;
 
 /// Moves commit, no snapshots. No strings attached.
 ///

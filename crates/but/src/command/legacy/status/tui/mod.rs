@@ -7,13 +7,10 @@ use std::{
 
 use anyhow::Context as _;
 use bstr::BString;
-use but_api::{
-    commit::{insert_blank::commit_insert_blank, types::RelativeTo},
-    diff::ComputeLineStats,
-};
+use but_api::{commit::insert_blank::commit_insert_blank, diff::ComputeLineStats};
 use but_core::DiffSpec;
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use crossterm::event::{self, Event};
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_stack::StackId;

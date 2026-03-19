@@ -214,12 +214,12 @@ pub enum RelativeTo {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(RelativeTo);
 
-impl<'a> From<&'a RelativeTo> for but_rebase::graph_rebase::mutate::RelativeTo<'a> {
-    fn from(value: &'a RelativeTo) -> Self {
+impl From<RelativeTo> for but_rebase::graph_rebase::mutate::RelativeTo {
+    fn from(value: RelativeTo) -> Self {
         match value {
-            RelativeTo::Commit(commit) => Self::Commit(*commit),
+            RelativeTo::Commit(commit) => Self::Commit(commit),
             RelativeTo::Reference(reference) | RelativeTo::ReferenceBytes(reference) => {
-                Self::Reference(reference.as_ref())
+                Self::Reference(reference)
             }
         }
     }

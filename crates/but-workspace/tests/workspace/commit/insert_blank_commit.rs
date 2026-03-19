@@ -1,7 +1,7 @@
 use anyhow::Result;
 use but_rebase::graph_rebase::{
     GraphExt as _,
-    mutate::{InsertSide, RelativeTo},
+    mutate::{InsertSide, RelativeToRef},
 };
 use but_testsupport::visualize_commit_graph_all;
 use but_workspace::commit::insert_blank_commit;
@@ -22,9 +22,13 @@ fn insert_below_commit() -> Result<()> {
     let id = repo.rev_parse_single("two")?;
 
     let editor = graph.to_editor(&repo)?;
-    insert_blank_commit(editor, InsertSide::Below, RelativeTo::Commit(id.detach()))?
-        .0
-        .materialize()?;
+    insert_blank_commit(
+        editor,
+        InsertSide::Below,
+        RelativeToRef::Commit(id.detach()),
+    )?
+    .0
+    .materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 70ba329 (HEAD -> three) commit three
@@ -54,9 +58,13 @@ fn insert_above_commit() -> Result<()> {
     let id = repo.rev_parse_single("two")?;
 
     let editor = graph.to_editor(&repo)?;
-    insert_blank_commit(editor, InsertSide::Above, RelativeTo::Commit(id.detach()))?
-        .0
-        .materialize()?;
+    insert_blank_commit(
+        editor,
+        InsertSide::Above,
+        RelativeToRef::Commit(id.detach()),
+    )?
+    .0
+    .materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 8e87ff3 (HEAD -> three) commit three
@@ -87,7 +95,7 @@ fn insert_below_reference() -> Result<()> {
     insert_blank_commit(
         editor,
         InsertSide::Below,
-        RelativeTo::Reference(reference.name()),
+        RelativeToRef::Reference(reference.name()),
     )?
     .0
     .materialize()?;
@@ -121,7 +129,7 @@ fn insert_above_reference() -> Result<()> {
     insert_blank_commit(
         editor,
         InsertSide::Above,
-        RelativeTo::Reference(reference.name()),
+        RelativeToRef::Reference(reference.name()),
     )?
     .0
     .materialize()?;

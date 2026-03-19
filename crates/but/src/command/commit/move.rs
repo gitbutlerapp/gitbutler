@@ -1,7 +1,6 @@
 use anyhow::bail;
-use but_api::commit::types::RelativeTo;
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use colored::Colorize;
 
 use crate::{

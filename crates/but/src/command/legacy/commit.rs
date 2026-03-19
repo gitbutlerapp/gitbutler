@@ -3,12 +3,12 @@ use std::{collections::BTreeMap, fmt::Write as _};
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::{
-    commit::{create::commit_create, insert_blank::commit_insert_blank, types::RelativeTo},
+    commit::{create::commit_create, insert_blank::commit_insert_blank},
     diff,
     legacy::{repo, workspace},
 };
 use but_core::{DiffSpec, ui::TreeChange};
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use colored::Colorize;
 use gitbutler_repo::hooks;
 

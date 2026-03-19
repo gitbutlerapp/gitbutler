@@ -3,10 +3,10 @@ use std::collections::BTreeMap;
 use but_api_macros::but_api;
 use but_core::{DiffSpec, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{GraphExt, LookupStep as _, mutate::InsertSide};
+use but_rebase::graph_rebase::{GraphExt, LookupStep as _, mutate::InsertSide, mutate::RelativeTo};
 use tracing::instrument;
 
-use super::types::{CommitCreateResult, RelativeTo};
+use super::types::CommitCreateResult;
 
 /// Creates and inserts a commit relative to either a commit or a reference.
 #[but_api(crate::commit::json::UICommitCreateResult)]
