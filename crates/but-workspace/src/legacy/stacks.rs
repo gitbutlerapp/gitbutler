@@ -290,9 +290,8 @@ pub fn stack_details_v3(
     meta: &impl RefMetadata,
     cache: &mut but_db::CacheHandle,
 ) -> anyhow::Result<ui::StackDetails> {
-    // `ref_info()` resolves stacks relative to an existing ref, so once we know the stack ID we
-    // first locate any recorded branch ref for that stack and then select the matching stack from
-    // the resulting workspace projection.
+    // Prefer the current `HEAD` projection if it can still see the requested stack, and only fall
+    // back to resolving from a surviving ref when that stack is no longer reachable from `HEAD`.
     fn stack_by_id(head_info: RefInfo, stack_id: StackId) -> Option<branch::Stack> {
         head_info
             .stacks
@@ -329,20 +328,27 @@ pub fn stack_details_v3(
             }
         }
         Some(stack_id) => {
-            let branch_names_by_stack_id = branch_names_by_stack_id(meta)?;
-            let branch_names = branch_names_by_stack_id
-                .get(&stack_id)
-                .with_context(|| format!("Couldn't find {stack_id} in workspace metadata"))?;
-            let existing_ref = branch_names
-                .iter()
-                .find_map(|ref_name| repo.find_reference(ref_name.as_ref()).ok())
-                .with_context(|| {
-                    format!("Couldn't find any refs for stack {stack_id} in the repository")
-                })?;
-            let ref_info = ref_info(existing_ref, meta, ref_info_options, cache)?;
-            stack_by_id(ref_info, stack_id).with_context(|| {
-                format!("Really couldn't find {stack_id} in the current workspace projection")
-            })?
+            if let Some(stack) = stack_by_id(
+                head_info(repo, meta, ref_info_options.clone(), cache)?,
+                stack_id,
+            ) {
+                stack
+            } else {
+                let branch_names_by_stack_id = branch_names_by_stack_id(meta)?;
+                let branch_names = branch_names_by_stack_id
+                    .get(&stack_id)
+                    .with_context(|| format!("Couldn't find {stack_id} in workspace metadata"))?;
+                let existing_ref = branch_names
+                    .iter()
+                    .find_map(|ref_name| repo.find_reference(ref_name.as_ref()).ok())
+                    .with_context(|| {
+                        format!("Couldn't find any refs for stack {stack_id} in the repository")
+                    })?;
+                let ref_info = ref_info(existing_ref, meta, ref_info_options, cache)?;
+                stack_by_id(ref_info, stack_id).with_context(|| {
+                    format!("Really couldn't find {stack_id} in the current workspace projection")
+                })?
+            }
         }
     };
 
@@ -400,7 +406,7 @@ impl ui::BranchDetails {
             commits_on_remote: commits_unique_in_remote_tracking_branch,
             remote_tracking_ref_name,
             // There is nothing equivalent
-            commits_outside: _,
+            commits_outside,
             metadata,
             push_status,
             is_entrypoint: _,
@@ -410,6 +416,16 @@ impl ui::BranchDetails {
         let ref_info = ref_info
             .clone()
             .context("Can't handle a stack yet whose tip isn't pointed to by a ref")?;
+        if let Some(commits_outside) = commits_outside
+            .as_ref()
+            .filter(|commits| !commits.is_empty())
+        {
+            tracing::warn!(
+                ignored_outside_commits = commits_outside.len(),
+                stack_segment_ref = %ref_info.ref_name,
+                "Legacy StackDetails drops commits_outside for this stack segment"
+            );
+        }
         let (updated_at, review_id, pr_number) = metadata
             .clone()
             .map(|meta| {

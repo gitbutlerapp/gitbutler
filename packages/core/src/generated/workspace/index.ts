@@ -76,6 +76,11 @@ export type BranchDetails = {
 	isConflicted: boolean;
 	/**
 	 * The commits contained in the branch, excluding the upstream commits.
+	 *
+	 * Note that legacy stack details currently do not expose
+	 * [`crate::ref_info::Segment::commits_outside`], so commits that only appear there are
+	 * omitted from this list rather than represented separately.
+	 * It's also unclear how to recover from there.
 	 */
 	commits: Array<Commit>;
 	/**

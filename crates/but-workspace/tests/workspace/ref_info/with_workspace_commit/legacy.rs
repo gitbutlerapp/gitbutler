@@ -702,12 +702,12 @@ mod stack_details {
         }
         "#);
 
-        // Looking up by `stack_id` takes a different path: it first finds a surviving ref for the
-        // stack, here `refs/heads/B`, and calls `ref_info()` from that ref instead of from `HEAD`.
-        // From that starting point `B-outside` is no longer "outside" at all, but simply the tip
-        // commit of the `B` segment, so it shows up in `commits` rather than `commits_outside`.
-        // The legacy `StackDetails` projection also drops `commits_outside` entirely, so this view
-        // cannot distinguish the advanced commit from ordinary in-stack commits anymore.
+        // Looking up by `stack_id` now prefers the current `HEAD` projection if it can still see
+        // that stack, and only falls back to resolving from a surviving ref when `HEAD` cannot.
+        // That keeps the stack anchored in the same workspace view as `head_info()`, so `B` stays
+        // the top segment instead of being re-anchored from `refs/heads/B`.
+        // Legacy `StackDetails` still has no dedicated `commits_outside` field and continues to
+        // discard those commits entirely, so `B-outside` is intentionally omitted here.
         let actual = stack_details_v3(Some(stack_id), &repo, &meta)?;
         insta::assert_debug_snapshot!(actual, @r#"
         StackDetails {
@@ -723,7 +723,7 @@ mod stack_details {
                     remote_tracking_branch: None,
                     pr_number: None,
                     review_id: None,
-                    tip: Sha1(cc0bf57992f34345564a4f616f60dd880cd83377),
+                    tip: Sha1(d69fe9427ac4a2422ab953acba483f804e8098ef),
                     base_commit: Sha1(09d8e528cc9381ddc4a7a436d83507b20fc909b0),
                     push_status: CompletelyUnpushed,
                     last_updated_at: None,
@@ -732,7 +732,6 @@ mod stack_details {
                     ],
                     is_conflicted: false,
                     commits: [
-                        Commit(cc0bf57, "B-outside", local),
                         Commit(d69fe94, "B", local),
                     ],
                     upstream_commits: [],
@@ -757,31 +756,6 @@ mod stack_details {
                     is_conflicted: false,
                     commits: [
                         Commit(09d8e52, "A", local),
-                    ],
-                    upstream_commits: [],
-                    is_remote_head: false,
-                },
-                BranchDetails {
-                    name: "main",
-                    reference: FullName(
-                        "refs/heads/main",
-                    ),
-                    linked_worktree_id: None,
-                    remote_tracking_branch: Some(
-                        "refs/remotes/origin/main",
-                    ),
-                    pr_number: None,
-                    review_id: None,
-                    tip: Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
-                    base_commit: Sha1(0000000000000000000000000000000000000000),
-                    push_status: Integrated,
-                    last_updated_at: None,
-                    authors: [
-                        author <author@example.com>,
-                    ],
-                    is_conflicted: false,
-                    commits: [
-                        Commit(85efbe4, "M", integrated),
                     ],
                     upstream_commits: [],
                     is_remote_head: false,
