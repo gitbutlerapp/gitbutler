@@ -287,6 +287,19 @@ const InlineCommitMessageEditor: FC<{
 }> = ({ projectId, commitId, message, setMessageAction, onExit }) => {
 	const commitReword = useMutation(commitRewordMutationOptions);
 	const initialMessage = message.trim();
+	const saveMessage = (newMessage: string) => {
+		onExit();
+		const trimmed = newMessage.trim();
+		if (trimmed !== initialMessage)
+			startTransition(async () => {
+				await setMessageAction(trimmed);
+				await commitReword.mutateAsync({
+					projectId,
+					commitId,
+					message: trimmed,
+				});
+			});
+	};
 
 	return (
 		<textarea
@@ -304,19 +317,7 @@ const InlineCommitMessageEditor: FC<{
 					onExit();
 				} else if (event.key === "Enter" && !event.shiftKey) {
 					event.preventDefault();
-					onExit();
-
-					const newMessage = event.currentTarget.value.trim();
-
-					if (newMessage !== initialMessage)
-						startTransition(async () => {
-							await setMessageAction(newMessage);
-							await commitReword.mutateAsync({
-								projectId,
-								commitId,
-								message: newMessage,
-							});
-						});
+					saveMessage(event.currentTarget.value);
 				}
 			}}
 		/>
