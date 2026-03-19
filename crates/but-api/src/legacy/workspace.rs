@@ -84,7 +84,7 @@ pub(crate) fn stacks_v3_from_ctx(
     filter: StacksFilter,
 ) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = ctx.legacy_meta()?;
+    let meta = ctx.meta()?;
     let mut cache = ctx.cache.get_cache_mut()?;
     but_workspace::legacy::stacks_v3(&repo, &meta, filter, None, &mut cache)
 }
@@ -185,7 +185,7 @@ pub fn stack_details(
 ) -> Result<but_workspace::ui::StackDetails> {
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
-        let meta = ctx.legacy_meta()?;
+        let meta = ctx.meta()?;
         let mut cache = ctx.cache.get_cache_mut()?;
         but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta, &mut cache)
     }?;

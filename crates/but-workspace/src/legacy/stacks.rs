@@ -3,9 +3,11 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context as _, bail};
 use bstr::BString;
-use but_core::RefMetadata;
+use but_core::{
+    RefMetadata,
+    ref_metadata::{StackKind, Workspace},
+};
 use but_ctx::Context;
-use but_meta::VirtualBranchesTomlMetadata;
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use gitbutler_stack::{Stack, StackId};
 use gix::date::parse::TimeBuf;
@@ -25,39 +27,62 @@ use crate::{
     ui::{CommitState, StackDetails},
 };
 
-/// Get a stable `StackId` for the given `name`. It's fetched from `meta`, assuming it's backed by a toml file
-/// and assuming that `name` is stored there as applied or unapplied branch.
-fn id_from_name_v2_to_v3(
-    name: &gix::refs::FullNameRef,
-    meta: &VirtualBranchesTomlMetadata,
-) -> anyhow::Result<StackId> {
-    id_from_name_v2_to_v3_opt(name, meta)?.with_context(|| {
-        format!(
-            "{name:?} didn't have a stack-id even though \
-        it was supposed to be in virtualbranches.toml"
-        )
-    })
+fn default_workspace_metadata(meta: &impl RefMetadata) -> anyhow::Result<Option<Workspace>> {
+    ref_info::function::workspace_data_of_default_workspace_branch(meta)
 }
 
-/// Get a stable `StackId` for the given `name`. It's fetched from `meta`, assuming it's backed by a toml file
-/// and assuming that `name` is stored there as applied or unapplied branch.
-/// It's `None` if `name` isn't known to the workspace.
-fn id_from_name_v2_to_v3_opt(
-    name: &gix::refs::FullNameRef,
-    meta: &VirtualBranchesTomlMetadata,
-) -> anyhow::Result<Option<StackId>> {
-    let ref_meta = meta.branch(name)?;
-    Ok(ref_meta.stack_id().map(|id| {
-        id.to_string()
-            .parse()
-            .expect("new stack ids are just UUIDs, like the old ones")
-    }))
+/// Build a lookup from workspace branch ref names to their stable stack IDs.
+///
+/// The mapping covers both applied and unapplied stacks from the default workspace metadata so
+/// callers can attach a V3 [`StackId`] to branch-derived UI entries without reaching into legacy
+/// TOML-backed metadata.
+fn stack_ids_by_ref_name(
+    meta: &impl RefMetadata,
+) -> anyhow::Result<HashMap<gix::refs::FullName, StackId>> {
+    let Some(workspace) = default_workspace_metadata(meta)? else {
+        return Ok(HashMap::new());
+    };
+    Ok(workspace
+        .stacks(StackKind::AppliedAndUnapplied)
+        .flat_map(|stack| {
+            stack
+                .branches
+                .iter()
+                .map(move |branch| (branch.ref_name.clone(), stack.id))
+        })
+        .collect())
+}
+
+/// Build a reverse lookup from stable stack IDs to the branch refs that currently represent them.
+///
+/// Each entry contains every branch ref recorded for the stack in default workspace metadata. This
+/// allows callers to find a surviving repository ref for a stack before asking `ref_info()` to
+/// reconstruct the current workspace projection for that stack.
+fn branch_names_by_stack_id(
+    meta: &impl RefMetadata,
+) -> anyhow::Result<HashMap<StackId, Vec<gix::refs::FullName>>> {
+    let Some(workspace) = default_workspace_metadata(meta)? else {
+        return Ok(HashMap::new());
+    };
+    Ok(workspace
+        .stacks(StackKind::AppliedAndUnapplied)
+        .map(|stack| {
+            (
+                stack.id,
+                stack
+                    .branches
+                    .iter()
+                    .map(|branch| branch.ref_name.clone())
+                    .collect(),
+            )
+        })
+        .collect())
 }
 
 /// Get the associated forge review information out of the metadata, if any.
 fn review_id_from_meta(
     name: &gix::refs::FullNameRef,
-    meta: &VirtualBranchesTomlMetadata,
+    meta: &impl RefMetadata,
 ) -> anyhow::Result<Option<usize>> {
     let pull_request = meta
         .branch_opt(name)?
@@ -91,7 +116,7 @@ pub fn stack_heads_info(
 fn try_from_stack_v3(
     repo: &gix::Repository,
     stack: branch::Stack,
-    meta: &VirtualBranchesTomlMetadata,
+    stack_ids_by_ref_name: &HashMap<gix::refs::FullName, StackId>,
 ) -> anyhow::Result<StackEntry> {
     let name = stack
         .name()
@@ -120,7 +145,7 @@ fn try_from_stack_v3(
         })
         .collect::<anyhow::Result<_>>()?;
     Ok(StackEntry {
-        id: id_from_name_v2_to_v3_opt(name.as_ref(), meta)?,
+        id: stack_ids_by_ref_name.get(&name).copied(),
         tip: heads
             .first()
             .map(|h| h.tip)
@@ -139,7 +164,7 @@ fn try_from_stack_v3(
 // TODO: See if the UI can migrate to `head_info()` or a variant of it so the information is only called once.
 pub fn stacks_v3(
     repo: &gix::Repository,
-    meta: &VirtualBranchesTomlMetadata,
+    meta: &impl RefMetadata,
     filter: StacksFilter,
     ref_name_override: Option<&gix::refs::FullNameRef>,
     cache: &mut but_db::CacheHandle,
@@ -150,8 +175,9 @@ pub fn stacks_v3(
     //       found while traversing its commits to some base becomes a stack in that very sense.
     fn unapplied_stacks(
         repo: &gix::Repository,
-        meta: &VirtualBranchesTomlMetadata,
+        meta: &impl RefMetadata,
         applied_stacks: &[branch::Stack],
+        stack_ids_by_ref_name: &HashMap<gix::refs::FullName, StackId>,
     ) -> anyhow::Result<Vec<StackEntry>> {
         let mut out = Vec::new();
         for item in meta.iter() {
@@ -179,7 +205,7 @@ pub fn stacks_v3(
                 .with_context(|| format!("Encountered symbolic reference: {ref_name}"))?
                 .detach();
             out.push(StackEntry {
-                id: id_from_name_v2_to_v3_opt(ref_name.as_ref(), meta)?,
+                id: stack_ids_by_ref_name.get(&ref_name).copied(),
                 // TODO: this is just a simulation and such a thing doesn't really exist in the V3 world, let's see how it goes.
                 //       Thus, we just pass ourselves as first segment, similar to having no other segments.
                 heads: vec![StackHeadInfo {
@@ -204,27 +230,31 @@ pub fn stacks_v3(
         None => head_info(repo, meta, options, cache),
         Some(ref_name) => ref_info(repo.find_reference(ref_name)?, meta, options, cache),
     }?;
+    let stack_ids_by_ref_name = stack_ids_by_ref_name(meta)?;
 
     fn into_ui_stacks(
         repo: &gix::Repository,
         stacks: Vec<branch::Stack>,
-        meta: &VirtualBranchesTomlMetadata,
+        stack_ids_by_ref_name: &HashMap<gix::refs::FullName, StackId>,
     ) -> Vec<StackEntry> {
         stacks
             .into_iter()
-            .filter_map(|stack| try_from_stack_v3(repo, stack, meta).ok())
+            .filter_map(|stack| try_from_stack_v3(repo, stack, stack_ids_by_ref_name).ok())
             .collect()
     }
 
     let mut stacks = match filter {
-        StacksFilter::InWorkspace => into_ui_stacks(repo, info.stacks, meta),
+        StacksFilter::InWorkspace => into_ui_stacks(repo, info.stacks, &stack_ids_by_ref_name),
         StacksFilter::All => {
-            let unapplied_stacks = unapplied_stacks(repo, meta, &info.stacks)?;
+            let unapplied_stacks =
+                unapplied_stacks(repo, meta, &info.stacks, &stack_ids_by_ref_name)?;
             let mut all_stacks = unapplied_stacks;
-            all_stacks.extend(into_ui_stacks(repo, info.stacks, meta));
+            all_stacks.extend(into_ui_stacks(repo, info.stacks, &stack_ids_by_ref_name));
             all_stacks
         }
-        StacksFilter::Unapplied => unapplied_stacks(repo, meta, &info.stacks)?,
+        StacksFilter::Unapplied => {
+            unapplied_stacks(repo, meta, &info.stacks, &stack_ids_by_ref_name)?
+        }
     };
 
     let needs_filtering_to_hide_segments_not_checked_out = stacks
@@ -257,27 +287,17 @@ pub fn stacks_v3(
 pub fn stack_details_v3(
     stack_id: Option<StackId>,
     repo: &gix::Repository,
-    meta: &VirtualBranchesTomlMetadata,
+    meta: &impl RefMetadata,
     cache: &mut but_db::CacheHandle,
 ) -> anyhow::Result<ui::StackDetails> {
-    fn stack_by_id(
-        head_info: RefInfo,
-        stack_id: StackId,
-        alt_stack_id: Option<StackId>,
-        meta: &VirtualBranchesTomlMetadata,
-    ) -> anyhow::Result<Option<branch::Stack>> {
-        let stacks_with_id: Vec<_> = head_info
+    // `ref_info()` resolves stacks relative to an existing ref, so once we know the stack ID we
+    // first locate any recorded branch ref for that stack and then select the matching stack from
+    // the resulting workspace projection.
+    fn stack_by_id(head_info: RefInfo, stack_id: StackId) -> Option<branch::Stack> {
+        head_info
             .stacks
             .into_iter()
-            .filter_map(|stack| {
-                let name = stack.name()?.to_owned();
-                Some(id_from_name_v2_to_v3(name.as_ref(), meta).map(|stack_id| (stack_id, stack)))
-            })
-            .collect::<Result<_, _>>()?;
-
-        Ok(stacks_with_id
-            .into_iter()
-            .find_map(|(id, stack)| (id == stack_id || Some(id) == alt_stack_id).then_some(stack)))
+            .find(|stack| stack.id == Some(stack_id))
     }
     let mut ref_info_options = ref_info::Options {
         // TODO(perf): make this so it can be enabled for a specific stack-id.
@@ -309,31 +329,20 @@ pub fn stack_details_v3(
             }
         }
         Some(stack_id) => {
-            // Even though it shouldn't be the case, the ids can totally go out of sync. Use both to play it safer.
-            let (vb_stack, alt_stack_id) = meta
-                .data()
-                .branches
+            let branch_names_by_stack_id = branch_names_by_stack_id(meta)?;
+            let branch_names = branch_names_by_stack_id
+                .get(&stack_id)
+                .with_context(|| format!("Couldn't find {stack_id} in workspace metadata"))?;
+            let existing_ref = branch_names
                 .iter()
-                .find_map(|(k, s)| {
-                    if s.id == stack_id {
-                        Some((s, Some(*k)))
-                    } else if *k == stack_id {
-                        Some((s, Some(s.id)))
-                    } else {
-                        None
-                    }
-                })
+                .find_map(|ref_name| repo.find_reference(ref_name.as_ref()).ok())
                 .with_context(|| {
-                    format!("Couldn't find {stack_id} even when looking at virtual_branches.toml directly")
+                    format!("Couldn't find any refs for stack {stack_id} in the repository")
                 })?;
-            let full_name = gix::refs::FullName::try_from(format!(
-                "refs/heads/{shortname}",
-                shortname = vb_stack.derived_name()?
-            ))?;
-            let existing_ref = repo.find_reference(&full_name)?;
             let ref_info = ref_info(existing_ref, meta, ref_info_options, cache)?;
-            stack_by_id(ref_info, stack_id, alt_stack_id, meta)?
-                .with_context(|| format!("Really couldn't find {stack_id} or {alt_stack_id:?} in current HEAD or when searching virtual_branches.toml plainly"))?
+            stack_by_id(ref_info, stack_id).with_context(|| {
+                format!("Really couldn't find {stack_id} in the current workspace projection")
+            })?
         }
     };
 

@@ -73,7 +73,7 @@ read/write helpers.
 
 `legacy_meta()` and `legacy_meta_mut()`, needed for stacks/details V3 and vb.toml reconciliation.
 
-- [ ] `crates/but-api/src/legacy/workspace.rs`
+- [x] `crates/but-api/src/legacy/workspace.rs`
 - [ ] `crates/but-api/src/legacy/meta.rs`
 
 #### but-claude (1)
