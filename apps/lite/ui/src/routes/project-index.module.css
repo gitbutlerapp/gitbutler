@@ -20,6 +20,7 @@
 	min-height: calc(2lh);
 	padding: 2px 4px;
 	background-color: #eee;
+	resize: vertical;
 }
 
 .segments {
