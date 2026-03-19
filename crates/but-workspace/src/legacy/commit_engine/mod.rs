@@ -413,7 +413,7 @@ pub fn create_commit_and_update_refs_with_project(
     context_lines: u32,
     _perm: &mut RepoExclusive,
 ) -> anyhow::Result<CreateCommitOutcome> {
-    let vbh = VirtualBranchesHandle::new(project_data_dir);
+    let mut vbh = VirtualBranchesHandle::new(project_data_dir);
     let mut vb = vbh.read_file()?;
     let frame = match maybe_stackid {
         None => {

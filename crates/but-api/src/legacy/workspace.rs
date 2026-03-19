@@ -6,7 +6,10 @@ use but_core::{RepositoryExt, sync::RepoExclusive};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_settings::AppSettings;
-use but_workspace::{commit_engine, commit_engine::StackSegmentId, legacy::ui::StackEntry};
+use but_workspace::{
+    commit_engine::{self, StackSegmentId},
+    legacy::{StacksFilter, ui::StackEntry},
+};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::{
@@ -52,7 +55,7 @@ mod json {
 #[instrument(err(Debug))]
 pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = ctx.legacy_meta()?;
+    let meta = ctx.meta()?;
     let mut cache = ctx.cache.get_cache_mut()?;
     but_workspace::head_info(
         &repo,
@@ -72,10 +75,18 @@ pub fn stacks(
     ctx: &Context,
     filter: Option<but_workspace::legacy::StacksFilter>,
 ) -> Result<Vec<StackEntry>> {
+    stacks_v3_from_ctx(ctx, filter.unwrap_or_default())
+}
+///
+/// Return stack information for the repository that `ctx` refers to using legacy metadata.
+pub(crate) fn stacks_v3_from_ctx(
+    ctx: &Context,
+    filter: StacksFilter,
+) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = ctx.legacy_meta()?;
+    let meta = ctx.meta()?;
     let mut cache = ctx.cache.get_cache_mut()?;
-    but_workspace::legacy::stacks_v3(&repo, &meta, filter.unwrap_or_default(), None, &mut cache)
+    but_workspace::legacy::stacks_v3(&repo, &meta, filter, None, &mut cache)
 }
 
 #[cfg(unix)]
@@ -83,13 +94,12 @@ pub fn stacks(
 #[instrument(err(Debug))]
 pub fn show_graph_svg(ctx: &Context) -> Result<()> {
     let repo = ctx.open_isolated_repo()?;
-    let meta = ctx.legacy_meta()?;
+    let meta = ctx.meta()?;
     let mut graph = but_graph::Graph::from_head(
         &repo,
         &meta,
         but_graph::init::Options {
             collect_tags: true,
-            extra_target_commit_id: meta.data().default_target.as_ref().map(|t| t.sha),
             ..but_graph::init::Options::limited()
         },
     )?;
@@ -175,7 +185,7 @@ pub fn stack_details(
 ) -> Result<but_workspace::ui::StackDetails> {
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
-        let meta = ctx.legacy_meta()?;
+        let meta = ctx.meta()?;
         let mut cache = ctx.cache.get_cache_mut()?;
         but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta, &mut cache)
     }?;
@@ -263,7 +273,7 @@ pub fn branch_details(
 ) -> Result<but_workspace::ui::BranchDetails> {
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
-        let meta = ctx.legacy_meta()?;
+        let meta = ctx.meta()?;
         let ref_name: gix::refs::FullName = match remote.as_deref() {
             None => {
                 format!("refs/heads/{branch_name}")

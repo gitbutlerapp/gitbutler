@@ -63,7 +63,7 @@ fn do_squash_commits(
 ) -> Result<gix::ObjectId> {
     let new_commit_oid = {
         let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-        let vb_state = ctx.virtual_branches();
+        let mut vb_state = ctx.virtual_branches();
         let stack = vb_state.get_stack_in_workspace(stack_id)?;
         let repo = ctx.repo.get()?;
 
@@ -264,7 +264,7 @@ fn do_squash_commits(
 
         let new_stack_head = output.top_commit.to_git2();
 
-        stack.set_stack_head(&vb_state, &repo, new_stack_head.to_gix())?;
+        stack.set_stack_head(&mut vb_state, &repo, new_stack_head.to_gix())?;
 
         let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
         update_uncommitted_changes(ctx, old_workspace, new_workspace, perm)?;

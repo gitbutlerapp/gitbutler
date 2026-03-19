@@ -101,7 +101,7 @@ pub fn integrate_branch_with_steps(
 ) -> Result<()> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let repo = ctx.repo.get()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let mut source_stack = vb_state.get_stack_in_workspace(stack_id)?;
     let merge_base = source_stack.merge_base(ctx)?;
@@ -163,7 +163,7 @@ pub fn integrate_branch_with_steps(
     let result = rebase.rebase(&*ctx.cache.get_cache()?)?;
     let head = result.top_commit.to_git2();
 
-    source_stack.set_stack_head(&vb_state, &repo, head.to_gix())?;
+    source_stack.set_stack_head(&mut vb_state, &repo, head.to_gix())?;
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     update_uncommitted_changes(ctx, old_workspace, new_workspace, perm)?;
     source_stack.set_heads_from_rebase_output(ctx, result.references)?;

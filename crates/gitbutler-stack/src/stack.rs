@@ -370,7 +370,7 @@ impl Stack {
         } else {
             None
         };
-        let state = branch_state(ctx);
+        let mut state = branch_state(ctx);
         let patches = self.stack_patches(ctx, true)?;
         validate_name(new_head.name(), &state)?;
         let repo = ctx.repo.get()?;
@@ -405,7 +405,7 @@ impl Stack {
     pub fn remove_branch(&mut self, ctx: &Context, branch_name: &str) -> Result<()> {
         self.ensure_initialized()?;
         (self.heads, _) = remove_head(self.heads.clone(), branch_name, &*ctx.repo.get()?)?;
-        let state = branch_state(ctx);
+        let mut state = branch_state(ctx);
         state.set_stack(self.clone())
     }
 
@@ -425,7 +425,7 @@ impl Stack {
             return Ok(()); // noop
         }
 
-        let state = branch_state(ctx);
+        let mut state = branch_state(ctx);
         let mut updated_heads = self.heads.clone();
 
         // Handle name updates
@@ -453,7 +453,7 @@ impl Stack {
     /// TODO: is there a performance implication of this?
     pub fn sync_heads_with_references(
         &mut self,
-        state: &VirtualBranchesHandle,
+        state: &mut VirtualBranchesHandle,
         gix_repo: &gix::Repository,
     ) -> Result<()> {
         if self
@@ -474,7 +474,7 @@ impl Stack {
     /// - the tree of the stack to the new tree (if provided)
     pub fn set_stack_head(
         &mut self,
-        state: &VirtualBranchesHandle,
+        state: &mut VirtualBranchesHandle,
         gix_repo: &gix::Repository,
         commit_id: gix::ObjectId,
     ) -> Result<()> {
@@ -483,7 +483,7 @@ impl Stack {
 
     fn set_stack_head_inner(
         &mut self,
-        state: Option<&VirtualBranchesHandle>,
+        state: Option<&mut VirtualBranchesHandle>,
         gix_repo: &gix::Repository,
         commit_id: gix::ObjectId,
     ) -> Result<()> {
@@ -515,7 +515,7 @@ impl Stack {
 
         let mut deleted_branches = vec![];
 
-        let state = branch_state(ctx);
+        let mut state = branch_state(ctx);
         for head in self.heads.iter_mut() {
             let full_name = head.full_name()?;
             if for_archival.iter().any(|reference| match reference {
@@ -588,7 +588,7 @@ impl Stack {
         project_data_dir: &Path,
         new_heads: HashMap<String, gix::ObjectId>,
     ) -> Result<()> {
-        let state = branch_state_from_project_data_dir(project_data_dir);
+        let mut state = branch_state_from_project_data_dir(project_data_dir);
 
         // same heads, just different commits
         if self
@@ -640,7 +640,8 @@ impl Stack {
         match self.heads.iter_mut().find(|r| r.name() == branch_name) {
             Some(head) => {
                 head.pr_number = new_pr_number;
-                branch_state(ctx).set_stack(self.clone())
+                let mut state = branch_state(ctx);
+                state.set_stack(self.clone())
             }
             None => bail!(
                 "Series {} does not exist on stack {}",

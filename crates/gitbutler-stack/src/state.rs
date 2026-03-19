@@ -123,7 +123,7 @@ impl VirtualBranchesHandle {
     /// Persists the default target for the given repository.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn set_default_target(&self, target: Target) -> Result<()> {
+    pub fn set_default_target(&mut self, target: Target) -> Result<()> {
         let mut virtual_branches = self.read_file()?;
         virtual_branches.default_target = Some(target);
         self.write_file(&virtual_branches)?;
@@ -151,7 +151,7 @@ impl VirtualBranchesHandle {
     /// Sets the state of the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn set_stack(&self, stack: Stack) -> Result<()> {
+    pub fn set_stack(&mut self, stack: Stack) -> Result<()> {
         let mut virtual_branches = self.read_file()?;
         virtual_branches.branches.insert(stack.id, stack);
         self.write_file(&virtual_branches)?;
@@ -161,7 +161,7 @@ impl VirtualBranchesHandle {
     /// Marks a particular branch as not in the workspace
     ///
     /// Errors if the file cannot be read or written.
-    pub fn mark_as_not_in_workspace(&self, id: StackId) -> Result<()> {
+    pub fn mark_as_not_in_workspace(&mut self, id: StackId) -> Result<()> {
         let mut stack = self.get_stack(id)?;
         stack.in_workspace = false;
         self.set_stack(stack)?;
@@ -267,7 +267,7 @@ impl VirtualBranchesHandle {
     }
 
     /// Write the given `virtual_branches` back to disk in one go.
-    pub fn write_file(&self, virtual_branches: &VirtualBranches) -> Result<()> {
+    pub fn write_file(&mut self, virtual_branches: &VirtualBranches) -> Result<()> {
         let _ = self.ensure_vb_storage_in_sync()?;
         let legacy = virtual_branches_legacy_types::VirtualBranches::from(virtual_branches.clone());
         but_meta::legacy_storage::write_virtual_branches_and_sync(&self.file_path, &legacy)
@@ -281,11 +281,11 @@ impl VirtualBranchesHandle {
     /// Import TOML into DB and refresh sync metadata.
     ///
     /// This is primarily used for oplog restore, where TOML was restored externally.
-    pub fn import_toml_into_db_for_restore(&self) -> Result<()> {
+    pub fn import_toml_into_db_for_restore(&mut self) -> Result<()> {
         but_meta::legacy_storage::import_toml_into_db(&self.file_path)
     }
 
-    pub fn update_ordering(&self) -> Result<()> {
+    pub fn update_ordering(&mut self) -> Result<()> {
         let succeeded = self
             .list_stacks_in_workspace()?
             .iter()
@@ -304,7 +304,7 @@ impl VirtualBranchesHandle {
         }
     }
 
-    pub fn next_order_index(&self) -> Result<usize> {
+    pub fn next_order_index(&mut self) -> Result<usize> {
         self.update_ordering()?;
         let order = self
             .list_stacks_in_workspace()?
@@ -317,7 +317,7 @@ impl VirtualBranchesHandle {
         Ok(order)
     }
 
-    pub fn delete_branch_entry(&self, branch_id: &StackId) -> Result<()> {
+    pub fn delete_branch_entry(&mut self, branch_id: &StackId) -> Result<()> {
         let mut virtual_branches = self.read_file()?;
         virtual_branches.branches.remove(branch_id);
         self.write_file(&virtual_branches)?;
@@ -329,7 +329,7 @@ impl VirtualBranchesHandle {
     ///   2. They have no regular commits
     ///
     /// Also collects branches with a head oid pointing to a commit that can't be found in the repo
-    pub fn garbage_collect(&self, repo: &gix::Repository) -> Result<()> {
+    pub fn garbage_collect(&mut self, repo: &gix::Repository) -> Result<()> {
         let target = self.get_default_target()?;
         let stacks_not_in_workspace = self
             .list_all_stacks()?
@@ -379,7 +379,7 @@ impl VirtualBranchesHandle {
     ///
     /// This function will return `Ok(None)` if there is no default target.
     pub fn upsert_last_pushed_base(
-        &self,
+        &mut self,
         repository: &gix::Repository,
     ) -> Result<Option<gix::ObjectId>> {
         let mut virtual_branches = self.read_file()?;

@@ -72,7 +72,7 @@ pub fn get_base_branch_data(ctx: &Context) -> Result<BaseBranch> {
 /// there wasn't enough repository state to infer a safe target.
 #[instrument(skip(ctx), err(Debug))]
 pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     if vb_state.maybe_get_default_target()?.is_some() {
         return Ok(false);
     }
@@ -204,7 +204,7 @@ pub(crate) fn set_base_branch(
         push_remote_name: None,
     };
 
-    let vb_state = ctx.virtual_branches();
+    let mut vb_state = ctx.virtual_branches();
     vb_state.set_default_target(target.clone())?;
 
     // TODO: make sure this is a real branch
@@ -281,7 +281,7 @@ pub(crate) fn set_target_push_remote(ctx: &Context, push_remote_name: &str) -> R
         .context("failed to get remote name")?
         .to_string()
         .into();
-    let vb_state = ctx.virtual_branches();
+    let mut vb_state = ctx.virtual_branches();
     vb_state.set_default_target(target)?;
 
     Ok(())

@@ -47,7 +47,7 @@ pub fn remerged_workspace_tree_v2(
     ctx: &Context,
     repo: &gix::Repository,
 ) -> Result<(gix::ObjectId, Vec<Stack>, gix::ObjectId)> {
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let target = vb_state
         .get_default_target()
         .context("failed to get target")?;

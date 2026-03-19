@@ -157,7 +157,7 @@ pub fn split_into_dependent_branch(
     file_changes_to_split_off: &[String],
     perm: &mut RepoExclusive,
 ) -> Result<MoveChangesResult> {
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let source_stack = vb_state.get_stack_in_workspace(stack_id)?;
     let merge_base = source_stack.merge_base(ctx)?;
@@ -234,7 +234,7 @@ pub fn split_into_dependent_branch(
         Some(source_branch_name),
     )?;
 
-    source_stack.set_stack_head(&vb_state, &repo, new_head.id().detach())?;
+    source_stack.set_stack_head(&mut vb_state, &repo, new_head.id().detach())?;
     source_stack.set_heads_from_rebase_output(ctx, source_result.clone().references)?;
 
     let move_changes_result = MoveChangesResult {

@@ -199,7 +199,8 @@ fn write_workspace_metadata(repo: &gix::Repository, stacks: &[StackSpec<'_>]) ->
     meta.set_changed_to_necessitate_write();
     meta.write_unreconciled()?;
 
-    VirtualBranchesHandle::new(repo.gitbutler_storage_path()?).set_default_target(Target {
+    let mut handle = VirtualBranchesHandle::new(repo.gitbutler_storage_path()?);
+    handle.set_default_target(Target {
         branch: "refs/remotes/origin/main".parse()?,
         remote_url: ".".to_owned(),
         sha: repo.rev_parse_single("refs/remotes/origin/main")?.detach(),

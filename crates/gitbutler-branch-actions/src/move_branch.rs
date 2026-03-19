@@ -31,7 +31,7 @@ pub(crate) fn move_branch(
 ) -> Result<MoveBranchResult> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let repo = ctx.repo.get()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let source_stack = vb_state.get_stack_in_workspace(source_stack_id)?;
     let source_merge_base = source_stack.merge_base(ctx)?;
@@ -50,7 +50,7 @@ pub(crate) fn move_branch(
         source_stack_id,
         subject_branch_name,
         &repo,
-        &vb_state,
+        &mut vb_state,
         source_stack,
         source_merge_base,
     )?;
@@ -61,7 +61,7 @@ pub(crate) fn move_branch(
         target_branch_name,
         subject_branch_name,
         &repo,
-        &vb_state,
+        &mut vb_state,
         destination_stack,
         destination_merge_base,
         subject_branch_steps,
@@ -88,7 +88,7 @@ pub(crate) fn tear_off_branch(
 ) -> Result<MoveBranchResult> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let repo = ctx.repo.get()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let source_stack = vb_state.get_stack_in_workspace(source_stack_id)?;
     let source_merge_base = source_stack.merge_base(ctx)?;
@@ -98,7 +98,7 @@ pub(crate) fn tear_off_branch(
         source_stack_id,
         subject_branch_name,
         &repo,
-        &vb_state,
+        &mut vb_state,
         source_stack,
         source_merge_base,
     )?;
@@ -151,7 +151,7 @@ fn inject_branch_steps_into_destination(
     target_branch_name: &str,
     subject_branch_name: &str,
     repo: &gix::Repository,
-    vb_state: &VirtualBranchesHandle,
+    vb_state: &mut VirtualBranchesHandle,
     destination_stack: gitbutler_stack::Stack,
     destination_merge_base: gix::ObjectId,
     subject_branch_steps: Vec<RebaseStep>,
@@ -200,7 +200,7 @@ fn extract_and_rebase_source_branch(
     source_stack_id: StackId,
     subject_branch_name: &str,
     repository: &gix::Repository,
-    vb_state: &VirtualBranchesHandle,
+    vb_state: &mut VirtualBranchesHandle,
     source_stack: gitbutler_stack::Stack,
     source_merge_base: gix::ObjectId,
 ) -> Result<(Vec<RebaseStep>, Vec<StackId>), anyhow::Error> {

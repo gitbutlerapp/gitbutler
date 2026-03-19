@@ -40,19 +40,10 @@ pub fn update_workspace_rule(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn list_workspace_rules(ctx: &mut Context) -> Result<Vec<WorkspaceRule>> {
-    let repo = ctx.clone_repo_for_merging_non_persisting()?;
-
-    let in_workspace = {
-        let meta = ctx.legacy_meta()?;
-        let mut cache = ctx.cache.get_cache_mut()?;
-        but_workspace::legacy::stacks_v3(
-            &repo,
-            &meta,
-            but_workspace::legacy::StacksFilter::InWorkspace,
-            None,
-            &mut cache,
-        )
-    }?
+    let in_workspace = crate::legacy::workspace::stacks_v3_from_ctx(
+        ctx,
+        but_workspace::legacy::StacksFilter::InWorkspace,
+    )?
     .iter()
     .filter_map(|s| s.id)
     .collect::<Vec<StackId>>();

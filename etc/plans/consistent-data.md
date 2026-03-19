@@ -54,7 +54,7 @@ The `but_ctx::Context` is the solution to this problem, and is passed around as 
 
 ### 1. Sync `.git/gitbutler/virtual-branches.toml` with database representation
 
-- [ ] [in progress](https://github.com/gitbutlerapp/gitbutler/issues/12075)
+- [x] https://github.com/gitbutlerapp/gitbutler/issues/12075
 
 ### 2. Port legacy virtual-branches consumers to `ctx.ws`
 
@@ -69,9 +69,12 @@ The crate list below started from direct `VirtualBranchesHandle` references and 
 callers that only touch the same legacy state via `ctx.virtual_branches()` or the legacy
 read/write helpers.
 
-#### but-api (1)
+#### but-api (2)
 
-- [ ] `crates/but-api/src/legacy/workspace.rs`
+`legacy_meta()` and `legacy_meta_mut()`, needed for stacks/details V3 and vb.toml reconciliation.
+
+- [x] `crates/but-api/src/legacy/workspace.rs`
+- [ ] `crates/but-api/src/legacy/meta.rs`
 
 #### but-claude (1)
 
@@ -197,6 +200,23 @@ Also write the database after _each change_ so it's semantically similar to how 
 
 Sync the TOML file _on drop_ only, knowing well that this may write data that is going to be rolled back. The TOML sync is only for backward compatibility with older application versions.
 
+- [ ] First migrate every remaining `ctx.legacy_meta()` caller to `ctx.meta()`
+  - Current baseline:
+    - `crates/but-action/src/lib.rs`
+    - `crates/but-action/src/reword.rs`
+    - `crates/but-cherry-apply/tests/cherry_apply/main.rs`
+    - `crates/but-claude/src/hooks/mod.rs`
+    - `crates/but-cursor/src/lib.rs`
+    - `crates/but-testing/src/command/mod.rs`
+    - `crates/but-tools/src/workspace.rs`
+    - `crates/but-workspace/src/legacy/mod.rs`
+    - `crates/but-worktrees/tests/worktree/main.rs`
+    - `crates/but/src/command/legacy/mcp_internal/stack.rs`
+    - `crates/but/src/legacy/commits.rs`
+    - `crates/gitbutler-branch-actions/src/upstream_integration.rs`
+    - `crates/gitbutler-branch-actions/tests/branch-actions/virtual_branches/mod.rs`
+    - `crates/gitbutler-cli/src/command/vbranch.rs`
+    - `crates/gitbutler-testsupport/src/lib.rs`
 - [ ] Not started
 
 ### 4. Modernize workspace metadata schema

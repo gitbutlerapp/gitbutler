@@ -33,8 +33,8 @@ pub(crate) fn handle_changes(
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
 
-    let vb_state = &VirtualBranchesHandle::new(ctx.project_data_dir());
-    default_target_setting_if_none(ctx, vb_state)?; // Create a default target if none exists.
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    default_target_setting_if_none(ctx, &mut vb_state)?; // Create a default target if none exists.
 
     let snapshot_before = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::AutoHandleChangesBefore),
@@ -45,7 +45,7 @@ pub(crate) fn handle_changes(
         ctx,
         change_summary,
         external_prompt.clone(),
-        vb_state,
+        &mut vb_state,
         perm,
         exclusive_stack,
     );
@@ -73,7 +73,7 @@ fn handle_changes_simple_inner(
     ctx: &mut Context,
     change_summary: &str,
     external_prompt: Option<String>,
-    vb_state: &VirtualBranchesHandle,
+    vb_state: &mut VirtualBranchesHandle,
     perm: &mut RepoExclusive,
     exclusive_stack: Option<StackId>,
 ) -> anyhow::Result<Outcome> {

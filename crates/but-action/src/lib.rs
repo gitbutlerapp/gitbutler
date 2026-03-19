@@ -101,7 +101,7 @@ pub fn handle_changes(
 
 fn default_target_setting_if_none(
     ctx: &Context,
-    vb_state: &VirtualBranchesHandle,
+    vb_state: &mut VirtualBranchesHandle,
 ) -> anyhow::Result<Target> {
     if let Ok(default_target) = vb_state.get_default_target() {
         return Ok(default_target);
