@@ -369,7 +369,7 @@ export const CommitRow: FC<
 		projectId: string;
 		commit: Commit;
 		isSelected: boolean;
-		isAnyFileSelected: boolean;
+		isSelectedWithin: boolean;
 		isHighlighted: boolean;
 		toggleExpand: () => Promise<void> | void;
 		toggleSelect: () => void;
@@ -378,7 +378,7 @@ export const CommitRow: FC<
 	projectId,
 	commit,
 	isSelected,
-	isAnyFileSelected,
+	isSelectedWithin,
 	isHighlighted,
 	toggleExpand,
 	toggleSelect,
@@ -420,7 +420,7 @@ export const CommitRow: FC<
 				<div
 					className={classes(
 						styles.commitRow,
-						isSelected ? styles.selected : isAnyFileSelected ? styles.selectedWithin : undefined,
+						isSelected ? styles.selected : isSelectedWithin ? styles.selectedWithin : undefined,
 						isHighlighted && styles.highlighted,
 						className,
 					)}
@@ -463,10 +463,10 @@ export const CommitRow: FC<
 						onClick={() => {
 							startExpandTransition(toggleExpand);
 						}}
-						aria-expanded={isAnyFileSelected}
-						aria-label={isAnyFileSelected ? "Collapse commit" : "Expand commit"}
+						aria-expanded={isSelectedWithin}
+						aria-label={isSelectedWithin ? "Collapse commit" : "Expand commit"}
 					>
-						{isAnyFileSelected ? "-" : "+"}
+						{isSelectedWithin ? "-" : "+"}
 					</button>
 					<Menu.Root>
 						<Menu.Trigger style={{ lineHeight: 1 }} className={styles.commitMenuTrigger}>

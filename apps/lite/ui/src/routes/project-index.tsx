@@ -832,7 +832,7 @@ const CommitC: FC<{
 	nextCommitId: string | undefined;
 	isHighlighted: boolean;
 	isSelected: boolean;
-	isAnyFileSelected: boolean;
+	isSelectedWithin: boolean;
 	isFileSelected: (path: string) => boolean;
 	toggleExpand: () => Promise<void> | void;
 	toggleSelect: () => void;
@@ -844,7 +844,7 @@ const CommitC: FC<{
 	nextCommitId,
 	isHighlighted,
 	isSelected,
-	isAnyFileSelected,
+	isSelectedWithin,
 	isFileSelected,
 	toggleExpand,
 	toggleSelect,
@@ -867,14 +867,14 @@ const CommitC: FC<{
 						projectId={projectId}
 						commit={commit}
 						isSelected={isSelected}
-						isAnyFileSelected={isAnyFileSelected}
+						isSelectedWithin={isSelectedWithin}
 						isHighlighted={isHighlighted}
 						toggleExpand={toggleExpand}
 						toggleSelect={toggleSelect}
 					/>
 				}
 			/>
-			{isAnyFileSelected && (
+			{isSelectedWithin && (
 				<div className={sharedStyles.commitDetails}>
 					<Suspense fallback={<div>Loading changed details…</div>}>
 						<CommitDetails
@@ -1126,7 +1126,7 @@ const StackC: FC<{
 	isBranchSelected: (stackId: string, branchRef: string) => boolean;
 	toggleBranchSelection: (stackId: string, branchName: string, branchRef: string) => void;
 	isCommitSelected: (commitId: string) => boolean;
-	isCommitAnyFileSelected: (commitId: string) => boolean;
+	isCommitSelectedWithin: (commitId: string) => boolean;
 	isChangeUnitFileSelected: (changeUnit: ChangeUnit, path: string) => boolean;
 	toggleCommitExpanded: (commitId: string) => Promise<void> | void;
 	toggleCommitSelection: (commitId: string) => void;
@@ -1139,7 +1139,7 @@ const StackC: FC<{
 	isBranchSelected,
 	toggleBranchSelection,
 	isCommitSelected,
-	isCommitAnyFileSelected,
+	isCommitSelectedWithin,
 	isChangeUnitFileSelected,
 	toggleCommitExpanded,
 	toggleCommitSelection,
@@ -1233,7 +1233,7 @@ const StackC: FC<{
 											nextCommitId={segment.commits[index + 1]?.id}
 											isHighlighted={highlightedCommitIds.has(commit.id)}
 											isSelected={isCommitSelected(commit.id)}
-											isAnyFileSelected={isCommitAnyFileSelected(commit.id)}
+											isSelectedWithin={isCommitSelectedWithin(commit.id)}
 											isFileSelected={(path) => isChangeUnitFileSelected(changeUnit, path)}
 											toggleExpand={() => toggleCommitExpanded(commit.id)}
 											toggleSelect={() => {
@@ -1312,7 +1312,7 @@ const ProjectPage: FC = () => {
 		selection?._tag === "Commit" &&
 		selection.stackId === stackId &&
 		selection.commitId === commitId;
-	const isCommitAnyFileSelected = (stackId: string, commitId: string) =>
+	const isCommitSelectedWithin = (stackId: string, commitId: string) =>
 		selection?._tag === "CommitFile" &&
 		selection.stackId === stackId &&
 		selection.commitId === commitId;
@@ -1333,7 +1333,7 @@ const ProjectPage: FC = () => {
 		select(isCommitSelected(stackId, commitId) ? null : { _tag: "Commit", stackId, commitId });
 	};
 	const toggleCommitExpanded = async (stackId: string, commitId: string) => {
-		if (isCommitAnyFileSelected(stackId, commitId)) {
+		if (isCommitSelectedWithin(stackId, commitId)) {
 			select({ _tag: "Commit", stackId, commitId });
 			return;
 		}
@@ -1408,9 +1408,7 @@ const ProjectPage: FC = () => {
 										isBranchSelected={isBranchSelected}
 										toggleBranchSelection={toggleBranchSelection}
 										isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
-										isCommitAnyFileSelected={(commitId) =>
-											isCommitAnyFileSelected(stackId, commitId)
-										}
+										isCommitSelectedWithin={(commitId) => isCommitSelectedWithin(stackId, commitId)}
 										isChangeUnitFileSelected={(changeUnit, path) =>
 											isChangeUnitFileSelected(stackId, changeUnit, path)
 										}
