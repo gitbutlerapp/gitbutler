@@ -1067,7 +1067,7 @@ impl App {
         &self,
         tui_line: &StatusOutputLine,
         is_selected: bool,
-    ) -> impl IntoIterator<Item = ListItem<'_>> {
+    ) -> StatusListItem {
         let StatusOutputLine {
             connector,
             content,
@@ -1193,15 +1193,11 @@ impl App {
             );
             self.render_commit_labels_for_selected_line(data, commit_mode, &mut extension_line);
             match commit_mode.insert_side {
-                InsertSide::Above => {
-                    Either::Right([ListItem::new(extension_line), ListItem::new(line)].into_iter())
-                }
-                InsertSide::Below => {
-                    Either::Right([ListItem::new(line), ListItem::new(extension_line)].into_iter())
-                }
+                InsertSide::Above => StatusListItem::Double(extension_line, line),
+                InsertSide::Below => StatusListItem::Double(line, extension_line),
             }
         } else {
-            Either::Left([ListItem::new(line)].into_iter())
+            StatusListItem::Single(line)
         }
     }
 
@@ -1876,5 +1872,25 @@ impl SpanExt for Span<'_> {
         };
 
         self.fg(fg).bg(bg)
+    }
+}
+
+enum StatusListItem {
+    Single(Line<'static>),
+    Double(Line<'static>, Line<'static>),
+}
+
+impl IntoIterator for StatusListItem {
+    type Item = ListItem<'static>;
+    type IntoIter =
+        Either<std::iter::Once<ListItem<'static>>, std::array::IntoIter<ListItem<'static>, 2>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            StatusListItem::Single(line) => Either::Left(std::iter::once(ListItem::new(line))),
+            StatusListItem::Double(line1, line2) => {
+                Either::Right([ListItem::new(line1), ListItem::new(line2)].into_iter())
+            }
+        }
     }
 }
