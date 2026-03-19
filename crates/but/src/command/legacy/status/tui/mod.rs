@@ -8,7 +8,7 @@ use std::{
 use anyhow::Context as _;
 use bstr::BString;
 use but_api::{
-    commit::{RelativeTo, commit_insert_blank},
+    commit::{insert_blank::commit_insert_blank, types::RelativeTo},
     diff::ComputeLineStats,
 };
 use but_core::DiffSpec;
@@ -764,7 +764,7 @@ impl App {
         };
 
         // create commit
-        let commit_create_result = but_api::commit::commit_create(
+        let commit_create_result = but_api::commit::create::commit_create(
             ctx,
             insert_commit_relative_to,
             insert_side,
@@ -838,7 +838,7 @@ impl App {
         }
 
         let reword_result =
-            but_api::commit::commit_reword_only(ctx, commit_id, BString::from(new_message))
+            but_api::commit::reword::commit_reword_only(ctx, commit_id, BString::from(new_message))
                 .with_context(|| format!("failed to reword {}", commit_id.to_hex_with_len(7)))?;
 
         messages.push(Message::Reload(Some(SelectAfterReload::Commit(
@@ -918,9 +918,12 @@ impl App {
             return Ok(());
         }
 
-        let reword_result =
-            but_api::commit::commit_reword_only(ctx, *commit_id, BString::from(new_message))
-                .with_context(|| format!("failed to reword {}", commit_id.to_hex_with_len(7)))?;
+        let reword_result = but_api::commit::reword::commit_reword_only(
+            ctx,
+            *commit_id,
+            BString::from(new_message),
+        )
+        .with_context(|| format!("failed to reword {}", commit_id.to_hex_with_len(7)))?;
 
         messages.extend([
             Message::EnterNormalMode,
