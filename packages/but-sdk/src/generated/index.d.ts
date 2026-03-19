@@ -38,7 +38,7 @@ export declare function commitCreate(projectId: string, relativeTo: RelativeTo, 
 export declare function commitDetailsWithLineStats(projectId: string, commitId: string): Promise<CommitDetails>
 
 /**
- * Inserts a blank commit relative to either a commit or a reference, with oplog support
+ * Inserts a blank commit relative to either a commit or a reference, with oplog support.
  *
  * Returns the result including the new commit ID and any replaced commits.
  */
@@ -52,7 +52,7 @@ export declare function commitInsertBlank(projectId: string, relativeTo: Relativ
 export declare function commitMove(projectId: string, subjectCommitId: string, relativeTo: RelativeTo, side: InsertSide): Promise<UICommitMoveResult>
 
 /**
- * Moves changes between two commits
+ * Moves changes between two commits.
  *
  * Returns where the source and destination commits were mapped to.
  */
@@ -66,7 +66,7 @@ export declare function commitMoveChangesBetween(projectId: string, sourceCommit
 export declare function commitReword(projectId: string, commitId: string, message: string): Promise<UICommitRewordResult>
 
 /**
- * Uncommits changes from a commit, with oplog and optional assign_to support
+ * Uncommits changes from a commit, with oplog and optional assign_to support.
  *
  * If `assign_to` is provided, the newly uncommitted changes will be assigned
  * to the specified stack.
@@ -924,7 +924,7 @@ export type UICommitCreateResult = {
   pathsToRejectedChanges: Array<[string, string]>;
   /**
    * Commits that have been replaced as a side-effect of the create/amend.
-   * Maps `oldId → newId`.
+   * Maps `oldId -> newId`.
    */
   replacedCommits: Record<string, string>;
 };
@@ -935,7 +935,7 @@ export type UICommitInsertBlankResult = {
   newCommit: string;
   /**
    * Commits that have been replaced as a side-effect of the insertion.
-   * Maps `oldId → newId`.
+   * Maps `oldId -> newId`.
    */
   replacedCommits: Record<string, string>;
 };
@@ -944,7 +944,7 @@ export type UICommitInsertBlankResult = {
 export type UICommitMoveResult = {
   /**
    * Commits that have been replaced as a side-effect of the move.
-   * Maps `oldId → newId`.
+   * Maps `oldId -> newId`.
    */
   replacedCommits: Record<string, string>;
 };
@@ -955,7 +955,7 @@ export type UICommitRewordResult = {
   newCommit: string;
   /**
    * Commits that have been replaced as a side-effect of the reword.
-   * Maps `oldId → newId`.
+   * Maps `oldId -> newId`.
    */
   replacedCommits: Record<string, string>;
 };
@@ -973,7 +973,7 @@ export type UIMoveBranchResult = {
 export type UIMoveChangesResult = {
   /**
    * Commits that have been mapped from one thing to another.
-   * Maps `oldId → newId`.
+   * Maps `oldId -> newId`.
    */
   replacedCommits: Record<string, string>;
 };

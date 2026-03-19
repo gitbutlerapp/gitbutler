@@ -75,6 +75,16 @@ pub fn add_with_best_effort<P: AsRef<Path>>(path: P) -> anyhow::Result<AddProjec
     controller.add_with_best_effort(path)
 }
 
+/// Like [`Controller::add_with_best_effort()`], but it allows to obtain a controller from `app_data_dir` directly,
+/// without relying on globals. This helps with isolation, particularly in tests.
+pub fn add_with_best_effort_at_app_data_dir(
+    app_data_dir: impl AsRef<Path>,
+    path: impl AsRef<Path>,
+) -> anyhow::Result<AddProjectOutcome> {
+    let controller = Controller::from_path(app_data_dir.as_ref());
+    controller.add_with_best_effort(path)
+}
+
 /// Control the `app_data_dir` at which the project is supposed to be added.
 ///
 /// Useful mostly for testing, and a reminder that we want to keep project metadata with the project,
