@@ -28,6 +28,7 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { createContext, FC, Suspense, useContext, useEffect, useState } from "react";
 import styles from "./project-index.module.css";
 import sharedStyles from "./project-shared.module.css";
+import { DependencyIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { ProjectPanelLayout } from "#ui/routes/ProjectPanelLayout.tsx";
@@ -478,9 +479,8 @@ const ChangesFileDiff: FC<{
 									projectId={projectId}
 									commitIds={dependencyCommitIds}
 									onHover={onDependencyHover}
-									style={{ lineHeight: 1 }}
 								>
-									🔗
+									<DependencyIcon />
 								</DependencyIndicator>
 							)
 						}
@@ -988,10 +988,9 @@ const Changes: FC<{
 															projectId={projectId}
 															commitIds={dependencyCommitIds}
 															onHover={onDependencyHover}
-															style={{ lineHeight: 1 }}
 															className={sharedStyles.fileRowDependencyIndicator}
 														>
-															🔗
+															<DependencyIcon />
 														</DependencyIndicator>
 													)}
 												</div>
@@ -1183,8 +1182,8 @@ const StackC: FC<{
 	return (
 		<div className={styles.stack}>
 			<Menu.Root>
-				<Menu.Trigger className={styles.stackMenu} style={{ lineHeight: 1 }}>
-					𑁔
+				<Menu.Trigger className={styles.stackMenu}>
+					<MenuTriggerIcon />
 				</Menu.Trigger>
 				<Menu.Portal>
 					<Menu.Positioner align="end">

@@ -3,6 +3,7 @@ import { ContextMenu, Menu } from "@base-ui/react";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createRoute } from "@tanstack/react-router";
 import { ComponentProps, FC, Suspense } from "react";
+import { MenuTriggerIcon } from "#ui/components/icons.tsx";
 import {
 	CommitDetails,
 	CommitRow,
@@ -162,8 +163,8 @@ const BranchRow: FC<
 			</ContextMenu.Portal>
 		</ContextMenu.Root>
 		<Menu.Root>
-			<Menu.Trigger style={{ lineHeight: 1 }} className={sharedStyles.commitMenuTrigger}>
-				𑁔
+			<Menu.Trigger className={sharedStyles.commitMenuTrigger}>
+				<MenuTriggerIcon />
 			</Menu.Trigger>
 			<Menu.Portal>
 				<Menu.Positioner align="end">

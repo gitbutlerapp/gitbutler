@@ -18,6 +18,7 @@ import {
 	useTransition,
 } from "react";
 import styles from "./project-shared.module.css";
+import { ExpandCollapseIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import {
 	commitDetailsWithLineStatsQueryOptions,
 	treeChangeDiffsQueryOptions,
@@ -484,11 +485,11 @@ export const CommitRow: FC<
 						aria-expanded={isSelectedWithin}
 						aria-label={isSelectedWithin ? "Collapse commit" : "Expand commit"}
 					>
-						{isSelectedWithin ? "-" : "+"}
+						<ExpandCollapseIcon isExpanded={isSelectedWithin} />
 					</button>
 					<Menu.Root>
-						<Menu.Trigger style={{ lineHeight: 1 }} className={styles.commitMenuTrigger}>
-							𑁔
+						<Menu.Trigger className={styles.commitMenuTrigger}>
+							<MenuTriggerIcon />
 						</Menu.Trigger>
 						<Menu.Portal>
 							<Menu.Positioner align="end">
