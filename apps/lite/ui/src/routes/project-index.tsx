@@ -115,11 +115,13 @@ const getBranchRefsByStackId = (headInfo: RefInfo): Map<string, Set<string>> => 
 	return refsByStackId;
 };
 
-const DependencyIndicator: FC<{
-	projectId: string;
-	commitIds: NonEmptyArray<string>;
-	onHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, commitIds, onHover }) => {
+const DependencyIndicator: FC<
+	{
+		projectId: string;
+		commitIds: NonEmptyArray<string>;
+		onHover: (commitIds: Array<string> | null) => void;
+	} & useRender.ComponentProps<"button">
+> = ({ projectId, commitIds, onHover, render, ...props }) => {
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
 	// TODO: expensive
 	const branchNameByCommitId = getBranchNameByCommitId(headInfo);
@@ -128,22 +130,23 @@ const DependencyIndicator: FC<{
 	);
 	const tooltip =
 		branchNames.length > 0 ? `Depends on ${branchNames.join(", ")}` : "Unknown dependencies";
+	const trigger = useRender({
+		render,
+		defaultTagName: "button",
+		props: mergeProps<"button">(props, {
+			onMouseEnter: () => {
+				onHover(commitIds);
+			},
+			onMouseLeave: () => {
+				onHover(null);
+			},
+			"aria-label": tooltip,
+		}),
+	});
 
 	return (
 		<Popover.Root>
-			<Popover.Trigger
-				openOnHover
-				onMouseEnter={() => {
-					onHover(commitIds);
-				}}
-				onMouseLeave={() => {
-					onHover(null);
-				}}
-				aria-label={tooltip}
-				style={{ lineHeight: 1 }}
-			>
-				🔗
-			</Popover.Trigger>
+			<Popover.Trigger openOnHover render={trigger} />
 			<Popover.Portal>
 				<Popover.Positioner sideOffset={8}>
 					<Popover.Popup className={styles.tooltip}>{tooltip}</Popover.Popup>
@@ -475,7 +478,10 @@ const ChangesFileDiff: FC<{
 									projectId={projectId}
 									commitIds={dependencyCommitIds}
 									onHover={onDependencyHover}
-								/>
+									style={{ lineHeight: 1 }}
+								>
+									🔗
+								</DependencyIndicator>
 							)
 						}
 					/>
@@ -982,7 +988,10 @@ const Changes: FC<{
 															projectId={projectId}
 															commitIds={dependencyCommitIds}
 															onHover={onDependencyHover}
-														/>
+															style={{ lineHeight: 1 }}
+														>
+															🔗
+														</DependencyIndicator>
 													)}
 												</div>
 											}
