@@ -961,16 +961,29 @@ fn rub_matrix_commit_to_unassigned_smoke() -> anyhow::Result<()> {
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
     let before = status_json(&env)?;
-    let source_commit = branch_commit_ids(&before, "A")[0].clone();
+    let commits_before = branch_commit_ids(&before, "A");
+    let source_commit = commits_before[0].clone();
 
     env.but(format!("rub {source_commit} zz"))
         .assert()
         .success();
 
     let after = status_json(&env)?;
+    let commits_after = branch_commit_ids(&after, "A");
+
+    assert_eq!(
+        commits_after.len() + 1,
+        commits_before.len(),
+        "uncommitting a commit should remove that commit from branch history"
+    );
     assert!(
-        after["unassignedChanges"].as_array().unwrap().len() >= 2,
-        "uncommitting a commit should produce unassigned changes"
+        !commits_after.contains(&source_commit),
+        "source commit should no longer be present after uncommit"
+    );
+
+    assert!(
+        unassigned_contains_file(&after, "a.txt") && unassigned_contains_file(&after, "b.txt"),
+        "uncommitting a commit should move its changes into unassigned"
     );
 
     Ok(())
