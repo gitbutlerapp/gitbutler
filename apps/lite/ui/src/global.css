@@ -2,6 +2,8 @@
 	font-family: system-ui;
 
 	--pane-padding: 16px;
+	--selection-block-padding: 2px;
+	--selection-inline-padding: 4px;
 }
 
 body {

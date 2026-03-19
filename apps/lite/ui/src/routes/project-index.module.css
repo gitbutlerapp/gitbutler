@@ -18,7 +18,8 @@
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);
-	padding: 2px 4px;
+	padding-inline: var(--selection-inline-padding);
+	padding-block: var(--selection-block-padding);
 	background-color: #eee;
 	resize: vertical;
 }
@@ -31,7 +32,8 @@
 
 .branchButton {
 	width: 100%;
-	padding: 2px 4px;
+	padding-inline: var(--selection-inline-padding);
+	padding-block: var(--selection-block-padding);
 }
 
 .commitMoveTarget {

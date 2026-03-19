@@ -1,5 +1,6 @@
 .button {
-	padding: 2px 4px;
+	padding-inline: 4px;
+	padding-block: 2px;
 	background-color: #eee;
 }
 
@@ -63,15 +64,18 @@
 
 .commitButton {
 	flex-grow: 1;
-	padding: 2px 4px;
+	padding-inline: var(--selection-inline-padding);
+	padding-block: var(--selection-block-padding);
 }
 
 .commitToggleExpandButton {
-	padding: 2px 4px;
+	padding-inline: var(--selection-inline-padding);
+	padding-block: var(--selection-block-padding);
 }
 
 .commitMenuTrigger {
-	padding: 2px 4px;
+	padding-inline: var(--selection-inline-padding);
+	padding-block: var(--selection-block-padding);
 }
 
 .fileRow {
@@ -80,7 +84,8 @@
 
 .fileButton {
 	flex-grow: 1;
-	padding: 2px 4px;
+	padding-inline: var(--selection-inline-padding);
+	padding-block: var(--selection-block-padding);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -126,12 +131,12 @@
 	display: flex;
 	flex-grow: 1;
 	flex-direction: column;
-	padding-block: 2px;
+	padding-block: var(--selection-block-padding);
 }
 
 .editCommitMessageInput {
 	flex-grow: 1;
-	padding-inline: 4px;
+	padding-inline: var(--selection-inline-padding);
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);
@@ -143,7 +148,7 @@
 }
 
 .editCommitMessageHelp {
-	padding-inline: 4px;
+	padding-inline: var(--selection-inline-padding);
 	color: #ccc;
 	font-size: 11px;
 }

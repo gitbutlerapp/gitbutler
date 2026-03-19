@@ -9,5 +9,6 @@
 
 .branchButton {
 	flex-grow: 1;
-	padding: 2px 4px;
+	padding-inline: var(--selection-inline-padding);
+	padding-block: var(--selection-block-padding);
 }
