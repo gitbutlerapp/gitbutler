@@ -406,6 +406,11 @@ export const CommitRow: FC<
 		});
 	};
 
+	const startEditingMessage = () => {
+		if (!isSelected) toggleSelect();
+		setIsEditingMessage(true);
+	};
+
 	return (
 		<DraggableCommit
 			{...restProps}
@@ -444,7 +449,7 @@ export const CommitRow: FC<
 							<ContextMenu.Portal>
 								<ContextMenu.Positioner>
 									<CommitMenuPopup
-										onReword={() => setIsEditingMessage(true)}
+										onReword={startEditingMessage}
 										onInsertBlank={insertBlankCommit}
 										parts={ContextMenu}
 									/>
@@ -467,7 +472,7 @@ export const CommitRow: FC<
 						<Menu.Portal>
 							<Menu.Positioner align="end">
 								<CommitMenuPopup
-									onReword={() => setIsEditingMessage(true)}
+									onReword={startEditingMessage}
 									onInsertBlank={insertBlankCommit}
 									parts={Menu}
 								/>
