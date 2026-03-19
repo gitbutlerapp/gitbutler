@@ -976,19 +976,39 @@ impl App {
         cmd.args(args);
 
         let _suspend_guard = terminal_guard.suspend()?;
-        cmd.spawn()?.wait()?;
+        let status = cmd.spawn()?.wait()?;
 
-        let mut input_channel = out
-            .prepare_for_terminal_input()
-            .context("failed to prepare input")?;
-
-        input_channel.prompt_single_line("\npress enter to continue...")?;
+        self.prompt_to_continue(out)?;
 
         drop(_suspend_guard);
 
-        messages.extend([Message::EnterNormalMode, Message::Reload(None)]);
+        if status.success() {
+            messages.extend([Message::EnterNormalMode, Message::Reload(None)]);
+        } else {
+            self.push_transient_error(anyhow::Error::msg(format!(
+                "command exited with status {}",
+                format_exit_status(status)
+            )));
+        }
 
         Ok(())
+    }
+
+    /// Prompts the user to press enter before returning from a command execution.
+    fn prompt_to_continue(&mut self, out: &mut OutputChannel) -> anyhow::Result<()> {
+        if let Some(mut input_channel) = out.prepare_for_terminal_input() {
+            input_channel.prompt_single_line("\npress enter to continue...")?;
+        }
+
+        Ok(())
+    }
+
+    /// Adds a transient error popup message that auto-dismisses after a short duration.
+    fn push_transient_error(&mut self, err: anyhow::Error) {
+        self.errors.push(AppError {
+            inner: Arc::new(err),
+            dismiss_at: Instant::now() + Duration::from_secs(5),
+        });
     }
 
     /// Returns the currently selected commit id when the selected line is a commit.
@@ -1677,6 +1697,15 @@ fn has_unassigned_changes(ctx: &mut Context) -> anyhow::Result<bool> {
     Ok(assignments
         .into_iter()
         .any(|assignment| assignment.stack_id.is_none()))
+}
+
+/// Formats an exit status for human-readable error messages.
+fn format_exit_status(status: std::process::ExitStatus) -> String {
+    if let Some(code) = status.code() {
+        code.to_string()
+    } else {
+        status.to_string()
+    }
 }
 
 #[derive(Debug)]
