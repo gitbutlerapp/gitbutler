@@ -95,7 +95,8 @@
 	display: grid;
 	margin-left: auto;
 	padding-inline: 8px;
-	padding-block: 4px;
+	/* TODO:  */
+	padding-block: 2px;
 
 	svg {
 		width: var(--selection-line-height);
