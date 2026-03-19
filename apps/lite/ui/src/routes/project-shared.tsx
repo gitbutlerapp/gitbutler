@@ -409,7 +409,14 @@ export const CommitRow: FC<
 
 	const startEditingMessage = () => {
 		if (!isSelected) toggleSelect();
-		setIsEditingMessage(true);
+		// Wait for Base UI's menu to restore focus before we focus the textarea,
+		// otherwise the textarea will lose focus when Base UI restores focus on
+		// menu close.
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				setIsEditingMessage(true);
+			});
+		});
 	};
 
 	return (
