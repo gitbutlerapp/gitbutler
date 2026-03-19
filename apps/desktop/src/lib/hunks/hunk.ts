@@ -347,7 +347,7 @@ export function canBePartiallySelected(patch: Patch): boolean {
 		return false;
 	}
 
-	if (patch.hunks.length === 1 && isFileDeletionHunk(patch.hunks[0])) {
+	if (patch.hunks.length === 1 && isFileDeletionHunk(patch.hunks[0]!)) {
 		// Only one hunk and it's a file deletion
 		return false;
 	}
