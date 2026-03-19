@@ -5,7 +5,7 @@ use crate::{
     command::legacy::status::{
         StatusOutputLine,
         output::StatusOutputLineData,
-        tui::{Mode, commit_operation_display},
+        tui::{Mode, commit_operation_display, move_operation_display},
     },
 };
 
@@ -189,32 +189,30 @@ impl Cursor {
         }
     }
 
-    /// Moves the cursor to the previous selectable jump-target line before the current cursor position.
+    /// Moves the cursor to the previous selectable jump-target line.
     ///
-    /// If the current line is inside a section (for example, a file or commit row), moving to the
-    /// previous section skips the current section header and jumps to the section before it.
+    /// If the cursor is inside a section (for example, on a file or commit row), this jumps to the
+    /// current section header first. If the cursor is already on a section header, this jumps to the
+    /// previous section header.
     pub(super) fn move_previous_section(&mut self, lines: &[StatusOutputLine], mode: &Mode) {
         if self.0 >= lines.len() {
             return;
         }
 
         let current_line_is_section_header = lines.get(self.0).is_some_and(is_section_header);
-
-        let previous_jump_targets: Vec<usize> = lines
-            .iter()
-            .enumerate()
-            .rev()
-            .skip(lines.len() - self.0)
-            .filter_map(|(idx, line)| is_jump_target_in_mode(line, mode).then_some(idx))
-            .collect();
-
-        let target_idx = if current_line_is_section_header {
-            previous_jump_targets.first().copied()
+        let search_end = if current_line_is_section_header {
+            self.0
         } else {
-            previous_jump_targets.get(1).copied()
+            self.0 + 1
         };
 
-        if let Some(target_idx) = target_idx {
+        if let Some((target_idx, _)) = lines
+            .iter()
+            .enumerate()
+            .take(search_end)
+            .rev()
+            .find(|(_, line)| is_jump_target_in_mode(line, mode))
+        {
             self.0 = target_idx;
         }
     }
@@ -257,6 +255,13 @@ pub(super) fn is_selectable_in_mode(line: &StatusOutputLine, mode: &Mode) -> boo
                 return true;
             }
         }
+        Mode::Move(move_mode) => {
+            if let Some(cli_id) = line.data.cli_id()
+                && *move_mode.source == **cli_id
+            {
+                return true;
+            }
+        }
         Mode::Command(..) | Mode::InlineReword(..) | Mode::Normal => {}
     }
 
@@ -267,6 +272,7 @@ pub(super) fn is_selectable_in_mode(line: &StatusOutputLine, mode: &Mode) -> boo
             .cli_id()
             .is_some_and(|cli_id| rub_mode.available_targets.contains(cli_id)),
         Mode::Commit(commit_mode) => commit_operation_display(&line.data, commit_mode).is_some(),
+        Mode::Move(move_mode) => move_operation_display(&line.data, move_mode).is_some(),
         Mode::InlineReword(..) | Mode::Command(..) => {
             // you can't actually move the selection in these modes
             // but returning `false` would dim every line which hurts UX

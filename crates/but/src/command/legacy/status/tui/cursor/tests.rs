@@ -8,6 +8,7 @@ use super::{Cursor, is_selectable_in_mode};
 use crate::{
     CliId,
     command::legacy::status::{
+        CommitClassification,
         output::{StatusOutputContent, StatusOutputLine, StatusOutputLineData},
         tui::{CommitMode, CommitSource, InlineRewordMode, Mode, RubMode},
     },
@@ -138,6 +139,7 @@ fn select_finds_commit_line_by_object_id() {
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(wanted, "c1"),
             stack_id: None,
+            classification: CommitClassification::LocalOnly,
         }),
     ];
 
@@ -152,6 +154,7 @@ fn select_returns_none_when_commit_is_missing() {
     let lines = vec![line(StatusOutputLineData::Commit {
         cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c1"),
         stack_id: None,
+        classification: CommitClassification::LocalOnly,
     })];
 
     assert_eq!(
@@ -170,10 +173,12 @@ fn select_uses_first_matching_commit_when_object_id_appears_multiple_times() {
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(wanted, "c0"),
             stack_id: None,
+            classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(wanted, "c1"),
             stack_id: None,
+            classification: CommitClassification::LocalOnly,
         }),
     ];
 
@@ -189,6 +194,7 @@ fn select_branch_finds_branch_line_by_name() {
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
             stack_id: None,
+            classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::Branch {
             cli_id: Arc::new(CliId::Branch {
@@ -452,6 +458,7 @@ fn selection_cli_id_for_reload_uses_commit_as_parent_for_hidden_file() {
         line(StatusOutputLineData::Commit {
             cli_id: parent_commit.clone(),
             stack_id: None,
+            classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::File {
             cli_id: unassigned("file0"),
@@ -608,7 +615,7 @@ fn move_next_section_does_not_move_when_no_jump_target_below() {
 }
 
 #[test]
-fn move_previous_section_skips_current_section_when_cursor_is_inside_it() {
+fn move_previous_section_moves_to_current_section_header_when_cursor_is_inside_it() {
     let lines = vec![
         line(StatusOutputLineData::UnstagedChanges {
             cli_id: unassigned("u0"),
@@ -627,7 +634,7 @@ fn move_previous_section_skips_current_section_when_cursor_is_inside_it() {
     let mut cursor = Cursor(3);
     cursor.move_previous_section(&lines, &Mode::Normal);
 
-    assert_eq!(cursor, Cursor(0));
+    assert_eq!(cursor, Cursor(2));
 }
 
 #[test]
@@ -651,7 +658,7 @@ fn move_previous_section_moves_to_immediate_previous_when_already_on_section_hea
 }
 
 #[test]
-fn move_previous_section_does_not_move_when_only_current_section_exists_above_cursor() {
+fn move_previous_section_moves_to_current_header_when_only_current_section_exists_above_cursor() {
     let lines = vec![
         line(StatusOutputLineData::UnstagedChanges {
             cli_id: unassigned("u0"),
@@ -664,7 +671,7 @@ fn move_previous_section_does_not_move_when_only_current_section_exists_above_cu
     let mut cursor = Cursor(1);
     cursor.move_previous_section(&lines, &Mode::Normal);
 
-    assert_eq!(cursor, Cursor(1));
+    assert_eq!(cursor, Cursor(0));
 }
 
 #[test]
@@ -810,6 +817,7 @@ fn move_next_section_skips_non_jump_targets_like_commits() {
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
             stack_id: None,
+            classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::StagedChanges {
             cli_id: unassigned("s0"),
@@ -835,6 +843,7 @@ fn move_next_section_can_jump_to_merge_base_line() {
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
             stack_id: None,
+            classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::MergeBase),
     ];
@@ -858,6 +867,7 @@ fn move_previous_section_can_jump_from_merge_base_line() {
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
             stack_id: None,
+            classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::MergeBase),
     ];
@@ -901,7 +911,7 @@ fn move_next_section_in_rub_mode_skips_unavailable_sections() {
 }
 
 #[test]
-fn move_previous_section_in_rub_mode_skips_unavailable_sections() {
+fn move_previous_section_in_rub_mode_moves_to_current_available_section_header() {
     let allowed = Arc::new(CliId::Branch {
         name: "main".into(),
         id: "b0".into(),
@@ -932,7 +942,7 @@ fn move_previous_section_in_rub_mode_skips_unavailable_sections() {
     let mut cursor = Cursor(3);
     cursor.move_previous_section(&lines, &mode);
 
-    assert_eq!(cursor, Cursor(0));
+    assert_eq!(cursor, Cursor(2));
 }
 
 #[test]
@@ -1055,10 +1065,12 @@ fn is_selectable_in_commit_mode_scopes_commit_targets_to_stack() {
     let same_stack_commit_line = line(StatusOutputLineData::Commit {
         cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
         stack_id: Some(scoped_stack_id),
+        classification: CommitClassification::LocalOnly,
     });
     let other_stack_commit_line = line(StatusOutputLineData::Commit {
         cli_id: commit_cli_id("2222222222222222222222222222222222222222", "c1"),
         stack_id: None,
+        classification: CommitClassification::LocalOnly,
     });
 
     assert!(is_selectable_in_mode(&same_stack_commit_line, &mode));

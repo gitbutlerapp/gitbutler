@@ -10,6 +10,7 @@ use crate::command::legacy::status::tui::tests::utils::test_tui;
 
 mod command_tests;
 mod commit_tests;
+mod move_tests;
 mod rub_tests;
 mod utils;
 
@@ -163,6 +164,49 @@ fn section_jumps_shift_j_k() {
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('K')))
         .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
+}
+
+#[test]
+fn shift_k_from_commit_moves_to_current_section_header_first() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render(None)
+        .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
+
+    tui.input_then_render([KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('K')))
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('K')))
+        .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
+}
+
+#[test]
+fn shift_k_from_second_stack_commit_moves_to_its_header() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render(None)
+        .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+        .assert_current_line_eq(str!["┊╭┄h0 [B]"]);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊●   [..]"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('K')))
+        .assert_current_line_eq(str!["┊╭┄h0 [B]"]);
 }
 
 #[test]

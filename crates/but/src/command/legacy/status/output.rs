@@ -3,7 +3,11 @@ use std::sync::Arc;
 use gitbutler_stack::StackId;
 use ratatui::text::Span;
 
-use crate::{CliId, command::legacy::status::render_oneshot, utils::WriteWithUtils};
+use crate::{
+    CliId,
+    command::legacy::status::{CommitClassification, render_oneshot},
+    utils::WriteWithUtils,
+};
 
 pub(super) enum StatusOutput<'a> {
     /// Immediately print the outputs as it's being generated.
@@ -153,6 +157,7 @@ impl StatusOutput<'_> {
         line: CommitLineContent,
         id: CliId,
         stack_id: Option<StackId>,
+        classification: CommitClassification,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
@@ -160,6 +165,7 @@ impl StatusOutput<'_> {
             StatusOutputLineData::Commit {
                 cli_id: Arc::new(id),
                 stack_id,
+                classification,
             },
         )
     }
@@ -288,12 +294,17 @@ pub(super) struct StatusOutputLine {
 impl StatusOutputLine {
     pub(super) fn is_selectable(&self) -> bool {
         match &self.data {
+            StatusOutputLineData::Commit { classification, .. } => match classification {
+                CommitClassification::LocalOnly
+                | CommitClassification::Pushed
+                | CommitClassification::Modified => true,
+                CommitClassification::Upstream | CommitClassification::Integrated => false,
+            },
             StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UnstagedChanges { .. }
             | StatusOutputLineData::UnstagedFile { .. }
             | StatusOutputLineData::Branch { .. }
-            | StatusOutputLineData::Commit { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::MergeBase
             | StatusOutputLineData::File { .. } => true,
@@ -330,6 +341,7 @@ pub(super) enum StatusOutputLineData {
     Commit {
         cli_id: Arc<CliId>,
         stack_id: Option<StackId>,
+        classification: CommitClassification,
     },
     CommitMessage,
     EmptyCommitMessage,
