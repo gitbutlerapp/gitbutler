@@ -45,7 +45,7 @@ type Patch = Extract<UnifiedPatch, { type: "Patch" }>;
 
 export type SourceItem =
 	| { _tag: "Commit"; commitId: string }
-	| { _tag: "Branch"; anchorRef: Array<number> | null }
+	| { _tag: "Branch"; anchorRef: Array<number> }
 	| {
 			_tag: "TreeChange";
 			source: {
@@ -286,10 +286,12 @@ export const DraggableBranch: FC<
 		label: string;
 	} & useRender.ComponentProps<"div">
 > = ({ anchorRef, label, render, ...props }) => {
+	const dragData: DragData | null =
+		anchorRef !== null ? { sourceItem: { _tag: "Branch", anchorRef } } : null;
 	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData => ({ sourceItem: { _tag: "Branch", anchorRef } }),
+		getInitialData: (): DragData | {} => dragData ?? {},
 		preview: <DragPreview>{label}</DragPreview>,
-		canDrag: () => anchorRef !== null,
+		canDrag: () => dragData !== null,
 	});
 
 	return useRender({

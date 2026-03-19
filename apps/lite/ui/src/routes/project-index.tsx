@@ -309,7 +309,6 @@ const useRunOperation = (projectId: string) => {
 			}),
 			Match.tag("MoveBranch", (operationTarget) => {
 				if (sourceItem._tag !== "Branch") return;
-				if (!sourceItem.anchorRef) return;
 				moveBranch.mutate({
 					projectId,
 					subjectBranch: decodeRefName(sourceItem.anchorRef),
@@ -1111,11 +1110,7 @@ const BranchTarget: FC<
 	const getOperationTarget = (sourceItem: SourceItem): OperationTarget | null =>
 		Match.value(sourceItem).pipe(
 			Match.tag("Branch", (source): OperationTarget | null => {
-				if (
-					anchorRef === null ||
-					source.anchorRef === null ||
-					decodeRefName(anchorRef) === decodeRefName(source.anchorRef)
-				)
+				if (anchorRef === null || decodeRefName(anchorRef) === decodeRefName(source.anchorRef))
 					return null;
 				return {
 					_tag: "MoveBranch",
