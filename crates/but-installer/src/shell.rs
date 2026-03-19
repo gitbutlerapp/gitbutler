@@ -35,6 +35,15 @@ impl ShellType {
             ShellType::Fish => "fish",
         }
     }
+
+    fn from_process_name(name: &str) -> Option<Self> {
+        match name.trim_start_matches('-') {
+            "zsh" => Some(ShellType::Zsh),
+            "bash" => Some(ShellType::Bash),
+            "fish" => Some(ShellType::Fish),
+            _ => None,
+        }
+    }
 }
 
 pub(crate) fn setup_path(home_dir: &Path) -> Result<()> {
@@ -73,18 +82,19 @@ pub(crate) fn setup_path(home_dir: &Path) -> Result<()> {
         success(&format!("{} is already in your PATH", bin_dir.display()));
     }
 
-    // Detect shell config file
     let fish_config = home_dir.join(".config/fish/config.fish");
     let zshrc = home_dir.join(".zshrc");
     let bash_profile = home_dir.join(".bash_profile");
     let bashrc = home_dir.join(".bashrc");
 
-    if fish_config.exists() {
-        setup_fish_config(&fish_config, &bin_dir, already_in_path)?;
-    } else if let Some((shell_config, shell_type)) =
-        detect_shell_config(&zshrc, &bash_profile, &bashrc)
+    if let Some((shell_config, shell_type)) =
+        detect_shell_config(&fish_config, &zshrc, &bash_profile, &bashrc)
     {
-        setup_posix_shell_config(&shell_config, shell_type, &bin_dir, already_in_path)?;
+        if shell_type == ShellType::Fish {
+            setup_fish_config(&shell_config, &bin_dir, already_in_path)?;
+        } else {
+            setup_posix_shell_config(&shell_config, shell_type, &bin_dir, already_in_path)?;
+        }
     } else {
         print_manual_setup_instructions(&bin_dir, already_in_path);
     }
@@ -92,13 +102,93 @@ pub(crate) fn setup_path(home_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
+fn detect_shell_from_env() -> Option<ShellType> {
+    let shell = env::var_os("SHELL")?;
+    let shell_name = Path::new(&shell)
+        .file_name()
+        .and_then(|name| name.to_str())?;
+
+    ShellType::from_process_name(shell_name)
+}
+
 fn detect_shell_config(
+    fish_config: &Path,
     zshrc: &Path,
     bash_profile: &Path,
     bashrc: &Path,
 ) -> Option<(PathBuf, ShellType)> {
-    if zshrc.exists() {
+    detect_shell_config_with_preference(
+        detect_shell_from_env(),
+        fish_config,
+        zshrc,
+        bash_profile,
+        bashrc,
+    )
+}
+
+fn detect_shell_config_with_preference(
+    preferred_shell: Option<ShellType>,
+    fish_config: &Path,
+    zshrc: &Path,
+    bash_profile: &Path,
+    bashrc: &Path,
+) -> Option<(PathBuf, ShellType)> {
+    if let Some(shell_type) = preferred_shell {
+        return Some((
+            preferred_shell_config_path(shell_type, fish_config, zshrc, bash_profile, bashrc),
+            shell_type,
+        ));
+    }
+
+    detect_shell_config_from_existing_files(fish_config, zshrc, bash_profile, bashrc)
+}
+
+#[cfg(target_os = "macos")]
+fn preferred_shell_config_path(
+    shell_type: ShellType,
+    fish_config: &Path,
+    zshrc: &Path,
+    bash_profile: &Path,
+    bashrc: &Path,
+) -> PathBuf {
+    match shell_type {
+        ShellType::Fish => fish_config.to_path_buf(),
+        ShellType::Zsh => zshrc.to_path_buf(),
+        ShellType::Bash => {
+            if bash_profile.exists() {
+                bash_profile.to_path_buf()
+            } else {
+                bashrc.to_path_buf()
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn preferred_shell_config_path(
+    shell_type: ShellType,
+    fish_config: &Path,
+    zshrc: &Path,
+    _bash_profile: &Path,
+    bashrc: &Path,
+) -> PathBuf {
+    match shell_type {
+        ShellType::Fish => fish_config.to_path_buf(),
+        ShellType::Zsh => zshrc.to_path_buf(),
+        ShellType::Bash => bashrc.to_path_buf(),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn detect_shell_config_from_existing_files(
+    fish_config: &Path,
+    zshrc: &Path,
+    bash_profile: &Path,
+    bashrc: &Path,
+) -> Option<(PathBuf, ShellType)> {
+    if fish_config.exists() {
+        Some((fish_config.to_path_buf(), ShellType::Fish))
+    } else if zshrc.exists() {
         Some((zshrc.to_path_buf(), ShellType::Zsh))
     } else if bash_profile.exists() {
         Some((bash_profile.to_path_buf(), ShellType::Bash))
@@ -110,14 +200,17 @@ fn detect_shell_config(
 }
 
 #[cfg(target_os = "linux")]
-fn detect_shell_config(
+fn detect_shell_config_from_existing_files(
+    fish_config: &Path,
     zshrc: &Path,
     // bash_profile is only sourced when executing a login shell, which is rarely how shells are
     // invoked on Linux distros. Therefore, we ignore it when detecting shell config on Linux.
     _bash_profile: &Path,
     bashrc: &Path,
 ) -> Option<(PathBuf, ShellType)> {
-    if zshrc.exists() {
+    if fish_config.exists() {
+        Some((fish_config.to_path_buf(), ShellType::Fish))
+    } else if zshrc.exists() {
         Some((zshrc.to_path_buf(), ShellType::Zsh))
     } else if bashrc.exists() {
         Some((bashrc.to_path_buf(), ShellType::Bash))
@@ -216,7 +309,11 @@ fn setup_posix_shell_config(
     }
 
     // Try to add to config file
-    match OpenOptions::new().append(true).open(shell_config) {
+    match OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(shell_config)
+    {
         Ok(mut file) => {
             writeln!(file)?;
             writeln!(file, "# Added by GitButler installer")?;
@@ -322,6 +419,57 @@ mod tests {
         assert_eq!(ShellType::Zsh.name(), "zsh");
         assert_eq!(ShellType::Bash.name(), "bash");
         assert_eq!(ShellType::Fish.name(), "fish");
+    }
+
+    #[test]
+    fn test_shell_type_from_process_name() {
+        assert_eq!(ShellType::from_process_name("zsh"), Some(ShellType::Zsh));
+        assert_eq!(ShellType::from_process_name("-bash"), Some(ShellType::Bash));
+        assert_eq!(ShellType::from_process_name("fish"), Some(ShellType::Fish));
+        assert_eq!(ShellType::from_process_name("sh"), None);
+    }
+
+    #[test]
+    fn test_detect_shell_config_prefers_reported_shell_over_existing_fish_config() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let home_dir = temp_dir.path();
+        let fish_config = home_dir.join(".config/fish/config.fish");
+        let zshrc = home_dir.join(".zshrc");
+        let bash_profile = home_dir.join(".bash_profile");
+        let bashrc = home_dir.join(".bashrc");
+
+        std::fs::create_dir_all(fish_config.parent().unwrap()).unwrap();
+        std::fs::write(&fish_config, "but completions fish | source").unwrap();
+
+        let detected = detect_shell_config_with_preference(
+            Some(ShellType::Zsh),
+            &fish_config,
+            &zshrc,
+            &bash_profile,
+            &bashrc,
+        );
+
+        assert_eq!(detected, Some((zshrc, ShellType::Zsh)));
+    }
+
+    #[test]
+    fn test_setup_posix_shell_config_creates_missing_config() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let home_dir = temp_dir.path();
+        let bin_dir = home_dir.join(".local/bin");
+        let zshrc = home_dir.join(".zshrc");
+
+        setup_posix_shell_config(&zshrc, ShellType::Zsh, &bin_dir, false).unwrap();
+
+        let content = std::fs::read_to_string(&zshrc)
+            .unwrap()
+            .replace(&bin_dir.display().to_string(), "$BIN_DIR");
+        insta::assert_snapshot!(content, @r#"
+
+        # Added by GitButler installer
+        export PATH="$BIN_DIR:$PATH"
+        eval "$(but completions zsh)"
+        "#);
     }
 
     #[test]

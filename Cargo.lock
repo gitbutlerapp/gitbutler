@@ -1308,6 +1308,7 @@ dependencies = [
  "curl",
  "dirs 6.0.0",
  "flate2",
+ "insta",
  "minisign-verify",
  "owo-colors",
  "serde",
