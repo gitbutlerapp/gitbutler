@@ -919,6 +919,7 @@ const CommitC: FC<{
 									render={
 										<div
 											className={classes(
+												sharedStyles.row,
 												sharedStyles.fileRow,
 												isFileSelected(change.path) && sharedStyles.selected,
 											)}
@@ -992,6 +993,7 @@ const Changes: FC<{
 											render={
 												<div
 													className={classes(
+														sharedStyles.row,
 														sharedStyles.fileRow,
 														isFileSelected(change.path) && sharedStyles.selected,
 													)}
@@ -1007,7 +1009,10 @@ const Changes: FC<{
 															projectId={projectId}
 															commitIds={dependencyCommitIds}
 															onHover={onDependencyHover}
-															className={sharedStyles.fileRowDependencyIndicator}
+															className={classes(
+																sharedStyles.fileRowDependencyIndicator,
+																sharedStyles.rowAction,
+															)}
 														>
 															<DependencyIcon />
 														</DependencyIndicator>
