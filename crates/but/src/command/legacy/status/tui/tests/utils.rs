@@ -74,9 +74,18 @@ impl TestTui {
     where
         E: EventPolling,
     {
-        let mut ctx = self.env.context().expect("failed to create context");
+        self.render_with_messages(event, Vec::from([Message::Reload(None)]))
+    }
 
-        let mut messages = Vec::from([Message::Reload(None)]);
+    pub(super) fn render_with_messages<E>(
+        &mut self,
+        event: E,
+        mut messages: Vec<Message>,
+    ) -> TestTuiInputThenRenderResult<'_>
+    where
+        E: EventPolling,
+    {
+        let mut ctx = self.env.context().expect("failed to create context");
         let mut other_messages = Vec::new();
 
         self.async_runtime

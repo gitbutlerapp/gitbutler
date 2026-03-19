@@ -1358,7 +1358,7 @@ impl App {
 
     fn render_errors(&self, area: Rect, frame: &mut Frame) {
         for (idx, err) in self.errors.iter().rev().enumerate() {
-            let formatted_err = format!("{:#}", err.inner);
+            let formatted_err = format_error_for_tui(&err.inner);
             render_error_popup(
                 frame,
                 area,
@@ -1625,20 +1625,80 @@ struct PopupMargin {
     bottom: u16,
 }
 
+/// Formats an error for display in the terminal UI without including backtraces.
+///
+/// The output always starts with the top-level error message and, when available,
+/// appends a `Caused by:` section containing every error in the cause chain.
+fn format_error_for_tui(err: &anyhow::Error) -> String {
+    let mut causes = err.chain();
+
+    let Some(top_level) = causes.next() else {
+        return "unknown error".to_owned();
+    };
+
+    let cause_lines: Vec<String> = causes.map(|cause| cause.to_string()).collect();
+    if cause_lines.is_empty() {
+        return top_level.to_string();
+    }
+
+    let mut output = top_level.to_string();
+    output.push_str("\n\nCaused by:\n");
+
+    for (idx, cause) in cause_lines.iter().enumerate() {
+        output.push_str(&format!("    {idx}: {cause}"));
+        if idx + 1 < cause_lines.len() {
+            output.push('\n');
+        }
+    }
+
+    output
+}
+
 fn render_error_popup(frame: &mut Frame, area: Rect, margin: PopupMargin, text: &str) {
+    use unicode_width::UnicodeWidthStr;
+
     let horizontal_padding: u16 = 1;
     let vertical_padding: u16 = 0;
-
-    let height = text.lines().count() as u16 + 2 + (vertical_padding * 2);
-    let width = 45;
+    let border_width: u16 = 2;
+    let border_height: u16 = 2;
 
     let PopupMargin {
         right: right_margin,
         bottom: bottom_margin,
     } = margin;
 
-    let width = width.min(area.width.max(1));
-    let height = height.min(area.height.max(1));
+    let max_popup_width = area.width.saturating_sub(right_margin).max(1);
+    let max_popup_height = area.height.saturating_sub(bottom_margin).max(1);
+
+    let max_line_width = text
+        .lines()
+        .map(|line| line.width())
+        .max()
+        .unwrap_or_default() as u16;
+
+    let desired_width = max_line_width
+        .saturating_add(border_width)
+        .saturating_add(horizontal_padding * 2);
+    let width = desired_width.clamp(1, max_popup_width);
+
+    let inner_width = width
+        .saturating_sub(border_width)
+        .saturating_sub(horizontal_padding * 2)
+        .max(1) as usize;
+
+    let wrapped_line_count: u16 = text
+        .lines()
+        .map(|line| {
+            let line_width = line.width();
+            let wrapped = line_width.div_ceil(inner_width);
+            wrapped.max(1) as u16
+        })
+        .sum();
+
+    let desired_height = wrapped_line_count
+        .saturating_add(border_height)
+        .saturating_add(vertical_padding * 2);
+    let height = desired_height.clamp(1, max_popup_height);
 
     let x = area.x.saturating_add(
         area.width
@@ -1658,7 +1718,6 @@ fn render_error_popup(frame: &mut Frame, area: Rect, margin: PopupMargin, text: 
     let widget = Paragraph::new(text)
         .block(
             Block::default()
-                .title("⚠️ Error")
                 .borders(Borders::ALL)
                 .border_style(Style::default().red())
                 .padding(Padding::new(
