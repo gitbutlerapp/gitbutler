@@ -1689,7 +1689,6 @@ fn render_error_popup(frame: &mut Frame, area: Rect, margin: PopupMargin, text: 
     let widget = Paragraph::new(text)
         .block(
             Block::default()
-                .title("⚠️ Error")
                 .borders(Borders::ALL)
                 .border_style(Style::default().red())
                 .padding(Padding::new(
