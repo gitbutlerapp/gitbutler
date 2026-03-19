@@ -16,7 +16,6 @@ mod diff;
 mod format;
 mod gui;
 mod help;
-mod link;
 #[cfg(feature = "legacy")]
 mod merge;
 #[cfg(feature = "legacy")]

@@ -148,4 +148,3 @@ If `but move` causes conflicts (conflicted commits in status):
 - For command syntax and flags: `references/reference.md`
 - For workspace model: `references/concepts.md`
 - For workflow examples: `references/examples.md`
-- For `but link` coordination workflow and conventions: `references/link.md`
