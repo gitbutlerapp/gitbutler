@@ -241,7 +241,7 @@ impl BranchManager<'_> {
         }
         branch.set_stack_head(
             &vb_state,
-            &(&*git2_repo).to_gix_repo()?,
+            &(&*git2_repo).to_isolated_gix_repo()?,
             head_commit.id().to_gix(),
         )?;
         self.ctx.add_branch_reference(&branch)?;
