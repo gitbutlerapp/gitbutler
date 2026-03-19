@@ -9,4 +9,5 @@
 
 .branchButton {
 	flex-grow: 1;
+	padding: 2px 4px;
 }

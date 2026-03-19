@@ -421,17 +421,20 @@ const ProjectBranchesPage: FC = () => {
 						const isSelected = isBranchSelected(branch.name);
 						const isSelectedWithin = isBranchSelectedWithin(branch.name);
 						return (
-							<li key={branch.name} className={styles.branchesListItem}>
+							<li
+								key={branch.name}
+								className={classes(
+									styles.branchesListItem,
+									isSelected
+										? sharedStyles.selected
+										: isSelectedWithin
+											? sharedStyles.selectedWithin
+											: undefined,
+								)}
+							>
 								<button
 									type="button"
-									className={classes(
-										styles.branchButton,
-										isSelected
-											? sharedStyles.selected
-											: isSelectedWithin
-												? sharedStyles.selectedWithin
-												: undefined,
-									)}
+									className={styles.branchButton}
 									onClick={() => {
 										toggleBranchSelection(branch.name);
 									}}
