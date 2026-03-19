@@ -15,7 +15,6 @@ import {
 	ReactNode,
 	startTransition,
 	useOptimistic,
-	useState,
 	useTransition,
 } from "react";
 import styles from "./project-shared.module.css";
@@ -381,8 +380,10 @@ export const CommitRow: FC<
 		isSelected: boolean;
 		isSelectedWithin: boolean;
 		isHighlighted: boolean;
+		isEditingMessage: boolean;
 		toggleExpand: () => Promise<void> | void;
 		toggleSelect: () => void;
+		toggleEditingMessage: () => void;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -390,12 +391,13 @@ export const CommitRow: FC<
 	isSelected,
 	isSelectedWithin,
 	isHighlighted,
+	isEditingMessage,
 	toggleExpand,
 	toggleSelect,
+	toggleEditingMessage,
 	className,
 	...restProps
 }) => {
-	const [isEditingMessage, setIsEditingMessage] = useState(false);
 	const [isExpandPending, startExpandTransition] = useTransition();
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
@@ -405,18 +407,6 @@ export const CommitRow: FC<
 	const commitWithOptimisticMessage: Commit = {
 		...commit,
 		message: optimisticMessage,
-	};
-
-	const startEditingMessage = () => {
-		if (!isSelected) toggleSelect();
-		// Wait for Base UI's menu to restore focus before we focus the textarea,
-		// otherwise the textarea will lose focus when Base UI restores focus on
-		// menu close.
-		requestAnimationFrame(() => {
-			requestAnimationFrame(() => {
-				setIsEditingMessage(true);
-			});
-		});
 	};
 
 	return (
@@ -441,9 +431,7 @@ export const CommitRow: FC<
 							commitId={commit.id}
 							message={optimisticMessage}
 							setMessageAction={setOptimisticMessage}
-							onExit={() => {
-								setIsEditingMessage(false);
-							}}
+							onExit={toggleEditingMessage}
 						/>
 					) : (
 						<ContextMenu.Root>
@@ -459,7 +447,7 @@ export const CommitRow: FC<
 									<CommitMenuPopup
 										projectId={projectId}
 										commitId={commit.id}
-										onReword={startEditingMessage}
+										onReword={toggleEditingMessage}
 										parts={ContextMenu}
 									/>
 								</ContextMenu.Positioner>
@@ -486,7 +474,7 @@ export const CommitRow: FC<
 								<CommitMenuPopup
 									projectId={projectId}
 									commitId={commit.id}
-									onReword={startEditingMessage}
+									onReword={toggleEditingMessage}
 									parts={Menu}
 								/>
 							</Menu.Positioner>
