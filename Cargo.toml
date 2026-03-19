@@ -80,8 +80,6 @@ members = [
     "crates/but-settings", # 📄Store and retrieve layered application settings, react to changes in realtime.
     # 👉Has tests, but leans heavily on legacy crates.
     "crates/but-cherry-apply", # 📄Apply commits to different stacks.
-    # 👉Experimental agent coordination library powering `but link`.
-    "crates/but-link",
     # 👉Experimental IRC support
     "crates/but-irc", # 📄IRC client with WebSocket transport and GitButler protocol support.
 
@@ -189,7 +187,6 @@ but-fs = { path = "crates/but-fs" }
 but-forge = { path = "crates/but-forge" }
 but-oplog = { path = "crates/but-oplog" }
 but-llm = { path = "crates/but-llm" }
-but-link = { path = "crates/but-link" }
 
 gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }

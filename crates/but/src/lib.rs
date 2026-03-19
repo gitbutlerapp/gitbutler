@@ -321,9 +321,6 @@ async fn match_subcommand(
 
             result.emit_metrics(metrics_ctx)
         }
-        Subcommands::Link(link_args) => {
-            but_link::handle(link_args, &args.current_dir).emit_metrics(metrics_ctx)
-        }
         Subcommands::Stack {
             branch,
             target_branch,
