@@ -1,13 +1,36 @@
+use std::sync::Arc;
+
+use anyhow::anyhow;
 use but_testsupport::Sandbox;
 use crossterm::event::*;
 use snapbox::{file, str};
 
+use crate::command::legacy::status::tui::Message;
 use crate::command::legacy::status::tui::tests::utils::test_tui;
 
 mod command_tests;
 mod commit_tests;
 mod rub_tests;
 mod utils;
+
+#[test]
+fn shows_full_error_when_message_wraps() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.render_with_messages(
+        None,
+        Vec::from([
+            Message::Reload(None),
+            Message::ShowError(Arc::new(anyhow!(
+                "error-with-end-marker: this is a deliberately long error message that should wrap over multiple lines without clipping and it must include END-MARKER"
+            ))),
+        ]),
+    )
+    .assert_rendered_eq(file!["snapshots/shows_full_error_when_message_wraps_001.txt"]);
+}
 
 #[test]
 fn basic_cursor_movement() {

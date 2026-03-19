@@ -1626,19 +1626,50 @@ struct PopupMargin {
 }
 
 fn render_error_popup(frame: &mut Frame, area: Rect, margin: PopupMargin, text: &str) {
+    use unicode_width::UnicodeWidthStr;
+
     let horizontal_padding: u16 = 1;
     let vertical_padding: u16 = 0;
-
-    let height = text.lines().count() as u16 + 2 + (vertical_padding * 2);
-    let width = 45;
+    let border_width: u16 = 2;
+    let border_height: u16 = 2;
 
     let PopupMargin {
         right: right_margin,
         bottom: bottom_margin,
     } = margin;
 
-    let width = width.min(area.width.max(1));
-    let height = height.min(area.height.max(1));
+    let max_popup_width = area.width.saturating_sub(right_margin).max(1);
+    let max_popup_height = area.height.saturating_sub(bottom_margin).max(1);
+
+    let max_line_width = text
+        .lines()
+        .map(|line| line.width())
+        .max()
+        .unwrap_or_default() as u16;
+
+    let desired_width = max_line_width
+        .saturating_add(border_width)
+        .saturating_add(horizontal_padding * 2);
+    let width = desired_width.clamp(1, max_popup_width);
+
+    let inner_width = width
+        .saturating_sub(border_width)
+        .saturating_sub(horizontal_padding * 2)
+        .max(1) as usize;
+
+    let wrapped_line_count: u16 = text
+        .lines()
+        .map(|line| {
+            let line_width = line.width();
+            let wrapped = line_width.div_ceil(inner_width);
+            wrapped.max(1) as u16
+        })
+        .sum();
+
+    let desired_height = wrapped_line_count
+        .saturating_add(border_height)
+        .saturating_add(vertical_padding * 2);
+    let height = desired_height.clamp(1, max_popup_height);
 
     let x = area.x.saturating_add(
         area.width
