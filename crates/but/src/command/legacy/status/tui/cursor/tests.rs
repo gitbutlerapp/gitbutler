@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use but_rebase::graph_rebase::mutate::InsertSide;
+use gitbutler_stack::StackId;
 use ratatui_textarea::TextArea;
 
 use super::{Cursor, is_selectable_in_mode};
@@ -7,7 +9,7 @@ use crate::{
     CliId,
     command::legacy::status::{
         output::{StatusOutputContent, StatusOutputLine, StatusOutputLineData},
-        tui::{InlineRewordMode, Mode, RubMode},
+        tui::{CommitMode, CommitSource, InlineRewordMode, Mode, RubMode},
     },
 };
 
@@ -135,6 +137,7 @@ fn select_finds_commit_line_by_object_id() {
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(wanted, "c1"),
+            stack_id: None,
         }),
     ];
 
@@ -148,6 +151,7 @@ fn select_finds_commit_line_by_object_id() {
 fn select_returns_none_when_commit_is_missing() {
     let lines = vec![line(StatusOutputLineData::Commit {
         cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c1"),
+        stack_id: None,
     })];
 
     assert_eq!(
@@ -165,9 +169,11 @@ fn select_uses_first_matching_commit_when_object_id_appears_multiple_times() {
     let lines = vec![
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(wanted, "c0"),
+            stack_id: None,
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id(wanted, "c1"),
+            stack_id: None,
         }),
     ];
 
@@ -182,6 +188,7 @@ fn select_branch_finds_branch_line_by_name() {
     let lines = vec![
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
+            stack_id: None,
         }),
         line(StatusOutputLineData::Branch {
             cli_id: Arc::new(CliId::Branch {
@@ -444,6 +451,7 @@ fn selection_cli_id_for_reload_uses_commit_as_parent_for_hidden_file() {
     let lines = vec![
         line(StatusOutputLineData::Commit {
             cli_id: parent_commit.clone(),
+            stack_id: None,
         }),
         line(StatusOutputLineData::File {
             cli_id: unassigned("file0"),
@@ -801,6 +809,7 @@ fn move_next_section_skips_non_jump_targets_like_commits() {
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
+            stack_id: None,
         }),
         line(StatusOutputLineData::StagedChanges {
             cli_id: unassigned("s0"),
@@ -825,6 +834,7 @@ fn move_next_section_can_jump_to_merge_base_line() {
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
+            stack_id: None,
         }),
         line(StatusOutputLineData::MergeBase),
     ];
@@ -847,6 +857,7 @@ fn move_previous_section_can_jump_from_merge_base_line() {
         }),
         line(StatusOutputLineData::Commit {
             cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
+            stack_id: None,
         }),
         line(StatusOutputLineData::MergeBase),
     ];
@@ -1030,4 +1041,26 @@ fn is_selectable_is_true_in_inline_reword_mode() {
 
     // Inline reword intentionally returns selectable so rows are not dimmed during editing.
     assert!(is_selectable_in_mode(&selectable_line, &inline_reword));
+}
+
+#[test]
+fn is_selectable_in_commit_mode_scopes_commit_targets_to_stack() {
+    let scoped_stack_id = StackId::single_branch_id();
+    let mode = Mode::Commit(CommitMode {
+        source: Arc::new(CommitSource::Unassigned { id: "zz".into() }),
+        scope_to_stack: Some(scoped_stack_id),
+        insert_side: InsertSide::Above,
+    });
+
+    let same_stack_commit_line = line(StatusOutputLineData::Commit {
+        cli_id: commit_cli_id("1111111111111111111111111111111111111111", "c0"),
+        stack_id: Some(scoped_stack_id),
+    });
+    let other_stack_commit_line = line(StatusOutputLineData::Commit {
+        cli_id: commit_cli_id("2222222222222222222222222222222222222222", "c1"),
+        stack_id: None,
+    });
+
+    assert!(is_selectable_in_mode(&same_stack_commit_line, &mode));
+    assert!(!is_selectable_in_mode(&other_stack_commit_line, &mode));
 }

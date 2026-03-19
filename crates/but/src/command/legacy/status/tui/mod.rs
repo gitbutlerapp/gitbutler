@@ -17,6 +17,7 @@ use but_rebase::graph_rebase::mutate::InsertSide;
 use crossterm::event::{self, Event};
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_stack::StackId;
+use itertools::Either;
 use ratatui::{
     Frame,
     prelude::*,
@@ -39,6 +40,7 @@ use crate::{
             StatusFlags, StatusOutput, StatusOutputLine, build_status_context, build_status_output,
             tui::{
                 cursor::{Cursor, is_selectable_in_mode},
+                graph_extension::{ExtensionDirection, extend_connector_spans},
                 key_bind::{KeyBinds, default_key_binds},
             },
         },
@@ -51,6 +53,7 @@ use crate::{
 use super::output::{StatusOutputContent, StatusOutputLineData};
 
 mod cursor;
+mod graph_extension;
 mod key_bind;
 mod rub_api;
 
@@ -281,6 +284,9 @@ impl App {
                 CommitMessage::Start => self.handle_commit_start(ctx),
                 CommitMessage::Confirm { with_message } => {
                     self.handle_commit_confirm(ctx, messages, with_message)?
+                }
+                CommitMessage::SetInsertSide(insert_side) => {
+                    self.handle_commit_set_insert_side(insert_side);
                 }
             },
             Message::Reword(reword_message) => match reword_message {
@@ -544,7 +550,7 @@ impl App {
                     commit_result.new_commit,
                 ))));
             }
-            StatusOutputLineData::Commit { cli_id } => {
+            StatusOutputLineData::Commit { cli_id, .. } => {
                 let CliId::Commit { commit_id, .. } = &**cli_id else {
                     return Ok(());
                 };
@@ -598,6 +604,7 @@ impl App {
                 CommitMode {
                     source: Arc::new(source),
                     scope_to_stack: None,
+                    insert_side: InsertSide::Above,
                 }
             }
             StatusOutputLineData::UnstagedFile { cli_id } => {
@@ -608,6 +615,7 @@ impl App {
                 CommitMode {
                     source: Arc::new(source),
                     scope_to_stack: None,
+                    insert_side: InsertSide::Above,
                 }
             }
             StatusOutputLineData::StagedChanges { cli_id }
@@ -619,6 +627,7 @@ impl App {
                 CommitMode {
                     source: Arc::new(source),
                     scope_to_stack: cli_id.stack_id(),
+                    insert_side: InsertSide::Above,
                 }
             }
             StatusOutputLineData::UpdateNotice
@@ -647,6 +656,7 @@ impl App {
         let Mode::Commit(CommitMode {
             source,
             scope_to_stack,
+            insert_side,
         }) = &self.mode
         else {
             return Ok(());
@@ -666,21 +676,44 @@ impl App {
             return Ok(());
         }
 
-        let StatusOutputLineData::Branch { cli_id: target } = &selection.data else {
-            return Ok(());
+        let target = match &selection.data {
+            StatusOutputLineData::Branch { cli_id }
+            | StatusOutputLineData::Commit { cli_id, .. } => cli_id,
+            StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::Connector
+            | StatusOutputLineData::StagedChanges { .. }
+            | StatusOutputLineData::StagedFile { .. }
+            | StatusOutputLineData::UnstagedChanges { .. }
+            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::CommitMessage
+            | StatusOutputLineData::EmptyCommitMessage
+            | StatusOutputLineData::File { .. }
+            | StatusOutputLineData::MergeBase
+            | StatusOutputLineData::UpstreamChanges
+            | StatusOutputLineData::Warning
+            | StatusOutputLineData::Hint
+            | StatusOutputLineData::NoAssignmentsUnstaged => {
+                return Ok(());
+            }
         };
 
-        let CliId::Branch {
-            name: target_branch_name,
-            ..
-        } = &**target
-        else {
-            return Ok(());
-        };
-        let target_full_name = {
-            let repo = ctx.repo.get()?;
-            let reference = repo.find_reference(target_branch_name)?;
-            RelativeTo::Reference(reference.name().to_owned())
+        let (insert_commit_relative_to, insert_side) = match &**target {
+            CliId::Branch { name, .. } => {
+                let repo = ctx.repo.get()?;
+                let reference = repo.find_reference(name)?;
+                (
+                    RelativeTo::Reference(reference.name().to_owned()),
+                    InsertSide::Below,
+                )
+            }
+            CliId::Commit { commit_id, .. } => (RelativeTo::Commit(*commit_id), *insert_side),
+            CliId::Uncommitted(_)
+            | CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Unassigned { .. }
+            | CliId::Stack { .. } => {
+                return Ok(());
+            }
         };
 
         // find what to commit
@@ -733,8 +766,8 @@ impl App {
         // create commit
         let commit_create_result = but_api::commit::commit_create(
             ctx,
-            target_full_name,
-            InsertSide::Below,
+            insert_commit_relative_to,
+            insert_side,
             changes_to_commit,
             // we reword the commit with the editor before the next render
             String::new(),
@@ -758,6 +791,12 @@ impl App {
         );
 
         Ok(())
+    }
+
+    fn handle_commit_set_insert_side(&mut self, insert_side: InsertSide) {
+        if let Mode::Commit(mode) = &mut self.mode {
+            mode.insert_side = insert_side;
+        }
     }
 
     /// Handles opening the full-screen commit reword editor for the selected commit.
@@ -956,7 +995,7 @@ impl App {
     fn selected_commit_id(&self) -> Option<gix::ObjectId> {
         let selection = self.cursor.selected_line(&self.status_lines)?;
 
-        let StatusOutputLineData::Commit { cli_id } = &selection.data else {
+        let StatusOutputLineData::Commit { cli_id, .. } = &selection.data else {
             return None;
         };
 
@@ -985,10 +1024,12 @@ impl App {
             (area, None)
         };
 
-        let items = self
-            .cursor
-            .iter_lines(&self.status_lines)
-            .map(|(tui_line, is_selected)| self.render_status_list_item(tui_line, is_selected));
+        let items =
+            self.cursor
+                .iter_lines(&self.status_lines)
+                .flat_map(|(tui_line, is_selected)| {
+                    self.render_status_list_item(tui_line, is_selected)
+                });
         let list = List::new(items);
 
         frame.render_widget(list, content_area);
@@ -1006,7 +1047,7 @@ impl App {
         &self,
         tui_line: &StatusOutputLine,
         is_selected: bool,
-    ) -> ListItem<'_> {
+    ) -> impl IntoIterator<Item = ListItem<'_>> {
         let StatusOutputLine {
             connector,
             content,
@@ -1035,7 +1076,11 @@ impl App {
                     self.render_rub_api_inline_labels_for_selected_line(data, source, &mut line);
                 }
                 Mode::Commit(mode) => {
-                    self.render_commit_labels_for_selected_line(data, mode, &mut line);
+                    if data.cli_id().is_some_and(|target| *mode.source == **target)
+                        || matches!(data, StatusOutputLineData::Branch { .. })
+                    {
+                        self.render_commit_labels_for_selected_line(data, mode, &mut line);
+                    }
                 }
             }
         } else {
@@ -1068,7 +1113,12 @@ impl App {
         let content_spans = match content {
             StatusOutputContent::Plain(spans) => spans.clone(),
             StatusOutputContent::Commit(commit_content) => {
-                let mut spans = Vec::new();
+                let mut spans = Vec::with_capacity(
+                    commit_content.sha.len()
+                        + commit_content.author.len()
+                        + commit_content.message.len()
+                        + commit_content.suffix.len(),
+                );
                 spans.extend(commit_content.sha.iter().cloned());
                 spans.extend(commit_content.author.iter().cloned());
                 spans.extend(commit_content.message.iter().cloned());
@@ -1105,10 +1155,34 @@ impl App {
         }
 
         if is_selected && !matches!(self.mode, Mode::Command(..)) {
-            line = line.style(Style::default().bg(CURSOR_BG));
+            line = line.bg(CURSOR_BG);
         }
 
-        ListItem::new(line)
+        if is_selected
+            && let Mode::Commit(commit_mode) = &self.mode
+            && matches!(data, StatusOutputLineData::Commit { .. })
+        {
+            let mut extension_line = Line::default().bg(CURSOR_BG);
+            extend_connector_spans(
+                connector.as_deref().unwrap_or_default(),
+                match commit_mode.insert_side {
+                    InsertSide::Above => ExtensionDirection::Above,
+                    InsertSide::Below => ExtensionDirection::Below,
+                },
+                &mut extension_line,
+            );
+            self.render_commit_labels_for_selected_line(data, commit_mode, &mut extension_line);
+            match commit_mode.insert_side {
+                InsertSide::Above => {
+                    Either::Right([ListItem::new(extension_line), ListItem::new(line)].into_iter())
+                }
+                InsertSide::Below => {
+                    Either::Right([ListItem::new(line), ListItem::new(extension_line)].into_iter())
+                }
+            }
+        } else {
+            Either::Left([ListItem::new(line)].into_iter())
+        }
     }
 
     fn render_rub_inline_labels_for_selected_line(
@@ -1417,6 +1491,7 @@ enum CommandMessage {
 enum CommitMessage {
     CreateEmpty,
     Start,
+    SetInsertSide(InsertSide),
     Confirm { with_message: bool },
 }
 
@@ -1462,6 +1537,11 @@ struct CommitMode {
     ///
     /// Used when committing changes staged to a specific stack
     scope_to_stack: Option<StackId>,
+    /// The side to insert the new commit on, relative to the target commit.
+    ///
+    /// Note this is only respected when inserting at a commit. If inserting at a branch we'll
+    /// always use [`InsertSide::Below`].
+    insert_side: InsertSide,
 }
 
 /// A subset of [`CliId`] that supports being committed
@@ -1647,11 +1727,23 @@ fn commit_operation_display(
                 // don't allow selecting branches outside the scoped stack
                 None
             } else {
-                Some("commit")
+                Some("commit to branch")
             }
         }
-        StatusOutputLineData::Commit { .. }
-        | StatusOutputLineData::StagedChanges { .. }
+        StatusOutputLineData::Commit { stack_id, .. } => {
+            if let Some(stack_scope) = mode.scope_to_stack
+                && Some(stack_scope) != *stack_id
+            {
+                // don't allow selecting commits outside the scoped stack
+                None
+            } else {
+                match mode.insert_side {
+                    InsertSide::Above => Some("insert commit above"),
+                    InsertSide::Below => Some("insert commit below"),
+                }
+            }
+        }
+        StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
         | StatusOutputLineData::UnstagedChanges { .. }
         | StatusOutputLineData::UnstagedFile { .. }

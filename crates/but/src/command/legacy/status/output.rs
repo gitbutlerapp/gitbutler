@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use gitbutler_stack::StackId;
 use ratatui::text::Span;
 
 use crate::{CliId, command::legacy::status::render_oneshot, utils::WriteWithUtils};
@@ -151,12 +152,14 @@ impl StatusOutput<'_> {
         connector: Vec<Span<'static>>,
         line: CommitLineContent,
         id: CliId,
+        stack_id: Option<StackId>,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
             StatusOutputContent::Commit(line),
             StatusOutputLineData::Commit {
                 cli_id: Arc::new(id),
+                stack_id,
             },
         )
     }
@@ -309,15 +312,30 @@ impl StatusOutputLine {
 pub(super) enum StatusOutputLineData {
     UpdateNotice,
     Connector,
-    StagedChanges { cli_id: Arc<CliId> },
-    StagedFile { cli_id: Arc<CliId> },
-    UnstagedChanges { cli_id: Arc<CliId> },
-    UnstagedFile { cli_id: Arc<CliId> },
-    Branch { cli_id: Arc<CliId> },
-    Commit { cli_id: Arc<CliId> },
+    StagedChanges {
+        cli_id: Arc<CliId>,
+    },
+    StagedFile {
+        cli_id: Arc<CliId>,
+    },
+    UnstagedChanges {
+        cli_id: Arc<CliId>,
+    },
+    UnstagedFile {
+        cli_id: Arc<CliId>,
+    },
+    Branch {
+        cli_id: Arc<CliId>,
+    },
+    Commit {
+        cli_id: Arc<CliId>,
+        stack_id: Option<StackId>,
+    },
     CommitMessage,
     EmptyCommitMessage,
-    File { cli_id: Arc<CliId> },
+    File {
+        cli_id: Arc<CliId>,
+    },
     MergeBase,
     UpstreamChanges,
     Warning,
@@ -333,7 +351,7 @@ impl StatusOutputLineData {
             | StatusOutputLineData::Branch { cli_id }
             | StatusOutputLineData::StagedChanges { cli_id }
             | StatusOutputLineData::StagedFile { cli_id }
-            | StatusOutputLineData::Commit { cli_id }
+            | StatusOutputLineData::Commit { cli_id, .. }
             | StatusOutputLineData::File { cli_id } => Some(cli_id),
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
