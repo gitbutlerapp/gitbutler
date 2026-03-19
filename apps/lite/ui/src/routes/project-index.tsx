@@ -541,7 +541,12 @@ type Selection =
 			_tag: "Commit";
 			stackId: string;
 			commitId: string;
-			path?: string;
+	  }
+	| {
+			_tag: "CommitFile";
+			stackId: string;
+			commitId: string;
+			path: string;
 	  };
 
 const normalizeSelection = (
@@ -550,7 +555,7 @@ const normalizeSelection = (
 ): Selection | null =>
 	Match.value(selection).pipe(
 		Match.tag("ChangesFile", (selection) => selection),
-		Match.tag("Commit", (selection) => {
+		Match.tag("Commit", "CommitFile", (selection) => {
 			const stackIds = stackIdsByCommitId.get(selection.commitId);
 			if (stackIds === undefined) return null;
 			if (!stackIds.has(selection.stackId)) return null;
@@ -627,13 +632,10 @@ const Preview: FC<{
 				onDependencyHover={onDependencyHover}
 			/>
 		)),
-		Match.tag("Commit", ({ commitId, path }) =>
-			path !== undefined ? (
-				<CommitFileDiff projectId={projectId} commitId={commitId} path={path} />
-			) : (
-				<ShowCommit projectId={projectId} commitId={commitId} />
-			),
-		),
+		Match.tag("Commit", ({ commitId }) => <ShowCommit projectId={projectId} commitId={commitId} />),
+		Match.tag("CommitFile", ({ commitId, path }) => (
+			<CommitFileDiff projectId={projectId} commitId={commitId} path={path} />
+		)),
 		Match.exhaustive,
 	);
 
@@ -1193,16 +1195,14 @@ const ProjectPage: FC = () => {
 	const isCommitSelected = (stackId: string, commitId: string) =>
 		selection?._tag === "Commit" &&
 		selection.stackId === stackId &&
-		selection.commitId === commitId &&
-		selection.path === undefined;
+		selection.commitId === commitId;
 	const isCommitAnyFileSelected = (stackId: string, commitId: string) =>
-		selection?._tag === "Commit" &&
+		selection?._tag === "CommitFile" &&
 		selection.stackId === stackId &&
-		selection.commitId === commitId &&
-		selection.path !== undefined;
+		selection.commitId === commitId;
 	const isChangeUnitFileSelected = (stackId: string, changeUnit: ChangeUnit, path: string) => {
 		if (!selection) return false;
-		if (selection._tag === "Commit" && changeUnit._tag === "Commit")
+		if (selection._tag === "CommitFile" && changeUnit._tag === "Commit")
 			return (
 				selection.stackId === stackId &&
 				selection.commitId === changeUnit.commitId &&
@@ -1223,7 +1223,7 @@ const ProjectPage: FC = () => {
 					? { _tag: "Commit", stackId, commitId: changeUnit.commitId }
 					: null
 				: changeUnit._tag === "Commit"
-					? { _tag: "Commit", stackId, commitId: changeUnit.commitId, path }
+					? { _tag: "CommitFile", stackId, commitId: changeUnit.commitId, path }
 					: { _tag: "ChangesFile", stackId, path },
 		);
 	};
