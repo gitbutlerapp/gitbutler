@@ -204,9 +204,9 @@
 
 {#if otherNightlies.length > 0}
 	<section class="releases">
-		<h3>
+		<h2>
 			Other <i>nightly</i> builds:
-		</h3>
+		</h2>
 
 		{#each otherNightlies as release, index (`${release.version}-${release.sha}-${index}`)}
 			<div class="release-row">
@@ -474,7 +474,7 @@
 		border-radius: var(--radius-xl);
 		font-family: var(--font-mono);
 
-		& h3 {
+		& h2 {
 			padding: 16px 24px 12px;
 			font-size: 40px;
 			line-height: 1.2;

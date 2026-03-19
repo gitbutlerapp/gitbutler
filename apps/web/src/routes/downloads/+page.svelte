@@ -186,9 +186,9 @@
 </section>
 
 <section class="releases">
-	<h3>
+	<h2>
 		Other <i>releases:</i>
-	</h3>
+	</h2>
 
 	{#each data.releases.filter((release) => release.version !== latestRelease.version) as release (release.version)}
 		<ReleaseCard
@@ -426,7 +426,7 @@
 		border-radius: var(--radius-xl);
 		font-family: var(--font-mono);
 
-		& h3 {
+		& h2 {
 			position: relative;
 			padding: 16px 24px 12px;
 			font-size: 40px;
@@ -434,7 +434,7 @@
 			font-family: var(--font-accent);
 		}
 
-		& h3:after {
+		& h2:after {
 			z-index: 0;
 			position: absolute;
 			right: 24px;
