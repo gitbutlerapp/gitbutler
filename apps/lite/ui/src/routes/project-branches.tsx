@@ -43,7 +43,7 @@ type Selection =
 			path: string;
 	  };
 
-const normalizeSelectionForBranches = (
+const normalizeBranchSelection = (
 	selection: Selection,
 	branches: Array<BranchListing>,
 ): Selection | null => {
@@ -58,22 +58,10 @@ const getDefaultSelection = (branches: Array<BranchListing>): Selection | null =
 	return { _tag: "Branch", branchName: firstBranch.name };
 };
 
-const normalizeSelectionForBranchDetails = (
-	selection: Selection,
-	branchDetails: BranchDetails,
-): Selection | null =>
-	Match.value(selection).pipe(
-		Match.tag("Branch", (selection) => selection),
-		Match.tag("Commit", "CommitFile", (selection): Selection => {
-			const commitIds = new Set(branchDetails.commits.map((commit) => commit.id));
-			if (commitIds.has(selection.commitId)) return selection;
-			return {
-				_tag: "Branch",
-				branchName: selection.branchName,
-			};
-		}),
-		Match.exhaustive,
-	);
+const isValidCommit = (commitId: string, branchDetails: BranchDetails): boolean => {
+	const commitIds = new Set(branchDetails.commits.map((commit) => commit.id));
+	return commitIds.has(commitId);
+};
 
 const getBranchRef = (branch: BranchListing): string | null => {
 	if (branch.hasLocal) return `refs/heads/${branch.name}`;
@@ -186,12 +174,19 @@ const BranchDetailsC: FC<{
 
 const CommitFileDiff: FC<{
 	projectId: string;
+	branchName: string;
+	remote: string | null;
 	commitId: string;
 	path: string;
-}> = ({ projectId, commitId, path }) => {
+}> = ({ projectId, branchName, remote, commitId, path }) => {
+	const { data: branchDetails } = useSuspenseQuery(
+		branchDetailsQueryOptions({ projectId, branchName, remote }),
+	);
 	const { data } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
+	if (!isValidCommit(commitId, branchDetails)) return null;
+
 	const change = data.changes.find((candidate) => candidate.path === path);
 
 	if (!change) return null;
@@ -209,11 +204,17 @@ const CommitFileDiff: FC<{
 
 const CommitDiff: FC<{
 	projectId: string;
+	branchName: string;
+	remote: string | null;
 	commitId: string;
-}> = ({ projectId, commitId }) => {
+}> = ({ projectId, branchName, remote, commitId }) => {
+	const { data: branchDetails } = useSuspenseQuery(
+		branchDetailsQueryOptions({ projectId, branchName, remote }),
+	);
 	const { data } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
+	if (!isValidCommit(commitId, branchDetails)) return null;
 
 	if (data.changes.length === 0) return null;
 
@@ -283,19 +284,8 @@ const Preview: FC<{
 	selection: Selection;
 	remote: string | null;
 	selectedBranchRef: string | null;
-}> = ({ projectId, selection: _selection, remote, selectedBranchRef }) => {
-	const { data: branchDetails } = useSuspenseQuery(
-		branchDetailsQueryOptions({
-			projectId,
-			branchName: _selection.branchName,
-			remote,
-		}),
-	);
-	const selection = normalizeSelectionForBranchDetails(_selection, branchDetails);
-
-	if (selection === null) return null;
-
-	return Match.value(selection).pipe(
+}> = ({ projectId, selection, remote, selectedBranchRef }) =>
+	Match.value(selection).pipe(
 		Match.tag("Branch", ({ branchName }) =>
 			selectedBranchRef !== null ? (
 				<ShowBranch projectId={projectId} branch={selectedBranchRef} branchName={branchName} />
@@ -303,13 +293,25 @@ const Preview: FC<{
 				<div>No branch diff available.</div>
 			),
 		),
-		Match.tag("Commit", ({ commitId }) => <CommitDiff projectId={projectId} commitId={commitId} />),
-		Match.tag("CommitFile", ({ commitId, path }) => (
-			<CommitFileDiff projectId={projectId} commitId={commitId} path={path} />
+		Match.tag("Commit", ({ branchName, commitId }) => (
+			<CommitDiff
+				projectId={projectId}
+				branchName={branchName}
+				remote={remote}
+				commitId={commitId}
+			/>
+		)),
+		Match.tag("CommitFile", ({ branchName, commitId, path }) => (
+			<CommitFileDiff
+				projectId={projectId}
+				branchName={branchName}
+				remote={remote}
+				commitId={commitId}
+				path={path}
+			/>
 		)),
 		Match.exhaustive,
 	);
-};
 
 const ProjectBranchesPage: FC = () => {
 	const { id: projectId } = projectBranchesRoute.useParams();
@@ -327,7 +329,7 @@ const ProjectBranchesPage: FC = () => {
 		{ defaultValue: null },
 	);
 	const selection =
-		(_selection ? normalizeSelectionForBranches(_selection, sortedBranches) : null) ??
+		(_selection ? normalizeBranchSelection(_selection, sortedBranches) : null) ??
 		getDefaultSelection(sortedBranches);
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
 	const selectedRemote =
