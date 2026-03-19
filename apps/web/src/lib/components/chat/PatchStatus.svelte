@@ -56,7 +56,7 @@
 		}
 
 		&.request-changes {
-			border-left-color: var(--clr-br-commit-changes-requested-bg);
+			border-left-color: var(--clr-theme-warn-element);
 			background: var(--clr-bg-1);
 		}
 	}
@@ -74,7 +74,7 @@
 		color: var(--clr-core-gray-100);
 
 		&.request-changes {
-			background: var(--clr-br-commit-changes-requested-bg);
+			background: var(--clr-theme-warn-element);
 		}
 	}
 

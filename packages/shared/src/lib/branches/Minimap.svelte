@@ -269,14 +269,14 @@
 	}
 
 	.changes-requested {
-		background-color: var(--clr-br-commit-changes-requested-bg);
+		background-color: var(--clr-theme-warn-element);
 	}
 
 	.approved {
-		background-color: var(--clr-br-commit-approved-bg);
+		background-color: var(--clr-theme-safe-element);
 	}
 
 	.in-discussion {
-		background-color: var(--clr-br-commit-in-discussion-bg);
+		background-color: var(--clr-theme-pop-soft);
 	}
 </style>

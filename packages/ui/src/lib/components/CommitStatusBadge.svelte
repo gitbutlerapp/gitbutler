@@ -148,29 +148,29 @@
 		text-wrap: nowrap;
 	}
 	.status-badge_closed {
-		background-color: var(--clr-br-commit-closed-bg);
-		color: var(--clr-br-commit-closed-text);
+		background-color: var(--clr-theme-purple-element);
+		color: var(--clr-theme-purple-on-element);
 	}
 
 	.status-badge_approved {
-		background-color: var(--clr-br-commit-approved-bg);
-		color: var(--clr-br-commit-approved-text);
+		background-color: var(--clr-theme-safe-element);
+		color: var(--clr-theme-safe-on-element);
 	}
 
 	.status-badge_changes-requested {
-		background-color: var(--clr-br-commit-changes-requested-bg);
-		color: var(--clr-br-commit-changes-requested-text);
+		background-color: var(--clr-theme-warn-element);
+		color: var(--clr-theme-warn-on-element);
 	}
 
 	.status-badge_in-discussion {
-		background-color: var(--clr-br-commit-in-discussion-bg);
-		color: var(--clr-br-commit-in-discussion-text);
+		background-color: var(--clr-theme-pop-soft);
+		color: var(--clr-theme-pop-on-soft);
 	}
 
 	.status-badge_unreviewed,
 	.status-badge_loading {
-		background-color: var(--clr-br-commit-unreviewed-bg);
-		color: var(--clr-br-commit-unreviewed-text);
+		background-color: var(--clr-theme-gray-soft);
+		color: var(--clr-theme-gray-on-soft);
 	}
 
 	.status-badge_icon {
