@@ -24,12 +24,24 @@ import {
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/queries.ts";
+import { Match } from "effect";
 
-type Selection = {
-	branchName: BranchIdentity;
-	commitId?: string;
-	path?: string;
-};
+type Selection =
+	| {
+			_tag: "Branch";
+			branchName: BranchIdentity;
+	  }
+	| {
+			_tag: "Commit";
+			branchName: BranchIdentity;
+			commitId: string;
+	  }
+	| {
+			_tag: "CommitFile";
+			branchName: BranchIdentity;
+			commitId: string;
+			path: string;
+	  };
 
 const normalizeSelectionForBranches = (
 	selection: Selection,
@@ -43,18 +55,25 @@ const normalizeSelectionForBranches = (
 const getDefaultSelection = (branches: Array<BranchListing>): Selection | null => {
 	const firstBranch = branches[0];
 	if (!firstBranch) return null;
-	return { branchName: firstBranch.name };
+	return { _tag: "Branch", branchName: firstBranch.name };
 };
 
 const normalizeSelectionForBranchDetails = (
 	selection: Selection,
 	branchDetails: BranchDetails,
-): Selection | null => {
-	if (selection.commitId === undefined) return selection;
-	const commitIds = new Set(branchDetails.commits.map((commit) => commit.id));
-	if (commitIds.has(selection.commitId)) return selection;
-	return { branchName: selection.branchName };
-};
+): Selection | null =>
+	Match.value(selection).pipe(
+		Match.tag("Branch", (selection) => selection),
+		Match.tag("Commit", "CommitFile", (selection): Selection => {
+			const commitIds = new Set(branchDetails.commits.map((commit) => commit.id));
+			if (commitIds.has(selection.commitId)) return selection;
+			return {
+				_tag: "Branch",
+				branchName: selection.branchName,
+			};
+		}),
+		Match.exhaustive,
+	);
 
 const getBranchRef = (branch: BranchListing): string | null => {
 	if (branch.hasLocal) return `refs/heads/${branch.name}`;
@@ -274,24 +293,20 @@ const Preview: FC<{
 
 	if (selection === null) return null;
 
-	if (selection.commitId !== undefined && selection.path !== undefined)
-		return (
-			<CommitFileDiff projectId={projectId} commitId={selection.commitId} path={selection.path} />
-		);
-
-	if (selection.commitId !== undefined)
-		return <CommitDiff projectId={projectId} commitId={selection.commitId} />;
-
-	if (selectedBranchRef !== null)
-		return (
-			<ShowBranch
-				projectId={projectId}
-				branch={selectedBranchRef}
-				branchName={selection.branchName}
-			/>
-		);
-
-	return <div>No branch diff available.</div>;
+	return Match.value(selection).pipe(
+		Match.tag("Branch", ({ branchName }) =>
+			selectedBranchRef !== null ? (
+				<ShowBranch projectId={projectId} branch={selectedBranchRef} branchName={branchName} />
+			) : (
+				<div>No branch diff available.</div>
+			),
+		),
+		Match.tag("Commit", ({ commitId }) => <CommitDiff projectId={projectId} commitId={commitId} />),
+		Match.tag("CommitFile", ({ commitId, path }) => (
+			<CommitFileDiff projectId={projectId} commitId={commitId} path={path} />
+		)),
+		Match.exhaustive,
+	);
 };
 
 const ProjectBranchesPage: FC = () => {
@@ -316,31 +331,36 @@ const ProjectBranchesPage: FC = () => {
 		selectedBranch && !selectedBranch.hasLocal ? selectedBranch.remotes[0] : null;
 
 	const isBranchSelected = (branchName: string) =>
-		selection?.branchName === branchName && selection.commitId === undefined;
+		selection?._tag === "Branch" && selection.branchName === branchName;
 	const isBranchSelectedWithin = (branchName: string) =>
-		selection?.branchName === branchName && selection.commitId !== undefined;
+		selection?._tag !== "Branch" && selection?.branchName === branchName;
 
 	const isCommitSelected = (branchName: string, commitId: string) =>
-		selection?.branchName === branchName &&
-		selection.commitId === commitId &&
-		selection.path === undefined;
+		selection?._tag === "Commit" &&
+		selection.branchName === branchName &&
+		selection.commitId === commitId;
 	const isCommitAnyFileSelected = (branchName: string, commitId: string) =>
-		selection?.branchName === branchName &&
-		selection.commitId === commitId &&
-		selection.path !== undefined;
+		selection?._tag === "CommitFile" &&
+		selection.branchName === branchName &&
+		selection.commitId === commitId;
 	const isCommitFileSelected = (branchName: string, commitId: string, path: string) =>
-		selection?.branchName === branchName &&
+		selection?._tag === "CommitFile" &&
+		selection.branchName === branchName &&
 		selection.commitId === commitId &&
 		selection.path === path;
 
 	const toggleCommitSelection = (branchName: string, commitId: string) => {
-		select(isCommitSelected(branchName, commitId) ? { branchName } : { branchName, commitId });
+		select(
+			isCommitSelected(branchName, commitId)
+				? { _tag: "Branch", branchName }
+				: { _tag: "Commit", branchName, commitId },
+		);
 	};
 	const toggleCommitFileSelection = (branchName: string, commitId: string, path: string) => {
 		select(
 			isCommitFileSelected(branchName, commitId, path)
-				? { branchName, commitId }
-				: { branchName, commitId, path },
+				? { _tag: "Commit", branchName, commitId }
+				: { _tag: "CommitFile", branchName, commitId, path },
 		);
 	};
 
@@ -386,7 +406,9 @@ const ProjectBranchesPage: FC = () => {
 									)}
 									onClick={() => {
 										select((selected) =>
-											selected?.branchName === branch.name ? null : { branchName: branch.name },
+											selected?.branchName === branch.name
+												? null
+												: { _tag: "Branch", branchName: branch.name },
 										);
 									}}
 								>
