@@ -24,7 +24,7 @@ import {
 	HunkHeader,
 } from "@gitbutler/but-sdk";
 import { Array, Match } from "effect";
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createContext, FC, Suspense, useContext, useEffect, useState } from "react";
 import styles from "./project-index.module.css";
 import sharedStyles from "./project-shared.module.css";
@@ -760,6 +760,7 @@ const CommitC: FC<{
 	isSelected: boolean;
 	isAnyFileSelected: boolean;
 	isFileSelected: (path: string) => boolean;
+	toggleExpand: () => Promise<void> | void;
 	toggleSelect: () => void;
 	toggleFileSelect: (path: string) => void;
 }> = ({
@@ -771,11 +772,10 @@ const CommitC: FC<{
 	isSelected,
 	isAnyFileSelected,
 	isFileSelected,
+	toggleExpand,
 	toggleSelect,
 	toggleFileSelect,
 }) => {
-	const expanded = isSelected || isAnyFileSelected;
-
 	const changeUnit: ChangeUnit = { _tag: "Commit", commitId: commit.id };
 
 	return (
@@ -795,11 +795,12 @@ const CommitC: FC<{
 						isSelected={isSelected}
 						isAnyFileSelected={isAnyFileSelected}
 						isHighlighted={isHighlighted}
+						toggleExpand={toggleExpand}
 						toggleSelect={toggleSelect}
 					/>
 				}
 			/>
-			{expanded && (
+			{isAnyFileSelected && (
 				<div className={sharedStyles.commitDetails}>
 					<Suspense fallback={<div>Loading changed details…</div>}>
 						<CommitDetails
@@ -1051,6 +1052,7 @@ const StackC: FC<{
 	isCommitSelected: (commitId: string) => boolean;
 	isCommitAnyFileSelected: (commitId: string) => boolean;
 	isChangeUnitFileSelected: (changeUnit: ChangeUnit, path: string) => boolean;
+	toggleCommitExpanded: (commitId: string) => Promise<void> | void;
 	toggleCommitSelection: (commitId: string) => void;
 	toggleChangeUnitFileSelection: (changeUnit: ChangeUnit, path: string) => void;
 	highlightedCommitIds: Set<string>;
@@ -1061,6 +1063,7 @@ const StackC: FC<{
 	isCommitSelected,
 	isCommitAnyFileSelected,
 	isChangeUnitFileSelected,
+	toggleCommitExpanded,
 	toggleCommitSelection,
 	toggleChangeUnitFileSelection,
 	highlightedCommitIds,
@@ -1134,6 +1137,7 @@ const StackC: FC<{
 											isSelected={isCommitSelected(commit.id)}
 											isAnyFileSelected={isCommitAnyFileSelected(commit.id)}
 											isFileSelected={(path) => isChangeUnitFileSelected(changeUnit, path)}
+											toggleExpand={() => toggleCommitExpanded(commit.id)}
 											toggleSelect={() => {
 												toggleCommitSelection(commit.id);
 											}}
@@ -1165,6 +1169,7 @@ const ProjectPage: FC = () => {
 	// TODO: handle project not found error. or only run when project is not null? waterfall.
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
+	const queryClient = useQueryClient();
 
 	const [_selection, select] = useLocalStorageState<Selection | null>(
 		`project:${projectId}:workspace:selection`,
@@ -1215,6 +1220,23 @@ const ProjectPage: FC = () => {
 
 	const toggleCommitSelection = (stackId: string, commitId: string) => {
 		select(isCommitSelected(stackId, commitId) ? null : { _tag: "Commit", stackId, commitId });
+	};
+	const toggleCommitExpanded = async (stackId: string, commitId: string) => {
+		if (isCommitAnyFileSelected(stackId, commitId)) {
+			select({ _tag: "Commit", stackId, commitId });
+			return;
+		}
+
+		const commitDetails = await queryClient.ensureQueryData(
+			commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
+		);
+		const firstPath = commitDetails.changes[0]?.path;
+
+		select(
+			firstPath !== undefined
+				? { _tag: "CommitFile", stackId, commitId, path: firstPath }
+				: { _tag: "Commit", stackId, commitId },
+		);
 	};
 	const toggleChangeUnitFileSelection = (stackId: string, changeUnit: ChangeUnit, path: string) => {
 		select(
@@ -1279,6 +1301,7 @@ const ProjectPage: FC = () => {
 										isChangeUnitFileSelected={(changeUnit, path) =>
 											isChangeUnitFileSelected(stackId, changeUnit, path)
 										}
+										toggleCommitExpanded={(commitId) => toggleCommitExpanded(stackId, commitId)}
 										toggleCommitSelection={(commitId) => {
 											toggleCommitSelection(stackId, commitId);
 										}}

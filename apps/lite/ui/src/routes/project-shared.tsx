@@ -9,7 +9,15 @@ import {
 } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
-import { ComponentProps, FC, ReactNode, startTransition, useOptimistic, useState } from "react";
+import {
+	ComponentProps,
+	FC,
+	ReactNode,
+	startTransition,
+	useOptimistic,
+	useState,
+	useTransition,
+} from "react";
 import styles from "./project-shared.module.css";
 import {
 	commitDetailsWithLineStatsQueryOptions,
@@ -363,6 +371,7 @@ export const CommitRow: FC<
 		isSelected: boolean;
 		isAnyFileSelected: boolean;
 		isHighlighted: boolean;
+		toggleExpand: () => Promise<void> | void;
 		toggleSelect: () => void;
 	} & ComponentProps<"div">
 > = ({
@@ -371,12 +380,14 @@ export const CommitRow: FC<
 	isSelected,
 	isAnyFileSelected,
 	isHighlighted,
+	toggleExpand,
 	toggleSelect,
 	className,
 	...restProps
 }) => {
 	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
 	const [isEditingMessage, setIsEditingMessage] = useState(false);
+	const [isExpandPending, startExpandTransition] = useTransition();
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
 		(_currentMessage, nextMessage: string) => nextMessage,
@@ -408,6 +419,8 @@ export const CommitRow: FC<
 						isHighlighted && styles.highlighted,
 						className,
 					)}
+					style={{ ...(isExpandPending && { opacity: 0.5 }) }}
+					aria-busy={isExpandPending}
 				>
 					{isEditingMessage ? (
 						<InlineCommitMessageEditor
@@ -439,6 +452,16 @@ export const CommitRow: FC<
 							</ContextMenu.Portal>
 						</ContextMenu.Root>
 					)}
+					<button
+						type="button"
+						onClick={() => {
+							startExpandTransition(toggleExpand);
+						}}
+						aria-expanded={isAnyFileSelected}
+						aria-label={isAnyFileSelected ? "Collapse commit" : "Expand commit"}
+					>
+						{isAnyFileSelected ? "-" : "+"}
+					</button>
 					<Menu.Root>
 						<Menu.Trigger style={{ lineHeight: 1 }}>𑁔</Menu.Trigger>
 						<Menu.Portal>

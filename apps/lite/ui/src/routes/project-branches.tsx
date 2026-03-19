@@ -1,5 +1,5 @@
 import useLocalStorageState from "use-local-storage-state";
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createRoute } from "@tanstack/react-router";
 import { FC, Suspense } from "react";
 import {
@@ -88,6 +88,7 @@ const CommitC: FC<{
 	isSelected: boolean;
 	isAnyFileSelected: boolean;
 	isFileSelected: (path: string) => boolean;
+	toggleExpand: () => Promise<void> | void;
 	toggleSelect: () => void;
 	toggleFileSelect: (path: string) => void;
 }> = ({
@@ -96,44 +97,42 @@ const CommitC: FC<{
 	isSelected,
 	isAnyFileSelected,
 	isFileSelected,
+	toggleExpand,
 	toggleSelect,
 	toggleFileSelect,
-}) => {
-	const expanded = isSelected || isAnyFileSelected;
-
-	return (
-		<div className={sharedStyles.commit}>
-			<CommitRow
-				projectId={projectId}
-				commit={commit}
-				isSelected={isSelected}
-				isAnyFileSelected={isAnyFileSelected}
-				isHighlighted={false}
-				toggleSelect={toggleSelect}
-			/>
-			{expanded && (
-				<div className={sharedStyles.commitDetails}>
-					<Suspense fallback={<div>Loading changed details…</div>}>
-						<CommitDetails
-							projectId={projectId}
-							commitId={commit.id}
-							renderFile={(change) => (
-								<div
-									className={classes(
-										sharedStyles.fileRow,
-										isFileSelected(change.path) && sharedStyles.selected,
-									)}
-								>
-									<FileButton change={change} toggleSelect={() => toggleFileSelect(change.path)} />
-								</div>
-							)}
-						/>
-					</Suspense>
-				</div>
-			)}
-		</div>
-	);
-};
+}) => (
+	<div className={sharedStyles.commit}>
+		<CommitRow
+			projectId={projectId}
+			commit={commit}
+			isSelected={isSelected}
+			isAnyFileSelected={isAnyFileSelected}
+			isHighlighted={false}
+			toggleExpand={toggleExpand}
+			toggleSelect={toggleSelect}
+		/>
+		{isAnyFileSelected && (
+			<div className={sharedStyles.commitDetails}>
+				<Suspense fallback={<div>Loading changed details…</div>}>
+					<CommitDetails
+						projectId={projectId}
+						commitId={commit.id}
+						renderFile={(change) => (
+							<div
+								className={classes(
+									sharedStyles.fileRow,
+									isFileSelected(change.path) && sharedStyles.selected,
+								)}
+							>
+								<FileButton change={change} toggleSelect={() => toggleFileSelect(change.path)} />
+							</div>
+						)}
+					/>
+				</Suspense>
+			</div>
+		)}
+	</div>
+);
 
 const BranchDetailsC: FC<{
 	projectId: string;
@@ -142,6 +141,7 @@ const BranchDetailsC: FC<{
 	isCommitSelected: (commitId: string) => boolean;
 	isCommitAnyFileSelected: (commitId: string) => boolean;
 	isCommitFileSelected: (commitId: string, path: string) => boolean;
+	toggleCommitExpanded: (commitId: string) => Promise<void> | void;
 	toggleCommitSelection: (commitId: string) => void;
 	toggleCommitFileSelection: (commitId: string, path: string) => void;
 }> = ({
@@ -151,6 +151,7 @@ const BranchDetailsC: FC<{
 	isCommitSelected,
 	isCommitAnyFileSelected,
 	isCommitFileSelected,
+	toggleCommitExpanded,
 	toggleCommitSelection,
 	toggleCommitFileSelection,
 }) => {
@@ -169,6 +170,7 @@ const BranchDetailsC: FC<{
 						isSelected={isCommitSelected(commit.id)}
 						isAnyFileSelected={isCommitAnyFileSelected(commit.id)}
 						isFileSelected={(path) => isCommitFileSelected(commit.id, path)}
+						toggleExpand={() => toggleCommitExpanded(commit.id)}
 						toggleSelect={() => {
 							toggleCommitSelection(commit.id);
 						}}
@@ -315,6 +317,7 @@ const ProjectBranchesPage: FC = () => {
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 	const project = projects.find((project) => project.id === projectId);
 	const { data: branches } = useSuspenseQuery(listBranchesQueryOptions(projectId));
+	const queryClient = useQueryClient();
 	const applyBranch = useMutation(applyBranchMutationOptions);
 	const unapplyStack = useMutation(unapplyStackMutationOptions);
 
@@ -333,7 +336,8 @@ const ProjectBranchesPage: FC = () => {
 	const isBranchSelected = (branchName: string) =>
 		selection?._tag === "Branch" && selection.branchName === branchName;
 	const isBranchSelectedWithin = (branchName: string) =>
-		selection?._tag !== "Branch" && selection?.branchName === branchName;
+		(selection?._tag === "Commit" || selection?._tag === "CommitFile") &&
+		selection.branchName === branchName;
 
 	const isCommitSelected = (branchName: string, commitId: string) =>
 		selection?._tag === "Commit" &&
@@ -356,11 +360,33 @@ const ProjectBranchesPage: FC = () => {
 				: { _tag: "Commit", branchName, commitId },
 		);
 	};
+	const toggleCommitExpanded = async (branchName: string, commitId: string) => {
+		if (isCommitAnyFileSelected(branchName, commitId)) {
+			select({ _tag: "Commit", branchName, commitId });
+			return;
+		}
+
+		const commitDetails = await queryClient.ensureQueryData(
+			commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
+		);
+		const firstPath = commitDetails.changes[0]?.path;
+
+		select(
+			firstPath !== undefined
+				? { _tag: "CommitFile", branchName, commitId, path: firstPath }
+				: { _tag: "Commit", branchName, commitId },
+		);
+	};
 	const toggleCommitFileSelection = (branchName: string, commitId: string, path: string) => {
 		select(
 			isCommitFileSelected(branchName, commitId, path)
 				? { _tag: "Commit", branchName, commitId }
 				: { _tag: "CommitFile", branchName, commitId, path },
+		);
+	};
+	const toggleBranchSelection = (branchName: string) => {
+		select((selected) =>
+			selected?.branchName === branchName ? null : { _tag: "Branch", branchName },
 		);
 	};
 
@@ -405,11 +431,7 @@ const ProjectBranchesPage: FC = () => {
 												: undefined,
 									)}
 									onClick={() => {
-										select((selected) =>
-											selected?.branchName === branch.name
-												? null
-												: { _tag: "Branch", branchName: branch.name },
-										);
+										toggleBranchSelection(branch.name);
 									}}
 								>
 									{branch.name}
@@ -465,6 +487,9 @@ const ProjectBranchesPage: FC = () => {
 								}
 								isCommitFileSelected={(commitId, path) =>
 									isCommitFileSelected(selectedBranch.name, commitId, path)
+								}
+								toggleCommitExpanded={(commitId) =>
+									toggleCommitExpanded(selectedBranch.name, commitId)
 								}
 								toggleCommitSelection={(commitId) =>
 									toggleCommitSelection(selectedBranch.name, commitId)
