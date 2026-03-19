@@ -3,7 +3,7 @@ use std::convert::Infallible;
 use but_testsupport::Sandbox;
 use crossterm::event::*;
 use gitbutler_operating_modes::OperatingMode;
-use ratatui::{Terminal, backend::TestBackend};
+use ratatui::{Terminal, backend::TestBackend, widgets::List};
 
 use crate::{
     args::OutputFormat,
@@ -18,6 +18,7 @@ use crate::{
 pub(super) struct TestTui {
     pub(super) app: App,
     terminal: Terminal<TestBackend>,
+    terminal_width: u16,
     pub(super) env: Sandbox,
     out: OutputChannel,
     mode: OperatingMode,
@@ -25,6 +26,10 @@ pub(super) struct TestTui {
 }
 
 pub(super) fn test_tui(env: Sandbox) -> TestTui {
+    test_tui_with_size(env, 100, 20)
+}
+
+pub(super) fn test_tui_with_size(env: Sandbox, width: u16, height: u16) -> TestTui {
     let async_runtime = tokio::runtime::Builder::new_current_thread()
         .build()
         .expect("failed to build async runtime");
@@ -57,11 +62,12 @@ pub(super) fn test_tui(env: Sandbox) -> TestTui {
 
     let app = App::new(lines, flags, debug);
     let terminal =
-        Terminal::new(TestBackend::new(100, 20)).expect("failed to create test terminal");
+        Terminal::new(TestBackend::new(width, height)).expect("failed to create test terminal");
 
     TestTui {
         app,
         terminal,
+        terminal_width: width,
         env,
         out,
         mode,
@@ -130,20 +136,41 @@ impl TestTuiInputThenRenderResult<'_> {
     }
 
     #[track_caller]
+    pub(super) fn assert_rendered_contains(self, expected: &str) -> Self {
+        let output = self.0.terminal.backend().to_string();
+        assert!(
+            output.contains(expected),
+            "expected rendered output to contain {expected:?}, got:\n{output}"
+        );
+
+        self
+    }
+
+    #[track_caller]
     pub(super) fn assert_current_line_eq(self, expected: impl snapbox::IntoData) -> Self {
-        let mut terminal =
-            Terminal::new(TestBackend::new(100, 20)).expect("failed to create test terminal");
-
+        let selected_line = self
+            .0
+            .app
+            .cursor
+            .selected_line(&self.0.app.status_lines)
+            .expect("failed to get selected line");
+        let list_item = self
+            .0
+            .app
+            .render_status_list_item(selected_line, true)
+            .into_iter()
+            .next()
+            .expect("selected line should render at least one list item");
+        let mut terminal = Terminal::new(TestBackend::new(self.0.terminal_width, 1))
+            .expect("failed to create test terminal");
         terminal
-            .draw(|frame| self.0.app.render(frame))
-            .expect("failed to render");
-
+            .draw(|frame| frame.render_widget(List::new([list_item]), frame.area()))
+            .expect("failed to render current line");
         let output = terminal.backend().to_string();
         let line = output
             .lines()
-            .nth(self.0.app.cursor.index())
-            .expect("failed to get selected line");
-        let line = line
+            .next()
+            .expect("failed to get rendered current line")
             .trim_start_matches('"')
             .trim_end_matches('"')
             .trim_end();
