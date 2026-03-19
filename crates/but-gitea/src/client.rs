@@ -83,6 +83,13 @@ fn normalize_api_base_url(host: &str) -> String {
     }
 }
 
+/// Canonicalize a user-provided Gitea host for persistence and identity checks.
+pub(crate) fn canonicalize_host(host: &str) -> String {
+    normalize_api_base_url(host)
+        .trim_end_matches(GITEA_API_SUFFIX)
+        .to_string()
+}
+
 /// Recreate a client for a previously persisted account identifier.
 pub fn client_for(
     account: &crate::GiteaAccountIdentifier,
@@ -94,7 +101,7 @@ pub fn client_for(
 
 #[cfg(test)]
 mod tests {
-    use super::normalize_api_base_url;
+    use super::{canonicalize_host, normalize_api_base_url};
 
     #[test]
     fn appends_api_suffix_once() {
@@ -109,6 +116,22 @@ mod tests {
         assert_eq!(
             normalize_api_base_url("https://codeberg.org/api/v1"),
             "https://codeberg.org/api/v1"
+        );
+    }
+
+    #[test]
+    fn canonicalizes_equivalent_hosts() {
+        assert_eq!(
+            canonicalize_host("https://codeberg.org"),
+            "https://codeberg.org"
+        );
+        assert_eq!(
+            canonicalize_host("https://codeberg.org/"),
+            "https://codeberg.org"
+        );
+        assert_eq!(
+            canonicalize_host("https://codeberg.org/api/v1"),
+            "https://codeberg.org"
         );
     }
 }

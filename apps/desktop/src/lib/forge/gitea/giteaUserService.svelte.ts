@@ -1,4 +1,10 @@
-import { providesItem, providesList, ReduxTag } from "$lib/state/tags";
+import {
+	invalidatesItem,
+	invalidatesList,
+	providesItem,
+	providesList,
+	ReduxTag,
+} from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { BackendApi } from "$lib/state/clientState.svelte";
 import type { ButGitea, ButGiteaToken } from "@gitbutler/core/api";
@@ -73,7 +79,10 @@ function injectBackendEndpoints(api: BackendApi) {
 				query: (account) => ({
 					account,
 				}),
-				invalidatesTags: [providesList(ReduxTag.GiteaUserList)],
+				invalidatesTags: (_result, _error, account) => [
+					invalidatesList(ReduxTag.GiteaUserList),
+					invalidatesItem(ReduxTag.ForgeUser, `gitea:${account.host}:${account.username}`),
+				],
 			}),
 			getGiteaUser: build.query<
 				ButGitea.AuthenticatedUserSensitive | null,
@@ -111,7 +120,12 @@ function injectBackendEndpoints(api: BackendApi) {
 					actionName: "Store Gitea Account",
 				},
 				query: (args) => args,
-				invalidatesTags: [providesList(ReduxTag.GiteaUserList)],
+				invalidatesTags: (result) => [
+					invalidatesList(ReduxTag.GiteaUserList),
+					...(result
+						? [invalidatesItem(ReduxTag.ForgeUser, `gitea:${result.host}:${result.username}`)]
+						: []),
+				],
 			}),
 		}),
 	});

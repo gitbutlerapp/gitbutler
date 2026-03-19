@@ -46,11 +46,14 @@ pub fn get_gitea_access_token(
 pub fn list_known_gitea_accounts(
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<GiteaAccountIdentifier>> {
-    Ok(storage
-        .gitea_accounts()?
-        .iter()
-        .map(Into::into)
-        .collect::<Vec<_>>())
+    let mut accounts = Vec::new();
+    for account in storage.gitea_accounts()? {
+        let account_id: GiteaAccountIdentifier = (&account).into();
+        if !accounts.contains(&account_id) {
+            accounts.push(account_id);
+        }
+    }
+    Ok(accounts)
 }
 
 /// Delete all stored Gitea accounts.
@@ -77,7 +80,7 @@ impl GiteaAccountIdentifier {
     pub fn new(username: &str, host: &str) -> Self {
         Self {
             username: username.to_string(),
-            host: host.to_string(),
+            host: crate::client::canonicalize_host(host),
         }
     }
 
@@ -112,10 +115,7 @@ impl From<&GiteaAccount> for but_forge_storage::settings::GiteaAccount {
 
 impl From<&but_forge_storage::settings::GiteaAccount> for GiteaAccountIdentifier {
     fn from(account: &but_forge_storage::settings::GiteaAccount) -> Self {
-        Self {
-            username: account.username.clone(),
-            host: account.host.clone(),
-        }
+        Self::new(&account.username, &account.host)
     }
 }
 
@@ -147,16 +147,39 @@ fn persist_gitea_account(
     storage: &but_forge_storage::Controller,
 ) -> Result<()> {
     let secret_key = account.secret_key();
-    let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
-    secret::persist(
-        &secret_key,
-        &account.access_token(),
-        secret::Namespace::BuildKind,
+    let previous_account = find_persisted_gitea_account(
+        &GiteaAccountIdentifier::new(&account.username, &account.host),
+        storage,
     )?;
+    let persisted_account: but_forge_storage::settings::GiteaAccount = account.into();
+    storage.add_gitea_account(&persisted_account)?;
 
-    if let Err(err) = storage.add_gitea_account(&account.into()) {
-        let _ = secret::delete(&secret_key, secret::Namespace::BuildKind);
+    let persist_result = {
+        let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
+        secret::persist(
+            &secret_key,
+            &account.access_token(),
+            secret::Namespace::BuildKind,
+        )
+    };
+
+    if let Err(err) = persist_result {
+        if let Some(previous_account) = previous_account {
+            let _ = storage.add_gitea_account(&previous_account);
+        } else {
+            let _ = storage.remove_gitea_account(&persisted_account);
+        }
         return Err(err);
+    }
+
+    if let Some(previous_account) = previous_account
+        && previous_account.access_token_key() != secret_key
+    {
+        let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
+        let _ = secret::delete(
+            previous_account.access_token_key(),
+            secret::Namespace::BuildKind,
+        );
     }
 
     Ok(())
@@ -203,10 +226,29 @@ fn find_persisted_gitea_account(
     account_id: &GiteaAccountIdentifier,
     storage: &but_forge_storage::Controller,
 ) -> Result<Option<but_forge_storage::settings::GiteaAccount>> {
-    Ok(storage
-        .gitea_accounts()?
-        .into_iter()
-        .find(|account| account.username == account_id.username && account.host == account_id.host))
+    let target = GiteaAccountIdentifier::new(&account_id.username, &account_id.host);
+    let mut equivalent_match = None;
+
+    for account in storage.gitea_accounts()? {
+        if account.username != target.username {
+            continue;
+        }
+
+        let candidate = GiteaAccountIdentifier::new(&account.username, &account.host);
+        if candidate != target {
+            continue;
+        }
+
+        if account.host == target.host {
+            return Ok(Some(account));
+        }
+
+        if equivalent_match.is_none() {
+            equivalent_match = Some(account);
+        }
+    }
+
+    Ok(equivalent_match)
 }
 
 #[cfg(test)]
@@ -234,5 +276,61 @@ mod tests {
         .unwrap();
 
         assert!(storage.gitea_accounts().unwrap().is_empty());
+    }
+
+    #[test]
+    fn delete_matches_legacy_host_variants() {
+        let tempdir = tempdir().unwrap();
+        let storage = but_forge_storage::Controller::from_path(tempdir.path());
+        storage
+            .add_gitea_account(&but_forge_storage::settings::GiteaAccount {
+                host: "https://codeberg.org/api/v1".into(),
+                username: "demo".into(),
+                access_token_key: "missing-secret".into(),
+            })
+            .unwrap();
+
+        delete_gitea_access_token(
+            &GiteaAccountIdentifier::new("demo", "https://codeberg.org"),
+            &storage,
+        )
+        .unwrap();
+
+        assert!(storage.gitea_accounts().unwrap().is_empty());
+    }
+
+    #[test]
+    fn account_identifier_normalizes_equivalent_hosts() {
+        let plain = GiteaAccountIdentifier::new("demo", "https://codeberg.org");
+        let trailing = GiteaAccountIdentifier::new("demo", "https://codeberg.org/");
+        let api_root = GiteaAccountIdentifier::new("demo", "https://codeberg.org/api/v1");
+
+        assert_eq!(plain, trailing);
+        assert_eq!(plain, api_root);
+    }
+
+    #[test]
+    fn list_known_accounts_normalizes_equivalent_hosts() {
+        let tempdir = tempdir().unwrap();
+        let storage = but_forge_storage::Controller::from_path(tempdir.path());
+        storage
+            .add_gitea_account(&but_forge_storage::settings::GiteaAccount {
+                host: "https://codeberg.org/api/v1".into(),
+                username: "demo".into(),
+                access_token_key: "legacy".into(),
+            })
+            .unwrap();
+        storage
+            .add_gitea_account(&but_forge_storage::settings::GiteaAccount {
+                host: "https://codeberg.org/".into(),
+                username: "demo".into(),
+                access_token_key: "duplicate".into(),
+            })
+            .unwrap();
+
+        assert_eq!(
+            super::list_known_gitea_accounts(&storage).unwrap(),
+            vec![GiteaAccountIdentifier::new("demo", "https://codeberg.org")]
+        );
     }
 }

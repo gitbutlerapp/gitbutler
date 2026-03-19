@@ -33,13 +33,14 @@ pub async fn store_account(
     access_token: &Sensitive<String>,
     storage: &but_forge_storage::Controller,
 ) -> Result<AuthStatusResponse> {
-    let user = fetch_and_persist_user_data(host, access_token, storage).await?;
+    let canonical_host = client::canonicalize_host(host);
+    let user = fetch_and_persist_user_data(&canonical_host, access_token, storage).await?;
     Ok(AuthStatusResponse {
         access_token: access_token.clone(),
         username: user.username,
         name: user.name,
         email: user.email,
-        host: host.to_owned(),
+        host: canonical_host,
     })
 }
 

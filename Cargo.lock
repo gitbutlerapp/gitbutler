@@ -1178,6 +1178,7 @@ dependencies = [
  "but-fs",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
