@@ -6,6 +6,7 @@
 	import { afterNavigate, beforeNavigate } from "$app/navigation";
 	import { page } from "$app/state";
 	import AppUpdater from "$components/AppUpdater.svelte";
+	import WorkingIndicator from "$components/WorkingIndicator.svelte";
 	import FocusCursor from "$components/FocusCursor.svelte";
 	import GlobalModal from "$components/GlobalModal.svelte";
 	import GlobalSettingsMenuAction from "$components/GlobalSettingsMenuAction.svelte";
@@ -172,6 +173,7 @@
 <div class="app-root" role="application" oncontextmenu={(e) => !dev && e.preventDefault()}>
 	{@render children()}
 </div>
+<WorkingIndicator />
 <ShareIssueModal />
 <ToastController />
 <ChipToastContainer />

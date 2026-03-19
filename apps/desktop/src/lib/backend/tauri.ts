@@ -1,3 +1,4 @@
+import { trackOperation } from "$lib/activeOperations.svelte";
 import { isReduxError } from "$lib/state/reduxError";
 import { getName, getVersion, getVersion as tauriGetVersion } from "@tauri-apps/api/app";
 import { invoke as invokeTauri } from "@tauri-apps/api/core";
@@ -285,14 +286,14 @@ async function tauriInvoke<T>(command: string, params: Record<string, unknown> =
 	// 	throw userError;
 	// });
 
-	try {
-		return await invokeTauri<T>(command, params);
-	} catch (error: unknown) {
-		if (isReduxError(error)) {
-			console.error(`ipc->${command}: ${JSON.stringify(params)}`, error);
-		}
-		throw error;
-	}
+	return trackOperation(
+		invokeTauri<T>(command, params).catch((error: unknown) => {
+			if (isReduxError(error)) {
+				console.error(`ipc->${command}: ${JSON.stringify(params)}`, error);
+			}
+			throw error;
+		}),
+	);
 }
 
 function tauriListen<T>(event: EventName, handle: EventCallback<T>) {
