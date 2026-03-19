@@ -88,6 +88,11 @@ impl IrcManager {
         }
     }
 
+    /// Broadcast shutdown to all background tasks immediately.
+    fn request_shutdown(&self) {
+        self.shutdown_tx.send(true).ok();
+    }
+
     /// Register a callback that spawns a full event forwarder for a connection.
     ///
     /// Called by the lifecycle layer so that the reconnection watcher can
@@ -671,6 +676,20 @@ impl IrcManager {
         connections.contains_key(id)
     }
 
+    /// This is a blocking version of [`Self::shutdown`], needed when no async context is
+    /// available. It may silently fail to acquire connections to drain, which should
+    /// still allow the clients to shutdown in the background.
+    pub fn shutdown_now(&self) {
+        self.request_shutdown();
+
+        match self.connections.try_write() {
+            Ok(mut connections) => Self::drain_connections(&mut connections),
+            Err(_) => {
+                warn!("Skipping immediate IRC drain during shutdown: connections lock busy")
+            }
+        }
+    }
+
     /// Gracefully shut down all connections by sending QUIT to each server.
     ///
     /// This iterates over all managed connections, sends a QUIT message, and
@@ -680,6 +699,10 @@ impl IrcManager {
     pub async fn shutdown(&self) {
         let _ = self.shutdown_tx.send(true);
         let mut connections = self.connections.write().await;
+        Self::drain_connections(&mut connections);
+    }
+
+    fn drain_connections(connections: &mut HashMap<ConnectionId, ManagedConnection>) {
         for (id, conn) in connections.drain() {
             if let Some(client) = conn.client {
                 match client.quit("GitButler shutting down") {
@@ -1242,5 +1265,14 @@ mod tests {
 
         manager.remove("bot", "test").await.unwrap();
         assert!(!manager.exists("bot").await);
+    }
+
+    #[test]
+    fn test_request_shutdown_sets_flag() {
+        let manager = IrcManager::new();
+
+        assert!(!*manager.shutdown_rx.borrow());
+        manager.request_shutdown();
+        assert!(*manager.shutdown_rx.borrow());
     }
 }
