@@ -1358,7 +1358,7 @@ impl App {
 
     fn render_errors(&self, area: Rect, frame: &mut Frame) {
         for (idx, err) in self.errors.iter().rev().enumerate() {
-            let formatted_err = format!("{:#}", err.inner);
+            let formatted_err = format_error_for_tui(&err.inner);
             render_error_popup(
                 frame,
                 area,
@@ -1623,6 +1623,35 @@ enum SelectAfterReload {
 struct PopupMargin {
     right: u16,
     bottom: u16,
+}
+
+/// Formats an error for display in the terminal UI without including backtraces.
+///
+/// The output always starts with the top-level error message and, when available,
+/// appends a `Caused by:` section containing every error in the cause chain.
+fn format_error_for_tui(err: &anyhow::Error) -> String {
+    let mut causes = err.chain();
+
+    let Some(top_level) = causes.next() else {
+        return "unknown error".to_owned();
+    };
+
+    let cause_lines: Vec<String> = causes.map(|cause| cause.to_string()).collect();
+    if cause_lines.is_empty() {
+        return top_level.to_string();
+    }
+
+    let mut output = top_level.to_string();
+    output.push_str("\n\nCaused by:\n");
+
+    for (idx, cause) in cause_lines.iter().enumerate() {
+        output.push_str(&format!("    {idx}: {cause}"));
+        if idx + 1 < cause_lines.len() {
+            output.push('\n');
+        }
+    }
+
+    output
 }
 
 fn render_error_popup(frame: &mut Frame, area: Rect, margin: PopupMargin, text: &str) {

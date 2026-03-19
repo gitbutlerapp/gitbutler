@@ -33,6 +33,52 @@ fn shows_full_error_when_message_wraps() {
 }
 
 #[test]
+fn shows_full_error_cause_chain_with_multiple_contexts() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    let err = anyhow!("root-cause-END-MARKER")
+        .context("context-level-1")
+        .context("context-level-2")
+        .context("context-level-3");
+
+    tui.render_with_messages(
+        None,
+        Vec::from([Message::Reload(None), Message::ShowError(Arc::new(err))]),
+    )
+    .assert_rendered_eq(file![
+        "snapshots/shows_full_error_cause_chain_with_multiple_contexts_001.txt"
+    ]);
+}
+
+#[test]
+fn format_error_for_tui_shows_cause_chain_without_backtrace() {
+    let err = anyhow!("root-cause")
+        .context("context-level-1")
+        .context("context-level-2");
+
+    let rendered = super::format_error_for_tui(&err);
+
+    assert_eq!(
+        rendered,
+        "context-level-2\n\nCaused by:\n    0: context-level-1\n    1: root-cause"
+    );
+    assert!(!rendered.contains("Stack backtrace"));
+}
+
+#[test]
+fn format_error_for_tui_shows_single_message_for_leaf_error() {
+    let err = anyhow!("leaf-error");
+
+    let rendered = super::format_error_for_tui(&err);
+
+    assert_eq!(rendered, "leaf-error");
+    assert!(!rendered.contains("Caused by:"));
+}
+
+#[test]
 fn basic_cursor_movement() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
