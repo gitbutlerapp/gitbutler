@@ -2,6 +2,10 @@ use anyhow::{Context as _, Result};
 use but_core::{DiffSpec, RepositoryExt};
 use but_ctx::access::RepoExclusive;
 use but_oxidize::ObjectIdExt;
+use but_workspace::branch::{
+    OnWorkspaceMergeConflict,
+    unapply::{WorkspaceMergeCommit, WorkspaceReference},
+};
 use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt;
@@ -9,7 +13,7 @@ use gitbutler_stack::StackId;
 use gitbutler_workspace::workspace_base;
 use tracing::instrument;
 
-use super::{BranchManager, checkout_remerged_head};
+use super::BranchManager;
 use crate::VirtualBranchesExt;
 
 impl BranchManager<'_> {
@@ -52,65 +56,82 @@ impl BranchManager<'_> {
             )?;
         }
 
+        let repo = self.ctx.clone_repo_for_merging()?;
+        if safe_checkout {
+            let branch_name = stack
+                .heads
+                .first()
+                .expect("Stacks always have one branch")
+                .full_name()?
+                .to_string();
+            let branch_to_unapply = stack
+                .heads
+                .last()
+                .expect("Stacks always have one branch")
+                .full_name()?;
+
+            {
+                #[expect(deprecated)]
+                // used only while cv3 integration still goes through branch-actions
+                let (mut meta, ws) = self.ctx.workspace_and_meta_from_head(perm)?;
+                let repo = self.ctx.repo.get()?;
+                but_workspace::branch::unapply(
+                    branch_to_unapply.as_ref(),
+                    &ws,
+                    &repo,
+                    &mut meta,
+                    but_workspace::branch::unapply::Options {
+                        workspace_merge_commit: WorkspaceMergeCommit::Keep,
+                        on_workspace_conflict:
+                            OnWorkspaceMergeConflict::AbortAndReportConflictingStacks,
+                        workspace_reference: WorkspaceReference::KeepCheckedOut,
+                        uncommitted_changes:
+                            but_core::worktree::checkout::UncommitedWorktreeChanges::KeepAndAbortOnConflict,
+                    },
+                )?;
+            }
+
+            if delete_vb_state {
+                self.ctx.delete_branch_reference(&stack)?;
+                vb_state.delete_branch_entry(&stack_id)?;
+            }
+
+            vb_state.update_ordering()?;
+            return Ok(branch_name);
+        }
+
         // doing this earlier in the flow, in case any of the steps that follow fail
         stack.in_workspace = false;
         vb_state.set_stack(stack.clone())?;
 
-        let repo = self.ctx.clone_repo_for_merging()?;
-        if safe_checkout {
-            // This reads the just stored data and re-merges it all stacks, excluding the unapplied one.
-            let res = checkout_remerged_head(self.ctx, &repo);
-            // Undo the removal, stack is still there officially now.
-            if res.is_err() {
-                stack.in_workspace = true;
-                vb_state.set_stack(stack.clone())?;
-            }
-            res?
-        } else {
-            // On v3 we want to take the `current_wd_tree` and try to extract
-            // whatever branch we want to unapply. There are a handful of ways
-            // to achieve this, including calculating the inverse diff and
-            // applying that.
-            //
-            // We can however do more or less what `git revert` does, and
-            // perform a three-way merge where the `ours` side is the cwdt, the
-            // `theirs` side is the workspace root, and the `base` is the head
-            // of the branch we want to unapply.
-            //
-            // In order to handle locked files, I'm going to choose to
-            // resolve conflicts in the favor of `ours` (the cwdt) which will
-            // keep any locked changes in the cwdt.
+        // Legacy non-cv3 path: materialize the remaining workspace tree directly in the worktree.
+        let merge_options = repo
+            .tree_merge_options()?
+            .with_file_favor(Some(gix::merge::tree::FileFavor::Ours))
+            .with_tree_favor(Some(gix::merge::tree::TreeFavor::Ours));
 
-            // dump current assignments into a WIP commit
-            let merge_options = repo
-                .tree_merge_options()?
-                .with_file_favor(Some(gix::merge::tree::FileFavor::Ours))
-                .with_tree_favor(Some(gix::merge::tree::TreeFavor::Ours));
+        let cwdt = repo.create_wd_tree(0)?;
+        let workspace_base = repo
+            .find_commit(workspace_base(self.ctx, perm.read_permission())?)?
+            .tree_id()?;
+        let commit = repo.find_commit(stack.head_oid(self.ctx)?)?;
+        let stack_head = repo.find_real_tree(&commit, Default::default())?;
 
-            #[expect(deprecated)]
-            let cwdt = repo.create_wd_tree(0)?;
-            let workspace_base = repo
-                .find_commit(workspace_base(self.ctx, perm.read_permission())?)?
-                .tree_id()?;
-            let commit = repo.find_commit(stack.head_oid(self.ctx)?)?;
-            let stack_head = repo.find_real_tree(&commit, Default::default())?;
+        let mut merge = repo.merge_trees(
+            stack_head,
+            cwdt,
+            workspace_base,
+            repo.default_merge_labels(),
+            merge_options,
+        )?;
+        let new_workspace_tree_with_worktree_changes =
+            git2_repo.find_tree(merge.tree.write()?.to_git2())?;
 
-            let mut merge = repo.merge_trees(
-                stack_head,
-                cwdt,
-                workspace_base,
-                repo.default_merge_labels(),
-                merge_options,
-            )?;
-            let new_workspace_tree_with_worktree_changes =
-                git2_repo.find_tree(merge.tree.write()?.to_git2())?;
-
-            git2_repo
-                .checkout_tree_builder(&new_workspace_tree_with_worktree_changes)
-                .force()
-                .checkout()
-                .context("failed to checkout tree")?;
-        }
+        git2_repo
+            .checkout_tree_builder(&new_workspace_tree_with_worktree_changes)
+            .force()
+            .checkout()
+            .context("failed to checkout tree")?;
 
         if delete_vb_state {
             self.ctx.delete_branch_reference(&stack)?;

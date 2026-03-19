@@ -560,6 +560,7 @@ mod from_new_merge_with_metadata {
                         ref_name: Category::LocalBranch
                             .to_full_name(short_name)
                             .expect("known good short ref name"),
+                        head_commit_id: None,
                         archived: false,
                     }],
                 })

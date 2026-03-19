@@ -105,14 +105,17 @@ mod workspace {
                     branches: [
                         WorkspaceStackBranch {
                             ref_name: "refs/heads/B",
+                            head_commit_id: None,
                             archived: false,
                         },
                         WorkspaceStackBranch {
                             ref_name: "refs/heads/C",
+                            head_commit_id: None,
                             archived: false,
                         },
                         WorkspaceStackBranch {
                             ref_name: "refs/heads/A",
+                            head_commit_id: None,
                             archived: false,
                         },
                     ],

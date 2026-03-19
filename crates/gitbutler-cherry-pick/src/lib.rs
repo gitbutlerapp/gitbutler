@@ -68,7 +68,7 @@ impl RepositoryExt for git2::Repository {
         commit: &git2::Commit,
         side: ConflictedTreeKey,
     ) -> Result<git2::Tree<'_>> {
-        let gix_repo = self.to_isolated_gix_repo()?;
+        let gix_repo = <&git2::Repository as RepoExt>::to_gix_repo(&self)?;
         let gix_commit = gix_repo.find_commit(commit.id().to_gix())?;
         let tree_id = gix_repo.find_real_tree(&gix_commit, side)?.to_git2();
         Ok(self.find_tree(tree_id)?)

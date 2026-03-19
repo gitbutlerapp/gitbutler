@@ -389,6 +389,7 @@ pub(super) mod function {
                     .branches
                     .push(WorkspaceStackBranch {
                         ref_name: new_ref.to_owned(),
+                        head_commit_id: None,
                         archived: false,
                     });
             }
@@ -399,6 +400,7 @@ pub(super) mod function {
                     workspacecommit_relation: Merged,
                     branches: vec![WorkspaceStackBranch {
                         ref_name: new_ref.to_owned(),
+                        head_commit_id: None,
                         archived: false,
                     }],
                 };
@@ -435,6 +437,7 @@ pub(super) mod function {
                     },
                     WorkspaceStackBranch {
                         ref_name: new_ref.to_owned(),
+                        head_commit_id: None,
                         archived: false,
                     },
                 );

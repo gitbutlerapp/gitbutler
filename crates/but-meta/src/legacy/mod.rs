@@ -748,11 +748,16 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             for branch in branches_to_create {
                 vb_stack.heads.push(branch_to_stack_branch(
                     branch.ref_name.as_ref(),
+                    branch.head_commit_id,
                     &Branch::default(),
                     branch.archived,
                 ))
             }
             vb_stack.in_workspace = stack.is_in_workspace();
+            vb_stack.workspace_merge_from = match stack.workspacecommit_relation {
+                WorkspaceCommitRelation::MergeFrom { commit_id } => commit_id,
+                WorkspaceCommitRelation::Merged | WorkspaceCommitRelation::Outside => None,
+            };
             vb_stack.heads.sort_by_key(|head| {
                 stack.branches.iter().enumerate().find_map(|(idx, branch)| {
                     (branch.ref_name.shorten() == head.name.as_str()).then_some(idx)
@@ -769,6 +774,9 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             // branches now match our order
             for (vb_stack, stack) in vb_stack.heads.iter_mut().zip(stack.branches.iter()) {
                 vb_stack.archived = stack.archived;
+                if let Some(head_commit_id) = stack.head_commit_id.filter(|id| !id.is_null()) {
+                    vb_stack.head = head_commit_id;
+                }
             }
             vb_stack.heads.reverse()
         }
@@ -877,7 +885,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             }
             None => {
                 let stack = Stack::new_with_just_heads(
-                    vec![branch_to_stack_branch(ref_name, value, false)],
+                    vec![branch_to_stack_branch(ref_name, None, value, false)],
                     self.data().branches.len(),
                     ws.contains_ref(ref_name, Applied),
                 );
@@ -956,7 +964,12 @@ impl VirtualBranchesTomlMetadata {
                 .map(|s| WorkspaceStack {
                     id: s.id,
                     workspacecommit_relation: if s.in_workspace {
-                        WorkspaceCommitRelation::Merged
+                        match s.workspace_merge_from.filter(|id| !id.is_null()) {
+                            Some(commit_id) => WorkspaceCommitRelation::MergeFrom {
+                                commit_id: Some(commit_id),
+                            },
+                            None => WorkspaceCommitRelation::Merged,
+                        }
                     } else {
                         WorkspaceCommitRelation::Outside
                     },
@@ -968,6 +981,7 @@ impl VirtualBranchesTomlMetadata {
                             full_branch_name(sb.name.as_str()).map(|ref_name| {
                                 WorkspaceStackBranch {
                                     ref_name,
+                                    head_commit_id: Some(sb.head),
                                     archived: sb.archived,
                                 }
                             })
@@ -1093,18 +1107,23 @@ fn managed_ref_info() -> RefInfo {
 
 fn branch_to_stack_branch(
     ref_name: &gix::refs::FullNameRef,
+    head_commit_id: Option<gix::ObjectId>,
     Branch {
         ref_info: _, // TODO: should change parent stack if it's the top.
         review,
     }: &Branch,
     archived: bool,
 ) -> StackBranch {
-    StackBranch::new_with_zero_head(
+    let mut out = StackBranch::new_with_zero_head(
         ref_name.shorten().to_string(),
         review.pull_request,
         review.review_id.clone(),
         archived,
-    )
+    );
+    if let Some(head_commit_id) = head_commit_id {
+        out.head = head_commit_id;
+    }
+    out
 }
 
 /// Deterministically compare two stacks by their `order` field, using `name` and `id` as a tiebreaker.

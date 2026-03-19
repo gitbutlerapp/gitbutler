@@ -63,8 +63,12 @@ pub mod merge {
         /// The name of the reference that points to `commit_id`, or `None` if there is no such reference.
         /// The name is for use in the generated workspace commit message.
         pub name: Option<gix::refs::FullName>,
-        /// The commit that should be merged into the workspace commit.
+        /// The commit that should be listed as parent of the workspace commit.
         pub commit_id: gix::ObjectId,
+        /// The commit whose tree should be merged into the workspace.
+        ///
+        /// If `None`, the stack still participates as parent, but doesn't contribute a tree of its own.
+        pub merge_commit_id: Option<gix::ObjectId>,
         /// The index to the top-most segment of the stack in the graph for use in merge-base computation.
         pub segment_idx: SegmentIndex,
     }
@@ -155,7 +159,8 @@ pub mod merge {
                         mode,
                         Tip {
                             name: ref_name,
-                            commit_id,
+                            commit_id: _parent_commit_id,
+                            merge_commit_id,
                             segment_idx: sidx,
                         },
                     ) = &mut tips[tip_idx];
@@ -163,8 +168,14 @@ pub mod merge {
                     if mode.should_skip() {
                         continue;
                     }
-                    let this_tree_id = peel_to_tree(commit_id.attach(repo))?;
+                    let this_tree_id = (*merge_commit_id)
+                        .map(|commit_id| peel_to_tree(commit_id.attach(repo)))
+                        .transpose()?;
                     if let Some((prev_tree_id, prev_sidx)) = previous_tip {
+                        let Some(this_tree_id) = this_tree_id else {
+                            previous_tip = Some((prev_tree_id, prev_sidx));
+                            continue;
+                        };
                         let (base_tree_id, base_sidx) = {
                             // This is critical: we enforce using the lowest merge-base by using
                             // the previous iterations merge-base.
@@ -287,8 +298,10 @@ pub mod merge {
                         }
                         prev_base_sidx = Some(base_sidx);
                         merge_tree_id = merge.tree.write()?.detach().into();
+                        previous_tip = Some((this_tree_id, sidx));
+                    } else if let Some(this_tree_id) = this_tree_id {
+                        previous_tip = Some((this_tree_id, sidx));
                     }
-                    previous_tip = Some((this_tree_id, sidx));
                 }
 
                 let (stacks, conflicting_stacks) = tips.iter().fold(
@@ -360,9 +373,8 @@ pub mod merge {
         /// `repo` is expected to be configured to be suitable for merges, and it *should* be configured to write objects into memory
         /// unless the caller knows that any result of the merge is acceptable.
         ///
-        /// IMPORTANT: This inherently needs the tips to be represented by named branches, so this can't be used to
-        ///            re-merge a workspace with lost or renamed branches. It is, however, good to 'fix' workspaces
-        ///            whose tips were advanced and now are outside the workspace, provide the ref that advanced still exists.
+        /// IMPORTANT: This prefers named branch tips, but can fall back to per-branch metadata when the live ref is gone,
+        ///            as long as the referenced commit is still present in the graph.
         ///
         /// ### Shortcoming: inefficient conflict behaviour
         ///
@@ -389,15 +401,18 @@ pub mod merge {
                 .filter_map(|(top_segment, relation)| {
                     match relation {
                         WorkspaceCommitRelation::Merged => {}
-                        WorkspaceCommitRelation::MergeFrom { .. } => {
-                            // These need to be part of the parents list, but shouldn't be merged.
-                            // If the caller wants to retry them, they can be passed here as "Merged".
-                            todo!("this is a placeholder for where we will have to start handling this UnmergedTree")
-                        }
+                        WorkspaceCommitRelation::MergeFrom { .. } => {}
                         WorkspaceCommitRelation::Outside => return None,
                     }
                     let stack_tip_name = top_segment.ref_name.as_ref();
-                    match graph.segment_and_commit_by_ref_name(stack_tip_name) {
+                    match graph
+                        .segment_and_commit_by_ref_name(stack_tip_name)
+                        .or_else(|| {
+                            top_segment
+                                .head_commit_id
+                                .filter(|id| !id.is_null())
+                                .and_then(|id| graph.segment_and_commit_by_commit_id(id))
+                        }) {
                         None => {
                             missing_stacks.push(top_segment.ref_name.to_owned());
                             None
@@ -405,6 +420,11 @@ pub mod merge {
                         Some((segment, commit)) => Some(Tip {
                             name: Some(stack_tip_name.to_owned()),
                             commit_id: commit.id,
+                            merge_commit_id: match relation {
+                                WorkspaceCommitRelation::Merged => Some(commit.id),
+                                WorkspaceCommitRelation::MergeFrom { commit_id } => commit_id,
+                                WorkspaceCommitRelation::Outside => unreachable!("filtered above"),
+                            },
                             segment_idx: segment.id,
                         }),
                     }

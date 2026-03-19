@@ -50,6 +50,8 @@ mod stack {
         /// and its effects are available to the user.
         #[serde(default = "default_true")]
         pub in_workspace: bool,
+        #[serde(with = "but_serde::object_id_opt", default)]
+        pub workspace_merge_from: Option<gix::ObjectId>,
         /// Represents the Stack state of pseudo-references ("heads").
         /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
         #[serde(default)]
@@ -144,6 +146,7 @@ mod stack {
                 id: StackId::generate(),
                 order,
                 in_workspace,
+                workspace_merge_from: None,
                 heads,
 
                 // Don't keep redundant information

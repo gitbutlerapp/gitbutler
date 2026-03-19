@@ -200,6 +200,7 @@ fn write_workspace_metadata(repo: &gix::Repository, stacks: &[StackSpec<'_>]) ->
                     .map(|name| {
                         Ok(WorkspaceStackBranch {
                             ref_name: gix::refs::FullName::try_from(format!("refs/heads/{name}"))?,
+                            head_commit_id: None,
                             archived: false,
                         })
                     })

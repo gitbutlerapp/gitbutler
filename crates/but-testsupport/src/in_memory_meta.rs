@@ -235,6 +235,7 @@ fn stack_segment_from_partial_name(name: impl TryInto<PartialName>) -> Workspace
                 .to_full_name(name.as_ref().as_bstr())
                 .unwrap()
         },
+        head_commit_id: None,
         archived: false,
     }
 }
