@@ -2,7 +2,7 @@ import useLocalStorageState from "use-local-storage-state";
 import { ContextMenu, Menu } from "@base-ui/react";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createRoute } from "@tanstack/react-router";
-import { FC, Suspense } from "react";
+import { ComponentProps, FC, Suspense } from "react";
 import {
 	CommitDetails,
 	CommitRow,
@@ -113,6 +113,65 @@ const BranchMenuPopup: FC<{
 		</Popup>
 	);
 };
+
+const BranchRow: FC<
+	{
+		projectId: string;
+		branch: BranchListing;
+		isSelected: boolean;
+		isSelectedWithin: boolean;
+		toggleSelect: () => void;
+	} & ComponentProps<"div">
+> = ({
+	projectId,
+	branch,
+	isSelected,
+	isSelectedWithin,
+	toggleSelect,
+	className,
+	...restProps
+}) => (
+	<div
+		{...restProps}
+		className={classes(
+			styles.branchRow,
+			isSelected
+				? sharedStyles.selected
+				: isSelectedWithin
+					? sharedStyles.selectedWithin
+					: undefined,
+			className,
+		)}
+	>
+		<ContextMenu.Root>
+			<ContextMenu.Trigger
+				render={
+					<button type="button" className={styles.branchButton} onClick={toggleSelect}>
+						{branch.name}
+						{branch.stack?.branches && branch.stack.branches.length > 1 && (
+							<> (+{branch.stack.branches.length - 1} more)</>
+						)}
+					</button>
+				}
+			/>
+			<ContextMenu.Portal>
+				<ContextMenu.Positioner>
+					<BranchMenuPopup branch={branch} projectId={projectId} parts={ContextMenu} />
+				</ContextMenu.Positioner>
+			</ContextMenu.Portal>
+		</ContextMenu.Root>
+		<Menu.Root>
+			<Menu.Trigger style={{ lineHeight: 1 }} className={sharedStyles.commitMenuTrigger}>
+				𑁔
+			</Menu.Trigger>
+			<Menu.Portal>
+				<Menu.Positioner align="end">
+					<BranchMenuPopup branch={branch} projectId={projectId} parts={Menu} />
+				</Menu.Positioner>
+			</Menu.Portal>
+		</Menu.Root>
+	</div>
+);
 
 const CommitC: FC<{
 	projectId: string;
@@ -462,57 +521,15 @@ const ProjectBranchesPage: FC = () => {
 						const isSelectedWithin = isBranchSelectedWithin(branch.name);
 						return (
 							<li key={branch.name}>
-								<div
-									className={classes(
-										styles.branchRow,
-										isSelected
-											? sharedStyles.selected
-											: isSelectedWithin
-												? sharedStyles.selectedWithin
-												: undefined,
-									)}
-								>
-									<ContextMenu.Root>
-										<ContextMenu.Trigger
-											render={
-												<button
-													type="button"
-													className={styles.branchButton}
-													onClick={() => {
-														toggleBranchSelection(branch.name);
-													}}
-												>
-													{branch.name}
-													{branch.stack?.branches && branch.stack.branches.length > 1 && (
-														<> (+{branch.stack.branches.length - 1} more)</>
-													)}
-												</button>
-											}
-										/>
-										<ContextMenu.Portal>
-											<ContextMenu.Positioner>
-												<BranchMenuPopup
-													branch={branch}
-													projectId={projectId}
-													parts={ContextMenu}
-												/>
-											</ContextMenu.Positioner>
-										</ContextMenu.Portal>
-									</ContextMenu.Root>
-									<Menu.Root>
-										<Menu.Trigger
-											style={{ lineHeight: 1 }}
-											className={sharedStyles.commitMenuTrigger}
-										>
-											𑁔
-										</Menu.Trigger>
-										<Menu.Portal>
-											<Menu.Positioner align="end">
-												<BranchMenuPopup branch={branch} projectId={projectId} parts={Menu} />
-											</Menu.Positioner>
-										</Menu.Portal>
-									</Menu.Root>
-								</div>
+								<BranchRow
+									projectId={projectId}
+									branch={branch}
+									isSelected={isSelected}
+									isSelectedWithin={isSelectedWithin}
+									toggleSelect={() => {
+										toggleBranchSelection(branch.name);
+									}}
+								/>
 							</li>
 						);
 					})}
