@@ -1,5 +1,6 @@
 .button {
-	padding: 2px 4px;
+	padding-inline: 8px;
+	padding-block: 4px;
 	background-color: #eee;
 }
 
@@ -54,7 +55,7 @@
 
 .commitRow {
 	display: flex;
-	align-items: baseline;
+	align-items: start;
 }
 
 .commitDetails {
@@ -63,27 +64,57 @@
 
 .commitButton {
 	flex-grow: 1;
-	padding: 2px 4px;
+	padding-inline: var(--selection-inline-padding);
+	padding-block: var(--selection-block-padding);
+	line-height: var(--selection-line-height);
 }
 
 .commitToggleExpandButton {
-	padding: 2px 4px;
+	display: grid;
+	padding-inline: var(--selection-inline-padding);
+	padding-block: var(--selection-block-padding);
+
+	svg {
+		width: var(--selection-line-height);
+		height: var(--selection-line-height);
+	}
 }
 
 .commitMenuTrigger {
-	padding: 2px 4px;
+	display: grid;
+	padding-inline: var(--selection-inline-padding);
+	padding-block: var(--selection-block-padding);
+
+	svg {
+		width: var(--selection-line-height);
+		height: var(--selection-line-height);
+	}
 }
 
 .fileRow {
 	display: flex;
+	align-items: start;
 }
 
 .fileButton {
 	flex-grow: 1;
-	padding: 2px 4px;
+	padding-inline: var(--selection-inline-padding);
+	padding-block: var(--selection-block-padding);
 	overflow: hidden;
+	line-height: var(--selection-line-height);
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.fileRowDependencyIndicator {
+	display: grid;
+	padding-inline: var(--selection-inline-padding);
+	padding-block: var(--selection-block-padding);
+
+	svg {
+		width: var(--selection-line-height);
+		height: var(--selection-line-height);
+	}
 }
 
 .selected {
@@ -96,7 +127,7 @@
 }
 
 .highlighted {
-	background-color: yellow;
+	background-color: burlywood;
 	color: black;
 }
 
@@ -122,12 +153,40 @@
 	opacity: 0.4;
 }
 
+.editCommitMessageForm {
+	display: flex;
+	flex-grow: 1;
+	flex-direction: column;
+	padding-block: var(--selection-block-padding);
+	line-height: var(--selection-line-height);
+}
+
 .editCommitMessageInput {
 	flex-grow: 1;
-	padding: 2px 4px;
+	padding-inline: var(--selection-inline-padding);
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);
+	resize: none;
+
+	&:focus {
+		outline: none;
+	}
+}
+
+.editCommitMessageHelp {
+	padding-inline: var(--selection-inline-padding);
+	color: #ccc;
+	font-size: 11px;
+}
+
+.editCommitMessageAction {
+	color: white;
+	cursor: pointer;
+
+	&:hover {
+		text-decoration: underline;
+	}
 }
 
 .menuPopup {

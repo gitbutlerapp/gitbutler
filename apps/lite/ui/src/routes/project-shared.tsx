@@ -15,10 +15,10 @@ import {
 	ReactNode,
 	startTransition,
 	useOptimistic,
-	useState,
 	useTransition,
 } from "react";
 import styles from "./project-shared.module.css";
+import { ExpandCollapseIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import {
 	commitDetailsWithLineStatsQueryOptions,
 	treeChangeDiffsQueryOptions,
@@ -289,47 +289,70 @@ const InlineCommitMessageEditor: FC<{
 	const commitReword = useMutation(commitRewordMutationOptions);
 	const initialMessage = message.trim();
 
+	const saveMessage = (newMessage: string) => {
+		onExit();
+		const trimmed = newMessage.trim();
+		if (trimmed !== initialMessage)
+			startTransition(async () => {
+				await setMessageAction(trimmed);
+				await commitReword.mutateAsync({
+					projectId,
+					commitId,
+					message: trimmed,
+				});
+			});
+	};
+
 	return (
-		<textarea
-			ref={(el) => {
-				if (!el) return;
-				el.focus();
-				const cursorPosition = el.value.length;
-				el.setSelectionRange(cursorPosition, cursorPosition);
+		<form
+			className={styles.editCommitMessageForm}
+			onSubmit={(event) => {
+				event.preventDefault();
+				const formData = new FormData(event.currentTarget);
+				saveMessage(formData.get("message") as string);
 			}}
-			defaultValue={initialMessage}
-			className={styles.editCommitMessageInput}
-			onBlur={onExit}
-			onKeyDown={(event) => {
-				if (event.key === "Escape") {
-					event.preventDefault();
-					onExit();
-				} else if (event.key === "Enter" && !event.shiftKey) {
-					event.preventDefault();
-					onExit();
-
-					const newMessage = event.currentTarget.value.trim();
-
-					if (newMessage !== initialMessage)
-						startTransition(async () => {
-							await setMessageAction(newMessage);
-							await commitReword.mutateAsync({
-								projectId,
-								commitId,
-								message: newMessage,
-							});
-						});
-				}
-			}}
-		/>
+		>
+			<textarea
+				ref={(el) => {
+					if (!el) return;
+					el.focus();
+					const cursorPosition = el.value.length;
+					el.setSelectionRange(cursorPosition, cursorPosition);
+				}}
+				name="message"
+				defaultValue={initialMessage}
+				className={styles.editCommitMessageInput}
+				onKeyDown={(event) => {
+					if (event.key === "Escape") {
+						event.preventDefault();
+						onExit();
+					} else if (event.key === "Enter" && !event.shiftKey) {
+						event.preventDefault();
+						event.currentTarget.form?.requestSubmit();
+					}
+				}}
+			/>
+			<div className={styles.editCommitMessageHelp}>
+				<span>escape to </span>
+				<button type="button" className={styles.editCommitMessageAction} onClick={onExit}>
+					cancel
+				</button>
+				<span> • enter to </span>
+				<button type="submit" className={styles.editCommitMessageAction}>
+					save
+				</button>
+			</div>
+		</form>
 	);
 };
 
 const CommitMenuPopup: FC<{
+	projectId: string;
+	commitId: string;
 	onReword: () => void;
-	onInsertBlank: (side: "above" | "below") => void;
 	parts: typeof Menu | typeof ContextMenu;
-}> = ({ onReword, onInsertBlank, parts }) => {
+}> = ({ projectId, commitId, onReword, parts }) => {
+	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
 	const { Popup, Item, SubmenuRoot, SubmenuTrigger, Positioner } = parts;
 
 	return (
@@ -344,7 +367,11 @@ const CommitMenuPopup: FC<{
 						<Item
 							className={styles.menuItem}
 							onClick={() => {
-								onInsertBlank("above");
+								commitInsertBlank.mutate({
+									projectId,
+									relativeTo: { type: "commit", subject: commitId },
+									side: "above",
+								});
 							}}
 						>
 							Above
@@ -352,7 +379,11 @@ const CommitMenuPopup: FC<{
 						<Item
 							className={styles.menuItem}
 							onClick={() => {
-								onInsertBlank("below");
+								commitInsertBlank.mutate({
+									projectId,
+									relativeTo: { type: "commit", subject: commitId },
+									side: "below",
+								});
 							}}
 						>
 							Below
@@ -369,24 +400,26 @@ export const CommitRow: FC<
 		projectId: string;
 		commit: Commit;
 		isSelected: boolean;
-		isAnyFileSelected: boolean;
+		isSelectedWithin: boolean;
 		isHighlighted: boolean;
+		isEditingMessage: boolean;
 		toggleExpand: () => Promise<void> | void;
 		toggleSelect: () => void;
+		toggleEditingMessage: () => void;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
 	commit,
 	isSelected,
-	isAnyFileSelected,
+	isSelectedWithin,
 	isHighlighted,
+	isEditingMessage,
 	toggleExpand,
 	toggleSelect,
+	toggleEditingMessage,
 	className,
 	...restProps
 }) => {
-	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
-	const [isEditingMessage, setIsEditingMessage] = useState(false);
 	const [isExpandPending, startExpandTransition] = useTransition();
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
@@ -398,19 +431,6 @@ export const CommitRow: FC<
 		message: optimisticMessage,
 	};
 
-	const insertBlankCommit = (side: "above" | "below") => {
-		commitInsertBlank.mutate({
-			projectId,
-			relativeTo: { type: "commit", subject: commit.id },
-			side,
-		});
-	};
-
-	const startEditingMessage = () => {
-		if (!isSelected) toggleSelect();
-		setIsEditingMessage(true);
-	};
-
 	return (
 		<DraggableCommit
 			{...restProps}
@@ -420,7 +440,7 @@ export const CommitRow: FC<
 				<div
 					className={classes(
 						styles.commitRow,
-						isSelected ? styles.selected : isAnyFileSelected ? styles.selectedWithin : undefined,
+						isSelected ? styles.selected : isSelectedWithin ? styles.selectedWithin : undefined,
 						isHighlighted && styles.highlighted,
 						className,
 					)}
@@ -433,9 +453,7 @@ export const CommitRow: FC<
 							commitId={commit.id}
 							message={optimisticMessage}
 							setMessageAction={setOptimisticMessage}
-							onExit={() => {
-								setIsEditingMessage(false);
-							}}
+							onExit={toggleEditingMessage}
 						/>
 					) : (
 						<ContextMenu.Root>
@@ -449,8 +467,9 @@ export const CommitRow: FC<
 							<ContextMenu.Portal>
 								<ContextMenu.Positioner>
 									<CommitMenuPopup
-										onReword={startEditingMessage}
-										onInsertBlank={insertBlankCommit}
+										projectId={projectId}
+										commitId={commit.id}
+										onReword={toggleEditingMessage}
 										parts={ContextMenu}
 									/>
 								</ContextMenu.Positioner>
@@ -463,20 +482,21 @@ export const CommitRow: FC<
 						onClick={() => {
 							startExpandTransition(toggleExpand);
 						}}
-						aria-expanded={isAnyFileSelected}
-						aria-label={isAnyFileSelected ? "Collapse commit" : "Expand commit"}
+						aria-expanded={isSelectedWithin}
+						aria-label={isSelectedWithin ? "Collapse commit" : "Expand commit"}
 					>
-						{isAnyFileSelected ? "-" : "+"}
+						<ExpandCollapseIcon isExpanded={isSelectedWithin} />
 					</button>
 					<Menu.Root>
-						<Menu.Trigger style={{ lineHeight: 1 }} className={styles.commitMenuTrigger}>
-							𑁔
+						<Menu.Trigger className={styles.commitMenuTrigger} aria-label="Commit menu">
+							<MenuTriggerIcon />
 						</Menu.Trigger>
 						<Menu.Portal>
 							<Menu.Positioner align="end">
 								<CommitMenuPopup
-									onReword={startEditingMessage}
-									onInsertBlank={insertBlankCommit}
+									projectId={projectId}
+									commitId={commit.id}
+									onReword={toggleEditingMessage}
 									parts={Menu}
 								/>
 							</Menu.Positioner>

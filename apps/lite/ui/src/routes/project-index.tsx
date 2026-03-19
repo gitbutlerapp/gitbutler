@@ -28,6 +28,7 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { createContext, FC, Suspense, useContext, useEffect, useState } from "react";
 import styles from "./project-index.module.css";
 import sharedStyles from "./project-shared.module.css";
+import { DependencyIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { ProjectPanelLayout } from "#ui/routes/ProjectPanelLayout.tsx";
@@ -115,11 +116,13 @@ const getBranchRefsByStackId = (headInfo: RefInfo): Map<string, Set<string>> => 
 	return refsByStackId;
 };
 
-const DependencyIndicator: FC<{
-	projectId: string;
-	commitIds: NonEmptyArray<string>;
-	onHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, commitIds, onHover }) => {
+const DependencyIndicator: FC<
+	{
+		projectId: string;
+		commitIds: NonEmptyArray<string>;
+		onHover: (commitIds: Array<string> | null) => void;
+	} & useRender.ComponentProps<"button">
+> = ({ projectId, commitIds, onHover, render, ...props }) => {
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
 	// TODO: expensive
 	const branchNameByCommitId = getBranchNameByCommitId(headInfo);
@@ -128,22 +131,23 @@ const DependencyIndicator: FC<{
 	);
 	const tooltip =
 		branchNames.length > 0 ? `Depends on ${branchNames.join(", ")}` : "Unknown dependencies";
+	const trigger = useRender({
+		render,
+		defaultTagName: "button",
+		props: mergeProps<"button">(props, {
+			onMouseEnter: () => {
+				onHover(commitIds);
+			},
+			onMouseLeave: () => {
+				onHover(null);
+			},
+			"aria-label": tooltip,
+		}),
+	});
 
 	return (
 		<Popover.Root>
-			<Popover.Trigger
-				openOnHover
-				onMouseEnter={() => {
-					onHover(commitIds);
-				}}
-				onMouseLeave={() => {
-					onHover(null);
-				}}
-				aria-label={tooltip}
-				style={{ lineHeight: 1 }}
-			>
-				🔗
-			</Popover.Trigger>
+			<Popover.Trigger openOnHover render={trigger} />
 			<Popover.Portal>
 				<Popover.Positioner sideOffset={8}>
 					<Popover.Popup className={styles.tooltip}>{tooltip}</Popover.Popup>
@@ -475,7 +479,9 @@ const ChangesFileDiff: FC<{
 									projectId={projectId}
 									commitIds={dependencyCommitIds}
 									onHover={onDependencyHover}
-								/>
+								>
+									<DependencyIcon />
+								</DependencyIndicator>
 							)
 						}
 					/>
@@ -606,6 +612,7 @@ type Selection =
 			_tag: "Commit";
 			stackId: string;
 			commitId: string;
+			isEditingMessage?: boolean;
 	  }
 	| {
 			_tag: "CommitFile";
@@ -832,10 +839,12 @@ const CommitC: FC<{
 	nextCommitId: string | undefined;
 	isHighlighted: boolean;
 	isSelected: boolean;
-	isAnyFileSelected: boolean;
+	isEditingMessage: boolean;
+	isSelectedWithin: boolean;
 	isFileSelected: (path: string) => boolean;
 	toggleExpand: () => Promise<void> | void;
 	toggleSelect: () => void;
+	toggleEditingMessage: () => void;
 	toggleFileSelect: (path: string) => void;
 }> = ({
 	projectId,
@@ -844,10 +853,12 @@ const CommitC: FC<{
 	nextCommitId,
 	isHighlighted,
 	isSelected,
-	isAnyFileSelected,
+	isEditingMessage,
+	isSelectedWithin,
 	isFileSelected,
 	toggleExpand,
 	toggleSelect,
+	toggleEditingMessage,
 	toggleFileSelect,
 }) => {
 	const changeUnit: ChangeUnit = { _tag: "Commit", commitId: commit.id };
@@ -867,14 +878,16 @@ const CommitC: FC<{
 						projectId={projectId}
 						commit={commit}
 						isSelected={isSelected}
-						isAnyFileSelected={isAnyFileSelected}
+						isEditingMessage={isEditingMessage}
+						isSelectedWithin={isSelectedWithin}
 						isHighlighted={isHighlighted}
 						toggleExpand={toggleExpand}
 						toggleSelect={toggleSelect}
+						toggleEditingMessage={toggleEditingMessage}
 					/>
 				}
 			/>
-			{isAnyFileSelected && (
+			{isSelectedWithin && (
 				<div className={sharedStyles.commitDetails}>
 					<Suspense fallback={<div>Loading changed details…</div>}>
 						<CommitDetails
@@ -975,7 +988,10 @@ const Changes: FC<{
 															projectId={projectId}
 															commitIds={dependencyCommitIds}
 															onHover={onDependencyHover}
-														/>
+															className={sharedStyles.fileRowDependencyIndicator}
+														>
+															<DependencyIcon />
+														</DependencyIndicator>
 													)}
 												</div>
 											}
@@ -1126,10 +1142,12 @@ const StackC: FC<{
 	isBranchSelected: (stackId: string, branchRef: string) => boolean;
 	toggleBranchSelection: (stackId: string, branchName: string, branchRef: string) => void;
 	isCommitSelected: (commitId: string) => boolean;
-	isCommitAnyFileSelected: (commitId: string) => boolean;
+	isCommitEditing: (commitId: string) => boolean;
+	isCommitSelectedWithin: (commitId: string) => boolean;
 	isChangeUnitFileSelected: (changeUnit: ChangeUnit, path: string) => boolean;
 	toggleCommitExpanded: (commitId: string) => Promise<void> | void;
 	toggleCommitSelection: (commitId: string) => void;
+	toggleEditingMessage: (commitId: string) => void;
 	toggleChangeUnitFileSelection: (changeUnit: ChangeUnit, path: string) => void;
 	highlightedCommitIds: Set<string>;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
@@ -1139,10 +1157,12 @@ const StackC: FC<{
 	isBranchSelected,
 	toggleBranchSelection,
 	isCommitSelected,
-	isCommitAnyFileSelected,
+	isCommitEditing,
+	isCommitSelectedWithin,
 	isChangeUnitFileSelected,
 	toggleCommitExpanded,
 	toggleCommitSelection,
+	toggleEditingMessage,
 	toggleChangeUnitFileSelection,
 	highlightedCommitIds,
 	onDependencyHover,
@@ -1161,19 +1181,20 @@ const StackC: FC<{
 
 	return (
 		<div className={styles.stack}>
-			<Menu.Root>
-				<Menu.Trigger className={styles.stackMenu} style={{ lineHeight: 1 }}>
-					𑁔
-				</Menu.Trigger>
-				<Menu.Portal>
-					<Menu.Positioner align="end">
-						<StackMenuPopup projectId={projectId} stackId={stackId} />
-					</Menu.Positioner>
-				</Menu.Portal>
-			</Menu.Root>
-
 			<div>
-				<h3>Assigned changes</h3>
+				<div className={styles.stackHeader}>
+					<h3>Assigned changes</h3>
+					<Menu.Root>
+						<Menu.Trigger className={styles.stackMenuTrigger} aria-label="Stack menu">
+							<MenuTriggerIcon />
+						</Menu.Trigger>
+						<Menu.Portal>
+							<Menu.Positioner align="end">
+								<StackMenuPopup projectId={projectId} stackId={stackId} />
+							</Menu.Positioner>
+						</Menu.Portal>
+					</Menu.Root>
+				</div>
 				<Changes
 					projectId={projectId}
 					stackId={stack.id}
@@ -1233,11 +1254,15 @@ const StackC: FC<{
 											nextCommitId={segment.commits[index + 1]?.id}
 											isHighlighted={highlightedCommitIds.has(commit.id)}
 											isSelected={isCommitSelected(commit.id)}
-											isAnyFileSelected={isCommitAnyFileSelected(commit.id)}
+											isEditingMessage={isCommitEditing(commit.id)}
+											isSelectedWithin={isCommitSelectedWithin(commit.id)}
 											isFileSelected={(path) => isChangeUnitFileSelected(changeUnit, path)}
 											toggleExpand={() => toggleCommitExpanded(commit.id)}
 											toggleSelect={() => {
 												toggleCommitSelection(commit.id);
+											}}
+											toggleEditingMessage={() => {
+												toggleEditingMessage(commit.id);
 											}}
 											toggleFileSelect={(path) => {
 												toggleChangeUnitFileSelection(changeUnit, path);
@@ -1312,7 +1337,12 @@ const ProjectPage: FC = () => {
 		selection?._tag === "Commit" &&
 		selection.stackId === stackId &&
 		selection.commitId === commitId;
-	const isCommitAnyFileSelected = (stackId: string, commitId: string) =>
+	const isCommitEditing = (stackId: string, commitId: string) =>
+		selection?._tag === "Commit" &&
+		selection.stackId === stackId &&
+		selection.commitId === commitId &&
+		selection.isEditingMessage === true;
+	const isCommitSelectedWithin = (stackId: string, commitId: string) =>
 		selection?._tag === "CommitFile" &&
 		selection.stackId === stackId &&
 		selection.commitId === commitId;
@@ -1330,11 +1360,15 @@ const ProjectPage: FC = () => {
 	};
 
 	const toggleCommitSelection = (stackId: string, commitId: string) => {
-		select(isCommitSelected(stackId, commitId) ? null : { _tag: "Commit", stackId, commitId });
+		select(
+			isCommitSelected(stackId, commitId)
+				? null
+				: { _tag: "Commit", stackId, commitId, isEditingMessage: false },
+		);
 	};
 	const toggleCommitExpanded = async (stackId: string, commitId: string) => {
-		if (isCommitAnyFileSelected(stackId, commitId)) {
-			select({ _tag: "Commit", stackId, commitId });
+		if (isCommitSelectedWithin(stackId, commitId)) {
+			select({ _tag: "Commit", stackId, commitId, isEditingMessage: false });
 			return;
 		}
 
@@ -1346,19 +1380,39 @@ const ProjectPage: FC = () => {
 		select(
 			firstPath !== undefined
 				? { _tag: "CommitFile", stackId, commitId, path: firstPath }
-				: { _tag: "Commit", stackId, commitId },
+				: { _tag: "Commit", stackId, commitId, isEditingMessage: false },
 		);
 	};
 	const toggleChangeUnitFileSelection = (stackId: string, changeUnit: ChangeUnit, path: string) => {
 		select(
 			isChangeUnitFileSelected(stackId, changeUnit, path)
 				? changeUnit._tag === "Commit"
-					? { _tag: "Commit", stackId, commitId: changeUnit.commitId }
+					? {
+							_tag: "Commit",
+							stackId,
+							commitId: changeUnit.commitId,
+							isEditingMessage: false,
+						}
 					: null
 				: changeUnit._tag === "Commit"
 					? { _tag: "CommitFile", stackId, commitId: changeUnit.commitId, path }
 					: { _tag: "ChangesFile", stackId, path },
 		);
+	};
+	const toggleEditingMessage = (stackId: string, commitId: string) => {
+		if (isCommitEditing(stackId, commitId)) {
+			select((currentSelection) =>
+				currentSelection?._tag === "Commit" &&
+				currentSelection.stackId === stackId &&
+				currentSelection.commitId === commitId &&
+				currentSelection.isEditingMessage === true
+					? { ...currentSelection, isEditingMessage: false }
+					: currentSelection,
+			);
+			return;
+		}
+
+		select({ _tag: "Commit", stackId, commitId, isEditingMessage: true });
 	};
 
 	const highlightCommits = (commitIds: Array<string> | null) => {
@@ -1408,15 +1462,17 @@ const ProjectPage: FC = () => {
 										isBranchSelected={isBranchSelected}
 										toggleBranchSelection={toggleBranchSelection}
 										isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
-										isCommitAnyFileSelected={(commitId) =>
-											isCommitAnyFileSelected(stackId, commitId)
-										}
+										isCommitEditing={(commitId) => isCommitEditing(stackId, commitId)}
+										isCommitSelectedWithin={(commitId) => isCommitSelectedWithin(stackId, commitId)}
 										isChangeUnitFileSelected={(changeUnit, path) =>
 											isChangeUnitFileSelected(stackId, changeUnit, path)
 										}
 										toggleCommitExpanded={(commitId) => toggleCommitExpanded(stackId, commitId)}
 										toggleCommitSelection={(commitId) => {
 											toggleCommitSelection(stackId, commitId);
+										}}
+										toggleEditingMessage={(commitId) => {
+											toggleEditingMessage(stackId, commitId);
 										}}
 										toggleChangeUnitFileSelection={(changeUnit, path) => {
 											toggleChangeUnitFileSelection(stackId, changeUnit, path);

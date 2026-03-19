@@ -18,18 +18,22 @@
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);
-	padding: 2px 4px;
+	padding-inline: var(--selection-inline-padding);
+	padding-block: var(--selection-block-padding);
 	background-color: #eee;
+	resize: vertical;
 }
 
 .segments {
 	display: flex;
-	row-gap: 16px;
+	row-gap: calc(var(--selection-block-padding) + var(--selection-line-height));
 	flex-direction: column;
 }
 
 .branchButton {
 	width: 100%;
+	padding-inline: var(--selection-inline-padding);
+	padding-block: var(--selection-block-padding);
 }
 
 .commitMoveTarget {
@@ -77,12 +81,27 @@
 
 .stack {
 	display: flex;
-	row-gap: 16px;
+	row-gap: calc(var(--selection-block-padding) + var(--selection-line-height));
 	flex-direction: column;
 }
 
-.stackMenu {
-	align-self: end;
+.stackHeader {
+	display: flex;
+	column-gap: 8px;
+	align-items: center;
+}
+
+.stackMenuTrigger {
+	display: grid;
+	margin-left: auto;
+	padding-inline: 8px;
+	/* TODO:  */
+	padding-block: 2px;
+
+	svg {
+		width: var(--selection-line-height);
+		height: var(--selection-line-height);
+	}
 }
 
 .selectedCommitMessageBody {
