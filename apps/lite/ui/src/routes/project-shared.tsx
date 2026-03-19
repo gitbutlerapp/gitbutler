@@ -326,10 +326,12 @@ const InlineCommitMessageEditor: FC<{
 };
 
 const CommitMenuPopup: FC<{
+	projectId: string;
+	commitId: string;
 	onReword: () => void;
-	onInsertBlank: (side: "above" | "below") => void;
 	parts: typeof Menu | typeof ContextMenu;
-}> = ({ onReword, onInsertBlank, parts }) => {
+}> = ({ projectId, commitId, onReword, parts }) => {
+	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
 	const { Popup, Item, SubmenuRoot, SubmenuTrigger, Positioner } = parts;
 
 	return (
@@ -344,7 +346,11 @@ const CommitMenuPopup: FC<{
 						<Item
 							className={styles.menuItem}
 							onClick={() => {
-								onInsertBlank("above");
+								commitInsertBlank.mutate({
+									projectId,
+									relativeTo: { type: "commit", subject: commitId },
+									side: "above",
+								});
 							}}
 						>
 							Above
@@ -352,7 +358,11 @@ const CommitMenuPopup: FC<{
 						<Item
 							className={styles.menuItem}
 							onClick={() => {
-								onInsertBlank("below");
+								commitInsertBlank.mutate({
+									projectId,
+									relativeTo: { type: "commit", subject: commitId },
+									side: "below",
+								});
 							}}
 						>
 							Below
@@ -385,7 +395,6 @@ export const CommitRow: FC<
 	className,
 	...restProps
 }) => {
-	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
 	const [isEditingMessage, setIsEditingMessage] = useState(false);
 	const [isExpandPending, startExpandTransition] = useTransition();
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
@@ -396,14 +405,6 @@ export const CommitRow: FC<
 	const commitWithOptimisticMessage: Commit = {
 		...commit,
 		message: optimisticMessage,
-	};
-
-	const insertBlankCommit = (side: "above" | "below") => {
-		commitInsertBlank.mutate({
-			projectId,
-			relativeTo: { type: "commit", subject: commit.id },
-			side,
-		});
 	};
 
 	const startEditingMessage = () => {
@@ -449,8 +450,9 @@ export const CommitRow: FC<
 							<ContextMenu.Portal>
 								<ContextMenu.Positioner>
 									<CommitMenuPopup
+										projectId={projectId}
+										commitId={commit.id}
 										onReword={startEditingMessage}
-										onInsertBlank={insertBlankCommit}
 										parts={ContextMenu}
 									/>
 								</ContextMenu.Positioner>
@@ -475,8 +477,9 @@ export const CommitRow: FC<
 						<Menu.Portal>
 							<Menu.Positioner align="end">
 								<CommitMenuPopup
+									projectId={projectId}
+									commitId={commit.id}
 									onReword={startEditingMessage}
-									onInsertBlank={insertBlankCommit}
 									parts={Menu}
 								/>
 							</Menu.Positioner>
