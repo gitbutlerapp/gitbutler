@@ -765,7 +765,6 @@ dependencies = [
  "but-graph",
  "but-hunk-assignment",
  "but-installer",
- "but-link",
  "but-llm",
  "but-oxidize",
  "but-path",
@@ -1337,24 +1336,6 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "but-link"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "but-ctx",
- "but-db",
- "clap",
- "crossterm",
- "gix",
- "ratatui",
- "rusqlite",
- "serde",
- "serde_json",
- "tempfile",
- "time",
 ]
 
 [[package]]
