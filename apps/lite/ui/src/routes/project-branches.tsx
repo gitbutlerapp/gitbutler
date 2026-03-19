@@ -1,4 +1,5 @@
 import useLocalStorageState from "use-local-storage-state";
+import { ContextMenu, Menu } from "@base-ui/react";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createRoute } from "@tanstack/react-router";
 import { FC, Suspense } from "react";
@@ -68,6 +69,49 @@ const getBranchRef = (branch: BranchListing): string | null => {
 	const remote = branch.remotes[0];
 	if (remote === undefined) return null;
 	return `refs/remotes/${remote}/${branch.name}`;
+};
+
+const BranchMenuPopup: FC<{
+	branch: BranchListing;
+	projectId: string;
+	parts: typeof Menu | typeof ContextMenu;
+}> = ({ branch, projectId, parts }) => {
+	const { Popup, Item } = parts;
+	const applyBranch = useMutation(applyBranchMutationOptions);
+	const unapplyStack = useMutation(unapplyStackMutationOptions);
+	const ref = getBranchRef(branch);
+	const stackId = branch.stack?.id;
+
+	return (
+		<Popup className={sharedStyles.menuPopup}>
+			{!branch.stack?.inWorkspace ? (
+				<Item
+					className={sharedStyles.menuItem}
+					disabled={ref === null}
+					onClick={() => {
+						if (ref === null) return;
+						applyBranch.mutate({
+							projectId,
+							existingBranch: ref,
+						});
+					}}
+				>
+					Apply branch
+				</Item>
+			) : (
+				<Item
+					className={sharedStyles.menuItem}
+					disabled={stackId === undefined}
+					onClick={() => {
+						if (stackId === undefined) return;
+						unapplyStack.mutate({ projectId, stackId });
+					}}
+				>
+					Unapply stack
+				</Item>
+			)}
+		</Popup>
+	);
 };
 
 const CommitC: FC<{
@@ -320,8 +364,6 @@ const ProjectBranchesPage: FC = () => {
 	const project = projects.find((project) => project.id === projectId);
 	const { data: branches } = useSuspenseQuery(listBranchesQueryOptions(projectId));
 	const queryClient = useQueryClient();
-	const applyBranch = useMutation(applyBranchMutationOptions);
-	const unapplyStack = useMutation(unapplyStackMutationOptions);
 
 	const sortedBranches = branches.slice().sort((a, b) => a.name.localeCompare(b.name));
 	const [_selection, select] = useLocalStorageState<Selection | null>(
@@ -416,8 +458,6 @@ const ProjectBranchesPage: FC = () => {
 			<div className={sharedStyles.lanes}>
 				<ul className={styles.branchesList}>
 					{sortedBranches.map((branch) => {
-						const ref = getBranchRef(branch);
-						const stackId = branch.stack?.id;
 						const isSelected = isBranchSelected(branch.name);
 						const isSelectedWithin = isBranchSelectedWithin(branch.name);
 						return (
@@ -432,48 +472,42 @@ const ProjectBranchesPage: FC = () => {
 											: undefined,
 								)}
 							>
-								<button
-									type="button"
-									className={styles.branchButton}
-									onClick={() => {
-										toggleBranchSelection(branch.name);
-									}}
-								>
-									{branch.name}
-									{branch.stack?.branches && branch.stack.branches.length > 1 && (
-										<> (+{branch.stack.branches.length - 1} more)</>
-									)}
-								</button>
-								{!branch.stack?.inWorkspace ? (
-									<button
-										type="button"
-										disabled={applyBranch.isPending || ref === null}
-										onClick={() => {
-											if (ref === null) return;
-											applyBranch.mutate({
-												projectId,
-												existingBranch: ref,
-											});
-										}}
+								<ContextMenu.Root>
+									<ContextMenu.Trigger
+										render={
+											<button
+												type="button"
+												className={styles.branchButton}
+												onClick={() => {
+													toggleBranchSelection(branch.name);
+												}}
+											>
+												{branch.name}
+												{branch.stack?.branches && branch.stack.branches.length > 1 && (
+													<> (+{branch.stack.branches.length - 1} more)</>
+												)}
+											</button>
+										}
+									/>
+									<ContextMenu.Portal>
+										<ContextMenu.Positioner>
+											<BranchMenuPopup branch={branch} projectId={projectId} parts={ContextMenu} />
+										</ContextMenu.Positioner>
+									</ContextMenu.Portal>
+								</ContextMenu.Root>
+								<Menu.Root>
+									<Menu.Trigger
+										style={{ lineHeight: 1 }}
+										className={sharedStyles.commitMenuTrigger}
 									>
-										{applyBranch.isPending ? "Applying branch…" : "Apply branch"}
-									</button>
-								) : (
-									stackId != null && (
-										<button
-											type="button"
-											disabled={unapplyStack.isPending}
-											onClick={() => {
-												unapplyStack.mutate({
-													projectId,
-													stackId,
-												});
-											}}
-										>
-											{unapplyStack.isPending ? "Unapplying stack…" : "Unapply stack"}
-										</button>
-									)
-								)}
+										𑁔
+									</Menu.Trigger>
+									<Menu.Portal>
+										<Menu.Positioner align="end">
+											<BranchMenuPopup branch={branch} projectId={projectId} parts={Menu} />
+										</Menu.Positioner>
+									</Menu.Portal>
+								</Menu.Root>
 							</li>
 						);
 					})}
