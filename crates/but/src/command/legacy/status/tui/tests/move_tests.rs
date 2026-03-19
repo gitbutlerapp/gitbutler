@@ -2,7 +2,10 @@ use but_testsupport::Sandbox;
 use crossterm::event::*;
 use snapbox::{file, str};
 
-use crate::command::legacy::status::tui::{Message, tests::utils::test_tui};
+use crate::command::legacy::status::tui::{
+    Message,
+    tests::utils::{test_tui, test_tui_with_size},
+};
 
 #[test]
 fn esc_leaves_move_mode() {
@@ -23,6 +26,37 @@ fn esc_leaves_move_mode() {
     tui.input_then_render(KeyCode::Esc)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"])
         .assert_rendered_eq(file!["snapshots/esc_leaves_move_mode_final.txt"]);
+}
+
+#[test]
+fn move_mode_keeps_selected_commit_and_extension_visible_when_scrolled() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui_with_size(env, 100, 6);
+
+    tui.input_then_render(None)
+        .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+
+    tui.input_then_render('n')
+        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+
+    tui.input_then_render('n')
+        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+
+    tui.input_then_render([KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊●   [..] add A"]);
+
+    tui.input_then_render('m')
+        .assert_current_line_eq(str!["┊●   << source >> << noop >> [..] add A"]);
+
+    tui.input_then_render(KeyCode::Up)
+        .assert_rendered_contains("<< move commit above >>")
+        .assert_rendered_contains("(no commit message) (no changes)")
+        .assert_current_line_eq(str!["┊│   << move commit above >>"]);
 }
 
 #[test]

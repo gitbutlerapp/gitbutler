@@ -25,7 +25,6 @@ impl Cursor {
         )
     }
 
-    #[cfg(test)]
     pub(super) fn index(self) -> usize {
         self.0
     }
@@ -87,16 +86,6 @@ impl Cursor {
             )
         })?;
         Some(Self(idx))
-    }
-
-    pub(super) fn iter_lines(
-        self,
-        lines: &[StatusOutputLine],
-    ) -> impl Iterator<Item = (&StatusOutputLine, bool)> {
-        lines
-            .iter()
-            .enumerate()
-            .map(move |(idx, line)| (line, self.0 == idx))
     }
 
     pub(super) fn selected_line(self, lines: &[StatusOutputLine]) -> Option<&StatusOutputLine> {

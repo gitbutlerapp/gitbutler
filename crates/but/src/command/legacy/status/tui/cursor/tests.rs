@@ -295,7 +295,7 @@ fn select_unassigned_returns_none_when_missing() {
 }
 
 #[test]
-fn iter_lines_marks_only_the_selected_line() {
+fn index_returns_the_selected_line_index() {
     let lines = vec![
         line(StatusOutputLineData::UnstagedChanges {
             cli_id: unassigned("u0"),
@@ -308,12 +308,9 @@ fn iter_lines_marks_only_the_selected_line() {
         }),
     ];
 
-    let selected: Vec<bool> = Cursor(1)
-        .iter_lines(&lines)
-        .map(|(_, selected)| selected)
-        .collect();
-
-    assert_eq!(selected, vec![false, true, false]);
+    let cursor = Cursor::new(&lines);
+    assert_eq!(cursor.index(), 0);
+    assert_eq!(Cursor(1).index(), 1);
 }
 
 #[test]

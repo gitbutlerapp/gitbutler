@@ -185,6 +185,7 @@ struct App {
     should_quit: bool,
     should_render: bool,
     cursor: Cursor,
+    scroll_top: usize,
     mode: Mode,
     key_binds: KeyBinds,
     debug_enabled: bool,
@@ -200,6 +201,7 @@ impl App {
             status_lines,
             flags,
             cursor,
+            scroll_top: 0,
             should_quit: false,
             should_render: true,
             mode: Mode::default(),
@@ -208,6 +210,70 @@ impl App {
             errors: Vec::new(),
             renders: 0,
         }
+    }
+
+    /// Returns the number of terminal rows available for rendering the status list.
+    fn status_viewport_height(&self, terminal_area: Rect) -> usize {
+        usize::from(terminal_area.height.saturating_sub(1)).max(1)
+    }
+
+    /// Returns the rendered height in terminal rows for the given status line.
+    fn rendered_height_for_status_line(&self, line_idx: usize) -> usize {
+        self.status_lines
+            .get(line_idx)
+            .map(|line| {
+                self.render_status_list_item(line, self.cursor.index() == line_idx)
+                    .into_iter()
+                    .count()
+            })
+            .unwrap_or(0)
+    }
+
+    /// Returns the total rendered height of the entire status list.
+    fn total_rendered_height(&self) -> usize {
+        (0..self.status_lines.len())
+            .map(|idx| self.rendered_height_for_status_line(idx))
+            .sum()
+    }
+
+    /// Returns the rendered row range occupied by the selected line.
+    fn selected_row_range(&self) -> Option<std::ops::Range<usize>> {
+        let selected_idx = self.cursor.index();
+        let selected_line = self.status_lines.get(selected_idx)?;
+        let start = (0..selected_idx)
+            .map(|idx| self.rendered_height_for_status_line(idx))
+            .sum();
+        let len = self
+            .render_status_list_item(selected_line, true)
+            .into_iter()
+            .count();
+        Some(start..start.saturating_add(len))
+    }
+
+    /// Clamps the topmost visible rendered row to the available content height.
+    fn clamp_scroll_top(&mut self, visible_height: usize) {
+        let max_scroll_top = self.total_rendered_height().saturating_sub(visible_height);
+        self.scroll_top = self.scroll_top.min(max_scroll_top);
+    }
+
+    /// Adjusts the viewport so the selected line stays fully visible.
+    fn ensure_cursor_visible(&mut self, visible_height: usize) {
+        self.clamp_scroll_top(visible_height);
+
+        let Some(selected_rows) = self.selected_row_range() else {
+            return;
+        };
+
+        if selected_rows.start < self.scroll_top {
+            self.scroll_top = selected_rows.start;
+        } else {
+            let scroll_bottom = self.scroll_top.saturating_add(visible_height);
+            if selected_rows.end > scroll_bottom {
+                self.scroll_top = selected_rows.end.saturating_sub(visible_height);
+            }
+        }
+
+        self.clamp_scroll_top(visible_height);
     }
 
     async fn handle_message<T>(
@@ -244,6 +310,8 @@ impl App {
         anyhow::Error: From<<T::Backend as Backend>::Error>,
     {
         self.should_render = true;
+        let visible_height =
+            self.status_viewport_height(terminal_guard.terminal_mut().size()?.into());
 
         match msg {
             Message::Quit => {
@@ -312,6 +380,8 @@ impl App {
                 MoveMessage::Confirm => self.handle_move_confirm(ctx, messages)?,
             },
         }
+
+        self.ensure_cursor_visible(visible_height);
 
         Ok(())
     }
@@ -1229,12 +1299,16 @@ impl App {
             (area, None)
         };
 
-        let items =
-            self.cursor
-                .iter_lines(&self.status_lines)
-                .flat_map(|(tui_line, is_selected)| {
-                    self.render_status_list_item(tui_line, is_selected)
-                });
+        let visible_height = content_area.height as usize;
+        let items = self
+            .status_lines
+            .iter()
+            .enumerate()
+            .flat_map(|(idx, tui_line)| {
+                self.render_status_list_item(tui_line, self.cursor.index() == idx)
+            })
+            .skip(self.scroll_top)
+            .take(visible_height);
         let list = List::new(items);
 
         frame.render_widget(list, content_area);
@@ -1643,12 +1717,18 @@ impl App {
         let Mode::InlineReword(InlineRewordMode { textarea, .. }) = &self.mode else {
             return;
         };
-        let Some((idx, (line, _))) = self
-            .cursor
-            .iter_lines(&self.status_lines)
-            .enumerate()
-            .find(|(_, (_, is_selected))| *is_selected)
-        else {
+        let selected_idx = self.cursor.index();
+        let Some(selected_rows) = self.selected_row_range() else {
+            return;
+        };
+        if selected_rows.start < self.scroll_top {
+            return;
+        }
+        let idx = selected_rows.start - self.scroll_top;
+        if idx >= area.height as usize {
+            return;
+        }
+        let Some(line) = self.status_lines.get(selected_idx) else {
             return;
         };
         let StatusOutputLineData::Commit { .. } = &line.data else {

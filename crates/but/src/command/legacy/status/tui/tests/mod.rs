@@ -6,7 +6,7 @@ use crossterm::event::*;
 use snapbox::{file, str};
 
 use crate::command::legacy::status::tui::Message;
-use crate::command::legacy::status::tui::tests::utils::test_tui;
+use crate::command::legacy::status::tui::tests::utils::{test_tui, test_tui_with_size};
 
 mod command_tests;
 mod commit_tests;
@@ -207,6 +207,108 @@ fn shift_k_from_second_stack_commit_moves_to_its_header() {
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('K')))
         .assert_current_line_eq(str!["┊╭┄h0 [B]"]);
+}
+
+#[test]
+fn cursor_movement_scrolls_viewport_down() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui_with_size(env, 100, 8);
+
+    tui.input_then_render(None)
+        .assert_rendered_eq(file![
+            "snapshots/cursor_movement_scrolls_viewport_down_001.txt"
+        ])
+        .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
+
+    tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
+        .assert_rendered_eq(file![
+            "snapshots/cursor_movement_scrolls_viewport_down_002.txt"
+        ])
+        .assert_current_line_eq(str!["┊●   [..] add B"]);
+}
+
+#[test]
+fn cursor_movement_scrolls_viewport_up() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui_with_size(env, 100, 8);
+
+    tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
+        .assert_rendered_eq(file![
+            "snapshots/cursor_movement_scrolls_viewport_up_001.txt"
+        ])
+        .assert_current_line_eq(str!["┊●   [..] add B"]);
+
+    tui.input_then_render([KeyCode::Up, KeyCode::Up, KeyCode::Up, KeyCode::Up])
+        .assert_rendered_eq(file![
+            "snapshots/cursor_movement_scrolls_viewport_up_002.txt"
+        ])
+        .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
+}
+
+#[test]
+fn section_jumps_scroll_viewport_when_target_is_offscreen() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui_with_size(env, 100, 8);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+        .assert_rendered_eq(file![
+            "snapshots/section_jumps_scroll_viewport_when_target_is_offscreen_001.txt"
+        ])
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+        .assert_rendered_eq(file![
+            "snapshots/section_jumps_scroll_viewport_when_target_is_offscreen_002.txt"
+        ])
+        .assert_current_line_eq(str!["┊╭┄h0 [B]"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('K')))
+        .assert_rendered_eq(file![
+            "snapshots/section_jumps_scroll_viewport_when_target_is_offscreen_003.txt"
+        ])
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+}
+
+#[test]
+fn reload_preserves_visible_selection_when_scrolled() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui_with_size(env, 100, 8);
+
+    tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down]);
+
+    tui.render_with_messages(None, Vec::from([Message::Reload(None)]))
+        .assert_rendered_eq(file![
+            "snapshots/reload_preserves_visible_selection_when_scrolled_001.txt"
+        ])
+        .assert_current_line_eq(str!["┊●   [..] add B"]);
+}
+
+#[test]
+fn inline_reword_renders_on_visible_row_when_scrolled() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui_with_size(env, 100, 8);
+
+    tui.input_then_render([
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Down,
+        KeyCode::Enter,
+    ])
+    .assert_rendered_eq(file![
+        "snapshots/inline_reword_renders_on_visible_row_when_scrolled_001.txt"
+    ])
+    .assert_current_line_eq(str!["┊●   d3e2ba3"]);
 }
 
 #[test]

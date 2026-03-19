@@ -1,0 +1,8 @@
+"┊                                                                                                   "
+"┊╭┄g0 [A]                                                                                           "
+"┊●   9477ae7 add A                                                                                  "
+"├╯                                                                                                  "
+"┊                                                                                                   "
+"┊╭┄h0 [B]                                                                                           "
+"┊●   d3e2ba3 add B                                                                                  "
+"  reword   enter confirm • esc back                                                                 "
