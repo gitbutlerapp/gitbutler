@@ -10,7 +10,7 @@ use serde::Serialize;
 /// This includes information about the branch itself and its commits
 pub fn branch_details(ref_name: &str, current_dir: &Path) -> anyhow::Result<BranchDetails> {
     let ctx = Context::discover(current_dir)?;
-    let meta = ctx.legacy_meta()?;
+    let meta = ctx.meta()?;
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let ref_name = repo.find_reference(ref_name)?.name().to_owned();
 
