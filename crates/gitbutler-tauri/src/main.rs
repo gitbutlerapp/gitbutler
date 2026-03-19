@@ -539,12 +539,12 @@ fn main() -> anyhow::Result<()> {
                 irc::irc_start_working_files_broadcast,
                 #[cfg(feature = "irc")]
                 irc::irc_stop_working_files_broadcast,
-                commit::tauri_commit_reword::commit_reword,
-                commit::tauri_commit_insert_blank::commit_insert_blank,
-                commit::tauri_commit_create::commit_create,
-                commit::tauri_commit_amend::commit_amend,
-                commit::tauri_commit_move_changes_between::commit_move_changes_between,
-                commit::tauri_commit_uncommit_changes::commit_uncommit_changes,
+                commit::reword::tauri_commit_reword::commit_reword,
+                commit::insert_blank::tauri_commit_insert_blank::commit_insert_blank,
+                commit::create::tauri_commit_create::commit_create,
+                commit::amend::tauri_commit_amend::commit_amend,
+                commit::move_changes::tauri_commit_move_changes_between::commit_move_changes_between,
+                commit::uncommit::tauri_commit_uncommit_changes::commit_uncommit_changes,
                 platform::tauri_build_type::build_type,
             ])
             .menu(move |handle| menu::build(handle, &app_settings_for_menu))

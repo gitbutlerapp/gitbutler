@@ -39,3 +39,5 @@ pub mod panic_capture;
 /// The types for watcher events
 #[cfg(feature = "export-schema")]
 pub mod watcher;
+
+pub mod types;

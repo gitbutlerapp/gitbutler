@@ -4,11 +4,11 @@
 //! `RubOperationDiscriminants`, and `route_operation`.
 
 use anyhow::Context as _;
-use but_api::commit::{CommitCreateResult, CommitMoveResult, MoveChangesResult, ui::RelativeTo};
+use but_api::commit::types::{CommitCreateResult, CommitMoveResult, MoveChangesResult};
 use but_core::{DiffSpec, diff::tree_changes, ref_metadata::StackId};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use gix::refs::FullName;
 
 use crate::{
@@ -196,7 +196,7 @@ fn execute_uncommitted_to_commit(
         .cloned()
         .map(DiffSpec::from)
         .collect::<Vec<_>>();
-    but_api::commit::commit_amend(ctx, operation.oid, changes)
+    but_api::commit::amend::commit_amend(ctx, operation.oid, changes)
 }
 
 /// Executes `UncommittedToBranch` by assigning selected hunks to the target branch stack.
@@ -255,7 +255,7 @@ fn execute_unassigned_to_commit(
     operation: &UnassignedToCommitOperation,
 ) -> anyhow::Result<CommitCreateResult> {
     let changes = changes_for_stack_assignment(ctx, None)?;
-    but_api::commit::commit_amend(ctx, operation.oid, changes)
+    but_api::commit::amend::commit_amend(ctx, operation.oid, changes)
 }
 
 /// Executes `UnassignedToBranch` by assigning unassigned hunks to the target branch stack.
@@ -281,7 +281,7 @@ fn execute_undo_commit(
     operation: &UndoCommitOperation,
 ) -> anyhow::Result<MoveChangesResult> {
     let changes = changes_for_commit(ctx, operation.oid)?;
-    but_api::commit::commit_uncommit_changes(ctx, operation.oid, changes, None)
+    but_api::commit::uncommit::commit_uncommit_changes(ctx, operation.oid, changes, None)
 }
 
 /// Executes `MoveCommitToBranch` and returns the exact commit-move API result.
@@ -290,7 +290,7 @@ fn execute_move_commit_to_branch(
     operation: &MoveCommitToBranchOperation<'_>,
 ) -> anyhow::Result<CommitMoveResult> {
     let target_full_name = FullName::try_from(format!("refs/heads/{}", operation.name))?;
-    but_api::commit::commit_move(
+    but_api::commit::move_commit::commit_move(
         ctx,
         operation.oid,
         RelativeTo::Reference(target_full_name),
@@ -326,7 +326,7 @@ fn execute_branch_to_commit(
 ) -> anyhow::Result<CommitCreateResult> {
     let stack_id = stack_id_for_branch_name(ctx, operation.name)?;
     let changes = changes_for_stack_assignment(ctx, stack_id)?;
-    but_api::commit::commit_amend(ctx, operation.oid, changes)
+    but_api::commit::amend::commit_amend(ctx, operation.oid, changes)
 }
 
 /// Executes `BranchToBranch` by reassigning all hunks from one branch stack to another.
@@ -349,7 +349,12 @@ fn execute_committed_file_to_branch(
 ) -> anyhow::Result<MoveChangesResult> {
     let stack_id = stack_id_for_branch_name(ctx, operation.name)?;
     let relevant_changes = file_changes_from_commit(ctx, operation.commit_oid, operation.path)?;
-    but_api::commit::commit_uncommit_changes(ctx, operation.commit_oid, relevant_changes, stack_id)
+    but_api::commit::uncommit::commit_uncommit_changes(
+        ctx,
+        operation.commit_oid,
+        relevant_changes,
+        stack_id,
+    )
 }
 
 /// Executes `CommittedFileToCommit` and returns the exact move-changes API result.
@@ -358,7 +363,7 @@ fn execute_committed_file_to_commit(
     operation: &CommittedFileToCommitOperation<'_>,
 ) -> anyhow::Result<MoveChangesResult> {
     let relevant_changes = file_changes_from_commit(ctx, operation.commit_oid, operation.path)?;
-    but_api::commit::commit_move_changes_between(
+    but_api::commit::move_changes::commit_move_changes_between(
         ctx,
         operation.commit_oid,
         operation.oid,
@@ -372,7 +377,12 @@ fn execute_committed_file_to_unassigned(
     operation: &CommittedFileToUnassignedOperation<'_>,
 ) -> anyhow::Result<MoveChangesResult> {
     let relevant_changes = file_changes_from_commit(ctx, operation.commit_oid, operation.path)?;
-    but_api::commit::commit_uncommit_changes(ctx, operation.commit_oid, relevant_changes, None)
+    but_api::commit::uncommit::commit_uncommit_changes(
+        ctx,
+        operation.commit_oid,
+        relevant_changes,
+        None,
+    )
 }
 
 /// Builds assignment requests for selected hunks and assigns them to `target_stack_id`.

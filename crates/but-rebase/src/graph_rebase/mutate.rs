@@ -138,18 +138,37 @@ pub enum SelectorSet {
 /// An enum that is helpful for describing where something should be inserted
 /// relative to.
 #[derive(Debug, Clone)]
-pub enum RelativeTo<'a> {
+pub enum RelativeToRef<'a> {
     /// Relative to a commit
     Commit(gix::ObjectId),
     /// Relative to a reference
     Reference(&'a gix::refs::FullNameRef),
 }
 
-impl ToSelector for RelativeTo<'_> {
+impl ToSelector for RelativeToRef<'_> {
     fn to_selector(&self, editor: &Editor) -> Result<Selector> {
         match self {
             Self::Commit(id) => editor.select_commit(*id),
             Self::Reference(reference) => editor.select_reference(reference),
+        }
+    }
+}
+
+/// Specifies a location relative to which a commit operation should occur.
+/// This is the fully-owned cousin of [RelativeTo].
+#[derive(Debug, Clone)]
+pub enum RelativeTo {
+    /// Relative to a commit.
+    Commit(gix::ObjectId),
+    /// Relative to a reference.
+    Reference(gix::refs::FullName),
+}
+
+impl ToSelector for RelativeTo {
+    fn to_selector(&self, editor: &Editor) -> Result<Selector> {
+        match self {
+            Self::Commit(commit) => editor.select_commit(*commit),
+            Self::Reference(reference) => editor.select_reference(reference.as_ref()),
         }
     }
 }

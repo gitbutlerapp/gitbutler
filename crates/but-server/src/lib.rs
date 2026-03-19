@@ -434,7 +434,7 @@ pub async fn run() {
         )
         .route(
             "/commit_insert_blank",
-            but_post(commit::commit_insert_blank_cmd),
+            but_post(commit::insert_blank::commit_insert_blank_cmd),
         )
         .route(
             "/list_branches",
@@ -654,16 +654,22 @@ pub async fn run() {
             "/claude_maybe_create_prompt_dir",
             but_post(legacy::claude::claude_maybe_create_prompt_dir_cmd),
         )
-        .route("/commit_reword", but_post(commit::commit_reword_cmd))
-        .route("/commit_create", but_post(commit::commit_create_cmd))
-        .route("/commit_amend", but_post(commit::commit_amend_cmd))
+        .route(
+            "/commit_reword",
+            but_post(commit::reword::commit_reword_cmd),
+        )
+        .route(
+            "/commit_create",
+            but_post(commit::create::commit_create_cmd),
+        )
+        .route("/commit_amend", but_post(commit::amend::commit_amend_cmd))
         .route(
             "/commit_move_changes_between",
-            but_post(commit::commit_move_changes_between_cmd),
+            but_post(commit::move_changes::commit_move_changes_between_cmd),
         )
         .route(
             "/commit_uncommit_changes",
-            but_post(commit::commit_uncommit_changes_cmd),
+            but_post(commit::uncommit::commit_uncommit_changes_cmd),
         )
         .route("/build_type", but_post(platform::build_type_cmd));
 

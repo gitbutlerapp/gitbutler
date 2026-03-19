@@ -1,7 +1,6 @@
 use anyhow::bail;
-use but_api::commit::ui::RelativeTo;
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use colored::Colorize;
 
 use crate::{
@@ -163,7 +162,7 @@ pub fn move_commit_to_commit(
         return Ok(());
     }
 
-    but_api::commit::commit_move(ctx, source, RelativeTo::Commit(target), side)?;
+    but_api::commit::move_commit::commit_move(ctx, source, RelativeTo::Commit(target), side)?;
 
     if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?;
@@ -189,7 +188,7 @@ pub fn move_commit_to_branch(
     out: &mut OutputChannel,
 ) -> Result<(), anyhow::Error> {
     let target_full_name = gix::refs::FullName::try_from(format!("refs/heads/{target_branch}"))?;
-    but_api::commit::commit_move(
+    but_api::commit::move_commit::commit_move(
         ctx,
         source,
         RelativeTo::Reference(target_full_name),
