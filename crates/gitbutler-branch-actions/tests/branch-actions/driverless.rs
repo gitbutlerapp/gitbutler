@@ -1,6 +1,6 @@
 use anyhow::Result;
 use but_core::{
-    RefMetadata, RepositoryExt,
+    GitConfigSettings, RefMetadata, RepositoryExt,
     ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
 };
 use but_ctx::Context;
@@ -29,7 +29,7 @@ pub fn writable_context(script_name: &str, repo_name: &str) -> Result<(Context, 
         } else {
             gix_testtools::Creation::CopyFromReadOnly
         },
-        3,
+        4,
         move |fixture| {
             if fixture.is_uninitialized() {
                 let repo = open_repo(&fixture.path().join(&repo_name_for_post))?;
@@ -50,7 +50,7 @@ pub fn read_only_context(script_name: &str, repo_name: &str) -> Result<Context> 
     let script_name_for_post = script_name.clone();
     let (root, _) = gix_testtools::scripted_fixture_read_only_with_post(
         script_name.clone(),
-        3,
+        4,
         move |fixture| {
             if fixture.is_uninitialized() {
                 if script_name_for_post == "for-listing.sh" {
@@ -75,6 +75,8 @@ pub fn read_only_context(script_name: &str, repo_name: &str) -> Result<Context> 
 }
 
 fn seed_fixture(repo: &gix::Repository, script_name: &str, repo_name: &str) -> Result<()> {
+    disable_gitbutler_commit_signing(repo)?;
+
     let stacks = match (script_name, repo_name) {
         ("reorder.sh", "multiple-commits") => vec![
             StackSpec {
@@ -154,6 +156,13 @@ fn seed_fixture(repo: &gix::Repository, script_name: &str, repo_name: &str) -> R
 
     write_workspace_metadata(repo, &stacks)?;
     Ok(())
+}
+
+fn disable_gitbutler_commit_signing(repo: &gix::Repository) -> Result<()> {
+    repo.set_git_settings(&GitConfigSettings {
+        gitbutler_sign_commits: Some(false),
+        ..Default::default()
+    })
 }
 
 fn write_workspace_metadata(repo: &gix::Repository, stacks: &[StackSpec<'_>]) -> Result<()> {
