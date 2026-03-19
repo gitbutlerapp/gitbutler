@@ -8,7 +8,7 @@ use crate::command::legacy::status::tui::{
     CommandMessage, Message, Mode, ModeDiscriminant, RewordMessage, RubMessage,
 };
 
-use super::{CommitMessage, FilesMessage};
+use super::{CommitMessage, FilesMessage, MoveMessage};
 
 pub(super) fn default_key_binds() -> KeyBinds {
     let mut key_binds = KeyBinds::new();
@@ -35,6 +35,9 @@ pub(super) fn default_key_binds() -> KeyBinds {
             ModeDiscriminant::Commit => {
                 register_commit_mode_key_binds(&mut key_binds);
             }
+            ModeDiscriminant::Move => {
+                register_move_mode_key_binds(&mut key_binds);
+            }
         }
     }
 
@@ -47,6 +50,7 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
             ModeDiscriminant::Normal
             | ModeDiscriminant::Rub
             | ModeDiscriminant::RubButApi
+            | ModeDiscriminant::Move
             | ModeDiscriminant::Commit => true,
             ModeDiscriminant::InlineReword | ModeDiscriminant::Command => false,
         })
@@ -145,6 +149,15 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Char('n')),
         modes: Vec::from([ModeDiscriminant::Normal]),
         message: Message::Commit(CommitMessage::CreateEmpty),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "move",
+        chord_display: "m",
+        key_matcher: press().code(KeyCode::Char('m')),
+        modes: Vec::from([ModeDiscriminant::Normal]),
+        message: Message::Move(MoveMessage::Start),
         hide_from_hotbar: false,
     });
 
@@ -298,6 +311,44 @@ fn register_commit_mode_key_binds(key_binds: &mut KeyBinds) {
         chord_display: "esc",
         key_matcher: press().code(KeyCode::Esc),
         modes: Vec::from([ModeDiscriminant::Commit]),
+        message: Message::EnterNormalMode,
+        hide_from_hotbar: false,
+    });
+}
+
+fn register_move_mode_key_binds(key_binds: &mut KeyBinds) {
+    key_binds.register(StaticKeyBind {
+        short_description: "move",
+        chord_display: "enter",
+        key_matcher: press().code(KeyCode::Enter),
+        modes: Vec::from([ModeDiscriminant::Move]),
+        message: Message::Move(MoveMessage::Confirm),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "above",
+        chord_display: "a",
+        key_matcher: press().code(KeyCode::Char('a')),
+        modes: Vec::from([ModeDiscriminant::Move]),
+        message: Message::Move(MoveMessage::SetInsertSide(InsertSide::Above)),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "below",
+        chord_display: "b",
+        key_matcher: press().code(KeyCode::Char('b')),
+        modes: Vec::from([ModeDiscriminant::Move]),
+        message: Message::Move(MoveMessage::SetInsertSide(InsertSide::Below)),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "back",
+        chord_display: "esc",
+        key_matcher: press().code(KeyCode::Esc),
+        modes: Vec::from([ModeDiscriminant::Move]),
         message: Message::EnterNormalMode,
         hide_from_hotbar: false,
     });

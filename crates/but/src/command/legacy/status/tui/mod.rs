@@ -7,7 +7,10 @@ use std::{
 
 use anyhow::Context as _;
 use bstr::BString;
-use but_api::{commit::insert_blank::commit_insert_blank, diff::ComputeLineStats};
+use but_api::{
+    commit::{insert_blank::commit_insert_blank, move_commit::commit_move},
+    diff::ComputeLineStats,
+};
 use but_core::DiffSpec;
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
@@ -301,6 +304,13 @@ impl App {
                     self.handle_run_command(terminal_guard, out, messages)?
                 }
             },
+            Message::Move(move_message) => match move_message {
+                MoveMessage::Start => self.handle_move_start_message(),
+                MoveMessage::SetInsertSide(insert_side) => {
+                    self.handle_move_set_insert_side(insert_side)
+                }
+                MoveMessage::Confirm => self.handle_move_confirm(ctx, messages)?,
+            },
         }
 
         Ok(())
@@ -434,7 +444,11 @@ impl App {
                     None
                 }
             }
-            Mode::Normal | Mode::InlineReword(..) | Mode::Command(..) | Mode::Commit(..) => None,
+            Mode::Normal
+            | Mode::InlineReword(..)
+            | Mode::Command(..)
+            | Mode::Commit(..)
+            | Mode::Move(..) => None,
         };
 
         messages.extend([
@@ -604,18 +618,8 @@ impl App {
                     insert_side: InsertSide::Above,
                 }
             }
-            StatusOutputLineData::UnstagedFile { cli_id } => {
-                let Ok(source) = CommitSource::try_from(Arc::unwrap_or_clone(Arc::clone(cli_id)))
-                else {
-                    return;
-                };
-                CommitMode {
-                    source: Arc::new(source),
-                    scope_to_stack: None,
-                    insert_side: InsertSide::Above,
-                }
-            }
-            StatusOutputLineData::StagedChanges { cli_id }
+            StatusOutputLineData::UnstagedFile { cli_id }
+            | StatusOutputLineData::StagedChanges { cli_id }
             | StatusOutputLineData::StagedFile { cli_id } => {
                 let Ok(source) = CommitSource::try_from(Arc::unwrap_or_clone(Arc::clone(cli_id)))
                 else {
@@ -659,7 +663,6 @@ impl App {
             return Ok(());
         };
 
-        // find target
         let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
             return Ok(());
         };
@@ -794,6 +797,188 @@ impl App {
         if let Mode::Commit(mode) = &mut self.mode {
             mode.insert_side = insert_side;
         }
+    }
+
+    fn handle_move_start_message(&mut self) {
+        if !matches!(self.mode, Mode::Normal) {
+            return;
+        }
+        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+            return;
+        };
+
+        let move_mode = match &selection.data {
+            StatusOutputLineData::Branch { cli_id }
+            | StatusOutputLineData::Commit { cli_id, .. } => {
+                let Ok(source) = MoveSource::try_from(Arc::unwrap_or_clone(Arc::clone(cli_id)))
+                else {
+                    return;
+                };
+                MoveMode {
+                    source: Arc::new(source),
+                    insert_side: InsertSide::Above,
+                }
+            }
+            StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::Connector
+            | StatusOutputLineData::StagedChanges { .. }
+            | StatusOutputLineData::StagedFile { .. }
+            | StatusOutputLineData::UnstagedChanges { .. }
+            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::CommitMessage
+            | StatusOutputLineData::EmptyCommitMessage
+            | StatusOutputLineData::File { .. }
+            | StatusOutputLineData::MergeBase
+            | StatusOutputLineData::UpstreamChanges
+            | StatusOutputLineData::Warning
+            | StatusOutputLineData::Hint
+            | StatusOutputLineData::NoAssignmentsUnstaged => return,
+        };
+
+        self.mode = Mode::Move(move_mode);
+    }
+
+    fn handle_move_set_insert_side(&mut self, insert_side: InsertSide) {
+        if let Mode::Move(mode) = &mut self.mode {
+            mode.insert_side = insert_side;
+        }
+    }
+
+    fn handle_move_confirm(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        let Mode::Move(MoveMode {
+            source,
+            insert_side,
+        }) = &self.mode
+        else {
+            return Ok(());
+        };
+
+        // find target
+        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+            return Ok(());
+        };
+
+        if selection
+            .data
+            .cli_id()
+            .is_some_and(|target| **source == **target)
+        {
+            messages.push(Message::EnterNormalMode);
+            return Ok(());
+        }
+
+        let target = match &selection.data {
+            StatusOutputLineData::Branch { cli_id } => {
+                if let CliId::Branch { name, .. } = &**cli_id {
+                    MoveTarget::Branch { name }
+                } else {
+                    return Ok(());
+                }
+            }
+            StatusOutputLineData::Commit { cli_id, .. } => {
+                if let CliId::Commit { commit_id, .. } = &**cli_id {
+                    MoveTarget::Commit {
+                        commit_id: *commit_id,
+                    }
+                } else {
+                    return Ok(());
+                }
+            }
+            StatusOutputLineData::MergeBase => MoveTarget::MergeBase,
+            StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::Connector
+            | StatusOutputLineData::StagedChanges { .. }
+            | StatusOutputLineData::StagedFile { .. }
+            | StatusOutputLineData::UnstagedChanges { .. }
+            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::CommitMessage
+            | StatusOutputLineData::EmptyCommitMessage
+            | StatusOutputLineData::File { .. }
+            | StatusOutputLineData::UpstreamChanges
+            | StatusOutputLineData::Warning
+            | StatusOutputLineData::Hint
+            | StatusOutputLineData::NoAssignmentsUnstaged => {
+                return Ok(());
+            }
+        };
+
+        let selection_after_reload = match &**source {
+            MoveSource::Commit {
+                commit_id: source_commit_id,
+                ..
+            } => {
+                let commit_move_result = match target {
+                    MoveTarget::Branch { name } => {
+                        let repo = ctx.repo.get()?;
+                        let target_branch_name = repo
+                            .find_reference(name)
+                            .context("failed to find reference")?
+                            .name()
+                            .to_owned();
+                        drop(repo);
+                        commit_move(
+                            ctx,
+                            *source_commit_id,
+                            RelativeTo::Reference(target_branch_name),
+                            InsertSide::Below,
+                        )
+                        .context("failed to move commit")?
+                    }
+                    MoveTarget::Commit {
+                        commit_id: target_commit_id,
+                    } => commit_move(
+                        ctx,
+                        *source_commit_id,
+                        RelativeTo::Commit(target_commit_id),
+                        *insert_side,
+                    )
+                    .context("failed to move commit")?,
+                    MoveTarget::MergeBase => return Ok(()),
+                };
+
+                commit_move_result
+                    .replaced_commits
+                    .get(source_commit_id)
+                    .copied()
+                    .map(SelectAfterReload::Commit)
+            }
+            MoveSource::Branch {
+                name: source_branch_name,
+                ..
+            } => match target {
+                MoveTarget::Branch {
+                    name: target_branch_name,
+                } => {
+                    let repo = ctx.repo.get()?;
+                    let source_ref = repo.find_reference(source_branch_name)?.name().to_owned();
+                    let target_ref = repo.find_reference(target_branch_name)?.name().to_owned();
+                    drop(repo);
+                    but_api::branch::move_branch(ctx, source_ref.as_ref(), target_ref.as_ref())
+                        .context("failed to move branch")?;
+                    Some(SelectAfterReload::Branch(source_branch_name.to_owned()))
+                }
+                MoveTarget::MergeBase => {
+                    let repo = ctx.repo.get()?;
+                    let source_ref = repo.find_reference(source_branch_name)?.name().to_owned();
+                    drop(repo);
+                    but_api::branch::tear_off_branch(ctx, source_ref.as_ref())
+                        .context("failed to tear off branch")?;
+                    Some(SelectAfterReload::Branch(source_branch_name.to_owned()))
+                }
+                MoveTarget::Commit { .. } => return Ok(()),
+            },
+        };
+
+        messages.extend([
+            Message::EnterNormalMode,
+            Message::Reload(selection_after_reload),
+        ]);
+
+        Ok(())
     }
 
     /// Handles opening the full-screen commit reword editor for the selected commit.
@@ -1095,11 +1280,27 @@ impl App {
                 }) => {
                     self.render_rub_api_inline_labels_for_selected_line(data, source, &mut line);
                 }
-                Mode::Commit(mode) => {
-                    if data.cli_id().is_some_and(|target| *mode.source == **target)
+                Mode::Commit(commit_mode) => {
+                    if data
+                        .cli_id()
+                        .is_some_and(|target| *commit_mode.source == **target)
+                        // only target branches here, and not commits. Commits are handled at the
+                        // end of this function because they require [`extend_connector_spans`]
                         || matches!(data, StatusOutputLineData::Branch { .. })
                     {
-                        self.render_commit_labels_for_selected_line(data, mode, &mut line);
+                        self.render_commit_labels_for_selected_line(data, commit_mode, &mut line);
+                    }
+                }
+                Mode::Move(move_mode) => {
+                    if data
+                        .cli_id()
+                        .is_some_and(|target| *move_mode.source == **target)
+                        // only target branches here, and not commits. Commits are handled at the
+                        // end of this function because they require [`extend_connector_spans`]
+                        || matches!(data, StatusOutputLineData::Branch { .. })
+                        || matches!(data, StatusOutputLineData::MergeBase)
+                    {
+                        self.render_move_labels_for_selected_line(data, move_mode, &mut line);
                     }
                 }
             }
@@ -1121,6 +1322,13 @@ impl App {
                     }
                 }
                 Mode::Commit(CommitMode { source, .. }) => {
+                    if let Some(cli_id) = data.cli_id()
+                        && **source == **cli_id
+                    {
+                        line.extend([source_span(), Span::raw(" ")]);
+                    }
+                }
+                Mode::Move(MoveMode { source, .. }) => {
                     if let Some(cli_id) = data.cli_id()
                         && **source == **cli_id
                     {
@@ -1158,6 +1366,7 @@ impl App {
                 }
             }
             Mode::Normal
+            | Mode::Move(..)
             | Mode::Command(..)
             | Mode::Rub(..)
             | Mode::RubButApi(..)
@@ -1174,31 +1383,68 @@ impl App {
             }
         }
 
-        if is_selected && !matches!(self.mode, Mode::Command(..)) {
+        if is_selected {
             line = line.bg(CURSOR_BG);
         }
 
-        if is_selected
-            && let Mode::Commit(commit_mode) = &self.mode
-            && matches!(data, StatusOutputLineData::Commit { .. })
-        {
-            let mut extension_line = Line::default().bg(CURSOR_BG);
-            extend_connector_spans(
-                connector.as_deref().unwrap_or_default(),
-                match commit_mode.insert_side {
-                    InsertSide::Above => ExtensionDirection::Above,
-                    InsertSide::Below => ExtensionDirection::Below,
-                },
-                &mut extension_line,
-            );
-            self.render_commit_labels_for_selected_line(data, commit_mode, &mut extension_line);
-            match commit_mode.insert_side {
-                InsertSide::Above => StatusListItem::Double(extension_line, line),
-                InsertSide::Below => StatusListItem::Double(line, extension_line),
+        if is_selected {
+            match &self.mode {
+                Mode::Commit(commit_mode)
+                    if matches!(data, StatusOutputLineData::Commit { .. }) =>
+                {
+                    let mut extension_line = Line::default().bg(CURSOR_BG);
+                    extend_connector_spans(
+                        connector.as_deref().unwrap_or_default(),
+                        match commit_mode.insert_side {
+                            InsertSide::Above => ExtensionDirection::Above,
+                            InsertSide::Below => ExtensionDirection::Below,
+                        },
+                        &mut extension_line,
+                    );
+                    self.render_commit_labels_for_selected_line(
+                        data,
+                        commit_mode,
+                        &mut extension_line,
+                    );
+                    return match commit_mode.insert_side {
+                        InsertSide::Above => StatusListItem::Double(extension_line, line),
+                        InsertSide::Below => StatusListItem::Double(line, extension_line),
+                    };
+                }
+                Mode::Move(move_mode) => {
+                    if let StatusOutputLineData::Commit { cli_id: target, .. } = data
+                        && *move_mode.source != **target
+                    {
+                        let mut extension_line = Line::default().bg(CURSOR_BG);
+                        extend_connector_spans(
+                            connector.as_deref().unwrap_or_default(),
+                            match move_mode.insert_side {
+                                InsertSide::Above => ExtensionDirection::Above,
+                                InsertSide::Below => ExtensionDirection::Below,
+                            },
+                            &mut extension_line,
+                        );
+                        self.render_move_labels_for_selected_line(
+                            data,
+                            move_mode,
+                            &mut extension_line,
+                        );
+                        return match move_mode.insert_side {
+                            InsertSide::Above => StatusListItem::Double(extension_line, line),
+                            InsertSide::Below => StatusListItem::Double(line, extension_line),
+                        };
+                    }
+                }
+                Mode::Commit(..)
+                | Mode::Normal
+                | Mode::Rub(..)
+                | Mode::RubButApi(..)
+                | Mode::InlineReword(..)
+                | Mode::Command(..) => {}
             }
-        } else {
-            StatusListItem::Single(line)
         }
+
+        StatusListItem::Single(line)
     }
 
     fn render_rub_inline_labels_for_selected_line(
@@ -1290,6 +1536,30 @@ impl App {
         }
     }
 
+    fn render_move_labels_for_selected_line(
+        &self,
+        data: &StatusOutputLineData,
+        mode: &MoveMode,
+        line: &mut Line<'static>,
+    ) {
+        if data.cli_id().is_some_and(|target| *mode.source == **target) {
+            line.extend([source_span(), Span::raw(" ")]);
+            line.extend([
+                Span::raw("<< ").mode_colors(&self.mode),
+                Span::raw(NOOP).mode_colors(&self.mode),
+                Span::raw(" >>").mode_colors(&self.mode),
+                Span::raw(" "),
+            ]);
+        } else if let Some(display) = move_operation_display(data, mode) {
+            line.extend([
+                Span::raw("<< ").mode_colors(&self.mode),
+                Span::raw(display).mode_colors(&self.mode),
+                Span::raw(" >>").mode_colors(&self.mode),
+                Span::raw(" "),
+            ]);
+        }
+    }
+
     fn render_hotbar(&self, area: Rect, frame: &mut Frame) {
         let mode_span = Span::raw(format!(
             "  {}  ",
@@ -1300,6 +1570,7 @@ impl App {
                 Mode::InlineReword(..) => "reword",
                 Mode::Command(..) => "command",
                 Mode::Commit(..) => "commit",
+                Mode::Move(..) => "move",
             }
         ))
         .mode_colors(&self.mode);
@@ -1320,6 +1591,7 @@ impl App {
             | Mode::Rub(..)
             | Mode::RubButApi(..)
             | Mode::Commit(..)
+            | Mode::Move(..)
             | Mode::InlineReword(..) => {
                 let mut line = Line::default();
                 let mut key_binds_iter = self
@@ -1434,7 +1706,11 @@ fn event_to_messages(ev: Event, key_binds: &KeyBinds, mode: &Mode, messages: &mu
                     Mode::Command(..) => {
                         messages.push(Message::Command(CommandMessage::Input(ev)));
                     }
-                    Mode::Normal | Mode::Rub(..) | Mode::RubButApi(..) | Mode::Commit(..) => {}
+                    Mode::Normal
+                    | Mode::Rub(..)
+                    | Mode::RubButApi(..)
+                    | Mode::Commit(..)
+                    | Mode::Move(..) => {}
                 }
             }
         }
@@ -1448,7 +1724,11 @@ fn event_to_messages(ev: Event, key_binds: &KeyBinds, mode: &Mode, messages: &mu
             Mode::Command(..) => {
                 messages.push(Message::Command(CommandMessage::Input(ev)));
             }
-            Mode::Normal | Mode::Rub(..) | Mode::RubButApi(..) | Mode::Commit(..) => {
+            Mode::Normal
+            | Mode::Rub(..)
+            | Mode::RubButApi(..)
+            | Mode::Commit(..)
+            | Mode::Move(..) => {
                 messages.push(Message::JustRender);
             }
         },
@@ -1480,6 +1760,7 @@ enum Message {
     Reword(RewordMessage),
     Command(CommandMessage),
     Files(FilesMessage),
+    Move(MoveMessage),
 }
 
 #[derive(Debug, Clone)]
@@ -1512,6 +1793,13 @@ enum CommitMessage {
 }
 
 #[derive(Debug, Clone)]
+enum MoveMessage {
+    Start,
+    SetInsertSide(InsertSide),
+    Confirm,
+}
+
+#[derive(Debug, Clone)]
 enum FilesMessage {
     Toggle,
 }
@@ -1527,6 +1815,7 @@ enum Mode {
     InlineReword(InlineRewordMode),
     Command(CommandMode),
     Commit(CommitMode),
+    Move(MoveMode),
 }
 
 #[derive(Debug)]
@@ -1588,22 +1877,112 @@ impl TryFrom<CliId> for CommitSource {
 
 impl PartialEq<CliId> for CommitSource {
     fn eq(&self, other: &CliId) -> bool {
-        match (self, other) {
-            (Self::Uncommitted(lhs), CliId::Uncommitted(rhs)) => &**lhs == rhs,
-            (Self::Unassigned { id: id_lhs }, CliId::Unassigned { id: id_rhs }) => id_lhs == id_rhs,
-            (
-                Self::Stack {
-                    id: id_lhs,
-                    stack_id: stack_lhs,
-                },
-                CliId::Stack {
+        match self {
+            CommitSource::Unassigned { id: lhs_id } => {
+                if let CliId::Unassigned { id: rhs_id } = other {
+                    lhs_id == rhs_id
+                } else {
+                    false
+                }
+            }
+            CommitSource::Uncommitted(lhs) => {
+                if let CliId::Uncommitted(rhs) = other {
+                    &**lhs == rhs
+                } else {
+                    false
+                }
+            }
+            CommitSource::Stack {
+                id: id_lhs,
+                stack_id: stack_id_lhs,
+            } => {
+                if let CliId::Stack {
                     id: id_rhs,
-                    stack_id: stack_rhs,
-                },
-            ) => id_lhs == id_rhs && stack_lhs == stack_rhs,
-            (Self::Uncommitted(_), _) => false,
-            (Self::Unassigned { .. }, _) => false,
-            (Self::Stack { .. }, _) => false,
+                    stack_id: stack_id_rhs,
+                } = other
+                {
+                    id_lhs == id_rhs && stack_id_lhs == stack_id_rhs
+                } else {
+                    false
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+struct MoveMode {
+    source: Arc<MoveSource>,
+    insert_side: InsertSide,
+}
+
+/// A subset of [`CliId`] that supports being moved
+#[derive(Debug)]
+enum MoveSource {
+    Commit {
+        commit_id: gix::ObjectId,
+        id: ShortId,
+    },
+    Branch {
+        name: String,
+        id: ShortId,
+        stack_id: Option<StackId>,
+    },
+}
+
+impl TryFrom<CliId> for MoveSource {
+    type Error = anyhow::Error;
+
+    fn try_from(id: CliId) -> Result<Self, Self::Error> {
+        match id {
+            CliId::Branch { name, id, stack_id } => Ok(Self::Branch { name, id, stack_id }),
+            CliId::Commit { commit_id, id } => Ok(Self::Commit { commit_id, id }),
+            CliId::Uncommitted(uncommitted_cli_id) => {
+                anyhow::bail!("cannot move: {:?}", uncommitted_cli_id.id)
+            }
+            CliId::PathPrefix { id, .. }
+            | CliId::CommittedFile { id, .. }
+            | CliId::Unassigned { id }
+            | CliId::Stack { id, .. } => {
+                anyhow::bail!("cannot move: {id:?}")
+            }
+        }
+    }
+}
+
+impl PartialEq<CliId> for MoveSource {
+    fn eq(&self, other: &CliId) -> bool {
+        match self {
+            MoveSource::Commit {
+                commit_id: commit_id_lhs,
+                id: id_lhs,
+            } => {
+                if let CliId::Commit {
+                    commit_id: commit_id_rhs,
+                    id: id_rhs,
+                } = other
+                {
+                    commit_id_lhs == commit_id_rhs && id_lhs == id_rhs
+                } else {
+                    false
+                }
+            }
+            MoveSource::Branch {
+                name: name_lhs,
+                id: id_lhs,
+                stack_id: stack_id_lhs,
+            } => {
+                if let CliId::Branch {
+                    name: name_rhs,
+                    id: id_rhs,
+                    stack_id: stack_id_rhs,
+                } = other
+                {
+                    name_lhs == name_rhs && id_lhs == id_rhs && stack_id_lhs == stack_id_rhs
+                } else {
+                    false
+                }
+            }
         }
     }
 }
@@ -1844,6 +2223,50 @@ fn commit_operation_display(
     }
 }
 
+fn move_operation_display(data: &StatusOutputLineData, mode: &MoveMode) -> Option<&'static str> {
+    match &*mode.source {
+        MoveSource::Commit { .. } => match data {
+            StatusOutputLineData::Commit { .. } => match mode.insert_side {
+                InsertSide::Above => Some("move commit above"),
+                InsertSide::Below => Some("move commit below"),
+            },
+            StatusOutputLineData::Branch { .. } => Some("move commit to branch"),
+            StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::Connector
+            | StatusOutputLineData::StagedChanges { .. }
+            | StatusOutputLineData::StagedFile { .. }
+            | StatusOutputLineData::UnstagedChanges { .. }
+            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::CommitMessage
+            | StatusOutputLineData::EmptyCommitMessage
+            | StatusOutputLineData::File { .. }
+            | StatusOutputLineData::MergeBase
+            | StatusOutputLineData::UpstreamChanges
+            | StatusOutputLineData::Warning
+            | StatusOutputLineData::Hint
+            | StatusOutputLineData::NoAssignmentsUnstaged => None,
+        },
+        MoveSource::Branch { .. } => match data {
+            StatusOutputLineData::Branch { .. } => Some("move branch"),
+            StatusOutputLineData::MergeBase => Some("tear off branch"),
+            StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::Commit { .. }
+            | StatusOutputLineData::Connector
+            | StatusOutputLineData::StagedChanges { .. }
+            | StatusOutputLineData::StagedFile { .. }
+            | StatusOutputLineData::UnstagedChanges { .. }
+            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::CommitMessage
+            | StatusOutputLineData::EmptyCommitMessage
+            | StatusOutputLineData::File { .. }
+            | StatusOutputLineData::UpstreamChanges
+            | StatusOutputLineData::Warning
+            | StatusOutputLineData::Hint
+            | StatusOutputLineData::NoAssignmentsUnstaged => None,
+        },
+    }
+}
+
 fn source_span() -> Span<'static> {
     Span::raw("<< source >>").mode_colors(&Mode::Normal)
 }
@@ -1860,6 +2283,7 @@ impl SpanExt for Span<'_> {
             Mode::Rub(_) | Mode::RubButApi(_) => Color::Blue,
             Mode::InlineReword(_) => Color::Magenta,
             Mode::Command(_) => Color::Yellow,
+            Mode::Move(..) => Color::Cyan,
         };
 
         let fg = match mode {
@@ -1868,6 +2292,7 @@ impl SpanExt for Span<'_> {
             | Mode::Rub(_)
             | Mode::RubButApi(_)
             | Mode::InlineReword(_)
+            | Mode::Move(..)
             | Mode::Command(_) => Color::Black,
         };
 
@@ -1893,4 +2318,10 @@ impl IntoIterator for StatusListItem {
             }
         }
     }
+}
+
+enum MoveTarget<'a> {
+    Branch { name: &'a str },
+    Commit { commit_id: gix::ObjectId },
+    MergeBase,
 }

@@ -1170,6 +1170,7 @@ fn print_commit(
             },
             commit_cli_id.clone(),
             stack_id,
+            classification,
         )?;
         let (message, is_empty_message) = commit_message_display_cli(
             &commit.message,
@@ -1225,6 +1226,7 @@ fn print_commit(
             },
             commit_cli_id.clone(),
             stack_id,
+            classification,
         )?;
     }
     if status_ctx.flags.show_files {
