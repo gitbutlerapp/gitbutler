@@ -346,7 +346,7 @@
 
 		&.open-issue {
 			padding-left: 12px;
-			border-left: 4px solid var(--clr-br-commit-changes-requested-bg);
+			border-left: 4px solid var(--clr-theme-warn-element);
 		}
 
 		&.resolved {
@@ -373,8 +373,8 @@
 		padding: 4px;
 
 		border-radius: 8px;
-		background: var(--clr-br-commit-changes-requested-bg);
-		color: var(--clr-br-commit-changes-requested-text);
+		background: var(--clr-theme-warn-element);
+		color: var(--clr-theme-warn-on-element);
 
 		&.resolved {
 			background: var(--clr-core-gray-60);
