@@ -293,6 +293,27 @@ impl<'repo> Commit<'repo> {
         })
     }
 
+    /// If the commit is conflicted, returns the base, ours, and theirs tree IDs.
+    pub fn conflicted_tree_ids(
+        &self,
+    ) -> anyhow::Result<Option<(gix::Id<'repo>, gix::Id<'repo>, gix::Id<'repo>)>> {
+        if !self.is_conflicted() {
+            return Ok(None);
+        }
+        let tree = self.inner.tree.attach(self.id.repo).object()?.into_tree();
+        Ok(Some((
+            tree.find_entry(TreeKind::Base.as_tree_entry_name())
+                .with_context(|| format!("No base tree in conflicting commit {}", self.id))?
+                .id(),
+            tree.find_entry(TreeKind::Ours.as_tree_entry_name())
+                .with_context(|| format!("No ours tree in conflicting commit {}", self.id))?
+                .id(),
+            tree.find_entry(TreeKind::Theirs.as_tree_entry_name())
+                .with_context(|| format!("No theirs tree in conflicting commit {}", self.id))?
+                .id(),
+        )))
+    }
+
     /// Return our custom headers, of present.
     pub fn headers(&self) -> Option<Headers> {
         Headers::try_from_commit(&self.inner)
