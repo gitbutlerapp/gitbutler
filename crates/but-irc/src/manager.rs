@@ -381,9 +381,14 @@ impl IrcManager {
     /// Remove a connection entirely.
     #[instrument(skip(self), fields(connection_id = %id))]
     pub async fn remove(&self, id: &str, reason: &str) -> Result<()> {
-        let mut connections = self.connections.write().await;
+        // Scope the write lock to just the removal so we don't hold
+        // connections.write() across the async store.write() call.
+        let conn = {
+            let mut connections = self.connections.write().await;
+            connections.remove(id)
+        };
 
-        if let Some(conn) = connections.remove(id) {
+        if let Some(conn) = conn {
             if let Some(mut client) = conn.client {
                 let _ = client.disconnect(reason);
             }
@@ -411,12 +416,21 @@ impl IrcManager {
 
     /// Set the state of a connection (used by the reconnection watcher).
     async fn set_state(&self, id: &str, new_state: ConnectionState) {
-        let connections = self.connections.read().await;
-        let Some(conn) = connections.get(id) else {
-            return;
+        // Extract handles before dropping the connections lock so we don't hold
+        // connections.read() across the async state.write() call.
+        let handles = {
+            let connections = self.connections.read().await;
+            let Some(conn) = connections.get(id) else {
+                return;
+            };
+            let Ok(client) = conn.client() else { return };
+            (client.state_handle(), client.event_tx_handle())
         };
-        let Ok(client) = conn.client() else { return };
-        client.set_state(new_state).await;
+        let (state_handle, event_tx) = handles;
+        *state_handle.write().await = new_state;
+        let _ = event_tx.send(IrcEvent::StateChanged {
+            state: new_state.to_string(),
+        });
     }
 
     /// Check if a connection is ready.

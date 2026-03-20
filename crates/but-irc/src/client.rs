@@ -108,6 +108,11 @@ impl IrcClient {
         self.state.clone()
     }
 
+    /// Get a clone of the event sender for use outside of the connection lock.
+    pub fn event_tx_handle(&self) -> mpsc::UnboundedSender<IrcEvent> {
+        self.event_tx.clone()
+    }
+
     /// Check if the client is ready to send messages.
     pub async fn is_ready(&self) -> bool {
         *self.state.read().await == ConnectionState::Ready
