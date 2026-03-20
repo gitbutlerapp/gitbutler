@@ -1481,7 +1481,6 @@ const ProjectPage: FC = () => {
 							return (
 								<div key={stack.id} className={sharedStyles.commitsLane}>
 									<StackC
-										key={stack.id}
 										projectId={project.id}
 										stack={stack}
 										isBranchSelected={isBranchSelected}
