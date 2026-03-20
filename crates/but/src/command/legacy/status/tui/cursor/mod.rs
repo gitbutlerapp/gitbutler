@@ -171,66 +171,63 @@ impl Cursor {
             })
     }
 
+    #[must_use]
     pub(super) fn move_up(
-        &mut self,
+        self,
         lines: &[StatusOutputLine],
         mode: &Mode,
         show_files: FilesStatusFlag,
-    ) {
+    ) -> Option<Self> {
         if self.0 >= lines.len() {
-            return;
+            return None;
         }
 
-        if let Some((idx, _)) = lines
+        let (idx, _) = lines
             .iter()
             .enumerate()
             .rev()
             .skip(lines.len() - self.0)
-            .find(|(_, line)| is_selectable_in_mode(line, mode, show_files))
-        {
-            self.0 = idx;
-        }
+            .find(|(_, line)| is_selectable_in_mode(line, mode, show_files))?;
+        Some(Self(idx))
     }
 
+    #[must_use]
     pub(super) fn move_down(
-        &mut self,
+        self,
         lines: &[StatusOutputLine],
         mode: &Mode,
         show_files: FilesStatusFlag,
-    ) {
+    ) -> Option<Self> {
         if self.0 >= lines.len() {
-            return;
+            return None;
         }
 
-        if let Some((idx, _)) = lines
+        let (idx, _) = lines
             .iter()
             .enumerate()
             .skip(self.0 + 1)
-            .find(|(_, line)| is_selectable_in_mode(line, mode, show_files))
-        {
-            self.0 = idx;
-        }
+            .find(|(_, line)| is_selectable_in_mode(line, mode, show_files))?;
+        Some(Self(idx))
     }
 
     /// Moves the cursor to the next selectable jump-target line after the current cursor position.
+    #[must_use]
     pub(super) fn move_next_section(
-        &mut self,
+        self,
         lines: &[StatusOutputLine],
         mode: &Mode,
         show_files: FilesStatusFlag,
-    ) {
+    ) -> Option<Self> {
         if self.0 >= lines.len() {
-            return;
+            return None;
         }
 
-        if let Some((idx, _)) = lines
+        let (idx, _) = lines
             .iter()
             .enumerate()
             .skip(self.0 + 1)
-            .find(|(_, line)| is_jump_target_in_mode(line, mode, show_files))
-        {
-            self.0 = idx;
-        }
+            .find(|(_, line)| is_jump_target_in_mode(line, mode, show_files))?;
+        Some(Self(idx))
     }
 
     /// Moves the cursor to the previous selectable jump-target line.
@@ -238,14 +235,15 @@ impl Cursor {
     /// If the cursor is inside a section (for example, on a file or commit row), this jumps to the
     /// current section header first. If the cursor is already on a section header, this jumps to the
     /// previous section header.
+    #[must_use]
     pub(super) fn move_previous_section(
-        &mut self,
+        self,
         lines: &[StatusOutputLine],
         mode: &Mode,
         show_files: FilesStatusFlag,
-    ) {
+    ) -> Option<Self> {
         if self.0 >= lines.len() {
-            return;
+            return None;
         }
 
         let current_line_is_section_header = lines.get(self.0).is_some_and(is_section_header);
@@ -255,15 +253,13 @@ impl Cursor {
             self.0 + 1
         };
 
-        if let Some((target_idx, _)) = lines
+        let (target_idx, _) = lines
             .iter()
             .enumerate()
             .take(search_end)
             .rev()
-            .find(|(_, line)| is_jump_target_in_mode(line, mode, show_files))
-        {
-            self.0 = target_idx;
-        }
+            .find(|(_, line)| is_jump_target_in_mode(line, mode, show_files))?;
+        Some(Self(target_idx))
     }
 
     /// Returns the cursor position for the closest branch based on the currently selected row.
