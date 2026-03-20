@@ -105,6 +105,14 @@ impl Cursor {
         Some(Self(idx))
     }
 
+    /// Selects the merge-base line.
+    pub(super) fn select_merge_base(lines: &[StatusOutputLine]) -> Option<Self> {
+        let idx = lines
+            .iter()
+            .position(|line| matches!(line.data, StatusOutputLineData::MergeBase))?;
+        Some(Self(idx))
+    }
+
     pub(super) fn selected_line(self, lines: &[StatusOutputLine]) -> Option<&StatusOutputLine> {
         lines.get(self.0)
     }

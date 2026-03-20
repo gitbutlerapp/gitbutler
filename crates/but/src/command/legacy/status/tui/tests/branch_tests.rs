@@ -104,9 +104,46 @@ fn new_branch_from_merge_base_in_branch_mode() {
         .assert_current_line_eq(str!["┴ << target >> [..] [origin/main] 2000-01-02 add M"]);
 
     tui.input_then_render('n')
-        .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
+        .assert_current_line_eq(str!["┊╭┄br [c-branch-1] (no commits)"]);
 
     tui.input_then_render(None).assert_rendered_eq(file![
         "snapshots/new_branch_from_merge_base_in_branch_mode_final.txt"
     ]);
+}
+
+#[test]
+fn focus_reload_in_branch_mode_preserves_branch_selection() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('b')
+        .assert_current_line_eq(str!["┊╭┄<< target >> g0 [A]"]);
+
+    tui.render_with_messages(Some(Event::FocusGained), Vec::new())
+        .assert_current_line_eq(str!["┊╭┄<< target >> g0 [A]"])
+        .assert_rendered_eq(file![
+            "snapshots/focus_reload_in_branch_mode_preserves_branch_selection_final.txt"
+        ]);
+}
+
+#[test]
+fn focus_reload_in_branch_mode_preserves_merge_base_selection() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('b')
+        .assert_current_line_eq(str!["┊╭┄<< target >> g0 [A]"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+        .assert_current_line_eq(str!["┴ << target >> [..] [origin/main] 2000-01-02 add M"]);
+
+    tui.render_with_messages(Some(Event::FocusGained), Vec::new())
+        .assert_current_line_eq(str!["┴ << target >> [..] [origin/main] 2000-01-02 add M"])
+        .assert_rendered_eq(file![
+            "snapshots/focus_reload_in_branch_mode_preserves_merge_base_selection_final.txt"
+        ]);
 }

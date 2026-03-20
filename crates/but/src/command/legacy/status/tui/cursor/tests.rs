@@ -369,6 +369,35 @@ fn select_unassigned_returns_none_when_missing() {
 }
 
 #[test]
+fn select_merge_base_finds_merge_base_line() {
+    let lines = vec![
+        line(StatusOutputLineData::Branch {
+            cli_id: Arc::new(CliId::Branch {
+                name: "main".into(),
+                id: "b0".into(),
+                stack_id: None,
+            }),
+        }),
+        line(StatusOutputLineData::MergeBase),
+    ];
+
+    assert_eq!(Cursor::select_merge_base(&lines), Some(Cursor(1)));
+}
+
+#[test]
+fn select_merge_base_returns_none_when_missing() {
+    let lines = vec![line(StatusOutputLineData::Branch {
+        cli_id: Arc::new(CliId::Branch {
+            name: "main".into(),
+            id: "b0".into(),
+            stack_id: None,
+        }),
+    })];
+
+    assert_eq!(Cursor::select_merge_base(&lines), None);
+}
+
+#[test]
 fn index_returns_the_selected_line_index() {
     let lines = vec![
         line(StatusOutputLineData::UnstagedChanges {
