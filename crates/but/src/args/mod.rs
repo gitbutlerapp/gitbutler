@@ -290,6 +290,24 @@ pub enum Subcommands {
         #[clap(long)]
         #[clap(verbatim_doc_comment)]
         init: bool,
+        /// Skip installation of GitButler managed hooks.
+        ///
+        /// Use this if you manage Git hooks externally (e.g., with prek, lefthook,
+        /// husky, or pre-commit) and want to handle hook integration yourself.
+        /// This persists a repo-local opt-out so later GitButler workspace updates
+        /// also avoid reinstalling managed hooks.
+        #[clap(long)]
+        #[clap(verbatim_doc_comment)]
+        no_hooks: bool,
+        /// Force installation of GitButler managed hooks even if an external
+        /// hook manager is detected.
+        ///
+        /// Use this to override false-positive detection — for example, when you
+        /// have a `.husky` directory or `lefthook.yml` from a previous setup but
+        /// your hooks are plain user scripts.
+        #[clap(long, conflicts_with = "no_hooks")]
+        #[clap(verbatim_doc_comment)]
+        force_hooks: bool,
     },
 
     /// Exit GitButler mode and return to normal Git workflow.

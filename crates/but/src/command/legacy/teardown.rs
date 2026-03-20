@@ -113,15 +113,27 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
     }
 
     // Uninstall managed hooks before checking out
-    if let Ok(git2_repo) = ctx.git2_repo.get()
-        && let Err(e) = gitbutler_repo::managed_hooks::uninstall_managed_hooks(&git2_repo)
-        && let Some(out) = out.for_human()
-    {
-        writeln!(
-            out,
-            "  {}",
-            format!("Warning: Failed to uninstall Git hooks: {e}").yellow()
-        )?;
+    if let Ok(repo) = ctx.repo.get() {
+        if gitbutler_repo::managed_hooks::install_managed_hooks_enabled(&repo) {
+            if let Err(e) = {
+                let hooks_dir = gitbutler_repo::managed_hooks::resolve_hooks_dir(&repo);
+                gitbutler_repo::managed_hooks::uninstall_managed_hooks(&hooks_dir)
+            } && let Some(out) = out.for_human()
+            {
+                writeln!(
+                    out,
+                    "  {}",
+                    format!("Warning: Failed to uninstall Git hooks: {e}").yellow()
+                )?;
+            }
+        } else if let Some(out) = out.for_human() {
+            writeln!(
+                out,
+                "  {}",
+                "Hooks are managed externally — leaving them untouched.".dimmed()
+            )?;
+            writeln!(out)?;
+        }
     }
 
     // Check out the target branch using Git directly

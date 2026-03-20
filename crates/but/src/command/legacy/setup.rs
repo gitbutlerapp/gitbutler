@@ -1,5 +1,6 @@
 use std::path::{self, Path};
 
+use anyhow::Context as _;
 use but_core::{
     RepositoryExt,
     sync::{RepoExclusive, RepoShared},
@@ -19,6 +20,18 @@ struct SetupResult {
     project_status: ProjectStatus,
     /// The target branch configuration
     target: Option<TargetInfo>,
+    /// Information about an external hook manager, if one was detected
+    hook_manager: Option<HookManagerInfo>,
+}
+
+/// Details about an external hook manager detected during setup.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HookManagerInfo {
+    /// The name of the detected hook manager (e.g. "prek", "lefthook")
+    name: String,
+    /// Whether GitButler installed its own managed hooks
+    hooks_installed: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -167,6 +180,8 @@ pub(crate) fn repo(
     repo_path: &Path,
     out: &mut OutputChannel,
     perm: &mut RepoExclusive,
+    no_hooks: bool,
+    force_hooks: bool,
 ) -> anyhow::Result<()> {
     let mut target_info: Option<TargetInfo> = None;
 
@@ -246,6 +261,16 @@ pub(crate) fn repo(
             repo_path.display()
         )),
     }?;
+
+    {
+        let repo = ctx.repo.get()?;
+        if no_hooks {
+            gitbutler_repo::managed_hooks::set_install_managed_hooks_enabled(&repo, false)?;
+        }
+        // NOTE: --force-hooks config persistence is deferred to the hook section
+        // below, because switch_back_to_workspace_with_perm() may call
+        // ensure_managed_hooks(force=false) which would overwrite it.
+    }
 
     // Check if target branch is set
     let target = but_api::legacy::virtual_branches::get_base_branch_data(ctx)?;
@@ -366,7 +391,7 @@ pub(crate) fn repo(
             }
             writeln!(out)?;
         }
-    }
+    };
 
     let head_name = {
         let repo = ctx.repo.get()?;
@@ -381,22 +406,203 @@ pub(crate) fn repo(
         but_api::legacy::virtual_branches::switch_back_to_workspace_with_perm(ctx, perm)?;
     }
 
-    // Install managed hooks to prevent accidental git commits
-    if let Ok(git2_repo) = git2::Repository::open(repo_path)
-        && let Err(e) = gitbutler_repo::managed_hooks::install_managed_hooks(&git2_repo)
-        && let Some(out) = out.for_human()
-    {
-        writeln!(
-            out,
-            "  {}",
-            format!("Warning: Failed to install GitButler managed hooks: {e}").yellow()
-        )?;
+    // Install managed hooks to prevent accidental git commits.
+    //
+    // --no-hooks is a CLI-level bypass: persist opt-out, clean up, and skip.
+    // --force-hooks and the default case delegate to the shared
+    // ensure_managed_hooks() which handles detection, config persistence,
+    // and cleanup consistently with the app flow.
+    let mut hook_manager_info = None;
+    let mut hooks_installed = false;
+
+    if no_hooks {
+        // Explicit CLI opt-out: persist and clean up.
+        if let Some(out) = out.for_human() {
+            writeln!(
+                out,
+                "  {}",
+                "Skipping hook installation (--no-hooks)".dimmed()
+            )?;
+        }
+
+        let repo = ctx.repo.get()?;
+        let hooks_dir = gitbutler_repo::managed_hooks::resolve_hooks_dir(&repo);
+        if let Err(e) = gitbutler_repo::managed_hooks::uninstall_managed_hooks(&hooks_dir).context(
+            "Failed to remove GitButler managed hooks while entering externally-managed hook mode",
+        ) && let Some(out) = out.for_human()
+        {
+            writeln!(
+                out,
+                "  {}",
+                format!("Warning: Failed to remove GitButler managed hooks: {e}").yellow()
+            )?;
+        }
+    } else {
+        // --force-hooks: re-enable in config before calling the shared function.
+        // This is done here (after the workspace switch) rather than earlier,
+        // because switch_back_to_workspace_with_perm() may call
+        // ensure_managed_hooks(force=false) which would overwrite the setting.
+        if force_hooks {
+            let repo = ctx.repo.get()?;
+            gitbutler_repo::managed_hooks::set_install_managed_hooks_enabled(&repo, true)?;
+            if let Some(out) = out.for_human() {
+                writeln!(
+                    out,
+                    "  {}",
+                    "Forcing hook installation (--force-hooks), skipping detection.".dimmed()
+                )?;
+            }
+        }
+
+        let repo = ctx.repo.get()?;
+        let hooks_dir = gitbutler_repo::managed_hooks::resolve_hooks_dir(&repo);
+        let outcome =
+            gitbutler_repo::managed_hooks::ensure_managed_hooks(&repo, &hooks_dir, force_hooks);
+
+        match outcome {
+            gitbutler_repo::managed_hooks::HookSetupOutcome::Installed => {
+                hooks_installed = true;
+            }
+            gitbutler_repo::managed_hooks::HookSetupOutcome::DisabledByConfig => {
+                // Previously configured opt-out (not --no-hooks, handled above).
+                if let Some(out) = out.for_human() {
+                    writeln!(
+                        out,
+                        "  {}",
+                        "Skipping hook installation (--no-hooks is configured for this repository)"
+                            .dimmed()
+                    )?;
+                    writeln!(
+                        out,
+                        "  {}",
+                        "To switch back to GitButler-managed hooks: but setup --force-hooks"
+                            .dimmed()
+                    )?;
+                }
+            }
+            gitbutler_repo::managed_hooks::HookSetupOutcome::ExternalManagerDetected {
+                ref manager_name,
+                ref instructions,
+            } => {
+                hook_manager_info = Some(HookManagerInfo {
+                    name: manager_name.clone(),
+                    hooks_installed: false,
+                });
+                if let Some(out) = out.for_human() {
+                    writeln!(out)?;
+                    writeln!(
+                        out,
+                        "  {}",
+                        format!("Detected {manager_name} managing your git hooks.").cyan()
+                    )?;
+                    writeln!(
+                        out,
+                        "  {}",
+                        "GitButler will not overwrite hooks owned by your hook manager.".dimmed()
+                    )?;
+                    writeln!(
+                        out,
+                        "  {}",
+                        "This repository is now configured for externally-managed hooks.".dimmed()
+                    )?;
+                    writeln!(out)?;
+                    writeln!(
+                        out,
+                        "  {}",
+                        "To integrate GitButler's workspace guard with your hook manager:".yellow()
+                    )?;
+                    for line in instructions.lines() {
+                        if line.is_empty() {
+                            writeln!(out)?;
+                        } else {
+                            writeln!(out, "  {}", line.dimmed())?;
+                        }
+                    }
+                    writeln!(out)?;
+                    writeln!(
+                        out,
+                        "  {}",
+                        "To switch back to GitButler-managed hooks: but setup --force-hooks"
+                            .dimmed()
+                    )?;
+                    writeln!(out)?;
+                }
+            }
+            gitbutler_repo::managed_hooks::HookSetupOutcome::HookSkipped { ref hook_name } => {
+                if let Some(out) = out.for_human() {
+                    writeln!(
+                        out,
+                        "  {}",
+                        format!(
+                            "Warning: Skipped {hook_name} — hook exists and is not GitButler-managed. \
+                             Use --force-hooks to override."
+                        )
+                        .yellow()
+                    )?;
+                }
+            }
+            gitbutler_repo::managed_hooks::HookSetupOutcome::Failed { ref error } => {
+                if let Some(out) = out.for_human() {
+                    writeln!(
+                        out,
+                        "  {}",
+                        format!("Warning: Failed to install GitButler managed hooks: {error}")
+                            .yellow()
+                    )?;
+                }
+            }
+        }
+
+        // Warn about orphaned hooks if core.hooksPath redirects to a different directory.
+        // Only relevant when hooks were installed or attempted (not when an external
+        // manager was detected, since those hooks are intentionally elsewhere).
+        if matches!(
+            outcome,
+            gitbutler_repo::managed_hooks::HookSetupOutcome::Installed
+                | gitbutler_repo::managed_hooks::HookSetupOutcome::HookSkipped { .. }
+        ) {
+            let default_hooks_dir = repo.git_dir().join("hooks");
+            if hooks_dir != default_hooks_dir
+                && gitbutler_repo::managed_hooks::has_managed_hooks_in(&default_hooks_dir)
+                && let Some(out) = out.for_human()
+            {
+                writeln!(
+                    out,
+                    "  {}",
+                    format!(
+                        "Warning: GitButler-managed hooks found in old hooks directory ({}).",
+                        default_hooks_dir.display()
+                    )
+                    .yellow()
+                )?;
+                writeln!(
+                    out,
+                    "  {}",
+                    format!(
+                        "core.hooksPath is now set to {}, so those hooks are orphaned.",
+                        hooks_dir.display()
+                    )
+                    .dimmed()
+                )?;
+                writeln!(
+                    out,
+                    "  {}",
+                    "You can safely remove them with: rm .git/hooks/pre-commit .git/hooks/post-checkout .git/hooks/pre-push"
+                        .dimmed()
+                )?;
+            }
+        }
     }
 
     // if we switched - tell the user what this is all about
     if pre_head_name != "gitbutler/workspace"
         && let Some(out) = out.for_human()
     {
+        let hooks_note = if hooks_installed {
+            "\n- Installing Git hooks to help manage commits on the workspace branch"
+        } else {
+            ""
+        };
         writeln!(
             out,
             "{}",
@@ -404,8 +610,7 @@ pub(crate) fn repo(
                 r#"
 Setting up your project for GitButler tooling. Some things to note:
 
-- Switching you to a special `gitbutler/workspace` branch to enable parallel branches
-- Installing Git hooks to help manage commits on the workspace branch
+- Switching you to a special `gitbutler/workspace` branch to enable parallel branches{hooks_note}
 
 To undo these changes and return to normal Git mode, either:
 
@@ -430,6 +635,7 @@ More info: https://docs.gitbutler.com/workspace-branch
             repository_path: path::absolute(repo_path)?.display().to_string(),
             project_status,
             target: target_info,
+            hook_manager: hook_manager_info,
         };
         json_out.write_value(&result)?;
     }

@@ -2,6 +2,7 @@ use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_operating_modes::{
     INTEGRATION_BRANCH_REF, WORKSPACE_BRANCH_REF, ensure_open_workspace_mode,
 };
+use gitbutler_repo::managed_hooks::{resolve_hooks_dir, set_install_managed_hooks_enabled};
 
 /// Tests that "verify branch" won't complain if we are on the old integration
 /// branch, and that `update_workspace_commit` will put us back on the a branch
@@ -27,6 +28,30 @@ fn works_on_integration_branch() -> anyhow::Result<()> {
     assert_eq!(
         ctx.git2_repo.get()?.head()?.name(),
         Some(WORKSPACE_BRANCH_REF)
+    );
+    Ok(())
+}
+
+/// Ensures the workspace-update path honors the persisted managed-hook installation opt-out.
+#[test]
+fn update_workspace_commit_skips_hooks_when_disabled_in_git_config() -> anyhow::Result<()> {
+    let (ctx, _temp_dir) =
+        crate::driverless::writable_context("for-workspace-migration.sh", "workspace-migration")?;
+
+    let repo = ctx.repo.get()?;
+    set_install_managed_hooks_enabled(&repo, false)?;
+    let hooks_dir = resolve_hooks_dir(&repo);
+    drop(repo);
+
+    update_workspace_commit(&ctx, false)?;
+
+    assert!(
+        !hooks_dir.join("pre-commit").exists(),
+        "pre-commit should not be installed when managed hooks are disabled"
+    );
+    assert!(
+        !hooks_dir.join("post-checkout").exists(),
+        "post-checkout should not be installed when managed hooks are disabled"
     );
     Ok(())
 }

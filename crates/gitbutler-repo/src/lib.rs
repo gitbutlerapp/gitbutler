@@ -35,6 +35,7 @@ pub mod credentials;
 
 mod config;
 use config::Config;
+pub mod hook_manager;
 pub mod hooks;
 pub mod managed_hooks;
 mod remote;
