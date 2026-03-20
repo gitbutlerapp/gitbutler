@@ -50,6 +50,7 @@ import {
 	commitCreateMutationOptions,
 	moveBranchMutationOptions,
 	rubMutationOptions,
+	tearOffBranchMutationOptions,
 	unapplyStackMutationOptions,
 } from "#ui/mutations.ts";
 import {
@@ -65,7 +66,7 @@ import { rubOperationLabel, RubParams, type RubSource } from "#ui/rub.ts";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
-import { CommitMoveParams, MoveBranchParams } from "#electron/ipc.ts";
+import { CommitMoveParams, MoveBranchParams, TearOffBranchParams } from "#electron/ipc.ts";
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 const decodeRefName = (fullNameBytes: Array<number>): string =>
@@ -224,7 +225,10 @@ type OperationTarget =
 	  } & Omit<CommitMoveParams, "projectId" | "subjectCommitId">)
 	| ({
 			_tag: "MoveBranch";
-	  } & Omit<MoveBranchParams, "projectId" | "subjectBranch">);
+	  } & Omit<MoveBranchParams, "projectId" | "subjectBranch">)
+	| {
+			_tag: "TearOffBranch";
+	  };
 
 const parseDropTargetData = (data: unknown): OperationTarget | null => {
 	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
@@ -269,6 +273,7 @@ const useRunOperation = (projectId: string) => {
 	const rubMutation = useMutation(rubMutationOptions);
 	const commitMove = useMutation(commitMoveMutationOptions);
 	const moveBranch = useMutation(moveBranchMutationOptions);
+	const tearOffBranch = useMutation(tearOffBranchMutationOptions);
 
 	return (sourceItem: SourceItem, operationTarget: OperationTarget): void => {
 		Match.value(operationTarget).pipe(
@@ -314,6 +319,13 @@ const useRunOperation = (projectId: string) => {
 					subjectBranch: decodeRefName(sourceItem.anchorRef),
 					targetBranch: operationTarget.targetBranch,
 				});
+			}),
+			Match.tag("TearOffBranch", () => {
+				if (sourceItem._tag !== "Branch") return;
+				tearOffBranch.mutate({
+					projectId,
+					subjectBranch: decodeRefName(sourceItem.anchorRef),
+				} satisfies TearOffBranchParams);
 			}),
 			Match.exhaustive,
 		);
@@ -1165,6 +1177,34 @@ const BranchTarget: FC<
 	);
 };
 
+const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...props }) => {
+	const [isDropTarget, dropRef] = useDroppable({
+		canDrop: ({ source }) => parseDragData(source.data)?._tag === "Branch",
+		getData: (): OperationTarget => ({ _tag: "TearOffBranch" }),
+	});
+
+	const droppable = useRender({
+		render,
+		ref: dropRef,
+		props: mergeProps(props, {
+			style: { ...(isDropTarget && { outline: "2px dashed black" }) },
+		}),
+	});
+
+	const sourceItem = useDraggedSourceItem();
+
+	return (
+		<Tooltip.Root open={isDropTarget && sourceItem?._tag === "Branch"}>
+			<Tooltip.Trigger render={droppable} />
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={8}>
+					<Tooltip.Popup className={styles.tooltip}>Tear off branch</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
+
 const StackC: FC<{
 	projectId: string;
 	stack: Stack;
@@ -1510,7 +1550,9 @@ const ProjectPage: FC = () => {
 					})}
 				</div>
 
-				{baseId !== undefined && <div>{shortCommitId(baseId)} (common base commit)</div>}
+				{baseId !== undefined && (
+					<TearOffBranchTarget>{shortCommitId(baseId)} (common base commit)</TearOffBranchTarget>
+				)}
 			</ProjectPanelLayout>
 		</DraggedSourceItemContext.Provider>
 	);
