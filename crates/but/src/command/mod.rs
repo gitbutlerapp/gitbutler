@@ -11,6 +11,7 @@ pub mod eval_hook;
 pub(crate) mod git_config;
 pub mod gui;
 pub mod help;
+pub mod hook;
 pub mod onboarding;
 pub mod push;
 pub mod skill;

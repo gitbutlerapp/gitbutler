@@ -13,7 +13,7 @@ Comprehensive reference for all `but` commands.
 - [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `merge`
 - [Automation](#automation) - `mark`, `unmark`
 - [History & Undo](#history--undo) - `undo`, `oplog`
-- [Setup & Configuration](#setup--configuration) - `setup`, `teardown`, `config`, `gui`, `update`, `alias`
+- [Setup & Configuration](#setup--configuration) - `setup`, `teardown`, `config`, `gui`, `update`, `alias`, `hook`
 - [Global Options](#global-options)
 
 ## Inspection (Understanding State)
@@ -514,9 +514,35 @@ Initialize GitButler in current git repository.
 ```bash
 but setup
 but setup --init              # Also initialize a new git repo if none exists
+but setup --no-hooks          # Skip hook installation and persist that opt-out for this repo
+but setup --force-hooks       # Override hook manager detection and install hooks anyway
 ```
 
 Converts regular git repo to use GitButler workspace model. Use `--init` in non-interactive environments (CI/CD) to ensure a git repository exists before setup.
+
+GitButler supports two hook ownership modes:
+- GitButler-managed hooks for repositories without an external hook manager
+- externally-managed hooks for repositories that integrate via `but hook ...`
+
+If an external hook manager (currently prek) is detected, GitButler will not overwrite its hooks, will print integration instructions, and will persist externally-managed mode for that repository. The detection architecture is modular — support for additional managers (lefthook, husky, pre-commit, etc.) will be added in future releases. `--no-hooks` also switches the repository into externally-managed mode and removes any previously installed GitButler-managed hooks. Use `--force-hooks` to switch back to GitButler-managed hooks and install them again.
+
+### `but hook`
+
+Git hook commands for use with external hook managers.
+
+```bash
+but hook pre-commit           # Workspace guard (blocks commits on gitbutler/workspace)
+but hook post-checkout        # Informational message when leaving workspace branch
+but hook post-checkout <prev> <new> <flag>  # With git's post-checkout arguments
+but hook pre-push             # Push guard (blocks pushes on gitbutler/workspace)
+but hook pre-push <remote> <url>  # With git's pre-push arguments
+but hook status               # Show hook ownership and integration diagnostics
+but hook status --json        # Machine-readable JSON output
+```
+
+These commands implement GitButler's workspace guard, cleanup, and push protection logic as standalone CLI commands. Configure your hook manager to call these instead of GitButler installing its own hooks.
+
+`but hook status` shows which hooks are installed, whether they are GitButler-managed or owned by an external hook manager, the resolved hooks path, config state, and recommended next actions. Use `--json` for structured output.
 
 ### `but teardown`
 

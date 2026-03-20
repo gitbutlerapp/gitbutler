@@ -60,6 +60,10 @@ pub enum CommandName {
     SkillInstall,
     SkillCheck,
     Pick,
+    HookPreCommit,
+    HookPostCheckout,
+    HookStatus,
+    HookPrePush,
     #[default]
     Unknown,
 }

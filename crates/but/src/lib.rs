@@ -31,7 +31,7 @@ use clap::Parser;
 pub mod args;
 use args::{
     Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, claude, cursor, forge,
-    metrics, update as update_args, worktree,
+    hook, metrics, update as update_args, worktree,
 };
 use but_settings::AppSettings;
 use colored::Colorize;
@@ -300,6 +300,31 @@ async fn match_subcommand(
                 }
             }
         }
+        Subcommands::Hook(hook::Platform { cmd }) => match cmd {
+            hook::Subcommands::PreCommit => {
+                command::hook::pre_commit(out, &args.current_dir).emit_metrics(metrics_ctx)
+            }
+            hook::Subcommands::PostCheckout {
+                prev_head,
+                new_head,
+                is_branch_checkout,
+            } => command::hook::post_checkout(
+                out,
+                &args.current_dir,
+                &prev_head,
+                &new_head,
+                &is_branch_checkout,
+            )
+            .emit_metrics(metrics_ctx),
+            hook::Subcommands::Status => {
+                command::hook::status(out, &args.current_dir).emit_metrics(metrics_ctx)
+            }
+            hook::Subcommands::PrePush {
+                remote_name,
+                remote_url,
+            } => command::hook::pre_push(out, &args.current_dir, &remote_name, &remote_url)
+                .emit_metrics(metrics_ctx),
+        },
         Subcommands::Skill(args::skill::Platform { cmd }) => {
             // Skill commands use repository context when available, but can run
             // without one. Subcommand handlers produce tailored guidance when a

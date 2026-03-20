@@ -1077,7 +1077,7 @@ Remote: gb-local
 
   To integrate GitButler's workspace guard with your hook manager:
   Add the following to your prek.toml to integrate GitButler's workspace guard:
-
+  
     [[repos]]
     repo = "local"
     hooks = [

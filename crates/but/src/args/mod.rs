@@ -1082,6 +1082,29 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Skill(skill::Platform),
 
+    /// Git hook commands for use with external hook managers.
+    ///
+    /// These commands implement GitButler's workspace guard and cleanup logic
+    /// as standalone CLI commands. Any hook manager (prek, lefthook, husky, etc.)
+    /// can call these from its configuration.
+    ///
+    /// ## Examples
+    ///
+    /// Run the workspace guard (blocks commits on gitbutler/workspace):
+    ///
+    /// ```text
+    /// but hook pre-commit
+    /// ```
+    ///
+    /// Run post-checkout cleanup:
+    ///
+    /// ```text
+    /// but hook post-checkout
+    /// ```
+    ///
+    #[clap(verbatim_doc_comment)]
+    Hook(hook::Platform),
+
     /// Show help information grouped by category.
     ///
     /// Displays all available commands organized into functional categories
@@ -1120,6 +1143,7 @@ pub enum Subcommands {
 pub mod alias;
 pub mod commit;
 pub mod config;
+pub mod hook;
 pub mod skill;
 pub mod update;
 

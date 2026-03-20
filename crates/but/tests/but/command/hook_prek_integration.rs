@@ -1,0 +1,584 @@
+//! End-to-end integration tests for prek ↔ GitButler hook coexistence.
+//!
+//! These tests exercise real `prek install` against a Sandbox repo with realistic
+//! `prek.toml` configurations to verify that:
+//! - `but setup` correctly detects prek-managed hooks
+//! - `but hook {pre-commit,post-checkout,pre-push}` work when invoked by prek
+//! - Project-local prek installations (`.venv/bin/`, `node_modules/.bin/`) are detected
+//! - Edge cases like `prek uninstall` and config-only fallback behave correctly
+//!
+//! All tests are guarded by [`prek_is_available`] — they are silently skipped when
+//! `prek` is not installed on the system.
+
+use crate::utils::{CommandExt as _, Sandbox};
+
+/// Check if `prek` binary is available on the system.
+/// Returns `true` if `prek --version` succeeds, `false` otherwise.
+fn prek_is_available() -> bool {
+    std::process::Command::new("prek")
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success())
+}
+
+/// Skip the current test if prek is not available.
+macro_rules! require_prek {
+    () => {
+        if !prek_is_available() {
+            eprintln!("SKIPPED: prek not available on PATH");
+            return Ok(());
+        }
+    };
+}
+
+/// Realistic prek.toml: project already using prek, then adding GitButler integration.
+///
+/// Includes builtin hooks, one remote hook (typos), local project hooks, and all
+/// three GitButler `but hook` entries. Mirrors real-world configs from surfmon/codereviewbuddy.
+const PREK_TOML_CONFIG_A: &str = r#"
+default_install_hook_types = ["pre-commit", "post-checkout", "pre-push"]
+
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "trailing-whitespace", stages = ["pre-commit"], priority = 0 },
+  { id = "end-of-file-fixer", stages = ["pre-commit"], priority = 0 },
+  { id = "check-toml", stages = ["pre-commit"], priority = 0 },
+]
+
+[[repos]]
+repo = "https://github.com/crate-ci/typos"
+rev = "v1.31.1"
+hooks = [
+  { id = "typos", stages = ["pre-commit"], priority = 10 },
+]
+
+[[repos]]
+repo = "local"
+hooks = [
+  { id = "no-commit-to-main",
+    name = "Block commits to main",
+    language = "system",
+    entry = "bash -c 'test \"$(git symbolic-ref --short HEAD 2>/dev/null)\" != main'",
+    pass_filenames = false,
+    always_run = true,
+    stages = ["pre-commit"],
+    priority = 100 },
+  { id = "gitbutler-workspace-guard",
+    name = "GitButler Workspace Guard",
+    language = "system",
+    entry = "but hook pre-commit",
+    pass_filenames = false,
+    always_run = true,
+    stages = ["pre-commit"] },
+  { id = "gitbutler-post-checkout",
+    name = "GitButler Post-Checkout Cleanup",
+    language = "system",
+    entry = "but hook post-checkout",
+    pass_filenames = false,
+    always_run = true,
+    stages = ["post-checkout"] },
+  { id = "gitbutler-push-guard",
+    name = "GitButler Push Guard",
+    language = "system",
+    entry = "but hook pre-push",
+    pass_filenames = false,
+    always_run = true,
+    stages = ["pre-push"] },
+]
+"#;
+
+/// Realistic prek.toml without GitButler entries — tests detection + instruction printing.
+const PREK_TOML_CONFIG_B: &str = r#"
+default_install_hook_types = ["pre-commit", "post-checkout", "pre-push"]
+
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "trailing-whitespace", stages = ["pre-commit"], priority = 0 },
+  { id = "end-of-file-fixer", stages = ["pre-commit"], priority = 0 },
+  { id = "check-toml", stages = ["pre-commit"], priority = 0 },
+]
+
+[[repos]]
+repo = "https://github.com/crate-ci/typos"
+rev = "v1.31.1"
+hooks = [
+  { id = "typos", stages = ["pre-commit"], priority = 10 },
+]
+
+[[repos]]
+repo = "local"
+hooks = [
+  { id = "no-commit-to-main",
+    name = "Block commits to main",
+    language = "system",
+    entry = "bash -c 'test \"$(git symbolic-ref --short HEAD 2>/dev/null)\" != main'",
+    pass_filenames = false,
+    always_run = true,
+    stages = ["pre-commit"],
+    priority = 100 },
+]
+"#;
+
+/// Minimal builtin-only prek.toml — fast, no-network fallback for speed-sensitive tests.
+const PREK_TOML_CONFIG_C: &str = r#"
+[[repos]]
+repo = "builtin"
+hooks = [
+  { id = "trailing-whitespace", priority = 0 },
+  { id = "end-of-file-fixer", priority = 0 },
+  { id = "check-toml", priority = 0 },
+]
+"#;
+
+/// Write `prek.toml` and run `prek install` in the sandbox's project root.
+fn install_prek(env: &Sandbox, config: &str) {
+    env.file("prek.toml", config);
+    env.invoke_bash("prek install --install-hooks");
+}
+
+// ── Group A: Core detection with real prek hooks ────────────────────
+
+#[test]
+fn setup_detects_real_prek_hooks_config_b() -> anyhow::Result<()> {
+    require_prek!();
+    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+
+    install_prek(&env, PREK_TOML_CONFIG_B);
+
+    // Verify prek actually installed hooks
+    let hook_content = std::fs::read_to_string(env.projects_root().join(".git/hooks/pre-commit"))?;
+    assert!(
+        hook_content.contains("File generated by prek") || hook_content.contains("prek hook-impl"),
+        "prek should have installed a hook with its signature, got: {hook_content}"
+    );
+
+    // `but setup` should detect prek and print integration instructions
+    env.but("setup")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+  Detected prek managing your git hooks.
+  GitButler will not overwrite hooks owned by your hook manager.
+...
+"#]]);
+
+    // Verify prek hooks were NOT overwritten
+    let hook_after = std::fs::read_to_string(env.projects_root().join(".git/hooks/pre-commit"))?;
+    assert!(
+        hook_after.contains("File generated by prek") || hook_after.contains("prek hook-impl"),
+        "prek hook should be preserved after `but setup`"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn setup_detects_real_prek_hooks_builtin_only() -> anyhow::Result<()> {
+    require_prek!();
+    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+
+    install_prek(&env, PREK_TOML_CONFIG_C);
+
+    env.but("setup")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+  Detected prek managing your git hooks.
+...
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn force_hooks_overrides_real_prek() -> anyhow::Result<()> {
+    require_prek!();
+    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+
+    install_prek(&env, PREK_TOML_CONFIG_C);
+
+    env.but("setup --force-hooks")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+  Forcing hook installation (--force-hooks), skipping detection.
+...
+"#]]);
+
+    // Verify GitButler hooks replaced prek hooks
+    let hook_content = std::fs::read_to_string(env.projects_root().join(".git/hooks/pre-commit"))?;
+    assert!(
+        hook_content.contains("GITBUTLER_MANAGED_HOOK_V1"),
+        "GitButler hook should replace prek hook after --force-hooks"
+    );
+
+    // Verify prek hook was backed up
+    let backup_path = env.projects_root().join(".git/hooks/pre-commit-user");
+    assert!(
+        backup_path.exists(),
+        "original prek hook should be backed up to pre-commit-user"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn json_output_detects_real_prek() -> anyhow::Result<()> {
+    require_prek!();
+    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+
+    install_prek(&env, PREK_TOML_CONFIG_C);
+
+    env.but("--json setup")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "repositoryPath": "[..]",
+  "projectStatus": "[..]",
+  "target": {
+    "branchName": "[..]",
+    "remoteName": "[..]",
+    "newlySet": true
+  },
+  "hookManager": {
+    "name": "prek",
+    "hooksInstalled": false
+  }
+}
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn hook_status_shows_prek_as_external() -> anyhow::Result<()> {
+    require_prek!();
+    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+
+    install_prek(&env, PREK_TOML_CONFIG_B);
+    env.but("setup").assert().success();
+
+    env.but("hook status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+  Hook manager:        prek
+...
+  pre-commit:          ● external (prek)
+...
+"#]]);
+
+    Ok(())
+}
+
+// ── Group B: Prek invokes `but hook` commands ───────────────────────
+
+#[test]
+fn prek_invokes_but_hook_pre_commit_on_workspace() -> anyhow::Result<()> {
+    require_prek!();
+    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+
+    install_prek(&env, PREK_TOML_CONFIG_A);
+    env.but("setup").assert().success();
+
+    // We're now on gitbutler/workspace branch after setup.
+    // Verify `but hook pre-commit` blocks on workspace (this is what prek would invoke).
+    env.but("hook pre-commit")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![[r#"
+...
+GITBUTLER_ERROR: Cannot commit directly to gitbutler/workspace branch.
+...
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn prek_invokes_but_hook_pre_commit_off_workspace() -> anyhow::Result<()> {
+    require_prek!();
+    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+
+    install_prek(&env, PREK_TOML_CONFIG_A);
+
+    // Stay on main branch (not gitbutler/workspace)
+    // `but hook pre-commit` should allow on non-workspace branch
+    env.but("hook pre-commit")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![]);
+
+    Ok(())
+}
+
+#[test]
+fn prek_invokes_but_hook_post_checkout() -> anyhow::Result<()> {
+    require_prek!();
+    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+
+    // Don't use `but setup` — manually create the workspace branch so we can
+    // test the post-checkout hook without prek intercepting `git checkout`.
+    env.invoke_bash(
+        "git checkout -b gitbutler/workspace && \
+         git commit --allow-empty -m 'GitButler Workspace Commit' && \
+         git checkout main",
+    );
+    let workspace_sha = env.invoke_git("rev-parse refs/heads/gitbutler/workspace");
+    let main_sha = env.invoke_git("rev-parse refs/heads/main");
+
+    // Now install prek (after we're already on main, so no hook interference)
+    install_prek(&env, PREK_TOML_CONFIG_A);
+
+    // Simulate what prek would invoke: `but hook post-checkout <prev> <new> 1`
+    env.but(format!("hook post-checkout {workspace_sha} {main_sha} 1"))
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+NOTE: You have left GitButler's managed workspace branch.
+...
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn coexistence_prek_hooks_and_gitbutler_entries() -> anyhow::Result<()> {
+    require_prek!();
+    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+
+    install_prek(&env, PREK_TOML_CONFIG_A);
+
+    // Verify prek installed hooks for all three stages
+    assert!(
+        env.projects_root().join(".git/hooks/pre-commit").exists(),
+        "prek should install pre-commit hook"
+    );
+    assert!(
+        env.projects_root()
+            .join(".git/hooks/post-checkout")
+            .exists(),
+        "prek should install post-checkout hook"
+    );
+    assert!(
+        env.projects_root().join(".git/hooks/pre-push").exists(),
+        "prek should install pre-push hook"
+    );
+
+    // Verify each hook has prek's signature
+    for hook_name in &["pre-commit", "post-checkout", "pre-push"] {
+        let content =
+            std::fs::read_to_string(env.projects_root().join(format!(".git/hooks/{hook_name}")))?;
+        assert!(
+            content.contains("File generated by prek") || content.contains("prek hook-impl"),
+            "{hook_name} hook should have prek signature, got: {content}"
+        );
+    }
+
+    // `but setup` should detect prek and not overwrite
+    env.but("setup")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+  Detected prek managing your git hooks.
+...
+"#]]);
+
+    // Verify hooks are still prek's after setup
+    let content = std::fs::read_to_string(env.projects_root().join(".git/hooks/pre-commit"))?;
+    assert!(
+        content.contains("File generated by prek") || content.contains("prek hook-impl"),
+        "prek hook should survive `but setup`"
+    );
+
+    Ok(())
+}
+
+// ── Group C: Project-local prek detection (validates is_available fix) ──
+
+#[test]
+fn setup_detects_config_with_project_local_prek_binary_in_venv() -> anyhow::Result<()> {
+    require_prek!();
+    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+
+    // Write prek.toml but do NOT run `prek install` — no hook files exist.
+    env.file("prek.toml", PREK_TOML_CONFIG_B);
+
+    // Simulate `uv add --dev prek` by creating a mock binary in .venv/bin/
+    env.invoke_bash("mkdir -p .venv/bin && cp $(which prek) .venv/bin/prek");
+
+    // `but setup` should detect prek via config + .venv/bin/ fallback
+    env.but("setup")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+  Detected prek managing your git hooks.
+...
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn setup_detects_config_with_project_local_prek_binary_in_node_modules() -> anyhow::Result<()> {
+    require_prek!();
+    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+
+    // Write prek.toml but do NOT run `prek install`
+    env.file("prek.toml", PREK_TOML_CONFIG_B);
+
+    // Simulate `npm add -D @j178/prek` by creating a mock binary in node_modules/.bin/
+    env.invoke_bash("mkdir -p node_modules/.bin && cp $(which prek) node_modules/.bin/prek");
+
+    // `but setup` should detect prek via config + node_modules/.bin/ fallback
+    env.but("setup")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+  Detected prek managing your git hooks.
+...
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn project_local_prek_via_venv_generates_detectable_hooks() -> anyhow::Result<()> {
+    require_prek!();
+    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+
+    // Place the real prek binary in .venv/bin/ and install from there
+    env.invoke_bash("mkdir -p .venv/bin && cp $(which prek) .venv/bin/prek");
+    env.file("prek.toml", PREK_TOML_CONFIG_C);
+    env.invoke_bash(".venv/bin/prek install --install-hooks");
+
+    // Verify generated hooks have the same prek signature
+    let hook_content = std::fs::read_to_string(env.projects_root().join(".git/hooks/pre-commit"))?;
+    assert!(
+        hook_content.contains("File generated by prek") || hook_content.contains("prek hook-impl"),
+        "hooks from .venv/bin/prek should have standard prek signature, got: {hook_content}"
+    );
+
+    // `but setup` should still detect these as prek hooks via content
+    env.but("setup")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+  Detected prek managing your git hooks.
+...
+"#]]);
+
+    Ok(())
+}
+
+// ── Group D: Edge cases ─────────────────────────────────────────────
+
+#[test]
+fn prek_uninstall_then_setup_installs_gb_hooks() -> anyhow::Result<()> {
+    require_prek!();
+    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+
+    // Install prek, then uninstall
+    install_prek(&env, PREK_TOML_CONFIG_C);
+    env.invoke_bash("prek uninstall");
+
+    // Hook files should be gone
+    assert!(
+        !env.projects_root().join(".git/hooks/pre-commit").exists(),
+        "prek uninstall should remove hook files"
+    );
+
+    // But prek.toml still exists + binary on PATH → config-only detection
+    env.but("setup")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+  Detected prek managing your git hooks.
+...
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn prek_toml_exists_but_not_installed() -> anyhow::Result<()> {
+    require_prek!();
+    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+
+    // Write prek.toml but do NOT run `prek install`
+    env.file("prek.toml", PREK_TOML_CONFIG_B);
+
+    // prek binary is on PATH + config exists → config-only fallback should detect
+    env.but("setup")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+  Detected prek managing your git hooks.
+...
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn hook_status_with_real_prek_hooks() -> anyhow::Result<()> {
+    require_prek!();
+    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+
+    install_prek(&env, PREK_TOML_CONFIG_B);
+    env.but("setup").assert().success();
+
+    // Verify hook status shows the external manager correctly
+    env.but("hook status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+  Hook manager:        prek
+...
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn json_output_with_real_prek_hooks() -> anyhow::Result<()> {
+    require_prek!();
+    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+
+    install_prek(&env, PREK_TOML_CONFIG_B);
+
+    let output = env.but("--json setup").allow_json().output()?;
+    assert!(output.status.success());
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    assert_eq!(
+        json["hookManager"]["name"], "prek",
+        "hookManager.name should be prek"
+    );
+    assert_eq!(
+        json["hookManager"]["hooksInstalled"], false,
+        "hooksInstalled should be false (GB did not install its hooks)"
+    );
+
+    Ok(())
+}
