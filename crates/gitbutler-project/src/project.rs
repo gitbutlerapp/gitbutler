@@ -254,22 +254,20 @@ impl Project {
             .to_owned();
         Ok(true)
     }
-
-    pub(crate) fn worktree_dir_but_should_use_git_dir(&self) -> &Path {
-        &self.worktree_dir
-    }
 }
 
 /// Instantiation
 impl Project {
     /// Search upwards from `path` to discover a Git worktree.
     pub fn from_path(path: &Path) -> anyhow::Result<Project> {
-        let worktree_dir = gix::discover(path)?
+        let repo = gix::discover(path)?;
+        let worktree_dir = repo
             .workdir()
             .context("Bare repositories aren't supported")?
             .to_owned();
-        let project_id =
-            ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&worktree_dir)?);
+        let project_id = ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(
+            repo.git_dir(),
+        )?);
         Project {
             worktree_dir,
             ..Project::default_with_id(project_id)
@@ -339,7 +337,10 @@ impl Project {
     /// Set the worktree directory to `repo_path`, the worktree or git dir.
     pub fn set_worktree_dir(&mut self, repo_path: PathBuf) -> anyhow::Result<()> {
         let repo = gix::open_opts(&repo_path, gix::open::Options::isolated())?;
-        self.worktree_dir = repo_path;
+        self.worktree_dir = repo
+            .workdir()
+            .context("BUG: we currently only support non-bare repos, yet this one didn't have a worktree dir")?
+            .to_owned();
         self.git_dir = repo.git_dir().to_owned();
         Ok(())
     }
@@ -351,6 +352,10 @@ impl Project {
             "BUG: must call `project.migrated()` before using the git_dir to have it initialised."
         );
         &self.git_dir
+    }
+
+    pub(crate) fn git_dir_opt(&self) -> Option<&Path> {
+        (!self.git_dir.as_os_str().is_empty()).then_some(&self.git_dir)
     }
 
     /// Returns the path to the directory containing the `GitButler` state for this project.
