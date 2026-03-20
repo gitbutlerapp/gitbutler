@@ -975,6 +975,20 @@ fn closest_branch_cursor_from_merge_base_is_noop() {
 }
 
 #[test]
+fn closest_branch_cursor_falls_back_to_merge_base_when_no_branch_exists() {
+    let lines = vec![
+        line(StatusOutputLineData::UnstagedChanges {
+            cli_id: unassigned("u0"),
+        }),
+        line(StatusOutputLineData::MergeBase),
+    ];
+
+    let cursor = Cursor(0);
+
+    assert_eq!(cursor.closest_branch_cursor(&lines), Some(Cursor(1)));
+}
+
+#[test]
 fn closest_branch_cursor_is_none_when_no_branch_exists() {
     let lines = vec![line(StatusOutputLineData::UnstagedChanges {
         cli_id: unassigned("u0"),
