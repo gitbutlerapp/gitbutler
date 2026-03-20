@@ -744,7 +744,6 @@ const RubTarget: FC<
 		target: ChangeUnit;
 	} & useRender.ComponentProps<"div">
 > = ({ target, render, ...props }) => {
-	const sourceItem = useDraggedSourceItem();
 	const [isDropTarget, dropRef] = useDroppable({
 		canDrop: ({ source }) => {
 			const sourceItem = parseDragData(source.data);
@@ -764,6 +763,8 @@ const RubTarget: FC<
 			style: { ...(isDropTarget && { outline: "2px dashed black" }) },
 		}),
 	});
+
+	const sourceItem = useDraggedSourceItem();
 
 	const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
 	const tooltip = isDropTarget && rubSource ? rubOperationLabel(rubSource, target) : null;
@@ -786,7 +787,6 @@ const CommitMoveTarget: FC<{
 	previousCommitId: string | undefined;
 	nextCommitId: string | undefined;
 }> = ({ commitId, side, previousCommitId, nextCommitId }) => {
-	const sourceItem = useDraggedSourceItem();
 	const isNoOp = (sourceCommitId: string): boolean =>
 		sourceCommitId === commitId ||
 		(side === "above" && previousCommitId === sourceCommitId) ||
@@ -803,6 +803,8 @@ const CommitMoveTarget: FC<{
 			side,
 		}),
 	});
+
+	const sourceItem = useDraggedSourceItem();
 
 	return (
 		<div
