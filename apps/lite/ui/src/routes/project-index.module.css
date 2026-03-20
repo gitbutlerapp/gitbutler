@@ -5,6 +5,11 @@
 	width: 300px;
 }
 
+.emptyLane {
+	flex-shrink: 0;
+	width: 300px;
+}
+
 .unassignedChanges {
 	flex-grow: 1;
 	min-height: 300px;

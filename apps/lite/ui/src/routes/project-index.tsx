@@ -1548,6 +1548,8 @@ const ProjectPage: FC = () => {
 							</div>
 						);
 					})}
+
+					<TearOffBranchTarget className={styles.emptyLane} />
 				</div>
 
 				{commonBaseCommitId !== undefined && (
