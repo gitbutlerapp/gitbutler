@@ -744,7 +744,6 @@ const RubTarget: FC<
 		target: ChangeUnit;
 	} & useRender.ComponentProps<"div">
 > = ({ target, render, ...props }) => {
-	const sourceItem = useDraggedSourceItem();
 	const [isDropTarget, dropRef] = useDroppable({
 		canDrop: ({ source }) => {
 			const sourceItem = parseDragData(source.data);
@@ -764,6 +763,8 @@ const RubTarget: FC<
 			style: { ...(isDropTarget && { outline: "2px dashed black" }) },
 		}),
 	});
+
+	const sourceItem = useDraggedSourceItem();
 
 	const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
 	const tooltip = isDropTarget && rubSource ? rubOperationLabel(rubSource, target) : null;
@@ -786,7 +787,6 @@ const CommitMoveTarget: FC<{
 	previousCommitId: string | undefined;
 	nextCommitId: string | undefined;
 }> = ({ commitId, side, previousCommitId, nextCommitId }) => {
-	const sourceItem = useDraggedSourceItem();
 	const isNoOp = (sourceCommitId: string): boolean =>
 		sourceCommitId === commitId ||
 		(side === "above" && previousCommitId === sourceCommitId) ||
@@ -803,6 +803,8 @@ const CommitMoveTarget: FC<{
 			side,
 		}),
 	});
+
+	const sourceItem = useDraggedSourceItem();
 
 	return (
 		<div
@@ -968,66 +970,58 @@ const Changes: FC<{
 	const changeUnit: ChangeUnit = { _tag: "Changes", stackId };
 
 	return (
-		<RubTarget
-			target={changeUnit}
-			render={
-				<div className={className}>
-					{changes.length === 0 ? (
-						<>No changes.</>
-					) : (
-						<ul>
-							{changes.map((change) => {
-								const assignments = assignmentsByPath.get(change.path);
-								const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
+		<RubTarget target={changeUnit} className={className}>
+			{changes.length === 0 ? (
+				<>No changes.</>
+			) : (
+				<ul>
+					{changes.map((change) => {
+						const assignments = assignmentsByPath.get(change.path);
+						const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
 
-								const dependencyCommitIds = hunkDependencyDiffs
-									? dependencyCommitIdsForFile(hunkDependencyDiffs)
-									: [];
+						const dependencyCommitIds = hunkDependencyDiffs
+							? dependencyCommitIdsForFile(hunkDependencyDiffs)
+							: [];
 
-								return (
-									<li key={change.path}>
-										<DraggableFile
-											change={change}
-											changeUnit={changeUnit}
-											assignments={assignments}
-											render={
-												<div
-													className={classes(
-														sharedStyles.row,
-														sharedStyles.fileRow,
-														isFileSelected(change.path) && sharedStyles.selected,
-													)}
+						return (
+							<li key={change.path}>
+								<DraggableFile
+									change={change}
+									changeUnit={changeUnit}
+									assignments={assignments}
+									render={
+										<div
+											className={classes(
+												sharedStyles.row,
+												sharedStyles.fileRow,
+												isFileSelected(change.path) && sharedStyles.selected,
+											)}
+										>
+											<FileButton
+												change={change}
+												toggleSelect={() => {
+													toggleFileSelect(change.path);
+												}}
+											/>
+											{isNonEmptyArray(dependencyCommitIds) && (
+												<DependencyIndicator
+													projectId={projectId}
+													commitIds={dependencyCommitIds}
+													onHover={onDependencyHover}
+													className={sharedStyles.rowAction}
 												>
-													<FileButton
-														change={change}
-														toggleSelect={() => {
-															toggleFileSelect(change.path);
-														}}
-													/>
-													{isNonEmptyArray(dependencyCommitIds) && (
-														<DependencyIndicator
-															projectId={projectId}
-															commitIds={dependencyCommitIds}
-															onHover={onDependencyHover}
-															className={classes(
-																sharedStyles.fileRowDependencyIndicator,
-																sharedStyles.rowAction,
-															)}
-														>
-															<DependencyIcon />
-														</DependencyIndicator>
-													)}
-												</div>
-											}
-										/>
-									</li>
-								);
-							})}
-						</ul>
-					)}
-				</div>
-			}
-		/>
+													<DependencyIcon />
+												</DependencyIndicator>
+											)}
+										</div>
+									}
+								/>
+							</li>
+						);
+					})}
+				</ul>
+			)}
+		</RubTarget>
 	);
 };
 
@@ -1470,7 +1464,7 @@ const ProjectPage: FC = () => {
 			>
 				<>
 					<div className={sharedStyles.lanes}>
-						<div className={sharedStyles.commitsLane}>
+						<div className={styles.unassignedChangesLane}>
 							<h3>Unassigned changes</h3>
 							<Changes
 								projectId={project.id}
@@ -1489,7 +1483,6 @@ const ProjectPage: FC = () => {
 							return (
 								<div key={stack.id} className={sharedStyles.commitsLane}>
 									<StackC
-										key={stack.id}
 										projectId={project.id}
 										stack={stack}
 										isBranchSelected={isBranchSelected}

@@ -119,8 +119,7 @@ const BranchMenuPopup: FC<{
 const BranchApplyToggle: FC<{
 	branch: BranchListing;
 	projectId: string;
-	className?: string;
-}> = ({ branch, projectId, className }) => {
+}> = ({ branch, projectId }) => {
 	const applyBranch = useMutation(applyBranchMutationOptions);
 	const unapplyStack = useMutation(unapplyStackMutationOptions);
 	const ref = getBranchRef(branch);
@@ -130,7 +129,7 @@ const BranchApplyToggle: FC<{
 	return isApplied ? (
 		<button
 			type="button"
-			className={classes(styles.branchApplyButton, className)}
+			className={sharedStyles.rowAction}
 			disabled={stackId === undefined}
 			aria-label={`Unapply branch ${branch.name}`}
 			onClick={() => {
@@ -143,7 +142,7 @@ const BranchApplyToggle: FC<{
 	) : (
 		<button
 			type="button"
-			className={classes(styles.branchApplyButton, styles.branchApplyButtonInactive, className)}
+			className={classes(sharedStyles.rowAction, styles.branchApplyButtonInactive)}
 			disabled={ref === null}
 			aria-label={`Apply branch ${branch.name}`}
 			onClick={() => {
@@ -206,12 +205,9 @@ const BranchRow: FC<
 				</ContextMenu.Positioner>
 			</ContextMenu.Portal>
 		</ContextMenu.Root>
-		<BranchApplyToggle branch={branch} projectId={projectId} className={sharedStyles.rowAction} />
+		<BranchApplyToggle branch={branch} projectId={projectId} />
 		<Menu.Root>
-			<Menu.Trigger
-				className={classes(sharedStyles.commitMenuTrigger, sharedStyles.rowAction)}
-				aria-label={`Branch ${branch.name} menu`}
-			>
+			<Menu.Trigger className={sharedStyles.rowAction} aria-label={`Branch ${branch.name} menu`}>
 				<MenuTriggerIcon />
 			</Menu.Trigger>
 			<Menu.Portal>
@@ -600,7 +596,7 @@ const ProjectBranchesPage: FC = () => {
 			}
 		>
 			<div className={sharedStyles.lanes}>
-				<ul className={styles.branchesList}>
+				<ul className={styles.branchesListLane}>
 					{sortedBranches.map((branch) => {
 						const isSelected = isBranchSelected(branch.name);
 						const isSelectedWithin = isBranchSelectedWithin(branch.name);

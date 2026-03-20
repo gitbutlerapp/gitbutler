@@ -502,7 +502,7 @@ export const CommitRow: FC<
 						</ContextMenu.Root>
 					)}
 					<button
-						className={classes(styles.commitToggleExpandButton, styles.rowAction)}
+						className={styles.rowAction}
 						type="button"
 						onClick={() => {
 							startExpandTransition(toggleExpand);
@@ -513,10 +513,7 @@ export const CommitRow: FC<
 						<ExpandCollapseIcon isExpanded={isSelectedWithin} />
 					</button>
 					<Menu.Root>
-						<Menu.Trigger
-							className={classes(styles.commitMenuTrigger, styles.rowAction)}
-							aria-label="Commit menu"
-						>
+						<Menu.Trigger className={styles.rowAction} aria-label="Commit menu">
 							<MenuTriggerIcon />
 						</Menu.Trigger>
 						<Menu.Portal>

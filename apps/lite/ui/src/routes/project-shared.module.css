@@ -62,8 +62,16 @@
 }
 
 .rowAction {
+	display: grid;
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
 	opacity: 0;
 	transition: opacity 120ms ease;
+
+	svg {
+		width: var(--row-line-height);
+		height: var(--row-line-height);
+	}
 
 	.row:hover &,
 	.row:focus-within &,
@@ -80,31 +88,9 @@
 
 .commitButton {
 	flex-grow: 1;
-	padding-inline: var(--selection-inline-padding);
-	padding-block: var(--selection-block-padding);
-	line-height: var(--selection-line-height);
-}
-
-.commitToggleExpandButton {
-	display: grid;
-	padding-inline: var(--selection-inline-padding);
-	padding-block: var(--selection-block-padding);
-
-	svg {
-		width: var(--selection-line-height);
-		height: var(--selection-line-height);
-	}
-}
-
-.commitMenuTrigger {
-	display: grid;
-	padding-inline: var(--selection-inline-padding);
-	padding-block: var(--selection-block-padding);
-
-	svg {
-		width: var(--selection-line-height);
-		height: var(--selection-line-height);
-	}
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
+	line-height: var(--row-line-height);
 }
 
 .fileRow {
@@ -114,23 +100,12 @@
 
 .fileButton {
 	flex-grow: 1;
-	padding-inline: var(--selection-inline-padding);
-	padding-block: var(--selection-block-padding);
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
 	overflow: hidden;
-	line-height: var(--selection-line-height);
+	line-height: var(--row-line-height);
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-.fileRowDependencyIndicator {
-	display: grid;
-	padding-inline: var(--selection-inline-padding);
-	padding-block: var(--selection-block-padding);
-
-	svg {
-		width: var(--selection-line-height);
-		height: var(--selection-line-height);
-	}
 }
 
 .selected {
@@ -173,13 +148,13 @@
 	display: flex;
 	flex-grow: 1;
 	flex-direction: column;
-	padding-block: var(--selection-block-padding);
-	line-height: var(--selection-line-height);
+	padding-block: var(--row-block-padding);
+	line-height: var(--row-line-height);
 }
 
 .editCommitMessageInput {
 	flex-grow: 1;
-	padding-inline: var(--selection-inline-padding);
+	padding-inline: var(--row-inline-padding);
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);
@@ -191,7 +166,7 @@
 }
 
 .editCommitMessageHelp {
-	padding-inline: var(--selection-inline-padding);
+	padding-inline: var(--row-inline-padding);
 	color: #ccc;
 	font-size: 11px;
 }
