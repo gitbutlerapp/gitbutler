@@ -968,63 +968,58 @@ const Changes: FC<{
 	const changeUnit: ChangeUnit = { _tag: "Changes", stackId };
 
 	return (
-		<RubTarget
-			target={changeUnit}
-			render={
-				<div className={className}>
-					{changes.length === 0 ? (
-						<>No changes.</>
-					) : (
-						<ul>
-							{changes.map((change) => {
-								const assignments = assignmentsByPath.get(change.path);
-								const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
+		<RubTarget target={changeUnit} className={className}>
+			{changes.length === 0 ? (
+				<>No changes.</>
+			) : (
+				<ul>
+					{changes.map((change) => {
+						const assignments = assignmentsByPath.get(change.path);
+						const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
 
-								const dependencyCommitIds = hunkDependencyDiffs
-									? dependencyCommitIdsForFile(hunkDependencyDiffs)
-									: [];
+						const dependencyCommitIds = hunkDependencyDiffs
+							? dependencyCommitIdsForFile(hunkDependencyDiffs)
+							: [];
 
-								return (
-									<li key={change.path}>
-										<DraggableFile
-											change={change}
-											changeUnit={changeUnit}
-											assignments={assignments}
-											render={
-												<div
-													className={classes(
-														sharedStyles.row,
-														sharedStyles.fileRow,
-														isFileSelected(change.path) && sharedStyles.selected,
-													)}
+						return (
+							<li key={change.path}>
+								<DraggableFile
+									change={change}
+									changeUnit={changeUnit}
+									assignments={assignments}
+									render={
+										<div
+											className={classes(
+												sharedStyles.row,
+												sharedStyles.fileRow,
+												isFileSelected(change.path) && sharedStyles.selected,
+											)}
+										>
+											<FileButton
+												change={change}
+												toggleSelect={() => {
+													toggleFileSelect(change.path);
+												}}
+											/>
+											{isNonEmptyArray(dependencyCommitIds) && (
+												<DependencyIndicator
+													projectId={projectId}
+													commitIds={dependencyCommitIds}
+													onHover={onDependencyHover}
+													className={sharedStyles.rowAction}
 												>
-													<FileButton
-														change={change}
-														toggleSelect={() => {
-															toggleFileSelect(change.path);
-														}}
-													/>
-													{isNonEmptyArray(dependencyCommitIds) && (
-														<DependencyIndicator
-															projectId={projectId}
-															commitIds={dependencyCommitIds}
-															onHover={onDependencyHover}
-															className={sharedStyles.rowAction}
-														>
-															<DependencyIcon />
-														</DependencyIndicator>
-													)}
-												</div>
-											}
-										/>
-									</li>
-								);
-							})}
-						</ul>
-					)}
-				</div>
-			}
-		/>
+													<DependencyIcon />
+												</DependencyIndicator>
+											)}
+										</div>
+									}
+								/>
+							</li>
+						);
+					})}
+				</ul>
+			)}
+		</RubTarget>
 	);
 };
 
