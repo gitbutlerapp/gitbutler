@@ -579,7 +579,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { apply, assignHunk, branchDetails, branchDiff, changesInWorktree, commitAmend, commitCreate, commitDetailsWithLineStats, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitUncommitChanges, headInfo, listBranches, listProjectsStateless, moveBranch, tearOffBranch, treeChangeDiffs, unapplyStack, WatcherHandle, watcherStart } = nativeBinding
+const { apply, assignHunk, branchDetails, branchDiff, changesInWorktree, commitAmend, commitCreate, commitDetailsWithLineStats, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitUncommitChanges, headInfo, listBranches, listProjectsStateless, moveBranch, pushStackLegacy, tearOffBranch, treeChangeDiffs, unapplyStack, WatcherHandle, watcherStart } = nativeBinding
 export { apply }
 export { assignHunk }
 export { branchDetails }
@@ -597,6 +597,7 @@ export { headInfo }
 export { listBranches }
 export { listProjectsStateless }
 export { moveBranch }
+export { pushStackLegacy }
 export { tearOffBranch }
 export { treeChangeDiffs }
 export { unapplyStack }

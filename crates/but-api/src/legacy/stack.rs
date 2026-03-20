@@ -216,6 +216,40 @@ pub fn update_branch_pr_number(
     Ok(())
 }
 
+pub mod json {
+    use serde::Serialize;
+
+    /// JSON-friendly version of [`gitbutler_branch_actions::internal::PushResult`].
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct PushResult {
+        /// The name of the remote to which the branches were pushed.
+        pub remote: String,
+        /// The list of pushed branches and their corresponding remote refnames.
+        pub branch_to_remote: Vec<(String, String)>,
+        /// The list of branches with their before/after commit SHAs.
+        /// Format: (branch_name, before_sha, after_sha)
+        pub branch_sha_updates: Vec<(String, String, String)>,
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(PushResult);
+
+    impl From<gitbutler_branch_actions::internal::PushResult> for PushResult {
+        fn from(value: gitbutler_branch_actions::internal::PushResult) -> Self {
+            Self {
+                remote: value.remote,
+                branch_to_remote: value
+                    .branch_to_remote
+                    .into_iter()
+                    .map(|(name, refname)| (name, refname.to_string()))
+                    .collect(),
+                branch_sha_updates: value.branch_sha_updates,
+            }
+        }
+    }
+}
+
 #[but_api]
 #[instrument(err(Debug))]
 pub fn push_stack(
@@ -235,5 +269,26 @@ pub fn push_stack(
         branch,
         run_hooks,
         push_opts,
+    )
+}
+
+#[but_api(napi, json::PushResult)]
+#[instrument(err(Debug))]
+pub fn push_stack_legacy(
+    ctx: &mut Context,
+    stack_id: StackId,
+    with_force: bool,
+    skip_force_push_protection: bool,
+    branch: String,
+    run_hooks: bool,
+) -> Result<PushResult> {
+    push_stack(
+        ctx,
+        stack_id,
+        with_force,
+        skip_force_push_protection,
+        branch,
+        run_hooks,
+        Vec::new(),
     )
 }

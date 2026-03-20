@@ -82,6 +82,8 @@ export declare function listProjectsStateless(): Promise<Array<ProjectForFronten
 /** Move a branch on top of another */
 export declare function moveBranch(projectId: string, subjectBranch: string, targetBranch: string): Promise<UIMoveBranchResult>
 
+export declare function pushStackLegacy(projectId: string, stackId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean): Promise<PushResult>
+
 /**
  * Take a branch out of a stack
  *
@@ -675,6 +677,19 @@ export type ProjectForFrontend = {
   forge_review_template_path?: string | null;
   /** Tell if the project is known to be open in a Window in the frontend. */
   is_open: boolean;
+};
+
+/** JSON-friendly version of [`gitbutler_branch_actions::internal::PushResult`]. */
+export type PushResult = {
+  /** The name of the remote to which the branches were pushed. */
+  remote: string;
+  /** The list of pushed branches and their corresponding remote refnames. */
+  branchToRemote: Array<[string, string]>;
+  /**
+   * The list of branches with their before/after commit SHAs.
+   * Format: (branch_name, before_sha, after_sha)
+   */
+  branchShaUpdates: Array<[string, string, string]>;
 };
 
 /** Represents the pushable status for the current stack. */
