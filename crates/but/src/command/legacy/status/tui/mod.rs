@@ -65,6 +65,7 @@ mod tests;
 
 const CURSOR_BG: Color = Color::Rgb(69, 71, 90);
 const NOOP: &str = "noop";
+const CURSOR_CONTEXT_ROWS: usize = 3;
 
 pub(super) async fn render_tui(
     ctx: &mut Context,
@@ -259,7 +260,8 @@ impl App {
         self.scroll_top = self.scroll_top.min(max_scroll_top);
     }
 
-    /// Adjusts the viewport so the selected line stays fully visible.
+    /// Adjusts the viewport so the selected line stays visible with context rows above and below
+    /// whenever possible.
     fn ensure_cursor_visible(&mut self, visible_height: usize) {
         self.clamp_scroll_top(visible_height);
 
@@ -267,13 +269,20 @@ impl App {
             return;
         };
 
-        if selected_rows.start < self.scroll_top {
-            self.scroll_top = selected_rows.start;
-        } else {
-            let scroll_bottom = self.scroll_top.saturating_add(visible_height);
-            if selected_rows.end > scroll_bottom {
-                self.scroll_top = selected_rows.end.saturating_sub(visible_height);
-            }
+        let selected_height = selected_rows.end.saturating_sub(selected_rows.start);
+        let context_rows =
+            CURSOR_CONTEXT_ROWS.min(visible_height.saturating_sub(selected_height) / 2);
+
+        let min_scroll_top = selected_rows
+            .end
+            .saturating_add(context_rows)
+            .saturating_sub(visible_height);
+        let max_scroll_top = selected_rows.start.saturating_sub(context_rows);
+
+        if self.scroll_top < min_scroll_top {
+            self.scroll_top = min_scroll_top;
+        } else if self.scroll_top > max_scroll_top {
+            self.scroll_top = max_scroll_top;
         }
 
         self.clamp_scroll_top(visible_height);
