@@ -998,6 +998,7 @@ impl App {
         };
 
         // create commit
+        let changes_to_commit = but_workspace::flatten_diff_specs(changes_to_commit);
         let commit_create_result = but_api::commit::create::commit_create(
             ctx,
             insert_commit_relative_to,
