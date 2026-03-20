@@ -13,6 +13,7 @@ import {
 	type CommitMoveChangesBetweenParams,
 	type CommitUncommitChangesParams,
 	type MoveBranchParams,
+	type TearOffBranchParams,
 	type TreeChangeDiffParams,
 	type ApplyParams,
 	type UnapplyStackParams,
@@ -37,6 +38,7 @@ import {
 	listBranches,
 	listProjectsStateless,
 	moveBranch,
+	tearOffBranch,
 	treeChangeDiffs,
 	unapplyStack,
 	BranchListingFilter,
@@ -120,6 +122,11 @@ function registerIpcHandlers(): void {
 		liteIpcChannels.moveBranch,
 		(_e, { projectId, subjectBranch, targetBranch }: MoveBranchParams) =>
 			moveBranch(projectId, subjectBranch, targetBranch),
+	);
+	ipcMain.handle(
+		liteIpcChannels.tearOffBranch,
+		(_e, { projectId, subjectBranch }: TearOffBranchParams) =>
+			tearOffBranch(projectId, subjectBranch),
 	);
 	ipcMain.handle(liteIpcChannels.ping, (_event, input: string) =>
 		Promise.resolve(`pong: ${input}`),
