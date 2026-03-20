@@ -32,9 +32,11 @@
 	import { HOOKS_SERVICE } from "$lib/hooks/hooksService";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { createCommitSelection } from "$lib/selection/key";
+	import { getStackContext } from "$lib/stack/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+
 	import { combineResults } from "$lib/state/helpers";
-	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { ensureValue } from "$lib/utils/validation";
 	import { inject } from "@gitbutler/core/context";
 	import { persisted } from "@gitbutler/shared/persisted";
 	import { Button, Modal, RadioButton, TestId } from "@gitbutler/ui";
@@ -45,61 +47,35 @@
 	import type { BranchDetails } from "$lib/stacks/stack";
 
 	interface Props {
-		projectId: string;
-		stackId?: string;
-		laneId: string;
 		branchName: string;
 		lastBranch: boolean;
 		branchDetails: BranchDetails;
 		stackingReorderDropzoneManager: ReorderCommitDzFactory;
 		roundedTop?: boolean;
-		active?: boolean;
-		visibleRange?: { start: number; end: number };
-
-		handleUncommit: (commitId: string, branchName: string) => Promise<void>;
-		startEditingCommitMessage: (branchName: string, commitId: string) => void;
-		onclick?: () => void;
-		onFileClick?: (index: number) => void;
 	}
 
-	let {
-		projectId,
-		stackId,
-		laneId,
-		branchName,
-		branchDetails,
-		lastBranch,
-		stackingReorderDropzoneManager,
-		roundedTop,
-		active,
-		visibleRange,
-		handleUncommit,
-		startEditingCommitMessage,
-		onclick,
-		onFileClick,
-	}: Props = $props();
+	let { branchName, branchDetails, lastBranch, stackingReorderDropzoneManager, roundedTop }: Props =
+		$props();
 
+	const controller = getStackContext();
 	const stackService = inject(STACK_SERVICE);
-	const uiState = inject(UI_STATE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const hooksService = inject(HOOKS_SERVICE);
 	const ircApiService = inject(IRC_API_SERVICE);
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
 
+	const projectId = $derived(controller.projectId);
+	const stackId = $derived(controller.stackId);
+
 	const commitReactionsQuery = $derived(ircApiService.commitReactions());
 	const commitReactions = $derived(commitReactionsQuery?.response ?? {});
 
 	const [integrateUpstreamCommits, integrating] = stackService.integrateUpstreamCommits;
 
-	const projectState = $derived(uiState.project(projectId));
-	const exclusiveAction = $derived(projectState.exclusiveAction.current);
+	const exclusiveAction = $derived(controller.exclusiveAction);
 	const commitAction = $derived(exclusiveAction?.type === "commit" ? exclusiveAction : undefined);
-	const isCommitting = $derived(
-		exclusiveAction?.type === "commit" && exclusiveAction.stackId === stackId,
-	);
-	const laneState = $derived(uiState.lane(laneId));
-	const selection = $derived(laneState.selection);
+	const selection = $derived(controller.selection);
 	const runHooks = $derived(projectRunCommitHooks(projectId));
 
 	const selectedBranchName = $derived(selection.current?.branchName);
@@ -113,14 +89,33 @@
 	let integrationModal = $state<Modal>();
 
 	async function handleCommitClick(commitId: string, upstream: boolean) {
-		const currentSelection = laneState.selection.current;
+		const currentSelection = controller.selection.current;
 		// Toggle: if this exact commit is already selected, clear the selection
 		if (currentSelection?.commitId === commitId && currentSelection?.branchName === branchName) {
-			laneState.selection.set(undefined);
+			controller.selection.set(undefined);
 		} else {
-			laneState.selection.set({ branchName, commitId, upstream, previewOpen: true });
+			controller.selection.set({ branchName, commitId, upstream, previewOpen: true });
 		}
-		onclick?.();
+		controller.clearWorktreeSelection();
+	}
+
+	async function handleUncommit(commitId: string) {
+		await stackService.uncommit({
+			projectId,
+			stackId: ensureValue(stackId),
+			branchName,
+			commitId,
+		});
+	}
+
+	function startEditingCommitMessage(commitId: string) {
+		controller.selection.set({ branchName, commitId, previewOpen: true });
+		controller.projectState.exclusiveAction.set({
+			type: "edit-commit-message",
+			stackId,
+			branchName,
+			commitId,
+		});
 	}
 
 	function kickOffIntegration() {
@@ -215,7 +210,7 @@
 {/snippet}
 
 {#snippet commitReorderDz(dropzone: ReorderCommitDzHandler)}
-	{#if !isCommitting}
+	{#if !controller.isCommitting}
 		<Dropzone handlers={[dropzone]}>
 			{#snippet overlay({ hovered, activated })}
 				<CommitLineOverlay {hovered} {activated} />
@@ -247,7 +242,7 @@
 						{@const lastCommit = i === upstreamOnlyCommits.length - 1}
 						{@const selected = commit.id === selectedCommitId && branchName === selectedBranchName}
 						{@const commitId = commit.id}
-						{#if !isCommitting}
+						{#if !controller.isCommitting}
 							<CommitRow
 								type="Remote"
 								{stackId}
@@ -259,7 +254,7 @@
 								{first}
 								{lastCommit}
 								{selected}
-								{active}
+								active={controller.active}
 								reactions={commitReactions[commit.id]}
 								onclick={() => handleCommitClick(commit.id, true)}
 								disableCommitActions={false}
@@ -283,7 +278,7 @@
 					{#snippet template(commit, { first, last })}
 						{@const commitId = commit.id}
 						{@const selected = commit.id === selectedCommitId && branchName === selectedBranchName}
-						{#if isCommitting}
+						{#if controller.isCommitting}
 							<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
 							<CommitGoesHere
 								{commitId}
@@ -293,7 +288,7 @@
 								{first}
 								last={false}
 								onclick={() => {
-									projectState.exclusiveAction.set({
+									controller.projectState.exclusiveAction.set({
 										type: "commit",
 										stackId,
 										branchName,
@@ -311,17 +306,14 @@
 						{@const { amendHandler, squashHandler, hunkHandler } = createCommitDropHandlers({
 							projectId,
 							stackId,
-							stackService,
-							hooksService,
-							uiState,
 							commit: dzCommit,
 							runHooks: $runHooks,
 							okWithForce: true,
 							onCommitIdChange: (newId) => {
-								const wasSelected = laneState.selection.current?.commitId === commitId;
+								const wasSelected = controller.selection.current?.commitId === commitId;
 								if (stackId && wasSelected) {
 									const previewOpen = selection.current?.previewOpen ?? false;
-									uiState.lane(stackId).selection.set({ branchName, commitId: newId, previewOpen });
+									controller.laneState.selection.set({ branchName, commitId: newId, previewOpen });
 								}
 							},
 						})}
@@ -378,7 +370,7 @@
 									{lastBranch}
 									{selected}
 									{tooltip}
-									{active}
+									active={controller.active}
 									reactions={commitReactions[commit.id]}
 									onclick={() => handleCommitClick(commit.id, false)}
 									disableCommitActions={false}
@@ -391,8 +383,8 @@
 											commitMessage: commit.message,
 											commitStatus: commit.state.type,
 											commitUrl: forge.current.commitUrl(commitId),
-											onUncommitClick: () => handleUncommit(commit.id, branchName),
-											onEditMessageClick: () => startEditingCommitMessage(branchName, commit.id),
+											onUncommitClick: () => handleUncommit(commit.id),
+											onEditMessageClick: () => startEditingCommitMessage(commit.id),
 										}}
 										<CommitContextMenu
 											showOnHover
@@ -417,7 +409,7 @@
 													title="Changed files"
 													{projectId}
 													{stackId}
-													{visibleRange}
+													visibleRange={controller.visibleRange}
 													draggableFiles
 													selectionId={createCommitSelection({ commitId: commitId, stackId })}
 													persistId={`commit-${commitId}`}
@@ -432,19 +424,19 @@
 													allowUnselect={false}
 													onFileClick={(index) => {
 														// Ensure the commit is selected so the preview shows it
-														const currentSelection = laneState.selection.current;
+														const currentSelection = controller.selection.current;
 														if (
 															currentSelection?.commitId !== commitId ||
 															currentSelection?.branchName !== branchName
 														) {
-															laneState.selection.set({
+															controller.selection.set({
 																branchName,
 																commitId,
 																upstream: false,
 																previewOpen: true,
 															});
 														}
-														onFileClick?.(index);
+														controller.jumpToIndex(index);
 													}}
 												/>
 											{/snippet}
@@ -456,7 +448,7 @@
 						{@render commitReorderDz(
 							stackingReorderDropzoneManager.belowCommit(branchName, commit.id),
 						)}
-						{#if isCommitting && last}
+						{#if controller.isCommitting && last}
 							<CommitGoesHere
 								commitId={branchDetails.baseCommit}
 								{first}
@@ -465,7 +457,7 @@
 									exclusiveAction.parentCommitId === branchDetails.baseCommit &&
 									commitAction?.branchName === branchName}
 								onclick={() => {
-									projectState.exclusiveAction.set({
+									controller.projectState.exclusiveAction.set({
 										type: "commit",
 										stackId,
 										branchName,

@@ -1,10 +1,11 @@
 import { FileChangeDropData, FolderChangeDropData, HunkDropDataV3 } from "$lib/dragging/draggables";
 import { updateStackPrs } from "$lib/forge/shared/prFooter";
+import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+import { UI_STATE } from "$lib/state/uiState.svelte";
+import { inject } from "@gitbutler/core/context";
 import type { DropzoneHandler } from "$lib/dragging/handler";
 import type { ForgePrService } from "$lib/forge/interface/forgePrService";
-import type { UncommittedService } from "$lib/selection/uncommittedService.svelte";
-import type { StackService } from "$lib/stacks/stackService.svelte";
-import type { UiState } from "$lib/state/uiState.svelte";
 
 export class BranchDropData {
 	constructor(
@@ -23,8 +24,9 @@ export class BranchDropData {
 }
 
 export class MoveBranchDzHandler implements DropzoneHandler {
+	private readonly stackService = inject(STACK_SERVICE);
+
 	constructor(
-		private readonly stackService: StackService,
 		private readonly prService: ForgePrService | undefined,
 		private readonly projectId: string,
 		private readonly stackId: string,
@@ -67,9 +69,10 @@ export class MoveBranchDzHandler implements DropzoneHandler {
 }
 
 export class StartCommitDzHandler implements DropzoneHandler {
+	private readonly uiState = inject(UI_STATE);
+	private readonly uncommittedService = inject(UNCOMMITTED_SERVICE);
+
 	constructor(
-		private readonly uiState: UiState,
-		private readonly uncommittedService: UncommittedService,
 		private readonly projectId: string,
 		private readonly stackId: string | undefined,
 		private readonly branchName: string,

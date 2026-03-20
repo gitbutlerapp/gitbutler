@@ -7,7 +7,6 @@
 	import BranchHeaderContextMenu from "$components/BranchHeaderContextMenu.svelte";
 	import BranchInsertion from "$components/BranchInsertion.svelte";
 	import CodegenRow from "$components/CodegenRow.svelte";
-	import ConflictResolutionConfirmModal from "$components/ConflictResolutionConfirmModal.svelte";
 	import NestedChangedFiles from "$components/NestedChangedFiles.svelte";
 	import PushButton from "$components/PushButton.svelte";
 	import ReduxResult from "$components/ReduxResult.svelte";
@@ -19,109 +18,41 @@
 	import { currentStatus } from "$lib/codegen/messages";
 	import { projectDisableCodegen } from "$lib/config/config";
 	import { REORDER_DROPZONE_FACTORY } from "$lib/dragging/stackingReorderDropzoneManager";
-	import { editPatch } from "$lib/editMode/editPatchUtils";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
-	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { createBranchSelection } from "$lib/selection/key";
-	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { getStackContext } from "$lib/stack/stackController.svelte";
 	import { type BranchDetails } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { combineResults } from "$lib/state/helpers";
-	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { URL_SERVICE } from "$lib/utils/url";
 	import { ensureValue } from "$lib/utils/validation";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, Modal, TestId } from "@gitbutler/ui";
+	import { Button, TestId } from "@gitbutler/ui";
 	import { QueryStatus } from "@reduxjs/toolkit/query";
 	import { tick } from "svelte";
-	import type { CommitStatusType } from "$lib/commits/commit";
 
 	type Props = {
-		projectId: string;
-		stackId?: string;
-		laneId: string;
 		branches: BranchDetails[];
-		active: boolean;
-		onclick?: () => void;
-		onFileClick?: (index: number) => void;
-		visibleRange?: { start: number; end: number };
 	};
 
-	const {
-		projectId,
-		branches,
-		stackId,
-		laneId,
-		active,
-		visibleRange,
-		onclick,
-		onFileClick,
-	}: Props = $props();
+	const { branches }: Props = $props();
+
+	const controller = getStackContext();
 	const stackService = inject(STACK_SERVICE);
-	const uiState = inject(UI_STATE);
-	const modeService = inject(MODE_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const urlService = inject(URL_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
-	const uncommittedService = inject(UNCOMMITTED_SERVICE);
-
-	// Component is read-only when stackId is undefined
-	const isReadOnly = $derived(!stackId);
+	const projectId = $derived(controller.projectId);
+	const stackId = $derived(controller.stackId);
+	const laneId = $derived(controller.laneId);
 
 	let addDependentBranchModalContext = $state<AddDependentBranchModalProps>();
 	let addDependentBranchModal = $state<AddDependentBranchModal>();
 
-	const projectState = $derived(uiState.project(projectId));
-	const exclusiveAction = $derived(projectState.exclusiveAction.current);
-	const isCommitting = $derived(
-		exclusiveAction?.type === "commit" && exclusiveAction?.stackId === stackId,
-	);
-	const laneState = $derived(uiState.lane(laneId));
-	const selection = $derived(laneState.selection);
-	const selectedCommitId = $derived(selection.current?.commitId);
+	const selection = $derived(controller.selection);
+	const selectedCommitId = $derived(controller.commitId);
 	const codegenDisabled = $derived(projectDisableCodegen(projectId));
-
-	let conflictResolutionConfirmationModal =
-		$state<ReturnType<typeof ConflictResolutionConfirmModal>>();
-
-	async function handleUncommit(commitId: string, branchName: string) {
-		await stackService.uncommit({
-			projectId,
-			stackId: ensureValue(stackId),
-			branchName,
-			commitId: commitId,
-		});
-	}
-
-	function startEditingCommitMessage(branchName: string, commitId: string) {
-		laneState.selection.set({ branchName, commitId, previewOpen: true });
-		projectState.exclusiveAction.set({
-			type: "edit-commit-message",
-			stackId,
-			branchName,
-			commitId,
-		});
-	}
-
-	async function handleEditPatch(args: {
-		commitId: string;
-		type: CommitStatusType;
-		hasConflicts: boolean;
-		isAncestorMostConflicted: boolean;
-	}) {
-		if (isReadOnly) return;
-		if (args.type === "LocalAndRemote" && args.hasConflicts && !args.isAncestorMostConflicted) {
-			conflictResolutionConfirmationModal?.show();
-			return;
-		}
-		await editPatch({
-			modeService,
-			commitId: args.commitId,
-			stackId: ensureValue(stackId),
-			projectId,
-		});
-	}
 
 	const selectedCommit = $derived(
 		selectedCommitId ? stackService.commitDetails(projectId, selectedCommitId) : undefined,
@@ -205,22 +136,15 @@
 				{@const codegenQuery = stackId
 					? claudeCodeService.messages({ projectId, stackId })
 					: undefined}
-				{@const startCommittingDz = new StartCommitDzHandler(
-					uiState,
-					uncommittedService,
-					projectId,
-					stackId,
-					branchName,
-				)}
+				{@const startCommittingDz = new StartCommitDzHandler(projectId, stackId, branchName)}
 				{#if stackId}
 					<BranchInsertion
 						{projectId}
 						{stackId}
 						{branchName}
 						{lineColor}
-						{isCommitting}
+						isCommitting={controller.isCommitting}
 						{baseBranchName}
-						{stackService}
 						prService={forge.current.prService}
 						isFirst={firstBranch}
 					/>
@@ -233,7 +157,7 @@
 					{branchName}
 					{lineColor}
 					{first}
-					{isCommitting}
+					isCommitting={controller.isCommitting}
 					{iconName}
 					{selected}
 					{isNewBranch}
@@ -254,18 +178,18 @@
 					trackingBranch={branch.remoteTrackingBranch ?? undefined}
 					readonly={!!branch.remoteTrackingBranch}
 					onclick={() => {
-						const currentSelection = uiState.lane(laneId).selection.current;
+						const currentSelection = controller.selection.current;
 						// Toggle: if this branch is already selected, clear the selection
 						if (
 							currentSelection?.branchName === branchName &&
 							!currentSelection.codegen &&
 							!currentSelection?.commitId
 						) {
-							uiState.lane(laneId).selection.set(undefined);
+							controller.selection.set(undefined);
 						} else {
-							uiState.lane(laneId).selection.set({ branchName, previewOpen: true });
+							controller.selection.set({ branchName, previewOpen: true });
 						}
-						onclick?.();
+						controller.clearWorktreeSelection();
 					}}
 				>
 					{#snippet buttons()}
@@ -274,7 +198,7 @@
 								icon="stack-plus"
 								size="tag"
 								kind="outline"
-								tooltip={isReadOnly ? "Read-only mode" : "Create new branch"}
+								tooltip={controller.isReadOnly ? "Read-only mode" : "Create new branch"}
 								onclick={async () => {
 									addDependentBranchModalContext = {
 										projectId,
@@ -284,7 +208,7 @@
 									await tick();
 									addDependentBranchModal?.show();
 								}}
-								disabled={isReadOnly}
+								disabled={controller.isReadOnly}
 							/>
 						{/if}
 
@@ -296,14 +220,14 @@
 									shrinkable
 									onclick={(e) => {
 										e.stopPropagation();
-										projectState.exclusiveAction.set({
+										controller.projectState.exclusiveAction.set({
 											type: "create-pr",
 											stackId,
 											branchName,
 										});
 									}}
 									testId={TestId.CreateReviewButton}
-									disabled={!!projectState.exclusiveAction.current}
+									disabled={!!controller.exclusiveAction}
 									icon="pr-plus"
 								>
 									{`Create ${forge.current.name === "gitlab" ? "MR" : "PR"}`}
@@ -342,7 +266,7 @@
 								tooltip="New Codegen Session"
 								onclick={async () => {
 									if (!stackId) return;
-									laneState?.selection.set({ branchName, codegen: true, previewOpen: true });
+									controller.selection.set({ branchName, codegen: true, previewOpen: true });
 									focusClaudeInput(stackId);
 								}}
 							/>
@@ -379,7 +303,7 @@
 									{stackId}
 									{status}
 									selected={codegenSelected}
-									{onclick}
+									onclick={() => controller.clearWorktreeSelection()}
 								/>
 							{/if}
 						{/if}
@@ -416,17 +340,17 @@
 										changes={result.changes}
 										stats={result.stats}
 										allowUnselect={false}
-										{visibleRange}
+										visibleRange={controller.visibleRange}
 										onFileClick={(index) => {
 											// Ensure the branch is selected so the preview shows it
-											const currentSelection = laneState.selection.current;
+											const currentSelection = controller.selection.current;
 											if (
 												currentSelection?.branchName !== branchName ||
 												currentSelection?.commitId !== undefined
 											) {
-												laneState.selection.set({ branchName, previewOpen: true });
+												controller.selection.set({ branchName, previewOpen: true });
 											}
-											onFileClick?.(index);
+											controller.jumpToIndex(index);
 										}}
 									/>
 								{/snippet}
@@ -437,9 +361,6 @@
 					{#snippet branchContent()}
 						<BranchCommitList
 							{lastBranch}
-							{projectId}
-							{stackId}
-							{laneId}
 							{branchName}
 							{branchDetails}
 							{stackingReorderDropzoneManager}
@@ -447,12 +368,6 @@
 								stackId !== undefined &&
 								codegenQuery?.response &&
 								codegenQuery.response.length > 0}
-							{active}
-							{visibleRange}
-							{handleUncommit}
-							{startEditingCommitMessage}
-							{onclick}
-							{onFileClick}
 						/>
 					{/snippet}
 				</BranchCard>
@@ -460,33 +375,6 @@
 		</ReduxResult>
 	{/each}
 </div>
-
-<Modal
-	bind:this={conflictResolutionConfirmationModal}
-	width="small"
-	defaultItem={{} as {
-		type: CommitStatusType;
-		commitId: string;
-		stackId: string;
-		hasConflicts: boolean;
-		isAncestorMostConflicted: boolean;
-		close: () => void;
-	}}
-	onSubmit={async (close, item) => {
-		await handleEditPatch(item);
-		close();
-	}}
->
-	<div>
-		<p>It's generally better to start resolving conflicts from the bottom up.</p>
-		<br />
-		<p>Are you sure you want to resolve conflicts for this commit?</p>
-	</div>
-	{#snippet controls(close)}
-		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-		<Button style="pop" type="submit">Yes</Button>
-	{/snippet}
-</Modal>
 
 {#if addDependentBranchModalContext}
 	<AddDependentBranchModal
