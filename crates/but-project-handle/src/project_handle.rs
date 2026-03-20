@@ -29,8 +29,8 @@ pub enum ProjectHandleOrLegacyProjectId {
 /// Lifecycle
 impl ProjectHandle {
     /// Create a project handle from `path`.
-    /// Note that this *should* be the git-dir as it's the most stable, and also allows to quickly check
-    /// for duplication if this convention is followed.
+    /// Note that this *should* be the git-dir as it's the most stable, and also
+    /// allows to quickly check for duplication if this convention is followed.
     /// This is also needed to support bare repositories properly.
     pub fn from_path(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         let path = gix::path::realpath(path)?;

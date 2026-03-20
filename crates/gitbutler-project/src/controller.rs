@@ -77,6 +77,37 @@ fn find_existing_project_by_git_dir(
     Ok(None)
 }
 
+fn find_existing_project_containing_path(
+    all_projects: &[Project],
+    path: &Path,
+) -> Result<Option<Project>> {
+    let mut best_match: Option<(usize, Project)> = None;
+
+    for project in all_projects {
+        let project = project
+            .clone()
+            .migrated()
+            .unwrap_or_else(|_| project.clone());
+        let Ok(project_worktree_dir) = gix::path::realpath(&project.worktree_dir) else {
+            continue;
+        };
+
+        if !path.starts_with(&project_worktree_dir) {
+            continue;
+        }
+
+        let candidate_len = project_worktree_dir.as_os_str().len();
+        if best_match
+            .as_ref()
+            .is_none_or(|(best_len, _)| candidate_len > *best_len)
+        {
+            best_match = Some((candidate_len, project));
+        }
+    }
+
+    Ok(best_match.map(|(_, project)| project))
+}
+
 impl Controller {
     /// Assure we can list projects, and if not possibly existing projects files will be renamed, and an error is produced early.
     pub(crate) fn assure_app_can_startup_or_fix_it(
@@ -133,15 +164,20 @@ impl Controller {
         if !worktree_dir.exists() {
             return Ok(AddProjectOutcome::PathNotFound);
         }
-        if !worktree_dir.is_dir() {
-            return Ok(AddProjectOutcome::NotADirectory);
-        }
 
         let all_projects = self
             .projects_storage
             .list()
             .context("failed to list projects from storage")?;
         let resolved_path = gix::path::realpath(worktree_dir)?;
+        if !resolved_path.is_dir() {
+            if let Some(existing_project) =
+                find_existing_project_containing_path(&all_projects, &resolved_path)?
+            {
+                return Ok(AddProjectOutcome::AlreadyExists(existing_project));
+            }
+            return Ok(AddProjectOutcome::NotADirectory);
+        }
         let resolved_repo = match resolve_project_repo_by_discovery(&resolved_path) {
             Ok(repo) => repo,
             Err(outcome) => return Ok(outcome),

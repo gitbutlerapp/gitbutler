@@ -92,7 +92,7 @@ mod add {
         assert_eq!(
             serde_json::to_value(&project)?["path"],
             serde_json::Value::String(submodule.display().to_string()),
-            "path is thw worktree directory (and deprecated, hence the access workaround)"
+            "path is the worktree directory (and deprecated, hence the access workaround)"
         );
         assert_eq!(
             project.open_isolated_repo()?.gitbutler_storage_path()?,
@@ -154,6 +154,32 @@ mod add {
         Ok(())
     }
 
+    /// Used in deep-links for instance
+    #[test]
+    fn best_effort_finds_existing_project_from_file_path() -> anyhow::Result<()> {
+        let data_dir = paths::data_dir();
+        let repo = gitbutler_testsupport::TestProject::default();
+        let project =
+            gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())?.unwrap_project();
+        let file_path = repo.path().join("nested/inside/file.txt");
+        std::fs::create_dir_all(file_path.parent().expect("file has parent"))?;
+        std::fs::write(&file_path, "hello world")?;
+
+        let outcome =
+            gitbutler_project::add_with_best_effort_at_app_data_dir(data_dir.path(), &file_path)?;
+        let existing_project = match outcome {
+            gitbutler_project::AddProjectOutcome::AlreadyExists(project) => project,
+            other => panic!("expected existing project to be found, got {other:?}"),
+        };
+
+        assert_eq!(
+            existing_project.id, project.id,
+            "it finds the containing project even if a filepath is given"
+        );
+        assert_eq!(existing_project.git_dir(), project.git_dir());
+        Ok(())
+    }
+
     mod error {
         use gitbutler_project::AddProjectOutcome;
 
@@ -198,15 +224,32 @@ mod add {
         }
 
         #[test]
-        fn nested_directory_inside_repo_is_not_added_by_exact_path() {
+        fn nested_directory_inside_repo_is_not_added_by_exact_path_but_is_by_best_effort() {
             let data_dir = paths::data_dir();
             let repo = gitbutler_testsupport::TestProject::default();
             let nested_dir = repo.path().join("nested/inside");
             std::fs::create_dir_all(&nested_dir).unwrap();
+            let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())
+                .unwrap()
+                .unwrap_project();
 
             let outcome =
                 gitbutler_project::add_at_app_data_dir(data_dir.path(), &nested_dir).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::NotAGitRepository(_)));
+
+            let outcome = gitbutler_project::add_with_best_effort_at_app_data_dir(
+                data_dir.path(),
+                &nested_dir,
+            )
+            .unwrap();
+            let existing_project = match outcome {
+                AddProjectOutcome::AlreadyExists(project) => project,
+                other => panic!("expected owning project to be found, got {other:?}"),
+            };
+            assert_eq!(
+                existing_project.id, project.id,
+                "With best effort, we find the surrounding project, it's like discover"
+            );
         }
 
         #[test]
