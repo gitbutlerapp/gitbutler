@@ -1464,7 +1464,7 @@ const ProjectPage: FC = () => {
 			>
 				<>
 					<div className={sharedStyles.lanes}>
-						<div className={sharedStyles.commitsLane}>
+						<div className={styles.unassignedChangesLane}>
 							<h3>Unassigned changes</h3>
 							<Changes
 								projectId={project.id}

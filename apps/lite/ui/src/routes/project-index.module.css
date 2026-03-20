@@ -1,3 +1,8 @@
+.unassignedChangesLane {
+	flex-shrink: 0;
+	width: 350px;
+}
+
 .unassignedChanges {
 	flex-grow: 1;
 	min-height: 300px;
