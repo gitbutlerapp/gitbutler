@@ -596,7 +596,7 @@ const ProjectBranchesPage: FC = () => {
 			}
 		>
 			<div className={sharedStyles.lanes}>
-				<ul className={styles.branchesList}>
+				<ul className={styles.branchesListLane}>
 					{sortedBranches.map((branch) => {
 						const isSelected = isBranchSelected(branch.name);
 						const isSelectedWithin = isBranchSelectedWithin(branch.name);
