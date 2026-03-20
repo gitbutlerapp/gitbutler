@@ -149,18 +149,12 @@ fn preferred_shell_config_path(
     fish_config: &Path,
     zshrc: &Path,
     bash_profile: &Path,
-    bashrc: &Path,
+    _bashrc: &Path,
 ) -> PathBuf {
     match shell_type {
         ShellType::Fish => fish_config.to_path_buf(),
         ShellType::Zsh => zshrc.to_path_buf(),
-        ShellType::Bash => {
-            if bash_profile.exists() {
-                bash_profile.to_path_buf()
-            } else {
-                bashrc.to_path_buf()
-            }
-        }
+        ShellType::Bash => bash_profile.to_path_buf(),
     }
 }
 
@@ -271,6 +265,8 @@ fn setup_posix_shell_config(
     let path_cmd = format!("export PATH=\"{}:$PATH\"", bin_dir.display());
     let completion_cmd = shell_type.completion_command();
 
+    prepare_posix_shell_config(shell_config, shell_type)?;
+
     let contents = fs::read_to_string(shell_config).unwrap_or_default();
 
     // Check for PATH setup with more robust detection
@@ -376,6 +372,44 @@ fn setup_posix_shell_config(
     Ok(())
 }
 
+/// On macOS, Bash typically reads `~/.bash_profile` for login shells instead of
+/// `~/.bashrc`. If we are about to update a missing `.bash_profile` and a
+/// `.bashrc` already exists, create `.bash_profile` first and source `.bashrc`
+/// from it so existing user configuration continues to apply.
+#[cfg(target_os = "macos")]
+fn prepare_posix_shell_config(shell_config: &Path, shell_type: ShellType) -> Result<()> {
+    if shell_type != ShellType::Bash || shell_config.exists() {
+        return Ok(());
+    }
+
+    let Some(file_name) = shell_config.file_name().and_then(|name| name.to_str()) else {
+        return Ok(());
+    };
+    if file_name != ".bash_profile" {
+        return Ok(());
+    }
+
+    let bashrc = shell_config.with_file_name(".bashrc");
+    if !bashrc.exists() {
+        return Ok(());
+    }
+
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(shell_config)?;
+    writeln!(file, "if [ -f \"$HOME/.bashrc\" ]; then")?;
+    writeln!(file, "  . \"$HOME/.bashrc\"")?;
+    writeln!(file, "fi")?;
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn prepare_posix_shell_config(_shell_config: &Path, _shell_type: ShellType) -> Result<()> {
+    Ok(())
+}
+
 fn print_manual_setup_instructions(bin_dir: &Path, already_in_path: bool) {
     ui::println_empty();
     warn("Could not detect your shell configuration file");
@@ -452,6 +486,49 @@ mod tests {
         assert_eq!(detected, Some((zshrc, ShellType::Zsh)));
     }
 
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn test_detect_shell_config_prefers_bash_profile_when_bash_has_no_existing_config() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let home_dir = temp_dir.path();
+        let fish_config = home_dir.join(".config/fish/config.fish");
+        let zshrc = home_dir.join(".zshrc");
+        let bash_profile = home_dir.join(".bash_profile");
+        let bashrc = home_dir.join(".bashrc");
+
+        let detected = detect_shell_config_with_preference(
+            Some(ShellType::Bash),
+            &fish_config,
+            &zshrc,
+            &bash_profile,
+            &bashrc,
+        );
+
+        assert_eq!(detected, Some((bash_profile, ShellType::Bash)));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn test_detect_shell_config_prefers_bash_profile_when_only_bashrc_exists() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let home_dir = temp_dir.path();
+        let fish_config = home_dir.join(".config/fish/config.fish");
+        let zshrc = home_dir.join(".zshrc");
+        let bash_profile = home_dir.join(".bash_profile");
+        let bashrc = home_dir.join(".bashrc");
+        std::fs::write(&bashrc, "# existing bashrc").unwrap();
+
+        let detected = detect_shell_config_with_preference(
+            Some(ShellType::Bash),
+            &fish_config,
+            &zshrc,
+            &bash_profile,
+            &bashrc,
+        );
+
+        assert_eq!(detected, Some((bash_profile, ShellType::Bash)));
+    }
+
     #[test]
     fn test_setup_posix_shell_config_creates_missing_config() {
         let temp_dir = tempfile::tempdir().unwrap();
@@ -469,6 +546,32 @@ mod tests {
         # Added by GitButler installer
         export PATH="$BIN_DIR:$PATH"
         eval "$(but completions zsh)"
+        "#);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn test_setup_posix_shell_config_creates_bash_profile_that_sources_bashrc() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let home_dir = temp_dir.path();
+        let bin_dir = home_dir.join(".local/bin");
+        let bash_profile = home_dir.join(".bash_profile");
+        let bashrc = home_dir.join(".bashrc");
+        std::fs::write(&bashrc, "# existing bashrc").unwrap();
+
+        setup_posix_shell_config(&bash_profile, ShellType::Bash, &bin_dir, false).unwrap();
+
+        let content = std::fs::read_to_string(&bash_profile)
+            .unwrap()
+            .replace(&bin_dir.display().to_string(), "$BIN_DIR");
+        insta::assert_snapshot!(content, @r#"
+        if [ -f "$HOME/.bashrc" ]; then
+          . "$HOME/.bashrc"
+        fi
+
+        # Added by GitButler installer
+        export PATH="$BIN_DIR:$PATH"
+        eval "$(but completions bash)"
         "#);
     }
 
