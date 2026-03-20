@@ -1,6 +1,7 @@
 use but_testsupport::Sandbox;
 use crossterm::event::*;
 use snapbox::{file, str};
+use temp_env::with_var;
 
 use crate::command::legacy::status::tui::tests::utils::test_tui;
 
@@ -579,4 +580,200 @@ fn rub_api_stack_to_stack_operation() {
 
     tui.input_then_render([KeyCode::Up, KeyCode::Up])
         .assert_current_line_eq(str!["┊  ╭┄<< reassign hunks >> [..] [staged to A]"]);
+}
+
+#[test]
+fn rub_api_unassigned_to_commit_multi_hunk_modified_file_commits_all_hunks() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file(
+        "editor.sh",
+        "printf 'commit from tui test\n' > \"$1\"\n".to_string(),
+    );
+    let editor_path = env.projects_root().join("editor.sh");
+    let editor_command = format!("sh {}", editor_path.display());
+
+    let original = (1..=300)
+        .map(|line| format!("line-{line}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    env.file("multi-hunk.txt", &original);
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('c');
+    tui.input_then_render(KeyCode::Down);
+    with_var("GIT_EDITOR", Some(editor_command), || {
+        tui.input_then_render(KeyCode::Enter);
+    });
+
+    let modified = (1..=300)
+        .map(|line| match line {
+            1 => "line-1-modified".to_string(),
+            250 => "line-250-modified".to_string(),
+            _ => format!("line-{line}"),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    tui.env.file("multi-hunk.txt", &modified);
+
+    for _ in 0..10 {
+        tui.input_then_render(KeyCode::Up);
+    }
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊   [..] multi-hunk.txt"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('R')))
+        .assert_current_line_eq(str!["┊   << source >> << noop >> [..] multi-hunk.txt"]);
+    tui.input_then_render([KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊●   << amend >> [..]"]);
+    tui.input_then_render(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊●   [..]"]);
+
+    let status_after = tui.env.invoke_git("status --porcelain");
+    assert!(
+        !status_after
+            .lines()
+            .any(|line| line.ends_with("multi-hunk.txt")),
+        "after Shift+R unassigned->commit amend, multi-hunk modified file should be fully committed\nstatus was:\n{status_after}"
+    );
+}
+
+#[test]
+fn rub_api_uncommitted_to_commit_multi_hunk_modified_file_commits_all_hunks() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file(
+        "editor.sh",
+        "printf 'commit from tui test\n' > \"$1\"\n".to_string(),
+    );
+    let editor_path = env.projects_root().join("editor.sh");
+    let editor_command = format!("sh {}", editor_path.display());
+
+    let original = (1..=300)
+        .map(|line| format!("line-{line}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    env.file("multi-hunk.txt", &original);
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('c');
+    tui.input_then_render(KeyCode::Down);
+    with_var("GIT_EDITOR", Some(editor_command), || {
+        tui.input_then_render(KeyCode::Enter);
+    });
+
+    let modified = (1..=300)
+        .map(|line| match line {
+            1 => "line-1-modified".to_string(),
+            250 => "line-250-modified".to_string(),
+            _ => format!("line-{line}"),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    tui.env.file("multi-hunk.txt", &modified);
+
+    for _ in 0..10 {
+        tui.input_then_render(KeyCode::Up);
+    }
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊   [..] multi-hunk.txt"]);
+
+    tui.input_then_render('r')
+        .assert_current_line_eq(str!["┊   << source >> << noop >> [..] multi-hunk.txt"]);
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄<< assign hunks >> g0 [A]"]);
+    tui.input_then_render(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+
+    tui.input_then_render(KeyCode::Up)
+        .assert_current_line_eq(str!["┊  │ [..] multi-hunk.txt"]);
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('R')))
+        .assert_current_line_eq(str!["┊  │ << source >> << noop >> [..] multi-hunk.txt"]);
+    tui.input_then_render([KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊●   << amend >> [..]"]);
+    tui.input_then_render(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊●   [..]"]);
+
+    let status_after = tui.env.invoke_git("status --porcelain");
+    assert!(
+        !status_after
+            .lines()
+            .any(|line| line.ends_with("multi-hunk.txt")),
+        "after Shift+R uncommitted->commit amend, multi-hunk modified file should be fully committed\nstatus was:\n{status_after}"
+    );
+}
+
+#[test]
+fn rub_api_branch_to_commit_multi_hunk_modified_file_commits_all_hunks() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file(
+        "editor.sh",
+        "printf 'commit from tui test\n' > \"$1\"\n".to_string(),
+    );
+    let editor_path = env.projects_root().join("editor.sh");
+    let editor_command = format!("sh {}", editor_path.display());
+
+    let original = (1..=300)
+        .map(|line| format!("line-{line}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    env.file("multi-hunk.txt", &original);
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('c');
+    tui.input_then_render(KeyCode::Down);
+    with_var("GIT_EDITOR", Some(editor_command), || {
+        tui.input_then_render(KeyCode::Enter);
+    });
+
+    let modified = (1..=300)
+        .map(|line| match line {
+            1 => "line-1-modified".to_string(),
+            250 => "line-250-modified".to_string(),
+            _ => format!("line-{line}"),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    tui.env.file("multi-hunk.txt", &modified);
+
+    for _ in 0..10 {
+        tui.input_then_render(KeyCode::Up);
+    }
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊   [..] multi-hunk.txt"]);
+
+    tui.input_then_render('r')
+        .assert_current_line_eq(str!["┊   << source >> << noop >> [..] multi-hunk.txt"]);
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄<< assign hunks >> g0 [A]"]);
+    tui.input_then_render(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('R')))
+        .assert_current_line_eq(str!["┊╭┄<< source >> << noop >> g0 [A]"]);
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊●   << amend >> [..]"]);
+    tui.input_then_render(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊●   [..]"]);
+
+    let status_after = tui.env.invoke_git("status --porcelain");
+    assert!(
+        !status_after
+            .lines()
+            .any(|line| line.ends_with("multi-hunk.txt")),
+        "after Shift+R branch->commit amend, multi-hunk modified file should be fully committed\nstatus was:\n{status_after}"
+    );
 }

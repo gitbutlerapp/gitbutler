@@ -401,7 +401,9 @@ fn commit_from_unassigned_multi_hunk_modified_file_commits_all_hunks() {
 
     let status_after = tui.env.invoke_git("status --porcelain");
     assert!(
-        !status_after.lines().any(|line| line.ends_with("multi-hunk.txt")),
+        !status_after
+            .lines()
+            .any(|line| line.ends_with("multi-hunk.txt")),
         "after commit from unassigned via TUI, multi-hunk modified file should be fully committed\nstatus was:\n{status_after}"
     );
 }

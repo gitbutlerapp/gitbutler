@@ -196,6 +196,7 @@ fn execute_uncommitted_to_commit(
         .cloned()
         .map(DiffSpec::from)
         .collect::<Vec<_>>();
+    let changes = but_workspace::flatten_diff_specs(changes);
     but_api::commit::amend::commit_amend(ctx, operation.oid, changes)
 }
 
@@ -255,6 +256,7 @@ fn execute_unassigned_to_commit(
     operation: &UnassignedToCommitOperation,
 ) -> anyhow::Result<CommitCreateResult> {
     let changes = changes_for_stack_assignment(ctx, None)?;
+    let changes = but_workspace::flatten_diff_specs(changes);
     but_api::commit::amend::commit_amend(ctx, operation.oid, changes)
 }
 
@@ -326,6 +328,7 @@ fn execute_branch_to_commit(
 ) -> anyhow::Result<CommitCreateResult> {
     let stack_id = stack_id_for_branch_name(ctx, operation.name)?;
     let changes = changes_for_stack_assignment(ctx, stack_id)?;
+    let changes = but_workspace::flatten_diff_specs(changes);
     but_api::commit::amend::commit_amend(ctx, operation.oid, changes)
 }
 
