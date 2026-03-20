@@ -10,6 +10,17 @@
 	width: 350px;
 }
 
+.headInfo {
+	display: flex;
+	row-gap: calc(var(--row-block-padding) + var(--row-line-height));
+	flex-direction: column;
+}
+
+.stackLanes {
+	display: flex;
+	column-gap: 8px;
+}
+
 .emptyLane {
 	flex-shrink: 0;
 	width: 300px;

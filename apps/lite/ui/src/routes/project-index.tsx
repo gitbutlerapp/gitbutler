@@ -1515,48 +1515,54 @@ const ProjectPage: FC = () => {
 						/>
 					</div>
 
-					{headInfo.stacks.map((stack) => {
-						// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
-						const stackId = stack.id!;
+					<div className={styles.headInfo}>
+						<div className={styles.stackLanes}>
+							{headInfo.stacks.map((stack) => {
+								// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
+								const stackId = stack.id!;
 
-						return (
-							<div key={stack.id} className={styles.stackLane}>
-								<StackC
-									projectId={project.id}
-									stack={stack}
-									isBranchSelected={isBranchSelected}
-									toggleBranchSelection={toggleBranchSelection}
-									isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
-									isCommitEditing={(commitId) => isCommitEditing(stackId, commitId)}
-									isCommitSelectedWithin={(commitId) => isCommitSelectedWithin(stackId, commitId)}
-									isChangeUnitFileSelected={(changeUnit, path) =>
-										isChangeUnitFileSelected(stackId, changeUnit, path)
-									}
-									toggleCommitExpanded={(commitId) => toggleCommitExpanded(stackId, commitId)}
-									toggleCommitSelection={(commitId) => {
-										toggleCommitSelection(stackId, commitId);
-									}}
-									toggleEditingMessage={(commitId) => {
-										toggleEditingMessage(stackId, commitId);
-									}}
-									toggleChangeUnitFileSelection={(changeUnit, path) => {
-										toggleChangeUnitFileSelection(stackId, changeUnit, path);
-									}}
-									highlightedCommitIds={highlightedCommitIds}
-									onDependencyHover={highlightCommits}
-								/>
-							</div>
-						);
-					})}
+								return (
+									<div key={stack.id} className={styles.stackLane}>
+										<StackC
+											projectId={project.id}
+											stack={stack}
+											isBranchSelected={isBranchSelected}
+											toggleBranchSelection={toggleBranchSelection}
+											isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
+											isCommitEditing={(commitId) => isCommitEditing(stackId, commitId)}
+											isCommitSelectedWithin={(commitId) =>
+												isCommitSelectedWithin(stackId, commitId)
+											}
+											isChangeUnitFileSelected={(changeUnit, path) =>
+												isChangeUnitFileSelected(stackId, changeUnit, path)
+											}
+											toggleCommitExpanded={(commitId) => toggleCommitExpanded(stackId, commitId)}
+											toggleCommitSelection={(commitId) => {
+												toggleCommitSelection(stackId, commitId);
+											}}
+											toggleEditingMessage={(commitId) => {
+												toggleEditingMessage(stackId, commitId);
+											}}
+											toggleChangeUnitFileSelection={(changeUnit, path) => {
+												toggleChangeUnitFileSelection(stackId, changeUnit, path);
+											}}
+											highlightedCommitIds={highlightedCommitIds}
+											onDependencyHover={highlightCommits}
+										/>
+									</div>
+								);
+							})}
+						</div>
+
+						{commonBaseCommitId !== undefined && (
+							<TearOffBranchTarget>
+								{shortCommitId(commonBaseCommitId)} (common base commit)
+							</TearOffBranchTarget>
+						)}
+					</div>
 
 					<TearOffBranchTarget className={styles.emptyLane} />
 				</div>
-
-				{commonBaseCommitId !== undefined && (
-					<TearOffBranchTarget>
-						{shortCommitId(commonBaseCommitId)} (common base commit)
-					</TearOffBranchTarget>
-				)}
 			</ProjectPanelLayout>
 		</DraggedSourceItemContext.Provider>
 	);
