@@ -184,7 +184,7 @@ const rejectedChangesToastOptions = ({
 	priority: "high",
 });
 
-const commonBaseCommitId = (headInfo: RefInfo): string | undefined => {
+const getCommonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 	const bases = headInfo.stacks
 		.map((stack) => stack.base)
 		.filter((base): base is string => base !== null);
@@ -1380,7 +1380,7 @@ const ProjectPage: FC = () => {
 	// TODO: dedupe
 	if (!project) return <p>Project not found.</p>;
 
-	const baseId = commonBaseCommitId(headInfo);
+	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
 
 	const isUnassignedFileSelected = (path: string): boolean =>
 		selection?._tag === "ChangesFile" && selection.stackId === null && selection.path === path;
@@ -1550,8 +1550,10 @@ const ProjectPage: FC = () => {
 					})}
 				</div>
 
-				{baseId !== undefined && (
-					<TearOffBranchTarget>{shortCommitId(baseId)} (common base commit)</TearOffBranchTarget>
+				{commonBaseCommitId !== undefined && (
+					<TearOffBranchTarget>
+						{shortCommitId(commonBaseCommitId)} (common base commit)
+					</TearOffBranchTarget>
 				)}
 			</ProjectPanelLayout>
 		</DraggedSourceItemContext.Provider>
