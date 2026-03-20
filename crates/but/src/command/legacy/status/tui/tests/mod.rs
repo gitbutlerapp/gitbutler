@@ -679,3 +679,129 @@ fn commit_file_toggle_off_from_commit_row_preserves_commit_selection() {
             "snapshots/commit_file_toggle_off_from_commit_row_preserves_commit_selection_final.txt"
         ]);
 }
+
+#[test]
+fn rub_from_two_hunks_in_same_file_does_not_duplicate_hunks() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file(
+        ".git/editor.sh",
+        "printf 'commit multi-hunk from tui\\n' > \"$1\"\n",
+    );
+    let editor_path = env.projects_root().join(".git/editor.sh");
+    let editor_command = format!("sh {}", editor_path.display());
+
+    let mut tui = test_tui(env);
+
+    // First, create a multiline baseline commit through the TUI itself so workspace metadata stays valid.
+    tui.env.invoke_bash(
+        r#"
+cat > A <<'EOF'
+line-01
+line-02
+line-03
+line-04
+line-05
+line-06
+line-07
+line-08
+line-09
+line-10
+line-11
+line-12
+line-13
+line-14
+line-15
+line-16
+line-17
+line-18
+line-19
+line-20
+EOF
+"#,
+    );
+
+    tui.input_then_render(None)
+        .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
+    tui.input_then_render('c')
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [unstaged changes]"]);
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄<< commit to branch >> g0 [A]"]);
+
+    with_var("GIT_EDITOR", Some(editor_command.as_str()), || {
+        tui.input_then_render(KeyCode::Enter);
+    });
+
+    // Now produce two separate hunks in the same file.
+    tui.env.invoke_bash(
+        r#"
+cat > A <<'EOF'
+line-01
+line-02
+line-03 changed-hunk-one
+line-04
+line-05
+line-06
+line-07
+line-08
+line-09
+line-10
+line-11
+line-12
+line-13
+line-14
+line-15
+line-16
+line-17
+line-18 changed-hunk-two
+line-19
+line-20
+EOF
+"#,
+    );
+
+    // Move back to unassigned changes and rub those two hunks into the existing commit.
+    tui.input_then_render([KeyCode::Up, KeyCode::Up, KeyCode::Up, KeyCode::Up, KeyCode::Up]);
+    tui.input_then_render('r')
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [unstaged changes]"]);
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄<< assign hunks >> g0 [A]"]);
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊●   << amend commit >> [..] commit multi-hunk from tui"]);
+    tui.input_then_render(KeyCode::Enter);
+
+    let mut commits_with_marker = Vec::new();
+    for oid in tui.env.invoke_git("rev-list --all").lines() {
+        let has_a = tui
+            .env
+            .invoke_git(&format!("ls-tree -r --name-only {oid}"))
+            .lines()
+            .any(|name| name == "A");
+        if !has_a {
+            continue;
+        }
+        let content = tui.env.invoke_git(&format!("show --format= {oid}:A"));
+        if content.contains("changed-hunk-one") || content.contains("changed-hunk-two") {
+            commits_with_marker.push((oid.to_string(), content));
+        }
+    }
+
+    let first_hunk_total_occurrences = commits_with_marker
+        .iter()
+        .map(|(_, content)| content.matches("changed-hunk-one").count())
+        .sum::<usize>();
+    let second_hunk_total_occurrences = commits_with_marker
+        .iter()
+        .map(|(_, content)| content.matches("changed-hunk-two").count())
+        .sum::<usize>();
+
+    assert_eq!(
+        first_hunk_total_occurrences, 1,
+        "first hunk should exist exactly once across reachable commits after a single rub operation; duplicates indicate the same hunk was applied multiple times"
+    );
+    assert_eq!(
+        second_hunk_total_occurrences, 1,
+        "second hunk should exist exactly once across reachable commits after a single rub operation; duplicates indicate the same hunk was applied multiple times"
+    );
+}
