@@ -141,7 +141,7 @@ fn effective_irc(
     }
 }
 
-pub async fn run() {
+pub async fn run() -> anyhow::Result<()> {
     but_api::panic_capture::install_panic_hook();
     let cors = CorsLayer::new()
         .allow_methods(cors::Any)
@@ -762,7 +762,19 @@ pub async fn run() {
     let port = std::env::var("BUTLER_PORT").unwrap_or("6978".into());
     let host = std::env::var("BUTLER_HOST").unwrap_or("127.0.0.1".into());
     let url = format!("{host}:{port}");
-    let listener = tokio::net::TcpListener::bind(&url).await.unwrap();
+    let listener = match tokio::net::TcpListener::bind(&url).await {
+        Ok(listener) => listener,
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::AddrInUse {
+                tracing::error!(
+                    "Failed to bind to {url}: {e}. Another instance of but-server may already be running on port {port}."
+                );
+            } else {
+                tracing::error!("Failed to bind to {url}: {e}");
+            }
+            anyhow::bail!("Failed to bind to {url}: {e}");
+        }
+    };
     println!("Running at {url}");
     let server = axum::serve(
         listener,
@@ -784,6 +796,7 @@ pub async fn run() {
             std::process::exit(0);
         }
     }
+    Ok(())
 }
 
 /// Handler that extracts the command from the URL path.

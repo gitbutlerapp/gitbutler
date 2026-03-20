@@ -13,8 +13,7 @@ async fn main() -> anyhow::Result<()> {
     // the websocket. As the askpass broker historically hasn't been initialized for but-server,
     // it does not seem worthwhile to hook that up right now.
     gitbutler_repo_actions::askpass::disable();
-    but_server::run().await;
-    Ok(())
+    but_server::run().await
 }
 
 mod trace {
