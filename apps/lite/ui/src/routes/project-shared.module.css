@@ -62,8 +62,16 @@
 }
 
 .rowAction {
+	display: grid;
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
 	opacity: 0;
 	transition: opacity 120ms ease;
+
+	svg {
+		width: var(--row-line-height);
+		height: var(--row-line-height);
+	}
 
 	.row:hover &,
 	.row:focus-within &,
@@ -85,28 +93,6 @@
 	line-height: var(--row-line-height);
 }
 
-.commitToggleExpandButton {
-	display: grid;
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
-
-	svg {
-		width: var(--row-line-height);
-		height: var(--row-line-height);
-	}
-}
-
-.commitMenuTrigger {
-	display: grid;
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
-
-	svg {
-		width: var(--row-line-height);
-		height: var(--row-line-height);
-	}
-}
-
 .fileRow {
 	display: flex;
 	align-items: start;
@@ -120,17 +106,6 @@
 	line-height: var(--row-line-height);
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-.fileRowDependencyIndicator {
-	display: grid;
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
-
-	svg {
-		width: var(--row-line-height);
-		height: var(--row-line-height);
-	}
 }
 
 .selected {

@@ -14,17 +14,6 @@
 	line-height: var(--row-line-height);
 }
 
-.branchApplyButton {
-	display: grid;
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
-
-	svg {
-		width: var(--row-line-height);
-		height: var(--row-line-height);
-	}
-}
-
 .branchApplyButtonInactive {
 	opacity: 0.35;
 }

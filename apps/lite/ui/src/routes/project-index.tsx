@@ -1009,10 +1009,7 @@ const Changes: FC<{
 															projectId={projectId}
 															commitIds={dependencyCommitIds}
 															onHover={onDependencyHover}
-															className={classes(
-																sharedStyles.fileRowDependencyIndicator,
-																sharedStyles.rowAction,
-															)}
+															className={sharedStyles.rowAction}
 														>
 															<DependencyIcon />
 														</DependencyIndicator>
