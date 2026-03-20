@@ -632,6 +632,8 @@ impl App {
             | Mode::Move(..) => None,
         };
 
+        self.flags.show_files = FilesStatusFlag::None;
+
         messages.extend([
             Message::EnterNormalMode,
             reload_message.unwrap_or(Message::Reload(None)),
