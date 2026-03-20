@@ -247,6 +247,15 @@ fn register_rub_mode_key_binds(key_binds: &mut KeyBinds) {
         message: Message::EnterNormalMode,
         hide_from_hotbar: false,
     });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "back",
+        chord_display: "r",
+        key_matcher: press().code(KeyCode::Char('r')),
+        modes: Vec::from([ModeDiscriminant::Rub]),
+        message: Message::EnterNormalMode,
+        hide_from_hotbar: true,
+    });
 }
 
 fn register_rub_but_api_mode_key_binds(key_binds: &mut KeyBinds) {
@@ -339,6 +348,15 @@ fn register_commit_mode_key_binds(key_binds: &mut KeyBinds) {
 
     key_binds.register(StaticKeyBind {
         short_description: "back",
+        chord_display: "c",
+        key_matcher: press().code(KeyCode::Char('c')),
+        modes: Vec::from([ModeDiscriminant::Commit]),
+        message: Message::EnterNormalMode,
+        hide_from_hotbar: true,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "back",
         chord_display: "esc",
         key_matcher: press().code(KeyCode::Esc),
         modes: Vec::from([ModeDiscriminant::Commit]),
@@ -377,6 +395,15 @@ fn register_move_mode_key_binds(key_binds: &mut KeyBinds) {
 
     key_binds.register(StaticKeyBind {
         short_description: "back",
+        chord_display: "m",
+        key_matcher: press().code(KeyCode::Char('m')),
+        modes: Vec::from([ModeDiscriminant::Move]),
+        message: Message::EnterNormalMode,
+        hide_from_hotbar: true,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "back",
         chord_display: "esc",
         key_matcher: press().code(KeyCode::Esc),
         modes: Vec::from([ModeDiscriminant::Move]),
@@ -393,6 +420,15 @@ fn register_branch_mode_key_binds(key_binds: &mut KeyBinds) {
         modes: Vec::from([ModeDiscriminant::Branch]),
         message: Message::Branch(BranchMessage::New),
         hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "back",
+        chord_display: "b",
+        key_matcher: press().code(KeyCode::Char('b')),
+        modes: Vec::from([ModeDiscriminant::Branch]),
+        message: Message::EnterNormalMode,
+        hide_from_hotbar: true,
     });
 
     key_binds.register(StaticKeyBind {

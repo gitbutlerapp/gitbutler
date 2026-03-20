@@ -447,6 +447,84 @@ fn esc_leaves_rub_mode() {
 }
 
 #[test]
+fn mode_toggle_key_r_enters_and_leaves_rub_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.env.file("test.txt", "content");
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊   vo A test.txt"]);
+
+    tui.input_then_render('r')
+        .assert_rendered_eq(file![
+            "snapshots/mode_toggle_key_r_enters_and_leaves_rub_mode_001.txt"
+        ])
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vo A test.txt"]);
+
+    tui.input_then_render('r')
+        .assert_current_line_eq(str!["┊   vo A test.txt"]);
+}
+
+#[test]
+fn mode_toggle_key_c_enters_and_leaves_commit_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.env.file("test.txt", "content");
+
+    tui.input_then_render('c')
+        .assert_rendered_eq(file![
+            "snapshots/mode_toggle_key_c_enters_and_leaves_commit_mode_001.txt"
+        ])
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [unstaged changes]"]);
+
+    tui.input_then_render('c')
+        .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
+}
+
+#[test]
+fn mode_toggle_key_m_enters_and_leaves_move_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+
+    tui.input_then_render('m')
+        .assert_rendered_eq(file![
+            "snapshots/mode_toggle_key_m_enters_and_leaves_move_mode_001.txt"
+        ])
+        .assert_current_line_eq(str!["┊╭┄<< source >> << noop >> g0 [A]"]);
+
+    tui.input_then_render('m')
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+}
+
+#[test]
+fn mode_toggle_key_b_enters_and_leaves_branch_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('b')
+        .assert_rendered_eq(file![
+            "snapshots/mode_toggle_key_b_enters_and_leaves_branch_mode_001.txt"
+        ])
+        .assert_current_line_eq(str!["┊╭┄<< target >> g0 [A]"]);
+
+    tui.input_then_render('b')
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+}
+
+#[test]
 fn rubbing() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
