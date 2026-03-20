@@ -93,12 +93,12 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
     });
 
     key_binds.register(StaticKeyBind {
-        short_description: "files",
-        chord_display: "f",
-        key_matcher: press().code(KeyCode::Char('f')),
+        short_description: "show all files",
+        chord_display: "shift+f",
+        key_matcher: press().shift().code(KeyCode::Char('F')),
         modes: all_except_text_input_modes.clone(),
-        message: Message::Files(FilesMessage::Toggle),
-        hide_from_hotbar: false,
+        message: Message::Files(FilesMessage::ToggleGlobalFilesList),
+        hide_from_hotbar: true,
     });
 
     key_binds.register(StaticKeyBind {

@@ -433,6 +433,6 @@ fn rubbing() {
         // that work is in progress
         .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
 
-    tui.input_then_render('f')
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
         .assert_rendered_eq(file!["snapshots/rubbing_003.txt"]);
 }

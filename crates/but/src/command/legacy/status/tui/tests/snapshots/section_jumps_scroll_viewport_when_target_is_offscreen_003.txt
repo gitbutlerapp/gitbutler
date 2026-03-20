@@ -5,4 +5,4 @@
 "├╯                                                                                                  "
 "┊                                                                                                   "
 "┊╭┄h0 [B]                                                                                           "
-"  normal   ↓/j down • ↑/k up • f files • q quit • r rub • c commit • n new commit • m move • enter r"
+"  normal   ↓/j down • ↑/k up • q quit • r rub • c commit • n new commit • m move • enter reword inli"

@@ -17,4 +17,4 @@
 "│ error-with-end-marker: this is a deliberately long error message that should wrap over multiple │ "
 "│ lines without clipping and it must include END-MARKER                                           │ "
 "└─────────────────────────────────────────────────────────────────────────────────────────────────┘ "
-"  normal   ↓/j down • ↑/k up • f files • q quit • r rub • c commit • n new commit • m move • enter r"
+"  normal   ↓/j down • ↑/k up • q quit • r rub • c commit • n new commit • m move • enter reword inli"
