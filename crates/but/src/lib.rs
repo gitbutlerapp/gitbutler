@@ -571,6 +571,7 @@ async fn match_subcommand(
             upstream,
             no_hint,
         } => {
+            use crate::command::legacy::status::FilesStatusFlag;
             use crate::command::legacy::status::StatusFlags;
 
             let mut ctx = setup::init_ctx(
@@ -581,6 +582,11 @@ async fn match_subcommand(
                 },
                 out,
             )?;
+            let show_files = if show_files {
+                FilesStatusFlag::All
+            } else {
+                FilesStatusFlag::None
+            };
             let flags = StatusFlags {
                 show_files,
                 verbose,

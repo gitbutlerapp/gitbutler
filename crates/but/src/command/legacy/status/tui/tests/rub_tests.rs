@@ -275,7 +275,7 @@ fn rub_api_committed_file_to_commit_operation() {
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   [..] add A"]);
 
-    tui.input_then_render('f')
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
         .assert_current_line_eq(str!["┊●   [..] add A"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -302,7 +302,7 @@ fn rub_api_committed_file_to_branch_operation() {
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   [..] add A"]);
 
-    tui.input_then_render('f')
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
         .assert_current_line_eq(str!["┊●   [..] add A"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -329,7 +329,7 @@ fn rub_api_committed_file_to_unassigned_operation() {
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   [..] add A"]);
 
-    tui.input_then_render('f')
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
         .assert_current_line_eq(str!["┊●   [..] add A"]);
 
     tui.input_then_render(KeyCode::Down)

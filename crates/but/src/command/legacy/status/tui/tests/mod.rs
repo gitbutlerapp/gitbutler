@@ -4,6 +4,7 @@ use anyhow::anyhow;
 use but_testsupport::Sandbox;
 use crossterm::event::*;
 use snapbox::{file, str};
+use temp_env::with_var;
 
 use crate::command::legacy::status::tui::Message;
 use crate::command::legacy::status::tui::tests::utils::{test_tui, test_tui_with_size};
@@ -433,6 +434,168 @@ fn rubbing() {
         // that work is in progress
         .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
 
-    tui.input_then_render('f')
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
         .assert_rendered_eq(file!["snapshots/rubbing_003.txt"]);
+}
+
+#[test]
+fn global_file_list_does_not_restrict_cursor() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render([KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊●   [..] add A"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
+        .assert_current_line_eq(str!["┊●   [..] add A"]);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊│     [..] A A"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+        .assert_current_line_eq(str!["┊╭┄h0 [B]"])
+        .assert_rendered_eq(file![
+            "snapshots/global_file_list_does_not_restrict_cursor_final.txt"
+        ]);
+}
+
+#[test]
+fn commit_file_list_scopes_cursor_to_files_in_selected_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render([KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊●   [..] add A"]);
+
+    tui.input_then_render('f')
+        .assert_current_line_eq(str!["┊│     [..] A A"]);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊│     [..] A A"]);
+
+    tui.input_then_render(KeyCode::Up)
+        .assert_current_line_eq(str!["┊│     [..] A A"])
+        .assert_rendered_eq(file![
+            "snapshots/commit_file_list_scopes_cursor_to_files_in_selected_commit_final.txt"
+        ]);
+}
+
+#[test]
+fn commit_file_toggle_on_commit_without_files_is_noop() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui_with_size(env, 100, 8);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+
+    with_var("GIT_AUTHOR_DATE", Some("2000-01-01T00:00:00Z"), || {
+        with_var("GIT_COMMITTER_DATE", Some("2000-01-01T00:00:00Z"), || {
+            tui.input_then_render('n')
+                .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+        });
+    });
+
+    tui.input_then_render('f')
+        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+
+    tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┴ 0dc3733 [origin/main] 2000-01-02 add M"])
+        .assert_rendered_eq(file![
+            "snapshots/commit_file_toggle_on_commit_without_files_is_noop_final.txt"
+        ]);
+}
+
+#[test]
+fn commit_file_list_rub_can_escape_scope_and_esc_reenters_file_list() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render([KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊●   [..] add A"]);
+
+    tui.input_then_render('f')
+        .assert_current_line_eq(str!["┊│     [..] A A"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('R')))
+        .assert_current_line_eq(str!["┊│     << source >> << noop >> [..] A A"]);
+
+    tui.input_then_render(KeyCode::Up)
+        .assert_current_line_eq(str!["┊●   << move file >> [..] add A"]);
+
+    tui.input_then_render(KeyCode::Esc)
+        .assert_current_line_eq(str!["┊│     [..] A A"])
+        .assert_rendered_eq(file![
+            "snapshots/commit_file_list_rub_can_escape_scope_and_esc_reenters_file_list_final.txt"
+        ]);
+}
+
+#[test]
+fn esc_in_normal_mode_closes_global_file_list() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render([KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊●   [..] add A"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
+        .assert_current_line_eq(str!["┊●   [..] add A"]);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊│     [..] A A"]);
+
+    tui.input_then_render(KeyCode::Esc)
+        .assert_current_line_eq(str!["┊●   [..] add A"])
+        .assert_rendered_eq(file![
+            "snapshots/esc_in_normal_mode_closes_global_file_list_final.txt"
+        ]);
+}
+
+#[test]
+fn esc_in_normal_mode_closes_commit_file_list() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render([KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊●   [..] add A"]);
+
+    tui.input_then_render('f')
+        .assert_current_line_eq(str!["┊│     [..] A A"]);
+
+    tui.input_then_render(KeyCode::Esc)
+        .assert_current_line_eq(str!["┊●   [..] add A"])
+        .assert_rendered_eq(file![
+            "snapshots/esc_in_normal_mode_closes_commit_file_list_final.txt"
+        ]);
+}
+
+#[test]
+fn commit_file_toggle_off_from_commit_row_preserves_commit_selection() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render([KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊●   [..] add A"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
+        .assert_current_line_eq(str!["┊●   [..] add A"]);
+
+    tui.input_then_render('f')
+        .assert_current_line_eq(str!["┊●   [..] add A"])
+        .assert_rendered_eq(file![
+            "snapshots/commit_file_toggle_off_from_commit_row_preserves_commit_selection_final.txt"
+        ]);
 }

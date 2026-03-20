@@ -42,7 +42,7 @@ const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
 #[derive(Debug, Copy, Clone)]
 pub struct StatusFlags {
-    pub show_files: bool,
+    pub show_files: FilesStatusFlag,
     pub verbose: bool,
     pub refresh_prs: bool,
     pub show_upstream: bool,
@@ -52,11 +52,31 @@ pub struct StatusFlags {
 impl StatusFlags {
     pub fn all_false() -> Self {
         Self {
-            show_files: false,
+            show_files: FilesStatusFlag::None,
             verbose: false,
             refresh_prs: false,
             show_upstream: false,
             hint: false,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum FilesStatusFlag {
+    /// Don't show files for any commits.
+    None,
+    /// Show files changed for all commits.
+    All,
+    /// Only show files for this specific commit.
+    Commit(gix::ObjectId),
+}
+
+impl FilesStatusFlag {
+    pub fn show_files_for(self, commit: gix::ObjectId) -> bool {
+        match self {
+            FilesStatusFlag::None => false,
+            FilesStatusFlag::All => true,
+            FilesStatusFlag::Commit(object_id) => commit == object_id,
         }
     }
 }
@@ -1229,7 +1249,7 @@ fn print_commit(
             classification,
         )?;
     }
-    if status_ctx.flags.show_files {
+    if status_ctx.flags.show_files.show_files_for(commit.id) {
         match commit_changes {
             CommitChanges::Workspace(tree_changes) => {
                 for TreeChangeWithId { short_id, inner } in tree_changes {
