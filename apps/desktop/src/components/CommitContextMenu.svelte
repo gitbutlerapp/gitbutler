@@ -197,7 +197,7 @@
 						}}
 					/>
 					<ContextMenuItem
-						label="Edit commit message"
+						label="Reword commit"
 						icon="edit"
 						testId={TestId.CommitRowContextMenu_EditMessageMenuButton}
 						disabled={isReadOnly}

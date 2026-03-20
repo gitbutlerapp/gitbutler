@@ -204,7 +204,7 @@
 							drawer?.open();
 							setMode("edit");
 						}}
-						tooltip={isReadOnly ? "Read-only mode" : "Edit commit message"}
+						tooltip={isReadOnly ? "Read-only mode" : "Reword commit"}
 						disabled={isReadOnly || isEditingMessage}
 					/>
 				{/if}
@@ -241,7 +241,7 @@
 							action={({ title, description }) => saveCommitMessage(title, description)}
 							actionLabel="Save changes"
 							onCancel={cancelEdit}
-							floatingBoxHeader="Edit commit message"
+							floatingBoxHeader="Reword commit"
 							loading={messageUpdateQuery.current.isLoading}
 							existingCommitId={commit.id}
 							title={parsedMessage?.title || ""}

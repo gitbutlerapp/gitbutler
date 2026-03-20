@@ -382,7 +382,7 @@ const CommitMenuPopup: FC<{
 	return (
 		<Popup className={styles.menuPopup}>
 			<Item className={styles.menuItem} onClick={onReword}>
-				Edit commit message
+				Reword commit
 			</Item>
 			<SubmenuRoot>
 				<SubmenuTrigger className={styles.menuItem}>Add empty commit</SubmenuTrigger>
