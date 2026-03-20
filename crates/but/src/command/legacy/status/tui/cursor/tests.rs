@@ -37,6 +37,14 @@ fn commit_cli_id(hex: &str, id: &str) -> Arc<CliId> {
     })
 }
 
+fn committed_file_cli_id(hex: &str, path: &str, id: &str) -> Arc<CliId> {
+    Arc::new(CliId::CommittedFile {
+        commit_id: commit_id(hex),
+        path: path.into(),
+        id: id.into(),
+    })
+}
+
 #[test]
 fn new_selects_first_selectable_line() {
     let lines = vec![
@@ -184,6 +192,57 @@ fn select_uses_first_matching_commit_when_object_id_appears_multiple_times() {
 
     assert_eq!(
         Cursor::select_commit(commit_id(wanted), &lines),
+        Some(Cursor(0))
+    );
+}
+
+#[test]
+fn select_first_file_in_commit_finds_first_file_for_matching_commit() {
+    let wanted = "1111111111111111111111111111111111111111";
+    let lines = vec![
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id(wanted, "c0"),
+            stack_id: None,
+            classification: CommitClassification::LocalOnly,
+        }),
+        line(StatusOutputLineData::File {
+            cli_id: committed_file_cli_id(wanted, "src/a.rs", "f0"),
+        }),
+    ];
+
+    assert_eq!(
+        Cursor::select_first_file_in_commit(commit_id(wanted), &lines),
+        Some(Cursor(1))
+    );
+}
+
+#[test]
+fn select_first_file_in_commit_returns_none_when_commit_file_is_missing() {
+    let wanted = "1111111111111111111111111111111111111111";
+    let lines = vec![line(StatusOutputLineData::File {
+        cli_id: committed_file_cli_id("2222222222222222222222222222222222222222", "src/a.rs", "f0"),
+    })];
+
+    assert_eq!(
+        Cursor::select_first_file_in_commit(commit_id(wanted), &lines),
+        None
+    );
+}
+
+#[test]
+fn select_first_file_in_commit_uses_first_matching_file_when_multiple_exist() {
+    let wanted = "1111111111111111111111111111111111111111";
+    let lines = vec![
+        line(StatusOutputLineData::File {
+            cli_id: committed_file_cli_id(wanted, "src/a.rs", "f0"),
+        }),
+        line(StatusOutputLineData::File {
+            cli_id: committed_file_cli_id(wanted, "src/b.rs", "f1"),
+        }),
+    ];
+
+    assert_eq!(
+        Cursor::select_first_file_in_commit(commit_id(wanted), &lines),
         Some(Cursor(0))
     );
 }
@@ -508,7 +567,7 @@ fn move_up_moves_to_previous_selectable_line() {
     ];
 
     let mut cursor = Cursor(2);
-    cursor.move_up(&lines, &Mode::Normal);
+    cursor.move_up(&lines, &Mode::Normal, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -525,7 +584,7 @@ fn move_up_does_not_move_when_already_at_first_selectable_line() {
     ];
 
     let mut cursor = Cursor(0);
-    cursor.move_up(&lines, &Mode::Normal);
+    cursor.move_up(&lines, &Mode::Normal, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -543,7 +602,7 @@ fn move_down_moves_to_next_selectable_line() {
     ];
 
     let mut cursor = Cursor(0);
-    cursor.move_down(&lines, &Mode::Normal);
+    cursor.move_down(&lines, &Mode::Normal, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(2));
 }
@@ -558,7 +617,7 @@ fn move_down_does_not_move_when_no_selectable_line_below() {
     ];
 
     let mut cursor = Cursor(0);
-    cursor.move_down(&lines, &Mode::Normal);
+    cursor.move_down(&lines, &Mode::Normal, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -575,10 +634,10 @@ fn movement_does_not_panic_or_move_when_cursor_is_out_of_bounds() {
     ];
 
     let mut cursor = Cursor(99);
-    cursor.move_up(&lines, &Mode::Normal);
-    cursor.move_down(&lines, &Mode::Normal);
-    cursor.move_next_section(&lines, &Mode::Normal);
-    cursor.move_previous_section(&lines, &Mode::Normal);
+    cursor.move_up(&lines, &Mode::Normal, FilesStatusFlag::All);
+    cursor.move_down(&lines, &Mode::Normal, FilesStatusFlag::All);
+    cursor.move_next_section(&lines, &Mode::Normal, FilesStatusFlag::All);
+    cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(99));
 }
@@ -598,7 +657,7 @@ fn move_next_section_moves_to_next_jump_target() {
     ];
 
     let mut cursor = Cursor(0);
-    cursor.move_next_section(&lines, &Mode::Normal);
+    cursor.move_next_section(&lines, &Mode::Normal, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(2));
 }
@@ -615,7 +674,7 @@ fn move_next_section_does_not_move_when_no_jump_target_below() {
     ];
 
     let mut cursor = Cursor(1);
-    cursor.move_next_section(&lines, &Mode::Normal);
+    cursor.move_next_section(&lines, &Mode::Normal, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(1));
 }
@@ -638,7 +697,7 @@ fn move_previous_section_moves_to_current_section_header_when_cursor_is_inside_i
     ];
 
     let mut cursor = Cursor(3);
-    cursor.move_previous_section(&lines, &Mode::Normal);
+    cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(2));
 }
@@ -658,7 +717,7 @@ fn move_previous_section_moves_to_immediate_previous_when_already_on_section_hea
     ];
 
     let mut cursor = Cursor(2);
-    cursor.move_previous_section(&lines, &Mode::Normal);
+    cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -675,7 +734,7 @@ fn move_previous_section_moves_to_current_header_when_only_current_section_exist
     ];
 
     let mut cursor = Cursor(1);
-    cursor.move_previous_section(&lines, &Mode::Normal);
+    cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -692,7 +751,7 @@ fn move_previous_section_does_not_move_when_on_first_jump_target() {
     ];
 
     let mut cursor = Cursor(0);
-    cursor.move_previous_section(&lines, &Mode::Normal);
+    cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -724,7 +783,7 @@ fn move_up_in_rub_mode_skips_unavailable_targets() {
     });
 
     let mut cursor = Cursor(2);
-    cursor.move_up(&lines, &mode);
+    cursor.move_up(&lines, &mode, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -756,7 +815,7 @@ fn move_down_in_rub_mode_skips_unavailable_targets() {
     });
 
     let mut cursor = Cursor(0);
-    cursor.move_down(&lines, &mode);
+    cursor.move_down(&lines, &mode, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(2));
 }
@@ -798,15 +857,15 @@ fn movement_in_rub_mode_handles_starting_on_unavailable_line() {
     });
 
     let mut cursor = Cursor(2);
-    cursor.move_up(&lines, &mode);
+    cursor.move_up(&lines, &mode, FilesStatusFlag::All);
     assert_eq!(cursor, Cursor(1));
 
     let mut cursor = Cursor(2);
-    cursor.move_down(&lines, &mode);
+    cursor.move_down(&lines, &mode, FilesStatusFlag::All);
     assert_eq!(cursor, Cursor(3));
 
     let mut cursor = Cursor(2);
-    cursor.move_next_section(&lines, &mode);
+    cursor.move_next_section(&lines, &mode, FilesStatusFlag::All);
     assert_eq!(cursor, Cursor(3));
 }
 
@@ -831,7 +890,7 @@ fn move_next_section_skips_non_jump_targets_like_commits() {
     ];
 
     let mut cursor = Cursor(0);
-    cursor.move_next_section(&lines, &Mode::Normal);
+    cursor.move_next_section(&lines, &Mode::Normal, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(2));
 }
@@ -855,7 +914,7 @@ fn move_next_section_can_jump_to_merge_base_line() {
     ];
 
     let mut cursor = Cursor(0);
-    cursor.move_next_section(&lines, &Mode::Normal);
+    cursor.move_next_section(&lines, &Mode::Normal, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(2));
 }
@@ -879,7 +938,7 @@ fn move_previous_section_can_jump_from_merge_base_line() {
     ];
 
     let mut cursor = Cursor(2);
-    cursor.move_previous_section(&lines, &Mode::Normal);
+    cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -911,7 +970,7 @@ fn move_next_section_in_rub_mode_skips_unavailable_sections() {
     });
 
     let mut cursor = Cursor(0);
-    cursor.move_next_section(&lines, &mode);
+    cursor.move_next_section(&lines, &mode, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(2));
 }
@@ -946,7 +1005,7 @@ fn move_previous_section_in_rub_mode_moves_to_current_available_section_header()
     });
 
     let mut cursor = Cursor(3);
-    cursor.move_previous_section(&lines, &mode);
+    cursor.move_previous_section(&lines, &mode, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(2));
 }
@@ -984,7 +1043,7 @@ fn move_previous_section_in_rub_mode_from_unavailable_section_header_goes_to_pre
     });
 
     let mut cursor = Cursor(2);
-    cursor.move_previous_section(&lines, &mode);
+    cursor.move_previous_section(&lines, &mode, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(1));
 }
@@ -1008,10 +1067,10 @@ fn movement_methods_can_move_cursor_in_inline_reword_mode() {
 
     // Inline reword keeps lines selectable to avoid dimming the whole UI.
     // Actual user navigation is blocked at the keybinding/event layer, not in these cursor helpers.
-    cursor.move_up(&lines, &inline_reword);
-    cursor.move_down(&lines, &inline_reword);
-    cursor.move_next_section(&lines, &inline_reword);
-    cursor.move_previous_section(&lines, &inline_reword);
+    cursor.move_up(&lines, &inline_reword, FilesStatusFlag::All);
+    cursor.move_down(&lines, &inline_reword, FilesStatusFlag::All);
+    cursor.move_next_section(&lines, &inline_reword, FilesStatusFlag::All);
+    cursor.move_previous_section(&lines, &inline_reword, FilesStatusFlag::All);
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -1039,9 +1098,21 @@ fn is_selectable_in_rub_mode_requires_available_target() {
         available_targets: vec![allowed],
     });
 
-    assert!(is_selectable_in_mode(&selectable_line, &mode));
-    assert!(!is_selectable_in_mode(&blocked_line, &mode));
-    assert!(!is_selectable_in_mode(&not_selectable_line, &mode));
+    assert!(is_selectable_in_mode(
+        &selectable_line,
+        &mode,
+        FilesStatusFlag::All
+    ));
+    assert!(!is_selectable_in_mode(
+        &blocked_line,
+        &mode,
+        FilesStatusFlag::All
+    ));
+    assert!(!is_selectable_in_mode(
+        &not_selectable_line,
+        &mode,
+        FilesStatusFlag::All
+    ));
 }
 
 #[test]
@@ -1056,7 +1127,11 @@ fn is_selectable_is_true_in_inline_reword_mode() {
     });
 
     // Inline reword intentionally returns selectable so rows are not dimmed during editing.
-    assert!(is_selectable_in_mode(&selectable_line, &inline_reword));
+    assert!(is_selectable_in_mode(
+        &selectable_line,
+        &inline_reword,
+        FilesStatusFlag::All
+    ));
 }
 
 #[test]
@@ -1081,6 +1156,14 @@ fn is_selectable_in_commit_mode_scopes_commit_targets_to_stack() {
         classification: CommitClassification::LocalOnly,
     });
 
-    assert!(is_selectable_in_mode(&same_stack_commit_line, &mode));
-    assert!(!is_selectable_in_mode(&other_stack_commit_line, &mode));
+    assert!(is_selectable_in_mode(
+        &same_stack_commit_line,
+        &mode,
+        FilesStatusFlag::All
+    ));
+    assert!(!is_selectable_in_mode(
+        &other_stack_commit_line,
+        &mode,
+        FilesStatusFlag::All
+    ));
 }

@@ -93,6 +93,15 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
     });
 
     key_binds.register(StaticKeyBind {
+        short_description: "files",
+        chord_display: "f",
+        key_matcher: press().code(KeyCode::Char('f')),
+        modes: all_except_text_input_modes.clone(),
+        message: Message::Files(FilesMessage::ToggleFilesForCommit),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
         short_description: "show all files",
         chord_display: "shift+f",
         key_matcher: press().shift().code(KeyCode::Char('F')),
@@ -195,6 +204,15 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         modes: Vec::from([ModeDiscriminant::Normal]),
         message: Message::Reload(None),
         hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "back",
+        chord_display: "esc",
+        key_matcher: press().code(KeyCode::Esc),
+        modes: Vec::from([ModeDiscriminant::Normal]),
+        message: Message::EnterNormalMode,
+        hide_from_hotbar: true,
     });
 }
 

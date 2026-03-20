@@ -321,14 +321,23 @@ impl App {
                 self.should_quit = true;
             }
             Message::JustRender => {}
-            Message::MoveCursorUp => self.cursor.move_up(&self.status_lines, &self.mode),
-            Message::MoveCursorDown => self.cursor.move_down(&self.status_lines, &self.mode),
-            Message::MoveCursorPreviousSection => self
-                .cursor
-                .move_previous_section(&self.status_lines, &self.mode),
-            Message::MoveCursorNextSection => self
-                .cursor
-                .move_next_section(&self.status_lines, &self.mode),
+            Message::MoveCursorUp => {
+                self.cursor
+                    .move_up(&self.status_lines, &self.mode, self.flags.show_files)
+            }
+            Message::MoveCursorDown => {
+                self.cursor
+                    .move_down(&self.status_lines, &self.mode, self.flags.show_files)
+            }
+            Message::MoveCursorPreviousSection => self.cursor.move_previous_section(
+                &self.status_lines,
+                &self.mode,
+                self.flags.show_files,
+            ),
+            Message::MoveCursorNextSection => {
+                self.cursor
+                    .move_next_section(&self.status_lines, &self.mode, self.flags.show_files)
+            }
             Message::Rub(rub_message) => match rub_message {
                 RubMessage::Start { using_but_api } => {
                     if using_but_api {
@@ -340,11 +349,14 @@ impl App {
                 RubMessage::Confirm => self.handle_confirm_rub(ctx, messages)?,
             },
             Message::EnterNormalMode => {
-                self.mode = Mode::Normal;
+                self.handle_enter_normal_mode(messages);
             }
             Message::Files(files_message) => match files_message {
                 FilesMessage::ToggleGlobalFilesList => {
                     self.handle_toggle_global_files_list(messages)
+                }
+                FilesMessage::ToggleFilesForCommit => {
+                    self.handle_toggle_files_for_commit(ctx, messages)?
                 }
             },
             Message::Reload(select_after_reload) => {
@@ -391,6 +403,47 @@ impl App {
         Ok(())
     }
 
+    fn handle_enter_normal_mode(&mut self, messages: &mut Vec<Message>) {
+        if matches!(self.mode, Mode::Normal) {
+            match self.flags.show_files {
+                FilesStatusFlag::None => {}
+                FilesStatusFlag::All => {
+                    messages.push(Message::Files(FilesMessage::ToggleGlobalFilesList));
+                }
+                FilesStatusFlag::Commit(_) => {
+                    messages.push(Message::Files(FilesMessage::ToggleFilesForCommit));
+                }
+            }
+        }
+
+        self.mode = Mode::Normal;
+
+        match self.flags.show_files {
+            FilesStatusFlag::Commit(object_id) => {
+                // When viewing files in a commit cursor movement is constrained to only those
+                // files. However you can start a rub which then enables moving outside the file
+                // list, while keeping the file list visible. Thus when entering normal mode
+                // (perhaps from cancelling the rub) we need to potentially move the cursor back to
+                // the file list.
+                let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+                    return;
+                };
+
+                if let Some(cli_id) = selection.data.cli_id()
+                    && let CliId::CommittedFile { commit_id, .. } = &**cli_id
+                    && *commit_id == object_id
+                {
+                    // cursor is already within the file list
+                } else {
+                    self.cursor =
+                        Cursor::select_first_file_in_commit(object_id, &self.status_lines)
+                            .unwrap_or(self.cursor);
+                }
+            }
+            FilesStatusFlag::None | FilesStatusFlag::All => {}
+        }
+    }
+
     /// Handles transitioning into rub mode and selecting a valid rub target.
     fn handle_start_rub(&mut self) {
         if !matches!(self.mode, Mode::Normal) {
@@ -421,15 +474,19 @@ impl App {
         if self
             .cursor
             .selected_line(&self.status_lines)
-            .is_some_and(|line| cursor::is_selectable_in_mode(line, &self.mode))
+            .is_some_and(|line| {
+                cursor::is_selectable_in_mode(line, &self.mode, self.flags.show_files)
+            })
         {
             return;
         }
 
         let previous_cursor = self.cursor;
-        self.cursor.move_down(&self.status_lines, &self.mode);
+        self.cursor
+            .move_down(&self.status_lines, &self.mode, self.flags.show_files);
         if self.cursor == previous_cursor {
-            self.cursor.move_up(&self.status_lines, &self.mode);
+            self.cursor
+                .move_up(&self.status_lines, &self.mode, self.flags.show_files);
         }
     }
 
@@ -462,15 +519,19 @@ impl App {
         if self
             .cursor
             .selected_line(&self.status_lines)
-            .is_some_and(|line| cursor::is_selectable_in_mode(line, &self.mode))
+            .is_some_and(|line| {
+                cursor::is_selectable_in_mode(line, &self.mode, self.flags.show_files)
+            })
         {
             return;
         }
 
         let previous_cursor = self.cursor;
-        self.cursor.move_down(&self.status_lines, &self.mode);
+        self.cursor
+            .move_down(&self.status_lines, &self.mode, self.flags.show_files);
         if self.cursor == previous_cursor {
-            self.cursor.move_up(&self.status_lines, &self.mode);
+            self.cursor
+                .move_up(&self.status_lines, &self.mode, self.flags.show_files);
         }
     }
 
@@ -481,6 +542,39 @@ impl App {
             FilesStatusFlag::All | FilesStatusFlag::Commit(_) => FilesStatusFlag::None,
         };
         messages.push(Message::Reload(None));
+    }
+
+    fn handle_toggle_files_for_commit(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        if let Some(selection) = self.cursor.selected_line(&self.status_lines)
+            && let Some(cli_id) = selection.data.cli_id()
+            && let CliId::Commit { commit_id, .. } = &**cli_id
+        {
+            let commit_details =
+                but_api::diff::commit_details(ctx, *commit_id, ComputeLineStats::No)?;
+
+            if !commit_details.diff_with_first_parent.is_empty() {
+                let select_after_reload = match self.flags.show_files {
+                    FilesStatusFlag::None => {
+                        self.flags.show_files = FilesStatusFlag::Commit(*commit_id);
+                        Some(SelectAfterReload::FirstFileInCommit(*commit_id))
+                    }
+                    FilesStatusFlag::All | FilesStatusFlag::Commit(_) => {
+                        self.flags.show_files = FilesStatusFlag::None;
+                        Some(SelectAfterReload::Commit(*commit_id))
+                    }
+                };
+                messages.push(Message::Reload(select_after_reload));
+            }
+        } else {
+            self.flags.show_files = FilesStatusFlag::None;
+            messages.push(Message::Reload(None));
+        };
+
+        Ok(())
     }
 
     /// Handles confirming the currently selected rub operation.
@@ -580,6 +674,9 @@ impl App {
                 }
                 SelectAfterReload::Branch(branch) => Cursor::select_branch(branch, &new_lines),
                 SelectAfterReload::Unassigned => Cursor::select_unassigned(&new_lines),
+                SelectAfterReload::FirstFileInCommit(commit_id) => {
+                    Cursor::select_first_file_in_commit(commit_id, &new_lines)
+                }
             }
         } else {
             self.cursor
@@ -1453,7 +1550,7 @@ impl App {
             | Mode::Rub(..)
             | Mode::RubButApi(..)
             | Mode::Commit(..) => {
-                if is_selectable_in_mode(tui_line, &self.mode) {
+                if is_selectable_in_mode(tui_line, &self.mode, self.flags.show_files) {
                     line.extend(content_spans);
                 } else {
                     line.extend(
@@ -1890,6 +1987,7 @@ enum MoveMessage {
 #[derive(Debug, Clone)]
 enum FilesMessage {
     ToggleGlobalFilesList,
+    ToggleFilesForCommit,
 }
 
 #[derive(Debug, Default, strum::EnumDiscriminants)]
@@ -2090,6 +2188,7 @@ impl PartialEq<CliId> for MoveSource {
 #[derive(Debug, Clone)]
 enum SelectAfterReload {
     Commit(gix::ObjectId),
+    FirstFileInCommit(gix::ObjectId),
     Branch(String),
     Unassigned,
 }

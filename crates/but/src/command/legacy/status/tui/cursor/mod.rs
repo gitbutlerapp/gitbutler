@@ -63,6 +63,22 @@ impl Cursor {
         Some(Self(idx))
     }
 
+    pub(super) fn select_first_file_in_commit(
+        object_id: gix::ObjectId,
+        lines: &[StatusOutputLine],
+    ) -> Option<Self> {
+        let idx = lines.iter().position(|line| {
+            if let Some(CliId::CommittedFile { commit_id, .. }) = line.data.cli_id().map(|id| &**id)
+                && *commit_id == object_id
+            {
+                true
+            } else {
+                false
+            }
+        })?;
+        Some(Self(idx))
+    }
+
     /// Select the first line that points to the given branch name.
     pub(super) fn select_branch(branch_name: String, lines: &[StatusOutputLine]) -> Option<Self> {
         let idx = lines.iter().position(|line| {
@@ -146,7 +162,12 @@ impl Cursor {
             })
     }
 
-    pub(super) fn move_up(&mut self, lines: &[StatusOutputLine], mode: &Mode) {
+    pub(super) fn move_up(
+        &mut self,
+        lines: &[StatusOutputLine],
+        mode: &Mode,
+        show_files: FilesStatusFlag,
+    ) {
         if self.0 >= lines.len() {
             return;
         }
@@ -156,13 +177,18 @@ impl Cursor {
             .enumerate()
             .rev()
             .skip(lines.len() - self.0)
-            .find(|(_, line)| is_selectable_in_mode(line, mode))
+            .find(|(_, line)| is_selectable_in_mode(line, mode, show_files))
         {
             self.0 = idx;
         }
     }
 
-    pub(super) fn move_down(&mut self, lines: &[StatusOutputLine], mode: &Mode) {
+    pub(super) fn move_down(
+        &mut self,
+        lines: &[StatusOutputLine],
+        mode: &Mode,
+        show_files: FilesStatusFlag,
+    ) {
         if self.0 >= lines.len() {
             return;
         }
@@ -171,14 +197,19 @@ impl Cursor {
             .iter()
             .enumerate()
             .skip(self.0 + 1)
-            .find(|(_, line)| is_selectable_in_mode(line, mode))
+            .find(|(_, line)| is_selectable_in_mode(line, mode, show_files))
         {
             self.0 = idx;
         }
     }
 
     /// Moves the cursor to the next selectable jump-target line after the current cursor position.
-    pub(super) fn move_next_section(&mut self, lines: &[StatusOutputLine], mode: &Mode) {
+    pub(super) fn move_next_section(
+        &mut self,
+        lines: &[StatusOutputLine],
+        mode: &Mode,
+        show_files: FilesStatusFlag,
+    ) {
         if self.0 >= lines.len() {
             return;
         }
@@ -187,7 +218,7 @@ impl Cursor {
             .iter()
             .enumerate()
             .skip(self.0 + 1)
-            .find(|(_, line)| is_jump_target_in_mode(line, mode))
+            .find(|(_, line)| is_jump_target_in_mode(line, mode, show_files))
         {
             self.0 = idx;
         }
@@ -198,7 +229,12 @@ impl Cursor {
     /// If the cursor is inside a section (for example, on a file or commit row), this jumps to the
     /// current section header first. If the cursor is already on a section header, this jumps to the
     /// previous section header.
-    pub(super) fn move_previous_section(&mut self, lines: &[StatusOutputLine], mode: &Mode) {
+    pub(super) fn move_previous_section(
+        &mut self,
+        lines: &[StatusOutputLine],
+        mode: &Mode,
+        show_files: FilesStatusFlag,
+    ) {
         if self.0 >= lines.len() {
             return;
         }
@@ -215,7 +251,7 @@ impl Cursor {
             .enumerate()
             .take(search_end)
             .rev()
-            .find(|(_, line)| is_jump_target_in_mode(line, mode))
+            .find(|(_, line)| is_jump_target_in_mode(line, mode, show_files))
         {
             self.0 = target_idx;
         }
@@ -234,11 +270,19 @@ fn is_section_header(line: &StatusOutputLine) -> bool {
 }
 
 /// Returns true if a line is selectable and is a jump target in the given mode.
-fn is_jump_target_in_mode(line: &StatusOutputLine, mode: &Mode) -> bool {
-    is_selectable_in_mode(line, mode) && is_section_header(line)
+fn is_jump_target_in_mode(
+    line: &StatusOutputLine,
+    mode: &Mode,
+    show_files: FilesStatusFlag,
+) -> bool {
+    is_selectable_in_mode(line, mode, show_files) && is_section_header(line)
 }
 
-pub(super) fn is_selectable_in_mode(line: &StatusOutputLine, mode: &Mode) -> bool {
+pub(super) fn is_selectable_in_mode(
+    line: &StatusOutputLine,
+    mode: &Mode,
+    show_files: FilesStatusFlag,
+) -> bool {
     if !line.is_selectable() {
         return false;
     }
@@ -270,7 +314,18 @@ pub(super) fn is_selectable_in_mode(line: &StatusOutputLine, mode: &Mode) -> boo
     }
 
     match mode {
-        Mode::Normal => true,
+        Mode::Normal => match show_files {
+            FilesStatusFlag::None | FilesStatusFlag::All => true,
+            FilesStatusFlag::Commit(object_id) => {
+                if let Some(cli_id) = line.data.cli_id()
+                    && let CliId::CommittedFile { commit_id, .. } = &**cli_id
+                {
+                    object_id == *commit_id
+                } else {
+                    false
+                }
+            }
+        },
         Mode::Rub(rub_mode) | Mode::RubButApi(rub_mode) => line
             .data
             .cli_id()

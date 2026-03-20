@@ -5,4 +5,4 @@
 "┊●   9477ae7 add A                                                                                  "
 "├╯                                                                                                  "
 "┊                                                                                                   "
-"  normal   ↓/j down • ↑/k up • q quit • r rub • c commit • n new commit • m move • enter reword inli"
+"  normal   ↓/j down • ↑/k up • f files • q quit • r rub • c commit • n new commit • m move • enter r"
