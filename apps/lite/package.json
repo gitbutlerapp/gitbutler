@@ -41,7 +41,7 @@
 		"@tanstack/react-query": "^5.90.21",
 		"@tanstack/react-query-devtools": "^5.91.3",
 		"@tanstack/react-router": "^1.166.7",
-		"effect": "^3.19.19",
+		"effect": "^3.20.0",
 		"electron": "^41.0.0",
 		"electron-devtools-installer": "^4.0.0",
 		"react": "^19.2.4",
