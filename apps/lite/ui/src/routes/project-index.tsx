@@ -1462,57 +1462,55 @@ const ProjectPage: FC = () => {
 					)
 				}
 			>
-				<>
-					<div className={sharedStyles.lanes}>
-						<div className={styles.unassignedChangesLane}>
-							<h3>Unassigned changes</h3>
-							<Changes
-								projectId={project.id}
-								stackId={null}
-								isFileSelected={isUnassignedFileSelected}
-								toggleFileSelect={toggleUnassignedFileSelection}
-								onDependencyHover={highlightCommits}
-								className={styles.unassignedChanges}
-							/>
-						</div>
-
-						{headInfo.stacks.map((stack) => {
-							// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
-							const stackId = stack.id!;
-
-							return (
-								<div key={stack.id} className={sharedStyles.commitsLane}>
-									<StackC
-										projectId={project.id}
-										stack={stack}
-										isBranchSelected={isBranchSelected}
-										toggleBranchSelection={toggleBranchSelection}
-										isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
-										isCommitEditing={(commitId) => isCommitEditing(stackId, commitId)}
-										isCommitSelectedWithin={(commitId) => isCommitSelectedWithin(stackId, commitId)}
-										isChangeUnitFileSelected={(changeUnit, path) =>
-											isChangeUnitFileSelected(stackId, changeUnit, path)
-										}
-										toggleCommitExpanded={(commitId) => toggleCommitExpanded(stackId, commitId)}
-										toggleCommitSelection={(commitId) => {
-											toggleCommitSelection(stackId, commitId);
-										}}
-										toggleEditingMessage={(commitId) => {
-											toggleEditingMessage(stackId, commitId);
-										}}
-										toggleChangeUnitFileSelection={(changeUnit, path) => {
-											toggleChangeUnitFileSelection(stackId, changeUnit, path);
-										}}
-										highlightedCommitIds={highlightedCommitIds}
-										onDependencyHover={highlightCommits}
-									/>
-								</div>
-							);
-						})}
+				<div className={sharedStyles.lanes}>
+					<div className={styles.unassignedChangesLane}>
+						<h3>Unassigned changes</h3>
+						<Changes
+							projectId={project.id}
+							stackId={null}
+							isFileSelected={isUnassignedFileSelected}
+							toggleFileSelect={toggleUnassignedFileSelection}
+							onDependencyHover={highlightCommits}
+							className={styles.unassignedChanges}
+						/>
 					</div>
 
-					{baseId !== undefined && <div>{shortCommitId(baseId)} (common base commit)</div>}
-				</>
+					{headInfo.stacks.map((stack) => {
+						// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
+						const stackId = stack.id!;
+
+						return (
+							<div key={stack.id} className={sharedStyles.commitsLane}>
+								<StackC
+									projectId={project.id}
+									stack={stack}
+									isBranchSelected={isBranchSelected}
+									toggleBranchSelection={toggleBranchSelection}
+									isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
+									isCommitEditing={(commitId) => isCommitEditing(stackId, commitId)}
+									isCommitSelectedWithin={(commitId) => isCommitSelectedWithin(stackId, commitId)}
+									isChangeUnitFileSelected={(changeUnit, path) =>
+										isChangeUnitFileSelected(stackId, changeUnit, path)
+									}
+									toggleCommitExpanded={(commitId) => toggleCommitExpanded(stackId, commitId)}
+									toggleCommitSelection={(commitId) => {
+										toggleCommitSelection(stackId, commitId);
+									}}
+									toggleEditingMessage={(commitId) => {
+										toggleEditingMessage(stackId, commitId);
+									}}
+									toggleChangeUnitFileSelection={(changeUnit, path) => {
+										toggleChangeUnitFileSelection(stackId, changeUnit, path);
+									}}
+									highlightedCommitIds={highlightedCommitIds}
+									onDependencyHover={highlightCommits}
+								/>
+							</div>
+						);
+					})}
+				</div>
+
+				{baseId !== undefined && <div>{shortCommitId(baseId)} (common base commit)</div>}
 			</ProjectPanelLayout>
 		</DraggedSourceItemContext.Provider>
 	);
