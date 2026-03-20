@@ -5,15 +5,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anyhow::Context as _;
-use bstr::BString;
-use but_api::{
-    commit::{insert_blank::commit_insert_blank, move_commit::commit_move},
-    diff::ComputeLineStats,
-};
-use but_core::DiffSpec;
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_rebase::graph_rebase::mutate::InsertSide;
 use crossterm::event::{self, Event};
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_stack::StackId;
@@ -29,15 +22,9 @@ use crate::{
     CliId,
     args::OutputFormat,
     command::legacy::{
-        ShowDiffInEditor,
-        commit_message_prep::{
-            commit_message_has_multiple_lines, normalize_commit_message,
-            should_update_commit_message,
-        },
-        reword::get_commit_message_from_editor,
         rub::{RubOperation, route_operation},
         status::{
-            StatusFlags, StatusOutput, StatusOutputLine, build_status_context, build_status_output,
+            StatusFlags, StatusOutputLine,
             tui::{
                 cursor::{Cursor, is_selectable_in_mode},
                 graph_extension::{ExtensionDirection, extend_connector_spans},
@@ -58,6 +45,7 @@ use super::{
 mod cursor;
 mod graph_extension;
 mod key_bind;
+mod operations;
 mod rub_api;
 
 #[cfg(test)]
@@ -595,10 +583,7 @@ impl App {
             && let Some(cli_id) = selection.data.cli_id()
             && let CliId::Commit { commit_id, .. } = &**cli_id
         {
-            let commit_details =
-                but_api::diff::commit_details(ctx, *commit_id, ComputeLineStats::No)?;
-
-            if !commit_details.diff_with_first_parent.is_empty() {
+            if !operations::commit_is_empty(ctx, *commit_id)? {
                 let select_after_reload = match self.flags.show_files {
                     FilesStatusFlag::None => {
                         self.flags.show_files = FilesStatusFlag::Commit(*commit_id);
@@ -634,7 +619,7 @@ impl App {
                     && let Some(target) = selected_line.data.cli_id()
                     && let Some(operation) = route_operation(source, target)
                 {
-                    with_noop_output(|out| operation.execute(ctx, out))?;
+                    with_noop_output(|out| operations::rub_legacy(ctx, out, operation))?;
                 }
                 None
             }
@@ -646,7 +631,7 @@ impl App {
                     && let Some(target) = selected_line.data.cli_id()
                     && let Some(operation) = route_operation(source, target)
                 {
-                    if let Some(what_to_select) = rub_api::perform_operation(ctx, &operation)? {
+                    if let Some(what_to_select) = operations::rub_using_but_api(ctx, &operation)? {
                         Some(Message::Reload(Some(what_to_select)))
                     } else {
                         messages.push(Message::ShowError(Arc::new(anyhow::Error::from(
@@ -684,33 +669,8 @@ impl App {
         mode: &OperatingMode,
         select_after_reload: Option<SelectAfterReload>,
     ) -> anyhow::Result<()> {
-        {
-            let meta = ctx.meta()?;
-            let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
-            ws.refresh_from_head(&repo, &meta)?;
-        }
-
-        let mut new_lines = Vec::new();
-
-        build_status_context(
-            ctx,
-            out,
-            mode,
-            self.flags,
-            crate::command::legacy::status::StatusRenderMode::Tui {
-                debug: self.debug_enabled,
-            },
-        )
-        .await
-        .and_then(|status_ctx| {
-            build_status_output(
-                ctx,
-                &status_ctx,
-                &mut StatusOutput::Buffer {
-                    lines: &mut new_lines,
-                },
-            )
-        })?;
+        let new_lines =
+            operations::reload_legacy(ctx, out, mode, self.flags, self.debug_enabled).await?;
 
         self.cursor = if let Some(select_after_reload) = select_after_reload {
             match select_after_reload {
@@ -782,14 +742,7 @@ impl App {
                     return Ok(());
                 };
 
-                let full_name = {
-                    let repo = ctx.repo.get()?;
-                    let reference = repo.find_reference(name)?;
-                    reference.name().to_owned()
-                };
-
-                let commit_result =
-                    commit_insert_blank(ctx, RelativeTo::Reference(full_name), InsertSide::Below)?;
+                let commit_result = operations::create_empty_commit_relative_to_branch(ctx, name)?;
 
                 messages.push(Message::Reload(Some(SelectAfterReload::Commit(
                     commit_result.new_commit,
@@ -801,7 +754,7 @@ impl App {
                 };
 
                 let commit_result =
-                    commit_insert_blank(ctx, RelativeTo::Commit(*commit_id), InsertSide::Above)?;
+                    operations::create_empty_commit_relative_to_commit(ctx, *commit_id)?;
 
                 messages.push(Message::Reload(Some(SelectAfterReload::Commit(
                     commit_result.new_commit,
@@ -836,7 +789,7 @@ impl App {
 
         let commit_mode = match &selection.data {
             StatusOutputLineData::UnstagedChanges { cli_id } => {
-                let Ok(has_unassigned_changes) = has_unassigned_changes(ctx) else {
+                let Ok(has_unassigned_changes) = operations::has_unassigned_changes(ctx) else {
                     return;
                 };
                 if !has_unassigned_changes {
@@ -931,82 +884,11 @@ impl App {
             }
         };
 
-        let (insert_commit_relative_to, insert_side) = match &**target {
-            CliId::Branch { name, .. } => {
-                let repo = ctx.repo.get()?;
-                let reference = repo.find_reference(name)?;
-                (
-                    RelativeTo::Reference(reference.name().to_owned()),
-                    InsertSide::Below,
-                )
-            }
-            CliId::Commit { commit_id, .. } => (RelativeTo::Commit(*commit_id), *insert_side),
-            CliId::Uncommitted(_)
-            | CliId::PathPrefix { .. }
-            | CliId::CommittedFile { .. }
-            | CliId::Unassigned { .. }
-            | CliId::Stack { .. } => {
-                return Ok(());
-            }
+        let Some(commit_create_result) =
+            operations::create_commit_legacy(ctx, target, source, *scope_to_stack, *insert_side)?
+        else {
+            return Ok(());
         };
-
-        // find what to commit
-        let changes_to_commit = match &**source {
-            CommitSource::Unassigned(..) => {
-                let context_lines = ctx.settings.context_lines;
-                let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-                let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
-                let (assignments, _assignments_error) =
-                    but_hunk_assignment::assignments_with_fallback(
-                        db.hunk_assignments_mut()?,
-                        &repo,
-                        &ws,
-                        Some(changes),
-                        context_lines,
-                    )?;
-                assignments
-                    .into_iter()
-                    .filter(|assignment| assignment.stack_id.is_none())
-                    .map(DiffSpec::from)
-                    .collect::<Vec<_>>()
-            }
-            CommitSource::Uncommitted(uncommitted_cli_id) => uncommitted_cli_id
-                .hunk_assignments
-                .iter()
-                .filter(|assignment| &assignment.stack_id == scope_to_stack)
-                .cloned()
-                .map(DiffSpec::from)
-                .collect::<Vec<_>>(),
-            CommitSource::Stack(StackCommitSource { stack_id, .. }) => {
-                let context_lines = ctx.settings.context_lines;
-                let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-                let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
-                let (assignments, _assignments_error) =
-                    but_hunk_assignment::assignments_with_fallback(
-                        db.hunk_assignments_mut()?,
-                        &repo,
-                        &ws,
-                        Some(changes),
-                        context_lines,
-                    )?;
-                assignments
-                    .into_iter()
-                    .filter(|assignment| assignment.stack_id.is_some_and(|id| &id == stack_id))
-                    .map(DiffSpec::from)
-                    .collect::<Vec<_>>()
-            }
-        };
-
-        // create commit
-        let commit_create_result = but_api::commit::create::commit_create(
-            ctx,
-            insert_commit_relative_to,
-            insert_side,
-            changes_to_commit,
-            // we reword the commit with the editor before the next render
-            String::new(),
-        )
-        .context("failed to create commit")?;
 
         messages.extend(
             [
@@ -1147,30 +1029,16 @@ impl App {
             } => {
                 let commit_move_result = match target {
                     MoveTarget::Branch { name } => {
-                        let repo = ctx.repo.get()?;
-                        let target_branch_name = repo
-                            .find_reference(name)
-                            .context("failed to find reference")?
-                            .name()
-                            .to_owned();
-                        drop(repo);
-                        commit_move(
-                            ctx,
-                            *source_commit_id,
-                            RelativeTo::Reference(target_branch_name),
-                            InsertSide::Below,
-                        )
-                        .context("failed to move commit")?
+                        operations::move_commit_to_branch(ctx, *source_commit_id, name)?
                     }
                     MoveTarget::Commit {
                         commit_id: target_commit_id,
-                    } => commit_move(
+                    } => operations::move_commit_to_commit(
                         ctx,
                         *source_commit_id,
-                        RelativeTo::Commit(target_commit_id),
+                        target_commit_id,
                         *insert_side,
-                    )
-                    .context("failed to move commit")?,
+                    )?,
                     MoveTarget::MergeBase => return Ok(()),
                 };
 
@@ -1187,20 +1055,15 @@ impl App {
                 MoveTarget::Branch {
                     name: target_branch_name,
                 } => {
-                    let repo = ctx.repo.get()?;
-                    let source_ref = repo.find_reference(source_branch_name)?.name().to_owned();
-                    let target_ref = repo.find_reference(target_branch_name)?.name().to_owned();
-                    drop(repo);
-                    but_api::branch::move_branch(ctx, source_ref.as_ref(), target_ref.as_ref())
-                        .context("failed to move branch")?;
+                    operations::move_branch_onto_branch(
+                        ctx,
+                        source_branch_name,
+                        target_branch_name,
+                    )?;
                     Some(SelectAfterReload::Branch(source_branch_name.to_owned()))
                 }
                 MoveTarget::MergeBase => {
-                    let repo = ctx.repo.get()?;
-                    let source_ref = repo.find_reference(source_branch_name)?.name().to_owned();
-                    drop(repo);
-                    but_api::branch::tear_off_branch(ctx, source_ref.as_ref())
-                        .context("failed to tear off branch")?;
+                    operations::tear_off_branch(ctx, source_branch_name)?;
                     Some(SelectAfterReload::Branch(source_branch_name.to_owned()))
                 }
                 MoveTarget::Commit { .. } => return Ok(()),
@@ -1264,27 +1127,14 @@ impl App {
             return Ok(());
         };
 
-        let new_name = but_api::legacy::workspace::canned_branch_name(ctx)
-            .context("failed to generate branch name")?;
-
-        let req = match &selection.data {
+        let new_name = match &selection.data {
             StatusOutputLineData::Branch { cli_id } => {
                 let CliId::Branch { name, .. } = &**cli_id else {
                     return Ok(());
                 };
-                let anchor = but_api::legacy::stack::create_reference::Anchor::AtReference {
-                    short_name: name.to_owned(),
-                    position: but_workspace::branch::create_reference::Position::Above,
-                };
-                but_api::legacy::stack::create_reference::Request {
-                    new_name: new_name.clone(),
-                    anchor: Some(anchor),
-                }
+                operations::create_branch_anchored_legacy(ctx, name.to_owned())?
             }
-            StatusOutputLineData::MergeBase => but_api::legacy::stack::create_reference::Request {
-                new_name: new_name.clone(),
-                anchor: None,
-            },
+            StatusOutputLineData::MergeBase => operations::create_branch_legacy(ctx)?,
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
@@ -1300,8 +1150,6 @@ impl App {
             | StatusOutputLineData::Hint
             | StatusOutputLineData::NoAssignmentsUnstaged => return Ok(()),
         };
-
-        but_api::legacy::stack::create_reference(ctx, req).context("failed to create branch")?;
 
         messages.extend([
             Message::EnterNormalMode,
@@ -1330,32 +1178,16 @@ impl App {
             return Ok(());
         };
 
-        let commit_details = but_api::diff::commit_details(ctx, commit_id, ComputeLineStats::No)?;
-        let current_message = commit_details.commit.inner.message.to_string();
-
         let _suspend_guard = terminal_guard.suspend()?;
-        let new_message = get_commit_message_from_editor(
-            ctx,
-            commit_details,
-            current_message.clone(),
-            ShowDiffInEditor::Unspecified,
-        )?;
 
-        let Some(new_message) = new_message else {
+        let Some(reword_result) = operations::reword_with_editor_legacy(ctx, commit_id)? else {
             return Ok(());
         };
-
-        if !should_update_commit_message(&current_message, &new_message) {
-            return Ok(());
-        }
-
-        let reword_result =
-            but_api::commit::reword::commit_reword_only(ctx, commit_id, BString::from(new_message))
-                .with_context(|| format!("failed to reword {}", commit_id.to_hex_with_len(7)))?;
 
         messages.push(Message::Reload(Some(SelectAfterReload::Commit(
             reword_result.new_commit,
         ))));
+
         Ok(())
     }
 
@@ -1373,10 +1205,9 @@ impl App {
             return Ok(());
         };
 
-        let commit_details = but_api::diff::commit_details(ctx, commit_id, ComputeLineStats::No)?;
-        let current_message = commit_details.commit.inner.message.to_string();
+        let current_message = operations::current_commit_message(ctx, commit_id)?;
 
-        if commit_message_has_multiple_lines(&current_message) {
+        if operations::commit_message_has_multiple_lines_legacy(&current_message) {
             messages.push(Message::Reword(RewordMessage::WithEditor));
             return Ok(());
         }
@@ -1416,26 +1247,17 @@ impl App {
             return Ok(());
         };
 
-        let commit_details = but_api::diff::commit_details(ctx, *commit_id, ComputeLineStats::No)?;
-        let current_message = commit_details.commit.inner.message.to_string();
-        let new_subject = textarea
+        let new_message = textarea
             .lines()
             .first()
             .map(std::string::String::as_str)
             .unwrap_or("");
-        let new_message = normalize_commit_message(new_subject).to_string();
 
-        if !should_update_commit_message(&current_message, &new_message) {
+        let Some(reword_result) = operations::reword_inline_legacy(ctx, *commit_id, new_message)?
+        else {
             messages.push(Message::EnterNormalMode);
             return Ok(());
-        }
-
-        let reword_result = but_api::commit::reword::commit_reword_only(
-            ctx,
-            *commit_id,
-            BString::from(new_message),
-        )
-        .with_context(|| format!("failed to reword {}", commit_id.to_hex_with_len(7)))?;
+        };
 
         messages.extend([
             Message::EnterNormalMode,
@@ -2499,24 +2321,6 @@ where
 {
     let mut noop_out = OutputChannel::new_without_pager_non_json(OutputFormat::None);
     f(&mut noop_out)
-}
-
-fn has_unassigned_changes(ctx: &mut Context) -> anyhow::Result<bool> {
-    let context_lines = ctx.settings.context_lines;
-
-    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-    let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
-    let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-        db.hunk_assignments_mut()?,
-        &repo,
-        &ws,
-        Some(changes),
-        context_lines,
-    )?;
-
-    Ok(assignments
-        .into_iter()
-        .any(|assignment| assignment.stack_id.is_none()))
 }
 
 /// Formats an exit status for human-readable error messages.
