@@ -50,7 +50,10 @@ use crate::{
     utils::OutputChannel,
 };
 
-use super::output::{StatusOutputContent, StatusOutputLineData};
+use super::{
+    FilesStatusFlag,
+    output::{StatusOutputContent, StatusOutputLineData},
+};
 
 mod cursor;
 mod graph_extension;
@@ -340,7 +343,9 @@ impl App {
                 self.mode = Mode::Normal;
             }
             Message::Files(files_message) => match files_message {
-                FilesMessage::Toggle => self.handle_toggle_files(messages),
+                FilesMessage::ToggleGlobalFilesList => {
+                    self.handle_toggle_global_files_list(messages)
+                }
             },
             Message::Reload(select_after_reload) => {
                 self.handle_reload(ctx, out, mode, select_after_reload)
@@ -470,8 +475,11 @@ impl App {
     }
 
     /// Handles toggling file visibility and requests a status reload.
-    fn handle_toggle_files(&mut self, messages: &mut Vec<Message>) {
-        self.flags.show_files = !self.flags.show_files;
+    fn handle_toggle_global_files_list(&mut self, messages: &mut Vec<Message>) {
+        self.flags.show_files = match self.flags.show_files {
+            FilesStatusFlag::None => FilesStatusFlag::All,
+            FilesStatusFlag::All | FilesStatusFlag::Commit(_) => FilesStatusFlag::None,
+        };
         messages.push(Message::Reload(None));
     }
 
@@ -1881,7 +1889,7 @@ enum MoveMessage {
 
 #[derive(Debug, Clone)]
 enum FilesMessage {
-    Toggle,
+    ToggleGlobalFilesList,
 }
 
 #[derive(Debug, Default, strum::EnumDiscriminants)]

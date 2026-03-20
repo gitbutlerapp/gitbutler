@@ -8,7 +8,7 @@ use super::{Cursor, is_selectable_in_mode};
 use crate::{
     CliId,
     command::legacy::status::{
-        CommitClassification,
+        CommitClassification, FilesStatusFlag,
         output::{StatusOutputContent, StatusOutputLine, StatusOutputLineData},
         tui::{CommitMode, CommitSource, InlineRewordMode, Mode, RubMode, UnassignedCommitSource},
     },
@@ -355,7 +355,7 @@ fn selection_cli_id_for_reload_uses_parent_when_file_is_selected_and_files_are_h
     ];
 
     assert_eq!(
-        Cursor(2).selection_cli_id_for_reload(&lines, false),
+        Cursor(2).selection_cli_id_for_reload(&lines, FilesStatusFlag::None),
         Some(&parent)
     );
 }
@@ -368,7 +368,7 @@ fn selection_cli_id_for_reload_uses_selected_file_when_files_are_shown() {
     })];
 
     assert_eq!(
-        Cursor(0).selection_cli_id_for_reload(&lines, true),
+        Cursor(0).selection_cli_id_for_reload(&lines, FilesStatusFlag::All),
         Some(&file_cli)
     );
 }
@@ -379,7 +379,10 @@ fn selection_cli_id_for_reload_returns_none_when_file_has_no_parent_section() {
         cli_id: unassigned("file0"),
     })];
 
-    assert_eq!(Cursor(0).selection_cli_id_for_reload(&lines, false), None);
+    assert_eq!(
+        Cursor(0).selection_cli_id_for_reload(&lines, FilesStatusFlag::None),
+        None
+    );
 }
 
 #[test]
@@ -394,7 +397,7 @@ fn selection_cli_id_for_reload_uses_selected_cli_id_for_non_file_lines() {
     })];
 
     assert_eq!(
-        Cursor(0).selection_cli_id_for_reload(&lines, false),
+        Cursor(0).selection_cli_id_for_reload(&lines, FilesStatusFlag::None),
         Some(&selected)
     );
 }
@@ -409,14 +412,20 @@ fn selection_cli_id_for_reload_returns_none_when_cursor_is_out_of_bounds() {
         }),
     })];
 
-    assert_eq!(Cursor(99).selection_cli_id_for_reload(&lines, false), None);
+    assert_eq!(
+        Cursor(99).selection_cli_id_for_reload(&lines, FilesStatusFlag::None),
+        None
+    );
 }
 
 #[test]
 fn selection_cli_id_for_reload_returns_none_for_non_file_lines_without_cli_id() {
     let lines = vec![line(StatusOutputLineData::Hint)];
 
-    assert_eq!(Cursor(0).selection_cli_id_for_reload(&lines, false), None);
+    assert_eq!(
+        Cursor(0).selection_cli_id_for_reload(&lines, FilesStatusFlag::None),
+        None
+    );
 }
 
 #[test]
@@ -443,7 +452,7 @@ fn selection_cli_id_for_reload_uses_nearest_parent_section_for_file() {
     ];
 
     assert_eq!(
-        Cursor(3).selection_cli_id_for_reload(&lines, false),
+        Cursor(3).selection_cli_id_for_reload(&lines, FilesStatusFlag::None),
         Some(&nearest_parent)
     );
 }
@@ -463,7 +472,7 @@ fn selection_cli_id_for_reload_uses_commit_as_parent_for_hidden_file() {
     ];
 
     assert_eq!(
-        Cursor(1).selection_cli_id_for_reload(&lines, false),
+        Cursor(1).selection_cli_id_for_reload(&lines, FilesStatusFlag::None),
         Some(&parent_commit)
     );
 }
@@ -481,7 +490,7 @@ fn selection_cli_id_for_reload_uses_staged_changes_as_parent_for_hidden_file() {
     ];
 
     assert_eq!(
-        Cursor(1).selection_cli_id_for_reload(&lines, false),
+        Cursor(1).selection_cli_id_for_reload(&lines, FilesStatusFlag::None),
         Some(&parent_staged)
     );
 }

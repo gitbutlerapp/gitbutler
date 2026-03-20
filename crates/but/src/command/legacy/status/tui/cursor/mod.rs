@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     CliId,
     command::legacy::status::{
-        StatusOutputLine,
+        FilesStatusFlag, StatusOutputLine,
         output::StatusOutputLineData,
         tui::{Mode, commit_operation_display, move_operation_display},
     },
@@ -95,12 +95,27 @@ impl Cursor {
     pub(super) fn selection_cli_id_for_reload(
         self,
         lines: &[StatusOutputLine],
-        show_files: bool,
+        show_files: FilesStatusFlag,
     ) -> Option<&Arc<CliId>> {
         let selected_line = self.selected_line(lines)?;
 
-        if matches!(&selected_line.data, StatusOutputLineData::File { .. }) && !show_files {
-            return self.parent_cli_id_of_selected_file(lines);
+        if matches!(selected_line.data, StatusOutputLineData::File { .. }) {
+            let file_is_visible = match selected_line.data.cli_id().map(|id| &**id) {
+                Some(CliId::CommittedFile { commit_id, .. }) => {
+                    show_files.show_files_for(*commit_id)
+                }
+                Some(CliId::Uncommitted(..))
+                | Some(CliId::PathPrefix { .. })
+                | Some(CliId::Branch { .. })
+                | Some(CliId::Commit { .. })
+                | Some(CliId::Unassigned { .. })
+                | Some(CliId::Stack { .. }) => matches!(show_files, FilesStatusFlag::All),
+                None => false,
+            };
+
+            if !file_is_visible {
+                return self.parent_cli_id_of_selected_file(lines);
+            }
         }
 
         selected_line.data.cli_id()

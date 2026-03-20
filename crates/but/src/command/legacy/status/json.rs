@@ -12,7 +12,10 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-use crate::id::{RemoteCommitWithId, SegmentWithId, WorkspaceCommitWithId};
+use crate::{
+    command::legacy::status::FilesStatusFlag,
+    id::{RemoteCommitWithId, SegmentWithId, WorkspaceCommitWithId},
+};
 
 use super::StatusContext;
 
@@ -294,7 +297,7 @@ impl Branch {
         cli_id: String,
         segment: SegmentWithId,
         review_id: Option<String>,
-        show_files: bool,
+        show_files: FilesStatusFlag,
         ci: Option<Vec<but_forge::CiCheck>>,
         merge_status: Option<MergeStatus>,
     ) -> anyhow::Result<Self> {
@@ -338,9 +341,9 @@ impl Commit {
         repo: &gix::Repository,
         cli_id: String,
         commit: WorkspaceCommitWithId,
-        show_files: bool,
+        show_files: FilesStatusFlag,
     ) -> anyhow::Result<Self> {
-        let changes = if show_files {
+        let changes = if show_files.show_files_for(commit.inner.id) {
             Some(
                 commit
                     .tree_changes_using_repo(repo)?
