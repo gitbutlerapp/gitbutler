@@ -338,7 +338,7 @@ async fn match_subcommand(
                     let mut ctx = setup::init_ctx(
                         &args,
                         InitCtxOptions {
-                            background_sync: BackgroundSync::Enabled,
+                            background_sync: BackgroundSync::Enabled { silent: false },
                             ..Default::default()
                         },
                         out,
@@ -359,7 +359,7 @@ async fn match_subcommand(
                     let mut ctx = setup::init_ctx(
                         &args,
                         InitCtxOptions {
-                            background_sync: BackgroundSync::Enabled,
+                            background_sync: BackgroundSync::Enabled { silent: false },
                             ..Default::default()
                         },
                         out,
@@ -380,7 +380,7 @@ async fn match_subcommand(
                     let mut ctx = setup::init_ctx(
                         &args,
                         InitCtxOptions {
-                            background_sync: BackgroundSync::Enabled,
+                            background_sync: BackgroundSync::Enabled { silent: false },
                             ..Default::default()
                         },
                         out,
@@ -397,7 +397,7 @@ async fn match_subcommand(
                     let mut ctx = setup::init_ctx(
                         &args,
                         InitCtxOptions {
-                            background_sync: BackgroundSync::Enabled,
+                            background_sync: BackgroundSync::Enabled { silent: false },
                             ..Default::default()
                         },
                         out,
@@ -409,7 +409,7 @@ async fn match_subcommand(
                     let mut ctx = setup::init_ctx(
                         &args,
                         InitCtxOptions {
-                            background_sync: BackgroundSync::Enabled,
+                            background_sync: BackgroundSync::Enabled { silent: false },
                             ..Default::default()
                         },
                         out,
@@ -577,7 +577,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -610,7 +610,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: true },
                     ..Default::default()
                 },
                 out,
@@ -630,7 +630,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -651,7 +651,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -689,7 +689,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -703,7 +703,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -718,7 +718,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -734,7 +734,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -912,7 +912,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -972,7 +972,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -989,7 +989,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1039,7 +1039,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1163,7 +1163,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1179,7 +1179,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1197,7 +1197,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1219,7 +1219,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1256,7 +1256,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1277,7 +1277,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1328,7 +1328,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1343,7 +1343,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1358,7 +1358,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
