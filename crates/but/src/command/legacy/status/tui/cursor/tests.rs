@@ -611,7 +611,9 @@ fn move_up_moves_to_previous_selectable_line() {
     ];
 
     let mut cursor = Cursor(2);
-    cursor.move_up(&lines, &Mode::Normal, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_up(&lines, &Mode::Normal, FilesStatusFlag::All) {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -628,7 +630,9 @@ fn move_up_does_not_move_when_already_at_first_selectable_line() {
     ];
 
     let mut cursor = Cursor(0);
-    cursor.move_up(&lines, &Mode::Normal, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_up(&lines, &Mode::Normal, FilesStatusFlag::All) {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -646,7 +650,9 @@ fn move_down_moves_to_next_selectable_line() {
     ];
 
     let mut cursor = Cursor(0);
-    cursor.move_down(&lines, &Mode::Normal, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_down(&lines, &Mode::Normal, FilesStatusFlag::All) {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(2));
 }
@@ -661,7 +667,9 @@ fn move_down_does_not_move_when_no_selectable_line_below() {
     ];
 
     let mut cursor = Cursor(0);
-    cursor.move_down(&lines, &Mode::Normal, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_down(&lines, &Mode::Normal, FilesStatusFlag::All) {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -678,10 +686,21 @@ fn movement_does_not_panic_or_move_when_cursor_is_out_of_bounds() {
     ];
 
     let mut cursor = Cursor(99);
-    cursor.move_up(&lines, &Mode::Normal, FilesStatusFlag::All);
-    cursor.move_down(&lines, &Mode::Normal, FilesStatusFlag::All);
-    cursor.move_next_section(&lines, &Mode::Normal, FilesStatusFlag::All);
-    cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_up(&lines, &Mode::Normal, FilesStatusFlag::All) {
+        cursor = new_cursor;
+    }
+    if let Some(new_cursor) = cursor.move_down(&lines, &Mode::Normal, FilesStatusFlag::All) {
+        cursor = new_cursor;
+    }
+    if let Some(new_cursor) = cursor.move_next_section(&lines, &Mode::Normal, FilesStatusFlag::All)
+    {
+        cursor = new_cursor;
+    }
+    if let Some(new_cursor) =
+        cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All)
+    {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor.closest_branch_cursor(&lines), None);
     assert_eq!(cursor, Cursor(99));
@@ -702,7 +721,10 @@ fn move_next_section_moves_to_next_jump_target() {
     ];
 
     let mut cursor = Cursor(0);
-    cursor.move_next_section(&lines, &Mode::Normal, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_next_section(&lines, &Mode::Normal, FilesStatusFlag::All)
+    {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(2));
 }
@@ -719,7 +741,10 @@ fn move_next_section_does_not_move_when_no_jump_target_below() {
     ];
 
     let mut cursor = Cursor(1);
-    cursor.move_next_section(&lines, &Mode::Normal, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_next_section(&lines, &Mode::Normal, FilesStatusFlag::All)
+    {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(1));
 }
@@ -742,7 +767,11 @@ fn move_previous_section_moves_to_current_section_header_when_cursor_is_inside_i
     ];
 
     let mut cursor = Cursor(3);
-    cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All);
+    if let Some(new_cursor) =
+        cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All)
+    {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(2));
 }
@@ -762,7 +791,11 @@ fn move_previous_section_moves_to_immediate_previous_when_already_on_section_hea
     ];
 
     let mut cursor = Cursor(2);
-    cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All);
+    if let Some(new_cursor) =
+        cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All)
+    {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -779,7 +812,11 @@ fn move_previous_section_moves_to_current_header_when_only_current_section_exist
     ];
 
     let mut cursor = Cursor(1);
-    cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All);
+    if let Some(new_cursor) =
+        cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All)
+    {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -796,7 +833,11 @@ fn move_previous_section_does_not_move_when_on_first_jump_target() {
     ];
 
     let mut cursor = Cursor(0);
-    cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All);
+    if let Some(new_cursor) =
+        cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All)
+    {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -971,7 +1012,9 @@ fn move_up_in_rub_mode_skips_unavailable_targets() {
     });
 
     let mut cursor = Cursor(2);
-    cursor.move_up(&lines, &mode, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_up(&lines, &mode, FilesStatusFlag::All) {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -1003,7 +1046,9 @@ fn move_down_in_rub_mode_skips_unavailable_targets() {
     });
 
     let mut cursor = Cursor(0);
-    cursor.move_down(&lines, &mode, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_down(&lines, &mode, FilesStatusFlag::All) {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(2));
 }
@@ -1045,15 +1090,21 @@ fn movement_in_rub_mode_handles_starting_on_unavailable_line() {
     });
 
     let mut cursor = Cursor(2);
-    cursor.move_up(&lines, &mode, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_up(&lines, &mode, FilesStatusFlag::All) {
+        cursor = new_cursor;
+    }
     assert_eq!(cursor, Cursor(1));
 
     let mut cursor = Cursor(2);
-    cursor.move_down(&lines, &mode, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_down(&lines, &mode, FilesStatusFlag::All) {
+        cursor = new_cursor;
+    }
     assert_eq!(cursor, Cursor(3));
 
     let mut cursor = Cursor(2);
-    cursor.move_next_section(&lines, &mode, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_next_section(&lines, &mode, FilesStatusFlag::All) {
+        cursor = new_cursor;
+    }
     assert_eq!(cursor, Cursor(3));
 }
 
@@ -1078,7 +1129,10 @@ fn move_next_section_skips_non_jump_targets_like_commits() {
     ];
 
     let mut cursor = Cursor(0);
-    cursor.move_next_section(&lines, &Mode::Normal, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_next_section(&lines, &Mode::Normal, FilesStatusFlag::All)
+    {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(2));
 }
@@ -1102,7 +1156,10 @@ fn move_next_section_can_jump_to_merge_base_line() {
     ];
 
     let mut cursor = Cursor(0);
-    cursor.move_next_section(&lines, &Mode::Normal, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_next_section(&lines, &Mode::Normal, FilesStatusFlag::All)
+    {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(2));
 }
@@ -1126,7 +1183,11 @@ fn move_previous_section_can_jump_from_merge_base_line() {
     ];
 
     let mut cursor = Cursor(2);
-    cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All);
+    if let Some(new_cursor) =
+        cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All)
+    {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(0));
 }
@@ -1158,7 +1219,9 @@ fn move_next_section_in_rub_mode_skips_unavailable_sections() {
     });
 
     let mut cursor = Cursor(0);
-    cursor.move_next_section(&lines, &mode, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_next_section(&lines, &mode, FilesStatusFlag::All) {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(2));
 }
@@ -1193,7 +1256,9 @@ fn move_previous_section_in_rub_mode_moves_to_current_available_section_header()
     });
 
     let mut cursor = Cursor(3);
-    cursor.move_previous_section(&lines, &mode, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_previous_section(&lines, &mode, FilesStatusFlag::All) {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(2));
 }
@@ -1231,7 +1296,9 @@ fn move_previous_section_in_rub_mode_from_unavailable_section_header_goes_to_pre
     });
 
     let mut cursor = Cursor(2);
-    cursor.move_previous_section(&lines, &mode, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_previous_section(&lines, &mode, FilesStatusFlag::All) {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(1));
 }
@@ -1255,10 +1322,21 @@ fn movement_methods_can_move_cursor_in_inline_reword_mode() {
 
     // Inline reword keeps lines selectable to avoid dimming the whole UI.
     // Actual user navigation is blocked at the keybinding/event layer, not in these cursor helpers.
-    cursor.move_up(&lines, &inline_reword, FilesStatusFlag::All);
-    cursor.move_down(&lines, &inline_reword, FilesStatusFlag::All);
-    cursor.move_next_section(&lines, &inline_reword, FilesStatusFlag::All);
-    cursor.move_previous_section(&lines, &inline_reword, FilesStatusFlag::All);
+    if let Some(new_cursor) = cursor.move_up(&lines, &inline_reword, FilesStatusFlag::All) {
+        cursor = new_cursor;
+    }
+    if let Some(new_cursor) = cursor.move_down(&lines, &inline_reword, FilesStatusFlag::All) {
+        cursor = new_cursor;
+    }
+    if let Some(new_cursor) = cursor.move_next_section(&lines, &inline_reword, FilesStatusFlag::All)
+    {
+        cursor = new_cursor;
+    }
+    if let Some(new_cursor) =
+        cursor.move_previous_section(&lines, &inline_reword, FilesStatusFlag::All)
+    {
+        cursor = new_cursor;
+    }
 
     assert_eq!(cursor, Cursor(0));
 }

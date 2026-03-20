@@ -331,21 +331,38 @@ impl App {
             }
             Message::JustRender => {}
             Message::MoveCursorUp => {
-                self.cursor
-                    .move_up(&self.status_lines, &self.mode, self.flags.show_files)
+                if let Some(new_cursor) =
+                    self.cursor
+                        .move_up(&self.status_lines, &self.mode, self.flags.show_files)
+                {
+                    self.cursor = new_cursor;
+                }
             }
             Message::MoveCursorDown => {
-                self.cursor
-                    .move_down(&self.status_lines, &self.mode, self.flags.show_files)
+                if let Some(new_cursor) =
+                    self.cursor
+                        .move_down(&self.status_lines, &self.mode, self.flags.show_files)
+                {
+                    self.cursor = new_cursor;
+                }
             }
-            Message::MoveCursorPreviousSection => self.cursor.move_previous_section(
-                &self.status_lines,
-                &self.mode,
-                self.flags.show_files,
-            ),
+            Message::MoveCursorPreviousSection => {
+                if let Some(new_cursor) = self.cursor.move_previous_section(
+                    &self.status_lines,
+                    &self.mode,
+                    self.flags.show_files,
+                ) {
+                    self.cursor = new_cursor;
+                }
+            }
             Message::MoveCursorNextSection => {
-                self.cursor
-                    .move_next_section(&self.status_lines, &self.mode, self.flags.show_files)
+                if let Some(new_cursor) = self.cursor.move_next_section(
+                    &self.status_lines,
+                    &self.mode,
+                    self.flags.show_files,
+                ) {
+                    self.cursor = new_cursor;
+                }
             }
             Message::Rub(rub_message) => match rub_message {
                 RubMessage::Start { using_but_api } => {
@@ -498,12 +515,16 @@ impl App {
             return;
         }
 
-        let previous_cursor = self.cursor;
-        self.cursor
-            .move_down(&self.status_lines, &self.mode, self.flags.show_files);
-        if self.cursor == previous_cursor {
+        if let Some(new_cursor) =
             self.cursor
-                .move_up(&self.status_lines, &self.mode, self.flags.show_files);
+                .move_down(&self.status_lines, &self.mode, self.flags.show_files)
+        {
+            self.cursor = new_cursor;
+        } else if let Some(new_cursor) =
+            self.cursor
+                .move_up(&self.status_lines, &self.mode, self.flags.show_files)
+        {
+            self.cursor = new_cursor;
         }
     }
 
@@ -543,12 +564,16 @@ impl App {
             return;
         }
 
-        let previous_cursor = self.cursor;
-        self.cursor
-            .move_down(&self.status_lines, &self.mode, self.flags.show_files);
-        if self.cursor == previous_cursor {
+        if let Some(new_cursor) =
             self.cursor
-                .move_up(&self.status_lines, &self.mode, self.flags.show_files);
+                .move_down(&self.status_lines, &self.mode, self.flags.show_files)
+        {
+            self.cursor = new_cursor;
+        } else if let Some(new_cursor) =
+            self.cursor
+                .move_up(&self.status_lines, &self.mode, self.flags.show_files)
+        {
+            self.cursor = new_cursor;
         }
     }
 
