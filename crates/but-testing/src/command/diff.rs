@@ -137,9 +137,7 @@ fn intersect_workspace_ranges(
         };
         let mut intersections = Vec::new();
         for hunk in hunks {
-            if let Some(hunk_ranges) =
-                ranges.intersection(&change.path, hunk.old_start, hunk.old_lines)
-            {
+            if let Some(hunk_ranges) = ranges.intersection(&change.path, &hunk) {
                 intersections.push(HunkIntersection {
                     hunk,
                     commit_intersections: hunk_ranges.into_iter().cloned().collect(),
