@@ -594,6 +594,29 @@ fn commit_file_list_rub_can_escape_scope_and_esc_reenters_file_list() {
 }
 
 #[test]
+fn confirm_rub_closes_commit_file_list() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render([KeyCode::Down, KeyCode::Down])
+        .assert_current_line_eq(str!["┊●   [..] add A"]);
+
+    tui.input_then_render('f')
+        .assert_current_line_eq(str!["┊│     [..] A A"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('R')))
+        .assert_current_line_eq(str!["┊│     << source >> << noop >> [..] A A"]);
+
+    tui.input_then_render(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊●   [..] add A"]);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄h0 [B]"]);
+}
+
+#[test]
 fn esc_in_normal_mode_closes_global_file_list() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
     env.setup_metadata(&["A", "B"]).unwrap();
