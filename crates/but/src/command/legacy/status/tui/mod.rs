@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     ffi::OsString,
     process::Command,
     sync::Arc,
@@ -964,19 +965,19 @@ impl App {
                         Some(changes),
                         context_lines,
                     )?;
-                assignments
-                    .into_iter()
-                    .filter(|assignment| assignment.stack_id.is_none())
-                    .map(DiffSpec::from)
-                    .collect::<Vec<_>>()
+                diff_specs_from_hunk_assignments(
+                    assignments
+                        .into_iter()
+                        .filter(|assignment| assignment.stack_id.is_none()),
+                )
             }
-            CommitSource::Uncommitted(uncommitted_cli_id) => uncommitted_cli_id
-                .hunk_assignments
-                .iter()
-                .filter(|assignment| &assignment.stack_id == scope_to_stack)
-                .cloned()
-                .map(DiffSpec::from)
-                .collect::<Vec<_>>(),
+            CommitSource::Uncommitted(uncommitted_cli_id) => diff_specs_from_hunk_assignments(
+                uncommitted_cli_id
+                    .hunk_assignments
+                    .iter()
+                    .filter(|assignment| &assignment.stack_id == scope_to_stack)
+                    .cloned(),
+            ),
             CommitSource::Stack(StackCommitSource { stack_id, .. }) => {
                 let context_lines = ctx.settings.context_lines;
                 let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
@@ -989,16 +990,15 @@ impl App {
                         Some(changes),
                         context_lines,
                     )?;
-                assignments
-                    .into_iter()
-                    .filter(|assignment| assignment.stack_id.is_some_and(|id| &id == stack_id))
-                    .map(DiffSpec::from)
-                    .collect::<Vec<_>>()
+                diff_specs_from_hunk_assignments(
+                    assignments
+                        .into_iter()
+                        .filter(|assignment| assignment.stack_id.is_some_and(|id| &id == stack_id)),
+                )
             }
         };
 
         // create commit
-        let changes_to_commit = but_workspace::flatten_diff_specs(changes_to_commit);
         let commit_create_result = but_api::commit::create::commit_create(
             ctx,
             insert_commit_relative_to,
@@ -2518,6 +2518,42 @@ fn has_unassigned_changes(ctx: &mut Context) -> anyhow::Result<bool> {
     Ok(assignments
         .into_iter()
         .any(|assignment| assignment.stack_id.is_none()))
+}
+
+/// Builds one diff spec per file path from a sequence of hunk assignments.
+///
+/// Multiple selected hunks in the same file are merged into a single [`DiffSpec`]
+/// containing all selected hunk headers for that file.
+pub(super) fn diff_specs_from_hunk_assignments(
+    assignments: impl IntoIterator<Item = but_hunk_assignment::HunkAssignment>,
+) -> Vec<DiffSpec> {
+    let mut grouped = BTreeMap::<BString, Vec<but_core::HunkHeader>>::new();
+
+    for assignment in assignments {
+        let file_hunks = grouped.entry(assignment.path_bytes).or_default();
+
+        if let Some(hunk_header) = assignment.hunk_header {
+            let hunk_header = but_core::HunkHeader {
+                old_start: hunk_header.old_start,
+                old_lines: hunk_header.old_lines,
+                new_start: hunk_header.new_start,
+                new_lines: hunk_header.new_lines,
+            };
+
+            if !file_hunks.contains(&hunk_header) {
+                file_hunks.push(hunk_header);
+            }
+        }
+    }
+
+    grouped
+        .into_iter()
+        .map(|(path, hunk_headers)| DiffSpec {
+            previous_path: None,
+            path,
+            hunk_headers,
+        })
+        .collect()
 }
 
 /// Formats an exit status for human-readable error messages.

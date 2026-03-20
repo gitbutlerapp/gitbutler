@@ -189,14 +189,9 @@ fn execute_uncommitted_to_commit(
     ctx: &mut Context,
     operation: &UncommittedToCommitOperation<'_>,
 ) -> anyhow::Result<CommitCreateResult> {
-    let changes = operation
-        .hunk_assignments
-        .iter()
-        .copied()
-        .cloned()
-        .map(DiffSpec::from)
-        .collect::<Vec<_>>();
-    let changes = but_workspace::flatten_diff_specs(changes);
+    let changes = super::diff_specs_from_hunk_assignments(
+        operation.hunk_assignments.iter().copied().cloned(),
+    );
     but_api::commit::amend::commit_amend(ctx, operation.oid, changes)
 }
 
@@ -256,7 +251,6 @@ fn execute_unassigned_to_commit(
     operation: &UnassignedToCommitOperation,
 ) -> anyhow::Result<CommitCreateResult> {
     let changes = changes_for_stack_assignment(ctx, None)?;
-    let changes = but_workspace::flatten_diff_specs(changes);
     but_api::commit::amend::commit_amend(ctx, operation.oid, changes)
 }
 
@@ -328,7 +322,6 @@ fn execute_branch_to_commit(
 ) -> anyhow::Result<CommitCreateResult> {
     let stack_id = stack_id_for_branch_name(ctx, operation.name)?;
     let changes = changes_for_stack_assignment(ctx, stack_id)?;
-    let changes = but_workspace::flatten_diff_specs(changes);
     but_api::commit::amend::commit_amend(ctx, operation.oid, changes)
 }
 
@@ -423,16 +416,18 @@ fn reassign_all_from_stack_to_stack(
 }
 
 /// Collects worktree diff specs that are currently assigned to `stack_id`.
+///
+/// The returned specs are grouped by file path so each path appears at most once.
 fn changes_for_stack_assignment(
     ctx: &mut Context,
     stack_id: Option<StackId>,
 ) -> anyhow::Result<Vec<DiffSpec>> {
-    Ok(but_api::diff::changes_in_worktree(ctx)?
+    let assignments = but_api::diff::changes_in_worktree(ctx)?
         .assignments
         .into_iter()
-        .filter(|assignment| assignment.stack_id == stack_id)
-        .map(DiffSpec::from)
-        .collect())
+        .filter(|assignment| assignment.stack_id == stack_id);
+
+    Ok(super::diff_specs_from_hunk_assignments(assignments))
 }
 
 /// Resolves a branch name into its workspace stack id, if any.
