@@ -9,19 +9,19 @@
 
 .branchButton {
 	flex-grow: 1;
-	padding-inline: var(--selection-inline-padding);
-	padding-block: var(--selection-block-padding);
-	line-height: var(--selection-line-height);
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
+	line-height: var(--row-line-height);
 }
 
 .branchApplyButton {
 	display: grid;
-	padding-inline: var(--selection-inline-padding);
-	padding-block: var(--selection-block-padding);
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
 
 	svg {
-		width: var(--selection-line-height);
-		height: var(--selection-line-height);
+		width: var(--row-line-height);
+		height: var(--row-line-height);
 	}
 }
 

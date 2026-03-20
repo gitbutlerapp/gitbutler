@@ -2,9 +2,9 @@
 	font-family: system-ui;
 
 	--pane-padding: 16px;
-	--selection-block-padding: 4px;
-	--selection-inline-padding: 8px;
-	--selection-line-height: 19px;
+	--row-block-padding: 4px;
+	--row-inline-padding: 8px;
+	--row-line-height: 19px;
 }
 
 body {
