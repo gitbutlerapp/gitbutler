@@ -268,7 +268,7 @@ impl Cursor {
 
     /// Returns the cursor position for the closest branch based on the currently selected row.
     #[must_use]
-    pub(super) fn move_to_closest_branch(self, lines: &[StatusOutputLine]) -> Option<Self> {
+    pub(super) fn closest_branch_cursor(self, lines: &[StatusOutputLine]) -> Option<Self> {
         if self.0 >= lines.len() {
             return None;
         }

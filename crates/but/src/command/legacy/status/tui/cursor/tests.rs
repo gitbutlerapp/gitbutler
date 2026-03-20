@@ -683,7 +683,7 @@ fn movement_does_not_panic_or_move_when_cursor_is_out_of_bounds() {
     cursor.move_next_section(&lines, &Mode::Normal, FilesStatusFlag::All);
     cursor.move_previous_section(&lines, &Mode::Normal, FilesStatusFlag::All);
 
-    assert_eq!(cursor.move_to_closest_branch(&lines), None);
+    assert_eq!(cursor.closest_branch_cursor(&lines), None);
     assert_eq!(cursor, Cursor(99));
 }
 
@@ -802,7 +802,7 @@ fn move_previous_section_does_not_move_when_on_first_jump_target() {
 }
 
 #[test]
-fn move_to_closest_branch_from_commit_selects_nearest_preceding_branch() {
+fn closest_branch_cursor_from_commit_selects_nearest_preceding_branch() {
     let lines = vec![
         line(StatusOutputLineData::Branch {
             cli_id: branch_cli_id("main", "b0", None),
@@ -824,11 +824,11 @@ fn move_to_closest_branch_from_commit_selects_nearest_preceding_branch() {
 
     let cursor = Cursor(3);
 
-    assert_eq!(cursor.move_to_closest_branch(&lines), Some(Cursor(2)));
+    assert_eq!(cursor.closest_branch_cursor(&lines), Some(Cursor(2)));
 }
 
 #[test]
-fn move_to_closest_branch_from_committed_file_selects_nearest_preceding_branch() {
+fn closest_branch_cursor_from_committed_file_selects_nearest_preceding_branch() {
     let lines = vec![
         line(StatusOutputLineData::Branch {
             cli_id: branch_cli_id("main", "b0", None),
@@ -849,22 +849,22 @@ fn move_to_closest_branch_from_committed_file_selects_nearest_preceding_branch()
 
     let cursor = Cursor(2);
 
-    assert_eq!(cursor.move_to_closest_branch(&lines), Some(Cursor(0)));
+    assert_eq!(cursor.closest_branch_cursor(&lines), Some(Cursor(0)));
 }
 
 #[test]
-fn move_to_closest_branch_from_branch_is_noop() {
+fn closest_branch_cursor_from_branch_is_noop() {
     let lines = vec![line(StatusOutputLineData::Branch {
         cli_id: branch_cli_id("main", "b0", None),
     })];
 
     let cursor = Cursor(0);
 
-    assert_eq!(cursor.move_to_closest_branch(&lines), Some(Cursor(0)));
+    assert_eq!(cursor.closest_branch_cursor(&lines), Some(Cursor(0)));
 }
 
 #[test]
-fn move_to_closest_branch_from_unassigned_changes_selects_first_branch() {
+fn closest_branch_cursor_from_unassigned_changes_selects_first_branch() {
     let lines = vec![
         line(StatusOutputLineData::UnstagedChanges {
             cli_id: unassigned("u0"),
@@ -879,11 +879,11 @@ fn move_to_closest_branch_from_unassigned_changes_selects_first_branch() {
 
     let cursor = Cursor(0);
 
-    assert_eq!(cursor.move_to_closest_branch(&lines), Some(Cursor(1)));
+    assert_eq!(cursor.closest_branch_cursor(&lines), Some(Cursor(1)));
 }
 
 #[test]
-fn move_to_closest_branch_from_unassigned_file_selects_first_branch() {
+fn closest_branch_cursor_from_unassigned_file_selects_first_branch() {
     let lines = vec![
         line(StatusOutputLineData::File {
             cli_id: unassigned("u0"),
@@ -895,11 +895,11 @@ fn move_to_closest_branch_from_unassigned_file_selects_first_branch() {
 
     let cursor = Cursor(0);
 
-    assert_eq!(cursor.move_to_closest_branch(&lines), Some(Cursor(1)));
+    assert_eq!(cursor.closest_branch_cursor(&lines), Some(Cursor(1)));
 }
 
 #[test]
-fn move_to_closest_branch_from_staged_file_prefers_branch_for_matching_stack() {
+fn closest_branch_cursor_from_staged_file_prefers_branch_for_matching_stack() {
     let stack_a = StackId::generate();
     let stack_b = StackId::generate();
     let lines = vec![
@@ -916,11 +916,11 @@ fn move_to_closest_branch_from_staged_file_prefers_branch_for_matching_stack() {
 
     let cursor = Cursor(2);
 
-    assert_eq!(cursor.move_to_closest_branch(&lines), Some(Cursor(1)));
+    assert_eq!(cursor.closest_branch_cursor(&lines), Some(Cursor(1)));
 }
 
 #[test]
-fn move_to_closest_branch_from_merge_base_is_noop() {
+fn closest_branch_cursor_from_merge_base_is_noop() {
     let lines = vec![
         line(StatusOutputLineData::Branch {
             cli_id: branch_cli_id("main", "b0", None),
@@ -930,18 +930,18 @@ fn move_to_closest_branch_from_merge_base_is_noop() {
 
     let cursor = Cursor(1);
 
-    assert_eq!(cursor.move_to_closest_branch(&lines), Some(Cursor(1)));
+    assert_eq!(cursor.closest_branch_cursor(&lines), Some(Cursor(1)));
 }
 
 #[test]
-fn move_to_closest_branch_is_none_when_no_branch_exists() {
+fn closest_branch_cursor_is_none_when_no_branch_exists() {
     let lines = vec![line(StatusOutputLineData::UnstagedChanges {
         cli_id: unassigned("u0"),
     })];
 
     let cursor = Cursor(0);
 
-    assert_eq!(cursor.move_to_closest_branch(&lines), None);
+    assert_eq!(cursor.closest_branch_cursor(&lines), None);
 }
 
 #[test]

@@ -1191,7 +1191,7 @@ impl App {
     }
 
     fn handle_start_branch_mode(&mut self, messages: &mut Vec<Message>) {
-        let Some(new_cursor) = self.cursor.move_to_closest_branch(&self.status_lines) else {
+        let Some(new_cursor) = self.cursor.closest_branch_cursor(&self.status_lines) else {
             return;
         };
 
@@ -1239,38 +1239,27 @@ impl App {
             return Ok(());
         };
 
-        let new_branch = match &selection.data {
+        let new_name = but_api::legacy::workspace::canned_branch_name(ctx)
+            .context("failed to generate branch name")?;
+
+        let req = match &selection.data {
             StatusOutputLineData::Branch { cli_id } => {
                 let CliId::Branch { name, .. } = &**cli_id else {
                     return Ok(());
                 };
-
-                let new_name = but_api::legacy::workspace::canned_branch_name(ctx)
-                    .context("failed to generate branch name")?;
                 let anchor = but_api::legacy::stack::create_reference::Anchor::AtReference {
                     short_name: name.to_owned(),
                     position: but_workspace::branch::create_reference::Position::Above,
                 };
-                let req = but_api::legacy::stack::create_reference::Request {
+                but_api::legacy::stack::create_reference::Request {
                     new_name: new_name.clone(),
                     anchor: Some(anchor),
-                };
-                but_api::legacy::stack::create_reference(ctx, req)
-                    .context("failed to create branch")?;
-
-                new_name
+                }
             }
-            StatusOutputLineData::MergeBase => {
-                let new_name = but_api::legacy::workspace::canned_branch_name(ctx)
-                    .context("failed to generate branch name")?;
-                let req = but_api::legacy::stack::create_reference::Request {
-                    new_name: new_name.clone(),
-                    anchor: None,
-                };
-                but_api::legacy::stack::create_reference(ctx, req)
-                    .context("failed to create branch")?;
-                new_name
-            }
+            StatusOutputLineData::MergeBase => but_api::legacy::stack::create_reference::Request {
+                new_name: new_name.clone(),
+                anchor: None,
+            },
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
@@ -1287,9 +1276,11 @@ impl App {
             | StatusOutputLineData::NoAssignmentsUnstaged => return Ok(()),
         };
 
+        but_api::legacy::stack::create_reference(ctx, req).context("failed to create branch")?;
+
         messages.extend([
             Message::EnterNormalMode,
-            Message::Reload(Some(SelectAfterReload::Branch(new_branch))),
+            Message::Reload(Some(SelectAfterReload::Branch(new_name))),
         ]);
 
         Ok(())
