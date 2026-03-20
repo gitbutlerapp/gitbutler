@@ -34,6 +34,7 @@
 		ScrollableContainer,
 		type BranchShouldBeDeletedMap,
 		TestId,
+		AsyncButton,
 	} from "@gitbutler/ui";
 	import { tick } from "svelte";
 	import { SvelteMap } from "svelte/reactivity";
@@ -441,18 +442,18 @@
 	{#snippet controls()}
 		<div class="controls">
 			<Button onclick={() => modal?.close()} kind="outline">Cancel</Button>
-			<Button
+			<AsyncButton
 				testId={TestId.IntegrateUpstreamActionButton}
 				wide
 				style="pop"
 				disabled={isDivergedResolved || !branchStatuses}
 				loading={integratingUpstream === "loading" || !branchStatuses}
-				onclick={async () => {
+				action={async () => {
 					await integrate();
 				}}
 			>
 				Update workspace
-			</Button>
+			</AsyncButton>
 		</div>
 	{/snippet}
 </Modal>
