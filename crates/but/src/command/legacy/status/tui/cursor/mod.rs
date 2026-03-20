@@ -293,7 +293,7 @@ impl Cursor {
             _ => first_branch_index(lines),
         };
 
-        target_idx.map(Self)
+        target_idx.or_else(|| merge_base_index(lines)).map(Self)
     }
 }
 
@@ -305,6 +305,13 @@ fn first_branch_index(lines: &[StatusOutputLine]) -> Option<usize> {
             Some(CliId::Branch { .. })
         )
     })
+}
+
+/// Returns the index of the merge-base line, if any.
+fn merge_base_index(lines: &[StatusOutputLine]) -> Option<usize> {
+    lines
+        .iter()
+        .position(|line| matches!(line.data, StatusOutputLineData::MergeBase))
 }
 
 /// Returns the index of the nearest preceding branch line before or at `from_idx`.
