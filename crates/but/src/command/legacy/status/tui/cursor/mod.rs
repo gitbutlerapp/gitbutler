@@ -5,7 +5,7 @@ use crate::{
     command::legacy::status::{
         FilesStatusFlag, StatusOutputLine,
         output::StatusOutputLineData,
-        tui::{Mode, commit_operation_display, move_operation_display},
+        tui::{Mode, branch_operation_display, commit_operation_display, move_operation_display},
     },
 };
 
@@ -13,6 +13,7 @@ use crate::{
 mod tests;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[must_use]
 pub(super) struct Cursor(usize);
 
 impl Cursor {
@@ -256,6 +257,84 @@ impl Cursor {
             self.0 = target_idx;
         }
     }
+
+    /// Returns the cursor position for the closest branch based on the currently selected row.
+    #[must_use]
+    pub(super) fn move_to_closest_branch(self, lines: &[StatusOutputLine]) -> Option<Self> {
+        if self.0 >= lines.len() {
+            return None;
+        }
+
+        let selected_line = lines.get(self.0)?;
+
+        if matches!(selected_line.data, StatusOutputLineData::MergeBase) {
+            return Some(self);
+        }
+
+        let selected_cli_id = selected_line.data.cli_id().map(|id| &**id)?;
+
+        let target_idx = match (&selected_line.data, selected_cli_id) {
+            (StatusOutputLineData::Branch { .. }, CliId::Branch { .. }) => Some(self.0),
+            (StatusOutputLineData::Commit { stack_id, .. }, CliId::Commit { .. }) => stack_id
+                .and_then(|stack_id| branch_index_for_stack(lines, stack_id))
+                .or_else(|| previous_branch_index(lines, self.0)),
+            (_, CliId::CommittedFile { .. }) | (_, CliId::Commit { .. }) => {
+                previous_branch_index(lines, self.0)
+            }
+            (StatusOutputLineData::StagedChanges { .. }, _)
+            | (StatusOutputLineData::StagedFile { .. }, _) => selected_cli_id
+                .stack_id()
+                .and_then(|stack_id| branch_index_for_stack(lines, stack_id))
+                .or_else(|| first_branch_index(lines)),
+            _ => first_branch_index(lines),
+        };
+
+        target_idx.map(Self)
+    }
+}
+
+/// Returns the index of the first branch line, if any.
+fn first_branch_index(lines: &[StatusOutputLine]) -> Option<usize> {
+    lines.iter().position(|line| {
+        matches!(
+            line.data.cli_id().map(|id| &**id),
+            Some(CliId::Branch { .. })
+        )
+    })
+}
+
+/// Returns the index of the nearest preceding branch line before or at `from_idx`.
+fn previous_branch_index(lines: &[StatusOutputLine], from_idx: usize) -> Option<usize> {
+    lines
+        .iter()
+        .enumerate()
+        .take(from_idx + 1)
+        .rev()
+        .find(|(_, line)| {
+            matches!(
+                line.data.cli_id().map(|id| &**id),
+                Some(CliId::Branch { .. })
+            )
+        })
+        .map(|(idx, _)| idx)
+}
+
+/// Returns the index of the first branch line that belongs to `stack_id`.
+fn branch_index_for_stack(
+    lines: &[StatusOutputLine],
+    stack_id: gitbutler_stack::StackId,
+) -> Option<usize> {
+    lines.iter().position(|line| {
+        if let Some(CliId::Branch {
+            stack_id: Some(branch_stack_id),
+            ..
+        }) = line.data.cli_id().map(|id| &**id)
+        {
+            *branch_stack_id == stack_id
+        } else {
+            false
+        }
+    })
 }
 
 /// Returns true if a line is a section header row.
@@ -310,7 +389,7 @@ pub(super) fn is_selectable_in_mode(
                 return true;
             }
         }
-        Mode::Command(..) | Mode::InlineReword(..) | Mode::Normal => {}
+        Mode::Command(..) | Mode::InlineReword(..) | Mode::Normal | Mode::Branch => {}
     }
 
     match mode {
@@ -332,6 +411,7 @@ pub(super) fn is_selectable_in_mode(
             .is_some_and(|cli_id| rub_mode.available_targets.contains(cli_id)),
         Mode::Commit(commit_mode) => commit_operation_display(&line.data, commit_mode).is_some(),
         Mode::Move(move_mode) => move_operation_display(&line.data, move_mode).is_some(),
+        Mode::Branch => branch_operation_display(&line.data).is_some(),
         Mode::InlineReword(..) | Mode::Command(..) => {
             // you can't actually move the selection in these modes
             // but returning `false` would dim every line which hurts UX

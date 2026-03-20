@@ -79,6 +79,10 @@ impl FilesStatusFlag {
             FilesStatusFlag::Commit(object_id) => commit == object_id,
         }
     }
+
+    pub fn is_none(self) -> bool {
+        matches!(self, Self::None)
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
