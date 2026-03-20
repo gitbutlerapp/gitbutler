@@ -12,9 +12,9 @@
 //! 3. Add the variant to `ALL_MANAGERS`
 //! 4. Add tests
 //!
-//! The detection logic lives here (in `gitbutler-repo`) alongside `managed_hooks`
-//! because both the CLI (`setup.rs`) and the desktop app (`integration.rs`) need
-//! to check for hook managers before deciding whether to install managed hooks.
+//! The detection logic lives here alongside `managed_hooks` because both the
+//! CLI (`setup.rs`) and the desktop app (`integration.rs`) need to check for
+//! hook managers before deciding whether to install managed hooks.
 
 use std::path::Path;
 

@@ -35,6 +35,7 @@ members = [
     # 👉mostly powered by legacy, but will help to transition to `but-db` backing.
     "crates/but-meta", # 📄An interface to support Git-entity metadata;
     # 👉lacks tests
+    "crates/but-hooks",           # 📄Git hook management: external manager detection and managed hook installation.
     "crates/but-hunk-assignment", # 📄Assign uncommitted changes to stacks/lanes.
     # 👉uses `but-ctx`.
     "crates/but-hunk-dependency", # 📄Assuming it works, it feels close to 'Exemplary',
@@ -157,6 +158,7 @@ but-worktrees = { path = "crates/but-worktrees" }
 but-db = { path = "crates/but-db" }
 but-path = { path = "crates/but-path" }
 but-graph = { path = "crates/but-graph" }
+but-hooks = { path = "crates/but-hooks" }
 but-meta = { path = "crates/but-meta" }
 but-rules = { path = "crates/but-rules" }
 but-action = { path = "crates/but-action" }

@@ -1,58 +1,58 @@
 [package]
-name = "gitbutler-repo"
-version = "0.0.0"
-edition.workspace = true
-authors.workspace = true
-publish = false
-rust-version.workspace = true
-autotests = false
+    authors.workspace     =true
+    autotests             =false
+    edition.workspace     =true
+    name                  ="gitbutler-repo"
+    publish               =false
+    rust-version.workspace=true
+    version               ="0.0.0"
 
 [lib]
-doctest = false
+    doctest=false
 
 [dependencies]
-but-error.workspace = true
-but-rebase.workspace = true
-but-core = { workspace = true, features = ["legacy"] }
-but-status.workspace = true
-but-gerrit.workspace = true
-but-oxidize.workspace = true
-but-ctx = { workspace = true, features = ["legacy"] }
+    but-core             ={workspace=true, features=["legacy"]}
+    but-ctx              ={workspace=true, features=["legacy"]}
+    but-error.workspace  =true
+    but-gerrit.workspace =true
+    but-hooks.workspace  =true
+    but-oxidize.workspace=true
+    but-rebase.workspace =true
+    but-status.workspace =true
 
-gitbutler-project.workspace = true
-gitbutler-reference.workspace = true
-gitbutler-url.workspace = true
-gitbutler-cherry-pick.workspace = true
+    gitbutler-cherry-pick.workspace=true
+    gitbutler-project.workspace    =true
+    gitbutler-reference.workspace  =true
+    gitbutler-url.workspace        =true
 
-git2.workspace = true
-git2-hooks.workspace = true
-gix = { workspace = true, features = ["merge", "status", "tree-editor"] }
-anyhow.workspace = true
-bstr.workspace = true
-tracing.workspace = true
-tempfile.workspace = true
-serde.workspace = true
-thiserror.workspace = true
-resolve-path = "0.1.0"
-itertools.workspace = true
-toml.workspace = true
-base64 = "0.22.1"
-infer = "0.19.0"
-scopeguard = "1.2.0"
-fuzzy-matcher = "0.3.7"
-ignore = "0.4.25"
-which = "8.0.0"
+    anyhow.workspace    =true
+    base64              ="0.22.1"
+    bstr.workspace      =true
+    fuzzy-matcher       ="0.3.7"
+    git2.workspace      =true
+    git2-hooks.workspace=true
+    gix                 ={workspace=true, features=["merge", "status", "tree-editor"]}
+    ignore              ="0.4.25"
+    infer               ="0.19.0"
+    itertools.workspace =true
+    resolve-path        ="0.1.0"
+    scopeguard          ="1.2.0"
+    serde.workspace     =true
+    tempfile.workspace  =true
+    thiserror.workspace =true
+    toml.workspace      =true
+    tracing.workspace   =true
 
 [[test]]
-name = "repo"
-path = "tests/mod.rs"
+    name="repo"
+    path="tests/mod.rs"
 
 [dev-dependencies]
-gitbutler-testsupport.workspace = true
-gitbutler-user.workspace = true
-but-settings.workspace = true
-serde_json = { workspace = true, features = ["arbitrary_precision"] }
-insta.workspace = true
+    but-settings.workspace         =true
+    gitbutler-testsupport.workspace=true
+    gitbutler-user.workspace       =true
+    insta.workspace                =true
+    serde_json                     ={workspace=true, features=["arbitrary_precision"]}
 
 [lints]
-workspace = true
+    workspace=true

@@ -34,10 +34,10 @@ pub use repository_ext::RepositoryExt;
 pub mod credentials;
 
 mod config;
+pub use but_hooks::hook_manager;
 use config::Config;
-pub mod hook_manager;
 pub mod hooks;
-pub mod managed_hooks;
+pub use but_hooks::managed_hooks;
 mod remote;
 pub mod staging;
 
