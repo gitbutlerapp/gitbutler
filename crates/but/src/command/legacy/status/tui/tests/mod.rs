@@ -9,6 +9,7 @@ use temp_env::with_var;
 use crate::command::legacy::status::tui::Message;
 use crate::command::legacy::status::tui::tests::utils::{test_tui, test_tui_with_size};
 
+mod branch_tests;
 mod command_tests;
 mod commit_tests;
 mod move_tests;

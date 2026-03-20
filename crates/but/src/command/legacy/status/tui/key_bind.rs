@@ -8,7 +8,7 @@ use crate::command::legacy::status::tui::{
     CommandMessage, Message, Mode, ModeDiscriminant, RewordMessage, RubMessage,
 };
 
-use super::{CommitMessage, FilesMessage, MoveMessage};
+use super::{BranchMessage, CommitMessage, FilesMessage, MoveMessage};
 
 pub(super) fn default_key_binds() -> KeyBinds {
     let mut key_binds = KeyBinds::new();
@@ -38,6 +38,9 @@ pub(super) fn default_key_binds() -> KeyBinds {
             ModeDiscriminant::Move => {
                 register_move_mode_key_binds(&mut key_binds);
             }
+            ModeDiscriminant::Branch => {
+                register_branch_mode_key_binds(&mut key_binds);
+            }
         }
     }
 
@@ -51,6 +54,7 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
             | ModeDiscriminant::Rub
             | ModeDiscriminant::RubButApi
             | ModeDiscriminant::Move
+            | ModeDiscriminant::Branch
             | ModeDiscriminant::Commit => true,
             ModeDiscriminant::InlineReword | ModeDiscriminant::Command => false,
         })
@@ -89,24 +93,6 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().shift().code(KeyCode::Char('K')),
         modes: all_except_text_input_modes.clone(),
         message: Message::MoveCursorPreviousSection,
-        hide_from_hotbar: true,
-    });
-
-    key_binds.register(StaticKeyBind {
-        short_description: "files",
-        chord_display: "f",
-        key_matcher: press().code(KeyCode::Char('f')),
-        modes: all_except_text_input_modes.clone(),
-        message: Message::Files(FilesMessage::ToggleFilesForCommit),
-        hide_from_hotbar: false,
-    });
-
-    key_binds.register(StaticKeyBind {
-        short_description: "show all files",
-        chord_display: "shift+f",
-        key_matcher: press().shift().code(KeyCode::Char('F')),
-        modes: all_except_text_input_modes.clone(),
-        message: Message::Files(FilesMessage::ToggleGlobalFilesList),
         hide_from_hotbar: true,
     });
 
@@ -158,7 +144,7 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Char('n')),
         modes: Vec::from([ModeDiscriminant::Normal]),
         message: Message::Commit(CommitMessage::CreateEmpty),
-        hide_from_hotbar: false,
+        hide_from_hotbar: true,
     });
 
     key_binds.register(StaticKeyBind {
@@ -167,6 +153,15 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Char('m')),
         modes: Vec::from([ModeDiscriminant::Normal]),
         message: Message::Move(MoveMessage::Start),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "branch",
+        chord_display: "b",
+        key_matcher: press().code(KeyCode::Char('b')),
+        modes: Vec::from([ModeDiscriminant::Normal]),
+        message: Message::Branch(BranchMessage::Start),
         hide_from_hotbar: false,
     });
 
@@ -186,6 +181,24 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         modes: Vec::from([ModeDiscriminant::Normal]),
         message: Message::Reword(RewordMessage::WithEditor),
         hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "files",
+        chord_display: "f",
+        key_matcher: press().code(KeyCode::Char('f')),
+        modes: Vec::from([ModeDiscriminant::Normal]),
+        message: Message::Files(FilesMessage::ToggleFilesForCommit),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "show all files",
+        chord_display: "shift+f",
+        key_matcher: press().shift().code(KeyCode::Char('F')),
+        modes: Vec::from([ModeDiscriminant::Normal]),
+        message: Message::Files(FilesMessage::ToggleGlobalFilesList),
+        hide_from_hotbar: true,
     });
 
     key_binds.register(StaticKeyBind {
@@ -367,6 +380,26 @@ fn register_move_mode_key_binds(key_binds: &mut KeyBinds) {
         chord_display: "esc",
         key_matcher: press().code(KeyCode::Esc),
         modes: Vec::from([ModeDiscriminant::Move]),
+        message: Message::EnterNormalMode,
+        hide_from_hotbar: false,
+    });
+}
+
+fn register_branch_mode_key_binds(key_binds: &mut KeyBinds) {
+    key_binds.register(StaticKeyBind {
+        short_description: "new",
+        chord_display: "n",
+        key_matcher: press().code(KeyCode::Char('n')),
+        modes: Vec::from([ModeDiscriminant::Branch]),
+        message: Message::Branch(BranchMessage::New),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "back",
+        chord_display: "esc",
+        key_matcher: press().code(KeyCode::Esc),
+        modes: Vec::from([ModeDiscriminant::Branch]),
         message: Message::EnterNormalMode,
         hide_from_hotbar: false,
     });
