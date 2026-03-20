@@ -1555,7 +1555,7 @@ const ProjectPage: FC = () => {
 						</div>
 
 						{commonBaseCommitId !== undefined && (
-							<TearOffBranchTarget>
+							<TearOffBranchTarget className={styles.commonBaseCommit}>
 								{shortCommitId(commonBaseCommitId)} (common base commit)
 							</TearOffBranchTarget>
 						)}
