@@ -1520,7 +1520,7 @@ const ProjectPage: FC = () => {
 						const stackId = stack.id!;
 
 						return (
-							<div key={stack.id} className={sharedStyles.commitsLane}>
+							<div key={stack.id} className={styles.stackLane}>
 								<StackC
 									projectId={project.id}
 									stack={stack}

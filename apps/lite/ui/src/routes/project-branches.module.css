@@ -3,6 +3,11 @@
 	width: 350px;
 }
 
+.branchDetailsLane {
+	flex-shrink: 0;
+	width: 350px;
+}
+
 .branchRow {
 	display: flex;
 }
