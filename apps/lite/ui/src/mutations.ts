@@ -43,6 +43,13 @@ export const moveBranchMutationOptions = mutationOptions({
 	},
 });
 
+export const tearOffBranchMutationOptions = mutationOptions({
+	mutationFn: window.lite.tearOffBranch,
+	onSuccess: async (_data, _input, _ctx, { client }) => {
+		await client.invalidateQueries();
+	},
+});
+
 export const rubMutationOptions = mutationOptions({
 	mutationFn: rub,
 	onSuccess: async (_data, _input, _ctx, { client }) => {

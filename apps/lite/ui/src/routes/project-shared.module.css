@@ -38,11 +38,6 @@
 	background-color: black;
 }
 
-.commitsLane {
-	flex-shrink: 0;
-	width: 350px;
-}
-
 .laneDiffColumn {
 	width: 500px;
 }

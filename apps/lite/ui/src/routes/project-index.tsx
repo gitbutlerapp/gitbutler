@@ -50,6 +50,7 @@ import {
 	commitCreateMutationOptions,
 	moveBranchMutationOptions,
 	rubMutationOptions,
+	tearOffBranchMutationOptions,
 	unapplyStackMutationOptions,
 } from "#ui/mutations.ts";
 import {
@@ -65,7 +66,7 @@ import { rubOperationLabel, RubParams, type RubSource } from "#ui/rub.ts";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
-import { CommitMoveParams, MoveBranchParams } from "#electron/ipc.ts";
+import { CommitMoveParams, MoveBranchParams, TearOffBranchParams } from "#electron/ipc.ts";
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 const decodeRefName = (fullNameBytes: Array<number>): string =>
@@ -183,7 +184,7 @@ const rejectedChangesToastOptions = ({
 	priority: "high",
 });
 
-const commonBaseCommitId = (headInfo: RefInfo): string | undefined => {
+const getCommonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 	const bases = headInfo.stacks
 		.map((stack) => stack.base)
 		.filter((base): base is string => base !== null);
@@ -224,7 +225,10 @@ type OperationTarget =
 	  } & Omit<CommitMoveParams, "projectId" | "subjectCommitId">)
 	| ({
 			_tag: "MoveBranch";
-	  } & Omit<MoveBranchParams, "projectId" | "subjectBranch">);
+	  } & Omit<MoveBranchParams, "projectId" | "subjectBranch">)
+	| {
+			_tag: "TearOffBranch";
+	  };
 
 const parseDropTargetData = (data: unknown): OperationTarget | null => {
 	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
@@ -269,6 +273,7 @@ const useRunOperation = (projectId: string) => {
 	const rubMutation = useMutation(rubMutationOptions);
 	const commitMove = useMutation(commitMoveMutationOptions);
 	const moveBranch = useMutation(moveBranchMutationOptions);
+	const tearOffBranch = useMutation(tearOffBranchMutationOptions);
 
 	return (sourceItem: SourceItem, operationTarget: OperationTarget): void => {
 		Match.value(operationTarget).pipe(
@@ -314,6 +319,13 @@ const useRunOperation = (projectId: string) => {
 					subjectBranch: decodeRefName(sourceItem.anchorRef),
 					targetBranch: operationTarget.targetBranch,
 				});
+			}),
+			Match.tag("TearOffBranch", () => {
+				if (sourceItem._tag !== "Branch") return;
+				tearOffBranch.mutate({
+					projectId,
+					subjectBranch: decodeRefName(sourceItem.anchorRef),
+				} satisfies TearOffBranchParams);
 			}),
 			Match.exhaustive,
 		);
@@ -1165,6 +1177,34 @@ const BranchTarget: FC<
 	);
 };
 
+const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...props }) => {
+	const [isDropTarget, dropRef] = useDroppable({
+		canDrop: ({ source }) => parseDragData(source.data)?._tag === "Branch",
+		getData: (): OperationTarget => ({ _tag: "TearOffBranch" }),
+	});
+
+	const droppable = useRender({
+		render,
+		ref: dropRef,
+		props: mergeProps(props, {
+			style: { ...(isDropTarget && { outline: "2px dashed black" }) },
+		}),
+	});
+
+	const sourceItem = useDraggedSourceItem();
+
+	return (
+		<Tooltip.Root open={isDropTarget && sourceItem?._tag === "Branch"}>
+			<Tooltip.Trigger render={droppable} />
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={8}>
+					<Tooltip.Popup className={styles.tooltip}>Tear off branch</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
+
 const StackC: FC<{
 	projectId: string;
 	stack: Stack;
@@ -1340,7 +1380,7 @@ const ProjectPage: FC = () => {
 	// TODO: dedupe
 	if (!project) return <p>Project not found.</p>;
 
-	const baseId = commonBaseCommitId(headInfo);
+	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
 
 	const isUnassignedFileSelected = (path: string): boolean =>
 		selection?._tag === "ChangesFile" && selection.stackId === null && selection.path === path;
@@ -1462,57 +1502,67 @@ const ProjectPage: FC = () => {
 					)
 				}
 			>
-				<>
-					<div className={sharedStyles.lanes}>
-						<div className={styles.unassignedChangesLane}>
-							<h3>Unassigned changes</h3>
-							<Changes
-								projectId={project.id}
-								stackId={null}
-								isFileSelected={isUnassignedFileSelected}
-								toggleFileSelect={toggleUnassignedFileSelection}
-								onDependencyHover={highlightCommits}
-								className={styles.unassignedChanges}
-							/>
-						</div>
-
-						{headInfo.stacks.map((stack) => {
-							// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
-							const stackId = stack.id!;
-
-							return (
-								<div key={stack.id} className={sharedStyles.commitsLane}>
-									<StackC
-										projectId={project.id}
-										stack={stack}
-										isBranchSelected={isBranchSelected}
-										toggleBranchSelection={toggleBranchSelection}
-										isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
-										isCommitEditing={(commitId) => isCommitEditing(stackId, commitId)}
-										isCommitSelectedWithin={(commitId) => isCommitSelectedWithin(stackId, commitId)}
-										isChangeUnitFileSelected={(changeUnit, path) =>
-											isChangeUnitFileSelected(stackId, changeUnit, path)
-										}
-										toggleCommitExpanded={(commitId) => toggleCommitExpanded(stackId, commitId)}
-										toggleCommitSelection={(commitId) => {
-											toggleCommitSelection(stackId, commitId);
-										}}
-										toggleEditingMessage={(commitId) => {
-											toggleEditingMessage(stackId, commitId);
-										}}
-										toggleChangeUnitFileSelection={(changeUnit, path) => {
-											toggleChangeUnitFileSelection(stackId, changeUnit, path);
-										}}
-										highlightedCommitIds={highlightedCommitIds}
-										onDependencyHover={highlightCommits}
-									/>
-								</div>
-							);
-						})}
+				<div className={sharedStyles.lanes}>
+					<div className={styles.unassignedChangesLane}>
+						<h3>Unassigned changes</h3>
+						<Changes
+							projectId={project.id}
+							stackId={null}
+							isFileSelected={isUnassignedFileSelected}
+							toggleFileSelect={toggleUnassignedFileSelection}
+							onDependencyHover={highlightCommits}
+							className={styles.unassignedChanges}
+						/>
 					</div>
 
-					{baseId !== undefined && <div>{shortCommitId(baseId)} (common base commit)</div>}
-				</>
+					<div className={styles.headInfo}>
+						<div className={styles.stackLanes}>
+							{headInfo.stacks.map((stack) => {
+								// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
+								const stackId = stack.id!;
+
+								return (
+									<div key={stack.id} className={styles.stackLane}>
+										<StackC
+											projectId={project.id}
+											stack={stack}
+											isBranchSelected={isBranchSelected}
+											toggleBranchSelection={toggleBranchSelection}
+											isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
+											isCommitEditing={(commitId) => isCommitEditing(stackId, commitId)}
+											isCommitSelectedWithin={(commitId) =>
+												isCommitSelectedWithin(stackId, commitId)
+											}
+											isChangeUnitFileSelected={(changeUnit, path) =>
+												isChangeUnitFileSelected(stackId, changeUnit, path)
+											}
+											toggleCommitExpanded={(commitId) => toggleCommitExpanded(stackId, commitId)}
+											toggleCommitSelection={(commitId) => {
+												toggleCommitSelection(stackId, commitId);
+											}}
+											toggleEditingMessage={(commitId) => {
+												toggleEditingMessage(stackId, commitId);
+											}}
+											toggleChangeUnitFileSelection={(changeUnit, path) => {
+												toggleChangeUnitFileSelection(stackId, changeUnit, path);
+											}}
+											highlightedCommitIds={highlightedCommitIds}
+											onDependencyHover={highlightCommits}
+										/>
+									</div>
+								);
+							})}
+						</div>
+
+						{commonBaseCommitId !== undefined && (
+							<TearOffBranchTarget className={styles.commonBaseCommit}>
+								{shortCommitId(commonBaseCommitId)} (common base commit)
+							</TearOffBranchTarget>
+						)}
+					</div>
+
+					<TearOffBranchTarget className={styles.emptyLane} />
+				</div>
 			</ProjectPanelLayout>
 		</DraggedSourceItemContext.Provider>
 	);

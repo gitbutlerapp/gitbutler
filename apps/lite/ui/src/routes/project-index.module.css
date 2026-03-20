@@ -5,6 +5,27 @@
 	width: 300px;
 }
 
+.stackLane {
+	flex-shrink: 0;
+	width: 350px;
+}
+
+.headInfo {
+	display: flex;
+	row-gap: calc(var(--row-block-padding) + var(--row-line-height));
+	flex-direction: column;
+}
+
+.stackLanes {
+	display: flex;
+	column-gap: 8px;
+}
+
+.emptyLane {
+	flex-shrink: 0;
+	width: 300px;
+}
+
 .unassignedChanges {
 	flex-grow: 1;
 	min-height: 300px;
@@ -113,4 +134,9 @@
 
 .selectedCommitMessageBody {
 	white-space: pre-wrap;
+}
+
+.commonBaseCommit {
+	flex-grow: 1;
+	text-align: center;
 }
