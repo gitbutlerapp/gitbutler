@@ -11,7 +11,7 @@ use but_oxidize::ObjectIdExt;
 use git2_hooks::{self, HookResult as H};
 use serde::Serialize;
 
-use crate::staging;
+use crate::{managed_hooks::get_hooks_dir_gix, staging};
 
 #[derive(Serialize, PartialEq, Debug, Clone)]
 pub struct MessageData {
@@ -145,11 +145,7 @@ pub fn pre_push(
     remote_tracking_branch: &gitbutler_reference::RemoteRefname,
     run_husky_hooks: bool,
 ) -> Result<HookResult> {
-    let hooks_dir = repo
-        .config_snapshot()
-        .trusted_path("core.hooksPath")
-        .and_then(|res| res.ok().map(|p| p.into_owned()))
-        .unwrap_or_else(|| repo.git_dir().join("hooks"));
+    let hooks_dir = get_hooks_dir_gix(repo);
     let hooks_path = hooks_dir.join("pre-push");
     let husky_path = run_husky_hooks.then(|| {
         repo.workdir()

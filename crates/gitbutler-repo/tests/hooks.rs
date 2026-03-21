@@ -145,3 +145,41 @@ fn pre_push_ignores_husky_core_hooks_path_when_disabled() -> anyhow::Result<()> 
     assert!(workdir.join("husky-pre-push-ran").exists());
     Ok(())
 }
+
+#[test]
+fn pre_push_resolves_relative_core_hooks_path_against_workdir() -> anyhow::Result<()> {
+    let test_project = TestProject::default();
+
+    let repo = &test_project.local_repo;
+    let workdir = repo.workdir().expect("non-bare");
+    let relative_hooks = format!(
+        "relative-hooks-{}",
+        workdir
+            .file_name()
+            .expect("temp dir name")
+            .to_string_lossy()
+    );
+    let hooks_dir = workdir.join(&relative_hooks);
+    fs::create_dir_all(&hooks_dir)?;
+    let hook_path = hooks_dir.join("pre-push");
+
+    fs::write(&hook_path, "#!/bin/sh\necho ran > relative-pre-push-ran\n")?;
+
+    #[cfg(unix)]
+    fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755))?;
+
+    repo.config()?.set_str("core.hooksPath", &relative_hooks)?;
+    let gix_repo = gix_repo(repo)?;
+
+    let result = pre_push(
+        &gix_repo,
+        "origin",
+        "https://github.com/test/repo.git",
+        repo.head()?.target().expect("not detached").to_gix(),
+        &gitbutler_reference::RemoteRefname::new("origin", "master"),
+        true,
+    )?;
+    assert_eq!(result, HookResult::Success);
+    assert!(workdir.join("relative-pre-push-ran").exists());
+    Ok(())
+}

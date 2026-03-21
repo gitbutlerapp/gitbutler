@@ -8,7 +8,8 @@ use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_branch::{self, BranchCreateRequest, GITBUTLER_WORKSPACE_REFERENCE};
 use gitbutler_operating_modes::is_well_known_workspace_ref;
 use gitbutler_repo::{
-    SignaturePurpose, commit_with_signature_gix, first_parent_commit_ids_until, signature_gix,
+    SignaturePurpose, commit_with_signature_gix, commit_without_signature_gix,
+    first_parent_commit_ids_until, signature_gix,
 };
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use tracing::instrument;
@@ -164,7 +165,7 @@ pub fn update_workspace_commit_with_vb_state(
         .collect::<Vec<_>>();
     let workspace_tree = workspace_head.tree_id()?.detach();
 
-    let final_commit = commit_with_signature_gix(
+    let final_commit = commit_without_signature_gix(
         &gix_repo,
         None,
         author,

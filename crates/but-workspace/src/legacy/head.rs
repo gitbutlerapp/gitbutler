@@ -4,7 +4,7 @@ use anyhow::{Context as _, Result};
 use but_core::RepositoryExt;
 use but_ctx::Context;
 use gitbutler_cherry_pick::GixRepositoryExt as _;
-use gitbutler_repo::{SignaturePurpose, commit_with_signature_gix, signature_gix};
+use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use gix::merge::tree::TreatAsUnresolved;
 use tracing::instrument;
@@ -111,7 +111,7 @@ pub fn remerged_workspace_commit_v2(ctx: &Context) -> Result<gix::ObjectId> {
         heads = vec![target_commit]
     }
 
-    let workspace_head_id = commit_with_signature_gix(
+    let workspace_head_id = commit_without_signature_gix(
         &repo,
         None,
         author,

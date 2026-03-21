@@ -14,7 +14,7 @@ use but_ctx::{
 use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{ObjectIdExt as _, OidExt};
 use gitbutler_cherry_pick::RepositoryExtLite;
-use gitbutler_repo::{SignaturePurpose, commit_with_signature_gix, signature_gix};
+use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
 use gix::objs::Write as _;
 use gix::{ObjectId, bstr::ByteSlice, object::tree::EntryKind, prelude::ObjectIdExt};
@@ -482,7 +482,7 @@ fn commit_snapshot(
         .as_ref()
         .map(|head| vec![head.id])
         .unwrap_or_default();
-    let snapshot_commit_id = commit_with_signature_gix(
+    let snapshot_commit_id = commit_without_signature_gix(
         repo,
         None,
         author,

@@ -14,6 +14,8 @@ Config reading and config-setting are explicitly in-scope for migration in this 
 
 Transport strategy remains dual-backend for now, but direct `git2` transport/auth call-sites are in-scope for cleanup where `gix` or existing path-based helpers are sufficient.
 
+Tests and fixture helpers are also explicitly in-scope. This is not just cleanup: repository isolation is part of the migration goal, and `gix` can be opened with isolated options in a way that `git2` does not expose as an equivalent configurable mode for our test setup.
+
 This document was reconciled against the repository on 2026-03-21 using `rg` and `cargo metadata`.
 
 ## Baseline and Scope
@@ -265,6 +267,8 @@ Current reconciliation notes:
 
 ### Workstream E: Test Surface and Dependency Reduction
 
+This workstream exists for behavioral isolation as well as dependency cleanup. Tests should prefer `gix`/`but-*` helpers because isolated repository opens are a first-class requirement for deterministic test behavior, and that isolation cannot be configured equivalently through `git2` in our current setup.
+
 Target tests/modules:
 
 - `crates/gitbutler-branch-actions/tests/branch-actions/squash.rs`
@@ -285,7 +289,7 @@ Tasks:
 1. Update tests to `gix` IDs where migrated paths changed.
 2. Continue moving test helpers to `but-testsupport` and stop expanding `gitbutler-testsupport`; the end state is to replace `gitbutler-testsupport` with `but-testsupport` so `gitbutler-testsupport` can be deleted.
 3. Rewrite direct test assertions/setup that still use `ctx.git2_repo` when an equivalent `gix`/helper path is available.
-4. Keep only hard-boundary tests/fixtures on `git2`; migrate the rest as production code moves.
+4. Keep only hard-boundary tests/fixtures on `git2`; migrate the rest as production code moves, especially where isolation-sensitive setup can move to `gix`-based helpers.
 5. Remove `git2` from crate manifests only after last in-scope reference is gone.
 
 Acceptance:
@@ -293,6 +297,7 @@ Acceptance:
 1. Workspace test suite compiles and passes relevant targets.
 2. Cargo manifests show reduced `git2` dependencies in migrated crates.
 3. Routine test authorship no longer requires `ctx.git2_repo` for non-excluded scenarios.
+4. Isolation-sensitive tests and fixture helpers use `gix`/`but-*` paths by default instead of `git2` repository opens.
 
 Current reconciliation notes:
 
@@ -364,7 +369,8 @@ Global completion criteria:
 1. All `git2` callsites outside the exact checkout/materialization and tree-creation hard boundary are removed or boundary-isolated.
 2. Residual `git2` use is only in the explicit hard boundary, compatibility/public-boundary crates, or deliberately isolated backend adapters.
 3. No API/schema regressions for ID/time serialization.
-4. CI-level checks continue to pass.
+4. Test and fixture setup no longer depends on `git2` where isolated repository access is required.
+5. CI-level checks continue to pass.
 
 Recommended verification commands:
 

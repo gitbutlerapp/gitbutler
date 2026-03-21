@@ -176,14 +176,26 @@ impl ManagedHookType {
     }
 }
 
-fn hooks_dir_from_git_dir_and_config_path(git_dir: &Path, hooks_path: Option<PathBuf>) -> PathBuf {
+fn hooks_dir_from_git_dir_and_config_path_for_run_dir(
+    git_dir: &Path,
+    hook_run_dir: &Path,
+    hooks_path: Option<PathBuf>,
+) -> PathBuf {
+    let hooks_path = hooks_path.map(|path| {
+        if path.is_relative() {
+            hook_run_dir.join(path)
+        } else {
+            path
+        }
+    });
     hooks_path.unwrap_or_else(|| git_dir.join("hooks"))
 }
 
 /// Get the hooks directory, respecting core.hooksPath configuration
 fn get_hooks_dir(repo: &git2::Repository) -> PathBuf {
-    hooks_dir_from_git_dir_and_config_path(
+    hooks_dir_from_git_dir_and_config_path_for_run_dir(
         repo.path(),
+        repo.workdir().unwrap_or(repo.path()),
         repo.config()
             .and_then(|config| config.get_path("core.hooksPath"))
             .ok(),
@@ -191,12 +203,13 @@ fn get_hooks_dir(repo: &git2::Repository) -> PathBuf {
 }
 
 /// Get the hooks directory for a `gix` repository, respecting `core.hooksPath`.
-fn get_hooks_dir_gix(repo: &gix::Repository) -> PathBuf {
-    hooks_dir_from_git_dir_and_config_path(
+pub(crate) fn get_hooks_dir_gix(repo: &gix::Repository) -> PathBuf {
+    hooks_dir_from_git_dir_and_config_path_for_run_dir(
         repo.git_dir(),
+        repo.workdir().unwrap_or(repo.git_dir()),
         repo.config_snapshot()
-            .string("core.hooksPath")
-            .map(|value| gix::path::from_bstr(value.as_ref()).into_owned()),
+            .trusted_path("core.hooksPath")
+            .and_then(|path| path.ok().map(std::borrow::Cow::into_owned)),
     )
 }
 
