@@ -248,6 +248,66 @@ describe("AIService", () => {
 		});
 	});
 
+	describe("#getOpenAIModelName", () => {
+		test("When a valid model is stored, it returns the stored value", async () => {
+			const gitConfig = new DummyGitConfigService({
+				...defaultGitConfig,
+				[GitAIConfigKey.OpenAIModelName]: OpenAIModelName.GPT54,
+			});
+			const secretsService = new DummySecretsService();
+			const tokenMemoryService = new TokenMemoryService();
+			const fetchMock = vi.fn();
+			const cloud = new HttpClient(fetchMock, "https://www.example.com", tokenMemoryService.token);
+			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
+
+			expect(await aiService.getOpenAIModelName()).toBe(OpenAIModelName.GPT54);
+		});
+
+		test("When a legacy/unknown model is stored, it falls back to the default", async () => {
+			const gitConfig = new DummyGitConfigService({
+				...defaultGitConfig,
+				[GitAIConfigKey.OpenAIModelName]: "gpt-4-turbo",
+			});
+			const secretsService = new DummySecretsService();
+			const tokenMemoryService = new TokenMemoryService();
+			const fetchMock = vi.fn();
+			const cloud = new HttpClient(fetchMock, "https://www.example.com", tokenMemoryService.token);
+			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
+
+			expect(await aiService.getOpenAIModelName()).toBe(OpenAIModelName.GPT54Nano);
+		});
+	});
+
+	describe("#getAnthropicModelName", () => {
+		test("When a valid model is stored, it returns the stored value", async () => {
+			const gitConfig = new DummyGitConfigService({
+				...defaultGitConfig,
+				[GitAIConfigKey.AnthropicModelName]: AnthropicModelName.Opus,
+			});
+			const secretsService = new DummySecretsService();
+			const tokenMemoryService = new TokenMemoryService();
+			const fetchMock = vi.fn();
+			const cloud = new HttpClient(fetchMock, "https://www.example.com", tokenMemoryService.token);
+			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
+
+			expect(await aiService.getAnthropicModelName()).toBe(AnthropicModelName.Opus);
+		});
+
+		test("When a legacy/unknown model is stored, it falls back to the default", async () => {
+			const gitConfig = new DummyGitConfigService({
+				...defaultGitConfig,
+				[GitAIConfigKey.AnthropicModelName]: "claude-3-opus-20240229",
+			});
+			const secretsService = new DummySecretsService();
+			const tokenMemoryService = new TokenMemoryService();
+			const fetchMock = vi.fn();
+			const cloud = new HttpClient(fetchMock, "https://www.example.com", tokenMemoryService.token);
+			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
+
+			expect(await aiService.getAnthropicModelName()).toBe(AnthropicModelName.Haiku);
+		});
+	});
+
 	describe.concurrent("#summarizeCommit", async () => {
 		test("When buildModel returns undefined, it returns undefined", async () => {
 			const { aiService } = buildDefaultServices();
