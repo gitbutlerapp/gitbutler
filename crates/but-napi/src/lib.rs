@@ -84,17 +84,8 @@ fn app_settings_sync() -> anyhow::Result<AppSettingsWithDiskSync> {
 fn open_prepared_context(project_id: &ProjectHandleOrLegacyProjectId) -> anyhow::Result<Context> {
     // We don't get a validated legacy object here, but that's fine as we're only opening repos/watchers.
     let mut ctx: Context = project_id.clone().try_into()?;
-    let repo = git2::Repository::open(&ctx.gitdir).map_err(|err| {
-        let code = err.code();
-        let err = anyhow::Error::from(err);
-        if code == git2::ErrorCode::Owner {
-            err.context(but_error::Code::RepoOwnership)
-        } else {
-            err
-        }
-    })?;
     // Keep this before any database usage on `ctx`.
-    ctx = ctx.with_git2_repo(repo);
+    ctx.eagerly_populate_git2_repo_cache()?;
     but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
     Ok(ctx)
 }
