@@ -18,7 +18,7 @@
 		"prepare": "svelte-kit sync"
 	},
 	"devDependencies": {
-		"@anthropic-ai/sdk": "^0.78.0",
+		"@anthropic-ai/sdk": "^0.80.0",
 		"@gitbutler/core": "workspace:*",
 		"@gitbutler/design-core": "1.8.3",
 		"@gitbutler/shared": "workspace:*",
@@ -82,7 +82,7 @@
 		"@tauri-apps/plugin-deep-link": "~2.4.7",
 		"dayjs": "^1.11.13",
 		"ollama": "^0.6.3",
-		"openai": "^4.104.0",
+		"openai": "^6.32.0",
 		"reconnecting-websocket": "^4.4.0",
 		"redux-persist": "^6.0.0",
 		"rxjs": "catalog:"
