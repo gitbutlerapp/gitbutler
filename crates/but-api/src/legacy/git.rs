@@ -1,5 +1,6 @@
 //! In place of commands.rs
 use anyhow::{Context as _, Result};
+use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::git_config::{
     open_user_global_config_for_editing, remove_config_value, set_config_value, write_config,
@@ -15,6 +16,7 @@ pub fn git_remote_branches(ctx: &but_ctx::Context) -> Result<Vec<RemoteRefname>>
     repo.references()?
         .remote_branches()?
         .filter_map(Result::ok)
+        .filter(|reference| !reference.name().as_bstr().ends_with_str("/HEAD"))
         .map(|reference| {
             reference
                 .name()
