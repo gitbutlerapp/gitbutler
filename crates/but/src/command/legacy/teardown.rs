@@ -114,7 +114,7 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
 
     // Uninstall managed hooks before checking out
     if let Ok(repo) = ctx.repo.get()
-        && let Err(e) = gitbutler_repo::managed_hooks::uninstall_managed_hooks_gix(&repo)
+        && let Err(e) = gitbutler_repo::managed_hooks::uninstall_managed_hooks(&repo)
         && let Some(out) = out.for_human()
     {
         writeln!(
