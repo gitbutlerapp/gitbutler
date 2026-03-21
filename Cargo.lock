@@ -4121,7 +4121,6 @@ dependencies = [
  "but-schemars",
  "but-serde",
  "but-testsupport",
- "git2",
  "gix",
  "insta",
  "resolve-path",

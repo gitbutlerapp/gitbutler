@@ -1,15 +1,15 @@
-use std::path::PathBuf;
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 
+use anyhow::{Context as _, Result, bail};
 use but_core::RepositoryExt;
 use but_testsupport::legacy::paths;
 use tempfile::TempDir;
 
 pub fn new() -> TempDir {
     paths::data_dir()
-}
-
-fn storage_key() -> String {
-    but_project_handle::storage_path_config_key().to_owned()
 }
 
 fn repo_path_at(name: &str) -> PathBuf {
@@ -20,6 +20,23 @@ fn repo_path_at(name: &str) -> PathBuf {
 
 fn writable_fixture() -> TempDir {
     but_testsupport::gix_testtools::scripted_fixture_writable("various-repositories.sh").unwrap()
+}
+
+fn repo_git_dir(path: &Path) -> Result<PathBuf> {
+    let repo = gix::open_opts(path, gix::open::Options::isolated())?;
+    Ok(repo.git_dir().canonicalize()?)
+}
+
+fn git(args: &[&str]) -> Result<()> {
+    let status = Command::new(gix::path::env::exe_invocation())
+        .args(args)
+        .status()
+        .with_context(|| format!("failed to run git {}", args.join(" ")))?;
+    if status.success() {
+        Ok(())
+    } else {
+        bail!("git {} failed with status {status}", args.join(" "));
+    }
 }
 
 mod add {
@@ -44,10 +61,6 @@ mod add {
     fn creates_configured_storage_dir() -> anyhow::Result<()> {
         let data_dir = paths::data_dir();
         let repo = but_testsupport::legacy::TestProject::default();
-        let key = storage_key();
-        git2::Repository::open(repo.path())?
-            .config()?
-            .set_str(&key, "gitbutler-custom")?;
 
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())?.unwrap_project();
@@ -60,10 +73,6 @@ mod add {
     fn get_recreates_configured_storage_dir() -> anyhow::Result<()> {
         let data_dir = paths::data_dir();
         let repo = but_testsupport::legacy::TestProject::default();
-        let key = storage_key();
-        git2::Repository::open(repo.path())?
-            .config()?
-            .set_str(&key, "gitbutler-custom")?;
 
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())?.unwrap_project();
@@ -135,7 +144,7 @@ mod add {
         let repo = but_testsupport::legacy::TestProject::default();
         let nested_dir = repo.path().join("nested/inside");
         let expected_worktree_dir = repo.path().canonicalize()?;
-        let expected_git_dir = git2::Repository::open(repo.path())?.path().canonicalize()?;
+        let expected_git_dir = repo_git_dir(repo.path())?;
         std::fs::create_dir_all(&nested_dir)?;
 
         let outcome =
@@ -268,8 +277,7 @@ mod add {
             let tmp = tempfile::tempdir().unwrap();
             let repo_dir = tmp.path().join("bare");
 
-            let repo = git2::Repository::init_bare(&repo_dir).unwrap();
-            create_initial_commit(&repo);
+            git(&["init", "--bare", repo_dir.to_str().unwrap()]).unwrap();
 
             let outcome =
                 gitbutler_project::add_at_app_data_dir(data_dir.path(), repo_dir.as_path())
@@ -284,30 +292,16 @@ mod add {
             let main_worktree_dir = tmp.path().join("main");
             let worktree_dir = tmp.path().join("worktree");
 
-            let repo = git2::Repository::init(main_worktree_dir).unwrap();
-            create_initial_commit(&repo);
-
-            let worktree = repo.worktree("feature", &worktree_dir, None).unwrap();
+            let cwd = main_worktree_dir.to_str().unwrap();
+            git(&["init", cwd]).unwrap();
+            git(&["-C", cwd, "config", "user.name", "test"]).unwrap();
+            git(&["-C", cwd, "config", "user.email", "test@email.com"]).unwrap();
+            git(&["-C", cwd, "commit", "--allow-empty", "-m", "initial commit"]).unwrap();
+            let worktree_dir = worktree_dir.to_str().unwrap();
+            git(&["-C", cwd, "worktree", "add", "-b", "feature", worktree_dir]).unwrap();
             let outcome =
-                gitbutler_project::add_at_app_data_dir(data_dir.path(), worktree.path()).unwrap();
+                gitbutler_project::add_at_app_data_dir(data_dir.path(), worktree_dir).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::NonMainWorktree));
-        }
-
-        fn create_initial_commit(repo: &git2::Repository) -> git2::Oid {
-            let signature = git2::Signature::now("test", "test@email.com").unwrap();
-
-            let mut index = repo.index().unwrap();
-            let oid = index.write_tree().unwrap();
-
-            repo.commit(
-                Some("HEAD"),
-                &signature,
-                &signature,
-                "initial commit",
-                &repo.find_tree(oid).unwrap(),
-                &[],
-            )
-            .unwrap()
         }
     }
 }
@@ -464,10 +458,6 @@ mod delete {
     fn removes_configured_storage_dir() -> anyhow::Result<()> {
         let data_dir = paths::data_dir();
         let repo = but_testsupport::legacy::TestProject::default();
-        let key = storage_key();
-        git2::Repository::open(repo.path())?
-            .config()?
-            .set_str(&key, "gitbutler-custom")?;
         let path = repo.path();
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
@@ -483,11 +473,7 @@ mod delete {
     fn refuses_to_delete_git_dir_when_storage_path_points_to_dot_git() -> anyhow::Result<()> {
         let data_dir = paths::data_dir();
         let repo = but_testsupport::legacy::TestProject::default();
-        let key = storage_key();
-        let git_dir = git2::Repository::open(repo.path())?.path().to_path_buf();
-        git2::Repository::open(repo.path())?
-            .config()?
-            .set_str(&key, ".")?;
+        let git_dir = repo_git_dir(repo.path())?;
         let path = repo.path();
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
