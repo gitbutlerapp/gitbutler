@@ -8,7 +8,7 @@ This plan orchestrates migration from `git2` to `gix` across the codebase where 
 - index/tree materialization that still requires `git2` (`Index::write_tree*`, `read_tree`, and immediately related adapters)
 - `gitbutler-edit-mode` as a legacy checkout/edit-flow boundary crate until its remaining `git2` checkout/index handoff is isolated or replaced
 
-`create_wd_tree()` itself is already implemented in `gix` via `but-status`; remaining `git2` usage around it should be treated as legacy wrapper/caller cleanup, not as a true `git2` implementation boundary.
+`create_wd_tree()` itself is already implemented in `gix` in `but-core`; remaining `git2` usage around it should be treated as legacy wrapper/caller cleanup, not as a true `git2` implementation boundary.
 
 Config reading and config-setting are explicitly in-scope for migration in this plan. They should use the existing `git_config.rs` / `gix`-based config helpers and must not be treated as a valid reason to keep a `git2` boundary.
 

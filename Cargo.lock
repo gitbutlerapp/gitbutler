@@ -1581,14 +1581,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "but-status"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "gix",
-]
-
-[[package]]
 name = "but-testing"
 version = "0.0.0"
 dependencies = [

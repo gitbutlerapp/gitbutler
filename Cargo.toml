@@ -89,7 +89,6 @@ members = [
     # Mostly supporting legacy code.
     # In big parts replaced by other crates.
     "crates/but-fs",      # 📄filesystem utilities 👉we should be using `but-db` instead.
-    "crates/but-status",  # 📄 One function that will be put elsewhere soon to remove this crate.
     "crates/but-oxidize", # 📄Utilities to help translate between `git2` and `gix`. 👉Shouldn't be needed once `git2` is gone.
 
     ##
@@ -161,7 +160,6 @@ but-meta = { path = "crates/but-meta" }
 but-rules = { path = "crates/but-rules" }
 but-action = { path = "crates/but-action" }
 but-bot = { path = "crates/but-bot" }
-but-status = { path = "crates/but-status" }
 but-tools = { path = "crates/but-tools" }
 but-api = { path = "crates/but-api" }
 but-api-macros = { path = "crates/but-api-macros" }
