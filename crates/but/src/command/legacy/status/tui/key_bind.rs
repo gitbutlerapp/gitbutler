@@ -60,6 +60,8 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         })
         .collect::<Vec<_>>();
 
+    let all_modes = ModeDiscriminant::iter().collect::<Vec<_>>();
+
     key_binds.register(StaticKeyBind {
         short_description: "down",
         chord_display: "↓/j",
@@ -103,6 +105,15 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         modes: all_except_text_input_modes.clone(),
         message: Message::Quit,
         hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "normal mode",
+        chord_display: "ctrl+[",
+        key_matcher: press().control().code(KeyCode::Char('[')),
+        modes: all_modes,
+        message: Message::EnterNormalMode,
+        hide_from_hotbar: true,
     });
 }
 
