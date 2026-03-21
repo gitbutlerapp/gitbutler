@@ -2,9 +2,9 @@ use std::{fs, path::Path};
 
 use but_ctx::{Context, RepoOpenMode};
 use but_settings::AppSettings;
+use but_testsupport::legacy::{commit_all, test_repository};
 use gitbutler_project as projects;
 use gitbutler_repo::RepoCommands;
-use gitbutler_testsupport::{commit_all, test_repository};
 
 fn context_for_repo(repo: &git2::Repository) -> Context {
     let project = projects::Project::new_for_gitbutler_repo(

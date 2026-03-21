@@ -1,9 +1,9 @@
-use gitbutler_testsupport::paths;
+use but_testsupport::legacy::paths;
 
 #[test]
 fn current_directory_dot() -> anyhow::Result<()> {
     let tmp = paths::data_dir();
-    let repo = gitbutler_testsupport::TestProject::default();
+    let repo = but_testsupport::legacy::TestProject::default();
     let repo_path = repo.path();
 
     // Change to the repository directory and add "." as the path

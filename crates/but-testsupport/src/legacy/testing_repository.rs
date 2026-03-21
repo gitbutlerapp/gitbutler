@@ -7,7 +7,7 @@ use gix_testtools::bstr::ByteSlice as _;
 use tempfile::{TempDir, tempdir};
 use uuid::Uuid;
 
-use crate::init_opts;
+use super::init_opts;
 
 pub struct TestingRepository {
     pub repository: git2::Repository,
@@ -18,10 +18,6 @@ impl TestingRepository {
     pub fn open() -> Self {
         let tempdir = tempdir().unwrap();
         let repo = git2::Repository::init_opts(tempdir.path(), &init_opts()).unwrap();
-        // TODO(ST): remove this once `gix::Repository::index_or_load_from_tree_or_empty()`
-        //           is available and used to get merge/diff resource caches. Also: name this
-        //          `open_unborn()` to make it clear.
-        // For now we need a resemblance of an initialized repo.
         let signature = git2::Signature::now("Caleb", "caleb@gitbutler.com").unwrap();
         let empty_tree_id = repo.treebuilder(None).unwrap().write().unwrap();
         repo.commit(
@@ -116,7 +112,6 @@ impl TestingRepository {
         files: &[(&str, &str)],
         change_id: Option<&str>,
     ) -> git2::Commit<'a> {
-        // Remove everything other than the .git folder
         for entry in fs::read_dir(self.tempdir.path()).unwrap() {
             let entry = entry.unwrap();
             if entry.file_name() != ".git" {
@@ -128,7 +123,6 @@ impl TestingRepository {
                 }
             }
         }
-        // Write any files
         for (file_name, contents) in files {
             let path = self.tempdir.path().join(file_name);
             let parent = path.parent().unwrap();
@@ -140,9 +134,7 @@ impl TestingRepository {
             fs::write(path, contents).unwrap();
         }
 
-        // Update the index
         let mut index = self.repository.index().unwrap();
-        // Make sure we're not having weird cached state
         index.read(true).unwrap();
         index
             .add_all(["*"], git2::IndexAddOption::DEFAULT, None)

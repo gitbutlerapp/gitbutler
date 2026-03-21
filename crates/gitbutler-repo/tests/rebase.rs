@@ -1,8 +1,8 @@
 mod gitbutler_merge_commits {
-    use gitbutler_repo::rebase::gitbutler_merge_commits;
-    use gitbutler_testsupport::testing_repository::{
+    use but_testsupport::legacy::testing_repository::{
         TestingRepository, assert_commit_tree_matches,
     };
+    use gitbutler_repo::rebase::gitbutler_merge_commits;
 
     #[test]
     fn unconflicting_merge() {

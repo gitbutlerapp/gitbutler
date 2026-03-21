@@ -5,7 +5,7 @@ use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_repo::RepositoryExt;
 use tempfile::TempDir;
 
-use crate::{VAR_NO_CLEANUP, init_opts};
+use super::{VAR_NO_CLEANUP, init_opts};
 
 pub fn temp_dir() -> TempDir {
     tempfile::tempdir().unwrap()
@@ -85,9 +85,6 @@ impl Default for TestProject {
 }
 
 impl TestProject {
-    /// Take the tmp directory holding the local repository and make sure it won't be deleted,
-    /// returning a path to it.
-    /// Best used inside a `dbg!(test_project.debug_local_repo())`
     pub fn debug_local_repo(&mut self) -> Option<PathBuf> {
         self.local_tmp.take().map(|tmp| tmp.keep())
     }
@@ -107,10 +104,6 @@ impl TestProject {
             .unwrap();
     }
 
-    /// ```text
-    /// git add -A
-    /// git reset --hard <oid>
-    /// ```
     pub fn reset_hard(&self, oid: Option<git2::Oid>) {
         let mut index = self.local_repo.index().expect("failed to get index");
         index
@@ -131,7 +124,6 @@ impl TestProject {
             .unwrap();
     }
 
-    /// fetch remote into local
     pub fn fetch(&self) {
         let mut remote = self.local_repo.find_remote("origin").unwrap();
         remote
@@ -143,7 +135,7 @@ impl TestProject {
         let branch_name: Refname = match branch_name {
             Refname::Local(local) => format!("refs/heads/{}", local.branch()).parse().unwrap(),
             Refname::Remote(remote) => format!("refs/heads/{}", remote.branch()).parse().unwrap(),
-            _ => "INVALID".parse().unwrap(), // todo
+            _ => "INVALID".parse().unwrap(),
         };
         let branch = self
             .remote_repo
@@ -215,12 +207,11 @@ impl TestProject {
         }
     }
 
-    /// works like if we'd open and merge a PR on github. does not update local.
     pub fn merge(&self, branch_name: &Refname) -> anyhow::Result<()> {
         let branch_name: Refname = match branch_name {
             Refname::Local(local) => format!("refs/heads/{}", local.branch()).parse()?,
             Refname::Remote(remote) => format!("refs/heads/{}", remote.branch()).parse()?,
-            _ => "INVALID".parse()?, // todo
+            _ => "INVALID".parse()?,
         };
         let branch = self
             .remote_repo
@@ -299,13 +290,6 @@ impl TestProject {
                     head_commit.tree().unwrap()
                 }
             },
-            // Ok(branch) => branch.get().peel_to_tree().unwrap(),
-            // Err(err) if err.code() == git2::ErrorCode::NotFound => {
-            //     self.local_repository
-            //         .reference(&branch.to_string(), head_commit.id(), false, "new branch")
-            //         .unwrap();
-            //     head_commit.tree().unwrap()
-            // }
             Err(error) => panic!("{error:?}"),
         };
         self.local_repo.set_head(&refname.to_string()).unwrap();
@@ -316,7 +300,6 @@ impl TestProject {
             .unwrap();
     }
 
-    /// takes all changes in the working directory and commits them into local
     pub fn commit_all(&self, message: &str) -> git2::Oid {
         let head = self.local_repo.head().unwrap();
         let mut index = self.local_repo.index().expect("failed to get index");
@@ -362,7 +345,6 @@ impl TestProject {
             .unwrap();
         let repo = submodule.open().unwrap();
 
-        // checkout submodule's master head
         repo.find_remote("origin")
             .unwrap()
             .fetch(&["+refs/heads/*:refs/heads/*"], None, None)
@@ -372,8 +354,6 @@ impl TestProject {
         repo.checkout_tree(reference_head.tree().unwrap().as_object(), None)
             .unwrap();
 
-        // be sure that `HEAD` points to the actual head - `git2` seems to initialize it
-        // with `init.defaultBranch`, causing failure otherwise.
         repo.set_head("refs/heads/master").unwrap();
         submodule.add_finalize().unwrap();
     }

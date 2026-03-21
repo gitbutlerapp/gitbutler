@@ -1,8 +1,8 @@
 use bstr::ByteSlice;
 use but_oxidize::OidExt;
+use but_testsupport::legacy::stack_details;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_stack::StackId;
-use gitbutler_testsupport::stack_details;
 
 use super::Test;
 

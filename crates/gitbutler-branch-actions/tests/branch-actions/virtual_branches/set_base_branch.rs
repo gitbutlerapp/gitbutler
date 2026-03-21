@@ -37,8 +37,8 @@ mod error {
 }
 
 mod go_back_to_workspace {
+    use but_testsupport::legacy::stack_details;
     use gitbutler_branch::BranchCreateRequest;
-    use gitbutler_testsupport::stack_details;
     use pretty_assertions::assert_eq;
 
     use super::*;

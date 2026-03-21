@@ -4,12 +4,12 @@ use but_ctx::{Context, ProjectHandleOrLegacyProjectId, RepoOpenMode};
 use but_error::Marker;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_settings::AppSettings;
+use but_testsupport::legacy::{TestProject, VAR_NO_CLEANUP, paths};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::GITBUTLER_WORKSPACE_COMMIT_TITLE;
 use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_project::{self as projects};
 use gitbutler_stack::StackId;
-use gitbutler_testsupport::{TestProject, VAR_NO_CLEANUP, paths};
 use tempfile::TempDir;
 
 struct Test {

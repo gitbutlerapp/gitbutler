@@ -30,7 +30,7 @@ uuid.workspace = true
 schemars.workspace = true
 
 [dev-dependencies]
-gitbutler-testsupport.workspace = true
+but-testsupport = { workspace = true, features = ["legacy"] }
 
 [lints]
 workspace = true

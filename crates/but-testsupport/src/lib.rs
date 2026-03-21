@@ -15,6 +15,11 @@ use gix_testtools::{Creation, FixtureState, PostResult, tempfile};
 mod in_memory_meta;
 pub use in_memory_meta::{InMemoryRefMetadata, InMemoryRefMetadataHandle, StackState};
 
+/// The contents is the complete `gitbutler-testsupport` crate, with the goal of replacing its implementation with `but-testsupport` utilities.
+#[cfg(feature = "legacy")]
+#[allow(missing_docs)]
+pub mod legacy;
+
 #[cfg(feature = "sandbox")]
 mod sandbox;
 #[cfg(feature = "sandbox")]

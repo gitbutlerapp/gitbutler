@@ -3,8 +3,8 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 
 use but_oxidize::OidExt as _;
+use but_testsupport::legacy::TestProject;
 use gitbutler_repo::hooks::{HookResult, pre_push};
-use gitbutler_testsupport::TestProject;
 
 fn gix_repo(repo: &git2::Repository) -> anyhow::Result<gix::Repository> {
     Ok(gix::open_opts(repo.path(), gix::open::Options::isolated())?)

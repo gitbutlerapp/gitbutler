@@ -1,6 +1,6 @@
 use but_oxidize::ObjectIdExt;
+use but_testsupport::legacy::stack_details;
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_testsupport::stack_details;
 
 use super::*;
 

@@ -2,12 +2,9 @@ use but_ctx::Context;
 use but_oxidize::OidExt;
 use but_workspace::{legacy::StacksFilter, ui::StackDetails};
 use gitbutler_stack::StackId;
-use gix::bstr::BStr;
+use gix::prelude::ObjectIdExt;
 
 pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
-
-/// Direct access to lower-level utilities for cases where this is enough.
-pub use gix_testtools;
 
 mod test_project;
 pub use test_project::TestProject;
@@ -32,7 +29,7 @@ pub mod virtual_branches {
     use but_oxidize::OidExt;
     use gitbutler_stack::{Target, VirtualBranchesHandle};
 
-    use crate::empty_bare_repository;
+    use super::empty_bare_repository;
 
     pub fn set_test_target(ctx: &Context) -> anyhow::Result<()> {
         let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -71,62 +68,9 @@ pub fn init_opts_bare() -> git2::RepositoryInitOptions {
     opts
 }
 
-/// Display a Git tree in the style of the `tree` CLI program, but include blob contents and usful Git metadata.
-pub fn visualize_gix_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
-    fn visualize_tree(
-        id: gix::Id<'_>,
-        name_and_mode: Option<(&BStr, gix::object::tree::EntryMode)>,
-    ) -> anyhow::Result<termtree::Tree<String>> {
-        fn short_id(id: &gix::hash::oid) -> String {
-            id.to_hex_with_len(7).to_string()
-        }
-        let repo = id.repo;
-        let entry_name =
-            |id: &gix::hash::oid, name: Option<(&BStr, gix::object::tree::EntryMode)>| -> String {
-                match name {
-                    None => short_id(id),
-                    Some((name, mode)) => {
-                        format!(
-                            "{name}:{mode}{} {}",
-                            short_id(id),
-                            match repo.find_blob(id) {
-                                Ok(blob) => format!("{:?}", blob.data.as_bstr()),
-                                Err(_) => "".into(),
-                            },
-                            mode = if mode.is_tree() {
-                                "".into()
-                            } else {
-                                format!("{:o}:", mode.value())
-                            }
-                        )
-                    }
-                }
-            };
-
-        let mut tree = termtree::Tree::new(entry_name(&id, name_and_mode));
-        for entry in repo.find_tree(id)?.iter() {
-            let entry = entry?;
-            if entry.mode().is_tree() {
-                tree.push(visualize_tree(
-                    entry.id(),
-                    Some((entry.filename(), entry.mode())),
-                )?);
-            } else {
-                tree.push(entry_name(
-                    entry.oid(),
-                    Some((entry.filename(), entry.mode())),
-                ));
-            }
-        }
-        Ok(tree)
-    }
-    visualize_tree(tree_id.object().unwrap().peel_to_tree().unwrap().id(), None).unwrap()
-}
-
-/// Visualize a git2 tree, otherwise just like [`visualize_gix_tree()`].
 pub fn visualize_git2_tree(tree_id: git2::Oid, repo: &git2::Repository) -> termtree::Tree<String> {
     let repo = gix::open_opts(repo.path(), gix::open::Options::isolated()).unwrap();
-    visualize_gix_tree(tree_id.to_gix().attach(&repo))
+    crate::visualize_tree(tree_id.to_gix().attach(&repo))
 }
 
 pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
@@ -155,10 +99,4 @@ pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
     details
 }
 
-use gix::{bstr::ByteSlice, prelude::ObjectIdExt};
-
-/// A secrets store to prevent secrets to be written into the systems own store.
-///
-/// Note that this can't be used if secrets themselves are under test as it' doesn't act
-/// like a real store, i.e. stored secrets can't be retrieved anymore.
 pub mod secrets;

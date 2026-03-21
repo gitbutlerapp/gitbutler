@@ -2,11 +2,11 @@ use std::{io::Write, path::Path};
 
 use but_core::{GitConfigSettings, RepositoryExt as _};
 use but_oxidize::ObjectIdExt;
+use but_testsupport::legacy::stack_details;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_oplog::OplogExt;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_stack::VirtualBranchesHandle;
-use gitbutler_testsupport::stack_details;
 use itertools::Itertools;
 
 use super::*;

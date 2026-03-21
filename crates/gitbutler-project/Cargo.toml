@@ -38,7 +38,7 @@ resolve-path = "0.1.0"
 schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
-gitbutler-testsupport.workspace = true
+but-testsupport = { workspace = true, features = ["legacy"] }
 tempfile.workspace = true
 insta.workspace = true
 

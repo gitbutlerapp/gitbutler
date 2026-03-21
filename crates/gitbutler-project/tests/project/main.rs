@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use but_core::RepositoryExt;
-use gitbutler_testsupport::{self, paths};
+use but_testsupport::legacy::paths;
 use tempfile::TempDir;
 
 pub fn new() -> TempDir {
@@ -13,14 +13,13 @@ fn storage_key() -> String {
 }
 
 fn repo_path_at(name: &str) -> PathBuf {
-    gitbutler_testsupport::gix_testtools::scripted_fixture_read_only("various-repositories.sh")
+    but_testsupport::gix_testtools::scripted_fixture_read_only("various-repositories.sh")
         .unwrap()
         .join(name)
 }
 
 fn writable_fixture() -> TempDir {
-    gitbutler_testsupport::gix_testtools::scripted_fixture_writable("various-repositories.sh")
-        .unwrap()
+    but_testsupport::gix_testtools::scripted_fixture_writable("various-repositories.sh").unwrap()
 }
 
 mod add {
@@ -29,7 +28,7 @@ mod add {
     #[test]
     fn success() -> anyhow::Result<()> {
         let tmp = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
+        let repo = but_testsupport::legacy::TestProject::default();
         let path = repo.path();
         let project = gitbutler_project::add_at_app_data_dir(tmp.path(), path)
             .unwrap()
@@ -44,7 +43,7 @@ mod add {
     #[test]
     fn creates_configured_storage_dir() -> anyhow::Result<()> {
         let data_dir = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
+        let repo = but_testsupport::legacy::TestProject::default();
         let key = storage_key();
         git2::Repository::open(repo.path())?
             .config()?
@@ -60,7 +59,7 @@ mod add {
     #[test]
     fn get_recreates_configured_storage_dir() -> anyhow::Result<()> {
         let data_dir = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
+        let repo = but_testsupport::legacy::TestProject::default();
         let key = storage_key();
         git2::Repository::open(repo.path())?
             .config()?
@@ -133,7 +132,7 @@ mod add {
     #[test]
     fn best_effort_adds_parent_repo_from_nested_directory() -> anyhow::Result<()> {
         let data_dir = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
+        let repo = but_testsupport::legacy::TestProject::default();
         let nested_dir = repo.path().join("nested/inside");
         let expected_worktree_dir = repo.path().canonicalize()?;
         let expected_git_dir = git2::Repository::open(repo.path())?.path().canonicalize()?;
@@ -158,7 +157,7 @@ mod add {
     #[test]
     fn best_effort_finds_existing_project_from_file_path() -> anyhow::Result<()> {
         let data_dir = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
+        let repo = but_testsupport::legacy::TestProject::default();
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())?.unwrap_project();
         let file_path = repo.path().join("nested/inside/file.txt");
@@ -226,7 +225,7 @@ mod add {
         #[test]
         fn nested_directory_inside_repo_is_not_added_by_exact_path_but_is_by_best_effort() {
             let data_dir = paths::data_dir();
-            let repo = gitbutler_testsupport::TestProject::default();
+            let repo = but_testsupport::legacy::TestProject::default();
             let nested_dir = repo.path().join("nested/inside");
             std::fs::create_dir_all(&nested_dir).unwrap();
             let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())
@@ -255,7 +254,7 @@ mod add {
         #[test]
         fn twice() {
             let data_dir = paths::data_dir();
-            let repo = gitbutler_testsupport::TestProject::default();
+            let repo = but_testsupport::legacy::TestProject::default();
             let path = repo.path();
             gitbutler_project::add_at_app_data_dir(data_dir.path(), path).unwrap();
 
@@ -318,7 +317,7 @@ mod delete {
     #[test]
     fn success() {
         let data_dir = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
+        let repo = but_testsupport::legacy::TestProject::default();
         let path = repo.path();
         let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), path)
             .unwrap()
@@ -363,7 +362,7 @@ mod delete {
     #[test]
     fn deletes_gitbutler_references() -> anyhow::Result<()> {
         let data_dir = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
+        let repo = but_testsupport::legacy::TestProject::default();
         let path = repo.path();
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
@@ -422,7 +421,7 @@ mod delete {
     fn deletes_project_without_gitbutler_references() -> anyhow::Result<()> {
         // This test ensures that deletion works even when there are no gitbutler references
         let data_dir = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
+        let repo = but_testsupport::legacy::TestProject::default();
         let path = repo.path();
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
@@ -464,7 +463,7 @@ mod delete {
     #[test]
     fn removes_configured_storage_dir() -> anyhow::Result<()> {
         let data_dir = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
+        let repo = but_testsupport::legacy::TestProject::default();
         let key = storage_key();
         git2::Repository::open(repo.path())?
             .config()?
@@ -483,7 +482,7 @@ mod delete {
     #[test]
     fn refuses_to_delete_git_dir_when_storage_path_points_to_dot_git() -> anyhow::Result<()> {
         let data_dir = paths::data_dir();
-        let repo = gitbutler_testsupport::TestProject::default();
+        let repo = but_testsupport::legacy::TestProject::default();
         let key = storage_key();
         let git_dir = git2::Repository::open(repo.path())?.path().to_path_buf();
         git2::Repository::open(repo.path())?

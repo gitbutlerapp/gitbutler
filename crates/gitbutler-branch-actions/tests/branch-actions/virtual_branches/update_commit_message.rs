@@ -1,8 +1,8 @@
 use but_oxidize::OidExt as _;
+use but_testsupport::legacy::stack_details;
 use but_workspace::ui::PushStatus;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_testsupport::stack_details;
 
 use super::*;
 

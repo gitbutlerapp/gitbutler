@@ -493,7 +493,7 @@ struct Branch {
 
 /// Stack branches from the API
 fn list_branches(ctx: &Context) -> Result<TestBranchListing> {
-    let details = gitbutler_testsupport::stack_details(ctx);
+    let details = but_testsupport::legacy::stack_details(ctx);
     let (_, details) = details.first().unwrap();
     let branches: Vec<Branch> = details
         .branch_details

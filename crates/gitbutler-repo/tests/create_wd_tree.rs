@@ -5,11 +5,11 @@ use std::{
 
 use but_core::RepositoryExt as _;
 use but_oxidize::ObjectIdExt as _;
-use gitbutler_repo::RepositoryExt as _;
-use gitbutler_testsupport::{
-    gix_testtools::scripted_fixture_read_only, testing_repository::TestingRepository,
-    visualize_git2_tree,
+use but_testsupport::{
+    gix_testtools::scripted_fixture_read_only,
+    legacy::{testing_repository::TestingRepository, visualize_git2_tree},
 };
+use gitbutler_repo::RepositoryExt as _;
 
 const MAX_SIZE: u64 = 20;
 
@@ -29,7 +29,7 @@ const MAX_SIZE: u64 = 20;
 /// | modify             | modify            | upsert |
 #[cfg(test)]
 mod head_upsert_truthtable {
-    use gitbutler_testsupport::visualize_git2_tree;
+    use but_testsupport::legacy::visualize_git2_tree;
 
     use super::*;
 

@@ -191,7 +191,6 @@ but-llm = { path = "crates/but-llm" }
 gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }
 gitbutler-filemonitor = { path = "crates/gitbutler-filemonitor" }
-gitbutler-testsupport = { path = "crates/gitbutler-testsupport" }
 gitbutler-branch-actions = { path = "crates/gitbutler-branch-actions" }
 gitbutler-oplog = { path = "crates/gitbutler-oplog" }
 gitbutler-repo = { path = "crates/gitbutler-repo" }

@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use but_forge::ForgeReview;
+use but_testsupport::legacy::stack_details;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::upstream_integration::{BranchStatus, StackStatuses, TreeStatus};
 use gitbutler_reference::Refname;
-use gitbutler_testsupport::stack_details;
 
 use super::*;
 

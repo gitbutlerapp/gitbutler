@@ -9,7 +9,7 @@ use but_settings::AppSettings;
 use gitbutler_repo::RepositoryExt;
 use tempfile::{TempDir, tempdir};
 
-use crate::{VAR_NO_CLEANUP, init_opts, init_opts_bare, test_project::setup_config};
+use super::{VAR_NO_CLEANUP, init_opts, init_opts_bare, test_project::setup_config};
 
 pub struct Suite {
     pub local_app_data: Option<TempDir>,
@@ -40,9 +40,9 @@ impl Suite {
         self.local_app_data.as_ref().unwrap().path()
     }
     pub fn sign_in(&self) -> gitbutler_user::User {
-        crate::secrets::setup_blackhole_store();
+        crate::legacy::secrets::setup_blackhole_store();
         let user: gitbutler_user::User =
-            serde_json::from_str(include_str!("fixtures/user/minimal.v1"))
+            serde_json::from_str(include_str!("../fixtures/user/minimal.v1"))
                 .expect("valid v1 user file");
         gitbutler_user::set_user(&user).expect("failed to add user");
         user
@@ -86,7 +86,6 @@ impl Suite {
 pub struct Case {
     pub project: gitbutler_project::Project,
     pub ctx: Context,
-    /// The directory containing the `ctx`
     pub project_tmp: Option<TempDir>,
 }
 
