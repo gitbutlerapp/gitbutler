@@ -1,10 +1,12 @@
 use std::{
+    borrow::Cow,
     ffi::OsString,
     process::Command,
     sync::Arc,
     time::{Duration, Instant},
 };
 
+use anyhow::Context as _;
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
 use crossterm::event::{self, Event};
@@ -24,10 +26,12 @@ use crate::{
     command::legacy::{
         rub::{RubOperation, route_operation},
         status::{
-            StatusFlags, StatusOutputLine,
+            CommitLineContent, StatusFlags, StatusOutputLine,
+            output::BranchLineContent,
             tui::{
                 cursor::{Cursor, is_selectable_in_mode},
                 graph_extension::{ExtensionDirection, extend_connector_spans},
+                highlight::{Highlights, with_highlight},
                 key_bind::{KeyBinds, default_key_binds},
             },
         },
@@ -44,6 +48,7 @@ use super::{
 
 mod cursor;
 mod graph_extension;
+mod highlight;
 mod key_bind;
 mod operations;
 mod rub_api;
@@ -134,6 +139,37 @@ where
     anyhow::Error: From<<T::Backend as Backend>::Error>,
     E: EventPolling,
 {
+    update(
+        app,
+        terminal_guard,
+        event_polling,
+        messages,
+        other_messages,
+        ctx,
+        out,
+        mode,
+    )
+    .await?;
+    render(app, terminal_guard)?;
+    Ok(())
+}
+
+#[expect(clippy::too_many_arguments)]
+async fn update<T, E>(
+    app: &mut App,
+    terminal_guard: &mut T,
+    event_polling: E,
+    messages: &mut Vec<Message>,
+    other_messages: &mut Vec<Message>,
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    mode: &OperatingMode,
+) -> anyhow::Result<()>
+where
+    T: TerminalGuard,
+    anyhow::Error: From<<T::Backend as Backend>::Error>,
+    E: EventPolling,
+{
     // poll events
     for event in event_polling.poll()? {
         event_to_messages(event, &app.key_binds, &app.mode, messages);
@@ -159,7 +195,18 @@ where
         app.should_render = true;
     }
 
-    // render
+    if app.highlight.update() {
+        app.should_render = true;
+    }
+
+    Ok(())
+}
+
+fn render<T>(app: &mut App, terminal_guard: &mut T) -> anyhow::Result<()>
+where
+    T: TerminalGuard,
+    anyhow::Error: From<<T::Backend as Backend>::Error>,
+{
     if std::mem::take(&mut app.should_render) {
         terminal_guard.terminal_mut().draw(|frame| {
             app.renders += 1;
@@ -183,6 +230,7 @@ struct App {
     debug_enabled: bool,
     errors: Vec<AppError>,
     renders: u64,
+    highlight: Highlights,
 }
 
 impl App {
@@ -201,6 +249,7 @@ impl App {
             debug_enabled: debug,
             errors: Vec::new(),
             renders: 0,
+            highlight: Default::default(),
         }
     }
 
@@ -418,6 +467,9 @@ impl App {
                     self.handle_create_new_branch(ctx, messages)?;
                 }
             },
+            Message::CopySelection => {
+                self.handle_copy_selection()?;
+            }
         }
 
         self.ensure_cursor_visible(visible_height);
@@ -1159,6 +1211,33 @@ impl App {
         Ok(())
     }
 
+    fn handle_copy_selection(&mut self) -> anyhow::Result<()> {
+        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+            return Ok(());
+        };
+        let Some(cli_id) = selection.data.cli_id() else {
+            return Ok(());
+        };
+
+        let what_to_copy = match &**cli_id {
+            CliId::Branch { name, .. } => Cow::Borrowed(&**name),
+            CliId::Commit { commit_id, .. } => Cow::Owned(commit_id.to_hex_with_len(7).to_string()),
+            CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Unassigned { .. }
+            | CliId::Stack { .. }
+            | CliId::Uncommitted(_) => return Ok(()),
+        };
+
+        arboard::Clipboard::new()
+            .and_then(|mut clipboard| clipboard.set_text(what_to_copy))
+            .context("failed to copy to system clipboard")?;
+
+        self.highlight.insert(Arc::clone(cli_id));
+
+        Ok(())
+    }
+
     /// Handles opening the full-screen commit reword editor for the selected commit.
     fn handle_reword_with_editor<T>(
         &mut self,
@@ -1499,17 +1578,47 @@ impl App {
 
         let content_spans = match content {
             StatusOutputContent::Plain(spans) => spans.clone(),
-            StatusOutputContent::Commit(commit_content) => {
+            StatusOutputContent::Commit(CommitLineContent {
+                sha,
+                author,
+                message,
+                suffix,
+            }) => {
+                let mut spans =
+                    Vec::with_capacity(sha.len() + author.len() + message.len() + suffix.len());
+                if data.cli_id().is_some_and(|id| self.highlight.contains(id)) {
+                    spans.extend(sha.iter().cloned().map(with_highlight));
+                } else {
+                    spans.extend(sha.iter().cloned());
+                }
+                spans.extend(author.iter().cloned());
+                spans.extend(message.iter().cloned());
+                spans.extend(suffix.iter().cloned());
+                spans
+            }
+            StatusOutputContent::Branch(BranchLineContent {
+                id,
+                decoration_start,
+                branch_name,
+                decoration_end,
+                suffix,
+            }) => {
                 let mut spans = Vec::with_capacity(
-                    commit_content.sha.len()
-                        + commit_content.author.len()
-                        + commit_content.message.len()
-                        + commit_content.suffix.len(),
+                    id.len()
+                        + decoration_start.len()
+                        + branch_name.len()
+                        + decoration_end.len()
+                        + suffix.len(),
                 );
-                spans.extend(commit_content.sha.iter().cloned());
-                spans.extend(commit_content.author.iter().cloned());
-                spans.extend(commit_content.message.iter().cloned());
-                spans.extend(commit_content.suffix.iter().cloned());
+                spans.extend(id.iter().cloned());
+                spans.extend(decoration_start.iter().cloned());
+                if data.cli_id().is_some_and(|id| self.highlight.contains(id)) {
+                    spans.extend(branch_name.iter().cloned().map(with_highlight));
+                } else {
+                    spans.extend(branch_name.iter().cloned());
+                }
+                spans.extend(decoration_end.iter().cloned());
+                spans.extend(suffix.iter().cloned());
                 spans
             }
         };
@@ -1949,6 +2058,9 @@ enum Message {
     Files(FilesMessage),
     Move(MoveMessage),
     Branch(BranchMessage),
+
+    // Utilities
+    CopySelection,
 }
 
 #[derive(Debug, Clone)]
