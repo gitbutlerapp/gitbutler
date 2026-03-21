@@ -163,9 +163,9 @@ fn serialize_line(line: gix::refs::file::log::LineRef<'_>) -> String {
 
 #[cfg(test)]
 mod set_target_ref {
-    use std::path::PathBuf;
+    use std::{path::Path, process::Command, str::FromStr};
 
-    use but_oxidize::OidExt;
+    use anyhow::{Context as _, bail};
     use gix::refs::file::log::LineRef;
     use pretty_assertions::assert_eq;
     use tempfile::tempdir;
@@ -181,7 +181,7 @@ mod set_target_ref {
         let worktree_dir = dir.path();
         let git_dir = worktree_dir.join(".git");
 
-        let oplog = git2::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
+        let oplog = gix::ObjectId::from_str("0123456789abcdef0123456789abcdef01234567")?;
         set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog)).expect("success");
 
         let log_file_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
@@ -203,7 +203,7 @@ mod set_target_ref {
         let worktree_dir = dir.path();
         let git_dir = worktree_dir.join(".git");
 
-        let oplog = git2::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
+        let oplog = gix::ObjectId::from_str("0123456789abcdef0123456789abcdef01234567")?;
         set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog)).expect("success");
 
         let log_file_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
@@ -222,7 +222,7 @@ mod set_target_ref {
         let worktree_dir = dir.path();
         let git_dir = worktree_dir.join(".git");
 
-        let oplog = git2::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
+        let oplog = gix::ObjectId::from_str("0123456789abcdef0123456789abcdef01234567")?;
         set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog)).expect("success");
 
         let loose_ref_path = worktree_dir.join(".git/refs/heads/gitbutler/target");
@@ -242,7 +242,7 @@ mod set_target_ref {
         let worktree_dir = dir.path();
         let git_dir = worktree_dir.join(".git");
 
-        let oplog = git2::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
+        let oplog = gix::ObjectId::from_str("0123456789abcdef0123456789abcdef01234567")?;
         set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog)).expect("success");
 
         let log_file_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
@@ -271,7 +271,7 @@ mod set_target_ref {
 
         // Set ref for the first time
         let oplog_hex = "0123456789abcdef0123456789abcdef01234567";
-        let oplog = git2::Oid::from_str(oplog_hex)?;
+        let oplog: gix::ObjectId = oplog_hex.parse()?;
         set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog)).expect("success");
         assert!(log_file_path.exists());
         let contents = std::fs::read_to_string(&log_file_path)?;
@@ -305,7 +305,7 @@ mod set_target_ref {
 
         // Update the oplog head only
         let another_oplog_hex = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-        let another_oplog = git2::Oid::from_str(another_oplog_hex)?;
+        let another_oplog: gix::ObjectId = another_oplog_hex.parse()?;
         set_reference_to_oplog(&git_dir, reflog_commits(commit_id, another_oplog))
             .expect("success");
 
@@ -335,7 +335,7 @@ mod set_target_ref {
 
         // Update the target head only
         let new_target_hex = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-        let new_target = git2::Oid::from_str(new_target_hex)?;
+        let new_target: gix::ObjectId = new_target_hex.parse()?;
         set_reference_to_oplog(&git_dir, reflog_commits(new_target, another_oplog))
             .expect("success");
 
@@ -383,33 +383,53 @@ mod set_target_ref {
         );
     }
 
-    fn reflog_commits(target: git2::Oid, oplog: git2::Oid) -> ReflogCommits {
+    fn reflog_commits(target: gix::ObjectId, oplog: gix::ObjectId) -> ReflogCommits {
         ReflogCommits {
-            target: target.to_gix(),
-            oplog: Some(oplog.to_gix()),
+            target,
+            oplog: Some(oplog),
             last_pushed_base: None,
         }
     }
 
-    fn setup_repo() -> anyhow::Result<(tempfile::TempDir, git2::Oid)> {
+    fn setup_repo() -> anyhow::Result<(tempfile::TempDir, gix::ObjectId)> {
         let dir = tempdir()?;
-        let repo = git2::Repository::init(dir.path())?;
         let file_path = dir.path().join("foo.txt");
-        std::fs::write(file_path, "test")?;
-        let mut index = repo.index()?;
-        index.add_path(&PathBuf::from("foo.txt"))?;
-        let oid = index.write_tree()?;
-        let name = "Your name";
-        let email = "your.email@example.com";
-        let signature = git2::Signature::now(name, email)?;
-        let commit_id = repo.commit(
-            Some("HEAD"),
-            &signature,
-            &signature,
-            "initial commit",
-            &repo.find_tree(oid)?,
-            &[],
+        git(dir.path(), &["init"])?;
+        git(dir.path(), &["config", "user.name", "Your name"])?;
+        git(
+            dir.path(),
+            &["config", "user.email", "your.email@example.com"],
         )?;
+        git(dir.path(), &["config", "commit.gpgsign", "false"])?;
+        std::fs::write(file_path, "test")?;
+        git(dir.path(), &["add", "foo.txt"])?;
+        git(dir.path(), &["commit", "-m", "initial commit"])?;
+        let repo = gix::open(dir.path())?;
+        let commit_id = repo.head_id()?.detach();
         Ok((dir, commit_id))
+    }
+
+    fn git(worktree_dir: &Path, args: &[&str]) -> anyhow::Result<()> {
+        let status = Command::new("git")
+            .arg("-C")
+            .arg(worktree_dir)
+            .args(args)
+            .status()
+            .with_context(|| {
+                format!(
+                    "failed to run git -C {} {}",
+                    worktree_dir.display(),
+                    args.join(" ")
+                )
+            })?;
+        if status.success() {
+            Ok(())
+        } else {
+            bail!(
+                "git -C {} {} failed with status {status}",
+                worktree_dir.display(),
+                args.join(" ")
+            );
+        }
     }
 }
