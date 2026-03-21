@@ -916,9 +916,6 @@ impl App {
     }
 
     fn handle_move_start_message(&mut self) {
-        if !matches!(self.mode, Mode::Normal) {
-            return;
-        }
         let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
             return;
         };
