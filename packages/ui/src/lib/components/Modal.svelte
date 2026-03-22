@@ -61,10 +61,29 @@
 	let item = $state<T>(defaultItem as any);
 	let isClosing = $state(false);
 	let closingPromise: Promise<void> | undefined = undefined;
+	let formEl: HTMLFormElement | undefined = $state();
 
 	function handleKeyDown(event: KeyboardEvent) {
 		if (event.key === "Escape") {
 			close();
+		}
+		if (event.key === "Enter") {
+			const target = event.target;
+			const isNativeSubmitElement =
+				target instanceof HTMLInputElement ||
+				target instanceof HTMLTextAreaElement ||
+				target instanceof HTMLButtonElement ||
+				(target instanceof HTMLElement && target.isContentEditable);
+			if (!isNativeSubmitElement) {
+				event.preventDefault();
+				// Click the submit button if one exists (triggers AsyncButton loading state).
+				const submitBtn = formEl?.querySelector<HTMLButtonElement>('button[type="submit"]');
+				if (submitBtn) {
+					submitBtn.click();
+				} else {
+					onSubmit?.(close, item);
+				}
+			}
 		}
 	}
 
@@ -83,6 +102,8 @@
 	export function close(): Promise<void> {
 		if (!open) return Promise.resolve();
 		if (isClosing && closingPromise) return closingPromise;
+
+		window.removeEventListener("keydown", handleKeyDown);
 
 		isClosing = true;
 		closingPromise = new Promise((resolve) => {
@@ -126,6 +147,7 @@
 		onkeydown={onKeyDown}
 	>
 		<form
+			bind:this={formEl}
 			class="modal-form"
 			class:medium={width === "medium"}
 			class:large={width === "large"}

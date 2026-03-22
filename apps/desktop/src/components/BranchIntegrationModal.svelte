@@ -9,6 +9,18 @@
 		type Commit,
 		type UpstreamCommit,
 	} from "$lib/branches/v3";
+	import {
+		canShiftStepDown,
+		canShiftStepUp,
+		getStepCommitInfo,
+		pickLocalStep,
+		pickUpstreamStep,
+		shiftStepDown,
+		shiftStepUp,
+		splitStepAtCommit,
+		squashStepInto,
+		updateStepType,
+	} from "$lib/stacks/integrationStepUtils";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Modal, ModalFooter, Button, ScrollableContainer, SimpleCommitRow } from "@gitbutler/ui";
@@ -28,7 +40,6 @@
 		modalRef?.close();
 	}
 
-	// --- Begin InteractiveBranchIntegration logic ---
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const stackService = inject(STACK_SERVICE);
 	const [integrate, integrating] = stackService.integrateBranchWithSteps;
@@ -40,180 +51,52 @@
 
 	let editableSteps = $derived(initialIntegrationSteps.response ?? []);
 
-	// Constants
 	const FLIP_ANIMATION_DURATION = 150;
 	const MAX_SCROLL_HEIGHT = "50vh";
 
-	// Helper functions for step manipulation
-	function updateStepType(stepId: string, commitId: string, newType: "pick" | "skip") {
-		editableSteps = editableSteps.map((step) => {
-			if (step.subject.id === stepId) {
-				return { type: newType, subject: { id: stepId, commitId } };
-			}
-			return step;
-		});
-	}
-
-	function pickUpstreamFromStep(stepId: string, commitId: string, upstreamCommitId: string) {
-		editableSteps = editableSteps.map((step) => {
-			if (step.subject.id === stepId) {
-				return {
-					type: "pickUpstream",
-					subject: { id: stepId, commitId, upstreamCommitId },
-				};
-			}
-			return step;
-		});
-	}
-
-	function pickLocalFromStep(stepId: string, commitId: string) {
-		editableSteps = editableSteps.map((step) => {
-			if (step.subject.id === stepId) {
-				return { type: "pick", subject: { id: stepId, commitId } };
-			}
-			return step;
-		});
-	}
-
 	function skipStepById(stepId: string, commitId: string) {
-		updateStepType(stepId, commitId, "skip");
+		editableSteps = updateStepType(editableSteps, stepId, commitId, "skip");
 	}
 	function pickStepById(stepId: string, commitId: string) {
-		updateStepType(stepId, commitId, "pick");
+		editableSteps = updateStepType(editableSteps, stepId, commitId, "pick");
 	}
+	function pickUpstreamFromStep(stepId: string, commitId: string, upstreamCommitId: string) {
+		editableSteps = pickUpstreamStep(editableSteps, stepId, commitId, upstreamCommitId);
+	}
+	function pickLocalFromStep(stepId: string, commitId: string) {
+		editableSteps = pickLocalStep(editableSteps, stepId, commitId);
+	}
+
 	async function getCommitMessage(commitIds: string[]): Promise<string> {
 		if (stackId === undefined) return "";
 		const commitDetails = await stackService.fetchCommitsByIds(projectId, stackId, commitIds);
 		return commitDetails.map((c) => c.message).join("\n\n");
 	}
-	function getStepCommitInfo(step: InteractiveIntegrationStep): {
-		id: string;
-		commitIds: string[];
-	} {
-		const id = step.subject.id;
-		switch (step.type) {
-			case "pickUpstream":
-				return { id, commitIds: [step.subject.upstreamCommitId] };
-			case "pick":
-			case "skip":
-				return { id, commitIds: [step.subject.commitId] };
-			case "squash":
-				return { id, commitIds: step.subject.commits };
-		}
-	}
 	async function squashStepById(stepId: string, commitIds: string[]) {
-		const stepIndex = editableSteps.findIndex((step) => step.subject.id === stepId);
-		const isValidSquashOperation = stepIndex !== -1 && stepIndex < editableSteps.length - 1;
-		if (!isValidSquashOperation) {
-			return;
-		}
-		const newSteps = structuredClone(editableSteps);
-		const stepToSquash = newSteps[stepIndex];
-		const stepToBeSquashedInto = newSteps[stepIndex + 1];
-		if (!stepToSquash || !stepToBeSquashedInto) {
-			return;
-		}
-		const targetStepInfo = getStepCommitInfo(stepToBeSquashedInto);
+		const stepIndex = editableSteps.findIndex((s) => s.subject.id === stepId);
+		if (stepIndex === -1 || stepIndex >= editableSteps.length - 1) return;
+		const targetStepInfo = getStepCommitInfo(editableSteps[stepIndex + 1]!);
 		const combinedCommits = [...commitIds, ...targetStepInfo.commitIds];
 		const squashMessage = await getCommitMessage(combinedCommits);
-		newSteps.splice(stepIndex, 2, {
-			type: "squash",
-			subject: {
-				id: targetStepInfo.id,
-				commits: combinedCommits,
-				message: squashMessage,
-			},
-		});
-		editableSteps = newSteps;
+		editableSteps = squashStepInto(editableSteps, stepId, commitIds, squashMessage);
 	}
 	async function splitOffCommitFromStep(stepId: string, commitId: string) {
-		const stepIndex = editableSteps.findIndex((step) => step.subject.id === stepId);
-		if (stepIndex === -1) return;
-		const newSteps = structuredClone(editableSteps);
-		const stepToSplit = newSteps[stepIndex];
-		if (!stepToSplit || stepToSplit.type !== "squash") {
-			return;
-		}
-		const { commits } = stepToSplit.subject;
-		const canSplitCommits = commits.length > 1 && commits.includes(commitId);
-		if (!canSplitCommits) return;
+		const step = editableSteps.find((s) => s.subject.id === stepId);
+		if (!step || step.type !== "squash") return;
+		const { commits } = step.subject;
 		const commitIndex = commits.indexOf(commitId);
-		if (commitIndex === -1) return;
+		if (commitIndex <= 0 || !commits.includes(commitId)) return;
 		const firstGroup = commits.slice(0, commitIndex);
 		const secondGroup = commits.slice(commitIndex);
-		if (firstGroup.length === 0) return;
-		if (firstGroup.length === 1) {
-			newSteps[stepIndex] = {
-				type: "pick",
-				subject: { id: stepId, commitId: firstGroup[0]! },
-			};
-		} else {
-			const firstGroupMessage = await getCommitMessage(firstGroup);
-			newSteps[stepIndex] = {
-				type: "squash",
-				subject: {
-					id: stepId,
-					commits: firstGroup,
-					message: firstGroupMessage,
-				},
-			};
-		}
-		if (secondGroup.length === 1) {
-			const newPickStep = {
-				type: "pick" as const,
-				subject: {
-					id: crypto.randomUUID(),
-					commitId: secondGroup[0]!,
-				},
-			};
-			newSteps.splice(stepIndex + 1, 0, newPickStep);
-		} else {
-			const secondGroupMessage = await getCommitMessage(secondGroup);
-			const newSquashStep = {
-				type: "squash" as const,
-				subject: {
-					id: crypto.randomUUID(),
-					commits: secondGroup,
-					message: secondGroupMessage,
-				},
-			};
-			newSteps.splice(stepIndex + 1, 0, newSquashStep);
-		}
-		editableSteps = newSteps;
-	}
-	function getStepIndex(stepId: string): number {
-		return editableSteps.findIndex((step) => step.subject.id === stepId);
-	}
-	function canShiftStepUp(stepId: string): boolean {
-		const index = getStepIndex(stepId);
-		return index > 0;
-	}
-	function canShiftStepDown(stepId: string): boolean {
-		const index = getStepIndex(stepId);
-		return index !== -1 && index < editableSteps.length - 1;
-	}
-	function swapSteps(indexA: number, indexB: number) {
-		const newSteps = structuredClone(editableSteps);
-		const stepA = newSteps[indexA];
-		const stepB = newSteps[indexB];
-		if (!stepA || !stepB) return;
-		newSteps[indexA] = stepB;
-		newSteps[indexB] = stepA;
-		editableSteps = newSteps;
-	}
-	function shiftStepDown(stepId: string) {
-		const currentIndex = getStepIndex(stepId);
-		const isValidShift = currentIndex !== -1 && currentIndex < editableSteps.length - 1;
-		if (isValidShift) {
-			swapSteps(currentIndex, currentIndex + 1);
-		}
-	}
-	function shiftStepUp(stepId: string) {
-		const currentIndex = getStepIndex(stepId);
-		const isValidShift = currentIndex > 0;
-		if (isValidShift) {
-			swapSteps(currentIndex, currentIndex - 1);
-		}
+		const firstGroupMessage = firstGroup.length > 1 ? await getCommitMessage(firstGroup) : "";
+		const secondGroupMessage = secondGroup.length > 1 ? await getCommitMessage(secondGroup) : "";
+		editableSteps = splitStepAtCommit(
+			editableSteps,
+			stepId,
+			commitId,
+			firstGroupMessage,
+			secondGroupMessage,
+		);
 	}
 	async function handleIntegrate() {
 		if (stackId === undefined) {
@@ -227,7 +110,6 @@
 		});
 		closeModal();
 	}
-	// --- End InteractiveBranchIntegration logic ---
 </script>
 
 <Modal bind:this={modalRef} title="Integrate the upstream changes" noPadding width={500}>
@@ -480,8 +362,8 @@
 			class="branch-integration__move-buttons__up"
 			size="tag"
 			icon="arrow-up"
-			disabled={!canShiftStepUp(stepId) || disabled}
-			onclick={() => shiftStepUp(stepId)}
+			disabled={!canShiftStepUp(editableSteps, stepId) || disabled}
+			onclick={() => (editableSteps = shiftStepUp(editableSteps, stepId))}
 		/>
 		<Button
 			kind="outline"
@@ -489,8 +371,8 @@
 			class="branch-integration__move-buttons__down"
 			size="tag"
 			icon="arrow-down"
-			disabled={!canShiftStepDown(stepId) || disabled}
-			onclick={() => shiftStepDown(stepId)}
+			disabled={!canShiftStepDown(editableSteps, stepId) || disabled}
+			onclick={() => (editableSteps = shiftStepDown(editableSteps, stepId))}
 		/>
 	</div>
 {/snippet}
