@@ -836,13 +836,15 @@
 		visibleRowElements = viewport.getElementsByClassName("list-row");
 	});
 
-	// When the viewport shrinks (e.g. on-screen keyboard opens), recalculate
-	// and snap to bottom if we were already near it.
+	// When the viewport resizes, recalculate ranges. If stickToBottom is
+	// active and the user was near the bottom, snap back to bottom
+	// regardless of whether the viewport shrank or grew.
 	$effect(() => {
 		if (!viewportHeight) return;
 		const shrunk = viewportHeight < previousViewportHeight;
+		const grew = viewportHeight > previousViewportHeight;
 		previousViewportHeight = viewportHeight;
-		if (shrunk) {
+		if (shrunk || grew) {
 			untrack(async () => {
 				const nearBottom = isNearBottom(previousDistance);
 				await recalculateRanges();
