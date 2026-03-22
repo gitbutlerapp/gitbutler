@@ -55,6 +55,7 @@
 	"devDependencies": {
 		"@eslint/js": "9.39.3",
 		"@gitbutler/no-relative-imports": "workspace:*",
+		"@gitbutler/no-cross-domain-imports": "workspace:*",
 		"@tauri-apps/cli": "^2.10.1",
 		"@types/eslint": "9.6.1",
 		"@types/node": "^22.19.11",
