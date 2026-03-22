@@ -641,7 +641,6 @@ impl OutputChannel<'static> {
 }
 
 impl<'a> OutputChannel<'a> {
-    #[expect(dead_code)]
     pub fn in_memory(buf: &'a mut Vec<u8>, format: OutputFormat) -> Self {
         OutputChannel {
             format,
@@ -683,7 +682,6 @@ enum OutputChannelOutput<'a> {
     /// Write to stdout.
     Stdout(std::io::Stdout),
     /// Write to an in-memory buffer.
-    #[expect(dead_code)]
     InMemory(&'a mut Vec<u8>),
 }
 

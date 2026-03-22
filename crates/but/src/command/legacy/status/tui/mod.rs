@@ -661,9 +661,10 @@ impl App {
             }) => {
                 if let Some(selected_line) = self.cursor.selected_line(&self.status_lines)
                     && let Some(target) = selected_line.data.cli_id()
-                    && let Some(operation) = route_operation(source, target)
                 {
-                    with_noop_output(|out| operations::rub_legacy(ctx, out, operation))?;
+                    let source = cli_id_target(source);
+                    let target = cli_id_target(target);
+                    with_noop_output(|out| operations::rub_legacy(ctx, out, source, target))?;
                 }
                 None
             }
@@ -2329,7 +2330,7 @@ fn with_noop_output<F, T>(f: F) -> T
 where
     F: FnOnce(&mut OutputChannel<'_>) -> T,
 {
-    let mut noop_out = OutputChannel::new_without_pager_non_json(OutputFormat::None);
+    let mut noop_out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
     f(&mut noop_out)
 }
 
@@ -2540,4 +2541,16 @@ enum MoveTarget<'a> {
     Branch { name: &'a str },
     Commit { commit_id: gix::ObjectId },
     MergeBase,
+}
+
+fn cli_id_target(id: &CliId) -> &str {
+    match id {
+        CliId::Uncommitted(uncommitted_cli_id) => &uncommitted_cli_id.id,
+        CliId::PathPrefix { id, .. }
+        | CliId::CommittedFile { id, .. }
+        | CliId::Branch { name: id, .. }
+        | CliId::Commit { id, .. }
+        | CliId::Unassigned { id }
+        | CliId::Stack { id, .. } => id,
+    }
 }

@@ -180,9 +180,10 @@ pub(super) fn create_commit_legacy(
 pub(super) fn rub_legacy(
     ctx: &mut Context,
     out: &mut OutputChannel<'_>,
-    operation: RubOperation<'_>,
+    source: &str,
+    target: &str,
 ) -> anyhow::Result<()> {
-    operation.execute(ctx, out)
+    crate::command::legacy::rub::handle(ctx, out, source, target)
 }
 
 pub(super) fn rub_using_but_api(
