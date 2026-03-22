@@ -34,7 +34,7 @@
 	} from "$lib/commits/dropHandler";
 	import { projectRunCommitHooks } from "$lib/config/config";
 	import { isParsedError } from "$lib/error/parser";
-	import { HOOKS_SERVICE } from "$lib/hooks/hooksService";
+
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { getStackContext } from "$lib/stack/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -58,7 +58,7 @@
 	const controller = getStackContext();
 
 	const stackService = inject(STACK_SERVICE);
-	const hooksService = inject(HOOKS_SERVICE);
+
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 
 	const RESIZER_CONFIG = {

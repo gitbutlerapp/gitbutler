@@ -71,7 +71,7 @@
 	const controller = getStackContext();
 	const projectId = $derived(controller.projectId);
 	const stackId = $derived(controller.stackId);
-	const laneId = $derived(controller.laneId);
+
 	const branchName = $derived(controller.branchName ?? "");
 
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
