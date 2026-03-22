@@ -10,9 +10,8 @@ rust-version.workspace = true
 doctest = false
 
 [dependencies]
-gix.workspace = true
+gix = { workspace = true, features = ["status", "dirwalk", "attributes"] }
 anyhow.workspace = true
-bstr.workspace = true
 
 [lints]
 workspace = true

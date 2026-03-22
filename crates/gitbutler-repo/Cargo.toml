@@ -12,9 +12,7 @@ doctest = false
 
 [dependencies]
 but-error.workspace = true
-but-rebase.workspace = true
 but-core = { workspace = true, features = ["legacy"] }
-but-status.workspace = true
 but-gerrit.workspace = true
 but-oxidize.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }

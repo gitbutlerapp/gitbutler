@@ -1,4 +1,5 @@
 //! Functions related to retrieving stack information.
+
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context as _, bail};

@@ -4,14 +4,11 @@ use anyhow::{Context as _, Result, bail};
 use bstr::ByteSlice;
 use but_core::{Reference, RepositoryExt};
 use but_ctx::{Context, access::RepoExclusive};
-use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{RebaseOutput, RebaseStep};
 use but_serde::BStringForFrontend;
 use but_workspace::{legacy::stack_ext::StackDetailsExt, ref_info::Options};
 use gitbutler_commit::commit_ext::CommitExt as _;
-use gitbutler_repo::{
-    RepositoryExt as _, first_parent_commit_ids_until, rebase::gitbutler_merge_commits,
-};
+use gitbutler_repo::{first_parent_commit_ids_until, rebase::merge_commits};
 use gitbutler_stack::{StackId, Target, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
 use gix::merge::tree::TreatAsUnresolved;
@@ -243,9 +240,7 @@ fn stack_details(
     but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta, &mut cache)
 }
 
-/// Returns the status of a stack
-/// Takes both a gix and git2 repository. The git2 repository can't be in
-/// memory as the gix repository needs to be able to access those commits
+/// Returns the status of a stack.
 fn get_stack_status(
     gix_repo: &gix::Repository,
     new_target_commit_id: gix::ObjectId,
@@ -374,13 +369,8 @@ pub fn upstream_integration_statuses(
         .tree_id()?;
 
     // The working directory tree
-    let workdir_tree = context
-        .ctx
-        .git2_repo
-        .get()?
-        .create_wd_tree(gitbutler_project::AUTO_TRACK_LIMIT_BYTES)?
-        .id()
-        .to_gix();
+    #[expect(deprecated)]
+    let workdir_tree = repo.create_wd_tree(gitbutler_project::AUTO_TRACK_LIMIT_BYTES)?;
 
     // The target tree
     let target_tree = repo.find_commit(*new_target)?.tree_id()?;
@@ -645,7 +635,6 @@ pub(crate) fn resolve_upstream_integration(
 ) -> Result<gix::ObjectId> {
     let repo = ctx.repo.get()?;
     let context = UpstreamIntegrationContext::open(ctx, None, permission, &repo, review_map)?;
-    let git2_repo = &*ctx.git2_repo.get()?;
     let new_target_id = context.new_target;
     let old_target_id = context.target.sha;
     let fork_point = repo.merge_base(old_target_id, new_target_id)?.detach();
@@ -654,16 +643,14 @@ pub(crate) fn resolve_upstream_integration(
         BaseBranchResolutionApproach::HardReset => Ok(new_target_id),
         BaseBranchResolutionApproach::Merge => {
             let branch_name = context.target.branch.to_string();
-            let old_target = git2_repo.find_commit(old_target_id.to_git2())?;
-            let new_head = gitbutler_merge_commits(
-                git2_repo,
-                old_target,
-                git2_repo.find_commit(context.new_target.to_git2())?,
-                &branch_name,
-                &branch_name,
+            let new_head = merge_commits(
+                &repo,
+                old_target_id,
+                context.new_target,
+                &format!("Merge `{branch_name}` into `{branch_name}`"),
             )?;
 
-            Ok(new_head.id().to_gix())
+            Ok(new_head)
         }
         BaseBranchResolutionApproach::Rebase => {
             let steps = first_parent_commit_ids_until(&repo, old_target_id, fork_point)?
@@ -691,11 +678,10 @@ fn compute_resolutions(
         new_target,
         target,
         stacks_in_workspace,
-        ctx,
+        gix_repo,
         ..
     } = context;
 
-    let repo = &*ctx.git2_repo.get()?;
     let results = resolutions
         .iter()
         .map(|resolution| {
@@ -711,25 +697,23 @@ fn compute_resolutions(
                 ResolutionApproach::Delete => Ok((stack.id, IntegrationResult::DeleteBranch)),
                 ResolutionApproach::Merge => {
                     // Make a merge commit. It will be set as a stack head later.
-                    let target_commit = repo.find_commit(stack.tip.to_git2())?;
                     let top_branch = stack.heads.last().context("top branch not found")?;
 
                     // These two go into the merge commit message.
                     let incoming_branch_name = target.branch.fullname();
                     let target_branch_name = top_branch.name.to_str()?;
 
-                    let new_head = gitbutler_merge_commits(
-                        repo,
-                        target_commit,
-                        repo.find_commit(new_target.to_git2())?,
-                        target_branch_name,
-                        &incoming_branch_name,
+                    let new_head = merge_commits(
+                        gix_repo,
+                        stack.tip,
+                        *new_target,
+                        &format!("Merge `{incoming_branch_name}` into `{target_branch_name}`"),
                     )?;
 
                     Ok((
                         stack.id,
                         IntegrationResult::UpdatedObjects {
-                            head: new_head.id().to_gix(),
+                            head: new_head,
                             rebase_output: None,
                             for_archival: vec![],
                         },

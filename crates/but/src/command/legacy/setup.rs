@@ -264,7 +264,7 @@ pub(crate) fn repo(
             writeln!(out, "{}", "→ Configuring default target branch".dimmed())?;
         }
 
-        let repo = ctx.repo.get()?;
+        let mut repo = ctx.repo.get_mut()?;
         let remote_name = match repo.remote_default_name(gix::remote::Direction::Push) {
             Some(name) => {
                 if let Some(out) = out.for_human() {
@@ -276,7 +276,11 @@ pub(crate) fn repo(
                 }
                 name.to_string()
             }
-            None => setup_local_remote(&repo, out)?,
+            None => {
+                let remote_name = setup_local_remote(&repo, out)?;
+                repo.reload()?;
+                remote_name
+            }
         };
 
         // Try to find the remote HEAD, or fall back to detecting main/master
@@ -382,8 +386,8 @@ pub(crate) fn repo(
     }
 
     // Install managed hooks to prevent accidental git commits
-    if let Ok(git2_repo) = git2::Repository::open(repo_path)
-        && let Err(e) = gitbutler_repo::managed_hooks::install_managed_hooks(&git2_repo)
+    if let Ok(repo) = ctx.repo.get()
+        && let Err(e) = gitbutler_repo::managed_hooks::install_managed_hooks_gix(&repo)
         && let Some(out) = out.for_human()
     {
         writeln!(

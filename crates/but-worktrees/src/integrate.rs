@@ -7,7 +7,6 @@ use but_ctx::{
 };
 use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseOutput, RebaseStep};
-use but_status::create_wd_tree;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
@@ -131,7 +130,8 @@ fn worktree_integration_inner(
 
     // Create a squash commit which we will then cherry pick into the
     // target branch
-    let wd_tree = create_wd_tree(&worktree_repo, 0)?;
+    #[expect(deprecated)]
+    let wd_tree = worktree_repo.create_wd_tree(0)?;
     let author = repo
         .author()
         .transpose()
@@ -240,7 +240,8 @@ fn worktree_integration_inner(
             }
         });
 
-    let wd_tree = create_wd_tree(&repo, 0)?;
+    #[expect(deprecated)]
+    let wd_tree = repo.create_wd_tree(0)?;
 
     let working_dir_conflicts = {
         let before_heads = stacks

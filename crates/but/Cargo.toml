@@ -52,7 +52,6 @@ but-serde.workspace = true
 but-secret.workspace = true
 but-update.workspace = true
 but-installer.workspace = true
-but-oxidize.workspace = true
 but-path.workspace = true
 but-ctx.workspace = true
 but-rebase.workspace = true
@@ -90,7 +89,6 @@ gitbutler-operating-modes = { workspace = true, optional = true }
 gitbutler-repo = { workspace = true, optional = true }
 gitbutler-repo-actions = { workspace = true, optional = true }
 
-git2.workspace = true
 schemars.workspace = true
 posthog-rs = { git = "https://github.com/gitbutlerapp/posthog-rs", rev = "664c9245f79aaedcdd025b9f3c141b62bb866b8e" }
 serde.workspace = true

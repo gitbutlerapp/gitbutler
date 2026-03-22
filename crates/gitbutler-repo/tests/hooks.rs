@@ -2,18 +2,24 @@ use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
+use but_oxidize::OidExt as _;
 use gitbutler_repo::hooks::{HookResult, pre_push};
 use gitbutler_testsupport::TestProject;
+
+fn gix_repo(repo: &git2::Repository) -> anyhow::Result<gix::Repository> {
+    Ok(gix::open_opts(repo.path(), gix::open::Options::isolated())?)
+}
 
 #[test]
 fn pre_push_hook_not_configured() -> anyhow::Result<()> {
     let test_project = TestProject::default();
+    let repo = gix_repo(&test_project.local_repo)?;
 
     let result = pre_push(
-        &test_project.local_repo,
+        &repo,
         "origin",
         "https://github.com/test/repo.git",
-        git2::Oid::zero(),
+        repo.object_hash().null(),
         &gitbutler_reference::RemoteRefname::new("origin", "does-not-matter"),
         true,
     );
@@ -27,6 +33,7 @@ fn pre_push_hook_success() -> anyhow::Result<()> {
     let test_project = TestProject::default();
 
     let repo = &test_project.local_repo;
+    let gix_repo = gix_repo(repo)?;
     let hooks_dir = repo.path().join("hooks");
     fs::create_dir_all(&hooks_dir)?;
     let hook_path = hooks_dir.join("pre-push");
@@ -37,10 +44,10 @@ fn pre_push_hook_success() -> anyhow::Result<()> {
     fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755))?;
 
     let result = pre_push(
-        repo,
+        &gix_repo,
         "origin",
         "https://github.com/test/repo.git",
-        repo.head()?.target().expect("not detached"),
+        repo.head()?.target().expect("not detached").to_gix(),
         &gitbutler_reference::RemoteRefname::new("origin", "master"),
         true,
     )?;
@@ -63,6 +70,7 @@ fn pre_push_hook_failure() -> anyhow::Result<()> {
     let test_project = TestProject::default();
 
     let repo = &test_project.local_repo;
+    let gix_repo = gix_repo(repo)?;
     let hooks_dir = repo.path().join("hooks");
     fs::create_dir_all(&hooks_dir)?;
     let hook_path = hooks_dir.join("pre-push");
@@ -76,10 +84,10 @@ fn pre_push_hook_failure() -> anyhow::Result<()> {
     fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755))?;
 
     let result = pre_push(
-        repo,
+        &gix_repo,
         "origin",
         "https://github.com/test/repo.git",
-        repo.head()?.target().expect("not detached"),
+        repo.head()?.target().expect("not detached").to_gix(),
         &gitbutler_reference::RemoteRefname::new("origin", "master"),
         true,
     );
@@ -112,12 +120,13 @@ fn pre_push_ignores_husky_core_hooks_path_when_disabled() -> anyhow::Result<()> 
 
     repo.config()?
         .set_str("core.hooksPath", hooks_dir.to_string_lossy().as_ref())?;
+    let gix_repo = gix_repo(repo)?;
 
     let result = pre_push(
-        repo,
+        &gix_repo,
         "origin",
         "https://github.com/test/repo.git",
-        repo.head()?.target().expect("not detached"),
+        repo.head()?.target().expect("not detached").to_gix(),
         &gitbutler_reference::RemoteRefname::new("origin", "master"),
         false,
     )?;
@@ -125,14 +134,52 @@ fn pre_push_ignores_husky_core_hooks_path_when_disabled() -> anyhow::Result<()> 
     assert!(!workdir.join("husky-pre-push-ran").exists());
 
     let result = pre_push(
-        repo,
+        &gix_repo,
         "origin",
         "https://github.com/test/repo.git",
-        repo.head()?.target().expect("not detached"),
+        repo.head()?.target().expect("not detached").to_gix(),
         &gitbutler_reference::RemoteRefname::new("origin", "master"),
         true,
     )?;
     assert_eq!(result, HookResult::Success);
     assert!(workdir.join("husky-pre-push-ran").exists());
+    Ok(())
+}
+
+#[test]
+fn pre_push_resolves_relative_core_hooks_path_against_workdir() -> anyhow::Result<()> {
+    let test_project = TestProject::default();
+
+    let repo = &test_project.local_repo;
+    let workdir = repo.workdir().expect("non-bare");
+    let relative_hooks = format!(
+        "relative-hooks-{}",
+        workdir
+            .file_name()
+            .expect("temp dir name")
+            .to_string_lossy()
+    );
+    let hooks_dir = workdir.join(&relative_hooks);
+    fs::create_dir_all(&hooks_dir)?;
+    let hook_path = hooks_dir.join("pre-push");
+
+    fs::write(&hook_path, "#!/bin/sh\necho ran > relative-pre-push-ran\n")?;
+
+    #[cfg(unix)]
+    fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755))?;
+
+    repo.config()?.set_str("core.hooksPath", &relative_hooks)?;
+    let gix_repo = gix_repo(repo)?;
+
+    let result = pre_push(
+        &gix_repo,
+        "origin",
+        "https://github.com/test/repo.git",
+        repo.head()?.target().expect("not detached").to_gix(),
+        &gitbutler_reference::RemoteRefname::new("origin", "master"),
+        true,
+    )?;
+    assert_eq!(result, HookResult::Success);
+    assert!(workdir.join("relative-pre-push-ran").exists());
     Ok(())
 }

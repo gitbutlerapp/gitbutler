@@ -1,11 +1,11 @@
 use anyhow::Result;
+use but_core::RepositoryExt as _;
 use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_cherry_pick::RepositoryExt;
-use gitbutler_repo::RepositoryExt as _;
 use gitbutler_stack::VirtualBranchesHandle;
 
 use crate::{workspace_base, workspace_base_from_heads};
@@ -79,9 +79,12 @@ pub fn update_uncommitted_changes(
     new: WorkspaceState,
     perm: &mut RepoExclusive,
 ) -> Result<()> {
-    let repo = &*ctx.git2_repo.get()?;
+    let repo = &*ctx.repo.get()?;
     let uncommitted_changes = (!ctx.settings.feature_flags.cv3)
-        .then(|| repo.create_wd_tree(0).map(|tree| tree.id()))
+        .then(|| {
+            #[expect(deprecated)]
+            repo.create_wd_tree(0).map(|tree| tree.to_git2())
+        })
         .transpose()?;
 
     update_uncommitted_changes_with_tree(ctx, old, new, uncommitted_changes, None, perm)

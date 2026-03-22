@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result};
+use bstr::ByteSlice as _;
 use gix::config::AsKey as _;
 
 /// Open the user-global Git config for editing, creating it first if needed.
@@ -64,6 +65,37 @@ pub fn set_config_value(
             value.into(),
         );
     Ok(())
+}
+
+/// Ensure `value` is present in `config` for the multi-valued Git entry identified by `key`.
+///
+/// Returns `true` if the config was changed.
+pub fn ensure_config_value(
+    config: &mut gix::config::File<'static>,
+    key: &str,
+    value: &str,
+) -> Result<bool> {
+    let key = key
+        .try_as_key()
+        .with_context(|| format!("invalid git config key: {key}"))?;
+    let value = value.as_bytes().as_bstr();
+    let already_present =
+        match config.raw_values_by(key.section_name, key.subsection_name, key.value_name) {
+            Ok(values) => values
+                .into_iter()
+                .any(|existing| existing.as_ref() == value),
+            Err(_) => false,
+        };
+    if already_present {
+        return Ok(false);
+    }
+    config
+        .section_mut_or_create_new(key.section_name, key.subsection_name)?
+        .push(
+            gix::config::parse::section::ValueName::try_from(key.value_name.to_owned())?,
+            Some(value),
+        );
+    Ok(true)
 }
 
 /// Remove the Git entry in `config` identified by the dotted `key`

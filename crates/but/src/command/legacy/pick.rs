@@ -6,7 +6,6 @@ use but_api::legacy::{cherry_apply, virtual_branches, workspace};
 use but_cherry_apply::CherryApplyStatus;
 use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_ctx::Context;
-use but_oxidize::ObjectIdExt;
 use but_workspace::legacy::{StacksFilter, ui::StackEntry};
 use cli_prompts::DisplayPrompt;
 use colored::Colorize;
@@ -200,7 +199,6 @@ fn select_commits_from_branch(
 ) -> Result<Vec<gix::ObjectId>> {
     use gix::prelude::ObjectIdExt as _;
 
-    let git2_repo = ctx.git2_repo.get()?;
     let repo = ctx.repo.get()?;
 
     // Get the target branch to find merge base
@@ -232,17 +230,22 @@ fn select_commits_from_branch(
         .with_hidden(Some(merge_base))
         .all()?;
 
-    // Collect commit OIDs and then look up git2 commits for message display
+    // Collect commit OIDs and then decode them for message display
     let commit_oids: Vec<gix::ObjectId> = traversal
         .filter_map(Result::ok)
         .map(|info| info.id)
         .take(50) // Limit to reasonable number
         .collect();
 
-    // Keep OID paired with each commit so indices stay aligned after filtering.
+    // Keep OID paired with each commit summary so indices stay aligned after filtering.
     let commits: Vec<_> = commit_oids
         .iter()
-        .filter_map(|oid| git2_repo.find_commit(oid.to_git2()).ok().map(|c| (*oid, c)))
+        .filter_map(|oid| {
+            repo.find_commit(*oid).ok().and_then(|commit| {
+                let commit = commit.decode().ok()?;
+                (*oid, super::commit_summary(&commit)).into()
+            })
+        })
         .collect();
 
     if commits.is_empty() {
@@ -258,9 +261,8 @@ fn select_commits_from_branch(
     let options: Vec<String> = commits
         .iter()
         .enumerate()
-        .map(|(i, (oid, c))| {
+        .map(|(i, (oid, message))| {
             let short_id = shorten_object_id(&repo, *oid);
-            let message = c.summary().unwrap_or("(no message)");
             let display = out.truncate_if_unpaged(message, 60);
             format!("[{}] {} {}", i + 1, short_id, display)
         })

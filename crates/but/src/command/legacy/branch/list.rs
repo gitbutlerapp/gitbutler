@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use but_ctx::Context;
-use but_oxidize::ObjectIdExt;
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
 
@@ -250,7 +249,7 @@ fn output_json(
     use crate::command::legacy::branch::json::*;
 
     // Open repo to get commit information
-    let repo = &*ctx.git2_repo.get()?;
+    let repo = &*ctx.repo.get()?;
 
     let applied_stacks_output: Vec<StackOutput> = applied_stacks
         .iter()
@@ -266,23 +265,11 @@ fn output_json(
                         merge_status_map.and_then(|map| map.get(&head.name.to_string()).copied());
 
                     // Get commit information
-                    let (last_commit_at, last_author) = match repo.find_commit(head.tip.to_git2()) {
-                        Ok(commit) => {
-                            let author = commit.author();
-                            let timestamp_ms = (commit.time().seconds() * 1000) as u128;
-                            let author_output = AuthorOutput {
-                                name: author.name().map(|s| s.to_string()),
-                                email: author.email().map(|s| s.to_string()),
-                            };
-                            (timestamp_ms, author_output)
-                        }
-                        Err(_) => (
-                            0,
-                            AuthorOutput {
-                                name: None,
-                                email: None,
-                            },
-                        ),
+                    let (last_commit_at, author_name, author_email) =
+                        applied_head_commit_info(repo, head.tip);
+                    let last_author = AuthorOutput {
+                        name: author_name,
+                        email: author_email,
                     };
 
                     BranchHeadOutput {
@@ -338,6 +325,26 @@ fn output_json(
 
     out.write_value(output)?;
     Ok(())
+}
+
+/// Read display metadata for an applied stack head commit.
+fn applied_head_commit_info(
+    repo: &gix::Repository,
+    commit_id: gix::ObjectId,
+) -> (u128, Option<String>, Option<String>) {
+    repo.find_commit(commit_id)
+        .ok()
+        .and_then(|commit| {
+            let commit = commit.decode().ok()?;
+            let author = commit.author().ok()?;
+            let time = commit.time().ok()?;
+            Some((
+                time.seconds.max(0) as u128 * 1000,
+                Some(author.name.to_string()),
+                Some(author.email.to_string()),
+            ))
+        })
+        .unwrap_or_default()
 }
 
 fn get_reviews_json(
@@ -563,7 +570,7 @@ fn print_applied_branches_table(
     }
 
     // Open repo to get commit information
-    let repo = &*ctx.git2_repo.get()?;
+    let repo = &*ctx.repo.get()?;
 
     // Define column headers with fixed widths
     // BRANCH is marked no_truncate so the name is always fully visible.
@@ -585,19 +592,15 @@ fn print_applied_branches_table(
             let is_single_branch = stack.heads.len() == 1;
 
             // Get commit information
-            let (author_str, date_str) = match repo.find_commit(branch.tip.to_git2()) {
-                Ok(commit) => {
-                    let author = commit.author();
-                    let author_str = author
-                        .name()
-                        .or_else(|| author.email())
-                        .unwrap_or("Unknown")
-                        .to_string();
-                    let timestamp_ms = (commit.time().seconds() * 1000) as u128;
-                    let date_str = format_date_for_display(timestamp_ms);
-                    (author_str, date_str)
-                }
-                Err(_) => ("Unknown".to_string(), "unknown".to_string()),
+            let (timestamp_ms, author_name, author_email) =
+                applied_head_commit_info(repo, branch.tip);
+            let author_str = author_name
+                .or(author_email)
+                .unwrap_or_else(|| "Unknown".to_string());
+            let date_str = if timestamp_ms > 0 {
+                format_date_for_display(timestamp_ms)
+            } else {
+                "unknown".to_string()
             };
 
             // Type column

@@ -1,4 +1,5 @@
 use anyhow::{Context as _, Result};
+use bstr::ByteSlice;
 use but_core::DiffSpec;
 use but_ctx::{
     Context,
@@ -13,7 +14,6 @@ use gitbutler_oplog::{
 };
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::RepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::StackId;
 use tracing::instrument;
@@ -345,7 +345,12 @@ pub fn update_commit_message(
 }
 
 pub fn fetch_from_remotes(ctx: &Context, askpass: Option<String>) -> Result<FetchResult> {
-    let remotes = ctx.git2_repo.get()?.remotes_as_string()?;
+    let repo = ctx.repo.get()?;
+    let remotes = repo
+        .remote_names()
+        .iter()
+        .map(|name| name.to_str().map(str::to_owned))
+        .collect::<std::result::Result<Vec<_>, _>>()?;
     let fetch_errors: Vec<_> = remotes
         .iter()
         .filter_map(|remote| {

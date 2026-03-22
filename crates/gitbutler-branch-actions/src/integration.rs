@@ -1,15 +1,16 @@
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result, anyhow};
-use bstr::ByteSlice;
 use but_core::worktree::checkout::UncommitedWorktreeChanges;
 use but_ctx::{Context, access::RepoExclusive};
 use but_error::Marker;
-use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
+use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_branch::{self, BranchCreateRequest, GITBUTLER_WORKSPACE_REFERENCE};
-use gitbutler_commit::commit_ext::CommitMessageBstr as _;
-use gitbutler_operating_modes::OPEN_WORKSPACE_REFS;
-use gitbutler_repo::{RepositoryExt, SignaturePurpose, first_parent_commit_ids_until};
+use gitbutler_operating_modes::is_well_known_workspace_ref;
+use gitbutler_repo::{
+    SignaturePurpose, commit_with_signature_gix, commit_without_signature_gix,
+    first_parent_commit_ids_until, signature_gix,
+};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use tracing::instrument;
 
@@ -80,7 +81,7 @@ pub fn update_workspace_commit_with_vb_state(
         .context("failed to get target")?;
 
     let repo = &*ctx.git2_repo.get()?;
-    let gix_repo = repo.to_gix_repo()?;
+    let gix_repo = ctx.repo.get()?.clone();
 
     // get current repo head for reference
     let head_ref = repo.head()?;
@@ -108,7 +109,7 @@ pub fn update_workspace_commit_with_vb_state(
         .context("failed to list virtual branches")?;
 
     let workspace_head =
-        repo.find_commit(but_workspace::legacy::remerged_workspace_commit_v2(ctx)?.to_git2())?;
+        gix_repo.find_commit(but_workspace::legacy::remerged_workspace_commit_v2(ctx)?)?;
 
     // message that says how to get back to where they were
     let mut message = GITBUTLER_WORKSPACE_COMMIT_TITLE.to_string();
@@ -152,28 +153,33 @@ pub fn update_workspace_commit_with_vb_state(
     message.push_str("For more information about what we're doing here, check out our docs:\n");
     message.push_str("https://docs.gitbutler.com/features/branch-management/integration-branch\n");
 
-    let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;
-    let author = gitbutler_repo::signature(SignaturePurpose::Author)?;
+    let committer = signature_gix(SignaturePurpose::Committer);
+    let author = signature_gix(SignaturePurpose::Author);
 
     // It would be nice if we could pass an `update_ref` parameter to this function, but that
     // requires committing to the tip of the branch, and we're mostly replacing the tip.
 
-    let parents = workspace_head.parents().collect::<Vec<_>>();
-    let workspace_tree = workspace_head.tree()?;
+    let parents = workspace_head
+        .parent_ids()
+        .map(|id| id.detach())
+        .collect::<Vec<_>>();
+    let workspace_tree = workspace_head.tree_id()?.detach();
 
-    let final_commit = repo.commit(
+    let final_commit = commit_without_signature_gix(
+        &gix_repo,
         None,
-        &author,
-        &committer,
-        &message,
-        &workspace_tree,
-        parents.iter().collect::<Vec<_>>().as_slice(),
+        author,
+        committer,
+        message.as_str().into(),
+        workspace_tree,
+        &parents,
+        None,
     )?;
 
     let checkout_res = if checkout_new_worktree && let Some(prev_head_id) = prev_head_id {
         let res = but_core::worktree::safe_checkout(
             prev_head_id.to_gix(),
-            final_commit.to_gix(),
+            final_commit,
             &gix_repo,
             but_core::worktree::checkout::Options {
                 uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
@@ -188,19 +194,19 @@ pub fn update_workspace_commit_with_vb_state(
     // Create or replace the workspace branch reference, then set as HEAD.
     repo.reference(
         &GITBUTLER_WORKSPACE_REFERENCE.clone().to_string(),
-        final_commit,
+        final_commit.to_git2(),
         true,
         "updated workspace commit",
     )?;
     repo.set_head(&GITBUTLER_WORKSPACE_REFERENCE.clone().to_string())?;
 
     // Install managed hooks to prevent accidental git commits on workspace branch
-    if let Err(e) = gitbutler_repo::managed_hooks::install_managed_hooks(repo) {
+    if let Err(e) = gitbutler_repo::managed_hooks::install_managed_hooks_gix(&gix_repo) {
         tracing::warn!("Failed to install managed hooks: {}", e);
     }
 
     let mut index = repo.index()?;
-    index.read_tree(&workspace_tree)?;
+    index.read_tree(&repo.find_tree(workspace_tree.to_git2())?)?;
     index.write()?;
 
     // Everything is written out already, so if we fail here, we do so to surface the error
@@ -209,7 +215,7 @@ pub fn update_workspace_commit_with_vb_state(
         res?;
     }
 
-    Ok(final_commit.to_gix())
+    Ok(final_commit)
 }
 
 pub fn verify_branch(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
@@ -222,14 +228,19 @@ pub fn verify_branch(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
 
 fn verify_head_is_set(ctx: &Context) -> Result<()> {
     match ctx
-        .git2_repo
+        .repo
         .get()?
         .head()
         .context("failed to get head")?
-        .name()
+        .referent_name()
     {
-        Some(refname) if OPEN_WORKSPACE_REFS.contains(&refname) => Ok(()),
-        Some(head_name) => Err(invalid_head_err(head_name)),
+        Some(refname) => {
+            if is_well_known_workspace_ref(refname) {
+                Ok(())
+            } else {
+                Err(invalid_head_err(refname))
+            }
+        }
         None => Err(anyhow!(
             "project in detached head state. Please checkout {} to continue",
             GITBUTLER_WORKSPACE_REFERENCE.branch()
@@ -239,11 +250,10 @@ fn verify_head_is_set(ctx: &Context) -> Result<()> {
 
 // Returns an error if repo head is not pointing to the workspace branch.
 fn verify_current_branch_name(ctx: &Context) -> Result<&Context> {
-    match ctx.git2_repo.get()?.head()?.name() {
+    match ctx.repo.get()?.head()?.referent_name() {
         Some(head) => {
-            let head_name = head.to_string();
-            if !OPEN_WORKSPACE_REFS.contains(&head_name.as_str()) {
-                return Err(invalid_head_err(&head_name));
+            if !is_well_known_workspace_ref(head) {
+                return Err(invalid_head_err(head));
             }
             Ok(ctx)
         }
@@ -254,7 +264,7 @@ fn verify_current_branch_name(ctx: &Context) -> Result<&Context> {
 // TODO(ST): Probably there should not be an implicit vbranch creation here.
 fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     let git2_repo = &*ctx.git2_repo.get()?;
-    let gix_repo = git2_repo.to_gix_repo()?;
+    let gix_repo = ctx.repo.get()?.clone();
     let head_commit_id = gix_repo.head_id()?.detach();
 
     let mut vb_handle = VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -267,13 +277,13 @@ fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     let workspace_index = commit_ids
         .iter()
         .position(|commit_id| {
-            git2_repo
-                .find_commit(commit_id.to_git2())
+            gix_repo
+                .find_commit(*commit_id)
                 .ok()
                 .and_then(|commit| {
-                    commit.message().map(|message| {
-                        message.starts_with(GITBUTLER_WORKSPACE_COMMIT_TITLE)
-                            || message.starts_with(GITBUTLER_INTEGRATION_COMMIT_TITLE)
+                    commit.message_raw().ok().map(|message| {
+                        message.starts_with(GITBUTLER_WORKSPACE_COMMIT_TITLE.as_bytes())
+                            || message.starts_with(GITBUTLER_INTEGRATION_COMMIT_TITLE.as_bytes())
                     })
                 })
                 .unwrap_or(false)
@@ -299,9 +309,11 @@ fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
                 name: extra_commit_ids
                     .last()
                     .map(|commit_id| {
-                        git2_repo
-                            .find_commit(commit_id.to_git2())
-                            .map(|commit| commit.message_bstr().to_string())
+                        gix_repo
+                            .find_commit(*commit_id)?
+                            .message_raw()
+                            .map(|message| message.to_string())
+                            .with_context(|| format!("failed to read extra commit {commit_id}"))
                     })
                     .transpose()?,
                 ..Default::default()
@@ -313,37 +325,34 @@ fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     // rebasing the extra commits onto the new branch
     let mut head = new_branch.head_oid(ctx)?;
     for commit_id in extra_commit_ids {
-        let new_branch_head = git2_repo
-            .find_commit(head.to_git2())
-            .context("failed to find new branch head")?;
-        let commit = git2_repo
-            .find_commit(commit_id.to_git2())
+        let commit = gix_repo
+            .find_commit(commit_id)
             .with_context(|| format!("failed to find extra commit {commit_id}"))?;
+        let commit = commit.decode()?;
+        let rebased_commit_oid = commit_with_signature_gix(
+            &gix_repo,
+            None,
+            commit.author()?.into(),
+            commit.committer()?.into(),
+            commit.message,
+            commit.tree(),
+            &[head],
+            None,
+        )
+        .context(format!(
+            "failed to rebase commit {commit_id} onto new branch"
+        ))?;
 
-        let rebased_commit_oid = git2_repo
-            .commit_with_signature(
-                None,
-                &commit.author(),
-                &commit.committer(),
-                &commit.message_bstr().to_str_lossy(),
-                &commit.tree().unwrap(),
-                &[&new_branch_head],
-                None,
-            )
-            .context(format!(
-                "failed to rebase commit {} onto new branch",
-                commit.id()
-            ))?;
-
-        head = rebased_commit_oid.to_gix();
+        head = rebased_commit_oid;
         new_branch.set_stack_head(&mut vb_handle, &gix_repo, head)?;
     }
     Ok(())
 }
 
-fn invalid_head_err(head_name: &str) -> anyhow::Error {
+fn invalid_head_err(head_name: &gix::refs::FullNameRef) -> anyhow::Error {
     anyhow!(
         "project is on {head_name}. Please checkout {} to continue",
-        GITBUTLER_WORKSPACE_REFERENCE.branch()
+        GITBUTLER_WORKSPACE_REFERENCE.branch(),
+        head_name = head_name.shorten(),
     )
 }

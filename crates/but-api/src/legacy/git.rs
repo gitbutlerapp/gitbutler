@@ -1,19 +1,30 @@
 //! In place of commands.rs
 use anyhow::{Context as _, Result};
+use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::git_config::{
     open_user_global_config_for_editing, remove_config_value, set_config_value, write_config,
 };
 use gitbutler_reference::RemoteRefname;
-use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt as _;
 use tracing::instrument;
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn git_remote_branches(ctx: &but_ctx::Context) -> Result<Vec<RemoteRefname>> {
-    let repo = ctx.git2_repo.get()?;
-    repo.remote_branches()
+    let repo = ctx.repo.get()?;
+    repo.references()?
+        .remote_branches()?
+        .filter_map(Result::ok)
+        .filter(|reference| !reference.name().as_bstr().ends_with_str("/HEAD"))
+        .map(|reference| {
+            reference
+                .name()
+                .to_string()
+                .parse()
+                .context("failed to parse remote refname")
+        })
+        .collect()
 }
 
 #[but_api]
@@ -45,10 +56,11 @@ pub fn git_test_fetch(
 #[instrument(err(Debug))]
 pub fn git_index_size(ctx: &but_ctx::Context) -> Result<usize> {
     let size = ctx
-        .git2_repo
+        .repo
         .get()?
-        .index()
+        .index_or_empty()
         .context("failed to get index size")?
+        .entries()
         .len();
     Ok(size)
 }

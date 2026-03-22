@@ -22,6 +22,7 @@ gitbutler-reference.workspace = true
 gitbutler-repo.workspace = true
 
 git2.workspace = true
+gix.workspace = true
 serde.workspace = true
 tokio = { workspace = true, features = [
     "rt-multi-thread",

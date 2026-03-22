@@ -4,12 +4,12 @@ use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::commit::Headers;
 use but_ctx::Context;
 use but_error::Code;
-use but_oxidize::ObjectIdExt;
+use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{
-    RepositoryExt, credentials,
-    logging::{LogUntil, RepositoryExt as _},
+    SignaturePurpose, commit_with_signature_gix, credentials, first_parent_commit_ids_until,
+    signature_gix,
 };
 use gitbutler_stack::{Stack, StackId};
 
@@ -66,12 +66,12 @@ impl RepoActionsExt for Context {
     ) -> Result<()> {
         let target_branch_refname =
             Refname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}"))?;
-        let git2_repo = self.git2_repo.get()?;
-        let branch = git2_repo
-            .maybe_find_branch_by_refname(&target_branch_refname)?
+        let repo = self.repo.get()?;
+        let mut branch = repo
+            .try_find_reference(&target_branch_refname.to_string())?
             .ok_or(anyhow!("failed to find branch {target_branch_refname}"))?;
 
-        let commit_id: git2::Oid = branch.get().peel_to_commit()?.id();
+        let commit_id = branch.peel_to_commit()?.id.to_git2();
 
         let now = now_ms();
         let branch_name = format!("test-push-{now}");
@@ -102,55 +102,46 @@ impl RepoActionsExt for Context {
     }
 
     fn add_branch_reference(&self, stack: &Stack) -> Result<()> {
-        let repo = self.git2_repo.get()?;
-        let (should_write, with_force) = match repo.find_reference(&stack.refname()?.to_string()) {
-            Ok(reference) => match reference.target() {
-                Some(head_oid) => Ok((head_oid != stack.head_oid(self)?.to_git2(), true)),
-                None => Ok((true, true)),
-            },
-            Err(err) => match err.code() {
-                git2::ErrorCode::NotFound => Ok((true, false)),
-                _ => Err(err),
-            },
-        }
-        .context("failed to lookup reference")?;
+        let repo = self.repo.get()?;
+        let refname = stack.refname()?.to_string();
+        let head_oid = stack.head_oid(self)?;
+        let previous = match repo
+            .try_find_reference(&refname)
+            .context("failed to lookup reference")?
+        {
+            Some(reference) => {
+                if reference.id() == head_oid {
+                    return Ok(());
+                }
+                gix::refs::transaction::PreviousValue::Any
+            }
+            None => gix::refs::transaction::PreviousValue::MustNotExist,
+        };
 
-        if should_write {
-            repo.reference(
-                &stack.refname()?.to_string(),
-                stack.head_oid(self)?.to_git2(),
-                with_force,
-                "new vbranch",
-            )
+        let refname: gix::refs::FullName = refname.as_str().try_into()?;
+        repo.reference(refname, head_oid, previous, "new vbranch")
             .context("failed to create branch reference")?;
-        }
 
         Ok(())
     }
 
     fn delete_branch_reference(&self, stack: &Stack) -> Result<()> {
-        match self
-            .git2_repo
-            .get()?
-            .find_reference(&stack.refname()?.to_string())
+        let repo = self.repo.get()?;
+        match repo
+            .try_find_reference(&stack.refname()?.to_string())
+            .context("failed to lookup reference")?
         {
-            Ok(mut reference) => {
-                reference
-                    .delete()
-                    .context("failed to delete branch reference")?;
-                Ok(())
-            }
-            Err(err) => match err.code() {
-                git2::ErrorCode::NotFound => Ok(()),
-                _ => Err(err),
-            },
+            Some(reference) => reference
+                .delete()
+                .context("failed to delete branch reference"),
+            None => Ok(()),
         }
-        .context("failed to lookup reference")
     }
 
     // returns the number of commits between the first oid to the second oid
     fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32> {
-        let oids = self.git2_repo.get()?.l(from, LogUntil::Commit(to), false)?;
+        let repo = self.repo.get()?;
+        let oids = first_parent_commit_ids_until(&repo, from.to_gix(), to.to_gix())?;
         Ok(oids.len().try_into()?)
     }
 
@@ -161,19 +152,25 @@ impl RepoActionsExt for Context {
         parents: &[&git2::Commit],
         commit_headers: Option<Headers>,
     ) -> Result<git2::Oid> {
-        let git2_repo = self.git2_repo.get()?;
-        let (author, committer) = git2_repo.signatures().context("failed to get signatures")?;
-        git2_repo
-            .commit_with_signature(
-                None,
-                &author,
-                &committer,
-                message,
-                tree,
-                parents,
-                commit_headers,
-            )
-            .context("failed to commit")
+        let repo = self.repo.get()?;
+        let author = signature_gix(SignaturePurpose::Author);
+        let committer = signature_gix(SignaturePurpose::Committer);
+        let parent_ids = parents
+            .iter()
+            .map(|parent| parent.id().to_gix())
+            .collect::<Vec<_>>();
+        commit_with_signature_gix(
+            &repo,
+            None,
+            author,
+            committer,
+            message.into(),
+            tree.id().to_gix(),
+            &parent_ids,
+            commit_headers,
+        )
+        .map(|id| id.to_git2())
+        .context("failed to commit")
     }
 
     fn push(

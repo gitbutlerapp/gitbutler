@@ -1,12 +1,52 @@
 use anyhow::Context as _;
+use bstr::BStr;
 use but_error::Code;
 use gix::{
     merge::tree::{Options, TreatAsUnresolved},
     prelude::ObjectIdExt,
+    refs::{
+        Target,
+        transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
+    },
 };
 use std::path::PathBuf;
 
 use crate::{GitConfigSettings, commit::TreeKind};
+
+/// Update `HEAD` to `new_target` and write a reflog entry composed from `operation`, `message`,
+/// and `num_parents`.
+///
+/// If `deref` is `true` and `HEAD` is symbolic, update the reference `HEAD` currently points to
+/// instead of rewriting `HEAD` itself. For example, if `HEAD` points to `refs/heads/main`,
+/// `deref = true` with `Target::Object(<commit>)` updates `refs/heads/main` to that commit while
+/// keeping `HEAD` symbolic.
+///
+/// If `deref` is `false`, update `HEAD` itself. This is what you want when changing which branch
+/// `HEAD` symbolically points to, such as switching it to `refs/heads/gitbutler/edit`.
+pub fn update_head_reference(
+    repo: &gix::Repository,
+    new_target: Target,
+    deref: bool,
+    operation: &str,
+    message: &BStr,
+    num_parents: usize,
+) -> anyhow::Result<Vec<RefEdit>> {
+    Ok(repo.edit_reference(RefEdit {
+        change: Change::Update {
+            log: LogChange {
+                mode: RefLog::AndReference,
+                force_create_reflog: false,
+                message: gix::reference::log::message(operation, message, num_parents),
+            },
+            // We use this helper only under higher-level repository coordination, so we intentionally
+            // keep the expected value loose here and rely on ref locking for the actual write.
+            expected: PreviousValue::Any,
+            new: new_target,
+        },
+        name: "HEAD".try_into().expect("root refs are always valid"),
+        deref,
+    })?)
+}
 
 /// Easy access of settings relevant to GitButler for retrieval and storage in Git settings.
 pub trait RepositoryExt: Sized {
@@ -56,6 +96,13 @@ pub trait RepositoryExt: Sized {
     /// Configure the repository for diff operations between trees.
     /// This means it needs an object cache relative to the amount of files in the repository.
     fn for_tree_diffing(self) -> anyhow::Result<Self>;
+
+    /// Create a tree that represents the current worktree and index state on top of `HEAD^{tree}`.
+    ///
+    /// This includes conflicted index entries and optionally skips untracked files larger than
+    /// `untracked_limit_in_bytes` if that limit is non-zero.
+    #[deprecated = "Gitizen alert: Do not soak up the entire working tree including untracked files, find a different solution"]
+    fn create_wd_tree(&self, untracked_limit_in_bytes: u64) -> anyhow::Result<gix::ObjectId>;
 
     /// Return a repository configured for commit shortening,
     /// i.e. with an object database configured to *not* check for new packs.
@@ -208,6 +255,166 @@ impl RepositoryExt for gix::Repository {
         let bytes = self.compute_object_cache_size_for_tree_diffs(&***self.index_or_empty()?);
         self.object_cache_size_if_unset(bytes);
         Ok(self)
+    }
+
+    fn create_wd_tree(&self, untracked_limit_in_bytes: u64) -> anyhow::Result<gix::ObjectId> {
+        use std::collections::HashSet;
+
+        use bstr::ByteSlice;
+        use gix::{
+            bstr::BStr,
+            status,
+            status::index_worktree,
+            status::plumbing::index_as_worktree::{Change, EntryStatus},
+        };
+
+        let (mut pipeline, index) = self.filter_pipeline(None)?;
+        let mut added_worktree_file = |rela_path: &BStr,
+                                       head_tree_editor: &mut gix::object::tree::Editor<'_>|
+         -> anyhow::Result<bool> {
+            let Some((id, kind, md)) = pipeline.worktree_file_to_object(rela_path, &index)? else {
+                head_tree_editor.remove(rela_path)?;
+                return Ok(false);
+            };
+            if untracked_limit_in_bytes != 0 && md.len() > untracked_limit_in_bytes {
+                return Ok(false);
+            }
+            head_tree_editor.upsert(rela_path, kind, id)?;
+            Ok(true)
+        };
+        let head_tree = self.head_tree_id_or_empty()?;
+        let mut head_tree_editor = self.edit_tree(head_tree)?;
+        let status_changes = self
+            .status(gix::progress::Discard)?
+            .tree_index_track_renames(gix::status::tree_index::TrackRenames::Disabled)
+            .index_worktree_rewrites(None)
+            .index_worktree_submodules(gix::status::Submodule::Given {
+                ignore: gix::submodule::config::Ignore::Dirty,
+                check_dirty: true,
+            })
+            .index_worktree_options_mut(|opts| {
+                if let Some(opts) = opts.dirwalk_options.as_mut() {
+                    opts.set_emit_ignored(None)
+                        .set_emit_pruned(false)
+                        .set_emit_tracked(false)
+                        .set_emit_untracked(gix::dir::walk::EmissionMode::Matching)
+                        .set_emit_collapsed(None);
+                }
+            })
+            .into_iter(None)?
+            .filter_map(|change| change.ok())
+            .collect::<Vec<_>>();
+
+        let mut worktreepaths_changed = HashSet::new();
+        let mut untracked_items = Vec::new();
+        for change in status_changes {
+            match change {
+                status::Item::TreeIndex(gix::diff::index::Change::Deletion {
+                    location, ..
+                }) => {
+                    if !worktreepaths_changed.contains(location.as_bstr()) {
+                        head_tree_editor.remove(location.as_ref())?;
+                    }
+                }
+                status::Item::TreeIndex(
+                    gix::diff::index::Change::Addition {
+                        location,
+                        entry_mode,
+                        id,
+                        ..
+                    }
+                    | gix::diff::index::Change::Modification {
+                        location,
+                        entry_mode,
+                        id,
+                        ..
+                    },
+                ) => {
+                    if let Some(entry_mode) = entry_mode
+                        .to_tree_entry_mode()
+                        .filter(|_| !worktreepaths_changed.contains(location.as_bstr()))
+                    {
+                        head_tree_editor.upsert(
+                            location.as_ref(),
+                            entry_mode.kind(),
+                            id.as_ref(),
+                        )?;
+                    }
+                }
+                status::Item::IndexWorktree(index_worktree::Item::Modification {
+                    rela_path,
+                    status: EntryStatus::Change(Change::Removed),
+                    ..
+                }) => {
+                    head_tree_editor.remove(rela_path.as_bstr())?;
+                    worktreepaths_changed.insert(rela_path);
+                }
+                status::Item::IndexWorktree(index_worktree::Item::Modification {
+                    rela_path,
+                    status:
+                        EntryStatus::Change(Change::Type { .. } | Change::Modification { .. })
+                        | EntryStatus::Conflict { .. }
+                        | EntryStatus::IntentToAdd,
+                    ..
+                }) => {
+                    if added_worktree_file(rela_path.as_ref(), &mut head_tree_editor)? {
+                        worktreepaths_changed.insert(rela_path);
+                    }
+                }
+                status::Item::IndexWorktree(index_worktree::Item::DirectoryContents {
+                    entry:
+                        gix::dir::Entry {
+                            rela_path,
+                            status: gix::dir::entry::Status::Untracked,
+                            ..
+                        },
+                    ..
+                }) => {
+                    untracked_items.push(rela_path);
+                }
+                status::Item::IndexWorktree(index_worktree::Item::Modification {
+                    rela_path,
+                    status: EntryStatus::Change(Change::SubmoduleModification(change)),
+                    ..
+                }) => {
+                    if let Some(possibly_changed_head_commit) = change.checked_out_head_id {
+                        head_tree_editor.upsert(
+                            rela_path.as_bstr(),
+                            gix::object::tree::EntryKind::Commit,
+                            possibly_changed_head_commit,
+                        )?;
+                        worktreepaths_changed.insert(rela_path);
+                    }
+                }
+                status::Item::IndexWorktree(index_worktree::Item::Rewrite { .. })
+                | status::Item::TreeIndex(gix::diff::index::Change::Rewrite { .. }) => {
+                    unreachable!("disabled")
+                }
+                status::Item::IndexWorktree(
+                    index_worktree::Item::Modification {
+                        status: EntryStatus::NeedsUpdate(_),
+                        ..
+                    }
+                    | index_worktree::Item::DirectoryContents {
+                        entry:
+                            gix::dir::Entry {
+                                status:
+                                    gix::dir::entry::Status::Tracked
+                                    | gix::dir::entry::Status::Pruned
+                                    | gix::dir::entry::Status::Ignored(_),
+                                ..
+                            },
+                        ..
+                    },
+                ) => {}
+            }
+        }
+
+        for rela_path in untracked_items {
+            added_worktree_file(rela_path.as_ref(), &mut head_tree_editor)?;
+        }
+
+        Ok(head_tree_editor.write()?.detach())
     }
 
     fn for_commit_shortening(mut self) -> Self {

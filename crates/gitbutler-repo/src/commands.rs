@@ -2,8 +2,9 @@ use std::{path::Path, sync::Mutex};
 
 use anyhow::{Result, bail};
 use base64::engine::Engine as _;
+use but_core::commit::sign_buffer;
 use but_ctx::Context;
-use but_oxidize::ObjectIdExt as _;
+use but_oxidize::{ObjectIdExt as _, OidExt as _};
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use git2::Oid;
 use ignore::WalkBuilder;
@@ -184,24 +185,22 @@ pub trait RepoCommands {
 
 impl RepoCommands for Context {
     fn check_signing_settings(&self) -> Result<bool> {
-        let signed = self.git2_repo.get()?.sign_buffer(b"test");
-        match signed {
+        let repo = self.repo.get()?;
+        match sign_buffer(&repo, b"test") {
             Ok(_) => Ok(true),
             Err(e) => Err(e),
         }
     }
 
     fn remotes(&self) -> anyhow::Result<Vec<GitRemote>> {
-        let repo = self.git2_repo.get()?;
-        let remotes = repo
-            .remotes_as_string()?
+        let repo = self.repo.get()?;
+        repo.remote_names()
             .iter()
-            .map(|name| repo.find_remote(name))
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .map(|remote| remote.into())
-            .collect_vec();
-        Ok(remotes)
+            .map(|name| -> Result<_> {
+                let remote = repo.find_remote(name.as_ref())?;
+                Ok(GitRemote::from_gix(name.to_string(), &remote))
+            })
+            .collect()
     }
 
     fn add_remote(&self, name: &str, url: &str) -> Result<()> {
@@ -233,16 +232,15 @@ impl RepoCommands for Context {
             );
         }
 
-        let repo = self.git2_repo.get()?;
-        let tree = repo.find_commit(commit_id)?.tree()?;
+        let repo = self.repo.get()?;
+        let tree = repo.find_commit(commit_id.to_gix())?.tree()?;
 
-        Ok(match tree.get_path(relative_path) {
-            Ok(entry) => {
+        Ok(match tree.lookup_entry_by_path(relative_path)? {
+            Some(entry) => {
                 let blob = repo.find_blob(entry.id())?;
-                FileInfo::from_content(relative_path, blob.content())
+                FileInfo::from_content(relative_path, &blob.data)
             }
-            Err(e) if e.code() == git2::ErrorCode::NotFound => FileInfo::deleted(),
-            Err(e) => return Err(e.into()),
+            None => FileInfo::deleted(),
         })
     }
 

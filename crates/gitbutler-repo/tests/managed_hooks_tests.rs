@@ -11,7 +11,8 @@ use std::os::unix::fs::PermissionsExt;
 
 use anyhow::Result;
 use gitbutler_repo::managed_hooks::{
-    HookInstallationResult, install_managed_hooks, uninstall_managed_hooks,
+    HookInstallationResult, install_managed_hooks, install_managed_hooks_gix,
+    uninstall_managed_hooks, uninstall_managed_hooks_gix,
 };
 use tempfile::TempDir;
 
@@ -20,6 +21,10 @@ fn create_test_repo() -> Result<(TempDir, git2::Repository)> {
     let temp_dir = TempDir::new()?;
     let repo = git2::Repository::init(temp_dir.path())?;
     Ok((temp_dir, repo))
+}
+
+fn open_gix_repo(repo: &git2::Repository) -> Result<gix::Repository> {
+    Ok(gix::open_opts(repo.path(), gix::open::Options::isolated())?)
 }
 
 /// Helper to create a user hook file with content
@@ -44,6 +49,10 @@ fn hook_exists(repo: &git2::Repository, hook_name: &str) -> bool {
 fn read_hook(repo: &git2::Repository, hook_name: &str) -> Result<String> {
     let path = repo.path().join("hooks").join(hook_name);
     Ok(fs::read_to_string(path)?)
+}
+
+fn hook_exists_at(hooks_dir: &std::path::Path, hook_name: &str) -> bool {
+    hooks_dir.join(hook_name).exists()
 }
 
 /// Helper to check if hook is executable on Unix
@@ -397,7 +406,7 @@ fn test_hook_manually_modified_after_install() -> Result<()> {
 }
 
 #[test]
-fn test_respects_core_hooks_path() -> Result<()> {
+fn test_respects_absolute_core_hooks_path() -> Result<()> {
     let (_temp, repo) = create_test_repo()?;
 
     // Create a custom hooks directory
@@ -425,6 +434,82 @@ fn test_respects_core_hooks_path() -> Result<()> {
     assert!(
         !repo.path().join("hooks").join("pre-commit").exists(),
         "Hook should not be in default location"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_respects_relative_core_hooks_path() -> Result<()> {
+    let (_temp, repo) = create_test_repo()?;
+
+    let relative_hooks = format!(
+        "custom-hooks-{}",
+        _temp
+            .path()
+            .file_name()
+            .expect("temp dir name")
+            .to_string_lossy()
+    );
+    let expected_hooks_dir = _temp.path().join(&relative_hooks);
+
+    let mut config = repo.config()?;
+    config.set_str("core.hooksPath", &relative_hooks)?;
+
+    install_managed_hooks(&repo)?;
+
+    assert!(
+        hook_exists_at(&expected_hooks_dir, "pre-commit"),
+        "Hook should be resolved relative to the worktree root"
+    );
+    assert!(
+        hook_exists_at(&expected_hooks_dir, "post-checkout"),
+        "Hook should be resolved relative to the worktree root"
+    );
+    assert!(
+        !repo.path().join("hooks").join("pre-commit").exists(),
+        "Hook should not be installed in the default location"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_respects_relative_core_hooks_path_gix() -> Result<()> {
+    let (_temp, repo) = create_test_repo()?;
+
+    let relative_hooks = format!(
+        "custom-hooks-gix-{}",
+        _temp
+            .path()
+            .file_name()
+            .expect("temp dir name")
+            .to_string_lossy()
+    );
+    let expected_hooks_dir = _temp.path().join(&relative_hooks);
+
+    let mut config = repo.config()?;
+    config.set_str("core.hooksPath", &relative_hooks)?;
+
+    let gix_repo = open_gix_repo(&repo)?;
+    install_managed_hooks_gix(&gix_repo)?;
+
+    assert!(
+        hook_exists_at(&expected_hooks_dir, "pre-commit"),
+        "Hook should be resolved relative to the worktree root"
+    );
+    assert!(
+        hook_exists_at(&expected_hooks_dir, "post-checkout"),
+        "Hook should be resolved relative to the worktree root"
+    );
+
+    uninstall_managed_hooks_gix(&gix_repo)?;
+
+    assert!(
+        !hook_exists_at(&expected_hooks_dir, "pre-commit"),
+        "Uninstall should remove the managed pre-commit hook from the configured directory"
+    );
+    assert!(
+        !hook_exists_at(&expected_hooks_dir, "post-checkout"),
+        "Uninstall should remove the managed post-checkout hook from the configured directory"
     );
     Ok(())
 }

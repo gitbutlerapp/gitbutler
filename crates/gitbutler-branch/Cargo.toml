@@ -18,9 +18,7 @@ gitbutler-reference.workspace = true
 gitbutler-stack.workspace = true
 
 anyhow.workspace = true
-git2.workspace = true
 gix = { workspace = true, features = [] }
-itertools.workspace = true
 serde.workspace = true
 bstr.workspace = true
 lazy_static = "1.4.0"

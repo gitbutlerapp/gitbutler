@@ -1,10 +1,10 @@
 //! Functions relate to the GitButler workspace head
+
 use anyhow::{Context as _, Result};
 use but_core::RepositoryExt;
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
-use gitbutler_cherry_pick::RepositoryExt as _;
-use gitbutler_repo::{RepositoryExt as _, SignaturePurpose};
+use gitbutler_cherry_pick::GixRepositoryExt as _;
+use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use gix::merge::tree::TreatAsUnresolved;
 use tracing::instrument;
@@ -19,7 +19,8 @@ pub fn merge_worktree_with_workspace<'a>(
     let mut head = gix_repo.head()?;
 
     // The uncommitted changes
-    let workdir_tree = ctx.git2_repo.get()?.create_wd_tree(0)?.id().to_gix();
+    #[expect(deprecated)]
+    let workdir_tree = gix_repo.create_wd_tree(0)?;
 
     // The tree of where the gitbutler workspace is at
     let workspace_tree = gix_repo
@@ -51,24 +52,20 @@ pub fn remerged_workspace_tree_v2(
     let target = vb_state
         .get_default_target()
         .context("failed to get target")?;
-    let git2_repo = &*ctx.git2_repo.get()?;
     let mut stacks: Vec<Stack> = vb_state.list_stacks_in_workspace()?;
 
-    let target_commit = git2_repo.find_commit(target.sha.to_git2())?;
-    let workspace_tree = git2_repo.find_real_tree(&target_commit, Default::default())?;
-    let mut workspace_tree_id = workspace_tree.id().to_gix();
+    let target_commit = repo.find_commit(target.sha)?;
+    let mut workspace_tree_id = repo
+        .find_real_tree(&target_commit, Default::default())?
+        .detach();
 
     let (merge_options_fail_fast, conflict_kind) = repo.merge_options_fail_fast()?;
-    let merge_tree_id = git2_repo
-        .find_commit(target.sha.to_git2())?
-        .tree_id()
-        .to_gix();
+    let merge_tree_id = target_commit.tree_id()?.detach();
     for stack in stacks.iter_mut() {
-        let branch_head = git2_repo.find_commit(stack.head_oid(ctx)?.to_git2())?;
-        let branch_tree_id = git2_repo
-            .find_real_tree(&branch_head, Default::default())?
-            .id()
-            .to_gix();
+        let stack_head = repo.find_commit(stack.head_oid(ctx)?)?;
+        let branch_tree_id = repo
+            .find_real_tree(&stack_head, Default::default())?
+            .detach();
 
         let mut merge = repo.merge_trees(
             merge_tree_id,
@@ -100,34 +97,29 @@ pub fn remerged_workspace_tree_v2(
 /// This is namely the conflicting state, or any head of the virtual branches.
 #[instrument(level = "debug", skip(ctx))]
 pub fn remerged_workspace_commit_v2(ctx: &Context) -> Result<gix::ObjectId> {
-    let git2_repo = &*ctx.git2_repo.get()?;
     let repo = ctx.clone_repo_for_merging()?;
     let (workspace_tree_id, stacks, target_commit) = remerged_workspace_tree_v2(ctx, &repo)?;
-    let workspace_tree = git2_repo.find_tree(workspace_tree_id.to_git2())?;
 
-    let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;
-    let author = gitbutler_repo::signature(SignaturePurpose::Author)?;
+    let committer = signature_gix(SignaturePurpose::Committer);
+    let author = signature_gix(SignaturePurpose::Author);
     let mut heads = stacks
         .iter()
         .filter_map(|stack| stack.head_oid(ctx).ok())
-        .filter_map(|h| git2_repo.find_commit(h.to_git2()).ok())
         .collect::<Vec<_>>();
 
     if heads.is_empty() {
-        heads = vec![git2_repo.find_commit(target_commit.to_git2())?]
+        heads = vec![target_commit]
     }
 
-    // TODO: Why does commit only accept a slice of commits? Feels like we
-    //       could make use of AsRef with the right traits.
-    let head_refs: Vec<_> = heads.iter().collect();
-
-    let workspace_head_id = git2_repo.commit(
+    let workspace_head_id = commit_without_signature_gix(
+        &repo,
         None,
-        &author,
-        &committer,
-        WORKSPACE_HEAD,
-        &workspace_tree,
-        head_refs.as_slice(),
+        author,
+        committer,
+        WORKSPACE_HEAD.into(),
+        workspace_tree_id,
+        &heads,
+        None,
     )?;
-    Ok(workspace_head_id.to_gix())
+    Ok(workspace_head_id)
 }

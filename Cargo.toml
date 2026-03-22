@@ -89,7 +89,7 @@ members = [
     # Mostly supporting legacy code.
     # In big parts replaced by other crates.
     "crates/but-fs",      # 📄filesystem utilities 👉we should be using `but-db` instead.
-    "crates/but-status",  # 📄One crate for `create_wd_tree()` which no modern code uses anymore.
+    "crates/but-status",  # 📄 One function that will be put elsewhere soon to remove this crate.
     "crates/but-oxidize", # 📄Utilities to help translate between `git2` and `gix`. 👉Shouldn't be needed once `git2` is gone.
 
     ##

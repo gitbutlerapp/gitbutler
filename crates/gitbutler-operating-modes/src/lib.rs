@@ -18,10 +18,18 @@ pub const INTEGRATION_BRANCH_REF: &str = "refs/heads/gitbutler/integration";
 /// name we need some transition period during which both are accepted.
 /// The new branch will be checked out as soon as any modification is made
 /// that triggers `update_workspace_commit`.
-pub const OPEN_WORKSPACE_REFS: [&str; 2] = [WORKSPACE_BRANCH_REF, INTEGRATION_BRANCH_REF];
+const OPEN_WORKSPACE_REFS: [&str; 2] = [WORKSPACE_BRANCH_REF, INTEGRATION_BRANCH_REF];
 
 /// The reference the app will checkout when in edit mode
 pub const EDIT_BRANCH_REF: &str = "refs/heads/gitbutler/edit";
+
+/// Return `true` if `ref_name` is one of the well-known refs used for open workspace mode
+/// as identified by [`WORKSPACE_BRANCH_REF`] or [`INTEGRATION_BRANCH_REF`]
+pub fn is_well_known_workspace_ref(ref_name: &gix::refs::FullNameRef) -> bool {
+    OPEN_WORKSPACE_REFS
+        .iter()
+        .any(|workspace_ref| ref_name.as_bstr() == *workspace_ref)
+}
 
 fn edit_mode_metadata_path(ctx: &Context) -> PathBuf {
     ctx.project_data_dir().join("edit_mode_metadata.toml")
@@ -99,22 +107,21 @@ pub enum OperatingMode {
 but_schemars::register_sdk_type!(OperatingMode);
 
 pub fn operating_mode(ctx: &Context, perm: &RepoShared) -> Result<OperatingMode> {
-    let repo = ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
     let Ok(head_ref) = repo.head() else {
         return Ok(OperatingMode::OutsideWorkspace(
             outside_workspace_metadata(ctx, perm).unwrap_or_default(),
         ));
     };
 
-    let Some(head_ref_name) = head_ref.name() else {
+    let Some(head_ref_name) = head_ref.referent_name() else {
         return Ok(OperatingMode::OutsideWorkspace(
             outside_workspace_metadata(ctx, perm).unwrap_or_default(),
         ));
     };
-
-    if OPEN_WORKSPACE_REFS.contains(&head_ref_name) {
+    if is_well_known_workspace_ref(head_ref_name) {
         Ok(OperatingMode::OpenWorkspace)
-    } else if head_ref_name == EDIT_BRANCH_REF {
+    } else if head_ref_name.as_bstr() == EDIT_BRANCH_REF {
         let edit_mode_metadata = read_edit_mode_metadata(ctx);
 
         match edit_mode_metadata {

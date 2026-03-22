@@ -1,7 +1,7 @@
 use anyhow::{Context as _, Result};
 use but_core::{DiffSpec, RepositoryExt};
 use but_ctx::access::RepoExclusive;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::ObjectIdExt;
 use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt;
@@ -87,7 +87,8 @@ impl BranchManager<'_> {
                 .with_file_favor(Some(gix::merge::tree::FileFavor::Ours))
                 .with_tree_favor(Some(gix::merge::tree::TreeFavor::Ours));
 
-            let cwdt = git2_repo.create_wd_tree(0)?.id().to_gix();
+            #[expect(deprecated)]
+            let cwdt = repo.create_wd_tree(0)?;
             let workspace_base = repo
                 .find_commit(workspace_base(self.ctx, perm.read_permission())?)?
                 .tree_id()?;

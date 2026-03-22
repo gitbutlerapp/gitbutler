@@ -1,9 +1,9 @@
 use anyhow::Result;
 use but_core::{Reference, sync::RepoExclusive};
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::OidExt;
 use but_rebase::{Rebase, RebaseStep, ReferenceSpec};
-use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
+use gitbutler_repo::first_parent_commit_ids_until;
 use gitbutler_stack::{StackBranch, StackId, VirtualBranchesHandle};
 use gix::prelude::ReferenceExt;
 
@@ -81,10 +81,9 @@ pub fn split_branch(
     let move_changes_result = MoveChangesResult { replaced_commits };
 
     // Remove all but the specified changes from the new branch
+    let repo = ctx.repo.get()?;
     let new_branch_commits =
-        ctx.git2_repo
-            .get()?
-            .l(branch_head, LogUntil::Commit(merge_base.to_git2()), false)?;
+        first_parent_commit_ids_until(&repo, branch_head.to_gix(), merge_base)?;
 
     // Branch as rebase steps
     let mut steps: Vec<RebaseStep> = Vec::new();
@@ -93,9 +92,8 @@ pub fn split_branch(
     steps.push(reference_step);
 
     for commit in new_branch_commits {
-        let commit_id = commit.to_gix();
         if let Some(new_commit_id) =
-            keep_only_file_changes_in_commit(ctx, commit_id, file_changes_to_split_off, true, perm)?
+            keep_only_file_changes_in_commit(ctx, commit, file_changes_to_split_off, true, perm)?
         {
             let pick_step = RebaseStep::Pick {
                 commit_id: new_commit_id,
@@ -184,10 +182,9 @@ pub fn split_into_dependent_branch(
         .detach();
 
     // Remove all but the specified changes from the new branch
+    let repo = ctx.repo.get()?;
     let new_branch_commits =
-        ctx.git2_repo
-            .get()?
-            .l(branch_head, LogUntil::Commit(merge_base.to_git2()), false)?;
+        first_parent_commit_ids_until(&repo, branch_head.to_gix(), merge_base)?;
 
     // Branch as rebase steps
     let mut dependent_branch_steps: Vec<RebaseStep> = Vec::new();
@@ -196,9 +193,8 @@ pub fn split_into_dependent_branch(
     dependent_branch_steps.push(reference_step);
 
     for commit in new_branch_commits {
-        let commit_id = commit.to_gix();
         if let Some(new_commit_id) =
-            keep_only_file_changes_in_commit(ctx, commit_id, file_changes_to_split_off, true, perm)?
+            keep_only_file_changes_in_commit(ctx, commit, file_changes_to_split_off, true, perm)?
         {
             let pick_step = RebaseStep::Pick {
                 commit_id: new_commit_id,

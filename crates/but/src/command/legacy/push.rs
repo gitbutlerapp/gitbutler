@@ -90,7 +90,7 @@ struct DryRunBranchInfo {
     /// The remote where it will be pushed
     remote: String,
     /// The remote ref name where it will be pushed
-    remote_ref: String,
+    remote_ref: gix::refs::FullName,
     /// Commit details
     commits: Vec<DryRunCommit>,
     /// Upstream commits that would be overwritten (requires force push)
@@ -195,6 +195,7 @@ fn handle_dry_run(
     let default_target = vb_state.get_default_target()?;
     let remote = default_target.push_remote_name();
     let repo = ctx.repo.get()?.clone().for_commit_shortening();
+    let remote_names = repo.remote_names();
     for (branch_name, unpushed_count, stack_name) in &branches_to_show {
         // Find the stack containing this branch
         for stack_entry in &stacks {
@@ -300,7 +301,7 @@ fn handle_dry_run(
                         stack_name: stack_name.clone(),
                         unpushed_commits: *unpushed_count,
                         remote: remote.clone(),
-                        remote_ref: push_details.remote_refname.to_string(),
+                        remote_ref: push_details.remote_refname.to_string().try_into()?,
                         commits,
                         upstream_commits,
                         requires_force,
@@ -423,11 +424,12 @@ fn handle_dry_run(
             }
 
             // Extract branch name from remote_ref (e.g., refs/remotes/origin/branch -> branch)
-            let branch_name = info
-                .remote_ref
-                .strip_prefix("refs/remotes/")
-                .and_then(|s| s.strip_prefix(&format!("{}/", info.remote)))
-                .unwrap_or(&info.remote_ref);
+            let branch_name = but_core::extract_remote_name_and_short_name(
+                info.remote_ref.as_ref(),
+                &remote_names,
+            )
+            .map(|(_, short_name)| short_name.to_string())
+            .unwrap_or_else(|| info.remote_ref.shorten().to_string());
 
             // Determine the line prefix for details (vertical line or space)
             // Show line if there are more branches after this one

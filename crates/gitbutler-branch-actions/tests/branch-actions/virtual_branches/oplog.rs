@@ -1,8 +1,10 @@
 use std::{io::Write, path::Path};
 
+use but_core::{GitConfigSettings, RepositoryExt as _};
 use but_oxidize::ObjectIdExt;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_oplog::OplogExt;
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_testsupport::stack_details;
 use itertools::Itertools;
@@ -64,7 +66,7 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
     let previous_files_count = wd_file_count(&worktree_dir)?;
     assert_eq!(previous_files_count, 3, "one file per round");
     let mut guard = ctx.exclusive_worktree_access();
-    ctx.restore_snapshot(snapshots[0].commit_id.to_git2(), guard.write_permission())
+    ctx.restore_snapshot(snapshots[0].commit_id, guard.write_permission())
         .expect("restoration succeeds");
 
     assert_eq!(
@@ -87,6 +89,33 @@ fn wd_file_count(worktree_dir: &&Path) -> anyhow::Result<usize> {
 
 fn make_lines(count: usize) -> Vec<u8> {
     (0..count).map(|n| n.to_string()).join("\n").into()
+}
+
+fn configure_default_target(ctx: &mut Context) -> anyhow::Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse()?,
+        guard.write_permission(),
+    )?;
+    Ok(())
+}
+
+fn enable_failing_commit_signing(ctx: &Context) -> anyhow::Result<()> {
+    ctx.repo.get()?.set_git_settings(&GitConfigSettings {
+        gitbutler_sign_commits: Some(true),
+        signing_key: Some("definitely-no-such-signing-key".into()),
+        ..Default::default()
+    })
+}
+
+fn has_signature(repo: &gix::Repository, id: gix::ObjectId) -> anyhow::Result<bool> {
+    Ok(repo
+        .find_commit(id)?
+        .decode()?
+        .extra_headers()
+        .pgp_signature()
+        .is_some())
 }
 
 #[test]
@@ -185,10 +214,7 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     {
         let mut guard = ctx.exclusive_worktree_access();
-        ctx.restore_snapshot(
-            snapshots[1].clone().commit_id.to_git2(),
-            guard.write_permission(),
-        )?;
+        ctx.restore_snapshot(snapshots[1].clone().commit_id, guard.write_permission())?;
     }
 
     // restores the conflict files
@@ -199,10 +225,7 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     {
         let mut guard = ctx.exclusive_worktree_access();
-        ctx.restore_snapshot(
-            snapshots[2].clone().commit_id.to_git2(),
-            guard.write_permission(),
-        )?;
+        ctx.restore_snapshot(snapshots[2].clone().commit_id, guard.write_permission())?;
     }
 
     // the restore removed our new branch
@@ -231,7 +254,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     {
         let mut guard = ctx.exclusive_worktree_access();
         // The ctx stores the `git2` repo
-        ctx.restore_snapshot(snapshots[1].commit_id.to_git2(), guard.write_permission())?;
+        ctx.restore_snapshot(snapshots[1].commit_id, guard.write_permission())?;
     }
 
     // test missing commits are recreated
@@ -245,6 +268,41 @@ fn basic_oplog() -> anyhow::Result<()> {
     let file_lines = std::fs::read_to_string(file_path)?;
     assert_eq!(file_lines, "content");
 
+    Ok(())
+}
+
+#[test]
+fn oplog_snapshots_ignore_commit_signing_configuration() -> anyhow::Result<()> {
+    let Test { ctx, .. } = &mut Test::default();
+    configure_default_target(ctx)?;
+    enable_failing_commit_signing(ctx)?;
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    let repo = ctx.repo.get()?;
+
+    assert!(
+        !has_signature(&repo, snapshot_id)?,
+        "oplog snapshots must stay unsigned even when user commit signing is enabled"
+    );
+    Ok(())
+}
+
+#[test]
+fn workspace_commits_ignore_commit_signing_configuration() -> anyhow::Result<()> {
+    let Test { ctx, .. } = &mut Test::default();
+    configure_default_target(ctx)?;
+    enable_failing_commit_signing(ctx)?;
+
+    let workspace_commit_id = gitbutler_branch_actions::update_workspace_commit(ctx, false)?;
+    let repo = ctx.repo.get()?;
+    assert!(
+        !has_signature(&repo, workspace_commit_id)?,
+        "GitButler workspace commits must stay unsigned even when user commit signing is enabled"
+    );
     Ok(())
 }
 
@@ -319,7 +377,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     );
 
     let mut guard = ctx.exclusive_worktree_access();
-    ctx.restore_snapshot(snapshots[0].commit_id.to_git2(), guard.write_permission())
+    ctx.restore_snapshot(snapshots[0].commit_id, guard.write_permission())
         .expect("can restore the most recent snapshot, to undo commit 2, resetting to commit 1");
     drop(guard);
 
@@ -450,7 +508,7 @@ fn first_snapshot_diff_works() -> anyhow::Result<()> {
 
     // Test snapshot_diff on all snapshots to make sure none fail (including the first one)
     for snapshot in &snapshots {
-        let diff_result = ctx.snapshot_diff(snapshot.commit_id.to_git2());
+        let diff_result = ctx.snapshot_diff(snapshot.commit_id);
         assert!(
             diff_result.is_ok(),
             "snapshot_diff should work for snapshot {}, got error: {:?}",
