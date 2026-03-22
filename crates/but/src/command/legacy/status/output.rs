@@ -124,12 +124,12 @@ impl StatusOutput<'_> {
     pub(super) fn branch(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        line: BranchLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Plain(line),
+            StatusOutputContent::Branch(line),
             StatusOutputLineData::Branch {
                 cli_id: Arc::new(id),
             },
@@ -252,8 +252,10 @@ impl StatusOutput<'_> {
 pub(super) enum StatusOutputContent {
     /// Generic status content represented as one flat list of spans.
     Plain(Vec<Span<'static>>),
-    /// Structured content for commit rows where SHA and message are split.
+    /// Structured content for commit rows.
     Commit(CommitLineContent),
+    /// Structured content for branch rows.
+    Branch(BranchLineContent),
 }
 
 /// Structured content for a commit row in status output.
@@ -262,6 +264,24 @@ pub(super) struct CommitLineContent {
     pub(super) sha: Vec<Span<'static>>,
     pub(super) author: Vec<Span<'static>>,
     pub(super) message: Vec<Span<'static>>,
+    pub(super) suffix: Vec<Span<'static>>,
+}
+
+/// Structured content for a branch row in status output.
+///
+/// Consdering the example "dp [dp-branch-1] (no commits)" see the field docs for what exactly they
+/// correspond to.
+#[derive(Debug, Default, Clone)]
+pub(super) struct BranchLineContent {
+    /// "dp" in the example
+    pub(super) id: Vec<Span<'static>>,
+    /// " [" in the example
+    pub(super) decoration_start: Vec<Span<'static>>,
+    /// "dp-branch-1" in the example
+    pub(super) branch_name: Vec<Span<'static>>,
+    /// "] " in the example
+    pub(super) decoration_end: Vec<Span<'static>>,
+    /// "(no commits)" in the example
     pub(super) suffix: Vec<Span<'static>>,
 }
 

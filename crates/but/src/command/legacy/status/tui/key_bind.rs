@@ -231,6 +231,15 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
     });
 
     key_binds.register(StaticKeyBind {
+        short_description: "copy",
+        chord_display: "shift+c",
+        key_matcher: press().shift().code(KeyCode::Char('C')),
+        modes: Vec::from([ModeDiscriminant::Normal]),
+        message: Message::CopySelection,
+        hide_from_hotbar: true,
+    });
+
+    key_binds.register(StaticKeyBind {
         short_description: "back",
         chord_display: "esc",
         key_matcher: press().code(KeyCode::Esc),

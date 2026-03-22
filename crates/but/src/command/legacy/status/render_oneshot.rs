@@ -4,7 +4,7 @@ use ratatui::style::{Color, Modifier, Style};
 use crate::{
     command::legacy::status::{
         StatusOutputLine,
-        output::{CommitLineContent, StatusOutputContent},
+        output::{BranchLineContent, CommitLineContent, StatusOutputContent},
     },
     utils::WriteWithUtils,
 };
@@ -41,6 +41,19 @@ pub(super) fn render_oneshot(
             spans.append(&mut sha);
             spans.append(&mut author);
             spans.append(&mut message);
+            spans.append(&mut suffix);
+        }
+        StatusOutputContent::Branch(BranchLineContent {
+            mut id,
+            mut decoration_start,
+            mut branch_name,
+            mut decoration_end,
+            mut suffix,
+        }) => {
+            spans.append(&mut id);
+            spans.append(&mut decoration_start);
+            spans.append(&mut branch_name);
+            spans.append(&mut decoration_end);
             spans.append(&mut suffix);
         }
     }

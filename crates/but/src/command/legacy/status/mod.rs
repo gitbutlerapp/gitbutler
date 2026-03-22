@@ -21,7 +21,7 @@ use crate::{
     CLI_DATE, CliId, IdMap,
     command::legacy::{
         forge::review,
-        status::output::{CommitLineContent, StatusOutput, StatusOutputLine},
+        status::output::{BranchLineContent, CommitLineContent, StatusOutput, StatusOutputLine},
     },
     id::{SegmentWithId, ShortId, StackWithId, TreeChangeWithId},
     tui::text::truncate_text,
@@ -913,30 +913,36 @@ fn print_group(
                 |id| matches!(id, CliId::Branch { .. }),
                 "branch",
             )?;
-            let mut branch_line = Vec::from([
-                Span::styled(segment.short_id.clone(), Style::default().blue().bold()),
-                Span::raw(" ["),
-                Span::styled(branch, Style::default().green().bold()),
-                Span::raw(workspace),
-                Span::raw("]"),
-            ]);
-            branch_line.extend(ci_spans);
+            let mut branch_suffix = Vec::new();
+            branch_suffix.extend(ci_spans);
             if !merge_status.content.is_empty() {
-                branch_line.push(merge_status);
+                branch_suffix.push(merge_status);
             }
-            branch_line.extend(review_spans);
+            branch_suffix.extend(review_spans);
             if !no_commits.is_empty() {
-                branch_line.push(Span::raw(" "));
-                branch_line.push(Span::styled(no_commits, Style::default().dim().italic()));
+                branch_suffix.push(Span::raw(" "));
+                branch_suffix.push(Span::styled(no_commits, Style::default().dim().italic()));
             }
             if let Some(stack_mark) = stack_mark.as_ref().cloned() {
-                branch_line.push(Span::raw(" "));
-                branch_line.push(stack_mark);
+                branch_suffix.push(Span::raw(" "));
+                branch_suffix.push(stack_mark);
             }
 
             output.branch(
                 Vec::from([Span::raw(format!("┊{notch}┄"))]),
-                branch_line,
+                BranchLineContent {
+                    id: Vec::from([Span::styled(
+                        segment.short_id.clone(),
+                        Style::default().blue().bold(),
+                    )]),
+                    decoration_start: Vec::from([Span::raw(" [")]),
+                    branch_name: Vec::from([
+                        Span::styled(branch, Style::default().green().bold()),
+                        Span::raw(workspace),
+                    ]),
+                    decoration_end: Vec::from([Span::raw("]")]),
+                    suffix: branch_suffix,
+                },
                 branch_cli_id,
             )?;
 
