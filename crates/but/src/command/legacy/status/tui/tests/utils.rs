@@ -20,7 +20,7 @@ pub(super) struct TestTui {
     terminal: Terminal<TestBackend>,
     terminal_width: u16,
     pub(super) env: Sandbox,
-    out: OutputChannel,
+    out: OutputChannel<'static>,
     mode: OperatingMode,
     async_runtime: tokio::runtime::Runtime,
 }

@@ -30,7 +30,7 @@ use crate::{
 
 pub(super) async fn reload_legacy(
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
     mode: &OperatingMode,
     flags: StatusFlags,
     debug_enabled: bool,
@@ -179,7 +179,7 @@ pub(super) fn create_commit_legacy(
 
 pub(super) fn rub_legacy(
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
     operation: RubOperation<'_>,
 ) -> anyhow::Result<()> {
     operation.execute(ctx, out)

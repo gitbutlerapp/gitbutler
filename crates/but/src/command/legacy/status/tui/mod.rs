@@ -62,7 +62,7 @@ const CURSOR_CONTEXT_ROWS: usize = 3;
 
 pub(super) async fn render_tui(
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
     mode: &OperatingMode,
     flags: StatusFlags,
     status_lines: Vec<StatusOutputLine>,
@@ -131,7 +131,7 @@ async fn render_loop_once<T, E>(
     messages: &mut Vec<Message>,
     other_messages: &mut Vec<Message>,
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
     mode: &OperatingMode,
 ) -> anyhow::Result<()>
 where
@@ -162,7 +162,7 @@ async fn update<T, E>(
     messages: &mut Vec<Message>,
     other_messages: &mut Vec<Message>,
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
     mode: &OperatingMode,
 ) -> anyhow::Result<()>
 where
@@ -328,7 +328,7 @@ impl App {
     async fn handle_message<T>(
         &mut self,
         ctx: &mut Context,
-        out: &mut OutputChannel,
+        out: &mut OutputChannel<'_>,
         mode: &OperatingMode,
         terminal_guard: &mut T,
         messages: &mut Vec<Message>,
@@ -348,7 +348,7 @@ impl App {
     async fn try_handle_message<T>(
         &mut self,
         ctx: &mut Context,
-        out: &mut OutputChannel,
+        out: &mut OutputChannel<'_>,
         mode: &OperatingMode,
         terminal_guard: &mut T,
         messages: &mut Vec<Message>,
@@ -717,7 +717,7 @@ impl App {
     async fn handle_reload(
         &mut self,
         ctx: &mut Context,
-        out: &mut OutputChannel,
+        out: &mut OutputChannel<'_>,
         mode: &OperatingMode,
         select_after_reload: Option<SelectAfterReload>,
     ) -> anyhow::Result<()> {
@@ -1366,7 +1366,7 @@ impl App {
     fn handle_run_command<T>(
         &mut self,
         terminal_guard: &mut T,
-        out: &mut OutputChannel,
+        out: &mut OutputChannel<'_>,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()>
     where
@@ -1408,7 +1408,7 @@ impl App {
     }
 
     /// Prompts the user to press enter before returning from a command execution.
-    fn prompt_to_continue(&mut self, out: &mut OutputChannel) -> anyhow::Result<()> {
+    fn prompt_to_continue(&mut self, out: &mut OutputChannel<'_>) -> anyhow::Result<()> {
         if let Some(mut input_channel) = out.prepare_for_terminal_input() {
             input_channel.prompt_single_line("\npress enter to continue...")?;
         }
@@ -2426,7 +2426,7 @@ fn render_error_popup(frame: &mut Frame, area: Rect, margin: PopupMargin, text: 
 
 fn with_noop_output<F, T>(f: F) -> T
 where
-    F: FnOnce(&mut OutputChannel) -> T,
+    F: FnOnce(&mut OutputChannel<'_>) -> T,
 {
     let mut noop_out = OutputChannel::new_without_pager_non_json(OutputFormat::None);
     f(&mut noop_out)

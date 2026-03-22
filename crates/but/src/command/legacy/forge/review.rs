@@ -21,7 +21,7 @@ pub async fn enable_auto_merge(
     ctx: &mut Context,
     selector: Option<String>,
     off: bool,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
 ) -> anyhow::Result<()> {
     // Fail fast if no forge user is authenticated, before pushing or prompting.
     ensure_forge_authentication(ctx).await?;
@@ -115,7 +115,7 @@ pub async fn set_draftiness(
     ctx: &mut Context,
     selector: Option<String>,
     draft: bool,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
 ) -> anyhow::Result<()> {
     // Fail fast if no forge user is authenticated, before pushing or prompting.
     ensure_forge_authentication(ctx).await?;
@@ -234,7 +234,7 @@ pub async fn set_draftiness(
 pub fn set_review_template(
     ctx: &mut Context,
     template_path: Option<String>,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
 ) -> anyhow::Result<()> {
     if let Some(path) = template_path {
         let message = format!("Set review template path to: {}", &path);
@@ -287,7 +287,7 @@ pub async fn create_review(
     default: bool,
     draft: bool,
     message: Option<ForgeReviewMessage>,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
 ) -> anyhow::Result<()> {
     // Fail fast if no forge user is authenticated, before pushing or prompting.
     ensure_forge_authentication(ctx).await?;
@@ -457,7 +457,7 @@ pub async fn handle_multiple_branches_in_workspace(
     default_message: bool,
     draft: bool,
     message: Option<&ForgeReviewMessage>,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
     selected_branches: Option<Vec<String>>,
 ) -> anyhow::Result<()> {
     let mut overall_outcome = PublishReviewsOutcome {
@@ -525,7 +525,7 @@ fn prompt_for_branch_selection(
     ctx: &Context,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
 ) -> anyhow::Result<Vec<String>> {
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
     let base_branch_id = base_branch.current_sha;
@@ -623,7 +623,7 @@ async fn publish_reviews_for_branch_and_dependents(
     default_message: bool,
     draft: bool,
     message: Option<&ForgeReviewMessage>,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
 ) -> Result<PublishReviewsOutcome, anyhow::Error> {
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
     let all_branches_up_to_subject = stack_entry

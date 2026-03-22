@@ -218,7 +218,7 @@ async fn match_subcommand(
     cmd: Subcommands,
     args: Args,
     app_settings: AppSettings,
-    mut output: OutputChannel,
+    mut output: OutputChannel<'_>,
 ) -> Result<()> {
     let out = &mut output;
     let metrics_ctx = cmd.to_metrics_context(&app_settings);
@@ -1397,7 +1397,7 @@ async fn maybe_run_status_after(
     status_after: bool,
     result: &anyhow::Result<()>,
     ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
 ) {
     if !status_after {
         return;
@@ -1424,7 +1424,7 @@ async fn maybe_run_status_after(
 #[cfg(feature = "legacy")]
 async fn run_status_after(
     ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
     mutation_json: Option<serde_json::Value>,
 ) {
     use crate::command::legacy::status::StatusFlags;

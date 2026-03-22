@@ -65,7 +65,7 @@ struct PullSummary {
 
 pub async fn handle(
     ctx: &Context,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
     check_only: bool,
 ) -> anyhow::Result<()> {
     if check_only {
@@ -75,7 +75,7 @@ pub async fn handle(
     }
 }
 
-async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+async fn handle_check(ctx: &Context, out: &mut OutputChannel<'_>) -> anyhow::Result<()> {
     let mut progress = out.progress_channel();
 
     writeln!(progress, "Fetching from upstream remotes...")?;
@@ -239,7 +239,7 @@ async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<
     Ok(())
 }
 
-async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+async fn handle_pull(ctx: &Context, out: &mut OutputChannel<'_>) -> anyhow::Result<()> {
     let mut pull_result = PullResult {
         status: String::new(),
         upstream_url: None,

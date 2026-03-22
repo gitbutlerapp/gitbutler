@@ -24,7 +24,7 @@ use crate::{
 /// Main entry point for config command
 pub async fn exec(
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
     cmd: Option<Subcommands>,
 ) -> Result<()> {
     match cmd {
@@ -38,7 +38,7 @@ pub async fn exec(
 }
 
 /// Show overview of important settings
-async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
+async fn show_overview(ctx: &mut Context, out: &mut OutputChannel<'_>) -> Result<()> {
     #[derive(Serialize)]
     struct ConfigOverview {
         name: Option<String>,
@@ -175,7 +175,7 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
 
 /// Handle metrics config subcommand (doesn't require repo context)
 pub(crate) async fn metrics_config(
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
     status: Option<MetricsStatus>,
 ) -> Result<()> {
     let app_settings_sync = load_app_settings_sync()?;
@@ -324,7 +324,7 @@ fn write_user_config_human(out: &mut dyn std::fmt::Write, info: &UserConfigInfo)
 /// Handle user config subcommand
 async fn user_config(
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
     cmd: Option<UserSubcommand>,
 ) -> Result<()> {
     let repo = ctx.repo.get()?;
@@ -412,7 +412,7 @@ async fn user_config(
 
 /// Handle forge config subcommand (doesn't require repo context)
 pub(crate) async fn forge_config(
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
     cmd: Option<ForgeSubcommand>,
 ) -> Result<()> {
     match cmd {
@@ -424,7 +424,7 @@ pub(crate) async fn forge_config(
 }
 
 /// Show overview of forge configuration (same as list-users)
-async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
+async fn forge_show_overview(out: &mut OutputChannel<'_>) -> Result<()> {
     let known_gh_accounts = but_api::github::list_known_github_accounts()?;
     let known_gl_accounts = but_api::gitlab::list_known_gitlab_accounts()?;
 
@@ -552,7 +552,7 @@ fn extract_account_details(
 }
 
 /// Authenticate with a forge provider (GitHub, GitLab, etc)
-async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
+async fn forge_auth(out: &mut OutputChannel<'_>) -> Result<()> {
     use cli_prompts::DisplayPrompt;
 
     #[derive(Debug, Clone)]
@@ -588,7 +588,7 @@ async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
 }
 
 /// Authenticate with GitLab
-async fn gitlab_auth(out: &mut OutputChannel) -> Result<()> {
+async fn gitlab_auth(out: &mut OutputChannel<'_>) -> Result<()> {
     use cli_prompts::DisplayPrompt;
     #[derive(Debug, Clone)]
     enum AuthMethod {
@@ -660,7 +660,7 @@ async fn gitlab_self_hosted(mut inout: InputOutputChannel<'_>) -> Result<()> {
 }
 
 /// Authenticate with GitHub
-async fn github_auth(out: &mut OutputChannel) -> Result<()> {
+async fn github_auth(out: &mut OutputChannel<'_>) -> Result<()> {
     use cli_prompts::DisplayPrompt;
 
     #[derive(Debug, Clone)]
@@ -771,7 +771,7 @@ async fn github_oauth(mut inout: InputOutputChannel<'_>) -> Result<()> {
 
 async fn display_authenticated_github_accounts(
     known_gh_accounts: &Vec<but_github::GithubAccountIdentifier>,
-    out: &mut (dyn Write + 'static),
+    out: &mut dyn Write,
 ) -> Result<bool, anyhow::Error> {
     writeln!(out, "\n{}:", "Authenticated GitHub accounts".bold())?;
     writeln!(out)?;
@@ -804,7 +804,7 @@ async fn display_authenticated_github_accounts(
 
 async fn display_authenticated_gitlab_accounts(
     known_gl_accounts: &Vec<but_gitlab::GitlabAccountIdentifier>,
-    out: &mut (dyn Write + 'static),
+    out: &mut dyn Write,
 ) -> Result<bool, anyhow::Error> {
     if known_gl_accounts.is_empty() {
         return Ok(false);
@@ -866,7 +866,7 @@ fn forget_account(account: &AccountToForget) -> Result<()> {
 }
 
 /// Forget a GitHub account
-async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Result<()> {
+async fn forge_forget(username: Option<String>, out: &mut OutputChannel<'_>) -> Result<()> {
     use cli_prompts::DisplayPrompt;
 
     let known_gh_accounts = but_api::github::list_known_github_accounts()?;
@@ -938,7 +938,7 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
 /// Handle target config subcommand
 async fn target_config(
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
     branch: Option<String>,
 ) -> Result<()> {
     match branch {
@@ -1040,7 +1040,11 @@ async fn target_config(
 }
 
 /// Handle UI config subcommand
-fn ui_config(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<UiSubcommand>) -> Result<()> {
+fn ui_config(
+    ctx: &mut Context,
+    out: &mut OutputChannel<'_>,
+    cmd: Option<UiSubcommand>,
+) -> Result<()> {
     let repo = ctx.repo.get()?;
 
     match cmd {

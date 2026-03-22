@@ -147,14 +147,14 @@ struct StatusContext<'a> {
     mode: &'a gitbutler_operating_modes::OperatingMode,
 }
 
-fn show_edit_mode_status(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+fn show_edit_mode_status(ctx: &mut Context, out: &mut OutputChannel<'_>) -> anyhow::Result<()> {
     // Delegate to the resolve status logic to show actual conflict details
     crate::command::legacy::resolve::show_resolve_status(ctx, out)
 }
 
 pub(crate) async fn worktree(
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
     flags: StatusFlags,
     render_mode: StatusRenderMode,
 ) -> anyhow::Result<()> {
@@ -210,7 +210,7 @@ pub(crate) async fn worktree(
 
 async fn build_status_context<'a>(
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
     mode: &'a OperatingMode,
     flags: StatusFlags,
     render_mode: StatusRenderMode,

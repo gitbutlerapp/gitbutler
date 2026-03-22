@@ -11,7 +11,7 @@ use crate::{
 
 pub async fn handle(
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: &mut OutputChannel<'_>,
     branch_id: &str,
 ) -> anyhow::Result<()> {
     let mut progress = out.progress_channel();
