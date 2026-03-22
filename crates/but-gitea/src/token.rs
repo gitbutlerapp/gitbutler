@@ -192,14 +192,15 @@ fn delete_gitea_account(
     storage.remove_gitea_account(account)?;
 
     let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
-    secret::delete(account.access_token_key(), secret::Namespace::BuildKind)
+    let _ = secret::delete(account.access_token_key(), secret::Namespace::BuildKind);
+    Ok(())
 }
 
 fn delete_all_gitea_accounts(storage: &but_forge_storage::Controller) -> Result<()> {
     let keys_to_delete = storage.clear_all_gitea_accounts()?;
     let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
     for key in keys_to_delete {
-        secret::delete(&key, secret::Namespace::BuildKind)?;
+        let _ = secret::delete(&key, secret::Namespace::BuildKind);
     }
     Ok(())
 }
@@ -255,7 +256,7 @@ fn find_persisted_gitea_account(
 mod tests {
     use tempfile::tempdir;
 
-    use super::{GiteaAccountIdentifier, delete_gitea_access_token};
+    use super::{GiteaAccountIdentifier, clear_all_gitea_accounts, delete_gitea_access_token};
 
     #[test]
     fn delete_removes_metadata_even_if_secret_is_missing() {
@@ -295,6 +296,23 @@ mod tests {
             &storage,
         )
         .unwrap();
+
+        assert!(storage.gitea_accounts().unwrap().is_empty());
+    }
+
+    #[test]
+    fn clear_all_removes_metadata_even_if_secret_cleanup_fails() {
+        let tempdir = tempdir().unwrap();
+        let storage = but_forge_storage::Controller::from_path(tempdir.path());
+        storage
+            .add_gitea_account(&but_forge_storage::settings::GiteaAccount {
+                host: "https://codeberg.org".into(),
+                username: "demo".into(),
+                access_token_key: "missing-secret".into(),
+            })
+            .unwrap();
+
+        clear_all_gitea_accounts(&storage).unwrap();
 
         assert!(storage.gitea_accounts().unwrap().is_empty());
     }
