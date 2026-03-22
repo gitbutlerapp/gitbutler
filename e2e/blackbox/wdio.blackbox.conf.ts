@@ -39,13 +39,33 @@ export const config = {
 	connectionRetryCount: 0,
 
 	beforeTest: async function (test: Frameworks.Test) {
-		const videoPath = path.join(import.meta.dirname, "/e2e/videos");
+		const videoPath = path.join(import.meta.dirname, "videos");
 		videoRecorder.start(test, videoPath);
 	},
 
-	afterTest: async function () {
+	afterTest: async function (_test: Frameworks.Test, result: Frameworks.TestResult) {
 		await sleep(2000); // Let browser settle before stopping.
 		videoRecorder.stop();
+
+		if (result.error) {
+			// Dump browser console logs on failure.
+			try {
+				const logs = await browser.getLogs("browser");
+				if (logs.length > 0) {
+					const logDir = path.join(import.meta.dirname, "logs");
+					mkdirSync(logDir, { recursive: true });
+					const logPath = path.join(logDir, `${Date.now()}-console.json`);
+					writeFileSync(logPath, JSON.stringify(logs, null, 2));
+					console.error("[E2E] Browser console logs:");
+					for (const entry of logs) {
+						console.error(`  [${entry.level}] ${entry.message}`);
+					}
+				}
+			} catch (e) {
+				// getLogs may not be supported by all WebDriver implementations.
+				console.error("[E2E] Could not retrieve browser console logs:", e);
+			}
+		}
 	},
 
 	// ensure we are running `tauri-driver` before the session starts so that we can proxy the webdriver requests

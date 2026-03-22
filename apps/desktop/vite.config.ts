@@ -2,6 +2,7 @@ import { sentrySvelteKit } from "@sentry/sveltekit";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { svelteTesting } from "@testing-library/svelte/vite";
 import { defineConfig, type Plugin } from "vitest/config";
+import type { HotUpdateOptions } from "vite";
 
 export default defineConfig({
 	plugins: [
@@ -49,14 +50,40 @@ export default defineConfig({
 	optimizeDeps: {
 		// Exclude local packages from pre-bundling
 		exclude: ["@gitbutler/core", "@gitbutler/ui", "@gitbutler/shared"],
+		// Force pre-bundling of lexical packages — they all use process.env.NODE_ENV
+		// which Vite 8 no longer auto-handles for transitive deps of excluded packages.
+		include: [
+			"lexical",
+			"@lexical/clipboard",
+			"@lexical/code",
+			"@lexical/dragon",
+			"@lexical/extension",
+			"@lexical/file",
+			"@lexical/hashtag",
+			"@lexical/history",
+			"@lexical/html",
+			"@lexical/link",
+			"@lexical/list",
+			"@lexical/mark",
+			"@lexical/markdown",
+			"@lexical/offset",
+			"@lexical/overflow",
+			"@lexical/plain-text",
+			"@lexical/rich-text",
+			"@lexical/selection",
+			"@lexical/table",
+			"@lexical/text",
+			"@lexical/utils",
+			"@lexical/yjs",
+		],
 	},
 	// to make use of `TAURI_ENV_DEBUG` and other env variables
 	// https://tauri.studio/v1/api/config#buildconfig.beforedevcommand
 	envPrefix: ["VITE_", "TAURI_"],
 	build: {
-		rollupOptions: { output: { manualChunks: {} } },
+		rollupOptions: {},
 		// Tauri supports es2021
-		target: "modules",
+		target: "es2021",
 		// minify production builds
 		minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
 		// ship sourcemaps for better sentry error reports
@@ -88,7 +115,7 @@ function debounceReload(): Plugin {
 		 * There is a `handleHotUpdate` callback that has the same docs, and
 		 * gets called as expected, but that fails to prevent the reload.
 		 */
-		hotUpdate({ server, file }) {
+		hotUpdate({ server, file }: HotUpdateOptions) {
 			let mustReload = false;
 			let longDelay = false;
 			let serverRestart = false;
@@ -149,6 +176,6 @@ function isNotInDesktopApp(file: string) {
 	return !file.includes("apps/desktop");
 }
 
-function getReloadDelay(longDelay: boolean): number | undefined {
-	return longDelay ? 5000 : 250;
+function getReloadDelay(longDelay: boolean): number {
+	return longDelay ? 8000 : 250;
 }

@@ -10,7 +10,7 @@ catalog:
   marked: 15.0.12
   rxjs: 7.8.2
   typescript: 5.9.3
-  vite: 6.4.1
+  vite: 8.0.0
   vitest: 3.2.4
 
 catalogs:
@@ -27,9 +27,9 @@ catalogs:
   svelte:
     "@sentry/sveltekit": 10.42.0
     "@sveltejs/adapter-static": 3.0.10
-    "@sveltejs/kit": 2.52.2
+    "@sveltejs/kit": 2.55.0
     "@sveltejs/package": 2.5.7
-    "@sveltejs/vite-plugin-svelte": 6.2.4
+    "@sveltejs/vite-plugin-svelte": 7.0.0
     svelte: 5.53.7
     svelte-check: 4.4.4
 
