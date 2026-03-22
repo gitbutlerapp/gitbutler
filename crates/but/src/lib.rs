@@ -543,7 +543,9 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Fetch => {
+            use crate::utils::WriteWithUtils as _;
             use std::fmt::Write;
+
             let mut progress = out.progress_channel();
             writeln!(
                 progress,

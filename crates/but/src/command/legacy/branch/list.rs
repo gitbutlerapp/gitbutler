@@ -561,7 +561,7 @@ fn print_applied_branches_table(
     ctx: &Context,
     commits_ahead_map: Option<&HashMap<String, usize>>,
     merge_status_map: Option<&HashMap<String, bool>>,
-    out: &mut (dyn std::fmt::Write + 'static),
+    out: &mut dyn std::fmt::Write,
 ) -> Result<(), anyhow::Error> {
     use crate::tui::{Table, table::Cell};
 
@@ -672,7 +672,7 @@ fn print_branches_table(
     branch_review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
     commits_ahead_map: Option<&HashMap<String, usize>>,
     merge_status_map: Option<&HashMap<String, bool>>,
-    out: &mut (dyn std::fmt::Write + 'static),
+    out: &mut dyn std::fmt::Write,
 ) -> Result<(), anyhow::Error> {
     use crate::tui::{Table, table::Cell};
 

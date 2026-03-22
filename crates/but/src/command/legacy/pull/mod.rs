@@ -14,7 +14,7 @@ use gitbutler_branch_actions::upstream_integration::{
 use json::{BaseBranchInfo, BranchStatusInfo, PullCheckOutput, UpstreamCommit, UpstreamInfo};
 use serde::{Deserialize, Serialize};
 
-use crate::utils::{OutputChannel, shorten_hex_object_id};
+use crate::utils::{OutputChannel, WriteWithUtils as _, shorten_hex_object_id};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -76,14 +76,12 @@ pub async fn handle(
 }
 
 async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()> {
-    let mut progress = out.progress_channel();
-
-    writeln!(progress, "Fetching from upstream remotes...")?;
+    writeln!(out.progress_channel(), "Fetching from upstream remotes...")?;
 
     let base_branch =
         but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("auto".to_string()))?;
 
-    writeln!(progress, "Checking integration statuses...")?;
+    writeln!(out.progress_channel(), "Checking integration statuses...")?;
 
     let status =
         but_api::legacy::virtual_branches::upstream_integration_statuses(ctx.to_sync(), None)
@@ -143,7 +141,11 @@ async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<
         };
         out.write_value(output)?;
     } else if let Some(out) = out.for_human() {
-        writeln!(progress, "{}", "Checking base branch status...".bold())?;
+        writeln!(
+            out.progress_channel(),
+            "{}",
+            "Checking base branch status...".bold()
+        )?;
         writeln!(
             out,
             "\n{}\t{}",
@@ -257,11 +259,9 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
         undo_command: None,
     };
 
-    let mut progress = out.progress_channel();
-
     // Step 1: Check upstream data
     writeln!(
-        progress,
+        out.progress_channel(),
         "{}",
         "Fetching newest data from remotes...".bright_cyan()
     )?;
@@ -288,7 +288,11 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
     }
 
     if let Some(out) = out.for_human() {
-        writeln!(progress, "   Checking: {}", upstream_url.bright_cyan())?;
+        writeln!(
+            out.progress_channel(),
+            "   Checking: {}",
+            upstream_url.bright_cyan()
+        )?;
 
         if base_branch.behind > 0 {
             writeln!(
@@ -322,7 +326,10 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
             writeln!(out, "\n{}", "No new upstream commits found".green())?;
         }
 
-        writeln!(progress, "   Checking integration statuses...")?;
+        writeln!(
+            out.progress_channel(),
+            "   Checking integration statuses..."
+        )?;
     }
 
     // Step 2: Check integration status

@@ -6,7 +6,10 @@ use cli_prompts::{DisplayPrompt, prompts::AbortReason};
 use colored::Colorize;
 use serde::Serialize;
 
-use crate::{args::skill, utils::OutputChannel};
+use crate::{
+    args::skill,
+    utils::{OutputChannel, WriteWithUtils as _},
+};
 
 /// Error type for user-initiated cancellation
 #[derive(Debug, Clone, Copy)]
@@ -706,7 +709,6 @@ fn prompt_for_install_path(
     ctx: Option<&mut Context>,
     global: bool,
     out: &mut OutputChannel,
-    progress: &mut impl std::io::Write,
 ) -> Result<PathBuf> {
     if out.for_human().is_none() {
         anyhow::bail!(
@@ -732,33 +734,39 @@ fn prompt_for_install_path(
     };
 
     let scope = match determine_install_scope_resolution(global, local_scope_available) {
-        InstallScopeResolution::PromptUser => prompt_for_install_scope(progress)?,
+        InstallScopeResolution::PromptUser => {
+            prompt_for_install_scope(&mut out.progress_channel())?
+        }
         InstallScopeResolution::Fixed(scope) => scope,
     };
 
     if !global && !local_scope_available {
-        writeln!(progress)?;
+        writeln!(out.progress_channel())?;
         if ctx.is_none() {
             writeln!(
-                progress,
+                out.progress_channel(),
                 "{} Not in a git repository. Installing globally in your home directory.",
                 "ℹ".blue()
             )?;
         } else {
             writeln!(
-                progress,
+                out.progress_channel(),
                 "{} Local installs require a repository workdir. Installing globally in your home directory.",
                 "ℹ".blue()
             )?;
         }
-        writeln!(progress)?;
+        writeln!(out.progress_channel())?;
     }
 
     let base_dir = get_base_dir(ctx, scope.is_global())?;
 
-    writeln!(progress)?;
-    writeln!(progress, "{}", "Select a skill folder format:".bold())?;
-    writeln!(progress)?;
+    writeln!(out.progress_channel())?;
+    writeln!(
+        out.progress_channel(),
+        "{}",
+        "Select a skill folder format:".bold()
+    )?;
+    writeln!(out.progress_channel())?;
 
     let available_formats: Vec<&SkillFormat> = SKILL_FORMATS
         .iter()
@@ -859,8 +867,6 @@ fn install_skill(
         "SkillFormat name and path must not be empty"
     );
 
-    let mut progress = out.progress_channel();
-
     // Validate flags
     if detect && custom_path.is_some() {
         anyhow::bail!("Cannot use both --detect and --path options together");
@@ -885,7 +891,7 @@ fn install_skill(
     } else if detect {
         detect_install_path(ctx, global)?
     } else {
-        prompt_for_install_path(ctx, global, out, &mut progress)?
+        prompt_for_install_path(ctx, global, out)?
     };
 
     // Validate installation path
@@ -899,15 +905,15 @@ fn install_skill(
     // Check if files already exist and warn user
     let skill_md_path = install_path.join("SKILL.md");
     if skill_md_path.exists() {
-        writeln!(progress)?;
+        writeln!(out.progress_channel())?;
         writeln!(
-            progress,
+            out.progress_channel(),
             "{} Skill files already exist at {}",
             "⚠".yellow(),
             install_path.display().to_string().cyan()
         )?;
-        writeln!(progress, "  Overwriting existing files...")?;
-        writeln!(progress)?;
+        writeln!(out.progress_channel(), "  Overwriting existing files...")?;
+        writeln!(out.progress_channel())?;
     }
 
     // Prepare all content before writing (validate UTF-8 and inject version)
@@ -936,24 +942,24 @@ fn install_skill(
     }
 
     // Output success message
-    writeln!(progress)?;
+    writeln!(out.progress_channel())?;
     writeln!(
-        progress,
+        out.progress_channel(),
         "{} GitButler skill installed successfully!",
         "✓".green().bold()
     )?;
-    writeln!(progress)?;
+    writeln!(out.progress_channel())?;
     writeln!(
-        progress,
+        out.progress_channel(),
         "  Location: {}",
         install_path.display().to_string().cyan()
     )?;
-    writeln!(progress)?;
-    writeln!(progress, "  Files installed:")?;
+    writeln!(out.progress_channel())?;
+    writeln!(out.progress_channel(), "  Files installed:")?;
     for file in SKILL_FILES {
-        writeln!(progress, "    • {}", file.path)?;
+        writeln!(out.progress_channel(), "    • {}", file.path)?;
     }
-    writeln!(progress)?;
+    writeln!(out.progress_channel())?;
 
     if let Some(out) = out.for_json() {
         let file_paths: Vec<&str> = SKILL_FILES.iter().map(|f| f.path).collect();

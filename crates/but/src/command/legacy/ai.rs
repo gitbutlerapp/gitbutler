@@ -10,7 +10,7 @@ use but_llm::{ChatMessage, LLMProvider};
 use colored::Colorize;
 use schemars::JsonSchema;
 
-use crate::utils::OutputChannel;
+use crate::utils::{OutputChannel, WriteWithUtils as _};
 
 /// Generate a commit message using AI based on the unified diff and optional user summary.
 ///
