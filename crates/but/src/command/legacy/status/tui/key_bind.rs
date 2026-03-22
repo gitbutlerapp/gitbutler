@@ -443,6 +443,15 @@ fn register_branch_mode_key_binds(key_binds: &mut KeyBinds) {
     });
 
     key_binds.register(StaticKeyBind {
+        short_description: "move",
+        chord_display: "m",
+        key_matcher: press().code(KeyCode::Char('m')),
+        modes: Vec::from([ModeDiscriminant::Branch]),
+        message: Message::Move(MoveMessage::Start),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
         short_description: "back",
         chord_display: "b",
         key_matcher: press().code(KeyCode::Char('b')),
