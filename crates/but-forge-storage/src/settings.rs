@@ -8,6 +8,9 @@ pub struct ForgeSettings {
     /// GitLab-specific settings.
     #[serde(default)]
     pub gitlab: GitLabSettings,
+    /// Gitea-specific settings.
+    #[serde(default)]
+    pub gitea: GiteaSettings,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -185,5 +188,30 @@ impl PartialEq for GitLabAccount {
             (GitLabAccount::Pat { .. }, GitLabAccount::SelfHosted { .. }) => false,
             (GitLabAccount::SelfHosted { .. }, GitLabAccount::Pat { .. }) => false,
         }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct GiteaSettings {
+    /// Gitea-specific settings.
+    pub known_accounts: Vec<GiteaAccount>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct GiteaAccount {
+    pub host: String,
+    pub username: String,
+    pub access_token_key: String,
+}
+
+impl GiteaAccount {
+    pub fn access_token_key(&self) -> &str {
+        &self.access_token_key
+    }
+
+    pub fn username(&self) -> &str {
+        &self.username
     }
 }

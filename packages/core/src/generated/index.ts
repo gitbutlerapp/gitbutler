@@ -9,6 +9,8 @@ export * as Action from "./action/autoCommit";
 export type { ForgeUser } from "./forge/user";
 export * as ButGitHub from "./github/index";
 export * as ButGitHubToken from "./github/token";
+export * as ButGitea from "./gitea/index";
+export * as ButGiteaToken from "./gitea/token";
 export * as ButGitLab from "./gitlab/index";
 export * as ButGitLabToken from "./gitlab/token";
 export type { GitConfigSettings } from "./settings/gitConfigSettings";

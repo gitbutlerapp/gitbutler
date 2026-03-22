@@ -1,0 +1,35 @@
+[package]
+name = "but-gitea"
+version = "0.0.0"
+edition.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE.md"
+description = "The GitButler Gitea integration"
+authors.workspace = true
+readme = "README.md"
+publish = false
+rust-version.workspace = true
+
+[features]
+export-ts = ["dep:ts-rs"]
+export-schema = ["dep:schemars", "dep:but-schemars"]
+
+[lib]
+doctest = false
+
+[dependencies]
+but-secret.workspace = true
+but-forge-storage.workspace = true
+but-error.workspace = true
+serde.workspace = true
+anyhow.workspace = true
+reqwest = { workspace = true, features = ["json"] }
+ts-rs = { workspace = true, optional = true }
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

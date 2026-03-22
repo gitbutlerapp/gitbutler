@@ -1,4 +1,5 @@
 <script lang="ts">
+	import GiteaIntegration from "$components/GiteaIntegration.svelte";
 	import GithubIntegration from "$components/GithubIntegration.svelte";
 	import GitlabIntegration from "$components/GitlabIntegration.svelte";
 	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
@@ -17,6 +18,7 @@
 
 <GithubIntegration />
 <GitlabIntegration />
+<GiteaIntegration />
 <Spacer />
 <CardGroup>
 	<CardGroup.Item labelFor="autoFillPrDescription">
