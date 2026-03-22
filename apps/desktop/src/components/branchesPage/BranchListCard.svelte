@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BranchesCardTemplate from "$components/branchesPage/BranchesCardTemplate.svelte";
+	import BranchesCardLayout from "$components/branchesPage/BranchesCardLayout.svelte";
 	import { type BranchListing, BranchListingDetails } from "$lib/branches/branchListing";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
@@ -106,7 +106,7 @@
 	);
 </script>
 
-<BranchesCardTemplate
+<BranchesCardLayout
 	testId={TestId.BranchListCard}
 	{selected}
 	onclick={() => onclick?.({ listing: branchListing, pr })}
@@ -192,7 +192,7 @@
 			{/if}
 		</div>
 	{/snippet}
-</BranchesCardTemplate>
+</BranchesCardLayout>
 
 <style lang="postcss">
 	.sidebar-entry__about {

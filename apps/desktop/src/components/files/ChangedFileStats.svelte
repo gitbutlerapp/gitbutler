@@ -1,5 +1,5 @@
 <script lang="ts">
-	import FileListMode from "$components/files/FileListMode.svelte";
+	import FileListViewToggle from "$components/files/FileListViewToggle.svelte";
 	import { Badge, LineStats } from "@gitbutler/ui";
 
 	type Props = {
@@ -30,7 +30,7 @@
 		<LineStats linesAdded={linesAdded ?? 0} linesRemoved={linesRemoved ?? 0} />
 	{/if}
 </div>
-<FileListMode bind:mode {persistId} />
+<FileListViewToggle bind:mode {persistId} />
 
 <style lang="postcss">
 	.stats-left {

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BranchesCardTemplate from "$components/branchesPage/BranchesCardTemplate.svelte";
+	import BranchesCardLayout from "$components/branchesPage/BranchesCardLayout.svelte";
 	import { Avatar, SeriesLabelsRow, TestId } from "@gitbutler/ui";
 	import type { Author } from "$lib/commits/commit";
 	interface Props {
@@ -20,7 +20,7 @@
 	);
 </script>
 
-<BranchesCardTemplate testId={TestId.CurrentOriginListCard} {onclick} {selected}>
+<BranchesCardLayout testId={TestId.CurrentOriginListCard} {onclick} {selected}>
 	{#snippet content()}
 		<SeriesLabelsRow origin series={[originName]} />
 
@@ -68,7 +68,7 @@
 			</div>
 		</div>
 	{/snippet}
-</BranchesCardTemplate>
+</BranchesCardLayout>
 
 <style lang="postcss">
 	.workspace-target-card__about {

@@ -20,8 +20,8 @@
 	import MultiDiffView from "$components/diff/MultiDiffView.svelte";
 	import IrcChannel from "$components/irc/IrcChannel.svelte";
 	import { isLocalAndRemoteCommit, isUpstreamCommit } from "$components/lib";
-	import CardOverlay from "$components/shared/CardOverlay.svelte";
 	import Dropzone from "$components/shared/Dropzone.svelte";
+	import DropzoneOverlay from "$components/shared/DropzoneOverlay.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import Resizer from "$components/shared/Resizer.svelte";
 	import StackCodegen from "$components/stack/StackCodegen.svelte";
@@ -175,7 +175,7 @@
 						handler instanceof AmendCommitWithHunkDzHandler
 							? "Amend"
 							: "Squash"}
-					<CardOverlay {hovered} {activated} {label} />
+					<DropzoneOverlay {hovered} {activated} {label} />
 				{/snippet}
 				<div class="details-view__inner">
 					<CommitView

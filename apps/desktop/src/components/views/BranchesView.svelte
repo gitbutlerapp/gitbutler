@@ -9,8 +9,8 @@
 	import PRListCard from "$components/branchesPage/PRListCard.svelte";
 	import UnappliedCommitView from "$components/commit/UnappliedCommitView.svelte";
 	import MultiDiffView from "$components/diff/MultiDiffView.svelte";
-	import PrBranchView from "$components/forge/PRBranchView.svelte";
-	import ConfigurableScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
+	import PrBranchView from "$components/forge/PrDetailsDrawer.svelte";
+	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import Resizer from "$components/shared/Resizer.svelte";
 	import BranchesViewBranch from "$components/views/BranchesViewBranch.svelte";
@@ -271,7 +271,7 @@
 					/>
 				</div>
 			{:else}
-				<ConfigurableScrollableContainer>
+				<AppScrollableContainer>
 					<div class="branch-column" bind:this={branchColumn} use:focusable={{ vertical: true }}>
 						{#if selection.type === "branch"}
 							{@const { stackId, branchName, remote } = selection}
@@ -376,7 +376,7 @@
 							maxWidth={30}
 						/>
 					</div>
-				</ConfigurableScrollableContainer>
+				</AppScrollableContainer>
 			{/if}
 
 			<div class="commit-column">

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import WelcomeAction from "$components/onboarding/WelcomeAction.svelte";
+	import AccessTokenSignIn from "$components/shared/AccessTokenSignIn.svelte";
 	import IconLink from "$components/shared/IconLink.svelte";
-	import WelcomeSigninAction from "$components/shared/WelcomeSigninAction.svelte";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
 	import cloneRepoSvg from "$lib/assets/welcome/clone-repo.svg?raw";
 	import newProjectSvg from "$lib/assets/welcome/new-local-project.svg?raw";
@@ -73,7 +73,7 @@
 			</WelcomeAction>
 		</div>
 		<!-- Using instance of user here to not hide after login -->
-		<WelcomeSigninAction />
+		<AccessTokenSignIn />
 	</div>
 
 	<div class="links">

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import RemoveProjectButton from "$components/projectSettings/RemoveProjectButton.svelte";
-	import DecorativeSplitView from "$components/shared/DecorativeSplitView.svelte";
+	import IllustrationSplitLayout from "$components/shared/IllustrationSplitLayout.svelte";
 	import ProjectSwitcher from "$components/shared/ProjectSwitcher.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import notFoundSvg from "$lib/assets/illustrations/not-found.svg?raw";
@@ -51,7 +51,7 @@
 	}
 </script>
 
-<DecorativeSplitView testId={TestId.ProjectNotFoundPage} img={notFoundSvg}>
+<IllustrationSplitLayout testId={TestId.ProjectNotFoundPage} img={notFoundSvg}>
 	<div class="container">
 		<ReduxResult {projectId} result={projectQuery.result}>
 			{#snippet children(project)}
@@ -100,7 +100,7 @@
 		<Spacer dotted margin={0} />
 		<ProjectSwitcher {projectId} />
 	</div>
-</DecorativeSplitView>
+</IllustrationSplitLayout>
 
 <style lang="postcss">
 	.container {

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import ProjectSetupTarget from "$components/onboarding/ProjectSetupTarget.svelte";
-	import DecorativeSplitView from "$components/shared/DecorativeSplitView.svelte";
+	import IllustrationSplitLayout from "$components/shared/IllustrationSplitLayout.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
 	import newZenSvg from "$lib/assets/illustrations/new-zen.svg?raw";
@@ -48,7 +48,7 @@
 	});
 </script>
 
-<DecorativeSplitView img={newZenSvg} testId={TestId.ProjectSetupPage}>
+<IllustrationSplitLayout img={newZenSvg} testId={TestId.ProjectSetupPage}>
 	<ReduxResult {projectId} result={projectQuery.result}>
 		{#snippet children(project)}
 			<ProjectSetupTarget
@@ -61,4 +61,4 @@
 			/>
 		{/snippet}
 	</ReduxResult>
-</DecorativeSplitView>
+</IllustrationSplitLayout>

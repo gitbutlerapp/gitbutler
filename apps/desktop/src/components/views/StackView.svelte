@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
+	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import FullviewLoading from "$components/shared/FullviewLoading.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import Resizer from "$components/shared/Resizer.svelte";
@@ -202,7 +202,7 @@
 			</div>
 		{/snippet}
 		{#snippet children([branches, hasRulesToClear, claudeConfig])}
-			<ConfigurableScrollableContainer childrenWrapHeight="100%" enableDragScroll>
+			<AppScrollableContainer childrenWrapHeight="100%" enableDragScroll>
 				<div
 					class="stack-view"
 					class:details-open={isDetailsOpen}
@@ -234,7 +234,7 @@
 						/>
 					{/if}
 				</div>
-			</ConfigurableScrollableContainer>
+			</AppScrollableContainer>
 
 			<!-- DETAILS PANEL -->
 			{#if isDetailsOpen}

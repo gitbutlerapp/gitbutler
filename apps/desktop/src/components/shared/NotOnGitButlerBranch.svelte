@@ -1,7 +1,7 @@
 <script lang="ts">
-	import DecorativeSplitView from "$components/shared/DecorativeSplitView.svelte";
+	import IllustrationSplitLayout from "$components/shared/IllustrationSplitLayout.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import Chrome from "$components/views/Chrome.svelte";
+	import AppLayout from "$components/views/AppLayout.svelte";
 	import directionDoubtSvg from "$lib/assets/illustrations/direction-doubt.svg?raw";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
@@ -68,12 +68,12 @@
 	}
 </script>
 
-<Chrome {projectId} sidebarDisabled>
+<AppLayout {projectId} sidebarDisabled>
 	{#if children}
 		<!-- Allow the display of the project settings -->
 		{@render children()}
 	{:else}
-		<DecorativeSplitView img={directionDoubtSvg} hideDetails>
+		<IllustrationSplitLayout img={directionDoubtSvg} hideDetails>
 			{@const uncommittedChanges = changes.response || []}
 
 			<div class="switchrepo__content">
@@ -165,9 +165,9 @@
 					</AsyncButton>
 				</div>
 			</div>
-		</DecorativeSplitView>
+		</IllustrationSplitLayout>
 	{/if}
-</Chrome>
+</AppLayout>
 
 <style lang="postcss">
 	.switchrepo__title {

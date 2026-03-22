@@ -1,6 +1,6 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
-	import PreviewHeader from "$components/shared/PreviewHeader.svelte";
+	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
+	import DrawerHeader from "$components/shared/DrawerHeader.svelte";
 	import Resizer from "$components/shared/Resizer.svelte";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { inject } from "@gitbutler/core/context";
@@ -126,7 +126,7 @@
 	class:rounded
 	style:max-height={maxHeight}
 >
-	<PreviewHeader
+	<DrawerHeader
 		{actions}
 		{closeActions}
 		bind:headerHeight
@@ -158,7 +158,7 @@
 				{@render header(containerDiv)}
 			{/if}
 		{/snippet}
-	</PreviewHeader>
+	</DrawerHeader>
 
 	{#snippet drawerContent()}
 		<div class="drawer__content" bind:clientHeight={contentHeight}>
@@ -170,9 +170,9 @@
 		{#if notScrollable}
 			{@render drawerContent()}
 		{:else}
-			<ConfigurableScrollableContainer>
+			<AppScrollableContainer>
 				{@render drawerContent()}
-			</ConfigurableScrollableContainer>
+			</AppScrollableContainer>
 		{/if}
 	{/if}
 

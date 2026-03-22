@@ -1,7 +1,7 @@
 <script lang="ts">
 	import AiPromptSelect from "$components/projectSettings/AIPromptSelect.svelte";
+	import AccessTokenSignIn from "$components/shared/AccessTokenSignIn.svelte";
 	import SettingsSection from "$components/shared/SettingsSection.svelte";
-	import WelcomeSigninAction from "$components/shared/WelcomeSigninAction.svelte";
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from "$lib/config/config";
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { USER_SERVICE } from "$lib/user/userService";
@@ -28,7 +28,7 @@
 	<Spacer />
 
 	{#if !$user}
-		<WelcomeSigninAction />
+		<AccessTokenSignIn />
 		<Spacer />
 	{/if}
 

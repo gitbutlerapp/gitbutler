@@ -1,14 +1,14 @@
 <script lang="ts">
-	import CollapsedLane from "$components/branch/CollapsedLane.svelte";
 	import CreateBranchModal from "$components/branch/CreateBranchModal.svelte";
+	import FoldedStack from "$components/branch/FoldedStack.svelte";
 	import ErrorBoundary from "$components/shared/ErrorBoundary.svelte";
 	import Scrollbar from "$components/shared/Scrollbar.svelte";
 	import StackDraft from "$components/stack/StackDraft.svelte";
 	import StackView from "$components/views/StackView.svelte";
-	import MultiStackOfflaneDropzone from "$components/workspace/MultiStackOfflaneDropzone.svelte";
 	import MultiStackPagination, {
 		scrollToLane,
 	} from "$components/workspace/MultiStackPagination.svelte";
+	import NewStackDropzone from "$components/workspace/NewStackDropzone.svelte";
 	import { HorizontalPanner } from "$lib/dragging/horizontalPanner";
 	import {
 		onReorderEnd,
@@ -253,7 +253,7 @@
 				}}
 			>
 				{#if stack.id && foldedStackIds.includes(stack.id)}
-					<CollapsedLane
+					<FoldedStack
 						branchNames={stack.heads.map((head) => head.name)}
 						onUnfold={() => unfoldStack(stack.id)}
 					/>
@@ -280,7 +280,7 @@
 			</div>
 		{/each}
 
-		<MultiStackOfflaneDropzone
+		<NewStackDropzone
 			{projectId}
 			viewport={lanesScrollableEl}
 			onVisible={(visible) => {
@@ -321,7 +321,7 @@
 					> +
 				{/if}
 			{/snippet}
-		</MultiStackOfflaneDropzone>
+		</NewStackDropzone>
 
 		<div class="dotted-pattern"></div>
 	</div>

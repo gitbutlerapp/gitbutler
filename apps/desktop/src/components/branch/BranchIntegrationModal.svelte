@@ -1,5 +1,5 @@
 <script lang="ts">
-	import CommitLine from "$components/commit/CommitLine.svelte";
+	import CommitTimelineNode from "$components/commit/CommitTimelineNode.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import {
@@ -383,14 +383,14 @@
 	overrideIsRemote: boolean = false,
 )}
 	{#if isCommit(commit) && !overrideIsRemote}
-		<CommitLine
+		<CommitTimelineNode
 			commitStatus={commit.state.type}
 			dotOnTop
 			hideDot={hideCommitDot}
 			diverged={commit.state.type === "LocalAndRemote" && commit.state.subject !== commit.id}
 		/>
 	{:else}
-		<CommitLine hideDot={hideCommitDot} dotOnTop commitStatus="Remote" diverged={false} />
+		<CommitTimelineNode hideDot={hideCommitDot} dotOnTop commitStatus="Remote" diverged={false} />
 	{/if}
 {/snippet}
 

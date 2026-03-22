@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Content from "$components/settings/Content.svelte";
+	import AIPromptEntry from "$components/settings/AIPromptEntry.svelte";
 	import { PROMPT_SERVICE } from "$lib/ai/promptService";
 	import { inject } from "@gitbutler/core/context";
 	import { Button } from "@gitbutler/ui";
@@ -47,7 +47,7 @@
 		<Button kind="outline" icon="plus" onclick={createNewPrompt}>New prompt</Button>
 	</div>
 	<div class="content">
-		<Content
+		<AIPromptEntry
 			displayMode="readOnly"
 			prompt={{
 				prompt: prompts.defaultPrompt,
@@ -57,7 +57,7 @@
 		/>
 
 		{#each $userPrompts as _prompt, idx}
-			<Content
+			<AIPromptEntry
 				bind:prompt={$userPrompts[idx] as UserPrompt}
 				displayMode="writable"
 				deletePrompt={(prompt) => deletePrompt(prompt)}

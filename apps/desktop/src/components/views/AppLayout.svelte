@@ -2,9 +2,9 @@
 	import EnsureAuthorInfo from "$components/projectSettings/EnsureAuthorInfo.svelte";
 	import ErrorBoundary from "$components/shared/ErrorBoundary.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import ChromeErrorBoundary from "$components/views/ChromeErrorBoundary.svelte";
-	import ChromeHeader from "$components/views/ChromeHeader.svelte";
-	import ChromeSidebar from "$components/views/ChromeSidebar.svelte";
+	import AppErrorFallback from "$components/views/AppErrorFallback.svelte";
+	import AppHeader from "$components/views/AppHeader.svelte";
+	import AppSidebar from "$components/views/AppSidebar.svelte";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { inject } from "@gitbutler/core/context";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
@@ -23,10 +23,10 @@
 <ReduxResult {projectId} result={projectQuery.result}>
 	{#snippet children(project, { projectId })}
 		<div class="chrome" use:focusable={{ vertical: true, activate: true }}>
-			<ChromeHeader {projectId} projectTitle={project.title} actionsDisabled={sidebarDisabled} />
+			<AppHeader {projectId} projectTitle={project.title} actionsDisabled={sidebarDisabled} />
 			<div class="chrome-body" use:focusable>
 				<EnsureAuthorInfo {projectId} />
-				<ChromeSidebar {projectId} disabled={sidebarDisabled} />
+				<AppSidebar {projectId} disabled={sidebarDisabled} />
 				<div class="chrome-content">
 					<ErrorBoundary>
 						{@render children2()}
@@ -36,7 +36,7 @@
 		</div>
 	{/snippet}
 	{#snippet error(e)}
-		<ChromeErrorBoundary {projectId} error={e} />
+		<AppErrorFallback {projectId} error={e} />
 	{/snippet}
 </ReduxResult>
 

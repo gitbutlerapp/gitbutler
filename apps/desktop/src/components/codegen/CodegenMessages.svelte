@@ -1,18 +1,18 @@
 <script lang="ts">
 	import AddedDirectories from "$components/codegen/AddedDirectories.svelte";
 	import ClaudeCheck from "$components/codegen/ClaudeCheck.svelte";
+	import ClaudeUnavailableBanner from "$components/codegen/ClaudeUnavailableBanner.svelte";
 	import CodegenAskUserQuestion from "$components/codegen/CodegenAskUserQuestion.svelte";
-	import CodegenChatClaudeNotAvaliableBanner from "$components/codegen/CodegenChatClaudeNotAvaliableBanner.svelte";
 	import CodegenChatClaudeNotRegistered from "$components/codegen/CodegenChatClaudeNotRegistered.svelte";
-	import CodegenClaudeMessage from "$components/codegen/CodegenClaudeMessage.svelte";
 	import CodegenInput from "$components/codegen/CodegenInput.svelte";
+	import CodegenMessageItem from "$components/codegen/CodegenMessageItem.svelte";
 	import CodegenPromptConfigModal from "$components/codegen/CodegenPromptConfigModal.svelte";
 	import CodegenServiceMessageThinking from "$components/codegen/CodegenServiceMessageThinking.svelte";
 	import CodegenServiceMessageUseTool from "$components/codegen/CodegenServiceMessageUseTool.svelte";
 	import CodegenTodoAccordion from "$components/codegen/CodegenTodoAccordion.svelte";
-	import ConfigurableScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
+	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
+	import DrawerHeader from "$components/shared/DrawerHeader.svelte";
 	import ErrorBoundary from "$components/shared/ErrorBoundary.svelte";
-	import PreviewHeader from "$components/shared/PreviewHeader.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import noClaudeCodeSvg from "$lib/assets/empty-state/claude-disconected.svg?raw";
 	import laneNewSvg from "$lib/assets/empty-state/lane-new.svg?raw";
@@ -332,7 +332,7 @@
 	<ErrorBoundary title="Something went wrong in the chat">
 		<ReduxResult result={claudeAvailable.result}>
 			{#snippet loading()}
-				<PreviewHeader {onclose}>
+				<DrawerHeader {onclose}>
 					{#snippet content()}
 						<h3 class="text-14 text-semibold truncate">Chat for {branchName}</h3>
 					{/snippet}
@@ -342,7 +342,7 @@
 							<SkeletonBone width="1.5rem" height="1.2rem" />
 						</div>
 					{/snippet}
-				</PreviewHeader>
+				</DrawerHeader>
 
 				<div class="chat-skeleton">
 					<div class="chat-skeleton__user">
@@ -396,7 +396,7 @@
 				{@const todos = getTodos(events)}
 
 				<!-- TODO: remove this header when we move to the workspace layout -->
-				<PreviewHeader {onclose}>
+				<DrawerHeader {onclose}>
 					{#snippet content()}
 						<h3 class="text-14 text-semibold truncate">Chat for {branchName}</h3>
 					{/snippet}
@@ -470,11 +470,11 @@
 							</KebabButton>
 						</div>
 					{/snippet}
-				</PreviewHeader>
+				</DrawerHeader>
 
 				<div class="chat-container">
 					{#if claudeAvailable.status !== "available" && formattedMessages.length === 0}
-						<ConfigurableScrollableContainer childrenWrapDisplay="contents">
+						<AppScrollableContainer childrenWrapDisplay="contents">
 							<div class="no-agent-placeholder">
 								<div class="no-agent-placeholder__content">
 									{@html noClaudeCodeSvg}
@@ -495,7 +495,7 @@
 									> for common issues and solutions.
 								</p>
 							</div>
-						</ConfigurableScrollableContainer>
+						</AppScrollableContainer>
 					{:else if !isStackActive && formattedMessages.length === 0}
 						<div class="chat-view__placeholder">
 							<EmptyStatePlaceholder
@@ -533,7 +533,7 @@
 							getId={(item) => item.createdAt}
 						>
 							{#snippet template(message)}
-								<CodegenClaudeMessage
+								<CodegenMessageItem
 									{projectId}
 									{message}
 									{onPermissionDecision}
@@ -562,7 +562,7 @@
 				</div>
 				{#if claudeAvailable.status !== "available"}
 					{#if formattedMessages.length > 0}
-						<CodegenChatClaudeNotAvaliableBanner
+						<ClaudeUnavailableBanner
 							onSettingsBtnClick={() => {
 								controller.openProjectSettingsModal("agent");
 							}}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ClaudeSessionDescriptor from "$components/codegen/ClaudeSessionDescriptor.svelte";
+	import ClaudeSessionTitle from "$components/codegen/ClaudeSessionTitle.svelte";
 	import { Codeblock } from "@gitbutler/ui";
 
 	type Props = {
@@ -13,7 +13,7 @@
 </script>
 
 <div class="cc-session-filter">
-	<ClaudeSessionDescriptor {projectId} {sessionId}>
+	<ClaudeSessionTitle {projectId} {sessionId}>
 		{#snippet children(descriptor)}
 			<p class="descriptor text-14 text-body text-bold">
 				{#if descriptor}
@@ -23,7 +23,7 @@
 				{/if}
 			</p>
 		{/snippet}
-	</ClaudeSessionDescriptor>
+	</ClaudeSessionTitle>
 </div>
 
 <Codeblock label="Resume session command" content={claudeResumeCommand} />

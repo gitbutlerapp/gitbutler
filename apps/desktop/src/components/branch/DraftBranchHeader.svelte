@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BranchHeaderIcon from "$components/branch/BranchHeaderIcon.svelte";
 	import BranchLabel from "$components/branch/BranchLabel.svelte";
-	import CommitGoesHere from "$components/commit/CommitGoesHere.svelte";
+	import CommitPositionIndicator from "$components/commit/CommitPositionIndicator.svelte";
 	import { TestId } from "@gitbutler/ui";
 
 	type Props = {
@@ -60,7 +60,7 @@
 	</div>
 
 	{#if isCommitting}
-		<CommitGoesHere {commitId} selected={true} draft last={false} />
+		<CommitPositionIndicator {commitId} selected={true} draft last={false} />
 	{/if}
 </div>
 

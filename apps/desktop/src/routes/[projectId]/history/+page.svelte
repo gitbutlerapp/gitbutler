@@ -4,10 +4,10 @@
 	import SelectionView from "$components/diff/SelectionView.svelte";
 	import CreateSnapshotModal from "$components/history/CreateSnapshotModal.svelte";
 	import SnapshotCard from "$components/history/SnapshotCard.svelte";
-	import ScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
-	import ConfigurableScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
+	import ScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
+	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import FullviewLoading from "$components/shared/FullviewLoading.svelte";
-	import LazyloadContainer from "$components/shared/LazyloadContainer.svelte";
+	import InfiniteScrollTrigger from "$components/shared/InfiniteScrollTrigger.svelte";
 	import Resizer from "$components/shared/Resizer.svelte";
 	import emptyFolderSvg from "$lib/assets/empty-state/empty-folder.svg?raw";
 	import { HISTORY_SERVICE, createdOnDay } from "$lib/history/history";
@@ -100,7 +100,7 @@
 		<ScrollableContainer>
 			<div class="snapshots-wrapper">
 				<!-- SNAPSHOTS FEED -->
-				<LazyloadContainer
+				<InfiniteScrollTrigger
 					minTriggerCount={MIN_SNAPSHOTS_TO_LOAD}
 					ontrigger={() => {
 						onLastInView();
@@ -136,7 +136,7 @@
 							/>
 						{/if}
 					{/each}
-				</LazyloadContainer>
+				</InfiniteScrollTrigger>
 
 				<!-- LOAD MORE -->
 				{#if $loading}
@@ -195,9 +195,9 @@
 	<div class="history-view__preview dotted-pattern" use:focusable>
 		{#if selectedFile}
 			<div class="history-view__preview-file">
-				<ConfigurableScrollableContainer bind:viewport={scrollContainer}>
+				<AppScrollableContainer bind:viewport={scrollContainer}>
 					<SelectionView {projectId} {scrollContainer} selectionId={currentSelectionId} />
-				</ConfigurableScrollableContainer>
+				</AppScrollableContainer>
 			</div>
 		{:else}
 			<FilePreviewPlaceholder />

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
-	import CliSymLink from "$components/settings/CliSymLink.svelte";
-	import WelcomeSigninAction from "$components/shared/WelcomeSigninAction.svelte";
+	import CliSymlinkSetup from "$components/settings/CliSymlinkSetup.svelte";
+	import AccessTokenSignIn from "$components/shared/AccessTokenSignIn.svelte";
 	import { BACKEND } from "$lib/backend";
 	import { CLI_MANAGER } from "$lib/cli/cli";
 	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
@@ -210,7 +210,7 @@
 	</CardGroup>
 {/if}
 
-<WelcomeSigninAction />
+<AccessTokenSignIn />
 
 <Spacer />
 
@@ -334,7 +334,7 @@
 			</div>
 
 			{#if showSymlink}
-				<CliSymLink class="m-t-14" />
+				<CliSymlinkSetup class="m-t-14" />
 			{/if}
 		{/if}
 	</CardGroup.Item>

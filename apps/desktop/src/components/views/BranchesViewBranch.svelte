@@ -2,8 +2,8 @@
 	import BranchCard from "$components/branch/BranchCard.svelte";
 	import BranchesViewCommitContextMenu from "$components/branchesPage/BranchesViewCommitContextMenu.svelte";
 	import CherryApplyModal from "$components/commit/CherryApplyModal.svelte";
-	import CommitRow from "$components/commit/CommitRow.svelte";
-	import NestedChangedFiles from "$components/files/NestedChangedFiles.svelte";
+	import CommitListItem from "$components/commit/CommitListItem.svelte";
+	import ChangedFilesPanel from "$components/files/ChangedFilesPanel.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { commitCreatedAt, type Commit } from "$lib/branches/v3";
 	import { createCommitSelection } from "$lib/selection/key";
@@ -72,7 +72,7 @@
 	{@const isDiverged = commit.state.type === "LocalAndRemote" && commit.id !== commit.state.subject}
 	{@const shouldShowMenu = !(inWorkspace || isTarget)}
 	{@const isLastCommit = idx === totalLocal - 1}
-	<CommitRow
+	<CommitListItem
 		disableCommitActions={false}
 		{stackId}
 		type={commitType}
@@ -95,7 +95,7 @@
 
 			<ReduxResult {projectId} {stackId} result={changesQuery.result}>
 				{#snippet children(changesResult)}
-					<NestedChangedFiles
+					<ChangedFilesPanel
 						title="Changed files"
 						{projectId}
 						{stackId}
@@ -113,7 +113,7 @@
 				{/snippet}
 			</ReduxResult>
 		{/snippet}
-	</CommitRow>
+	</CommitListItem>
 {/snippet}
 
 {#snippet branchCard(branch: BranchDetails, env: { projectId: string; stackId?: string })}

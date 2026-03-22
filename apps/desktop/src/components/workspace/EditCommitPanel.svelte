@@ -1,6 +1,6 @@
 <script lang="ts">
+	import ScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import ChangedFilesContextMenu from "$components/shared/ChangedFilesContextMenu.svelte";
-	import ScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import {
 		conflictEntryHint,
