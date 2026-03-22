@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
-	import EditMode from "$components/EditMode.svelte";
+	import EditMode from "$components/workspace/EditMode.svelte";
 	import { MODE_SERVICE, type EditModeMetadata } from "$lib/mode/modeService";
 	import { inject } from "@gitbutler/core/context";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";

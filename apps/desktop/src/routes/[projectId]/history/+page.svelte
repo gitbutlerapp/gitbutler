@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { page } from "$app/state";
-	import ScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
-	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
-	import CreateSnapshotModal from "$components/CreateSnapshotModal.svelte";
-	import FilePreviewPlaceholder from "$components/FilePreviewPlaceholder.svelte";
-	import FullviewLoading from "$components/FullviewLoading.svelte";
-	import LazyloadContainer from "$components/LazyloadContainer.svelte";
-	import Resizer from "$components/Resizer.svelte";
-	import SelectionView from "$components/SelectionView.svelte";
-	import SnapshotCard from "$components/SnapshotCard.svelte";
+	import FilePreviewPlaceholder from "$components/diff/FilePreviewPlaceholder.svelte";
+	import SelectionView from "$components/diff/SelectionView.svelte";
+	import CreateSnapshotModal from "$components/history/CreateSnapshotModal.svelte";
+	import SnapshotCard from "$components/history/SnapshotCard.svelte";
+	import ScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
+	import ConfigurableScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
+	import FullviewLoading from "$components/shared/FullviewLoading.svelte";
+	import LazyloadContainer from "$components/shared/LazyloadContainer.svelte";
+	import Resizer from "$components/shared/Resizer.svelte";
 	import emptyFolderSvg from "$lib/assets/empty-state/empty-folder.svg?raw";
 	import { HISTORY_SERVICE, createdOnDay } from "$lib/history/history";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";

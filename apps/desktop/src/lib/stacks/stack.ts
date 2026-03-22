@@ -1,6 +1,6 @@
 import { showToast } from "$lib/notifications/toasts";
 import { TestId } from "@gitbutler/ui";
-import type { BranchIconName } from "$components/BranchHeaderIcon.svelte";
+import type { BranchIconName } from "$components/branch/BranchHeaderIcon.svelte";
 import type { Workspace, WorkspaceLegacy } from "@gitbutler/core/api";
 
 export type CreateBranchFromBranchOutcome = {

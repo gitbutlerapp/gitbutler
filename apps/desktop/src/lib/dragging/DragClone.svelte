@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BranchHeaderIcon from "$components/BranchHeaderIcon.svelte";
+	import BranchHeaderIcon from "$components/branch/BranchHeaderIcon.svelte";
 	import { getColorFromCommitState } from "$components/lib";
 	import { type CommitStatusType } from "$lib/commits/commit";
 	import { type PushStatus } from "$lib/stacks/stack";

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
-	import AnalyticsConfirmation from "$components/AnalyticsConfirmation.svelte";
-	import DecorativeSplitView from "$components/DecorativeSplitView.svelte";
-	import Welcome from "$components/Welcome.svelte";
+	import AnalyticsConfirmation from "$components/onboarding/AnalyticsConfirmation.svelte";
+	import Welcome from "$components/onboarding/Welcome.svelte";
+	import DecorativeSplitView from "$components/shared/DecorativeSplitView.svelte";
 	import newProjectSvg from "$lib/assets/illustrations/new-project.svg?raw";
 	import newZenSvg from "$lib/assets/illustrations/new-zen.svg?raw";
 	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";

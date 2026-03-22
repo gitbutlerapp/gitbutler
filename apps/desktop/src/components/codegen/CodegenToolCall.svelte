@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ExpandableSection from "$components/codegen/ExpandableSection.svelte";
+	import ExpandableSection from "$components/shared/ExpandableSection.svelte";
 	import { toolCallLoading, type ToolCall } from "$lib/codegen/messages";
 	import { formatToolCall, getToolIcon, getToolLabel } from "$lib/utils/codegenTools";
 	import { Codeblock } from "@gitbutler/ui";
