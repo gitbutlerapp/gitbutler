@@ -462,6 +462,9 @@ impl App {
             Message::CopySelection => {
                 self.handle_copy_selection()?;
             }
+            Message::ShowToast { kind, text } => {
+                self.toasts.insert(kind, text);
+            }
         }
 
         self.ensure_cursor_visible(visible_height);
@@ -664,7 +667,9 @@ impl App {
                 {
                     let source = cli_id_target(source);
                     let target = cli_id_target(target);
-                    with_noop_output(|out| operations::rub_legacy(ctx, out, source, target))?;
+                    with_toast_output(messages, |out| {
+                        operations::rub_legacy(ctx, out, source, target)
+                    })?;
                 }
                 None
             }
@@ -757,11 +762,8 @@ impl App {
 
     /// Handles showing a transient UI error.
     fn handle_show_error(&mut self, err: Arc<anyhow::Error>, messages: &mut Vec<Message>) {
-        self.toasts.insert(
-            ToastKind::Error,
-            format_error_for_tui(&err),
-            Duration::from_secs(5),
-        );
+        self.toasts
+            .insert(ToastKind::Error, format_error_for_tui(&err));
 
         // ensure we always enter normal mode when something does wrong
         // so we don't get stuck in whatever mode we were in previously
@@ -1412,11 +1414,8 @@ impl App {
 
     /// Adds a transient error toast message that auto-dismisses after a short duration.
     fn push_transient_error(&mut self, err: anyhow::Error) {
-        self.toasts.insert(
-            ToastKind::Error,
-            format_error_for_tui(&err),
-            Duration::from_secs(5),
-        );
+        self.toasts
+            .insert(ToastKind::Error, format_error_for_tui(&err));
     }
 
     /// Returns the currently selected commit id when the selected line is a commit.
@@ -2025,6 +2024,7 @@ enum Message {
     EnterNormalMode,
     Reload(Option<SelectAfterReload>),
     ShowError(Arc<anyhow::Error>),
+    ShowToast { kind: ToastKind, text: String },
 
     // Cursor movement
     MoveCursorUp,
@@ -2326,12 +2326,23 @@ fn format_error_for_tui(err: &anyhow::Error) -> String {
     output
 }
 
-fn with_noop_output<F, T>(f: F) -> T
+fn with_toast_output<F, T>(messages: &mut Vec<Message>, f: F) -> anyhow::Result<T>
 where
-    F: FnOnce(&mut OutputChannel<'_>) -> T,
+    F: FnOnce(&mut OutputChannel<'_>) -> anyhow::Result<T>,
 {
-    let mut noop_out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
-    f(&mut noop_out)
+    let mut buf = Vec::new();
+    let mut out = OutputChannel::in_memory(&mut buf, OutputFormat::Human);
+    let t = f(&mut out)?;
+    drop(out);
+
+    if let Ok(text) = String::from_utf8(buf) {
+        messages.push(Message::ShowToast {
+            kind: ToastKind::Info,
+            text,
+        });
+    }
+
+    Ok(t)
 }
 
 /// Formats an exit status for human-readable error messages.

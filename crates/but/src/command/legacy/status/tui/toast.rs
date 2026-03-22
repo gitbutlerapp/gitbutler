@@ -1,5 +1,6 @@
 use std::time::{Duration, Instant};
 
+use ansi_to_tui::IntoText;
 use ratatui::{
     Frame,
     prelude::*,
@@ -9,10 +10,6 @@ use ratatui::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ToastKind {
     Error,
-    #[expect(
-        dead_code,
-        reason = "info toasts are part of the public TUI API but not emitted yet"
-    )]
     Info,
 }
 
@@ -29,14 +26,14 @@ pub(super) struct Toast {
 }
 
 impl Toasts {
-    pub(super) fn insert(&mut self, kind: ToastKind, text: String, dismiss_after: Duration) {
+    pub(super) fn insert(&mut self, kind: ToastKind, text: String) {
         if text.trim().is_empty() {
             return;
         }
         self.toasts.push(Toast {
             kind,
             text,
-            dismiss_at: Instant::now() + dismiss_after,
+            dismiss_at: Instant::now() + Duration::from_secs(5),
         });
     }
 
@@ -49,7 +46,7 @@ impl Toasts {
 }
 
 pub(super) fn render_toasts(frame: &mut Frame, area: Rect, toasts: &Toasts) {
-    for (idx, toast) in toasts.toasts.iter().rev().enumerate() {
+    for (idx, toast) in toasts.toasts.iter().enumerate() {
         render_toast(
             frame,
             area,
@@ -68,8 +65,6 @@ struct ToastMargin {
 }
 
 fn render_toast(frame: &mut Frame, area: Rect, margin: ToastMargin, toast: &Toast) {
-    use unicode_width::UnicodeWidthStr;
-
     let horizontal_padding: u16 = 1;
     let vertical_padding: u16 = 0;
     let border_width: u16 = 2;
@@ -80,13 +75,18 @@ fn render_toast(frame: &mut Frame, area: Rect, margin: ToastMargin, toast: &Toas
         bottom: bottom_margin,
     } = margin;
 
+    let toast_text = toast
+        .text
+        .into_text()
+        .unwrap_or_else(|_| Text::raw(toast.text.clone()));
+
     let max_toast_width = area.width.saturating_sub(right_margin).max(1);
     let max_toast_height = area.height.saturating_sub(bottom_margin).max(1);
 
-    let max_line_width = toast
-        .text
-        .lines()
-        .map(|line| line.width())
+    let max_line_width = toast_text
+        .lines
+        .iter()
+        .map(Line::width)
         .max()
         .unwrap_or_default() as u16;
 
@@ -100,9 +100,9 @@ fn render_toast(frame: &mut Frame, area: Rect, margin: ToastMargin, toast: &Toas
         .saturating_sub(horizontal_padding * 2)
         .max(1) as usize;
 
-    let wrapped_line_count: u16 = toast
-        .text
-        .lines()
+    let wrapped_line_count: u16 = toast_text
+        .lines
+        .iter()
         .map(|line| {
             let line_width = line.width();
             let wrapped = line_width.div_ceil(inner_width);
@@ -134,7 +134,7 @@ fn render_toast(frame: &mut Frame, area: Rect, margin: ToastMargin, toast: &Toas
         ToastKind::Info => Style::default().green(),
     };
 
-    let widget = Paragraph::new(&*toast.text)
+    let widget = Paragraph::new(toast_text)
         .block(
             Block::default()
                 .borders(Borders::ALL)
