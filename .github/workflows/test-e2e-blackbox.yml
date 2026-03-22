@@ -64,13 +64,27 @@ jobs:
       # application to run headless without any changes to the code
       - name: WebdriverIO
         if: ${{ github.ref != 'refs/heads/master' }}
+        env:
+          E2E_TEST_APP_DATA_DIR: ${{ github.workspace }}/e2e/blackbox/app-data
         run: xvfb-run pnpm test:e2e:blackbox
 
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: failure()
         with:
-          name: WebdriverIO Artifacts
+          name: GitButler Logs
           overwrite: true
-          path: |
-            ./e2e/blackbox/videos
-            ~/.config/com.gitbutler.app*/logs
+          path: ${{ github.workspace }}/e2e/blackbox/app-data/logs
+
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: WebdriverIO Videos
+          overwrite: true
+          path: ./e2e/blackbox/videos
+
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: WebdriverIO Console Logs
+          overwrite: true
+          path: ./e2e/blackbox/logs

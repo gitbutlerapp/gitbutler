@@ -55,6 +55,7 @@
 		"isomorphic-dompurify": "^2.36.0",
 		"marked": "catalog:",
 		"playwright": "1.58.2",
+		"prismjs": "^1.30.0",
 		"postcss": "catalog:postcss",
 		"postcss-cli": "catalog:postcss",
 		"postcss-nesting": "catalog:postcss",

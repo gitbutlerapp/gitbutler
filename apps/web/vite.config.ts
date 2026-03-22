@@ -4,13 +4,6 @@ import { svelteTesting } from "@testing-library/svelte/vite";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-	css: {
-		preprocessorOptions: {
-			scss: {
-				api: "modern-compiler",
-			},
-		},
-	},
 	plugins: [
 		sentrySvelteKit({
 			sourceMapsUploadOptions: {
