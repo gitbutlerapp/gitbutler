@@ -22,7 +22,7 @@ Components that own one concept within a domain. A domain component imports from
 
 Components that compose multiple domain components into complete UI surfaces. These are the roots of the component tree for each page or major panel. Cross-domain imports are expected here.
 
-Includes app shell (`Chrome`, `ChromeHeader`, `ChromeSidebar`), page-level views (`WorkspaceView`, `BranchesView`), and panel composites (`StackView`, `BranchView`, `StackDetails`).
+Includes app shell (`AppLayout`, `AppHeader`, `AppSidebar`), page-level views (`WorkspaceView`, `BranchesView`), and panel composites (`StackView`, `BranchView`, `StackDetails`).
 
 **ESLint:** cross-domain rule disabled for this folder.
 
@@ -66,7 +66,9 @@ Key rules:
 
 ### 2. Provider (`.svelte`)
 
-A thin wrapper that instantiates the controller, sets context, and renders `{@render children()}`. Its only job is creating shared state and making it available to the subtree.
+A thin wrapper that instantiates the controller, sets context, and renders `{@render children()}`. Its only job is owning the controller's lifetime and making it available to the subtree.
+
+> **Why a separate component?** Svelte's `setContext` must be called inside a component's `<script>` block — it can't be called from a plain `.ts` file. The Provider is a Svelte-specific adapter for the Controller's lifecycle, not a distinct design tier.
 
 ```svelte
 <script lang="ts">
@@ -83,9 +85,9 @@ A thin wrapper that instantiates the controller, sets context, and renders `{@re
 
 Props are limited to shared state (data + identity). No callbacks, no rendering concerns.
 
-**When to skip the Provider**: if the compound component has only one consumer, the consumer itself can act as both provider and controller host (like `StackView` does). A separate Provider is warranted when multiple independent consumers each need their own controller instance.
+**When to skip the Provider**: if the compound component has only one consumer, that component can host the controller directly (like `StackView` does). A separate Provider is warranted when multiple independent consumers each need their own controller instance.
 
-### 3. Compound children (`.svelte`)
+### 3. Consumers (`.svelte`)
 
 Individual components that read the controller from context and own their specific rendering and interaction concerns.
 
@@ -105,7 +107,7 @@ Individual components that read the controller from context and own their specif
 | Principle                                                           | Description                                                                                                                                                         |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Controllers expose primitives, components compose behavior          | A controller exposes `select()`, `handleActivation()`, `handleNavigation()`. The component's keydown handler composes them in sequence — extra handlers in between. |
-| Callbacks belong on the child that triggers them                    | The component that fires `onselect` receives the prop. The controller and provider know nothing about it.                                                           |
+| Callbacks belong on the consumer that triggers them                 | The component that fires `onselect` receives the prop. The controller and provider know nothing about it.                                                           |
 | Props that must be reactive across the tree go through the Provider | `changes`, `selectionId`. Props specific to a rendering concern go directly on the child.                                                                           |
 | Getter functions for reactive class params                          | Wrap reactive values in closures so the class reads current values on access.                                                                                       |
 | No boolean tree-control props                                       | Prefer structural composition — render or don't render a child component.                                                                                           |
@@ -131,7 +133,7 @@ Consumer examples showing different compositions:
 	<FileListItems {projectId} mode="list" onselect={(_, i) => (selectedIndex = i)} />
 </FileListProvider>
 
-<!-- NestedChangedFiles.svelte — with optional conflict display -->
+<!-- ChangedFilesPanel.svelte — with optional conflict display -->
 <FileListProvider {changes} {selectionId} {allowUnselect}>
 	<FileListConflicts {projectId} {conflictEntries} {ancestorMostConflictedCommitId} />
 	<FileListItems {projectId} mode={listMode} {conflictEntries} {onselect} />
@@ -151,7 +153,7 @@ Consumer examples showing different compositions:
 
 ### StackView — singleton compound component
 
-Only one consumer; `StackView.svelte` acts as its own provider.
+Only one consumer; `StackView.svelte` hosts the controller directly.
 
 | File                                       | Role                                                                     |
 | ------------------------------------------ | ------------------------------------------------------------------------ |
@@ -166,11 +168,11 @@ Only one consumer; `StackView.svelte` acts as its own provider.
 
 - Multiple independent consumers each need their own controller instance (FileList pattern).
 
-**Skip the Provider (act as own provider) when:**
+**Skip the Provider (host the controller directly) when:**
 
 - There is exactly one consumer / the component is a singleton (StackView pattern).
 
-**Add a new compound child when:**
+**Add a new consumer when:**
 
 - A rendering concern is optional (render it or don't).
 - A rendering concern has its own props that shouldn't pollute the parent's interface.
