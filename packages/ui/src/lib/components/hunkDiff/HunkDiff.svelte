@@ -76,6 +76,27 @@
 	const hunkHasLocks = $derived(lineLocks && lineLocks.length > 0);
 	const colspan = $derived(showingCheckboxes || hunkHasLocks ? 3 : 2);
 	let tableWrapperElem = $state<HTMLElement>();
+	let isVisible = $state(false);
+
+	// Rough line count for height reservation while body is not yet mounted
+	const estimatedBodyHeight = $derived(Math.max(hunkStr.split("\n").length - 1, 1) * 22);
+
+	$effect(() => {
+		if (!tableWrapperElem) return;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					if (entry.isIntersecting) {
+						isVisible = true;
+						observer.disconnect();
+					}
+				}
+			},
+			{ rootMargin: "300px 0px" },
+		);
+		observer.observe(tableWrapperElem);
+		return () => observer.disconnect();
+	});
 
 	function handleHunkContextMenu(e: MouseEvent | KeyboardEvent) {
 		e.preventDefault();
@@ -149,7 +170,7 @@
 				</tr>
 			</thead>
 
-			{#if tableWrapperElem}
+			{#if tableWrapperElem && isVisible}
 				<HunkDiffBody
 					comment={hunk.comment}
 					{filePath}
@@ -168,6 +189,12 @@
 					{handleLineContextMenu}
 					{lockWarning}
 				/>
+			{:else if tableWrapperElem}
+				<tbody>
+					<tr style="height: {estimatedBodyHeight}px">
+						<td colspan="10"></td>
+					</tr>
+				</tbody>
 			{/if}
 		</table>
 	</ScrollableContainer>

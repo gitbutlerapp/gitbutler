@@ -27,6 +27,7 @@
 	import { EmptyStatePlaceholder, generateHunkId, HunkDiff, TestId } from "@gitbutler/ui";
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
 	import { parseHunk } from "@gitbutler/ui/utils/diffParsing";
+	import { untrack } from "svelte";
 	import type { FileDependencies } from "$lib/dependencies/dependencies";
 	import type { TreeChange } from "$lib/hunks/change";
 	import type { UnifiedDiff } from "$lib/hunks/diff";
@@ -34,6 +35,8 @@
 	import type { LineId } from "@gitbutler/ui/utils/diffParsing";
 
 	const LARGE_DIFF_THRESHOLD = 1000;
+	const INITIAL_HUNKS = 5;
+	const HUNKS_PER_FRAME = 10;
 
 	type Props = {
 		projectId: string;
@@ -66,7 +69,6 @@
 	let contextMenu = $state<ReturnType<typeof HunkContextMenu>>();
 	let showAnyways = $state(false);
 	let viewport = $state<HTMLDivElement>();
-
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 
@@ -127,6 +129,32 @@
 		});
 		return filtered;
 	}
+
+	const filteredHunks = $derived(diff?.type === "Patch" ? filter(diff.subject.hunks) : []);
+	let renderedHunkCount = $state(INITIAL_HUNKS);
+
+	$effect(() => {
+		// Reset and stream hunks progressively whenever file/diff/showAnyways changes.
+		// Avoids blocking the main thread by mounting all hunk components at once.
+		void change.path;
+		void diff;
+		void showAnyways;
+
+		const total = untrack(() => filteredHunks.length);
+		renderedHunkCount = INITIAL_HUNKS;
+
+		if (total <= INITIAL_HUNKS) return;
+
+		let rafId: number;
+		function addMore() {
+			renderedHunkCount = Math.min(renderedHunkCount + HUNKS_PER_FRAME, total);
+			if (renderedHunkCount < total) {
+				rafId = requestAnimationFrame(addMore);
+			}
+		}
+		rafId = requestAnimationFrame(addMore);
+		return () => cancelAnimationFrame(rafId);
+	});
 
 	function linesInclude(
 		newStart: number | undefined,
@@ -222,7 +250,7 @@
 					}}
 				/>
 			{:else}
-				{#each filter(diff.subject.hunks) as hunk, hunkIndex}
+				{#each filteredHunks.slice(0, renderedHunkCount) as hunk, hunkIndex}
 					{@const selection = uncommittedService.hunkCheckStatus(stackId, change.path, hunk)}
 					{@const [_, lineLocks] = getLineLocks(hunk, fileDependencies?.dependencies ?? [])}
 					{@const hunkId = generateHunkId(change.path, hunkIndex)}
@@ -333,13 +361,23 @@
 						{/if}
 					</div>
 				{:else}
-					<div class="hunk-placehoder">
-						<EmptyStatePlaceholder image={emptyFileSvg} gap={12} topBottomPadding={34}>
-							{#snippet caption()}
-								It’s empty ¯\_(ツ゚)_/¯
-							{/snippet}
-						</EmptyStatePlaceholder>
-					</div>
+					{#if diff.subject.hunks.length === 0}
+						<div class="hunk-placehoder">
+							<EmptyStatePlaceholder image={emptyFileSvg} gap={12} topBottomPadding={34}>
+								{#snippet caption()}
+									It’s empty ¯\_(ツ゚)_/¯
+								{/snippet}
+							</EmptyStatePlaceholder>
+						</div>
+					{:else}
+						<div class="hunk-placehoder">
+							<EmptyStatePlaceholder gap={12} topBottomPadding={34}>
+								{#snippet caption()}
+									Loading diff…
+								{/snippet}
+							</EmptyStatePlaceholder>
+						</div>
+					{/if}
 				{/each}
 			{/if}
 		{:else if diff.type === "TooLarge"}
