@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
-	import AnalyticsMonitor from "$components/AnalyticsMonitor.svelte";
-	import Chrome from "$components/Chrome.svelte";
-	import FileMenuAction from "$components/FileMenuAction.svelte";
-	import FullviewLoading from "$components/FullviewLoading.svelte";
-	import IrcPopups from "$components/IrcPopups.svelte";
-	import NoBaseBranch from "$components/NoBaseBranch.svelte";
-	import NotOnGitButlerBranch from "$components/NotOnGitButlerBranch.svelte";
-	import ProblemLoadingRepo from "$components/ProblemLoadingRepo.svelte";
-	import ProjectSettingsMenuAction from "$components/ProjectSettingsMenuAction.svelte";
-	import ReduxResult from "$components/ReduxResult.svelte";
+	import FileMenuAction from "$components/files/FileMenuAction.svelte";
+	import IrcPopups from "$components/irc/IrcPopups.svelte";
+	import ProjectSettingsMenuAction from "$components/settings/ProjectSettingsMenuAction.svelte";
+	import AnalyticsMonitor from "$components/shared/AnalyticsMonitor.svelte";
+	import FullviewLoading from "$components/shared/FullviewLoading.svelte";
+	import NotOnGitButlerBranch from "$components/shared/NotOnGitButlerBranch.svelte";
+	import ReduxResult from "$components/shared/ReduxResult.svelte";
+	import Chrome from "$components/views/Chrome.svelte";
+	import NoBaseBranch from "$components/views/NoBaseBranch.svelte";
+	import ProblemLoadingRepo from "$components/views/ProblemLoadingRepo.svelte";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
 	import { BACKEND } from "$lib/backend";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";

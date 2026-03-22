@@ -1,6 +1,6 @@
 <script lang="ts">
-	// import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import Resizer from "$components/Resizer.svelte";
+	// import ConfigurableScrollableContainer from '$components/shared/ConfigurableScrollableContainer.svelte';
+	import Resizer from "$components/shared/Resizer.svelte";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import type { Snippet } from "svelte";
 

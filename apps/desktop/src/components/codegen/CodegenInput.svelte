@@ -1,9 +1,9 @@
 <script lang="ts">
-	import CardOverlay from "$components/CardOverlay.svelte";
-	import Dropzone from "$components/Dropzone.svelte";
 	import AttachmentList from "$components/codegen/AttachmentList.svelte";
 	import CodegenQueued from "$components/codegen/CodegenQueued.svelte";
 	import FileSearch from "$components/codegen/FileSearch.svelte";
+	import CardOverlay from "$components/shared/CardOverlay.svelte";
+	import Dropzone from "$components/shared/Dropzone.svelte";
 	import { BACKEND } from "$lib/backend";
 	import { ATTACHMENT_SERVICE } from "$lib/codegen/attachmentService.svelte";
 	import {

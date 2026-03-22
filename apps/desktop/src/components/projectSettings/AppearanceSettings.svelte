@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ThemeSelector from "$components/ThemeSelector.svelte";
+	import ThemeSelector from "$components/projectSettings/ThemeSelector.svelte";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { inject } from "@gitbutler/core/context";
 	import {

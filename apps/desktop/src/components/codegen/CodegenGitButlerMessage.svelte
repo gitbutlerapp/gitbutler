@@ -1,7 +1,7 @@
 <script lang="ts">
-	import CommitDetails from "$components/CommitDetails.svelte";
-	import ReduxResult from "$components/ReduxResult.svelte";
-	import ExpandableSection from "$components/codegen/ExpandableSection.svelte";
+	import CommitDetails from "$components/commit/CommitDetails.svelte";
+	import ExpandableSection from "$components/shared/ExpandableSection.svelte";
+	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Icon } from "@gitbutler/ui";

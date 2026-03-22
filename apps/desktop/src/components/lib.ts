@@ -1,4 +1,4 @@
-import type { BranchIconName } from "$components/BranchHeaderIcon.svelte";
+import type { BranchIconName } from "$components/branch/BranchHeaderIcon.svelte";
 import type { UpstreamCommit, Commit, CommitState } from "$lib/branches/v3";
 import type { CommitStatusType } from "$lib/commits/commit";
 import type { PushStatus } from "$lib/stacks/stack";

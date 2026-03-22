@@ -1,8 +1,4 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
-	import ErrorBoundary from "$components/ErrorBoundary.svelte";
-	import PreviewHeader from "$components/PreviewHeader.svelte";
-	import ReduxResult from "$components/ReduxResult.svelte";
 	import AddedDirectories from "$components/codegen/AddedDirectories.svelte";
 	import ClaudeCheck from "$components/codegen/ClaudeCheck.svelte";
 	import CodegenAskUserQuestion from "$components/codegen/CodegenAskUserQuestion.svelte";
@@ -14,6 +10,10 @@
 	import CodegenServiceMessageThinking from "$components/codegen/CodegenServiceMessageThinking.svelte";
 	import CodegenServiceMessageUseTool from "$components/codegen/CodegenServiceMessageUseTool.svelte";
 	import CodegenTodoAccordion from "$components/codegen/CodegenTodoAccordion.svelte";
+	import ConfigurableScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
+	import ErrorBoundary from "$components/shared/ErrorBoundary.svelte";
+	import PreviewHeader from "$components/shared/PreviewHeader.svelte";
+	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import noClaudeCodeSvg from "$lib/assets/empty-state/claude-disconected.svg?raw";
 	import laneNewSvg from "$lib/assets/empty-state/lane-new.svg?raw";
 	import { ATTACHMENT_SERVICE } from "$lib/codegen/attachmentService.svelte";
@@ -71,7 +71,7 @@
 	const controller = getStackContext();
 	const projectId = $derived(controller.projectId);
 	const stackId = $derived(controller.stackId);
-	const laneId = $derived(controller.laneId);
+
 	const branchName = $derived(controller.branchName ?? "");
 
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
