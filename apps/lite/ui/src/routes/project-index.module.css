@@ -107,6 +107,10 @@
 	background-color: white;
 }
 
+.dropTarget {
+	outline: 2px dashed black;
+}
+
 .stack {
 	display: flex;
 	row-gap: calc(var(--row-block-padding) + var(--row-line-height));

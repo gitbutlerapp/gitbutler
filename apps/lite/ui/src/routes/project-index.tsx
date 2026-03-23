@@ -772,7 +772,7 @@ const RubTarget: FC<
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			style: { ...(isDropTarget && { outline: "2px dashed black" }) },
+			className: classes(isDropTarget && styles.dropTarget),
 		}),
 	});
 
@@ -1159,7 +1159,7 @@ const BranchTarget: FC<
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			style: { ...(isDropTarget && { outline: "2px dashed black" }) },
+			className: classes(isDropTarget && styles.dropTarget),
 		}),
 	});
 
@@ -1185,7 +1185,7 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			style: { ...(isDropTarget && { outline: "2px dashed black" }) },
+			className: classes(isDropTarget && styles.dropTarget),
 		}),
 	});
 
