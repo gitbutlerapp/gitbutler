@@ -101,7 +101,10 @@ impl ActiveProjects {
                     }
                 };
 
-                broadcaster.blocking_lock().send(frontend_event);
+                let broadcaster = broadcaster.clone();
+                tokio::task::spawn(async move {
+                    broadcaster.lock().await.send(frontend_event);
+                });
                 Ok(())
             }
         });
