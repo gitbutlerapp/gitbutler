@@ -1163,12 +1163,22 @@ const BranchTarget: FC<
 		}),
 	});
 
+	const sourceItem = useDraggedSourceItem();
+	const operationTarget = isActiveDropTarget && sourceItem ? getOperationTarget(sourceItem) : null;
+	const tooltip = operationTarget
+		? Match.value(operationTarget).pipe(
+				Match.tag("MoveBranch", () => "Stack branch onto here"),
+				Match.tag("CommitMove", () => "Move commit here"),
+				Match.orElse(() => null),
+			)
+		: null;
+
 	return (
-		<Tooltip.Root open={isActiveDropTarget}>
+		<Tooltip.Root open={tooltip !== null}>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={styles.tooltip}>Move here</Tooltip.Popup>
+					<Tooltip.Popup className={styles.tooltip}>{tooltip}</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>
