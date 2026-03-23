@@ -101,24 +101,24 @@ const rubOperationLabel = (rubSource: RubSource, target: ChangeUnit): RubOperati
 		Match.tag("TreeChange", ({ source }) =>
 			Match.value(source.parent).pipe(
 				Match.withReturnType<RubOperationLabel | null>(),
-				Match.tag("Commit", (source) =>
-					Match.value(target).pipe(
-						Match.withReturnType<RubOperationLabel | null>(),
-						Match.tag("Commit", (target) => {
-							if (source.commitId === target.commitId) return null;
-							return "Amend";
-						}),
-						Match.tag("Changes", () => "Uncommit"),
-						Match.exhaustive,
-					),
-				),
 				Match.tag("Changes", (source) =>
 					Match.value(target).pipe(
 						Match.withReturnType<RubOperationLabel | null>(),
-						Match.tag("Commit", () => "Amend"),
 						Match.tag("Changes", (target) => {
 							if (source.stackId === target.stackId) return null;
 							return target.stackId === null ? "Unassign" : "Assign";
+						}),
+						Match.tag("Commit", () => "Amend"),
+						Match.exhaustive,
+					),
+				),
+				Match.tag("Commit", (source) =>
+					Match.value(target).pipe(
+						Match.withReturnType<RubOperationLabel | null>(),
+						Match.tag("Changes", () => "Uncommit"),
+						Match.tag("Commit", (target) => {
+							if (source.commitId === target.commitId) return null;
+							return "Amend";
 						}),
 						Match.exhaustive,
 					),
@@ -129,11 +129,11 @@ const rubOperationLabel = (rubSource: RubSource, target: ChangeUnit): RubOperati
 		Match.tag("Commit", ({ source }) =>
 			Match.value(target).pipe(
 				Match.withReturnType<RubOperationLabel | null>(),
+				Match.tag("Changes", () => "Uncommit"),
 				Match.tag("Commit", (target) => {
 					if (source.commitId === target.commitId) return null;
 					return "Squash";
 				}),
-				Match.tag("Changes", () => "Uncommit"),
 				Match.exhaustive,
 			),
 		),

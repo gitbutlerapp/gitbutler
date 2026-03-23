@@ -42,46 +42,8 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 			const changes = [createDiffSpec(source.change, source.hunkHeaders)];
 
 			return Match.value(source.parent).pipe(
-				Match.tag("Commit", (source) =>
-					Match.value(target).pipe(
-						Match.tag("Commit", async (target): Promise<RubResult> => {
-							const response = await window.lite.commitMoveChangesBetween({
-								projectId,
-								sourceCommitId: source.commitId,
-								destinationCommitId: target.commitId,
-								changes,
-							});
-							return { replacedCommits: response.replacedCommits };
-						}),
-						Match.tag("Changes", async (target): Promise<RubResult> => {
-							const response = await window.lite.commitUncommitChanges({
-								projectId,
-								commitId: source.commitId,
-								assignTo: target.stackId,
-								changes,
-							});
-							return {
-								replacedCommits: response.replacedCommits,
-							};
-						}),
-						Match.exhaustive,
-					),
-				),
 				Match.tag("Changes", () =>
 					Match.value(target).pipe(
-						Match.tag("Commit", async (target): Promise<RubResult> => {
-							const response = await window.lite.commitAmend({
-								projectId,
-								commitId: target.commitId,
-								changes,
-							});
-							return {
-								replacedCommits: response.replacedCommits,
-								newCommit: response.newCommit ?? null,
-								amendedCommitId: target.commitId,
-								pathsToRejectedChanges: response.pathsToRejectedChanges,
-							};
-						}),
 						Match.tag("Changes", async (target): Promise<RubResult> => {
 							await window.lite.assignHunk({
 								projectId,
@@ -95,6 +57,44 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 							});
 							return {};
 						}),
+						Match.tag("Commit", async (target): Promise<RubResult> => {
+							const response = await window.lite.commitAmend({
+								projectId,
+								commitId: target.commitId,
+								changes,
+							});
+							return {
+								replacedCommits: response.replacedCommits,
+								newCommit: response.newCommit ?? null,
+								amendedCommitId: target.commitId,
+								pathsToRejectedChanges: response.pathsToRejectedChanges,
+							};
+						}),
+						Match.exhaustive,
+					),
+				),
+				Match.tag("Commit", (source) =>
+					Match.value(target).pipe(
+						Match.tag("Changes", async (target): Promise<RubResult> => {
+							const response = await window.lite.commitUncommitChanges({
+								projectId,
+								commitId: source.commitId,
+								assignTo: target.stackId,
+								changes,
+							});
+							return {
+								replacedCommits: response.replacedCommits,
+							};
+						}),
+						Match.tag("Commit", async (target): Promise<RubResult> => {
+							const response = await window.lite.commitMoveChangesBetween({
+								projectId,
+								sourceCommitId: source.commitId,
+								destinationCommitId: target.commitId,
+								changes,
+							});
+							return { replacedCommits: response.replacedCommits };
+						}),
 						Match.exhaustive,
 					),
 				),
@@ -104,12 +104,12 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 		Match.tag("Commit", () =>
 			Match.value(target).pipe(
 				// TODO: implement when API is ready
-				Match.tag("Commit", async (): Promise<RubResult> => {
-					throw new Error("Squashing has not been implemented yet.");
-				}),
-				// TODO: implement when API is ready
 				Match.tag("Changes", async (): Promise<RubResult> => {
 					throw new Error("Uncommitting has not been implemented yet.");
+				}),
+				// TODO: implement when API is ready
+				Match.tag("Commit", async (): Promise<RubResult> => {
+					throw new Error("Squashing has not been implemented yet.");
 				}),
 				Match.exhaustive,
 			),
