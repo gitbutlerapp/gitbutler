@@ -14,7 +14,7 @@ import {
 import { type RubSource } from "#ui/api/rub.ts";
 import { classes } from "#ui/classes.ts";
 import { DependencyIcon, ExpandCollapseIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
-import { RejectedChange, rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx";
+import { rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx";
 import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
 import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 import {
@@ -1350,13 +1350,11 @@ const CommitForm: FC<{
 					},
 					{
 						onSuccess: (response) => {
-							if (response.pathsToRejectedChanges.length > 0)
+							if (response.rejectedChanges.length > 0)
 								toastManager.add(
 									rejectedChangesToastOptions({
 										newCommit: response.newCommit,
-										// Assertion is temporary until API response types have been fixed.
-										pathsToRejectedChanges:
-											response.pathsToRejectedChanges as Array<RejectedChange>,
+										rejectedChanges: response.rejectedChanges,
 									}),
 								);
 

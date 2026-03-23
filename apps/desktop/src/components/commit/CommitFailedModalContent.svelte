@@ -26,6 +26,8 @@
 				return "No effective changes";
 			case "workspaceMergeConflict":
 				return "Workspace merge conflict";
+			case "workspaceMergeConflictOfUnrelatedFile":
+				return "Workspace merge conflict of unrelated file";
 			case "worktreeFileMissingForObjectConversion":
 				return "Worktree file missing for object conversion";
 			case "fileToLargeOrBinary":

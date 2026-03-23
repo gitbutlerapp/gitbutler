@@ -24,6 +24,7 @@ export type GeneralSettingsPageId =
 export type ProjectSettingsPageId = "project" | "git" | "ai" | "agent" | "experimental";
 export type RejectionReason =
 	| "workspaceMergeConflict"
+	| "workspaceMergeConflictOfUnrelatedFile"
 	| "cherryPickMergeConflict"
 	| "noEffectiveChanges"
 	| "worktreeFileMissingForObjectConversion"

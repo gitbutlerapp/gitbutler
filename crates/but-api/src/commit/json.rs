@@ -37,6 +37,21 @@ impl From<MoveChangesResult> for UIMoveChangesResult {
     }
 }
 
+/// A change that was rejected during commit creation, with the reason for rejection.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct UIRejectedChange {
+    /// The reason the change was rejected.
+    pub reason: but_core::tree::create_tree::RejectionReason,
+    /// The file path of the rejected change.
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+    pub path: but_serde::BStringForFrontend,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(UIRejectedChange);
+
 /// UI type for creating a commit in the rebase graph.
 #[derive(Debug, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -45,12 +60,8 @@ pub struct UICommitCreateResult {
     /// The new commit if one was created.
     #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
     pub new_commit: Option<HexHash>,
-    /// Paths that contained at least one rejected hunk, matching legacy rejection reporting semantics.
-    #[cfg_attr(feature = "export-schema", schemars(with = "Vec<(String, String)>"))]
-    pub paths_to_rejected_changes: Vec<(
-        but_core::tree::create_tree::RejectionReason,
-        but_serde::BStringForFrontend,
-    )>,
+    /// Changes that were rejected during commit creation.
+    pub rejected_changes: Vec<UIRejectedChange>,
     /// Commits that have been replaced as a side-effect of the create/amend.
     /// Maps `oldId -> newId`.
     #[cfg_attr(
@@ -73,9 +84,12 @@ impl From<CommitCreateResult> for UICommitCreateResult {
 
         Self {
             new_commit: new_commit.map(Into::into),
-            paths_to_rejected_changes: rejected_specs
+            rejected_changes: rejected_specs
                 .into_iter()
-                .map(|(reason, diff)| (reason, diff.path.into()))
+                .map(|(reason, diff)| UIRejectedChange {
+                    reason,
+                    path: diff.path.into(),
+                })
                 .collect(),
             replaced_commits: replaced_commits
                 .into_iter()

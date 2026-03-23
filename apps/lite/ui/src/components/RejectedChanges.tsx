@@ -1,22 +1,7 @@
+import type { RejectionReason, UIRejectedChange } from "@gitbutler/but-sdk";
 import { type ToastManagerAddOptions } from "@base-ui/react";
 import { Array, pipe } from "effect";
 import { FC } from "react";
-
-// TODO: generate into but-sdk
-export type RejectedChange = [RejectionReason, string];
-
-// TODO: generate into but-sdk
-export type RejectionReason =
-	| "noEffectiveChanges"
-	| "cherryPickMergeConflict"
-	| "workspaceMergeConflict"
-	| "workspaceMergeConflictOfUnrelatedFile"
-	| "worktreeFileMissingForObjectConversion"
-	| "fileToLargeOrBinary"
-	| "pathNotFoundInBaseTree"
-	| "unsupportedDirectoryEntry"
-	| "unsupportedTreeEntry"
-	| "missingDiffSpecAssociation";
 
 const listFormatter = new Intl.ListFormat(undefined, {
 	style: "long",
@@ -56,11 +41,11 @@ const readableRejectionReason = (reason: RejectionReason): string => {
 };
 
 const RejectedChanges: FC<{
-	rejectedChanges: Array<RejectedChange>;
+	rejectedChanges: Array<UIRejectedChange>;
 }> = ({ rejectedChanges }) => {
 	const pathsByReason = new Map<RejectionReason, Array<string>>();
 
-	for (const [reason, path] of rejectedChanges) {
+	for (const { reason, path } of rejectedChanges) {
 		const paths = pathsByReason.get(reason);
 		if (paths) paths.push(path);
 		else pathsByReason.set(reason, [path]);
@@ -83,12 +68,12 @@ const RejectedChanges: FC<{
 
 export const rejectedChangesToastOptions = ({
 	newCommit,
-	pathsToRejectedChanges,
+	rejectedChanges,
 }: {
 	newCommit?: string | null;
-	pathsToRejectedChanges: Array<RejectedChange>;
+	rejectedChanges: Array<UIRejectedChange>;
 }): ToastManagerAddOptions<never> => ({
 	title: newCommit != null ? "Some changes were not committed" : "Failed to create commit",
-	description: <RejectedChanges rejectedChanges={pathsToRejectedChanges} />,
+	description: <RejectedChanges rejectedChanges={rejectedChanges} />,
 	priority: "high",
 });

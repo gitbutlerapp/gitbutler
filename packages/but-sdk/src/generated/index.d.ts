@@ -737,6 +737,9 @@ export type RefInfo = {
   isEntrypoint: boolean;
 };
 
+/** Provide a description of why a [`crate::DiffSpec`] was rejected for application to the tree of a commit. */
+export type RejectionReason = "noEffectiveChanges" | "cherryPickMergeConflict" | "workspaceMergeConflict" | "workspaceMergeConflictOfUnrelatedFile" | "worktreeFileMissingForObjectConversion" | "fileToLargeOrBinary" | "pathNotFoundInBaseTree" | "unsupportedDirectoryEntry" | "unsupportedTreeEntry" | "missingDiffSpecAssociation";
+
 /**
  * Specifies a location, usually used to either have something inserted
  * relative to it, or for the selected object to actually be replaced.
@@ -942,8 +945,8 @@ export type TreeStatus = {
 export type UICommitCreateResult = {
   /** The new commit if one was created. */
   newCommit?: string | null;
-  /** Paths that contained at least one rejected hunk, matching legacy rejection reporting semantics. */
-  pathsToRejectedChanges: Array<[string, string]>;
+  /** Changes that were rejected during commit creation. */
+  rejectedChanges: Array<UIRejectedChange>;
   /**
    * Commits that have been replaced as a side-effect of the create/amend.
    * Maps `oldId -> newId`.
@@ -998,6 +1001,14 @@ export type UIMoveChangesResult = {
    * Maps `oldId -> newId`.
    */
   replacedCommits: Record<string, string>;
+};
+
+/** A change that was rejected during commit creation, with the reason for rejection. */
+export type UIRejectedChange = {
+  /** The reason the change was rejected. */
+  reason: RejectionReason;
+  /** The file path of the rejected change. */
+  path: string;
 };
 
 /**

@@ -33,7 +33,7 @@ export type RubResult = {
 	replacedCommits?: Record<string, string>;
 	newCommit?: string | null;
 	amendedCommitId?: string;
-	pathsToRejectedChanges?: UICommitCreateResult["pathsToRejectedChanges"];
+	rejectedChanges?: UICommitCreateResult["rejectedChanges"];
 };
 
 // In the future this may be implemented as a single API endpoint on the backend.
@@ -66,7 +66,7 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 								replacedCommits: response.replacedCommits,
 								newCommit: response.newCommit ?? null,
 								amendedCommitId: target.commitId,
-								pathsToRejectedChanges: response.pathsToRejectedChanges,
+								rejectedChanges: response.rejectedChanges,
 							};
 						}),
 						Match.exhaustive,

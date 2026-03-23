@@ -69,6 +69,7 @@ export interface BranchPushResult {
  */
 export const REJECTTION_REASONS = [
 	"workspaceMergeConflict",
+	"workspaceMergeConflictOfUnrelatedFile",
 	"cherryPickMergeConflict",
 	"noEffectiveChanges",
 	"worktreeFileMissingForObjectConversion",
@@ -81,15 +82,20 @@ export const REJECTTION_REASONS = [
 
 type ReplacedCommit = [string, string];
 
+type BackendRejectedChange = {
+	reason: RejectionReason;
+	path: string;
+};
+
 type BackendCreateCommitOutcome = {
 	newCommit?: string | null;
-	pathsToRejectedChanges: [RejectionReason, string][];
+	rejectedChanges: BackendRejectedChange[];
 	replacedCommits: Record<string, string>;
 };
 
 export type CreateCommitOutcome = {
 	newCommit: string | null;
-	pathsToRejectedChanges: [RejectionReason, string][];
+	rejectedChanges: BackendRejectedChange[];
 	commitMapping: ReplacedCommit[];
 };
 
@@ -122,7 +128,7 @@ export function normalizeCreateCommitOutcome(
 ): CreateCommitOutcome {
 	return {
 		newCommit: response.newCommit ?? null,
-		pathsToRejectedChanges: response.pathsToRejectedChanges,
+		rejectedChanges: response.rejectedChanges,
 		commitMapping: Object.entries(response.replacedCommits),
 	};
 }
@@ -525,8 +531,8 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 					return normalizedResponse.newCommit;
 				}
 
-				const rejected = normalizedResponse.pathsToRejectedChanges
-					.map(([reason, path]) => `${reason}: ${path}`)
+				const rejected = normalizedResponse.rejectedChanges
+					.map(({ reason, path }) => `${reason}: ${path}`)
 					.join(", ");
 				const details = rejected ? ` Rejected changes: ${rejected}` : "";
 				throw new Error(`Failed to amend commit: no commit was created.${details}`);
