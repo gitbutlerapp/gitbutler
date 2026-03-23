@@ -61,7 +61,6 @@
 	padding-inline: var(--row-inline-padding);
 	padding-block: var(--row-block-padding);
 	opacity: 0;
-	transition: opacity 120ms ease;
 
 	svg {
 		width: var(--row-line-height);
