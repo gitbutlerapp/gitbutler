@@ -135,7 +135,16 @@
 		</div>
 	{/if}
 	<ScrollableContainer horz whenToShow="always" zIndex="0">
-		<table class="table__section">
+		<table
+			class="table__section"
+			oncopy={(event) => {
+				const selection = document.getSelection()?.toString();
+				if (selection) {
+					event.preventDefault();
+					event.clipboardData?.setData("text/plain", selection);
+				}
+			}}
+		>
 			<thead class="table__title" class:draggable={!draggingDisabled}>
 				<tr>
 					<th

@@ -1,6 +1,6 @@
+import { noCrossDomainImports } from "./noCrossDomainImports.js";
 import { RuleTester } from "eslint";
 import { describe, it } from "vitest";
-import { noCrossDomainImports } from "./noCrossDomainImports.js";
 
 // RuleTester needs a describe/it pair — point it at vitest's.
 RuleTester.describe = describe;
