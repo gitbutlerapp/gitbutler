@@ -56,8 +56,19 @@ export class FileListController {
 	private getChanges: () => TreeChange[];
 	private getSelectionId: () => SelectionId;
 	private getAllowUnselect: () => boolean;
+	// Tracks whether the current selection change was explicitly triggered by a
+	// keyboard action handled by this controller (arrow nav or Enter/Space/l on
+	// a file item). Only when true should the focus ring be activated. This
+	// correctly excludes mouse clicks, folder clicks, and programmatic changes
+	// that should not show the ring.
+	private _selectionFromKeyboard = false;
 
 	active = $state(false);
+
+	/** True while handleNavigation/handleActivation is on the call stack. */
+	get isKeyboardSelecting(): boolean {
+		return this._selectionFromKeyboard;
+	}
 	readonly selectedPaths = $derived(new Set(this.selectedFileIds.map((f) => f.path)));
 	readonly hasSelectionInList = $derived(
 		this.changes.some((change) => this.selectedPaths.has(change.path)),
@@ -79,8 +90,19 @@ export class FileListController {
 			return store.subscribe((value) => {
 				if (value?.index !== undefined) {
 					untrack(() => {
-						if (this.active) {
-							this.focusManager.focusNthSibling(value.index);
+						// Skip selections that came from a mouse click: FM's own click
+						// handler already moved the cursor and the ring should stay hidden.
+						// For keyboard navigation (arrows, Enter/Space) we look up the
+						// selected file's DOM element by id (value.key == the element's DOM
+						// id set in FileListItem) and focus it directly. This avoids the
+						// flat-index → FM-children-index mismatch that caused infinite loops
+						// in tree mode when focusNthSibling accidentally landed on a folder.
+						if (this.active && this._selectionFromKeyboard) {
+							const el = document.getElementById(value.key);
+							if (el) {
+								this.focusManager.focusByElement(el);
+								this.focusManager.activateOutline();
+							}
 						}
 					});
 				}
@@ -125,29 +147,45 @@ export class FileListController {
 	handleActivation(change: TreeChange, idx: number, e: KeyboardEvent): boolean {
 		if (e.key === "Enter" || e.key === " " || e.key === "l") {
 			e.stopPropagation();
+			this._selectionFromKeyboard = true;
 			this.select(e, change, idx);
+			this._selectionFromKeyboard = false;
 			return true;
 		}
 		return false;
 	}
 
+	/**
+	 * Select a single file without modifying multi-select state. Used in tree
+	 * mode where FM handles folder navigation and calls `onActive` on the newly
+	 * focused file item — we just need to record the selection.
+	 */
+	selectSingle(change: TreeChange, index: number): void {
+		// Do NOT set _selectionFromKeyboard here: FM has already moved the cursor
+		// to this element and activated the outline via its own navigation path.
+		// Setting the flag would trigger focusByElement in the $effect, which would
+		// re-trigger onActive causing an infinite loop.
+		this.idSelection.set(change.path, this.selectionId, index);
+	}
+
 	/** Handles arrow/vim navigation. Returns the index of the newly focused item, or undefined. */
 	handleNavigation(e: KeyboardEvent): number | undefined {
-		if (
-			updateSelection({
-				allowMultiple: true,
-				ctrlKey: e.ctrlKey,
-				metaKey: e.metaKey,
-				shiftKey: e.shiftKey,
-				key: e.key,
-				targetElement: e.currentTarget as HTMLElement,
-				files: this.changes,
-				selectedFileIds: this.selectedFileIds,
-				fileIdSelection: this.idSelection,
-				selectionId: this.selectionId,
-				preventDefault: () => e.preventDefault(),
-			})
-		) {
+		this._selectionFromKeyboard = true;
+		const moved = updateSelection({
+			allowMultiple: true,
+			ctrlKey: e.ctrlKey,
+			metaKey: e.metaKey,
+			shiftKey: e.shiftKey,
+			key: e.key,
+			targetElement: e.currentTarget as HTMLElement,
+			files: this.changes,
+			selectedFileIds: this.selectedFileIds,
+			fileIdSelection: this.idSelection,
+			selectionId: this.selectionId,
+			preventDefault: () => e.preventDefault(),
+		});
+		this._selectionFromKeyboard = false;
+		if (moved) {
 			const lastAdded = get(this.idSelection.getById(this.selectionId).lastAdded);
 			return lastAdded?.index;
 		}
