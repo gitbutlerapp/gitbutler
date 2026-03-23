@@ -1291,24 +1291,22 @@ const StackC: FC<{
 						<li key={branchName}>
 							<BranchTarget anchorRef={anchorRef} firstCommitId={segment.commits[0]?.id}>
 								<DraggableBranch anchorRef={anchorRef} label={branchName}>
-									<h3>
-										{branchRef !== null ? (
-											<button
-												type="button"
-												className={classes(
-													styles.branchButton,
-													isBranchSelected(stackId, branchRef) && sharedStyles.selected,
-												)}
-												onClick={() => {
-													toggleBranchSelection(stackId, branchName, branchRef);
-												}}
-											>
-												{branchName}
-											</button>
-										) : (
-											branchName
-										)}
-									</h3>
+									{branchRef !== null ? (
+										<button
+											type="button"
+											className={classes(
+												styles.branchButton,
+												isBranchSelected(stackId, branchRef) && sharedStyles.selected,
+											)}
+											onClick={() => {
+												toggleBranchSelection(stackId, branchName, branchRef);
+											}}
+										>
+											{branchName}
+										</button>
+									) : (
+										branchName
+									)}
 								</DraggableBranch>
 							</BranchTarget>
 

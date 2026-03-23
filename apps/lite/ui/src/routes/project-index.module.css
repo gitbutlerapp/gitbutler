@@ -62,6 +62,8 @@
 	width: 100%;
 	padding-inline: var(--row-inline-padding);
 	padding-block: var(--row-block-padding);
+	font-weight: bold;
+	line-height: var(--row-line-height);
 }
 
 .commitMoveTarget {
