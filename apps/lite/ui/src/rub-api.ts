@@ -22,18 +22,18 @@ export type RubSource =
 	| { _tag: "TreeChange"; source: TreeChangeRubSource }
 	| { _tag: "Commit"; source: CommitRubSource };
 
+export type RubParams = {
+	projectId: string;
+	source: RubSource;
+	target: ChangeUnit;
+};
+
 /** @public */
 export type RubResult = {
 	replacedCommits?: Record<string, string>;
 	newCommit?: string | null;
 	amendedCommitId?: string;
 	pathsToRejectedChanges?: UICommitCreateResult["pathsToRejectedChanges"];
-};
-
-export type RubParams = {
-	projectId: string;
-	source: RubSource;
-	target: ChangeUnit;
 };
 
 export const rub = async ({ projectId, source, target }: RubParams): Promise<RubResult> =>
