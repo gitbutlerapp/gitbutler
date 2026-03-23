@@ -62,11 +62,58 @@ import {
 } from "#ui/queries.ts";
 import { type ChangeUnit } from "#ui/ChangeUnit.ts";
 import { RejectedChange, RejectedChanges } from "#ui/components/RejectedChanges.tsx";
-import { rubOperationLabel, RubParams, type RubSource } from "#ui/rub.ts";
+import { RubParams, type RubSource } from "#ui/rub.ts";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 import { CommitMoveParams, MoveBranchParams, TearOffBranchParams } from "#electron/ipc.ts";
+
+type RubOperationLabel = "Amend" | "Uncommit" | "Assign" | "Unassign" | "Squash";
+
+const rubOperationLabel = (rubSource: RubSource, target: ChangeUnit): RubOperationLabel | null =>
+	Match.value(rubSource).pipe(
+		Match.withReturnType<RubOperationLabel | null>(),
+		Match.tag("TreeChange", ({ source }) =>
+			Match.value(source.parent).pipe(
+				Match.withReturnType<RubOperationLabel | null>(),
+				Match.tag("Commit", (source) =>
+					Match.value(target).pipe(
+						Match.withReturnType<RubOperationLabel | null>(),
+						Match.tag("Commit", (target) => {
+							if (source.commitId === target.commitId) return null;
+							return "Amend";
+						}),
+						Match.tag("Changes", () => "Uncommit"),
+						Match.exhaustive,
+					),
+				),
+				Match.tag("Changes", (source) =>
+					Match.value(target).pipe(
+						Match.withReturnType<RubOperationLabel | null>(),
+						Match.tag("Commit", () => "Amend"),
+						Match.tag("Changes", (target) => {
+							if (source.stackId === target.stackId) return null;
+							return target.stackId === null ? "Unassign" : "Assign";
+						}),
+						Match.exhaustive,
+					),
+				),
+				Match.exhaustive,
+			),
+		),
+		Match.tag("Commit", ({ source }) =>
+			Match.value(target).pipe(
+				Match.withReturnType<RubOperationLabel | null>(),
+				Match.tag("Commit", (target) => {
+					if (source.commitId === target.commitId) return null;
+					return "Squash";
+				}),
+				Match.tag("Changes", () => null),
+				Match.exhaustive,
+			),
+		),
+		Match.exhaustive,
+	);
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 const decodeRefName = (fullNameBytes: Array<number>): string =>
