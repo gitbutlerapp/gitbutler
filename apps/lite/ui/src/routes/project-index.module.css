@@ -107,7 +107,7 @@
 	background-color: white;
 }
 
-.dropTarget {
+.activeDropTarget {
 	outline: 2px dashed black;
 }
 

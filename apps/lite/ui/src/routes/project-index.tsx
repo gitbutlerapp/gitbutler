@@ -756,7 +756,7 @@ const RubTarget: FC<
 		target: ChangeUnit;
 	} & useRender.ComponentProps<"div">
 > = ({ target, render, ...props }) => {
-	const [isDropTarget, dropRef] = useDroppable({
+	const [isActiveDropTarget, dropRef] = useDroppable({
 		canDrop: ({ source }) => {
 			const sourceItem = parseDragData(source.data);
 			const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
@@ -772,14 +772,14 @@ const RubTarget: FC<
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			className: classes(isDropTarget && styles.dropTarget),
+			className: classes(isActiveDropTarget && styles.activeDropTarget),
 		}),
 	});
 
 	const sourceItem = useDraggedSourceItem();
 
 	const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
-	const tooltip = isDropTarget && rubSource ? rubOperationLabel(rubSource, target) : null;
+	const tooltip = isActiveDropTarget && rubSource ? rubOperationLabel(rubSource, target) : null;
 
 	return (
 		<Tooltip.Root open={tooltip !== null}>
@@ -804,7 +804,7 @@ const CommitMoveTarget: FC<{
 		(side === "above" && previousCommitId === sourceCommitId) ||
 		(side === "below" && nextCommitId === sourceCommitId);
 
-	const [isDropTarget, dropRef] = useDroppable({
+	const [isActiveDropTarget, dropRef] = useDroppable({
 		canDrop: ({ source }) => {
 			const sourceItem = parseDragData(source.data);
 			return sourceItem?._tag === "Commit" && !isNoOp(sourceItem.commitId);
@@ -831,7 +831,7 @@ const CommitMoveTarget: FC<{
 				sourceItem?._tag === "Commit" &&
 					!isNoOp(sourceItem.commitId) &&
 					styles.commitMoveTargetEnabled,
-				isDropTarget && styles.commitMoveTargetActive,
+				isActiveDropTarget && styles.commitMoveTargetActive,
 			)}
 		/>
 	);
@@ -1142,7 +1142,7 @@ const BranchTarget: FC<
 			Match.orElse(() => null),
 		);
 
-	const [isDropTarget, dropRef] = useDroppable({
+	const [isActiveDropTarget, dropRef] = useDroppable({
 		canDrop: ({ source }) => {
 			const sourceItem = parseDragData(source.data);
 			if (!sourceItem) return false;
@@ -1159,12 +1159,12 @@ const BranchTarget: FC<
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			className: classes(isDropTarget && styles.dropTarget),
+			className: classes(isActiveDropTarget && styles.activeDropTarget),
 		}),
 	});
 
 	return (
-		<Tooltip.Root open={isDropTarget}>
+		<Tooltip.Root open={isActiveDropTarget}>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
@@ -1176,7 +1176,7 @@ const BranchTarget: FC<
 };
 
 const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...props }) => {
-	const [isDropTarget, dropRef] = useDroppable({
+	const [isActiveDropTarget, dropRef] = useDroppable({
 		canDrop: ({ source }) => parseDragData(source.data)?._tag === "Branch",
 		getData: (): OperationTarget => ({ _tag: "TearOffBranch" }),
 	});
@@ -1185,12 +1185,12 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			className: classes(isDropTarget && styles.dropTarget),
+			className: classes(isActiveDropTarget && styles.activeDropTarget),
 		}),
 	});
 
 	return (
-		<Tooltip.Root open={isDropTarget}>
+		<Tooltip.Root open={isActiveDropTarget}>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
