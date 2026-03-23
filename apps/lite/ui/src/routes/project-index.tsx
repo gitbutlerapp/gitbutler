@@ -68,6 +68,20 @@ import { createDiffSpec } from "#ui/DiffSpec.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 import { CommitMoveParams, MoveBranchParams, TearOffBranchParams } from "#electron/ipc.ts";
 
+const rubSourceFor = (item: SourceItem): RubSource | null =>
+	Match.value(item).pipe(
+		Match.tag("Branch", (): RubSource | null => null),
+		Match.tag("Commit", ({ commitId }): RubSource | null => ({
+			_tag: "Commit",
+			source: { commitId },
+		})),
+		Match.tag("TreeChange", ({ source }): RubSource | null => ({
+			_tag: "TreeChange",
+			source,
+		})),
+		Match.exhaustive,
+	);
+
 type RubOperationLabel = "Amend" | "Uncommit" | "Assign" | "Unassign" | "Squash";
 
 const rubOperationLabel = (rubSource: RubSource, target: ChangeUnit): RubOperationLabel | null =>
@@ -239,20 +253,6 @@ const getCommonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 	if (first === undefined) return undefined;
 	return bases.every((base) => base === first) ? first : undefined;
 };
-
-const rubSourceFor = (item: SourceItem): RubSource | null =>
-	Match.value(item).pipe(
-		Match.tag("Branch", (): RubSource | null => null),
-		Match.tag("Commit", ({ commitId }): RubSource | null => ({
-			_tag: "Commit",
-			source: { commitId },
-		})),
-		Match.tag("TreeChange", ({ source }): RubSource | null => ({
-			_tag: "TreeChange",
-			source,
-		})),
-		Match.exhaustive,
-	);
 
 const DraggedSourceItemContext = createContext<SourceItem | null>(null);
 
