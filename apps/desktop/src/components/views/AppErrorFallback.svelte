@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import ProjectNotFound from "$components/onboarding/ProjectNotFound.svelte";
-	import DecorativeSplitView from "$components/shared/DecorativeSplitView.svelte";
+	import IllustrationSplitLayout from "$components/shared/IllustrationSplitLayout.svelte";
 	import loadErrorSvg from "$lib/assets/illustrations/load-error.svg?raw";
 	import { parseQueryError } from "$lib/error/error";
 	import { Code } from "$lib/error/knownErrors";
@@ -32,7 +32,7 @@
 {#if parsedError.code === Code.ProjectMissing}
 	<ProjectNotFound {projectId} />
 {:else}
-	<DecorativeSplitView img={loadErrorSvg}>
+	<IllustrationSplitLayout img={loadErrorSvg}>
 		<div class="container">
 			<div class="text-content">
 				<h2 class="title-text text-18 text-body text-bold">Something went wrong</h2>
@@ -55,7 +55,7 @@
 				<Button type="button" style="pop" onclick={async () => await goto("/")}>Go back</Button>
 			</div>
 		</div>
-	</DecorativeSplitView>
+	</IllustrationSplitLayout>
 {/if}
 
 <style lang="postcss">

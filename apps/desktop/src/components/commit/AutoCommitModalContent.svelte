@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
+	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { ACTION_SERVICE } from "$lib/actions/actionService.svelte";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
@@ -95,7 +95,7 @@
 		>Auto commit changes</ModalHeader
 	>
 
-	<ConfigurableScrollableContainer
+	<AppScrollableContainer
 		onscrollTop={(visible) => {
 			isScrollTopVisible = visible;
 		}}
@@ -151,7 +151,7 @@
 				</div>
 			{/if}
 		</div>
-	</ConfigurableScrollableContainer>
+	</AppScrollableContainer>
 </div>
 
 <style>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import LoginButtons from "$components/settings/LoginButtons.svelte";
+	import GoToSettingsButton from "$components/settings/GoToSettingsButton.svelte";
 	import { CardGroup, Icon } from "@gitbutler/ui";
 
 	interface Props {
@@ -25,7 +25,7 @@
 			{message}
 		{/snippet}
 		{#snippet actions()}
-			<LoginButtons />
+			<GoToSettingsButton />
 		{/snippet}
 	</CardGroup.Item>
 </CardGroup>

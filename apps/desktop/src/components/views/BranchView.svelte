@@ -3,7 +3,7 @@
 	import BranchHeaderContextMenu from "$components/branch/BranchHeaderContextMenu.svelte";
 	import BranchRenameModal from "$components/branch/BranchRenameModal.svelte";
 	import DeleteBranchModal from "$components/branch/DeleteBranchModal.svelte";
-	import CommitRow from "$components/commit/CommitRow.svelte";
+	import CommitListItem from "$components/commit/CommitListItem.svelte";
 	import BranchReview from "$components/forge/BranchReview.svelte";
 	import Drawer from "$components/shared/Drawer.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
@@ -156,7 +156,7 @@
 							{#if conflictedCommitsInBranch.length > 0}
 								{#each conflictedCommitsInBranch as commit}
 									{@const isLocalAndRemote = commit.state.type === "LocalAndRemote"}
-									<CommitRow
+									<CommitListItem
 										type={commit.state.type}
 										{branchName}
 										commitId={commit.id}

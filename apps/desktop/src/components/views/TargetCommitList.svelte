@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BranchCard from "$components/branch/BranchCard.svelte";
-	import CommitRow from "$components/commit/CommitRow.svelte";
-	import NestedChangedFiles from "$components/files/NestedChangedFiles.svelte";
+	import CommitListItem from "$components/commit/CommitListItem.svelte";
+	import ChangedFilesPanel from "$components/files/ChangedFilesPanel.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { commitCreatedAt, type Commit } from "$lib/branches/v3";
@@ -99,7 +99,7 @@
 						getId={(commit) => commit.id}
 					>
 						{#snippet template(commit, index)}
-							<CommitRow
+							<CommitListItem
 								disableCommitActions
 								type="LocalAndRemote"
 								diverged={commit.state.type === "LocalAndRemote" &&
@@ -122,7 +122,7 @@
 
 									<ReduxResult {projectId} result={changesQuery.result}>
 										{#snippet children(changesResult)}
-											<NestedChangedFiles
+											<ChangedFilesPanel
 												title="Changed files"
 												{projectId}
 												draggableFiles
@@ -140,7 +140,7 @@
 										{/snippet}
 									</ReduxResult>
 								{/snippet}
-							</CommitRow>
+							</CommitListItem>
 						{/snippet}
 					</VirtualList>
 				</div>

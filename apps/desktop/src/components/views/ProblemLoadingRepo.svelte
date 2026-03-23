@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import RemoveProjectButton from "$components/projectSettings/RemoveProjectButton.svelte";
-	import DecorativeSplitView from "$components/shared/DecorativeSplitView.svelte";
+	import IllustrationSplitLayout from "$components/shared/IllustrationSplitLayout.svelte";
 	import ProjectNameLabel from "$components/shared/ProjectNameLabel.svelte";
 	import ProjectSwitcher from "$components/shared/ProjectSwitcher.svelte";
-	import Chrome from "$components/views/Chrome.svelte";
+	import AppLayout from "$components/views/AppLayout.svelte";
 	import { POSTHOG_WRAPPER } from "$lib/analytics/posthog";
 	import loadErrorSvg from "$lib/assets/illustrations/load-error.svg?raw";
 	import { showError } from "$lib/notifications/toasts";
@@ -49,8 +49,8 @@
 	});
 </script>
 
-<Chrome {projectId} sidebarDisabled>
-	<DecorativeSplitView img={loadErrorSvg}>
+<AppLayout {projectId} sidebarDisabled>
+	<IllustrationSplitLayout img={loadErrorSvg}>
 		<div class="problem">
 			<div class="project-name">
 				<ProjectNameLabel projectName={projectTitle} />
@@ -84,8 +84,8 @@
 				<ProjectSwitcher {projectId} />
 			</div>
 		</div>
-	</DecorativeSplitView>
-</Chrome>
+	</IllustrationSplitLayout>
+</AppLayout>
 
 <style lang="postcss">
 	.project-name {

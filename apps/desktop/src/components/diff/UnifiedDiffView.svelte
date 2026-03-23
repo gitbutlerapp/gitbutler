@@ -1,7 +1,7 @@
 <script lang="ts">
+	import HiddenDiffNotice from "$components/diff/HiddenDiffNotice.svelte";
 	import HunkContextMenu from "$components/diff/HunkContextMenu.svelte";
 	import ImageDiff from "$components/diff/ImageDiff.svelte";
-	import LargeDiffMessage from "$components/diff/LargeDiffMessage.svelte";
 	import LineLocksWarning from "$components/diff/LineLocksWarning.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import binarySvg from "$lib/assets/empty-state/binary.svg?raw";
@@ -244,7 +244,7 @@
 		{:else if diff.type === "Patch"}
 			{@const linesModified = diff.subject.linesAdded + diff.subject.linesRemoved}
 			{#if linesModified > LARGE_DIFF_THRESHOLD && !showAnyways}
-				<LargeDiffMessage
+				<HiddenDiffNotice
 					handleShow={() => {
 						showAnyways = true;
 					}}

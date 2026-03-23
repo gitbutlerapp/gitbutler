@@ -1,6 +1,6 @@
 <script lang="ts">
 	import PrStatusBadge from "$components/forge/PrStatusBadge.svelte";
-	import PullRequestPolling from "$components/forge/PullRequestPolling.svelte";
+	import PrStatusPoller from "$components/forge/PrStatusPoller.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
@@ -135,7 +135,7 @@
 <ReduxResult result={prQuery?.result} projectId="dummy">
 	{#snippet children(pr)}
 		{#if poll}
-			<PullRequestPolling number={pr.number} />
+			<PrStatusPoller number={pr.number} />
 		{/if}
 
 		<ContextMenu bind:this={contextMenuEl} rightClickTrigger={container}>

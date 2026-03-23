@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
+	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
@@ -43,7 +43,7 @@
 				if (aIsChannel !== bIsChannel) return aIsChannel ? -1 : 1;
 				return a.name.localeCompare(b.name);
 			})}
-			<ConfigurableScrollableContainer>
+			<AppScrollableContainer>
 				{#each sorted as channel}
 					{@const unread = channel.unreadCount > 0}
 					{@const selected = channel.name === selectedChannel.current}
@@ -65,7 +65,7 @@
 						{/if}
 					</button>
 				{/each}
-			</ConfigurableScrollableContainer>
+			</AppScrollableContainer>
 		{/snippet}
 	</ReduxResult>
 	<div class="join-input-wrapper">

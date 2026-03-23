@@ -2,8 +2,8 @@
 	import AttachmentList from "$components/codegen/AttachmentList.svelte";
 	import CodegenQueued from "$components/codegen/CodegenQueued.svelte";
 	import FileSearch from "$components/codegen/FileSearch.svelte";
-	import CardOverlay from "$components/shared/CardOverlay.svelte";
 	import Dropzone from "$components/shared/Dropzone.svelte";
+	import DropzoneOverlay from "$components/shared/DropzoneOverlay.svelte";
 	import { BACKEND } from "$lib/backend";
 	import { ATTACHMENT_SERVICE } from "$lib/codegen/attachmentService.svelte";
 	import {
@@ -229,7 +229,7 @@
 
 		<Dropzone {handlers}>
 			{#snippet overlay({ hovered, activated })}
-				<CardOverlay {hovered} {activated} label="Reference" />
+				<DropzoneOverlay {hovered} {activated} label="Reference" />
 			{/snippet}
 			{#if attachments.length > 0}
 				<div class="attached-files-section">

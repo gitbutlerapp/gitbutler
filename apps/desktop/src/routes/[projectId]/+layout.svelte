@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
-	import FileMenuAction from "$components/files/FileMenuAction.svelte";
-	import IrcPopups from "$components/irc/IrcPopups.svelte";
-	import ProjectSettingsMenuAction from "$components/settings/ProjectSettingsMenuAction.svelte";
+	import IrcChatWindow from "$components/irc/IrcChatWindow.svelte";
+	import ProjectSettingsShortcutHandler from "$components/settings/ProjectSettingsShortcutHandler.svelte";
 	import AnalyticsMonitor from "$components/shared/AnalyticsMonitor.svelte";
 	import FullviewLoading from "$components/shared/FullviewLoading.svelte";
 	import NotOnGitButlerBranch from "$components/shared/NotOnGitButlerBranch.svelte";
+	import ProjectShortcutHandler from "$components/shared/ProjectShortcutHandler.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import Chrome from "$components/views/Chrome.svelte";
+	import AppLayout from "$components/views/AppLayout.svelte";
 	import NoBaseBranch from "$components/views/NoBaseBranch.svelte";
 	import ProblemLoadingRepo from "$components/views/ProblemLoadingRepo.svelte";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
@@ -417,8 +417,8 @@
 	});
 </script>
 
-<ProjectSettingsMenuAction {projectId} />
-<FileMenuAction />
+<ProjectSettingsShortcutHandler {projectId} />
+<ProjectShortcutHandler />
 
 <ReduxResult {projectId} result={combineResults(baseBranchQuery.result, modeQuery.result)}>
 	{#snippet children([baseBranch, mode], { projectId })}
@@ -427,9 +427,9 @@
 		{:else if baseBranch}
 			{#if mode.type === "OpenWorkspace" || mode.type === "Edit" || ($settingsStore?.featureFlags.singleBranch && mode.subject.branchName)}
 				<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
-					<Chrome {projectId} sidebarDisabled={mode.type === "Edit"}>
+					<AppLayout {projectId} sidebarDisabled={mode.type === "Edit"}>
 						{@render pageChildren()}
-					</Chrome>
+					</AppLayout>
 				</div>
 			{:else if mode.type === "OutsideWorkspace"}
 				<NotOnGitButlerBranch {projectId} {baseBranch}>
@@ -446,7 +446,7 @@
 	{/snippet}
 </ReduxResult>
 
-<IrcPopups {projectId} />
+<IrcChatWindow {projectId} />
 
 <AnalyticsMonitor {projectId} />
 

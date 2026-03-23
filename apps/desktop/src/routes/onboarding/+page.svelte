@@ -2,7 +2,7 @@
 	import { goto } from "$app/navigation";
 	import AnalyticsConfirmation from "$components/onboarding/AnalyticsConfirmation.svelte";
 	import Welcome from "$components/onboarding/Welcome.svelte";
-	import DecorativeSplitView from "$components/shared/DecorativeSplitView.svelte";
+	import IllustrationSplitLayout from "$components/shared/IllustrationSplitLayout.svelte";
 	import newProjectSvg from "$lib/assets/illustrations/new-project.svg?raw";
 	import newZenSvg from "$lib/assets/illustrations/new-zen.svg?raw";
 	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
@@ -36,7 +36,7 @@
 	<!-- Loading state while we determine if analytics have been confirmed -->
 	loading...
 {:else}
-	<DecorativeSplitView
+	<IllustrationSplitLayout
 		img={analyticsConfirmed ? newZenSvg : newProjectSvg}
 		testId={TestId.OnboardingPage}
 	>
@@ -45,5 +45,5 @@
 		{:else}
 			<AnalyticsConfirmation />
 		{/if}
-	</DecorativeSplitView>
+	</IllustrationSplitLayout>
 {/if}

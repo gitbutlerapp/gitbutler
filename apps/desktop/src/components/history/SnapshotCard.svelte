@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FileListItems from "$components/files/FileListItems.svelte";
 	import FileListProvider from "$components/files/FileListProvider.svelte";
-	import SnapshotAttachment from "$components/history/SnapshotAttachment.svelte";
+	import SnapshotSection from "$components/history/SnapshotSection.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { createdOnDay, HISTORY_SERVICE } from "$lib/history/history";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
@@ -233,7 +233,7 @@
 						selectionId={{ type: "snapshot", snapshotId: entry.id }}
 						allowUnselect={false}
 					>
-						<SnapshotAttachment
+						<SnapshotSection
 							foldable={files.length > 2}
 							foldedAmount={files.length}
 							foldedHeight="7rem"
@@ -245,14 +245,14 @@
 									onselect={(change) => onDiffClick(change.path)}
 								/>
 							</ScrollableContainer>
-						</SnapshotAttachment>
+						</SnapshotSection>
 					</FileListProvider>
 				{/if}
 			{/snippet}
 		</ReduxResult>
 
 		{#if isRestoreSnapshot}
-			<SnapshotAttachment>
+			<SnapshotSection>
 				<div class="restored-attacment">
 					<Icon name="commit" />
 					<div class="restored-attacment__content">
@@ -271,7 +271,7 @@
 						</span>
 					</div>
 				</div>
-			</SnapshotAttachment>
+			</SnapshotSection>
 		{/if}
 		{#if error}
 			<div class="error-text text-12 text-body">

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
+	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import { UPDATER_SERVICE, type InstallStatus } from "$lib/updater/updater";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, Modal, Markdown } from "@gitbutler/ui";
@@ -168,7 +168,7 @@
 
 {#if releaseNotes}
 	<Modal bind:this={releaseNotesModal} width={480} noPadding>
-		<ConfigurableScrollableContainer>
+		<AppScrollableContainer>
 			<div class="p-16">
 				{#if loadingReleases}
 					<div class="loading-state">
@@ -207,7 +207,7 @@
 					</div>
 				{/if}
 			</div>
-		</ConfigurableScrollableContainer>
+		</AppScrollableContainer>
 	</Modal>
 {/if}
 

@@ -1,15 +1,15 @@
 <script lang="ts">
 	import CommitContextMenu from "$components/commit/CommitContextMenu.svelte";
-	import CommitGoesHere from "$components/commit/CommitGoesHere.svelte";
-	import CommitLineOverlay from "$components/commit/CommitLineOverlay.svelte";
-	import CommitRow from "$components/commit/CommitRow.svelte";
-	import NestedChangedFiles from "$components/files/NestedChangedFiles.svelte";
+	import CommitDropIndicator from "$components/commit/CommitDropIndicator.svelte";
+	import CommitListItem from "$components/commit/CommitListItem.svelte";
+	import CommitPositionIndicator from "$components/commit/CommitPositionIndicator.svelte";
+	import ChangedFilesPanel from "$components/files/ChangedFilesPanel.svelte";
 	import { isLocalAndRemoteCommit, isUpstreamCommit } from "$components/lib";
-	import CardOverlay from "$components/shared/CardOverlay.svelte";
 	import Dropzone from "$components/shared/Dropzone.svelte";
+	import DropzoneOverlay from "$components/shared/DropzoneOverlay.svelte";
 	import LazyList from "$components/shared/LazyList.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import UpstreamCommitsAction from "$components/upstream/UpstreamCommitsAction.svelte";
+	import UpstreamActionRow from "$components/upstream/UpstreamActionRow.svelte";
 	import UpstreamIntegrationActions from "$components/upstream/UpstreamIntegrationActions.svelte";
 	import { commitCreatedAt } from "$lib/branches/v3";
 	import { commitStatusLabel } from "$lib/commits/commit";
@@ -116,7 +116,7 @@
 	{#if !controller.isCommitting}
 		<Dropzone handlers={[dropzone]}>
 			{#snippet overlay({ hovered, activated })}
-				<CommitLineOverlay {hovered} {activated} />
+				<CommitDropIndicator {hovered} {activated} />
 			{/snippet}
 		</Dropzone>
 	{/if}
@@ -146,7 +146,7 @@
 						{@const selected = commit.id === selectedCommitId && branchName === selectedBranchName}
 						{@const commitId = commit.id}
 						{#if !controller.isCommitting}
-							<CommitRow
+							<CommitListItem
 								type="Remote"
 								{stackId}
 								{commitId}
@@ -166,13 +166,13 @@
 						{/if}
 					{/each}
 
-					<UpstreamCommitsAction testId={TestId.UpstreamCommitsCommitAction} isLast={!hasCommits}>
+					<UpstreamActionRow testId={TestId.UpstreamCommitsCommitAction} isLast={!hasCommits}>
 						{#snippet action()}
 							<h3 class="text-13 text-semibold m-b-4">Upstream has new commits</h3>
 							<p class="text-12 text-body clr-text-2 m-b-14">Update your branch to stay current.</p>
 							<UpstreamIntegrationActions {projectId} {stackId} {branchName} />
 						{/snippet}
-					</UpstreamCommitsAction>
+					</UpstreamActionRow>
 				{/if}
 
 				{@render commitReorderDz(stackingReorderDropzoneManager.top(branchName))}
@@ -182,8 +182,8 @@
 						{@const commitId = commit.id}
 						{@const selected = commit.id === selectedCommitId && branchName === selectedBranchName}
 						{#if controller.isCommitting}
-							<!-- Only commits to the base can be `last`, see next `CommitGoesHere`. -->
-							<CommitGoesHere
+							<!-- Only commits to the base can be `last`, see next `CommitPositionIndicator`. -->
+							<CommitPositionIndicator
 								{commitId}
 								selected={(commitAction?.parentCommitId === commitId ||
 									(first && commitAction?.parentCommitId === undefined)) &&
@@ -228,7 +228,7 @@
 									handler instanceof AmendCommitWithHunkDzHandler
 										? "Amend"
 										: "Squash"}
-								<CardOverlay {hovered} {activated} {label} />
+								<DropzoneOverlay {hovered} {activated} {label} />
 							{/snippet}
 							<div
 								data-remove-from-panning
@@ -257,7 +257,7 @@
 									dragStateService,
 								}}
 							>
-								<CommitRow
+								<CommitListItem
 									commitId={commit.id}
 									commitMessage={commit.message}
 									type={commit.state.type}
@@ -308,7 +308,7 @@
 												{@const commits = commitsQuery?.response || []}
 												{@const firstConflictedCommitId = findEarliestConflict(commits)?.id}
 
-												<NestedChangedFiles
+												<ChangedFilesPanel
 													title="Changed files"
 													{projectId}
 													{stackId}
@@ -345,14 +345,14 @@
 											{/snippet}
 										</ReduxResult>
 									{/snippet}
-								</CommitRow>
+								</CommitListItem>
 							</div>
 						</Dropzone>
 						{@render commitReorderDz(
 							stackingReorderDropzoneManager.belowCommit(branchName, commit.id),
 						)}
 						{#if controller.isCommitting && last}
-							<CommitGoesHere
+							<CommitPositionIndicator
 								commitId={branchDetails.baseCommit}
 								{first}
 								{last}

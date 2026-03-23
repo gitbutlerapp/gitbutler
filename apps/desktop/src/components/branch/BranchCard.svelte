@@ -3,11 +3,11 @@
 	import BranchDividerLine from "$components/branch/BranchDividerLine.svelte";
 	import BranchHeader from "$components/branch/BranchHeader.svelte";
 	import BranchHeaderContextMenu from "$components/branch/BranchHeaderContextMenu.svelte";
-	import ChecksPolling from "$components/forge/ChecksPolling.svelte";
+	import CIChecksBadge from "$components/forge/CIChecksBadge.svelte";
 	import CreateReviewBox from "$components/forge/CreateReviewBox.svelte";
-	import PrNumberUpdater from "$components/forge/PrNumberUpdater.svelte";
-	import CardOverlay from "$components/shared/CardOverlay.svelte";
+	import PrNumberSync from "$components/forge/PrNumberSync.svelte";
 	import Dropzone from "$components/shared/Dropzone.svelte";
+	import DropzoneOverlay from "$components/shared/DropzoneOverlay.svelte";
 	import { BranchDropData, StartCommitDzHandler } from "$lib/branches/dropHandler";
 	import { MoveCommitDzHandler } from "$lib/commits/dropHandler";
 	import { ReorderCommitDzHandler } from "$lib/dragging/stackingReorderDropzoneManager";
@@ -66,7 +66,7 @@
 		numberOfCommits: number;
 		numberOfUpstreamCommits: number;
 		numberOfBranchesInStack: number;
-		hasCodegenRow?: boolean;
+		hasCodegenSessionRow?: boolean;
 		baseCommit?: string;
 		onclick: () => void;
 		disableClick?: boolean;
@@ -123,7 +123,7 @@
 
 			// Stack branches with codegen row or no commits should be rounded when committing
 			if (args.type === "stack-branch") {
-				return args.hasCodegenRow || args.numberOfCommits === 0;
+				return args.hasCodegenSessionRow || args.numberOfCommits === 0;
 			}
 		}
 
@@ -131,7 +131,8 @@
 		if (args.type === "stack-branch" && !args.isCommitting) {
 			const hasActions = args.buttons !== undefined || args.menu !== undefined;
 			const structurallyRounded =
-				args.hasCodegenRow || (args.numberOfCommits === 0 && args.numberOfUpstreamCommits === 0);
+				args.hasCodegenSessionRow ||
+				(args.numberOfCommits === 0 && args.numberOfUpstreamCommits === 0);
 			return hasActions && structurallyRounded;
 		}
 
@@ -151,7 +152,7 @@
 		}
 	}
 
-	function getCardOverlayLabel(handler: DropzoneHandler | undefined): string {
+	function getDropzoneOverlayLabel(handler: DropzoneHandler | undefined): string {
 		if (handler instanceof MoveCommitDzHandler) return "Move here";
 		if (handler instanceof ReorderCommitDzHandler) return "Reorder here";
 		if (handler instanceof StartCommitDzHandler) return "Start commit";
@@ -171,15 +172,15 @@
 			? new MoveCommitDzHandler(args.stackId, projectId)
 			: undefined}
 		{#if !args.prNumber && args.stackId}
-			<PrNumberUpdater {projectId} stackId={args.stackId} {branchName} />
+			<PrNumberSync {projectId} stackId={args.stackId} {branchName} />
 		{/if}
 
 		<Dropzone
 			handlers={args.first ? [moveHandler, ...args.dropzones].filter(isDefined) : args.dropzones}
 		>
 			{#snippet overlay({ hovered, activated, handler })}
-				{@const label = getCardOverlayLabel(handler)}
-				<CardOverlay {hovered} {activated} {label} />
+				{@const label = getDropzoneOverlayLabel(handler)}
+				<DropzoneOverlay {hovered} {activated} {label} />
 			{/snippet}
 
 			<BranchHeader
@@ -262,7 +263,7 @@
 								})()}
 								<ReviewBadge type={prUnit?.abbr} number={args.prNumber} status={prStatus} />
 								{#if pr && !pr.closedAt && forge.current.checks && pr.state === "open"}
-									<ChecksPolling
+									<CIChecksBadge
 										{projectId}
 										branchName={pr.sourceBranch}
 										prUpdatedAt={pr.updatedAt}
@@ -327,7 +328,7 @@
 		/>
 	{/if}
 
-	{#if args.type === "stack-branch" && args.hasCodegenRow && args.codegenRow}
+	{#if args.type === "stack-branch" && args.hasCodegenSessionRow && args.codegenRow}
 		<BranchDividerLine {lineColor} short />
 		{@render args.codegenRow()}
 		{#if args.numberOfCommits > 0 || args.numberOfUpstreamCommits > 0}

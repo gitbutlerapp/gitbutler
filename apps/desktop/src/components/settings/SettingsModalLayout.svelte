@@ -10,7 +10,7 @@
 </script>
 
 <script lang="ts" generics="T extends Page">
-	import ConfigurableScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
+	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import { Icon, type IconName } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { type Snippet } from "svelte";
@@ -31,7 +31,7 @@
 
 	let currentSelectedId = $derived(selectedId || pages[0]?.id || "");
 	const currentPage = $derived(pages.find((p) => p.id === currentSelectedId));
-	let scrollableContainer: ConfigurableScrollableContainer;
+	let scrollableContainer: AppScrollableContainer;
 
 	function selectPage(pageId: string) {
 		currentSelectedId = pageId;
@@ -75,11 +75,11 @@
 	</div>
 
 	<section class="page-view" use:focusable={{ vertical: true }}>
-		<ConfigurableScrollableContainer bind:this={scrollableContainer}>
+		<AppScrollableContainer bind:this={scrollableContainer}>
 			<div class="page-view__content">
 				{@render content({ currentPage })}
 			</div>
-		</ConfigurableScrollableContainer>
+		</AppScrollableContainer>
 	</section>
 </div>
 

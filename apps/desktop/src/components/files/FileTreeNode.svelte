@@ -1,6 +1,6 @@
 <script lang="ts">
+	import FileTreeFolder from "$components/files/FileTreeFolder.svelte";
 	import Self from "$components/files/FileTreeNode.svelte";
-	import TreeListFolder from "$components/files/TreeListFolder.svelte";
 	import { getAllChanges } from "$lib/files/filetreeV3";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -131,7 +131,7 @@
 {:else if node.kind === "file"}
 	{@render fileTemplate(node.change, node.index, depth)}
 {:else}
-	<TreeListFolder
+	<FileTreeFolder
 		{projectId}
 		{stackId}
 		{selectionId}

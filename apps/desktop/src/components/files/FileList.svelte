@@ -1,7 +1,7 @@
 <!-- This is a V3 replacement for `BranchFileList.svelte` -->
 <script lang="ts">
 	import EditPatchConfirmModal from "$components/commit/EditPatchConfirmModal.svelte";
-	import FileListItemWrapper from "$components/files/FileListItemWrapper.svelte";
+	import FileListItemContainer from "$components/files/FileListItemContainer.svelte";
 	import FileTreeNode from "$components/files/FileTreeNode.svelte";
 	import LazyList from "$components/shared/LazyList.svelte";
 	import { ACTION_SERVICE } from "$lib/actions/actionService.svelte";
@@ -279,7 +279,7 @@
 	{@const lockedTargets = showLockedIndicator
 		? getLockedTargets(change.path, fileDependencies)
 		: []}
-	<FileListItemWrapper
+	<FileListItemContainer
 		{selectionId}
 		{change}
 		{projectId}

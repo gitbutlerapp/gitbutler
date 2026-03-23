@@ -1,11 +1,11 @@
 <script lang="ts">
 	import FileListItems from "$components/files/FileListItems.svelte";
-	import FileListMode from "$components/files/FileListMode.svelte";
 	import FileListProvider from "$components/files/FileListProvider.svelte";
+	import FileListViewToggle from "$components/files/FileListViewToggle.svelte";
 	import WorktreeChangesSelectAll from "$components/files/WorktreeChangesSelectAll.svelte";
-	import CardOverlay from "$components/shared/CardOverlay.svelte";
-	import ScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
+	import ScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import Dropzone from "$components/shared/Dropzone.svelte";
+	import DropzoneOverlay from "$components/shared/DropzoneOverlay.svelte";
 	import { ACTION_SERVICE } from "$lib/actions/actionService.svelte";
 	import { AI_SERVICE } from "$lib/ai/service";
 	import { UncommitDzHandler } from "$lib/commits/dropHandler";
@@ -220,7 +220,7 @@
 	onHovered={onDropzoneHovered}
 >
 	{#snippet overlay({ hovered, activated, handler })}
-		<CardOverlay
+		<DropzoneOverlay
 			{hovered}
 			{activated}
 			label={getDropzoneLabel(handler)}
@@ -251,7 +251,7 @@
 					</div>
 				</div>
 				{#if changes.current.length > 0}
-					<FileListMode bind:mode={listMode} {persistId} />
+					<FileListViewToggle bind:mode={listMode} {persistId} />
 				{/if}
 			</div>
 		{/if}

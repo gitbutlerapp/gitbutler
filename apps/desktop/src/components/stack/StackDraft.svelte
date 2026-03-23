@@ -1,7 +1,7 @@
 <script lang="ts">
 	import DraftBranchHeader from "$components/branch/DraftBranchHeader.svelte";
 	import NewCommitView from "$components/commit/NewCommitView.svelte";
-	import ConfigurableScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
+	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import Resizer from "$components/shared/Resizer.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -33,7 +33,7 @@
 
 {#if visible}
 	<div data-testid={TestId.StackDraft} class="draft-stack dotted-pattern">
-		<ConfigurableScrollableContainer childrenWrapHeight="100%">
+		<AppScrollableContainer childrenWrapHeight="100%">
 			<div
 				class="draft-stack__scroll-wrap"
 				bind:this={draftPanelEl}
@@ -65,7 +65,7 @@
 					maxWidth={64}
 				/>
 			</div>
-		</ConfigurableScrollableContainer>
+		</AppScrollableContainer>
 	</div>
 {/if}
 

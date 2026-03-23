@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from "$app/state";
 	import ProjectNotFound from "$components/onboarding/ProjectNotFound.svelte";
-	import SomethingWentWrong from "$components/shared/SomethingWentWrong.svelte";
+	import RouteErrorView from "$components/shared/RouteErrorView.svelte";
 	import { Code } from "$lib/error/knownErrors";
 
 	const code = $derived(page.error?.errorCode);
@@ -16,5 +16,5 @@
 	{@const projectId = page.params.projectId!}
 	<ProjectNotFound {projectId} />
 {:else}
-	<SomethingWentWrong {error} />
+	<RouteErrorView {error} />
 {/if}

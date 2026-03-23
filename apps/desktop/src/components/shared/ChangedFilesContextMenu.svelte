@@ -2,8 +2,8 @@
 <script lang="ts">
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import AbsorbPlanModal from "$components/stack/AbsorbPlanModal.svelte";
-	import StashIntoBranchModal from "$components/views/StashIntoBranchModal.svelte";
 	import DiscardChangesModal from "$components/workspace/DiscardChangesModal.svelte";
+	import StashIntoBranchModal from "$components/workspace/StashIntoBranchModal.svelte";
 	import { ACTION_SERVICE } from "$lib/actions/actionService.svelte";
 	import { AI_SERVICE } from "$lib/ai/service";
 	import { BACKEND } from "$lib/backend";

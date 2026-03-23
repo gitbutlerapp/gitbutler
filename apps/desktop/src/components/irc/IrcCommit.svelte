@@ -2,7 +2,7 @@
 	import UnifiedDiffView from "$components/diff/UnifiedDiffView.svelte";
 	import FileListItems from "$components/files/FileListItems.svelte";
 	import FileListProvider from "$components/files/FileListProvider.svelte";
-	import ConfigurableScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
+	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import { createCommitSelection } from "$lib/selection/key";
 	import type { UnifiedDiff } from "$lib/hunks/diff";
 	import type { SharedCommitPayload } from "$lib/irc/sharedStack";
@@ -43,13 +43,13 @@
 	<div class="irc-commit-body">
 		<div class="irc-commit-files">
 			<FileListProvider {changes} {selectionId}>
-				<ConfigurableScrollableContainer>
+				<AppScrollableContainer>
 					<FileListItems
 						{projectId}
 						mode="list"
 						onselect={(_change, index) => (selectedIndex = index)}
 					/>
-				</ConfigurableScrollableContainer>
+				</AppScrollableContainer>
 			</FileListProvider>
 		</div>
 		{#if selectedChange && selectedDiff}

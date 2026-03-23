@@ -16,7 +16,7 @@
 	 * the blocker.
 	 */
 
-	import LazyloadContainer from "$components/shared/LazyloadContainer.svelte";
+	import InfiniteScrollTrigger from "$components/shared/InfiniteScrollTrigger.svelte";
 	import { type Snippet } from "svelte";
 
 	interface Props {
@@ -36,7 +36,7 @@
 </script>
 
 {#if items.length > 0}
-	<LazyloadContainer
+	<InfiniteScrollTrigger
 		minTriggerCount={Math.min(items.length, chunkSize - 5)}
 		ontrigger={() => {
 			loadMore();
@@ -49,5 +49,5 @@
 				last: index === items.length - 1,
 			})}
 		{/each}
-	</LazyloadContainer>
+	</InfiniteScrollTrigger>
 {/if}

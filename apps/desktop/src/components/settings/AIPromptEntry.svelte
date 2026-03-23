@@ -1,5 +1,5 @@
 <script lang="ts">
-	import DialogBubble from "$components/shared/DialogBubble.svelte";
+	import AIPromptBubble from "$components/shared/AIPromptBubble.svelte";
 	import { MessageRole, type UserPrompt } from "$lib/ai/types";
 	import { Button, Icon, Textbox } from "@gitbutler/ui";
 
@@ -119,7 +119,7 @@
 	{#if expanded}
 		<div class="content" class:default-mode={prompt.id === "default"} class:editing={isInEditing}>
 			{#each promptMessages as promptMessage, index}
-				<DialogBubble
+				<AIPromptBubble
 					promptMessage={promptMessage.content}
 					role={promptMessage.role}
 					editing={isInEditing}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import CommitLine from "$components/commit/CommitLine.svelte";
+	import CommitTimelineNode from "$components/commit/CommitTimelineNode.svelte";
 	import CommitTitle from "$components/commit/CommitTitle.svelte";
 	import { type CommitStatusType } from "$lib/commits/commit";
 	import { URL_SERVICE } from "$lib/utils/url";
@@ -142,7 +142,7 @@
 			</div>
 		{/if}
 
-		<CommitLine
+		<CommitTimelineNode
 			commitStatus={args.type}
 			diverged={args.type === "LocalAndRemote" ? (args.diverged ?? false) : false}
 			{tooltip}
@@ -222,9 +222,9 @@
 
 	{#if selected && changedFiles}
 		<div class="changed-files-container">
-			<CommitLine commitStatus={args.type} hideDot height="0.375rem" />
+			<CommitTimelineNode commitStatus={args.type} hideDot height="0.375rem" />
 			{@render changedFiles()}
-			<CommitLine commitStatus={args.type} hideDot height="1rem" />
+			<CommitTimelineNode commitStatus={args.type} hideDot height="1rem" />
 		</div>
 	{/if}
 </div>

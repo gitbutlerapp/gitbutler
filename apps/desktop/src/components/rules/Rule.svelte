@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ClaudeSessionDescriptor from "$components/codegen/ClaudeSessionDescriptor.svelte";
+	import ClaudeSessionTitle from "$components/codegen/ClaudeSessionTitle.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import {
 		semanticTypeToString,
@@ -155,14 +155,14 @@
 {#snippet aiSessionPill(filter: RuleFilter)}
 	{#if filter.type === "claudeCodeSessionId"}
 		{@const config = getFilterConfig(filter)}
-		<ClaudeSessionDescriptor {projectId} sessionId={filter.subject}>
+		<ClaudeSessionTitle {projectId} sessionId={filter.subject}>
 			{#snippet fallback()}
 				{@render renderBasicPill(config)}
 			{/snippet}
 			{#snippet children(descriptor)}
 				{@render renderSessionPill(`Claude session: ${descriptor}`, config.icon!, descriptor)}
 			{/snippet}
-		</ClaudeSessionDescriptor>
+		</ClaudeSessionTitle>
 	{/if}
 {/snippet}
 

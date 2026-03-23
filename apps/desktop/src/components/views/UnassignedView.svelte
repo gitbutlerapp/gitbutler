@@ -1,6 +1,6 @@
 <script lang="ts">
 	import WorktreeChanges from "$components/files/WorktreeChanges.svelte";
-	import UnassignedViewForgePrompt from "$components/forge/ForgePrompt.svelte";
+	import UnassignedViewForgeIntegrationBanner from "$components/forge/ForgeIntegrationBanner.svelte";
 	import RulesList from "$components/rules/RulesList.svelte";
 	import UnassignedFoldButton from "$components/workspace/UnassignedFoldButton.svelte";
 	import { ActionEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
@@ -125,7 +125,7 @@
 				</WorktreeChanges>
 			</div>
 
-			<UnassignedViewForgePrompt {projectId} />
+			<UnassignedViewForgeIntegrationBanner {projectId} />
 
 			{#if changesToCommit}
 				<div class="create-new" use:focusable>

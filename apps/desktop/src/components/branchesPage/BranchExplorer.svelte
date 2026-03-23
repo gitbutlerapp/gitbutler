@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BranchesListGroup from "$components/branchesPage/BranchesListGroup.svelte";
-	import ScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
+	import ScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import LazyList from "$components/shared/LazyList.svelte";
 	import noBranchesSvg from "$lib/assets/empty-state/no-branches.svg?raw";
 	import {

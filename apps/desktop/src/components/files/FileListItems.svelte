@@ -10,7 +10,7 @@
 	```
 -->
 <script lang="ts">
-	import FileListItemWrapper from "$components/files/FileListItemWrapper.svelte";
+	import FileListItemContainer from "$components/files/FileListItemContainer.svelte";
 	import FileTreeNode from "$components/files/FileTreeNode.svelte";
 	import LazyList from "$components/shared/LazyList.svelte";
 	import {
@@ -101,7 +101,7 @@
 	{@const lockedTargets = showLockedIndicator
 		? getLockedTargets(change.path, fileDependencies)
 		: []}
-	<FileListItemWrapper
+	<FileListItemContainer
 		selectionId={controller.selectionId}
 		{change}
 		{projectId}

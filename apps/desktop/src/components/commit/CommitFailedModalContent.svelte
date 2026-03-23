@@ -1,6 +1,6 @@
 <script lang="ts">
 	import CommitFailedFileEntry from "$components/commit/CommitFailedFileEntry.svelte";
-	import ConfigurableScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
+	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import { REJECTTION_REASONS, type RejectionReason } from "$lib/stacks/stackService.svelte";
 	import { Icon, ModalHeader, TestId, Tooltip } from "@gitbutler/ui";
 	import type { CommitFailedModalState } from "$lib/state/uiState.svelte";
@@ -75,7 +75,7 @@
 		closeButtonTestId={TestId.GlobalModalActionButton}
 		>{data.newCommitId ? "Some changes were not committed" : "Failed to create commit"}</ModalHeader
 	>
-	<ConfigurableScrollableContainer
+	<AppScrollableContainer
 		onscrollTop={(visible) => {
 			isScrollTopVisible = visible;
 		}}
@@ -109,7 +109,7 @@
 				{/each}
 			</div>
 		</div>
-	</ConfigurableScrollableContainer>
+	</AppScrollableContainer>
 </div>
 
 <style lang="postcss">

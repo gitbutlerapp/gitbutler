@@ -1,5 +1,5 @@
 <script lang="ts">
-	import DecorativeSplitView from "$components/shared/DecorativeSplitView.svelte";
+	import IllustrationSplitLayout from "$components/shared/IllustrationSplitLayout.svelte";
 	import ProjectSwitcher from "$components/shared/ProjectSwitcher.svelte";
 	import loadErrorSvg from "$lib/assets/illustrations/load-error.svg?raw";
 	import { InfoMessage } from "@gitbutler/ui";
@@ -12,7 +12,7 @@
 	const { projectId, error = undefined }: Props = $props();
 </script>
 
-<DecorativeSplitView img={loadErrorSvg}>
+<IllustrationSplitLayout img={loadErrorSvg}>
 	<div class="problem__container">
 		<h2 class="problem__title text-18 text-body text-bold">There was a problem loading the app</h2>
 
@@ -24,7 +24,7 @@
 
 		<ProjectSwitcher {projectId} />
 	</div>
-</DecorativeSplitView>
+</IllustrationSplitLayout>
 
 <style lang="postcss">
 	.problem__container {

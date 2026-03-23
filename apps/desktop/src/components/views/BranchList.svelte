@@ -4,9 +4,9 @@
 	} from "$components/branch/AddDependentBranchModal.svelte";
 	import BranchCard from "$components/branch/BranchCard.svelte";
 	import BranchHeaderContextMenu from "$components/branch/BranchHeaderContextMenu.svelte";
-	import BranchInsertion from "$components/branch/BranchInsertion.svelte";
-	import CodegenRow from "$components/codegen/CodegenRow.svelte";
-	import NestedChangedFiles from "$components/files/NestedChangedFiles.svelte";
+	import BranchReorderDropzone from "$components/branch/BranchReorderDropzone.svelte";
+	import CodegenSessionRow from "$components/codegen/CodegenSessionRow.svelte";
+	import ChangedFilesPanel from "$components/files/ChangedFilesPanel.svelte";
 	import PushButton from "$components/forge/PushButton.svelte";
 	import { getColorFromCommitState, getIconFromCommitState } from "$components/lib";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
@@ -138,7 +138,7 @@
 					: undefined}
 				{@const startCommittingDz = new StartCommitDzHandler(projectId, stackId, branchName)}
 				{#if stackId}
-					<BranchInsertion
+					<BranchReorderDropzone
 						{projectId}
 						{stackId}
 						{branchName}
@@ -163,7 +163,7 @@
 					{isNewBranch}
 					{pushStatus}
 					{isConflicted}
-					hasCodegenRow={firstBranch &&
+					hasCodegenSessionRow={firstBranch &&
 						stackId !== undefined &&
 						codegenQuery?.response &&
 						codegenQuery.response.length > 0}
@@ -297,7 +297,7 @@
 									codegenQuery.response || [],
 									stackActive.response || false,
 								)}
-								<CodegenRow
+								<CodegenSessionRow
 									{projectId}
 									{branchName}
 									{stackId}
@@ -324,7 +324,7 @@
 							})}
 							<ReduxResult {projectId} {stackId} result={changesQuery.result}>
 								{#snippet children(result, { projectId, stackId })}
-									<NestedChangedFiles
+									<ChangedFilesPanel
 										title="All Changes"
 										{projectId}
 										{stackId}

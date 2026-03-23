@@ -2,8 +2,8 @@
 	import UnifiedDiffView from "$components/diff/UnifiedDiffView.svelte";
 	import ChangedFileStats from "$components/files/ChangedFileStats.svelte";
 	import FileTreeList from "$components/files/FileTreeList.svelte";
+	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import ChangedFilesContextMenu from "$components/shared/ChangedFilesContextMenu.svelte";
-	import ConfigurableScrollableContainer from "$components/shared/ConfigurableScrollableContainer.svelte";
 	import Drawer from "$components/shared/Drawer.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import Resizer from "$components/shared/Resizer.svelte";
@@ -158,7 +158,7 @@
 					{selectionId}
 					trigger={fileListEl}
 				/>
-				<ConfigurableScrollableContainer>
+				<AppScrollableContainer>
 					<FileTreeList
 						{changes}
 						{listMode}
@@ -170,7 +170,7 @@
 							fileListContextMenu?.open(e, { changes: [change] });
 						}}
 					/>
-				</ConfigurableScrollableContainer>
+				</AppScrollableContainer>
 			</div>
 		</div>
 

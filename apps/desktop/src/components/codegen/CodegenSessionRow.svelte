@@ -1,6 +1,6 @@
 <script lang="ts">
-	import CardOverlay from "$components/shared/CardOverlay.svelte";
 	import Dropzone from "$components/shared/Dropzone.svelte";
+	import DropzoneOverlay from "$components/shared/DropzoneOverlay.svelte";
 	import ErrorBoundary from "$components/shared/ErrorBoundary.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { ATTACHMENT_SERVICE } from "$lib/codegen/attachmentService.svelte";
@@ -98,7 +98,7 @@
 
 <Dropzone {handlers}>
 	{#snippet overlay({ hovered, activated })}
-		<CardOverlay {hovered} {activated} label="Reference" />
+		<DropzoneOverlay {hovered} {activated} label="Reference" />
 	{/snippet}
 	<ErrorBoundary compact>
 		{#if draft}

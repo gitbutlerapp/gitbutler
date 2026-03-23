@@ -5,18 +5,18 @@
 	import { browser, dev } from "$app/environment";
 	import { afterNavigate, beforeNavigate } from "$app/navigation";
 	import { page } from "$app/state";
-	import GlobalSettingsMenuAction from "$components/settings/GlobalSettingsMenuAction.svelte";
-	import ReloadMenuAction from "$components/settings/ReloadMenuAction.svelte";
-	import SwitchThemeMenuAction from "$components/settings/SwitchThemeMenuAction.svelte";
-	import ToggleSidebarMenuAction from "$components/settings/ToggleSidebarMenuAction.svelte";
-	import ZoomInOutMenuAction from "$components/settings/ZoomInOutMenuAction.svelte";
+	import GlobalSettingsShortcutHandler from "$components/settings/GlobalSettingsShortcutHandler.svelte";
+	import ReloadShortcutHandler from "$components/settings/ReloadShortcutHandler.svelte";
+	import ThemeShortcutHandler from "$components/settings/ThemeShortcutHandler.svelte";
+	import ToggleSidebarShortcutHandler from "$components/settings/ToggleSidebarShortcutHandler.svelte";
+	import ZoomShortcutHandler from "$components/settings/ZoomShortcutHandler.svelte";
 	import AppUpdater from "$components/shared/AppUpdater.svelte";
 	import FocusCursor from "$components/shared/FocusCursor.svelte";
-	import PromptModal from "$components/shared/PromptModal.svelte";
+	import GitInputPrompt from "$components/shared/GitInputPrompt.svelte";
 	import ReloadWarning from "$components/shared/ReloadWarning.svelte";
 	import ShareIssueModal from "$components/shared/ShareIssueModal.svelte";
 	import ToastController from "$components/shared/ToastController.svelte";
-	import GlobalModal from "$components/views/GlobalModal.svelte";
+	import GlobalModalRouter from "$components/views/GlobalModalRouter.svelte";
 	import { POSTHOG_WRAPPER } from "$lib/analytics/posthog";
 	import { initDependencies } from "$lib/bootstrap/deps";
 	import { MessageQueueProcessor } from "$lib/codegen/messageQueue.svelte";
@@ -176,13 +176,13 @@
 <ToastController />
 <ChipToastContainer />
 <AppUpdater />
-<PromptModal />
-<ZoomInOutMenuAction />
-<GlobalSettingsMenuAction />
-<ReloadMenuAction />
-<SwitchThemeMenuAction />
-<ToggleSidebarMenuAction />
-<GlobalModal />
+<GitInputPrompt />
+<ZoomShortcutHandler />
+<GlobalSettingsShortcutHandler />
+<ReloadShortcutHandler />
+<ThemeShortcutHandler />
+<ToggleSidebarShortcutHandler />
+<GlobalModalRouter />
 <FocusCursor />
 
 {#if import.meta.env.MODE === "development"}

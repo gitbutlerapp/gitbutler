@@ -10,7 +10,7 @@
 <script lang="ts">
 	import BranchHeaderIcon from "$components/branch/BranchHeaderIcon.svelte";
 	import BranchLabel from "$components/branch/BranchLabel.svelte";
-	import CommitGoesHere from "$components/commit/CommitGoesHere.svelte";
+	import CommitPositionIndicator from "$components/commit/CommitPositionIndicator.svelte";
 	import { BranchDropData } from "$lib/branches/dropHandler";
 	import { draggableBranch, type DraggableConfig } from "$lib/dragging/draggable";
 	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
@@ -193,7 +193,7 @@
 	{/if}
 
 	{#if showCommitGoesHere}
-		<CommitGoesHere
+		<CommitPositionIndicator
 			{commitId}
 			selected={isCommitTarget}
 			draft={draft || isEmpty}

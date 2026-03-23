@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BranchDividerLine from "$components/branch/BranchDividerLine.svelte";
-	import BranchLineOverlay from "$components/branch/BranchLineOverlay.svelte";
+	import BranchDropIndicator from "$components/branch/BranchDropIndicator.svelte";
 	import Dropzone from "$components/shared/Dropzone.svelte";
 	import { MoveBranchDzHandler } from "$lib/branches/dropHandler";
 	import type { ForgePrService } from "$lib/forge/interface/forgePrService";
@@ -41,14 +41,14 @@
 			{#if isFirst}
 				{#if activated}
 					<div data-testid="BranchListInsertionDropzone" class="dropzone-target top-dropzone">
-						<BranchLineOverlay {hovered} />
+						<BranchDropIndicator {hovered} />
 					</div>
 				{/if}
 			{:else}
 				<div data-testid="BranchListInsertionDropzone" class="dropzone-target">
 					<BranchDividerLine {lineColor} />
 					{#if activated}
-						<BranchLineOverlay {hovered} />
+						<BranchDropIndicator {hovered} />
 						<BranchDividerLine {lineColor} />
 					{/if}
 				</div>
