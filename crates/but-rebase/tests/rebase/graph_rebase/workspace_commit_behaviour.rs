@@ -3,7 +3,7 @@ use std::fs;
 
 use anyhow::Result;
 use but_graph::Graph;
-use but_rebase::graph_rebase::{GraphExt, LookupStep, Pick, Step};
+use but_rebase::graph_rebase::{Editor, LookupStep, Pick, Step};
 use but_testsupport::{cat_commit, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable, fixture_writable_with_signing, standard_options};
@@ -48,7 +48,7 @@ fn assert_consistent_private_key() -> Result<()> {
 
 #[test]
 fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable_with_signing("workspace-signed")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing("workspace-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     insta::assert_snapshot!(before, @"
@@ -61,7 +61,8 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let id = repo.rev_parse_single("gitbutler/workspace")?;
     let selector = editor.select_commit(id.detach())?;
@@ -98,7 +99,7 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
 
 #[test]
 fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable_with_signing("workspace-signed")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing("workspace-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     insta::assert_snapshot!(before, @"
@@ -110,7 +111,8 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
     ");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Remove the "b" commit so "c" and the workspace commit get cherry-picked
     let b = repo.rev_parse_single("b")?;
@@ -169,7 +171,7 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
 
 #[test]
 fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     insta::assert_snapshot!(before, @"
@@ -181,7 +183,8 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let id = repo.rev_parse_single("HEAD")?;
     let selector = editor.select_commit(id.detach())?;
@@ -218,7 +221,8 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
 
 #[test]
 fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable_with_signing("workspace-with-wc-content-signed")?;
+    let (repo, _tmpdir, mut meta) =
+        fixture_writable_with_signing("workspace-with-wc-content-signed")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f7f22fe (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -230,7 +234,8 @@ fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Dropping c will cause the workspace commit to conflict because the WC
     // depends on a file created in c
@@ -251,7 +256,7 @@ fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
 
 #[test]
 fn workspace_commit_should_not_be_allowed_to_have_non_reference_parents() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable_with_signing("workspace-signed")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing("workspace-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     insta::assert_snapshot!(before, @"
@@ -264,7 +269,8 @@ fn workspace_commit_should_not_be_allowed_to_have_non_reference_parents() -> Res
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Replace both 'main' and 'c' references with Step::None. The commit 'c'
     // has two references pointing to it, so we need to remove both for the

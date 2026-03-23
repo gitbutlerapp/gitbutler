@@ -11,7 +11,7 @@ use but_ctx::{
     access::{RepoExclusive, RepoShared},
 };
 use but_oxidize::{ObjectIdExt as _, OidExt, gix_to_git2_index};
-use but_rebase::graph_rebase::{GraphExt as _, Step};
+use but_rebase::graph_rebase::{Editor, Step};
 use git2::build::CheckoutBuilder;
 use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _, RepositoryExt as _};
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
@@ -299,14 +299,15 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     let workspace_commit = repo
         .find_reference(WORKSPACE_BRANCH_REF)?
         .peel_to_commit()?;
-    let meta = ctx.meta()?;
-    let graph = but_graph::Graph::from_commit_traversal(
+    let mut meta = ctx.meta()?;
+    let mut workspace = but_graph::Graph::from_commit_traversal(
         workspace_commit.id(),
         Some(gix::refs::FullName::try_from(WORKSPACE_BRANCH_REF)?),
         &meta,
         but_graph::init::Options::limited(),
-    )?;
-    let mut editor = graph.to_editor(repo)?;
+    )?
+    .into_workspace()?;
+    let mut editor = Editor::create(&mut workspace, &mut meta, repo)?;
     let (target_selector, commit) = editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;
 
     let extra_headers: Vec<(BString, BString)> = Headers::try_from_commit(&commit.inner)

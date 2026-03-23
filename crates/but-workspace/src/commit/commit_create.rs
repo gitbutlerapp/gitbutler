@@ -2,7 +2,7 @@
 
 pub(crate) mod function {
     use anyhow::Result;
-    use but_core::DiffSpec;
+    use but_core::{DiffSpec, RefMetadata};
     use but_rebase::graph_rebase::{
         Editor, LookupStep, Pick, Selector, Step, SuccessfulRebase, ToSelector, mutate::InsertSide,
     };
@@ -11,11 +11,11 @@ pub(crate) mod function {
 
     /// The result of creating and inserting a new commit in the graph rebase editor.
     #[derive(Debug)]
-    pub struct CommitCreateOutcome {
+    pub struct CommitCreateOutcome<'ws, 'meta, M: RefMetadata> {
         /// A successful rebase result for continuing operations. This will be
         /// always provided regardless of whether a commit was actually
         /// created.
-        pub rebase: SuccessfulRebase,
+        pub rebase: SuccessfulRebase<'ws, 'meta, M>,
         /// Selector pointing to the newly created commit, if one was created.
         ///
         /// A commit may not be created if all the diff_specs are rejected. See
@@ -44,14 +44,14 @@ pub(crate) mod function {
     /// this particular function call. The provided `context_lines` MUST align
     /// with the `context_lines` value used to generate the `DiffSpec`s passed
     /// in the `changes` parameter.
-    pub fn commit_create(
-        mut editor: Editor,
+    pub fn commit_create<'ws, 'meta, M: RefMetadata>(
+        mut editor: Editor<'ws, 'meta, M>,
         changes: Vec<DiffSpec>,
         relative_to: impl ToSelector,
         side: InsertSide,
         message: &str,
         context_lines: u32,
-    ) -> Result<CommitCreateOutcome> {
+    ) -> Result<CommitCreateOutcome<'ws, 'meta, M>> {
         let relative_to_selector = relative_to.to_selector(&editor)?;
         let parent_commit_id = parent_commit_id_for_new_commit(
             &editor,
@@ -91,8 +91,8 @@ pub(crate) mod function {
         })
     }
 
-    fn parent_commit_id_for_new_commit(
-        editor: &Editor,
+    fn parent_commit_id_for_new_commit<'ws, 'meta, M: RefMetadata>(
+        editor: &Editor<'ws, 'meta, M>,
         target_step: Step,
         side: InsertSide,
     ) -> Result<Option<gix::ObjectId>> {

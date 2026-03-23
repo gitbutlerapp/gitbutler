@@ -1,7 +1,10 @@
 use but_api_macros::but_api;
 use but_core::sync::RepoExclusive;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{GraphExt, LookupStep as _, mutate::InsertSide, mutate::RelativeTo};
+use but_rebase::graph_rebase::{
+    Editor, LookupStep as _,
+    mutate::{InsertSide, RelativeTo},
+};
 use tracing::instrument;
 
 use super::types::CommitInsertBlankResult;
@@ -29,9 +32,9 @@ pub(crate) fn commit_insert_blank_only_impl(
     side: InsertSide,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitInsertBlankResult> {
-    let meta = ctx.meta()?;
+    let mut meta = ctx.meta()?;
     let (repo, mut ws, _, _cache) = ctx.workspace_mut_and_db_and_cache_with_perm(perm)?;
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
     let (outcome, blank_commit_selector) =
         but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
@@ -39,8 +42,6 @@ pub(crate) fn commit_insert_blank_only_impl(
     let outcome = outcome.materialize()?;
     let id = outcome.lookup_pick(blank_commit_selector)?;
     let replaced_commits = outcome.history.commit_mappings();
-
-    ws.refresh_from_head(&repo, &meta)?;
 
     Ok(CommitInsertBlankResult {
         new_commit: id,

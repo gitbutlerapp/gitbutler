@@ -1,14 +1,14 @@
 //! These tests exercise the replace operation.
 use anyhow::{Context, Result};
 use but_graph::Graph;
-use but_rebase::graph_rebase::{GraphExt, Step};
+use but_rebase::graph_rebase::{Editor, Step};
 use but_testsupport::{git_status, visualize_commit_graph_all, visualize_tree};
 
 use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn reword_a_commit() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
@@ -25,7 +25,8 @@ fn reword_a_commit() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // get the original a
     let a = repo.rev_parse_single("A")?.detach();
@@ -70,7 +71,7 @@ fn reword_a_commit() -> Result<()> {
 
 #[test]
 fn amend_a_commit() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
@@ -93,7 +94,8 @@ fn amend_a_commit() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // get the original a
     let a = repo.rev_parse_single("A")?;

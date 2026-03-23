@@ -1,6 +1,6 @@
 use anyhow::Result;
 use but_graph::Graph;
-use but_rebase::graph_rebase::{GraphExt, testing::Testing as _};
+use but_rebase::graph_rebase::{Editor, testing::Testing as _};
 use but_testsupport::{StackState, graph_tree, visualize_commit_graph_all};
 
 use crate::{
@@ -10,7 +10,7 @@ use crate::{
 
 #[test]
 fn four_commits() -> Result<()> {
-    let (repo, meta) = fixture("four-commits")?;
+    let (repo, mut meta) = fixture("four-commits")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 120e3a9 (HEAD -> main) c
@@ -21,7 +21,8 @@ fn four_commits() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/main
@@ -37,7 +38,7 @@ fn four_commits() -> Result<()> {
 
 #[test]
 fn merge_in_the_middle() -> Result<()> {
-    let (repo, meta) = fixture("merge-in-the-middle")?;
+    let (repo, mut meta) = fixture("merge-in-the-middle")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
@@ -51,7 +52,8 @@ fn merge_in_the_middle() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/with-inner-merge
@@ -74,7 +76,7 @@ fn merge_in_the_middle() -> Result<()> {
 
 #[test]
 fn three_branches_merged() -> Result<()> {
-    let (repo, meta) = fixture("three-branches-merged")?;
+    let (repo, mut meta) = fixture("three-branches-merged")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
@@ -92,7 +94,8 @@ fn three_branches_merged() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/main
@@ -118,7 +121,7 @@ fn three_branches_merged() -> Result<()> {
 
 #[test]
 fn many_references() -> Result<()> {
-    let (repo, meta) = fixture("many-references")?;
+    let (repo, mut meta) = fixture("many-references")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 120e3a9 (HEAD -> main) c
@@ -138,7 +141,8 @@ fn many_references() -> Result<()> {
         └── ·35b8235 (⌂|1)
     ");
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/main
@@ -157,7 +161,7 @@ fn many_references() -> Result<()> {
 
 #[test]
 fn first_parent_leg_long() -> Result<()> {
-    let (repo, meta) = fixture("first-parent-leg-long")?;
+    let (repo, mut meta) = fixture("first-parent-leg-long")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 6ac5745 (HEAD -> with-inner-merge) on top of inner merge
@@ -190,7 +194,8 @@ fn first_parent_leg_long() -> Result<()> {
                             └── →:4: (main)
     ");
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/with-inner-merge
@@ -215,7 +220,7 @@ fn first_parent_leg_long() -> Result<()> {
 
 #[test]
 fn second_parent_leg_long() -> Result<()> {
-    let (repo, meta) = fixture("second-parent-leg-long")?;
+    let (repo, mut meta) = fixture("second-parent-leg-long")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * a6775ea (HEAD -> with-inner-merge) on top of inner merge
@@ -248,7 +253,8 @@ fn second_parent_leg_long() -> Result<()> {
                             └── →:4: (main)
     ");
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/with-inner-merge
@@ -312,7 +318,8 @@ fn workspace_with_empty_stack() -> Result<()> {
                 └── →:4:
     ");
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/gitbutler/workspace
@@ -366,7 +373,8 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
                 └── →:3:
     ");
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/gitbutler/workspace
@@ -385,7 +393,7 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
 
 #[test]
 fn commit_with_two_parents() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("single-commit")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("single-commit")?;
 
     let base = repo.rev_parse_single("HEAD")?;
     let base = base.object()?.into_commit();
@@ -408,7 +416,8 @@ fn commit_with_two_parents() -> Result<()> {
             └── →:1:
     ");
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/main

@@ -1,7 +1,7 @@
 //! Functions for materializing a rebase
 use anyhow::{Context, Result, bail};
 use but_core::{
-    ObjectStorageExt as _,
+    ObjectStorageExt as _, RefMetadata,
     worktree::{
         checkout::{Options, UncommitedWorktreeChanges},
         safe_checkout_from_head,
@@ -12,9 +12,9 @@ use crate::graph_rebase::{
     Checkout, MaterializeOutcome, Pick, Step, SuccessfulRebase, util::collect_ordered_parents,
 };
 
-impl SuccessfulRebase {
+impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     /// Materializes a history rewrite
-    pub fn materialize(mut self) -> Result<MaterializeOutcome> {
+    pub fn materialize(mut self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
         let repo = self.repo.clone();
         if let Some(memory) = self.repo.objects.take_object_memory() {
             memory.persist(self.repo)?;
@@ -56,9 +56,13 @@ impl SuccessfulRebase {
 
         repo.edit_references(self.ref_edits.clone())?;
 
+        self.workspace.refresh_from_head(&repo, &*self.meta)?;
+
         Ok(MaterializeOutcome {
             graph: self.graph,
             history: self.history,
+            workspace: self.workspace,
+            meta: self.meta,
         })
     }
 
@@ -77,7 +81,7 @@ impl SuccessfulRebase {
     ///
     /// If I instead called [`Self::materialize`], the changes would instead be
     /// gone from disk.
-    pub fn materialize_without_checkout(mut self) -> Result<MaterializeOutcome> {
+    pub fn materialize_without_checkout(mut self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
         let repo = self.repo.clone();
         if let Some(memory) = self.repo.objects.take_object_memory() {
             memory.persist(self.repo)?;
@@ -85,9 +89,13 @@ impl SuccessfulRebase {
 
         repo.edit_references(self.ref_edits.clone())?;
 
+        self.workspace.refresh_from_head(&repo, &*self.meta)?;
+
         Ok(MaterializeOutcome {
             graph: self.graph,
             history: self.history,
+            workspace: self.workspace,
+            meta: self.meta,
         })
     }
 }

@@ -2,7 +2,7 @@
 
 pub(crate) mod function {
     use anyhow::{Result, bail};
-    use but_core::{DiffSpec, RepositoryExt};
+    use but_core::{DiffSpec, RefMetadata, RepositoryExt};
     use but_rebase::{
         commit::DateMode,
         graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToCommitSelector},
@@ -12,9 +12,9 @@ pub(crate) mod function {
 
     /// The result of a move_changes_between_commits operation.
     #[derive(Debug)]
-    pub struct MoveChangesOutcome {
+    pub struct MoveChangesOutcome<'ws, 'meta, M: RefMetadata> {
         /// The successful rebase result
-        pub rebase: SuccessfulRebase,
+        pub rebase: SuccessfulRebase<'ws, 'meta, M>,
         /// Selector pointing to the source commit (with changes removed)
         pub source_selector: Selector,
         /// Selector pointing to the destination commit (with changes added)
@@ -39,13 +39,13 @@ pub(crate) mod function {
     /// Returns the rebase outcome along with selectors pointing to both the
     /// modified source and destination commits. The caller should call
     /// `outcome.rebase.materialize()` to persist the changes.
-    pub fn move_changes_between_commits(
-        mut editor: Editor,
+    pub fn move_changes_between_commits<'ws, 'meta, M: RefMetadata>(
+        mut editor: Editor<'ws, 'meta, M>,
         source_commit: impl ToCommitSelector,
         destination_commit: impl ToCommitSelector,
         changes_to_move: impl IntoIterator<Item = DiffSpec>,
         context_lines: u32,
-    ) -> Result<MoveChangesOutcome> {
+    ) -> Result<MoveChangesOutcome<'ws, 'meta, M>> {
         let (source_selector, source_commit) = editor.find_selectable_commit(source_commit)?;
         let (destination_selector, destination_commit) =
             editor.find_selectable_commit(destination_commit)?;

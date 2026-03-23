@@ -6,6 +6,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
+use but_core::RefMetadata;
 use gix::refs::{
     Target,
     transaction::{Change, LogChange, PreviousValue, RefEdit},
@@ -18,9 +19,9 @@ use crate::graph_rebase::{
     util::collect_ordered_parents,
 };
 
-impl Editor {
+impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
     /// Perform the rebase
-    pub fn rebase(self) -> Result<SuccessfulRebase> {
+    pub fn rebase(self) -> Result<SuccessfulRebase<'ws, 'graph, M>> {
         // First we want to get a list of nodes that can be reached by
         // traversing downwards from the heads that we care about.
         // Usually there would be just one "head" which is an index to access
@@ -216,6 +217,8 @@ impl Editor {
             graph: output_graph,
             checkouts: self.checkouts.to_owned(),
             history,
+            workspace: self.workspace,
+            meta: self.meta,
         })
     }
 }

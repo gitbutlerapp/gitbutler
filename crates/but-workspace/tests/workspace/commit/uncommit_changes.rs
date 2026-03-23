@@ -1,6 +1,6 @@
 use anyhow::Result;
 use but_core::DiffSpec;
-use but_rebase::graph_rebase::{GraphExt, LookupStep};
+use but_rebase::graph_rebase::{Editor, LookupStep};
 use but_testsupport::{visualize_commit_graph_all, visualize_tree};
 use but_workspace::commit::uncommit_changes;
 use gix::prelude::ObjectIdExt;
@@ -37,7 +37,8 @@ fn uncommit_file_from_head() -> Result<()> {
     "#);
 
     // Uncommit three.txt from commit three
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = uncommit_changes(editor, three_id, vec![diff_spec_for_file("three.txt")], 0)?;
 
     let materialized = outcome.rebase.materialize()?;
@@ -82,7 +83,8 @@ fn uncommit_file_from_parent() -> Result<()> {
     "#);
 
     // Uncommit two.txt from commit two
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = uncommit_changes(editor, two_id, vec![diff_spec_for_file("two.txt")], 0)?;
 
     let materialized = outcome.rebase.materialize()?;
@@ -136,7 +138,8 @@ fn uncommit_file_from_root_commit() -> Result<()> {
     "#);
 
     // Uncommit one.txt from commit one (the root commit)
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = uncommit_changes(editor, one_id, vec![diff_spec_for_file("one.txt")], 0)?;
 
     let materialized = outcome.rebase.materialize()?;
@@ -168,7 +171,8 @@ fn error_when_changes_not_found() -> Result<()> {
     let three_id = repo.rev_parse_single("three")?.detach();
 
     // Try to uncommit a file that doesn't exist in source commit
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let result = uncommit_changes(
         editor,
         three_id,
@@ -200,7 +204,8 @@ fn uncommit_empty_changes_is_noop() -> Result<()> {
     let three_id = repo.rev_parse_single("three")?.detach();
 
     // Uncommit with empty changes should effectively be a no-op rebase
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = uncommit_changes(editor, three_id, Vec::<DiffSpec>::new(), 0)?;
 
     outcome.rebase.materialize()?;

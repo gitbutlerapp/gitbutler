@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use but_api_macros::but_api;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::GraphExt;
+use but_rebase::graph_rebase::Editor;
 use tracing::instrument;
 
 use super::types::MoveChangesResult;
@@ -25,7 +25,7 @@ pub fn commit_uncommit_changes_only(
     assign_to: Option<but_core::ref_metadata::StackId>,
 ) -> anyhow::Result<MoveChangesResult> {
     let context_lines = ctx.settings.context_lines;
-    let meta = ctx.meta()?;
+    let mut meta = ctx.meta()?;
     let (_guard, repo, mut ws, mut db, _cache) = ctx.workspace_mut_and_db_mut_and_cache()?;
 
     let before_assignments = if assign_to.is_some() {
@@ -41,18 +41,17 @@ pub fn commit_uncommit_changes_only(
         None
     };
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let outcome =
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
 
     let materialized = outcome.rebase.materialize_without_checkout()?;
 
-    ws.refresh_from_head(&repo, &meta)?;
     if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
             db.hunk_assignments_mut()?,
             &repo,
-            &ws,
+            materialized.workspace,
             None::<Vec<but_core::TreeChange>>,
             context_lines,
         )?;
@@ -75,7 +74,7 @@ pub fn commit_uncommit_changes_only(
         but_hunk_assignment::assign(
             db.hunk_assignments_mut()?,
             &repo,
-            &ws,
+            materialized.workspace,
             to_assign,
             context_lines,
         )?;

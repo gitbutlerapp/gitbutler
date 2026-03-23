@@ -1,14 +1,14 @@
 //! Tests for `materialize` vs `materialize_without_checkout` behavior differences
 use anyhow::Result;
 use but_graph::Graph;
-use but_rebase::graph_rebase::{GraphExt, Step};
+use but_rebase::graph_rebase::{Editor, Step};
 use but_testsupport::{visualize_commit_graph_all, visualize_disk_tree_skip_dot_git};
 
 use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
     let worktree = repo.workdir().unwrap();
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -28,7 +28,8 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     ");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Drop the 'c' commit (HEAD)
     let c = repo.rev_parse_single("HEAD")?;
@@ -58,7 +59,7 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
 
 #[test]
 fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
     let worktree = repo.workdir().unwrap();
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -78,7 +79,8 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
     ");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Drop the 'c' commit (HEAD)
     let c = repo.rev_parse_single("HEAD")?;
@@ -112,10 +114,11 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
 fn both_methods_update_references_identically() -> Result<()> {
     // Test with materialize
     let ref_after_materialize = {
-        let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
+        let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
         let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-        let mut editor = graph.to_editor(&repo)?;
+        let mut ws = graph.into_workspace()?;
+        let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
         let c = repo.rev_parse_single("HEAD")?;
         let c_sel = editor.select_commit(c.detach())?;
@@ -129,10 +132,11 @@ fn both_methods_update_references_identically() -> Result<()> {
 
     // Test with materialize_without_checkout
     let ref_after_materialize_without_checkout = {
-        let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
+        let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
         let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-        let mut editor = graph.to_editor(&repo)?;
+        let mut ws = graph.into_workspace()?;
+        let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
         let c = repo.rev_parse_single("HEAD")?;
         let c_sel = editor.select_commit(c.detach())?;

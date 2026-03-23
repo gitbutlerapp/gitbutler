@@ -3,7 +3,10 @@ use std::collections::BTreeMap;
 use but_api_macros::but_api;
 use but_core::{DiffSpec, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{GraphExt, LookupStep as _, mutate::InsertSide, mutate::RelativeTo};
+use but_rebase::graph_rebase::{
+    Editor, LookupStep as _,
+    mutate::{InsertSide, RelativeTo},
+};
 use tracing::instrument;
 
 use super::types::CommitCreateResult;
@@ -41,9 +44,10 @@ pub(crate) fn commit_create_only_impl(
     context_lines: u32,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCreateResult> {
-    let meta = ctx.meta()?;
+    let mut meta = ctx.meta()?;
     let (repo, mut ws, _, _cache) = ctx.workspace_mut_and_db_and_cache_with_perm(perm)?;
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+
     let but_workspace::commit::CommitCreateOutcome {
         rebase,
         commit_selector,
@@ -66,8 +70,6 @@ pub(crate) fn commit_create_only_impl(
         }
         None => (None, BTreeMap::new()),
     };
-
-    ws.refresh_from_head(&repo, &meta)?;
 
     Ok(CommitCreateResult {
         new_commit,

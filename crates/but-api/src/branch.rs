@@ -4,7 +4,7 @@ use but_api_macros::but_api;
 use but_core::{RefMetadata, ui::TreeChanges, worktree::checkout::UncommitedWorktreeChanges};
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
-use but_rebase::graph_rebase::GraphExt;
+use but_rebase::graph_rebase::Editor;
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
@@ -183,20 +183,19 @@ fn move_branch_impl(
 ) -> anyhow::Result<MoveBranchResult> {
     let mut meta = ctx.meta()?;
     let (_guard, repo, mut ws, _, _cache) = ctx.workspace_mut_and_db_and_cache()?;
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
-        but_workspace::branch::move_branch(editor, &ws, subject_branch, target_branch)?;
+        but_workspace::branch::move_branch(editor, subject_branch, target_branch)?;
 
-    let materialization = rebase.materialize()?;
-    if let Some((ws_meta, ref_name)) = ws_meta.zip(ws.ref_name()) {
-        let mut md = meta.workspace(ref_name)?;
+    let materialized = rebase.materialize()?;
+    if let Some((ws_meta, ref_name)) = ws_meta.zip(materialized.workspace.ref_name()) {
+        let mut md = materialized.meta.workspace(ref_name)?;
         *md = ws_meta;
-        meta.set_workspace(&md)?;
+        materialized.meta.set_workspace(&md)?;
     }
-    ws.refresh_from_head(&repo, &meta)?;
 
     Ok(MoveBranchResult {
-        replaced_commits: materialization.history.commit_mappings(),
+        replaced_commits: materialized.history.commit_mappings(),
     })
 }
 
@@ -230,19 +229,18 @@ fn tear_off_branch_impl(
 ) -> anyhow::Result<MoveBranchResult> {
     let mut meta = ctx.meta()?;
     let (_guard, repo, mut ws, _, _cache) = ctx.workspace_mut_and_db_and_cache()?;
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
-        but_workspace::branch::tear_off_branch(editor, &ws, subject_branch, None)?;
+        but_workspace::branch::tear_off_branch(editor, subject_branch, None)?;
 
-    let materialization = rebase.materialize()?;
-    if let Some((ws_meta, ref_name)) = ws_meta.zip(ws.ref_name()) {
-        let mut md = meta.workspace(ref_name)?;
+    let materialized = rebase.materialize()?;
+    if let Some((ws_meta, ref_name)) = ws_meta.zip(materialized.workspace.ref_name()) {
+        let mut md = materialized.meta.workspace(ref_name)?;
         *md = ws_meta;
-        meta.set_workspace(&md)?;
+        materialized.meta.set_workspace(&md)?;
     }
-    ws.refresh_from_head(&repo, &meta)?;
 
     Ok(MoveBranchResult {
-        replaced_commits: materialization.history.commit_mappings(),
+        replaced_commits: materialized.history.commit_mappings(),
     })
 }

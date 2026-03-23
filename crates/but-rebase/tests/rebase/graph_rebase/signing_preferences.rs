@@ -3,7 +3,7 @@ use std::fs;
 /// These tests cover the `sign_if_configured` property on the Step::Pick.
 use anyhow::Result;
 use but_graph::Graph;
-use but_rebase::graph_rebase::{GraphExt, Pick, Step};
+use but_rebase::graph_rebase::{Editor, Pick, Step};
 use but_testsupport::{cat_commit, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable_with_signing, standard_options};
@@ -48,7 +48,7 @@ fn assert_consistent_private_key() -> Result<()> {
 
 #[test]
 fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable_with_signing("four-commits-signed")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing("four-commits-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     insta::assert_snapshot!(before, @"
@@ -59,7 +59,8 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
     ");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Modify the "c" commit to no longer be signed
     let c = repo.rev_parse_single("c")?;
@@ -78,7 +79,7 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
 
 #[test]
 fn commits_are_signed_by_default() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable_with_signing("four-commits-signed")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing("four-commits-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     insta::assert_snapshot!(before, @"
@@ -89,7 +90,8 @@ fn commits_are_signed_by_default() -> Result<()> {
     ");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Remove the "b" commit so "c" gets cherry-picked
     let b = repo.rev_parse_single("b")?;
@@ -135,7 +137,7 @@ fn commits_are_signed_by_default() -> Result<()> {
 
 #[test]
 fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable_with_signing("four-commits-signed")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing("four-commits-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     insta::assert_snapshot!(before, @"
@@ -146,7 +148,8 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     ");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Modify the "c" commit to no longer be signed
     let c = repo.rev_parse_single("c")?;

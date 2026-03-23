@@ -1,14 +1,14 @@
 //! These tests exercise the insert segment operation.
 use anyhow::{Context, Result};
 use but_graph::Graph;
-use but_rebase::graph_rebase::{GraphExt, mutate};
+use but_rebase::graph_rebase::{Editor, mutate};
 use but_testsupport::{git_status, visualize_commit_graph, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn insert_single_node_segment_above() -> Result<()> {
-    let (repo, _tmp, meta) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
     *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
     |\ \  
@@ -25,7 +25,8 @@ fn insert_single_node_segment_above() -> Result<()> {
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -68,7 +69,7 @@ fn insert_single_node_segment_above() -> Result<()> {
 
 #[test]
 fn insert_single_node_segment_below() -> Result<()> {
-    let (repo, _tmp, meta) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
     *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
     |\ \  
@@ -85,7 +86,8 @@ fn insert_single_node_segment_below() -> Result<()> {
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -129,7 +131,7 @@ fn insert_single_node_segment_below() -> Result<()> {
 
 #[test]
 fn insert_multi_node_segment_above() -> Result<()> {
-    let (repo, _tmp, meta) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
     *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
     |\ \  
@@ -146,7 +148,8 @@ fn insert_multi_node_segment_above() -> Result<()> {
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -193,7 +196,7 @@ fn insert_multi_node_segment_above() -> Result<()> {
 
 #[test]
 fn insert_multi_node_segment_below() -> Result<()> {
-    let (repo, _tmp, meta) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
     *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
     |\ \  
@@ -210,7 +213,8 @@ fn insert_multi_node_segment_below() -> Result<()> {
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -255,7 +259,7 @@ fn insert_multi_node_segment_below() -> Result<()> {
 
 #[test]
 fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
-    let (repo, _tmp, meta) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
     *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
     |\ \  
@@ -272,7 +276,8 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -326,7 +331,7 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
 
 #[test]
 fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
-    let (repo, _tmp, meta) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
     *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
     |\ \  
@@ -343,7 +348,8 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor

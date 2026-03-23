@@ -1,7 +1,7 @@
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{GraphExt, LookupStep as _};
+use but_rebase::graph_rebase::{Editor, LookupStep as _};
 use tracing::instrument;
 
 use super::types::CommitRewordResult;
@@ -16,8 +16,9 @@ pub fn commit_reword_only(
     commit_id: gix::ObjectId,
     message: BString,
 ) -> anyhow::Result<CommitRewordResult> {
-    let (_guard, repo, ws, _, _cache) = ctx.workspace_and_db_and_cache()?;
-    let editor = ws.graph.to_editor(&repo)?;
+    let mut meta = ctx.meta()?;
+    let (_guard, repo, mut ws, _, _cache) = ctx.workspace_mut_and_db_and_cache()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
     let (outcome, edited_commit_selector) =
         but_workspace::commit::reword(editor, commit_id, message.as_bstr())?;
