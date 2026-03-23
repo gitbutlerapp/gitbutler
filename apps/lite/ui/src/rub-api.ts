@@ -36,6 +36,7 @@ export type RubResult = {
 	pathsToRejectedChanges?: UICommitCreateResult["pathsToRejectedChanges"];
 };
 
+// In the future this may be implemented as a single API endpoint on the backend.
 export const rub = async ({ projectId, source, target }: RubParams): Promise<RubResult> =>
 	Match.value(source).pipe(
 		Match.tag("TreeChange", ({ source }) => {
