@@ -58,9 +58,9 @@
 
 .rowAction {
 	display: grid;
+	visibility: hidden;
 	padding-inline: var(--row-inline-padding);
 	padding-block: var(--row-block-padding);
-	opacity: 0;
 
 	svg {
 		width: var(--row-line-height);
@@ -72,7 +72,7 @@
 	.row:has(.rowAction[aria-expanded="true"]) &,
 	.row.selected &,
 	.row.selectedWithin & {
-		opacity: 1;
+		visibility: visible;
 	}
 }
 
