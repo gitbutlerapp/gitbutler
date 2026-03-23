@@ -31,7 +31,7 @@ import sharedStyles from "./project-shared.module.css";
 import { DependencyIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
-import { ProjectPanelLayout } from "#ui/routes/ProjectPanelLayout.tsx";
+import { ProjectPreviewLayout } from "#ui/routes/ProjectPreviewLayout.tsx";
 import {
 	CommitDetails,
 	CommitLabel,
@@ -1493,7 +1493,7 @@ const ProjectPage: FC = () => {
 
 	return (
 		<DraggedSourceItemContext.Provider value={draggedSourceItem}>
-			<ProjectPanelLayout
+			<ProjectPreviewLayout
 				projectId={projectId}
 				preview={
 					selection && (
@@ -1568,7 +1568,7 @@ const ProjectPage: FC = () => {
 
 					<TearOffBranchTarget className={styles.emptyLane} />
 				</div>
-			</ProjectPanelLayout>
+			</ProjectPreviewLayout>
 		</DraggedSourceItemContext.Provider>
 	);
 };
