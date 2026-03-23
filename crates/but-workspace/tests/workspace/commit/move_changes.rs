@@ -1,6 +1,6 @@
 use anyhow::Result;
 use but_core::DiffSpec;
-use but_rebase::graph_rebase::GraphExt;
+use but_rebase::graph_rebase::Editor;
 use but_testsupport::visualize_commit_graph_all;
 use but_workspace::commit::move_changes_between_commits;
 use gix::prelude::ObjectIdExt;
@@ -30,7 +30,8 @@ fn move_changes_same_commit_is_noop() -> Result<()> {
     ");
 
     let commit_id = repo.rev_parse_single("three")?.detach();
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
 
     // Moving changes from a commit to itself should be a no-op
     let outcome =
@@ -79,7 +80,8 @@ fn move_file_from_head_to_parent() -> Result<()> {
     "#);
 
     // Move three.txt from commit three to commit two
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = move_changes_between_commits(
         editor,
         three_id,
@@ -144,7 +146,8 @@ fn move_file_from_parent_to_head() -> Result<()> {
     let two_id = repo.rev_parse_single("two")?.detach();
 
     // Move two.txt from commit two up to commit three
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = move_changes_between_commits(
         editor,
         two_id,
@@ -207,7 +210,8 @@ fn move_file_between_non_adjacent_commits() -> Result<()> {
     let one_id = repo.rev_parse_single("one")?.detach();
 
     // Move three.txt from commit three to commit one (skipping two)
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = move_changes_between_commits(
         editor,
         three_id,
@@ -277,7 +281,8 @@ fn error_when_changes_not_found_in_source() -> Result<()> {
     let two_id = repo.rev_parse_single("two")?.detach();
 
     // Try to move a file that doesn't exist in source commit
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let result = move_changes_between_commits(
         editor,
         three_id,

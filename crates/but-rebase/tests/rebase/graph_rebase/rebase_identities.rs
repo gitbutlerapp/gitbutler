@@ -2,14 +2,14 @@
 /// graphs are returned.
 use anyhow::Result;
 use but_graph::Graph;
-use but_rebase::graph_rebase::GraphExt;
+use but_rebase::graph_rebase::Editor;
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn four_commits() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     insta::assert_snapshot!(before, @"
@@ -21,7 +21,8 @@ fn four_commits() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
     let outcome = outcome.materialize()?;
 
@@ -33,7 +34,7 @@ fn four_commits() -> Result<()> {
 
 #[test]
 fn four_commits_with_short_traversal() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     insta::assert_snapshot!(before, @"
@@ -45,7 +46,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
 
     let options = standard_options().with_hard_limit(4);
     let graph = Graph::from_head(&repo, &*meta, options)?.validated()?;
-    let ws = graph.into_workspace()?;
+    let mut ws = graph.into_workspace()?;
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
@@ -55,7 +56,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
             └── ❌·a96434e
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
     let outcome = outcome.materialize()?;
 
@@ -67,7 +68,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
 
 #[test]
 fn merge_in_the_middle() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     insta::assert_snapshot!(before, @r"
@@ -82,7 +83,8 @@ fn merge_in_the_middle() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
     let outcome = outcome.materialize()?;
 
@@ -94,7 +96,7 @@ fn merge_in_the_middle() -> Result<()> {
 
 #[test]
 fn three_branches_merged() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("three-branches-merged")?;
 
     let before = visualize_commit_graph_all(&repo)?;
     insta::assert_snapshot!(before, @r"
@@ -113,7 +115,8 @@ fn three_branches_merged() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
     let outcome = outcome.materialize()?;
 

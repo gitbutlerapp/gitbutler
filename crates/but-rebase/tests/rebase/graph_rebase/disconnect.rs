@@ -3,7 +3,7 @@ use std::collections::HashSet;
 
 use anyhow::{Context, Result};
 use but_graph::Graph;
-use but_rebase::graph_rebase::{GraphExt, Step, mutate};
+use but_rebase::graph_rebase::{Editor, Step, mutate};
 use but_testsupport::{git_status, visualize_commit_graph_all};
 use gix::prelude::ObjectIdExt;
 
@@ -11,7 +11,7 @@ use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
 	* 120e3a9 (HEAD -> main) c
@@ -22,7 +22,8 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
     let b_selector = editor
@@ -57,7 +58,7 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
 
 #[test]
 fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
 	* 120e3a9 (HEAD -> main) c
@@ -68,7 +69,8 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
     let b_selector = editor
@@ -107,7 +109,7 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
 
 #[test]
 fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
@@ -121,7 +123,8 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -163,7 +166,7 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
 
 #[test]
 fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   d1cc4c7 (HEAD -> with-two-children) tip
@@ -181,7 +184,8 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let merge_selector = editor
@@ -256,7 +260,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
 
 #[test]
 fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   d1cc4c7 (HEAD -> with-two-children) tip
@@ -274,7 +278,8 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -356,7 +361,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
 }
 #[test]
 fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   d1cc4c7 (HEAD -> with-two-children) tip
@@ -374,7 +379,8 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -478,12 +484,13 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
 
 #[test]
 fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     let before = visualize_commit_graph_all(&repo)?;
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -528,12 +535,13 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
 
 #[test]
 fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     let before = visualize_commit_graph_all(&repo)?;
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -578,12 +586,13 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
 
 #[test]
 fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-with-two-children")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-with-two-children")?;
 
     let before = visualize_commit_graph_all(&repo)?;
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;

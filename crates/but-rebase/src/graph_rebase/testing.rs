@@ -3,6 +3,7 @@
 
 use std::collections::HashSet;
 
+use but_core::RefMetadata;
 use petgraph::{
     dot::{Config, Dot},
     visit::{EdgeRef, IntoEdgeReferences},
@@ -18,13 +19,13 @@ pub trait Testing {
     fn steps_ascii(&self) -> String;
 }
 
-impl Testing for Editor {
+impl<M: RefMetadata> Testing for Editor<'_, '_, M> {
     fn steps_ascii(&self) -> String {
         render_ascii_graph(&self.graph, |id| lookup_commit_title(&self.repo, id))
     }
 }
 
-impl Testing for SuccessfulRebase {
+impl<M: RefMetadata> Testing for SuccessfulRebase<'_, '_, M> {
     fn steps_ascii(&self) -> String {
         render_ascii_graph(&self.graph, |id| lookup_commit_title(&self.repo, id))
     }
@@ -35,13 +36,13 @@ pub trait TestingDot {
     fn steps_dot(&self) -> String;
 }
 
-impl TestingDot for Editor {
+impl<M: RefMetadata> TestingDot for Editor<'_, '_, M> {
     fn steps_dot(&self) -> String {
         self.graph.steps_dot()
     }
 }
 
-impl TestingDot for SuccessfulRebase {
+impl<M: RefMetadata> TestingDot for SuccessfulRebase<'_, '_, M> {
     fn steps_dot(&self) -> String {
         self.graph.steps_dot()
     }

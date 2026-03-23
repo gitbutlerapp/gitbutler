@@ -1,7 +1,7 @@
 //! These tests exercise the insert operation.
 use anyhow::{Context, Result};
 use but_graph::Graph;
-use but_rebase::graph_rebase::{GraphExt, Step, mutate::InsertSide};
+use but_rebase::graph_rebase::{Editor, Step, mutate::InsertSide};
 use but_testsupport::{git_status, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable, standard_options};
@@ -9,7 +9,7 @@ use crate::utils::{fixture_writable, standard_options};
 /// Inserting below a merge commit should inherit all of it's parents
 #[test]
 fn insert_below_merge_commit() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
@@ -24,7 +24,8 @@ fn insert_below_merge_commit() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge_id = repo.rev_parse_single("HEAD~")?;
 
@@ -69,7 +70,7 @@ fn insert_below_merge_commit() -> Result<()> {
 /// Inserting below a merge commit should inherit all of it's parents
 #[test]
 fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
@@ -84,7 +85,8 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge_id = repo.rev_parse_single("HEAD~")?;
 
@@ -132,7 +134,7 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
 /// Inserting above a commit should inherit it's parents
 #[test]
 fn insert_above_commit_with_two_children() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("merge-in-the-middle")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
@@ -147,7 +149,8 @@ fn insert_above_commit_with_two_children() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let base_id = repo.rev_parse_single("base")?;
 

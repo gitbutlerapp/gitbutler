@@ -1,6 +1,6 @@
 use anyhow::Result;
 use but_core::DiffSpec;
-use but_rebase::graph_rebase::{GraphExt as _, LookupStep as _};
+use but_rebase::graph_rebase::{Editor, LookupStep as _};
 use but_workspace::commit::commit_amend;
 
 use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_description_and_graph as writable_scenario;
@@ -23,7 +23,8 @@ fn amend_commit_smoke_test() -> Result<()> {
         "amended\n",
     )?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = commit_amend(editor, two_id, worktree_changes_as_specs(&repo)?, 0)?;
 
     assert!(outcome.rejected_specs.is_empty());

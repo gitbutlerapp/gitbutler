@@ -4,7 +4,7 @@ use anyhow::{Result, bail};
 use but_graph::Graph;
 use but_rebase::{
     commit::DateMode,
-    graph_rebase::{GraphExt as _, LookupStep, Step, mutate::InsertSide},
+    graph_rebase::{Editor, LookupStep, Step, mutate::InsertSide},
 };
 use but_testsupport::{cat_commit, visualize_commit_graph_all};
 
@@ -12,7 +12,7 @@ use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn by_default_conflicts_are_allowed() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("four-commits-one-file")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits-one-file")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f37690f (HEAD -> main, c) c
@@ -23,7 +23,8 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Replacing b with none will cause c to conflict
     let b = repo.rev_parse_single("b")?;
@@ -52,7 +53,7 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
 #[test]
 fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_error_is_raised()
 -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("four-commits-one-file")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits-one-file")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f37690f (HEAD -> main, c) c
@@ -63,7 +64,8 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Replacing b with none will cause c to conflict
     let b = repo.rev_parse_single("b")?;
@@ -92,7 +94,7 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
 #[test]
 fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_result_is_ok()
 -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("four-commits-one-file")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits-one-file")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f37690f (HEAD -> main, c) c
@@ -103,7 +105,8 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Insert an empty commit above b to cause c to get cherry picked with out a conflict
     let b = repo.rev_parse_single("b")?;

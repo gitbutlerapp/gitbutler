@@ -2,6 +2,7 @@
 
 pub(crate) mod function {
     use anyhow::{Context, bail};
+    use but_core::RefMetadata;
     use but_rebase::graph_rebase::{
         Editor, SuccessfulRebase, ToCommitSelector, ToSelector,
         mutate::{InsertSide, SegmentDelimiter, SelectorSet, SomeSelectors},
@@ -23,17 +24,16 @@ pub(crate) mod function {
     ///
     /// The subject commit will be detached from the source segment, and inserted relative
     /// to a given anchor (branch or commit).
-    pub fn move_commit(
-        mut editor: Editor,
-        workspace: &but_graph::projection::Workspace,
+    pub fn move_commit<'ws, 'meta, M: RefMetadata>(
+        mut editor: Editor<'ws, 'meta, M>,
         subject_commit: impl ToCommitSelector,
         anchor: impl ToSelector,
         side: InsertSide,
-    ) -> anyhow::Result<SuccessfulRebase> {
+    ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
         let (subject_commit_selector, subject_commit) =
             editor.find_selectable_commit(subject_commit)?;
 
-        let subject = retrieve_commit_and_containers(workspace, &subject_commit)?;
+        let subject = retrieve_commit_and_containers(editor.workspace, &subject_commit)?;
 
         let (source_stack, source_segment, _) = subject;
 
@@ -53,7 +53,6 @@ pub(crate) mod function {
             determine_child_selector(&editor, source_segment, index_of_subject_commit)?;
 
         let parent_to_disconnect = determine_parent_selector(
-            workspace,
             &editor,
             source_stack,
             source_segment,
@@ -108,8 +107,8 @@ pub(crate) mod function {
     }
 
     /// Determine which children to disconnect, based on the position of the subject commit in the segment.
-    fn determine_child_selector(
-        editor: &Editor,
+    fn determine_child_selector<'ws, 'meta, M: RefMetadata>(
+        editor: &Editor<'ws, 'meta, M>,
         source_segment: &but_graph::projection::StackSegment,
         index_of_subject_commit: usize,
     ) -> Result<SelectorSet, anyhow::Error> {
@@ -138,9 +137,8 @@ pub(crate) mod function {
 
     /// Determine which parents to disconnect, based on the position of the subject commit in the segment
     /// and the position of the source segment in the source stack.
-    fn determine_parent_selector(
-        workspace: &but_graph::projection::Workspace,
-        editor: &Editor,
+    fn determine_parent_selector<'ws, 'meta, M: RefMetadata>(
+        editor: &Editor<'ws, 'meta, M>,
         source_stack: &but_graph::projection::Stack,
         source_segment: &but_graph::projection::StackSegment,
         index_of_subject_commit: usize,
@@ -163,7 +161,7 @@ pub(crate) mod function {
             // Look for the base segment in the graph data, as a fallback if there's no stack segment found.
             let graph_base_segment_ref_name = source_segment
                 .base_segment_id
-                .map(|base_segment_id| &workspace.graph[base_segment_id])
+                .map(|base_segment_id| &editor.workspace.graph[base_segment_id])
                 .and_then(|segment| segment.ref_name());
 
             match stack_base_segment_ref_name.or(graph_base_segment_ref_name) {

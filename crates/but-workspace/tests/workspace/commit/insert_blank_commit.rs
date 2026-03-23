@@ -1,6 +1,6 @@
 use anyhow::Result;
 use but_rebase::graph_rebase::{
-    GraphExt as _,
+    Editor,
     mutate::{InsertSide, RelativeToRef},
 };
 use but_testsupport::visualize_commit_graph_all;
@@ -21,7 +21,8 @@ fn insert_below_commit() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("two")?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     insert_blank_commit(
         editor,
         InsertSide::Below,
@@ -57,7 +58,8 @@ fn insert_above_commit() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("two")?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     insert_blank_commit(
         editor,
         InsertSide::Above,
@@ -91,7 +93,8 @@ fn insert_below_reference() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let reference = repo.find_reference("two")?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     insert_blank_commit(
         editor,
         InsertSide::Below,
@@ -125,7 +128,8 @@ fn insert_above_reference() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let reference = repo.find_reference("two")?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     insert_blank_commit(
         editor,
         InsertSide::Above,

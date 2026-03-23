@@ -1,4 +1,4 @@
-use but_rebase::graph_rebase::{GraphExt, mutate::InsertSide};
+use but_rebase::graph_rebase::{Editor, mutate::InsertSide};
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
 
 use crate::ref_info::with_workspace_commit::utils::{
@@ -7,7 +7,7 @@ use crate::ref_info::with_workspace_commit::utils::{
 
 #[test]
 fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -38,7 +38,7 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -48,7 +48,6 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     // Put C commit at the top of A
     let rebase = but_workspace::commit::move_commit(
         editor,
-        &ws,
         c_commit_selector,
         a_commit_selector,
         InsertSide::Above,
@@ -101,7 +100,7 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -132,7 +131,7 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -142,7 +141,6 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     // Put B commit at the top of A
     let rebase = but_workspace::commit::move_commit(
         editor,
-        &ws,
         b_commit_selector,
         a_commit_selector,
         InsertSide::Above,
@@ -197,7 +195,7 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -228,7 +226,7 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -238,7 +236,6 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     // Put C commit below the A commit
     let rebase = but_workspace::commit::move_commit(
         editor,
-        &ws,
         c_commit_selector,
         a_commit_selector,
         InsertSide::Below,
@@ -291,7 +288,7 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -322,7 +319,7 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -332,7 +329,6 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     // Put B commit below the A commit
     let rebase = but_workspace::commit::move_commit(
         editor,
-        &ws,
         b_commit_selector,
         a_commit_selector,
         InsertSide::Below,
@@ -387,7 +383,7 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -418,7 +414,7 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let c_commit = repo.rev_parse_single("C")?.detach();
@@ -427,7 +423,6 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
     // Put A commit at the top of the branch C
     let rebase = but_workspace::commit::move_commit(
         editor,
-        &ws,
         a_commit_selector,
         c_commit_selector,
         InsertSide::Above,
@@ -474,7 +469,7 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
 
 #[test]
 fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -505,7 +500,7 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -515,7 +510,6 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
     // Put A commit below the B commit
     let rebase = but_workspace::commit::move_commit(
         editor,
-        &ws,
         a_commit_selector,
         b_commit_selector,
         InsertSide::Below,
@@ -570,7 +564,7 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
 
 #[test]
 fn move_commit_to_empty_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("ws-with-empty-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &["B"]);
@@ -593,7 +587,7 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_ref_name = "refs/heads/B".try_into()?;
@@ -602,7 +596,6 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
     // Put A commit in branch B
     let rebase = but_workspace::commit::move_commit(
         editor,
-        &ws,
         a_commit_selector,
         b_ref_selector,
         InsertSide::Below,
@@ -641,7 +634,7 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
 
 #[test]
 fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("reword-three-commits", |_| {})?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -662,7 +655,7 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
             └── ❄8b426d0
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let three_commit = repo.rev_parse_single("three")?.detach();
     let three_commit_selector = editor.select_commit(three_commit)?;
     let two_ref_name = "refs/heads/two".try_into()?;
@@ -671,7 +664,6 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     // Put commit three at the top of branch two
     let rebase = but_workspace::commit::move_commit(
         editor,
-        &ws,
         three_commit_selector,
         two_ref_selector,
         InsertSide::Below,
@@ -715,7 +707,7 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 
 #[test]
 fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, meta, _description) =
+    let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("reword-three-commits", |_| {})?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -736,7 +728,7 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
             └── ❄8b426d0
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let three_commit = repo.rev_parse_single("three")?.detach();
     let three_commit_selector = editor.select_commit(three_commit)?;
     let two_commit = repo.rev_parse_single("two")?.detach();
@@ -745,7 +737,6 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     // Put commit three below commit two
     let rebase = but_workspace::commit::move_commit(
         editor,
-        &ws,
         three_commit_selector,
         two_commit_selector,
         InsertSide::Below,

@@ -2,7 +2,7 @@
 
 pub(crate) mod function {
     use anyhow::{Result, bail};
-    use but_core::DiffSpec;
+    use but_core::{DiffSpec, RefMetadata};
     use but_rebase::{
         commit::DateMode,
         graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToCommitSelector},
@@ -12,9 +12,9 @@ pub(crate) mod function {
 
     /// The result of an uncommit_changes operation.
     #[derive(Debug)]
-    pub struct UncommitChangesOutcome {
+    pub struct UncommitChangesOutcome<'ws, 'meta, M: RefMetadata> {
         /// The successful rebase result
-        pub rebase: SuccessfulRebase,
+        pub rebase: SuccessfulRebase<'ws, 'meta, M>,
         /// Selector pointing to the modified commit (with changes removed)
         pub commit_selector: Selector,
     }
@@ -23,12 +23,12 @@ pub(crate) mod function {
     ///
     /// The changes are removed from the commit's tree, effectively "uncommitting"
     /// them so they appear in the working directory as uncommitted changes.
-    pub fn uncommit_changes(
-        mut editor: Editor,
+    pub fn uncommit_changes<'ws, 'meta, M: RefMetadata>(
+        mut editor: Editor<'ws, 'meta, M>,
         commit: impl ToCommitSelector,
         changes: impl IntoIterator<Item = DiffSpec>,
         context_lines: u32,
-    ) -> Result<UncommitChangesOutcome> {
+    ) -> Result<UncommitChangesOutcome<'ws, 'meta, M>> {
         let (commit_selector, commit) = editor.find_selectable_commit(commit)?;
 
         if commit.clone().attach(editor.repo()).is_conflicted() {

@@ -1,6 +1,7 @@
 //! Provides some slightly higher level tools to help with manipulating commits, in preparation for use in the editor.
 
 use anyhow::{Context, Result, bail};
+use but_core::RefMetadata;
 use gix::prelude::ObjectIdExt;
 
 use crate::{
@@ -11,7 +12,7 @@ use crate::{
     },
 };
 
-impl Editor {
+impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Returns a reference to the in-memory repository.
     pub fn repo(&self) -> &gix::Repository {
         &self.repo

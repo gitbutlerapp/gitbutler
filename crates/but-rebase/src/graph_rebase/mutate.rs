@@ -3,6 +3,7 @@
 use std::collections::HashSet;
 
 use anyhow::{Result, anyhow};
+use but_core::RefMetadata;
 use petgraph::{Direction, visit::EdgeRef};
 use serde::{Deserialize, Serialize};
 
@@ -83,7 +84,7 @@ pub enum AnySelector {
 }
 
 impl ToSelector for AnySelector {
-    fn to_selector(&self, editor: &Editor) -> Result<Selector> {
+    fn to_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         match self {
             Self::Selector(selector) => selector.to_selector(editor),
             Self::Commit(id) => editor.select_commit(*id),
@@ -146,7 +147,7 @@ pub enum RelativeToRef<'a> {
 }
 
 impl ToSelector for RelativeToRef<'_> {
-    fn to_selector(&self, editor: &Editor) -> Result<Selector> {
+    fn to_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         match self {
             Self::Commit(id) => editor.select_commit(*id),
             Self::Reference(reference) => editor.select_reference(reference),
@@ -165,7 +166,7 @@ pub enum RelativeTo {
 }
 
 impl ToSelector for RelativeTo {
-    fn to_selector(&self, editor: &Editor) -> Result<Selector> {
+    fn to_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         match self {
             Self::Commit(commit) => editor.select_commit(*commit),
             Self::Reference(reference) => editor.select_reference(reference.as_ref()),
@@ -174,25 +175,25 @@ impl ToSelector for RelativeTo {
 }
 
 impl ToCommitSelector for gix::ObjectId {
-    fn to_commit_selector(&self, editor: &Editor) -> Result<Selector> {
+    fn to_commit_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         editor.select_commit(*self)
     }
 }
 
 impl ToReferenceSelector for &gix::refs::FullNameRef {
-    fn to_reference_selector(&self, editor: &Editor) -> Result<Selector> {
+    fn to_reference_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         editor.select_reference(self)
     }
 }
 
 impl ToReferenceSelector for gix::refs::FullName {
-    fn to_reference_selector(&self, editor: &Editor) -> Result<Selector> {
+    fn to_reference_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         editor.select_reference(self.as_ref())
     }
 }
 
 /// Operations for mutating the commit graph
-impl Editor {
+impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Get a selector to a particular commit in the graph
     pub fn select_commit(&self, target: gix::ObjectId) -> Result<Selector> {
         match self.try_select_commit(target) {

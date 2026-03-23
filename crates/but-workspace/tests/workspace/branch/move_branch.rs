@@ -1,5 +1,5 @@
 use but_core::RefMetadata;
-use but_rebase::graph_rebase::GraphExt;
+use but_rebase::graph_rebase::Editor;
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
 
 use crate::ref_info::with_workspace_commit::utils::{
@@ -39,12 +39,11 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     // Put C on top of A
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
-            &ws,
             "refs/heads/C".try_into()?,
             "refs/heads/A".try_into()?,
         )?;
@@ -112,11 +111,10 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
-            &ws,
             "refs/heads/B".try_into()?,
             "refs/heads/A".try_into()?,
         )?;
@@ -184,12 +182,11 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     // Put A on top of C
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
-            &ws,
             "refs/heads/A".try_into()?,
             "refs/heads/C".try_into()?,
         )?;
@@ -254,12 +251,11 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     // Put B on top of C
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
-            &ws,
             "refs/heads/B".try_into()?,
             "refs/heads/C".try_into()?,
         )?;
@@ -327,12 +323,11 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     // Put A on top of B, and below C
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
-            &ws,
             "refs/heads/A".try_into()?,
             "refs/heads/B".try_into()?,
         )?;
@@ -389,12 +384,11 @@ fn move_empty_branch() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     // Put B on top of A
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
-            &ws,
             "refs/heads/B".try_into()?,
             "refs/heads/A".try_into()?,
         )?;
@@ -445,12 +439,11 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     // Put A on top of B
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
-            &ws,
             "refs/heads/A".try_into()?,
             "refs/heads/B".try_into()?,
         )?;

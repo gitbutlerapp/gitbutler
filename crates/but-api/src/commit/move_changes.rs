@@ -1,6 +1,6 @@
 use but_api_macros::but_api;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::GraphExt;
+use but_rebase::graph_rebase::Editor;
 use tracing::instrument;
 
 use super::types::MoveChangesResult;
@@ -21,9 +21,9 @@ pub fn commit_move_changes_between_only(
     changes: Vec<but_core::DiffSpec>,
 ) -> anyhow::Result<MoveChangesResult> {
     let context_lines = ctx.settings.context_lines;
-    let meta = ctx.meta()?;
+    let mut meta = ctx.meta()?;
     let (_guard, repo, mut ws, _, _cache) = ctx.workspace_mut_and_db_and_cache()?;
-    let editor = ws.graph.to_editor(&repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
     let outcome = but_workspace::commit::move_changes_between_commits(
         editor,
@@ -33,8 +33,6 @@ pub fn commit_move_changes_between_only(
         context_lines,
     )?;
     let materialized = outcome.rebase.materialize()?;
-
-    ws.refresh_from_head(&repo, &meta)?;
 
     Ok(MoveChangesResult {
         replaced_commits: materialized.history.commit_mappings(),
