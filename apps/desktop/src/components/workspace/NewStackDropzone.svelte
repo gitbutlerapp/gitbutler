@@ -1,10 +1,10 @@
 <script lang="ts">
 	import Dropzone from "$components/shared/Dropzone.svelte";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { OutsideLaneDzHandler } from "$lib/dragging/dropHandlers/stackDropHandler";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
-	import { OutsideLaneDzHandler } from "$lib/stacks/dropHandler";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";

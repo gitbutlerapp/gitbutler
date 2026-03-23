@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CollapseStackButton from "$components/branch/CollapseStackButton.svelte";
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
 	import { IRC_SESSION_BRIDGE } from "$lib/irc/sessionBridge.svelte";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { ContextMenuItem, ContextMenuSection, Icon, KebabButton } from "@gitbutler/ui";

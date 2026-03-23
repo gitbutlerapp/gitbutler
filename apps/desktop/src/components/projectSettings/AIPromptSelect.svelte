@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PROMPT_SERVICE } from "$lib/ai/promptService";
+	import { PROMPT_SERVICE } from "$lib/ai/aiPromptService";
 	import { inject } from "@gitbutler/core/context";
 	import { Select, SelectItem } from "@gitbutler/ui";
 	import { onMount } from "svelte";

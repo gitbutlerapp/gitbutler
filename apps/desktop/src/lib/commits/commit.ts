@@ -1,5 +1,5 @@
+import { splitMessage } from "$lib/commits/commitMessage";
 import { ConflictEntries } from "$lib/files/conflicts";
-import { splitMessage } from "$lib/utils/commitMessage";
 import { Transform } from "class-transformer";
 import "reflect-metadata";
 

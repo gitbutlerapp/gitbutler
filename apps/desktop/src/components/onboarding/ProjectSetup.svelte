@@ -3,10 +3,10 @@
 	import ProjectSetupTarget from "$components/onboarding/ProjectSetupTarget.svelte";
 	import IllustrationSplitLayout from "$components/shared/IllustrationSplitLayout.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
 	import newZenSvg from "$lib/assets/illustrations/new-zen.svg?raw";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
 	import { TestId } from "@gitbutler/ui";
 	import type { RemoteBranchInfo } from "$lib/baseBranch/baseBranch";

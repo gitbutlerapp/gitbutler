@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import { CHERRY_APPLY_SERVICE } from "$lib/cherryApply/cherryApplyService";
+	import { CHERRY_APPLY_SERVICE } from "$lib/git/cherryApplyService";
 	import { workspacePath } from "$lib/routes/routes.svelte";
 	import { getStackName } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";

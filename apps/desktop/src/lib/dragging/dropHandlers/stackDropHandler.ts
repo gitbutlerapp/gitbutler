@@ -1,4 +1,3 @@
-import { BranchDropData } from "$lib/branches/dropHandler";
 import { changesToDiffSpec } from "$lib/commits/utils";
 import {
 	FileChangeDropData,
@@ -6,6 +5,7 @@ import {
 	HunkDropDataV3,
 	type ChangeDropData,
 } from "$lib/dragging/draggables";
+import { BranchDropData } from "$lib/dragging/dropHandlers/branchDropHandler";
 import { unstackPRs, updateStackPrs } from "$lib/forge/shared/prFooter";
 import StackMacros from "$lib/stacks/macros";
 import { handleMoveBranchResult } from "$lib/stacks/stack";

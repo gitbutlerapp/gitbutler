@@ -4,16 +4,16 @@
 	import MessageEditor, { type AiButtonClickParams } from "$components/editor/MessageEditor.svelte";
 	import MessageEditorInput from "$components/editor/MessageEditorInput.svelte";
 	import CommitSuggestions from "$components/editor/commitSuggestions.svelte";
+	import { PROMPT_SERVICE } from "$lib/ai/aiPromptService";
 	import DiffInputContext, { type DiffInputContextArgs } from "$lib/ai/diffInputContext.svelte";
 	import AIMacros from "$lib/ai/macros.svelte";
-	import { PROMPT_SERVICE } from "$lib/ai/promptService";
 	import { AI_SERVICE } from "$lib/ai/service";
+	import { splitMessage } from "$lib/commits/commitMessage";
 	import { projectAiGenEnabled } from "$lib/config/config";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
-	import { splitMessage } from "$lib/utils/commitMessage";
 	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, TestId } from "@gitbutler/ui";

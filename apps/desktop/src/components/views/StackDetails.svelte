@@ -26,17 +26,17 @@
 	import Resizer from "$components/shared/Resizer.svelte";
 	import StackCodegen from "$components/stack/StackCodegen.svelte";
 	import BranchView from "$components/views/BranchView.svelte";
+	import { projectRunCommitHooks } from "$lib/config/config";
 	import {
 		AmendCommitWithChangeDzHandler,
 		AmendCommitWithHunkDzHandler,
 		createCommitDropHandlers,
 		type DzCommitData,
-	} from "$lib/commits/dropHandler";
-	import { projectRunCommitHooks } from "$lib/config/config";
+	} from "$lib/dragging/dropHandlers/commitDropHandler";
 	import { isParsedError } from "$lib/error/parser";
 
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
-	import { getStackContext } from "$lib/stack/stackController.svelte";
+	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { TestId } from "@gitbutler/ui";

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { splitMessage } from "$lib/utils/commitMessage";
+	import { splitMessage } from "$lib/commits/commitMessage";
 	import { TestId, Tooltip } from "@gitbutler/ui";
 
 	type Props = {

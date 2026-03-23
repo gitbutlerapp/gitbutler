@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { commitCreatedAtDate, type Commit, type UpstreamCommit } from "$lib/branches/v3";
+	import { splitMessage } from "$lib/commits/commitMessage";
 	import { rewrapCommitMessage } from "$lib/config/uiFeatureFlags";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { USER_SERVICE } from "$lib/user/userService";
-	import { splitMessage } from "$lib/utils/commitMessage";
 	import { rejoinParagraphs, truncate } from "$lib/utils/string";
 	import { inject } from "@gitbutler/core/context";
 

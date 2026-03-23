@@ -13,14 +13,10 @@
 	import FileListItemContainer from "$components/files/FileListItemContainer.svelte";
 	import FileTreeNode from "$components/files/FileTreeNode.svelte";
 	import LazyList from "$components/shared/LazyList.svelte";
-	import {
-		getLockedCommitIds,
-		getLockedTargets,
-		isFileLocked,
-	} from "$lib/dependencies/dependencies";
 	import { DEPENDENCY_SERVICE } from "$lib/dependencies/dependencyService.svelte";
 	import { abbreviateFolders, changesToFileTree } from "$lib/files/filetreeV3";
 	import { isExecutableStatus } from "$lib/hunks/change";
+	import { getLockedCommitIds, getLockedTargets, isFileLocked } from "$lib/hunks/dependencies";
 	import {
 		getFileListContext,
 		type FileListKeyHandler,

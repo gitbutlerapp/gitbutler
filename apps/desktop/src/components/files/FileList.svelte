@@ -7,16 +7,12 @@
 	import { ACTION_SERVICE } from "$lib/actions/actionService.svelte";
 	import { AI_SERVICE } from "$lib/ai/service";
 	import { projectAiGenEnabled } from "$lib/config/config";
-	import { conflictEntryHint } from "$lib/conflictEntryPresence";
-	import {
-		getLockedCommitIds,
-		getLockedTargets,
-		isFileLocked,
-	} from "$lib/dependencies/dependencies";
 	import { DEPENDENCY_SERVICE } from "$lib/dependencies/dependencyService.svelte";
-	import { editPatch } from "$lib/editMode/editPatchUtils";
+	import { conflictEntryHint } from "$lib/files/conflictEntryPresence";
 	import { abbreviateFolders, changesToFileTree } from "$lib/files/filetreeV3";
 	import { type TreeChange, isExecutableStatus } from "$lib/hunks/change";
+	import { getLockedCommitIds, getLockedTargets, isFileLocked } from "$lib/hunks/dependencies";
+	import { editPatch } from "$lib/mode/editPatchUtils";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { showToast } from "$lib/notifications/toasts";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";

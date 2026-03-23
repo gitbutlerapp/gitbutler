@@ -1,9 +1,9 @@
 <script lang="ts">
 	import GitlabUserLoginState from "$components/settings/GitlabUserLoginState.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
 	import gitlabLogoSvg from "$lib/assets/unsized-logos/gitlab.svg?raw";
 	import { GITLAB_USER_SERVICE } from "$lib/forge/gitlab/gitlabUserService.svelte";
+	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
 
 	import { AddForgeAccountButton, Button, CardGroup, Link, Textbox } from "@gitbutler/ui";

@@ -1,13 +1,13 @@
 <script lang="ts">
+	import { RESIZE_SYNC } from "$lib/floating/resizeSync";
 	import { SETTINGS } from "$lib/settings/userSettings";
-	import { RESIZE_SYNC } from "$lib/utils/resizeSync";
 	import { inject } from "@gitbutler/core/context";
 	import { persistWithExpiration } from "@gitbutler/shared/persisted";
 	import { mergeUnlisten } from "@gitbutler/ui/utils/mergeUnlisten";
 	import { pxToRem, remToPx } from "@gitbutler/ui/utils/pxToRem";
 	import { on } from "svelte/events";
 	import { writable } from "svelte/store";
-	import type { ResizeGroup } from "$lib/utils/resizeGroup";
+	import type { ResizeGroup } from "$lib/floating/resizeGroup";
 
 	interface Props {
 		/** Default value */

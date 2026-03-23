@@ -11,7 +11,7 @@
 	import newBranchSmolSVG from "$lib/assets/empty-state/new-branch-smol.svg?raw";
 	import { commitCreatedAt, commitStateSubject } from "$lib/branches/v3";
 	import { findEarliestConflict } from "$lib/commits/utils";
-	import { editPatch } from "$lib/editMode/editPatchUtils";
+	import { editPatch } from "$lib/mode/editPatchUtils";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { combineResults } from "$lib/state/helpers";

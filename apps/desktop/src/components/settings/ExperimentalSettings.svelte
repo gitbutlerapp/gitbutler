@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
 	import { fModeEnabled, useNewRebaseEngine } from "$lib/config/uiFeatureFlags";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { USER } from "$lib/user/user";
 	import { inject } from "@gitbutler/core/context";
 	import { CardGroup, Toggle } from "@gitbutler/ui";

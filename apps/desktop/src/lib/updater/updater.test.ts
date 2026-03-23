@@ -1,7 +1,7 @@
-import { EventContext } from "$lib/analytics/eventContext";
-import { PostHogWrapper } from "$lib/analytics/posthog";
 import { type Update } from "$lib/backend";
 import { ShortcutService } from "$lib/shortcuts/shortcutService";
+import { EventContext } from "$lib/telemetry/eventContext";
+import { PostHogWrapper } from "$lib/telemetry/posthog";
 import { mockCreateBackend } from "$lib/testing/mockBackend";
 import { getSettingsdServiceMock } from "$lib/testing/mockSettingsdService";
 import { UpdaterService } from "$lib/updater/updater";

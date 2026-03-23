@@ -1,13 +1,10 @@
-import { CommitDropData } from "$lib/commits/dropHandler";
-import { FileChangeDropData, HunkDropDataV3 } from "$lib/dragging/draggables";
+import { CodegenRuleDropData, FileChangeDropData, HunkDropDataV3 } from "$lib/dragging/draggables";
+import { CommitDropData } from "$lib/dragging/dropHandlers/commitDropHandler";
 import type { PromptAttachment } from "$lib/codegen/types";
 import type { DropzoneHandler } from "$lib/dragging/handler";
-import type { AiRule } from "$lib/rules/rule";
 import type RulesService from "$lib/rules/rulesService.svelte";
 
-export class CodegenRuleDropData {
-	constructor(public rule: AiRule) {}
-}
+export type { CodegenRuleDropData };
 
 export class CodegenRuleDropHandler implements DropzoneHandler {
 	constructor(

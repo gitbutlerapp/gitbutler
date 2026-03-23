@@ -3,13 +3,13 @@
 	import UnassignedViewForgeIntegrationBanner from "$components/forge/ForgeIntegrationBanner.svelte";
 	import RulesList from "$components/rules/RulesList.svelte";
 	import UnassignedFoldButton from "$components/workspace/UnassignedFoldButton.svelte";
-	import { ActionEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
 	import noChanges from "$lib/assets/empty-state/no-new-changes.svg?raw";
 	import { stagingBehaviorFeature } from "$lib/config/uiFeatureFlags";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { createWorktreeSelection } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { ActionEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
 	import { Badge, Button, TestId } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";

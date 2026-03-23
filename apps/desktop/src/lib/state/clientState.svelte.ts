@@ -1,6 +1,6 @@
-import { messageQueueAdapter, messageQueueSlice } from "$lib/codegen/messageQueueSlice";
 import { tauriBaseQuery } from "$lib/state/backendQuery";
 import { butlerModule } from "$lib/state/butlerModule";
+import { messageQueueAdapter, messageQueueSlice } from "$lib/state/messageQueueSlice";
 import { ReduxTag } from "$lib/state/tags";
 import { uiStateSlice } from "$lib/state/uiState.svelte";
 import { InjectionToken } from "@gitbutler/core/context";
@@ -17,11 +17,15 @@ import {
 import { FLUSH, PAUSE, PERSIST, persistReducer, PURGE, REGISTER, REHYDRATE } from "redux-persist";
 import persistStore from "redux-persist/lib/persistStore";
 import storage from "redux-persist/lib/storage";
-import type { PostHogWrapper } from "$lib/analytics/posthog";
 import type { IBackend } from "$lib/backend";
-import type { GitHubClient } from "$lib/forge/github/githubClient";
-import type { GitLabClient } from "$lib/forge/gitlab/gitlabClient.svelte";
-import type { ReduxError } from "$lib/state/reduxError";
+// Forge client types are opaque here to avoid circular imports.
+// Concrete types are provided at construction time via bootstrap/deps.ts.
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type GitHubClient = {};
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type GitLabClient = {};
+import type { ReduxError } from "$lib/error/reduxError";
+import type { PostHogWrapper } from "$lib/telemetry/posthog";
 
 /**
  * Backend API object that enables the declaration and usage of endpoints

@@ -5,10 +5,10 @@
 	import ProjectNameLabel from "$components/shared/ProjectNameLabel.svelte";
 	import ProjectSwitcher from "$components/shared/ProjectSwitcher.svelte";
 	import AppLayout from "$components/views/AppLayout.svelte";
-	import { POSTHOG_WRAPPER } from "$lib/analytics/posthog";
 	import loadErrorSvg from "$lib/assets/illustrations/load-error.svg?raw";
-	import { showError } from "$lib/notifications/toasts";
+	import { showError } from "$lib/error/showError";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
 
 	import { Icon, Spacer, chipToasts } from "@gitbutler/ui";

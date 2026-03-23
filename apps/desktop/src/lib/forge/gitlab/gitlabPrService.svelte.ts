@@ -4,7 +4,6 @@ import { providesItem, invalidatesItem, ReduxTag, invalidatesList } from "$lib/s
 import { sleep } from "$lib/utils/sleep";
 import { toSerializable } from "@gitbutler/shared/network/types";
 import { writable } from "svelte/store";
-import type { PostHogWrapper } from "$lib/analytics/posthog";
 import type { ForgePrService } from "$lib/forge/interface/forgePrService";
 import type {
 	CreatePullRequestArgs,
@@ -14,6 +13,7 @@ import type {
 } from "$lib/forge/interface/types";
 import type { QueryOptions } from "$lib/state/butlerModule";
 import type { BackendApi, GitLabApi } from "$lib/state/clientState.svelte";
+import type { PostHogWrapper } from "$lib/telemetry/posthog";
 import type { StartQueryActionCreatorOptions } from "@reduxjs/toolkit/query";
 
 export class GitLabPrService implements ForgePrService {

@@ -2,7 +2,6 @@
 	import { goto } from "$app/navigation";
 	import ProfileButton from "$components/shared/ProfileButton.svelte";
 	import ShareIssueModal from "$components/shared/ShareIssueModal.svelte";
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import {
 		branchesPath,
@@ -12,6 +11,7 @@
 		isHistoryPath,
 		workspacePath,
 	} from "$lib/routes/routes.svelte";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { UI_STATE } from "$lib/state/uiState.svelte";

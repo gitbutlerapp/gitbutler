@@ -9,7 +9,7 @@ import {
 	HunkDropDataV3,
 	type ChangeDropData,
 } from "$lib/dragging/draggables";
-import { HOOKS_SERVICE } from "$lib/hooks/hooksService";
+import { HOOKS_SERVICE } from "$lib/git/hooksService";
 import { showToast } from "$lib/notifications/toasts";
 import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 import { UI_STATE, type UiState } from "$lib/state/uiState.svelte";

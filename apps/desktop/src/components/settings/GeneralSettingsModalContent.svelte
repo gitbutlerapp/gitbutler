@@ -10,13 +10,13 @@
 	import OrganisationSettings from "$components/settings/OrganisationSettings.svelte";
 	import SettingsModalLayout from "$components/settings/SettingsModalLayout.svelte";
 	import TelemetrySettings from "$components/settings/TelemetrySettings.svelte";
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { URL_SERVICE } from "$lib/backend/url";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import {
 		generalSettingsPages,
 		type GeneralSettingsPageId,
 	} from "$lib/settings/generalSettingsPages";
 	import { USER_SERVICE } from "$lib/user/userService";
-	import { URL_SERVICE } from "$lib/utils/url";
 	import { inject } from "@gitbutler/core/context";
 	import { Icon } from "@gitbutler/ui";
 	import type { GeneralSettingsModalState } from "$lib/state/uiState.svelte";

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { inject } from "@gitbutler/core/context";
 	import { CardGroup, Link, Select, SelectItem, Toggle } from "@gitbutler/ui";
 	import { onMount } from "svelte";

@@ -1,17 +1,19 @@
 import { createEntityAdapter, createSlice } from "@reduxjs/toolkit";
-import type {
-	ModelType,
-	PermissionMode,
-	PromptAttachment,
-	ThinkingLevel,
-} from "$lib/codegen/types";
+import type { ModelType, PermissionMode, ThinkingLevel } from "$lib/state/uiState.svelte";
+
+type MessageAttachment =
+	| { type: "file"; path: string; commitId?: string }
+	| { type: "lines"; path: string; start: number; end: number; commitId?: string }
+	| { type: "commit"; commitId: string }
+	| { type: "directory"; path: string }
+	| { type: "folder"; path: string };
 
 type Message = {
 	thinkingLevel: ThinkingLevel;
 	model: ModelType;
 	permissionMode: PermissionMode;
 	prompt: string;
-	attachments?: PromptAttachment[];
+	attachments?: MessageAttachment[];
 };
 
 export type MessageQueue = {

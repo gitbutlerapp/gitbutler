@@ -3,9 +3,9 @@
 	import PrStatusPoller from "$components/forge/PrStatusPoller.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { URL_SERVICE } from "$lib/backend/url";
+	import { showError } from "$lib/error/showError";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
-	import { showError } from "$lib/notifications/toasts";
-	import { URL_SERVICE } from "$lib/utils/url";
 	import { inject } from "@gitbutler/core/context";
 	import {
 		Button,

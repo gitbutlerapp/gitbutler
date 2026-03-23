@@ -1,9 +1,13 @@
-import { logError } from "$lib/error/logError";
+import { logErrorToFile } from "$lib/backend";
+import { logError, setLogErrorToFile } from "$lib/error/logError";
 import { polyfillAbortSignalTimeout } from "$lib/polyfills/abortSignal";
 import type { HandleClientError } from "@sveltejs/kit";
 
 // Apply polyfills before any code runs
 polyfillAbortSignalTimeout();
+
+// Wire up backend file logger for error handling.
+setLogErrorToFile(logErrorToFile);
 
 // SvelteKit error handler.
 export function handleError({

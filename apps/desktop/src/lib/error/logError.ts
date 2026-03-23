@@ -1,8 +1,18 @@
-import { logErrorToFile } from "$lib/backend";
 import { SilentError } from "$lib/error/error";
 import { parseError } from "$lib/error/parser";
-import { showError } from "$lib/notifications/toasts";
+import { showError } from "$lib/error/showError";
 import { captureException } from "@sentry/sveltekit";
+
+// Lazy-import logErrorToFile to avoid circular dependency with backend/.
+let _logErrorToFile: ((error: string) => void) | undefined;
+
+/**
+ * Must be called at startup (e.g., from bootstrap) to wire up the backend
+ * file logger.  Until then, errors are only logged to the console.
+ */
+export function setLogErrorToFile(fn: (error: string) => void) {
+	_logErrorToFile = fn;
+}
 
 const E2E_MESSAGES_TO_IGNORE_DURING_E2E = [
 	"Unable to autolaunch a dbus-daemon without a $DISPLAY for X11",
@@ -66,7 +76,7 @@ export function logError(error: unknown, options?: LogErrorOptions) {
 		}
 
 		const logMessage = loggableError(error);
-		logErrorToFile(logMessage);
+		_logErrorToFile?.(logMessage);
 
 		console.error(error);
 	} catch (err: unknown) {

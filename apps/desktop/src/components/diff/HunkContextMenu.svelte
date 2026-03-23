@@ -13,13 +13,13 @@
 
 <script lang="ts">
 	import IrcSendToSubmenus from "$components/diff/IrcSendToSubmenus.svelte";
+	import { getEditorUri, URL_SERVICE } from "$lib/backend/url";
 	import { isDiffHunk, lineIdsToHunkHeaders, type DiffHunk } from "$lib/hunks/hunk";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { vscodePath } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
-	import { getEditorUri, URL_SERVICE } from "$lib/utils/url";
 	import { inject } from "@gitbutler/core/context";
 	import { ContextMenu, ContextMenuItem, ContextMenuSection, TestId } from "@gitbutler/ui";
 	import type { TreeChange } from "$lib/hunks/change";

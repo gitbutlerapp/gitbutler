@@ -1,8 +1,8 @@
 <script lang="ts">
 	import CommitTimelineNode from "$components/commit/CommitTimelineNode.svelte";
 	import CommitTitle from "$components/commit/CommitTitle.svelte";
+	import { URL_SERVICE } from "$lib/backend/url";
 	import { type CommitStatusType } from "$lib/commits/commit";
-	import { URL_SERVICE } from "$lib/utils/url";
 	import { inject } from "@gitbutler/core/context";
 	import { Avatar, Icon, TestId } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";

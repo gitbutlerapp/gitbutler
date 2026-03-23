@@ -43,16 +43,16 @@
 <script lang="ts">
 	import IrcSendToSubmenus from "$components/diff/IrcSendToSubmenus.svelte";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { URL_SERVICE } from "$lib/backend/url";
 	import { rewrapCommitMessage } from "$lib/config/uiFeatureFlags";
-	import { editPatch } from "$lib/editMode/editPatchUtils";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { Messages, serialize } from "$lib/irc/protocol";
 	import { buildSharedCommitPayload } from "$lib/irc/sharedStack";
+	import { editPatch } from "$lib/mode/editPatchUtils";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
-	import { URL_SERVICE } from "$lib/utils/url";
 	import { ensureValue } from "$lib/utils/validation";
 	import { inject, injectOptional } from "@gitbutler/core/context";
 	import {

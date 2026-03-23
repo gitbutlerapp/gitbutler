@@ -1,12 +1,13 @@
 <script lang="ts">
 	import CommitMessageEditor from "$components/commit/CommitMessageEditor.svelte";
+	import { COMMIT_ANALYTICS } from "$lib/analytics/commitAnalytics";
 	import { projectRunCommitHooks } from "$lib/config/config";
-	import { HOOKS_SERVICE } from "$lib/hooks/hooksService";
-	import { showError, showToast } from "$lib/notifications/toasts";
+	import { showError } from "$lib/error/showError";
+	import { HOOKS_SERVICE } from "$lib/git/hooksService";
+	import { showToast } from "$lib/notifications/toasts";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { createWorktreeSelection } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
-	import { COMMIT_ANALYTICS } from "$lib/soup/commitAnalytics";
 	import { STACK_SERVICE, type RejectionReason } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE, type NewCommitMessage } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";

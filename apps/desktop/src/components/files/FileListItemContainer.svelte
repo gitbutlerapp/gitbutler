@@ -1,19 +1,19 @@
 <script lang="ts">
 	import ChangedFilesContextMenu from "$components/shared/ChangedFilesContextMenu.svelte";
-	import { conflictEntryHint } from "$lib/conflictEntryPresence";
-	import { targetEqual, type HunkLockTarget } from "$lib/dependencies/dependencies";
 	import { draggableChips } from "$lib/dragging/draggable";
 	import { FileChangeDropData } from "$lib/dragging/draggables";
 	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
+	import { conflictEntryHint } from "$lib/files/conflictEntryPresence";
+	import { computeChangeStatus } from "$lib/files/fileStatus";
 	import { getFilename } from "$lib/files/utils";
 	import { type TreeChange } from "$lib/hunks/change";
+	import { targetEqual, type HunkLockTarget } from "$lib/hunks/dependencies";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { key, type SelectionId } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { getStackName } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
-	import { computeChangeStatus } from "$lib/utils/fileStatus";
 	import { inject } from "@gitbutler/core/context";
 	import { FileListItem, TestId } from "@gitbutler/ui";
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";

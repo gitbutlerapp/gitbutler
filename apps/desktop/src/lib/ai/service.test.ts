@@ -22,8 +22,8 @@ import {
 	type Prompt,
 } from "$lib/ai/types";
 import { GitConfigService } from "$lib/config/gitConfigService";
-import { TokenMemoryService } from "$lib/stores/tokenMemoryService";
 import { mockCreateBackend } from "$lib/testing/mockBackend";
+import { TokenMemoryService } from "$lib/user/tokenMemoryService";
 import { HttpClient } from "@gitbutler/shared/network/httpClient";
 import { expect, test, describe, vi } from "vitest";
 import type { SecretsService } from "$lib/secrets/secretsService";

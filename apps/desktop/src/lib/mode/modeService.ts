@@ -1,7 +1,7 @@
 import { hasBackendExtra } from "$lib/state/backendQuery";
 import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
-import type { ConflictEntryPresence } from "$lib/conflictEntryPresence";
+import type { ConflictEntryPresence } from "$lib/files/conflictEntryPresence";
 import type { TreeChange } from "$lib/hunks/change";
 import type { BackendApi } from "$lib/state/clientState.svelte";
 

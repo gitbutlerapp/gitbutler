@@ -6,12 +6,12 @@
 	import StackDetails from "$components/views/StackDetails.svelte";
 	import StackPanel from "$components/views/StackPanel.svelte";
 	import { CLAUDE_CODE_SERVICE } from "$lib/codegen/claude";
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { sessionChannel } from "$lib/irc/protocol";
 	import { IRC_SESSION_BRIDGE } from "$lib/irc/sessionBridge.svelte";
 	import { RULES_SERVICE } from "$lib/rules/rulesService.svelte";
-	import { StackController, setStackContext } from "$lib/stack/stackController.svelte";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
+	import { StackController, setStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { combineResults } from "$lib/state/helpers";
 	import { inject } from "@gitbutler/core/context";

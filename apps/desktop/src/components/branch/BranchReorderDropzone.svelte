@@ -2,7 +2,7 @@
 	import BranchDividerLine from "$components/branch/BranchDividerLine.svelte";
 	import BranchDropIndicator from "$components/branch/BranchDropIndicator.svelte";
 	import Dropzone from "$components/shared/Dropzone.svelte";
-	import { MoveBranchDzHandler } from "$lib/branches/dropHandler";
+	import { MoveBranchDzHandler } from "$lib/dragging/dropHandlers/branchDropHandler";
 	import type { ForgePrService } from "$lib/forge/interface/forgePrService";
 
 	interface Props {

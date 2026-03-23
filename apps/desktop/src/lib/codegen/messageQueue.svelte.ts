@@ -1,12 +1,12 @@
 import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from "$lib/codegen/claude";
+import { CODEGEN_ANALYTICS, CodegenAnalytics } from "$lib/codegen/codegenAnalytics";
+import { currentStatus, isCompletedWithStatus } from "$lib/codegen/messages";
+import { CLIENT_STATE, type ClientState } from "$lib/state/clientState.svelte";
 import {
 	messageQueueSelectors,
 	messageQueueSlice,
 	type MessageQueue,
-} from "$lib/codegen/messageQueueSlice";
-import { currentStatus, isCompletedWithStatus } from "$lib/codegen/messages";
-import { CODEGEN_ANALYTICS, CodegenAnalytics } from "$lib/soup/codegenAnalytics";
-import { CLIENT_STATE, type ClientState } from "$lib/state/clientState.svelte";
+} from "$lib/state/messageQueueSlice";
 import {
 	UI_STATE,
 	type GlobalStore,

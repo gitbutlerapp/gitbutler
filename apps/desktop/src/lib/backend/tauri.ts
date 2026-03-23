@@ -1,4 +1,4 @@
-import { isReduxError } from "$lib/state/reduxError";
+import { isReduxError } from "$lib/error/reduxError";
 import { getName, getVersion, getVersion as tauriGetVersion } from "@tauri-apps/api/app";
 import { invoke as invokeTauri } from "@tauri-apps/api/core";
 import { documentDir as documentDirTauri } from "@tauri-apps/api/path";

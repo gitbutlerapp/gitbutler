@@ -1,7 +1,14 @@
+import { getBranchNameFromRef } from "$lib/branches/branchUtils";
 import { useNewRebaseEngine } from "$lib/config/uiFeatureFlags";
 import { ConflictEntries, type ConflictEntriesObj } from "$lib/files/conflicts";
 import { sortLikeFileTree } from "$lib/files/filetreeV3";
 import { showToast } from "$lib/notifications/toasts";
+import {
+	replaceBranchInExclusiveAction,
+	replaceBranchInStackSelection,
+	updateStaleProjectState,
+	updateStaleStackState,
+} from "$lib/stacks/staleStateUpdaters";
 import { hasBackendExtra } from "$lib/state/backendQuery";
 import { createSelectByIds, createSelectNth } from "$lib/state/customSelectors";
 import {
@@ -11,14 +18,7 @@ import {
 	providesList,
 	ReduxTag,
 } from "$lib/state/tags";
-import {
-	replaceBranchInExclusiveAction,
-	replaceBranchInStackSelection,
-	type UiState,
-	updateStaleProjectState,
-	updateStaleStackState,
-} from "$lib/state/uiState.svelte";
-import { getBranchNameFromRef } from "$lib/utils/branch";
+import { type UiState } from "$lib/state/uiState.svelte";
 import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
@@ -27,6 +27,7 @@ import { get } from "svelte/store";
 import type { StackOrder } from "$lib/branches/branch";
 import type { Commit, CommitDetails, UpstreamCommit } from "$lib/branches/v3";
 import type { MoveCommitIllegalAction } from "$lib/commits/commit";
+import type { ReduxError } from "$lib/error/reduxError";
 import type { DefaultForgeFactory } from "$lib/forge/forgeFactory.svelte";
 import type { TreeChange, TreeChanges, TreeStats } from "$lib/hunks/change";
 import type { DiffSpec } from "$lib/hunks/hunk";
@@ -41,7 +42,7 @@ import type {
 	GerritPushFlag,
 } from "$lib/stacks/stack";
 import type { AppDispatch, BackendApi } from "$lib/state/clientState.svelte";
-import type { ReduxError } from "$lib/state/reduxError";
+import type { RejectionReason } from "$lib/state/uiState.svelte";
 import type { HunkAssignment } from "@gitbutler/core/api";
 
 type BranchParams = {
@@ -138,7 +139,8 @@ export const REJECTTION_REASONS = [
 	"missingDiffSpecAssociation",
 ] as const;
 
-export type RejectionReason = (typeof REJECTTION_REASONS)[number];
+// Canonical definition lives in state/uiState.svelte.ts to avoid circular imports.
+export type { RejectionReason };
 
 type ReplacedCommit = [string, string];
 

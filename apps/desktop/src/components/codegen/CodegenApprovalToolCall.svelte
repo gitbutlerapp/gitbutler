@@ -1,6 +1,6 @@
 <script lang="ts">
+	import { formatToolCall, getToolIcon } from "$lib/codegen/codegenTools";
 	import { type ToolCall } from "$lib/codegen/messages";
-	import { formatToolCall, getToolIcon } from "$lib/utils/codegenTools";
 	import { Codeblock } from "@gitbutler/ui";
 	import {
 		DropdownButton,

@@ -10,11 +10,11 @@
 		CodegenCommitDropHandler,
 		CodegenFileDropHandler,
 		CodegenHunkDropHandler,
-	} from "$lib/codegen/dropzone";
+	} from "$lib/codegen/codegenDropzone";
 	import { type UserInput, type PromptAttachment, type ClaudeMessage } from "$lib/codegen/types";
 	import { newlineOnEnter } from "$lib/config/uiFeatureFlags";
+	import { showError } from "$lib/error/showError";
 	import { FILE_SERVICE } from "$lib/files/fileService";
-	import { showError } from "$lib/notifications/toasts";
 	import { inject } from "@gitbutler/core/context";
 	import { Tooltip, AsyncButton, RichTextEditor, FilePlugin, UpDownPlugin } from "@gitbutler/ui";
 	import { tick, type Snippet } from "svelte";

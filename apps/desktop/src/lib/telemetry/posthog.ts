@@ -1,10 +1,10 @@
 import { parseQueryError } from "$lib/error/error";
 import { InjectionToken } from "@gitbutler/core/context";
 import { PostHog, posthog, type Properties } from "posthog-js";
-import type { EventContext } from "$lib/analytics/eventContext";
 import type { IBackend } from "$lib/backend";
-import type { SettingsService } from "$lib/config/appSettingsV2";
-import type { RepoInfo } from "$lib/url/gitUrl";
+import type { RepoInfo } from "$lib/git/gitUrl";
+import type { SettingsService } from "$lib/settings/appSettings";
+import type { EventContext } from "$lib/telemetry/eventContext";
 import { PUBLIC_POSTHOG_API_KEY } from "$env/static/public";
 
 export const POSTHOG_WRAPPER = new InjectionToken<PostHogWrapper>("PostHogWrapper");

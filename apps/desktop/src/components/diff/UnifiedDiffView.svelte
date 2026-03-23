@@ -28,8 +28,8 @@
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
 	import { parseHunk } from "@gitbutler/ui/utils/diffParsing";
 	import { untrack } from "svelte";
-	import type { FileDependencies } from "$lib/dependencies/dependencies";
 	import type { TreeChange } from "$lib/hunks/change";
+	import type { FileDependencies } from "$lib/hunks/dependencies";
 	import type { UnifiedDiff } from "$lib/hunks/diff";
 	import type { Reaction } from "$lib/irc/ircApi";
 	import type { LineId } from "@gitbutler/ui/utils/diffParsing";

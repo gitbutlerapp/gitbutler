@@ -2,7 +2,7 @@ import {
 	aggregateFileDependencies,
 	type FileDependencies,
 	type HunkDependencies,
-} from "$lib/dependencies/dependencies";
+} from "$lib/hunks/dependencies";
 import { createSelectByIds } from "$lib/state/customSelectors";
 import { InjectionToken } from "@gitbutler/core/context";
 import { createEntityAdapter } from "@reduxjs/toolkit";

@@ -1,7 +1,7 @@
 <script lang="ts">
+	import { showError } from "$lib/error/showError";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { MergeMethod } from "$lib/forge/interface/types";
-	import { showError } from "$lib/notifications/toasts";
 	import { inject } from "@gitbutler/core/context";
 	import { persisted, type Persisted } from "@gitbutler/shared/persisted";
 

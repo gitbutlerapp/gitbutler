@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { inject } from "@gitbutler/core/context";
 	import { ContextMenuItem, ContextMenuItemSubmenu, ContextMenuSection } from "@gitbutler/ui";
 

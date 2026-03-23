@@ -4,7 +4,7 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import SettingsSection from "$components/shared/SettingsSection.svelte";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
-	import { showError } from "$lib/notifications/toasts";
+	import { showError } from "$lib/error/showError";
 	import { type AuthKey, type KeyType } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { debounce } from "$lib/utils/debounce";

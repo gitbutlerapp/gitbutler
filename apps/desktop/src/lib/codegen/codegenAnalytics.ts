@@ -1,5 +1,5 @@
 import { usageStats, formatMessages, type Message } from "$lib/codegen/messages";
-import { SettingsService } from "$lib/config/appSettingsV2";
+import { SettingsService } from "$lib/settings/appSettings";
 import { InjectionToken } from "@gitbutler/core/context";
 import { get } from "svelte/store";
 import type { ClaudeCodeService } from "$lib/codegen/claude";

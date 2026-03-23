@@ -1,5 +1,5 @@
 import { goto } from "$app/navigation";
-import { showError } from "$lib/notifications/toasts";
+import { showError } from "$lib/error/showError";
 import {
 	handleAddProjectOutcome,
 	type AddProjectOutcome,

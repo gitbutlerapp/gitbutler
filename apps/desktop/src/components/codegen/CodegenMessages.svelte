@@ -16,6 +16,7 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import noClaudeCodeSvg from "$lib/assets/empty-state/claude-disconected.svg?raw";
 	import laneNewSvg from "$lib/assets/empty-state/lane-new.svg?raw";
+	import { getEditorUri, URL_SERVICE } from "$lib/backend/url";
 	import { ATTACHMENT_SERVICE } from "$lib/codegen/attachmentService.svelte";
 	import { CLAUDE_CODE_SERVICE } from "$lib/codegen/claude";
 	import { MessageSender } from "$lib/codegen/messageQueue.svelte";
@@ -30,12 +31,11 @@
 	} from "$lib/codegen/messages";
 	import { parseTemplates } from "$lib/codegen/templateParser";
 
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
 	import { RULES_SERVICE } from "$lib/rules/rulesService.svelte";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { SETTINGS } from "$lib/settings/userSettings";
-	import { getStackContext } from "$lib/stack/stackController.svelte";
+	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { formatCompactNumber } from "$lib/utils/number";
-	import { getEditorUri, URL_SERVICE } from "$lib/utils/url";
 	import { inject } from "@gitbutler/core/context";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import {

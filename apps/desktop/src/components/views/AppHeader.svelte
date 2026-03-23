@@ -5,12 +5,12 @@
 	import IntegrateUpstreamModal from "$components/upstream/IntegrateUpstreamModal.svelte";
 	import { BACKEND } from "$lib/backend";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
 	import { projectDisableCodegen } from "$lib/config/config";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { handleAddProjectOutcome } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { isWorkspacePath, projectPath } from "$lib/routes/routes.svelte";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { SHORTCUT_SERVICE } from "$lib/shortcuts/shortcutService";
 	import { useCreateAiStack } from "$lib/stacks/createAiStack.svelte";
 	import { inject } from "@gitbutler/core/context";

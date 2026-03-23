@@ -1,4 +1,4 @@
-import * as BranchUtils from "$lib/utils/branch";
+import * as BranchUtils from "$lib/branches/branchUtils";
 import { expect, test, describe } from "vitest";
 
 describe.concurrent("getBranchNameFromRef", () => {

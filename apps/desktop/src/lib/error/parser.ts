@@ -1,11 +1,11 @@
 import { getSwallowGitHubOrgAuthErrors } from "$lib/config/config";
 import { KNOWN_ERRORS } from "$lib/error/knownErrors";
+import { isReduxError } from "$lib/error/reduxError";
 import {
 	isHttpError,
 	isPromiseRejection,
 	isReduxActionError as isReduxActionError,
 } from "$lib/error/typeguards";
-import { isReduxError } from "$lib/state/reduxError";
 import { isStr } from "@gitbutler/ui/utils/string";
 import { isErrorlike } from "@gitbutler/ui/utils/typeguards";
 

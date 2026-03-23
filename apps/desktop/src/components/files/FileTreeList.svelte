@@ -1,7 +1,7 @@
 <script lang="ts">
+	import { computeChangeStatus } from "$lib/files/fileStatus";
 	import { abbreviateFolders, changesToFileTree, nodePath } from "$lib/files/filetreeV3";
 	import { isExecutableStatus } from "$lib/hunks/change";
-	import { computeChangeStatus } from "$lib/utils/fileStatus";
 	import { FileListItem, FolderListItem } from "@gitbutler/ui";
 	import { SvelteMap } from "svelte/reactivity";
 	import type { TreeNode } from "$lib/files/filetreeV3";
