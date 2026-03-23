@@ -1289,26 +1289,34 @@ const StackC: FC<{
 					const anchorRef = segment.refName ? segment.refName.fullNameBytes : null;
 					return (
 						<li key={branchName}>
-							<BranchTarget anchorRef={anchorRef} firstCommitId={segment.commits[0]?.id}>
-								<DraggableBranch anchorRef={anchorRef} label={branchName}>
-									{branchRef !== null ? (
-										<button
-											type="button"
-											className={classes(
-												styles.branchButton,
-												isBranchSelected(stackId, branchRef) && sharedStyles.selected,
-											)}
-											onClick={() => {
-												toggleBranchSelection(stackId, branchName, branchRef);
-											}}
-										>
-											{branchName}
-										</button>
-									) : (
-										branchName
-									)}
-								</DraggableBranch>
-							</BranchTarget>
+							<BranchTarget
+								anchorRef={anchorRef}
+								firstCommitId={segment.commits[0]?.id}
+								render={
+									<DraggableBranch
+										anchorRef={anchorRef}
+										label={branchName}
+										render={
+											branchRef !== null ? (
+												<button
+													type="button"
+													className={classes(
+														styles.branchButton,
+														isBranchSelected(stackId, branchRef) && sharedStyles.selected,
+													)}
+													onClick={() => {
+														toggleBranchSelection(stackId, branchName, branchRef);
+													}}
+												>
+													{branchName}
+												</button>
+											) : (
+												<div>{branchName}</div>
+											)
+										}
+									/>
+								}
+							/>
 
 							<CommitsList commits={segment.commits}>
 								{(commit, index) => {
