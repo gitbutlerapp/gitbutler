@@ -12,6 +12,7 @@ mod git {
             actual,
             GitConfigSettings {
                 gitbutler_sign_commits: Some(false),
+                gitbutler_sign_mode: Some(false.into()),
                 ..GitConfigSettings {
                     gitbutler_gerrit_mode: Some(false),
                     ..Default::default()
@@ -21,6 +22,7 @@ mod git {
         );
         let expected = GitConfigSettings {
             gitbutler_sign_commits: Some(true),
+            gitbutler_sign_mode: Some(true.into()),
             gitbutler_gerrit_mode: Some(false),
             gitbutler_forge_review_template_path: None,
             gitbutler_gitlab_project_id: None,
@@ -54,6 +56,7 @@ mod git {
         let repo = gix::open_opts(tmp.path(), gix::open::Options::isolated())?;
         let expected = GitConfigSettings {
             gitbutler_sign_commits: Some(true),
+            gitbutler_sign_mode: Some(true.into()),
             ..GitConfigSettings {
                 gitbutler_gerrit_mode: Some(false),
                 ..Default::default()
