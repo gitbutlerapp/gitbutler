@@ -2,20 +2,19 @@ import { ActionService, ACTION_SERVICE } from "$lib/actions/actionService.svelte
 import {
 	PromptService as AIPromptService,
 	PROMPT_SERVICE as AI_PROMPT_SERVICE,
-} from "$lib/ai/promptService";
+} from "$lib/ai/aiPromptService";
 import { AIService, AI_SERVICE } from "$lib/ai/service";
-import { EVENT_CONTEXT, EventContext } from "$lib/analytics/eventContext";
-import { POSTHOG_WRAPPER, PostHogWrapper } from "$lib/analytics/posthog";
+import { CommitAnalytics, COMMIT_ANALYTICS } from "$lib/analytics/commitAnalytics";
 import { type IBackend } from "$lib/backend";
 import { BACKEND } from "$lib/backend";
 import ClipboardService, { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+import URLService, { URL_SERVICE } from "$lib/backend/url";
 import BaseBranchService, { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 import { BranchService, BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
-import { CherryApplyService, CHERRY_APPLY_SERVICE } from "$lib/cherryApply/cherryApplyService";
-import CLIManager, { CLI_MANAGER } from "$lib/cli/cli";
 import { ATTACHMENT_SERVICE, AttachmentService } from "$lib/codegen/attachmentService.svelte";
 import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from "$lib/codegen/claude";
-import { SETTINGS_SERVICE, SettingsService } from "$lib/config/appSettingsV2";
+import { CodegenAnalytics, CODEGEN_ANALYTICS } from "$lib/codegen/codegenAnalytics";
+import CLIManager, { CLI_MANAGER } from "$lib/config/cli";
 import { GIT_CONFIG_SERVICE, GitConfigService } from "$lib/config/gitConfigService";
 import DependencyService, { DEPENDENCY_SERVICE } from "$lib/dependencies/dependencyService.svelte";
 import { DropzoneRegistry, DROPZONE_REGISTRY } from "$lib/dragging/registry";
@@ -24,15 +23,18 @@ import {
 	ReorderDropzoneFactory,
 } from "$lib/dragging/stackingReorderDropzoneManager";
 import { FILE_SERVICE, FileService } from "$lib/files/fileService";
+import { ResizeSync, RESIZE_SYNC } from "$lib/floating/resizeSync";
 import { DefaultForgeFactory, DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 import { GITHUB_CLIENT, GitHubClient } from "$lib/forge/github/githubClient";
 import { GitHubUserService, GITHUB_USER_SERVICE } from "$lib/forge/github/githubUserService.svelte";
 import { GITLAB_CLIENT, GitLabClient } from "$lib/forge/gitlab/gitlabClient.svelte";
 import { GITLAB_USER_SERVICE, GitLabUserService } from "$lib/forge/gitlab/gitlabUserService.svelte";
+import { CherryApplyService, CHERRY_APPLY_SERVICE } from "$lib/git/cherryApplyService";
 import { GitService, GIT_SERVICE } from "$lib/git/gitService";
+import { HOOKS_SERVICE, HooksService } from "$lib/git/hooksService";
+import { REMOTES_SERVICE, RemotesService } from "$lib/git/remotesService";
 import { HISTORY_SERVICE, HistoryService } from "$lib/history/history";
 import { OplogService, OPLOG_SERVICE } from "$lib/history/oplogService.svelte";
-import { HOOKS_SERVICE, HooksService } from "$lib/hooks/hooksService";
 import { DiffService, DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 import { IrcApiService, IRC_API_SERVICE } from "$lib/irc/ircApiService";
 import { IRC_SESSION_BRIDGE, IrcSessionBridge } from "$lib/irc/sessionBridge.svelte";
@@ -43,7 +45,6 @@ import {
 import { ModeService, MODE_SERVICE } from "$lib/mode/modeService";
 import { ProjectsService, PROJECTS_SERVICE } from "$lib/project/projectsService";
 import { PROMPT_SERVICE, PromptService } from "$lib/prompt/promptService";
-import { REMOTES_SERVICE, RemotesService } from "$lib/remotes/remotesService";
 import RulesService, { RULES_SERVICE } from "$lib/rules/rulesService.svelte";
 import { RustSecretService, SECRET_SERVICE } from "$lib/secrets/secretsService";
 import {
@@ -51,24 +52,23 @@ import {
 	FILE_SELECTION_MANAGER,
 } from "$lib/selection/fileSelectionManager.svelte";
 import { UncommittedService, UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+import { SETTINGS_SERVICE, SettingsService } from "$lib/settings/appSettings";
 import { loadUserSettings, SETTINGS } from "$lib/settings/userSettings";
 import { ShortcutService, SHORTCUT_SERVICE } from "$lib/shortcuts/shortcutService";
-import { CodegenAnalytics, CODEGEN_ANALYTICS } from "$lib/soup/codegenAnalytics";
-import { CommitAnalytics, COMMIT_ANALYTICS } from "$lib/soup/commitAnalytics";
 import { StackService, STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 import { ClientState, CLIENT_STATE } from "$lib/state/clientState.svelte";
 import { UiState, UI_STATE, uiStateSlice } from "$lib/state/uiState.svelte";
-import { TokenMemoryService } from "$lib/stores/tokenMemoryService";
 import DataSharingService, { DATA_SHARING_SERVICE } from "$lib/support/dataSharing";
+import { EVENT_CONTEXT, EventContext } from "$lib/telemetry/eventContext";
+import { POSTHOG_WRAPPER, PostHogWrapper } from "$lib/telemetry/posthog";
 import { UPDATER_SERVICE, UpdaterService } from "$lib/updater/updater";
 import {
 	UpstreamIntegrationService,
 	UPSTREAM_INTEGRATION_SERVICE,
 } from "$lib/upstream/upstreamIntegrationService.svelte";
+import { TokenMemoryService } from "$lib/user/tokenMemoryService";
 import { USER } from "$lib/user/user";
 import { USER_SERVICE, UserService } from "$lib/user/userService";
-import { ResizeSync, RESIZE_SYNC } from "$lib/utils/resizeSync";
-import URLService, { URL_SERVICE } from "$lib/utils/url";
 import { WorktreeService, WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 import { provideAll } from "@gitbutler/core/context";
 import { FeedService, FEED_SERVICE } from "@gitbutler/shared/feeds/service";

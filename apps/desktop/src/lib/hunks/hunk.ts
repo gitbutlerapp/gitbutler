@@ -6,7 +6,7 @@ import {
 	type LineId,
 	type LineLock,
 } from "@gitbutler/ui/utils/diffParsing";
-import type { HunkLocks } from "$lib/dependencies/dependencies";
+import type { HunkLocks } from "$lib/hunks/dependencies";
 import type { Prettify } from "@gitbutler/shared/utils/typeUtils";
 import "reflect-metadata";
 

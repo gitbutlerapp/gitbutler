@@ -1,4 +1,4 @@
-import { TokenMemoryService } from "$lib/stores/tokenMemoryService";
+import { TokenMemoryService } from "$lib/user/tokenMemoryService";
 import { persisted } from "@gitbutler/shared/persisted";
 import { get } from "svelte/store";
 import { test, describe, expect } from "vitest";

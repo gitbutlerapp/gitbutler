@@ -1,4 +1,4 @@
-import { CommitDropData } from "$lib/commits/dropHandler";
+import { CommitDropData } from "$lib/dragging/dropHandlers/commitDropHandler";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { StackOrder } from "$lib/branches/branch";
 import type { DropzoneHandler } from "$lib/dragging/handler";

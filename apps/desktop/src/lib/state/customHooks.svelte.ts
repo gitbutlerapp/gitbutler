@@ -1,5 +1,5 @@
 import { emitQueryError, parseQueryError, SilentError } from "$lib/error/error";
-import { isReduxError, type ReduxError } from "$lib/state/reduxError";
+import { isReduxError, type ReduxError } from "$lib/error/reduxError";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { type Reactive } from "@gitbutler/shared/storeUtils";
 import { isErrorlike } from "@gitbutler/ui/utils/typeguards";

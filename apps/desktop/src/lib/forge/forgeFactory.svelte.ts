@@ -6,13 +6,13 @@ import { GitHubClient } from "$lib/forge/github/githubClient";
 import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from "$lib/forge/gitlab/gitlab";
 import { InjectionToken } from "@gitbutler/core/context";
 import { deepCompare } from "@gitbutler/shared/compare";
-import type { PostHogWrapper } from "$lib/analytics/posthog";
 import type { ForgeProvider } from "$lib/baseBranch/baseBranch";
 import type { GitLabClient } from "$lib/forge/gitlab/gitlabClient.svelte";
 import type { Forge, ForgeName } from "$lib/forge/interface/forge";
+import type { RepoInfo } from "$lib/git/gitUrl";
 import type { AppDispatch, BackendApi, GitHubApi, GitLabApi } from "$lib/state/clientState.svelte";
 import type { ReduxTag } from "$lib/state/tags";
-import type { RepoInfo } from "$lib/url/gitUrl";
+import type { PostHogWrapper } from "$lib/telemetry/posthog";
 import type { Reactive } from "@gitbutler/shared/storeUtils";
 import type { TagDescription } from "@reduxjs/toolkit/query";
 

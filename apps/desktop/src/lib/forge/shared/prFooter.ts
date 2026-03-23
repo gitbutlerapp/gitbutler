@@ -1,6 +1,8 @@
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import type { ForgePrService } from "$lib/forge/interface/forgePrService";
-import type { BranchDetails } from "$lib/stacks/stack";
+import type { Workspace } from "@gitbutler/core/api";
+
+type BranchDetails = Workspace.BranchDetails;
 
 export const STACKING_FOOTER_BOUNDARY_TOP = "<!-- GitButler Footer Boundary Top -->";
 export const STACKING_FOOTER_BOUNDARY_BOTTOM = "<!-- GitButler Footer Boundary Bottom -->";

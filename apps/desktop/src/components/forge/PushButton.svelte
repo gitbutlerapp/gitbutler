@@ -2,7 +2,10 @@
 	import GerritPushModal from "$components/forge/GerritPushModal.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { URL_SERVICE } from "$lib/backend/url";
+	import { getBranchNameFromRef } from "$lib/branches/branchUtils";
 	import { commitCreatedAtDate } from "$lib/branches/v3";
+	import { splitMessage } from "$lib/commits/commitMessage";
 	import { projectRunCommitHooks } from "$lib/config/config";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
@@ -14,9 +17,6 @@
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { combineResults } from "$lib/state/helpers";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
-	import { getBranchNameFromRef } from "$lib/utils/branch";
-	import { splitMessage } from "$lib/utils/commitMessage";
-	import { URL_SERVICE } from "$lib/utils/url";
 	import { inject } from "@gitbutler/core/context";
 	import { persisted } from "@gitbutler/shared/persisted";
 	import {

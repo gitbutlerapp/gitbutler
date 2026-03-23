@@ -1,4 +1,4 @@
-import { splitMessage } from "$lib/utils/commitMessage";
+import { splitMessage } from "$lib/commits/commitMessage";
 import { expect, test, describe } from "vitest";
 
 describe.concurrent("#splitMessage", () => {

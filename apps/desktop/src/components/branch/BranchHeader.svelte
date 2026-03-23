@@ -11,8 +11,8 @@
 	import BranchHeaderIcon from "$components/branch/BranchHeaderIcon.svelte";
 	import BranchLabel from "$components/branch/BranchLabel.svelte";
 	import CommitPositionIndicator from "$components/commit/CommitPositionIndicator.svelte";
-	import { BranchDropData } from "$lib/branches/dropHandler";
 	import { draggableBranch, type DraggableConfig } from "$lib/dragging/draggable";
+	import { BranchDropData } from "$lib/dragging/dropHandlers/branchDropHandler";
 	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
 	import { inject } from "@gitbutler/core/context";
 	import { Badge, TestId, Icon } from "@gitbutler/ui";

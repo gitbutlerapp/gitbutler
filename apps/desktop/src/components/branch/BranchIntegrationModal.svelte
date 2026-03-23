@@ -9,6 +9,7 @@
 		type Commit,
 		type UpstreamCommit,
 	} from "$lib/branches/v3";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import {
 		canShiftStepDown,
 		canShiftStepUp,
@@ -20,8 +21,7 @@
 		splitStepAtCommit,
 		squashStepInto,
 		updateStepType,
-	} from "$lib/stacks/integrationStepUtils";
-	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	} from "$lib/upstream/integrationStepUtils";
 	import { inject } from "@gitbutler/core/context";
 	import { Modal, ModalFooter, Button, ScrollableContainer, SimpleCommitRow } from "@gitbutler/ui";
 	import { flip } from "svelte/animate";

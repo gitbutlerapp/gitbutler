@@ -3,10 +3,10 @@
 	import CliSymlinkSetup from "$components/settings/CliSymlinkSetup.svelte";
 	import AccessTokenSignIn from "$components/shared/AccessTokenSignIn.svelte";
 	import { BACKEND } from "$lib/backend";
-	import { CLI_MANAGER } from "$lib/cli/cli";
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
-	import { showError } from "$lib/notifications/toasts";
+	import { CLI_MANAGER } from "$lib/config/cli";
+	import { showError } from "$lib/error/showError";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import {
 		SETTINGS,
 		type CodeEditorSettings,

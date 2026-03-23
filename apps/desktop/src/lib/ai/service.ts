@@ -28,12 +28,12 @@ import {
 	type PromptMessage,
 	type FileChange,
 } from "$lib/ai/types";
-import { splitMessage } from "$lib/utils/commitMessage";
+import { splitMessage } from "$lib/commits/commitMessage";
 import { InjectionToken } from "@gitbutler/core/context";
 import { get } from "svelte/store";
 import type { GitConfigService } from "$lib/config/gitConfigService";
 import type { SecretsService } from "$lib/secrets/secretsService";
-import type { TokenMemoryService } from "$lib/stores/tokenMemoryService";
+import type { TokenMemoryService } from "$lib/user/tokenMemoryService";
 import type { HttpClient } from "@gitbutler/shared/network/httpClient";
 
 const maxDiffLengthLimitForAPI = 5000;

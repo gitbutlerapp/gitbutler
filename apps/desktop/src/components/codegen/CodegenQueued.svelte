@@ -1,7 +1,7 @@
 <script lang="ts">
 	import AttachmentList from "$components/codegen/AttachmentList.svelte";
-	import { messageQueueSelectors, messageQueueSlice } from "$lib/codegen/messageQueueSlice";
 	import { CLIENT_STATE } from "$lib/state/clientState.svelte";
+	import { messageQueueSelectors, messageQueueSlice } from "$lib/state/messageQueueSlice";
 	import { inject } from "@gitbutler/core/context";
 	import { Icon, Button } from "@gitbutler/ui";
 	import { slide } from "svelte/transition";

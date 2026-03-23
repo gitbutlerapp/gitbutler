@@ -16,10 +16,10 @@ import { eventualConsistencyCheck } from "$lib/forge/shared/progressivePolling";
 import { providesItem, invalidatesItem, ReduxTag, invalidatesList } from "$lib/state/tags";
 import { sleep } from "$lib/utils/sleep";
 import { writable } from "svelte/store";
-import type { PostHogWrapper } from "$lib/analytics/posthog";
 import type { ForgePrService } from "$lib/forge/interface/forgePrService";
 import type { QueryOptions } from "$lib/state/butlerModule";
 import type { BackendApi, GitHubApi } from "$lib/state/clientState.svelte";
+import type { PostHogWrapper } from "$lib/telemetry/posthog";
 import type { StartQueryActionCreatorOptions } from "@reduxjs/toolkit/query";
 
 export class GitHubPrService implements ForgePrService {

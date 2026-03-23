@@ -1,8 +1,8 @@
 import { initAnalyticsIfEnabled } from "$lib/analytics/analytics";
-import { EventContext } from "$lib/analytics/eventContext";
-import { PostHogWrapper } from "$lib/analytics/posthog";
 import createBackend from "$lib/backend";
-import { SettingsService } from "$lib/config/appSettingsV2";
+import { SettingsService } from "$lib/settings/appSettings";
+import { EventContext } from "$lib/telemetry/eventContext";
+import { PostHogWrapper } from "$lib/telemetry/posthog";
 import lscache from "lscache";
 import type { LayoutLoad } from "./$types";
 

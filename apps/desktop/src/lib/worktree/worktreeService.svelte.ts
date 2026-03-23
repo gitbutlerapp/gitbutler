@@ -1,10 +1,10 @@
+import { showError } from "$lib/error/showError";
 import {
 	shouldRaiseDependencyError,
 	type DependencyError,
 	type HunkDependencies,
-} from "$lib/dependencies/dependencies";
+} from "$lib/hunks/dependencies";
 import { shouldRaiseHunkAssignmentError, type HunkAssignment } from "$lib/hunks/hunk";
-import { showError } from "$lib/notifications/toasts";
 import { hasBackendExtra } from "$lib/state/backendQuery";
 import { createSelectByIds } from "$lib/state/customSelectors";
 import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";

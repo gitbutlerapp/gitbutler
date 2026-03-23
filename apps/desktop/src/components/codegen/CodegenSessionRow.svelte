@@ -9,7 +9,7 @@
 		CodegenCommitDropHandler,
 		CodegenFileDropHandler,
 		CodegenHunkDropHandler,
-	} from "$lib/codegen/dropzone";
+	} from "$lib/codegen/codegenDropzone";
 	import {
 		extractLastMessage,
 		formatMessages,

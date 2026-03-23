@@ -1,4 +1,4 @@
-import { parseRemoteUrl } from "$lib/url/gitUrl";
+import { parseRemoteUrl } from "$lib/git/gitUrl";
 import type { GhResponse } from "$lib/forge/github/ghQuery";
 import type {
 	DetailedPullRequest,

@@ -1,9 +1,9 @@
 import { BaseBranch, type ForgeProvider, type RemoteBranchInfo } from "$lib/baseBranch/baseBranch";
 import { Code } from "$lib/error/knownErrors";
-import { showError } from "$lib/notifications/toasts";
-import { isReduxError } from "$lib/state/reduxError";
+import { isReduxError } from "$lib/error/reduxError";
+import { showError } from "$lib/error/showError";
+import { parseRemoteUrl } from "$lib/git/gitUrl";
 import { invalidatesList, invalidatesType, providesType, ReduxTag } from "$lib/state/tags";
-import { parseRemoteUrl } from "$lib/url/gitUrl";
 import { InjectionToken } from "@gitbutler/core/context";
 import { plainToInstance } from "class-transformer";
 import type { BackendApi } from "$lib/state/clientState.svelte";

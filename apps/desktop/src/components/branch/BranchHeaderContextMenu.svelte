@@ -15,13 +15,13 @@
 		type DeleteBranchModalProps,
 	} from "$components/branch/DeleteBranchModal.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import { PROMPT_SERVICE } from "$lib/ai/promptService";
+	import { PROMPT_SERVICE } from "$lib/ai/aiPromptService";
 	import { AI_SERVICE } from "$lib/ai/service";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { URL_SERVICE } from "$lib/backend/url";
 	import { projectAiGenEnabled } from "$lib/config/config";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
-	import { URL_SERVICE } from "$lib/utils/url";
 	import { inject } from "@gitbutler/core/context";
 	import {
 		ContextMenuItem,

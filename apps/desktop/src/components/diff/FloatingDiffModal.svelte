@@ -7,6 +7,7 @@
 	import Drawer from "$components/shared/Drawer.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import Resizer from "$components/shared/Resizer.svelte";
+	import { computeChangeStatus } from "$lib/files/fileStatus";
 	import FloatingModal from "$lib/floating/FloatingModal.svelte";
 	import { isExecutableStatus, type TreeChange } from "$lib/hunks/change";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
@@ -14,7 +15,6 @@
 	import { type SelectionId } from "$lib/selection/key";
 	import { ScrollSelectionLock } from "$lib/selection/scrollSelectionLock.svelte";
 	import { SETTINGS } from "$lib/settings/userSettings";
-	import { computeChangeStatus } from "$lib/utils/fileStatus";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, FileViewHeader, HunkDiffSkeleton, Icon, VirtualList } from "@gitbutler/ui";
 	import { FOCUS_MANAGER, type FocusableOptions } from "@gitbutler/ui/focus/focusManager";

@@ -1,14 +1,6 @@
-<script lang="ts" module>
-	export type BranchIconName =
-		| "branch"
-		| "branch-local"
-		| "branch-double-commit"
-		| "branch-merge"
-		| "home";
-</script>
-
 <script lang="ts">
 	import { Icon } from "@gitbutler/ui";
+	import type { BranchIconName } from "$lib/branches/branchIcon";
 
 	interface Props {
 		iconName: BranchIconName;

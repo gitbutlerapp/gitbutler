@@ -8,13 +8,13 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import Resizer from "$components/shared/Resizer.svelte";
 	import { type CommitKey } from "$lib/commits/commit";
+	import { splitMessage } from "$lib/commits/commitMessage";
 	import { rewrapCommitMessage } from "$lib/config/uiFeatureFlags";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { showToast } from "$lib/notifications/toasts";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
-	import { splitMessage } from "$lib/utils/commitMessage";
 	import { ensureValue } from "$lib/utils/validation";
 	import { inject, injectOptional } from "@gitbutler/core/context";
 	import { Button, TestId } from "@gitbutler/ui";

@@ -1,5 +1,3 @@
-import { EventContext } from "$lib/analytics/eventContext";
-import { PostHogWrapper } from "$lib/analytics/posthog";
 import { DefaultForgeFactory } from "$lib/forge/forgeFactory.svelte";
 import { GitHub } from "$lib/forge/github/github";
 import { GitLab } from "$lib/forge/gitlab/gitlab";
@@ -9,6 +7,8 @@ import {
 	type GitHubApi,
 	type GitLabApi,
 } from "$lib/state/clientState.svelte";
+import { EventContext } from "$lib/telemetry/eventContext";
+import { PostHogWrapper } from "$lib/telemetry/posthog";
 import { mockCreateBackend } from "$lib/testing/mockBackend";
 import { getSettingsdServiceMock } from "$lib/testing/mockSettingsdService";
 import { expect, test, describe, vi } from "vitest";

@@ -1,4 +1,4 @@
-import { isReduxError } from "$lib/state/reduxError";
+import { isReduxError } from "$lib/error/reduxError";
 import { getCookie } from "$lib/utils/cookies";
 import ReconnectingWebSocket from "reconnecting-websocket";
 import { readable } from "svelte/store";

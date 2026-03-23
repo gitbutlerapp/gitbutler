@@ -13,16 +13,16 @@
 	import UpstreamIntegrationActions from "$components/upstream/UpstreamIntegrationActions.svelte";
 	import { commitCreatedAt } from "$lib/branches/v3";
 	import { commitStatusLabel } from "$lib/commits/commit";
+	import { findEarliestConflict } from "$lib/commits/utils";
+	import { projectRunCommitHooks } from "$lib/config/config";
+	import { draggableCommitV3 } from "$lib/dragging/draggable";
 	import {
 		AmendCommitWithChangeDzHandler,
 		AmendCommitWithHunkDzHandler,
 		CommitDropData,
 		createCommitDropHandlers,
 		type DzCommitData,
-	} from "$lib/commits/dropHandler";
-	import { findEarliestConflict } from "$lib/commits/utils";
-	import { projectRunCommitHooks } from "$lib/config/config";
-	import { draggableCommitV3 } from "$lib/dragging/draggable";
+	} from "$lib/dragging/dropHandlers/commitDropHandler";
 	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
 	import {
 		ReorderCommitDzFactory,
@@ -31,7 +31,7 @@
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { createCommitSelection } from "$lib/selection/key";
-	import { getStackContext } from "$lib/stack/stackController.svelte";
+	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 
 	import { combineResults } from "$lib/state/helpers";

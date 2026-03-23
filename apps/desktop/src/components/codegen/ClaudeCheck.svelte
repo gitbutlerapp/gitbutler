@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { CLAUDE_CODE_SERVICE } from "$lib/codegen/claude";
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { inject } from "@gitbutler/core/context";
 	import { Icon, Textbox, AsyncButton, Codeblock } from "@gitbutler/ui";
 	import { fromStore } from "svelte/store";

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { setContext } from "svelte";
 	import { writable } from "svelte/store";
-	import type { TabContext } from "$lib/tabs";
+	import type { TabContext } from "$lib/utils/tabs";
 	import type { Snippet } from "svelte";
 
 	interface Props {

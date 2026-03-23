@@ -1,4 +1,4 @@
-import type { DependencyError, HunkDependencies } from "$lib/dependencies/dependencies";
+import type { DependencyError, HunkDependencies } from "$lib/hunks/dependencies";
 import type { HunkAssignment, HunkAssignmentError } from "$lib/hunks/hunk";
 import type { CoreUI } from "@gitbutler/core/api";
 

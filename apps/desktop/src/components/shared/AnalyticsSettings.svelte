@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { inject } from "@gitbutler/core/context";
 	import { CardGroup, Link, TestId, Toggle } from "@gitbutler/ui";
 

@@ -1,3 +1,4 @@
+import { createBranchRef } from "$lib/branches/branchUtils";
 import {
 	selectionKey,
 	key,
@@ -7,7 +8,6 @@ import {
 	type SelectionId,
 	type SelectedFile,
 } from "$lib/selection/key";
-import { createBranchRef } from "$lib/utils/branch";
 import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { SvelteSet } from "svelte/reactivity";
@@ -17,8 +17,29 @@ import type { OplogService } from "$lib/history/oplogService.svelte";
 import type { TreeChange } from "$lib/hunks/change";
 import type { HunkAssignment } from "$lib/hunks/hunk";
 import type { UncommittedService } from "$lib/selection/uncommittedService.svelte";
-import type { StackService } from "$lib/stacks/stackService.svelte";
+import type { Result } from "$lib/state/helpers";
 import type { WorktreeService } from "$lib/worktree/worktreeService.svelte";
+
+// Structural type for the return value of change-by-path queries.
+type ChangeResult = { result: Result<TreeChange>; response: TreeChange | undefined };
+
+// Structural interface to avoid circular import with stacks/.
+interface StackServiceLike {
+	branchChangesByPaths(args: {
+		projectId: string;
+		stackId?: string;
+		branch: string;
+		paths: string[];
+	}): Promise<TreeChange[]>;
+	commitChangesByPaths(projectId: string, commitId: string, paths: string[]): Promise<TreeChange[]>;
+	commitChange(projectId: string, commitId: string, path: string): ChangeResult;
+	branchChange(args: {
+		projectId: string;
+		stackId?: string;
+		branch: string;
+		path: string;
+	}): ChangeResult;
+}
 
 export const FILE_SELECTION_MANAGER = new InjectionToken<FileSelectionManager>(
 	"FileSelectionManager",
@@ -47,7 +68,7 @@ export class FileSelectionManager {
 	>;
 
 	constructor(
-		private stackService: StackService,
+		private stackService: StackServiceLike,
 		private uncommittedService: UncommittedService,
 		private worktreeService: WorktreeService,
 		private oplogService: OplogService,

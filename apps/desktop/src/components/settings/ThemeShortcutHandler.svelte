@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { BACKEND } from "$lib/backend";
+	import { initTheme } from "$lib/bootstrap/theme";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { SHORTCUT_SERVICE } from "$lib/shortcuts/shortcutService";
-	import { initTheme } from "$lib/utils/theme";
 	import { inject } from "@gitbutler/core/context";
 
 	const userSettings = inject(SETTINGS);

@@ -8,6 +8,7 @@
 	import { AI_SERVICE } from "$lib/ai/service";
 	import { BACKEND } from "$lib/backend";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { getEditorUri, URL_SERVICE } from "$lib/backend/url";
 	import { changesToDiffSpec } from "$lib/commits/utils";
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from "$lib/config/config";
 	import { FILE_SERVICE } from "$lib/files/fileService";
@@ -18,7 +19,6 @@
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
-	import { getEditorUri, URL_SERVICE } from "$lib/utils/url";
 	import { inject } from "@gitbutler/core/context";
 	import {
 		ContextMenu,

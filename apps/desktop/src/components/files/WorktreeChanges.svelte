@@ -8,10 +8,10 @@
 	import DropzoneOverlay from "$components/shared/DropzoneOverlay.svelte";
 	import { ACTION_SERVICE } from "$lib/actions/actionService.svelte";
 	import { AI_SERVICE } from "$lib/ai/service";
-	import { UncommitDzHandler } from "$lib/commits/dropHandler";
 	import { projectAiGenEnabled } from "$lib/config/config";
+	import { UncommitDzHandler } from "$lib/dragging/dropHandlers/commitDropHandler";
+	import { AssignmentDropHandler } from "$lib/dragging/dropHandlers/hunkDropHandler";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
-	import { AssignmentDropHandler } from "$lib/hunks/dropHandler";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { WORKING_FILES_BROADCAST } from "$lib/irc/workingFilesBroadcast.svelte";
 	import { showToast } from "$lib/notifications/toasts";

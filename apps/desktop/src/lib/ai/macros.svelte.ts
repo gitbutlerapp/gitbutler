@@ -1,6 +1,7 @@
-import { showError, showToast } from "$lib/notifications/toasts";
+import { showError } from "$lib/error/showError";
+import { showToast } from "$lib/notifications/toasts";
+import type { PromptService } from "$lib/ai/aiPromptService";
 import type DiffInputContext from "$lib/ai/diffInputContext.svelte";
-import type { PromptService } from "$lib/ai/promptService";
 import type { AIService, DiffInput } from "$lib/ai/service";
 
 type GenerateCommitMessageParams = {

@@ -4,12 +4,12 @@ This component keeps the analytics context up-to-date, i.e. the metadata
 attached to posthog events.
 -->
 <script lang="ts">
-	import { EVENT_CONTEXT } from "$lib/analytics/eventContext";
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
 	import { gitAuthType } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { EVENT_CONTEXT } from "$lib/telemetry/eventContext";
 	import { inject } from "@gitbutler/core/context";
 
 	const { projectId }: { projectId: string } = $props();

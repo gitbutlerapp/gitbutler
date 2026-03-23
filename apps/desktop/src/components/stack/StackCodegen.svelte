@@ -12,7 +12,7 @@
 	import CodegenMessages from "$components/codegen/CodegenMessages.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { CLAUDE_CODE_SERVICE } from "$lib/codegen/claude";
-	import { getStackContext } from "$lib/stack/stackController.svelte";
+	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import type { ClaudeConfig } from "$lib/codegen/types";

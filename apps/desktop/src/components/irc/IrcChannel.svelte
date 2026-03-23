@@ -3,12 +3,12 @@
 	import IrcMessages from "$components/irc/IrcMessages.svelte";
 	import IrcNames from "$components/irc/IrcNames.svelte";
 	import { BACKEND } from "$lib/backend";
+	import { getEditorUri, URL_SERVICE } from "$lib/backend/url";
 	import { IRC_API_SERVICE, IRC_CONNECTION_ID } from "$lib/irc/ircApiService";
 	import { vscodePath } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
-	import { getEditorUri, URL_SERVICE } from "$lib/utils/url";
 	import { inject } from "@gitbutler/core/context";
 	import {
 		ContextMenuItem,

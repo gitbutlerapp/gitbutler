@@ -1,6 +1,6 @@
 <script lang="ts">
 	import AIPromptEntry from "$components/settings/AIPromptEntry.svelte";
-	import { PROMPT_SERVICE } from "$lib/ai/promptService";
+	import { PROMPT_SERVICE } from "$lib/ai/aiPromptService";
 	import { inject } from "@gitbutler/core/context";
 	import { Button } from "@gitbutler/ui";
 	import { get } from "svelte/store";

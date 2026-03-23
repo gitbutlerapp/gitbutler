@@ -8,8 +8,11 @@
 	import PrNumberSync from "$components/forge/PrNumberSync.svelte";
 	import Dropzone from "$components/shared/Dropzone.svelte";
 	import DropzoneOverlay from "$components/shared/DropzoneOverlay.svelte";
-	import { BranchDropData, StartCommitDzHandler } from "$lib/branches/dropHandler";
-	import { MoveCommitDzHandler } from "$lib/commits/dropHandler";
+	import {
+		BranchDropData,
+		StartCommitDzHandler,
+	} from "$lib/dragging/dropHandlers/branchDropHandler";
+	import { MoveCommitDzHandler } from "$lib/dragging/dropHandlers/commitDropHandler";
 	import { ReorderCommitDzHandler } from "$lib/dragging/stackingReorderDropzoneManager";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -17,7 +20,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import { ReviewBadge, TestId } from "@gitbutler/ui";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
-	import type { BranchIconName } from "$components/branch/BranchHeaderIcon.svelte";
+	import type { BranchIconName } from "$lib/branches/branchIcon";
 	import type { DropzoneHandler } from "$lib/dragging/handler";
 	import type { PushStatus } from "$lib/stacks/stack";
 	import type { Snippet } from "svelte";

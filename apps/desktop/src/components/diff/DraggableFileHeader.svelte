@@ -3,12 +3,12 @@
 	import { draggableChips } from "$lib/dragging/draggable";
 	import { FileChangeDropData } from "$lib/dragging/draggables";
 	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
+	import { computeChangeStatus } from "$lib/files/fileStatus";
 	import { getFilename } from "$lib/files/utils";
 	import { type TreeChange } from "$lib/hunks/change";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { type SelectionId } from "$lib/selection/key";
 	import { SETTINGS } from "$lib/settings/userSettings";
-	import { computeChangeStatus } from "$lib/utils/fileStatus";
 	import { inject } from "@gitbutler/core/context";
 	import { FileViewHeader, TestId } from "@gitbutler/ui";
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";

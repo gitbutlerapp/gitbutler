@@ -14,7 +14,7 @@
 		projectCommitGenerationHaiku,
 		projectCommitGenerationUseEmojis,
 	} from "$lib/config/config";
-	import { showError } from "$lib/notifications/toasts";
+	import { showError } from "$lib/error/showError";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";

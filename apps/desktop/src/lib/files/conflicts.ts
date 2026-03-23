@@ -1,5 +1,8 @@
 import "reflect-metadata";
-import { emptyConflictEntryPresence, type ConflictEntryPresence } from "$lib/conflictEntryPresence";
+import {
+	emptyConflictEntryPresence,
+	type ConflictEntryPresence,
+} from "$lib/files/conflictEntryPresence";
 
 export class ConflictEntries {
 	public entries: Map<string, ConflictEntryPresence> = new Map();

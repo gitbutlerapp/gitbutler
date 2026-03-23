@@ -14,7 +14,6 @@
  */
 
 import { type ClaudeCodeService } from "$lib/codegen/claude";
-import { type SettingsService } from "$lib/config/appSettingsV2";
 import { IRC_CONNECTION_ID, type IrcApiService } from "$lib/irc/ircApiService";
 import {
 	Messages,
@@ -25,6 +24,7 @@ import {
 	type IrcProtocolMessage,
 	type PlainTextCommand,
 } from "$lib/irc/protocol";
+import { type SettingsService } from "$lib/settings/appSettings";
 import { InjectionToken } from "@gitbutler/core/context";
 import { persistWithExpiration, type Persisted } from "@gitbutler/shared/persisted";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";

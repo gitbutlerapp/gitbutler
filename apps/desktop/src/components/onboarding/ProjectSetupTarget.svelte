@@ -1,13 +1,13 @@
 <script lang="ts">
 	import ProjectNameLabel from "$components/shared/ProjectNameLabel.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
 	import gerritLogoSvg from "$lib/assets/gerrit-logo.svg?raw";
+	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from "$lib/branches/branchUtils";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { combineResults } from "$lib/state/helpers";
+	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { unique } from "$lib/utils/array";
-	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from "$lib/utils/branch";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, CardGroup, Icon, Link, Select, SelectItem, TestId, Toggle } from "@gitbutler/ui";
 	import { slide } from "svelte/transition";

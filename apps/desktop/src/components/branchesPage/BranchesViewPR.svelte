@@ -3,9 +3,9 @@
 	import PRListCard from "$components/branchesPage/PRListCard.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { showError } from "$lib/error/showError";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
-	import { showError } from "$lib/notifications/toasts";
-	import { REMOTES_SERVICE } from "$lib/remotes/remotesService";
+	import { REMOTES_SERVICE } from "$lib/git/remotesService";
 	import { workspacePath } from "$lib/routes/routes.svelte";
 	import { handleCreateBranchFromBranchOutcome } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";

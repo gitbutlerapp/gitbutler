@@ -1,11 +1,11 @@
 <script lang="ts">
 	import GithubUserLoginState from "$components/settings/GithubUserLoginState.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
 	import githubLogoSvg from "$lib/assets/unsized-logos/github.svg?raw";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { URL_SERVICE } from "$lib/backend/url";
 	import { GITHUB_USER_SERVICE } from "$lib/forge/github/githubUserService.svelte";
-	import { URL_SERVICE } from "$lib/utils/url";
+	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
 
 	import {

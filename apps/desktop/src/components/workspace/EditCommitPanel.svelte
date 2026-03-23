@@ -2,12 +2,15 @@
 	import ScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import ChangedFilesContextMenu from "$components/shared/ChangedFilesContextMenu.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
+	import { getEditorUri, URL_SERVICE } from "$lib/backend/url";
+	import { splitMessage } from "$lib/commits/commitMessage";
 	import {
 		conflictEntryHint,
 		getConflictState,
 		type ConflictEntryPresence,
-	} from "$lib/conflictEntryPresence";
+	} from "$lib/files/conflictEntryPresence";
 	import { FILE_SERVICE } from "$lib/files/fileService";
+	import { computeChangeStatus } from "$lib/files/fileStatus";
 	import { MODE_SERVICE, type EditModeMetadata } from "$lib/mode/modeService";
 	import { vscodePath } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
@@ -15,9 +18,6 @@
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { USER } from "$lib/user/user";
-	import { splitMessage } from "$lib/utils/commitMessage";
-	import { computeChangeStatus } from "$lib/utils/fileStatus";
-	import { getEditorUri, URL_SERVICE } from "$lib/utils/url";
 	import { inject } from "@gitbutler/core/context";
 
 	import {

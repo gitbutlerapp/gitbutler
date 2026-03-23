@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import SettingsSection from "$components/shared/SettingsSection.svelte";
-	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
 	import { BACKEND } from "$lib/backend";
 	import { parseError } from "$lib/error/parser";
 	import { GIT_SERVICE } from "$lib/git/gitService";
+	import { parseRemoteUrl } from "$lib/git/gitUrl";
 	import { handleAddProjectOutcome } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { projectPath } from "$lib/routes/routes.svelte";
-	import { parseRemoteUrl } from "$lib/url/gitUrl";
+	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
 	import { persisted } from "@gitbutler/shared/persisted";
 	import { Button, InfoMessage, type MessageStyle, Spacer, Textbox } from "@gitbutler/ui";

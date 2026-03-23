@@ -4,10 +4,10 @@ import { GitLabListingService } from "$lib/forge/gitlab/gitlabListingService.sve
 import { GitLabPrService } from "$lib/forge/gitlab/gitlabPrService.svelte";
 import { providesList, ReduxTag } from "$lib/state/tags";
 import { toSerializable } from "@gitbutler/shared/network/types";
-import type { PostHogWrapper } from "$lib/analytics/posthog";
 import type { Forge, ForgeName } from "$lib/forge/interface/forge";
 import type { ForgeArguments, ForgeUser } from "$lib/forge/interface/types";
 import type { AppDispatch, BackendApi, GitLabApi } from "$lib/state/clientState.svelte";
+import type { PostHogWrapper } from "$lib/telemetry/posthog";
 import type { Branded } from "@gitbutler/shared/utils/branding";
 import type { TagDescription } from "@reduxjs/toolkit/query";
 

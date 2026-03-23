@@ -15,8 +15,8 @@
 -->
 <script lang="ts">
 	import EditPatchConfirmModal from "$components/commit/EditPatchConfirmModal.svelte";
-	import { conflictEntryHint } from "$lib/conflictEntryPresence";
-	import { editPatch } from "$lib/editMode/editPatchUtils";
+	import { conflictEntryHint } from "$lib/files/conflictEntryPresence";
+	import { editPatch } from "$lib/mode/editPatchUtils";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { getFileListContext } from "$lib/selection/fileListController.svelte";
 	import { SETTINGS } from "$lib/settings/userSettings";

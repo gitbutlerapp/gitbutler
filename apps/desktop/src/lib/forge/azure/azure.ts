@@ -2,9 +2,9 @@ import { AzureBranch } from "$lib/forge/azure/azureBranch";
 import type { Forge, ForgeName } from "$lib/forge/interface/forge";
 import type { ForgeRepoService } from "$lib/forge/interface/forgeRepoService";
 import type { ForgeArguments, ForgeUser } from "$lib/forge/interface/types";
+import type { RepoInfo } from "$lib/git/gitUrl";
 import type { ReactiveQuery } from "$lib/state/butlerModule";
 import type { ReduxTag } from "$lib/state/tags";
-import type { RepoInfo } from "$lib/url/gitUrl";
 import type { TagDescription } from "@reduxjs/toolkit/query";
 
 export const AZURE_DOMAIN = "dev.azure.com";
