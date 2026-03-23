@@ -1409,7 +1409,13 @@ impl App {
 
     /// Prompts the user to press enter before returning from a command execution.
     fn prompt_to_continue(&mut self, out: &mut OutputChannel) -> anyhow::Result<()> {
-        if let Some(mut input_channel) = out.prepare_for_terminal_input() {
+        // don't prompt for user input during tests
+        //
+        // `cfg!(test)` is false for integration tests but we currently don't have integration
+        // tests of the TUI so thats fine for now.
+        const IN_TEST: bool = cfg!(test);
+
+        if !IN_TEST && let Some(mut input_channel) = out.prepare_for_terminal_input() {
             input_channel.prompt_single_line("\npress enter to continue...")?;
         }
 
