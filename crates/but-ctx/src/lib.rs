@@ -925,7 +925,7 @@ impl Context {
     //            based implementation as long as the instances starts a transaction to isolate
     //            reads. For a correct implementation, this would also have to hold on to
     //            `_read_only`.
-    pub fn meta(&self) -> anyhow::Result<impl but_core::RefMetadata + 'static> {
+    pub fn meta(&self) -> anyhow::Result<impl but_core::RefMetadata> {
         but_meta::VirtualBranchesTomlMetadata::from_path(
             self.project_data_dir().join("virtual_branches.toml"),
         )

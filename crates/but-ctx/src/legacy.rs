@@ -119,10 +119,7 @@ impl Context {
     pub fn workspace_and_meta_from_head(
         &self,
         _exclusive_access: &RepoExclusive,
-    ) -> anyhow::Result<(
-        impl but_core::RefMetadata + 'static,
-        but_graph::projection::Workspace,
-    )> {
+    ) -> anyhow::Result<(impl but_core::RefMetadata, but_graph::projection::Workspace)> {
         let ws = self.workspace_from_head()?;
         Ok((self.meta()?, ws))
     }
