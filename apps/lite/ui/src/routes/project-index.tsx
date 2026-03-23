@@ -777,7 +777,6 @@ const RubTarget: FC<
 	});
 
 	const sourceItem = useDraggedSourceItem();
-
 	const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
 	const tooltip = isActiveDropTarget && rubSource ? rubOperationLabel(rubSource, target) : null;
 
