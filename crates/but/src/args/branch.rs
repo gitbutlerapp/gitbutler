@@ -133,6 +133,12 @@ pub enum Subcommands {
         #[clap(value_name = "TARGET_BRANCH")]
         target_branch: String,
     },
+    /// Tear a branch out of a stack, effectively unstacking it.
+    TearOff {
+        /// The name or CLI ID of the branch to tear off
+        #[clap(value_name = "BRANCH")]
+        branch: String,
+    },
     /// Apply a branch to the workspace (non-legacy path)
     ///
     /// If you want to apply an unapplied branch to your workspace so you

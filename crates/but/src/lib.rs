@@ -428,6 +428,10 @@ async fn match_subcommand(
                     let ctx = but_ctx::Context::discover(&args.current_dir)?;
                     command::branch::move_branch(ctx, &branch, &target_branch, out)
                 }
+                Some(branch::Subcommands::TearOff { branch }) => {
+                    let ctx = but_ctx::Context::discover(&args.current_dir)?;
+                    command::branch::tear_off_branch(ctx, &branch, out)
+                }
             };
             result.emit_metrics(metrics_ctx)
         }

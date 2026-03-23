@@ -99,6 +99,7 @@ impl Subcommands {
                 #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Show { .. }) => BranchShow,
                 Some(branch::Subcommands::Move { .. }) => BranchMove,
+                Some(branch::Subcommands::TearOff { .. }) => BranchTearOff,
                 #[cfg(not(feature = "legacy"))]
                 Some(branch::Subcommands::Apply { .. }) => BranchApply,
             },
