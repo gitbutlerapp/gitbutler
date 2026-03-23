@@ -1163,10 +1163,8 @@ const BranchTarget: FC<
 		}),
 	});
 
-	const sourceItem = useDraggedSourceItem();
-
 	return (
-		<Tooltip.Root open={isDropTarget && !!sourceItem && !!getOperationTarget(sourceItem)}>
+		<Tooltip.Root open={isDropTarget}>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
@@ -1191,10 +1189,8 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 		}),
 	});
 
-	const sourceItem = useDraggedSourceItem();
-
 	return (
-		<Tooltip.Root open={isDropTarget && sourceItem?._tag === "Branch"}>
+		<Tooltip.Root open={isDropTarget}>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
