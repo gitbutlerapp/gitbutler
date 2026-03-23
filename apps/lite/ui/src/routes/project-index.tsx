@@ -760,7 +760,7 @@ const RubTarget: FC<
 		canDrop: ({ source }) => {
 			const sourceItem = parseDragData(source.data);
 			const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
-			return rubSource !== null && rubOperationLabel(rubSource, target) !== null;
+			return !!rubSource && rubOperationLabel(rubSource, target) !== null;
 		},
 		getData: (): OperationTarget => ({
 			_tag: "Rub",
