@@ -101,9 +101,18 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 				Match.exhaustive,
 			);
 		}),
-		// TODO: implement squashing when API is ready
-		Match.tag("Commit", async (): Promise<RubResult> => {
-			throw new Error("Squashing has not been implemented yet.");
-		}),
+		Match.tag("Commit", () =>
+			Match.value(target).pipe(
+				// TODO: implement when API is ready
+				Match.tag("Commit", async (): Promise<RubResult> => {
+					throw new Error("Squashing has not been implemented yet.");
+				}),
+				// TODO: implement when API is ready
+				Match.tag("Changes", async (): Promise<RubResult> => {
+					throw new Error("Uncommitting has not been implemented yet.");
+				}),
+				Match.exhaustive,
+			),
+		),
 		Match.exhaustive,
 	);

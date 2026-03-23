@@ -122,7 +122,7 @@ const rubOperationLabel = (rubSource: RubSource, target: ChangeUnit): RubOperati
 					if (source.commitId === target.commitId) return null;
 					return "Squash";
 				}),
-				Match.tag("Changes", () => null),
+				Match.tag("Changes", () => "Uncommit"),
 				Match.exhaustive,
 			),
 		),
