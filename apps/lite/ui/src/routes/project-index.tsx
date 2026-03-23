@@ -84,6 +84,17 @@ const rubSourceFor = (item: SourceItem): RubSource | null =>
 
 type RubOperationLabel = "Amend" | "Uncommit" | "Assign" | "Unassign" | "Squash";
 
+/**
+ * | SOURCE ↓ / TARGET →    | Unassigned changes | Assigned changes | Commit |
+ * | ---------------------- | ------------------ | ---------------- | ------ |
+ * | File/hunk from changes | Unassign           | Assign           | Amend  |
+ * | File/hunk from commit  | Uncommit           | Uncommit         | Amend  |
+ * | Commit                 | Uncommit           | Uncommit         | Squash |
+ *
+ * Note this is currently different from the CLI's definition of "rubbing" which
+ * includes move operations.
+ * https://linear.app/gitbutler/issue/GB-1160/what-should-rubbing-a-branch-into-another-branch-do#comment-db2abdb7
+ */
 const rubOperationLabel = (rubSource: RubSource, target: ChangeUnit): RubOperationLabel | null =>
 	Match.value(rubSource).pipe(
 		Match.withReturnType<RubOperationLabel | null>(),
