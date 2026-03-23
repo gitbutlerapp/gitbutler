@@ -66,7 +66,7 @@ import { rubOperationLabel, RubParams, type RubSource } from "#ui/rub.ts";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
-import { CommitMoveParams, MoveBranchParams, TearOffBranchParams } from "#electron/ipc.ts";
+import { CommitMoveParams, MoveBranchParams } from "#electron/ipc.ts";
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 const decodeRefName = (fullNameBytes: Array<number>): string =>
@@ -325,7 +325,7 @@ const useRunOperation = (projectId: string) => {
 				tearOffBranch.mutate({
 					projectId,
 					subjectBranch: decodeRefName(sourceItem.anchorRef),
-				} satisfies TearOffBranchParams);
+				});
 			}),
 			Match.exhaustive,
 		);
