@@ -62,7 +62,7 @@ import {
 } from "#ui/queries.ts";
 import { type ChangeUnit } from "#ui/ChangeUnit.ts";
 import { RejectedChange, RejectedChanges } from "#ui/components/RejectedChanges.tsx";
-import { RubParams, type RubSource } from "#ui/rub.ts";
+import { RubParams, type RubSource } from "#ui/rub-api.ts";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
