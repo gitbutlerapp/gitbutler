@@ -750,6 +750,32 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Config(config::Platform),
 
+    /// Edit a commit in your stack.
+    ///
+    /// This enters edit mode, checking out the specified commit so you can
+    /// make changes to it directly. When finished, save your changes to
+    /// rebase the stack, or cancel to discard changes.
+    ///
+    /// ## Workflow
+    ///
+    /// 1. Enter edit mode: `but edit-mode <commit-id>`
+    /// 2. Make changes to files as needed
+    /// 3. Check what has changed: `but edit-mode status`
+    /// 4. Save changes: `but edit-mode finish`
+    ///    Or cancel: `but edit-mode cancel`
+    ///
+    /// When in edit mode, `but status` will also show that you're editing a commit.
+    ///
+    #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
+    EditMode {
+        /// Subcommand to run (defaults to entering edit mode)
+        #[clap(subcommand)]
+        cmd: Option<edit_mode::Subcommands>,
+        /// Commit ID to enter edit mode for (when no subcommand is provided)
+        commit: Option<String>,
+    },
+
     /// Resolve conflicts in a commit.
     ///
     /// When a commit is in a conflicted state (marked with conflicts during rebase),
@@ -1131,6 +1157,8 @@ pub mod actions {
     }
 }
 
+#[cfg(feature = "legacy")]
+pub mod edit_mode;
 pub mod forge;
 pub mod metrics;
 #[cfg(feature = "legacy")]

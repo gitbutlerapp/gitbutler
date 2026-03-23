@@ -1159,6 +1159,21 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
+        Subcommands::EditMode { cmd, commit } => {
+            let mut ctx = setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled,
+                    ..Default::default()
+                },
+                out,
+            )?;
+            command::legacy::edit_mode::handle(&mut ctx, out, cmd, commit)
+                .context("Failed to handle edit mode.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
+        #[cfg(feature = "legacy")]
         Subcommands::Resolve { cmd, commit } => {
             let mut ctx = setup::init_ctx(
                 &args,

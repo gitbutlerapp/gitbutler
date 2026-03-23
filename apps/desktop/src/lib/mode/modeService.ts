@@ -1,3 +1,4 @@
+import { parseError } from "$lib/error/parser";
 import { hasBackendExtra } from "$lib/state/backendQuery";
 import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
@@ -140,8 +141,17 @@ function injectEndpoints(api: BackendApi) {
 						`project://${arg.projectId}/worktree_changes`,
 						async (_) => {
 							if (finished) return;
-							const changes = await invoke<TreeChange[]>("edit_changes_from_initial", arg);
-							lifecycleApi.updateCachedData(() => changes);
+							try {
+								const changes = await invoke<TreeChange[]>("edit_changes_from_initial", arg);
+								lifecycleApi.updateCachedData(() => changes);
+							} catch (error: unknown) {
+								// Edit mode may have been exited (e.g. via CLI) before this
+								// listener was unsubscribed. Silently ignore that specific race.
+								const { message } = parseError(error);
+								if (!message.includes("Expected to be in edit mode")) {
+									throw error;
+								}
+							}
 						},
 					);
 					// The `cacheEntryRemoved` promise resolves when the result is removed
