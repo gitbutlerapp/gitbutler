@@ -27,6 +27,7 @@
 	} from "$lib/selection/fileListController.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { FOCUS_MANAGER } from "@gitbutler/ui/focus/focusManager";
 	import type { ConflictEntriesObj } from "$lib/files/conflicts";
 	import type { TreeChange } from "$lib/hunks/change";
 
@@ -66,6 +67,7 @@
 
 	const controller = getFileListContext();
 	const dependencyService = inject(DEPENDENCY_SERVICE);
+	const focusManager = inject(FOCUS_MANAGER);
 
 	/** Invert nick→paths map to path→nicks for per-file lookup. */
 	const ircWorkingUsersByPath = $derived.by(() => {
@@ -135,7 +137,25 @@
 						if (handler(change, idx, e)) return true;
 					}
 				}
-				// 3. Arrow/vim navigation — only claim the event if we moved
+				// 3. Arrow/vim navigation.
+				// In tree mode with shift held: use flat-array multi-select (handleNavigation)
+				// so shift+arrows extend the selection across files, skipping folders.
+				// In tree mode without shift: let FM navigate naturally through folder
+				// headers too — file selection happens via onActive below.
+				// In list mode: always intercept and drive selection ourselves.
+				if (mode === "tree") {
+					if (e.shiftKey) {
+						const navigatedIndex = controller.handleNavigation(e);
+						if (navigatedIndex !== undefined) {
+							const navigatedChange = controller.changes[navigatedIndex];
+							if (navigatedChange) {
+								onselect?.(navigatedChange, navigatedIndex);
+							}
+							return true;
+						}
+					}
+					return false;
+				}
 				const navigatedIndex = controller.handleNavigation(e);
 				if (navigatedIndex !== undefined && navigatedIndex !== idx) {
 					const navigatedChange = controller.changes[navigatedIndex];
@@ -145,6 +165,21 @@
 					return true;
 				}
 			},
+			// In tree mode, FM fires onActive when plain arrow keys land on a file
+			// item. We use this to drive single-file selection so folders are
+			// navigable. Shift+arrows are handled in onKeydown above instead.
+			// Guard: skip when controller.isKeyboardSelecting is true — that means
+			// shift-range-select called focusByElement to move the ring, and we
+			// must not overwrite the multi-select with a single-file set().
+			onActive:
+				mode === "tree"
+					? (active) => {
+							if (active && focusManager.isKeyboardNavigation && !controller.isKeyboardSelecting) {
+								controller.selectSingle(change, idx);
+								onselect?.(change, idx);
+							}
+						}
+					: undefined,
 			focusable: true,
 		}}
 		onclick={(e) => {
@@ -179,6 +214,7 @@
 				draggableFiles={draggable}
 				changes={controller.changes}
 				{fileTemplate}
+				active={controller.active}
 			/>
 		{:else}
 			<LazyList items={controller.changes} chunkSize={100}>

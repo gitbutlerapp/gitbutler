@@ -98,6 +98,7 @@
 
 <div
 	bind:this={ref}
+	{id}
 	data-locked={locked}
 	data-file-id={id}
 	class="file-list-item"
