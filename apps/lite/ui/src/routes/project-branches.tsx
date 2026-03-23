@@ -13,7 +13,7 @@ import {
 	Hunk,
 	classes,
 } from "#ui/routes/project-shared.tsx";
-import { ProjectPanelLayout } from "#ui/routes/ProjectPanelLayout.tsx";
+import { ProjectPreviewLayout } from "#ui/routes/ProjectPreviewLayout.tsx";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { BranchDetails, BranchIdentity, BranchListing, Commit } from "@gitbutler/but-sdk";
 import styles from "./project-branches.module.css";
@@ -580,7 +580,7 @@ const ProjectBranchesPage: FC = () => {
 	return sortedBranches.length === 0 ? (
 		<p>No branches found.</p>
 	) : (
-		<ProjectPanelLayout
+		<ProjectPreviewLayout
 			projectId={projectId}
 			preview={
 				selection && (
@@ -648,7 +648,7 @@ const ProjectBranchesPage: FC = () => {
 					</div>
 				)}
 			</div>
-		</ProjectPanelLayout>
+		</ProjectPreviewLayout>
 	);
 };
 

@@ -15,7 +15,7 @@ const isTypingTarget = (target: EventTarget | null) => {
 	);
 };
 
-export const ProjectPanelLayout: FC<{
+export const ProjectPreviewLayout: FC<{
 	projectId: string;
 	children: ReactNode;
 	preview: ReactNode | null;

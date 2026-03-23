@@ -1,5 +1,5 @@
 import { mutationOptions } from "@tanstack/react-query";
-import { rub } from "#ui/rub.ts";
+import { rub } from "#ui/rub-api.ts";
 
 export const applyBranchMutationOptions = mutationOptions({
 	mutationFn: window.lite.apply,

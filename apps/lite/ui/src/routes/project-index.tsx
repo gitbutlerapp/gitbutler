@@ -31,7 +31,7 @@ import sharedStyles from "./project-shared.module.css";
 import { DependencyIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
-import { ProjectPanelLayout } from "#ui/routes/ProjectPanelLayout.tsx";
+import { ProjectPreviewLayout } from "#ui/routes/ProjectPreviewLayout.tsx";
 import {
 	CommitDetails,
 	CommitLabel,
@@ -62,11 +62,83 @@ import {
 } from "#ui/queries.ts";
 import { type ChangeUnit } from "#ui/ChangeUnit.ts";
 import { RejectedChange, RejectedChanges } from "#ui/components/RejectedChanges.tsx";
-import { rubOperationLabel, RubParams, type RubSource } from "#ui/rub.ts";
+import { RubParams, type RubSource } from "#ui/rub-api.ts";
 import { projectRootRoute } from "#ui/routes/project-root.tsx";
 import { createDiffSpec } from "#ui/DiffSpec.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 import { CommitMoveParams, MoveBranchParams, TearOffBranchParams } from "#electron/ipc.ts";
+
+const rubSourceFor = (item: SourceItem): RubSource | null =>
+	Match.value(item).pipe(
+		Match.tag("Branch", (): RubSource | null => null),
+		Match.tag("Commit", ({ commitId }): RubSource | null => ({
+			_tag: "Commit",
+			source: { commitId },
+		})),
+		Match.tag("TreeChange", ({ source }): RubSource | null => ({
+			_tag: "TreeChange",
+			source,
+		})),
+		Match.exhaustive,
+	);
+
+type RubOperationLabel = "Amend" | "Uncommit" | "Assign" | "Unassign" | "Squash";
+
+/**
+ * | SOURCE ↓ / TARGET →    | Unassigned changes | Assigned changes | Commit |
+ * | ---------------------- | ------------------ | ---------------- | ------ |
+ * | File/hunk from changes | Unassign           | Assign           | Amend  |
+ * | File/hunk from commit  | Uncommit           | Uncommit         | Amend  |
+ * | Commit                 | Uncommit           | Uncommit         | Squash |
+ *
+ * Note this is currently different from the CLI's definition of "rubbing" which
+ * includes move operations.
+ * https://linear.app/gitbutler/issue/GB-1160/what-should-rubbing-a-branch-into-another-branch-do#comment-db2abdb7
+ */
+const rubOperationLabel = (rubSource: RubSource, target: ChangeUnit): RubOperationLabel | null =>
+	Match.value(rubSource).pipe(
+		Match.withReturnType<RubOperationLabel | null>(),
+		Match.tag("TreeChange", ({ source }) =>
+			Match.value(source.parent).pipe(
+				Match.withReturnType<RubOperationLabel | null>(),
+				Match.tag("Changes", (source) =>
+					Match.value(target).pipe(
+						Match.withReturnType<RubOperationLabel | null>(),
+						Match.tag("Changes", (target) => {
+							if (source.stackId === target.stackId) return null;
+							return target.stackId === null ? "Unassign" : "Assign";
+						}),
+						Match.tag("Commit", () => "Amend"),
+						Match.exhaustive,
+					),
+				),
+				Match.tag("Commit", (source) =>
+					Match.value(target).pipe(
+						Match.withReturnType<RubOperationLabel | null>(),
+						Match.tag("Changes", () => "Uncommit"),
+						Match.tag("Commit", (target) => {
+							if (source.commitId === target.commitId) return null;
+							return "Amend";
+						}),
+						Match.exhaustive,
+					),
+				),
+				Match.exhaustive,
+			),
+		),
+		Match.tag("Commit", ({ source }) =>
+			Match.value(target).pipe(
+				Match.withReturnType<RubOperationLabel | null>(),
+				Match.tag("Changes", () => "Uncommit"),
+				Match.tag("Commit", (target) => {
+					if (source.commitId === target.commitId) return null;
+					return "Squash";
+				}),
+				Match.exhaustive,
+			),
+		),
+		Match.exhaustive,
+	);
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 const decodeRefName = (fullNameBytes: Array<number>): string =>
@@ -193,20 +265,6 @@ const getCommonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 	return bases.every((base) => base === first) ? first : undefined;
 };
 
-const rubSourceFor = (item: SourceItem): RubSource | null =>
-	Match.value(item).pipe(
-		Match.tag("Branch", (): RubSource | null => null),
-		Match.tag("Commit", ({ commitId }): RubSource | null => ({
-			_tag: "Commit",
-			source: { commitId },
-		})),
-		Match.tag("TreeChange", ({ source }): RubSource | null => ({
-			_tag: "TreeChange",
-			source,
-		})),
-		Match.exhaustive,
-	);
-
 const DraggedSourceItemContext = createContext<SourceItem | null>(null);
 
 const parseDragData = (data: unknown): SourceItem | null => {
@@ -216,23 +274,23 @@ const parseDragData = (data: unknown): SourceItem | null => {
 
 const useDraggedSourceItem = (): SourceItem | null => useContext(DraggedSourceItemContext);
 
-type OperationTarget =
+type Operation =
 	| ({
 			_tag: "Rub";
-	  } & Omit<RubParams, "projectId" | "source">)
+	  } & Omit<RubParams, "projectId">)
 	| ({
 			_tag: "CommitMove";
-	  } & Omit<CommitMoveParams, "projectId" | "subjectCommitId">)
+	  } & Omit<CommitMoveParams, "projectId">)
 	| ({
 			_tag: "MoveBranch";
-	  } & Omit<MoveBranchParams, "projectId" | "subjectBranch">)
-	| {
+	  } & Omit<MoveBranchParams, "projectId">)
+	| ({
 			_tag: "TearOffBranch";
-	  };
+	  } & Omit<TearOffBranchParams, "projectId">);
 
-const parseDropTargetData = (data: unknown): OperationTarget | null => {
+const parseDropTargetData = (data: unknown): Operation | null => {
 	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
-	return data as OperationTarget;
+	return data as Operation;
 };
 
 const useMonitorDraggedSourceItem = ({
@@ -251,17 +309,16 @@ const useMonitorDraggedSourceItem = ({
 				onDragStart: ({ source }) => {
 					setDraggedSourceItem(parseDragData(source.data));
 				},
-				onDrop: ({ source, location }) => {
+				onDrop: ({ location }) => {
 					setDraggedSourceItem(null);
 
-					const sourceItem = parseDragData(source.data);
-					const operationTarget = location.current.dropTargets
+					const operation = location.current.dropTargets
 						.map((dropTarget) => parseDropTargetData(dropTarget.data))
 						.find((target) => target);
 
-					if (!sourceItem || !operationTarget) return;
+					if (!operation) return;
 
-					runOperation(sourceItem, operationTarget);
+					runOperation(operation);
 				},
 			}),
 		[runOperation, setDraggedSourceItem],
@@ -275,16 +332,14 @@ const useRunOperation = (projectId: string) => {
 	const moveBranch = useMutation(moveBranchMutationOptions);
 	const tearOffBranch = useMutation(tearOffBranchMutationOptions);
 
-	return (sourceItem: SourceItem, operationTarget: OperationTarget): void => {
-		Match.value(operationTarget).pipe(
-			Match.tag("Rub", (operationTarget) => {
-				const rubSource = rubSourceFor(sourceItem);
-				if (!rubSource) return;
+	return (operation: Operation): void => {
+		Match.value(operation).pipe(
+			Match.tag("Rub", (operation) => {
 				rubMutation.mutate(
 					{
 						projectId,
-						source: rubSource,
-						target: operationTarget.target,
+						source: operation.source,
+						target: operation.target,
 					},
 					{
 						onSuccess: (response) => {
@@ -303,29 +358,26 @@ const useRunOperation = (projectId: string) => {
 					},
 				);
 			}),
-			Match.tag("CommitMove", (operationTarget) => {
-				if (sourceItem._tag !== "Commit") return;
+			Match.tag("CommitMove", (operation) => {
 				commitMove.mutate({
 					projectId,
-					subjectCommitId: sourceItem.commitId,
-					relativeTo: operationTarget.relativeTo,
-					side: operationTarget.side,
+					subjectCommitId: operation.subjectCommitId,
+					relativeTo: operation.relativeTo,
+					side: operation.side,
 				});
 			}),
-			Match.tag("MoveBranch", (operationTarget) => {
-				if (sourceItem._tag !== "Branch") return;
+			Match.tag("MoveBranch", (operation) => {
 				moveBranch.mutate({
 					projectId,
-					subjectBranch: decodeRefName(sourceItem.anchorRef),
-					targetBranch: operationTarget.targetBranch,
+					subjectBranch: operation.subjectBranch,
+					targetBranch: operation.targetBranch,
 				});
 			}),
-			Match.tag("TearOffBranch", () => {
-				if (sourceItem._tag !== "Branch") return;
+			Match.tag("TearOffBranch", (operation) => {
 				tearOffBranch.mutate({
 					projectId,
-					subjectBranch: decodeRefName(sourceItem.anchorRef),
-				} satisfies TearOffBranchParams);
+					subjectBranch: operation.subjectBranch,
+				});
 			}),
 			Match.exhaustive,
 		);
@@ -756,30 +808,40 @@ const RubTarget: FC<
 		target: ChangeUnit;
 	} & useRender.ComponentProps<"div">
 > = ({ target, render, ...props }) => {
-	const [isDropTarget, dropRef] = useDroppable({
+	const getOperation = (sourceItem: SourceItem): Operation | null => {
+		const rubSource = rubSourceFor(sourceItem);
+		if (!rubSource || rubOperationLabel(rubSource, target) === null) return null;
+		return {
+			_tag: "Rub",
+			source: rubSource,
+			target,
+		};
+	};
+
+	const [isActiveDropTarget, dropRef] = useDroppable({
 		canDrop: ({ source }) => {
 			const sourceItem = parseDragData(source.data);
-			const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
-			return rubSource !== null && rubOperationLabel(rubSource, target) !== null;
+			if (!sourceItem) return false;
+			return !!getOperation(sourceItem);
 		},
-		getData: (): OperationTarget => ({
-			_tag: "Rub",
-			target,
-		}),
+		getData: ({ source }): Operation | {} => {
+			const sourceItem = parseDragData(source.data);
+			if (!sourceItem) return {};
+			return getOperation(sourceItem) ?? {};
+		},
 	});
 
 	const droppable = useRender({
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			style: { ...(isDropTarget && { outline: "2px dashed black" }) },
+			className: classes(isActiveDropTarget && styles.activeDropTarget),
 		}),
 	});
 
 	const sourceItem = useDraggedSourceItem();
-
 	const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
-	const tooltip = isDropTarget && rubSource ? rubOperationLabel(rubSource, target) : null;
+	const tooltip = isActiveDropTarget && rubSource ? rubOperationLabel(rubSource, target) : null;
 
 	return (
 		<Tooltip.Root open={tooltip !== null}>
@@ -804,16 +866,27 @@ const CommitMoveTarget: FC<{
 		(side === "above" && previousCommitId === sourceCommitId) ||
 		(side === "below" && nextCommitId === sourceCommitId);
 
-	const [isDropTarget, dropRef] = useDroppable({
-		canDrop: ({ source }) => {
-			const sourceItem = parseDragData(source.data);
-			return sourceItem?._tag === "Commit" && !isNoOp(sourceItem.commitId);
-		},
-		getData: (): OperationTarget => ({
+	const getOperation = (sourceItem: SourceItem): Operation | null => {
+		if (sourceItem._tag !== "Commit" || isNoOp(sourceItem.commitId)) return null;
+		return {
 			_tag: "CommitMove",
+			subjectCommitId: sourceItem.commitId,
 			relativeTo: { type: "commit", subject: commitId },
 			side,
-		}),
+		};
+	};
+
+	const [isActiveDropTarget, dropRef] = useDroppable({
+		canDrop: ({ source }) => {
+			const sourceItem = parseDragData(source.data);
+			if (!sourceItem) return false;
+			return !!getOperation(sourceItem);
+		},
+		getData: ({ source }): Operation | {} => {
+			const sourceItem = parseDragData(source.data);
+			if (!sourceItem) return {};
+			return getOperation(sourceItem) ?? {};
+		},
 	});
 
 	const sourceItem = useDraggedSourceItem();
@@ -831,7 +904,7 @@ const CommitMoveTarget: FC<{
 				sourceItem?._tag === "Commit" &&
 					!isNoOp(sourceItem.commitId) &&
 					styles.commitMoveTargetEnabled,
-				isDropTarget && styles.commitMoveTargetActive,
+				isActiveDropTarget && styles.commitMoveTargetActive,
 			)}
 		/>
 	);
@@ -1118,20 +1191,22 @@ const BranchTarget: FC<
 		firstCommitId: string | undefined;
 	} & useRender.ComponentProps<"div">
 > = ({ anchorRef, firstCommitId, render, ...props }) => {
-	const getOperationTarget = (sourceItem: SourceItem): OperationTarget | null =>
+	const getOperation = (sourceItem: SourceItem): Operation | null =>
 		Match.value(sourceItem).pipe(
-			Match.tag("Branch", (source): OperationTarget | null => {
+			Match.tag("Branch", (source): Operation | null => {
 				if (anchorRef === null || decodeRefName(anchorRef) === decodeRefName(source.anchorRef))
 					return null;
 				return {
 					_tag: "MoveBranch",
+					subjectBranch: decodeRefName(source.anchorRef),
 					targetBranch: decodeRefName(anchorRef),
 				};
 			}),
-			Match.tag("Commit", ({ commitId }): OperationTarget | null => {
+			Match.tag("Commit", ({ commitId }): Operation | null => {
 				if (anchorRef === null || commitId === firstCommitId) return null;
 				return {
 					_tag: "CommitMove",
+					subjectCommitId: commitId,
 					relativeTo: {
 						type: "referenceBytes",
 						subject: anchorRef,
@@ -1142,16 +1217,16 @@ const BranchTarget: FC<
 			Match.orElse(() => null),
 		);
 
-	const [isDropTarget, dropRef] = useDroppable({
+	const [isActiveDropTarget, dropRef] = useDroppable({
 		canDrop: ({ source }) => {
 			const sourceItem = parseDragData(source.data);
 			if (!sourceItem) return false;
-			return !!getOperationTarget(sourceItem);
+			return !!getOperation(sourceItem);
 		},
-		getData: ({ source }): OperationTarget | {} => {
+		getData: ({ source }): Operation | {} => {
 			const sourceItem = parseDragData(source.data);
 			if (!sourceItem) return {};
-			return getOperationTarget(sourceItem) ?? {};
+			return getOperation(sourceItem) ?? {};
 		},
 	});
 
@@ -1159,18 +1234,26 @@ const BranchTarget: FC<
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			style: { ...(isDropTarget && { outline: "2px dashed black" }) },
+			className: classes(isActiveDropTarget && styles.activeDropTarget),
 		}),
 	});
 
 	const sourceItem = useDraggedSourceItem();
+	const operation = isActiveDropTarget && sourceItem ? getOperation(sourceItem) : null;
+	const tooltip = operation
+		? Match.value(operation).pipe(
+				Match.tag("MoveBranch", () => "Stack branch onto here"),
+				Match.tag("CommitMove", () => "Move commit here"),
+				Match.orElse(() => null),
+			)
+		: null;
 
 	return (
-		<Tooltip.Root open={isDropTarget && !!sourceItem && !!getOperationTarget(sourceItem)}>
+		<Tooltip.Root open={tooltip !== null}>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={styles.tooltip}>Move here</Tooltip.Popup>
+					<Tooltip.Popup className={styles.tooltip}>{tooltip}</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>
@@ -1178,23 +1261,37 @@ const BranchTarget: FC<
 };
 
 const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...props }) => {
-	const [isDropTarget, dropRef] = useDroppable({
-		canDrop: ({ source }) => parseDragData(source.data)?._tag === "Branch",
-		getData: (): OperationTarget => ({ _tag: "TearOffBranch" }),
+	const getOperation = (sourceItem: SourceItem): Operation | null => {
+		if (sourceItem._tag !== "Branch") return null;
+		return {
+			_tag: "TearOffBranch",
+			subjectBranch: decodeRefName(sourceItem.anchorRef),
+		};
+	};
+
+	const [isActiveDropTarget, dropRef] = useDroppable({
+		canDrop: ({ source }) => {
+			const sourceItem = parseDragData(source.data);
+			if (!sourceItem) return false;
+			return !!getOperation(sourceItem);
+		},
+		getData: ({ source }): Operation | {} => {
+			const sourceItem = parseDragData(source.data);
+			if (!sourceItem) return {};
+			return getOperation(sourceItem) ?? {};
+		},
 	});
 
 	const droppable = useRender({
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			style: { ...(isDropTarget && { outline: "2px dashed black" }) },
+			className: classes(isActiveDropTarget && styles.activeDropTarget),
 		}),
 	});
 
-	const sourceItem = useDraggedSourceItem();
-
 	return (
-		<Tooltip.Root open={isDropTarget && sourceItem?._tag === "Branch"}>
+		<Tooltip.Root open={isActiveDropTarget}>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
@@ -1284,28 +1381,34 @@ const StackC: FC<{
 					const anchorRef = segment.refName ? segment.refName.fullNameBytes : null;
 					return (
 						<li key={branchName}>
-							<BranchTarget anchorRef={anchorRef} firstCommitId={segment.commits[0]?.id}>
-								<DraggableBranch anchorRef={anchorRef} label={branchName}>
-									<h3>
-										{branchRef !== null ? (
-											<button
-												type="button"
-												className={classes(
-													styles.branchButton,
-													isBranchSelected(stackId, branchRef) && sharedStyles.selected,
-												)}
-												onClick={() => {
-													toggleBranchSelection(stackId, branchName, branchRef);
-												}}
-											>
-												{branchName}
-											</button>
-										) : (
-											branchName
-										)}
-									</h3>
-								</DraggableBranch>
-							</BranchTarget>
+							<BranchTarget
+								anchorRef={anchorRef}
+								firstCommitId={segment.commits[0]?.id}
+								render={
+									<DraggableBranch
+										anchorRef={anchorRef}
+										label={branchName}
+										render={
+											branchRef !== null ? (
+												<button
+													type="button"
+													className={classes(
+														styles.branchButton,
+														isBranchSelected(stackId, branchRef) && sharedStyles.selected,
+													)}
+													onClick={() => {
+														toggleBranchSelection(stackId, branchName, branchRef);
+													}}
+												>
+													{branchName}
+												</button>
+											) : (
+												<div>{branchName}</div>
+											)
+										}
+									/>
+								}
+							/>
 
 							<CommitsList commits={segment.commits}>
 								{(commit, index) => {
@@ -1488,7 +1591,7 @@ const ProjectPage: FC = () => {
 
 	return (
 		<DraggedSourceItemContext.Provider value={draggedSourceItem}>
-			<ProjectPanelLayout
+			<ProjectPreviewLayout
 				projectId={projectId}
 				preview={
 					selection && (
@@ -1563,7 +1666,7 @@ const ProjectPage: FC = () => {
 
 					<TearOffBranchTarget className={styles.emptyLane} />
 				</div>
-			</ProjectPanelLayout>
+			</ProjectPreviewLayout>
 		</DraggedSourceItemContext.Provider>
 	);
 };

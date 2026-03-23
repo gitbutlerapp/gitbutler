@@ -8,7 +8,7 @@ export const useDroppable = ({
 	getData: getDataProp,
 }: Pick<LibParams, "canDrop" | "getData">): [boolean, RefCallback<HTMLElement>] => {
 	const ref = useRef<HTMLElement>(null);
-	const [isDropTarget, setIsDropTarget] = useState(false);
+	const [isActiveDropTarget, setIsActiveDropTarget] = useState(false);
 	const getData: LibParams["getData"] = useEffectEvent((x) => getDataProp?.(x) ?? {});
 	const canDrop: LibParams["canDrop"] = useEffectEvent((x) => canDropProp?.(x) ?? true);
 
@@ -21,19 +21,19 @@ export const useDroppable = ({
 			canDrop,
 			getData,
 			onDragEnter: () => {
-				setIsDropTarget(true);
+				setIsActiveDropTarget(true);
 			},
 			onDragLeave: () => {
-				setIsDropTarget(false);
+				setIsActiveDropTarget(false);
 			},
 			onDrop: () => {
-				setIsDropTarget(false);
+				setIsActiveDropTarget(false);
 			},
 		});
 	}, []);
 
 	return [
-		isDropTarget,
+		isActiveDropTarget,
 		(element) => {
 			ref.current = element;
 		},
