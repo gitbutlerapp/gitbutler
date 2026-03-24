@@ -32,6 +32,7 @@ pub enum CommandName {
     BranchUnapply,
     BranchApply,
     BranchMove,
+    BranchTearOff,
     ClaudePreTool,
     ClaudePostTool,
     ClaudeStop,

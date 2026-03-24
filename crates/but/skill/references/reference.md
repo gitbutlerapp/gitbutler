@@ -135,7 +135,13 @@ Move an existing branch on top of another branch, stacking them.
 but branch move feature/frontend feature/backend    # Stack frontend on top of backend
 ```
 
-**This is the primary command for stacking existing branches.** Use it when two branches already exist and one needs to depend on the other. Uses full branch **names**, not CLI IDs.
+To unstack (tear off) a branch, use:
+
+```bash
+but branch move --unstack feature/frontend
+```
+
+**This is the primary command for stacking/unstacking existing branches.** Uses full branch **names**, not CLI IDs.
 
 Alias: `but stack <branch> <target-branch>`
 

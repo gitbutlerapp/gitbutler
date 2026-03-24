@@ -33,6 +33,26 @@ pub fn move_branch(
     Ok(())
 }
 
+pub fn tear_off_branch(
+    mut ctx: but_ctx::Context,
+    branch: &str,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    let id_map = IdMap::new_from_context(&mut ctx, None)?;
+    let branch_name = resolve_branch_information(&mut ctx, &id_map, branch)
+        .context("Failed to determine information for the branch to tear off.")?;
+
+    let branch_ref_name_str = &format!("refs/heads/{branch_name}");
+
+    but_api::branch::tear_off_branch(&mut ctx, branch_ref_name_str.try_into()?)?;
+
+    if let Some(out) = out.for_human() {
+        writeln!(out, "Unstacked branch '{branch_name}'.")?;
+    }
+
+    Ok(())
+}
+
 fn resolve_branch_information(
     ctx: &mut but_ctx::Context,
     id_map: &IdMap,

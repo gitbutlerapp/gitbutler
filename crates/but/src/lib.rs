@@ -424,9 +424,19 @@ async fn match_subcommand(
                 Some(branch::Subcommands::Move {
                     branch,
                     target_branch,
+                    unstack,
                 }) => {
                     let ctx = but_ctx::Context::discover(&args.current_dir)?;
-                    command::branch::move_branch(ctx, &branch, &target_branch, out)
+                    if unstack {
+                        command::branch::tear_off_branch(ctx, &branch, out)
+                    } else {
+                        let target_branch = target_branch.ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "`but branch move` requires <TARGET_BRANCH> unless --unstack is used"
+                            )
+                        })?;
+                        command::branch::move_branch(ctx, &branch, &target_branch, out)
+                    }
                 }
             };
             result.emit_metrics(metrics_ctx)
