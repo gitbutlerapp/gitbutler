@@ -1,0 +1,9 @@
+.button {
+	padding-inline: 8px;
+	padding-block: 4px;
+	background-color: #eee;
+
+	&:disabled {
+		color: #aaa;
+	}
+}

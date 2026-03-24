@@ -23,6 +23,7 @@ import { FC, Suspense, useEffect, useState } from "react";
 import styles from "./index.module.css";
 import sharedStyles from "../-shared.module.css";
 import { classes } from "#ui/classes.ts";
+import uiStyles from "#ui/ui.module.css";
 import { DependencyIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
@@ -936,7 +937,7 @@ const CommitForm: FC<{
 					}
 				}}
 			/>
-			<button type="submit" disabled={disabled} className={sharedStyles.button}>
+			<button type="submit" disabled={disabled} className={uiStyles.button}>
 				{commitCreate.isPending ? "Committing…" : "Commit"}
 			</button>
 		</form>

@@ -2,6 +2,7 @@ import { Dialog } from "@base-ui/react";
 import { FC, ReactNode, useEffect, useEffectEvent } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import useLocalStorageState from "use-local-storage-state";
+import uiStyles from "#ui/ui.module.css";
 import { usePreviewVisible } from "#ui/hooks/usePreviewVisible.ts";
 import { shortcutKeys } from "#ui/shortcuts.ts";
 import sharedStyles from "./-shared.module.css";
@@ -72,7 +73,7 @@ export const ProjectPreviewLayout: FC<{
 							<div className={sharedStyles.previewPane}>
 								<button
 									type="button"
-									className={sharedStyles.button}
+									className={uiStyles.button}
 									onClick={() => {
 										setShowPreviewFullscreen(true);
 									}}
@@ -88,7 +89,7 @@ export const ProjectPreviewLayout: FC<{
 			<Dialog.Root open={showPreviewFullscreen} onOpenChange={setShowPreviewFullscreen}>
 				<Dialog.Portal>
 					<Dialog.Popup aria-label="Preview" className={sharedStyles.previewDialogPopup}>
-						<Dialog.Close className={sharedStyles.button}>
+						<Dialog.Close className={uiStyles.button}>
 							Close fullscreen ({shortcutKeys.toggleFullscreenPreview}/esc)
 						</Dialog.Close>
 						{preview}

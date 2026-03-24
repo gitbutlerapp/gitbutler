@@ -6,7 +6,7 @@ import { createRootRouteWithContext } from "@tanstack/react-router";
 
 import { usePreviewVisible } from "../hooks/usePreviewVisible";
 import { classes } from "#ui/classes.ts";
-import sharedStyles from "./project/$id/-shared.module.css";
+import uiStyles from "#ui/ui.module.css";
 import styles from "./__root.module.css";
 import { shortcutKeys } from "#ui/shortcuts.ts";
 
@@ -99,7 +99,7 @@ const TopBar: FC = () => {
 			{projectMatch && (
 				<button
 					type="button"
-					className={classes(styles.topBarPreviewToggle, sharedStyles.button)}
+					className={classes(styles.topBarPreviewToggle, uiStyles.button)}
 					aria-pressed={previewVisible}
 					onClick={() => {
 						setPreviewVisible((visible) => !visible);
