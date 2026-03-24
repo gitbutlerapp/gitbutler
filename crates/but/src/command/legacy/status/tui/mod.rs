@@ -4,7 +4,7 @@ use anyhow::Context as _;
 use but_core::tree::create_tree::RejectionReason;
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
-use crossterm::event::{self, Event};
+use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_stack::StackId;
 use itertools::Either;
@@ -14,6 +14,7 @@ use ratatui::{
     widgets::{List, ListItem},
 };
 use ratatui_textarea::{CursorMove, TextArea};
+use unicode_width::UnicodeWidthStr;
 
 use crate::{
     CliId,
@@ -1296,7 +1297,8 @@ impl App {
 
         let _suspend_guard = terminal_guard.suspend()?;
 
-        let Some(reword_result) = operations::reword_with_editor_legacy(ctx, commit_id)? else {
+        let Some(reword_result) = operations::reword_commit_with_editor_legacy(ctx, commit_id)?
+        else {
             return Ok(());
         };
 
@@ -1307,7 +1309,6 @@ impl App {
         Ok(())
     }
 
-    /// Handles entering inline reword mode for single-line commit messages.
     fn handle_start_reword_inline(
         &mut self,
         ctx: &mut Context,
@@ -1316,69 +1317,132 @@ impl App {
         if !matches!(self.mode, Mode::Normal) {
             return Ok(());
         }
-
-        let Some(commit_id) = self.selected_commit_id() else {
+        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+            return Ok(());
+        };
+        let Some(cli_id) = selection.data.cli_id() else {
             return Ok(());
         };
 
-        let current_message = operations::current_commit_message(ctx, commit_id)?;
+        let inline_reword_mode = match &**cli_id {
+            CliId::Branch { name, stack_id, .. } => {
+                let Some(stack_id) = stack_id else {
+                    return Ok(());
+                };
+                let mut textarea = TextArea::from([name]);
+                textarea.set_cursor_line_style(Style::default().green());
+                textarea.move_cursor(CursorMove::End);
 
-        if operations::commit_message_has_multiple_lines_legacy(&current_message) {
-            messages.push(Message::Reword(RewordMessage::WithEditor));
-            return Ok(());
-        }
+                InlineRewordMode::Branch {
+                    name: name.to_owned(),
+                    stack_id: *stack_id,
+                    textarea: Box::new(textarea),
+                }
+            }
+            CliId::Commit { commit_id, .. } => {
+                let current_message = operations::current_commit_message(ctx, *commit_id)?;
 
-        let first_line = current_message.lines().next().unwrap_or("").to_string();
-        let mut textarea = TextArea::from([first_line]);
-        textarea.set_cursor_line_style(Style::default());
-        textarea.move_cursor(CursorMove::End);
+                if operations::commit_message_has_multiple_lines_legacy(&current_message) {
+                    messages.push(Message::Reword(RewordMessage::WithEditor));
+                    return Ok(());
+                }
 
-        self.mode = Mode::InlineReword(InlineRewordMode {
-            commit_id,
-            textarea: Box::new(textarea),
-        });
+                let first_line = current_message.lines().next().unwrap_or("").to_string();
+                let mut textarea = TextArea::from([first_line]);
+                textarea.set_cursor_line_style(Style::default());
+                textarea.move_cursor(CursorMove::End);
+
+                InlineRewordMode::Commit {
+                    commit_id: *commit_id,
+                    textarea: Box::new(textarea),
+                }
+            }
+            CliId::Uncommitted(..)
+            | CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Unassigned { .. }
+            | CliId::Stack { .. } => return Ok(()),
+        };
+
+        self.mode = Mode::InlineReword(inline_reword_mode);
 
         Ok(())
     }
 
     /// Handles key input while inline reword mode is active.
     fn handle_reword_inline_input(&mut self, ev: Event) {
-        if let Mode::InlineReword(InlineRewordMode { textarea, .. }) = &mut self.mode {
-            textarea.input(ev);
+        if let Mode::InlineReword(inline_reword_mode) = &mut self.mode {
+            let ev = match inline_reword_mode {
+                InlineRewordMode::Branch { .. } => {
+                    if let Event::Key(key_ev) = ev
+                        && key_ev.is_press()
+                        && key_ev.modifiers == event::KeyModifiers::NONE
+                        && let KeyCode::Char(' ') = key_ev.code
+                    {
+                        Event::Key(KeyEvent {
+                            code: KeyCode::Char('-'),
+                            modifiers: key_ev.modifiers,
+                            kind: key_ev.kind,
+                            state: key_ev.state,
+                        })
+                    } else {
+                        ev
+                    }
+                }
+                InlineRewordMode::Commit { .. } => ev,
+            };
+
+            inline_reword_mode.textarea_mut().input(ev);
         }
     }
 
-    /// Handles confirming an inline commit reword.
     fn handle_confirm_inline_reword(
         &mut self,
         ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
-        let Mode::InlineReword(InlineRewordMode {
-            commit_id,
-            textarea,
-        }) = &self.mode
-        else {
+        let inline_reword_mode = if let Mode::InlineReword(inline_reword_mode) = &self.mode {
+            inline_reword_mode
+        } else {
             messages.push(Message::EnterNormalMode);
             return Ok(());
         };
 
-        let new_message = textarea
+        let first_line = inline_reword_mode
+            .textarea()
             .lines()
             .first()
             .map(std::string::String::as_str)
             .unwrap_or("");
 
-        let Some(reword_result) = operations::reword_inline_legacy(ctx, *commit_id, new_message)?
-        else {
-            messages.push(Message::EnterNormalMode);
-            return Ok(());
-        };
+        match inline_reword_mode {
+            InlineRewordMode::Commit { commit_id, .. } => {
+                let Some(reword_result) =
+                    operations::reword_commit_inline_legacy(ctx, *commit_id, first_line)?
+                else {
+                    messages.push(Message::EnterNormalMode);
+                    return Ok(());
+                };
 
-        messages.extend([
-            Message::EnterNormalMode,
-            Message::Reload(Some(SelectAfterReload::Commit(reword_result.new_commit))),
-        ]);
+                messages.extend([
+                    Message::EnterNormalMode,
+                    Message::Reload(Some(SelectAfterReload::Commit(reword_result.new_commit))),
+                ]);
+            }
+            InlineRewordMode::Branch { name, stack_id, .. } => {
+                let new_name = operations::reword_branch_inline_legacy(
+                    ctx,
+                    *stack_id,
+                    name.to_owned(),
+                    first_line.to_owned(),
+                )?;
+
+                messages.extend([
+                    Message::EnterNormalMode,
+                    Message::Reload(Some(SelectAfterReload::Branch(new_name))),
+                ]);
+            }
+        }
 
         Ok(())
     }
@@ -1665,10 +1729,30 @@ impl App {
         };
 
         match &self.mode {
-            Mode::InlineReword(..) => {
+            Mode::InlineReword(inline_reword_mode) => {
                 if is_selected {
-                    if let StatusOutputContent::Commit(commit_content) = content {
-                        line.extend(commit_content.sha.iter().cloned());
+                    match inline_reword_mode {
+                        InlineRewordMode::Commit { .. } => {
+                            if let StatusOutputContent::Commit(commit_content) = content {
+                                line.extend(commit_content.sha.iter().cloned());
+                            }
+                        }
+                        InlineRewordMode::Branch { textarea, .. } => {
+                            if let StatusOutputContent::Branch(branch_content) = content {
+                                line.extend(branch_content.id.iter().cloned());
+                                line.extend(branch_content.decoration_start.iter().cloned());
+
+                                let len = textarea
+                                    .lines()
+                                    .first()
+                                    .map(|line| line.width())
+                                    .unwrap_or(0);
+                                line.push_span(Span::raw(" ".repeat(len + 1)));
+
+                                line.extend(branch_content.decoration_end.iter().cloned());
+                                line.extend(branch_content.suffix.iter().cloned());
+                            }
+                        }
                     }
                 } else {
                     line.extend(content_spans);
@@ -1959,9 +2043,12 @@ impl App {
     }
 
     fn render_inline_reword(&self, area: Rect, frame: &mut Frame) {
-        let Mode::InlineReword(InlineRewordMode { textarea, .. }) = &self.mode else {
+        let inline_reword_mode = if let Mode::InlineReword(inline_reword_mode) = &self.mode {
+            inline_reword_mode
+        } else {
             return;
         };
+
         let selected_idx = self.cursor.index();
         let Some(selected_rows) = self.selected_row_range() else {
             return;
@@ -1976,27 +2063,58 @@ impl App {
         let Some(line) = self.status_lines.get(selected_idx) else {
             return;
         };
-        let StatusOutputLineData::Commit { .. } = &line.data else {
-            return;
-        };
-        let Some(connector) = &line.connector else {
-            return;
-        };
-        let StatusOutputContent::Commit(commit_content) = &line.content else {
-            return;
-        };
-        let connector_and_sha_width = connector
-            .iter()
-            .chain(&commit_content.sha)
-            .map(|span| span.width() as u16)
-            .sum::<u16>();
-        let padding_between_sha_and_message = 1;
 
-        let start_x = connector_and_sha_width + padding_between_sha_and_message;
-        let x = area.x.saturating_add(start_x);
-        let width = area.right().saturating_sub(x);
-        let area = Rect::new(x, area.y.saturating_add(idx as u16), width, 1);
-        frame.render_widget(&**textarea, area);
+        match inline_reword_mode {
+            InlineRewordMode::Commit { textarea, .. } => {
+                let StatusOutputLineData::Commit { .. } = &line.data else {
+                    return;
+                };
+                let Some(connector) = &line.connector else {
+                    return;
+                };
+                let StatusOutputContent::Commit(commit_content) = &line.content else {
+                    return;
+                };
+                let connector_and_prefix = connector
+                    .iter()
+                    .chain(&commit_content.sha)
+                    .map(|span| span.width() as u16)
+                    .sum::<u16>();
+                let padding = 1;
+
+                let start_x = connector_and_prefix + padding;
+                let x = area.x.saturating_add(start_x);
+                let width = area.right().saturating_sub(x);
+                let area = Rect::new(x, area.y.saturating_add(idx as u16), width, 1);
+                frame.render_widget(&**textarea, area);
+            }
+            InlineRewordMode::Branch { textarea, .. } => {
+                let StatusOutputLineData::Branch { .. } = &line.data else {
+                    return;
+                };
+                let Some(connector) = &line.connector else {
+                    return;
+                };
+                let StatusOutputContent::Branch(branch_content) = &line.content else {
+                    return;
+                };
+
+                let connector_and_prefix = connector
+                    .iter()
+                    .chain(&branch_content.id)
+                    .chain(&branch_content.decoration_start)
+                    .map(|span| span.width() as u16)
+                    .sum::<u16>();
+
+                let padding = 0;
+
+                let start_x = connector_and_prefix + padding;
+                let x = area.x.saturating_add(start_x);
+                let width = area.right().saturating_sub(x);
+                let area = Rect::new(x, area.y.saturating_add(idx as u16), width, 1);
+                frame.render_widget(&**textarea, area);
+            }
+        }
     }
 
     fn render_debug(&self, area: Rect, frame: &mut Frame) {
@@ -2165,9 +2283,32 @@ struct RubMode {
 }
 
 #[derive(Debug)]
-struct InlineRewordMode {
-    commit_id: gix::ObjectId,
-    textarea: Box<TextArea<'static>>,
+enum InlineRewordMode {
+    Commit {
+        commit_id: gix::ObjectId,
+        textarea: Box<TextArea<'static>>,
+    },
+    Branch {
+        name: String,
+        stack_id: StackId,
+        textarea: Box<TextArea<'static>>,
+    },
+}
+
+impl InlineRewordMode {
+    fn textarea(&self) -> &TextArea<'static> {
+        match self {
+            InlineRewordMode::Commit { textarea, .. }
+            | InlineRewordMode::Branch { textarea, .. } => textarea,
+        }
+    }
+
+    fn textarea_mut(&mut self) -> &mut TextArea<'static> {
+        match self {
+            InlineRewordMode::Commit { textarea, .. }
+            | InlineRewordMode::Branch { textarea, .. } => textarea,
+        }
+    }
 }
 
 #[derive(Debug)]

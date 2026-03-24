@@ -80,12 +80,14 @@ pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: &str) ->
 
 /// Updates the name an existing branch and resets the pr_number to None.
 /// Same invariants as `create_branch` apply.
+///
+/// Returns the new normalized name of the branch.
 pub fn update_branch_name(
     ctx: &mut Context,
     stack_id: StackId,
     branch_name: String,
     new_name: String,
-) -> Result<()> {
+) -> Result<String> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_update_dependent_branch_name(&branch_name, guard.write_permission());
@@ -97,9 +99,10 @@ pub fn update_branch_name(
         ctx,
         branch_name,
         &PatchReferenceUpdate {
-            name: Some(normalized_head_name),
+            name: Some(normalized_head_name.clone()),
         },
-    )
+    )?;
+    Ok(normalized_head_name)
 }
 
 /// Sets the forge identifier for a given series/branch. Existing value is overwritten.

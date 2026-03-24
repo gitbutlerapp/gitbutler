@@ -1329,7 +1329,7 @@ fn movement_methods_can_move_cursor_in_inline_reword_mode() {
     ];
 
     let mut cursor = Cursor(1);
-    let inline_reword = Mode::InlineReword(InlineRewordMode {
+    let inline_reword = Mode::InlineReword(InlineRewordMode::Commit {
         commit_id: commit_id("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
         textarea: Box::new(TextArea::default()),
     });
@@ -1401,7 +1401,7 @@ fn is_selectable_is_true_in_inline_reword_mode() {
         cli_id: unassigned("s0"),
     });
 
-    let inline_reword = Mode::InlineReword(InlineRewordMode {
+    let inline_reword = Mode::InlineReword(InlineRewordMode::Commit {
         commit_id: commit_id("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
         textarea: Box::new(TextArea::default()),
     });

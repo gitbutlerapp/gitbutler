@@ -14,6 +14,7 @@ use but_core::DiffSpec;
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use gitbutler_operating_modes::OperatingMode;
+use gitbutler_stack::StackId;
 
 use crate::{
     CliId,
@@ -195,7 +196,7 @@ pub(super) fn rub_using_but_api(
     legacy::status::tui::rub_api::perform_operation(ctx, operation)
 }
 
-pub(super) fn reword_with_editor_legacy(
+pub(super) fn reword_commit_with_editor_legacy(
     ctx: &mut Context,
     commit_id: gix::ObjectId,
 ) -> anyhow::Result<Option<CommitRewordResult>> {
@@ -234,7 +235,7 @@ pub(super) fn commit_message_has_multiple_lines_legacy(message: &str) -> bool {
     legacy::commit_message_prep::commit_message_has_multiple_lines(message)
 }
 
-pub(super) fn reword_inline_legacy(
+pub(super) fn reword_commit_inline_legacy(
     ctx: &mut Context,
     commit_id: gix::ObjectId,
     new_message: &str,
@@ -362,4 +363,13 @@ pub(super) fn has_unassigned_changes(ctx: &mut Context) -> anyhow::Result<bool> 
 pub(super) fn commit_is_empty(ctx: &mut Context, commit_id: gix::ObjectId) -> anyhow::Result<bool> {
     let commit_details = but_api::diff::commit_details(ctx, commit_id, ComputeLineStats::No)?;
     Ok(commit_details.diff_with_first_parent.is_empty())
+}
+
+pub(super) fn reword_branch_inline_legacy(
+    ctx: &mut Context,
+    stack_id: StackId,
+    branch_name: String,
+    new_name: String,
+) -> anyhow::Result<String> {
+    gitbutler_branch_actions::stack::update_branch_name(ctx, stack_id, branch_name, new_name)
 }
