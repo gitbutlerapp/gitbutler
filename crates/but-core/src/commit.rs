@@ -2,7 +2,7 @@ use std::{
     borrow::Cow, collections::HashSet, io::Write, path::Path, path::PathBuf, process::Stdio,
 };
 
-use anyhow::{Context as _, anyhow, bail};
+use anyhow::{Context as _, bail};
 use bstr::{BStr, BString, ByteSlice};
 use but_error::Code;
 use gix::objs::WriteTo;
@@ -148,6 +148,33 @@ impl From<&Headers> for Vec<(BString, BString)> {
     }
 }
 
+/// Determines how to sign the commit.
+#[derive(Default, PartialEq, Copy, Clone, Debug)]
+pub enum SignCommit {
+    /// Unconditionally sign the commit. Note that this places responsibility on the caller to
+    /// ensure that commit signing is configured, or at least handling that it was not.
+    Yes,
+    /// Do not sign the commit.
+    No,
+    /// Sign the commit only if `gitbutler.signCommits=true`, *or* `gitbutler.signCommits` is unset
+    /// but `commit.gpgSign=true`. In other words, `gitbutler.signCommits` takes precedence over
+    /// `commit.gpgSign`, the latter only being checked if the former is not at all configured.
+    ///
+    /// If signing fails, `gitbutler.signCommits` is set to `false` locally, preventing further
+    /// signing when this variant is supplied. This step is however skipped if
+    /// `gitbutler.signCommits` has been explicitly configured in non-local Git Config.
+    ///
+    /// The need for `gitbutler.signCommits` stems from the fact that it can be difficult to
+    /// impossible to validate before hand that signing is properly configured. Signing may also
+    /// break after validation has been performed. If signing is enabled for *all* committing but
+    /// fails, GitButler basically can't do anything, so we flip `gitbutler.signCommits=false` as a
+    /// kill switch to disable signing for GitButler. `gitbutler.signCommits` taking precedence
+    /// over `commit.gpgSign` means we can honor Git's signing settings by default, but disable it
+    /// in the event that we fail to sign without affecting Git.
+    #[default]
+    IfSignCommitsEnabled,
+}
+
 /// Write `commit` into `repo`, removing any existing commit signature first, optionally creating a
 /// new one based on repository configuration, and optionally updating `update_ref` to the new ID.
 ///
@@ -156,7 +183,7 @@ pub fn create(
     repo: &gix::Repository,
     mut commit: gix::objs::Commit,
     update_ref: Option<&gix::refs::FullNameRef>,
-    sign_if_configured: bool,
+    sign_commit: SignCommit,
 ) -> anyhow::Result<gix::ObjectId> {
     if let Some(pos) = commit
         .extra_headers()
@@ -165,7 +192,10 @@ pub fn create(
         commit.extra_headers.remove(pos);
     }
 
-    if sign_if_configured && repo.git_settings()?.gitbutler_sign_commits.unwrap_or(false) {
+    if (sign_commit == SignCommit::IfSignCommitsEnabled
+        && repo.git_settings()?.gitbutler_sign_commits.unwrap_or(false))
+        || sign_commit == SignCommit::Yes
+    {
         let mut buf = Vec::new();
         commit.write_to(&mut buf)?;
         match sign_buffer(repo, &buf) {
@@ -175,26 +205,28 @@ pub fn create(
                     .push((gix::objs::commit::SIGNATURE_FIELD_NAME.into(), signature));
             }
             Err(err) => {
-                if repo
-                    .config_snapshot()
-                    .boolean_filter("gitbutler.signCommits", |md| {
-                        md.source != gix::config::Source::Local
-                    })
-                    .is_none()
-                {
-                    repo.set_git_settings(&GitConfigSettings {
-                        gitbutler_sign_commits: Some(false),
-                        ..GitConfigSettings::default()
-                    })?;
-                    return Err(
-                        anyhow!("Failed to sign commit: {err}").context(Code::CommitSigningFailed)
-                    );
-                } else {
-                    tracing::warn!(
-                        "Commit signing failed but remains enabled as gitbutler.signCommits is explicitly enabled globally"
-                    );
-                    return Err(err);
+                tracing::warn!("Commit signing failed with sign_commit={sign_commit:?}");
+                if sign_commit == SignCommit::IfSignCommitsEnabled {
+                    if repo
+                        .config_snapshot()
+                        .boolean_filter("gitbutler.signCommits", |md| {
+                            md.source != gix::config::Source::Local
+                        })
+                        .is_none()
+                    {
+                        repo.set_git_settings(&GitConfigSettings {
+                            gitbutler_sign_commits: Some(false),
+                            ..GitConfigSettings::default()
+                        })?;
+                    } else {
+                        tracing::warn!(
+                            "Commit signing failed but remains enabled as gitbutler.signCommits is explicitly enabled globally"
+                        );
+                    }
                 }
+                return Err(err
+                    .context("Failed to sign commit")
+                    .context(Code::CommitSigningFailed));
             }
         }
     }
