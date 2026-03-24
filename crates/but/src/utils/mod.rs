@@ -2,7 +2,8 @@ use std::io::Write;
 
 mod output_channel;
 pub use output_channel::{
-    Confirm, ConfirmDefault, ConfirmOrEmpty, InputOutputChannel, OutputChannel, WriteWithUtils,
+    Confirm, ConfirmDefault, ConfirmOrEmpty, InputOutputChannel, OutputChannel, ProgressChannel,
+    WriteWithUtils,
 };
 
 mod object_id;

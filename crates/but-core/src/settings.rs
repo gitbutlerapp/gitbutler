@@ -7,6 +7,7 @@ pub mod git {
 
     const GIT_SIGN_COMMITS: &str = "commit.gpgsign";
     const GITBUTLER_SIGN_COMMITS: &str = "gitbutler.signCommits";
+    const GITBUTLER_SIGN_MODE: &str = "gitbutler.signMode";
     const GITBUTLER_GERRIT_MODE: &str = "gitbutler.gerritMode";
     const GITBUTLER_FORGE_TEMPLATE_PATH: &str = "gitbutler.forgeReviewTemplatePath";
     const GITBUTLER_GITLAB_PROJECT_ID: &str = "gitbutler.gitlabProjectId";
@@ -20,6 +21,8 @@ pub mod git {
     pub mod ui {
         use but_serde::BStringForFrontend;
 
+        use crate::settings::git::types::SignModeSetting;
+
         /// See [`GitConfigSettings`](crate::GitConfigSettings) for the docs.
         #[derive(Debug, PartialEq, Clone, Default, serde::Serialize, serde::Deserialize)]
         #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
@@ -32,6 +35,8 @@ pub mod git {
         pub struct GitConfigSettings {
             #[serde(rename = "signCommits")]
             pub gitbutler_sign_commits: Option<bool>,
+            #[serde(rename = "signMode")]
+            pub gitbutler_sign_mode: Option<SignModeSetting>,
             pub gitbutler_gerrit_mode: Option<bool>,
             #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
             pub gitbutler_forge_review_template_path: Option<BStringForFrontend>,
@@ -51,6 +56,7 @@ pub mod git {
             fn from(
                 crate::GitConfigSettings {
                     gitbutler_sign_commits,
+                    gitbutler_sign_mode,
                     gitbutler_gerrit_mode,
                     gitbutler_forge_review_template_path,
                     gitbutler_gitlab_project_id,
@@ -63,6 +69,7 @@ pub mod git {
             ) -> Self {
                 GitConfigSettings {
                     gitbutler_sign_commits,
+                    gitbutler_sign_mode,
                     gitbutler_gerrit_mode,
                     gitbutler_forge_review_template_path: gitbutler_forge_review_template_path
                         .map(Into::into),
@@ -82,6 +89,7 @@ pub mod git {
             fn from(
                 GitConfigSettings {
                     gitbutler_sign_commits,
+                    gitbutler_sign_mode,
                     gitbutler_gerrit_mode,
                     gitbutler_forge_review_template_path,
                     gitbutler_gitlab_project_id,
@@ -94,6 +102,7 @@ pub mod git {
             ) -> Self {
                 crate::GitConfigSettings {
                     gitbutler_sign_commits,
+                    gitbutler_sign_mode,
                     gitbutler_gerrit_mode,
                     gitbutler_forge_review_template_path: gitbutler_forge_review_template_path
                         .map(Into::into),
@@ -108,10 +117,44 @@ pub mod git {
         }
     }
 
+    pub use types::SignModeSetting;
+
     pub(crate) mod types {
         use std::ffi::OsString;
 
         use bstr::BString;
+
+        #[derive(PartialEq, Debug, Clone, serde::Deserialize, serde::Serialize)]
+        #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+        /// When GitButler should sign commits.
+        pub enum SignModeSetting {
+            /// Never sign. This is the default setting.
+            Never,
+            /// **Deprecated:** Compatibility setting for gitbutler.signCommits=true. Typically
+            /// results in a whole lot of redundant signing, which is why we are moving away from
+            /// it.
+            LegacyIfSignCommitsEnabled,
+            /// Sign commits on pushing. This is the recommended mode as GitButler promotes
+            /// reordering commits, and the signatures aren't really meaningful until you intend to
+            /// publish your commits.
+            OnPush,
+        }
+
+        impl From<bool> for SignModeSetting {
+            fn from(value: bool) -> Self {
+                if value {
+                    SignModeSetting::LegacyIfSignCommitsEnabled
+                } else {
+                    SignModeSetting::Never
+                }
+            }
+        }
+
+        impl From<&SignModeSetting> for bool {
+            fn from(value: &SignModeSetting) -> bool {
+                matches!(value, SignModeSetting::LegacyIfSignCommitsEnabled)
+            }
+        }
 
         /// Settings that are retrieved from Git and written into the repository-local configuration.
         ///
@@ -124,6 +167,15 @@ pub mod git {
             /// * `commit.gpgsign` which is otherwise valid.
             /// * otherwise it defaults to `false` just like Git would.
             pub gitbutler_sign_commits: Option<bool>,
+            /// How GitButler should sign commits. This is an experimental setting that replaces
+            /// gitbutler_sign_commits, but for the moment the two are interoperable.
+            ///
+            /// This setting is currently never persisted to disc by GitButler, it must be written
+            /// manually by the user.
+            ///
+            /// If gitbutler_sign_mode is specified, it overrides gitbutler_sign_commits,
+            /// regardless of what the latter is set to.
+            pub gitbutler_sign_mode: Option<SignModeSetting>,
             /// If `true`, GitButler will create ChangeId trailers and will push references in the Gerrit way
             pub gitbutler_gerrit_mode: Option<bool>,
             /// The path to the review description template to be used for this repository.
@@ -153,10 +205,34 @@ pub mod git {
             fn string_or_ignore(v: Cow<'_, BStr>) -> Option<String> {
                 Vec::from(v.into_owned()).into_string().ok()
             }
-            let gitbutler_sign_commits = config
+            let mut gitbutler_sign_commits = config
                 .boolean(GITBUTLER_SIGN_COMMITS)
                 .or_else(|| config.boolean(GIT_SIGN_COMMITS))
-                .or(Some(false));
+                .unwrap_or(false);
+            let mut gitbutler_sign_mode: Option<SignModeSetting> = config
+                .string(GITBUTLER_SIGN_MODE)
+                .and_then(|s| match s.as_ref().to_lowercase().as_bytes() {
+                    b"never" => Some(SignModeSetting::Never),
+                    b"legacysignifconfigured" => Some(SignModeSetting::LegacyIfSignCommitsEnabled),
+                    b"onpush" => Some(SignModeSetting::OnPush),
+                    _ => {
+                        tracing::warn!("Invalid value for {GITBUTLER_SIGN_MODE}: {s}");
+                        None
+                    }
+                });
+
+            // Interoperability between legacy gitbutler_sign_commits setting and the new
+            // gitbutler_sign_mode setting.
+            //
+            // As gitbutler_sign_mode is currently never persisted to disc by GitButler itself,
+            // this means that the legacy behavior remains in place unless a user edits the config
+            // manually.
+            if let Some(sign_mode) = &gitbutler_sign_mode {
+                gitbutler_sign_commits = sign_mode.into();
+            } else {
+                gitbutler_sign_mode = Some(SignModeSetting::from(gitbutler_sign_commits));
+            }
+
             let gitbutler_gerrit_mode = config.boolean(GITBUTLER_GERRIT_MODE).or(Some(false));
             let gitbutler_forge_review_template_path = config
                 .string(GITBUTLER_FORGE_TEMPLATE_PATH)
@@ -172,7 +248,8 @@ pub mod git {
             let gpg_program = config.trusted_program(GPG_PROGRAM).map(Cow::into_owned);
             let gpg_ssh_program = config.trusted_program(GPG_SSH_PROGRAM).map(Cow::into_owned);
             Ok(GitConfigSettings {
-                gitbutler_sign_commits,
+                gitbutler_sign_commits: Some(gitbutler_sign_commits),
+                gitbutler_sign_mode,
                 gitbutler_gerrit_mode,
                 gitbutler_forge_review_template_path,
                 gitbutler_gitlab_project_id,
