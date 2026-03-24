@@ -74,12 +74,12 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 						Match.exhaustive,
 					),
 				),
-				Match.tag("Commit", (source) =>
+				Match.tag("Commit", (sourceParent) =>
 					Match.value(target).pipe(
 						Match.tag("Changes", async (target): Promise<RubResult> => {
 							const response = await window.lite.commitUncommitChanges({
 								projectId,
-								commitId: source.commitId,
+								commitId: sourceParent.commitId,
 								assignTo: target.stackId,
 								changes,
 							});
@@ -90,7 +90,7 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 						Match.tag("Commit", async (target): Promise<RubResult> => {
 							const response = await window.lite.commitMoveChangesBetween({
 								projectId,
-								sourceCommitId: source.commitId,
+								sourceCommitId: sourceParent.commitId,
 								destinationCommitId: target.commitId,
 								changes,
 							});
