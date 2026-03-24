@@ -1,10 +1,4 @@
-use std::{
-    borrow::Cow,
-    ffi::OsString,
-    process::Command,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{borrow::Cow, ffi::OsString, process::Command, sync::Arc, time::Duration};
 
 use anyhow::Context as _;
 use but_ctx::Context;
@@ -16,7 +10,7 @@ use itertools::Either;
 use ratatui::{
     Frame,
     prelude::*,
-    widgets::{Block, Borders, Clear, List, ListItem, Padding, Paragraph, Wrap},
+    widgets::{List, ListItem},
 };
 use ratatui_textarea::{CursorMove, TextArea};
 
@@ -33,6 +27,7 @@ use crate::{
                 graph_extension::{ExtensionDirection, extend_connector_spans},
                 highlight::{Highlights, with_highlight},
                 key_bind::{KeyBinds, default_key_binds},
+                toast::{ToastKind, Toasts},
             },
         },
     },
@@ -52,6 +47,7 @@ mod highlight;
 mod key_bind;
 mod operations;
 mod rub_api;
+mod toast;
 
 #[cfg(test)]
 mod tests;
@@ -187,11 +183,7 @@ where
         std::mem::swap(messages, other_messages);
     }
 
-    // dismiss errors
-    let now = Instant::now();
-    let errors_before = app.errors.len();
-    app.errors.retain(|err| err.dismiss_at > now);
-    if app.errors.len() != errors_before {
+    if app.toasts.update() {
         app.should_render = true;
     }
 
@@ -228,7 +220,7 @@ struct App {
     mode: Mode,
     key_binds: KeyBinds,
     debug_enabled: bool,
-    errors: Vec<AppError>,
+    toasts: Toasts,
     renders: u64,
     highlight: Highlights,
 }
@@ -247,7 +239,7 @@ impl App {
             mode: Mode::default(),
             key_binds: default_key_binds(),
             debug_enabled: debug,
-            errors: Vec::new(),
+            toasts: Default::default(),
             renders: 0,
             highlight: Default::default(),
         }
@@ -469,6 +461,9 @@ impl App {
             },
             Message::CopySelection => {
                 self.handle_copy_selection()?;
+            }
+            Message::ShowToast { kind, text } => {
+                self.toasts.insert(kind, text);
             }
         }
 
@@ -764,10 +759,8 @@ impl App {
 
     /// Handles showing a transient UI error.
     fn handle_show_error(&mut self, err: Arc<anyhow::Error>, messages: &mut Vec<Message>) {
-        self.errors.push(AppError {
-            inner: err,
-            dismiss_at: Instant::now() + Duration::from_secs(5),
-        });
+        self.toasts
+            .insert(ToastKind::Error, format_error_for_tui(&err));
 
         // ensure we always enter normal mode when something does wrong
         // so we don't get stuck in whatever mode we were in previously
@@ -1422,12 +1415,10 @@ impl App {
         Ok(())
     }
 
-    /// Adds a transient error popup message that auto-dismisses after a short duration.
+    /// Adds a transient error toast message that auto-dismisses after a short duration.
     fn push_transient_error(&mut self, err: anyhow::Error) {
-        self.errors.push(AppError {
-            inner: Arc::new(err),
-            dismiss_at: Instant::now() + Duration::from_secs(5),
-        });
+        self.toasts
+            .insert(ToastKind::Error, format_error_for_tui(&err));
     }
 
     /// Returns the currently selected commit id when the selected line is a commit.
@@ -1479,7 +1470,7 @@ impl App {
 
         self.render_inline_reword(content_area, frame);
 
-        self.render_errors(content_area, frame);
+        self.render_toasts(content_area, frame);
 
         if let Some(debug_area) = debug_area {
             self.render_debug(debug_area, frame);
@@ -1915,19 +1906,9 @@ impl App {
         }
     }
 
-    fn render_errors(&self, area: Rect, frame: &mut Frame) {
-        for (idx, err) in self.errors.iter().rev().enumerate() {
-            let formatted_err = format_error_for_tui(&err.inner);
-            render_error_popup(
-                frame,
-                area,
-                PopupMargin {
-                    right: 1 + idx as u16,
-                    bottom: idx as _,
-                },
-                &formatted_err,
-            );
-        }
+    /// Renders transient toasts stacked in the content area.
+    fn render_toasts(&self, area: Rect, frame: &mut Frame) {
+        toast::render_toasts(frame, area, &self.toasts);
     }
 
     fn render_inline_reword(&self, area: Rect, frame: &mut Frame) {
@@ -2046,6 +2027,11 @@ enum Message {
     EnterNormalMode,
     Reload(Option<SelectAfterReload>),
     ShowError(Arc<anyhow::Error>),
+    #[expect(dead_code)]
+    ShowToast {
+        kind: ToastKind,
+        text: String,
+    },
 
     // Cursor movement
     MoveCursorUp,
@@ -2318,11 +2304,6 @@ enum SelectAfterReload {
     Unassigned,
 }
 
-struct PopupMargin {
-    right: u16,
-    bottom: u16,
-}
-
 /// Formats an error for display in the terminal UI without including backtraces.
 ///
 /// The output always starts with the top-level error message and, when available,
@@ -2352,90 +2333,13 @@ fn format_error_for_tui(err: &anyhow::Error) -> String {
     output
 }
 
-fn render_error_popup(frame: &mut Frame, area: Rect, margin: PopupMargin, text: &str) {
-    use unicode_width::UnicodeWidthStr;
-
-    let horizontal_padding: u16 = 1;
-    let vertical_padding: u16 = 0;
-    let border_width: u16 = 2;
-    let border_height: u16 = 2;
-
-    let PopupMargin {
-        right: right_margin,
-        bottom: bottom_margin,
-    } = margin;
-
-    let max_popup_width = area.width.saturating_sub(right_margin).max(1);
-    let max_popup_height = area.height.saturating_sub(bottom_margin).max(1);
-
-    let max_line_width = text
-        .lines()
-        .map(|line| line.width())
-        .max()
-        .unwrap_or_default() as u16;
-
-    let desired_width = max_line_width
-        .saturating_add(border_width)
-        .saturating_add(horizontal_padding * 2);
-    let width = desired_width.clamp(1, max_popup_width);
-
-    let inner_width = width
-        .saturating_sub(border_width)
-        .saturating_sub(horizontal_padding * 2)
-        .max(1) as usize;
-
-    let wrapped_line_count: u16 = text
-        .lines()
-        .map(|line| {
-            let line_width = line.width();
-            let wrapped = line_width.div_ceil(inner_width);
-            wrapped.max(1) as u16
-        })
-        .sum();
-
-    let desired_height = wrapped_line_count
-        .saturating_add(border_height)
-        .saturating_add(vertical_padding * 2);
-    let height = desired_height.clamp(1, max_popup_height);
-
-    let x = area.x.saturating_add(
-        area.width
-            .saturating_sub(right_margin)
-            .saturating_sub(width),
-    );
-    let y = area.y.saturating_add(
-        area.height
-            .saturating_sub(bottom_margin)
-            .saturating_sub(height),
-    );
-
-    let popup_area = Rect::new(x, y, width, height);
-
-    frame.render_widget(Clear, popup_area);
-
-    let widget = Paragraph::new(text)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().red())
-                .padding(Padding::new(
-                    horizontal_padding,
-                    horizontal_padding,
-                    vertical_padding,
-                    vertical_padding,
-                )),
-        )
-        .wrap(Wrap { trim: false });
-
-    frame.render_widget(widget, popup_area);
-}
-
-fn with_noop_output<F, T>(f: F) -> T
+fn with_noop_output<F, T>(f: F) -> anyhow::Result<T>
 where
-    F: FnOnce(&mut OutputChannel) -> T,
+    F: FnOnce(&mut OutputChannel) -> anyhow::Result<T>,
 {
-    let mut noop_out = OutputChannel::new_without_pager_non_json(OutputFormat::None);
-    f(&mut noop_out)
+    let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::None);
+    let t = f(&mut out)?;
+    Ok(t)
 }
 
 /// Formats an exit status for human-readable error messages.
@@ -2445,12 +2349,6 @@ fn format_exit_status(status: std::process::ExitStatus) -> String {
     } else {
         status.to_string()
     }
-}
-
-#[derive(Debug)]
-pub(super) struct AppError {
-    pub(super) inner: Arc<anyhow::Error>,
-    pub(super) dismiss_at: Instant,
 }
 
 fn rub_operation_display_legacy(source: &CliId, target: &CliId) -> Option<&'static str> {
