@@ -2,7 +2,6 @@ import { type SnapPositionName } from "$lib/floating/types";
 import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { type Reactive } from "@gitbutler/shared/storeUtils";
-import { isStr } from "@gitbutler/ui/utils/string";
 import { createEntityAdapter, createSlice, type EntityState } from "@reduxjs/toolkit";
 import type { AppDispatch } from "$lib/state/clientState.svelte";
 
@@ -181,8 +180,8 @@ export class UiState {
 	private state = $state.raw<EntityState<UiStateVariable, string>>(uiStateSlice.getInitialState());
 
 	private scopesCache = {
-		lanes: {} as Record<string, GlobalStore<any>>,
-		projects: {} as Record<string, GlobalStore<any>>,
+		lanes: {} as Record<string, WritableReactiveStore<any>>,
+		projects: {} as Record<string, WritableReactiveStore<any>>,
 	};
 
 	/** Properties scoped to a specific stack. */
@@ -251,25 +250,55 @@ export class UiState {
 	}
 
 	/**
+	 * Creates a single redux-backed reactive property with get/set and
+	 * optional convenience methods for arrays and objects.
+	 */
+	private createProperty(id: string, defaultValue: UiStateValue): WritableReactive<UiStateValue> {
+		const result = this.getById(id, defaultValue);
+		let mutableResult = $derived(result.current);
+
+		const prop: Record<string, unknown> = {
+			set: (value: UiStateValue) => {
+				mutableResult = value;
+				this.update(id, value);
+			},
+			get current() {
+				return mutableResult;
+			},
+		};
+
+		if (Array.isArray(defaultValue)) {
+			prop.add = (...value: string[]) => {
+				const current = mutableResult as string[];
+				const toAdd = value.filter((v) => !current.includes(v));
+				if (toAdd.length === 0) return;
+				mutableResult = [...current, ...toAdd];
+				this.update(id, mutableResult);
+			};
+			prop.remove = (value: string) => {
+				mutableResult = (mutableResult as string[]).filter((v) => v !== value);
+				this.update(id, mutableResult);
+			};
+		} else if (typeof defaultValue === "object" && defaultValue !== null) {
+			prop.update = (value: Record<string, UiStateValue>) => {
+				mutableResult = { ...(mutableResult as Record<string, UiStateValue>), ...value };
+				this.update(id, mutableResult);
+			};
+		}
+
+		return prop as WritableReactive<UiStateValue>;
+	}
+
+	/**
 	 * Generate redux backed properties corresponding to the shape of the
 	 * parameter value, with types corresponding to their default values.
 	 */
-	private buildGlobalProps<T extends DefaultConfig>(param: T): GlobalStore<T> {
-		const props: GlobalStore<DefaultConfig> = {};
+	private buildGlobalProps<T extends DefaultConfig>(param: T): WritableReactiveStore<T> {
+		const props: WritableReactiveStore<DefaultConfig> = {};
 		for (const [key, defaultValue] of Object.entries(param)) {
-			const result = this.getById(key, defaultValue);
-			let mutableResult = $derived(result.current);
-			props[key] = {
-				set: (value: UiStateValue) => {
-					mutableResult = value;
-					this.update(key, value);
-				},
-				get current() {
-					return mutableResult;
-				},
-			};
+			props[key] = this.createProperty(key, defaultValue);
 		}
-		return props as GlobalStore<T>;
+		return props as WritableReactiveStore<T>;
 	}
 
 	/**
@@ -278,58 +307,18 @@ export class UiState {
 	 * to e.g. a projectId.
 	 */
 	private buildScopedProps<T extends DefaultConfig>(
-		scopeCache: Record<string, GlobalStore<T>>,
+		scopeCache: Record<string, WritableReactiveStore<T>>,
 		defaultConfig: T,
-	): (id: string) => GlobalStore<T> {
+	): (id: string) => WritableReactiveStore<T> {
 		return (id: string) => {
 			if (id in scopeCache) {
-				return scopeCache[id] as GlobalStore<T>;
+				return scopeCache[id] as WritableReactiveStore<T>;
 			}
-			const props: GlobalStore<DefaultConfig> = {};
+			const props: WritableReactiveStore<DefaultConfig> = {};
 			for (const [key, defaultValue] of Object.entries(defaultConfig)) {
-				const result = this.getById(`${id}:${key}`, defaultValue);
-
-				// We need a mutable value here for read/write consistency.
-				let mutableResult = $derived(result.current);
-
-				props[key] = {
-					set: (value: UiStateValue) => {
-						mutableResult = value;
-						this.update(`${id}:${key}`, value);
-					},
-					get current() {
-						return mutableResult;
-					},
-				};
-
-				// If the value is an array of strings, we add methods to add/remove
-				if (Array.isArray(mutableResult) && mutableResult.every(isStr)) {
-					(props[key] as GlobalProperty<string[]>).add = (...value: string[]) => {
-						const current = mutableResult as string[];
-						mutableResult = [...current, ...value.filter((v) => !current.includes(v))];
-						this.update(`${id}:${key}`, mutableResult);
-					};
-					(props[key] as GlobalProperty<string[]>).remove = (value: string) => {
-						const current = mutableResult as string[];
-						mutableResult = current.filter((v) => v !== value);
-						this.update(`${id}:${key}`, mutableResult);
-					};
-				}
-				// If the value is an object, we add a method to update
-				if (
-					typeof mutableResult === "object" &&
-					!Array.isArray(mutableResult) &&
-					mutableResult !== null
-				) {
-					(props[key] as GlobalProperty<Record<string, UiStateValue>>).update = (
-						value: Record<string, UiStateValue>,
-					) => {
-						mutableResult = { ...(mutableResult as Record<string, UiStateValue>), ...value };
-						this.update(`${id}:${key}`, mutableResult);
-					};
-				}
+				props[key] = this.createProperty(`${id}:${key}`, defaultValue);
 			}
-			scopeCache[id] = props as GlobalStore<T>;
+			scopeCache[id] = props as WritableReactiveStore<T>;
 			return scopeCache[id];
 		};
 	}
@@ -388,14 +377,14 @@ type ObjectPropertyMethods<T> =
 		: // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 			{};
 
-/** Node type for global properties. */
-export type GlobalProperty<T> = {
+/** A reactive value that can be read (.current) and written (.set). */
+export type WritableReactive<T> = {
 	set(value: T): void;
 } & Reactive<T> &
 	ArrayPropertyMethods<T> &
 	ObjectPropertyMethods<T>;
 
-/** Type returned by the build function for global properties. */
-export type GlobalStore<T extends DefaultConfig> = {
-	[K in keyof T]: GlobalProperty<T[K]>;
+/** A record of WritableReactive properties keyed by the config shape. */
+export type WritableReactiveStore<T extends DefaultConfig> = {
+	[K in keyof T]: WritableReactive<T[K]>;
 };

@@ -1,7 +1,7 @@
 import type { StackDetails } from "$lib/stacks/stack";
 import type {
 	ExclusiveAction,
-	GlobalStore,
+	WritableReactiveStore,
 	ProjectUiState,
 	StackSelection,
 	UiState,
@@ -152,7 +152,7 @@ export function updateStaleProjectState(
 
 function updateExclusiveActionState(
 	action: ExclusiveAction,
-	projectState: GlobalStore<ProjectUiState>,
+	projectState: WritableReactiveStore<ProjectUiState>,
 	stackIds: string[],
 	commitIds: string[],
 	branches: string[],
