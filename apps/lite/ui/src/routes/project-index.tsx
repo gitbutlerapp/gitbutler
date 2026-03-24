@@ -23,7 +23,7 @@ import {
 	HunkDependencies,
 	HunkHeader,
 } from "@gitbutler/but-sdk";
-import { Array, Match } from "effect";
+import { Array, Match, pipe } from "effect";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createContext, FC, Suspense, useContext, useEffect, useState } from "react";
 import styles from "./project-index.module.css";
@@ -205,8 +205,10 @@ const DependencyIndicator: FC<
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
 	// TODO: expensive
 	const branchNameByCommitId = getBranchNameByCommitId(headInfo);
-	const branchNames = Array.flatMapNullable(commitIds, (commitId) =>
-		branchNameByCommitId.get(commitId),
+	const branchNames = pipe(
+		commitIds,
+		Array.flatMapNullable((commitId) => branchNameByCommitId.get(commitId)),
+		Array.dedupe,
 	);
 	const tooltip =
 		branchNames.length > 0 ? `Depends on ${branchNames.join(", ")}` : "Unknown dependencies";
@@ -1129,7 +1131,7 @@ const CommitForm: FC<{
 
 	const commitCreate = useMutation(commitCreateMutationOptions);
 
-	const disabled = commitCreate.isPending || !relativeTo || diffSpecs.length === 0;
+	const disabled = commitCreate.isPending || !relativeTo;
 
 	return (
 		<form
