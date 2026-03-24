@@ -1495,11 +1495,6 @@ const ProjectPage: FC = () => {
 			assignments: worktreeChanges.assignments,
 		});
 
-	useMonitorDraggedSourceItem({ projectId });
-
-	// TODO: dedupe
-	if (!project) return <p>Project not found.</p>;
-
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
 
 	const isUnassignedFileSelected = (path: string): boolean =>
@@ -1605,6 +1600,11 @@ const ProjectPage: FC = () => {
 	const highlightCommits = (commitIds: Array<string> | null) => {
 		setHighlightedCommitIds(commitIds ? new Set(commitIds) : new Set());
 	};
+
+	useMonitorDraggedSourceItem({ projectId });
+
+	// TODO: dedupe
+	if (!project) return <p>Project not found.</p>;
 
 	return (
 		<ProjectPreviewLayout
