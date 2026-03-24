@@ -940,6 +940,32 @@ const StackMenuPopup: FC<{
 	);
 };
 
+const CommitTarget: FC<
+	{
+		commitId: string;
+		previousCommitId: string | undefined;
+		nextCommitId: string | undefined;
+	} & useRender.ComponentProps<"div">
+> = ({ commitId, previousCommitId, nextCommitId, render, ...props }) => (
+	<div className={sharedStyles.commit}>
+		<CommitMoveTarget
+			commitId={commitId}
+			side="above"
+			previousCommitId={previousCommitId}
+			nextCommitId={nextCommitId}
+		/>
+		<RubTarget target={{ _tag: "Commit", commitId }} render={render} {...props} />
+		{nextCommitId === undefined && (
+			<CommitMoveTarget
+				commitId={commitId}
+				side="below"
+				previousCommitId={previousCommitId}
+				nextCommitId={nextCommitId}
+			/>
+		)}
+	</div>
+);
+
 const CommitC: FC<{
 	projectId: string;
 	commit: Commit;
@@ -968,71 +994,55 @@ const CommitC: FC<{
 	toggleSelect,
 	toggleEditingMessage,
 	toggleFileSelect,
-}) => {
-	const changeUnit: ChangeUnit = { _tag: "Commit", commitId: commit.id };
-
-	return (
-		<div className={sharedStyles.commit}>
-			<CommitMoveTarget
-				commitId={commit.id}
-				side="above"
-				previousCommitId={previousCommitId}
-				nextCommitId={nextCommitId}
-			/>
-			<RubTarget target={changeUnit}>
-				<CommitRow
-					projectId={projectId}
-					commit={commit}
-					isSelected={isSelected}
-					isEditingMessage={isEditingMessage}
-					isSelectedWithin={isSelectedWithin}
-					isHighlighted={isHighlighted}
-					toggleExpand={toggleExpand}
-					toggleSelect={toggleSelect}
-					toggleEditingMessage={toggleEditingMessage}
-				/>
-				{isSelectedWithin && (
-					<div className={sharedStyles.commitDetails}>
-						<Suspense fallback={<div>Loading changed details…</div>}>
-							<CommitDetails
-								projectId={projectId}
-								commitId={commit.id}
-								renderFile={(change) => (
-									<DraggableFile
-										change={change}
-										changeUnit={changeUnit}
-										render={
-											<div
-												className={classes(
-													sharedStyles.row,
-													sharedStyles.fileRow,
-													isFileSelected(change.path) && sharedStyles.selected,
-												)}
-											>
-												<FileButton
-													change={change}
-													toggleSelect={() => toggleFileSelect(change.path)}
-												/>
-											</div>
-										}
-									/>
-								)}
+}) => (
+	<CommitTarget
+		commitId={commit.id}
+		previousCommitId={previousCommitId}
+		nextCommitId={nextCommitId}
+	>
+		<CommitRow
+			projectId={projectId}
+			commit={commit}
+			isSelected={isSelected}
+			isEditingMessage={isEditingMessage}
+			isSelectedWithin={isSelectedWithin}
+			isHighlighted={isHighlighted}
+			toggleExpand={toggleExpand}
+			toggleSelect={toggleSelect}
+			toggleEditingMessage={toggleEditingMessage}
+		/>
+		{isSelectedWithin && (
+			<div className={sharedStyles.commitDetails}>
+				<Suspense fallback={<div>Loading changed details…</div>}>
+					<CommitDetails
+						projectId={projectId}
+						commitId={commit.id}
+						renderFile={(change) => (
+							<DraggableFile
+								change={change}
+								changeUnit={{ _tag: "Commit", commitId: commit.id }}
+								render={
+									<div
+										className={classes(
+											sharedStyles.row,
+											sharedStyles.fileRow,
+											isFileSelected(change.path) && sharedStyles.selected,
+										)}
+									>
+										<FileButton
+											change={change}
+											toggleSelect={() => toggleFileSelect(change.path)}
+										/>
+									</div>
+								}
 							/>
-						</Suspense>
-					</div>
-				)}
-			</RubTarget>
-			{nextCommitId === undefined && (
-				<CommitMoveTarget
-					commitId={commit.id}
-					side="below"
-					previousCommitId={previousCommitId}
-					nextCommitId={nextCommitId}
-				/>
-			)}
-		</div>
-	);
-};
+						)}
+					/>
+				</Suspense>
+			</div>
+		)}
+	</CommitTarget>
+);
 
 const Changes: FC<{
 	projectId: string;
