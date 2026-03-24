@@ -41,7 +41,18 @@ export function replaceBranchInStackSelection(
 	return selection;
 }
 
-function updateStackSelection(uiState: UiState, stackId: string, details: StackDetails): void {
+/**
+ * Updates the stack selection to reflect the current state of branches and commits.
+ *
+ * Pass `prevDetails` so the function can distinguish between a commit being amended
+ * (SHA changed, same position — update the selection) vs. deleted/squashed (clear it).
+ */
+export function updateStackSelection(
+	uiState: UiState,
+	stackId: string,
+	details: StackDetails,
+	prevDetails?: StackDetails,
+): void {
 	const laneState = uiState.lane(stackId);
 	const selection = laneState.selection.current;
 	const branches = details.branchDetails.map((branch) => branch.name);
@@ -69,8 +80,26 @@ function updateStackSelection(uiState: UiState, stackId: string, details: StackD
 	const branchCommits = branchDetails.commits;
 	const branchCommitIds = branchCommits.map((commit) => commit.id);
 
-	// If the selected commit is not in the branch, clear the commit selection
+	// If the selected commit is not in the branch, it may have been amended (SHA changed)
+	// or deleted/squashed. Distinguish between the two using the previous state.
 	if (!selection.upstream && !branchCommitIds.includes(selection.commitId)) {
+		const prevBranchDetails = prevDetails?.branchDetails.find(
+			(branch) => branch.name === selectedBranch,
+		);
+		const oldIndex = prevBranchDetails?.commits.findIndex(
+			(commit) => commit.id === selection.commitId,
+		);
+
+		// If the commit existed at position N, the count stayed the same, and position N still
+		// exists, the commit was amended (same position, new SHA). Update the selection.
+		// A count decrease means the commit was truly deleted or squashed — clear it instead.
+		const sameCount = (prevBranchDetails?.commits.length ?? 0) === branchCommits.length;
+		if (oldIndex !== undefined && oldIndex !== -1 && oldIndex < branchCommits.length && sameCount) {
+			laneState.selection.set({ ...selection, commitId: branchCommits[oldIndex]!.id });
+			return;
+		}
+
+		// Commit is truly gone (deleted, squashed) — clear just the commitId
 		laneState.selection.set({
 			branchName: selection.branchName,
 			previewOpen: false,
@@ -91,17 +120,6 @@ function updateStackSelection(uiState: UiState, stackId: string, details: StackD
 
 		return;
 	}
-}
-
-/**
- * Updates the current stack state selection and exclusive action.
- */
-export function updateStaleStackState(
-	uiState: UiState,
-	stackId: string,
-	details: StackDetails,
-): void {
-	updateStackSelection(uiState, stackId, details);
 }
 
 /**
@@ -142,36 +160,30 @@ function updateExclusiveActionState(
 ) {
 	switch (action.type) {
 		case "commit":
-			if (action.stackId && !stackIds.includes(action.stackId)) {
-				projectState.exclusiveAction.set(undefined);
-			}
 			if (
-				action.parentCommitId &&
-				!commitIds.includes(action.parentCommitId) &&
-				!baseCommitShas.includes(action.parentCommitId)
+				(action.stackId && !stackIds.includes(action.stackId)) ||
+				(action.parentCommitId &&
+					!commitIds.includes(action.parentCommitId) &&
+					!baseCommitShas.includes(action.parentCommitId)) ||
+				(action.branchName && !branches.includes(action.branchName))
 			) {
-				projectState.exclusiveAction.set(undefined);
-			}
-			if (action.branchName && !branches.includes(action.branchName)) {
 				projectState.exclusiveAction.set(undefined);
 			}
 			break;
 		case "edit-commit-message":
-			if (action.stackId && !stackIds.includes(action.stackId)) {
-				projectState.exclusiveAction.set(undefined);
-			}
-			if (action.commitId && !commitIds.includes(action.commitId)) {
-				projectState.exclusiveAction.set(undefined);
-			}
-			if (action.branchName && !branches.includes(action.branchName)) {
+			if (
+				(action.stackId && !stackIds.includes(action.stackId)) ||
+				(action.commitId && !commitIds.includes(action.commitId)) ||
+				(action.branchName && !branches.includes(action.branchName))
+			) {
 				projectState.exclusiveAction.set(undefined);
 			}
 			break;
 		case "create-pr":
-			if (action.stackId && !stackIds.includes(action.stackId)) {
-				projectState.exclusiveAction.set(undefined);
-			}
-			if (action.branchName && !branches.includes(action.branchName)) {
+			if (
+				(action.stackId && !stackIds.includes(action.stackId)) ||
+				(action.branchName && !branches.includes(action.branchName))
+			) {
 				projectState.exclusiveAction.set(undefined);
 			}
 			break;
