@@ -95,8 +95,8 @@ type RubOperationLabel = "Amend" | "Uncommit" | "Assign" | "Unassign" | "Squash"
  * includes move operations.
  * https://linear.app/gitbutler/issue/GB-1160/what-should-rubbing-a-branch-into-another-branch-do#comment-db2abdb7
  */
-const rubOperationLabel = (rubSource: RubSource, target: ChangeUnit): RubOperationLabel | null =>
-	Match.value(rubSource).pipe(
+const rubOperationLabel = ({ source, target }: RubOperation): RubOperationLabel | null =>
+	Match.value(source).pipe(
 		Match.withReturnType<RubOperationLabel | null>(),
 		Match.tag("TreeChange", ({ source }) =>
 			Match.value(source.parent).pipe(
@@ -276,10 +276,12 @@ const parseDragData = (data: unknown): SourceItem | null => {
 
 const useDraggedSourceItem = (): SourceItem | null => useContext(DraggedSourceItemContext);
 
+type RubOperation = Omit<RubParams, "projectId">;
+
 type Operation =
 	| ({
 			_tag: "Rub";
-	  } & Omit<RubParams, "projectId">)
+	  } & RubOperation)
 	| ({
 			_tag: "CommitMove";
 	  } & Omit<CommitMoveParams, "projectId">)
@@ -810,14 +812,20 @@ const RubTarget: FC<
 		target: ChangeUnit;
 	} & useRender.ComponentProps<"div">
 > = ({ target, render, ...props }) => {
-	const getOperation = (sourceItem: SourceItem): Operation | null => {
+	const getRubOperation = (sourceItem: SourceItem): RubOperation | null => {
 		const rubSource = rubSourceFor(sourceItem);
-		if (!rubSource || rubOperationLabel(rubSource, target) === null) return null;
-		return {
-			_tag: "Rub",
+		if (!rubSource) return null;
+		const rubOperation: RubOperation = {
 			source: rubSource,
 			target,
 		};
+		if (rubOperationLabel(rubOperation) === null) return null;
+		return rubOperation;
+	};
+	const getOperation = (sourceItem: SourceItem): Operation | null => {
+		const rubOperation = getRubOperation(sourceItem);
+		if (!rubOperation) return null;
+		return { _tag: "Rub", ...rubOperation };
 	};
 
 	const [isDragOver, dropRef] = useDroppable({
@@ -842,8 +850,8 @@ const RubTarget: FC<
 	});
 
 	const sourceItem = useDraggedSourceItem();
-	const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
-	const tooltip = isDragOver && rubSource ? rubOperationLabel(rubSource, target) : null;
+	const rubOperation = sourceItem ? getRubOperation(sourceItem) : null;
+	const tooltip = isDragOver && rubOperation ? rubOperationLabel(rubOperation) : null;
 
 	return (
 		<Tooltip.Root open={tooltip !== null}>
