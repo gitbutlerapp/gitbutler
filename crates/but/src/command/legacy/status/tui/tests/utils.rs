@@ -3,7 +3,7 @@ use std::convert::Infallible;
 use but_testsupport::Sandbox;
 use crossterm::event::*;
 use gitbutler_operating_modes::OperatingMode;
-use ratatui::{Terminal, backend::TestBackend, widgets::List};
+use ratatui::{Terminal, backend::TestBackend};
 
 use crate::{
     args::OutputFormat,
@@ -18,7 +18,6 @@ use crate::{
 pub(super) struct TestTui {
     pub(super) app: App,
     terminal: Terminal<TestBackend>,
-    terminal_width: u16,
     pub(super) env: Sandbox,
     out: OutputChannel,
     mode: OperatingMode,
@@ -67,7 +66,6 @@ pub(super) fn test_tui_with_size(env: Sandbox, width: u16, height: u16) -> TestT
     TestTui {
         app,
         terminal,
-        terminal_width: width,
         env,
         out,
         mode,
@@ -148,32 +146,25 @@ impl TestTuiInputThenRenderResult<'_> {
 
     #[track_caller]
     pub(super) fn assert_current_line_eq(self, expected: impl snapbox::IntoData) -> Self {
-        let selected_line = self
-            .0
-            .app
-            .cursor
-            .selected_line(&self.0.app.status_lines)
-            .expect("failed to get selected line");
-        let list_item = self
-            .0
-            .app
-            .render_status_list_item(selected_line, true)
-            .into_iter()
-            .next()
-            .expect("selected line should render at least one list item");
-        let mut terminal = Terminal::new(TestBackend::new(self.0.terminal_width, 1))
-            .expect("failed to create test terminal");
-        terminal
-            .draw(|frame| frame.render_widget(List::new([list_item]), frame.area()))
-            .expect("failed to render current line");
-        let output = terminal.backend().to_string();
-        let line = output
-            .lines()
-            .next()
-            .expect("failed to get rendered current line")
-            .trim_start_matches('"')
-            .trim_end_matches('"')
-            .trim_end();
+        let backend = self.0.terminal.backend();
+        let buffer = backend.buffer();
+        let area = *buffer.area();
+        let selected_bg = super::super::CURSOR_BG;
+
+        let selected_row = (area.y..area.y.saturating_add(area.height))
+            .find(|&y| {
+                (area.x..area.x.saturating_add(area.width))
+                    .any(|x| buffer[(x, y)].bg == selected_bg)
+            })
+            .unwrap_or_else(|| {
+                panic!("failed to find selected row in rendered output:\n{backend}")
+            });
+
+        let mut line = String::new();
+        for x in area.x..area.x.saturating_add(area.width) {
+            line.push_str(buffer[(x, selected_row)].symbol());
+        }
+        let line = line.trim_end();
 
         let actual = snapbox::IntoData::into_data(line);
         let actual = actual.render().expect("current line should render as text");
