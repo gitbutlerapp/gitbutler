@@ -57,8 +57,10 @@ ReactQuery.focusManager.setEventListener((setFocused) => {
 	};
 });
 
-const projectRouteTree = projectRootRoute.addChildren([projectIndexRoute, projectBranchesRoute]);
-const routeTree = rootRoute.addChildren([indexRoute, projectRouteTree]);
+const routeTree = rootRoute.addChildren([
+	indexRoute,
+	projectRootRoute.addChildren([projectIndexRoute, projectBranchesRoute]),
+]);
 const router = createRouter({ routeTree, context: { queryClient } });
 
 declare module "@tanstack/react-router" {
