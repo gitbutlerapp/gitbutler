@@ -147,3 +147,79 @@ fn focus_reload_in_branch_mode_preserves_merge_base_selection() {
             "snapshots/focus_reload_in_branch_mode_preserves_merge_base_selection_final.txt"
         ]);
 }
+
+#[test]
+fn inline_branch_reword_confirm_renames_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+
+    tui.input_then_render(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊╭┄g0 [A ]"]);
+
+    tui.input_then_render(KeyCode::Backspace)
+        .assert_current_line_eq(str!["┊╭┄g0 [ ]"]);
+
+    tui.input_then_render("new")
+        .assert_current_line_eq(str!["┊╭┄g0 [new ]"]);
+
+    // spaces get mapped to dashes
+    tui.input_then_render(" ")
+        .assert_current_line_eq(str!["┊╭┄g0 [new- ]"]);
+
+    tui.input_then_render("name")
+        .assert_current_line_eq(str!["┊╭┄g0 [new-name ]"]);
+
+    tui.input_then_render(KeyCode::Enter)
+        .assert_current_line_eq(str!["[..] [new-name]"]);
+}
+
+#[test]
+fn inline_branch_reword_esc_cancels() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+
+    tui.input_then_render(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊╭┄g0 [A ]"]);
+
+    tui.input_then_render("new-name")
+        .assert_current_line_eq(str!["┊╭┄g0 [Anew-name ]"]);
+
+    tui.input_then_render(KeyCode::Esc)
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+}
+
+#[test]
+fn inline_branch_reword_preserves_selection_after_reload_with_multiple_branches() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+
+    tui.input_then_render(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊╭┄g0 [A ]"]);
+
+    tui.input_then_render(KeyCode::Backspace)
+        .assert_current_line_eq(str!["┊╭┄g0 [ ]"]);
+
+    tui.input_then_render("renamed-a")
+        .assert_current_line_eq(str!["┊╭┄g0 [renamed-a ]"]);
+
+    tui.input_then_render(KeyCode::Enter)
+        .assert_current_line_eq(str!["[..] [renamed-a]"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+        .assert_current_line_eq(str!["[..] [B]"]);
+}
