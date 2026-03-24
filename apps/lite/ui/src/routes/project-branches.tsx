@@ -308,31 +308,28 @@ const BranchDetailsC: FC<{
 	);
 
 	return (
-		<div>
-			<h3>{branchDetails.name} commits</h3>
-			<CommitsList commits={branchDetails.commits}>
-				{(commit) => (
-					<CommitC
-						projectId={projectId}
-						commit={commit}
-						isSelected={isCommitSelected(commit.id)}
-						isEditingMessage={isCommitEditing(commit.id)}
-						isSelectedWithin={isCommitSelectedWithin(commit.id)}
-						isFileSelected={(path) => isCommitFileSelected(commit.id, path)}
-						toggleExpand={() => toggleCommitExpanded(commit.id)}
-						toggleSelect={() => {
-							toggleCommitSelection(commit.id);
-						}}
-						toggleEditingMessage={() => {
-							toggleEditingMessage(commit.id);
-						}}
-						toggleFileSelect={(path) => {
-							toggleCommitFileSelection(commit.id, path);
-						}}
-					/>
-				)}
-			</CommitsList>
-		</div>
+		<CommitsList commits={branchDetails.commits}>
+			{(commit) => (
+				<CommitC
+					projectId={projectId}
+					commit={commit}
+					isSelected={isCommitSelected(commit.id)}
+					isEditingMessage={isCommitEditing(commit.id)}
+					isSelectedWithin={isCommitSelectedWithin(commit.id)}
+					isFileSelected={(path) => isCommitFileSelected(commit.id, path)}
+					toggleExpand={() => toggleCommitExpanded(commit.id)}
+					toggleSelect={() => {
+						toggleCommitSelection(commit.id);
+					}}
+					toggleEditingMessage={() => {
+						toggleEditingMessage(commit.id);
+					}}
+					toggleFileSelect={(path) => {
+						toggleCommitFileSelection(commit.id, path);
+					}}
+				/>
+			)}
+		</CommitsList>
 	);
 };
 
