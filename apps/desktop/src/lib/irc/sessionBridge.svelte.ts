@@ -37,7 +37,7 @@ import type {
 	PermissionDecision,
 	SystemMessage,
 } from "$lib/codegen/types";
-import type { StoredMessage } from "$lib/irc/ircApi";
+import type { StoredMessage } from "$lib/irc/ircEndpoints";
 import type { Reactive } from "@gitbutler/shared/storeUtils";
 
 export const IRC_SESSION_BRIDGE = new InjectionToken<IrcSessionBridge>("IrcSessionBridge");

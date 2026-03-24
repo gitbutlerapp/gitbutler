@@ -6,14 +6,10 @@ import type { BackendApi } from "$lib/state/clientState.svelte";
 export const FILE_SERVICE = new InjectionToken<FileService>("FileService");
 
 export class FileService {
-	private api: ReturnType<typeof injectEndpoints>;
-
 	constructor(
 		private backend: IBackend,
-		api: BackendApi,
-	) {
-		this.api = injectEndpoints(api);
-	}
+		private backendApi: BackendApi,
+	) {}
 
 	async readFromWorkspace(filePath: string, projectId: string) {
 		const data: FileInfo = await this.backend.invoke("get_workspace_file", {
@@ -51,14 +47,14 @@ export class FileService {
 	}
 
 	findFiles(projectId: string, query: string, limit: number) {
-		return this.api.endpoints.findFiles.useQuery(
+		return this.backendApi.endpoints.findFiles.useQuery(
 			{ projectId, query, limit },
 			{ forceRefetch: true },
 		);
 	}
 
 	async fetchFiles(projectId: string, query: string, limit: number) {
-		return await this.api.endpoints.findFiles.fetch({
+		return await this.backendApi.endpoints.findFiles.fetch({
 			projectId,
 			query,
 			limit,
@@ -68,18 +64,4 @@ export class FileService {
 
 function isLarge(size: number | undefined) {
 	return size && size > 5 * 1024 * 1024 ? true : false;
-}
-
-function injectEndpoints(api: BackendApi) {
-	return api.injectEndpoints({
-		endpoints: (build) => ({
-			findFiles: build.query<string[], { projectId: string; query: string; limit: number }>({
-				extraOptions: { command: "find_files" },
-				query: (args) => args,
-				// Keep results for a week, but use forceRefetch when using
-				// the query to get eventually correct results.
-				keepUnusedDataFor: 604800,
-			}),
-		}),
-	});
 }

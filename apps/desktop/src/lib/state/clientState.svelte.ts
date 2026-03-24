@@ -1,4 +1,4 @@
-import { tauriBaseQuery } from "$lib/state/backendQuery";
+import { createBackendApi, type BackendApi } from "$lib/state/backendApi";
 import { butlerModule } from "$lib/state/butlerModule";
 import { messageQueueAdapter, messageQueueSlice } from "$lib/state/messageQueueSlice";
 import { ReduxTag } from "$lib/state/tags";
@@ -31,7 +31,7 @@ import type { PostHogWrapper } from "$lib/telemetry/posthog";
  * Backend API object that enables the declaration and usage of endpoints
  * colocated with the feature they support.
  */
-export type BackendApi = ReturnType<typeof createBackendApi>;
+export type { BackendApi } from "$lib/state/backendApi";
 
 /**
  * GitHub API object that enables the declaration and usage of endpoints
@@ -85,16 +85,18 @@ export class ClientState {
 		gitLabClient: GitLabClient,
 		posthog: PostHogWrapper,
 	) {
-		const butlerMod = butlerModule({
-			// Cast required: store state has non-RTKQ slices (uiState, messageQueue)
-			// that don't satisfy RootState's CombinedState index signature.
+		// Cast required: store state has non-RTKQ slices (uiState, messageQueue)
+		// that don't satisfy RootState's CombinedState index signature.
+		const ctx = {
 			getState: () => this.rootState as unknown as RootState<any, any, any>,
 			getDispatch: () => this.dispatch,
 			posthog,
-		});
+		};
+		this.backendApi = createBackendApi(ctx);
+
+		const butlerMod = butlerModule(ctx);
 		this.githubApi = createGitHubApi(butlerMod);
 		this.gitlabApi = createGitLabApi(butlerMod);
-		this.backendApi = createBackendApi(butlerMod);
 
 		const { store, reducer } = createStore({
 			backend,
@@ -209,31 +211,6 @@ function createStore(params: {
 	});
 
 	return { store, reducer };
-}
-
-/**
- * Creates an rtk-query API object with extended endpoint methods.
- *
- * Inspired by the react hooks bundled with rtk we want to enable an API
- * that does not require any handling state in services. In said hooks
- * the state and dispatcher are acquired from the application context.
- * Unlike with React, it isn't possible to access the Svelte context
- * during event handling.
- */
-function createBackendApi(butlerMod: ReturnType<typeof butlerModule>) {
-	return buildCreateApi(
-		coreModule(),
-		butlerMod,
-	)({
-		reducerPath: "backend",
-		tagTypes: Object.values(ReduxTag),
-		invalidationBehavior: "immediately",
-		keepUnusedDataFor: 0,
-		baseQuery: tauriBaseQuery,
-		endpoints: (_) => {
-			return {};
-		},
-	});
 }
 
 // Default cache expiration for unused items is 60 seconds. This is too little

@@ -1,20 +1,15 @@
-import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
+import { listingSelectors } from "$lib/branches/branchEndpoints";
+import { invalidatesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
-import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
-import type { BranchListing, BranchListingDetails } from "$lib/branches/branchListing";
 import type { BackendApi } from "$lib/state/clientState.svelte";
 
 export const BRANCH_SERVICE = new InjectionToken<BranchService>("BranchService");
 
 export class BranchService {
-	private api: ReturnType<typeof injectEndpoints>;
-
-	constructor(backendApi: BackendApi) {
-		this.api = injectEndpoints(backendApi);
-	}
+	constructor(private backendApi: BackendApi) {}
 
 	list(projectId: string) {
-		return this.api.endpoints.listBranches.useQuery(
+		return this.backendApi.endpoints.listBranches.useQuery(
 			{ projectId },
 			{
 				transform: (result) => listingSelectors.selectAll(result),
@@ -23,7 +18,7 @@ export class BranchService {
 	}
 
 	listingByName(projectId: string, branchName: string) {
-		return this.api.endpoints.listBranches.useQuery(
+		return this.backendApi.endpoints.listBranches.useQuery(
 			{ projectId },
 			{
 				transform: (result) => listingSelectors.selectById(result, branchName),
@@ -32,38 +27,11 @@ export class BranchService {
 	}
 
 	get(projectId: string, branchName: string) {
-		return this.api.endpoints.branchDetails.useQuery({ projectId, branchName });
+		return this.backendApi.endpoints.branchListingDetails.useQuery({ projectId, branchName });
 	}
 
 	async refresh(): Promise<void> {
 		// TODO: This doesn't do anything... should it??
-		this.api.util.invalidateTags([invalidatesList(ReduxTag.BranchListing)]);
+		this.backendApi.util.invalidateTags([invalidatesList(ReduxTag.BranchListing)]);
 	}
 }
-
-function injectEndpoints(api: BackendApi) {
-	return api.injectEndpoints({
-		endpoints: (build) => ({
-			listBranches: build.query<EntityState<BranchListing, string>, { projectId: string }>({
-				extraOptions: { command: "list_branches" },
-				query: (args) => args,
-				providesTags: [providesList(ReduxTag.BranchListing)],
-				transformResponse: (response: BranchListing[]) => {
-					return listingAdapter.addMany(listingAdapter.getInitialState(), response);
-				},
-			}),
-			branchDetails: build.query<BranchListingDetails, { projectId: string; branchName: string }>({
-				extraOptions: { command: "get_branch_listing_details" },
-				query: ({ projectId, branchName }) => ({ projectId, branchNames: [branchName] }),
-				transformResponse: (response: BranchListingDetails[]) => response.at(0)!,
-				providesTags: [providesList(ReduxTag.BranchListing)],
-			}),
-		}),
-	});
-}
-
-const listingAdapter = createEntityAdapter<BranchListing, string>({
-	selectId: (listing) => listing.name,
-});
-
-const listingSelectors = listingAdapter.getSelectors();

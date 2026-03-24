@@ -31,7 +31,7 @@
 	import type { TreeChange } from "$lib/hunks/change";
 	import type { FileDependencies } from "$lib/hunks/dependencies";
 	import type { UnifiedDiff } from "$lib/hunks/diff";
-	import type { Reaction } from "$lib/irc/ircApi";
+	import type { Reaction } from "$lib/irc/ircEndpoints";
 	import type { LineId } from "@gitbutler/ui/utils/diffParsing";
 
 	const LARGE_DIFF_THRESHOLD = 1000;

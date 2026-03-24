@@ -5,7 +5,7 @@
 		markRecentlyUsedEmoji,
 		type EmojiInfo,
 	} from "@gitbutler/ui/components/emoji/utils";
-	import type { StoredMessage } from "$lib/irc/ircApi";
+	import type { StoredMessage } from "$lib/irc/ircEndpoints";
 
 	const QUICK_EMOJI_COUNT = 4;
 

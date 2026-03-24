@@ -53,7 +53,6 @@ export function getStackServiceMock() {
 	StackServiceMock.prototype.stackAt = vi.fn();
 	StackServiceMock.prototype.stackById = vi.fn();
 	StackServiceMock.prototype.defaultBranch = vi.fn();
-	StackServiceMock.prototype.stackInfo = vi.fn();
 	StackServiceMock.prototype.branchDetails = vi.fn(() => {
 		return reactive(() => mockReduxFulfilled(BRANCH_DETAILS_A));
 	});

@@ -3,7 +3,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import { Button } from "@gitbutler/ui";
 	import { onDestroy } from "svelte";
-	import type { StoredMessage } from "$lib/irc/ircApi";
+	import type { StoredMessage } from "$lib/irc/ircEndpoints";
 
 	type Props = {
 		type: "group" | "private" | "server";

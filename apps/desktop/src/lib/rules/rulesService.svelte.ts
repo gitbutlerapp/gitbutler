@@ -1,51 +1,40 @@
-import {
-	isAiRule,
-	type CreateRuleRequest,
-	type UpdateRuleRequest,
-	type WorkspaceRule,
-	type WorkspaceRuleId,
-} from "$lib/rules/rule";
-import { hasBackendExtra } from "$lib/state/backendQuery";
-import { invalidatesList, providesItems, ReduxTag } from "$lib/state/tags";
+import { workspaceRulesSelectors } from "$lib/actions/actionEndpoints";
+import { isAiRule } from "$lib/rules/rule";
+export { workspaceRulesSelectors } from "$lib/actions/actionEndpoints";
 import { InjectionToken } from "@gitbutler/core/context";
-import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
 import type { BackendApi } from "$lib/state/clientState.svelte";
 
 export const RULES_SERVICE = new InjectionToken<RulesService>("RulesService");
 
 export default class RulesService {
-	private api: ReturnType<typeof injectEndpoints>;
-
-	constructor(backendApi: BackendApi) {
-		this.api = injectEndpoints(backendApi);
-	}
+	constructor(private backendApi: BackendApi) {}
 
 	get createWorkspaceRule() {
-		return this.api.endpoints.createWorkspaceRule.useMutation();
+		return this.backendApi.endpoints.createWorkspaceRule.useMutation();
 	}
 
 	get deleteWorkspaceRule() {
-		return this.api.endpoints.deleteWorkspaceRule.useMutation();
+		return this.backendApi.endpoints.deleteWorkspaceRule.useMutation();
 	}
 
 	get deleteWorkspaceRuleMutate() {
-		return this.api.endpoints.deleteWorkspaceRule.mutate;
+		return this.backendApi.endpoints.deleteWorkspaceRule.mutate;
 	}
 
 	get updateWorkspaceRule() {
-		return this.api.endpoints.updateWorkspaceRule.useMutation();
+		return this.backendApi.endpoints.updateWorkspaceRule.useMutation();
 	}
 
 	get updateWorkspaceRuleMutate() {
-		return this.api.endpoints.updateWorkspaceRule.mutate;
+		return this.backendApi.endpoints.updateWorkspaceRule.mutate;
 	}
 
 	workspaceRules(projectId: string) {
-		return this.api.endpoints.listWorkspaceRules.useQuery({ projectId });
+		return this.backendApi.endpoints.listWorkspaceRules.useQuery({ projectId });
 	}
 
 	hasRulesToClear(projectId: string, stackId?: string) {
-		return this.api.endpoints.listWorkspaceRules.useQuery(
+		return this.backendApi.endpoints.listWorkspaceRules.useQuery(
 			{ projectId },
 			{
 				transform: (result) => {
@@ -59,7 +48,7 @@ export default class RulesService {
 	}
 
 	aiSessionId(projectId: string, stackId?: string) {
-		return this.api.endpoints.listWorkspaceRules.useQuery(
+		return this.backendApi.endpoints.listWorkspaceRules.useQuery(
 			{ projectId },
 			{
 				transform: (result) => {
@@ -77,89 +66,9 @@ export default class RulesService {
 	}
 
 	async fetchListWorkspaceRules(projectId: string) {
-		return await this.api.endpoints.listWorkspaceRules.fetch(
+		return await this.backendApi.endpoints.listWorkspaceRules.fetch(
 			{ projectId },
 			{ transform: (result) => workspaceRulesSelectors.selectAll(result) },
 		);
 	}
 }
-
-function injectEndpoints(api: BackendApi) {
-	return api.injectEndpoints({
-		endpoints: (build) => ({
-			createWorkspaceRule: build.mutation<
-				WorkspaceRule,
-				{ projectId: string; request: CreateRuleRequest }
-			>({
-				extraOptions: { command: "create_workspace_rule" },
-				query: (args) => args,
-				// Note: We don't invalidate WorkspaceRules here - the backend listener handles it
-				// This prevents double-invalidation which causes cache to blink
-				invalidatesTags: () => [
-					invalidatesList(ReduxTag.WorktreeChanges),
-					invalidatesList(ReduxTag.Stacks), // Probably this is still needed??
-				],
-			}),
-			deleteWorkspaceRule: build.mutation<void, { projectId: string; ruleId: WorkspaceRuleId }>({
-				extraOptions: { command: "delete_workspace_rule" },
-				query: (args) => args,
-				// Note: We don't invalidate WorkspaceRules here - the backend listener handles it
-				// This prevents double-invalidation which causes cache to blink
-				invalidatesTags: [
-					invalidatesList(ReduxTag.ClaudeCodeTranscript),
-					invalidatesList(ReduxTag.ClaudePermissionRequests),
-					invalidatesList(ReduxTag.ClaudeSessionDetails),
-					invalidatesList(ReduxTag.ClaudeStackActive),
-				],
-			}),
-			updateWorkspaceRule: build.mutation<
-				WorkspaceRule,
-				{ projectId: string; request: UpdateRuleRequest }
-			>({
-				extraOptions: { command: "update_workspace_rule" },
-				query: (args) => args,
-				// Note: We don't invalidate WorkspaceRules here - the backend listener handles it
-				// This prevents double-invalidation which causes cache to blink
-				invalidatesTags: () => [
-					invalidatesList(ReduxTag.WorktreeChanges),
-					invalidatesList(ReduxTag.Stacks), // Probably this is still needed??
-				],
-			}),
-			listWorkspaceRules: build.query<
-				EntityState<WorkspaceRule, WorkspaceRuleId>,
-				{ projectId: string }
-			>({
-				extraOptions: { command: "list_workspace_rules" },
-				query: (args) => args,
-				providesTags: (result) => providesItems(ReduxTag.WorkspaceRules, result?.ids ?? []),
-				async onCacheEntryAdded(arg, lifecycleApi) {
-					if (!hasBackendExtra(lifecycleApi.extra)) {
-						throw new Error("Redux dependency Backend not found!");
-					}
-					// The `cacheDataLoaded` promise resolves when the result is first loaded.
-					await lifecycleApi.cacheDataLoaded;
-					const unsubscribe = lifecycleApi.extra.backend.listen(
-						`project://${arg.projectId}/rule-updates`,
-						() => {
-							lifecycleApi.dispatch(
-								api.util.invalidateTags([invalidatesList(ReduxTag.WorkspaceRules)]),
-							);
-						},
-					);
-					// The `cacheEntryRemoved` promise resolves when the result is removed
-					await lifecycleApi.cacheEntryRemoved;
-					unsubscribe();
-				},
-				transformResponse: (response: WorkspaceRule[]) => {
-					return workspaceRulesAdapter.addMany(workspaceRulesAdapter.getInitialState(), response);
-				},
-			}),
-		}),
-	});
-}
-
-const workspaceRulesAdapter = createEntityAdapter<WorkspaceRule, WorkspaceRuleId>({
-	selectId: (rule) => rule.id,
-});
-
-export const workspaceRulesSelectors = workspaceRulesAdapter.getSelectors();

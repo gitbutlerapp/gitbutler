@@ -14,7 +14,7 @@
 		Markdown,
 	} from "@gitbutler/ui";
 	import { onDestroy } from "svelte";
-	import type { Reaction, StoredMessage } from "$lib/irc/ircApi";
+	import type { Reaction, StoredMessage } from "$lib/irc/ircEndpoints";
 
 	function avatarUrl(sender: string): string {
 		return `https://github.com/${encodeURIComponent(sender)}.png?size=64`;

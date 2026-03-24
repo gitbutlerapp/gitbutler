@@ -8,7 +8,7 @@
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 
 	import { slide } from "svelte/transition";
-	import type { Reaction } from "$lib/irc/ircApi";
+	import type { Reaction } from "$lib/irc/ircEndpoints";
 	import type { Snippet } from "svelte";
 
 	type BaseProps = {
