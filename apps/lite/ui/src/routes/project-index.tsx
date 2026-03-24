@@ -1129,7 +1129,7 @@ const CommitForm: FC<{
 
 	const commitCreate = useMutation(commitCreateMutationOptions);
 
-	const disabled = commitCreate.isPending || !relativeTo || diffSpecs.length === 0;
+	const disabled = commitCreate.isPending || !relativeTo;
 
 	return (
 		<form
