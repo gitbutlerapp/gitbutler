@@ -6,6 +6,7 @@ import { BranchDetails, BranchIdentity, BranchListing, Commit } from "@gitbutler
 import { Match } from "effect";
 import { ComponentProps, FC, Suspense } from "react";
 
+import { classes } from "#ui/classes.ts";
 import { CheckIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import {
 	CommitDetails,
@@ -14,7 +15,6 @@ import {
 	FileDiff,
 	FileButton,
 	Hunk,
-	classes,
 } from "#ui/routes/project/$id/-shared.tsx";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/api/mutations.ts";

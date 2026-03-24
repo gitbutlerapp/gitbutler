@@ -5,8 +5,8 @@ import { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext } from "@tanstack/react-router";
 
 import { usePreviewVisible } from "../hooks/usePreviewVisible";
+import { classes } from "#ui/classes.ts";
 import sharedStyles from "./project/$id/-shared.module.css";
-import { classes } from "./project/$id/-shared.tsx";
 import styles from "./__root.module.css";
 import { shortcutKeys } from "#ui/shortcuts.ts";
 

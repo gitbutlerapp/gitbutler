@@ -22,6 +22,7 @@ import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-q
 import { FC, Suspense, useEffect, useState } from "react";
 import styles from "./index.module.css";
 import sharedStyles from "../-shared.module.css";
+import { classes } from "#ui/classes.ts";
 import { DependencyIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
@@ -185,14 +186,6 @@ const DependencyIndicator: FC<
 		</Popover.Root>
 	);
 };
-
-/**
- * @example
- * classes('foo', undefined, 'bar', '', 'baz') === 'foo bar baz'
- */
-const classes = (...xs: Array<string | null | undefined | false>): string =>
-	// oxlint-disable-next-line typescript/strict-boolean-expressions
-	xs.reduce((acc: string, x) => (x ? (acc ? `${acc} ${x}` : x) : acc), "");
 
 const parseDragData = (data: unknown): SourceItem | null => {
 	if (typeof data !== "object" || data === null || !("sourceItem" in data)) return null;
