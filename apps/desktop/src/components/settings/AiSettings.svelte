@@ -4,7 +4,12 @@
 	import AuthorizationBanner from "$components/settings/AuthorizationBanner.svelte";
 	import SettingsSection from "$components/shared/SettingsSection.svelte";
 	import { AISecretHandle, AI_SERVICE, GitAIConfigKey, KeyOption } from "$lib/ai/service";
-	import { OpenAIModelName, AnthropicModelName, ModelKind, type OpenRouterModelName } from "$lib/ai/types";
+	import {
+		OpenAIModelName,
+		AnthropicModelName,
+		ModelKind,
+		type OpenRouterModelName,
+	} from "$lib/ai/types";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { SECRET_SERVICE } from "$lib/secrets/secretsService";
 	import { USER_SERVICE } from "$lib/user/userService";
@@ -422,11 +427,7 @@
 					placeholder="sk-or-..."
 				/>
 
-				<Textbox
-					label="Model"
-					bind:value={openRouterModel}
-					placeholder="openai/gpt-4.1-mini"
-				/>
+				<Textbox label="Model" bind:value={openRouterModel} placeholder="openai/gpt-4.1-mini" />
 			</CardGroup.Item>
 		{/if}
 

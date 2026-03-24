@@ -366,9 +366,7 @@ export class AIService {
 			const openRouterModelName = await this.getOpenRouterModelName();
 
 			if (!openRouterKey) {
-				throw new Error(
-					"When using OpenRouter, you must provide a valid API key",
-				);
+				throw new Error("When using OpenRouter, you must provide a valid API key");
 			}
 
 			return new OpenAIClient(
