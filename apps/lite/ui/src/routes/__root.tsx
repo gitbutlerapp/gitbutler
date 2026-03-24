@@ -5,8 +5,8 @@ import { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext } from "@tanstack/react-router";
 
 import { usePreviewVisible } from "../hooks/usePreviewVisible";
-import sharedStyles from "./project/$id/shared.module.css";
-import { classes } from "./project/$id/shared.tsx";
+import sharedStyles from "./project/$id/-shared.module.css";
+import { classes } from "./project/$id/-shared.tsx";
 import styles from "./__root.module.css";
 import { shortcutKeys } from "#ui/shortcuts.ts";
 
@@ -126,6 +126,6 @@ function RootLayout() {
 	);
 }
 
-export const rootRoute = createRootRouteWithContext<RouteContext>()({
+export const Route = createRootRouteWithContext<RouteContext>()({
 	component: RootLayout,
 });

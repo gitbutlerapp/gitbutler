@@ -20,3 +20,6 @@ package-lock.json
 e2e/playwright/fixtures
 packages/but-sdk/src/generated
 packages/but-sdk/**/*.md
+
+# TanStack Router's generated types for file-based routing
+apps/lite/ui/src/routeTree.gen.ts

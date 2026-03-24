@@ -1,7 +1,7 @@
 import useLocalStorageState from "use-local-storage-state";
 import { ContextMenu, Menu } from "@base-ui/react";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { createRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { BranchDetails, BranchIdentity, BranchListing, Commit } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { ComponentProps, FC, Suspense } from "react";
@@ -15,8 +15,8 @@ import {
 	FileButton,
 	Hunk,
 	classes,
-} from "#ui/routes/project/$id/shared.tsx";
-import { ProjectPreviewLayout } from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
+} from "#ui/routes/project/$id/-shared.tsx";
+import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/api/mutations.ts";
 import {
 	branchDetailsQueryOptions,
@@ -25,9 +25,8 @@ import {
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import { projectRoute } from "../route";
 import styles from "./route.module.css";
-import sharedStyles from "../shared.module.css";
+import sharedStyles from "../-shared.module.css";
 
 type Selection =
 	| {
@@ -475,7 +474,7 @@ const Preview: FC<{
 	);
 
 const ProjectBranchesPage: FC = () => {
-	const { id: projectId } = projectBranchesRoute.useParams();
+	const { id: projectId } = Route.useParams();
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 	const project = projects.find((project) => project.id === projectId);
@@ -648,8 +647,6 @@ const ProjectBranchesPage: FC = () => {
 	);
 };
 
-export const projectBranchesRoute = createRoute({
-	getParentRoute: () => projectRoute,
-	path: "branches",
+export const Route = createFileRoute("/project/$id/branches")({
 	component: ProjectBranchesPage,
 });

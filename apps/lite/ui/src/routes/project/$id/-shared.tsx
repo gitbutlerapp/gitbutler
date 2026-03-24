@@ -17,7 +17,7 @@ import {
 	useOptimistic,
 	useTransition,
 } from "react";
-import styles from "./shared.module.css";
+import styles from "./-shared.module.css";
 import { ExpandCollapseIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import {
 	commitDetailsWithLineStatsQueryOptions,

@@ -16,17 +16,17 @@ import {
 	HunkDependencies,
 	HunkHeader,
 } from "@gitbutler/but-sdk";
-import { createRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { FC, Suspense, useEffect, useState } from "react";
 import styles from "./index.module.css";
-import sharedStyles from "../shared.module.css";
+import sharedStyles from "../-shared.module.css";
 import { DependencyIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { type Operation, type RubOperation, useRunOperation } from "#ui/Operation.ts";
-import { ProjectPreviewLayout } from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
+import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import {
 	CommitDetails,
 	CommitLabel,
@@ -39,7 +39,7 @@ import {
 	FileDiff,
 	Hunk,
 	type SourceItem,
-} from "#ui/routes/project/$id/shared.tsx";
+} from "#ui/routes/project/$id/-shared.tsx";
 import { commitCreateMutationOptions, unapplyStackMutationOptions } from "#ui/api/mutations.ts";
 import {
 	branchDiffQueryOptions,
@@ -59,8 +59,7 @@ import {
 	getStackIdsByCommitId,
 } from "#ui/domain/RefInfo.ts";
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
-import { getDefaultSelection, normalizeSelection, type Selection } from "./WorkspaceSelection.ts";
-import { projectRoute } from "#ui/routes/project/$id/route.tsx";
+import { getDefaultSelection, normalizeSelection, type Selection } from "./-WorkspaceSelection.ts";
 import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 
@@ -1200,7 +1199,7 @@ const StackC: FC<{
 };
 
 const ProjectPage: FC = () => {
-	const { id: projectId } = projectRoute.useParams();
+	const { id: projectId } = Route.useParams();
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 
@@ -1416,8 +1415,6 @@ const ProjectPage: FC = () => {
 	);
 };
 
-export const projectIndexRoute = createRoute({
-	getParentRoute: () => projectRoute,
-	path: "/",
+export const Route = createFileRoute("/project/$id/(index)/")({
 	component: ProjectPage,
 });
