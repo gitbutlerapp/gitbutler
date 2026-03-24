@@ -17,7 +17,7 @@
 		KebabButton,
 	} from "@gitbutler/ui";
 	import { onDestroy } from "svelte";
-	import type { StoredMessage } from "$lib/irc/ircApi";
+	import type { StoredMessage } from "$lib/irc/ircEndpoints";
 	import type { Snippet } from "svelte";
 
 	type Props = {

@@ -22,8 +22,8 @@
 		type FileListKeyHandler,
 	} from "$lib/selection/fileListController.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { FOCUS_MANAGER } from "@gitbutler/ui/focus/focusManager";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import type { ConflictEntriesObj } from "$lib/files/conflicts";
 	import type { TreeChange } from "$lib/hunks/change";
 

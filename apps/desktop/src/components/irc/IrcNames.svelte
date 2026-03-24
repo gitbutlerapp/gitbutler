@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { UserEntry } from "$lib/irc/ircApi";
+	import type { UserEntry } from "$lib/irc/ircEndpoints";
 
 	type Props = {
 		users: UserEntry[];

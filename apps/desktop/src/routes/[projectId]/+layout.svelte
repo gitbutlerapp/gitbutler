@@ -34,11 +34,13 @@
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { CLIENT_STATE } from "$lib/state/clientState.svelte";
 	import { combineResults } from "$lib/state/helpers";
+	import { invalidatesList, ReduxTag } from "$lib/state/tags";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { debounce } from "$lib/utils/debounce";
 	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+	import { mergeUnlisten } from "@gitbutler/ui/utils/mergeUnlisten";
 	import { onDestroy, untrack, type Snippet } from "svelte";
 	import type { LayoutData } from "./$types";
 
@@ -250,6 +252,25 @@
 
 	const headResponse = $derived(modeService.head(projectId));
 	const head = $derived(headResponse.response);
+
+	// Invalidate caches in response to backend events.
+	$effect(() =>
+		mergeUnlisten(
+			backend.listen(`project://${projectId}/hunk-assignment-update`, () => {
+				stackService.invalidateStacksAndDetails();
+			}),
+			backend.listen(`project://${projectId}/worktree_changes`, () => {
+				clientState.dispatch(
+					clientState.backendApi.util.invalidateTags([invalidatesList(ReduxTag.Diff)]),
+				);
+			}),
+			backend.listen(`project://${projectId}/rule-updates`, () => {
+				clientState.dispatch(
+					clientState.backendApi.util.invalidateTags([invalidatesList(ReduxTag.WorkspaceRules)]),
+				);
+			}),
+		),
+	);
 
 	// If the head changes, invalidate stacks and details
 	// We need to track the previous head value to avoid infinite loops

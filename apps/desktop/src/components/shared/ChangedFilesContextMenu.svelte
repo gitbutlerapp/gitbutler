@@ -90,7 +90,7 @@
 	const [branchChanges, branchingChanges] = actionService.branchChanges;
 	const [, absorbingChanges] = stackService.absorb;
 	const [splitOffChanges] = stackService.splitBranch;
-	const [splitBranchIntoDependentBranch] = stackService.splitBrancIntoDependentBranch;
+	const [splitBranchIntoDependentBranch] = stackService.splitBranchIntoDependentBranch;
 
 	const projectService = inject(PROJECTS_SERVICE);
 

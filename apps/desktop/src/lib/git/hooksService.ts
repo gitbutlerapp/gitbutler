@@ -3,45 +3,15 @@ import { chipToasts } from "@gitbutler/ui";
 import type { DiffSpec } from "$lib/hunks/hunk";
 import type { BackendApi } from "$lib/state/clientState.svelte";
 
-export type HookStatus =
-	| {
-			status: "success";
-	  }
-	| {
-			status: "notconfigured";
-	  }
-	| {
-			status: "failure";
-			error: string;
-	  };
-
-export type MessageHookStatus =
-	| {
-			status: "success";
-	  }
-	| {
-			status: "message";
-			message: string;
-	  }
-	| {
-			status: "notconfigured";
-	  }
-	| {
-			status: "failure";
-			error: string;
-	  };
+export type { HookStatus, MessageHookStatus } from "$lib/git/gitEndpoints";
 
 export const HOOKS_SERVICE = new InjectionToken<HooksService>("HooksService");
 
 export class HooksService {
-	private api: ReturnType<typeof injectEndpoints>;
-
-	constructor(backendApi: BackendApi) {
-		this.api = injectEndpoints(backendApi);
-	}
+	constructor(private backendApi: BackendApi) {}
 
 	get message() {
-		return this.api.endpoints.message.useMutation();
+		return this.backendApi.endpoints.messageHook.useMutation();
 	}
 
 	// Promise-based wrapper methods with toast handling
@@ -49,7 +19,7 @@ export class HooksService {
 		const loadingToastId = chipToasts.loading("Started pre-commit hooks");
 
 		try {
-			const result = await this.api.endpoints.preCommitDiffspecs.mutate({
+			const result = await this.backendApi.endpoints.preCommitDiffspecs.mutate({
 				projectId,
 				changes,
 			});
@@ -71,7 +41,7 @@ export class HooksService {
 		const loadingToastId = chipToasts.loading("Started post-commit hooks");
 
 		try {
-			const result = await this.api.endpoints.postCommit.mutate({
+			const result = await this.backendApi.endpoints.postCommit.mutate({
 				projectId,
 			});
 
@@ -91,23 +61,4 @@ export class HooksService {
 
 function formatError(error: string): string {
 	return `${error}\n\nIf you don't want git hooks to run, disable "Run Git hooks" in project settings.`;
-}
-
-function injectEndpoints(backendApi: BackendApi) {
-	return backendApi.injectEndpoints({
-		endpoints: (build) => ({
-			preCommitDiffspecs: build.mutation<HookStatus, { projectId: string; changes: DiffSpec[] }>({
-				extraOptions: { command: "pre_commit_hook_diffspecs" },
-				query: (args) => args,
-			}),
-			postCommit: build.mutation<HookStatus, { projectId: string }>({
-				extraOptions: { command: "post_commit_hook" },
-				query: (args) => args,
-			}),
-			message: build.mutation<MessageHookStatus, { projectId: string; message: string }>({
-				extraOptions: { command: "message_hook" },
-				query: (args) => args,
-			}),
-		}),
-	});
 }

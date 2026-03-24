@@ -1,9 +1,8 @@
-import { BaseBranch, type ForgeProvider, type RemoteBranchInfo } from "$lib/baseBranch/baseBranch";
+import { BaseBranch } from "$lib/baseBranch/baseBranch";
 import { Code } from "$lib/error/knownErrors";
 import { isReduxError } from "$lib/error/reduxError";
 import { showError } from "$lib/error/showError";
 import { parseRemoteUrl } from "$lib/git/gitUrl";
-import { invalidatesList, invalidatesType, providesType, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
 import { plainToInstance } from "class-transformer";
 import type { BackendApi } from "$lib/state/clientState.svelte";
@@ -23,18 +22,14 @@ function mapBaseBranch<T>(
 export const BASE_BRANCH_SERVICE = new InjectionToken<BaseBranchService>("BaseBranchService");
 
 export default class BaseBranchService {
-	private api: ReturnType<typeof injectEndpoints>;
-
-	constructor(readonly backendApi: BackendApi) {
-		this.api = injectEndpoints(backendApi);
-	}
+	constructor(private backendApi: BackendApi) {}
 
 	forgeProvider(projectId: string) {
-		return this.api.endpoints.forgeProvider.useQuery({ projectId });
+		return this.backendApi.endpoints.forgeProvider.useQuery({ projectId });
 	}
 
 	baseBranch(projectId: string) {
-		return this.api.endpoints.baseBranch.useQuery(
+		return this.backendApi.endpoints.baseBranch.useQuery(
 			{
 				projectId,
 			},
@@ -47,7 +42,7 @@ export default class BaseBranchService {
 	}
 
 	baseBranchShortName(projectId: string) {
-		return this.api.endpoints.baseBranch.useQuery(
+		return this.backendApi.endpoints.baseBranch.useQuery(
 			{
 				projectId,
 			},
@@ -64,7 +59,7 @@ export default class BaseBranchService {
 	}
 
 	repo(projectId: string) {
-		return this.api.endpoints.baseBranch.useQuery(
+		return this.backendApi.endpoints.baseBranch.useQuery(
 			{
 				projectId,
 			},
@@ -76,7 +71,7 @@ export default class BaseBranchService {
 	}
 
 	pushRepo(projectId: string) {
-		return this.api.endpoints.baseBranch.useQuery(
+		return this.backendApi.endpoints.baseBranch.useQuery(
 			{
 				projectId,
 			},
@@ -88,11 +83,11 @@ export default class BaseBranchService {
 	}
 
 	async refreshBaseBranch(projectId: string) {
-		await this.api.endpoints.baseBranch.fetch({ projectId }, { forceRefetch: true });
+		await this.backendApi.endpoints.baseBranch.fetch({ projectId }, { forceRefetch: true });
 	}
 
 	async fetchFromRemotes(projectId: string, action?: "auto" | "modal") {
-		return await this.api.endpoints.fetchFromRemotes
+		return await this.backendApi.endpoints.fetchFromRemotes
 			.mutate({ projectId, action })
 			.catch((error: unknown) => {
 				if (!isReduxError(error)) {
@@ -126,87 +121,18 @@ export default class BaseBranchService {
 	}
 
 	get setTarget() {
-		return this.api.endpoints.setTarget.useMutation();
+		return this.backendApi.endpoints.setTarget.useMutation();
 	}
 
 	get switchBackToWorkspace() {
-		return this.api.endpoints.switchBackToWorkspace.useMutation();
+		return this.backendApi.endpoints.switchBackToWorkspace.useMutation();
 	}
 
 	get push() {
-		return this.api.endpoints.push.useMutation();
+		return this.backendApi.endpoints.pushBaseBranch.useMutation();
 	}
 
 	remoteBranches(projectId: string) {
-		return this.api.endpoints.remoteBranches.useQuery({ projectId });
+		return this.backendApi.endpoints.remoteBranches.useQuery({ projectId });
 	}
-}
-
-function injectEndpoints(api: BackendApi) {
-	return api.injectEndpoints({
-		endpoints: (build) => ({
-			forgeProvider: build.query<ForgeProvider | null, { projectId: string }>({
-				extraOptions: { command: "forge_provider" },
-				query: (args) => args,
-				providesTags: [providesType(ReduxTag.ForgeProvider)],
-			}),
-			baseBranch: build.query<unknown, { projectId: string }>({
-				extraOptions: { command: "get_base_branch_data" },
-				query: (args) => args,
-				providesTags: [providesType(ReduxTag.BaseBranchData)],
-			}),
-			fetchFromRemotes: build.mutation<void, { projectId: string; action?: string }>({
-				extraOptions: { command: "fetch_from_remotes" },
-				query: ({ projectId, action }) => ({
-					projectId,
-					action: action ?? "auto",
-				}),
-				invalidatesTags: [
-					// No need to invalidate base branch, we should be listening
-					// for all FETCH events, and refreshing manually.
-					invalidatesList(ReduxTag.Stacks), // Probably this is still needed??
-					invalidatesList(ReduxTag.StackDetails), // Probably this is still needed??
-					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
-				],
-			}),
-			setTarget: build.mutation<
-				BaseBranch,
-				{ projectId: string; branch: string; pushRemote?: string; stashUncommitted?: boolean }
-			>({
-				extraOptions: { command: "set_base_branch" },
-				query: (args) => args,
-				invalidatesTags: [
-					invalidatesType(ReduxTag.ForgeProvider),
-					invalidatesType(ReduxTag.BaseBranchData),
-					invalidatesList(ReduxTag.Stacks), // Probably this is still needed??
-					invalidatesList(ReduxTag.StackDetails), // Probably this is still needed??
-				],
-			}),
-			switchBackToWorkspace: build.mutation<BaseBranch, { projectId: string }>({
-				extraOptions: { command: "switch_back_to_workspace" },
-				query: (args) => args,
-				invalidatesTags: [
-					invalidatesType(ReduxTag.ForgeProvider),
-					invalidatesType(ReduxTag.BaseBranchData),
-					invalidatesList(ReduxTag.Stacks), // Probably this is still needed??
-					invalidatesList(ReduxTag.StackDetails), // Probably this is still needed??
-				],
-			}),
-			push: build.mutation<void, { projectId: string; withForce?: boolean }>({
-				extraOptions: { command: "push_base_branch" },
-				query: (args) => args,
-				invalidatesTags: [invalidatesType(ReduxTag.BaseBranchData)],
-			}),
-			remoteBranches: build.query<RemoteBranchInfo[], { projectId: string }>({
-				extraOptions: { command: "git_remote_branches" },
-				query: (args) => args,
-				transformResponse: (data: string[]) => {
-					return data
-						.map((name) => name.substring(13))
-						.sort((a, b) => a.localeCompare(b))
-						.map((name) => ({ name }));
-				},
-			}),
-		}),
-	});
 }
