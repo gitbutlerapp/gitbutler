@@ -34,6 +34,14 @@ pub struct Overlay {
     entrypoint: Entrypoint,
     nonoverriding_references: Vec<gix::refs::Reference>,
     overriding_references: Vec<gix::refs::Reference>,
+    /// A list of references that should not be picked up anymore in the
+    /// re-traversal.
+    ///
+    /// For example, if the `but_rebase::graph_rebase::Editor` converts a
+    /// `Reference` step to a `None` step which is the equivalent of running
+    /// `git update-ref -d`, it should no longer be part of the [`Graph`], so we
+    /// would list the particular reference as a dropped reference.
+    dropped_references: Vec<gix::refs::FullName>,
     meta_branches: Vec<(gix::refs::FullName, ref_metadata::Branch)>,
     workspace: Option<(gix::refs::FullName, ref_metadata::Workspace)>,
 }

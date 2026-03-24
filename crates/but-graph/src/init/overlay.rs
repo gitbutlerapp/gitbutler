@@ -33,6 +33,21 @@ impl Overlay {
         self
     }
 
+    /// A list of references that should not be picked up anymore in the
+    /// re-traversal.
+    ///
+    /// For example, if the `but_rebase::graph_rebase::Editor` converts a
+    /// `Reference` step to a `None` step which is the equivalent of running
+    /// `git update-ref -d`, it should no longer be part of the [`Graph`], so we
+    /// would list the particular reference as a dropped reference.
+    pub fn with_dropped_references(
+        mut self,
+        refs: impl IntoIterator<Item = gix::refs::FullName>,
+    ) -> Self {
+        self.dropped_references.extend(refs);
+        self
+    }
+
     /// Override the starting position of the traversal by setting it to `id`,
     /// and optionally, by providing the `ref_name` that points to `id`.
     pub fn with_entrypoint(
@@ -84,6 +99,7 @@ impl Overlay {
         let Overlay {
             nonoverriding_references,
             overriding_references,
+            dropped_references,
             meta_branches,
             workspace,
             entrypoint,
@@ -98,6 +114,7 @@ impl Overlay {
                     .into_iter()
                     .map(|r| (r.name.clone(), r))
                     .collect(),
+                dropped_references: dropped_references.into_iter().collect(),
                 inner: repo,
             },
             OverlayMetadata {
@@ -116,6 +133,7 @@ pub(crate) struct OverlayRepo<'repo> {
     inner: &'repo gix::Repository,
     nonoverriding_references: NameToReference,
     overriding_references: NameToReference,
+    dropped_references: BTreeSet<gix::refs::FullName>,
 }
 
 /// Note that functions with `'repo` in their return value technically leak the bare repo, and it's
@@ -129,7 +147,9 @@ impl<'repo> OverlayRepo<'repo> {
         &self,
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Option<gix::Reference<'repo>>> {
-        if let Some(r) = self.overriding_references.get(ref_name) {
+        if self.dropped_references.contains(ref_name) {
+            Ok(None)
+        } else if let Some(r) = self.overriding_references.get(ref_name) {
             Ok(Some(r.clone().attach(self.inner)))
         } else if let Some(rn) = self.inner.try_find_reference(ref_name)? {
             Ok(Some(rn))
@@ -144,6 +164,11 @@ impl<'repo> OverlayRepo<'repo> {
         &self,
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<gix::Reference<'repo>> {
+        if self.dropped_references.contains(ref_name) {
+            bail!(
+                "Failed to find reference {ref_name} due to it being dropped in the traversal overlay"
+            );
+        }
         if let Some(r) = self.overriding_references.get(ref_name) {
             return Ok(r.clone().attach(self.inner));
         }
