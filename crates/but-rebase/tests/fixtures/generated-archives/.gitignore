@@ -2,3 +2,4 @@
 !four-commits-signed.tar
 !workspace-signed.tar
 !workspace-with-wc-content-signed.tar
+!unsigned-commits-with-signing-key-setup-but-signing-disabled.tar
