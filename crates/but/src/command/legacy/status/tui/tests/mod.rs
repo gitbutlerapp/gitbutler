@@ -366,7 +366,7 @@ fn inline_reword_renders_on_visible_row_when_scrolled() {
     .assert_rendered_eq(file![
         "snapshots/inline_reword_renders_on_visible_row_when_scrolled_001.txt"
     ])
-    .assert_current_line_eq(str!["┊●   d3e2ba3"]);
+    .assert_current_line_eq(str!["┊●   [..] add B"]);
 }
 
 #[test]
