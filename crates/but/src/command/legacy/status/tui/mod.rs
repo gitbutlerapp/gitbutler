@@ -1278,13 +1278,17 @@ impl App {
         };
 
         let inline_reword_mode = match &**cli_id {
-            CliId::Branch { name, .. } => {
+            CliId::Branch { name, stack_id, .. } => {
+                let Some(stack_id) = stack_id else {
+                    return Ok(());
+                };
                 let mut textarea = TextArea::from([name]);
                 textarea.set_cursor_line_style(Style::default().green());
                 textarea.move_cursor(CursorMove::End);
 
                 InlineRewordMode::Branch {
                     name: name.to_owned(),
+                    stack_id: *stack_id,
                     textarea: Box::new(textarea),
                 }
             }
@@ -1357,19 +1361,17 @@ impl App {
             return Ok(());
         };
 
-        match inline_reword_mode {
-            InlineRewordMode::Commit {
-                commit_id,
-                textarea,
-            } => {
-                let new_message = textarea
-                    .lines()
-                    .first()
-                    .map(std::string::String::as_str)
-                    .unwrap_or("");
+        let first_line = inline_reword_mode
+            .textarea()
+            .lines()
+            .first()
+            .map(std::string::String::as_str)
+            .unwrap_or("");
 
+        match inline_reword_mode {
+            InlineRewordMode::Commit { commit_id, .. } => {
                 let Some(reword_result) =
-                    operations::reword_commit_inline_legacy(ctx, *commit_id, new_message)?
+                    operations::reword_commit_inline_legacy(ctx, *commit_id, first_line)?
                 else {
                     messages.push(Message::EnterNormalMode);
                     return Ok(());
@@ -1380,11 +1382,18 @@ impl App {
                     Message::Reload(Some(SelectAfterReload::Commit(reword_result.new_commit))),
                 ]);
             }
-            InlineRewordMode::Branch { name, textarea } => {
-                // self.toasts
-                //     .insert(ToastKind::Info, "TODO: renaming branch".to_owned());
+            InlineRewordMode::Branch { name, stack_id, .. } => {
+                let new_name = operations::reword_branch_inline_legacy(
+                    ctx,
+                    *stack_id,
+                    name.to_owned(),
+                    first_line.to_owned(),
+                )?;
 
-                messages.extend([Message::EnterNormalMode, Message::Reload(None)]);
+                messages.extend([
+                    Message::EnterNormalMode,
+                    Message::Reload(Some(SelectAfterReload::Branch(new_name))),
+                ]);
             }
         }
 
@@ -2238,11 +2247,19 @@ enum InlineRewordMode {
     },
     Branch {
         name: String,
+        stack_id: StackId,
         textarea: Box<TextArea<'static>>,
     },
 }
 
 impl InlineRewordMode {
+    fn textarea(&self) -> &TextArea<'static> {
+        match self {
+            InlineRewordMode::Commit { textarea, .. }
+            | InlineRewordMode::Branch { textarea, .. } => textarea,
+        }
+    }
+
     fn textarea_mut(&mut self) -> &mut TextArea<'static> {
         match self {
             InlineRewordMode::Commit { textarea, .. }
