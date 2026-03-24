@@ -820,7 +820,7 @@ const RubTarget: FC<
 		};
 	};
 
-	const [isActiveDropTarget, dropRef] = useDroppable({
+	const [isDragOver, dropRef] = useDroppable({
 		canDrop: ({ source }) => {
 			const sourceItem = parseDragData(source.data);
 			if (!sourceItem) return false;
@@ -837,13 +837,13 @@ const RubTarget: FC<
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			className: classes(isActiveDropTarget && styles.activeDropTarget),
+			className: classes(isDragOver && styles.dragOver),
 		}),
 	});
 
 	const sourceItem = useDraggedSourceItem();
 	const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
-	const tooltip = isActiveDropTarget && rubSource ? rubOperationLabel(rubSource, target) : null;
+	const tooltip = isDragOver && rubSource ? rubOperationLabel(rubSource, target) : null;
 
 	return (
 		<Tooltip.Root open={tooltip !== null}>
@@ -878,7 +878,7 @@ const CommitMoveTarget: FC<{
 		};
 	};
 
-	const [isActiveDropTarget, dropRef] = useDroppable({
+	const [isDragOver, dropRef] = useDroppable({
 		canDrop: ({ source }) => {
 			const sourceItem = parseDragData(source.data);
 			if (!sourceItem) return false;
@@ -906,7 +906,7 @@ const CommitMoveTarget: FC<{
 				sourceItem?._tag === "Commit" &&
 					!isNoOp(sourceItem.commitId) &&
 					styles.commitMoveTargetEnabled,
-				isActiveDropTarget && styles.commitMoveTargetActive,
+				isDragOver && styles.commitMoveTargetActive,
 			)}
 		/>
 	);
@@ -1219,7 +1219,7 @@ const BranchTarget: FC<
 			Match.orElse(() => null),
 		);
 
-	const [isActiveDropTarget, dropRef] = useDroppable({
+	const [isDragOver, dropRef] = useDroppable({
 		canDrop: ({ source }) => {
 			const sourceItem = parseDragData(source.data);
 			if (!sourceItem) return false;
@@ -1236,12 +1236,12 @@ const BranchTarget: FC<
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			className: classes(isActiveDropTarget && styles.activeDropTarget),
+			className: classes(isDragOver && styles.dragOver),
 		}),
 	});
 
 	const sourceItem = useDraggedSourceItem();
-	const operation = isActiveDropTarget && sourceItem ? getOperation(sourceItem) : null;
+	const operation = isDragOver && sourceItem ? getOperation(sourceItem) : null;
 	const tooltip = operation
 		? Match.value(operation).pipe(
 				Match.tag("MoveBranch", () => "Stack branch onto here"),
@@ -1271,7 +1271,7 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 		};
 	};
 
-	const [isActiveDropTarget, dropRef] = useDroppable({
+	const [isDragOver, dropRef] = useDroppable({
 		canDrop: ({ source }) => {
 			const sourceItem = parseDragData(source.data);
 			if (!sourceItem) return false;
@@ -1288,12 +1288,12 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			className: classes(isActiveDropTarget && styles.activeDropTarget),
+			className: classes(isDragOver && styles.dragOver),
 		}),
 	});
 
 	return (
-		<Tooltip.Root open={isActiveDropTarget}>
+		<Tooltip.Root open={isDragOver}>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>

@@ -109,7 +109,7 @@
 	background-color: white;
 }
 
-.activeDropTarget {
+.dragOver {
 	outline: 2px dashed black;
 }
 
