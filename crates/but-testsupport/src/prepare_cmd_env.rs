@@ -54,6 +54,9 @@ fn updates() -> Vec<EnvOp> {
         EnvOp::Remove("GIT_COMMON_DIR"),
         EnvOp::Remove("GIT_ASKPASS"),
         EnvOp::Remove("SSH_ASKPASS"),
+        EnvOp::Remove("GIT_EDITOR"),
+        EnvOp::Remove("VISUAL"),
+        EnvOp::Remove("EDITOR"),
     ]
     .into_iter()
     .chain(
