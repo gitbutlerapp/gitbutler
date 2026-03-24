@@ -932,6 +932,7 @@ fn commit_with_two_parents() -> anyhow::Result<()> {
     Ok(())
 }
 
+mod overlay;
 mod with_workspace;
 
 pub(crate) mod utils;
