@@ -1,4 +1,4 @@
-import { changesInWorktreeQueryOptions } from "#ui/queries.ts";
+import { changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
 import { WatcherEvent } from "@gitbutler/but-sdk";
 import { QueryClient } from "@tanstack/react-query";
 

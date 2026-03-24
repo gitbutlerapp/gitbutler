@@ -1,9 +1,9 @@
 import { createRoute } from "@tanstack/react-router";
 
-import { rootRoute } from "#ui/routes/root.tsx";
+import { rootRoute } from "#ui/routes/__root.tsx";
 import { handleWatcher } from "#ui/watcher.ts";
 
-export const projectRootRoute = createRoute({
+export const projectRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	loader: async ({ params, context }) => {
 		const subscriptionId = await window.lite.watcherSubscribe(params.id, (event) =>

@@ -1,20 +1,27 @@
-import { QueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import sharedStyles from "./project-shared.module.css";
-import { Link, Outlet, createRootRouteWithContext, useMatch } from "@tanstack/react-router";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { Link, Outlet, useMatch, useNavigate } from "@tanstack/react-router";
 import { FC } from "react";
+import { QueryClient } from "@tanstack/react-query";
+import { createRootRouteWithContext } from "@tanstack/react-router";
+
 import { usePreviewVisible } from "../hooks/usePreviewVisible";
-import styles from "./root.module.css";
-import { shortcutKeys } from "./shortcuts.ts";
-import { classes } from "./project-shared.tsx";
+import sharedStyles from "./project/$id/shared.module.css";
+import { classes } from "./project/$id/shared.tsx";
+import styles from "./__root.module.css";
+import { shortcutKeys } from "#ui/shortcuts.ts";
 
 export const lastOpenedProjectKey = "lastProject";
+
+interface RouteContext {
+	queryClient: QueryClient;
+}
 
 const ProjectSelect: FC = () => {
 	const { data: projects } = useSuspenseQuery({
 		queryKey: ["projects"],
 		queryFn: () => window.lite.listProjects(),
 	});
-	const navigate = rootRoute.useNavigate();
+	const navigate = useNavigate();
 	const projectMatch = useMatch({
 		from: "/project/$id",
 		shouldThrow: false,
@@ -105,20 +112,18 @@ const TopBar: FC = () => {
 	);
 };
 
-const RootLayout: FC = () => (
-	<main className={styles.layout}>
-		<TopBar />
-		<aside className={styles.sidebar}>
-			<SidebarNav />
-		</aside>
-		<section className={styles.content}>
-			<Outlet />
-		</section>
-	</main>
-);
-
-interface RouteContext {
-	queryClient: QueryClient;
+function RootLayout() {
+	return (
+		<main className={styles.layout}>
+			<TopBar />
+			<aside className={styles.sidebar}>
+				<SidebarNav />
+			</aside>
+			<section className={styles.content}>
+				<Outlet />
+			</section>
+		</main>
+	);
 }
 
 export const rootRoute = createRootRouteWithContext<RouteContext>()({

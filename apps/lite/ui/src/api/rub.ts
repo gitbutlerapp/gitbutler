@@ -5,8 +5,8 @@ import {
 	UICommitCreateResult,
 } from "@gitbutler/but-sdk";
 import { Match } from "effect";
-import { type ChangeUnit } from "#ui/ChangeUnit.ts";
-import { createDiffSpec } from "#ui/DiffSpec.ts";
+import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
+import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 
 export type TreeChangeRubSource = {
 	parent: ChangeUnit;

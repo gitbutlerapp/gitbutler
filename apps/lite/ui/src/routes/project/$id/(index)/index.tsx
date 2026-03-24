@@ -4,38 +4,29 @@ import {
 	attachInstruction,
 	extractInstruction,
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item";
+import { Menu, mergeProps, Popover, Toast, Tooltip, useRender } from "@base-ui/react";
 import {
-	Menu,
-	mergeProps,
-	Popover,
-	Toast,
-	type ToastManagerAddOptions,
-	Tooltip,
-	useRender,
-} from "@base-ui/react";
-import { createRoute } from "@tanstack/react-router";
-import {
-	RefInfo,
 	Commit,
 	DiffHunk,
 	HunkAssignment,
 	InsertSide,
 	TreeChange,
 	DiffSpec,
-	RelativeTo,
 	Stack,
 	HunkDependencies,
 	HunkHeader,
 } from "@gitbutler/but-sdk";
+import { createRoute } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { FC, Suspense, useEffect, useState } from "react";
-import styles from "./project-index.module.css";
-import sharedStyles from "./project-shared.module.css";
+import styles from "./index.module.css";
+import sharedStyles from "../shared.module.css";
 import { DependencyIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
-import { ProjectPreviewLayout } from "#ui/routes/ProjectPreviewLayout.tsx";
+import { type Operation, type RubOperation, useRunOperation } from "#ui/Operation.ts";
+import { ProjectPreviewLayout } from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
 import {
 	CommitDetails,
 	CommitLabel,
@@ -48,29 +39,30 @@ import {
 	FileDiff,
 	Hunk,
 	type SourceItem,
-} from "#ui/routes/project-shared.tsx";
-import {
-	commitMoveMutationOptions,
-	commitCreateMutationOptions,
-	moveBranchMutationOptions,
-	rubMutationOptions,
-	tearOffBranchMutationOptions,
-	unapplyStackMutationOptions,
-} from "#ui/mutations.ts";
+} from "#ui/routes/project/$id/shared.tsx";
+import { commitCreateMutationOptions, unapplyStackMutationOptions } from "#ui/api/mutations.ts";
 import {
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
-} from "#ui/queries.ts";
-import { type ChangeUnit } from "#ui/ChangeUnit.ts";
-import { RejectedChange, RejectedChanges } from "#ui/components/RejectedChanges.tsx";
-import { RubParams, type RubSource } from "#ui/rub-api.ts";
-import { projectRootRoute } from "#ui/routes/project-root.tsx";
-import { createDiffSpec } from "#ui/DiffSpec.ts";
+} from "#ui/api/queries.ts";
+import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
+import { RejectedChange, rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx";
+import { type RubSource } from "#ui/api/rub.ts";
+import {
+	getBranchNameByCommitId,
+	getBranchRefsByStackId,
+	getCommonBaseCommitId,
+	getSegmentBranchRef,
+	getStackIdsByCommitId,
+} from "#ui/domain/RefInfo.ts";
+import { stackRelativeTo } from "#ui/domain/Stack.ts";
+import { getDefaultSelection, normalizeSelection, type Selection } from "./WorkspaceSelection.ts";
+import { projectRoute } from "#ui/routes/project/$id/route.tsx";
+import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
-import { CommitMoveParams, MoveBranchParams, TearOffBranchParams } from "#electron/ipc.ts";
 
 const rubSourceFor = (item: SourceItem): RubSource | null =>
 	Match.value(item).pipe(
@@ -152,53 +144,6 @@ const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
 
-const getBranchNameByCommitId = (headInfo: RefInfo): Map<string, string> => {
-	const byCommitId = new Map<string, string>();
-
-	for (const stack of headInfo.stacks)
-		for (const segment of stack.segments) {
-			const branchName = segment.refName?.displayName ?? "Untitled";
-			for (const commit of segment.commits) byCommitId.set(commit.id, branchName);
-		}
-
-	return byCommitId;
-};
-
-const getStackIdsByCommitId = (headInfo: RefInfo): Map<string, Set<string>> => {
-	const byCommitId = new Map<string, Set<string>>();
-
-	for (const stack of headInfo.stacks) {
-		if (stack.id == null) continue;
-
-		for (const segment of stack.segments)
-			for (const commit of segment.commits) {
-				const stackIds = byCommitId.get(commit.id) ?? new Set<string>();
-				stackIds.add(stack.id);
-				byCommitId.set(commit.id, stackIds);
-			}
-	}
-
-	return byCommitId;
-};
-
-const getBranchRefsByStackId = (headInfo: RefInfo): Map<string, Set<string>> => {
-	const refsByStackId = new Map<string, Set<string>>();
-
-	for (const stack of headInfo.stacks) {
-		if (stack.id == null) continue;
-
-		const branchRefs = new Set<string>();
-		for (const segment of stack.segments) {
-			const branchRef = getSegmentBranchRef(segment);
-			if (branchRef !== null) branchRefs.add(branchRef);
-		}
-
-		refsByStackId.set(stack.id, branchRefs);
-	}
-
-	return refsByStackId;
-};
-
 const DependencyIndicator: FC<
 	{
 		projectId: string;
@@ -250,47 +195,10 @@ const classes = (...xs: Array<string | null | undefined | false>): string =>
 	// oxlint-disable-next-line typescript/strict-boolean-expressions
 	xs.reduce((acc: string, x) => (x ? (acc ? `${acc} ${x}` : x) : acc), "");
 
-const rejectedChangesToastOptions = ({
-	newCommit,
-	pathsToRejectedChanges,
-}: {
-	newCommit?: string | null;
-	pathsToRejectedChanges: Array<RejectedChange>;
-}): ToastManagerAddOptions<never> => ({
-	title: newCommit != null ? "Some changes were not committed" : "Failed to create commit",
-	description: <RejectedChanges rejectedChanges={pathsToRejectedChanges} />,
-	priority: "high",
-});
-
-const getCommonBaseCommitId = (headInfo: RefInfo): string | undefined => {
-	const bases = headInfo.stacks
-		.map((stack) => stack.base)
-		.filter((base): base is string => base !== null);
-	const first = bases[0];
-	if (first === undefined) return undefined;
-	return bases.every((base) => base === first) ? first : undefined;
-};
-
 const parseDragData = (data: unknown): SourceItem | null => {
 	if (typeof data !== "object" || data === null || !("sourceItem" in data)) return null;
 	return (data as DragData).sourceItem;
 };
-
-type RubOperation = Omit<RubParams, "projectId">;
-
-type Operation =
-	| ({
-			_tag: "Rub";
-	  } & RubOperation)
-	| ({
-			_tag: "CommitMove";
-	  } & Omit<CommitMoveParams, "projectId">)
-	| ({
-			_tag: "MoveBranch";
-	  } & Omit<MoveBranchParams, "projectId">)
-	| ({
-			_tag: "TearOffBranch";
-	  } & Omit<TearOffBranchParams, "projectId">);
 
 const getRubOperation = ({
 	sourceItem,
@@ -334,82 +242,6 @@ const useMonitorDraggedSourceItem = ({ projectId }: { projectId: string }): void
 		[runOperation],
 	);
 };
-
-const useRunOperation = (projectId: string) => {
-	const toastManager = Toast.useToastManager();
-	const rubMutation = useMutation(rubMutationOptions);
-	const commitMove = useMutation(commitMoveMutationOptions);
-	const moveBranch = useMutation(moveBranchMutationOptions);
-	const tearOffBranch = useMutation(tearOffBranchMutationOptions);
-
-	return (operation: Operation): void => {
-		Match.value(operation).pipe(
-			Match.tag("Rub", (operation) => {
-				rubMutation.mutate(
-					{
-						projectId,
-						source: operation.source,
-						target: operation.target,
-					},
-					{
-						onSuccess: (response) => {
-							const pathsToRejectedChanges = response.pathsToRejectedChanges ?? [];
-							if (pathsToRejectedChanges.length > 0)
-								toastManager.add(
-									rejectedChangesToastOptions({
-										newCommit: response.newCommit,
-										// Assertion is temporary until API response types have been fixed.
-										pathsToRejectedChanges:
-											response.pathsToRejectedChanges as Array<RejectedChange>,
-									}),
-								);
-							return;
-						},
-					},
-				);
-			}),
-			Match.tag("CommitMove", (operation) => {
-				commitMove.mutate({
-					projectId,
-					subjectCommitId: operation.subjectCommitId,
-					relativeTo: operation.relativeTo,
-					side: operation.side,
-				});
-			}),
-			Match.tag("MoveBranch", (operation) => {
-				moveBranch.mutate({
-					projectId,
-					subjectBranch: operation.subjectBranch,
-					targetBranch: operation.targetBranch,
-				});
-			}),
-			Match.tag("TearOffBranch", (operation) => {
-				tearOffBranch.mutate({
-					projectId,
-					subjectBranch: operation.subjectBranch,
-				});
-			}),
-			Match.exhaustive,
-		);
-	};
-};
-
-const stackRelativeTo = (stack: Stack): RelativeTo | null => {
-	const segmentWithRef = stack.segments.find((segment) => segment.refName != null);
-	if (segmentWithRef?.refName)
-		return {
-			type: "referenceBytes",
-			subject: segmentWithRef.refName.fullNameBytes,
-		};
-
-	const firstCommit = stack.segments.flatMap((segment) => segment.commits)[0];
-	if (!firstCommit) return null;
-
-	return { type: "commit", subject: firstCommit.id };
-};
-
-const getSegmentBranchRef = (segment: Stack["segments"][number]): string | null =>
-	segment.refName ? `refs/heads/${segment.refName.displayName}` : null;
 
 // TODO: check this
 const assignedChangesDiffSpecs = (
@@ -687,106 +519,6 @@ const ShowCommit: FC<{
 			</ul>
 		</>
 	);
-};
-
-type Selection =
-	| {
-			_tag: "Branch";
-			stackId: string;
-			branchName: string;
-			branchRef: string;
-	  }
-	| {
-			_tag: "ChangesFile";
-			stackId: string | null;
-			path: string;
-	  }
-	| {
-			_tag: "Commit";
-			stackId: string;
-			commitId: string;
-			isEditingMessage?: boolean;
-	  }
-	| {
-			_tag: "CommitFile";
-			stackId: string;
-			commitId: string;
-			path: string;
-	  };
-
-const normalizeSelection = (
-	selection: Selection,
-	stackIdsByCommitId: Map<string, Set<string>>,
-	branchRefsByStackId: Map<string, Set<string>>,
-): Selection | null =>
-	Match.value(selection).pipe(
-		Match.tag("Branch", (selection) => {
-			const branchRefs = branchRefsByStackId.get(selection.stackId);
-			if (branchRefs === undefined) return null;
-			return branchRefs.has(selection.branchRef) ? selection : null;
-		}),
-		Match.tag("ChangesFile", (selection) => selection),
-		Match.tag("Commit", "CommitFile", (selection) => {
-			const stackIds = stackIdsByCommitId.get(selection.commitId);
-			if (stackIds === undefined) return null;
-			if (!stackIds.has(selection.stackId)) return null;
-			return selection;
-		}),
-		Match.exhaustive,
-	);
-
-const firstSelectablePath = ({
-	changes,
-	assignments,
-	stackId,
-}: {
-	changes: Array<TreeChange>;
-	assignments: Array<HunkAssignment>;
-	stackId: string | null;
-}): string | null => {
-	const assignmentsByPath = getAssignmentsByPath(assignments, stackId);
-	return changes.find((change) => assignmentsByPath.has(change.path))?.path ?? null;
-};
-
-const getDefaultSelection = ({
-	headInfo,
-	changes,
-	assignments,
-}: {
-	headInfo: RefInfo;
-	changes: Array<TreeChange>;
-	assignments: Array<HunkAssignment>;
-}): Selection | null => {
-	const firstUnassignedPath = firstSelectablePath({
-		changes,
-		assignments,
-		stackId: null,
-	});
-	if (firstUnassignedPath !== null)
-		return { _tag: "ChangesFile", stackId: null, path: firstUnassignedPath };
-
-	for (const stack of headInfo.stacks) {
-		if (stack.id == null) continue;
-
-		const firstAssignedPath = firstSelectablePath({
-			changes,
-			assignments,
-			stackId: stack.id,
-		});
-		if (firstAssignedPath !== null)
-			return {
-				_tag: "ChangesFile",
-				stackId: stack.id,
-				path: firstAssignedPath,
-			};
-
-		for (const segment of stack.segments) {
-			const firstCommit = segment.commits[0];
-			if (firstCommit) return { _tag: "Commit", stackId: stack.id, commitId: firstCommit.id };
-		}
-	}
-
-	return null;
 };
 
 const Preview: FC<{
@@ -1468,7 +1200,7 @@ const StackC: FC<{
 };
 
 const ProjectPage: FC = () => {
-	const { id: projectId } = projectRootRoute.useParams();
+	const { id: projectId } = projectRoute.useParams();
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 
@@ -1685,7 +1417,7 @@ const ProjectPage: FC = () => {
 };
 
 export const projectIndexRoute = createRoute({
-	getParentRoute: () => projectRootRoute,
+	getParentRoute: () => projectRoute,
 	path: "/",
 	component: ProjectPage,
 });

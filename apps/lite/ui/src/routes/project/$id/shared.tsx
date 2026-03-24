@@ -17,15 +17,18 @@ import {
 	useOptimistic,
 	useTransition,
 } from "react";
-import styles from "./project-shared.module.css";
+import styles from "./shared.module.css";
 import { ExpandCollapseIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import {
 	commitDetailsWithLineStatsQueryOptions,
 	treeChangeDiffsQueryOptions,
-} from "#ui/queries.ts";
-import { type ChangeUnit } from "#ui/ChangeUnit.ts";
+} from "#ui/api/queries.ts";
+import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
-import { commitInsertBlankMutationOptions, commitRewordMutationOptions } from "#ui/mutations.ts";
+import {
+	commitInsertBlankMutationOptions,
+	commitRewordMutationOptions,
+} from "#ui/api/mutations.ts";
 
 /** @public */
 export const assert = <T,>(t: T | null | undefined): T => {

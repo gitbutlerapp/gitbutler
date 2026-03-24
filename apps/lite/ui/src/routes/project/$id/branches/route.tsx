@@ -2,7 +2,10 @@ import useLocalStorageState from "use-local-storage-state";
 import { ContextMenu, Menu } from "@base-ui/react";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createRoute } from "@tanstack/react-router";
+import { BranchDetails, BranchIdentity, BranchListing, Commit } from "@gitbutler/but-sdk";
+import { Match } from "effect";
 import { ComponentProps, FC, Suspense } from "react";
+
 import { CheckIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import {
 	CommitDetails,
@@ -12,21 +15,19 @@ import {
 	FileButton,
 	Hunk,
 	classes,
-} from "#ui/routes/project-shared.tsx";
-import { ProjectPreviewLayout } from "#ui/routes/ProjectPreviewLayout.tsx";
-import { projectRootRoute } from "#ui/routes/project-root.tsx";
-import { BranchDetails, BranchIdentity, BranchListing, Commit } from "@gitbutler/but-sdk";
-import styles from "./project-branches.module.css";
-import sharedStyles from "./project-shared.module.css";
-import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/mutations.ts";
+} from "#ui/routes/project/$id/shared.tsx";
+import { ProjectPreviewLayout } from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
+import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/api/mutations.ts";
 import {
 	branchDetailsQueryOptions,
 	branchDiffQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
-} from "#ui/queries.ts";
-import { Match } from "effect";
+} from "#ui/api/queries.ts";
+import { projectRoute } from "../route";
+import styles from "./route.module.css";
+import sharedStyles from "../shared.module.css";
 
 type Selection =
 	| {
@@ -425,7 +426,6 @@ const ShowBranch: FC<{
 								renderHunk={(hunk, patch) => (
 									<Hunk
 										patch={patch}
-										// TODO: this doesn't make sense
 										changeUnit={{ _tag: "Changes", stackId: null }}
 										change={change}
 										hunk={hunk}
@@ -571,7 +571,6 @@ const ProjectBranchesPage: FC = () => {
 		);
 	};
 
-	// TODO: dedupe
 	if (!project) return <p>Project not found.</p>;
 
 	return sortedBranches.length === 0 ? (
@@ -650,7 +649,7 @@ const ProjectBranchesPage: FC = () => {
 };
 
 export const projectBranchesRoute = createRoute({
-	getParentRoute: () => projectRootRoute,
+	getParentRoute: () => projectRoute,
 	path: "branches",
 	component: ProjectBranchesPage,
 });

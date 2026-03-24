@@ -1,14 +1,14 @@
 import { createRouter } from "@tanstack/react-router";
 import { indexRoute } from "#ui/routes/index.tsx";
-import { projectBranchesRoute } from "#ui/routes/project-branches.tsx";
-import { projectIndexRoute } from "#ui/routes/project-index.tsx";
-import { projectRootRoute } from "#ui/routes/project-root.tsx";
-import { rootRoute } from "#ui/routes/root.tsx";
+import { projectRoute } from "#ui/routes/project/$id/route.tsx";
+import { projectIndexRoute } from "#ui/routes/project/$id/(index)/index.tsx";
+import { rootRoute } from "#ui/routes/__root.tsx";
 import * as ReactQuery from "@tanstack/react-query";
 import { App } from "#ui/App.tsx";
 import { createRoot } from "react-dom/client";
 import "./global.css";
 import { Toast } from "@base-ui/react";
+import { projectBranchesRoute } from "./routes/project/$id/branches/route";
 
 const toastManager = Toast.createToastManager();
 
@@ -59,7 +59,7 @@ ReactQuery.focusManager.setEventListener((setFocused) => {
 
 const routeTree = rootRoute.addChildren([
 	indexRoute,
-	projectRootRoute.addChildren([projectIndexRoute, projectBranchesRoute]),
+	projectRoute.addChildren([projectIndexRoute, projectBranchesRoute]),
 ]);
 const router = createRouter({ routeTree, context: { queryClient } });
 

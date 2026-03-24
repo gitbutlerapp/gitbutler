@@ -2,9 +2,9 @@ import { Dialog } from "@base-ui/react";
 import { FC, ReactNode, useEffect, useEffectEvent } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import useLocalStorageState from "use-local-storage-state";
-import { usePreviewVisible } from "../hooks/usePreviewVisible";
-import { shortcutKeys } from "./shortcuts.ts";
-import sharedStyles from "./project-shared.module.css";
+import { usePreviewVisible } from "#ui/hooks/usePreviewVisible.ts";
+import { shortcutKeys } from "#ui/shortcuts.ts";
+import sharedStyles from "./shared.module.css";
 
 const isTypingTarget = (target: EventTarget | null) => {
 	if (!(target instanceof HTMLElement)) return false;
