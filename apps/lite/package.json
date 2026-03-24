@@ -36,6 +36,7 @@
 	},
 	"dependencies": {
 		"@atlaskit/pragmatic-drag-and-drop": "^1.7.9",
+		"@atlaskit/pragmatic-drag-and-drop-hitbox": "^1.1.0",
 		"@base-ui/react": "^1.2.0",
 		"@gitbutler/but-sdk": "workspace:*",
 		"@tanstack/react-query": "^5.90.21",

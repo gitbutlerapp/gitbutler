@@ -1,6 +1,10 @@
 import useLocalStorageState from "use-local-storage-state";
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import {
+	attachInstruction,
+	extractInstruction,
+} from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item";
+import {
 	Menu,
 	mergeProps,
 	Popover,
@@ -287,6 +291,23 @@ type Operation =
 	| ({
 			_tag: "TearOffBranch";
 	  } & Omit<TearOffBranchParams, "projectId">);
+
+const getRubOperation = ({
+	sourceItem,
+	target,
+}: {
+	sourceItem: SourceItem;
+	target: ChangeUnit;
+}): RubOperation | null => {
+	const rubSource = rubSourceFor(sourceItem);
+	if (!rubSource) return null;
+	const rubOperation: RubOperation = {
+		source: rubSource,
+		target,
+	};
+	if (rubOperationLabel(rubOperation) === null) return null;
+	return rubOperation;
+};
 
 const parseDropTargetData = (data: unknown): Operation | null => {
 	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
@@ -792,23 +813,13 @@ const Preview: FC<{
 		Match.exhaustive,
 	);
 
-const RubTarget: FC<
+const ChangesTarget: FC<
 	{
-		target: ChangeUnit;
+		stackId: string | null;
 	} & useRender.ComponentProps<"div">
-> = ({ target, render, ...props }) => {
-	const getRubOperation = (sourceItem: SourceItem): RubOperation | null => {
-		const rubSource = rubSourceFor(sourceItem);
-		if (!rubSource) return null;
-		const rubOperation: RubOperation = {
-			source: rubSource,
-			target,
-		};
-		if (rubOperationLabel(rubOperation) === null) return null;
-		return rubOperation;
-	};
+> = ({ stackId, render, ...props }) => {
 	const getOperation = (sourceItem: SourceItem): Operation | null => {
-		const rubOperation = getRubOperation(sourceItem);
+		const rubOperation = getRubOperation({ sourceItem, target: { _tag: "Changes", stackId } });
 		if (!rubOperation) return null;
 		return { _tag: "Rub", ...rubOperation };
 	};
@@ -838,49 +849,6 @@ const RubTarget: FC<
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>
-	);
-};
-
-const CommitMoveTarget: FC<{
-	commitId: string;
-	side: InsertSide;
-	previousCommitId: string | undefined;
-	nextCommitId: string | undefined;
-}> = ({ commitId, side, previousCommitId, nextCommitId }) => {
-	const isNoOp = (sourceCommitId: string): boolean =>
-		sourceCommitId === commitId ||
-		(side === "above" && previousCommitId === sourceCommitId) ||
-		(side === "below" && nextCommitId === sourceCommitId);
-
-	const getOperation = (sourceItem: SourceItem): Operation | null => {
-		if (sourceItem._tag !== "Commit" || isNoOp(sourceItem.commitId)) return null;
-		return {
-			_tag: "CommitMove",
-			subjectCommitId: sourceItem.commitId,
-			relativeTo: { type: "commit", subject: commitId },
-			side,
-		};
-	};
-
-	const [operation, dropRef] = useDroppable(({ source }) => {
-		const sourceItem = parseDragData(source.data);
-		if (!sourceItem) return null;
-		return getOperation(sourceItem);
-	});
-
-	return (
-		<div
-			ref={dropRef}
-			className={classes(
-				styles.commitMoveTarget,
-				Match.value(side).pipe(
-					Match.when("above", () => styles.commitMoveTargetAbove),
-					Match.when("below", () => styles.commitMoveTargetBelow),
-					Match.exhaustive,
-				),
-				operation && styles.commitMoveTargetActive,
-			)}
-		/>
 	);
 };
 
@@ -918,25 +886,112 @@ const CommitTarget: FC<
 		previousCommitId: string | undefined;
 		nextCommitId: string | undefined;
 	} & useRender.ComponentProps<"div">
-> = ({ commitId, previousCommitId, nextCommitId, render, ...props }) => (
-	<div className={styles.commit}>
-		<CommitMoveTarget
-			commitId={commitId}
-			side="above"
-			previousCommitId={previousCommitId}
-			nextCommitId={nextCommitId}
-		/>
-		<RubTarget target={{ _tag: "Commit", commitId }} render={render} {...props} />
-		{nextCommitId === undefined && (
-			<CommitMoveTarget
-				commitId={commitId}
-				side="below"
-				previousCommitId={previousCommitId}
-				nextCommitId={nextCommitId}
-			/>
-		)}
-	</div>
-);
+> = ({ commitId, previousCommitId, nextCommitId, render, ...props }) => {
+	const isNoOpCommitMove = (sourceCommitId: string, side: InsertSide): boolean =>
+		sourceCommitId === commitId ||
+		(side === "above" && previousCommitId === sourceCommitId) ||
+		(side === "below" && nextCommitId === sourceCommitId);
+
+	const [operation, dropRef] = useDroppable(({ source, input, element }) => {
+		const sourceItem = parseDragData(source.data);
+		if (!sourceItem) return null;
+
+		const rubOperation = getRubOperation({ sourceItem, target: { _tag: "Commit", commitId } });
+
+		const instruction = extractInstruction(
+			attachInstruction(
+				{ sourceItem },
+				{
+					input,
+					element,
+					operations: {
+						"reorder-before":
+							sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "above")
+								? "available"
+								: "not-available",
+						"reorder-after":
+							sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "below")
+								? "available"
+								: "not-available",
+						combine: rubOperation ? "available" : "not-available",
+					},
+				},
+			),
+		);
+
+		if (!instruction) return null;
+
+		return Match.value(instruction.operation).pipe(
+			Match.when("combine", (): Operation | null =>
+				rubOperation ? { _tag: "Rub", ...rubOperation } : null,
+			),
+			Match.when("reorder-before", (): Operation | null =>
+				sourceItem._tag === "Commit"
+					? {
+							_tag: "CommitMove",
+							subjectCommitId: sourceItem.commitId,
+							relativeTo: { type: "commit", subject: commitId },
+							side: "above",
+						}
+					: null,
+			),
+			Match.when("reorder-after", (): Operation | null =>
+				sourceItem._tag === "Commit"
+					? {
+							_tag: "CommitMove",
+							subjectCommitId: sourceItem.commitId,
+							relativeTo: { type: "commit", subject: commitId },
+							side: "below",
+						}
+					: null,
+			),
+			Match.exhaustive,
+		);
+	});
+
+	const droppable = useRender({
+		render,
+		ref: dropRef,
+		props: mergeProps<"div">(props, {
+			className: classes(operation?._tag === "Rub" && styles.dragOver),
+		}),
+	});
+
+	const tooltip = operation
+		? Match.value(operation).pipe(
+				Match.tag("Rub", (operation) => rubOperationLabel(operation)),
+				Match.tag("CommitMove", () => null),
+				Match.orElse(() => null),
+			)
+		: null;
+
+	return (
+		<div className={styles.commit}>
+			<Tooltip.Root open={tooltip !== null}>
+				<Tooltip.Trigger render={droppable} />
+				<Tooltip.Portal>
+					<Tooltip.Positioner sideOffset={8}>
+						<Tooltip.Popup className={styles.tooltip}>{tooltip}</Tooltip.Popup>
+					</Tooltip.Positioner>
+				</Tooltip.Portal>
+			</Tooltip.Root>
+			{operation?._tag === "CommitMove" && (
+				<div
+					className={classes(
+						styles.commitMoveTarget,
+						pipe(
+							operation.side,
+							Match.value,
+							Match.when("above", () => styles.commitMoveTargetAbove),
+							Match.when("below", () => styles.commitMoveTargetBelow),
+							Match.exhaustive,
+						),
+					)}
+				/>
+			)}
+		</div>
+	);
+};
 
 const CommitC: FC<{
 	projectId: string;
@@ -1033,10 +1088,8 @@ const Changes: FC<{
 
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
 
-	const changeUnit: ChangeUnit = { _tag: "Changes", stackId };
-
 	return (
-		<RubTarget target={changeUnit} className={className}>
+		<ChangesTarget stackId={stackId} className={className}>
 			{changes.length === 0 ? (
 				<>No changes.</>
 			) : (
@@ -1053,7 +1106,7 @@ const Changes: FC<{
 							<li key={change.path}>
 								<DraggableFile
 									change={change}
-									changeUnit={changeUnit}
+									changeUnit={{ _tag: "Changes", stackId }}
 									assignments={assignments}
 									render={
 										<div
@@ -1087,7 +1140,7 @@ const Changes: FC<{
 					})}
 				</ul>
 			)}
-		</RubTarget>
+		</ChangesTarget>
 	);
 };
 
