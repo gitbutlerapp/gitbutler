@@ -66,6 +66,12 @@
 	line-height: var(--row-line-height);
 }
 
+.commit {
+	display: flex;
+	position: relative;
+	flex-direction: column;
+}
+
 .commitMoveTarget {
 	--hit-area: 17px;
 	--indicator-height: 3px;

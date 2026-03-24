@@ -939,7 +939,7 @@ const CommitTarget: FC<
 		nextCommitId: string | undefined;
 	} & useRender.ComponentProps<"div">
 > = ({ commitId, previousCommitId, nextCommitId, render, ...props }) => (
-	<div className={sharedStyles.commit}>
+	<div className={styles.commit}>
 		<CommitMoveTarget
 			commitId={commitId}
 			side="above"

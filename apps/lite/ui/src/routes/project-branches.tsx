@@ -242,7 +242,7 @@ const CommitC: FC<{
 	toggleEditingMessage,
 	toggleFileSelect,
 }) => (
-	<div className={sharedStyles.commit}>
+	<div>
 		<CommitRow
 			projectId={projectId}
 			commit={commit}
