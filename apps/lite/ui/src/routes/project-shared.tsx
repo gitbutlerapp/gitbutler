@@ -195,6 +195,13 @@ export const FileButton: FC<
 		className={classes(className, styles.fileButton)}
 		onClick={toggleSelect}
 	>
+		{Match.value(change.status).pipe(
+			Match.when({ type: "Addition" }, () => "A"),
+			Match.when({ type: "Deletion" }, () => "D"),
+			Match.when({ type: "Modification" }, () => "M"),
+			Match.when({ type: "Rename" }, () => "R"),
+			Match.exhaustive,
+		)}{" "}
 		{change.path}
 	</button>
 );
