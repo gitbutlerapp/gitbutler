@@ -828,30 +828,21 @@ const RubTarget: FC<
 		return { _tag: "Rub", ...rubOperation };
 	};
 
-	const [isDragOver, dropRef] = useDroppable({
-		canDrop: ({ source }) => {
-			const sourceItem = parseDragData(source.data);
-			if (!sourceItem) return false;
-			return !!getOperation(sourceItem);
-		},
-		getData: ({ source }): Operation | {} => {
-			const sourceItem = parseDragData(source.data);
-			if (!sourceItem) return {};
-			return getOperation(sourceItem) ?? {};
-		},
+	const [operation, dropRef] = useDroppable(({ source }) => {
+		const sourceItem = parseDragData(source.data);
+		if (!sourceItem) return null;
+		return getOperation(sourceItem);
 	});
 
 	const droppable = useRender({
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			className: classes(isDragOver && styles.dragOver),
+			className: classes(operation && styles.dragOver),
 		}),
 	});
 
-	const sourceItem = useDraggedSourceItem();
-	const rubOperation = sourceItem ? getRubOperation(sourceItem) : null;
-	const tooltip = isDragOver && rubOperation ? rubOperationLabel(rubOperation) : null;
+	const tooltip = operation && operation._tag === "Rub" ? rubOperationLabel(operation) : null;
 
 	return (
 		<Tooltip.Root open={tooltip !== null}>
@@ -886,17 +877,10 @@ const CommitMoveTarget: FC<{
 		};
 	};
 
-	const [isDragOver, dropRef] = useDroppable({
-		canDrop: ({ source }) => {
-			const sourceItem = parseDragData(source.data);
-			if (!sourceItem) return false;
-			return !!getOperation(sourceItem);
-		},
-		getData: ({ source }): Operation | {} => {
-			const sourceItem = parseDragData(source.data);
-			if (!sourceItem) return {};
-			return getOperation(sourceItem) ?? {};
-		},
+	const [operation, dropRef] = useDroppable(({ source }) => {
+		const sourceItem = parseDragData(source.data);
+		if (!sourceItem) return null;
+		return getOperation(sourceItem);
 	});
 
 	const sourceItem = useDraggedSourceItem();
@@ -914,7 +898,7 @@ const CommitMoveTarget: FC<{
 				sourceItem?._tag === "Commit" &&
 					!isNoOp(sourceItem.commitId) &&
 					styles.commitMoveTargetEnabled,
-				isDragOver && styles.commitMoveTargetActive,
+				operation && styles.commitMoveTargetActive,
 			)}
 		/>
 	);
@@ -1234,29 +1218,20 @@ const BranchTarget: FC<
 			Match.orElse(() => null),
 		);
 
-	const [isDragOver, dropRef] = useDroppable({
-		canDrop: ({ source }) => {
-			const sourceItem = parseDragData(source.data);
-			if (!sourceItem) return false;
-			return !!getOperation(sourceItem);
-		},
-		getData: ({ source }): Operation | {} => {
-			const sourceItem = parseDragData(source.data);
-			if (!sourceItem) return {};
-			return getOperation(sourceItem) ?? {};
-		},
+	const [operation, dropRef] = useDroppable<Operation>(({ source }) => {
+		const sourceItem = parseDragData(source.data);
+		if (!sourceItem) return null;
+		return getOperation(sourceItem);
 	});
 
 	const droppable = useRender({
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			className: classes(isDragOver && styles.dragOver),
+			className: classes(operation && styles.dragOver),
 		}),
 	});
 
-	const sourceItem = useDraggedSourceItem();
-	const operation = isDragOver && sourceItem ? getOperation(sourceItem) : null;
 	const tooltip = operation
 		? Match.value(operation).pipe(
 				Match.tag("MoveBranch", () => "Stack branch onto here"),
@@ -1286,29 +1261,22 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 		};
 	};
 
-	const [isDragOver, dropRef] = useDroppable({
-		canDrop: ({ source }) => {
-			const sourceItem = parseDragData(source.data);
-			if (!sourceItem) return false;
-			return !!getOperation(sourceItem);
-		},
-		getData: ({ source }): Operation | {} => {
-			const sourceItem = parseDragData(source.data);
-			if (!sourceItem) return {};
-			return getOperation(sourceItem) ?? {};
-		},
+	const [operation, dropRef] = useDroppable<Operation>(({ source }) => {
+		const sourceItem = parseDragData(source.data);
+		if (!sourceItem) return null;
+		return getOperation(sourceItem);
 	});
 
 	const droppable = useRender({
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			className: classes(isDragOver && styles.dragOver),
+			className: classes(operation && styles.dragOver),
 		}),
 	});
 
 	return (
-		<Tooltip.Root open={isDragOver}>
+		<Tooltip.Root open={operation !== null}>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
