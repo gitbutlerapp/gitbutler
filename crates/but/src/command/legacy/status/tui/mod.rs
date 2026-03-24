@@ -1,6 +1,7 @@
 use std::{borrow::Cow, ffi::OsString, process::Command, sync::Arc, time::Duration};
 
 use anyhow::Context as _;
+use but_core::tree::create_tree::RejectionReason;
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
 use crossterm::event::{self, Event};
@@ -935,6 +936,48 @@ impl App {
             return Ok(());
         };
 
+        let rejected_specs_error_msg = if !commit_create_result.rejected_specs.is_empty() {
+            let mut full_error_msg = "Some selected changes could not be committed:\n".to_owned();
+            let mut errors_per_diff_spec = commit_create_result
+                .rejected_specs
+                .iter()
+                .map(|(rejection_reason, diff_spec)| {
+                    let human_reason = match rejection_reason {
+                        RejectionReason::NoEffectiveChanges => "Changes were a no-op",
+                        RejectionReason::CherryPickMergeConflict
+                        | RejectionReason::WorkspaceMergeConflict
+                        | RejectionReason::WorkspaceMergeConflictOfUnrelatedFile => {
+                            "Failed with a conflict. Try committing to a different stack"
+                        }
+                        RejectionReason::WorktreeFileMissingForObjectConversion => "File was deleted",
+                        RejectionReason::FileToLargeOrBinary => "File is too large or binary",
+                        RejectionReason::PathNotFoundInBaseTree => {
+                            "A change with multiple hunks to be applied wasn't present in the base-tree"
+                        }
+                        RejectionReason::UnsupportedDirectoryEntry => "Path is not a file",
+                        RejectionReason::UnsupportedTreeEntry => "Undiffable entry type",
+                        RejectionReason::MissingDiffSpecAssociation => "Missing association between diff and file",
+                    };
+                    (human_reason, diff_spec)
+                }).map(|(human_reason, diff_spec)| {
+                    let mut out = format!("- {}: {human_reason}", diff_spec.path);
+                    if let Some(previous_path) = &diff_spec.previous_path {
+                        out.push_str(&format!(" (previously {previous_path})"));
+                    }
+                    out
+                })
+                .peekable();
+            while let Some(line) = errors_per_diff_spec.next() {
+                full_error_msg.push_str(&line);
+                if errors_per_diff_spec.peek().is_some() {
+                    full_error_msg.push('\n');
+                }
+            }
+            Some(full_error_msg)
+        } else {
+            None
+        };
+
         messages.extend(
             [
                 Message::EnterNormalMode,
@@ -948,7 +991,11 @@ impl App {
             // TODO(david): don't use a separate reword step, instead get message before creating
             // commit. However that requires computing the diff which I haven't yet figured out how
             // to do
-            .chain(with_message.then_some(Message::Reword(RewordMessage::WithEditor))),
+            .chain(with_message.then_some(Message::Reword(RewordMessage::WithEditor)))
+            .chain(rejected_specs_error_msg.map(|text| Message::ShowToast {
+                kind: ToastKind::Error,
+                text,
+            })),
         );
 
         Ok(())
@@ -2027,11 +2074,7 @@ enum Message {
     EnterNormalMode,
     Reload(Option<SelectAfterReload>),
     ShowError(Arc<anyhow::Error>),
-    #[expect(dead_code)]
-    ShowToast {
-        kind: ToastKind,
-        text: String,
-    },
+    ShowToast { kind: ToastKind, text: String },
 
     // Cursor movement
     MoveCursorUp,
