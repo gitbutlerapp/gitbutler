@@ -1,37 +1,34 @@
 import useLocalStorageState from "use-local-storage-state";
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import {
-	Menu,
-	mergeProps,
-	Popover,
-	Toast,
-	type ToastManagerAddOptions,
-	Tooltip,
-	useRender,
-} from "@base-ui/react";
-import { createRoute } from "@tanstack/react-router";
+	attachInstruction,
+	extractInstruction,
+} from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item";
+import { Menu, mergeProps, Popover, Toast, Tooltip, useRender } from "@base-ui/react";
 import {
-	RefInfo,
 	Commit,
 	DiffHunk,
 	HunkAssignment,
 	InsertSide,
 	TreeChange,
 	DiffSpec,
-	RelativeTo,
 	Stack,
 	HunkDependencies,
 	HunkHeader,
 } from "@gitbutler/but-sdk";
+import { createFileRoute } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { createContext, FC, Suspense, useContext, useEffect, useState } from "react";
-import styles from "./project-index.module.css";
-import sharedStyles from "./project-shared.module.css";
+import { FC, Suspense, useEffect, useState } from "react";
+import styles from "./index.module.css";
+import sharedStyles from "../-shared.module.css";
+import { classes } from "#ui/classes.ts";
+import uiStyles from "#ui/ui.module.css";
 import { DependencyIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
-import { ProjectPreviewLayout } from "#ui/routes/ProjectPreviewLayout.tsx";
+import { type Operation, type RubOperation, useRunOperation } from "#ui/Operation.ts";
+import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import {
 	CommitDetails,
 	CommitLabel,
@@ -44,29 +41,29 @@ import {
 	FileDiff,
 	Hunk,
 	type SourceItem,
-} from "#ui/routes/project-shared.tsx";
-import {
-	commitMoveMutationOptions,
-	commitCreateMutationOptions,
-	moveBranchMutationOptions,
-	rubMutationOptions,
-	tearOffBranchMutationOptions,
-	unapplyStackMutationOptions,
-} from "#ui/mutations.ts";
+} from "#ui/routes/project/$id/-shared.tsx";
+import { commitCreateMutationOptions, unapplyStackMutationOptions } from "#ui/api/mutations.ts";
 import {
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
-} from "#ui/queries.ts";
-import { type ChangeUnit } from "#ui/ChangeUnit.ts";
-import { RejectedChange, RejectedChanges } from "#ui/components/RejectedChanges.tsx";
-import { RubParams, type RubSource } from "#ui/rub-api.ts";
-import { projectRootRoute } from "#ui/routes/project-root.tsx";
-import { createDiffSpec } from "#ui/DiffSpec.ts";
+} from "#ui/api/queries.ts";
+import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
+import { RejectedChange, rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx";
+import { type RubSource } from "#ui/api/rub.ts";
+import {
+	getBranchNameByCommitId,
+	getBranchRefsByStackId,
+	getCommonBaseCommitId,
+	getSegmentBranchRef,
+	getStackIdsByCommitId,
+} from "#ui/domain/RefInfo.ts";
+import { stackRelativeTo } from "#ui/domain/Stack.ts";
+import { getDefaultSelection, normalizeSelection, type Selection } from "./-WorkspaceSelection.ts";
+import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
-import { CommitMoveParams, MoveBranchParams, TearOffBranchParams } from "#electron/ipc.ts";
 
 const rubSourceFor = (item: SourceItem): RubSource | null =>
 	Match.value(item).pipe(
@@ -95,8 +92,8 @@ type RubOperationLabel = "Amend" | "Uncommit" | "Assign" | "Unassign" | "Squash"
  * includes move operations.
  * https://linear.app/gitbutler/issue/GB-1160/what-should-rubbing-a-branch-into-another-branch-do#comment-db2abdb7
  */
-const rubOperationLabel = (rubSource: RubSource, target: ChangeUnit): RubOperationLabel | null =>
-	Match.value(rubSource).pipe(
+const rubOperationLabel = ({ source, target }: RubOperation): RubOperationLabel | null =>
+	Match.value(source).pipe(
 		Match.withReturnType<RubOperationLabel | null>(),
 		Match.tag("TreeChange", ({ source }) =>
 			Match.value(source.parent).pipe(
@@ -148,53 +145,6 @@ const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
 
-const getBranchNameByCommitId = (headInfo: RefInfo): Map<string, string> => {
-	const byCommitId = new Map<string, string>();
-
-	for (const stack of headInfo.stacks)
-		for (const segment of stack.segments) {
-			const branchName = segment.refName?.displayName ?? "Untitled";
-			for (const commit of segment.commits) byCommitId.set(commit.id, branchName);
-		}
-
-	return byCommitId;
-};
-
-const getStackIdsByCommitId = (headInfo: RefInfo): Map<string, Set<string>> => {
-	const byCommitId = new Map<string, Set<string>>();
-
-	for (const stack of headInfo.stacks) {
-		if (stack.id == null) continue;
-
-		for (const segment of stack.segments)
-			for (const commit of segment.commits) {
-				const stackIds = byCommitId.get(commit.id) ?? new Set<string>();
-				stackIds.add(stack.id);
-				byCommitId.set(commit.id, stackIds);
-			}
-	}
-
-	return byCommitId;
-};
-
-const getBranchRefsByStackId = (headInfo: RefInfo): Map<string, Set<string>> => {
-	const refsByStackId = new Map<string, Set<string>>();
-
-	for (const stack of headInfo.stacks) {
-		if (stack.id == null) continue;
-
-		const branchRefs = new Set<string>();
-		for (const segment of stack.segments) {
-			const branchRef = getSegmentBranchRef(segment);
-			if (branchRef !== null) branchRefs.add(branchRef);
-		}
-
-		refsByStackId.set(stack.id, branchRefs);
-	}
-
-	return refsByStackId;
-};
-
 const DependencyIndicator: FC<
 	{
 		projectId: string;
@@ -238,82 +188,41 @@ const DependencyIndicator: FC<
 	);
 };
 
-/**
- * @example
- * classes('foo', undefined, 'bar', '', 'baz') === 'foo bar baz'
- */
-const classes = (...xs: Array<string | null | undefined | false>): string =>
-	// oxlint-disable-next-line typescript/strict-boolean-expressions
-	xs.reduce((acc: string, x) => (x ? (acc ? `${acc} ${x}` : x) : acc), "");
-
-const rejectedChangesToastOptions = ({
-	newCommit,
-	pathsToRejectedChanges,
-}: {
-	newCommit?: string | null;
-	pathsToRejectedChanges: Array<RejectedChange>;
-}): ToastManagerAddOptions<never> => ({
-	title: newCommit != null ? "Some changes were not committed" : "Failed to create commit",
-	description: <RejectedChanges rejectedChanges={pathsToRejectedChanges} />,
-	priority: "high",
-});
-
-const getCommonBaseCommitId = (headInfo: RefInfo): string | undefined => {
-	const bases = headInfo.stacks
-		.map((stack) => stack.base)
-		.filter((base): base is string => base !== null);
-	const first = bases[0];
-	if (first === undefined) return undefined;
-	return bases.every((base) => base === first) ? first : undefined;
-};
-
-const DraggedSourceItemContext = createContext<SourceItem | null>(null);
-
 const parseDragData = (data: unknown): SourceItem | null => {
 	if (typeof data !== "object" || data === null || !("sourceItem" in data)) return null;
 	return (data as DragData).sourceItem;
 };
 
-const useDraggedSourceItem = (): SourceItem | null => useContext(DraggedSourceItemContext);
-
-type Operation =
-	| ({
-			_tag: "Rub";
-	  } & Omit<RubParams, "projectId">)
-	| ({
-			_tag: "CommitMove";
-	  } & Omit<CommitMoveParams, "projectId">)
-	| ({
-			_tag: "MoveBranch";
-	  } & Omit<MoveBranchParams, "projectId">)
-	| ({
-			_tag: "TearOffBranch";
-	  } & Omit<TearOffBranchParams, "projectId">);
+const getRubOperation = ({
+	sourceItem,
+	target,
+}: {
+	sourceItem: SourceItem;
+	target: ChangeUnit;
+}): RubOperation | null => {
+	const rubSource = rubSourceFor(sourceItem);
+	if (!rubSource) return null;
+	const rubOperation: RubOperation = {
+		source: rubSource,
+		target,
+	};
+	if (rubOperationLabel(rubOperation) === null) return null;
+	return rubOperation;
+};
 
 const parseDropTargetData = (data: unknown): Operation | null => {
 	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
 	return data as Operation;
 };
 
-const useMonitorDraggedSourceItem = ({
-	projectId,
-	setDraggedSourceItem,
-}: {
-	projectId: string;
-	setDraggedSourceItem: (sourceItem: SourceItem | null) => void;
-}): void => {
+const useMonitorDraggedSourceItem = ({ projectId }: { projectId: string }): void => {
 	const runOperation = useRunOperation(projectId);
 
 	useEffect(
 		() =>
 			monitorForElements({
 				canMonitor: ({ source }) => parseDragData(source.data) !== null,
-				onDragStart: ({ source }) => {
-					setDraggedSourceItem(parseDragData(source.data));
-				},
 				onDrop: ({ location }) => {
-					setDraggedSourceItem(null);
-
 					const operation = location.current.dropTargets
 						.map((dropTarget) => parseDropTargetData(dropTarget.data))
 						.find((target) => target);
@@ -323,85 +232,9 @@ const useMonitorDraggedSourceItem = ({
 					runOperation(operation);
 				},
 			}),
-		[runOperation, setDraggedSourceItem],
+		[runOperation],
 	);
 };
-
-const useRunOperation = (projectId: string) => {
-	const toastManager = Toast.useToastManager();
-	const rubMutation = useMutation(rubMutationOptions);
-	const commitMove = useMutation(commitMoveMutationOptions);
-	const moveBranch = useMutation(moveBranchMutationOptions);
-	const tearOffBranch = useMutation(tearOffBranchMutationOptions);
-
-	return (operation: Operation): void => {
-		Match.value(operation).pipe(
-			Match.tag("Rub", (operation) => {
-				rubMutation.mutate(
-					{
-						projectId,
-						source: operation.source,
-						target: operation.target,
-					},
-					{
-						onSuccess: (response) => {
-							const pathsToRejectedChanges = response.pathsToRejectedChanges ?? [];
-							if (pathsToRejectedChanges.length > 0)
-								toastManager.add(
-									rejectedChangesToastOptions({
-										newCommit: response.newCommit,
-										// Assertion is temporary until API response types have been fixed.
-										pathsToRejectedChanges:
-											response.pathsToRejectedChanges as Array<RejectedChange>,
-									}),
-								);
-							return;
-						},
-					},
-				);
-			}),
-			Match.tag("CommitMove", (operation) => {
-				commitMove.mutate({
-					projectId,
-					subjectCommitId: operation.subjectCommitId,
-					relativeTo: operation.relativeTo,
-					side: operation.side,
-				});
-			}),
-			Match.tag("MoveBranch", (operation) => {
-				moveBranch.mutate({
-					projectId,
-					subjectBranch: operation.subjectBranch,
-					targetBranch: operation.targetBranch,
-				});
-			}),
-			Match.tag("TearOffBranch", (operation) => {
-				tearOffBranch.mutate({
-					projectId,
-					subjectBranch: operation.subjectBranch,
-				});
-			}),
-			Match.exhaustive,
-		);
-	};
-};
-
-const stackRelativeTo = (stack: Stack): RelativeTo | null => {
-	const segmentWithRef = stack.segments.find((segment) => segment.refName != null);
-	if (segmentWithRef?.refName)
-		return {
-			type: "referenceBytes",
-			subject: segmentWithRef.refName.fullNameBytes,
-		};
-
-	const firstCommit = stack.segments.flatMap((segment) => segment.commits)[0];
-	if (!firstCommit) return null;
-
-	return { type: "commit", subject: firstCommit.id };
-};
-
-const getSegmentBranchRef = (segment: Stack["segments"][number]): string | null =>
-	segment.refName ? `refs/heads/${segment.refName.displayName}` : null;
 
 // TODO: check this
 const assignedChangesDiffSpecs = (
@@ -681,106 +514,6 @@ const ShowCommit: FC<{
 	);
 };
 
-type Selection =
-	| {
-			_tag: "Branch";
-			stackId: string;
-			branchName: string;
-			branchRef: string;
-	  }
-	| {
-			_tag: "ChangesFile";
-			stackId: string | null;
-			path: string;
-	  }
-	| {
-			_tag: "Commit";
-			stackId: string;
-			commitId: string;
-			isEditingMessage?: boolean;
-	  }
-	| {
-			_tag: "CommitFile";
-			stackId: string;
-			commitId: string;
-			path: string;
-	  };
-
-const normalizeSelection = (
-	selection: Selection,
-	stackIdsByCommitId: Map<string, Set<string>>,
-	branchRefsByStackId: Map<string, Set<string>>,
-): Selection | null =>
-	Match.value(selection).pipe(
-		Match.tag("Branch", (selection) => {
-			const branchRefs = branchRefsByStackId.get(selection.stackId);
-			if (branchRefs === undefined) return null;
-			return branchRefs.has(selection.branchRef) ? selection : null;
-		}),
-		Match.tag("ChangesFile", (selection) => selection),
-		Match.tag("Commit", "CommitFile", (selection) => {
-			const stackIds = stackIdsByCommitId.get(selection.commitId);
-			if (stackIds === undefined) return null;
-			if (!stackIds.has(selection.stackId)) return null;
-			return selection;
-		}),
-		Match.exhaustive,
-	);
-
-const firstSelectablePath = ({
-	changes,
-	assignments,
-	stackId,
-}: {
-	changes: Array<TreeChange>;
-	assignments: Array<HunkAssignment>;
-	stackId: string | null;
-}): string | null => {
-	const assignmentsByPath = getAssignmentsByPath(assignments, stackId);
-	return changes.find((change) => assignmentsByPath.has(change.path))?.path ?? null;
-};
-
-const getDefaultSelection = ({
-	headInfo,
-	changes,
-	assignments,
-}: {
-	headInfo: RefInfo;
-	changes: Array<TreeChange>;
-	assignments: Array<HunkAssignment>;
-}): Selection | null => {
-	const firstUnassignedPath = firstSelectablePath({
-		changes,
-		assignments,
-		stackId: null,
-	});
-	if (firstUnassignedPath !== null)
-		return { _tag: "ChangesFile", stackId: null, path: firstUnassignedPath };
-
-	for (const stack of headInfo.stacks) {
-		if (stack.id == null) continue;
-
-		const firstAssignedPath = firstSelectablePath({
-			changes,
-			assignments,
-			stackId: stack.id,
-		});
-		if (firstAssignedPath !== null)
-			return {
-				_tag: "ChangesFile",
-				stackId: stack.id,
-				path: firstAssignedPath,
-			};
-
-		for (const segment of stack.segments) {
-			const firstCommit = segment.commits[0];
-			if (firstCommit) return { _tag: "Commit", stackId: stack.id, commitId: firstCommit.id };
-		}
-	}
-
-	return null;
-};
-
 const Preview: FC<{
 	projectId: string;
 	selection: Selection;
@@ -805,45 +538,32 @@ const Preview: FC<{
 		Match.exhaustive,
 	);
 
-const RubTarget: FC<
+const ChangesTarget: FC<
 	{
-		target: ChangeUnit;
+		stackId: string | null;
 	} & useRender.ComponentProps<"div">
-> = ({ target, render, ...props }) => {
+> = ({ stackId, render, ...props }) => {
 	const getOperation = (sourceItem: SourceItem): Operation | null => {
-		const rubSource = rubSourceFor(sourceItem);
-		if (!rubSource || rubOperationLabel(rubSource, target) === null) return null;
-		return {
-			_tag: "Rub",
-			source: rubSource,
-			target,
-		};
+		const rubOperation = getRubOperation({ sourceItem, target: { _tag: "Changes", stackId } });
+		if (!rubOperation) return null;
+		return { _tag: "Rub", ...rubOperation };
 	};
 
-	const [isActiveDropTarget, dropRef] = useDroppable({
-		canDrop: ({ source }) => {
-			const sourceItem = parseDragData(source.data);
-			if (!sourceItem) return false;
-			return !!getOperation(sourceItem);
-		},
-		getData: ({ source }): Operation | {} => {
-			const sourceItem = parseDragData(source.data);
-			if (!sourceItem) return {};
-			return getOperation(sourceItem) ?? {};
-		},
+	const [operation, dropRef] = useDroppable(({ source }) => {
+		const sourceItem = parseDragData(source.data);
+		if (!sourceItem) return null;
+		return getOperation(sourceItem);
 	});
 
 	const droppable = useRender({
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			className: classes(isActiveDropTarget && styles.activeDropTarget),
+			className: classes(operation && styles.dragOver),
 		}),
 	});
 
-	const sourceItem = useDraggedSourceItem();
-	const rubSource = sourceItem ? rubSourceFor(sourceItem) : null;
-	const tooltip = isActiveDropTarget && rubSource ? rubOperationLabel(rubSource, target) : null;
+	const tooltip = operation && operation._tag === "Rub" ? rubOperationLabel(operation) : null;
 
 	return (
 		<Tooltip.Root open={tooltip !== null}>
@@ -854,61 +574,6 @@ const RubTarget: FC<
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>
-	);
-};
-
-const CommitMoveTarget: FC<{
-	commitId: string;
-	side: InsertSide;
-	previousCommitId: string | undefined;
-	nextCommitId: string | undefined;
-}> = ({ commitId, side, previousCommitId, nextCommitId }) => {
-	const isNoOp = (sourceCommitId: string): boolean =>
-		sourceCommitId === commitId ||
-		(side === "above" && previousCommitId === sourceCommitId) ||
-		(side === "below" && nextCommitId === sourceCommitId);
-
-	const getOperation = (sourceItem: SourceItem): Operation | null => {
-		if (sourceItem._tag !== "Commit" || isNoOp(sourceItem.commitId)) return null;
-		return {
-			_tag: "CommitMove",
-			subjectCommitId: sourceItem.commitId,
-			relativeTo: { type: "commit", subject: commitId },
-			side,
-		};
-	};
-
-	const [isActiveDropTarget, dropRef] = useDroppable({
-		canDrop: ({ source }) => {
-			const sourceItem = parseDragData(source.data);
-			if (!sourceItem) return false;
-			return !!getOperation(sourceItem);
-		},
-		getData: ({ source }): Operation | {} => {
-			const sourceItem = parseDragData(source.data);
-			if (!sourceItem) return {};
-			return getOperation(sourceItem) ?? {};
-		},
-	});
-
-	const sourceItem = useDraggedSourceItem();
-
-	return (
-		<div
-			ref={dropRef}
-			className={classes(
-				styles.commitMoveTarget,
-				Match.value(side).pipe(
-					Match.when("above", () => styles.commitMoveTargetAbove),
-					Match.when("below", () => styles.commitMoveTargetBelow),
-					Match.exhaustive,
-				),
-				sourceItem?._tag === "Commit" &&
-					!isNoOp(sourceItem.commitId) &&
-					styles.commitMoveTargetEnabled,
-				isActiveDropTarget && styles.commitMoveTargetActive,
-			)}
-		/>
 	);
 };
 
@@ -940,6 +605,119 @@ const StackMenuPopup: FC<{
 	);
 };
 
+const CommitTarget: FC<
+	{
+		commitId: string;
+		previousCommitId: string | undefined;
+		nextCommitId: string | undefined;
+	} & useRender.ComponentProps<"div">
+> = ({ commitId, previousCommitId, nextCommitId, render, ...props }) => {
+	const isNoOpCommitMove = (sourceCommitId: string, side: InsertSide): boolean =>
+		sourceCommitId === commitId ||
+		(side === "above" && previousCommitId === sourceCommitId) ||
+		(side === "below" && nextCommitId === sourceCommitId);
+
+	const [operation, dropRef] = useDroppable(({ source, input, element }) => {
+		const sourceItem = parseDragData(source.data);
+		if (!sourceItem) return null;
+
+		const rubOperation = getRubOperation({ sourceItem, target: { _tag: "Commit", commitId } });
+
+		const instruction = extractInstruction(
+			attachInstruction(
+				{ sourceItem },
+				{
+					input,
+					element,
+					operations: {
+						"reorder-before":
+							sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "above")
+								? "available"
+								: "not-available",
+						"reorder-after":
+							sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "below")
+								? "available"
+								: "not-available",
+						combine: rubOperation ? "available" : "not-available",
+					},
+				},
+			),
+		);
+
+		if (!instruction) return null;
+
+		return Match.value(instruction.operation).pipe(
+			Match.when("combine", (): Operation | null =>
+				rubOperation ? { _tag: "Rub", ...rubOperation } : null,
+			),
+			Match.when("reorder-before", (): Operation | null =>
+				sourceItem._tag === "Commit"
+					? {
+							_tag: "CommitMove",
+							subjectCommitId: sourceItem.commitId,
+							relativeTo: { type: "commit", subject: commitId },
+							side: "above",
+						}
+					: null,
+			),
+			Match.when("reorder-after", (): Operation | null =>
+				sourceItem._tag === "Commit"
+					? {
+							_tag: "CommitMove",
+							subjectCommitId: sourceItem.commitId,
+							relativeTo: { type: "commit", subject: commitId },
+							side: "below",
+						}
+					: null,
+			),
+			Match.exhaustive,
+		);
+	});
+
+	const droppable = useRender({
+		render,
+		ref: dropRef,
+		props: mergeProps<"div">(props, {
+			className: classes(operation?._tag === "Rub" && styles.dragOver),
+		}),
+	});
+
+	const tooltip = operation
+		? Match.value(operation).pipe(
+				Match.tag("Rub", (operation) => rubOperationLabel(operation)),
+				Match.tag("CommitMove", () => null),
+				Match.orElse(() => null),
+			)
+		: null;
+
+	return (
+		<div className={styles.commit}>
+			<Tooltip.Root open={tooltip !== null}>
+				<Tooltip.Trigger render={droppable} />
+				<Tooltip.Portal>
+					<Tooltip.Positioner sideOffset={8}>
+						<Tooltip.Popup className={styles.tooltip}>{tooltip}</Tooltip.Popup>
+					</Tooltip.Positioner>
+				</Tooltip.Portal>
+			</Tooltip.Root>
+			{operation?._tag === "CommitMove" && (
+				<div
+					className={classes(
+						styles.commitMoveTarget,
+						pipe(
+							operation.side,
+							Match.value,
+							Match.when("above", () => styles.commitMoveTargetAbove),
+							Match.when("below", () => styles.commitMoveTargetBelow),
+							Match.exhaustive,
+						),
+					)}
+				/>
+			)}
+		</div>
+	);
+};
+
 const CommitC: FC<{
 	projectId: string;
 	commit: Commit;
@@ -968,74 +746,55 @@ const CommitC: FC<{
 	toggleSelect,
 	toggleEditingMessage,
 	toggleFileSelect,
-}) => {
-	const changeUnit: ChangeUnit = { _tag: "Commit", commitId: commit.id };
-
-	return (
-		<div className={sharedStyles.commit}>
-			<CommitMoveTarget
-				commitId={commit.id}
-				side="above"
-				previousCommitId={previousCommitId}
-				nextCommitId={nextCommitId}
-			/>
-			<RubTarget
-				target={changeUnit}
-				render={
-					<CommitRow
+}) => (
+	<CommitTarget
+		commitId={commit.id}
+		previousCommitId={previousCommitId}
+		nextCommitId={nextCommitId}
+	>
+		<CommitRow
+			projectId={projectId}
+			commit={commit}
+			isSelected={isSelected}
+			isEditingMessage={isEditingMessage}
+			isSelectedWithin={isSelectedWithin}
+			isHighlighted={isHighlighted}
+			toggleExpand={toggleExpand}
+			toggleSelect={toggleSelect}
+			toggleEditingMessage={toggleEditingMessage}
+		/>
+		{isSelectedWithin && (
+			<div className={sharedStyles.commitDetails}>
+				<Suspense fallback={<div>Loading changed details…</div>}>
+					<CommitDetails
 						projectId={projectId}
-						commit={commit}
-						isSelected={isSelected}
-						isEditingMessage={isEditingMessage}
-						isSelectedWithin={isSelectedWithin}
-						isHighlighted={isHighlighted}
-						toggleExpand={toggleExpand}
-						toggleSelect={toggleSelect}
-						toggleEditingMessage={toggleEditingMessage}
+						commitId={commit.id}
+						renderFile={(change) => (
+							<DraggableFile
+								change={change}
+								changeUnit={{ _tag: "Commit", commitId: commit.id }}
+								render={
+									<div
+										className={classes(
+											sharedStyles.row,
+											sharedStyles.fileRow,
+											isFileSelected(change.path) && sharedStyles.selected,
+										)}
+									>
+										<FileButton
+											change={change}
+											toggleSelect={() => toggleFileSelect(change.path)}
+										/>
+									</div>
+								}
+							/>
+						)}
 					/>
-				}
-			/>
-			{isSelectedWithin && (
-				<div className={sharedStyles.commitDetails}>
-					<Suspense fallback={<div>Loading changed details…</div>}>
-						<CommitDetails
-							projectId={projectId}
-							commitId={commit.id}
-							renderFile={(change) => (
-								<DraggableFile
-									change={change}
-									changeUnit={changeUnit}
-									render={
-										<div
-											className={classes(
-												sharedStyles.row,
-												sharedStyles.fileRow,
-												isFileSelected(change.path) && sharedStyles.selected,
-											)}
-										>
-											<FileButton
-												change={change}
-												toggleSelect={() => toggleFileSelect(change.path)}
-											/>
-										</div>
-									}
-								/>
-							)}
-						/>
-					</Suspense>
-				</div>
-			)}
-			{nextCommitId === undefined && (
-				<CommitMoveTarget
-					commitId={commit.id}
-					side="below"
-					previousCommitId={previousCommitId}
-					nextCommitId={nextCommitId}
-				/>
-			)}
-		</div>
-	);
-};
+				</Suspense>
+			</div>
+		)}
+	</CommitTarget>
+);
 
 const Changes: FC<{
 	projectId: string;
@@ -1054,10 +813,8 @@ const Changes: FC<{
 
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
 
-	const changeUnit: ChangeUnit = { _tag: "Changes", stackId };
-
 	return (
-		<RubTarget target={changeUnit} className={className}>
+		<ChangesTarget stackId={stackId} className={className}>
 			{changes.length === 0 ? (
 				<>No changes.</>
 			) : (
@@ -1074,7 +831,7 @@ const Changes: FC<{
 							<li key={change.path}>
 								<DraggableFile
 									change={change}
-									changeUnit={changeUnit}
+									changeUnit={{ _tag: "Changes", stackId }}
 									assignments={assignments}
 									render={
 										<div
@@ -1108,7 +865,7 @@ const Changes: FC<{
 					})}
 				</ul>
 			)}
-		</RubTarget>
+		</ChangesTarget>
 	);
 };
 
@@ -1180,7 +937,7 @@ const CommitForm: FC<{
 					}
 				}}
 			/>
-			<button type="submit" disabled={disabled} className={sharedStyles.button}>
+			<button type="submit" disabled={disabled} className={uiStyles.button}>
 				{commitCreate.isPending ? "Committing…" : "Commit"}
 			</button>
 		</form>
@@ -1219,29 +976,20 @@ const BranchTarget: FC<
 			Match.orElse(() => null),
 		);
 
-	const [isActiveDropTarget, dropRef] = useDroppable({
-		canDrop: ({ source }) => {
-			const sourceItem = parseDragData(source.data);
-			if (!sourceItem) return false;
-			return !!getOperation(sourceItem);
-		},
-		getData: ({ source }): Operation | {} => {
-			const sourceItem = parseDragData(source.data);
-			if (!sourceItem) return {};
-			return getOperation(sourceItem) ?? {};
-		},
+	const [operation, dropRef] = useDroppable<Operation>(({ source }) => {
+		const sourceItem = parseDragData(source.data);
+		if (!sourceItem) return null;
+		return getOperation(sourceItem);
 	});
 
 	const droppable = useRender({
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			className: classes(isActiveDropTarget && styles.activeDropTarget),
+			className: classes(operation && styles.dragOver),
 		}),
 	});
 
-	const sourceItem = useDraggedSourceItem();
-	const operation = isActiveDropTarget && sourceItem ? getOperation(sourceItem) : null;
 	const tooltip = operation
 		? Match.value(operation).pipe(
 				Match.tag("MoveBranch", () => "Stack branch onto here"),
@@ -1271,29 +1019,22 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 		};
 	};
 
-	const [isActiveDropTarget, dropRef] = useDroppable({
-		canDrop: ({ source }) => {
-			const sourceItem = parseDragData(source.data);
-			if (!sourceItem) return false;
-			return !!getOperation(sourceItem);
-		},
-		getData: ({ source }): Operation | {} => {
-			const sourceItem = parseDragData(source.data);
-			if (!sourceItem) return {};
-			return getOperation(sourceItem) ?? {};
-		},
+	const [operation, dropRef] = useDroppable<Operation>(({ source }) => {
+		const sourceItem = parseDragData(source.data);
+		if (!sourceItem) return null;
+		return getOperation(sourceItem);
 	});
 
 	const droppable = useRender({
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			className: classes(isActiveDropTarget && styles.activeDropTarget),
+			className: classes(operation && styles.dragOver),
 		}),
 	});
 
 	return (
-		<Tooltip.Root open={isActiveDropTarget}>
+		<Tooltip.Root open={operation !== null}>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
@@ -1452,10 +1193,9 @@ const StackC: FC<{
 };
 
 const ProjectPage: FC = () => {
-	const { id: projectId } = projectRootRoute.useParams();
+	const { id: projectId } = Route.useParams();
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
-	const [draggedSourceItem, setDraggedSourceItem] = useState<SourceItem | null>(null);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 
@@ -1479,11 +1219,6 @@ const ProjectPage: FC = () => {
 			changes: worktreeChanges.changes,
 			assignments: worktreeChanges.assignments,
 		});
-
-	useMonitorDraggedSourceItem({ projectId, setDraggedSourceItem });
-
-	// TODO: dedupe
-	if (!project) return <p>Project not found.</p>;
 
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
 
@@ -1591,90 +1326,89 @@ const ProjectPage: FC = () => {
 		setHighlightedCommitIds(commitIds ? new Set(commitIds) : new Set());
 	};
 
+	useMonitorDraggedSourceItem({ projectId });
+
+	// TODO: dedupe
+	if (!project) return <p>Project not found.</p>;
+
 	return (
-		<DraggedSourceItemContext.Provider value={draggedSourceItem}>
-			<ProjectPreviewLayout
-				projectId={projectId}
-				preview={
-					selection && (
-						<Suspense fallback={<div>Loading diff…</div>}>
-							<Preview
-								projectId={projectId}
-								selection={selection}
-								onDependencyHover={highlightCommits}
-							/>
-						</Suspense>
-					)
-				}
-			>
-				<div className={sharedStyles.lanes}>
-					<div className={styles.unassignedChangesLane}>
-						<h3>Unassigned changes</h3>
-						<Changes
-							projectId={project.id}
-							stackId={null}
-							isFileSelected={isUnassignedFileSelected}
-							toggleFileSelect={toggleUnassignedFileSelection}
+		<ProjectPreviewLayout
+			projectId={projectId}
+			preview={
+				selection && (
+					<Suspense fallback={<div>Loading diff…</div>}>
+						<Preview
+							projectId={projectId}
+							selection={selection}
 							onDependencyHover={highlightCommits}
-							className={styles.unassignedChanges}
 						/>
-					</div>
-
-					<div className={styles.headInfo}>
-						<div className={styles.stackLanes}>
-							{headInfo.stacks.map((stack) => {
-								// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
-								const stackId = stack.id!;
-
-								return (
-									<div key={stack.id} className={styles.stackLane}>
-										<StackC
-											projectId={project.id}
-											stack={stack}
-											isBranchSelected={isBranchSelected}
-											toggleBranchSelection={toggleBranchSelection}
-											isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
-											isCommitEditing={(commitId) => isCommitEditing(stackId, commitId)}
-											isCommitSelectedWithin={(commitId) =>
-												isCommitSelectedWithin(stackId, commitId)
-											}
-											isChangeUnitFileSelected={(changeUnit, path) =>
-												isChangeUnitFileSelected(stackId, changeUnit, path)
-											}
-											toggleCommitExpanded={(commitId) => toggleCommitExpanded(stackId, commitId)}
-											toggleCommitSelection={(commitId) => {
-												toggleCommitSelection(stackId, commitId);
-											}}
-											toggleEditingMessage={(commitId) => {
-												toggleEditingMessage(stackId, commitId);
-											}}
-											toggleChangeUnitFileSelection={(changeUnit, path) => {
-												toggleChangeUnitFileSelection(stackId, changeUnit, path);
-											}}
-											highlightedCommitIds={highlightedCommitIds}
-											onDependencyHover={highlightCommits}
-										/>
-									</div>
-								);
-							})}
-						</div>
-
-						{commonBaseCommitId !== undefined && (
-							<TearOffBranchTarget className={styles.commonBaseCommit}>
-								{shortCommitId(commonBaseCommitId)} (common base commit)
-							</TearOffBranchTarget>
-						)}
-					</div>
-
-					<TearOffBranchTarget className={styles.emptyLane} />
+					</Suspense>
+				)
+			}
+		>
+			<div className={sharedStyles.lanes}>
+				<div className={styles.unassignedChangesLane}>
+					<h3>Unassigned changes</h3>
+					<Changes
+						projectId={project.id}
+						stackId={null}
+						isFileSelected={isUnassignedFileSelected}
+						toggleFileSelect={toggleUnassignedFileSelection}
+						onDependencyHover={highlightCommits}
+						className={styles.unassignedChanges}
+					/>
 				</div>
-			</ProjectPreviewLayout>
-		</DraggedSourceItemContext.Provider>
+
+				<div className={styles.headInfo}>
+					<div className={styles.stackLanes}>
+						{headInfo.stacks.map((stack) => {
+							// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
+							const stackId = stack.id!;
+
+							return (
+								<div key={stack.id} className={styles.stackLane}>
+									<StackC
+										projectId={project.id}
+										stack={stack}
+										isBranchSelected={isBranchSelected}
+										toggleBranchSelection={toggleBranchSelection}
+										isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
+										isCommitEditing={(commitId) => isCommitEditing(stackId, commitId)}
+										isCommitSelectedWithin={(commitId) => isCommitSelectedWithin(stackId, commitId)}
+										isChangeUnitFileSelected={(changeUnit, path) =>
+											isChangeUnitFileSelected(stackId, changeUnit, path)
+										}
+										toggleCommitExpanded={(commitId) => toggleCommitExpanded(stackId, commitId)}
+										toggleCommitSelection={(commitId) => {
+											toggleCommitSelection(stackId, commitId);
+										}}
+										toggleEditingMessage={(commitId) => {
+											toggleEditingMessage(stackId, commitId);
+										}}
+										toggleChangeUnitFileSelection={(changeUnit, path) => {
+											toggleChangeUnitFileSelection(stackId, changeUnit, path);
+										}}
+										highlightedCommitIds={highlightedCommitIds}
+										onDependencyHover={highlightCommits}
+									/>
+								</div>
+							);
+						})}
+					</div>
+
+					{commonBaseCommitId !== undefined && (
+						<TearOffBranchTarget className={styles.commonBaseCommit}>
+							{shortCommitId(commonBaseCommitId)} (common base commit)
+						</TearOffBranchTarget>
+					)}
+				</div>
+
+				<TearOffBranchTarget className={styles.emptyLane} />
+			</div>
+		</ProjectPreviewLayout>
 	);
 };
 
-export const projectIndexRoute = createRoute({
-	getParentRoute: () => projectRootRoute,
-	path: "/",
+export const Route = createFileRoute("/project/$id/(index)/")({
 	component: ProjectPage,
 });

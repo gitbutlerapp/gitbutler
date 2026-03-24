@@ -2,15 +2,15 @@ import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element
 import { type RefCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 
 type LibParams = Parameters<typeof dropTargetForElements>[0];
+type GetDataParams = Parameters<NonNullable<LibParams["getData"]>>;
 
-export const useDroppable = ({
-	canDrop: canDropProp,
-	getData: getDataProp,
-}: Pick<LibParams, "canDrop" | "getData">): [boolean, RefCallback<HTMLElement>] => {
+export const useDroppable = <TData extends Record<string | symbol, unknown>>(
+	getDataProp: (...args: GetDataParams) => TData | null,
+): [TData | null, RefCallback<HTMLElement>] => {
 	const ref = useRef<HTMLElement>(null);
-	const [isActiveDropTarget, setIsActiveDropTarget] = useState(false);
-	const getData: LibParams["getData"] = useEffectEvent((x) => getDataProp?.(x) ?? {});
-	const canDrop: LibParams["canDrop"] = useEffectEvent((x) => canDropProp?.(x) ?? true);
+	const [data, setData] = useState<TData | null>(null);
+	const getData = useEffectEvent((...args: GetDataParams) => getDataProp(...args));
+	const canDrop: LibParams["canDrop"] = useEffectEvent((args) => getData(args) !== null);
 
 	useEffect(() => {
 		const element = ref.current;
@@ -19,21 +19,24 @@ export const useDroppable = ({
 		return dropTargetForElements({
 			element,
 			canDrop,
-			getData,
-			onDragEnter: () => {
-				setIsActiveDropTarget(true);
+			getData: (args) => getData(args) ?? {},
+			onDragEnter: ({ self }) => {
+				setData(self.data as TData);
+			},
+			onDrag: ({ self }) => {
+				setData(self.data as TData);
 			},
 			onDragLeave: () => {
-				setIsActiveDropTarget(false);
+				setData(null);
 			},
 			onDrop: () => {
-				setIsActiveDropTarget(false);
+				setData(null);
 			},
 		});
 	}, []);
 
 	return [
-		isActiveDropTarget,
+		data,
 		(element) => {
 			ref.current = element;
 		},

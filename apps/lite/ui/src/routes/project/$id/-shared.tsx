@@ -17,29 +17,25 @@ import {
 	useOptimistic,
 	useTransition,
 } from "react";
-import styles from "./project-shared.module.css";
+import styles from "./-shared.module.css";
+import { classes } from "#ui/classes.ts";
 import { ExpandCollapseIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import {
 	commitDetailsWithLineStatsQueryOptions,
 	treeChangeDiffsQueryOptions,
-} from "#ui/queries.ts";
-import { type ChangeUnit } from "#ui/ChangeUnit.ts";
+} from "#ui/api/queries.ts";
+import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
-import { commitInsertBlankMutationOptions, commitRewordMutationOptions } from "#ui/mutations.ts";
+import {
+	commitInsertBlankMutationOptions,
+	commitRewordMutationOptions,
+} from "#ui/api/mutations.ts";
 
 /** @public */
 export const assert = <T,>(t: T | null | undefined): T => {
 	if (t == null) throw new Error("Expected value to be non-null and defined");
 	return t;
 };
-
-/**
- * @example
- * classes("foo", undefined, "bar", "", "baz") === "foo bar baz"
- */
-export const classes = (...xs: Array<string | null | undefined | false>): string =>
-	// oxlint-disable-next-line typescript/strict-boolean-expressions
-	xs.reduce((acc: string, x) => (x ? (acc ? `${acc} ${x}` : x) : acc), "");
 
 type Patch = Extract<UnifiedPatch, { type: "Patch" }>;
 

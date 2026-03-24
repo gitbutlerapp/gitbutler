@@ -21,4 +21,9 @@
 
 .branchApplyButtonInactive {
 	opacity: 0.35;
+
+	&:hover,
+	&:focus-visible {
+		opacity: 1;
+	}
 }

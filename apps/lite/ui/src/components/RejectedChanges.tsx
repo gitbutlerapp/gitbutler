@@ -1,3 +1,4 @@
+import { type ToastManagerAddOptions } from "@base-ui/react";
 import { Array, pipe } from "effect";
 import { FC } from "react";
 
@@ -54,7 +55,7 @@ const readableRejectionReason = (reason: RejectionReason): string => {
 	}
 };
 
-export const RejectedChanges: FC<{
+const RejectedChanges: FC<{
 	rejectedChanges: Array<RejectedChange>;
 }> = ({ rejectedChanges }) => {
 	const pathsByReason = new Map<RejectionReason, Array<string>>();
@@ -79,3 +80,15 @@ export const RejectedChanges: FC<{
 		</ul>
 	);
 };
+
+export const rejectedChangesToastOptions = ({
+	newCommit,
+	pathsToRejectedChanges,
+}: {
+	newCommit?: string | null;
+	pathsToRejectedChanges: Array<RejectedChange>;
+}): ToastManagerAddOptions<never> => ({
+	title: newCommit != null ? "Some changes were not committed" : "Failed to create commit",
+	description: <RejectedChanges rejectedChanges={pathsToRejectedChanges} />,
+	priority: "high",
+});

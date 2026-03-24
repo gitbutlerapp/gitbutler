@@ -66,41 +66,30 @@
 	line-height: var(--row-line-height);
 }
 
+.commit {
+	display: flex;
+	position: relative;
+	flex-direction: column;
+}
+
 .commitMoveTarget {
-	--hit-area: 17px;
 	--indicator-height: 3px;
 
-	display: flex;
 	position: absolute;
-	flex-direction: column;
-	justify-content: center;
-	height: var(--hit-area);
+	height: var(--indicator-height);
 	inset-inline: 0;
+	background-color: black;
 	pointer-events: none;
-
-	&:before {
-		display: block;
-		height: var(--indicator-height);
-		content: "";
-	}
 }
 
 .commitMoveTargetAbove {
 	top: 0;
-	transform: translateY(calc((var(--hit-area) - var(--indicator-height)) / -2));
+	transform: translateY(calc(var(--indicator-height) / -2));
 }
 
 .commitMoveTargetBelow {
 	bottom: 0;
-	transform: translateY(calc((var(--hit-area) - var(--indicator-height)) / 2));
-}
-
-.commitMoveTargetEnabled {
-	pointer-events: auto;
-}
-
-.commitMoveTargetActive:before {
-	background-color: black;
+	transform: translateY(calc(var(--indicator-height) / 2));
 }
 
 .tooltip {
@@ -109,7 +98,7 @@
 	background-color: white;
 }
 
-.activeDropTarget {
+.dragOver {
 	outline: 2px dashed black;
 }
 

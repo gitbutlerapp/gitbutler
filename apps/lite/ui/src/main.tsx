@@ -1,11 +1,7 @@
-import { createRouter } from "@tanstack/react-router";
-import { indexRoute } from "#ui/routes/index.tsx";
-import { projectBranchesRoute } from "#ui/routes/project-branches.tsx";
-import { projectIndexRoute } from "#ui/routes/project-index.tsx";
-import { projectRootRoute } from "#ui/routes/project-root.tsx";
-import { rootRoute } from "#ui/routes/root.tsx";
 import * as ReactQuery from "@tanstack/react-query";
+import { createRouter } from "@tanstack/react-router";
 import { App } from "#ui/App.tsx";
+import { routeTree } from "#ui/routeTree.gen.ts";
 import { createRoot } from "react-dom/client";
 import "./global.css";
 import { Toast } from "@base-ui/react";
@@ -57,8 +53,6 @@ ReactQuery.focusManager.setEventListener((setFocused) => {
 	};
 });
 
-const projectRouteTree = projectRootRoute.addChildren([projectIndexRoute, projectBranchesRoute]);
-const routeTree = rootRoute.addChildren([indexRoute, projectRouteTree]);
 const router = createRouter({ routeTree, context: { queryClient } });
 
 declare module "@tanstack/react-router" {

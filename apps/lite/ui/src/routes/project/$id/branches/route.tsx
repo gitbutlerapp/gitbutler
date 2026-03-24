@@ -1,8 +1,12 @@
 import useLocalStorageState from "use-local-storage-state";
 import { ContextMenu, Menu } from "@base-ui/react";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { createRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { BranchDetails, BranchIdentity, BranchListing, Commit } from "@gitbutler/but-sdk";
+import { Match } from "effect";
 import { ComponentProps, FC, Suspense } from "react";
+
+import { classes } from "#ui/classes.ts";
 import { CheckIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import {
 	CommitDetails,
@@ -11,22 +15,18 @@ import {
 	FileDiff,
 	FileButton,
 	Hunk,
-	classes,
-} from "#ui/routes/project-shared.tsx";
-import { ProjectPreviewLayout } from "#ui/routes/ProjectPreviewLayout.tsx";
-import { projectRootRoute } from "#ui/routes/project-root.tsx";
-import { BranchDetails, BranchIdentity, BranchListing, Commit } from "@gitbutler/but-sdk";
-import styles from "./project-branches.module.css";
-import sharedStyles from "./project-shared.module.css";
-import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/mutations.ts";
+} from "#ui/routes/project/$id/-shared.tsx";
+import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
+import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/api/mutations.ts";
 import {
 	branchDetailsQueryOptions,
 	branchDiffQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
-} from "#ui/queries.ts";
-import { Match } from "effect";
+} from "#ui/api/queries.ts";
+import styles from "./route.module.css";
+import sharedStyles from "../-shared.module.css";
 
 type Selection =
 	| {
@@ -242,7 +242,7 @@ const CommitC: FC<{
 	toggleEditingMessage,
 	toggleFileSelect,
 }) => (
-	<div className={sharedStyles.commit}>
+	<div>
 		<CommitRow
 			projectId={projectId}
 			commit={commit}
@@ -308,31 +308,28 @@ const BranchDetailsC: FC<{
 	);
 
 	return (
-		<div>
-			<h3>{branchDetails.name} commits</h3>
-			<CommitsList commits={branchDetails.commits}>
-				{(commit) => (
-					<CommitC
-						projectId={projectId}
-						commit={commit}
-						isSelected={isCommitSelected(commit.id)}
-						isEditingMessage={isCommitEditing(commit.id)}
-						isSelectedWithin={isCommitSelectedWithin(commit.id)}
-						isFileSelected={(path) => isCommitFileSelected(commit.id, path)}
-						toggleExpand={() => toggleCommitExpanded(commit.id)}
-						toggleSelect={() => {
-							toggleCommitSelection(commit.id);
-						}}
-						toggleEditingMessage={() => {
-							toggleEditingMessage(commit.id);
-						}}
-						toggleFileSelect={(path) => {
-							toggleCommitFileSelection(commit.id, path);
-						}}
-					/>
-				)}
-			</CommitsList>
-		</div>
+		<CommitsList commits={branchDetails.commits}>
+			{(commit) => (
+				<CommitC
+					projectId={projectId}
+					commit={commit}
+					isSelected={isCommitSelected(commit.id)}
+					isEditingMessage={isCommitEditing(commit.id)}
+					isSelectedWithin={isCommitSelectedWithin(commit.id)}
+					isFileSelected={(path) => isCommitFileSelected(commit.id, path)}
+					toggleExpand={() => toggleCommitExpanded(commit.id)}
+					toggleSelect={() => {
+						toggleCommitSelection(commit.id);
+					}}
+					toggleEditingMessage={() => {
+						toggleEditingMessage(commit.id);
+					}}
+					toggleFileSelect={(path) => {
+						toggleCommitFileSelection(commit.id, path);
+					}}
+				/>
+			)}
+		</CommitsList>
 	);
 };
 
@@ -428,7 +425,6 @@ const ShowBranch: FC<{
 								renderHunk={(hunk, patch) => (
 									<Hunk
 										patch={patch}
-										// TODO: this doesn't make sense
 										changeUnit={{ _tag: "Changes", stackId: null }}
 										change={change}
 										hunk={hunk}
@@ -478,7 +474,7 @@ const Preview: FC<{
 	);
 
 const ProjectBranchesPage: FC = () => {
-	const { id: projectId } = projectBranchesRoute.useParams();
+	const { id: projectId } = Route.useParams();
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 	const project = projects.find((project) => project.id === projectId);
@@ -574,7 +570,6 @@ const ProjectBranchesPage: FC = () => {
 		);
 	};
 
-	// TODO: dedupe
 	if (!project) return <p>Project not found.</p>;
 
 	return sortedBranches.length === 0 ? (
@@ -652,8 +647,6 @@ const ProjectBranchesPage: FC = () => {
 	);
 };
 
-export const projectBranchesRoute = createRoute({
-	getParentRoute: () => projectRootRoute,
-	path: "branches",
+export const Route = createFileRoute("/project/$id/branches")({
 	component: ProjectBranchesPage,
 });
