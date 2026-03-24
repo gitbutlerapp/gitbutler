@@ -1286,7 +1286,7 @@ impl App {
         textarea.set_cursor_line_style(Style::default());
         textarea.move_cursor(CursorMove::End);
 
-        self.mode = Mode::InlineReword(InlineRewordMode {
+        self.mode = Mode::InlineReword(InlineRewordMode::Commit {
             commit_id,
             textarea: Box::new(textarea),
         });
@@ -1296,8 +1296,8 @@ impl App {
 
     /// Handles key input while inline reword mode is active.
     fn handle_reword_inline_input(&mut self, ev: Event) {
-        if let Mode::InlineReword(InlineRewordMode { textarea, .. }) = &mut self.mode {
-            textarea.input(ev);
+        if let Mode::InlineReword(inline_reword_mode) = &mut self.mode {
+            inline_reword_mode.textarea_mut().input(ev);
         }
     }
 
@@ -1307,31 +1307,37 @@ impl App {
         ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
-        let Mode::InlineReword(InlineRewordMode {
-            commit_id,
-            textarea,
-        }) = &self.mode
-        else {
+        let inline_reword_mode = if let Mode::InlineReword(inline_reword_mode) = &self.mode {
+            inline_reword_mode
+        } else {
             messages.push(Message::EnterNormalMode);
             return Ok(());
         };
 
-        let new_message = textarea
-            .lines()
-            .first()
-            .map(std::string::String::as_str)
-            .unwrap_or("");
+        match inline_reword_mode {
+            InlineRewordMode::Commit {
+                commit_id,
+                textarea,
+            } => {
+                let new_message = textarea
+                    .lines()
+                    .first()
+                    .map(std::string::String::as_str)
+                    .unwrap_or("");
 
-        let Some(reword_result) = operations::reword_inline_legacy(ctx, *commit_id, new_message)?
-        else {
-            messages.push(Message::EnterNormalMode);
-            return Ok(());
-        };
+                let Some(reword_result) =
+                    operations::reword_inline_legacy(ctx, *commit_id, new_message)?
+                else {
+                    messages.push(Message::EnterNormalMode);
+                    return Ok(());
+                };
 
-        messages.extend([
-            Message::EnterNormalMode,
-            Message::Reload(Some(SelectAfterReload::Commit(reword_result.new_commit))),
-        ]);
+                messages.extend([
+                    Message::EnterNormalMode,
+                    Message::Reload(Some(SelectAfterReload::Commit(reword_result.new_commit))),
+                ]);
+            }
+        }
 
         Ok(())
     }
@@ -1912,7 +1918,9 @@ impl App {
     }
 
     fn render_inline_reword(&self, area: Rect, frame: &mut Frame) {
-        let Mode::InlineReword(InlineRewordMode { textarea, .. }) = &self.mode else {
+        let textarea = if let Mode::InlineReword(inline_reword_mode) = &self.mode {
+            inline_reword_mode.textarea()
+        } else {
             return;
         };
         let selected_idx = self.cursor.index();
@@ -1949,7 +1957,7 @@ impl App {
         let x = area.x.saturating_add(start_x);
         let width = area.right().saturating_sub(x);
         let area = Rect::new(x, area.y.saturating_add(idx as u16), width, 1);
-        frame.render_widget(&**textarea, area);
+        frame.render_widget(textarea, area);
     }
 
     fn render_debug(&self, area: Rect, frame: &mut Frame) {
@@ -2122,9 +2130,25 @@ struct RubMode {
 }
 
 #[derive(Debug)]
-struct InlineRewordMode {
-    commit_id: gix::ObjectId,
-    textarea: Box<TextArea<'static>>,
+enum InlineRewordMode {
+    Commit {
+        commit_id: gix::ObjectId,
+        textarea: Box<TextArea<'static>>,
+    },
+}
+
+impl InlineRewordMode {
+    fn textarea(&self) -> &TextArea<'static> {
+        match self {
+            InlineRewordMode::Commit { textarea, .. } => textarea,
+        }
+    }
+
+    fn textarea_mut(&mut self) -> &mut TextArea<'static> {
+        match self {
+            InlineRewordMode::Commit { textarea, .. } => textarea,
+        }
+    }
 }
 
 #[derive(Debug)]
