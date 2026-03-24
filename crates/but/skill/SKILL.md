@@ -86,9 +86,7 @@ This moves the frontend branch on top of the backend branch in one step.
 **To unstack** (make a stacked branch independent again):
 
 ```bash
-but branch new temp-unstack              # create an empty dummy branch
-but branch move feature/logging temp-unstack   # move the branch to the dummy
-but branch delete temp-unstack           # delete the dummy, leaving branch independent
+but branch move --unstack feature/logging
 ```
 
 **Note:** `but branch move` uses branch **names** (like `feature/frontend`), while `but move` uses commit **IDs** (like `c3`). Do not confuse them. Do NOT use `but undo` to unstack — it may revert more than intended and lose commits.

@@ -47,7 +47,7 @@ pub fn tear_off_branch(
     but_api::branch::tear_off_branch(&mut ctx, branch_ref_name_str.try_into()?)?;
 
     if let Some(out) = out.for_human() {
-        writeln!(out, "Tore off branch '{branch_name}'.")?;
+        writeln!(out, "Unstacked branch '{branch_name}'.")?;
     }
 
     Ok(())
