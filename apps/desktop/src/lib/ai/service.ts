@@ -362,7 +362,7 @@ export class AIService {
 		}
 
 		if (modelKind === ModelKind.OpenRouter) {
-			const openRouterKey = await this.getOpenRouterKey();
+			const openRouterKey = (await this.getOpenRouterKey())?.trim();
 			const openRouterModelName = await this.getOpenRouterModelName();
 
 			if (!openRouterKey) {
