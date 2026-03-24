@@ -14,6 +14,7 @@ import {
 	replaceBranchInExclusiveAction,
 	replaceBranchInStackSelection,
 	updateStaleProjectState,
+	updateStackSelection,
 } from "$lib/stacks/staleStateUpdaters";
 import { invalidatesItem, invalidatesList, ReduxTag } from "$lib/state/tags";
 import { type UiState } from "$lib/state/uiState.svelte";
@@ -23,6 +24,7 @@ import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import { get } from "svelte/store";
 import type { ReduxError } from "$lib/error/reduxError";
 import type { DefaultForgeFactory } from "$lib/forge/forgeFactory.svelte";
+import type { StackDetails } from "$lib/stacks/stack";
 import type { AppDispatch, BackendApi } from "$lib/state/clientState.svelte";
 import type { HunkAssignment } from "@gitbutler/core/api";
 
@@ -136,9 +138,7 @@ export class StackService {
 	branches(projectId: string, stackId?: string) {
 		return this.backendApi.endpoints.stackDetails.useQuery(
 			{ projectId, stackId },
-			{
-				transform: ({ branchDetails }) => branchDetailsSelectors.selectAll(branchDetails),
-			},
+			{ transform: ({ branchDetails }) => branchDetailsSelectors.selectAll(branchDetails) },
 		);
 	}
 
@@ -249,6 +249,7 @@ export class StackService {
 					commits: commitSelectors.selectAll(commits),
 					branches: stackInfo.branchDetails.map((b) => b.name),
 					baseCommitShas: stackInfo.branchDetails.map((b) => b.baseCommit),
+					stackInfo,
 				}),
 			}),
 		);
@@ -266,6 +267,47 @@ export class StackService {
 				allCommits.map((c) => c.id),
 				allBaseCommitShas,
 			);
+		});
+
+		// Tracks the previous StackDetails per stackId for amend detection.
+		// A plain object is used so that entries for removed stacks are naturally
+		// dropped each time the snapshot is replaced (no manual cleanup needed).
+		// Scoped here rather than on the service instance so it is tied to the
+		// lifetime of this project session and not shared across project switches.
+		let prevInfoSnapshot: Record<string, StackDetails> = {};
+
+		// Having lots of commits in a GitButler workspace is an extreme edge case that
+		// is not a realistic usage scenario. We skip selection repair at this scale to
+		// avoid degrading UI responsiveness — the linear index scans in
+		// updateStackSelection across thousands of commits add up when the effect
+		// fires on every stack-details refresh.
+		const STALE_SELECTION_COMMIT_LIMIT = 1000;
+
+		$effect(() => {
+			if (allCommits.length > STALE_SELECTION_COMMIT_LIMIT) {
+				console.warn(
+					`Skipping stale selection detection: commit count (${allCommits.length}) exceeds limit (${STALE_SELECTION_COMMIT_LIMIT}).`,
+				);
+				return;
+			}
+
+			const nextSnapshot: Record<string, StackDetails> = {};
+			stackIds.forEach((stackId, i) => {
+				const stackInfo = detailsData[i]?.data?.stackInfo;
+				if (!stackInfo) return;
+				// Only run when the StackDetails object is actually new (different reference).
+				// During a re-fetch, RTK Query keeps the cached data object unchanged while
+				// isFetching=true, so stackInfo === prevInfo. Running updateStackSelection in
+				// that window would see stale commit SHAs while selection.commitId may already
+				// hold the new SHA (set by the caller), incorrectly treating the amend as a
+				// deletion and clearing the drawer.
+				const prevInfo = prevInfoSnapshot[stackId];
+				if (stackInfo !== prevInfo) {
+					updateStackSelection(this.uiState, stackId, stackInfo, prevInfo);
+				}
+				nextSnapshot[stackId] = stackInfo;
+			});
+			prevInfoSnapshot = nextSnapshot;
 		});
 
 		return reactive(() => ({

@@ -442,7 +442,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 		}),
 		updateCommitMessage: build.mutation<
 			string,
-			{ projectId: string; commitId: string; message: string }
+			{ projectId: string; stackId: string; commitId: string; message: string }
 		>({
 			extraOptions: {
 				command: "commit_reword",
@@ -450,7 +450,10 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			},
 			query: (args) => args,
 			transformResponse: (response: BackendCommitRewordResult) => response.newCommit,
-			invalidatesTags: [invalidatesList(ReduxTag.HeadSha)],
+			invalidatesTags: (_result, _error, { stackId }) => [
+				invalidatesList(ReduxTag.HeadSha),
+				invalidatesItem(ReduxTag.StackDetails, stackId),
+			],
 		}),
 		newBranch: build.mutation<
 			void,
