@@ -39,10 +39,8 @@ export type RubResult = {
 // In the future this may be implemented as a single API endpoint on the backend.
 export const rub = async ({ projectId, source, target }: RubParams): Promise<RubResult> =>
 	Match.value(source).pipe(
-		Match.tag("TreeChange", ({ source }) => {
-			const changes = [createDiffSpec(source.change, source.hunkHeaders)];
-
-			return Match.value(source.parent).pipe(
+		Match.tag("TreeChange", ({ source }) =>
+			Match.value(source.parent).pipe(
 				Match.tag("Changes", () =>
 					Match.value(target).pipe(
 						Match.tag("Changes", async (target): Promise<RubResult> => {
@@ -62,7 +60,7 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 							const response = await window.lite.commitAmend({
 								projectId,
 								commitId: target.commitId,
-								changes,
+								changes: [createDiffSpec(source.change, source.hunkHeaders)],
 							});
 							return {
 								replacedCommits: response.replacedCommits,
@@ -81,7 +79,7 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 								projectId,
 								commitId: sourceParent.commitId,
 								assignTo: target.stackId,
-								changes,
+								changes: [createDiffSpec(source.change, source.hunkHeaders)],
 							});
 							return {
 								replacedCommits: response.replacedCommits,
@@ -92,7 +90,7 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 								projectId,
 								sourceCommitId: sourceParent.commitId,
 								destinationCommitId: target.commitId,
-								changes,
+								changes: [createDiffSpec(source.change, source.hunkHeaders)],
 							});
 							return { replacedCommits: response.replacedCommits };
 						}),
@@ -100,8 +98,8 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 					),
 				),
 				Match.exhaustive,
-			);
-		}),
+			),
+		),
 		Match.tag("Commit", () =>
 			Match.value(target).pipe(
 				// TODO: implement when API is ready
