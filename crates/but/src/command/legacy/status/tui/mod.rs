@@ -25,10 +25,11 @@ use crate::{
             CommitLineContent, StatusFlags, StatusOutputLine,
             output::BranchLineContent,
             tui::{
+                confirm::{Confirm, ConfirmMessage},
                 cursor::{Cursor, is_selectable_in_mode},
                 graph_extension::{ExtensionDirection, extend_connector_spans},
                 highlight::{Highlights, with_highlight},
-                key_bind::{KeyBinds, default_key_binds},
+                key_bind::{KeyBinds, confirm_key_binds, default_key_binds},
                 toast::{ToastKind, Toasts},
             },
         },
@@ -43,6 +44,7 @@ use super::{
     output::{StatusOutputContent, StatusOutputLineData},
 };
 
+mod confirm;
 mod cursor;
 mod graph_extension;
 mod highlight;
@@ -170,7 +172,7 @@ where
 {
     // poll events
     for event in event_polling.poll()? {
-        event_to_messages(event, &app.key_binds, &app.mode, messages);
+        event_to_messages(event, app.active_key_binds(), &app.mode, messages);
     }
 
     // handle messages
@@ -221,10 +223,12 @@ struct App {
     scroll_top: usize,
     mode: Mode,
     key_binds: KeyBinds,
+    confirm_key_binds: KeyBinds,
     debug_enabled: bool,
     toasts: Toasts,
     renders: u64,
     highlight: Highlights,
+    confirm: Option<Confirm>,
 }
 
 impl App {
@@ -240,10 +244,20 @@ impl App {
             should_render: true,
             mode: Mode::default(),
             key_binds: default_key_binds(),
+            confirm_key_binds: confirm_key_binds(),
             debug_enabled: debug,
             toasts: Default::default(),
             renders: 0,
             highlight: Default::default(),
+            confirm: None,
+        }
+    }
+
+    fn active_key_binds(&self) -> &KeyBinds {
+        if self.confirm.is_some() {
+            &self.confirm_key_binds
+        } else {
+            &self.key_binds
         }
     }
 
@@ -466,6 +480,15 @@ impl App {
             }
             Message::ShowToast { kind, text } => {
                 self.toasts.insert(kind, text);
+            }
+            Message::Confirm(confirm_message) => {
+                self.confirm = self
+                    .confirm
+                    .take()
+                    .and_then(|confirm| confirm.handle_message(confirm_message, messages));
+            }
+            Message::RunAfterConfirmation(f) => {
+                (f.0)(self, ctx, messages)?;
             }
         }
 
@@ -1583,6 +1606,10 @@ impl App {
 
         self.render_toasts(content_area, frame);
 
+        if let Some(confirm) = &self.confirm {
+            confirm.render(content_area, frame);
+        }
+
         if let Some(debug_area) = debug_area {
             self.render_debug(debug_area, frame);
         }
@@ -1777,7 +1804,7 @@ impl App {
             }
         }
 
-        if is_selected {
+        if is_selected && self.confirm.is_none() {
             line = line.bg(CURSOR_BG);
         }
 
@@ -2008,7 +2035,7 @@ impl App {
             | Mode::InlineReword(..) => {
                 let mut line = Line::default();
                 let mut key_binds_iter = self
-                    .key_binds
+                    .active_key_binds()
                     .iter_key_binds_available_in_mode(&self.mode)
                     .filter(|key_bind| !key_bind.hide_from_hotbar())
                     .peekable();
@@ -2192,7 +2219,11 @@ enum Message {
     EnterNormalMode,
     Reload(Option<SelectAfterReload>),
     ShowError(Arc<anyhow::Error>),
-    ShowToast { kind: ToastKind, text: String },
+    ShowToast {
+        kind: ToastKind,
+        text: String,
+    },
+    Confirm(ConfirmMessage),
 
     // Cursor movement
     MoveCursorUp,
@@ -2211,6 +2242,10 @@ enum Message {
 
     // Utilities
     CopySelection,
+    #[expect(clippy::type_complexity)]
+    RunAfterConfirmation(
+        DebugType<Arc<dyn Fn(&mut App, &mut Context, &mut Vec<Message>) -> anyhow::Result<()>>>,
+    ),
 }
 
 #[derive(Debug, Clone)]
@@ -2733,4 +2768,23 @@ enum MoveTarget<'a> {
     Branch { name: &'a str },
     Commit { commit_id: gix::ObjectId },
     MergeBase,
+}
+
+#[derive(Clone)]
+struct DebugType<T>(T);
+
+impl<T> std::fmt::Debug for DebugType<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(std::any::type_name::<T>())
+    }
+}
+
+#[expect(dead_code)]
+fn run_after_confirmation_msg<F>(f: F) -> Message
+where
+    F: Fn(&mut App, &mut Context, &mut Vec<Message>) -> anyhow::Result<()> + 'static,
+{
+    Message::RunAfterConfirmation(DebugType(Arc::new(move |app, ctx, messages| {
+        f(app, ctx, messages)
+    })))
 }

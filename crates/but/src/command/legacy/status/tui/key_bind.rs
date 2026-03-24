@@ -5,7 +5,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use strum::IntoEnumIterator;
 
 use crate::command::legacy::status::tui::{
-    CommandMessage, Message, Mode, ModeDiscriminant, RewordMessage, RubMessage,
+    CommandMessage, ConfirmMessage, Message, Mode, ModeDiscriminant, RewordMessage, RubMessage,
 };
 
 use super::{BranchMessage, CommitMessage, FilesMessage, MoveMessage};
@@ -43,6 +43,61 @@ pub(super) fn default_key_binds() -> KeyBinds {
             }
         }
     }
+
+    key_binds
+}
+
+pub(super) fn confirm_key_binds() -> KeyBinds {
+    let mut key_binds = KeyBinds::new();
+
+    let all_modes = ModeDiscriminant::iter().collect::<Vec<_>>();
+
+    register_quit_key_binds(&mut key_binds, all_modes.clone());
+
+    key_binds.register(StaticKeyBind {
+        short_description: "select",
+        chord_display: "enter",
+        key_matcher: press().code(KeyCode::Enter),
+        modes: all_modes.clone(),
+        message: Message::Confirm(ConfirmMessage::Confirm),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "yes",
+        chord_display: "y",
+        key_matcher: press().code(KeyCode::Char('y')),
+        modes: all_modes.clone(),
+        message: Message::Confirm(ConfirmMessage::Yes),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "no",
+        chord_display: "esc/n",
+        key_matcher: press().code(KeyCode::Char('n')).alt_code(KeyCode::Esc),
+        modes: all_modes.clone(),
+        message: Message::Confirm(ConfirmMessage::No),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "left",
+        chord_display: "←/h",
+        key_matcher: press().code(KeyCode::Char('h')).alt_code(KeyCode::Left),
+        modes: all_modes.clone(),
+        message: Message::Confirm(ConfirmMessage::Left),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "right",
+        chord_display: "→/l",
+        key_matcher: press().code(KeyCode::Char('l')).alt_code(KeyCode::Right),
+        modes: all_modes.clone(),
+        message: Message::Confirm(ConfirmMessage::Right),
+        hide_from_hotbar: false,
+    });
 
     key_binds
 }
@@ -98,14 +153,7 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         hide_from_hotbar: true,
     });
 
-    key_binds.register(StaticKeyBind {
-        short_description: "quit",
-        chord_display: "q",
-        key_matcher: press().code(KeyCode::Char('q')),
-        modes: all_except_text_input_modes.clone(),
-        message: Message::Quit,
-        hide_from_hotbar: false,
-    });
+    register_quit_key_binds(key_binds, all_except_text_input_modes.clone());
 
     key_binds.register(StaticKeyBind {
         short_description: "normal mode",
@@ -114,6 +162,17 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         modes: all_modes,
         message: Message::EnterNormalMode,
         hide_from_hotbar: true,
+    });
+}
+
+fn register_quit_key_binds(key_binds: &mut KeyBinds, modes: Vec<ModeDiscriminant>) {
+    key_binds.register(StaticKeyBind {
+        short_description: "quit",
+        chord_display: "q",
+        key_matcher: press().code(KeyCode::Char('q')),
+        modes,
+        message: Message::Quit,
+        hide_from_hotbar: false,
     });
 }
 
@@ -187,8 +246,8 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
 
     key_binds.register(StaticKeyBind {
         short_description: "reword",
-        chord_display: "shift+d",
-        key_matcher: press().shift().code(KeyCode::Char('D')),
+        chord_display: "shift+m",
+        key_matcher: press().shift().code(KeyCode::Char('M')),
         modes: Vec::from([ModeDiscriminant::Normal]),
         message: Message::Reword(RewordMessage::WithEditor),
         hide_from_hotbar: false,
