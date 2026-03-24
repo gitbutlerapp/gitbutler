@@ -25,7 +25,7 @@ import {
 } from "@gitbutler/but-sdk";
 import { Array, Match, pipe } from "effect";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { createContext, FC, Suspense, useContext, useEffect, useState } from "react";
+import { FC, Suspense, useEffect, useState } from "react";
 import styles from "./project-index.module.css";
 import sharedStyles from "./project-shared.module.css";
 import { DependencyIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
@@ -267,14 +267,10 @@ const getCommonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 	return bases.every((base) => base === first) ? first : undefined;
 };
 
-const DraggedSourceItemContext = createContext<SourceItem | null>(null);
-
 const parseDragData = (data: unknown): SourceItem | null => {
 	if (typeof data !== "object" || data === null || !("sourceItem" in data)) return null;
 	return (data as DragData).sourceItem;
 };
-
-const useDraggedSourceItem = (): SourceItem | null => useContext(DraggedSourceItemContext);
 
 type RubOperation = Omit<RubParams, "projectId">;
 
@@ -297,25 +293,14 @@ const parseDropTargetData = (data: unknown): Operation | null => {
 	return data as Operation;
 };
 
-const useMonitorDraggedSourceItem = ({
-	projectId,
-	setDraggedSourceItem,
-}: {
-	projectId: string;
-	setDraggedSourceItem: (sourceItem: SourceItem | null) => void;
-}): void => {
+const useMonitorDraggedSourceItem = ({ projectId }: { projectId: string }): void => {
 	const runOperation = useRunOperation(projectId);
 
 	useEffect(
 		() =>
 			monitorForElements({
 				canMonitor: ({ source }) => parseDragData(source.data) !== null,
-				onDragStart: ({ source }) => {
-					setDraggedSourceItem(parseDragData(source.data));
-				},
 				onDrop: ({ location }) => {
-					setDraggedSourceItem(null);
-
 					const operation = location.current.dropTargets
 						.map((dropTarget) => parseDropTargetData(dropTarget.data))
 						.find((target) => target);
@@ -325,7 +310,7 @@ const useMonitorDraggedSourceItem = ({
 					runOperation(operation);
 				},
 			}),
-		[runOperation, setDraggedSourceItem],
+		[runOperation],
 	);
 };
 
@@ -883,8 +868,6 @@ const CommitMoveTarget: FC<{
 		return getOperation(sourceItem);
 	});
 
-	const sourceItem = useDraggedSourceItem();
-
 	return (
 		<div
 			ref={dropRef}
@@ -895,9 +878,6 @@ const CommitMoveTarget: FC<{
 					Match.when("below", () => styles.commitMoveTargetBelow),
 					Match.exhaustive,
 				),
-				sourceItem?._tag === "Commit" &&
-					!isNoOp(sourceItem.commitId) &&
-					styles.commitMoveTargetEnabled,
 				operation && styles.commitMoveTargetActive,
 			)}
 		/>
@@ -1438,7 +1418,6 @@ const ProjectPage: FC = () => {
 	const { id: projectId } = projectRootRoute.useParams();
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
-	const [draggedSourceItem, setDraggedSourceItem] = useState<SourceItem | null>(null);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 
@@ -1463,7 +1442,7 @@ const ProjectPage: FC = () => {
 			assignments: worktreeChanges.assignments,
 		});
 
-	useMonitorDraggedSourceItem({ projectId, setDraggedSourceItem });
+	useMonitorDraggedSourceItem({ projectId });
 
 	// TODO: dedupe
 	if (!project) return <p>Project not found.</p>;
@@ -1575,84 +1554,80 @@ const ProjectPage: FC = () => {
 	};
 
 	return (
-		<DraggedSourceItemContext.Provider value={draggedSourceItem}>
-			<ProjectPreviewLayout
-				projectId={projectId}
-				preview={
-					selection && (
-						<Suspense fallback={<div>Loading diff…</div>}>
-							<Preview
-								projectId={projectId}
-								selection={selection}
-								onDependencyHover={highlightCommits}
-							/>
-						</Suspense>
-					)
-				}
-			>
-				<div className={sharedStyles.lanes}>
-					<div className={styles.unassignedChangesLane}>
-						<h3>Unassigned changes</h3>
-						<Changes
-							projectId={project.id}
-							stackId={null}
-							isFileSelected={isUnassignedFileSelected}
-							toggleFileSelect={toggleUnassignedFileSelection}
+		<ProjectPreviewLayout
+			projectId={projectId}
+			preview={
+				selection && (
+					<Suspense fallback={<div>Loading diff…</div>}>
+						<Preview
+							projectId={projectId}
+							selection={selection}
 							onDependencyHover={highlightCommits}
-							className={styles.unassignedChanges}
 						/>
-					</div>
-
-					<div className={styles.headInfo}>
-						<div className={styles.stackLanes}>
-							{headInfo.stacks.map((stack) => {
-								// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
-								const stackId = stack.id!;
-
-								return (
-									<div key={stack.id} className={styles.stackLane}>
-										<StackC
-											projectId={project.id}
-											stack={stack}
-											isBranchSelected={isBranchSelected}
-											toggleBranchSelection={toggleBranchSelection}
-											isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
-											isCommitEditing={(commitId) => isCommitEditing(stackId, commitId)}
-											isCommitSelectedWithin={(commitId) =>
-												isCommitSelectedWithin(stackId, commitId)
-											}
-											isChangeUnitFileSelected={(changeUnit, path) =>
-												isChangeUnitFileSelected(stackId, changeUnit, path)
-											}
-											toggleCommitExpanded={(commitId) => toggleCommitExpanded(stackId, commitId)}
-											toggleCommitSelection={(commitId) => {
-												toggleCommitSelection(stackId, commitId);
-											}}
-											toggleEditingMessage={(commitId) => {
-												toggleEditingMessage(stackId, commitId);
-											}}
-											toggleChangeUnitFileSelection={(changeUnit, path) => {
-												toggleChangeUnitFileSelection(stackId, changeUnit, path);
-											}}
-											highlightedCommitIds={highlightedCommitIds}
-											onDependencyHover={highlightCommits}
-										/>
-									</div>
-								);
-							})}
-						</div>
-
-						{commonBaseCommitId !== undefined && (
-							<TearOffBranchTarget className={styles.commonBaseCommit}>
-								{shortCommitId(commonBaseCommitId)} (common base commit)
-							</TearOffBranchTarget>
-						)}
-					</div>
-
-					<TearOffBranchTarget className={styles.emptyLane} />
+					</Suspense>
+				)
+			}
+		>
+			<div className={sharedStyles.lanes}>
+				<div className={styles.unassignedChangesLane}>
+					<h3>Unassigned changes</h3>
+					<Changes
+						projectId={project.id}
+						stackId={null}
+						isFileSelected={isUnassignedFileSelected}
+						toggleFileSelect={toggleUnassignedFileSelection}
+						onDependencyHover={highlightCommits}
+						className={styles.unassignedChanges}
+					/>
 				</div>
-			</ProjectPreviewLayout>
-		</DraggedSourceItemContext.Provider>
+
+				<div className={styles.headInfo}>
+					<div className={styles.stackLanes}>
+						{headInfo.stacks.map((stack) => {
+							// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
+							const stackId = stack.id!;
+
+							return (
+								<div key={stack.id} className={styles.stackLane}>
+									<StackC
+										projectId={project.id}
+										stack={stack}
+										isBranchSelected={isBranchSelected}
+										toggleBranchSelection={toggleBranchSelection}
+										isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
+										isCommitEditing={(commitId) => isCommitEditing(stackId, commitId)}
+										isCommitSelectedWithin={(commitId) => isCommitSelectedWithin(stackId, commitId)}
+										isChangeUnitFileSelected={(changeUnit, path) =>
+											isChangeUnitFileSelected(stackId, changeUnit, path)
+										}
+										toggleCommitExpanded={(commitId) => toggleCommitExpanded(stackId, commitId)}
+										toggleCommitSelection={(commitId) => {
+											toggleCommitSelection(stackId, commitId);
+										}}
+										toggleEditingMessage={(commitId) => {
+											toggleEditingMessage(stackId, commitId);
+										}}
+										toggleChangeUnitFileSelection={(changeUnit, path) => {
+											toggleChangeUnitFileSelection(stackId, changeUnit, path);
+										}}
+										highlightedCommitIds={highlightedCommitIds}
+										onDependencyHover={highlightCommits}
+									/>
+								</div>
+							);
+						})}
+					</div>
+
+					{commonBaseCommitId !== undefined && (
+						<TearOffBranchTarget className={styles.commonBaseCommit}>
+							{shortCommitId(commonBaseCommitId)} (common base commit)
+						</TearOffBranchTarget>
+					)}
+				</div>
+
+				<TearOffBranchTarget className={styles.emptyLane} />
+			</div>
+		</ProjectPreviewLayout>
 	);
 };
 

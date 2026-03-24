@@ -73,7 +73,6 @@
 }
 
 .commitMoveTarget {
-	--hit-area: 17px;
 	--indicator-height: 3px;
 
 	display: flex;
@@ -82,7 +81,6 @@
 	justify-content: center;
 	height: var(--hit-area);
 	inset-inline: 0;
-	pointer-events: none;
 
 	&:before {
 		display: block;
@@ -93,16 +91,12 @@
 
 .commitMoveTargetAbove {
 	top: 0;
-	transform: translateY(calc((var(--hit-area) - var(--indicator-height)) / -2));
+	transform: translateY(calc((var(--indicator-height)) / -2));
 }
 
 .commitMoveTargetBelow {
 	bottom: 0;
-	transform: translateY(calc((var(--hit-area) - var(--indicator-height)) / 2));
-}
-
-.commitMoveTargetEnabled {
-	pointer-events: auto;
+	transform: translateY(calc((var(--indicator-height)) / 2));
 }
 
 .commitMoveTargetActive:before {
