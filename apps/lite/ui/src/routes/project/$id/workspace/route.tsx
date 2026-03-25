@@ -1592,18 +1592,12 @@ const ProjectPage: FC = () => {
 
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
 
-	const isUnassignedFileSelected = (path: string): boolean =>
-		selection?._tag === "ChangesFile" && selection.stackId === null && selection.path === path;
-	const toggleUnassignedFileSelection = (path: string) => {
-		select(isUnassignedFileSelected(path) ? null : { _tag: "ChangesFile", stackId: null, path });
-	};
-
 	const isBranchSelected = (stackId: string, branchRef: string) =>
 		selection?._tag === "Branch" &&
 		selection.stackId === stackId &&
 		selection.branchRef === branchRef;
 
-	const isChangesFileSelected = (stackId: string, path: string) =>
+	const isChangesFileSelected = (stackId: string | null, path: string) =>
 		selection?._tag === "ChangesFile" && selection.stackId === stackId && selection.path === path;
 
 	const isCommitSelected = (stackId: string, commitId: string) =>
@@ -1633,7 +1627,7 @@ const ProjectPage: FC = () => {
 				: { _tag: "Branch", stackId, branchName, branchRef },
 		);
 	};
-	const toggleChangesFileSelection = (stackId: string, path: string) => {
+	const toggleChangesFileSelection = (stackId: string | null, path: string) => {
 		select(isChangesFileSelected(stackId, path) ? null : { _tag: "ChangesFile", stackId, path });
 	};
 	const toggleCommitSelection = (stackId: string, commitId: string) => {
@@ -1718,8 +1712,10 @@ const ProjectPage: FC = () => {
 					<Changes
 						projectId={project.id}
 						stackId={null}
-						isFileSelected={isUnassignedFileSelected}
-						toggleFileSelect={toggleUnassignedFileSelection}
+						isFileSelected={(path) => isChangesFileSelected(null, path)}
+						toggleFileSelect={(path) => {
+							toggleChangesFileSelection(null, path);
+						}}
 						onDependencyHover={highlightCommits}
 						className={styles.unassignedChanges}
 					/>
