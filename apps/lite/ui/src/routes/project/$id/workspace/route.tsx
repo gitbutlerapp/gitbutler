@@ -25,6 +25,7 @@ import {
 	getStackIdsByCommitId,
 } from "#ui/domain/RefInfo.ts";
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
+import { useCloseWatcher } from "#ui/hooks/useCloseWatcher.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { type Operation, type RubOperation, useRunOperation } from "#ui/Operation.ts";
@@ -883,6 +884,7 @@ const InlineCommitMessageEditor: FC<{
 }> = ({ projectId, commitId, message, setMessageAction, onExit }) => {
 	const commitReword = useMutation(commitRewordMutationOptions);
 	const initialMessage = message.trim();
+	const requestClose = useCloseWatcher(onExit);
 
 	const saveMessage = (newMessage: string) => {
 		onExit();
@@ -918,10 +920,7 @@ const InlineCommitMessageEditor: FC<{
 				defaultValue={initialMessage}
 				className={styles.editCommitMessageInput}
 				onKeyDown={(event) => {
-					if (event.key === "Escape") {
-						event.preventDefault();
-						onExit();
-					} else if (event.key === "Enter" && !event.shiftKey) {
+					if (event.key === "Enter" && !event.shiftKey) {
 						event.preventDefault();
 						event.currentTarget.form?.requestSubmit();
 					}
@@ -929,7 +928,13 @@ const InlineCommitMessageEditor: FC<{
 			/>
 			<div className={styles.editCommitMessageHelp}>
 				<span>escape to </span>
-				<button type="button" className={styles.editCommitMessageAction} onClick={onExit}>
+				<button
+					type="button"
+					className={styles.editCommitMessageAction}
+					onClick={() => {
+						requestClose();
+					}}
+				>
 					cancel
 				</button>
 				<span> • enter to </span>
