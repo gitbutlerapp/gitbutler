@@ -636,11 +636,11 @@ const Preview: FC<{
 				onDependencyHover={onDependencyHover}
 			/>
 		)),
-		Match.tag("Commit", ({ commitId, detail }) =>
-			detail?.path === undefined ? (
+		Match.tag("Commit", ({ commitId, mode }) =>
+			mode._tag !== "Details" || mode.path === undefined ? (
 				<ShowCommit projectId={projectId} commitId={commitId} />
 			) : (
-				<CommitFileDiff projectId={projectId} commitId={commitId} path={detail.path} />
+				<CommitFileDiff projectId={projectId} commitId={commitId} path={mode.path} />
 			),
 		),
 		Match.exhaustive,
@@ -1073,8 +1073,7 @@ const CommitRow: FC<
 										_tag: "Commit",
 										stackId,
 										commitId: commit.id,
-										isEditingMessage: false,
-										detail: undefined,
+										mode: { _tag: "Summary" },
 									});
 									return;
 								}
@@ -1090,15 +1089,13 @@ const CommitRow: FC<
 												_tag: "Commit",
 												stackId,
 												commitId: commit.id,
-												isEditingMessage: false,
-												detail: { path: firstPath },
+												mode: { _tag: "Details", path: firstPath },
 											}
 										: {
 												_tag: "Commit",
 												stackId,
 												commitId: commit.id,
-												isEditingMessage: false,
-												detail: {},
+												mode: { _tag: "Details" },
 											},
 								);
 							});

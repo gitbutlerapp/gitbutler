@@ -238,7 +238,12 @@ const CommitRow: FC<{
 				onClick={() => {
 					startDetailsTransition(async () => {
 						if (isShowingDetails) {
-							select({ _tag: "Commit", branchName, commitId: commit.id, detail: undefined });
+							select({
+								_tag: "Commit",
+								branchName,
+								commitId: commit.id,
+								mode: { _tag: "Summary" },
+							});
 							return;
 						}
 
@@ -253,9 +258,14 @@ const CommitRow: FC<{
 										_tag: "Commit",
 										branchName,
 										commitId: commit.id,
-										detail: { path: firstPath },
+										mode: { _tag: "Details", path: firstPath },
 									}
-								: { _tag: "Commit", branchName, commitId: commit.id, detail: {} },
+								: {
+										_tag: "Commit",
+										branchName,
+										commitId: commit.id,
+										mode: { _tag: "Details" },
+									},
 						);
 					});
 				}}
@@ -451,8 +461,8 @@ const Preview: FC<{
 				<div>No branch diff available.</div>
 			),
 		),
-		Match.tag("Commit", ({ branchName, commitId, detail }) =>
-			detail?.path === undefined ? (
+		Match.tag("Commit", ({ branchName, commitId, mode }) =>
+			mode._tag !== "Details" || mode.path === undefined ? (
 				<CommitDiff
 					projectId={projectId}
 					branchName={branchName}
@@ -465,7 +475,7 @@ const Preview: FC<{
 					branchName={branchName}
 					remote={remote}
 					commitId={commitId}
-					path={detail.path}
+					path={mode.path}
 				/>
 			),
 		),
