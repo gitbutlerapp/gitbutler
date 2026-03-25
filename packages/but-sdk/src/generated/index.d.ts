@@ -943,7 +943,7 @@ export type UICommitCreateResult = {
   /** The new commit if one was created. */
   newCommit?: string | null;
   /** Paths that contained at least one rejected hunk, matching legacy rejection reporting semantics. */
-  pathsToRejectedChanges: Array<[string, string]>;
+  pathsToRejectedChanges: Array<UIRejectedPath>;
   /**
    * Commits that have been replaced as a side-effect of the create/amend.
    * Maps `oldId -> newId`.
@@ -998,6 +998,16 @@ export type UIMoveChangesResult = {
    * Maps `oldId -> newId`.
    */
   replacedCommits: Record<string, string>;
+};
+
+/** UI payload describing a rejected diff-spec path. */
+export type UIRejectedPath = {
+  /** The reason the diff spec was rejected. */
+  reason: string;
+  /** The worktree-relative path, potentially degenerated if it can't be represented in Unicode. */
+  path: string;
+  /** `path` without degeneration, as plain bytes. */
+  pathBytes: Array<number>;
 };
 
 /**
@@ -1093,4 +1103,3 @@ export type WorktreeChanges = {
   dependencies?: HunkDependencies | null;
   dependenciesError: SerdeError | null;
 };
-

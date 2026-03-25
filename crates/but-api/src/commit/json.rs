@@ -37,6 +37,27 @@ impl From<MoveChangesResult> for UIMoveChangesResult {
     }
 }
 
+/// UI payload describing a rejected diff-spec path.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct UIRejectedPath {
+    /// The reason the diff spec was rejected.
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+    pub reason: but_core::tree::create_tree::RejectionReason,
+    /// The worktree-relative path, potentially degenerated if it can't be represented in Unicode.
+    pub path: String,
+    /// `path` without degeneration, as plain bytes.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::bstring_bytes")
+    )]
+    pub path_bytes: bstr::BString,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(UIRejectedPath);
+
 /// UI type for creating a commit in the rebase graph.
 #[derive(Debug, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -46,11 +67,7 @@ pub struct UICommitCreateResult {
     #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
     pub new_commit: Option<HexHash>,
     /// Paths that contained at least one rejected hunk, matching legacy rejection reporting semantics.
-    #[cfg_attr(feature = "export-schema", schemars(with = "Vec<(String, String)>"))]
-    pub paths_to_rejected_changes: Vec<(
-        but_core::tree::create_tree::RejectionReason,
-        but_serde::BStringForFrontend,
-    )>,
+    pub paths_to_rejected_changes: Vec<UIRejectedPath>,
     /// Commits that have been replaced as a side-effect of the create/amend.
     /// Maps `oldId -> newId`.
     #[cfg_attr(
@@ -75,7 +92,11 @@ impl From<CommitCreateResult> for UICommitCreateResult {
             new_commit: new_commit.map(Into::into),
             paths_to_rejected_changes: rejected_specs
                 .into_iter()
-                .map(|(reason, diff)| (reason, diff.path.into()))
+                .map(|(reason, diff)| UIRejectedPath {
+                    reason,
+                    path: diff.path.to_string(),
+                    path_bytes: diff.path,
+                })
                 .collect(),
             replaced_commits: replaced_commits
                 .into_iter()
