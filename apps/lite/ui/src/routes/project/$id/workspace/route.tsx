@@ -74,7 +74,22 @@ import {
 } from "react";
 import useLocalStorageState from "use-local-storage-state";
 import sharedStyles from "../shared.module.css";
-import { getDefaultSelection, normalizeSelection, type Selection } from "./Selection.ts";
+import {
+	getDefaultSelection,
+	isBranchSelected,
+	isChangesFileSelected,
+	isCommitEditingMessage,
+	isCommitFileSelected,
+	isCommitSelected,
+	isCommitSelectedWithin,
+	normalizeSelection,
+	type Selection,
+	toggleBranchSelection,
+	toggleChangesFileSelection,
+	toggleCommitEditingMessage,
+	toggleCommitFileSelection,
+	toggleCommitSelection,
+} from "./Selection.ts";
 import styles from "./route.module.css";
 
 type SourceItem =
@@ -1591,61 +1606,8 @@ const ProjectPage: FC = () => {
 		});
 
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
-
-	const isBranchSelected = (stackId: string, branchRef: string) =>
-		selection?._tag === "Branch" &&
-		selection.stackId === stackId &&
-		selection.branchRef === branchRef;
-
-	const isChangesFileSelected = (stackId: string | null, path: string) =>
-		selection?._tag === "ChangesFile" && selection.stackId === stackId && selection.path === path;
-
-	const isCommitSelected = (stackId: string, commitId: string) =>
-		selection?._tag === "Commit" &&
-		selection.stackId === stackId &&
-		selection.commitId === commitId;
-	const isCommitEditingMessage = (stackId: string, commitId: string) =>
-		selection?._tag === "Commit" &&
-		selection.stackId === stackId &&
-		selection.commitId === commitId &&
-		selection.isEditingMessage === true;
-	const isCommitSelectedWithin = (stackId: string, commitId: string) =>
-		selection?._tag === "CommitFile" &&
-		selection.stackId === stackId &&
-		selection.commitId === commitId;
-
-	const isCommitFileSelected = (stackId: string, commitId: string, path: string) =>
-		selection?._tag === "CommitFile" &&
-		selection.stackId === stackId &&
-		selection.commitId === commitId &&
-		selection.path === path;
-
-	const toggleBranchSelection = (stackId: string, branchName: string, branchRef: string) => {
-		select(
-			isBranchSelected(stackId, branchRef)
-				? null
-				: { _tag: "Branch", stackId, branchName, branchRef },
-		);
-	};
-	const toggleChangesFileSelection = (stackId: string | null, path: string) => {
-		select(isChangesFileSelected(stackId, path) ? null : { _tag: "ChangesFile", stackId, path });
-	};
-	const toggleCommitSelection = (
-		stackId: string,
-		commitId: string,
-		branchName: string,
-		branchRef: string | null,
-	) => {
-		select(
-			isCommitSelected(stackId, commitId)
-				? branchRef !== null
-					? { _tag: "Branch", stackId, branchName, branchRef }
-					: null
-				: { _tag: "Commit", stackId, commitId, isEditingMessage: false },
-		);
-	};
 	const toggleCommitExpanded = async (stackId: string, commitId: string) => {
-		if (isCommitSelectedWithin(stackId, commitId)) {
+		if (isCommitSelectedWithin(selection, stackId, commitId)) {
 			select({ _tag: "Commit", stackId, commitId, isEditingMessage: false });
 			return;
 		}
@@ -1659,33 +1621,6 @@ const ProjectPage: FC = () => {
 			firstPath !== undefined
 				? { _tag: "CommitFile", stackId, commitId, path: firstPath }
 				: { _tag: "Commit", stackId, commitId, isEditingMessage: false },
-		);
-	};
-	const toggleCommitEditingMessage = (stackId: string, commitId: string) => {
-		if (isCommitEditingMessage(stackId, commitId)) {
-			select(
-				selection?._tag === "Commit" &&
-					selection.stackId === stackId &&
-					selection.commitId === commitId &&
-					selection.isEditingMessage === true
-					? { ...selection, isEditingMessage: false }
-					: selection,
-			);
-			return;
-		}
-
-		select({ _tag: "Commit", stackId, commitId, isEditingMessage: true });
-	};
-	const toggleCommitFileSelection = (stackId: string, commitId: string, path: string) => {
-		select(
-			isCommitFileSelected(stackId, commitId, path)
-				? {
-						_tag: "Commit",
-						stackId,
-						commitId,
-						isEditingMessage: false,
-					}
-				: { _tag: "CommitFile", stackId, commitId, path },
 		);
 	};
 
@@ -1719,9 +1654,9 @@ const ProjectPage: FC = () => {
 					<Changes
 						projectId={project.id}
 						stackId={null}
-						isFileSelected={(path) => isChangesFileSelected(null, path)}
+						isFileSelected={(path) => isChangesFileSelected(selection, null, path)}
 						toggleFileSelect={(path) => {
-							toggleChangesFileSelection(null, path);
+							select(toggleChangesFileSelection(selection, null, path));
 						}}
 						onDependencyHover={highlightCommits}
 						className={styles.unassignedChanges}
@@ -1738,30 +1673,55 @@ const ProjectPage: FC = () => {
 								<div key={stack.id} className={styles.stackLane}>
 									<StackC
 										highlightedCommitIds={highlightedCommitIds}
-										isBranchSelected={isBranchSelected}
-										isChangesFileSelected={(path) => isChangesFileSelected(stackId, path)}
-										isCommitEditingMessage={(commitId) => isCommitEditingMessage(stackId, commitId)}
-										isCommitFileSelected={(commitId, path) =>
-											isCommitFileSelected(stackId, commitId, path)
+										isBranchSelected={(candidateStackId, branchRef) =>
+											isBranchSelected(selection, candidateStackId, branchRef)
 										}
-										isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
-										isCommitSelectedWithin={(commitId) => isCommitSelectedWithin(stackId, commitId)}
+										isChangesFileSelected={(path) =>
+											isChangesFileSelected(selection, stackId, path)
+										}
+										isCommitEditingMessage={(commitId) =>
+											isCommitEditingMessage(selection, stackId, commitId)
+										}
+										isCommitFileSelected={(commitId, path) =>
+											isCommitFileSelected(selection, stackId, commitId, path)
+										}
+										isCommitSelected={(commitId) => isCommitSelected(selection, stackId, commitId)}
+										isCommitSelectedWithin={(commitId) =>
+											isCommitSelectedWithin(selection, stackId, commitId)
+										}
 										onDependencyHover={highlightCommits}
 										projectId={project.id}
 										stack={stack}
-										toggleBranchSelection={toggleBranchSelection}
+										toggleBranchSelection={(candidateStackId, branchName, branchRef) => {
+											select(
+												toggleBranchSelection(
+													selection,
+													candidateStackId,
+													branchName,
+													branchRef,
+												),
+											);
+										}}
 										toggleChangesFileSelection={(path) => {
-											toggleChangesFileSelection(stackId, path);
+											select(toggleChangesFileSelection(selection, stackId, path));
 										}}
 										toggleCommitEditingMessage={(commitId) => {
-											toggleCommitEditingMessage(stackId, commitId);
+											select(toggleCommitEditingMessage(selection, stackId, commitId));
 										}}
 										toggleCommitExpanded={(commitId) => toggleCommitExpanded(stackId, commitId)}
 										toggleCommitFileSelection={(commitId, path) => {
-											toggleCommitFileSelection(stackId, commitId, path);
+											select(toggleCommitFileSelection(selection, stackId, commitId, path));
 										}}
 										toggleCommitSelection={(commitId, branchName, branchRef) => {
-											toggleCommitSelection(stackId, commitId, branchName, branchRef);
+											select(
+												toggleCommitSelection(
+													selection,
+													stackId,
+													commitId,
+													branchName,
+													branchRef,
+												),
+											);
 										}}
 									/>
 								</div>

@@ -26,6 +26,120 @@ export type Selection =
 			path: string;
 	  };
 
+export const isBranchSelected = (
+	selection: Selection | null,
+	stackId: string,
+	branchRef: string,
+): boolean =>
+	selection?._tag === "Branch" &&
+	selection.stackId === stackId &&
+	selection.branchRef === branchRef;
+
+export const isChangesFileSelected = (
+	selection: Selection | null,
+	stackId: string | null,
+	path: string,
+): boolean =>
+	selection?._tag === "ChangesFile" && selection.stackId === stackId && selection.path === path;
+
+export const isCommitSelected = (
+	selection: Selection | null,
+	stackId: string,
+	commitId: string,
+): boolean =>
+	selection?._tag === "Commit" && selection.stackId === stackId && selection.commitId === commitId;
+
+export const isCommitEditingMessage = (
+	selection: Selection | null,
+	stackId: string,
+	commitId: string,
+): boolean =>
+	selection?._tag === "Commit" &&
+	selection.stackId === stackId &&
+	selection.commitId === commitId &&
+	selection.isEditingMessage === true;
+
+export const isCommitSelectedWithin = (
+	selection: Selection | null,
+	stackId: string,
+	commitId: string,
+): boolean =>
+	selection?._tag === "CommitFile" &&
+	selection.stackId === stackId &&
+	selection.commitId === commitId;
+
+export const isCommitFileSelected = (
+	selection: Selection | null,
+	stackId: string,
+	commitId: string,
+	path: string,
+): boolean =>
+	selection?._tag === "CommitFile" &&
+	selection.stackId === stackId &&
+	selection.commitId === commitId &&
+	selection.path === path;
+
+export const toggleBranchSelection = (
+	selection: Selection | null,
+	stackId: string,
+	branchName: string,
+	branchRef: string,
+): Selection | null =>
+	isBranchSelected(selection, stackId, branchRef)
+		? null
+		: { _tag: "Branch", stackId, branchName, branchRef };
+
+export const toggleChangesFileSelection = (
+	selection: Selection | null,
+	stackId: string | null,
+	path: string,
+): Selection | null =>
+	isChangesFileSelected(selection, stackId, path) ? null : { _tag: "ChangesFile", stackId, path };
+
+export const toggleCommitSelection = (
+	selection: Selection | null,
+	stackId: string,
+	commitId: string,
+	branchName: string,
+	branchRef: string | null,
+): Selection | null =>
+	isCommitSelected(selection, stackId, commitId)
+		? branchRef !== null
+			? { _tag: "Branch", stackId, branchName, branchRef }
+			: null
+		: { _tag: "Commit", stackId, commitId, isEditingMessage: false };
+
+export const toggleCommitEditingMessage = (
+	selection: Selection | null,
+	stackId: string,
+	commitId: string,
+): Selection | null => {
+	if (isCommitEditingMessage(selection, stackId, commitId))
+		return selection?._tag === "Commit" &&
+			selection.stackId === stackId &&
+			selection.commitId === commitId &&
+			selection.isEditingMessage === true
+			? { ...selection, isEditingMessage: false }
+			: selection;
+
+	return { _tag: "Commit", stackId, commitId, isEditingMessage: true };
+};
+
+export const toggleCommitFileSelection = (
+	selection: Selection | null,
+	stackId: string,
+	commitId: string,
+	path: string,
+): Selection | null =>
+	isCommitFileSelected(selection, stackId, commitId, path)
+		? {
+				_tag: "Commit",
+				stackId,
+				commitId,
+				isEditingMessage: false,
+			}
+		: { _tag: "CommitFile", stackId, commitId, path };
+
 export const normalizeSelection = (
 	selection: Selection,
 	stackIdsByCommitId: Map<string, Set<string>>,

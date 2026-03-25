@@ -29,7 +29,19 @@ import {
 	HunkDiff,
 } from "#ui/routes/project/$id/shared.tsx";
 import sharedStyles from "../shared.module.css";
-import { getDefaultSelection, normalizeBranchSelection, Selection } from "./Selection.ts";
+import {
+	getDefaultSelection,
+	isBranchSelected,
+	isBranchSelectedWithin,
+	isCommitFileSelected,
+	isCommitSelected,
+	isCommitSelectedWithin,
+	normalizeBranchSelection,
+	Selection,
+	toggleBranchSelection,
+	toggleCommitFileSelection,
+	toggleCommitSelection,
+} from "./Selection.ts";
 
 const isValidCommit = (commitId: string, branchDetails: BranchDetails): boolean => {
 	const commitIds = new Set(branchDetails.commits.map((commit) => commit.id));
@@ -479,40 +491,8 @@ const ProjectBranchesPage: FC = () => {
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
 	const selectedRemote =
 		selectedBranch && !selectedBranch.hasLocal ? selectedBranch.remotes[0] : null;
-
-	const isBranchSelected = (branchName: string) =>
-		selection?._tag === "Branch" && selection.branchName === branchName;
-	const isBranchSelectedWithin = (branchName: string) =>
-		(selection?._tag === "Commit" || selection?._tag === "CommitFile") &&
-		selection.branchName === branchName;
-
-	const isCommitSelected = (branchName: string, commitId: string) =>
-		selection?._tag === "Commit" &&
-		selection.branchName === branchName &&
-		selection.commitId === commitId;
-	const isCommitSelectedWithin = (branchName: string, commitId: string) =>
-		selection?._tag === "CommitFile" &&
-		selection.branchName === branchName &&
-		selection.commitId === commitId;
-
-	const isCommitFileSelected = (branchName: string, commitId: string, path: string) =>
-		selection?._tag === "CommitFile" &&
-		selection.branchName === branchName &&
-		selection.commitId === commitId &&
-		selection.path === path;
-
-	const toggleBranchSelection = (branchName: string) => {
-		select(isBranchSelected(branchName) ? null : { _tag: "Branch", branchName });
-	};
-	const toggleCommitSelection = (branchName: string, commitId: string) => {
-		select(
-			isCommitSelected(branchName, commitId)
-				? { _tag: "Branch", branchName }
-				: { _tag: "Commit", branchName, commitId },
-		);
-	};
 	const toggleCommitExpanded = async (branchName: string, commitId: string) => {
-		if (isCommitSelectedWithin(branchName, commitId)) {
+		if (isCommitSelectedWithin(selection, branchName, commitId)) {
 			select({ _tag: "Commit", branchName, commitId });
 			return;
 		}
@@ -526,13 +506,6 @@ const ProjectBranchesPage: FC = () => {
 			firstPath !== undefined
 				? { _tag: "CommitFile", branchName, commitId, path: firstPath }
 				: { _tag: "Commit", branchName, commitId },
-		);
-	};
-	const toggleCommitFileSelection = (branchName: string, commitId: string, path: string) => {
-		select(
-			isCommitFileSelected(branchName, commitId, path)
-				? { _tag: "Commit", branchName, commitId }
-				: { _tag: "CommitFile", branchName, commitId, path },
 		);
 	};
 
@@ -559,8 +532,8 @@ const ProjectBranchesPage: FC = () => {
 			<div className={sharedStyles.lanes}>
 				<ul className={styles.branchesListLane}>
 					{sortedBranches.map((branch) => {
-						const isSelected = isBranchSelected(branch.name);
-						const isSelectedWithin = isBranchSelectedWithin(branch.name);
+						const isSelected = isBranchSelected(selection, branch.name);
+						const isSelectedWithin = isBranchSelectedWithin(selection, branch.name);
 						return (
 							<li key={branch.name}>
 								<BranchRow
@@ -569,7 +542,7 @@ const ProjectBranchesPage: FC = () => {
 									isSelected={isSelected}
 									isSelectedWithin={isSelectedWithin}
 									toggleSelect={() => {
-										toggleBranchSelection(branch.name);
+										select(toggleBranchSelection(selection, branch.name));
 									}}
 								/>
 							</li>
@@ -583,11 +556,13 @@ const ProjectBranchesPage: FC = () => {
 							<BranchDetailsC
 								branchName={selectedBranch.name}
 								isCommitFileSelected={(commitId, path) =>
-									isCommitFileSelected(selectedBranch.name, commitId, path)
+									isCommitFileSelected(selection, selectedBranch.name, commitId, path)
 								}
-								isCommitSelected={(commitId) => isCommitSelected(selectedBranch.name, commitId)}
+								isCommitSelected={(commitId) =>
+									isCommitSelected(selection, selectedBranch.name, commitId)
+								}
 								isCommitSelectedWithin={(commitId) =>
-									isCommitSelectedWithin(selectedBranch.name, commitId)
+									isCommitSelectedWithin(selection, selectedBranch.name, commitId)
 								}
 								projectId={projectId}
 								remote={selectedRemote ?? null}
@@ -595,10 +570,17 @@ const ProjectBranchesPage: FC = () => {
 									toggleCommitExpanded(selectedBranch.name, commitId)
 								}
 								toggleCommitFileSelection={(commitId, path) =>
-									toggleCommitFileSelection(selectedBranch.name, commitId, path)
+									select(
+										toggleCommitFileSelection(
+											selection,
+											selectedBranch.name,
+											commitId,
+											path,
+										),
+									)
 								}
 								toggleCommitSelection={(commitId) =>
-									toggleCommitSelection(selectedBranch.name, commitId)
+									select(toggleCommitSelection(selection, selectedBranch.name, commitId))
 								}
 							/>
 						</Suspense>
