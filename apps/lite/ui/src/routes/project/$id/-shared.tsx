@@ -14,7 +14,7 @@ import {
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { ComponentProps, FC, ReactNode } from "react";
-import styles from "./shared.module.css";
+import styles from "./-shared.module.css";
 
 /** @public */
 export const assert = <T,>(t: T | null | undefined): T => {
