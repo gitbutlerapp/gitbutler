@@ -1,65 +1,45 @@
-import useLocalStorageState from "use-local-storage-state";
+import { commitDetailsWithLineStatsQueryOptions } from "#ui/api/queries.ts";
+import { classes } from "#ui/classes.ts";
+import { ExpandCollapseIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import { ContextMenu, Menu } from "@base-ui/react";
+import { BranchDetails, BranchListing, Commit, DiffHunk } from "@gitbutler/but-sdk";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { BranchDetails, BranchIdentity, BranchListing, Commit } from "@gitbutler/but-sdk";
 import { Match } from "effect";
-import { ComponentProps, FC, Suspense } from "react";
+import { ComponentProps, FC, Suspense, useEffect, useEffectEvent, useTransition } from "react";
+import useLocalStorageState from "use-local-storage-state";
+import styles from "./route.module.css";
 
-import { classes } from "#ui/classes.ts";
-import { CheckIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
-import {
-	CommitDetails,
-	CommitRow,
-	CommitsList,
-	FileDiff,
-	FileButton,
-	Hunk,
-} from "#ui/routes/project/$id/-shared.tsx";
-import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/api/mutations.ts";
 import {
 	branchDetailsQueryOptions,
 	branchDiffQueryOptions,
-	commitDetailsWithLineStatsQueryOptions,
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import styles from "./route.module.css";
-import sharedStyles from "../-shared.module.css";
-
-type Selection =
-	| {
-			_tag: "Branch";
-			branchName: BranchIdentity;
-	  }
-	| {
-			_tag: "Commit";
-			branchName: BranchIdentity;
-			commitId: string;
-			isEditingMessage?: boolean;
-	  }
-	| {
-			_tag: "CommitFile";
-			branchName: BranchIdentity;
-			commitId: string;
-			path: string;
-	  };
-
-const normalizeBranchSelection = (
-	selection: Selection,
-	branches: Array<BranchListing>,
-): Selection | null => {
-	const branch = branches.find((branch) => branch.name === selection.branchName);
-	if (!branch) return null;
-	return selection;
-};
-
-const getDefaultSelection = (branches: Array<BranchListing>): Selection | null => {
-	const firstBranch = branches[0];
-	if (!firstBranch) return null;
-	return { _tag: "Branch", branchName: firstBranch.name };
-};
+import { CheckIcon } from "#ui/components/icons.tsx";
+import {
+	isTypingTarget,
+	ProjectPreviewLayout,
+} from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
+import {
+	CommitDetails,
+	CommitLabel,
+	CommitsList,
+	FileButton,
+	FileDiff,
+	formatHunkHeader,
+	HunkDiff,
+} from "#ui/routes/project/$id/shared.tsx";
+import sharedStyles from "../shared.module.css";
+import {
+	getDefaultSelection,
+	normalizeBranchSelection,
+	Selection,
+	toggleBranchSelection,
+	toggleCommitFileSelection,
+	toggleCommitSelection,
+} from "./Selection.ts";
 
 const isValidCommit = (commitId: string, branchDetails: BranchDetails): boolean => {
 	const commitIds = new Set(branchDetails.commits.map((commit) => commit.id));
@@ -71,6 +51,29 @@ const getBranchRef = (branch: BranchListing): string | null => {
 	const remote = branch.remotes[0];
 	if (remote === undefined) return null;
 	return `refs/remotes/${remote}/${branch.name}`;
+};
+
+const getExpandedCommitSelection = async ({
+	branchName,
+	commitId,
+	projectId,
+	queryClient,
+}: {
+	branchName: string;
+	commitId: string;
+	projectId: string;
+	queryClient: ReturnType<typeof useQueryClient>;
+}): Promise<Selection> => {
+	const commitDetails = await queryClient.ensureQueryData(
+		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
+	);
+
+	return {
+		_tag: "Commit",
+		branchName,
+		commitId,
+		mode: { _tag: "Details", path: commitDetails.changes[0]?.path },
+	};
 };
 
 const BranchMenuPopup: FC<{
@@ -162,147 +165,203 @@ const BranchRow: FC<
 	{
 		projectId: string;
 		branch: BranchListing;
-		isSelected: boolean;
-		isSelectedWithin: boolean;
-		toggleSelect: () => void;
+		selection: Selection | null;
+		select: (selection: Selection | null) => void;
 	} & ComponentProps<"div">
-> = ({
-	projectId,
-	branch,
-	isSelected,
-	isSelectedWithin,
-	toggleSelect,
-	className,
-	...restProps
-}) => (
-	<div
-		{...restProps}
-		className={classes(
-			sharedStyles.row,
-			styles.branchRow,
-			isSelected
-				? sharedStyles.selected
-				: isSelectedWithin
-					? sharedStyles.selectedWithin
-					: undefined,
-			className,
-		)}
-	>
-		<ContextMenu.Root>
-			<ContextMenu.Trigger
-				render={
-					<button type="button" className={styles.branchButton} onClick={toggleSelect}>
-						{branch.name}
-						{branch.stack?.branches && branch.stack.branches.length > 1 && (
-							<> (+{branch.stack.branches.length - 1} more)</>
-						)}
-					</button>
+> = ({ projectId, branch, selection, select, className, ...restProps }) => {
+	const branchSelection =
+		selection?._tag === "Branch" && selection.branchName === branch.name ? selection : null;
+	const commitSelection =
+		selection?._tag === "Commit" && selection.branchName === branch.name ? selection : null;
+
+	return (
+		<div
+			{...restProps}
+			className={classes(
+				sharedStyles.row,
+				styles.branchRow,
+				branchSelection || commitSelection ? sharedStyles.selected : undefined,
+				className,
+			)}
+		>
+			<ContextMenu.Root>
+				<ContextMenu.Trigger
+					render={
+						<button
+							type="button"
+							className={styles.branchButton}
+							onClick={() => {
+								select(toggleBranchSelection(selection, branch.name));
+							}}
+						>
+							{branch.name}
+							{branch.stack?.branches && branch.stack.branches.length > 1 && (
+								<> (+{branch.stack.branches.length - 1} more)</>
+							)}
+						</button>
+					}
+				/>
+				<ContextMenu.Portal>
+					<ContextMenu.Positioner>
+						<BranchMenuPopup branch={branch} projectId={projectId} parts={ContextMenu} />
+					</ContextMenu.Positioner>
+				</ContextMenu.Portal>
+			</ContextMenu.Root>
+			<BranchApplyToggle branch={branch} projectId={projectId} />
+			<Menu.Root>
+				<Menu.Trigger className={sharedStyles.rowAction} aria-label={`Branch ${branch.name} menu`}>
+					<MenuTriggerIcon />
+				</Menu.Trigger>
+				<Menu.Portal>
+					<Menu.Positioner align="end">
+						<BranchMenuPopup branch={branch} projectId={projectId} parts={Menu} />
+					</Menu.Positioner>
+				</Menu.Portal>
+			</Menu.Root>
+		</div>
+	);
+};
+
+const CommitRow: FC<{
+	branchName: string;
+	commit: Commit;
+	projectId: string;
+	selection: Selection | null;
+	select: (selection: Selection | null) => void;
+	isHighlighted: boolean;
+}> = ({ branchName, commit, projectId, selection, select, isHighlighted }) => {
+	const [isDetailsPending, startDetailsTransition] = useTransition();
+	const queryClient = useQueryClient();
+	const commitSelection =
+		selection?._tag === "Commit" &&
+		selection.branchName === branchName &&
+		selection.commitId === commit.id
+			? selection
+			: null;
+
+	const toggleDetails = () => {
+		startDetailsTransition(async () => {
+			if (commitSelection?.mode._tag === "Details") {
+				select({
+					_tag: "Commit",
+					branchName,
+					commitId: commit.id,
+					mode: { _tag: "Summary" },
+				});
+				return;
+			}
+
+			select(
+				await getExpandedCommitSelection({
+					branchName,
+					commitId: commit.id,
+					projectId,
+					queryClient,
+				}),
+			);
+		});
+	};
+
+	return (
+		<div
+			className={classes(
+				sharedStyles.row,
+				sharedStyles.commitRow,
+				commitSelection ? sharedStyles.selected : undefined,
+				isHighlighted && sharedStyles.highlighted,
+			)}
+			style={{ ...(isDetailsPending && { opacity: 0.5 }) }}
+			aria-busy={isDetailsPending}
+		>
+			<button
+				type="button"
+				className={sharedStyles.commitButton}
+				onClick={() => {
+					select(toggleCommitSelection(selection, branchName, commit.id));
+				}}
+			>
+				<CommitLabel commit={commit} />
+			</button>
+			<button
+				className={sharedStyles.rowAction}
+				type="button"
+				onClick={toggleDetails}
+				aria-expanded={commitSelection?.mode._tag === "Details"}
+				aria-label={
+					commitSelection?.mode._tag === "Details" ? "Hide commit details" : "Show commit details"
 				}
-			/>
-			<ContextMenu.Portal>
-				<ContextMenu.Positioner>
-					<BranchMenuPopup branch={branch} projectId={projectId} parts={ContextMenu} />
-				</ContextMenu.Positioner>
-			</ContextMenu.Portal>
-		</ContextMenu.Root>
-		<BranchApplyToggle branch={branch} projectId={projectId} />
-		<Menu.Root>
-			<Menu.Trigger className={sharedStyles.rowAction} aria-label={`Branch ${branch.name} menu`}>
-				<MenuTriggerIcon />
-			</Menu.Trigger>
-			<Menu.Portal>
-				<Menu.Positioner align="end">
-					<BranchMenuPopup branch={branch} projectId={projectId} parts={Menu} />
-				</Menu.Positioner>
-			</Menu.Portal>
-		</Menu.Root>
-	</div>
-);
+			>
+				<ExpandCollapseIcon isExpanded={commitSelection?.mode._tag === "Details"} />
+			</button>
+		</div>
+	);
+};
 
 const CommitC: FC<{
-	projectId: string;
+	branchName: string;
 	commit: Commit;
-	isSelected: boolean;
-	isEditingMessage: boolean;
-	isSelectedWithin: boolean;
-	isFileSelected: (path: string) => boolean;
-	toggleExpand: () => Promise<void> | void;
-	toggleSelect: () => void;
-	toggleEditingMessage: () => void;
-	toggleFileSelect: (path: string) => void;
-}> = ({
-	projectId,
-	commit,
-	isSelected,
-	isEditingMessage,
-	isSelectedWithin,
-	isFileSelected,
-	toggleExpand,
-	toggleSelect,
-	toggleEditingMessage,
-	toggleFileSelect,
-}) => (
-	<div>
-		<CommitRow
-			projectId={projectId}
-			commit={commit}
-			isSelected={isSelected}
-			isEditingMessage={isEditingMessage}
-			isSelectedWithin={isSelectedWithin}
-			isHighlighted={false}
-			toggleExpand={toggleExpand}
-			toggleSelect={toggleSelect}
-			toggleEditingMessage={toggleEditingMessage}
-		/>
-		{isSelectedWithin && (
-			<div className={sharedStyles.commitDetails}>
-				<Suspense fallback={<div>Loading changed details…</div>}>
-					<CommitDetails
-						projectId={projectId}
-						commitId={commit.id}
-						renderFile={(change) => (
-							<div
-								className={classes(
-									sharedStyles.row,
-									sharedStyles.fileRow,
-									isFileSelected(change.path) && sharedStyles.selected,
-								)}
-							>
-								<FileButton change={change} toggleSelect={() => toggleFileSelect(change.path)} />
-							</div>
-						)}
-					/>
-				</Suspense>
-			</div>
-		)}
-	</div>
-);
+	projectId: string;
+	selection: Selection | null;
+	select: (selection: Selection | null) => void;
+}> = ({ branchName, commit, projectId, selection, select }) => {
+	const commitSelection =
+		selection?._tag === "Commit" &&
+		selection.branchName === branchName &&
+		selection.commitId === commit.id
+			? selection
+			: null;
+
+	return (
+		<div>
+			<CommitRow
+				branchName={branchName}
+				commit={commit}
+				projectId={projectId}
+				selection={selection}
+				select={select}
+				isHighlighted={false}
+			/>
+			{commitSelection?.mode._tag === "Details" && (
+				<div className={sharedStyles.commitDetails}>
+					<Suspense fallback={<div>Loading changed details…</div>}>
+						<CommitDetails
+							projectId={projectId}
+							commitId={commit.id}
+							renderFile={(change) => (
+								<div
+									className={classes(
+										sharedStyles.row,
+										sharedStyles.fileRow,
+										commitSelection.mode._tag === "Details" &&
+											commitSelection.mode.path === change.path &&
+											sharedStyles.selectedFile,
+									)}
+								>
+									<FileButton
+										change={change}
+										toggleSelect={() => {
+											select(
+												toggleCommitFileSelection(selection, branchName, commit.id, change.path),
+											);
+										}}
+									/>
+								</div>
+							)}
+						/>
+					</Suspense>
+				</div>
+			)}
+		</div>
+	);
+};
 
 const BranchDetailsC: FC<{
-	projectId: string;
 	branchName: string;
+	projectId: string;
 	remote: string | null;
-	isCommitSelected: (commitId: string) => boolean;
-	isCommitEditing: (commitId: string) => boolean;
-	isCommitSelectedWithin: (commitId: string) => boolean;
-	isCommitFileSelected: (commitId: string, path: string) => boolean;
-	toggleCommitExpanded: (commitId: string) => Promise<void> | void;
-	toggleCommitSelection: (commitId: string) => void;
-	toggleEditingMessage: (commitId: string) => void;
-	toggleCommitFileSelection: (commitId: string, path: string) => void;
-}> = ({
-	projectId,
-	branchName,
-	remote,
-	isCommitSelected,
-	isCommitEditing,
-	isCommitSelectedWithin,
-	isCommitFileSelected,
-	toggleCommitExpanded,
-	toggleCommitSelection,
-	toggleEditingMessage,
-	toggleCommitFileSelection,
-}) => {
+	selection: Selection | null;
+	select: (selection: Selection | null) => void;
+}> = ({ branchName, projectId, remote, selection, select }) => {
 	const { data: branchDetails } = useSuspenseQuery(
 		branchDetailsQueryOptions({ projectId, branchName, remote }),
 	);
@@ -311,27 +370,25 @@ const BranchDetailsC: FC<{
 		<CommitsList commits={branchDetails.commits}>
 			{(commit) => (
 				<CommitC
-					projectId={projectId}
+					branchName={branchName}
 					commit={commit}
-					isSelected={isCommitSelected(commit.id)}
-					isEditingMessage={isCommitEditing(commit.id)}
-					isSelectedWithin={isCommitSelectedWithin(commit.id)}
-					isFileSelected={(path) => isCommitFileSelected(commit.id, path)}
-					toggleExpand={() => toggleCommitExpanded(commit.id)}
-					toggleSelect={() => {
-						toggleCommitSelection(commit.id);
-					}}
-					toggleEditingMessage={() => {
-						toggleEditingMessage(commit.id);
-					}}
-					toggleFileSelect={(path) => {
-						toggleCommitFileSelection(commit.id, path);
-					}}
+					projectId={projectId}
+					selection={selection}
+					select={select}
 				/>
 			)}
 		</CommitsList>
 	);
 };
+
+const Hunk: FC<{
+	hunk: DiffHunk;
+}> = ({ hunk }) => (
+	<div>
+		<div className={styles.hunkHeaderRow}>{formatHunkHeader(hunk)}</div>
+		<HunkDiff diff={hunk.diff} />
+	</div>
+);
 
 const CommitFileDiff: FC<{
 	projectId: string;
@@ -353,13 +410,7 @@ const CommitFileDiff: FC<{
 	if (!change) return null;
 
 	return (
-		<FileDiff
-			projectId={projectId}
-			change={change}
-			renderHunk={(hunk, patch) => (
-				<Hunk patch={patch} changeUnit={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
-			)}
-		/>
+		<FileDiff projectId={projectId} change={change} renderHunk={(hunk) => <Hunk hunk={hunk} />} />
 	);
 };
 
@@ -377,9 +428,9 @@ const CommitDiff: FC<{
 	);
 	if (!isValidCommit(commitId, branchDetails)) return null;
 
-	if (data.changes.length === 0) return null;
-
-	return (
+	return data.changes.length === 0 ? (
+		<div>No file changes.</div>
+	) : (
 		<ul>
 			{data.changes.map((change) => (
 				<li key={change.path}>
@@ -387,14 +438,7 @@ const CommitDiff: FC<{
 					<FileDiff
 						projectId={projectId}
 						change={change}
-						renderHunk={(hunk, patch) => (
-							<Hunk
-								patch={patch}
-								changeUnit={{ _tag: "Commit", commitId }}
-								change={change}
-								hunk={hunk}
-							/>
-						)}
+						renderHunk={(hunk) => <Hunk hunk={hunk} />}
 					/>
 				</li>
 			))}
@@ -422,14 +466,7 @@ const ShowBranch: FC<{
 							<FileDiff
 								projectId={projectId}
 								change={change}
-								renderHunk={(hunk, patch) => (
-									<Hunk
-										patch={patch}
-										changeUnit={{ _tag: "Changes", stackId: null }}
-										change={change}
-										hunk={hunk}
-									/>
-								)}
+								renderHunk={(hunk) => <Hunk hunk={hunk} />}
 							/>
 						</li>
 					))}
@@ -453,33 +490,34 @@ const Preview: FC<{
 				<div>No branch diff available.</div>
 			),
 		),
-		Match.tag("Commit", ({ branchName, commitId }) => (
-			<CommitDiff
-				projectId={projectId}
-				branchName={branchName}
-				remote={remote}
-				commitId={commitId}
-			/>
-		)),
-		Match.tag("CommitFile", ({ branchName, commitId, path }) => (
-			<CommitFileDiff
-				projectId={projectId}
-				branchName={branchName}
-				remote={remote}
-				commitId={commitId}
-				path={path}
-			/>
-		)),
+		Match.tag("Commit", ({ branchName, commitId, mode }) =>
+			mode._tag === "Details" && mode.path !== undefined ? (
+				<CommitFileDiff
+					projectId={projectId}
+					branchName={branchName}
+					remote={remote}
+					commitId={commitId}
+					path={mode.path}
+				/>
+			) : (
+				<CommitDiff
+					projectId={projectId}
+					branchName={branchName}
+					remote={remote}
+					commitId={commitId}
+				/>
+			),
+		),
 		Match.exhaustive,
 	);
 
 const ProjectBranchesPage: FC = () => {
 	const { id: projectId } = Route.useParams();
+	const queryClient = useQueryClient();
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 	const project = projects.find((project) => project.id === projectId);
 	const { data: branches } = useSuspenseQuery(listBranchesQueryOptions(projectId));
-	const queryClient = useQueryClient();
 
 	const sortedBranches = branches.slice().sort((a, b) => a.name.localeCompare(b.name));
 	const [_selection, select] = useLocalStorageState<Selection | null>(
@@ -493,82 +531,43 @@ const ProjectBranchesPage: FC = () => {
 	const selectedRemote =
 		selectedBranch && !selectedBranch.hasLocal ? selectedBranch.remotes[0] : null;
 
-	const isBranchSelected = (branchName: string) =>
-		selection?._tag === "Branch" && selection.branchName === branchName;
-	const isBranchSelectedWithin = (branchName: string) =>
-		(selection?._tag === "Commit" || selection?._tag === "CommitFile") &&
-		selection.branchName === branchName;
+	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
+		if (event.defaultPrevented || event.repeat) return;
+		if (event.metaKey || event.ctrlKey || event.altKey) return;
+		if (isTypingTarget(event.target)) return;
+		if (selection?._tag !== "Commit") return;
 
-	const isCommitSelected = (branchName: string, commitId: string) =>
-		selection?._tag === "Commit" &&
-		selection.branchName === branchName &&
-		selection.commitId === commitId;
-	const isCommitEditing = (branchName: string, commitId: string) =>
-		selection?._tag === "Commit" &&
-		selection.branchName === branchName &&
-		selection.commitId === commitId &&
-		selection.isEditingMessage === true;
-	const isCommitSelectedWithin = (branchName: string, commitId: string) =>
-		selection?._tag === "CommitFile" &&
-		selection.branchName === branchName &&
-		selection.commitId === commitId;
-	const isCommitFileSelected = (branchName: string, commitId: string, path: string) =>
-		selection?._tag === "CommitFile" &&
-		selection.branchName === branchName &&
-		selection.commitId === commitId &&
-		selection.path === path;
-
-	const toggleCommitSelection = (branchName: string, commitId: string) => {
-		select(
-			isCommitSelected(branchName, commitId)
-				? { _tag: "Branch", branchName }
-				: { _tag: "Commit", branchName, commitId, isEditingMessage: false },
-		);
-	};
-	const toggleCommitExpanded = async (branchName: string, commitId: string) => {
-		if (isCommitSelectedWithin(branchName, commitId)) {
-			select({ _tag: "Commit", branchName, commitId, isEditingMessage: false });
-			return;
+		switch (event.key) {
+			case "ArrowLeft":
+				if (selection.mode._tag !== "Details") return;
+				event.preventDefault();
+				select({
+					_tag: "Commit",
+					branchName: selection.branchName,
+					commitId: selection.commitId,
+					mode: { _tag: "Summary" },
+				});
+				break;
+			case "ArrowRight":
+				if (selection.mode._tag !== "Summary") return;
+				event.preventDefault();
+				void getExpandedCommitSelection({
+					branchName: selection.branchName,
+					commitId: selection.commitId,
+					projectId,
+					queryClient,
+				}).then(select);
+				break;
 		}
+	});
 
-		const commitDetails = await queryClient.ensureQueryData(
-			commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
-		);
-		const firstPath = commitDetails.changes[0]?.path;
+	useEffect(() => {
+		window.addEventListener("keydown", handleKeyDown);
 
-		select(
-			firstPath !== undefined
-				? { _tag: "CommitFile", branchName, commitId, path: firstPath }
-				: { _tag: "Commit", branchName, commitId, isEditingMessage: false },
-		);
-	};
-	const toggleCommitFileSelection = (branchName: string, commitId: string, path: string) => {
-		select(
-			isCommitFileSelected(branchName, commitId, path)
-				? { _tag: "Commit", branchName, commitId, isEditingMessage: false }
-				: { _tag: "CommitFile", branchName, commitId, path },
-		);
-	};
-	const toggleEditingMessage = (branchName: string, commitId: string) => {
-		if (isCommitEditing(branchName, commitId)) {
-			select((currentSelection) =>
-				currentSelection?._tag === "Commit" &&
-				currentSelection.branchName === branchName &&
-				currentSelection.commitId === commitId &&
-				currentSelection.isEditingMessage === true
-					? { ...currentSelection, isEditingMessage: false }
-					: currentSelection,
-			);
-			return;
-		}
-
-		select({ _tag: "Commit", branchName, commitId, isEditingMessage: true });
-	};
-	const toggleBranchSelection = (branchName: string) => {
-		select((selected) =>
-			selected?.branchName === branchName ? null : { _tag: "Branch", branchName },
-		);
-	};
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+		};
+	}, []);
 
 	if (!project) return <p>Project not found.</p>;
 
@@ -592,52 +591,27 @@ const ProjectBranchesPage: FC = () => {
 		>
 			<div className={sharedStyles.lanes}>
 				<ul className={styles.branchesListLane}>
-					{sortedBranches.map((branch) => {
-						const isSelected = isBranchSelected(branch.name);
-						const isSelectedWithin = isBranchSelectedWithin(branch.name);
-						return (
-							<li key={branch.name}>
-								<BranchRow
-									projectId={projectId}
-									branch={branch}
-									isSelected={isSelected}
-									isSelectedWithin={isSelectedWithin}
-									toggleSelect={() => {
-										toggleBranchSelection(branch.name);
-									}}
-								/>
-							</li>
-						);
-					})}
+					{sortedBranches.map((branch) => (
+						<li key={branch.name}>
+							<BranchRow
+								projectId={projectId}
+								branch={branch}
+								selection={selection}
+								select={select}
+							/>
+						</li>
+					))}
 				</ul>
 
 				{selectedBranch?.name != null && (
 					<div className={styles.branchDetailsLane}>
 						<Suspense fallback={<div>Loading branch details…</div>}>
 							<BranchDetailsC
-								projectId={projectId}
 								branchName={selectedBranch.name}
+								projectId={projectId}
 								remote={selectedRemote ?? null}
-								isCommitSelected={(commitId) => isCommitSelected(selectedBranch.name, commitId)}
-								isCommitEditing={(commitId) => isCommitEditing(selectedBranch.name, commitId)}
-								isCommitSelectedWithin={(commitId) =>
-									isCommitSelectedWithin(selectedBranch.name, commitId)
-								}
-								isCommitFileSelected={(commitId, path) =>
-									isCommitFileSelected(selectedBranch.name, commitId, path)
-								}
-								toggleCommitExpanded={(commitId) =>
-									toggleCommitExpanded(selectedBranch.name, commitId)
-								}
-								toggleCommitSelection={(commitId) =>
-									toggleCommitSelection(selectedBranch.name, commitId)
-								}
-								toggleEditingMessage={(commitId) =>
-									toggleEditingMessage(selectedBranch.name, commitId)
-								}
-								toggleCommitFileSelection={(commitId, path) =>
-									toggleCommitFileSelection(selectedBranch.name, commitId, path)
-								}
+								selection={selection}
+								select={select}
 							/>
 						</Suspense>
 					</div>

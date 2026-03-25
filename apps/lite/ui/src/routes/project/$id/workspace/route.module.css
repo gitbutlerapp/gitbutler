@@ -135,3 +135,39 @@
 	flex-grow: 1;
 	text-align: center;
 }
+
+.editCommitMessageForm {
+	display: flex;
+	flex-grow: 1;
+	flex-direction: column;
+	padding-block: var(--row-block-padding);
+	line-height: var(--row-line-height);
+}
+
+.editCommitMessageInput {
+	flex-grow: 1;
+	padding-inline: var(--row-inline-padding);
+	field-sizing: content;
+	box-sizing: content-box;
+	min-height: calc(2lh);
+	resize: none;
+
+	&:focus {
+		outline: none;
+	}
+}
+
+.editCommitMessageHelp {
+	padding-inline: var(--row-inline-padding);
+	color: #ccc;
+	font-size: 11px;
+}
+
+.editCommitMessageAction {
+	color: white;
+	cursor: pointer;
+
+	&:hover {
+		text-decoration: underline;
+	}
+}

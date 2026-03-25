@@ -59,8 +59,7 @@
 	.row:hover &,
 	.row:focus-within &,
 	.row:has(.rowAction[aria-expanded="true"]) &,
-	.row.selected &,
-	.row.selectedWithin & {
+	.row.selected & {
 		visibility: visible;
 	}
 }
@@ -96,7 +95,7 @@
 	color: white;
 }
 
-.selectedWithin {
+.selectedFile {
 	background-color: lightgray;
 }
 
@@ -125,42 +124,6 @@
 
 .dragging {
 	opacity: 0.4;
-}
-
-.editCommitMessageForm {
-	display: flex;
-	flex-grow: 1;
-	flex-direction: column;
-	padding-block: var(--row-block-padding);
-	line-height: var(--row-line-height);
-}
-
-.editCommitMessageInput {
-	flex-grow: 1;
-	padding-inline: var(--row-inline-padding);
-	field-sizing: content;
-	box-sizing: content-box;
-	min-height: calc(2lh);
-	resize: none;
-
-	&:focus {
-		outline: none;
-	}
-}
-
-.editCommitMessageHelp {
-	padding-inline: var(--row-inline-padding);
-	color: #ccc;
-	font-size: 11px;
-}
-
-.editCommitMessageAction {
-	color: white;
-	cursor: pointer;
-
-	&:hover {
-		text-decoration: underline;
-	}
 }
 
 .menuPopup {
