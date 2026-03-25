@@ -20,7 +20,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { FC, Suspense, useEffect, useState } from "react";
-import styles from "./index.module.css";
+import styles from "./route.module.css";
 import sharedStyles from "../-shared.module.css";
 import { classes } from "#ui/classes.ts";
 import uiStyles from "#ui/ui.module.css";
@@ -1409,6 +1409,6 @@ const ProjectPage: FC = () => {
 	);
 };
 
-export const Route = createFileRoute("/project/$id/(index)/")({
+export const Route = createFileRoute("/project/$id/workspace")({
 	component: ProjectPage,
 });

@@ -13,7 +13,8 @@ export const Route = createFileRoute("/")({
 			? persistedId
 			: projects[0]?.id;
 
-		if (projectId != null) throw redirect({ to: "/project/$id", params: { id: projectId } });
+		if (projectId != null)
+			throw redirect({ to: "/project/$id/workspace", params: { id: projectId } });
 
 		return null;
 	},
