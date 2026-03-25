@@ -50,10 +50,7 @@ pub struct OpenRouterProvider {
 }
 
 impl OpenRouterProvider {
-    pub fn with(
-        config: Option<OpenRouterConfig>,
-        model: Option<String>,
-    ) -> Option<Self> {
+    pub fn with(config: Option<OpenRouterConfig>, model: Option<String>) -> Option<Self> {
         let config = config.unwrap_or_default();
         let api_key = Self::retrieve_api_key()?;
         Some(Self {
@@ -95,9 +92,7 @@ impl LLMClient for OpenRouterProvider {
         Self: Sized,
     {
         let openrouter_config = OpenRouterConfig::from_git_config(config);
-        let model = config
-            .string(OPENROUTER_MODEL_NAME)
-            .map(|v| v.to_string());
+        let model = config.string(OPENROUTER_MODEL_NAME).map(|v| v.to_string());
         let api_key = Self::retrieve_api_key()?;
         Some(Self {
             config: openrouter_config,
