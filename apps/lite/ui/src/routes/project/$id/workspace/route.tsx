@@ -78,10 +78,10 @@ import {
 	getDefaultSelection,
 	isBranchSelected,
 	isChangesFileSelected,
-	isCommitExpanded,
 	isCommitEditingMessage,
 	isCommitFileSelected,
 	isCommitSelected,
+	isCommitShowingDetails,
 	normalizeSelection,
 	type Selection,
 	toggleBranchSelection,
@@ -991,11 +991,11 @@ const CommitRow: FC<
 	stackId,
 	...restProps
 }) => {
-	const [isExpandPending, startExpandTransition] = useTransition();
+	const [isDetailsPending, startDetailsTransition] = useTransition();
 	const queryClient = useQueryClient();
 	const isEditingMessage = isCommitEditingMessage(selection, stackId, commit.id);
 	const isSelected = isCommitSelected(selection, stackId, commit.id);
-	const isExpanded = isCommitExpanded(selection, stackId, commit.id);
+	const isShowingDetails = isCommitShowingDetails(selection, stackId, commit.id);
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
 		(_currentMessage, nextMessage: string) => nextMessage,
@@ -1016,11 +1016,11 @@ const CommitRow: FC<
 					className={classes(
 						sharedStyles.row,
 						sharedStyles.commitRow,
-						isSelected || isExpanded ? sharedStyles.selected : undefined,
+						isSelected || isShowingDetails ? sharedStyles.selected : undefined,
 						isHighlighted && sharedStyles.highlighted,
 					)}
-					style={{ ...(isExpandPending && { opacity: 0.5 }) }}
-					aria-busy={isExpandPending}
+					style={{ ...(isDetailsPending && { opacity: 0.5 }) }}
+					aria-busy={isDetailsPending}
 				>
 					{isEditingMessage ? (
 						<InlineCommitMessageEditor
@@ -1067,8 +1067,8 @@ const CommitRow: FC<
 						className={sharedStyles.rowAction}
 						type="button"
 						onClick={() => {
-							startExpandTransition(async () => {
-								if (isExpanded) {
+							startDetailsTransition(async () => {
+								if (isShowingDetails) {
 									select({
 										_tag: "Commit",
 										stackId,
@@ -1103,10 +1103,10 @@ const CommitRow: FC<
 								);
 							});
 						}}
-						aria-expanded={isExpanded}
-						aria-label={isExpanded ? "Collapse commit" : "Expand commit"}
+						aria-expanded={isShowingDetails}
+						aria-label={isShowingDetails ? "Hide commit details" : "Show commit details"}
 					>
-						<ExpandCollapseIcon isExpanded={isExpanded} />
+						<ExpandCollapseIcon isExpanded={isShowingDetails} />
 					</button>
 					<Menu.Root>
 						<Menu.Trigger className={sharedStyles.rowAction} aria-label="Commit menu">
@@ -1154,7 +1154,7 @@ const CommitC: FC<{
 	select,
 	stackId,
 }) => {
-	const isExpanded = isCommitExpanded(selection, stackId, commit.id);
+	const isShowingDetails = isCommitShowingDetails(selection, stackId, commit.id);
 
 	return (
 		<CommitTarget
@@ -1172,7 +1172,7 @@ const CommitC: FC<{
 				select={select}
 				stackId={stackId}
 			/>
-			{isExpanded && (
+			{isShowingDetails && (
 				<div className={sharedStyles.commitDetails}>
 					<Suspense fallback={<div>Loading changed details…</div>}>
 						<CommitDetails

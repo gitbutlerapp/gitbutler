@@ -51,6 +51,16 @@ export const isCommitSelected = (
 	selection.commitId === commitId &&
 	selection.detail === undefined;
 
+export const isCommitShowingDetails = (
+	selection: Selection | null,
+	stackId: string,
+	commitId: string,
+): boolean =>
+	selection?._tag === "Commit" &&
+	selection.stackId === stackId &&
+	selection.commitId === commitId &&
+	selection.detail !== undefined;
+
 export const isCommitEditingMessage = (
 	selection: Selection | null,
 	stackId: string,
@@ -61,16 +71,6 @@ export const isCommitEditingMessage = (
 	selection.commitId === commitId &&
 	selection.detail === undefined &&
 	selection.isEditingMessage === true;
-
-export const isCommitExpanded = (
-	selection: Selection | null,
-	stackId: string,
-	commitId: string,
-): boolean =>
-	selection?._tag === "Commit" &&
-	selection.stackId === stackId &&
-	selection.commitId === commitId &&
-	selection.detail !== undefined;
 
 export const isCommitFileSelected = (
 	selection: Selection | null,

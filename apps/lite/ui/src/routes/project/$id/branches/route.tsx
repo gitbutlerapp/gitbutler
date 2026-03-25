@@ -33,9 +33,9 @@ import {
 	getDefaultSelection,
 	isBranchSelected,
 	isBranchSelectedWithin,
-	isCommitExpanded,
 	isCommitFileSelected,
 	isCommitSelected,
+	isCommitShowingDetails,
 	normalizeBranchSelection,
 	Selection,
 	toggleBranchSelection,
@@ -207,21 +207,21 @@ const CommitRow: FC<{
 	select: (selection: Selection | null) => void;
 	isHighlighted: boolean;
 }> = ({ branchName, commit, projectId, selection, select, isHighlighted }) => {
-	const [isExpandPending, startExpandTransition] = useTransition();
+	const [isDetailsPending, startDetailsTransition] = useTransition();
 	const queryClient = useQueryClient();
 	const isSelected = isCommitSelected(selection, branchName, commit.id);
-	const isExpanded = isCommitExpanded(selection, branchName, commit.id);
+	const isShowingDetails = isCommitShowingDetails(selection, branchName, commit.id);
 
 	return (
 		<div
 			className={classes(
 				sharedStyles.row,
 				sharedStyles.commitRow,
-				isSelected || isExpanded ? sharedStyles.selected : undefined,
+				isSelected || isShowingDetails ? sharedStyles.selected : undefined,
 				isHighlighted && sharedStyles.highlighted,
 			)}
-			style={{ ...(isExpandPending && { opacity: 0.5 }) }}
-			aria-busy={isExpandPending}
+			style={{ ...(isDetailsPending && { opacity: 0.5 }) }}
+			aria-busy={isDetailsPending}
 		>
 			<button
 				type="button"
@@ -236,8 +236,8 @@ const CommitRow: FC<{
 				className={sharedStyles.rowAction}
 				type="button"
 				onClick={() => {
-					startExpandTransition(async () => {
-						if (isExpanded) {
+					startDetailsTransition(async () => {
+						if (isShowingDetails) {
 							select({ _tag: "Commit", branchName, commitId: commit.id, detail: undefined });
 							return;
 						}
@@ -259,10 +259,10 @@ const CommitRow: FC<{
 						);
 					});
 				}}
-				aria-expanded={isExpanded}
-				aria-label={isExpanded ? "Collapse commit" : "Expand commit"}
+				aria-expanded={isShowingDetails}
+				aria-label={isShowingDetails ? "Hide commit details" : "Show commit details"}
 			>
-				<ExpandCollapseIcon isExpanded={isExpanded} />
+				<ExpandCollapseIcon isExpanded={isShowingDetails} />
 			</button>
 		</div>
 	);
@@ -284,7 +284,7 @@ const CommitC: FC<{
 			select={select}
 			isHighlighted={false}
 		/>
-		{isCommitExpanded(selection, branchName, commit.id) && (
+		{isCommitShowingDetails(selection, branchName, commit.id) && (
 			<div className={sharedStyles.commitDetails}>
 				<Suspense fallback={<div>Loading changed details…</div>}>
 					<CommitDetails

@@ -36,7 +36,7 @@ export const isCommitSelected = (
 	selection.commitId === commitId &&
 	selection.detail === undefined;
 
-export const isCommitExpanded = (
+export const isCommitShowingDetails = (
 	selection: Selection | null,
 	branchName: BranchIdentity,
 	commitId: string,
