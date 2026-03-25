@@ -58,16 +58,6 @@ export const isCommitEditingMessage = (
 	selection.commitId === commitId &&
 	selection.isEditingMessage === true;
 
-export const isCommitSelectedWithin = (
-	selection: Selection | null,
-	stackId: string,
-	commitId: string,
-): boolean =>
-	selection?._tag === "Commit" &&
-	selection.stackId === stackId &&
-	selection.commitId === commitId &&
-	selection.path !== undefined;
-
 export const isCommitExpanded = (
 	selection: Selection | null,
 	stackId: string,

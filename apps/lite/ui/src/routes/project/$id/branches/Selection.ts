@@ -33,16 +33,6 @@ export const isCommitSelected = (
 	selection.commitId === commitId &&
 	selection.path === undefined;
 
-export const isCommitSelectedWithin = (
-	selection: Selection | null,
-	branchName: BranchIdentity,
-	commitId: string,
-): boolean =>
-	selection?._tag === "Commit" &&
-	selection.branchName === branchName &&
-	selection.commitId === commitId &&
-	selection.path !== undefined;
-
 export const isCommitExpanded = (
 	selection: Selection | null,
 	branchName: BranchIdentity,
