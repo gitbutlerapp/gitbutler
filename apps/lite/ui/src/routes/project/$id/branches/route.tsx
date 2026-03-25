@@ -6,7 +6,7 @@ import { BranchDetails, BranchListing, Commit, DiffHunk } from "@gitbutler/but-s
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Match } from "effect";
-import { ComponentProps, FC, Suspense, useTransition } from "react";
+import { ComponentProps, FC, Suspense, useEffect, useEffectEvent, useTransition } from "react";
 import useLocalStorageState from "use-local-storage-state";
 import styles from "./route.module.css";
 
@@ -18,7 +18,10 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import { CheckIcon } from "#ui/components/icons.tsx";
-import { ProjectPreviewLayout } from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
+import {
+	isTypingTarget,
+	ProjectPreviewLayout,
+} from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
 import {
 	CommitDetails,
 	CommitLabel,
@@ -48,6 +51,29 @@ const getBranchRef = (branch: BranchListing): string | null => {
 	const remote = branch.remotes[0];
 	if (remote === undefined) return null;
 	return `refs/remotes/${remote}/${branch.name}`;
+};
+
+const getExpandedCommitSelection = async ({
+	branchName,
+	commitId,
+	projectId,
+	queryClient,
+}: {
+	branchName: string;
+	commitId: string;
+	projectId: string;
+	queryClient: ReturnType<typeof useQueryClient>;
+}): Promise<Selection> => {
+	const commitDetails = await queryClient.ensureQueryData(
+		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
+	);
+
+	return {
+		_tag: "Commit",
+		branchName,
+		commitId,
+		mode: { _tag: "Details", path: commitDetails.changes[0]?.path },
+	};
 };
 
 const BranchMenuPopup: FC<{
@@ -248,16 +274,14 @@ const CommitRow: FC<{
 							return;
 						}
 
-						const commitDetails = await queryClient.ensureQueryData(
-							commitDetailsWithLineStatsQueryOptions({ projectId, commitId: commit.id }),
+						select(
+							await getExpandedCommitSelection({
+								branchName,
+								commitId: commit.id,
+								projectId,
+								queryClient,
+							}),
 						);
-
-						select({
-							_tag: "Commit",
-							branchName,
-							commitId: commit.id,
-							mode: { _tag: "Details", path: commitDetails.changes[0]?.path },
-						});
 					});
 				}}
 				aria-expanded={commitSelection?.mode._tag === "Details"}
@@ -487,6 +511,7 @@ const Preview: FC<{
 
 const ProjectBranchesPage: FC = () => {
 	const { id: projectId } = Route.useParams();
+	const queryClient = useQueryClient();
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 	const project = projects.find((project) => project.id === projectId);
@@ -503,6 +528,44 @@ const ProjectBranchesPage: FC = () => {
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
 	const selectedRemote =
 		selectedBranch && !selectedBranch.hasLocal ? selectedBranch.remotes[0] : null;
+
+	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
+		if (event.defaultPrevented || event.repeat) return;
+		if (event.metaKey || event.ctrlKey || event.altKey) return;
+		if (isTypingTarget(event.target)) return;
+		if (selection?._tag !== "Commit") return;
+
+		switch (event.key) {
+			case "ArrowLeft":
+				if (selection.mode._tag !== "Details") return;
+				event.preventDefault();
+				select({
+					_tag: "Commit",
+					branchName: selection.branchName,
+					commitId: selection.commitId,
+					mode: { _tag: "Summary" },
+				});
+				break;
+			case "ArrowRight":
+				if (selection.mode._tag !== "Summary") return;
+				event.preventDefault();
+				void getExpandedCommitSelection({
+					branchName: selection.branchName,
+					commitId: selection.commitId,
+					projectId,
+					queryClient,
+				}).then(select);
+				break;
+		}
+	});
+
+	useEffect(() => {
+		window.addEventListener("keydown", handleKeyDown);
+
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+		};
+	}, []);
 
 	if (!project) return <p>Project not found.</p>;
 

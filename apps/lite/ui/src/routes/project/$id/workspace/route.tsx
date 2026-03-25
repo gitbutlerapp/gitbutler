@@ -28,7 +28,10 @@ import { stackRelativeTo } from "#ui/domain/Stack.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { type Operation, type RubOperation, useRunOperation } from "#ui/Operation.ts";
-import { ProjectPreviewLayout } from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
+import {
+	isTypingTarget,
+	ProjectPreviewLayout,
+} from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
 import {
 	CommitDetails,
 	CommitLabel,
@@ -68,6 +71,7 @@ import {
 	startTransition,
 	Suspense,
 	useEffect,
+	useEffectEvent,
 	useOptimistic,
 	useState,
 	useTransition,
@@ -254,6 +258,29 @@ const getRubOperation = ({
 const parseDropTargetData = (data: unknown): Operation | null => {
 	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
 	return data as Operation;
+};
+
+const getExpandedCommitSelection = async ({
+	stackId,
+	commitId,
+	projectId,
+	queryClient,
+}: {
+	stackId: string;
+	commitId: string;
+	projectId: string;
+	queryClient: ReturnType<typeof useQueryClient>;
+}): Promise<Selection> => {
+	const commitDetails = await queryClient.ensureQueryData(
+		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
+	);
+
+	return {
+		_tag: "Commit",
+		stackId,
+		commitId,
+		mode: { _tag: "Details", path: commitDetails.changes[0]?.path },
+	};
 };
 
 const useMonitorDraggedSourceItem = ({ projectId }: { projectId: string }): void => {
@@ -1075,16 +1102,14 @@ const CommitRow: FC<
 									return;
 								}
 
-								const commitDetails = await queryClient.ensureQueryData(
-									commitDetailsWithLineStatsQueryOptions({ projectId, commitId: commit.id }),
+								select(
+									await getExpandedCommitSelection({
+										stackId,
+										commitId: commit.id,
+										projectId,
+										queryClient,
+									}),
 								);
-
-								select({
-									_tag: "Commit",
-									stackId,
-									commitId: commit.id,
-									mode: { _tag: "Details", path: commitDetails.changes[0]?.path },
-								});
 							});
 						}}
 						aria-expanded={commitSelection?.mode._tag === "Details"}
@@ -1592,6 +1617,7 @@ const StackC: FC<{
 
 const ProjectPage: FC = () => {
 	const { id: projectId } = Route.useParams();
+	const queryClient = useQueryClient();
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 
@@ -1622,7 +1648,45 @@ const ProjectPage: FC = () => {
 		setHighlightedCommitIds(commitIds ? new Set(commitIds) : new Set());
 	};
 
+	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
+		if (event.defaultPrevented || event.repeat) return;
+		if (event.metaKey || event.ctrlKey || event.altKey) return;
+		if (isTypingTarget(event.target)) return;
+		if (selection?._tag !== "Commit") return;
+
+		switch (event.key) {
+			case "ArrowLeft":
+				if (selection.mode._tag !== "Details") return;
+				event.preventDefault();
+				select({
+					_tag: "Commit",
+					stackId: selection.stackId,
+					commitId: selection.commitId,
+					mode: { _tag: "Summary" },
+				});
+				break;
+			case "ArrowRight":
+				if (selection.mode._tag !== "Summary") return;
+				event.preventDefault();
+				void getExpandedCommitSelection({
+					stackId: selection.stackId,
+					commitId: selection.commitId,
+					projectId,
+					queryClient,
+				}).then(select);
+				break;
+		}
+	});
+
 	useMonitorDraggedSourceItem({ projectId });
+
+	useEffect(() => {
+		window.addEventListener("keydown", handleKeyDown);
+
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+		};
+	}, []);
 
 	// TODO: dedupe
 	if (!project) return <p>Project not found.</p>;

@@ -7,7 +7,7 @@ import { usePreviewVisible } from "#ui/hooks/usePreviewVisible.ts";
 import { shortcutKeys } from "#ui/shortcuts.ts";
 import sharedStyles from "./shared.module.css";
 
-const isTypingTarget = (target: EventTarget | null) => {
+export const isTypingTarget = (target: EventTarget | null) => {
 	if (!(target instanceof HTMLElement)) return false;
 	return (
 		target.isContentEditable ||
