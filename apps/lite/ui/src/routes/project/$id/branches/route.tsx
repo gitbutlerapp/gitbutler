@@ -35,7 +35,7 @@ import {
 	isBranchSelectedWithin,
 	isCommitFileSelected,
 	isCommitSelected,
-	isCommitShowingDetails,
+	isCommitSelectedAndShowingDetails,
 	normalizeBranchSelection,
 	Selection,
 	toggleBranchSelection,
@@ -210,14 +210,14 @@ const CommitRow: FC<{
 	const [isDetailsPending, startDetailsTransition] = useTransition();
 	const queryClient = useQueryClient();
 	const isSelected = isCommitSelected(selection, branchName, commit.id);
-	const isShowingDetails = isCommitShowingDetails(selection, branchName, commit.id);
+	const isShowingDetails = isCommitSelectedAndShowingDetails(selection, branchName, commit.id);
 
 	return (
 		<div
 			className={classes(
 				sharedStyles.row,
 				sharedStyles.commitRow,
-				isSelected || isShowingDetails ? sharedStyles.selected : undefined,
+				isSelected ? sharedStyles.selected : undefined,
 				isHighlighted && sharedStyles.highlighted,
 			)}
 			style={{ ...(isDetailsPending && { opacity: 0.5 }) }}
@@ -284,7 +284,7 @@ const CommitC: FC<{
 			select={select}
 			isHighlighted={false}
 		/>
-		{isCommitShowingDetails(selection, branchName, commit.id) && (
+		{isCommitSelectedAndShowingDetails(selection, branchName, commit.id) && (
 			<div className={sharedStyles.commitDetails}>
 				<Suspense fallback={<div>Loading changed details…</div>}>
 					<CommitDetails

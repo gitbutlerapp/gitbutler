@@ -46,12 +46,19 @@ export const isCommitSelected = (
 	stackId: string,
 	commitId: string,
 ): boolean =>
+	selection?._tag === "Commit" && selection.stackId === stackId && selection.commitId === commitId;
+
+export const isCommitSelectedAndNotShowingDetails = (
+	selection: Selection | null,
+	stackId: string,
+	commitId: string,
+): boolean =>
 	selection?._tag === "Commit" &&
 	selection.stackId === stackId &&
 	selection.commitId === commitId &&
 	selection.detail === undefined;
 
-export const isCommitShowingDetails = (
+export const isCommitSelectedAndShowingDetails = (
 	selection: Selection | null,
 	stackId: string,
 	commitId: string,
@@ -107,7 +114,7 @@ export const toggleCommitSelection = (
 	branchName: string,
 	branchRef: string | null,
 ): Selection | null =>
-	isCommitSelected(selection, stackId, commitId)
+	isCommitSelectedAndNotShowingDetails(selection, stackId, commitId)
 		? branchRef !== null
 			? { _tag: "Branch", stackId, branchName, branchRef }
 			: null

@@ -81,7 +81,7 @@ import {
 	isCommitEditingMessage,
 	isCommitFileSelected,
 	isCommitSelected,
-	isCommitShowingDetails,
+	isCommitSelectedAndShowingDetails,
 	normalizeSelection,
 	type Selection,
 	toggleBranchSelection,
@@ -995,7 +995,7 @@ const CommitRow: FC<
 	const queryClient = useQueryClient();
 	const isEditingMessage = isCommitEditingMessage(selection, stackId, commit.id);
 	const isSelected = isCommitSelected(selection, stackId, commit.id);
-	const isShowingDetails = isCommitShowingDetails(selection, stackId, commit.id);
+	const isShowingDetails = isCommitSelectedAndShowingDetails(selection, stackId, commit.id);
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
 		(_currentMessage, nextMessage: string) => nextMessage,
@@ -1016,7 +1016,7 @@ const CommitRow: FC<
 					className={classes(
 						sharedStyles.row,
 						sharedStyles.commitRow,
-						isSelected || isShowingDetails ? sharedStyles.selected : undefined,
+						isSelected ? sharedStyles.selected : undefined,
 						isHighlighted && sharedStyles.highlighted,
 					)}
 					style={{ ...(isDetailsPending && { opacity: 0.5 }) }}
@@ -1154,7 +1154,7 @@ const CommitC: FC<{
 	select,
 	stackId,
 }) => {
-	const isShowingDetails = isCommitShowingDetails(selection, stackId, commit.id);
+	const isShowingDetails = isCommitSelectedAndShowingDetails(selection, stackId, commit.id);
 
 	return (
 		<CommitTarget
