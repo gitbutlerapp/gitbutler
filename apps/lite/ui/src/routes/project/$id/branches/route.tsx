@@ -2,7 +2,7 @@ import useLocalStorageState from "use-local-storage-state";
 import { ContextMenu, Menu } from "@base-ui/react";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { BranchDetails, BranchIdentity, BranchListing, Commit } from "@gitbutler/but-sdk";
+import { BranchDetails, BranchListing, Commit } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { ComponentProps, FC, Suspense } from "react";
 
@@ -25,41 +25,9 @@ import {
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
+import { getDefaultSelection, normalizeBranchSelection, Selection } from "./Selection.ts";
 import styles from "./route.module.css";
 import sharedStyles from "../-shared.module.css";
-
-type Selection =
-	| {
-			_tag: "Branch";
-			branchName: BranchIdentity;
-	  }
-	| {
-			_tag: "Commit";
-			branchName: BranchIdentity;
-			commitId: string;
-			isEditingMessage?: boolean;
-	  }
-	| {
-			_tag: "CommitFile";
-			branchName: BranchIdentity;
-			commitId: string;
-			path: string;
-	  };
-
-const normalizeBranchSelection = (
-	selection: Selection,
-	branches: Array<BranchListing>,
-): Selection | null => {
-	const branch = branches.find((branch) => branch.name === selection.branchName);
-	if (!branch) return null;
-	return selection;
-};
-
-const getDefaultSelection = (branches: Array<BranchListing>): Selection | null => {
-	const firstBranch = branches[0];
-	if (!firstBranch) return null;
-	return { _tag: "Branch", branchName: firstBranch.name };
-};
 
 const isValidCommit = (commitId: string, branchDetails: BranchDetails): boolean => {
 	const commitIds = new Set(branchDetails.commits.map((commit) => commit.id));
