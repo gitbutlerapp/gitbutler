@@ -1432,7 +1432,7 @@ const StackC: FC<{
 	isChangeUnitFileSelected: (changeUnit: ChangeUnit, path: string) => boolean;
 	toggleCommitExpanded: (commitId: string) => Promise<void> | void;
 	toggleCommitSelection: (commitId: string) => void;
-	toggleEditingMessage: (commitId: string) => void;
+	toggleCommitEditingMessage: (commitId: string) => void;
 	toggleChangeUnitFileSelection: (changeUnit: ChangeUnit, path: string) => void;
 	highlightedCommitIds: Set<string>;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
@@ -1447,7 +1447,7 @@ const StackC: FC<{
 	isChangeUnitFileSelected,
 	toggleCommitExpanded,
 	toggleCommitSelection,
-	toggleEditingMessage,
+	toggleCommitEditingMessage,
 	toggleChangeUnitFileSelection,
 	highlightedCommitIds,
 	onDependencyHover,
@@ -1551,7 +1551,7 @@ const StackC: FC<{
 												toggleCommitSelection(commit.id);
 											}}
 											toggleEditingMessage={() => {
-												toggleEditingMessage(commit.id);
+												toggleCommitEditingMessage(commit.id);
 											}}
 											toggleFileSelect={(path) => {
 												toggleChangeUnitFileSelection(changeUnit, path);
@@ -1683,7 +1683,7 @@ const ProjectPage: FC = () => {
 					: { _tag: "ChangesFile", stackId, path },
 		);
 	};
-	const toggleEditingMessage = (stackId: string, commitId: string) => {
+	const toggleCommitEditingMessage = (stackId: string, commitId: string) => {
 		if (isCommitEditingMessage(stackId, commitId)) {
 			select((currentSelection) =>
 				currentSelection?._tag === "Commit" &&
@@ -1759,8 +1759,8 @@ const ProjectPage: FC = () => {
 										toggleCommitSelection={(commitId) => {
 											toggleCommitSelection(stackId, commitId);
 										}}
-										toggleEditingMessage={(commitId) => {
-											toggleEditingMessage(stackId, commitId);
+										toggleCommitEditingMessage={(commitId) => {
+											toggleCommitEditingMessage(stackId, commitId);
 										}}
 										toggleChangeUnitFileSelection={(changeUnit, path) => {
 											toggleChangeUnitFileSelection(stackId, changeUnit, path);
