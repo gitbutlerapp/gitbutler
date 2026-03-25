@@ -239,6 +239,29 @@ const CommitRow: FC<{
 			? selection
 			: null;
 
+	const toggleDetails = () => {
+		startDetailsTransition(async () => {
+			if (commitSelection?.mode._tag === "Details") {
+				select({
+					_tag: "Commit",
+					branchName,
+					commitId: commit.id,
+					mode: { _tag: "Summary" },
+				});
+				return;
+			}
+
+			select(
+				await getExpandedCommitSelection({
+					branchName,
+					commitId: commit.id,
+					projectId,
+					queryClient,
+				}),
+			);
+		});
+	};
+
 	return (
 		<div
 			className={classes(
@@ -262,28 +285,7 @@ const CommitRow: FC<{
 			<button
 				className={sharedStyles.rowAction}
 				type="button"
-				onClick={() => {
-					startDetailsTransition(async () => {
-						if (commitSelection?.mode._tag === "Details") {
-							select({
-								_tag: "Commit",
-								branchName,
-								commitId: commit.id,
-								mode: { _tag: "Summary" },
-							});
-							return;
-						}
-
-						select(
-							await getExpandedCommitSelection({
-								branchName,
-								commitId: commit.id,
-								projectId,
-								queryClient,
-							}),
-						);
-					});
-				}}
+				onClick={toggleDetails}
 				aria-expanded={commitSelection?.mode._tag === "Details"}
 				aria-label={
 					commitSelection?.mode._tag === "Details" ? "Hide commit details" : "Show commit details"

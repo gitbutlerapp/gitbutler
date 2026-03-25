@@ -1030,6 +1030,29 @@ const CommitRow: FC<
 		message: optimisticMessage,
 	};
 
+	const toggleDetails = () => {
+		startDetailsTransition(async () => {
+			if (commitSelection?.mode._tag === "Details") {
+				select({
+					_tag: "Commit",
+					stackId,
+					commitId: commit.id,
+					mode: { _tag: "Summary" },
+				});
+				return;
+			}
+
+			select(
+				await getExpandedCommitSelection({
+					stackId,
+					commitId: commit.id,
+					projectId,
+					queryClient,
+				}),
+			);
+		});
+	};
+
 	return (
 		<DraggableCommit
 			{...restProps}
@@ -1090,28 +1113,7 @@ const CommitRow: FC<
 					<button
 						className={sharedStyles.rowAction}
 						type="button"
-						onClick={() => {
-							startDetailsTransition(async () => {
-								if (commitSelection?.mode._tag === "Details") {
-									select({
-										_tag: "Commit",
-										stackId,
-										commitId: commit.id,
-										mode: { _tag: "Summary" },
-									});
-									return;
-								}
-
-								select(
-									await getExpandedCommitSelection({
-										stackId,
-										commitId: commit.id,
-										projectId,
-										queryClient,
-									}),
-								);
-							});
-						}}
+						onClick={toggleDetails}
 						aria-expanded={commitSelection?.mode._tag === "Details"}
 						aria-label={
 							commitSelection?.mode._tag === "Details"
