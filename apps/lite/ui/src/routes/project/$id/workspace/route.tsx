@@ -61,7 +61,7 @@ import {
 	getStackIdsByCommitId,
 } from "#ui/domain/RefInfo.ts";
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
-import { getDefaultSelection, normalizeSelection, type Selection } from "./WorkspaceSelection.ts";
+import { getDefaultSelection, normalizeSelection, type Selection } from "./Selection.ts";
 import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 
