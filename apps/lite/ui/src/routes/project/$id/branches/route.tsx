@@ -2,7 +2,7 @@ import { commitDetailsWithLineStatsQueryOptions } from "#ui/api/queries.ts";
 import { classes } from "#ui/classes.ts";
 import { ExpandCollapseIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import { ContextMenu, Menu } from "@base-ui/react";
-import { BranchDetails, BranchListing, Commit, DiffHunk } from "@gitbutler/but-sdk";
+import { BranchDetails, BranchListing, Commit, DiffHunk, TreeChange } from "@gitbutler/but-sdk";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Match } from "effect";
@@ -435,11 +435,12 @@ const BranchDetailsC: FC<{
 };
 
 const Hunk: FC<{
+	change: TreeChange;
 	hunk: DiffHunk;
-}> = ({ hunk }) => (
+}> = ({ change, hunk }) => (
 	<div>
 		<div className={styles.hunkHeaderRow}>{formatHunkHeader(hunk)}</div>
-		<HunkDiff diff={hunk.diff} />
+		<HunkDiff change={change} diff={hunk.diff} />
 	</div>
 );
 
@@ -463,7 +464,11 @@ const ShowBranchCommitFile: FC<{
 	if (!change) return null;
 
 	return (
-		<FileDiff projectId={projectId} change={change} renderHunk={(hunk) => <Hunk hunk={hunk} />} />
+		<FileDiff
+			projectId={projectId}
+			change={change}
+			renderHunk={(hunk) => <Hunk change={change} hunk={hunk} />}
+		/>
 	);
 };
 
@@ -482,7 +487,7 @@ const ShowBranchCommit: FC<{
 		<ShowCommit
 			projectId={projectId}
 			commitId={commitId}
-			renderHunk={(_change, hunk) => <Hunk hunk={hunk} />}
+			renderHunk={(change, hunk) => <Hunk change={change} hunk={hunk} />}
 		/>
 	);
 };
@@ -501,7 +506,7 @@ const Preview: FC<{
 					branchRef={branchRef}
 					branchName={branchName}
 					remote={remote}
-					renderHunk={(_change, hunk) => <Hunk hunk={hunk} />}
+					renderHunk={(change, hunk) => <Hunk change={change} hunk={hunk} />}
 				/>
 			) : (
 				<div>No branch diff available.</div>
