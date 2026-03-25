@@ -157,11 +157,7 @@ const BranchRow: FC<
 			className={classes(
 				sharedStyles.row,
 				styles.branchRow,
-				isSelected
-					? sharedStyles.selected
-					: isSelectedWithin
-						? sharedStyles.selectedWithin
-						: undefined,
+				isSelected || isSelectedWithin ? sharedStyles.selected : undefined,
 				className,
 			)}
 		>

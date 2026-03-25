@@ -59,8 +59,7 @@
 	.row:hover &,
 	.row:focus-within &,
 	.row:has(.rowAction[aria-expanded="true"]) &,
-	.row.selected &,
-	.row.selectedWithin & {
+	.row.selected & {
 		visibility: visible;
 	}
 }
@@ -94,10 +93,6 @@
 .selected {
 	background-color: black;
 	color: white;
-}
-
-.selectedWithin {
-	background-color: lightgray;
 }
 
 .selectedFile {
