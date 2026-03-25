@@ -1435,7 +1435,7 @@ const StackC: FC<{
 	toggleCommitEditingMessage: (commitId: string) => void;
 	toggleCommitExpanded: (commitId: string) => Promise<void> | void;
 	toggleCommitFileSelection: (commitId: string, path: string) => void;
-	toggleCommitSelection: (commitId: string) => void;
+	toggleCommitSelection: (commitId: string, branchName: string, branchRef: string | null) => void;
 }> = ({
 	highlightedCommitIds,
 	isBranchSelected,
@@ -1549,7 +1549,7 @@ const StackC: FC<{
 											toggleCommitFileSelection(commit.id, path);
 										}}
 										toggleSelect={() => {
-											toggleCommitSelection(commit.id);
+											toggleCommitSelection(commit.id, branchName, branchRef);
 										}}
 									/>
 								)}
@@ -1630,10 +1630,17 @@ const ProjectPage: FC = () => {
 	const toggleChangesFileSelection = (stackId: string | null, path: string) => {
 		select(isChangesFileSelected(stackId, path) ? null : { _tag: "ChangesFile", stackId, path });
 	};
-	const toggleCommitSelection = (stackId: string, commitId: string) => {
+	const toggleCommitSelection = (
+		stackId: string,
+		commitId: string,
+		branchName: string,
+		branchRef: string | null,
+	) => {
 		select(
 			isCommitSelected(stackId, commitId)
-				? null
+				? branchRef !== null
+					? { _tag: "Branch", stackId, branchName, branchRef }
+					: null
 				: { _tag: "Commit", stackId, commitId, isEditingMessage: false },
 		);
 	};
@@ -1753,8 +1760,8 @@ const ProjectPage: FC = () => {
 										toggleCommitFileSelection={(commitId, path) => {
 											toggleCommitFileSelection(stackId, commitId, path);
 										}}
-										toggleCommitSelection={(commitId) => {
-											toggleCommitSelection(stackId, commitId);
+										toggleCommitSelection={(commitId, branchName, branchRef) => {
+											toggleCommitSelection(stackId, commitId, branchName, branchRef);
 										}}
 									/>
 								</div>
