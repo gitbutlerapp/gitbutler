@@ -1605,6 +1605,9 @@ const ProjectPage: FC = () => {
 		selection.stackId === stackId &&
 		selection.branchRef === branchRef;
 
+	const isChangesFileSelected = (stackId: string, path: string) =>
+		selection?._tag === "ChangesFile" && selection.stackId === stackId && selection.path === path;
+
 	const isCommitSelected = (stackId: string, commitId: string) =>
 		selection?._tag === "Commit" &&
 		selection.stackId === stackId &&
@@ -1624,8 +1627,6 @@ const ProjectPage: FC = () => {
 		selection.stackId === stackId &&
 		selection.commitId === commitId &&
 		selection.path === path;
-	const isChangesFileSelected = (stackId: string, path: string) =>
-		selection?._tag === "ChangesFile" && selection.stackId === stackId && selection.path === path;
 
 	const toggleBranchSelection = (stackId: string, branchName: string, branchRef: string) => {
 		select(
@@ -1633,6 +1634,9 @@ const ProjectPage: FC = () => {
 				? null
 				: { _tag: "Branch", stackId, branchName, branchRef },
 		);
+	};
+	const toggleChangesFileSelection = (stackId: string, path: string) => {
+		select(isChangesFileSelected(stackId, path) ? null : { _tag: "ChangesFile", stackId, path });
 	};
 	const toggleCommitSelection = (stackId: string, commitId: string) => {
 		select(
@@ -1684,9 +1688,6 @@ const ProjectPage: FC = () => {
 					}
 				: { _tag: "CommitFile", stackId, commitId, path },
 		);
-	};
-	const toggleChangesFileSelection = (stackId: string, path: string) => {
-		select(isChangesFileSelected(stackId, path) ? null : { _tag: "ChangesFile", stackId, path });
 	};
 
 	const highlightCommits = (commitIds: Array<string> | null) => {
