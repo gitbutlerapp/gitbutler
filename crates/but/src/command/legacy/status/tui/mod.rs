@@ -198,7 +198,14 @@ where
     }
 
     if app.details.is_dirty() {
-        app.details.update();
+        let selection = app
+            .cursor
+            .selected_line(&app.status_lines)
+            .and_then(|line| line.data.cli_id())
+            .map(|id| &**id);
+        if let Err(err) = app.details.update(ctx, selection) {
+            messages.push(Message::ShowError(Arc::new(err)));
+        }
         app.should_render = true;
     }
 
