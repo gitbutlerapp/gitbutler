@@ -1,15 +1,17 @@
-use std::iter::once;
+use std::iter::{once, repeat_n};
 
 use bstr::BString;
+use but_core::UnifiedPatch;
 use but_ctx::Context;
 use gix::actor::Signature;
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
     style::{Style, Stylize},
-    text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Widget, Wrap},
+    text::{Line, Span, Text},
+    widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph, Widget, Wrap},
 };
+use unicode_width::UnicodeWidthStr;
 
 use crate::{
     CliId,
@@ -113,13 +115,84 @@ impl Details {
         let commit_details =
             but_api::diff::commit_details(ctx, commit_id, but_api::diff::ComputeLineStats::No)?;
 
-        let message = commit_details.commit.message.clone();
+        let mut diff_line_items = Vec::new();
+        for change in &commit_details.diff_with_first_parent {
+            // let Some(patch) = but_api::diff::tree_change_diffs(ctx, change.clone().into())? else {
+            //     continue;
+            // };
+
+            // match patch {
+            //     UnifiedPatch::Binary => todo!(),
+            //     UnifiedPatch::TooLarge { size_in_bytes } => todo!(),
+            //     UnifiedPatch::Patch {
+            //         hunks,
+            //         is_result_of_binary_to_text_conversion,
+            //         lines_added,
+            //         lines_removed,
+            //     } => {
+            //         let s = hunks
+            //             .iter()
+            //             .map(|hunk| format!("{}\n", hunk.diff))
+            //             .collect::<String>();
+            //         panic!("{s}");
+            //     }
+            // }
+
+            let status = match &change.status {
+                but_core::TreeStatus::Addition { .. } => Span::raw("added").green(),
+                but_core::TreeStatus::Deletion { .. } => Span::raw("deleted").red(),
+                but_core::TreeStatus::Modification { .. } => Span::raw("modified").magenta(),
+                but_core::TreeStatus::Rename { .. } => Span::raw("renamed").blue(),
+            };
+
+            let path = change.path.to_string();
+            let width = path.width() + status.width() + 2;
+            let padding = 2;
+            diff_line_items.push(
+                ListItem::new(Line::from_iter(
+                    repeat_n("─", width + padding).chain(once("╮")),
+                ))
+                .dim(),
+            );
+            diff_line_items.push(ListItem::new(Line::from_iter([
+                Span::raw(" "),
+                status,
+                Span::raw(": "),
+                Span::raw(path),
+                Span::raw(" "),
+                Span::raw("│").dim(),
+            ])));
+            diff_line_items.push(
+                ListItem::new(Line::from_iter(
+                    repeat_n("─", width + padding).chain(once("╯")),
+                ))
+                .dim(),
+            );
+        }
+
+        let mut header_items = Vec::new();
+
+        header_items.extend([
+            ListItem::new(Line::from_iter([
+                Span::raw(format!("{:<11}", "Commit ID:")),
+                Span::raw(commit_id.to_hex().to_string()).blue(),
+            ])),
+            ListItem::new(Line::from_iter(
+                once(Span::raw(format!("{:<11}", "Author:")))
+                    .chain(render_signature(&commit_details.commit.author)),
+            )),
+            ListItem::new(Line::from_iter(
+                once(Span::raw(format!("{:<11}", "Committer:")))
+                    .chain(render_signature(&commit_details.commit.committer)),
+            )),
+        ]);
+
+        let message = commit_details.commit.message.to_string();
 
         self.diff_widget = Some(DiffWidget {
-            commit_id,
+            header_items,
             message,
-            author: commit_details.commit.author.clone(),
-            committer: commit_details.commit.committer.clone(),
+            diff_line_items,
         });
 
         Ok(())
@@ -136,75 +209,140 @@ impl Details {
         if let Some(diff) = &self.diff_widget {
             frame.render_widget(diff, layout[1]);
         } else {
-            let widget = Paragraph::new(self.updates.to_string());
-            frame.render_widget(widget, layout[1]);
+            let paragraph = Paragraph::new(self.updates.to_string());
+            frame.render_widget(paragraph, layout[1]);
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct DiffWidget {
-    commit_id: gix::ObjectId,
-    author: Signature,
-    committer: Signature,
-    message: BString,
+    header_items: Vec<ListItem<'static>>,
+    message: String,
+    diff_line_items: Vec<ListItem<'static>>,
 }
 
 impl Widget for &DiffWidget {
     fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer) {
-        let header = self.build_header_widget();
-        let message = self.build_message_widget();
+        let mut items = self.header_items.clone();
 
-        let layout = Layout::vertical([
-            Constraint::Length((header.len() + 1) as _),
-            Constraint::Length(message.line_count(area.width) as _),
-            Constraint::Length(1),
-            Constraint::Min(1),
-        ])
-        .split(area);
+        items.push(ListItem::new(""));
 
-        header.render(layout[0], buf);
-        message.render(layout[1], buf);
-        Clear.render(layout[2], buf);
-        self.render_diff(layout[3], buf);
+        let message_lines = textwrap::wrap(&self.message, textwrap::Options::new(area.width as _));
+        items.extend(message_lines.into_iter().map(ListItem::new));
+
+        items.push(ListItem::new(""));
+
+        items.extend(self.diff_line_items.clone());
+
+        List::new(items).render(area, buf);
     }
 }
 
-impl DiffWidget {
-    fn build_header_widget(&self) -> List<'static> {
-        let items = [
-            ListItem::new(Line::from_iter([
-                Span::raw(format!("{:<11}", "Commit ID:")),
-                Span::raw(self.commit_id.to_hex().to_string()).blue(),
-            ])),
-            ListItem::new(Line::from_iter(
-                once(Span::raw(format!("{:<11}", "Author:"))).chain(render_signature(&self.author)),
-            )),
-            ListItem::new(Line::from_iter(
-                once(Span::raw(format!("{:<11}", "Committer:")))
-                    .chain(render_signature(&self.committer)),
-            )),
-        ];
-        List::new(items)
-    }
+// #[derive(Debug)]
+// struct DiffEntry {
+//     path: BString,
+// }
 
-    fn build_message_widget(&self) -> Paragraph<'static> {
-        if self.message.is_empty() {
-            Paragraph::new("(no commit message)").dim()
-        } else {
-            let message = self.message.to_string();
-            Paragraph::new(message).wrap(Wrap { trim: true })
-        }
-    }
+// #[derive(Debug)]
+// struct DiffWidget {
+//     commit_id: gix::ObjectId,
+//     author: Signature,
+//     committer: Signature,
+//     message: BString,
+//     diff_entries: Vec<DiffEntry>,
+// }
 
-    fn render_diff(&self, area: Rect, buf: &mut ratatui::prelude::Buffer) {
-        List::new([
-            "diff", "diff", "diff", "diff", "diff", "diff", "diff", "diff", "diff", "diff", "diff",
-            "diff", "diff", "diff",
-        ])
-        .render(area, buf);
-    }
-}
+// impl Widget for &DiffWidget {
+//     fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer) {
+//         let header = self.build_header_widget();
+//         let message = self.build_message_widget();
+
+//         let layout = Layout::vertical([
+//             Constraint::Length((header.len() + 1) as _),
+//             Constraint::Length(message.line_count(area.width) as _),
+//             Constraint::Length(1),
+//             Constraint::Min(1),
+//         ])
+//         .split(area);
+
+//         header.render(layout[0], buf);
+//         message.render(layout[1], buf);
+//         Clear.render(layout[2], buf);
+//         self.render_diff(layout[3], buf);
+//     }
+// }
+
+// impl DiffWidget {
+//     fn build_header_widget(&self) -> List<'static> {
+//         let items = [
+//             ListItem::new(Line::from_iter([
+//                 Span::raw(format!("{:<11}", "Commit ID:")),
+//                 Span::raw(self.commit_id.to_hex().to_string()).blue(),
+//             ])),
+//             ListItem::new(Line::from_iter(
+//                 once(Span::raw(format!("{:<11}", "Author:"))).chain(render_signature(&self.author)),
+//             )),
+//             ListItem::new(Line::from_iter(
+//                 once(Span::raw(format!("{:<11}", "Committer:")))
+//                     .chain(render_signature(&self.committer)),
+//             )),
+//         ];
+//         List::new(items)
+//     }
+
+//     fn build_message_widget(&self) -> Paragraph<'static> {
+//         if self.message.is_empty() {
+//             Paragraph::new("(no commit message)").dim()
+//         } else {
+//             let message = self.message.to_string();
+//             Paragraph::new(message).wrap(Wrap { trim: true })
+//         }
+//     }
+
+//     fn render_diff(&self, area: Rect, buf: &mut ratatui::prelude::Buffer) {
+//         let layouts = Layout::vertical(self.diff_entries.iter().flat_map(|_| {
+//             [
+//                 // for header
+//                 Constraint::Length(3),
+//                 // padding between header and diff
+//                 Constraint::Length(1),
+//                 // for actual diff
+//                 Constraint::Min(1),
+//                 // padding between this entry and the next
+//                 Constraint::Length(1),
+//             ]
+//         }))
+//         .split(area);
+
+//         for (idx, diff_entry) in self.diff_entries.iter().enumerate() {
+//             let header_layout = layouts[idx];
+//             let _padding = layouts[idx + 1];
+//             let diff_layout = layouts[idx + 2];
+//             let _padding = layouts[idx + 3];
+
+//             let header = Paragraph::new(diff_entry.path.to_string()).block(
+//                 Block::new()
+//                     .borders(Borders::TOP | Borders::RIGHT | Borders::BOTTOM)
+//                     .border_type(BorderType::Rounded)
+//                     .border_style(Style::default().dim()),
+//             );
+//             header.render(header_layout, buf);
+
+//             List::new([
+//                 "diff",
+//                 "diff",
+//                 "diff",
+//                 "diff",
+//                 "diff",
+//                 "diff",
+//                 "diff",
+//                 "diff",
+//                 "diff",
+//             ]).render(diff_layout, buf);
+//         }
+//     }
+// }
 
 fn render_signature(sig: &Signature) -> impl IntoIterator<Item = Span<'static>> {
     [

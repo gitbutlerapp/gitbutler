@@ -142,6 +142,7 @@ rand.workspace = true
 ratatui-textarea = "0.8.0"
 arboard = { version = "3.6.1", default-features = false }
 ansi-to-tui = "8.0.1"
+textwrap = "0.16.2"
 
 [dev-dependencies]
 but-graph.workspace = true
