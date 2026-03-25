@@ -494,6 +494,7 @@ const ProjectBranchesPage: FC = () => {
 		selection?._tag === "CommitFile" &&
 		selection.branchName === branchName &&
 		selection.commitId === commitId;
+
 	const isCommitFileSelected = (branchName: string, commitId: string, path: string) =>
 		selection?._tag === "CommitFile" &&
 		selection.branchName === branchName &&

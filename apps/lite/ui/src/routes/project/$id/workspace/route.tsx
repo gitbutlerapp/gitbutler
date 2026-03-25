@@ -1629,6 +1629,7 @@ const ProjectPage: FC = () => {
 		selection?._tag === "CommitFile" &&
 		selection.stackId === stackId &&
 		selection.commitId === commitId;
+
 	const isChangeUnitFileSelected = (stackId: string, changeUnit: ChangeUnit, path: string) => {
 		if (!selection) return false;
 		if (selection._tag === "CommitFile" && changeUnit._tag === "Commit")
