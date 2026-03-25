@@ -637,10 +637,10 @@ const Preview: FC<{
 			/>
 		)),
 		Match.tag("Commit", ({ commitId, mode }) =>
-			mode._tag !== "Details" || mode.path === undefined ? (
-				<ShowCommit projectId={projectId} commitId={commitId} />
-			) : (
+			mode._tag === "Details" && mode.path !== undefined ? (
 				<CommitFileDiff projectId={projectId} commitId={commitId} path={mode.path} />
+			) : (
+				<ShowCommit projectId={projectId} commitId={commitId} />
 			),
 		),
 		Match.exhaustive,

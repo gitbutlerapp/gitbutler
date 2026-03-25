@@ -462,20 +462,20 @@ const Preview: FC<{
 			),
 		),
 		Match.tag("Commit", ({ branchName, commitId, mode }) =>
-			mode._tag !== "Details" || mode.path === undefined ? (
-				<CommitDiff
-					projectId={projectId}
-					branchName={branchName}
-					remote={remote}
-					commitId={commitId}
-				/>
-			) : (
+			mode._tag === "Details" && mode.path !== undefined ? (
 				<CommitFileDiff
 					projectId={projectId}
 					branchName={branchName}
 					remote={remote}
 					commitId={commitId}
 					path={mode.path}
+				/>
+			) : (
+				<CommitDiff
+					projectId={projectId}
+					branchName={branchName}
+					remote={remote}
+					commitId={commitId}
 				/>
 			),
 		),
