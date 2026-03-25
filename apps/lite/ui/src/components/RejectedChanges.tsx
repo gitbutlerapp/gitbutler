@@ -24,18 +24,7 @@ export type RejectedChange = Omit<UIRejectedPath, "reason"> & {
 };
 
 function isRejectionReason(reason: string): reason is Exclude<RejectionReason, "unknown"> {
-	return (
-		reason === "noEffectiveChanges" ||
-		reason === "cherryPickMergeConflict" ||
-		reason === "workspaceMergeConflict" ||
-		reason === "workspaceMergeConflictOfUnrelatedFile" ||
-		reason === "worktreeFileMissingForObjectConversion" ||
-		reason === "fileToLargeOrBinary" ||
-		reason === "pathNotFoundInBaseTree" ||
-		reason === "unsupportedDirectoryEntry" ||
-		reason === "unsupportedTreeEntry" ||
-		reason === "missingDiffSpecAssociation"
-	);
+	return REJECTION_REASONS.includes(reason as RejectionReason) && reason !== "unknown";
 }
 
 export function normalizeRejectedChanges(
