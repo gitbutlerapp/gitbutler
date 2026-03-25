@@ -221,11 +221,7 @@ const CommitRow: FC<{
 			className={classes(
 				sharedStyles.row,
 				sharedStyles.commitRow,
-				isSelected
-					? sharedStyles.selected
-					: isExpanded
-						? sharedStyles.selectedWithin
-						: undefined,
+				isSelected || isExpanded ? sharedStyles.selected : undefined,
 				isHighlighted && sharedStyles.highlighted,
 			)}
 			style={{ ...(isExpandPending && { opacity: 0.5 }) }}
@@ -257,7 +253,13 @@ const CommitRow: FC<{
 
 						select(
 							firstPath !== undefined
-								? { _tag: "Commit", branchName, commitId: commit.id, path: firstPath, isExpanded: true }
+								? {
+										_tag: "Commit",
+										branchName,
+										commitId: commit.id,
+										path: firstPath,
+										isExpanded: true,
+									}
 								: { _tag: "Commit", branchName, commitId: commit.id, isExpanded: true },
 						);
 					});
@@ -299,7 +301,7 @@ const CommitC: FC<{
 									sharedStyles.row,
 									sharedStyles.fileRow,
 									isCommitFileSelected(selection, branchName, commit.id, change.path) &&
-										sharedStyles.selected,
+										sharedStyles.selectedFile,
 								)}
 							>
 								<FileButton
@@ -454,7 +456,7 @@ const Preview: FC<{
 				<div>No branch diff available.</div>
 			),
 		),
-		Match.tag("Commit", ({ branchName, commitId, path }) => (
+		Match.tag("Commit", ({ branchName, commitId, path }) =>
 			path === undefined ? (
 				<CommitDiff
 					projectId={projectId}
@@ -470,8 +472,8 @@ const Preview: FC<{
 					commitId={commitId}
 					path={path}
 				/>
-			)
-		)),
+			),
+		),
 		Match.exhaustive,
 	);
 

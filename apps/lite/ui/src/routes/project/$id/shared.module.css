@@ -100,6 +100,10 @@
 	background-color: lightgray;
 }
 
+.selectedFile {
+	background-color: lightgray;
+}
+
 .highlighted {
 	background-color: burlywood;
 	color: black;

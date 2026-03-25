@@ -1016,11 +1016,7 @@ const CommitRow: FC<
 					className={classes(
 						sharedStyles.row,
 						sharedStyles.commitRow,
-						isSelected
-							? sharedStyles.selected
-							: isExpanded
-								? sharedStyles.selectedWithin
-								: undefined,
+						isSelected || isExpanded ? sharedStyles.selected : undefined,
 						isHighlighted && sharedStyles.highlighted,
 					)}
 					style={{ ...(isExpandPending && { opacity: 0.5 }) }}
@@ -1193,7 +1189,7 @@ const CommitC: FC<{
 												sharedStyles.row,
 												sharedStyles.fileRow,
 												isCommitFileSelected(selection, stackId, commit.id, change.path) &&
-													sharedStyles.selected,
+													sharedStyles.selectedFile,
 											)}
 										>
 											<FileButton
