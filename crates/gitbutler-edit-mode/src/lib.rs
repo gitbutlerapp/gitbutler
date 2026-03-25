@@ -127,8 +127,7 @@ fn find_or_create_base_commit(
     Ok(repo.write_object(&commit)?.detach())
 }
 
-fn commit_uncommited_changes(ctx: &Context) -> Result<()> {
-    let repo = &*ctx.repo.get()?;
+fn commit_uncommited_changes(repo: &gix::Repository) -> Result<()> {
     #[expect(deprecated)]
     let uncommitted_changes = repo.create_wd_tree(0)?;
     repo.reference(
@@ -140,8 +139,7 @@ fn commit_uncommited_changes(ctx: &Context) -> Result<()> {
     Ok(())
 }
 
-fn get_uncommited_changes(ctx: &Context) -> Result<gix::ObjectId> {
-    let repo = &*ctx.repo.get()?;
+fn get_uncommitted_changes(repo: &gix::Repository) -> Result<gix::ObjectId> {
     let uncommitted_changes = repo
         .find_reference(UNCOMMITTED_CHANGES_REF)?
         .peel_to_tree()?
@@ -243,6 +241,7 @@ pub(crate) fn enter_edit_mode(
     stack_id: StackId,
     _perm: &mut RepoExclusive,
 ) -> Result<EditModeMetadata> {
+    let repo = &*ctx.repo.get()?;
     let edit_mode_metadata = EditModeMetadata {
         commit_oid,
         stack_id,
@@ -250,7 +249,7 @@ pub(crate) fn enter_edit_mode(
 
     ensure_stack_in_workspace(ctx, stack_id)?;
 
-    commit_uncommited_changes(ctx)?;
+    commit_uncommited_changes(repo)?;
     write_edit_mode_metadata(ctx, &edit_mode_metadata).context("Failed to persist metadata")?;
     checkout_edit_branch(ctx, commit_oid).context("Failed to checkout edit branch")?;
 
@@ -274,7 +273,7 @@ pub(crate) fn abort_and_return_to_workspace(
     repo.set_head(WORKSPACE_BRANCH_REF)
         .context("Failed to set head reference")?;
 
-    let uncommited_changes = get_uncommited_changes(ctx)?;
+    let uncommited_changes = get_uncommitted_changes(&*ctx.repo.get()?)?;
     let uncommited_changes = repo.find_tree(uncommited_changes.to_git2())?;
 
     repo.checkout_tree(
@@ -346,7 +345,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     git2_repo.checkout_head(Some(CheckoutBuilder::new().force()))?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let uncommtied_changes = get_uncommited_changes(ctx)?;
+    let uncommtied_changes = get_uncommitted_changes(repo)?;
 
     update_uncommitted_changes_with_tree(
         ctx,
