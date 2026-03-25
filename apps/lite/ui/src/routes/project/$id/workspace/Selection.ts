@@ -35,7 +35,12 @@ export const toggleBranchSelection = (
 	selection.stackId === stackId &&
 	selection.branchName === branchName
 		? null
-		: { _tag: "Branch", stackId, branchName, branchRef };
+		: {
+				_tag: "Branch",
+				stackId,
+				branchName,
+				branchRef,
+			};
 
 export const toggleChangesFileSelection = (
 	selection: Selection | null,
@@ -44,7 +49,11 @@ export const toggleChangesFileSelection = (
 ): Selection | null =>
 	selection?._tag === "ChangesFile" && selection.stackId === stackId && selection.path === path
 		? null
-		: { _tag: "ChangesFile", stackId, path };
+		: {
+				_tag: "ChangesFile",
+				stackId,
+				path,
+			};
 
 export const toggleCommitSelection = (
 	selection: Selection | null,
@@ -58,9 +67,19 @@ export const toggleCommitSelection = (
 	selection.commitId === commitId &&
 	selection.mode._tag !== "Details"
 		? branchRef !== null
-			? { _tag: "Branch", stackId, branchName, branchRef }
+			? {
+					_tag: "Branch",
+					stackId,
+					branchName,
+					branchRef,
+				}
 			: null
-		: { _tag: "Commit", stackId, commitId, mode: { _tag: "Summary" } };
+		: {
+				_tag: "Commit",
+				stackId,
+				commitId,
+				mode: { _tag: "Summary" },
+			};
 
 export const toggleCommitEditingMessage = (
 	selection: Selection | null,
@@ -71,7 +90,10 @@ export const toggleCommitEditingMessage = (
 	selection.stackId === stackId &&
 	selection.commitId === commitId &&
 	selection.mode._tag === "EditingMessage"
-		? { ...selection, mode: { _tag: "Summary" } }
+		? {
+				...selection,
+				mode: { _tag: "Summary" },
+			}
 		: {
 				_tag: "Commit",
 				stackId,

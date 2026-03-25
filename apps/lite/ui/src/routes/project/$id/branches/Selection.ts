@@ -1,6 +1,13 @@
 import { BranchIdentity, BranchListing } from "@gitbutler/but-sdk";
 
-type CommitMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
+type CommitMode =
+	| {
+			_tag: "Summary";
+	  }
+	| {
+			_tag: "Details";
+			path?: string;
+	  };
 
 export type Selection =
 	| {
@@ -20,7 +27,10 @@ export const toggleBranchSelection = (
 ): Selection | null =>
 	selection?._tag === "Branch" && selection.branchName === branchName
 		? null
-		: { _tag: "Branch", branchName };
+		: {
+				_tag: "Branch",
+				branchName,
+			};
 
 export const toggleCommitSelection = (
 	selection: Selection | null,
@@ -31,8 +41,18 @@ export const toggleCommitSelection = (
 	selection.branchName === branchName &&
 	selection.commitId === commitId &&
 	selection.mode._tag !== "Details"
-		? { _tag: "Branch", branchName }
-		: { _tag: "Commit", branchName, commitId, mode: { _tag: "Summary" } };
+		? {
+				_tag: "Branch",
+				branchName,
+			}
+		: {
+				_tag: "Commit",
+				branchName,
+				commitId,
+				mode: {
+					_tag: "Summary",
+				},
+			};
 
 export const toggleCommitFileSelection = (
 	selection: Selection | null,
@@ -45,8 +65,23 @@ export const toggleCommitFileSelection = (
 	selection.commitId === commitId &&
 	selection.mode._tag === "Details" &&
 	selection.mode.path === path
-		? { _tag: "Commit", branchName, commitId, mode: { _tag: "Summary" } }
-		: { _tag: "Commit", branchName, commitId, mode: { _tag: "Details", path } };
+		? {
+				_tag: "Commit",
+				branchName,
+				commitId,
+				mode: {
+					_tag: "Summary",
+				},
+			}
+		: {
+				_tag: "Commit",
+				branchName,
+				commitId,
+				mode: {
+					_tag: "Details",
+					path,
+				},
+			};
 
 export const normalizeBranchSelection = (
 	selection: Selection,
@@ -60,5 +95,8 @@ export const normalizeBranchSelection = (
 export const getDefaultSelection = (branches: Array<BranchListing>): Selection | null => {
 	const firstBranch = branches[0];
 	if (!firstBranch) return null;
-	return { _tag: "Branch", branchName: firstBranch.name };
+	return {
+		_tag: "Branch",
+		branchName: firstBranch.name,
+	};
 };
