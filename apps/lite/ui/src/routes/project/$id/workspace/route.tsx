@@ -1608,13 +1608,6 @@ const ProjectPage: FC = () => {
 		selection?._tag === "Branch" &&
 		selection.stackId === stackId &&
 		selection.branchRef === branchRef;
-	const toggleBranchSelection = (stackId: string, branchName: string, branchRef: string) => {
-		select(
-			isBranchSelected(stackId, branchRef)
-				? null
-				: { _tag: "Branch", stackId, branchName, branchRef },
-		);
-	};
 
 	const isCommitSelected = (stackId: string, commitId: string) =>
 		selection?._tag === "Commit" &&
@@ -1643,6 +1636,13 @@ const ProjectPage: FC = () => {
 		return false;
 	};
 
+	const toggleBranchSelection = (stackId: string, branchName: string, branchRef: string) => {
+		select(
+			isBranchSelected(stackId, branchRef)
+				? null
+				: { _tag: "Branch", stackId, branchName, branchRef },
+		);
+	};
 	const toggleCommitSelection = (stackId: string, commitId: string) => {
 		select(
 			isCommitSelected(stackId, commitId)
