@@ -15,8 +15,8 @@ import {
 	FileDiff,
 	FileButton,
 	Hunk,
-} from "#ui/routes/project/$id/-shared.tsx";
-import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
+} from "#ui/routes/project/$id/shared.tsx";
+import { ProjectPreviewLayout } from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
 import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/api/mutations.ts";
 import {
 	branchDetailsQueryOptions,
@@ -27,7 +27,7 @@ import {
 } from "#ui/api/queries.ts";
 import { getDefaultSelection, normalizeBranchSelection, Selection } from "./Selection.ts";
 import styles from "./route.module.css";
-import sharedStyles from "../-shared.module.css";
+import sharedStyles from "../shared.module.css";
 
 const isValidCommit = (commitId: string, branchDetails: BranchDetails): boolean => {
 	const commitIds = new Set(branchDetails.commits.map((commit) => commit.id));
