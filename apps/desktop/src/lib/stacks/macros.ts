@@ -68,9 +68,9 @@ export default class StackMacros {
 			worktreeChanges,
 		});
 
-		if (outcome.pathsToRejectedChanges.length > 0) {
-			const pathsToRejectedChanges = outcome.pathsToRejectedChanges.reduce(
-				(acc: Record<string, RejectionReason>, [reason, path]) => {
+		if (outcome.rejectedChanges.length > 0) {
+			const pathsToRejectedChanges = outcome.rejectedChanges.reduce(
+				(acc: Record<string, RejectionReason>, { reason, path }) => {
 					acc[path] = reason;
 					return acc;
 				},
