@@ -1,29 +1,20 @@
 import { type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 
+type BranchSelection = { stackId: string; branchName: string; branchRef: string };
+
+type ChangesFileSelection = { stackId: string | null; path: string };
+
 type CommitMode =
 	| { _tag: "Summary" }
 	| { _tag: "Details"; path?: string }
 	| { _tag: "EditingMessage" };
+type CommitSelection = { stackId: string; commitId: string; mode: CommitMode };
 
 export type Selection =
-	| {
-			_tag: "Branch";
-			stackId: string;
-			branchName: string;
-			branchRef: string;
-	  }
-	| {
-			_tag: "ChangesFile";
-			stackId: string | null;
-			path: string;
-	  }
-	| {
-			_tag: "Commit";
-			stackId: string;
-			commitId: string;
-			mode: CommitMode;
-	  };
+	| ({ _tag: "Branch" } & BranchSelection)
+	| ({ _tag: "ChangesFile" } & ChangesFileSelection)
+	| ({ _tag: "Commit" } & CommitSelection);
 
 export const toggleBranchSelection = (
 	selection: Selection | null,

@@ -1,5 +1,7 @@
 import { BranchIdentity, BranchListing } from "@gitbutler/but-sdk";
 
+type BranchSelection = { branchName: BranchIdentity };
+
 type CommitMode =
 	| {
 			_tag: "Summary";
@@ -8,18 +10,11 @@ type CommitMode =
 			_tag: "Details";
 			path?: string;
 	  };
+type CommitSelection = { branchName: BranchIdentity; commitId: string; mode: CommitMode };
 
 export type Selection =
-	| {
-			_tag: "Branch";
-			branchName: BranchIdentity;
-	  }
-	| {
-			_tag: "Commit";
-			branchName: BranchIdentity;
-			commitId: string;
-			mode: CommitMode;
-	  };
+	| ({ _tag: "Branch" } & BranchSelection)
+	| ({ _tag: "Commit" } & CommitSelection);
 
 export const toggleBranchSelection = (
 	selection: Selection | null,
