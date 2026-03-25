@@ -1,48 +1,9 @@
-import useLocalStorageState from "use-local-storage-state";
-import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import {
-	attachInstruction,
-	extractInstruction,
-} from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item";
-import { Menu, mergeProps, Popover, Toast, Tooltip, useRender } from "@base-ui/react";
-import {
-	Commit,
-	DiffHunk,
-	HunkAssignment,
-	InsertSide,
-	TreeChange,
-	DiffSpec,
-	Stack,
-	HunkDependencies,
-	HunkHeader,
-} from "@gitbutler/but-sdk";
-import { createFileRoute } from "@tanstack/react-router";
-import { Array, Match, pipe } from "effect";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { FC, Suspense, useEffect, useState } from "react";
-import styles from "./route.module.css";
-import sharedStyles from "../shared.module.css";
-import { classes } from "#ui/classes.ts";
-import uiStyles from "#ui/ui.module.css";
-import { DependencyIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
-import { useDraggable } from "#ui/hooks/useDraggable.tsx";
-import { useDroppable } from "#ui/hooks/useDroppable.ts";
-import { type Operation, type RubOperation, useRunOperation } from "#ui/Operation.ts";
-import { ProjectPreviewLayout } from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
-import {
-	CommitDetails,
-	CommitLabel,
-	CommitRow,
-	CommitsList,
-	type DragData,
-	DragPreview,
-	DraggableBranch,
-	FileButton,
-	FileDiff,
-	Hunk,
-	type SourceItem,
-} from "#ui/routes/project/$id/shared.tsx";
-import { commitCreateMutationOptions, unapplyStackMutationOptions } from "#ui/api/mutations.ts";
+	commitCreateMutationOptions,
+	commitInsertBlankMutationOptions,
+	commitRewordMutationOptions,
+	unapplyStackMutationOptions,
+} from "#ui/api/mutations.ts";
 import {
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
@@ -50,9 +11,12 @@ import {
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
-import { RejectedChange, rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx";
 import { type RubSource } from "#ui/api/rub.ts";
+import { classes } from "#ui/classes.ts";
+import { DependencyIcon, ExpandCollapseIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
+import { RejectedChange, rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx";
+import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
+import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 import {
 	getBranchNameByCommitId,
 	getBranchRefsByStackId,
@@ -61,9 +25,58 @@ import {
 	getStackIdsByCommitId,
 } from "#ui/domain/RefInfo.ts";
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
-import { getDefaultSelection, normalizeSelection, type Selection } from "./Selection.ts";
-import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
+import { useDraggable } from "#ui/hooks/useDraggable.tsx";
+import { useDroppable } from "#ui/hooks/useDroppable.ts";
+import { type Operation, type RubOperation, useRunOperation } from "#ui/Operation.ts";
+import { ProjectPreviewLayout } from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
+import {
+	CommitDetails,
+	CommitLabel,
+	CommitsList,
+	type DragData,
+	DraggableBranch,
+	DragPreview,
+	FileButton,
+	FileDiff,
+	Hunk,
+	type SourceItem,
+} from "#ui/routes/project/$id/shared.tsx";
+import uiStyles from "#ui/ui.module.css";
+import {
+	attachInstruction,
+	extractInstruction,
+} from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item";
+import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
+import { ContextMenu, Menu, mergeProps, Popover, Toast, Tooltip, useRender } from "@base-ui/react";
+import {
+	Commit,
+	DiffHunk,
+	DiffSpec,
+	HunkAssignment,
+	HunkDependencies,
+	HunkHeader,
+	InsertSide,
+	Stack,
+	TreeChange,
+} from "@gitbutler/but-sdk";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { Array, Match, pipe } from "effect";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
+import {
+	ComponentProps,
+	FC,
+	startTransition,
+	Suspense,
+	useEffect,
+	useOptimistic,
+	useState,
+	useTransition,
+} from "react";
+import useLocalStorageState from "use-local-storage-state";
+import sharedStyles from "../shared.module.css";
+import { getDefaultSelection, normalizeSelection, type Selection } from "./Selection.ts";
+import styles from "./route.module.css";
 
 const rubSourceFor = (item: SourceItem): RubSource | null =>
 	Match.value(item).pipe(
@@ -715,6 +728,271 @@ const CommitTarget: FC<
 				/>
 			)}
 		</div>
+	);
+};
+
+const DraggableCommit: FC<
+	{
+		commit: Commit;
+		canDrag?: boolean;
+	} & useRender.ComponentProps<"div">
+> = ({ commit, canDrag = true, render, ...props }) => {
+	const [isDragging, dragRef] = useDraggable({
+		getInitialData: (): DragData => ({
+			sourceItem: { _tag: "Commit", commitId: commit.id },
+		}),
+		preview: (
+			<DragPreview>
+				<CommitLabel commit={commit} />
+			</DragPreview>
+		),
+		canDrag: () => canDrag,
+	});
+
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && sharedStyles.dragging),
+		}),
+	});
+};
+
+const InlineCommitMessageEditor: FC<{
+	projectId: string;
+	commitId: string;
+	message: string;
+	setMessageAction: (message: string) => void | Promise<void>;
+	onExit: () => void;
+}> = ({ projectId, commitId, message, setMessageAction, onExit }) => {
+	const commitReword = useMutation(commitRewordMutationOptions);
+	const initialMessage = message.trim();
+
+	const saveMessage = (newMessage: string) => {
+		onExit();
+		const trimmed = newMessage.trim();
+		if (trimmed !== initialMessage)
+			startTransition(async () => {
+				await setMessageAction(trimmed);
+				await commitReword.mutateAsync({
+					projectId,
+					commitId,
+					message: trimmed,
+				});
+			});
+	};
+
+	return (
+		<form
+			className={styles.editCommitMessageForm}
+			onSubmit={(event) => {
+				event.preventDefault();
+				const formData = new FormData(event.currentTarget);
+				saveMessage(formData.get("message") as string);
+			}}
+		>
+			<textarea
+				ref={(el) => {
+					if (!el) return;
+					el.focus();
+					const cursorPosition = el.value.length;
+					el.setSelectionRange(cursorPosition, cursorPosition);
+				}}
+				name="message"
+				defaultValue={initialMessage}
+				className={styles.editCommitMessageInput}
+				onKeyDown={(event) => {
+					if (event.key === "Escape") {
+						event.preventDefault();
+						onExit();
+					} else if (event.key === "Enter" && !event.shiftKey) {
+						event.preventDefault();
+						event.currentTarget.form?.requestSubmit();
+					}
+				}}
+			/>
+			<div className={styles.editCommitMessageHelp}>
+				<span>escape to </span>
+				<button type="button" className={styles.editCommitMessageAction} onClick={onExit}>
+					cancel
+				</button>
+				<span> • enter to </span>
+				<button type="submit" className={styles.editCommitMessageAction}>
+					save
+				</button>
+			</div>
+		</form>
+	);
+};
+
+const CommitMenuPopup: FC<{
+	projectId: string;
+	commitId: string;
+	onReword: () => void;
+	parts: typeof Menu | typeof ContextMenu;
+}> = ({ projectId, commitId, onReword, parts }) => {
+	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
+	const { Popup, Item, SubmenuRoot, SubmenuTrigger, Positioner } = parts;
+
+	return (
+		<Popup className={sharedStyles.menuPopup}>
+			<Item className={sharedStyles.menuItem} onClick={onReword}>
+				Reword commit
+			</Item>
+			<SubmenuRoot>
+				<SubmenuTrigger className={sharedStyles.menuItem}>Add empty commit</SubmenuTrigger>
+				<Positioner>
+					<Popup className={sharedStyles.menuPopup}>
+						<Item
+							className={sharedStyles.menuItem}
+							onClick={() => {
+								commitInsertBlank.mutate({
+									projectId,
+									relativeTo: { type: "commit", subject: commitId },
+									side: "above",
+								});
+							}}
+						>
+							Above
+						</Item>
+						<Item
+							className={sharedStyles.menuItem}
+							onClick={() => {
+								commitInsertBlank.mutate({
+									projectId,
+									relativeTo: { type: "commit", subject: commitId },
+									side: "below",
+								});
+							}}
+						>
+							Below
+						</Item>
+					</Popup>
+				</Positioner>
+			</SubmenuRoot>
+		</Popup>
+	);
+};
+
+const CommitRow: FC<
+	{
+		projectId: string;
+		commit: Commit;
+		isSelected: boolean;
+		isSelectedWithin: boolean;
+		isHighlighted: boolean;
+		isEditingMessage: boolean;
+		toggleExpand: () => Promise<void> | void;
+		toggleSelect: () => void;
+		toggleEditingMessage: () => void;
+	} & ComponentProps<"div">
+> = ({
+	projectId,
+	commit,
+	isSelected,
+	isSelectedWithin,
+	isHighlighted,
+	isEditingMessage,
+	toggleExpand,
+	toggleSelect,
+	toggleEditingMessage,
+	className,
+	...restProps
+}) => {
+	const [isExpandPending, startExpandTransition] = useTransition();
+	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
+		commit.message,
+		(_currentMessage, nextMessage: string) => nextMessage,
+	);
+
+	const commitWithOptimisticMessage: Commit = {
+		...commit,
+		message: optimisticMessage,
+	};
+
+	return (
+		<DraggableCommit
+			{...restProps}
+			canDrag={!isEditingMessage}
+			commit={commitWithOptimisticMessage}
+			render={
+				<div
+					className={classes(
+						sharedStyles.row,
+						sharedStyles.commitRow,
+						isSelected
+							? sharedStyles.selected
+							: isSelectedWithin
+								? sharedStyles.selectedWithin
+								: undefined,
+						isHighlighted && sharedStyles.highlighted,
+						className,
+					)}
+					style={{ ...(isExpandPending && { opacity: 0.5 }) }}
+					aria-busy={isExpandPending}
+				>
+					{isEditingMessage ? (
+						<InlineCommitMessageEditor
+							projectId={projectId}
+							commitId={commit.id}
+							message={optimisticMessage}
+							setMessageAction={setOptimisticMessage}
+							onExit={toggleEditingMessage}
+						/>
+					) : (
+						<ContextMenu.Root>
+							<ContextMenu.Trigger
+								render={
+									<button
+										type="button"
+										className={sharedStyles.commitButton}
+										onClick={toggleSelect}
+									>
+										<CommitLabel commit={commitWithOptimisticMessage} />
+									</button>
+								}
+							/>
+							<ContextMenu.Portal>
+								<ContextMenu.Positioner>
+									<CommitMenuPopup
+										projectId={projectId}
+										commitId={commit.id}
+										onReword={toggleEditingMessage}
+										parts={ContextMenu}
+									/>
+								</ContextMenu.Positioner>
+							</ContextMenu.Portal>
+						</ContextMenu.Root>
+					)}
+					<button
+						className={sharedStyles.rowAction}
+						type="button"
+						onClick={() => {
+							startExpandTransition(toggleExpand);
+						}}
+						aria-expanded={isSelectedWithin}
+						aria-label={isSelectedWithin ? "Collapse commit" : "Expand commit"}
+					>
+						<ExpandCollapseIcon isExpanded={isSelectedWithin} />
+					</button>
+					<Menu.Root>
+						<Menu.Trigger className={sharedStyles.rowAction} aria-label="Commit menu">
+							<MenuTriggerIcon />
+						</Menu.Trigger>
+						<Menu.Portal>
+							<Menu.Positioner align="end">
+								<CommitMenuPopup
+									projectId={projectId}
+									commitId={commit.id}
+									onReword={toggleEditingMessage}
+									parts={Menu}
+								/>
+							</Menu.Positioner>
+						</Menu.Portal>
+					</Menu.Root>
+				</div>
+			}
+		/>
 	);
 };
 

@@ -1,4 +1,11 @@
-import { ContextMenu, Menu, mergeProps, useRender } from "@base-ui/react";
+import {
+	commitDetailsWithLineStatsQueryOptions,
+	treeChangeDiffsQueryOptions,
+} from "#ui/api/queries.ts";
+import { classes } from "#ui/classes.ts";
+import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
+import { useDraggable } from "#ui/hooks/useDraggable.tsx";
+import { mergeProps, useRender } from "@base-ui/react";
 import {
 	Commit,
 	DiffHunk,
@@ -7,29 +14,10 @@ import {
 	TreeChange,
 	UnifiedPatch,
 } from "@gitbutler/but-sdk";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
-import {
-	ComponentProps,
-	FC,
-	ReactNode,
-	startTransition,
-	useOptimistic,
-	useTransition,
-} from "react";
+import { ComponentProps, FC, ReactNode } from "react";
 import styles from "./shared.module.css";
-import { classes } from "#ui/classes.ts";
-import { ExpandCollapseIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
-import {
-	commitDetailsWithLineStatsQueryOptions,
-	treeChangeDiffsQueryOptions,
-} from "#ui/api/queries.ts";
-import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
-import { useDraggable } from "#ui/hooks/useDraggable.tsx";
-import {
-	commitInsertBlankMutationOptions,
-	commitRewordMutationOptions,
-} from "#ui/api/mutations.ts";
 
 /** @public */
 export const assert = <T,>(t: T | null | undefined): T => {
@@ -256,33 +244,6 @@ export const CommitLabel: FC<{
 	</>
 );
 
-const DraggableCommit: FC<
-	{
-		commit: Commit;
-		canDrag?: boolean;
-	} & useRender.ComponentProps<"div">
-> = ({ commit, canDrag = true, render, ...props }) => {
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData => ({
-			sourceItem: { _tag: "Commit", commitId: commit.id },
-		}),
-		preview: (
-			<DragPreview>
-				<CommitLabel commit={commit} />
-			</DragPreview>
-		),
-		canDrag: () => canDrag,
-	});
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
-		}),
-	});
-};
-
 export const DraggableBranch: FC<
 	{
 		anchorRef: Array<number> | null;
@@ -304,236 +265,6 @@ export const DraggableBranch: FC<
 			className: classes(isDragging && styles.dragging),
 		}),
 	});
-};
-
-const InlineCommitMessageEditor: FC<{
-	projectId: string;
-	commitId: string;
-	message: string;
-	setMessageAction: (message: string) => void | Promise<void>;
-	onExit: () => void;
-}> = ({ projectId, commitId, message, setMessageAction, onExit }) => {
-	const commitReword = useMutation(commitRewordMutationOptions);
-	const initialMessage = message.trim();
-
-	const saveMessage = (newMessage: string) => {
-		onExit();
-		const trimmed = newMessage.trim();
-		if (trimmed !== initialMessage)
-			startTransition(async () => {
-				await setMessageAction(trimmed);
-				await commitReword.mutateAsync({
-					projectId,
-					commitId,
-					message: trimmed,
-				});
-			});
-	};
-
-	return (
-		<form
-			className={styles.editCommitMessageForm}
-			onSubmit={(event) => {
-				event.preventDefault();
-				const formData = new FormData(event.currentTarget);
-				saveMessage(formData.get("message") as string);
-			}}
-		>
-			<textarea
-				ref={(el) => {
-					if (!el) return;
-					el.focus();
-					const cursorPosition = el.value.length;
-					el.setSelectionRange(cursorPosition, cursorPosition);
-				}}
-				name="message"
-				defaultValue={initialMessage}
-				className={styles.editCommitMessageInput}
-				onKeyDown={(event) => {
-					if (event.key === "Escape") {
-						event.preventDefault();
-						onExit();
-					} else if (event.key === "Enter" && !event.shiftKey) {
-						event.preventDefault();
-						event.currentTarget.form?.requestSubmit();
-					}
-				}}
-			/>
-			<div className={styles.editCommitMessageHelp}>
-				<span>escape to </span>
-				<button type="button" className={styles.editCommitMessageAction} onClick={onExit}>
-					cancel
-				</button>
-				<span> • enter to </span>
-				<button type="submit" className={styles.editCommitMessageAction}>
-					save
-				</button>
-			</div>
-		</form>
-	);
-};
-
-const CommitMenuPopup: FC<{
-	projectId: string;
-	commitId: string;
-	onReword: () => void;
-	parts: typeof Menu | typeof ContextMenu;
-}> = ({ projectId, commitId, onReword, parts }) => {
-	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
-	const { Popup, Item, SubmenuRoot, SubmenuTrigger, Positioner } = parts;
-
-	return (
-		<Popup className={styles.menuPopup}>
-			<Item className={styles.menuItem} onClick={onReword}>
-				Reword commit
-			</Item>
-			<SubmenuRoot>
-				<SubmenuTrigger className={styles.menuItem}>Add empty commit</SubmenuTrigger>
-				<Positioner>
-					<Popup className={styles.menuPopup}>
-						<Item
-							className={styles.menuItem}
-							onClick={() => {
-								commitInsertBlank.mutate({
-									projectId,
-									relativeTo: { type: "commit", subject: commitId },
-									side: "above",
-								});
-							}}
-						>
-							Above
-						</Item>
-						<Item
-							className={styles.menuItem}
-							onClick={() => {
-								commitInsertBlank.mutate({
-									projectId,
-									relativeTo: { type: "commit", subject: commitId },
-									side: "below",
-								});
-							}}
-						>
-							Below
-						</Item>
-					</Popup>
-				</Positioner>
-			</SubmenuRoot>
-		</Popup>
-	);
-};
-
-export const CommitRow: FC<
-	{
-		projectId: string;
-		commit: Commit;
-		isSelected: boolean;
-		isSelectedWithin: boolean;
-		isHighlighted: boolean;
-		isEditingMessage: boolean;
-		toggleExpand: () => Promise<void> | void;
-		toggleSelect: () => void;
-		toggleEditingMessage: () => void;
-	} & ComponentProps<"div">
-> = ({
-	projectId,
-	commit,
-	isSelected,
-	isSelectedWithin,
-	isHighlighted,
-	isEditingMessage,
-	toggleExpand,
-	toggleSelect,
-	toggleEditingMessage,
-	className,
-	...restProps
-}) => {
-	const [isExpandPending, startExpandTransition] = useTransition();
-	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
-		commit.message,
-		(_currentMessage, nextMessage: string) => nextMessage,
-	);
-
-	const commitWithOptimisticMessage: Commit = {
-		...commit,
-		message: optimisticMessage,
-	};
-
-	return (
-		<DraggableCommit
-			{...restProps}
-			canDrag={!isEditingMessage}
-			commit={commitWithOptimisticMessage}
-			render={
-				<div
-					className={classes(
-						styles.row,
-						styles.commitRow,
-						isSelected ? styles.selected : isSelectedWithin ? styles.selectedWithin : undefined,
-						isHighlighted && styles.highlighted,
-						className,
-					)}
-					style={{ ...(isExpandPending && { opacity: 0.5 }) }}
-					aria-busy={isExpandPending}
-				>
-					{isEditingMessage ? (
-						<InlineCommitMessageEditor
-							projectId={projectId}
-							commitId={commit.id}
-							message={optimisticMessage}
-							setMessageAction={setOptimisticMessage}
-							onExit={toggleEditingMessage}
-						/>
-					) : (
-						<ContextMenu.Root>
-							<ContextMenu.Trigger
-								render={
-									<button type="button" className={styles.commitButton} onClick={toggleSelect}>
-										<CommitLabel commit={commitWithOptimisticMessage} />
-									</button>
-								}
-							/>
-							<ContextMenu.Portal>
-								<ContextMenu.Positioner>
-									<CommitMenuPopup
-										projectId={projectId}
-										commitId={commit.id}
-										onReword={toggleEditingMessage}
-										parts={ContextMenu}
-									/>
-								</ContextMenu.Positioner>
-							</ContextMenu.Portal>
-						</ContextMenu.Root>
-					)}
-					<button
-						className={styles.rowAction}
-						type="button"
-						onClick={() => {
-							startExpandTransition(toggleExpand);
-						}}
-						aria-expanded={isSelectedWithin}
-						aria-label={isSelectedWithin ? "Collapse commit" : "Expand commit"}
-					>
-						<ExpandCollapseIcon isExpanded={isSelectedWithin} />
-					</button>
-					<Menu.Root>
-						<Menu.Trigger className={styles.rowAction} aria-label="Commit menu">
-							<MenuTriggerIcon />
-						</Menu.Trigger>
-						<Menu.Portal>
-							<Menu.Positioner align="end">
-								<CommitMenuPopup
-									projectId={projectId}
-									commitId={commit.id}
-									onReword={toggleEditingMessage}
-									parts={Menu}
-								/>
-							</Menu.Positioner>
-						</Menu.Portal>
-					</Menu.Root>
-				</div>
-			}
-		/>
-	);
 };
 
 export const CommitsList: FC<{

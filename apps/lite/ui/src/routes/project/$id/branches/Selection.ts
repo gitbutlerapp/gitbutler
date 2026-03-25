@@ -9,7 +9,6 @@ export type Selection =
 			_tag: "Commit";
 			branchName: BranchIdentity;
 			commitId: string;
-			isEditingMessage?: boolean;
 	  }
 	| {
 			_tag: "CommitFile";

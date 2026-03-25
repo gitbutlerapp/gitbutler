@@ -1,33 +1,34 @@
-import useLocalStorageState from "use-local-storage-state";
+import { commitDetailsWithLineStatsQueryOptions } from "#ui/api/queries.ts";
+import { classes } from "#ui/classes.ts";
+import { ExpandCollapseIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import { ContextMenu, Menu } from "@base-ui/react";
+import { BranchDetails, BranchListing, Commit } from "@gitbutler/but-sdk";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { BranchDetails, BranchListing, Commit } from "@gitbutler/but-sdk";
 import { Match } from "effect";
-import { ComponentProps, FC, Suspense } from "react";
+import { ComponentProps, FC, Suspense, useTransition } from "react";
+import useLocalStorageState from "use-local-storage-state";
+import styles from "./route.module.css";
 
-import { classes } from "#ui/classes.ts";
-import { CheckIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
-import {
-	CommitDetails,
-	CommitRow,
-	CommitsList,
-	FileDiff,
-	FileButton,
-	Hunk,
-} from "#ui/routes/project/$id/shared.tsx";
-import { ProjectPreviewLayout } from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
 import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/api/mutations.ts";
 import {
 	branchDetailsQueryOptions,
 	branchDiffQueryOptions,
-	commitDetailsWithLineStatsQueryOptions,
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import { getDefaultSelection, normalizeBranchSelection, Selection } from "./Selection.ts";
-import styles from "./route.module.css";
+import { CheckIcon } from "#ui/components/icons.tsx";
+import { ProjectPreviewLayout } from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
+import {
+	CommitDetails,
+	CommitLabel,
+	CommitsList,
+	FileButton,
+	FileDiff,
+	Hunk,
+} from "#ui/routes/project/$id/shared.tsx";
 import sharedStyles from "../shared.module.css";
+import { getDefaultSelection, normalizeBranchSelection, Selection } from "./Selection.ts";
 
 const isValidCommit = (commitId: string, branchDetails: BranchDetails): boolean => {
 	const commitIds = new Set(branchDetails.commits.map((commit) => commit.id));
@@ -187,40 +188,76 @@ const BranchRow: FC<
 	</div>
 );
 
+const CommitRow: FC<{
+	commit: Commit;
+	isSelected: boolean;
+	isSelectedWithin: boolean;
+	isHighlighted: boolean;
+	toggleExpand: () => Promise<void> | void;
+	toggleSelect: () => void;
+}> = ({ commit, isSelected, isSelectedWithin, isHighlighted, toggleExpand, toggleSelect }) => {
+	const [isExpandPending, startExpandTransition] = useTransition();
+
+	return (
+		<div
+			className={classes(
+				sharedStyles.row,
+				sharedStyles.commitRow,
+				isSelected
+					? sharedStyles.selected
+					: isSelectedWithin
+						? sharedStyles.selectedWithin
+						: undefined,
+				isHighlighted && sharedStyles.highlighted,
+			)}
+			style={{ ...(isExpandPending && { opacity: 0.5 }) }}
+			aria-busy={isExpandPending}
+		>
+			<button type="button" className={sharedStyles.commitButton} onClick={toggleSelect}>
+				<CommitLabel commit={commit} />
+			</button>
+			<button
+				className={sharedStyles.rowAction}
+				type="button"
+				onClick={() => {
+					startExpandTransition(toggleExpand);
+				}}
+				aria-expanded={isSelectedWithin}
+				aria-label={isSelectedWithin ? "Collapse commit" : "Expand commit"}
+			>
+				<ExpandCollapseIcon isExpanded={isSelectedWithin} />
+			</button>
+		</div>
+	);
+};
+
 const CommitC: FC<{
 	projectId: string;
 	commit: Commit;
 	isSelected: boolean;
-	isEditingMessage: boolean;
 	isSelectedWithin: boolean;
 	isFileSelected: (path: string) => boolean;
 	toggleExpand: () => Promise<void> | void;
 	toggleSelect: () => void;
-	toggleEditingMessage: () => void;
 	toggleFileSelect: (path: string) => void;
 }> = ({
 	projectId,
 	commit,
 	isSelected,
-	isEditingMessage,
 	isSelectedWithin,
 	isFileSelected,
 	toggleExpand,
 	toggleSelect,
-	toggleEditingMessage,
 	toggleFileSelect,
 }) => (
 	<div>
 		<CommitRow
-			projectId={projectId}
 			commit={commit}
 			isSelected={isSelected}
-			isEditingMessage={isEditingMessage}
 			isSelectedWithin={isSelectedWithin}
 			isHighlighted={false}
 			toggleExpand={toggleExpand}
 			toggleSelect={toggleSelect}
-			toggleEditingMessage={toggleEditingMessage}
 		/>
 		{isSelectedWithin && (
 			<div className={sharedStyles.commitDetails}>
@@ -251,24 +288,20 @@ const BranchDetailsC: FC<{
 	branchName: string;
 	remote: string | null;
 	isCommitSelected: (commitId: string) => boolean;
-	isCommitEditing: (commitId: string) => boolean;
 	isCommitSelectedWithin: (commitId: string) => boolean;
 	isCommitFileSelected: (commitId: string, path: string) => boolean;
 	toggleCommitExpanded: (commitId: string) => Promise<void> | void;
 	toggleCommitSelection: (commitId: string) => void;
-	toggleEditingMessage: (commitId: string) => void;
 	toggleCommitFileSelection: (commitId: string, path: string) => void;
 }> = ({
 	projectId,
 	branchName,
 	remote,
 	isCommitSelected,
-	isCommitEditing,
 	isCommitSelectedWithin,
 	isCommitFileSelected,
 	toggleCommitExpanded,
 	toggleCommitSelection,
-	toggleEditingMessage,
 	toggleCommitFileSelection,
 }) => {
 	const { data: branchDetails } = useSuspenseQuery(
@@ -282,15 +315,11 @@ const BranchDetailsC: FC<{
 					projectId={projectId}
 					commit={commit}
 					isSelected={isCommitSelected(commit.id)}
-					isEditingMessage={isCommitEditing(commit.id)}
 					isSelectedWithin={isCommitSelectedWithin(commit.id)}
 					isFileSelected={(path) => isCommitFileSelected(commit.id, path)}
 					toggleExpand={() => toggleCommitExpanded(commit.id)}
 					toggleSelect={() => {
 						toggleCommitSelection(commit.id);
-					}}
-					toggleEditingMessage={() => {
-						toggleEditingMessage(commit.id);
 					}}
 					toggleFileSelect={(path) => {
 						toggleCommitFileSelection(commit.id, path);
@@ -471,11 +500,6 @@ const ProjectBranchesPage: FC = () => {
 		selection?._tag === "Commit" &&
 		selection.branchName === branchName &&
 		selection.commitId === commitId;
-	const isCommitEditing = (branchName: string, commitId: string) =>
-		selection?._tag === "Commit" &&
-		selection.branchName === branchName &&
-		selection.commitId === commitId &&
-		selection.isEditingMessage === true;
 	const isCommitSelectedWithin = (branchName: string, commitId: string) =>
 		selection?._tag === "CommitFile" &&
 		selection.branchName === branchName &&
@@ -490,12 +514,12 @@ const ProjectBranchesPage: FC = () => {
 		select(
 			isCommitSelected(branchName, commitId)
 				? { _tag: "Branch", branchName }
-				: { _tag: "Commit", branchName, commitId, isEditingMessage: false },
+				: { _tag: "Commit", branchName, commitId },
 		);
 	};
 	const toggleCommitExpanded = async (branchName: string, commitId: string) => {
 		if (isCommitSelectedWithin(branchName, commitId)) {
-			select({ _tag: "Commit", branchName, commitId, isEditingMessage: false });
+			select({ _tag: "Commit", branchName, commitId });
 			return;
 		}
 
@@ -507,30 +531,15 @@ const ProjectBranchesPage: FC = () => {
 		select(
 			firstPath !== undefined
 				? { _tag: "CommitFile", branchName, commitId, path: firstPath }
-				: { _tag: "Commit", branchName, commitId, isEditingMessage: false },
+				: { _tag: "Commit", branchName, commitId },
 		);
 	};
 	const toggleCommitFileSelection = (branchName: string, commitId: string, path: string) => {
 		select(
 			isCommitFileSelected(branchName, commitId, path)
-				? { _tag: "Commit", branchName, commitId, isEditingMessage: false }
+				? { _tag: "Commit", branchName, commitId }
 				: { _tag: "CommitFile", branchName, commitId, path },
 		);
-	};
-	const toggleEditingMessage = (branchName: string, commitId: string) => {
-		if (isCommitEditing(branchName, commitId)) {
-			select((currentSelection) =>
-				currentSelection?._tag === "Commit" &&
-				currentSelection.branchName === branchName &&
-				currentSelection.commitId === commitId &&
-				currentSelection.isEditingMessage === true
-					? { ...currentSelection, isEditingMessage: false }
-					: currentSelection,
-			);
-			return;
-		}
-
-		select({ _tag: "Commit", branchName, commitId, isEditingMessage: true });
 	};
 	const toggleBranchSelection = (branchName: string) => {
 		select((selected) =>
@@ -587,7 +596,6 @@ const ProjectBranchesPage: FC = () => {
 								branchName={selectedBranch.name}
 								remote={selectedRemote ?? null}
 								isCommitSelected={(commitId) => isCommitSelected(selectedBranch.name, commitId)}
-								isCommitEditing={(commitId) => isCommitEditing(selectedBranch.name, commitId)}
 								isCommitSelectedWithin={(commitId) =>
 									isCommitSelectedWithin(selectedBranch.name, commitId)
 								}
@@ -599,9 +607,6 @@ const ProjectBranchesPage: FC = () => {
 								}
 								toggleCommitSelection={(commitId) =>
 									toggleCommitSelection(selectedBranch.name, commitId)
-								}
-								toggleEditingMessage={(commitId) =>
-									toggleEditingMessage(selectedBranch.name, commitId)
 								}
 								toggleCommitFileSelection={(commitId, path) =>
 									toggleCommitFileSelection(selectedBranch.name, commitId, path)
