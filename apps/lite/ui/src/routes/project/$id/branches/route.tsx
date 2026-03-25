@@ -251,23 +251,13 @@ const CommitRow: FC<{
 						const commitDetails = await queryClient.ensureQueryData(
 							commitDetailsWithLineStatsQueryOptions({ projectId, commitId: commit.id }),
 						);
-						const firstPath = commitDetails.changes[0]?.path;
 
-						select(
-							firstPath !== undefined
-								? {
-										_tag: "Commit",
-										branchName,
-										commitId: commit.id,
-										mode: { _tag: "Details", path: firstPath },
-									}
-								: {
-										_tag: "Commit",
-										branchName,
-										commitId: commit.id,
-										mode: { _tag: "Details" },
-									},
-						);
+						select({
+							_tag: "Commit",
+							branchName,
+							commitId: commit.id,
+							mode: { _tag: "Details", path: commitDetails.changes[0]?.path },
+						});
 					});
 				}}
 				aria-expanded={commitSelection?.mode._tag === "Details"}
