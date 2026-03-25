@@ -116,6 +116,78 @@ fn commit_from_unstaged_changes_creates_commit_visible_in_tui() {
 }
 
 #[test]
+fn commit_from_unstaged_changes_with_multiple_hunks_in_same_file_commits_all_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file(
+        ".git/editor.sh",
+        format!("printf '{TEST_EDITOR_MESSAGE}\\n' > \"$1\"\n"),
+    );
+    let editor_path = env.projects_root().join(".git/editor.sh");
+    let editor_command = format!("sh {}", editor_path.display());
+
+    let base = (1..=20)
+        .map(|line| line.to_string())
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+
+    let mut tui = test_tui(env);
+
+    tui.env.file("multi-hunk.txt", &base);
+
+    tui.input_then_render(None)
+        .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
+
+    tui.input_then_render('c')
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [unstaged changes]"]);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄<< commit to branch >> g0 [A]"]);
+
+    with_var("GIT_EDITOR", Some(editor_command.clone()), || {
+        tui.input_then_render(KeyCode::Enter)
+            .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"]);
+    });
+
+    let changed = base
+        .lines()
+        .enumerate()
+        .map(|(idx, line)| match idx {
+            1 => "line-2-modified".to_string(),
+            17 => "line-18-modified".to_string(),
+            _ => line.to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
+    tui.env.file("multi-hunk.txt", changed);
+
+    tui.input_then_render(None);
+    tui.input_then_render(std::array::repeat::<_, 20>(KeyCode::Up));
+    tui.input_then_render(None)
+        .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
+
+    tui.input_then_render('c')
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [unstaged changes]"]);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄<< commit to branch >> g0 [A]"]);
+
+    with_var("GIT_EDITOR", Some(editor_command), || {
+        tui.input_then_render(KeyCode::Enter)
+            .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"]);
+    });
+
+    let status = tui.env.invoke_git("status --porcelain");
+    assert_eq!(
+        status, "",
+        "expected all zz changes to be committed, but worktree still has:\n{status}"
+    );
+}
+
+#[test]
 fn commit_mode_shows_commit_above_on_commit_rows() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();

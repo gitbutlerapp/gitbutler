@@ -165,6 +165,8 @@ pub(super) fn create_commit_legacy(
         }
     };
 
+    let changes_to_commit = but_workspace::flatten_diff_specs(changes_to_commit);
+
     // create commit
     but_api::commit::create::commit_create(
         ctx,
