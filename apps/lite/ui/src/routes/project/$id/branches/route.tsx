@@ -33,9 +33,9 @@ import {
 	getDefaultSelection,
 	isBranchSelected,
 	isBranchSelectedWithin,
+	isCommitExpanded,
 	isCommitFileSelected,
 	isCommitSelected,
-	isCommitSelectedWithin,
 	normalizeBranchSelection,
 	Selection,
 	toggleBranchSelection,
@@ -214,7 +214,7 @@ const CommitRow: FC<{
 	const [isExpandPending, startExpandTransition] = useTransition();
 	const queryClient = useQueryClient();
 	const isSelected = isCommitSelected(selection, branchName, commit.id);
-	const isSelectedWithin = isCommitSelectedWithin(selection, branchName, commit.id);
+	const isExpanded = isCommitExpanded(selection, branchName, commit.id);
 
 	return (
 		<div
@@ -223,7 +223,7 @@ const CommitRow: FC<{
 				sharedStyles.commitRow,
 				isSelected
 					? sharedStyles.selected
-					: isSelectedWithin
+					: isExpanded
 						? sharedStyles.selectedWithin
 						: undefined,
 				isHighlighted && sharedStyles.highlighted,
@@ -245,8 +245,8 @@ const CommitRow: FC<{
 				type="button"
 				onClick={() => {
 					startExpandTransition(async () => {
-						if (isCommitSelectedWithin(selection, branchName, commit.id)) {
-							select({ _tag: "Commit", branchName, commitId: commit.id });
+						if (isExpanded) {
+							select({ _tag: "Commit", branchName, commitId: commit.id, isExpanded: false });
 							return;
 						}
 
@@ -257,15 +257,15 @@ const CommitRow: FC<{
 
 						select(
 							firstPath !== undefined
-								? { _tag: "CommitFile", branchName, commitId: commit.id, path: firstPath }
-								: { _tag: "Commit", branchName, commitId: commit.id },
+								? { _tag: "Commit", branchName, commitId: commit.id, path: firstPath, isExpanded: true }
+								: { _tag: "Commit", branchName, commitId: commit.id, isExpanded: true },
 						);
 					});
 				}}
-				aria-expanded={isSelectedWithin}
-				aria-label={isSelectedWithin ? "Collapse commit" : "Expand commit"}
+				aria-expanded={isExpanded}
+				aria-label={isExpanded ? "Collapse commit" : "Expand commit"}
 			>
-				<ExpandCollapseIcon isExpanded={isSelectedWithin} />
+				<ExpandCollapseIcon isExpanded={isExpanded} />
 			</button>
 		</div>
 	);
@@ -287,7 +287,7 @@ const CommitC: FC<{
 			select={select}
 			isHighlighted={false}
 		/>
-		{isCommitSelectedWithin(selection, branchName, commit.id) && (
+		{isCommitExpanded(selection, branchName, commit.id) && (
 			<div className={sharedStyles.commitDetails}>
 				<Suspense fallback={<div>Loading changed details…</div>}>
 					<CommitDetails
@@ -392,9 +392,9 @@ const CommitDiff: FC<{
 	);
 	if (!isValidCommit(commitId, branchDetails)) return null;
 
-	if (data.changes.length === 0) return null;
-
-	return (
+	return data.changes.length === 0 ? (
+		<div>No file changes.</div>
+	) : (
 		<ul>
 			{data.changes.map((change) => (
 				<li key={change.path}>
@@ -454,22 +454,23 @@ const Preview: FC<{
 				<div>No branch diff available.</div>
 			),
 		),
-		Match.tag("Commit", ({ branchName, commitId }) => (
-			<CommitDiff
-				projectId={projectId}
-				branchName={branchName}
-				remote={remote}
-				commitId={commitId}
-			/>
-		)),
-		Match.tag("CommitFile", ({ branchName, commitId, path }) => (
-			<CommitFileDiff
-				projectId={projectId}
-				branchName={branchName}
-				remote={remote}
-				commitId={commitId}
-				path={path}
-			/>
+		Match.tag("Commit", ({ branchName, commitId, path }) => (
+			path === undefined ? (
+				<CommitDiff
+					projectId={projectId}
+					branchName={branchName}
+					remote={remote}
+					commitId={commitId}
+				/>
+			) : (
+				<CommitFileDiff
+					projectId={projectId}
+					branchName={branchName}
+					remote={remote}
+					commitId={commitId}
+					path={path}
+				/>
+			)
 		)),
 		Match.exhaustive,
 	);

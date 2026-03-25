@@ -78,10 +78,10 @@ import {
 	getDefaultSelection,
 	isBranchSelected,
 	isChangesFileSelected,
+	isCommitExpanded,
 	isCommitEditingMessage,
 	isCommitFileSelected,
 	isCommitSelected,
-	isCommitSelectedWithin,
 	normalizeSelection,
 	type Selection,
 	toggleBranchSelection,
@@ -580,8 +580,6 @@ const ShowCommit: FC<{
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
 
-	if (data.changes.length === 0) return null;
-
 	const firstLineEnd = data.commit.message.indexOf("\n");
 	const commitMessageBody =
 		firstLineEnd === -1 ? "" : data.commit.message.slice(firstLineEnd + 1).trim();
@@ -594,25 +592,29 @@ const ShowCommit: FC<{
 			{commitMessageBody !== "" && (
 				<p className={styles.selectedCommitMessageBody}>{commitMessageBody}</p>
 			)}
-			<ul>
-				{data.changes.map((change) => (
-					<li key={change.path}>
-						<h4>{change.path}</h4>
-						<FileDiff
-							projectId={projectId}
-							change={change}
-							renderHunk={(hunk, patch) => (
-								<Hunk
-									patch={patch}
-									changeUnit={{ _tag: "Commit", commitId }}
-									change={change}
-									hunk={hunk}
-								/>
-							)}
-						/>
-					</li>
-				))}
-			</ul>
+			{data.changes.length === 0 ? (
+				<div>No file changes.</div>
+			) : (
+				<ul>
+					{data.changes.map((change) => (
+						<li key={change.path}>
+							<h4>{change.path}</h4>
+							<FileDiff
+								projectId={projectId}
+								change={change}
+								renderHunk={(hunk, patch) => (
+									<Hunk
+										patch={patch}
+										changeUnit={{ _tag: "Commit", commitId }}
+										change={change}
+										hunk={hunk}
+									/>
+								)}
+							/>
+						</li>
+					))}
+				</ul>
+			)}
 		</>
 	);
 };
@@ -634,10 +636,13 @@ const Preview: FC<{
 				onDependencyHover={onDependencyHover}
 			/>
 		)),
-		Match.tag("Commit", ({ commitId }) => <ShowCommit projectId={projectId} commitId={commitId} />),
-		Match.tag("CommitFile", ({ commitId, path }) => (
-			<CommitFileDiff projectId={projectId} commitId={commitId} path={path} />
-		)),
+		Match.tag("Commit", ({ commitId, path }) =>
+			path === undefined ? (
+				<ShowCommit projectId={projectId} commitId={commitId} />
+			) : (
+				<CommitFileDiff projectId={projectId} commitId={commitId} path={path} />
+			),
+		),
 		Match.exhaustive,
 	);
 
@@ -990,7 +995,7 @@ const CommitRow: FC<
 	const queryClient = useQueryClient();
 	const isEditingMessage = isCommitEditingMessage(selection, stackId, commit.id);
 	const isSelected = isCommitSelected(selection, stackId, commit.id);
-	const isSelectedWithin = isCommitSelectedWithin(selection, stackId, commit.id);
+	const isExpanded = isCommitExpanded(selection, stackId, commit.id);
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
 		(_currentMessage, nextMessage: string) => nextMessage,
@@ -1013,7 +1018,7 @@ const CommitRow: FC<
 						sharedStyles.commitRow,
 						isSelected
 							? sharedStyles.selected
-							: isSelectedWithin
+							: isExpanded
 								? sharedStyles.selectedWithin
 								: undefined,
 						isHighlighted && sharedStyles.highlighted,
@@ -1067,8 +1072,14 @@ const CommitRow: FC<
 						type="button"
 						onClick={() => {
 							startExpandTransition(async () => {
-								if (isCommitSelectedWithin(selection, stackId, commit.id)) {
-									select({ _tag: "Commit", stackId, commitId: commit.id, isEditingMessage: false });
+								if (isExpanded) {
+									select({
+										_tag: "Commit",
+										stackId,
+										commitId: commit.id,
+										isEditingMessage: false,
+										isExpanded: false,
+									});
 									return;
 								}
 
@@ -1079,15 +1090,28 @@ const CommitRow: FC<
 
 								select(
 									firstPath !== undefined
-										? { _tag: "CommitFile", stackId, commitId: commit.id, path: firstPath }
-										: { _tag: "Commit", stackId, commitId: commit.id, isEditingMessage: false },
+										? {
+												_tag: "Commit",
+												stackId,
+												commitId: commit.id,
+												path: firstPath,
+												isEditingMessage: false,
+												isExpanded: true,
+											}
+										: {
+												_tag: "Commit",
+												stackId,
+												commitId: commit.id,
+												isEditingMessage: false,
+												isExpanded: true,
+											},
 								);
 							});
 						}}
-						aria-expanded={isSelectedWithin}
-						aria-label={isSelectedWithin ? "Collapse commit" : "Expand commit"}
+						aria-expanded={isExpanded}
+						aria-label={isExpanded ? "Collapse commit" : "Expand commit"}
 					>
-						<ExpandCollapseIcon isExpanded={isSelectedWithin} />
+						<ExpandCollapseIcon isExpanded={isExpanded} />
 					</button>
 					<Menu.Root>
 						<Menu.Trigger className={sharedStyles.rowAction} aria-label="Commit menu">
@@ -1135,7 +1159,7 @@ const CommitC: FC<{
 	select,
 	stackId,
 }) => {
-	const isSelectedWithin = isCommitSelectedWithin(selection, stackId, commit.id);
+	const isExpanded = isCommitExpanded(selection, stackId, commit.id);
 
 	return (
 		<CommitTarget
@@ -1153,7 +1177,7 @@ const CommitC: FC<{
 				select={select}
 				stackId={stackId}
 			/>
-			{isSelectedWithin && (
+			{isExpanded && (
 				<div className={sharedStyles.commitDetails}>
 					<Suspense fallback={<div>Loading changed details…</div>}>
 						<CommitDetails

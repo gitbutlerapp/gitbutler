@@ -17,13 +17,9 @@ export type Selection =
 			_tag: "Commit";
 			stackId: string;
 			commitId: string;
+			path?: string;
 			isEditingMessage?: boolean;
-	  }
-	| {
-			_tag: "CommitFile";
-			stackId: string;
-			commitId: string;
-			path: string;
+			isExpanded?: boolean;
 	  };
 
 export const isBranchSelected = (
@@ -47,7 +43,10 @@ export const isCommitSelected = (
 	stackId: string,
 	commitId: string,
 ): boolean =>
-	selection?._tag === "Commit" && selection.stackId === stackId && selection.commitId === commitId;
+	selection?._tag === "Commit" &&
+	selection.stackId === stackId &&
+	selection.commitId === commitId &&
+	selection.path === undefined;
 
 export const isCommitEditingMessage = (
 	selection: Selection | null,
@@ -64,9 +63,20 @@ export const isCommitSelectedWithin = (
 	stackId: string,
 	commitId: string,
 ): boolean =>
-	selection?._tag === "CommitFile" &&
+	selection?._tag === "Commit" &&
 	selection.stackId === stackId &&
-	selection.commitId === commitId;
+	selection.commitId === commitId &&
+	selection.path !== undefined;
+
+export const isCommitExpanded = (
+	selection: Selection | null,
+	stackId: string,
+	commitId: string,
+): boolean =>
+	selection?._tag === "Commit" &&
+	selection.stackId === stackId &&
+	selection.commitId === commitId &&
+	selection.isExpanded === true;
 
 export const isCommitFileSelected = (
 	selection: Selection | null,
@@ -74,7 +84,7 @@ export const isCommitFileSelected = (
 	commitId: string,
 	path: string,
 ): boolean =>
-	selection?._tag === "CommitFile" &&
+	selection?._tag === "Commit" &&
 	selection.stackId === stackId &&
 	selection.commitId === commitId &&
 	selection.path === path;
@@ -107,7 +117,7 @@ export const toggleCommitSelection = (
 		? branchRef !== null
 			? { _tag: "Branch", stackId, branchName, branchRef }
 			: null
-		: { _tag: "Commit", stackId, commitId, isEditingMessage: false };
+		: { _tag: "Commit", stackId, commitId, isEditingMessage: false, isExpanded: false };
 
 export const toggleCommitEditingMessage = (
 	selection: Selection | null,
@@ -122,7 +132,7 @@ export const toggleCommitEditingMessage = (
 			? { ...selection, isEditingMessage: false }
 			: selection;
 
-	return { _tag: "Commit", stackId, commitId, isEditingMessage: true };
+	return { _tag: "Commit", stackId, commitId, isEditingMessage: true, isExpanded: false };
 };
 
 export const toggleCommitFileSelection = (
@@ -137,8 +147,9 @@ export const toggleCommitFileSelection = (
 				stackId,
 				commitId,
 				isEditingMessage: false,
+				isExpanded: false,
 			}
-		: { _tag: "CommitFile", stackId, commitId, path };
+		: { _tag: "Commit", stackId, commitId, path, isEditingMessage: false, isExpanded: true };
 
 export const normalizeSelection = (
 	selection: Selection,
@@ -152,7 +163,7 @@ export const normalizeSelection = (
 			return branchRefs.has(selection.branchRef) ? selection : null;
 		}),
 		Match.tag("ChangesFile", (selection) => selection),
-		Match.tag("Commit", "CommitFile", (selection) => {
+		Match.tag("Commit", (selection) => {
 			const stackIds = stackIdsByCommitId.get(selection.commitId);
 			if (stackIds === undefined) return null;
 			if (!stackIds.has(selection.stackId)) return null;

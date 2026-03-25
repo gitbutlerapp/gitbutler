@@ -9,12 +9,8 @@ export type Selection =
 			_tag: "Commit";
 			branchName: BranchIdentity;
 			commitId: string;
-	  }
-	| {
-			_tag: "CommitFile";
-			branchName: BranchIdentity;
-			commitId: string;
-			path: string;
+			path?: string;
+			isExpanded?: boolean;
 	  };
 
 export const isBranchSelected = (
@@ -25,9 +21,7 @@ export const isBranchSelected = (
 export const isBranchSelectedWithin = (
 	selection: Selection | null,
 	branchName: BranchIdentity,
-): boolean =>
-	(selection?._tag === "Commit" || selection?._tag === "CommitFile") &&
-	selection.branchName === branchName;
+): boolean => selection?._tag === "Commit" && selection.branchName === branchName;
 
 export const isCommitSelected = (
 	selection: Selection | null,
@@ -36,16 +30,28 @@ export const isCommitSelected = (
 ): boolean =>
 	selection?._tag === "Commit" &&
 	selection.branchName === branchName &&
-	selection.commitId === commitId;
+	selection.commitId === commitId &&
+	selection.path === undefined;
 
 export const isCommitSelectedWithin = (
 	selection: Selection | null,
 	branchName: BranchIdentity,
 	commitId: string,
 ): boolean =>
-	selection?._tag === "CommitFile" &&
+	selection?._tag === "Commit" &&
 	selection.branchName === branchName &&
-	selection.commitId === commitId;
+	selection.commitId === commitId &&
+	selection.path !== undefined;
+
+export const isCommitExpanded = (
+	selection: Selection | null,
+	branchName: BranchIdentity,
+	commitId: string,
+): boolean =>
+	selection?._tag === "Commit" &&
+	selection.branchName === branchName &&
+	selection.commitId === commitId &&
+	selection.isExpanded === true;
 
 export const isCommitFileSelected = (
 	selection: Selection | null,
@@ -53,7 +59,7 @@ export const isCommitFileSelected = (
 	commitId: string,
 	path: string,
 ): boolean =>
-	selection?._tag === "CommitFile" &&
+	selection?._tag === "Commit" &&
 	selection.branchName === branchName &&
 	selection.commitId === commitId &&
 	selection.path === path;
@@ -71,7 +77,7 @@ export const toggleCommitSelection = (
 ): Selection | null =>
 	isCommitSelected(selection, branchName, commitId)
 		? { _tag: "Branch", branchName }
-		: { _tag: "Commit", branchName, commitId };
+		: { _tag: "Commit", branchName, commitId, isExpanded: false };
 
 export const toggleCommitFileSelection = (
 	selection: Selection | null,
@@ -80,8 +86,8 @@ export const toggleCommitFileSelection = (
 	path: string,
 ): Selection | null =>
 	isCommitFileSelected(selection, branchName, commitId, path)
-		? { _tag: "Commit", branchName, commitId }
-		: { _tag: "CommitFile", branchName, commitId, path };
+		? { _tag: "Commit", branchName, commitId, isExpanded: false }
+		: { _tag: "Commit", branchName, commitId, path, isExpanded: true };
 
 export const normalizeBranchSelection = (
 	selection: Selection,
