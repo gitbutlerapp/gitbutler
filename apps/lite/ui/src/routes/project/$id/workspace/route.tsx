@@ -1429,11 +1429,13 @@ const StackC: FC<{
 	isCommitSelected: (commitId: string) => boolean;
 	isCommitEditingMessage: (commitId: string) => boolean;
 	isCommitSelectedWithin: (commitId: string) => boolean;
-	isChangeUnitFileSelected: (changeUnit: ChangeUnit, path: string) => boolean;
+	isCommitFileSelected: (commitId: string, path: string) => boolean;
+	isChangesFileSelected: (path: string) => boolean;
 	toggleCommitExpanded: (commitId: string) => Promise<void> | void;
 	toggleCommitSelection: (commitId: string) => void;
 	toggleCommitEditingMessage: (commitId: string) => void;
-	toggleChangeUnitFileSelection: (changeUnit: ChangeUnit, path: string) => void;
+	toggleCommitFileSelection: (commitId: string, path: string) => void;
+	toggleChangesFileSelection: (path: string) => void;
 	highlightedCommitIds: Set<string>;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 }> = ({
@@ -1444,11 +1446,13 @@ const StackC: FC<{
 	isCommitSelected,
 	isCommitEditingMessage,
 	isCommitSelectedWithin,
-	isChangeUnitFileSelected,
+	isCommitFileSelected,
+	isChangesFileSelected,
 	toggleCommitExpanded,
 	toggleCommitSelection,
 	toggleCommitEditingMessage,
-	toggleChangeUnitFileSelection,
+	toggleCommitFileSelection,
+	toggleChangesFileSelection,
 	highlightedCommitIds,
 	onDependencyHover,
 }) => {
@@ -1461,8 +1465,6 @@ const StackC: FC<{
 	// could genuinely be null (assuming backend correctness).
 	// oxlint-disable-next-line typescript/no-non-null-assertion -- [tag:stack-id-required]
 	const stackId = stack.id!;
-
-	const changesChangeUnit: ChangeUnit = { _tag: "Changes", stackId };
 
 	return (
 		<div className={styles.stack}>
@@ -1483,9 +1485,9 @@ const StackC: FC<{
 				<Changes
 					projectId={projectId}
 					stackId={stack.id}
-					isFileSelected={(path) => isChangeUnitFileSelected(changesChangeUnit, path)}
+					isFileSelected={isChangesFileSelected}
 					toggleFileSelect={(path) => {
-						toggleChangeUnitFileSelection(changesChangeUnit, path);
+						toggleChangesFileSelection(path);
 					}}
 					onDependencyHover={onDependencyHover}
 					className={styles.assignedChanges}
@@ -1530,35 +1532,29 @@ const StackC: FC<{
 							/>
 
 							<CommitsList commits={segment.commits}>
-								{(commit, index) => {
-									const changeUnit: ChangeUnit = {
-										_tag: "Commit",
-										commitId: commit.id,
-									};
-									return (
-										<CommitC
-											projectId={projectId}
-											commit={commit}
-											previousCommitId={segment.commits[index - 1]?.id}
-											nextCommitId={segment.commits[index + 1]?.id}
-											isHighlighted={highlightedCommitIds.has(commit.id)}
-											isSelected={isCommitSelected(commit.id)}
-											isEditingMessage={isCommitEditingMessage(commit.id)}
-											isSelectedWithin={isCommitSelectedWithin(commit.id)}
-											isFileSelected={(path) => isChangeUnitFileSelected(changeUnit, path)}
-											toggleExpand={() => toggleCommitExpanded(commit.id)}
-											toggleSelect={() => {
-												toggleCommitSelection(commit.id);
-											}}
-											toggleEditingMessage={() => {
-												toggleCommitEditingMessage(commit.id);
-											}}
-											toggleFileSelect={(path) => {
-												toggleChangeUnitFileSelection(changeUnit, path);
-											}}
-										/>
-									);
-								}}
+								{(commit, index) => (
+									<CommitC
+										projectId={projectId}
+										commit={commit}
+										previousCommitId={segment.commits[index - 1]?.id}
+										nextCommitId={segment.commits[index + 1]?.id}
+										isHighlighted={highlightedCommitIds.has(commit.id)}
+										isSelected={isCommitSelected(commit.id)}
+										isEditingMessage={isCommitEditingMessage(commit.id)}
+										isSelectedWithin={isCommitSelectedWithin(commit.id)}
+										isFileSelected={(path) => isCommitFileSelected(commit.id, path)}
+										toggleExpand={() => toggleCommitExpanded(commit.id)}
+										toggleSelect={() => {
+											toggleCommitSelection(commit.id);
+										}}
+										toggleEditingMessage={() => {
+											toggleCommitEditingMessage(commit.id);
+										}}
+										toggleFileSelect={(path) => {
+											toggleCommitFileSelection(commit.id, path);
+										}}
+									/>
+								)}
 							</CommitsList>
 						</li>
 					);
@@ -1623,18 +1619,13 @@ const ProjectPage: FC = () => {
 		selection.stackId === stackId &&
 		selection.commitId === commitId;
 
-	const isChangeUnitFileSelected = (stackId: string, changeUnit: ChangeUnit, path: string) => {
-		if (!selection) return false;
-		if (selection._tag === "CommitFile" && changeUnit._tag === "Commit")
-			return (
-				selection.stackId === stackId &&
-				selection.commitId === changeUnit.commitId &&
-				selection.path === path
-			);
-		if (selection._tag === "ChangesFile" && changeUnit._tag === "Changes")
-			return selection.stackId === stackId && selection.path === path;
-		return false;
-	};
+	const isCommitFileSelected = (stackId: string, commitId: string, path: string) =>
+		selection?._tag === "CommitFile" &&
+		selection.stackId === stackId &&
+		selection.commitId === commitId &&
+		selection.path === path;
+	const isChangesFileSelected = (stackId: string, path: string) =>
+		selection?._tag === "ChangesFile" && selection.stackId === stackId && selection.path === path;
 
 	const toggleBranchSelection = (stackId: string, branchName: string, branchRef: string) => {
 		select(
@@ -1682,21 +1673,20 @@ const ProjectPage: FC = () => {
 
 		select({ _tag: "Commit", stackId, commitId, isEditingMessage: true });
 	};
-	const toggleChangeUnitFileSelection = (stackId: string, changeUnit: ChangeUnit, path: string) => {
+	const toggleCommitFileSelection = (stackId: string, commitId: string, path: string) => {
 		select(
-			isChangeUnitFileSelected(stackId, changeUnit, path)
-				? changeUnit._tag === "Commit"
-					? {
-							_tag: "Commit",
-							stackId,
-							commitId: changeUnit.commitId,
-							isEditingMessage: false,
-						}
-					: null
-				: changeUnit._tag === "Commit"
-					? { _tag: "CommitFile", stackId, commitId: changeUnit.commitId, path }
-					: { _tag: "ChangesFile", stackId, path },
+			isCommitFileSelected(stackId, commitId, path)
+				? {
+						_tag: "Commit",
+						stackId,
+						commitId,
+						isEditingMessage: false,
+					}
+				: { _tag: "CommitFile", stackId, commitId, path },
 		);
+	};
+	const toggleChangesFileSelection = (stackId: string, path: string) => {
+		select(isChangesFileSelected(stackId, path) ? null : { _tag: "ChangesFile", stackId, path });
 	};
 
 	const highlightCommits = (commitIds: Array<string> | null) => {
@@ -1752,9 +1742,10 @@ const ProjectPage: FC = () => {
 										isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
 										isCommitEditingMessage={(commitId) => isCommitEditingMessage(stackId, commitId)}
 										isCommitSelectedWithin={(commitId) => isCommitSelectedWithin(stackId, commitId)}
-										isChangeUnitFileSelected={(changeUnit, path) =>
-											isChangeUnitFileSelected(stackId, changeUnit, path)
+										isCommitFileSelected={(commitId, path) =>
+											isCommitFileSelected(stackId, commitId, path)
 										}
+										isChangesFileSelected={(path) => isChangesFileSelected(stackId, path)}
 										toggleCommitExpanded={(commitId) => toggleCommitExpanded(stackId, commitId)}
 										toggleCommitSelection={(commitId) => {
 											toggleCommitSelection(stackId, commitId);
@@ -1762,8 +1753,11 @@ const ProjectPage: FC = () => {
 										toggleCommitEditingMessage={(commitId) => {
 											toggleCommitEditingMessage(stackId, commitId);
 										}}
-										toggleChangeUnitFileSelection={(changeUnit, path) => {
-											toggleChangeUnitFileSelection(stackId, changeUnit, path);
+										toggleCommitFileSelection={(commitId, path) => {
+											toggleCommitFileSelection(stackId, commitId, path);
+										}}
+										toggleChangesFileSelection={(path) => {
+											toggleChangesFileSelection(stackId, path);
 										}}
 										highlightedCommitIds={highlightedCommitIds}
 										onDependencyHover={highlightCommits}
