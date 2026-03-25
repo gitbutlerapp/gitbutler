@@ -66,22 +66,18 @@ export const toggleCommitEditingMessage = (
 	selection: Selection | null,
 	stackId: string,
 	commitId: string,
-): Selection | null => {
-	if (
-		selection?._tag === "Commit" &&
-		selection.stackId === stackId &&
-		selection.commitId === commitId &&
-		selection.mode._tag === "EditingMessage"
-	)
-		return { ...selection, mode: { _tag: "Summary" } };
-
-	return {
-		_tag: "Commit",
-		stackId,
-		commitId,
-		mode: { _tag: "EditingMessage" },
-	};
-};
+): Selection | null =>
+	selection?._tag === "Commit" &&
+	selection.stackId === stackId &&
+	selection.commitId === commitId &&
+	selection.mode._tag === "EditingMessage"
+		? { ...selection, mode: { _tag: "Summary" } }
+		: {
+				_tag: "Commit",
+				stackId,
+				commitId,
+				mode: { _tag: "EditingMessage" },
+			};
 
 export const toggleCommitFileSelection = (
 	selection: Selection | null,
