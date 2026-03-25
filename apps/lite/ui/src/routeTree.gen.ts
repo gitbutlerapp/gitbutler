@@ -11,8 +11,8 @@
 import { Route as rootRouteImport } from "./routes/__root"
 import { Route as IndexRouteImport } from "./routes/index"
 import { Route as ProjectIdRouteRouteImport } from "./routes/project/$id/route"
+import { Route as ProjectIdWorkspaceRouteRouteImport } from "./routes/project/$id/workspace/route"
 import { Route as ProjectIdBranchesRouteRouteImport } from "./routes/project/$id/branches/route"
-import { Route as ProjectIdindexIndexRouteImport } from "./routes/project/$id/(index)/index"
 
 const IndexRoute = IndexRouteImport.update({
   id: "/",
@@ -24,14 +24,14 @@ const ProjectIdRouteRoute = ProjectIdRouteRouteImport.update({
   path: "/project/$id",
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProjectIdWorkspaceRouteRoute = ProjectIdWorkspaceRouteRouteImport.update({
+  id: "/workspace",
+  path: "/workspace",
+  getParentRoute: () => ProjectIdRouteRoute,
+} as any)
 const ProjectIdBranchesRouteRoute = ProjectIdBranchesRouteRouteImport.update({
   id: "/branches",
   path: "/branches",
-  getParentRoute: () => ProjectIdRouteRoute,
-} as any)
-const ProjectIdindexIndexRoute = ProjectIdindexIndexRouteImport.update({
-  id: "/(index)/",
-  path: "/",
   getParentRoute: () => ProjectIdRouteRoute,
 } as any)
 
@@ -39,31 +39,36 @@ export interface FileRoutesByFullPath {
   "/": typeof IndexRoute
   "/project/$id": typeof ProjectIdRouteRouteWithChildren
   "/project/$id/branches": typeof ProjectIdBranchesRouteRoute
-  "/project/$id/": typeof ProjectIdindexIndexRoute
+  "/project/$id/workspace": typeof ProjectIdWorkspaceRouteRoute
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute
+  "/project/$id": typeof ProjectIdRouteRouteWithChildren
   "/project/$id/branches": typeof ProjectIdBranchesRouteRoute
-  "/project/$id": typeof ProjectIdindexIndexRoute
+  "/project/$id/workspace": typeof ProjectIdWorkspaceRouteRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   "/": typeof IndexRoute
   "/project/$id": typeof ProjectIdRouteRouteWithChildren
   "/project/$id/branches": typeof ProjectIdBranchesRouteRoute
-  "/project/$id/(index)/": typeof ProjectIdindexIndexRoute
+  "/project/$id/workspace": typeof ProjectIdWorkspaceRouteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: "/" | "/project/$id" | "/project/$id/branches" | "/project/$id/"
+  fullPaths:
+    | "/"
+    | "/project/$id"
+    | "/project/$id/branches"
+    | "/project/$id/workspace"
   fileRoutesByTo: FileRoutesByTo
-  to: "/" | "/project/$id/branches" | "/project/$id"
+  to: "/" | "/project/$id" | "/project/$id/branches" | "/project/$id/workspace"
   id:
     | "__root__"
     | "/"
     | "/project/$id"
     | "/project/$id/branches"
-    | "/project/$id/(index)/"
+    | "/project/$id/workspace"
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -87,6 +92,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ProjectIdRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    "/project/$id/workspace": {
+      id: "/project/$id/workspace"
+      path: "/workspace"
+      fullPath: "/project/$id/workspace"
+      preLoaderRoute: typeof ProjectIdWorkspaceRouteRouteImport
+      parentRoute: typeof ProjectIdRouteRoute
+    }
     "/project/$id/branches": {
       id: "/project/$id/branches"
       path: "/branches"
@@ -94,24 +106,17 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ProjectIdBranchesRouteRouteImport
       parentRoute: typeof ProjectIdRouteRoute
     }
-    "/project/$id/(index)/": {
-      id: "/project/$id/(index)/"
-      path: "/"
-      fullPath: "/project/$id/"
-      preLoaderRoute: typeof ProjectIdindexIndexRouteImport
-      parentRoute: typeof ProjectIdRouteRoute
-    }
   }
 }
 
 interface ProjectIdRouteRouteChildren {
   ProjectIdBranchesRouteRoute: typeof ProjectIdBranchesRouteRoute
-  ProjectIdindexIndexRoute: typeof ProjectIdindexIndexRoute
+  ProjectIdWorkspaceRouteRoute: typeof ProjectIdWorkspaceRouteRoute
 }
 
 const ProjectIdRouteRouteChildren: ProjectIdRouteRouteChildren = {
   ProjectIdBranchesRouteRoute: ProjectIdBranchesRouteRoute,
-  ProjectIdindexIndexRoute: ProjectIdindexIndexRoute,
+  ProjectIdWorkspaceRouteRoute: ProjectIdWorkspaceRouteRoute,
 }
 
 const ProjectIdRouteRouteWithChildren = ProjectIdRouteRoute._addFileChildren(

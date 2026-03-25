@@ -36,7 +36,7 @@ const ProjectSelect: FC = () => {
 			onChange={(event) => {
 				const nextProjectId = event.currentTarget.value;
 				void navigate({
-					to: "/project/$id",
+					to: "/project/$id/workspace",
 					params: { id: nextProjectId },
 				});
 				window.localStorage.setItem(lastOpenedProjectKey, nextProjectId);
@@ -66,7 +66,7 @@ const SidebarNav: FC = () => {
 	return (
 		<nav className={styles.sidebarNav}>
 			<Link
-				to={"/project/$id"}
+				to={"/project/$id/workspace"}
 				params={{ id: selectedProjectId }}
 				className={styles.navLink}
 				activeProps={{ className: styles.navLinkActive }}
