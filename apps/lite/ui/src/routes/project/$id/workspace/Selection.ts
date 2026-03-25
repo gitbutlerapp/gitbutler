@@ -25,78 +25,15 @@ export type Selection =
 			mode: CommitMode;
 	  };
 
-export const isBranchSelected = (
-	selection: Selection | null,
-	stackId: string,
-	branchRef: string,
-): boolean =>
-	selection?._tag === "Branch" &&
-	selection.stackId === stackId &&
-	selection.branchRef === branchRef;
-
-export const isChangesFileSelected = (
-	selection: Selection | null,
-	stackId: string | null,
-	path: string,
-): boolean =>
-	selection?._tag === "ChangesFile" && selection.stackId === stackId && selection.path === path;
-
-export const isCommitSelected = (
-	selection: Selection | null,
-	stackId: string,
-	commitId: string,
-): boolean =>
-	selection?._tag === "Commit" && selection.stackId === stackId && selection.commitId === commitId;
-
-export const isCommitSelectedAndNotShowingDetails = (
-	selection: Selection | null,
-	stackId: string,
-	commitId: string,
-): boolean =>
-	selection?._tag === "Commit" &&
-	selection.stackId === stackId &&
-	selection.commitId === commitId &&
-	selection.mode._tag !== "Details";
-
-export const isCommitSelectedAndShowingDetails = (
-	selection: Selection | null,
-	stackId: string,
-	commitId: string,
-): boolean =>
-	selection?._tag === "Commit" &&
-	selection.stackId === stackId &&
-	selection.commitId === commitId &&
-	selection.mode._tag === "Details";
-
-export const isCommitEditingMessage = (
-	selection: Selection | null,
-	stackId: string,
-	commitId: string,
-): boolean =>
-	selection?._tag === "Commit" &&
-	selection.stackId === stackId &&
-	selection.commitId === commitId &&
-	selection.mode._tag === "EditingMessage";
-
-export const isCommitFileSelected = (
-	selection: Selection | null,
-	stackId: string,
-	commitId: string,
-	path: string,
-): boolean =>
-	selection?._tag === "Commit" &&
-	selection.stackId === stackId &&
-	selection.commitId === commitId &&
-	selection.mode._tag === "Details" &&
-	selection.mode.path === path;
-
 export const toggleBranchSelection = (
 	selection: Selection | null,
 	stackId: string,
 	branchName: string,
 	branchRef: string,
 ): Selection | null =>
-	isBranchSelected(selection, stackId, branchRef)
+	selection?._tag === "Branch" &&
+	selection.stackId === stackId &&
+	selection.branchName === branchName
 		? null
 		: { _tag: "Branch", stackId, branchName, branchRef };
 
@@ -105,7 +42,9 @@ export const toggleChangesFileSelection = (
 	stackId: string | null,
 	path: string,
 ): Selection | null =>
-	isChangesFileSelected(selection, stackId, path) ? null : { _tag: "ChangesFile", stackId, path };
+	selection?._tag === "ChangesFile" && selection.stackId === stackId && selection.path === path
+		? null
+		: { _tag: "ChangesFile", stackId, path };
 
 export const toggleCommitSelection = (
 	selection: Selection | null,
@@ -114,7 +53,10 @@ export const toggleCommitSelection = (
 	branchName: string,
 	branchRef: string | null,
 ): Selection | null =>
-	isCommitSelectedAndNotShowingDetails(selection, stackId, commitId)
+	selection?._tag === "Commit" &&
+	selection.stackId === stackId &&
+	selection.commitId === commitId &&
+	selection.mode._tag !== "Details"
 		? branchRef !== null
 			? { _tag: "Branch", stackId, branchName, branchRef }
 			: null
@@ -125,13 +67,13 @@ export const toggleCommitEditingMessage = (
 	stackId: string,
 	commitId: string,
 ): Selection | null => {
-	if (isCommitEditingMessage(selection, stackId, commitId))
-		return selection?._tag === "Commit" &&
-			selection.stackId === stackId &&
-			selection.commitId === commitId &&
-			selection.mode._tag === "EditingMessage"
-			? { ...selection, mode: { _tag: "Summary" } }
-			: selection;
+	if (
+		selection?._tag === "Commit" &&
+		selection.stackId === stackId &&
+		selection.commitId === commitId &&
+		selection.mode._tag === "EditingMessage"
+	)
+		return { ...selection, mode: { _tag: "Summary" } };
 
 	return {
 		_tag: "Commit",
@@ -147,7 +89,11 @@ export const toggleCommitFileSelection = (
 	commitId: string,
 	path: string,
 ): Selection | null =>
-	isCommitFileSelected(selection, stackId, commitId, path)
+	selection?._tag === "Commit" &&
+	selection.stackId === stackId &&
+	selection.commitId === commitId &&
+	selection.mode._tag === "Details" &&
+	selection.mode.path === path
 		? {
 				_tag: "Commit",
 				stackId,

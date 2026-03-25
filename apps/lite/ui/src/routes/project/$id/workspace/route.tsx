@@ -76,12 +76,6 @@ import useLocalStorageState from "use-local-storage-state";
 import sharedStyles from "../shared.module.css";
 import {
 	getDefaultSelection,
-	isBranchSelected,
-	isChangesFileSelected,
-	isCommitEditingMessage,
-	isCommitFileSelected,
-	isCommitSelected,
-	isCommitSelectedAndShowingDetails,
 	normalizeSelection,
 	type Selection,
 	toggleBranchSelection,
@@ -993,9 +987,12 @@ const CommitRow: FC<
 }) => {
 	const [isDetailsPending, startDetailsTransition] = useTransition();
 	const queryClient = useQueryClient();
-	const isEditingMessage = isCommitEditingMessage(selection, stackId, commit.id);
-	const isSelected = isCommitSelected(selection, stackId, commit.id);
-	const isShowingDetails = isCommitSelectedAndShowingDetails(selection, stackId, commit.id);
+	const commitSelection =
+		selection?._tag === "Commit" &&
+		selection.stackId === stackId &&
+		selection.commitId === commit.id
+			? selection
+			: null;
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
 		(_currentMessage, nextMessage: string) => nextMessage,
@@ -1009,20 +1006,20 @@ const CommitRow: FC<
 	return (
 		<DraggableCommit
 			{...restProps}
-			canDrag={!isEditingMessage}
+			canDrag={commitSelection?.mode._tag !== "EditingMessage"}
 			commit={commitWithOptimisticMessage}
 			render={
 				<div
 					className={classes(
 						sharedStyles.row,
 						sharedStyles.commitRow,
-						isSelected ? sharedStyles.selected : undefined,
+						commitSelection ? sharedStyles.selected : undefined,
 						isHighlighted && sharedStyles.highlighted,
 					)}
 					style={{ ...(isDetailsPending && { opacity: 0.5 }) }}
 					aria-busy={isDetailsPending}
 				>
-					{isEditingMessage ? (
+					{commitSelection?.mode._tag === "EditingMessage" ? (
 						<InlineCommitMessageEditor
 							projectId={projectId}
 							commitId={commit.id}
@@ -1068,7 +1065,7 @@ const CommitRow: FC<
 						type="button"
 						onClick={() => {
 							startDetailsTransition(async () => {
-								if (isShowingDetails) {
+								if (commitSelection?.mode._tag === "Details") {
 									select({
 										_tag: "Commit",
 										stackId,
@@ -1100,10 +1097,14 @@ const CommitRow: FC<
 								);
 							});
 						}}
-						aria-expanded={isShowingDetails}
-						aria-label={isShowingDetails ? "Hide commit details" : "Show commit details"}
+						aria-expanded={commitSelection?.mode._tag === "Details"}
+						aria-label={
+							commitSelection?.mode._tag === "Details"
+								? "Hide commit details"
+								: "Show commit details"
+						}
 					>
-						<ExpandCollapseIcon isExpanded={isShowingDetails} />
+						<ExpandCollapseIcon isExpanded={commitSelection?.mode._tag === "Details"} />
 					</button>
 					<Menu.Root>
 						<Menu.Trigger className={sharedStyles.rowAction} aria-label="Commit menu">
@@ -1151,7 +1152,12 @@ const CommitC: FC<{
 	select,
 	stackId,
 }) => {
-	const isShowingDetails = isCommitSelectedAndShowingDetails(selection, stackId, commit.id);
+	const commitSelection =
+		selection?._tag === "Commit" &&
+		selection.stackId === stackId &&
+		selection.commitId === commit.id
+			? selection
+			: null;
 
 	return (
 		<CommitTarget
@@ -1169,7 +1175,7 @@ const CommitC: FC<{
 				select={select}
 				stackId={stackId}
 			/>
-			{isShowingDetails && (
+			{commitSelection?.mode._tag === "Details" && (
 				<div className={sharedStyles.commitDetails}>
 					<Suspense fallback={<div>Loading changed details…</div>}>
 						<CommitDetails
@@ -1184,7 +1190,8 @@ const CommitC: FC<{
 											className={classes(
 												sharedStyles.row,
 												sharedStyles.fileRow,
-												isCommitFileSelected(selection, stackId, commit.id, change.path) &&
+												commitSelection.mode._tag === "Details" &&
+													commitSelection.mode.path === change.path &&
 													sharedStyles.selectedFile,
 											)}
 										>
@@ -1250,7 +1257,9 @@ const Changes: FC<{
 											className={classes(
 												sharedStyles.row,
 												sharedStyles.fileRow,
-												isChangesFileSelected(selection, stackId, change.path) &&
+												selection?._tag === "ChangesFile" &&
+													selection.stackId === stackId &&
+													selection.path === change.path &&
 													sharedStyles.selected,
 											)}
 										>
@@ -1546,7 +1555,9 @@ const StackC: FC<{
 													type="button"
 													className={classes(
 														styles.branchButton,
-														isBranchSelected(selection, stackId, branchRef) &&
+														selection?._tag === "Branch" &&
+															selection.stackId === stackId &&
+															selection.branchRef === branchRef &&
 															sharedStyles.selected,
 													)}
 													onClick={() => {

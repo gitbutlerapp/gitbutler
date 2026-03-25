@@ -31,11 +31,6 @@ import {
 import sharedStyles from "../shared.module.css";
 import {
 	getDefaultSelection,
-	isBranchSelected,
-	isBranchSelectedWithin,
-	isCommitFileSelected,
-	isCommitSelected,
-	isCommitSelectedAndShowingDetails,
 	normalizeBranchSelection,
 	Selection,
 	toggleBranchSelection,
@@ -148,8 +143,10 @@ const BranchRow: FC<
 		select: (selection: Selection | null) => void;
 	} & ComponentProps<"div">
 > = ({ projectId, branch, selection, select, className, ...restProps }) => {
-	const isSelected = isBranchSelected(selection, branch.name);
-	const isSelectedWithin = isBranchSelectedWithin(selection, branch.name);
+	const branchSelection =
+		selection?._tag === "Branch" && selection.branchName === branch.name ? selection : null;
+	const commitSelection =
+		selection?._tag === "Commit" && selection.branchName === branch.name ? selection : null;
 
 	return (
 		<div
@@ -157,7 +154,7 @@ const BranchRow: FC<
 			className={classes(
 				sharedStyles.row,
 				styles.branchRow,
-				isSelected || isSelectedWithin ? sharedStyles.selected : undefined,
+				branchSelection || commitSelection ? sharedStyles.selected : undefined,
 				className,
 			)}
 		>
@@ -209,15 +206,19 @@ const CommitRow: FC<{
 }> = ({ branchName, commit, projectId, selection, select, isHighlighted }) => {
 	const [isDetailsPending, startDetailsTransition] = useTransition();
 	const queryClient = useQueryClient();
-	const isSelected = isCommitSelected(selection, branchName, commit.id);
-	const isShowingDetails = isCommitSelectedAndShowingDetails(selection, branchName, commit.id);
+	const commitSelection =
+		selection?._tag === "Commit" &&
+		selection.branchName === branchName &&
+		selection.commitId === commit.id
+			? selection
+			: null;
 
 	return (
 		<div
 			className={classes(
 				sharedStyles.row,
 				sharedStyles.commitRow,
-				isSelected ? sharedStyles.selected : undefined,
+				commitSelection ? sharedStyles.selected : undefined,
 				isHighlighted && sharedStyles.highlighted,
 			)}
 			style={{ ...(isDetailsPending && { opacity: 0.5 }) }}
@@ -237,7 +238,7 @@ const CommitRow: FC<{
 				type="button"
 				onClick={() => {
 					startDetailsTransition(async () => {
-						if (isShowingDetails) {
+						if (commitSelection?.mode._tag === "Details") {
 							select({
 								_tag: "Commit",
 								branchName,
@@ -269,10 +270,12 @@ const CommitRow: FC<{
 						);
 					});
 				}}
-				aria-expanded={isShowingDetails}
-				aria-label={isShowingDetails ? "Hide commit details" : "Show commit details"}
+				aria-expanded={commitSelection?.mode._tag === "Details"}
+				aria-label={
+					commitSelection?.mode._tag === "Details" ? "Hide commit details" : "Show commit details"
+				}
 			>
-				<ExpandCollapseIcon isExpanded={isShowingDetails} />
+				<ExpandCollapseIcon isExpanded={commitSelection?.mode._tag === "Details"} />
 			</button>
 		</div>
 	);
@@ -284,47 +287,57 @@ const CommitC: FC<{
 	projectId: string;
 	selection: Selection | null;
 	select: (selection: Selection | null) => void;
-}> = ({ branchName, commit, projectId, selection, select }) => (
-	<div>
-		<CommitRow
-			branchName={branchName}
-			commit={commit}
-			projectId={projectId}
-			selection={selection}
-			select={select}
-			isHighlighted={false}
-		/>
-		{isCommitSelectedAndShowingDetails(selection, branchName, commit.id) && (
-			<div className={sharedStyles.commitDetails}>
-				<Suspense fallback={<div>Loading changed details…</div>}>
-					<CommitDetails
-						projectId={projectId}
-						commitId={commit.id}
-						renderFile={(change) => (
-							<div
-								className={classes(
-									sharedStyles.row,
-									sharedStyles.fileRow,
-									isCommitFileSelected(selection, branchName, commit.id, change.path) &&
-										sharedStyles.selectedFile,
-								)}
-							>
-								<FileButton
-									change={change}
-									toggleSelect={() => {
-										select(
-											toggleCommitFileSelection(selection, branchName, commit.id, change.path),
-										);
-									}}
-								/>
-							</div>
-						)}
-					/>
-				</Suspense>
-			</div>
-		)}
-	</div>
-);
+}> = ({ branchName, commit, projectId, selection, select }) => {
+	const commitSelection =
+		selection?._tag === "Commit" &&
+		selection.branchName === branchName &&
+		selection.commitId === commit.id
+			? selection
+			: null;
+
+	return (
+		<div>
+			<CommitRow
+				branchName={branchName}
+				commit={commit}
+				projectId={projectId}
+				selection={selection}
+				select={select}
+				isHighlighted={false}
+			/>
+			{commitSelection?.mode._tag === "Details" && (
+				<div className={sharedStyles.commitDetails}>
+					<Suspense fallback={<div>Loading changed details…</div>}>
+						<CommitDetails
+							projectId={projectId}
+							commitId={commit.id}
+							renderFile={(change) => (
+								<div
+									className={classes(
+										sharedStyles.row,
+										sharedStyles.fileRow,
+										commitSelection.mode._tag === "Details" &&
+											commitSelection.mode.path === change.path &&
+											sharedStyles.selectedFile,
+									)}
+								>
+									<FileButton
+										change={change}
+										toggleSelect={() => {
+											select(
+												toggleCommitFileSelection(selection, branchName, commit.id, change.path),
+											);
+										}}
+									/>
+								</div>
+							)}
+						/>
+					</Suspense>
+				</div>
+			)}
+		</div>
+	);
+};
 
 const BranchDetailsC: FC<{
 	branchName: string;

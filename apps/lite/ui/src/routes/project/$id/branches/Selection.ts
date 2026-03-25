@@ -14,69 +14,23 @@ export type Selection =
 			mode: CommitMode;
 	  };
 
-export const isBranchSelected = (
-	selection: Selection | null,
-	branchName: BranchIdentity,
-): boolean => selection?._tag === "Branch" && selection.branchName === branchName;
-
-export const isBranchSelectedWithin = (
-	selection: Selection | null,
-	branchName: BranchIdentity,
-): boolean => selection?._tag === "Commit" && selection.branchName === branchName;
-
-export const isCommitSelected = (
-	selection: Selection | null,
-	branchName: BranchIdentity,
-	commitId: string,
-): boolean =>
-	selection?._tag === "Commit" &&
-	selection.branchName === branchName &&
-	selection.commitId === commitId;
-
-export const isCommitSelectedAndNotShowingDetails = (
-	selection: Selection | null,
-	branchName: BranchIdentity,
-	commitId: string,
-): boolean =>
-	selection?._tag === "Commit" &&
-	selection.branchName === branchName &&
-	selection.commitId === commitId &&
-	selection.mode._tag !== "Details";
-
-export const isCommitSelectedAndShowingDetails = (
-	selection: Selection | null,
-	branchName: BranchIdentity,
-	commitId: string,
-): boolean =>
-	selection?._tag === "Commit" &&
-	selection.branchName === branchName &&
-	selection.commitId === commitId &&
-	selection.mode._tag === "Details";
-
-export const isCommitFileSelected = (
-	selection: Selection | null,
-	branchName: BranchIdentity,
-	commitId: string,
-	path: string,
-): boolean =>
-	selection?._tag === "Commit" &&
-	selection.branchName === branchName &&
-	selection.commitId === commitId &&
-	selection.mode._tag === "Details" &&
-	selection.mode.path === path;
-
 export const toggleBranchSelection = (
 	selection: Selection | null,
 	branchName: BranchIdentity,
 ): Selection | null =>
-	isBranchSelected(selection, branchName) ? null : { _tag: "Branch", branchName };
+	selection?._tag === "Branch" && selection.branchName === branchName
+		? null
+		: { _tag: "Branch", branchName };
 
 export const toggleCommitSelection = (
 	selection: Selection | null,
 	branchName: BranchIdentity,
 	commitId: string,
 ): Selection | null =>
-	isCommitSelectedAndNotShowingDetails(selection, branchName, commitId)
+	selection?._tag === "Commit" &&
+	selection.branchName === branchName &&
+	selection.commitId === commitId &&
+	selection.mode._tag !== "Details"
 		? { _tag: "Branch", branchName }
 		: { _tag: "Commit", branchName, commitId, mode: { _tag: "Summary" } };
 
@@ -86,7 +40,11 @@ export const toggleCommitFileSelection = (
 	commitId: string,
 	path: string,
 ): Selection | null =>
-	isCommitFileSelected(selection, branchName, commitId, path)
+	selection?._tag === "Commit" &&
+	selection.branchName === branchName &&
+	selection.commitId === commitId &&
+	selection.mode._tag === "Details" &&
+	selection.mode.path === path
 		? { _tag: "Commit", branchName, commitId, mode: { _tag: "Summary" } }
 		: { _tag: "Commit", branchName, commitId, mode: { _tag: "Details", path } };
 
