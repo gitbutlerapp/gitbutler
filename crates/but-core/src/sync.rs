@@ -81,10 +81,15 @@ pub fn try_exclusive_inter_process_access(
 /// Note that this **in-process** locking works only under the assumption that no two instances of
 /// GitButler are able to read or write the same repository.
 pub fn exclusive_repo_access(git_dir: impl Into<PathBuf>) -> RepoExclusiveGuard {
-    let mut map = WORKTREE_LOCKS.lock();
-    let git_dir = git_dir.into();
+    let lock = {
+        let mut map = WORKTREE_LOCKS.lock();
+        let git_dir = git_dir.into();
+        Arc::clone(map.entry(git_dir).or_default())
+    };
+    // The global `WORKTREE_LOCKS` mutex is released before blocking on the per-repo RwLock,
+    // so contention on one repo cannot block access to unrelated repos.
     RepoExclusiveGuard {
-        inner: map.entry(git_dir).or_default().write_arc().into(),
+        inner: lock.write_arc().into(),
         perm: RepoExclusive(()),
     }
 }
@@ -98,9 +103,14 @@ pub fn exclusive_repo_access(git_dir: impl Into<PathBuf>) -> RepoExclusiveGuard 
 /// alive in the caller that owns the lock, and pass [`RepoShared`] further down instead via
 /// [`RepoSharedGuard::read_permission()`].
 pub fn shared_repo_access(git_dir: impl Into<PathBuf>) -> RepoSharedGuard {
-    let mut map = WORKTREE_LOCKS.lock();
-    let git_dir = git_dir.into();
-    RepoSharedGuard(Some(map.entry(git_dir).or_default().read_arc()))
+    let lock = {
+        let mut map = WORKTREE_LOCKS.lock();
+        let git_dir = git_dir.into();
+        Arc::clone(map.entry(git_dir).or_default())
+    };
+    // The global `WORKTREE_LOCKS` mutex is released before blocking on the per-repo RwLock,
+    // so contention on one repo cannot block access to unrelated repos.
+    RepoSharedGuard(Some(lock.read_arc()))
 }
 
 /// Owns an *exclusive* in-process repository lock and releases it on drop.
