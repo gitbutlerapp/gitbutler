@@ -21,7 +21,7 @@ import { CheckIcon } from "#ui/components/icons.tsx";
 import {
 	isTypingTarget,
 	ProjectPreviewLayout,
-} from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
+} from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import {
 	CommitDetails,
 	CommitLabel,
@@ -30,8 +30,8 @@ import {
 	FileDiff,
 	formatHunkHeader,
 	HunkDiff,
-} from "#ui/routes/project/$id/shared.tsx";
-import sharedStyles from "../shared.module.css";
+} from "#ui/routes/project/$id/-shared.tsx";
+import sharedStyles from "../-shared.module.css";
 import {
 	getDefaultSelection,
 	normalizeBranchSelection,
@@ -39,7 +39,7 @@ import {
 	toggleBranchSelection,
 	toggleCommitFileSelection,
 	toggleCommitSelection,
-} from "./Selection.ts";
+} from "./-Selection.ts";
 
 const isValidCommit = (commitId: string, branchDetails: BranchDetails): boolean => {
 	const commitIds = new Set(branchDetails.commits.map((commit) => commit.id));

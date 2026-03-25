@@ -32,7 +32,7 @@ import { type Operation, type RubOperation, useRunOperation } from "#ui/Operatio
 import {
 	isTypingTarget,
 	ProjectPreviewLayout,
-} from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
+} from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import {
 	CommitDetails,
 	CommitLabel,
@@ -42,7 +42,7 @@ import {
 	formatHunkHeader,
 	HunkDiff,
 	Patch,
-} from "#ui/routes/project/$id/shared.tsx";
+} from "#ui/routes/project/$id/-shared.tsx";
 import uiStyles from "#ui/ui.module.css";
 import {
 	attachInstruction,
@@ -78,7 +78,7 @@ import {
 	useTransition,
 } from "react";
 import useLocalStorageState from "use-local-storage-state";
-import sharedStyles from "../shared.module.css";
+import sharedStyles from "../-shared.module.css";
 import {
 	getDefaultSelection,
 	normalizeSelection,
@@ -88,7 +88,7 @@ import {
 	toggleCommitEditingMessage,
 	toggleCommitFileSelection,
 	toggleCommitSelection,
-} from "./Selection.ts";
+} from "./-Selection.ts";
 import styles from "./route.module.css";
 
 type SourceItem =
