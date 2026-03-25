@@ -1,10 +1,6 @@
-import {
-	HunkAssignmentRequest,
-	HunkHeader,
-	TreeChange,
-	UICommitCreateResult,
-} from "@gitbutler/but-sdk";
+import { HunkAssignmentRequest, HunkHeader, TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
+import { normalizeRejectedChanges, type RejectedChange } from "#ui/components/RejectedChanges.tsx";
 import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
 import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 
@@ -33,7 +29,7 @@ export type RubResult = {
 	replacedCommits?: Record<string, string>;
 	newCommit?: string | null;
 	amendedCommitId?: string;
-	pathsToRejectedChanges?: UICommitCreateResult["pathsToRejectedChanges"];
+	pathsToRejectedChanges?: Array<RejectedChange>;
 };
 
 // In the future this may be implemented as a single API endpoint on the backend.
@@ -68,7 +64,7 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 								replacedCommits: response.replacedCommits,
 								newCommit: response.newCommit ?? null,
 								amendedCommitId: target.commitId,
-								pathsToRejectedChanges: response.pathsToRejectedChanges,
+								pathsToRejectedChanges: normalizeRejectedChanges(response.pathsToRejectedChanges),
 							};
 						}),
 						Match.exhaustive,

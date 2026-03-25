@@ -80,16 +80,21 @@ export const REJECTTION_REASONS = [
 ] as const;
 
 type ReplacedCommit = [string, string];
+type RejectedChange = {
+	reason: RejectionReason;
+	path: string;
+	pathBytes: number[];
+};
 
 type BackendCreateCommitOutcome = {
 	newCommit?: string | null;
-	pathsToRejectedChanges: [RejectionReason, string][];
+	pathsToRejectedChanges: RejectedChange[];
 	replacedCommits: Record<string, string>;
 };
 
 export type CreateCommitOutcome = {
 	newCommit: string | null;
-	pathsToRejectedChanges: [RejectionReason, string][];
+	pathsToRejectedChanges: RejectedChange[];
 	commitMapping: ReplacedCommit[];
 };
 
@@ -526,7 +531,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				}
 
 				const rejected = normalizedResponse.pathsToRejectedChanges
-					.map(([reason, path]) => `${reason}: ${path}`)
+					.map(({ reason, path }) => `${reason}: ${path}`)
 					.join(", ");
 				const details = rejected ? ` Rejected changes: ${rejected}` : "";
 				throw new Error(`Failed to amend commit: no commit was created.${details}`);

@@ -70,7 +70,7 @@ export default class StackMacros {
 
 		if (outcome.pathsToRejectedChanges.length > 0) {
 			const pathsToRejectedChanges = outcome.pathsToRejectedChanges.reduce(
-				(acc: Record<string, RejectionReason>, [reason, path]) => {
+				(acc: Record<string, RejectionReason>, { reason, path }) => {
 					acc[path] = reason;
 					return acc;
 				},

@@ -342,12 +342,13 @@ export function isFileDeletionHunk(hunk: DiffHunk): boolean {
 }
 
 export function canBePartiallySelected(patch: Patch): boolean {
-	if (patch.hunks.length === 0) {
+	const firstHunk = patch.hunks[0];
+	if (!firstHunk) {
 		// Should never happen, but just in case
 		return false;
 	}
 
-	if (patch.hunks.length === 1 && isFileDeletionHunk(patch.hunks[0]!)) {
+	if (patch.hunks.length === 1 && isFileDeletionHunk(firstHunk)) {
 		// Only one hunk and it's a file deletion
 		return false;
 	}

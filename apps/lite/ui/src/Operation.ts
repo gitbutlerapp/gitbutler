@@ -2,7 +2,10 @@ import { Toast } from "@base-ui/react";
 import { useMutation } from "@tanstack/react-query";
 import { Match } from "effect";
 import { CommitMoveParams, MoveBranchParams, TearOffBranchParams } from "#electron/ipc.ts";
-import { RejectedChange, rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx";
+import {
+	normalizeRejectedChanges,
+	rejectedChangesToastOptions,
+} from "#ui/components/RejectedChanges.tsx";
 import {
 	commitMoveMutationOptions,
 	moveBranchMutationOptions,
@@ -45,13 +48,14 @@ export const useRunOperation = (projectId: string) => {
 					},
 					{
 						onSuccess: (response) => {
-							const pathsToRejectedChanges = response.pathsToRejectedChanges ?? [];
+							const pathsToRejectedChanges = normalizeRejectedChanges(
+								response.pathsToRejectedChanges ?? [],
+							);
 							if (pathsToRejectedChanges.length > 0)
 								toastManager.add(
 									rejectedChangesToastOptions({
 										newCommit: response.newCommit,
-										pathsToRejectedChanges:
-											response.pathsToRejectedChanges as Array<RejectedChange>,
+										pathsToRejectedChanges,
 									}),
 								);
 							return;

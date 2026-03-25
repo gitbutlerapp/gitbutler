@@ -148,7 +148,7 @@
 
 			if (response.pathsToRejectedChanges.length > 0) {
 				const pathsToRejectedChanges = response.pathsToRejectedChanges.reduce(
-					(acc: Record<string, RejectionReason>, [reason, path]) => {
+					(acc: Record<string, RejectionReason>, { reason, path }) => {
 						acc[path] = reason;
 						return acc;
 					},

@@ -1,22 +1,51 @@
+import { type UIRejectedPath } from "@gitbutler/but-sdk";
 import { type ToastManagerAddOptions } from "@base-ui/react";
 import { Array, pipe } from "effect";
 import { FC } from "react";
 
-// TODO: generate into but-sdk
-export type RejectedChange = [RejectionReason, string];
+export const REJECTION_REASONS = [
+	"noEffectiveChanges",
+	"cherryPickMergeConflict",
+	"workspaceMergeConflict",
+	"workspaceMergeConflictOfUnrelatedFile",
+	"worktreeFileMissingForObjectConversion",
+	"fileToLargeOrBinary",
+	"pathNotFoundInBaseTree",
+	"unsupportedDirectoryEntry",
+	"unsupportedTreeEntry",
+	"missingDiffSpecAssociation",
+	"unknown",
+] as const;
 
-// TODO: generate into but-sdk
-export type RejectionReason =
-	| "noEffectiveChanges"
-	| "cherryPickMergeConflict"
-	| "workspaceMergeConflict"
-	| "workspaceMergeConflictOfUnrelatedFile"
-	| "worktreeFileMissingForObjectConversion"
-	| "fileToLargeOrBinary"
-	| "pathNotFoundInBaseTree"
-	| "unsupportedDirectoryEntry"
-	| "unsupportedTreeEntry"
-	| "missingDiffSpecAssociation";
+export type RejectionReason = (typeof REJECTION_REASONS)[number];
+
+export type RejectedChange = Omit<UIRejectedPath, "reason"> & {
+	reason: RejectionReason;
+};
+
+function isRejectionReason(reason: string): reason is Exclude<RejectionReason, "unknown"> {
+	return (
+		reason === "noEffectiveChanges" ||
+		reason === "cherryPickMergeConflict" ||
+		reason === "workspaceMergeConflict" ||
+		reason === "workspaceMergeConflictOfUnrelatedFile" ||
+		reason === "worktreeFileMissingForObjectConversion" ||
+		reason === "fileToLargeOrBinary" ||
+		reason === "pathNotFoundInBaseTree" ||
+		reason === "unsupportedDirectoryEntry" ||
+		reason === "unsupportedTreeEntry" ||
+		reason === "missingDiffSpecAssociation"
+	);
+}
+
+export function normalizeRejectedChanges(
+	pathsToRejectedChanges: Array<UIRejectedPath>,
+): Array<RejectedChange> {
+	return pathsToRejectedChanges.map((change) => ({
+		...change,
+		reason: isRejectionReason(change.reason) ? change.reason : "unknown",
+	}));
+}
 
 const listFormatter = new Intl.ListFormat(undefined, {
 	style: "long",
@@ -52,6 +81,10 @@ const readableRejectionReason = (reason: RejectionReason): string => {
 			return "Unsupported tree entry";
 		case "missingDiffSpecAssociation":
 			return "Missing diff spec association";
+		case "unknown":
+			return "Unknown rejection reason";
+		default:
+			return reason;
 	}
 };
 
@@ -60,7 +93,7 @@ const RejectedChanges: FC<{
 }> = ({ rejectedChanges }) => {
 	const pathsByReason = new Map<RejectionReason, Array<string>>();
 
-	for (const [reason, path] of rejectedChanges) {
+	for (const { reason, path } of rejectedChanges) {
 		const paths = pathsByReason.get(reason);
 		if (paths) paths.push(path);
 		else pathsByReason.set(reason, [path]);

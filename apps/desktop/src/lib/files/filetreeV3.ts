@@ -96,7 +96,11 @@ export function sortLikeFileTree(changes: TreeChange[]): TreeChange[] {
 		const minLength = Math.min(partsA.length, partsB.length);
 
 		for (let i = 0; i < minLength - 1; i++) {
-			const comparison = partsA[i]!.localeCompare(partsB[i]!, FILE_SORT_LOCALE, FILE_SORT_CONFIG);
+			const partA = partsA[i];
+			const partB = partsB[i];
+			if (partA == null || partB == null) continue;
+
+			const comparison = partA.localeCompare(partB, FILE_SORT_LOCALE, FILE_SORT_CONFIG);
 			if (comparison !== 0) {
 				return comparison;
 			}
@@ -108,11 +112,11 @@ export function sortLikeFileTree(changes: TreeChange[]): TreeChange[] {
 		}
 
 		// Same depth, compare final component
-		return partsA[partsA.length - 1]!.localeCompare(
-			partsB[partsB.length - 1]!,
-			FILE_SORT_LOCALE,
-			FILE_SORT_CONFIG,
-		);
+		const lastPartA = partsA[partsA.length - 1];
+		const lastPartB = partsB[partsB.length - 1];
+		if (lastPartA == null || lastPartB == null) return 0;
+
+		return lastPartA.localeCompare(lastPartB, FILE_SORT_LOCALE, FILE_SORT_CONFIG);
 	});
 }
 
