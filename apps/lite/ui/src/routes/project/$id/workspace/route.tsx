@@ -25,6 +25,7 @@ import {
 	getStackIdsByCommitId,
 } from "#ui/domain/RefInfo.ts";
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
+import { useCloseWatcher } from "#ui/hooks/useCloseWatcher.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { type Operation, type RubOperation, useRunOperation } from "#ui/Operation.ts";
@@ -73,7 +74,6 @@ import {
 	useEffect,
 	useEffectEvent,
 	useOptimistic,
-	useRef,
 	useState,
 	useTransition,
 } from "react";
@@ -884,18 +884,7 @@ const InlineCommitMessageEditor: FC<{
 }> = ({ projectId, commitId, message, setMessageAction, onExit }) => {
 	const commitReword = useMutation(commitRewordMutationOptions);
 	const initialMessage = message.trim();
-
-	const closeWatcherRef = useRef<CloseWatcher | null>(null);
-	useEffect(() => {
-		const closeWatcher = new CloseWatcher();
-		closeWatcherRef.current = closeWatcher;
-		closeWatcher.addEventListener("close", onExit);
-		return () => {
-			closeWatcher.removeEventListener("close", onExit);
-			closeWatcher.destroy();
-			closeWatcherRef.current = null;
-		};
-	}, [onExit]);
+	const requestClose = useCloseWatcher(onExit);
 
 	const saveMessage = (newMessage: string) => {
 		onExit();
@@ -943,7 +932,7 @@ const InlineCommitMessageEditor: FC<{
 					type="button"
 					className={styles.editCommitMessageAction}
 					onClick={() => {
-						closeWatcherRef.current?.requestClose();
+						requestClose();
 					}}
 				>
 					cancel
