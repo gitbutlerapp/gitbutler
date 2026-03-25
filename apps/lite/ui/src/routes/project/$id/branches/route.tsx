@@ -501,6 +501,11 @@ const ProjectBranchesPage: FC = () => {
 		selection.commitId === commitId &&
 		selection.path === path;
 
+	const toggleBranchSelection = (branchName: string) => {
+		select((selected) =>
+			selected?.branchName === branchName ? null : { _tag: "Branch", branchName },
+		);
+	};
 	const toggleCommitSelection = (branchName: string, commitId: string) => {
 		select(
 			isCommitSelected(branchName, commitId)
@@ -530,11 +535,6 @@ const ProjectBranchesPage: FC = () => {
 			isCommitFileSelected(branchName, commitId, path)
 				? { _tag: "Commit", branchName, commitId }
 				: { _tag: "CommitFile", branchName, commitId, path },
-		);
-	};
-	const toggleBranchSelection = (branchName: string) => {
-		select((selected) =>
-			selected?.branchName === branchName ? null : { _tag: "Branch", branchName },
 		);
 	};
 
