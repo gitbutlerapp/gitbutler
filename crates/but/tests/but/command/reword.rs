@@ -89,7 +89,7 @@ fn reword_branch_from_editor_trims_trailing_newlines_in_confirmation_output() ->
         "#!/usr/bin/env bash\nprintf 'renamed-branch\\n\\n' > \"$1\"\n",
     );
     env.but("reword branch-to-rename-123")
-        .env("EDITOR", "bash editor.sh")
+        .env("GIT_EDITOR", "bash editor.sh")
         .assert()
         .success()
         .stdout_eq(str![[r#"
