@@ -1667,6 +1667,21 @@ const ProjectPage: FC = () => {
 				: { _tag: "Commit", stackId, commitId, isEditingMessage: false },
 		);
 	};
+	const toggleCommitEditingMessage = (stackId: string, commitId: string) => {
+		if (isCommitEditingMessage(stackId, commitId)) {
+			select((currentSelection) =>
+				currentSelection?._tag === "Commit" &&
+				currentSelection.stackId === stackId &&
+				currentSelection.commitId === commitId &&
+				currentSelection.isEditingMessage === true
+					? { ...currentSelection, isEditingMessage: false }
+					: currentSelection,
+			);
+			return;
+		}
+
+		select({ _tag: "Commit", stackId, commitId, isEditingMessage: true });
+	};
 	const toggleChangeUnitFileSelection = (stackId: string, changeUnit: ChangeUnit, path: string) => {
 		select(
 			isChangeUnitFileSelected(stackId, changeUnit, path)
@@ -1682,21 +1697,6 @@ const ProjectPage: FC = () => {
 					? { _tag: "CommitFile", stackId, commitId: changeUnit.commitId, path }
 					: { _tag: "ChangesFile", stackId, path },
 		);
-	};
-	const toggleCommitEditingMessage = (stackId: string, commitId: string) => {
-		if (isCommitEditingMessage(stackId, commitId)) {
-			select((currentSelection) =>
-				currentSelection?._tag === "Commit" &&
-				currentSelection.stackId === stackId &&
-				currentSelection.commitId === commitId &&
-				currentSelection.isEditingMessage === true
-					? { ...currentSelection, isEditingMessage: false }
-					: currentSelection,
-			);
-			return;
-		}
-
-		select({ _tag: "Commit", stackId, commitId, isEditingMessage: true });
 	};
 
 	const highlightCommits = (commitIds: Array<string> | null) => {
