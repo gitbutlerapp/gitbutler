@@ -9,7 +9,7 @@ import {
 } from "$lib/state/messageQueueSlice";
 import {
 	UI_STATE,
-	type GlobalStore,
+	type WritableReactiveStore,
 	type StackState,
 	type UiState,
 } from "$lib/state/uiState.svelte";
@@ -45,7 +45,7 @@ async function performSend({
 	thinkingLevel: ThinkingLevel;
 	model: ModelType;
 	permissionMode: PermissionMode;
-	laneState: GlobalStore<StackState> | undefined;
+	laneState: WritableReactiveStore<StackState> | undefined;
 	claudeCodeService: ClaudeCodeService;
 	codegenAnalytics: CodegenAnalytics;
 	attachments?: PromptAttachment[];
