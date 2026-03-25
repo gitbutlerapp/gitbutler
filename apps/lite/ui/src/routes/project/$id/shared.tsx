@@ -3,9 +3,6 @@ import {
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { classes } from "#ui/classes.ts";
-import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
-import { useDraggable } from "#ui/hooks/useDraggable.tsx";
-import { mergeProps, useRender } from "@base-ui/react";
 import {
 	Commit,
 	DiffHunk,
@@ -25,36 +22,14 @@ export const assert = <T,>(t: T | null | undefined): T => {
 	return t;
 };
 
-type Patch = Extract<UnifiedPatch, { type: "Patch" }>;
-
-export type SourceItem =
-	| { _tag: "Commit"; commitId: string }
-	| { _tag: "Branch"; anchorRef: Array<number> }
-	| {
-			_tag: "TreeChange";
-			source: {
-				parent: ChangeUnit;
-				change: TreeChange;
-				hunkHeaders: Array<HunkHeader>;
-			};
-	  };
-
-export type DragData = {
-	sourceItem: SourceItem;
-};
-
 const hunkHeaderEquals = (a: HunkHeader, b: HunkHeader): boolean =>
 	a.oldStart === b.oldStart &&
 	a.oldLines === b.oldLines &&
 	a.newStart === b.newStart &&
 	a.newLines === b.newLines;
 
-const formatHunkHeader = (hunk: HunkHeader): string =>
+export const formatHunkHeader = (hunk: HunkHeader): string =>
 	`-${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines}`;
-
-export const DragPreview: FC<{
-	children: ReactNode;
-}> = ({ children }) => <div className={styles.dragPreview}>{children}</div>;
 
 const assignedHunks = (
 	hunks: Array<DiffHunk>,
@@ -71,68 +46,14 @@ const assignedHunks = (
 	);
 };
 
-const DraggableHunk: FC<
-	{
-		patch: Patch;
-		changeUnit: ChangeUnit;
-		change: TreeChange;
-		hunk: DiffHunk;
-	} & useRender.ComponentProps<"div">
-> = ({ patch, changeUnit, change, hunk, render, ...props }) => {
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData => ({
-			sourceItem: {
-				_tag: "TreeChange",
-				source: {
-					parent: changeUnit,
-					change,
-					hunkHeaders: [hunk],
-				},
-			},
-		}),
-		preview: <DragPreview>Hunk {formatHunkHeader(hunk)}</DragPreview>,
-		canDrag: () => !patch.subject.isResultOfBinaryToTextConversion,
-	});
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
-		}),
-	});
-};
-
-const HunkDiff: FC<{
+export const HunkDiff: FC<{
 	diff: string;
 }> = ({ diff }) => <pre>{diff.split("\n").slice(1).join("\n")}</pre>;
 
-export const Hunk: FC<{
-	patch: Patch;
-	changeUnit: ChangeUnit;
-	change: TreeChange;
-	hunk: DiffHunk;
-	headerStart?: ReactNode;
-}> = ({ patch, changeUnit, change, hunk, headerStart }) => (
-	<div>
-		<div className={styles.hunkHeaderRow}>
-			{headerStart}
-			<DraggableHunk
-				patch={patch}
-				changeUnit={changeUnit}
-				change={change}
-				hunk={hunk}
-				className={styles.hunkHeader}
-			>
-				{formatHunkHeader(hunk)}
-			</DraggableHunk>
-		</div>
-		<HunkDiff diff={hunk.diff} />
-	</div>
-);
-
 const hunkKey = (hunk: HunkHeader): string =>
 	`${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`;
+
+export type Patch = Extract<UnifiedPatch, { type: "Patch" }>;
 
 export const FileDiff: FC<{
 	projectId: string;
@@ -243,29 +164,6 @@ export const CommitLabel: FC<{
 		{commit.hasConflicts && " ⚠️"}
 	</>
 );
-
-export const DraggableBranch: FC<
-	{
-		anchorRef: Array<number> | null;
-		label: string;
-	} & useRender.ComponentProps<"div">
-> = ({ anchorRef, label, render, ...props }) => {
-	const dragData: DragData | null =
-		anchorRef !== null ? { sourceItem: { _tag: "Branch", anchorRef } } : null;
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData | {} => dragData ?? {},
-		preview: <DragPreview>{label}</DragPreview>,
-		canDrag: () => dragData !== null,
-	});
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
-		}),
-	});
-};
 
 export const CommitsList: FC<{
 	commits: Array<Commit>;

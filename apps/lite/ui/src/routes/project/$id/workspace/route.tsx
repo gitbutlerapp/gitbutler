@@ -33,13 +33,11 @@ import {
 	CommitDetails,
 	CommitLabel,
 	CommitsList,
-	type DragData,
-	DraggableBranch,
-	DragPreview,
 	FileButton,
 	FileDiff,
-	Hunk,
-	type SourceItem,
+	formatHunkHeader,
+	HunkDiff,
+	Patch,
 } from "#ui/routes/project/$id/shared.tsx";
 import uiStyles from "#ui/ui.module.css";
 import {
@@ -66,6 +64,7 @@ import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 import {
 	ComponentProps,
 	FC,
+	ReactNode,
 	startTransition,
 	Suspense,
 	useEffect,
@@ -77,6 +76,26 @@ import useLocalStorageState from "use-local-storage-state";
 import sharedStyles from "../shared.module.css";
 import { getDefaultSelection, normalizeSelection, type Selection } from "./Selection.ts";
 import styles from "./route.module.css";
+
+type SourceItem =
+	| { _tag: "Commit"; commitId: string }
+	| { _tag: "Branch"; anchorRef: Array<number> }
+	| {
+			_tag: "TreeChange";
+			source: {
+				parent: ChangeUnit;
+				change: TreeChange;
+				hunkHeaders: Array<HunkHeader>;
+			};
+	  };
+
+type DragData = {
+	sourceItem: SourceItem;
+};
+
+const DragPreview: FC<{
+	children: ReactNode;
+}> = ({ children }) => <div className={styles.dragPreview}>{children}</div>;
 
 const rubSourceFor = (item: SourceItem): RubSource | null =>
 	Match.value(item).pipe(
@@ -368,6 +387,62 @@ const DraggableFile: FC<
 		}),
 	});
 };
+
+const DraggableHunk: FC<
+	{
+		patch: Patch;
+		changeUnit: ChangeUnit;
+		change: TreeChange;
+		hunk: DiffHunk;
+	} & useRender.ComponentProps<"div">
+> = ({ patch, changeUnit, change, hunk, render, ...props }) => {
+	const [isDragging, dragRef] = useDraggable({
+		getInitialData: (): DragData => ({
+			sourceItem: {
+				_tag: "TreeChange",
+				source: {
+					parent: changeUnit,
+					change,
+					hunkHeaders: [hunk],
+				},
+			},
+		}),
+		preview: <DragPreview>Hunk {formatHunkHeader(hunk)}</DragPreview>,
+		canDrag: () => !patch.subject.isResultOfBinaryToTextConversion,
+	});
+
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && styles.dragging),
+		}),
+	});
+};
+
+const Hunk: FC<{
+	patch: Patch;
+	changeUnit: ChangeUnit;
+	change: TreeChange;
+	hunk: DiffHunk;
+	headerStart?: ReactNode;
+}> = ({ patch, changeUnit, change, hunk, headerStart }) => (
+	<div>
+		<div className={styles.hunkHeaderRow}>
+			{headerStart}
+			<DraggableHunk
+				patch={patch}
+				changeUnit={changeUnit}
+				change={change}
+				hunk={hunk}
+				className={styles.hunkHeader}
+			>
+				{formatHunkHeader(hunk)}
+			</DraggableHunk>
+		</div>
+		<HunkDiff diff={hunk.diff} />
+	</div>
+);
 
 const ChangesFileDiff: FC<{
 	projectId: string;
@@ -1321,6 +1396,29 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 			</Tooltip.Portal>
 		</Tooltip.Root>
 	);
+};
+
+const DraggableBranch: FC<
+	{
+		anchorRef: Array<number> | null;
+		label: string;
+	} & useRender.ComponentProps<"div">
+> = ({ anchorRef, label, render, ...props }) => {
+	const dragData: DragData | null =
+		anchorRef !== null ? { sourceItem: { _tag: "Branch", anchorRef } } : null;
+	const [isDragging, dragRef] = useDraggable({
+		getInitialData: (): DragData | {} => dragData ?? {},
+		preview: <DragPreview>{label}</DragPreview>,
+		canDrag: () => dragData !== null,
+	});
+
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && styles.dragging),
+		}),
+	});
 };
 
 const StackC: FC<{

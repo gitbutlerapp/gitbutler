@@ -2,7 +2,7 @@ import { commitDetailsWithLineStatsQueryOptions } from "#ui/api/queries.ts";
 import { classes } from "#ui/classes.ts";
 import { ExpandCollapseIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import { ContextMenu, Menu } from "@base-ui/react";
-import { BranchDetails, BranchListing, Commit } from "@gitbutler/but-sdk";
+import { BranchDetails, BranchListing, Commit, DiffHunk } from "@gitbutler/but-sdk";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Match } from "effect";
@@ -25,7 +25,8 @@ import {
 	CommitsList,
 	FileButton,
 	FileDiff,
-	Hunk,
+	formatHunkHeader,
+	HunkDiff,
 } from "#ui/routes/project/$id/shared.tsx";
 import sharedStyles from "../shared.module.css";
 import { getDefaultSelection, normalizeBranchSelection, Selection } from "./Selection.ts";
@@ -330,6 +331,15 @@ const BranchDetailsC: FC<{
 	);
 };
 
+const Hunk: FC<{
+	hunk: DiffHunk;
+}> = ({ hunk }) => (
+	<div>
+		<div className={styles.hunkHeaderRow}>{formatHunkHeader(hunk)}</div>
+		<HunkDiff diff={hunk.diff} />
+	</div>
+);
+
 const CommitFileDiff: FC<{
 	projectId: string;
 	branchName: string;
@@ -350,13 +360,7 @@ const CommitFileDiff: FC<{
 	if (!change) return null;
 
 	return (
-		<FileDiff
-			projectId={projectId}
-			change={change}
-			renderHunk={(hunk, patch) => (
-				<Hunk patch={patch} changeUnit={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
-			)}
-		/>
+		<FileDiff projectId={projectId} change={change} renderHunk={(hunk) => <Hunk hunk={hunk} />} />
 	);
 };
 
@@ -384,14 +388,7 @@ const CommitDiff: FC<{
 					<FileDiff
 						projectId={projectId}
 						change={change}
-						renderHunk={(hunk, patch) => (
-							<Hunk
-								patch={patch}
-								changeUnit={{ _tag: "Commit", commitId }}
-								change={change}
-								hunk={hunk}
-							/>
-						)}
+						renderHunk={(hunk) => <Hunk hunk={hunk} />}
 					/>
 				</li>
 			))}
@@ -419,14 +416,7 @@ const ShowBranch: FC<{
 							<FileDiff
 								projectId={projectId}
 								change={change}
-								renderHunk={(hunk, patch) => (
-									<Hunk
-										patch={patch}
-										changeUnit={{ _tag: "Changes", stackId: null }}
-										change={change}
-										hunk={hunk}
-									/>
-								)}
+								renderHunk={(hunk) => <Hunk hunk={hunk} />}
 							/>
 						</li>
 					))}
