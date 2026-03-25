@@ -191,12 +191,12 @@ const BranchRow: FC<
 
 const CommitRow: FC<{
 	commit: Commit;
+	isHighlighted: boolean;
 	isSelected: boolean;
 	isSelectedWithin: boolean;
-	isHighlighted: boolean;
 	toggleExpand: () => Promise<void> | void;
 	toggleSelect: () => void;
-}> = ({ commit, isSelected, isSelectedWithin, isHighlighted, toggleExpand, toggleSelect }) => {
+}> = ({ commit, isHighlighted, isSelected, isSelectedWithin, toggleExpand, toggleSelect }) => {
 	const [isExpandPending, startExpandTransition] = useTransition();
 
 	return (
@@ -233,30 +233,30 @@ const CommitRow: FC<{
 };
 
 const CommitC: FC<{
-	projectId: string;
 	commit: Commit;
+	isFileSelected: (path: string) => boolean;
 	isSelected: boolean;
 	isSelectedWithin: boolean;
-	isFileSelected: (path: string) => boolean;
+	projectId: string;
 	toggleExpand: () => Promise<void> | void;
-	toggleSelect: () => void;
 	toggleFileSelect: (path: string) => void;
+	toggleSelect: () => void;
 }> = ({
-	projectId,
 	commit,
+	isFileSelected,
 	isSelected,
 	isSelectedWithin,
-	isFileSelected,
+	projectId,
 	toggleExpand,
-	toggleSelect,
 	toggleFileSelect,
+	toggleSelect,
 }) => (
 	<div>
 		<CommitRow
 			commit={commit}
+			isHighlighted={false}
 			isSelected={isSelected}
 			isSelectedWithin={isSelectedWithin}
-			isHighlighted={false}
 			toggleExpand={toggleExpand}
 			toggleSelect={toggleSelect}
 		/>
@@ -285,25 +285,25 @@ const CommitC: FC<{
 );
 
 const BranchDetailsC: FC<{
-	projectId: string;
 	branchName: string;
-	remote: string | null;
+	isCommitFileSelected: (commitId: string, path: string) => boolean;
 	isCommitSelected: (commitId: string) => boolean;
 	isCommitSelectedWithin: (commitId: string) => boolean;
-	isCommitFileSelected: (commitId: string, path: string) => boolean;
+	projectId: string;
+	remote: string | null;
 	toggleCommitExpanded: (commitId: string) => Promise<void> | void;
-	toggleCommitSelection: (commitId: string) => void;
 	toggleCommitFileSelection: (commitId: string, path: string) => void;
+	toggleCommitSelection: (commitId: string) => void;
 }> = ({
-	projectId,
 	branchName,
-	remote,
+	isCommitFileSelected,
 	isCommitSelected,
 	isCommitSelectedWithin,
-	isCommitFileSelected,
+	projectId,
+	remote,
 	toggleCommitExpanded,
-	toggleCommitSelection,
 	toggleCommitFileSelection,
+	toggleCommitSelection,
 }) => {
 	const { data: branchDetails } = useSuspenseQuery(
 		branchDetailsQueryOptions({ projectId, branchName, remote }),
@@ -313,17 +313,17 @@ const BranchDetailsC: FC<{
 		<CommitsList commits={branchDetails.commits}>
 			{(commit) => (
 				<CommitC
-					projectId={projectId}
 					commit={commit}
+					isFileSelected={(path) => isCommitFileSelected(commit.id, path)}
 					isSelected={isCommitSelected(commit.id)}
 					isSelectedWithin={isCommitSelectedWithin(commit.id)}
-					isFileSelected={(path) => isCommitFileSelected(commit.id, path)}
+					projectId={projectId}
 					toggleExpand={() => toggleCommitExpanded(commit.id)}
-					toggleSelect={() => {
-						toggleCommitSelection(commit.id);
-					}}
 					toggleFileSelect={(path) => {
 						toggleCommitFileSelection(commit.id, path);
+					}}
+					toggleSelect={() => {
+						toggleCommitSelection(commit.id);
 					}}
 				/>
 			)}
@@ -581,24 +581,24 @@ const ProjectBranchesPage: FC = () => {
 					<div className={styles.branchDetailsLane}>
 						<Suspense fallback={<div>Loading branch details…</div>}>
 							<BranchDetailsC
-								projectId={projectId}
 								branchName={selectedBranch.name}
-								remote={selectedRemote ?? null}
+								isCommitFileSelected={(commitId, path) =>
+									isCommitFileSelected(selectedBranch.name, commitId, path)
+								}
 								isCommitSelected={(commitId) => isCommitSelected(selectedBranch.name, commitId)}
 								isCommitSelectedWithin={(commitId) =>
 									isCommitSelectedWithin(selectedBranch.name, commitId)
 								}
-								isCommitFileSelected={(commitId, path) =>
-									isCommitFileSelected(selectedBranch.name, commitId, path)
-								}
+								projectId={projectId}
+								remote={selectedRemote ?? null}
 								toggleCommitExpanded={(commitId) =>
 									toggleCommitExpanded(selectedBranch.name, commitId)
 								}
-								toggleCommitSelection={(commitId) =>
-									toggleCommitSelection(selectedBranch.name, commitId)
-								}
 								toggleCommitFileSelection={(commitId, path) =>
 									toggleCommitFileSelection(selectedBranch.name, commitId, path)
+								}
+								toggleCommitSelection={(commitId) =>
+									toggleCommitSelection(selectedBranch.name, commitId)
 								}
 							/>
 						</Suspense>

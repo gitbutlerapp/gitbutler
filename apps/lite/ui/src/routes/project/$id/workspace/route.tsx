@@ -951,26 +951,27 @@ const CommitMenuPopup: FC<{
 
 const CommitRow: FC<
 	{
-		projectId: string;
 		commit: Commit;
+		isEditingMessage: boolean;
+		isHighlighted: boolean;
 		isSelected: boolean;
 		isSelectedWithin: boolean;
-		isHighlighted: boolean;
-		isEditingMessage: boolean;
+		projectId: string;
+		toggleEditingMessage: () => void;
 		toggleExpand: () => Promise<void> | void;
 		toggleSelect: () => void;
-		toggleEditingMessage: () => void;
 	} & ComponentProps<"div">
 > = ({
-	projectId,
 	commit,
+	isEditingMessage,
+	isHighlighted,
 	isSelected,
 	isSelectedWithin,
-	isHighlighted,
-	isEditingMessage,
+	projectId,
+	toggleEditingMessage,
 	toggleExpand,
 	toggleSelect,
-	toggleEditingMessage,
+
 	className,
 	...restProps
 }) => {
@@ -1072,33 +1073,33 @@ const CommitRow: FC<
 };
 
 const CommitC: FC<{
-	projectId: string;
 	commit: Commit;
-	previousCommitId: string | undefined;
-	nextCommitId: string | undefined;
+	isEditingMessage: boolean;
+	isFileSelected: (path: string) => boolean;
 	isHighlighted: boolean;
 	isSelected: boolean;
-	isEditingMessage: boolean;
 	isSelectedWithin: boolean;
-	isFileSelected: (path: string) => boolean;
-	toggleExpand: () => Promise<void> | void;
-	toggleSelect: () => void;
+	nextCommitId: string | undefined;
+	previousCommitId: string | undefined;
+	projectId: string;
 	toggleEditingMessage: () => void;
+	toggleExpand: () => Promise<void> | void;
 	toggleFileSelect: (path: string) => void;
+	toggleSelect: () => void;
 }> = ({
-	projectId,
 	commit,
-	previousCommitId,
-	nextCommitId,
+	isEditingMessage,
+	isFileSelected,
 	isHighlighted,
 	isSelected,
-	isEditingMessage,
 	isSelectedWithin,
-	isFileSelected,
-	toggleExpand,
-	toggleSelect,
+	nextCommitId,
+	previousCommitId,
+	projectId,
 	toggleEditingMessage,
+	toggleExpand,
 	toggleFileSelect,
+	toggleSelect,
 }) => (
 	<CommitTarget
 		commitId={commit.id}
@@ -1106,15 +1107,15 @@ const CommitC: FC<{
 		nextCommitId={nextCommitId}
 	>
 		<CommitRow
-			projectId={projectId}
 			commit={commit}
-			isSelected={isSelected}
 			isEditingMessage={isEditingMessage}
-			isSelectedWithin={isSelectedWithin}
 			isHighlighted={isHighlighted}
+			isSelected={isSelected}
+			isSelectedWithin={isSelectedWithin}
+			projectId={projectId}
+			toggleEditingMessage={toggleEditingMessage}
 			toggleExpand={toggleExpand}
 			toggleSelect={toggleSelect}
-			toggleEditingMessage={toggleEditingMessage}
 		/>
 		{isSelectedWithin && (
 			<div className={sharedStyles.commitDetails}>
@@ -1422,39 +1423,39 @@ const DraggableBranch: FC<
 };
 
 const StackC: FC<{
+	highlightedCommitIds: Set<string>;
+	isBranchSelected: (stackId: string, branchRef: string) => boolean;
+	isChangesFileSelected: (path: string) => boolean;
+	isCommitEditingMessage: (commitId: string) => boolean;
+	isCommitFileSelected: (commitId: string, path: string) => boolean;
+	isCommitSelected: (commitId: string) => boolean;
+	isCommitSelectedWithin: (commitId: string) => boolean;
+	onDependencyHover: (commitIds: Array<string> | null) => void;
 	projectId: string;
 	stack: Stack;
-	isBranchSelected: (stackId: string, branchRef: string) => boolean;
 	toggleBranchSelection: (stackId: string, branchName: string, branchRef: string) => void;
-	isCommitSelected: (commitId: string) => boolean;
-	isCommitEditingMessage: (commitId: string) => boolean;
-	isCommitSelectedWithin: (commitId: string) => boolean;
-	isCommitFileSelected: (commitId: string, path: string) => boolean;
-	isChangesFileSelected: (path: string) => boolean;
-	toggleCommitExpanded: (commitId: string) => Promise<void> | void;
-	toggleCommitSelection: (commitId: string) => void;
-	toggleCommitEditingMessage: (commitId: string) => void;
-	toggleCommitFileSelection: (commitId: string, path: string) => void;
 	toggleChangesFileSelection: (path: string) => void;
-	highlightedCommitIds: Set<string>;
-	onDependencyHover: (commitIds: Array<string> | null) => void;
+	toggleCommitEditingMessage: (commitId: string) => void;
+	toggleCommitExpanded: (commitId: string) => Promise<void> | void;
+	toggleCommitFileSelection: (commitId: string, path: string) => void;
+	toggleCommitSelection: (commitId: string) => void;
 }> = ({
+	highlightedCommitIds,
+	isBranchSelected,
+	isChangesFileSelected,
+	isCommitEditingMessage,
+	isCommitFileSelected,
+	isCommitSelected,
+	isCommitSelectedWithin,
+	onDependencyHover,
 	projectId,
 	stack,
-	isBranchSelected,
 	toggleBranchSelection,
-	isCommitSelected,
-	isCommitEditingMessage,
-	isCommitSelectedWithin,
-	isCommitFileSelected,
-	isChangesFileSelected,
-	toggleCommitExpanded,
-	toggleCommitSelection,
-	toggleCommitEditingMessage,
-	toggleCommitFileSelection,
 	toggleChangesFileSelection,
-	highlightedCommitIds,
-	onDependencyHover,
+	toggleCommitEditingMessage,
+	toggleCommitExpanded,
+	toggleCommitFileSelection,
+	toggleCommitSelection,
 }) => {
 	// From Caleb:
 	// > There shouldn't be a way within GitButler to end up with a stack without a
@@ -1534,24 +1535,24 @@ const StackC: FC<{
 							<CommitsList commits={segment.commits}>
 								{(commit, index) => (
 									<CommitC
-										projectId={projectId}
 										commit={commit}
-										previousCommitId={segment.commits[index - 1]?.id}
-										nextCommitId={segment.commits[index + 1]?.id}
+										isEditingMessage={isCommitEditingMessage(commit.id)}
+										isFileSelected={(path) => isCommitFileSelected(commit.id, path)}
 										isHighlighted={highlightedCommitIds.has(commit.id)}
 										isSelected={isCommitSelected(commit.id)}
-										isEditingMessage={isCommitEditingMessage(commit.id)}
 										isSelectedWithin={isCommitSelectedWithin(commit.id)}
-										isFileSelected={(path) => isCommitFileSelected(commit.id, path)}
-										toggleExpand={() => toggleCommitExpanded(commit.id)}
-										toggleSelect={() => {
-											toggleCommitSelection(commit.id);
-										}}
+										nextCommitId={segment.commits[index + 1]?.id}
+										previousCommitId={segment.commits[index - 1]?.id}
+										projectId={projectId}
 										toggleEditingMessage={() => {
 											toggleCommitEditingMessage(commit.id);
 										}}
+										toggleExpand={() => toggleCommitExpanded(commit.id)}
 										toggleFileSelect={(path) => {
 											toggleCommitFileSelection(commit.id, path);
+										}}
+										toggleSelect={() => {
+											toggleCommitSelection(commit.id);
 										}}
 									/>
 								)}
@@ -1736,32 +1737,32 @@ const ProjectPage: FC = () => {
 							return (
 								<div key={stack.id} className={styles.stackLane}>
 									<StackC
-										projectId={project.id}
-										stack={stack}
+										highlightedCommitIds={highlightedCommitIds}
 										isBranchSelected={isBranchSelected}
-										toggleBranchSelection={toggleBranchSelection}
-										isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
+										isChangesFileSelected={(path) => isChangesFileSelected(stackId, path)}
 										isCommitEditingMessage={(commitId) => isCommitEditingMessage(stackId, commitId)}
-										isCommitSelectedWithin={(commitId) => isCommitSelectedWithin(stackId, commitId)}
 										isCommitFileSelected={(commitId, path) =>
 											isCommitFileSelected(stackId, commitId, path)
 										}
-										isChangesFileSelected={(path) => isChangesFileSelected(stackId, path)}
-										toggleCommitExpanded={(commitId) => toggleCommitExpanded(stackId, commitId)}
-										toggleCommitSelection={(commitId) => {
-											toggleCommitSelection(stackId, commitId);
+										isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
+										isCommitSelectedWithin={(commitId) => isCommitSelectedWithin(stackId, commitId)}
+										onDependencyHover={highlightCommits}
+										projectId={project.id}
+										stack={stack}
+										toggleBranchSelection={toggleBranchSelection}
+										toggleChangesFileSelection={(path) => {
+											toggleChangesFileSelection(stackId, path);
 										}}
 										toggleCommitEditingMessage={(commitId) => {
 											toggleCommitEditingMessage(stackId, commitId);
 										}}
+										toggleCommitExpanded={(commitId) => toggleCommitExpanded(stackId, commitId)}
 										toggleCommitFileSelection={(commitId, path) => {
 											toggleCommitFileSelection(stackId, commitId, path);
 										}}
-										toggleChangesFileSelection={(path) => {
-											toggleChangesFileSelection(stackId, path);
+										toggleCommitSelection={(commitId) => {
+											toggleCommitSelection(stackId, commitId);
 										}}
-										highlightedCommitIds={highlightedCommitIds}
-										onDependencyHover={highlightCommits}
 									/>
 								</div>
 							);
