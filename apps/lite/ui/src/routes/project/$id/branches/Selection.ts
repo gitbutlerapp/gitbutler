@@ -1,5 +1,9 @@
 import { BranchIdentity, BranchListing } from "@gitbutler/but-sdk";
 
+type CommitDetailSelection = {
+	path?: string;
+};
+
 export type Selection =
 	| {
 			_tag: "Branch";
@@ -9,8 +13,7 @@ export type Selection =
 			_tag: "Commit";
 			branchName: BranchIdentity;
 			commitId: string;
-			path?: string;
-			isExpanded?: boolean;
+			detail?: CommitDetailSelection;
 	  };
 
 export const isBranchSelected = (
@@ -31,7 +34,7 @@ export const isCommitSelected = (
 	selection?._tag === "Commit" &&
 	selection.branchName === branchName &&
 	selection.commitId === commitId &&
-	selection.path === undefined;
+	selection.detail === undefined;
 
 export const isCommitExpanded = (
 	selection: Selection | null,
@@ -41,7 +44,7 @@ export const isCommitExpanded = (
 	selection?._tag === "Commit" &&
 	selection.branchName === branchName &&
 	selection.commitId === commitId &&
-	selection.isExpanded === true;
+	selection.detail !== undefined;
 
 export const isCommitFileSelected = (
 	selection: Selection | null,
@@ -52,7 +55,7 @@ export const isCommitFileSelected = (
 	selection?._tag === "Commit" &&
 	selection.branchName === branchName &&
 	selection.commitId === commitId &&
-	selection.path === path;
+	selection.detail?.path === path;
 
 export const toggleBranchSelection = (
 	selection: Selection | null,
@@ -67,7 +70,7 @@ export const toggleCommitSelection = (
 ): Selection | null =>
 	isCommitSelected(selection, branchName, commitId)
 		? { _tag: "Branch", branchName }
-		: { _tag: "Commit", branchName, commitId, isExpanded: false };
+		: { _tag: "Commit", branchName, commitId };
 
 export const toggleCommitFileSelection = (
 	selection: Selection | null,
@@ -76,8 +79,8 @@ export const toggleCommitFileSelection = (
 	path: string,
 ): Selection | null =>
 	isCommitFileSelected(selection, branchName, commitId, path)
-		? { _tag: "Commit", branchName, commitId, isExpanded: false }
-		: { _tag: "Commit", branchName, commitId, path, isExpanded: true };
+		? { _tag: "Commit", branchName, commitId, detail: undefined }
+		: { _tag: "Commit", branchName, commitId, detail: { path } };
 
 export const normalizeBranchSelection = (
 	selection: Selection,

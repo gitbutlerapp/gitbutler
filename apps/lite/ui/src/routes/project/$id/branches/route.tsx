@@ -238,7 +238,7 @@ const CommitRow: FC<{
 				onClick={() => {
 					startExpandTransition(async () => {
 						if (isExpanded) {
-							select({ _tag: "Commit", branchName, commitId: commit.id, isExpanded: false });
+							select({ _tag: "Commit", branchName, commitId: commit.id, detail: undefined });
 							return;
 						}
 
@@ -253,10 +253,9 @@ const CommitRow: FC<{
 										_tag: "Commit",
 										branchName,
 										commitId: commit.id,
-										path: firstPath,
-										isExpanded: true,
+										detail: { path: firstPath },
 									}
-								: { _tag: "Commit", branchName, commitId: commit.id, isExpanded: true },
+								: { _tag: "Commit", branchName, commitId: commit.id, detail: {} },
 						);
 					});
 				}}
@@ -452,8 +451,8 @@ const Preview: FC<{
 				<div>No branch diff available.</div>
 			),
 		),
-		Match.tag("Commit", ({ branchName, commitId, path }) =>
-			path === undefined ? (
+		Match.tag("Commit", ({ branchName, commitId, detail }) =>
+			detail?.path === undefined ? (
 				<CommitDiff
 					projectId={projectId}
 					branchName={branchName}
@@ -466,7 +465,7 @@ const Preview: FC<{
 					branchName={branchName}
 					remote={remote}
 					commitId={commitId}
-					path={path}
+					path={detail.path}
 				/>
 			),
 		),

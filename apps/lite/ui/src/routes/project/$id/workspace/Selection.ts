@@ -1,6 +1,10 @@
 import { type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 
+type CommitDetailSelection = {
+	path?: string;
+};
+
 export type Selection =
 	| {
 			_tag: "Branch";
@@ -17,9 +21,8 @@ export type Selection =
 			_tag: "Commit";
 			stackId: string;
 			commitId: string;
-			path?: string;
 			isEditingMessage?: boolean;
-			isExpanded?: boolean;
+			detail?: CommitDetailSelection;
 	  };
 
 export const isBranchSelected = (
@@ -46,7 +49,7 @@ export const isCommitSelected = (
 	selection?._tag === "Commit" &&
 	selection.stackId === stackId &&
 	selection.commitId === commitId &&
-	selection.path === undefined;
+	selection.detail === undefined;
 
 export const isCommitEditingMessage = (
 	selection: Selection | null,
@@ -56,6 +59,7 @@ export const isCommitEditingMessage = (
 	selection?._tag === "Commit" &&
 	selection.stackId === stackId &&
 	selection.commitId === commitId &&
+	selection.detail === undefined &&
 	selection.isEditingMessage === true;
 
 export const isCommitExpanded = (
@@ -66,7 +70,7 @@ export const isCommitExpanded = (
 	selection?._tag === "Commit" &&
 	selection.stackId === stackId &&
 	selection.commitId === commitId &&
-	selection.isExpanded === true;
+	selection.detail !== undefined;
 
 export const isCommitFileSelected = (
 	selection: Selection | null,
@@ -77,7 +81,7 @@ export const isCommitFileSelected = (
 	selection?._tag === "Commit" &&
 	selection.stackId === stackId &&
 	selection.commitId === commitId &&
-	selection.path === path;
+	selection.detail?.path === path;
 
 export const toggleBranchSelection = (
 	selection: Selection | null,
@@ -107,7 +111,7 @@ export const toggleCommitSelection = (
 		? branchRef !== null
 			? { _tag: "Branch", stackId, branchName, branchRef }
 			: null
-		: { _tag: "Commit", stackId, commitId, isEditingMessage: false, isExpanded: false };
+		: { _tag: "Commit", stackId, commitId, isEditingMessage: false };
 
 export const toggleCommitEditingMessage = (
 	selection: Selection | null,
@@ -118,11 +122,18 @@ export const toggleCommitEditingMessage = (
 		return selection?._tag === "Commit" &&
 			selection.stackId === stackId &&
 			selection.commitId === commitId &&
+			selection.detail === undefined &&
 			selection.isEditingMessage === true
 			? { ...selection, isEditingMessage: false }
 			: selection;
 
-	return { _tag: "Commit", stackId, commitId, isEditingMessage: true, isExpanded: false };
+	return {
+		_tag: "Commit",
+		stackId,
+		commitId,
+		isEditingMessage: true,
+		detail: undefined,
+	};
 };
 
 export const toggleCommitFileSelection = (
@@ -137,9 +148,15 @@ export const toggleCommitFileSelection = (
 				stackId,
 				commitId,
 				isEditingMessage: false,
-				isExpanded: false,
+				detail: undefined,
 			}
-		: { _tag: "Commit", stackId, commitId, path, isEditingMessage: false, isExpanded: true };
+		: {
+				_tag: "Commit",
+				stackId,
+				commitId,
+				isEditingMessage: false,
+				detail: { path },
+			};
 
 export const normalizeSelection = (
 	selection: Selection,
