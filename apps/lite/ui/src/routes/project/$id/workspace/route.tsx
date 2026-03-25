@@ -1427,7 +1427,7 @@ const StackC: FC<{
 	isBranchSelected: (stackId: string, branchRef: string) => boolean;
 	toggleBranchSelection: (stackId: string, branchName: string, branchRef: string) => void;
 	isCommitSelected: (commitId: string) => boolean;
-	isCommitEditing: (commitId: string) => boolean;
+	isCommitEditingMessage: (commitId: string) => boolean;
 	isCommitSelectedWithin: (commitId: string) => boolean;
 	isChangeUnitFileSelected: (changeUnit: ChangeUnit, path: string) => boolean;
 	toggleCommitExpanded: (commitId: string) => Promise<void> | void;
@@ -1442,7 +1442,7 @@ const StackC: FC<{
 	isBranchSelected,
 	toggleBranchSelection,
 	isCommitSelected,
-	isCommitEditing,
+	isCommitEditingMessage,
 	isCommitSelectedWithin,
 	isChangeUnitFileSelected,
 	toggleCommitExpanded,
@@ -1543,7 +1543,7 @@ const StackC: FC<{
 											nextCommitId={segment.commits[index + 1]?.id}
 											isHighlighted={highlightedCommitIds.has(commit.id)}
 											isSelected={isCommitSelected(commit.id)}
-											isEditingMessage={isCommitEditing(commit.id)}
+											isEditingMessage={isCommitEditingMessage(commit.id)}
 											isSelectedWithin={isCommitSelectedWithin(commit.id)}
 											isFileSelected={(path) => isChangeUnitFileSelected(changeUnit, path)}
 											toggleExpand={() => toggleCommitExpanded(commit.id)}
@@ -1613,7 +1613,7 @@ const ProjectPage: FC = () => {
 		selection?._tag === "Commit" &&
 		selection.stackId === stackId &&
 		selection.commitId === commitId;
-	const isCommitEditing = (stackId: string, commitId: string) =>
+	const isCommitEditingMessage = (stackId: string, commitId: string) =>
 		selection?._tag === "Commit" &&
 		selection.stackId === stackId &&
 		selection.commitId === commitId &&
@@ -1684,7 +1684,7 @@ const ProjectPage: FC = () => {
 		);
 	};
 	const toggleEditingMessage = (stackId: string, commitId: string) => {
-		if (isCommitEditing(stackId, commitId)) {
+		if (isCommitEditingMessage(stackId, commitId)) {
 			select((currentSelection) =>
 				currentSelection?._tag === "Commit" &&
 				currentSelection.stackId === stackId &&
@@ -1750,7 +1750,7 @@ const ProjectPage: FC = () => {
 										isBranchSelected={isBranchSelected}
 										toggleBranchSelection={toggleBranchSelection}
 										isCommitSelected={(commitId) => isCommitSelected(stackId, commitId)}
-										isCommitEditing={(commitId) => isCommitEditing(stackId, commitId)}
+										isCommitEditingMessage={(commitId) => isCommitEditingMessage(stackId, commitId)}
 										isCommitSelectedWithin={(commitId) => isCommitSelectedWithin(stackId, commitId)}
 										isChangeUnitFileSelected={(changeUnit, path) =>
 											isChangeUnitFileSelected(stackId, changeUnit, path)
