@@ -17,10 +17,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import { CheckIcon } from "#ui/components/icons.tsx";
-import {
-	isTypingTarget,
-	ProjectPreviewLayout,
-} from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
+import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import {
 	CommitDetails,
 	CommitLabel,
@@ -31,6 +28,7 @@ import {
 	HunkDiff,
 	ShowBranch,
 	ShowCommit,
+	isTypingTarget,
 } from "#ui/routes/project/$id/-shared.tsx";
 import sharedStyles from "../-shared.module.css";
 import {

@@ -18,6 +18,15 @@ import { Match } from "effect";
 import { ComponentProps, FC, ReactNode } from "react";
 import styles from "./-shared.module.css";
 
+export const isTypingTarget = (target: EventTarget | null) => {
+	if (!(target instanceof HTMLElement)) return false;
+	return (
+		target.isContentEditable ||
+		target instanceof HTMLInputElement ||
+		target instanceof HTMLTextAreaElement
+	);
+};
+
 /** @public */
 export const assert = <T,>(t: T | null | undefined): T => {
 	if (t == null) throw new Error("Expected value to be non-null and defined");

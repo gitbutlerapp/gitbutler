@@ -29,10 +29,7 @@ import { stackRelativeTo } from "#ui/domain/Stack.ts";
 import { useCloseWatcher } from "#ui/hooks/useCloseWatcher.ts";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { type Operation } from "#ui/Operation.ts";
-import {
-	isTypingTarget,
-	ProjectPreviewLayout,
-} from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
+import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import {
 	DraggableBranch,
 	DraggableCommit,
@@ -51,6 +48,7 @@ import {
 	FileDiff,
 	formatHunkHeader,
 	HunkDiff,
+	isTypingTarget,
 	Patch,
 	ShowBranch,
 	ShowCommit,

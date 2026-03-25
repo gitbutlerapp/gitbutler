@@ -5,16 +5,8 @@ import useLocalStorageState from "use-local-storage-state";
 import uiStyles from "#ui/ui.module.css";
 import { usePreviewVisible } from "#ui/hooks/usePreviewVisible.ts";
 import { shortcutKeys } from "#ui/shortcuts.ts";
+import { isTypingTarget } from "./-shared.tsx";
 import sharedStyles from "./-shared.module.css";
-
-export const isTypingTarget = (target: EventTarget | null) => {
-	if (!(target instanceof HTMLElement)) return false;
-	return (
-		target.isContentEditable ||
-		target instanceof HTMLInputElement ||
-		target instanceof HTMLTextAreaElement
-	);
-};
 
 export const ProjectPreviewLayout: FC<{
 	projectId: string;
