@@ -11,7 +11,7 @@ use itertools::Either;
 use ratatui::{
     Frame,
     prelude::*,
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{List, ListItem},
 };
 use ratatui_textarea::{CursorMove, TextArea};
 use unicode_width::UnicodeWidthStr;
@@ -27,6 +27,7 @@ use crate::{
             tui::{
                 confirm::{Confirm, ConfirmMessage},
                 cursor::{Cursor, is_selectable_in_mode},
+                details::Details,
                 graph_extension::{ExtensionDirection, extend_connector_spans},
                 highlight::{Highlights, with_highlight},
                 key_bind::{KeyBinds, confirm_key_binds, default_key_binds},
@@ -46,6 +47,7 @@ use super::{
 
 mod confirm;
 mod cursor;
+mod details;
 mod graph_extension;
 mod highlight;
 mod key_bind;
@@ -195,6 +197,11 @@ where
         app.should_render = true;
     }
 
+    if app.details.is_dirty() {
+        app.details.update();
+        app.should_render = true;
+    }
+
     Ok(())
 }
 
@@ -229,6 +236,7 @@ struct App {
     renders: u64,
     highlight: Highlights,
     confirm: Option<Confirm>,
+    details: Details,
 }
 
 impl App {
@@ -250,6 +258,7 @@ impl App {
             renders: 0,
             highlight: Default::default(),
             confirm: None,
+            details: Default::default(),
         }
     }
 
@@ -369,6 +378,10 @@ impl App {
         self.should_render = true;
         let visible_height =
             self.status_viewport_height(terminal_guard.terminal_mut().size()?.into());
+
+        if self.details.needs_update_after_message(&msg) {
+            self.details.mark_dirty();
+        }
 
         match msg {
             Message::Quit => {
@@ -1620,7 +1633,7 @@ impl App {
         frame.render_widget(list, content_area);
 
         if let Some(details_area) = details_area {
-            self.render_details(details_area, frame);
+            self.details.render(details_area, frame);
         }
 
         self.render_inline_reword(content_area, frame);
@@ -1888,25 +1901,6 @@ impl App {
         }
 
         StatusListItem::Single(line)
-    }
-
-    fn render_details(&self, area: Rect, frame: &mut Frame) {
-        let Some(selection) = self
-            .cursor
-            .selected_line(&self.status_lines)
-            .and_then(|line| line.data.cli_id())
-        else {
-            frame.render_widget("Nothing selected", area);
-            return;
-        };
-
-        let widget = Paragraph::new("Hello, World!").block(
-            Block::new()
-                .borders(Borders::LEFT)
-                .border_style(Style::default().dark_gray()),
-        );
-
-        frame.render_widget(widget, area);
     }
 
     fn render_rub_inline_labels_for_selected_line(
