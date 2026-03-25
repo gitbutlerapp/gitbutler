@@ -1,15 +1,15 @@
 use std::iter::{once, repeat_n};
 
-use bstr::BString;
-use but_core::UnifiedPatch;
+use bstr::ByteSlice;
+use but_core::{UnifiedPatch, unified_diff::DiffHunk};
 use but_ctx::Context;
 use gix::actor::Signature;
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
-    style::{Style, Stylize},
-    text::{Line, Span, Text},
-    widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph, Widget, Wrap},
+    style::{Color, Style, Stylize},
+    text::{Line, Span},
+    widgets::{Block, Borders, List, ListItem, Paragraph, Widget},
 };
 use unicode_width::UnicodeWidthStr;
 
@@ -22,6 +22,14 @@ use crate::{
 };
 
 use super::BranchMessage;
+
+// colors from delta
+#[expect(dead_code)]
+const MINUS_BG: Color = Color::Rgb(0x3f, 0x00, 0x01);
+const MINUS_EMPH_BG: Color = Color::Rgb(0x90, 0x10, 0x11);
+#[expect(dead_code)]
+const PLUS_BG: Color = Color::Rgb(0x00, 0x28, 0x00);
+const PLUS_EMPH_BG: Color = Color::Rgb(0x00, 0x60, 0x00);
 
 #[derive(Default, Debug)]
 pub(super) struct Details {
@@ -117,27 +125,6 @@ impl Details {
 
         let mut diff_line_items = Vec::new();
         for change in &commit_details.diff_with_first_parent {
-            // let Some(patch) = but_api::diff::tree_change_diffs(ctx, change.clone().into())? else {
-            //     continue;
-            // };
-
-            // match patch {
-            //     UnifiedPatch::Binary => todo!(),
-            //     UnifiedPatch::TooLarge { size_in_bytes } => todo!(),
-            //     UnifiedPatch::Patch {
-            //         hunks,
-            //         is_result_of_binary_to_text_conversion,
-            //         lines_added,
-            //         lines_removed,
-            //     } => {
-            //         let s = hunks
-            //             .iter()
-            //             .map(|hunk| format!("{}\n", hunk.diff))
-            //             .collect::<String>();
-            //         panic!("{s}");
-            //     }
-            // }
-
             let status = match &change.status {
                 but_core::TreeStatus::Addition { .. } => Span::raw("added").green(),
                 but_core::TreeStatus::Deletion { .. } => Span::raw("deleted").red(),
@@ -148,26 +135,149 @@ impl Details {
             let path = change.path.to_string();
             let width = path.width() + status.width() + 2;
             let padding = 2;
-            diff_line_items.push(
+            diff_line_items.extend([
                 ListItem::new(Line::from_iter(
                     repeat_n("─", width + padding).chain(once("╮")),
                 ))
                 .dim(),
-            );
-            diff_line_items.push(ListItem::new(Line::from_iter([
-                Span::raw(" "),
-                status,
-                Span::raw(": "),
-                Span::raw(path),
-                Span::raw(" "),
-                Span::raw("│").dim(),
-            ])));
-            diff_line_items.push(
+                ListItem::new(Line::from_iter([
+                    Span::raw(" "),
+                    status,
+                    Span::raw(": "),
+                    Span::raw(path),
+                    Span::raw(" "),
+                    Span::raw("│").dim(),
+                ])),
                 ListItem::new(Line::from_iter(
                     repeat_n("─", width + padding).chain(once("╯")),
                 ))
                 .dim(),
-            );
+                ListItem::new(""),
+            ]);
+
+            if let Some(patch) = but_api::diff::tree_change_diffs(ctx, change.clone().into())
+                .ok()
+                .flatten()
+            {
+                match patch {
+                    UnifiedPatch::Patch {
+                        hunks,
+                        is_result_of_binary_to_text_conversion,
+                        lines_added: _,
+                        lines_removed: _,
+                    } => {
+                        let mut hunk_iter = hunks.into_iter().peekable();
+                        while let Some(hunk) = hunk_iter.next() {
+                            let DiffHunk {
+                                old_start,
+                                new_start,
+                                diff,
+                                old_lines: _,
+                                new_lines: _,
+                            } = hunk;
+
+                            if is_result_of_binary_to_text_conversion {
+                                diff_line_items.push(ListItem::new(
+                                    "(diff generated from binary-to-text conversion)",
+                                ));
+                            }
+
+                            if let Some(headers) = diff.lines().next() {
+                                diff_line_items.push(ListItem::new(
+                                    Span::raw(headers.to_str_lossy().to_string()).dim(),
+                                ));
+                                diff_line_items.push(ListItem::new(
+                                    Line::from_iter(repeat_n("─", headers.to_str_lossy().width()))
+                                        .dim(),
+                                ))
+                            }
+
+                            let (old_width, new_width) = {
+                                let mut old_line = old_start;
+                                let mut new_line = new_start;
+                                for line in diff.lines().skip(1) {
+                                    if line.starts_with(b"+") {
+                                        new_line += 1;
+                                    } else if line.starts_with(b"-") {
+                                        old_line += 1;
+                                    } else {
+                                        old_line += 1;
+                                        new_line += 1;
+                                    }
+                                }
+                                (num_digits(old_line), num_digits(new_line))
+                            };
+
+                            let mut old_line_num = old_start;
+                            let mut new_line_num = new_start;
+
+                            for line in diff.lines().skip(1) {
+                                let item = if let Some(rest) = line.strip_prefix(b"+") {
+                                    let item = ListItem::new(Line::from_iter([
+                                        Span::raw(" ".repeat(old_width as _)),
+                                        Span::raw(" ┊ ").dim(),
+                                        Span::raw(
+                                            " ".repeat((new_width - num_digits(new_line_num)) as _),
+                                        ),
+                                        Span::raw(new_line_num.to_string()).fg(PLUS_EMPH_BG),
+                                        Span::raw(" │ ").dim(),
+                                        Span::raw(rest.to_str_lossy().to_string()).bg(PLUS_EMPH_BG),
+                                    ]));
+                                    new_line_num += 1;
+                                    item
+                                } else if let Some(rest) = line.strip_prefix(b"-") {
+                                    let item = ListItem::new(Line::from_iter([
+                                        Span::raw(
+                                            " ".repeat((old_width - num_digits(old_line_num)) as _),
+                                        ),
+                                        Span::raw(old_line_num.to_string()).fg(MINUS_EMPH_BG),
+                                        Span::raw(" ┊ ").dim(),
+                                        Span::raw(" ".repeat(new_width as _)),
+                                        Span::raw(" │ ").dim(),
+                                        Span::raw(rest.to_str_lossy().to_string())
+                                            .bg(MINUS_EMPH_BG),
+                                    ]));
+                                    old_line_num += 1;
+                                    item
+                                } else {
+                                    let line = line.strip_prefix(b" ").unwrap_or(line);
+                                    let item = ListItem::new(Line::from_iter([
+                                        Span::raw(
+                                            " ".repeat((old_width - num_digits(old_line_num)) as _),
+                                        ),
+                                        Span::raw(old_line_num.to_string()).dark_gray(),
+                                        Span::raw(" ┊ ").dim(),
+                                        Span::raw(
+                                            " ".repeat((new_width - num_digits(new_line_num)) as _),
+                                        ),
+                                        Span::raw(new_line_num.to_string()).dark_gray(),
+                                        Span::raw(" │ ").dim(),
+                                        Span::raw(line.to_str_lossy().to_string()),
+                                    ]));
+                                    old_line_num += 1;
+                                    new_line_num += 1;
+                                    item
+                                };
+                                diff_line_items.push(item);
+                            }
+
+                            if hunk_iter.peek().is_some() {
+                                diff_line_items.push(ListItem::new(""));
+                            }
+                        }
+                    }
+                    UnifiedPatch::Binary => {
+                        diff_line_items.push(ListItem::new("Binary file - no diff available"));
+                    }
+                    UnifiedPatch::TooLarge { size_in_bytes } => {
+                        diff_line_items.push(ListItem::new(format!(
+                            "File too large ({size_in_bytes} bytes) - no diff available"
+                        )));
+                    }
+                }
+
+                diff_line_items.push(ListItem::new(""));
+            }
         }
 
         let mut header_items = Vec::new();
@@ -239,111 +349,6 @@ impl Widget for &DiffWidget {
     }
 }
 
-// #[derive(Debug)]
-// struct DiffEntry {
-//     path: BString,
-// }
-
-// #[derive(Debug)]
-// struct DiffWidget {
-//     commit_id: gix::ObjectId,
-//     author: Signature,
-//     committer: Signature,
-//     message: BString,
-//     diff_entries: Vec<DiffEntry>,
-// }
-
-// impl Widget for &DiffWidget {
-//     fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer) {
-//         let header = self.build_header_widget();
-//         let message = self.build_message_widget();
-
-//         let layout = Layout::vertical([
-//             Constraint::Length((header.len() + 1) as _),
-//             Constraint::Length(message.line_count(area.width) as _),
-//             Constraint::Length(1),
-//             Constraint::Min(1),
-//         ])
-//         .split(area);
-
-//         header.render(layout[0], buf);
-//         message.render(layout[1], buf);
-//         Clear.render(layout[2], buf);
-//         self.render_diff(layout[3], buf);
-//     }
-// }
-
-// impl DiffWidget {
-//     fn build_header_widget(&self) -> List<'static> {
-//         let items = [
-//             ListItem::new(Line::from_iter([
-//                 Span::raw(format!("{:<11}", "Commit ID:")),
-//                 Span::raw(self.commit_id.to_hex().to_string()).blue(),
-//             ])),
-//             ListItem::new(Line::from_iter(
-//                 once(Span::raw(format!("{:<11}", "Author:"))).chain(render_signature(&self.author)),
-//             )),
-//             ListItem::new(Line::from_iter(
-//                 once(Span::raw(format!("{:<11}", "Committer:")))
-//                     .chain(render_signature(&self.committer)),
-//             )),
-//         ];
-//         List::new(items)
-//     }
-
-//     fn build_message_widget(&self) -> Paragraph<'static> {
-//         if self.message.is_empty() {
-//             Paragraph::new("(no commit message)").dim()
-//         } else {
-//             let message = self.message.to_string();
-//             Paragraph::new(message).wrap(Wrap { trim: true })
-//         }
-//     }
-
-//     fn render_diff(&self, area: Rect, buf: &mut ratatui::prelude::Buffer) {
-//         let layouts = Layout::vertical(self.diff_entries.iter().flat_map(|_| {
-//             [
-//                 // for header
-//                 Constraint::Length(3),
-//                 // padding between header and diff
-//                 Constraint::Length(1),
-//                 // for actual diff
-//                 Constraint::Min(1),
-//                 // padding between this entry and the next
-//                 Constraint::Length(1),
-//             ]
-//         }))
-//         .split(area);
-
-//         for (idx, diff_entry) in self.diff_entries.iter().enumerate() {
-//             let header_layout = layouts[idx];
-//             let _padding = layouts[idx + 1];
-//             let diff_layout = layouts[idx + 2];
-//             let _padding = layouts[idx + 3];
-
-//             let header = Paragraph::new(diff_entry.path.to_string()).block(
-//                 Block::new()
-//                     .borders(Borders::TOP | Borders::RIGHT | Borders::BOTTOM)
-//                     .border_type(BorderType::Rounded)
-//                     .border_style(Style::default().dim()),
-//             );
-//             header.render(header_layout, buf);
-
-//             List::new([
-//                 "diff",
-//                 "diff",
-//                 "diff",
-//                 "diff",
-//                 "diff",
-//                 "diff",
-//                 "diff",
-//                 "diff",
-//                 "diff",
-//             ]).render(diff_layout, buf);
-//         }
-//     }
-// }
-
 fn render_signature(sig: &Signature) -> impl IntoIterator<Item = Span<'static>> {
     [
         Span::raw(sig.name.to_string()).yellow(),
@@ -355,4 +360,8 @@ fn render_signature(sig: &Signature) -> impl IntoIterator<Item = Span<'static>> 
         Span::raw(")"),
     ]
     .into_iter()
+}
+
+fn num_digits(n: u32) -> u32 {
+    n.ilog10() + 1
 }
