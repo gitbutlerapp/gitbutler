@@ -971,8 +971,6 @@ const CommitRow: FC<
 	toggleEditingMessage,
 	toggleExpand,
 	toggleSelect,
-
-	className,
 	...restProps
 }) => {
 	const [isExpandPending, startExpandTransition] = useTransition();
@@ -1002,7 +1000,6 @@ const CommitRow: FC<
 								? sharedStyles.selectedWithin
 								: undefined,
 						isHighlighted && sharedStyles.highlighted,
-						className,
 					)}
 					style={{ ...(isExpandPending && { opacity: 0.5 }) }}
 					aria-busy={isExpandPending}
