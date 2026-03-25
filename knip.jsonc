@@ -13,6 +13,7 @@
 				"electron/src/main.ts!",
 				"electron/src/preload.cts!",
 
+				"ui/src/close-watcher.d.ts!",
 				"ui/src/css-modules.d.ts!",
 				"ui/src/electron.d.ts!",
 				"ui/src/react-css-properties.d.ts!",

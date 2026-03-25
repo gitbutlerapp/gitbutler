@@ -73,6 +73,7 @@ import {
 	useEffect,
 	useEffectEvent,
 	useOptimistic,
+	useRef,
 	useState,
 	useTransition,
 } from "react";
@@ -884,6 +885,18 @@ const InlineCommitMessageEditor: FC<{
 	const commitReword = useMutation(commitRewordMutationOptions);
 	const initialMessage = message.trim();
 
+	const closeWatcherRef = useRef<CloseWatcher | null>(null);
+	useEffect(() => {
+		const closeWatcher = new CloseWatcher();
+		closeWatcherRef.current = closeWatcher;
+		closeWatcher.addEventListener("close", onExit);
+		return () => {
+			closeWatcher.removeEventListener("close", onExit);
+			closeWatcher.destroy();
+			closeWatcherRef.current = null;
+		};
+	}, [onExit]);
+
 	const saveMessage = (newMessage: string) => {
 		onExit();
 		const trimmed = newMessage.trim();
@@ -918,10 +931,7 @@ const InlineCommitMessageEditor: FC<{
 				defaultValue={initialMessage}
 				className={styles.editCommitMessageInput}
 				onKeyDown={(event) => {
-					if (event.key === "Escape") {
-						event.preventDefault();
-						onExit();
-					} else if (event.key === "Enter" && !event.shiftKey) {
+					if (event.key === "Enter" && !event.shiftKey) {
 						event.preventDefault();
 						event.currentTarget.form?.requestSubmit();
 					}
@@ -929,7 +939,13 @@ const InlineCommitMessageEditor: FC<{
 			/>
 			<div className={styles.editCommitMessageHelp}>
 				<span>escape to </span>
-				<button type="button" className={styles.editCommitMessageAction} onClick={onExit}>
+				<button
+					type="button"
+					className={styles.editCommitMessageAction}
+					onClick={() => {
+						closeWatcherRef.current?.requestClose();
+					}}
+				>
 					cancel
 				</button>
 				<span> • enter to </span>
