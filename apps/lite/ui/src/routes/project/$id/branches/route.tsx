@@ -502,9 +502,7 @@ const ProjectBranchesPage: FC = () => {
 		selection.path === path;
 
 	const toggleBranchSelection = (branchName: string) => {
-		select((selected) =>
-			selected?.branchName === branchName ? null : { _tag: "Branch", branchName },
-		);
+		select(selection?.branchName === branchName ? null : { _tag: "Branch", branchName });
 	};
 	const toggleCommitSelection = (branchName: string, commitId: string) => {
 		select(

@@ -1669,13 +1669,13 @@ const ProjectPage: FC = () => {
 	};
 	const toggleCommitEditingMessage = (stackId: string, commitId: string) => {
 		if (isCommitEditingMessage(stackId, commitId)) {
-			select((currentSelection) =>
-				currentSelection?._tag === "Commit" &&
-				currentSelection.stackId === stackId &&
-				currentSelection.commitId === commitId &&
-				currentSelection.isEditingMessage === true
-					? { ...currentSelection, isEditingMessage: false }
-					: currentSelection,
+			select(
+				selection?._tag === "Commit" &&
+					selection.stackId === stackId &&
+					selection.commitId === commitId &&
+					selection.isEditingMessage === true
+					? { ...selection, isEditingMessage: false }
+					: selection,
 			);
 			return;
 		}
