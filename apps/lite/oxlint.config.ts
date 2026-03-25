@@ -1,14 +1,15 @@
-{
-	"$schema": "../../node_modules/oxlint/configuration_schema.json",
-	"jsPlugins": [
+import { defineConfig } from "oxlint";
+
+export default defineConfig({
+	jsPlugins: [
 		// The builtin plugin isn't 1:1 at time of writing.
-		{ "name": "react-hooks-js", "specifier": "eslint-plugin-react-hooks" },
-		{ "name": "react-query-js", "specifier": "@tanstack/eslint-plugin-query" }
+		{ name: "react-hooks-js", specifier: "eslint-plugin-react-hooks" },
+		{ name: "react-query-js", specifier: "@tanstack/eslint-plugin-query" }
 	],
-	"plugins": ["eslint", "jsx-a11y", "oxc", "react", "typescript", "unicorn"],
-	"rules": {
+	plugins: ["eslint", "jsx-a11y", "oxc", "react", "typescript", "unicorn"],
+	rules: {
 		"arrow-body-style": ["error", "as-needed"],
-		"curly": ["warn", "multi"],
+		curly: ["warn", "multi"],
 		"default-param-last": "error",
 		"no-console": "warn",
 		"no-cond-assign": ["warn", "always"],
@@ -18,13 +19,13 @@
 		"no-unused-vars": [
 			"warn",
 			{
-				"caughtErrorsIgnorePattern": "^_",
+				caughtErrorsIgnorePattern: "^_",
 				// These are the defaults that are unset by diverging our config at all.
-				"argsIgnorePattern": "^_",
-				"varsIgnorePattern": "^_"
+				argsIgnorePattern: "^_",
+				varsIgnorePattern: "^_"
 			}
 		],
-		"oxc/no-barrel-file": ["warn", { "threshold": 0 }],
+		"oxc/no-barrel-file": ["warn", { threshold: 0 }],
 		"prefer-template": "warn",
 		"react/button-has-type": "error",
 		"react/jsx-boolean-value": "warn",
@@ -37,7 +38,7 @@
 		// Temporarily disabled during the POC phase
 		// "react/only-export-components": "error",
 		"react/self-closing-comp": "warn",
-		"typescript/array-type": ["warn", { "default": "generic" }],
+		"typescript/array-type": ["warn", { default: "generic" }],
 		"typescript/await-thenable": "error",
 		"typescript/ban-ts-comment": "warn",
 		"typescript/no-explicit-any": "error",
@@ -57,19 +58,19 @@
 		"typescript/restrict-plus-operands": [
 			"error",
 			{
-				"allowAny": false,
-				"allowBoolean": false,
-				"allowNullish": false,
-				"allowNumberAndString": false,
-				"allowRegExp": false
+				allowAny: false,
+				allowBoolean: false,
+				allowNullish: false,
+				allowNumberAndString: false,
+				allowRegExp: false
 			}
 		],
 		"typescript/restrict-template-expressions": [
 			"warn",
 			{
-				"allowAny": false,
-				"allowNullish": false,
-				"allowRegExp": false
+				allowAny: false,
+				allowNullish: false,
+				allowRegExp: false
 			}
 		],
 		// "always" flags for lack of await outside of async functions, unlike ESLint:
@@ -78,9 +79,9 @@
 		"typescript/strict-boolean-expressions": [
 			"warn",
 			{
-				"allowString": false,
-				"allowNumber": false,
-				"allowNullableBoolean": true
+				allowString: false,
+				allowNumber: false,
+				allowNullableBoolean: true
 			}
 		],
 		"typescript/unbound-method": "error",
@@ -114,4 +115,4 @@
 		"react-query-js/no-unstable-deps": "error",
 		"react-query-js/stable-query-client": "error"
 	}
-}
+});
