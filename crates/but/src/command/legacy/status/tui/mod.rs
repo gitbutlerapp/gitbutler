@@ -11,7 +11,7 @@ use itertools::Either;
 use ratatui::{
     Frame,
     prelude::*,
-    widgets::{List, ListItem},
+    widgets::{Block, Borders, List, ListItem, Paragraph},
 };
 use ratatui_textarea::{CursorMove, TextArea};
 use unicode_width::UnicodeWidthStr;
@@ -1578,15 +1578,32 @@ impl App {
         self.render_hotbar(content_layout[1], frame);
     }
 
-    fn render_status(&self, area: Rect, frame: &mut Frame) {
-        let (content_area, debug_area) = if self.debug_enabled {
+    fn status_layout(&self, area: Rect) -> StatusLayout {
+        let (main_content_area, debug_area) = if self.debug_enabled {
             let layout =
-                Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                Layout::horizontal([Constraint::Percentage(70), Constraint::Percentage(30)])
                     .split(area);
             (layout[0], Some(layout[1]))
         } else {
             (area, None)
         };
+
+        let layout = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .split(main_content_area);
+
+        StatusLayout {
+            content_area: layout[0],
+            details_area: Some(layout[1]),
+            debug_area,
+        }
+    }
+
+    fn render_status(&self, area: Rect, frame: &mut Frame) {
+        let StatusLayout {
+            content_area,
+            details_area,
+            debug_area,
+        } = self.status_layout(area);
 
         let visible_height = content_area.height as usize;
         let items = self
@@ -1601,6 +1618,10 @@ impl App {
         let list = List::new(items);
 
         frame.render_widget(list, content_area);
+
+        if let Some(details_area) = details_area {
+            self.render_details(details_area, frame);
+        }
 
         self.render_inline_reword(content_area, frame);
 
@@ -1867,6 +1888,25 @@ impl App {
         }
 
         StatusListItem::Single(line)
+    }
+
+    fn render_details(&self, area: Rect, frame: &mut Frame) {
+        let Some(selection) = self
+            .cursor
+            .selected_line(&self.status_lines)
+            .and_then(|line| line.data.cli_id())
+        else {
+            frame.render_widget("Nothing selected", area);
+            return;
+        };
+
+        let widget = Paragraph::new("Hello, World!").block(
+            Block::new()
+                .borders(Borders::LEFT)
+                .border_style(Style::default().dark_gray()),
+        );
+
+        frame.render_widget(widget, area);
     }
 
     fn render_rub_inline_labels_for_selected_line(
@@ -2787,4 +2827,10 @@ where
     Message::RunAfterConfirmation(DebugType(Arc::new(move |app, ctx, messages| {
         f(app, ctx, messages)
     })))
+}
+
+struct StatusLayout {
+    content_area: Rect,
+    details_area: Option<Rect>,
+    debug_area: Option<Rect>,
 }
