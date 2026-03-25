@@ -144,72 +144,77 @@ const BranchRow: FC<
 	{
 		projectId: string;
 		branch: BranchListing;
-		isSelected: boolean;
-		isSelectedWithin: boolean;
-		toggleSelect: () => void;
+		selection: Selection | null;
+		select: (selection: Selection | null) => void;
 	} & ComponentProps<"div">
-> = ({
-	projectId,
-	branch,
-	isSelected,
-	isSelectedWithin,
-	toggleSelect,
-	className,
-	...restProps
-}) => (
-	<div
-		{...restProps}
-		className={classes(
-			sharedStyles.row,
-			styles.branchRow,
-			isSelected
-				? sharedStyles.selected
-				: isSelectedWithin
-					? sharedStyles.selectedWithin
-					: undefined,
-			className,
-		)}
-	>
-		<ContextMenu.Root>
-			<ContextMenu.Trigger
-				render={
-					<button type="button" className={styles.branchButton} onClick={toggleSelect}>
-						{branch.name}
-						{branch.stack?.branches && branch.stack.branches.length > 1 && (
-							<> (+{branch.stack.branches.length - 1} more)</>
-						)}
-					</button>
-				}
-			/>
-			<ContextMenu.Portal>
-				<ContextMenu.Positioner>
-					<BranchMenuPopup branch={branch} projectId={projectId} parts={ContextMenu} />
-				</ContextMenu.Positioner>
-			</ContextMenu.Portal>
-		</ContextMenu.Root>
-		<BranchApplyToggle branch={branch} projectId={projectId} />
-		<Menu.Root>
-			<Menu.Trigger className={sharedStyles.rowAction} aria-label={`Branch ${branch.name} menu`}>
-				<MenuTriggerIcon />
-			</Menu.Trigger>
-			<Menu.Portal>
-				<Menu.Positioner align="end">
-					<BranchMenuPopup branch={branch} projectId={projectId} parts={Menu} />
-				</Menu.Positioner>
-			</Menu.Portal>
-		</Menu.Root>
-	</div>
-);
+> = ({ projectId, branch, selection, select, className, ...restProps }) => {
+	const isSelected = isBranchSelected(selection, branch.name);
+	const isSelectedWithin = isBranchSelectedWithin(selection, branch.name);
+
+	return (
+		<div
+			{...restProps}
+			className={classes(
+				sharedStyles.row,
+				styles.branchRow,
+				isSelected
+					? sharedStyles.selected
+					: isSelectedWithin
+						? sharedStyles.selectedWithin
+						: undefined,
+				className,
+			)}
+		>
+			<ContextMenu.Root>
+				<ContextMenu.Trigger
+					render={
+						<button
+							type="button"
+							className={styles.branchButton}
+							onClick={() => {
+								select(toggleBranchSelection(selection, branch.name));
+							}}
+						>
+							{branch.name}
+							{branch.stack?.branches && branch.stack.branches.length > 1 && (
+								<> (+{branch.stack.branches.length - 1} more)</>
+							)}
+						</button>
+					}
+				/>
+				<ContextMenu.Portal>
+					<ContextMenu.Positioner>
+						<BranchMenuPopup branch={branch} projectId={projectId} parts={ContextMenu} />
+					</ContextMenu.Positioner>
+				</ContextMenu.Portal>
+			</ContextMenu.Root>
+			<BranchApplyToggle branch={branch} projectId={projectId} />
+			<Menu.Root>
+				<Menu.Trigger className={sharedStyles.rowAction} aria-label={`Branch ${branch.name} menu`}>
+					<MenuTriggerIcon />
+				</Menu.Trigger>
+				<Menu.Portal>
+					<Menu.Positioner align="end">
+						<BranchMenuPopup branch={branch} projectId={projectId} parts={Menu} />
+					</Menu.Positioner>
+				</Menu.Portal>
+			</Menu.Root>
+		</div>
+	);
+};
 
 const CommitRow: FC<{
+	branchName: string;
 	commit: Commit;
+	projectId: string;
+	selection: Selection | null;
+	select: (selection: Selection | null) => void;
 	isHighlighted: boolean;
-	isSelected: boolean;
-	isSelectedWithin: boolean;
-	toggleExpand: () => Promise<void> | void;
-	toggleSelect: () => void;
-}> = ({ commit, isHighlighted, isSelected, isSelectedWithin, toggleExpand, toggleSelect }) => {
+}> = ({ branchName, commit, projectId, selection, select, isHighlighted }) => {
 	const [isExpandPending, startExpandTransition] = useTransition();
+	const queryClient = useQueryClient();
+	const isSelected = isCommitSelected(selection, branchName, commit.id);
+	const isSelectedWithin = isCommitSelectedWithin(selection, branchName, commit.id);
 
 	return (
 		<div
@@ -226,14 +231,36 @@ const CommitRow: FC<{
 			style={{ ...(isExpandPending && { opacity: 0.5 }) }}
 			aria-busy={isExpandPending}
 		>
-			<button type="button" className={sharedStyles.commitButton} onClick={toggleSelect}>
+			<button
+				type="button"
+				className={sharedStyles.commitButton}
+				onClick={() => {
+					select(toggleCommitSelection(selection, branchName, commit.id));
+				}}
+			>
 				<CommitLabel commit={commit} />
 			</button>
 			<button
 				className={sharedStyles.rowAction}
 				type="button"
 				onClick={() => {
-					startExpandTransition(toggleExpand);
+					startExpandTransition(async () => {
+						if (isCommitSelectedWithin(selection, branchName, commit.id)) {
+							select({ _tag: "Commit", branchName, commitId: commit.id });
+							return;
+						}
+
+						const commitDetails = await queryClient.ensureQueryData(
+							commitDetailsWithLineStatsQueryOptions({ projectId, commitId: commit.id }),
+						);
+						const firstPath = commitDetails.changes[0]?.path;
+
+						select(
+							firstPath !== undefined
+								? { _tag: "CommitFile", branchName, commitId: commit.id, path: firstPath }
+								: { _tag: "Commit", branchName, commitId: commit.id },
+						);
+					});
 				}}
 				aria-expanded={isSelectedWithin}
 				aria-label={isSelectedWithin ? "Collapse commit" : "Expand commit"}
@@ -245,34 +272,22 @@ const CommitRow: FC<{
 };
 
 const CommitC: FC<{
+	branchName: string;
 	commit: Commit;
-	isFileSelected: (path: string) => boolean;
-	isSelected: boolean;
-	isSelectedWithin: boolean;
 	projectId: string;
-	toggleExpand: () => Promise<void> | void;
-	toggleFileSelect: (path: string) => void;
-	toggleSelect: () => void;
-}> = ({
-	commit,
-	isFileSelected,
-	isSelected,
-	isSelectedWithin,
-	projectId,
-	toggleExpand,
-	toggleFileSelect,
-	toggleSelect,
-}) => (
+	selection: Selection | null;
+	select: (selection: Selection | null) => void;
+}> = ({ branchName, commit, projectId, selection, select }) => (
 	<div>
 		<CommitRow
+			branchName={branchName}
 			commit={commit}
+			projectId={projectId}
+			selection={selection}
+			select={select}
 			isHighlighted={false}
-			isSelected={isSelected}
-			isSelectedWithin={isSelectedWithin}
-			toggleExpand={toggleExpand}
-			toggleSelect={toggleSelect}
 		/>
-		{isSelectedWithin && (
+		{isCommitSelectedWithin(selection, branchName, commit.id) && (
 			<div className={sharedStyles.commitDetails}>
 				<Suspense fallback={<div>Loading changed details…</div>}>
 					<CommitDetails
@@ -283,10 +298,18 @@ const CommitC: FC<{
 								className={classes(
 									sharedStyles.row,
 									sharedStyles.fileRow,
-									isFileSelected(change.path) && sharedStyles.selected,
+									isCommitFileSelected(selection, branchName, commit.id, change.path) &&
+										sharedStyles.selected,
 								)}
 							>
-								<FileButton change={change} toggleSelect={() => toggleFileSelect(change.path)} />
+								<FileButton
+									change={change}
+									toggleSelect={() => {
+										select(
+											toggleCommitFileSelection(selection, branchName, commit.id, change.path),
+										);
+									}}
+								/>
 							</div>
 						)}
 					/>
@@ -298,25 +321,11 @@ const CommitC: FC<{
 
 const BranchDetailsC: FC<{
 	branchName: string;
-	isCommitFileSelected: (commitId: string, path: string) => boolean;
-	isCommitSelected: (commitId: string) => boolean;
-	isCommitSelectedWithin: (commitId: string) => boolean;
 	projectId: string;
 	remote: string | null;
-	toggleCommitExpanded: (commitId: string) => Promise<void> | void;
-	toggleCommitFileSelection: (commitId: string, path: string) => void;
-	toggleCommitSelection: (commitId: string) => void;
-}> = ({
-	branchName,
-	isCommitFileSelected,
-	isCommitSelected,
-	isCommitSelectedWithin,
-	projectId,
-	remote,
-	toggleCommitExpanded,
-	toggleCommitFileSelection,
-	toggleCommitSelection,
-}) => {
+	selection: Selection | null;
+	select: (selection: Selection | null) => void;
+}> = ({ branchName, projectId, remote, selection, select }) => {
 	const { data: branchDetails } = useSuspenseQuery(
 		branchDetailsQueryOptions({ projectId, branchName, remote }),
 	);
@@ -325,18 +334,11 @@ const BranchDetailsC: FC<{
 		<CommitsList commits={branchDetails.commits}>
 			{(commit) => (
 				<CommitC
+					branchName={branchName}
 					commit={commit}
-					isFileSelected={(path) => isCommitFileSelected(commit.id, path)}
-					isSelected={isCommitSelected(commit.id)}
-					isSelectedWithin={isCommitSelectedWithin(commit.id)}
 					projectId={projectId}
-					toggleExpand={() => toggleCommitExpanded(commit.id)}
-					toggleFileSelect={(path) => {
-						toggleCommitFileSelection(commit.id, path);
-					}}
-					toggleSelect={() => {
-						toggleCommitSelection(commit.id);
-					}}
+					selection={selection}
+					select={select}
 				/>
 			)}
 		</CommitsList>
@@ -478,7 +480,6 @@ const ProjectBranchesPage: FC = () => {
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 	const project = projects.find((project) => project.id === projectId);
 	const { data: branches } = useSuspenseQuery(listBranchesQueryOptions(projectId));
-	const queryClient = useQueryClient();
 
 	const sortedBranches = branches.slice().sort((a, b) => a.name.localeCompare(b.name));
 	const [_selection, select] = useLocalStorageState<Selection | null>(
@@ -491,23 +492,6 @@ const ProjectBranchesPage: FC = () => {
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
 	const selectedRemote =
 		selectedBranch && !selectedBranch.hasLocal ? selectedBranch.remotes[0] : null;
-	const toggleCommitExpanded = async (branchName: string, commitId: string) => {
-		if (isCommitSelectedWithin(selection, branchName, commitId)) {
-			select({ _tag: "Commit", branchName, commitId });
-			return;
-		}
-
-		const commitDetails = await queryClient.ensureQueryData(
-			commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
-		);
-		const firstPath = commitDetails.changes[0]?.path;
-
-		select(
-			firstPath !== undefined
-				? { _tag: "CommitFile", branchName, commitId, path: firstPath }
-				: { _tag: "Commit", branchName, commitId },
-		);
-	};
 
 	if (!project) return <p>Project not found.</p>;
 
@@ -531,23 +515,16 @@ const ProjectBranchesPage: FC = () => {
 		>
 			<div className={sharedStyles.lanes}>
 				<ul className={styles.branchesListLane}>
-					{sortedBranches.map((branch) => {
-						const isSelected = isBranchSelected(selection, branch.name);
-						const isSelectedWithin = isBranchSelectedWithin(selection, branch.name);
-						return (
-							<li key={branch.name}>
-								<BranchRow
-									projectId={projectId}
-									branch={branch}
-									isSelected={isSelected}
-									isSelectedWithin={isSelectedWithin}
-									toggleSelect={() => {
-										select(toggleBranchSelection(selection, branch.name));
-									}}
-								/>
-							</li>
-						);
-					})}
+					{sortedBranches.map((branch) => (
+						<li key={branch.name}>
+							<BranchRow
+								projectId={projectId}
+								branch={branch}
+								selection={selection}
+								select={select}
+							/>
+						</li>
+					))}
 				</ul>
 
 				{selectedBranch?.name != null && (
@@ -555,33 +532,10 @@ const ProjectBranchesPage: FC = () => {
 						<Suspense fallback={<div>Loading branch details…</div>}>
 							<BranchDetailsC
 								branchName={selectedBranch.name}
-								isCommitFileSelected={(commitId, path) =>
-									isCommitFileSelected(selection, selectedBranch.name, commitId, path)
-								}
-								isCommitSelected={(commitId) =>
-									isCommitSelected(selection, selectedBranch.name, commitId)
-								}
-								isCommitSelectedWithin={(commitId) =>
-									isCommitSelectedWithin(selection, selectedBranch.name, commitId)
-								}
 								projectId={projectId}
 								remote={selectedRemote ?? null}
-								toggleCommitExpanded={(commitId) =>
-									toggleCommitExpanded(selectedBranch.name, commitId)
-								}
-								toggleCommitFileSelection={(commitId, path) =>
-									select(
-										toggleCommitFileSelection(
-											selection,
-											selectedBranch.name,
-											commitId,
-											path,
-										),
-									)
-								}
-								toggleCommitSelection={(commitId) =>
-									select(toggleCommitSelection(selection, selectedBranch.name, commitId))
-								}
+								selection={selection}
+								select={select}
 							/>
 						</Suspense>
 					</div>
