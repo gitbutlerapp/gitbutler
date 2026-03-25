@@ -4,5 +4,6 @@ export const createDiffSpec = (change: TreeChange, hunkHeaders: Array<HunkHeader
 	pathBytes: change.pathBytes,
 	previousPathBytes:
 		change.status.type === "Rename" ? change.status.subject.previousPathBytes : null,
-	hunkHeaders,
+	hunkHeaders:
+		change.status.type === "Addition" || change.status.type === "Deletion" ? [] : hunkHeaders,
 });
