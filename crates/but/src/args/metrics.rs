@@ -61,6 +61,7 @@ pub enum CommandName {
     SkillInstall,
     SkillCheck,
     Pick,
+    Clean,
     #[default]
     Unknown,
 }

@@ -12,6 +12,7 @@ Comprehensive reference for all `but` commands.
 - [Conflict Resolution](#conflict-resolution) - `resolve`
 - [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `merge`
 - [Automation](#automation) - `mark`, `unmark`
+- [Workspace Maintenance](#workspace-maintenance) - `clean`
 - [History & Undo](#history--undo) - `undo`, `oplog`
 - [Setup & Configuration](#setup--configuration) - `setup`, `teardown`, `config`, `gui`, `update`, `alias`
 - [Global Options](#global-options)
@@ -480,6 +481,23 @@ but unmark
 ```
 
 Use marks when working on a focused area to automatically organize changes.
+
+## Workspace Maintenance
+
+### `but clean`
+
+Remove empty branches from the workspace.
+
+```bash
+but clean                   # Delete all empty branches
+but clean --dry-run         # Preview which branches would be deleted
+but clean --pull            # Pull latest changes first, then clean
+but clean --include-upstream # Also remove branches with upstream-only commits
+```
+
+A branch is considered empty if it has no local commits and no assigned changes. Branches with upstream-only commits are preserved by default unless `--include-upstream` is used.
+
+The entire operation is a single oplog entry — use `but undo` to restore all deleted branches.
 
 ## History & Undo
 

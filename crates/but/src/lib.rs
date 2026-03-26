@@ -567,6 +567,43 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
+        Subcommands::Clean {
+            dry_run,
+            pull,
+            include_upstream,
+        } => {
+            let status_after = args.status_after;
+            let mut ctx = setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled { silent: false },
+                    ..Default::default()
+                },
+                out,
+            )?;
+            if pull {
+                use std::fmt::Write;
+                let mut progress = out.progress_channel();
+                writeln!(progress, "Pulling latest...")?;
+                let mut pull_out =
+                    OutputChannel::new_with_optional_pager(OutputFormat::None, false);
+                command::legacy::pull::handle(&ctx, &mut pull_out, false).await?;
+                writeln!(progress, "Pull complete.")?;
+            }
+            out.begin_status_after(status_after);
+            let result = command::legacy::clean::handle(
+                &mut ctx,
+                out,
+                command::legacy::clean::CleanOptions {
+                    dry_run,
+                    include_upstream,
+                },
+            )
+            .emit_metrics(metrics_ctx);
+            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
+            result
+        }
+        #[cfg(feature = "legacy")]
         Subcommands::Worktree(worktree::Platform { cmd }) => {
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             command::legacy::worktree::handle(cmd, &mut ctx, out)
