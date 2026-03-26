@@ -1325,37 +1325,40 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 	);
 };
 
-const SegmentButton: FC<{
+const SegmentRow: FC<{
 	segment: Segment;
 	stackId: string;
 	segmentIndex: number;
 	selection: Selection | null;
 	select: (selection: Selection | null) => void;
-}> = ({ segment, stackId, segmentIndex, selection, select }) => (
-	<button
-		type="button"
-		className={classes(
-			styles.segmentButton,
-			selection?._tag === "Segment" &&
-				selection.stackId === stackId &&
-				selection.segmentIndex === segmentIndex &&
-				sharedStyles.selected,
-		)}
-		onClick={() => {
-			select(
-				toggleSegmentSelection(
-					selection,
-					stackId,
-					segmentIndex,
-					segment.refName?.displayName ?? null,
-					segment.refName ? getSegmentBranchRef(segment.refName) : null,
-				),
-			);
-		}}
-	>
-		{segment.refName?.displayName ?? "Untitled"}
-	</button>
-);
+}> = ({ segment, stackId, segmentIndex, selection, select }) => {
+	const isSelected =
+		selection?._tag === "Segment" &&
+		selection.stackId === stackId &&
+		selection.segmentIndex === segmentIndex;
+
+	return (
+		<div className={classes(sharedStyles.row, isSelected && sharedStyles.selected)}>
+			<button
+				type="button"
+				className={styles.segmentButton}
+				onClick={() => {
+					select(
+						toggleSegmentSelection(
+							selection,
+							stackId,
+							segmentIndex,
+							segment.refName?.displayName ?? null,
+							segment.refName ? getSegmentBranchRef(segment.refName) : null,
+						),
+					);
+				}}
+			>
+				{segment.refName?.displayName ?? "Untitled"}
+			</button>
+		</div>
+	);
+};
 
 const SegmentC: FC<{
 	highlightedCommitIds: Set<string>;
@@ -1387,7 +1390,7 @@ const SegmentC: FC<{
 							anchorRef={refName.fullNameBytes}
 							branchName={refName.displayName}
 							render={
-								<SegmentButton
+								<SegmentRow
 									segment={segment}
 									stackId={stackId}
 									segmentIndex={segmentIndex}
@@ -1399,7 +1402,7 @@ const SegmentC: FC<{
 					}
 				/>
 			) : (
-				<SegmentButton
+				<SegmentRow
 					segment={segment}
 					stackId={stackId}
 					segmentIndex={segmentIndex}

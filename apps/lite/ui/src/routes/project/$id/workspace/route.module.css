@@ -58,7 +58,7 @@
 }
 
 .segmentButton {
-	width: 100%;
+	flex-grow: 1;
 	padding-inline: var(--row-inline-padding);
 	padding-block: var(--row-block-padding);
 	font-weight: bold;
