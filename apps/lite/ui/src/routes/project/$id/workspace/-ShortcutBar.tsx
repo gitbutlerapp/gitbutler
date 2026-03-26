@@ -1,4 +1,4 @@
-import { globalShortcutBindings, type ShortcutBinding } from "#ui/shortcuts.ts";
+import { formatShortcutKeys, globalShortcutBindings, type ShortcutBinding } from "#ui/shortcuts.ts";
 import { ShortcutBarPortalContext } from "#ui/routes/-ShortcutBarContext.tsx";
 import { Match } from "effect";
 import { type FC, use } from "react";
@@ -10,24 +10,11 @@ import {
 import { type Item } from "./-Item.ts";
 import {
 	changesSelectionBindings,
+	commitEditingMessageBindings,
 	commitSelectionBindings,
 	segmentSelectionBindings,
 } from "./-Selection.ts";
 import styles from "./-ShortcutBar.module.css";
-
-const formatShortcutKeys = (keys: Array<string>): string =>
-	keys
-		.map((key) =>
-			Match.value(key).pipe(
-				Match.when("ArrowUp", () => "↑"),
-				Match.when("ArrowDown", () => "↓"),
-				Match.when("ArrowLeft", () => "←"),
-				Match.when("ArrowRight", () => "→"),
-				Match.when("Escape", () => "esc"),
-				Match.orElse(() => key.toLowerCase()),
-			),
-		)
-		.join("/");
 
 type ShortcutBarItem = Pick<ShortcutBinding<unknown, unknown>, "id" | "description" | "keys">;
 
@@ -58,10 +45,16 @@ export const getShortcutBarMode = ({
 		),
 		Match.tag(
 			"Commit",
-			(selection): ShortcutBarMode => ({
-				label: "commit",
-				items: commitSelectionBindings.filter((binding) => binding.when?.(selection) ?? true),
-			}),
+			(selection): ShortcutBarMode =>
+				selection.mode._tag === "EditingMessage"
+					? {
+							label: "edit message",
+							items: commitEditingMessageBindings,
+						}
+					: {
+							label: "commit",
+							items: commitSelectionBindings.filter((binding) => binding.when?.(selection) ?? true),
+						},
 		),
 		Match.tag(
 			"Segment",

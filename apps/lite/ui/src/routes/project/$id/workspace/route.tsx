@@ -79,6 +79,7 @@ import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 import {
 	ComponentProps,
 	FC,
+	Fragment,
 	ReactNode,
 	startTransition,
 	Suspense,
@@ -111,12 +112,13 @@ import {
 	getAdjacentLinearItem,
 	getAdjacentRootItem,
 	changesSelectionBindings,
+	commitEditingMessageBindings,
 	commitSelectionBindings,
 	segmentSelectionBindings,
 	SharedSelectionAction,
 } from "./-Selection.ts";
 import { PositionedShortcutBar, getShortcutBarMode } from "./-ShortcutBar.tsx";
-import { getShortcutAction } from "#ui/shortcuts.ts";
+import { formatShortcutKeys, getShortcutAction } from "#ui/shortcuts.ts";
 import styles from "./route.module.css";
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
@@ -907,32 +909,54 @@ const InlineCommitMessageEditor: FC<{
 				defaultValue={initialMessage}
 				className={styles.editCommitMessageInput}
 				onKeyDown={(event) => {
-					if (event.key === "Enter" && !event.shiftKey) {
-						event.preventDefault();
-						event.currentTarget.form?.requestSubmit();
-					}
+					const action = getShortcutAction(
+						commitEditingMessageBindings,
+						undefined,
+						event.nativeEvent,
+					);
+					if (!action) return;
+
+					Match.value(action).pipe(
+						Match.tag("Save", () => {
+							if (event.shiftKey) return;
+							event.preventDefault();
+							event.currentTarget.form?.requestSubmit();
+						}),
+						Match.tag("Cancel", () => {
+							// CloseWatcher handles this
+						}),
+						Match.exhaustive,
+					);
 				}}
 			/>
 			<div className={styles.editCommitMessageHelp}>
-				<span>
-					escape to{" "}
-					<button
-						type="button"
-						className={styles.editCommitMessageAction}
-						onClick={() => {
-							requestClose();
-						}}
-					>
-						cancel
-					</button>
-				</span>
-				{" • "}
-				<span>
-					enter to{" "}
-					<button type="submit" className={styles.editCommitMessageAction}>
-						save
-					</button>
-				</span>
+				{commitEditingMessageBindings.map((binding, index) => (
+					<Fragment key={binding.id}>
+						{index > 0 && " • "}
+						<span>
+							{formatShortcutKeys(binding.keys)} to{" "}
+							{Match.value(binding.action).pipe(
+								Match.tag("Cancel", () => (
+									<button
+										type="button"
+										className={styles.editCommitMessageAction}
+										onClick={() => {
+											requestClose();
+										}}
+									>
+										{binding.description}
+									</button>
+								)),
+								Match.tag("Save", () => (
+									<button type="submit" className={styles.editCommitMessageAction}>
+										{binding.description}
+									</button>
+								)),
+								Match.exhaustive,
+							)}
+						</span>
+					</Fragment>
+				))}
 			</div>
 		</form>
 	);

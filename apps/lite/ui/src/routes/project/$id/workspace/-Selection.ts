@@ -136,6 +136,7 @@ type CommitSelectionAction =
 	| SharedSelectionAction
 	| { _tag: "EditCommitMessage" }
 	| { _tag: "ExpandCommit" };
+export type CommitEditingMessageAction = { _tag: "Save" } | { _tag: "Cancel" };
 
 const createSharedSelectionBindings = <Context>(): Array<
 	ShortcutBinding<SharedSelectionAction, Context>
@@ -199,5 +200,22 @@ export const commitSelectionBindings: Array<ShortcutBinding<CommitSelectionActio
 		action: { _tag: "ExpandCommit" },
 		repeat: false,
 		when: (selection) => selection.mode._tag === "Summary",
+	},
+];
+
+export const commitEditingMessageBindings: Array<ShortcutBinding<CommitEditingMessageAction>> = [
+	{
+		id: "commit-editing-message-save",
+		description: "save",
+		keys: ["Enter"],
+		action: { _tag: "Save" },
+		repeat: false,
+	},
+	{
+		id: "commit-editing-message-cancel",
+		description: "cancel",
+		keys: ["Escape"],
+		action: { _tag: "Cancel" },
+		repeat: false,
 	},
 ];

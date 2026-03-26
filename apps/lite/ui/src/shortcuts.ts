@@ -1,3 +1,5 @@
+import { Match } from "effect";
+
 // We'll need something more sophisticated as we scale, but this is a start.
 export type ShortcutBinding<Action, Context = void> = {
 	id: string;
@@ -46,3 +48,17 @@ export const globalShortcutBindings: Array<ShortcutBinding<SharedShortcutAction>
 		repeat: false,
 	},
 ];
+
+export const formatShortcutKeys = (keys: Array<string>): string =>
+	keys
+		.map((key) =>
+			Match.value(key).pipe(
+				Match.when("ArrowUp", () => "↑"),
+				Match.when("ArrowDown", () => "↓"),
+				Match.when("ArrowLeft", () => "←"),
+				Match.when("ArrowRight", () => "→"),
+				Match.when("Escape", () => "esc"),
+				Match.orElse(() => key.toLowerCase()),
+			),
+		)
+		.join("/");
