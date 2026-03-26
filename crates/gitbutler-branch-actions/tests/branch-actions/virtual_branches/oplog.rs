@@ -426,6 +426,66 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Restoring a snapshot must not fail when the workspace contains a branch
+/// with zero commits (head == target). Such branches have no `commits`
+/// subtree in the snapshot tree, and the restore code must skip them
+/// instead of erroring out.
+#[test]
+fn restore_snapshot_with_empty_branch_in_workspace() -> anyhow::Result<()> {
+    let Test { repo, ctx, .. } = &mut Test::default();
+
+    configure_default_target(ctx)?;
+
+    // Create a branch *with* a commit so the snapshot has something to reconstitute.
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest {
+            name: Some("has-commits".into()),
+            ..Default::default()
+        },
+        guard.write_permission(),
+    )?;
+    drop(guard);
+
+    fs::write(repo.path().join("file.txt"), "hello")?;
+    let _commit_id = super::create_commit(ctx, stack_entry.id, "first commit")?;
+
+    // Now create a second branch that stays empty (zero commits).
+    let mut guard = ctx.exclusive_worktree_access();
+    let _empty_branch = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest {
+            name: Some("empty-branch".into()),
+            ..Default::default()
+        },
+        guard.write_permission(),
+    )?;
+    drop(guard);
+
+    let snapshots = ctx.list_snapshots(10, None, Vec::new(), None)?;
+    // CreateBranch (empty), CreateCommit, CreateBranch (has-commits)
+    assert_eq!(snapshots.len(), 3);
+
+    // Restore to the snapshot taken *before* the commit was created.
+    // This forces the restore code to walk the snapshot tree that contains
+    // the empty branch entry (no `commits` subtree).
+    let mut guard = ctx.exclusive_worktree_access();
+    ctx.restore_snapshot(snapshots[1].commit_id, guard.write_permission())
+        .expect("restore must succeed even with an empty branch in the workspace");
+    drop(guard);
+
+    // Verify the restore was recorded.
+    let snapshots_after = ctx.list_snapshots(10, None, Vec::new(), None)?;
+    assert_eq!(
+        snapshots_after.len(),
+        snapshots.len() + 1,
+        "the restore itself creates a new snapshot entry"
+    );
+
+    Ok(())
+}
+
 // test operations-log.toml head is not a commit
 #[test]
 fn head_corrupt_is_recreated_automatically() {
