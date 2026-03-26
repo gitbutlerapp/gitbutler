@@ -82,6 +82,56 @@ const getExpandedCommitSelection = async ({
 	};
 };
 
+const useSelectionKeyboardShortcuts = ({
+	selection,
+	select,
+	projectId,
+}: {
+	selection: Selection | null;
+	select: (selection: Selection | null) => void;
+	projectId: string;
+}) => {
+	const queryClient = useQueryClient();
+
+	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
+		if (event.defaultPrevented || event.repeat) return;
+		if (event.metaKey || event.ctrlKey || event.altKey) return;
+		if (isTypingTarget(event.target)) return;
+		if (selection?._tag !== "Commit") return;
+
+		switch (event.key) {
+			case "ArrowLeft":
+				if (selection.mode._tag !== "Details") return;
+				event.preventDefault();
+				select({
+					_tag: "Commit",
+					branchName: selection.branchName,
+					commitId: selection.commitId,
+					mode: { _tag: "Summary" },
+				});
+				break;
+			case "ArrowRight":
+				if (selection.mode._tag !== "Summary") return;
+				event.preventDefault();
+				void getExpandedCommitSelection({
+					branchName: selection.branchName,
+					commitId: selection.commitId,
+					projectId,
+					queryClient,
+				}).then(select);
+				break;
+		}
+	});
+
+	useEffect(() => {
+		window.addEventListener("keydown", handleKeyDown);
+
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+		};
+	}, []);
+};
+
 const BranchMenuPopup: FC<{
 	branch: BranchListing;
 	projectId: string;
@@ -482,7 +532,6 @@ const Preview: FC<{
 
 const ProjectBranchesPage: FC = () => {
 	const { id: projectId } = Route.useParams();
-	const queryClient = useQueryClient();
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 	const project = projects.find((project) => project.id === projectId);
@@ -498,43 +547,7 @@ const ProjectBranchesPage: FC = () => {
 		getDefaultSelection(sortedBranches);
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
 
-	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
-		if (event.defaultPrevented || event.repeat) return;
-		if (event.metaKey || event.ctrlKey || event.altKey) return;
-		if (isTypingTarget(event.target)) return;
-		if (selection?._tag !== "Commit") return;
-
-		switch (event.key) {
-			case "ArrowLeft":
-				if (selection.mode._tag !== "Details") return;
-				event.preventDefault();
-				select({
-					_tag: "Commit",
-					branchName: selection.branchName,
-					commitId: selection.commitId,
-					mode: { _tag: "Summary" },
-				});
-				break;
-			case "ArrowRight":
-				if (selection.mode._tag !== "Summary") return;
-				event.preventDefault();
-				void getExpandedCommitSelection({
-					branchName: selection.branchName,
-					commitId: selection.commitId,
-					projectId,
-					queryClient,
-				}).then(select);
-				break;
-		}
-	});
-
-	useEffect(() => {
-		window.addEventListener("keydown", handleKeyDown);
-
-		return () => {
-			window.removeEventListener("keydown", handleKeyDown);
-		};
-	}, []);
+	useSelectionKeyboardShortcuts({ selection, select, projectId });
 
 	if (!project) return <p>Project not found.</p>;
 

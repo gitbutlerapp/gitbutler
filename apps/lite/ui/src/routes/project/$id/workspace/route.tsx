@@ -285,6 +285,55 @@ const getExpandedCommitSelection = async ({
 	};
 };
 
+const useSelectionKeyboardShortcuts = ({
+	selection,
+	select,
+	projectId,
+}: {
+	selection: Selection | null;
+	select: (selection: Selection | null) => void;
+	projectId: string;
+}) => {
+	const queryClient = useQueryClient();
+	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
+		if (event.defaultPrevented || event.repeat) return;
+		if (event.metaKey || event.ctrlKey || event.altKey) return;
+		if (isTypingTarget(event.target)) return;
+		if (selection?._tag !== "Commit") return;
+
+		switch (event.key) {
+			case "ArrowLeft":
+				if (selection.mode._tag !== "Details") return;
+				event.preventDefault();
+				select({
+					_tag: "Commit",
+					stackId: selection.stackId,
+					commitId: selection.commitId,
+					mode: { _tag: "Summary" },
+				});
+				break;
+			case "ArrowRight":
+				if (selection.mode._tag !== "Summary") return;
+				event.preventDefault();
+				void getExpandedCommitSelection({
+					stackId: selection.stackId,
+					commitId: selection.commitId,
+					projectId,
+					queryClient,
+				}).then(select);
+				break;
+		}
+	});
+
+	useEffect(() => {
+		window.addEventListener("keydown", handleKeyDown);
+
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+		};
+	}, []);
+};
+
 const useMonitorDraggedSourceItem = ({ projectId }: { projectId: string }): void => {
 	const runOperation = useRunOperation(projectId);
 
@@ -1562,7 +1611,6 @@ const StackC: FC<{
 
 const ProjectPage: FC = () => {
 	const { id: projectId } = Route.useParams();
-	const queryClient = useQueryClient();
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 
@@ -1593,45 +1641,8 @@ const ProjectPage: FC = () => {
 		setHighlightedCommitIds(commitIds ? new Set(commitIds) : new Set());
 	};
 
-	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
-		if (event.defaultPrevented || event.repeat) return;
-		if (event.metaKey || event.ctrlKey || event.altKey) return;
-		if (isTypingTarget(event.target)) return;
-		if (selection?._tag !== "Commit") return;
-
-		switch (event.key) {
-			case "ArrowLeft":
-				if (selection.mode._tag !== "Details") return;
-				event.preventDefault();
-				select({
-					_tag: "Commit",
-					stackId: selection.stackId,
-					commitId: selection.commitId,
-					mode: { _tag: "Summary" },
-				});
-				break;
-			case "ArrowRight":
-				if (selection.mode._tag !== "Summary") return;
-				event.preventDefault();
-				void getExpandedCommitSelection({
-					stackId: selection.stackId,
-					commitId: selection.commitId,
-					projectId,
-					queryClient,
-				}).then(select);
-				break;
-		}
-	});
-
 	useMonitorDraggedSourceItem({ projectId });
-
-	useEffect(() => {
-		window.addEventListener("keydown", handleKeyDown);
-
-		return () => {
-			window.removeEventListener("keydown", handleKeyDown);
-		};
-	}, []);
+	useSelectionKeyboardShortcuts({ selection, select, projectId });
 
 	// TODO: dedupe
 	if (!project) return <p>Project not found.</p>;
