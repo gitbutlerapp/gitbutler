@@ -24,7 +24,6 @@ import {
 	getBranchNameByCommitId,
 	getCommonBaseCommitId,
 	getSegmentBranchRef,
-	getStackIdsByCommitId,
 } from "#ui/domain/RefInfo.ts";
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
 import { useCloseWatcher } from "#ui/hooks/useCloseWatcher.ts";
@@ -158,11 +157,17 @@ const DependencyIndicator: FC<
 
 const getExpandedCommitSelection = async ({
 	stackId,
+	segmentIndex,
+	branchName,
+	branchRef,
 	commitId,
 	projectId,
 	queryClient,
 }: {
 	stackId: string;
+	segmentIndex: number;
+	branchName: string | null;
+	branchRef: string | null;
 	commitId: string;
 	projectId: string;
 	queryClient: ReturnType<typeof useQueryClient>;
@@ -174,6 +179,9 @@ const getExpandedCommitSelection = async ({
 	return {
 		_tag: "Commit",
 		stackId,
+		segmentIndex,
+		branchName,
+		branchRef,
 		commitId,
 		mode: { _tag: "Details", path: commitDetails.changes[0]?.path },
 	};
@@ -203,6 +211,9 @@ const useSelectionKeyboardShortcuts = ({
 				select({
 					_tag: "Commit",
 					stackId: selection.stackId,
+					segmentIndex: selection.segmentIndex,
+					branchName: selection.branchName,
+					branchRef: selection.branchRef,
 					commitId: selection.commitId,
 					mode: { _tag: "Summary" },
 				});
@@ -212,6 +223,9 @@ const useSelectionKeyboardShortcuts = ({
 				event.preventDefault();
 				void getExpandedCommitSelection({
 					stackId: selection.stackId,
+					segmentIndex: selection.segmentIndex,
+					branchName: selection.branchName,
+					branchRef: selection.branchRef,
 					commitId: selection.commitId,
 					projectId,
 					queryClient,
@@ -857,6 +871,9 @@ const CommitRow: FC<
 				select({
 					_tag: "Commit",
 					stackId,
+					segmentIndex,
+					branchName,
+					branchRef,
 					commitId: commit.id,
 					mode: { _tag: "Summary" },
 				});
@@ -866,6 +883,9 @@ const CommitRow: FC<
 			select(
 				await getExpandedCommitSelection({
 					stackId,
+					segmentIndex,
+					branchName,
+					branchRef,
 					commitId: commit.id,
 					projectId,
 					queryClient,
@@ -896,7 +916,16 @@ const CommitRow: FC<
 							message={optimisticMessage}
 							setMessageAction={setOptimisticMessage}
 							onExit={() => {
-								select(toggleCommitEditingMessage(selection, stackId, commit.id));
+								select(
+									toggleCommitEditingMessage(
+										selection,
+										stackId,
+										segmentIndex,
+										branchName,
+										branchRef,
+										commit.id,
+									),
+								);
 							}}
 						/>
 					) : (
@@ -929,7 +958,16 @@ const CommitRow: FC<
 										projectId={projectId}
 										commitId={commit.id}
 										onReword={() => {
-											select(toggleCommitEditingMessage(selection, stackId, commit.id));
+											select(
+												toggleCommitEditingMessage(
+													selection,
+													stackId,
+													segmentIndex,
+													branchName,
+													branchRef,
+													commit.id,
+												),
+											);
 										}}
 										parts={ContextMenu}
 									/>
@@ -960,7 +998,16 @@ const CommitRow: FC<
 									projectId={projectId}
 									commitId={commit.id}
 									onReword={() => {
-										select(toggleCommitEditingMessage(selection, stackId, commit.id));
+										select(
+											toggleCommitEditingMessage(
+												selection,
+												stackId,
+												segmentIndex,
+												branchName,
+												branchRef,
+												commit.id,
+											),
+										);
 									}}
 									parts={Menu}
 								/>
@@ -1045,7 +1092,15 @@ const CommitC: FC<{
 												change={change}
 												toggleSelect={() => {
 													select(
-														toggleCommitFileSelection(selection, stackId, commit.id, change.path),
+														toggleCommitFileSelection(
+															selection,
+															stackId,
+															segmentIndex,
+															branchName,
+															branchRef,
+															commit.id,
+															change.path,
+														),
 													);
 												}}
 											/>
@@ -1527,9 +1582,8 @@ const ProjectPage: FC = () => {
 		`project:${projectId}:workspace:selection`,
 		{ defaultValue: null },
 	);
-	const commitStackIds = getStackIdsByCommitId(headInfo);
 	const selection =
-		(_selection ? normalizeSelection(_selection, commitStackIds, headInfo) : null) ??
+		(_selection ? normalizeSelection(_selection, headInfo) : null) ??
 		getDefaultSelection({
 			headInfo,
 			changes: worktreeChanges.changes,

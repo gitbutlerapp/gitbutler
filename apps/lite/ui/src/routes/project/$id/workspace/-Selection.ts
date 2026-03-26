@@ -15,7 +15,7 @@ type CommitMode =
 	| { _tag: "Summary" }
 	| { _tag: "Details"; path?: string }
 	| { _tag: "EditingMessage" };
-type CommitSelection = { stackId: string; commitId: string; mode: CommitMode };
+type CommitSelection = SegmentSelection & { commitId: string; mode: CommitMode };
 
 export type Selection =
 	| ({ _tag: "Changes" } & ChangesSelection)
@@ -97,6 +97,9 @@ export const toggleCommitSelection = (
 		: {
 				_tag: "Commit",
 				stackId,
+				segmentIndex,
+				branchName,
+				branchRef,
 				commitId,
 				mode: { _tag: "Summary" },
 			};
@@ -104,6 +107,9 @@ export const toggleCommitSelection = (
 export const toggleCommitEditingMessage = (
 	selection: Selection | null,
 	stackId: string,
+	segmentIndex: number,
+	branchName: string | null,
+	branchRef: string | null,
 	commitId: string,
 ): Selection | null =>
 	selection?._tag === "Commit" &&
@@ -117,6 +123,9 @@ export const toggleCommitEditingMessage = (
 		: {
 				_tag: "Commit",
 				stackId,
+				segmentIndex,
+				branchName,
+				branchRef,
 				commitId,
 				mode: { _tag: "EditingMessage" },
 			};
@@ -124,6 +133,9 @@ export const toggleCommitEditingMessage = (
 export const toggleCommitFileSelection = (
 	selection: Selection | null,
 	stackId: string,
+	segmentIndex: number,
+	branchName: string | null,
+	branchRef: string | null,
 	commitId: string,
 	path: string,
 ): Selection | null =>
@@ -135,21 +147,23 @@ export const toggleCommitFileSelection = (
 		? {
 				_tag: "Commit",
 				stackId,
+				segmentIndex,
+				branchName,
+				branchRef,
 				commitId,
 				mode: { _tag: "Summary" },
 			}
 		: {
 				_tag: "Commit",
 				stackId,
+				segmentIndex,
+				branchName,
+				branchRef,
 				commitId,
 				mode: { _tag: "Details", path },
 			};
 
-export const normalizeSelection = (
-	selection: Selection,
-	stackIdsByCommitId: Map<string, Set<string>>,
-	headInfo: RefInfo,
-): Selection | null =>
+export const normalizeSelection = (selection: Selection, headInfo: RefInfo): Selection | null =>
 	Match.value(selection).pipe(
 		Match.tag("Changes", (selection) => selection),
 		Match.tag("Segment", (selection) => {
@@ -162,9 +176,13 @@ export const normalizeSelection = (
 			return selection;
 		}),
 		Match.tag("Commit", (selection) => {
-			const stackIds = stackIdsByCommitId.get(selection.commitId);
-			if (stackIds === undefined) return null;
-			if (!stackIds.has(selection.stackId)) return null;
+			const stack = headInfo.stacks.find(
+				(stack) => stack.id !== null && stack.id === selection.stackId,
+			);
+			if (!stack) return null;
+			const segment = stack.segments[selection.segmentIndex];
+			if (!segment) return null;
+			if (!segment.commits.some((commit) => commit.id === selection.commitId)) return null;
 			return selection;
 		}),
 		Match.exhaustive,
@@ -237,6 +255,9 @@ export const getDefaultSelection = ({
 				return {
 					_tag: "Commit",
 					stackId: stack.id,
+					segmentIndex: stack.segments.indexOf(segment),
+					branchName: segment.refName?.displayName ?? null,
+					branchRef: segment.refName ? `refs/heads/${segment.refName.displayName}` : null,
 					commitId: firstCommit.id,
 					mode: { _tag: "Summary" },
 				};
