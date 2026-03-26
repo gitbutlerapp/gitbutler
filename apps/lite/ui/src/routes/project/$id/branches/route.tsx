@@ -428,21 +428,35 @@ const ShowCommit: FC<{
 	);
 	if (!isValidCommit(commitId, branchDetails)) return null;
 
-	return data.changes.length === 0 ? (
-		<div>No file changes.</div>
-	) : (
-		<ul>
-			{data.changes.map((change) => (
-				<li key={change.path}>
-					<h4>{change.path}</h4>
-					<FileDiff
-						projectId={projectId}
-						change={change}
-						renderHunk={(hunk) => <Hunk hunk={hunk} />}
-					/>
-				</li>
-			))}
-		</ul>
+	const firstLineEnd = data.commit.message.indexOf("\n");
+	const commitMessageBody =
+		firstLineEnd === -1 ? "" : data.commit.message.slice(firstLineEnd + 1).trim();
+
+	return (
+		<>
+			<h3>
+				<CommitLabel commit={data.commit} />
+			</h3>
+			{commitMessageBody !== "" && (
+				<p className={styles.selectedCommitMessageBody}>{commitMessageBody}</p>
+			)}
+			{data.changes.length === 0 ? (
+				<div>No file changes.</div>
+			) : (
+				<ul>
+					{data.changes.map((change) => (
+						<li key={change.path}>
+							<h4>{change.path}</h4>
+							<FileDiff
+								projectId={projectId}
+								change={change}
+								renderHunk={(hunk) => <Hunk hunk={hunk} />}
+							/>
+						</li>
+					))}
+				</ul>
+			)}
+		</>
 	);
 };
 
