@@ -100,9 +100,9 @@ import {
 	commitDetailsItem,
 } from "./-Item.ts";
 import {
+	buildNavigationModel,
 	getAdjacentLinearItem,
 	getAdjacentRootItem,
-	getOrderedItems,
 	toggleChangesItem,
 	toggleChangesFileItem,
 	toggleCommitItemEditingMessage,
@@ -219,7 +219,7 @@ const useSelectionKeyboardShortcuts = ({
 		enabled: commitDetailsSelection !== null,
 	});
 	const commitDetailsPaths = commitDetails?.changes.map((change: TreeChange) => change.path) ?? [];
-	const items = getOrderedItems({
+	const navigationModel = buildNavigationModel({
 		selection,
 		headInfo,
 		changes: worktreeChanges.changes,
@@ -253,18 +253,18 @@ const useSelectionKeyboardShortcuts = ({
 			}),
 			Match.whenOr("ArrowUp", "k", () => {
 				event.preventDefault();
-				const prev = getAdjacentLinearItem(items, selection, -1);
+				const prev = getAdjacentLinearItem(navigationModel, selection, -1);
 				if (prev) select(prev);
 			}),
 			Match.whenOr("ArrowDown", "j", () => {
 				event.preventDefault();
-				const next = getAdjacentLinearItem(items, selection, 1);
+				const next = getAdjacentLinearItem(navigationModel, selection, 1);
 				if (next) select(next);
 			}),
 			Match.when("J", () => {
 				if (!event.shiftKey) return;
 				event.preventDefault();
-				const next = getAdjacentRootItem(items, selection, 1);
+				const next = getAdjacentRootItem(navigationModel, selection, 1);
 				if (next) select(next);
 			}),
 			Match.when("K", () => {
@@ -275,7 +275,7 @@ const useSelectionKeyboardShortcuts = ({
 					select(container);
 					return;
 				}
-				const prev = getAdjacentRootItem(items, selection, -1);
+				const prev = getAdjacentRootItem(navigationModel, selection, -1);
 				if (prev) select(prev);
 			}),
 			Match.when("ArrowLeft", () => {
@@ -1655,13 +1655,13 @@ const ProjectPage: FC = () => {
 	);
 	const selection =
 		(_selection ? normalizeItem(_selection, headInfo) : null) ??
-		getOrderedItems({
+		buildNavigationModel({
 			selection: null,
 			headInfo,
 			changes: worktreeChanges.changes,
 			assignments: worktreeChanges.assignments,
 			commitDetailsPaths: [],
-		})[0]?.item ??
+		}).items[0]?.item ??
 		null;
 
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);

@@ -116,35 +116,38 @@ export const getParentItem = (item: Item): Item | null =>
 		Match.exhaustive,
 	);
 
-export const itemsEqual = (a: Item | null, b: Item | null): boolean => {
-	if (a === null || b === null) return a === b;
-	if (a._tag !== b._tag) return false;
-
-	return Match.value(a).pipe(
-		Match.tag(
-			"Changes",
-			(a) =>
-				b._tag === "Changes" &&
-				a.stackId === b.stackId &&
-				a.mode._tag === b.mode._tag &&
-				(a.mode._tag !== "Details" || (b.mode._tag === "Details" && a.mode.path === b.mode.path)),
+export const itemKey = (item: Item): string =>
+	Match.value(item).pipe(
+		Match.tag("Changes", (item) =>
+			item.mode._tag === "Details"
+				? JSON.stringify(["Changes", item.stackId, "Details", item.mode.path ?? null])
+				: JSON.stringify(["Changes", item.stackId, item.mode._tag]),
 		),
-		Match.tag(
-			"Segment",
-			(a) => b._tag === "Segment" && a.stackId === b.stackId && a.segmentIndex === b.segmentIndex,
-		),
-		Match.tag(
-			"Commit",
-			(a) =>
-				b._tag === "Commit" &&
-				a.stackId === b.stackId &&
-				a.segmentIndex === b.segmentIndex &&
-				a.commitId === b.commitId &&
-				a.mode._tag === b.mode._tag &&
-				(a.mode._tag !== "Details" || (b.mode._tag === "Details" && a.mode.path === b.mode.path)),
+		Match.tag("Segment", (item) => JSON.stringify(["Segment", item.stackId, item.segmentIndex])),
+		Match.tag("Commit", (item) =>
+			item.mode._tag === "Details"
+				? JSON.stringify([
+						"Commit",
+						item.stackId,
+						item.segmentIndex,
+						item.commitId,
+						"Details",
+						item.mode.path ?? null,
+					])
+				: JSON.stringify([
+						"Commit",
+						item.stackId,
+						item.segmentIndex,
+						item.commitId,
+						item.mode._tag,
+					]),
 		),
 		Match.exhaustive,
 	);
+
+export const itemsEqual = (a: Item | null, b: Item | null): boolean => {
+	if (a === null || b === null) return a === b;
+	return itemKey(a) === itemKey(b);
 };
 
 export const normalizeItem = (item: Item, headInfo: RefInfo): Item | null =>

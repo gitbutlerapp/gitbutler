@@ -7,6 +7,7 @@ import {
 	commitEditingMessageItem,
 	commitSummaryItem,
 	getParentItem,
+	itemKey,
 	itemsEqual,
 	type Item,
 	segmentItem,
@@ -96,7 +97,14 @@ export type ItemWithRoot = {
 	rootItem: Item;
 };
 
-export const getOrderedItems = ({
+export type NavigationModel = {
+	items: Array<ItemWithRoot>;
+	rootItems: Array<Item>;
+	indexByKey: Map<string, number>;
+	rootIndexByKey: Map<string, number>;
+};
+
+export const buildNavigationModel = ({
 	selection,
 	headInfo,
 	changes,
@@ -108,18 +116,26 @@ export const getOrderedItems = ({
 	changes: Array<TreeChange>;
 	assignments: Array<HunkAssignment>;
 	commitDetailsPaths: Array<string>;
-}): Array<ItemWithRoot> => {
+}): NavigationModel => {
 	const items: Array<ItemWithRoot> = [];
+	const rootItems: Array<Item> = [];
+	const indexByKey = new Map<string, number>();
+	const rootIndexByKey = new Map<string, number>();
 	const commitDetails =
 		selection?._tag === "Commit" && selection.mode._tag === "Details" ? selection : null;
 
 	const addChangesItems = (stackId: string | null) => {
 		const rootItem = changesSummaryItem(stackId);
+		rootIndexByKey.set(itemKey(rootItem), rootItems.length);
+		rootItems.push(rootItem);
+		indexByKey.set(itemKey(rootItem), items.length);
 		items.push({ item: rootItem, rootItem });
 
 		for (const change of changes) {
 			if (!hasAssignmentsForPath({ assignments, stackId, path: change.path })) continue;
-			items.push({ item: changesDetailsItem(stackId, change.path), rootItem });
+			const item = changesDetailsItem(stackId, change.path);
+			indexByKey.set(itemKey(item), items.length);
+			items.push({ item, rootItem });
 		}
 	};
 
@@ -138,6 +154,9 @@ export const getOrderedItems = ({
 				branchName,
 				branchRef,
 			});
+			rootIndexByKey.set(itemKey(rootItem), rootItems.length);
+			rootItems.push(rootItem);
+			indexByKey.set(itemKey(rootItem), items.length);
 			items.push({ item: rootItem, rootItem });
 
 			for (const commit of segment.commits) {
@@ -161,59 +180,53 @@ export const getOrderedItems = ({
 							branchRef,
 							commitId: commit.id,
 						});
+				indexByKey.set(itemKey(commitItem), items.length);
 				items.push({ item: commitItem, rootItem });
 
 				if (!isCommitDetails) continue;
 
-				for (const path of commitDetailsPaths)
-					items.push({
-						item: commitDetailsItem(
-							{
-								stackId: stack.id,
-								segmentIndex,
-								branchName,
-								branchRef,
-								commitId: commit.id,
-							},
-							path,
-						),
-						rootItem,
-					});
+				for (const path of commitDetailsPaths) {
+					const item = commitDetailsItem(
+						{
+							stackId: stack.id,
+							segmentIndex,
+							branchName,
+							branchRef,
+							commitId: commit.id,
+						},
+						path,
+					);
+					indexByKey.set(itemKey(item), items.length);
+					items.push({ item, rootItem });
+				}
 			}
 		}
 	}
 
-	return items;
+	return { items, rootItems, indexByKey, rootIndexByKey };
 };
 
 export const getAdjacentLinearItem = (
-	items: Array<ItemWithRoot>,
+	model: NavigationModel,
 	selection: Item | null,
 	offset: -1 | 1,
 ): Item | null => {
-	const currentIndex = selection ? items.findIndex(({ item }) => itemsEqual(item, selection)) : -1;
+	const currentIndex = selection ? (model.indexByKey.get(itemKey(selection)) ?? -1) : -1;
 	if (currentIndex === -1) return null;
-	return items[currentIndex + offset]?.item ?? null;
+	return model.items[currentIndex + offset]?.item ?? null;
 };
 
 export const getAdjacentRootItem = (
-	items: Array<ItemWithRoot>,
+	model: NavigationModel,
 	selection: Item | null,
 	offset: -1 | 1,
 ): Item | null => {
 	if (!selection) return null;
-	const currentItem = items.find(({ item }) => itemsEqual(item, selection));
+	const currentIndex = model.indexByKey.get(itemKey(selection));
+	if (currentIndex === undefined) return null;
+	const currentItem = model.items[currentIndex];
 	if (!currentItem) return null;
-	const currentRootItem = currentItem.rootItem;
-	const rootItems: Array<Item> = [];
-
-	for (const { rootItem } of items) {
-		const previousRootItem = rootItems[rootItems.length - 1];
-		if (previousRootItem && itemsEqual(previousRootItem, rootItem)) continue;
-		rootItems.push(rootItem);
-	}
-
-	const currentRootIndex = rootItems.findIndex((item) => itemsEqual(item, currentRootItem));
+	const currentRootIndex = model.rootIndexByKey.get(itemKey(currentItem.rootItem)) ?? -1;
 	if (currentRootIndex === -1) return null;
-	return rootItems[currentRootIndex + offset] ?? null;
+	return model.rootItems[currentRootIndex + offset] ?? null;
 };
