@@ -584,7 +584,7 @@ const ProjectBranchesPage: FC = () => {
 					))}
 				</ul>
 
-				{selectedBranch?.name != null && (
+				{selectedBranch && (
 					<div className={styles.branchDetailsLane}>
 						<Suspense fallback={<div>Loading branch details…</div>}>
 							<BranchDetailsC
