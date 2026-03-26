@@ -1314,7 +1314,7 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 	);
 };
 
-const Branch: FC<{
+const SegmentC: FC<{
 	highlightedCommitIds: Set<string>;
 	projectId: string;
 	segment: Segment;
@@ -1435,7 +1435,7 @@ const StackC: FC<{
 			<ul className={styles.segments}>
 				{stack.segments.map((segment) => (
 					<li key={segment.refName?.displayName ?? "Untitled"}>
-						<Branch
+						<SegmentC
 							highlightedCommitIds={highlightedCommitIds}
 							projectId={projectId}
 							segment={segment}
