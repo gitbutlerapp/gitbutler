@@ -10,7 +10,6 @@ import {
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import { type RubSource } from "#ui/api/rub.ts";
 import { classes } from "#ui/classes.ts";
 import { DependencyIcon, ExpandCollapseIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import { rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx";
@@ -27,12 +26,13 @@ import { stackRelativeTo } from "#ui/domain/Stack.ts";
 import { useCloseWatcher } from "#ui/hooks/useCloseWatcher.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
-import { type Operation, type RubOperation, useRunOperation } from "#ui/Operation.ts";
+import { type Operation, useRunOperation } from "#ui/Operation.ts";
 import {
 	isTypingTarget,
 	ProjectPreviewLayout,
 } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import { rubOperationLabel } from "#ui/routes/project/$id/workspace/-RubOperationLabel.ts";
+import { getRubOperation, type SourceItem } from "#ui/routes/project/$id/workspace/-SourceItem.ts";
 import {
 	CommitDetails,
 	CommitLabel,
@@ -92,49 +92,6 @@ import {
 	toggleCommitSelection,
 } from "./-Selection.ts";
 import styles from "./route.module.css";
-
-type SourceItem =
-	| { _tag: "Commit"; commitId: string }
-	| { _tag: "Branch"; anchorRef: Array<number> }
-	| {
-			_tag: "TreeChange";
-			source: {
-				parent: ChangeUnit;
-				change: TreeChange;
-				hunkHeaders: Array<HunkHeader>;
-			};
-	  };
-
-const rubSourceFor = (item: SourceItem): RubSource | null =>
-	Match.value(item).pipe(
-		Match.tag("Branch", (): RubSource | null => null),
-		Match.tag("Commit", ({ commitId }): RubSource | null => ({
-			_tag: "Commit",
-			source: { commitId },
-		})),
-		Match.tag("TreeChange", ({ source }): RubSource | null => ({
-			_tag: "TreeChange",
-			source,
-		})),
-		Match.exhaustive,
-	);
-
-const getRubOperation = ({
-	sourceItem,
-	target,
-}: {
-	sourceItem: SourceItem;
-	target: ChangeUnit;
-}): RubOperation | null => {
-	const rubSource = rubSourceFor(sourceItem);
-	if (!rubSource) return null;
-	const rubOperation: RubOperation = {
-		source: rubSource,
-		target,
-	};
-	if (rubOperationLabel(rubOperation) === null) return null;
-	return rubOperation;
-};
 
 type DragData = {
 	sourceItem: SourceItem;
