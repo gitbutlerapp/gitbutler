@@ -162,15 +162,21 @@ mod headers {
 mod create {
     use anyhow::Context as _;
     use bstr::ByteSlice;
-    use but_core::commit;
-    use but_testsupport::writable_scenario_with_ssh_key;
+    use but_core::commit::{self, SignCommit};
+    use but_error::Code;
+    use but_testsupport::{writable_scenario, writable_scenario_with_ssh_key};
     use gix::{objs::commit::SIGNATURE_FIELD_NAME, refs};
 
     #[test]
     fn signs_commits_when_enabled() -> anyhow::Result<()> {
         let (repo, _tmp) = writable_scenario_with_ssh_key("single-signed");
 
-        let oid = commit::create(&repo, commit_from_head(&repo, "signed again")?, None, true)?;
+        let oid = commit::create(
+            &repo,
+            commit_from_head(&repo, "signed again")?,
+            None,
+            SignCommit::IfSignCommitsEnabled,
+        )?;
         let commit = repo.find_commit(oid)?;
         let commit = commit.decode()?;
 
@@ -178,6 +184,82 @@ mod create {
             commit.extra_headers().find(SIGNATURE_FIELD_NAME).is_some(),
             "a new signature should be written, the new commit needs to be signed"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn sign_commit_yes_forcefully_signs_commit() -> anyhow::Result<()> {
+        let (mut repo, _tmp) = writable_scenario_with_ssh_key("single-signed");
+        repo.config_snapshot_mut()
+            .set_raw_value(&"gitbutler.signCommits", "false")?;
+        repo.config_snapshot_mut()
+            .set_raw_value(&"commit.gpgSign", "false")?;
+
+        let oid = commit::create(
+            &repo,
+            commit_from_head(&repo, "should sign")?,
+            None,
+            SignCommit::Yes,
+        )?;
+        let commit = repo.find_commit(oid)?;
+        let commit = commit.decode()?;
+
+        assert!(
+            commit.extra_headers().pgp_signature().is_some(),
+            "despite the settings saying everything is disabled, it still signs the commit"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn sign_commit_yes_without_signing_key_errors() -> anyhow::Result<()> {
+        let (mut repo, _tmp) = writable_scenario("single-unsigned");
+
+        let err = commit::create(
+            &repo,
+            commit_from_head(&repo, "should not sign")?,
+            None,
+            SignCommit::Yes,
+        )
+        .expect_err("commit creation should fail as there is no signing key configured");
+
+        let error_code: Option<&Code> = err.downcast_ref();
+        assert_eq!(error_code, Some(&Code::CommitSigningFailed));
+
+        repo.reload()?;
+        assert_eq!(
+            repo.config_snapshot().boolean("gitbutler.signCommits"),
+            None,
+            "we do not touch this setting in this mode"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn sign_commit_if_enabled_without_signing_key_errors_and_sets_config() -> anyhow::Result<()> {
+        let (mut repo, _tmp) = writable_scenario_with_ssh_key("single-signed");
+        repo.config_snapshot_mut()
+            .set_raw_value(&"user.signingKey", "BAD-key")?;
+
+        let err = commit::create(
+            &repo,
+            commit_from_head(&repo, "should not sign")?,
+            None,
+            SignCommit::IfSignCommitsEnabled,
+        )
+        .expect_err("commit creation should fail as there is no signing key configured");
+
+        let error_code: Option<&Code> = err.downcast_ref();
+        assert_eq!(error_code, Some(&Code::CommitSigningFailed));
+
+        repo.reload()?;
+        assert_eq!(
+            repo.config_snapshot().boolean("gitbutler.signCommits"),
+            Some(false),
+            "prevent future failures by disabling signing for gitbutler"
+        );
+
         Ok(())
     }
 
@@ -193,7 +275,12 @@ mod create {
             "the fixture starts with a signed commit"
         );
 
-        let oid = commit::create(&repo, commit_from_head(&repo, "unsigned")?, None, false)?;
+        let oid = commit::create(
+            &repo,
+            commit_from_head(&repo, "unsigned")?,
+            None,
+            SignCommit::No,
+        )?;
         let commit = repo.find_commit(oid)?;
         let commit = commit.decode()?;
 
@@ -214,7 +301,7 @@ mod create {
             &repo,
             commit_from_head(&repo, "updates ref")?,
             Some(update_ref.as_ref()),
-            false,
+            SignCommit::No,
         )?;
         let reference = repo.find_reference(update_ref.as_ref())?;
 
@@ -238,7 +325,7 @@ mod create {
             .extra_headers
             .push(("x-test-header".into(), "kept".into()));
 
-        let oid = commit::create(&repo, new_commit, None, false)?;
+        let oid = commit::create(&repo, new_commit, None, SignCommit::No)?;
         let commit = repo.find_commit(oid)?;
         let commit = commit.decode()?;
 

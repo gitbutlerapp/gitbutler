@@ -1,6 +1,6 @@
 use anyhow::{Context as _, bail};
 use bstr::BStr;
-use but_core::RepositoryExt;
+use but_core::{RepositoryExt, commit::SignCommit};
 use gix::config::Source;
 
 /// What to do with the committer (actor) and the commit time when [creating a new commit](create()).
@@ -102,7 +102,16 @@ pub fn create(
     if settings.gitbutler_gerrit_mode.unwrap_or(false) {
         but_gerrit::set_trailers(&mut commit);
     }
-    but_core::commit::create(repo, commit, None, sign_if_configured)
+    but_core::commit::create(
+        repo,
+        commit,
+        None,
+        if sign_if_configured {
+            SignCommit::IfSignCommitsEnabled
+        } else {
+            SignCommit::No
+        },
+    )
 }
 
 /// Update the committer of `commit` to be the current one.
