@@ -370,7 +370,7 @@ const DraggableFile: FC<
 		render,
 		ref: dragRef,
 		props: mergeProps<"div">(props, {
-			className: classes(isDragging && sharedStyles.dragging),
+			className: classes(isDragging && styles.dragging),
 		}),
 	});
 };
@@ -759,7 +759,7 @@ const DraggableCommit: FC<
 		render,
 		ref: dragRef,
 		props: mergeProps<"div">(props, {
-			className: classes(isDragging && sharedStyles.dragging),
+			className: classes(isDragging && styles.dragging),
 		}),
 	});
 };

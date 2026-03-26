@@ -167,3 +167,7 @@
 		text-decoration: underline;
 	}
 }
+
+.dragging {
+	opacity: 0.4;
+}
