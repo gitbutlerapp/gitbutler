@@ -539,10 +539,10 @@ const ShowCommitFile: FC<{
 	commitId: string;
 	path: string;
 }> = ({ projectId, commitId, path }) => {
-	const { data } = useSuspenseQuery(
+	const { data: commitDetails } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
-	const change = data.changes.find((candidate) => candidate.path === path);
+	const change = commitDetails.changes.find((candidate) => candidate.path === path);
 
 	if (!change) return null;
 

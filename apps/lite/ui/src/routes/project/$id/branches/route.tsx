@@ -400,12 +400,12 @@ const ShowCommitFile: FC<{
 	const { data: branchDetails } = useSuspenseQuery(
 		branchDetailsQueryOptions({ projectId, branchName, remote }),
 	);
-	const { data } = useSuspenseQuery(
+	const { data: commitDetails } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
 	if (!isValidCommit(commitId, branchDetails)) return null;
 
-	const change = data.changes.find((candidate) => candidate.path === path);
+	const change = commitDetails.changes.find((candidate) => candidate.path === path);
 
 	if (!change) return null;
 
