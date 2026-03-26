@@ -1661,7 +1661,7 @@ const ProjectPage: FC = () => {
 			changes: worktreeChanges.changes,
 			assignments: worktreeChanges.assignments,
 			commitDetailsPaths: [],
-		}).items[0]?.item ??
+		}).items[0] ??
 		null;
 
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);

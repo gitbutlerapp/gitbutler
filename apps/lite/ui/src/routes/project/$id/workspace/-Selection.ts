@@ -92,16 +92,11 @@ const hasAssignmentsForPath = ({
 		(assignment) => (assignment.stackId ?? null) === stackId && assignment.path === path,
 	);
 
-export type ItemWithRoot = {
-	item: Item;
-	rootItem: Item;
-};
-
 export type NavigationModel = {
-	items: Array<ItemWithRoot>;
+	items: Array<Item>;
 	rootItems: Array<Item>;
+	rootIndexByItemIndex: Array<number>;
 	indexByKey: Map<string, number>;
-	rootIndexByKey: Map<string, number>;
 };
 
 export const buildNavigationModel = ({
@@ -117,25 +112,27 @@ export const buildNavigationModel = ({
 	assignments: Array<HunkAssignment>;
 	commitDetailsPaths: Array<string>;
 }): NavigationModel => {
-	const items: Array<ItemWithRoot> = [];
+	const items: Array<Item> = [];
 	const rootItems: Array<Item> = [];
+	const rootIndexByItemIndex: Array<number> = [];
 	const indexByKey = new Map<string, number>();
-	const rootIndexByKey = new Map<string, number>();
 	const commitDetails =
 		selection?._tag === "Commit" && selection.mode._tag === "Details" ? selection : null;
 
 	const addChangesItems = (stackId: string | null) => {
 		const rootItem = changesSummaryItem(stackId);
-		rootIndexByKey.set(itemKey(rootItem), rootItems.length);
+		const rootIndex = rootItems.length;
 		rootItems.push(rootItem);
 		indexByKey.set(itemKey(rootItem), items.length);
-		items.push({ item: rootItem, rootItem });
+		rootIndexByItemIndex.push(rootIndex);
+		items.push(rootItem);
 
 		for (const change of changes) {
 			if (!hasAssignmentsForPath({ assignments, stackId, path: change.path })) continue;
 			const item = changesDetailsItem(stackId, change.path);
 			indexByKey.set(itemKey(item), items.length);
-			items.push({ item, rootItem });
+			rootIndexByItemIndex.push(rootIndex);
+			items.push(item);
 		}
 	};
 
@@ -154,10 +151,11 @@ export const buildNavigationModel = ({
 				branchName,
 				branchRef,
 			});
-			rootIndexByKey.set(itemKey(rootItem), rootItems.length);
+			const rootIndex = rootItems.length;
 			rootItems.push(rootItem);
 			indexByKey.set(itemKey(rootItem), items.length);
-			items.push({ item: rootItem, rootItem });
+			rootIndexByItemIndex.push(rootIndex);
+			items.push(rootItem);
 
 			for (const commit of segment.commits) {
 				const isCommitDetails =
@@ -181,7 +179,8 @@ export const buildNavigationModel = ({
 							commitId: commit.id,
 						});
 				indexByKey.set(itemKey(commitItem), items.length);
-				items.push({ item: commitItem, rootItem });
+				rootIndexByItemIndex.push(rootIndex);
+				items.push(commitItem);
 
 				if (!isCommitDetails) continue;
 
@@ -197,13 +196,14 @@ export const buildNavigationModel = ({
 						path,
 					);
 					indexByKey.set(itemKey(item), items.length);
-					items.push({ item, rootItem });
+					rootIndexByItemIndex.push(rootIndex);
+					items.push(item);
 				}
 			}
 		}
 	}
 
-	return { items, rootItems, indexByKey, rootIndexByKey };
+	return { items, rootItems, rootIndexByItemIndex, indexByKey };
 };
 
 export const getAdjacentLinearItem = (
@@ -213,7 +213,7 @@ export const getAdjacentLinearItem = (
 ): Item | null => {
 	const currentIndex = selection ? (model.indexByKey.get(itemKey(selection)) ?? -1) : -1;
 	if (currentIndex === -1) return null;
-	return model.items[currentIndex + offset]?.item ?? null;
+	return model.items[currentIndex + offset] ?? null;
 };
 
 export const getAdjacentRootItem = (
@@ -224,9 +224,7 @@ export const getAdjacentRootItem = (
 	if (!selection) return null;
 	const currentIndex = model.indexByKey.get(itemKey(selection));
 	if (currentIndex === undefined) return null;
-	const currentItem = model.items[currentIndex];
-	if (!currentItem) return null;
-	const currentRootIndex = model.rootIndexByKey.get(itemKey(currentItem.rootItem)) ?? -1;
+	const currentRootIndex = model.rootIndexByItemIndex[currentIndex] ?? -1;
 	if (currentRootIndex === -1) return null;
 	return model.rootItems[currentRootIndex + offset] ?? null;
 };
