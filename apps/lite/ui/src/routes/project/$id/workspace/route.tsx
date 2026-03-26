@@ -205,6 +205,22 @@ const useSelectionKeyboardShortcuts = ({
 		if (!selection) return;
 
 		switch (event.key) {
+			case "Enter":
+				if (event.repeat) return;
+				if (selection._tag !== "Commit") return;
+				if (selection.mode._tag !== "Summary") return;
+				event.preventDefault();
+				select(
+					toggleCommitEditingMessage(
+						selection,
+						selection.stackId,
+						selection.segmentIndex,
+						selection.branchName,
+						selection.branchRef,
+						selection.commitId,
+					),
+				);
+				break;
 			case "ArrowLeft":
 				if (event.repeat) return;
 				if (selection._tag !== "Commit") return;
@@ -533,7 +549,10 @@ const ChangesTarget: FC<
 	} & useRender.ComponentProps<"div">
 > = ({ stackId, render, ...props }) => {
 	const getOperation = (sourceItem: SourceItem): Operation | null => {
-		const rubOperation = getRubOperation({ sourceItem, target: { _tag: "Changes", stackId } });
+		const rubOperation = getRubOperation({
+			sourceItem,
+			target: { _tag: "Changes", stackId },
+		});
 		if (!rubOperation) return null;
 		return { _tag: "Rub", ...rubOperation };
 	};
@@ -610,7 +629,10 @@ const CommitTarget: FC<
 		const sourceItem = parseDragData(source.data);
 		if (!sourceItem) return null;
 
-		const rubOperation = getRubOperation({ sourceItem, target: { _tag: "Commit", commitId } });
+		const rubOperation = getRubOperation({
+			sourceItem,
+			target: { _tag: "Commit", commitId },
+		});
 
 		const instruction = extractInstruction(
 			attachInstruction(
