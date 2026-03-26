@@ -1322,27 +1322,27 @@ const SegmentC: FC<{
 	select: (selection: Selection | null) => void;
 	stackId: string;
 }> = ({ highlightedCommitIds, projectId, segment, selection, select, stackId }) => {
-	const branchName = segment.refName?.displayName ?? "Untitled";
-	const branchRef = getSegmentBranchRef(segment);
-	const anchorRef = segment.refName ? segment.refName.fullNameBytes : null;
 	const isSelected =
-		(selection?._tag === "Branch" &&
+		(segment.refName &&
+			selection?._tag === "Branch" &&
 			selection.stackId === stackId &&
-			selection.branchRef === branchRef) ||
+			selection.branchRef === getSegmentBranchRef(segment.refName)) ||
 		(selection?._tag === "Commit" &&
 			selection.stackId === stackId &&
 			segment.commits.some((commit) => commit.id === selection.commitId));
 
+	const refName = segment.refName;
+
 	return (
 		<div className={classes(isSelected && styles.selectedContainer)}>
-			{branchRef !== null ? (
+			{refName != null ? (
 				<BranchTarget
-					anchorRef={anchorRef}
+					anchorRef={refName.fullNameBytes}
 					firstCommitId={segment.commits[0]?.id}
 					render={
 						<DraggableBranch
-							anchorRef={anchorRef}
-							branchName={branchName}
+							anchorRef={refName.fullNameBytes}
+							branchName={refName.displayName}
 							render={
 								<button
 									type="button"
@@ -1350,28 +1350,35 @@ const SegmentC: FC<{
 										styles.branchButton,
 										selection?._tag === "Branch" &&
 											selection.stackId === stackId &&
-											selection.branchRef === branchRef &&
+											selection.branchRef === getSegmentBranchRef(refName) &&
 											sharedStyles.selected,
 									)}
 									onClick={() => {
-										select(toggleBranchSelection(selection, stackId, branchName, branchRef));
+										select(
+											toggleBranchSelection(
+												selection,
+												stackId,
+												refName.displayName,
+												getSegmentBranchRef(refName),
+											),
+										);
 									}}
 								>
-									{branchName}
+									{refName.displayName}
 								</button>
 							}
 						/>
 					}
 				/>
 			) : (
-				<div>{branchName}</div>
+				<div>Untitled</div>
 			)}
 
 			<CommitsList commits={segment.commits}>
 				{(commit, index) => (
 					<CommitC
-						branchName={branchName}
-						branchRef={branchRef}
+						branchName={segment.refName?.displayName ?? "Untitled"}
+						branchRef={segment.refName ? getSegmentBranchRef(segment.refName) : null}
 						commit={commit}
 						isHighlighted={highlightedCommitIds.has(commit.id)}
 						nextCommitId={segment.commits[index + 1]?.id}
