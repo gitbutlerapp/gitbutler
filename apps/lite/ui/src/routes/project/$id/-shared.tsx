@@ -222,6 +222,7 @@ export const ShowBranch: FC<{
 	return (
 		<>
 			<h3>{branchDetails.name}</h3>
+			{branchDetails.prNumber != null && <p>PR #{branchDetails.prNumber}</p>}
 			{branchDiff.changes.length === 0 ? (
 				<div>No file changes.</div>
 			) : (
