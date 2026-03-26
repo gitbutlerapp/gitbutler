@@ -31,14 +31,7 @@ import {
 	isTypingTarget,
 } from "#ui/routes/project/$id/-shared.tsx";
 import sharedStyles from "../-shared.module.css";
-import {
-	getDefaultSelection,
-	normalizeBranchSelection,
-	Selection,
-	toggleBranchSelection,
-	toggleCommitFileSelection,
-	toggleCommitSelection,
-} from "./-Selection.ts";
+import { getDefaultSelection, normalizeBranchSelection, Selection } from "./-Selection.ts";
 
 const isValidCommit = (commitId: string, branchDetails: BranchDetails): boolean => {
 	const commitIds = new Set(branchDetails.commits.map((commit) => commit.id));
@@ -244,7 +237,10 @@ const BranchRow: FC<
 							type="button"
 							className={styles.branchButton}
 							onClick={() => {
-								select(toggleBranchSelection(selection, branch.name));
+								select({
+									_tag: "Branch",
+									branchName: branch.name,
+								});
 							}}
 						>
 							{branch.name}
@@ -329,7 +325,12 @@ const CommitRow: FC<{
 				type="button"
 				className={sharedStyles.commitButton}
 				onClick={() => {
-					select(toggleCommitSelection(selection, branchName, commit.id));
+					select({
+						_tag: "Commit",
+						branchName,
+						commitId: commit.id,
+						mode: { _tag: "Summary" },
+					});
 				}}
 			>
 				<CommitLabel commit={commit} />
@@ -391,9 +392,15 @@ const CommitC: FC<{
 									<FileButton
 										change={change}
 										toggleSelect={() => {
-											select(
-												toggleCommitFileSelection(selection, branchName, commit.id, change.path),
-											);
+											select({
+												_tag: "Commit",
+												branchName,
+												commitId: commit.id,
+												mode: {
+													_tag: "Details",
+													path: change.path,
+												},
+											});
 										}}
 									/>
 								</div>

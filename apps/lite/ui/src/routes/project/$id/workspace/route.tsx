@@ -90,18 +90,17 @@ import {
 } from "react";
 import useLocalStorageState from "use-local-storage-state";
 import sharedStyles from "../-shared.module.css";
-import { commitSummaryItem, normalizeItem, type Item, commitDetailsItem } from "./-Item.ts";
 import {
-	buildNavigationModel,
-	getSelectionAction,
-	performSelectionAction,
-	toggleChangesItem,
-	toggleChangesFileItem,
-	toggleCommitItemEditingMessage,
-	toggleCommitFileItem,
-	toggleCommitItem,
-	toggleSegmentItem,
-} from "./-Selection.ts";
+	changesDetailsItem,
+	changesSummaryItem,
+	commitDetailsItem,
+	commitEditingMessageItem,
+	commitSummaryItem,
+	normalizeItem,
+	type Item,
+	segmentItem,
+} from "./-Item.ts";
+import { buildNavigationModel, getSelectionAction, performSelectionAction } from "./-Selection.ts";
 import styles from "./route.module.css";
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
@@ -939,14 +938,13 @@ const CommitRow: FC<
 							setMessageAction={setOptimisticMessage}
 							onExit={() => {
 								select(
-									toggleCommitItemEditingMessage(
-										selection,
+									commitSummaryItem({
 										stackId,
 										segmentIndex,
 										branchName,
 										branchRef,
-										commit.id,
-									),
+										commitId: commit.id,
+									}),
 								);
 							}}
 						/>
@@ -959,14 +957,13 @@ const CommitRow: FC<
 										className={sharedStyles.commitButton}
 										onClick={() => {
 											select(
-												toggleCommitItem(
-													selection,
+												commitSummaryItem({
 													stackId,
 													segmentIndex,
-													commit.id,
 													branchName,
 													branchRef,
-												),
+													commitId: commit.id,
+												}),
 											);
 										}}
 									>
@@ -981,14 +978,13 @@ const CommitRow: FC<
 										commitId={commit.id}
 										onReword={() => {
 											select(
-												toggleCommitItemEditingMessage(
-													selection,
+												commitEditingMessageItem({
 													stackId,
 													segmentIndex,
 													branchName,
 													branchRef,
-													commit.id,
-												),
+													commitId: commit.id,
+												}),
 											);
 										}}
 										parts={ContextMenu}
@@ -1021,14 +1017,13 @@ const CommitRow: FC<
 									commitId={commit.id}
 									onReword={() => {
 										select(
-											toggleCommitItemEditingMessage(
-												selection,
+											commitEditingMessageItem({
 												stackId,
 												segmentIndex,
 												branchName,
 												branchRef,
-												commit.id,
-											),
+												commitId: commit.id,
+											}),
 										);
 									}}
 									parts={Menu}
@@ -1114,13 +1109,14 @@ const CommitC: FC<{
 												change={change}
 												toggleSelect={() => {
 													select(
-														toggleCommitFileItem(
-															selection,
-															stackId,
-															segmentIndex,
-															branchName,
-															branchRef,
-															commit.id,
+														commitDetailsItem(
+															{
+																stackId,
+																segmentIndex,
+																branchName,
+																branchRef,
+																commitId: commit.id,
+															},
 															change.path,
 														),
 													);
@@ -1170,7 +1166,7 @@ const Changes: FC<{
 					type="button"
 					className={styles.segmentButton}
 					onClick={() => {
-						select(toggleChangesItem(selection, stackId));
+						select(changesSummaryItem(stackId));
 					}}
 				>
 					{label}
@@ -1207,7 +1203,7 @@ const Changes: FC<{
 												<FileButton
 													change={change}
 													toggleSelect={() => {
-														select(toggleChangesFileItem(selection, stackId, change.path));
+														select(changesDetailsItem(stackId, change.path));
 													}}
 												/>
 												{isNonEmptyArray(dependencyCommitIds) && (
@@ -1426,13 +1422,12 @@ const SegmentRow: FC<{
 				className={styles.segmentButton}
 				onClick={() => {
 					select(
-						toggleSegmentItem(
-							selection,
+						segmentItem({
 							stackId,
 							segmentIndex,
-							segment.refName?.displayName ?? null,
-							segment.refName ? getSegmentBranchRef(segment.refName) : null,
-						),
+							branchName: segment.refName?.displayName ?? null,
+							branchRef: segment.refName ? getSegmentBranchRef(segment.refName) : null,
+						}),
 					);
 				}}
 			>

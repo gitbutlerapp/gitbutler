@@ -4,83 +4,15 @@ import { type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/b
 import {
 	changesDetailsItem,
 	changesSummaryItem,
-	commitDetailsItem,
-	commitEditingMessageItem,
-	commitSummaryItem,
-	getParentItem,
 	getParentRootItem,
 	itemKey,
-	itemsEqual,
 	type Item,
-	segmentItem,
 	CommitItem,
+	segmentItem,
+	commitDetailsItem,
+	commitSummaryItem,
+	commitEditingMessageItem,
 } from "./-Item.ts";
-
-export const toggleChangesItem = (selection: Item | null, stackId: string | null): Item | null =>
-	selectItemOrParent(selection, changesSummaryItem(stackId));
-
-export const toggleSegmentItem = (
-	selection: Item | null,
-	stackId: string,
-	segmentIndex: number,
-	branchName: string | null,
-	branchRef: string | null,
-): Item | null =>
-	selectItemOrParent(selection, segmentItem({ stackId, segmentIndex, branchName, branchRef }));
-
-export const toggleChangesFileItem = (
-	selection: Item | null,
-	stackId: string | null,
-	path: string,
-): Item | null => selectItemOrParent(selection, changesDetailsItem(stackId, path));
-
-export const toggleCommitItem = (
-	selection: Item | null,
-	stackId: string,
-	segmentIndex: number,
-	commitId: string,
-	branchName: string | null,
-	branchRef: string | null,
-): Item | null =>
-	selectItemOrParent(
-		selection,
-		commitSummaryItem({ stackId, segmentIndex, branchName, branchRef, commitId }),
-	);
-
-export const toggleCommitItemEditingMessage = (
-	selection: Item | null,
-	stackId: string,
-	segmentIndex: number,
-	branchName: string | null,
-	branchRef: string | null,
-	commitId: string,
-): Item | null =>
-	selection?._tag === "Commit" &&
-	selection.stackId === stackId &&
-	selection.commitId === commitId &&
-	selection.mode._tag === "EditingMessage"
-		? {
-				...selection,
-				mode: { _tag: "Summary" },
-			}
-		: commitEditingMessageItem({ stackId, segmentIndex, branchName, branchRef, commitId });
-
-export const toggleCommitFileItem = (
-	selection: Item | null,
-	stackId: string,
-	segmentIndex: number,
-	branchName: string | null,
-	branchRef: string | null,
-	commitId: string,
-	path: string,
-): Item | null =>
-	selectItemOrParent(
-		selection,
-		commitDetailsItem({ stackId, segmentIndex, branchName, branchRef, commitId }, path),
-	);
-
-const selectItemOrParent = (selection: Item | null, targetItem: Item): Item | null =>
-	itemsEqual(selection, targetItem) ? getParentItem(targetItem) : targetItem;
 
 const hasAssignmentsForPath = ({
 	assignments,
