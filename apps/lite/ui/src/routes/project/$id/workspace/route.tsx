@@ -104,14 +104,6 @@ type SourceItem =
 			};
 	  };
 
-type DragData = {
-	sourceItem: SourceItem;
-};
-
-const DragPreview: FC<{
-	children: ReactNode;
-}> = ({ children }) => <div className={styles.dragPreview}>{children}</div>;
-
 const rubSourceFor = (item: SourceItem): RubSource | null =>
 	Match.value(item).pipe(
 		Match.tag("Branch", (): RubSource | null => null),
@@ -125,6 +117,41 @@ const rubSourceFor = (item: SourceItem): RubSource | null =>
 		})),
 		Match.exhaustive,
 	);
+
+const getRubOperation = ({
+	sourceItem,
+	target,
+}: {
+	sourceItem: SourceItem;
+	target: ChangeUnit;
+}): RubOperation | null => {
+	const rubSource = rubSourceFor(sourceItem);
+	if (!rubSource) return null;
+	const rubOperation: RubOperation = {
+		source: rubSource,
+		target,
+	};
+	if (rubOperationLabel(rubOperation) === null) return null;
+	return rubOperation;
+};
+
+type DragData = {
+	sourceItem: SourceItem;
+};
+
+const parseDragData = (data: unknown): SourceItem | null => {
+	if (typeof data !== "object" || data === null || !("sourceItem" in data)) return null;
+	return (data as DragData).sourceItem;
+};
+
+const parseDropTargetData = (data: unknown): Operation | null => {
+	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
+	return data as Operation;
+};
+
+const DragPreview: FC<{
+	children: ReactNode;
+}> = ({ children }) => <div className={styles.dragPreview}>{children}</div>;
 
 type RubOperationLabel = "Amend" | "Uncommit" | "Assign" | "Unassign" | "Squash";
 
@@ -233,33 +260,6 @@ const DependencyIndicator: FC<
 			</Popover.Portal>
 		</Popover.Root>
 	);
-};
-
-const parseDragData = (data: unknown): SourceItem | null => {
-	if (typeof data !== "object" || data === null || !("sourceItem" in data)) return null;
-	return (data as DragData).sourceItem;
-};
-
-const getRubOperation = ({
-	sourceItem,
-	target,
-}: {
-	sourceItem: SourceItem;
-	target: ChangeUnit;
-}): RubOperation | null => {
-	const rubSource = rubSourceFor(sourceItem);
-	if (!rubSource) return null;
-	const rubOperation: RubOperation = {
-		source: rubSource,
-		target,
-	};
-	if (rubOperationLabel(rubOperation) === null) return null;
-	return rubOperation;
-};
-
-const parseDropTargetData = (data: unknown): Operation | null => {
-	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
-	return data as Operation;
 };
 
 const getExpandedCommitSelection = async ({
