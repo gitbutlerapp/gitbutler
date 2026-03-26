@@ -3,7 +3,8 @@ import { Match } from "effect";
 
 type BranchSelection = { stackId: string; branchName: string; branchRef: string };
 
-type ChangesFileSelection = { stackId: string | null; path: string };
+type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
+type ChangesSelection = { stackId: string | null; mode: ChangesMode };
 
 type CommitMode =
 	| { _tag: "Summary" }
@@ -13,8 +14,22 @@ type CommitSelection = { stackId: string; commitId: string; mode: CommitMode };
 
 export type Selection =
 	| ({ _tag: "Branch" } & BranchSelection)
-	| ({ _tag: "ChangesFile" } & ChangesFileSelection)
+	| ({ _tag: "Changes" } & ChangesSelection)
 	| ({ _tag: "Commit" } & CommitSelection);
+
+export const toggleChangesSelection = (
+	selection: Selection | null,
+	stackId: string | null,
+): Selection | null =>
+	selection?._tag === "Changes" &&
+	selection.stackId === stackId &&
+	selection.mode._tag !== "Details"
+		? null
+		: {
+				_tag: "Changes",
+				stackId,
+				mode: { _tag: "Summary" },
+			};
 
 export const toggleBranchSelection = (
 	selection: Selection | null,
@@ -38,12 +53,19 @@ export const toggleChangesFileSelection = (
 	stackId: string | null,
 	path: string,
 ): Selection | null =>
-	selection?._tag === "ChangesFile" && selection.stackId === stackId && selection.path === path
-		? null
-		: {
-				_tag: "ChangesFile",
+	selection?._tag === "Changes" &&
+	selection.stackId === stackId &&
+	selection.mode._tag === "Details" &&
+	selection.mode.path === path
+		? {
+				_tag: "Changes",
 				stackId,
-				path,
+				mode: { _tag: "Summary" },
+			}
+		: {
+				_tag: "Changes",
+				stackId,
+				mode: { _tag: "Details", path },
 			};
 
 export const toggleCommitSelection = (
@@ -127,7 +149,7 @@ export const normalizeSelection = (
 			if (branchRefs === undefined) return null;
 			return branchRefs.has(selection.branchRef) ? selection : null;
 		}),
-		Match.tag("ChangesFile", (selection) => selection),
+		Match.tag("Changes", (selection) => selection),
 		Match.tag("Commit", (selection) => {
 			const stackIds = stackIdsByCommitId.get(selection.commitId);
 			if (stackIds === undefined) return null;
@@ -177,7 +199,11 @@ export const getDefaultSelection = ({
 		stackId: null,
 	});
 	if (firstUnassignedPath !== null)
-		return { _tag: "ChangesFile", stackId: null, path: firstUnassignedPath };
+		return {
+			_tag: "Changes",
+			stackId: null,
+			mode: { _tag: "Details", path: firstUnassignedPath },
+		};
 
 	for (const stack of headInfo.stacks) {
 		if (stack.id == null) continue;
@@ -189,9 +215,9 @@ export const getDefaultSelection = ({
 		});
 		if (firstAssignedPath !== null)
 			return {
-				_tag: "ChangesFile",
+				_tag: "Changes",
 				stackId: stack.id,
-				path: firstAssignedPath,
+				mode: { _tag: "Details", path: firstAssignedPath },
 			};
 
 		for (const segment of stack.segments) {

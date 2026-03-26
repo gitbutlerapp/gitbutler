@@ -93,6 +93,7 @@ import {
 	normalizeSelection,
 	type Selection,
 	toggleBranchSelection,
+	toggleChangesSelection,
 	toggleChangesFileSelection,
 	toggleCommitEditingMessage,
 	toggleCommitFileSelection,
@@ -188,6 +189,7 @@ const useSelectionKeyboardShortcuts = ({
 		if (event.defaultPrevented || event.repeat) return;
 		if (event.metaKey || event.ctrlKey || event.altKey) return;
 		if (isTypingTarget(event.target)) return;
+
 		if (selection?._tag !== "Commit") return;
 
 		switch (event.key) {
@@ -385,6 +387,35 @@ const ShowChangesFile: FC<{
 	);
 };
 
+const ShowChanges: FC<{
+	projectId: string;
+	stackId: string | null;
+	onDependencyHover: (commitIds: Array<string> | null) => void;
+}> = ({ projectId, stackId, onDependencyHover }) => {
+	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
+
+	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
+	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
+
+	if (changes.length === 0) return <div>No file changes.</div>;
+
+	return (
+		<ul>
+			{changes.map((change) => (
+				<li key={change.path}>
+					<h4>{change.path}</h4>
+					<ShowChangesFile
+						projectId={projectId}
+						stackId={stackId}
+						path={change.path}
+						onDependencyHover={onDependencyHover}
+					/>
+				</li>
+			))}
+		</ul>
+	);
+};
+
 const ShowCommitFile: FC<{
 	projectId: string;
 	commitId: string;
@@ -430,14 +461,22 @@ const Preview: FC<{
 				)}
 			/>
 		)),
-		Match.tag("ChangesFile", ({ stackId, path }) => (
-			<ShowChangesFile
-				projectId={projectId}
-				stackId={stackId}
-				path={path}
-				onDependencyHover={onDependencyHover}
-			/>
-		)),
+		Match.tag("Changes", ({ stackId, mode }) =>
+			mode._tag === "Details" && mode.path !== undefined ? (
+				<ShowChangesFile
+					projectId={projectId}
+					stackId={stackId}
+					path={mode.path}
+					onDependencyHover={onDependencyHover}
+				/>
+			) : (
+				<ShowChanges
+					projectId={projectId}
+					stackId={stackId}
+					onDependencyHover={onDependencyHover}
+				/>
+			),
+		),
 		Match.tag("Commit", ({ commitId, mode }) =>
 			mode._tag === "Details" && mode.path !== undefined ? (
 				<ShowCommitFile projectId={projectId} commitId={commitId} path={mode.path} />
@@ -1002,13 +1041,14 @@ const CommitC: FC<{
 };
 
 const Changes: FC<{
+	label: string;
 	projectId: string;
 	stackId: string | null;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 	selection: Selection | null;
 	select: (selection: Selection | null) => void;
 	className?: string;
-}> = ({ projectId, stackId, onDependencyHover, selection, select, className }) => {
+}> = ({ label, projectId, stackId, onDependencyHover, selection, select, className }) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
 	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
@@ -1017,62 +1057,82 @@ const Changes: FC<{
 	);
 
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
+	const changesSelection =
+		selection?._tag === "Changes" && selection.stackId === stackId ? selection : null;
 
 	return (
 		<ChangesTarget stackId={stackId} className={className}>
-			{changes.length === 0 ? (
-				<>No changes.</>
-			) : (
-				<ul>
-					{changes.map((change) => {
-						const assignments = assignmentsByPath.get(change.path);
-						const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
+			<div
+				className={classes(
+					sharedStyles.row,
+					sharedStyles.commitRow,
+					changesSelection ? sharedStyles.selected : undefined,
+				)}
+			>
+				<button
+					type="button"
+					className={classes(sharedStyles.commitButton, styles.branchButton)}
+					onClick={() => {
+						select(toggleChangesSelection(selection, stackId));
+					}}
+				>
+					{label}
+				</button>
+			</div>
+			<div className={sharedStyles.commitDetails}>
+				{changes.length === 0 ? (
+					<>No changes.</>
+				) : (
+					<ul>
+						{changes.map((change) => {
+							const assignments = assignmentsByPath.get(change.path);
+							const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
 
-						const dependencyCommitIds = hunkDependencyDiffs
-							? dependencyCommitIdsForFile(hunkDependencyDiffs)
-							: [];
+							const dependencyCommitIds = hunkDependencyDiffs
+								? dependencyCommitIdsForFile(hunkDependencyDiffs)
+								: [];
 
-						return (
-							<li key={change.path}>
-								<DraggableFile
-									change={change}
-									changeUnit={{ _tag: "Changes", stackId }}
-									assignments={assignments}
-									render={
-										<div
-											className={classes(
-												sharedStyles.row,
-												sharedStyles.fileRow,
-												selection?._tag === "ChangesFile" &&
-													selection.stackId === stackId &&
-													selection.path === change.path &&
-													sharedStyles.selected,
-											)}
-										>
-											<FileButton
-												change={change}
-												toggleSelect={() => {
-													select(toggleChangesFileSelection(selection, stackId, change.path));
-												}}
-											/>
-											{isNonEmptyArray(dependencyCommitIds) && (
-												<DependencyIndicator
-													projectId={projectId}
-													commitIds={dependencyCommitIds}
-													onHover={onDependencyHover}
-													className={sharedStyles.rowAction}
-												>
-													<DependencyIcon />
-												</DependencyIndicator>
-											)}
-										</div>
-									}
-								/>
-							</li>
-						);
-					})}
-				</ul>
-			)}
+							return (
+								<li key={change.path}>
+									<DraggableFile
+										change={change}
+										changeUnit={{ _tag: "Changes", stackId }}
+										assignments={assignments}
+										render={
+											<div
+												className={classes(
+													sharedStyles.row,
+													sharedStyles.fileRow,
+													changesSelection?.mode._tag === "Details" &&
+														changesSelection.mode.path === change.path &&
+														sharedStyles.selectedFile,
+												)}
+											>
+												<FileButton
+													change={change}
+													toggleSelect={() => {
+														select(toggleChangesFileSelection(selection, stackId, change.path));
+													}}
+												/>
+												{isNonEmptyArray(dependencyCommitIds) && (
+													<DependencyIndicator
+														projectId={projectId}
+														commitIds={dependencyCommitIds}
+														onHover={onDependencyHover}
+														className={sharedStyles.rowAction}
+													>
+														<DependencyIcon />
+													</DependencyIndicator>
+												)}
+											</div>
+										}
+									/>
+								</li>
+							);
+						})}
+					</ul>
+				)}
+			</div>
 		</ChangesTarget>
 	);
 };
@@ -1339,7 +1399,6 @@ const StackC: FC<{
 		<div className={styles.stack}>
 			<div>
 				<div className={styles.stackHeader}>
-					<h3>Assigned changes</h3>
 					<Menu.Root>
 						<Menu.Trigger className={styles.stackMenuTrigger} aria-label="Stack menu">
 							<MenuTriggerIcon />
@@ -1352,6 +1411,7 @@ const StackC: FC<{
 					</Menu.Root>
 				</div>
 				<Changes
+					label="Assigned changes"
 					projectId={projectId}
 					stackId={stack.id}
 					onDependencyHover={onDependencyHover}
@@ -1435,8 +1495,8 @@ const ProjectPage: FC = () => {
 		>
 			<div className={sharedStyles.lanes}>
 				<div className={styles.unassignedChangesLane}>
-					<h3>Unassigned changes</h3>
 					<Changes
+						label="Unassigned changes"
 						projectId={project.id}
 						stackId={null}
 						onDependencyHover={highlightCommits}
