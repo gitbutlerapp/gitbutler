@@ -497,7 +497,6 @@ const ProjectBranchesPage: FC = () => {
 		(_selection ? normalizeBranchSelection(_selection, sortedBranches) : null) ??
 		getDefaultSelection(sortedBranches);
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
-	const selectedRemote = selectedBranch ? getRemote(selectedBranch) : null;
 
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
 		if (event.defaultPrevented || event.repeat) return;
@@ -551,7 +550,7 @@ const ProjectBranchesPage: FC = () => {
 							projectId={projectId}
 							selection={selection}
 							selectedBranchRef={selectedBranch ? getBranchRef(selectedBranch) : null}
-							remote={selectedRemote ?? null}
+							remote={selectedBranch ? getRemote(selectedBranch) : null}
 						/>
 					</Suspense>
 				)
@@ -577,7 +576,7 @@ const ProjectBranchesPage: FC = () => {
 							<BranchDetailsC
 								branchName={selectedBranch.name}
 								projectId={projectId}
-								remote={selectedRemote ?? null}
+								remote={getRemote(selectedBranch)}
 								selection={selection}
 								select={select}
 							/>
