@@ -72,7 +72,7 @@ export const getCommitDetailsSelectionAction = (
 			_tag: "Move",
 			offset: 1,
 		})),
-		Match.when("ArrowLeft", (): CommitDetailsSelectionAction | null =>
+		Match.whenOr("ArrowLeft", "Escape", (): CommitDetailsSelectionAction | null =>
 			!event.repeat ? { _tag: "Close" } : null,
 		),
 		Match.orElse((): CommitDetailsSelectionAction | null => null),
