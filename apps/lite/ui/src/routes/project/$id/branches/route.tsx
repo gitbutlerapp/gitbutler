@@ -434,7 +434,7 @@ const ShowCommit: FC<{
 		<ul>
 			{data.changes.map((change) => (
 				<li key={change.path}>
-					<h5>{change.path}</h5>
+					<h4>{change.path}</h4>
 					<FileDiff
 						projectId={projectId}
 						change={change}
@@ -462,7 +462,7 @@ const ShowBranch: FC<{
 				<ul>
 					{data.changes.map((change) => (
 						<li key={change.path}>
-							<h5>{change.path}</h5>
+							<h4>{change.path}</h4>
 							<FileDiff
 								projectId={projectId}
 								change={change}
