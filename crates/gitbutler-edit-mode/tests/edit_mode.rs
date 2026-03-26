@@ -6,7 +6,6 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_meta::{VirtualBranchesTomlMetadata, virtual_branches_legacy_types::Target};
-use but_oxidize::OidExt as _;
 use but_testsupport::{gix_testtools, open_repo};
 use git2::build::CheckoutBuilder;
 use gitbutler_edit_mode::commands::{
@@ -76,14 +75,14 @@ fn stack_id(ctx: &Context) -> Result<StackId> {
 #[test]
 fn basic_leaving_edit_mode() -> Result<()> {
     let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
-    let repo = ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
 
-    let foobar = repo.head()?.peel_to_commit()?.parent(0)?.id();
+    let foobar = repo.head_commit()?.decode()?.parents().next().unwrap();
 
-    let worktree_dir = repo.path().parent().unwrap().to_path_buf();
+    let worktree_dir = repo.workdir().unwrap().to_owned();
     drop(repo);
     let stack_id = stack_id(&ctx)?;
-    enter_edit_mode(&mut ctx, foobar.to_gix(), stack_id)?;
+    enter_edit_mode(&mut ctx, foobar, stack_id)?;
 
     std::fs::write(worktree_dir.join("file"), "edited during edit mode\n")?;
     std::fs::write(worktree_dir.join("newfile"), "created during edit mode\n")?;
@@ -111,13 +110,13 @@ fn basic_leaving_edit_mode() -> Result<()> {
 #[test]
 fn conficted_entries_get_written_when_leaving_edit_mode() -> Result<()> {
     let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
-    let repo = ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
 
-    let foobar = repo.head()?.peel_to_commit()?.parent(0)?.id();
+    let foobar = repo.head_commit()?.decode()?.parents().next().unwrap();
 
     drop(repo);
     let stack_id = stack_id(&ctx)?;
-    enter_edit_mode(&mut ctx, foobar.to_gix(), stack_id)?;
+    enter_edit_mode(&mut ctx, foobar, stack_id)?;
 
     let repo = ctx.git2_repo.get()?;
     let init = repo.find_reference("refs/heads/main")?.peel_to_commit()?;
@@ -145,9 +144,9 @@ fn conficted_entries_get_written_when_leaving_edit_mode() -> Result<()> {
     drop(repo);
     save_and_return_to_workspace(&mut ctx)?;
 
-    let repo = ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
     insta::assert_snapshot!(
-        std::fs::read_to_string(repo.path().parent().unwrap().join("conflict"))?,
+        std::fs::read_to_string(repo.workdir().unwrap().join("conflict"))?,
         @"
     <<<<<<< ours
     left
@@ -164,23 +163,25 @@ fn conficted_entries_get_written_when_leaving_edit_mode() -> Result<()> {
 #[test]
 fn abort_requires_force_when_changes_were_made() -> Result<()> {
     let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
-    let repo = ctx.git2_repo.get()?;
-    let foobar = repo.head()?.peel_to_commit()?.parent(0)?.id();
+    let repo = ctx.repo.get()?;
+    let foobar = repo.head_commit()?.decode()?.parents().next().unwrap();
     drop(repo);
 
     let stack_id = stack_id(&ctx)?;
-    enter_edit_mode(&mut ctx, foobar.to_gix(), stack_id)?;
+    enter_edit_mode(&mut ctx, foobar, stack_id)?;
 
-    let repo = ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
     insta::assert_debug_snapshot!(
-        repo.head()?.name(),
+        repo.head_name()?,
         @r#"
     Some(
-        "refs/heads/gitbutler/edit",
+        FullName(
+            "refs/heads/gitbutler/edit",
+        ),
     )
     "#
     );
-    let worktree_dir = repo.path().parent().unwrap().to_path_buf();
+    let worktree_dir = repo.workdir().unwrap().to_owned();
     drop(repo);
 
     std::fs::write(worktree_dir.join("file"), "edited during edit mode\n")?;
@@ -198,20 +199,24 @@ fn abort_requires_force_when_changes_were_made() -> Result<()> {
     "
     );
     insta::assert_debug_snapshot!(
-        ctx.git2_repo.get()?.head()?.name(),
+        ctx.repo.get()?.head_name()?,
         @r#"
     Some(
-        "refs/heads/gitbutler/edit",
+        FullName(
+            "refs/heads/gitbutler/edit",
+        ),
     )
     "#
     );
 
     abort_and_return_to_workspace(&mut ctx, true)?;
     insta::assert_debug_snapshot!(
-        ctx.git2_repo.get()?.head()?.name(),
+        ctx.repo.get()?.head_name()?,
         @r#"
     Some(
-        "refs/heads/gitbutler/workspace",
+        FullName(
+            "refs/heads/gitbutler/workspace",
+        ),
     )
     "#
     );
@@ -222,33 +227,32 @@ fn abort_requires_force_when_changes_were_made() -> Result<()> {
 #[test]
 fn enter_edit_mode_checks_out_conflicted_commit() -> Result<()> {
     let (mut ctx, _tempdir) = command_ctx("enter_edit_mode_with_conflicted_commit")?;
-    let repo = ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
     let conflicted_commit = repo
         .find_reference("refs/tags/conflicted-target")?
         .peel_to_commit()?
-        .id();
+        .id()
+        .detach();
 
     drop(repo);
 
     let stack_id = stack_id(&ctx)?;
-    enter_edit_mode(&mut ctx, conflicted_commit.to_gix(), stack_id)?;
+    enter_edit_mode(&mut ctx, conflicted_commit, stack_id)?;
 
-    let repo = ctx.git2_repo.get()?;
+    let repo = ctx.repo.get()?;
     insta::assert_debug_snapshot!(
-        repo.head()?.name(),
+        repo.head_name()?,
         @r#"
     Some(
-        "refs/heads/gitbutler/edit",
+        FullName(
+            "refs/heads/gitbutler/edit",
+        ),
     )
     "#
     );
     insta::assert_debug_snapshot!(
-        repo.head()?.peel_to_commit()?.summary(),
-        @r#"
-    Some(
-        "Changes to make millions",
-    )
-    "#
+        repo.head_commit()?.message()?.summary(),
+        @r#""Changes to make millions""#
     );
 
     insta::assert_snapshot!(
@@ -267,10 +271,12 @@ fn enter_edit_mode_checks_out_conflicted_commit() -> Result<()> {
 
     abort_and_return_to_workspace(&mut ctx, true)?;
     insta::assert_debug_snapshot!(
-        ctx.git2_repo.get()?.head()?.name(),
+        ctx.repo.get()?.head_name()?,
         @r#"
     Some(
-        "refs/heads/gitbutler/workspace",
+        FullName(
+            "refs/heads/gitbutler/workspace",
+        ),
     )
     "#
     );
@@ -282,11 +288,28 @@ fn enter_edit_mode_checks_out_conflicted_commit() -> Result<()> {
 fn enter_edit_mode_works_with_only_integration_ref_present() -> Result<()> {
     let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
     let foobar = {
-        let repo = ctx.git2_repo.get()?;
-        let workspace_head = repo.head()?.peel_to_commit()?;
-        let foobar = workspace_head.parent(0)?.id();
-        repo.reference(INTEGRATION_BRANCH_REF, workspace_head.id(), true, "")?;
-        repo.set_head(INTEGRATION_BRANCH_REF)?;
+        let repo = ctx.repo.get()?;
+        let workspace_head = repo.head_commit()?;
+        let foobar = workspace_head.decode()?.parents().next().unwrap();
+        repo.reference(
+            INTEGRATION_BRANCH_REF,
+            workspace_head.id(),
+            gix::refs::transaction::PreviousValue::Any,
+            "",
+        )?;
+        repo.edit_reference(gix::refs::transaction::RefEdit {
+            change: gix::refs::transaction::Change::Update {
+                log: gix::refs::transaction::LogChange {
+                    mode: gix::refs::transaction::RefLog::AndReference,
+                    force_create_reflog: false,
+                    message: b"arbitrary message".into(),
+                },
+                expected: gix::refs::transaction::PreviousValue::Any,
+                new: gix::refs::Target::Symbolic(INTEGRATION_BRANCH_REF.try_into()?),
+            },
+            name: "HEAD".try_into().unwrap(),
+            deref: false,
+        })?;
         repo.find_reference("refs/heads/gitbutler/workspace")?
             .delete()
             .context("expected workspace ref to exist")?;
@@ -294,13 +317,15 @@ fn enter_edit_mode_works_with_only_integration_ref_present() -> Result<()> {
     };
 
     let stack_id = stack_id(&ctx)?;
-    enter_edit_mode(&mut ctx, foobar.to_gix(), stack_id)?;
+    enter_edit_mode(&mut ctx, foobar, stack_id)?;
 
     insta::assert_debug_snapshot!(
-        ctx.git2_repo.get()?.head()?.name(),
+        ctx.repo.get()?.head_name()?,
         @r#"
     Some(
-        "refs/heads/gitbutler/edit",
+        FullName(
+            "refs/heads/gitbutler/edit",
+        ),
     )
     "#
     );
