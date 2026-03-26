@@ -66,6 +66,7 @@ import {
 	HunkDependencies,
 	HunkHeader,
 	InsertSide,
+	Segment,
 	Stack,
 	TreeChange,
 } from "@gitbutler/but-sdk";
@@ -1249,6 +1250,72 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 	);
 };
 
+const Branch: FC<{
+	highlightedCommitIds: Set<string>;
+	projectId: string;
+	segment: Segment;
+	selection: Selection | null;
+	select: (selection: Selection | null) => void;
+	stackId: string;
+}> = ({ highlightedCommitIds, projectId, segment, selection, select, stackId }) => {
+	const branchName = segment.refName?.displayName ?? "Untitled";
+	const branchRef = getSegmentBranchRef(segment);
+	const anchorRef = segment.refName ? segment.refName.fullNameBytes : null;
+
+	return (
+		<div>
+			<BranchTarget
+				anchorRef={anchorRef}
+				firstCommitId={segment.commits[0]?.id}
+				render={
+					<DraggableBranch
+						anchorRef={anchorRef}
+						label={branchName}
+						render={
+							branchRef !== null ? (
+								<button
+									type="button"
+									className={classes(
+										styles.branchButton,
+										selection?._tag === "Branch" &&
+											selection.stackId === stackId &&
+											selection.branchRef === branchRef &&
+											sharedStyles.selected,
+									)}
+									onClick={() => {
+										select(toggleBranchSelection(selection, stackId, branchName, branchRef));
+									}}
+								>
+									{branchName}
+								</button>
+							) : (
+								<div>{branchName}</div>
+							)
+						}
+					/>
+				}
+			/>
+
+			<CommitsList commits={segment.commits}>
+				{(commit, index) => (
+					<CommitC
+						branchName={branchName}
+						branchRef={branchRef}
+						commit={commit}
+						isHighlighted={highlightedCommitIds.has(commit.id)}
+						nextCommitId={segment.commits[index + 1]?.id}
+						previousCommitId={segment.commits[index - 1]?.id}
+						projectId={projectId}
+						selection={selection}
+						select={select}
+						stackId={stackId}
+					/>
+				)}
+			</CommitsList>
+		</div>
+	);
+};
+
 const StackC: FC<{
 	highlightedCommitIds: Set<string>;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
@@ -1295,65 +1362,18 @@ const StackC: FC<{
 			</div>
 
 			<ul className={styles.segments}>
-				{stack.segments.map((segment) => {
-					const branchName = segment.refName?.displayName ?? "Untitled";
-					const branchRef = getSegmentBranchRef(segment);
-					const anchorRef = segment.refName ? segment.refName.fullNameBytes : null;
-					return (
-						<li key={branchName}>
-							<BranchTarget
-								anchorRef={anchorRef}
-								firstCommitId={segment.commits[0]?.id}
-								render={
-									<DraggableBranch
-										anchorRef={anchorRef}
-										label={branchName}
-										render={
-											branchRef !== null ? (
-												<button
-													type="button"
-													className={classes(
-														styles.branchButton,
-														selection?._tag === "Branch" &&
-															selection.stackId === stackId &&
-															selection.branchRef === branchRef &&
-															sharedStyles.selected,
-													)}
-													onClick={() => {
-														select(
-															toggleBranchSelection(selection, stackId, branchName, branchRef),
-														);
-													}}
-												>
-													{branchName}
-												</button>
-											) : (
-												<div>{branchName}</div>
-											)
-										}
-									/>
-								}
-							/>
-
-							<CommitsList commits={segment.commits}>
-								{(commit, index) => (
-									<CommitC
-										branchName={branchName}
-										branchRef={branchRef}
-										commit={commit}
-										isHighlighted={highlightedCommitIds.has(commit.id)}
-										nextCommitId={segment.commits[index + 1]?.id}
-										previousCommitId={segment.commits[index - 1]?.id}
-										projectId={projectId}
-										selection={selection}
-										select={select}
-										stackId={stackId}
-									/>
-								)}
-							</CommitsList>
-						</li>
-					);
-				})}
+				{stack.segments.map((segment) => (
+					<li key={segment.refName?.displayName ?? "Untitled"}>
+						<Branch
+							highlightedCommitIds={highlightedCommitIds}
+							projectId={projectId}
+							segment={segment}
+							selection={selection}
+							select={select}
+							stackId={stackId}
+						/>
+					</li>
+				))}
 			</ul>
 		</div>
 	);
