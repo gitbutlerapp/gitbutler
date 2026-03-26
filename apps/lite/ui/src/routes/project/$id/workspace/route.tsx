@@ -206,9 +206,9 @@ const useSelectionKeyboardShortcuts = ({
 
 		switch (event.key) {
 			case "Enter":
-				if (event.repeat) return;
 				if (selection._tag !== "Commit") return;
 				if (selection.mode._tag !== "Summary") return;
+				if (event.repeat) return;
 				event.preventDefault();
 				select(
 					toggleCommitEditingMessage(
@@ -222,9 +222,9 @@ const useSelectionKeyboardShortcuts = ({
 				);
 				break;
 			case "ArrowLeft":
-				if (event.repeat) return;
 				if (selection._tag !== "Commit") return;
 				if (selection.mode._tag !== "Details") return;
+				if (event.repeat) return;
 				event.preventDefault();
 				select({
 					_tag: "Commit",
@@ -237,9 +237,9 @@ const useSelectionKeyboardShortcuts = ({
 				});
 				break;
 			case "ArrowRight":
-				if (event.repeat) return;
 				if (selection._tag !== "Commit") return;
 				if (selection.mode._tag !== "Summary") return;
+				if (event.repeat) return;
 				event.preventDefault();
 				void getExpandedCommitSelection({
 					stackId: selection.stackId,
