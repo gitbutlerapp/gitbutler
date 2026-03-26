@@ -2,15 +2,8 @@ import { BranchIdentity, BranchListing } from "@gitbutler/but-sdk";
 
 type BranchSelection = { branchName: BranchIdentity };
 
-type CommitMode =
-	| {
-			_tag: "Summary";
-	  }
-	| {
-			_tag: "Details";
-			path?: string;
-	  };
-type CommitSelection = { branchName: BranchIdentity; commitId: string; mode: CommitMode };
+type CommitMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
+type CommitSelection = BranchSelection & { commitId: string; mode: CommitMode };
 
 export type Selection =
 	| ({ _tag: "Branch" } & BranchSelection)

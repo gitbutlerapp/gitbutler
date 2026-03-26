@@ -13,7 +13,6 @@ import styles from "./route.module.css";
 import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/api/mutations.ts";
 import {
 	branchDetailsQueryOptions,
-	branchDiffQueryOptions,
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
@@ -30,6 +29,8 @@ import {
 	FileDiff,
 	formatHunkHeader,
 	HunkDiff,
+	ShowBranch,
+	ShowCommit,
 } from "#ui/routes/project/$id/-shared.tsx";
 import sharedStyles from "../-shared.module.css";
 import {
@@ -44,6 +45,11 @@ import {
 const isValidCommit = (commitId: string, branchDetails: BranchDetails): boolean => {
 	const commitIds = new Set(branchDetails.commits.map((commit) => commit.id));
 	return commitIds.has(commitId);
+};
+
+const getBranchRemote = (branch: BranchListing) => {
+	if (branch.hasLocal) return null;
+	return branch.remotes[0] ?? null;
 };
 
 const getBranchRef = (branch: BranchListing): string | null => {
@@ -74,6 +80,56 @@ const getExpandedCommitSelection = async ({
 		commitId,
 		mode: { _tag: "Details", path: commitDetails.changes[0]?.path },
 	};
+};
+
+const useSelectionKeyboardShortcuts = ({
+	selection,
+	select,
+	projectId,
+}: {
+	selection: Selection | null;
+	select: (selection: Selection | null) => void;
+	projectId: string;
+}) => {
+	const queryClient = useQueryClient();
+
+	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
+		if (event.defaultPrevented || event.repeat) return;
+		if (event.metaKey || event.ctrlKey || event.altKey) return;
+		if (isTypingTarget(event.target)) return;
+		if (selection?._tag !== "Commit") return;
+
+		switch (event.key) {
+			case "ArrowLeft":
+				if (selection.mode._tag !== "Details") return;
+				event.preventDefault();
+				select({
+					_tag: "Commit",
+					branchName: selection.branchName,
+					commitId: selection.commitId,
+					mode: { _tag: "Summary" },
+				});
+				break;
+			case "ArrowRight":
+				if (selection.mode._tag !== "Summary") return;
+				event.preventDefault();
+				void getExpandedCommitSelection({
+					branchName: selection.branchName,
+					commitId: selection.commitId,
+					projectId,
+					queryClient,
+				}).then(select);
+				break;
+		}
+	});
+
+	useEffect(() => {
+		window.addEventListener("keydown", handleKeyDown);
+
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+		};
+	}, []);
 };
 
 const BranchMenuPopup: FC<{
@@ -179,7 +235,6 @@ const BranchRow: FC<
 			{...restProps}
 			className={classes(
 				sharedStyles.row,
-				styles.branchRow,
 				branchSelection || commitSelection ? sharedStyles.selected : undefined,
 				className,
 			)}
@@ -266,7 +321,6 @@ const CommitRow: FC<{
 		<div
 			className={classes(
 				sharedStyles.row,
-				sharedStyles.commitRow,
 				commitSelection ? sharedStyles.selected : undefined,
 				isHighlighted && sharedStyles.highlighted,
 			)}
@@ -331,7 +385,6 @@ const CommitC: FC<{
 								<div
 									className={classes(
 										sharedStyles.row,
-										sharedStyles.fileRow,
 										commitSelection.mode._tag === "Details" &&
 											commitSelection.mode.path === change.path &&
 											sharedStyles.selectedFile,
@@ -390,7 +443,7 @@ const Hunk: FC<{
 	</div>
 );
 
-const CommitFileDiff: FC<{
+const ShowBranchCommitFile: FC<{
 	projectId: string;
 	branchName: string;
 	remote: string | null;
@@ -400,12 +453,12 @@ const CommitFileDiff: FC<{
 	const { data: branchDetails } = useSuspenseQuery(
 		branchDetailsQueryOptions({ projectId, branchName, remote }),
 	);
-	const { data } = useSuspenseQuery(
+	const { data: commitDetails } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
 	if (!isValidCommit(commitId, branchDetails)) return null;
 
-	const change = data.changes.find((candidate) => candidate.path === path);
+	const change = commitDetails.changes.find((candidate) => candidate.path === path);
 
 	if (!change) return null;
 
@@ -414,7 +467,7 @@ const CommitFileDiff: FC<{
 	);
 };
 
-const CommitDiff: FC<{
+const ShowBranchCommit: FC<{
 	projectId: string;
 	branchName: string;
 	remote: string | null;
@@ -423,56 +476,14 @@ const CommitDiff: FC<{
 	const { data: branchDetails } = useSuspenseQuery(
 		branchDetailsQueryOptions({ projectId, branchName, remote }),
 	);
-	const { data } = useSuspenseQuery(
-		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
-	);
 	if (!isValidCommit(commitId, branchDetails)) return null;
 
-	return data.changes.length === 0 ? (
-		<div>No file changes.</div>
-	) : (
-		<ul>
-			{data.changes.map((change) => (
-				<li key={change.path}>
-					<h5>{change.path}</h5>
-					<FileDiff
-						projectId={projectId}
-						change={change}
-						renderHunk={(hunk) => <Hunk hunk={hunk} />}
-					/>
-				</li>
-			))}
-		</ul>
-	);
-};
-
-const ShowBranch: FC<{
-	projectId: string;
-	branch: string;
-	branchName: string;
-}> = ({ projectId, branch, branchName }) => {
-	const { data } = useSuspenseQuery(branchDiffQueryOptions({ projectId, branch }));
-
 	return (
-		<>
-			<h3>{branchName}</h3>
-			{data.changes.length === 0 ? (
-				<div>No file changes.</div>
-			) : (
-				<ul>
-					{data.changes.map((change) => (
-						<li key={change.path}>
-							<h5>{change.path}</h5>
-							<FileDiff
-								projectId={projectId}
-								change={change}
-								renderHunk={(hunk) => <Hunk hunk={hunk} />}
-							/>
-						</li>
-					))}
-				</ul>
-			)}
-		</>
+		<ShowCommit
+			projectId={projectId}
+			commitId={commitId}
+			renderHunk={(_change, hunk) => <Hunk hunk={hunk} />}
+		/>
 	);
 };
 
@@ -480,19 +491,25 @@ const Preview: FC<{
 	projectId: string;
 	selection: Selection;
 	remote: string | null;
-	selectedBranchRef: string | null;
-}> = ({ projectId, selection, remote, selectedBranchRef }) =>
+	branchRef: string | null;
+}> = ({ projectId, selection, remote, branchRef }) =>
 	Match.value(selection).pipe(
 		Match.tag("Branch", ({ branchName }) =>
-			selectedBranchRef !== null ? (
-				<ShowBranch projectId={projectId} branch={selectedBranchRef} branchName={branchName} />
+			branchRef !== null ? (
+				<ShowBranch
+					projectId={projectId}
+					branchRef={branchRef}
+					branchName={branchName}
+					remote={remote}
+					renderHunk={(_change, hunk) => <Hunk hunk={hunk} />}
+				/>
 			) : (
 				<div>No branch diff available.</div>
 			),
 		),
 		Match.tag("Commit", ({ branchName, commitId, mode }) =>
 			mode._tag === "Details" && mode.path !== undefined ? (
-				<CommitFileDiff
+				<ShowBranchCommitFile
 					projectId={projectId}
 					branchName={branchName}
 					remote={remote}
@@ -500,7 +517,7 @@ const Preview: FC<{
 					path={mode.path}
 				/>
 			) : (
-				<CommitDiff
+				<ShowBranchCommit
 					projectId={projectId}
 					branchName={branchName}
 					remote={remote}
@@ -513,7 +530,6 @@ const Preview: FC<{
 
 const ProjectBranchesPage: FC = () => {
 	const { id: projectId } = Route.useParams();
-	const queryClient = useQueryClient();
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 	const project = projects.find((project) => project.id === projectId);
@@ -528,46 +544,8 @@ const ProjectBranchesPage: FC = () => {
 		(_selection ? normalizeBranchSelection(_selection, sortedBranches) : null) ??
 		getDefaultSelection(sortedBranches);
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
-	const selectedRemote =
-		selectedBranch && !selectedBranch.hasLocal ? selectedBranch.remotes[0] : null;
 
-	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
-		if (event.defaultPrevented || event.repeat) return;
-		if (event.metaKey || event.ctrlKey || event.altKey) return;
-		if (isTypingTarget(event.target)) return;
-		if (selection?._tag !== "Commit") return;
-
-		switch (event.key) {
-			case "ArrowLeft":
-				if (selection.mode._tag !== "Details") return;
-				event.preventDefault();
-				select({
-					_tag: "Commit",
-					branchName: selection.branchName,
-					commitId: selection.commitId,
-					mode: { _tag: "Summary" },
-				});
-				break;
-			case "ArrowRight":
-				if (selection.mode._tag !== "Summary") return;
-				event.preventDefault();
-				void getExpandedCommitSelection({
-					branchName: selection.branchName,
-					commitId: selection.commitId,
-					projectId,
-					queryClient,
-				}).then(select);
-				break;
-		}
-	});
-
-	useEffect(() => {
-		window.addEventListener("keydown", handleKeyDown);
-
-		return () => {
-			window.removeEventListener("keydown", handleKeyDown);
-		};
-	}, []);
+	useSelectionKeyboardShortcuts({ selection, select, projectId });
 
 	if (!project) return <p>Project not found.</p>;
 
@@ -577,20 +555,26 @@ const ProjectBranchesPage: FC = () => {
 		<ProjectPreviewLayout
 			projectId={projectId}
 			preview={
-				selection && (
+				selection &&
+				selectedBranch && (
 					<Suspense fallback={<div>Loading diff…</div>}>
 						<Preview
 							projectId={projectId}
 							selection={selection}
-							selectedBranchRef={selectedBranch ? getBranchRef(selectedBranch) : null}
-							remote={selectedRemote ?? null}
+							branchRef={getBranchRef(selectedBranch)}
+							remote={getBranchRemote(selectedBranch)}
 						/>
 					</Suspense>
 				)
 			}
 		>
 			<div className={sharedStyles.lanes}>
-				<ul className={styles.branchesListLane}>
+				<ul
+					className={classes(
+						styles.branchesListLane,
+						selection?._tag === "Branch" ? styles.selectedContainer : undefined,
+					)}
+				>
 					{sortedBranches.map((branch) => (
 						<li key={branch.name}>
 							<BranchRow
@@ -603,13 +587,18 @@ const ProjectBranchesPage: FC = () => {
 					))}
 				</ul>
 
-				{selectedBranch?.name != null && (
-					<div className={styles.branchDetailsLane}>
+				{selectedBranch && (
+					<div
+						className={classes(
+							styles.branchDetailsLane,
+							selection?._tag === "Commit" ? styles.selectedContainer : undefined,
+						)}
+					>
 						<Suspense fallback={<div>Loading branch details…</div>}>
 							<BranchDetailsC
 								branchName={selectedBranch.name}
 								projectId={projectId}
-								remote={selectedRemote ?? null}
+								remote={getBranchRemote(selectedBranch)}
 								selection={selection}
 								select={select}
 							/>

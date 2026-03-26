@@ -1,0 +1,172 @@
+import { type RefInfo } from "@gitbutler/but-sdk";
+import { Match } from "effect";
+
+type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
+type ChangesItem = { stackId: string | null; mode: ChangesMode };
+
+type SegmentItem = {
+	stackId: string;
+	segmentIndex: number;
+	branchName: string | null;
+	branchRef: string | null;
+};
+
+type CommitMode =
+	| { _tag: "Summary" }
+	| { _tag: "Details"; path?: string }
+	| { _tag: "EditingMessage" };
+export type CommitItem = SegmentItem & { commitId: string; mode: CommitMode };
+
+export type Item =
+	| ({ _tag: "Changes" } & ChangesItem)
+	| ({ _tag: "Segment" } & SegmentItem)
+	| ({ _tag: "Commit" } & CommitItem);
+
+export const changesSummaryItem = (stackId: string | null): Item => ({
+	_tag: "Changes",
+	stackId,
+	mode: { _tag: "Summary" },
+});
+
+export const changesDetailsItem = (stackId: string | null, path?: string): Item => ({
+	_tag: "Changes",
+	stackId,
+	mode: { _tag: "Details", path },
+});
+
+export const segmentItem = ({
+	stackId,
+	segmentIndex,
+	branchName,
+	branchRef,
+}: SegmentItem): Item => ({
+	_tag: "Segment",
+	stackId,
+	segmentIndex,
+	branchName,
+	branchRef,
+});
+
+export const commitSummaryItem = ({
+	stackId,
+	segmentIndex,
+	branchName,
+	branchRef,
+	commitId,
+}: Omit<CommitItem, "mode">): Item => ({
+	_tag: "Commit",
+	stackId,
+	segmentIndex,
+	branchName,
+	branchRef,
+	commitId,
+	mode: { _tag: "Summary" },
+});
+
+export const commitDetailsItem = (
+	{ stackId, segmentIndex, branchName, branchRef, commitId }: Omit<CommitItem, "mode">,
+	path?: string,
+): Item => ({
+	_tag: "Commit",
+	stackId,
+	segmentIndex,
+	branchName,
+	branchRef,
+	commitId,
+	mode: { _tag: "Details", path },
+});
+
+export const commitEditingMessageItem = ({
+	stackId,
+	segmentIndex,
+	branchName,
+	branchRef,
+	commitId,
+}: Omit<CommitItem, "mode">): Item => ({
+	_tag: "Commit",
+	stackId,
+	segmentIndex,
+	branchName,
+	branchRef,
+	commitId,
+	mode: { _tag: "EditingMessage" },
+});
+
+export const getParentRootItem = (selection: Item): Item | null =>
+	Match.value(selection).pipe(
+		Match.tag("Commit", (item): Item | null => segmentItem(item)),
+		Match.tag("Changes", (item): Item | null =>
+			item.mode._tag === "Details" ? changesSummaryItem(item.stackId) : null,
+		),
+		Match.tag("Segment", () => null),
+		Match.exhaustive,
+	);
+
+export const getParentItem = (item: Item): Item | null =>
+	Match.value(item).pipe(
+		Match.tag("Commit", (item): Item | null =>
+			item.mode._tag === "Details" && item.mode.path !== undefined
+				? commitSummaryItem(item)
+				: segmentItem(item),
+		),
+		Match.tag("Changes", (item): Item | null =>
+			item.mode._tag === "Details" ? changesSummaryItem(item.stackId) : null,
+		),
+		Match.tag("Segment", () => null),
+		Match.exhaustive,
+	);
+
+export const itemKey = (item: Item): string =>
+	Match.value(item).pipe(
+		Match.tag("Changes", (item) =>
+			item.mode._tag === "Details"
+				? JSON.stringify(["Changes", item.stackId, "Details", item.mode.path ?? null])
+				: JSON.stringify(["Changes", item.stackId, item.mode._tag]),
+		),
+		Match.tag("Segment", (item) => JSON.stringify(["Segment", item.stackId, item.segmentIndex])),
+		Match.tag("Commit", (item) =>
+			item.mode._tag === "Details"
+				? JSON.stringify([
+						"Commit",
+						item.stackId,
+						item.segmentIndex,
+						item.commitId,
+						"Details",
+						item.mode.path ?? null,
+					])
+				: JSON.stringify([
+						"Commit",
+						item.stackId,
+						item.segmentIndex,
+						item.commitId,
+						item.mode._tag,
+					]),
+		),
+		Match.exhaustive,
+	);
+
+export const itemsEqual = (a: Item | null, b: Item | null): boolean => {
+	if (a === null || b === null) return a === b;
+	return itemKey(a) === itemKey(b);
+};
+
+export const normalizeItem = (item: Item, headInfo: RefInfo): Item | null =>
+	Match.value(item).pipe(
+		Match.tag("Changes", (item) => item),
+		Match.tag("Segment", (item) => {
+			const stack = headInfo.stacks.find((stack) => stack.id !== null && stack.id === item.stackId);
+			if (!stack) return null;
+			const segment = stack.segments[item.segmentIndex];
+			if (!segment) return null;
+			return item;
+		}),
+		Match.tag("Commit", (item) => {
+			const stack = headInfo.stacks.find((stack) => stack.id !== null && stack.id === item.stackId);
+			if (!stack) return null;
+			const segment = stack.segments[item.segmentIndex];
+			if (!segment) return null;
+			if (!segment.commits.some((commit) => commit.id === item.commitId)) return null;
+			return item;
+		}),
+		Match.exhaustive,
+	);

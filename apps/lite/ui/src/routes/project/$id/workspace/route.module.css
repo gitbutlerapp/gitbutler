@@ -28,7 +28,6 @@
 
 .unassignedChanges {
 	flex-grow: 1;
-	min-height: 300px;
 	border: 1px dotted;
 }
 
@@ -58,8 +57,8 @@
 	flex-direction: column;
 }
 
-.branchButton {
-	width: 100%;
+.segmentButton {
+	flex-grow: 1;
 	padding-inline: var(--row-inline-padding);
 	padding-block: var(--row-block-padding);
 	font-weight: bold;
@@ -127,10 +126,6 @@
 	}
 }
 
-.selectedCommitMessageBody {
-	white-space: pre-wrap;
-}
-
 .commonBaseCommit {
 	flex-grow: 1;
 	text-align: center;
@@ -170,4 +165,12 @@
 	&:hover {
 		text-decoration: underline;
 	}
+}
+
+.dragging {
+	opacity: 0.4;
+}
+
+.selectedContainer {
+	background-color: #f5f5f5;
 }

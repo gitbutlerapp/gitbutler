@@ -36,13 +36,9 @@
 	width: 500px;
 }
 
-.commitRow {
+.row {
 	display: flex;
 	align-items: start;
-}
-
-.row {
-	position: static;
 }
 
 .rowAction {
@@ -62,10 +58,18 @@
 	.row.selected & {
 		visibility: visible;
 	}
+
+	&:disabled {
+		opacity: 0.5;
+	}
 }
 
 .commitDetails {
 	padding-left: 8px;
+}
+
+.commitMessageBody {
+	white-space: pre-wrap;
 }
 
 .commitButton {
@@ -73,11 +77,6 @@
 	padding-inline: var(--row-inline-padding);
 	padding-block: var(--row-block-padding);
 	line-height: var(--row-line-height);
-}
-
-.fileRow {
-	display: flex;
-	align-items: start;
 }
 
 .fileButton {
@@ -120,10 +119,6 @@
 	padding: 4px 8px;
 	border: 1px solid;
 	background-color: white;
-}
-
-.dragging {
-	opacity: 0.4;
 }
 
 .menuPopup {

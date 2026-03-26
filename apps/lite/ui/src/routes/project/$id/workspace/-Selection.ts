@@ -1,82 +1,60 @@
-import { type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
+import { getSegmentBranchRef } from "#ui/domain/RefInfo.ts";
+import { type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
+import {
+	changesDetailsItem,
+	changesSummaryItem,
+	commitDetailsItem,
+	commitEditingMessageItem,
+	commitSummaryItem,
+	getParentItem,
+	getParentRootItem,
+	itemKey,
+	itemsEqual,
+	type Item,
+	segmentItem,
+	CommitItem,
+} from "./-Item.ts";
 
-type BranchSelection = { stackId: string; branchName: string; branchRef: string };
+export const toggleChangesItem = (selection: Item | null, stackId: string | null): Item | null =>
+	selectItemOrParent(selection, changesSummaryItem(stackId));
 
-type ChangesFileSelection = { stackId: string | null; path: string };
-
-type CommitMode =
-	| { _tag: "Summary" }
-	| { _tag: "Details"; path?: string }
-	| { _tag: "EditingMessage" };
-type CommitSelection = { stackId: string; commitId: string; mode: CommitMode };
-
-export type Selection =
-	| ({ _tag: "Branch" } & BranchSelection)
-	| ({ _tag: "ChangesFile" } & ChangesFileSelection)
-	| ({ _tag: "Commit" } & CommitSelection);
-
-export const toggleBranchSelection = (
-	selection: Selection | null,
+export const toggleSegmentItem = (
+	selection: Item | null,
 	stackId: string,
-	branchName: string,
-	branchRef: string,
-): Selection | null =>
-	selection?._tag === "Branch" &&
-	selection.stackId === stackId &&
-	selection.branchName === branchName
-		? null
-		: {
-				_tag: "Branch",
-				stackId,
-				branchName,
-				branchRef,
-			};
+	segmentIndex: number,
+	branchName: string | null,
+	branchRef: string | null,
+): Item | null =>
+	selectItemOrParent(selection, segmentItem({ stackId, segmentIndex, branchName, branchRef }));
 
-export const toggleChangesFileSelection = (
-	selection: Selection | null,
+export const toggleChangesFileItem = (
+	selection: Item | null,
 	stackId: string | null,
 	path: string,
-): Selection | null =>
-	selection?._tag === "ChangesFile" && selection.stackId === stackId && selection.path === path
-		? null
-		: {
-				_tag: "ChangesFile",
-				stackId,
-				path,
-			};
+): Item | null => selectItemOrParent(selection, changesDetailsItem(stackId, path));
 
-export const toggleCommitSelection = (
-	selection: Selection | null,
+export const toggleCommitItem = (
+	selection: Item | null,
 	stackId: string,
+	segmentIndex: number,
 	commitId: string,
-	branchName: string,
+	branchName: string | null,
 	branchRef: string | null,
-): Selection | null =>
-	selection?._tag === "Commit" &&
-	selection.stackId === stackId &&
-	selection.commitId === commitId &&
-	selection.mode._tag !== "Details"
-		? branchRef !== null
-			? {
-					_tag: "Branch",
-					stackId,
-					branchName,
-					branchRef,
-				}
-			: null
-		: {
-				_tag: "Commit",
-				stackId,
-				commitId,
-				mode: { _tag: "Summary" },
-			};
+): Item | null =>
+	selectItemOrParent(
+		selection,
+		commitSummaryItem({ stackId, segmentIndex, branchName, branchRef, commitId }),
+	);
 
-export const toggleCommitEditingMessage = (
-	selection: Selection | null,
+export const toggleCommitItemEditingMessage = (
+	selection: Item | null,
 	stackId: string,
+	segmentIndex: number,
+	branchName: string | null,
+	branchRef: string | null,
 	commitId: string,
-): Selection | null =>
+): Item | null =>
 	selection?._tag === "Commit" &&
 	selection.stackId === stackId &&
 	selection.commitId === commitId &&
@@ -85,57 +63,24 @@ export const toggleCommitEditingMessage = (
 				...selection,
 				mode: { _tag: "Summary" },
 			}
-		: {
-				_tag: "Commit",
-				stackId,
-				commitId,
-				mode: { _tag: "EditingMessage" },
-			};
+		: commitEditingMessageItem({ stackId, segmentIndex, branchName, branchRef, commitId });
 
-export const toggleCommitFileSelection = (
-	selection: Selection | null,
+export const toggleCommitFileItem = (
+	selection: Item | null,
 	stackId: string,
+	segmentIndex: number,
+	branchName: string | null,
+	branchRef: string | null,
 	commitId: string,
 	path: string,
-): Selection | null =>
-	selection?._tag === "Commit" &&
-	selection.stackId === stackId &&
-	selection.commitId === commitId &&
-	selection.mode._tag === "Details" &&
-	selection.mode.path === path
-		? {
-				_tag: "Commit",
-				stackId,
-				commitId,
-				mode: { _tag: "Summary" },
-			}
-		: {
-				_tag: "Commit",
-				stackId,
-				commitId,
-				mode: { _tag: "Details", path },
-			};
-
-export const normalizeSelection = (
-	selection: Selection,
-	stackIdsByCommitId: Map<string, Set<string>>,
-	branchRefsByStackId: Map<string, Set<string>>,
-): Selection | null =>
-	Match.value(selection).pipe(
-		Match.tag("Branch", (selection) => {
-			const branchRefs = branchRefsByStackId.get(selection.stackId);
-			if (branchRefs === undefined) return null;
-			return branchRefs.has(selection.branchRef) ? selection : null;
-		}),
-		Match.tag("ChangesFile", (selection) => selection),
-		Match.tag("Commit", (selection) => {
-			const stackIds = stackIdsByCommitId.get(selection.commitId);
-			if (stackIds === undefined) return null;
-			if (!stackIds.has(selection.stackId)) return null;
-			return selection;
-		}),
-		Match.exhaustive,
+): Item | null =>
+	selectItemOrParent(
+		selection,
+		commitDetailsItem({ stackId, segmentIndex, branchName, branchRef, commitId }, path),
 	);
+
+const selectItemOrParent = (selection: Item | null, targetItem: Item): Item | null =>
+	itemsEqual(selection, targetItem) ? getParentItem(targetItem) : targetItem;
 
 const hasAssignmentsForPath = ({
 	assignments,
@@ -150,61 +95,206 @@ const hasAssignmentsForPath = ({
 		(assignment) => (assignment.stackId ?? null) === stackId && assignment.path === path,
 	);
 
-const firstSelectablePath = ({
-	changes,
-	assignments,
-	stackId,
-}: {
-	changes: Array<TreeChange>;
-	assignments: Array<HunkAssignment>;
-	stackId: string | null;
-}): string | null =>
-	changes.find((change) => hasAssignmentsForPath({ assignments, stackId, path: change.path }))
-		?.path ?? null;
+type NavigationModel = {
+	items: Array<Item>;
+	rootItems: Array<Item>;
+	rootIndexByItemIndex: Array<number>;
+	indexByKey: Map<string, number>;
+};
 
-export const getDefaultSelection = ({
+export const buildNavigationModel = ({
+	selection,
 	headInfo,
 	changes,
 	assignments,
+	commitDetailsPaths,
 }: {
+	selection: Item | null;
 	headInfo: RefInfo;
 	changes: Array<TreeChange>;
 	assignments: Array<HunkAssignment>;
-}): Selection | null => {
-	const firstUnassignedPath = firstSelectablePath({
-		changes,
-		assignments,
-		stackId: null,
-	});
-	if (firstUnassignedPath !== null)
-		return { _tag: "ChangesFile", stackId: null, path: firstUnassignedPath };
+	commitDetailsPaths: Array<string>;
+}): NavigationModel => {
+	const items: Array<Item> = [];
+	const rootItems: Array<Item> = [];
+	const rootIndexByItemIndex: Array<number> = [];
+	const indexByKey = new Map<string, number>();
+	const commitDetails =
+		selection?._tag === "Commit" && selection.mode._tag === "Details" ? selection : null;
+
+	const addChangesItems = (stackId: string | null) => {
+		const rootItem = changesSummaryItem(stackId);
+		const rootIndex = rootItems.length;
+		rootItems.push(rootItem);
+		indexByKey.set(itemKey(rootItem), items.length);
+		rootIndexByItemIndex.push(rootIndex);
+		items.push(rootItem);
+
+		for (const change of changes) {
+			if (!hasAssignmentsForPath({ assignments, stackId, path: change.path })) continue;
+			const item = changesDetailsItem(stackId, change.path);
+			indexByKey.set(itemKey(item), items.length);
+			rootIndexByItemIndex.push(rootIndex);
+			items.push(item);
+		}
+	};
+
+	addChangesItems(null);
 
 	for (const stack of headInfo.stacks) {
 		if (stack.id == null) continue;
+		addChangesItems(stack.id);
 
-		const firstAssignedPath = firstSelectablePath({
-			changes,
-			assignments,
-			stackId: stack.id,
-		});
-		if (firstAssignedPath !== null)
-			return {
-				_tag: "ChangesFile",
+		for (const [segmentIndex, segment] of stack.segments.entries()) {
+			const branchName = segment.refName?.displayName ?? null;
+			const branchRef = segment.refName ? getSegmentBranchRef(segment.refName) : null;
+			const rootItem = segmentItem({
 				stackId: stack.id,
-				path: firstAssignedPath,
-			};
+				segmentIndex,
+				branchName,
+				branchRef,
+			});
+			const rootIndex = rootItems.length;
+			rootItems.push(rootItem);
+			indexByKey.set(itemKey(rootItem), items.length);
+			rootIndexByItemIndex.push(rootIndex);
+			items.push(rootItem);
 
-		for (const segment of stack.segments) {
-			const firstCommit = segment.commits[0];
-			if (firstCommit)
-				return {
-					_tag: "Commit",
-					stackId: stack.id,
-					commitId: firstCommit.id,
-					mode: { _tag: "Summary" },
-				};
+			for (const commit of segment.commits) {
+				const isCommitDetails =
+					commitDetails !== null &&
+					commitDetails.stackId === stack.id &&
+					commitDetails.segmentIndex === segmentIndex &&
+					commitDetails.commitId === commit.id;
+				const commitItem = isCommitDetails
+					? commitDetailsItem({
+							stackId: stack.id,
+							segmentIndex,
+							branchName,
+							branchRef,
+							commitId: commit.id,
+						})
+					: commitSummaryItem({
+							stackId: stack.id,
+							segmentIndex,
+							branchName,
+							branchRef,
+							commitId: commit.id,
+						});
+				indexByKey.set(itemKey(commitItem), items.length);
+				rootIndexByItemIndex.push(rootIndex);
+				items.push(commitItem);
+
+				if (!isCommitDetails) continue;
+
+				for (const path of commitDetailsPaths) {
+					const item = commitDetailsItem(
+						{
+							stackId: stack.id,
+							segmentIndex,
+							branchName,
+							branchRef,
+							commitId: commit.id,
+						},
+						path,
+					);
+					indexByKey.set(itemKey(item), items.length);
+					rootIndexByItemIndex.push(rootIndex);
+					items.push(item);
+				}
+			}
 		}
 	}
 
-	return null;
+	return { items, rootItems, rootIndexByItemIndex, indexByKey };
 };
+
+const getAdjacentLinearItem = (
+	model: NavigationModel,
+	selection: Item | null,
+	offset: -1 | 1,
+): Item | null => {
+	const currentIndex = selection ? (model.indexByKey.get(itemKey(selection)) ?? -1) : -1;
+	if (currentIndex === -1) return null;
+	return model.items[currentIndex + offset] ?? null;
+};
+
+const getAdjacentRootItem = (
+	model: NavigationModel,
+	selection: Item | null,
+	offset: -1 | 1,
+): Item | null => {
+	if (!selection) return null;
+	const currentIndex = model.indexByKey.get(itemKey(selection));
+	if (currentIndex === undefined) return null;
+	const currentRootIndex = model.rootIndexByItemIndex[currentIndex] ?? -1;
+	if (currentRootIndex === -1) return null;
+	return model.rootItems[currentRootIndex + offset] ?? null;
+};
+
+type SelectionAction =
+	| { _tag: "Edit" }
+	| { _tag: "Move"; offset: -1 | 1 }
+	| { _tag: "MoveRootDown" }
+	| { _tag: "MoveRootUp" }
+	| { _tag: "Collapse" }
+	| { _tag: "Expand" };
+
+export const getSelectionAction = (event: KeyboardEvent): SelectionAction | null =>
+	Match.value(event.key).pipe(
+		Match.when("Enter", (): SelectionAction | null => (!event.repeat ? { _tag: "Edit" } : null)),
+		Match.whenOr("ArrowUp", "k", (): SelectionAction | null => ({
+			_tag: "Move",
+			offset: -1,
+		})),
+		Match.whenOr("ArrowDown", "j", (): SelectionAction | null => ({
+			_tag: "Move",
+			offset: 1,
+		})),
+		Match.when("J", (): SelectionAction | null =>
+			event.shiftKey ? { _tag: "MoveRootDown" } : null,
+		),
+		Match.when("K", (): SelectionAction | null => (event.shiftKey ? { _tag: "MoveRootUp" } : null)),
+		Match.when("ArrowLeft", (): SelectionAction | null =>
+			!event.repeat ? { _tag: "Collapse" } : null,
+		),
+		Match.when("ArrowRight", (): SelectionAction | null =>
+			!event.repeat ? { _tag: "Expand" } : null,
+		),
+		Match.orElse((): SelectionAction | null => null),
+	);
+
+export const performSelectionAction = async ({
+	action,
+	model,
+	selection,
+	expandCommit,
+}: {
+	action: SelectionAction;
+	model: NavigationModel;
+	selection: Item;
+	expandCommit: (selection: CommitItem) => Promise<Item | null>;
+}): Promise<Item | null> =>
+	Match.value(action).pipe(
+		Match.tag("Edit", () =>
+			selection._tag === "Commit" && selection.mode._tag === "Summary"
+				? commitEditingMessageItem(selection)
+				: null,
+		),
+		Match.tag("Move", ({ offset }) => getAdjacentLinearItem(model, selection, offset)),
+		Match.tag("MoveRootDown", () => getAdjacentRootItem(model, selection, 1)),
+		Match.tag(
+			"MoveRootUp",
+			() => getParentRootItem(selection) ?? getAdjacentRootItem(model, selection, -1),
+		),
+		Match.tag("Collapse", () =>
+			selection._tag === "Commit" && selection.mode._tag === "Details"
+				? commitSummaryItem(selection)
+				: null,
+		),
+		Match.tag("Expand", () => {
+			if (selection._tag !== "Commit" || selection.mode._tag !== "Summary") return null;
+			return expandCommit(selection);
+		}),
+		Match.exhaustive,
+	);
