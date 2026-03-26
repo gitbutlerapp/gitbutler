@@ -251,10 +251,8 @@ export const getSelectionAction = (event: KeyboardEvent): SelectionAction | null
 			_tag: "Move",
 			offset: 1,
 		})),
-		Match.when("J", (): SelectionAction | null =>
-			event.shiftKey ? { _tag: "MoveRootDown" } : null,
-		),
-		Match.when("K", (): SelectionAction | null => (event.shiftKey ? { _tag: "MoveRootUp" } : null)),
+		Match.when("J", (): SelectionAction | null => ({ _tag: "MoveRootDown" })),
+		Match.when("K", (): SelectionAction | null => ({ _tag: "MoveRootUp" })),
 		Match.when("ArrowLeft", (): SelectionAction | null =>
 			!event.repeat ? { _tag: "Collapse" } : null,
 		),
