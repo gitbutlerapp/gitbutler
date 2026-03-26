@@ -749,7 +749,6 @@ mod tests {
                     path: path.to_owned(),
                     path_bytes: path.as_bytes().into(),
                     stack_id: None,
-                    hunk_locks: None,
                     line_nums_added: None,
                     line_nums_removed: None,
                     diff: None,

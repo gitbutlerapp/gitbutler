@@ -14,7 +14,6 @@ test = false
 but-core.workspace = true
 but-workspace = { workspace = true, features = ["legacy"] }
 but-serde.workspace = true
-but-hunk-dependency.workspace = true
 but-hunk-assignment.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
 
