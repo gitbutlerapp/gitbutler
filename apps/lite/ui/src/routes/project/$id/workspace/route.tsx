@@ -42,6 +42,7 @@ import {
 	formatHunkHeader,
 	HunkDiff,
 	Patch,
+	ShowCommit,
 } from "#ui/routes/project/$id/-shared.tsx";
 import uiStyles from "#ui/ui.module.css";
 import {
@@ -594,53 +595,6 @@ const ShowBranch: FC<{
 	);
 };
 
-const ShowCommit: FC<{
-	projectId: string;
-	commitId: string;
-}> = ({ projectId, commitId }) => {
-	const { data } = useSuspenseQuery(
-		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
-	);
-
-	const firstLineEnd = data.commit.message.indexOf("\n");
-	const commitMessageBody =
-		firstLineEnd === -1 ? "" : data.commit.message.slice(firstLineEnd + 1).trim();
-
-	return (
-		<>
-			<h3>
-				<CommitLabel commit={data.commit} />
-			</h3>
-			{commitMessageBody !== "" && (
-				<p className={styles.selectedCommitMessageBody}>{commitMessageBody}</p>
-			)}
-			{data.changes.length === 0 ? (
-				<div>No file changes.</div>
-			) : (
-				<ul>
-					{data.changes.map((change) => (
-						<li key={change.path}>
-							<h4>{change.path}</h4>
-							<FileDiff
-								projectId={projectId}
-								change={change}
-								renderHunk={(hunk, patch) => (
-									<Hunk
-										patch={patch}
-										changeUnit={{ _tag: "Commit", commitId }}
-										change={change}
-										hunk={hunk}
-									/>
-								)}
-							/>
-						</li>
-					))}
-				</ul>
-			)}
-		</>
-	);
-};
-
 const Preview: FC<{
 	projectId: string;
 	selection: Selection;
@@ -662,7 +616,18 @@ const Preview: FC<{
 			mode._tag === "Details" && mode.path !== undefined ? (
 				<ShowCommitFile projectId={projectId} commitId={commitId} path={mode.path} />
 			) : (
-				<ShowCommit projectId={projectId} commitId={commitId} />
+				<ShowCommit
+					projectId={projectId}
+					commitId={commitId}
+					renderHunk={(change, hunk, patch) => (
+						<Hunk
+							patch={patch}
+							changeUnit={{ _tag: "Commit", commitId }}
+							change={change}
+							hunk={hunk}
+						/>
+					)}
+				/>
 			),
 		),
 		Match.exhaustive,

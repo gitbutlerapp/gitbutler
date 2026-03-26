@@ -127,10 +127,6 @@
 	}
 }
 
-.selectedCommitMessageBody {
-	white-space: pre-wrap;
-}
-
 .commonBaseCommit {
 	flex-grow: 1;
 	text-align: center;

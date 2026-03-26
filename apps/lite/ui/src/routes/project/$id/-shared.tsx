@@ -165,6 +165,44 @@ export const CommitLabel: FC<{
 	</>
 );
 
+export const ShowCommit: FC<{
+	projectId: string;
+	commitId: string;
+	renderHunk: (change: TreeChange, hunk: DiffHunk, patch: Patch) => ReactNode;
+}> = ({ projectId, commitId, renderHunk }) => {
+	const { data } = useSuspenseQuery(
+		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
+	);
+	const firstLineEnd = data.commit.message.indexOf("\n");
+	const commitMessageBody =
+		firstLineEnd === -1 ? "" : data.commit.message.slice(firstLineEnd + 1).trim();
+
+	return (
+		<>
+			<h3>
+				<CommitLabel commit={data.commit} />
+			</h3>
+			{commitMessageBody !== "" && <p className={styles.commitMessageBody}>{commitMessageBody}</p>}
+			{data.changes.length === 0 ? (
+				<div>No file changes.</div>
+			) : (
+				<ul>
+					{data.changes.map((change) => (
+						<li key={change.path}>
+							<h4>{change.path}</h4>
+							<FileDiff
+								projectId={projectId}
+								change={change}
+								renderHunk={(hunk, patch) => renderHunk(change, hunk, patch)}
+							/>
+						</li>
+					))}
+				</ul>
+			)}
+		</>
+	);
+};
+
 export const CommitsList: FC<{
 	commits: Array<Commit>;
 	children: (commit: Commit, index: number) => ReactNode;

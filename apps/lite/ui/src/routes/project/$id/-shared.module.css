@@ -68,6 +68,10 @@
 	padding-left: 8px;
 }
 
+.commitMessageBody {
+	white-space: pre-wrap;
+}
+
 .commitButton {
 	flex-grow: 1;
 	padding-inline: var(--row-inline-padding);
