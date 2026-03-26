@@ -195,7 +195,7 @@ export const commitSelectionBindings: Array<ShortcutBinding<CommitSelectionActio
 	{
 		id: "commit-expand",
 		description: "details",
-		keys: ["ArrowRight"],
+		keys: ["ArrowRight", "l"],
 		action: { _tag: "ExpandCommit" },
 		repeat: false,
 		when: (selection) => selection.mode._tag === "Summary",
