@@ -94,7 +94,7 @@ import useLocalStorageState from "use-local-storage-state";
 import sharedStyles from "../-shared.module.css";
 import {
 	commitSummaryItem,
-	getContainerItem,
+	getParentRootItem,
 	normalizeItem,
 	type Item,
 	commitDetailsItem,
@@ -270,9 +270,9 @@ const useSelectionKeyboardShortcuts = ({
 			Match.when("K", () => {
 				if (!event.shiftKey) return;
 				event.preventDefault();
-				const container = getContainerItem(selection);
-				if (container) {
-					select(container);
+				const parentRoot = getParentRootItem(selection);
+				if (parentRoot) {
+					select(parentRoot);
 					return;
 				}
 				const prev = getAdjacentRootItem(navigationModel, selection, -1);

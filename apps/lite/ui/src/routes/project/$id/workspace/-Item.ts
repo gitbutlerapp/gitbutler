@@ -92,7 +92,7 @@ export const commitEditingMessageItem = ({
 	mode: { _tag: "EditingMessage" },
 });
 
-export const getContainerItem = (selection: Item): Item | null =>
+export const getParentRootItem = (selection: Item): Item | null =>
 	Match.value(selection).pipe(
 		Match.tag("Commit", (item): Item | null => segmentItem(item)),
 		Match.tag("Changes", (item): Item | null =>
