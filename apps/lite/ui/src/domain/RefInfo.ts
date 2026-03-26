@@ -1,4 +1,4 @@
-import { type RefInfo, type Stack } from "@gitbutler/but-sdk";
+import { Segment, type RefInfo } from "@gitbutler/but-sdk";
 
 export const getCommonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 	const bases = headInfo.stacks
@@ -38,7 +38,7 @@ export const getStackIdsByCommitId = (headInfo: RefInfo): Map<string, Set<string
 	return byCommitId;
 };
 
-export const getSegmentBranchRef = (segment: Stack["segments"][number]): string | null =>
+export const getSegmentBranchRef = (segment: Segment): string | null =>
 	segment.refName ? `refs/heads/${segment.refName.displayName}` : null;
 
 export const getBranchRefsByStackId = (headInfo: RefInfo): Map<string, Set<string>> => {
