@@ -38,8 +38,9 @@ impl Overlay {
     ///
     /// For example, if the `but_rebase::graph_rebase::Editor` converts a
     /// `Reference` step to a `None` step which is the equivalent of running
-    /// `git update-ref -d`, it should no longer be part of the [`Graph`], so we
-    /// would list the particular reference as a dropped reference.
+    /// `git update-ref -d`, it should no longer be part of the
+    /// [`crate::Graph`], so we would list the particular reference as a dropped
+    /// reference.
     pub fn with_dropped_references(
         mut self,
         refs: impl IntoIterator<Item = gix::refs::FullName>,
@@ -55,6 +56,11 @@ impl Overlay {
         id: gix::ObjectId,
         ref_name: Option<gix::refs::FullName>,
     ) -> Self {
+        if let Some((_id, ref_name)) = self.entrypoint {
+            self.overriding_references
+                .retain(|r| Some(&r.name) != ref_name.as_ref())
+        }
+
         if let Some(ref_name) = &ref_name {
             self.overriding_references.push(gix::refs::Reference {
                 name: ref_name.to_owned(),
@@ -104,16 +110,24 @@ impl Overlay {
             workspace,
             entrypoint,
         } = self;
+        // Construct BTreeMaps with a deterministic order from left to right.
+        let mut or = BTreeMap::new();
+        for reference in overriding_references {
+            if !or.contains_key(&reference.name) {
+                or.insert(reference.name.clone(), reference);
+            }
+        }
+        let mut nor = BTreeMap::new();
+        for reference in nonoverriding_references {
+            if !nor.contains_key(&reference.name) {
+                nor.insert(reference.name.clone(), reference);
+            }
+        }
+
         (
             OverlayRepo {
-                nonoverriding_references: nonoverriding_references
-                    .into_iter()
-                    .map(|r| (r.name.clone(), r))
-                    .collect(),
-                overriding_references: overriding_references
-                    .into_iter()
-                    .map(|r| (r.name.clone(), r))
-                    .collect(),
+                nonoverriding_references: nor,
+                overriding_references: or,
                 dropped_references: dropped_references.into_iter().collect(),
                 inner: repo,
             },
@@ -236,9 +250,13 @@ impl<'repo> OverlayRepo<'repo> {
         prefixes: impl Iterator<Item = &'a str>,
         workspace_ref_names: &[&gix::refs::FullNameRef],
     ) -> anyhow::Result<RefsById> {
-        let mut seen = (!self.nonoverriding_references.is_empty()).then(BTreeSet::new);
+        let mut seen = BTreeSet::new();
         let mut ref_filter =
             |r: gix::Reference<'_>| -> Option<(gix::ObjectId, gix::refs::FullName)> {
+                if self.dropped_references.contains(r.name()) {
+                    return None;
+                }
+
                 if workspace_ref_names.contains(&r.name()) {
                     return None;
                 }
@@ -251,11 +269,7 @@ impl<'repo> OverlayRepo<'repo> {
                         (id.detach(), r.inner.name)
                     };
                 // This is only for overrides.
-                if let Some(seen) = seen.as_mut() {
-                    seen.insert(name.clone()).then_some((id, name))
-                } else {
-                    Some((id, name))
-                }
+                seen.insert(name.clone()).then_some((id, name))
             };
         let mut all_refs_by_id = gix::hashtable::HashMap::<_, Vec<_>>::default();
         for prefix in prefixes {
