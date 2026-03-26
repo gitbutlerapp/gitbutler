@@ -544,13 +544,14 @@ const ProjectBranchesPage: FC = () => {
 		<ProjectPreviewLayout
 			projectId={projectId}
 			preview={
-				selection && (
+				selection &&
+				selectedBranch && (
 					<Suspense fallback={<div>Loading diff…</div>}>
 						<Preview
 							projectId={projectId}
 							selection={selection}
-							selectedBranchRef={selectedBranch ? getBranchRef(selectedBranch) : null}
-							remote={selectedBranch ? getRemote(selectedBranch) : null}
+							selectedBranchRef={getBranchRef(selectedBranch)}
+							remote={getRemote(selectedBranch)}
 						/>
 					</Suspense>
 				)
