@@ -27,3 +27,7 @@
 		opacity: 1;
 	}
 }
+
+.selectedContainer {
+	background-color: #f5f5f5;
+}

@@ -1061,7 +1061,10 @@ const Changes: FC<{
 		selection?._tag === "Changes" && selection.stackId === stackId ? selection : null;
 
 	return (
-		<ChangesTarget stackId={stackId} className={className}>
+		<ChangesTarget
+			stackId={stackId}
+			className={classes(className, changesSelection && styles.selectedContainer)}
+		>
 			<div
 				className={classes(
 					sharedStyles.row,
@@ -1322,9 +1325,16 @@ const Branch: FC<{
 	const branchName = segment.refName?.displayName ?? "Untitled";
 	const branchRef = getSegmentBranchRef(segment);
 	const anchorRef = segment.refName ? segment.refName.fullNameBytes : null;
+	const isSelected =
+		(selection?._tag === "Branch" &&
+			selection.stackId === stackId &&
+			selection.branchRef === branchRef) ||
+		(selection?._tag === "Commit" &&
+			selection.stackId === stackId &&
+			segment.commits.some((commit) => commit.id === selection.commitId));
 
 	return (
-		<div>
+		<div className={classes(isSelected && styles.selectedContainer)}>
 			<BranchTarget
 				anchorRef={anchorRef}
 				firstCommitId={segment.commits[0]?.id}

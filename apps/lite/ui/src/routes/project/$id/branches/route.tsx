@@ -572,7 +572,12 @@ const ProjectBranchesPage: FC = () => {
 			}
 		>
 			<div className={sharedStyles.lanes}>
-				<ul className={styles.branchesListLane}>
+				<ul
+					className={classes(
+						styles.branchesListLane,
+						selection?._tag === "Branch" ? styles.selectedContainer : undefined,
+					)}
+				>
 					{sortedBranches.map((branch) => (
 						<li key={branch.name}>
 							<BranchRow
@@ -586,7 +591,12 @@ const ProjectBranchesPage: FC = () => {
 				</ul>
 
 				{selectedBranch && (
-					<div className={styles.branchDetailsLane}>
+					<div
+						className={classes(
+							styles.branchDetailsLane,
+							selection?._tag === "Commit" ? styles.selectedContainer : undefined,
+						)}
+					>
 						<Suspense fallback={<div>Loading branch details…</div>}>
 							<BranchDetailsC
 								branchName={selectedBranch.name}
