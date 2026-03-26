@@ -454,6 +454,54 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Push(push::Command),
 
+    /// Remove empty branches from the workspace.
+    ///
+    /// A branch is considered empty if it has no local commits, no assigned
+    /// changes, and (by default) no upstream-only commits.
+    ///
+    /// The entire operation is recorded as a single oplog entry, so it can
+    /// be undone with `but undo`.
+    ///
+    /// ## Examples
+    ///
+    /// Remove all empty branches:
+    ///
+    /// ```text
+    /// but clean
+    /// ```
+    ///
+    /// Preview which branches would be removed:
+    ///
+    /// ```text
+    /// but clean --dry-run
+    /// ```
+    ///
+    /// Pull latest changes first, then clean:
+    ///
+    /// ```text
+    /// but clean --pull
+    /// ```
+    ///
+    /// Also remove branches that only have upstream commits:
+    ///
+    /// ```text
+    /// but clean --include-upstream
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
+    Clean {
+        /// Preview which branches would be removed without actually deleting them.
+        #[clap(long)]
+        dry_run: bool,
+        /// Pull latest changes from the remote before cleaning.
+        #[clap(long)]
+        pull: bool,
+        /// Also remove branches that have upstream-only commits but no local commits or changes.
+        #[clap(long)]
+        include_upstream: bool,
+    },
+
     /// Edit the commit message of the specified commit.
     ///
     /// You can easily change the commit message of any of your commits by

@@ -100,6 +100,7 @@ pub(crate) fn show_oplog(
                     OperationKind::DeleteBranch => "DELETE",
                     OperationKind::DiscardChanges => "DISCARD",
                     OperationKind::Discard => "DISCARD",
+                    OperationKind::CleanWorkspace => "CLEAN",
                     OperationKind::OnDemandSnapshot => "SNAPSHOT",
                     _ => "OTHER",
                 };

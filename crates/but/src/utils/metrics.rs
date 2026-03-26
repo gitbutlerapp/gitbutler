@@ -217,6 +217,8 @@ impl Subcommands {
                 skill::Subcommands::Check { .. } => SkillCheck,
             },
             Subcommands::Edit { .. } => Edit,
+            #[cfg(feature = "legacy")]
+            Subcommands::Clean { .. } => Clean,
             Subcommands::Onboarding | Subcommands::EvalHook => Unknown,
         }
     }
