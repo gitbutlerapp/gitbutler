@@ -111,6 +111,27 @@ const DragPreview: FC<{
 	children: ReactNode;
 }> = ({ children }) => <div className={styles.dragPreview}>{children}</div>;
 
+const useMonitorDraggedSourceItem = ({ projectId }: { projectId: string }): void => {
+	const runOperation = useRunOperation(projectId);
+
+	useEffect(
+		() =>
+			monitorForElements({
+				canMonitor: ({ source }) => parseDragData(source.data) !== null,
+				onDrop: ({ location }) => {
+					const operation = location.current.dropTargets
+						.map((dropTarget) => parseDropTargetData(dropTarget.data))
+						.find((target) => target);
+
+					if (!operation) return;
+
+					runOperation(operation);
+				},
+			}),
+		[runOperation],
+	);
+};
+
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 const decodeRefName = (fullNameBytes: Array<number>): string =>
 	new TextDecoder().decode(Uint8Array.from(fullNameBytes));
@@ -232,27 +253,6 @@ const useSelectionKeyboardShortcuts = ({
 			window.removeEventListener("keydown", handleKeyDown);
 		};
 	}, []);
-};
-
-const useMonitorDraggedSourceItem = ({ projectId }: { projectId: string }): void => {
-	const runOperation = useRunOperation(projectId);
-
-	useEffect(
-		() =>
-			monitorForElements({
-				canMonitor: ({ source }) => parseDragData(source.data) !== null,
-				onDrop: ({ location }) => {
-					const operation = location.current.dropTargets
-						.map((dropTarget) => parseDropTargetData(dropTarget.data))
-						.find((target) => target);
-
-					if (!operation) return;
-
-					runOperation(operation);
-				},
-			}),
-		[runOperation],
-	);
 };
 
 // TODO: check this
