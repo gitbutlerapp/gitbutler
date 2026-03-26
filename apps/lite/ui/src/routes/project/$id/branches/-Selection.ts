@@ -10,7 +10,7 @@ type CommitMode =
 			_tag: "Details";
 			path?: string;
 	  };
-type CommitSelection = { branchName: BranchIdentity; commitId: string; mode: CommitMode };
+type CommitSelection = BranchSelection & { commitId: string; mode: CommitMode };
 
 export type Selection =
 	| ({ _tag: "Branch" } & BranchSelection)
