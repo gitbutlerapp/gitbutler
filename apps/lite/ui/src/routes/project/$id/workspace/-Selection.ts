@@ -100,11 +100,7 @@ export const toggleChangesSelection = (
 	selection.stackId === stackId &&
 	selection.mode._tag !== "Details"
 		? null
-		: {
-				_tag: "Changes",
-				stackId,
-				mode: { _tag: "Summary" },
-			};
+		: changesSummarySelection(stackId);
 
 export const toggleSegmentSelection = (
 	selection: Selection | null,
@@ -117,13 +113,7 @@ export const toggleSegmentSelection = (
 	selection.stackId === stackId &&
 	selection.segmentIndex === segmentIndex
 		? null
-		: {
-				_tag: "Segment",
-				stackId,
-				segmentIndex,
-				branchName,
-				branchRef,
-			};
+		: segmentSelection({ stackId, segmentIndex, branchName, branchRef });
 
 export const toggleChangesFileSelection = (
 	selection: Selection | null,
@@ -134,16 +124,8 @@ export const toggleChangesFileSelection = (
 	selection.stackId === stackId &&
 	selection.mode._tag === "Details" &&
 	selection.mode.path === path
-		? {
-				_tag: "Changes",
-				stackId,
-				mode: { _tag: "Summary" },
-			}
-		: {
-				_tag: "Changes",
-				stackId,
-				mode: { _tag: "Details", path },
-			};
+		? changesSummarySelection(stackId)
+		: changesDetailsSelection(stackId, path);
 
 export const toggleCommitSelection = (
 	selection: Selection | null,
@@ -157,22 +139,8 @@ export const toggleCommitSelection = (
 	selection.stackId === stackId &&
 	selection.commitId === commitId &&
 	selection.mode._tag !== "Details"
-		? {
-				_tag: "Segment",
-				stackId,
-				segmentIndex,
-				branchName,
-				branchRef,
-			}
-		: {
-				_tag: "Commit",
-				stackId,
-				segmentIndex,
-				branchName,
-				branchRef,
-				commitId,
-				mode: { _tag: "Summary" },
-			};
+		? segmentSelection({ stackId, segmentIndex, branchName, branchRef })
+		: commitSummarySelection({ stackId, segmentIndex, branchName, branchRef, commitId });
 
 export const toggleCommitEditingMessage = (
 	selection: Selection | null,
@@ -190,15 +158,7 @@ export const toggleCommitEditingMessage = (
 				...selection,
 				mode: { _tag: "Summary" },
 			}
-		: {
-				_tag: "Commit",
-				stackId,
-				segmentIndex,
-				branchName,
-				branchRef,
-				commitId,
-				mode: { _tag: "EditingMessage" },
-			};
+		: commitEditingMessageSelection({ stackId, segmentIndex, branchName, branchRef, commitId });
 
 export const toggleCommitFileSelection = (
 	selection: Selection | null,
@@ -214,24 +174,8 @@ export const toggleCommitFileSelection = (
 	selection.commitId === commitId &&
 	selection.mode._tag === "Details" &&
 	selection.mode.path === path
-		? {
-				_tag: "Commit",
-				stackId,
-				segmentIndex,
-				branchName,
-				branchRef,
-				commitId,
-				mode: { _tag: "Summary" },
-			}
-		: {
-				_tag: "Commit",
-				stackId,
-				segmentIndex,
-				branchName,
-				branchRef,
-				commitId,
-				mode: { _tag: "Details", path },
-			};
+		? commitSummarySelection({ stackId, segmentIndex, branchName, branchRef, commitId })
+		: commitDetailsSelection({ stackId, segmentIndex, branchName, branchRef, commitId }, path);
 
 export const normalizeSelection = (selection: Selection, headInfo: RefInfo): Selection | null =>
 	Match.value(selection).pipe(
@@ -297,12 +241,7 @@ export const getDefaultSelection = ({
 		assignments,
 		stackId: null,
 	});
-	if (firstUnassignedPath !== null)
-		return {
-			_tag: "Changes",
-			stackId: null,
-			mode: { _tag: "Details", path: firstUnassignedPath },
-		};
+	if (firstUnassignedPath !== null) return changesDetailsSelection(null, firstUnassignedPath);
 
 	for (const stack of headInfo.stacks) {
 		if (stack.id == null) continue;
@@ -312,25 +251,18 @@ export const getDefaultSelection = ({
 			assignments,
 			stackId: stack.id,
 		});
-		if (firstAssignedPath !== null)
-			return {
-				_tag: "Changes",
-				stackId: stack.id,
-				mode: { _tag: "Details", path: firstAssignedPath },
-			};
+		if (firstAssignedPath !== null) return changesDetailsSelection(stack.id, firstAssignedPath);
 
 		for (const segment of stack.segments) {
 			const firstCommit = segment.commits[0];
 			if (firstCommit)
-				return {
-					_tag: "Commit",
+				return commitSummarySelection({
 					stackId: stack.id,
 					segmentIndex: stack.segments.indexOf(segment),
 					branchName: segment.refName?.displayName ?? null,
 					branchRef: segment.refName ? `refs/heads/${segment.refName.displayName}` : null,
 					commitId: firstCommit.id,
-					mode: { _tag: "Summary" },
-				};
+				});
 		}
 	}
 

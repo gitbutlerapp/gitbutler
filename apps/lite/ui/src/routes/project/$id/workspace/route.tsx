@@ -92,6 +92,7 @@ import {
 import useLocalStorageState from "use-local-storage-state";
 import sharedStyles from "../-shared.module.css";
 import {
+	commitSummarySelection,
 	getDefaultSelection,
 	normalizeSelection,
 	type Selection,
@@ -226,15 +227,7 @@ const useSelectionKeyboardShortcuts = ({
 				if (selection.mode._tag !== "Details") return;
 				if (event.repeat) return;
 				event.preventDefault();
-				select({
-					_tag: "Commit",
-					stackId: selection.stackId,
-					segmentIndex: selection.segmentIndex,
-					branchName: selection.branchName,
-					branchRef: selection.branchRef,
-					commitId: selection.commitId,
-					mode: { _tag: "Summary" },
-				});
+				select(commitSummarySelection(selection));
 			}),
 			Match.when("ArrowRight", () => {
 				if (selection._tag !== "Commit") return;
@@ -895,15 +888,15 @@ const CommitRow: FC<
 	const toggleDetails = () => {
 		startDetailsTransition(async () => {
 			if (commitSelection?.mode._tag === "Details") {
-				select({
-					_tag: "Commit",
-					stackId,
-					segmentIndex,
-					branchName,
-					branchRef,
-					commitId: commit.id,
-					mode: { _tag: "Summary" },
-				});
+				select(
+					commitSummarySelection({
+						stackId,
+						segmentIndex,
+						branchName,
+						branchRef,
+						commitId: commit.id,
+					}),
+				);
 				return;
 			}
 
