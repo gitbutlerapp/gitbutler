@@ -36,12 +36,9 @@
 	width: 500px;
 }
 
-.commitRow {
+.row {
 	display: flex;
 	align-items: start;
-}
-
-.row {
 }
 
 .rowAction {
@@ -76,11 +73,6 @@
 	padding-inline: var(--row-inline-padding);
 	padding-block: var(--row-block-padding);
 	line-height: var(--row-line-height);
-}
-
-.fileRow {
-	display: flex;
-	align-items: start;
 }
 
 .fileButton {

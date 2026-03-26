@@ -235,7 +235,6 @@ const BranchRow: FC<
 			{...restProps}
 			className={classes(
 				sharedStyles.row,
-				styles.branchRow,
 				branchSelection || commitSelection ? sharedStyles.selected : undefined,
 				className,
 			)}
@@ -322,7 +321,6 @@ const CommitRow: FC<{
 		<div
 			className={classes(
 				sharedStyles.row,
-				sharedStyles.commitRow,
 				commitSelection ? sharedStyles.selected : undefined,
 				isHighlighted && sharedStyles.highlighted,
 			)}
@@ -387,7 +385,6 @@ const CommitC: FC<{
 								<div
 									className={classes(
 										sharedStyles.row,
-										sharedStyles.fileRow,
 										commitSelection.mode._tag === "Details" &&
 											commitSelection.mode.path === change.path &&
 											sharedStyles.selectedFile,

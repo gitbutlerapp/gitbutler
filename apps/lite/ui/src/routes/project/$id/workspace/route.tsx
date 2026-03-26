@@ -878,7 +878,6 @@ const CommitRow: FC<
 				<div
 					className={classes(
 						sharedStyles.row,
-						sharedStyles.commitRow,
 						commitSelection ? sharedStyles.selected : undefined,
 						isHighlighted && sharedStyles.highlighted,
 					)}
@@ -1032,7 +1031,6 @@ const CommitC: FC<{
 										<div
 											className={classes(
 												sharedStyles.row,
-												sharedStyles.fileRow,
 												commitSelection.mode._tag === "Details" &&
 													commitSelection.mode.path === change.path &&
 													sharedStyles.selectedFile,
@@ -1084,11 +1082,7 @@ const Changes: FC<{
 			className={classes(className, changesSelection && styles.selectedContainer)}
 		>
 			<div
-				className={classes(
-					sharedStyles.row,
-					sharedStyles.commitRow,
-					changesSelection ? sharedStyles.selected : undefined,
-				)}
+				className={classes(sharedStyles.row, changesSelection ? sharedStyles.selected : undefined)}
 			>
 				<button
 					type="button"
@@ -1123,7 +1117,6 @@ const Changes: FC<{
 											<div
 												className={classes(
 													sharedStyles.row,
-													sharedStyles.fileRow,
 													changesSelection?.mode._tag === "Details" &&
 														changesSelection.mode.path === change.path &&
 														sharedStyles.selectedFile,

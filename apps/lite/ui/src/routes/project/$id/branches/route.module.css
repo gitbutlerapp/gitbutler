@@ -8,10 +8,6 @@
 	width: 350px;
 }
 
-.branchRow {
-	display: flex;
-}
-
 .branchButton {
 	flex-grow: 1;
 	padding-inline: var(--row-inline-padding);
