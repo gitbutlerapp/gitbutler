@@ -1,45 +1,84 @@
-use std::iter::{once, repeat_n};
+use std::{
+    iter::{once, repeat_n},
+    time::Duration,
+};
 
 use bstr::ByteSlice;
 use but_core::{UnifiedPatch, unified_diff::DiffHunk};
-use but_ctx::Context;
+use but_ctx::{Context, OnDemand};
 use gix::actor::Signature;
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
     style::{Color, Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Widget},
+    widgets::{Block, Borders, List, ListItem, Widget},
+};
+use syntect::{
+    easy::HighlightLines,
+    highlighting::{Theme, ThemeSet},
+    parsing::SyntaxSet,
 };
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
     CliId,
     command::legacy::status::tui::{
-        CommandMessage, CommitMessage, FilesMessage, Message, MoveMessage, RewordMessage,
-        RubMessage,
+        CommandMessage, CommitMessage, DebugType, FilesMessage, Message, MoveMessage,
+        RewordMessage, RubMessage,
     },
 };
 
 use super::BranchMessage;
 
 // colors from delta
-#[expect(dead_code)]
 const MINUS_BG: Color = Color::Rgb(0x3f, 0x00, 0x01);
 const MINUS_EMPH_BG: Color = Color::Rgb(0x90, 0x10, 0x11);
-#[expect(dead_code)]
 const PLUS_BG: Color = Color::Rgb(0x00, 0x28, 0x00);
 const PLUS_EMPH_BG: Color = Color::Rgb(0x00, 0x60, 0x00);
 
-#[derive(Default, Debug)]
+const MONOKAI_THEME: &[u8] =
+    include_bytes!("../../../../../assets/syntax-highlighting-themes/Monokai Extended.tmTheme");
+
+const _TODOS: () = {
+    // - scrolling
+    // - show diffs for all kinds of cli ids
+    // - show and hide details
+    // - show short ids for hunks
+    // - general clean up
+    //
+    // FUTURE
+    // - can we cache DiffWidget?
+    // - can we render the diff incrementally or on a separate thread?
+    let todo_ = ();
+};
+
+#[derive(Debug)]
 pub(super) struct Details {
     is_dirty: bool,
-    updates: u32,
     diff_widget: Option<DiffWidget>,
+    syntax_set: DebugType<OnDemand<SyntaxSet>>,
+    dark_theme: DebugType<OnDemand<Theme>>,
+    update_time: Duration,
+}
+
+impl Default for Details {
+    fn default() -> Self {
+        Self {
+            is_dirty: Default::default(),
+            diff_widget: Default::default(),
+            update_time: Default::default(),
+            syntax_set: OnDemand::new(|| Ok(SyntaxSet::load_defaults_newlines())).into(),
+            dark_theme: OnDemand::new(|| {
+                Ok(ThemeSet::load_from_reader(&mut std::io::Cursor::new(MONOKAI_THEME)).unwrap())
+            })
+            .into(),
+        }
+    }
 }
 
 impl Details {
-    pub(super) fn needs_update_after_message(&mut self, msg: &Message) -> bool {
+    pub(super) fn needs_update_after_message(&self, msg: &Message) -> bool {
         match msg {
             Message::JustRender
             | Message::CopySelection
@@ -100,11 +139,21 @@ impl Details {
         selection: Option<&CliId>,
     ) -> anyhow::Result<()> {
         self.is_dirty = false;
-        self.updates += 1;
 
+        let start = std::time::Instant::now();
+        self.diff_widget = self.update_widget(ctx, selection)?;
+        self.update_time = start.elapsed();
+
+        Ok(())
+    }
+
+    fn update_widget(
+        &mut self,
+        ctx: &mut Context,
+        selection: Option<&CliId>,
+    ) -> anyhow::Result<Option<DiffWidget>> {
         let Some(selection) = selection else {
-            self.diff_widget = None;
-            return Ok(());
+            return Ok(None);
         };
 
         let commit_id = match selection {
@@ -115,8 +164,7 @@ impl Details {
             | CliId::Branch { .. }
             | CliId::Unassigned { .. }
             | CliId::Stack { .. } => {
-                self.diff_widget = None;
-                return Ok(());
+                return Ok(None);
             }
         };
 
@@ -132,28 +180,32 @@ impl Details {
                 but_core::TreeStatus::Rename { .. } => Span::raw("renamed").blue(),
             };
 
-            let path = change.path.to_string();
-            let width = path.width() + status.width() + 2;
-            let padding = 2;
-            diff_line_items.extend([
-                ListItem::new(Line::from_iter(
-                    repeat_n("─", width + padding).chain(once("╮")),
-                ))
-                .dim(),
-                ListItem::new(Line::from_iter([
-                    Span::raw(" "),
-                    status,
-                    Span::raw(": "),
-                    Span::raw(path),
-                    Span::raw(" "),
-                    Span::raw("│").dim(),
-                ])),
-                ListItem::new(Line::from_iter(
-                    repeat_n("─", width + padding).chain(once("╯")),
-                ))
-                .dim(),
-                ListItem::new(""),
-            ]);
+            // with "Monokai Extended" as the default dark theme and "GitHub" as the default light theme.
+
+            {
+                let path = change.path.to_string();
+                let width = path.width() + status.width() + 2;
+                let padding = 2;
+                diff_line_items.extend([
+                    ListItem::new(Line::from_iter(
+                        repeat_n("─", width + padding).chain(once("╮")),
+                    ))
+                    .dim(),
+                    ListItem::new(Line::from_iter([
+                        Span::raw(" "),
+                        status,
+                        Span::raw(": "),
+                        Span::raw(path),
+                        Span::raw(" "),
+                        Span::raw("│").dim(),
+                    ])),
+                    ListItem::new(Line::from_iter(
+                        repeat_n("─", width + padding).chain(once("╯")),
+                    ))
+                    .dim(),
+                    ListItem::new(""),
+                ]);
+            }
 
             if let Some(patch) = but_api::diff::tree_change_diffs(ctx, change.clone().into())
                 .ok()
@@ -166,6 +218,21 @@ impl Details {
                         lines_added: _,
                         lines_removed: _,
                     } => {
+                        let syntax_set = self.syntax_set.get()?;
+                        let syntax = {
+                            let path = change.path.to_path_lossy();
+                            path.extension()
+                                .and_then(|ext| syntax_set.find_syntax_by_extension(ext.to_str()?))
+                                .or_else(|| {
+                                    path.file_name().and_then(|file_name| {
+                                        syntax_set.find_syntax_by_extension(file_name.to_str()?)
+                                    })
+                                })
+                                .unwrap_or_else(|| syntax_set.find_syntax_plain_text())
+                        };
+                        let dark_theme = self.dark_theme.get()?;
+                        let mut highlight_lines = HighlightLines::new(syntax, &dark_theme);
+
                         let mut hunk_iter = hunks.into_iter().peekable();
                         while let Some(hunk) = hunk_iter.next() {
                             let DiffHunk {
@@ -213,47 +280,82 @@ impl Details {
 
                             for line in diff.lines().skip(1) {
                                 let item = if let Some(rest) = line.strip_prefix(b"+") {
-                                    let item = ListItem::new(Line::from_iter([
-                                        Span::raw(" ".repeat(old_width as _)),
-                                        Span::raw(" ┊ ").dim(),
-                                        Span::raw(
-                                            " ".repeat((new_width - num_digits(new_line_num)) as _),
+                                    let code = rest.to_str_lossy().to_string();
+                                    let item = ListItem::new(Line::from_iter(
+                                        [
+                                            Span::raw(" ".repeat(old_width as _)),
+                                            Span::raw(" ┊ ").dim(),
+                                            Span::raw(" ".repeat(
+                                                (new_width - num_digits(new_line_num)) as _,
+                                            )),
+                                            Span::raw(new_line_num.to_string()).fg(PLUS_EMPH_BG),
+                                            Span::raw(" │ ").dim(),
+                                        ]
+                                        .into_iter()
+                                        .chain(
+                                            syntax_highlight(
+                                                &code,
+                                                Some(PLUS_BG),
+                                                &mut highlight_lines,
+                                                &syntax_set,
+                                            ),
                                         ),
-                                        Span::raw(new_line_num.to_string()).fg(PLUS_EMPH_BG),
-                                        Span::raw(" │ ").dim(),
-                                        Span::raw(rest.to_str_lossy().to_string()).bg(PLUS_EMPH_BG),
-                                    ]));
+                                    ));
                                     new_line_num += 1;
                                     item
                                 } else if let Some(rest) = line.strip_prefix(b"-") {
-                                    let item = ListItem::new(Line::from_iter([
-                                        Span::raw(
-                                            " ".repeat((old_width - num_digits(old_line_num)) as _),
+                                    let code = rest.to_str_lossy().to_string();
+
+                                    let item = ListItem::new(Line::from_iter(
+                                        [
+                                            Span::raw(" ".repeat(
+                                                (old_width - num_digits(old_line_num)) as _,
+                                            )),
+                                            Span::raw(old_line_num.to_string()).fg(MINUS_EMPH_BG),
+                                            Span::raw(" ┊ ").dim(),
+                                            Span::raw(" ".repeat(new_width as _)),
+                                            Span::raw(" │ ").dim(),
+                                        ]
+                                        .into_iter()
+                                        .chain(
+                                            syntax_highlight(
+                                                &code,
+                                                Some(MINUS_BG),
+                                                &mut highlight_lines,
+                                                &syntax_set,
+                                            ),
                                         ),
-                                        Span::raw(old_line_num.to_string()).fg(MINUS_EMPH_BG),
-                                        Span::raw(" ┊ ").dim(),
-                                        Span::raw(" ".repeat(new_width as _)),
-                                        Span::raw(" │ ").dim(),
-                                        Span::raw(rest.to_str_lossy().to_string())
-                                            .bg(MINUS_EMPH_BG),
-                                    ]));
+                                    ));
                                     old_line_num += 1;
                                     item
                                 } else {
                                     let line = line.strip_prefix(b" ").unwrap_or(line);
-                                    let item = ListItem::new(Line::from_iter([
-                                        Span::raw(
-                                            " ".repeat((old_width - num_digits(old_line_num)) as _),
+
+                                    let code = line.to_str_lossy().to_string();
+
+                                    let item = ListItem::new(Line::from_iter(
+                                        [
+                                            Span::raw(" ".repeat(
+                                                (old_width - num_digits(old_line_num)) as _,
+                                            )),
+                                            Span::raw(old_line_num.to_string()).dark_gray(),
+                                            Span::raw(" ┊ ").dim(),
+                                            Span::raw(" ".repeat(
+                                                (new_width - num_digits(new_line_num)) as _,
+                                            )),
+                                            Span::raw(new_line_num.to_string()).dark_gray(),
+                                            Span::raw(" │ ").dim(),
+                                        ]
+                                        .into_iter()
+                                        .chain(
+                                            syntax_highlight(
+                                                &code,
+                                                None,
+                                                &mut highlight_lines,
+                                                &syntax_set,
+                                            ),
                                         ),
-                                        Span::raw(old_line_num.to_string()).dark_gray(),
-                                        Span::raw(" ┊ ").dim(),
-                                        Span::raw(
-                                            " ".repeat((new_width - num_digits(new_line_num)) as _),
-                                        ),
-                                        Span::raw(new_line_num.to_string()).dark_gray(),
-                                        Span::raw(" │ ").dim(),
-                                        Span::raw(line.to_str_lossy().to_string()),
-                                    ]));
+                                    ));
                                     old_line_num += 1;
                                     new_line_num += 1;
                                     item
@@ -283,6 +385,7 @@ impl Details {
         let mut header_items = Vec::new();
 
         header_items.extend([
+            ListItem::new(Span::raw(format!("update time: {:?}", self.update_time)).dim()),
             ListItem::new(Line::from_iter([
                 Span::raw(format!("{:<11}", "Commit ID:")),
                 Span::raw(commit_id.to_hex().to_string()).blue(),
@@ -299,13 +402,11 @@ impl Details {
 
         let message = commit_details.commit.message.to_string();
 
-        self.diff_widget = Some(DiffWidget {
+        Ok(Some(DiffWidget {
             header_items,
             message,
             diff_line_items,
-        });
-
-        Ok(())
+        }))
     }
 
     pub(super) fn render(&self, area: Rect, frame: &mut Frame) {
@@ -319,8 +420,7 @@ impl Details {
         if let Some(diff) = &self.diff_widget {
             frame.render_widget(diff, layout[1]);
         } else {
-            let paragraph = Paragraph::new(self.updates.to_string());
-            frame.render_widget(paragraph, layout[1]);
+            frame.render_widget("Unable to load details", layout[1]);
         }
     }
 }
@@ -364,4 +464,27 @@ fn render_signature(sig: &Signature) -> impl IntoIterator<Item = Span<'static>> 
 
 fn num_digits(n: u32) -> u32 {
     n.ilog10() + 1
+}
+
+fn syntax_highlight(
+    code: &str,
+    bg: Option<Color>,
+    highlight_lines: &mut HighlightLines<'_>,
+    syntax_set: &SyntaxSet,
+) -> impl Iterator<Item = Span<'static>> {
+    let Ok(ranges) = highlight_lines.highlight_line(code, syntax_set) else {
+        return itertools::Either::Left(std::iter::empty());
+    };
+
+    let spans = ranges.into_iter().map(move |(style, text)| {
+        let color = Color::Rgb(style.foreground.r, style.foreground.g, style.foreground.b);
+        let span = Span::raw(text.to_owned()).fg(color);
+        if let Some(background) = bg {
+            span.bg(background)
+        } else {
+            span
+        }
+    });
+
+    itertools::Either::Right(spans)
 }

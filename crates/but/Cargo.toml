@@ -143,6 +143,13 @@ ratatui-textarea = "0.8.0"
 arboard = { version = "3.6.1", default-features = false }
 ansi-to-tui = "8.0.1"
 textwrap = "0.16.2"
+syntect = { version = "5.3.0", default-features = false, features = [
+    "default-syntaxes",
+    "default-themes",
+    "regex-onig",
+    "metadata",
+    "html",
+] }
 
 [dev-dependencies]
 but-graph.workspace = true
