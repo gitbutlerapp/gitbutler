@@ -481,7 +481,7 @@ const Hunk: FC<{
 	</div>
 );
 
-const ChangesFileDiff: FC<{
+const ShowChangesFile: FC<{
 	projectId: string;
 	stackId: string | null;
 	path: string;
@@ -534,7 +534,7 @@ const ChangesFileDiff: FC<{
 	);
 };
 
-const CommitFileDiff: FC<{
+const ShowCommitFile: FC<{
 	projectId: string;
 	commitId: string;
 	path: string;
@@ -651,7 +651,7 @@ const Preview: FC<{
 			<ShowBranch projectId={projectId} branch={branchRef} branchName={branchName} />
 		)),
 		Match.tag("ChangesFile", ({ stackId, path }) => (
-			<ChangesFileDiff
+			<ShowChangesFile
 				projectId={projectId}
 				stackId={stackId}
 				path={path}
@@ -660,7 +660,7 @@ const Preview: FC<{
 		)),
 		Match.tag("Commit", ({ commitId, mode }) =>
 			mode._tag === "Details" && mode.path !== undefined ? (
-				<CommitFileDiff projectId={projectId} commitId={commitId} path={mode.path} />
+				<ShowCommitFile projectId={projectId} commitId={commitId} path={mode.path} />
 			) : (
 				<ShowCommit projectId={projectId} commitId={commitId} />
 			),

@@ -390,7 +390,7 @@ const Hunk: FC<{
 	</div>
 );
 
-const CommitFileDiff: FC<{
+const ShowCommitFile: FC<{
 	projectId: string;
 	branchName: string;
 	remote: string | null;
@@ -414,7 +414,7 @@ const CommitFileDiff: FC<{
 	);
 };
 
-const CommitDiff: FC<{
+const ShowCommit: FC<{
 	projectId: string;
 	branchName: string;
 	remote: string | null;
@@ -492,7 +492,7 @@ const Preview: FC<{
 		),
 		Match.tag("Commit", ({ branchName, commitId, mode }) =>
 			mode._tag === "Details" && mode.path !== undefined ? (
-				<CommitFileDiff
+				<ShowCommitFile
 					projectId={projectId}
 					branchName={branchName}
 					remote={remote}
@@ -500,7 +500,7 @@ const Preview: FC<{
 					path={mode.path}
 				/>
 			) : (
-				<CommitDiff
+				<ShowCommit
 					projectId={projectId}
 					branchName={branchName}
 					remote={remote}
