@@ -28,7 +28,6 @@
 
 .unassignedChanges {
 	flex-grow: 1;
-	min-height: 300px;
 	border: 1px dotted;
 }
 
