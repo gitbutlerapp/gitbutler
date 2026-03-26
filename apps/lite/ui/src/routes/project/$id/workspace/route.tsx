@@ -204,8 +204,8 @@ const useSelectionKeyboardShortcuts = ({
 
 		if (!selection) return;
 
-		switch (event.key) {
-			case "Enter":
+		return Match.value(event.key).pipe(
+			Match.when("Enter", () => {
 				if (selection._tag !== "Commit") return;
 				if (selection.mode._tag !== "Summary") return;
 				if (event.repeat) return;
@@ -220,8 +220,8 @@ const useSelectionKeyboardShortcuts = ({
 						selection.commitId,
 					),
 				);
-				break;
-			case "ArrowLeft":
+			}),
+			Match.when("ArrowLeft", () => {
 				if (selection._tag !== "Commit") return;
 				if (selection.mode._tag !== "Details") return;
 				if (event.repeat) return;
@@ -235,8 +235,8 @@ const useSelectionKeyboardShortcuts = ({
 					commitId: selection.commitId,
 					mode: { _tag: "Summary" },
 				});
-				break;
-			case "ArrowRight":
+			}),
+			Match.when("ArrowRight", () => {
 				if (selection._tag !== "Commit") return;
 				if (selection.mode._tag !== "Summary") return;
 				if (event.repeat) return;
@@ -250,8 +250,9 @@ const useSelectionKeyboardShortcuts = ({
 					projectId,
 					queryClient,
 				}).then(select);
-				break;
-		}
+			}),
+			Match.orElse(() => undefined),
+		);
 	});
 
 	useEffect(() => {
