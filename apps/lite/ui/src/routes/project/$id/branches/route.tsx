@@ -494,14 +494,14 @@ const Preview: FC<{
 	projectId: string;
 	selection: Selection;
 	remote: string | null;
-	selectedBranchRef: string | null;
-}> = ({ projectId, selection, remote, selectedBranchRef }) =>
+	branchRef: string | null;
+}> = ({ projectId, selection, remote, branchRef }) =>
 	Match.value(selection).pipe(
 		Match.tag("Branch", ({ branchName }) =>
-			selectedBranchRef !== null ? (
+			branchRef !== null ? (
 				<ShowBranch
 					projectId={projectId}
-					branchRef={selectedBranchRef}
+					branchRef={branchRef}
 					branchName={branchName}
 					renderHunk={(_change, hunk) => <Hunk hunk={hunk} />}
 				/>
@@ -563,7 +563,7 @@ const ProjectBranchesPage: FC = () => {
 						<Preview
 							projectId={projectId}
 							selection={selection}
-							selectedBranchRef={getBranchRef(selectedBranch)}
+							branchRef={getBranchRef(selectedBranch)}
 							remote={getRemote(selectedBranch)}
 						/>
 					</Suspense>
