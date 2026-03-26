@@ -41,21 +41,3 @@ export const getStackIdsByCommitId = (headInfo: RefInfo): Map<string, Set<string
 // TODO: move?
 export const getSegmentBranchRef = (refName: BranchReference) =>
 	`refs/heads/${refName.displayName}`;
-
-export const getBranchRefsByStackId = (headInfo: RefInfo): Map<string, Set<string>> => {
-	const refsByStackId = new Map<string, Set<string>>();
-
-	for (const stack of headInfo.stacks) {
-		if (stack.id == null) continue;
-
-		const branchRefs = new Set<string>();
-		for (const segment of stack.segments) {
-			const branchRef = segment.refName ? getSegmentBranchRef(segment.refName) : null;
-			if (branchRef !== null) branchRefs.add(branchRef);
-		}
-
-		refsByStackId.set(stack.id, branchRefs);
-	}
-
-	return refsByStackId;
-};

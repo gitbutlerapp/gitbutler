@@ -57,7 +57,7 @@
 	flex-direction: column;
 }
 
-.branchButton {
+.segmentButton {
 	width: 100%;
 	padding-inline: var(--row-inline-padding);
 	padding-block: var(--row-block-padding);

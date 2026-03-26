@@ -4,7 +4,12 @@ import { Match } from "effect";
 type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
 type ChangesSelection = { stackId: string | null; mode: ChangesMode };
 
-type BranchSelection = { stackId: string; branchName: string; branchRef: string };
+type SegmentSelection = {
+	stackId: string;
+	segmentIndex: number;
+	branchName: string | null;
+	branchRef: string | null;
+};
 
 type CommitMode =
 	| { _tag: "Summary" }
@@ -14,7 +19,7 @@ type CommitSelection = { stackId: string; commitId: string; mode: CommitMode };
 
 export type Selection =
 	| ({ _tag: "Changes" } & ChangesSelection)
-	| ({ _tag: "Branch" } & BranchSelection)
+	| ({ _tag: "Segment" } & SegmentSelection)
 	| ({ _tag: "Commit" } & CommitSelection);
 
 export const toggleChangesSelection = (
@@ -31,19 +36,21 @@ export const toggleChangesSelection = (
 				mode: { _tag: "Summary" },
 			};
 
-export const toggleBranchSelection = (
+export const toggleSegmentSelection = (
 	selection: Selection | null,
 	stackId: string,
-	branchName: string,
-	branchRef: string,
+	segmentIndex: number,
+	branchName: string | null,
+	branchRef: string | null,
 ): Selection | null =>
-	selection?._tag === "Branch" &&
+	selection?._tag === "Segment" &&
 	selection.stackId === stackId &&
-	selection.branchName === branchName
+	selection.segmentIndex === segmentIndex
 		? null
 		: {
-				_tag: "Branch",
+				_tag: "Segment",
 				stackId,
+				segmentIndex,
 				branchName,
 				branchRef,
 			};
@@ -71,22 +78,22 @@ export const toggleChangesFileSelection = (
 export const toggleCommitSelection = (
 	selection: Selection | null,
 	stackId: string,
+	segmentIndex: number,
 	commitId: string,
-	branchName: string,
+	branchName: string | null,
 	branchRef: string | null,
 ): Selection | null =>
 	selection?._tag === "Commit" &&
 	selection.stackId === stackId &&
 	selection.commitId === commitId &&
 	selection.mode._tag !== "Details"
-		? branchRef !== null
-			? {
-					_tag: "Branch",
-					stackId,
-					branchName,
-					branchRef,
-				}
-			: null
+		? {
+				_tag: "Segment",
+				stackId,
+				segmentIndex,
+				branchName,
+				branchRef,
+			}
 		: {
 				_tag: "Commit",
 				stackId,
@@ -141,14 +148,18 @@ export const toggleCommitFileSelection = (
 export const normalizeSelection = (
 	selection: Selection,
 	stackIdsByCommitId: Map<string, Set<string>>,
-	branchRefsByStackId: Map<string, Set<string>>,
+	headInfo: RefInfo,
 ): Selection | null =>
 	Match.value(selection).pipe(
 		Match.tag("Changes", (selection) => selection),
-		Match.tag("Branch", (selection) => {
-			const branchRefs = branchRefsByStackId.get(selection.stackId);
-			if (branchRefs === undefined) return null;
-			return branchRefs.has(selection.branchRef) ? selection : null;
+		Match.tag("Segment", (selection) => {
+			const stack = headInfo.stacks.find(
+				(stack) => stack.id !== null && stack.id === selection.stackId,
+			);
+			if (!stack) return null;
+			const segment = stack.segments[selection.segmentIndex];
+			if (!segment) return null;
+			return selection;
 		}),
 		Match.tag("Commit", (selection) => {
 			const stackIds = stackIdsByCommitId.get(selection.commitId);

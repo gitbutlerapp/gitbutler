@@ -17,7 +17,6 @@ import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
 import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 import {
 	getBranchNameByCommitId,
-	getBranchRefsByStackId,
 	getCommonBaseCommitId,
 	getSegmentBranchRef,
 	getStackIdsByCommitId,
@@ -92,12 +91,12 @@ import {
 	getDefaultSelection,
 	normalizeSelection,
 	type Selection,
-	toggleBranchSelection,
 	toggleChangesSelection,
 	toggleChangesFileSelection,
 	toggleCommitEditingMessage,
 	toggleCommitFileSelection,
 	toggleCommitSelection,
+	toggleSegmentSelection,
 } from "./-Selection.ts";
 import styles from "./route.module.css";
 
@@ -445,22 +444,29 @@ const Preview: FC<{
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 }> = ({ projectId, selection, onDependencyHover }) =>
 	Match.value(selection).pipe(
-		Match.tag("Branch", ({ branchName, branchRef }) => (
-			<ShowBranch
-				projectId={projectId}
-				branchRef={branchRef}
-				branchName={branchName}
-				remote={null}
-				renderHunk={(change, hunk, patch) => (
-					<Hunk
-						patch={patch}
-						changeUnit={{ _tag: "Changes", stackId: null }}
-						change={change}
-						hunk={hunk}
-					/>
-				)}
-			/>
-		)),
+		Match.tag("Segment", ({ branchName, branchRef }) =>
+			branchName != null && branchRef != null ? (
+				<ShowBranch
+					projectId={projectId}
+					branchRef={branchRef}
+					branchName={branchName}
+					remote={null}
+					renderHunk={(change, hunk, patch) => (
+						<Hunk
+							patch={patch}
+							changeUnit={{ _tag: "Changes", stackId: null }}
+							change={change}
+							hunk={hunk}
+						/>
+					)}
+				/>
+			) : (
+				<div>
+					TODO: the API doesn't provide a way to show details/diffs for segments that don't have
+					branch names.
+				</div>
+			),
+		),
 		Match.tag("Changes", ({ stackId, mode }) =>
 			mode._tag === "Details" && mode.path !== undefined ? (
 				<ShowChangesFile
@@ -800,11 +806,12 @@ const CommitMenuPopup: FC<{
 
 const CommitRow: FC<
 	{
-		branchName: string;
+		branchName: string | null;
 		branchRef: string | null;
 		commit: Commit;
 		isHighlighted: boolean;
 		projectId: string;
+		segmentIndex: number;
 		selection: Selection | null;
 		select: (selection: Selection | null) => void;
 		stackId: string;
@@ -815,6 +822,7 @@ const CommitRow: FC<
 	commit,
 	isHighlighted,
 	projectId,
+	segmentIndex,
 	selection,
 	select,
 	stackId,
@@ -896,7 +904,14 @@ const CommitRow: FC<
 										className={sharedStyles.commitButton}
 										onClick={() => {
 											select(
-												toggleCommitSelection(selection, stackId, commit.id, branchName, branchRef),
+												toggleCommitSelection(
+													selection,
+													stackId,
+													segmentIndex,
+													commit.id,
+													branchName,
+													branchRef,
+												),
 											);
 										}}
 									>
@@ -955,13 +970,14 @@ const CommitRow: FC<
 };
 
 const CommitC: FC<{
-	branchName: string;
+	branchName: string | null;
 	branchRef: string | null;
 	commit: Commit;
 	isHighlighted: boolean;
 	nextCommitId: string | undefined;
 	previousCommitId: string | undefined;
 	projectId: string;
+	segmentIndex: number;
 	selection: Selection | null;
 	select: (selection: Selection | null) => void;
 	stackId: string;
@@ -973,6 +989,7 @@ const CommitC: FC<{
 	nextCommitId,
 	previousCommitId,
 	projectId,
+	segmentIndex,
 	selection,
 	select,
 	stackId,
@@ -996,6 +1013,7 @@ const CommitC: FC<{
 				commit={commit}
 				isHighlighted={isHighlighted}
 				projectId={projectId}
+				segmentIndex={segmentIndex}
 				selection={selection}
 				select={select}
 				stackId={stackId}
@@ -1074,7 +1092,7 @@ const Changes: FC<{
 			>
 				<button
 					type="button"
-					className={classes(sharedStyles.commitButton, styles.branchButton)}
+					className={classes(sharedStyles.commitButton, styles.segmentButton)}
 					onClick={() => {
 						select(toggleChangesSelection(selection, stackId));
 					}}
@@ -1318,15 +1336,15 @@ const SegmentC: FC<{
 	highlightedCommitIds: Set<string>;
 	projectId: string;
 	segment: Segment;
+	segmentIndex: number;
 	selection: Selection | null;
 	select: (selection: Selection | null) => void;
 	stackId: string;
-}> = ({ highlightedCommitIds, projectId, segment, selection, select, stackId }) => {
+}> = ({ highlightedCommitIds, projectId, segment, segmentIndex, selection, select, stackId }) => {
 	const isSelected =
-		(segment.refName &&
-			selection?._tag === "Branch" &&
+		(selection?._tag === "Segment" &&
 			selection.stackId === stackId &&
-			selection.branchRef === getSegmentBranchRef(segment.refName)) ||
+			selection.segmentIndex === segmentIndex) ||
 		(selection?._tag === "Commit" &&
 			selection.stackId === stackId &&
 			segment.commits.some((commit) => commit.id === selection.commitId));
@@ -1347,17 +1365,18 @@ const SegmentC: FC<{
 								<button
 									type="button"
 									className={classes(
-										styles.branchButton,
-										selection?._tag === "Branch" &&
+										styles.segmentButton,
+										selection?._tag === "Segment" &&
 											selection.stackId === stackId &&
-											selection.branchRef === getSegmentBranchRef(refName) &&
+											selection.segmentIndex === segmentIndex &&
 											sharedStyles.selected,
 									)}
 									onClick={() => {
 										select(
-											toggleBranchSelection(
+											toggleSegmentSelection(
 												selection,
 												stackId,
+												segmentIndex,
 												refName.displayName,
 												getSegmentBranchRef(refName),
 											),
@@ -1371,19 +1390,34 @@ const SegmentC: FC<{
 					}
 				/>
 			) : (
-				<div>Untitled</div>
+				<button
+					type="button"
+					className={classes(
+						styles.segmentButton,
+						selection?._tag === "Segment" &&
+							selection.stackId === stackId &&
+							selection.segmentIndex === segmentIndex &&
+							sharedStyles.selected,
+					)}
+					onClick={() => {
+						select(toggleSegmentSelection(selection, stackId, segmentIndex, null, null));
+					}}
+				>
+					Untitled
+				</button>
 			)}
 
 			<CommitsList commits={segment.commits}>
 				{(commit, index) => (
 					<CommitC
-						branchName={segment.refName?.displayName ?? "Untitled"}
+						branchName={segment.refName?.displayName ?? null}
 						branchRef={segment.refName ? getSegmentBranchRef(segment.refName) : null}
 						commit={commit}
 						isHighlighted={highlightedCommitIds.has(commit.id)}
 						nextCommitId={segment.commits[index + 1]?.id}
 						previousCommitId={segment.commits[index - 1]?.id}
 						projectId={projectId}
+						segmentIndex={segmentIndex}
 						selection={selection}
 						select={select}
 						stackId={stackId}
@@ -1440,12 +1474,14 @@ const StackC: FC<{
 			</div>
 
 			<ul className={styles.segments}>
-				{stack.segments.map((segment) => (
-					<li key={segment.refName?.displayName ?? "Untitled"}>
+				{stack.segments.map((segment, segmentIndex) => (
+					// oxlint-disable-next-line react/no-array-index-key -- It's all we have.
+					<li key={segmentIndex}>
 						<SegmentC
 							highlightedCommitIds={highlightedCommitIds}
 							projectId={projectId}
 							segment={segment}
+							segmentIndex={segmentIndex}
 							selection={selection}
 							select={select}
 							stackId={stackId}
@@ -1475,9 +1511,8 @@ const ProjectPage: FC = () => {
 		{ defaultValue: null },
 	);
 	const commitStackIds = getStackIdsByCommitId(headInfo);
-	const branchRefsByStackId = getBranchRefsByStackId(headInfo);
 	const selection =
-		(_selection ? normalizeSelection(_selection, commitStackIds, branchRefsByStackId) : null) ??
+		(_selection ? normalizeSelection(_selection, commitStackIds, headInfo) : null) ??
 		getDefaultSelection({
 			headInfo,
 			changes: worktreeChanges.changes,
