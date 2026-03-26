@@ -641,6 +641,7 @@ fn restore_snapshot(
         .context("failed to convert index tree entry to tree")?;
     let mut index = git2_repo.index()?;
     index.read_tree(&index_tree)?;
+    index.write()?;
 
     let restored_operation = snapshot_commit
         .message_raw()?

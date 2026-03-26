@@ -1,10 +1,12 @@
 use bstr::ByteSlice;
+use but_ctx::Context;
 use but_oxidize::OidExt;
 use gitbutler_branch::BranchCreateRequest;
+use gitbutler_oplog::OplogExt;
 use gitbutler_stack::StackId;
 use gitbutler_testsupport::stack_details;
 
-use super::Test;
+use super::{Test, create_commit};
 
 #[test]
 fn no_diffs() {
@@ -629,5 +631,93 @@ fn no_branch() {
             .unwrap_err()
             .to_string(),
         "Destination branch not found"
+    );
+}
+
+/// Without the `index.write()` fix, `restore_snapshot` read the snapshot's index
+/// tree into memory but never flushed it — the on-disk index retained its
+/// pre-restore state, which could include files from operations that were undone.
+#[test]
+fn restore_persists_index_to_disk() {
+    let Test { repo, ctx, .. } = &mut Test::default();
+
+    std::fs::write(repo.path().join("base.txt"), "base content\n").unwrap();
+    repo.commit_all("M");
+    repo.push();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+
+    let read_index_paths = |ctx: &Context| -> Vec<String> {
+        let git2_repo = ctx.git2_repo.get().unwrap();
+        let mut index = git2_repo.index().unwrap();
+        index.read(true).unwrap();
+        index
+            .iter()
+            .map(|e| String::from_utf8_lossy(&e.path).to_string())
+            .collect()
+    };
+
+    // Stack A: commit that adds a file.
+    std::fs::write(repo.path().join("file-a.txt"), "from stack a\n").unwrap();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+
+    let details = stack_details(ctx);
+    let stack_a_id = details[0].0;
+    let commit_a = create_commit(ctx, stack_a_id, "add file-a").unwrap();
+
+    // Stack B: commit adding a different file.
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_b = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest::default(),
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+
+    std::fs::write(repo.path().join("file-b.txt"), "from stack b\n").unwrap();
+    create_commit(ctx, stack_b.id, "add file-b").unwrap();
+
+    let index_paths_before_move = read_index_paths(ctx);
+
+    // Move a commit between stacks, then restore the snapshot to undo it.
+    gitbutler_branch_actions::move_commit(ctx, stack_b.id, commit_a.to_gix(), stack_a_id).unwrap();
+
+    let snapshots = ctx.list_snapshots(10, None, Vec::new(), None).unwrap();
+    let move_snapshot = snapshots
+        .iter()
+        .find(|s| {
+            s.details
+                .as_ref()
+                .is_some_and(|d| d.operation == gitbutler_oplog::entry::OperationKind::MoveCommit)
+        })
+        .expect("MoveCommit snapshot should exist");
+
+    let mut guard = ctx.exclusive_worktree_access();
+    ctx.restore_snapshot(move_snapshot.commit_id, guard.write_permission())
+        .unwrap();
+    drop(guard);
+
+    // Re-read the on-disk index after restore — without `index.write()` in
+    // restore_snapshot, this would still reflect the post-move state.
+    assert_eq!(
+        index_paths_before_move,
+        read_index_paths(ctx),
+        "On-disk index should match pre-move state after restore"
     );
 }
