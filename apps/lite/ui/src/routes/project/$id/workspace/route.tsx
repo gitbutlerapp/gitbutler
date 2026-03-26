@@ -24,13 +24,20 @@ import {
 } from "#ui/domain/RefInfo.ts";
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
 import { useCloseWatcher } from "#ui/hooks/useCloseWatcher.ts";
-import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
-import { type Operation, useRunOperation } from "#ui/Operation.ts";
+import { type Operation } from "#ui/Operation.ts";
 import {
 	isTypingTarget,
 	ProjectPreviewLayout,
 } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
+import {
+	DraggableBranch,
+	DraggableCommit,
+	DraggableFile,
+	DraggableHunk,
+	parseDragData,
+	useMonitorDraggedSourceItem,
+} from "#ui/routes/project/$id/workspace/-DragAndDrop.tsx";
 import { rubOperationLabel } from "#ui/routes/project/$id/workspace/-RubOperationLabel.ts";
 import { getRubOperation, type SourceItem } from "#ui/routes/project/$id/workspace/-SourceItem.ts";
 import {
@@ -50,7 +57,6 @@ import {
 	attachInstruction,
 	extractInstruction,
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item";
-import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { ContextMenu, Menu, mergeProps, Popover, Toast, Tooltip, useRender } from "@base-ui/react";
 import {
 	Commit,
@@ -92,162 +98,6 @@ import {
 	toggleCommitSelection,
 } from "./-Selection.ts";
 import styles from "./route.module.css";
-
-type DragData = {
-	sourceItem: SourceItem;
-};
-
-const parseDragData = (data: unknown): SourceItem | null => {
-	if (typeof data !== "object" || data === null || !("sourceItem" in data)) return null;
-	return (data as DragData).sourceItem;
-};
-
-const parseDropTargetData = (data: unknown): Operation | null => {
-	if (typeof data !== "object" || data === null || !("_tag" in data)) return null;
-	return data as Operation;
-};
-
-const DragPreview: FC<{
-	children: ReactNode;
-}> = ({ children }) => <div className={styles.dragPreview}>{children}</div>;
-
-const DraggableBranch: FC<
-	{
-		anchorRef: Array<number> | null;
-		label: string;
-	} & useRender.ComponentProps<"div">
-> = ({ anchorRef, label, render, ...props }) => {
-	const dragData: DragData | null =
-		anchorRef !== null ? { sourceItem: { _tag: "Branch", anchorRef } } : null;
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData | {} => dragData ?? {},
-		preview: <DragPreview>{label}</DragPreview>,
-		canDrag: () => dragData !== null,
-	});
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
-		}),
-	});
-};
-
-const DraggableCommit: FC<
-	{
-		commit: Commit;
-		canDrag?: boolean;
-	} & useRender.ComponentProps<"div">
-> = ({ commit, canDrag = true, render, ...props }) => {
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData => ({
-			sourceItem: { _tag: "Commit", commitId: commit.id },
-		}),
-		preview: (
-			<DragPreview>
-				<CommitLabel commit={commit} />
-			</DragPreview>
-		),
-		canDrag: () => canDrag,
-	});
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
-		}),
-	});
-};
-
-const DraggableFile: FC<
-	{
-		change: TreeChange;
-		changeUnit: ChangeUnit;
-		assignments?: Array<HunkAssignment>;
-	} & useRender.ComponentProps<"div">
-> = ({ change, changeUnit, assignments, render, ...props }) => {
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData => ({
-			sourceItem: {
-				_tag: "TreeChange",
-				source: {
-					parent: changeUnit,
-					change,
-					hunkHeaders: assignments
-						? assignments.flatMap((assignment) =>
-								// TODO: is this correct?
-								assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
-							)
-						: [],
-				},
-			},
-		}),
-		preview: <DragPreview>{change.path}</DragPreview>,
-	});
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
-		}),
-	});
-};
-
-const DraggableHunk: FC<
-	{
-		patch: Patch;
-		changeUnit: ChangeUnit;
-		change: TreeChange;
-		hunk: DiffHunk;
-	} & useRender.ComponentProps<"div">
-> = ({ patch, changeUnit, change, hunk, render, ...props }) => {
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData => ({
-			sourceItem: {
-				_tag: "TreeChange",
-				source: {
-					parent: changeUnit,
-					change,
-					hunkHeaders: [hunk],
-				},
-			},
-		}),
-		preview: <DragPreview>Hunk {formatHunkHeader(hunk)}</DragPreview>,
-		canDrag: () => !patch.subject.isResultOfBinaryToTextConversion,
-	});
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
-		}),
-	});
-};
-
-const useMonitorDraggedSourceItem = ({ projectId }: { projectId: string }): void => {
-	const runOperation = useRunOperation(projectId);
-
-	useEffect(
-		() =>
-			monitorForElements({
-				canMonitor: ({ source }) => parseDragData(source.data) !== null,
-				onDrop: ({ location }) => {
-					const operation = location.current.dropTargets
-						.map((dropTarget) => parseDropTargetData(dropTarget.data))
-						.find((target) => target);
-
-					if (!operation) return;
-
-					runOperation(operation);
-				},
-			}),
-		[runOperation],
-	);
-};
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 const decodeRefName = (fullNameBytes: Array<number>): string =>
