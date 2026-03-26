@@ -198,14 +198,16 @@ const useSelectionKeyboardShortcuts = ({
 }) => {
 	const queryClient = useQueryClient();
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
-		if (event.defaultPrevented || event.repeat) return;
+		if (event.defaultPrevented) return;
 		if (event.metaKey || event.ctrlKey || event.altKey) return;
 		if (isTypingTarget(event.target)) return;
 
-		if (selection?._tag !== "Commit") return;
+		if (!selection) return;
 
 		switch (event.key) {
 			case "ArrowLeft":
+				if (event.repeat) return;
+				if (selection._tag !== "Commit") return;
 				if (selection.mode._tag !== "Details") return;
 				event.preventDefault();
 				select({
@@ -219,6 +221,8 @@ const useSelectionKeyboardShortcuts = ({
 				});
 				break;
 			case "ArrowRight":
+				if (event.repeat) return;
+				if (selection._tag !== "Commit") return;
 				if (selection.mode._tag !== "Summary") return;
 				event.preventDefault();
 				void getExpandedCommitSelection({
@@ -1416,12 +1420,7 @@ const SegmentRow: FC<{
 			>
 				{segment.refName?.displayName ?? "Untitled"}
 			</button>
-			<button
-				type="button"
-				className={sharedStyles.rowAction}
-				aria-label="Push branch"
-				disabled
-			>
+			<button type="button" className={sharedStyles.rowAction} aria-label="Push branch" disabled>
 				<PushIcon />
 			</button>
 		</div>
