@@ -4,14 +4,10 @@ import { type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/b
 import {
 	changesDetailsItem,
 	changesSummaryItem,
-	getParentRootItem,
 	itemKey,
 	type Item,
-	CommitItem,
 	segmentItem,
-	commitDetailsItem,
 	commitSummaryItem,
-	commitEditingMessageItem,
 } from "./-Item.ts";
 
 const hasAssignmentsForPath = ({
@@ -35,24 +31,18 @@ type NavigationModel = {
 };
 
 export const buildNavigationModel = ({
-	selection,
 	headInfo,
 	changes,
 	assignments,
-	commitDetailsPaths,
 }: {
-	selection: Item | null;
 	headInfo: RefInfo;
 	changes: Array<TreeChange>;
 	assignments: Array<HunkAssignment>;
-	commitDetailsPaths: Array<string>;
 }): NavigationModel => {
 	const items: Array<Item> = [];
 	const rootItems: Array<Item> = [];
 	const rootIndexByItemIndex: Array<number> = [];
 	const indexByKey = new Map<string, number>();
-	const commitDetails =
-		selection?._tag === "Commit" && selection.mode._tag === "Details" ? selection : null;
 
 	const addChangesItems = (stackId: string | null) => {
 		const rootItem = changesSummaryItem(stackId);
@@ -93,47 +83,16 @@ export const buildNavigationModel = ({
 			items.push(rootItem);
 
 			for (const commit of segment.commits) {
-				const isCommitDetails =
-					commitDetails !== null &&
-					commitDetails.stackId === stack.id &&
-					commitDetails.segmentIndex === segmentIndex &&
-					commitDetails.commitId === commit.id;
-				const commitItem = isCommitDetails
-					? commitDetailsItem({
-							stackId: stack.id,
-							segmentIndex,
-							branchName,
-							branchRef,
-							commitId: commit.id,
-						})
-					: commitSummaryItem({
-							stackId: stack.id,
-							segmentIndex,
-							branchName,
-							branchRef,
-							commitId: commit.id,
-						});
+				const commitItem = commitSummaryItem({
+					stackId: stack.id,
+					segmentIndex,
+					branchName,
+					branchRef,
+					commitId: commit.id,
+				});
 				indexByKey.set(itemKey(commitItem), items.length);
 				rootIndexByItemIndex.push(rootIndex);
 				items.push(commitItem);
-
-				if (!isCommitDetails) continue;
-
-				for (const path of commitDetailsPaths) {
-					const item = commitDetailsItem(
-						{
-							stackId: stack.id,
-							segmentIndex,
-							branchName,
-							branchRef,
-							commitId: commit.id,
-						},
-						path,
-					);
-					indexByKey.set(itemKey(item), items.length);
-					rootIndexByItemIndex.push(rootIndex);
-					items.push(item);
-				}
 			}
 		}
 	}
@@ -141,7 +100,7 @@ export const buildNavigationModel = ({
 	return { items, rootItems, rootIndexByItemIndex, indexByKey };
 };
 
-const getAdjacentLinearItem = (
+export const getAdjacentLinearItem = (
 	model: NavigationModel,
 	selection: Item | null,
 	offset: -1 | 1,
@@ -151,7 +110,7 @@ const getAdjacentLinearItem = (
 	return model.items[currentIndex + offset] ?? null;
 };
 
-const getAdjacentRootItem = (
+export const getAdjacentRootItem = (
 	model: NavigationModel,
 	selection: Item | null,
 	offset: -1 | 1,
@@ -192,39 +151,4 @@ export const getSelectionAction = (event: KeyboardEvent): SelectionAction | null
 			!event.repeat ? { _tag: "Expand" } : null,
 		),
 		Match.orElse((): SelectionAction | null => null),
-	);
-
-export const performSelectionAction = async ({
-	action,
-	model,
-	selection,
-	expandCommit,
-}: {
-	action: SelectionAction;
-	model: NavigationModel;
-	selection: Item;
-	expandCommit: (selection: CommitItem) => Promise<Item | null>;
-}): Promise<Item | null> =>
-	Match.value(action).pipe(
-		Match.tag("Edit", () =>
-			selection._tag === "Commit" && selection.mode._tag === "Summary"
-				? commitEditingMessageItem(selection)
-				: null,
-		),
-		Match.tag("Move", ({ offset }) => getAdjacentLinearItem(model, selection, offset)),
-		Match.tag("MoveRootDown", () => getAdjacentRootItem(model, selection, 1)),
-		Match.tag(
-			"MoveRootUp",
-			() => getParentRootItem(selection) ?? getAdjacentRootItem(model, selection, -1),
-		),
-		Match.tag("Collapse", () =>
-			selection._tag === "Commit" && selection.mode._tag === "Details"
-				? commitSummaryItem(selection)
-				: null,
-		),
-		Match.tag("Expand", () => {
-			if (selection._tag !== "Commit" || selection.mode._tag !== "Summary") return null;
-			return expandCommit(selection);
-		}),
-		Match.exhaustive,
 	);

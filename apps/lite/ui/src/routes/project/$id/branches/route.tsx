@@ -104,6 +104,7 @@ const useSelectionKeyboardShortcuts = ({
 			case "ArrowRight":
 				if (selection.mode._tag !== "Summary") return;
 				event.preventDefault();
+				// TODO: error handling
 				void getExpandedCommitSelection({
 					branchName: selection.branchName,
 					commitId: selection.commitId,

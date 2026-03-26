@@ -11,10 +11,7 @@ type SegmentItem = {
 	branchRef: string | null;
 };
 
-type CommitMode =
-	| { _tag: "Summary" }
-	| { _tag: "Details"; path?: string }
-	| { _tag: "EditingMessage" };
+type CommitMode = { _tag: "Summary" } | { _tag: "EditingMessage" };
 export type CommitItem = SegmentItem & { commitId: string; mode: CommitMode };
 
 export type Item =
@@ -63,19 +60,6 @@ export const commitSummaryItem = ({
 	mode: { _tag: "Summary" },
 });
 
-export const commitDetailsItem = (
-	{ stackId, segmentIndex, branchName, branchRef, commitId }: Omit<CommitItem, "mode">,
-	path?: string,
-): Item => ({
-	_tag: "Commit",
-	stackId,
-	segmentIndex,
-	branchName,
-	branchRef,
-	commitId,
-	mode: { _tag: "Details", path },
-});
-
 export const commitEditingMessageItem = ({
 	stackId,
 	segmentIndex,
@@ -111,22 +95,7 @@ export const itemKey = (item: Item): string =>
 		),
 		Match.tag("Segment", (item) => JSON.stringify(["Segment", item.stackId, item.segmentIndex])),
 		Match.tag("Commit", (item) =>
-			item.mode._tag === "Details"
-				? JSON.stringify([
-						"Commit",
-						item.stackId,
-						item.segmentIndex,
-						item.commitId,
-						"Details",
-						item.mode.path ?? null,
-					])
-				: JSON.stringify([
-						"Commit",
-						item.stackId,
-						item.segmentIndex,
-						item.commitId,
-						item.mode._tag,
-					]),
+			JSON.stringify(["Commit", item.stackId, item.segmentIndex, item.commitId, item.mode._tag]),
 		),
 		Match.exhaustive,
 	);
