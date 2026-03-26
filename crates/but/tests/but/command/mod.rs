@@ -8,6 +8,8 @@ mod branch;
 #[cfg(feature = "legacy")]
 mod claude;
 #[cfg(feature = "legacy")]
+mod clean;
+#[cfg(feature = "legacy")]
 mod commit;
 #[cfg(feature = "legacy")]
 mod cursor;
