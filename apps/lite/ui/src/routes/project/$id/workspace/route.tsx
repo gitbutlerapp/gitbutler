@@ -115,8 +115,9 @@ import {
 	segmentSelectionBindings,
 	SharedSelectionAction,
 } from "./-Selection.ts";
-import styles from "./route.module.css";
+import { PositionedShortcutBar, getShortcutBarMode } from "./-ShortcutBar.tsx";
 import { getShortcutAction } from "#ui/shortcuts.ts";
+import styles from "./route.module.css";
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 const decodeRefName = (fullNameBytes: Array<number>): string =>
@@ -1813,6 +1814,8 @@ const ProjectPage: FC = () => {
 
 				<TearOffBranchTarget className={styles.emptyLane} />
 			</div>
+
+			<PositionedShortcutBar mode={getShortcutBarMode({ selection, commitDetailsSelection })} />
 		</ProjectPreviewLayout>
 	);
 };

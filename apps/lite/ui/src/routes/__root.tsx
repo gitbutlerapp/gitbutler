@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, Outlet, useMatch, useNavigate } from "@tanstack/react-router";
-import { FC } from "react";
+import { FC, useState } from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext } from "@tanstack/react-router";
 
@@ -9,6 +9,8 @@ import { classes } from "#ui/classes.ts";
 import uiStyles from "#ui/ui.module.css";
 import styles from "./__root.module.css";
 import { shortcutKeys } from "#ui/shortcuts.ts";
+import { ShortcutBarPortalContext } from "./-ShortcutBarContext.tsx";
+import { ShortcutBar } from "./project/$id/workspace/-ShortcutBar.tsx";
 
 export const lastOpenedProjectKey = "lastProject";
 
@@ -113,16 +115,21 @@ const TopBar: FC = () => {
 };
 
 function RootLayout() {
+	const [shortcutBarPortalNode, setShortcutBarPortalNode] = useState<HTMLElement | null>(null);
+
 	return (
-		<main className={styles.layout}>
-			<TopBar />
-			<aside className={styles.sidebar}>
-				<SidebarNav />
-			</aside>
-			<section className={styles.content}>
-				<Outlet />
-			</section>
-		</main>
+		<ShortcutBarPortalContext value={shortcutBarPortalNode}>
+			<main className={styles.layout}>
+				<TopBar />
+				<aside className={styles.sidebar}>
+					<SidebarNav />
+				</aside>
+				<section className={styles.content}>
+					<Outlet />
+				</section>
+				<footer className={styles.shortcutBarFooter} ref={setShortcutBarPortalNode} />
+			</main>
+		</ShortcutBarPortalContext>
 	);
 }
 
