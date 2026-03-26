@@ -1,7 +1,7 @@
 import { type RubOperation } from "#ui/Operation.ts";
 import { Match } from "effect";
 
-export type RubOperationLabel = "Amend" | "Uncommit" | "Assign" | "Unassign" | "Squash";
+type RubOperationLabel = "Amend" | "Uncommit" | "Assign" | "Unassign" | "Squash";
 
 /**
  * | SOURCE ↓ / TARGET →    | Unassigned changes | Assigned changes | Commit |

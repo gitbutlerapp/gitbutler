@@ -95,7 +95,7 @@ const hasAssignmentsForPath = ({
 		(assignment) => (assignment.stackId ?? null) === stackId && assignment.path === path,
 	);
 
-export type NavigationModel = {
+type NavigationModel = {
 	items: Array<Item>;
 	rootItems: Array<Item>;
 	rootIndexByItemIndex: Array<number>;
@@ -232,7 +232,7 @@ const getAdjacentRootItem = (
 	return model.rootItems[currentRootIndex + offset] ?? null;
 };
 
-export type SelectionAction =
+type SelectionAction =
 	| { _tag: "Edit" }
 	| { _tag: "Move"; offset: -1 | 1 }
 	| { _tag: "MoveRootDown" }
