@@ -31,7 +31,7 @@ pub struct Pick {
     ///
     /// If this is Some, the commit WILL NOT be picked onto the parents the
     /// graph implies but instead on to the parents listed here.
-    pub(crate) preserved_parents: Option<Vec<gix::ObjectId>>,
+    pub preserved_parents: Option<Vec<gix::ObjectId>>,
     /// If set to false, a rebase will fail if this commit results in a
     /// conflicted state.
     pub conflictable: bool,
