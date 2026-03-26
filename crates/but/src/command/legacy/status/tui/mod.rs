@@ -34,7 +34,7 @@ use crate::{
             tui::{
                 confirm::{Confirm, ConfirmMessage},
                 cursor::{Cursor, is_selectable_in_mode},
-                details::Details,
+                details::{Details, DetailsMessage},
                 graph_extension::{ExtensionDirection, extend_connector_spans},
                 highlight::{Highlights, with_highlight},
                 key_bind::{KeyBinds, confirm_key_binds, default_key_binds},
@@ -284,9 +284,20 @@ impl App {
         }
     }
 
+    fn status_content_area(&self, terminal_area: Rect) -> Rect {
+        Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(terminal_area)[0]
+    }
+
+    fn details_viewport(&self, terminal_area: Rect) -> Rect {
+        let content_area = self.status_content_area(terminal_area);
+        self.status_layout(content_area)
+            .details_area
+            .unwrap_or(content_area)
+    }
+
     /// Returns the number of terminal rows available for rendering the status list.
     fn status_viewport_height(&self, terminal_area: Rect) -> usize {
-        usize::from(terminal_area.height.saturating_sub(1)).max(1)
+        usize::from(self.status_content_area(terminal_area).height).max(1)
     }
 
     /// Returns the rendered height in terminal rows for the given status line.
@@ -390,8 +401,8 @@ impl App {
         anyhow::Error: From<<T::Backend as Backend>::Error>,
     {
         self.should_render = true;
-        let visible_height =
-            self.status_viewport_height(terminal_guard.terminal_mut().size()?.into());
+        let terminal_area: Rect = terminal_guard.terminal_mut().size()?.into();
+        let visible_height = self.status_viewport_height(terminal_area);
 
         if self.details.needs_update_after_message(&msg) {
             self.details.mark_dirty();
@@ -516,6 +527,11 @@ impl App {
             }
             Message::RunAfterConfirmation(f) => {
                 (f.0)(self, ctx, messages)?;
+            }
+            Message::Details(details_message) => {
+                let details_viewport = self.details_viewport(terminal_area);
+                self.details
+                    .try_handle_message(details_message, details_viewport)?;
             }
         }
 
@@ -2287,6 +2303,7 @@ enum Message {
     Files(FilesMessage),
     Move(MoveMessage),
     Branch(BranchMessage),
+    Details(DetailsMessage),
 
     // Utilities
     CopySelection,

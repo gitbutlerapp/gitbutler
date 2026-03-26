@@ -41,10 +41,10 @@ const MONOKAI_THEME: &[u8] =
     include_bytes!("../../../../../assets/syntax-highlighting-themes/Monokai Extended.tmTheme");
 
 const _TODOS: () = {
-    // - scrolling
     // - show diffs for all kinds of cli ids
     // - show and hide details
     // - show short ids for hunks
+    // - escape closes things in the right order
     // - general clean up
     //
     // FUTURE
@@ -56,10 +56,10 @@ const _TODOS: () = {
 #[derive(Debug)]
 pub(super) struct Details {
     is_dirty: bool,
+    scroll_top: usize,
     diff_widget: Option<DiffWidget>,
     syntax_set: DebugType<OnDemand<SyntaxSet>>,
     dark_theme: DebugType<OnDemand<Theme>>,
-    update_time: Duration,
 }
 
 impl Default for Details {
@@ -67,7 +67,7 @@ impl Default for Details {
         Self {
             is_dirty: Default::default(),
             diff_widget: Default::default(),
-            update_time: Default::default(),
+            scroll_top: Default::default(),
             syntax_set: OnDemand::new(|| Ok(SyntaxSet::load_defaults_newlines())).into(),
             dark_theme: OnDemand::new(|| {
                 Ok(ThemeSet::load_from_reader(&mut std::io::Cursor::new(MONOKAI_THEME)).unwrap())
@@ -122,6 +122,9 @@ impl Details {
                 BranchMessage::Start => false,
                 BranchMessage::New => true,
             },
+            Message::Details(details_message) => match details_message {
+                DetailsMessage::ScrollUp(_) | DetailsMessage::ScrollDown(_) => false,
+            },
         }
     }
 
@@ -133,16 +136,47 @@ impl Details {
         self.is_dirty
     }
 
+    pub(super) fn try_handle_message(
+        &mut self,
+        msg: DetailsMessage,
+        viewport: Rect,
+    ) -> anyhow::Result<()> {
+        match msg {
+            DetailsMessage::ScrollUp(n) => {
+                self.scroll_top = self.scroll_top.saturating_sub(n);
+            }
+            DetailsMessage::ScrollDown(n) => {
+                self.scroll_top = self.scroll_top.saturating_add(n);
+            }
+        }
+
+        self.clamp_scroll_top(viewport);
+
+        Ok(())
+    }
+
+    fn clamp_scroll_top(&mut self, viewport: Rect) {
+        let max_scroll_top = self
+            .diff_widget
+            .as_ref()
+            .map(|diff| {
+                diff.total_rows(viewport.width)
+                    .saturating_sub(viewport.height as usize)
+            })
+            .unwrap_or(0);
+
+        self.scroll_top = self.scroll_top.min(max_scroll_top);
+    }
+
     pub(super) fn update(
         &mut self,
         ctx: &mut Context,
         selection: Option<&CliId>,
     ) -> anyhow::Result<()> {
         self.is_dirty = false;
+        self.scroll_top = 0;
 
-        let start = std::time::Instant::now();
         self.diff_widget = self.update_widget(ctx, selection)?;
-        self.update_time = start.elapsed();
 
         Ok(())
     }
@@ -179,8 +213,6 @@ impl Details {
                 but_core::TreeStatus::Modification { .. } => Span::raw("modified").magenta(),
                 but_core::TreeStatus::Rename { .. } => Span::raw("renamed").blue(),
             };
-
-            // with "Monokai Extended" as the default dark theme and "GitHub" as the default light theme.
 
             {
                 let path = change.path.to_string();
@@ -385,7 +417,6 @@ impl Details {
         let mut header_items = Vec::new();
 
         header_items.extend([
-            ListItem::new(Span::raw(format!("update time: {:?}", self.update_time)).dim()),
             ListItem::new(Line::from_iter([
                 Span::raw(format!("{:<11}", "Commit ID:")),
                 Span::raw(commit_id.to_hex().to_string()).blue(),
@@ -418,7 +449,7 @@ impl Details {
         frame.render_widget(block, layout[0]);
 
         if let Some(diff) = &self.diff_widget {
-            frame.render_widget(diff, layout[1]);
+            diff.render(self.scroll_top, layout[1], frame);
         } else {
             frame.render_widget("Unable to load details", layout[1]);
         }
@@ -432,20 +463,31 @@ struct DiffWidget {
     diff_line_items: Vec<ListItem<'static>>,
 }
 
-impl Widget for &DiffWidget {
-    fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer) {
-        let mut items = self.header_items.clone();
+impl DiffWidget {
+    fn total_rows(&self, width: u16) -> usize {
+        self.items_for_width(width).count()
+    }
 
-        items.push(ListItem::new(""));
+    fn render(&self, scroll_top: usize, area: Rect, buf: &mut Frame) {
+        let items = self.items_for_width(area.width).skip(scroll_top);
 
-        let message_lines = textwrap::wrap(&self.message, textwrap::Options::new(area.width as _));
-        items.extend(message_lines.into_iter().map(ListItem::new));
+        List::new(items).render(area, buf.buffer_mut());
+    }
 
-        items.push(ListItem::new(""));
+    fn items_for_width(&self, width: u16) -> impl Iterator<Item = ListItem<'static>> {
+        let width = usize::from(width).max(1);
 
-        items.extend(self.diff_line_items.clone());
-
-        List::new(items).render(area, buf);
+        self.header_items
+            .clone()
+            .into_iter()
+            .chain(once(ListItem::new("")))
+            .chain(
+                textwrap::wrap(&self.message, textwrap::Options::new(width))
+                    .into_iter()
+                    .map(|line| ListItem::new(line.into_owned())),
+            )
+            .chain(once(ListItem::new("")))
+            .chain(self.diff_line_items.clone())
     }
 }
 
@@ -487,4 +529,10 @@ fn syntax_highlight(
     });
 
     itertools::Either::Right(spans)
+}
+
+#[derive(Debug, Clone)]
+pub(super) enum DetailsMessage {
+    ScrollUp(usize),
+    ScrollDown(usize),
 }
