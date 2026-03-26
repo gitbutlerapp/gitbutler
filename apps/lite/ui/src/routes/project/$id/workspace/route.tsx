@@ -416,7 +416,7 @@ const Preview: FC<{
 		Match.tag("Branch", ({ branchName, branchRef }) => (
 			<ShowBranch
 				projectId={projectId}
-				branch={branchRef}
+				branchRef={branchRef}
 				branchName={branchName}
 				renderHunk={(change, hunk, patch) => (
 					<Hunk

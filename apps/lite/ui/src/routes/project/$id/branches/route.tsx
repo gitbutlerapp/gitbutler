@@ -501,7 +501,7 @@ const Preview: FC<{
 			selectedBranchRef !== null ? (
 				<ShowBranch
 					projectId={projectId}
-					branch={selectedBranchRef}
+					branchRef={selectedBranchRef}
 					branchName={branchName}
 					renderHunk={(_change, hunk) => <Hunk hunk={hunk} />}
 				/>
