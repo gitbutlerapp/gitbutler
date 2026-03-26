@@ -111,6 +111,123 @@ const DragPreview: FC<{
 	children: ReactNode;
 }> = ({ children }) => <div className={styles.dragPreview}>{children}</div>;
 
+const DraggableBranch: FC<
+	{
+		anchorRef: Array<number> | null;
+		label: string;
+	} & useRender.ComponentProps<"div">
+> = ({ anchorRef, label, render, ...props }) => {
+	const dragData: DragData | null =
+		anchorRef !== null ? { sourceItem: { _tag: "Branch", anchorRef } } : null;
+	const [isDragging, dragRef] = useDraggable({
+		getInitialData: (): DragData | {} => dragData ?? {},
+		preview: <DragPreview>{label}</DragPreview>,
+		canDrag: () => dragData !== null,
+	});
+
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && styles.dragging),
+		}),
+	});
+};
+
+const DraggableCommit: FC<
+	{
+		commit: Commit;
+		canDrag?: boolean;
+	} & useRender.ComponentProps<"div">
+> = ({ commit, canDrag = true, render, ...props }) => {
+	const [isDragging, dragRef] = useDraggable({
+		getInitialData: (): DragData => ({
+			sourceItem: { _tag: "Commit", commitId: commit.id },
+		}),
+		preview: (
+			<DragPreview>
+				<CommitLabel commit={commit} />
+			</DragPreview>
+		),
+		canDrag: () => canDrag,
+	});
+
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && styles.dragging),
+		}),
+	});
+};
+
+const DraggableFile: FC<
+	{
+		change: TreeChange;
+		changeUnit: ChangeUnit;
+		assignments?: Array<HunkAssignment>;
+	} & useRender.ComponentProps<"div">
+> = ({ change, changeUnit, assignments, render, ...props }) => {
+	const [isDragging, dragRef] = useDraggable({
+		getInitialData: (): DragData => ({
+			sourceItem: {
+				_tag: "TreeChange",
+				source: {
+					parent: changeUnit,
+					change,
+					hunkHeaders: assignments
+						? assignments.flatMap((assignment) =>
+								// TODO: is this correct?
+								assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
+							)
+						: [],
+				},
+			},
+		}),
+		preview: <DragPreview>{change.path}</DragPreview>,
+	});
+
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && styles.dragging),
+		}),
+	});
+};
+
+const DraggableHunk: FC<
+	{
+		patch: Patch;
+		changeUnit: ChangeUnit;
+		change: TreeChange;
+		hunk: DiffHunk;
+	} & useRender.ComponentProps<"div">
+> = ({ patch, changeUnit, change, hunk, render, ...props }) => {
+	const [isDragging, dragRef] = useDraggable({
+		getInitialData: (): DragData => ({
+			sourceItem: {
+				_tag: "TreeChange",
+				source: {
+					parent: changeUnit,
+					change,
+					hunkHeaders: [hunk],
+				},
+			},
+		}),
+		preview: <DragPreview>Hunk {formatHunkHeader(hunk)}</DragPreview>,
+		canDrag: () => !patch.subject.isResultOfBinaryToTextConversion,
+	});
+
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && styles.dragging),
+		}),
+	});
+};
+
 const useMonitorDraggedSourceItem = ({ projectId }: { projectId: string }): void => {
 	const runOperation = useRunOperation(projectId);
 
@@ -338,123 +455,6 @@ const dependencyCommitIdsForFile = (
 		for (const dependency of locks) commitIds.add(dependency.commitId);
 
 	return globalThis.Array.from(commitIds);
-};
-
-const DraggableBranch: FC<
-	{
-		anchorRef: Array<number> | null;
-		label: string;
-	} & useRender.ComponentProps<"div">
-> = ({ anchorRef, label, render, ...props }) => {
-	const dragData: DragData | null =
-		anchorRef !== null ? { sourceItem: { _tag: "Branch", anchorRef } } : null;
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData | {} => dragData ?? {},
-		preview: <DragPreview>{label}</DragPreview>,
-		canDrag: () => dragData !== null,
-	});
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
-		}),
-	});
-};
-
-const DraggableCommit: FC<
-	{
-		commit: Commit;
-		canDrag?: boolean;
-	} & useRender.ComponentProps<"div">
-> = ({ commit, canDrag = true, render, ...props }) => {
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData => ({
-			sourceItem: { _tag: "Commit", commitId: commit.id },
-		}),
-		preview: (
-			<DragPreview>
-				<CommitLabel commit={commit} />
-			</DragPreview>
-		),
-		canDrag: () => canDrag,
-	});
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
-		}),
-	});
-};
-
-const DraggableFile: FC<
-	{
-		change: TreeChange;
-		changeUnit: ChangeUnit;
-		assignments?: Array<HunkAssignment>;
-	} & useRender.ComponentProps<"div">
-> = ({ change, changeUnit, assignments, render, ...props }) => {
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData => ({
-			sourceItem: {
-				_tag: "TreeChange",
-				source: {
-					parent: changeUnit,
-					change,
-					hunkHeaders: assignments
-						? assignments.flatMap((assignment) =>
-								// TODO: is this correct?
-								assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
-							)
-						: [],
-				},
-			},
-		}),
-		preview: <DragPreview>{change.path}</DragPreview>,
-	});
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
-		}),
-	});
-};
-
-const DraggableHunk: FC<
-	{
-		patch: Patch;
-		changeUnit: ChangeUnit;
-		change: TreeChange;
-		hunk: DiffHunk;
-	} & useRender.ComponentProps<"div">
-> = ({ patch, changeUnit, change, hunk, render, ...props }) => {
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData => ({
-			sourceItem: {
-				_tag: "TreeChange",
-				source: {
-					parent: changeUnit,
-					change,
-					hunkHeaders: [hunk],
-				},
-			},
-		}),
-		preview: <DragPreview>Hunk {formatHunkHeader(hunk)}</DragPreview>,
-		canDrag: () => !patch.subject.isResultOfBinaryToTextConversion,
-	});
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
-		}),
-	});
 };
 
 const Hunk: FC<{
