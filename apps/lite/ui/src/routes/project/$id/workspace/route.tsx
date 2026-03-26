@@ -1086,7 +1086,7 @@ const Changes: FC<{
 			>
 				<button
 					type="button"
-					className={classes(sharedStyles.commitButton, styles.segmentButton)}
+					className={styles.segmentButton}
 					onClick={() => {
 						select(toggleChangesSelection(selection, stackId));
 					}}
