@@ -1,4 +1,5 @@
 import {
+	branchDiffQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
@@ -183,6 +184,37 @@ export const ShowCommit: FC<{
 				<CommitLabel commit={data.commit} />
 			</h3>
 			{commitMessageBody !== "" && <p className={styles.commitMessageBody}>{commitMessageBody}</p>}
+			{data.changes.length === 0 ? (
+				<div>No file changes.</div>
+			) : (
+				<ul>
+					{data.changes.map((change) => (
+						<li key={change.path}>
+							<h4>{change.path}</h4>
+							<FileDiff
+								projectId={projectId}
+								change={change}
+								renderHunk={(hunk, patch) => renderHunk(change, hunk, patch)}
+							/>
+						</li>
+					))}
+				</ul>
+			)}
+		</>
+	);
+};
+
+export const ShowBranch: FC<{
+	projectId: string;
+	branch: string;
+	branchName: string;
+	renderHunk: (change: TreeChange, hunk: DiffHunk, patch: Patch) => ReactNode;
+}> = ({ projectId, branch, branchName, renderHunk }) => {
+	const { data } = useSuspenseQuery(branchDiffQueryOptions({ projectId, branch }));
+
+	return (
+		<>
+			<h3>{branchName}</h3>
 			{data.changes.length === 0 ? (
 				<div>No file changes.</div>
 			) : (

@@ -5,7 +5,6 @@ import {
 	unapplyStackMutationOptions,
 } from "#ui/api/mutations.ts";
 import {
-	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	headInfoQueryOptions,
@@ -42,6 +41,7 @@ import {
 	formatHunkHeader,
 	HunkDiff,
 	Patch,
+	ShowBranch,
 	ShowCommit,
 } from "#ui/routes/project/$id/-shared.tsx";
 import uiStyles from "#ui/ui.module.css";
@@ -558,43 +558,6 @@ const ShowCommitFile: FC<{
 	);
 };
 
-const ShowBranch: FC<{
-	projectId: string;
-	branch: string;
-	branchName: string;
-}> = ({ projectId, branch, branchName }) => {
-	const { data } = useSuspenseQuery(branchDiffQueryOptions({ projectId, branch }));
-
-	return (
-		<>
-			<h3>{branchName}</h3>
-			{data.changes.length === 0 ? (
-				<div>No file changes.</div>
-			) : (
-				<ul>
-					{data.changes.map((change) => (
-						<li key={change.path}>
-							<h4>{change.path}</h4>
-							<FileDiff
-								projectId={projectId}
-								change={change}
-								renderHunk={(hunk, patch) => (
-									<Hunk
-										patch={patch}
-										changeUnit={{ _tag: "Changes", stackId: null }}
-										change={change}
-										hunk={hunk}
-									/>
-								)}
-							/>
-						</li>
-					))}
-				</ul>
-			)}
-		</>
-	);
-};
-
 const Preview: FC<{
 	projectId: string;
 	selection: Selection;
@@ -602,7 +565,19 @@ const Preview: FC<{
 }> = ({ projectId, selection, onDependencyHover }) =>
 	Match.value(selection).pipe(
 		Match.tag("Branch", ({ branchName, branchRef }) => (
-			<ShowBranch projectId={projectId} branch={branchRef} branchName={branchName} />
+			<ShowBranch
+				projectId={projectId}
+				branch={branchRef}
+				branchName={branchName}
+				renderHunk={(change, hunk, patch) => (
+					<Hunk
+						patch={patch}
+						changeUnit={{ _tag: "Changes", stackId: null }}
+						change={change}
+						hunk={hunk}
+					/>
+				)}
+			/>
 		)),
 		Match.tag("ChangesFile", ({ stackId, path }) => (
 			<ShowChangesFile

@@ -13,7 +13,6 @@ import styles from "./route.module.css";
 import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/api/mutations.ts";
 import {
 	branchDetailsQueryOptions,
-	branchDiffQueryOptions,
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
@@ -30,6 +29,7 @@ import {
 	FileDiff,
 	formatHunkHeader,
 	HunkDiff,
+	ShowBranch,
 	ShowCommit,
 } from "#ui/routes/project/$id/-shared.tsx";
 import sharedStyles from "../-shared.module.css";
@@ -435,36 +435,6 @@ const ShowBranchCommit: FC<{
 	);
 };
 
-const ShowBranch: FC<{
-	projectId: string;
-	branch: string;
-	branchName: string;
-}> = ({ projectId, branch, branchName }) => {
-	const { data } = useSuspenseQuery(branchDiffQueryOptions({ projectId, branch }));
-
-	return (
-		<>
-			<h3>{branchName}</h3>
-			{data.changes.length === 0 ? (
-				<div>No file changes.</div>
-			) : (
-				<ul>
-					{data.changes.map((change) => (
-						<li key={change.path}>
-							<h4>{change.path}</h4>
-							<FileDiff
-								projectId={projectId}
-								change={change}
-								renderHunk={(hunk) => <Hunk hunk={hunk} />}
-							/>
-						</li>
-					))}
-				</ul>
-			)}
-		</>
-	);
-};
-
 const Preview: FC<{
 	projectId: string;
 	selection: Selection;
@@ -474,7 +444,12 @@ const Preview: FC<{
 	Match.value(selection).pipe(
 		Match.tag("Branch", ({ branchName }) =>
 			selectedBranchRef !== null ? (
-				<ShowBranch projectId={projectId} branch={selectedBranchRef} branchName={branchName} />
+				<ShowBranch
+					projectId={projectId}
+					branch={selectedBranchRef}
+					branchName={branchName}
+					renderHunk={(_change, hunk) => <Hunk hunk={hunk} />}
+				/>
 			) : (
 				<div>No branch diff available.</div>
 			),
