@@ -503,6 +503,7 @@ const Preview: FC<{
 					projectId={projectId}
 					branchRef={branchRef}
 					branchName={branchName}
+					remote={remote}
 					renderHunk={(_change, hunk) => <Hunk hunk={hunk} />}
 				/>
 			) : (

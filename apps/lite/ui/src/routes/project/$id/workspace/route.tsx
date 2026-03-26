@@ -419,6 +419,7 @@ const Preview: FC<{
 				projectId={projectId}
 				branchRef={branchRef}
 				branchName={branchName}
+				remote={null}
 				renderHunk={(change, hunk, patch) => (
 					<Hunk
 						patch={patch}

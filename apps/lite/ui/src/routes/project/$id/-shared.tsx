@@ -1,4 +1,5 @@
 import {
+	branchDetailsQueryOptions,
 	branchDiffQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	treeChangeDiffsQueryOptions,
@@ -208,15 +209,19 @@ export const ShowBranch: FC<{
 	projectId: string;
 	branchRef: string;
 	branchName: string;
+	remote: string | null;
 	renderHunk: (change: TreeChange, hunk: DiffHunk, patch: Patch) => ReactNode;
-}> = ({ projectId, branchRef, branchName, renderHunk }) => {
+}> = ({ projectId, branchRef, branchName, remote, renderHunk }) => {
+	const { data: branchDetails } = useSuspenseQuery(
+		branchDetailsQueryOptions({ projectId, branchName, remote }),
+	);
 	const { data: branchDiff } = useSuspenseQuery(
 		branchDiffQueryOptions({ projectId, branch: branchRef }),
 	);
 
 	return (
 		<>
-			<h3>{branchName}</h3>
+			<h3>{branchDetails.name}</h3>
 			{branchDiff.changes.length === 0 ? (
 				<div>No file changes.</div>
 			) : (
