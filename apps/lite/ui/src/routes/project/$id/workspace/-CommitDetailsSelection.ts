@@ -1,5 +1,5 @@
+import { type ShortcutBinding } from "#ui/shortcuts.ts";
 import { type RefInfo } from "@gitbutler/but-sdk";
-import { Match } from "effect";
 
 export type CommitDetailsSelection = {
 	stackId: string;
@@ -60,20 +60,25 @@ export const getAdjacentCommitDetailsPath = ({
 
 type CommitDetailsSelectionAction = { _tag: "Move"; offset: -1 | 1 } | { _tag: "Close" };
 
-export const getCommitDetailsSelectionAction = (
-	event: KeyboardEvent,
-): CommitDetailsSelectionAction | null =>
-	Match.value(event.key).pipe(
-		Match.whenOr("ArrowUp", "k", (): CommitDetailsSelectionAction | null => ({
-			_tag: "Move",
-			offset: -1,
-		})),
-		Match.whenOr("ArrowDown", "j", (): CommitDetailsSelectionAction | null => ({
-			_tag: "Move",
-			offset: 1,
-		})),
-		Match.whenOr("ArrowLeft", "Escape", (): CommitDetailsSelectionAction | null =>
-			!event.repeat ? { _tag: "Close" } : null,
-		),
-		Match.orElse((): CommitDetailsSelectionAction | null => null),
-	);
+export const commitDetailsSelectionBindings: Array<ShortcutBinding<CommitDetailsSelectionAction>> =
+	[
+		{
+			id: "details-move-up",
+			description: "up",
+			keys: ["ArrowUp", "k"],
+			action: { _tag: "Move", offset: -1 },
+		},
+		{
+			id: "details-move-down",
+			description: "down",
+			keys: ["ArrowDown", "j"],
+			action: { _tag: "Move", offset: 1 },
+		},
+		{
+			id: "details-close",
+			description: "close",
+			keys: ["ArrowLeft", "Escape"],
+			action: { _tag: "Close" },
+			repeat: false,
+		},
+	];

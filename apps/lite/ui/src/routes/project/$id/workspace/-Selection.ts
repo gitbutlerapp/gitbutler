@@ -1,5 +1,5 @@
-import { Match } from "effect";
 import { getSegmentBranchRef } from "#ui/domain/RefInfo.ts";
+import { type ShortcutBinding } from "#ui/shortcuts.ts";
 import { type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
 import {
 	changesDetailsItem,
@@ -137,55 +137,67 @@ type CommitSelectionAction =
 	| { _tag: "EditCommitMessage" }
 	| { _tag: "ExpandCommit" };
 
-const getSharedSelectionAction = (event: KeyboardEvent): SharedSelectionAction | null =>
-	Match.value(event.key).pipe(
-		Match.whenOr(
-			"ArrowUp",
-			"k",
-			(): SharedSelectionAction => ({
-				_tag: "Move",
-				offset: -1,
-			}),
-		),
-		Match.whenOr(
-			"ArrowDown",
-			"j",
-			(): SharedSelectionAction => ({
-				_tag: "Move",
-				offset: 1,
-			}),
-		),
-		Match.when("J", (): SharedSelectionAction => ({ _tag: "MoveRootDown" })),
-		Match.when("K", (): SharedSelectionAction => ({ _tag: "MoveRootUp" })),
-		Match.orElse((): SharedSelectionAction | null => null),
-	);
+const createSharedSelectionBindings = <Context>(): Array<
+	ShortcutBinding<SharedSelectionAction, Context>
+> => [
+	{
+		id: "move-up",
+		description: "up",
+		keys: ["ArrowUp", "k"],
+		action: { _tag: "Move", offset: -1 },
+	},
+	{
+		id: "move-down",
+		description: "down",
+		keys: ["ArrowDown", "j"],
+		action: { _tag: "Move", offset: 1 },
+	},
+	{
+		id: "move-root-down",
+		description: "next section",
+		keys: ["J"],
+		action: { _tag: "MoveRootDown" },
+	},
+	{
+		id: "move-root-up",
+		description: "previous section",
+		keys: ["K"],
+		action: { _tag: "MoveRootUp" },
+	},
+];
 
-export const getChangesSelectionAction = (
-	selection: ChangesItem,
-	event: KeyboardEvent,
-): ChangesSelectionAction | null =>
-	getSharedSelectionAction(event) ??
-	Match.value(event.key).pipe(
-		Match.when("ArrowLeft", (): ChangesSelectionAction | null =>
-			selection.mode._tag === "Details" && !event.repeat ? { _tag: "MoveRootUp" } : null,
-		),
-		Match.orElse((): ChangesSelectionAction | null => null),
-	);
+export const changesSelectionBindings: Array<ShortcutBinding<ChangesSelectionAction, ChangesItem>> =
+	[
+		...createSharedSelectionBindings<ChangesItem>(),
+		{
+			id: "changes-previous-section",
+			description: "previous section",
+			keys: ["ArrowLeft"],
+			action: { _tag: "MoveRootUp" },
+			repeat: false,
+			when: (selection) => selection.mode._tag === "Details",
+		},
+	];
 
-export const getSegmentSelectionAction = (event: KeyboardEvent): SegmentSelectionAction | null =>
-	getSharedSelectionAction(event);
+export const segmentSelectionBindings: Array<ShortcutBinding<SegmentSelectionAction>> =
+	createSharedSelectionBindings<void>();
 
-export const getCommitSelectionAction = (
-	selection: CommitItem,
-	event: KeyboardEvent,
-): CommitSelectionAction | null =>
-	getSharedSelectionAction(event) ??
-	Match.value(event.key).pipe(
-		Match.when("Enter", (): CommitSelectionAction | null =>
-			selection.mode._tag === "Summary" && !event.repeat ? { _tag: "EditCommitMessage" } : null,
-		),
-		Match.when("ArrowRight", (): CommitSelectionAction | null =>
-			selection.mode._tag === "Summary" && !event.repeat ? { _tag: "ExpandCommit" } : null,
-		),
-		Match.orElse((): CommitSelectionAction | null => null),
-	);
+export const commitSelectionBindings: Array<ShortcutBinding<CommitSelectionAction, CommitItem>> = [
+	...createSharedSelectionBindings<CommitItem>(),
+	{
+		id: "commit-edit-message",
+		description: "edit message",
+		keys: ["Enter"],
+		action: { _tag: "EditCommitMessage" },
+		repeat: false,
+		when: (selection) => selection.mode._tag === "Summary",
+	},
+	{
+		id: "commit-expand",
+		description: "details",
+		keys: ["ArrowRight"],
+		action: { _tag: "ExpandCommit" },
+		repeat: false,
+		when: (selection) => selection.mode._tag === "Summary",
+	},
+];

@@ -92,8 +92,8 @@ import sharedStyles from "../-shared.module.css";
 import {
 	getAdjacentCommitDetailsPath,
 	getCommitDetailsForCommit,
-	getCommitDetailsSelectionAction,
 	normalizeCommitDetailsSelection,
+	commitDetailsSelectionBindings,
 	type CommitDetailsSelection,
 } from "./-CommitDetailsSelection.ts";
 import {
@@ -108,14 +108,15 @@ import {
 } from "./-Item.ts";
 import {
 	buildNavigationModel,
-	getChangesSelectionAction,
 	getAdjacentLinearItem,
 	getAdjacentRootItem,
-	getCommitSelectionAction,
-	getSegmentSelectionAction,
+	changesSelectionBindings,
+	commitSelectionBindings,
+	segmentSelectionBindings,
 	SharedSelectionAction,
 } from "./-Selection.ts";
 import styles from "./route.module.css";
+import { getShortcutAction } from "#ui/shortcuts.ts";
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 const decodeRefName = (fullNameBytes: Array<number>): string =>
@@ -217,7 +218,7 @@ const useSelectionKeyboardShortcuts = ({
 
 		Match.value(selection).pipe(
 			Match.tag("Changes", (selection) => {
-				const action = getChangesSelectionAction(selection, event);
+				const action = getShortcutAction(changesSelectionBindings, selection, event);
 				if (!action) return;
 
 				event.preventDefault();
@@ -231,7 +232,7 @@ const useSelectionKeyboardShortcuts = ({
 				);
 			}),
 			Match.tag("Segment", () => {
-				const action = getSegmentSelectionAction(event);
+				const action = getShortcutAction(segmentSelectionBindings, undefined, event);
 				if (!action) return;
 
 				event.preventDefault();
@@ -239,7 +240,7 @@ const useSelectionKeyboardShortcuts = ({
 				handleSharedAction(action);
 			}),
 			Match.tag("Commit", (selection) => {
-				const action = getCommitSelectionAction(selection, event);
+				const action = getShortcutAction(commitSelectionBindings, selection, event);
 				if (!action) return;
 
 				event.preventDefault();
@@ -310,7 +311,7 @@ const CommitDetails: FC<{
 		if (event.metaKey || event.ctrlKey || event.altKey) return;
 		if (isTypingTarget(event.target)) return;
 
-		const action = getCommitDetailsSelectionAction(event);
+		const action = getShortcutAction(commitDetailsSelectionBindings, undefined, event);
 		if (!action) return;
 
 		Match.value(action).pipe(

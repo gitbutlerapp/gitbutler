@@ -1,10 +1,11 @@
 import { Dialog } from "@base-ui/react";
+import { Match } from "effect";
 import { FC, ReactNode, useEffect, useEffectEvent } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import useLocalStorageState from "use-local-storage-state";
 import uiStyles from "#ui/ui.module.css";
 import { usePreviewVisible } from "#ui/hooks/usePreviewVisible.ts";
-import { shortcutKeys } from "#ui/shortcuts.ts";
+import { getShortcutAction, globalShortcutBindings, shortcutKeys } from "#ui/shortcuts.ts";
 import { isTypingTarget } from "./-shared.tsx";
 import sharedStyles from "./-shared.module.css";
 
@@ -24,20 +25,20 @@ export const ProjectPreviewLayout: FC<{
 	});
 
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
-		if (event.defaultPrevented || event.repeat) return;
+		if (event.defaultPrevented) return;
 		if (event.metaKey || event.ctrlKey || event.altKey) return;
 		if (isTypingTarget(event.target)) return;
 
-		switch (event.key.toLowerCase()) {
-			case shortcutKeys.togglePreview:
-				event.preventDefault();
-				setShowPreviewPanel((x) => !x);
-				break;
-			case shortcutKeys.toggleFullscreenPreview:
-				event.preventDefault();
-				setShowPreviewFullscreen((x) => !x);
-				break;
-		}
+		const action = getShortcutAction(globalShortcutBindings, undefined, event);
+		if (!action) return;
+
+		event.preventDefault();
+
+		Match.value(action).pipe(
+			Match.tag("TogglePreview", () => setShowPreviewPanel((x) => !x)),
+			Match.tag("ToggleFullscreenPreview", () => setShowPreviewFullscreen((x) => !x)),
+			Match.exhaustive,
+		);
 	});
 
 	useEffect(() => {
