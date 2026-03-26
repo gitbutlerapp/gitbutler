@@ -47,6 +47,11 @@ const isValidCommit = (commitId: string, branchDetails: BranchDetails): boolean 
 	return commitIds.has(commitId);
 };
 
+const getRemote = (branch: BranchListing) => {
+	if (branch.hasLocal) return null;
+	return branch.remotes[0] ?? null;
+};
+
 const getBranchRef = (branch: BranchListing): string | null => {
 	if (branch.hasLocal) return `refs/heads/${branch.name}`;
 	const remote = branch.remotes[0];
@@ -492,8 +497,7 @@ const ProjectBranchesPage: FC = () => {
 		(_selection ? normalizeBranchSelection(_selection, sortedBranches) : null) ??
 		getDefaultSelection(sortedBranches);
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
-	const selectedRemote =
-		selectedBranch && !selectedBranch.hasLocal ? selectedBranch.remotes[0] : null;
+	const selectedRemote = selectedBranch ? getRemote(selectedBranch) : null;
 
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
 		if (event.defaultPrevented || event.repeat) return;
