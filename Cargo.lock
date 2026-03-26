@@ -1649,7 +1649,6 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-hunk-assignment",
- "but-hunk-dependency",
  "but-serde",
  "but-workspace",
  "gitbutler-branch",

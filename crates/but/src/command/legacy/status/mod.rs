@@ -26,7 +26,7 @@ use crate::{
     id::{SegmentWithId, ShortId, StackWithId, TreeChangeWithId},
     tui::text::truncate_text,
     utils::{
-        OutputChannel, WriteWithUtils, shorten_hex_object_id, shorten_object_id, split_short_id,
+        OutputChannel, WriteWithUtils, shorten_hex_object_id, shorten_object_id,
         time::format_relative_time_verbose,
     },
 };
@@ -755,34 +755,7 @@ fn print_assignments(
             "uncommitted file",
         )?;
 
-        let lock_items: Vec<(String, String)> = fa
-            .assignments
-            .iter()
-            .flat_map(|a| a.inner.hunk_locks.iter())
-            .flatten()
-            .map(|l| l.commit_id.to_string())
-            .collect::<std::collections::BTreeSet<_>>()
-            .into_iter()
-            .map(|commit_id| {
-                let short_id = shorten_hex_object_id(repo, &commit_id);
-                let (lead, rest) = split_short_id(&short_id, 2);
-                (lead.to_string(), rest.to_string())
-            })
-            .collect();
-
-        let mut lock_spans: Vec<Span<'static>> = Vec::new();
-        if !lock_items.is_empty() {
-            lock_spans.push(Span::raw("🔒 "));
-            for (i, (lead, rest)) in lock_items.into_iter().enumerate() {
-                if i > 0 {
-                    lock_spans.push(Span::raw(", "));
-                }
-                lock_spans.push(Span::styled(lead, Style::default().blue().bold()));
-                lock_spans.push(Span::styled(rest, Style::default().blue()));
-            }
-        }
-
-        let mut file_line = Vec::from([
+        let file_line = Vec::from([
             Span::raw(id_padding.clone()),
             Span::styled(cli_id.to_string(), Style::default().bold().blue()),
             Span::raw(" "),
@@ -790,10 +763,6 @@ fn print_assignments(
             Span::raw(" "),
             path,
         ]);
-        if !lock_spans.is_empty() {
-            file_line.push(Span::raw(" "));
-            file_line.extend(lock_spans);
-        }
 
         if unstaged {
             output.unstaged_file(Vec::from([Span::raw("┊   ")]), file_line, file_cli_id)?;

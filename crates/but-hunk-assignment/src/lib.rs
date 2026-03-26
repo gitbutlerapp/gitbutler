@@ -18,7 +18,7 @@ use anyhow::Result;
 use bstr::{BString, ByteSlice};
 use but_core::{DiffSpec, HunkHeader, TreeChange, UnifiedPatch, ref_metadata::StackId};
 use but_db::{HunkAssignmentsHandle, HunkAssignmentsHandleMut};
-use but_hunk_dependency::ui::{HunkDependencies, HunkLock};
+use but_hunk_dependency::ui::HunkDependencies;
 use gix::ObjectId;
 use reconcile::MultipleOverlapping;
 use serde::{Deserialize, Serialize};
@@ -59,10 +59,6 @@ pub struct HunkAssignment {
         schemars(schema_with = "but_schemars::stack_id_opt")
     )]
     pub stack_id: Option<StackId>,
-    /// The dependencies(locks) that this hunk has. This determines where the hunk can be assigned.
-    /// This field is ignored when HunkAssignment is passed by the UI to create a new assignment.
-    #[serde(skip)]
-    pub hunk_locks: Option<Vec<HunkLock>>,
     /// The line numbers that were added in this hunk.
     pub line_nums_added: Option<Vec<usize>>,
     /// The line numbers that were removed in this hunk.
@@ -98,7 +94,6 @@ impl TryFrom<but_db::HunkAssignment> for HunkAssignment {
             path: value.path,
             path_bytes: value.path_bytes.into(),
             stack_id,
-            hunk_locks: None,
             line_nums_added: None,   // derived data (not persisted)
             line_nums_removed: None, // derived data (not persisted)
             diff: None,              // derived data (not persisted)
@@ -518,7 +513,6 @@ fn diff_to_assignments(diff: Option<UnifiedPatch>, path: BString) -> Vec<HunkAss
                 path: path_str.into(),
                 path_bytes: path,
                 stack_id: None,
-                hunk_locks: None,
                 line_nums_added: None,
                 line_nums_removed: None,
                 diff: None,
@@ -529,7 +523,6 @@ fn diff_to_assignments(diff: Option<UnifiedPatch>, path: BString) -> Vec<HunkAss
                 path: path_str.into(),
                 path_bytes: path,
                 stack_id: None,
-                hunk_locks: None,
                 line_nums_added: None,
                 line_nums_removed: None,
                 diff: None,
@@ -547,7 +540,6 @@ fn diff_to_assignments(diff: Option<UnifiedPatch>, path: BString) -> Vec<HunkAss
                         path: path_str.into(),
                         path_bytes: path,
                         stack_id: None,
-                        hunk_locks: None,
                         line_nums_added: None,
                         line_nums_removed: None,
                         diff: None,
@@ -564,7 +556,6 @@ fn diff_to_assignments(diff: Option<UnifiedPatch>, path: BString) -> Vec<HunkAss
                                 path: path_str.clone().into(),
                                 path_bytes: path.clone(),
                                 stack_id: None,
-                                hunk_locks: None,
                                 line_nums_added: Some(line_nums_added_new),
                                 line_nums_removed: Some(line_nums_removed_old),
                                 diff: Some(hunk.diff.clone()),
@@ -581,7 +572,6 @@ fn diff_to_assignments(diff: Option<UnifiedPatch>, path: BString) -> Vec<HunkAss
             path: path_str.into(),
             path_bytes: path.clone(),
             stack_id: None,
-            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,
@@ -641,7 +631,6 @@ fn requests_to_assignments(request: Vec<HunkAssignmentRequest>) -> Vec<HunkAssig
             path: req.path_bytes.to_str_lossy().into(),
             path_bytes: req.path_bytes,
             stack_id: req.stack_id,
-            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,
@@ -751,7 +740,6 @@ mod tests {
                 path: path.to_string(),
                 path_bytes: BString::from(path),
                 stack_id: stack_id.map(stack_id_seq),
-                hunk_locks: None,
                 line_nums_added: None,
                 line_nums_removed: None,
                 diff: None,
@@ -794,7 +782,6 @@ mod tests {
             && a.path == b.path
             && a.path_bytes == b.path_bytes
             && a.stack_id == b.stack_id
-            && a.hunk_locks == b.hunk_locks
     }
     fn assert_eq(a: Vec<HunkAssignment>, b: Vec<HunkAssignment>) {
         assert!(
@@ -963,7 +950,6 @@ mod tests {
             path: "image.png".to_string(),
             path_bytes: BString::from("image.png"),
             stack_id: Some(stack_id_seq(1)),
-            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,
@@ -975,7 +961,6 @@ mod tests {
             path: "image.png".to_string(),
             path_bytes: BString::from("image.png"),
             stack_id: None,
-            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,
@@ -1002,7 +987,6 @@ mod tests {
             path: "file.txt".to_string(),
             path_bytes: BString::from("file.txt"),
             stack_id: None,
-            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,
@@ -1027,7 +1011,6 @@ mod tests {
             path: "image1.png".to_string(),
             path_bytes: BString::from("image1.png"),
             stack_id: Some(stack_id_seq(1)),
-            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,
@@ -1039,7 +1022,6 @@ mod tests {
             path: "image2.png".to_string(),
             path_bytes: BString::from("image2.png"),
             stack_id: None,
-            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,
@@ -1064,7 +1046,6 @@ mod tests {
                 path: "logo.png".to_string(),
                 path_bytes: BString::from("logo.png"),
                 stack_id: Some(stack_id_seq(1)),
-                hunk_locks: None,
                 line_nums_added: None,
                 line_nums_removed: None,
                 diff: None,
@@ -1081,7 +1062,6 @@ mod tests {
                 path: "logo.png".to_string(),
                 path_bytes: BString::from("logo.png"),
                 stack_id: None,
-                hunk_locks: None,
                 line_nums_added: None,
                 line_nums_removed: None,
                 diff: None,
@@ -1128,7 +1108,6 @@ mod tests {
             path: "data.file".to_string(),
             path_bytes: BString::from("data.file"),
             stack_id: None,
-            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,

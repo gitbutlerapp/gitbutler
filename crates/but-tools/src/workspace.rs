@@ -1352,8 +1352,6 @@ pub struct RichHunk {
     pub diff: String,
     /// The stack ID this hunk is assigned to, if any.
     pub assigned_to_stack: Option<but_core::ref_metadata::StackId>,
-    /// The locks this hunk has, if any.
-    pub dependency_locks: Vec<but_hunk_dependency::ui::HunkLock>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -1593,20 +1591,13 @@ fn get_file_changes(
                             .find(|a| {
                                 a.path_bytes == change.path && a.hunk_header == Some(hunk.into())
                             })
-                            .map(|a| (a.stack_id, a.hunk_locks.clone()));
+                            .map(|a| a.stack_id);
 
-                        let (assigned_to_stack, dependency_locks) =
-                            if let Some((stack_id, locks)) = assignment {
-                                let locks = locks.unwrap_or_default();
-                                (stack_id, locks)
-                            } else {
-                                (None, vec![])
-                            };
+                        let assigned_to_stack = assignment.flatten();
 
                         RichHunk {
                             diff,
                             assigned_to_stack,
-                            dependency_locks,
                         }
                     })
                     .collect::<Vec<_>>();
