@@ -11,7 +11,12 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import { classes } from "#ui/classes.ts";
-import { DependencyIcon, ExpandCollapseIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
+import {
+	DependencyIcon,
+	ExpandCollapseIcon,
+	MenuTriggerIcon,
+	PushIcon,
+} from "#ui/components/icons.tsx";
 import { rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx";
 import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
 import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
@@ -1355,6 +1360,14 @@ const SegmentRow: FC<{
 				}}
 			>
 				{segment.refName?.displayName ?? "Untitled"}
+			</button>
+			<button
+				type="button"
+				className={sharedStyles.rowAction}
+				aria-label="Push branch"
+				disabled
+			>
+				<PushIcon />
 			</button>
 		</div>
 	);

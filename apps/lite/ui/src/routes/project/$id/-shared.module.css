@@ -58,6 +58,10 @@
 	.row.selected & {
 		visibility: visible;
 	}
+
+	&:disabled {
+		opacity: 0.5;
+	}
 }
 
 .commitDetails {
