@@ -130,7 +130,7 @@ minus = { git = "https://github.com/arijit79/minus", rev = "57f1848f831d153a10d6
 ] }
 unicode-width = "0.2"
 cfg-if = "1.0.4"
-ratatui.workspace = true
+ratatui = { workspace = true, features = ["unstable-rendered-line-info", "palette"] }
 crossterm.workspace = true
 sha2.workspace = true
 machine-uid = "0.5.4"

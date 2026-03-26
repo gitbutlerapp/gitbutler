@@ -1,12 +1,23 @@
-use std::iter::{once, repeat_n};
+use std::{
+    collections::BTreeMap,
+    iter::{once, repeat_n},
+    sync::LazyLock,
+};
 
-use bstr::ByteSlice;
-use but_core::{TreeChange, TreeStatus, UnifiedPatch, unified_diff::DiffHunk};
+use bstr::{BStr, ByteSlice};
+use but_core::{
+    UnifiedPatch,
+    ui::{TreeChange, TreeStatus},
+    unified_diff::DiffHunk,
+};
 use but_ctx::{Context, OnDemand};
+use but_hunk_assignment::HunkAssignment;
+use gitbutler_stack::StackId;
 use gix::actor::Signature;
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
+    palette::Hsl,
     style::{Color, Style, Stylize},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Widget},
@@ -24,29 +35,34 @@ use crate::{
         CommandMessage, CommitMessage, DebugType, FilesMessage, Message, MoveMessage,
         RewordMessage, RubMessage,
     },
+    id::UncommittedCliId,
 };
 
 use super::BranchMessage;
 
-// colors from delta
-const MINUS_BG: Color = Color::Rgb(0x3f, 0x00, 0x01);
-const MINUS_EMPH_BG: Color = Color::Rgb(0x90, 0x10, 0x11);
-const PLUS_BG: Color = Color::Rgb(0x00, 0x28, 0x00);
-const PLUS_EMPH_BG: Color = Color::Rgb(0x00, 0x60, 0x00);
+// we don't currently compute word level diffs so MINUS_EMPH_BG and PLUS_EMPH_BG aren't used (in
+// the diff lines themselves). Without that MINUS_BG and PLUS_BG are a little too hard to see, so
+// this adjustment is applied to make them more clear.
+const LIGHTNESS_ADJUSTMENT: f32 = 0.05;
+
+// colors from delta with slight adjustment
+static MINUS_BG: LazyLock<Color> =
+    LazyLock::new(|| Color::from_hsl(Hsl::new(-0.952, 1.0, 0.123 + LIGHTNESS_ADJUSTMENT)));
+static PLUS_BG: LazyLock<Color> =
+    LazyLock::new(|| Color::from_hsl(Hsl::new(120.0, 1.0, 0.078 + LIGHTNESS_ADJUSTMENT)));
+
+static MINUS_EMPH_BG: LazyLock<Color> =
+    LazyLock::new(|| Color::from_hsl(Hsl::new(-0.468, 0.8, 0.313)));
+static PLUS_EMPH_BG: LazyLock<Color> =
+    LazyLock::new(|| Color::from_hsl(Hsl::new(120.0, 1.0, 0.188)));
 
 const MONOKAI_THEME: &[u8] =
     include_bytes!("../../../../../assets/syntax-highlighting-themes/Monokai Extended.tmTheme");
 
 const _TODOS: () = {
-    // - show diffs for all kinds of cli ids
     // - show and hide details
-    // - show short ids for hunks
     // - escape closes things in the right order
-    // - general clean up
-    //
-    // FUTURE
-    // - can we cache DiffWidget?
-    // - can we render the diff incrementally or on a separate thread?
+    // - scroll bar
     let todo_ = ();
 };
 
@@ -62,7 +78,7 @@ pub(super) struct Details {
 impl Default for Details {
     fn default() -> Self {
         Self {
-            is_dirty: Default::default(),
+            is_dirty: true,
             widget: Default::default(),
             scroll_top: Default::default(),
             syntax_set: OnDemand::new(|| Ok(SyntaxSet::load_defaults_newlines())).into(),
@@ -194,14 +210,44 @@ impl Details {
                 &*self.syntax_set.get()?,
                 &*self.dark_theme.get()?,
             )?,
-            CliId::Uncommitted(..)
-            | CliId::PathPrefix { .. }
-            | CliId::CommittedFile { .. }
-            | CliId::Branch { .. }
-            | CliId::Unassigned { .. }
-            | CliId::Stack { .. } => {
-                return Ok(None);
-            }
+            CliId::Branch { name, .. } => DetailsAndDiffWidget::from_branch(
+                ctx,
+                name.to_owned(),
+                &*self.syntax_set.get()?,
+                &*self.dark_theme.get()?,
+            )?,
+            CliId::Uncommitted(uncommitted) => DetailsAndDiffWidget::from_uncommitted(
+                uncommitted,
+                &*self.syntax_set.get()?,
+                &*self.dark_theme.get()?,
+            )?,
+            CliId::Unassigned { .. } => DetailsAndDiffWidget::from_unassigned(
+                ctx,
+                &*self.syntax_set.get()?,
+                &*self.dark_theme.get()?,
+            )?,
+            CliId::CommittedFile {
+                commit_id, path, ..
+            } => DetailsAndDiffWidget::from_committed_file(
+                ctx,
+                *commit_id,
+                path.as_ref(),
+                &*self.syntax_set.get()?,
+                &*self.dark_theme.get()?,
+            )?,
+            CliId::Stack { stack_id, .. } => DetailsAndDiffWidget::from_stack(
+                ctx,
+                *stack_id,
+                &*self.syntax_set.get()?,
+                &*self.dark_theme.get()?,
+            )?,
+            CliId::PathPrefix {
+                hunk_assignments, ..
+            } => DetailsAndDiffWidget::from_path_prefix(
+                hunk_assignments,
+                &*self.syntax_set.get()?,
+                &*self.dark_theme.get()?,
+            )?,
         }))
     }
 
@@ -222,10 +268,15 @@ impl Details {
 }
 
 #[derive(Debug)]
-struct DetailsAndDiffWidget {
-    header_items: Vec<ListItem<'static>>,
-    message: String,
-    diff_line_items: Vec<ListItem<'static>>,
+enum DetailsAndDiffWidget {
+    FromCommit {
+        header_items: Vec<ListItem<'static>>,
+        message: String,
+        diff_line_items: Vec<ListItem<'static>>,
+    },
+    FromDiffLines {
+        diff_line_items: Vec<ListItem<'static>>,
+    },
 }
 
 impl DetailsAndDiffWidget {
@@ -255,20 +306,176 @@ impl DetailsAndDiffWidget {
 
         let message = commit_details.commit.message.to_string();
 
+        let tree_changes = commit_details
+            .diff_with_first_parent
+            .iter()
+            .map(|change| TreeChange::from(change.clone()))
+            .collect::<Vec<_>>();
+
         let mut diff_line_items = Vec::new();
-        render_diff_line_items(
+        render_tree_changes(ctx, &tree_changes, syntax_set, theme, &mut diff_line_items);
+
+        Ok(DetailsAndDiffWidget::FromCommit {
+            header_items,
+            message,
+            diff_line_items,
+        })
+    }
+
+    fn from_committed_file(
+        ctx: &mut Context,
+        commit_id: gix::ObjectId,
+        path: &BStr,
+        syntax_set: &SyntaxSet,
+        theme: &Theme,
+    ) -> anyhow::Result<Self> {
+        let commit_details =
+            but_api::diff::commit_details(ctx, commit_id, but_api::diff::ComputeLineStats::No)?;
+
+        let tree_changes = commit_details
+            .diff_with_first_parent
+            .iter()
+            .filter(|change| change.path == path)
+            .map(|change| TreeChange::from(change.clone()))
+            .collect::<Vec<_>>();
+
+        let mut diff_line_items = Vec::new();
+        render_tree_changes(ctx, &tree_changes, syntax_set, theme, &mut diff_line_items);
+
+        Ok(DetailsAndDiffWidget::FromDiffLines { diff_line_items })
+    }
+
+    fn from_branch(
+        ctx: &mut Context,
+        name: String,
+        syntax_set: &SyntaxSet,
+        theme: &Theme,
+    ) -> anyhow::Result<Self> {
+        let tree_changes = but_api::branch::branch_diff(ctx, name)?;
+
+        let mut diff_line_items = Vec::new();
+        render_tree_changes(
             ctx,
-            &commit_details.diff_with_first_parent,
+            &tree_changes.changes,
             syntax_set,
             theme,
             &mut diff_line_items,
         );
 
-        Ok(DetailsAndDiffWidget {
-            header_items,
-            message,
-            diff_line_items,
-        })
+        Ok(DetailsAndDiffWidget::FromDiffLines { diff_line_items })
+    }
+
+    fn from_uncommitted(
+        uncommitted: &UncommittedCliId,
+        syntax_set: &SyntaxSet,
+        theme: &Theme,
+    ) -> anyhow::Result<Self> {
+        let mut diff_line_items = Vec::new();
+
+        // the path is the same for all hunks so only show that once
+        let first_hunk = uncommitted.hunk_assignments.first();
+        render_hunk_path_header(
+            first_hunk.path_bytes.as_ref(),
+            Some(ShortIdOrTreeStatus::ShortId(&uncommitted.id)),
+            &mut diff_line_items,
+        );
+
+        let mut hunk_assignments_iter = uncommitted.hunk_assignments.iter().peekable();
+        while let Some(hunk_assignment) = hunk_assignments_iter.next() {
+            render_hunk_assignment(hunk_assignment, syntax_set, theme, &mut diff_line_items);
+
+            if hunk_assignments_iter.peek().is_some() {
+                diff_line_items.push(ListItem::new(""));
+            }
+        }
+
+        Ok(DetailsAndDiffWidget::FromDiffLines { diff_line_items })
+    }
+
+    fn from_unassigned(
+        ctx: &mut Context,
+        syntax_set: &SyntaxSet,
+        theme: &Theme,
+    ) -> anyhow::Result<Self> {
+        let context_lines = ctx.settings.context_lines;
+        let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+        let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
+        let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
+            db.hunk_assignments_mut()?,
+            &repo,
+            &ws,
+            Some(changes),
+            context_lines,
+        )?;
+        let hunk_assignments = assignments
+            .iter()
+            .filter(|assignment| assignment.stack_id.is_none());
+
+        let mut diff_line_items = Vec::new();
+        group_and_render_hunk_assignments(
+            hunk_assignments,
+            &mut diff_line_items,
+            syntax_set,
+            theme,
+        );
+
+        Ok(DetailsAndDiffWidget::FromDiffLines { diff_line_items })
+    }
+
+    fn from_stack(
+        ctx: &mut Context,
+        stack: StackId,
+        syntax_set: &SyntaxSet,
+        theme: &Theme,
+    ) -> anyhow::Result<Self> {
+        let context_lines = ctx.settings.context_lines;
+        let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+        let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
+        let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
+            db.hunk_assignments_mut()?,
+            &repo,
+            &ws,
+            Some(changes),
+            context_lines,
+        )?;
+        let hunk_assignments = assignments
+            .iter()
+            .filter(|assignment| assignment.stack_id.is_some_and(|s| s == stack));
+
+        let mut diff_line_items = Vec::new();
+        group_and_render_hunk_assignments(
+            hunk_assignments,
+            &mut diff_line_items,
+            syntax_set,
+            theme,
+        );
+
+        Ok(DetailsAndDiffWidget::FromDiffLines { diff_line_items })
+    }
+
+    fn from_path_prefix<'a>(
+        hunk_assignments: impl IntoIterator<Item = &'a (String, HunkAssignment)>,
+        syntax_set: &SyntaxSet,
+        theme: &Theme,
+    ) -> anyhow::Result<Self> {
+        let mut diff_line_items = Vec::new();
+
+        let mut hunk_assignments_iter = hunk_assignments.into_iter().peekable();
+        while let Some((id, hunk_assignment)) = hunk_assignments_iter.next() {
+            render_hunk_path_header(
+                hunk_assignment.path_bytes.as_ref(),
+                Some(ShortIdOrTreeStatus::ShortId(id)),
+                &mut diff_line_items,
+            );
+
+            render_hunk_assignment(hunk_assignment, syntax_set, theme, &mut diff_line_items);
+
+            if hunk_assignments_iter.peek().is_some() {
+                diff_line_items.push(ListItem::new(""));
+            }
+        }
+
+        Ok(DetailsAndDiffWidget::FromDiffLines { diff_line_items })
     }
 
     fn total_rows(&self, width: u16) -> usize {
@@ -277,42 +484,125 @@ impl DetailsAndDiffWidget {
 
     fn render(&self, scroll_top: usize, area: Rect, buf: &mut Frame) {
         let items = self.items_for_width(area.width).skip(scroll_top);
-
         List::new(items).render(area, buf.buffer_mut());
     }
 
     fn items_for_width(&self, width: u16) -> impl Iterator<Item = ListItem<'static>> {
         let width = usize::from(width).max(1);
 
-        self.header_items
-            .clone()
-            .into_iter()
-            .chain(once(ListItem::new("")))
-            .chain(
-                textwrap::wrap(&self.message, textwrap::Options::new(width))
+        match self {
+            DetailsAndDiffWidget::FromCommit {
+                header_items,
+                message,
+                diff_line_items,
+            } => {
+                let iter = header_items
+                    .clone()
                     .into_iter()
-                    .map(|line| ListItem::new(line.into_owned())),
-            )
-            .chain(once(ListItem::new("")))
-            .chain(self.diff_line_items.clone())
+                    .chain([ListItem::new("")])
+                    .chain(
+                        textwrap::wrap(message, textwrap::Options::new(width))
+                            .into_iter()
+                            .map(|line| ListItem::new(line.into_owned())),
+                    )
+                    .chain([ListItem::new("")])
+                    .chain(diff_line_items.clone());
+                itertools::Either::Left(iter)
+            }
+            DetailsAndDiffWidget::FromDiffLines { diff_line_items } => {
+                itertools::Either::Right(diff_line_items.clone().into_iter())
+            }
+        }
     }
 }
 
-fn render_diff_line_items(
-    ctx: &mut Context,
-    tree_change: &[TreeChange],
+fn group_and_render_hunk_assignments<'a, I>(
+    hunk_assignments: I,
+    out: &mut Vec<ListItem<'static>>,
+    syntax_set: &SyntaxSet,
+    theme: &Theme,
+) where
+    I: IntoIterator<Item = &'a HunkAssignment>,
+{
+    // group hunks for the same file
+    let mut path_to_hunk_assignments = BTreeMap::<_, Vec<_>>::new();
+    for hunk_assignment in hunk_assignments {
+        path_to_hunk_assignments
+            .entry(&hunk_assignment.path_bytes)
+            .or_default()
+            .push(hunk_assignment);
+    }
+
+    let mut path_to_hunk_assignments_iter = path_to_hunk_assignments.into_iter().peekable();
+    while let Some((path, hunk_assignments)) = path_to_hunk_assignments_iter.next() {
+        render_hunk_path_header(path.as_ref(), None, out);
+
+        let mut hunk_assignments_iter = hunk_assignments.into_iter().peekable();
+        while let Some(hunk_assignment) = hunk_assignments_iter.next() {
+            render_hunk_assignment(hunk_assignment, syntax_set, theme, out);
+
+            if hunk_assignments_iter.peek().is_some() {
+                out.push(ListItem::new(""));
+            }
+        }
+
+        if path_to_hunk_assignments_iter.peek().is_some() {
+            out.push(ListItem::new(""));
+        }
+    }
+}
+
+fn render_hunk_assignment(
+    hunk_assignment: &HunkAssignment,
     syntax_set: &SyntaxSet,
     theme: &Theme,
     out: &mut Vec<ListItem<'static>>,
 ) {
-    for change in tree_change {
-        let status = change_status(&change.status);
-        let path = change.path.to_string();
-        let path_line = Line::from_iter([Span::raw(" "), status, Span::raw(": "), Span::raw(path)]);
-        out.extend(bordered_line_top_right_bottom(path_line).map(ListItem::new));
-        out.push(ListItem::from(""));
+    if let Some(hunk_header) = hunk_assignment.hunk_header {
+        if let Some(diff) = hunk_assignment.diff.clone() {
+            let hunks = Vec::from([DiffHunk {
+                old_start: hunk_header.old_start,
+                old_lines: hunk_header.old_lines,
+                new_start: hunk_header.new_start,
+                new_lines: hunk_header.new_lines,
+                diff,
+            }]);
 
-        if let Some(patch) = but_api::diff::tree_change_diffs(ctx, change.clone().into())
+            let is_result_of_binary_to_text_conversion = false;
+
+            render_unified_patch(
+                hunk_assignment.path_bytes.as_ref(),
+                syntax_set,
+                theme,
+                hunks,
+                is_result_of_binary_to_text_conversion,
+                out,
+            );
+        } else {
+            out.push(ListItem::new("No diff available"));
+        }
+    } else {
+        out.push(ListItem::new(
+            "File is too large or binary - no diff available",
+        ));
+    }
+}
+
+fn render_tree_changes(
+    ctx: &mut Context,
+    tree_changes: &[TreeChange],
+    syntax_set: &SyntaxSet,
+    theme: &Theme,
+    out: &mut Vec<ListItem<'static>>,
+) {
+    for tree_change in tree_changes {
+        render_hunk_path_header(
+            tree_change.path.as_ref(),
+            Some(ShortIdOrTreeStatus::TreeStatus(&tree_change.status)),
+            out,
+        );
+
+        if let Some(patch) = but_api::diff::tree_change_diffs(ctx, tree_change.clone())
             .ok()
             .flatten()
         {
@@ -324,7 +614,7 @@ fn render_diff_line_items(
                     lines_removed: _,
                 } => {
                     render_unified_patch(
-                        change,
+                        tree_change.path.as_ref(),
                         syntax_set,
                         theme,
                         hunks,
@@ -345,6 +635,35 @@ fn render_diff_line_items(
             out.push(ListItem::new(""));
         }
     }
+}
+
+enum ShortIdOrTreeStatus<'a> {
+    ShortId(&'a str),
+    TreeStatus(&'a TreeStatus),
+}
+
+fn render_hunk_path_header(
+    path: &BStr,
+    status: Option<ShortIdOrTreeStatus<'_>>,
+    out: &mut Vec<ListItem<'static>>,
+) {
+    let status = status.map(|id_or_status| match id_or_status {
+        ShortIdOrTreeStatus::ShortId(id) => Span::raw(id.to_owned()).blue(),
+        ShortIdOrTreeStatus::TreeStatus(status) => change_status(status),
+    });
+    let path = path.to_string();
+    let path_line = Line::from_iter(
+        [Span::raw(" ")]
+            .into_iter()
+            .chain(
+                status
+                    .into_iter()
+                    .flat_map(|status| [status, Span::raw(": ")]),
+            )
+            .chain([Span::raw(path)]),
+    );
+    out.extend(bordered_line_top_right_bottom(path_line).map(ListItem::new));
+    out.push(ListItem::from(""));
 }
 
 fn change_status(status: &TreeStatus) -> Span<'static> {
@@ -383,7 +702,7 @@ fn render_signature(sig: &Signature) -> impl IntoIterator<Item = Span<'static>> 
 }
 
 fn render_unified_patch(
-    change: &TreeChange,
+    path: &BStr,
     syntax_set: &SyntaxSet,
     theme: &Theme,
     hunks: Vec<DiffHunk>,
@@ -391,7 +710,7 @@ fn render_unified_patch(
     out: &mut Vec<ListItem<'static>>,
 ) {
     let syntax = {
-        let path = change.path.to_path_lossy();
+        let path = path.to_path_lossy();
         path.extension()
             .and_then(|ext| syntax_set.find_syntax_by_extension(ext.to_str()?))
             .or_else(|| {
@@ -453,13 +772,13 @@ fn render_unified_patch(
                         Span::raw(" ".repeat(old_width as _)),
                         Span::raw(" ┊ ").dim(),
                         Span::raw(" ".repeat((new_width - num_digits(new_line_num)) as _)),
-                        Span::raw(new_line_num.to_string()).fg(PLUS_EMPH_BG),
+                        Span::raw(new_line_num.to_string()).fg(*PLUS_EMPH_BG),
                         Span::raw(" │ ").dim(),
                     ]
                     .into_iter()
                     .chain(syntax_highlight(
                         &code,
-                        Some(PLUS_BG),
+                        Some(*PLUS_BG),
                         &mut highlight_lines,
                         syntax_set,
                     )),
@@ -472,7 +791,7 @@ fn render_unified_patch(
                 let item = ListItem::new(Line::from_iter(
                     [
                         Span::raw(" ".repeat((old_width - num_digits(old_line_num)) as _)),
-                        Span::raw(old_line_num.to_string()).fg(MINUS_EMPH_BG),
+                        Span::raw(old_line_num.to_string()).fg(*MINUS_EMPH_BG),
                         Span::raw(" ┊ ").dim(),
                         Span::raw(" ".repeat(new_width as _)),
                         Span::raw(" │ ").dim(),
@@ -480,7 +799,7 @@ fn render_unified_patch(
                     .into_iter()
                     .chain(syntax_highlight(
                         &code,
-                        Some(MINUS_BG),
+                        Some(*MINUS_BG),
                         &mut highlight_lines,
                         syntax_set,
                     )),
