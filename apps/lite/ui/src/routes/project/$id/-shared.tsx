@@ -210,16 +210,16 @@ export const ShowBranch: FC<{
 	branchName: string;
 	renderHunk: (change: TreeChange, hunk: DiffHunk, patch: Patch) => ReactNode;
 }> = ({ projectId, branch, branchName, renderHunk }) => {
-	const { data } = useSuspenseQuery(branchDiffQueryOptions({ projectId, branch }));
+	const { data: branchDiff } = useSuspenseQuery(branchDiffQueryOptions({ projectId, branch }));
 
 	return (
 		<>
 			<h3>{branchName}</h3>
-			{data.changes.length === 0 ? (
+			{branchDiff.changes.length === 0 ? (
 				<div>No file changes.</div>
 			) : (
 				<ul>
-					{data.changes.map((change) => (
+					{branchDiff.changes.map((change) => (
 						<li key={change.path}>
 							<h4>{change.path}</h4>
 							<FileDiff
