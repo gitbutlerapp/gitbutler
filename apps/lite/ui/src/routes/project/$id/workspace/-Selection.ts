@@ -22,6 +22,76 @@ export type Selection =
 	| ({ _tag: "Segment" } & SegmentSelection)
 	| ({ _tag: "Commit" } & CommitSelection);
 
+export const changesSummarySelection = (stackId: string | null): Selection => ({
+	_tag: "Changes",
+	stackId,
+	mode: { _tag: "Summary" },
+});
+
+export const changesDetailsSelection = (stackId: string | null, path?: string): Selection => ({
+	_tag: "Changes",
+	stackId,
+	mode: { _tag: "Details", path },
+});
+
+export const segmentSelection = ({
+	stackId,
+	segmentIndex,
+	branchName,
+	branchRef,
+}: SegmentSelection): Selection => ({
+	_tag: "Segment",
+	stackId,
+	segmentIndex,
+	branchName,
+	branchRef,
+});
+
+export const commitSummarySelection = ({
+	stackId,
+	segmentIndex,
+	branchName,
+	branchRef,
+	commitId,
+}: Omit<CommitSelection, "mode">): Selection => ({
+	_tag: "Commit",
+	stackId,
+	segmentIndex,
+	branchName,
+	branchRef,
+	commitId,
+	mode: { _tag: "Summary" },
+});
+
+export const commitDetailsSelection = (
+	{ stackId, segmentIndex, branchName, branchRef, commitId }: Omit<CommitSelection, "mode">,
+	path?: string,
+): Selection => ({
+	_tag: "Commit",
+	stackId,
+	segmentIndex,
+	branchName,
+	branchRef,
+	commitId,
+	mode: { _tag: "Details", path },
+});
+
+export const commitEditingMessageSelection = ({
+	stackId,
+	segmentIndex,
+	branchName,
+	branchRef,
+	commitId,
+}: Omit<CommitSelection, "mode">): Selection => ({
+	_tag: "Commit",
+	stackId,
+	segmentIndex,
+	branchName,
+	branchRef,
+	commitId,
+	mode: { _tag: "EditingMessage" },
+});
+
 export const toggleChangesSelection = (
 	selection: Selection | null,
 	stackId: string | null,
