@@ -1335,15 +1335,15 @@ const SegmentC: FC<{
 
 	return (
 		<div className={classes(isSelected && styles.selectedContainer)}>
-			<BranchTarget
-				anchorRef={anchorRef}
-				firstCommitId={segment.commits[0]?.id}
-				render={
-					<DraggableBranch
-						anchorRef={anchorRef}
-						branchName={branchName}
-						render={
-							branchRef !== null ? (
+			{branchRef !== null ? (
+				<BranchTarget
+					anchorRef={anchorRef}
+					firstCommitId={segment.commits[0]?.id}
+					render={
+						<DraggableBranch
+							anchorRef={anchorRef}
+							branchName={branchName}
+							render={
 								<button
 									type="button"
 									className={classes(
@@ -1359,13 +1359,13 @@ const SegmentC: FC<{
 								>
 									{branchName}
 								</button>
-							) : (
-								<div>{branchName}</div>
-							)
-						}
-					/>
-				}
-			/>
+							}
+						/>
+					}
+				/>
+			) : (
+				<div>{branchName}</div>
+			)}
 
 			<CommitsList commits={segment.commits}>
 				{(commit, index) => (
