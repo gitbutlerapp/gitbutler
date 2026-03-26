@@ -102,20 +102,6 @@ export const getParentRootItem = (selection: Item): Item | null =>
 		Match.exhaustive,
 	);
 
-export const getParentItem = (item: Item): Item | null =>
-	Match.value(item).pipe(
-		Match.tag("Commit", (item): Item | null =>
-			item.mode._tag === "Details" && item.mode.path !== undefined
-				? commitSummaryItem(item)
-				: segmentItem(item),
-		),
-		Match.tag("Changes", (item): Item | null =>
-			item.mode._tag === "Details" ? changesSummaryItem(item.stackId) : null,
-		),
-		Match.tag("Segment", () => null),
-		Match.exhaustive,
-	);
-
 export const itemKey = (item: Item): string =>
 	Match.value(item).pipe(
 		Match.tag("Changes", (item) =>
@@ -144,11 +130,6 @@ export const itemKey = (item: Item): string =>
 		),
 		Match.exhaustive,
 	);
-
-export const itemsEqual = (a: Item | null, b: Item | null): boolean => {
-	if (a === null || b === null) return a === b;
-	return itemKey(a) === itemKey(b);
-};
 
 export const normalizeItem = (item: Item, headInfo: RefInfo): Item | null =>
 	Match.value(item).pipe(
