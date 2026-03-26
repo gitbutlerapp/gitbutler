@@ -191,9 +191,9 @@ impl DiffDisplay for HunkAssignment {
         let content_width = short_id.as_ref().map_or(0, |s| s.len() + 1) + self.path.len();
 
         // Render box-style header:
-        // ────────╮
+        // ─────────╮
         // <id> file│
-        // ────────╯
+        // ─────────╯
         output.push_str(&format!("{}╮\n", "─".repeat(content_width).dimmed()));
         if let Some(id) = &short_id {
             output.push_str(&format!("{} {}│\n", id.blue().bold(), self.path.bold()));

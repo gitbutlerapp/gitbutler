@@ -1,10 +1,7 @@
-use std::{
-    iter::{once, repeat_n},
-    time::Duration,
-};
+use std::iter::{once, repeat_n};
 
 use bstr::ByteSlice;
-use but_core::{UnifiedPatch, unified_diff::DiffHunk};
+use but_core::{TreeChange, TreeStatus, UnifiedPatch, unified_diff::DiffHunk};
 use but_ctx::{Context, OnDemand};
 use gix::actor::Signature;
 use ratatui::{
@@ -57,7 +54,7 @@ const _TODOS: () = {
 pub(super) struct Details {
     is_dirty: bool,
     scroll_top: usize,
-    diff_widget: Option<DiffWidget>,
+    widget: Option<DetailsAndDiffWidget>,
     syntax_set: DebugType<OnDemand<SyntaxSet>>,
     dark_theme: DebugType<OnDemand<Theme>>,
 }
@@ -66,7 +63,7 @@ impl Default for Details {
     fn default() -> Self {
         Self {
             is_dirty: Default::default(),
-            diff_widget: Default::default(),
+            widget: Default::default(),
             scroll_top: Default::default(),
             syntax_set: OnDemand::new(|| Ok(SyntaxSet::load_defaults_newlines())).into(),
             dark_theme: OnDemand::new(|| {
@@ -157,7 +154,7 @@ impl Details {
 
     fn clamp_scroll_top(&mut self, viewport: Rect) {
         let max_scroll_top = self
-            .diff_widget
+            .widget
             .as_ref()
             .map(|diff| {
                 diff.total_rows(viewport.width)
@@ -176,7 +173,7 @@ impl Details {
         self.is_dirty = false;
         self.scroll_top = 0;
 
-        self.diff_widget = self.update_widget(ctx, selection)?;
+        self.widget = self.update_widget(ctx, selection)?;
 
         Ok(())
     }
@@ -185,13 +182,18 @@ impl Details {
         &mut self,
         ctx: &mut Context,
         selection: Option<&CliId>,
-    ) -> anyhow::Result<Option<DiffWidget>> {
+    ) -> anyhow::Result<Option<DetailsAndDiffWidget>> {
         let Some(selection) = selection else {
             return Ok(None);
         };
 
-        let commit_id = match selection {
-            CliId::Commit { commit_id, .. } => *commit_id,
+        Ok(Some(match selection {
+            CliId::Commit { commit_id, .. } => DetailsAndDiffWidget::from_commit(
+                ctx,
+                *commit_id,
+                &*self.syntax_set.get()?,
+                &*self.dark_theme.get()?,
+            )?,
             CliId::Uncommitted(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
@@ -200,223 +202,43 @@ impl Details {
             | CliId::Stack { .. } => {
                 return Ok(None);
             }
-        };
+        }))
+    }
 
+    pub(super) fn render(&self, area: Rect, frame: &mut Frame) {
+        let layout = Layout::horizontal([Constraint::Length(1), Constraint::Min(1)]).split(area);
+
+        let block = Block::new()
+            .borders(Borders::LEFT)
+            .border_style(Style::default().dim());
+        frame.render_widget(block, layout[0]);
+
+        if let Some(diff) = &self.widget {
+            diff.render(self.scroll_top, layout[1], frame);
+        } else {
+            frame.render_widget("Unable to load details", layout[1]);
+        }
+    }
+}
+
+#[derive(Debug)]
+struct DetailsAndDiffWidget {
+    header_items: Vec<ListItem<'static>>,
+    message: String,
+    diff_line_items: Vec<ListItem<'static>>,
+}
+
+impl DetailsAndDiffWidget {
+    fn from_commit(
+        ctx: &mut Context,
+        commit_id: gix::ObjectId,
+        syntax_set: &SyntaxSet,
+        theme: &Theme,
+    ) -> anyhow::Result<Self> {
         let commit_details =
             but_api::diff::commit_details(ctx, commit_id, but_api::diff::ComputeLineStats::No)?;
 
-        let mut diff_line_items = Vec::new();
-        for change in &commit_details.diff_with_first_parent {
-            let status = match &change.status {
-                but_core::TreeStatus::Addition { .. } => Span::raw("added").green(),
-                but_core::TreeStatus::Deletion { .. } => Span::raw("deleted").red(),
-                but_core::TreeStatus::Modification { .. } => Span::raw("modified").magenta(),
-                but_core::TreeStatus::Rename { .. } => Span::raw("renamed").blue(),
-            };
-
-            {
-                let path = change.path.to_string();
-                let width = path.width() + status.width() + 2;
-                let padding = 2;
-                diff_line_items.extend([
-                    ListItem::new(Line::from_iter(
-                        repeat_n("─", width + padding).chain(once("╮")),
-                    ))
-                    .dim(),
-                    ListItem::new(Line::from_iter([
-                        Span::raw(" "),
-                        status,
-                        Span::raw(": "),
-                        Span::raw(path),
-                        Span::raw(" "),
-                        Span::raw("│").dim(),
-                    ])),
-                    ListItem::new(Line::from_iter(
-                        repeat_n("─", width + padding).chain(once("╯")),
-                    ))
-                    .dim(),
-                    ListItem::new(""),
-                ]);
-            }
-
-            if let Some(patch) = but_api::diff::tree_change_diffs(ctx, change.clone().into())
-                .ok()
-                .flatten()
-            {
-                match patch {
-                    UnifiedPatch::Patch {
-                        hunks,
-                        is_result_of_binary_to_text_conversion,
-                        lines_added: _,
-                        lines_removed: _,
-                    } => {
-                        let syntax_set = self.syntax_set.get()?;
-                        let syntax = {
-                            let path = change.path.to_path_lossy();
-                            path.extension()
-                                .and_then(|ext| syntax_set.find_syntax_by_extension(ext.to_str()?))
-                                .or_else(|| {
-                                    path.file_name().and_then(|file_name| {
-                                        syntax_set.find_syntax_by_extension(file_name.to_str()?)
-                                    })
-                                })
-                                .unwrap_or_else(|| syntax_set.find_syntax_plain_text())
-                        };
-                        let dark_theme = self.dark_theme.get()?;
-                        let mut highlight_lines = HighlightLines::new(syntax, &dark_theme);
-
-                        let mut hunk_iter = hunks.into_iter().peekable();
-                        while let Some(hunk) = hunk_iter.next() {
-                            let DiffHunk {
-                                old_start,
-                                new_start,
-                                diff,
-                                old_lines: _,
-                                new_lines: _,
-                            } = hunk;
-
-                            if is_result_of_binary_to_text_conversion {
-                                diff_line_items.push(ListItem::new(
-                                    "(diff generated from binary-to-text conversion)",
-                                ));
-                            }
-
-                            if let Some(headers) = diff.lines().next() {
-                                diff_line_items.push(ListItem::new(
-                                    Span::raw(headers.to_str_lossy().to_string()).dim(),
-                                ));
-                                diff_line_items.push(ListItem::new(
-                                    Line::from_iter(repeat_n("─", headers.to_str_lossy().width()))
-                                        .dim(),
-                                ))
-                            }
-
-                            let (old_width, new_width) = {
-                                let mut old_line = old_start;
-                                let mut new_line = new_start;
-                                for line in diff.lines().skip(1) {
-                                    if line.starts_with(b"+") {
-                                        new_line += 1;
-                                    } else if line.starts_with(b"-") {
-                                        old_line += 1;
-                                    } else {
-                                        old_line += 1;
-                                        new_line += 1;
-                                    }
-                                }
-                                (num_digits(old_line), num_digits(new_line))
-                            };
-
-                            let mut old_line_num = old_start;
-                            let mut new_line_num = new_start;
-
-                            for line in diff.lines().skip(1) {
-                                let item = if let Some(rest) = line.strip_prefix(b"+") {
-                                    let code = rest.to_str_lossy().to_string();
-                                    let item = ListItem::new(Line::from_iter(
-                                        [
-                                            Span::raw(" ".repeat(old_width as _)),
-                                            Span::raw(" ┊ ").dim(),
-                                            Span::raw(" ".repeat(
-                                                (new_width - num_digits(new_line_num)) as _,
-                                            )),
-                                            Span::raw(new_line_num.to_string()).fg(PLUS_EMPH_BG),
-                                            Span::raw(" │ ").dim(),
-                                        ]
-                                        .into_iter()
-                                        .chain(
-                                            syntax_highlight(
-                                                &code,
-                                                Some(PLUS_BG),
-                                                &mut highlight_lines,
-                                                &syntax_set,
-                                            ),
-                                        ),
-                                    ));
-                                    new_line_num += 1;
-                                    item
-                                } else if let Some(rest) = line.strip_prefix(b"-") {
-                                    let code = rest.to_str_lossy().to_string();
-
-                                    let item = ListItem::new(Line::from_iter(
-                                        [
-                                            Span::raw(" ".repeat(
-                                                (old_width - num_digits(old_line_num)) as _,
-                                            )),
-                                            Span::raw(old_line_num.to_string()).fg(MINUS_EMPH_BG),
-                                            Span::raw(" ┊ ").dim(),
-                                            Span::raw(" ".repeat(new_width as _)),
-                                            Span::raw(" │ ").dim(),
-                                        ]
-                                        .into_iter()
-                                        .chain(
-                                            syntax_highlight(
-                                                &code,
-                                                Some(MINUS_BG),
-                                                &mut highlight_lines,
-                                                &syntax_set,
-                                            ),
-                                        ),
-                                    ));
-                                    old_line_num += 1;
-                                    item
-                                } else {
-                                    let line = line.strip_prefix(b" ").unwrap_or(line);
-
-                                    let code = line.to_str_lossy().to_string();
-
-                                    let item = ListItem::new(Line::from_iter(
-                                        [
-                                            Span::raw(" ".repeat(
-                                                (old_width - num_digits(old_line_num)) as _,
-                                            )),
-                                            Span::raw(old_line_num.to_string()).dark_gray(),
-                                            Span::raw(" ┊ ").dim(),
-                                            Span::raw(" ".repeat(
-                                                (new_width - num_digits(new_line_num)) as _,
-                                            )),
-                                            Span::raw(new_line_num.to_string()).dark_gray(),
-                                            Span::raw(" │ ").dim(),
-                                        ]
-                                        .into_iter()
-                                        .chain(
-                                            syntax_highlight(
-                                                &code,
-                                                None,
-                                                &mut highlight_lines,
-                                                &syntax_set,
-                                            ),
-                                        ),
-                                    ));
-                                    old_line_num += 1;
-                                    new_line_num += 1;
-                                    item
-                                };
-                                diff_line_items.push(item);
-                            }
-
-                            if hunk_iter.peek().is_some() {
-                                diff_line_items.push(ListItem::new(""));
-                            }
-                        }
-                    }
-                    UnifiedPatch::Binary => {
-                        diff_line_items.push(ListItem::new("Binary file - no diff available"));
-                    }
-                    UnifiedPatch::TooLarge { size_in_bytes } => {
-                        diff_line_items.push(ListItem::new(format!(
-                            "File too large ({size_in_bytes} bytes) - no diff available"
-                        )));
-                    }
-                }
-
-                diff_line_items.push(ListItem::new(""));
-            }
-        }
-
-        let mut header_items = Vec::new();
-
-        header_items.extend([
+        let header_items = Vec::from([
             ListItem::new(Line::from_iter([
                 Span::raw(format!("{:<11}", "Commit ID:")),
                 Span::raw(commit_id.to_hex().to_string()).blue(),
@@ -433,37 +255,22 @@ impl Details {
 
         let message = commit_details.commit.message.to_string();
 
-        Ok(Some(DiffWidget {
+        let mut diff_line_items = Vec::new();
+        render_diff_line_items(
+            ctx,
+            &commit_details.diff_with_first_parent,
+            syntax_set,
+            theme,
+            &mut diff_line_items,
+        );
+
+        Ok(DetailsAndDiffWidget {
             header_items,
             message,
             diff_line_items,
-        }))
+        })
     }
 
-    pub(super) fn render(&self, area: Rect, frame: &mut Frame) {
-        let layout = Layout::horizontal([Constraint::Length(1), Constraint::Min(1)]).split(area);
-
-        let block = Block::new()
-            .borders(Borders::LEFT)
-            .border_style(Style::default().dim());
-        frame.render_widget(block, layout[0]);
-
-        if let Some(diff) = &self.diff_widget {
-            diff.render(self.scroll_top, layout[1], frame);
-        } else {
-            frame.render_widget("Unable to load details", layout[1]);
-        }
-    }
-}
-
-#[derive(Debug)]
-struct DiffWidget {
-    header_items: Vec<ListItem<'static>>,
-    message: String,
-    diff_line_items: Vec<ListItem<'static>>,
-}
-
-impl DiffWidget {
     fn total_rows(&self, width: u16) -> usize {
         self.items_for_width(width).count()
     }
@@ -491,6 +298,77 @@ impl DiffWidget {
     }
 }
 
+fn render_diff_line_items(
+    ctx: &mut Context,
+    tree_change: &[TreeChange],
+    syntax_set: &SyntaxSet,
+    theme: &Theme,
+    out: &mut Vec<ListItem<'static>>,
+) {
+    for change in tree_change {
+        let status = change_status(&change.status);
+        let path = change.path.to_string();
+        let path_line = Line::from_iter([Span::raw(" "), status, Span::raw(": "), Span::raw(path)]);
+        out.extend(bordered_line_top_right_bottom(path_line).map(ListItem::new));
+        out.push(ListItem::from(""));
+
+        if let Some(patch) = but_api::diff::tree_change_diffs(ctx, change.clone().into())
+            .ok()
+            .flatten()
+        {
+            match patch {
+                UnifiedPatch::Patch {
+                    hunks,
+                    is_result_of_binary_to_text_conversion,
+                    lines_added: _,
+                    lines_removed: _,
+                } => {
+                    render_unified_patch(
+                        change,
+                        syntax_set,
+                        theme,
+                        hunks,
+                        is_result_of_binary_to_text_conversion,
+                        out,
+                    );
+                }
+                UnifiedPatch::Binary => {
+                    out.push(ListItem::new("Binary file - no diff available"));
+                }
+                UnifiedPatch::TooLarge { size_in_bytes } => {
+                    out.push(ListItem::new(format!(
+                        "File too large ({size_in_bytes} bytes) - no diff available"
+                    )));
+                }
+            }
+
+            out.push(ListItem::new(""));
+        }
+    }
+}
+
+fn change_status(status: &TreeStatus) -> Span<'static> {
+    match status {
+        TreeStatus::Addition { .. } => Span::raw("added").green(),
+        TreeStatus::Deletion { .. } => Span::raw("deleted").red(),
+        TreeStatus::Modification { .. } => Span::raw("modified").magenta(),
+        TreeStatus::Rename { .. } => Span::raw("renamed").blue(),
+    }
+}
+
+fn bordered_line_top_right_bottom(mut text: Line<'static>) -> impl Iterator<Item = Line<'static>> {
+    let width_including_padding = text.width() + 1;
+
+    text.spans.extend([Span::raw(" "), Span::raw("│").dim()]);
+
+    [
+        Line::from_iter(repeat_n("─", width_including_padding).chain(once("╮"))).dim(),
+        text,
+        Line::from_iter(repeat_n("─", width_including_padding).chain(once("╯"))).dim(),
+    ]
+    .into_iter()
+}
+
 fn render_signature(sig: &Signature) -> impl IntoIterator<Item = Span<'static>> {
     [
         Span::raw(sig.name.to_string()).yellow(),
@@ -502,6 +380,146 @@ fn render_signature(sig: &Signature) -> impl IntoIterator<Item = Span<'static>> 
         Span::raw(")"),
     ]
     .into_iter()
+}
+
+fn render_unified_patch(
+    change: &TreeChange,
+    syntax_set: &SyntaxSet,
+    theme: &Theme,
+    hunks: Vec<DiffHunk>,
+    is_result_of_binary_to_text_conversion: bool,
+    out: &mut Vec<ListItem<'static>>,
+) {
+    let syntax = {
+        let path = change.path.to_path_lossy();
+        path.extension()
+            .and_then(|ext| syntax_set.find_syntax_by_extension(ext.to_str()?))
+            .or_else(|| {
+                path.file_name()
+                    .and_then(|file_name| syntax_set.find_syntax_by_extension(file_name.to_str()?))
+            })
+            .unwrap_or_else(|| syntax_set.find_syntax_plain_text())
+    };
+
+    let mut highlight_lines = HighlightLines::new(syntax, theme);
+
+    let mut hunk_iter = hunks.into_iter().peekable();
+    while let Some(hunk) = hunk_iter.next() {
+        let DiffHunk {
+            old_start,
+            new_start,
+            diff,
+            old_lines: _,
+            new_lines: _,
+        } = hunk;
+
+        if is_result_of_binary_to_text_conversion {
+            out.push(ListItem::new(
+                "(diff generated from binary-to-text conversion)",
+            ));
+        }
+
+        if let Some(headers) = diff.lines().next() {
+            out.extend([
+                ListItem::new(Span::raw(headers.to_str_lossy().to_string()).dim()),
+                ListItem::new(Line::from_iter(repeat_n("─", headers.to_str_lossy().width())).dim()),
+            ]);
+        }
+
+        let (old_width, new_width) = {
+            let mut old_line = old_start;
+            let mut new_line = new_start;
+            for line in diff.lines().skip(1) {
+                if line.starts_with(b"+") {
+                    new_line += 1;
+                } else if line.starts_with(b"-") {
+                    old_line += 1;
+                } else {
+                    old_line += 1;
+                    new_line += 1;
+                }
+            }
+            (num_digits(old_line), num_digits(new_line))
+        };
+
+        let mut old_line_num = old_start;
+        let mut new_line_num = new_start;
+
+        for line in diff.lines().skip(1) {
+            let item = if let Some(rest) = line.strip_prefix(b"+") {
+                let code = rest.to_str_lossy().to_string();
+                let item = ListItem::new(Line::from_iter(
+                    [
+                        Span::raw(" ".repeat(old_width as _)),
+                        Span::raw(" ┊ ").dim(),
+                        Span::raw(" ".repeat((new_width - num_digits(new_line_num)) as _)),
+                        Span::raw(new_line_num.to_string()).fg(PLUS_EMPH_BG),
+                        Span::raw(" │ ").dim(),
+                    ]
+                    .into_iter()
+                    .chain(syntax_highlight(
+                        &code,
+                        Some(PLUS_BG),
+                        &mut highlight_lines,
+                        syntax_set,
+                    )),
+                ));
+                new_line_num += 1;
+                item
+            } else if let Some(rest) = line.strip_prefix(b"-") {
+                let code = rest.to_str_lossy().to_string();
+
+                let item = ListItem::new(Line::from_iter(
+                    [
+                        Span::raw(" ".repeat((old_width - num_digits(old_line_num)) as _)),
+                        Span::raw(old_line_num.to_string()).fg(MINUS_EMPH_BG),
+                        Span::raw(" ┊ ").dim(),
+                        Span::raw(" ".repeat(new_width as _)),
+                        Span::raw(" │ ").dim(),
+                    ]
+                    .into_iter()
+                    .chain(syntax_highlight(
+                        &code,
+                        Some(MINUS_BG),
+                        &mut highlight_lines,
+                        syntax_set,
+                    )),
+                ));
+                old_line_num += 1;
+                item
+            } else {
+                let line = line.strip_prefix(b" ").unwrap_or(line);
+
+                let code = line.to_str_lossy().to_string();
+
+                let item = ListItem::new(Line::from_iter(
+                    [
+                        Span::raw(" ".repeat((old_width - num_digits(old_line_num)) as _)),
+                        Span::raw(old_line_num.to_string()).dark_gray(),
+                        Span::raw(" ┊ ").dim(),
+                        Span::raw(" ".repeat((new_width - num_digits(new_line_num)) as _)),
+                        Span::raw(new_line_num.to_string()).dark_gray(),
+                        Span::raw(" │ ").dim(),
+                    ]
+                    .into_iter()
+                    .chain(syntax_highlight(
+                        &code,
+                        None,
+                        &mut highlight_lines,
+                        syntax_set,
+                    )),
+                ));
+                old_line_num += 1;
+                new_line_num += 1;
+                item
+            };
+            out.push(item);
+        }
+
+        if hunk_iter.peek().is_some() {
+            out.push(ListItem::new(""));
+        }
+    }
 }
 
 fn num_digits(n: u32) -> u32 {
