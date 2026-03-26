@@ -47,7 +47,7 @@ const isValidCommit = (commitId: string, branchDetails: BranchDetails): boolean 
 	return commitIds.has(commitId);
 };
 
-const getRemote = (branch: BranchListing) => {
+const getBranchRemote = (branch: BranchListing) => {
 	if (branch.hasLocal) return null;
 	return branch.remotes[0] ?? null;
 };
@@ -564,7 +564,7 @@ const ProjectBranchesPage: FC = () => {
 							projectId={projectId}
 							selection={selection}
 							branchRef={getBranchRef(selectedBranch)}
-							remote={getRemote(selectedBranch)}
+							remote={getBranchRemote(selectedBranch)}
 						/>
 					</Suspense>
 				)
@@ -590,7 +590,7 @@ const ProjectBranchesPage: FC = () => {
 							<BranchDetailsC
 								branchName={selectedBranch.name}
 								projectId={projectId}
-								remote={getRemote(selectedBranch)}
+								remote={getBranchRemote(selectedBranch)}
 								selection={selection}
 								select={select}
 							/>
