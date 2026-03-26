@@ -2,7 +2,7 @@ import { type RefInfo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 
 type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
-type ChangesItem = { stackId: string | null; mode: ChangesMode };
+export type ChangesItem = { stackId: string | null; mode: ChangesMode };
 
 type SegmentItem = {
 	stackId: string;

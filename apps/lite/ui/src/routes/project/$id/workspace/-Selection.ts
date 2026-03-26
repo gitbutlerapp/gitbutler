@@ -8,6 +8,8 @@ import {
 	type Item,
 	segmentItem,
 	commitSummaryItem,
+	ChangesItem,
+	CommitItem,
 } from "./-Item.ts";
 
 const hasAssignmentsForPath = ({
@@ -123,32 +125,67 @@ export const getAdjacentRootItem = (
 	return model.rootItems[currentRootIndex + offset] ?? null;
 };
 
-type SelectionAction =
-	| { _tag: "Edit" }
+export type SharedSelectionAction =
 	| { _tag: "Move"; offset: -1 | 1 }
 	| { _tag: "MoveRootDown" }
-	| { _tag: "MoveRootUp" }
-	| { _tag: "Collapse" }
-	| { _tag: "Expand" };
+	| { _tag: "MoveRootUp" };
 
-export const getSelectionAction = (event: KeyboardEvent): SelectionAction | null =>
+type ChangesSelectionAction = SharedSelectionAction;
+type SegmentSelectionAction = SharedSelectionAction;
+type CommitSelectionAction =
+	| SharedSelectionAction
+	| { _tag: "EditCommitMessage" }
+	| { _tag: "ExpandCommit" };
+
+const getSharedSelectionAction = (event: KeyboardEvent): SharedSelectionAction | null =>
 	Match.value(event.key).pipe(
-		Match.when("Enter", (): SelectionAction | null => (!event.repeat ? { _tag: "Edit" } : null)),
-		Match.whenOr("ArrowUp", "k", (): SelectionAction | null => ({
-			_tag: "Move",
-			offset: -1,
-		})),
-		Match.whenOr("ArrowDown", "j", (): SelectionAction | null => ({
-			_tag: "Move",
-			offset: 1,
-		})),
-		Match.when("J", (): SelectionAction | null => ({ _tag: "MoveRootDown" })),
-		Match.when("K", (): SelectionAction | null => ({ _tag: "MoveRootUp" })),
-		Match.when("ArrowLeft", (): SelectionAction | null =>
-			!event.repeat ? { _tag: "Collapse" } : null,
+		Match.whenOr(
+			"ArrowUp",
+			"k",
+			(): SharedSelectionAction => ({
+				_tag: "Move",
+				offset: -1,
+			}),
 		),
-		Match.when("ArrowRight", (): SelectionAction | null =>
-			!event.repeat ? { _tag: "Expand" } : null,
+		Match.whenOr(
+			"ArrowDown",
+			"j",
+			(): SharedSelectionAction => ({
+				_tag: "Move",
+				offset: 1,
+			}),
 		),
-		Match.orElse((): SelectionAction | null => null),
+		Match.when("J", (): SharedSelectionAction => ({ _tag: "MoveRootDown" })),
+		Match.when("K", (): SharedSelectionAction => ({ _tag: "MoveRootUp" })),
+		Match.orElse((): SharedSelectionAction | null => null),
+	);
+
+export const getChangesSelectionAction = (
+	selection: ChangesItem,
+	event: KeyboardEvent,
+): ChangesSelectionAction | null =>
+	getSharedSelectionAction(event) ??
+	Match.value(event.key).pipe(
+		Match.when("ArrowLeft", (): ChangesSelectionAction | null =>
+			selection.mode._tag === "Details" && !event.repeat ? { _tag: "MoveRootUp" } : null,
+		),
+		Match.orElse((): ChangesSelectionAction | null => null),
+	);
+
+export const getSegmentSelectionAction = (event: KeyboardEvent): SegmentSelectionAction | null =>
+	getSharedSelectionAction(event);
+
+export const getCommitSelectionAction = (
+	selection: CommitItem,
+	event: KeyboardEvent,
+): CommitSelectionAction | null =>
+	getSharedSelectionAction(event) ??
+	Match.value(event.key).pipe(
+		Match.when("Enter", (): CommitSelectionAction | null =>
+			selection.mode._tag === "Summary" && !event.repeat ? { _tag: "EditCommitMessage" } : null,
+		),
+		Match.when("ArrowRight", (): CommitSelectionAction | null =>
+			selection.mode._tag === "Summary" && !event.repeat ? { _tag: "ExpandCommit" } : null,
+		),
+		Match.orElse((): CommitSelectionAction | null => null),
 	);

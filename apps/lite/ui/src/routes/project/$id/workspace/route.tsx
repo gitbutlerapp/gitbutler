@@ -108,9 +108,12 @@ import {
 } from "./-Item.ts";
 import {
 	buildNavigationModel,
+	getChangesSelectionAction,
 	getAdjacentLinearItem,
 	getAdjacentRootItem,
-	getSelectionAction,
+	getCommitSelectionAction,
+	getSegmentSelectionAction,
+	SharedSelectionAction,
 } from "./-Selection.ts";
 import styles from "./route.module.css";
 
@@ -198,36 +201,65 @@ const useSelectionKeyboardShortcuts = ({
 
 		if (!selection) return;
 
-		const action = getSelectionAction(event);
-		if (!action) return;
+		const handleSharedAction = (action: SharedSelectionAction) =>
+			Match.value(action).pipe(
+				Match.tag("Move", ({ offset }) =>
+					select(getAdjacentLinearItem(navigationModel, selection, offset)),
+				),
+				Match.tag("MoveRootDown", () => select(getAdjacentRootItem(navigationModel, selection, 1))),
+				Match.tag("MoveRootUp", () =>
+					select(
+						getParentRootItem(selection) ?? getAdjacentRootItem(navigationModel, selection, -1),
+					),
+				),
+				Match.exhaustive,
+			);
 
-		event.preventDefault();
+		Match.value(selection).pipe(
+			Match.tag("Changes", (selection) => {
+				const action = getChangesSelectionAction(selection, event);
+				if (!action) return;
 
-		Match.value(action).pipe(
-			Match.tag("Edit", () => {
-				if (selection._tag === "Commit" && selection.mode._tag === "Summary")
-					select(commitEditingMessageItem(selection));
+				event.preventDefault();
+
+				Match.value(action).pipe(
+					Match.tagsExhaustive({
+						Move: ({ offset }) => handleSharedAction({ _tag: "Move", offset }),
+						MoveRootDown: () => handleSharedAction({ _tag: "MoveRootDown" }),
+						MoveRootUp: () => handleSharedAction({ _tag: "MoveRootUp" }),
+					}),
+				);
 			}),
-			Match.tag("Move", ({ offset }) =>
-				select(getAdjacentLinearItem(navigationModel, selection, offset)),
-			),
-			Match.tag("MoveRootDown", () => select(getAdjacentRootItem(navigationModel, selection, 1))),
-			Match.tag("MoveRootUp", () =>
-				select(getParentRootItem(selection) ?? getAdjacentRootItem(navigationModel, selection, -1)),
-			),
-			Match.tag("Collapse", () => {
-				if (selection._tag === "Changes" && selection.mode._tag === "Details")
-					select(changesSummaryItem(selection.stackId));
+			Match.tag("Segment", () => {
+				const action = getSegmentSelectionAction(event);
+				if (!action) return;
+
+				event.preventDefault();
+
+				handleSharedAction(action);
 			}),
-			Match.tag("Expand", () => {
-				if (selection._tag === "Commit" && selection.mode._tag === "Summary")
-					selectCommitDetails({
-						stackId: selection.stackId,
-						segmentIndex: selection.segmentIndex,
-						branchName: selection.branchName,
-						branchRef: selection.branchRef,
-						commitId: selection.commitId,
-					});
+			Match.tag("Commit", (selection) => {
+				const action = getCommitSelectionAction(selection, event);
+				if (!action) return;
+
+				event.preventDefault();
+
+				Match.value(action).pipe(
+					Match.tagsExhaustive({
+						Move: ({ offset }) => handleSharedAction({ _tag: "Move", offset }),
+						MoveRootDown: () => handleSharedAction({ _tag: "MoveRootDown" }),
+						MoveRootUp: () => handleSharedAction({ _tag: "MoveRootUp" }),
+						EditCommitMessage: () => select(commitEditingMessageItem(selection)),
+						ExpandCommit: () =>
+							selectCommitDetails({
+								stackId: selection.stackId,
+								segmentIndex: selection.segmentIndex,
+								branchName: selection.branchName,
+								branchRef: selection.branchRef,
+								commitId: selection.commitId,
+							}),
+					}),
+				);
 			}),
 			Match.exhaustive,
 		);
