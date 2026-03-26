@@ -156,17 +156,20 @@ pub fn create_branch(
     Ok(())
 }
 
-#[but_api]
-#[instrument(err(Debug))]
-pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: String) -> Result<()> {
+/// Remove a branch without creating an oplog snapshot.
+///
+/// This is the core implementation used by both [`remove_branch`] (which creates its own snapshot)
+/// and batch operations like `but clean` (which create a single snapshot for multiple removals).
+pub fn remove_branch_only(
+    ctx: &mut Context,
+    branch_name: &str,
+    perm: &mut but_core::sync::RepoExclusive,
+) -> Result<()> {
     let ref_name = Category::LocalBranch
-        .to_full_name(branch_name.as_str())
+        .to_full_name(branch_name)
         .map_err(anyhow::Error::from)?;
-    let mut guard = ctx.exclusive_worktree_access();
-    ctx.snapshot_remove_dependent_branch(&branch_name, guard.write_permission())
-        .ok();
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let new_ws = but_workspace::branch::remove_reference(
         ref_name.as_ref(),
         &repo,
@@ -174,9 +177,6 @@ pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: String) 
         &mut meta,
         but_workspace::branch::remove_reference::Options {
             avoid_anonymous_stacks: true,
-            // The UI kind of keeps it, but we can't do that somehow
-            // the object id is null, and stuff breaks. Fine for now.
-            // Delete is delete.
             keep_metadata: false,
         },
     )?;
@@ -185,6 +185,15 @@ pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: String) 
         *ws = new_ws;
     }
     Ok(())
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: String) -> Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    ctx.snapshot_remove_dependent_branch(&branch_name, guard.write_permission())
+        .ok();
+    remove_branch_only(ctx, &branch_name, guard.write_permission())
 }
 
 #[but_api]

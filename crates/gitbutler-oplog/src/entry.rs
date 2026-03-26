@@ -165,6 +165,7 @@ pub enum OperationKind {
     AutoHandleChangesBefore,
     AutoHandleChangesAfter,
     SplitBranch,
+    CleanWorkspace,
     OnDemandSnapshot,
     #[default]
     Unknown,
