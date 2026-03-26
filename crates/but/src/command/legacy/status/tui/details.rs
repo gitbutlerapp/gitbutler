@@ -774,6 +774,7 @@ fn render_unified_patch(
                         Span::raw(" ".repeat((new_width - num_digits(new_line_num)) as _)),
                         Span::raw(new_line_num.to_string()).fg(*PLUS_EMPH_BG),
                         Span::raw(" │ ").dim(),
+                        Span::raw("+").bg(*PLUS_BG),
                     ]
                     .into_iter()
                     .chain(syntax_highlight(
@@ -795,6 +796,7 @@ fn render_unified_patch(
                         Span::raw(" ┊ ").dim(),
                         Span::raw(" ".repeat(new_width as _)),
                         Span::raw(" │ ").dim(),
+                        Span::raw("-").bg(*MINUS_BG),
                     ]
                     .into_iter()
                     .chain(syntax_highlight(
@@ -818,7 +820,7 @@ fn render_unified_patch(
                         Span::raw(" ┊ ").dim(),
                         Span::raw(" ".repeat((new_width - num_digits(new_line_num)) as _)),
                         Span::raw(new_line_num.to_string()).dark_gray(),
-                        Span::raw(" │ ").dim(),
+                        Span::raw(" │  ").dim(),
                     ]
                     .into_iter()
                     .chain(syntax_highlight(
