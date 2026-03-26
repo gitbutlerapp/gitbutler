@@ -543,9 +543,12 @@ fn restore_snapshot(
             .context("failed to convert virtual_branches tree entry to tree")?;
         let branch_name = branch_entry.filename();
 
-        let commits_tree_entry = branch_tree
-            .lookup_entry_by_path("commits")?
-            .context("failed to get commits tree entry")?;
+        let commits_tree_entry = branch_tree.lookup_entry_by_path("commits")?;
+        // Empty branches (head == target) have no commits, so the snapshot
+        // won't contain a `commits` subtree for them. Skip reconstitution.
+        let Some(commits_tree_entry) = commits_tree_entry else {
+            continue;
+        };
         let commits_tree = repo
             .find_tree(commits_tree_entry.id())
             .context("failed to convert commits tree entry to tree")?;
