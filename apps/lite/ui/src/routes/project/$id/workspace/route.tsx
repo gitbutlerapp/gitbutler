@@ -776,20 +776,25 @@ const InlineCommitMessageEditor: FC<{
 				}}
 			/>
 			<div className={styles.editCommitMessageHelp}>
-				<span>escape to </span>
-				<button
-					type="button"
-					className={styles.editCommitMessageAction}
-					onClick={() => {
-						requestClose();
-					}}
-				>
-					cancel
-				</button>
-				<span> • enter to </span>
-				<button type="submit" className={styles.editCommitMessageAction}>
-					save
-				</button>
+				<span>
+					escape to{" "}
+					<button
+						type="button"
+						className={styles.editCommitMessageAction}
+						onClick={() => {
+							requestClose();
+						}}
+					>
+						cancel
+					</button>
+				</span>
+				{" • "}
+				<span>
+					enter to{" "}
+					<button type="submit" className={styles.editCommitMessageAction}>
+						save
+					</button>
+				</span>
 			</div>
 		</form>
 	);
