@@ -37,7 +37,7 @@ fn uncommitted_file() -> anyhow::Result<()> {
 Found 1 changed file to absorb:
 
 Absorbed to commit: f4ea7f8 a.txt
-  (last commit in the primary lane)
+  (files locked to commit due to hunk range overlap)
     a.txt @1,4 +1,4
     a.txt @6,4 +6,4
 
@@ -116,7 +116,7 @@ k0 a.txt│
 Found 1 changed file to absorb:
 
 Absorbed to commit: f4ea7f8 a.txt
-  (last commit in the primary lane)
+  (files locked to commit due to hunk range overlap)
     a.txt @1,4 +1,4
 
 
@@ -323,9 +323,12 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
         .stdout_eq(snapbox::str![[r#"
 Found 1 changed file to absorb:
 
-Absorbed to commit: a7aa4ef partial change to a.txt 3
-  (last commit in the primary lane)
+Absorbed to commit: 889385c partial change to a.txt 2
+  (files locked to commit due to hunk range overlap)
     a.txt @1,4 +1,4
+
+Absorbed to commit: a7aa4ef partial change to a.txt 3
+  (files locked to commit due to hunk range overlap)
     a.txt @6,4 +6,4
 
 
@@ -343,10 +346,10 @@ Hint: you can run `but undo` to undo these changes
 ┊     no changes
 ┊
 ┊╭┄g0 [A]
-┊●   a309adb partial change to a.txt 3
-┊│     a3:nk M a.txt
-┊●   889385c partial change to a.txt 2
-┊│     88:nk M a.txt
+┊●   4822140 partial change to a.txt 3
+┊│     48:nk M a.txt
+┊●   4593422 partial change to a.txt 2
+┊│     45:nk M a.txt
 ┊●   8dc39e0 partial change to a.txt 1
 ┊│     8d:nk M a.txt
 ┊●   f4ea7f8 a.txt
@@ -415,7 +418,7 @@ fn uncommitted_file_new() -> anyhow::Result<()> {
 Found 1 changed file to absorb:
 
 Created on top of commit: f4ea7f8 a.txt
-  (last commit in the primary lane)
+  (files locked to commit due to hunk range overlap)
     a.txt @1,4 +1,4
     a.txt @6,4 +6,4
 
@@ -533,7 +536,7 @@ k0 a.txt│
 Found 1 changed file to absorb:
 
 Created on top of commit: f4ea7f8 a.txt
-  (last commit in the primary lane)
+  (files locked to commit due to hunk range overlap)
     a.txt @1,4 +1,4
 
 
@@ -636,7 +639,7 @@ fn dry_run_new_shows_plan_without_changes() -> anyhow::Result<()> {
 Found 1 changed file to absorb:
 
 Created on top of commit: f4ea7f8 a.txt
-  (last commit in the primary lane)
+  (files locked to commit due to hunk range overlap)
     a.txt @1,4 +1,4
     a.txt @6,4 +6,4
 
@@ -707,7 +710,7 @@ fn dry_run_shows_plan_without_changes() -> anyhow::Result<()> {
 Found 1 changed file to absorb:
 
 Absorbed to commit: f4ea7f8 a.txt
-  (last commit in the primary lane)
+  (files locked to commit due to hunk range overlap)
     a.txt @1,4 +1,4
     a.txt @6,4 +6,4
 
