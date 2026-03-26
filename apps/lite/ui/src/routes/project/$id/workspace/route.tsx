@@ -340,6 +340,56 @@ const dependencyCommitIdsForFile = (
 	return globalThis.Array.from(commitIds);
 };
 
+const DraggableBranch: FC<
+	{
+		anchorRef: Array<number> | null;
+		label: string;
+	} & useRender.ComponentProps<"div">
+> = ({ anchorRef, label, render, ...props }) => {
+	const dragData: DragData | null =
+		anchorRef !== null ? { sourceItem: { _tag: "Branch", anchorRef } } : null;
+	const [isDragging, dragRef] = useDraggable({
+		getInitialData: (): DragData | {} => dragData ?? {},
+		preview: <DragPreview>{label}</DragPreview>,
+		canDrag: () => dragData !== null,
+	});
+
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && styles.dragging),
+		}),
+	});
+};
+
+const DraggableCommit: FC<
+	{
+		commit: Commit;
+		canDrag?: boolean;
+	} & useRender.ComponentProps<"div">
+> = ({ commit, canDrag = true, render, ...props }) => {
+	const [isDragging, dragRef] = useDraggable({
+		getInitialData: (): DragData => ({
+			sourceItem: { _tag: "Commit", commitId: commit.id },
+		}),
+		preview: (
+			<DragPreview>
+				<CommitLabel commit={commit} />
+			</DragPreview>
+		),
+		canDrag: () => canDrag,
+	});
+
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && styles.dragging),
+		}),
+	});
+};
+
 const DraggableFile: FC<
 	{
 		change: TreeChange;
@@ -735,33 +785,6 @@ const CommitTarget: FC<
 			)}
 		</div>
 	);
-};
-
-const DraggableCommit: FC<
-	{
-		commit: Commit;
-		canDrag?: boolean;
-	} & useRender.ComponentProps<"div">
-> = ({ commit, canDrag = true, render, ...props }) => {
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData => ({
-			sourceItem: { _tag: "Commit", commitId: commit.id },
-		}),
-		preview: (
-			<DragPreview>
-				<CommitLabel commit={commit} />
-			</DragPreview>
-		),
-		canDrag: () => canDrag,
-	});
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
-		}),
-	});
 };
 
 const InlineCommitMessageEditor: FC<{
@@ -1374,29 +1397,6 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 			</Tooltip.Portal>
 		</Tooltip.Root>
 	);
-};
-
-const DraggableBranch: FC<
-	{
-		anchorRef: Array<number> | null;
-		label: string;
-	} & useRender.ComponentProps<"div">
-> = ({ anchorRef, label, render, ...props }) => {
-	const dragData: DragData | null =
-		anchorRef !== null ? { sourceItem: { _tag: "Branch", anchorRef } } : null;
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData | {} => dragData ?? {},
-		preview: <DragPreview>{label}</DragPreview>,
-		canDrag: () => dragData !== null,
-	});
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
-		}),
-	});
 };
 
 const StackC: FC<{
