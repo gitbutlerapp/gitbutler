@@ -891,18 +891,18 @@ const CommitRow: FC<
 		message: optimisticMessage,
 	};
 
+	const summaryItem = commitSummaryItem({
+		stackId,
+		segmentIndex,
+		branchName,
+		branchRef,
+		commitId: commit.id,
+	});
+
 	const toggleDetails = () => {
 		startDetailsTransition(async () => {
 			if (commitSelection?.mode._tag === "Details") {
-				select(
-					commitSummaryItem({
-						stackId,
-						segmentIndex,
-						branchName,
-						branchRef,
-						commitId: commit.id,
-					}),
-				);
+				select(summaryItem);
 				return;
 			}
 
@@ -942,15 +942,7 @@ const CommitRow: FC<
 							message={optimisticMessage}
 							setMessageAction={setOptimisticMessage}
 							onExit={() => {
-								select(
-									commitSummaryItem({
-										stackId,
-										segmentIndex,
-										branchName,
-										branchRef,
-										commitId: commit.id,
-									}),
-								);
+								select(summaryItem);
 							}}
 						/>
 					) : (
@@ -961,15 +953,7 @@ const CommitRow: FC<
 										type="button"
 										className={sharedStyles.commitButton}
 										onClick={() => {
-											select(
-												commitSummaryItem({
-													stackId,
-													segmentIndex,
-													branchName,
-													branchRef,
-													commitId: commit.id,
-												}),
-											);
+											select(summaryItem);
 										}}
 									>
 										<CommitLabel commit={commitWithOptimisticMessage} />
