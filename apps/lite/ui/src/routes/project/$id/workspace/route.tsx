@@ -1270,7 +1270,7 @@ const Branch: FC<{
 				render={
 					<DraggableBranch
 						anchorRef={anchorRef}
-						label={branchName}
+						branchName={branchName}
 						render={
 							branchRef !== null ? (
 								<button

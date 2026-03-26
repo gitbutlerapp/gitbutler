@@ -31,14 +31,14 @@ const DragPreview: FC<{
 export const DraggableBranch: FC<
 	{
 		anchorRef: Array<number> | null;
-		label: string;
+		branchName: string;
 	} & useRender.ComponentProps<"div">
-> = ({ anchorRef, label, render, ...props }) => {
+> = ({ anchorRef, branchName, render, ...props }) => {
 	const dragData: DragData | null =
 		anchorRef !== null ? { sourceItem: { _tag: "Branch", anchorRef } } : null;
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: (): DragData | {} => dragData ?? {},
-		preview: <DragPreview>{label}</DragPreview>,
+		preview: <DragPreview>{branchName}</DragPreview>,
 		canDrag: () => dragData !== null,
 	});
 
