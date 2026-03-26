@@ -1332,6 +1332,38 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 	);
 };
 
+const SegmentButton: FC<{
+	segment: Segment;
+	stackId: string;
+	segmentIndex: number;
+	selection: Selection | null;
+	select: (selection: Selection | null) => void;
+}> = ({ segment, stackId, segmentIndex, selection, select }) => (
+	<button
+		type="button"
+		className={classes(
+			styles.segmentButton,
+			selection?._tag === "Segment" &&
+				selection.stackId === stackId &&
+				selection.segmentIndex === segmentIndex &&
+				sharedStyles.selected,
+		)}
+		onClick={() => {
+			select(
+				toggleSegmentSelection(
+					selection,
+					stackId,
+					segmentIndex,
+					segment.refName?.displayName ?? null,
+					segment.refName ? getSegmentBranchRef(segment.refName) : null,
+				),
+			);
+		}}
+	>
+		{segment.refName?.displayName ?? "Untitled"}
+	</button>
+);
+
 const SegmentC: FC<{
 	highlightedCommitIds: Set<string>;
 	projectId: string;
@@ -1362,49 +1394,25 @@ const SegmentC: FC<{
 							anchorRef={refName.fullNameBytes}
 							branchName={refName.displayName}
 							render={
-								<button
-									type="button"
-									className={classes(
-										styles.segmentButton,
-										selection?._tag === "Segment" &&
-											selection.stackId === stackId &&
-											selection.segmentIndex === segmentIndex &&
-											sharedStyles.selected,
-									)}
-									onClick={() => {
-										select(
-											toggleSegmentSelection(
-												selection,
-												stackId,
-												segmentIndex,
-												refName.displayName,
-												getSegmentBranchRef(refName),
-											),
-										);
-									}}
-								>
-									{refName.displayName}
-								</button>
+								<SegmentButton
+									segment={segment}
+									stackId={stackId}
+									segmentIndex={segmentIndex}
+									selection={selection}
+									select={select}
+								/>
 							}
 						/>
 					}
 				/>
 			) : (
-				<button
-					type="button"
-					className={classes(
-						styles.segmentButton,
-						selection?._tag === "Segment" &&
-							selection.stackId === stackId &&
-							selection.segmentIndex === segmentIndex &&
-							sharedStyles.selected,
-					)}
-					onClick={() => {
-						select(toggleSegmentSelection(selection, stackId, segmentIndex, null, null));
-					}}
-				>
-					Untitled
-				</button>
+				<SegmentButton
+					segment={segment}
+					stackId={stackId}
+					segmentIndex={segmentIndex}
+					selection={selection}
+					select={select}
+				/>
 			)}
 
 			<CommitsList commits={segment.commits}>
