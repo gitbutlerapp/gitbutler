@@ -1,10 +1,10 @@
 import { type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 
-type BranchSelection = { stackId: string; branchName: string; branchRef: string };
-
 type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
 type ChangesSelection = { stackId: string | null; mode: ChangesMode };
+
+type BranchSelection = { stackId: string; branchName: string; branchRef: string };
 
 type CommitMode =
 	| { _tag: "Summary" }
@@ -13,8 +13,8 @@ type CommitMode =
 type CommitSelection = { stackId: string; commitId: string; mode: CommitMode };
 
 export type Selection =
-	| ({ _tag: "Branch" } & BranchSelection)
 	| ({ _tag: "Changes" } & ChangesSelection)
+	| ({ _tag: "Branch" } & BranchSelection)
 	| ({ _tag: "Commit" } & CommitSelection);
 
 export const toggleChangesSelection = (
@@ -144,12 +144,12 @@ export const normalizeSelection = (
 	branchRefsByStackId: Map<string, Set<string>>,
 ): Selection | null =>
 	Match.value(selection).pipe(
+		Match.tag("Changes", (selection) => selection),
 		Match.tag("Branch", (selection) => {
 			const branchRefs = branchRefsByStackId.get(selection.stackId);
 			if (branchRefs === undefined) return null;
 			return branchRefs.has(selection.branchRef) ? selection : null;
 		}),
-		Match.tag("Changes", (selection) => selection),
 		Match.tag("Commit", (selection) => {
 			const stackIds = stackIdsByCommitId.get(selection.commitId);
 			if (stackIds === undefined) return null;
