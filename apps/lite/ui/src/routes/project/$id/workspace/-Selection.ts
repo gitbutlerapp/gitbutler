@@ -1,3 +1,4 @@
+import { Match } from "effect";
 import { getSegmentBranchRef } from "#ui/domain/RefInfo.ts";
 import { type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
 import {
@@ -7,10 +8,12 @@ import {
 	commitEditingMessageItem,
 	commitSummaryItem,
 	getParentItem,
+	getParentRootItem,
 	itemKey,
 	itemsEqual,
 	type Item,
 	segmentItem,
+	CommitItem,
 } from "./-Item.ts";
 
 export const toggleChangesItem = (selection: Item | null, stackId: string | null): Item | null =>
@@ -206,7 +209,7 @@ export const buildNavigationModel = ({
 	return { items, rootItems, rootIndexByItemIndex, indexByKey };
 };
 
-export const getAdjacentLinearItem = (
+const getAdjacentLinearItem = (
 	model: NavigationModel,
 	selection: Item | null,
 	offset: -1 | 1,
@@ -216,7 +219,7 @@ export const getAdjacentLinearItem = (
 	return model.items[currentIndex + offset] ?? null;
 };
 
-export const getAdjacentRootItem = (
+const getAdjacentRootItem = (
 	model: NavigationModel,
 	selection: Item | null,
 	offset: -1 | 1,
@@ -228,3 +231,70 @@ export const getAdjacentRootItem = (
 	if (currentRootIndex === -1) return null;
 	return model.rootItems[currentRootIndex + offset] ?? null;
 };
+
+export type SelectionAction =
+	| { _tag: "Edit" }
+	| { _tag: "Move"; offset: -1 | 1 }
+	| { _tag: "MoveRootDown" }
+	| { _tag: "MoveRootUp" }
+	| { _tag: "Collapse" }
+	| { _tag: "Expand" };
+
+export const getSelectionAction = (event: KeyboardEvent): SelectionAction | null =>
+	Match.value(event.key).pipe(
+		Match.when("Enter", (): SelectionAction | null => (!event.repeat ? { _tag: "Edit" } : null)),
+		Match.whenOr("ArrowUp", "k", (): SelectionAction | null => ({
+			_tag: "Move",
+			offset: -1,
+		})),
+		Match.whenOr("ArrowDown", "j", (): SelectionAction | null => ({
+			_tag: "Move",
+			offset: 1,
+		})),
+		Match.when("J", (): SelectionAction | null =>
+			event.shiftKey ? { _tag: "MoveRootDown" } : null,
+		),
+		Match.when("K", (): SelectionAction | null => (event.shiftKey ? { _tag: "MoveRootUp" } : null)),
+		Match.when("ArrowLeft", (): SelectionAction | null =>
+			!event.repeat ? { _tag: "Collapse" } : null,
+		),
+		Match.when("ArrowRight", (): SelectionAction | null =>
+			!event.repeat ? { _tag: "Expand" } : null,
+		),
+		Match.orElse((): SelectionAction | null => null),
+	);
+
+export const performSelectionAction = async ({
+	action,
+	model,
+	selection,
+	expandCommit,
+}: {
+	action: SelectionAction;
+	model: NavigationModel;
+	selection: Item;
+	expandCommit: (selection: CommitItem) => Promise<Item | null>;
+}): Promise<Item | null> =>
+	Match.value(action).pipe(
+		Match.tag("Edit", () =>
+			selection._tag === "Commit" && selection.mode._tag === "Summary"
+				? commitEditingMessageItem(selection)
+				: null,
+		),
+		Match.tag("Move", ({ offset }) => getAdjacentLinearItem(model, selection, offset)),
+		Match.tag("MoveRootDown", () => getAdjacentRootItem(model, selection, 1)),
+		Match.tag(
+			"MoveRootUp",
+			() => getParentRootItem(selection) ?? getAdjacentRootItem(model, selection, -1),
+		),
+		Match.tag("Collapse", () =>
+			selection._tag === "Commit" && selection.mode._tag === "Details"
+				? commitSummaryItem(selection)
+				: null,
+		),
+		Match.tag("Expand", () => {
+			if (selection._tag !== "Commit" || selection.mode._tag !== "Summary") return null;
+			return expandCommit(selection);
+		}),
+		Match.exhaustive,
+	);

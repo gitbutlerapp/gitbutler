@@ -92,17 +92,11 @@ import {
 } from "react";
 import useLocalStorageState from "use-local-storage-state";
 import sharedStyles from "../-shared.module.css";
-import {
-	commitSummaryItem,
-	getParentRootItem,
-	normalizeItem,
-	type Item,
-	commitDetailsItem,
-} from "./-Item.ts";
+import { commitSummaryItem, normalizeItem, type Item, commitDetailsItem } from "./-Item.ts";
 import {
 	buildNavigationModel,
-	getAdjacentLinearItem,
-	getAdjacentRootItem,
+	getSelectionAction,
+	performSelectionAction,
 	toggleChangesItem,
 	toggleChangesFileItem,
 	toggleCommitItemEditingMessage,
@@ -163,7 +157,7 @@ const DependencyIndicator: FC<
 	);
 };
 
-const getCommitDetailsSelection = async ({
+const getCommitDetailsItem = async ({
 	stackId,
 	segmentIndex,
 	branchName,
@@ -234,74 +228,28 @@ const useSelectionKeyboardShortcuts = ({
 
 		if (!selection) return;
 
-		return Match.value(event.key).pipe(
-			Match.when("Enter", () => {
-				if (selection._tag !== "Commit") return;
-				if (selection.mode._tag !== "Summary") return;
-				if (event.repeat) return;
-				event.preventDefault();
-				select(
-					toggleCommitItemEditingMessage(
-						selection,
-						selection.stackId,
-						selection.segmentIndex,
-						selection.branchName,
-						selection.branchRef,
-						selection.commitId,
-					),
-				);
-			}),
-			Match.whenOr("ArrowUp", "k", () => {
-				event.preventDefault();
-				const prev = getAdjacentLinearItem(navigationModel, selection, -1);
-				if (prev) select(prev);
-			}),
-			Match.whenOr("ArrowDown", "j", () => {
-				event.preventDefault();
-				const next = getAdjacentLinearItem(navigationModel, selection, 1);
-				if (next) select(next);
-			}),
-			Match.when("J", () => {
-				if (!event.shiftKey) return;
-				event.preventDefault();
-				const next = getAdjacentRootItem(navigationModel, selection, 1);
-				if (next) select(next);
-			}),
-			Match.when("K", () => {
-				if (!event.shiftKey) return;
-				event.preventDefault();
-				const parentRoot = getParentRootItem(selection);
-				if (parentRoot) {
-					select(parentRoot);
-					return;
-				}
-				const prev = getAdjacentRootItem(navigationModel, selection, -1);
-				if (prev) select(prev);
-			}),
-			Match.when("ArrowLeft", () => {
-				if (selection._tag !== "Commit") return;
-				if (selection.mode._tag !== "Details") return;
-				if (event.repeat) return;
-				event.preventDefault();
-				select(commitSummaryItem(selection));
-			}),
-			Match.when("ArrowRight", () => {
-				if (selection._tag !== "Commit") return;
-				if (selection.mode._tag !== "Summary") return;
-				if (event.repeat) return;
-				event.preventDefault();
-				void getCommitDetailsSelection({
-					stackId: selection.stackId,
-					segmentIndex: selection.segmentIndex,
-					branchName: selection.branchName,
-					branchRef: selection.branchRef,
-					commitId: selection.commitId,
+		const action = getSelectionAction(event);
+		if (!action) return;
+
+		event.preventDefault();
+
+		void performSelectionAction({
+			action,
+			model: navigationModel,
+			selection,
+			expandCommit: (expandableCommit) =>
+				getCommitDetailsItem({
+					stackId: expandableCommit.stackId,
+					segmentIndex: expandableCommit.segmentIndex,
+					branchName: expandableCommit.branchName,
+					branchRef: expandableCommit.branchRef,
+					commitId: expandableCommit.commitId,
 					projectId,
 					queryClient,
-				}).then(select);
-			}),
-			Match.orElse(() => undefined),
-		);
+				}),
+		}).then((nextSelection) => {
+			if (nextSelection) select(nextSelection);
+		});
 	});
 
 	useEffect(() => {
@@ -957,7 +905,7 @@ const CommitRow: FC<
 			}
 
 			select(
-				await getCommitDetailsSelection({
+				await getCommitDetailsItem({
 					stackId,
 					segmentIndex,
 					branchName,

@@ -15,7 +15,7 @@ type CommitMode =
 	| { _tag: "Summary" }
 	| { _tag: "Details"; path?: string }
 	| { _tag: "EditingMessage" };
-type CommitItem = SegmentItem & { commitId: string; mode: CommitMode };
+export type CommitItem = SegmentItem & { commitId: string; mode: CommitMode };
 
 export type Item =
 	| ({ _tag: "Changes" } & ChangesItem)
