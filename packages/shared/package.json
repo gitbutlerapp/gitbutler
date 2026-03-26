@@ -70,7 +70,7 @@
 		"@types/rails__actioncable": "^8.0.3",
 		"autoprefixer": "^10.4.27",
 		"cpy-cli": "^5.0.0",
-		"dayjs": "^1.11.13",
+		"dayjs": "^1.11.20",
 		"postcss": "catalog:postcss",
 		"postcss-cli": "catalog:postcss",
 		"postcss-nesting": "catalog:postcss",
