@@ -1,155 +1,56 @@
+import { getSegmentBranchRef } from "#ui/domain/RefInfo.ts";
 import { type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
-import { Match } from "effect";
+import {
+	changesDetailsItem,
+	changesSummaryItem,
+	commitDetailsItem,
+	commitEditingMessageItem,
+	commitSummaryItem,
+	getParentItem,
+	itemsEqual,
+	type Item,
+	segmentItem,
+} from "./-Item.ts";
 
-type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
-type ChangesSelection = { stackId: string | null; mode: ChangesMode };
+export const toggleChangesItem = (selection: Item | null, stackId: string | null): Item | null =>
+	selectItemOrParent(selection, changesSummaryItem(stackId));
 
-type SegmentSelection = {
-	stackId: string;
-	segmentIndex: number;
-	branchName: string | null;
-	branchRef: string | null;
-};
-
-type CommitMode =
-	| { _tag: "Summary" }
-	| { _tag: "Details"; path?: string }
-	| { _tag: "EditingMessage" };
-type CommitSelection = SegmentSelection & { commitId: string; mode: CommitMode };
-
-export type Selection =
-	| ({ _tag: "Changes" } & ChangesSelection)
-	| ({ _tag: "Segment" } & SegmentSelection)
-	| ({ _tag: "Commit" } & CommitSelection);
-
-export const changesSummarySelection = (stackId: string | null): Selection => ({
-	_tag: "Changes",
-	stackId,
-	mode: { _tag: "Summary" },
-});
-
-export const changesDetailsSelection = (stackId: string | null, path?: string): Selection => ({
-	_tag: "Changes",
-	stackId,
-	mode: { _tag: "Details", path },
-});
-
-export const segmentSelection = ({
-	stackId,
-	segmentIndex,
-	branchName,
-	branchRef,
-}: SegmentSelection): Selection => ({
-	_tag: "Segment",
-	stackId,
-	segmentIndex,
-	branchName,
-	branchRef,
-});
-
-export const commitSummarySelection = ({
-	stackId,
-	segmentIndex,
-	branchName,
-	branchRef,
-	commitId,
-}: Omit<CommitSelection, "mode">): Selection => ({
-	_tag: "Commit",
-	stackId,
-	segmentIndex,
-	branchName,
-	branchRef,
-	commitId,
-	mode: { _tag: "Summary" },
-});
-
-export const commitDetailsSelection = (
-	{ stackId, segmentIndex, branchName, branchRef, commitId }: Omit<CommitSelection, "mode">,
-	path?: string,
-): Selection => ({
-	_tag: "Commit",
-	stackId,
-	segmentIndex,
-	branchName,
-	branchRef,
-	commitId,
-	mode: { _tag: "Details", path },
-});
-
-export const commitEditingMessageSelection = ({
-	stackId,
-	segmentIndex,
-	branchName,
-	branchRef,
-	commitId,
-}: Omit<CommitSelection, "mode">): Selection => ({
-	_tag: "Commit",
-	stackId,
-	segmentIndex,
-	branchName,
-	branchRef,
-	commitId,
-	mode: { _tag: "EditingMessage" },
-});
-
-export const toggleChangesSelection = (
-	selection: Selection | null,
-	stackId: string | null,
-): Selection | null =>
-	selection?._tag === "Changes" &&
-	selection.stackId === stackId &&
-	selection.mode._tag !== "Details"
-		? null
-		: changesSummarySelection(stackId);
-
-export const toggleSegmentSelection = (
-	selection: Selection | null,
+export const toggleSegmentItem = (
+	selection: Item | null,
 	stackId: string,
 	segmentIndex: number,
 	branchName: string | null,
 	branchRef: string | null,
-): Selection | null =>
-	selection?._tag === "Segment" &&
-	selection.stackId === stackId &&
-	selection.segmentIndex === segmentIndex
-		? null
-		: segmentSelection({ stackId, segmentIndex, branchName, branchRef });
+): Item | null =>
+	selectItemOrParent(selection, segmentItem({ stackId, segmentIndex, branchName, branchRef }));
 
-export const toggleChangesFileSelection = (
-	selection: Selection | null,
+export const toggleChangesFileItem = (
+	selection: Item | null,
 	stackId: string | null,
 	path: string,
-): Selection | null =>
-	selection?._tag === "Changes" &&
-	selection.stackId === stackId &&
-	selection.mode._tag === "Details" &&
-	selection.mode.path === path
-		? changesSummarySelection(stackId)
-		: changesDetailsSelection(stackId, path);
+): Item | null => selectItemOrParent(selection, changesDetailsItem(stackId, path));
 
-export const toggleCommitSelection = (
-	selection: Selection | null,
+export const toggleCommitItem = (
+	selection: Item | null,
 	stackId: string,
 	segmentIndex: number,
 	commitId: string,
 	branchName: string | null,
 	branchRef: string | null,
-): Selection | null =>
-	selection?._tag === "Commit" &&
-	selection.stackId === stackId &&
-	selection.commitId === commitId &&
-	selection.mode._tag !== "Details"
-		? segmentSelection({ stackId, segmentIndex, branchName, branchRef })
-		: commitSummarySelection({ stackId, segmentIndex, branchName, branchRef, commitId });
+): Item | null =>
+	selectItemOrParent(
+		selection,
+		commitSummaryItem({ stackId, segmentIndex, branchName, branchRef, commitId }),
+	);
 
-export const toggleCommitEditingMessage = (
-	selection: Selection | null,
+export const toggleCommitItemEditingMessage = (
+	selection: Item | null,
 	stackId: string,
 	segmentIndex: number,
 	branchName: string | null,
 	branchRef: string | null,
 	commitId: string,
-): Selection | null =>
+): Item | null =>
 	selection?._tag === "Commit" &&
 	selection.stackId === stackId &&
 	selection.commitId === commitId &&
@@ -158,49 +59,24 @@ export const toggleCommitEditingMessage = (
 				...selection,
 				mode: { _tag: "Summary" },
 			}
-		: commitEditingMessageSelection({ stackId, segmentIndex, branchName, branchRef, commitId });
+		: commitEditingMessageItem({ stackId, segmentIndex, branchName, branchRef, commitId });
 
-export const toggleCommitFileSelection = (
-	selection: Selection | null,
+export const toggleCommitFileItem = (
+	selection: Item | null,
 	stackId: string,
 	segmentIndex: number,
 	branchName: string | null,
 	branchRef: string | null,
 	commitId: string,
 	path: string,
-): Selection | null =>
-	selection?._tag === "Commit" &&
-	selection.stackId === stackId &&
-	selection.commitId === commitId &&
-	selection.mode._tag === "Details" &&
-	selection.mode.path === path
-		? commitSummarySelection({ stackId, segmentIndex, branchName, branchRef, commitId })
-		: commitDetailsSelection({ stackId, segmentIndex, branchName, branchRef, commitId }, path);
-
-export const normalizeSelection = (selection: Selection, headInfo: RefInfo): Selection | null =>
-	Match.value(selection).pipe(
-		Match.tag("Changes", (selection) => selection),
-		Match.tag("Segment", (selection) => {
-			const stack = headInfo.stacks.find(
-				(stack) => stack.id !== null && stack.id === selection.stackId,
-			);
-			if (!stack) return null;
-			const segment = stack.segments[selection.segmentIndex];
-			if (!segment) return null;
-			return selection;
-		}),
-		Match.tag("Commit", (selection) => {
-			const stack = headInfo.stacks.find(
-				(stack) => stack.id !== null && stack.id === selection.stackId,
-			);
-			if (!stack) return null;
-			const segment = stack.segments[selection.segmentIndex];
-			if (!segment) return null;
-			if (!segment.commits.some((commit) => commit.id === selection.commitId)) return null;
-			return selection;
-		}),
-		Match.exhaustive,
+): Item | null =>
+	selectItemOrParent(
+		selection,
+		commitDetailsItem({ stackId, segmentIndex, branchName, branchRef, commitId }, path),
 	);
+
+const selectItemOrParent = (selection: Item | null, targetItem: Item): Item | null =>
+	itemsEqual(selection, targetItem) ? getParentItem(targetItem) : targetItem;
 
 const hasAssignmentsForPath = ({
 	assignments,
@@ -215,56 +91,129 @@ const hasAssignmentsForPath = ({
 		(assignment) => (assignment.stackId ?? null) === stackId && assignment.path === path,
 	);
 
-const firstSelectablePath = ({
-	changes,
-	assignments,
-	stackId,
-}: {
-	changes: Array<TreeChange>;
-	assignments: Array<HunkAssignment>;
-	stackId: string | null;
-}): string | null =>
-	changes.find((change) => hasAssignmentsForPath({ assignments, stackId, path: change.path }))
-		?.path ?? null;
+export type ItemWithRoot = {
+	item: Item;
+	rootItem: Item;
+};
 
-export const getDefaultSelection = ({
+export const getOrderedItems = ({
+	selection,
 	headInfo,
 	changes,
 	assignments,
+	commitDetailsPaths,
 }: {
+	selection: Item | null;
 	headInfo: RefInfo;
 	changes: Array<TreeChange>;
 	assignments: Array<HunkAssignment>;
-}): Selection | null => {
-	const firstUnassignedPath = firstSelectablePath({
-		changes,
-		assignments,
-		stackId: null,
-	});
-	if (firstUnassignedPath !== null) return changesDetailsSelection(null, firstUnassignedPath);
+	commitDetailsPaths: Array<string>;
+}): Array<ItemWithRoot> => {
+	const items: Array<ItemWithRoot> = [];
+	const commitDetails =
+		selection?._tag === "Commit" && selection.mode._tag === "Details" ? selection : null;
+
+	const addChangesItems = (stackId: string | null) => {
+		const rootItem = changesSummaryItem(stackId);
+		items.push({ item: rootItem, rootItem });
+
+		for (const change of changes) {
+			if (!hasAssignmentsForPath({ assignments, stackId, path: change.path })) continue;
+			items.push({ item: changesDetailsItem(stackId, change.path), rootItem });
+		}
+	};
+
+	addChangesItems(null);
 
 	for (const stack of headInfo.stacks) {
 		if (stack.id == null) continue;
+		addChangesItems(stack.id);
 
-		const firstAssignedPath = firstSelectablePath({
-			changes,
-			assignments,
-			stackId: stack.id,
-		});
-		if (firstAssignedPath !== null) return changesDetailsSelection(stack.id, firstAssignedPath);
+		for (const [segmentIndex, segment] of stack.segments.entries()) {
+			const branchName = segment.refName?.displayName ?? null;
+			const branchRef = segment.refName ? getSegmentBranchRef(segment.refName) : null;
+			const rootItem = segmentItem({
+				stackId: stack.id,
+				segmentIndex,
+				branchName,
+				branchRef,
+			});
+			items.push({ item: rootItem, rootItem });
 
-		for (const segment of stack.segments) {
-			const firstCommit = segment.commits[0];
-			if (firstCommit)
-				return commitSummarySelection({
-					stackId: stack.id,
-					segmentIndex: stack.segments.indexOf(segment),
-					branchName: segment.refName?.displayName ?? null,
-					branchRef: segment.refName ? `refs/heads/${segment.refName.displayName}` : null,
-					commitId: firstCommit.id,
-				});
+			for (const commit of segment.commits) {
+				const isCommitDetails =
+					commitDetails !== null &&
+					commitDetails.stackId === stack.id &&
+					commitDetails.segmentIndex === segmentIndex &&
+					commitDetails.commitId === commit.id;
+				const commitItem = isCommitDetails
+					? commitDetailsItem({
+							stackId: stack.id,
+							segmentIndex,
+							branchName,
+							branchRef,
+							commitId: commit.id,
+						})
+					: commitSummaryItem({
+							stackId: stack.id,
+							segmentIndex,
+							branchName,
+							branchRef,
+							commitId: commit.id,
+						});
+				items.push({ item: commitItem, rootItem });
+
+				if (!isCommitDetails) continue;
+
+				for (const path of commitDetailsPaths)
+					items.push({
+						item: commitDetailsItem(
+							{
+								stackId: stack.id,
+								segmentIndex,
+								branchName,
+								branchRef,
+								commitId: commit.id,
+							},
+							path,
+						),
+						rootItem,
+					});
+			}
 		}
 	}
 
-	return null;
+	return items;
+};
+
+export const getAdjacentLinearItem = (
+	items: Array<ItemWithRoot>,
+	selection: Item | null,
+	offset: -1 | 1,
+): Item | null => {
+	const currentIndex = selection ? items.findIndex(({ item }) => itemsEqual(item, selection)) : -1;
+	if (currentIndex === -1) return null;
+	return items[currentIndex + offset]?.item ?? null;
+};
+
+export const getAdjacentRootItem = (
+	items: Array<ItemWithRoot>,
+	selection: Item | null,
+	offset: -1 | 1,
+): Item | null => {
+	if (!selection) return null;
+	const currentItem = items.find(({ item }) => itemsEqual(item, selection));
+	if (!currentItem) return null;
+	const currentRootItem = currentItem.rootItem;
+	const rootItems: Array<Item> = [];
+
+	for (const { rootItem } of items) {
+		const previousRootItem = rootItems[rootItems.length - 1];
+		if (previousRootItem && itemsEqual(previousRootItem, rootItem)) continue;
+		rootItems.push(rootItem);
+	}
+
+	const currentRootIndex = rootItems.findIndex((item) => itemsEqual(item, currentRootItem));
+	if (currentRootIndex === -1) return null;
+	return rootItems[currentRootIndex + offset] ?? null;
 };
