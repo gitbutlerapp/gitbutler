@@ -246,15 +246,15 @@ fn enter_edit_mode_checks_out_conflicted_commit() -> Result<()> {
         repo.head()?.peel_to_commit()?.summary(),
         @r#"
     Some(
-        "foobar",
+        "Changes to make millions",
     )
     "#
     );
 
     insta::assert_snapshot!(
         std::fs::read_to_string(repo.path().parent().unwrap().join("conflict"))?,
-        @"
-    <<<<<<< New base: foobar
+        @r"
+    <<<<<<< New base: Changes to make millions
     left
     ||||||| Common ancestor
     base

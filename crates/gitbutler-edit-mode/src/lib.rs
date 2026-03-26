@@ -14,7 +14,7 @@ use but_oxidize::{ObjectIdExt as _, OidExt, gix_to_git2_index};
 use but_rebase::graph_rebase::{Editor, Step};
 use git2::build::CheckoutBuilder;
 use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _, RepositoryExt as _};
-use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
+use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_operating_modes::{
     EDIT_BRANCH_REF, EditModeMetadata, INTEGRATION_BRANCH_REF, OperatingMode, WORKSPACE_BRANCH_REF,
     operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
@@ -66,63 +66,29 @@ fn get_commit_index(ctx: &Context, commit_id: gix::ObjectId) -> Result<git2::Ind
     }
 }
 
-/// Returns a commit to be the HEAD of `gitbutler/edit`
+/// Returns a commit to be the HEAD of `gitbutler/edit`.
 ///
-/// This should a commit who's tree is what the commit getting edited
-/// (the editee) is based on.
+/// If the edited commit is unconflicted, this is the edited commit itself.
 ///
-/// If the editee is conflicted:
-/// We should checkout `.conflict-side-0`. This is because the resulting merge
-/// is always based on top of `.conflict-side-0`, so this is the preferable
-/// base.
-///
-/// If the parent is conflicted:
-/// We should checkout the parent's `.auto-resolution` because that is what
-/// the editee is based on
-///
-/// Otherwise:
-/// We can simply return the parent commit.
+/// If the edited commit is conflicted, this is the edited commit except that
+/// the root tree is `.conflict-side-0`. This is because the resulting merge is
+/// always based on top of `.conflict-side-0`, so this is the preferable base.
 fn find_or_create_base_commit(
     repo: &gix::Repository,
     commit_id: gix::ObjectId,
 ) -> Result<gix::ObjectId> {
     let commit = repo.find_commit(commit_id)?;
-    let is_conflicted = commit.is_conflicted();
-    let parent = commit
-        .parent_ids()
-        .next()
-        .context("Expected commit to have a single parent")?
-        .object()?
-        .into_commit();
-    let is_parent_conflicted = parent.is_conflicted();
 
-    // If neither is conflicted, we can use the old parent.
-    if !(is_conflicted || is_parent_conflicted) {
-        return Ok(parent.id);
+    if !commit.is_conflicted() {
+        return Ok(commit_id);
     };
 
-    let base_tree = if is_conflicted {
-        repo.find_real_tree(&commit, ConflictedTreeKey::Ours)?
-    } else {
-        repo.find_real_tree(&parent, ConflictedTreeKey::AutoResolution)?
-    };
+    let base_tree = repo.find_real_tree(&commit, ConflictedTreeKey::Ours)?;
 
-    let author = repo
-        .author()
-        .context("author must be configured")??
-        .to_owned()?;
-    let committer = repo
-        .committer()
-        .context("committer must be configured")??
-        .to_owned()?;
     let commit = gix::objs::Commit {
         tree: base_tree.into(),
-        parents: Default::default(),
-        author,
-        committer,
-        encoding: None,
-        message: parent.message_bstr().to_owned(),
         extra_headers: Vec::new(),
+        ..gix::objs::Commit::try_from(commit.decode()?)?
     };
     Ok(repo.write_object(&commit)?.detach())
 }
@@ -173,6 +139,7 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     git2_repo.checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))?;
 
     // Checkout the commit as unstaged changes
+    // TODO this may not be necessary if the commit is unconflicted
     let mut index = get_commit_index(ctx, commit_id)?;
 
     let their_commit_msg = commit
