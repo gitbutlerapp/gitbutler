@@ -2,7 +2,6 @@ use std::{fs, path, path::PathBuf, str::FromStr};
 
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId, RepoOpenMode};
 use but_error::Marker;
-use but_oxidize::{ObjectIdExt, OidExt};
 use but_settings::AppSettings;
 use but_testsupport::legacy::{TestProject, VAR_NO_CLEANUP, paths};
 use gitbutler_branch::BranchCreateRequest;
@@ -85,10 +84,9 @@ mod workspace_migration;
 
 pub fn list_commit_files(
     ctx: &Context,
-    commit_oid: git2::Oid,
+    commit_id: gix::ObjectId,
 ) -> anyhow::Result<Vec<but_core::TreeChange>> {
     let repo = ctx.repo.get()?;
-    let commit_id = commit_oid.to_gix();
     but_core::diff::CommitDetails::from_commit_id(
         gix::prelude::ObjectIdExt::attach(commit_id, &repo),
         false,
@@ -100,7 +98,7 @@ pub fn create_commit(
     ctx: &mut Context,
     stack_id: StackId,
     message: &str,
-) -> anyhow::Result<git2::Oid> {
+) -> anyhow::Result<gix::ObjectId> {
     let mut guard = ctx.exclusive_worktree_access();
 
     let repo = ctx.repo.get()?;
@@ -149,6 +147,5 @@ pub fn create_commit(
     });
     outcome?
         .new_commit
-        .map(|c| c.to_git2())
         .ok_or(anyhow::anyhow!("No new commit created"))
 }

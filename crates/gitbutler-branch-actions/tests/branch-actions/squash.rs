@@ -1,7 +1,6 @@
 use anyhow::Result;
 use bstr::ByteSlice;
 use but_ctx::Context;
-use but_oxidize::ObjectIdExt;
 use but_workspace::ui::Commit;
 use gitbutler_branch_actions::squash_commits;
 use gitbutler_stack::{StackBranch, VirtualBranchesHandle};
@@ -39,7 +38,7 @@ fn squash_without_affecting_stack() -> Result<()> {
     assert_eq!(branches.b2.patches[0].message, "commit 4");
     assert_eq!(branches.b2.patches[1].message, "commit 2\ncommit 3");
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file2_3")?,
+        blob_content(&*ctx.repo.get()?, branches.b2.patches[1].id, "file2_3")?,
         "change3\n"
     );
 
@@ -79,11 +78,11 @@ fn squash_below() -> Result<()> {
     assert_eq!(branches.b2.patches[0].message, "commit 3");
     assert_eq!(branches.b2.patches[1].message, "commit 2\ncommit 4");
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file2_3")?,
+        blob_content(&*ctx.repo.get()?, branches.b2.patches[1].id, "file2_3")?,
         "change2\n"
     );
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file4")?,
+        blob_content(&*ctx.repo.get()?, branches.b2.patches[1].id, "file4")?,
         "change4\n"
     );
 
@@ -124,11 +123,11 @@ fn squash_above() -> Result<()> {
     assert_eq!(branches.b2.patches[0].message, "commit 4");
     assert_eq!(branches.b2.patches[1].message, "commit 3\ncommit 1");
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file2_3")?,
+        blob_content(&*ctx.repo.get()?, branches.b2.patches[1].id, "file2_3")?,
         "change3\n"
     );
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file1")?,
+        blob_content(&*ctx.repo.get()?, branches.b2.patches[1].id, "file1")?,
         "change1\n"
     );
     assert_eq!(branches.b2.patches[2].message, "commit 2");
@@ -169,7 +168,7 @@ fn squash_upwards_works() -> Result<()> {
     assert_eq!(branches.b2.patches[0].message, "commit 4");
     assert_eq!(branches.b2.patches[1].message, "commit 3\ncommit 2");
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file2_3")?,
+        blob_content(&*ctx.repo.get()?, branches.b2.patches[1].id, "file2_3")?,
         "change3\n"
     );
 
@@ -210,7 +209,7 @@ fn squash_down_with_overlap_ok() -> Result<()> {
     assert_eq!(branches.b2.patches[0].message, "commit 4");
     assert_eq!(branches.b2.patches[1].message, "commit 2\ncommit 3");
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file2_3")?,
+        blob_content(&*ctx.repo.get()?, branches.b2.patches[1].id, "file2_3")?,
         "change3\n"
     );
 
@@ -244,11 +243,11 @@ fn squash_below_into_stack_head() -> Result<()> {
     assert_eq!(branches.b1.patches.len(), 1);
     assert_eq!(branches.b1.patches[0].message, "commit 1\ncommit 4");
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b1.patches[0].id, "file4")?,
+        blob_content(&*ctx.repo.get()?, branches.b1.patches[0].id, "file4")?,
         "change4\n"
     );
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b1.patches[0].id, "file1")?,
+        blob_content(&*ctx.repo.get()?, branches.b1.patches[0].id, "file1")?,
         "change1\n"
     );
 
@@ -295,15 +294,15 @@ fn squash_multiple() -> Result<()> {
         "commit 1\ncommit 4\ncommit 2"
     );
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b1.patches[0].id, "file4")?,
+        blob_content(&*ctx.repo.get()?, branches.b1.patches[0].id, "file4")?,
         "change4\n"
     );
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b1.patches[0].id, "file2_3")?,
+        blob_content(&*ctx.repo.get()?, branches.b1.patches[0].id, "file2_3")?,
         "change2\n"
     );
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b1.patches[0].id, "file1")?,
+        blob_content(&*ctx.repo.get()?, branches.b1.patches[0].id, "file1")?,
         "change1\n"
     );
 
@@ -354,15 +353,15 @@ fn squash_multiple_from_heads() -> Result<()> {
         "commit 2\ncommit 5\ncommit 4"
     );
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file5")?,
+        blob_content(&*ctx.repo.get()?, branches.b2.patches[1].id, "file5")?,
         "change5\n"
     );
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file4")?,
+        blob_content(&*ctx.repo.get()?, branches.b2.patches[1].id, "file4")?,
         "change4\n"
     );
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file2_3")?,
+        blob_content(&*ctx.repo.get()?, branches.b2.patches[1].id, "file2_3")?,
         "change2\n"
     );
 
@@ -408,15 +407,15 @@ fn squash_multiple_above_and_below() -> Result<()> {
         "commit 3\ncommit 5\ncommit 1"
     );
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file2_3")?,
+        blob_content(&*ctx.repo.get()?, branches.b2.patches[1].id, "file2_3")?,
         "change3\n"
     );
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file5")?,
+        blob_content(&*ctx.repo.get()?, branches.b2.patches[1].id, "file5")?,
         "change5\n"
     );
     assert_eq!(
-        blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file1")?,
+        blob_content(&*ctx.repo.get()?, branches.b2.patches[1].id, "file1")?,
         "change1\n"
     );
     assert_eq!(branches.b2.patches[2].message, "commit 2");
@@ -513,10 +512,10 @@ fn list_branches(ctx: &Context) -> Result<TestBranchListing> {
     })
 }
 
-fn blob_content(repo: &git2::Repository, commit_oid: gix::ObjectId, file: &str) -> Result<String> {
-    let tree = repo.find_commit(commit_oid.to_git2())?.tree()?;
-    let entry = tree.get_name(file).unwrap();
-    let blob = repo.find_blob(entry.id())?;
-    let blob_content: &str = blob.content().to_str()?;
+fn blob_content(repo: &gix::Repository, commit_oid: gix::ObjectId, file: &str) -> Result<String> {
+    let tree = repo.find_commit(commit_oid)?.tree()?;
+    let entry = tree.lookup_entry_by_path(file)?.unwrap();
+    let blob = entry.object()?.into_blob();
+    let blob_content: &str = blob.data.to_str()?;
     Ok(blob_content.to_string())
 }
