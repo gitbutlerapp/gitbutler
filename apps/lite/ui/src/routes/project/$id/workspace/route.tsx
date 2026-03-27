@@ -101,6 +101,7 @@ import {
 	segmentItem,
 	getParentSection,
 	CommitItem,
+	ChangesMode,
 } from "./-Item.ts";
 import {
 	buildNavigationModel,
@@ -619,7 +620,7 @@ const ShowSegment: FC<{
 const ShowChangesOrFile: FC<{
 	projectId: string;
 	stackId: string | null;
-	mode: Extract<Item, { _tag: "Changes" }>["mode"];
+	mode: ChangesMode;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 }> = ({ projectId, stackId, mode, onDependencyHover }) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
