@@ -15,7 +15,7 @@ export const shortcutKeys = {
 	toggleFullscreenPreview: "d",
 } as const;
 
-export type SharedShortcutAction = { _tag: "TogglePreview" } | { _tag: "ToggleFullscreenPreview" };
+type SharedShortcutAction = { _tag: "TogglePreview" } | { _tag: "ToggleFullscreenPreview" };
 
 export const getShortcutAction = <Action, Context>(
 	bindings: Array<ShortcutBinding<Action, Context>>,

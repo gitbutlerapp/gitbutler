@@ -18,7 +18,7 @@ import styles from "./-ShortcutBar.module.css";
 
 type ShortcutBarItem = Pick<ShortcutBinding<unknown, unknown>, "id" | "description" | "keys">;
 
-export type ShortcutBarMode = { label: string | null; items: Array<ShortcutBarItem> };
+type ShortcutBarMode = { label: string | null; items: Array<ShortcutBarItem> };
 
 export const getShortcutBarMode = ({
 	selection,

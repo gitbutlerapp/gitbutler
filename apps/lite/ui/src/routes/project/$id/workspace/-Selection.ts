@@ -136,7 +136,7 @@ type CommitSelectionAction =
 	| SharedSelectionAction
 	| { _tag: "EditCommitMessage" }
 	| { _tag: "ExpandCommit" };
-export type CommitEditingMessageAction = { _tag: "Save" } | { _tag: "Cancel" };
+type CommitEditingMessageAction = { _tag: "Save" } | { _tag: "Cancel" };
 
 const createSharedSelectionBindings = <Context>(): Array<
 	ShortcutBinding<SharedSelectionAction, Context>
