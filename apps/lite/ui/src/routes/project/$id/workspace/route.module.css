@@ -124,6 +124,11 @@
 		width: var(--item-line-height);
 		height: var(--item-line-height);
 	}
+
+	&:hover,
+	&[aria-expanded="true"] {
+		background-color: #eee;
+	}
 }
 
 .commonBaseCommitContainer {
