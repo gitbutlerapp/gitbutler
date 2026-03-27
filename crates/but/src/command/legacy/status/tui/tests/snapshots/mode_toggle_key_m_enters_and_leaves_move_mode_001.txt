@@ -17,4 +17,4 @@
 "                                                                                                    "
 "                                                                                                    "
 "                                                                                                    "
-"  move   ↓/j down • ↑/k up • q quit • enter move • a above • b below • esc back                     "
+"  move   ↓/j down • ↑/k up • q quit • d diff • enter move • a above • b below • esc back            "

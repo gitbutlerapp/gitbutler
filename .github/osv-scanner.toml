@@ -1,1 +1,3 @@
-IgnoredVulns = []
+[[IgnoredVulns]]
+id = "RUSTSEC-2025-0141"
+reason = "bincode is unmaintained but still widely used in the Rust ecosystem. It has no other open RUSTSECs so there is no real risk in using it. Gonna take some time for the ecosystem to transition."

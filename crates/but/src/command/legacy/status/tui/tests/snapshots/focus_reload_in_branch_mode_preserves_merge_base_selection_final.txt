@@ -17,4 +17,4 @@
 "                                                                                                    "
 "                                                                                                    "
 "                                                                                                    "
-"  branch   ↓/j down • ↑/k up • q quit • n new • m move • esc back                                   "
+"  branch   ↓/j down • ↑/k up • q quit • d diff • n new • m move • esc back                          "

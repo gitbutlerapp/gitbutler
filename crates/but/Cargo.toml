@@ -130,7 +130,7 @@ minus = { git = "https://github.com/arijit79/minus", rev = "57f1848f831d153a10d6
 ] }
 unicode-width = "0.2"
 cfg-if = "1.0.4"
-ratatui.workspace = true
+ratatui = { workspace = true, features = ["unstable-rendered-line-info", "palette"] }
 crossterm.workspace = true
 sha2.workspace = true
 machine-uid = "0.5.4"
@@ -142,6 +142,14 @@ rand.workspace = true
 ratatui-textarea = "0.8.0"
 arboard = { version = "3.6.1", default-features = false }
 ansi-to-tui = "8.0.1"
+textwrap = "0.16.2"
+syntect = { version = "5.3.0", default-features = false, features = [
+    "default-syntaxes",
+    "default-themes",
+    "regex-onig",
+    "metadata",
+    "html",
+] }
 
 [dev-dependencies]
 but-graph.workspace = true

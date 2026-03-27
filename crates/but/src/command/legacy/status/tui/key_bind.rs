@@ -8,7 +8,7 @@ use crate::command::legacy::status::tui::{
     CommandMessage, ConfirmMessage, Message, Mode, ModeDiscriminant, RewordMessage, RubMessage,
 };
 
-use super::{BranchMessage, CommitMessage, FilesMessage, MoveMessage};
+use super::{BranchMessage, CommitMessage, DetailsMessage, FilesMessage, MoveMessage};
 
 pub(super) fn default_key_binds() -> KeyBinds {
     let mut key_binds = KeyBinds::new();
@@ -162,6 +162,53 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         modes: all_modes,
         message: Message::EnterNormalMode,
         hide_from_hotbar: true,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "scroll details down",
+        chord_display: "ctrl+n",
+        key_matcher: press().control().code(KeyCode::Char('n')),
+        modes: all_except_text_input_modes.clone(),
+        message: Message::Details(DetailsMessage::ScrollDown(1)),
+        hide_from_hotbar: true,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "scroll details up",
+        chord_display: "ctrl+p",
+        key_matcher: press().control().code(KeyCode::Char('p')),
+        modes: all_except_text_input_modes.clone(),
+        message: Message::Details(DetailsMessage::ScrollUp(1)),
+        hide_from_hotbar: true,
+    });
+
+    let jump_distance = 30;
+
+    key_binds.register(StaticKeyBind {
+        short_description: "jump details down",
+        chord_display: "ctrl+d",
+        key_matcher: press().control().code(KeyCode::Char('d')),
+        modes: all_except_text_input_modes.clone(),
+        message: Message::Details(DetailsMessage::ScrollDown(jump_distance)),
+        hide_from_hotbar: true,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "jump details up",
+        chord_display: "ctrl+u",
+        key_matcher: press().control().code(KeyCode::Char('u')),
+        modes: all_except_text_input_modes.clone(),
+        message: Message::Details(DetailsMessage::ScrollUp(jump_distance)),
+        hide_from_hotbar: true,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "diff",
+        chord_display: "d",
+        key_matcher: press().code(KeyCode::Char('d')),
+        modes: all_except_text_input_modes.clone(),
+        message: Message::Details(DetailsMessage::ToggleVisibility),
+        hide_from_hotbar: false,
     });
 }
 

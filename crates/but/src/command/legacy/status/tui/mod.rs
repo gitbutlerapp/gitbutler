@@ -1,4 +1,11 @@
-use std::{borrow::Cow, ffi::OsString, process::Command, sync::Arc, time::Duration};
+use std::{
+    borrow::Cow,
+    ffi::OsString,
+    ops::{Deref, DerefMut},
+    process::Command,
+    sync::Arc,
+    time::Duration,
+};
 
 use anyhow::Context as _;
 use but_core::tree::create_tree::RejectionReason;
@@ -27,6 +34,7 @@ use crate::{
             tui::{
                 confirm::{Confirm, ConfirmMessage},
                 cursor::{Cursor, is_selectable_in_mode},
+                details::{Details, DetailsMessage},
                 graph_extension::{ExtensionDirection, extend_connector_spans},
                 highlight::{Highlights, with_highlight},
                 key_bind::{KeyBinds, confirm_key_binds, default_key_binds},
@@ -46,6 +54,7 @@ use super::{
 
 mod confirm;
 mod cursor;
+mod details;
 mod graph_extension;
 mod highlight;
 mod key_bind;
@@ -195,6 +204,18 @@ where
         app.should_render = true;
     }
 
+    if app.details.is_dirty() {
+        let selection = app
+            .cursor
+            .selected_line(&app.status_lines)
+            .and_then(|line| line.data.cli_id())
+            .map(|id| &**id);
+        if let Err(err) = app.details.update(ctx, selection) {
+            messages.push(Message::ShowError(Arc::new(err)));
+        }
+        app.should_render = true;
+    }
+
     Ok(())
 }
 
@@ -229,6 +250,7 @@ struct App {
     renders: u64,
     highlight: Highlights,
     confirm: Option<Confirm>,
+    details: Details,
 }
 
 impl App {
@@ -250,6 +272,7 @@ impl App {
             renders: 0,
             highlight: Default::default(),
             confirm: None,
+            details: Default::default(),
         }
     }
 
@@ -261,9 +284,20 @@ impl App {
         }
     }
 
+    fn status_content_area(&self, terminal_area: Rect) -> Rect {
+        Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(terminal_area)[0]
+    }
+
+    fn details_viewport(&self, terminal_area: Rect) -> Rect {
+        let content_area = self.status_content_area(terminal_area);
+        self.status_layout(content_area)
+            .details_area
+            .unwrap_or(content_area)
+    }
+
     /// Returns the number of terminal rows available for rendering the status list.
     fn status_viewport_height(&self, terminal_area: Rect) -> usize {
-        usize::from(terminal_area.height.saturating_sub(1)).max(1)
+        usize::from(self.status_content_area(terminal_area).height).max(1)
     }
 
     /// Returns the rendered height in terminal rows for the given status line.
@@ -367,8 +401,12 @@ impl App {
         anyhow::Error: From<<T::Backend as Backend>::Error>,
     {
         self.should_render = true;
-        let visible_height =
-            self.status_viewport_height(terminal_guard.terminal_mut().size()?.into());
+        let terminal_area: Rect = terminal_guard.terminal_mut().size()?.into();
+        let visible_height = self.status_viewport_height(terminal_area);
+
+        if self.details.needs_update_after_message(&msg) {
+            self.details.mark_dirty();
+        }
 
         match msg {
             Message::Quit => {
@@ -489,6 +527,11 @@ impl App {
             }
             Message::RunAfterConfirmation(f) => {
                 (f.0)(self, ctx, messages)?;
+            }
+            Message::Details(details_message) => {
+                let details_viewport = self.details_viewport(terminal_area);
+                self.details
+                    .try_handle_message(details_message, details_viewport)?;
             }
         }
 
@@ -1578,15 +1621,39 @@ impl App {
         self.render_hotbar(content_layout[1], frame);
     }
 
-    fn render_status(&self, area: Rect, frame: &mut Frame) {
-        let (content_area, debug_area) = if self.debug_enabled {
+    fn status_layout(&self, area: Rect) -> StatusLayout {
+        let (main_content_area, debug_area) = if self.debug_enabled {
             let layout =
-                Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                Layout::horizontal([Constraint::Percentage(70), Constraint::Percentage(30)])
                     .split(area);
             (layout[0], Some(layout[1]))
         } else {
             (area, None)
         };
+
+        let (content_area, details_area) = match self.details.visibility() {
+            details::DetailsVisibility::Hidden => (main_content_area, None),
+            details::DetailsVisibility::VisibleVertical => {
+                let layout =
+                    Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                        .split(main_content_area);
+                (layout[0], Some(layout[1]))
+            }
+        };
+
+        StatusLayout {
+            content_area,
+            details_area,
+            debug_area,
+        }
+    }
+
+    fn render_status(&self, area: Rect, frame: &mut Frame) {
+        let StatusLayout {
+            content_area,
+            details_area,
+            debug_area,
+        } = self.status_layout(area);
 
         let visible_height = content_area.height as usize;
         let items = self
@@ -1601,6 +1668,10 @@ impl App {
         let list = List::new(items);
 
         frame.render_widget(list, content_area);
+
+        if let Some(details_area) = details_area {
+            self.details.render(details_area, frame);
+        }
 
         self.render_inline_reword(content_area, frame);
 
@@ -2239,6 +2310,7 @@ enum Message {
     Files(FilesMessage),
     Move(MoveMessage),
     Branch(BranchMessage),
+    Details(DetailsMessage),
 
     // Utilities
     CopySelection,
@@ -2779,6 +2851,26 @@ impl<T> std::fmt::Debug for DebugType<T> {
     }
 }
 
+impl<T> From<T> for DebugType<T> {
+    fn from(value: T) -> Self {
+        Self(value)
+    }
+}
+
+impl<T> Deref for DebugType<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for DebugType<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 #[expect(dead_code)]
 fn run_after_confirmation_msg<F>(f: F) -> Message
 where
@@ -2787,4 +2879,10 @@ where
     Message::RunAfterConfirmation(DebugType(Arc::new(move |app, ctx, messages| {
         f(app, ctx, messages)
     })))
+}
+
+struct StatusLayout {
+    content_area: Rect,
+    details_area: Option<Rect>,
+    debug_area: Option<Rect>,
 }
