@@ -175,6 +175,52 @@ impl TestTuiInputThenRenderResult<'_> {
 
         self
     }
+
+    #[track_caller]
+    pub(super) fn assert_rendered_eq_with_normalized_commit_ids(
+        self,
+        expected: snapbox::Data,
+    ) -> Self {
+        let output = normalize_commit_ids(&self.0.terminal.backend().to_string());
+        snapbox::assert_data_eq!(output, expected);
+        self
+    }
+}
+
+fn normalize_commit_ids(rendered: &str) -> String {
+    rendered
+        .lines()
+        .map(normalize_commit_ids_in_line)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn normalize_commit_ids_in_line(line: &str) -> String {
+    let mut line = line.to_owned();
+
+    if let Some(start) = line.find("Commit ID: ") {
+        let hash_start = start + "Commit ID: ".len();
+        let hash_len = line[hash_start..]
+            .chars()
+            .take_while(|c| c.is_ascii_hexdigit())
+            .count();
+        if hash_len > 0 {
+            line.replace_range(hash_start..hash_start + hash_len, &"0".repeat(hash_len));
+        }
+    }
+
+    if let Some(start) = line.find("●   ") {
+        let hash_start = start + "●   ".len();
+        let hash_len = line[hash_start..]
+            .chars()
+            .take_while(|c| c.is_ascii_hexdigit())
+            .count();
+        if hash_len == 7 {
+            line.replace_range(hash_start..hash_start + hash_len, "0000000");
+        }
+    }
+
+    line
 }
 
 impl<const N: usize, T> EventPolling for [T; N]

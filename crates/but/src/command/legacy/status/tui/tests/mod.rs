@@ -12,6 +12,7 @@ use crate::command::legacy::status::tui::tests::utils::{test_tui, test_tui_with_
 mod branch_tests;
 mod command_tests;
 mod commit_tests;
+mod details_tests;
 mod move_tests;
 mod rub_tests;
 mod utils;
