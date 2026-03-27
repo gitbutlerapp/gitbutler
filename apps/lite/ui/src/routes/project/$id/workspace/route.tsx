@@ -101,6 +101,7 @@ import {
 	segmentItem,
 	getParentSection,
 	CommitItem,
+	ChangesMode,
 } from "./-Item.ts";
 import {
 	buildNavigationModel,
@@ -110,10 +111,11 @@ import {
 	commitDetailsSelectionBindings,
 	commitEditingMessageBindings,
 	commitSummarySelectionBindings,
+	getShortcutsBarMode,
 	segmentSelectionBindings,
 	SharedSelectionAction,
 } from "./-Selection.ts";
-import { PositionedShortcutsBar, getShortcutsBarMode } from "./-ShortcutsBar.tsx";
+import { PositionedShortcutsBar } from "../-ShortcutsBar.tsx";
 import { formatShortcutKeys, getShortcutAction } from "#ui/shortcuts.ts";
 import styles from "./route.module.css";
 
@@ -619,7 +621,7 @@ const ShowSegment: FC<{
 const ShowChangesOrFile: FC<{
 	projectId: string;
 	stackId: string | null;
-	mode: Extract<Item, { _tag: "Changes" }>["mode"];
+	mode: ChangesMode;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 }> = ({ projectId, stackId, mode, onDependencyHover }) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));

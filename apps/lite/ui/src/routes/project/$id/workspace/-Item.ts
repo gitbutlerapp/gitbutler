@@ -2,9 +2,8 @@ import { getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
 import { type RefInfo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 
-type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
+export type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
 export type ChangesItem = { stackId: string | null; mode: ChangesMode };
-type CommitMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
 
 type SegmentItem = {
 	stackId: string;
@@ -13,7 +12,9 @@ type SegmentItem = {
 	branchRef: string | null;
 };
 
+type CommitMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
 export type CommitItem = SegmentItem & { commitId: string; mode: CommitMode };
+
 export type BaseCommitItem = { commitId: string };
 
 export type Item =
