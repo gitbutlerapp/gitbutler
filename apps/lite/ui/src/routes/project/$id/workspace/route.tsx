@@ -117,7 +117,7 @@ import {
 	segmentSelectionBindings,
 	SharedSelectionAction,
 } from "./-Selection.ts";
-import { PositionedShortcutBar, getShortcutBarMode } from "./-ShortcutBar.tsx";
+import { PositionedShortcutsBar, getShortcutsBarMode } from "./-ShortcutsBar.tsx";
 import { formatShortcutKeys, getShortcutAction } from "#ui/shortcuts.ts";
 import styles from "./route.module.css";
 
@@ -1874,8 +1874,8 @@ const ProjectPage: FC = () => {
 				<TearOffBranchTarget className={styles.emptyLane} />
 			</div>
 
-			<PositionedShortcutBar
-				mode={getShortcutBarMode({ selection, commitDetailsSelection, editingCommit })}
+			<PositionedShortcutsBar
+				mode={getShortcutsBarMode({ selection, commitDetailsSelection, editingCommit })}
 			/>
 		</ProjectPreviewLayout>
 	);

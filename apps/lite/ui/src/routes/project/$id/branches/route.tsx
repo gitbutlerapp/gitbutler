@@ -30,7 +30,7 @@ import {
 	ShowCommit,
 	isTypingTarget,
 } from "#ui/routes/project/$id/-shared.tsx";
-import { PositionedShortcutBar } from "#ui/routes/project/$id/workspace/-ShortcutBar.tsx";
+import { PositionedShortcutsBar } from "#ui/routes/project/$id/workspace/-ShortcutsBar.tsx";
 import sharedStyles from "../-shared.module.css";
 import { getDefaultSelection, normalizeBranchSelection, Selection } from "./-Selection.ts";
 
@@ -614,7 +614,7 @@ const ProjectBranchesPage: FC = () => {
 				)}
 			</div>
 
-			<PositionedShortcutBar />
+			<PositionedShortcutsBar />
 		</ProjectPreviewLayout>
 	);
 };

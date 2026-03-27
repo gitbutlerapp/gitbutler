@@ -14,15 +14,15 @@ import {
 	commitSelectionBindings,
 	segmentSelectionBindings,
 } from "./-Selection.ts";
-import styles from "./-ShortcutBar.module.css";
+import styles from "./-ShortcutsBar.module.css";
 
-export const ShortcutBarPortalContext = createContext<HTMLElement | null>(null);
+export const ShortcutsBarPortalContext = createContext<HTMLElement | null>(null);
 
-type ShortcutBarItem = Pick<ShortcutBinding<unknown, unknown>, "id" | "description" | "keys">;
+type ShortcutsBarItem = Pick<ShortcutBinding<unknown, unknown>, "id" | "description" | "keys">;
 
-type ShortcutBarMode = { label: string | null; items: Array<ShortcutBarItem> };
+type ShortcutsBarMode = { label: string | null; items: Array<ShortcutsBarItem> };
 
-export const getShortcutBarMode = ({
+export const getShortcutsBarMode = ({
 	selection,
 	commitDetailsSelection,
 	editingCommit,
@@ -30,18 +30,18 @@ export const getShortcutBarMode = ({
 	selection: Item | null;
 	commitDetailsSelection: CommitDetailsSelection | null;
 	editingCommit: EditingCommit | null;
-}): ShortcutBarMode | null => {
+}): ShortcutsBarMode | null => {
 	if (selection === null) return null;
 
 	return Match.value(selection).pipe(
 		Match.tag(
 			"Changes",
-			(selection): ShortcutBarMode => ({
+			(selection): ShortcutsBarMode => ({
 				label: "changes",
 				items: changesSelectionBindings.filter((binding) => binding.when?.(selection) ?? true),
 			}),
 		),
-		Match.tag("Commit", (selection): ShortcutBarMode => {
+		Match.tag("Commit", (selection): ShortcutsBarMode => {
 			if (
 				editingCommit !== null &&
 				editingCommit.stackId === selection.stackId &&
@@ -68,7 +68,7 @@ export const getShortcutBarMode = ({
 		}),
 		Match.tag(
 			"Segment",
-			(): ShortcutBarMode => ({
+			(): ShortcutsBarMode => ({
 				label: "segment",
 				items: segmentSelectionBindings.filter((binding) => binding.when?.(undefined) ?? true),
 			}),
@@ -77,20 +77,20 @@ export const getShortcutBarMode = ({
 	);
 };
 
-const ShortcutBar: FC<{
-	mode?: ShortcutBarMode | null;
+const ShortcutsBar: FC<{
+	mode?: ShortcutsBarMode | null;
 }> = ({ mode = null }) => {
-	const items: Array<ShortcutBarItem> =
+	const items: Array<ShortcutsBarItem> =
 		mode === null ? globalShortcutBindings : [...mode.items, ...globalShortcutBindings];
 
 	if (items.length === 0) return null;
 
 	return (
-		<div className={styles.shortcutBar}>
-			{mode?.label != null && <span className={styles.shortcutBarMode}>{mode.label}</span>}
+		<div className={styles.shortcutsBar}>
+			{mode?.label != null && <span className={styles.shortcutsBarMode}>{mode.label}</span>}
 			{items.map((item) => (
-				<div key={item.id} className={styles.shortcutBarItem}>
-					<span className={styles.shortcutBarKeys}>{formatShortcutKeys(item.keys)}</span>
+				<div key={item.id} className={styles.shortcutsBarItem}>
+					<span className={styles.shortcutsBarKeys}>{formatShortcutKeys(item.keys)}</span>
 					<span>{item.description}</span>
 				</div>
 			))}
@@ -98,11 +98,11 @@ const ShortcutBar: FC<{
 	);
 };
 
-export const PositionedShortcutBar: FC<{
-	mode?: ShortcutBarMode | null;
+export const PositionedShortcutsBar: FC<{
+	mode?: ShortcutsBarMode | null;
 }> = ({ mode = null }) => {
-	const shortcutBarPortalNode = use(ShortcutBarPortalContext);
-	if (!shortcutBarPortalNode) return null;
+	const shortcutsBarPortalNode = use(ShortcutsBarPortalContext);
+	if (!shortcutsBarPortalNode) return null;
 
-	return createPortal(<ShortcutBar mode={mode} />, shortcutBarPortalNode);
+	return createPortal(<ShortcutsBar mode={mode} />, shortcutsBarPortalNode);
 };

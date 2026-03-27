@@ -3,7 +3,7 @@
 	grid-template:
 		"topBar topBar" auto
 		"sidebar content" minmax(0, 1fr)
-		"shortcutBar shortcutBar" auto
+		"shortcutsBar shortcutsBar" auto
 		/ max-content minmax(0, 1fr);
 	height: 100dvh;
 }
@@ -52,6 +52,6 @@
 	overflow: auto;
 }
 
-.shortcutBarFooter {
-	grid-area: shortcutBar;
+.shortcutsBarFooter {
+	grid-area: shortcutsBar;
 }

@@ -5,7 +5,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext } from "@tanstack/react-router";
 import { usePreviewVisible } from "../hooks/usePreviewVisible";
 import { classes } from "#ui/classes.ts";
-import { ShortcutBarPortalContext } from "#ui/routes/project/$id/workspace/-ShortcutBar.tsx";
+import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/workspace/-ShortcutsBar.tsx";
 import uiStyles from "#ui/ui.module.css";
 import styles from "./__root.module.css";
 import { shortcutKeys } from "#ui/shortcuts.ts";
@@ -113,10 +113,10 @@ const TopBar: FC = () => {
 };
 
 function RootLayout() {
-	const [shortcutBarPortalNode, setShortcutBarPortalNode] = useState<HTMLElement | null>(null);
+	const [shortcutsBarPortalNode, setShortcutsBarPortalNode] = useState<HTMLElement | null>(null);
 
 	return (
-		<ShortcutBarPortalContext value={shortcutBarPortalNode}>
+		<ShortcutsBarPortalContext value={shortcutsBarPortalNode}>
 			<main className={styles.layout}>
 				<TopBar />
 				<aside className={styles.sidebar}>
@@ -125,9 +125,9 @@ function RootLayout() {
 				<section className={styles.content}>
 					<Outlet />
 				</section>
-				<footer className={styles.shortcutBarFooter} ref={setShortcutBarPortalNode} />
+				<footer className={styles.shortcutsBarFooter} ref={setShortcutsBarPortalNode} />
 			</main>
-		</ShortcutBarPortalContext>
+		</ShortcutsBarPortalContext>
 	);
 }
 

@@ -3,7 +3,7 @@ import { Match } from "effect";
 import { FC, ReactNode, use, useEffect, useEffectEvent, useState } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import useLocalStorageState from "use-local-storage-state";
-import { ShortcutBarPortalContext } from "#ui/routes/project/$id/workspace/-ShortcutBar.tsx";
+import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/workspace/-ShortcutsBar.tsx";
 import uiStyles from "#ui/ui.module.css";
 import { usePreviewVisible } from "#ui/hooks/usePreviewVisible.ts";
 import { getShortcutAction, globalShortcutBindings, shortcutKeys } from "#ui/shortcuts.ts";
@@ -20,8 +20,8 @@ export const ProjectPreviewLayout: FC<{
 		`project:${projectId}:showPreviewFullscreen`,
 		{ defaultValue: false },
 	);
-	const inheritedShortcutBarPortalNode = use(ShortcutBarPortalContext);
-	const [dialogShortcutBarPortalNode, setDialogShortcutBarPortalNode] =
+	const inheritedShortcutsBarPortalNode = use(ShortcutsBarPortalContext);
+	const [dialogShortcutsBarPortalNode, setDialogShortcutsBarPortalNode] =
 		useState<HTMLElement | null>(null);
 	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
 		id: `project:${projectId}:layout`,
@@ -54,11 +54,11 @@ export const ProjectPreviewLayout: FC<{
 	}, []);
 
 	return (
-		<ShortcutBarPortalContext
+		<ShortcutsBarPortalContext
 			value={
 				showPreviewFullscreen
-					? (dialogShortcutBarPortalNode ?? inheritedShortcutBarPortalNode)
-					: inheritedShortcutBarPortalNode
+					? (dialogShortcutsBarPortalNode ?? inheritedShortcutsBarPortalNode)
+					: inheritedShortcutsBarPortalNode
 			}
 		>
 			<Group
@@ -98,10 +98,10 @@ export const ProjectPreviewLayout: FC<{
 							</Dialog.Close>
 							{preview}
 						</div>
-						<footer ref={setDialogShortcutBarPortalNode} />
+						<footer ref={setDialogShortcutsBarPortalNode} />
 					</Dialog.Popup>
 				</Dialog.Portal>
 			</Dialog.Root>
-		</ShortcutBarPortalContext>
+		</ShortcutsBarPortalContext>
 	);
 };
