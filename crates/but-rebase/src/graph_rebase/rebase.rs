@@ -70,8 +70,13 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                             .collect::<Result<Vec<_>>>()?,
                     };
 
-                    let outcome =
-                        cherry_pick(&self.repo, pick.id, &ontos, pick.sign_if_configured)?;
+                    let outcome = cherry_pick(
+                        &self.repo,
+                        pick.id,
+                        &ontos,
+                        pick.pick_mode,
+                        pick.sign_commit,
+                    )?;
 
                     if matches!(outcome, CherryPickOutcome::ConflictedCommit(_))
                         && !pick.conflictable
