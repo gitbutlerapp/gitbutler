@@ -51,6 +51,13 @@ export interface MoveBranchParams {
 	targetBranch: string;
 }
 
+export interface UpdateBranchNameParams {
+	projectId: string;
+	stackId: string;
+	branchName: string;
+	newName: string;
+}
+
 export interface TearOffBranchParams {
 	projectId: string;
 	subjectBranch: string;
@@ -161,6 +168,7 @@ export interface LiteElectronApi {
 	) => Promise<Array<BranchListing>>;
 	listProjects: () => Promise<Array<ProjectForFrontend>>;
 	moveBranch: (params: MoveBranchParams) => Promise<UIMoveBranchResult>;
+	updateBranchName: (params: UpdateBranchNameParams) => Promise<void>;
 	tearOffBranch: (params: TearOffBranchParams) => Promise<UIMoveBranchResult>;
 	ping: (input: string) => Promise<string>;
 	pushStackLegacy: (params: PushStackLegacyParams) => Promise<PushResult>;
@@ -190,6 +198,7 @@ export const liteIpcChannels = {
 	listBranches: "workspace:list-branches",
 	listProjects: "projects:list",
 	moveBranch: "workspace:move-branch",
+	updateBranchName: "workspace:update-branch-name",
 	tearOffBranch: "workspace:tear-off-branch",
 	ping: "lite:ping",
 	pushStackLegacy: "workspace:push-stack-legacy",
