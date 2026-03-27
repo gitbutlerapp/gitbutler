@@ -366,7 +366,7 @@ const Hunk: FC<{
 				{formatHunkHeader(hunk)}
 			</DraggableHunk>
 		</div>
-		<HunkDiff diff={hunk.diff} />
+		<HunkDiff change={change} diff={hunk.diff} />
 	</div>
 );
 

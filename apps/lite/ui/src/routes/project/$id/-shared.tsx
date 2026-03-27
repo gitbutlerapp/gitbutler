@@ -1,3 +1,4 @@
+import { PatchDiff } from "@pierre/diffs/react";
 import {
 	branchDetailsQueryOptions,
 	branchDiffQueryOptions,
@@ -48,9 +49,42 @@ const assignedHunks = (
 	);
 };
 
+const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
+
+const patchHeaderForChange = (change: TreeChange, lineEnding: string): string =>
+	Match.value(change.status).pipe(
+		Match.when(
+			{ type: "Addition" },
+			() => `--- /dev/null${lineEnding}+++ ${change.path}${lineEnding}`,
+		),
+		Match.when(
+			{ type: "Deletion" },
+			() => `--- ${change.path}${lineEnding}+++ /dev/null${lineEnding}`,
+		),
+		Match.when(
+			{ type: "Modification" },
+			() => `--- ${change.path}${lineEnding}+++ ${change.path}${lineEnding}`,
+		),
+		Match.when(
+			{ type: "Rename" },
+			({ subject }) => `--- ${subject.previousPath}${lineEnding}+++ ${change.path}${lineEnding}`,
+		),
+		Match.exhaustive,
+	);
+
 export const HunkDiff: FC<{
+	change: TreeChange;
 	diff: string;
-}> = ({ diff }) => <pre>{diff.split("\n").slice(1).join("\n")}</pre>;
+}> = ({ change, diff }) => (
+	<PatchDiff
+		patch={`${patchHeaderForChange(change, lineEndingForDiff(diff))}${diff}`}
+		options={{
+			diffStyle: "unified",
+			themeType: "light",
+			disableFileHeader: true,
+		}}
+	/>
+);
 
 const hunkKey = (hunk: HunkHeader): string =>
 	`${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`;
