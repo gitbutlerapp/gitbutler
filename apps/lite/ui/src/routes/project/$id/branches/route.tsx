@@ -579,7 +579,7 @@ const ProjectBranchesPage: FC = () => {
 				<ul
 					className={classes(
 						styles.branchesListLane,
-						selection?._tag === "Branch" ? sharedStyles.selectedContainer : undefined,
+						selection?._tag === "Branch" ? sharedStyles.sectionSelected : undefined,
 					)}
 				>
 					{sortedBranches.map((branch) => (
@@ -598,7 +598,7 @@ const ProjectBranchesPage: FC = () => {
 					<div
 						className={classes(
 							styles.branchDetailsLane,
-							selection?._tag === "Commit" ? sharedStyles.selectedContainer : undefined,
+							selection?._tag === "Commit" ? sharedStyles.sectionSelected : undefined,
 						)}
 					>
 						<Suspense fallback={<div>Loading branch details…</div>}>
