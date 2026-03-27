@@ -13,19 +13,13 @@ fn toggle_details_view_for_commit() {
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_details_view_for_commit_001.term.svg"
-        ]);
+        .assert_rendered_term_svg_eq(file!["snapshots/toggle_details_view_for_commit_001.svg"]);
 
     tui.input_then_render('d')
-        .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_details_view_for_commit_002.term.svg"
-        ]);
+        .assert_rendered_term_svg_eq(file!["snapshots/toggle_details_view_for_commit_002.svg"]);
 
     tui.input_then_render('d')
-        .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_details_view_for_commit_003.term.svg"
-        ]);
+        .assert_rendered_term_svg_eq(file!["snapshots/toggle_details_view_for_commit_003.svg"]);
 }
 
 #[test]
@@ -37,17 +31,17 @@ fn details_view_updates_with_selection_changes() {
 
     tui.input_then_render('d')
         .assert_rendered_term_svg_eq(file![
-            "snapshots/details_view_updates_with_selection_changes_001.term.svg"
+            "snapshots/details_view_updates_with_selection_changes_001.svg"
         ]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
         .assert_rendered_term_svg_eq(file![
-            "snapshots/details_view_updates_with_selection_changes_002.term.svg"
+            "snapshots/details_view_updates_with_selection_changes_002.svg"
         ]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
         .assert_rendered_term_svg_eq(file![
-            "snapshots/details_view_updates_with_selection_changes_003.term.svg"
+            "snapshots/details_view_updates_with_selection_changes_003.svg"
         ]);
 }
 
@@ -65,27 +59,27 @@ fn details_view_supports_scroll_controls() {
 
     tui.input_then_render('d')
         .assert_rendered_term_svg_eq(file![
-            "snapshots/details_view_supports_scroll_controls_001.term.svg"
+            "snapshots/details_view_supports_scroll_controls_001.svg"
         ]);
 
     tui.render_with_messages((KeyModifiers::CONTROL, KeyCode::Char('n')), Vec::new())
         .assert_rendered_term_svg_eq(file![
-            "snapshots/details_view_supports_scroll_controls_002.term.svg"
+            "snapshots/details_view_supports_scroll_controls_002.svg"
         ]);
 
     tui.render_with_messages((KeyModifiers::CONTROL, KeyCode::Char('d')), Vec::new())
         .assert_rendered_term_svg_eq(file![
-            "snapshots/details_view_supports_scroll_controls_003.term.svg"
+            "snapshots/details_view_supports_scroll_controls_003.svg"
         ]);
 
     tui.render_with_messages((KeyModifiers::CONTROL, KeyCode::Char('u')), Vec::new())
         .assert_rendered_term_svg_eq(file![
-            "snapshots/details_view_supports_scroll_controls_004.term.svg"
+            "snapshots/details_view_supports_scroll_controls_004.svg"
         ]);
 
     tui.render_with_messages((KeyModifiers::CONTROL, KeyCode::Char('p')), Vec::new())
         .assert_rendered_term_svg_eq(file![
-            "snapshots/details_view_supports_scroll_controls_005.term.svg"
+            "snapshots/details_view_supports_scroll_controls_005.svg"
         ]);
 }
 
@@ -98,16 +92,16 @@ fn commit_message_wraps_in_details_view() {
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
         .assert_rendered_term_svg_eq(file![
-            "snapshots/commit_message_wraps_in_details_view_001.term.svg"
+            "snapshots/commit_message_wraps_in_details_view_001.svg"
         ]);
 
     tui.input_then_render(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file![
-            "snapshots/commit_message_wraps_in_details_view_002.term.svg"
+            "snapshots/commit_message_wraps_in_details_view_002.svg"
         ]);
 
     tui.input_then_render(" this commit message is intentionally long so the details pane has to wrap the text across multiple visual lines")
-        .assert_rendered_term_svg_eq(file!["snapshots/commit_message_wraps_in_details_view_003.term.svg"]);
+        .assert_rendered_term_svg_eq(file!["snapshots/commit_message_wraps_in_details_view_003.svg"]);
 
     with_var("GIT_AUTHOR_DATE", Some("2000-01-01T00:00:00Z"), || {
         with_var("GIT_COMMITTER_DATE", Some("2000-01-01T00:00:00Z"), || {
@@ -119,7 +113,7 @@ fn commit_message_wraps_in_details_view() {
 
     tui.render_with_messages((KeyModifiers::CONTROL, KeyCode::Char('n')), Vec::new())
         .assert_rendered_term_svg_eq(file![
-            "snapshots/commit_message_wraps_in_details_view_005.term.svg"
+            "snapshots/commit_message_wraps_in_details_view_005.svg"
         ]);
 }
 
@@ -142,7 +136,22 @@ fn details_view_renders_multiple_hunks_and_files() {
 
     tui.input_then_render('d')
         .assert_rendered_term_svg_eq(file![
-            "snapshots/details_view_renders_multiple_hunks_and_files_001.term.svg"
+            "snapshots/details_view_renders_multiple_hunks_and_files_001.svg"
+        ]);
+}
+
+#[test]
+fn details_diff_svg_shows_plus_and_minus_backgrounds() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("A", "A-changed\n");
+
+    let mut tui = test_tui_with_size(env, 100, 12);
+
+    tui.input_then_render('d')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/details_diff_svg_shows_plus_and_minus_backgrounds_001.svg"
         ]);
 }
 
@@ -159,21 +168,21 @@ fn toggling_details_off_and_on_resets_scroll_position() {
 
     tui.input_then_render('d')
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggling_details_off_and_on_resets_scroll_position_001.term.svg"
+            "snapshots/toggling_details_off_and_on_resets_scroll_position_001.svg"
         ]);
 
     tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('d')))
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggling_details_off_and_on_resets_scroll_position_002.term.svg"
+            "snapshots/toggling_details_off_and_on_resets_scroll_position_002.svg"
         ]);
 
     tui.input_then_render('d')
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggling_details_off_and_on_resets_scroll_position_003.term.svg"
+            "snapshots/toggling_details_off_and_on_resets_scroll_position_003.svg"
         ]);
 
     tui.input_then_render('d')
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggling_details_off_and_on_resets_scroll_position_004.term.svg"
+            "snapshots/toggling_details_off_and_on_resets_scroll_position_004.svg"
         ]);
 }

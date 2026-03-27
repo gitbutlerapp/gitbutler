@@ -182,98 +182,164 @@ impl TestTuiInputThenRenderResult<'_> {
 
     #[track_caller]
     pub(super) fn assert_rendered_term_svg_eq(self, expected: snapbox::Data) -> Self {
-        let ansi = backend_to_ansi(self.0.terminal.backend());
-        snapbox::assert_data_eq!(ansi, expected);
+        let svg = backend_to_svg(self.0.terminal.backend());
+        snapbox::assert_data_eq!(svg, expected);
         self
     }
 }
 
-fn backend_to_ansi(backend: &TestBackend) -> String {
+fn backend_to_svg(backend: &TestBackend) -> String {
+    const CELL_WIDTH: u16 = 8;
+    const CELL_HEIGHT: u16 = 18;
+    const PADDING: u16 = 10;
+    const FONT_SIZE: u16 = 14;
+
     let buffer = backend.buffer();
     let area = *buffer.area();
 
-    let mut out = String::new();
+    let width = area.width * CELL_WIDTH + PADDING * 2;
+    let height = area.height * CELL_HEIGHT + PADDING * 2;
+
+    let default_fg = (0xcc, 0xcc, 0xcc);
+    let default_bg = (0x00, 0x00, 0x00);
+
+    let mut svg = String::new();
+    svg.push_str(&format!(
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width}\" height=\"{height}\" viewBox=\"0 0 {width} {height}\">\n"
+    ));
+    svg.push_str(&format!(
+        "  <rect x=\"0\" y=\"0\" width=\"{width}\" height=\"{height}\" fill=\"#000000\" />\n"
+    ));
 
     for y in area.y..area.y.saturating_add(area.height) {
         for x in area.x..area.x.saturating_add(area.width) {
             let cell = &buffer[(x, y)];
-            out.push_str("\x1b[");
-            out.push_str(&ansi_sgr_for_cell(cell));
-            out.push('m');
-            out.push_str(cell.symbol());
-        }
-        out.push_str("\x1b[0m\n");
-    }
-
-    out
-}
-
-fn ansi_sgr_for_cell(cell: &ratatui::buffer::Cell) -> String {
-    let mut codes = Vec::new();
-
-    codes.push("0".to_owned());
-
-    if cell.modifier.contains(Modifier::BOLD) {
-        codes.push("1".to_owned());
-    }
-    if cell.modifier.contains(Modifier::DIM) {
-        codes.push("2".to_owned());
-    }
-    if cell.modifier.contains(Modifier::ITALIC) {
-        codes.push("3".to_owned());
-    }
-    if cell.modifier.contains(Modifier::UNDERLINED) {
-        codes.push("4".to_owned());
-    }
-    if cell.modifier.contains(Modifier::REVERSED) {
-        codes.push("7".to_owned());
-    }
-    if cell.modifier.contains(Modifier::CROSSED_OUT) {
-        codes.push("9".to_owned());
-    }
-
-    codes.push(ansi_color_code(cell.fg, true));
-    codes.push(ansi_color_code(cell.bg, false));
-
-    codes.join(";")
-}
-
-fn ansi_color_code(color: Color, is_foreground: bool) -> String {
-    let (base, bright_base) = if is_foreground { (30, 90) } else { (40, 100) };
-
-    match color {
-        Color::Reset => {
-            if is_foreground {
-                "39".to_owned()
-            } else {
-                "49".to_owned()
+            let bg = color_to_rgb(cell.bg, default_bg);
+            if bg != default_bg {
+                let rect_x = PADDING + (x - area.x) * CELL_WIDTH;
+                let rect_y = PADDING + (y - area.y) * CELL_HEIGHT;
+                svg.push_str(&format!(
+                    "  <rect x=\"{rect_x}\" y=\"{rect_y}\" width=\"{CELL_WIDTH}\" height=\"{CELL_HEIGHT}\" fill=\"{}\" />\n",
+                    rgb_hex(bg)
+                ));
             }
         }
-        Color::Black => base.to_string(),
-        Color::Red => (base + 1).to_string(),
-        Color::Green => (base + 2).to_string(),
-        Color::Yellow => (base + 3).to_string(),
-        Color::Blue => (base + 4).to_string(),
-        Color::Magenta => (base + 5).to_string(),
-        Color::Cyan => (base + 6).to_string(),
-        Color::Gray => (base + 7).to_string(),
-        Color::DarkGray => bright_base.to_string(),
-        Color::LightRed => (bright_base + 1).to_string(),
-        Color::LightGreen => (bright_base + 2).to_string(),
-        Color::LightYellow => (bright_base + 3).to_string(),
-        Color::LightBlue => (bright_base + 4).to_string(),
-        Color::LightMagenta => (bright_base + 5).to_string(),
-        Color::LightCyan => (bright_base + 6).to_string(),
-        Color::White => (bright_base + 7).to_string(),
-        Color::Rgb(r, g, b) => {
-            let prefix = if is_foreground { 38 } else { 48 };
-            format!("{prefix};2;{r};{g};{b}")
-        }
-        Color::Indexed(idx) => {
-            let prefix = if is_foreground { 38 } else { 48 };
-            format!("{prefix};5;{idx}")
+    }
+
+    for y in area.y..area.y.saturating_add(area.height) {
+        let text_y = PADDING + (y - area.y + 1) * CELL_HEIGHT - 4;
+        for x in area.x..area.x.saturating_add(area.width) {
+            let cell = &buffer[(x, y)];
+            let symbol = cell.symbol();
+            if symbol.is_empty() || symbol == " " {
+                continue;
+            }
+
+            let mut fg = color_to_rgb(cell.fg, default_fg);
+            let mut bg = color_to_rgb(cell.bg, default_bg);
+            if cell.modifier.contains(Modifier::REVERSED) {
+                std::mem::swap(&mut fg, &mut bg);
+            }
+
+            let text_x = PADDING + (x - area.x) * CELL_WIDTH;
+            let mut style = format!("fill:{};", rgb_hex(fg));
+            if cell.modifier.contains(Modifier::BOLD) {
+                style.push_str("font-weight:bold;");
+            }
+            if cell.modifier.contains(Modifier::DIM) {
+                style.push_str("opacity:0.75;");
+            }
+            if cell.modifier.contains(Modifier::ITALIC) {
+                style.push_str("font-style:italic;");
+            }
+            if cell.modifier.contains(Modifier::UNDERLINED) {
+                style.push_str("text-decoration:underline;");
+            }
+            if cell.modifier.contains(Modifier::CROSSED_OUT) {
+                style.push_str("text-decoration:line-through;");
+            }
+
+            svg.push_str(&format!(
+                "  <text x=\"{text_x}\" y=\"{text_y}\" style=\"{style}\" font-family=\"Menlo, Monaco, 'Courier New', monospace\" font-size=\"{FONT_SIZE}\" xml:space=\"preserve\">{}</text>\n",
+                escape_xml(symbol)
+            ));
         }
     }
+
+    svg.push_str("</svg>\n");
+    svg
+}
+
+fn color_to_rgb(color: Color, default: (u8, u8, u8)) -> (u8, u8, u8) {
+    match color {
+        Color::Reset => default,
+        Color::Black => (0x00, 0x00, 0x00),
+        Color::Red => (0xaa, 0x00, 0x00),
+        Color::Green => (0x00, 0xaa, 0x00),
+        Color::Yellow => (0xaa, 0x55, 0x00),
+        Color::Blue => (0x00, 0x00, 0xaa),
+        Color::Magenta => (0xaa, 0x00, 0xaa),
+        Color::Cyan => (0x00, 0xaa, 0xaa),
+        Color::Gray => (0xaa, 0xaa, 0xaa),
+        Color::DarkGray => (0x55, 0x55, 0x55),
+        Color::LightRed => (0xff, 0x55, 0x55),
+        Color::LightGreen => (0x55, 0xff, 0x55),
+        Color::LightYellow => (0xff, 0xff, 0x55),
+        Color::LightBlue => (0x55, 0x55, 0xff),
+        Color::LightMagenta => (0xff, 0x55, 0xff),
+        Color::LightCyan => (0x55, 0xff, 0xff),
+        Color::White => (0xff, 0xff, 0xff),
+        Color::Rgb(r, g, b) => (r, g, b),
+        Color::Indexed(idx) => xterm_256_to_rgb(idx),
+    }
+}
+
+fn xterm_256_to_rgb(idx: u8) -> (u8, u8, u8) {
+    const BASE: [(u8, u8, u8); 16] = [
+        (0, 0, 0),
+        (128, 0, 0),
+        (0, 128, 0),
+        (128, 128, 0),
+        (0, 0, 128),
+        (128, 0, 128),
+        (0, 128, 128),
+        (192, 192, 192),
+        (128, 128, 128),
+        (255, 0, 0),
+        (0, 255, 0),
+        (255, 255, 0),
+        (0, 0, 255),
+        (255, 0, 255),
+        (0, 255, 255),
+        (255, 255, 255),
+    ];
+
+    match idx {
+        0..=15 => BASE[idx as usize],
+        16..=231 => {
+            let i = idx - 16;
+            let r = i / 36;
+            let g = (i % 36) / 6;
+            let b = i % 6;
+            let to_channel = |v: u8| if v == 0 { 0 } else { 55 + v * 40 };
+            (to_channel(r), to_channel(g), to_channel(b))
+        }
+        232..=255 => {
+            let gray = 8 + (idx - 232) * 10;
+            (gray, gray, gray)
+        }
+    }
+}
+
+fn rgb_hex((r, g, b): (u8, u8, u8)) -> String {
+    format!("#{r:02X}{g:02X}{b:02X}")
+}
+
+fn escape_xml(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 impl<const N: usize, T> EventPolling for [T; N]
