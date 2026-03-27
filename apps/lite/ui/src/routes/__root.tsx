@@ -10,7 +10,6 @@ import uiStyles from "#ui/ui.module.css";
 import styles from "./__root.module.css";
 import { shortcutKeys } from "#ui/shortcuts.ts";
 import { ShortcutBarPortalContext } from "./-ShortcutBarContext.tsx";
-import { ShortcutBar } from "./project/$id/workspace/-ShortcutBar.tsx";
 
 export const lastOpenedProjectKey = "lastProject";
 
