@@ -10,7 +10,7 @@ import { isTypingTarget } from "#ui/routes/project/$id/-shared.tsx";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { useEffect, useEffectEvent } from "react";
-import { type EditingCommit } from "./-EditingCommit.ts";
+import { type Editing } from "./-Editing.ts";
 import {
 	commitItem,
 	type Item,
@@ -113,6 +113,19 @@ const commitDetailsBindings: Array<ShortcutBinding<CommitDetailsAction>> = [
 	},
 ];
 
+type BranchSegmentAction = SelectionAction | { _tag: "RenameBranch" };
+
+const branchSegmentBindings: Array<ShortcutBinding<BranchSegmentAction>> = [
+	...selectionBindings,
+	{
+		id: "segment-rename-branch",
+		description: "Rename",
+		keys: ["Enter"],
+		action: { _tag: "RenameBranch" },
+		repeat: false,
+	},
+];
+
 type FullscreenPreviewAction = { _tag: "Close" };
 
 export const closeFullscreenPreviewBinding: ShortcutBinding<FullscreenPreviewAction> = {
@@ -173,6 +186,51 @@ export const handleCommitEditingMessageKeyDown = ({
 	);
 };
 
+type RenameBranchAction = { _tag: "Save" } | { _tag: "Cancel" };
+
+export const renameBranchBindings: Array<ShortcutBinding<RenameBranchAction>> = [
+	{
+		id: "rename-branch-save",
+		description: "Save",
+		keys: ["Enter"],
+		action: { _tag: "Save" },
+		repeat: false,
+	},
+	{
+		id: "rename-branch-cancel",
+		description: "Cancel",
+		keys: ["Escape"],
+		action: { _tag: "Cancel" },
+		repeat: false,
+	},
+];
+
+export const handleRenameBranchKeyDown = ({
+	event,
+	onSave,
+	onCancel,
+}: {
+	event: KeyboardEvent;
+	onSave: () => void;
+	onCancel: () => void;
+}) => {
+	const action = getAction(renameBranchBindings, event);
+	if (!action) return;
+
+	Match.value(action).pipe(
+		Match.tagsExhaustive({
+			Save: () => {
+				event.preventDefault();
+				onSave();
+			},
+			Cancel: () => {
+				event.preventDefault();
+				onCancel();
+			},
+		}),
+	);
+};
+
 type Scope =
 	| {
 			_tag: "FullscreenPreview";
@@ -199,6 +257,11 @@ type Scope =
 			context: CommitItem;
 	  }
 	| {
+			_tag: "RenameBranch";
+			bindings: Array<ShortcutBinding<RenameBranchAction>>;
+			context: SegmentItem;
+	  }
+	| {
 			_tag: "CommitSummary";
 			bindings: Array<ShortcutBinding<CommitSummaryAction>>;
 			context: CommitItem;
@@ -207,16 +270,21 @@ type Scope =
 			_tag: "Segment";
 			bindings: Array<ShortcutBinding<SelectionAction>>;
 			context: SegmentItem;
+	  }
+	| {
+			_tag: "Branch";
+			bindings: Array<ShortcutBinding<BranchSegmentAction>>;
+			context: SegmentItem;
 	  };
 
 export const getScope = ({
 	showFullscreenPreview,
 	selection,
-	editingCommit,
+	editing,
 }: {
 	showFullscreenPreview: boolean;
 	selection: Item | null;
-	editingCommit: EditingCommit | null;
+	editing: Editing | null;
 }): Scope | null => {
 	if (showFullscreenPreview)
 		return {
@@ -237,10 +305,10 @@ export const getScope = ({
 		),
 		Match.tag("Commit", (selection): Scope => {
 			if (
-				editingCommit !== null &&
-				editingCommit.stackId === selection.stackId &&
-				editingCommit.segmentIndex === selection.segmentIndex &&
-				editingCommit.commitId === selection.commitId
+				editing?._tag === "CommitMessage" &&
+				editing.subject.stackId === selection.stackId &&
+				editing.subject.segmentIndex === selection.segmentIndex &&
+				editing.subject.commitId === selection.commitId
 			)
 				return {
 					_tag: "CommitEditMessage",
@@ -273,11 +341,26 @@ export const getScope = ({
 		),
 		Match.tag(
 			"Segment",
-			(selection): Scope => ({
-				_tag: "Segment",
-				bindings: selectionBindings,
-				context: selection,
-			}),
+			(selection): Scope =>
+				editing?._tag === "BranchName" &&
+				editing.subject.stackId === selection.stackId &&
+				editing.subject.segmentIndex === selection.segmentIndex
+					? {
+							_tag: "RenameBranch",
+							bindings: renameBranchBindings,
+							context: selection,
+						}
+					: selection.branchName === null || selection.branchRef === null
+						? {
+								_tag: "Segment",
+								bindings: selectionBindings,
+								context: selection,
+							}
+						: {
+								_tag: "Branch",
+								bindings: branchSegmentBindings,
+								context: selection,
+							},
 		),
 		Match.exhaustive,
 	);
@@ -287,10 +370,12 @@ export const getLabel = (scope: Scope): string =>
 	Match.value(scope).pipe(
 		Match.tag("FullscreenPreview", () => "Fullscreen preview"),
 		Match.tag("BaseCommit", () => "Base commit"),
+		Match.tag("RenameBranch", () => "Rename branch"),
 		Match.tag("Changes", () => "Changes"),
 		Match.tag("CommitDetails", () => "Commit details"),
 		Match.tag("CommitEditMessage", () => "Edit commit message"),
 		Match.tag("CommitSummary", () => "Commit"),
+		Match.tag("Branch", () => "Branch"),
 		Match.tag("Segment", () => "Segment"),
 		Match.exhaustive,
 	);
@@ -298,18 +383,18 @@ export const getLabel = (scope: Scope): string =>
 export const useWorkspaceShortcuts = ({
 	projectId,
 	showFullscreenPreview,
-	editingCommit,
+	editing,
 	selection,
 	select,
-	setEditingCommit,
+	setEditing,
 	commonBaseCommitId,
 }: {
 	projectId: string;
 	showFullscreenPreview: boolean;
 	selection: Item | null;
 	select: (selection: Item | null) => void;
-	editingCommit: EditingCommit | null;
-	setEditingCommit: (selection: EditingCommit | null) => void;
+	editing: Editing | null;
+	setEditing: (selection: Editing | null) => void;
 	commonBaseCommitId?: string;
 }) => {
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
@@ -371,7 +456,7 @@ export const useWorkspaceShortcuts = ({
 	const handleCommitSummaryAction = (action: CommitSummaryAction, selection: CommitItem) =>
 		Match.value(action).pipe(
 			Match.tags({
-				EditMessage: () => setEditingCommit(selection),
+				EditMessage: () => setEditing({ _tag: "CommitMessage", subject: selection }),
 				OpenDetails: () => select(commitItem({ ...selection, mode: { _tag: "Details" } })),
 			}),
 			Match.orElse((action) => handleSharedAction(action, { _tag: "Commit", ...selection })),
@@ -386,12 +471,28 @@ export const useWorkspaceShortcuts = ({
 			Match.orElse((action) => handleSharedAction(action, { _tag: "Commit", ...selection })),
 		);
 
+	const handleBranchSegmentAction = (action: BranchSegmentAction, selection: SegmentItem) =>
+		Match.value(action).pipe(
+			Match.tags({
+				RenameBranch: () => {
+					setEditing({
+						_tag: "BranchName",
+						subject: {
+							stackId: selection.stackId,
+							segmentIndex: selection.segmentIndex,
+						},
+					});
+				},
+			}),
+			Match.orElse((action) => handleSharedAction(action, { _tag: "Segment", ...selection })),
+		);
+
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
 		if (event.defaultPrevented) return;
 		if (event.metaKey || event.ctrlKey || event.altKey) return;
 		if (isTypingTarget(event.target)) return;
 
-		const scope = getScope({ showFullscreenPreview, selection, editingCommit });
+		const scope = getScope({ showFullscreenPreview, selection, editing });
 		if (!scope) return;
 
 		Match.value(scope).pipe(
@@ -424,6 +525,13 @@ export const useWorkspaceShortcuts = ({
 					event.preventDefault();
 					handleSharedAction(action, { _tag: "Segment", ...scope.context });
 				},
+				Branch: (scope) => {
+					const action = getAction(scope.bindings, event);
+					if (!action) return;
+					event.preventDefault();
+					handleBranchSegmentAction(action, scope.context);
+				},
+				RenameBranch: () => undefined,
 				CommitSummary: (scope) => {
 					const action = getAction(scope.bindings, event);
 					if (!action) return;

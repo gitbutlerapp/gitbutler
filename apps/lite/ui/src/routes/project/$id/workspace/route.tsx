@@ -2,6 +2,7 @@ import {
 	commitCreateMutationOptions,
 	commitInsertBlankMutationOptions,
 	commitRewordMutationOptions,
+	updateBranchNameMutationOptions,
 	unapplyStackMutationOptions,
 } from "#ui/api/mutations.ts";
 import {
@@ -89,7 +90,7 @@ import {
 } from "react";
 import useLocalStorageState from "use-local-storage-state";
 import sharedStyles from "../-shared.module.css";
-import { type EditingCommit } from "./-EditingCommit.ts";
+import { type Editing } from "./-Editing.ts";
 import {
 	baseCommitItem,
 	changesDetailsItem,
@@ -103,6 +104,8 @@ import {
 } from "./-Item.ts";
 import { buildNavigationModel, getSelectedCommitPath } from "./-Selection.ts";
 import {
+	renameBranchBindings,
+	handleRenameBranchKeyDown,
 	commitEditingMessageBindings,
 	handleCommitEditingMessageKeyDown,
 	getLabel,
@@ -110,7 +113,7 @@ import {
 	useWorkspaceShortcuts,
 } from "./-WorkspaceShortcuts.ts";
 import { PositionedShortcutsBar } from "../-ShortcutsBar.tsx";
-import { formatShortcutKeys } from "#ui/shortcuts.ts";
+import { formatShortcutKeys, ShortcutActionBase, type ShortcutBinding } from "#ui/shortcuts.ts";
 import styles from "./route.module.css";
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
@@ -703,13 +706,27 @@ const CommitTarget: FC<
 	);
 };
 
+const EditorHelp: FC<{
+	bindings: Array<ShortcutBinding<ShortcutActionBase>>;
+}> = ({ bindings }) => (
+	<div className={styles.editorHelp}>
+		{bindings.map((binding, index) => (
+			<Fragment key={binding.id}>
+				{index > 0 && " • "}
+				<span className={styles.editorShortcut}>{formatShortcutKeys(binding.keys)}</span> to{" "}
+				{binding.description}
+			</Fragment>
+		))}
+	</div>
+);
+
 const InlineCommitMessageEditor: FC<{
 	message: string;
 	onSubmit: (value: string) => void;
 	onCancel: () => void;
 }> = ({ message, onSubmit, onCancel }) => (
 	<form
-		className={styles.editCommitMessageForm}
+		className={styles.editorForm}
 		onSubmit={(event) => {
 			event.preventDefault();
 			const formData = new FormData(event.currentTarget);
@@ -726,7 +743,7 @@ const InlineCommitMessageEditor: FC<{
 			}}
 			name="message"
 			defaultValue={message.trim()}
-			className={styles.editCommitMessageInput}
+			className={classes(styles.editorInput, styles.editCommitMessageInput)}
 			onKeyDown={(event) => {
 				handleCommitEditingMessageKeyDown({
 					event: event.nativeEvent,
@@ -736,17 +753,7 @@ const InlineCommitMessageEditor: FC<{
 			}}
 			onBlur={onCancel}
 		/>
-		<div className={styles.editCommitMessageHelp}>
-			{commitEditingMessageBindings.map((binding, index) => (
-				<Fragment key={binding.id}>
-					{index > 0 && " • "}
-					<span className={styles.editCommitMessageShortcut}>
-						{formatShortcutKeys(binding.keys)}
-					</span>{" "}
-					to {binding.description}
-				</Fragment>
-			))}
-		</div>
+		<EditorHelp bindings={commitEditingMessageBindings} />
 	</form>
 );
 
@@ -805,26 +812,26 @@ const CommitRow: FC<
 		branchName: string | null;
 		branchRef: string | null;
 		commit: Commit;
-		editingCommit: EditingCommit | null;
+		editing: Editing | null;
 		isHighlighted: boolean;
 		projectId: string;
 		segmentIndex: number;
 		selection: Item | null;
 		select: (selection: Item | null) => void;
-		setEditingCommit: (selection: EditingCommit | null) => void;
+		setEditing: (selection: Editing | null) => void;
 		stackId: string;
 	} & ComponentProps<"div">
 > = ({
 	branchName,
 	branchRef,
 	commit,
-	editingCommit,
+	editing,
 	isHighlighted,
 	projectId,
 	segmentIndex,
 	selection,
 	select,
-	setEditingCommit,
+	setEditing,
 	stackId,
 	...restProps
 }) => {
@@ -843,10 +850,10 @@ const CommitRow: FC<
 			? selection
 			: null;
 	const isEditing =
-		editingCommit !== null &&
-		editingCommit.stackId === stackId &&
-		editingCommit.segmentIndex === segmentIndex &&
-		editingCommit.commitId === commit.id;
+		editing?._tag === "CommitMessage" &&
+		editing.subject.stackId === stackId &&
+		editing.subject.segmentIndex === segmentIndex &&
+		editing.subject.commitId === commit.id;
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
 		(_currentMessage, nextMessage: string) => nextMessage,
@@ -859,7 +866,7 @@ const CommitRow: FC<
 	};
 
 	const toggleDetails = () => {
-		setEditingCommit(null);
+		setEditing(null);
 		select(
 			commitSelection?.mode._tag === "Details"
 				? summaryItem
@@ -878,17 +885,20 @@ const CommitRow: FC<
 
 	const startEditing = () => {
 		select(summaryItem);
-		setEditingCommit({
-			stackId,
-			segmentIndex,
-			branchName,
-			branchRef,
-			commitId: commit.id,
+		setEditing({
+			_tag: "CommitMessage",
+			subject: {
+				stackId,
+				segmentIndex,
+				branchName,
+				branchRef,
+				commitId: commit.id,
+			},
 		});
 	};
 
 	const endEditing = () => {
-		setEditingCommit(null);
+		setEditing(null);
 	};
 
 	const saveNewMessage = (newMessage: string) => {
@@ -994,7 +1004,7 @@ const CommitC: FC<{
 	branchName: string | null;
 	branchRef: string | null;
 	commit: Commit;
-	editingCommit: EditingCommit | null;
+	editing: Editing | null;
 	isHighlighted: boolean;
 	nextCommitId: string | undefined;
 	previousCommitId: string | undefined;
@@ -1002,13 +1012,13 @@ const CommitC: FC<{
 	segmentIndex: number;
 	selection: Item | null;
 	select: (selection: Item | null) => void;
-	setEditingCommit: (selection: EditingCommit | null) => void;
+	setEditing: (selection: Editing | null) => void;
 	stackId: string;
 }> = ({
 	branchName,
 	branchRef,
 	commit,
-	editingCommit,
+	editing,
 	isHighlighted,
 	nextCommitId,
 	previousCommitId,
@@ -1016,7 +1026,7 @@ const CommitC: FC<{
 	segmentIndex,
 	selection,
 	select,
-	setEditingCommit,
+	setEditing,
 	stackId,
 }) => {
 	const commitSelection =
@@ -1037,13 +1047,13 @@ const CommitC: FC<{
 				branchName={branchName}
 				branchRef={branchRef}
 				commit={commit}
-				editingCommit={editingCommit}
+				editing={editing}
 				isHighlighted={isHighlighted}
 				projectId={projectId}
 				segmentIndex={segmentIndex}
 				selection={selection}
 				select={select}
-				setEditingCommit={setEditingCommit}
+				setEditing={setEditing}
 				stackId={stackId}
 			/>
 			{commitSelection?.mode._tag === "Details" && (
@@ -1342,21 +1352,133 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 	);
 };
 
+const SegmentMenuPopup: FC<{
+	canRename: boolean;
+	onRename: () => void;
+	parts: typeof Menu | typeof ContextMenu;
+}> = ({ canRename, onRename, parts }) => {
+	const { Popup, Item } = parts;
+
+	return (
+		<Popup className={sharedStyles.menuPopup}>
+			<Item className={sharedStyles.menuItem} disabled={!canRename} onClick={onRename}>
+				Rename branch
+			</Item>
+		</Popup>
+	);
+};
+
+const InlineBranchNameEditor: FC<{
+	branchName: string;
+	onSubmit: (value: string) => void;
+	onExit: () => void;
+}> = ({ branchName, onSubmit, onExit }) => (
+	<form
+		className={styles.editorForm}
+		onSubmit={(event) => {
+			event.preventDefault();
+			const formData = new FormData(event.currentTarget);
+			onExit();
+			onSubmit(formData.get("branchName") as string);
+		}}
+	>
+		<input
+			ref={(el) => {
+				if (!el) return;
+				el.focus();
+				el.select();
+			}}
+			name="branchName"
+			defaultValue={branchName}
+			className={classes(styles.editorInput, styles.renameBranchInput)}
+			onKeyDown={(event) => {
+				handleRenameBranchKeyDown({
+					event: event.nativeEvent,
+					onSave: () => event.currentTarget.form?.requestSubmit(),
+					onCancel: onExit,
+				});
+			}}
+			onBlur={onExit}
+		/>
+		<EditorHelp bindings={renameBranchBindings} />
+	</form>
+);
+
 const SegmentRow: FC<
 	{
+		projectId: string;
+		editing: Editing | null;
 		segment: Segment;
 		stackId: string;
 		segmentIndex: number;
 		selection: Item | null;
 		select: (selection: Item | null) => void;
+		setEditing: (selection: Editing | null) => void;
 	} & ComponentProps<"div">
-> = ({ segment, stackId, segmentIndex, selection, select, ...restProps }) => {
+> = ({
+	projectId,
+	editing,
+	segment,
+	stackId,
+	segmentIndex,
+	selection,
+	select,
+	setEditing,
+	...restProps
+}) => {
+	const branchName = segment.refName?.displayName ?? null;
+	const segmentItemV = segmentItem({
+		stackId,
+		segmentIndex,
+		branchName,
+		branchRef: segment.refName ? getSegmentBranchRef(segment.refName) : null,
+	});
 	const segmentSelection =
 		selection?._tag === "Segment" &&
 		selection.stackId === stackId &&
 		selection.segmentIndex === segmentIndex
 			? selection
 			: null;
+	const isEditing =
+		branchName !== null &&
+		editing?._tag === "BranchName" &&
+		editing.subject.stackId === stackId &&
+		editing.subject.segmentIndex === segmentIndex;
+	const [optimisticBranchName, setOptimisticBranchName] = useOptimistic(
+		branchName,
+		(_currentBranchName, nextBranchName: string) => nextBranchName,
+	);
+	const [isRenamePending, startRenameTransition] = useTransition();
+
+	const updateBranchName = useMutation(updateBranchNameMutationOptions);
+
+	const startEditing = () => {
+		if (branchName === null) return;
+		select(segmentItemV);
+		setEditing({
+			_tag: "BranchName",
+			subject: { stackId, segmentIndex },
+		});
+	};
+
+	const endEditing = () => {
+		setEditing(null);
+	};
+
+	const saveBranchName = (newBranchName: string) => {
+		if (branchName === null) return;
+		const trimmed = newBranchName.trim();
+		if (trimmed === "" || trimmed === branchName) return;
+		startRenameTransition(async () => {
+			setOptimisticBranchName(trimmed);
+			await updateBranchName.mutateAsync({
+				projectId,
+				stackId,
+				branchName,
+				newName: trimmed,
+			});
+		});
+	};
 
 	const children = (
 		<div
@@ -1367,29 +1489,60 @@ const SegmentRow: FC<
 				segmentSelection && sharedStyles.selected,
 			)}
 		>
-			<button
-				type="button"
-				className={styles.segmentButton}
-				onClick={() => {
-					select(
-						segmentItem({
-							stackId,
-							segmentIndex,
-							branchName: segment.refName?.displayName ?? null,
-							branchRef: segment.refName ? getSegmentBranchRef(segment.refName) : null,
-						}),
-					);
-				}}
-			>
-				{segment.refName?.displayName ?? "Untitled"}
-			</button>
+			{isEditing && optimisticBranchName !== null ? (
+				<InlineBranchNameEditor
+					branchName={optimisticBranchName}
+					onSubmit={saveBranchName}
+					onExit={endEditing}
+				/>
+			) : (
+				<ContextMenu.Root>
+					<ContextMenu.Trigger
+						render={
+							<button
+								type="button"
+								className={classes(
+									styles.segmentButton,
+									isRenamePending && styles.segmentButtonPending,
+								)}
+								onClick={() => select(segmentItemV)}
+							>
+								{optimisticBranchName ?? "Untitled"}
+							</button>
+						}
+					/>
+					<ContextMenu.Portal>
+						<ContextMenu.Positioner>
+							<SegmentMenuPopup
+								canRename={branchName !== null && !isRenamePending}
+								onRename={startEditing}
+								parts={ContextMenu}
+							/>
+						</ContextMenu.Positioner>
+					</ContextMenu.Portal>
+				</ContextMenu.Root>
+			)}
 			<button type="button" className={sharedStyles.itemAction} aria-label="Push branch" disabled>
 				<PushIcon />
 			</button>
+			<Menu.Root>
+				<Menu.Trigger className={sharedStyles.itemAction} aria-label="Branch menu">
+					<MenuTriggerIcon />
+				</Menu.Trigger>
+				<Menu.Portal>
+					<Menu.Positioner align="end">
+						<SegmentMenuPopup
+							canRename={branchName !== null && !isRenamePending}
+							onRename={startEditing}
+							parts={Menu}
+						/>
+					</Menu.Positioner>
+				</Menu.Portal>
+			</Menu.Root>
 		</div>
 	);
 
-	return segment.refName != null ? (
+	return !isRenamePending && segment.refName != null ? (
 		<BranchTarget
 			anchorRef={segment.refName.fullNameBytes}
 			firstCommitId={segment.commits[0]?.id}
@@ -1413,18 +1566,18 @@ const SegmentC: FC<{
 	segmentIndex: number;
 	selection: Item | null;
 	select: (selection: Item | null) => void;
-	editingCommit: EditingCommit | null;
-	setEditingCommit: (selection: EditingCommit | null) => void;
+	editing: Editing | null;
+	setEditing: (selection: Editing | null) => void;
 	stackId: string;
 }> = ({
-	editingCommit,
+	editing,
 	highlightedCommitIds,
 	projectId,
 	segment,
 	segmentIndex,
 	selection,
 	select,
-	setEditingCommit,
+	setEditing,
 	stackId,
 }) => {
 	const isSelected =
@@ -1438,11 +1591,14 @@ const SegmentC: FC<{
 	return (
 		<div className={classes(isSelected && sharedStyles.sectionSelected)}>
 			<SegmentRow
+				projectId={projectId}
+				editing={editing}
 				segment={segment}
 				stackId={stackId}
 				segmentIndex={segmentIndex}
 				selection={selection}
 				select={select}
+				setEditing={setEditing}
 			/>
 
 			<CommitsList commits={segment.commits}>
@@ -1451,7 +1607,7 @@ const SegmentC: FC<{
 						branchName={segment.refName?.displayName ?? null}
 						branchRef={segment.refName ? getSegmentBranchRef(segment.refName) : null}
 						commit={commit}
-						editingCommit={editingCommit}
+						editing={editing}
 						isHighlighted={highlightedCommitIds.has(commit.id)}
 						nextCommitId={segment.commits[index + 1]?.id}
 						previousCommitId={segment.commits[index - 1]?.id}
@@ -1459,7 +1615,7 @@ const SegmentC: FC<{
 						segmentIndex={segmentIndex}
 						selection={selection}
 						select={select}
-						setEditingCommit={setEditingCommit}
+						setEditing={setEditing}
 						stackId={stackId}
 					/>
 				)}
@@ -1474,17 +1630,17 @@ const StackC: FC<{
 	projectId: string;
 	selection: Item | null;
 	select: (selection: Item | null) => void;
-	editingCommit: EditingCommit | null;
-	setEditingCommit: (selection: EditingCommit | null) => void;
+	editing: Editing | null;
+	setEditing: (selection: Editing | null) => void;
 	stack: Stack;
 }> = ({
-	editingCommit,
+	editing,
 	highlightedCommitIds,
 	onDependencyHover,
 	projectId,
 	selection,
 	select,
-	setEditingCommit,
+	setEditing,
 	stack,
 }) => {
 	// From Caleb:
@@ -1529,14 +1685,14 @@ const StackC: FC<{
 					// oxlint-disable-next-line react/no-array-index-key -- It's all we have.
 					<li key={segmentIndex}>
 						<SegmentC
-							editingCommit={editingCommit}
+							editing={editing}
 							highlightedCommitIds={highlightedCommitIds}
 							projectId={projectId}
 							segment={segment}
 							segmentIndex={segmentIndex}
 							selection={selection}
 							select={select}
-							setEditingCommit={setEditingCommit}
+							setEditing={setEditing}
 							stackId={stackId}
 						/>
 					</li>
@@ -1550,7 +1706,7 @@ const ProjectPage: FC = () => {
 	const { id: projectId } = Route.useParams();
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
-	const [editingCommit, setEditingCommit] = useState<EditingCommit | null>(null);
+	const [editing, setEditing] = useState<Editing | null>(null);
 	const [showFullscreenPreview] = useFullscreenPreview(projectId);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
@@ -1578,16 +1734,20 @@ const ProjectPage: FC = () => {
 	const highlightCommits = (commitIds: Array<string> | null) => {
 		setHighlightedCommitIds(commitIds ? new Set(commitIds) : new Set());
 	};
-	const shortcutScope = getScope({ showFullscreenPreview, selection, editingCommit });
+	const shortcutScope = getScope({
+		showFullscreenPreview,
+		selection,
+		editing,
+	});
 
 	useMonitorDraggedSourceItem({ projectId });
 	useWorkspaceShortcuts({
 		projectId,
 		showFullscreenPreview,
-		editingCommit,
+		editing,
 		selection,
 		select,
-		setEditingCommit,
+		setEditing,
 		commonBaseCommitId,
 	});
 
@@ -1627,13 +1787,13 @@ const ProjectPage: FC = () => {
 						{headInfo.stacks.map((stack) => (
 							<div key={stack.id} className={styles.stackLane}>
 								<StackC
-									editingCommit={editingCommit}
+									editing={editing}
 									highlightedCommitIds={highlightedCommitIds}
 									onDependencyHover={highlightCommits}
 									projectId={project.id}
 									selection={selection}
 									select={select}
-									setEditingCommit={setEditingCommit}
+									setEditing={setEditing}
 									stack={stack}
 								/>
 							</div>
@@ -1655,7 +1815,7 @@ const ProjectPage: FC = () => {
 									className={classes(styles.commonBaseCommit)}
 									onClick={() => {
 										select(baseCommitItem(commonBaseCommitId));
-										setEditingCommit(null);
+										setEditing(null);
 									}}
 								>
 									{shortCommitId(commonBaseCommitId)} (common base commit)
