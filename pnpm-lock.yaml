@@ -234,8 +234,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       '@gitbutler/design-core':
-        specifier: 1.9.0
-        version: 1.9.0
+        specifier: 1.9.2
+        version: 1.9.2
       '@gitbutler/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -524,8 +524,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       '@gitbutler/design-core':
-        specifier: 1.9.0
-        version: 1.9.0
+        specifier: 1.9.2
+        version: 1.9.2
       '@gitbutler/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -894,8 +894,8 @@ importers:
         specifier: ^2.0.8
         version: 2.0.8(postcss@8.5.8)
       '@gitbutler/design-core':
-        specifier: 1.9.0
-        version: 1.9.0
+        specifier: 1.9.2
+        version: 1.9.2
       '@playwright/experimental-ct-svelte':
         specifier: ^1.58.2
         version: 1.58.2(@types/node@24.12.0)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(svelte@5.54.0)(tsx@4.21.0)(vite@6.4.1(@types/node@24.12.0)(jiti@2.6.1)(sass-embedded@1.98.0)(sass@1.98.0)(tsx@4.21.0)(yaml@2.8.3))(yaml@2.8.3)
@@ -1908,8 +1908,8 @@ packages:
     resolution: {integrity: sha512-oC5cM6jS7aFOp0luTw5mWSRuMgdxwHRLZQ/aWkI+ETMfsprR/HyxsXfljlMY/XJ/fRxTbRJiodR5Axf66WjO3w==}
     engines: {node: '>=18.20.0'}
 
-  '@gitbutler/design-core@1.9.0':
-    resolution: {integrity: sha512-/oq7LQ+RdEaqrO4aL9eN4n2nN6ANnGEFyq+ZksflQvRBC8oquHbAUgiKeXz2TT2g8l+rDFlXyeJZSF+AXmK+OQ==}
+  '@gitbutler/design-core@1.9.2':
+    resolution: {integrity: sha512-z4owAKCii/tpP0KFp2e4tZ6cdtKSG5UEEYvmcXJiq89Ke64j7VMlk4NKkXpZ8gzAKdZiOPSm5BD+0kT69R9oGA==}
 
   '@hapi/address@5.1.1':
     resolution: {integrity: sha512-A+po2d/dVoY7cYajycYI43ZbYMXukuopIsqCjh5QzsBCipDtdofHntljDlpccMjIfTy6UOkg+5KPriwYch2bXA==}
@@ -10741,7 +10741,7 @@ snapshots:
       '@gitbeaker/core': 42.5.0
       '@gitbeaker/requester-utils': 42.5.0
 
-  '@gitbutler/design-core@1.9.0': {}
+  '@gitbutler/design-core@1.9.2': {}
 
   '@hapi/address@5.1.1':
     dependencies:
