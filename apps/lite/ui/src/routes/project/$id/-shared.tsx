@@ -136,15 +136,9 @@ export const FileDiff: FC<{
 export const FileButton: FC<
 	{
 		change: TreeChange;
-		toggleSelect: () => void;
 	} & ComponentProps<"button">
-> = ({ change, toggleSelect, className, ...restProps }) => (
-	<button
-		{...restProps}
-		type="button"
-		className={classes(className, styles.fileButton)}
-		onClick={toggleSelect}
-	>
+> = ({ change, className, ...restProps }) => (
+	<button {...restProps} type="button" className={classes(className, styles.fileButton)}>
 		{Match.value(change.status).pipe(
 			Match.when({ type: "Addition" }, () => "A"),
 			Match.when({ type: "Deletion" }, () => "D"),

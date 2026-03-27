@@ -384,7 +384,7 @@ const CommitDetails: FC<{
 						>
 							<FileButton
 								change={change}
-								toggleSelect={() => {
+								onClick={() => {
 									selectCommitDetails({
 										stackId,
 										segmentIndex,
@@ -1354,7 +1354,7 @@ const Changes: FC<{
 											>
 												<FileButton
 													change={change}
-													toggleSelect={() => {
+													onClick={() => {
 														select(changesDetailsItem(stackId, change.path));
 													}}
 												/>

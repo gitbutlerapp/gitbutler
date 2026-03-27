@@ -393,7 +393,7 @@ const CommitC: FC<{
 								>
 									<FileButton
 										change={change}
-										toggleSelect={() => {
+										onClick={() => {
 											select({
 												_tag: "Commit",
 												branchName,
