@@ -1269,7 +1269,7 @@ const CommitC: FC<{
 			{detailsSelection && (
 				<div className={sharedStyles.commitDetails}>
 					<Suspense
-						fallback={<div className={sharedStyles.itemEmpty}>Loading changed details…</div>}
+						fallback={<div className={sharedStyles.itemEmpty}>Loading change details…</div>}
 					>
 						<CommitDetails
 							branchName={branchName}
