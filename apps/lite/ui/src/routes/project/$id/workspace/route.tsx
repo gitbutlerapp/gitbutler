@@ -105,12 +105,12 @@ import {
 	normalizeItem,
 	type Item,
 	segmentItem,
-	getParentRootItem,
+	getParentSection,
 } from "./-Item.ts";
 import {
 	buildNavigationModel,
-	getAdjacentLinearItem,
-	getAdjacentRootItem,
+	getAdjacentItem,
+	getAdjacentSection,
 	changesSelectionBindings,
 	commitEditingMessageBindings,
 	commitSelectionBindings,
@@ -208,13 +208,11 @@ const useSelectionKeyboardShortcuts = ({
 		const handleSharedAction = (action: SharedSelectionAction) =>
 			Match.value(action).pipe(
 				Match.tag("Move", ({ offset }) =>
-					select(getAdjacentLinearItem(navigationModel, selection, offset)),
+					select(getAdjacentItem(navigationModel, selection, offset)),
 				),
-				Match.tag("MoveRootDown", () => select(getAdjacentRootItem(navigationModel, selection, 1))),
-				Match.tag("MoveRootUp", () =>
-					select(
-						getParentRootItem(selection) ?? getAdjacentRootItem(navigationModel, selection, -1),
-					),
+				Match.tag("NextSection", () => select(getAdjacentSection(navigationModel, selection, 1))),
+				Match.tag("PreviousSection", () =>
+					select(getParentSection(selection) ?? getAdjacentSection(navigationModel, selection, -1)),
 				),
 				Match.exhaustive,
 			);
@@ -229,8 +227,8 @@ const useSelectionKeyboardShortcuts = ({
 				Match.value(action).pipe(
 					Match.tagsExhaustive({
 						Move: ({ offset }) => handleSharedAction({ _tag: "Move", offset }),
-						MoveRootDown: () => handleSharedAction({ _tag: "MoveRootDown" }),
-						MoveRootUp: () => handleSharedAction({ _tag: "MoveRootUp" }),
+						NextSection: () => handleSharedAction({ _tag: "NextSection" }),
+						PreviousSection: () => handleSharedAction({ _tag: "PreviousSection" }),
 					}),
 				);
 			}),
@@ -251,8 +249,8 @@ const useSelectionKeyboardShortcuts = ({
 				Match.value(action).pipe(
 					Match.tagsExhaustive({
 						Move: ({ offset }) => handleSharedAction({ _tag: "Move", offset }),
-						MoveRootDown: () => handleSharedAction({ _tag: "MoveRootDown" }),
-						MoveRootUp: () => handleSharedAction({ _tag: "MoveRootUp" }),
+						NextSection: () => handleSharedAction({ _tag: "NextSection" }),
+						PreviousSection: () => handleSharedAction({ _tag: "PreviousSection" }),
 						EditCommitMessage: () => select(commitEditingMessageItem(selection)),
 						ExpandCommit: () =>
 							selectCommitDetails({

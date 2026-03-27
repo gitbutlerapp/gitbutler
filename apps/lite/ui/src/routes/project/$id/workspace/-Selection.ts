@@ -27,8 +27,8 @@ const hasAssignmentsForPath = ({
 
 type NavigationModel = {
 	items: Array<Item>;
-	rootItems: Array<Item>;
-	rootIndexByItemIndex: Array<number>;
+	sections: Array<Item>;
+	sectionIndexByItemIndex: Array<number>;
 	indexByKey: Map<string, number>;
 };
 
@@ -42,23 +42,23 @@ export const buildNavigationModel = ({
 	assignments: Array<HunkAssignment>;
 }): NavigationModel => {
 	const items: Array<Item> = [];
-	const rootItems: Array<Item> = [];
-	const rootIndexByItemIndex: Array<number> = [];
+	const sections: Array<Item> = [];
+	const sectionIndexByItemIndex: Array<number> = [];
 	const indexByKey = new Map<string, number>();
 
 	const addChangesItems = (stackId: string | null) => {
-		const rootItem = changesSummaryItem(stackId);
-		const rootIndex = rootItems.length;
-		rootItems.push(rootItem);
-		indexByKey.set(itemKey(rootItem), items.length);
-		rootIndexByItemIndex.push(rootIndex);
-		items.push(rootItem);
+		const section = changesSummaryItem(stackId);
+		const sectionIndex = sections.length;
+		sections.push(section);
+		indexByKey.set(itemKey(section), items.length);
+		sectionIndexByItemIndex.push(sectionIndex);
+		items.push(section);
 
 		for (const change of changes) {
 			if (!hasAssignmentsForPath({ assignments, stackId, path: change.path })) continue;
 			const item = changesDetailsItem(stackId, change.path);
 			indexByKey.set(itemKey(item), items.length);
-			rootIndexByItemIndex.push(rootIndex);
+			sectionIndexByItemIndex.push(sectionIndex);
 			items.push(item);
 		}
 	};
@@ -72,17 +72,17 @@ export const buildNavigationModel = ({
 		for (const [segmentIndex, segment] of stack.segments.entries()) {
 			const branchName = segment.refName?.displayName ?? null;
 			const branchRef = segment.refName ? getSegmentBranchRef(segment.refName) : null;
-			const rootItem = segmentItem({
+			const section = segmentItem({
 				stackId: stack.id,
 				segmentIndex,
 				branchName,
 				branchRef,
 			});
-			const rootIndex = rootItems.length;
-			rootItems.push(rootItem);
-			indexByKey.set(itemKey(rootItem), items.length);
-			rootIndexByItemIndex.push(rootIndex);
-			items.push(rootItem);
+			const sectionIndex = sections.length;
+			sections.push(section);
+			indexByKey.set(itemKey(section), items.length);
+			sectionIndexByItemIndex.push(sectionIndex);
+			items.push(section);
 
 			for (const commit of segment.commits) {
 				const commitItem = commitSummaryItem({
@@ -93,16 +93,16 @@ export const buildNavigationModel = ({
 					commitId: commit.id,
 				});
 				indexByKey.set(itemKey(commitItem), items.length);
-				rootIndexByItemIndex.push(rootIndex);
+				sectionIndexByItemIndex.push(sectionIndex);
 				items.push(commitItem);
 			}
 		}
 	}
 
-	return { items, rootItems, rootIndexByItemIndex, indexByKey };
+	return { items, sections, sectionIndexByItemIndex, indexByKey };
 };
 
-export const getAdjacentLinearItem = (
+export const getAdjacentItem = (
 	model: NavigationModel,
 	selection: Item | null,
 	offset: -1 | 1,
@@ -112,7 +112,7 @@ export const getAdjacentLinearItem = (
 	return model.items[currentIndex + offset] ?? null;
 };
 
-export const getAdjacentRootItem = (
+export const getAdjacentSection = (
 	model: NavigationModel,
 	selection: Item | null,
 	offset: -1 | 1,
@@ -120,15 +120,15 @@ export const getAdjacentRootItem = (
 	if (!selection) return null;
 	const currentIndex = model.indexByKey.get(itemKey(selection));
 	if (currentIndex === undefined) return null;
-	const currentRootIndex = model.rootIndexByItemIndex[currentIndex] ?? -1;
-	if (currentRootIndex === -1) return null;
-	return model.rootItems[currentRootIndex + offset] ?? null;
+	const currentSectionIndex = model.sectionIndexByItemIndex[currentIndex] ?? -1;
+	if (currentSectionIndex === -1) return null;
+	return model.sections[currentSectionIndex + offset] ?? null;
 };
 
 export type SharedSelectionAction =
 	| { _tag: "Move"; offset: -1 | 1 }
-	| { _tag: "MoveRootDown" }
-	| { _tag: "MoveRootUp" };
+	| { _tag: "NextSection" }
+	| { _tag: "PreviousSection" };
 
 type ChangesSelectionAction = SharedSelectionAction;
 type SegmentSelectionAction = SharedSelectionAction;
@@ -154,16 +154,16 @@ const createSharedSelectionBindings = <Context>(): Array<
 		action: { _tag: "Move", offset: 1 },
 	},
 	{
-		id: "move-root-down",
+		id: "next-section",
 		description: "next section",
 		keys: ["J"],
-		action: { _tag: "MoveRootDown" },
+		action: { _tag: "NextSection" },
 	},
 	{
-		id: "move-root-up",
+		id: "previous-section",
 		description: "previous section",
 		keys: ["K"],
-		action: { _tag: "MoveRootUp" },
+		action: { _tag: "PreviousSection" },
 	},
 ];
 
@@ -174,7 +174,7 @@ export const changesSelectionBindings: Array<ShortcutBinding<ChangesSelectionAct
 			id: "changes-previous-section",
 			description: "previous section",
 			keys: ["ArrowLeft"],
-			action: { _tag: "MoveRootUp" },
+			action: { _tag: "PreviousSection" },
 			repeat: false,
 			when: (selection) => selection.mode._tag === "Details",
 		},
