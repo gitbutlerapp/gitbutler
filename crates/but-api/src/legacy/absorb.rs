@@ -30,8 +30,10 @@ use crate::{
     legacy::workspace::amend_commit_and_count_failures,
 };
 
-/// Absorb multiple changes into their target commits as per the provided absorption plan
-#[but_api]
+/// Absorb multiple changes into their target commits as per the provided absorption plan.
+///
+/// Returns the total amount of rejected diff specs.
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyhow::Result<usize> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -94,7 +96,7 @@ pub fn absorb_impl(
 }
 
 /// Generate an absorption plan based on the provided target, based on hunk dependencies, assignments and other heuristics
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn absorption_plan(
     ctx: &mut Context,
