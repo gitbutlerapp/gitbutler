@@ -26,6 +26,7 @@ jobs:
         uses: google/osv-scanner-action/osv-scanner-action@c5996e0193a3df57d695c1b8a1dec2a4c62e8730 # v2.3.3
         with:
           scan-args: |-
+            --config=.github/osv-scanner.toml
             --output=results.sarif
             --format=sarif
             -r
@@ -95,6 +96,7 @@ jobs:
         uses: google/osv-scanner-action/osv-scanner-action@c5996e0193a3df57d695c1b8a1dec2a4c62e8730 # v2.3.3
         with:
           scan-args: |-
+            --config=.github/osv-scanner.toml
             --format=json
             --output=old-results.json
             -r
@@ -106,6 +108,7 @@ jobs:
         uses: google/osv-scanner-action/osv-scanner-action@c5996e0193a3df57d695c1b8a1dec2a4c62e8730 # v2.3.3
         with:
           scan-args: |-
+            --config=.github/osv-scanner.toml
             --format=json
             --output=new-results.json
             -r
