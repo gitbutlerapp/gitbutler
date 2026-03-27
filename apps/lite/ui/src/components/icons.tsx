@@ -1,9 +1,73 @@
-import { FC } from "react";
+import { ComponentProps, FC } from "react";
 
-export const CheckIcon: FC = () => (
-	<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
+export const CheckIcon: FC<ComponentProps<"svg">> = (props) => (
+	<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" {...props}>
 		<path
 			d="M3.5 8.5 6.5 11.5 12.5 5.5"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
+export const AddCircleIcon: FC<ComponentProps<"svg">> = (props) => (
+	<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" {...props}>
+		<circle cx="8" cy="8" r="4.75" fill="none" stroke="currentColor" strokeWidth="1.5" />
+		<path
+			d="M8 5.75v4.5"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+		<path
+			d="M5.75 8h4.5"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
+export const ArrowDownIcon: FC<ComponentProps<"svg">> = (props) => (
+	<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" {...props}>
+		<path
+			d="M8 3.5v8"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+		<path
+			d="M5.5 9.5 8 12l2.5-2.5"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+	</svg>
+);
+
+export const ArrowUpIcon: FC<ComponentProps<"svg">> = (props) => (
+	<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" {...props}>
+		<path
+			d="M8 12.5v-8"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		/>
+		<path
+			d="M5.5 6.5 8 4l2.5 2.5"
 			fill="none"
 			stroke="currentColor"
 			strokeWidth="1.5"

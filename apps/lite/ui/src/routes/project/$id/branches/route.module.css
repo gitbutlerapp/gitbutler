@@ -15,11 +15,18 @@
 	line-height: var(--item-line-height);
 }
 
-.branchApplyButtonInactive {
-	opacity: 0.35;
+.branchApplyDefaultIcon {
+	.branchApplyButton:hover &,
+	.branchApplyButton:focus-visible & {
+		display: none;
+	}
+}
 
-	&:hover,
-	&:focus-visible {
-		opacity: 1;
+.branchApplyHoverIcon {
+	display: none;
+
+	.branchApplyButton:hover &,
+	.branchApplyButton:focus-visible & {
+		display: block;
 	}
 }
