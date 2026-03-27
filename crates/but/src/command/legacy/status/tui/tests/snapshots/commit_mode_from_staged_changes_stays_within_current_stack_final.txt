@@ -17,4 +17,4 @@
 "                                                                                                    "
 "                                                                                                    "
 "                                                                                                    "
-"  commit   ↓/j down • ↑/k up • q quit • enter commit • a above • b below • esc back                 "
+"  commit   ↓/j down • ↑/k up • q quit • d diff • enter commit • a above • b below • esc back        "

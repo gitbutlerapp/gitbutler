@@ -17,4 +17,4 @@
 "                                                                                                    "
 "                                                                                                    "
 "                                                                                                    "
-"  rub   ↓/j down • ↑/k up • q quit • enter confirm • esc back                                       "
+"  rub   ↓/j down • ↑/k up • q quit • d diff • enter confirm • esc back                              "
