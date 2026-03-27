@@ -148,6 +148,7 @@
 
 .editCommitMessageForm {
 	display: flex;
+	row-gap: var(--item-block-padding);
 	flex-grow: 1;
 	flex-direction: column;
 	padding-block: var(--item-block-padding);
@@ -171,6 +172,7 @@
 	padding-inline: var(--item-inline-padding);
 	color: #ccc;
 	font-size: 11px;
+	line-height: 1.3;
 }
 
 .editCommitMessageShortcut {
