@@ -52,6 +52,16 @@
 	}
 }
 
+.selected {
+	background-color: black;
+	color: white;
+}
+
+.highlighted {
+	background-color: burlywood;
+	color: black;
+}
+
 .selectedContainer {
 	background-color: #f5f5f5;
 }
@@ -104,18 +114,8 @@
 	white-space: nowrap;
 }
 
-.selected {
-	background-color: black;
-	color: white;
-}
-
 .selectedFile {
 	background-color: lightgray;
-}
-
-.highlighted {
-	background-color: burlywood;
-	color: black;
 }
 
 .hunkHeaderRow {
