@@ -609,11 +609,20 @@ const ShowChanges: FC<{
 const PreviewCommit: FC<{
 	projectId: string;
 	commitId: string;
-	selection: CommitDetailsSelection | null;
-}> = ({ projectId, commitId, selection }) => {
+	stackId: string;
+	segmentIndex: number;
+	commitDetailsSelection: CommitDetailsSelection | null;
+}> = ({ projectId, commitId, stackId, segmentIndex, commitDetailsSelection }) => {
 	const { data: commitDetails } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
+	const selection =
+		commitDetailsSelection !== null &&
+		commitDetailsSelection.stackId === stackId &&
+		commitDetailsSelection.segmentIndex === segmentIndex &&
+		commitDetailsSelection.commitId === commitId
+			? commitDetailsSelection
+			: null;
 	const selectedPath = selection
 		? getSelectedCommitPath({ changes: commitDetails.changes, selection })
 		: undefined;
@@ -688,31 +697,15 @@ const Preview: FC<{
 				/>
 			),
 		),
-		Match.tag("Commit", ({ commitId, stackId, segmentIndex }) =>
-			commitDetailsSelection !== null &&
-			commitDetailsSelection.stackId === stackId &&
-			commitDetailsSelection.segmentIndex === segmentIndex &&
-			commitDetailsSelection.commitId === commitId ? (
-				<PreviewCommit
-					projectId={projectId}
-					commitId={commitId}
-					selection={commitDetailsSelection}
-				/>
-			) : (
-				<ShowCommitWithQuery
-					projectId={projectId}
-					commitId={commitId}
-					renderHunk={(change, hunk, patch) => (
-						<Hunk
-							patch={patch}
-							changeUnit={{ _tag: "Commit", commitId }}
-							change={change}
-							hunk={hunk}
-						/>
-					)}
-				/>
-			),
-		),
+		Match.tag("Commit", ({ commitId, stackId, segmentIndex }) => (
+			<PreviewCommit
+				projectId={projectId}
+				commitId={commitId}
+				stackId={stackId}
+				segmentIndex={segmentIndex}
+				commitDetailsSelection={commitDetailsSelection}
+			/>
+		)),
 		Match.tag("BaseCommit", ({ commitId }) => (
 			<ShowCommitWithQuery
 				projectId={projectId}
