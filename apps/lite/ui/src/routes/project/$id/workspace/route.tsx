@@ -968,14 +968,16 @@ const InlineCommitMessageEditor: FC<{
 					);
 					if (!action) return;
 
-					event.preventDefault();
-
 					Match.value(action).pipe(
 						Match.tag("Save", () => {
 							if (event.shiftKey) return;
+							event.preventDefault();
 							event.currentTarget.form?.requestSubmit();
 						}),
-						Match.tag("Cancel", onExit),
+						Match.tag("Cancel", () => {
+							event.preventDefault();
+							onExit();
+						}),
 						Match.exhaustive,
 					);
 				}}
