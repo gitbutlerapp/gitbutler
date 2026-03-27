@@ -527,84 +527,42 @@ const Hunk: FC<{
 const ShowChangesFile: FC<{
 	projectId: string;
 	stackId: string | null;
-	path: string;
+	change: TreeChange;
+	assignments: Array<HunkAssignment>;
+	hunkDependencyDiffs: Array<HunkDependencyDiff> | undefined;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, stackId, path, onDependencyHover }) => {
-	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
+}> = ({ projectId, stackId, change, assignments, hunkDependencyDiffs, onDependencyHover }) => (
+	<FileDiff
+		projectId={projectId}
+		change={change}
+		assignments={assignments}
+		renderHunk={(hunk, patch) => {
+			const dependencyCommitIds = hunkDependencyDiffs
+				? dependencyCommitIdsForHunk(hunk, hunkDependencyDiffs)
+				: [];
 
-	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
-	const assignments = assignmentsByPath.get(path);
-	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
-		worktreeChanges.dependencies?.diffs ?? [],
-	);
-	const change = worktreeChanges.changes.find((candidate) => candidate.path === path);
-
-	if (!assignments || !change) return null;
-
-	return (
-		<FileDiff
-			projectId={projectId}
-			change={change}
-			assignments={assignments}
-			renderHunk={(hunk, patch) => {
-				const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(path);
-
-				const dependencyCommitIds = hunkDependencyDiffs
-					? dependencyCommitIdsForHunk(hunk, hunkDependencyDiffs)
-					: [];
-
-				return (
-					<Hunk
-						patch={patch}
-						changeUnit={{ _tag: "Changes", stackId }}
-						change={change}
-						hunk={hunk}
-						headerStart={
-							isNonEmptyArray(dependencyCommitIds) && (
-								<DependencyIndicator
-									projectId={projectId}
-									commitIds={dependencyCommitIds}
-									onHover={onDependencyHover}
-								>
-									<DependencyIcon />
-								</DependencyIndicator>
-							)
-						}
-					/>
-				);
-			}}
-		/>
-	);
-};
-
-const ShowChanges: FC<{
-	projectId: string;
-	stackId: string | null;
-	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, stackId, onDependencyHover }) => {
-	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
-
-	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
-	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
-
-	if (changes.length === 0) return <div>No file changes.</div>;
-
-	return (
-		<ul>
-			{changes.map((change) => (
-				<li key={change.path}>
-					<h4>{change.path}</h4>
-					<ShowChangesFile
-						projectId={projectId}
-						stackId={stackId}
-						path={change.path}
-						onDependencyHover={onDependencyHover}
-					/>
-				</li>
-			))}
-		</ul>
-	);
-};
+			return (
+				<Hunk
+					patch={patch}
+					changeUnit={{ _tag: "Changes", stackId }}
+					change={change}
+					hunk={hunk}
+					headerStart={
+						isNonEmptyArray(dependencyCommitIds) && (
+							<DependencyIndicator
+								projectId={projectId}
+								commitIds={dependencyCommitIds}
+								onHover={onDependencyHover}
+							>
+								<DependencyIcon />
+							</DependencyIndicator>
+						)
+					}
+				/>
+			);
+		}}
+	/>
+);
 
 const ShowCommitOrFile: FC<{
 	projectId: string;
@@ -683,17 +641,49 @@ const ShowChangesOrFile: FC<{
 	stackId: string | null;
 	mode: Extract<Item, { _tag: "Changes" }>["mode"];
 	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, stackId, mode, onDependencyHover }) =>
-	mode._tag === "Details" && mode.path !== undefined ? (
-		<ShowChangesFile
-			projectId={projectId}
-			stackId={stackId}
-			path={mode.path}
-			onDependencyHover={onDependencyHover}
-		/>
-	) : (
-		<ShowChanges projectId={projectId} stackId={stackId} onDependencyHover={onDependencyHover} />
+}> = ({ projectId, stackId, mode, onDependencyHover }) => {
+	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
+	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
+	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
+		worktreeChanges.dependencies?.diffs ?? [],
 	);
+	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
+	const selectedPath = mode._tag === "Details" ? mode.path : undefined;
+	const selectedChange =
+		selectedPath !== undefined
+			? changes.find((candidate) => candidate.path === selectedPath)
+			: undefined;
+
+	const renderChange = (change: TreeChange) => {
+		const assignments = assignmentsByPath.get(change.path);
+		if (!assignments) return null;
+
+		return (
+			<ShowChangesFile
+				projectId={projectId}
+				stackId={stackId}
+				change={change}
+				assignments={assignments}
+				hunkDependencyDiffs={hunkDependencyDiffsByPath.get(change.path)}
+				onDependencyHover={onDependencyHover}
+			/>
+		);
+	};
+
+	if (selectedChange) return renderChange(selectedChange);
+	if (changes.length === 0) return <div>No file changes.</div>;
+
+	return (
+		<ul>
+			{changes.map((change) => (
+				<li key={change.path}>
+					<h4>{change.path}</h4>
+					{renderChange(change)}
+				</li>
+			))}
+		</ul>
+	);
+};
 
 const ShowBaseCommit: FC<{
 	projectId: string;
