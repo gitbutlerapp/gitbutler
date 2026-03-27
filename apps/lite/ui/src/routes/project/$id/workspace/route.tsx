@@ -318,10 +318,10 @@ const CommitDetails: FC<{
 		}),
 	);
 	const paths = commitDetails.changes.map((change: TreeChange) => change.path);
-	const selectedPath =
-		commitDetailsSelection.path !== undefined && paths.includes(commitDetailsSelection.path)
-			? commitDetailsSelection.path
-			: paths[0];
+	const selectedPath = getSelectedCommitPath({
+		changes: commitDetails.changes,
+		selection: commitDetailsSelection,
+	});
 
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
 		if (event.defaultPrevented) return;
@@ -401,6 +401,17 @@ const CommitDetails: FC<{
 			)}
 		/>
 	);
+};
+
+const getSelectedCommitPath = ({
+	changes,
+	selection,
+}: {
+	changes: Array<TreeChange>;
+	selection: CommitDetailsSelection;
+}): string | undefined => {
+	const paths = changes.map((change) => change.path);
+	return selection.path !== undefined && paths.includes(selection.path) ? selection.path : paths[0];
 };
 
 // TODO: check this
@@ -617,6 +628,31 @@ const ShowCommitFile: FC<{
 	);
 };
 
+const PreviewCommit: FC<{
+	projectId: string;
+	commitId: string;
+	selection: CommitDetailsSelection | null;
+}> = ({ projectId, commitId, selection }) => {
+	const { data: commitDetails } = useSuspenseQuery(
+		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
+	);
+	const selectedPath = selection
+		? getSelectedCommitPath({ changes: commitDetails.changes, selection })
+		: undefined;
+
+	return selectedPath !== undefined ? (
+		<ShowCommitFile projectId={projectId} commitId={commitId} path={selectedPath} />
+	) : (
+		<ShowCommit
+			projectId={projectId}
+			commitId={commitId}
+			renderHunk={(change, hunk, patch) => (
+				<Hunk patch={patch} changeUnit={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
+			)}
+		/>
+	);
+};
+
 const Preview: FC<{
 	commitDetailsSelection: CommitDetailsSelection | null;
 	projectId: string;
@@ -667,12 +703,11 @@ const Preview: FC<{
 			commitDetailsSelection !== null &&
 			commitDetailsSelection.stackId === stackId &&
 			commitDetailsSelection.segmentIndex === segmentIndex &&
-			commitDetailsSelection.commitId === commitId &&
-			commitDetailsSelection.path !== undefined ? (
-				<ShowCommitFile
+			commitDetailsSelection.commitId === commitId ? (
+				<PreviewCommit
 					projectId={projectId}
 					commitId={commitId}
-					path={commitDetailsSelection.path}
+					selection={commitDetailsSelection}
 				/>
 			) : (
 				<ShowCommit
