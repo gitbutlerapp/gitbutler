@@ -1,7 +1,6 @@
 import { formatShortcutKeys, globalShortcutBindings, type ShortcutBinding } from "#ui/shortcuts.ts";
-import { ShortcutBarPortalContext } from "#ui/routes/-ShortcutBarContext.tsx";
 import { Match } from "effect";
-import { type FC, use } from "react";
+import { createContext, type FC, use } from "react";
 import { createPortal } from "react-dom";
 import {
 	commitDetailsSelectionBindings,
@@ -16,6 +15,8 @@ import {
 	segmentSelectionBindings,
 } from "./-Selection.ts";
 import styles from "./-ShortcutBar.module.css";
+
+export const ShortcutBarPortalContext = createContext<HTMLElement | null>(null);
 
 type ShortcutBarItem = Pick<ShortcutBinding<unknown, unknown>, "id" | "description" | "keys">;
 

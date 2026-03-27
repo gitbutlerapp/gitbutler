@@ -5,10 +5,10 @@ import { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext } from "@tanstack/react-router";
 import { usePreviewVisible } from "../hooks/usePreviewVisible";
 import { classes } from "#ui/classes.ts";
+import { ShortcutBarPortalContext } from "#ui/routes/project/$id/workspace/-ShortcutBar.tsx";
 import uiStyles from "#ui/ui.module.css";
 import styles from "./__root.module.css";
 import { shortcutKeys } from "#ui/shortcuts.ts";
-import { ShortcutBarPortalContext } from "./-ShortcutBarContext.tsx";
 
 export const lastOpenedProjectKey = "lastProject";
 
