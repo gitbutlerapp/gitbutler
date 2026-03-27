@@ -1,8 +1,0 @@
-"┊●   9477ae7 add A                                                                                  "
-"├╯                                                                                                  "
-"┊                                                                                                   "
-"┊╭┄h0 [B]                                                                                           "
-"┊●   d3e2ba3 add B                                                                                  "
-"├╯                                                                                                  "
-"┊                                                                                                   "
-"  normal   ↓/j down • ↑/k up • q quit • d diff • r rub • c commit • m move • b branch • enter reword"

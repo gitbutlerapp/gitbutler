@@ -27,7 +27,7 @@ fn commit_mode_enter_and_escape() {
 
     tui.input_then_render(KeyCode::Esc)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"])
-        .assert_rendered_eq(file!["snapshots/commit_mode_enter_and_escape_final.txt"]);
+        .assert_rendered_term_svg_eq(file!["snapshots/commit_mode_enter_and_escape_final.svg"]);
 }
 
 #[test]
@@ -47,8 +47,8 @@ fn commit_confirm_on_source_is_noop() {
 
     tui.input_then_render(KeyCode::Enter)
         .assert_current_line_eq(str!["╭┄zz [unstaged changes]"])
-        .assert_rendered_eq(file![
-            "snapshots/commit_confirm_on_source_is_noop_final.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/commit_confirm_on_source_is_noop_final.svg"
         ]);
 }
 
@@ -73,8 +73,8 @@ fn commit_mode_not_entered_from_non_commitable_rows() {
 
     tui.input_then_render('c')
         .assert_current_line_eq(str!["┊●   9477ae7 add A"])
-        .assert_rendered_eq(file![
-            "snapshots/commit_mode_not_entered_from_non_commitable_rows_final.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/commit_mode_not_entered_from_non_commitable_rows_final.svg"
         ]);
 }
 
@@ -110,8 +110,8 @@ fn commit_from_unstaged_changes_creates_commit_visible_in_tui() {
 
     tui.input_then_render(None)
         .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"])
-        .assert_rendered_eq(file![
-            "snapshots/commit_from_unstaged_changes_creates_commit_visible_in_tui_final.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/commit_from_unstaged_changes_creates_commit_visible_in_tui_final.svg"
         ]);
 }
 
@@ -204,8 +204,8 @@ fn commit_mode_shows_commit_above_on_commit_rows() {
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊│   << insert commit above >>"])
-        .assert_rendered_eq(file![
-            "snapshots/commit_mode_shows_commit_above_on_commit_rows_final.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/commit_mode_shows_commit_above_on_commit_rows_final.svg"
         ]);
 }
 
@@ -232,8 +232,8 @@ fn commit_mode_can_toggle_commit_target_insert_side() {
 
     tui.input_then_render('a')
         .assert_current_line_eq(str!["┊│   << insert commit above >>"])
-        .assert_rendered_eq(file![
-            "snapshots/commit_mode_can_toggle_commit_target_insert_side_final.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/commit_mode_can_toggle_commit_target_insert_side_final.svg"
         ]);
 }
 
@@ -269,8 +269,8 @@ fn commit_to_commit_above_creates_commit_visible_in_tui() {
 
     tui.input_then_render(None)
         .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"])
-        .assert_rendered_eq(file![
-            "snapshots/commit_to_commit_above_creates_commit_visible_in_tui_final.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/commit_to_commit_above_creates_commit_visible_in_tui_final.svg"
         ]);
 }
 
@@ -309,8 +309,8 @@ fn commit_to_commit_below_creates_commit_visible_in_tui() {
 
     tui.input_then_render(None)
         .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"])
-        .assert_rendered_eq(file![
-            "snapshots/commit_to_commit_below_creates_commit_visible_in_tui_final.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/commit_to_commit_below_creates_commit_visible_in_tui_final.svg"
         ]);
 }
 
@@ -352,8 +352,8 @@ fn commit_mode_from_staged_changes_stays_within_current_stack() {
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊│   << insert commit above >>"])
-        .assert_rendered_eq(file![
-            "snapshots/commit_mode_from_staged_changes_stays_within_current_stack_final.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/commit_mode_from_staged_changes_stays_within_current_stack_final.svg"
         ]);
 }
 
@@ -404,7 +404,7 @@ fn staged_source_commit_cannot_be_forced_to_other_stack_target() {
 
     tui.input_then_render(None)
         .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"])
-        .assert_rendered_eq(file![
-            "snapshots/staged_source_commit_cannot_be_forced_to_other_stack_target_final.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/staged_source_commit_cannot_be_forced_to_other_stack_target_final.svg"
         ]);
 }

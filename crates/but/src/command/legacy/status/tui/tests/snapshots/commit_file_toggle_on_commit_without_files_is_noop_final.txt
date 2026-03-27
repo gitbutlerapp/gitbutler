@@ -1,8 +1,0 @@
-"┊                                                                                                   "
-"┊╭┄g0 [A]                                                                                           "
-"┊●   [..] (no commit message) (no changes)[..]"
-"┊●   9477ae7 add A                                                                                  "
-"├╯                                                                                                  "
-"┊                                                                                                   "
-"┴ 0dc3733 [origin/main] 2000-01-02 add M                                                            "
-"  normal   ↓/j down • ↑/k up • q quit • d diff • r rub • c commit • m move • b branch • enter reword"
