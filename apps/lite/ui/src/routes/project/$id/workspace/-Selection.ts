@@ -109,7 +109,9 @@ export const getAdjacentItem = (
 ): Item | null => {
 	const currentIndex = selection ? (model.indexByKey.get(itemKey(selection)) ?? -1) : -1;
 	if (currentIndex === -1) return null;
-	return model.items[currentIndex + offset] ?? selection;
+	const itemCount = model.items.length;
+	if (itemCount === 0) return null;
+	return model.items[(currentIndex + offset + itemCount) % itemCount] ?? null;
 };
 
 export const getAdjacentSection = (
@@ -122,7 +124,9 @@ export const getAdjacentSection = (
 	if (currentIndex === undefined) return null;
 	const currentSectionIndex = model.sectionIndexByItemIndex[currentIndex] ?? -1;
 	if (currentSectionIndex === -1) return null;
-	return model.sections[currentSectionIndex + offset] ?? selection;
+	const sectionCount = model.sections.length;
+	if (sectionCount === 0) return null;
+	return model.sections[(currentSectionIndex + offset + sectionCount) % sectionCount] ?? null;
 };
 
 export type SharedSelectionAction =
