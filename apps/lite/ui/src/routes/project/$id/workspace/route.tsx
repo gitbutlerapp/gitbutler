@@ -651,6 +651,63 @@ const ShowCommitOrFile: FC<{
 	);
 };
 
+const ShowSegment: FC<{
+	projectId: string;
+	branchName: string | null;
+	branchRef: string | null;
+}> = ({ projectId, branchName, branchRef }) =>
+	branchName != null && branchRef != null ? (
+		<ShowBranch
+			projectId={projectId}
+			branchRef={branchRef}
+			branchName={branchName}
+			remote={null}
+			renderHunk={(change, hunk, patch) => (
+				<Hunk
+					patch={patch}
+					changeUnit={{ _tag: "Changes", stackId: null }}
+					change={change}
+					hunk={hunk}
+				/>
+			)}
+		/>
+	) : (
+		<div>
+			TODO: the API doesn't provide a way to show details/diffs for segments that don't have branch
+			names.
+		</div>
+	);
+
+const ShowChangesOrFile: FC<{
+	projectId: string;
+	stackId: string | null;
+	mode: Extract<Item, { _tag: "Changes" }>["mode"];
+	onDependencyHover: (commitIds: Array<string> | null) => void;
+}> = ({ projectId, stackId, mode, onDependencyHover }) =>
+	mode._tag === "Details" && mode.path !== undefined ? (
+		<ShowChangesFile
+			projectId={projectId}
+			stackId={stackId}
+			path={mode.path}
+			onDependencyHover={onDependencyHover}
+		/>
+	) : (
+		<ShowChanges projectId={projectId} stackId={stackId} onDependencyHover={onDependencyHover} />
+	);
+
+const ShowBaseCommit: FC<{
+	projectId: string;
+	commitId: string;
+}> = ({ projectId, commitId }) => (
+	<ShowCommitWithQuery
+		projectId={projectId}
+		commitId={commitId}
+		renderHunk={(change, hunk, patch) => (
+			<Hunk patch={patch} changeUnit={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
+		)}
+	/>
+);
+
 const Preview: FC<{
 	commitDetailsSelection: CommitDetailsSelection | null;
 	projectId: string;
@@ -658,45 +715,17 @@ const Preview: FC<{
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 }> = ({ commitDetailsSelection, projectId, selection, onDependencyHover }) =>
 	Match.value(selection).pipe(
-		Match.tag("Segment", ({ branchName, branchRef }) =>
-			branchName != null && branchRef != null ? (
-				<ShowBranch
-					projectId={projectId}
-					branchRef={branchRef}
-					branchName={branchName}
-					remote={null}
-					renderHunk={(change, hunk, patch) => (
-						<Hunk
-							patch={patch}
-							changeUnit={{ _tag: "Changes", stackId: null }}
-							change={change}
-							hunk={hunk}
-						/>
-					)}
-				/>
-			) : (
-				<div>
-					TODO: the API doesn't provide a way to show details/diffs for segments that don't have
-					branch names.
-				</div>
-			),
-		),
-		Match.tag("Changes", ({ stackId, mode }) =>
-			mode._tag === "Details" && mode.path !== undefined ? (
-				<ShowChangesFile
-					projectId={projectId}
-					stackId={stackId}
-					path={mode.path}
-					onDependencyHover={onDependencyHover}
-				/>
-			) : (
-				<ShowChanges
-					projectId={projectId}
-					stackId={stackId}
-					onDependencyHover={onDependencyHover}
-				/>
-			),
-		),
+		Match.tag("Segment", ({ branchName, branchRef }) => (
+			<ShowSegment projectId={projectId} branchName={branchName} branchRef={branchRef} />
+		)),
+		Match.tag("Changes", ({ stackId, mode }) => (
+			<ShowChangesOrFile
+				projectId={projectId}
+				stackId={stackId}
+				mode={mode}
+				onDependencyHover={onDependencyHover}
+			/>
+		)),
 		Match.tag("Commit", ({ commitId, stackId, segmentIndex }) => (
 			<ShowCommitOrFile
 				projectId={projectId}
@@ -707,18 +736,7 @@ const Preview: FC<{
 			/>
 		)),
 		Match.tag("BaseCommit", ({ commitId }) => (
-			<ShowCommitWithQuery
-				projectId={projectId}
-				commitId={commitId}
-				renderHunk={(change, hunk, patch) => (
-					<Hunk
-						patch={patch}
-						changeUnit={{ _tag: "Commit", commitId }}
-						change={change}
-						hunk={hunk}
-					/>
-				)}
-			/>
+			<ShowBaseCommit projectId={projectId} commitId={commitId} />
 		)),
 		Match.exhaustive,
 	);
