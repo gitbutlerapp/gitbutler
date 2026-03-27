@@ -1,11 +1,4 @@
-use std::{
-    borrow::Cow,
-    ffi::OsString,
-    ops::{Deref, DerefMut},
-    process::Command,
-    sync::Arc,
-    time::Duration,
-};
+use std::{borrow::Cow, ffi::OsString, process::Command, sync::Arc, time::Duration};
 
 use anyhow::Context as _;
 use but_core::tree::create_tree::RejectionReason;
@@ -44,7 +37,7 @@ use crate::{
     },
     id::{ShortId, UncommittedCliId},
     tui::{CrosstermTerminalGuard, TerminalGuard},
-    utils::OutputChannel,
+    utils::{DebugAsType, OutputChannel},
 };
 
 use super::{
@@ -2316,7 +2309,7 @@ enum Message {
     CopySelection,
     #[expect(clippy::type_complexity)]
     RunAfterConfirmation(
-        DebugType<Arc<dyn Fn(&mut App, &mut Context, &mut Vec<Message>) -> anyhow::Result<()>>>,
+        DebugAsType<Arc<dyn Fn(&mut App, &mut Context, &mut Vec<Message>) -> anyhow::Result<()>>>,
     ),
 }
 
@@ -2842,41 +2835,12 @@ enum MoveTarget<'a> {
     MergeBase,
 }
 
-#[derive(Clone)]
-struct DebugType<T>(T);
-
-impl<T> std::fmt::Debug for DebugType<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(std::any::type_name::<T>())
-    }
-}
-
-impl<T> From<T> for DebugType<T> {
-    fn from(value: T) -> Self {
-        Self(value)
-    }
-}
-
-impl<T> Deref for DebugType<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T> DerefMut for DebugType<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 #[expect(dead_code)]
 fn run_after_confirmation_msg<F>(f: F) -> Message
 where
     F: Fn(&mut App, &mut Context, &mut Vec<Message>) -> anyhow::Result<()> + 'static,
 {
-    Message::RunAfterConfirmation(DebugType(Arc::new(move |app, ctx, messages| {
+    Message::RunAfterConfirmation(DebugAsType(Arc::new(move |app, ctx, messages| {
         f(app, ctx, messages)
     })))
 }

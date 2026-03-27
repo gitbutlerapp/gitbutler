@@ -32,7 +32,7 @@ use unicode_width::UnicodeWidthStr;
 use crate::{
     CliId,
     command::legacy::status::tui::{
-        CommandMessage, CommitMessage, DebugType, FilesMessage, Message, MoveMessage,
+        CommandMessage, CommitMessage, DebugAsType, FilesMessage, Message, MoveMessage,
         RewordMessage, RubMessage,
     },
     id::UncommittedCliId,
@@ -78,8 +78,8 @@ pub(super) struct Details {
     is_dirty: bool,
     scroll_top: usize,
     widget: Option<DetailsAndDiffWidget>,
-    syntax_set: DebugType<OnDemand<SyntaxSet>>,
-    dark_theme: DebugType<OnDemand<Theme>>,
+    syntax_set: DebugAsType<OnDemand<SyntaxSet>>,
+    dark_theme: DebugAsType<OnDemand<Theme>>,
     visibility: DetailsVisibility,
 }
 
