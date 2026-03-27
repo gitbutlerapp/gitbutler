@@ -24,6 +24,7 @@ import {
 	AnthropicModelName,
 	ModelKind,
 	MessageRole,
+	type OpenRouterModelName,
 	type Prompt,
 	type PromptMessage,
 	type FileChange,
@@ -47,6 +48,7 @@ export enum KeyOption {
 export enum AISecretHandle {
 	OpenAIKey = "aiOpenAIKey",
 	AnthropicKey = "aiAnthropicKey",
+	OpenRouterKey = "aiOpenRouterKey",
 }
 
 export enum GitAIConfigKey {
@@ -61,6 +63,7 @@ export enum GitAIConfigKey {
 	OllamaModelName = "gitbutler.aiOllamaModelName",
 	LMStudioEndpoint = "gitbutler.aiLMStudioEndpoint",
 	LMStudioModelName = "gitbutler.aiLMStudioModelName",
+	OpenRouterModelName = "gitbutler.aiOpenRouterModelName",
 }
 
 interface BaseAIServiceOpts {
@@ -238,6 +241,17 @@ export class AIService {
 		);
 	}
 
+	async getOpenRouterKey() {
+		return await this.secretsService.get(AISecretHandle.OpenRouterKey);
+	}
+
+	async getOpenRouterModelName() {
+		return await this.gitConfig.getWithDefault<string>(
+			GitAIConfigKey.OpenRouterModelName,
+			"openai/gpt-4.1-mini",
+		);
+	}
+
 	async usingGitButlerAPI() {
 		const modelKind = await this.getModelKind();
 		const openAIKeyOption = await this.getOpenAIKeyOption();
@@ -268,12 +282,15 @@ export class AIService {
 			modelKind === ModelKind.Ollama && !!ollamaEndpoint && !!ollamaModelName;
 		const lmStudioActiveAndEndpointProvided =
 			modelKind === ModelKind.LMStudio && !!lmStudioEndpoint && !!lmStudioModelName;
+		const openRouterActiveAndKeyProvided =
+			modelKind === ModelKind.OpenRouter && !!(await this.getOpenRouterKey());
 
 		return (
 			openAIActiveAndKeyProvided ||
 			anthropicActiveAndKeyProvided ||
 			ollamaActiveAndEndpointProvided ||
-			lmStudioActiveAndEndpointProvided
+			lmStudioActiveAndEndpointProvided ||
+			openRouterActiveAndKeyProvided
 		);
 	}
 
@@ -342,6 +359,21 @@ export class AIService {
 			}
 
 			return new AnthropicAIClient(anthropicKey, anthropicModelName);
+		}
+
+		if (modelKind === ModelKind.OpenRouter) {
+			const openRouterKey = (await this.getOpenRouterKey())?.trim();
+			const openRouterModelName = await this.getOpenRouterModelName();
+
+			if (!openRouterKey) {
+				throw new Error("When using OpenRouter, you must provide a valid API key");
+			}
+
+			return new OpenAIClient(
+				openRouterKey,
+				openRouterModelName as OpenRouterModelName,
+				"https://openrouter.ai/api/v1",
+			);
 		}
 
 		return undefined;
