@@ -69,12 +69,12 @@
 .itemAction {
 	display: grid;
 	visibility: hidden;
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
 
 	svg {
-		width: var(--row-line-height);
-		height: var(--row-line-height);
+		width: var(--item-line-height);
+		height: var(--item-line-height);
 	}
 
 	.item:hover &,
@@ -99,17 +99,17 @@
 
 .commitButton {
 	flex-grow: 1;
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
-	line-height: var(--row-line-height);
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
+	line-height: var(--item-line-height);
 }
 
 .fileButton {
 	flex-grow: 1;
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
 	overflow: hidden;
-	line-height: var(--row-line-height);
+	line-height: var(--item-line-height);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
