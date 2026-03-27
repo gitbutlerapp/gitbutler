@@ -5,7 +5,8 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use strum::IntoEnumIterator;
 
 use crate::command::legacy::status::tui::{
-    CommandMessage, ConfirmMessage, Message, Mode, ModeDiscriminant, RewordMessage, RubMessage,
+    CommandMessage, ConfirmMessage, Message, Mode, RewordMessage, RubMessage,
+    mode::ModeDiscriminant,
 };
 
 use super::{BranchMessage, CommitMessage, DetailsMessage, FilesMessage, MoveMessage};

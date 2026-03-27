@@ -23,7 +23,7 @@ use crate::{
         rub::RubOperation,
         status::{
             StatusFlags, StatusOutput, StatusOutputLine, StatusRenderMode,
-            tui::{CommitSource, SelectAfterReload, StackCommitSource},
+            tui::{CommitSource, SelectAfterReload, mode::StackCommitSource},
         },
     },
     utils::OutputChannel,
