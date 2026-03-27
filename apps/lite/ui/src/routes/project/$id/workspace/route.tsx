@@ -371,6 +371,7 @@ const CommitDetails: FC<{
 						<div
 							className={classes(
 								sharedStyles.item,
+								sharedStyles.file,
 								selectedPath === change.path && sharedStyles.selectedFile,
 							)}
 						>
@@ -1255,18 +1256,14 @@ const CommitC: FC<{
 				stackId={stackId}
 			/>
 			{commitSelection?.mode._tag === "Details" && (
-				<div className={sharedStyles.commitDetails}>
-					<Suspense
-						fallback={<div className={sharedStyles.itemEmpty}>Loading change details…</div>}
-					>
-						<CommitDetails
-							commitSelection={commitSelection}
-							projectId={projectId}
-							commitId={commit.id}
-							select={select}
-						/>
-					</Suspense>
-				</div>
+				<Suspense fallback={<div className={sharedStyles.itemEmpty}>Loading change details…</div>}>
+					<CommitDetails
+						commitSelection={commitSelection}
+						projectId={projectId}
+						commitId={commit.id}
+						select={select}
+					/>
+				</Suspense>
 			)}
 		</CommitTarget>
 	);
@@ -1308,59 +1305,58 @@ const Changes: FC<{
 					{label}
 				</button>
 			</div>
-			<div className={sharedStyles.commitDetails}>
-				{changes.length === 0 ? (
-					<div className={sharedStyles.itemEmpty}>No changes.</div>
-				) : (
-					<ul>
-						{changes.map((change) => {
-							const assignments = assignmentsByPath.get(change.path);
-							const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
+			{changes.length === 0 ? (
+				<div className={sharedStyles.itemEmpty}>No changes.</div>
+			) : (
+				<ul>
+					{changes.map((change) => {
+						const assignments = assignmentsByPath.get(change.path);
+						const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
 
-							const dependencyCommitIds = hunkDependencyDiffs
-								? dependencyCommitIdsForFile(hunkDependencyDiffs)
-								: [];
+						const dependencyCommitIds = hunkDependencyDiffs
+							? dependencyCommitIdsForFile(hunkDependencyDiffs)
+							: [];
 
-							return (
-								<li key={change.path}>
-									<DraggableFile
-										change={change}
-										changeUnit={{ _tag: "Changes", stackId }}
-										assignments={assignments}
-										render={
-											<div
-												className={classes(
-													sharedStyles.item,
-													changesSelection?.mode._tag === "Details" &&
-														changesSelection.mode.path === change.path &&
-														sharedStyles.selectedFile,
-												)}
-											>
-												<FileButton
-													change={change}
-													onClick={() => {
-														select(changesDetailsItem(stackId, change.path));
-													}}
-												/>
-												{isNonEmptyArray(dependencyCommitIds) && (
-													<DependencyIndicator
-														projectId={projectId}
-														commitIds={dependencyCommitIds}
-														onHover={onDependencyHover}
-														className={sharedStyles.itemAction}
-													>
-														<DependencyIcon />
-													</DependencyIndicator>
-												)}
-											</div>
-										}
-									/>
-								</li>
-							);
-						})}
-					</ul>
-				)}
-			</div>
+						return (
+							<li key={change.path}>
+								<DraggableFile
+									change={change}
+									changeUnit={{ _tag: "Changes", stackId }}
+									assignments={assignments}
+									render={
+										<div
+											className={classes(
+												sharedStyles.item,
+												sharedStyles.file,
+												changesSelection?.mode._tag === "Details" &&
+													changesSelection.mode.path === change.path &&
+													sharedStyles.selectedFile,
+											)}
+										>
+											<FileButton
+												change={change}
+												onClick={() => {
+													select(changesDetailsItem(stackId, change.path));
+												}}
+											/>
+											{isNonEmptyArray(dependencyCommitIds) && (
+												<DependencyIndicator
+													projectId={projectId}
+													commitIds={dependencyCommitIds}
+													onHover={onDependencyHover}
+													className={sharedStyles.itemAction}
+												>
+													<DependencyIcon />
+												</DependencyIndicator>
+											)}
+										</div>
+									}
+								/>
+							</li>
+						);
+					})}
+				</ul>
+			)}
 		</ChangesTarget>
 	);
 };

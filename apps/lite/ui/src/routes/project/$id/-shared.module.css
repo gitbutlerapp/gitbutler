@@ -104,10 +104,6 @@
 	}
 }
 
-.commitDetails {
-	padding-left: 8px;
-}
-
 .commitMessageBody {
 	white-space: pre-wrap;
 }
@@ -127,6 +123,10 @@
 	line-height: var(--item-line-height);
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.file {
+	padding-left: 8px;
 }
 
 .selectedFile {

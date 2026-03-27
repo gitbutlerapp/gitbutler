@@ -379,41 +379,38 @@ const CommitC: FC<{
 				isHighlighted={false}
 			/>
 			{commitSelection?.mode._tag === "Details" && (
-				<div className={sharedStyles.commitDetails}>
-					<Suspense
-						fallback={<div className={sharedStyles.itemEmpty}>Loading change details…</div>}
-					>
-						<CommitDetails
-							projectId={projectId}
-							commitId={commit.id}
-							renderFile={(change) => (
-								<div
-									className={classes(
-										sharedStyles.item,
-										commitSelection.mode._tag === "Details" &&
-											commitSelection.mode.path === change.path &&
-											sharedStyles.selectedFile,
-									)}
-								>
-									<FileButton
-										change={change}
-										onClick={() => {
-											select({
-												_tag: "Commit",
-												branchName,
-												commitId: commit.id,
-												mode: {
-													_tag: "Details",
-													path: change.path,
-												},
-											});
-										}}
-									/>
-								</div>
-							)}
-						/>
-					</Suspense>
-				</div>
+				<Suspense fallback={<div className={sharedStyles.itemEmpty}>Loading change details…</div>}>
+					<CommitDetails
+						projectId={projectId}
+						commitId={commit.id}
+						renderFile={(change) => (
+							<div
+								className={classes(
+									sharedStyles.item,
+									sharedStyles.file,
+									commitSelection.mode._tag === "Details" &&
+										commitSelection.mode.path === change.path &&
+										sharedStyles.selectedFile,
+								)}
+							>
+								<FileButton
+									change={change}
+									onClick={() => {
+										select({
+											_tag: "Commit",
+											branchName,
+											commitId: commit.id,
+											mode: {
+												_tag: "Details",
+												path: change.path,
+											},
+										});
+									}}
+								/>
+							</div>
+						)}
+					/>
+				</Suspense>
 			)}
 		</div>
 	);
