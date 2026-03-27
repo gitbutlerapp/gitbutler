@@ -14,6 +14,7 @@ type SegmentItem = {
 
 type CommitMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
 export type CommitItem = SegmentItem & { commitId: string; mode: CommitMode };
+
 export type BaseCommitItem = { commitId: string };
 
 export type Item =
