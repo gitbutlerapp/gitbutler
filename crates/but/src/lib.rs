@@ -1513,6 +1513,8 @@ async fn run_status_after(
             ctx,
             out,
             StatusFlags {
+                show_files: crate::command::legacy::status::FilesStatusFlag::All,
+                verbose: true,
                 hint: true,
                 ..StatusFlags::all_false()
             },
