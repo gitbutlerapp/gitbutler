@@ -605,29 +605,6 @@ const ShowChanges: FC<{
 	);
 };
 
-const ShowCommitFile: FC<{
-	projectId: string;
-	commitId: string;
-	path: string;
-}> = ({ projectId, commitId, path }) => {
-	const { data: commitDetails } = useSuspenseQuery(
-		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
-	);
-	const change = commitDetails.changes.find((candidate) => candidate.path === path);
-
-	if (!change) return null;
-
-	return (
-		<FileDiff
-			projectId={projectId}
-			change={change}
-			renderHunk={(hunk, patch) => (
-				<Hunk patch={patch} changeUnit={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
-			)}
-		/>
-	);
-};
-
 const PreviewCommit: FC<{
 	projectId: string;
 	commitId: string;
@@ -639,9 +616,19 @@ const PreviewCommit: FC<{
 	const selectedPath = selection
 		? getSelectedCommitPath({ changes: commitDetails.changes, selection })
 		: undefined;
+	const change =
+		selectedPath !== undefined
+			? commitDetails.changes.find((candidate) => candidate.path === selectedPath)
+			: undefined;
 
-	return selectedPath !== undefined ? (
-		<ShowCommitFile projectId={projectId} commitId={commitId} path={selectedPath} />
+	return change ? (
+		<FileDiff
+			projectId={projectId}
+			change={change}
+			renderHunk={(hunk, patch) => (
+				<Hunk patch={patch} changeUnit={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
+			)}
+		/>
 	) : (
 		<ShowCommit
 			projectId={projectId}
