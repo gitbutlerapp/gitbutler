@@ -1,0 +1,81 @@
+<svg width="860px" height="398px" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .fg { fill: #AAAAAA }
+    .bg { fill: #000000 }
+    .bg-bright-black { stroke: #555555; fill: #555555; user-select: none;  }
+    .bg-rgb-004100 { stroke: #004100; fill: #004100; user-select: none;  }
+    .bg-rgb-45475A { stroke: #45475A; fill: #45475A; user-select: none;  }
+    .fg-blue { fill: #0000AA }
+    .fg-bright-white { fill: #FFFFFF }
+    .fg-cyan { fill: #00AAAA }
+    .fg-green { fill: #00AA00 }
+    .fg-rgb-006031 { fill: #006031 }
+    .fg-rgb-F8F800 { fill: #F8F800 }
+    .fg-yellow { fill: #AA5500 }
+    .container {
+      padding: 0 10px;
+      line-height: 18px;
+    }
+    .bold { font-weight: bold; }
+    .dimmed { opacity: 0.7; }
+    tspan {
+      font: 14px SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+      white-space: pre;
+      line-height: 18px;
+    }
+  </style>
+
+  <rect width="100%" height="100%" y="0" rx="4.5" class="bg" />
+
+  <text xml:space="preserve" class="container fg">
+    <tspan x="10px" y="28px"><tspan>╭┄</tspan><tspan class="fg-blue bold">zz</tspan><tspan> [</tspan><tspan class="fg-cyan bold">unstaged changes</tspan><tspan>]                           </tspan><tspan class="dimmed">│</tspan><tspan>Commit ID: </tspan><tspan class="fg-blue">9477ae721ab521d9d0174f70e804ce3ff9f6fb</tspan>
+</tspan>
+    <tspan x="10px" y="46px"><tspan>┊     </tspan><tspan class="dimmed">no changes</tspan><tspan>                                  </tspan><tspan class="dimmed">│</tspan><tspan>Author:    </tspan><tspan class="fg-yellow">author</tspan><tspan> &lt;</tspan><tspan class="fg-yellow">author@example.com</tspan><tspan>&gt; (</tspan><tspan class="fg-green">Sat Jan 1</tspan>
+</tspan>
+    <tspan x="10px" y="64px"><tspan>┊                                                 </tspan><tspan class="dimmed">│</tspan><tspan>Committer: </tspan><tspan class="fg-yellow">committer</tspan><tspan> &lt;</tspan><tspan class="fg-yellow">committer@example.com</tspan><tspan>&gt; (</tspan><tspan class="fg-green">Sun</tspan>
+</tspan>
+    <tspan x="10px" y="82px"><tspan>┊╭┄</tspan><tspan class="fg-blue bold">g0</tspan><tspan> [</tspan><tspan class="fg-green bold">A</tspan><tspan>]                                         </tspan><tspan class="dimmed">│</tspan><tspan>                                                 </tspan>
+</tspan>
+    <tspan x="10px" y="100px"><tspan class="bg-rgb-45475A">█████</tspan><tspan class="bg-rgb-45475A">██</tspan><tspan class="bg-rgb-45475A">█████</tspan><tspan class="bg-rgb-45475A">██████████████████████████████████████</tspan><tspan> </tspan><tspan>                                                 </tspan>
+</tspan>
+    <tspan x="10px" y="100px"><tspan>┊●   </tspan><tspan class="fg-blue bold">94</tspan><tspan class="dimmed">77ae7</tspan><tspan> add A                                </tspan><tspan class="dimmed">│</tspan><tspan>add A                                            </tspan>
+</tspan>
+    <tspan x="10px" y="118px"><tspan>├╯                                                </tspan><tspan class="dimmed">│</tspan><tspan>                                                 </tspan>
+</tspan>
+    <tspan x="10px" y="136px"><tspan>┊                                                 </tspan><tspan class="dimmed">│</tspan><tspan>                                                 </tspan>
+</tspan>
+    <tspan x="10px" y="154px"><tspan>┴ </tspan><tspan class="dimmed">0dc3733</tspan><tspan> [</tspan><tspan class="fg-green bold">origin/main</tspan><tspan>] </tspan><tspan class="dimmed">2000-01-02</tspan><tspan> add M          </tspan><tspan class="dimmed">│──────────╮                                      </tspan>
+</tspan>
+    <tspan x="10px" y="172px"><tspan>                                                  </tspan><tspan class="dimmed">│</tspan><tspan> </tspan><tspan class="fg-green">added</tspan><tspan>: A </tspan><tspan class="dimmed">│</tspan><tspan>                                      </tspan>
+</tspan>
+    <tspan x="10px" y="190px"><tspan>                                                  </tspan><tspan class="dimmed">│──────────╯                                      </tspan>
+</tspan>
+    <tspan x="10px" y="208px"><tspan>                                                  </tspan><tspan class="dimmed">│</tspan><tspan>                                                 </tspan>
+</tspan>
+    <tspan x="10px" y="226px"><tspan>                                                  </tspan><tspan class="dimmed">│@@ -1,0 +1,1 @@</tspan><tspan>                                  </tspan>
+</tspan>
+    <tspan x="10px" y="244px"><tspan>                                                  </tspan><tspan class="dimmed">│───────────────                                  </tspan>
+</tspan>
+    <tspan x="10px" y="262px"><tspan>                                                  </tspan><tspan> </tspan><tspan> </tspan><tspan>   </tspan><tspan> </tspan><tspan>   </tspan><tspan class="bg-rgb-004100">█</tspan><tspan> </tspan><tspan>                                       </tspan>
+</tspan>
+    <tspan x="10px" y="262px"><tspan>                                                  </tspan><tspan class="dimmed">│</tspan><tspan> </tspan><tspan class="dimmed"> ┊ </tspan><tspan class="fg-rgb-006031">1</tspan><tspan class="dimmed"> │ </tspan><tspan>+</tspan><tspan class="fg-rgb-F8F800">A</tspan><tspan>                                       </tspan>
+</tspan>
+    <tspan x="10px" y="280px"><tspan>                                                  </tspan><tspan class="dimmed">│</tspan><tspan>                                                 </tspan>
+</tspan>
+    <tspan x="10px" y="298px"><tspan>                                                  </tspan><tspan class="dimmed">│</tspan><tspan>                                                 </tspan>
+</tspan>
+    <tspan x="10px" y="316px"><tspan>                                                  </tspan><tspan class="dimmed">│</tspan><tspan>                                                 </tspan>
+</tspan>
+    <tspan x="10px" y="334px"><tspan>                                                  </tspan><tspan class="dimmed">│</tspan><tspan>                                                 </tspan>
+</tspan>
+    <tspan x="10px" y="352px"><tspan>                                                  </tspan><tspan class="dimmed">│</tspan><tspan>                                                 </tspan>
+</tspan>
+    <tspan x="10px" y="370px"><tspan class="bg-bright-black">██████████</tspan><tspan> </tspan><tspan>   </tspan><tspan> </tspan><tspan>       </tspan><tspan>   </tspan><tspan> </tspan><tspan>     </tspan><tspan> </tspan><tspan> </tspan><tspan>       </tspan><tspan> </tspan><tspan> </tspan><tspan>       </tspan><tspan> </tspan><tspan> </tspan><tspan>      </tspan><tspan> </tspan><tspan> </tspan><tspan>         </tspan><tspan> </tspan><tspan> </tspan><tspan>       </tspan><tspan> </tspan><tspan> </tspan><tspan>         </tspan><tspan>     </tspan><tspan> </tspan><tspan>      </tspan>
+</tspan>
+    <tspan x="10px" y="370px"><tspan class="fg-bright-white">  normal  </tspan><tspan> </tspan><tspan class="fg-blue">↓/j</tspan><tspan> </tspan><tspan class="dimmed">down • </tspan><tspan class="fg-blue">↑/k</tspan><tspan> </tspan><tspan class="dimmed">up • </tspan><tspan class="fg-blue">q</tspan><tspan> </tspan><tspan class="dimmed">quit • </tspan><tspan class="fg-blue">d</tspan><tspan> </tspan><tspan class="dimmed">diff • </tspan><tspan class="fg-blue">r</tspan><tspan> </tspan><tspan class="dimmed">rub • </tspan><tspan class="fg-blue">c</tspan><tspan> </tspan><tspan class="dimmed">commit • </tspan><tspan class="fg-blue">m</tspan><tspan> </tspan><tspan class="dimmed">move • </tspan><tspan class="fg-blue">b</tspan><tspan> </tspan><tspan class="dimmed">branch • </tspan><tspan class="fg-blue">enter</tspan><tspan> </tspan><tspan class="dimmed">reword</tspan>
+</tspan>
+    <tspan x="10px" y="388px">
+</tspan>
+  </text>
+
+</svg>

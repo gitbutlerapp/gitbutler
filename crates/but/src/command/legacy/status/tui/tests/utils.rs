@@ -3,7 +3,11 @@ use std::convert::Infallible;
 use but_testsupport::Sandbox;
 use crossterm::event::*;
 use gitbutler_operating_modes::OperatingMode;
-use ratatui::{Terminal, backend::TestBackend};
+use ratatui::{
+    Terminal,
+    backend::TestBackend,
+    style::{Color, Modifier},
+};
 
 use crate::{
     args::OutputFormat,
@@ -177,50 +181,99 @@ impl TestTuiInputThenRenderResult<'_> {
     }
 
     #[track_caller]
-    pub(super) fn assert_rendered_eq_with_normalized_commit_ids(
-        self,
-        expected: snapbox::Data,
-    ) -> Self {
-        let output = normalize_commit_ids(&self.0.terminal.backend().to_string());
-        snapbox::assert_data_eq!(output, expected);
+    pub(super) fn assert_rendered_term_svg_eq(self, expected: snapbox::Data) -> Self {
+        let ansi = backend_to_ansi(self.0.terminal.backend());
+        snapbox::assert_data_eq!(ansi, expected);
         self
     }
 }
 
-fn normalize_commit_ids(rendered: &str) -> String {
-    rendered
-        .lines()
-        .map(normalize_commit_ids_in_line)
-        .collect::<Vec<_>>()
-        .join("\n")
+fn backend_to_ansi(backend: &TestBackend) -> String {
+    let buffer = backend.buffer();
+    let area = *buffer.area();
+
+    let mut out = String::new();
+
+    for y in area.y..area.y.saturating_add(area.height) {
+        for x in area.x..area.x.saturating_add(area.width) {
+            let cell = &buffer[(x, y)];
+            out.push_str("\x1b[");
+            out.push_str(&ansi_sgr_for_cell(cell));
+            out.push('m');
+            out.push_str(cell.symbol());
+        }
+        out.push_str("\x1b[0m\n");
+    }
+
+    out
 }
 
-fn normalize_commit_ids_in_line(line: &str) -> String {
-    let mut line = line.to_owned();
+fn ansi_sgr_for_cell(cell: &ratatui::buffer::Cell) -> String {
+    let mut codes = Vec::new();
 
-    if let Some(start) = line.find("Commit ID: ") {
-        let hash_start = start + "Commit ID: ".len();
-        let hash_len = line[hash_start..]
-            .chars()
-            .take_while(|c| c.is_ascii_hexdigit())
-            .count();
-        if hash_len > 0 {
-            line.replace_range(hash_start..hash_start + hash_len, &"0".repeat(hash_len));
-        }
+    codes.push("0".to_owned());
+
+    if cell.modifier.contains(Modifier::BOLD) {
+        codes.push("1".to_owned());
+    }
+    if cell.modifier.contains(Modifier::DIM) {
+        codes.push("2".to_owned());
+    }
+    if cell.modifier.contains(Modifier::ITALIC) {
+        codes.push("3".to_owned());
+    }
+    if cell.modifier.contains(Modifier::UNDERLINED) {
+        codes.push("4".to_owned());
+    }
+    if cell.modifier.contains(Modifier::REVERSED) {
+        codes.push("7".to_owned());
+    }
+    if cell.modifier.contains(Modifier::CROSSED_OUT) {
+        codes.push("9".to_owned());
     }
 
-    if let Some(start) = line.find("●   ") {
-        let hash_start = start + "●   ".len();
-        let hash_len = line[hash_start..]
-            .chars()
-            .take_while(|c| c.is_ascii_hexdigit())
-            .count();
-        if hash_len == 7 {
-            line.replace_range(hash_start..hash_start + hash_len, "0000000");
+    codes.push(ansi_color_code(cell.fg, true));
+    codes.push(ansi_color_code(cell.bg, false));
+
+    codes.join(";")
+}
+
+fn ansi_color_code(color: Color, is_foreground: bool) -> String {
+    let (base, bright_base) = if is_foreground { (30, 90) } else { (40, 100) };
+
+    match color {
+        Color::Reset => {
+            if is_foreground {
+                "39".to_owned()
+            } else {
+                "49".to_owned()
+            }
+        }
+        Color::Black => base.to_string(),
+        Color::Red => (base + 1).to_string(),
+        Color::Green => (base + 2).to_string(),
+        Color::Yellow => (base + 3).to_string(),
+        Color::Blue => (base + 4).to_string(),
+        Color::Magenta => (base + 5).to_string(),
+        Color::Cyan => (base + 6).to_string(),
+        Color::Gray => (base + 7).to_string(),
+        Color::DarkGray => bright_base.to_string(),
+        Color::LightRed => (bright_base + 1).to_string(),
+        Color::LightGreen => (bright_base + 2).to_string(),
+        Color::LightYellow => (bright_base + 3).to_string(),
+        Color::LightBlue => (bright_base + 4).to_string(),
+        Color::LightMagenta => (bright_base + 5).to_string(),
+        Color::LightCyan => (bright_base + 6).to_string(),
+        Color::White => (bright_base + 7).to_string(),
+        Color::Rgb(r, g, b) => {
+            let prefix = if is_foreground { 38 } else { 48 };
+            format!("{prefix};2;{r};{g};{b}")
+        }
+        Color::Indexed(idx) => {
+            let prefix = if is_foreground { 38 } else { 48 };
+            format!("{prefix};5;{idx}")
         }
     }
-
-    line
 }
 
 impl<const N: usize, T> EventPolling for [T; N]
