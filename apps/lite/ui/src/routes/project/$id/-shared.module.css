@@ -52,6 +52,13 @@
 	}
 }
 
+.itemEmpty {
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
+	color: gray;
+	line-height: var(--item-line-height);
+}
+
 .selected {
 	background-color: black;
 	color: white;

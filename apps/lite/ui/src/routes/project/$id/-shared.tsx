@@ -141,7 +141,8 @@ export const CommitDetails: FC<{
 			).sort((a, b) => a.localeCompare(b))
 		: [];
 
-	if (conflictedPaths.length === 0 && data.changes.length === 0) return <div>No file changes.</div>;
+	if (conflictedPaths.length === 0 && data.changes.length === 0)
+		return <div className={styles.itemEmpty}>No file changes.</div>;
 
 	return (
 		<>

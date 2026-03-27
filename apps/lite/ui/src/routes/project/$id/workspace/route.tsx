@@ -1326,7 +1326,7 @@ const Changes: FC<{
 			</div>
 			<div className={sharedStyles.commitDetails}>
 				{changes.length === 0 ? (
-					<>No changes.</>
+					<div className={sharedStyles.itemEmpty}>No changes.</div>
 				) : (
 					<ul>
 						{changes.map((change) => {
