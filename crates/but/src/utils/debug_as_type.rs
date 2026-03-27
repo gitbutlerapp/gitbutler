@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-#[derive(Clone)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub(crate) struct DebugAsType<T>(pub(crate) T);
 
 impl<T> std::fmt::Debug for DebugAsType<T> {
