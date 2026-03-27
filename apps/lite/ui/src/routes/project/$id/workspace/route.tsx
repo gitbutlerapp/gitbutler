@@ -1838,7 +1838,7 @@ const ProjectPage: FC = () => {
 			projectId={projectId}
 			preview={
 				selection && (
-					<Suspense fallback={<div>Loading diff…</div>}>
+					<Suspense fallback={<div>Loading preview…</div>}>
 						<Preview
 							commitDetailsSelection={commitDetailsSelection}
 							projectId={projectId}

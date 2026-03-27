@@ -571,7 +571,7 @@ const ProjectBranchesPage: FC = () => {
 			preview={
 				selection &&
 				selectedBranch && (
-					<Suspense fallback={<div>Loading diff…</div>}>
+					<Suspense fallback={<div>Loading preview…</div>}>
 						<Preview
 							projectId={projectId}
 							selection={selection}
