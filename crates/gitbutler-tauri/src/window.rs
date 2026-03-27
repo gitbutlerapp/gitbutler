@@ -238,6 +238,30 @@ pub(crate) mod state {
     }
 }
 
+#[cfg(not(debug_assertions))]
+fn on_navigate(url: &url::Url) -> bool {
+    is_tauri_origin(url)
+}
+
+#[cfg(debug_assertions)]
+fn on_navigate(url: &url::Url) -> bool {
+    is_tauri_origin(url) || (url.scheme() == "http" && url.host_str() == Some("localhost"))
+}
+
+#[cfg(unix)]
+fn is_tauri_origin(url: &url::Url) -> bool {
+    let scheme = url.scheme();
+    scheme == "tauri" || scheme == "asset"
+}
+
+#[cfg(windows)]
+fn is_tauri_origin(url: &url::Url) -> bool {
+    let scheme = url.scheme();
+    let domain = url.domain().unwrap_or_default();
+    (scheme == "http" || scheme == "https")
+        && (domain == "tauri.localhost" || domain == "asset.localhost")
+}
+
 #[cfg(not(target_os = "macos"))]
 pub fn create(
     handle: &tauri::AppHandle,
@@ -255,6 +279,7 @@ pub fn create(
     .disable_drag_drop_handler()
     .min_inner_size(1000.0, 600.0)
     .inner_size(1160.0, 720.0)
+    .on_navigation(on_navigate)
     .build()?;
     Ok(window)
 }
@@ -289,6 +314,7 @@ pub fn create(
     } else {
         tauri::TitleBarStyle::Overlay
     })
+    .on_navigation(on_navigate)
     .build()?;
 
     if !use_native_title_bar {
