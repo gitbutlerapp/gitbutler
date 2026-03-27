@@ -3,7 +3,6 @@ import { Link, Outlet, useMatch, useNavigate } from "@tanstack/react-router";
 import { FC, useState } from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext } from "@tanstack/react-router";
-
 import { usePreviewVisible } from "../hooks/usePreviewVisible";
 import { classes } from "#ui/classes.ts";
 import uiStyles from "#ui/ui.module.css";
