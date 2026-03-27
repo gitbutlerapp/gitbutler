@@ -10,7 +10,9 @@ use crate::{
     command::legacy::status::{
         CommitClassification, FilesStatusFlag,
         output::{StatusOutputContent, StatusOutputLine, StatusOutputLineData},
-        tui::{CommitMode, CommitSource, InlineRewordMode, Mode, RubMode, UnassignedCommitSource},
+        tui::{
+            CommitMode, CommitSource, InlineRewordMode, Mode, RubMode, mode::UnassignedCommitSource,
+        },
     },
 };
 
