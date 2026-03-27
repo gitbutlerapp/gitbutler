@@ -72,7 +72,7 @@ import {
 	Stack,
 	TreeChange,
 } from "@gitbutler/but-sdk";
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
@@ -90,13 +90,6 @@ import {
 } from "react";
 import useLocalStorageState from "use-local-storage-state";
 import sharedStyles from "../-shared.module.css";
-import {
-	getAdjacentCommitDetailsPath,
-	getCommitDetailsForCommit,
-	normalizeCommitDetailsSelection,
-	commitDetailsSelectionBindings,
-	type CommitDetailsSelection,
-} from "./-CommitDetailsSelection.ts";
 import { type EditingCommit } from "./-EditingCommit.ts";
 import {
 	baseCommitItem,
@@ -107,14 +100,16 @@ import {
 	type Item,
 	segmentItem,
 	getParentSection,
+	CommitItem,
 } from "./-Item.ts";
 import {
 	buildNavigationModel,
 	getAdjacentItem,
 	getAdjacentSection,
 	changesSelectionBindings,
+	commitDetailsSelectionBindings,
 	commitEditingMessageBindings,
-	commitSelectionBindings,
+	commitSummarySelectionBindings,
 	segmentSelectionBindings,
 	SharedSelectionAction,
 } from "./-Selection.ts";
@@ -129,6 +124,23 @@ const decodeRefName = (fullNameBytes: Array<number>): string =>
 const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
+
+const getAdjacentCommitDetailsPath = ({
+	paths,
+	currentPath,
+	offset,
+}: {
+	paths: Array<string>;
+	currentPath: string | undefined;
+	offset: -1 | 1;
+}): string | null => {
+	if (paths.length === 0) return null;
+	if (currentPath === undefined) return offset > 0 ? (paths[0] ?? null) : (paths.at(-1) ?? null);
+
+	const currentIndex = paths.indexOf(currentPath);
+	if (currentIndex === -1) return offset > 0 ? (paths[0] ?? null) : (paths.at(-1) ?? null);
+	return paths[currentIndex + offset] ?? null;
+};
 
 const DependencyIndicator: FC<
 	{
@@ -174,20 +186,18 @@ const DependencyIndicator: FC<
 };
 
 const useSelectionKeyboardShortcuts = ({
-	commitDetailsSelection,
+	projectId,
 	editingCommit,
 	selection,
 	select,
-	selectCommitDetails,
 	setEditingCommit,
 	headInfo,
 	worktreeChanges,
 	commonBaseCommitId,
 }: {
+	projectId: string;
 	selection: Item | null;
 	select: (selection: Item | null) => void;
-	commitDetailsSelection: CommitDetailsSelection | null;
-	selectCommitDetails: (selection: CommitDetailsSelection | null) => void;
 	editingCommit: EditingCommit | null;
 	setEditingCommit: (selection: EditingCommit | null) => void;
 	headInfo: RefInfo;
@@ -197,6 +207,7 @@ const useSelectionKeyboardShortcuts = ({
 	};
 	commonBaseCommitId?: string;
 }) => {
+	const queryClient = useQueryClient();
 	const navigationModel = buildNavigationModel({
 		headInfo,
 		changes: worktreeChanges.changes,
@@ -210,7 +221,6 @@ const useSelectionKeyboardShortcuts = ({
 		if (isTypingTarget(event.target)) return;
 
 		if (editingCommit !== null) return;
-		if (selection?._tag === "Commit" && commitDetailsSelection !== null) return;
 
 		if (!selection) return;
 
@@ -258,26 +268,62 @@ const useSelectionKeyboardShortcuts = ({
 				handleSharedAction(action);
 			}),
 			Match.tag("Commit", (selection) => {
-				const action = getShortcutAction(commitSelectionBindings, selection, event);
-				if (!action) return;
+				Match.value(selection.mode).pipe(
+					Match.tag("Summary", () => {
+						const action = getShortcutAction(commitSummarySelectionBindings, selection, event);
+						if (!action) return;
 
-				event.preventDefault();
+						event.preventDefault();
 
-				Match.value(action).pipe(
-					Match.tagsExhaustive({
-						Move: ({ offset }) => handleSharedAction({ _tag: "Move", offset }),
-						NextSection: () => handleSharedAction({ _tag: "NextSection" }),
-						PreviousSection: () => handleSharedAction({ _tag: "PreviousSection" }),
-						EditCommitMessage: () => setEditingCommit(selection),
-						ExpandCommit: () =>
-							selectCommitDetails({
-								stackId: selection.stackId,
-								segmentIndex: selection.segmentIndex,
-								branchName: selection.branchName,
-								branchRef: selection.branchRef,
-								commitId: selection.commitId,
+						Match.value(action).pipe(
+							Match.tagsExhaustive({
+								Move: ({ offset }) => select(getAdjacentItem(navigationModel, selection, offset)),
+								NextSection: () => handleSharedAction({ _tag: "NextSection" }),
+								PreviousSection: () => handleSharedAction({ _tag: "PreviousSection" }),
+								EditCommitMessage: () => setEditingCommit(selection),
+								ExpandCommit: () => select(commitItem({ ...selection, mode: { _tag: "Details" } })),
 							}),
+						);
 					}),
+					Match.tag("Details", () => {
+						const action = getShortcutAction(commitDetailsSelectionBindings, selection, event);
+						if (!action) return;
+
+						event.preventDefault();
+
+						Match.value(action).pipe(
+							Match.tagsExhaustive({
+								Move: ({ offset }) => {
+									const commitDetails = queryClient.getQueryData(
+										commitDetailsWithLineStatsQueryOptions({
+											projectId,
+											commitId: selection.commitId,
+										}).queryKey,
+									);
+									if (!commitDetails) return;
+
+									const paths = commitDetails.changes.map((change) => change.path);
+									const nextPath = getAdjacentCommitDetailsPath({
+										paths,
+										currentPath: getSelectedCommitPath({ paths, selection }),
+										offset,
+									});
+									if (nextPath === null) return;
+									select(
+										commitItem({
+											...selection,
+											mode: { _tag: "Details", path: nextPath },
+										}),
+									);
+								},
+								NextSection: () => handleSharedAction({ _tag: "NextSection" }),
+								PreviousSection: () => handleSharedAction({ _tag: "PreviousSection" }),
+								CloseCommitDetails: () =>
+									select(commitItem({ ...selection, mode: { _tag: "Summary" } })),
+							}),
+						);
+					}),
+					Match.exhaustive,
 				);
 			}),
 			Match.exhaustive,
@@ -294,24 +340,11 @@ const useSelectionKeyboardShortcuts = ({
 };
 
 const CommitDetails: FC<{
-	branchName: string | null;
-	branchRef: string | null;
 	commitId: string;
-	commitDetailsSelection: CommitDetailsSelection;
+	commitSelection: CommitItem;
 	projectId: string;
-	segmentIndex: number;
-	selectCommitDetails: (selection: CommitDetailsSelection | null) => void;
-	stackId: string;
-}> = ({
-	branchName,
-	branchRef,
-	commitId,
-	commitDetailsSelection,
-	projectId,
-	segmentIndex,
-	selectCommitDetails,
-	stackId,
-}) => {
+	select: (selection: Item | null) => void;
+}> = ({ commitId, commitSelection, projectId, select }) => {
 	const { data: commitDetails } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({
 			projectId,
@@ -321,52 +354,8 @@ const CommitDetails: FC<{
 	const paths = commitDetails.changes.map((change: TreeChange) => change.path);
 	const selectedPath = getSelectedCommitPath({
 		paths,
-		selection: commitDetailsSelection,
+		selection: commitSelection,
 	});
-
-	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
-		if (event.defaultPrevented) return;
-		if (event.metaKey || event.ctrlKey || event.altKey) return;
-		if (isTypingTarget(event.target)) return;
-
-		const action = getShortcutAction(commitDetailsSelectionBindings, undefined, event);
-		if (!action) return;
-
-		Match.value(action).pipe(
-			Match.tag("Move", ({ offset }) => {
-				const nextPath = getAdjacentCommitDetailsPath({
-					paths,
-					currentPath: selectedPath,
-					offset,
-				});
-				event.preventDefault();
-				if (nextPath !== null)
-					selectCommitDetails({
-						stackId,
-						segmentIndex,
-						branchName,
-						branchRef,
-						commitId,
-						path: nextPath,
-					});
-
-				return;
-			}),
-			Match.tag("Close", () => {
-				event.preventDefault();
-				selectCommitDetails(null);
-				return;
-			}),
-			Match.exhaustive,
-		);
-	});
-
-	useEffect(() => {
-		window.addEventListener("keydown", handleKeyDown);
-		return () => {
-			window.removeEventListener("keydown", handleKeyDown);
-		};
-	}, []);
 
 	return (
 		<SharedCommitDetails
@@ -386,14 +375,12 @@ const CommitDetails: FC<{
 							<FileButton
 								change={change}
 								onClick={() => {
-									selectCommitDetails({
-										stackId,
-										segmentIndex,
-										branchName,
-										branchRef,
-										commitId,
-										path: change.path,
-									});
+									select(
+										commitItem({
+											...commitSelection,
+											mode: { _tag: "Details", path: change.path },
+										}),
+									);
 								}}
 							/>
 						</div>
@@ -409,9 +396,13 @@ const getSelectedCommitPath = ({
 	selection,
 }: {
 	paths: Array<string>;
-	selection: CommitDetailsSelection;
+	selection: CommitItem;
 }): string | undefined =>
-	selection.path !== undefined && paths.includes(selection.path) ? selection.path : paths[0];
+	selection.mode._tag === "Details" &&
+	selection.mode.path !== undefined &&
+	paths.includes(selection.mode.path)
+		? selection.mode.path
+		: paths[0];
 
 // TODO: check this
 const assignedChangesDiffSpecs = (
@@ -564,23 +555,15 @@ const ShowChangesFile: FC<{
 
 const ShowCommitOrFile: FC<{
 	projectId: string;
-	commitId: string;
-	stackId: string;
-	segmentIndex: number;
-	commitDetailsSelection: CommitDetailsSelection | null;
-}> = ({ projectId, commitId, stackId, segmentIndex, commitDetailsSelection }) => {
+	selection: CommitItem;
+}> = ({ projectId, selection }) => {
+	const { commitId } = selection;
 	const { data: commitDetails } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
-	const selection =
-		commitDetailsSelection !== null &&
-		commitDetailsSelection.stackId === stackId &&
-		commitDetailsSelection.segmentIndex === segmentIndex &&
-		commitDetailsSelection.commitId === commitId
-			? commitDetailsSelection
-			: null;
 	const paths = commitDetails.changes.map((change) => change.path);
-	const selectedPath = selection ? getSelectedCommitPath({ paths, selection }) : undefined;
+	const selectedPath =
+		selection.mode._tag === "Details" ? getSelectedCommitPath({ paths, selection }) : undefined;
 	const change =
 		selectedPath !== undefined
 			? commitDetails.changes.find((candidate) => candidate.path === selectedPath)
@@ -696,11 +679,10 @@ const ShowBaseCommit: FC<{
 );
 
 const Preview: FC<{
-	commitDetailsSelection: CommitDetailsSelection | null;
 	projectId: string;
 	selection: Item;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ commitDetailsSelection, projectId, selection, onDependencyHover }) =>
+}> = ({ projectId, selection, onDependencyHover }) =>
 	Match.value(selection).pipe(
 		Match.tag("Segment", ({ branchName, branchRef }) => (
 			<ShowSegment projectId={projectId} branchName={branchName} branchRef={branchRef} />
@@ -713,14 +695,8 @@ const Preview: FC<{
 				onDependencyHover={onDependencyHover}
 			/>
 		)),
-		Match.tag("Commit", ({ commitId, stackId, segmentIndex }) => (
-			<ShowCommitOrFile
-				projectId={projectId}
-				commitId={commitId}
-				stackId={stackId}
-				segmentIndex={segmentIndex}
-				commitDetailsSelection={commitDetailsSelection}
-			/>
+		Match.tag("Commit", (selection) => (
+			<ShowCommitOrFile projectId={projectId} selection={selection} />
 		)),
 		Match.tag("BaseCommit", ({ commitId }) => (
 			<ShowBaseCommit projectId={projectId} commitId={commitId} />
@@ -1055,8 +1031,6 @@ const CommitRow: FC<
 		segmentIndex: number;
 		selection: Item | null;
 		select: (selection: Item | null) => void;
-		commitDetailsSelection: CommitDetailsSelection | null;
-		selectCommitDetails: (selection: CommitDetailsSelection | null) => void;
 		setEditingCommit: (selection: EditingCommit | null) => void;
 		stackId: string;
 	} & ComponentProps<"div">
@@ -1064,14 +1038,12 @@ const CommitRow: FC<
 	branchName,
 	branchRef,
 	commit,
-	commitDetailsSelection,
 	editingCommit,
 	isHighlighted,
 	projectId,
 	segmentIndex,
 	selection,
 	select,
-	selectCommitDetails,
 	setEditingCommit,
 	stackId,
 	...restProps
@@ -1086,6 +1058,7 @@ const CommitRow: FC<
 	const commitSelection =
 		selection?._tag === "Commit" &&
 		selection.stackId === stackId &&
+		selection.segmentIndex === segmentIndex &&
 		selection.commitId === commit.id
 			? selection
 			: null;
@@ -1094,12 +1067,6 @@ const CommitRow: FC<
 		editingCommit.stackId === stackId &&
 		editingCommit.segmentIndex === segmentIndex &&
 		editingCommit.commitId === commit.id;
-	const detailsSelection = getCommitDetailsForCommit({
-		details: commitDetailsSelection,
-		stackId,
-		segmentIndex,
-		commitId: commit.id,
-	});
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
 		(_currentMessage, nextMessage: string) => nextMessage,
@@ -1112,20 +1079,18 @@ const CommitRow: FC<
 
 	const toggleDetails = () => {
 		setEditingCommit(null);
-		select(summaryItem);
-
-		if (detailsSelection) {
-			selectCommitDetails(null);
-			return;
-		}
-
-		selectCommitDetails({
-			stackId,
-			segmentIndex,
-			branchName,
-			branchRef,
-			commitId: commit.id,
-		});
+		select(
+			commitSelection?.mode._tag === "Details"
+				? summaryItem
+				: commitItem({
+						stackId,
+						segmentIndex,
+						branchName,
+						branchRef,
+						commitId: commit.id,
+						mode: { _tag: "Details" },
+					}),
+		);
 	};
 
 	return (
@@ -1173,7 +1138,6 @@ const CommitRow: FC<
 										projectId={projectId}
 										commitId={commit.id}
 										onReword={() => {
-											selectCommitDetails(null);
 											select(summaryItem);
 											setEditingCommit({
 												stackId,
@@ -1193,10 +1157,14 @@ const CommitRow: FC<
 						className={sharedStyles.itemAction}
 						type="button"
 						onClick={toggleDetails}
-						aria-expanded={detailsSelection !== null}
-						aria-label={detailsSelection !== null ? "Hide commit details" : "Show commit details"}
+						aria-expanded={commitSelection?.mode._tag === "Details"}
+						aria-label={
+							commitSelection?.mode._tag === "Details"
+								? "Hide commit details"
+								: "Show commit details"
+						}
 					>
-						<ExpandCollapseIcon isExpanded={detailsSelection !== null} />
+						<ExpandCollapseIcon isExpanded={commitSelection?.mode._tag === "Details"} />
 					</button>
 					<Menu.Root>
 						<Menu.Trigger className={sharedStyles.itemAction} aria-label="Commit menu">
@@ -1208,7 +1176,6 @@ const CommitRow: FC<
 									projectId={projectId}
 									commitId={commit.id}
 									onReword={() => {
-										selectCommitDetails(null);
 										select(summaryItem);
 										setEditingCommit({
 											stackId,
@@ -1241,15 +1208,12 @@ const CommitC: FC<{
 	segmentIndex: number;
 	selection: Item | null;
 	select: (selection: Item | null) => void;
-	commitDetailsSelection: CommitDetailsSelection | null;
-	selectCommitDetails: (selection: CommitDetailsSelection | null) => void;
 	setEditingCommit: (selection: EditingCommit | null) => void;
 	stackId: string;
 }> = ({
 	branchName,
 	branchRef,
 	commit,
-	commitDetailsSelection,
 	editingCommit,
 	isHighlighted,
 	nextCommitId,
@@ -1258,16 +1222,16 @@ const CommitC: FC<{
 	segmentIndex,
 	selection,
 	select,
-	selectCommitDetails,
 	setEditingCommit,
 	stackId,
 }) => {
-	const detailsSelection = getCommitDetailsForCommit({
-		details: commitDetailsSelection,
-		stackId,
-		segmentIndex,
-		commitId: commit.id,
-	});
+	const commitSelection =
+		selection?._tag === "Commit" &&
+		selection.stackId === stackId &&
+		selection.segmentIndex === segmentIndex &&
+		selection.commitId === commit.id
+			? selection
+			: null;
 
 	return (
 		<CommitTarget
@@ -1279,31 +1243,25 @@ const CommitC: FC<{
 				branchName={branchName}
 				branchRef={branchRef}
 				commit={commit}
-				commitDetailsSelection={commitDetailsSelection}
 				editingCommit={editingCommit}
 				isHighlighted={isHighlighted}
 				projectId={projectId}
 				segmentIndex={segmentIndex}
 				selection={selection}
 				select={select}
-				selectCommitDetails={selectCommitDetails}
 				setEditingCommit={setEditingCommit}
 				stackId={stackId}
 			/>
-			{detailsSelection && (
+			{commitSelection?.mode._tag === "Details" && (
 				<div className={sharedStyles.commitDetails}>
 					<Suspense
 						fallback={<div className={sharedStyles.itemEmpty}>Loading change details…</div>}
 					>
 						<CommitDetails
-							branchName={branchName}
-							branchRef={branchRef}
-							commitDetailsSelection={detailsSelection}
+							commitSelection={commitSelection}
 							projectId={projectId}
 							commitId={commit.id}
-							segmentIndex={segmentIndex}
-							selectCommitDetails={selectCommitDetails}
-							stackId={stackId}
+							select={select}
 						/>
 					</Suspense>
 				</div>
@@ -1634,13 +1592,10 @@ const SegmentC: FC<{
 	segmentIndex: number;
 	selection: Item | null;
 	select: (selection: Item | null) => void;
-	commitDetailsSelection: CommitDetailsSelection | null;
-	selectCommitDetails: (selection: CommitDetailsSelection | null) => void;
 	editingCommit: EditingCommit | null;
 	setEditingCommit: (selection: EditingCommit | null) => void;
 	stackId: string;
 }> = ({
-	commitDetailsSelection,
 	editingCommit,
 	highlightedCommitIds,
 	projectId,
@@ -1648,7 +1603,6 @@ const SegmentC: FC<{
 	segmentIndex,
 	selection,
 	select,
-	selectCommitDetails,
 	setEditingCommit,
 	stackId,
 }) => {
@@ -1700,7 +1654,6 @@ const SegmentC: FC<{
 						branchName={segment.refName?.displayName ?? null}
 						branchRef={segment.refName ? getSegmentBranchRef(segment.refName) : null}
 						commit={commit}
-						commitDetailsSelection={commitDetailsSelection}
 						editingCommit={editingCommit}
 						isHighlighted={highlightedCommitIds.has(commit.id)}
 						nextCommitId={segment.commits[index + 1]?.id}
@@ -1709,7 +1662,6 @@ const SegmentC: FC<{
 						segmentIndex={segmentIndex}
 						selection={selection}
 						select={select}
-						selectCommitDetails={selectCommitDetails}
 						setEditingCommit={setEditingCommit}
 						stackId={stackId}
 					/>
@@ -1725,20 +1677,16 @@ const StackC: FC<{
 	projectId: string;
 	selection: Item | null;
 	select: (selection: Item | null) => void;
-	commitDetailsSelection: CommitDetailsSelection | null;
-	selectCommitDetails: (selection: CommitDetailsSelection | null) => void;
 	editingCommit: EditingCommit | null;
 	setEditingCommit: (selection: EditingCommit | null) => void;
 	stack: Stack;
 }> = ({
-	commitDetailsSelection,
 	editingCommit,
 	highlightedCommitIds,
 	onDependencyHover,
 	projectId,
 	selection,
 	select,
-	selectCommitDetails,
 	setEditingCommit,
 	stack,
 }) => {
@@ -1784,7 +1732,6 @@ const StackC: FC<{
 					// oxlint-disable-next-line react/no-array-index-key -- It's all we have.
 					<li key={segmentIndex}>
 						<SegmentC
-							commitDetailsSelection={commitDetailsSelection}
 							editingCommit={editingCommit}
 							highlightedCommitIds={highlightedCommitIds}
 							projectId={projectId}
@@ -1792,7 +1739,6 @@ const StackC: FC<{
 							segmentIndex={segmentIndex}
 							selection={selection}
 							select={select}
-							selectCommitDetails={selectCommitDetails}
 							setEditingCommit={setEditingCommit}
 							stackId={stackId}
 						/>
@@ -1822,11 +1768,6 @@ const ProjectPage: FC = () => {
 		{ defaultValue: null },
 	);
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
-	const [_commitDetailsSelection, selectCommitDetails] =
-		useLocalStorageState<CommitDetailsSelection | null>(
-			`project:${projectId}:workspace:commitDetailsSelection`,
-			{ defaultValue: null },
-		);
 	const selection =
 		(_selection ? normalizeItem(_selection, headInfo) : null) ??
 		buildNavigationModel({
@@ -1836,18 +1777,16 @@ const ProjectPage: FC = () => {
 			commonBaseCommitId,
 		}).items[0] ??
 		null;
-	const commitDetailsSelection = normalizeCommitDetailsSelection(_commitDetailsSelection, headInfo);
 	const highlightCommits = (commitIds: Array<string> | null) => {
 		setHighlightedCommitIds(commitIds ? new Set(commitIds) : new Set());
 	};
 
 	useMonitorDraggedSourceItem({ projectId });
 	useSelectionKeyboardShortcuts({
-		commitDetailsSelection,
+		projectId,
 		editingCommit,
 		selection,
 		select,
-		selectCommitDetails,
 		setEditingCommit,
 		headInfo,
 		worktreeChanges,
@@ -1864,7 +1803,6 @@ const ProjectPage: FC = () => {
 				selection && (
 					<Suspense fallback={<div>Loading preview…</div>}>
 						<Preview
-							commitDetailsSelection={commitDetailsSelection}
 							projectId={projectId}
 							selection={selection}
 							onDependencyHover={highlightCommits}
@@ -1891,14 +1829,12 @@ const ProjectPage: FC = () => {
 						{headInfo.stacks.map((stack) => (
 							<div key={stack.id} className={styles.stackLane}>
 								<StackC
-									commitDetailsSelection={commitDetailsSelection}
 									editingCommit={editingCommit}
 									highlightedCommitIds={highlightedCommitIds}
 									onDependencyHover={highlightCommits}
 									projectId={project.id}
 									selection={selection}
 									select={select}
-									selectCommitDetails={selectCommitDetails}
 									setEditingCommit={setEditingCommit}
 									stack={stack}
 								/>
@@ -1921,7 +1857,6 @@ const ProjectPage: FC = () => {
 									className={classes(styles.commonBaseCommit)}
 									onClick={() => {
 										select(baseCommitItem(commonBaseCommitId));
-										selectCommitDetails(null);
 										setEditingCommit(null);
 									}}
 								>
@@ -1935,9 +1870,7 @@ const ProjectPage: FC = () => {
 				<TearOffBranchTarget className={styles.emptyLane} />
 			</div>
 
-			<PositionedShortcutsBar
-				mode={getShortcutsBarMode({ selection, commitDetailsSelection, editingCommit })}
-			/>
+			<PositionedShortcutsBar mode={getShortcutsBarMode({ selection, editingCommit })} />
 		</ProjectPreviewLayout>
 	);
 };
