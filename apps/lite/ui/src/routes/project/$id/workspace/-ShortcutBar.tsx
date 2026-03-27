@@ -67,7 +67,7 @@ export const getShortcutBarMode = ({
 	);
 };
 
-export const ShortcutBar: FC<{
+const ShortcutBar: FC<{
 	mode?: ShortcutBarMode | null;
 }> = ({ mode = null }) => {
 	const items: Array<ShortcutBarItem> =
@@ -77,7 +77,7 @@ export const ShortcutBar: FC<{
 
 	return (
 		<div className={styles.shortcutBar}>
-			{mode?.label && <span className={styles.shortcutBarMode}>{mode.label}</span>}
+			{mode?.label != null && <span className={styles.shortcutBarMode}>{mode.label}</span>}
 			{items.map((item) => (
 				<div key={item.id} className={styles.shortcutBarItem}>
 					<span className={styles.shortcutBarKeys}>{formatShortcutKeys(item.keys)}</span>
