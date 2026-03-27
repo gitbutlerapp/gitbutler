@@ -4,6 +4,7 @@ import { Match } from "effect";
 
 type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
 export type ChangesItem = { stackId: string | null; mode: ChangesMode };
+type CommitMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
 
 type SegmentItem = {
 	stackId: string;
@@ -12,7 +13,7 @@ type SegmentItem = {
 	branchRef: string | null;
 };
 
-export type CommitItem = SegmentItem & { commitId: string };
+export type CommitItem = SegmentItem & { commitId: string; mode: CommitMode };
 export type BaseCommitItem = { commitId: string };
 
 export type Item =
@@ -52,13 +53,15 @@ export const commitItem = ({
 	branchName,
 	branchRef,
 	commitId,
-}: Omit<CommitItem, "mode">): Item => ({
+	mode = { _tag: "Summary" },
+}: Omit<CommitItem, "mode"> & { mode?: CommitItem["mode"] }): Item => ({
 	_tag: "Commit",
 	stackId,
 	segmentIndex,
 	branchName,
 	branchRef,
 	commitId,
+	mode,
 });
 
 export const baseCommitItem = (commitId: string): Item => ({
@@ -68,7 +71,11 @@ export const baseCommitItem = (commitId: string): Item => ({
 
 export const getParentSection = (selection: Item): Item | null =>
 	Match.value(selection).pipe(
-		Match.tag("Commit", (item): Item | null => segmentItem(item)),
+		Match.tag("Commit", (item): Item | null =>
+			item.mode._tag === "Details"
+				? commitItem({ ...item, mode: { _tag: "Summary" } })
+				: segmentItem(item),
+		),
 		Match.tag("Changes", (item): Item | null =>
 			item.mode._tag === "Details" ? changesSummaryItem(item.stackId) : null,
 		),

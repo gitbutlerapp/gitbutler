@@ -2,16 +2,13 @@ import { formatShortcutKeys, globalShortcutBindings, type ShortcutBinding } from
 import { Match } from "effect";
 import { createContext, type FC, use } from "react";
 import { createPortal } from "react-dom";
-import {
-	commitDetailsSelectionBindings,
-	type CommitDetailsSelection,
-} from "./-CommitDetailsSelection.ts";
 import { type EditingCommit } from "./-EditingCommit.ts";
 import { type Item } from "./-Item.ts";
 import {
 	changesSelectionBindings,
+	commitDetailsSelectionBindings,
 	commitEditingMessageBindings,
-	commitSelectionBindings,
+	commitSummarySelectionBindings,
 	segmentSelectionBindings,
 } from "./-Selection.ts";
 import styles from "./-ShortcutsBar.module.css";
@@ -24,11 +21,9 @@ type ShortcutsBarMode = { label: string | null; items: Array<ShortcutsBarItem> }
 
 export const getShortcutsBarMode = ({
 	selection,
-	commitDetailsSelection,
 	editingCommit,
 }: {
 	selection: Item | null;
-	commitDetailsSelection: CommitDetailsSelection | null;
 	editingCommit: EditingCommit | null;
 }): ShortcutsBarMode | null => {
 	if (selection === null) return null;
@@ -53,18 +48,27 @@ export const getShortcutsBarMode = ({
 					items: commitEditingMessageBindings,
 				};
 
-			if (commitDetailsSelection !== null)
-				return {
-					label: "commit details",
-					items: commitDetailsSelectionBindings.filter(
-						(binding) => binding.when?.(undefined) ?? true,
-					),
-				};
-
-			return {
-				label: "commit",
-				items: commitSelectionBindings.filter((binding) => binding.when?.(selection) ?? true),
-			};
+			return Match.value(selection.mode).pipe(
+				Match.tag(
+					"Details",
+					(): ShortcutsBarMode => ({
+						label: "commit details",
+						items: commitDetailsSelectionBindings.filter(
+							(binding) => binding.when?.(selection) ?? true,
+						),
+					}),
+				),
+				Match.tag(
+					"Summary",
+					(): ShortcutsBarMode => ({
+						label: "commit",
+						items: commitSummarySelectionBindings.filter(
+							(binding) => binding.when?.(selection) ?? true,
+						),
+					}),
+				),
+				Match.exhaustive,
+			);
 		}),
 		Match.tag(
 			"BaseCommit",

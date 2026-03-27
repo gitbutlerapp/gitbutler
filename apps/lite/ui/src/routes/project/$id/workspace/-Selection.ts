@@ -148,10 +148,11 @@ export type SharedSelectionAction =
 
 type ChangesSelectionAction = SharedSelectionAction;
 type SegmentSelectionAction = SharedSelectionAction;
-type CommitSelectionAction =
+type CommitSummarySelectionAction =
 	| SharedSelectionAction
 	| { _tag: "EditCommitMessage" }
 	| { _tag: "ExpandCommit" };
+type CommitDetailsSelectionAction = SharedSelectionAction | { _tag: "CloseCommitDetails" };
 type CommitEditingMessageAction = { _tag: "Save" } | { _tag: "Cancel" };
 
 const createSharedSelectionBindings = <Context>(): Array<
@@ -199,7 +200,9 @@ export const changesSelectionBindings: Array<ShortcutBinding<ChangesSelectionAct
 export const segmentSelectionBindings: Array<ShortcutBinding<SegmentSelectionAction>> =
 	createSharedSelectionBindings<void>();
 
-export const commitSelectionBindings: Array<ShortcutBinding<CommitSelectionAction, CommitItem>> = [
+export const commitSummarySelectionBindings: Array<
+	ShortcutBinding<CommitSummarySelectionAction, CommitItem>
+> = [
 	...createSharedSelectionBindings<CommitItem>(),
 	{
 		id: "commit-edit-message",
@@ -207,6 +210,7 @@ export const commitSelectionBindings: Array<ShortcutBinding<CommitSelectionActio
 		keys: ["Enter"],
 		action: { _tag: "EditCommitMessage" },
 		repeat: false,
+		when: (selection) => selection.mode._tag === "Summary",
 	},
 	{
 		id: "commit-expand",
@@ -214,6 +218,21 @@ export const commitSelectionBindings: Array<ShortcutBinding<CommitSelectionActio
 		keys: ["ArrowRight", "l"],
 		action: { _tag: "ExpandCommit" },
 		repeat: false,
+		when: (selection) => selection.mode._tag === "Summary",
+	},
+];
+
+export const commitDetailsSelectionBindings: Array<
+	ShortcutBinding<CommitDetailsSelectionAction, CommitItem>
+> = [
+	...createSharedSelectionBindings<CommitItem>(),
+	{
+		id: "commit-close-details",
+		description: "close details",
+		keys: ["ArrowLeft", "Escape"],
+		action: { _tag: "CloseCommitDetails" },
+		repeat: false,
+		when: (selection) => selection.mode._tag === "Details",
 	},
 ];
 
