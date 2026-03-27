@@ -126,9 +126,17 @@
 	}
 }
 
-.commonBaseCommit {
+.commonBaseCommitContainer {
+	display: flex;
 	flex-grow: 1;
-	text-align: center;
+	flex-direction: column;
+	align-items: center;
+}
+
+.commonBaseCommit {
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
+	line-height: var(--row-line-height);
 }
 
 .editCommitMessageForm {

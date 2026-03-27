@@ -99,6 +99,7 @@ import {
 } from "./-CommitDetailsSelection.ts";
 import { type EditingCommit } from "./-EditingCommit.ts";
 import {
+	baseCommitItem,
 	changesDetailsItem,
 	changesSummaryItem,
 	commitItem,
@@ -181,6 +182,7 @@ const useSelectionKeyboardShortcuts = ({
 	setEditingCommit,
 	headInfo,
 	worktreeChanges,
+	commonBaseCommitId,
 }: {
 	selection: Item | null;
 	select: (selection: Item | null) => void;
@@ -193,11 +195,13 @@ const useSelectionKeyboardShortcuts = ({
 		changes: Array<TreeChange>;
 		assignments: Array<HunkAssignment>;
 	};
+	commonBaseCommitId?: string;
 }) => {
 	const navigationModel = buildNavigationModel({
 		headInfo,
 		changes: worktreeChanges.changes,
 		assignments: worktreeChanges.assignments,
+		commonBaseCommitId,
 	});
 
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
@@ -238,6 +242,14 @@ const useSelectionKeyboardShortcuts = ({
 				);
 			}),
 			Match.tag("Segment", () => {
+				const action = getShortcutAction(segmentSelectionBindings, undefined, event);
+				if (!action) return;
+
+				event.preventDefault();
+
+				handleSharedAction(action);
+			}),
+			Match.tag("BaseCommit", () => {
 				const action = getShortcutAction(segmentSelectionBindings, undefined, event);
 				if (!action) return;
 
@@ -678,6 +690,20 @@ const Preview: FC<{
 				/>
 			),
 		),
+		Match.tag("BaseCommit", ({ commitId }) => (
+			<ShowCommit
+				projectId={projectId}
+				commitId={commitId}
+				renderHunk={(change, hunk, patch) => (
+					<Hunk
+						patch={patch}
+						changeUnit={{ _tag: "Commit", commitId }}
+						change={change}
+						hunk={hunk}
+					/>
+				)}
+			/>
+		)),
 		Match.exhaustive,
 	);
 
@@ -1780,6 +1806,7 @@ const ProjectPage: FC = () => {
 		`project:${projectId}:workspace:selection`,
 		{ defaultValue: null },
 	);
+	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
 	const [_commitDetailsSelection, selectCommitDetails] =
 		useLocalStorageState<CommitDetailsSelection | null>(
 			`project:${projectId}:workspace:commitDetailsSelection`,
@@ -1791,11 +1818,10 @@ const ProjectPage: FC = () => {
 			headInfo,
 			changes: worktreeChanges.changes,
 			assignments: worktreeChanges.assignments,
+			commonBaseCommitId,
 		}).items[0] ??
 		null;
 	const commitDetailsSelection = normalizeCommitDetailsSelection(_commitDetailsSelection, headInfo);
-
-	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
 	const highlightCommits = (commitIds: Array<string> | null) => {
 		setHighlightedCommitIds(commitIds ? new Set(commitIds) : new Set());
 	};
@@ -1810,6 +1836,7 @@ const ProjectPage: FC = () => {
 		setEditingCommit,
 		headInfo,
 		worktreeChanges,
+		commonBaseCommitId,
 	});
 
 	// TODO: dedupe
@@ -1865,8 +1892,27 @@ const ProjectPage: FC = () => {
 					</div>
 
 					{commonBaseCommitId !== undefined && (
-						<TearOffBranchTarget className={styles.commonBaseCommit}>
-							{shortCommitId(commonBaseCommitId)} (common base commit)
+						<TearOffBranchTarget className={styles.commonBaseCommitContainer}>
+							<div
+								className={classes(
+									sharedStyles.item,
+									selection?._tag === "BaseCommit" &&
+										selection.commitId === commonBaseCommitId &&
+										sharedStyles.selected,
+								)}
+							>
+								<button
+									type="button"
+									className={classes(styles.commonBaseCommit)}
+									onClick={() => {
+										select(baseCommitItem(commonBaseCommitId));
+										selectCommitDetails(null);
+										setEditingCommit(null);
+									}}
+								>
+									{shortCommitId(commonBaseCommitId)} (common base commit)
+								</button>
+							</div>
 						</TearOffBranchTarget>
 					)}
 				</div>

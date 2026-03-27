@@ -67,6 +67,13 @@ export const getShortcutsBarMode = ({
 			};
 		}),
 		Match.tag(
+			"BaseCommit",
+			(): ShortcutsBarMode => ({
+				label: "base commit",
+				items: segmentSelectionBindings.filter((binding) => binding.when?.(undefined) ?? true),
+			}),
+		),
+		Match.tag(
 			"Segment",
 			(): ShortcutsBarMode => ({
 				label: "segment",

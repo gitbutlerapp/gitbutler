@@ -2,6 +2,7 @@ import { getSegmentBranchRef } from "#ui/domain/RefInfo.ts";
 import { type ShortcutBinding } from "#ui/shortcuts.ts";
 import { type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
 import {
+	baseCommitItem,
 	changesDetailsItem,
 	changesSummaryItem,
 	itemKey,
@@ -36,10 +37,12 @@ export const buildNavigationModel = ({
 	headInfo,
 	changes,
 	assignments,
+	commonBaseCommitId,
 }: {
 	headInfo: RefInfo;
 	changes: Array<TreeChange>;
 	assignments: Array<HunkAssignment>;
+	commonBaseCommitId?: string;
 }): NavigationModel => {
 	const items: Array<Item> = [];
 	const sections: Array<Item> = [];
@@ -97,6 +100,15 @@ export const buildNavigationModel = ({
 				items.push(commitItemV);
 			}
 		}
+	}
+
+	if (commonBaseCommitId !== undefined) {
+		const section = baseCommitItem(commonBaseCommitId);
+		const sectionIndex = sections.length;
+		sections.push(section);
+		indexByKey.set(itemKey(section), items.length);
+		sectionIndexByItemIndex.push(sectionIndex);
+		items.push(section);
 	}
 
 	return { items, sections, sectionIndexByItemIndex, indexByKey };
