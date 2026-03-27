@@ -652,6 +652,12 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
         // `stacks` is the target state, and we have to make an actual stack look like it.
         let mut seen_stack_ids = HashSet::new();
         for stack in &value.stacks {
+            if stack.branches.is_empty() {
+                bail!(
+                    "BUG: incoming stack is probably empty, caller should have removed the whole stack"
+                );
+            }
+
             let mut branches_to_create = Vec::new();
             let mut stack_id = None::<StackId>;
             for stack_branch in &stack.branches {
