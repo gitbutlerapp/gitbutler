@@ -656,6 +656,7 @@ async fn match_subcommand(
         Subcommands::Tui {
             debug,
             quit_after,
+            headless,
             skip_status_after,
             diff,
             select_commit,
@@ -677,6 +678,7 @@ async fn match_subcommand(
                 StatusRenderMode::Tui(TuiLaunchOptions {
                     debug,
                     quit_after,
+                    headless,
                     skip_status_after,
                     show_diff: diff,
                     select_commit,

@@ -1152,6 +1152,9 @@ pub enum Subcommands {
         /// Quit after rendering this many frames.
         #[clap(long, hide = true)]
         quit_after: Option<u64>,
+        /// Run the TUI with an in-memory terminal and no terminal event polling.
+        #[clap(long, hide = true)]
+        headless: bool,
         /// Do not print status when the TUI exits.
         #[clap(long, hide = true)]
         skip_status_after: bool,

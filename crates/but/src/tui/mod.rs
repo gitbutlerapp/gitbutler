@@ -22,7 +22,10 @@ use crossterm::{
     event::{DisableFocusChange, DisableMouseCapture, EnableFocusChange, EnableMouseCapture},
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::{Terminal, backend::CrosstermBackend};
+use ratatui::{
+    Terminal,
+    backend::{CrosstermBackend, TestBackend},
+};
 
 type PanicHook = Box<dyn Fn(&std::panic::PanicHookInfo<'_>) + Send + Sync>;
 
@@ -112,6 +115,50 @@ impl Drop for CrosstermTerminalGuard {
             std::panic::set_hook(hook);
         }
     }
+}
+
+/// A terminal guard that renders into an in-memory backend without touching the real terminal.
+///
+/// This is useful for non-interactive runs (for example profiling with `xctrace`) where terminal
+/// input/output APIs can stop the target process due to job-control semantics.
+#[must_use]
+pub(crate) struct HeadlessTerminalGuard {
+    /// The in-memory terminal used by ratatui during headless rendering.
+    terminal: Terminal<TestBackend>,
+}
+
+impl HeadlessTerminalGuard {
+    /// Create a headless terminal guard with a fixed terminal size.
+    pub fn new(width: u16, height: u16) -> anyhow::Result<Self> {
+        let backend = TestBackend::new(width, height);
+        let terminal = Terminal::new(backend)?;
+        Ok(Self { terminal })
+    }
+}
+
+impl TerminalGuard for HeadlessTerminalGuard {
+    type Backend = TestBackend;
+
+    type SuspendGuard<'a>
+        = HeadlessSuspendGuard
+    where
+        Self: 'a;
+
+    fn suspend(&mut self) -> anyhow::Result<Self::SuspendGuard<'_>> {
+        Ok(HeadlessSuspendGuard)
+    }
+
+    fn terminal_mut(&mut self) -> &mut Terminal<Self::Backend> {
+        &mut self.terminal
+    }
+}
+
+/// A no-op suspend guard used by [`HeadlessTerminalGuard`].
+#[must_use]
+pub(crate) struct HeadlessSuspendGuard;
+
+impl Drop for HeadlessSuspendGuard {
+    fn drop(&mut self) {}
 }
 
 pub(crate) trait TerminalGuard {

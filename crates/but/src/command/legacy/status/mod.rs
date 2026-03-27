@@ -95,6 +95,7 @@ pub enum StatusRenderMode {
 pub struct TuiLaunchOptions {
     pub debug: bool,
     pub quit_after: Option<u64>,
+    pub headless: bool,
     pub skip_status_after: bool,
     pub show_diff: bool,
     pub select_commit: Option<gix::ObjectId>,
