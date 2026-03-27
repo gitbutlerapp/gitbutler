@@ -46,6 +46,10 @@
 .row {
 	display: flex;
 	align-items: start;
+
+	&:where(:hover) {
+		background-color: #e8e8e8;
+	}
 }
 
 .rowAction {
