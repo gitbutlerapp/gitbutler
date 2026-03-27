@@ -1104,7 +1104,7 @@ const CommitRow: FC<
 				<div
 					className={classes(
 						sharedStyles.item,
-						commitSelection ? sharedStyles.selected : undefined,
+						commitSelection && sharedStyles.selected,
 						isHighlighted && sharedStyles.highlighted,
 					)}
 				>
@@ -1297,9 +1297,7 @@ const Changes: FC<{
 			stackId={stackId}
 			className={classes(className, changesSelection && sharedStyles.sectionSelected)}
 		>
-			<div
-				className={classes(sharedStyles.item, changesSelection ? sharedStyles.selected : undefined)}
-			>
+			<div className={classes(sharedStyles.item, changesSelection && sharedStyles.selected)}>
 				<button
 					type="button"
 					className={styles.segmentButton}

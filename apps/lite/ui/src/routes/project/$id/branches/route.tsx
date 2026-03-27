@@ -230,7 +230,7 @@ const BranchRow: FC<
 			{...restProps}
 			className={classes(
 				sharedStyles.item,
-				branchSelection || commitSelection ? sharedStyles.selected : undefined,
+				(branchSelection || commitSelection) && sharedStyles.selected,
 				className,
 			)}
 		>
@@ -319,7 +319,7 @@ const CommitRow: FC<{
 		<div
 			className={classes(
 				sharedStyles.item,
-				commitSelection ? sharedStyles.selected : undefined,
+				commitSelection && sharedStyles.selected,
 				isHighlighted && sharedStyles.highlighted,
 			)}
 			style={{ ...(isDetailsPending && { opacity: 0.5 }) }}
