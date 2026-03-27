@@ -32,24 +32,6 @@ export const getShortcutBarMode = ({
 }): ShortcutBarMode | null => {
 	if (selection === null) return null;
 
-	if (
-		selection._tag === "Commit" &&
-		editingCommit !== null &&
-		editingCommit.stackId === selection.stackId &&
-		editingCommit.segmentIndex === selection.segmentIndex &&
-		editingCommit.commitId === selection.commitId
-	)
-		return {
-			label: "edit message",
-			items: commitEditingMessageBindings,
-		};
-
-	if (selection._tag === "Commit" && commitDetailsSelection !== null)
-		return {
-			label: "commit details",
-			items: commitDetailsSelectionBindings.filter((binding) => binding.when?.(undefined) ?? true),
-		};
-
 	return Match.value(selection).pipe(
 		Match.tag(
 			"Changes",
@@ -58,13 +40,31 @@ export const getShortcutBarMode = ({
 				items: changesSelectionBindings.filter((binding) => binding.when?.(selection) ?? true),
 			}),
 		),
-		Match.tag(
-			"Commit",
-			(selection): ShortcutBarMode => ({
+		Match.tag("Commit", (selection): ShortcutBarMode => {
+			if (
+				editingCommit !== null &&
+				editingCommit.stackId === selection.stackId &&
+				editingCommit.segmentIndex === selection.segmentIndex &&
+				editingCommit.commitId === selection.commitId
+			)
+				return {
+					label: "edit message",
+					items: commitEditingMessageBindings,
+				};
+
+			if (commitDetailsSelection !== null)
+				return {
+					label: "commit details",
+					items: commitDetailsSelectionBindings.filter(
+						(binding) => binding.when?.(undefined) ?? true,
+					),
+				};
+
+			return {
 				label: "commit",
 				items: commitSelectionBindings.filter((binding) => binding.when?.(selection) ?? true),
-			}),
-		),
+			};
+		}),
 		Match.tag(
 			"Segment",
 			(): ShortcutBarMode => ({
