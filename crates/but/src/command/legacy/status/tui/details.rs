@@ -186,8 +186,13 @@ impl Details {
                     DetailsVisibility::VisibleVertical => DetailsVisibility::Hidden,
                 };
 
-                if matches!(self.visibility, DetailsVisibility::Hidden) {
-                    self.scroll_top = 0;
+                match self.visibility {
+                    DetailsVisibility::Hidden => {
+                        self.scroll_top = 0;
+                    }
+                    DetailsVisibility::VisibleVertical => {
+                        self.mark_dirty();
+                    }
                 }
             }
         }
