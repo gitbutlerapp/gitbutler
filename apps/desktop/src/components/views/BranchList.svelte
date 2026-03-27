@@ -3,6 +3,7 @@
 		type AddDependentBranchModalProps,
 	} from "$components/branch/AddDependentBranchModal.svelte";
 	import BranchCard from "$components/branch/BranchCard.svelte";
+	import BranchDividerLine from "$components/branch/BranchDividerLine.svelte";
 	import BranchHeaderContextMenu from "$components/branch/BranchHeaderContextMenu.svelte";
 	import BranchReorderDropzone from "$components/branch/BranchReorderDropzone.svelte";
 	import CodegenSessionRow from "$components/codegen/CodegenSessionRow.svelte";
@@ -148,6 +149,8 @@
 						prService={forge.current.prService}
 						isFirst={firstBranch}
 					/>
+				{:else if !firstBranch}
+					<BranchDividerLine {lineColor} />
 				{/if}
 				<BranchCard
 					type="stack-branch"

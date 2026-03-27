@@ -211,13 +211,13 @@
 	.stack-view__inner {
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
 	}
 
 	.assignments-wrap {
 		display: flex;
 		flex-shrink: 0;
 		flex-direction: column;
+		margin-bottom: 12px;
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
