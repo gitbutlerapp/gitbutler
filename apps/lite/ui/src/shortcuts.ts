@@ -58,7 +58,8 @@ export const formatShortcutKeys = (keys: Array<string>): string =>
 				Match.when("ArrowLeft", () => "←"),
 				Match.when("ArrowRight", () => "→"),
 				Match.when("Escape", () => "esc"),
-				Match.orElse(() => key.toLowerCase()),
+				Match.when("Enter", () => "enter"),
+				Match.orElse(() => key),
 			),
 		)
 		.join("/");
