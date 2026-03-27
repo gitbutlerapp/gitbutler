@@ -465,7 +465,6 @@
 		flex-direction: column;
 		max-height: 100%;
 		padding: 12px;
-		gap: 12px;
 	}
 
 	.commit-column {
