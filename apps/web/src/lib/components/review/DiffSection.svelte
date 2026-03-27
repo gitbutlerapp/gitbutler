@@ -114,10 +114,10 @@
 		margin-top: -1px;
 		padding: 14px 12px 14px 14px;
 		gap: 8px;
-		border-top: 1px solid var(--clr-border-2);
-		border-right: 1px solid var(--clr-border-2);
-		border-left: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
+		border-top: 1px solid var(--border-2);
+		border-right: 1px solid var(--border-2);
+		border-left: 1px solid var(--border-2);
+		background-color: var(--bg-1);
 
 		&:hover {
 			.diff-section__header__fold-button {
@@ -149,10 +149,10 @@
 		width: 100%;
 		padding: 0 14px 14px 14px;
 		gap: 8px;
-		border-right: 1px solid var(--clr-border-2);
-		border-bottom: 1px solid var(--clr-border-2);
-		border-left: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
+		border-right: 1px solid var(--border-2);
+		border-bottom: 1px solid var(--border-2);
+		border-left: 1px solid var(--border-2);
+		background-color: var(--bg-1);
 
 		&:last-child {
 			border-bottom-right-radius: var(--radius-ml);
@@ -162,7 +162,7 @@
 
 	.file-path {
 		overflow: hidden;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		direction: rtl;
 		text-align: left;
 		text-overflow: ellipsis;
@@ -175,7 +175,7 @@
 	}
 
 	.directory-path {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.lock-files-hidden-by-default {
@@ -186,18 +186,18 @@
 		width: 100%;
 		padding: 40px 24px;
 		gap: 14px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background: var(--clr-bg-muted);
+		background: var(--bg-mute);
 	}
 
 	.hidden-lock-file-message {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		text-align: center;
 	}
 
 	/* MODIFIERS */
 	.diff-section__header_sticked {
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 	}
 </style>

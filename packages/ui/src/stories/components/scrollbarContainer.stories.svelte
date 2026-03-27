@@ -43,12 +43,12 @@
 		max-height: 300px;
 		overflow: hidden;
 		gap: 0.5rem;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 	}
 
 	.item {
 		padding: 4px;
-		border: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
+		border: 1px solid var(--border-2);
+		background-color: var(--bg-1);
 	}
 </style>

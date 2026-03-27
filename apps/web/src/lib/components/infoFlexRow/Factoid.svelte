@@ -28,7 +28,7 @@
 	}
 
 	.flexrow-item__title {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.flexrow-item__content {
@@ -47,6 +47,6 @@
 
 	.flexrow-item__placeholder {
 		display: none;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 </style>

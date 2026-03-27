@@ -224,9 +224,9 @@
 		max-width: 220px;
 		padding: 20px;
 		gap: 16px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		box-shadow: var(--fx-shadow-l);
 		cursor: default;
 		user-select: none;
@@ -253,7 +253,7 @@
 		width: 100%;
 		overflow: hidden;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-pop-element);
+		background-color: var(--fill-pop-bg);
 		transition:
 			transform 0.15s ease-in-out,
 			height 0.15s ease-in-out;
@@ -354,7 +354,7 @@
 
 	.loading-state {
 		padding: 32px 0;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		text-align: center;
 	}
 </style>

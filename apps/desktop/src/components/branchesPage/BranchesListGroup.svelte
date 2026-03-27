@@ -20,7 +20,7 @@
 	.branches-list-wrap {
 		display: flex;
 		flex-direction: column;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 	}
 
 	.branches-list-wrap__header {
@@ -29,11 +29,11 @@
 		position: sticky;
 		top: 0;
 		padding: 12px 12px 8px 12px;
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-2);
 
 		& span {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 	}
 

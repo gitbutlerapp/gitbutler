@@ -355,7 +355,7 @@
 	}
 
 	.branch-header__divider {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 
 	.branch-header__empty-state-span {
@@ -370,8 +370,8 @@
 	}
 
 	.review-wrapper {
-		border-top: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
+		border-top: 1px solid var(--border-2);
+		background-color: var(--bg-1);
 
 		&:not(.no-padding) {
 			padding: 12px;

@@ -36,8 +36,8 @@
 		width: 26px;
 		height: 26px;
 		padding: 4px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: 8px;
-		background-color: var(--clr-core-gray-10);
+		background-color: var(--clr-gray-10);
 	}
 </style>

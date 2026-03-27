@@ -30,7 +30,7 @@
 		gap: 10px;
 		border-radius: var(--radius-m);
 
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		text-decoration: none;
 
 		transition: background-color var(--transition-fast);

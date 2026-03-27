@@ -73,11 +73,11 @@
 
 		&.current {
 			.pip {
-				background-color: var(--clr-core-pop-50);
+				background-color: var(--clr-pop-50);
 			}
 
 			.link-container {
-				background-color: var(--clr-theme-pop-bg);
+				background-color: var(--bg-pop);
 			}
 
 			.icon {

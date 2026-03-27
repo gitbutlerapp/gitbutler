@@ -68,8 +68,8 @@
 									<div class="organization-card">
 										<div
 											class="organization-avatar"
-											style:background-color="var(--clr-bg-2)"
-											style:color="var(--clr-text-1)"
+											style:background-color="var(--bg-2)"
+											style:color="var(--text-1)"
 										>
 											<span>{(organization.name || organization.slug)[0].toUpperCase()}</span>
 										</div>
@@ -166,13 +166,13 @@
 	}
 
 	.page-title h1 {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		font-weight: 600;
 		font-size: 24px;
 	}
 
 	.page-description {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 14px;
 	}
 
@@ -194,7 +194,7 @@
 	}
 
 	.organizations-header h2 {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		font-weight: 500;
 		font-size: 18px;
 	}
@@ -213,7 +213,7 @@
 		width: 40px;
 		height: 40px;
 		border-radius: 8px;
-		color: var(--clr-text-inverse);
+		color: var(--clr-gray-100);
 		font-weight: 600;
 		font-size: 18px;
 	}
@@ -232,13 +232,13 @@
 	}
 
 	.organization-name {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		font-weight: 600;
 		font-size: 16px;
 	}
 
 	.organization-slug {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 14px;
 	}
 
@@ -251,7 +251,7 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		font-size: 13px;
 	}
 
@@ -278,22 +278,22 @@
 
 	.join-card {
 		padding: 20px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background: var(--clr-bg-1);
+		background: var(--bg-1);
 		text-align: center;
 	}
 
 	.join-title {
 		margin-bottom: 8px;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		font-weight: 600;
 		font-size: 16px;
 	}
 
 	.join-description {
 		margin-bottom: 16px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 14px;
 	}
 </style>

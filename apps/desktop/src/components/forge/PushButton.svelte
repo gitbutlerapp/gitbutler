@@ -338,7 +338,7 @@
 	}
 	.scroll-wrap {
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
 	}
 </style>

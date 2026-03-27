@@ -219,14 +219,14 @@
 		flex-direction: column;
 		margin-bottom: 12px;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 
 	.worktree-wrap {
 		display: flex;
 		flex-direction: column;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
 
 		&.remove-border-bottom {
@@ -236,14 +236,14 @@
 		&.dropzone-activated {
 			& .assigned-changes-empty {
 				padding: 20px 8px 20px;
-				background-color: var(--clr-bg-1);
+				background-color: var(--bg-1);
 				transition:
 					background-color var(--transition-fast),
 					padding var(--transition-fast);
 			}
 
 			& .assigned-changes-empty__text {
-				color: var(--clr-theme-pop-on-soft);
+				color: var(--chip-pop-fg);
 			}
 		}
 
@@ -256,7 +256,7 @@
 
 	.start-commit {
 		padding: 12px;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	/* EMPTY ASSIGN AREA */
@@ -266,13 +266,13 @@
 		padding: 10px 8px;
 		overflow: hidden;
 		gap: 12px;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 		transition: background-color var(--transition-fast);
 	}
 
 	:global(.assigned-changes-empty__text) {
 		width: 100%;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		text-align: center;
 		opacity: 0.7;
 		transition:

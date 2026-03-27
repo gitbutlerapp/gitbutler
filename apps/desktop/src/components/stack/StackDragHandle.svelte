@@ -160,7 +160,7 @@
 		justify-content: space-between;
 		height: 28px;
 		margin: 0 -3px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		cursor: grab;
 		transition:
 			height var(--transition-medium),
@@ -176,8 +176,8 @@
 		height: 10px;
 		padding: 3px;
 		border-radius: var(--radius-s);
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-3);
+		background-color: var(--bg-2);
+		color: var(--text-3);
 		pointer-events: none;
 	}
 </style>

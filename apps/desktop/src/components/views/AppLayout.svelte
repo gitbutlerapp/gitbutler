@@ -46,7 +46,7 @@
 		flex: 1;
 		flex-direction: column;
 		max-width: 100%;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 	}
 
 	.chrome-body {

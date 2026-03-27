@@ -151,7 +151,7 @@
 	.kebab-btn {
 		display: flex;
 		padding: 0 3px;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 
 		&.show-on-hover {
 			display: none;

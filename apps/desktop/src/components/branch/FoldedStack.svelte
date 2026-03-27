@@ -30,7 +30,7 @@
 				<span class="branch-name">{branchName}</span>
 
 				{#if branchName !== branchNames[branchNames.length - 1]}
-					<Icon name="link" color="var(--clr-text-3)" rotate={90} />
+					<Icon name="link" color="var(--text-3)" rotate={90} />
 				{/if}
 			{/each}
 		{:else}
@@ -46,11 +46,11 @@
 		align-items: center;
 		height: 100%;
 		padding: 2px 9px 18px;
-		border-right: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-2);
-		--lighter-bg-drop-shadow: color-mix(in srgb, var(--clr-drop-shadow) 50%, var(--clr-bg-2));
+		border-right: 1px solid var(--border-2);
+		background: var(--bg-2);
+		--lighter-bg-drop-shadow: color-mix(in srgb, var(--shadow-clr) 50%, var(--bg-2));
 		box-shadow: inset -5px 0 10px var(--lighter-bg-drop-shadow);
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		cursor: grab;
 	}
 
@@ -73,7 +73,7 @@
 
 	.branch-name {
 		overflow: hidden;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}

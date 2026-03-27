@@ -385,8 +385,8 @@
 		height: 42px;
 		padding: 0 8px 0 12px;
 		gap: 8px;
-		border-bottom: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-2);
+		border-bottom: 1px solid var(--border-2);
+		background: var(--bg-2);
 		cursor: grab;
 	}
 
@@ -397,13 +397,13 @@
 		justify-content: center;
 		width: 16px;
 		height: 16px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 
 	/* File list */
 	.file-list {
 		overflow: hidden;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	/* Right panel */
@@ -423,9 +423,9 @@
 		right: 6px;
 		padding: 2px;
 		gap: 2px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		box-shadow: var(--fx-shadow-s);
 	}
 

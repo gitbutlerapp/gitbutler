@@ -270,12 +270,12 @@
 
 	.video-carousel__container::before {
 		left: 0;
-		background: linear-gradient(to right, var(--clr-bg-2), transparent);
+		background: linear-gradient(to right, var(--bg-2), transparent);
 	}
 
 	.video-carousel__container::after {
 		right: 0;
-		background: linear-gradient(to left, var(--clr-bg-2), transparent);
+		background: linear-gradient(to left, var(--bg-2), transparent);
 	}
 
 	.video-carousel__scroll {
@@ -352,8 +352,8 @@
 		justify-content: center;
 		padding: 40px 0;
 		border-radius: 16px;
-		background-color: var(--clr-bg-3);
-		color: var(--clr-text-2);
+		background-color: var(--bg-3);
+		color: var(--text-2);
 		font-size: 16px;
 		text-align: center;
 

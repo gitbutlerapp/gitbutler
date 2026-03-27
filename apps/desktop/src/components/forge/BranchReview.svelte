@@ -128,7 +128,7 @@
 			flex-direction: column;
 			padding: 14px;
 			gap: 12px;
-			border: 1px solid var(--clr-border-2);
+			border: 1px solid var(--border-2);
 			border-radius: var(--radius-m);
 		}
 	}

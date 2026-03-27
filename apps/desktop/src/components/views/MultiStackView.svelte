@@ -371,7 +371,7 @@
 		width: fit-content;
 		height: 100%;
 		margin-left: -1px;
-		border-left: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
+		border-left: 1px solid var(--border-2);
+		background-color: var(--bg-2);
 	}
 </style>

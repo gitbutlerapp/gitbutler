@@ -71,7 +71,7 @@
 		padding: 8px;
 		gap: 10px;
 		border-radius: var(--radius-m);
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		white-space: nowrap;
 		user-select: none;
 		&:not(.selected):hover:enabled,
@@ -85,7 +85,7 @@
 		.custom-icon {
 			display: flex;
 			flex-shrink: 0;
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 		& .label {
 			display: block;
@@ -98,7 +98,7 @@
 	}
 
 	.selected {
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 
 		& .label {
 			opacity: 0.5;

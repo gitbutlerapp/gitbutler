@@ -265,7 +265,7 @@
 		position: relative;
 		flex: 1;
 		flex-direction: column;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 
 		&:not(.no-padding) {
 			padding: 12px;

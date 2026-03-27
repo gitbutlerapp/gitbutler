@@ -78,7 +78,7 @@
 	}
 
 	.workspace-target-card__text {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.workspace-target-card__details {
@@ -91,10 +91,10 @@
 		display: flex;
 		align-items: center;
 		gap: 4px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.workspace-target-card__divider {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 </style>

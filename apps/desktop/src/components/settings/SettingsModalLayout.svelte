@@ -96,7 +96,7 @@
 		flex: 0 0 230px;
 		padding: 8px;
 		padding-right: 0;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 	}
 
 	.settings-sidebar {
@@ -106,9 +106,9 @@
 		height: 100%;
 		padding: 16px 12px 12px 12px;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.settings-sidebar__title {
@@ -145,7 +145,7 @@
 			height: 18px;
 			transform: translateY(-50%) translateX(-100%);
 			border-radius: 0 var(--radius-m) var(--radius-m) 0;
-			background-color: var(--clr-selected-in-focus-element);
+			background-color: var(--focus-fg);
 			content: "";
 			transition:
 				background-color var(--transition-fast),
@@ -153,10 +153,10 @@
 		}
 
 		&.selected {
-			background-color: var(--clr-bg-2);
+			background-color: var(--bg-2);
 
 			& .settings-sidebar__links-item__icon {
-				color: var(--clr-text-1);
+				color: var(--text-1);
 			}
 
 			&::after {
@@ -171,7 +171,7 @@
 
 	.settings-sidebar__links-item__icon {
 		display: flex;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		transition: color var(--transition-fast);
 	}
 
@@ -187,7 +187,7 @@
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 	}
 
 	.page-view__content {

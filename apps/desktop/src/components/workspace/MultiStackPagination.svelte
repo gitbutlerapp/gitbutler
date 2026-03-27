@@ -75,11 +75,7 @@
 			}}
 		>
 			<svg width="9" height="8" viewBox="0 0 9 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-				<path
-					d="M5.49474 0.5V7.5M9 3.99474L2 3.99474"
-					stroke="var(--clr-text-2)"
-					stroke-width="2"
-				/>
+				<path d="M5.49474 0.5V7.5M9 3.99474L2 3.99474" stroke="var(--text-2)" stroke-width="2" />
 			</svg>
 		</div>
 	</Tooltip>
@@ -92,16 +88,16 @@
 		justify-content: center;
 		padding: 6px;
 		gap: 2px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.pagination-dot {
 		width: 8px;
 		height: 8px;
 		border-radius: var(--radius-s);
-		background: var(--clr-text-2);
+		background: var(--text-2);
 		cursor: pointer;
 		opacity: 0.4;
 		transition: background-color var(--transition-fast);
@@ -114,7 +110,7 @@
 			opacity: 1;
 		}
 		&.selected-branch {
-			background: var(--clr-selected-in-focus-element);
+			background: var(--focus-fg);
 		}
 	}
 

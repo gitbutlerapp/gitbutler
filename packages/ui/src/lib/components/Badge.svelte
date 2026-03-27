@@ -75,64 +75,64 @@
 
 		/* SOLID */
 		&.gray.solid {
-			background-color: var(--clr-theme-gray-element);
-			color: var(--clr-theme-gray-on-element);
+			background-color: var(--fill-gray-bg);
+			color: var(--fill-gray-fg);
 		}
 
 		&.pop.solid {
-			background-color: var(--clr-theme-pop-element);
-			color: var(--clr-theme-pop-on-element);
+			background-color: var(--fill-pop-bg);
+			color: var(--fill-pop-fg);
 		}
 
 		&.safe.solid {
-			background-color: var(--clr-theme-safe-element);
-			color: var(--clr-theme-safe-on-element);
+			background-color: var(--fill-safe-bg);
+			color: var(--fill-safe-fg);
 		}
 
 		&.warning.solid {
-			background-color: var(--clr-theme-warn-element);
-			color: var(--clr-theme-warn-on-element);
+			background-color: var(--fill-warn-bg);
+			color: var(--fill-warn-fg);
 		}
 
 		&.danger.solid {
-			background-color: var(--clr-theme-danger-element);
-			color: var(--clr-theme-danger-on-element);
+			background-color: var(--fill-danger-bg);
+			color: var(--fill-danger-fg);
 		}
 
 		&.purple.solid {
-			background-color: var(--clr-theme-purple-element);
-			color: var(--clr-theme-purple-on-element);
+			background-color: var(--fill-purple-bg);
+			color: var(--fill-purple-fg);
 		}
 
 		/* SOFT */
 		&.gray.soft {
-			background-color: var(--clr-theme-gray-soft);
-			color: var(--clr-theme-gray-on-soft);
+			background-color: var(--chip-gray-bg);
+			color: var(--chip-gray-fg);
 		}
 
 		&.pop.soft {
-			background-color: var(--clr-theme-pop-soft);
-			color: var(--clr-theme-pop-on-soft);
+			background-color: var(--chip-pop-bg);
+			color: var(--chip-pop-fg);
 		}
 
 		&.safe.soft {
-			background-color: var(--clr-theme-safe-soft);
-			color: var(--clr-theme-safe-on-soft);
+			background-color: var(--chip-safe-bg);
+			color: var(--chip-safe-fg);
 		}
 
 		&.warning.soft {
-			background-color: var(--clr-theme-warn-soft);
-			color: var(--clr-theme-warn-on-soft);
+			background-color: var(--chip-warn-bg);
+			color: var(--chip-warn-fg);
 		}
 
 		&.danger.soft {
-			background-color: var(--clr-theme-danger-soft);
-			color: var(--clr-theme-danger-on-soft);
+			background-color: var(--chip-danger-bg);
+			color: var(--chip-danger-fg);
 		}
 
 		&.purple.soft {
-			background-color: var(--clr-theme-purple-soft);
-			color: var(--clr-theme-purple-on-soft);
+			background-color: var(--chip-purple-bg);
+			color: var(--chip-purple-fg);
 		}
 
 		/* SIZE */

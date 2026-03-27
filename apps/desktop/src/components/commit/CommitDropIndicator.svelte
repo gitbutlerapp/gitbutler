@@ -108,7 +108,7 @@
 
 		&.hovered {
 			& .indicator {
-				background-color: var(--clr-theme-pop-element);
+				background-color: var(--fill-pop-bg);
 			}
 		}
 	}

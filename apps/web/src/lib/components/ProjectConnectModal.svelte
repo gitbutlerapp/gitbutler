@@ -258,19 +258,19 @@
 
 	.description {
 		margin-top: 4px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 0.9rem;
 	}
 
 	.slug {
 		margin-top: 2px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 0.8rem;
 	}
 
 	.empty-state {
 		padding: 24px 0;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		text-align: center;
 	}
 
@@ -283,7 +283,7 @@
 
 	.loading-container {
 		padding: 32px 0;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		text-align: center;
 	}
 

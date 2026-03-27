@@ -39,7 +39,7 @@
 		transition: color var(--transition-fast);
 
 		&:hover {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 
 		&:not(.isFolded):hover {
@@ -73,7 +73,7 @@
 			width: 18px;
 			height: 14px;
 			transform: translate(-50%, -50%);
-			background-color: var(--clr-bg-2);
+			background-color: var(--bg-2);
 			content: "";
 		}
 	}

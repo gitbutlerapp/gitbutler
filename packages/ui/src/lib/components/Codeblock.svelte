@@ -54,13 +54,13 @@
 		padding: 12px;
 		overflow: auto;
 		gap: 8px;
-		border: 1px solid var(--clr-border-3);
+		border: 1px solid var(--border-3);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 	}
 
 	.codeblock-label {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 11px;
 		line-height: 1.2;
 		font-family: var(--font-mono);
@@ -80,18 +80,18 @@
 		top: 8px;
 		right: 8px;
 		padding: 3px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		/* box-shadow: var(--fx-shadow-s); */
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		opacity: 0;
 		transition:
 			color var(--transition-fast),
 			opacity var(--transition-fast);
 
 		&:hover {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 	}
 </style>

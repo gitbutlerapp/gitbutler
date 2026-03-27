@@ -47,20 +47,20 @@
 		height: 44px;
 		padding: 0 12px;
 		padding-left: 14px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 
 	.boundary-error__title {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.compact .boundary-error__title {
 		flex: 1;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.boundary-error__message {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

@@ -164,7 +164,7 @@
 		border-radius: var(--radius-s);
 		outline: none;
 		background-color: transparent;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		transition:
@@ -173,11 +173,11 @@
 
 		/* not readonly */
 		&:not([readonly]):not([disabled]):not(:focus):hover {
-			border: 1px solid color-mix(in srgb, var(--clr-text-1), transparent 80%);
+			border: 1px solid color-mix(in srgb, var(--text-1), transparent 80%);
 		}
 
 		&:not([readonly]):not([disabled]):focus {
-			border: 1px solid color-mix(in srgb, var(--clr-text-1), transparent 70%);
+			border: 1px solid color-mix(in srgb, var(--text-1), transparent 70%);
 			outline: none;
 			background-color: var(--hover-bg-1);
 		}

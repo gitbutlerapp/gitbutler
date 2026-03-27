@@ -206,7 +206,7 @@
 		width: 100%;
 		height: 100%;
 		padding: 24px;
-		background-color: var(--clr-bg-overlay);
+		background-color: var(--bg-overlay);
 	}
 
 	.modal-container.open {
@@ -230,9 +230,9 @@
 		flex-direction: column;
 		max-height: calc(100vh - 80px);
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-l);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		box-shadow: var(--fx-shadow-l);
 	}
 

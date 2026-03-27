@@ -66,7 +66,7 @@
 		width: 100%;
 		min-width: 32px;
 		overflow: hidden;
-		color: var(--filename-color, var(--clr-text-1));
+		color: var(--filename-color, var(--text-1));
 	}
 
 	.file-name__icon-container {

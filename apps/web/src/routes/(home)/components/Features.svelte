@@ -55,7 +55,7 @@
 		grid-column: full-start / full-end;
 		margin-top: 40px;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-xl);
 
 		&.no-margins {
@@ -70,7 +70,7 @@
 		right: 0;
 		bottom: 0;
 		left: 0;
-		background-image: radial-gradient(circle, var(--clr-text-3) 1px, transparent 1px);
+		background-image: radial-gradient(circle, var(--text-3) 1px, transparent 1px);
 		background-size: 8px 8px;
 		content: "";
 		opacity: 0.3;
@@ -111,8 +111,8 @@
 		flex-direction: column;
 		padding: 24px;
 		overflow: hidden;
-		border-right: 1px solid var(--clr-border-2);
-		border-bottom: 1px solid var(--clr-border-2);
+		border-right: 1px solid var(--border-2);
+		border-bottom: 1px solid var(--border-2);
 		text-decoration: none;
 		transition: background-color var(--transition-fast);
 
@@ -122,7 +122,7 @@
 			box-decoration-break: clone;
 			-webkit-box-decoration-break: clone;
 			width: fit-content;
-			background: var(--clr-bg-2);
+			background: var(--bg-2);
 			transition: background-color var(--transition-fast);
 		}
 
@@ -143,11 +143,11 @@
 	}
 
 	a.feature-item:hover {
-		background-color: var(--clr-bg-muted);
+		background-color: var(--bg-mute);
 
 		p,
 		h3 {
-			background-color: var(--clr-bg-muted);
+			background-color: var(--bg-mute);
 		}
 
 		& .features__link-indicator-text {
@@ -167,7 +167,7 @@
 	.feature-item__icon {
 		height: 24px;
 		margin-bottom: 12px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 
 		& :global(svg) {
 			width: auto;
@@ -192,11 +192,11 @@
 
 		/* Reset desktop rules first */
 		.feature-item:nth-child(3n) {
-			border-right: 1px solid var(--clr-border-2);
+			border-right: 1px solid var(--border-2);
 		}
 
 		.feature-item:nth-last-child(-n + 3) {
-			border-bottom: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--border-2);
 		}
 
 		/* Apply tablet-specific rules */
@@ -225,13 +225,13 @@
 
 		.feature-item:nth-last-child(-n + 3),
 		.feature-item:nth-last-child(-n + 2) {
-			border-bottom: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--border-2);
 		}
 
 		/* Apply mobile-specific rules */
 		.feature-item {
 			border-right: none;
-			border-bottom: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--border-2);
 		}
 
 		.feature-item:last-child {

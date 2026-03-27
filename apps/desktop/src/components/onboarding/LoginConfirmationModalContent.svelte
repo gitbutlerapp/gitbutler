@@ -72,6 +72,6 @@
 
 	.login-avatar {
 		border-radius: 50%;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 	}
 </style>

@@ -73,12 +73,12 @@
 	}
 	.file-path {
 		overflow: hidden;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 	.file-name {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		white-space: nowrap;
 	}
 	.irc-hunk-diff {

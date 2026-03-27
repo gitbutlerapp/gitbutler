@@ -98,7 +98,7 @@
 		width: 300px;
 		height: 306px;
 		min-height: 0;
-		background: var(--clr-bg-1);
+		background: var(--bg-1);
 	}
 
 	.emoji-picker__header {
@@ -110,7 +110,7 @@
 		padding: 12px;
 		padding-bottom: 0;
 		overflow: hidden;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 	}
 
 	/* CATEGORIES */
@@ -146,7 +146,7 @@
 			height: 4px;
 			transform: translateY(100%);
 			border-radius: 4px 4px 0 0;
-			background-color: var(--clr-theme-pop-element);
+			background-color: var(--fill-pop-bg);
 			content: "";
 			transition: transform var(--transition-medium);
 		}
@@ -185,6 +185,6 @@
 		justify-content: center;
 		width: 100%;
 		height: 100%;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 </style>

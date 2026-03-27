@@ -199,7 +199,7 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.sidebar-entry__header {
@@ -209,7 +209,7 @@
 	}
 
 	.sidebar-entry__divider {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 
 		&:last-child {
 			display: none;
@@ -220,8 +220,8 @@
 		display: flex;
 		padding: 2px 4px;
 		border-radius: 10px;
-		background-color: var(--clr-theme-gray-element);
-		color: var(--clr-theme-gray-on-element);
+		background-color: var(--fill-gray-bg);
+		color: var(--fill-gray-fg);
 	}
 
 	.sidebar-entry__details {
@@ -236,6 +236,6 @@
 		display: flex;
 		align-items: center;
 		gap: 5px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

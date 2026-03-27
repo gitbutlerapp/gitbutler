@@ -72,7 +72,7 @@
 	}
 
 	.title-text {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.button-container {
@@ -82,7 +82,7 @@
 	}
 
 	.description-text {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		line-height: 1.6;
 	}
 </style>

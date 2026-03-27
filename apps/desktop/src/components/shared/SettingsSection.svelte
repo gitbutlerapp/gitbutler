@@ -55,10 +55,10 @@
 	}
 
 	.description h2 {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.description p {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

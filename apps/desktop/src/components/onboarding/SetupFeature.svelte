@@ -68,11 +68,11 @@
 		gap: 16px;
 	}
 	.disabled.setup-feature {
-		background: var(--clr-bg-2);
+		background: var(--bg-2);
 		opacity: 0.5;
 	}
 	.success.setup-feature {
-		background: var(--clr-theme-pop-bg);
+		background: var(--bg-pop);
 	}
 
 	.setup-feature__content {
@@ -117,7 +117,7 @@
 	/* MODIFIERS */
 
 	.top-border {
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 	}
 
 	.clickable {

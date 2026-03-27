@@ -193,6 +193,6 @@
 		display: flex;
 		flex-shrink: 0;
 		transform: translateX(4px);
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 </style>

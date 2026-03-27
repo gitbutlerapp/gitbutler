@@ -41,7 +41,7 @@
 		height: 12px;
 		overflow: hidden;
 		border-radius: 6px;
-		color: var(--clr-theme-pop-on-element);
+		color: var(--fill-pop-fg);
 
 		&.small {
 			width: 12px;

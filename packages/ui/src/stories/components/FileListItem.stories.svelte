@@ -58,7 +58,7 @@
 	{#snippet template()}
 		{@const showCheckbox = true}
 		<div
-			style="width: 500px; display: flex; flex-direction: column; border: 1px solid var(--clr-border-3); border-radius: var(--radius-m); overflow: hidden;"
+			style="width: 500px; display: flex; flex-direction: column; border: 1px solid var(--border-3); border-radius: var(--radius-m); overflow: hidden;"
 		>
 			<FileListItem
 				filePath="src/components/Header.svelte"
@@ -163,7 +163,7 @@
 <Story name="Notched List">
 	{#snippet template()}
 		<div
-			style="width: 500px; display: flex; flex-direction: column; border: 1px solid var(--clr-border-3); border-radius: var(--radius-m); overflow: hidden;"
+			style="width: 500px; display: flex; flex-direction: column; border: 1px solid var(--border-3); border-radius: var(--radius-m); overflow: hidden;"
 		>
 			<FileListItem
 				filePath="src/components/Sidebar.svelte"

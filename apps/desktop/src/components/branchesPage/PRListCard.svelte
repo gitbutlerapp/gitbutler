@@ -97,7 +97,7 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.sidebar-entry__header {
@@ -111,7 +111,7 @@
 	}
 
 	.sidebar-entry__divider {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 
 		&:last-child {
 			display: none;
@@ -122,6 +122,6 @@
 		display: flex;
 		align-items: center;
 		gap: 4px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

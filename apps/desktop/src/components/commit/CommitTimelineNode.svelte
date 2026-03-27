@@ -34,7 +34,7 @@
 
 	function getCommitColor() {
 		if (hasConflicts) {
-			return "var(--clr-theme-danger-element)";
+			return "var(--fill-danger-bg)";
 		}
 		return color;
 	}
@@ -45,9 +45,7 @@
 	class:dot-on-top={dotOnTop}
 	style:height
 	style:--commit-color={getCommitColor()}
-	style:--commit-local-color={hasConflicts
-		? "var(--clr-theme-danger-element)"
-		: "var(--clr-commit-local)"}
+	style:--commit-local-color={hasConflicts ? "var(--fill-danger-bg)" : "var(--commit-local)"}
 >
 	{#if hideDot}
 		<div class="single-line" class:dashed={lastCommit && lastBranch}></div>
@@ -130,7 +128,7 @@
 			width: 10px;
 			height: 10px;
 			transform: scale(1.1);
-			fill: var(--clr-commit-shadow);
+			fill: var(--commit-shadow);
 		}
 
 		.local-dot {

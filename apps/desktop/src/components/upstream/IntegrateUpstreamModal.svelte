@@ -465,7 +465,7 @@
 		flex-direction: column;
 		padding: 16px;
 		gap: 14px;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 
 		&:last-child {
 			border-bottom: none;
@@ -473,7 +473,7 @@
 
 		.scroll-wrap {
 			overflow: hidden;
-			border: 1px solid var(--clr-border-2);
+			border: 1px solid var(--border-2);
 			border-radius: var(--radius-m);
 		}
 	}
@@ -489,8 +489,8 @@
 		display: flex;
 		padding: 16px;
 		gap: 14px;
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-theme-warn-bg);
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-warn);
 	}
 
 	.target-icon {
@@ -507,7 +507,7 @@
 	}
 
 	.target-divergence-description {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.target-divergence-action {

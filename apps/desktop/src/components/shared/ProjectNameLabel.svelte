@@ -21,6 +21,6 @@
 		align-self: flex-start;
 		gap: 6px;
 		border-radius: var(--radius-s);
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

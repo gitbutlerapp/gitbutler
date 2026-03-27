@@ -65,9 +65,9 @@
 		padding: 16px;
 		overflow: hidden;
 		gap: 20px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 
 		text-align: left;
 		transition:
@@ -90,7 +90,7 @@
 	}
 
 	.loading {
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 		opacity: 0.6;
 		pointer-events: none;
 	}
@@ -111,16 +111,16 @@
 	}
 
 	.action__title {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.action__message {
 		max-width: 90%;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.dim-message {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 
 	.icon {

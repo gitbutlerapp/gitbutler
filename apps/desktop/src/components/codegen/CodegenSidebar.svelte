@@ -46,9 +46,9 @@
 
 		overflow: hidden;
 
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-l);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.sidebar-header {
@@ -59,8 +59,8 @@
 		justify-content: space-between;
 		height: 40px;
 		padding: 0 10px 0 14px;
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-2);
 	}
 
 	.sidebar-header-actions {

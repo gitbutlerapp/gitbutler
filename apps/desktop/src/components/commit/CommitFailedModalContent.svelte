@@ -133,7 +133,7 @@
 		align-items: center;
 		gap: 4px;
 		transform: translateY(4px);
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	/* Groups */
@@ -146,7 +146,7 @@
 	.commit-failed__reasons-divider {
 		margin: 0 -16px;
 		border: 0;
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 	}
 
 	.commit-failed__reason-file-list {

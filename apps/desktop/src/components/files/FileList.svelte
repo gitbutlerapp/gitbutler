@@ -432,6 +432,6 @@
 		justify-content: center;
 		padding: 12px;
 		gap: 12px;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 	}
 </style>

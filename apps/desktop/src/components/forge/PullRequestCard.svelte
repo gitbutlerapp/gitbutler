@@ -283,7 +283,7 @@
 
 		> .label {
 			display: flex;
-			color: var(--clr-text-2);
+			color: var(--text-2);
 
 			&.italic {
 				font-style: italic;
@@ -293,7 +293,7 @@
 
 	.separator {
 		transform: translateY(-1.5px);
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 
 	.pr-actions {

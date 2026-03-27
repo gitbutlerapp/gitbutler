@@ -98,7 +98,7 @@
 		align-items: center;
 		gap: 6px;
 		text-decoration: none;
-		text-decoration-color: var(--clr-theme-pop-element);
+		text-decoration-color: var(--fill-pop-bg);
 		text-decoration-thickness: 2px;
 		text-underline-offset: 4px;
 		transition:
@@ -106,7 +106,7 @@
 			text-decoration var(--transition-fast);
 
 		&:hover {
-			color: var(--clr-text-1);
+			color: var(--text-1);
 			text-decoration-line: underline;
 		}
 	}

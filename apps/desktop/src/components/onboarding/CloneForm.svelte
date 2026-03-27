@@ -182,7 +182,7 @@
 <style>
 	.clone-title {
 		margin-bottom: 20px;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		line-height: 1;
 	}
 

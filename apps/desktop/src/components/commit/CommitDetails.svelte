@@ -123,7 +123,7 @@
 		display: flex;
 		align-items: center;
 		gap: 4px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 
 		& .divider {
 			font-size: 12px;

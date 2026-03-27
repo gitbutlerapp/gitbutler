@@ -412,7 +412,7 @@
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 
@@ -430,7 +430,7 @@
 
 	.editmode__title {
 		margin-bottom: 12px;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.editmode__actions {
@@ -455,12 +455,12 @@
 			gap: 4px;
 
 			&.show-border {
-				border-bottom: 1px solid var(--clr-border-2);
+				border-bottom: 1px solid var(--border-2);
 			}
 		}
 
 		& .file {
-			border-bottom: 1px solid var(--clr-border-3);
+			border-bottom: 1px solid var(--border-3);
 			&:last-child {
 				border-bottom: none;
 			}
@@ -489,13 +489,13 @@
 	}
 
 	.commit-card__title {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.commit-card__details {
 		display: flex;
 		gap: 4px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.commit-card__type-indicator {
@@ -504,11 +504,11 @@
 		left: 0;
 		width: 4px;
 		height: 100%;
-		background-color: var(--clr-commit-local);
+		background-color: var(--commit-local);
 	}
 
 	.editmode__helptext {
 		margin-bottom: 16px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

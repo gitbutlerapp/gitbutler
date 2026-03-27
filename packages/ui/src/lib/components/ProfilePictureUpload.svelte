@@ -116,7 +116,7 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		background-color: var(--clr-core-pop-70);
+		background-color: var(--clr-pop-70);
 		opacity: 0;
 		transition: opacity 0.2s ease-in;
 
@@ -132,9 +132,9 @@
 		padding: 4px 6px;
 		transform: translateY(2px);
 		border-radius: var(--radius-m);
-		outline: 1px solid color-mix(in srgb, var(--clr-core-gray-100) 40%, transparent);
-		background-color: var(--clr-core-gray-20);
-		color: var(--clr-core-gray-100);
+		outline: 1px solid color-mix(in srgb, var(--clr-gray-100) 40%, transparent);
+		background-color: var(--clr-gray-20);
+		color: var(--clr-gray-100);
 		opacity: 0;
 		transition:
 			opacity var(--transition-fast),

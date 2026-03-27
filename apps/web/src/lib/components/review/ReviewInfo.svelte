@@ -105,7 +105,7 @@
 	}
 
 	.factoid-icon {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		opacity: 0;
 		transition: opacity var(--transition-fast);
 	}

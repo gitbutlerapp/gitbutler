@@ -115,7 +115,7 @@
 							commit.state.type,
 							commit.state.type === "LocalAndRemote" && commit.id !== commit.state.subject,
 						)
-					: "var(--clr-commit-local)"}
+					: "var(--commit-local)"}
 				{@const isNewBranch =
 					upstreamOnlyCommits.length === 0 && localAndRemoteCommits.length === 0}
 				{@const selected =

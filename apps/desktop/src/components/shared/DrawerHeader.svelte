@@ -133,8 +133,8 @@
 		height: 42px;
 		padding: 0 12px 0 14px;
 		gap: 8px;
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-2);
 		transition: box-shadow var(--transition-medium);
 
 		&.sticky {
@@ -168,7 +168,7 @@
 	.drawer-header__actions :global(.divider) {
 		width: 1px;
 		height: 18px;
-		background-color: var(--clr-border-2);
+		background-color: var(--border-2);
 	}
 
 	.close-button-placeholder {

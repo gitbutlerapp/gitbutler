@@ -277,9 +277,9 @@
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 
 		&.no-border {
 			border: none;
@@ -298,9 +298,9 @@
 		right: 6px;
 		padding: 2px;
 		gap: 2px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		box-shadow: var(--fx-shadow-s);
 	}
 

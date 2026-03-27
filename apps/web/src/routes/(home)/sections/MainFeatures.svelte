@@ -24,7 +24,7 @@
 	}
 
 	.app-preview {
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-xl);
 		box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
 

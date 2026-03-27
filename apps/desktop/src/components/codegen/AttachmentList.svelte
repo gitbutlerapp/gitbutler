@@ -44,7 +44,7 @@
 				<div class="attachment-content text-12 text-semibold">
 					<!-- COMMIT -->
 					{#if attachment.type === "commit"}
-						<Icon name="commit" color="var(--clr-text-2)" />
+						<Icon name="commit" color="var(--text-2)" />
 						<span class="path">
 							#{attachment.commitId.slice(0, 6)}
 						</span>
@@ -59,7 +59,7 @@
 						</span>
 
 						{#if commitId}
-							<Icon name="commit" color="var(--clr-text-3)" />
+							<Icon name="commit" color="var(--text-3)" />
 							<Tooltip text={commitId}>
 								<span class="commit-badge">
 									#{commitId.slice(0, 6)}
@@ -76,13 +76,13 @@
 							{splitFilePath(path).filename}
 						</span>
 
-						<Icon name="text-block" color="var(--clr-text-3)" />
+						<Icon name="text-block" color="var(--text-3)" />
 						<span>
 							{start}:{end}
 						</span>
 
 						{#if commitId}
-							<Icon name="commit" color="var(--clr-text-3)" />
+							<Icon name="commit" color="var(--text-3)" />
 							<Tooltip text={commitId}>
 								<span class="commit-badge">
 									#{commitId.slice(0, 6)}
@@ -100,7 +100,7 @@
 					<!-- FOLDER -->
 					{#if attachment.type === "folder"}
 						{@const { path } = attachment}
-						<Icon name="folder" color="var(--clr-text-2)" />
+						<Icon name="folder" color="var(--text-2)" />
 						<span class="path">
 							{path}
 						</span>
@@ -137,7 +137,7 @@
 		justify-content: space-between;
 		height: var(--size-button);
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--size-button);
 		cursor: default;
 	}
@@ -159,7 +159,7 @@
 	}
 
 	.commit-badge {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		white-space: nowrap;
 	}
 
@@ -170,11 +170,11 @@
 		width: var(--size-button);
 		height: var(--size-button);
 		margin-left: -8px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		transition: color var(--transition-fast);
 
 		&:hover {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 	}
 </style>

@@ -25,12 +25,12 @@
 		display: flex;
 		position: relative;
 		overflow: hidden;
-		border-top: 1px solid var(--clr-border-3);
-		background-color: var(--clr-theme-warn-bg);
-		--commit-color: var(--clr-commit-upstream);
+		border-top: 1px solid var(--border-3);
+		background-color: var(--bg-warn);
+		--commit-color: var(--commit-upstream);
 
 		&:not(.is-last) {
-			border-bottom: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--border-2);
 		}
 	}
 

@@ -130,8 +130,8 @@
 		padding: 14px;
 
 		&.stuck {
-			border-bottom: 1px solid var(--clr-border-2);
-			background-color: var(--clr-bg-1);
+			border-bottom: 1px solid var(--border-2);
+			background-color: var(--bg-1);
 			box-shadow: 0 1px 8px rgba(0, 0, 0, 0.1);
 		}
 	}

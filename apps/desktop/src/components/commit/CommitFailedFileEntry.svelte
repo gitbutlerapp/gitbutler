@@ -72,7 +72,7 @@
 
 							<div class="text-12 commit-failed__file-entry__dependency-locks">
 								<div class="commit-failed__file-entry__dependency-locks__label">
-									<Icon name="lock" color="var(--clr-theme-warn-element)" />
+									<Icon name="lock" color="var(--fill-warn-bg)" />
 									<span class="clr-text-2">Depends on:</span>
 								</div>
 								<div class="commit-failed__file-entry__dependency-locks__content">
@@ -149,7 +149,7 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		text-wrap: nowrap;
 		opacity: 0.7;
 		transition: opacity var(--transition-fast);
@@ -161,7 +161,7 @@
 		margin-right: 1px;
 		gap: 4px;
 		transform: translateY(4px);
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.commit-failed__file-entry-dependencies {
@@ -175,14 +175,14 @@
 	.commit-failed__file-entry {
 		display: flex;
 		flex-direction: column;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
 	}
 
 	.commit-failed__file-entry-divider {
 		margin: 6px -12px;
 		border: 0;
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 	}
 
 	.commit-failed__file-entry__dependency-locks {
@@ -190,7 +190,7 @@
 		flex-direction: column;
 		padding: 12px;
 		gap: 5px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
 	}
 
@@ -198,7 +198,7 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		color: var(--clr-theme-warn-element);
+		color: var(--fill-warn-bg);
 	}
 
 	.commit-failed__file-entry__dependency-locks__content {

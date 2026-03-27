@@ -16,7 +16,7 @@
 <CardGroup>
 	<CardGroup.Item>
 		{#snippet iconSide()}
-			<Icon name="warning" color="var(--clr-theme-warn-element)" />
+			<Icon name="warning" color="var(--fill-warn-bg)" />
 		{/snippet}
 		{#snippet title()}
 			{titleLabel}

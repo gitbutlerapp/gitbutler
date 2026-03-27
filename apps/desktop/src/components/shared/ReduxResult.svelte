@@ -115,7 +115,7 @@
 		position: relative;
 		align-items: center;
 		gap: 8px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.redux-result__error-wrapper {

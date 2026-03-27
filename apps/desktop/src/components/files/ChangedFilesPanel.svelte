@@ -151,9 +151,9 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.filelist-header {
@@ -170,7 +170,7 @@
 
 	.filelist-header__chevron {
 		display: flex;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		transition:
 			color var(--transition-fast),
 			transform var(--transition-medium);
@@ -180,7 +180,7 @@
 		}
 
 		&:hover {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 	}
 </style>

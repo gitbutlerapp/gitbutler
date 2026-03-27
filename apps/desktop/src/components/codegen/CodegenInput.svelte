@@ -408,7 +408,7 @@
 			right: 12px;
 			left: 12px;
 			height: 1px;
-			background-color: var(--clr-border-3);
+			background-color: var(--border-3);
 			content: "";
 		}
 	}
@@ -423,7 +423,7 @@
 	.actions-separator {
 		width: 1px;
 		margin: 0 5px;
-		background-color: var(--clr-border-3);
+		background-color: var(--border-3);
 	}
 
 	/* SEND BUTTON */
@@ -435,9 +435,9 @@
 		justify-content: center;
 		height: var(--size-button);
 		padding: 0 6px;
-		border-radius: var(--radius-btn);
-		background-color: var(--clr-theme-pop-element);
-		color: var(--clr-theme-pop-on-element);
+		border-radius: var(--radius-button);
+		background-color: var(--fill-pop-bg);
+		color: var(--fill-pop-fg);
 		transition:
 			background-color 0.2s ease-in-out,
 			transform 0.2s ease-in-out;

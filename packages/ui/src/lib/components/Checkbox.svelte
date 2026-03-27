@@ -32,9 +32,9 @@
 	}: Props = $props();
 
 	function getCheckmarkColor(): string {
-		if (disabled) return "var(--clr-text-2)";
-		if (!checked) return "var(--clr-text-2)";
-		return "var(--clr-theme-pop-on-element)";
+		if (disabled) return "var(--text-2)";
+		if (!checked) return "var(--text-2)";
+		return "var(--fill-pop-fg)";
 	}
 
 	const checkmarkColor = $derived(getCheckmarkColor());
@@ -123,8 +123,8 @@
 		width: 16px;
 		height: 16px;
 		border-radius: var(--radius-s);
-		background-color: var(--clr-bg-1);
-		box-shadow: inset 0 0 0 var(--border-width) var(--clr-border-2);
+		background-color: var(--bg-1);
+		box-shadow: inset 0 0 0 var(--border-width) var(--border-2);
 		transition:
 			background-color var(--transition-fast),
 			box-shadow var(--transition-fast);
@@ -137,7 +137,7 @@
 		/* Unchecked states */
 		&:not(.checked):not(.disabled):hover,
 		:global(label:hover) &:not(.checked):not(.disabled) {
-			box-shadow: inset 0 0 0 var(--border-width) var(--clr-border-1);
+			box-shadow: inset 0 0 0 var(--border-width) var(--border-1);
 
 			& .checkbox-checkmark {
 				opacity: 1;
@@ -145,14 +145,14 @@
 		}
 
 		&:not(.checked):not(.disabled):has(.checkbox-input:focus-visible) {
-			outline: 2px solid var(--clr-theme-pop-element);
+			outline: 2px solid var(--fill-pop-bg);
 			outline-offset: -2px;
 		}
 
 		/* Checked states */
 		&.checked:not(.disabled) {
-			background-color: var(--clr-theme-pop-element);
-			box-shadow: inset 0 0 0 var(--border-width) var(--clr-theme-pop-element);
+			background-color: var(--fill-pop-bg);
+			box-shadow: inset 0 0 0 var(--border-width) var(--fill-pop-bg);
 
 			& .checkbox-checkmark {
 				transform: scale(1);
@@ -166,7 +166,7 @@
 			}
 
 			&:has(.checkbox-input:focus-visible) {
-				outline: 2px solid color-mix(in srgb, var(--clr-theme-pop-element) 80%, var(--clr-text-1));
+				outline: 2px solid color-mix(in srgb, var(--fill-pop-bg) 80%, var(--text-1));
 				outline-offset: -2px;
 			}
 		}
@@ -177,13 +177,9 @@
 		}
 
 		&.disabled:not(.checked) {
-			background-color: color-mix(
-				in srgb,
-				var(--clr-border-2) var(--disabled-opacity),
-				var(--clr-bg-1)
-			);
+			background-color: color-mix(in srgb, var(--border-2) var(--disabled-opacity), var(--bg-1));
 			box-shadow: inset 0 0 0 var(--border-width)
-				color-mix(in srgb, var(--clr-border-2) var(--disabled-opacity), var(--clr-bg-1));
+				color-mix(in srgb, var(--border-2) var(--disabled-opacity), var(--bg-1));
 		}
 
 		&.disabled.checked .checkbox-checkmark {
@@ -192,13 +188,9 @@
 		}
 
 		&.disabled.checked {
-			background-color: color-mix(
-				in srgb,
-				var(--clr-theme-pop-element) var(--disabled-opacity),
-				var(--clr-bg-1)
-			);
+			background-color: color-mix(in srgb, var(--fill-pop-bg) var(--disabled-opacity), var(--bg-1));
 			box-shadow: inset 0 0 0 var(--border-width)
-				color-mix(in srgb, var(--clr-theme-pop-element) var(--disabled-opacity), var(--clr-bg-1));
+				color-mix(in srgb, var(--fill-pop-bg) var(--disabled-opacity), var(--bg-1));
 		}
 	}
 

@@ -55,10 +55,10 @@
 		align-items: center;
 		margin-left: 2px;
 		overflow: hidden;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 
 		&.contrast {
-			color: var(--clr-text-1);
+			color: var(--text-1);
 		}
 	}
 
@@ -69,7 +69,7 @@
 
 	.more-series-arrow {
 		flex-shrink: 0;
-		stroke: var(--clr-text-2);
+		stroke: var(--text-2);
 		opacity: 0.6;
 	}
 </style>

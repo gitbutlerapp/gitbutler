@@ -112,7 +112,7 @@
 		padding: 6px 8px;
 		gap: 4px;
 		border-radius: var(--radius-s);
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		text-align: left;
 		cursor: pointer;
 		transition: background-color var(--transition-fast);
@@ -138,7 +138,7 @@
 	.menu-item__icon {
 		display: flex;
 		align-items: center;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.menu-item__label {
@@ -149,11 +149,11 @@
 	.menu-item__shortcut {
 		display: flex;
 		margin-left: 2px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 
 	.menu-item__caption {
 		max-width: 230px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

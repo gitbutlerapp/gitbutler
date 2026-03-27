@@ -34,6 +34,6 @@
 	}
 
 	.problem__title {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 </style>

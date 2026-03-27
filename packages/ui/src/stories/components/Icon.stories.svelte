@@ -58,10 +58,10 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.icon-label {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

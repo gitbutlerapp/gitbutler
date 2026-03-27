@@ -430,7 +430,7 @@
 		}
 	}
 	.hunk-placehoder {
-		border: 1px solid var(--clr-border-3);
+		border: 1px solid var(--border-3);
 		border-radius: var(--radius-m);
 	}
 
@@ -450,7 +450,7 @@
 		gap: 4px;
 		border: 1px solid transparent;
 		border-radius: 10px;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 		font-size: 12px;
 	}
 </style>

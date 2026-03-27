@@ -25,7 +25,7 @@
 body {
 	min-height: 100dvh;
 	overflow-x: hidden;
-	background: var(--clr-bg-2);
+	background: var(--bg-2);
 
 	&.menu-open {
 		position: fixed;
@@ -45,7 +45,7 @@ body {
 
 /* selection change */
 body::selection {
-	background: color-mix(in srgb, var(--clr-theme-pop-element) 30%, transparent);
+	background: color-mix(in srgb, var(--fill-pop-bg) 30%, transparent);
 }
 
 body:has(.marketing-page)::-webkit-scrollbar {
@@ -54,7 +54,7 @@ body:has(.marketing-page)::-webkit-scrollbar {
 }
 
 body:has(.marketing-page)::-webkit-scrollbar-thumb {
-	background: var(--clr-border-1);
+	background: var(--border-1);
 }
 
 /* Global release notes content styles */

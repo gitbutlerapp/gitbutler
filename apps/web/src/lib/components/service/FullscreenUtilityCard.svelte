@@ -56,14 +56,14 @@
 		max-width: 540px;
 		padding: 50px 60px 40px;
 		border-radius: var(--radius-xl);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.service-form__footer {
 		display: flex;
 		justify-content: space-between;
 		margin-top: 40px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		text-align: center;
 
 		a {
@@ -71,7 +71,7 @@
 			transition: color var(--transition-fast);
 
 			&:hover {
-				color: var(--clr-text-1);
+				color: var(--text-1);
 			}
 		}
 	}

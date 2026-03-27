@@ -251,7 +251,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		flex-direction: column;
 		height: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 
@@ -262,7 +262,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		width: 44px;
 		height: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 
@@ -281,7 +281,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		flex-direction: column;
 		height: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-left-width: 0;
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
 		border-left-color: transparent;
@@ -299,7 +299,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		height: 100%;
 		margin-left: 8px;
 		overflow-x: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 
@@ -319,7 +319,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		flex-direction: column;
 		width: 100%;
 		height: 100%;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 </style>

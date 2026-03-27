@@ -121,7 +121,7 @@
 		width: fit-content;
 		max-width: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 		border-bottom-left-radius: 0;
 
@@ -136,7 +136,7 @@
 		width: 100%;
 		padding: 10px 12px 10px 8px;
 		gap: 8px;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 		cursor: pointer;
 		transition: background-color var(--transition-fast);
 
@@ -144,14 +144,14 @@
 			background-color: var(--hover-bg-2);
 
 			.compaction-summary__arrow {
-				color: var(--clr-text-2);
+				color: var(--text-2);
 			}
 		}
 	}
 
 	.compaction-summary__arrow {
 		display: flex;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		transition: transform var(--transition-medium);
 
 		&.expanded {

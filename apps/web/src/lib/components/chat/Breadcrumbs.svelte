@@ -99,7 +99,7 @@
 			width: 1px;
 			height: 18px;
 			margin: 0 8px 0 0;
-			background-color: var(--clr-border-2);
+			background-color: var(--border-2);
 			content: "";
 			transition: opacity 0.2s;
 		}

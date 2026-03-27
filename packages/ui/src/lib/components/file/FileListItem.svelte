@@ -222,7 +222,7 @@
 		padding: 0 8px 0 14px;
 		gap: 8px;
 
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		text-align: left;
 		user-select: none;
 
@@ -231,7 +231,7 @@
 		}
 
 		&.list-mode {
-			border-bottom: 1px solid var(--clr-border-3);
+			border-bottom: 1px solid var(--border-3);
 
 			&.is-last {
 				border-bottom: none;
@@ -257,19 +257,18 @@
 		}
 
 		&.conflicted {
-			background-color: var(--clr-theme-danger-bg);
+			background-color: var(--bg-danger);
 
 			&.selected {
-				background-color: var(--clr-theme-danger-element);
+				background-color: var(--fill-danger-bg);
 			}
 		}
 
 		&.selected {
-			background-color: var(--clr-selected-not-in-focus-bg);
+			background-color: var(--focus-bg-mute);
 
 			&.list-mode {
-				border-bottom: 1px solid
-					color-mix(in srgb, var(--clr-selected-not-in-focus-bg) 90%, var(--clr-text-1));
+				border-bottom: 1px solid color-mix(in srgb, var(--focus-bg-mute) 90%, var(--text-1));
 
 				&.is-last {
 					border-bottom: none;
@@ -277,28 +276,19 @@
 			}
 
 			&:hover {
-				background-color: color-mix(
-					in srgb,
-					var(--clr-selected-not-in-focus-bg) 96%,
-					var(--clr-theme-gray-element)
-				);
+				background-color: color-mix(in srgb, var(--focus-bg-mute) 96%, var(--fill-gray-bg));
 			}
 		}
 
 		&.active.selected {
-			background-color: var(--clr-selected-in-focus-bg);
+			background-color: var(--focus-bg);
 
 			&.list-mode {
-				border-bottom: 1px solid
-					color-mix(in srgb, var(--clr-selected-in-focus-bg) 90%, var(--clr-text-1));
+				border-bottom: 1px solid color-mix(in srgb, var(--focus-bg) 90%, var(--text-1));
 			}
 
 			&:hover {
-				background-color: color-mix(
-					in srgb,
-					var(--clr-selected-in-focus-bg) 95%,
-					var(--clr-theme-pop-element)
-				);
+				background-color: color-mix(in srgb, var(--focus-bg) 95%, var(--fill-pop-bg));
 			}
 		}
 
@@ -307,7 +297,7 @@
 		}
 
 		&.active.selected .conflicted-icon {
-			color: var(--clr-theme-pop-on-element);
+			color: var(--fill-pop-fg);
 		}
 
 		/* &.notched {
@@ -327,14 +317,14 @@
 			justify-content: center;
 			width: 6px;
 			transform: translateY(-50%);
-			color: var(--clr-text-2);
+			color: var(--text-2);
 			opacity: 0.6;
 		}
 
 		& .conflicted-icon {
 			display: flex;
 			margin-right: -2px;
-			color: var(--clr-theme-danger-element);
+			color: var(--fill-danger-bg);
 		}
 	}
 
@@ -351,7 +341,7 @@
 		left: 0;
 		width: 3px;
 		height: calc(100% + 2px);
-		background-color: var(--clr-border-2);
+		background-color: var(--border-2);
 	}
 
 	.file-list-item__details {
@@ -362,7 +352,7 @@
 
 		& .locked {
 			display: flex;
-			color: var(--clr-change-icon-modification);
+			color: var(--fill-warn-bg);
 		}
 	}
 </style>

@@ -88,8 +88,8 @@
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
-		border-right: 1px solid var(--clr-border-3);
-		background-color: var(--clr-bg-2);
+		border-right: 1px solid var(--border-3);
+		background-color: var(--bg-2);
 	}
 	.channel {
 		display: flex;
@@ -100,15 +100,15 @@
 		padding: 0 0 0 12px;
 		overflow: hidden;
 		gap: 2px;
-		border-top: 1px solid var(--clr-border-3);
-		color: var(--clr-text-2);
+		border-top: 1px solid var(--border-3);
+		color: var(--text-2);
 		text-align: left;
 		white-space: nowrap;
 		&:first-child {
 			border-top: none;
 		}
 		&.selected {
-			background-color: var(--clr-bg-muted);
+			background-color: var(--bg-mute);
 		}
 		& span {
 			overflow: hidden;
@@ -117,10 +117,10 @@
 	}
 
 	.selected {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 	.unread {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		font-weight: 600;
 	}
 	.conn-dot {
@@ -130,10 +130,10 @@
 		height: 6px;
 		margin-left: 4px;
 		border-radius: 50%;
-		background: var(--clr-text-3);
+		background: var(--text-3);
 
 		&.ready {
-			background: var(--clr-theme-pop-element);
+			background: var(--fill-pop-bg);
 		}
 	}
 
@@ -146,10 +146,10 @@
 		width: 100%;
 		height: 36px;
 		padding: 8px 6px;
-		border-top: 1px solid var(--clr-border-3);
-		border: 1px solid var(--clr-border-3);
+		border-top: 1px solid var(--border-3);
+		border: 1px solid var(--border-3);
 		border-radius: var(--radius-m);
 		outline: none;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 </style>

@@ -189,13 +189,13 @@
 	.password-reset {
 		display: flex;
 		justify-content: flex-end;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 
 		a {
 			text-decoration: none;
 
 			&:hover {
-				color: var(--clr-text-1);
+				color: var(--text-1);
 				text-decoration: underline;
 			}
 		}

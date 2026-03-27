@@ -340,7 +340,7 @@
 			top: 0;
 			width: 1px;
 			height: 100%;
-			border-left: 1px solid var(--clr-border-2);
+			border-left: 1px solid var(--border-2);
 			content: "";
 			pointer-events: none;
 		}
@@ -358,7 +358,7 @@
 			left: 0;
 			width: 100%;
 			height: 1px;
-			border-top: 1px solid var(--clr-border-2);
+			border-top: 1px solid var(--border-2);
 			content: "";
 			pointer-events: none;
 		}

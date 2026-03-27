@@ -350,7 +350,7 @@
 		justify-content: space-between;
 		width: 100%;
 		height: 100%;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 	.header {
 		display: flex;
@@ -360,7 +360,7 @@
 		width: 100%;
 		min-height: 32px;
 		gap: 6px;
-		background-color: var(--clr-bg-muted);
+		background-color: var(--bg-mute);
 	}
 	.header-left {
 		flex-grow: 1;
@@ -378,13 +378,13 @@
 		display: flex;
 		flex-grow: 1;
 		overflow: hidden;
-		border-top: 1px solid var(--clr-border-3);
+		border-top: 1px solid var(--border-3);
 	}
 
 	.divider {
 		width: 2px;
 		height: 18px;
-		background-color: var(--clr-border-2);
+		background-color: var(--border-2);
 	}
 
 	.nested {

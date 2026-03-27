@@ -107,7 +107,7 @@
 			width={320}
 			topBottomPadding={64}
 			leftRightPadding={24}
-			background="var(--clr-bg-2)"
+			background="var(--bg-2)"
 		>
 			{#snippet title()}
 				Empty workspace

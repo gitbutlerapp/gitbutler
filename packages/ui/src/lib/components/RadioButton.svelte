@@ -50,8 +50,8 @@
 		width: 16px;
 		height: 16px;
 		border-radius: 16px;
-		background-color: var(--clr-bg-1);
-		box-shadow: inset 0 0 0 1px var(--clr-border-2);
+		background-color: var(--bg-1);
+		box-shadow: inset 0 0 0 1px var(--border-2);
 		cursor: pointer;
 		transition:
 			background-color var(--transition-fast),
@@ -60,7 +60,7 @@
 			transform var(--transition-fast);
 
 		&:not(:disabled)&:not(:checked):hover {
-			box-shadow: inset 0 0 0 1px var(--clr-border-1);
+			box-shadow: inset 0 0 0 1px var(--border-1);
 
 			&::after {
 				transform: scale(0.7);
@@ -69,29 +69,29 @@
 		}
 
 		&:not(:disabled):not(:checked):focus-visible {
-			outline: 2px solid var(--clr-theme-pop-element);
+			outline: 2px solid var(--fill-pop-bg);
 			outline-offset: -2px;
 		}
 		&:disabled {
-			background-color: var(--clr-border-2);
+			background-color: var(--border-2);
 			cursor: not-allowed;
 			opacity: 0.4;
 		}
 
 		/* checked */
 		&:checked {
-			background-color: var(--clr-theme-pop-element);
-			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element);
+			background-color: var(--fill-pop-bg);
+			box-shadow: inset 0 0 0 1px var(--fill-pop-bg);
 
 			&::after {
 				transform: scale(1);
-				background-color: var(--clr-core-gray-100);
+				background-color: var(--clr-gray-100);
 				opacity: 1;
 			}
 		}
 
 		&:checked:focus-visible {
-			outline: 2px solid color-mix(in srgb, var(--clr-theme-pop-element) 60%, var(--clr-text-1));
+			outline: 2px solid color-mix(in srgb, var(--fill-pop-bg) 60%, var(--text-1));
 			outline-offset: -2px;
 		} /* tick element */
 		&::after {
@@ -102,7 +102,7 @@
 			height: calc(100% - 8px);
 			transform: scale(0.5);
 			border-radius: 16px;
-			background-color: var(--clr-text-1);
+			background-color: var(--text-1);
 			content: "";
 			opacity: 0;
 			transition: background-color var(--transition-fast);

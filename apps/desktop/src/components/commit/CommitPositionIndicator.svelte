@@ -61,16 +61,16 @@
 		display: flex;
 		align-items: center;
 		padding: 12px 0;
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-1);
 
 		&.last {
-			border-top: 1px solid var(--clr-border-2);
+			border-top: 1px solid var(--border-2);
 			border-bottom: none;
 		}
 
 		&.draft {
-			border-top: 1px solid var(--clr-border-2);
+			border-top: 1px solid var(--border-2);
 			border-bottom: none;
 		}
 	}
@@ -88,8 +88,8 @@
 		width: 8px;
 		height: 8px;
 		border-radius: 100%;
-		outline: 2px solid var(--clr-theme-pop-element);
-		background-color: var(--clr-bg-1);
+		outline: 2px solid var(--fill-pop-bg);
+		background-color: var(--bg-1);
 	}
 	.pin__line {
 		position: absolute;
@@ -98,7 +98,7 @@
 		width: 2px;
 		height: 350%;
 		transform: translate(-50%, -50%);
-		background-color: var(--clr-theme-pop-element);
+		background-color: var(--fill-pop-bg);
 	}
 
 	.indicator__label {
@@ -115,7 +115,7 @@
 		height: 20px;
 		margin-top: -10px;
 		margin-bottom: -10px;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		opacity: 0;
 		transition: height var(--transition-medium);
 
@@ -146,14 +146,14 @@
 		height: 10px;
 		transform: translateY(-50%);
 		border-radius: 100%;
-		outline: 2px solid var(--clr-bg-1);
-		background-color: var(--clr-theme-pop-element);
+		outline: 2px solid var(--bg-1);
+		background-color: var(--fill-pop-bg);
 	}
 	.commit-here__line {
 		flex-grow: 1;
 		height: 2px;
 		margin-left: -15px;
-		background-color: var(--clr-theme-pop-element);
+		background-color: var(--fill-pop-bg);
 	}
 	.commit-here__label {
 		position: absolute;
@@ -162,8 +162,8 @@
 		padding: 3px 6px;
 		transform: translateY(-50%) translateX(10%) scale(0.95);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-theme-pop-element);
-		color: var(--clr-core-gray-100);
+		background-color: var(--fill-pop-bg);
+		color: var(--clr-gray-100);
 		transition:
 			opacity var(--transition-fast),
 			transform var(--transition-medium);

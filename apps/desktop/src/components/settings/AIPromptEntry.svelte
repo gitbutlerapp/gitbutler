@@ -195,7 +195,7 @@
 
 		& .icon {
 			display: flex;
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 	}
 
@@ -205,11 +205,11 @@
 
 		padding: 16px 0;
 		gap: 16px;
-		border-top: 1px solid var(--clr-border-3);
+		border-top: 1px solid var(--border-3);
 	}
 
 	.sections-divider {
-		border-top: 1px solid var(--clr-border-3);
+		border-top: 1px solid var(--border-3);
 	}
 
 	.actions {
@@ -221,7 +221,7 @@
 
 	.default-mode {
 		padding: 16px 0;
-		border-top: 1px solid var(--clr-border-3);
+		border-top: 1px solid var(--border-3);
 
 		& .sections-divider {
 			display: none;

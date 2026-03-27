@@ -92,8 +92,8 @@
 	.summary {
 		padding: 3px 6px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-2);
+		background-color: var(--bg-2);
+		color: var(--text-2);
 		font-size: 12px;
 		font-family: var(--font-mono);
 	}

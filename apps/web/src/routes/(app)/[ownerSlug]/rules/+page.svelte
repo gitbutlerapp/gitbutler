@@ -87,8 +87,8 @@
 	}
 
 	.rules-table__head th {
-		border: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
+		border: 1px solid var(--border-2);
+		background-color: var(--bg-2);
 		vertical-align: top;
 
 		&:not(:last-child) {
@@ -110,27 +110,27 @@
 
 	.rule-title {
 		padding: var(--cell-padding);
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		text-align: left;
 	}
 
 	.rules-table__row {
-		border: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
+		border: 1px solid var(--border-2);
+		background-color: var(--bg-1);
 		cursor: pointer;
 		transition: background-color 0.2s ease;
 
 		&:hover {
-			background-color: var(--clr-bg-3);
+			background-color: var(--bg-3);
 		}
 
 		td {
 			padding: var(--cell-padding);
-			color: var(--clr-text-1);
+			color: var(--text-1);
 			text-align: left;
 
 			&:not(:last-child) {
-				border-right: 1px solid var(--clr-border-2);
+				border-right: 1px solid var(--border-2);
 			}
 		}
 	}

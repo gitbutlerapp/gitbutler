@@ -45,9 +45,9 @@
 		padding: 16px;
 		overflow: hidden;
 		gap: 16px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		box-shadow: var(--fx-shadow-l);
 	}
 
@@ -62,6 +62,6 @@
 		display: inline-flex;
 		margin-right: 2px;
 		transform: translateY(2px);
-		color: var(--clr-theme-warn-element);
+		color: var(--fill-warn-bg);
 	}
 </style>

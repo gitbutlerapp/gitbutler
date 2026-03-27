@@ -47,7 +47,7 @@
 		padding: 8px 6px;
 
 		&:not(:last-child) {
-			border-bottom: 1px solid var(--clr-border-3);
+			border-bottom: 1px solid var(--border-3);
 		}
 
 		&.min-height {

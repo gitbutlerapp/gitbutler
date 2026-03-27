@@ -103,7 +103,7 @@
 	}
 
 	.text {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.tooltip-text {
@@ -120,16 +120,16 @@
 
 	.test-button {
 		padding: 12px 24px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background: var(--clr-bg-1);
-		color: var(--clr-text-1);
+		background: var(--bg-1);
+		color: var(--text-1);
 		cursor: pointer;
 		transition: all 0.15s ease;
 	}
 
 	.test-button:hover {
-		border-color: var(--clr-border-3);
-		background: var(--clr-bg-2);
+		border-color: var(--border-3);
+		background: var(--bg-2);
 	}
 </style>

@@ -142,9 +142,9 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 12px 16px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		transition: background-color var(--transition-fast);
 	}
 

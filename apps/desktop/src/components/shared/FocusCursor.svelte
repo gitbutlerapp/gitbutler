@@ -80,7 +80,7 @@
 		position: absolute;
 
 		/* Focus outline frame */
-		border: 2px solid var(--clr-btn-pop-outline);
+		border: 2px solid var(--btn-pop-outline);
 		border-radius: var(--radius-ml);
 
 		/* Transparent background - only outline frame */

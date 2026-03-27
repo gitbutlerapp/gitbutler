@@ -265,11 +265,11 @@
 		justify-content: center;
 		padding: 24px 20px 32px;
 		gap: 14px;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 	}
 
 	.rules-placeholder-text {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		text-align: center;
 		text-wrap: balance;
 	}
@@ -288,7 +288,7 @@
 		display: flex;
 		padding: 8px;
 		gap: 4px;
-		border-bottom: 1px solid var(--clr-border-3);
+		border-bottom: 1px solid var(--border-3);
 
 		&:last-child {
 			border-bottom: none;

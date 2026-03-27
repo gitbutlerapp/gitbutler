@@ -132,7 +132,7 @@
 		height: 30px;
 		padding: 0 8px 0 14px;
 		gap: 8px;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		cursor: pointer;
 
 		&:not(.selected):hover {
@@ -142,31 +142,23 @@
 			background-color: transparent;
 		}
 		&.selected {
-			background-color: var(--clr-selected-not-in-focus-bg);
+			background-color: var(--focus-bg-mute);
 
 			&:hover {
-				background-color: color-mix(
-					in srgb,
-					var(--clr-selected-not-in-focus-bg) 96%,
-					var(--clr-theme-gray-element)
-				);
+				background-color: color-mix(in srgb, var(--focus-bg-mute) 96%, var(--fill-gray-bg));
 			}
 		}
 		&.active.selected {
-			background-color: var(--clr-selected-in-focus-bg);
+			background-color: var(--focus-bg);
 
 			&:hover {
-				background-color: color-mix(
-					in srgb,
-					var(--clr-selected-in-focus-bg) 95%,
-					var(--clr-theme-pop-element)
-				);
+				background-color: color-mix(in srgb, var(--focus-bg) 95%, var(--fill-pop-bg));
 			}
 		}
 
 		&:focus-visible {
 			outline: none;
-			background-color: var(--clr-selected-in-focus-bg);
+			background-color: var(--focus-bg);
 		}
 
 		.draggable-handle {
@@ -176,7 +168,7 @@
 			align-items: center;
 			justify-content: center;
 			width: 6px;
-			color: var(--clr-text-2);
+			color: var(--text-2);
 			opacity: 0.6;
 		}
 
@@ -194,7 +186,7 @@
 		align-items: center;
 		height: 100%;
 		gap: 6px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.folder-list-item__arrow {
@@ -209,7 +201,7 @@
 		border-radius: var(--radius-s);
 
 		&:hover {
-			color: var(--clr-text-1);
+			color: var(--text-1);
 		}
 
 		&.expanded {
@@ -223,6 +215,6 @@
 		align-items: center;
 		justify-content: center;
 		margin-left: 2px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

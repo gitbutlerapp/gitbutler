@@ -444,7 +444,7 @@
 <style>
 	.ai-settings__about-text {
 		margin-bottom: 12px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.prompt-groups {
@@ -460,8 +460,8 @@
 		padding: 6px 10px;
 		gap: 8px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-2);
+		background-color: var(--bg-2);
+		color: var(--text-2);
 	}
 
 	.ai-settings__section-text-block {

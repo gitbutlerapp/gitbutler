@@ -391,10 +391,10 @@
 		max-height: calc(100vh - 16px); /* 8px margin top and bottom */
 		overflow: hidden;
 		overflow-y: auto;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
 		outline: none;
-		background: var(--clr-bg-2);
+		background: var(--bg-2);
 		box-shadow: var(--fx-shadow-l);
 		animation: fadeIn 0.08s ease-out forwards;
 		pointer-events: none;

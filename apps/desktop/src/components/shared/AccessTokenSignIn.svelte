@@ -80,7 +80,7 @@
 		width: 110px;
 		height: 100px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-art-scene-bg);
+		background-color: var(--art-scene-bg);
 	}
 
 	.token-content {

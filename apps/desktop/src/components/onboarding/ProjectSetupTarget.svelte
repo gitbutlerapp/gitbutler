@@ -247,7 +247,7 @@
 
 	.project-setup__field-caption {
 		width: 90%;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.action-buttons {
@@ -263,12 +263,12 @@
 		padding: 14px 16px;
 		gap: 8px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-muted);
+		background-color: var(--bg-mute);
 		cursor: pointer;
 
 		&:hover {
 			& .project-setup__fold-icon {
-				color: var(--clr-text-2);
+				color: var(--text-2);
 			}
 		}
 	}
@@ -290,7 +290,7 @@
 		display: flex;
 		align-self: flex-start;
 		padding-top: 2px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		transition:
 			transform var(--transition-medium),
 			color var(--transition-fast);

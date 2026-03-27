@@ -297,27 +297,27 @@
 		padding: 0;
 		border: none;
 		background: none;
-		color: var(--clr-link);
+		color: var(--text-pop);
 		font: inherit;
 		cursor: pointer;
 
 		&:hover {
-			color: var(--clr-link-hover);
+			color: var(--text-pop);
 		}
 	}
 
 	.radio-label {
 		/* variables */
-		--btn-bg: var(--clr-btn-gray-outline-bg);
+		--btn-bg: var(--btn-gray-outline-bg);
 		--btn-bg-opacity: 0%;
-		--btn-border-clr: var(--clr-btn-gray-outline);
-		--btn-border-opacity: var(--opacity-mix-btn-outline-border);
+		--btn-border-clr: var(--btn-gray-outline);
+		--btn-border-opacity: var(--btn-opacity-outline-border);
 		--content-opacity: 1;
 		/* illustration */
-		--image-outline: var(--clr-border-2);
-		--image-text: var(--clr-text-3);
-		--image-accent-outline: var(--clr-text-3);
-		--image-accent-bg: var(--clr-bg-2);
+		--image-outline: var(--border-2);
+		--image-text: var(--text-3);
+		--image-accent-outline: var(--text-3);
+		--image-accent-bg: var(--bg-2);
 		/*  */
 		display: flex;
 		position: relative;
@@ -347,13 +347,13 @@
 		}
 
 		&.disabled {
-			--btn-bg: var(--clr-btn-gray-outline-bg);
+			--btn-bg: var(--btn-gray-outline-bg);
 			--btn-bg-opacity: 10%;
-			--btn-border-clr: var(--clr-btn-gray-outline);
+			--btn-border-clr: var(--btn-gray-outline);
 			--btn-border-opacity: 10%;
-			--image-outline: var(--clr-border-1);
-			--image-accent-outline: var(--clr-text-3);
-			--image-accent-bg: var(--clr-bg-2);
+			--image-outline: var(--border-1);
+			--image-accent-outline: var(--text-3);
+			--image-accent-bg: var(--bg-2);
 			--content-opacity: 0.5;
 			cursor: not-allowed;
 		}
@@ -400,14 +400,14 @@
 
 	/* MODIFIERS */
 	.radio-selected {
-		--btn-bg: var(--clr-theme-pop-bg);
+		--btn-bg: var(--bg-pop);
 		--btn-bg-opacity: 100%;
-		--btn-border-clr: var(--clr-btn-pop-outline);
+		--btn-border-clr: var(--btn-pop-outline);
 		--btn-border-opacity: 60%;
 		/* illustration */
-		--image-outline: var(--clr-border-1);
-		--image-accent-outline: var(--clr-theme-pop-element);
-		--image-accent-bg: var(--clr-theme-pop-bg);
+		--image-outline: var(--border-1);
+		--image-accent-outline: var(--fill-pop-bg);
+		--image-accent-bg: var(--bg-pop);
 	}
 
 	/* FOOTER */
@@ -417,7 +417,7 @@
 		justify-content: space-between;
 		width: 100%;
 		gap: 16px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.footer__controls {
