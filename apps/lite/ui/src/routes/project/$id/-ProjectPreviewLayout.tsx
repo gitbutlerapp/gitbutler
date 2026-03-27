@@ -3,7 +3,7 @@ import { Match } from "effect";
 import { FC, ReactNode, use, useEffect, useEffectEvent, useState } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import useLocalStorageState from "use-local-storage-state";
-import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/workspace/-ShortcutsBar.tsx";
+import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/-ShortcutsBar.tsx";
 import uiStyles from "#ui/ui.module.css";
 import { usePreviewVisible } from "#ui/hooks/usePreviewVisible.ts";
 import { getShortcutAction, globalShortcutBindings, shortcutKeys } from "#ui/shortcuts.ts";

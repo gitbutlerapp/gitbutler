@@ -30,7 +30,7 @@ import {
 	ShowCommitWithQuery,
 	isTypingTarget,
 } from "#ui/routes/project/$id/-shared.tsx";
-import { PositionedShortcutsBar } from "#ui/routes/project/$id/workspace/-ShortcutsBar.tsx";
+import { PositionedShortcutsBar } from "#ui/routes/project/$id/-ShortcutsBar.tsx";
 import sharedStyles from "../-shared.module.css";
 import { getDefaultSelection, normalizeBranchSelection, Selection } from "./-Selection.ts";
 

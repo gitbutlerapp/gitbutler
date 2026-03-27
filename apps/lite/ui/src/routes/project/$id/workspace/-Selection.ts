@@ -14,7 +14,7 @@ import {
 	CommitItem,
 } from "./-Item.ts";
 import { type EditingCommit } from "./-EditingCommit.ts";
-import { ShortcutsBarMode } from "./-ShortcutsBar.tsx";
+import { ShortcutsBarMode } from "../-ShortcutsBar.tsx";
 
 const hasAssignmentsForPath = ({
 	assignments,
