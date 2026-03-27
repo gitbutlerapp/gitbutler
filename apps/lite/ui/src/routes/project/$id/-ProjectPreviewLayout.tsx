@@ -1,10 +1,11 @@
 import { Dialog } from "@base-ui/react";
 import { Match } from "effect";
-import { FC, ReactNode, useEffect, useEffectEvent } from "react";
+import { FC, ReactNode, use, useEffect, useEffectEvent, useState } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import useLocalStorageState from "use-local-storage-state";
 import uiStyles from "#ui/ui.module.css";
 import { usePreviewVisible } from "#ui/hooks/usePreviewVisible.ts";
+import { ShortcutBarPortalContext } from "#ui/routes/-ShortcutBarContext.tsx";
 import { getShortcutAction, globalShortcutBindings, shortcutKeys } from "#ui/shortcuts.ts";
 import { isTypingTarget } from "./-shared.tsx";
 import sharedStyles from "./-shared.module.css";
@@ -19,6 +20,9 @@ export const ProjectPreviewLayout: FC<{
 		`project:${projectId}:showPreviewFullscreen`,
 		{ defaultValue: false },
 	);
+	const inheritedShortcutBarPortalNode = use(ShortcutBarPortalContext);
+	const [dialogShortcutBarPortalNode, setDialogShortcutBarPortalNode] =
+		useState<HTMLElement | null>(null);
 	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
 		id: `project:${projectId}:layout`,
 		panelIds: showPreviewPanel ? ["primary", "preview"] : ["primary"],
@@ -50,7 +54,13 @@ export const ProjectPreviewLayout: FC<{
 	}, []);
 
 	return (
-		<>
+		<ShortcutBarPortalContext
+			value={
+				showPreviewFullscreen
+					? (dialogShortcutBarPortalNode ?? inheritedShortcutBarPortalNode)
+					: inheritedShortcutBarPortalNode
+			}
+		>
 			<Group
 				className={sharedStyles.pageWithPreview}
 				defaultLayout={defaultLayout}
@@ -82,13 +92,19 @@ export const ProjectPreviewLayout: FC<{
 			<Dialog.Root open={showPreviewFullscreen} onOpenChange={setShowPreviewFullscreen}>
 				<Dialog.Portal>
 					<Dialog.Popup aria-label="Preview" className={sharedStyles.previewDialogPopup}>
-						<Dialog.Close className={uiStyles.button}>
-							Close fullscreen ({shortcutKeys.toggleFullscreenPreview}/esc)
-						</Dialog.Close>
-						{preview}
+						<div className={sharedStyles.previewDialogBody}>
+							<Dialog.Close className={uiStyles.button}>
+								Close fullscreen ({shortcutKeys.toggleFullscreenPreview}/esc)
+							</Dialog.Close>
+							{preview}
+						</div>
+						<footer
+							className={sharedStyles.previewDialogShortcutBar}
+							ref={setDialogShortcutBarPortalNode}
+						/>
 					</Dialog.Popup>
 				</Dialog.Portal>
 			</Dialog.Root>
-		</>
+		</ShortcutBarPortalContext>
 	);
 };

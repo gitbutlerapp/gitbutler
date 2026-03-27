@@ -20,11 +20,27 @@
 }
 
 .previewDialogPopup {
+	display: flex;
 	position: fixed;
+	flex-direction: column;
 	inset: 0;
+	overflow: hidden;
+	background-color: white;
+}
+
+.previewDialogBody {
+	flex: 1;
 	padding: var(--pane-padding);
 	overflow: auto;
-	background-color: white;
+}
+
+.previewDialogShortcutBar {
+	padding: 4px var(--pane-padding);
+	border-top: 1px solid;
+
+	&:empty {
+		display: none;
+	}
 }
 
 .previewResizeHandle {
