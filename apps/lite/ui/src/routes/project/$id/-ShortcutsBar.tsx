@@ -1,11 +1,19 @@
-import { formatShortcutKeys, globalShortcutBindings, type ShortcutBinding } from "#ui/shortcuts.ts";
+import {
+	formatShortcutKeys,
+	globalShortcutBindings,
+	ShortcutActionBase,
+	type ShortcutBinding,
+} from "#ui/shortcuts.ts";
 import { createContext, type FC, use } from "react";
 import { createPortal } from "react-dom";
 import styles from "./-ShortcutsBar.module.css";
 
 export const ShortcutsBarPortalContext = createContext<HTMLElement | null>(null);
 
-type ShortcutsBarItem = Pick<ShortcutBinding<unknown, unknown>, "id" | "description" | "keys">;
+type ShortcutsBarItem = Pick<
+	ShortcutBinding<ShortcutActionBase, unknown>,
+	"id" | "description" | "keys"
+>;
 
 export type ShortcutsBarMode = { label: string | null; items: Array<ShortcutsBarItem> };
 

@@ -9,7 +9,7 @@ import { classes } from "#ui/classes.ts";
 import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/-ShortcutsBar.tsx";
 import uiStyles from "#ui/ui.module.css";
 import styles from "./__root.module.css";
-import { shortcutKeys } from "#ui/shortcuts.ts";
+import { globalShortcutBindings, bindingLabelSuffix } from "#ui/shortcuts.ts";
 
 export const lastOpenedProjectKey = "lastProject";
 
@@ -103,7 +103,7 @@ const ProjectPreviewActions: FC<{
 					setPreviewVisible((visible) => !visible);
 				}}
 			>
-				Toggle preview ({shortcutKeys.togglePreview})
+				{bindingLabelSuffix("Toggle preview", globalShortcutBindings, "TogglePreview")}
 			</button>
 			<button
 				type="button"
@@ -112,7 +112,7 @@ const ProjectPreviewActions: FC<{
 					setShowPreviewFullscreen(true);
 				}}
 			>
-				Open fullscreen ({shortcutKeys.toggleFullscreenPreview})
+				{bindingLabelSuffix("Open fullscreen", globalShortcutBindings, "ToggleFullscreenPreview")}
 			</button>
 		</div>
 	);

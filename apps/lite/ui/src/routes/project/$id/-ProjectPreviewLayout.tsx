@@ -6,7 +6,7 @@ import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/-ShortcutsBar.
 import uiStyles from "#ui/ui.module.css";
 import { usePreviewFullscreen } from "#ui/hooks/usePreviewFullscreen.ts";
 import { usePreviewVisible } from "#ui/hooks/usePreviewVisible.ts";
-import { getShortcutAction, globalShortcutBindings, shortcutKeys } from "#ui/shortcuts.ts";
+import { getShortcutAction, globalShortcutBindings, bindingLabelSuffix } from "#ui/shortcuts.ts";
 import { isTypingTarget } from "./-shared.tsx";
 import sharedStyles from "./-shared.module.css";
 
@@ -85,7 +85,14 @@ export const ProjectPreviewLayout: FC<{
 					<Dialog.Popup aria-label="Preview" className={sharedStyles.previewDialogPopup}>
 						<div className={sharedStyles.previewDialogBody}>
 							<Dialog.Close className={uiStyles.button}>
-								Close fullscreen ({shortcutKeys.toggleFullscreenPreview}/esc)
+								{bindingLabelSuffix(
+									"Close fullscreen",
+									globalShortcutBindings,
+									"ToggleFullscreenPreview",
+									{
+										extraKeys: ["Escape"],
+									},
+								)}
 							</Dialog.Close>
 							{preview}
 						</div>
