@@ -195,7 +195,7 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
 
     key_binds.register(StaticKeyBind {
         short_description: "jump details up",
-        chord_display: "ctrl+d",
+        chord_display: "ctrl+u",
         key_matcher: press().control().code(KeyCode::Char('u')),
         modes: all_except_text_input_modes.clone(),
         message: Message::Details(DetailsMessage::ScrollUp(jump_distance)),
