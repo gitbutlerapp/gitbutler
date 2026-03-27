@@ -45,8 +45,7 @@ fn main() {
     // `allow-custom-commands` permission in `permissions/default.toml` that
     // covers all commands at once.
     tauri_build::try_build(
-        tauri_build::Attributes::new()
-            .app_manifest(tauri_build::AppManifest::new()),
+        tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new()),
     )
     .expect("failed to run tauri_build");
 }
