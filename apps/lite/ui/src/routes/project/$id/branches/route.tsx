@@ -16,7 +16,7 @@ import {
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import { CheckIcon } from "#ui/components/icons.tsx";
+import { CheckIcon, ArrowDownIcon, ArrowUpIcon, AddCircleIcon } from "#ui/components/icons.tsx";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import {
 	CommitDetails,
@@ -181,7 +181,7 @@ const BranchApplyToggle: FC<{
 	return isApplied ? (
 		<button
 			type="button"
-			className={sharedStyles.itemAction}
+			className={classes(sharedStyles.itemAction, styles.branchApplyButton)}
 			disabled={stackId === undefined}
 			aria-label={`Unapply branch ${branch.name}`}
 			onClick={() => {
@@ -189,12 +189,13 @@ const BranchApplyToggle: FC<{
 				unapplyStack.mutate({ projectId, stackId });
 			}}
 		>
-			<CheckIcon />
+			<CheckIcon className={styles.branchApplyDefaultIcon} />
+			<ArrowUpIcon className={styles.branchApplyHoverIcon} />
 		</button>
 	) : (
 		<button
 			type="button"
-			className={classes(sharedStyles.itemAction, styles.branchApplyButtonInactive)}
+			className={classes(sharedStyles.itemAction, styles.branchApplyButton)}
 			disabled={ref === null}
 			aria-label={`Apply branch ${branch.name}`}
 			onClick={() => {
@@ -205,7 +206,8 @@ const BranchApplyToggle: FC<{
 				});
 			}}
 		>
-			<CheckIcon />
+			<AddCircleIcon className={styles.branchApplyDefaultIcon} />
+			<ArrowDownIcon className={styles.branchApplyHoverIcon} />
 		</button>
 	);
 };
