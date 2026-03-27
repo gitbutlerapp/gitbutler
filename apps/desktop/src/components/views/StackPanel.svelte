@@ -211,7 +211,6 @@
 	.stack-view__inner {
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
 	}
 
 	.assignments-wrap {
