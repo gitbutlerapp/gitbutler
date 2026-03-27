@@ -1,5 +1,9 @@
 use std::ops::{Deref, DerefMut};
 
+/// Transparent wrapper type that adds a blanket `Debug` implementation that uses the type name,
+/// instead of the runtime value.
+///
+/// This is useful when including some non-`Debug` field in a type with `#[derive(Debug)]`.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub(crate) struct DebugAsType<T>(pub(crate) T);
 
