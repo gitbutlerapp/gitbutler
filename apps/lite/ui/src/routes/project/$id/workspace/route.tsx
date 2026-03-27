@@ -606,7 +606,7 @@ const ShowChanges: FC<{
 	);
 };
 
-const PreviewCommit: FC<{
+const ShowCommitOrFile: FC<{
 	projectId: string;
 	commitId: string;
 	stackId: string;
@@ -698,7 +698,7 @@ const Preview: FC<{
 			),
 		),
 		Match.tag("Commit", ({ commitId, stackId, segmentIndex }) => (
-			<PreviewCommit
+			<ShowCommitOrFile
 				projectId={projectId}
 				commitId={commitId}
 				stackId={stackId}
