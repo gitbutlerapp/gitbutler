@@ -1,9 +1,4 @@
-.branchesListLane {
-	flex-shrink: 0;
-	width: 350px;
-}
-
-.branchDetailsLane {
+.branchTreeLane {
 	flex-shrink: 0;
 	width: 350px;
 }
