@@ -2,9 +2,9 @@ import { Dialog } from "@base-ui/react";
 import { Match } from "effect";
 import { FC, ReactNode, use, useEffect, useEffectEvent, useState } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
-import useLocalStorageState from "use-local-storage-state";
 import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/-ShortcutsBar.tsx";
 import uiStyles from "#ui/ui.module.css";
+import { usePreviewFullscreen } from "#ui/hooks/usePreviewFullscreen.ts";
 import { usePreviewVisible } from "#ui/hooks/usePreviewVisible.ts";
 import { getShortcutAction, globalShortcutBindings, shortcutKeys } from "#ui/shortcuts.ts";
 import { isTypingTarget } from "./-shared.tsx";
@@ -16,10 +16,7 @@ export const ProjectPreviewLayout: FC<{
 	preview: ReactNode | null;
 }> = ({ children, projectId, preview }) => {
 	const [showPreviewPanel, setShowPreviewPanel] = usePreviewVisible();
-	const [showPreviewFullscreen, setShowPreviewFullscreen] = useLocalStorageState(
-		`project:${projectId}:showPreviewFullscreen`,
-		{ defaultValue: false },
-	);
+	const [showPreviewFullscreen, setShowPreviewFullscreen] = usePreviewFullscreen(projectId);
 	const inheritedShortcutsBarPortalNode = use(ShortcutsBarPortalContext);
 	const [dialogShortcutsBarPortalNode, setDialogShortcutsBarPortalNode] =
 		useState<HTMLElement | null>(null);
@@ -73,18 +70,7 @@ export const ProjectPreviewLayout: FC<{
 					<>
 						<Separator className={sharedStyles.previewResizeHandle} />
 						<Panel id="preview" minSize={300} defaultSize="30%">
-							<div className={sharedStyles.previewPane}>
-								<button
-									type="button"
-									className={uiStyles.button}
-									onClick={() => {
-										setShowPreviewFullscreen(true);
-									}}
-								>
-									Open fullscreen ({shortcutKeys.toggleFullscreenPreview})
-								</button>
-								{preview}
-							</div>
+							<div className={sharedStyles.previewPane}>{preview}</div>
 						</Panel>
 					</>
 				)}

@@ -17,7 +17,9 @@
 	border-bottom: 1px solid;
 }
 
-.topBarPreviewToggle {
+.topBarPreviewActions {
+	display: flex;
+	column-gap: 8px;
 	margin-left: auto;
 }
 

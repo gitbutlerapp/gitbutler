@@ -3,6 +3,7 @@ import { Link, Outlet, useMatch, useNavigate } from "@tanstack/react-router";
 import { FC, useState } from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext } from "@tanstack/react-router";
+import { usePreviewFullscreen } from "../hooks/usePreviewFullscreen";
 import { usePreviewVisible } from "../hooks/usePreviewVisible";
 import { classes } from "#ui/classes.ts";
 import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/-ShortcutsBar.tsx";
@@ -86,28 +87,47 @@ const SidebarNav: FC = () => {
 	);
 };
 
+const ProjectPreviewActions: FC<{
+	projectId: string;
+}> = ({ projectId }) => {
+	const [previewVisible, setPreviewVisible] = usePreviewVisible();
+	const [, setShowPreviewFullscreen] = usePreviewFullscreen(projectId);
+
+	return (
+		<div className={styles.topBarPreviewActions}>
+			<button
+				type="button"
+				className={classes(uiStyles.button)}
+				aria-pressed={previewVisible}
+				onClick={() => {
+					setPreviewVisible((visible) => !visible);
+				}}
+			>
+				Toggle preview ({shortcutKeys.togglePreview})
+			</button>
+			<button
+				type="button"
+				className={classes(uiStyles.button)}
+				onClick={() => {
+					setShowPreviewFullscreen(true);
+				}}
+			>
+				Open fullscreen ({shortcutKeys.toggleFullscreenPreview})
+			</button>
+		</div>
+	);
+};
+
 const TopBar: FC = () => {
 	const projectMatch = useMatch({
 		from: "/project/$id",
 		shouldThrow: false,
 	});
-	const [previewVisible, setPreviewVisible] = usePreviewVisible();
 
 	return (
 		<header className={styles.topBar}>
 			<ProjectSelect />
-			{projectMatch && (
-				<button
-					type="button"
-					className={classes(styles.topBarPreviewToggle, uiStyles.button)}
-					aria-pressed={previewVisible}
-					onClick={() => {
-						setPreviewVisible((visible) => !visible);
-					}}
-				>
-					Toggle preview ({shortcutKeys.togglePreview})
-				</button>
-			)}
+			{projectMatch && <ProjectPreviewActions projectId={projectMatch.params.id} />}
 		</header>
 	);
 };
