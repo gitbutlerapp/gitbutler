@@ -17,9 +17,10 @@ use tempfile::TempDir;
 
 /// Helper to create a test git repository
 fn create_test_repo() -> Result<(TempDir, gix::Repository)> {
-    let temp_dir = TempDir::new()?;
-    let repo = gix::init(temp_dir.path())?;
-    Ok((temp_dir, repo))
+    let tmp = TempDir::new()?;
+    let repo = gix::init(tmp.path())?;
+    // Re-open in isolated mode, it's a bit hard to pass open-options to `gix::init()`.
+    but_testsupport::open_repo(repo.path()).map(|repo| (tmp, repo))
 }
 
 fn hooks_dir(repo: &gix::Repository) -> std::path::PathBuf {
@@ -414,7 +415,7 @@ fn test_respects_absolute_core_hooks_path() -> Result<()> {
 
     // Configure core.hooksPath
     repo.config_snapshot_mut().set_raw_value(
-        &"core.hooksPath",
+        "core.hooksPath",
         gix::path::into_bstr(&custom_hooks).as_ref(),
     )?;
 
@@ -454,7 +455,7 @@ fn test_respects_relative_core_hooks_path() -> Result<()> {
     let expected_hooks_dir = _temp.path().join(&relative_hooks);
 
     repo.config_snapshot_mut()
-        .set_raw_value(&"core.hooksPath", relative_hooks.as_str())?;
+        .set_raw_value("core.hooksPath", relative_hooks.as_str())?;
 
     install_managed_hooks(&repo)?;
 
@@ -474,11 +475,11 @@ fn test_respects_relative_core_hooks_path() -> Result<()> {
 }
 
 #[test]
-fn test_respects_relative_core_hooks_path_gix() -> Result<()> {
+fn test_uninstall_respects_relative_core_hooks_path() -> Result<()> {
     let (_temp, mut repo) = create_test_repo()?;
 
     let relative_hooks = format!(
-        "custom-hooks-gix-{}",
+        "custom-hooks-uninstall-{}",
         _temp
             .path()
             .file_name()
@@ -488,7 +489,7 @@ fn test_respects_relative_core_hooks_path_gix() -> Result<()> {
     let expected_hooks_dir = _temp.path().join(&relative_hooks);
 
     repo.config_snapshot_mut()
-        .set_raw_value(&"core.hooksPath", relative_hooks.as_str())?;
+        .set_raw_value("core.hooksPath", relative_hooks.as_str())?;
     install_managed_hooks(&repo)?;
 
     assert!(

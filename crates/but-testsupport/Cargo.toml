@@ -61,7 +61,7 @@ but-ctx = { workspace = true, optional = true }
 shell-words = {  workspace = true, optional = true }
 
 # for gitbutler-testtools
-# Goal is to replace these with `but-testsupport' helpers next
+# Goal is to replace these with `but-testsupport` helpers next
 but-fs = { workspace = true, optional = true, features = ["legacy"] }
 but-oxidize = { workspace = true, optional = true }
 but-project-handle = { workspace = true, optional = true }

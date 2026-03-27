@@ -92,6 +92,6 @@ fn no_author_configured() -> anyhow::Result<()> {
 
 fn set_author(repo: &mut gix::Repository, name: &str) -> anyhow::Result<()> {
     let mut config = repo.config_snapshot_mut();
-    config.set_raw_value(&"author.name", name)?;
+    config.set_raw_value("author.name", name)?;
     Ok(())
 }

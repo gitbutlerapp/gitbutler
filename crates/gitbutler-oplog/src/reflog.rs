@@ -163,9 +163,9 @@ fn serialize_line(line: gix::refs::file::log::LineRef<'_>) -> String {
 
 #[cfg(test)]
 mod set_target_ref {
-    use std::{path::Path, process::Command, str::FromStr};
+    use std::str::FromStr;
 
-    use anyhow::{Context as _, bail};
+    use but_testsupport::{CommandExt, git_at_dir};
     use gix::refs::file::log::LineRef;
     use pretty_assertions::assert_eq;
     use tempfile::tempdir;
@@ -394,42 +394,17 @@ mod set_target_ref {
     fn setup_repo() -> anyhow::Result<(tempfile::TempDir, gix::ObjectId)> {
         let dir = tempdir()?;
         let file_path = dir.path().join("foo.txt");
-        git(dir.path(), &["init"])?;
-        git(dir.path(), &["config", "user.name", "Your name"])?;
-        git(
-            dir.path(),
-            &["config", "user.email", "your.email@example.com"],
-        )?;
-        git(dir.path(), &["config", "commit.gpgsign", "false"])?;
+        git_at_dir(dir.path()).args(["init"]).run();
+        git_at_dir(dir.path())
+            .args(["config", "commit.gpgsign", "false"])
+            .run();
         std::fs::write(file_path, "test")?;
-        git(dir.path(), &["add", "foo.txt"])?;
-        git(dir.path(), &["commit", "-m", "initial commit"])?;
+        git_at_dir(dir.path()).args(["add", "foo.txt"]).run();
+        git_at_dir(dir.path())
+            .args(["commit", "-m", "initial commit"])
+            .run();
         let repo = gix::open(dir.path())?;
         let commit_id = repo.head_id()?.detach();
         Ok((dir, commit_id))
-    }
-
-    fn git(worktree_dir: &Path, args: &[&str]) -> anyhow::Result<()> {
-        let status = Command::new("git")
-            .arg("-C")
-            .arg(worktree_dir)
-            .args(args)
-            .status()
-            .with_context(|| {
-                format!(
-                    "failed to run git -C {} {}",
-                    worktree_dir.display(),
-                    args.join(" ")
-                )
-            })?;
-        if status.success() {
-            Ok(())
-        } else {
-            bail!(
-                "git -C {} {} failed with status {status}",
-                worktree_dir.display(),
-                args.join(" ")
-            );
-        }
     }
 }

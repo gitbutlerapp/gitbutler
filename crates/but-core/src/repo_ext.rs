@@ -210,7 +210,9 @@ impl RepositoryExt for gix::Repository {
                 .create(false)
                 .open(local_config_path)?,
         );
-        local_config.write_to(&mut config_file)?;
+        local_config.write_to_filter(&mut config_file, |section| {
+            section.meta().source.kind() == gix::config::source::Kind::Repository
+        })?;
         config_file.flush()?;
         Ok(())
     }

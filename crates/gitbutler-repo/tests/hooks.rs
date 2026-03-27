@@ -112,7 +112,7 @@ fn pre_push_ignores_husky_core_hooks_path_when_disabled() -> anyhow::Result<()> 
     fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755))?;
 
     repo.config_snapshot_mut()
-        .set_raw_value(&"core.hooksPath", gix::path::into_bstr(&hooks_dir).as_ref())?;
+        .set_raw_value("core.hooksPath", gix::path::into_bstr(&hooks_dir).as_ref())?;
 
     let result = pre_push(
         &repo,
@@ -161,7 +161,7 @@ fn pre_push_resolves_relative_core_hooks_path_against_workdir() -> anyhow::Resul
     fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755))?;
 
     repo.config_snapshot_mut()
-        .set_raw_value(&"core.hooksPath", relative_hooks.as_str())?;
+        .set_raw_value("core.hooksPath", relative_hooks.as_str())?;
 
     let result = pre_push(
         &repo,

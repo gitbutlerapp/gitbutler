@@ -1,11 +1,8 @@
-use std::{
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::path::{Path, PathBuf};
 
-use anyhow::{Context as _, Result, bail};
+use anyhow::Result;
 use but_core::RepositoryExt;
-use but_testsupport::legacy::paths;
+use but_testsupport::{CommandExt, git_at_dir, legacy::paths};
 use tempfile::TempDir;
 
 pub fn new() -> TempDir {
@@ -27,16 +24,16 @@ fn repo_git_dir(path: &Path) -> Result<PathBuf> {
     Ok(repo.git_dir().canonicalize()?)
 }
 
-fn git(args: &[&str]) -> Result<()> {
-    let status = Command::new(gix::path::env::exe_invocation())
-        .args(args)
-        .status()
-        .with_context(|| format!("failed to run git {}", args.join(" ")))?;
-    if status.success() {
-        Ok(())
-    } else {
-        bail!("git {} failed with status {status}", args.join(" "));
-    }
+fn set_storage_path_config(
+    repo_path: &Path,
+    value: impl AsRef<std::ffi::OsStr>,
+) -> anyhow::Result<gix::Repository> {
+    let mut repo = but_testsupport::open_repo(repo_path)?;
+    let key = but_project_handle::storage_path_config_key();
+    repo.config_snapshot_mut()
+        .set_raw_value(key, gix::path::os_str_into_bstr(value.as_ref())?)?;
+    repo.write_local_common_config(&repo.config_snapshot())?;
+    Ok(repo)
 }
 
 mod add {
@@ -61,10 +58,14 @@ mod add {
     fn creates_configured_storage_dir() -> anyhow::Result<()> {
         let data_dir = paths::data_dir();
         let repo = but_testsupport::legacy::TestProject::default();
+        let configured_repo = set_storage_path_config(repo.path(), "gitbutler-custom")?;
+        let expected_gb_dir = configured_repo.git_dir().join("gitbutler-custom");
 
+        assert!(!expected_gb_dir.exists());
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())?.unwrap_project();
         let gb_dir = project.open_isolated_repo()?.gitbutler_storage_path()?;
+        assert_eq!(gb_dir, expected_gb_dir);
         assert!(gb_dir.exists());
         Ok(())
     }
@@ -73,10 +74,13 @@ mod add {
     fn get_recreates_configured_storage_dir() -> anyhow::Result<()> {
         let data_dir = paths::data_dir();
         let repo = but_testsupport::legacy::TestProject::default();
+        let configured_repo = set_storage_path_config(repo.path(), "gitbutler-custom")?;
+        let expected_gb_dir = configured_repo.git_dir().join("gitbutler-custom");
 
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())?.unwrap_project();
         let gb_dir = project.open_isolated_repo()?.gitbutler_storage_path()?;
+        assert_eq!(gb_dir, expected_gb_dir);
         std::fs::remove_dir_all(&gb_dir)?;
         assert!(!gb_dir.exists(), "sanity check");
 
@@ -277,7 +281,10 @@ mod add {
             let tmp = tempfile::tempdir().unwrap();
             let repo_dir = tmp.path().join("bare");
 
-            git(&["init", "--bare", repo_dir.to_str().unwrap()]).unwrap();
+            git_at_dir(tmp.path())
+                .args(["init", "--bare"])
+                .arg(&repo_dir)
+                .run();
 
             let outcome =
                 gitbutler_project::add_at_app_data_dir(data_dir.path(), repo_dir.as_path())
@@ -292,15 +299,19 @@ mod add {
             let main_worktree_dir = tmp.path().join("main");
             let worktree_dir = tmp.path().join("worktree");
 
-            let cwd = main_worktree_dir.to_str().unwrap();
-            git(&["init", cwd]).unwrap();
-            git(&["-C", cwd, "config", "user.name", "test"]).unwrap();
-            git(&["-C", cwd, "config", "user.email", "test@email.com"]).unwrap();
-            git(&["-C", cwd, "commit", "--allow-empty", "-m", "initial commit"]).unwrap();
-            let worktree_dir = worktree_dir.to_str().unwrap();
-            git(&["-C", cwd, "worktree", "add", "-b", "feature", worktree_dir]).unwrap();
+            git_at_dir(tmp.path())
+                .args(["init"])
+                .arg(&main_worktree_dir)
+                .run();
+            git_at_dir(&main_worktree_dir)
+                .args(["commit", "--allow-empty", "-m", "initial commit"])
+                .run();
+            git_at_dir(&main_worktree_dir)
+                .args(["worktree", "add", "-b", "feature"])
+                .arg(&worktree_dir)
+                .run();
             let outcome =
-                gitbutler_project::add_at_app_data_dir(data_dir.path(), worktree_dir).unwrap();
+                gitbutler_project::add_at_app_data_dir(data_dir.path(), &worktree_dir).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::NonMainWorktree));
         }
     }
@@ -474,6 +485,11 @@ mod delete {
         let data_dir = paths::data_dir();
         let repo = but_testsupport::legacy::TestProject::default();
         let git_dir = repo_git_dir(repo.path())?;
+        let repo_after_config = set_storage_path_config(repo.path(), ".")?;
+        assert!(
+            repo_after_config.gitbutler_storage_path().is_err(),
+            "sanity check: '.' must be rejected as storage path"
+        );
         let path = repo.path();
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();

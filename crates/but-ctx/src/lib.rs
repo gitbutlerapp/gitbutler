@@ -1053,8 +1053,8 @@ impl Context {
     ///
     /// This is needed as parts of the code depend on the error carrying this context code
     /// to indicate ownership issues, related to `safe.directories` or the lack thereof.
-    /// `gix::Repository` doesn't have that problem as it avoids functions differently,
-    /// by opening the repository but by not trusting its configuration in particular when
+    /// `gix::Repository` doesn't have that problem as it functions differently,
+    /// not by refusing to open the repository but by not trusting its configuration in particular when
     /// programs are involved.
     pub fn eagerly_populate_git2_repo_cache(&mut self) -> anyhow::Result<()> {
         {
