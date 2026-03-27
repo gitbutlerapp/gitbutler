@@ -52,6 +52,10 @@
 	}
 }
 
+.selectedContainer {
+	background-color: #f5f5f5;
+}
+
 .itemAction {
 	display: grid;
 	visibility: hidden;

@@ -1283,7 +1283,7 @@ const Changes: FC<{
 	return (
 		<ChangesTarget
 			stackId={stackId}
-			className={classes(className, changesSelection && styles.selectedContainer)}
+			className={classes(className, changesSelection && sharedStyles.selectedContainer)}
 		>
 			<div
 				className={classes(sharedStyles.item, changesSelection ? sharedStyles.selected : undefined)}
@@ -1598,7 +1598,7 @@ const SegmentC: FC<{
 	const refName = segment.refName;
 
 	return (
-		<div className={classes(isSelected && styles.selectedContainer)}>
+		<div className={classes(isSelected && sharedStyles.selectedContainer)}>
 			{refName != null ? (
 				<BranchTarget
 					anchorRef={refName.fullNameBytes}

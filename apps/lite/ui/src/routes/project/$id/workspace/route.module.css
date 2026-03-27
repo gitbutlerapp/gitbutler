@@ -170,7 +170,3 @@
 .dragging {
 	opacity: 0.4;
 }
-
-.selectedContainer {
-	background-color: #f5f5f5;
-}
