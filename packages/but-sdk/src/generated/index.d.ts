@@ -73,16 +73,59 @@ export declare function commitReword(projectId: string, commitId: string, messag
  */
 export declare function commitUncommitChanges(projectId: string, commitId: string, changes: Array<DiffSpec>, assignTo: string | null): Promise<UIMoveChangesResult>
 
+/**
+ * Get the forge provider name.
+ *
+ * This is determined by the forge the base branch is pointing to.
+ */
+export declare function forgeProvider(projectId: string): Promise<ForgeName | null>
+
+export declare function getReview(projectId: string, reviewId: number): Promise<ForgeReview>
+
 export declare function headInfo(projectId: string): Promise<RefInfo>
+
+/** Get the list of review template paths for the given project. */
+export declare function listAvailableReviewTemplates(projectId: string): Promise<Array<string>>
 
 export declare function listBranches(projectId: string, filter: BranchListingFilter | null): Promise<Array<BranchListing>>
 
+export declare function listCiChecksAndUpdateCache(projectId: string, reference: string, cacheConfig: CacheConfig | null): Promise<Array<CiCheck>>
+
 export declare function listProjectsStateless(): Promise<Array<ProjectForFrontend>>
+
+export declare function listReviews(projectId: string, cacheConfig: CacheConfig | null): Promise<Array<ForgeReview>>
+
+export declare function listReviewsForBranch(projectId: string, branch: string, filter: ForgeReviewFilter | null): Promise<Array<ForgeReview>>
+
+/** Merge a review on the forge. */
+export declare function mergeReview(projectId: string, reviewId: number): Promise<void>
 
 /** Move a branch on top of another */
 export declare function moveBranch(projectId: string, subjectBranch: string, targetBranch: string): Promise<UIMoveBranchResult>
 
+export declare function publishReview(projectId: string, params: CreateForgeReviewParams): Promise<ForgeReview>
+
 export declare function pushStackLegacy(projectId: string, stackId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean): Promise<PushResult>
+
+/**
+ * Get the review template content for the given project and relative path.
+ *
+ * This function determines the forge of a project and retrieves the review template
+ * from the git config.
+ */
+export declare function reviewTemplate(projectId: string): Promise<ReviewTemplateInfo | null>
+
+/** Enable or disable a review's auto-merge. */
+export declare function setReviewAutoMerge(projectId: string, reviewId: number, enable: boolean): Promise<void>
+
+/** Set a review to draft or ready-for-review */
+export declare function setReviewDraftiness(projectId: string, reviewId: number, draft: boolean): Promise<void>
+
+/**
+ * Set the review template path in the git configuration for the given project.
+ * The template path will be validated.
+ */
+export declare function setReviewTemplate(projectId: string, templatePath: string | null): Promise<void>
 
 /**
  * Take a branch out of a stack
@@ -98,6 +141,18 @@ export declare function tearOffBranch(projectId: string, subjectBranch: string):
 export declare function treeChangeDiffs(projectId: string, change: TreeChange): Promise<UnifiedPatch | null>
 
 export declare function unapplyStack(projectId: string, stackId: string): Promise<void>
+
+/** Update the stacked review descriptions to have the correct footers. */
+export declare function updateReviewFooters(projectId: string, reviews: Array<ForgeReviewDescriptionUpdate>): Promise<void>
+
+/**
+ * Warm up the CI checks cache for all applied branches with PRs.
+ * This function fetches CI check data from the forge and caches it in the database
+ * without returning any data. It only processes branches that have associated pull requests.
+ * Additionally, it cleans up stale CI check entries for references that are no longer
+ * part of any applied stack.
+ */
+export declare function warmCiChecksCache(projectId: string): Promise<void>
 export declare class WatcherHandle {
   /** Stop the underlying watcher if it is still active. */
   stop(): boolean
@@ -294,6 +349,12 @@ export type BranchReference = {
   displayName: string;
 };
 
+export type CacheConfig = "cacheOnly" | "noCache" | {
+  cacheWithFallback: {
+    max_age_seconds: number;
+  };
+};
+
 /** An error that can say what went wrong when computing the hunk ranges for a commit in a stack at a given path. */
 export type CalculationError = {
   errorMessage: string;
@@ -305,6 +366,36 @@ export type CalculationError = {
 export type ChangeState = {
   id: string;
   kind: EntryKind;
+};
+
+export type CiCheck = {
+  id: number;
+  name: string;
+  output: CiOutput;
+  startedAt?: string | null;
+  status: CiStatus;
+  headSha: string;
+  url: string;
+  htmlUrl: string;
+  detailsUrl: string;
+  pullRequests: Array<PullRequestMinimal>;
+  reference: string;
+  lastSyncAt: string;
+};
+
+export type CiConclusion = "actionRequired" | "cancelled" | "failure" | "neutral" | "skipped" | "success" | "timedOut" | "unknown";
+
+export type CiOutput = {
+  summary: string;
+  text: string;
+  title: string;
+};
+
+export type CiStatus = "inProgress" | "queued" | "unknown" | {
+  complete: {
+    conclusion: CiConclusion;
+    completed_at?: string | null;
+  };
 };
 
 /** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch. */
@@ -371,6 +462,14 @@ export type ConflictEntries = {
   theirEntries: Array<string>;
 };
 
+export type CreateForgeReviewParams = {
+  title: string;
+  body: string;
+  sourceBranch: string;
+  targetBranch: string;
+  draft: boolean;
+};
+
 /** A hunk as used in a [UnifiedPatch], which also contains all added and removed lines. */
 export type DiffHunk = {
   /** The 1-based line number at which the previous version of the file started. */
@@ -430,6 +529,108 @@ export type EditModeMetadata = {
 };
 
 export type EntryKind = "Tree" | "Blob" | "BlobExecutable" | "Link" | "Commit";
+
+/** Supported git forge types */
+export type ForgeName = "github" | "gitlab" | "bitbucket" | "azure";
+
+/**
+ * Represents a review (pull request/merge request) from a forge platform (GitHub, GitLab, etc.).
+ *
+ * Contains metadata and state information about a code review, including its location,
+ * participants, labels, and timestamps for various lifecycle events.
+ */
+export type ForgeReview = {
+  /** The URL to view this review in a web browser */
+  htmlUrl: string;
+  /**
+   * The unique identifier number for this review within its repository.
+   * This can be a PR or MR number.
+   */
+  number: number;
+  /** The title/summary of the review */
+  title: string;
+  /** The detailed description or body text of the review, if provided. */
+  body?: string | null;
+  /** The user who created this review. */
+  author?: ForgeReviewUser | null;
+  /** Labels or tags applied to categorize this review. */
+  labels: Array<ForgeReviewLabel>;
+  /** Whether this review is in draft state (not ready for final review). */
+  draft: boolean;
+  /**
+   * The name of the branch containing the proposed changes.
+   * This is the short name of the branch (e.g., "feature-branch")
+   */
+  sourceBranch: string;
+  /**
+   * The name of the branch that will receive the changes when merged.
+   * This is the short name of the branch (e.g., "main" or "develop")
+   */
+  targetBranch: string;
+  /** The git commit SHA that this review is based on. */
+  sha: string;
+  /** ISO 8601 timestamp of when the review was created. */
+  createdAt?: string | null;
+  /** ISO 8601 timestamp of when the review was last modified. */
+  modifiedAt?: string | null;
+  /** ISO 8601 timestamp of when the review was merged, if applicable. */
+  mergedAt?: string | null;
+  /** ISO 8601 timestamp of when the review was closed, if applicable. */
+  closedAt?: string | null;
+  /** SSH URL for cloning the repository containing this review. */
+  repositorySshUrl?: string | null;
+  /** HTTPS URL for cloning the repository containing this review. */
+  repositoryHttpsUrl?: string | null;
+  /**
+   * The owner (user or organization) of the repository from which the branch originates.
+   * In the case of a fork, this will be the fork owner's username.
+   */
+  repoOwner?: string | null;
+  /** Users who have been requested to review or have reviewed this code. */
+  reviewers: Array<ForgeReviewUser>;
+  /** The platform-specific symbol for this review type (e.g., "#" for GitHub pull requests and "!" for MRs). */
+  unitSymbol: string;
+  /** The timestamp when this review was last fetched from the forge. */
+  lastSyncAt: string;
+};
+
+export type ForgeReviewDescriptionUpdate = {
+  /** The unique identifier number for this review within its repository. This can be a PR or MR number. */
+  number: number;
+  /** The current body/description of the review, which may be None if no description is set. */
+  body?: string | null;
+  /** The platform-specific symbol for this review type (e.g., "#" for GitHub pull requests and "!" for MRs). */
+  unitSymbol: string;
+};
+
+export type ForgeReviewFilter = "today" | "thisWeek" | "thisMonth" | "all";
+
+export type ForgeReviewLabel = {
+  name: string;
+  description?: string | null;
+  color?: string | null;
+};
+
+/**
+ * Represents a user from a forge platform (e.g., GitHub, GitLab).
+ *
+ * This structure contains information about a user account on a forge platform,
+ * including their identification details and profile information.
+ */
+export type ForgeReviewUser = {
+  /** The unique numeric identifier for the user on the forge platform */
+  id: number;
+  /** The user's login username */
+  login: string;
+  /** The user's display name, if available */
+  name?: string | null;
+  /** The user's email address, if publicly available */
+  email?: string | null;
+  /** URL to the user's profile avatar image, if available */
+  avatarUrl?: string | null;
+  /** Indicates whether this account is a bot account */
+  isBot: boolean;
+};
 
 export type ForgeUser = {
   provider: "github";
@@ -679,6 +880,16 @@ export type ProjectForFrontend = {
   is_open: boolean;
 };
 
+export type PullRequestMinimal = {
+  id: number;
+  number: number;
+  url: string;
+  baseRef: string;
+  baseRepoUrl?: string | null;
+  headRef: string;
+  headRepoUrl?: string | null;
+};
+
 /** JSON-friendly version of [`gitbutler_branch_actions::internal::PushResult`]. */
 export type PushResult = {
   /** The name of the remote to which the branches were pushed. */
@@ -771,6 +982,14 @@ export type Review = {
   pullRequest?: number | null;
   /** A handle to the review created with the GitButler review system. */
   reviewId?: string | null;
+};
+
+/** Information about the project's review template. */
+export type ReviewTemplateInfo = {
+  /** The relative path to the review template within the repository. */
+  path: string;
+  /** The content of the review template. */
+  content: string;
 };
 
 /** A segment of a commit graph, representing a set of commits exclusively. */

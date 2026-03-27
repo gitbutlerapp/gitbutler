@@ -579,7 +579,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { apply, assignHunk, branchDetails, branchDiff, changesInWorktree, commitAmend, commitCreate, commitDetailsWithLineStats, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitUncommitChanges, headInfo, listBranches, listProjectsStateless, moveBranch, pushStackLegacy, tearOffBranch, treeChangeDiffs, unapplyStack, WatcherHandle, watcherStart } = nativeBinding
+const { apply, assignHunk, branchDetails, branchDiff, changesInWorktree, commitAmend, commitCreate, commitDetailsWithLineStats, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitUncommitChanges, forgeProvider, getReview, headInfo, listAvailableReviewTemplates, listBranches, listCiChecksAndUpdateCache, listProjectsStateless, listReviews, listReviewsForBranch, mergeReview, moveBranch, publishReview, pushStackLegacy, reviewTemplate, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, tearOffBranch, treeChangeDiffs, unapplyStack, updateReviewFooters, warmCiChecksCache, WatcherHandle, watcherStart } = nativeBinding
 export { apply }
 export { assignHunk }
 export { branchDetails }
@@ -593,13 +593,27 @@ export { commitMove }
 export { commitMoveChangesBetween }
 export { commitReword }
 export { commitUncommitChanges }
+export { forgeProvider }
+export { getReview }
 export { headInfo }
+export { listAvailableReviewTemplates }
 export { listBranches }
+export { listCiChecksAndUpdateCache }
 export { listProjectsStateless }
+export { listReviews }
+export { listReviewsForBranch }
+export { mergeReview }
 export { moveBranch }
+export { publishReview }
 export { pushStackLegacy }
+export { reviewTemplate }
+export { setReviewAutoMerge }
+export { setReviewDraftiness }
+export { setReviewTemplate }
 export { tearOffBranch }
 export { treeChangeDiffs }
 export { unapplyStack }
+export { updateReviewFooters }
+export { warmCiChecksCache }
 export { WatcherHandle }
 export { watcherStart }
