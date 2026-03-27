@@ -97,11 +97,11 @@ import {
 	commitDetailsSelectionBindings,
 	type CommitDetailsSelection,
 } from "./-CommitDetailsSelection.ts";
+import { type EditingCommit } from "./-EditingCommit.ts";
 import {
 	changesDetailsItem,
 	changesSummaryItem,
-	commitEditingMessageItem,
-	commitSummaryItem,
+	commitItem,
 	normalizeItem,
 	type Item,
 	segmentItem,
@@ -174,9 +174,11 @@ const DependencyIndicator: FC<
 
 const useSelectionKeyboardShortcuts = ({
 	commitDetailsSelection,
+	editingCommit,
 	selection,
 	select,
 	selectCommitDetails,
+	setEditingCommit,
 	headInfo,
 	worktreeChanges,
 }: {
@@ -184,6 +186,8 @@ const useSelectionKeyboardShortcuts = ({
 	select: (selection: Item | null) => void;
 	commitDetailsSelection: CommitDetailsSelection | null;
 	selectCommitDetails: (selection: CommitDetailsSelection | null) => void;
+	editingCommit: EditingCommit | null;
+	setEditingCommit: (selection: EditingCommit | null) => void;
 	headInfo: RefInfo;
 	worktreeChanges: {
 		changes: Array<TreeChange>;
@@ -201,6 +205,7 @@ const useSelectionKeyboardShortcuts = ({
 		if (event.metaKey || event.ctrlKey || event.altKey) return;
 		if (isTypingTarget(event.target)) return;
 
+		if (editingCommit !== null) return;
 		if (selection?._tag === "Commit" && commitDetailsSelection !== null) return;
 
 		if (!selection) return;
@@ -251,7 +256,7 @@ const useSelectionKeyboardShortcuts = ({
 						Move: ({ offset }) => handleSharedAction({ _tag: "Move", offset }),
 						NextSection: () => handleSharedAction({ _tag: "NextSection" }),
 						PreviousSection: () => handleSharedAction({ _tag: "PreviousSection" }),
-						EditCommitMessage: () => select(commitEditingMessageItem(selection)),
+						EditCommitMessage: () => setEditingCommit(selection),
 						ExpandCommit: () =>
 							selectCommitDetails({
 								stackId: selection.stackId,
@@ -1014,6 +1019,7 @@ const CommitRow: FC<
 		branchName: string | null;
 		branchRef: string | null;
 		commit: Commit;
+		editingCommit: EditingCommit | null;
 		isHighlighted: boolean;
 		projectId: string;
 		segmentIndex: number;
@@ -1021,6 +1027,7 @@ const CommitRow: FC<
 		select: (selection: Item | null) => void;
 		commitDetailsSelection: CommitDetailsSelection | null;
 		selectCommitDetails: (selection: CommitDetailsSelection | null) => void;
+		setEditingCommit: (selection: EditingCommit | null) => void;
 		stackId: string;
 	} & ComponentProps<"div">
 > = ({
@@ -1028,16 +1035,18 @@ const CommitRow: FC<
 	branchRef,
 	commit,
 	commitDetailsSelection,
+	editingCommit,
 	isHighlighted,
 	projectId,
 	segmentIndex,
 	selection,
 	select,
 	selectCommitDetails,
+	setEditingCommit,
 	stackId,
 	...restProps
 }) => {
-	const summaryItem = commitSummaryItem({
+	const summaryItem = commitItem({
 		stackId,
 		segmentIndex,
 		branchName,
@@ -1050,6 +1059,11 @@ const CommitRow: FC<
 		selection.commitId === commit.id
 			? selection
 			: null;
+	const isEditing =
+		editingCommit !== null &&
+		editingCommit.stackId === stackId &&
+		editingCommit.segmentIndex === segmentIndex &&
+		editingCommit.commitId === commit.id;
 	const detailsSelection = getCommitDetailsForCommit({
 		details: commitDetailsSelection,
 		stackId,
@@ -1067,6 +1081,7 @@ const CommitRow: FC<
 	};
 
 	const toggleDetails = () => {
+		setEditingCommit(null);
 		select(summaryItem);
 
 		if (detailsSelection) {
@@ -1086,7 +1101,7 @@ const CommitRow: FC<
 	return (
 		<DraggableCommit
 			{...restProps}
-			canDrag={commitSelection?.mode._tag !== "EditingMessage"}
+			canDrag={!isEditing}
 			commit={commitWithOptimisticMessage}
 			render={
 				<div
@@ -1096,13 +1111,14 @@ const CommitRow: FC<
 						isHighlighted && sharedStyles.highlighted,
 					)}
 				>
-					{commitSelection?.mode._tag === "EditingMessage" ? (
+					{isEditing ? (
 						<InlineCommitMessageEditor
 							projectId={projectId}
 							commitId={commit.id}
 							message={optimisticMessage}
 							setMessageAction={setOptimisticMessage}
 							onExit={() => {
+								setEditingCommit(null);
 								select(summaryItem);
 							}}
 						/>
@@ -1128,15 +1144,14 @@ const CommitRow: FC<
 										commitId={commit.id}
 										onReword={() => {
 											selectCommitDetails(null);
-											select(
-												commitEditingMessageItem({
-													stackId,
-													segmentIndex,
-													branchName,
-													branchRef,
-													commitId: commit.id,
-												}),
-											);
+											select(summaryItem);
+											setEditingCommit({
+												stackId,
+												segmentIndex,
+												branchName,
+												branchRef,
+												commitId: commit.id,
+											});
 										}}
 										parts={ContextMenu}
 									/>
@@ -1164,15 +1179,14 @@ const CommitRow: FC<
 									commitId={commit.id}
 									onReword={() => {
 										selectCommitDetails(null);
-										select(
-											commitEditingMessageItem({
-												stackId,
-												segmentIndex,
-												branchName,
-												branchRef,
-												commitId: commit.id,
-											}),
-										);
+										select(summaryItem);
+										setEditingCommit({
+											stackId,
+											segmentIndex,
+											branchName,
+											branchRef,
+											commitId: commit.id,
+										});
 									}}
 									parts={Menu}
 								/>
@@ -1189,6 +1203,7 @@ const CommitC: FC<{
 	branchName: string | null;
 	branchRef: string | null;
 	commit: Commit;
+	editingCommit: EditingCommit | null;
 	isHighlighted: boolean;
 	nextCommitId: string | undefined;
 	previousCommitId: string | undefined;
@@ -1198,12 +1213,14 @@ const CommitC: FC<{
 	select: (selection: Item | null) => void;
 	commitDetailsSelection: CommitDetailsSelection | null;
 	selectCommitDetails: (selection: CommitDetailsSelection | null) => void;
+	setEditingCommit: (selection: EditingCommit | null) => void;
 	stackId: string;
 }> = ({
 	branchName,
 	branchRef,
 	commit,
 	commitDetailsSelection,
+	editingCommit,
 	isHighlighted,
 	nextCommitId,
 	previousCommitId,
@@ -1212,6 +1229,7 @@ const CommitC: FC<{
 	selection,
 	select,
 	selectCommitDetails,
+	setEditingCommit,
 	stackId,
 }) => {
 	const detailsSelection = getCommitDetailsForCommit({
@@ -1232,12 +1250,14 @@ const CommitC: FC<{
 				branchRef={branchRef}
 				commit={commit}
 				commitDetailsSelection={commitDetailsSelection}
+				editingCommit={editingCommit}
 				isHighlighted={isHighlighted}
 				projectId={projectId}
 				segmentIndex={segmentIndex}
 				selection={selection}
 				select={select}
 				selectCommitDetails={selectCommitDetails}
+				setEditingCommit={setEditingCommit}
 				stackId={stackId}
 			/>
 			{detailsSelection && (
@@ -1575,9 +1595,12 @@ const SegmentC: FC<{
 	select: (selection: Item | null) => void;
 	commitDetailsSelection: CommitDetailsSelection | null;
 	selectCommitDetails: (selection: CommitDetailsSelection | null) => void;
+	editingCommit: EditingCommit | null;
+	setEditingCommit: (selection: EditingCommit | null) => void;
 	stackId: string;
 }> = ({
 	commitDetailsSelection,
+	editingCommit,
 	highlightedCommitIds,
 	projectId,
 	segment,
@@ -1585,6 +1608,7 @@ const SegmentC: FC<{
 	selection,
 	select,
 	selectCommitDetails,
+	setEditingCommit,
 	stackId,
 }) => {
 	const isSelected =
@@ -1636,6 +1660,7 @@ const SegmentC: FC<{
 						branchRef={segment.refName ? getSegmentBranchRef(segment.refName) : null}
 						commit={commit}
 						commitDetailsSelection={commitDetailsSelection}
+						editingCommit={editingCommit}
 						isHighlighted={highlightedCommitIds.has(commit.id)}
 						nextCommitId={segment.commits[index + 1]?.id}
 						previousCommitId={segment.commits[index - 1]?.id}
@@ -1644,6 +1669,7 @@ const SegmentC: FC<{
 						selection={selection}
 						select={select}
 						selectCommitDetails={selectCommitDetails}
+						setEditingCommit={setEditingCommit}
 						stackId={stackId}
 					/>
 				)}
@@ -1660,15 +1686,19 @@ const StackC: FC<{
 	select: (selection: Item | null) => void;
 	commitDetailsSelection: CommitDetailsSelection | null;
 	selectCommitDetails: (selection: CommitDetailsSelection | null) => void;
+	editingCommit: EditingCommit | null;
+	setEditingCommit: (selection: EditingCommit | null) => void;
 	stack: Stack;
 }> = ({
 	commitDetailsSelection,
+	editingCommit,
 	highlightedCommitIds,
 	onDependencyHover,
 	projectId,
 	selection,
 	select,
 	selectCommitDetails,
+	setEditingCommit,
 	stack,
 }) => {
 	// From Caleb:
@@ -1714,6 +1744,7 @@ const StackC: FC<{
 					<li key={segmentIndex}>
 						<SegmentC
 							commitDetailsSelection={commitDetailsSelection}
+							editingCommit={editingCommit}
 							highlightedCommitIds={highlightedCommitIds}
 							projectId={projectId}
 							segment={segment}
@@ -1721,6 +1752,7 @@ const StackC: FC<{
 							selection={selection}
 							select={select}
 							selectCommitDetails={selectCommitDetails}
+							setEditingCommit={setEditingCommit}
 							stackId={stackId}
 						/>
 					</li>
@@ -1734,6 +1766,7 @@ const ProjectPage: FC = () => {
 	const { id: projectId } = Route.useParams();
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
+	const [editingCommit, setEditingCommit] = useState<EditingCommit | null>(null);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 
@@ -1770,9 +1803,11 @@ const ProjectPage: FC = () => {
 	useMonitorDraggedSourceItem({ projectId });
 	useSelectionKeyboardShortcuts({
 		commitDetailsSelection,
+		editingCommit,
 		selection,
 		select,
 		selectCommitDetails,
+		setEditingCommit,
 		headInfo,
 		worktreeChanges,
 	});
@@ -1815,12 +1850,14 @@ const ProjectPage: FC = () => {
 							<div key={stack.id} className={styles.stackLane}>
 								<StackC
 									commitDetailsSelection={commitDetailsSelection}
+									editingCommit={editingCommit}
 									highlightedCommitIds={highlightedCommitIds}
 									onDependencyHover={highlightCommits}
 									projectId={project.id}
 									selection={selection}
 									select={select}
 									selectCommitDetails={selectCommitDetails}
+									setEditingCommit={setEditingCommit}
 									stack={stack}
 								/>
 							</div>
@@ -1837,7 +1874,9 @@ const ProjectPage: FC = () => {
 				<TearOffBranchTarget className={styles.emptyLane} />
 			</div>
 
-			<PositionedShortcutBar mode={getShortcutBarMode({ selection, commitDetailsSelection })} />
+			<PositionedShortcutBar
+				mode={getShortcutBarMode({ selection, commitDetailsSelection, editingCommit })}
+			/>
 		</ProjectPreviewLayout>
 	);
 };

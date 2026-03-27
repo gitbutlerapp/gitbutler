@@ -7,7 +7,7 @@ import {
 	itemKey,
 	type Item,
 	segmentItem,
-	commitSummaryItem,
+	commitItem,
 	ChangesItem,
 	CommitItem,
 } from "./-Item.ts";
@@ -85,16 +85,16 @@ export const buildNavigationModel = ({
 			items.push(section);
 
 			for (const commit of segment.commits) {
-				const commitItem = commitSummaryItem({
+				const commitItemV = commitItem({
 					stackId: stack.id,
 					segmentIndex,
 					branchName,
 					branchRef,
 					commitId: commit.id,
 				});
-				indexByKey.set(itemKey(commitItem), items.length);
+				indexByKey.set(itemKey(commitItemV), items.length);
 				sectionIndexByItemIndex.push(sectionIndex);
-				items.push(commitItem);
+				items.push(commitItemV);
 			}
 		}
 	}
@@ -195,7 +195,6 @@ export const commitSelectionBindings: Array<ShortcutBinding<CommitSelectionActio
 		keys: ["Enter"],
 		action: { _tag: "EditCommitMessage" },
 		repeat: false,
-		when: (selection) => selection.mode._tag === "Summary",
 	},
 	{
 		id: "commit-expand",
@@ -203,7 +202,6 @@ export const commitSelectionBindings: Array<ShortcutBinding<CommitSelectionActio
 		keys: ["ArrowRight", "l"],
 		action: { _tag: "ExpandCommit" },
 		repeat: false,
-		when: (selection) => selection.mode._tag === "Summary",
 	},
 ];
 

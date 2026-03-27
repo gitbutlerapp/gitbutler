@@ -7,6 +7,7 @@ import {
 	commitDetailsSelectionBindings,
 	type CommitDetailsSelection,
 } from "./-CommitDetailsSelection.ts";
+import { type EditingCommit } from "./-EditingCommit.ts";
 import { type Item } from "./-Item.ts";
 import {
 	changesSelectionBindings,
@@ -23,11 +24,25 @@ type ShortcutBarMode = { label: string | null; items: Array<ShortcutBarItem> };
 export const getShortcutBarMode = ({
 	selection,
 	commitDetailsSelection,
+	editingCommit,
 }: {
 	selection: Item | null;
 	commitDetailsSelection: CommitDetailsSelection | null;
+	editingCommit: EditingCommit | null;
 }): ShortcutBarMode | null => {
 	if (selection === null) return null;
+
+	if (
+		selection._tag === "Commit" &&
+		editingCommit !== null &&
+		editingCommit.stackId === selection.stackId &&
+		editingCommit.segmentIndex === selection.segmentIndex &&
+		editingCommit.commitId === selection.commitId
+	)
+		return {
+			label: "edit message",
+			items: commitEditingMessageBindings,
+		};
 
 	if (selection._tag === "Commit" && commitDetailsSelection !== null)
 		return {
@@ -45,16 +60,10 @@ export const getShortcutBarMode = ({
 		),
 		Match.tag(
 			"Commit",
-			(selection): ShortcutBarMode =>
-				selection.mode._tag === "EditingMessage"
-					? {
-							label: "edit message",
-							items: commitEditingMessageBindings,
-						}
-					: {
-							label: "commit",
-							items: commitSelectionBindings.filter((binding) => binding.when?.(selection) ?? true),
-						},
+			(selection): ShortcutBarMode => ({
+				label: "commit",
+				items: commitSelectionBindings.filter((binding) => binding.when?.(selection) ?? true),
+			}),
 		),
 		Match.tag(
 			"Segment",

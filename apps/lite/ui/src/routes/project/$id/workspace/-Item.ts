@@ -11,8 +11,7 @@ type SegmentItem = {
 	branchRef: string | null;
 };
 
-type CommitMode = { _tag: "Summary" } | { _tag: "EditingMessage" };
-export type CommitItem = SegmentItem & { commitId: string; mode: CommitMode };
+export type CommitItem = SegmentItem & { commitId: string };
 
 export type Item =
 	| ({ _tag: "Changes" } & ChangesItem)
@@ -44,7 +43,7 @@ export const segmentItem = ({
 	branchRef,
 });
 
-export const commitSummaryItem = ({
+export const commitItem = ({
 	stackId,
 	segmentIndex,
 	branchName,
@@ -57,23 +56,6 @@ export const commitSummaryItem = ({
 	branchName,
 	branchRef,
 	commitId,
-	mode: { _tag: "Summary" },
-});
-
-export const commitEditingMessageItem = ({
-	stackId,
-	segmentIndex,
-	branchName,
-	branchRef,
-	commitId,
-}: Omit<CommitItem, "mode">): Item => ({
-	_tag: "Commit",
-	stackId,
-	segmentIndex,
-	branchName,
-	branchRef,
-	commitId,
-	mode: { _tag: "EditingMessage" },
 });
 
 export const getParentSection = (selection: Item): Item | null =>
@@ -95,7 +77,7 @@ export const itemKey = (item: Item): string =>
 		),
 		Match.tag("Segment", (item) => JSON.stringify(["Segment", item.stackId, item.segmentIndex])),
 		Match.tag("Commit", (item) =>
-			JSON.stringify(["Commit", item.stackId, item.segmentIndex, item.commitId, item.mode._tag]),
+			JSON.stringify(["Commit", item.stackId, item.segmentIndex, item.commitId]),
 		),
 		Match.exhaustive,
 	);
