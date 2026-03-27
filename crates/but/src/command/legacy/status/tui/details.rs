@@ -295,8 +295,6 @@ impl Details {
 
         if let Some(diff) = &self.widget {
             diff.render(self.scroll_top, layout[1], frame);
-        } else {
-            frame.render_widget("Unable to load details", layout[1]);
         }
     }
 }
