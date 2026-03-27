@@ -181,7 +181,7 @@ const BranchApplyToggle: FC<{
 	return isApplied ? (
 		<button
 			type="button"
-			className={classes(sharedStyles.itemAction, styles.branchApplyButton)}
+			className={classes(sharedStyles.itemAction, styles.branchApplyToggle)}
 			disabled={stackId === undefined}
 			aria-label={`Unapply branch ${branch.name}`}
 			onClick={() => {
@@ -189,13 +189,13 @@ const BranchApplyToggle: FC<{
 				unapplyStack.mutate({ projectId, stackId });
 			}}
 		>
-			<CheckIcon className={styles.branchApplyDefaultIcon} />
-			<ArrowUpIcon className={styles.branchApplyHoverIcon} />
+			<CheckIcon className={styles.branchApplyToggleDefaultIcon} />
+			<ArrowUpIcon className={styles.branchApplyToggleHoverIcon} />
 		</button>
 	) : (
 		<button
 			type="button"
-			className={classes(sharedStyles.itemAction, styles.branchApplyButton)}
+			className={classes(sharedStyles.itemAction, styles.branchApplyToggle)}
 			disabled={ref === null}
 			aria-label={`Apply branch ${branch.name}`}
 			onClick={() => {
@@ -206,8 +206,8 @@ const BranchApplyToggle: FC<{
 				});
 			}}
 		>
-			<AddCircleIcon className={styles.branchApplyDefaultIcon} />
-			<ArrowDownIcon className={styles.branchApplyHoverIcon} />
+			<AddCircleIcon className={styles.branchApplyToggleDefaultIcon} />
+			<ArrowDownIcon className={styles.branchApplyToggleHoverIcon} />
 		</button>
 	);
 };
