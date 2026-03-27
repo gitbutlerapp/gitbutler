@@ -187,7 +187,11 @@ pub fn remove_branch_only(
     Ok(())
 }
 
-#[but_api]
+/// Remove a branch from a stack.
+///
+/// This can only be called on a branch that's inside of a stack of multiple branches and is not the top branch,
+/// or on a branch that's empty.
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: String) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -196,7 +200,8 @@ pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: String) 
     remove_branch_only(ctx, &branch_name, guard.write_permission())
 }
 
-#[but_api]
+/// Rename a branch
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn update_branch_name(
     ctx: &mut Context,
