@@ -960,7 +960,10 @@ const InlineCommitMessageEditor: FC<{
 				{commitEditingMessageBindings.map((binding, index) => (
 					<Fragment key={binding.id}>
 						{index > 0 && " • "}
-						{formatShortcutKeys(binding.keys)} to {binding.description}
+						<span className={styles.editCommitMessageShortcut}>
+							{formatShortcutKeys(binding.keys)}
+						</span>{" "}
+						to {binding.description}
 					</Fragment>
 				))}
 			</div>
