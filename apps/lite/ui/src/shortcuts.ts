@@ -4,7 +4,6 @@ export type ShortcutActionBase = {
 	_tag: string;
 };
 
-// We'll need something more sophisticated as we scale, but this is a start.
 export type ShortcutBinding<Action extends ShortcutActionBase, Context = void> = {
 	id: string;
 	description: string;
