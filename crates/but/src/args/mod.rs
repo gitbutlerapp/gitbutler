@@ -1149,6 +1149,18 @@ pub enum Subcommands {
         /// Show debug pane with selected-line metadata.
         #[clap(long, default_value_t = false)]
         debug: bool,
+        /// Quit after rendering this many frames.
+        #[clap(long, hide = true)]
+        quit_after: Option<u64>,
+        /// Do not print status when the TUI exits.
+        #[clap(long, hide = true)]
+        skip_status_after: bool,
+        /// Automatically show the diff when opening the TUI.
+        #[clap(long, hide = true)]
+        diff: bool,
+        /// Automatically select this commit when opening the TUI.
+        #[clap(long, hide = true)]
+        select_commit: Option<gix::ObjectId>,
     },
 }
 

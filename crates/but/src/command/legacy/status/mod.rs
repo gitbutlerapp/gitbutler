@@ -88,7 +88,16 @@ impl FilesStatusFlag {
 #[derive(Debug, Copy, Clone)]
 pub enum StatusRenderMode {
     Oneshot,
-    Tui { debug: bool },
+    Tui(TuiLaunchOptions),
+}
+
+#[derive(Debug, Default, Copy, Clone)]
+pub struct TuiLaunchOptions {
+    pub debug: bool,
+    pub quit_after: Option<u64>,
+    pub skip_status_after: bool,
+    pub show_diff: bool,
+    pub select_commit: Option<gix::ObjectId>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -187,7 +196,7 @@ pub(crate) async fn worktree(
             let mut output = StatusOutput::Immediate { out: human_out };
             build_status_output(ctx, &status_ctx, &mut output)?;
         }
-        StatusRenderMode::Tui { debug } => {
+        StatusRenderMode::Tui(options) => {
             if out.for_human().is_none() {
                 return Ok(());
             }
@@ -195,9 +204,11 @@ pub(crate) async fn worktree(
             let mut lines = Vec::new();
             let mut output = StatusOutput::Buffer { lines: &mut lines };
             build_status_output(ctx, &status_ctx, &mut output)?;
-            let final_lines = tui::render_tui(ctx, out, &mode, flags, lines, debug).await?;
+            let final_lines = tui::render_tui(ctx, out, &mode, flags, lines, options).await?;
 
-            if let Some(human_out) = out.for_human() {
+            if !options.skip_status_after
+                && let Some(human_out) = out.for_human()
+            {
                 for line in final_lines {
                     render_oneshot::render_oneshot(line, human_out)?;
                 }
@@ -1629,6 +1640,8 @@ async fn compute_branch_merge_statuses(
 
 #[cfg(test)]
 mod tests {
+    use crate::command::legacy::status::TuiLaunchOptions;
+
     use super::{StatusRenderMode, truncate_when_needed, truncation_policy};
 
     #[test]
@@ -1659,11 +1672,17 @@ mod tests {
     #[test]
     fn truncation_policy_disables_truncation_for_tui() {
         assert!(!truncation_policy(
-            StatusRenderMode::Tui { debug: false },
+            StatusRenderMode::Tui(TuiLaunchOptions {
+                debug: false,
+                ..Default::default()
+            }),
             false,
         ));
         assert!(!truncation_policy(
-            StatusRenderMode::Tui { debug: false },
+            StatusRenderMode::Tui(TuiLaunchOptions {
+                debug: false,
+                ..Default::default()
+            }),
             true,
         ));
     }

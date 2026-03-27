@@ -653,8 +653,14 @@ async fn match_subcommand(
             .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Tui { debug } => {
-            use crate::command::legacy::status::{StatusFlags, StatusRenderMode};
+        Subcommands::Tui {
+            debug,
+            quit_after,
+            skip_status_after,
+            diff,
+            select_commit,
+        } => {
+            use crate::command::legacy::status::{StatusFlags, StatusRenderMode, TuiLaunchOptions};
 
             let mut ctx = setup::init_ctx(
                 &args,
@@ -668,7 +674,13 @@ async fn match_subcommand(
                 &mut ctx,
                 out,
                 StatusFlags::all_false(),
-                StatusRenderMode::Tui { debug },
+                StatusRenderMode::Tui(TuiLaunchOptions {
+                    debug,
+                    quit_after,
+                    skip_status_after,
+                    show_diff: diff,
+                    select_commit,
+                }),
             )
             .await
             .emit_metrics(metrics_ctx)
