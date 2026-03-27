@@ -320,7 +320,7 @@ const CommitDetails: FC<{
 	);
 	const paths = commitDetails.changes.map((change: TreeChange) => change.path);
 	const selectedPath = getSelectedCommitPath({
-		changes: commitDetails.changes,
+		paths,
 		selection: commitDetailsSelection,
 	});
 
@@ -405,15 +405,13 @@ const CommitDetails: FC<{
 };
 
 const getSelectedCommitPath = ({
-	changes,
+	paths,
 	selection,
 }: {
-	changes: Array<TreeChange>;
+	paths: Array<string>;
 	selection: CommitDetailsSelection;
-}): string | undefined => {
-	const paths = changes.map((change) => change.path);
-	return selection.path !== undefined && paths.includes(selection.path) ? selection.path : paths[0];
-};
+}): string | undefined =>
+	selection.path !== undefined && paths.includes(selection.path) ? selection.path : paths[0];
 
 // TODO: check this
 const assignedChangesDiffSpecs = (
@@ -581,9 +579,8 @@ const ShowCommitOrFile: FC<{
 		commitDetailsSelection.commitId === commitId
 			? commitDetailsSelection
 			: null;
-	const selectedPath = selection
-		? getSelectedCommitPath({ changes: commitDetails.changes, selection })
-		: undefined;
+	const paths = commitDetails.changes.map((change) => change.path);
+	const selectedPath = selection ? getSelectedCommitPath({ paths, selection }) : undefined;
 	const change =
 		selectedPath !== undefined
 			? commitDetails.changes.find((candidate) => candidate.path === selectedPath)
