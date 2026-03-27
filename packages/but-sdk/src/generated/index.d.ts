@@ -118,6 +118,14 @@ export declare function publishReview(projectId: string, params: CreateForgeRevi
 export declare function pushStackLegacy(projectId: string, stackId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean): Promise<PushResult>
 
 /**
+ * Remove a branch from a stack.
+ *
+ * This can only be called on a branch that's inside of a stack of multiple branches and is not the top branch,
+ * or on a branch that's empty.
+ */
+export declare function removeBranch(projectId: string, stackId: string, branchName: string): Promise<void>
+
+/**
  * Get the review template content for the given project and relative path.
  *
  * This function determines the forge of a project and retrieves the review template
@@ -151,6 +159,9 @@ export declare function tearOffBranch(projectId: string, subjectBranch: string):
 export declare function treeChangeDiffs(projectId: string, change: TreeChange): Promise<UnifiedPatch | null>
 
 export declare function unapplyStack(projectId: string, stackId: string): Promise<void>
+
+/** Rename a branch */
+export declare function updateBranchName(projectId: string, stackId: string, branchName: string, newName: string): Promise<void>
 
 /** Update the stacked review descriptions to have the correct footers. */
 export declare function updateReviewFooters(projectId: string, reviews: Array<ForgeReviewDescriptionUpdate>): Promise<void>
