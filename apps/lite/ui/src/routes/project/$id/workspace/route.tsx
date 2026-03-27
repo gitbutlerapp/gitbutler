@@ -26,7 +26,6 @@ import {
 	getSegmentBranchRef,
 } from "#ui/domain/RefInfo.ts";
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
-import { useCloseWatcher } from "#ui/hooks/useCloseWatcher.ts";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { type Operation } from "#ui/Operation.ts";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
@@ -902,7 +901,6 @@ const InlineCommitMessageEditor: FC<{
 }> = ({ projectId, commitId, message, setMessageAction, onExit }) => {
 	const commitReword = useMutation(commitRewordMutationOptions);
 	const initialMessage = message.trim();
-	const requestClose = useCloseWatcher(onExit);
 
 	const saveMessage = (newMessage: string) => {
 		onExit();
@@ -951,9 +949,7 @@ const InlineCommitMessageEditor: FC<{
 							event.preventDefault();
 							event.currentTarget.form?.requestSubmit();
 						}),
-						Match.tag("Cancel", () => {
-							// CloseWatcher handles this
-						}),
+						Match.tag("Cancel", onExit),
 						Match.exhaustive,
 					);
 				}}
@@ -966,13 +962,7 @@ const InlineCommitMessageEditor: FC<{
 							{formatShortcutKeys(binding.keys)} to{" "}
 							{Match.value(binding.action).pipe(
 								Match.tag("Cancel", () => (
-									<button
-										type="button"
-										className={styles.editCommitMessageAction}
-										onClick={() => {
-											requestClose();
-										}}
-									>
+									<button type="button" className={styles.editCommitMessageAction} onClick={onExit}>
 										{binding.description}
 									</button>
 								)),
