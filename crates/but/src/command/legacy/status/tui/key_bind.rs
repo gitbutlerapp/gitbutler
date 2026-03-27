@@ -201,6 +201,15 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         message: Message::Details(DetailsMessage::ScrollUp(jump_distance)),
         hide_from_hotbar: true,
     });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "diff",
+        chord_display: "d",
+        key_matcher: press().code(KeyCode::Char('d')),
+        modes: all_except_text_input_modes.clone(),
+        message: Message::Details(DetailsMessage::ToggleVisibility),
+        hide_from_hotbar: false,
+    });
 }
 
 fn register_quit_key_binds(key_binds: &mut KeyBinds, modes: Vec<ModeDiscriminant>) {

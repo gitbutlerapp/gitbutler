@@ -59,12 +59,19 @@ static PLUS_EMPH_BG: LazyLock<Color> =
 const MONOKAI_THEME: &[u8] =
     include_bytes!("../../../../../assets/syntax-highlighting-themes/Monokai Extended.tmTheme");
 
-const _TODOS: () = {
-    // - show and hide details
-    // - escape closes things in the right order
-    // - scroll bar
-    let todo_ = ();
-};
+#[derive(Debug, Default, Copy, Clone)]
+pub(super) enum DetailsVisibility {
+    #[default]
+    Hidden,
+    VisibleVertical,
+}
+
+#[derive(Debug, Clone)]
+pub(super) enum DetailsMessage {
+    ScrollUp(usize),
+    ScrollDown(usize),
+    ToggleVisibility,
+}
 
 #[derive(Debug)]
 pub(super) struct Details {
@@ -73,6 +80,7 @@ pub(super) struct Details {
     widget: Option<DetailsAndDiffWidget>,
     syntax_set: DebugType<OnDemand<SyntaxSet>>,
     dark_theme: DebugType<OnDemand<Theme>>,
+    visibility: DetailsVisibility,
 }
 
 impl Default for Details {
@@ -81,6 +89,7 @@ impl Default for Details {
             is_dirty: true,
             widget: Default::default(),
             scroll_top: Default::default(),
+            visibility: Default::default(),
             syntax_set: OnDemand::new(|| Ok(SyntaxSet::load_defaults_newlines())).into(),
             dark_theme: OnDemand::new(|| {
                 Ok(ThemeSet::load_from_reader(&mut std::io::Cursor::new(MONOKAI_THEME)).unwrap())
@@ -91,7 +100,24 @@ impl Default for Details {
 }
 
 impl Details {
+    pub(super) fn mark_dirty(&mut self) {
+        self.is_dirty = true;
+    }
+
+    pub(super) fn is_dirty(&self) -> bool {
+        self.is_dirty
+    }
+
+    pub(super) fn visibility(&self) -> DetailsVisibility {
+        self.visibility
+    }
+
     pub(super) fn needs_update_after_message(&self, msg: &Message) -> bool {
+        match self.visibility {
+            DetailsVisibility::Hidden => return false,
+            DetailsVisibility::VisibleVertical => {}
+        }
+
         match msg {
             Message::JustRender
             | Message::CopySelection
@@ -136,19 +162,12 @@ impl Details {
                 BranchMessage::New => true,
             },
             Message::Details(details_message) => match details_message {
-                DetailsMessage::ScrollUp(_) | DetailsMessage::ScrollDown(_) => false,
+                DetailsMessage::ScrollUp(_)
+                | DetailsMessage::ScrollDown(_)
+                | DetailsMessage::ToggleVisibility => false,
             },
         }
     }
-
-    pub(super) fn mark_dirty(&mut self) {
-        self.is_dirty = true;
-    }
-
-    pub(super) fn is_dirty(&self) -> bool {
-        self.is_dirty
-    }
-
     pub(super) fn try_handle_message(
         &mut self,
         msg: DetailsMessage,
@@ -160,6 +179,16 @@ impl Details {
             }
             DetailsMessage::ScrollDown(n) => {
                 self.scroll_top = self.scroll_top.saturating_add(n);
+            }
+            DetailsMessage::ToggleVisibility => {
+                self.visibility = match self.visibility {
+                    DetailsVisibility::Hidden => DetailsVisibility::VisibleVertical,
+                    DetailsVisibility::VisibleVertical => DetailsVisibility::Hidden,
+                };
+
+                if matches!(self.visibility, DetailsVisibility::Hidden) {
+                    self.scroll_top = 0;
+                }
             }
         }
 
@@ -868,10 +897,4 @@ fn syntax_highlight(
     });
 
     itertools::Either::Right(spans)
-}
-
-#[derive(Debug, Clone)]
-pub(super) enum DetailsMessage {
-    ScrollUp(usize),
-    ScrollDown(usize),
 }

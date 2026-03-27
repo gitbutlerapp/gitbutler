@@ -1631,12 +1631,19 @@ impl App {
             (area, None)
         };
 
-        let layout = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(main_content_area);
+        let (content_area, details_area) = match self.details.visibility() {
+            details::DetailsVisibility::Hidden => (main_content_area, None),
+            details::DetailsVisibility::VisibleVertical => {
+                let layout =
+                    Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                        .split(main_content_area);
+                (layout[0], Some(layout[1]))
+            }
+        };
 
         StatusLayout {
-            content_area: layout[0],
-            details_area: Some(layout[1]),
+            content_area,
+            details_area,
             debug_area,
         }
     }
