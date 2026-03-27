@@ -34,15 +34,6 @@
 	overflow: auto;
 }
 
-.previewDialogShortcutBar {
-	padding: 4px var(--pane-padding);
-	border-top: 1px solid;
-
-	&:empty {
-		display: none;
-	}
-}
-
 .previewResizeHandle {
 	width: 1px;
 	background-color: black;

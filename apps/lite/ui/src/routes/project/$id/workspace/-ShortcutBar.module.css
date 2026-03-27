@@ -4,6 +4,8 @@
 	row-gap: 4px;
 	flex-wrap: wrap;
 	align-items: baseline;
+	padding: 4px var(--pane-padding);
+	border-top: 1px solid;
 	color: #555;
 }
 

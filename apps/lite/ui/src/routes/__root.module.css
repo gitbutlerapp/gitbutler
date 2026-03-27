@@ -54,10 +54,4 @@
 
 .shortcutBarFooter {
 	grid-area: shortcutBar;
-	padding: 4px var(--pane-padding);
-	border-top: 1px solid;
-
-	&:empty {
-		display: none;
-	}
 }

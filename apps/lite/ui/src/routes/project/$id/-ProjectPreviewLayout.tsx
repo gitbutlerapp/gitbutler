@@ -98,10 +98,7 @@ export const ProjectPreviewLayout: FC<{
 							</Dialog.Close>
 							{preview}
 						</div>
-						<footer
-							className={sharedStyles.previewDialogShortcutBar}
-							ref={setDialogShortcutBarPortalNode}
-						/>
+						<footer ref={setDialogShortcutBarPortalNode} />
 					</Dialog.Popup>
 				</Dialog.Portal>
 			</Dialog.Root>
