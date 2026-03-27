@@ -1,5 +1,6 @@
 import { getSegmentBranchRef } from "#ui/domain/RefInfo.ts";
 import { type ShortcutBinding } from "#ui/shortcuts.ts";
+import { Match } from "effect";
 import { type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
 import {
 	baseCommitItem,
@@ -12,6 +13,8 @@ import {
 	ChangesItem,
 	CommitItem,
 } from "./-Item.ts";
+import { type EditingCommit } from "./-EditingCommit.ts";
+import { ShortcutsBarMode } from "./-ShortcutsBar.tsx";
 
 const hasAssignmentsForPath = ({
 	assignments,
@@ -252,3 +255,72 @@ export const commitEditingMessageBindings: Array<ShortcutBinding<CommitEditingMe
 		repeat: false,
 	},
 ];
+
+export const getShortcutsBarMode = ({
+	selection,
+	editingCommit,
+}: {
+	selection: Item | null;
+	editingCommit: EditingCommit | null;
+}): ShortcutsBarMode | null => {
+	if (selection === null) return null;
+
+	return Match.value(selection).pipe(
+		Match.tag(
+			"Changes",
+			(selection): ShortcutsBarMode => ({
+				label: "changes",
+				items: changesSelectionBindings.filter((binding) => binding.when?.(selection) ?? true),
+			}),
+		),
+		Match.tag("Commit", (selection): ShortcutsBarMode => {
+			if (
+				editingCommit !== null &&
+				editingCommit.stackId === selection.stackId &&
+				editingCommit.segmentIndex === selection.segmentIndex &&
+				editingCommit.commitId === selection.commitId
+			)
+				return {
+					label: "edit message",
+					items: commitEditingMessageBindings,
+				};
+
+			return Match.value(selection.mode).pipe(
+				Match.tag(
+					"Details",
+					(): ShortcutsBarMode => ({
+						label: "commit details",
+						items: commitDetailsSelectionBindings.filter(
+							(binding) => binding.when?.(selection) ?? true,
+						),
+					}),
+				),
+				Match.tag(
+					"Summary",
+					(): ShortcutsBarMode => ({
+						label: "commit",
+						items: commitSummarySelectionBindings.filter(
+							(binding) => binding.when?.(selection) ?? true,
+						),
+					}),
+				),
+				Match.exhaustive,
+			);
+		}),
+		Match.tag(
+			"BaseCommit",
+			(): ShortcutsBarMode => ({
+				label: "base commit",
+				items: segmentSelectionBindings.filter((binding) => binding.when?.(undefined) ?? true),
+			}),
+		),
+		Match.tag(
+			"Segment",
+			(): ShortcutsBarMode => ({
+				label: "segment",
+				items: segmentSelectionBindings.filter((binding) => binding.when?.(undefined) ?? true),
+			}),
+		),
+		Match.exhaustive,
+	);
+};

@@ -111,10 +111,11 @@ import {
 	commitDetailsSelectionBindings,
 	commitEditingMessageBindings,
 	commitSummarySelectionBindings,
+	getShortcutsBarMode,
 	segmentSelectionBindings,
 	SharedSelectionAction,
 } from "./-Selection.ts";
-import { PositionedShortcutsBar, getShortcutsBarMode } from "./-ShortcutsBar.tsx";
+import { PositionedShortcutsBar } from "./-ShortcutsBar.tsx";
 import { formatShortcutKeys, getShortcutAction } from "#ui/shortcuts.ts";
 import styles from "./route.module.css";
 
