@@ -181,7 +181,7 @@ const BranchApplyToggle: FC<{
 	return isApplied ? (
 		<button
 			type="button"
-			className={sharedStyles.rowAction}
+			className={sharedStyles.itemAction}
 			disabled={stackId === undefined}
 			aria-label={`Unapply branch ${branch.name}`}
 			onClick={() => {
@@ -194,7 +194,7 @@ const BranchApplyToggle: FC<{
 	) : (
 		<button
 			type="button"
-			className={classes(sharedStyles.rowAction, styles.branchApplyButtonInactive)}
+			className={classes(sharedStyles.itemAction, styles.branchApplyButtonInactive)}
 			disabled={ref === null}
 			aria-label={`Apply branch ${branch.name}`}
 			onClick={() => {
@@ -227,7 +227,7 @@ const BranchRow: FC<
 		<div
 			{...restProps}
 			className={classes(
-				sharedStyles.row,
+				sharedStyles.item,
 				branchSelection || commitSelection ? sharedStyles.selected : undefined,
 				className,
 			)}
@@ -260,7 +260,7 @@ const BranchRow: FC<
 			</ContextMenu.Root>
 			<BranchApplyToggle branch={branch} projectId={projectId} />
 			<Menu.Root>
-				<Menu.Trigger className={sharedStyles.rowAction} aria-label={`Branch ${branch.name} menu`}>
+				<Menu.Trigger className={sharedStyles.itemAction} aria-label={`Branch ${branch.name} menu`}>
 					<MenuTriggerIcon />
 				</Menu.Trigger>
 				<Menu.Portal>
@@ -316,7 +316,7 @@ const CommitRow: FC<{
 	return (
 		<div
 			className={classes(
-				sharedStyles.row,
+				sharedStyles.item,
 				commitSelection ? sharedStyles.selected : undefined,
 				isHighlighted && sharedStyles.highlighted,
 			)}
@@ -338,7 +338,7 @@ const CommitRow: FC<{
 				<CommitLabel commit={commit} />
 			</button>
 			<button
-				className={sharedStyles.rowAction}
+				className={sharedStyles.itemAction}
 				type="button"
 				onClick={toggleDetails}
 				aria-expanded={commitSelection?.mode._tag === "Details"}
@@ -385,7 +385,7 @@ const CommitC: FC<{
 							renderFile={(change) => (
 								<div
 									className={classes(
-										sharedStyles.row,
+										sharedStyles.item,
 										commitSelection.mode._tag === "Details" &&
 											commitSelection.mode.path === change.path &&
 											sharedStyles.selectedFile,

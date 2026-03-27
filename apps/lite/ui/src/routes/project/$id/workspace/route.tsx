@@ -362,7 +362,7 @@ const CommitDetails: FC<{
 					render={
 						<div
 							className={classes(
-								sharedStyles.row,
+								sharedStyles.item,
 								selectedPath === change.path && sharedStyles.selectedFile,
 							)}
 						>
@@ -1091,7 +1091,7 @@ const CommitRow: FC<
 			render={
 				<div
 					className={classes(
-						sharedStyles.row,
+						sharedStyles.item,
 						commitSelection ? sharedStyles.selected : undefined,
 						isHighlighted && sharedStyles.highlighted,
 					)}
@@ -1145,7 +1145,7 @@ const CommitRow: FC<
 						</ContextMenu.Root>
 					)}
 					<button
-						className={sharedStyles.rowAction}
+						className={sharedStyles.itemAction}
 						type="button"
 						onClick={toggleDetails}
 						aria-expanded={detailsSelection !== null}
@@ -1154,7 +1154,7 @@ const CommitRow: FC<
 						<ExpandCollapseIcon isExpanded={detailsSelection !== null} />
 					</button>
 					<Menu.Root>
-						<Menu.Trigger className={sharedStyles.rowAction} aria-label="Commit menu">
+						<Menu.Trigger className={sharedStyles.itemAction} aria-label="Commit menu">
 							<MenuTriggerIcon />
 						</Menu.Trigger>
 						<Menu.Portal>
@@ -1286,7 +1286,7 @@ const Changes: FC<{
 			className={classes(className, changesSelection && styles.selectedContainer)}
 		>
 			<div
-				className={classes(sharedStyles.row, changesSelection ? sharedStyles.selected : undefined)}
+				className={classes(sharedStyles.item, changesSelection ? sharedStyles.selected : undefined)}
 			>
 				<button
 					type="button"
@@ -1320,7 +1320,7 @@ const Changes: FC<{
 										render={
 											<div
 												className={classes(
-													sharedStyles.row,
+													sharedStyles.item,
 													changesSelection?.mode._tag === "Details" &&
 														changesSelection.mode.path === change.path &&
 														sharedStyles.selectedFile,
@@ -1337,7 +1337,7 @@ const Changes: FC<{
 														projectId={projectId}
 														commitIds={dependencyCommitIds}
 														onHover={onDependencyHover}
-														className={sharedStyles.rowAction}
+														className={sharedStyles.itemAction}
 													>
 														<DependencyIcon />
 													</DependencyIndicator>
@@ -1542,7 +1542,7 @@ const SegmentRow: FC<{
 		selection.segmentIndex === segmentIndex;
 
 	return (
-		<div className={classes(sharedStyles.row, isSelected && sharedStyles.selected)}>
+		<div className={classes(sharedStyles.item, isSelected && sharedStyles.selected)}>
 			<button
 				type="button"
 				className={styles.segmentButton}
@@ -1559,7 +1559,7 @@ const SegmentRow: FC<{
 			>
 				{segment.refName?.displayName ?? "Untitled"}
 			</button>
-			<button type="button" className={sharedStyles.rowAction} aria-label="Push branch" disabled>
+			<button type="button" className={sharedStyles.itemAction} aria-label="Push branch" disabled>
 				<PushIcon />
 			</button>
 		</div>

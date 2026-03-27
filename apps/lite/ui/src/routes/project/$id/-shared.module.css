@@ -43,7 +43,7 @@
 	width: 500px;
 }
 
-.row {
+.item {
 	display: flex;
 	align-items: start;
 
@@ -52,7 +52,7 @@
 	}
 }
 
-.rowAction {
+.itemAction {
 	display: grid;
 	visibility: hidden;
 	padding-inline: var(--row-inline-padding);
@@ -63,10 +63,10 @@
 		height: var(--row-line-height);
 	}
 
-	.row:hover &,
-	.row:focus-within &,
-	.row:has(.rowAction[aria-expanded="true"]) &,
-	.row.selected & {
+	.item:hover &,
+	.item:focus-within &,
+	.item:has(.itemAction[aria-expanded="true"]) &,
+	.item.selected & {
 		visibility: visible;
 	}
 
