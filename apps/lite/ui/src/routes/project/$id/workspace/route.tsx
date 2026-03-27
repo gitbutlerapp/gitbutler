@@ -1294,7 +1294,12 @@ const Changes: FC<{
 			stackId={stackId}
 			className={classes(className, changesSelection && sharedStyles.sectionSelected)}
 		>
-			<div className={classes(sharedStyles.item, changesSelection && sharedStyles.selected)}>
+			<div
+				className={classes(
+					sharedStyles.item,
+					changesSelection?.mode._tag === "Summary" && sharedStyles.selected,
+				)}
+			>
 				<button
 					type="button"
 					className={styles.segmentButton}
@@ -1327,10 +1332,9 @@ const Changes: FC<{
 										<div
 											className={classes(
 												sharedStyles.item,
-												sharedStyles.file,
 												changesSelection?.mode._tag === "Details" &&
 													changesSelection.mode.path === change.path &&
-													sharedStyles.selectedFile,
+													sharedStyles.selected,
 											)}
 										>
 											<FileButton
