@@ -954,26 +954,14 @@ const InlineCommitMessageEditor: FC<{
 						Match.exhaustive,
 					);
 				}}
+				onBlur={onExit}
 			/>
 			<div className={styles.editCommitMessageHelp}>
 				{commitEditingMessageBindings.map((binding, index) => (
 					<Fragment key={binding.id}>
 						{index > 0 && " • "}
 						<span>
-							{formatShortcutKeys(binding.keys)} to{" "}
-							{Match.value(binding.action).pipe(
-								Match.tag("Cancel", () => (
-									<button type="button" className={styles.editCommitMessageAction} onClick={onExit}>
-										{binding.description}
-									</button>
-								)),
-								Match.tag("Save", () => (
-									<button type="submit" className={styles.editCommitMessageAction}>
-										{binding.description}
-									</button>
-								)),
-								Match.exhaustive,
-							)}
+							{formatShortcutKeys(binding.keys)} to {binding.description}
 						</span>
 					</Fragment>
 				))}

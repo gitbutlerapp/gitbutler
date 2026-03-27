@@ -166,15 +166,6 @@
 	font-size: 11px;
 }
 
-.editCommitMessageAction {
-	color: white;
-	cursor: pointer;
-
-	&:hover {
-		text-decoration: underline;
-	}
-}
-
 .dragging {
 	opacity: 0.4;
 }
