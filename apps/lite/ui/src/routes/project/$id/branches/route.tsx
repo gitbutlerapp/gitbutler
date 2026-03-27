@@ -27,7 +27,7 @@ import {
 	formatHunkHeader,
 	HunkDiff,
 	ShowBranch,
-	ShowCommit,
+	ShowCommitWithQuery,
 	isTypingTarget,
 } from "#ui/routes/project/$id/-shared.tsx";
 import { PositionedShortcutsBar } from "#ui/routes/project/$id/workspace/-ShortcutsBar.tsx";
@@ -493,7 +493,7 @@ const ShowBranchCommit: FC<{
 	if (!isValidCommit(commitId, branchDetails)) return null;
 
 	return (
-		<ShowCommit
+		<ShowCommitWithQuery
 			projectId={projectId}
 			commitId={commitId}
 			renderHunk={(change, hunk) => <Hunk change={change} hunk={hunk} />}

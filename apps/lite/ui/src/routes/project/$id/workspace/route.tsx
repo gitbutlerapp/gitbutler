@@ -40,8 +40,8 @@ import {
 import { rubOperationLabel } from "#ui/routes/project/$id/workspace/-RubOperationLabel.ts";
 import { getRubOperation, type SourceItem } from "#ui/routes/project/$id/workspace/-SourceItem.ts";
 import {
+	ShowCommit,
 	CommitDetails as SharedCommitDetails,
-	CommitLabel,
 	CommitsList,
 	FileButton,
 	FileDiff,
@@ -50,7 +50,8 @@ import {
 	isTypingTarget,
 	Patch,
 	ShowBranch,
-	ShowCommit,
+	ShowCommitWithQuery,
+	CommitLabel,
 } from "#ui/routes/project/$id/-shared.tsx";
 import uiStyles from "#ui/ui.module.css";
 import {
@@ -632,7 +633,8 @@ const PreviewCommit: FC<{
 	) : (
 		<ShowCommit
 			projectId={projectId}
-			commitId={commitId}
+			commit={commitDetails.commit}
+			changes={commitDetails.changes}
 			renderHunk={(change, hunk, patch) => (
 				<Hunk patch={patch} changeUnit={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
 			)}
@@ -697,7 +699,7 @@ const Preview: FC<{
 					selection={commitDetailsSelection}
 				/>
 			) : (
-				<ShowCommit
+				<ShowCommitWithQuery
 					projectId={projectId}
 					commitId={commitId}
 					renderHunk={(change, hunk, patch) => (
@@ -712,7 +714,7 @@ const Preview: FC<{
 			),
 		),
 		Match.tag("BaseCommit", ({ commitId }) => (
-			<ShowCommit
+			<ShowCommitWithQuery
 				projectId={projectId}
 				commitId={commitId}
 				renderHunk={(change, hunk, patch) => (
