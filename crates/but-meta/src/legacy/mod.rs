@@ -659,7 +659,14 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             }
 
             let mut branches_to_create = Vec::new();
-            let mut stack_id = None::<StackId>;
+            // Prefer the incoming stack identity whenever possible. During cross-stack moves,
+            // this avoids picking another stack id just because its branch is visited first,
+            // which could overwrite the intended destination stack later in this pass.
+            let mut stack_id = self
+                .data()
+                .branches
+                .contains_key(&stack.id)
+                .then_some(stack.id);
             for stack_branch in &stack.branches {
                 let branch = self.branch(stack_branch.ref_name.as_ref())?;
                 if branch.is_default() {
@@ -694,6 +701,10 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                         .heads
                         .push(to_move);
                 }
+            }
+
+            if let Some(stack_id) = stack_id {
+                seen_stack_ids.insert(stack_id);
             }
 
             let vb_stack = match stack_id {

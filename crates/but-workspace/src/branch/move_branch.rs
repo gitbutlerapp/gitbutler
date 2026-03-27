@@ -89,7 +89,6 @@ pub(super) mod function {
         let Some(workspace_head) = editor.workspace.tip_commit().map(|commit| commit.id) else {
             bail!("Couldn't find workspace head.")
         };
-
         let head_selector = editor
             .select_commit(workspace_head)
             .context("Failed to find the workspace head in the graph.")?;
@@ -213,16 +212,26 @@ pub(super) mod function {
             but_rebase::graph_rebase::mutate::InsertSide::Above,
         )?;
 
-        // Update the workspace meta if any of the branches we're handling is empty.
-        // This is needed in order to disambiguate the intended operation.
-        if let Some(ws_meta) = ws_meta.as_mut()
-            && (subject_segment.commits.is_empty() || target_segment.commits.is_empty())
-        {
+        // Keep workspace metadata aligned with the graph move outcome for all move cases.
+        // We remove the subject branch from its current location and reinsert it above the target.
+        if let Some(ws_meta) = ws_meta.as_mut() {
             ws_meta.remove_segment(subject_branch_name);
-            ws_meta.insert_new_segment_above_anchor_if_not_present(
-                subject_branch_name,
-                target_branch_name,
-            );
+            if ws_meta
+                .insert_new_segment_above_anchor_if_not_present(
+                    subject_branch_name,
+                    target_branch_name,
+                )
+                .is_none()
+            {
+                // If metadata doesn't know the target anchor (stale metadata),
+                // keep the moved branch represented as a stack tip.
+                ws_meta.add_or_insert_new_stack_if_not_present(
+                    subject_branch_name,
+                    None,
+                    but_core::ref_metadata::WorkspaceCommitRelation::Merged,
+                    |_| StackId::generate(),
+                );
+            }
         };
 
         Ok(Outcome {

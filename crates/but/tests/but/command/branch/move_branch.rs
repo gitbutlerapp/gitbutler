@@ -526,3 +526,177 @@ Hint: run `but help` for all commands
         .stderr_eq(str![""]);
     Ok(())
 }
+
+#[test]
+fn moving_branch_away_keeps_stack_order_and_assigned_files() -> anyhow::Result<()> {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    )?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("keep-on-source-stack.txt", "source stack assignment\n");
+    env.but("rub keep-on-source-stack.txt C@{stack}")
+        .assert()
+        .success();
+
+    env.but("status --files")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊  ╭┄m0 [staged to C]
+┊  │ pp A keep-on-source-stack.txt
+┊  │
+┊╭┄h0 [C]
+┊●   3842fc0 add C
+┊│     38:wx A C
+┊│
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
+┊│     d3:pl A B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]])
+        .stderr_eq(str![""]);
+
+    // Move B on top of A, effectively moving B away from C/B stack.
+    env.but("branch move i0 g0")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Moved branch 'B' on top of 'A'.
+
+"#]])
+        .stderr_eq(str![""]);
+
+    env.but("status --files")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [B]
+┊●   b40d58b add B
+┊│     b4:pl A B
+┊│
+┊├┄h0 [A]
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊  ╭┄m0 [staged to C]
+┊  │ pp A keep-on-source-stack.txt
+┊  │
+┊╭┄i0 [C]
+┊●   31e83cd add C
+┊│     31:wx A C
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]])
+        .stderr_eq(str![""]);
+
+    Ok(())
+}
+
+#[test]
+fn moving_branch_to_stack_keeps_stack_order_and_assigned_files() -> anyhow::Result<()> {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    )?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("keep-on-target-stack.txt", "target stack assignment\n");
+    env.but("rub keep-on-target-stack.txt A@{stack}")
+        .assert()
+        .success();
+
+    env.but("status --files")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊  ╭┄l0 [staged to A]
+┊  │ vs A keep-on-target-stack.txt
+┊  │
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊╭┄h0 [C]
+┊●   3842fc0 add C
+┊│     38:wx A C
+┊│
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
+┊│     d3:pl A B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]])
+        .stderr_eq(str![""]);
+
+    // Move B on top of A, effectively moving B to A stack.
+    env.but("branch move i0 g0")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Moved branch 'B' on top of 'A'.
+
+"#]])
+        .stderr_eq(str![""]);
+
+    env.but("status --files")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊  ╭┄l0 [staged to B]
+┊  │ vs A keep-on-target-stack.txt
+┊  │
+┊╭┄g0 [B]
+┊●   b40d58b add B
+┊│     b4:pl A B
+┊│
+┊├┄h0 [A]
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊╭┄i0 [C]
+┊●   31e83cd add C
+┊│     31:wx A C
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]])
+        .stderr_eq(str![""]);
+
+    Ok(())
+}
