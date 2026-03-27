@@ -32,5 +32,21 @@ fn main() {
     };
     println!("cargo:rustc-env=IDENTIFIER={identifier}");
 
-    tauri_build::build();
+    // Use `try_build` with an explicit `AppManifest` so that Tauri discovers
+    // the hand-written permission file in `./permissions/` and activates ACL
+    // enforcement for our custom (non-plugin) commands.
+    //
+    // Without this, custom commands registered via `invoke_handler` bypass the
+    // capability/permission system entirely — see `has_app_acl_manifest` in
+    // Tauri's `on_message` handler.
+    //
+    // We intentionally do *not* use `AppManifest::commands()` because that
+    // auto-generates one permission per command. Instead, we define a single
+    // `allow-custom-commands` permission in `permissions/default.toml` that
+    // covers all commands at once.
+    tauri_build::try_build(
+        tauri_build::Attributes::new()
+            .app_manifest(tauri_build::AppManifest::new()),
+    )
+    .expect("failed to run tauri_build");
 }
