@@ -579,7 +579,9 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { apply, assignHunk, branchDetails, branchDiff, changesInWorktree, commitAmend, commitCreate, commitDetailsWithLineStats, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitUncommitChanges, forgeProvider, getReview, headInfo, listAvailableReviewTemplates, listBranches, listCiChecksAndUpdateCache, listProjectsStateless, listReviews, listReviewsForBranch, mergeReview, moveBranch, publishReview, pushStackLegacy, reviewTemplate, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, tearOffBranch, treeChangeDiffs, unapplyStack, updateReviewFooters, warmCiChecksCache, WatcherHandle, watcherStart } = nativeBinding
+const { absorb, absorptionPlan, apply, assignHunk, branchDetails, branchDiff, changesInWorktree, commitAmend, commitCreate, commitDetailsWithLineStats, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitUncommitChanges, forgeProvider, getReview, headInfo, listAvailableReviewTemplates, listBranches, listCiChecksAndUpdateCache, listProjectsStateless, listReviews, listReviewsForBranch, mergeReview, moveBranch, publishReview, pushStackLegacy, reviewTemplate, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, tearOffBranch, treeChangeDiffs, unapplyStack, updateReviewFooters, warmCiChecksCache, WatcherHandle, watcherStart } = nativeBinding
+export { absorb }
+export { absorptionPlan }
 export { apply }
 export { assignHunk }
 export { branchDetails }

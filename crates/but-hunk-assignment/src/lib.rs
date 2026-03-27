@@ -142,6 +142,7 @@ impl From<HunkAssignment> for but_core::DiffSpec {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 #[cfg_attr(
@@ -159,14 +160,19 @@ pub enum AbsorptionTarget {
         changes: Vec<but_core::ui::TreeChange>,
         // Optionally, the stack to which the changes are assigned
         #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
+        #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
         assigned_stack_id: Option<StackId>,
     },
     #[default]
     All,
 }
 
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(AbsorptionTarget);
+
 /// Reason why a file is being absorbed to a particular commit
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(
@@ -182,6 +188,9 @@ pub enum AbsorptionReason {
     DefaultStack,
 }
 
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(AbsorptionReason);
+
 impl AbsorptionReason {
     pub fn description(&self) -> &str {
         match self {
@@ -194,6 +203,7 @@ impl AbsorptionReason {
 
 /// Information about a file being absorbed
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
@@ -205,8 +215,12 @@ pub struct FileAbsorption {
     pub assignment: HunkAssignment,
 }
 
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(FileAbsorption);
+
 /// Information about absorptions grouped by commit
 #[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
@@ -215,14 +229,19 @@ pub struct FileAbsorption {
 )]
 pub struct CommitAbsorption {
     #[cfg_attr(feature = "export-ts", ts(type = "string"))]
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub stack_id: but_core::ref_metadata::StackId,
     #[cfg_attr(feature = "export-ts", ts(type = "string"))]
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     #[serde(with = "but_serde::object_id")]
     pub commit_id: gix::ObjectId,
     pub commit_summary: String,
     pub files: Vec<FileAbsorption>,
     pub reason: AbsorptionReason,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(CommitAbsorption);
 
 /// JSON output structure for a file being absorbed
 #[derive(Debug, Serialize)]
