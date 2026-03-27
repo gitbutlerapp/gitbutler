@@ -150,6 +150,7 @@ syntect = { version = "5.3.0", default-features = false, features = [
     "metadata",
     "html",
 ] }
+tracing-appender = "0.2.4"
 
 [dev-dependencies]
 but-graph.workspace = true

@@ -857,6 +857,7 @@ dependencies = [
  "textwrap",
  "tokio",
  "tracing",
+ "tracing-appender",
  "tracing-forest",
  "tracing-subscriber",
  "unicode-width",

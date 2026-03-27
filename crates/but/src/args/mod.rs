@@ -21,6 +21,11 @@ pub struct Args {
     /// Repeat up to 4 times for increasingly verbose output.
     #[clap(short = 't', long, action = clap::ArgAction::Count, hide = true, env = "BUT_TRACE")]
     pub trace: u8,
+    /// Log to this file instead of stderr.
+    ///
+    /// If the file does not exist it will be created. If it does exist it will be truncated.
+    #[clap(long, hide = true)]
+    pub log_file: Option<PathBuf>,
     /// Run as if gitbutler-cli was started in PATH instead of the current working directory.
     #[clap(short = 'C', long, default_value = ".", value_name = "PATH")]
     pub current_dir: PathBuf,

@@ -118,9 +118,11 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         }) => file_or_hunk.is_some(),
         _ => false,
     };
-    if args.trace > 0 {
-        trace::init(args.trace)?;
-    }
+    let _tracing_appender_worker_guard = if args.trace > 0 {
+        trace::init(args.trace, args.log_file.as_deref())?
+    } else {
+        None
+    };
     let _span =
         tracing::info_span!("CLI", cmd = ?args.cmd.as_ref().map(|cmd| cmd.to_metrics_command()))
             .entered();

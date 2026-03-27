@@ -1,9 +1,17 @@
+use std::path::Path;
+
+use anyhow::Context;
 use tracing::Level;
+use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{
-    Layer, filter::DynFilterFn, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
+    Layer,
+    filter::DynFilterFn,
+    fmt::{format::FmtSpan, writer::BoxMakeWriter},
+    layer::SubscriberExt,
+    util::SubscriberInitExt,
 };
 
-pub fn init(level: u8) -> anyhow::Result<()> {
+pub fn init(level: u8, log_file_path: Option<&Path>) -> anyhow::Result<Option<WorkerGuard>> {
     let level_t = match level {
         1 => Level::INFO,
         2 => Level::DEBUG,
@@ -33,13 +41,23 @@ pub fn init(level: u8) -> anyhow::Result<()> {
         false
     });
 
+    let (make_writer, with_ansi, guard) = if let Some(log_file_path) = log_file_path {
+        let file = std::fs::File::create(log_file_path)
+            .with_context(|| format!("failed to open log file path {}", log_file_path.display()))?;
+        let (non_blocking, guard) = tracing_appender::non_blocking(file);
+        (BoxMakeWriter::new(non_blocking), false, Some(guard))
+    } else {
+        (BoxMakeWriter::new(std::io::stderr), true, None)
+    };
+
     if level >= 4 {
         tracing_subscriber::registry()
             .with(
                 tracing_subscriber::fmt::layer()
                     .compact()
                     .with_span_events(FmtSpan::CLOSE)
-                    .with_writer(std::io::stderr)
+                    .with_writer(make_writer)
+                    .with_ansi(with_ansi)
                     .with_filter(filter),
             )
             .init()
@@ -47,11 +65,12 @@ pub fn init(level: u8) -> anyhow::Result<()> {
         tracing_subscriber::registry()
             .with(
                 tracing_forest::ForestLayer::from(
-                    tracing_forest::printer::PrettyPrinter::new().writer(std::io::stderr),
+                    tracing_forest::printer::PrettyPrinter::new().writer(make_writer),
                 )
                 .with_filter(filter),
             )
             .init();
     }
-    Ok(())
+
+    Ok(guard)
 }
