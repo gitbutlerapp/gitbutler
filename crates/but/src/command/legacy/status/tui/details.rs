@@ -876,7 +876,7 @@ fn render_unified_patch(
 }
 
 fn num_digits(n: u32) -> u32 {
-    n.ilog10() + 1
+    if n == 0 { 1 } else { n.ilog10() + 1 }
 }
 
 fn syntax_highlight(
