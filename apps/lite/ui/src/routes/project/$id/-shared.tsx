@@ -136,15 +136,9 @@ export const FileDiff: FC<{
 export const FileButton: FC<
 	{
 		change: TreeChange;
-		toggleSelect: () => void;
 	} & ComponentProps<"button">
-> = ({ change, toggleSelect, className, ...restProps }) => (
-	<button
-		{...restProps}
-		type="button"
-		className={classes(className, styles.fileButton)}
-		onClick={toggleSelect}
-	>
+> = ({ change, className, ...restProps }) => (
+	<button {...restProps} type="button" className={classes(className, styles.fileButton)}>
 		{Match.value(change.status).pipe(
 			Match.when({ type: "Addition" }, () => "A"),
 			Match.when({ type: "Deletion" }, () => "D"),
@@ -213,27 +207,25 @@ export const CommitLabel: FC<{
 
 export const ShowCommit: FC<{
 	projectId: string;
-	commitId: string;
+	commit: Commit;
+	changes: Array<TreeChange>;
 	renderHunk: (change: TreeChange, hunk: DiffHunk, patch: Patch) => ReactNode;
-}> = ({ projectId, commitId, renderHunk }) => {
-	const { data } = useSuspenseQuery(
-		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
-	);
-	const firstLineEnd = data.commit.message.indexOf("\n");
+}> = ({ projectId, commit, changes, renderHunk }) => {
+	const firstLineEnd = commit.message.indexOf("\n");
 	const commitMessageBody =
-		firstLineEnd === -1 ? "" : data.commit.message.slice(firstLineEnd + 1).trim();
+		firstLineEnd === -1 ? "" : commit.message.slice(firstLineEnd + 1).trim();
 
 	return (
 		<>
 			<h3>
-				<CommitLabel commit={data.commit} />
+				<CommitLabel commit={commit} />
 			</h3>
 			{commitMessageBody !== "" && <p className={styles.commitMessageBody}>{commitMessageBody}</p>}
-			{data.changes.length === 0 ? (
+			{changes.length === 0 ? (
 				<div>No file changes.</div>
 			) : (
 				<ul>
-					{data.changes.map((change) => (
+					{changes.map((change) => (
 						<li key={change.path}>
 							<h4>{change.path}</h4>
 							<FileDiff
@@ -246,6 +238,25 @@ export const ShowCommit: FC<{
 				</ul>
 			)}
 		</>
+	);
+};
+
+export const ShowCommitWithQuery: FC<{
+	projectId: string;
+	commitId: string;
+	renderHunk: (change: TreeChange, hunk: DiffHunk, patch: Patch) => ReactNode;
+}> = ({ projectId, commitId, renderHunk }) => {
+	const { data } = useSuspenseQuery(
+		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
+	);
+
+	return (
+		<ShowCommit
+			projectId={projectId}
+			commit={data.commit}
+			changes={data.changes}
+			renderHunk={renderHunk}
+		/>
 	);
 };
 

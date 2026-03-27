@@ -27,7 +27,7 @@ import {
 	formatHunkHeader,
 	HunkDiff,
 	ShowBranch,
-	ShowCommit,
+	ShowCommitWithQuery,
 	isTypingTarget,
 } from "#ui/routes/project/$id/-shared.tsx";
 import { PositionedShortcutsBar } from "#ui/routes/project/$id/workspace/-ShortcutsBar.tsx";
@@ -378,7 +378,9 @@ const CommitC: FC<{
 			/>
 			{commitSelection?.mode._tag === "Details" && (
 				<div className={sharedStyles.commitDetails}>
-					<Suspense fallback={<div>Loading changed details…</div>}>
+					<Suspense
+						fallback={<div className={sharedStyles.itemEmpty}>Loading change details…</div>}
+					>
 						<CommitDetails
 							projectId={projectId}
 							commitId={commit.id}
@@ -393,7 +395,7 @@ const CommitC: FC<{
 								>
 									<FileButton
 										change={change}
-										toggleSelect={() => {
+										onClick={() => {
 											select({
 												_tag: "Commit",
 												branchName,
@@ -491,7 +493,7 @@ const ShowBranchCommit: FC<{
 	if (!isValidCommit(commitId, branchDetails)) return null;
 
 	return (
-		<ShowCommit
+		<ShowCommitWithQuery
 			projectId={projectId}
 			commitId={commitId}
 			renderHunk={(change, hunk) => <Hunk change={change} hunk={hunk} />}
@@ -569,7 +571,7 @@ const ProjectBranchesPage: FC = () => {
 			preview={
 				selection &&
 				selectedBranch && (
-					<Suspense fallback={<div>Loading diff…</div>}>
+					<Suspense fallback={<div>Loading preview…</div>}>
 						<Preview
 							projectId={projectId}
 							selection={selection}

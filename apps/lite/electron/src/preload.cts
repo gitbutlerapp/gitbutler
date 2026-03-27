@@ -6,6 +6,7 @@ import type {
 	BranchListing,
 	CommitDetails,
 	ProjectForFrontend,
+	PushResult,
 	RefInfo,
 	TreeChanges,
 	UICommitCreateResult,
@@ -79,6 +80,8 @@ const api: LiteElectronApi = {
 	tearOffBranch: (params) =>
 		ipcRenderer.invoke("workspace:tear-off-branch", params) as Promise<UIMoveBranchResult>,
 	ping: (input) => ipcRenderer.invoke("lite:ping", input) as Promise<string>,
+	pushStackLegacy: (params) =>
+		ipcRenderer.invoke("workspace:push-stack-legacy", params) as Promise<PushResult>,
 	treeChangeDiffs: (params) =>
 		ipcRenderer.invoke("workspace:tree-change-diffs", params) as Promise<UnifiedPatch | null>,
 	unapplyStack: (params) => ipcRenderer.invoke("workspace:unapply-stack", params) as Promise<void>,

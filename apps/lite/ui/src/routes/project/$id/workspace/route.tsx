@@ -40,8 +40,8 @@ import {
 import { rubOperationLabel } from "#ui/routes/project/$id/workspace/-RubOperationLabel.ts";
 import { getRubOperation, type SourceItem } from "#ui/routes/project/$id/workspace/-SourceItem.ts";
 import {
+	ShowCommit,
 	CommitDetails as SharedCommitDetails,
-	CommitLabel,
 	CommitsList,
 	FileButton,
 	FileDiff,
@@ -50,7 +50,8 @@ import {
 	isTypingTarget,
 	Patch,
 	ShowBranch,
-	ShowCommit,
+	ShowCommitWithQuery,
+	CommitLabel,
 } from "#ui/routes/project/$id/-shared.tsx";
 import uiStyles from "#ui/ui.module.css";
 import {
@@ -318,10 +319,10 @@ const CommitDetails: FC<{
 		}),
 	);
 	const paths = commitDetails.changes.map((change: TreeChange) => change.path);
-	const selectedPath =
-		commitDetailsSelection.path !== undefined && paths.includes(commitDetailsSelection.path)
-			? commitDetailsSelection.path
-			: paths[0];
+	const selectedPath = getSelectedCommitPath({
+		paths,
+		selection: commitDetailsSelection,
+	});
 
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
 		if (event.defaultPrevented) return;
@@ -384,7 +385,7 @@ const CommitDetails: FC<{
 						>
 							<FileButton
 								change={change}
-								toggleSelect={() => {
+								onClick={() => {
 									selectCommitDetails({
 										stackId,
 										segmentIndex,
@@ -402,6 +403,15 @@ const CommitDetails: FC<{
 		/>
 	);
 };
+
+const getSelectedCommitPath = ({
+	paths,
+	selection,
+}: {
+	paths: Array<string>;
+	selection: CommitDetailsSelection;
+}): string | undefined =>
+	selection.path !== undefined && paths.includes(selection.path) ? selection.path : paths[0];
 
 // TODO: check this
 const assignedChangesDiffSpecs = (
@@ -515,98 +525,68 @@ const Hunk: FC<{
 const ShowChangesFile: FC<{
 	projectId: string;
 	stackId: string | null;
-	path: string;
+	change: TreeChange;
+	assignments: Array<HunkAssignment>;
+	hunkDependencyDiffs: Array<HunkDependencyDiff> | undefined;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, stackId, path, onDependencyHover }) => {
-	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
+}> = ({ projectId, stackId, change, assignments, hunkDependencyDiffs, onDependencyHover }) => (
+	<FileDiff
+		projectId={projectId}
+		change={change}
+		assignments={assignments}
+		renderHunk={(hunk, patch) => {
+			const dependencyCommitIds = hunkDependencyDiffs
+				? dependencyCommitIdsForHunk(hunk, hunkDependencyDiffs)
+				: [];
 
-	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
-	const assignments = assignmentsByPath.get(path);
-	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
-		worktreeChanges.dependencies?.diffs ?? [],
-	);
-	const change = worktreeChanges.changes.find((candidate) => candidate.path === path);
+			return (
+				<Hunk
+					patch={patch}
+					changeUnit={{ _tag: "Changes", stackId }}
+					change={change}
+					hunk={hunk}
+					headerStart={
+						isNonEmptyArray(dependencyCommitIds) && (
+							<DependencyIndicator
+								projectId={projectId}
+								commitIds={dependencyCommitIds}
+								onHover={onDependencyHover}
+							>
+								<DependencyIcon />
+							</DependencyIndicator>
+						)
+					}
+				/>
+			);
+		}}
+	/>
+);
 
-	if (!assignments || !change) return null;
-
-	return (
-		<FileDiff
-			projectId={projectId}
-			change={change}
-			assignments={assignments}
-			renderHunk={(hunk, patch) => {
-				const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(path);
-
-				const dependencyCommitIds = hunkDependencyDiffs
-					? dependencyCommitIdsForHunk(hunk, hunkDependencyDiffs)
-					: [];
-
-				return (
-					<Hunk
-						patch={patch}
-						changeUnit={{ _tag: "Changes", stackId }}
-						change={change}
-						hunk={hunk}
-						headerStart={
-							isNonEmptyArray(dependencyCommitIds) && (
-								<DependencyIndicator
-									projectId={projectId}
-									commitIds={dependencyCommitIds}
-									onHover={onDependencyHover}
-								>
-									<DependencyIcon />
-								</DependencyIndicator>
-							)
-						}
-					/>
-				);
-			}}
-		/>
-	);
-};
-
-const ShowChanges: FC<{
-	projectId: string;
-	stackId: string | null;
-	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, stackId, onDependencyHover }) => {
-	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
-
-	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
-	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
-
-	if (changes.length === 0) return <div>No file changes.</div>;
-
-	return (
-		<ul>
-			{changes.map((change) => (
-				<li key={change.path}>
-					<h4>{change.path}</h4>
-					<ShowChangesFile
-						projectId={projectId}
-						stackId={stackId}
-						path={change.path}
-						onDependencyHover={onDependencyHover}
-					/>
-				</li>
-			))}
-		</ul>
-	);
-};
-
-const ShowCommitFile: FC<{
+const ShowCommitOrFile: FC<{
 	projectId: string;
 	commitId: string;
-	path: string;
-}> = ({ projectId, commitId, path }) => {
+	stackId: string;
+	segmentIndex: number;
+	commitDetailsSelection: CommitDetailsSelection | null;
+}> = ({ projectId, commitId, stackId, segmentIndex, commitDetailsSelection }) => {
 	const { data: commitDetails } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
-	const change = commitDetails.changes.find((candidate) => candidate.path === path);
+	const selection =
+		commitDetailsSelection !== null &&
+		commitDetailsSelection.stackId === stackId &&
+		commitDetailsSelection.segmentIndex === segmentIndex &&
+		commitDetailsSelection.commitId === commitId
+			? commitDetailsSelection
+			: null;
+	const paths = commitDetails.changes.map((change) => change.path);
+	const selectedPath = selection ? getSelectedCommitPath({ paths, selection }) : undefined;
+	const change =
+		selectedPath !== undefined
+			? commitDetails.changes.find((candidate) => candidate.path === selectedPath)
+			: undefined;
 
-	if (!change) return null;
-
-	return (
+	return change ? (
 		<FileDiff
 			projectId={projectId}
 			change={change}
@@ -614,8 +594,106 @@ const ShowCommitFile: FC<{
 				<Hunk patch={patch} changeUnit={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
 			)}
 		/>
+	) : (
+		<ShowCommit
+			projectId={projectId}
+			commit={commitDetails.commit}
+			changes={commitDetails.changes}
+			renderHunk={(change, hunk, patch) => (
+				<Hunk patch={patch} changeUnit={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
+			)}
+		/>
 	);
 };
+
+const ShowSegment: FC<{
+	projectId: string;
+	branchName: string | null;
+	branchRef: string | null;
+}> = ({ projectId, branchName, branchRef }) =>
+	branchName != null && branchRef != null ? (
+		<ShowBranch
+			projectId={projectId}
+			branchRef={branchRef}
+			branchName={branchName}
+			remote={null}
+			renderHunk={(change, hunk, patch) => (
+				<Hunk
+					patch={patch}
+					changeUnit={{ _tag: "Changes", stackId: null }}
+					change={change}
+					hunk={hunk}
+				/>
+			)}
+		/>
+	) : (
+		<div>
+			TODO: the API doesn't provide a way to show details/diffs for segments that don't have branch
+			names.
+		</div>
+	);
+
+const ShowChangesOrFile: FC<{
+	projectId: string;
+	stackId: string | null;
+	mode: Extract<Item, { _tag: "Changes" }>["mode"];
+	onDependencyHover: (commitIds: Array<string> | null) => void;
+}> = ({ projectId, stackId, mode, onDependencyHover }) => {
+	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
+	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
+	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
+		worktreeChanges.dependencies?.diffs ?? [],
+	);
+	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
+	const selectedPath = mode._tag === "Details" ? mode.path : undefined;
+	const selectedChange =
+		selectedPath !== undefined
+			? changes.find((candidate) => candidate.path === selectedPath)
+			: undefined;
+
+	const renderChange = (change: TreeChange) => {
+		const assignments = assignmentsByPath.get(change.path);
+		if (!assignments) return null;
+
+		return (
+			<ShowChangesFile
+				projectId={projectId}
+				stackId={stackId}
+				change={change}
+				assignments={assignments}
+				hunkDependencyDiffs={hunkDependencyDiffsByPath.get(change.path)}
+				onDependencyHover={onDependencyHover}
+			/>
+		);
+	};
+
+	if (selectedChange) return renderChange(selectedChange);
+	if (changes.length === 0) return <div>No file changes.</div>;
+
+	return (
+		<ul>
+			{changes.map((change) => (
+				<li key={change.path}>
+					<h4>{change.path}</h4>
+					{renderChange(change)}
+				</li>
+			))}
+		</ul>
+	);
+};
+
+const ShowBaseCommit: FC<{
+	projectId: string;
+	commitId: string;
+}> = ({ projectId, commitId }) => (
+	<ShowCommitWithQuery
+		projectId={projectId}
+		commitId={commitId}
+		renderHunk={(change, hunk, patch) => (
+			<Hunk patch={patch} changeUnit={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
+		)}
+	/>
+);
 
 const Preview: FC<{
 	commitDetailsSelection: CommitDetailsSelection | null;
@@ -624,84 +702,28 @@ const Preview: FC<{
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 }> = ({ commitDetailsSelection, projectId, selection, onDependencyHover }) =>
 	Match.value(selection).pipe(
-		Match.tag("Segment", ({ branchName, branchRef }) =>
-			branchName != null && branchRef != null ? (
-				<ShowBranch
-					projectId={projectId}
-					branchRef={branchRef}
-					branchName={branchName}
-					remote={null}
-					renderHunk={(change, hunk, patch) => (
-						<Hunk
-							patch={patch}
-							changeUnit={{ _tag: "Changes", stackId: null }}
-							change={change}
-							hunk={hunk}
-						/>
-					)}
-				/>
-			) : (
-				<div>
-					TODO: the API doesn't provide a way to show details/diffs for segments that don't have
-					branch names.
-				</div>
-			),
-		),
-		Match.tag("Changes", ({ stackId, mode }) =>
-			mode._tag === "Details" && mode.path !== undefined ? (
-				<ShowChangesFile
-					projectId={projectId}
-					stackId={stackId}
-					path={mode.path}
-					onDependencyHover={onDependencyHover}
-				/>
-			) : (
-				<ShowChanges
-					projectId={projectId}
-					stackId={stackId}
-					onDependencyHover={onDependencyHover}
-				/>
-			),
-		),
-		Match.tag("Commit", ({ commitId, stackId, segmentIndex }) =>
-			commitDetailsSelection !== null &&
-			commitDetailsSelection.stackId === stackId &&
-			commitDetailsSelection.segmentIndex === segmentIndex &&
-			commitDetailsSelection.commitId === commitId &&
-			commitDetailsSelection.path !== undefined ? (
-				<ShowCommitFile
-					projectId={projectId}
-					commitId={commitId}
-					path={commitDetailsSelection.path}
-				/>
-			) : (
-				<ShowCommit
-					projectId={projectId}
-					commitId={commitId}
-					renderHunk={(change, hunk, patch) => (
-						<Hunk
-							patch={patch}
-							changeUnit={{ _tag: "Commit", commitId }}
-							change={change}
-							hunk={hunk}
-						/>
-					)}
-				/>
-			),
-		),
-		Match.tag("BaseCommit", ({ commitId }) => (
-			<ShowCommit
+		Match.tag("Segment", ({ branchName, branchRef }) => (
+			<ShowSegment projectId={projectId} branchName={branchName} branchRef={branchRef} />
+		)),
+		Match.tag("Changes", ({ stackId, mode }) => (
+			<ShowChangesOrFile
+				projectId={projectId}
+				stackId={stackId}
+				mode={mode}
+				onDependencyHover={onDependencyHover}
+			/>
+		)),
+		Match.tag("Commit", ({ commitId, stackId, segmentIndex }) => (
+			<ShowCommitOrFile
 				projectId={projectId}
 				commitId={commitId}
-				renderHunk={(change, hunk, patch) => (
-					<Hunk
-						patch={patch}
-						changeUnit={{ _tag: "Commit", commitId }}
-						change={change}
-						hunk={hunk}
-					/>
-				)}
+				stackId={stackId}
+				segmentIndex={segmentIndex}
+				commitDetailsSelection={commitDetailsSelection}
 			/>
+		)),
+		Match.tag("BaseCommit", ({ commitId }) => (
+			<ShowBaseCommit projectId={projectId} commitId={commitId} />
 		)),
 		Match.exhaustive,
 	);
@@ -943,14 +965,16 @@ const InlineCommitMessageEditor: FC<{
 					);
 					if (!action) return;
 
-					event.preventDefault();
-
 					Match.value(action).pipe(
 						Match.tag("Save", () => {
 							if (event.shiftKey) return;
+							event.preventDefault();
 							event.currentTarget.form?.requestSubmit();
 						}),
-						Match.tag("Cancel", onExit),
+						Match.tag("Cancel", () => {
+							event.preventDefault();
+							onExit();
+						}),
 						Match.exhaustive,
 					);
 				}}
@@ -1268,7 +1292,9 @@ const CommitC: FC<{
 			/>
 			{detailsSelection && (
 				<div className={sharedStyles.commitDetails}>
-					<Suspense fallback={<div>Loading changed details…</div>}>
+					<Suspense
+						fallback={<div className={sharedStyles.itemEmpty}>Loading change details…</div>}
+					>
 						<CommitDetails
 							branchName={branchName}
 							branchRef={branchRef}
@@ -1354,7 +1380,7 @@ const Changes: FC<{
 											>
 												<FileButton
 													change={change}
-													toggleSelect={() => {
+													onClick={() => {
 														select(changesDetailsItem(stackId, change.path));
 													}}
 												/>
@@ -1836,7 +1862,7 @@ const ProjectPage: FC = () => {
 			projectId={projectId}
 			preview={
 				selection && (
-					<Suspense fallback={<div>Loading diff…</div>}>
+					<Suspense fallback={<div>Loading preview…</div>}>
 						<Preview
 							commitDetailsSelection={commitDetailsSelection}
 							projectId={projectId}
