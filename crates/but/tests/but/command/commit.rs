@@ -1,5 +1,6 @@
 use snapbox::str;
 
+use super::util;
 use crate::utils::Sandbox;
 
 #[test]
@@ -1146,4 +1147,154 @@ fn commit_single_hunk_leaves_other_hunks_uncommitted() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// Helper to build an isolated `std::process::Command` for `but` with the same
+/// environment as the Sandbox test harness.
+fn but_std_cmd(env: &Sandbox, args: &str) -> std::process::Command {
+    let mut cmd = std::process::Command::new(snapbox::cmd::cargo_bin!("but"));
+    cmd.args(shell_words::split(args).unwrap());
+    cmd.current_dir(env.projects_root());
+    cmd.env("E2E_TEST_APP_DATA_DIR", env.app_data_dir());
+    cmd.env("GITBUTLER_CHANGE_ID", "42");
+    cmd.env("BUT_OUTPUT_FORMAT", "human");
+    cmd.env("NOPAGER", "1");
+    cmd.stdin(std::process::Stdio::null());
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+    but_testsupport::isolate_env_std_cmd(&mut cmd);
+    cmd
+}
+
+/// Helper: find CLI IDs for unassigned files matching a path pattern.
+fn find_unassigned_cli_id(status: &serde_json::Value, path_contains: &str) -> Option<String> {
+    status["unassignedChanges"]
+        .as_array()?
+        .iter()
+        .find(|c| {
+            c["filePath"]
+                .as_str()
+                .map(|p| p.contains(path_contains))
+                .unwrap_or(false)
+        })
+        .and_then(|c| c["cliId"].as_str().map(|s| s.to_string()))
+}
+
+/// Helper: parse `--json status` and find a branch by name, returning its commit messages.
+fn branch_commit_messages(env: &Sandbox, branch_name: &str) -> Vec<String> {
+    let status = util::status_json(env).expect("status should be valid JSON");
+    let branch = util::find_branch(&status, branch_name).expect("branch should exist in status");
+    branch["commits"]
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| c["message"].as_str().map(|s| s.to_string()))
+        .collect()
+}
+
+/// Helper: count unassigned (uncommitted) changes in `--json status`.
+fn unassigned_file_count(env: &Sandbox) -> usize {
+    util::status_json(env).expect("status should be valid JSON")["unassignedChanges"]
+        .as_array()
+        .map(|a| a.len())
+        .unwrap_or(0)
+}
+
+mod concurrent_commits {
+    use super::*;
+
+    /// Concurrent commits to independent (parallel) branches should all succeed.
+    ///
+    /// This test creates three independent branches, adds a file to each, then
+    /// fires three `but commit` processes simultaneously. All three should
+    /// succeed without errors or lost data.
+    ///
+    /// Currently fails with: "Specified HEAD <sha> didn't match actual HEAD^{tree} <sha>"
+    /// — the workspace commit is updated by one process while another is mid-commit.
+    #[test]
+    #[ignore = "concurrent commit race condition — workspace HEAD contention"]
+    fn concurrent_commits_to_independent_branches() -> anyhow::Result<()> {
+        let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+        env.setup_metadata(&["A"])?;
+
+        // Create two more independent branches
+        env.but("branch new branchB").assert().success();
+        env.but("branch new branchC").assert().success();
+
+        // Add files for each branch
+        env.file("src/a/new.ts", "export const a = true;");
+        env.file("src/b/new.ts", "export const b = true;");
+        env.file("src/c/new.ts", "export const c = true;");
+
+        // Get file CLI IDs from status
+        let status = util::status_json(&env)?;
+        let id_a =
+            find_unassigned_cli_id(&status, "a/new").expect("should find CLI ID for src/a/new.ts");
+        let id_b =
+            find_unassigned_cli_id(&status, "b/new").expect("should find CLI ID for src/b/new.ts");
+        let id_c =
+            find_unassigned_cli_id(&status, "c/new").expect("should find CLI ID for src/c/new.ts");
+
+        // Fire three concurrent commits
+        let child_a =
+            but_std_cmd(&env, &format!("commit A -m commit-a --changes {id_a}")).spawn()?;
+        let child_b = but_std_cmd(
+            &env,
+            &format!("commit branchB -m commit-b --changes {id_b}"),
+        )
+        .spawn()?;
+        let child_c = but_std_cmd(
+            &env,
+            &format!("commit branchC -m commit-c --changes {id_c}"),
+        )
+        .spawn()?;
+
+        let out_a = child_a.wait_with_output()?;
+        let out_b = child_b.wait_with_output()?;
+        let out_c = child_c.wait_with_output()?;
+
+        // All should succeed
+        assert!(
+            out_a.status.success(),
+            "commit to A failed: {}",
+            String::from_utf8_lossy(&out_a.stderr)
+        );
+        assert!(
+            out_b.status.success(),
+            "commit to branchB failed: {}",
+            String::from_utf8_lossy(&out_b.stderr)
+        );
+        assert!(
+            out_c.status.success(),
+            "commit to branchC failed: {}",
+            String::from_utf8_lossy(&out_c.stderr)
+        );
+
+        // All files should be committed (not left unassigned)
+        let remaining = unassigned_file_count(&env);
+        assert_eq!(
+            remaining, 0,
+            "all files should be committed, but {remaining} are still unassigned"
+        );
+
+        // Each branch should have the new commit
+        let a_msgs = branch_commit_messages(&env, "A");
+        let b_msgs = branch_commit_messages(&env, "branchB");
+        let c_msgs = branch_commit_messages(&env, "branchC");
+
+        assert!(
+            a_msgs.iter().any(|m| m.contains("commit-a")),
+            "branch A should have commit-a, got: {a_msgs:?}"
+        );
+        assert!(
+            b_msgs.iter().any(|m| m.contains("commit-b")),
+            "branch branchB should have commit-b, got: {b_msgs:?}"
+        );
+        assert!(
+            c_msgs.iter().any(|m| m.contains("commit-c")),
+            "branch branchC should have commit-c, got: {c_msgs:?}"
+        );
+
+        Ok(())
+    }
 }
