@@ -1,10 +1,10 @@
 .layout {
 	display: grid;
-	grid-template-rows: auto minmax(0, 1fr);
-	grid-template-columns: max-content minmax(0, 1fr);
-	grid-template-areas:
-		"topBar topBar"
-		"sidebar content";
+	grid-template:
+		"topBar topBar" auto
+		"sidebar content" minmax(0, 1fr)
+		"shortcutsBar shortcutsBar" auto
+		/ max-content minmax(0, 1fr);
 	height: 100dvh;
 }
 
@@ -50,4 +50,8 @@
 	grid-area: content;
 	flex-direction: column;
 	overflow: auto;
+}
+
+.shortcutsBarFooter {
+	grid-area: shortcutsBar;
 }

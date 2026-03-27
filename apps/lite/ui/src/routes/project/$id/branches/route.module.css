@@ -10,9 +10,9 @@
 
 .branchButton {
 	flex-grow: 1;
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
-	line-height: var(--row-line-height);
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
+	line-height: var(--item-line-height);
 }
 
 .branchApplyButtonInactive {
@@ -22,8 +22,4 @@
 	&:focus-visible {
 		opacity: 1;
 	}
-}
-
-.selectedContainer {
-	background-color: #f5f5f5;
 }

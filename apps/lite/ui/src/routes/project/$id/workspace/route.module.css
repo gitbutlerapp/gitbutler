@@ -12,7 +12,7 @@
 
 .headInfo {
 	display: flex;
-	row-gap: calc(var(--row-block-padding) + var(--row-line-height));
+	row-gap: calc(var(--item-block-padding) + var(--item-line-height));
 	flex-direction: column;
 }
 
@@ -45,24 +45,24 @@
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
 	background-color: #eee;
 	resize: vertical;
 }
 
 .segments {
 	display: flex;
-	row-gap: calc(var(--row-block-padding) + var(--row-line-height));
+	row-gap: calc(var(--item-block-padding) + var(--item-line-height));
 	flex-direction: column;
 }
 
 .segmentButton {
 	flex-grow: 1;
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
 	font-weight: bold;
-	line-height: var(--row-line-height);
+	line-height: var(--item-line-height);
 }
 
 .commit {
@@ -103,7 +103,7 @@
 
 .stack {
 	display: flex;
-	row-gap: calc(var(--row-block-padding) + var(--row-line-height));
+	row-gap: calc(var(--item-block-padding) + var(--item-line-height));
 	flex-direction: column;
 }
 
@@ -121,27 +121,35 @@
 	padding-block: 2px;
 
 	svg {
-		width: var(--row-line-height);
-		height: var(--row-line-height);
+		width: var(--item-line-height);
+		height: var(--item-line-height);
 	}
 }
 
-.commonBaseCommit {
+.commonBaseCommitContainer {
+	display: flex;
 	flex-grow: 1;
-	text-align: center;
+	flex-direction: column;
+	align-items: center;
+}
+
+.commonBaseCommit {
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
+	line-height: var(--item-line-height);
 }
 
 .editCommitMessageForm {
 	display: flex;
 	flex-grow: 1;
 	flex-direction: column;
-	padding-block: var(--row-block-padding);
-	line-height: var(--row-line-height);
+	padding-block: var(--item-block-padding);
+	line-height: var(--item-line-height);
 }
 
 .editCommitMessageInput {
 	flex-grow: 1;
-	padding-inline: var(--row-inline-padding);
+	padding-inline: var(--item-inline-padding);
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);
@@ -153,24 +161,16 @@
 }
 
 .editCommitMessageHelp {
-	padding-inline: var(--row-inline-padding);
+	padding-inline: var(--item-inline-padding);
 	color: #ccc;
 	font-size: 11px;
 }
 
-.editCommitMessageAction {
+.editCommitMessageShortcut {
 	color: white;
-	cursor: pointer;
-
-	&:hover {
-		text-decoration: underline;
-	}
+	font-family: monospace;
 }
 
 .dragging {
 	opacity: 0.4;
-}
-
-.selectedContainer {
-	background-color: #f5f5f5;
 }

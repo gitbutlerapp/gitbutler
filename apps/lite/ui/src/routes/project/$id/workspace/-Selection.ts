@@ -1,86 +1,17 @@
-import { Match } from "effect";
 import { getSegmentBranchRef } from "#ui/domain/RefInfo.ts";
+import { type ShortcutBinding } from "#ui/shortcuts.ts";
 import { type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
 import {
+	baseCommitItem,
 	changesDetailsItem,
 	changesSummaryItem,
-	commitDetailsItem,
-	commitEditingMessageItem,
-	commitSummaryItem,
-	getParentItem,
-	getParentRootItem,
 	itemKey,
-	itemsEqual,
 	type Item,
 	segmentItem,
+	commitItem,
+	ChangesItem,
 	CommitItem,
 } from "./-Item.ts";
-
-export const toggleChangesItem = (selection: Item | null, stackId: string | null): Item | null =>
-	selectItemOrParent(selection, changesSummaryItem(stackId));
-
-export const toggleSegmentItem = (
-	selection: Item | null,
-	stackId: string,
-	segmentIndex: number,
-	branchName: string | null,
-	branchRef: string | null,
-): Item | null =>
-	selectItemOrParent(selection, segmentItem({ stackId, segmentIndex, branchName, branchRef }));
-
-export const toggleChangesFileItem = (
-	selection: Item | null,
-	stackId: string | null,
-	path: string,
-): Item | null => selectItemOrParent(selection, changesDetailsItem(stackId, path));
-
-export const toggleCommitItem = (
-	selection: Item | null,
-	stackId: string,
-	segmentIndex: number,
-	commitId: string,
-	branchName: string | null,
-	branchRef: string | null,
-): Item | null =>
-	selectItemOrParent(
-		selection,
-		commitSummaryItem({ stackId, segmentIndex, branchName, branchRef, commitId }),
-	);
-
-export const toggleCommitItemEditingMessage = (
-	selection: Item | null,
-	stackId: string,
-	segmentIndex: number,
-	branchName: string | null,
-	branchRef: string | null,
-	commitId: string,
-): Item | null =>
-	selection?._tag === "Commit" &&
-	selection.stackId === stackId &&
-	selection.commitId === commitId &&
-	selection.mode._tag === "EditingMessage"
-		? {
-				...selection,
-				mode: { _tag: "Summary" },
-			}
-		: commitEditingMessageItem({ stackId, segmentIndex, branchName, branchRef, commitId });
-
-export const toggleCommitFileItem = (
-	selection: Item | null,
-	stackId: string,
-	segmentIndex: number,
-	branchName: string | null,
-	branchRef: string | null,
-	commitId: string,
-	path: string,
-): Item | null =>
-	selectItemOrParent(
-		selection,
-		commitDetailsItem({ stackId, segmentIndex, branchName, branchRef, commitId }, path),
-	);
-
-const selectItemOrParent = (selection: Item | null, targetItem: Item): Item | null =>
-	itemsEqual(selection, targetItem) ? getParentItem(targetItem) : targetItem;
 
 const hasAssignmentsForPath = ({
 	assignments,
@@ -97,44 +28,40 @@ const hasAssignmentsForPath = ({
 
 type NavigationModel = {
 	items: Array<Item>;
-	rootItems: Array<Item>;
-	rootIndexByItemIndex: Array<number>;
+	sections: Array<Item>;
+	sectionIndexByItemIndex: Array<number>;
 	indexByKey: Map<string, number>;
 };
 
 export const buildNavigationModel = ({
-	selection,
 	headInfo,
 	changes,
 	assignments,
-	commitDetailsPaths,
+	commonBaseCommitId,
 }: {
-	selection: Item | null;
 	headInfo: RefInfo;
 	changes: Array<TreeChange>;
 	assignments: Array<HunkAssignment>;
-	commitDetailsPaths: Array<string>;
+	commonBaseCommitId?: string;
 }): NavigationModel => {
 	const items: Array<Item> = [];
-	const rootItems: Array<Item> = [];
-	const rootIndexByItemIndex: Array<number> = [];
+	const sections: Array<Item> = [];
+	const sectionIndexByItemIndex: Array<number> = [];
 	const indexByKey = new Map<string, number>();
-	const commitDetails =
-		selection?._tag === "Commit" && selection.mode._tag === "Details" ? selection : null;
 
 	const addChangesItems = (stackId: string | null) => {
-		const rootItem = changesSummaryItem(stackId);
-		const rootIndex = rootItems.length;
-		rootItems.push(rootItem);
-		indexByKey.set(itemKey(rootItem), items.length);
-		rootIndexByItemIndex.push(rootIndex);
-		items.push(rootItem);
+		const section = changesSummaryItem(stackId);
+		const sectionIndex = sections.length;
+		sections.push(section);
+		indexByKey.set(itemKey(section), items.length);
+		sectionIndexByItemIndex.push(sectionIndex);
+		items.push(section);
 
 		for (const change of changes) {
 			if (!hasAssignmentsForPath({ assignments, stackId, path: change.path })) continue;
 			const item = changesDetailsItem(stackId, change.path);
 			indexByKey.set(itemKey(item), items.length);
-			rootIndexByItemIndex.push(rootIndex);
+			sectionIndexByItemIndex.push(sectionIndex);
 			items.push(item);
 		}
 	};
@@ -148,78 +75,58 @@ export const buildNavigationModel = ({
 		for (const [segmentIndex, segment] of stack.segments.entries()) {
 			const branchName = segment.refName?.displayName ?? null;
 			const branchRef = segment.refName ? getSegmentBranchRef(segment.refName) : null;
-			const rootItem = segmentItem({
+			const section = segmentItem({
 				stackId: stack.id,
 				segmentIndex,
 				branchName,
 				branchRef,
 			});
-			const rootIndex = rootItems.length;
-			rootItems.push(rootItem);
-			indexByKey.set(itemKey(rootItem), items.length);
-			rootIndexByItemIndex.push(rootIndex);
-			items.push(rootItem);
+			const sectionIndex = sections.length;
+			sections.push(section);
+			indexByKey.set(itemKey(section), items.length);
+			sectionIndexByItemIndex.push(sectionIndex);
+			items.push(section);
 
 			for (const commit of segment.commits) {
-				const isCommitDetails =
-					commitDetails !== null &&
-					commitDetails.stackId === stack.id &&
-					commitDetails.segmentIndex === segmentIndex &&
-					commitDetails.commitId === commit.id;
-				const commitItem = isCommitDetails
-					? commitDetailsItem({
-							stackId: stack.id,
-							segmentIndex,
-							branchName,
-							branchRef,
-							commitId: commit.id,
-						})
-					: commitSummaryItem({
-							stackId: stack.id,
-							segmentIndex,
-							branchName,
-							branchRef,
-							commitId: commit.id,
-						});
-				indexByKey.set(itemKey(commitItem), items.length);
-				rootIndexByItemIndex.push(rootIndex);
-				items.push(commitItem);
-
-				if (!isCommitDetails) continue;
-
-				for (const path of commitDetailsPaths) {
-					const item = commitDetailsItem(
-						{
-							stackId: stack.id,
-							segmentIndex,
-							branchName,
-							branchRef,
-							commitId: commit.id,
-						},
-						path,
-					);
-					indexByKey.set(itemKey(item), items.length);
-					rootIndexByItemIndex.push(rootIndex);
-					items.push(item);
-				}
+				const commitItemV = commitItem({
+					stackId: stack.id,
+					segmentIndex,
+					branchName,
+					branchRef,
+					commitId: commit.id,
+				});
+				indexByKey.set(itemKey(commitItemV), items.length);
+				sectionIndexByItemIndex.push(sectionIndex);
+				items.push(commitItemV);
 			}
 		}
 	}
 
-	return { items, rootItems, rootIndexByItemIndex, indexByKey };
+	if (commonBaseCommitId !== undefined) {
+		const section = baseCommitItem(commonBaseCommitId);
+		const sectionIndex = sections.length;
+		sections.push(section);
+		indexByKey.set(itemKey(section), items.length);
+		sectionIndexByItemIndex.push(sectionIndex);
+		items.push(section);
+	}
+
+	return { items, sections, sectionIndexByItemIndex, indexByKey };
 };
 
-const getAdjacentLinearItem = (
+export const getAdjacentItem = (
 	model: NavigationModel,
 	selection: Item | null,
 	offset: -1 | 1,
 ): Item | null => {
 	const currentIndex = selection ? (model.indexByKey.get(itemKey(selection)) ?? -1) : -1;
 	if (currentIndex === -1) return null;
-	return model.items[currentIndex + offset] ?? null;
+	const itemCount = model.items.length;
+	if (itemCount === 0) return null;
+	return model.items[(currentIndex + offset + itemCount) % itemCount] ?? null;
 };
 
-const getAdjacentRootItem = (
+export const getAdjacentSection = (
 	model: NavigationModel,
 	selection: Item | null,
 	offset: -1 | 1,
@@ -227,74 +134,102 @@ const getAdjacentRootItem = (
 	if (!selection) return null;
 	const currentIndex = model.indexByKey.get(itemKey(selection));
 	if (currentIndex === undefined) return null;
-	const currentRootIndex = model.rootIndexByItemIndex[currentIndex] ?? -1;
-	if (currentRootIndex === -1) return null;
-	return model.rootItems[currentRootIndex + offset] ?? null;
+	const currentSectionIndex = model.sectionIndexByItemIndex[currentIndex] ?? -1;
+	if (currentSectionIndex === -1) return null;
+	const sectionCount = model.sections.length;
+	if (sectionCount === 0) return null;
+	return model.sections[(currentSectionIndex + offset + sectionCount) % sectionCount] ?? null;
 };
 
-type SelectionAction =
-	| { _tag: "Edit" }
+export type SharedSelectionAction =
 	| { _tag: "Move"; offset: -1 | 1 }
-	| { _tag: "MoveRootDown" }
-	| { _tag: "MoveRootUp" }
-	| { _tag: "Collapse" }
-	| { _tag: "Expand" };
+	| { _tag: "NextSection" }
+	| { _tag: "PreviousSection" };
 
-export const getSelectionAction = (event: KeyboardEvent): SelectionAction | null =>
-	Match.value(event.key).pipe(
-		Match.when("Enter", (): SelectionAction | null => (!event.repeat ? { _tag: "Edit" } : null)),
-		Match.whenOr("ArrowUp", "k", (): SelectionAction | null => ({
-			_tag: "Move",
-			offset: -1,
-		})),
-		Match.whenOr("ArrowDown", "j", (): SelectionAction | null => ({
-			_tag: "Move",
-			offset: 1,
-		})),
-		Match.when("J", (): SelectionAction | null =>
-			event.shiftKey ? { _tag: "MoveRootDown" } : null,
-		),
-		Match.when("K", (): SelectionAction | null => (event.shiftKey ? { _tag: "MoveRootUp" } : null)),
-		Match.when("ArrowLeft", (): SelectionAction | null =>
-			!event.repeat ? { _tag: "Collapse" } : null,
-		),
-		Match.when("ArrowRight", (): SelectionAction | null =>
-			!event.repeat ? { _tag: "Expand" } : null,
-		),
-		Match.orElse((): SelectionAction | null => null),
-	);
+type ChangesSelectionAction = SharedSelectionAction;
+type SegmentSelectionAction = SharedSelectionAction;
+type CommitSelectionAction =
+	| SharedSelectionAction
+	| { _tag: "EditCommitMessage" }
+	| { _tag: "ExpandCommit" };
+type CommitEditingMessageAction = { _tag: "Save" } | { _tag: "Cancel" };
 
-export const performSelectionAction = async ({
-	action,
-	model,
-	selection,
-	expandCommit,
-}: {
-	action: SelectionAction;
-	model: NavigationModel;
-	selection: Item;
-	expandCommit: (selection: CommitItem) => Promise<Item | null>;
-}): Promise<Item | null> =>
-	Match.value(action).pipe(
-		Match.tag("Edit", () =>
-			selection._tag === "Commit" && selection.mode._tag === "Summary"
-				? commitEditingMessageItem(selection)
-				: null,
-		),
-		Match.tag("Move", ({ offset }) => getAdjacentLinearItem(model, selection, offset)),
-		Match.tag("MoveRootDown", () => getAdjacentRootItem(model, selection, 1)),
-		Match.tag(
-			"MoveRootUp",
-			() => getParentRootItem(selection) ?? getAdjacentRootItem(model, selection, -1),
-		),
-		Match.tag("Collapse", () =>
-			selection._tag === "Commit" && selection.mode._tag === "Details"
-				? commitSummaryItem(selection)
-				: null,
-		),
-		Match.tag("Expand", () => {
-			if (selection._tag !== "Commit" || selection.mode._tag !== "Summary") return null;
-			return expandCommit(selection);
-		}),
-		Match.exhaustive,
-	);
+const createSharedSelectionBindings = <Context>(): Array<
+	ShortcutBinding<SharedSelectionAction, Context>
+> => [
+	{
+		id: "move-up",
+		description: "up",
+		keys: ["ArrowUp", "k"],
+		action: { _tag: "Move", offset: -1 },
+	},
+	{
+		id: "move-down",
+		description: "down",
+		keys: ["ArrowDown", "j"],
+		action: { _tag: "Move", offset: 1 },
+	},
+	{
+		id: "next-section",
+		description: "next section",
+		keys: ["J"],
+		action: { _tag: "NextSection" },
+	},
+	{
+		id: "previous-section",
+		description: "previous section",
+		keys: ["K"],
+		action: { _tag: "PreviousSection" },
+	},
+];
+
+export const changesSelectionBindings: Array<ShortcutBinding<ChangesSelectionAction, ChangesItem>> =
+	[
+		...createSharedSelectionBindings<ChangesItem>(),
+		{
+			id: "changes-previous-section",
+			description: "previous section",
+			keys: ["ArrowLeft"],
+			action: { _tag: "PreviousSection" },
+			repeat: false,
+			when: (selection) => selection.mode._tag === "Details",
+		},
+	];
+
+export const segmentSelectionBindings: Array<ShortcutBinding<SegmentSelectionAction>> =
+	createSharedSelectionBindings<void>();
+
+export const commitSelectionBindings: Array<ShortcutBinding<CommitSelectionAction, CommitItem>> = [
+	...createSharedSelectionBindings<CommitItem>(),
+	{
+		id: "commit-edit-message",
+		description: "edit message",
+		keys: ["Enter"],
+		action: { _tag: "EditCommitMessage" },
+		repeat: false,
+	},
+	{
+		id: "commit-expand",
+		description: "details",
+		keys: ["ArrowRight", "l"],
+		action: { _tag: "ExpandCommit" },
+		repeat: false,
+	},
+];
+
+export const commitEditingMessageBindings: Array<ShortcutBinding<CommitEditingMessageAction>> = [
+	{
+		id: "commit-editing-message-save",
+		description: "save",
+		keys: ["Enter"],
+		action: { _tag: "Save" },
+		repeat: false,
+	},
+	{
+		id: "commit-editing-message-cancel",
+		description: "cancel",
+		keys: ["Escape"],
+		action: { _tag: "Cancel" },
+		repeat: false,
+	},
+];

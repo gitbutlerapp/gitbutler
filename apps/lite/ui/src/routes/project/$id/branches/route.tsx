@@ -17,10 +17,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import { CheckIcon } from "#ui/components/icons.tsx";
-import {
-	isTypingTarget,
-	ProjectPreviewLayout,
-} from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
+import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import {
 	CommitDetails,
 	CommitLabel,
@@ -31,16 +28,11 @@ import {
 	HunkDiff,
 	ShowBranch,
 	ShowCommit,
+	isTypingTarget,
 } from "#ui/routes/project/$id/-shared.tsx";
+import { PositionedShortcutsBar } from "#ui/routes/project/$id/workspace/-ShortcutsBar.tsx";
 import sharedStyles from "../-shared.module.css";
-import {
-	getDefaultSelection,
-	normalizeBranchSelection,
-	Selection,
-	toggleBranchSelection,
-	toggleCommitFileSelection,
-	toggleCommitSelection,
-} from "./-Selection.ts";
+import { getDefaultSelection, normalizeBranchSelection, Selection } from "./-Selection.ts";
 
 const isValidCommit = (commitId: string, branchDetails: BranchDetails): boolean => {
 	const commitIds = new Set(branchDetails.commits.map((commit) => commit.id));
@@ -113,6 +105,7 @@ const useSelectionKeyboardShortcuts = ({
 			case "ArrowRight":
 				if (selection.mode._tag !== "Summary") return;
 				event.preventDefault();
+				// TODO: error handling
 				void getExpandedCommitSelection({
 					branchName: selection.branchName,
 					commitId: selection.commitId,
@@ -188,7 +181,7 @@ const BranchApplyToggle: FC<{
 	return isApplied ? (
 		<button
 			type="button"
-			className={sharedStyles.rowAction}
+			className={sharedStyles.itemAction}
 			disabled={stackId === undefined}
 			aria-label={`Unapply branch ${branch.name}`}
 			onClick={() => {
@@ -201,7 +194,7 @@ const BranchApplyToggle: FC<{
 	) : (
 		<button
 			type="button"
-			className={classes(sharedStyles.rowAction, styles.branchApplyButtonInactive)}
+			className={classes(sharedStyles.itemAction, styles.branchApplyButtonInactive)}
 			disabled={ref === null}
 			aria-label={`Apply branch ${branch.name}`}
 			onClick={() => {
@@ -234,7 +227,7 @@ const BranchRow: FC<
 		<div
 			{...restProps}
 			className={classes(
-				sharedStyles.row,
+				sharedStyles.item,
 				branchSelection || commitSelection ? sharedStyles.selected : undefined,
 				className,
 			)}
@@ -246,7 +239,10 @@ const BranchRow: FC<
 							type="button"
 							className={styles.branchButton}
 							onClick={() => {
-								select(toggleBranchSelection(selection, branch.name));
+								select({
+									_tag: "Branch",
+									branchName: branch.name,
+								});
 							}}
 						>
 							{branch.name}
@@ -264,7 +260,7 @@ const BranchRow: FC<
 			</ContextMenu.Root>
 			<BranchApplyToggle branch={branch} projectId={projectId} />
 			<Menu.Root>
-				<Menu.Trigger className={sharedStyles.rowAction} aria-label={`Branch ${branch.name} menu`}>
+				<Menu.Trigger className={sharedStyles.itemAction} aria-label={`Branch ${branch.name} menu`}>
 					<MenuTriggerIcon />
 				</Menu.Trigger>
 				<Menu.Portal>
@@ -320,7 +316,7 @@ const CommitRow: FC<{
 	return (
 		<div
 			className={classes(
-				sharedStyles.row,
+				sharedStyles.item,
 				commitSelection ? sharedStyles.selected : undefined,
 				isHighlighted && sharedStyles.highlighted,
 			)}
@@ -331,13 +327,18 @@ const CommitRow: FC<{
 				type="button"
 				className={sharedStyles.commitButton}
 				onClick={() => {
-					select(toggleCommitSelection(selection, branchName, commit.id));
+					select({
+						_tag: "Commit",
+						branchName,
+						commitId: commit.id,
+						mode: { _tag: "Summary" },
+					});
 				}}
 			>
 				<CommitLabel commit={commit} />
 			</button>
 			<button
-				className={sharedStyles.rowAction}
+				className={sharedStyles.itemAction}
 				type="button"
 				onClick={toggleDetails}
 				aria-expanded={commitSelection?.mode._tag === "Details"}
@@ -384,7 +385,7 @@ const CommitC: FC<{
 							renderFile={(change) => (
 								<div
 									className={classes(
-										sharedStyles.row,
+										sharedStyles.item,
 										commitSelection.mode._tag === "Details" &&
 											commitSelection.mode.path === change.path &&
 											sharedStyles.selectedFile,
@@ -393,9 +394,15 @@ const CommitC: FC<{
 									<FileButton
 										change={change}
 										toggleSelect={() => {
-											select(
-												toggleCommitFileSelection(selection, branchName, commit.id, change.path),
-											);
+											select({
+												_tag: "Commit",
+												branchName,
+												commitId: commit.id,
+												mode: {
+													_tag: "Details",
+													path: change.path,
+												},
+											});
 										}}
 									/>
 								</div>
@@ -577,7 +584,7 @@ const ProjectBranchesPage: FC = () => {
 				<ul
 					className={classes(
 						styles.branchesListLane,
-						selection?._tag === "Branch" ? styles.selectedContainer : undefined,
+						selection?._tag === "Branch" ? sharedStyles.sectionSelected : undefined,
 					)}
 				>
 					{sortedBranches.map((branch) => (
@@ -596,7 +603,7 @@ const ProjectBranchesPage: FC = () => {
 					<div
 						className={classes(
 							styles.branchDetailsLane,
-							selection?._tag === "Commit" ? styles.selectedContainer : undefined,
+							selection?._tag === "Commit" ? sharedStyles.sectionSelected : undefined,
 						)}
 					>
 						<Suspense fallback={<div>Loading branch details…</div>}>
@@ -611,6 +618,8 @@ const ProjectBranchesPage: FC = () => {
 					</div>
 				)}
 			</div>
+
+			<PositionedShortcutsBar />
 		</ProjectPreviewLayout>
 	);
 };

@@ -20,11 +20,18 @@
 }
 
 .previewDialogPopup {
+	display: flex;
 	position: fixed;
+	flex-direction: column;
 	inset: 0;
+	overflow: hidden;
+	background-color: white;
+}
+
+.previewDialogBody {
+	flex: 1;
 	padding: var(--pane-padding);
 	overflow: auto;
-	background-color: white;
 }
 
 .previewResizeHandle {
@@ -36,26 +43,51 @@
 	width: 500px;
 }
 
-.row {
+.item {
 	display: flex;
 	align-items: start;
+
+	&:where(:hover) {
+		background-color: #e8e8e8;
+	}
 }
 
-.rowAction {
+.itemEmpty {
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
+	color: gray;
+	line-height: var(--item-line-height);
+}
+
+.selected {
+	background-color: black;
+	color: white;
+}
+
+.highlighted {
+	background-color: burlywood;
+	color: black;
+}
+
+.sectionSelected {
+	background-color: #f5f5f5;
+}
+
+.itemAction {
 	display: grid;
 	visibility: hidden;
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
 
 	svg {
-		width: var(--row-line-height);
-		height: var(--row-line-height);
+		width: var(--item-line-height);
+		height: var(--item-line-height);
 	}
 
-	.row:hover &,
-	.row:focus-within &,
-	.row:has(.rowAction[aria-expanded="true"]) &,
-	.row.selected & {
+	.item:hover &,
+	.item:focus-within &,
+	.item:has(.itemAction[aria-expanded="true"]) &,
+	.item.selected & {
 		visibility: visible;
 	}
 
@@ -74,33 +106,23 @@
 
 .commitButton {
 	flex-grow: 1;
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
-	line-height: var(--row-line-height);
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
+	line-height: var(--item-line-height);
 }
 
 .fileButton {
 	flex-grow: 1;
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
 	overflow: hidden;
-	line-height: var(--row-line-height);
+	line-height: var(--item-line-height);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.selected {
-	background-color: black;
-	color: white;
-}
-
 .selectedFile {
 	background-color: lightgray;
-}
-
-.highlighted {
-	background-color: burlywood;
-	color: black;
 }
 
 .hunkHeaderRow {
