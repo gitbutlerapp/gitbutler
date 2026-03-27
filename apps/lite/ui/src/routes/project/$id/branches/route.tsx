@@ -378,7 +378,9 @@ const CommitC: FC<{
 			/>
 			{commitSelection?.mode._tag === "Details" && (
 				<div className={sharedStyles.commitDetails}>
-					<Suspense fallback={<div>Loading changed details…</div>}>
+					<Suspense
+						fallback={<div className={sharedStyles.itemEmpty}>Loading changed details…</div>}
+					>
 						<CommitDetails
 							projectId={projectId}
 							commitId={commit.id}
