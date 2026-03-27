@@ -1,8 +1,0 @@
-"├╯                                                                                                  "
-"┊                                                                                                   "
-"┊╭┄h0 [B]                                                                                           "
-"┊●   d3e2ba3 add B                                                                                  "
-"├╯                                                                                                  "
-"┊                                                                                                   "
-"┴ 0dc3733 [origin/main] 2000-01-02 add M                                                            "
-"  reword   enter confirm • esc back                                                                 "

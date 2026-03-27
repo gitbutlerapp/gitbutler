@@ -131,13 +131,6 @@ pub(super) struct TestTuiInputThenRenderResult<'a>(&'a mut TestTui);
 
 impl TestTuiInputThenRenderResult<'_> {
     #[track_caller]
-    pub(super) fn assert_rendered_eq(self, expected: snapbox::Data) -> Self {
-        snapbox::assert_data_eq!(self.0.terminal.backend().to_string(), expected);
-
-        self
-    }
-
-    #[track_caller]
     pub(super) fn assert_rendered_contains(self, expected: &str) -> Self {
         let output = self.0.terminal.backend().to_string();
         assert!(
@@ -234,7 +227,6 @@ fn backend_to_svg(backend: &TestBackend) -> String {
             if symbol.is_empty() || symbol == " " {
                 continue;
             }
-
             let mut fg = color_to_rgb(cell.fg, default_fg);
             let mut bg = color_to_rgb(cell.bg, default_bg);
             if cell.modifier.contains(Modifier::REVERSED) {

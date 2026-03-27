@@ -45,7 +45,7 @@ fn rub_api_unassigned_to_commit() {
 
     tui.input_then_render(KeyCode::Up)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"])
-        .assert_rendered_eq(file!["snapshots/rub_api_unassigned_to_commit.txt"]);
+        .assert_rendered_term_svg_eq(file!["snapshots/rub_api_unassigned_to_commit.svg"]);
 }
 
 // Tests RubOperation::UnassignedToBranch.

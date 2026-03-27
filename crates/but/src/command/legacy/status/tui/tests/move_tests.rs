@@ -25,7 +25,7 @@ fn esc_leaves_move_mode() {
 
     tui.input_then_render(KeyCode::Esc)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"])
-        .assert_rendered_eq(file!["snapshots/esc_leaves_move_mode_final.txt"]);
+        .assert_rendered_term_svg_eq(file!["snapshots/esc_leaves_move_mode_final.svg"]);
 }
 
 #[test]
@@ -92,9 +92,10 @@ fn move_commit_above_other_commit_reorders_tui() {
 
     let env = tui.env;
     let mut tui = test_tui(env);
-    tui.input_then_render(None).assert_rendered_eq(file![
-        "snapshots/move_commit_above_other_commit_reorders_tui_final.txt"
-    ]);
+    tui.input_then_render(None)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/move_commit_above_other_commit_reorders_tui_final.svg"
+        ]);
 }
 
 #[test]
@@ -133,9 +134,10 @@ fn move_commit_below_other_commit_reorders_tui() {
 
     let env = tui.env;
     let mut tui = test_tui(env);
-    tui.input_then_render(None).assert_rendered_eq(file![
-        "snapshots/move_commit_below_other_commit_reorders_tui_final.txt"
-    ]);
+    tui.input_then_render(None)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/move_commit_below_other_commit_reorders_tui_final.svg"
+        ]);
 }
 
 #[test]
@@ -165,9 +167,10 @@ fn move_branch_onto_other_branch_reorders_stacks() {
 
     let env = tui.env;
     let mut tui = test_tui(env);
-    tui.input_then_render(None).assert_rendered_eq(file![
-        "snapshots/move_branch_onto_other_branch_reorders_stacks_final.txt"
-    ]);
+    tui.input_then_render(None)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/move_branch_onto_other_branch_reorders_stacks_final.svg"
+        ]);
 }
 
 #[test]
@@ -203,7 +206,7 @@ fn move_branch_to_merge_base_tears_off_branch() {
         None,
         Vec::from([Message::EnterNormalMode, Message::Reload(None)]),
     )
-    .assert_rendered_eq(file![
-        "snapshots/move_branch_to_merge_base_tears_off_branch_final.txt"
+    .assert_rendered_term_svg_eq(file![
+        "snapshots/move_branch_to_merge_base_tears_off_branch_final.svg"
     ]);
 }

@@ -67,7 +67,7 @@ fn shows_full_error_when_message_wraps() {
             ))),
         ]),
     )
-    .assert_rendered_eq(file!["snapshots/shows_full_error_when_message_wraps_001.txt"]);
+    .assert_rendered_term_svg_eq(file!["snapshots/shows_full_error_when_message_wraps_001.svg"]);
 }
 
 #[test]
@@ -86,8 +86,8 @@ fn shows_full_error_cause_chain_with_multiple_contexts() {
         None,
         Vec::from([Message::Reload(None), Message::ShowError(Arc::new(err))]),
     )
-    .assert_rendered_eq(file![
-        "snapshots/shows_full_error_cause_chain_with_multiple_contexts_001.txt"
+    .assert_rendered_term_svg_eq(file![
+        "snapshots/shows_full_error_cause_chain_with_multiple_contexts_001.svg"
     ]);
 }
 
@@ -124,7 +124,7 @@ fn basic_cursor_movement() {
     let mut tui = test_tui(env);
 
     tui.input_then_render(None)
-        .assert_rendered_eq(file!["snapshots/basic_cursor_movement_001.txt"])
+        .assert_rendered_term_svg_eq(file!["snapshots/basic_cursor_movement_001.svg"])
         .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -254,14 +254,14 @@ fn cursor_movement_scrolls_viewport_down() {
     let mut tui = test_tui_with_size(env, 100, 8);
 
     tui.input_then_render(None)
-        .assert_rendered_eq(file![
-            "snapshots/cursor_movement_scrolls_viewport_down_001.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/cursor_movement_scrolls_viewport_down_001.svg"
         ])
         .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
-        .assert_rendered_eq(file![
-            "snapshots/cursor_movement_scrolls_viewport_down_002.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/cursor_movement_scrolls_viewport_down_002.svg"
         ])
         .assert_current_line_eq(str!["┊●   [..] add B"]);
 }
@@ -274,14 +274,14 @@ fn cursor_movement_scrolls_viewport_up() {
     let mut tui = test_tui_with_size(env, 100, 8);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
-        .assert_rendered_eq(file![
-            "snapshots/cursor_movement_scrolls_viewport_up_001.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/cursor_movement_scrolls_viewport_up_001.svg"
         ])
         .assert_current_line_eq(str!["┊●   [..] add B"]);
 
     tui.input_then_render([KeyCode::Up, KeyCode::Up, KeyCode::Up, KeyCode::Up])
-        .assert_rendered_eq(file![
-            "snapshots/cursor_movement_scrolls_viewport_up_002.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/cursor_movement_scrolls_viewport_up_002.svg"
         ])
         .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
 }
@@ -316,20 +316,20 @@ fn section_jumps_scroll_viewport_when_target_is_offscreen() {
     let mut tui = test_tui_with_size(env, 100, 8);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
-        .assert_rendered_eq(file![
-            "snapshots/section_jumps_scroll_viewport_when_target_is_offscreen_001.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/section_jumps_scroll_viewport_when_target_is_offscreen_001.svg"
         ])
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
-        .assert_rendered_eq(file![
-            "snapshots/section_jumps_scroll_viewport_when_target_is_offscreen_002.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/section_jumps_scroll_viewport_when_target_is_offscreen_002.svg"
         ])
         .assert_current_line_eq(str!["┊╭┄h0 [B]"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('K')))
-        .assert_rendered_eq(file![
-            "snapshots/section_jumps_scroll_viewport_when_target_is_offscreen_003.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/section_jumps_scroll_viewport_when_target_is_offscreen_003.svg"
         ])
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 }
@@ -344,8 +344,8 @@ fn reload_preserves_visible_selection_when_scrolled() {
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down]);
 
     tui.render_with_messages(None, Vec::from([Message::Reload(None)]))
-        .assert_rendered_eq(file![
-            "snapshots/reload_preserves_visible_selection_when_scrolled_001.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/reload_preserves_visible_selection_when_scrolled_001.svg"
         ])
         .assert_current_line_eq(str!["┊●   [..] add B"]);
 }
@@ -364,8 +364,8 @@ fn inline_reword_renders_on_visible_row_when_scrolled() {
         KeyCode::Down,
         KeyCode::Enter,
     ])
-    .assert_rendered_eq(file![
-        "snapshots/inline_reword_renders_on_visible_row_when_scrolled_001.txt"
+    .assert_rendered_term_svg_eq(file![
+        "snapshots/inline_reword_renders_on_visible_row_when_scrolled_001.svg"
     ])
     .assert_current_line_eq(str!["┊●   [..] add B"]);
 }
@@ -378,18 +378,18 @@ fn creating_empty_commits() {
     let mut tui = test_tui(env);
 
     tui.input_then_render(None)
-        .assert_rendered_eq(file!["snapshots/creating_empty_commits_001.txt"])
+        .assert_rendered_term_svg_eq(file!["snapshots/creating_empty_commits_001.svg"])
         .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render('n')
-        .assert_rendered_eq(file!["snapshots/creating_empty_commits_002.txt"])
+        .assert_rendered_term_svg_eq(file!["snapshots/creating_empty_commits_002.svg"])
         .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
 
     tui.input_then_render('n')
-        .assert_rendered_eq(file!["snapshots/creating_empty_commits_003.txt"])
+        .assert_rendered_term_svg_eq(file!["snapshots/creating_empty_commits_003.svg"])
         .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
 }
 
@@ -401,24 +401,24 @@ fn inline_reword() {
     let mut tui = test_tui(env);
 
     tui.input_then_render(None)
-        .assert_rendered_eq(file!["snapshots/inline_reword_001.txt"])
+        .assert_rendered_term_svg_eq(file!["snapshots/inline_reword_001.svg"])
         .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render('n')
-        .assert_rendered_eq(file!["snapshots/inline_reword_002.txt"])
+        .assert_rendered_term_svg_eq(file!["snapshots/inline_reword_002.svg"])
         .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_rendered_eq(file!["snapshots/inline_reword_003.txt"]);
+        .assert_rendered_term_svg_eq(file!["snapshots/inline_reword_003.svg"]);
 
     tui.input_then_render("foo")
-        .assert_rendered_eq(file!["snapshots/inline_reword_004.txt"]);
+        .assert_rendered_term_svg_eq(file!["snapshots/inline_reword_004.svg"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_rendered_eq(file!["snapshots/inline_reword_005.txt"])
+        .assert_rendered_term_svg_eq(file!["snapshots/inline_reword_005.svg"])
         .assert_current_line_eq(str!["┊●   [..] foo (no changes)"]);
 }
 
@@ -460,8 +460,8 @@ fn mode_toggle_key_r_enters_and_leaves_rub_mode() {
         .assert_current_line_eq(str!["┊   vo A test.txt"]);
 
     tui.input_then_render('r')
-        .assert_rendered_eq(file![
-            "snapshots/mode_toggle_key_r_enters_and_leaves_rub_mode_001.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/mode_toggle_key_r_enters_and_leaves_rub_mode_001.svg"
         ])
         .assert_current_line_eq(str!["┊   << source >> << noop >> vo A test.txt"]);
 
@@ -479,8 +479,8 @@ fn mode_toggle_key_c_enters_and_leaves_commit_mode() {
     tui.env.file("test.txt", "content");
 
     tui.input_then_render('c')
-        .assert_rendered_eq(file![
-            "snapshots/mode_toggle_key_c_enters_and_leaves_commit_mode_001.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/mode_toggle_key_c_enters_and_leaves_commit_mode_001.svg"
         ])
         .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [unstaged changes]"]);
 
@@ -499,8 +499,8 @@ fn mode_toggle_key_m_enters_and_leaves_move_mode() {
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render('m')
-        .assert_rendered_eq(file![
-            "snapshots/mode_toggle_key_m_enters_and_leaves_move_mode_001.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/mode_toggle_key_m_enters_and_leaves_move_mode_001.svg"
         ])
         .assert_current_line_eq(str!["┊╭┄<< source >> << noop >> g0 [A]"]);
 
@@ -516,8 +516,8 @@ fn mode_toggle_key_b_enters_and_leaves_branch_mode() {
     let mut tui = test_tui(env);
 
     tui.input_then_render('b')
-        .assert_rendered_eq(file![
-            "snapshots/mode_toggle_key_b_enters_and_leaves_branch_mode_001.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/mode_toggle_key_b_enters_and_leaves_branch_mode_001.svg"
         ])
         .assert_current_line_eq(str!["┊╭┄<< target >> g0 [A]"]);
 
@@ -533,13 +533,13 @@ fn rubbing() {
     let mut tui = test_tui(env);
 
     tui.input_then_render(None)
-        .assert_rendered_eq(file!["snapshots/rubbing_001.txt"])
+        .assert_rendered_term_svg_eq(file!["snapshots/rubbing_001.svg"])
         .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
 
     tui.env.file("test.txt", "content");
 
     tui.input_then_render(None)
-        .assert_rendered_eq(file!["snapshots/rubbing_002.txt"])
+        .assert_rendered_term_svg_eq(file!["snapshots/rubbing_002.svg"])
         .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -571,7 +571,7 @@ fn rubbing() {
         .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
-        .assert_rendered_eq(file!["snapshots/rubbing_003.txt"]);
+        .assert_rendered_term_svg_eq(file!["snapshots/rubbing_003.svg"]);
 }
 
 #[test]
@@ -592,8 +592,8 @@ fn global_file_list_does_not_restrict_cursor() {
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
         .assert_current_line_eq(str!["┊╭┄h0 [B]"])
-        .assert_rendered_eq(file![
-            "snapshots/global_file_list_does_not_restrict_cursor_final.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/global_file_list_does_not_restrict_cursor_final.svg"
         ]);
 }
 
@@ -615,8 +615,8 @@ fn commit_file_list_scopes_cursor_to_files_in_selected_commit() {
 
     tui.input_then_render(KeyCode::Up)
         .assert_current_line_eq(str!["┊│     [..] A A"])
-        .assert_rendered_eq(file![
-            "snapshots/commit_file_list_scopes_cursor_to_files_in_selected_commit_final.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/commit_file_list_scopes_cursor_to_files_in_selected_commit_final.svg"
         ]);
 }
 
@@ -642,8 +642,8 @@ fn commit_file_toggle_on_commit_without_files_is_noop() {
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┴ 0dc3733 [origin/main] 2000-01-02 add M"])
-        .assert_rendered_eq(file![
-            "snapshots/commit_file_toggle_on_commit_without_files_is_noop_final.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/commit_file_toggle_on_commit_without_files_is_noop_final.svg"
         ]);
 }
 
@@ -668,8 +668,8 @@ fn commit_file_list_rub_can_escape_scope_and_esc_reenters_file_list() {
 
     tui.input_then_render(KeyCode::Esc)
         .assert_current_line_eq(str!["┊│     [..] A A"])
-        .assert_rendered_eq(file![
-            "snapshots/commit_file_list_rub_can_escape_scope_and_esc_reenters_file_list_final.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/commit_file_list_rub_can_escape_scope_and_esc_reenters_file_list_final.svg"
         ]);
 }
 
@@ -714,8 +714,8 @@ fn esc_in_normal_mode_closes_global_file_list() {
 
     tui.input_then_render(KeyCode::Esc)
         .assert_current_line_eq(str!["┊●   [..] add A"])
-        .assert_rendered_eq(file![
-            "snapshots/esc_in_normal_mode_closes_global_file_list_final.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/esc_in_normal_mode_closes_global_file_list_final.svg"
         ]);
 }
 
@@ -734,8 +734,8 @@ fn esc_in_normal_mode_closes_commit_file_list() {
 
     tui.input_then_render(KeyCode::Esc)
         .assert_current_line_eq(str!["┊●   [..] add A"])
-        .assert_rendered_eq(file![
-            "snapshots/esc_in_normal_mode_closes_commit_file_list_final.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/esc_in_normal_mode_closes_commit_file_list_final.svg"
         ]);
 }
 
@@ -754,7 +754,7 @@ fn commit_file_toggle_off_from_commit_row_preserves_commit_selection() {
 
     tui.input_then_render('f')
         .assert_current_line_eq(str!["┊●   [..] add A"])
-        .assert_rendered_eq(file![
-            "snapshots/commit_file_toggle_off_from_commit_row_preserves_commit_selection_final.txt"
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/commit_file_toggle_off_from_commit_row_preserves_commit_selection_final.svg"
         ]);
 }
