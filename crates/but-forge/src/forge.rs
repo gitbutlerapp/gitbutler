@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
 /// Supported git forge types
 pub enum ForgeName {
@@ -9,6 +10,9 @@ pub enum ForgeName {
     Bitbucket,
     Azure,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ForgeName);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
