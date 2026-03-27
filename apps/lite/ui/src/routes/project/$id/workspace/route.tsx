@@ -1575,20 +1575,29 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 	);
 };
 
-const SegmentRow: FC<{
-	segment: Segment;
-	stackId: string;
-	segmentIndex: number;
-	selection: Item | null;
-	select: (selection: Item | null) => void;
-}> = ({ segment, stackId, segmentIndex, selection, select }) => {
+const SegmentRow: FC<
+	{
+		segment: Segment;
+		stackId: string;
+		segmentIndex: number;
+		selection: Item | null;
+		select: (selection: Item | null) => void;
+	} & ComponentProps<"div">
+> = ({ segment, stackId, segmentIndex, selection, select, ...restProps }) => {
 	const isSelected =
 		selection?._tag === "Segment" &&
 		selection.stackId === stackId &&
 		selection.segmentIndex === segmentIndex;
 
 	return (
-		<div className={classes(sharedStyles.item, isSelected && sharedStyles.selected)}>
+		<div
+			{...restProps}
+			className={classes(
+				restProps.className,
+				sharedStyles.item,
+				isSelected && sharedStyles.selected,
+			)}
+		>
 			<button
 				type="button"
 				className={styles.segmentButton}
