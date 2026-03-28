@@ -4,7 +4,6 @@ use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_core::DiffSpec;
 use but_ctx::Context;
-use but_oxidize::ObjectIdExt;
 use gitbutler_branch_actions::hooks;
 use gitbutler_repo::{
     FileInfo, RepoCommands,
@@ -54,7 +53,7 @@ pub fn get_commit_file(
     relative_path: PathBuf,
     commit_id: gix::ObjectId,
 ) -> Result<FileInfo> {
-    ctx.read_file_from_commit(commit_id.to_git2(), &relative_path)
+    ctx.read_file_from_commit(commit_id, &relative_path)
 }
 
 #[but_api]

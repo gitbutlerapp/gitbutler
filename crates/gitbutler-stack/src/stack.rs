@@ -9,7 +9,6 @@ use but_core::Reference;
 pub use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_meta::virtual_branches_legacy_types;
-use but_oxidize::ObjectIdExt;
 use but_rebase::ReferenceSpec;
 use gitbutler_reference::{Refname, RemoteRefname, VirtualRefname, normalize_branch_name};
 use gitbutler_repo::first_parent_commit_ids_until;
@@ -564,7 +563,7 @@ impl Stack {
         let upstream_refname =
             RemoteRefname::from_str(&reference.remote_reference(remote_name.as_str()))?;
         Ok(PushDetails {
-            head: oid.to_git2(),
+            head: oid,
             remote_refname: upstream_refname,
         })
     }
@@ -695,7 +694,7 @@ pub struct PatchReferenceUpdate {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PushDetails {
     /// The commit that is being pushed.
-    pub head: git2::Oid,
+    pub head: gix::ObjectId,
     /// A remote refname to push to.
     pub remote_refname: RemoteRefname,
 }
