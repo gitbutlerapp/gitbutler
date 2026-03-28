@@ -156,6 +156,7 @@ fn go_back_to_integration(ctx: &Context, default_target: &Target) -> Result<Base
 
         let final_tree_id = outcome.tree.write()?.detach();
 
+        #[expect(deprecated, reason = "checkout/materialization boundary")]
         let git2_repo = &*ctx.git2_repo.get()?;
         let final_tree = git2_repo.find_tree(final_tree_id.to_git2())?;
         git2_repo

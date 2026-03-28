@@ -35,6 +35,10 @@ impl Context {
 
     /// Open the repository identified by `legacy_project` and `settings`, while controlling
     /// how the repository sources configuration via `repo_open_mode`.
+    #[allow(
+        deprecated,
+        reason = "Context owns the deprecated boundary cache and must initialize it."
+    )]
     pub fn new_from_legacy_project_and_settings_with_repo_open_mode(
         legacy_project: &gitbutler_project::Project,
         settings: AppSettings,

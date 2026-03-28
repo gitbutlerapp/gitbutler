@@ -202,6 +202,7 @@ impl RepoCommands for Context {
     }
 
     fn add_remote(&self, name: &str, url: &str) -> Result<()> {
+        #[expect(deprecated, reason = "legacy remote configuration adapter")]
         let repo = self.git2_repo.get()?;
 
         // Bail if remote with given name already exists.

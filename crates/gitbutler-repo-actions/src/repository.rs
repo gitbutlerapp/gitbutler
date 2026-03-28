@@ -243,6 +243,7 @@ impl RepoActionsExt for Context {
                 }
             }
         } else {
+            #[expect(deprecated, reason = "libgit2 transport/auth adapter")]
             let git2_repo = self.git2_repo.get()?;
             let auth_flows = credentials::help(&git2_repo, &self.legacy_project, branch.remote())?;
             for (mut remote, callbacks) in auth_flows {
@@ -336,6 +337,7 @@ impl RepoActionsExt for Context {
             .map_err(Into::into);
         }
 
+        #[expect(deprecated, reason = "libgit2 transport/auth adapter")]
         let git2_repo = self.git2_repo.get()?;
         let auth_flows = credentials::help(&git2_repo, &self.legacy_project, remote_name)?;
         for (mut remote, callbacks) in auth_flows {

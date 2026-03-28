@@ -34,6 +34,10 @@ pub mod virtual_branches {
     pub fn set_test_target(ctx: &Context) -> anyhow::Result<()> {
         let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
         let (remote_repo, _tmp) = empty_bare_repository();
+        #[expect(
+            deprecated,
+            reason = "legacy fixture coverage for transport/setup compatibility"
+        )]
         let git2_repo = &*ctx.git2_repo.get()?;
         let mut remote = git2_repo
             .remote("origin", remote_repo.path().to_str().unwrap())

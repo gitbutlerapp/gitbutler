@@ -227,6 +227,7 @@ fn conficted_entries_get_written_when_leaving_edit_mode() -> Result<()> {
     let stack_id = stack_id(&ctx)?;
     enter_edit_mode(&mut ctx, foobar, stack_id)?;
 
+    #[expect(deprecated, reason = "checkout/index boundary coverage")]
     let repo = ctx.git2_repo.get()?;
     let init = repo.find_reference("refs/heads/main")?.peel_to_commit()?;
     let left = repo.find_reference("refs/heads/left")?.peel_to_commit()?;

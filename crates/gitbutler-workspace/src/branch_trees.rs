@@ -101,6 +101,7 @@ pub fn update_uncommitted_changes_with_tree(
 ) -> Result<()> {
     if let Some(worktree_id) = old_uncommitted_changes {
         let gix_repo = ctx.clone_repo_for_merging()?;
+        #[expect(deprecated, reason = "checkout/index materialization boundary")]
         let repo = &*ctx.git2_repo.get()?;
         let mut new_uncommitted_changes =
             move_tree_between_workspaces(repo, &gix_repo, worktree_id, &old, &new)?;
@@ -206,6 +207,7 @@ pub fn move_tree_has_conflicts(
     old_workspace: gix::ObjectId,
     new_workspace: gix::ObjectId,
 ) -> Result<bool> {
+    #[expect(deprecated, reason = "tree merge/index materialization boundary")]
     let repo = &*ctx.git2_repo.get()?;
     Ok(move_tree(repo, tree, old_workspace, new_workspace)?.has_conflicts())
 }

@@ -58,6 +58,7 @@ fn get_commit_index(ctx: &Context, commit_id: gix::ObjectId) -> Result<git2::Ind
         }
         gix_to_git2_index(&index)
     } else {
+        #[expect(deprecated, reason = "index materialization boundary")]
         let git2_repo = &*ctx.git2_repo.get()?;
         let commit_tree = git2_repo.find_tree(commit.tree.to_git2())?;
         let mut index = git2::Index::new()?;
@@ -115,6 +116,7 @@ fn get_uncommitted_changes(repo: &gix::Repository) -> Result<gix::ObjectId> {
 
 fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     let repo = &*ctx.repo.get()?;
+    #[expect(deprecated, reason = "checkout/index materialization boundary")]
     let git2_repo = &*ctx.git2_repo.get()?;
     let commit = git2_repo.find_commit(commit_id.to_git2())?;
 
@@ -234,6 +236,7 @@ pub(crate) fn abort_and_return_to_workspace(
         );
     }
 
+    #[expect(deprecated, reason = "checkout/materialization boundary")]
     let repo = &*ctx.git2_repo.get()?;
 
     // Checkout gitbutler workspace branch
@@ -253,6 +256,7 @@ pub(crate) fn abort_and_return_to_workspace(
 
 pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     let edit_mode_metadata = read_edit_mode_metadata(ctx).context("Failed to read metadata")?;
+    #[expect(deprecated, reason = "checkout/index materialization boundary")]
     let git2_repo = &*ctx.git2_repo.get()?;
     let repo = &*ctx.repo.get()?;
 
@@ -360,6 +364,7 @@ pub(crate) fn starting_index_state(
         bail!("Starting index state can only be fetched while in edit mode")
     };
 
+    #[expect(deprecated, reason = "conflicted tree lookup boundary")]
     let git2_repo = &*ctx.git2_repo.get()?;
     let repo = &*ctx.repo.get()?;
 

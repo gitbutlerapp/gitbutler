@@ -498,12 +498,10 @@ pub fn stack_branches(stack_id: StackId, ctx: &Context) -> anyhow::Result<Vec<ui
     let mut current_base = stack.merge_base(ctx)?;
     let repo = ctx.repo.get()?;
     for internal in stack.branches() {
-        let upstream_reference = ctx
-            .git2_repo
-            .get()?
-            .find_reference(&internal.remote_reference(remote.as_str()))
-            .ok()
-            .map(|_| internal.remote_reference(remote.as_str()));
+        let upstream_reference_name = internal.remote_reference(remote.as_str());
+        let upstream_reference = repo
+            .try_find_reference(&upstream_reference_name)?
+            .map(|_| upstream_reference_name);
         let result = ui::Branch {
             name: internal.name().to_owned().into(),
             remote_tracking_branch: upstream_reference.map(Into::into),
