@@ -10,10 +10,10 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_oxidize::{ObjectIdExt as _, OidExt, gix_to_git2_index};
+use but_oxidize::{ObjectIdExt as _, gix_to_git2_index};
 use but_rebase::graph_rebase::{Editor, Pick, Step};
 use git2::build::CheckoutBuilder;
-use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _, RepositoryExt as _};
+use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _};
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_operating_modes::{
     EDIT_BRANCH_REF, EditModeMetadata, INTEGRATION_BRANCH_REF, OperatingMode, WORKSPACE_BRANCH_REF,
@@ -364,16 +364,18 @@ pub(crate) fn starting_index_state(
         bail!("Starting index state can only be fetched while in edit mode")
     };
 
-    #[expect(deprecated, reason = "conflicted tree lookup boundary")]
-    let git2_repo = &*ctx.git2_repo.get()?;
     let repo = &*ctx.repo.get()?;
-
-    let commit = git2_repo.find_commit(metadata.commit_oid.to_git2())?;
-    let gix_commit = repo.find_commit(commit.id().to_gix())?;
+    let gix_commit = repo.find_commit(metadata.commit_oid)?;
     let commit_parent_tree = if gix_commit.is_conflicted() {
-        git2_repo.find_real_tree(&commit, ConflictedTreeKey::Base)?
+        repo.find_real_tree(&gix_commit, ConflictedTreeKey::Base)?
+            .detach()
     } else {
-        commit.parent(0)?.tree()?
+        let parent_id = gix_commit
+            .parent_ids()
+            .next()
+            .context("edited commit had no parent")?
+            .detach();
+        repo.find_commit(parent_id)?.tree_id()?.detach()
     };
 
     let index = get_commit_index(ctx, metadata.commit_oid)?;
@@ -407,11 +409,9 @@ pub(crate) fn starting_index_state(
 
     let tree_changes = but_core::diff::tree_changes(
         &repo,
-        Some(commit_parent_tree.id().to_gix()),
-        git2_repo
-            .find_real_tree(&commit, ConflictedTreeKey::Theirs)?
-            .id()
-            .to_gix(),
+        Some(commit_parent_tree),
+        repo.find_real_tree(&gix_commit, ConflictedTreeKey::Theirs)?
+            .detach(),
     )?;
 
     let outcome = tree_changes

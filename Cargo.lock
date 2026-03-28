@@ -3993,8 +3993,6 @@ name = "gitbutler-cherry-pick"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "but-oxidize",
- "git2",
  "gitbutler-commit",
  "gix",
 ]
