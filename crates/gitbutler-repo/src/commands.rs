@@ -2,6 +2,7 @@ use std::{path::Path, sync::Mutex};
 
 use anyhow::{Result, bail};
 use base64::engine::Engine as _;
+use but_core::RepositoryExt as _;
 use but_core::commit::sign_buffer;
 use but_ctx::Context;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
@@ -11,7 +12,7 @@ use itertools::Itertools;
 use serde::Serialize;
 use tracing::warn;
 
-use crate::{RepositoryExt, remote::GitRemote};
+use crate::remote::GitRemote;
 
 #[derive(Default, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -202,8 +203,7 @@ impl RepoCommands for Context {
     }
 
     fn add_remote(&self, name: &str, url: &str) -> Result<()> {
-        #[expect(deprecated, reason = "legacy remote configuration adapter")]
-        let repo = self.git2_repo.get()?;
+        let repo = self.open_isolated_repo()?;
 
         // Bail if remote with given name already exists.
         if repo.find_remote(name).is_ok() {
@@ -212,15 +212,31 @@ impl RepoCommands for Context {
 
         // Bail if remote with given url already exists.
         if repo
-            .remotes_as_string()?
+            .remote_names()
             .iter()
-            .map(|name| repo.find_remote(name))
-            .any(|result| result.is_ok_and(|remote| remote.url() == Some(url)))
+            .map(|name| repo.find_remote(name.as_ref()))
+            .any(|result| {
+                result.is_ok_and(|remote| {
+                    remote
+                        .url(gix::remote::Direction::Fetch)
+                        .is_some_and(|remote_url| {
+                            remote_url.to_bstring().as_slice() == url.as_bytes()
+                        })
+                })
+            })
         {
             bail!("Remote with url '{url}' already exists");
         }
 
-        repo.remote(name, url)?;
+        let config_path = repo.common_dir().join("config");
+        if !config_path.exists() {
+            std::fs::File::create(&config_path)?;
+        }
+        let mut config =
+            gix::config::File::from_path_no_includes(config_path, gix::config::Source::Local)?;
+        let mut section = config.section_mut_or_create_new("remote", Some(name.into()))?;
+        section.push("url".try_into()?, Some(url.into()));
+        repo.write_local_common_config(&config)?;
         Ok(())
     }
 
