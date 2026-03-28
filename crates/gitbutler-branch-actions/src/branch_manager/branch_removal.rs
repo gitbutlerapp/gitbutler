@@ -3,7 +3,6 @@ use but_core::{DiffSpec, RepositoryExt};
 use but_ctx::access::RepoExclusive;
 use but_oxidize::ObjectIdExt;
 use gitbutler_cherry_pick::GixRepositoryExt as _;
-use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::StackId;
 use gitbutler_workspace::workspace_base;
@@ -107,9 +106,10 @@ impl BranchManager<'_> {
                 git2_repo.find_tree(merge.tree.write()?.to_git2())?;
 
             git2_repo
-                .checkout_tree_builder(&new_workspace_tree_with_worktree_changes)
-                .force()
-                .checkout()
+                .checkout_tree(
+                    new_workspace_tree_with_worktree_changes.as_object(),
+                    Some(git2::build::CheckoutBuilder::new().force()),
+                )
                 .context("failed to checkout tree")?;
         }
 
