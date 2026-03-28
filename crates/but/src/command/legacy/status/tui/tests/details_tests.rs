@@ -186,3 +186,35 @@ fn toggling_details_off_and_on_resets_scroll_position() {
             "snapshots/toggling_details_off_and_on_resets_scroll_position_004.svg"
         ]);
 }
+
+#[test]
+fn details_view_syntax_highlighting_survives_scrolling() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let rust_code = (1..=120)
+        .map(|line| {
+            format!(
+                "fn function_{line:03}(value: i32) -> i32 {{ let answer = match value {{ 0 => 41, _ => value + 1 }}; println!(\"line-{line:03}: {{answer}}\"); answer }} // comment-{line:03}\n"
+            )
+        })
+        .collect::<String>();
+    env.file("syntax.rs", rust_code);
+
+    let mut tui = test_tui_with_size(env, 100, 10);
+
+    tui.input_then_render('d')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/details_view_syntax_highlighting_survives_scrolling_001.svg"
+        ]);
+
+    tui.render_with_messages((KeyModifiers::CONTROL, KeyCode::Char('d')), Vec::new())
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/details_view_syntax_highlighting_survives_scrolling_002.svg"
+        ]);
+
+    tui.render_with_messages((KeyModifiers::CONTROL, KeyCode::Char('u')), Vec::new())
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/details_view_syntax_highlighting_survives_scrolling_003.svg"
+        ]);
+}
