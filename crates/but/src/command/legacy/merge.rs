@@ -6,7 +6,7 @@ use colored::Colorize;
 
 use crate::{
     CliId, IdMap,
-    utils::{OutputChannel, shorten_object_id},
+    utils::{OutputChannel, WriteWithUtils as _, shorten_object_id},
 };
 
 pub async fn handle(
@@ -14,8 +14,6 @@ pub async fn handle(
     out: &mut OutputChannel,
     branch_id: &str,
 ) -> anyhow::Result<()> {
-    let mut progress = out.progress_channel();
-
     let id_map = IdMap::new_from_context(ctx, None)?;
 
     // Resolve the branch ID
@@ -42,7 +40,7 @@ pub async fn handle(
     // Check if target is gb-local
     if target_remote == "gb-local" {
         writeln!(
-            progress,
+            out.progress_channel(),
             "Merging branch {} into target {}",
             branch_name.bright_cyan(),
             format!("{}/{}", target_remote, base_branch.branch_name).bright_cyan()
@@ -70,7 +68,7 @@ pub async fn handle(
             .into_fully_peeled_id()?;
 
         writeln!(
-            progress,
+            out.progress_channel(),
             "Merging {} ({}) into {} ({})",
             branch_name.bright_cyan(),
             shorten_object_id(&repo, merge_in_branch_head_oid).bright_black(),
@@ -107,7 +105,11 @@ pub async fn handle(
             vec![merge_in_branch_head_oid, local_branch_head_oid],
         )?;
 
-        writeln!(progress, "\nUpdating {}", local_branch_name.blue())?;
+        writeln!(
+            out.progress_channel(),
+            "\nUpdating {}",
+            local_branch_name.blue()
+        )?;
 
         // update the local branch
         let branch_ref_name: gix::refs::FullName =
@@ -122,7 +124,7 @@ pub async fn handle(
         crate::command::legacy::pull::handle(ctx, out, false).await?;
 
         writeln!(
-            progress,
+            out.progress_channel(),
             "\n{}",
             "Merge and update complete!".green().bold()
         )?;

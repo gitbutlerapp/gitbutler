@@ -1,4 +1,4 @@
-use std::io::{IsTerminal, Write};
+use std::io::Write;
 
 use but_secret::Sensitive;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -37,8 +37,11 @@ pub enum ConfirmOrEmpty {
 pub struct OutputChannel {
     /// How to print the output, one should match on it. Match on this if you prefer this style.
     format: OutputFormat,
-    /// The output to use if there is no pager.
-    stdout: std::io::Stdout,
+    /// The stdout output to use if there is no pager.
+    stdout: Box<dyn WritePlusIsTerminal>,
+    /// The stderr output to use.
+    stderr: Box<dyn WritePlusIsTerminal>,
+    stderr_is_terminal: bool,
     /// Possibly a pager we are using. If `Some`, the pager itself is used for output instead of `stdout`.
     pager: Option<Pager>,
     /// When `Some`, JSON values written via `write_value` are captured here instead of going to stdout.
@@ -50,19 +53,20 @@ pub struct OutputChannel {
 /// if the error channel is connected to a terminal and the output format is for humans,
 /// for providing progress or error information.
 /// Broken pipes will also be ignored, thus the output written to this channel should be considered optional.
-pub struct ProgressChannel {
+pub struct ProgressChannel<'out> {
     /// The channel writes will go to, if we are connected to a terminal and output is for humans.
-    inner: Option<std::io::Stderr>,
+    inner: Option<&'out mut OutputChannel>,
 }
 
-impl ProgressChannel {
-    /// Create a new progress channel that writes to stderr if it's a terminal and `for_humans` is true.
-    /// If `for_humans` is false, the channel becomes a no-op.
-    pub fn new(for_humans: bool) -> Self {
+impl<'out> ProgressChannel<'out> {
+    /// Create a new progress channel that writes to stderr only when the associated
+    /// [`OutputChannel`] is configured for human-readable output and stderr is a terminal.
+    /// Otherwise, the channel becomes a no-op.
+    #[inline]
+    fn new(out: &'out mut OutputChannel) -> Self {
         ProgressChannel {
-            inner: if for_humans {
-                let stderr = std::io::stderr();
-                stderr.is_terminal().then_some(stderr)
+            inner: if matches!(out.format, OutputFormat::Human) && out.stderr_is_terminal {
+                Some(out)
             } else {
                 None
             },
@@ -70,10 +74,10 @@ impl ProgressChannel {
     }
 }
 
-impl std::io::Write for ProgressChannel {
+impl std::io::Write for ProgressChannel<'_> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        if let Some(stderr) = self.inner.as_mut() {
-            stderr
+        if let Some(out) = &mut self.inner {
+            out.stderr
                 .write(buf)
                 .or_else(|err| ignore_broken_pipe(err).map(|()| buf.len()))
         } else {
@@ -83,15 +87,15 @@ impl std::io::Write for ProgressChannel {
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        if let Some(stderr) = self.inner.as_mut() {
-            stderr.flush().or_else(ignore_broken_pipe)
+        if let Some(out) = &mut self.inner {
+            out.stderr.flush().or_else(ignore_broken_pipe)
         } else {
             Ok(())
         }
     }
 }
 
-impl std::fmt::Write for ProgressChannel {
+impl std::fmt::Write for ProgressChannel<'_> {
     fn write_str(&mut self, s: &str) -> std::fmt::Result {
         use std::io::Write;
         self.write_all(s.as_bytes()).map_err(|_| std::fmt::Error)
@@ -115,7 +119,7 @@ impl OutputChannel {
 }
 
 /// An [`std::fmt::Write`] implementation that supports additional utility methods for output formatting.
-pub trait WriteWithUtils: std::fmt::Write + 'static {
+pub trait WriteWithUtils: std::fmt::Write {
     /// Truncate the given text to the specified maximum width, unless the output is passed through a pager.
     ///
     /// Note that while copy-on-write is used internally, the returned value is always owned as it's typically
@@ -126,6 +130,10 @@ pub trait WriteWithUtils: std::fmt::Write + 'static {
     ///
     /// This is typically used to avoid truncating text when output is being piped to a pager.
     fn is_paged(&self) -> bool;
+
+    /// A convenience function to create a progress channel that only writes when the output is for humans.
+    /// The progress channel writes to stderr if it's a terminal and the output format is [`OutputFormat::Human`].
+    fn progress_channel(&mut self) -> ProgressChannel<'_>;
 }
 
 impl WriteWithUtils for OutputChannel {
@@ -140,6 +148,11 @@ impl WriteWithUtils for OutputChannel {
     fn is_paged(&self) -> bool {
         self.pager.is_some()
     }
+
+    #[inline]
+    fn progress_channel(&mut self) -> ProgressChannel<'_> {
+        ProgressChannel::new(self)
+    }
 }
 
 /// Output
@@ -148,24 +161,21 @@ impl OutputChannel {
     pub fn for_human(&mut self) -> Option<&mut dyn WriteWithUtils> {
         matches!(self.format, OutputFormat::Human).then(|| self as &mut dyn WriteWithUtils)
     }
+
     /// Provide a write implementation for Shell output, if the format setting permits.
     pub fn for_shell(&mut self) -> Option<&mut dyn WriteWithUtils> {
         matches!(self.format, OutputFormat::Shell).then(|| self as &mut dyn WriteWithUtils)
     }
+
     /// Provide a write implementation for text output (human or shell), if the format setting permits.
     pub fn for_human_or_shell(&mut self) -> Option<&mut dyn WriteWithUtils> {
         matches!(self.format, OutputFormat::Human | OutputFormat::Shell)
             .then(|| self as &mut dyn WriteWithUtils)
     }
+
     /// Provide a handle to receive a serde-serializable value to write to stdout.
     pub fn for_json(&mut self) -> Option<&mut Self> {
         matches!(self.format, OutputFormat::Json).then_some(self)
-    }
-
-    /// A convenience function to create a progress channel that only writes when the output is for humans.
-    /// The progress channel writes to stderr if it's a terminal and the output format is [`OutputFormat::Human`].
-    pub fn progress_channel(&self) -> ProgressChannel {
-        ProgressChannel::new(matches!(self.format, OutputFormat::Human))
     }
 }
 
@@ -177,8 +187,9 @@ impl OutputChannel {
     /// Note that this is implied to be true if [Self::prepare_for_terminal_input()] returns `Some()`.
     pub fn can_prompt(&self) -> bool {
         matches!(self.format, OutputFormat::Human)
-            && std::io::stdin().is_terminal()
+            && std::io::IsTerminal::is_terminal(&std::io::stdin())
             && self.stdout.is_terminal()
+            && self.stdout.can_prompt()
     }
 
     /// Before performing further output, obtain an input channel which always bypasses the pager when writing,
@@ -188,7 +199,7 @@ impl OutputChannel {
     pub fn prepare_for_terminal_input(&mut self) -> Option<InputOutputChannel<'_>> {
         use std::io::IsTerminal;
         let stdin = std::io::stdin();
-        if !stdin.is_terminal() || !self.stdout.is_terminal() {
+        if !stdin.is_terminal() || !self.stdout.is_terminal() || !self.stdout.can_prompt() {
             return None;
         }
         if self.for_human().is_none() {
@@ -215,7 +226,8 @@ impl OutputChannel {
         if self.json_buffer.is_some() {
             let new_value = serde_json::to_value(&value).map_err(std::io::Error::other)?;
             if !matches!(self.json_buffer, Some(serde_json::Value::Null)) {
-                eprintln!(
+                _ = writeln!(
+                    self.stderr,
                     "warning: write_value called while buffer already contains data; previous value will be lost"
                 );
             }
@@ -503,6 +515,12 @@ impl InputOutputChannel<'_> {
             }
         }
     }
+
+    /// A convenience function to create a progress channel that only writes when the output is for humans.
+    /// The progress channel writes to stderr if it's a terminal and the output format is [`OutputFormat::Human`].
+    pub fn progress_channel(&mut self) -> ProgressChannel<'_> {
+        ProgressChannel::new(self.out)
+    }
 }
 
 /// Normalized result of collecting one line of terminal input.
@@ -602,6 +620,7 @@ impl OutputChannel {
     /// to a `/dev/null` equivalent, so callers never have to worry if they interleave JSON with other output.
     pub fn new_with_optional_pager(format: OutputFormat, use_pager: bool) -> Self {
         let stdout = std::io::stdout();
+        let stderr = std::io::stderr();
         let pager = if !use_pager
             || !matches!(format, OutputFormat::Human)
             || std::env::var_os("NOPAGER").is_some()
@@ -614,7 +633,9 @@ impl OutputChannel {
 
         OutputChannel {
             format,
-            stdout,
+            stdout: Box::new(stdout),
+            stderr_is_terminal: stderr.is_terminal(),
+            stderr: Box::new(stderr),
             pager,
             json_buffer: None,
         }
@@ -623,12 +644,32 @@ impl OutputChannel {
     /// Like [`Self::new_with_optional_pager`], but will never create a pager or write JSON.
     /// Use this if a second instance of a channel is needed, and the first one could have a pager.
     pub fn new_without_pager_non_json(format: OutputFormat) -> Self {
+        let stderr = std::io::stderr();
         OutputChannel {
             format: match format {
                 OutputFormat::Human | OutputFormat::Shell | OutputFormat::None => format,
                 OutputFormat::Json => OutputFormat::None,
             },
-            stdout: std::io::stdout(),
+            stdout: Box::new(std::io::stdout()),
+            stderr_is_terminal: stderr.is_terminal(),
+            stderr: Box::new(stderr),
+            pager: None,
+            json_buffer: None,
+        }
+    }
+
+    /// Create a new `OutputChannel` that writes all output to a set of pipes.
+    #[expect(dead_code)]
+    pub fn piped(
+        stdout: std::io::PipeWriter,
+        stderr: std::io::PipeWriter,
+        format: OutputFormat,
+    ) -> Self {
+        OutputChannel {
+            format,
+            stdout: Box::new(stdout),
+            stderr_is_terminal: stderr.is_terminal(),
+            stderr: Box::new(stderr),
             pager: None,
             json_buffer: None,
         }
@@ -660,6 +701,50 @@ impl Drop for OutputChannel {
         }
     }
 }
+
+// [`std::io::IsTerminal`] is sealed so we need our own trait that we can implement for
+// [`std::io::PipeWriter`]
+trait IsButTerminal {
+    fn is_terminal(&self) -> bool;
+
+    fn can_prompt(&self) -> bool;
+}
+
+impl IsButTerminal for std::io::Stdout {
+    fn is_terminal(&self) -> bool {
+        std::io::IsTerminal::is_terminal(self)
+    }
+
+    fn can_prompt(&self) -> bool {
+        self.is_terminal()
+    }
+}
+
+impl IsButTerminal for std::io::Stderr {
+    fn is_terminal(&self) -> bool {
+        std::io::IsTerminal::is_terminal(self)
+    }
+
+    fn can_prompt(&self) -> bool {
+        self.is_terminal()
+    }
+}
+
+impl IsButTerminal for std::io::PipeWriter {
+    fn is_terminal(&self) -> bool {
+        // treat a pipe as a terminal so we get `ProgressChannel` output
+        true
+    }
+
+    fn can_prompt(&self) -> bool {
+        // but don't allow prompting for user input
+        false
+    }
+}
+
+trait WritePlusIsTerminal: std::io::Write + IsButTerminal {}
+
+impl<T> WritePlusIsTerminal for T where T: std::io::Write + IsButTerminal {}
 
 #[cfg(test)]
 mod tests {

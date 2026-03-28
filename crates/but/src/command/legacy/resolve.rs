@@ -19,7 +19,7 @@ use crate::{
     IdMap,
     args::resolve::Subcommands,
     id::CliId,
-    utils::{Confirm, ConfirmDefault, OutputChannel, shorten_object_id},
+    utils::{Confirm, ConfirmDefault, OutputChannel, WriteWithUtils as _, shorten_object_id},
 };
 
 pub(crate) fn handle(
@@ -164,10 +164,8 @@ fn show_status_impl(
         return show_workflow_help(out);
     }
 
-    let mut progress = out.progress_channel();
-
     writeln!(
-        progress,
+        out.progress_channel(),
         "{}\n - resolve all conflicts \n - finalize with {} \n - OR cancel with {}\n",
         "You are currently in conflict resolution mode.".bold(),
         "but resolve finish".green().bold(),
@@ -178,20 +176,20 @@ fn show_status_impl(
 
     // If all conflicts are resolved and we're in human mode, offer to finalize
     if all_resolved && prompt_to_finalize {
-        writeln!(progress)?;
+        writeln!(out.progress_channel())?;
         writeln!(
-            progress,
+            out.progress_channel(),
             "{}",
             "All conflicts have been resolved!".green().bold()
         )?;
 
         let should_finalize = if let Some(mut inout) = out.prepare_for_terminal_input() {
             if inout.confirm("Finalize the resolution now?", ConfirmDefault::Yes)? == Confirm::Yes {
-                writeln!(progress)?;
+                writeln!(inout.progress_channel())?;
                 true
             } else {
                 writeln!(
-                    progress,
+                    inout.progress_channel(),
                     "Resolution not finalized. Run {} when ready.",
                     "but resolve finish".green().bold()
                 )?;
@@ -538,20 +536,27 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
         return show_workflow_help(out);
     }
 
-    let mut progress = out.progress_channel();
-
     // We have conflicts - show them grouped by branch
     if out.for_human().is_some() {
-        writeln!(progress, "{}", "Found conflicted commits:".yellow().bold())?;
-        writeln!(progress)?;
+        writeln!(
+            out.progress_channel(),
+            "{}",
+            "Found conflicted commits:".yellow().bold()
+        )?;
+        writeln!(out.progress_channel())?;
 
         let mut all_commits: Vec<&ConflictedCommit> = vec![];
 
         for (branch_name, commits) in &conflicts_by_branch {
-            writeln!(progress, "{} {}", "Branch:".bold(), branch_name.green())?;
+            writeln!(
+                out.progress_channel(),
+                "{} {}",
+                "Branch:".bold(),
+                branch_name.green()
+            )?;
             for commit in commits {
                 writeln!(
-                    progress,
+                    out.progress_channel(),
                     "  {} {} {}",
                     "●".red(),
                     commit.commit_short_id.dimmed(),
@@ -559,12 +564,12 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
                 )?;
                 all_commits.push(commit);
             }
-            writeln!(progress)?;
+            writeln!(out.progress_channel())?;
         }
 
         // Prompt user to select a commit to resolve
         writeln!(
-            progress,
+            out.progress_channel(),
             "{}",
             "Would you like to start resolving these conflicts?".bold()
         )?;
@@ -589,7 +594,7 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
 
         if let Some(commit_id_to_resolve) = commit_id_to_resolve {
             // Enter resolution mode for the selected commit
-            writeln!(progress)?;
+            writeln!(out.progress_channel())?;
             return enter_resolution(ctx, out, &commit_id_to_resolve);
         }
     } else if let Some(json_out) = out.for_json() {
