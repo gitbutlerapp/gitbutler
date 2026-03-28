@@ -1,14 +1,13 @@
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result};
+use bstr::ByteSlice;
 use but_core::{
     RepositoryExt,
     commit::{ConflictEntries, Headers},
 };
 use but_oxidize::{ObjectIdExt as _, OidExt as _};
 use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _};
-
-use crate::RepositoryExt as _;
 
 fn extract_conflicted_files(
     merged_tree_id: gix::Id<'_>,
@@ -166,22 +165,20 @@ pub fn merge_commits(
         Headers::new_with_random_change_id()
     };
 
-    let (author, committer) = repo.signatures()?;
-    let target_commit = repo.find_commit(target_commit.id.to_git2())?;
-    let incoming_commit = repo.find_commit(incoming_commit.id.to_git2())?;
-    let commit_oid = crate::RepositoryExt::commit_with_signature(
-        &repo,
+    let (author, committer) = gix_repository.commit_signatures()?;
+    let commit_oid = crate::commit_with_signature_gix(
+        gix_repository,
         None,
-        &author,
-        &committer,
-        resulting_name,
-        &repo.find_tree(tree_oid).context("failed to find tree")?,
-        &[&target_commit, &incoming_commit],
+        author,
+        committer,
+        resulting_name.as_bytes().as_bstr(),
+        tree_oid.to_gix(),
+        &[target_commit.id, incoming_commit.id],
         Some(commit_headers),
     )
     .context("failed to create commit")?;
 
-    Ok(commit_oid.to_gix())
+    Ok(commit_oid)
 }
 pub fn gitbutler_merge_commits<'repo>(
     repo: &'repo git2::Repository,

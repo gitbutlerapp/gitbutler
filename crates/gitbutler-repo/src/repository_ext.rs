@@ -6,13 +6,8 @@ use but_core::{
     RepositoryExt as RepositoryExtGix,
     commit::{Headers, SignCommit},
 };
-use but_error::Code;
-use but_oxidize::{
-    ObjectIdExt as _, OidExt, git2_signature_to_gix_signature, gix_to_git2_signature,
-};
+use but_oxidize::{ObjectIdExt as _, OidExt, git2_signature_to_gix_signature};
 use gitbutler_reference::{Refname, RemoteRefname};
-
-use crate::{Config, SignaturePurpose};
 
 /// Extension trait for `git2::Repository`.
 ///
@@ -27,7 +22,6 @@ pub trait RepositoryExt {
     /// conflict with the libgit2 binding I upstreamed when it eventually
     /// gets merged.
     fn merge_base_octopussy(&self, ids: &[git2::Oid]) -> Result<git2::Oid>;
-    fn signatures(&self) -> Result<(git2::Signature<'_>, git2::Signature<'_>)>;
 
     fn remote_branches(&self) -> Result<Vec<RemoteRefname>>;
     fn remotes_as_string(&self) -> Result<Vec<String>>;
@@ -253,30 +247,6 @@ impl RepositoryExt for git2::Repository {
                     .context("failed to convert branch to remote name")
             })
             .collect()
-    }
-
-    fn signatures(&self) -> Result<(git2::Signature<'_>, git2::Signature<'_>)> {
-        let repo = gix::open(self.path())?;
-
-        let author = repo
-            .author()
-            .transpose()?
-            .map(gix_to_git2_signature)
-            .transpose()?
-            .context("No author is configured in Git")
-            .context(Code::AuthorMissing)?;
-
-        let config: Config = (&repo).into();
-        let committer = if config.user_real_comitter()? {
-            repo.committer()
-                .transpose()?
-                .map(gix_to_git2_signature)
-                .unwrap_or_else(|| crate::signature(SignaturePurpose::Committer))
-        } else {
-            crate::signature(SignaturePurpose::Committer)
-        }?;
-
-        Ok((author, committer))
     }
 
     fn merge_base_octopussy(&self, ids: &[git2::Oid]) -> Result<git2::Oid> {
