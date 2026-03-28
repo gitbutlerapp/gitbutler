@@ -1132,7 +1132,6 @@ dependencies = [
  "anyhow",
  "but-core",
  "but-db",
- "but-error",
  "but-graph",
  "but-meta",
  "but-path",
