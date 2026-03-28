@@ -2,6 +2,7 @@ use std::{
     collections::BTreeMap,
     iter::{once, repeat_n},
     sync::LazyLock,
+    time::Instant,
 };
 
 use bstr::{BStr, ByteSlice};
@@ -19,14 +20,15 @@ use ratatui::{
     layout::{Constraint, Layout, Rect},
     palette::Hsl,
     style::{Color, Style, Stylize},
-    text::{Line, Span},
+    text::{Line, Span, Text},
     widgets::{Block, Borders, List, ListItem, Widget},
 };
 use syntect::{
     easy::HighlightLines,
     highlighting::{Theme, ThemeSet},
-    parsing::SyntaxSet,
+    parsing::{SyntaxReference, SyntaxSet},
 };
+use tracing::Level;
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
@@ -78,6 +80,7 @@ pub(super) struct Details {
     is_dirty: bool,
     scroll_top: usize,
     widget: Option<DetailsAndDiffWidget>,
+    renderer: IncrementalDiffRenderer,
     syntax_set: DebugAsType<OnDemand<SyntaxSet>>,
     dark_theme: DebugAsType<OnDemand<Theme>>,
     visibility: DetailsVisibility,
@@ -88,6 +91,7 @@ impl Details {
         Self {
             is_dirty: false,
             widget: Default::default(),
+            renderer: Default::default(),
             scroll_top: Default::default(),
             visibility: Default::default(),
             syntax_set: OnDemand::new(|| Ok(SyntaxSet::load_defaults_newlines())).into(),
@@ -107,6 +111,7 @@ impl Details {
     }
 
     pub(super) fn mark_dirty(&mut self) {
+        self.widget = None;
         self.is_dirty = true;
     }
 
@@ -116,6 +121,17 @@ impl Details {
 
     pub(super) fn visibility(&self) -> DetailsVisibility {
         self.visibility
+    }
+
+    pub(super) fn is_visible(&self) -> bool {
+        match self.visibility {
+            DetailsVisibility::Hidden => false,
+            DetailsVisibility::VisibleVertical => true,
+        }
+    }
+
+    pub(super) fn needs_update(&self) -> bool {
+        self.is_visible() && self.is_dirty()
     }
 
     pub(super) fn needs_update_after_message(&self, msg: &Message) -> bool {
@@ -226,69 +242,94 @@ impl Details {
         ctx: &mut Context,
         selection: Option<&CliId>,
     ) -> anyhow::Result<()> {
-        self.is_dirty = false;
-        self.scroll_top = 0;
+        if let Some(widget) = &mut self.widget {
+            let syntax_set = self.syntax_set.get()?;
+            let theme = self.dark_theme.get()?;
+            match self
+                .renderer
+                .render_next_chunk(&syntax_set, &theme, widget.diff_line_items_mut())
+            {
+                RenderNextChunkResult::Done => {
+                    self.is_dirty = false;
+                    tracing::trace!("rendered diff in {:?}", self.renderer.created_at.elapsed());
+                }
+                RenderNextChunkResult::Meta | RenderNextChunkResult::Diff => {
+                    tracing::trace!("render_next_chunk");
+                }
+            }
+        } else {
+            let Some(selection) = selection else {
+                self.is_dirty = false;
+                return Ok(());
+            };
 
-        self.widget = self.update_widget(ctx, selection)?;
+            self.is_dirty = true;
+            self.scroll_top = 0;
+            self.renderer.clear();
+
+            // reuse the allocation of the previous `DetailsAndDiffWidget`
+            let previous_diff_line_items = self.widget.as_mut().map(|widget| {
+                let buf = widget.diff_line_items_mut();
+                buf.clear();
+                std::mem::take(buf)
+            });
+
+            self.widget = Some(match selection {
+                CliId::Commit { commit_id, .. } => from_commit(
+                    ctx,
+                    *commit_id,
+                    &*self.syntax_set.get()?,
+                    &mut self.renderer,
+                    previous_diff_line_items,
+                )?,
+                CliId::Uncommitted(uncommitted) => from_uncommitted(
+                    uncommitted,
+                    &*self.syntax_set.get()?,
+                    &mut self.renderer,
+                    previous_diff_line_items,
+                )?,
+                CliId::PathPrefix {
+                    hunk_assignments, ..
+                } => from_path_prefix(
+                    hunk_assignments,
+                    &*self.syntax_set.get()?,
+                    &mut self.renderer,
+                    previous_diff_line_items,
+                )?,
+                CliId::CommittedFile {
+                    commit_id, path, ..
+                } => from_committed_file(
+                    ctx,
+                    *commit_id,
+                    path.as_ref(),
+                    &*self.syntax_set.get()?,
+                    &mut self.renderer,
+                    previous_diff_line_items,
+                )?,
+                CliId::Branch { name, .. } => from_branch(
+                    ctx,
+                    name.to_owned(),
+                    &*self.syntax_set.get()?,
+                    &mut self.renderer,
+                    previous_diff_line_items,
+                )?,
+                CliId::Unassigned { .. } => from_unassigned(
+                    ctx,
+                    &*self.syntax_set.get()?,
+                    &mut self.renderer,
+                    previous_diff_line_items,
+                )?,
+                CliId::Stack { stack_id, .. } => from_stack(
+                    ctx,
+                    *stack_id,
+                    &*self.syntax_set.get()?,
+                    &mut self.renderer,
+                    previous_diff_line_items,
+                )?,
+            });
+        }
 
         Ok(())
-    }
-
-    fn update_widget(
-        &mut self,
-        ctx: &mut Context,
-        selection: Option<&CliId>,
-    ) -> anyhow::Result<Option<DetailsAndDiffWidget>> {
-        let Some(selection) = selection else {
-            return Ok(None);
-        };
-
-        Ok(Some(match selection {
-            CliId::Commit { commit_id, .. } => DetailsAndDiffWidget::from_commit(
-                ctx,
-                *commit_id,
-                &*self.syntax_set.get()?,
-                &*self.dark_theme.get()?,
-            )?,
-            CliId::Branch { name, .. } => DetailsAndDiffWidget::from_branch(
-                ctx,
-                name.to_owned(),
-                &*self.syntax_set.get()?,
-                &*self.dark_theme.get()?,
-            )?,
-            CliId::Uncommitted(uncommitted) => DetailsAndDiffWidget::from_uncommitted(
-                uncommitted,
-                &*self.syntax_set.get()?,
-                &*self.dark_theme.get()?,
-            )?,
-            CliId::Unassigned { .. } => DetailsAndDiffWidget::from_unassigned(
-                ctx,
-                &*self.syntax_set.get()?,
-                &*self.dark_theme.get()?,
-            )?,
-            CliId::CommittedFile {
-                commit_id, path, ..
-            } => DetailsAndDiffWidget::from_committed_file(
-                ctx,
-                *commit_id,
-                path.as_ref(),
-                &*self.syntax_set.get()?,
-                &*self.dark_theme.get()?,
-            )?,
-            CliId::Stack { stack_id, .. } => DetailsAndDiffWidget::from_stack(
-                ctx,
-                *stack_id,
-                &*self.syntax_set.get()?,
-                &*self.dark_theme.get()?,
-            )?,
-            CliId::PathPrefix {
-                hunk_assignments, ..
-            } => DetailsAndDiffWidget::from_path_prefix(
-                hunk_assignments,
-                &*self.syntax_set.get()?,
-                &*self.dark_theme.get()?,
-            )?,
-        }))
     }
 
     pub(super) fn render(&self, area: Rect, frame: &mut Frame) {
@@ -318,204 +359,16 @@ enum DetailsAndDiffWidget {
 }
 
 impl DetailsAndDiffWidget {
-    fn from_commit(
-        ctx: &mut Context,
-        commit_id: gix::ObjectId,
-        syntax_set: &SyntaxSet,
-        theme: &Theme,
-    ) -> anyhow::Result<Self> {
-        let commit_details =
-            but_api::diff::commit_details(ctx, commit_id, but_api::diff::ComputeLineStats::No)?;
-
-        let header_items = Vec::from([
-            ListItem::new(Line::from_iter([
-                Span::raw(format!("{:<11}", "Commit ID:")),
-                Span::raw(commit_id.to_hex().to_string()).blue(),
-            ])),
-            ListItem::new(Line::from_iter(
-                once(Span::raw(format!("{:<11}", "Author:")))
-                    .chain(render_signature(&commit_details.commit.author)),
-            )),
-            ListItem::new(Line::from_iter(
-                once(Span::raw(format!("{:<11}", "Committer:")))
-                    .chain(render_signature(&commit_details.commit.committer)),
-            )),
-        ]);
-
-        let message = commit_details.commit.message.to_string();
-
-        let tree_changes = commit_details
-            .diff_with_first_parent
-            .iter()
-            .map(|change| TreeChange::from(change.clone()))
-            .collect::<Vec<_>>();
-
-        let mut diff_line_items = Vec::new();
-        render_tree_changes(ctx, &tree_changes, syntax_set, theme, &mut diff_line_items);
-
-        Ok(DetailsAndDiffWidget::FromCommit {
-            header_items,
-            message,
-            diff_line_items,
-        })
-    }
-
-    fn from_committed_file(
-        ctx: &mut Context,
-        commit_id: gix::ObjectId,
-        path: &BStr,
-        syntax_set: &SyntaxSet,
-        theme: &Theme,
-    ) -> anyhow::Result<Self> {
-        let commit_details =
-            but_api::diff::commit_details(ctx, commit_id, but_api::diff::ComputeLineStats::No)?;
-
-        let tree_changes = commit_details
-            .diff_with_first_parent
-            .iter()
-            .filter(|change| change.path == path)
-            .map(|change| TreeChange::from(change.clone()))
-            .collect::<Vec<_>>();
-
-        let mut diff_line_items = Vec::new();
-        render_tree_changes(ctx, &tree_changes, syntax_set, theme, &mut diff_line_items);
-
-        Ok(DetailsAndDiffWidget::FromDiffLines { diff_line_items })
-    }
-
-    fn from_branch(
-        ctx: &mut Context,
-        name: String,
-        syntax_set: &SyntaxSet,
-        theme: &Theme,
-    ) -> anyhow::Result<Self> {
-        let tree_changes = but_api::branch::branch_diff(ctx, name)?;
-
-        let mut diff_line_items = Vec::new();
-        render_tree_changes(
-            ctx,
-            &tree_changes.changes,
-            syntax_set,
-            theme,
-            &mut diff_line_items,
-        );
-
-        Ok(DetailsAndDiffWidget::FromDiffLines { diff_line_items })
-    }
-
-    fn from_uncommitted(
-        uncommitted: &UncommittedCliId,
-        syntax_set: &SyntaxSet,
-        theme: &Theme,
-    ) -> anyhow::Result<Self> {
-        let mut diff_line_items = Vec::new();
-
-        // the path is the same for all hunks so only show that once
-        let first_hunk = uncommitted.hunk_assignments.first();
-        render_hunk_path_header(
-            first_hunk.path_bytes.as_ref(),
-            Some(ShortIdOrTreeStatus::ShortId(&uncommitted.id)),
-            &mut diff_line_items,
-        );
-
-        let mut hunk_assignments_iter = uncommitted.hunk_assignments.iter().peekable();
-        while let Some(hunk_assignment) = hunk_assignments_iter.next() {
-            render_hunk_assignment(hunk_assignment, syntax_set, theme, &mut diff_line_items);
-
-            if hunk_assignments_iter.peek().is_some() {
-                diff_line_items.push(ListItem::new(""));
+    fn diff_line_items_mut(&mut self) -> &mut Vec<ListItem<'static>> {
+        match self {
+            DetailsAndDiffWidget::FromCommit {
+                diff_line_items, ..
             }
+            | DetailsAndDiffWidget::FromDiffLines { diff_line_items } => diff_line_items,
         }
-
-        Ok(DetailsAndDiffWidget::FromDiffLines { diff_line_items })
     }
 
-    fn from_unassigned(
-        ctx: &mut Context,
-        syntax_set: &SyntaxSet,
-        theme: &Theme,
-    ) -> anyhow::Result<Self> {
-        let context_lines = ctx.settings.context_lines;
-        let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-        let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
-        let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-            db.hunk_assignments_mut()?,
-            &repo,
-            &ws,
-            Some(changes),
-            context_lines,
-        )?;
-        let hunk_assignments = assignments
-            .iter()
-            .filter(|assignment| assignment.stack_id.is_none());
-
-        let mut diff_line_items = Vec::new();
-        group_and_render_hunk_assignments(
-            hunk_assignments,
-            &mut diff_line_items,
-            syntax_set,
-            theme,
-        );
-
-        Ok(DetailsAndDiffWidget::FromDiffLines { diff_line_items })
-    }
-
-    fn from_stack(
-        ctx: &mut Context,
-        stack: StackId,
-        syntax_set: &SyntaxSet,
-        theme: &Theme,
-    ) -> anyhow::Result<Self> {
-        let context_lines = ctx.settings.context_lines;
-        let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-        let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
-        let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-            db.hunk_assignments_mut()?,
-            &repo,
-            &ws,
-            Some(changes),
-            context_lines,
-        )?;
-        let hunk_assignments = assignments
-            .iter()
-            .filter(|assignment| assignment.stack_id.is_some_and(|s| s == stack));
-
-        let mut diff_line_items = Vec::new();
-        group_and_render_hunk_assignments(
-            hunk_assignments,
-            &mut diff_line_items,
-            syntax_set,
-            theme,
-        );
-
-        Ok(DetailsAndDiffWidget::FromDiffLines { diff_line_items })
-    }
-
-    fn from_path_prefix<'a>(
-        hunk_assignments: impl IntoIterator<Item = &'a (String, HunkAssignment)>,
-        syntax_set: &SyntaxSet,
-        theme: &Theme,
-    ) -> anyhow::Result<Self> {
-        let mut diff_line_items = Vec::new();
-
-        let mut hunk_assignments_iter = hunk_assignments.into_iter().peekable();
-        while let Some((id, hunk_assignment)) = hunk_assignments_iter.next() {
-            render_hunk_path_header(
-                hunk_assignment.path_bytes.as_ref(),
-                Some(ShortIdOrTreeStatus::ShortId(id)),
-                &mut diff_line_items,
-            );
-
-            render_hunk_assignment(hunk_assignment, syntax_set, theme, &mut diff_line_items);
-
-            if hunk_assignments_iter.peek().is_some() {
-                diff_line_items.push(ListItem::new(""));
-            }
-        }
-
-        Ok(DetailsAndDiffWidget::FromDiffLines { diff_line_items })
-    }
-
+    #[tracing::instrument(level = Level::TRACE, skip_all)]
     fn total_rows(&self, width: u16) -> usize {
         self.items_for_width(width).count()
     }
@@ -554,11 +407,487 @@ impl DetailsAndDiffWidget {
     }
 }
 
-fn group_and_render_hunk_assignments<'a, I>(
-    hunk_assignments: I,
-    out: &mut Vec<ListItem<'static>>,
+fn from_commit(
+    ctx: &mut Context,
+    commit_id: gix::ObjectId,
     syntax_set: &SyntaxSet,
-    theme: &Theme,
+    renderer: &mut IncrementalDiffRenderer,
+    diff_line_items: Option<Vec<ListItem<'static>>>,
+) -> anyhow::Result<DetailsAndDiffWidget> {
+    let commit_details =
+        but_api::diff::commit_details(ctx, commit_id, but_api::diff::ComputeLineStats::No)?;
+
+    let header_items = Vec::from([
+        ListItem::new(Line::from_iter([
+            Span::raw(format!("{:<11}", "Commit ID:")),
+            Span::raw(commit_id.to_hex().to_string()).blue(),
+        ])),
+        ListItem::new(Line::from_iter(
+            once(Span::raw(format!("{:<11}", "Author:")))
+                .chain(render_signature(&commit_details.commit.author)),
+        )),
+        ListItem::new(Line::from_iter(
+            once(Span::raw(format!("{:<11}", "Committer:")))
+                .chain(render_signature(&commit_details.commit.committer)),
+        )),
+    ]);
+
+    let message = commit_details.commit.message.to_string();
+
+    let tree_changes = commit_details
+        .diff_with_first_parent
+        .iter()
+        .map(|change| TreeChange::from(change.clone()))
+        .collect::<Vec<_>>();
+
+    build_tree_changes(
+        ctx,
+        &tree_changes,
+        syntax_set,
+        &mut renderer.partially_rendered_diff,
+    );
+
+    Ok(DetailsAndDiffWidget::FromCommit {
+        header_items,
+        message,
+        diff_line_items: diff_line_items.unwrap_or_default(),
+    })
+}
+
+fn from_uncommitted(
+    uncommitted: &UncommittedCliId,
+    syntax_set: &SyntaxSet,
+    renderer: &mut IncrementalDiffRenderer,
+    diff_line_items: Option<Vec<ListItem<'static>>>,
+) -> anyhow::Result<DetailsAndDiffWidget> {
+    // the path is the same for all hunks so only show that once
+    let first_hunk = uncommitted.hunk_assignments.first();
+    build_hunk_path_header(
+        first_hunk.path_bytes.as_ref(),
+        Some(ShortIdOrTreeStatus::ShortId(&uncommitted.id)),
+        &mut renderer.partially_rendered_diff,
+    );
+
+    let mut hunk_assignments_iter = uncommitted.hunk_assignments.iter().peekable();
+    while let Some(hunk_assignment) = hunk_assignments_iter.next() {
+        build_hunk_assignment(
+            hunk_assignment,
+            syntax_set,
+            &mut renderer.partially_rendered_diff,
+        );
+
+        if hunk_assignments_iter.peek().is_some() {
+            renderer
+                .partially_rendered_diff
+                .push(PartiallyRenderedDiff::SingleLine(ListItem::new("")));
+        }
+    }
+
+    Ok(DetailsAndDiffWidget::FromDiffLines {
+        diff_line_items: diff_line_items.unwrap_or_default(),
+    })
+}
+
+fn from_path_prefix<'a>(
+    hunk_assignments: impl IntoIterator<Item = &'a (String, HunkAssignment)>,
+    syntax_set: &SyntaxSet,
+    renderer: &mut IncrementalDiffRenderer,
+    diff_line_items: Option<Vec<ListItem<'static>>>,
+) -> anyhow::Result<DetailsAndDiffWidget> {
+    let mut hunk_assignments_iter = hunk_assignments.into_iter().peekable();
+    while let Some((id, hunk_assignment)) = hunk_assignments_iter.next() {
+        build_hunk_path_header(
+            hunk_assignment.path_bytes.as_ref(),
+            Some(ShortIdOrTreeStatus::ShortId(id)),
+            &mut renderer.partially_rendered_diff,
+        );
+
+        build_hunk_assignment(
+            hunk_assignment,
+            syntax_set,
+            &mut renderer.partially_rendered_diff,
+        );
+
+        if hunk_assignments_iter.peek().is_some() {
+            renderer
+                .partially_rendered_diff
+                .push(PartiallyRenderedDiff::SingleLine(ListItem::new("")));
+        }
+    }
+
+    Ok(DetailsAndDiffWidget::FromDiffLines {
+        diff_line_items: diff_line_items.unwrap_or_default(),
+    })
+}
+
+fn from_committed_file(
+    ctx: &mut Context,
+    commit_id: gix::ObjectId,
+    path: &BStr,
+
+    syntax_set: &SyntaxSet,
+    renderer: &mut IncrementalDiffRenderer,
+    diff_line_items: Option<Vec<ListItem<'static>>>,
+) -> anyhow::Result<DetailsAndDiffWidget> {
+    let commit_details =
+        but_api::diff::commit_details(ctx, commit_id, but_api::diff::ComputeLineStats::No)?;
+
+    let tree_changes = commit_details
+        .diff_with_first_parent
+        .iter()
+        .filter(|change| change.path == path)
+        .map(|change| TreeChange::from(change.clone()))
+        .collect::<Vec<_>>();
+
+    build_tree_changes(
+        ctx,
+        &tree_changes,
+        syntax_set,
+        &mut renderer.partially_rendered_diff,
+    );
+
+    Ok(DetailsAndDiffWidget::FromDiffLines {
+        diff_line_items: diff_line_items.unwrap_or_default(),
+    })
+}
+
+fn from_branch(
+    ctx: &mut Context,
+    name: String,
+    syntax_set: &SyntaxSet,
+    renderer: &mut IncrementalDiffRenderer,
+    diff_line_items: Option<Vec<ListItem<'static>>>,
+) -> anyhow::Result<DetailsAndDiffWidget> {
+    let tree_changes = but_api::branch::branch_diff(ctx, name)?;
+
+    build_tree_changes(
+        ctx,
+        &tree_changes.changes,
+        syntax_set,
+        &mut renderer.partially_rendered_diff,
+    );
+
+    Ok(DetailsAndDiffWidget::FromDiffLines {
+        diff_line_items: diff_line_items.unwrap_or_default(),
+    })
+}
+
+fn from_unassigned(
+    ctx: &mut Context,
+    syntax_set: &SyntaxSet,
+    renderer: &mut IncrementalDiffRenderer,
+    diff_line_items: Option<Vec<ListItem<'static>>>,
+) -> anyhow::Result<DetailsAndDiffWidget> {
+    let context_lines = ctx.settings.context_lines;
+    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+    let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
+    let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
+        db.hunk_assignments_mut()?,
+        &repo,
+        &ws,
+        Some(changes),
+        context_lines,
+    )?;
+    let hunk_assignments = assignments
+        .iter()
+        .filter(|assignment| assignment.stack_id.is_none());
+
+    group_and_build_hunk_assignments(
+        hunk_assignments,
+        syntax_set,
+        &mut renderer.partially_rendered_diff,
+    );
+
+    Ok(DetailsAndDiffWidget::FromDiffLines {
+        diff_line_items: diff_line_items.unwrap_or_default(),
+    })
+}
+
+fn from_stack(
+    ctx: &mut Context,
+    stack: StackId,
+    syntax_set: &SyntaxSet,
+    renderer: &mut IncrementalDiffRenderer,
+    diff_line_items: Option<Vec<ListItem<'static>>>,
+) -> anyhow::Result<DetailsAndDiffWidget> {
+    let context_lines = ctx.settings.context_lines;
+    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+    let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
+    let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
+        db.hunk_assignments_mut()?,
+        &repo,
+        &ws,
+        Some(changes),
+        context_lines,
+    )?;
+    let hunk_assignments = assignments
+        .iter()
+        .filter(|assignment| assignment.stack_id.is_some_and(|s| s == stack));
+
+    group_and_build_hunk_assignments(
+        hunk_assignments,
+        syntax_set,
+        &mut renderer.partially_rendered_diff,
+    );
+
+    Ok(DetailsAndDiffWidget::FromDiffLines {
+        diff_line_items: diff_line_items.unwrap_or_default(),
+    })
+}
+
+/// Rendering large diffs is expensive. `IncrementalDiffRenderer` enables rendering diffs
+/// incrementally, in chunks. So instead of rendering the entire diff when activating the detail
+/// view we instead render `chunk_size` items per frame. That way the TUI remains response even
+/// while we're rendering a large diff.
+#[derive(Debug)]
+struct IncrementalDiffRenderer {
+    partially_rendered_diff: Vec<PartiallyRenderedDiff>,
+    state: IncrementalDiffRendererState,
+    /// How many diff lines to process on each poll.
+    ///
+    /// Start with a small initial chunk size so the first diff render is quick if the
+    /// initial chunk size is too large there is a noticable delay between opening the
+    /// details view and the diff appearing. However if the chunk size remains small the
+    /// diff takes a while to render. So make it small initially and double it as we render
+    /// more.
+    chunk_size: usize,
+    created_at: Instant,
+}
+
+#[derive(Debug)]
+enum IncrementalDiffRendererState {
+    Top {
+        idx: usize,
+    },
+    Diff {
+        idx: usize,
+        diff_idx: usize,
+        old_line_num: u32,
+        new_line_num: u32,
+    },
+}
+
+/// A diff thats been partially rendered.
+///
+/// Used with `IncrementalDiffRenderer` which can incrementally render the final diff.
+#[derive(Debug)]
+enum PartiallyRenderedDiff {
+    Header(Vec<ListItem<'static>>),
+    SingleLine(ListItem<'static>),
+    DiffLines {
+        old_width: u32,
+        new_width: u32,
+        old_start: u32,
+        new_start: u32,
+        syntax: Box<SyntaxReference>,
+        diff: Vec<Box<[u8]>>,
+    },
+}
+
+/// The result of rendering the one diff chunk.
+enum RenderNextChunkResult {
+    /// We're done. All chunks have been rendered.
+    Done,
+    /// Some meta data, such as the commit messages was rendered.
+    Meta,
+    /// Some diff lines were rendered.
+    Diff,
+}
+
+impl Default for IncrementalDiffRenderer {
+    fn default() -> Self {
+        Self {
+            partially_rendered_diff: Default::default(),
+            state: IncrementalDiffRendererState::Top { idx: 0 },
+            chunk_size: 500,
+            created_at: Instant::now(),
+        }
+    }
+}
+
+impl IncrementalDiffRenderer {
+    /// Clear any internal state so the allocations can be reused.
+    fn clear(&mut self) {
+        let Self {
+            partially_rendered_diff,
+            state,
+            chunk_size,
+            created_at,
+        } = self;
+
+        partially_rendered_diff.clear();
+
+        let default = Self::default();
+        *state = default.state;
+        *chunk_size = default.chunk_size;
+        *created_at = default.created_at;
+    }
+
+    fn render_next_chunk(
+        &mut self,
+        syntax_set: &SyntaxSet,
+        theme: &Theme,
+        out: &mut Vec<ListItem<'static>>,
+    ) -> RenderNextChunkResult {
+        loop {
+            match self.state {
+                IncrementalDiffRendererState::Top { idx } => {
+                    if idx >= self.partially_rendered_diff.len() {
+                        break RenderNextChunkResult::Done;
+                    }
+                }
+                IncrementalDiffRendererState::Diff { .. } => {}
+            }
+
+            match &mut self.state {
+                IncrementalDiffRendererState::Top { idx } => {
+                    match &mut self.partially_rendered_diff[*idx] {
+                        PartiallyRenderedDiff::Header(list_items) => {
+                            out.append(list_items);
+                            self.state = IncrementalDiffRendererState::Top { idx: (*idx) + 1 };
+                            break RenderNextChunkResult::Meta;
+                        }
+                        PartiallyRenderedDiff::SingleLine(list_item) => {
+                            out.push(std::mem::replace(
+                                list_item,
+                                ListItem::from(Text::default()),
+                            ));
+                            self.state = IncrementalDiffRendererState::Top { idx: (*idx) + 1 };
+                            break RenderNextChunkResult::Meta;
+                        }
+                        PartiallyRenderedDiff::DiffLines {
+                            old_start,
+                            new_start,
+                            ..
+                        } => {
+                            self.state = IncrementalDiffRendererState::Diff {
+                                idx: *idx,
+                                // the first line is the `@@ -1,6 +1,8 @@` header, skip that
+                                diff_idx: 1,
+                                old_line_num: *old_start,
+                                new_line_num: *new_start,
+                            };
+                        }
+                    }
+                }
+                IncrementalDiffRendererState::Diff {
+                    idx,
+                    diff_idx,
+                    old_line_num,
+                    new_line_num,
+                } => {
+                    let PartiallyRenderedDiff::DiffLines {
+                        old_width,
+                        new_width,
+                        syntax,
+                        diff,
+                        old_start: _,
+                        new_start: _,
+                    } = &mut self.partially_rendered_diff[*idx]
+                    else {
+                        unreachable!();
+                    };
+
+                    if *diff_idx >= diff.len() {
+                        self.state = IncrementalDiffRendererState::Top { idx: (*idx) + 1 };
+                        continue;
+                    }
+
+                    let mut highlight_lines = HighlightLines::new(syntax, theme);
+
+                    for line in diff.iter().skip(*diff_idx).take(self.chunk_size) {
+                        *diff_idx += 1;
+
+                        let item = if let Some(rest) = line.strip_prefix(b"+") {
+                            let code = rest.to_str_lossy().to_string();
+                            let item = ListItem::new(Line::from_iter(
+                                [
+                                    Span::raw(" ".repeat(*old_width as _)),
+                                    Span::raw(" ┊ ").dim(),
+                                    Span::raw(
+                                        " ".repeat((*new_width - num_digits(*new_line_num)) as _),
+                                    ),
+                                    Span::raw(new_line_num.to_string()).fg(*PLUS_EMPH_BG),
+                                    Span::raw(" │ ").dim(),
+                                    Span::raw("+").bg(*PLUS_BG),
+                                ]
+                                .into_iter()
+                                .chain(syntax_highlight(
+                                    &code,
+                                    Some(*PLUS_BG),
+                                    &mut highlight_lines,
+                                    syntax_set,
+                                )),
+                            ));
+                            *new_line_num += 1;
+                            item
+                        } else if let Some(rest) = line.strip_prefix(b"-") {
+                            let code = rest.to_str_lossy().to_string();
+                            let item = ListItem::new(Line::from_iter(
+                                [
+                                    Span::raw(
+                                        " ".repeat((*old_width - num_digits(*old_line_num)) as _),
+                                    ),
+                                    Span::raw(old_line_num.to_string()).fg(*MINUS_EMPH_BG),
+                                    Span::raw(" ┊ ").dim(),
+                                    Span::raw(" ".repeat(*new_width as _)),
+                                    Span::raw(" │ ").dim(),
+                                    Span::raw("-").bg(*MINUS_BG),
+                                ]
+                                .into_iter()
+                                .chain(syntax_highlight(
+                                    &code,
+                                    Some(*MINUS_BG),
+                                    &mut highlight_lines,
+                                    syntax_set,
+                                )),
+                            ));
+                            *old_line_num += 1;
+                            item
+                        } else {
+                            let line = line.strip_prefix(b" ").unwrap_or(line);
+                            let code = line.to_str_lossy().to_string();
+                            let item = ListItem::new(Line::from_iter(
+                                [
+                                    Span::raw(
+                                        " ".repeat((*old_width - num_digits(*old_line_num)) as _),
+                                    ),
+                                    Span::raw(old_line_num.to_string()).dark_gray(),
+                                    Span::raw(" ┊ ").dim(),
+                                    Span::raw(
+                                        " ".repeat((*new_width - num_digits(*new_line_num)) as _),
+                                    ),
+                                    Span::raw(new_line_num.to_string()).dark_gray(),
+                                    Span::raw(" │  ").dim(),
+                                ]
+                                .into_iter()
+                                .chain(syntax_highlight(
+                                    &code,
+                                    None,
+                                    &mut highlight_lines,
+                                    syntax_set,
+                                )),
+                            ));
+                            *old_line_num += 1;
+                            *new_line_num += 1;
+                            item
+                        };
+                        out.push(item);
+                    }
+
+                    self.chunk_size = std::cmp::min(self.chunk_size.saturating_mul(2), 10_000);
+
+                    break RenderNextChunkResult::Diff;
+                }
+            }
+        }
+    }
+}
+
+fn group_and_build_hunk_assignments<'a, I>(
+    hunk_assignments: I,
+    syntax_set: &SyntaxSet,
+    out: &mut Vec<PartiallyRenderedDiff>,
 ) where
     I: IntoIterator<Item = &'a HunkAssignment>,
 {
@@ -573,28 +902,27 @@ fn group_and_render_hunk_assignments<'a, I>(
 
     let mut path_to_hunk_assignments_iter = path_to_hunk_assignments.into_iter().peekable();
     while let Some((path, hunk_assignments)) = path_to_hunk_assignments_iter.next() {
-        render_hunk_path_header(path.as_ref(), None, out);
+        build_hunk_path_header(path.as_ref(), None, out);
 
         let mut hunk_assignments_iter = hunk_assignments.into_iter().peekable();
         while let Some(hunk_assignment) = hunk_assignments_iter.next() {
-            render_hunk_assignment(hunk_assignment, syntax_set, theme, out);
+            build_hunk_assignment(hunk_assignment, syntax_set, out);
 
             if hunk_assignments_iter.peek().is_some() {
-                out.push(ListItem::new(""));
+                out.push(PartiallyRenderedDiff::SingleLine(ListItem::new("")));
             }
         }
 
         if path_to_hunk_assignments_iter.peek().is_some() {
-            out.push(ListItem::new(""));
+            out.push(PartiallyRenderedDiff::SingleLine(ListItem::new("")));
         }
     }
 }
 
-fn render_hunk_assignment(
+fn build_hunk_assignment(
     hunk_assignment: &HunkAssignment,
     syntax_set: &SyntaxSet,
-    theme: &Theme,
-    out: &mut Vec<ListItem<'static>>,
+    out: &mut Vec<PartiallyRenderedDiff>,
 ) {
     if let Some(hunk_header) = hunk_assignment.hunk_header {
         if let Some(diff) = hunk_assignment.diff.clone() {
@@ -608,37 +936,39 @@ fn render_hunk_assignment(
 
             let is_result_of_binary_to_text_conversion = false;
 
-            render_unified_patch(
+            build_unified_patch(
                 hunk_assignment.path_bytes.as_ref(),
-                syntax_set,
-                theme,
                 hunks,
                 is_result_of_binary_to_text_conversion,
+                syntax_set,
                 out,
             );
         } else {
-            out.push(ListItem::new("No diff available"));
+            out.push(PartiallyRenderedDiff::SingleLine(ListItem::new(
+                "No diff available",
+            )));
         }
     } else {
-        out.push(ListItem::new(
+        out.push(PartiallyRenderedDiff::SingleLine(ListItem::new(
             "File is too large or binary - no diff available",
-        ));
+        )));
     }
 }
 
-fn render_tree_changes(
+fn build_tree_changes(
     ctx: &mut Context,
     tree_changes: &[TreeChange],
     syntax_set: &SyntaxSet,
-    theme: &Theme,
-    out: &mut Vec<ListItem<'static>>,
+    out: &mut Vec<PartiallyRenderedDiff>,
 ) {
     for tree_change in tree_changes {
+        let mut header = Vec::new();
         render_hunk_path_header(
             tree_change.path.as_ref(),
             Some(ShortIdOrTreeStatus::TreeStatus(&tree_change.status)),
-            out,
+            &mut header,
         );
+        out.push(PartiallyRenderedDiff::Header(header));
 
         if let Some(patch) = but_api::diff::tree_change_diffs(ctx, tree_change.clone())
             .ok()
@@ -651,26 +981,27 @@ fn render_tree_changes(
                     lines_added: _,
                     lines_removed: _,
                 } => {
-                    render_unified_patch(
+                    build_unified_patch(
                         tree_change.path.as_ref(),
-                        syntax_set,
-                        theme,
                         hunks,
                         is_result_of_binary_to_text_conversion,
+                        syntax_set,
                         out,
                     );
                 }
                 UnifiedPatch::Binary => {
-                    out.push(ListItem::new("Binary file - no diff available"));
+                    out.push(PartiallyRenderedDiff::SingleLine(ListItem::new(
+                        "Binary file - no diff available",
+                    )));
                 }
                 UnifiedPatch::TooLarge { size_in_bytes } => {
-                    out.push(ListItem::new(format!(
+                    out.push(PartiallyRenderedDiff::SingleLine(ListItem::new(format!(
                         "File too large ({size_in_bytes} bytes) - no diff available"
-                    )));
+                    ))));
                 }
             }
 
-            out.push(ListItem::new(""));
+            out.push(PartiallyRenderedDiff::SingleLine(ListItem::new("")));
         }
     }
 }
@@ -702,6 +1033,33 @@ fn render_hunk_path_header(
     );
     out.extend(bordered_line_top_right_bottom(path_line).map(ListItem::new));
     out.push(ListItem::from(""));
+}
+
+fn build_hunk_path_header(
+    path: &BStr,
+    status: Option<ShortIdOrTreeStatus<'_>>,
+    out: &mut Vec<PartiallyRenderedDiff>,
+) {
+    let status = status.map(|id_or_status| match id_or_status {
+        ShortIdOrTreeStatus::ShortId(id) => Span::raw(id.to_owned()).blue(),
+        ShortIdOrTreeStatus::TreeStatus(status) => change_status(status),
+    });
+    let path = path.to_string();
+    let path_line = Line::from_iter(
+        [Span::raw(" ")]
+            .into_iter()
+            .chain(
+                status
+                    .into_iter()
+                    .flat_map(|status| [status, Span::raw(": ")]),
+            )
+            .chain([Span::raw(path)]),
+    );
+    out.push(PartiallyRenderedDiff::Header(
+        bordered_line_top_right_bottom(path_line)
+            .map(ListItem::new)
+            .collect(),
+    ));
 }
 
 fn change_status(status: &TreeStatus) -> Span<'static> {
@@ -739,27 +1097,13 @@ fn render_signature(sig: &Signature) -> impl IntoIterator<Item = Span<'static>> 
     .into_iter()
 }
 
-fn render_unified_patch(
+fn build_unified_patch(
     path: &BStr,
-    syntax_set: &SyntaxSet,
-    theme: &Theme,
     hunks: Vec<DiffHunk>,
     is_result_of_binary_to_text_conversion: bool,
-    out: &mut Vec<ListItem<'static>>,
+    syntax_set: &SyntaxSet,
+    out: &mut Vec<PartiallyRenderedDiff>,
 ) {
-    let syntax = {
-        let path = path.to_path_lossy();
-        path.extension()
-            .and_then(|ext| syntax_set.find_syntax_by_extension(ext.to_str()?))
-            .or_else(|| {
-                path.file_name()
-                    .and_then(|file_name| syntax_set.find_syntax_by_extension(file_name.to_str()?))
-            })
-            .unwrap_or_else(|| syntax_set.find_syntax_plain_text())
-    };
-
-    let mut highlight_lines = HighlightLines::new(syntax, theme);
-
     let mut hunk_iter = hunks.into_iter().peekable();
     while let Some(hunk) = hunk_iter.next() {
         let DiffHunk {
@@ -771,15 +1115,19 @@ fn render_unified_patch(
         } = hunk;
 
         if is_result_of_binary_to_text_conversion {
-            out.push(ListItem::new(
+            out.push(PartiallyRenderedDiff::SingleLine(ListItem::new(
                 "(diff generated from binary-to-text conversion)",
-            ));
+            )));
         }
 
         if let Some(headers) = diff.lines().next() {
             out.extend([
-                ListItem::new(Span::raw(headers.to_str_lossy().to_string()).dim()),
-                ListItem::new(Line::from_iter(repeat_n("─", headers.to_str_lossy().width())).dim()),
+                PartiallyRenderedDiff::SingleLine(ListItem::new(
+                    Span::raw(headers.to_str_lossy().to_string()).dim(),
+                )),
+                PartiallyRenderedDiff::SingleLine(ListItem::new(
+                    Line::from_iter(repeat_n("─", headers.to_str_lossy().width())).dim(),
+                )),
             ]);
         }
 
@@ -799,84 +1147,31 @@ fn render_unified_patch(
             (num_digits(old_line), num_digits(new_line))
         };
 
-        let mut old_line_num = old_start;
-        let mut new_line_num = new_start;
+        let diff_lines = diff.lines().map(Box::<[u8]>::from).collect::<Vec<_>>();
 
-        for line in diff.lines().skip(1) {
-            let item = if let Some(rest) = line.strip_prefix(b"+") {
-                let code = rest.to_str_lossy().to_string();
-                let item = ListItem::new(Line::from_iter(
-                    [
-                        Span::raw(" ".repeat(old_width as _)),
-                        Span::raw(" ┊ ").dim(),
-                        Span::raw(" ".repeat((new_width - num_digits(new_line_num)) as _)),
-                        Span::raw(new_line_num.to_string()).fg(*PLUS_EMPH_BG),
-                        Span::raw(" │ ").dim(),
-                        Span::raw("+").bg(*PLUS_BG),
-                    ]
-                    .into_iter()
-                    .chain(syntax_highlight(
-                        &code,
-                        Some(*PLUS_BG),
-                        &mut highlight_lines,
-                        syntax_set,
-                    )),
-                ));
-                new_line_num += 1;
-                item
-            } else if let Some(rest) = line.strip_prefix(b"-") {
-                let code = rest.to_str_lossy().to_string();
+        let syntax = {
+            let path = path.to_path_lossy();
+            path.extension()
+                .and_then(|ext| syntax_set.find_syntax_by_extension(ext.to_str()?))
+                .or_else(|| {
+                    path.file_name().and_then(|file_name| {
+                        syntax_set.find_syntax_by_extension(file_name.to_str()?)
+                    })
+                })
+                .unwrap_or_else(|| syntax_set.find_syntax_plain_text())
+        };
 
-                let item = ListItem::new(Line::from_iter(
-                    [
-                        Span::raw(" ".repeat((old_width - num_digits(old_line_num)) as _)),
-                        Span::raw(old_line_num.to_string()).fg(*MINUS_EMPH_BG),
-                        Span::raw(" ┊ ").dim(),
-                        Span::raw(" ".repeat(new_width as _)),
-                        Span::raw(" │ ").dim(),
-                        Span::raw("-").bg(*MINUS_BG),
-                    ]
-                    .into_iter()
-                    .chain(syntax_highlight(
-                        &code,
-                        Some(*MINUS_BG),
-                        &mut highlight_lines,
-                        syntax_set,
-                    )),
-                ));
-                old_line_num += 1;
-                item
-            } else {
-                let line = line.strip_prefix(b" ").unwrap_or(line);
-
-                let code = line.to_str_lossy().to_string();
-
-                let item = ListItem::new(Line::from_iter(
-                    [
-                        Span::raw(" ".repeat((old_width - num_digits(old_line_num)) as _)),
-                        Span::raw(old_line_num.to_string()).dark_gray(),
-                        Span::raw(" ┊ ").dim(),
-                        Span::raw(" ".repeat((new_width - num_digits(new_line_num)) as _)),
-                        Span::raw(new_line_num.to_string()).dark_gray(),
-                        Span::raw(" │  ").dim(),
-                    ]
-                    .into_iter()
-                    .chain(syntax_highlight(
-                        &code,
-                        None,
-                        &mut highlight_lines,
-                        syntax_set,
-                    )),
-                ));
-                old_line_num += 1;
-                new_line_num += 1;
-                item
-            };
-            out.push(item);
-        }
+        out.push(PartiallyRenderedDiff::DiffLines {
+            old_width,
+            new_width,
+            old_start,
+            new_start,
+            syntax: Box::new(syntax.to_owned()),
+            diff: diff_lines,
+        });
 
         if hunk_iter.peek().is_some() {
-            out.push(ListItem::new(""));
+            out.push(PartiallyRenderedDiff::SingleLine(ListItem::new("")));
         }
     }
 }

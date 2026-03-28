@@ -13,6 +13,7 @@ use ratatui::{
     widgets::{List, ListItem},
 };
 use ratatui_textarea::{CursorMove, TextArea};
+use tracing::Level;
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
@@ -119,7 +120,7 @@ pub(super) async fn render_tui(
 trait EventPolling {
     type Error: std::error::Error + Send + Sync + 'static;
 
-    fn poll(self) -> Result<impl IntoIterator<Item = Event>, Self::Error>;
+    fn poll(self, timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error>;
 }
 
 /// An [`EventPolling`] implementation that polls events for real using crossterm.
@@ -129,8 +130,8 @@ struct CrosstermEventPolling;
 impl EventPolling for CrosstermEventPolling {
     type Error = std::io::Error;
 
-    fn poll(self) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
-        if event::poll(Duration::from_millis(30))? {
+    fn poll(self, timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+        if event::poll(timeout)? {
             Ok(Some(event::read()?))
         } else {
             Ok(None)
@@ -148,7 +149,7 @@ struct NoopEventPolling;
 impl EventPolling for NoopEventPolling {
     type Error = std::io::Error;
 
-    fn poll(self) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+    fn poll(self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
         Ok(None)
     }
 }
@@ -245,11 +246,14 @@ where
 {
     app.updates += 1;
 
-    // Poll terminal events.
-    //
-    // In headless mode, the configured event poller is a no-op and this loop does not touch the
-    // real terminal.
-    for event in event_polling.poll()? {
+    // update at full speed while we're rendering the diff
+    let event_poll_timeout = if app.details.needs_update() {
+        Duration::from_millis(0)
+    } else {
+        Duration::from_millis(30)
+    };
+    // poll terminal events
+    for event in event_polling.poll(event_poll_timeout)? {
         event_to_messages(event, app.active_key_binds(), &app.mode, messages);
     }
 
@@ -273,7 +277,7 @@ where
         app.should_render = true;
     }
 
-    if app.details.is_dirty() {
+    if app.details.needs_update() {
         let selection = app
             .cursor
             .selected_line(&app.status_lines)
@@ -453,6 +457,7 @@ impl App {
         self.clamp_scroll_top(visible_height);
     }
 
+    #[tracing::instrument(level = Level::TRACE, skip(self, ctx, out, mode, terminal_guard, messages))]
     async fn handle_message<T>(
         &mut self,
         ctx: &mut Context,
