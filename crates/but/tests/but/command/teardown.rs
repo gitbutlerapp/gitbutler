@@ -400,3 +400,34 @@ fn json_output_with_dangling_commits() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+/// Test: Teardown checks out target branch when there is no active branch
+#[test]
+fn teardown_checks_out_target_branch_when_there_is_no_active_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("repo-with-remote-and-head")?;
+    env.setup_metadata(&[])?;
+
+    env.but("--json teardown")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+{
+  "snapshotId": "[..]",
+  "checkedOutBranch": "main"
+}
+
+"#]]);
+
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(env.projects_root())
+        .arg("rev-parse")
+        .arg("--abbrev-ref")
+        .arg("HEAD")
+        .output()?;
+    assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "main");
+
+    Ok(())
+}
