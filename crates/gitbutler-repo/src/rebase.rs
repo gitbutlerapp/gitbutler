@@ -180,23 +180,6 @@ pub fn merge_commits(
 
     Ok(commit_oid)
 }
-pub fn gitbutler_merge_commits<'repo>(
-    repo: &'repo git2::Repository,
-    target_commit: git2::Commit<'repo>,
-    incoming_commit: git2::Commit<'repo>,
-    target_branch_name: &str,
-    incoming_branch_name: &str,
-) -> Result<git2::Commit<'repo>> {
-    let gix_repo = gix::open(repo.path())?;
-    let result_oid = merge_commits(
-        &gix_repo,
-        target_commit.id().to_gix(),
-        incoming_commit.id().to_gix(),
-        &format!("Merge `{incoming_branch_name}` into `{target_branch_name}`"),
-    )?;
-
-    Ok(repo.find_commit(result_oid.to_git2())?)
-}
 
 trait ToHeaders {
     /// Assure that the returned headers will always indicate a conflict.
