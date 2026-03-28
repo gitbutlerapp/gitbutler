@@ -509,7 +509,7 @@ fn first_parent_commit_ids_with_limit(
 pub(crate) fn push(ctx: &Context, with_force: bool) -> Result<()> {
     let target = default_target(&ctx.project_data_dir())?;
     let _ = ctx.push(
-        target.sha.to_git2(),
+        target.sha,
         &target.branch,
         with_force,
         ctx.legacy_project.force_push_protection,

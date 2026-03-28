@@ -4,9 +4,7 @@ use anyhow::{Result, bail};
 use base64::engine::Engine as _;
 use but_core::commit::sign_buffer;
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt as _, OidExt as _};
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
-use git2::Oid;
 use ignore::WalkBuilder;
 use infer::MatcherType;
 use itertools::Itertools;
@@ -158,7 +156,7 @@ pub trait RepoCommands {
     ///
     /// Bails when given an absolute path since that would suggest we are looking for a file in
     /// the workspace. Returns `FileInfo::default()` if file could not be found.
-    fn read_file_from_commit(&self, commit_id: Oid, path: &Path) -> Result<FileInfo>;
+    fn read_file_from_commit(&self, commit_id: gix::ObjectId, path: &Path) -> Result<FileInfo>;
 
     /// Read `path` in the following order:
     ///
@@ -225,7 +223,11 @@ impl RepoCommands for Context {
         Ok(())
     }
 
-    fn read_file_from_commit(&self, commit_id: Oid, relative_path: &Path) -> Result<FileInfo> {
+    fn read_file_from_commit(
+        &self,
+        commit_id: gix::ObjectId,
+        relative_path: &Path,
+    ) -> Result<FileInfo> {
         if !relative_path.is_relative() {
             bail!(
                 "Refusing to read '{relative_path:?}' from commit {commit_id:?} as it's not relative to the worktree"
@@ -233,7 +235,7 @@ impl RepoCommands for Context {
         }
 
         let repo = self.repo.get()?;
-        let tree = repo.find_commit(commit_id.to_gix())?.tree()?;
+        let tree = repo.find_commit(commit_id)?.tree()?;
 
         Ok(match tree.lookup_entry_by_path(relative_path)? {
             Some(entry) => {
@@ -297,10 +299,7 @@ impl RepoCommands for Context {
                     }
                     // Read file that has been deleted and staged for commit. Note that file not
                     // found returns FileInfo::default() rather than an error.
-                    None => self.read_file_from_commit(
-                        repo.head_id()?.detach().to_git2(),
-                        &relative_path,
-                    )?,
+                    None => self.read_file_from_commit(repo.head_id()?.detach(), &relative_path)?,
                 }
             }
             Err(err) => return Err(err.into()),

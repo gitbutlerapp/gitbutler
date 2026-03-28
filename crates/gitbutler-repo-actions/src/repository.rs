@@ -20,7 +20,7 @@ pub trait RepoActionsExt {
     /// Returns the stderr output of the git executable if used.
     fn push(
         &self,
-        head: git2::Oid,
+        head: gix::ObjectId,
         branch: &RemoteRefname,
         with_force: bool,
         force_push_protection: bool,
@@ -35,7 +35,7 @@ pub trait RepoActionsExt {
         parents: &[&git2::Commit],
         commit_headers: Option<Headers>,
     ) -> Result<git2::Oid>;
-    fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32>;
+    fn distance(&self, from: gix::ObjectId, to: gix::ObjectId) -> Result<u32>;
     fn delete_branch_reference(&self, stack: &Stack) -> Result<()>;
     fn add_branch_reference(&self, stack: &Stack) -> Result<()>;
     fn git_test_push(
@@ -71,7 +71,7 @@ impl RepoActionsExt for Context {
             .try_find_reference(&target_branch_refname.to_string())?
             .ok_or(anyhow!("failed to find branch {target_branch_refname}"))?;
 
-        let commit_id = branch.peel_to_commit()?.id.to_git2();
+        let commit_id = branch.peel_to_commit()?.id;
 
         let now = now_ms();
         let branch_name = format!("test-push-{now}");
@@ -139,9 +139,9 @@ impl RepoActionsExt for Context {
     }
 
     // returns the number of commits between the first oid to the second oid
-    fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32> {
+    fn distance(&self, from: gix::ObjectId, to: gix::ObjectId) -> Result<u32> {
         let repo = self.repo.get()?;
-        let oids = first_parent_commit_ids_until(&repo, from.to_gix(), to.to_gix())?;
+        let oids = first_parent_commit_ids_until(&repo, from, to)?;
         Ok(oids.len().try_into()?)
     }
 
@@ -175,7 +175,7 @@ impl RepoActionsExt for Context {
 
     fn push(
         &self,
-        head: git2::Oid,
+        head: gix::ObjectId,
         branch: &RemoteRefname,
         with_force: bool,
         force_push_protection: bool,
