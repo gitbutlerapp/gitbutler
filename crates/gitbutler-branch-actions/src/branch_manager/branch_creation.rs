@@ -2,7 +2,6 @@ use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::{RepositoryExt, worktree::checkout::UncommitedWorktreeChanges};
 use but_ctx::access::RepoExclusive;
 use but_error::Marker;
-use but_oxidize::ObjectIdExt;
 use but_workspace::{
     branch::{
         OnWorkspaceMergeConflict,
@@ -341,7 +340,7 @@ impl BranchManager<'_> {
             self.ctx,
             workspace_state,
             new_workspace,
-            old_cwd.map(|id| id.to_git2()),
+            old_cwd,
             Some(true),
             perm,
         );

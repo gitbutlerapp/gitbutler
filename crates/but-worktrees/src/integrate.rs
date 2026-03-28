@@ -5,13 +5,12 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseOutput, RebaseStep};
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{
-    WorkspaceState, merge_workspace, move_tree, update_uncommitted_changes,
+    WorkspaceState, merge_workspace, move_tree_has_conflicts, update_uncommitted_changes,
 };
 use gix::prelude::ObjectIdExt as _;
 use serde::{Deserialize, Serialize};
@@ -249,7 +248,7 @@ fn worktree_integration_inner(
             .map(|s| s.head_oid(ctx))
             .collect::<Result<Vec<_>>>()?;
         let before = WorkspaceState::create_from_heads(ctx, perm, &before_heads)?;
-        let before = merge_workspace(&*ctx.git2_repo.get()?, before)?;
+        let before = merge_workspace(ctx, &before)?;
         let mut after_heads = stacks
             .iter()
             .filter(|s| s.id != stack.id)
@@ -257,10 +256,9 @@ fn worktree_integration_inner(
             .collect::<Result<Vec<_>>>()?;
         after_heads.push(output.top_commit);
         let after = WorkspaceState::create_from_heads(ctx, perm, &after_heads)?;
-        let after = merge_workspace(&*ctx.git2_repo.get()?, after)?;
-        let index = move_tree(&*ctx.git2_repo.get()?, wd_tree.to_git2(), before, after)?;
+        let after = merge_workspace(ctx, &after)?;
 
-        index.has_conflicts()
+        move_tree_has_conflicts(ctx, wd_tree, before, after)?
     };
 
     Ok((
