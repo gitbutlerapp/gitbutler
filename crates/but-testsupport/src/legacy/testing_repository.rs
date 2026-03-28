@@ -2,12 +2,11 @@ use std::fs;
 
 use but_core::{ChangeId, commit::Headers};
 use but_oxidize::OidExt;
-use gitbutler_repo::RepositoryExt;
 use gix_testtools::bstr::ByteSlice as _;
 use tempfile::{TempDir, tempdir};
 use uuid::Uuid;
 
-use super::init_opts;
+use super::{commit_with_signature, init_opts};
 
 pub struct TestingRepository {
     pub repository: git2::Repository,
@@ -148,21 +147,20 @@ impl TestingRepository {
                 conflicted: None,
             });
 
-        let commit = self
-            .repository
-            .commit_with_signature(
-                None,
-                &signature,
-                &signature,
-                message,
-                &self
-                    .repository
-                    .find_tree(index.write_tree().unwrap())
-                    .unwrap(),
-                parent.map(|c| vec![c]).unwrap_or_default().as_slice(),
-                Some(commit_headers),
-            )
-            .unwrap();
+        let commit = commit_with_signature(
+            &self.repository,
+            None,
+            &signature,
+            &signature,
+            message,
+            &self
+                .repository
+                .find_tree(index.write_tree().unwrap())
+                .unwrap(),
+            parent.map(|c| vec![c]).unwrap_or_default().as_slice(),
+            Some(commit_headers),
+        )
+        .unwrap();
 
         self.repository.find_commit(commit).unwrap()
     }

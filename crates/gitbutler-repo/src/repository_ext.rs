@@ -1,12 +1,9 @@
-use std::str;
-
 use anyhow::{Context as _, Result, bail};
 use bstr::BStr;
 use but_core::{
     RepositoryExt as RepositoryExtGix,
     commit::{Headers, SignCommit},
 };
-use but_oxidize::{ObjectIdExt as _, OidExt, git2_signature_to_gix_signature};
 use gitbutler_reference::Refname;
 
 /// Extension trait for `git2::Repository`.
@@ -22,19 +19,6 @@ pub trait RepositoryExt {
     /// gets merged.
     fn merge_base_octopussy(&self, ids: &[git2::Oid]) -> Result<git2::Oid>;
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler<'a>;
-    fn maybe_find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch<'_>>>;
-
-    #[expect(clippy::too_many_arguments)]
-    fn commit_with_signature(
-        &self,
-        update_ref: Option<&Refname>,
-        author: &git2::Signature<'_>,
-        committer: &git2::Signature<'_>,
-        message: &str,
-        tree: &git2::Tree<'_>,
-        parents: &[&git2::Commit<'_>],
-        commit_headers: Option<Headers>,
-    ) -> Result<git2::Oid>;
 }
 
 /// Create a commit with GitButler signing and trailer behavior using `gix`-native inputs.
@@ -132,50 +116,6 @@ impl RepositoryExt for git2::Repository {
             repo: self,
             checkout_builder: git2::build::CheckoutBuilder::new(),
         }
-    }
-
-    fn maybe_find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch<'_>>> {
-        let branch = self.find_branch(
-            &name.simple_name(),
-            match name {
-                Refname::Virtual(_) | Refname::Local(_) | Refname::Other(_) => {
-                    git2::BranchType::Local
-                }
-                Refname::Remote(_) => git2::BranchType::Remote,
-            },
-        );
-        match branch {
-            Ok(branch) => Ok(Some(branch)),
-            Err(e) if e.code() == git2::ErrorCode::NotFound => Ok(None),
-            Err(e) => Err(e.into()),
-        }
-    }
-
-    fn commit_with_signature(
-        &self,
-        update_ref: Option<&Refname>,
-        author: &git2::Signature<'_>,
-        committer: &git2::Signature<'_>,
-        message: &str,
-        tree: &git2::Tree<'_>,
-        parents: &[&git2::Commit<'_>],
-        commit_headers: Option<Headers>,
-    ) -> Result<git2::Oid> {
-        let repo = gix::open(self.path())?;
-        commit_with_signature_gix(
-            &repo,
-            update_ref,
-            git2_signature_to_gix_signature(author),
-            git2_signature_to_gix_signature(committer),
-            message.into(),
-            tree.id().to_gix(),
-            &parents
-                .iter()
-                .map(|commit| commit.id().to_gix())
-                .collect::<Vec<_>>(),
-            commit_headers,
-        )
-        .map(|oid| oid.to_git2())
     }
 
     fn merge_base_octopussy(&self, ids: &[git2::Oid]) -> Result<git2::Oid> {

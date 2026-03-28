@@ -1,8 +1,10 @@
+use but_core::commit::Headers;
 use but_ctx::Context;
-use but_oxidize::OidExt;
+use but_oxidize::{ObjectIdExt as _, OidExt, git2_signature_to_gix_signature};
 use but_workspace::{legacy::StacksFilter, ui::StackDetails};
+use gitbutler_reference::Refname;
 use gitbutler_stack::StackId;
-use gix::prelude::ObjectIdExt;
+use gix::prelude::ObjectIdExt as _;
 
 pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
 
@@ -70,6 +72,52 @@ pub fn init_opts_bare() -> git2::RepositoryInitOptions {
     let mut opts = init_opts();
     opts.bare(true);
     opts
+}
+
+#[expect(clippy::too_many_arguments)]
+pub(crate) fn commit_with_signature(
+    repo: &git2::Repository,
+    update_ref: Option<&Refname>,
+    author: &git2::Signature<'_>,
+    committer: &git2::Signature<'_>,
+    message: &str,
+    tree: &git2::Tree<'_>,
+    parents: &[&git2::Commit<'_>],
+    commit_headers: Option<Headers>,
+) -> anyhow::Result<git2::Oid> {
+    let repo_gix = gix::open(repo.path())?;
+    gitbutler_repo::commit_with_signature_gix(
+        &repo_gix,
+        update_ref,
+        git2_signature_to_gix_signature(author),
+        git2_signature_to_gix_signature(committer),
+        message.as_bytes().into(),
+        tree.id().to_gix(),
+        &parents
+            .iter()
+            .map(|commit| commit.id().to_gix())
+            .collect::<Vec<_>>(),
+        commit_headers,
+    )
+    .map(|oid| oid.to_git2())
+}
+
+pub(crate) fn maybe_find_branch_by_refname<'repo>(
+    repo: &'repo git2::Repository,
+    name: &Refname,
+) -> anyhow::Result<Option<git2::Branch<'repo>>> {
+    let branch = repo.find_branch(
+        &name.simple_name(),
+        match name {
+            Refname::Virtual(_) | Refname::Local(_) | Refname::Other(_) => git2::BranchType::Local,
+            Refname::Remote(_) => git2::BranchType::Remote,
+        },
+    );
+    match branch {
+        Ok(branch) => Ok(Some(branch)),
+        Err(err) if err.code() == git2::ErrorCode::NotFound => Ok(None),
+        Err(err) => Err(err.into()),
+    }
 }
 
 pub fn visualize_git2_tree(tree_id: git2::Oid, repo: &git2::Repository) -> termtree::Tree<String> {

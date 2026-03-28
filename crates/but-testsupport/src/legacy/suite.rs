@@ -6,10 +6,11 @@ use std::{
 
 use but_ctx::{Context, RepoOpenMode};
 use but_settings::AppSettings;
-use gitbutler_repo::RepositoryExt;
 use tempfile::{TempDir, tempdir};
 
-use super::{VAR_NO_CLEANUP, init_opts, init_opts_bare, test_project::setup_config};
+use super::{
+    VAR_NO_CLEANUP, commit_with_signature, init_opts, init_opts_bare, test_project::setup_config,
+};
 
 pub struct Suite {
     pub local_app_data: Option<TempDir>,
@@ -153,17 +154,17 @@ pub fn test_repository() -> (git2::Repository, TempDir) {
     let mut index = git2_repo.index().expect("failed to get index");
     let oid = index.write_tree().expect("failed to write tree");
     let signature = git2::Signature::now("test", "test@email.com").unwrap();
-    git2_repo
-        .commit_with_signature(
-            Some(&"refs/heads/master".parse().unwrap()),
-            &signature,
-            &signature,
-            "Initial commit",
-            &git2_repo.find_tree(oid).expect("failed to find tree"),
-            &[],
-            None,
-        )
-        .expect("failed to commit");
+    commit_with_signature(
+        &git2_repo,
+        Some(&"refs/heads/master".parse().unwrap()),
+        &signature,
+        &signature,
+        "Initial commit",
+        &git2_repo.find_tree(oid).expect("failed to find tree"),
+        &[],
+        None,
+    )
+    .expect("failed to commit");
     (git2_repo, tmp)
 }
 
@@ -176,9 +177,8 @@ pub fn commit_all(repository: &git2::Repository) -> git2::Oid {
     let oid = index.write_tree().expect("failed to write tree");
     let signature = git2::Signature::now("test", "test@email.com").unwrap();
     let head = repository.head().expect("failed to get head");
-    let repo: &git2::Repository = repository;
-
-    repo.commit_with_signature(
+    commit_with_signature(
+        repository,
         Some(&head.name().map(|name| name.parse().unwrap()).unwrap()),
         &signature,
         &signature,

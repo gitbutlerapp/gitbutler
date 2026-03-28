@@ -5,7 +5,7 @@ use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_repo::RepositoryExt;
 use tempfile::TempDir;
 
-use super::{VAR_NO_CLEANUP, init_opts};
+use super::{VAR_NO_CLEANUP, commit_with_signature, init_opts, maybe_find_branch_by_refname};
 
 pub fn temp_dir() -> TempDir {
     tempfile::tempdir().unwrap()
@@ -36,8 +36,8 @@ impl Default for TestProject {
         let mut index = local_repository.index().expect("failed to get index");
         let oid = index.write_tree().expect("failed to write tree");
         let signature = git2::Signature::now("test", "test@email.com").unwrap();
-        let repo: &git2::Repository = &local_repository;
-        repo.commit_with_signature(
+        commit_with_signature(
+            &local_repository,
             Some(&"refs/heads/master".parse().unwrap()),
             &signature,
             &signature,
@@ -137,17 +137,12 @@ impl TestProject {
             Refname::Remote(remote) => format!("refs/heads/{}", remote.branch()).parse().unwrap(),
             _ => "INVALID".parse().unwrap(),
         };
-        let branch = self
-            .remote_repo
-            .maybe_find_branch_by_refname(&branch_name)
-            .unwrap();
+        let branch = maybe_find_branch_by_refname(&self.remote_repo, &branch_name).unwrap();
         let branch_commit = branch.unwrap().get().peel_to_commit().unwrap();
 
         let master_branch = {
             let name: Refname = "refs/heads/master".parse().unwrap();
-            self.remote_repo
-                .maybe_find_branch_by_refname(&name)
-                .unwrap()
+            maybe_find_branch_by_refname(&self.remote_repo, &name).unwrap()
         };
         let master_branch_commit = master_branch.unwrap().get().peel_to_commit().unwrap();
 
@@ -213,15 +208,13 @@ impl TestProject {
             Refname::Remote(remote) => format!("refs/heads/{}", remote.branch()).parse()?,
             _ => "INVALID".parse()?,
         };
-        let branch = self
-            .remote_repo
-            .maybe_find_branch_by_refname(&branch_name)?
-            .expect("branch exists");
+        let branch =
+            maybe_find_branch_by_refname(&self.remote_repo, &branch_name)?.expect("branch exists");
         let branch_commit = branch.get().peel_to_commit()?;
 
         let master_branch = {
             let name: Refname = "refs/heads/master".parse()?;
-            self.remote_repo.maybe_find_branch_by_refname(&name)?
+            maybe_find_branch_by_refname(&self.remote_repo, &name)?
         };
         let master_branch_commit = master_branch
             .as_ref()
@@ -248,8 +241,8 @@ impl TestProject {
             self.remote_repo.find_tree(tree_id.to_git2())?
         };
 
-        let repo: &git2::Repository = &self.remote_repo;
-        repo.commit_with_signature(
+        commit_with_signature(
+            &self.remote_repo,
             Some(&"refs/heads/master".parse()?),
             &branch_commit.author(),
             &branch_commit.committer(),
@@ -280,7 +273,7 @@ impl TestProject {
     pub fn checkout(&self, branch: &LocalRefname) {
         let refname: Refname = branch.into();
         let head_commit = self.local_repo.head().unwrap().peel_to_commit().unwrap();
-        let tree = match self.local_repo.maybe_find_branch_by_refname(&refname) {
+        let tree = match maybe_find_branch_by_refname(&self.local_repo, &refname) {
             Ok(branch) => match branch {
                 Some(branch) => branch.get().peel_to_tree().unwrap(),
                 None => {
@@ -310,8 +303,8 @@ impl TestProject {
         let oid = index.write_tree().expect("failed to write tree");
         let signature = git2::Signature::now("test", "test@email.com").unwrap();
         let refname: Refname = head.name().unwrap().parse().unwrap();
-        let repo: &git2::Repository = &self.local_repo;
-        repo.commit_with_signature(
+        commit_with_signature(
+            &self.local_repo,
             Some(&refname),
             &signature,
             &signature,
