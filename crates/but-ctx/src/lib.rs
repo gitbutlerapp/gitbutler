@@ -110,7 +110,12 @@ pub struct Context {
     /// Note that the standard repository comes with a decently sized object cache, but further optimization can
     /// be performed by using [`Self::clone_repo_for_merging()`].
     pub repo: OnDemand<gix::Repository>,
-    /// The most recently opened `git2` repository of the project.
+    /// A lazily opened legacy `git2` repository for the project.
+    ///
+    /// Keep new uses confined to the residual `git2` boundary:
+    /// checkout/worktree materialization, staged tree/index materialization,
+    /// and deliberate compatibility adapters that still require libgit2.
+    /// Activation and read-side flows should use [`Self::repo`] instead.
     pub git2_repo: OnDemand<git2::Repository>,
     /// An open handle to the database. It's initialized lazily upon first access.
     /// It is also what makes this type non-Clone, which is fair.
@@ -1048,14 +1053,11 @@ impl Context {
             .map(|repo| repo.with_object_memory())
     }
 
-    /// Eagerly open the legacy `git2` repository, preserving repo-ownership error tagging used
-    /// by activation entrypoints before any database work begins.
+    /// Eagerly open the legacy `git2` repository.
     ///
-    /// This is needed as parts of the code depend on the error carrying this context code
-    /// to indicate ownership issues, related to `safe.directories` or the lack thereof.
-    /// `gix::Repository` doesn't have that problem as it functions differently,
-    /// not by refusing to open the repository but by not trusting its configuration in particular when
-    /// programs are involved.
+    /// This exists only for compatibility callers that specifically need libgit2's
+    /// repo-ownership error tagging before they cross into the remaining `git2`
+    /// boundary. Routine activation and read-side flows should not call this.
     pub fn eagerly_populate_git2_repo_cache(&mut self) -> anyhow::Result<()> {
         {
             let existing = self.git2_repo.get_opt();
