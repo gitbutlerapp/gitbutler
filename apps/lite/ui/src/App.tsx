@@ -15,7 +15,12 @@ const Toasts: FC = () => {
 					<Toast.Root key={toast.id} toast={toast} className={styles.toastRoot}>
 						<Toast.Content>
 							<Toast.Title />
-							<Toast.Description />
+							<Toast.Description
+								render={
+									// Default is `p` which restricts content elements.
+									<div />
+								}
+							/>
 							<Toast.Close>Dismiss</Toast.Close>
 						</Toast.Content>
 					</Toast.Root>
