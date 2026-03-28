@@ -1147,22 +1147,40 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     Tui {
         /// Show debug pane with selected-line metadata.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
         #[clap(long, default_value_t = false)]
         debug: bool,
         /// Quit after rendering this many frames.
-        #[clap(long, hide = true)]
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
         quit_after: Option<u64>,
         /// Run the TUI with an in-memory terminal and no terminal event polling.
-        #[clap(long, hide = true)]
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
         headless: bool,
         /// Do not print status when the TUI exits.
-        #[clap(long, hide = true)]
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
         skip_status_after: bool,
         /// Automatically show the diff when opening the TUI.
-        #[clap(long, hide = true)]
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
         diff: bool,
         /// Automatically select this commit when opening the TUI.
-        #[clap(long, hide = true)]
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
         select_commit: Option<gix::ObjectId>,
     },
 }

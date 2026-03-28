@@ -654,11 +654,17 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Tui {
+            #[cfg(feature = "tui-profiling")]
             debug,
+            #[cfg(feature = "tui-profiling")]
             quit_after,
+            #[cfg(feature = "tui-profiling")]
             headless,
+            #[cfg(feature = "tui-profiling")]
             skip_status_after,
+            #[cfg(feature = "tui-profiling")]
             diff,
+            #[cfg(feature = "tui-profiling")]
             select_commit,
         } => {
             use crate::command::legacy::status::{StatusFlags, StatusRenderMode, TuiLaunchOptions};
@@ -671,18 +677,22 @@ async fn match_subcommand(
                 },
                 out,
             )?;
+            #[cfg(feature = "tui-profiling")]
+            let _options = TuiLaunchOptions {
+                debug,
+                quit_after,
+                headless,
+                skip_status_after,
+                show_diff: diff,
+                select_commit,
+            };
+            #[cfg(not(feature = "tui-profiling"))]
+            let _options = TuiLaunchOptions::default();
             command::legacy::status::worktree(
                 &mut ctx,
                 out,
                 StatusFlags::all_false(),
-                StatusRenderMode::Tui(TuiLaunchOptions {
-                    debug,
-                    quit_after,
-                    headless,
-                    skip_status_after,
-                    show_diff: diff,
-                    select_commit,
-                }),
+                StatusRenderMode::Tui(_options),
             )
             .await
             .emit_metrics(metrics_ctx)

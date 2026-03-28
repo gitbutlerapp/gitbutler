@@ -44,6 +44,8 @@ legacy = [
     "dep:gitbutler-repo",
     "dep:gitbutler-repo-actions",
 ]
+# Feature that enables profiling related features of the TUI.
+tui-profiling = []
 
 [dependencies]
 but-core.workspace = true
