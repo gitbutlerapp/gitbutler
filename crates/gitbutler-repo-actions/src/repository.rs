@@ -1,16 +1,11 @@
 use std::{str::FromStr, time::UNIX_EPOCH};
 
 use anyhow::{Context as _, Result, anyhow, bail};
-use but_core::commit::Headers;
 use but_ctx::Context;
 use but_error::Code;
-use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{
-    SignaturePurpose, commit_with_signature_gix, credentials, first_parent_commit_ids_until,
-    signature_gix,
-};
+use gitbutler_repo::{credentials, first_parent_commit_ids_until};
 use gitbutler_stack::{Stack, StackId};
 
 use crate::askpass;
@@ -28,13 +23,6 @@ pub trait RepoActionsExt {
         askpass_broker: Option<Option<StackId>>,
         push_opts: Vec<String>,
     ) -> Result<String>;
-    fn commit(
-        &self,
-        message: &str,
-        tree: &git2::Tree,
-        parents: &[&git2::Commit],
-        commit_headers: Option<Headers>,
-    ) -> Result<git2::Oid>;
     fn distance(&self, from: gix::ObjectId, to: gix::ObjectId) -> Result<u32>;
     fn delete_branch_reference(&self, stack: &Stack) -> Result<()>;
     fn add_branch_reference(&self, stack: &Stack) -> Result<()>;
@@ -143,34 +131,6 @@ impl RepoActionsExt for Context {
         let repo = self.repo.get()?;
         let oids = first_parent_commit_ids_until(&repo, from, to)?;
         Ok(oids.len().try_into()?)
-    }
-
-    fn commit(
-        &self,
-        message: &str,
-        tree: &git2::Tree,
-        parents: &[&git2::Commit],
-        commit_headers: Option<Headers>,
-    ) -> Result<git2::Oid> {
-        let repo = self.repo.get()?;
-        let author = signature_gix(SignaturePurpose::Author);
-        let committer = signature_gix(SignaturePurpose::Committer);
-        let parent_ids = parents
-            .iter()
-            .map(|parent| parent.id().to_gix())
-            .collect::<Vec<_>>();
-        commit_with_signature_gix(
-            &repo,
-            None,
-            author,
-            committer,
-            message.into(),
-            tree.id().to_gix(),
-            &parent_ids,
-            commit_headers,
-        )
-        .map(|id| id.to_git2())
-        .context("failed to commit")
     }
 
     fn push(
