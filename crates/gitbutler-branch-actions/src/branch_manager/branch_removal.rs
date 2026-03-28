@@ -35,6 +35,7 @@ impl BranchManager<'_> {
                 .to_string());
         }
 
+        #[expect(deprecated, reason = "checkout/materialization boundary")]
         let git2_repo = self.ctx.git2_repo.get()?;
 
         // Commit any assigned diffspecs if such exist so that it will be part of the unapplied branch.

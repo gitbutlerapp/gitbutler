@@ -17,6 +17,7 @@ fn post_commit_hook_rejection() -> anyhow::Result<()> {
 echo 'rejected'
 exit 1
 ";
+    #[expect(deprecated, reason = "hook compatibility coverage")]
     git2_hooks::create_hook(&*ctx.git2_repo.get()?, git2_hooks::HOOK_POST_COMMIT, hook);
 
     assert_eq!(
@@ -40,6 +41,7 @@ fn message_hook_rejection() -> anyhow::Result<()> {
 echo 'rejected'
 exit 1
 ";
+    #[expect(deprecated, reason = "hook compatibility coverage")]
     git2_hooks::create_hook(&*ctx.git2_repo.get()?, git2_hooks::HOOK_COMMIT_MSG, hook);
 
     let message = "commit message".to_owned();
@@ -63,6 +65,7 @@ fn rewrite_message() -> anyhow::Result<()> {
 #!/bin/sh
 echo 'rewritten message' > $1
 ";
+    #[expect(deprecated, reason = "hook compatibility coverage")]
     git2_hooks::create_hook(&*ctx.git2_repo.get()?, git2_hooks::HOOK_COMMIT_MSG, hook);
 
     let message = "commit message".to_owned();
@@ -86,6 +89,7 @@ fn keep_message() -> anyhow::Result<()> {
 #!/bin/sh
 echo 'commit message' > $1
 ";
+    #[expect(deprecated, reason = "hook compatibility coverage")]
     git2_hooks::create_hook(&*ctx.git2_repo.get()?, git2_hooks::HOOK_COMMIT_MSG, hook);
 
     let message = "commit message\n".to_owned();
@@ -102,6 +106,7 @@ fn husky_hooks_disabled_even_if_present() -> anyhow::Result<()> {
     let case = suite.new_case();
     let Case { ctx, .. } = &case;
 
+    #[expect(deprecated, reason = "hook compatibility coverage")]
     let repo = ctx.git2_repo.get()?;
     let husky_dir = repo
         .path()

@@ -38,6 +38,7 @@ impl TestCase<'_> {
         )
         .expect("can create context");
 
+        #[expect(deprecated, reason = "transport/auth compatibility coverage")]
         let git2_repo = &*ctx.git2_repo.get().unwrap();
         let flow = help(git2_repo, &ctx.legacy_project, "origin").unwrap();
         flow.into_iter()

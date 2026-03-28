@@ -43,6 +43,7 @@ fn commit_subject(commit: &gix::Commit<'_>) -> String {
 }
 
 fn checkout_head(ctx: &Context, remove_untracked: bool) -> Result<()> {
+    #[expect(deprecated, reason = "checkout boundary")]
     let git2_repo = &*ctx.git2_repo.get()?;
     let mut builder = CheckoutBuilder::new();
     builder.force();
@@ -59,6 +60,7 @@ fn checkout_index_with_labels(
     our_label: &str,
     their_label: &str,
 ) -> Result<()> {
+    #[expect(deprecated, reason = "checkout/index materialization boundary")]
     let git2_repo = &*ctx.git2_repo.get()?;
     git2_repo.checkout_index(
         Some(index),
@@ -81,6 +83,7 @@ fn set_head_and_checkout_tree(
     tree_id: gix::ObjectId,
     remove_untracked: bool,
 ) -> Result<()> {
+    #[expect(deprecated, reason = "checkout boundary")]
     let git2_repo = &*ctx.git2_repo.get()?;
     git2_repo
         .set_head(head_ref)
@@ -97,6 +100,7 @@ fn set_head_and_checkout_tree(
 }
 
 fn reset_index_to_head_tree(ctx: &Context) -> Result<()> {
+    #[expect(deprecated, reason = "index materialization boundary")]
     let git2_repo = &*ctx.git2_repo.get()?;
     let mut index = git2_repo.index()?;
     index.read_tree(&git2_repo.head()?.peel_to_tree()?)?;
@@ -344,6 +348,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     outcome.materialize_without_checkout()?;
 
     // Switch branch to gitbutler/workspace
+    #[expect(deprecated, reason = "checkout boundary")]
     let git2_repo = &*ctx.git2_repo.get()?;
     git2_repo
         .set_head(WORKSPACE_BRANCH_REF)

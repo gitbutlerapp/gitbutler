@@ -353,12 +353,14 @@ fn get_workdir_tree(
 }
 
 fn write_index_tree(ctx: &Context) -> Result<gix::ObjectId> {
+    #[expect(deprecated, reason = "index materialization boundary")]
     let git2_repo = ctx.git2_repo.get()?;
     let mut index = git2_repo.index()?;
     Ok(index.write_tree()?.to_gix())
 }
 
 fn checkout_workdir_tree(ctx: &Context, workdir_tree_id: gix::ObjectId) -> Result<()> {
+    #[expect(deprecated, reason = "checkout/materialization boundary")]
     let git2_repo = ctx.git2_repo.get()?;
     git2_repo.ignore_large_files_in_diffs(AUTO_TRACK_LIMIT_BYTES)?;
     let workdir_tree = git2_repo.find_tree(workdir_tree_id.to_git2())?;
@@ -370,6 +372,7 @@ fn checkout_workdir_tree(ctx: &Context, workdir_tree_id: gix::ObjectId) -> Resul
 }
 
 fn reset_index_to_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<()> {
+    #[expect(deprecated, reason = "index materialization boundary")]
     let git2_repo = ctx.git2_repo.get()?;
     let tree = git2_repo
         .find_tree(tree_id.to_git2())
