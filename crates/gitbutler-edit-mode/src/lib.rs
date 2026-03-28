@@ -330,7 +330,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         ctx,
         old_workspace,
         new_workspace,
-        Some(uncommtied_changes.to_git2()),
+        Some(uncommtied_changes),
         Some(true),
         perm,
     )?;
