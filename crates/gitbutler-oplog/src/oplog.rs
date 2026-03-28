@@ -13,11 +13,16 @@ use but_ctx::{
 };
 use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{ObjectIdExt as _, OidExt};
-use gitbutler_cherry_pick::{GixRepositoryExt as _, RepositoryExtLite};
+use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
 use gix::objs::Write as _;
-use gix::{ObjectId, bstr::ByteSlice, object::tree::EntryKind, prelude::ObjectIdExt};
+use gix::{
+    ObjectId,
+    bstr::{BString, ByteSlice, ByteVec},
+    object::tree::EntryKind,
+    prelude::ObjectIdExt,
+};
 use tracing::instrument;
 
 use super::{
@@ -362,12 +367,47 @@ fn write_index_tree(ctx: &Context) -> Result<gix::ObjectId> {
 fn checkout_workdir_tree(ctx: &Context, workdir_tree_id: gix::ObjectId) -> Result<()> {
     #[expect(deprecated, reason = "checkout/materialization boundary")]
     let git2_repo = ctx.git2_repo.get()?;
-    git2_repo.ignore_large_files_in_diffs(AUTO_TRACK_LIMIT_BYTES)?;
+    ignore_large_files_in_diffs(&git2_repo, AUTO_TRACK_LIMIT_BYTES)?;
     let workdir_tree = git2_repo.find_tree(workdir_tree_id.to_git2())?;
     let mut checkout_builder = git2::build::CheckoutBuilder::new();
     checkout_builder.remove_untracked(true);
     checkout_builder.force();
     git2_repo.checkout_tree(workdir_tree.as_object(), Some(&mut checkout_builder))?;
+    Ok(())
+}
+
+fn ignore_large_files_in_diffs(repo: &git2::Repository, limit_in_bytes: u64) -> Result<()> {
+    if limit_in_bytes == 0 {
+        return Ok(());
+    }
+    let gix_repo = gix::open(repo.path())?;
+    let worktree_dir = gix_repo
+        .workdir()
+        .context("All repos are expected to have a worktree")?;
+    let files_to_exclude: Vec<_> = gix_repo
+        .dirwalk_iter(
+            gix_repo.index_or_empty()?,
+            None::<BString>,
+            Default::default(),
+            gix_repo
+                .dirwalk_options()?
+                .emit_ignored(None)
+                .emit_pruned(false)
+                .emit_untracked(gix::dir::walk::EmissionMode::Matching),
+        )?
+        .filter_map(Result::ok)
+        .filter_map(|item| {
+            let path = worktree_dir.join(gix::path::from_bstr(item.entry.rela_path.as_bstr()));
+            let file_is_too_large = path
+                .metadata()
+                .is_ok_and(|md| md.is_file() && md.len() > limit_in_bytes);
+            file_is_too_large
+                .then(|| Vec::from(item.entry.rela_path).into_string().ok())
+                .flatten()
+        })
+        .collect();
+    let ignore_list = files_to_exclude.join(" ");
+    repo.add_ignore_rule(&ignore_list)?;
     Ok(())
 }
 

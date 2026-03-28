@@ -3997,7 +3997,6 @@ dependencies = [
  "git2",
  "gitbutler-commit",
  "gix",
- "tracing",
 ]
 
 [[package]]
