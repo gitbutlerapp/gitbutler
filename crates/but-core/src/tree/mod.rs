@@ -48,6 +48,28 @@ pub mod create_tree {
         MissingDiffSpecAssociation,
     }
 
+    impl RejectionReason {
+        /// A human-readable description of why a change was rejected.
+        pub fn description(&self) -> &'static str {
+            match self {
+                Self::NoEffectiveChanges => "changes had no effect on the tree",
+                Self::CherryPickMergeConflict => "conflicts with changes on another branch",
+                Self::WorkspaceMergeConflict => "conflicts when merging the workspace",
+                Self::WorkspaceMergeConflictOfUnrelatedFile => {
+                    "unrelated file conflicts during workspace merge"
+                }
+                Self::WorktreeFileMissingForObjectConversion => {
+                    "worktree file went missing during commit"
+                }
+                Self::FileToLargeOrBinary => "file too large or binary",
+                Self::PathNotFoundInBaseTree => "path not found in base tree",
+                Self::UnsupportedDirectoryEntry => "unsupported directory entry type",
+                Self::UnsupportedTreeEntry => "unsupported tree entry type",
+                Self::MissingDiffSpecAssociation => "hunk not fully contained in change",
+            }
+        }
+    }
+
     #[cfg(feature = "export-schema")]
     but_schemars::register_sdk_type!(RejectionReason);
 }

@@ -147,6 +147,45 @@ If `but move` causes conflicts (conflicted commits in status):
 | `git rebase --onto` | `but branch move <branch> <new-base>` |
 | `git cherry-pick` | `but pick` |
 
+
+## Cross-Branch Dependency Recovery
+
+When `but commit` rejects some changes, the output lists which files failed and why:
+
+```
+Warning: Some selected changes could not be committed.
+  ✗ src/shared/errors.ts (conflicts with changes on another branch)
+Hint: run `but branch move auth shared` to stack auth on top of shared, then retry the commit
+```
+
+**Follow this workflow when you see rejected changes:**
+1. Run the suggested `but branch move <your-branch> <dependency-branch>` command with `--status-after`.
+2. Refresh IDs: `but status -fv`
+3. Retry committing the previously rejected changes: `but commit <branch> -m "<msg>" --changes <id> --status-after`
+
+## Using `--status-after` Effectively
+
+`--status-after` appends a **full workspace status** (including file IDs and branch topology) to the command output. This is equivalent to running `but status -fv` immediately after.
+
+**Do NOT run `but status -fv` after a successful `--status-after` command.** The status is already in the output — read it directly.
+
+**When you DO need a fresh status:**
+- After a command that did NOT use `--status-after`
+- After an error (the status may not have been appended)
+- If significant time has passed or another session may have modified state
+
+**Before/after example:**
+```bash
+# ❌ Wasteful — redundant status call
+but commit auth -m "msg" --changes a1 --status-after
+but status -fv   # ← unnecessary, data already in output above
+
+# ✅ Efficient — use IDs from --status-after output directly
+but commit auth -m "msg" --changes a1 --status-after
+# Read file/branch IDs from the status output above
+but commit auth -m "next change" --changes b2 --status-after
+```
+
 ## Notes
 
 - Prefer explicit IDs over file paths for mutations.

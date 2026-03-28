@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, fmt::Write as _};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Write as _,
+};
 
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
@@ -7,7 +10,7 @@ use but_api::{
     diff,
     legacy::{repo, workspace},
 };
-use but_core::{DiffSpec, sync::RepoExclusive, ui::TreeChange};
+use but_core::{DiffSpec, sync::RepoExclusive, tree::create_tree::RejectionReason, ui::TreeChange};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use colored::Colorize;
 use gitbutler_repo::hooks;
@@ -482,6 +485,46 @@ pub(crate) fn commit(
                 "{}",
                 "Warning: Some selected changes could not be committed.".yellow()
             )?;
+
+            let mut dep_branches: BTreeSet<&BString> = BTreeSet::new();
+            for (reason, spec) in &outcome.rejected_specs {
+                writeln!(
+                    out,
+                    "  {} {} ({})",
+                    "✗".red(),
+                    spec.path.to_str_lossy().yellow(),
+                    reason.description().dimmed()
+                )?;
+                if matches!(
+                    reason,
+                    RejectionReason::CherryPickMergeConflict
+                        | RejectionReason::WorkspaceMergeConflict
+                ) {
+                    if let Some(owner) = find_owning_branch(
+                        ctx,
+                        spec.path.as_ref(),
+                        &stacks,
+                        target_stack_id,
+                    ) {
+                        dep_branches.insert(owner);
+                    }
+                }
+            }
+
+            for dep_branch in &dep_branches {
+                writeln!(
+                    out,
+                    "{}",
+                    format!(
+                        "Hint: run `but branch move {} {}` to stack {} on top of {}, then retry the commit",
+                        target_branch.name.to_str_lossy(),
+                        dep_branch.to_str_lossy(),
+                        target_branch.name.to_str_lossy(),
+                        dep_branch.to_str_lossy(),
+                    )
+                    .dimmed()
+                )?;
+            }
         }
     }
 
@@ -499,10 +542,22 @@ pub(crate) fn commit(
             target_branch.name.to_str_lossy().yellow()
         )?;
     } else if let Some(json_out) = out.for_json() {
+        let rejected: Vec<_> = outcome
+            .rejected_specs
+            .iter()
+            .map(|(reason, spec)| {
+                serde_json::json!({
+                    "path": spec.path.to_str_lossy(),
+                    "reason": format!("{reason:?}"),
+                    "description": reason.description(),
+                })
+            })
+            .collect();
         let commit_data = serde_json::json!({
             "commit_id": outcome.new_commit.map(|id| id.to_string()),
             "branch": target_branch.name.to_str_lossy(),
             "branch_tip": outcome.new_commit.map(|id| id.to_string()),
+            "rejected_specs": rejected,
         });
         json_out.write_value(commit_data)?;
     }
@@ -744,6 +799,36 @@ fn get_status_char(path: &BString, changes: &[TreeChange]) -> &'static str {
         }
     }
     "modified:" // fallback
+}
+
+/// For a rejected file path, find which other branch has committed changes to it.
+/// Returns the branch name if found, `None` otherwise.
+fn find_owning_branch<'a>(
+    ctx: &but_ctx::Context,
+    file_path: &bstr::BStr,
+    stacks: &'a [(
+        but_core::ref_metadata::StackId,
+        but_workspace::ui::StackDetails,
+    )],
+    target_stack_id: but_core::ref_metadata::StackId,
+) -> Option<&'a BString> {
+    let repo = ctx.repo.get().ok()?;
+    for (stack_id, stack) in stacks {
+        if *stack_id == target_stack_id {
+            continue;
+        }
+        for branch in &stack.branch_details {
+            let changed_files =
+                but_core::diff::tree_changes(&repo, Some(branch.base_commit), branch.tip).ok()?;
+            if changed_files
+                .iter()
+                .any(|c| c.path == *file_path)
+            {
+                return Some(&branch.name);
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]
