@@ -79,6 +79,14 @@
 	padding-inline: var(--item-inline-padding);
 	padding-block: var(--item-block-padding);
 
+	&:enabled:hover {
+		background-color: #dcdcdc;
+
+		.item.selected & {
+			background-color: #2b2b2b;
+		}
+	}
+
 	svg {
 		width: var(--item-line-height);
 		height: var(--item-line-height);
@@ -94,10 +102,6 @@
 	&:disabled {
 		opacity: 0.5;
 	}
-}
-
-.commitDetails {
-	padding-left: 8px;
 }
 
 .commitMessageBody {
@@ -119,6 +123,10 @@
 	line-height: var(--item-line-height);
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.file {
+	padding-left: 8px;
 }
 
 .selectedFile {

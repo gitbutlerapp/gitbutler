@@ -1,7 +1,10 @@
 import { Match } from "effect";
 
-// We'll need something more sophisticated as we scale, but this is a start.
-export type ShortcutBinding<Action, Context = void> = {
+export type ShortcutActionBase = {
+	_tag: string;
+};
+
+export type ShortcutBinding<Action extends ShortcutActionBase, Context = void> = {
 	id: string;
 	description: string;
 	keys: Array<string>;
@@ -10,14 +13,9 @@ export type ShortcutBinding<Action, Context = void> = {
 	when?: (context: Context) => boolean;
 };
 
-export const shortcutKeys = {
-	togglePreview: "p",
-	toggleFullscreenPreview: "d",
-} as const;
-
 type SharedShortcutAction = { _tag: "TogglePreview" } | { _tag: "ToggleFullscreenPreview" };
 
-export const getShortcutAction = <Action, Context>(
+export const getShortcutAction = <Action extends ShortcutActionBase, Context>(
 	bindings: Array<ShortcutBinding<Action, Context>>,
 	context: Context,
 	event: KeyboardEvent,
@@ -36,14 +34,14 @@ export const globalShortcutBindings: Array<ShortcutBinding<SharedShortcutAction>
 	{
 		id: "toggle-preview",
 		description: "preview",
-		keys: [shortcutKeys.togglePreview],
+		keys: ["p"],
 		action: { _tag: "TogglePreview" },
 		repeat: false,
 	},
 	{
 		id: "toggle-fullscreen-preview",
 		description: "fullscreen preview",
-		keys: [shortcutKeys.toggleFullscreenPreview],
+		keys: ["d"],
 		action: { _tag: "ToggleFullscreenPreview" },
 		repeat: false,
 	},
@@ -63,3 +61,17 @@ export const formatShortcutKeys = (keys: Array<string>): string =>
 			),
 		)
 		.join("/");
+
+export const bindingLabelSuffix = <Action extends ShortcutActionBase, Context>(
+	label: string,
+	bindings: Array<ShortcutBinding<Action, Context>>,
+	actionTag: Action["_tag"],
+	options?: {
+		extraKeys?: Array<string>;
+	},
+): string => {
+	const binding = bindings.find((binding) => binding.action._tag === actionTag);
+	if (!binding) return label;
+
+	return `${label} (${formatShortcutKeys([...binding.keys, ...(options?.extraKeys ?? [])])})`;
+};

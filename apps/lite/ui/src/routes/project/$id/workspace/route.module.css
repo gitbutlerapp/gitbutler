@@ -116,13 +116,17 @@
 .stackMenuTrigger {
 	display: grid;
 	margin-left: auto;
-	padding-inline: 8px;
-	/* TODO:  */
-	padding-block: 2px;
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
 
 	svg {
 		width: var(--item-line-height);
 		height: var(--item-line-height);
+	}
+
+	&:hover,
+	&[aria-expanded="true"] {
+		background-color: #eee;
 	}
 }
 
