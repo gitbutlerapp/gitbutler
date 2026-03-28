@@ -73,6 +73,7 @@ mod create_virtual_branch_from_branch;
 mod init;
 mod list;
 mod list_details;
+mod move_branch;
 mod move_commit_to_vbranch;
 mod oplog;
 mod save_and_unapply_virtual_branch;
@@ -81,6 +82,71 @@ mod unapply_without_saving_virtual_branch;
 mod undo_commit;
 mod update_commit_message;
 mod workspace_migration;
+
+/// Create a raw git commit parented to `parent` that sets `filename` to `content`,
+/// bypassing GitButler's stack API. Used in tests to construct competitor commits
+/// or to inject a known tree state without going through the worktree.
+pub fn make_commit_on_file(
+    repo: &gix::Repository,
+    parent: gix::ObjectId,
+    filename: &str,
+    content: &[u8],
+) -> anyhow::Result<gix::ObjectId> {
+    let blob_id = repo.write_blob(content)?.detach();
+    let parent_commit = repo.find_commit(parent)?;
+    let mut editor = parent_commit.tree()?.edit()?;
+    editor.upsert(filename, gix::object::tree::EntryKind::Blob, blob_id)?;
+    let tree_id = editor.write()?.detach();
+    Ok(repo
+        .write_object(gix::objs::Commit {
+            tree: tree_id,
+            parents: [parent].into(),
+            message: "raw test commit".into(),
+            ..parent_commit.decode()?.to_owned()?
+        })?
+        .detach())
+}
+
+/// Cherry-pick `competing_oid` (which shares an ancestor with `onto_oid` and modifies the
+/// same content) onto `onto_oid` to produce a conflicted commit, then update the source
+/// stack head to that conflicted commit. Returns the conflicted commit's OID.
+///
+/// The conflicted commit is parented to `onto_oid`, so after this call the source stack
+/// history is: merge_base → onto_oid → conflicted.
+pub fn push_conflicted_commit_onto(
+    ctx: &but_ctx::Context,
+    stack_id: gitbutler_stack::StackId,
+    onto_oid: gix::ObjectId,
+    competing_oid: gix::ObjectId,
+) -> anyhow::Result<gix::ObjectId> {
+    let (_guard, repo, ws, _db) = ctx.workspace_and_db()?;
+    let conflicted_oid = but_rebase::cherry_pick_one(
+        &repo,
+        onto_oid,
+        competing_oid,
+        but_rebase::cherry_pick::PickMode::Unconditionally,
+        but_rebase::cherry_pick::EmptyCommit::Keep,
+    )?;
+    assert!(
+        but_core::Commit::from_id(repo.find_commit(conflicted_oid)?.id())?.is_conflicted(),
+        "cherry_pick_one must have produced a conflicted commit for the test to be meaningful"
+    );
+    let ref_name = ws
+        .stacks
+        .iter()
+        .find(|s| s.id == Some(stack_id))
+        .ok_or_else(|| anyhow::anyhow!("stack not found in workspace"))?
+        .ref_name()
+        .ok_or_else(|| anyhow::anyhow!("stack has no ref name"))?
+        .to_owned();
+    repo.reference(
+        ref_name.as_ref(),
+        conflicted_oid,
+        gix::refs::transaction::PreviousValue::Any,
+        "test: push conflicted commit",
+    )?;
+    Ok(conflicted_oid)
+}
 
 pub fn list_commit_files(
     ctx: &Context,
