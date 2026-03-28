@@ -602,3 +602,163 @@ fn no_branch() {
         "Destination branch not found"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Cross-stack moves: non-overlapping changes
+// ---------------------------------------------------------------------------
+
+/// Move a commit between two stacks that edit different files.
+/// No conflicts should arise.
+#[test]
+fn move_commit_non_overlapping() {
+    let Test { repo, ctx, .. } = &mut Test::default();
+
+    std::fs::write(repo.path().join("base.txt"), "base\n").unwrap();
+    repo.commit_all("M");
+    repo.push();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+
+    // Source stack: commit edits file-a.
+    std::fs::write(repo.path().join("file-a.txt"), "source content\n").unwrap();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let source_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest {
+            name: Some("source-stack".into()),
+            ..Default::default()
+        },
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+
+    let source_id = source_entry.id;
+    let commit_oid = super::create_commit(ctx, source_id, "source: add file-a").unwrap();
+
+    // Destination stack: commit edits file-b (non-overlapping).
+    std::fs::write(repo.path().join("file-b.txt"), "dest content\n").unwrap();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let dest_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest {
+            name: Some("dest-stack".into()),
+            ..Default::default()
+        },
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+
+    let dest_id = dest_entry.id;
+    super::create_commit(ctx, dest_id, "dest: add file-b").unwrap();
+
+    // Move the commit from source to dest.
+    gitbutler_branch_actions::move_commit(ctx, dest_id, commit_oid, source_id).unwrap();
+
+    let details = stack_details(ctx);
+
+    let source = details.iter().find(|(id, _)| *id == source_id).unwrap();
+    let dest = details.iter().find(|(id, _)| *id == dest_id).unwrap();
+
+    assert_eq!(
+        source.1.branch_details[0].commits.len(),
+        0,
+        "source should have no commits after move"
+    );
+    assert_eq!(
+        dest.1.branch_details[0].commits.len(),
+        2,
+        "dest should have original + moved commit"
+    );
+
+    // No conflicts expected.
+    assert!(
+        dest.1.branch_details[0]
+            .commits
+            .iter()
+            .all(|c| !c.has_conflicts),
+        "no conflicts expected for non-overlapping changes"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Cross-stack moves: dependent commit is rejected
+// ---------------------------------------------------------------------------
+
+/// A commit that modifies a file created by an earlier commit in the source
+/// stack cannot be moved: it depends on context that stays in the source, so
+/// the cherry-pick onto the destination would conflict.
+#[test]
+fn move_commit_with_dependency_rejected() {
+    let Test { repo, ctx, .. } = &mut Test::default();
+
+    std::fs::write(repo.path().join("base.txt"), "base\n").unwrap();
+    repo.commit_all("M");
+    repo.push();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+
+    // Source stack: first commit creates shared.txt, second modifies it.
+    std::fs::write(repo.path().join("shared.txt"), "alpha\nbravo\ncharlie\n").unwrap();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let source_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest {
+            name: Some("source-stack".into()),
+            ..Default::default()
+        },
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+
+    let source_id = source_entry.id;
+    super::create_commit(ctx, source_id, "source: create shared.txt").unwrap();
+
+    std::fs::write(
+        repo.path().join("shared.txt"),
+        "alpha\nbravo_modified\ncharlie\n",
+    )
+    .unwrap();
+    let dependent_commit =
+        super::create_commit(ctx, source_id, "source: modify shared.txt").unwrap();
+
+    // Destination stack: empty.
+    let mut guard = ctx.exclusive_worktree_access();
+    let dest_entry = gitbutler_branch_actions::create_virtual_branch(
+        ctx,
+        &BranchCreateRequest {
+            name: Some("dest-stack".into()),
+            ..Default::default()
+        },
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+
+    let dest_id = dest_entry.id;
+
+    // Moving the dependent commit must fail.
+    assert!(
+        gitbutler_branch_actions::move_commit(ctx, dest_id, dependent_commit, source_id).is_err(),
+        "move_commit should be rejected: the commit depends on context that stays in source"
+    );
+}

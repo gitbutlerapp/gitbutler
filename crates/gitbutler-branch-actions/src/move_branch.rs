@@ -2,7 +2,7 @@ use anyhow::{Context as _, Result};
 use but_core::ref_metadata::StackId;
 use but_ctx::{Context, access::RepoExclusive};
 use but_rebase::{Rebase, RebaseStep};
-use but_workspace::legacy::stack_ext::StackExt;
+use but_workspace::legacy::{check_for_destination_conflict, stack_ext::StackExt};
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackBranch, VirtualBranchesHandle};
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
@@ -19,6 +19,29 @@ pub struct MoveBranchResult {
     pub deleted_stacks: Vec<StackId>,
     /// These are the stacks that were unapplied as a result of the move.
     pub unapplied_stacks: Vec<StackId>,
+}
+
+/// Pre-flight check for cross-stack branch moves.
+///
+/// Speculatively cherry-picks the branch commits onto the destination stack head
+/// and bails if any would conflict. Must be called before `create_snapshot`
+/// so a rejection leaves no side-effects.
+pub(crate) fn preflight_check(
+    ctx: &Context,
+    target_stack_id: StackId,
+    source_stack_id: StackId,
+    subject_branch_name: &str,
+) -> Result<()> {
+    if source_stack_id == target_stack_id {
+        return Ok(());
+    }
+    let repo = ctx.repo.get()?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let source_stack = vb_state.get_stack_in_workspace(source_stack_id)?;
+    let destination_stack = vb_state.get_stack_in_workspace(target_stack_id)?;
+    let (subject_branch_steps, _) =
+        extract_branch_steps(ctx, &repo, &source_stack, subject_branch_name)?;
+    check_for_destination_conflict(ctx, subject_branch_steps, destination_stack.head_oid(ctx)?)
 }
 
 pub(crate) fn move_branch(

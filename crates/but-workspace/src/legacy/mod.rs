@@ -18,7 +18,7 @@ pub use stacks::{
     local_and_remote_commits, stack_branches, stack_details_v3, stack_heads_info, stacks_v3,
 };
 pub use tree_manipulation::{
-    MoveChangesResult,
+    MoveChangesResult, check_for_destination_conflict,
     move_between_commits::move_changes_between_commits,
     remove_changes_from_commit_in_stack::remove_changes_from_commit_in_stack,
     split_branch::{split_branch, split_into_dependent_branch},
