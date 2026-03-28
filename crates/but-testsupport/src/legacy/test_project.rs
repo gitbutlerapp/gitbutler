@@ -2,7 +2,6 @@ use std::{fs, path, path::PathBuf};
 
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_reference::{LocalRefname, Refname};
-use gitbutler_repo::RepositoryExt;
 use tempfile::TempDir;
 
 use super::{VAR_NO_CLEANUP, commit_with_signature, init_opts, maybe_find_branch_by_refname};
@@ -264,9 +263,10 @@ impl TestProject {
 
         self.local_repo.set_head_detached(commit_oid).unwrap();
         self.local_repo
-            .checkout_tree_builder(&commit_tree)
-            .force()
-            .checkout()
+            .checkout_tree(
+                commit_tree.as_object(),
+                Some(git2::build::CheckoutBuilder::new().force()),
+            )
             .unwrap();
     }
 
@@ -287,9 +287,10 @@ impl TestProject {
         };
         self.local_repo.set_head(&refname.to_string()).unwrap();
         self.local_repo
-            .checkout_tree_builder(&tree)
-            .force()
-            .checkout()
+            .checkout_tree(
+                tree.as_object(),
+                Some(git2::build::CheckoutBuilder::new().force()),
+            )
             .unwrap();
     }
 

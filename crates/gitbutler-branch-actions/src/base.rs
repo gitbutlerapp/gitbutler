@@ -11,7 +11,7 @@ use but_oxidize::ObjectIdExt;
 use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{RepositoryExt, first_parent_commit_ids_until};
+use gitbutler_repo::first_parent_commit_ids_until;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{Stack, Target, VirtualBranchesHandle, canned_branch_name};
 use serde::Serialize;
@@ -160,9 +160,10 @@ fn go_back_to_integration(ctx: &Context, default_target: &Target) -> Result<Base
         let git2_repo = &*ctx.git2_repo.get()?;
         let final_tree = git2_repo.find_tree(final_tree_id.to_git2())?;
         git2_repo
-            .checkout_tree_builder(&final_tree)
-            .force()
-            .checkout()
+            .checkout_tree(
+                final_tree.as_object(),
+                Some(git2::build::CheckoutBuilder::new().force()),
+            )
             .context("failed to checkout tree")?;
     }
 
