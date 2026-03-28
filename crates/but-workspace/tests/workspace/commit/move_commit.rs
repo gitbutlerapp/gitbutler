@@ -1,5 +1,6 @@
 use but_rebase::graph_rebase::{Editor, mutate::InsertSide};
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
+use gix::prelude::ObjectIdExt;
 
 use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack_with_segments, named_writable_scenario_with_description_and_graph,
@@ -783,6 +784,162 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
         └── :2:one
             └── ·8b426d0
     ");
+
+    Ok(())
+}
+
+/// Moving the top commit of a two-commit stack to an empty branch when the file
+/// has the blank-line pattern (`item\n\nitem\nitem\n\n`) that triggers the Myers
+/// diff false conflict (GitoxideLabs/gitoxide#2475).
+///
+/// The cherry-pick's 3-way merge base has the exact blank-line structure that
+/// causes Myers to produce an empty insertion hunk colliding with the other
+/// side's deletion. Currently this causes a `FailedToMergeBases` error.
+///
+/// Once the upstream gitoxide fix lands, this test should be updated to assert
+/// that the move succeeds and the resulting commit is NOT conflicted.
+#[test]
+fn move_top_commit_to_empty_branch_myers_false_conflict() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "move-commit-myers-false-conflict",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &["B"]);
+            },
+        )?;
+
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+
+    // Select the top commit of A (delete bravo_x) and move it to empty branch B.
+    let a_tip = repo.rev_parse_single("A")?.detach();
+    let a_tip_selector = editor.select_commit(a_tip)?;
+    let b_ref_selector = editor.select_reference("refs/heads/B".try_into()?)?;
+
+    let result = but_workspace::commit::move_commit(
+        editor,
+        a_tip_selector,
+        b_ref_selector,
+        InsertSide::Below,
+    );
+
+    // BUG (gitoxide#2475): The blank-line pattern triggers a Myers diff false
+    // conflict that causes the cherry-pick to fail with FailedToMergeBases.
+    // Once fixed upstream, this should succeed and produce a non-conflicted commit.
+    let err = result.expect_err(
+        "Expected FailedToMergeBases error due to Myers false conflict (gitoxide#2475). \
+         If this starts passing, the upstream fix has landed — update this test to \
+         assert the commit is not conflicted.",
+    );
+    let err_str = format!("{err:#}");
+    assert!(
+        err_str.contains("Failed to merge bases"),
+        "Expected 'Failed to merge bases' error, got: {err_str}"
+    );
+
+    Ok(())
+}
+
+/// Moving the top commit of a two-commit stack to an empty branch when the file
+/// edits different, non-overlapping parts of the same file.
+/// Commit 1 adds "first" at the top, commit 2 adds "last" at the bottom.
+///
+/// Cherry-picking commit 2 onto main produces a 3-way merge where:
+///   base→ours removes "first" at top, base→theirs adds "last" at bottom.
+/// These are clearly non-overlapping edits that should merge cleanly.
+#[test]
+fn move_top_commit_to_empty_branch_dependent_changes() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "move-commit-dependent-changes",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &["B"]);
+            },
+        )?;
+
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+
+    // Select the top commit of A ("add last at bottom") and move it to empty branch B.
+    let a_tip = repo.rev_parse_single("A")?.detach();
+    let a_tip_selector = editor.select_commit(a_tip)?;
+    let b_ref_selector = editor.select_reference("refs/heads/B".try_into()?)?;
+
+    let rebase = but_workspace::commit::move_commit(
+        editor,
+        a_tip_selector,
+        b_ref_selector,
+        InsertSide::Below,
+    )?;
+
+    let materialization = rebase.materialize()?;
+    let commit_mapping = materialization.history.commit_mappings();
+    ws.refresh_from_head(&repo, &meta)?;
+
+    let new_commit_id = commit_mapping
+        .get(&a_tip)
+        .expect("moved commit should appear in mapping");
+    let moved_commit = but_core::Commit::from_id((*new_commit_id).attach(&repo))?;
+
+    // The edits are on opposite ends of the file (top vs bottom) and should merge
+    // cleanly. The moved commit should NOT be conflicted.
+    assert!(
+        !moved_commit.is_conflicted(),
+        "Non-overlapping edits (add at top vs add at bottom) should merge cleanly."
+    );
+
+    Ok(())
+}
+
+/// Moving the top commit of a two-commit stack to an empty branch when both
+/// commits modify the SAME line of the same file (genuinely overlapping edits).
+///
+/// Commit 1 changes `bravo` → `bravo_modified`, commit 2 changes `bravo_modified`
+/// → `bravo_replaced`. Cherry-picking commit 2 onto main produces a 3-way merge
+/// where base has `bravo_modified`, ours has `bravo`, theirs has `bravo_replaced` —
+/// a real conflict on the same line.
+#[test]
+fn move_top_commit_to_empty_branch_overlapping_changes() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "move-commit-overlapping-changes",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &["B"]);
+            },
+        )?;
+
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+
+    let a_tip = repo.rev_parse_single("A")?.detach();
+    let a_tip_selector = editor.select_commit(a_tip)?;
+    let b_ref_selector = editor.select_reference("refs/heads/B".try_into()?)?;
+
+    let rebase = but_workspace::commit::move_commit(
+        editor,
+        a_tip_selector,
+        b_ref_selector,
+        InsertSide::Below,
+    )?;
+
+    let materialization = rebase.materialize()?;
+    let commit_mapping = materialization.history.commit_mappings();
+    ws.refresh_from_head(&repo, &meta)?;
+
+    let new_commit_id = commit_mapping
+        .get(&a_tip)
+        .expect("moved commit should appear in mapping");
+    let moved_commit = but_core::Commit::from_id((*new_commit_id).attach(&repo))?;
+
+    // This is a genuine conflict — both sides modify the same line differently.
+    assert!(
+        moved_commit.is_conflicted(),
+        "The moved commit should be conflicted — both commits edit the same line, \
+         so cherry-picking onto main creates a real 3-way conflict."
+    );
 
     Ok(())
 }
