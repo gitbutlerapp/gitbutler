@@ -3,6 +3,7 @@ use std::{path::Path, sync::Mutex};
 use anyhow::{Result, bail};
 use base64::engine::Engine as _;
 use but_core::commit::sign_buffer;
+use but_core::git_config::edit_repo_config;
 use but_ctx::Context;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use ignore::WalkBuilder;
@@ -11,7 +12,7 @@ use itertools::Itertools;
 use serde::Serialize;
 use tracing::warn;
 
-use crate::{RepositoryExt, remote::GitRemote};
+use crate::remote::GitRemote;
 
 #[derive(Default, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -202,8 +203,7 @@ impl RepoCommands for Context {
     }
 
     fn add_remote(&self, name: &str, url: &str) -> Result<()> {
-        #[expect(deprecated, reason = "legacy remote configuration adapter")]
-        let repo = self.git2_repo.get()?;
+        let repo = self.open_isolated_repo()?;
 
         // Bail if remote with given name already exists.
         if repo.find_remote(name).is_ok() {
@@ -212,15 +212,27 @@ impl RepoCommands for Context {
 
         // Bail if remote with given url already exists.
         if repo
-            .remotes_as_string()?
+            .remote_names()
             .iter()
-            .map(|name| repo.find_remote(name))
-            .any(|result| result.is_ok_and(|remote| remote.url() == Some(url)))
+            .map(|name| repo.find_remote(name.as_ref()))
+            .any(|result| {
+                result.is_ok_and(|remote| {
+                    remote
+                        .url(gix::remote::Direction::Fetch)
+                        .is_some_and(|remote_url| {
+                            remote_url.to_bstring().as_slice() == url.as_bytes()
+                        })
+                })
+            })
         {
             bail!("Remote with url '{url}' already exists");
         }
 
-        repo.remote(name, url)?;
+        edit_repo_config(&repo, gix::config::Source::Local, |config| {
+            let mut section = config.section_mut_or_create_new("remote", Some(name.into()))?;
+            section.push("url".try_into()?, Some(url.into()));
+            Ok(())
+        })?;
         Ok(())
     }
 
