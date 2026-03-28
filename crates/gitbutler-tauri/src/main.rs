@@ -63,7 +63,6 @@ fn main() -> anyhow::Result<()> {
     let performance_logging = std::env::var_os("GITBUTLER_PERFORMANCE_LOG").is_some();
     let tauri_debug_logging = std::env::var_os("GITBUTLER_TAURI_DEBUG_LOG").is_some();
 
-    gitbutler_project::configure_git2();
     let mut tauri_context = generate_context!();
     but_secret::secret::set_application_namespace(&tauri_context.config().identifier);
 

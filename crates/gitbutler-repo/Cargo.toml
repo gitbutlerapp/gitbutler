@@ -45,7 +45,7 @@ name = "repo"
 path = "tests/mod.rs"
 
 [dev-dependencies]
-gitbutler-testsupport.workspace = true
+but-testsupport = { workspace = true, features = ["legacy"] }
 gitbutler-user.workspace = true
 but-settings.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }

@@ -2,9 +2,9 @@ use std::{path::PathBuf, str};
 
 use but_ctx::{Context, RepoOpenMode};
 use but_settings::AppSettings;
+use but_testsupport::legacy::test_repository;
 use gitbutler_project as projects;
 use gitbutler_repo::credentials::{Credential, SshCredential, help};
-use gitbutler_testsupport::test_repository;
 use gitbutler_user as users;
 
 #[derive(Default)]
@@ -16,7 +16,7 @@ struct TestCase<'a> {
 
 impl TestCase<'_> {
     fn run(&self) -> Vec<(String, Vec<Credential>)> {
-        gitbutler_testsupport::secrets::setup_blackhole_store();
+        but_testsupport::legacy::secrets::setup_blackhole_store();
         let user: users::User = serde_json::from_str(if self.with_github_login {
             include_str!("../tests/fixtures/users/with-github.v1")
         } else {

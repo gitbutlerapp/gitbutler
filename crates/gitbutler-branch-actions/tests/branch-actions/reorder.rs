@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use anyhow::Result;
 use but_ctx::Context;
 use but_oxidize::ObjectIdExt;
+use but_testsupport::legacy::testing_repository::assert_commit_tree_matches;
 use gitbutler_branch_actions::{StackOrder, reorder::SeriesOrder, reorder_stack};
 use gitbutler_commit::commit_ext::CommitMessageBstr as _;
 use gitbutler_stack::VirtualBranchesHandle;
-use gitbutler_testsupport::testing_repository::assert_commit_tree_matches;
 use itertools::Itertools;
 use tempfile::TempDir;
 
@@ -436,7 +436,7 @@ impl CommitHelpers for Vec<(gix::ObjectId, String, bool, u128)> {
 
 /// Commits from list_virtual_branches
 fn vb_commits(ctx: &Context) -> Vec<Vec<(gix::ObjectId, String, bool, u128)>> {
-    let details = gitbutler_testsupport::stack_details(ctx);
+    let details = but_testsupport::legacy::stack_details(ctx);
     let (_, my_stack) = details
         .iter()
         .find(|(_, d)| d.derived_name == "top-series")

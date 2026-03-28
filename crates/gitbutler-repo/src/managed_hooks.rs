@@ -191,19 +191,8 @@ fn hooks_dir_from_git_dir_and_config_path_for_run_dir(
     hooks_path.unwrap_or_else(|| git_dir.join("hooks"))
 }
 
-/// Get the hooks directory, respecting core.hooksPath configuration
-fn get_hooks_dir(repo: &git2::Repository) -> PathBuf {
-    hooks_dir_from_git_dir_and_config_path_for_run_dir(
-        repo.path(),
-        repo.workdir().unwrap_or(repo.path()),
-        repo.config()
-            .and_then(|config| config.get_path("core.hooksPath"))
-            .ok(),
-    )
-}
-
 /// Get the hooks directory for a `gix` repository, respecting `core.hooksPath`.
-pub(crate) fn get_hooks_dir_gix(repo: &gix::Repository) -> PathBuf {
+pub(crate) fn get_hooks_dir(repo: &gix::Repository) -> PathBuf {
     hooks_dir_from_git_dir_and_config_path_for_run_dir(
         repo.git_dir(),
         repo.workdir().unwrap_or(repo.git_dir()),
@@ -293,14 +282,8 @@ fn uninstall_hook(hooks_dir: &Path, hook_type: ManagedHookType) -> Result<HookIn
 /// Install all GitButler managed hooks
 ///
 /// Called after switching HEAD to gitbutler/workspace
-pub fn install_managed_hooks(repo: &git2::Repository) -> Result<HookInstallationResult> {
+pub fn install_managed_hooks(repo: &gix::Repository) -> Result<HookInstallationResult> {
     let hooks_dir = get_hooks_dir(repo);
-    install_managed_hooks_at(&hooks_dir)
-}
-
-/// Install all GitButler managed hooks for a `gix` repository.
-pub fn install_managed_hooks_gix(repo: &gix::Repository) -> Result<HookInstallationResult> {
-    let hooks_dir = get_hooks_dir_gix(repo);
     install_managed_hooks_at(&hooks_dir)
 }
 
@@ -343,14 +326,8 @@ fn install_managed_hooks_at(hooks_dir: &Path) -> Result<HookInstallationResult> 
 /// Uninstall all GitButler managed hooks and restore user's originals
 ///
 /// Called during teardown
-pub fn uninstall_managed_hooks(repo: &git2::Repository) -> Result<HookInstallationResult> {
+pub fn uninstall_managed_hooks(repo: &gix::Repository) -> Result<HookInstallationResult> {
     let hooks_dir = get_hooks_dir(repo);
-    uninstall_managed_hooks_at(&hooks_dir)
-}
-
-/// Uninstall all GitButler managed hooks for a `gix` repository.
-pub fn uninstall_managed_hooks_gix(repo: &gix::Repository) -> Result<HookInstallationResult> {
-    let hooks_dir = get_hooks_dir_gix(repo);
     uninstall_managed_hooks_at(&hooks_dir)
 }
 

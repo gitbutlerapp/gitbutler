@@ -2,13 +2,10 @@ use std::any::Any;
 
 use keyring::Result;
 
-/// Assure we have a mock secrets store so tests don't start writing secrets into the user's actual store,
-/// as this will affect their GitButler instance.
 pub fn setup_blackhole_store() {
     keyring::set_default_credential_builder(Box::new(BlackholeBuilder))
 }
 
-/// A builder that is completely mocked, able to read no secret, but allowing to write any without error.
 struct BlackholeBuilder;
 
 struct BlackholeCredential;

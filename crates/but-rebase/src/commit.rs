@@ -25,11 +25,11 @@ pub fn save_author_if_unset_in_repo<'a, 'b>(
 ) -> anyhow::Result<()> {
     let config = repo.config_snapshot();
     let name = config
-        .string(&gix::config::tree::User::NAME)
+        .string(gix::config::tree::User::NAME)
         .is_none()
         .then_some(name.into());
     let email = config
-        .string(&gix::config::tree::User::EMAIL)
+        .string(gix::config::tree::User::EMAIL)
         .is_none()
         .then_some(email.into());
     let config_path = destination
@@ -54,11 +54,11 @@ pub fn save_author_if_unset_in_repo<'a, 'b>(
     let mut config = gix::config::File::from_path_no_includes(config_path.clone(), destination)?;
     let mut something_was_set = false;
     if let Some(name) = name {
-        config.set_raw_value(&gix::config::tree::User::NAME, name)?;
+        config.set_raw_value(gix::config::tree::User::NAME, name)?;
         something_was_set = true;
     }
     if let Some(email) = email {
-        config.set_raw_value(&gix::config::tree::User::EMAIL, email)?;
+        config.set_raw_value(gix::config::tree::User::EMAIL, email)?;
         something_was_set = true;
     }
 

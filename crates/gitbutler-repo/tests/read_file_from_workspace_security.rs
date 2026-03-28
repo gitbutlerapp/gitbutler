@@ -2,13 +2,13 @@ use std::{fs, path::Path};
 
 use but_ctx::{Context, RepoOpenMode};
 use but_settings::AppSettings;
+use but_testsupport::legacy::{commit_all, test_repository};
 use gitbutler_project as projects;
 use gitbutler_repo::RepoCommands;
-use gitbutler_testsupport::{commit_all, test_repository};
 
-fn context_for_repo(repo: &git2::Repository) -> Context {
+fn context_for_repo(workdir: &Path) -> Context {
     let project = projects::Project::new_for_gitbutler_repo(
-        repo.workdir().expect("workdir exists").to_path_buf(),
+        workdir.to_path_buf(),
         projects::AuthKey::default(),
     );
     Context::new_from_legacy_project_and_settings_with_repo_open_mode(
@@ -25,7 +25,7 @@ fn allows_read_inside_worktree_with_relative_path() {
     let workdir = repo.workdir().expect("workdir exists");
     fs::write(workdir.join("file.txt"), "hello from workspace").expect("write file");
 
-    let ctx = context_for_repo(&repo);
+    let ctx = context_for_repo(workdir);
     let info = ctx
         .read_file_from_workspace("file.txt".as_ref())
         .expect("read file in workspace");
@@ -51,7 +51,7 @@ fn rejects_dotdot_traversal() {
             .to_string_lossy()
     );
 
-    let ctx = context_for_repo(&repo);
+    let ctx = context_for_repo(workdir);
     let err = ctx
         .read_file_from_workspace(Path::new(&traversal))
         .expect_err("traversal must be rejected");
@@ -74,7 +74,7 @@ fn rejects_symlink_escape() {
     fs::write(&outside_path, "outside via symlink").expect("write outside file");
     gix::fs::symlink::create(&outside_path, &workdir.join("link.txt")).expect("create symlink");
 
-    let ctx = context_for_repo(&repo);
+    let ctx = context_for_repo(workdir);
     let err = ctx
         .read_file_from_workspace(Path::new("link.txt"))
         .expect_err("symlink escape must be rejected");
@@ -93,7 +93,7 @@ fn reads_deleted_file_from_index() {
     commit_all(&repo);
     fs::remove_file(workdir.join("deleted.txt")).expect("delete file from workspace");
 
-    let ctx = context_for_repo(&repo);
+    let ctx = context_for_repo(workdir);
     let info = ctx
         .read_file_from_workspace(Path::new("deleted.txt"))
         .expect("deleted tracked file should still be readable from index fallback");
@@ -110,7 +110,7 @@ fn reads_deleted_file_from_head_commit() {
     fs::remove_file(workdir.join("deleted.txt")).expect("delete file from workspace");
     fs::remove_file(repo.path().join("index")).expect("delete index file");
 
-    let ctx = context_for_repo(&repo);
+    let ctx = context_for_repo(workdir);
     let info = ctx
         .read_file_from_workspace(Path::new("deleted.txt"))
         .expect("deleted tracked file should still be readable from head fallback");
@@ -125,7 +125,7 @@ fn keeps_absolute_inside_worktree_behavior() {
     let abs_path = workdir.join("absolute.txt");
     fs::write(&abs_path, "absolute read").expect("write file");
 
-    let ctx = context_for_repo(&repo);
+    let ctx = context_for_repo(workdir);
     let info = ctx
         .read_file_from_workspace(&abs_path)
         .expect("absolute in-worktree path should be readable");

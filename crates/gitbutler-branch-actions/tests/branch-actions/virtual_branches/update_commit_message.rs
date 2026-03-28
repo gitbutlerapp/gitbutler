@@ -1,8 +1,7 @@
-use but_oxidize::OidExt as _;
+use but_testsupport::legacy::stack_details;
 use but_workspace::ui::PushStatus;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_testsupport::stack_details;
 
 use super::*;
 
@@ -44,14 +43,14 @@ fn head() {
     };
     let before_change_id = {
         let repo = ctx.repo.get().unwrap();
-        let commit_three = repo.find_commit(commit_three_oid.to_gix()).unwrap();
+        let commit_three = repo.find_commit(commit_three_oid).unwrap();
         commit_three.change_id()
     };
 
     gitbutler_branch_actions::update_commit_message(
         ctx,
         stack_entry.id,
-        commit_three_oid.to_gix(),
+        commit_three_oid,
         "commit three updated",
     )
     .unwrap();
@@ -71,7 +70,7 @@ fn head() {
     let commit = repo.find_commit(b.branch_details[0].commits[0].id).unwrap();
 
     // make sure the SHA changed, but the change ID did not
-    assert_ne!(commit_three_oid.to_gix(), commit.id());
+    assert_ne!(commit_three_oid, commit.id());
     assert_eq!(before_change_id, commit.change_id());
 
     assert_eq!(
@@ -120,7 +119,7 @@ fn middle() {
     gitbutler_branch_actions::update_commit_message(
         ctx,
         stack_entry.id,
-        commit_two_oid.to_gix(),
+        commit_two_oid,
         "commit two updated",
     )
     .unwrap();
@@ -195,7 +194,7 @@ fn forcepush_allowed() {
     gitbutler_branch_actions::update_commit_message(
         ctx,
         stack_entry.id,
-        commit_one_oid.to_gix(),
+        commit_one_oid,
         "commit one updated",
     )
     .unwrap();
@@ -257,7 +256,7 @@ fn root() {
     gitbutler_branch_actions::update_commit_message(
         ctx,
         branch_id.id,
-        commit_one_oid.to_gix(),
+        commit_one_oid,
         "commit one updated",
     )
     .unwrap();
@@ -306,14 +305,9 @@ fn empty() {
     };
 
     assert_eq!(
-        gitbutler_branch_actions::update_commit_message(
-            ctx,
-            branch_id.id,
-            commit_one_oid.to_gix(),
-            "",
-        )
-        .unwrap_err()
-        .to_string(),
+        gitbutler_branch_actions::update_commit_message(ctx, branch_id.id, commit_one_oid, "",)
+            .unwrap_err()
+            .to_string(),
         "commit message can not be empty"
     );
 }

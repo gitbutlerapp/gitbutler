@@ -30,6 +30,7 @@ gitbutler-project = { workspace = true, optional = true }
 
 tracing.workspace = true
 anyhow.workspace = true
+but-error.workspace = true
 gix.workspace = true
 git2.workspace = true
 

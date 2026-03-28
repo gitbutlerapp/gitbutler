@@ -54,20 +54,10 @@ pub fn set_project_active(
             return Ok(None);
         }
     };
-    let repo = git2::Repository::open(&ctx.gitdir)
-        // Only capture this information here to prevent spawning too many errors because of this
-        // (the UI has many parallel calls in flight).
-        .map_err(|err| {
-            let code = err.code();
-            let err = anyhow::Error::from(err);
-            if code == git2::ErrorCode::Owner {
-                err.context(but_error::Code::RepoOwnership)
-            } else {
-                err
-            }
-        })?;
     // --> WARNING <-- Be sure this runs BEFORE the database on `ctx` is used.
-    ctx = ctx.with_git2_repo(repo);
+    // Only capture this information here to prevent spawning too many errors because of this
+    // (the UI has many parallel calls in flight).
+    ctx.eagerly_populate_git2_repo_cache()?;
 
     but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
 

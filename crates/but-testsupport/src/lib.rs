@@ -15,6 +15,11 @@ use gix_testtools::{Creation, FixtureState, PostResult, tempfile};
 mod in_memory_meta;
 pub use in_memory_meta::{InMemoryRefMetadata, InMemoryRefMetadataHandle, StackState};
 
+/// A module with the complete `gitbutler-testsupport` crate, with the goal of replacing its implementation with `but-testsupport` utilities.
+#[cfg(feature = "legacy")]
+#[allow(missing_docs)]
+pub mod legacy;
+
 #[cfg(feature = "sandbox")]
 mod sandbox;
 #[cfg(feature = "sandbox")]
@@ -525,7 +530,7 @@ pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile:
 
     repo.config_snapshot_mut()
         .set_raw_value(
-            &"user.signingKey",
+            "user.signingKey",
             gix::path::into_bstr(signing_key_path).as_ref(),
         )
         .expect("in-memory values can always be set");

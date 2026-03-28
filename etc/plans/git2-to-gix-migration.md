@@ -8,7 +8,7 @@ This plan orchestrates migration from `git2` to `gix` across the codebase where 
 - index/tree materialization that still requires `git2` (`Index::write_tree*`, `read_tree`, and immediately related adapters)
 - `gitbutler-edit-mode` as a legacy checkout/edit-flow boundary crate until its remaining `git2` checkout/index handoff is isolated or replaced
 
-`create_wd_tree()` itself is already implemented in `gix` via `but-status`; remaining `git2` usage around it should be treated as legacy wrapper/caller cleanup, not as a true `git2` implementation boundary.
+`create_wd_tree()` itself is already implemented in `gix` in `but-core`; remaining `git2` usage around it should be treated as legacy wrapper/caller cleanup, not as a true `git2` implementation boundary.
 
 Config reading and config-setting are explicitly in-scope for migration in this plan. They should use the existing `git_config.rs` / `gix`-based config helpers and must not be treated as a valid reason to keep a `git2` boundary.
 
@@ -28,10 +28,10 @@ Repository scan baseline at plan creation:
 
 Current raw audit on 2026-03-21:
 
-- `git2::` callsites: 314
-- files with `git2::` references: 43
-- direct `ctx.git2_repo` / `with_git2_repo` call-sites: 76 across 24 files
-- all `git2_repo` / `with_git2_repo` identifier matches including field/setup definitions: 157 across 31 files
+- `git2::` callsites: 236
+- files with `git2::` references: 36
+- `ctx.git2_repo` / `ctx.with_git2_repo` dot-access matches: 77
+- all `git2_repo` / `with_git2_repo` identifier matches including field/setup definitions: 134 across 27 files
 - crates with a normal `git2` dependency according to `cargo metadata`: 18
 - filtered in-scope audit: actionable residual `git2` usage remains concentrated in checkout/materialization boundaries, repo/transport adapters, legacy context threading, compatibility crates, and test support
 
@@ -226,8 +226,8 @@ Current reconciliation notes:
 
 - Snapshot metadata/state surfaces in `entry.rs`, `snapshot.rs`, `state.rs`, and `tests/oplog/main.rs` are migrated to `gix`.
 - `crates/gitbutler-oplog/src/oplog.rs` still uses `git2` in restore/diff/prepare helpers that cross the remaining hard boundary, and remains the main production target here.
-- `crates/gitbutler-oplog/src/reflog.rs` still contains `git2`-based test scaffolding under `#[cfg(test)]`.
-- Workstream D remains active for `oplog.rs` boundary extraction, with `reflog.rs` cleanup as a follow-on test task.
+- `crates/gitbutler-oplog/src/reflog.rs` test scaffolding is now `gix`-based.
+- Workstream D remains active for `oplog.rs` boundary extraction; `reflog.rs` is no longer part of the residual test cleanup list.
 
 ### Workstream G: Repo Adapter, Transport, and Legacy Boundary Reduction
 
@@ -280,9 +280,10 @@ Target tests/modules:
 - `crates/gitbutler-repo/tests/create_wd_tree.rs`
 - `crates/gitbutler-repo/tests/managed_hooks_tests.rs`
 - `crates/gitbutler-project/tests/project/main.rs`
-- `crates/gitbutler-testsupport/src/lib.rs`
-- `crates/gitbutler-testsupport/src/suite.rs`
-- `crates/gitbutler-testsupport/src/test_project.rs`
+- `crates/but-testsupport/src/legacy.rs`
+- `crates/but-testsupport/src/legacy/suite.rs`
+- `crates/but-testsupport/src/legacy/test_project.rs`
+- `crates/but-testsupport/src/legacy/testing_repository.rs`
 
 Tasks:
 
@@ -306,8 +307,10 @@ Current reconciliation notes:
 - `cargo metadata` still reports 18 crates with a normal `git2` dependency, so manifest cleanup remains blocked on production and test/helper cleanup.
 - `crates/gitbutler-stack/tests/mod.rs` now bakes stack commit history via `gix` traversal instead of `ctx.git2_repo`.
 - `crates/gitbutler-branch-actions/tests/branch-actions/virtual_branches/workspace_migration.rs` now inspects HEAD through `gix`.
-- `crates/gitbutler-edit-mode/tests/edit_mode.rs`, `crates/gitbutler-repo/tests/create_wd_tree.rs`, `crates/gitbutler-repo/tests/managed_hooks_tests.rs`, `crates/gitbutler-project/tests/project/main.rs`, and `crates/gitbutler-testsupport/src/*` still contain substantial direct `git2` usage.
-- `gitbutler-testsupport` should be treated as a migration target, not a keeper crate: move coverage helpers to `but-testsupport`, then delete `gitbutler-testsupport`.
+- On 2026-03-21, the shared legacy helper surface (`Case`, `Suite`, `TestProject`, `testing_repository`, `secrets`, `paths`, `stack_details`, and related setup helpers) was moved into `crates/but-testsupport/src/legacy/*`, and the current test users in `gitbutler-operating-modes`, `gitbutler-project`, `gitbutler-repo`, and `gitbutler-branch-actions` were switched from `gitbutler-testsupport` to `but-testsupport` with the `legacy` feature.
+- `crates/gitbutler-project/tests/project/main.rs` and `crates/gitbutler-oplog/src/reflog.rs` no longer contain direct `git2` usage.
+- `crates/gitbutler-edit-mode/tests/edit_mode.rs`, `crates/gitbutler-repo/tests/create_wd_tree.rs`, `crates/gitbutler-repo/tests/managed_hooks_tests.rs`, and `crates/but-testsupport/src/legacy/*` still contain substantial direct `git2` usage.
+- On 2026-03-21, the `gitbutler-testsupport` shim crate was deleted after the remaining users had moved to `but-testsupport`.
 - `crates/gitbutler-branch-actions/tests/branch-actions/squash.rs` is currently the largest remaining `ctx.git2_repo` consumer in tests.
 - Remaining direct `ctx.git2_repo` usage in tests should trend toward hard-boundary coverage and fixture/setup helpers only as reopened production migrations land.
 
@@ -359,8 +362,8 @@ Current execution status:
 - Workstreams C, D, E, and G remain active under the narrowed hard boundary.
 - Workstream F has not started yet.
 - Residual `git2` usage is not yet limited to the hard boundary and compatibility/public-boundary crates.
-- Open actionable items: repo adapter cleanup, transport/auth cleanup, workspace/oplog boundary extraction, and follow-on test/helper migration including `gitbutler-testsupport` replacement.
-- Recommended next wave: Wave 5, starting with `crates/gitbutler-workspace/src/branch_trees.rs`, `crates/gitbutler-oplog/src/oplog.rs`, and `gitbutler-testsupport` helper migration into `but-testsupport`.
+- Open actionable items: repo adapter cleanup, transport/auth cleanup, workspace/oplog boundary extraction, and continued test/helper `git2` reduction inside `but-testsupport::legacy`.
+- Recommended next wave: Wave 5, starting with `crates/gitbutler-workspace/src/branch_trees.rs`, `crates/gitbutler-oplog/src/oplog.rs`, and cleanup of the remaining `git2`-heavy helpers/tests that were just consolidated into `but-testsupport`.
 
 ## Acceptance Criteria
 
@@ -397,10 +400,10 @@ The filtered report must trend to zero in-scope matches.
 Remaining direct `git2` usage after reconciliation is split between hard-boundary code and still-actionable legacy adapters:
 
 - Hard-boundary and boundary-adjacent runtime code: `crates/but-core/src/worktree/checkout/*`, `crates/gitbutler-workspace/src/branch_trees.rs`, `crates/gitbutler-edit-mode/src/lib.rs` (treated as a boundary crate for its remaining checkout/index handoff), `crates/gitbutler-oplog/src/oplog.rs`, and the `git2` index/reset portions of `crates/gitbutler-branch-actions/src/integration.rs`
-- Actionable repo/transport/frontend adapters: `crates/gitbutler-repo/src/repository_ext.rs`, `crates/gitbutler-repo/src/commands.rs`, `crates/gitbutler-repo/src/rebase.rs`, `crates/gitbutler-repo/src/credentials.rs`, `crates/gitbutler-repo/src/hooks.rs`, `crates/gitbutler-repo/src/managed_hooks.rs`, `crates/gitbutler-repo/src/remote.rs`, `crates/gitbutler-repo/src/staging.rs`, `crates/gitbutler-repo-actions/src/repository.rs`, `crates/gitbutler-tauri/src/projects.rs`, and `crates/but-napi/src/lib.rs`
+- Actionable repo/transport/frontend adapters: `crates/gitbutler-repo/src/repository_ext.rs`, `crates/gitbutler-repo/src/commands.rs`, `crates/gitbutler-repo/src/rebase.rs`, `crates/gitbutler-repo/src/credentials.rs`, `crates/gitbutler-repo/src/hooks.rs`, `crates/gitbutler-repo/src/remote.rs`, `crates/gitbutler-repo/src/staging.rs`, and `crates/gitbutler-repo-actions/src/repository.rs`
 - Foundational/shared compatibility boundaries still to shrink once callers move: `crates/but-ctx/src/lib.rs`, `crates/but-oxidize/src/lib.rs`, `crates/but-serde/src/lib.rs`, `crates/but-schemars/src/lib.rs`, `crates/gitbutler-project/src/lib.rs`, `crates/gitbutler-repo/src/lib.rs`, `crates/gitbutler-cherry-pick/src/*`, `crates/gitbutler-commit/src/commit_ext.rs`, and the remaining `git2` type boundary in `crates/gitbutler-stack/src/stack.rs`
-- Legacy test and fixture/setup code that still constructs `git2` values directly: selected `crates/gitbutler-branch-actions/tests/*`, `crates/gitbutler-edit-mode/tests/edit_mode.rs`, `crates/gitbutler-repo/tests/*`, `crates/gitbutler-project/tests/project/main.rs`, and `crates/gitbutler-testsupport/src/*`
-- Planned helper consolidation: migrate remaining reusable fixture/test utilities from `gitbutler-testsupport` into `but-testsupport`, then remove `gitbutler-testsupport` from the tree.
+- Legacy test and fixture/setup code that still constructs `git2` values directly: selected `crates/gitbutler-branch-actions/tests/*`, `crates/gitbutler-edit-mode/tests/edit_mode.rs`, `crates/gitbutler-repo/tests/*`, and `crates/but-testsupport/src/legacy/*`
+- Planned helper retirement: keep shrinking `git2` inside `but-testsupport::legacy` until the legacy feature itself can collapse away.
 
 Residual `git2` usage that is currently consistent with the narrowed hard boundary:
 

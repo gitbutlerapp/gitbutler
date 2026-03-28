@@ -12,7 +12,6 @@ mod command;
 
 fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
-    gitbutler_project::configure_git2();
 
     if args.trace {
         trace::init()?;

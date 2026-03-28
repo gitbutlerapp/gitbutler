@@ -13,6 +13,7 @@ use but_core::{
     RepositoryExt,
     sync::{RepoExclusive, RepoExclusiveGuard, RepoShared, RepoSharedGuard},
 };
+use but_error::Code;
 use but_settings::AppSettings;
 use tracing::instrument;
 
@@ -458,12 +459,6 @@ impl Context {
             workspace: Default::default(),
         }
         .with_repo(repo))
-    }
-
-    /// Use `git2_repo` instead of the default repository that would be opened on first query.
-    pub fn with_git2_repo(mut self, git2_repo: git2::Repository) -> Self {
-        self.git2_repo.assign(git2_repo);
-        self
     }
 
     /// Use `repo` instead of the default repository that would be opened on first query.
@@ -1051,6 +1046,34 @@ impl Context {
     pub fn clone_repo_for_merging_non_persisting(&self) -> anyhow::Result<gix::Repository> {
         self.clone_repo_for_merging()
             .map(|repo| repo.with_object_memory())
+    }
+
+    /// Eagerly open the legacy `git2` repository, preserving repo-ownership error tagging used
+    /// by activation entrypoints before any database work begins.
+    ///
+    /// This is needed as parts of the code depend on the error carrying this context code
+    /// to indicate ownership issues, related to `safe.directories` or the lack thereof.
+    /// `gix::Repository` doesn't have that problem as it functions differently,
+    /// not by refusing to open the repository but by not trusting its configuration in particular when
+    /// programs are involved.
+    pub fn eagerly_populate_git2_repo_cache(&mut self) -> anyhow::Result<()> {
+        {
+            let existing = self.git2_repo.get_opt();
+            if existing.is_some() {
+                return Ok(());
+            }
+        }
+        let repo = git2::Repository::open(&self.gitdir).map_err(|err| {
+            let code = err.code();
+            let err = anyhow::Error::from(err);
+            if code == git2::ErrorCode::Owner {
+                err.context(Code::RepoOwnership)
+            } else {
+                err
+            }
+        })?;
+        self.git2_repo.assign(repo);
+        Ok(())
     }
 }
 

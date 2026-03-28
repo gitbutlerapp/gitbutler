@@ -238,7 +238,7 @@ fn signatures_are_redone() -> anyhow::Result<()> {
     );
 
     repo.config_snapshot_mut()
-        .set_raw_value(&"gitbutler.signCommits", "false")?;
+        .set_raw_value("gitbutler.signCommits", "false")?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::AmendCommit {

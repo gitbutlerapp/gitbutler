@@ -201,7 +201,7 @@ pub fn update_workspace_commit_with_vb_state(
     repo.set_head(&GITBUTLER_WORKSPACE_REFERENCE.clone().to_string())?;
 
     // Install managed hooks to prevent accidental git commits on workspace branch
-    if let Err(e) = gitbutler_repo::managed_hooks::install_managed_hooks_gix(&gix_repo) {
+    if let Err(e) = gitbutler_repo::managed_hooks::install_managed_hooks(&gix_repo) {
         tracing::warn!("Failed to install managed hooks: {}", e);
     }
 

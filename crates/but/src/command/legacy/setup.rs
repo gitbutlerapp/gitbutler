@@ -387,7 +387,7 @@ pub(crate) fn repo(
 
     // Install managed hooks to prevent accidental git commits
     if let Ok(repo) = ctx.repo.get()
-        && let Err(e) = gitbutler_repo::managed_hooks::install_managed_hooks_gix(&repo)
+        && let Err(e) = gitbutler_repo::managed_hooks::install_managed_hooks(&repo)
         && let Some(out) = out.for_human()
     {
         writeln!(

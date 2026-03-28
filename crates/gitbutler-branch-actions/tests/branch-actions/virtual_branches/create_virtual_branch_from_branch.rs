@@ -1,6 +1,6 @@
+use but_testsupport::legacy::stack_details;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_reference::LocalRefname;
-use gitbutler_testsupport::stack_details;
 
 use super::*;
 #[test]

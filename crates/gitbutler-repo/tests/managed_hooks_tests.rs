@@ -11,25 +11,25 @@ use std::os::unix::fs::PermissionsExt;
 
 use anyhow::Result;
 use gitbutler_repo::managed_hooks::{
-    HookInstallationResult, install_managed_hooks, install_managed_hooks_gix,
-    uninstall_managed_hooks, uninstall_managed_hooks_gix,
+    HookInstallationResult, install_managed_hooks, uninstall_managed_hooks,
 };
 use tempfile::TempDir;
 
 /// Helper to create a test git repository
-fn create_test_repo() -> Result<(TempDir, git2::Repository)> {
-    let temp_dir = TempDir::new()?;
-    let repo = git2::Repository::init(temp_dir.path())?;
-    Ok((temp_dir, repo))
+fn create_test_repo() -> Result<(TempDir, gix::Repository)> {
+    let tmp = TempDir::new()?;
+    let repo = gix::init(tmp.path())?;
+    // Re-open in isolated mode, it's a bit hard to pass open-options to `gix::init()`.
+    but_testsupport::open_repo(repo.path()).map(|repo| (tmp, repo))
 }
 
-fn open_gix_repo(repo: &git2::Repository) -> Result<gix::Repository> {
-    Ok(gix::open_opts(repo.path(), gix::open::Options::isolated())?)
+fn hooks_dir(repo: &gix::Repository) -> std::path::PathBuf {
+    repo.git_dir().join("hooks")
 }
 
 /// Helper to create a user hook file with content
-fn create_user_hook(repo: &git2::Repository, hook_name: &str, content: &str) -> Result<()> {
-    let hooks_dir = repo.path().join("hooks");
+fn create_user_hook(repo: &gix::Repository, hook_name: &str, content: &str) -> Result<()> {
+    let hooks_dir = hooks_dir(repo);
     fs::create_dir_all(&hooks_dir)?;
     let hook_path = hooks_dir.join(hook_name);
     fs::write(&hook_path, content)?;
@@ -41,13 +41,13 @@ fn create_user_hook(repo: &git2::Repository, hook_name: &str, content: &str) -> 
 }
 
 /// Helper to check if a file exists
-fn hook_exists(repo: &git2::Repository, hook_name: &str) -> bool {
-    repo.path().join("hooks").join(hook_name).exists()
+fn hook_exists(repo: &gix::Repository, hook_name: &str) -> bool {
+    hooks_dir(repo).join(hook_name).exists()
 }
 
 /// Helper to read hook content
-fn read_hook(repo: &git2::Repository, hook_name: &str) -> Result<String> {
-    let path = repo.path().join("hooks").join(hook_name);
+fn read_hook(repo: &gix::Repository, hook_name: &str) -> Result<String> {
+    let path = hooks_dir(repo).join(hook_name);
     Ok(fs::read_to_string(path)?)
 }
 
@@ -57,8 +57,8 @@ fn hook_exists_at(hooks_dir: &std::path::Path, hook_name: &str) -> bool {
 
 /// Helper to check if hook is executable on Unix
 #[cfg(unix)]
-fn is_executable(repo: &git2::Repository, hook_name: &str) -> bool {
-    let path = repo.path().join("hooks").join(hook_name);
+fn is_executable(repo: &gix::Repository, hook_name: &str) -> bool {
+    let path = hooks_dir(repo).join(hook_name);
     if let Ok(metadata) = fs::metadata(&path) {
         let permissions = metadata.permissions();
         permissions.mode() & 0o111 != 0
@@ -72,7 +72,7 @@ fn test_install_hooks_creates_hooks_directory() -> Result<()> {
     let (_temp, repo) = create_test_repo()?;
 
     // Remove hooks directory if it exists
-    let hooks_dir = repo.path().join("hooks");
+    let hooks_dir = hooks_dir(&repo);
     if hooks_dir.exists() {
         fs::remove_dir_all(&hooks_dir)?;
     }
@@ -392,7 +392,7 @@ fn test_hook_manually_modified_after_install() -> Result<()> {
 
     // User manually modifies the hook
     let modified_hook = "#!/bin/sh\n# User modified this\necho 'modified'\n";
-    let hook_path = repo.path().join("hooks").join("pre-commit");
+    let hook_path = hooks_dir(&repo).join("pre-commit");
     fs::write(&hook_path, modified_hook)?;
 
     // Uninstall should not remove the modified hook (no signature)
@@ -407,15 +407,17 @@ fn test_hook_manually_modified_after_install() -> Result<()> {
 
 #[test]
 fn test_respects_absolute_core_hooks_path() -> Result<()> {
-    let (_temp, repo) = create_test_repo()?;
+    let (_temp, mut repo) = create_test_repo()?;
 
     // Create a custom hooks directory
     let custom_hooks = _temp.path().join("custom-hooks");
     fs::create_dir_all(&custom_hooks)?;
 
     // Configure core.hooksPath
-    let mut config = repo.config()?;
-    config.set_str("core.hooksPath", custom_hooks.to_str().unwrap())?;
+    repo.config_snapshot_mut().set_raw_value(
+        "core.hooksPath",
+        gix::path::into_bstr(&custom_hooks).as_ref(),
+    )?;
 
     // Install hooks
     install_managed_hooks(&repo)?;
@@ -432,7 +434,7 @@ fn test_respects_absolute_core_hooks_path() -> Result<()> {
 
     // Should NOT be in default .git/hooks
     assert!(
-        !repo.path().join("hooks").join("pre-commit").exists(),
+        !hooks_dir(&repo).join("pre-commit").exists(),
         "Hook should not be in default location"
     );
     Ok(())
@@ -440,7 +442,7 @@ fn test_respects_absolute_core_hooks_path() -> Result<()> {
 
 #[test]
 fn test_respects_relative_core_hooks_path() -> Result<()> {
-    let (_temp, repo) = create_test_repo()?;
+    let (_temp, mut repo) = create_test_repo()?;
 
     let relative_hooks = format!(
         "custom-hooks-{}",
@@ -452,8 +454,8 @@ fn test_respects_relative_core_hooks_path() -> Result<()> {
     );
     let expected_hooks_dir = _temp.path().join(&relative_hooks);
 
-    let mut config = repo.config()?;
-    config.set_str("core.hooksPath", &relative_hooks)?;
+    repo.config_snapshot_mut()
+        .set_raw_value("core.hooksPath", relative_hooks.as_str())?;
 
     install_managed_hooks(&repo)?;
 
@@ -466,18 +468,18 @@ fn test_respects_relative_core_hooks_path() -> Result<()> {
         "Hook should be resolved relative to the worktree root"
     );
     assert!(
-        !repo.path().join("hooks").join("pre-commit").exists(),
+        !hooks_dir(&repo).join("pre-commit").exists(),
         "Hook should not be installed in the default location"
     );
     Ok(())
 }
 
 #[test]
-fn test_respects_relative_core_hooks_path_gix() -> Result<()> {
-    let (_temp, repo) = create_test_repo()?;
+fn test_uninstall_respects_relative_core_hooks_path() -> Result<()> {
+    let (_temp, mut repo) = create_test_repo()?;
 
     let relative_hooks = format!(
-        "custom-hooks-gix-{}",
+        "custom-hooks-uninstall-{}",
         _temp
             .path()
             .file_name()
@@ -486,11 +488,9 @@ fn test_respects_relative_core_hooks_path_gix() -> Result<()> {
     );
     let expected_hooks_dir = _temp.path().join(&relative_hooks);
 
-    let mut config = repo.config()?;
-    config.set_str("core.hooksPath", &relative_hooks)?;
-
-    let gix_repo = open_gix_repo(&repo)?;
-    install_managed_hooks_gix(&gix_repo)?;
+    repo.config_snapshot_mut()
+        .set_raw_value("core.hooksPath", relative_hooks.as_str())?;
+    install_managed_hooks(&repo)?;
 
     assert!(
         hook_exists_at(&expected_hooks_dir, "pre-commit"),
@@ -501,7 +501,7 @@ fn test_respects_relative_core_hooks_path_gix() -> Result<()> {
         "Hook should be resolved relative to the worktree root"
     );
 
-    uninstall_managed_hooks_gix(&gix_repo)?;
+    uninstall_managed_hooks(&repo)?;
 
     assert!(
         !hook_exists_at(&expected_hooks_dir, "pre-commit"),
@@ -588,7 +588,7 @@ fn test_empty_hooks_directory() -> Result<()> {
     let (_temp, repo) = create_test_repo()?;
 
     // Ensure hooks directory exists but is empty
-    let hooks_dir = repo.path().join("hooks");
+    let hooks_dir = hooks_dir(&repo);
     fs::create_dir_all(&hooks_dir)?;
 
     // Should install cleanly

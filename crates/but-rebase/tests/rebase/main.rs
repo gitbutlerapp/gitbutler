@@ -23,8 +23,8 @@ mod commit {
             let (mut repo, _) = fixture("four-commits")?;
             {
                 let mut config = repo.config_snapshot_mut();
-                config.set_raw_value(&"user.name", "name")?;
-                config.set_raw_value(&"user.email", "email")?;
+                config.set_raw_value("user.name", "name")?;
+                config.set_raw_value("user.email", "email")?;
             }
             let err = commit::save_author_if_unset_in_repo(
                 &repo,

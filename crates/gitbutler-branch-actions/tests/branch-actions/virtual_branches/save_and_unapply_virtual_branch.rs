@@ -1,6 +1,6 @@
 use but_core::DiffSpec;
 use but_hunk_assignment::HunkAssignmentRequest;
-use gitbutler_testsupport::stack_details;
+use but_testsupport::legacy::stack_details;
 
 use super::*;
 

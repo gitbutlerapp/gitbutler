@@ -153,10 +153,6 @@ not as independent stateful-handle flows.
 
 - [ ] `crates/gitbutler-operating-modes/src/lib.rs`
 
-#### gitbutler-testsupport (1)
-
-- [ ] `crates/gitbutler-testsupport/src/lib.rs`
-
 #### gitbutler-edit-mode (2)
 
 - [x] `crates/gitbutler-edit-mode/src/lib.rs`
@@ -216,7 +212,7 @@ Sync the TOML file _on drop_ only, knowing well that this may write data that is
     - `crates/gitbutler-branch-actions/src/upstream_integration.rs`
     - `crates/gitbutler-branch-actions/tests/branch-actions/virtual_branches/mod.rs`
     - `crates/gitbutler-cli/src/command/vbranch.rs`
-    - `crates/gitbutler-testsupport/src/lib.rs`
+    - `crates/but-testsupport/src/legacy.rs`
 - [ ] Not started
 
 ### 4. Modernize workspace metadata schema

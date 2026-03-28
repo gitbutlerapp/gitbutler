@@ -1,12 +1,11 @@
 use std::{io::Write, path::Path};
 
 use but_core::{GitConfigSettings, RepositoryExt as _};
-use but_oxidize::ObjectIdExt;
+use but_testsupport::legacy::stack_details;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_oplog::OplogExt;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_stack::VirtualBranchesHandle;
-use gitbutler_testsupport::stack_details;
 use itertools::Itertools;
 
 use super::*;
@@ -186,11 +185,11 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     assert_eq!(b.branch_details[0].clone().commits.len(), 3);
     assert_eq!(
-        list_commit_files(ctx, b.branch_details[0].clone().commits[0].id.to_git2())?.len(),
+        list_commit_files(ctx, b.branch_details[0].clone().commits[0].id)?.len(),
         1
     );
     assert_eq!(
-        list_commit_files(ctx, b.branch_details[0].clone().commits[1].id.to_git2())?.len(),
+        list_commit_files(ctx, b.branch_details[0].clone().commits[1].id)?.len(),
         3
     );
 
@@ -248,8 +247,8 @@ fn basic_oplog() -> anyhow::Result<()> {
     std::fs::remove_file(file_path)?;
 
     // try to look up that object
-    let commit = repo.find_commit(commit2_id);
-    assert!(commit.is_err());
+    let commit_missing = !ctx.repo.get()?.has_object(commit2_id);
+    assert!(commit_missing);
 
     {
         let mut guard = ctx.exclusive_worktree_access();
@@ -258,8 +257,8 @@ fn basic_oplog() -> anyhow::Result<()> {
     }
 
     // test missing commits are recreated
-    let commit = repo.find_commit(commit2_id);
-    assert!(commit.is_ok());
+    let commit_restored = ctx.repo.get()?.has_object(commit2_id);
+    assert!(commit_restored);
 
     let file_path = repo.path().join("large.txt");
     assert!(file_path.exists());

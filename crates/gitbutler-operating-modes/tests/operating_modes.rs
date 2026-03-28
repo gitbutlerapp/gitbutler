@@ -64,8 +64,8 @@ mod operating_modes {
     }
 
     mod open_workspace_mode {
+        use but_testsupport::legacy::{Case, Suite};
         use gitbutler_operating_modes::{ensure_open_workspace_mode, in_open_workspace_mode};
-        use gitbutler_testsupport::{Case, Suite};
 
         use crate::create_and_checkout_branch;
 
@@ -140,8 +140,8 @@ mod operating_modes {
     }
 
     mod outside_workspace_mode {
+        use but_testsupport::legacy::{Case, Suite};
         use gitbutler_operating_modes::{ensure_outside_workspace_mode, in_outside_workspace_mode};
-        use gitbutler_testsupport::{Case, Suite};
 
         use crate::{create_and_checkout_branch, create_edit_mode_metadata};
 
@@ -221,8 +221,8 @@ mod operating_modes {
     }
 
     mod edit_mode {
+        use but_testsupport::legacy::{Case, Suite};
         use gitbutler_operating_modes::{ensure_edit_mode, in_edit_mode};
-        use gitbutler_testsupport::{Case, Suite};
 
         use crate::{create_and_checkout_branch, create_edit_mode_metadata};
 

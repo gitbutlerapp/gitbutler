@@ -2,8 +2,8 @@ use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
+use but_testsupport::legacy::{Case, Suite};
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageData, MessageHookResult};
-use gitbutler_testsupport::{Case, Suite};
 
 #[test]
 fn post_commit_hook_rejection() -> anyhow::Result<()> {

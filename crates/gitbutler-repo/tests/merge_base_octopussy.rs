@@ -1,5 +1,5 @@
+use but_testsupport::legacy::testing_repository::TestingRepository;
 use gitbutler_repo::RepositoryExt as _;
-use gitbutler_testsupport::testing_repository::TestingRepository;
 use itertools::Itertools;
 
 #[test]

@@ -1,8 +1,9 @@
+use std::str::FromStr;
+
 use bstr::ByteSlice;
-use but_oxidize::OidExt;
+use but_testsupport::legacy::stack_details;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_stack::StackId;
-use gitbutler_testsupport::stack_details;
 
 use super::Test;
 
@@ -46,13 +47,8 @@ fn no_diffs() {
     .unwrap();
     drop(guard);
 
-    gitbutler_branch_actions::move_commit(
-        ctx,
-        target_stack_entry.id,
-        commit_oid.to_gix(),
-        source_branch_id,
-    )
-    .unwrap();
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
+        .unwrap();
 
     let destination = stack_details(ctx)
         .into_iter()
@@ -126,13 +122,8 @@ fn multiple_commits() {
     super::create_commit(ctx, target_stack_entry.id, "Add d").unwrap();
 
     // Move the top commit from the source branch to the destination branch
-    gitbutler_branch_actions::move_commit(
-        ctx,
-        target_stack_entry.id,
-        commit_oid.to_gix(),
-        source_branch_id,
-    )
-    .unwrap();
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
+        .unwrap();
 
     let destination = stack_details(ctx)
         .into_iter()
@@ -240,13 +231,8 @@ fn multiple_commits_with_diffs() {
     assert_eq!(destination.1.branch_details[0].clone().commits.len(), 1);
 
     // Move the top commit from the source branch to the destination branch
-    gitbutler_branch_actions::move_commit(
-        ctx,
-        target_stack_entry.id,
-        commit_oid.to_gix(),
-        source_branch_id,
-    )
-    .unwrap();
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
+        .unwrap();
 
     let source = stack_details(ctx)
         .into_iter()
@@ -319,13 +305,8 @@ fn diffs_on_source_branch() {
     .unwrap();
     drop(guard);
 
-    gitbutler_branch_actions::move_commit(
-        ctx,
-        target_stack_entry.id,
-        commit_oid.to_gix(),
-        source_branch_id,
-    )
-    .unwrap();
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
+        .unwrap();
 
     let source = stack_details(ctx)
         .into_iter()
@@ -382,13 +363,8 @@ fn diffs_on_target_branch() {
 
     std::fs::write(repo.path().join("another file.txt"), "another content").unwrap();
 
-    gitbutler_branch_actions::move_commit(
-        ctx,
-        target_stack_entry.id,
-        commit_oid.to_gix(),
-        source_branch_id,
-    )
-    .unwrap();
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
+        .unwrap();
 
     let source = stack_details(ctx)
         .into_iter()
@@ -468,13 +444,8 @@ fn diffs_on_both_branches() {
     // State of the destination branch before the commit is moved
     assert_eq!(destination.1.branch_details[0].clone().commits.len(), 0);
 
-    gitbutler_branch_actions::move_commit(
-        ctx,
-        target_stack_entry.id,
-        commit_oid.to_gix(),
-        source_branch_id,
-    )
-    .unwrap();
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
+        .unwrap();
 
     let source = stack_details(ctx)
         .into_iter()
@@ -535,7 +506,7 @@ fn locked_hunks_on_source_branch() {
         gitbutler_branch_actions::move_commit(
             ctx,
             target_stack_entry.id,
-            commit_oid.to_gix(),
+            commit_oid,
             source_branch_id
         )
         .is_ok()
@@ -585,7 +556,7 @@ fn no_commit() {
         gitbutler_branch_actions::move_commit(
             ctx,
             target_stack_entry.id,
-            git2::Oid::from_str(commit_id_hex).unwrap().to_gix(),
+            gix::ObjectId::from_str(commit_id_hex).unwrap(),
             source_branch_id,
         )
         .unwrap_err()
@@ -625,7 +596,7 @@ fn no_branch() {
 
     let id = StackId::generate();
     assert_eq!(
-        gitbutler_branch_actions::move_commit(ctx, id, commit_oid.to_gix(), source_branch_id)
+        gitbutler_branch_actions::move_commit(ctx, id, commit_oid, source_branch_id)
             .unwrap_err()
             .to_string(),
         "Destination branch not found"

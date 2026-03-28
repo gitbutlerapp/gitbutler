@@ -191,9 +191,9 @@ mod create {
     fn sign_commit_yes_forcefully_signs_commit() -> anyhow::Result<()> {
         let (mut repo, _tmp) = writable_scenario_with_ssh_key("single-signed");
         repo.config_snapshot_mut()
-            .set_raw_value(&"gitbutler.signCommits", "false")?;
+            .set_raw_value("gitbutler.signCommits", "false")?;
         repo.config_snapshot_mut()
-            .set_raw_value(&"commit.gpgSign", "false")?;
+            .set_raw_value("commit.gpgSign", "false")?;
 
         let oid = commit::create(
             &repo,
@@ -240,7 +240,7 @@ mod create {
     fn sign_commit_if_enabled_without_signing_key_errors_and_sets_config() -> anyhow::Result<()> {
         let (mut repo, _tmp) = writable_scenario_with_ssh_key("single-signed");
         repo.config_snapshot_mut()
-            .set_raw_value(&"user.signingKey", "BAD-key")?;
+            .set_raw_value("user.signingKey", "BAD-key")?;
 
         let err = commit::create(
             &repo,

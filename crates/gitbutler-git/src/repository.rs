@@ -353,7 +353,7 @@ where
     match harness_env {
         HarnessEnv::Repo(repo_path) => Ok(gix::open(repo_path.as_ref())?
             .config_snapshot()
-            .trusted_program(&gix::config::tree::Core::SSH_COMMAND)
+            .trusted_program(gix::config::tree::Core::SSH_COMMAND)
             .map(|program| program.to_string_lossy().into_owned())),
         HarnessEnv::Global(_) => Ok(gix::config::File::from_globals()?
             .string(gix::config::tree::Core::SSH_COMMAND)

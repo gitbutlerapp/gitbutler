@@ -1,6 +1,5 @@
-use but_oxidize::ObjectIdExt;
+use but_testsupport::legacy::stack_details;
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_testsupport::stack_details;
 
 use super::*;
 
@@ -39,7 +38,7 @@ fn undo_commit_simple() -> anyhow::Result<()> {
     fs::write(repo.path().join("file4.txt"), "content4").unwrap();
     let _commit3_id = super::create_commit(ctx, stack_entry.id, "commit three").unwrap();
 
-    gitbutler_branch_actions::undo_commit(ctx, stack_entry.id, commit2_id.to_gix()).unwrap();
+    gitbutler_branch_actions::undo_commit(ctx, stack_entry.id, commit2_id).unwrap();
 
     // should be two uncommitted files now (file2.txt and file3.txt)
     let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
@@ -50,11 +49,11 @@ fn undo_commit_simple() -> anyhow::Result<()> {
         .unwrap();
     assert_eq!(b.branch_details[0].clone().commits.len(), 2);
     assert_eq!(
-        list_commit_files(ctx, b.branch_details[0].clone().commits[0].id.to_git2())?.len(),
+        list_commit_files(ctx, b.branch_details[0].clone().commits[0].id)?.len(),
         1
     );
     assert_eq!(
-        list_commit_files(ctx, b.branch_details[0].clone().commits[1].id.to_git2())?.len(),
+        list_commit_files(ctx, b.branch_details[0].clone().commits[1].id)?.len(),
         1
     );
 
@@ -117,7 +116,7 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
     .unwrap();
     drop(guard);
 
-    gitbutler_branch_actions::undo_commit(ctx, stack_entry.id, commit2_id.to_gix()).unwrap();
+    gitbutler_branch_actions::undo_commit(ctx, stack_entry.id, commit2_id).unwrap();
 
     // should be two uncommitted files now (file2.txt and file3.txt)
     let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
@@ -130,11 +129,11 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
 
     assert_eq!(b.branch_details[0].clone().commits.len(), 2);
     assert_eq!(
-        list_commit_files(ctx, b.branch_details[0].clone().commits[0].id.to_git2())?.len(),
+        list_commit_files(ctx, b.branch_details[0].clone().commits[0].id)?.len(),
         1
     );
     assert_eq!(
-        list_commit_files(ctx, b.branch_details[0].clone().commits[1].id.to_git2())?.len(),
+        list_commit_files(ctx, b.branch_details[0].clone().commits[1].id)?.len(),
         1
     );
 
