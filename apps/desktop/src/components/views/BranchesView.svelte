@@ -481,6 +481,7 @@
 
 	.branch-actions {
 		display: flex;
+		margin-bottom: 12px;
 		padding: 12px;
 		gap: 6px;
 		border: 1px solid var(--clr-border-2);
