@@ -4248,7 +4248,6 @@ dependencies = [
  "but-testsupport",
  "ctor 0.6.3",
  "filetime",
- "git2",
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-repo-actions",
