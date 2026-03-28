@@ -352,8 +352,35 @@ fn get_workdir_tree(
     }
 }
 
-pub fn prepare_snapshot(ctx: &Context, _shared_access: &RepoShared) -> Result<gix::ObjectId> {
+fn write_index_tree(ctx: &Context) -> Result<gix::ObjectId> {
     let git2_repo = ctx.git2_repo.get()?;
+    let mut index = git2_repo.index()?;
+    Ok(index.write_tree()?.to_gix())
+}
+
+fn checkout_workdir_tree(ctx: &Context, workdir_tree_id: gix::ObjectId) -> Result<()> {
+    let git2_repo = ctx.git2_repo.get()?;
+    git2_repo.ignore_large_files_in_diffs(AUTO_TRACK_LIMIT_BYTES)?;
+    let workdir_tree = git2_repo.find_tree(workdir_tree_id.to_git2())?;
+    let mut checkout_builder = git2::build::CheckoutBuilder::new();
+    checkout_builder.remove_untracked(true);
+    checkout_builder.force();
+    git2_repo.checkout_tree(workdir_tree.as_object(), Some(&mut checkout_builder))?;
+    Ok(())
+}
+
+fn reset_index_to_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<()> {
+    let git2_repo = ctx.git2_repo.get()?;
+    let tree = git2_repo
+        .find_tree(tree_id.to_git2())
+        .context("failed to convert index tree entry to tree")?;
+    let mut index = git2_repo.index()?;
+    index.read_tree(&tree)?;
+    index.write()?;
+    Ok(())
+}
+
+pub fn prepare_snapshot(ctx: &Context, _shared_access: &RepoShared) -> Result<gix::ObjectId> {
     let repo = ctx.repo.get()?;
     let empty_tree_id = repo.empty_tree().id;
 
@@ -370,12 +397,11 @@ pub fn prepare_snapshot(ctx: &Context, _shared_access: &RepoShared) -> Result<gi
     let conflicts_tree_id = write_conflicts_tree(&repo)?;
 
     // write out the index as a tree to store
-    let mut index = git2_repo.index()?;
-    let index_tree_oid = index.write_tree()?;
+    let index_tree_id = write_index_tree(ctx)?;
 
     // start building our snapshot tree
     let mut snapshot_tree = repo.empty_tree().edit()?;
-    snapshot_tree.upsert("index", EntryKind::Tree, index_tree_oid.to_gix())?;
+    snapshot_tree.upsert("index", EntryKind::Tree, index_tree_id)?;
     snapshot_tree.upsert("target_tree", EntryKind::Tree, target_tree_id)?;
     snapshot_tree.upsert("conflicts", EntryKind::Tree, conflicts_tree_id)?;
     snapshot_tree.upsert("virtual_branches", EntryKind::Tree, empty_tree_id)?;
@@ -505,7 +531,6 @@ fn restore_snapshot(
     snapshot_commit_id: gix::ObjectId,
     exclusive_access: &mut RepoExclusive,
 ) -> Result<gix::ObjectId> {
-    let git2_repo = ctx.git2_repo.get()?;
     // Use a separate repo without caching so we are sure the 'has commit' checks pick up all changes.
     let repo = ctx.repo.get()?;
 
@@ -598,8 +623,6 @@ fn restore_snapshot(
     let gix_repo = ctx.clone_repo_for_merging()?;
     let workdir_tree_id = get_workdir_tree(None, snapshot_commit_id, &gix_repo, ctx)?;
 
-    git2_repo.ignore_large_files_in_diffs(AUTO_TRACK_LIMIT_BYTES)?;
-
     // Define the checkout builder
     if ctx.settings.feature_flags.cv3 {
         but_core::worktree::safe_checkout_from_head(
@@ -608,12 +631,7 @@ fn restore_snapshot(
             but_core::worktree::checkout::Options::default(),
         )?;
     } else {
-        let workdir_tree = git2_repo.find_tree(workdir_tree_id.to_git2())?;
-        let mut checkout_builder = git2::build::CheckoutBuilder::new();
-        checkout_builder.remove_untracked(true);
-        checkout_builder.force();
-        // Checkout the tree
-        git2_repo.checkout_tree(workdir_tree.as_object(), Some(&mut checkout_builder))?;
+        checkout_workdir_tree(ctx, workdir_tree_id)?;
     }
 
     // Update virtual_branches.toml with the state from the snapshot
@@ -636,11 +654,7 @@ fn restore_snapshot(
     let index_tree_entry = snapshot_tree
         .lookup_entry_by_path("index")?
         .context("failed to get virtual_branches.toml blob")?;
-    let index_tree = git2_repo
-        .find_tree(index_tree_entry.id().to_git2())
-        .context("failed to convert index tree entry to tree")?;
-    let mut index = git2_repo.index()?;
-    index.read_tree(&index_tree)?;
+    reset_index_to_tree(ctx, index_tree_entry.id().detach())?;
 
     let restored_operation = snapshot_commit
         .message_raw()?
