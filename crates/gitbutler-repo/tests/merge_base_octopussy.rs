@@ -1,6 +1,16 @@
 use but_testsupport::legacy::testing_repository::TestingRepository;
-use gitbutler_repo::RepositoryExt as _;
 use itertools::Itertools;
+
+fn merge_base_octopussy(repo: &git2::Repository, ids: &[git2::Oid]) -> anyhow::Result<git2::Oid> {
+    anyhow::ensure!(
+        ids.len() >= 2,
+        "Merge base octopussy requires at least two commit ids to operate on"
+    );
+
+    ids[1..].iter().try_fold(ids[0], |base, oid| {
+        repo.merge_base(base, *oid).map_err(Into::into)
+    })
+}
 
 #[test]
 fn less_than_two_commits() {
@@ -8,12 +18,7 @@ fn less_than_two_commits() {
 
     let commit = test_repository.commit_tree(None, &[]);
 
-    assert!(
-        test_repository
-            .repository
-            .merge_base_octopussy(&[commit.id()])
-            .is_err()
-    );
+    assert!(merge_base_octopussy(&test_repository.repository, &[commit.id()]).is_err());
 }
 
 #[test]
@@ -29,10 +34,7 @@ fn merge_base_of_two_linear_commits() {
     let b = test_repository.commit_tree(Some(&a), &[]);
 
     for permutation in [a.id(), b.id()].into_iter().permutations(2) {
-        let merge_base = test_repository
-            .repository
-            .merge_base_octopussy(&permutation)
-            .unwrap();
+        let merge_base = merge_base_octopussy(&test_repository.repository, &permutation).unwrap();
 
         assert_eq!(merge_base, a.id());
     }
@@ -52,10 +54,7 @@ fn merge_base_of_three_linear_commits() {
     let c = test_repository.commit_tree(Some(&b), &[]);
 
     for permutation in [a.id(), b.id(), c.id()].into_iter().permutations(3) {
-        let merge_base = test_repository
-            .repository
-            .merge_base_octopussy(&permutation)
-            .unwrap();
+        let merge_base = merge_base_octopussy(&test_repository.repository, &permutation).unwrap();
 
         assert_eq!(merge_base, a.id());
     }
@@ -75,10 +74,7 @@ fn merge_base_of_two_parallel_commits() {
     let b = test_repository.commit_tree(Some(&base), &[]);
 
     for permutation in [a.id(), b.id()].into_iter().permutations(2) {
-        let merge_base = test_repository
-            .repository
-            .merge_base_octopussy(&permutation)
-            .unwrap();
+        let merge_base = merge_base_octopussy(&test_repository.repository, &permutation).unwrap();
 
         assert_eq!(merge_base, base.id());
     }
@@ -100,10 +96,7 @@ fn merge_base_of_three_parallel_commits() {
     let c = test_repository.commit_tree(Some(&base), &[]);
 
     for permutation in [a.id(), b.id(), c.id()].into_iter().permutations(3) {
-        let merge_base = test_repository
-            .repository
-            .merge_base_octopussy(&permutation)
-            .unwrap();
+        let merge_base = merge_base_octopussy(&test_repository.repository, &permutation).unwrap();
 
         assert_eq!(merge_base, base.id());
     }
@@ -126,10 +119,7 @@ fn merge_base_of_three_forked_commits() {
     let c = test_repository.commit_tree(Some(&base), &[]);
 
     for permutation in [a.id(), b.id(), c.id()].into_iter().permutations(3) {
-        let merge_base = test_repository
-            .repository
-            .merge_base_octopussy(&permutation)
-            .unwrap();
+        let merge_base = merge_base_octopussy(&test_repository.repository, &permutation).unwrap();
 
         assert_eq!(merge_base, base.id());
     }

@@ -27,7 +27,7 @@ pub use commands::{FileInfo, RepoCommands};
 pub use remote::GitRemote;
 
 mod repository_ext;
-pub use repository_ext::{RepositoryExt, commit_with_signature_gix, commit_without_signature_gix};
+pub use repository_ext::{commit_with_signature_gix, commit_without_signature_gix};
 
 pub mod credentials;
 pub mod hooks;
