@@ -426,8 +426,10 @@ async fn match_subcommand(
                     target_branch,
                     unstack,
                 }) => {
+                    let status_after = args.status_after;
                     let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
-                    if unstack {
+                    out.begin_status_after(status_after);
+                    let result = if unstack {
                         command::branch::tear_off_branch(&mut ctx, &branch, out)
                     } else {
                         let target_branch = target_branch.ok_or_else(|| {
@@ -436,7 +438,9 @@ async fn match_subcommand(
                             )
                         })?;
                         command::branch::move_branch(&mut ctx, &branch, &target_branch, out)
-                    }
+                    };
+                    maybe_run_status_after(status_after, &result, &mut ctx, out).await;
+                    result
                 }
             };
             result.emit_metrics(metrics_ctx)

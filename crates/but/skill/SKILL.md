@@ -59,6 +59,8 @@ but <mutation> ... --status-after
    Use `-c` to create the branch if it doesn't exist. Omit IDs you don't want committed.
 4. **Check the `--status-after` output** for remaining uncommitted changes. If the file still appears as unassigned or assigned to another branch after commit, it may be dependency-locked. See "Stacked dependency / commit-lock recovery" below.
 
+**If `but commit` fails with "invalid ID" or similar**: IDs can become stale when the workspace changes (e.g., after a branch move, or when multiple agents operate concurrently). Run `but status -fv` to get fresh IDs, then retry the commit.
+
 ### Amend into existing commit
 
 1. `but status -fv` (or `but show <branch-id>`)
@@ -159,9 +161,14 @@ Hint: run `but branch move auth shared` to stack auth on top of shared, then ret
 ```
 
 **Follow this workflow when you see rejected changes:**
-1. Run the suggested `but branch move <your-branch> <dependency-branch>` command with `--status-after`.
-2. Refresh IDs: `but status -fv`
-3. Retry committing the previously rejected changes: `but commit <branch> -m "<msg>" --changes <id> --status-after`
+1. Run the suggested `but branch move <your-branch> <dependency-branch>` command.
+2. **Always** refresh IDs with `but status -fv` — branch move changes the workspace and invalidates old IDs.
+3. Retry committing the previously rejected changes using the **new IDs** from step 2: `but commit <branch> -m "<msg>" --changes <new-id> --status-after`
+4. **Verify success**: the output must include "✓ Created commit". If you only see warnings (no "✓ Created commit" line), zero changes were committed — do not assume success. Check `--status-after` for current state.
+
+**When all selected changes are rejected**: `but commit` will only show warnings (no "✓ Created commit" line). This means zero changes were committed — do not assume success. Re-run `but status -fv` to see the current state and determine the correct next step.
+
+**Critical**: After `but branch move`, old file IDs are invalid. Using old IDs causes the same rejection to repeat. Always refresh with `but status -fv` before retrying.
 
 ## Using `--status-after` Effectively
 

@@ -529,18 +529,18 @@ pub(crate) fn commit(
     }
 
     if let Some(out) = out.for_human() {
-        let commit_short = match outcome.new_commit {
-            Some(id) => id.to_hex_with_len(7).to_string(),
-            None => "unknown".to_string(),
-        };
-        writeln!(
-            out,
-            "{} {} {} {}",
-            "✓ Created commit".green(),
-            commit_short.magenta(),
-            "on branch".green(),
-            target_branch.name.to_str_lossy().yellow()
-        )?;
+        if let Some(commit_id) = outcome.new_commit {
+            writeln!(
+                out,
+                "{} {} {} {}",
+                "✓ Created commit".green(),
+                commit_id.to_hex_with_len(7).to_string().magenta(),
+                "on branch".green(),
+                target_branch.name.to_str_lossy().yellow()
+            )?;
+        } else if outcome.rejected_specs.is_empty() {
+            writeln!(out, "{}", "No changes to commit.".yellow())?;
+        }
     } else if let Some(json_out) = out.for_json() {
         let rejected: Vec<_> = outcome
             .rejected_specs
