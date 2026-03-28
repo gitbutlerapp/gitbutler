@@ -4012,7 +4012,6 @@ version = "0.0.0"
 dependencies = [
  "bstr",
  "but-core",
- "git2",
  "gix",
 ]
 
