@@ -1,5 +1,3 @@
-use gix::date::parse::TimeBuf;
-
 pub mod rebase;
 
 mod commands;
@@ -32,9 +30,6 @@ mod repository_ext;
 pub use repository_ext::{RepositoryExt, commit_with_signature_gix, commit_without_signature_gix};
 
 pub mod credentials;
-
-mod config;
-use config::Config;
 pub mod hooks;
 pub mod managed_hooks;
 mod remote;
@@ -42,20 +37,12 @@ pub mod staging;
 
 pub mod commit_message;
 
-use but_oxidize::gix_to_git2_signature;
 pub const GITBUTLER_COMMIT_AUTHOR_NAME: &str = "GitButler";
 pub const GITBUTLER_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
 
 pub enum SignaturePurpose {
     Author,
     Committer,
-}
-
-/// Provide a signature with the GitButler author, and the current time or the time overridden
-/// depending on the value for `purpose`.
-pub fn signature(purpose: SignaturePurpose) -> anyhow::Result<git2::Signature<'static>> {
-    let signature = signature_gix(purpose);
-    gix_to_git2_signature(signature.to_ref(&mut TimeBuf::default()))
 }
 
 /// Provide a `gix` signature with the GitButler author and the current or overridden time.
