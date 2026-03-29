@@ -61,6 +61,9 @@ GitButler project setup complete!
 Target branch: gb-local/main
 Remote: gb-local
 
+  ✓ pre-commit (already managed)
+  ✓ post-checkout (already managed)
+  ✓ pre-push (already managed)
 
 Setting up your project for GitButler tooling. Some things to note:
 
@@ -76,19 +79,19 @@ More info: https://docs.gitbutler.com/workspace-branch
 
 
 
- ██████▄      ▄██████    ██████╗ ██╗   ██╗████████╗
- ██▀▀▀▀██▄  ▄██▀▀▀▀██    ██╔══██╗██║   ██║╚══██╔══╝
- ██     ▀████▀     ██    ██████╔╝██║   ██║   ██║
- ██▄▄▄▄██▀  ▀██▄▄▄▄██    ██╔══██╗██║   ██║   ██║
- ██████▀      ▀██████    ██████╔╝╚██████╔╝   ██║
+██████▄      ▄██████    ██████╗ ██╗   ██╗████████╗
+██▀▀▀▀██▄  ▄██▀▀▀▀██    ██╔══██╗██║   ██║╚══██╔══╝
+██     ▀████▀     ██    ██████╔╝██║   ██║   ██║
+██▄▄▄▄██▀  ▀██▄▄▄▄██    ██╔══██╗██║   ██║   ██║
+██████▀      ▀██████    ██████╔╝╚██████╔╝   ██║
 
 The command-line interface for GitButler
 
-$ but branch new <name>                       Create a new branch
-$ but status                                  View workspace status
-$ but commit -m <message>                     Commit changes to current branch
-$ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but branch new <name>    Create a new branch
+$ but status               View workspace status
+$ but commit -m <message>  Commit changes to current branch
+$ but push                 Push all branches
+$ but teardown             Return to normal Git mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -119,21 +122,24 @@ Setting up GitButler project...
 GitButler project is already set up!
 Target branch: gb-local/main
 
+  ✓ pre-commit (already managed)
+  ✓ post-checkout (already managed)
+  ✓ pre-push (already managed)
 
 
- ██████▄      ▄██████    ██████╗ ██╗   ██╗████████╗
- ██▀▀▀▀██▄  ▄██▀▀▀▀██    ██╔══██╗██║   ██║╚══██╔══╝
- ██     ▀████▀     ██    ██████╔╝██║   ██║   ██║
- ██▄▄▄▄██▀  ▀██▄▄▄▄██    ██╔══██╗██║   ██║   ██║
- ██████▀      ▀██████    ██████╔╝╚██████╔╝   ██║
+██████▄      ▄██████    ██████╗ ██╗   ██╗████████╗
+██▀▀▀▀██▄  ▄██▀▀▀▀██    ██╔══██╗██║   ██║╚══██╔══╝
+██     ▀████▀     ██    ██████╔╝██║   ██║   ██║
+██▄▄▄▄██▀  ▀██▄▄▄▄██    ██╔══██╗██║   ██║   ██║
+██████▀      ▀██████    ██████╔╝╚██████╔╝   ██║
 
 The command-line interface for GitButler
 
-$ but branch new <name>                       Create a new branch
-$ but status                                  View workspace status
-$ but commit -m <message>                     Commit changes to current branch
-$ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but branch new <name>    Create a new branch
+$ but status               View workspace status
+$ but commit -m <message>  Commit changes to current branch
+$ but push                 Push all branches
+$ but teardown             Return to normal Git mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 

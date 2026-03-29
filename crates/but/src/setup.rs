@@ -129,6 +129,8 @@ pub fn init_ctx(
                                 &args.current_dir,
                                 out,
                                 guard.write_permission(),
+                                false,
+                                false,
                             )?;
                             // Retry finding the project after setup
                             LegacyProject::find_by_worktree_dir(workdir).map_err(|_| {
@@ -159,6 +161,8 @@ pub fn init_ctx(
                                 &args.current_dir,
                                 out,
                                 guard.write_permission(),
+                                false,
+                                false,
                             )?;
                             // Re-find and re-check the project after setup
                             let _project =

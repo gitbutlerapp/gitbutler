@@ -114,7 +114,10 @@ mod ext;
 pub use ext::ObjectStorageExt;
 
 mod repo_ext;
-pub use repo_ext::{RepositoryExt, update_head_reference};
+pub use repo_ext::{
+    GITBUTLER_COMMIT_AUTHOR_EMAIL, GITBUTLER_COMMIT_AUTHOR_NAME, RepositoryExt, commit_time,
+    committer_signature, update_head_reference,
+};
 
 /// Return `true` if `ref_name` looks like the standard GitButler workspace.
 ///

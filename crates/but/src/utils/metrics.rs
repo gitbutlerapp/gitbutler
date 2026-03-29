@@ -71,7 +71,9 @@ impl Subcommands {
     pub(crate) fn to_metrics_command(&self) -> CommandName {
         use CommandName::*;
 
-        use crate::args::{alias as alias_args, branch, claude, cursor, forge, skill, worktree};
+        use crate::args::{
+            alias as alias_args, branch, claude, cursor, forge, hook, skill, worktree,
+        };
         match self {
             #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
@@ -219,6 +221,12 @@ impl Subcommands {
             Subcommands::Edit { .. } => Edit,
             #[cfg(feature = "legacy")]
             Subcommands::Clean { .. } => Clean,
+            Subcommands::Hook(hook::Platform { cmd }) => match cmd {
+                hook::Subcommands::PreCommit => HookPreCommit,
+                hook::Subcommands::PostCheckout { .. } => HookPostCheckout,
+                hook::Subcommands::Status => HookStatus,
+                hook::Subcommands::PrePush { .. } => HookPrePush,
+            },
             Subcommands::Onboarding | Subcommands::EvalHook => Unknown,
         }
     }

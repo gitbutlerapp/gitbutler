@@ -29,6 +29,7 @@ Usable output goes to `out: &mut OutputChannel`
 
 - Do not re-discover Git repositories, instead take them as inputs to functions and methods. They can be retrieved from contexed via `ctx.repo.get()?`
   and passed as parameter.
+  - **Exception:** `but hook` subcommands (`pre-commit`, `post-checkout`, `pre-push`, `status`) are exempt. They run as standalone hook subprocesses with no `Context`, so they use `gix::discover_with_environment_overrides()` to honour `GIT_DIR`/`GIT_WORK_TREE` when git invokes them and fall back to a directory walk when invoked directly by an external manager like prek.
 - Prefer `repo` APIs (for example `repo.rev_parse_single(...)`) over shelling out to `git`; only shell out when there is no equivalent API.
 - Avoid implicitly using the current time like `std::time::SystemTime::now()`, instead pass the current time as argument.
 
@@ -36,7 +37,7 @@ Usable output goes to `out: &mut OutputChannel`
 
 * use `snapbox::str![]` to assert with `.stdout_eq(str![])` and `stderr_eq(str![])` respectively,
   and auto-update expectations with `SNAPSHOTS=overwrite cargo test -p but`.
-* When color is involved, use with `.stdout_eq(snapbox::file!["snapshots/<test-name>/<invocation>.stdout.term.svg"])`, and update it 
+* When color is involved, use with `.stdout_eq(snapbox::file!["snapshots/<test-name>/<invocation>.stdout.term.svg"])`, and update it
   with `SNAPSHOT=overwrite cargo test -p but`.
 * In `crates/but/tests/`, prefer `env.but(...).assert().success()/failure().stdout_eq(str![...]).stderr_eq(str![...])` for CLI output checks.
 * In `crates/but/tests/`, avoid `std::process::Command::new("git")`; use sandbox helpers instead.
