@@ -25,15 +25,15 @@
 
 <div class="modal__header" class:sticky>
 	{#if type === "warning"}
-		<Icon name="warning" color="var(--clr-theme-warn-element)" />
+		<Icon name="warning" color="var(--fill-warn-bg)" />
 	{/if}
 
 	{#if type === "danger"}
-		<Icon name="danger" color="var(--clr-theme-danger-element)" />
+		<Icon name="danger" color="var(--fill-danger-bg)" />
 	{/if}
 
 	{#if type === "success"}
-		<Icon name="tick-circle" color="var(--clr-theme-safe-element)" />
+		<Icon name="tick-circle" color="var(--fill-safe-bg)" />
 	{/if}
 
 	<h2 class="text-14 text-bold">
@@ -60,10 +60,10 @@
 		align-items: center;
 		padding: 16px;
 		gap: 8px;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 
 		&.sticky {
-			border-bottom: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--border-2);
 		}
 	}
 

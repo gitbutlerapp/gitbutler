@@ -62,7 +62,7 @@
 	{#snippet custom()}
 		{#if baseBranch.response}
 			<div class="target-branch">
-				<Icon name="target-branch" color="var(--clr-text-2)" />
+				<Icon name="target-branch" color="var(--text-2)" />
 				<span class="text-12 text-semibold">
 					{baseBranch.response.remoteName}/{baseBranch.response.shortName}
 				</span>
@@ -77,14 +77,14 @@
 		align-items: center;
 		padding-right: 2px;
 		gap: 4px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 
 		&:after {
 			display: inline-block;
 			width: 1px;
 			height: 12px;
 			margin: 0 2px 0 4px;
-			background-color: var(--clr-text-2);
+			background-color: var(--text-2);
 			content: "";
 			opacity: 0.5;
 		}

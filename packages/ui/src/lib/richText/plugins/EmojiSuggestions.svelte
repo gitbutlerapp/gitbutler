@@ -182,9 +182,9 @@
 		position: absolute;
 		width: fit-content;
 		overflow-y: auto;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		box-shadow: var(--shadow-m);
 		box-shadow: var(--fx-shadow-m);
 		box-shadow: 0px 4px 14px 0px rgba(0, 0, 0, 0.06);

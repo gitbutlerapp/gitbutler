@@ -40,7 +40,7 @@
 		gap: 10px;
 		border-radius: var(--radius-ml);
 		border-bottom-right-radius: 0;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 		text-wrap: wrap;
 		word-break: break-word;
 
@@ -48,7 +48,7 @@
 		:global(.markdown pre) {
 			max-height: 400px;
 			overflow-y: auto;
-			background-color: var(--clr-bg-1);
+			background-color: var(--bg-1);
 		}
 	}
 </style>

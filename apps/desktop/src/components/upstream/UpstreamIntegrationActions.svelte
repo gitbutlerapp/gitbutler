@@ -125,8 +125,8 @@
 		position: relative;
 		padding: 14px;
 		gap: 20px;
-		border: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
+		border: 1px solid var(--border-2);
+		background: var(--bg-1);
 		cursor: pointer;
 
 		&:not(.selected):hover {
@@ -145,8 +145,8 @@
 
 		&.selected {
 			z-index: 1;
-			border-color: var(--clr-theme-pop-element);
-			background: var(--clr-theme-pop-bg);
+			border-color: var(--fill-pop-bg);
+			background: var(--bg-pop);
 		}
 	}
 

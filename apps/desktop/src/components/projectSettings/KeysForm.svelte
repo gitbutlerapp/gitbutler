@@ -118,7 +118,7 @@
 					>
 						<CardGroup.Item labelFor="git-executable">
 							{#snippet title()}
-								Use a Git executable <span style="color: var(--clr-text-2)">(default)</span>
+								Use a Git executable <span style="color: var(--text-2)">(default)</span>
 							{/snippet}
 
 							{#snippet caption()}

@@ -261,7 +261,7 @@
 		position: relative;
 		/* Limit the commit view to at most 40vh to ensure other sections remain visible */
 		max-height: 50vh;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.edit-commit-view {

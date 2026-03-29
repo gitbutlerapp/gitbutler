@@ -94,7 +94,7 @@
 		align-items: center;
 		padding: 8px 10px;
 		gap: 6px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
 		transition: background-color var(--transition-fast);
 

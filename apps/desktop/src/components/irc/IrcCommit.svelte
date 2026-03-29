@@ -75,14 +75,14 @@
 		max-height: 30vh;
 		margin-bottom: 6px;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-3);
+		border: 1px solid var(--border-3);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 	.irc-commit-header {
 		padding: 6px 12px;
-		border-bottom: 1px solid var(--clr-border-3);
-		background-color: var(--clr-bg-2);
+		border-bottom: 1px solid var(--border-3);
+		background-color: var(--bg-2);
 	}
 	.irc-commit-body {
 		display: flex;
@@ -92,7 +92,7 @@
 	.irc-commit-files {
 		flex-shrink: 0;
 		width: 30%;
-		border-right: 1px solid var(--clr-border-3);
+		border-right: 1px solid var(--border-3);
 	}
 	.irc-commit-diff {
 		flex-grow: 1;

@@ -144,13 +144,13 @@
 		pointer-events: none;
 
 		path {
-			stroke: var(--clr-core-pop-70);
+			stroke: var(--clr-pop-70);
 			opacity: 0.7;
 		}
 	}
 
 	:global(.dark) .but-text__underline path {
-		stroke: var(--clr-core-pop-30);
+		stroke: var(--clr-pop-30);
 		opacity: 0.8;
 	}
 
@@ -164,7 +164,7 @@
 	.description {
 		max-width: 520px;
 		padding-top: 4px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 16px;
 		line-height: 1.5;
 	}
@@ -174,7 +174,7 @@
 		position: relative;
 		padding: 8px;
 		gap: 4px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: 100px;
 	}
 
@@ -185,7 +185,7 @@
 		bottom: 8px;
 		left: 8px;
 		border-radius: 100px;
-		background-color: var(--clr-theme-gray-element);
+		background-color: var(--fill-gray-bg);
 		opacity: 0;
 
 		&.enable-transitions {
@@ -201,7 +201,7 @@
 		}
 
 		&.dimmed {
-			background-color: var(--clr-core-pop-70);
+			background-color: var(--clr-pop-70);
 			opacity: 0.6;
 		}
 	}
@@ -209,7 +209,7 @@
 	/* dark mode */
 	:global(.dark) .toggle-background {
 		&.dimmed {
-			background-color: var(--clr-core-pop-40);
+			background-color: var(--clr-pop-40);
 			opacity: 0.4;
 		}
 	}
@@ -225,12 +225,12 @@
 		transition: color 0.2s ease;
 
 		&.active {
-			color: var(--clr-bg-1);
+			color: var(--bg-1);
 			pointer-events: none;
 		}
 
 		&.dimmed {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 	}
 

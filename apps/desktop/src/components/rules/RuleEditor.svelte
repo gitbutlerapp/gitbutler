@@ -252,7 +252,7 @@
 		padding: 12px;
 		padding-bottom: 16px;
 		gap: 16px;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 	}
 
 	.rule-editor__action {
@@ -273,16 +273,16 @@
 		padding: 12px;
 		gap: 8px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 
 		& p {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 			text-align: center;
 		}
 	}
 
 	.rule-editor__add-filter-button {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.rule-editor__buttons {

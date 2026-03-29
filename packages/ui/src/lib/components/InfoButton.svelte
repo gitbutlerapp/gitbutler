@@ -117,7 +117,7 @@
 
 	.info-custom-icon {
 		display: flex;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		transition: all var(--transition-fast);
 
 		&.inherit-color {
@@ -130,8 +130,8 @@
 		width: var(--size);
 		height: var(--size);
 		border-radius: var(--size);
-		box-shadow: inset 0 0 0 1.5px var(--clr-text-2);
-		color: var(--clr-text-2);
+		box-shadow: inset 0 0 0 1.5px var(--text-2);
+		color: var(--text-2);
 		transition: box-shadow var(--transition-fast);
 
 		&::before,
@@ -140,18 +140,18 @@
 			left: 50%;
 			transform: translateX(-50%);
 			border-radius: 2px;
-			background-color: var(--clr-text-2);
+			background-color: var(--text-2);
 			content: "";
 			transition: background-color var(--transition-fast);
 		}
 	}
 
 	.button-hovered {
-		box-shadow: inset 0 0 0 10px var(--clr-text-2);
+		box-shadow: inset 0 0 0 10px var(--text-2);
 
 		&::before,
 		&::after {
-			background-color: var(--clr-theme-gray-on-element);
+			background-color: var(--fill-gray-fg);
 		}
 	}
 
@@ -195,19 +195,19 @@
 		width: max-content;
 		padding: 12px;
 		gap: 4px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		box-shadow: var(--fx-shadow-m);
 	}
 
 	.tooltip-title {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		user-select: text;
 	}
 
 	.tooltip-description {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		user-select: text;
 	}
 </style>

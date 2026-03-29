@@ -64,20 +64,20 @@
 
 <style lang="postcss">
 	.overflow-actions-btn {
-		--label-clr: var(--clr-btn-gray-outline-text);
-		--icon-opacity: var(--opacity-mix-btn-outline-icon);
-		--btn-bg: var(--clr-bg-1);
+		--label-clr: var(--btn-gray-outline-text);
+		--icon-opacity: var(--btn-opacity-outline-icon);
+		--btn-bg: var(--bg-1);
 		--opacity-btn-bg: 0%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		padding: 3px 5px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-right: none;
 		background: color-mix(
 			in srgb,
 			var(--btn-bg, transparent),
-			var(--clr-btn-gray-outline-bg) var(--opacity-btn-bg, 0%)
+			var(--btn-gray-outline-bg) var(--opacity-btn-bg, 0%)
 		);
 		color: var(--label-clr);
 		transition:
@@ -86,7 +86,7 @@
 
 		&:hover:not(:disabled),
 		&.activated:not(:disabled) {
-			--opacity-btn-bg: var(--opacity-mix-btn-outline-bg-hover);
+			--opacity-btn-bg: var(--btn-opacity-outline-bg-hover);
 		}
 
 		&:disabled {

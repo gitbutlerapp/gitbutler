@@ -262,7 +262,7 @@
 			left: 0;
 			width: 40px;
 			height: 100%;
-			background: linear-gradient(to right, var(--clr-bg-2), transparent);
+			background: linear-gradient(to right, var(--bg-2), transparent);
 			content: "";
 			pointer-events: none;
 		}
@@ -274,7 +274,7 @@
 			right: 0;
 			width: 40px;
 			height: 100%;
-			background: linear-gradient(to left, var(--clr-bg-2), transparent);
+			background: linear-gradient(to left, var(--bg-2), transparent);
 			content: "";
 			pointer-events: none;
 		}
@@ -368,7 +368,7 @@
 	}
 
 	.quote__job-title {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	/* Mobile viewport */

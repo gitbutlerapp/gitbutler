@@ -128,6 +128,6 @@
 	.finalize-form__caption {
 		margin-top: -20px;
 		margin-bottom: 8px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

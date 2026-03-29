@@ -59,17 +59,17 @@
 				padding: 16px;
 
 				border-top: none;
-				border-bottom: 1px solid var(--clr-border-2);
+				border-bottom: 1px solid var(--border-2);
 
-				background-color: var(--clr-bg-1);
+				background-color: var(--bg-1);
 			}
 
 			&:first-child > div {
-				border-left: 1px solid var(--clr-border-2);
+				border-left: 1px solid var(--border-2);
 			}
 
 			&:last-child > div {
-				border-right: 1px solid var(--clr-border-2);
+				border-right: 1px solid var(--border-2);
 			}
 		}
 	}
@@ -78,7 +78,7 @@
 		padding-top: 8px;
 
 		> div {
-			border-top: 1px solid var(--clr-border-2);
+			border-top: 1px solid var(--border-2);
 		}
 
 		&:first-child > div {
@@ -101,9 +101,9 @@
 	}
 
 	.slug {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 	.slug strong {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 </style>

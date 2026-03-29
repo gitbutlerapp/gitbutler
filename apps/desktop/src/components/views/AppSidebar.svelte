@@ -380,7 +380,7 @@
 		height: 18px;
 		transform: translateX(-50%) translateY(50%);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-pop-element);
+		background-color: var(--fill-pop-bg);
 	}
 
 	/* OVERRIDE BUTTON STYLES */
@@ -406,7 +406,7 @@
 	}
 	:global(.sidebar .btn-square.btn-active) {
 		--icon-opacity: 1;
-		--btn-bg: var(--clr-bg-1);
+		--btn-bg: var(--bg-1);
 		--opacity-btn-bg: 1;
 
 		/* workspace icon */

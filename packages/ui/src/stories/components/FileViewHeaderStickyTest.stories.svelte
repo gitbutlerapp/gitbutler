@@ -41,7 +41,7 @@
 		height: 300px;
 		overflow-x: hidden;
 		overflow-y: auto;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
 	}
 

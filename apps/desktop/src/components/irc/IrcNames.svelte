@@ -32,8 +32,8 @@
 		width: fit-content;
 		padding: 12px 14px;
 		overflow: hidden;
-		border-left: 1px solid var(--clr-border-3);
-		background-color: var(--clr-bg-muted);
+		border-left: 1px solid var(--border-3);
+		background-color: var(--bg-mute);
 	}
 	.user {
 		display: flex;
@@ -48,6 +48,6 @@
 		transition: color var(--transition-fast);
 	}
 	.user.away {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 </style>

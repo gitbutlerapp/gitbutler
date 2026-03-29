@@ -172,12 +172,12 @@
 <style lang="postcss">
 	.switchrepo__title {
 		margin-bottom: 12px;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.switchrepo__message {
 		margin-bottom: 20px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.switchrepo__content {
@@ -188,14 +188,14 @@
 	.switchrepo__uncommited-changes {
 		margin-bottom: 20px;
 		padding: 16px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 
 	.switchrepo__divider {
 		margin: 20px -16px;
 		border: 0;
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 	}
 
 	.switchrepo__label {
@@ -205,7 +205,7 @@
 	.switchrepo__file-list {
 		margin-bottom: 16px;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
 	}
 

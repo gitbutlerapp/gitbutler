@@ -76,7 +76,7 @@
 
 			& .animated-rectangle rect {
 				fill: transparent;
-				stroke: var(--clr-border-2);
+				stroke: var(--border-2);
 			}
 		}
 

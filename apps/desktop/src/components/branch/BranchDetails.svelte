@@ -68,7 +68,7 @@
 		flex-wrap: wrap;
 		align-items: center;
 		width: 100%;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.factoid-wrap {
@@ -82,14 +82,14 @@
 
 	.branch-view__details-divider {
 		margin: 0 6px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 
 	.header-details__conflicts {
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 

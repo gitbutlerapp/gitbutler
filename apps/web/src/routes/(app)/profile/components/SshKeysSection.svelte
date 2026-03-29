@@ -168,9 +168,9 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 12px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.ssh-key-info {
@@ -180,13 +180,13 @@
 	}
 
 	.ssh-key-name {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		font-weight: 500;
 		font-size: 14px;
 	}
 
 	.ssh-key-fingerprint {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 13px;
 		font-family: var(--font-mono);
 	}
@@ -197,19 +197,19 @@
 		justify-content: center;
 		width: 24px;
 		height: 24px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-s);
 		background-color: transparent;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 18px;
 		line-height: 1;
 		cursor: pointer;
 		transition: all var(--transition-medium);
 
 		&:hover {
-			border-color: var(--clr-text-2);
-			background-color: var(--clr-bg-2);
-			color: var(--clr-text-2);
+			border-color: var(--text-2);
+			background-color: var(--bg-2);
+			color: var(--text-2);
 		}
 	}
 
@@ -219,17 +219,17 @@
 		margin-bottom: 8px;
 		padding: 12px;
 		gap: 8px;
-		border: 1px dashed var(--clr-border-2);
+		border: 1px dashed var(--border-2);
 		border-radius: var(--radius-m);
 		background-color: transparent;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 14px;
 		cursor: pointer;
 		transition: all var(--transition-medium);
 
 		&:hover:not(:disabled) {
-			border-color: var(--clr-theme-pop-element);
-			color: var(--clr-theme-pop-element);
+			border-color: var(--fill-pop-bg);
+			color: var(--fill-pop-bg);
 		}
 
 		&:disabled {
@@ -246,7 +246,7 @@
 	.loading,
 	.no-keys {
 		padding: 24px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 14px;
 		text-align: center;
 	}
@@ -272,17 +272,17 @@
 		padding: 24px;
 		gap: 16px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.ssh-token-modal__title {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		font-weight: 600;
 		font-size: 18px;
 	}
 
 	.ssh-token-modal__description {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 14px;
 		line-height: 1.5;
 	}
@@ -291,8 +291,8 @@
 		position: relative;
 		padding: 16px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-1);
+		background-color: var(--bg-2);
+		color: var(--text-1);
 		font-size: 13px;
 		line-height: 1.4;
 		font-family: var(--font-mono);
@@ -306,19 +306,19 @@
 		padding: 4px 8px;
 		border: none;
 		border-radius: var(--radius-s);
-		background-color: var(--clr-text-1);
-		color: var(--clr-bg-1);
+		background-color: var(--text-1);
+		color: var(--bg-1);
 		font-size: 12px;
 		cursor: pointer;
 		transition: background-color var(--transition-medium);
 
 		&:hover {
-			background-color: var(--clr-text-2);
+			background-color: var(--text-2);
 		}
 	}
 
 	.ssh-token-modal__note {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 13px;
 		line-height: 1.5;
 	}
@@ -333,14 +333,14 @@
 		padding: 8px 16px;
 		border: none;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-pop-element);
-		color: var(--clr-theme-pop-on-element);
+		background-color: var(--fill-pop-bg);
+		color: var(--fill-pop-fg);
 		font-size: 14px;
 		cursor: pointer;
 		transition: background-color var(--transition-medium);
 
 		&:hover {
-			background-color: var(--clr-theme-pop-element);
+			background-color: var(--fill-pop-bg);
 			opacity: 0.9;
 		}
 	}

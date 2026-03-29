@@ -349,7 +349,7 @@
 						<SkeletonBone
 							width="80%"
 							height="3rem"
-							color="var(--clr-bg-3)"
+							color="var(--bg-3)"
 							opacity={0.4}
 							radius="var(--radius-ml) var(--radius-ml) 0 var(--radius-ml)"
 						/>
@@ -363,7 +363,7 @@
 						<SkeletonBone
 							width="50%"
 							height="3rem"
-							color="var(--clr-bg-3)"
+							color="var(--bg-3)"
 							opacity={0.4}
 							radius="var(--radius-ml) var(--radius-ml) 0 var(--radius-ml)"
 						/>
@@ -378,14 +378,22 @@
 					<div class="input-skeleton">
 						<div class="input-skeleton__text"><SkeletonBone width="60%" height="1rem" /></div>
 						<div class="input-skeleton__actions">
-							<SkeletonBone width="4rem" height="var(--size-button)" radius="var(--radius-btn)" />
+							<SkeletonBone
+								width="4rem"
+								height="var(--size-button)"
+								radius="var(--radius-button)"
+							/>
 							<div class="flex gap-8">
-								<SkeletonBone width="4rem" height="var(--size-button)" radius="var(--radius-btn)" />
+								<SkeletonBone
+									width="4rem"
+									height="var(--size-button)"
+									radius="var(--radius-button)"
+								/>
 								<SkeletonBone
 									width="calc(var(--size-button) + 0.188rem)"
 									height="var(--size-button)"
-									color="var(--clr-theme-pop-element)"
-									radius="var(--radius-btn)"
+									color="var(--fill-pop-bg)"
+									radius="var(--radius-button)"
 								/>
 							</div>
 						</div>
@@ -831,7 +839,7 @@
 		width: 100%;
 		padding: 16px;
 		gap: 8px;
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 	}
 
 	.no-agent-placeholder {
@@ -870,11 +878,11 @@
 		}
 
 		& .bg-circle {
-			stroke: color-mix(in srgb, var(--clr-text-2), transparent 85%);
+			stroke: color-mix(in srgb, var(--text-2), transparent 85%);
 		}
 
 		& .progress-circle {
-			stroke: var(--clr-text-2);
+			stroke: var(--text-2);
 			stroke-dasharray: calc(3.14159 * 13);
 			stroke-dashoffset: calc(3.14159 * 13 * (1 - var(--context-utilization) / 100));
 			transition: stroke-dashoffset 0.3s ease;
@@ -909,7 +917,7 @@
 		flex-direction: column;
 		width: 100%;
 		padding: 12px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
 	}
 
@@ -922,6 +930,6 @@
 		display: flex;
 		justify-content: space-between;
 		padding-top: 12px;
-		border-top: 1px solid var(--clr-border-3);
+		border-top: 1px solid var(--border-3);
 	}
 </style>

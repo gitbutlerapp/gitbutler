@@ -46,9 +46,9 @@
 		flex-direction: column;
 		padding: 14px 16px;
 		gap: 12px;
-		border-bottom: 1px solid var(--clr-border-3);
+		border-bottom: 1px solid var(--border-3);
 
-		border-left: 4px solid var(--clr-theme-safe-element);
+		border-left: 4px solid var(--fill-safe-bg);
 	}
 
 	.issue-update__header {
@@ -64,7 +64,7 @@
 
 	.issue-update__author-name {
 		overflow: hidden;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		text-overflow: ellipsis;
 	}
 
@@ -74,19 +74,19 @@
 		width: 16px;
 
 		border-radius: var(--radius-m);
-		background: var(--clr-theme-safe-element);
-		color: var(--clr-core-gray-100);
+		background: var(--fill-safe-bg);
+		color: var(--clr-gray-100);
 	}
 
 	.issue-update__status {
 		overflow: hidden;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		text-overflow: ellipsis;
 	}
 
 	.issue-update__timestamp {
 		overflow: hidden;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		text-overflow: ellipsis;
 
 		opacity: 0.4;

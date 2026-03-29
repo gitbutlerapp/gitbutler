@@ -236,7 +236,7 @@
 		width: 100%;
 
 		&:not(.last) {
-			border-bottom: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--border-2);
 		}
 	}
 
@@ -246,7 +246,7 @@
 		width: 100%;
 		overflow: hidden;
 		outline: none;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		transition: background-color var(--transition-fast);
 
 		&:hover {
@@ -263,14 +263,14 @@
 		}
 
 		&.has-conflicts {
-			background-color: var(--clr-theme-danger-bg);
+			background-color: var(--bg-danger);
 
 			&:not(.selected):hover {
 				background-color: var(--hover-danger-bg);
 			}
 
 			.commit-name {
-				color: var(--clr-theme-danger-on-soft);
+				color: var(--chip-danger-fg);
 			}
 		}
 
@@ -285,11 +285,11 @@
 			background-color: transparent;
 		}
 		5% {
-			background-color: color-mix(in srgb, var(--clr-theme-warn-element) 20%, transparent);
+			background-color: color-mix(in srgb, var(--fill-warn-bg) 20%, transparent);
 		}
 		80%,
 		100% {
-			background-color: color-mix(in srgb, var(--clr-theme-warn-element) 10%, transparent);
+			background-color: color-mix(in srgb, var(--fill-warn-bg) 10%, transparent);
 		}
 	}
 
@@ -301,11 +301,11 @@
 		height: 45%;
 		transform: translateY(-50%);
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
-		background-color: var(--clr-selected-not-in-focus-element);
+		background-color: var(--focus-fg-mute);
 		transition: transform var(--transition-fast);
 
 		&.active {
-			background-color: var(--clr-selected-in-focus-element);
+			background-color: var(--focus-fg);
 		}
 	}
 
@@ -340,7 +340,7 @@
 	.commit-conflict-indicator {
 		display: flex;
 		margin-right: 4px;
-		color: var(--clr-theme-danger-element);
+		color: var(--fill-danger-bg);
 	}
 
 	.commit-row__drag-handle {
@@ -349,7 +349,7 @@
 		top: 50%;
 		left: 0;
 		transform: translateY(-50%);
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		opacity: 0;
 		pointer-events: none;
 	}
@@ -359,7 +359,7 @@
 		z-index: 1;
 		flex-direction: column;
 		margin-top: -4px;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.gerrit-review-pill {
@@ -370,10 +370,10 @@
 		height: var(--size-icon);
 		margin-left: 6px;
 		padding: 0 4px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-muted);
-		color: var(--clr-text-2);
+		background-color: var(--bg-mute);
+		color: var(--text-2);
 		line-height: 1;
 		cursor: pointer;
 		transition:
@@ -382,13 +382,13 @@
 			border-color var(--transition-fast);
 
 		&:hover {
-			border-color: var(--clr-border-1);
-			background-color: var(--clr-bg-1);
-			color: var(--clr-text-1);
+			border-color: var(--border-1);
+			background-color: var(--bg-1);
+			color: var(--text-1);
 		}
 
 		&:focus {
-			outline: 2px solid var(--clr-focus-border);
+			outline: 2px solid var(--focus-fg);
 			outline-offset: 1px;
 		}
 	}
@@ -400,7 +400,7 @@
 		gap: 4px;
 		border: 1px solid transparent;
 		border-radius: 10px;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 		cursor: pointer;
 	}
 </style>

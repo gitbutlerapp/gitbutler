@@ -66,9 +66,9 @@
 		padding: 14px 16px;
 		padding-left: 12px;
 		gap: 12px;
-		border-bottom: 1px solid var(--clr-border-3);
-		border-left: 4px solid var(--clr-theme-pop-element);
-		background: var(--clr-bg-muted);
+		border-bottom: 1px solid var(--border-3);
+		border-left: 4px solid var(--fill-pop-bg);
+		background: var(--bg-mute);
 	}
 
 	.patch-version__icon {
@@ -80,8 +80,8 @@
 		height: 24px;
 		padding: 4px;
 		border-radius: 8px;
-		background: var(--clr-theme-pop-element);
-		color: var(--clr-theme-pop-on-element);
+		background: var(--fill-pop-bg);
+		color: var(--fill-pop-fg);
 	}
 
 	.patch-version__header {
@@ -96,20 +96,20 @@
 
 	.patch-version__author-name {
 		overflow: hidden;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		text-overflow: ellipsis;
 	}
 
 	.patch-verssion__message {
 		overflow: hidden;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		text-overflow: ellipsis;
 
 		span {
 			overflow: hidden;
 			-webkit-box-orient: vertical;
 			-webkit-line-clamp: 1;
-			color: var(--clr-text-1);
+			color: var(--text-1);
 
 			text-decoration-line: underline;
 			text-decoration-style: solid;
@@ -123,7 +123,7 @@
 
 	.patch-version__timestamp {
 		overflow: hidden;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		text-overflow: ellipsis;
 
 		opacity: 0.4;

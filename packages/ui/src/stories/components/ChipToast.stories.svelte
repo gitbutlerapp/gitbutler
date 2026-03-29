@@ -31,7 +31,7 @@
 	}}
 >
 	{#snippet template()}
-		<div style="padding: 20px; background: var(--clr-bg-1);">
+		<div style="padding: 20px; background: var(--bg-1);">
 			<div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
 				<Button size="tag" onclick={() => chipToasts.info("This is an info message")}>
 					Show Info
@@ -82,7 +82,7 @@
 	}}
 >
 	{#snippet template()}
-		<div style="padding: 20px; background: var(--clr-bg-1);">
+		<div style="padding: 20px; background: var(--bg-1);">
 			<Button
 				size="tag"
 				onclick={() => {
@@ -111,7 +111,7 @@
 	}}
 >
 	{#snippet template()}
-		<div style="padding: 20px; background: var(--clr-bg-1);">
+		<div style="padding: 20px; background: var(--bg-1);">
 			<div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
 				<Button
 					size="tag"
@@ -186,7 +186,7 @@
 	}}
 >
 	{#snippet template()}
-		<div style="padding: 20px; background: var(--clr-bg-1);">
+		<div style="padding: 20px; background: var(--bg-1);">
 			<div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
 				<Button
 					size="tag"

@@ -70,7 +70,7 @@
 		flex-direction: column;
 		width: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 
@@ -84,7 +84,7 @@
 		padding-left: 12px;
 		overflow: hidden;
 		border-bottom: none;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 	}
 
 	.branch-header__title {
@@ -114,7 +114,7 @@
 	}
 
 	.branch-header__empty-state {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		opacity: 0.8;
 	}
 </style>

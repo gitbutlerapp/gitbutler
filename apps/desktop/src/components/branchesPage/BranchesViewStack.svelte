@@ -43,7 +43,7 @@
 				{@const branchDetails = branchDetailsQuery.response}
 				{@const lineColor = branchDetails
 					? getColorFromPushStatus(branchDetails.pushStatus)
-					: "var(--clr-commit-local)"}
+					: "var(--commit-local)"}
 
 				{#if idx > 0}
 					<BranchDividerLine {lineColor} />

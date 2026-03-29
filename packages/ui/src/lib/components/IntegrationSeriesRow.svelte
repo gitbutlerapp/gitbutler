@@ -157,7 +157,7 @@
 	.integration-series-item {
 		display: flex;
 		flex-direction: column;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 
 		&:last-child {
 			border-bottom: none;
@@ -172,23 +172,23 @@
 
 			&.conflicted {
 				.status-badge {
-					background-color: var(--clr-theme-warn-on-element);
-					background-color: var(--clr-theme-warn-element);
+					background-color: var(--fill-warn-fg);
+					background-color: var(--fill-warn-bg);
 				}
 			}
 
 			&.integrated {
-				background-color: var(--clr-bg-muted);
+				background-color: var(--bg-mute);
 
 				.status-badge {
-					background-color: var(--clr-theme-purple-element);
-					color: var(--clr-theme-purple-on-element);
+					background-color: var(--fill-purple-bg);
+					color: var(--fill-purple-fg);
 				}
 			}
 		}
 
 		.series-label {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 
 		.series-header-row {
@@ -210,7 +210,7 @@
 		.series-icon {
 			display: flex;
 			padding: 2px;
-			border: 1px solid var(--clr-border-2);
+			border: 1px solid var(--border-2);
 			border-radius: var(--radius-m);
 		}
 
@@ -227,7 +227,7 @@
 
 		/* MODIFIERS */
 		&.clear {
-			background-color: var(--clr-bg-1);
+			background-color: var(--bg-1);
 		}
 	}
 
@@ -241,7 +241,7 @@
 		height: 100%;
 		padding: 3px 6px;
 		border-radius: 100px;
-		color: var(--clr-core-gray-100);
+		color: var(--clr-gray-100);
 	}
 
 	/* INTEGRATED LABEL */
@@ -251,7 +251,7 @@
 		margin-right: 2px;
 		padding-left: 6px;
 		gap: 8px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.integrated-label {
@@ -273,17 +273,17 @@
 		}
 		&.conflicted {
 			.status-badge {
-				background-color: var(--clr-theme-warn-on-element);
-				background-color: var(--clr-theme-warn-element);
+				background-color: var(--fill-warn-fg);
+				background-color: var(--fill-warn-bg);
 			}
 		}
 
 		&.integrated {
-			background-color: var(--clr-bg-muted);
+			background-color: var(--bg-mute);
 
 			.status-badge {
-				background-color: var(--clr-theme-purple-element);
-				color: var(--clr-theme-purple-on-element);
+				background-color: var(--fill-purple-bg);
+				color: var(--fill-purple-fg);
 			}
 		}
 
@@ -292,7 +292,7 @@
 			position: relative;
 			width: 20px;
 			height: 20px;
-			--line-color: var(--clr-border-2);
+			--line-color: var(--border-2);
 			--line-bounding-box: 12px;
 			--line-horiz-offset: 0;
 

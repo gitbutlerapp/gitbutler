@@ -34,10 +34,10 @@
 	.blinking-text {
 		background: linear-gradient(
 			90deg,
-			var(--clr-text-2) 0%,
-			var(--clr-text-2) 50%,
-			color-mix(in srgb, var(--clr-text-2), transparent 70%) 60%,
-			var(--clr-text-2) 100%
+			var(--text-2) 0%,
+			var(--text-2) 50%,
+			color-mix(in srgb, var(--text-2), transparent 70%) 60%,
+			var(--text-2) 100%
 		);
 		background-size: 300% 100%;
 		background-clip: text;

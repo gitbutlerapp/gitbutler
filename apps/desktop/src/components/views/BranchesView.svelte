@@ -447,7 +447,7 @@
 		height: 100%;
 		max-height: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 
@@ -484,8 +484,8 @@
 		margin-bottom: 12px;
 		padding: 12px;
 		gap: 6px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 </style>

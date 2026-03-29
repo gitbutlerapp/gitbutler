@@ -340,7 +340,7 @@
 		flex-shrink: 0;
 		flex-direction: column;
 		padding: 16px;
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 	}
 
 	.chat-input__reply {
@@ -370,7 +370,7 @@
 			left: 12px;
 			width: calc(100% - 24px);
 			height: 1px;
-			background-color: var(--clr-border-3);
+			background-color: var(--border-3);
 			content: "";
 		}
 	}
@@ -386,7 +386,7 @@
 	.chat-input__inner-toolbar__divider {
 		width: 1px;
 		height: 18px;
-		background-color: var(--clr-border-3);
+		background-color: var(--border-3);
 	}
 
 	.chat-input__action-buttons {
@@ -405,11 +405,11 @@
 		justify-content: center;
 		padding: 16px;
 		gap: 16px;
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 
 		p {
 			width: 100%;
-			color: var(--clr-text-2);
+			color: var(--text-2);
 			line-height: 140%;
 		}
 	}

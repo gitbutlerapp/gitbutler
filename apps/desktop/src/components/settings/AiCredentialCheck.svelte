@@ -305,7 +305,7 @@
 		flex-direction: column;
 		gap: 10px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 
 		pre {
 			max-width: 100%;
@@ -319,14 +319,14 @@
 	.debug-button {
 		border: none;
 		background: none;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 11px;
 		text-decoration: underline dotted;
 		cursor: pointer;
 	}
 
 	.debug-button_disabled {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		cursor: not-allowed;
 	}
 
@@ -346,7 +346,7 @@
 		padding: 14px;
 		gap: 4px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 	}
 
 	.debug-info__code {

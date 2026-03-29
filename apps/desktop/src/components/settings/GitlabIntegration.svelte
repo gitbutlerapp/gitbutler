@@ -110,7 +110,7 @@
 					<GitlabUserLoginState {account} />
 				{/each}
 
-				<CardGroup.Item background={accounts.length > 0 ? "var(--clr-bg-2)" : undefined}>
+				<CardGroup.Item background={accounts.length > 0 ? "var(--bg-2)" : undefined}>
 					{#snippet iconSide()}
 						<div class="icon-wrapper__logo">
 							{@html gitlabLogoSvg}
@@ -245,6 +245,6 @@
 	}
 
 	.gitlab-integration-settings__text {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

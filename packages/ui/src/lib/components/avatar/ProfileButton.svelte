@@ -48,7 +48,7 @@
 		width: 34px;
 		overflow: hidden;
 		border-radius: 50%;
-		background: var(--clr-theme-pop-element);
+		background: var(--fill-pop-bg);
 		cursor: pointer;
 		transition: background-color var(--transition-medium);
 

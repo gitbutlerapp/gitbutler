@@ -23,7 +23,7 @@
 		clickable = false,
 		alignment = "top",
 		standalone = false,
-		background = "var(--clr-bg-1)",
+		background = "var(--bg-1)",
 		iconSide,
 		title,
 		caption,
@@ -92,7 +92,7 @@
 		flex-direction: column;
 		padding: 16px;
 		gap: 16px;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 		text-align: left;
 		transition:
 			background-color var(--transition-fast),
@@ -103,13 +103,13 @@
 		}
 
 		&.standalone {
-			border: 1px solid var(--clr-border-2);
+			border: 1px solid var(--border-2);
 			border-radius: var(--radius-m);
 		}
 	}
 
 	.disabled {
-		background: var(--clr-bg-2);
+		background: var(--bg-2);
 	}
 
 	.card-group-item__content {
@@ -121,11 +121,11 @@
 	}
 
 	.card-group-item__title {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.card-group-item__text {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 
 		/* if empty hide the caption */
 		&:empty {

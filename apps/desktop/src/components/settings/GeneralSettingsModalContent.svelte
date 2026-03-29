@@ -116,8 +116,8 @@
 		padding: 8px 12px;
 		gap: 12px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
-		color: var(--clr-text-2);
+		background-color: var(--bg-1);
+		color: var(--text-2);
 		text-align: left;
 		transition: all var(--transition-fast);
 
@@ -128,6 +128,6 @@
 
 	.open-link-icon {
 		transform: translateY(-2px) translateX(-4px);
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 </style>

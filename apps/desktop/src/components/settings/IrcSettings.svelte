@@ -182,7 +182,7 @@
 <style>
 	.irc-settings__text {
 		margin-bottom: 10px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.enable-row {
@@ -200,13 +200,13 @@
 
 	.caption-text {
 		margin-top: 6px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 
 	code {
 		padding: 2px 6px;
 		border-radius: 3px;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 		font-size: 11px;
 		font-family: var(--font-mono);
 	}

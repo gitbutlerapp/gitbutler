@@ -227,7 +227,7 @@
 	.remote-tracking-branch-icon {
 		display: flex;
 		gap: 6px;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		opacity: 0.5;
 		transition: var(--transition-fast);
 
@@ -265,7 +265,7 @@
 	}
 
 	.branch-view__empty-state__description {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		text-wrap: balance;
 	}
 </style>

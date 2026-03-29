@@ -60,7 +60,7 @@
 			</h2>
 
 			<div class="problem__error text-12 text-body">
-				<Icon name="danger" color="var(--clr-theme-danger-element)" />
+				<Icon name="danger" color="var(--fill-danger-bg)" />
 				{#if !isDefined(error)}
 					'An unknown error occured'
 				{:else if error instanceof Object && "message" in error}
@@ -94,7 +94,7 @@
 
 	.problem__title {
 		margin-bottom: 12px;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.problem__switcher {
@@ -108,8 +108,8 @@
 		padding: 20px;
 		gap: 12px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-danger-bg);
-		color: var(--clr-text-1);
+		background-color: var(--bg-danger);
+		color: var(--text-1);
 	}
 
 	.remove-project-btn {

@@ -42,10 +42,10 @@
 		display: flex;
 		padding: 8px 10px;
 		gap: 10px;
-		border: 1px solid var(--clr-border-3);
+		border: 1px solid var(--border-3);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-muted);
-		color: var(--clr-text-1);
+		background-color: var(--bg-mute);
+		color: var(--text-1);
 		font-size: 12px;
 		font-family: var(--font-mono);
 		word-break: break-all;
@@ -53,11 +53,11 @@
 
 	.symlink-copy-icon {
 		display: flex;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		transition: color var(--transition-fast);
 
 		&:hover {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 	}
 </style>

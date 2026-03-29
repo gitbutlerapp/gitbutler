@@ -87,15 +87,15 @@
 		margin-bottom: -1px;
 		padding: 14px;
 		gap: 8px;
-		border-top: 1px solid var(--clr-border-2);
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
+		border-top: 1px solid var(--border-2);
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-1);
 	}
 
 	.forge-prompt__logo {
 		width: 22px;
 		height: 22px;
-		fill: var(--clr-text-2);
+		fill: var(--text-2);
 	}
 
 	.forge-prompt__footer {

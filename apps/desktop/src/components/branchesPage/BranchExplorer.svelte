@@ -277,7 +277,7 @@
 		flex-direction: column;
 		height: 100%;
 		overflow: hidden;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 	}
 
 	.branches__header {
@@ -335,9 +335,9 @@
 		width: 100%;
 		height: 100%;
 		padding-left: 8px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-s) var(--radius-m) var(--radius-m) var(--radius-s);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		transition: opacity 0.1s;
 
 		&:focus-within {
@@ -346,11 +346,11 @@
 
 		&:hover,
 		&:focus {
-			border-color: var(--clr-border-1);
+			border-color: var(--border-1);
 		}
 
 		&::placeholder {
-			color: var(--clr-text-3);
+			color: var(--text-3);
 		}
 	}
 
@@ -376,7 +376,7 @@
 		width: 100%;
 		margin-top: -1px;
 		overflow: hidden;
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 	}
 
 	.group {

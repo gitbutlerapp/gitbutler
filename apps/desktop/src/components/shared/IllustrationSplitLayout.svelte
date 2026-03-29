@@ -48,9 +48,9 @@
 		flex-grow: 1;
 		height: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-l);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		cursor: default;
 	}
 
@@ -66,7 +66,7 @@
 		align-items: center;
 		padding: 40px 80px;
 		overflow-y: auto;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.left-side__content {
@@ -83,7 +83,7 @@
 		min-width: 448px;
 		padding: 16px;
 		padding-left: 0;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.right-side-wrapper {
@@ -93,7 +93,7 @@
 		height: 100%;
 		overflow: hidden;
 		border-radius: 8px;
-		background-color: var(--clr-art-scene-bg);
+		background-color: var(--art-scene-bg);
 	}
 
 	/* MIDDLE */

@@ -120,11 +120,11 @@ export function getColorFromPushStatus(pushStatus: PushStatus): string {
 		case "nothingToPush":
 		case "unpushedCommits":
 		case "unpushedCommitsRequiringForce":
-			return "var(--clr-commit-remote)";
+			return "var(--commit-remote)";
 		case "completelyUnpushed":
-			return "var(--clr-commit-local)";
+			return "var(--commit-local)";
 		case "integrated":
-			return "var(--clr-commit-integrated)";
+			return "var(--commit-integrated)";
 	}
 }
 

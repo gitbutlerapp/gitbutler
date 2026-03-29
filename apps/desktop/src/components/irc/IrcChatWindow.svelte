@@ -213,9 +213,9 @@
 		position: fixed;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background: var(--clr-bg-1);
+		background: var(--bg-1);
 		box-shadow: var(--fx-shadow-l);
 	}
 </style>

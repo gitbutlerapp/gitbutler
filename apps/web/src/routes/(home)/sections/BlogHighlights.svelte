@@ -186,7 +186,7 @@
 
 	.blog-post:hover .blog-post__title {
 		text-decoration: underline wavy;
-		text-decoration-color: var(--clr-theme-pop-element);
+		text-decoration-color: var(--fill-pop-bg);
 		text-decoration-thickness: 2px;
 		text-underline-offset: 4px;
 	}

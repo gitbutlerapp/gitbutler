@@ -30,6 +30,6 @@
 	.usage-stat-spacer {
 		flex-grow: 1;
 
-		border-bottom: 1px dotted var(--clr-text-3);
+		border-bottom: 1px dotted var(--text-3);
 	}
 </style>

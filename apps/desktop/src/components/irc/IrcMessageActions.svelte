@@ -80,9 +80,9 @@
 	.message-actions {
 		display: flex;
 		gap: 2px;
-		border: 1px solid var(--clr-bg-3);
+		border: 1px solid var(--bg-3);
 		border-radius: 6px;
-		background-color: var(--clr-bg-muted);
+		background-color: var(--bg-mute);
 	}
 	.action-btn {
 		display: flex;
@@ -94,14 +94,14 @@
 		border: none;
 		border-radius: 4px;
 		background: none;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 14px;
 		cursor: pointer;
 		&:hover {
-			background-color: var(--clr-bg-2);
+			background-color: var(--bg-2);
 		}
 		&.delete-btn:hover {
-			color: var(--clr-theme-err-element);
+			color: var(--fill-danger-bg);
 		}
 	}
 </style>

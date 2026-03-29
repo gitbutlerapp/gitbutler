@@ -61,22 +61,22 @@
 		padding: 0 12px;
 		padding-left: 14px;
 		gap: 8px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-muted);
+		background-color: var(--bg-mute);
 		text-align: left;
 
 		transition: background-color var(--transition-fast);
 
 		&.active.selected,
 		&[type="button"]:hover {
-			background-color: var(--clr-bg-1);
+			background-color: var(--bg-1);
 		}
 	}
 
 	.irc-row__title {
 		flex: 1;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.indicator {
@@ -87,7 +87,7 @@
 		height: 45%;
 		transform: translateY(-50%);
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
-		background-color: var(--clr-theme-ntrl-element);
+		background-color: var(--fill-gray-bg);
 		transition: transform var(--transition-fast);
 	}
 </style>

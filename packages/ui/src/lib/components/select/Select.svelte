@@ -436,7 +436,7 @@
 	}
 
 	.select__label {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		text-align: left;
 	}
 
@@ -460,9 +460,9 @@
 		min-width: 80px;
 		overflow: hidden;
 		transform-origin: top;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background: var(--clr-bg-1);
+		background: var(--bg-1);
 		box-shadow: var(--fx-shadow-s);
 
 		animation: fadeIn 0.16s ease-out forwards;
@@ -498,6 +498,6 @@
 
 	.nothing-found {
 		padding: 8px 8px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 </style>

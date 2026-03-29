@@ -166,7 +166,7 @@
 					<GithubUserLoginState {account} />
 				{/each}
 
-				<CardGroup.Item background={accounts.length > 0 ? "var(--clr-bg-2)" : undefined}>
+				<CardGroup.Item background={accounts.length > 0 ? "var(--bg-2)" : undefined}>
 					{#snippet iconSide()}
 						<div class="icon-wrapper__logo">
 							{@html githubLogoSvg}
@@ -421,7 +421,7 @@
 			height: 1px;
 			margin-top: 8px;
 			margin-bottom: 6px;
-			background-color: var(--clr-border-1);
+			background-color: var(--border-1);
 			content: "";
 			opacity: 0.4;
 		}
@@ -432,7 +432,7 @@
 		position: relative;
 		width: 1px;
 		margin-top: 4px;
-		border-right: 1px dashed var(--clr-border-1);
+		border-right: 1px dashed var(--border-1);
 
 		&::before {
 			position: absolute;
@@ -441,7 +441,7 @@
 			height: 10px;
 			transform: translateX(-50%);
 			border-radius: 100%;
-			background-color: var(--clr-border-1);
+			background-color: var(--border-1);
 			content: "";
 		}
 	}
@@ -466,9 +466,9 @@
 		align-self: flex-start;
 		padding: 6px 6px 6px 8px;
 		gap: 10px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		user-select: text;
 	}
 </style>

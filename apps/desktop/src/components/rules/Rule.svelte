@@ -91,10 +91,7 @@
 {#snippet stackPill(icon: IconName, label: string, tooltip: string, hasError?: boolean)}
 	<Tooltip text={tooltip}>
 		<div class="target-pill" class:error={hasError}>
-			<Icon
-				name={icon}
-				color={hasError ? "var(--clr-theme-danger-element)" : "var(--clr-text-2)"}
-			/>
+			<Icon name={icon} color={hasError ? "var(--fill-danger-bg)" : "var(--text-2)"} />
 			<span class="text-12 truncate">{label}</span>
 		</div>
 	</Tooltip>
@@ -126,7 +123,7 @@
 		<Tooltip text={config.tooltip}>
 			<div class="flex items-center gap-6 overflow-hidden">
 				{#if config.icon}
-					<Icon name={config.icon} color="var(--clr-text-2)" />
+					<Icon name={config.icon} color="var(--text-2)" />
 				{/if}
 				<span class="text-12 truncate">{config.label}</span>
 			</div>
@@ -146,7 +143,7 @@
 {#snippet renderSessionPill(tooltip: string, icon: IconName, title: string)}
 	<Tooltip text={tooltip}>
 		<div class="ai-pill">
-			<Icon name={icon} color="var(--clr-theme-purple-element)" />
+			<Icon name={icon} color="var(--fill-purple-bg)" />
 			<span class="text-12 text-semibold truncate">{title}</span>
 		</div>
 	</Tooltip>
@@ -221,7 +218,7 @@
 				</div>
 			{/if}
 			<Tooltip text="Stage to branch">
-				<Icon name="arrow-right" color="var(--clr-text-3)" />
+				<Icon name="arrow-right" color="var(--text-3)" />
 			</Tooltip>
 			{@render stackTarget(target)}
 		</div>
@@ -258,7 +255,7 @@
 		padding: 10px;
 		overflow: hidden;
 		gap: 4px;
-		border-bottom: 1px solid var(--clr-border-3);
+		border-bottom: 1px solid var(--border-3);
 
 		&:last-child {
 			border-bottom: none;
@@ -287,15 +284,15 @@
 	}
 
 	.filter-pill {
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 	}
 
 	.target-pill {
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 	}
 
 	.ai-pill {
-		background: var(--clr-theme-purple-soft);
-		color: var(--clr-theme-purple-on-soft);
+		background: var(--chip-purple-bg);
+		color: var(--chip-purple-fg);
 	}
 </style>

@@ -230,19 +230,19 @@
 		flex-direction: column;
 		width: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-bottom: none;
 		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
 
 		&.rounded {
-			border-bottom: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--border-2);
 			border-radius: var(--radius-ml);
 		}
 	}
 
 	.branch-header {
-		--branch-selected-bg: var(--clr-bg-1);
-		--branch-selected-element-bg: var(--clr-selected-not-in-focus-element);
+		--branch-selected-bg: var(--bg-1);
+		--branch-selected-element-bg: var(--focus-fg-mute);
 		--branch-side-padding: 12px;
 		display: flex;
 		position: relative;
@@ -271,13 +271,13 @@
 		}
 
 		/* &:not(:focus-within).selected {
-			--branch-selected-bg: var(--clr-selected-not-in-focus-bg);
+			--branch-selected-bg: var(--focus-bg-mute);
 		} */
 
 		/* Selected in focus */
 		&.active.selected {
-			/* --branch-selected-bg: var(--clr-selected-in-focus-bg); */
-			--branch-selected-element-bg: var(--clr-selected-in-focus-element);
+			/* --branch-selected-bg: var(--focus-bg); */
+			--branch-selected-element-bg: var(--focus-fg);
 		}
 	}
 
@@ -287,7 +287,7 @@
 		padding-right: var(--branch-side-padding);
 		overflow: hidden;
 		gap: 6px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 
 		&:empty {
 			display: none;
@@ -339,7 +339,7 @@
 		transition: transform var(--transition-fast);
 
 		&.active {
-			background-color: var(--clr-selected-in-focus-element);
+			background-color: var(--focus-fg);
 		}
 	}
 
@@ -351,7 +351,7 @@
 		align-items: center;
 		justify-content: flex-end;
 		width: 10px;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		opacity: 0;
 		transition:
 			width var(--transition-fast),
@@ -366,12 +366,12 @@
 		padding-top: 6px;
 		padding-bottom: 14px;
 		overflow: hidden;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.branch-header__empty-state {
 		padding-right: var(--branch-side-padding);
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		opacity: 0.8;
 	}
 
@@ -379,8 +379,8 @@
 		display: flex;
 		padding: 10px;
 		gap: 10px;
-		border-top: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
+		border-top: 1px solid var(--border-2);
+		background-color: var(--bg-2);
 
 		/* MODIFIERS */
 		&.new-branch {

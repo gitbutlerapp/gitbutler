@@ -116,7 +116,7 @@
 			display: block;
 			width: 8px;
 			height: calc(100% - 4px);
-			border-right: 1px solid var(--clr-border-2);
+			border-right: 1px solid var(--border-2);
 			content: "";
 		}
 	}
@@ -148,29 +148,29 @@
 		text-wrap: nowrap;
 	}
 	.status-badge_closed {
-		background-color: var(--clr-theme-purple-element);
-		color: var(--clr-theme-purple-on-element);
+		background-color: var(--fill-purple-bg);
+		color: var(--fill-purple-fg);
 	}
 
 	.status-badge_approved {
-		background-color: var(--clr-theme-safe-element);
-		color: var(--clr-theme-safe-on-element);
+		background-color: var(--fill-safe-bg);
+		color: var(--fill-safe-fg);
 	}
 
 	.status-badge_changes-requested {
-		background-color: var(--clr-theme-warn-element);
-		color: var(--clr-theme-warn-on-element);
+		background-color: var(--fill-warn-bg);
+		color: var(--fill-warn-fg);
 	}
 
 	.status-badge_in-discussion {
-		background-color: var(--clr-theme-pop-soft);
-		color: var(--clr-theme-pop-on-soft);
+		background-color: var(--chip-pop-bg);
+		color: var(--chip-pop-fg);
 	}
 
 	.status-badge_unreviewed,
 	.status-badge_loading {
-		background-color: var(--clr-theme-gray-soft);
-		color: var(--clr-theme-gray-on-soft);
+		background-color: var(--chip-gray-bg);
+		color: var(--chip-gray-fg);
 	}
 
 	.status-badge_icon {

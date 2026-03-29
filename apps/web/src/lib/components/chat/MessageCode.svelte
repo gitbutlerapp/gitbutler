@@ -47,9 +47,9 @@
 		max-width: 640px;
 		padding: 8px;
 		overflow-x: auto;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 
 		@media (--tablet-viewport) {
 			max-width: 80vw;

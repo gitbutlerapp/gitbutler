@@ -225,7 +225,7 @@
 						loading={reactionSet.has(reaction.reaction)}
 						disabled={!$user}
 						tooltip={getReactionTooltip(reaction.users)}
-						customStyle={reacted ? "background: var(--clr-theme-pop-soft);" : undefined}
+						customStyle={reacted ? "background: var(--chip-pop-bg);" : undefined}
 						onclick={() => handleClickOnExistingReaction(reaction.reaction)}
 					>
 						<div class="text-13">
@@ -318,13 +318,13 @@
 <style lang="postcss">
 	@keyframes temporary-highlight {
 		0% {
-			background: var(--clr-bg-muted);
+			background: var(--bg-mute);
 		}
 		75% {
-			background: var(--clr-bg-muted);
+			background: var(--bg-mute);
 		}
 		100% {
-			background: var(--clr-bg-1);
+			background: var(--bg-1);
 		}
 	}
 
@@ -336,9 +336,9 @@
 		width: 100%;
 		padding: 14px 16px;
 		gap: 12px;
-		border-bottom: 1px solid var(--clr-border-3);
+		border-bottom: 1px solid var(--border-3);
 
-		background: var(--clr-bg-1);
+		background: var(--bg-1);
 
 		&:first-child {
 			border-bottom: none;
@@ -346,12 +346,12 @@
 
 		&.open-issue {
 			padding-left: 12px;
-			border-left: 4px solid var(--clr-theme-warn-element);
+			border-left: 4px solid var(--fill-warn-bg);
 		}
 
 		&.resolved {
 			padding-left: 12px;
-			border-left: 4px solid var(--clr-core-gray-60);
+			border-left: 4px solid var(--clr-gray-60);
 		}
 
 		&.highlight {
@@ -373,12 +373,12 @@
 		padding: 4px;
 
 		border-radius: 8px;
-		background: var(--clr-theme-warn-element);
-		color: var(--clr-theme-warn-on-element);
+		background: var(--fill-warn-bg);
+		color: var(--fill-warn-fg);
 
 		&.resolved {
-			background: var(--clr-core-gray-60);
-			color: var(--clr-core-gray-100);
+			background: var(--clr-gray-60);
+			color: var(--clr-gray-100);
 		}
 	}
 
@@ -412,14 +412,14 @@
 
 	.chat-message__timestamp {
 		overflow: hidden;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		text-overflow: ellipsis;
 		opacity: 0.4;
 	}
 
 	.chat-message__author-name {
 		overflow: hidden;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		text-overflow: ellipsis;
 	}
 
@@ -435,7 +435,7 @@
 	.chat-message__content-text {
 		box-sizing: border-box;
 		width: 100%;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.chat-message__reactions {

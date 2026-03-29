@@ -16,7 +16,7 @@
 	.disclaimer {
 		padding: 10px 12px;
 		border-radius: var(--radius-m);
-		background: var(--clr-bg-2);
-		color: var(--clr-text-2);
+		background: var(--bg-2);
+		color: var(--text-2);
 	}
 </style>

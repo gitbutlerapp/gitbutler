@@ -44,7 +44,7 @@
 				{#if loading}
 					<Icon name="spinner" />
 				{:else if icon}
-					<Icon name={icon} color="var(--clr-text-3)" />
+					<Icon name={icon} color="var(--text-3)" />
 				{/if}
 
 				<span class="section-label" class:text-semibold={root}>{label}</span>
@@ -87,7 +87,7 @@
 
 		&:hover {
 			.section-header__arrow {
-				color: var(--clr-text-2);
+				color: var(--text-2);
 			}
 		}
 	}
@@ -95,7 +95,7 @@
 	.section-header__arrow {
 		display: flex;
 		margin-left: -2px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		transition:
 			background-color var(--transition-fast),
 			transform var(--transition-medium);

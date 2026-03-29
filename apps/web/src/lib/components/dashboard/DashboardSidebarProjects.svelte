@@ -68,7 +68,7 @@
 		width: 100%;
 
 		padding-bottom: 12px;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 
 		&:last-child {
 			border-bottom: none;

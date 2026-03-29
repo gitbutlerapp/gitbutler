@@ -36,6 +36,6 @@
 		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

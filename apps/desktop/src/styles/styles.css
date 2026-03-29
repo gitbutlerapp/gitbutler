@@ -1,18 +1,18 @@
 @import "@gitbutler/ui/main.css";
 
 :root {
-	--dropzone-fill: oklch(from var(--clr-core-pop-50) l c h / 0.1);
-	--dropzone-stroke: oklch(from var(--clr-theme-pop-element) l c h / 0.8);
-	--dropzone-fill-hover: oklch(from var(--clr-core-pop-50) l c h / 0.25);
-	--dropzone-stroke-hover: oklch(from var(--clr-theme-pop-element) l c h / 1);
+	--dropzone-fill: oklch(from var(--clr-pop-50) l c h / 0.1);
+	--dropzone-stroke: oklch(from var(--fill-pop-bg) l c h / 0.8);
+	--dropzone-fill-hover: oklch(from var(--clr-pop-50) l c h / 0.25);
+	--dropzone-stroke-hover: oklch(from var(--fill-pop-bg) l c h / 1);
 }
 
 body {
 	width: 100vw;
 	height: 100vh;
 	overflow-y: hidden;
-	background-color: var(--clr-bg-2);
-	color: var(--clr-text-1);
+	background-color: var(--bg-2);
+	color: var(--text-1);
 	user-select: none;
 }
 
@@ -48,7 +48,7 @@ body {
 	word-wrap: break-word;
 	padding: 1px 4px;
 	border-radius: var(--radius-s);
-	background: color-mix(in srgb, var(--clr-theme-gray-element) 10%, transparent);
+	background: color-mix(in srgb, var(--fill-gray-bg) 10%, transparent);
 	color: inherit;
 	font-size: 92%;
 	font-family: var(--font-mono);
@@ -91,15 +91,15 @@ body {
 }
 
 .locked-file-animation {
-	--locked-color: oklch(from var(--clr-theme-warn-element) l c h / 0.2);
-	border: 1px solid var(--clr-bg-1);
+	--locked-color: oklch(from var(--fill-warn-bg) l c h / 0.2);
+	border: 1px solid var(--bg-1);
 	animation: locked-file-animation 1.4s ease-out forwards;
 }
 
 @keyframes locked-file-animation {
 	0% {
 		transform: translateX(-3px);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 	10% {
 		transform: translateX(3px);
@@ -117,7 +117,7 @@ body {
 		transform: translateX(0);
 	}
 	100% {
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 }
 
@@ -145,7 +145,7 @@ body {
 }
 
 .dotted-pattern {
-	background-image: radial-gradient(oklch(from var(--clr-text-3) l c h / 0.18) 1px, #ffffff00 1px);
+	background-image: radial-gradient(oklch(from var(--text-3) l c h / 0.18) 1px, #ffffff00 1px);
 	background-size: 5px 5px;
 }
 

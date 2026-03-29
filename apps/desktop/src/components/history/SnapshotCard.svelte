@@ -289,7 +289,7 @@
 		padding: 10px 14px 8px 14px;
 		overflow: hidden;
 		gap: 12px;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		transition: padding 0.2s;
 	}
 
@@ -327,7 +327,7 @@
 
 	.snapshot-time {
 		margin-top: 2px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		line-height: 1.8;
 		text-align: right;
 	}
@@ -345,7 +345,7 @@
 			width: 1px;
 			height: calc(100% - 14px);
 			min-height: 8px;
-			background-color: var(--clr-border-2);
+			background-color: var(--border-2);
 			content: "";
 		}
 	}
@@ -377,15 +377,15 @@
 
 	.snapshot-commit-message {
 		margin-bottom: 2px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 
 		& span {
-			color: var(--clr-text-3);
+			color: var(--text-3);
 		}
 	}
 
 	.snapshot-sha {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		white-space: nowrap;
 	}
 
@@ -403,12 +403,12 @@
 	}
 
 	.restored-attacment__details {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	/* RESTORED  */
 	.restored-snapshot {
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 	}
 
 	/* --- */
@@ -417,7 +417,7 @@
 		width: 100%;
 		padding: 6px 10px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-danger-bg);
-		color: var(--clr-theme-danger-element);
+		background-color: var(--bg-danger);
+		color: var(--fill-danger-bg);
 	}
 </style>

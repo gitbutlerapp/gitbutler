@@ -47,7 +47,7 @@
 				<i class="theme-card__icon"
 					><Icon
 						name="tick-circle"
-						color={theme.value === "light" ? "var(--clr-core-pop-50)" : "var(--clr-core-pop-60)"}
+						color={theme.value === "light" ? "var(--clr-pop-50)" : "var(--clr-pop-60)"}
 					/></i
 				>
 
@@ -76,7 +76,7 @@
 
 	.theme-card:hover {
 		& .theme-card__label {
-			background-color: var(--clr-bg-2);
+			background-color: var(--bg-2);
 		}
 	}
 
@@ -85,7 +85,7 @@
 		width: 100%;
 		height: auto;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
 
 		& img {
@@ -120,11 +120,11 @@
 	/* MODIFIER */
 
 	.theme-card.selected .theme-card__preview {
-		border-color: var(--clr-theme-pop-element);
+		border-color: var(--fill-pop-bg);
 	}
 
 	.theme-card.selected .theme-card__label {
-		background-color: var(--clr-theme-pop-soft);
+		background-color: var(--chip-pop-bg);
 	}
 
 	.theme-card.selected .theme-card__icon {

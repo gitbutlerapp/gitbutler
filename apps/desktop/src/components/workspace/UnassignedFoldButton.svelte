@@ -14,7 +14,7 @@
 <style lang="postcss">
 	.fold-btn {
 		--border-width: 0.094rem; /* 1.5px */
-		--border-color: var(--clr-text-2);
+		--border-color: var(--text-2);
 		--radius: 4px;
 		--transition: width 0.15s ease, color var(--transition-fast);
 
@@ -24,7 +24,7 @@
 		height: 20px;
 
 		&:not(.active):hover {
-			--border-color: var(--clr-text-2);
+			--border-color: var(--text-2);
 
 			.fold-icon__frame::before {
 				width: 60%;
@@ -39,7 +39,7 @@
 			}
 
 			&:hover {
-				--border-color: var(--clr-text-2);
+				--border-color: var(--text-2);
 
 				.fold-icon__frame::before {
 					width: 50%;

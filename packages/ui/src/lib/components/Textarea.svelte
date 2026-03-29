@@ -230,6 +230,6 @@
 	}
 
 	.textarea-label {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

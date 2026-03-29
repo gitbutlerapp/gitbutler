@@ -30,7 +30,7 @@
 			height: 520px;
 			transform: translate(-50%, -50%);
 			border-radius: 100%;
-			background: radial-gradient(var(--clr-bg-2) 10%, oklch(from var(--clr-bg-2) l c h / 0) 50%);
+			background: radial-gradient(var(--bg-2) 10%, oklch(from var(--bg-2) l c h / 0) 50%);
 			content: "";
 			transition: opacity 0.1s;
 		}
@@ -43,7 +43,7 @@
 
 	.select-some__caption {
 		margin-top: 28px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		opacity: 0.6;
 	}
 </style>

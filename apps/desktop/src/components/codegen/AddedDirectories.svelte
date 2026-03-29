@@ -14,7 +14,7 @@
 	<div class="added-dirs-container">
 		<div class="flex gap-16">
 			<div class="flex items-center gap-8 flex-1">
-				<Icon name="folder" color="var(--clr-text-3)" />
+				<Icon name="folder" color="var(--text-3)" />
 				<span class="text-12 clr-text-2">Added Directories</span>
 			</div>
 
@@ -51,17 +51,17 @@
 		flex-direction: column;
 		padding: 12px;
 		gap: 10px;
-		border: 1px solid var(--clr-border-3);
+		border: 1px solid var(--border-3);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 	}
 
 	.clear-btn {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		transition: color var(--transition-fast);
 
 		&:hover {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 	}
 </style>

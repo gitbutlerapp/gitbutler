@@ -65,14 +65,14 @@
 		padding: 16px;
 		overflow: hidden;
 		gap: 8px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		background-image: radial-gradient(
 			circle,
-			color-mix(in srgb, var(--clr-text-3) 24%, transparent) 1px,
+			color-mix(in srgb, var(--text-3) 24%, transparent) 1px,
 			transparent 1px
 		);
 		background-size: 8px 8px;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 		transition:
 			border-radius 0.1s ease,
 			background 0.1s ease,
@@ -82,7 +82,7 @@
 			z-index: 2;
 			transform: translateY(-4px) scale(1.05);
 			border-radius: var(--radius-xl);
-			background: var(--clr-bg-1);
+			background: var(--bg-1);
 			pointer-events: none;
 		}
 
@@ -109,7 +109,7 @@
 		}
 
 		&:hover {
-			background-color: color-mix(in srgb, var(--clr-bg-1) 90%, var(--clr-bg-2));
+			background-color: color-mix(in srgb, var(--bg-1) 90%, var(--bg-2));
 		}
 	}
 
@@ -120,7 +120,7 @@
 		height: 4px;
 		overflow: hidden;
 		border-radius: 8px;
-		background: var(--clr-theme-pop-element);
+		background: var(--fill-pop-bg);
 		transition: width 0.05s linear;
 	}
 
@@ -130,7 +130,7 @@
 		justify-content: center;
 		width: 24px;
 		height: 24px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		transition: color 0.15s ease;
 
 		:global(svg) {

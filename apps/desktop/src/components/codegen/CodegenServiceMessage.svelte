@@ -58,18 +58,18 @@
 		padding: 10px 12px;
 		border-radius: var(--radius-ml);
 		border-bottom-left-radius: 0;
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-2);
+		background-color: var(--bg-2);
+		color: var(--text-2);
 	}
 
 	.service-message__bubble--error {
-		background-color: var(--clr-theme-danger-soft);
-		color: var(--clr-theme-danger-on-soft);
+		background-color: var(--chip-danger-bg);
+		color: var(--chip-danger-fg);
 	}
 
 	.service-message__bubble--pop {
-		background-color: var(--clr-theme-pop-soft);
-		color: var(--clr-text-1);
+		background-color: var(--chip-pop-bg);
+		color: var(--text-1);
 	}
 
 	.service-message__bubble--animate {

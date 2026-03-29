@@ -107,10 +107,10 @@
 	}
 	.selected-change-item {
 		width: 100%;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 
 		&.bottom-border {
-			border-bottom: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--border-2);
 		}
 	}
 </style>

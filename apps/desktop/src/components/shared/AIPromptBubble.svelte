@@ -86,7 +86,7 @@
 
 		&.editing {
 			& .bubble__header {
-				border: 1px solid var(--clr-border-2);
+				border: 1px solid var(--border-2);
 				border-bottom: none;
 			}
 		}
@@ -102,7 +102,7 @@
 
 		& .bubble__header,
 		& .bubble-message {
-			background-color: var(--clr-bg-2);
+			background-color: var(--bg-2);
 		}
 	}
 
@@ -111,7 +111,7 @@
 
 		& .bubble__header,
 		& .bubble-message {
-			background-color: var(--clr-theme-pop-bg);
+			background-color: var(--bg-pop);
 		}
 	}
 
@@ -127,9 +127,9 @@
 	.bubble-message {
 		padding: 12px;
 		overflow-x: auto;
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 		border-radius: 0 0 var(--radius-l) var(--radius-l);
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.bubble-actions {
@@ -143,16 +143,16 @@
 	.textarea {
 		width: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: 0 0 var(--radius-l) var(--radius-l);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast);
 
 		&:not(.is-error):hover,
 		&:not(.is-error):focus-within {
-			border-color: var(--clr-border-1);
+			border-color: var(--border-1);
 		}
 	}
 
@@ -170,15 +170,15 @@
 		}
 		50% {
 			transform: translateX(5px);
-			border: 1px solid var(--clr-theme-danger-element);
+			border: 1px solid var(--fill-danger-bg);
 		}
 		75% {
 			transform: translateX(-5px);
-			border: 1px solid var(--clr-theme-danger-element);
+			border: 1px solid var(--fill-danger-bg);
 		}
 		100% {
 			transform: translateX(0);
-			border: 1px solid var(--clr-theme-danger-element);
+			border: 1px solid var(--fill-danger-bg);
 		}
 	}
 </style>

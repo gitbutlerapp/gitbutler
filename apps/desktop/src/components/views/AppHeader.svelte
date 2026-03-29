@@ -162,7 +162,7 @@
 					>
 						{#snippet custom()}
 							<div class="project-selector-btn__content">
-								<Icon name="repo" color="var(--clr-text-2)" />
+								<Icon name="repo" color="var(--text-2)" />
 								<span class="text-12 text-bold">{projectTitle}</span>
 							</div>
 						{/snippet}
@@ -212,7 +212,7 @@
 				<Tooltip text="Current branch">
 					<div class="chrome-current-branch">
 						<div class="chrome-current-branch__content">
-							<Icon name="branch" color="var(--clr-text-2)" />
+							<Icon name="branch" color="var(--text-2)" />
 							<span class="text-12 text-bold clr-text-2 truncate">{currentBranchName}</span>
 							{#if isNotInWorkspace}
 								<span class="text-12 text-bold clr-text-2 op-60"> read-only </span>
@@ -303,7 +303,7 @@
 		align-items: center;
 		padding: 0 10px 0 6px;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-left: none;
 		border-top-right-radius: 100px;
 		border-bottom-right-radius: 100px;
@@ -360,6 +360,6 @@
 		align-items: center;
 		padding: 0 4px;
 		gap: 4px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

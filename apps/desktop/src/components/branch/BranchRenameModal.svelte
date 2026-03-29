@@ -77,7 +77,7 @@
 <style lang="postcss">
 	.helper-text {
 		margin-top: 1rem;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		line-height: 1.5;
 	}
 </style>

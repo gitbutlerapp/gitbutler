@@ -47,7 +47,7 @@
 						{@const branchName = draftBranchName.current || newName}
 						<DraftBranchHeader
 							{branchName}
-							lineColor="var(--clr-commit-local)"
+							lineColor="var(--commit-local)"
 							mode="commit"
 							isCommitting
 							updateBranchName={(name) => uiState.global.draftBranchName.set(name)}
@@ -78,9 +78,9 @@
 	.new-commit-view {
 		margin-bottom: 12px;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	@keyframes appear-in {

@@ -205,13 +205,13 @@
 		flex-direction: column;
 		width: 100%;
 		max-height: 100%;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 
 		&.bottom-border {
-			border-bottom: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--border-2);
 		}
 		&.top-border {
-			border-top: 1px solid var(--clr-border-2);
+			border-top: 1px solid var(--border-2);
 		}
 		&.noshrink {
 			flex-shrink: 0;
@@ -225,7 +225,7 @@
 
 		&.rounded.collapsed {
 			:global(.drawer-header) {
-				border-bottom-color: var(--clr-bg-2);
+				border-bottom-color: var(--bg-2);
 			}
 		}
 
@@ -237,7 +237,7 @@
 				left: 0;
 				width: 100%;
 				height: 100%;
-				border: 2px solid var(--clr-theme-pop-element);
+				border: 2px solid var(--fill-pop-bg);
 				border-radius: calc(var(--radius-m) + 2px);
 				content: "";
 				pointer-events: none;
@@ -258,13 +258,13 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		transition:
 			color var(--transition-fast),
 			transform var(--transition-medium);
 
 		&:hover {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 
 		&.expanded {
@@ -274,7 +274,7 @@
 
 	.rounded {
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 </style>

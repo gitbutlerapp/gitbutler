@@ -327,7 +327,7 @@
 
 	.preview-title {
 		margin: 0 0 0.75rem 0;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 1rem;
 	}
 

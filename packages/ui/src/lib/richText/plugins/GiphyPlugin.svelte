@@ -148,8 +148,8 @@
 		max-height: 300px;
 		padding: 6px;
 		overflow-y: auto;
-		border: 1px solid var(--clr-border-1);
+		border: 1px solid var(--border-1);
 		border-radius: var(--radius-s);
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 	}
 </style>

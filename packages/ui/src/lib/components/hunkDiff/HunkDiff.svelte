@@ -214,9 +214,9 @@
 		position: relative;
 		width: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-diff-count-border);
+		border: 1px solid var(--diff-count-border);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 
 		&:hover .table__drag-handle {
 			opacity: 1;
@@ -249,17 +249,17 @@
 
 	.table__checkbox-container {
 		box-sizing: border-box;
-		border-right: 1px solid var(--clr-diff-count-border);
-		border-bottom: 1px solid var(--clr-diff-count-border);
-		background-color: var(--clr-diff-count-bg);
+		border-right: 1px solid var(--diff-count-border);
+		border-bottom: 1px solid var(--diff-count-border);
+		background-color: var(--diff-count-bg);
 
 		&.stageable {
 			cursor: pointer;
 		}
 
 		&.staged {
-			border-color: var(--clr-diff-selected-count-border);
-			background-color: var(--clr-diff-selected-count-bg);
+			border-color: var(--diff-selected-count-border);
+			background-color: var(--diff-selected-count-bg);
 		}
 	}
 
@@ -268,11 +268,11 @@
 		align-items: center;
 		justify-content: flex-start;
 		padding: 4px;
-		color: var(--clr-diff-count-text);
+		color: var(--diff-count-text);
 		pointer-events: none;
 
 		&.staged {
-			color: var(--clr-diff-selected-count-text);
+			color: var(--diff-selected-count-text);
 		}
 	}
 
@@ -289,7 +289,7 @@
 		position: absolute;
 		top: 6px;
 		right: 6px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		opacity: 0;
 		pointer-events: none;
 		transition: opacity 0.15s;
@@ -300,8 +300,8 @@
 		display: flex;
 		align-items: center;
 		padding: 4px 6px;
-		border-bottom: 1px solid var(--clr-border-2);
-		color: var(--clr-diff-count-text);
+		border-bottom: 1px solid var(--border-2);
+		color: var(--diff-count-text);
 		font-size: 12px;
 		text-wrap: nowrap;
 	}

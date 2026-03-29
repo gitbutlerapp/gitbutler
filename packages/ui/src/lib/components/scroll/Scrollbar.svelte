@@ -356,7 +356,7 @@
 		/* variable props */
 		width: var(--thumb-width);
 		height: var(--thumb-height);
-		background-color: var(--clr-text-1);
+		background-color: var(--text-1);
 		opacity: 0;
 		will-change: transform, opacity;
 	}

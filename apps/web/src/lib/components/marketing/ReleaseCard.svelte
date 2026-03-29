@@ -70,8 +70,8 @@
 			height: 1px;
 			background: repeating-linear-gradient(
 				to right,
-				var(--clr-text-2),
-				var(--clr-text-2) 2px,
+				var(--text-2),
+				var(--text-2) 2px,
 				transparent 2px,
 				transparent 6px
 			);
@@ -109,7 +109,7 @@
 
 	.download-links-toggle {
 		width: fit-content;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 13px;
 		font-family: var(--font-mono);
 
@@ -121,7 +121,7 @@
 		}
 
 		&:hover {
-			color: var(--clr-text-1);
+			color: var(--text-1);
 		}
 	}
 

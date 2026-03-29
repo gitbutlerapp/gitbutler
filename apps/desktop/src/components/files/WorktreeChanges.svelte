@@ -278,7 +278,7 @@
 		flex-direction: column;
 		height: 100%;
 		overflow: hidden;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	/* HEADER */
@@ -290,8 +290,8 @@
 		height: 42px;
 		padding: 0 10px 0 14px;
 		gap: 6px;
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-2);
 	}
 
 	.worktree-header__content {
@@ -310,6 +310,6 @@
 
 	/* MODIFIERS */
 	.sticked-top {
-		border-bottom-color: var(--clr-border-2);
+		border-bottom-color: var(--border-2);
 	}
 </style>

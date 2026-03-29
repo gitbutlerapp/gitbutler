@@ -405,11 +405,11 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 	.branch-integration__commit-wrap {
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 		&:last-child {
 			border-bottom: none;
 		}
@@ -419,19 +419,19 @@
 		z-index: var(--z-ground);
 		position: relative;
 		&.skipped {
-			background-color: var(--clr-bg-2);
+			background-color: var(--bg-2);
 		}
 	}
 	.branch-integration__commit-divider {
 		height: 0;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 		&.dotted {
 			height: 1px;
 			border-bottom: none;
 			background: repeating-linear-gradient(
 				to right,
-				var(--clr-border-2) 0px,
-				var(--clr-border-2) 2px,
+				var(--border-2) 0px,
+				var(--border-2) 2px,
 				transparent 2px,
 				transparent 4px
 			);
@@ -443,8 +443,8 @@
 		top: 0;
 		right: 20px;
 		transform: translateY(-50%);
-		border-radius: var(--radius-btn);
-		background-color: var(--clr-bg-1);
+		border-radius: var(--radius-button);
+		background-color: var(--bg-1);
 	}
 	.branch-integration__commit-content {
 		display: flex;

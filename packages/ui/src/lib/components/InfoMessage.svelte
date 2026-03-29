@@ -68,10 +68,10 @@
 	};
 
 	const iconColorMap: { [Key in MessageStyle]: string } = {
-		info: "var(--clr-theme-pop-element)",
-		warning: "var(--clr-theme-warn-element)",
-		danger: "var(--clr-theme-danger-element)",
-		success: "var(--clr-theme-safe-element)",
+		info: "var(--fill-pop-bg)",
+		warning: "var(--fill-warn-bg)",
+		danger: "var(--fill-danger-bg)",
+		success: "var(--fill-safe-bg)",
 	};
 
 	const primaryButtonMap: { [Key in MessageStyle]: ComponentColorType } = {
@@ -164,8 +164,8 @@
 		padding: 14px;
 		gap: 12px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
-		color: var(--clr-text-1);
+		background-color: var(--bg-1);
+		color: var(--text-1);
 		transition: background-color var(--transition-slow);
 	}
 	.info-message__inner {
@@ -200,16 +200,16 @@
 
 	/* MODIFIERS */
 	.info {
-		border: 0 solid var(--clr-border-2);
+		border: 0 solid var(--border-2);
 	}
 	.danger {
-		border: 0 solid var(--clr-theme-danger-element);
+		border: 0 solid var(--fill-danger-bg);
 	}
 	.warning {
-		border: 0 solid var(--clr-theme-warn-element);
+		border: 0 solid var(--fill-warn-bg);
 	}
 	.success {
-		border: 0 solid var(--clr-theme-safe-element);
+		border: 0 solid var(--fill-safe-bg);
 	}
 	.shadow {
 		box-shadow: 0px 7px 14px 0px rgba(0, 0, 0, 0.1);
@@ -222,16 +222,16 @@
 
 	.has-background {
 		&.info {
-			background-color: var(--clr-bg-2);
+			background-color: var(--bg-2);
 		}
 		&.danger {
-			background-color: var(--clr-theme-danger-bg);
+			background-color: var(--bg-danger);
 		}
 		&.warning {
-			background-color: var(--clr-theme-warn-bg);
+			background-color: var(--bg-warn);
 		}
 		&.success {
-			background-color: var(--clr-theme-safe-bg);
+			background-color: var(--bg-safe);
 		}
 	}
 
@@ -241,8 +241,8 @@
 		padding: 10px;
 		overflow: auto;
 		border-radius: var(--radius-s);
-		background-color: var(--clr-theme-danger-bg);
-		color: var(--clr-theme-danger-text);
+		background-color: var(--bg-danger);
+		color: var(--fill-danger-fg);
 		font-size: 12px;
 		white-space: pre-wrap;
 		overflow-wrap: break-word;
@@ -250,7 +250,7 @@
 
 		/* selection */
 		&::selection {
-			background-color: color-mix(in srgb, var(--clr-theme-danger-element) 20%, transparent);
+			background-color: color-mix(in srgb, var(--fill-danger-bg) 20%, transparent);
 		}
 		/* empty */
 		&:empty {

@@ -134,7 +134,7 @@
 				showValue={true}
 				error={errorMessage}
 			/>
-			<p class="text-13" style="margin-top: 12px; color: var(--clr-text-2);">
+			<p class="text-13" style="margin-top: 12px; color: var(--text-2);">
 				Move the slider above 100 to see the error state
 			</p>
 		</div>

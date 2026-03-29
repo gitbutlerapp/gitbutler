@@ -1032,17 +1032,17 @@
 		align-items: center;
 		justify-content: center;
 		padding: 4px 8px;
-		border: 1px solid var(--clr-border-3);
-		border-radius: var(--radius-btn);
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-1);
+		border: 1px solid var(--border-3);
+		border-radius: var(--radius-button);
+		background-color: var(--bg-2);
+		color: var(--text-1);
 	}
 
 	.feed-actions__scroll-to-bottom {
 		z-index: var(--z-floating);
 		overflow: hidden;
-		border-radius: var(--radius-btn);
-		background-color: var(--clr-bg-1);
+		border-radius: var(--radius-button);
+		background-color: var(--bg-1);
 		transition:
 			box-shadow var(--transition-fast),
 			transform var(--transition-medium);

@@ -163,11 +163,7 @@
 		height: 100%;
 		overflow: hidden;
 		border-radius: var(--radius-xl);
-		background-color: color-mix(
-			in srgb,
-			var(--clr-theme-pop-element) 40%,
-			var(--clr-theme-pop-soft)
-		);
+		background-color: color-mix(in srgb, var(--fill-pop-bg) 40%, var(--chip-pop-bg));
 	}
 
 	.banner-bg-grainy {
@@ -236,7 +232,7 @@
 	}
 
 	.download-link {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		font-size: 16px;
 		line-height: 120%;
 		text-decoration: underline;
@@ -244,7 +240,7 @@
 
 		&:hover {
 			text-decoration: underline wavy;
-			text-decoration-color: var(--clr-theme-pop-element);
+			text-decoration-color: var(--fill-pop-bg);
 		}
 	}
 
@@ -268,7 +264,7 @@
 		text-underline-offset: 3px;
 
 		&:hover {
-			color: var(--clr-text-1);
+			color: var(--text-1);
 			text-decoration: underline wavy;
 		}
 	}
@@ -285,7 +281,7 @@
 	.links-divider {
 		margin: 0;
 		border: none;
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 	}
 
 	.links-list {
@@ -301,9 +297,9 @@
 			align-items: center;
 
 			&:hover {
-				color: var(--clr-text-1);
+				color: var(--text-1);
 				text-decoration: underline wavy;
-				text-decoration-color: var(--clr-theme-pop-element);
+				text-decoration-color: var(--fill-pop-bg);
 			}
 		}
 	}
@@ -312,7 +308,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 12px;
 	}
 
@@ -325,7 +321,7 @@
 			text-decoration: underline;
 
 			&:hover {
-				color: var(--clr-text-1);
+				color: var(--text-1);
 				text-decoration: none;
 			}
 		}

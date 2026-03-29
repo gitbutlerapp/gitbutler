@@ -123,18 +123,18 @@
 <style lang="postcss">
 	.irc-input-area {
 		padding: 6px 8px;
-		background-color: var(--clr-bg-muted);
+		background-color: var(--bg-mute);
 	}
 	.reply-indicator {
 		display: flex;
 		align-items: center;
 		padding: 4px 8px;
 		gap: 6px;
-		border: 1px solid var(--clr-border-3);
+		border: 1px solid var(--border-3);
 		border-bottom: none;
 		border-radius: var(--radius-s) var(--radius-s) 0 0;
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-2);
+		background-color: var(--bg-2);
+		color: var(--text-2);
 		font-family: var(--font-mono);
 	}
 	.reply-text {
@@ -146,10 +146,10 @@
 	.reply-cancel {
 		flex-shrink: 0;
 		padding: 0 4px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		cursor: pointer;
 		&:hover {
-			color: var(--clr-text-1);
+			color: var(--text-1);
 		}
 	}
 	.irc-input-wrapper {
@@ -157,9 +157,9 @@
 		align-items: flex-end;
 		min-height: 36px;
 		gap: 8px;
-		border: 1px solid var(--clr-border-3);
+		border: 1px solid var(--border-3);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 	.replying .irc-input-wrapper {
 		border-radius: 0 0 var(--radius-s) var(--radius-s);

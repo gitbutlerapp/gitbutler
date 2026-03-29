@@ -30,9 +30,9 @@
 		top: -10000px;
 		left: -10000px;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 		pointer-events: none;
 	}
 

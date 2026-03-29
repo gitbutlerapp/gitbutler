@@ -484,14 +484,14 @@
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		transition: border-color var(--transition-fast);
 
 		&:hover,
 		&:focus-within {
-			border-color: var(--clr-border-1);
+			border-color: var(--border-1);
 		}
 	}
 
@@ -512,7 +512,7 @@
 			left: 8px;
 			width: calc(100% - 16px);
 			height: 1px;
-			background-color: var(--clr-border-3);
+			background-color: var(--border-3);
 			content: "";
 		}
 	}
@@ -527,7 +527,7 @@
 	.message-textarea__toolbar__divider {
 		width: 1px;
 		height: 18px;
-		background-color: var(--clr-border-3);
+		background-color: var(--border-3);
 	}
 
 	/* RULER INPUT */

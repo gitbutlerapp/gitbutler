@@ -292,13 +292,13 @@
 		align-items: center;
 		padding: 4px;
 		gap: 4px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
 	}
 
 	.rule-filter-row__actions-divider {
 		width: 1px;
 		height: 16px;
-		background-color: var(--clr-border-2);
+		background-color: var(--border-2);
 	}
 </style>

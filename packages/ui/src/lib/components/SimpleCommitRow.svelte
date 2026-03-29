@@ -46,7 +46,7 @@
 	<div class="simple-commit-item no-select" class:content-only={onlyContent}>
 		{#if !onlyContent}
 			{#if isDone}
-				<Icon name="tick" color="var(--clr-theme-safe-element)" />
+				<Icon name="tick" color="var(--fill-safe-bg)" />
 			{:else}
 				<Icon name="commit" />
 			{/if}
@@ -98,7 +98,7 @@
 
 		&:not(.content-only) {
 			padding: 12px 14px 14px 12px;
-			border-bottom: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--border-2);
 
 			&:last-child {
 				border-bottom: none;
@@ -130,7 +130,7 @@
 			align-items: flex-end;
 			max-height: 8cap;
 			overflow: hidden;
-			color: var(--clr-text-2);
+			color: var(--text-2);
 			animation: fadeInOut 0.6s ease-in-out infinite alternate;
 
 			&::before {
@@ -139,7 +139,7 @@
 				left: 0;
 				width: 100%;
 				height: 3rem;
-				background: linear-gradient(to bottom, rgba(255, 210, 202, 0) 0%, var(--clr-bg-1) 100%);
+				background: linear-gradient(to bottom, rgba(255, 210, 202, 0) 0%, var(--bg-1) 100%);
 				content: "";
 			}
 		}
@@ -149,7 +149,7 @@
 			align-items: center;
 			overflow: hidden;
 			gap: 4px;
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 
 		& .details-btn {
@@ -162,7 +162,7 @@
 			}
 
 			&:hover {
-				color: var(--clr-text-1);
+				color: var(--text-1);
 			}
 		}
 
@@ -174,7 +174,7 @@
 		}
 
 		& .details-divider {
-			color: var(--clr-text-3);
+			color: var(--text-3);
 			line-height: 150%;
 		}
 	}

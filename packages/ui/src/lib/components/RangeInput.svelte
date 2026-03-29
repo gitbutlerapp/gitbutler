@@ -97,7 +97,7 @@
 
 		--range-track-height: 4px;
 		--range-thumb-size: 16px;
-		--range-accent-color: var(--clr-theme-pop-element);
+		--range-accent-color: var(--fill-pop-bg);
 
 		&.wide {
 			flex: 1;
@@ -112,19 +112,19 @@
 	}
 
 	.label {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.value {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.helper-text {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.error-text {
-		color: var(--clr-theme-danger-element);
+		color: var(--fill-danger-bg);
 	}
 
 	.input {
@@ -137,13 +137,13 @@
 			to right,
 			var(--range-accent-color) 0%,
 			var(--range-accent-color) calc(var(--fill-ratio) * 100%),
-			var(--clr-border-2) calc(var(--fill-ratio) * 100%),
-			var(--clr-border-2) 100%
+			var(--border-2) calc(var(--fill-ratio) * 100%),
+			var(--border-2) 100%
 		);
 		cursor: pointer;
 
 		&:focus-visible {
-			outline: 2px solid var(--clr-theme-pop-element);
+			outline: 2px solid var(--fill-pop-bg);
 			outline-offset: 2px;
 		}
 
@@ -188,6 +188,6 @@
 
 	/* Error state */
 	.range-input.error {
-		--range-accent-color: var(--clr-theme-danger-element);
+		--range-accent-color: var(--fill-danger-bg);
 	}
 </style>

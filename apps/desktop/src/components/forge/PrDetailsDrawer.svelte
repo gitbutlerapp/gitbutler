@@ -94,7 +94,7 @@
 	}
 
 	.pr-request-data__sentence {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		line-height: 140%;
 	}
 
@@ -103,19 +103,19 @@
 		flex-direction: row;
 		align-items: center;
 		gap: 8px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.pr-request-data__divider {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 
 	.code-string {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.pr-body {
 		padding: 16px;
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 	}
 </style>

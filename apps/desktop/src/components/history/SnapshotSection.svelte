@@ -58,9 +58,9 @@
 		flex-direction: column;
 		width: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.snapshot-attachment__content {
@@ -76,17 +76,17 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 8px;
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
-		background-color: var(--clr-bg-1);
-		color: var(--clr-text-2);
+		background-color: var(--bg-1);
+		color: var(--text-2);
 		transition:
 			color var(--transition-fast),
 			background-color var(--transition-fast);
 
 		&:hover {
-			background-color: var(--clr-bg-2);
-			color: var(--clr-text-1);
+			background-color: var(--bg-2);
+			color: var(--text-1);
 		}
 	}
 

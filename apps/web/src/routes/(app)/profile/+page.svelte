@@ -223,7 +223,7 @@
 					rel="noopener noreferrer"
 				>
 					<div class="tip-link__title">
-						<Icon name="docs" color="var(--clr-text-2)" />
+						<Icon name="docs" color="var(--text-2)" />
 						<h3 class="text-14 text-semibold">Get Started</h3>
 					</div>
 					<p class="text-12 text-body clr-text-2">
@@ -239,7 +239,7 @@
 					rel="noopener noreferrer"
 				>
 					<div class="tip-link__title">
-						<Icon name="discord" color="var(--clr-text-2)" />
+						<Icon name="discord" color="var(--text-2)" />
 						<h3 class="text-14 text-semibold">Join the Community</h3>
 					</div>
 					<p class="text-12 text-body clr-text-2">Join our Discord for help and discussion.</p>
@@ -248,7 +248,7 @@
 				</a>
 				<a class="tip-link" href={linksJson.other.support.url}>
 					<div class="tip-link__title">
-						<Icon name="chat" color="var(--clr-text-2)" />
+						<Icon name="chat" color="var(--text-2)" />
 						<h3 class="text-14 text-semibold">Need Help?</h3>
 					</div>
 					<p class="text-12 text-body clr-text-2">
@@ -317,7 +317,7 @@
 		flex-direction: column;
 		width: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 
@@ -327,8 +327,8 @@
 		flex-direction: column;
 		padding: 16px;
 		gap: 6px;
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-1);
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast);
@@ -359,7 +359,7 @@
 		top: 8px;
 		right: 10px;
 		transform: translateX(-2px);
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 16px;
 		opacity: 0;
 		transition:
@@ -382,9 +382,9 @@
 		flex-direction: column;
 		padding: 16px;
 		gap: 16px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.download-card__header {
@@ -399,11 +399,11 @@
 		width: 38px;
 		height: 38px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-pop-bg);
+		background-color: var(--bg-pop);
 	}
 
 	.download-card__other-text {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		text-align: center;
 		transition: color var(--transition-fast);
 
@@ -411,8 +411,8 @@
 			text-decoration: underline;
 
 			&:hover {
-				color: var(--clr-text-1);
-				text-decoration: underline wavy var(--clr-theme-pop-element);
+				color: var(--text-1);
+				text-decoration: underline wavy var(--fill-pop-bg);
 			}
 		}
 	}
@@ -423,8 +423,8 @@
 		border: none;
 		background: repeating-linear-gradient(
 			to right,
-			var(--clr-border-2),
-			var(--clr-border-2) 2px,
+			var(--border-2),
+			var(--border-2) 2px,
 			transparent 2px,
 			transparent 4px
 		);

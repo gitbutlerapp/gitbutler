@@ -379,7 +379,7 @@
 		position: relative;
 		flex-grow: 1;
 		overflow: hidden;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 	.message-group {
 		padding: 4px 0;
@@ -396,7 +396,7 @@
 	}
 	.messages:not(.scrolling):not(.picker-open) .message-row:hover,
 	.message-row.active {
-		background-color: var(--clr-bg-muted);
+		background-color: var(--bg-mute);
 	}
 	.messages.picker-open :global(.padded-contents) {
 		pointer-events: none;
@@ -425,7 +425,7 @@
 	.hover-time {
 		display: none;
 		overflow: hidden;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		font-size: 9px;
 		line-height: 1;
 	}
@@ -445,17 +445,17 @@
 		gap: 6px;
 	}
 	.sender {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		font-weight: 600;
 	}
 	.timestamp {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 	.message-content {
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		word-break: break-word;
 
 		:global(.markdown) {
@@ -472,13 +472,13 @@
 			padding: 6px 8px;
 			overflow-x: auto;
 			border-radius: var(--radius-s);
-			background-color: var(--clr-bg-2);
+			background-color: var(--bg-2);
 		}
 
 		:global(.markdown code) {
 			padding: 1px 4px;
 			border-radius: var(--radius-s);
-			background-color: var(--clr-bg-2);
+			background-color: var(--bg-2);
 			font-size: 12px;
 			font-family: var(--font-mono);
 		}
@@ -501,30 +501,30 @@
 		gap: 2px;
 		border: 1px solid transparent;
 		border-radius: 10px;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 		font-size: 12px;
 		cursor: pointer;
 		&:hover {
-			background-color: var(--clr-bg-3);
+			background-color: var(--bg-3);
 		}
 		&.own {
-			border-color: var(--clr-theme-pop-element);
-			background-color: color-mix(in srgb, var(--clr-theme-pop-element) 15%, transparent);
+			border-color: var(--fill-pop-bg);
+			background-color: color-mix(in srgb, var(--fill-pop-bg) 15%, transparent);
 		}
 	}
 	.reply-context {
 		margin-bottom: 2px;
 		padding-left: 6px;
 		overflow: hidden;
-		border-left: 2px solid var(--clr-border-2);
-		color: var(--clr-text-3);
+		border-left: 2px solid var(--border-2);
+		color: var(--text-3);
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 	.system-message {
 		padding: 0 12px;
 		padding-left: 24px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		line-height: 1;
 		font-family: var(--font-mono);
 		text-indent: -12px;
@@ -532,22 +532,22 @@
 		user-select: text;
 	}
 	.system-time {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		opacity: 0.6;
 	}
 	.msg-tag {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		opacity: 0.7;
 	}
 	.channel-banner {
 		padding: 16px 12px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		text-align: center;
 	}
 	.typing-indicator {
 		flex-shrink: 0;
 		padding: 0 12px 4px 12px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 	.typing-nick {
 		font-weight: 600;

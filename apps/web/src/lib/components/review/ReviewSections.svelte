@@ -216,10 +216,10 @@
 		justify-content: space-between;
 		width: 100%;
 		padding: 10px 10px 10px 14px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-top-right-radius: var(--radius-ml);
 		border-top-left-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.review-sections-statistics__metadata {
@@ -233,15 +233,15 @@
 	}
 
 	.statistic-files {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.statistic-added {
-		color: var(--clr-theme-safe-element);
+		color: var(--fill-safe-bg);
 	}
 
 	.statistic-deleted {
-		color: var(--clr-theme-danger-element);
+		color: var(--fill-danger-bg);
 	}
 
 	.review-sections-diffs {
@@ -258,9 +258,9 @@
 		width: 100%;
 		padding: 14px;
 		gap: 12px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-top: none;
-		background-color: var(--clr-bg-muted);
+		background-color: var(--bg-mute);
 
 		@container (max-width: 500px) {
 			flex-direction: column;
@@ -275,7 +275,7 @@
 	}
 
 	.interdiff-bar__arrow {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.review-sections-statistics__actions {
@@ -295,6 +295,6 @@
 		width: 7px;
 		height: 7px;
 		border-radius: 50%;
-		background-color: var(--clr-theme-pop-element);
+		background-color: var(--fill-pop-bg);
 	}
 </style>

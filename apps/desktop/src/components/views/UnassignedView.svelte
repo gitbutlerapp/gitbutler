@@ -194,7 +194,7 @@
 	}
 
 	.unassigned-empty-text {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		text-align: center;
 	}
 
@@ -204,7 +204,7 @@
 		height: calc(100% + 1px);
 		margin-bottom: -1px;
 		overflow: hidden;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.unassigned-wrap {
@@ -212,14 +212,14 @@
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 	}
 
 	.create-new {
 		display: flex;
 		flex-direction: column;
 		padding: 12px 12px 14px 12px;
-		border-top: 1px solid var(--clr-border-3);
+		border-top: 1px solid var(--border-3);
 	}
 
 	/* FOLDED */
@@ -232,7 +232,7 @@
 		gap: 10px;
 
 		&.changes-to-commit {
-			background-color: var(--clr-bg-1);
+			background-color: var(--bg-1);
 		}
 	}
 

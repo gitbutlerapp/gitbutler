@@ -38,12 +38,12 @@
 		display: flex;
 		position: relative;
 		flex-shrink: 0;
-		--icon-frame-color: color-mix(in srgb, var(--clr-text-1) 30%, transparent);
-		--icon-inner-color: color-mix(in srgb, var(--clr-text-1) 80%, transparent);
+		--icon-frame-color: color-mix(in srgb, var(--text-1) 30%, transparent);
+		--icon-inner-color: color-mix(in srgb, var(--text-1) 80%, transparent);
 
 		&.completed {
-			--icon-frame-color: var(--clr-theme-safe-element);
-			--icon-inner-color: var(--clr-theme-safe-element);
+			--icon-frame-color: var(--fill-safe-bg);
+			--icon-inner-color: var(--fill-safe-bg);
 		}
 	}
 

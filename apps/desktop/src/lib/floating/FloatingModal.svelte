@@ -291,9 +291,9 @@
 		position: absolute;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background: var(--clr-bg-1);
+		background: var(--bg-1);
 		box-shadow: var(--fx-shadow-l);
 		animation: slide-in 0.2s ease-out forwards;
 	}

@@ -1,11 +1,11 @@
 @layer sharable {
 	/* Word-diff highlighting (not syntax-related, used by diff view) */
 	.token-inserted {
-		background-color: var(--clr-diff-addition-line-highlight);
+		background-color: var(--diff-addition-line-highlight);
 	}
 
 	.token-deleted {
-		background-color: var(--clr-diff-deletion-line-highlight);
+		background-color: var(--diff-deletion-line-highlight);
 	}
 
 	.token-strikethrough {

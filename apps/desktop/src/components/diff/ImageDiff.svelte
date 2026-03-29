@@ -204,7 +204,7 @@
 		justify-content: center;
 		width: 100%;
 		height: 200px;
-		border: 1px solid var(--clr-border-3);
+		border: 1px solid var(--border-3);
 		border-radius: var(--radius-m);
 	}
 </style>

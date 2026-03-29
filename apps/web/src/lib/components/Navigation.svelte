@@ -26,7 +26,7 @@
 							fill="none"
 							xmlns="http://www.w3.org/2000/svg"
 						>
-							<path d="M9 0.5L1 15.5" stroke="var(--clr-text-3)" />
+							<path d="M9 0.5L1 15.5" stroke="var(--text-3)" />
 						</svg>
 
 						{#if index < breadcrumbs.length - 1}
@@ -67,11 +67,11 @@
 		gap: 10px;
 
 		& .link {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 			transition: color var(--transition-fast);
 
 			&:hover {
-				color: var(--clr-text-1);
+				color: var(--text-1);
 			}
 		}
 	}

@@ -67,8 +67,8 @@
 		width: 100%;
 		padding: 12px;
 		gap: 8px;
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-2);
+		background-color: var(--bg-2);
+		color: var(--text-2);
 		cursor: pointer;
 		transition: background-color var(--transition-fast);
 
@@ -82,8 +82,8 @@
 		align-items: center;
 		padding: 12px;
 		gap: 8px;
-		border-bottom: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-2);
+		border-bottom: 1px solid var(--border-2);
+		background: var(--bg-2);
 		cursor: grab;
 	}
 
@@ -97,7 +97,7 @@
 		justify-content: center;
 		width: 16px;
 		height: 16px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.modal-content {

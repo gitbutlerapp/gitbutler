@@ -310,7 +310,7 @@
 		position: relative;
 		flex-grow: 1;
 		overflow: auto;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.editor {

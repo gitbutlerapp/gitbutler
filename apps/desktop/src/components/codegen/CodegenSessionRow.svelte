@@ -104,7 +104,7 @@
 		{#if draft}
 			<!-- Draft mode: simple placeholder -->
 			<div class="codegen-row">
-				<Icon name="ai" color="var(--clr-theme-purple-element)" />
+				<Icon name="ai" color="var(--fill-purple-bg)" />
 				<h3 class="text-13 text-semibold truncate codegen-row__title">
 					AI session will start here
 				</h3>
@@ -149,10 +149,7 @@
 							></div>
 						{/if}
 
-						<Icon
-							name={getCurrentIconName(hasPendingAction)}
-							color="var(--clr-theme-purple-element)"
-						/>
+						<Icon name={getCurrentIconName(hasPendingAction)} color="var(--fill-purple-bg)" />
 						<h3 class="text-13 text-semibold truncate codegen-row__title">{lastSummary}</h3>
 
 						{#if hasPendingAction}
@@ -163,7 +160,7 @@
 							<span class="text-12 codegen-row__todos">Todos ({completedCount}/{totalCount})</span>
 
 							{#if completedCount === totalCount}
-								<Icon name="tick-circle" color="var(--clr-theme-safe-element)" />
+								<Icon name="tick-circle" color="var(--fill-safe-bg)" />
 							{/if}
 						{/if}
 					</button>
@@ -183,9 +180,9 @@
 		padding: 0 12px;
 		padding-left: 14px;
 		gap: 8px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-theme-purple-bg);
+		background-color: var(--bg-purple);
 		text-align: left;
 
 		transition: background-color var(--transition-fast);
@@ -202,12 +199,12 @@
 
 	.codegen-row__title {
 		flex: 1;
-		color: var(--clr-theme-purple-on-soft);
+		color: var(--chip-purple-fg);
 	}
 
 	.codegen-row__todos {
 		flex-shrink: 0;
-		color: var(--clr-theme-purple-on-soft);
+		color: var(--chip-purple-fg);
 		opacity: 0.7;
 	}
 
@@ -219,7 +216,7 @@
 		height: 45%;
 		transform: translateY(-50%);
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
-		background-color: var(--clr-theme-purple-element);
+		background-color: var(--fill-purple-bg);
 		transition: transform var(--transition-fast);
 	}
 </style>

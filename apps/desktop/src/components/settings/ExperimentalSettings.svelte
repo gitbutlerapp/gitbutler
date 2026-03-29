@@ -107,6 +107,6 @@
 <style>
 	.experimental-settings__text {
 		margin-bottom: 10px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

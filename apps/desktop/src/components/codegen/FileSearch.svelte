@@ -28,7 +28,7 @@
 		in:fly={{ y: 8, duration: 200 }}
 	>
 		<div class="dialog-popup__header">
-			<Icon name="search" color="var(--clr-text-3)" />
+			<Icon name="search" color="var(--text-3)" />
 			<h3 class="text-12 text-bold flex-1">Search for files</h3>
 			<p class="text-11 clr-text-3">
 				<span class="text-italic text-bold"> Esc </span>
@@ -70,9 +70,9 @@
 		left: 0;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	.dialog-popup__header {
@@ -81,8 +81,8 @@
 		width: 100%;
 		padding: 10px 10px;
 		gap: 6px;
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-2);
 	}
 
 	.dialog-popup__content {
@@ -93,8 +93,8 @@
 
 	.dialog-popup__placeholder-content {
 		padding: 14px 14px;
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-3);
+		background-color: var(--bg-2);
+		color: var(--text-3);
 		text-align: center;
 	}
 </style>

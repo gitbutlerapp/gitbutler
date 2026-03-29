@@ -64,7 +64,7 @@
 		width: 10px;
 		height: 10px;
 		transform: translateX(1px);
-		fill: var(--clr-commit-local);
+		fill: var(--commit-local);
 	}
 
 	.generic-commit-dot {
@@ -81,14 +81,14 @@
 		.shadow-dot {
 			width: 10px;
 			height: 10px;
-			fill: var(--clr-commit-shadow);
+			fill: var(--commit-shadow);
 		}
 
 		.local-dot {
 			width: 11px;
 			height: 10px;
 			transform: translateX(-1px);
-			fill: var(--clr-commit-local);
+			fill: var(--commit-local);
 		}
 	}
 </style>

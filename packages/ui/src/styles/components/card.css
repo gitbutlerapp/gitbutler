@@ -2,9 +2,9 @@
 	.card {
 		display: flex;
 		flex-direction: column;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background: var(--clr-bg-1);
+		background: var(--bg-1);
 	}
 
 	.card__header {
@@ -12,7 +12,7 @@
 		justify-content: space-between;
 		padding: 16px;
 		gap: 8px;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 	}
 
 	.card__content {
@@ -26,6 +26,6 @@
 		justify-content: space-between;
 		padding: 16px;
 		gap: 6px;
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 	}
 }

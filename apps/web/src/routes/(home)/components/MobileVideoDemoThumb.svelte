@@ -57,7 +57,7 @@
 		height: 100%;
 		overflow: hidden;
 		border-radius: 10px;
-		background-color: var(--clr-black);
+		background-color: var(--clr-gray-0);
 		transition: transform 0.2s ease-in-out;
 
 		@media (min-width: 500px) {
