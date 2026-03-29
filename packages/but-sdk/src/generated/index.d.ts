@@ -1285,8 +1285,10 @@ export type UIMoveChangesResult = {
 export type UIRejectedChange = {
   /** The reason the change was rejected. */
   reason: RejectionReason;
-  /** The file path of the rejected change. */
+  /** The file path of the rejected change, potentially degenerated if it can't be represented in Unicode. */
   path: string;
+  /** `path` without degeneration, as plain bytes. */
+  pathBytes: Array<number>;
 };
 
 /**

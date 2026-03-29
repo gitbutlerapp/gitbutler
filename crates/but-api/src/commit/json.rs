@@ -44,9 +44,14 @@ impl From<MoveChangesResult> for UIMoveChangesResult {
 pub struct UIRejectedChange {
     /// The reason the change was rejected.
     pub reason: but_core::tree::create_tree::RejectionReason,
-    /// The file path of the rejected change.
-    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
-    pub path: but_serde::BStringForFrontend,
+    /// The file path of the rejected change, potentially degenerated if it can't be represented in Unicode.
+    pub path: String,
+    /// `path` without degeneration, as plain bytes.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::bstring_bytes")
+    )]
+    pub path_bytes: bstr::BString,
 }
 
 #[cfg(feature = "export-schema")]
@@ -88,7 +93,8 @@ impl From<CommitCreateResult> for UICommitCreateResult {
                 .into_iter()
                 .map(|(reason, diff)| UIRejectedChange {
                     reason,
-                    path: diff.path.into(),
+                    path: diff.path.to_string(),
+                    path_bytes: diff.path,
                 })
                 .collect(),
             replaced_commits: replaced_commits
