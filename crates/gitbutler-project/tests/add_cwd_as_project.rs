@@ -1,9 +1,10 @@
-use but_testsupport::legacy::paths;
+#[path = "support.rs"]
+mod support;
 
 #[test]
 fn current_directory_dot() -> anyhow::Result<()> {
-    let tmp = paths::data_dir();
-    let repo = but_testsupport::legacy::TestProject::default();
+    let tmp = support::data_dir();
+    let repo = support::TestProject::default();
     let repo_path = repo.path();
 
     // Change to the repository directory and add "." as the path
