@@ -1,12 +1,12 @@
 use anyhow::{Context as _, Result, anyhow};
-use bstr::ByteSlice as _;
+use bstr::{BString, ByteSlice as _};
 use but_core::{
     RefMetadata, RepositoryExt,
     ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
 };
 use but_ctx::Context;
 use but_meta::{VirtualBranchesTomlMetadata, virtual_branches_legacy_types::Target};
-use but_testsupport::{gix_testtools, open_repo};
+use but_testsupport::{gix_testtools, open_repo, visualize_commit_graph};
 use git2::build::CheckoutBuilder;
 use gitbutler_edit_mode::commands::{
     abort_and_return_to_workspace, enter_edit_mode, save_and_return_to_workspace,
@@ -94,6 +94,115 @@ fn basic_leaving_edit_mode() -> Result<()> {
     insta::assert_snapshot!(blob.data.as_bstr(), @"edited during edit mode");
     let blob = repo.rev_parse_single(b"HEAD^{/foobar}:newfile")?.object()?;
     insta::assert_snapshot!(blob.data.as_bstr(), @"created during edit mode");
+
+    Ok(())
+}
+
+#[test]
+fn multiple_commits_created_during_edit_mode() -> Result<()> {
+    let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
+    let repo = ctx.repo.get()?;
+
+    let foobar = repo.head_commit()?.decode()?.parents().next().unwrap();
+
+    let worktree_dir = repo.workdir().unwrap().to_owned();
+    drop(repo);
+    let stack_id = stack_id(&ctx)?;
+    enter_edit_mode(&mut ctx, foobar, stack_id)?;
+
+    let repo = ctx.repo.get()?;
+    let commit = gix::objs::Commit::try_from(repo.find_commit(foobar)?.decode()?)?;
+    let first_id = repo.write_object(gix::objs::Commit {
+        message: BString::from(b"first commit added"),
+        parents: [foobar].into(),
+        ..commit.clone()
+    })?;
+    let second_id = repo.write_object(gix::objs::Commit {
+        message: BString::from(b"second commit added"),
+        parents: [first_id.detach()].into(),
+        ..commit
+    })?;
+    repo.edit_reference(gix::refs::transaction::RefEdit {
+        change: gix::refs::transaction::Change::Update {
+            log: gix::refs::transaction::LogChange {
+                mode: gix::refs::transaction::RefLog::AndReference,
+                force_create_reflog: false,
+                message: b"arbitrary message".into(),
+            },
+            expected: gix::refs::transaction::PreviousValue::Any,
+            new: gix::refs::Target::Object(second_id.detach()),
+        },
+        name: "HEAD".try_into().unwrap(),
+        deref: true,
+    })?;
+    drop(repo);
+
+    std::fs::write(worktree_dir.join("file"), "edited during edit mode\n")?;
+
+    save_and_return_to_workspace(&mut ctx)?;
+
+    let repo = &*ctx.repo.get()?;
+    insta::assert_snapshot!(visualize_commit_graph(repo, "refs/heads/gitbutler/workspace")?, @r"
+    * 59ab552 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * f6d3539 (branchy) second commit added
+    * d39dd61 first commit added
+    * 26804c3 foobar
+    * 7950f06 (origin/main, origin/HEAD, main, gitbutler/target) init
+    ");
+    // As usual, any uncommitted changes (to "file" in this test) is applied
+    // onto the HEAD commit at the time of exiting edit mode.
+    let blob = repo.rev_parse_single(b"HEAD^{/second}:file")?.object()?;
+    insta::assert_snapshot!(blob.data.as_bstr(), @"edited during edit mode");
+    // Rebase also happens correctly.
+    let blob = repo.rev_parse_single(b"HEAD:file")?.object()?;
+    insta::assert_snapshot!(blob.data.as_bstr(), @"edited during edit mode");
+
+    Ok(())
+}
+
+#[test]
+fn apply_commit_on_itself() -> Result<()> {
+    let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
+    let repo = ctx.repo.get()?;
+
+    let foobar = repo.head_commit()?.decode()?.parents().next().unwrap();
+
+    drop(repo);
+    let stack_id = stack_id(&ctx)?;
+    enter_edit_mode(&mut ctx, foobar, stack_id)?;
+
+    let repo = ctx.repo.get()?;
+    // Set HEAD to gitbutler/workspace, detached, to see what happens when we
+    // try to apply itself on itself.
+    let workspace_commit_id = repo
+        .find_reference("refs/heads/gitbutler/workspace")?
+        .peel_to_commit()?
+        .id;
+    repo.edit_reference(gix::refs::transaction::RefEdit {
+        change: gix::refs::transaction::Change::Update {
+            log: gix::refs::transaction::LogChange {
+                mode: gix::refs::transaction::RefLog::AndReference,
+                force_create_reflog: false,
+                message: b"arbitrary message".into(),
+            },
+            expected: gix::refs::transaction::PreviousValue::Any,
+            new: gix::refs::Target::Object(workspace_commit_id),
+        },
+        name: "HEAD".try_into().unwrap(),
+        deref: true,
+    })?;
+    drop(repo);
+
+    save_and_return_to_workspace(&mut ctx)?;
+
+    let repo = &*ctx.repo.get()?;
+    // It works.
+    insta::assert_snapshot!(visualize_commit_graph(repo, "refs/heads/gitbutler/workspace")?, @r"
+    * 85cd48c (HEAD -> gitbutler/workspace, gitbutler/edit) GitButler Workspace Commit
+    * 6eb9642 (branchy) GitButler Workspace Commit
+    * 26804c3 foobar
+    * 7950f06 (origin/main, origin/HEAD, main, gitbutler/target) init
+    ");
 
     Ok(())
 }

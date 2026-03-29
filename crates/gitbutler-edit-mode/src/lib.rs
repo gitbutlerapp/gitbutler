@@ -11,7 +11,7 @@ use but_ctx::{
     access::{RepoExclusive, RepoShared},
 };
 use but_oxidize::{ObjectIdExt as _, OidExt, gix_to_git2_index};
-use but_rebase::graph_rebase::{Editor, Step};
+use but_rebase::graph_rebase::{Editor, Pick, Step};
 use git2::build::CheckoutBuilder;
 use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _, RepositoryExt as _};
 use gitbutler_commit::commit_ext::CommitExt;
@@ -258,9 +258,35 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
 
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
 
+    let head_commit = repo.head_commit()?;
+    let decoded_head_commit = head_commit.decode()?;
     // Write out all the changes, including unstaged changes to a tree for re-committing
     #[expect(deprecated)]
     let tree_id = repo.create_wd_tree(0)?;
+    let new_commit_oid = if decoded_head_commit.tree() == tree_id {
+        head_commit.id
+    } else {
+        let commit = gix::objs::Commit::try_from(decoded_head_commit.clone())?;
+        let extra_headers: Vec<(BString, BString)> = Headers::try_from_commit(&commit)
+            .map(|commit_headers| {
+                let headers = Headers {
+                    conflicted: None,
+                    ..commit_headers
+                };
+                (&headers).into()
+            })
+            .unwrap_or_default();
+        but_rebase::commit::create(
+            repo,
+            gix::objs::Commit {
+                tree: tree_id,
+                extra_headers,
+                ..commit
+            },
+            but_rebase::commit::DateMode::CommitterUpdateAuthorKeep,
+            true,
+        )?
+    };
 
     let workspace_commit = repo
         .find_reference(WORKSPACE_BRANCH_REF)?
@@ -274,29 +300,15 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     )?
     .into_workspace()?;
     let mut editor = Editor::create(&mut workspace, &mut meta, repo)?;
-    let (target_selector, commit) = editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;
+    let (target_selector, _commit) =
+        editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;
 
-    let extra_headers: Vec<(BString, BString)> = Headers::try_from_commit(&commit.inner)
-        .map(|commit_headers| {
-            let headers = Headers {
-                conflicted: None,
-                ..commit_headers
-            };
-            (&headers).into()
-        })
-        .unwrap_or_default();
-    let new_commit_oid = but_rebase::commit::create(
-        repo,
-        gix::objs::Commit {
-            tree: tree_id,
-            extra_headers,
-            ..commit.inner
-        },
-        but_rebase::commit::DateMode::CommitterUpdateAuthorKeep,
-        true,
-    )?;
+    let mut pick = Pick::new_pick(new_commit_oid);
+    // Do not replace new_commit_oid's parents with the parents of
+    // edit_mode_metadata.commit_oid
+    pick.preserved_parents = Some(decoded_head_commit.parents().collect());
 
-    editor.replace(target_selector, Step::new_pick(new_commit_oid))?;
+    editor.replace(target_selector, Step::Pick(pick))?;
     let outcome = editor.rebase()?;
     // HEAD is EDIT_BRANCH_REF and we do not need to re-checkout it (we
     // are checking out WORKSPACE_BRANCH_REF after this). As for needing to
