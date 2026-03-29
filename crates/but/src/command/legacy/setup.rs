@@ -1,5 +1,6 @@
 use std::path::{self, Path};
 
+use anyhow::Context as _;
 use but_core::{
     RepositoryExt,
     sync::{RepoExclusive, RepoShared},
@@ -10,6 +11,12 @@ use serde::Serialize;
 
 use crate::utils::OutputChannel;
 
+/// Human-readable hint shown in all contexts where managed hooks are absent
+/// (disabled by config or displaced by an external manager) to tell the user
+/// how to re-enable them.
+const FORCE_HOOKS_RECOVERY_HINT: &str =
+    "To switch back to GitButler-managed hooks: but setup --force-hooks";
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SetupResult {
@@ -19,6 +26,76 @@ struct SetupResult {
     project_status: ProjectStatus,
     /// The target branch configuration
     target: Option<TargetInfo>,
+    /// Information about an external hook manager, if one was detected
+    hook_manager: Option<HookManagerInfo>,
+    /// Details about installed hooks
+    hooks: Vec<HookInfo>,
+}
+
+/// Information about a single installed hook.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HookInfo {
+    /// The name of the hook (e.g. "pre-commit")
+    name: String,
+    /// The status of the hook
+    status: HookStatus,
+}
+
+/// Status of a hook installation.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+enum HookStatus {
+    /// Hook was installed (may have backed up existing hook)
+    Installed {
+        /// Path to backup if one was created, None otherwise
+        backup_path: Option<String>,
+    },
+    /// Hook was already configured
+    AlreadyConfigured,
+    /// Hook was skipped
+    Skipped,
+}
+
+/// Convert a list of per-hook installation results into [`HookInfo`] entries for JSON output.
+///
+/// Each `(name, backup_status)` pair becomes a [`HookInfo`] with
+/// [`HookStatus::Installed`], carrying the backup path (if any) from the status.
+fn hook_results_to_hook_info(
+    results: &[(String, but_hooks::managed_hooks::HookBackupStatus)],
+) -> Vec<HookInfo> {
+    results
+        .iter()
+        .map(|(name, backup_status)| HookInfo {
+            name: name.clone(),
+            status: HookStatus::Installed {
+                backup_path: backup_status.to_backup_path().map(str::to_owned),
+            },
+        })
+        .collect()
+}
+
+/// Build [`HookInfo`] entries for hooks that were already configured (no changes made).
+///
+/// Produces one entry per managed hook name, all with [`HookStatus::AlreadyConfigured`].
+fn already_configured_hook_info() -> Vec<HookInfo> {
+    but_hooks::hook_manager::MANAGED_HOOK_NAMES
+        .iter()
+        .map(|name| HookInfo {
+            name: name.to_string(),
+            status: HookStatus::AlreadyConfigured,
+        })
+        .collect()
+}
+
+/// Details about an external hook manager detected during setup.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HookManagerInfo {
+    /// The name of the detected hook manager (e.g. "prek", "lefthook")
+    name: String,
+    /// Whether GitButler installed its own managed hooks
+    hooks_installed: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -48,11 +125,11 @@ fn display_splash_screen(out: &mut dyn std::fmt::Write) -> anyhow::Result<()> {
         out,
         "{}",
         r#"
- ██████▄      ▄██████    ██████╗ ██╗   ██╗████████╗
- ██▀▀▀▀██▄  ▄██▀▀▀▀██    ██╔══██╗██║   ██║╚══██╔══╝
- ██     ▀████▀     ██    ██████╔╝██║   ██║   ██║
- ██▄▄▄▄██▀  ▀██▄▄▄▄██    ██╔══██╗██║   ██║   ██║
- ██████▀      ▀██████    ██████╔╝╚██████╔╝   ██║
+██████▄      ▄██████    ██████╗ ██╗   ██╗████████╗
+██▀▀▀▀██▄  ▄██▀▀▀▀██    ██╔══██╗██║   ██║╚══██╔══╝
+██     ▀████▀     ██    ██████╔╝██║   ██║   ██║
+██▄▄▄▄██▀  ▀██▄▄▄▄██    ██╔══██╗██║   ██║   ██║
+██████▀      ▀██████    ██████╔╝╚██████╔╝   ██║
 "#
         .cyan()
         .bold()
@@ -67,31 +144,31 @@ fn display_splash_screen(out: &mut dyn std::fmt::Write) -> anyhow::Result<()> {
 
     writeln!(
         out,
-        "{:<45} {}",
+        "{:<26} {}",
         "$ but branch new <name>".bright_blue(),
         "Create a new branch".dimmed()
     )?;
     writeln!(
         out,
-        "{:<45} {}",
+        "{:<26} {}",
         "$ but status".bright_blue(),
         "View workspace status".dimmed()
     )?;
     writeln!(
         out,
-        "{:<45} {}",
+        "{:<26} {}",
         "$ but commit -m <message>".bright_blue(),
         "Commit changes to current branch".dimmed()
     )?;
     writeln!(
         out,
-        "{:<45} {}",
+        "{:<26} {}",
         "$ but push".bright_blue(),
         "Push all branches".dimmed()
     )?;
     writeln!(
         out,
-        "{:<45} {}",
+        "{:<26} {}",
         "$ but teardown".bright_blue(),
         "Return to normal Git mode".dimmed()
     )?;
@@ -167,6 +244,8 @@ pub(crate) fn repo(
     repo_path: &Path,
     out: &mut OutputChannel,
     perm: &mut RepoExclusive,
+    no_hooks: bool,
+    force_hooks: bool,
 ) -> anyhow::Result<()> {
     let mut target_info: Option<TargetInfo> = None;
 
@@ -246,6 +325,16 @@ pub(crate) fn repo(
             repo_path.display()
         )),
     }?;
+
+    {
+        let repo = ctx.repo.get()?;
+        if no_hooks {
+            but_hooks::managed_hooks::set_install_managed_hooks_enabled(&repo, false)?;
+        }
+        // NOTE: --force-hooks config persistence is deferred to the hook section
+        // below, because switch_back_to_workspace_with_perm() may call
+        // ensure_managed_hooks(force=false) which would overwrite it.
+    }
 
     // Check if target branch is set
     let target = but_api::legacy::virtual_branches::get_base_branch_data(ctx)?;
@@ -370,7 +459,7 @@ pub(crate) fn repo(
             }
             writeln!(out)?;
         }
-    }
+    };
 
     let head_name = {
         let repo = ctx.repo.get()?;
@@ -385,22 +474,260 @@ pub(crate) fn repo(
         but_api::legacy::virtual_branches::switch_back_to_workspace_with_perm(ctx, perm)?;
     }
 
-    // Install managed hooks to prevent accidental git commits
-    if let Ok(repo) = ctx.repo.get()
-        && let Err(e) = gitbutler_repo::managed_hooks::install_managed_hooks(&repo)
-        && let Some(out) = out.for_human()
-    {
-        writeln!(
-            out,
-            "  {}",
-            format!("Warning: Failed to install GitButler managed hooks: {e}").yellow()
-        )?;
+    // Install managed hooks to prevent accidental git commits.
+    //
+    // --no-hooks is a CLI-level bypass: persist opt-out, clean up, and skip.
+    // --force-hooks and the default case delegate to the shared
+    // ensure_managed_hooks() which handles detection, config persistence,
+    // and cleanup consistently with the app flow.
+    let mut hook_manager_info = None;
+    let mut hooks_installed = false;
+    let mut hook_info_json: Vec<HookInfo> = Vec::new();
+
+    if no_hooks {
+        // Explicit CLI opt-out: persist and clean up.
+        if let Some(out) = out.for_human() {
+            writeln!(
+                out,
+                "  {}",
+                "Skipping hook installation (--no-hooks)".dimmed()
+            )?;
+        }
+
+        let repo = ctx.repo.get()?;
+        let hooks_dir = but_hooks::managed_hooks::get_hooks_dir_gix(&repo);
+        if let Err(e) = but_hooks::managed_hooks::uninstall_managed_hooks(&hooks_dir).context(
+            "Failed to remove GitButler managed hooks while entering externally-managed hook mode",
+        ) && let Some(out) = out.for_human()
+        {
+            writeln!(
+                out,
+                "  {}",
+                format!("Warning: Failed to remove GitButler managed hooks: {e}").yellow()
+            )?;
+        }
+    } else {
+        // --force-hooks: re-enable in config before calling the shared function.
+        // This is done here (after the workspace switch) rather than earlier,
+        // because switch_back_to_workspace_with_perm() may call
+        // ensure_managed_hooks(force=false) which would overwrite the setting.
+        if force_hooks {
+            let repo = ctx.repo.get()?;
+            but_hooks::managed_hooks::set_install_managed_hooks_enabled(&repo, true)?;
+            if let Some(out) = out.for_human() {
+                writeln!(
+                    out,
+                    "  {}",
+                    "Forcing hook installation (--force-hooks), skipping detection.".dimmed()
+                )?;
+            }
+        }
+
+        let repo = ctx.repo.get()?;
+        let hooks_dir = but_hooks::managed_hooks::get_hooks_dir_gix(&repo);
+        let outcome = but_hooks::managed_hooks::ensure_managed_hooks(
+            &repo,
+            &hooks_dir,
+            force_hooks,
+            std::time::SystemTime::now(),
+        );
+
+        match outcome {
+            but_hooks::managed_hooks::HookSetupOutcome::Installed { ref hook_results } => {
+                hooks_installed = true;
+                if let Some(out) = out.for_human() {
+                    for (name, backup_status) in hook_results {
+                        writeln!(
+                            out,
+                            "  {}",
+                            backup_status.format_install_line(name).green().dimmed()
+                        )?;
+                    }
+                }
+                hook_info_json.extend(hook_results_to_hook_info(hook_results));
+            }
+            but_hooks::managed_hooks::HookSetupOutcome::AlreadyInstalled => {
+                hooks_installed = true;
+                if let Some(out) = out.for_human() {
+                    for hook_name in but_hooks::hook_manager::MANAGED_HOOK_NAMES {
+                        writeln!(
+                            out,
+                            "  {}",
+                            format!("✓ {hook_name} (already managed)").green()
+                        )?;
+                    }
+                }
+                hook_info_json.extend(already_configured_hook_info());
+            }
+            but_hooks::managed_hooks::HookSetupOutcome::PartialSuccess {
+                ref installed_hooks,
+                ref hook_results,
+                ref warnings,
+            } => {
+                hooks_installed = true;
+                if let Some(out) = out.for_human() {
+                    for name in installed_hooks {
+                        writeln!(out, "  {}", format!("✓ Installed {name}").green())?;
+                    }
+                    for w in warnings {
+                        writeln!(out, "  {}", format!("Warning: {w}").yellow())?;
+                    }
+                }
+                // Populate installed hooks with real backup data from hook_results.
+                hook_info_json.extend(hook_results_to_hook_info(hook_results));
+                // Populate skipped hooks (those in MANAGED_HOOK_NAMES but not in hook_results).
+                let installed_names: std::collections::HashSet<&str> =
+                    hook_results.iter().map(|(n, _)| n.as_str()).collect();
+                hook_info_json.extend(
+                    but_hooks::hook_manager::MANAGED_HOOK_NAMES
+                        .iter()
+                        .filter(|name| !installed_names.contains(*name))
+                        .map(|name| HookInfo {
+                            name: name.to_string(),
+                            status: HookStatus::Skipped,
+                        }),
+                );
+            }
+            but_hooks::managed_hooks::HookSetupOutcome::DisabledByConfig => {
+                // Previously configured opt-out (not --no-hooks, handled above).
+                if let Some(out) = out.for_human() {
+                    writeln!(
+                        out,
+                        "  {}",
+                        "Skipping hook installation (--no-hooks is configured for this repository)"
+                            .dimmed()
+                    )?;
+                    writeln!(out, "  {}", FORCE_HOOKS_RECOVERY_HINT.dimmed())?;
+                }
+            }
+            but_hooks::managed_hooks::HookSetupOutcome::ExternalManagerDetected {
+                ref manager_name,
+                instructions,
+            } => {
+                hook_manager_info = Some(HookManagerInfo {
+                    name: manager_name.clone(),
+                    hooks_installed: false,
+                });
+                if let Some(out) = out.for_human() {
+                    writeln!(out)?;
+                    writeln!(
+                        out,
+                        "  {}",
+                        format!("Detected {manager_name} managing your git hooks.").cyan()
+                    )?;
+                    writeln!(
+                        out,
+                        "  {}",
+                        "GitButler will not overwrite hooks owned by your hook manager.".dimmed()
+                    )?;
+                    writeln!(
+                        out,
+                        "  {}",
+                        "This repository is now configured for externally-managed hooks.".dimmed()
+                    )?;
+                    writeln!(out)?;
+                    writeln!(
+                        out,
+                        "  {}",
+                        "To integrate GitButler's workspace guard with your hook manager:".yellow()
+                    )?;
+                    for line in instructions.lines() {
+                        if line.is_empty() {
+                            writeln!(out)?;
+                        } else {
+                            writeln!(out, "  {}", line.dimmed())?;
+                        }
+                    }
+                    writeln!(out)?;
+                    writeln!(out, "  {}", FORCE_HOOKS_RECOVERY_HINT.dimmed())?;
+                    writeln!(out)?;
+                }
+            }
+            but_hooks::managed_hooks::HookSetupOutcome::HookSkipped { ref hook_names } => {
+                if let Some(out) = out.for_human() {
+                    writeln!(
+                        out,
+                        "  {}",
+                        format!(
+                            "Warning: Skipped {} — hook(s) exist and are not GitButler-managed. \
+                             Use --force-hooks to override.",
+                            hook_names.join(", ")
+                        )
+                        .yellow()
+                    )?;
+                }
+                hook_info_json.extend(hook_names.iter().map(|name| HookInfo {
+                    name: name.clone(),
+                    status: HookStatus::Skipped,
+                }));
+            }
+            but_hooks::managed_hooks::HookSetupOutcome::Failed { ref error } => {
+                if let Some(out) = out.for_human() {
+                    writeln!(
+                        out,
+                        "  {}",
+                        format!("Warning: Failed to install GitButler managed hooks: {error}")
+                            .yellow()
+                    )?;
+                }
+            }
+        }
+
+        // Warn about orphaned hooks if core.hooksPath redirects to a different directory.
+        // Only relevant when hooks were installed or attempted (not when an external
+        // manager was detected, since those hooks are intentionally elsewhere).
+        if matches!(
+            outcome,
+            but_hooks::managed_hooks::HookSetupOutcome::Installed { .. }
+                | but_hooks::managed_hooks::HookSetupOutcome::AlreadyInstalled
+                | but_hooks::managed_hooks::HookSetupOutcome::PartialSuccess { .. }
+                | but_hooks::managed_hooks::HookSetupOutcome::HookSkipped { .. }
+        ) {
+            let default_hooks_dir = repo.git_dir().join("hooks");
+            if hooks_dir != default_hooks_dir
+                && but_hooks::managed_hooks::has_managed_hooks_in(&default_hooks_dir)
+                && let Some(out) = out.for_human()
+            {
+                writeln!(
+                    out,
+                    "  {}",
+                    format!(
+                        "Warning: GitButler-managed hooks found in old hooks directory ({}).",
+                        default_hooks_dir.display()
+                    )
+                    .yellow()
+                )?;
+                writeln!(
+                    out,
+                    "  {}",
+                    format!(
+                        "core.hooksPath is now set to {}, so those hooks are orphaned.",
+                        hooks_dir.display()
+                    )
+                    .dimmed()
+                )?;
+                writeln!(
+                    out,
+                    "  {}",
+                    format!(
+                        "You can safely remove them with: {}",
+                        but_hooks::hook_manager::orphaned_hooks_remove_command()
+                    )
+                    .dimmed()
+                )?;
+            }
+        }
     }
 
     // if we switched - tell the user what this is all about
     if pre_head_name != "gitbutler/workspace"
         && let Some(out) = out.for_human()
     {
+        let hooks_note = if hooks_installed {
+            "\n- Installing Git hooks to help manage commits on the workspace branch"
+        } else {
+            ""
+        };
         writeln!(
             out,
             "{}",
@@ -408,8 +735,7 @@ pub(crate) fn repo(
                 r#"
 Setting up your project for GitButler tooling. Some things to note:
 
-- Switching you to a special `gitbutler/workspace` branch to enable parallel branches
-- Installing Git hooks to help manage commits on the workspace branch
+- Switching you to a special `gitbutler/workspace` branch to enable parallel branches{hooks_note}
 
 To undo these changes and return to normal Git mode, either:
 
@@ -434,6 +760,8 @@ More info: https://docs.gitbutler.com/workspace-branch
             repository_path: path::absolute(repo_path)?.display().to_string(),
             project_status,
             target: target_info,
+            hook_manager: hook_manager_info,
+            hooks: hook_info_json,
         };
         json_out.write_value(&result)?;
     }

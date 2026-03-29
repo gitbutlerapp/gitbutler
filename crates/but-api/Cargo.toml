@@ -139,7 +139,7 @@ gix = { workspace = true, features = ["worktree-mutation"] }
 open.workspace = true
 url = { version = "2.5", optional = true }
 uuid.workspace = true
-which = "8.0.0"
+which.workspace = true
 but-schemars.workspace = true
 
 [dev-dependencies]

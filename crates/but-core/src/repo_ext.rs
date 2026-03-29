@@ -468,12 +468,14 @@ impl RepositoryExt for gix::Repository {
     }
 }
 
-const GITBUTLER_COMMIT_AUTHOR_NAME: &str = "GitButler";
-const GITBUTLER_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
+/// The display name used for commits authored by GitButler itself.
+pub const GITBUTLER_COMMIT_AUTHOR_NAME: &str = "GitButler";
+/// The email address used for commits authored by GitButler itself.
+pub const GITBUTLER_COMMIT_AUTHOR_EMAIL: &str = "gitbutler@gitbutler.com";
 
 /// Provide a signature with the GitButler author, and the current time or the time overridden
 /// depending on the value for `purpose`.
-fn committer_signature() -> gix::actor::Signature {
+pub fn committer_signature() -> gix::actor::Signature {
     gix::actor::Signature {
         name: GITBUTLER_COMMIT_AUTHOR_NAME.into(),
         email: GITBUTLER_COMMIT_AUTHOR_EMAIL.into(),
@@ -483,7 +485,7 @@ fn committer_signature() -> gix::actor::Signature {
 
 /// Return the time of a commit as `now` unless the `overriding_variable_name` contains a parseable date,
 /// which is used instead.
-fn commit_time(overriding_variable_name: &str) -> gix::date::Time {
+pub fn commit_time(overriding_variable_name: &str) -> gix::date::Time {
     std::env::var(overriding_variable_name)
         .ok()
         .and_then(|time| gix::date::parse(&time, Some(std::time::SystemTime::now())).ok())

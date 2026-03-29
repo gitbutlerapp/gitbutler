@@ -1,0 +1,34 @@
+[package]
+name = "but-hooks"
+version = "0.0.0"
+edition.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[features]
+## Enables env-var overrides for `is_binary_in_path` used by integration tests
+## to simulate binary presence/absence without touching the real PATH.
+## Must NOT be enabled in production builds.
+test-overrides = []
+
+[dependencies]
+but-core.workspace = true
+
+anyhow.workspace = true
+gix.workspace = true
+tracing.workspace = true
+which.workspace = true
+
+[[test]]
+name = "hooks"
+required-features = ["test-overrides"]
+
+[dev-dependencies]
+temp-env = "0.3"
+tempfile.workspace = true
+
+[lints]
+workspace = true

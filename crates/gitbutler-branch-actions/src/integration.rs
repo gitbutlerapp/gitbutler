@@ -200,9 +200,68 @@ pub fn update_workspace_commit_with_vb_state(
     )?;
     repo.set_head(&GITBUTLER_WORKSPACE_REFERENCE.clone().to_string())?;
 
-    // Install managed hooks to prevent accidental git commits on workspace branch
-    if let Err(e) = gitbutler_repo::managed_hooks::install_managed_hooks(&gix_repo) {
-        tracing::warn!("Failed to install managed hooks: {}", e);
+    // Install managed hooks to prevent accidental git commits on workspace branch.
+    // Delegates to the shared ensure_managed_hooks() which handles detection of
+    // external hook managers, config persistence, and cleanup consistently with
+    // the CLI `but setup` flow.
+    //
+    // Open a fresh gix repo to read up-to-date config: gix::Repository caches its
+    // config snapshot at open time, so config written during the same session
+    // (e.g. gitbutler.installHooks=false via `but setup --no-hooks`) would be
+    // invisible to the cached instance. A fresh open re-reads the on-disk config.
+    // If the open fails, skip installation rather than falling back to a
+    // potentially stale snapshot — the safe default is to do nothing.
+    match repo.workdir().map(gix::open) {
+        Some(Ok(fresh_gix_repo)) => {
+            let hooks_dir = gitbutler_repo::managed_hooks::get_hooks_dir_gix(&fresh_gix_repo);
+            match gitbutler_repo::managed_hooks::ensure_managed_hooks(
+                &fresh_gix_repo,
+                &hooks_dir,
+                false,
+                std::time::SystemTime::now(),
+            ) {
+                gitbutler_repo::managed_hooks::HookSetupOutcome::Installed { .. }
+                | gitbutler_repo::managed_hooks::HookSetupOutcome::AlreadyInstalled
+                | gitbutler_repo::managed_hooks::HookSetupOutcome::DisabledByConfig => {}
+                gitbutler_repo::managed_hooks::HookSetupOutcome::PartialSuccess {
+                    ref warnings,
+                    ..
+                } => {
+                    for w in warnings {
+                        tracing::warn!("{w}");
+                    }
+                }
+                gitbutler_repo::managed_hooks::HookSetupOutcome::ExternalManagerDetected {
+                    manager_name,
+                    ..
+                } => {
+                    tracing::info!(
+                        manager = %manager_name,
+                        "External hook manager detected and config persisted. \
+                         Run `but setup` for integration instructions."
+                    );
+                }
+                gitbutler_repo::managed_hooks::HookSetupOutcome::HookSkipped { hook_names } => {
+                    tracing::warn!(
+                        hooks = %hook_names.join(", "),
+                        "Hook(s) exist and are not GitButler-managed. \
+                         Run `but setup` for integration instructions."
+                    );
+                }
+                gitbutler_repo::managed_hooks::HookSetupOutcome::Failed { error } => {
+                    tracing::warn!(error = %error, "Failed to install managed hooks");
+                }
+            }
+        }
+        Some(Err(e)) => {
+            tracing::warn!(
+                error = %e,
+                "Could not open git repository for hook installation; skipping"
+            );
+        }
+        None => {
+            // Bare repository — no workdir, hook installation is not applicable.
+        }
     }
 
     let mut index = repo.index()?;
