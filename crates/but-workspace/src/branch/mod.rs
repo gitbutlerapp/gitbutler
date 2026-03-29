@@ -476,9 +476,13 @@ impl OnWorkspaceMergeConflict {
     }
 }
 
-/// Functions and types related to applying a workspace branch.
+/// Functions and types related to adding a branch to the workspace.
 pub mod apply;
 pub use apply::function::apply;
+
+/// Functions and types related to removing a branch to the workspace.
+pub mod unapply;
+pub use unapply::function::unapply;
 
 /// related types for removing a workspace reference.
 pub mod remove_reference;

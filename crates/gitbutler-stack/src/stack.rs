@@ -86,6 +86,7 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             upstream,
             order,
             in_workspace,
+            workspace_merge_from: None,
             heads: heads.into_iter().map(Into::into).collect(),
             // Dummy values for backwards compatibility
             #[expect(deprecated)]

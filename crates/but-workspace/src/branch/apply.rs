@@ -6,8 +6,10 @@ use crate::branch::OnWorkspaceMergeConflict;
 
 /// Returned by [function::apply()].
 pub struct Outcome<'workspace> {
-    /// The newly created workspace, if owned, useful to project a workspace and see how the workspace looks like with the branch applied.
-    /// If borrowed, the graph already contains the desired branch and nothing had to be applied.
+    /// The newly created workspace, if owned, or the one that was passed in if borrowed, to show how the workspace looks like now.
+    ///
+    /// If borrowed, the graph already contained the desired branch and nothing had to be applied. Note that metadata changes
+    /// might not be included in this case, as they aren't the source of truth.
     pub workspace: Cow<'workspace, but_graph::projection::Workspace>,
     /// The name of the branch(es) that were actually applied.
     ///
@@ -117,7 +119,8 @@ pub struct Options {
     /// How the workspace reference should be named should it be created.
     /// The creation is always needed if there are more than one branch applied.
     pub workspace_reference_naming: WorkspaceReferenceNaming,
-    /// How the worktree checkout should behave int eh light of uncommitted changes in the worktree.
+    /// How the worktree checkout should behave when uncommitted changes are present in the worktree that it would
+    /// want to modify to accommodate the new workspace commit, with the applied stack added.
     pub uncommitted_changes: UncommitedWorktreeChanges,
     /// If not `None`, the applied branch should be merged into the workspace commit at the N'th parent position.
     /// This is useful if the tip of a branch (at a specific position) was unapplied, and a segment within that branch
@@ -158,7 +161,9 @@ pub(crate) mod function {
 
     /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
     /// along with its `meta`-data if it doesn't exist yet.
-    /// The changed workspace will be checked out.
+    /// The changed workspace will be checked out, but only if its tree changed, and independently of the entrypoint,
+    /// i.e. a branch in the workspace may have been checked out, and we will check out the enclosing workspace to make the
+    /// applied branch observable.
     /// If `branch` is a remote tracking branch, we will instead apply the local tracking branch if it exists or fail otherwise.
     /// Otherwise, add it to the existing `workspace`, and update its metadata accordingly.
     /// **This means that the contents of `branch` is observable from the new state of `repo`**.
@@ -219,9 +224,8 @@ pub(crate) mod function {
             branch_ref = try_find_validated_ref(repo, branch.as_ref())?;
         }
         let conflicting_stack_ids = Vec::new();
-        if ws.is_reachable_from_entrypoint(branch.as_ref()) {
+        if ws.ref_name().filter(|_| ws.is_entrypoint()) == Some(branch.as_ref()) {
             let workspace_ref_created = false;
-            // When exiting early, don't try to adjust the ws commit.
             return Ok(Outcome {
                 workspace: Cow::Borrowed(ws),
                 workspace_ref_created,
@@ -229,7 +233,24 @@ pub(crate) mod function {
                 conflicting_stack_ids,
                 applied_branches: vec![branch.to_owned()],
             });
-        } else if ws.refname_is_segment(branch.as_ref()) {
+        }
+
+        if let Some((_stack, segment)) = ws.find_segment_and_stack_by_refname(branch.as_ref())
+            && !segment.is_projected_from_outside(&ws.graph)
+            && branch_is_currently_visible_in_workspace(ws, branch.as_ref())
+        {
+            if ws.is_reachable_from_entrypoint(branch.as_ref()) {
+                let workspace_ref_created = false;
+                // When exiting early, don't try to adjust the ws commit.
+                return Ok(Outcome {
+                    workspace: Cow::Borrowed(ws),
+                    workspace_ref_created,
+                    workspace_merge: None,
+                    conflicting_stack_ids,
+                    applied_branches: vec![branch.to_owned()],
+                });
+            }
+
             // This means our workspace encloses the desired branch, but it's not checked out yet.
             let commit_to_checkout = ws
                 .tip_commit()
@@ -699,6 +720,7 @@ pub(crate) mod function {
                             Tip {
                                 name: None,
                                 commit_id: cid,
+                                merge_commit_id: Some(cid),
                                 segment_idx: s.id,
                             },
                         )
@@ -877,6 +899,38 @@ pub(crate) mod function {
         }
         // Just be sure the new (or old) stack is in the workspace, and we will bring in the whole stack.
         stack.workspacecommit_relation = Merged;
+    }
+
+    fn branch_is_currently_visible_in_workspace(
+        ws: &but_graph::projection::Workspace,
+        branch: &FullNameRef,
+    ) -> bool {
+        let Some(metadata) = ws.metadata.as_ref() else {
+            return true;
+        };
+        let Some((stack_idx, branch_idx)) =
+            metadata.find_owner_indexes_by_name(branch, StackKind::AppliedAndUnapplied)
+        else {
+            return true;
+        };
+        let stack = &metadata.stacks[stack_idx];
+        match stack.workspacecommit_relation {
+            Merged => true,
+            Outside => false,
+            ref_metadata::WorkspaceCommitRelation::MergeFrom {
+                commit_id: Some(visible_commit_id),
+            } => stack
+                .branches
+                .get(branch_idx)
+                .and_then(|stack_branch| {
+                    ws.graph
+                        .segment_and_commit_by_ref_name(stack_branch.ref_name.as_ref())
+                        .map(|(_segment, commit)| commit.id)
+                        .or(stack_branch.head_commit_id.filter(|id| !id.is_null()))
+                })
+                .is_some_and(|branch_commit_id| branch_commit_id == visible_commit_id),
+            ref_metadata::WorkspaceCommitRelation::MergeFrom { commit_id: None } => false,
+        }
     }
 
     fn correlate_conflicting_stack_ids(
