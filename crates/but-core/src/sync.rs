@@ -74,8 +74,8 @@ pub fn try_exclusive_inter_process_access(
 /// `git_dir`, blocking while waiting for someone else in this process to release it, or for all
 /// readers to disappear. Locking is fair.
 /// Also use `project_data_dir` if `Some` to create an *inter-process* exclusive lock.
-/// Opening or locking that file is best-effort and failures are ignored, so the hard
-/// guarantee provided by this function remains in-process exclusivity only.
+/// Creating, opening, or locking that file is best-effort. Failures are logged and ignored, so
+/// the hard guarantee provided by this function remains in-process exclusivity only.
 /// If `project_data_dir` is `None`, no inter-process lock is obtained.
 ///
 /// Use this only at the boundary where the lock is acquired. Keep the returned [`RepoExclusiveGuard`]
@@ -94,13 +94,9 @@ pub fn exclusive_repo_access(
     // so contention on one repo cannot block access to unrelated repos.
     let in_process_lock = lock.write_arc();
     // After the in-process lock was obtained we know there is no in-process contention.
-    // Now it's much safer to blockingly wait on the inter-porcess lock to protect against
-    // multiple writers. Note that as a filesystem lock, no fairness is guaraneteed
-    let inter_proces_lock_path = project_data_dir.map(|dir| dir.join("gitbutler.write-lock"));
-    let mut inter_process_lock = inter_proces_lock_path.and_then(|path| LockFile::open(path).ok());
-    if let Some(file_lock) = inter_process_lock.as_mut() {
-        file_lock.lock().ok();
-    }
+    // Now it's much safer to blockingly wait on the inter-process lock to protect against
+    // multiple writers. Note that as a filesystem lock, no fairness is guaranteed.
+    let inter_process_lock = project_data_dir.and_then(best_effort_inter_process_lock);
     RepoExclusiveGuard {
         in_process_fair_lock: Some(in_process_lock),
         inter_process_unfair_lock: inter_process_lock,
@@ -145,16 +141,16 @@ pub struct RepoExclusiveGuard {
 
 impl Drop for RepoExclusiveGuard {
     fn drop(&mut self) {
-        let lock = self
-            .in_process_fair_lock
-            .take()
-            .expect("it's always set, and only taken once when dropping");
-        ArcRwLockWriteGuard::unlock_fair(lock);
         if let Some(mut inter_process_lock) = self.inter_process_unfair_lock.take()
             && let Err(err) = inter_process_lock.unlock()
         {
             tracing::error!(?err, "Failed to release inter-process lock")
         }
+        let lock = self
+            .in_process_fair_lock
+            .take()
+            .expect("it's always set, and only taken once when dropping");
+        ArcRwLockWriteGuard::unlock_fair(lock);
     }
 }
 
@@ -283,11 +279,43 @@ impl LockFile {
     }
 }
 
+fn best_effort_inter_process_lock(project_data_dir: &Path) -> Option<LockFile> {
+    if let Err(err) = std::fs::create_dir_all(project_data_dir) {
+        tracing::warn!(
+            ?err,
+            path = %project_data_dir.display(),
+            "Failed to create project data directory for inter-process lock; continuing with in-process lock only"
+        );
+        return None;
+    }
+
+    let inter_process_lock_path = project_data_dir.join("gitbutler.write-lock");
+    let mut lock = match LockFile::open(&inter_process_lock_path) {
+        Ok(lock) => lock,
+        Err(err) => {
+            tracing::warn!(
+                ?err,
+                path = %inter_process_lock_path.display(),
+                "Failed to open inter-process lock file; continuing with in-process lock only"
+            );
+            return None;
+        }
+    };
+    if let Err(err) = lock.lock() {
+        tracing::warn!(
+            ?err,
+            path = %inter_process_lock_path.display(),
+            "Failed to acquire inter-process lock; continuing with in-process lock only"
+        );
+        return None;
+    }
+    Some(lock)
+}
+
 fn log_error_if_unsupported(err: std::io::Error, self_path: &Path) -> Result<bool, std::io::Error> {
     if err.kind() == std::io::ErrorKind::Unsupported {
         tracing::warn!(
-            "Filesystem hosting '{}' doesn't support file locking - pretending to own exclusive lock to avoid possibly needless failure.
-            Consider using {gb_storage_path_key} to move project data to a different location",
+            "Filesystem hosting '{}' doesn't support file locking - pretending to own exclusive lock to avoid possibly needless failure. Consider using {gb_storage_path_key} to move project data to a different location",
             self_path.display(),
             gb_storage_path_key = but_project_handle::storage_path_config_key(),
         );
