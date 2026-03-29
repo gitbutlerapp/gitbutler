@@ -8,7 +8,7 @@ use gitbutler_stack::VirtualBranchesHandle;
 use itertools::Itertools;
 use tempfile::TempDir;
 
-use crate::driverless;
+use crate::{driverless, support};
 
 #[test]
 fn noop_reorder_errors() -> Result<()> {
@@ -428,7 +428,7 @@ impl CommitHelpers for Vec<(gix::ObjectId, String, bool, u128)> {
 
 /// Commits from list_virtual_branches
 fn vb_commits(ctx: &Context) -> Vec<Vec<(gix::ObjectId, String, bool, u128)>> {
-    let details = but_testsupport::legacy::stack_details(ctx);
+    let details = support::stack_details(ctx);
     let (_, my_stack) = details
         .iter()
         .find(|(_, d)| d.derived_name == "top-series")

@@ -2,15 +2,15 @@ use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
-use but_testsupport::legacy::{Case, Suite};
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageData, MessageHookResult};
+
+use crate::support::hook_case;
 
 #[test]
 fn post_commit_hook_rejection() -> anyhow::Result<()> {
-    let suite = Suite::default();
-    let mut case = suite.new_case();
+    let mut case = hook_case()?;
     case.ctx.legacy_project.husky_hooks_enabled = true;
-    let Case { ctx, .. } = &case;
+    let ctx = &case.ctx;
 
     let hook = b"
 #!/bin/sh
@@ -31,10 +31,9 @@ exit 1
 
 #[test]
 fn message_hook_rejection() -> anyhow::Result<()> {
-    let suite = Suite::default();
-    let mut case = suite.new_case();
+    let mut case = hook_case()?;
     case.ctx.legacy_project.husky_hooks_enabled = true;
-    let Case { ctx, .. } = &case;
+    let ctx = &case.ctx;
 
     let hook = b"
 #!/bin/sh
@@ -56,10 +55,9 @@ exit 1
 
 #[test]
 fn rewrite_message() -> anyhow::Result<()> {
-    let suite = Suite::default();
-    let mut case = suite.new_case();
+    let mut case = hook_case()?;
     case.ctx.legacy_project.husky_hooks_enabled = true;
-    let Case { ctx, .. } = &case;
+    let ctx = &case.ctx;
 
     let hook = b"
 #!/bin/sh
@@ -80,10 +78,9 @@ echo 'rewritten message' > $1
 
 #[test]
 fn keep_message() -> anyhow::Result<()> {
-    let suite = Suite::default();
-    let mut case = suite.new_case();
+    let mut case = hook_case()?;
     case.ctx.legacy_project.husky_hooks_enabled = true;
-    let Case { ctx, .. } = &case;
+    let ctx = &case.ctx;
 
     let hook = b"
 #!/bin/sh
@@ -102,9 +99,8 @@ echo 'commit message' > $1
 
 #[test]
 fn husky_hooks_disabled_even_if_present() -> anyhow::Result<()> {
-    let suite = Suite::default();
-    let case = suite.new_case();
-    let Case { ctx, .. } = &case;
+    let case = hook_case()?;
+    let ctx = &case.ctx;
 
     #[expect(deprecated, reason = "hook compatibility coverage")]
     let repo = ctx.git2_repo.get()?;
