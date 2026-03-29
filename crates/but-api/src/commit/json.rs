@@ -1,3 +1,4 @@
+use bstr::ByteSlice;
 use serde::{Deserialize, Serialize};
 
 use crate::json::HexHash;
@@ -93,7 +94,7 @@ impl From<CommitCreateResult> for UICommitCreateResult {
                 .into_iter()
                 .map(|(reason, diff)| UIRejectedChange {
                     reason,
-                    path: diff.path.to_string(),
+                    path: diff.path.to_str_lossy().into(),
                     path_bytes: diff.path,
                 })
                 .collect(),
