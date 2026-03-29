@@ -6,6 +6,8 @@ mod move_commit;
 mod reword;
 mod uncommit_changes;
 
+mod myers_false_conflict;
+
 mod from_new_merge_with_metadata {
     use bstr::ByteSlice;
     use but_graph::init::{Options, Overlay};
