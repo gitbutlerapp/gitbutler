@@ -28,7 +28,7 @@ impl Context {
     ///
     /// # IMPORTANT: KEEP THE GUARD ALIVE!
     pub fn exclusive_worktree_access(&mut self) -> RepoExclusiveGuard {
-        but_core::sync::exclusive_repo_access(&self.gitdir)
+        but_core::sync::exclusive_repo_access(&self.gitdir, Some(&self.project_data_dir))
     }
 
     /// Return a guard for shared (read) worktree access, and block while waiting for writers to disappear.

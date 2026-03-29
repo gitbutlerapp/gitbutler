@@ -114,7 +114,7 @@ fn default_lock_scope_is_all_operations() {
 #[test]
 fn repo_lock_contention_does_not_block_unrelated_repos() {
     // Thread 1: hold exclusive access to repo "A".
-    let exclusive_a = but_core::sync::exclusive_repo_access("/test/repo-a");
+    let exclusive_a = but_core::sync::exclusive_repo_access("/test/repo-a", None);
 
     // Thread 2: try to acquire shared access to repo "A".
     // This will block because thread 1 holds the exclusive lock.

@@ -1151,6 +1151,7 @@ fn commit_single_hunk_leaves_other_hunks_uncommitted() -> anyhow::Result<()> {
 
 /// Helper to build an isolated `std::process::Command` for `but` with the same
 /// environment as the Sandbox test harness.
+/// That way it can be spawned, which isn't possible in the [`Sandbox`] version.
 fn but_std_cmd(env: &Sandbox, args: &str) -> std::process::Command {
     let mut cmd = std::process::Command::new(snapbox::cmd::cargo_bin!("but"));
     cmd.args(shell_words::split(args).unwrap());
