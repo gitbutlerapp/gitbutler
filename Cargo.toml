@@ -302,10 +302,13 @@ urlencoding = "2.1"
 inventory = "0.3"
 
 [workspace.lints.clippy]
-all = "deny"
+all = { level = "deny", priority = -1 }
 # Note that `all` doesn't include everything, so extra lints should be added here.
 # You can try `pedantic = deny` to see those extra lints (alongside `all`).
 uninlined_format_args = "deny"
+# This comes mostly from `thiserror` in `gix`, and it's going to be converted
+# to `Exn`, which will box erorrs and keep them small (much like `anyhow`).
+result_large_err = "allow"
 
 [profile.release]
 # There are no overrides here as we optimise for fast release builds,
