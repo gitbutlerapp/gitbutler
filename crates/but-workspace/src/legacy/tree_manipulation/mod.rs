@@ -38,3 +38,4 @@ pub(super) mod remove_changes_from_commit_in_stack;
 pub(super) mod split_branch;
 pub(super) mod split_commit;
 mod utils;
+pub use utils::check_for_destination_conflict;

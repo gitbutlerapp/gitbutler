@@ -73,6 +73,7 @@ mod create_virtual_branch_from_branch;
 mod init;
 mod list;
 mod list_details;
+mod move_branch;
 mod move_commit_to_vbranch;
 mod oplog;
 mod save_and_unapply_virtual_branch;

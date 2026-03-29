@@ -2,10 +2,63 @@
 
 use std::collections::HashMap;
 
+use anyhow::{Result, bail};
+use but_ctx::Context;
 use but_rebase::{RebaseOutput, RebaseStep};
+use gix::prelude::ObjectIdExt as _;
 
 // Re-export from non-legacy location for backward compatibility
 pub use crate::tree_manipulation::{ChangesSource, create_tree_without_diff};
+
+/// Speculatively rebase `steps` onto `onto` and bail if any Pick commit lands as conflicted.
+///
+/// A conflict means the moved commit depends on context that remains in the source stack,
+/// which is an inter-stack conflict — the invariant that stack changes are mutually exclusive
+/// guarantees no other conflict cause exists.
+///
+/// This must be called before modifying any stack state so that a failure leaves the
+/// repository unchanged.
+pub fn check_for_destination_conflict(
+    ctx: &Context,
+    steps: Vec<RebaseStep>,
+    onto: gix::ObjectId,
+) -> Result<()> {
+    let commit_ids: Vec<gix::ObjectId> = steps
+        .iter()
+        .filter_map(|s| {
+            if let RebaseStep::Pick { commit_id, .. } = s {
+                Some(*commit_id)
+            } else {
+                None
+            }
+        })
+        .collect();
+    if commit_ids.is_empty() {
+        return Ok(());
+    }
+    let repo = ctx.repo.get()?;
+    let mut rebase = but_rebase::Rebase::new(&repo, Some(onto), None)?;
+    rebase.rebase_noops(false);
+    rebase.steps(steps)?;
+    let output = rebase.rebase(&*ctx.cache.get_cache()?)?;
+
+    for old_id in commit_ids {
+        let new_id = output
+            .commit_mapping
+            .iter()
+            .find(|(_, old, _)| *old == old_id)
+            .map(|(_, _, new)| *new)
+            .unwrap_or(old_id);
+        let commit = but_core::Commit::from_id(new_id.attach(&repo))?;
+        if commit.is_conflicted() {
+            bail!(
+                "This move would cause a conflict: the moved changes depend on commits \
+                 that remain in the source stack."
+            );
+        }
+    }
+    Ok(())
+}
 
 /// Takes a rebase output and returns the commit mapping with any extra
 /// mapping overrides provided.
