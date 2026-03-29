@@ -1,5 +1,3 @@
-use but_testsupport::legacy::stack_details;
-
 use super::*;
 
 #[test]

@@ -2,7 +2,6 @@ use std::{io::Write, path::Path};
 
 use bstr::ByteSlice as _;
 use but_core::{GitConfigSettings, RepositoryExt as _};
-use but_testsupport::legacy::stack_details;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_oplog::OplogExt;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
