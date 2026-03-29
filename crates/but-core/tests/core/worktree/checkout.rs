@@ -1,4 +1,6 @@
-use but_core::worktree::{checkout, checkout::UncommitedWorktreeChanges, safe_checkout};
+use but_core::worktree::{
+    checkout, checkout::UncommitedWorktreeChanges, safe_checkout, safe_checkout_from_head,
+};
 use but_testsupport::{
     git_status, read_only_in_memory_scenario, visualize_commit_graph_all,
     visualize_disk_tree_skip_dot_git, visualize_index, visualize_tree, writable_scenario,
@@ -855,6 +857,122 @@ fn overwrite_options() -> checkout::Options {
         uncommitted_changes: UncommitedWorktreeChanges::KeepConflictingInSnapshotAndOverwrite,
         skip_head_update: false,
     }
+}
+
+/// Demonstrates the data-loss bug in [`safe_checkout_from_head`]:
+/// a checkout computed from a stale HEAD silently deletes files that a concurrent checkout
+/// already placed on disk.
+///
+/// # Mechanism
+///
+/// In the GitButler workspace model every `but commit` call:
+/// 1. Reads the current workspace HEAD (call it H₀).
+/// 2. Computes a new workspace tree H_x that includes the changes for this branch.
+/// 3. Calls `safe_checkout_from_head(H_x)` to materialise the new workspace.
+///
+/// `safe_checkout_from_head` reads `repo.head_tree_id_or_empty()` **at call time**.
+/// If two processes A and B both start from H₀ and compute H_A and H_B respectively,
+/// and A finishes first (HEAD = H_A), then B's call reads HEAD = H_A as the "current"
+/// tree and computes the diff H_A → H_B.  That diff marks A's file as **DELETED**
+/// (it is in H_A but not in H_B because H_B was built from the stale H₀) — resulting
+/// in the file being physically removed from disk even though it is part of a valid
+/// committed workspace state.
+///
+/// # Reproduction (single-threaded, deterministic)
+///
+/// * H₀  = initial HEAD
+/// * H_A = H₀ + `auth/session.ts`      (Process A's new workspace)
+/// * H_B = H₀ + `api/pagination.ts`    (Process B's new workspace, derived from stale H₀)
+///
+/// 1. `safe_checkout_from_head(H_A)` → HEAD = H_A, `auth/session.ts` created on disk ✓
+/// 2. `safe_checkout_from_head(H_B)` → reads HEAD = H_A, diff H_A → H_B marks
+///    `auth/session.ts` as DELETED → **removes it from disk** ← data-loss bug
+///
+/// The test is `#[ignore]` because it currently **fails** (the assertion catches the
+/// deletion).  Remove the `#[ignore]` annotation once the bug is fixed and flip the
+/// final assertion to `assert!(session_path.exists(), …)`.
+#[test]
+#[ignore = "known bug: safe_checkout_from_head deletes files committed by a concurrent process"]
+fn safe_checkout_from_head_concurrent_data_loss() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("deletion-addition-untracked");
+
+    // --- Build H_A from H₀: adds auth/session.ts ---
+    // HEAD is NOT advanced here; `build_commit` only writes the object.
+    let session_blob = repo
+        .write_blob(b"export function createSession() { return {}; }")?
+        .detach();
+    let (_h0, h_a) = build_commit(
+        &repo,
+        |tree| {
+            tree.upsert("auth/session.ts", EntryKind::Blob, session_blob)?;
+            Ok(())
+        },
+        "add auth/session.ts (process A workspace)",
+    )?;
+
+    // --- Build H_B from the same H₀: adds api/pagination.ts only ---
+    // `build_commit` still uses HEAD = H₀ as the parent because HEAD has not moved.
+    // H_B therefore does NOT include auth/session.ts — simulating the stale-read race.
+    let pagination_blob = repo
+        .write_blob(b"export function parsePagination() { return {}; }")?
+        .detach();
+    let (_h0_again, h_b) = build_commit(
+        &repo,
+        |tree| {
+            tree.upsert("api/pagination.ts", EntryKind::Blob, pagination_blob)?;
+            Ok(())
+        },
+        "add api/pagination.ts (process B workspace, from stale H₀)",
+    )?;
+
+    let session_path = repo
+        .workdir_path("auth/session.ts")
+        .expect("non-bare repository");
+
+    // --- Step 1: Process A checks out H_A ---
+    // HEAD moves to H_A and auth/session.ts is created on disk.
+    safe_checkout_from_head(h_a.id, &repo, Default::default())?;
+    assert!(
+        session_path.exists(),
+        "auth/session.ts must exist after checking out H_A"
+    );
+
+    // --- Step 2: Process B checks out H_B (stale derivation from H₀) ---
+    // We deliberately do NOT `?`-propagate here: if this call itself errors we still want
+    // to inspect the filesystem to learn whether data was lost before reporting the failure.
+    let checkout_b_result = safe_checkout_from_head(h_b.id, &repo, Default::default());
+
+    let session_deleted = !session_path.exists();
+
+    // Classify what happened and emit the most informative failure message possible.
+    match (checkout_b_result, session_deleted) {
+        (_, true) => {
+            // Data was lost — this is the primary regression we are documenting.
+            panic!(
+                "DATA LOSS BUG: auth/session.ts was deleted from disk by \
+                 safe_checkout_from_head(H_B).\n\n\
+                 Cause: H_B was computed from stale H₀ (before process A committed), so it \
+                 does not contain auth/session.ts. However safe_checkout_from_head reads the \
+                 CURRENT HEAD (= H_A, which does contain auth/session.ts) as the source tree. \
+                 The resulting diff H_A → H_B marks auth/session.ts as DELETED and the \
+                 checkout physically removes the file.\n\n\
+                 Fix: serialise workspace checkouts with inter-process locking \
+                 (try_exclusive_inter_process_access) or capture the current HEAD before the \
+                 workspace is recomputed and pass it explicitly to safe_checkout."
+            );
+        }
+        (Err(e), false) => {
+            // The checkout failed but the file survived — unexpected, report the error.
+            return Err(e.context(
+                "safe_checkout_from_head(H_B) failed but auth/session.ts still exists on disk",
+            ));
+        }
+        (Ok(_), false) => {
+            // Bug is fixed: checkout succeeded and the file is still present. \o/
+        }
+    }
+
+    Ok(())
 }
 
 mod utils {}
