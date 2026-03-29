@@ -1,6 +1,6 @@
+use crate::support::test_repository;
 use but_ctx::{Context, RepoOpenMode};
 use but_settings::AppSettings;
-use but_testsupport::legacy::test_repository;
 use gitbutler_project as projects;
 use gitbutler_repo::RepoCommands;
 use tempfile::TempDir;

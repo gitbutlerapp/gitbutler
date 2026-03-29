@@ -1,8 +1,6 @@
 mod gitbutler_merge_commits {
+    use crate::support::testing_repository::{TestingRepository, assert_commit_tree_matches};
     use but_oxidize::{ObjectIdExt as _, OidExt as _};
-    use but_testsupport::legacy::testing_repository::{
-        TestingRepository, assert_commit_tree_matches,
-    };
     use gitbutler_repo::rebase::merge_commits;
 
     fn gitbutler_merge_commits<'repo>(

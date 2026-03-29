@@ -1,4 +1,4 @@
-use but_testsupport::legacy::testing_repository::TestingRepository;
+use crate::support::testing_repository::TestingRepository;
 use itertools::Itertools;
 
 fn merge_base_octopussy(repo: &git2::Repository, ids: &[git2::Oid]) -> anyhow::Result<git2::Oid> {
