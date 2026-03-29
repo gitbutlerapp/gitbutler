@@ -1,13 +1,12 @@
 use but_core::git_config::{set_config_value, write_config};
-use but_testsupport::legacy::stack_details;
 
 use super::*;
 
 #[test]
 fn twice() {
-    let data_dir = paths::data_dir();
+    let data_dir = tempfile::tempdir().unwrap();
 
-    let test_project = TestProject::default();
+    let test_project = TestRepo::default();
 
     {
         let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), test_project.path())
@@ -205,7 +204,7 @@ fn commit_on_target() {
 fn submodule() {
     let Test { repo, ctx, .. } = &mut Test::default();
 
-    let test_project = TestProject::default();
+    let test_project = TestRepo::default();
     let submodule_url: gitbutler_url::Url =
         test_project.path().display().to_string().parse().unwrap();
     repo.add_submodule(&submodule_url, path::Path::new("submodule"));

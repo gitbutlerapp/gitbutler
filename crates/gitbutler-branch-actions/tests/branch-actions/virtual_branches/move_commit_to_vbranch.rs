@@ -1,11 +1,10 @@
 use std::str::FromStr;
 
 use bstr::ByteSlice;
-use but_testsupport::legacy::stack_details;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_stack::StackId;
 
-use super::Test;
+use super::{Test, stack_details};
 
 #[test]
 fn no_diffs() {
