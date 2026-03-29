@@ -57,9 +57,21 @@ but <mutation> ... --status-after
 2. Find the CLI ID for each file you want to commit.
 3. `but commit <branch> -m "<msg>" --changes <id1>,<id2> --status-after`
    Use `-c` to create the branch if it doesn't exist. Omit IDs you don't want committed.
-4. **Check the `--status-after` output** for remaining uncommitted changes. If the file still appears as unassigned or assigned to another branch after commit, it may be dependency-locked. See "Stacked dependency / commit-lock recovery" below.
+4. **Verify success**: the output must contain "✓ Created commit". If you see "⚠ Nothing was committed" instead, your IDs were invalidated — see below.
+5. **Check the `--status-after` output** for remaining uncommitted changes. If a file still appears as unassigned after commit, it may be dependency-locked. See "Stacked dependency / commit-lock recovery" below.
 
-**If `but commit` fails with "invalid ID" or similar**: IDs can become stale when the workspace changes (e.g., after a branch move, or when multiple agents operate concurrently). Run `but status -fv` to get fresh IDs, then retry the commit.
+**IDs are invalidated by every workspace mutation.** Every `but commit`, `but branch move`, or `but amend` recomputes all CLI IDs. Any ID you captured before that mutation is now stale. This applies within a session (sequential commits) and across concurrent sessions.
+
+**When committing files to multiple branches in sequence:**
+```bash
+but status -fv                                          # capture IDs: px=errors.ts, qw=verify.ts
+but commit shared -m "..." --changes px --status-after  # commits errors.ts; workspace changes
+# ⚠ qw is now STALE. Read the new ID from the --status-after output above.
+but commit auth -m "..." --changes <new-qw> --status-after  # use fresh ID
+```
+Do **not** reuse IDs from a prior `but status -fv` after any mutation — read fresh IDs from the most recent `--status-after` output.
+
+**If you see "⚠ Nothing was committed"**: the IDs were stale. Run `but status -fv` to get fresh IDs and retry immediately.
 
 ### Amend into existing commit
 

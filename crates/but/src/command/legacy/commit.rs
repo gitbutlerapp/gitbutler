@@ -499,15 +499,10 @@ pub(crate) fn commit(
                     reason,
                     RejectionReason::CherryPickMergeConflict
                         | RejectionReason::WorkspaceMergeConflict
-                ) {
-                    if let Some(owner) = find_owning_branch(
-                        ctx,
-                        spec.path.as_ref(),
-                        &stacks,
-                        target_stack_id,
-                    ) {
-                        dep_branches.insert(owner);
-                    }
+                ) && let Some(owner) =
+                    find_owning_branch(ctx, spec.path.as_ref(), &stacks, target_stack_id)
+                {
+                    dep_branches.insert(owner);
                 }
             }
 
@@ -539,7 +534,22 @@ pub(crate) fn commit(
                 target_branch.name.to_str_lossy().yellow()
             )?;
         } else if outcome.rejected_specs.is_empty() {
-            writeln!(out, "{}", "No changes to commit.".yellow())?;
+            writeln!(
+                out,
+                "{}",
+                "⚠ Nothing was committed — the file IDs you provided were not found.".yellow()
+            )?;
+            writeln!(
+                out,
+                "{}",
+                "  IDs are invalidated by any workspace change (commit, branch move, etc.)."
+                    .dimmed()
+            )?;
+            writeln!(
+                out,
+                "{}",
+                "  → Run `but status -fv` to get fresh IDs, then retry the commit.".dimmed()
+            )?;
         }
     } else if let Some(json_out) = out.for_json() {
         let rejected: Vec<_> = outcome
@@ -560,6 +570,14 @@ pub(crate) fn commit(
             "rejected_specs": rejected,
         });
         json_out.write_value(commit_data)?;
+    }
+
+    // If nothing was committed and no specs were rejected, the IDs were stale.
+    // Return an error so callers get a non-zero exit code and treat this as a retriable failure.
+    if outcome.new_commit.is_none() && outcome.rejected_specs.is_empty() {
+        anyhow::bail!(
+            "Nothing was committed: the file IDs provided were not found in the workspace. Run `but status -fv` to get fresh IDs and retry."
+        );
     }
 
     // Run post-commit hook unless --no-hooks was specified
@@ -820,10 +838,7 @@ fn find_owning_branch<'a>(
         for branch in &stack.branch_details {
             let changed_files =
                 but_core::diff::tree_changes(&repo, Some(branch.base_commit), branch.tip).ok()?;
-            if changed_files
-                .iter()
-                .any(|c| c.path == *file_path)
-            {
+            if changed_files.iter().any(|c| c.path == *file_path) {
                 return Some(&branch.name);
             }
         }
