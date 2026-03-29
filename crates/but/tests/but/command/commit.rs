@@ -1202,7 +1202,29 @@ fn unassigned_file_count(env: &Sandbox) -> usize {
 }
 
 mod concurrent_commits {
+    use bstr::ByteSlice;
+
     use super::*;
+
+    fn commit_matching_change(
+        env: &Sandbox,
+        branch_name: &str,
+        message: &str,
+        path_contains: &str,
+    ) -> anyhow::Result<()> {
+        // Refresh status before each commit so this control test isolates
+        // serialization from any possible CLI-ID churn across commands.
+        let status = util::status_json(env)?;
+        let cli_id = find_unassigned_cli_id(&status, path_contains)
+            .expect("should find CLI ID for requested unassigned change");
+
+        env.but(format!(
+            "commit {branch_name} -m {message} --changes {cli_id}"
+        ))
+        .assert()
+        .success();
+        Ok(())
+    }
 
     /// Concurrent commits to independent (parallel) branches should all succeed.
     ///
@@ -1258,17 +1280,17 @@ mod concurrent_commits {
         assert!(
             out_a.status.success(),
             "commit to A failed: {}",
-            String::from_utf8_lossy(&out_a.stderr)
+            out_a.stderr.as_bstr(),
         );
         assert!(
             out_b.status.success(),
             "commit to branchB failed: {}",
-            String::from_utf8_lossy(&out_b.stderr)
+            out_b.stderr.as_bstr()
         );
         assert!(
             out_c.status.success(),
             "commit to branchC failed: {}",
-            String::from_utf8_lossy(&out_c.stderr)
+            out_c.stderr.as_bstr()
         );
 
         // All files should be committed (not left unassigned)
@@ -1279,6 +1301,52 @@ mod concurrent_commits {
         );
 
         // Each branch should have the new commit
+        let a_msgs = branch_commit_messages(&env, "A");
+        let b_msgs = branch_commit_messages(&env, "branchB");
+        let c_msgs = branch_commit_messages(&env, "branchC");
+
+        assert!(
+            a_msgs.iter().any(|m| m.contains("commit-a")),
+            "branch A should have commit-a, got: {a_msgs:?}"
+        );
+        assert!(
+            b_msgs.iter().any(|m| m.contains("commit-b")),
+            "branch branchB should have commit-b, got: {b_msgs:?}"
+        );
+        assert!(
+            c_msgs.iter().any(|m| m.contains("commit-c")),
+            "branch branchC should have commit-c, got: {c_msgs:?}"
+        );
+
+        Ok(())
+    }
+
+    /// The serial version of [`concurrent_commits_to_independent_branches`] to validate
+    /// it can work if done in serial, if there is definitely no race.
+    #[test]
+    fn serialized_commits_to_independent_branches() -> anyhow::Result<()> {
+        let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+        env.setup_metadata(&["A"])?;
+
+        // Create two more independent branches
+        env.but("branch new branchB").assert().success();
+        env.but("branch new branchC").assert().success();
+
+        // Add files for each branch
+        env.file("src/a/new.ts", "export const a = true;");
+        env.file("src/b/new.ts", "export const b = true;");
+        env.file("src/c/new.ts", "export const c = true;");
+
+        commit_matching_change(&env, "A", "commit-a", "a/new")?;
+        commit_matching_change(&env, "branchB", "commit-b", "b/new")?;
+        commit_matching_change(&env, "branchC", "commit-c", "c/new")?;
+
+        let remaining = unassigned_file_count(&env);
+        assert_eq!(
+            remaining, 0,
+            "all files should be committed, but {remaining} are still unassigned"
+        );
+
         let a_msgs = branch_commit_messages(&env, "A");
         let b_msgs = branch_commit_messages(&env, "branchB");
         let c_msgs = branch_commit_messages(&env, "branchC");
