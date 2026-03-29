@@ -1,7 +1,7 @@
 use std::{io::Write, path::Path};
 
+use bstr::ByteSlice as _;
 use but_core::{GitConfigSettings, RepositoryExt as _};
-use but_testsupport::legacy::stack_details;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_oplog::OplogExt;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
@@ -115,6 +115,19 @@ fn has_signature(repo: &gix::Repository, id: gix::ObjectId) -> anyhow::Result<bo
         .extra_headers()
         .pgp_signature()
         .is_some())
+}
+
+fn commit_title(ctx: &Context, id: gix::ObjectId) -> anyhow::Result<String> {
+    Ok(ctx
+        .repo
+        .get()?
+        .find_commit(id)?
+        .message_raw()?
+        .lines()
+        .next()
+        .unwrap_or_default()
+        .to_str_lossy()
+        .into_owned())
 }
 
 #[test]
@@ -342,15 +355,11 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     let _commit1_id = super::create_commit(ctx, stack_entry.id, "commit one")?;
 
     // check the workspace commit
-    let commit1_id = {
-        let git2_repo = ctx.git2_repo.get()?;
-        let head = git2_repo.head().expect("never unborn");
-        let commit = &head.peel_to_commit()?;
-        let commit1_id = commit.id();
-        let message = commit.summary().unwrap();
-        assert_eq!(message, GITBUTLER_WORKSPACE_COMMIT_TITLE);
-        commit1_id
-    };
+    let commit1_id = ctx.repo.get()?.head_id()?.detach();
+    assert_eq!(
+        commit_title(ctx, commit1_id)?,
+        GITBUTLER_WORKSPACE_COMMIT_TITLE
+    );
 
     // create second commit
     fs::write(repo.path().join("file.txt"), "changed content")?;
@@ -358,11 +367,8 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
 
     // check the workspace commit changed
     {
-        let git2_repo = ctx.git2_repo.get()?;
-        let head = git2_repo.head().expect("never unborn");
-        let commit = &head.peel_to_commit()?;
-        let commit2_id = commit.id();
-        let message = commit.summary().unwrap();
+        let commit2_id = ctx.repo.get()?.head_id()?.detach();
+        let message = commit_title(ctx, commit2_id)?;
         assert_eq!(message, GITBUTLER_WORKSPACE_COMMIT_TITLE);
         assert_ne!(commit1_id, commit2_id);
     }
@@ -380,16 +386,11 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
         .expect("can restore the most recent snapshot, to undo commit 2, resetting to commit 1");
     drop(guard);
 
-    {
-        let git2_repo = ctx.git2_repo.get()?;
-        let head = git2_repo.head().expect("never unborn");
-        let current_commit = &head.peel_to_commit()?;
-        let id_of_restored_commit = current_commit.id();
-        assert_eq!(
-            commit1_id, id_of_restored_commit,
-            "head now points to the first commit, it's not commit 2 anymore"
-        );
-    }
+    assert_eq!(
+        commit1_id,
+        ctx.repo.get()?.head_id()?.detach(),
+        "head now points to the first commit, it's not commit 2 anymore"
+    );
 
     let stacks = VirtualBranchesHandle::new(ctx.project_data_dir()).list_stacks_in_workspace()?;
     assert_eq!(

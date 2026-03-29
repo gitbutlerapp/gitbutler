@@ -84,8 +84,6 @@ fn app_settings_sync() -> anyhow::Result<AppSettingsWithDiskSync> {
 fn open_prepared_context(project_id: &ProjectHandleOrLegacyProjectId) -> anyhow::Result<Context> {
     // We don't get a validated legacy object here, but that's fine as we're only opening repos/watchers.
     let mut ctx: Context = project_id.clone().try_into()?;
-    // Keep this before any database usage on `ctx`.
-    ctx.eagerly_populate_git2_repo_cache()?;
     but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
     Ok(ctx)
 }

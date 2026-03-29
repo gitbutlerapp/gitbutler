@@ -1,12 +1,12 @@
-use but_testsupport::legacy::stack_details;
+use but_core::git_config::{set_config_value, write_config};
 
 use super::*;
 
 #[test]
 fn twice() {
-    let data_dir = paths::data_dir();
+    let data_dir = tempfile::tempdir().unwrap();
 
-    let test_project = TestProject::default();
+    let test_project = TestRepo::default();
 
     {
         let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), test_project.path())
@@ -204,7 +204,7 @@ fn commit_on_target() {
 fn submodule() {
     let Test { repo, ctx, .. } = &mut Test::default();
 
-    let test_project = TestProject::default();
+    let test_project = TestRepo::default();
     let submodule_url: gitbutler_url::Url =
         test_project.path().display().to_string().parse().unwrap();
     repo.add_submodule(&submodule_url, path::Path::new("submodule"));
@@ -244,18 +244,24 @@ fn bootstrap_missing_target_preserves_existing_workspace_ref() -> anyhow::Result
     )?;
     drop(guard);
 
-    let original_workspace_ref_target = ctx
-        .git2_repo
-        .get()?
-        .find_reference("refs/heads/gitbutler/workspace")?
-        .target()
-        .expect("workspace ref should point to a commit");
+    let repo = ctx.repo.get()?;
+    let original_workspace_ref_target = repo
+        .try_find_reference("refs/heads/gitbutler/workspace")?
+        .expect("workspace ref should exist")
+        .peel_to_id()?
+        .detach();
     let expected_stack_name = stack_details(ctx)[0].1.derived_name.clone();
 
-    ctx.git2_repo.get()?.config()?.set_str(
+    let config_path = repo.git_dir().join("config");
+    let mut config =
+        gix::config::File::from_path_no_includes(config_path.clone(), gix::config::Source::Local)?;
+    set_config_value(
+        &mut config,
         but_project_handle::storage_path_config_key(),
         "gitbutler-alt",
     )?;
+    write_config(&config_path, &config)?;
+    drop(repo);
 
     let mut reopened: Context = project_id.clone().try_into()?;
     assert!(
@@ -273,11 +279,12 @@ fn bootstrap_missing_target_preserves_existing_workspace_ref() -> anyhow::Result
     drop(guard);
 
     let workspace_ref_target_after_activation = reopened
-        .git2_repo
+        .repo
         .get()?
-        .find_reference("refs/heads/gitbutler/workspace")?
-        .target()
-        .expect("workspace ref should still point to a commit");
+        .try_find_reference("refs/heads/gitbutler/workspace")?
+        .expect("workspace ref should still exist")
+        .peel_to_id()?
+        .detach();
     assert_eq!(
         workspace_ref_target_after_activation,
         original_workspace_ref_target

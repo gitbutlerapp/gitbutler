@@ -2,15 +2,13 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use but_ctx::Context;
-use but_oxidize::ObjectIdExt;
-use but_testsupport::legacy::testing_repository::assert_commit_tree_matches;
 use gitbutler_branch_actions::{StackOrder, reorder::SeriesOrder, reorder_stack};
 use gitbutler_commit::commit_ext::CommitMessageBstr as _;
 use gitbutler_stack::VirtualBranchesHandle;
 use itertools::Itertools;
 use tempfile::TempDir;
 
-use crate::driverless;
+use crate::{driverless, support};
 
 #[test]
 fn noop_reorder_errors() -> Result<()> {
@@ -347,21 +345,18 @@ fn conflicting_reorder_stack() -> Result<()> {
     // assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order NB: This assertion started failing after switching to ws3
 
     {
-        let repo = &*ctx.git2_repo.get()?;
-        let commit_1_prime = repo.find_commit(commits[1].ids()[0].to_git2())?;
-        assert_commit_tree_matches(repo, &commit_1_prime, &[("file", b"x\n")]);
-
-        let commit_2_prime = repo.find_commit(commits[1].ids()[1].to_git2())?;
+        let repo = ctx.repo.get()?;
+        assert_commit_tree_matches(&repo, commits[1].ids()[0], &[("file", b"x\n")])?;
         assert_commit_tree_matches(
-            repo,
-            &commit_2_prime,
+            &repo,
+            commits[1].ids()[1],
             &[
                 (".auto-resolution/file", b"a\n"),
                 (".conflict-base-0/file", b"x\n"),
                 (".conflict-side-0/file", b"a\n"),
                 (".conflict-side-1/file", b"y\n"),
             ],
-        );
+        )?;
     }
 
     // Reordered the commits back to the original order
@@ -384,12 +379,9 @@ fn conflicting_reorder_stack() -> Result<()> {
     assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
 
     {
-        let repo = &*ctx.git2_repo.get()?;
-        let commit_2_prime_prime = repo.find_commit(commits[1].ids()[0].to_git2())?;
-        assert_commit_tree_matches(repo, &commit_2_prime_prime, &[("file", b"y\n")]);
-
-        let commit_1_prime_prime = repo.find_commit(commits[1].ids()[1].to_git2())?;
-        assert_commit_tree_matches(repo, &commit_1_prime_prime, &[("file", b"x\n")]);
+        let repo = ctx.repo.get()?;
+        assert_commit_tree_matches(&repo, commits[1].ids()[0], &[("file", b"y\n")])?;
+        assert_commit_tree_matches(&repo, commits[1].ids()[1], &[("file", b"x\n")])?;
     }
 
     Ok(())
@@ -436,7 +428,7 @@ impl CommitHelpers for Vec<(gix::ObjectId, String, bool, u128)> {
 
 /// Commits from list_virtual_branches
 fn vb_commits(ctx: &Context) -> Vec<Vec<(gix::ObjectId, String, bool, u128)>> {
-    let details = but_testsupport::legacy::stack_details(ctx);
+    let details = support::stack_details(ctx);
     let (_, my_stack) = details
         .iter()
         .find(|(_, d)| d.derived_name == "top-series")
@@ -459,12 +451,31 @@ fn vb_commits(ctx: &Context) -> Vec<Vec<(gix::ObjectId, String, bool, u128)>> {
 }
 
 fn file(ctx: &Context, commit_id: gix::ObjectId) -> String {
-    let repo = &*ctx.git2_repo.get().unwrap();
-    let commit = repo.find_commit(commit_id.to_git2()).unwrap();
-    let tree = commit.tree().unwrap();
-    let entry = tree.get_name("file").unwrap();
-    let blob = repo.find_blob(entry.id()).unwrap();
-    String::from_utf8(blob.content().to_vec()).unwrap()
+    let repo = ctx.repo.get().unwrap();
+    let tree = repo.find_commit(commit_id).unwrap().tree().unwrap();
+    let entry = tree.lookup_entry_by_path("file").unwrap().unwrap();
+    let blob = entry.object().unwrap().into_blob();
+    String::from_utf8(blob.data.to_vec()).unwrap()
+}
+
+fn assert_commit_tree_matches(
+    repo: &gix::Repository,
+    commit_id: gix::ObjectId,
+    files: &[(&str, &[u8])],
+) -> Result<()> {
+    let tree = repo.find_commit(commit_id)?.tree()?;
+    for (path, expected) in files {
+        let entry = tree
+            .lookup_entry_by_path(path)?
+            .unwrap_or_else(|| panic!("expected {path} in commit {commit_id}"));
+        let blob = entry.object()?.into_blob();
+        assert_eq!(
+            blob.data.as_slice(),
+            *expected,
+            "unexpected blob contents for {path} in commit {commit_id}"
+        );
+    }
+    Ok(())
 }
 
 fn command_ctx(name: &str) -> Result<(Context, TempDir)> {

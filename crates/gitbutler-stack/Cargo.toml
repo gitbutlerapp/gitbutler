@@ -21,7 +21,6 @@ but-ctx.workspace = true
 gitbutler-repo.workspace = true
 gitbutler-reference.workspace = true
 
-git2.workspace = true
 gix = { workspace = true, features = [] }
 itertools.workspace = true
 anyhow.workspace = true

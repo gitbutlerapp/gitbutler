@@ -80,6 +80,7 @@ pub fn update_workspace_commit_with_vb_state(
         .get_default_target()
         .context("failed to get target")?;
 
+    #[expect(deprecated, reason = "workspace checkout/index boundary")]
     let repo = &*ctx.git2_repo.get()?;
     let gix_repo = ctx.repo.get()?.clone();
 
@@ -263,6 +264,7 @@ fn verify_current_branch_name(ctx: &Context) -> Result<&Context> {
 
 // TODO(ST): Probably there should not be an implicit vbranch creation here.
 fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
+    #[expect(deprecated, reason = "soft reset/index boundary")]
     let git2_repo = &*ctx.git2_repo.get()?;
     let gix_repo = ctx.repo.get()?.clone();
     let head_commit_id = gix_repo.head_id()?.detach();

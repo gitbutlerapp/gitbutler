@@ -1,4 +1,4 @@
-use bstr::{BStr, ByteSlice};
+use bstr::BStr;
 use but_core::{ChangeId, commit::Headers};
 
 /// Extension trait for `gix::Commit`.
@@ -41,11 +41,5 @@ impl CommitMessageBstr for gix::Commit<'_> {
     fn message_bstr(&self) -> &BStr {
         self.message_raw()
             .expect("valid commit that can be parsed: TODO - allow it to return errors?")
-    }
-}
-
-impl CommitMessageBstr for git2::Commit<'_> {
-    fn message_bstr(&self) -> &BStr {
-        self.message_bytes().as_bstr()
     }
 }

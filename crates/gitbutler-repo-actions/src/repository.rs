@@ -1,16 +1,11 @@
 use std::{str::FromStr, time::UNIX_EPOCH};
 
 use anyhow::{Context as _, Result, anyhow, bail};
-use but_core::commit::Headers;
 use but_ctx::Context;
 use but_error::Code;
-use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{
-    SignaturePurpose, commit_with_signature_gix, credentials, first_parent_commit_ids_until,
-    signature_gix,
-};
+use gitbutler_repo::{credentials, first_parent_commit_ids_until};
 use gitbutler_stack::{Stack, StackId};
 
 use crate::askpass;
@@ -20,7 +15,7 @@ pub trait RepoActionsExt {
     /// Returns the stderr output of the git executable if used.
     fn push(
         &self,
-        head: git2::Oid,
+        head: gix::ObjectId,
         branch: &RemoteRefname,
         with_force: bool,
         force_push_protection: bool,
@@ -28,14 +23,7 @@ pub trait RepoActionsExt {
         askpass_broker: Option<Option<StackId>>,
         push_opts: Vec<String>,
     ) -> Result<String>;
-    fn commit(
-        &self,
-        message: &str,
-        tree: &git2::Tree,
-        parents: &[&git2::Commit],
-        commit_headers: Option<Headers>,
-    ) -> Result<git2::Oid>;
-    fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32>;
+    fn distance(&self, from: gix::ObjectId, to: gix::ObjectId) -> Result<u32>;
     fn delete_branch_reference(&self, stack: &Stack) -> Result<()>;
     fn add_branch_reference(&self, stack: &Stack) -> Result<()>;
     fn git_test_push(
@@ -71,7 +59,7 @@ impl RepoActionsExt for Context {
             .try_find_reference(&target_branch_refname.to_string())?
             .ok_or(anyhow!("failed to find branch {target_branch_refname}"))?;
 
-        let commit_id = branch.peel_to_commit()?.id.to_git2();
+        let commit_id = branch.peel_to_commit()?.id;
 
         let now = now_ms();
         let branch_name = format!("test-push-{now}");
@@ -139,43 +127,15 @@ impl RepoActionsExt for Context {
     }
 
     // returns the number of commits between the first oid to the second oid
-    fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32> {
+    fn distance(&self, from: gix::ObjectId, to: gix::ObjectId) -> Result<u32> {
         let repo = self.repo.get()?;
-        let oids = first_parent_commit_ids_until(&repo, from.to_gix(), to.to_gix())?;
+        let oids = first_parent_commit_ids_until(&repo, from, to)?;
         Ok(oids.len().try_into()?)
-    }
-
-    fn commit(
-        &self,
-        message: &str,
-        tree: &git2::Tree,
-        parents: &[&git2::Commit],
-        commit_headers: Option<Headers>,
-    ) -> Result<git2::Oid> {
-        let repo = self.repo.get()?;
-        let author = signature_gix(SignaturePurpose::Author);
-        let committer = signature_gix(SignaturePurpose::Committer);
-        let parent_ids = parents
-            .iter()
-            .map(|parent| parent.id().to_gix())
-            .collect::<Vec<_>>();
-        commit_with_signature_gix(
-            &repo,
-            None,
-            author,
-            committer,
-            message.into(),
-            tree.id().to_gix(),
-            &parent_ids,
-            commit_headers,
-        )
-        .map(|id| id.to_git2())
-        .context("failed to commit")
     }
 
     fn push(
         &self,
-        head: git2::Oid,
+        head: gix::ObjectId,
         branch: &RemoteRefname,
         with_force: bool,
         force_push_protection: bool,
@@ -243,6 +203,7 @@ impl RepoActionsExt for Context {
                 }
             }
         } else {
+            #[expect(deprecated, reason = "libgit2 transport/auth adapter")]
             let git2_repo = self.git2_repo.get()?;
             let auth_flows = credentials::help(&git2_repo, &self.legacy_project, branch.remote())?;
             for (mut remote, callbacks) in auth_flows {
@@ -336,6 +297,7 @@ impl RepoActionsExt for Context {
             .map_err(Into::into);
         }
 
+        #[expect(deprecated, reason = "libgit2 transport/auth adapter")]
         let git2_repo = self.git2_repo.get()?;
         let auth_flows = credentials::help(&git2_repo, &self.legacy_project, remote_name)?;
         for (mut remote, callbacks) in auth_flows {

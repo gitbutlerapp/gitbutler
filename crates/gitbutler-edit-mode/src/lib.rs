@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Context as _, Result, bail};
-use bstr::BString;
+use bstr::{BString, ByteSlice};
 use but_core::{
     Commit, RepositoryExt, TreeChange, commit::Headers, ref_metadata::StackId,
     update_head_reference,
@@ -10,10 +10,10 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_oxidize::{ObjectIdExt as _, OidExt, gix_to_git2_index};
+use but_oxidize::{ObjectIdExt as _, gix_to_git2_index};
 use but_rebase::graph_rebase::{Editor, Step};
 use git2::build::CheckoutBuilder;
-use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _, RepositoryExt as _};
+use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _};
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_operating_modes::{
     EDIT_BRANCH_REF, EditModeMetadata, INTEGRATION_BRANCH_REF, OperatingMode, WORKSPACE_BRANCH_REF,
@@ -26,6 +26,87 @@ use serde::Serialize;
 pub mod commands;
 
 const UNCOMMITTED_CHANGES_REF: &str = "refs/gitbutler/edit-uncommitted-changes";
+
+fn index_from_tree(repo: &gix::Repository, tree_id: gix::ObjectId) -> Result<git2::Index> {
+    let index = repo.index_from_tree(&tree_id)?;
+    gix_to_git2_index(&index)
+}
+
+fn commit_subject(commit: &gix::Commit<'_>) -> String {
+    commit
+        .message_raw()
+        .ok()
+        .and_then(|message| message.to_str().ok())
+        .and_then(|message| message.lines().next())
+        .map(|line| line.chars().take(80).collect::<String>())
+        .unwrap_or_default()
+}
+
+fn checkout_head(ctx: &Context, remove_untracked: bool) -> Result<()> {
+    #[expect(deprecated, reason = "checkout boundary")]
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let mut builder = CheckoutBuilder::new();
+    builder.force();
+    if remove_untracked {
+        builder.remove_untracked(true);
+    }
+    git2_repo.checkout_head(Some(&mut builder))?;
+    Ok(())
+}
+
+fn checkout_index_with_labels(
+    ctx: &Context,
+    index: &mut git2::Index,
+    our_label: &str,
+    their_label: &str,
+) -> Result<()> {
+    #[expect(deprecated, reason = "checkout/index materialization boundary")]
+    let git2_repo = &*ctx.git2_repo.get()?;
+    git2_repo.checkout_index(
+        Some(index),
+        Some(
+            CheckoutBuilder::new()
+                .force()
+                .remove_untracked(true)
+                .conflict_style_diff3(true)
+                .ancestor_label("Common ancestor")
+                .our_label(our_label)
+                .their_label(their_label),
+        ),
+    )?;
+    Ok(())
+}
+
+fn set_head_and_checkout_tree(
+    ctx: &Context,
+    head_ref: &str,
+    tree_id: gix::ObjectId,
+    remove_untracked: bool,
+) -> Result<()> {
+    #[expect(deprecated, reason = "checkout boundary")]
+    let git2_repo = &*ctx.git2_repo.get()?;
+    git2_repo
+        .set_head(head_ref)
+        .context("Failed to set head reference")?;
+
+    let tree = git2_repo.find_tree(tree_id.to_git2())?;
+    let mut builder = CheckoutBuilder::new();
+    builder.force();
+    if remove_untracked {
+        builder.remove_untracked(true);
+    }
+    git2_repo.checkout_tree(tree.as_object(), Some(&mut builder))?;
+    Ok(())
+}
+
+fn reset_index_to_head_tree(ctx: &Context) -> Result<()> {
+    #[expect(deprecated, reason = "index materialization boundary")]
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let mut index = git2_repo.index()?;
+    index.read_tree(&git2_repo.head()?.peel_to_tree()?)?;
+    index.write()?;
+    Ok(())
+}
 
 /// Returns an index of the tree of `commit` if it is unconflicted, *or* produce a merged tree
 /// if `commit` is conflicted. That tree is turned into an index that records the conflicts that occurred
@@ -58,11 +139,7 @@ fn get_commit_index(ctx: &Context, commit_id: gix::ObjectId) -> Result<git2::Ind
         }
         gix_to_git2_index(&index)
     } else {
-        let git2_repo = &*ctx.git2_repo.get()?;
-        let commit_tree = git2_repo.find_tree(commit.tree.to_git2())?;
-        let mut index = git2::Index::new()?;
-        index.read_tree(&commit_tree)?;
-        Ok(index)
+        index_from_tree(repo, commit.tree)
     }
 }
 
@@ -115,12 +192,11 @@ fn get_uncommitted_changes(repo: &gix::Repository) -> Result<gix::ObjectId> {
 
 fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     let repo = &*ctx.repo.get()?;
-    let git2_repo = &*ctx.git2_repo.get()?;
-    let commit = git2_repo.find_commit(commit_id.to_git2())?;
+    let commit = repo.find_commit(commit_id)?;
 
     // Checkout commits's parent
     let commit_parent_id = find_or_create_base_commit(repo, commit_id)?;
-    let commit_parent = git2_repo.find_commit(commit_parent_id.to_git2())?;
+    let commit_parent = repo.find_commit(commit_parent_id)?;
     let edit_branch_ref: gix::refs::FullName = EDIT_BRANCH_REF.try_into()?;
     repo.reference(
         edit_branch_ref.as_ref(),
@@ -136,38 +212,16 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
         EDIT_BRANCH_REF.into(),
         0,
     )?;
-    git2_repo.checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))?;
+    checkout_head(ctx, true)?;
 
     // Checkout the commit as unstaged changes
     // TODO this may not be necessary if the commit is unconflicted
     let mut index = get_commit_index(ctx, commit_id)?;
 
-    let their_commit_msg = commit
-        .message()
-        .and_then(|m| m.lines().next())
-        .map(|l| l.chars().take(80).collect::<String>())
-        .unwrap_or("".into());
-    let their_label = format!("Current commit: {their_commit_msg}");
+    let their_label = format!("Current commit: {}", commit_subject(&commit));
+    let our_label = format!("New base: {}", commit_subject(&commit_parent));
 
-    let our_commit_msg = commit_parent
-        .message()
-        .and_then(|m| m.lines().next())
-        .map(|l| l.chars().take(80).collect::<String>())
-        .unwrap_or("".into());
-    let our_label = format!("New base: {our_commit_msg}");
-
-    git2_repo.checkout_index(
-        Some(&mut index),
-        Some(
-            CheckoutBuilder::new()
-                .force()
-                .remove_untracked(true)
-                .conflict_style_diff3(true)
-                .ancestor_label("Common ancestor")
-                .our_label(&our_label)
-                .their_label(&their_label),
-        ),
-    )?;
+    checkout_index_with_labels(ctx, &mut index, &our_label, &their_label)?;
 
     Ok(())
 }
@@ -234,26 +288,14 @@ pub(crate) fn abort_and_return_to_workspace(
         );
     }
 
-    let repo = &*ctx.git2_repo.get()?;
-
-    // Checkout gitbutler workspace branch
-    repo.set_head(WORKSPACE_BRANCH_REF)
-        .context("Failed to set head reference")?;
-
     let uncommited_changes = get_uncommitted_changes(&*ctx.repo.get()?)?;
-    let uncommited_changes = repo.find_tree(uncommited_changes.to_git2())?;
-
-    repo.checkout_tree(
-        uncommited_changes.as_object(),
-        Some(CheckoutBuilder::new().force().remove_untracked(true)),
-    )?;
+    set_head_and_checkout_tree(ctx, WORKSPACE_BRANCH_REF, uncommited_changes, true)?;
 
     Ok(())
 }
 
 pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     let edit_mode_metadata = read_edit_mode_metadata(ctx).context("Failed to read metadata")?;
-    let git2_repo = &*ctx.git2_repo.get()?;
     let repo = &*ctx.repo.get()?;
 
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
@@ -306,10 +348,12 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     outcome.materialize_without_checkout()?;
 
     // Switch branch to gitbutler/workspace
+    #[expect(deprecated, reason = "checkout boundary")]
+    let git2_repo = &*ctx.git2_repo.get()?;
     git2_repo
         .set_head(WORKSPACE_BRANCH_REF)
         .context("Failed to set head reference")?;
-    git2_repo.checkout_head(Some(CheckoutBuilder::new().force()))?;
+    checkout_head(ctx, false)?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let uncommtied_changes = get_uncommitted_changes(repo)?;
@@ -318,16 +362,14 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         ctx,
         old_workspace,
         new_workspace,
-        Some(uncommtied_changes.to_git2()),
+        Some(uncommtied_changes),
         Some(true),
         perm,
     )?;
 
     // Currently if the index goes wonky then files don't appear quite right.
     // This just makes sure the index is all good.
-    let mut index = git2_repo.index()?;
-    index.read_tree(&git2_repo.head()?.peel_to_tree()?)?;
-    index.write()?;
+    reset_index_to_head_tree(ctx)?;
 
     Ok(())
 }
@@ -348,15 +390,18 @@ pub(crate) fn starting_index_state(
         bail!("Starting index state can only be fetched while in edit mode")
     };
 
-    let git2_repo = &*ctx.git2_repo.get()?;
     let repo = &*ctx.repo.get()?;
 
-    let commit = git2_repo.find_commit(metadata.commit_oid.to_git2())?;
-    let gix_commit = repo.find_commit(commit.id().to_gix())?;
-    let commit_parent_tree = if gix_commit.is_conflicted() {
-        git2_repo.find_real_tree(&commit, ConflictedTreeKey::Base)?
+    let commit = repo.find_commit(metadata.commit_oid)?;
+    let commit_parent_tree = if commit.is_conflicted() {
+        repo.find_real_tree(&commit, ConflictedTreeKey::Base)?
     } else {
-        commit.parent(0)?.tree()?
+        let parent_id = commit
+            .parent_ids()
+            .next()
+            .context("edit mode commits are expected to have a parent")?
+            .detach();
+        repo.find_commit(parent_id)?.tree_id()?
     };
 
     let index = get_commit_index(ctx, metadata.commit_oid)?;
@@ -390,11 +435,9 @@ pub(crate) fn starting_index_state(
 
     let tree_changes = but_core::diff::tree_changes(
         &repo,
-        Some(commit_parent_tree.id().to_gix()),
-        git2_repo
-            .find_real_tree(&commit, ConflictedTreeKey::Theirs)?
-            .id()
-            .to_gix(),
+        Some(commit_parent_tree.detach()),
+        repo.find_real_tree(&commit, ConflictedTreeKey::Theirs)?
+            .detach(),
     )?;
 
     let outcome = tree_changes

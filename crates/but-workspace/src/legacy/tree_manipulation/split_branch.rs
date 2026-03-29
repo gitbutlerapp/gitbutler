@@ -1,7 +1,6 @@
 use anyhow::Result;
 use but_core::{Reference, sync::RepoExclusive};
 use but_ctx::Context;
-use but_oxidize::OidExt;
 use but_rebase::{Rebase, RebaseStep, ReferenceSpec};
 use gitbutler_repo::first_parent_commit_ids_until;
 use gitbutler_stack::{StackBranch, StackId, VirtualBranchesHandle};
@@ -55,7 +54,7 @@ pub fn split_branch(
         .get()?
         .reference(
             new_branch_ref_name.clone(),
-            branch_head.to_gix(),
+            branch_head,
             gix::refs::transaction::PreviousValue::Any,
             new_branch_log_message.clone(),
         )?
@@ -82,8 +81,7 @@ pub fn split_branch(
 
     // Remove all but the specified changes from the new branch
     let repo = ctx.repo.get()?;
-    let new_branch_commits =
-        first_parent_commit_ids_until(&repo, branch_head.to_gix(), merge_base)?;
+    let new_branch_commits = first_parent_commit_ids_until(&repo, branch_head, merge_base)?;
 
     // Branch as rebase steps
     let mut steps: Vec<RebaseStep> = Vec::new();
@@ -175,7 +173,7 @@ pub fn split_into_dependent_branch(
         .get()?
         .reference(
             new_branch_ref_name.clone(),
-            branch_head.to_gix(),
+            branch_head,
             gix::refs::transaction::PreviousValue::Any,
             new_branch_log_message.clone(),
         )?
@@ -183,8 +181,7 @@ pub fn split_into_dependent_branch(
 
     // Remove all but the specified changes from the new branch
     let repo = ctx.repo.get()?;
-    let new_branch_commits =
-        first_parent_commit_ids_until(&repo, branch_head.to_gix(), merge_base)?;
+    let new_branch_commits = first_parent_commit_ids_until(&repo, branch_head, merge_base)?;
 
     // Branch as rebase steps
     let mut dependent_branch_steps: Vec<RebaseStep> = Vec::new();
@@ -226,7 +223,7 @@ pub fn split_into_dependent_branch(
 
     source_stack.add_series(
         ctx,
-        StackBranch::new(branch_head.to_gix(), new_branch_name, &repo)?,
+        StackBranch::new(branch_head, new_branch_name, &repo)?,
         Some(source_branch_name),
     )?;
 

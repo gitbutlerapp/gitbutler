@@ -10,14 +10,10 @@ rust-version.workspace = true
 doctest = false
 
 [dependencies]
-but-oxidize.workspace = true
-
 gitbutler-commit.workspace = true
 
-git2.workspace = true
 gix.workspace = true
 anyhow.workspace = true
-tracing.workspace = true
 
 [lints]
 workspace = true

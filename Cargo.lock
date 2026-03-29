@@ -1640,31 +1640,15 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-db",
- "but-fs",
  "but-graph",
  "but-meta",
- "but-oxidize",
- "but-project-handle",
  "but-settings",
- "but-workspace",
- "git2",
- "gitbutler-branch-actions",
- "gitbutler-project",
- "gitbutler-reference",
- "gitbutler-repo",
- "gitbutler-stack",
- "gitbutler-url",
- "gitbutler-user",
  "gix",
  "gix-testtools",
- "keyring",
  "regex",
- "serde_json",
  "shell-words",
  "snapbox",
- "tempfile",
  "termtree",
- "uuid",
 ]
 
 [[package]]
@@ -3977,11 +3961,8 @@ name = "gitbutler-cherry-pick"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "but-oxidize",
- "git2",
  "gitbutler-commit",
  "gix",
- "tracing",
 ]
 
 [[package]]
@@ -4012,7 +3993,6 @@ version = "0.0.0"
 dependencies = [
  "bstr",
  "but-core",
- "git2",
  "gix",
 ]
 
@@ -4204,6 +4184,7 @@ dependencies = [
  "infer",
  "insta",
  "itertools",
+ "keyring",
  "resolve-path",
  "scopeguard",
  "serde",
@@ -4252,7 +4233,6 @@ dependencies = [
  "but-testsupport",
  "ctor 0.6.3",
  "filetime",
- "git2",
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-repo-actions",

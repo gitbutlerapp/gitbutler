@@ -7,7 +7,7 @@ use gitbutler_stack::{StackBranch, VirtualBranchesHandle};
 use itertools::Itertools;
 use tempfile::TempDir;
 
-use crate::driverless;
+use crate::{driverless, support};
 
 // Squash commit into it's parent without affecting stack heads
 //
@@ -492,7 +492,7 @@ struct Branch {
 
 /// Stack branches from the API
 fn list_branches(ctx: &Context) -> Result<TestBranchListing> {
-    let details = but_testsupport::legacy::stack_details(ctx);
+    let details = support::stack_details(ctx);
     let (_, details) = details.first().unwrap();
     let branches: Vec<Branch> = details
         .branch_details

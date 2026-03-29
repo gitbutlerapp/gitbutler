@@ -10,11 +10,12 @@ use gitbutler_operating_modes::{
 fn works_on_integration_branch() -> anyhow::Result<()> {
     let (ctx, _temp_dir) =
         crate::driverless::writable_context("for-workspace-migration.sh", "workspace-migration")?;
+    let repo = ctx.repo.get()?;
 
     // Check that we are on the old `gitbutler/integration` branch.
     assert_eq!(
-        ctx.git2_repo.get()?.head()?.name(),
-        Some(INTEGRATION_BRANCH_REF)
+        repo.head_name()?.map(|name| name.to_string()),
+        Some(INTEGRATION_BRANCH_REF.to_owned())
     );
 
     // Should not throw verification error until migration is complete.
@@ -25,8 +26,8 @@ fn works_on_integration_branch() -> anyhow::Result<()> {
     // Updating workspace commit should put us on the workspace branch.
     update_workspace_commit(&ctx, false)?;
     assert_eq!(
-        ctx.git2_repo.get()?.head()?.name(),
-        Some(WORKSPACE_BRANCH_REF)
+        repo.head_name()?.map(|name| name.to_string()),
+        Some(WORKSPACE_BRANCH_REF.to_owned())
     );
     Ok(())
 }
