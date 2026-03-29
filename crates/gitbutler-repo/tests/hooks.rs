@@ -2,12 +2,13 @@ use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
-use but_testsupport::{legacy::TestProject, open_repo};
+use crate::support::RepoWithOrigin;
+use but_testsupport::open_repo;
 use gitbutler_repo::hooks::{HookResult, pre_push};
 
 #[test]
 fn pre_push_hook_not_configured() -> anyhow::Result<()> {
-    let test_project = TestProject::default();
+    let test_project = RepoWithOrigin::default();
     let repo = open_repo(test_project.local_repo.path())?;
 
     let result = pre_push(
@@ -25,7 +26,7 @@ fn pre_push_hook_not_configured() -> anyhow::Result<()> {
 
 #[test]
 fn pre_push_hook_success() -> anyhow::Result<()> {
-    let test_project = TestProject::default();
+    let test_project = RepoWithOrigin::default();
 
     let repo = open_repo(test_project.local_repo.path())?;
     let hooks_dir = repo.path().join("hooks");
@@ -61,7 +62,7 @@ fn pre_push_hook_success() -> anyhow::Result<()> {
 
 #[test]
 fn pre_push_hook_failure() -> anyhow::Result<()> {
-    let test_project = TestProject::default();
+    let test_project = RepoWithOrigin::default();
 
     let repo = open_repo(test_project.local_repo.path())?;
     let hooks_dir = repo.path().join("hooks");
@@ -98,7 +99,7 @@ fn pre_push_hook_failure() -> anyhow::Result<()> {
 
 #[test]
 fn pre_push_ignores_husky_core_hooks_path_when_disabled() -> anyhow::Result<()> {
-    let test_project = TestProject::default();
+    let test_project = RepoWithOrigin::default();
 
     let mut repo = open_repo(test_project.local_repo.path())?;
     let workdir = repo.workdir().expect("non-bare").to_path_buf();
@@ -140,7 +141,7 @@ fn pre_push_ignores_husky_core_hooks_path_when_disabled() -> anyhow::Result<()> 
 
 #[test]
 fn pre_push_resolves_relative_core_hooks_path_against_workdir() -> anyhow::Result<()> {
-    let test_project = TestProject::default();
+    let test_project = RepoWithOrigin::default();
 
     let mut repo = open_repo(test_project.local_repo.path())?;
     let workdir = repo.workdir().expect("non-bare").to_path_buf();

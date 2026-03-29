@@ -4216,6 +4216,7 @@ dependencies = [
  "infer",
  "insta",
  "itertools",
+ "keyring",
  "resolve-path",
  "scopeguard",
  "serde",

@@ -3,11 +3,9 @@ use std::{
     path::Path,
 };
 
+use crate::support::testing_repository::TestingRepository;
 use but_core::RepositoryExt as _;
-use but_testsupport::{
-    gix_testtools::scripted_fixture_read_only, legacy::testing_repository::TestingRepository,
-    open_repo, visualize_tree,
-};
+use but_testsupport::{gix_testtools::scripted_fixture_read_only, open_repo, visualize_tree};
 use gix::prelude::ObjectIdExt as _;
 
 const MAX_SIZE: u64 = 20;
