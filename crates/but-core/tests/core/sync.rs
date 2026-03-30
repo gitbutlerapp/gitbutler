@@ -114,7 +114,7 @@ fn default_lock_scope_is_all_operations() {
 #[test]
 fn repo_lock_contention_does_not_block_unrelated_repos() {
     // Thread 1: hold exclusive access to repo "A".
-    let exclusive_a = but_core::sync::exclusive_repo_access("/test/repo-a");
+    let exclusive_a = but_core::sync::exclusive_repo_access("/test/repo-a", None);
 
     // Thread 2: try to acquire shared access to repo "A".
     // This will block because thread 1 holds the exclusive lock.
@@ -154,4 +154,19 @@ fn repo_lock_contention_does_not_block_unrelated_repos() {
     // surface any panics that occurred inside it.
     drop(exclusive_a);
     blocked_thread.join().unwrap();
+}
+
+#[test]
+fn exclusive_repo_access_creates_project_data_dir_for_inter_process_lock() -> anyhow::Result<()> {
+    let tmp = gix_testtools::tempfile::TempDir::new()?;
+    let project_data_dir = tmp.path().join("missing-project-data-dir");
+
+    let _guard = but_core::sync::exclusive_repo_access("/test/repo-b", Some(&project_data_dir));
+
+    assert!(
+        project_data_dir.join("gitbutler.write-lock").exists(),
+        "expected inter-process lock file to be created in the project data directory"
+    );
+
+    Ok(())
 }

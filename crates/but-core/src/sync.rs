@@ -70,26 +70,36 @@ pub fn try_exclusive_inter_process_access(
     Ok(lock)
 }
 
-/// Return a guard for exclusive (read+write) *in-process* repository access for the project at `git_dir`,
-/// blocking while waiting for someone else to release it, or for all readers to disappear.
-/// Locking is fair.
+/// Return a guard for exclusive (read+write) *in-process* repository access for the project at
+/// `git_dir`, blocking while waiting for someone else in this process to release it, or for all
+/// readers to disappear. Locking is fair.
+/// Also use `project_data_dir` if `Some` to create an *inter-process* exclusive lock.
+/// Creating, opening, or locking that file is best-effort. Failures are logged and ignored, so
+/// the hard guarantee provided by this function remains in-process exclusivity only.
+/// If `project_data_dir` is `None`, no inter-process lock is obtained.
 ///
 /// Use this only at the boundary where the lock is acquired. Keep the returned [`RepoExclusiveGuard`]
 /// alive in the caller that owns the lock, and pass [`RepoExclusive`] further down instead via
 /// [`RepoExclusiveGuard::write_permission()`].
-///
-/// Note that this **in-process** locking works only under the assumption that no two instances of
-/// GitButler are able to read or write the same repository.
-pub fn exclusive_repo_access(git_dir: impl Into<PathBuf>) -> RepoExclusiveGuard {
+pub fn exclusive_repo_access(
+    git_dir: impl Into<PathBuf>,
+    project_data_dir: Option<&Path>,
+) -> RepoExclusiveGuard {
     let lock = {
-        let mut map = WORKTREE_LOCKS.lock();
         let git_dir = git_dir.into();
+        let mut map = WORKTREE_LOCKS.lock();
         Arc::clone(map.entry(git_dir).or_default())
     };
     // The global `WORKTREE_LOCKS` mutex is released before blocking on the per-repo RwLock,
     // so contention on one repo cannot block access to unrelated repos.
+    let in_process_lock = lock.write_arc();
+    // After the in-process lock was obtained we know there is no in-process contention.
+    // Now it's much safer to blockingly wait on the inter-process lock to protect against
+    // multiple writers. Note that as a filesystem lock, no fairness is guaranteed.
+    let inter_process_lock = project_data_dir.and_then(best_effort_inter_process_lock);
     RepoExclusiveGuard {
-        inner: lock.write_arc().into(),
+        in_process_fair_lock: Some(in_process_lock),
+        inter_process_unfair_lock: inter_process_lock,
         perm: RepoExclusive(()),
     }
 }
@@ -113,24 +123,31 @@ pub fn shared_repo_access(git_dir: impl Into<PathBuf>) -> RepoSharedGuard {
     RepoSharedGuard(Some(lock.read_arc()))
 }
 
-/// Owns an *exclusive* in-process repository lock and releases it on drop.
+/// Owns the *exclusive* in-process repository lock and the optional best-effort inter-process file
+/// lock associated with it.
 ///
 /// This type is for lock acquisition and lock lifetime management only.
-/// Keep it in the top-level caller that actually acquires the lock.
+/// Keep it in the top-level caller that actually acquires the lock, or face deadlocks.
 ///
 /// Do not pass this type through application APIs unless the API itself is responsible for lock
 /// ownership. Instead, derive a [`RepoExclusive`] with [`Self::write_permission()`] and pass that
 /// permission token to lower-level functions while keeping the guard alive in the caller.
 #[must_use]
 pub struct RepoExclusiveGuard {
-    inner: Option<parking_lot::ArcRwLockWriteGuard<RawRwLock, ()>>,
+    in_process_fair_lock: Option<parking_lot::ArcRwLockWriteGuard<RawRwLock, ()>>,
+    inter_process_unfair_lock: Option<LockFile>,
     perm: RepoExclusive,
 }
 
 impl Drop for RepoExclusiveGuard {
     fn drop(&mut self) {
+        if let Some(mut inter_process_lock) = self.inter_process_unfair_lock.take()
+            && let Err(err) = inter_process_lock.unlock()
+        {
+            tracing::error!(?err, "Failed to release inter-process lock")
+        }
         let lock = self
-            .inner
+            .in_process_fair_lock
             .take()
             .expect("it's always set, and only taken once when dropping");
         ArcRwLockWriteGuard::unlock_fair(lock);
@@ -218,6 +235,7 @@ static WORKTREE_LOCKS: parking_lot::Mutex<BTreeMap<PathBuf, Arc<parking_lot::RwL
 /// A file-based lock that can indicate exclusive access.
 ///
 /// As opposed to its actual implementation, it will ignore failures due to lack of filesystem support.
+/// It also prints traces using the path to the locked file to aid observability.
 pub struct LockFile {
     /// The actual lock implementation.
     inner: fslock::LockFile,
@@ -235,20 +253,21 @@ impl LockFile {
             path,
         })
     }
+    /// Lock the resource, and block until the lock was obtained. Note that this will deadlock if the same process tries
+    /// to obtain the same lock.
+    ///
+    /// Pretend it was locked if the underlying filesystem didn't support it.
+    pub fn lock(&mut self) -> Result<(), fslock::Error> {
+        self.inner
+            .lock()
+            .or_else(|err| log_error_if_unsupported(err, &self.path).map(|_| ()))
+    }
 
     /// Try to lock the resource, or pretend it was locked if the underlying filesystem didn't support it.
     pub fn try_lock(&mut self) -> Result<bool, fslock::Error> {
-        self.inner.try_lock().or_else(|err| {
-            if err.kind() == std::io::ErrorKind::Unsupported {
-                tracing::warn!(
-                    "Filesystem hosting '{}' doesn't support file locking - pretending to own lock to avoid failure",
-                    self.path.display()
-                );
-                Ok(true)
-            } else {
-                Err(err)
-            }
-        })
+        self.inner
+            .try_lock()
+            .or_else(|err| log_error_if_unsupported(err, &self.path))
     }
 
     /// Drop the lock on this file, or do nothing if we don't own the lock.
@@ -257,5 +276,51 @@ impl LockFile {
             return Ok(());
         }
         self.inner.unlock()
+    }
+}
+
+fn best_effort_inter_process_lock(project_data_dir: &Path) -> Option<LockFile> {
+    if let Err(err) = std::fs::create_dir_all(project_data_dir) {
+        tracing::warn!(
+            ?err,
+            path = %project_data_dir.display(),
+            "Failed to create project data directory for inter-process lock; continuing with in-process lock only"
+        );
+        return None;
+    }
+
+    let inter_process_lock_path = project_data_dir.join("gitbutler.write-lock");
+    let mut lock = match LockFile::open(&inter_process_lock_path) {
+        Ok(lock) => lock,
+        Err(err) => {
+            tracing::warn!(
+                ?err,
+                path = %inter_process_lock_path.display(),
+                "Failed to open inter-process lock file; continuing with in-process lock only"
+            );
+            return None;
+        }
+    };
+    if let Err(err) = lock.lock() {
+        tracing::warn!(
+            ?err,
+            path = %inter_process_lock_path.display(),
+            "Failed to acquire inter-process lock; continuing with in-process lock only"
+        );
+        return None;
+    }
+    Some(lock)
+}
+
+fn log_error_if_unsupported(err: std::io::Error, self_path: &Path) -> Result<bool, std::io::Error> {
+    if err.kind() == std::io::ErrorKind::Unsupported {
+        tracing::warn!(
+            "Filesystem hosting '{}' doesn't support file locking - pretending to own exclusive lock to avoid possibly needless failure. Consider using {gb_storage_path_key} to move project data to a different location",
+            self_path.display(),
+            gb_storage_path_key = but_project_handle::storage_path_config_key(),
+        );
+        Ok(true)
+    } else {
+        Err(err)
     }
 }
