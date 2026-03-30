@@ -109,6 +109,15 @@ fn cmd_result_to_json(res: anyhow::Result<serde_json::Value>) -> Json<serde_json
     }
 }
 
+/// Check if an origin byte string is from localhost.
+///
+/// Matches `http://localhost` optionally followed by `:<port>`.
+fn is_localhost_origin(origin: &[u8]) -> bool {
+    origin
+        .strip_prefix(b"http://localhost")
+        .is_some_and(|rest| rest.first().is_none_or(|b| *b == b':'))
+}
+
 /// Middleware to ensure all connections are from localhost only
 async fn localhost_only_middleware(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -146,10 +155,7 @@ pub async fn run() -> anyhow::Result<()> {
     let cors = CorsLayer::new()
         .allow_methods(cors::Any)
         .allow_origin(cors::AllowOrigin::predicate(|origin, _parts| {
-            origin
-                .as_bytes()
-                .strip_prefix(b"http://localhost")
-                .is_some_and(|rest| rest.first().is_none_or(|b| *b == b':'))
+            is_localhost_origin(origin.as_bytes())
         }))
         .allow_headers(cors::Any);
 
@@ -732,7 +738,10 @@ pub async fn run() -> anyhow::Result<()> {
     // Catch-all for commands that need special handling (app, extra, app_settings_sync)
     let app = app
         .route("/{command}", post(post_handle_command_with_path))
-        .route("/ws", any(move |req| handle_ws_request(req, broadcaster)))
+        .route(
+            "/ws",
+            any(move |headers, ws| handle_ws_request(headers, ws, broadcaster)),
+        )
         // Spawning in a separate thread to prevent abort if the client
         // disconnects. We need this to ensure locks are removed after
         // the claude processes finishes.
@@ -826,10 +835,20 @@ async fn post_handle_command_with_path(
 }
 
 async fn handle_ws_request(
+    headers: axum::http::HeaderMap,
     ws: WebSocketUpgrade,
     broadcaster: Arc<Mutex<Broadcaster>>,
-) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_websocket(socket, broadcaster))
+) -> Result<impl IntoResponse, StatusCode> {
+    // Validate the Origin header to prevent cross-site WebSocket hijacking.
+    // CORS headers don't protect WebSocket upgrades, so we must check manually.
+    let origin = headers
+        .get(axum::http::header::ORIGIN)
+        .ok_or(StatusCode::FORBIDDEN)?;
+    if !is_localhost_origin(origin.as_bytes()) {
+        tracing::warn!("Rejected WebSocket connection from origin: {origin:?}");
+        return Err(StatusCode::FORBIDDEN);
+    }
+    Ok(ws.on_upgrade(move |socket| handle_websocket(socket, broadcaster)))
 }
 
 async fn handle_websocket(socket: WebSocket, broadcaster: Arc<Mutex<Broadcaster>>) {
