@@ -214,6 +214,7 @@ impl From<CommitMoveResult> for UICommitMoveResult {
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct UICommitDiscardResult {
+    /// The commit that was discarded as a result of this operation.
     #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub discarded_commit: HexHash,
     /// Commits that have been replaced as a side-effect of the commit discard.

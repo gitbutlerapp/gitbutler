@@ -51,6 +51,13 @@ export declare function commitCreate(projectId: string, relativeTo: RelativeTo, 
 export declare function commitDetailsWithLineStats(projectId: string, commitId: string): Promise<CommitDetails>
 
 /**
+ * Discards a commit.
+ *
+ * Returns the replaced commits that resulted from the operation.
+ */
+export declare function commitDiscard(projectId: string, subjectCommitId: string): Promise<UICommitDiscardResult>
+
+/**
  * Inserts a blank commit relative to either a commit or a reference, with oplog support.
  *
  * Returns the result including the new commit ID and any replaced commits.
@@ -1230,6 +1237,17 @@ export type UICommitCreateResult = {
   rejectedChanges: Array<UIRejectedChange>;
   /**
    * Commits that have been replaced as a side-effect of the create/amend.
+   * Maps `oldId -> newId`.
+   */
+  replacedCommits: Record<string, string>;
+};
+
+/** UI type for discarding a commit. */
+export type UICommitDiscardResult = {
+  /** The commit that was discarded as a result of this operation. */
+  discardedCommit: string;
+  /**
+   * Commits that have been replaced as a side-effect of the commit discard.
    * Maps `oldId -> newId`.
    */
   replacedCommits: Record<string, string>;
