@@ -1578,7 +1578,7 @@ const ProjectPage: FC = () => {
 	);
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
 	const selection =
-		(_selection ? normalizeItem(_selection, headInfo) : null) ??
+		(_selection ? normalizeItem(_selection, headInfo, worktreeChanges) : null) ??
 		buildNavigationModel({
 			headInfo,
 			changes: worktreeChanges.changes,
