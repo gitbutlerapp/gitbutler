@@ -1,6 +1,7 @@
 use std::{borrow::Cow, ffi::OsString, process::Command, sync::Arc, time::Duration};
 
 use anyhow::Context as _;
+use bstr::ByteSlice;
 use but_core::tree::create_tree::RejectionReason;
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
@@ -22,7 +23,7 @@ use crate::{
     command::legacy::{
         rub::{RubOperation, route_operation},
         status::{
-            CommitLineContent, StatusFlags, StatusOutputLine, TuiLaunchOptions,
+            CommitLineContent, FileLineContent, StatusFlags, StatusOutputLine, TuiLaunchOptions,
             output::BranchLineContent,
             tui::{
                 confirm::{Confirm, ConfirmMessage},
@@ -978,8 +979,8 @@ impl App {
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -1002,7 +1003,7 @@ impl App {
         };
 
         let commit_mode = match &selection.data {
-            StatusOutputLineData::UnstagedChanges { cli_id } => {
+            StatusOutputLineData::UnassignedChanges { cli_id } => {
                 let Ok(has_unassigned_changes) = operations::has_unassigned_changes(ctx) else {
                     return;
                 };
@@ -1019,7 +1020,7 @@ impl App {
                     insert_side: InsertSide::Above,
                 }
             }
-            StatusOutputLineData::UnstagedFile { cli_id }
+            StatusOutputLineData::UnassignedFile { cli_id }
             | StatusOutputLineData::StagedChanges { cli_id }
             | StatusOutputLineData::StagedFile { cli_id } => {
                 let Ok(source) = CommitSource::try_from(Arc::unwrap_or_clone(Arc::clone(cli_id)))
@@ -1084,8 +1085,8 @@ impl App {
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -1196,8 +1197,8 @@ impl App {
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -1266,8 +1267,8 @@ impl App {
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -1350,8 +1351,8 @@ impl App {
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::Commit { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
@@ -1396,8 +1397,8 @@ impl App {
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::Commit { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
@@ -1427,11 +1428,13 @@ impl App {
         let what_to_copy = match &**cli_id {
             CliId::Branch { name, .. } => Cow::Borrowed(&**name),
             CliId::Commit { commit_id, .. } => Cow::Owned(commit_id.to_hex_with_len(7).to_string()),
-            CliId::PathPrefix { .. }
-            | CliId::CommittedFile { .. }
-            | CliId::Unassigned { .. }
-            | CliId::Stack { .. }
-            | CliId::Uncommitted(_) => return Ok(()),
+            CliId::CommittedFile { path, .. } => path.to_str_lossy(),
+            CliId::Uncommitted(uncommitted) => {
+                Cow::Borrowed(&*uncommitted.hunk_assignments.first().path)
+            }
+            CliId::PathPrefix { .. } | CliId::Unassigned { .. } | CliId::Stack { .. } => {
+                return Ok(());
+            }
         };
 
         arboard::Clipboard::new()
@@ -1924,6 +1927,17 @@ impl App {
                 }
                 spans.extend(decoration_end.iter().cloned());
                 spans.extend(suffix.iter().cloned());
+                spans
+            }
+            StatusOutputContent::File(FileLineContent { id, status, path }) => {
+                let mut spans = Vec::with_capacity(id.len() + status.len() + path.len());
+                spans.extend(id.iter().cloned());
+                spans.extend(status.iter().cloned());
+                if data.cli_id().is_some_and(|id| self.highlight.contains(id)) {
+                    spans.extend(path.iter().cloned().map(with_highlight));
+                } else {
+                    spans.extend(path.iter().cloned());
+                }
                 spans
             }
         };
@@ -2586,8 +2600,8 @@ fn commit_operation_display(
         }
         StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
-        | StatusOutputLineData::UnstagedChanges { .. }
-        | StatusOutputLineData::UnstagedFile { .. }
+        | StatusOutputLineData::UnassignedChanges { .. }
+        | StatusOutputLineData::UnassignedFile { .. }
         | StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::Connector
         | StatusOutputLineData::CommitMessage
@@ -2613,8 +2627,8 @@ fn move_operation_display(data: &StatusOutputLineData, mode: &MoveMode) -> Optio
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -2632,8 +2646,8 @@ fn move_operation_display(data: &StatusOutputLineData, mode: &MoveMode) -> Optio
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -2652,8 +2666,8 @@ fn branch_operation_display(data: &StatusOutputLineData) -> Option<&'static str>
         | StatusOutputLineData::Connector
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
-        | StatusOutputLineData::UnstagedChanges { .. }
-        | StatusOutputLineData::UnstagedFile { .. }
+        | StatusOutputLineData::UnassignedChanges { .. }
+        | StatusOutputLineData::UnassignedFile { .. }
         | StatusOutputLineData::Commit { .. }
         | StatusOutputLineData::CommitMessage
         | StatusOutputLineData::EmptyCommitMessage

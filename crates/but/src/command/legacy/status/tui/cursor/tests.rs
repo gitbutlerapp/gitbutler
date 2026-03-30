@@ -67,7 +67,7 @@ fn new_selects_first_selectable_line() {
     let lines = vec![
         line(StatusOutputLineData::Connector),
         line(StatusOutputLineData::Hint),
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
         line(StatusOutputLineData::StagedFile {
@@ -100,7 +100,7 @@ fn restore_returns_matching_line_by_cli_id() {
                 stack_id: None,
             }),
         }),
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
     ];
@@ -116,7 +116,7 @@ fn restore_returns_matching_line_by_cli_id() {
 
 #[test]
 fn restore_returns_none_when_cli_id_is_not_present() {
-    let lines = vec![line(StatusOutputLineData::UnstagedChanges {
+    let lines = vec![line(StatusOutputLineData::UnassignedChanges {
         cli_id: unassigned("u0"),
     })];
 
@@ -136,7 +136,7 @@ fn restore_returns_none_when_cli_id_is_not_present() {
 #[test]
 fn restore_selects_first_matching_line_when_cli_id_appears_multiple_times() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
         line(StatusOutputLineData::StagedChanges {
@@ -335,7 +335,7 @@ fn select_unassigned_finds_unassigned_line() {
                 stack_id: None,
             }),
         }),
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
     ];
@@ -346,7 +346,7 @@ fn select_unassigned_finds_unassigned_line() {
 #[test]
 fn select_unassigned_uses_first_matching_line() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
         line(StatusOutputLineData::StagedChanges {
@@ -402,7 +402,7 @@ fn select_merge_base_returns_none_when_missing() {
 #[test]
 fn index_returns_the_selected_line_index() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
         line(StatusOutputLineData::StagedChanges {
@@ -420,7 +420,7 @@ fn index_returns_the_selected_line_index() {
 
 #[test]
 fn selected_line_returns_none_when_cursor_out_of_bounds() {
-    let lines = vec![line(StatusOutputLineData::UnstagedChanges {
+    let lines = vec![line(StatusOutputLineData::UnassignedChanges {
         cli_id: unassigned("u0"),
     })];
 
@@ -431,14 +431,14 @@ fn selected_line_returns_none_when_cursor_out_of_bounds() {
 fn selected_line_returns_line_when_cursor_is_in_bounds() {
     let lines = vec![
         line(StatusOutputLineData::Hint),
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
     ];
 
     assert!(matches!(
         Cursor(1).selected_line(&lines).map(|line| &line.data),
-        Some(StatusOutputLineData::UnstagedChanges { .. })
+        Some(StatusOutputLineData::UnassignedChanges { .. })
     ));
 }
 
@@ -548,7 +548,7 @@ fn selection_cli_id_for_reload_uses_nearest_parent_section_for_file() {
         line(StatusOutputLineData::File {
             cli_id: unassigned("file0"),
         }),
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: nearest_parent.clone(),
         }),
         line(StatusOutputLineData::File {
@@ -603,7 +603,7 @@ fn selection_cli_id_for_reload_uses_staged_changes_as_parent_for_hidden_file() {
 #[test]
 fn move_up_moves_to_previous_selectable_line() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
         line(StatusOutputLineData::Hint),
@@ -623,7 +623,7 @@ fn move_up_moves_to_previous_selectable_line() {
 #[test]
 fn move_up_does_not_move_when_already_at_first_selectable_line() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
         line(StatusOutputLineData::StagedChanges {
@@ -642,7 +642,7 @@ fn move_up_does_not_move_when_already_at_first_selectable_line() {
 #[test]
 fn move_down_moves_to_next_selectable_line() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
         line(StatusOutputLineData::Hint),
@@ -662,7 +662,7 @@ fn move_down_moves_to_next_selectable_line() {
 #[test]
 fn move_down_does_not_move_when_no_selectable_line_below() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
         line(StatusOutputLineData::Hint),
@@ -679,7 +679,7 @@ fn move_down_does_not_move_when_no_selectable_line_below() {
 #[test]
 fn movement_does_not_panic_or_move_when_cursor_is_out_of_bounds() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
         line(StatusOutputLineData::StagedChanges {
@@ -711,10 +711,10 @@ fn movement_does_not_panic_or_move_when_cursor_is_out_of_bounds() {
 #[test]
 fn move_next_section_moves_to_next_jump_target() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
-        line(StatusOutputLineData::UnstagedFile {
+        line(StatusOutputLineData::UnassignedFile {
             cli_id: unassigned("u1"),
         }),
         line(StatusOutputLineData::StagedChanges {
@@ -734,10 +734,10 @@ fn move_next_section_moves_to_next_jump_target() {
 #[test]
 fn move_next_section_does_not_move_when_no_jump_target_below() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
-        line(StatusOutputLineData::UnstagedFile {
+        line(StatusOutputLineData::UnassignedFile {
             cli_id: unassigned("u1"),
         }),
     ];
@@ -754,10 +754,10 @@ fn move_next_section_does_not_move_when_no_jump_target_below() {
 #[test]
 fn move_previous_section_moves_to_current_section_header_when_cursor_is_inside_it() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
-        line(StatusOutputLineData::UnstagedFile {
+        line(StatusOutputLineData::UnassignedFile {
             cli_id: unassigned("u1"),
         }),
         line(StatusOutputLineData::StagedChanges {
@@ -781,10 +781,10 @@ fn move_previous_section_moves_to_current_section_header_when_cursor_is_inside_i
 #[test]
 fn move_previous_section_moves_to_immediate_previous_when_already_on_section_header() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
-        line(StatusOutputLineData::UnstagedFile {
+        line(StatusOutputLineData::UnassignedFile {
             cli_id: unassigned("u1"),
         }),
         line(StatusOutputLineData::StagedChanges {
@@ -805,10 +805,10 @@ fn move_previous_section_moves_to_immediate_previous_when_already_on_section_hea
 #[test]
 fn move_previous_section_moves_to_current_header_when_only_current_section_exists_above_cursor() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
-        line(StatusOutputLineData::UnstagedFile {
+        line(StatusOutputLineData::UnassignedFile {
             cli_id: unassigned("u1"),
         }),
     ];
@@ -826,7 +826,7 @@ fn move_previous_section_moves_to_current_header_when_only_current_section_exist
 #[test]
 fn move_previous_section_does_not_move_when_on_first_jump_target() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
         line(StatusOutputLineData::StagedFile {
@@ -909,7 +909,7 @@ fn closest_branch_cursor_from_branch_is_noop() {
 #[test]
 fn closest_branch_cursor_from_unassigned_changes_selects_first_branch() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
         line(StatusOutputLineData::Branch {
@@ -979,7 +979,7 @@ fn closest_branch_cursor_from_merge_base_is_noop() {
 #[test]
 fn closest_branch_cursor_falls_back_to_merge_base_when_no_branch_exists() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
         line(StatusOutputLineData::MergeBase),
@@ -992,7 +992,7 @@ fn closest_branch_cursor_falls_back_to_merge_base_when_no_branch_exists() {
 
 #[test]
 fn closest_branch_cursor_is_none_when_no_branch_exists() {
-    let lines = vec![line(StatusOutputLineData::UnstagedChanges {
+    let lines = vec![line(StatusOutputLineData::UnassignedChanges {
         cli_id: unassigned("u0"),
     })];
 
@@ -1014,7 +1014,7 @@ fn move_up_in_rub_mode_skips_unavailable_targets() {
         stack_id: None,
     });
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: allowed.clone(),
         }),
         line(StatusOutputLineData::StagedChanges { cli_id: blocked }),
@@ -1048,7 +1048,7 @@ fn move_down_in_rub_mode_skips_unavailable_targets() {
         stack_id: None,
     });
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: allowed.clone(),
         }),
         line(StatusOutputLineData::StagedChanges { cli_id: blocked }),
@@ -1224,7 +1224,7 @@ fn move_next_section_in_rub_mode_skips_unavailable_sections() {
         line(StatusOutputLineData::Branch {
             cli_id: blocked.clone(),
         }),
-        line(StatusOutputLineData::UnstagedChanges { cli_id: blocked }),
+        line(StatusOutputLineData::UnassignedChanges { cli_id: blocked }),
         line(StatusOutputLineData::StagedChanges {
             cli_id: allowed.clone(),
         }),
@@ -1255,7 +1255,7 @@ fn move_previous_section_in_rub_mode_moves_to_current_available_section_header()
         stack_id: None,
     });
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: allowed.clone(),
         }),
         line(StatusOutputLineData::StagedChanges { cli_id: blocked }),
@@ -1304,7 +1304,7 @@ fn move_previous_section_in_rub_mode_from_unavailable_section_header_goes_to_pre
         line(StatusOutputLineData::StagedChanges {
             cli_id: allowed_b.clone(),
         }),
-        line(StatusOutputLineData::UnstagedChanges { cli_id: blocked }),
+        line(StatusOutputLineData::UnassignedChanges { cli_id: blocked }),
     ];
     let mode = Mode::Rub(RubMode {
         source: unassigned("source"),
@@ -1322,7 +1322,7 @@ fn move_previous_section_in_rub_mode_from_unavailable_section_header_goes_to_pre
 #[test]
 fn movement_methods_can_move_cursor_in_inline_reword_mode() {
     let lines = vec![
-        line(StatusOutputLineData::UnstagedChanges {
+        line(StatusOutputLineData::UnassignedChanges {
             cli_id: unassigned("u0"),
         }),
         line(StatusOutputLineData::StagedChanges {
@@ -1372,7 +1372,7 @@ fn is_selectable_in_rub_mode_requires_available_target() {
     let selectable_line = line(StatusOutputLineData::StagedFile {
         cli_id: allowed.clone(),
     });
-    let blocked_line = line(StatusOutputLineData::UnstagedFile { cli_id: blocked });
+    let blocked_line = line(StatusOutputLineData::UnassignedFile { cli_id: blocked });
     let not_selectable_line = line(StatusOutputLineData::Hint);
 
     let mode = Mode::Rub(RubMode {

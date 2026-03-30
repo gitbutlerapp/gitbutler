@@ -21,7 +21,9 @@ use crate::{
     CLI_DATE, CliId, IdMap,
     command::legacy::{
         forge::review,
-        status::output::{BranchLineContent, CommitLineContent, StatusOutput, StatusOutputLine},
+        status::output::{
+            BranchLineContent, CommitLineContent, FileLineContent, StatusOutput, StatusOutputLine,
+        },
     },
     id::{SegmentWithId, ShortId, StackWithId, TreeChangeWithId},
     tui::text::truncate_text,
@@ -768,17 +770,18 @@ fn print_assignments(
             "uncommitted file",
         )?;
 
-        let file_line = Vec::from([
-            Span::raw(id_padding.clone()),
-            Span::styled(cli_id.to_string(), Style::default().bold().blue()),
-            Span::raw(" "),
-            Span::raw(status.to_string()),
-            Span::raw(" "),
-            path,
-        ]);
+        let file_line = FileLineContent {
+            id: Vec::from([
+                Span::raw(id_padding.clone()),
+                Span::styled(cli_id.to_string(), Style::default().bold().blue()),
+                Span::raw(" "),
+            ]),
+            status: Vec::from([Span::raw(status.to_string()), Span::raw(" ")]),
+            path: Vec::from([path]),
+        };
 
         if unstaged {
-            output.unstaged_file(Vec::from([Span::raw("┊   ")]), file_line, file_cli_id)?;
+            output.unassigned_file(Vec::from([Span::raw("┊   ")]), file_line, file_cli_id)?;
         } else {
             output.staged_file(Vec::from([Span::raw("┊  │ ")]), file_line, file_cli_id)?;
         }
@@ -1251,27 +1254,31 @@ fn print_commit(
                         id: short_id.to_owned(),
                     };
 
+                    let (status, path) = tree_change_display_cli(inner);
                     output.file(
                         Vec::from([Span::raw("┊│     ")]),
-                        [
-                            Span::styled(short_id.to_owned(), Style::default().blue().bold()),
-                            Span::raw(" "),
-                        ]
-                        .into_iter()
-                        .chain(inner.display_cli(false, status_ctx.should_truncate_for_terminal))
-                        .collect(),
+                        FileLineContent {
+                            id: Vec::from([
+                                Span::styled(short_id.to_owned(), Style::default().blue().bold()),
+                                Span::raw(" "),
+                            ]),
+                            status: Vec::from([status]),
+                            path: Vec::from([path]),
+                        },
                         file_cli_id,
                     )?;
                 }
             }
             CommitChanges::Remote(tree_changes) => {
                 for change in tree_changes {
+                    let (status, path) = tree_change_display_cli(change);
                     output.file(
                         Vec::from([Span::raw("┊│     ")]),
-                        change
-                            .display_cli(false, status_ctx.should_truncate_for_terminal)
-                            .into_iter()
-                            .collect(),
+                        FileLineContent {
+                            id: Vec::new(),
+                            status: Vec::from([status]),
+                            path: Vec::from([path]),
+                        },
                         commit_cli_id.clone(),
                     )?;
                 }
@@ -1289,15 +1296,20 @@ trait CliDisplay {
     ) -> impl IntoIterator<Item = Span<'static>>;
 }
 
+fn tree_change_display_cli(change: &but_core::TreeChange) -> (Span<'static>, Span<'static>) {
+    let path = path_with_color(&change.status, change.path.to_string());
+    let status_letter = status_letter(&change.status);
+    (Span::raw(format!("{status_letter} ")), path)
+}
+
 impl CliDisplay for but_core::TreeChange {
     fn display_cli(
         &self,
         _verbose: bool,
         _should_truncate_for_terminal: bool,
     ) -> impl IntoIterator<Item = Span<'static>> {
-        let path = path_with_color(&self.status, self.path.to_string());
-        let status_letter = status_letter(&self.status);
-        [Span::raw(format!("{status_letter} ")), path]
+        let (status, path) = tree_change_display_cli(self);
+        [status, path]
     }
 }
 

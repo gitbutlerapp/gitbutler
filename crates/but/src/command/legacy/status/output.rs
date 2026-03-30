@@ -79,12 +79,12 @@ impl StatusOutput<'_> {
     pub(super) fn staged_file(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        line: FileLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Plain(line),
+            StatusOutputContent::File(line),
             StatusOutputLineData::StagedFile {
                 cli_id: Arc::new(id),
             },
@@ -100,22 +100,22 @@ impl StatusOutput<'_> {
         self.push_line(
             Some(connector),
             StatusOutputContent::Plain(line),
-            StatusOutputLineData::UnstagedChanges {
+            StatusOutputLineData::UnassignedChanges {
                 cli_id: Arc::new(id),
             },
         )
     }
 
-    pub(super) fn unstaged_file(
+    pub(super) fn unassigned_file(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        line: FileLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Plain(line),
-            StatusOutputLineData::UnstagedFile {
+            StatusOutputContent::File(line),
+            StatusOutputLineData::UnassignedFile {
                 cli_id: Arc::new(id),
             },
         )
@@ -139,12 +139,12 @@ impl StatusOutput<'_> {
     pub(super) fn file(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        line: FileLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Plain(line),
+            StatusOutputContent::File(line),
             StatusOutputLineData::File {
                 cli_id: Arc::new(id),
             },
@@ -250,15 +250,12 @@ impl StatusOutput<'_> {
 /// The non-connector content rendered for one status line.
 #[derive(Debug, Clone)]
 pub(super) enum StatusOutputContent {
-    /// Generic status content represented as one flat list of spans.
     Plain(Vec<Span<'static>>),
-    /// Structured content for commit rows.
     Commit(CommitLineContent),
-    /// Structured content for branch rows.
     Branch(BranchLineContent),
+    File(FileLineContent),
 }
 
-/// Structured content for a commit row in status output.
 #[derive(Debug, Default, Clone)]
 pub(super) struct CommitLineContent {
     pub(super) sha: Vec<Span<'static>>,
@@ -267,8 +264,6 @@ pub(super) struct CommitLineContent {
     pub(super) suffix: Vec<Span<'static>>,
 }
 
-/// Structured content for a branch row in status output.
-///
 /// Consdering the example "dp [dp-branch-1] (no commits)" see the field docs for what exactly they
 /// correspond to.
 #[derive(Debug, Default, Clone)]
@@ -283,6 +278,18 @@ pub(super) struct BranchLineContent {
     pub(super) decoration_end: Vec<Span<'static>>,
     /// "(no commits)" in the example
     pub(super) suffix: Vec<Span<'static>>,
+}
+
+/// Consdering the example "ae:sv A a/b/c.rs" see the field docs for what exactly they
+/// correspond to.
+#[derive(Debug, Default, Clone)]
+pub(super) struct FileLineContent {
+    /// "ae:sv" in the example
+    pub(super) id: Vec<Span<'static>>,
+    /// "A" in the example
+    pub(super) status: Vec<Span<'static>>,
+    /// "a/b/c.rs" in the example
+    pub(super) path: Vec<Span<'static>>,
 }
 
 #[derive(Debug, Clone)]
@@ -322,8 +329,8 @@ impl StatusOutputLine {
             },
             StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::Branch { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::MergeBase
@@ -349,10 +356,10 @@ pub(super) enum StatusOutputLineData {
     StagedFile {
         cli_id: Arc<CliId>,
     },
-    UnstagedChanges {
+    UnassignedChanges {
         cli_id: Arc<CliId>,
     },
-    UnstagedFile {
+    UnassignedFile {
         cli_id: Arc<CliId>,
     },
     Branch {
@@ -378,8 +385,8 @@ pub(super) enum StatusOutputLineData {
 impl StatusOutputLineData {
     pub(super) fn cli_id(&self) -> Option<&Arc<CliId>> {
         match self {
-            StatusOutputLineData::UnstagedChanges { cli_id }
-            | StatusOutputLineData::UnstagedFile { cli_id }
+            StatusOutputLineData::UnassignedChanges { cli_id }
+            | StatusOutputLineData::UnassignedFile { cli_id }
             | StatusOutputLineData::Branch { cli_id }
             | StatusOutputLineData::StagedChanges { cli_id }
             | StatusOutputLineData::StagedFile { cli_id }
