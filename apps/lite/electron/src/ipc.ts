@@ -1,8 +1,10 @@
 import type {
+	AbsorptionTarget,
 	ApplyOutcome,
 	BranchDetails,
 	BranchListing,
 	BranchListingFilter,
+	CommitAbsorption,
 	HunkAssignmentRequest,
 	CommitDetails,
 	DiffSpec,
@@ -115,6 +117,16 @@ export interface CommitUncommitChangesParams {
 	assignTo: string | null;
 }
 
+export interface AbsorptionPlanParams {
+	projectId: string;
+	target: AbsorptionTarget;
+}
+
+export interface AbsorbParams {
+	projectId: string;
+	absorptionPlan: Array<CommitAbsorption>;
+}
+
 export interface TreeChangeDiffParams {
 	projectId: string;
 	change: TreeChange;
@@ -145,6 +157,8 @@ export interface WatcherSubscribeResult {
 }
 
 export interface LiteElectronApi {
+	absorptionPlan: (params: AbsorptionPlanParams) => Promise<Array<CommitAbsorption>>;
+	absorb: (params: AbsorbParams) => Promise<number>;
 	apply: (params: ApplyParams) => Promise<ApplyOutcome>;
 	assignHunk: (params: AssignHunkParams) => Promise<void>;
 	branchDetails: (params: BranchDetailsParams) => Promise<BranchDetails>;
@@ -180,6 +194,8 @@ export interface LiteElectronApi {
 }
 
 export const liteIpcChannels = {
+	absorptionPlan: "workspace:absorption-plan",
+	absorb: "workspace:absorb",
 	apply: "workspace:apply",
 	assignHunk: "workspace:assign-hunk",
 	branchDetails: "workspace:branch-details",

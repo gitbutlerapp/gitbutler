@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { LiteElectronApi, WatcherSubscribeResult } from "./ipc";
 import type {
+	CommitAbsorption,
 	ApplyOutcome,
 	BranchDetails,
 	BranchListing,
@@ -35,6 +36,9 @@ const watcherListenerBySubscription = new Map<
 >();
 
 const api: LiteElectronApi = {
+	absorptionPlan: (params) =>
+		ipcRenderer.invoke("workspace:absorption-plan", params) as Promise<Array<CommitAbsorption>>,
+	absorb: (params) => ipcRenderer.invoke("workspace:absorb", params) as Promise<number>,
 	apply: (params) => ipcRenderer.invoke("workspace:apply", params) as Promise<ApplyOutcome>,
 	assignHunk: (params) => ipcRenderer.invoke("workspace:assign-hunk", params) as Promise<void>,
 	branchDetails: (params) =>
