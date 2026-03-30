@@ -14,7 +14,7 @@ pub fn commit_discard_only(
     subject_commit_id: gix::ObjectId,
 ) -> anyhow::Result<CommitDiscardResult> {
     let mut meta = ctx.meta()?;
-    let (_guard, repo, mut ws, _, _cache) = ctx.workspace_mut_and_db_and_cache()?;
+    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
     let rebase = but_workspace::commit::discard_commit(editor, subject_commit_id)?;

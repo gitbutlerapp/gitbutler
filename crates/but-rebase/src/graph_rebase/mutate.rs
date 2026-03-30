@@ -180,6 +180,12 @@ impl ToCommitSelector for gix::ObjectId {
     }
 }
 
+impl ToCommitSelector for gix::Id<'_> {
+    fn to_commit_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
+        editor.select_commit(self.detach())
+    }
+}
+
 impl ToReferenceSelector for &gix::refs::FullNameRef {
     fn to_reference_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         editor.select_reference(self)
