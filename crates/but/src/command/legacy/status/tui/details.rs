@@ -1,6 +1,7 @@
 use std::{
+    borrow::Cow,
     collections::BTreeMap,
-    iter::{once, repeat_n},
+    iter::{empty, once, repeat_n},
     sync::LazyLock,
     time::Instant,
 };
@@ -15,6 +16,7 @@ use but_ctx::{Context, OnDemand};
 use but_hunk_assignment::HunkAssignment;
 use gitbutler_stack::StackId;
 use gix::actor::Signature;
+use itertools::Either;
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -28,7 +30,6 @@ use syntect::{
     highlighting::{Theme, ThemeSet},
     parsing::{SyntaxReference, SyntaxSet},
 };
-use tracing::Level;
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
@@ -225,11 +226,16 @@ impl Details {
     }
 
     fn clamp_scroll_top(&mut self, viewport: Rect) {
+        // `render()` reserves one column for the left border before passing the remaining
+        // area to `DetailsAndDiffWidget::render`. Clamp using the same content width so wrapped
+        // commit messages compute the same number of rows in both places.
+        let content_width = viewport.width.saturating_sub(1).max(1);
+
         let max_scroll_top = self
             .widget
             .as_ref()
             .map(|diff| {
-                diff.total_rows(viewport.width)
+                diff.total_rows(content_width)
                     .saturating_sub(viewport.height as usize)
             })
             .unwrap_or(0);
@@ -386,46 +392,78 @@ impl DetailsAndDiffWidget {
             DetailsAndDiffWidget::FromCommit {
                 diff_line_items, ..
             }
-            | DetailsAndDiffWidget::FromDiffLines { diff_line_items } => diff_line_items,
+            | DetailsAndDiffWidget::FromDiffLines {
+                diff_line_items, ..
+            } => diff_line_items,
         }
     }
 
-    #[tracing::instrument(level = Level::TRACE, skip_all)]
     fn total_rows(&self, width: u16) -> usize {
-        self.items_for_width(width).count()
-    }
-
-    fn render(&self, scroll_top: usize, area: Rect, buf: &mut Frame) {
-        let items = self.items_for_width(area.width).skip(scroll_top);
-        List::new(items).render(area, buf.buffer_mut());
-    }
-
-    fn items_for_width(&self, width: u16) -> impl Iterator<Item = ListItem<'static>> {
-        let width = usize::from(width).max(1);
-
         match self {
             DetailsAndDiffWidget::FromCommit {
                 header_items,
                 message,
                 diff_line_items,
+                ..
             } => {
-                let iter = header_items
-                    .clone()
-                    .into_iter()
-                    .chain([ListItem::new("")])
-                    .chain(
-                        textwrap::wrap(message, textwrap::Options::new(width))
-                            .into_iter()
-                            .map(|line| ListItem::new(line.into_owned())),
-                    )
-                    .chain([ListItem::new("")])
-                    .chain(diff_line_items.clone());
-                itertools::Either::Left(iter)
+                header_items.len()
+                    + 1 // +1 to match the empty line added in `render`
+                    + textwrap::wrap(message, textwrap::Options::new(width as usize)).len()
+                    + 1 // +1 to match the empty line added in `render`
+                    + diff_line_items.len()
             }
-            DetailsAndDiffWidget::FromDiffLines { diff_line_items } => {
-                itertools::Either::Right(diff_line_items.clone().into_iter())
-            }
+            DetailsAndDiffWidget::FromDiffLines {
+                diff_line_items, ..
+            } => diff_line_items.len(),
         }
+    }
+
+    fn render(&self, scroll_top: usize, area: Rect, buf: &mut Frame) {
+        enum ListItemOrString<'a> {
+            ListItem(&'a ListItem<'a>),
+            Str(Cow<'a, str>),
+        }
+
+        let empty_list_item = ListItem::new("");
+
+        let wrapped_message_iter = match self {
+            DetailsAndDiffWidget::FromCommit { message, .. } => Some(
+                textwrap::wrap(message, textwrap::Options::new(area.width as usize))
+                    .into_iter()
+                    .map(ListItemOrString::Str),
+            ),
+            DetailsAndDiffWidget::FromDiffLines { .. } => None,
+        }
+        .into_iter()
+        .flatten();
+
+        let items = match self {
+            DetailsAndDiffWidget::FromCommit {
+                header_items,
+                diff_line_items,
+                ..
+            } => {
+                let iter = empty()
+                    .chain(header_items.iter().map(ListItemOrString::ListItem))
+                    .chain([ListItemOrString::ListItem(&empty_list_item)])
+                    .chain(wrapped_message_iter)
+                    .chain([ListItemOrString::ListItem(&empty_list_item)])
+                    .chain(diff_line_items.iter().map(ListItemOrString::ListItem));
+                Either::Left(iter)
+            }
+            DetailsAndDiffWidget::FromDiffLines {
+                diff_line_items, ..
+            } => Either::Right(diff_line_items.iter().map(ListItemOrString::ListItem)),
+        }
+        // ensure we `skip` and `take` before allocating anything
+        .skip(scroll_top)
+        .take(area.height as usize)
+        .map(|item| match item {
+            ListItemOrString::ListItem(list_item) => list_item.to_owned(),
+            ListItemOrString::Str(cow) => ListItem::new(cow),
+        });
+
+        List::new(items).render(area, buf.buffer_mut());
     }
 }
 
@@ -1209,7 +1247,7 @@ fn syntax_highlight(
     syntax_set: &SyntaxSet,
 ) -> impl Iterator<Item = Span<'static>> {
     let Ok(ranges) = highlight_lines.highlight_line(code, syntax_set) else {
-        return itertools::Either::Left(std::iter::empty());
+        return Either::Left(std::iter::empty());
     };
 
     let spans = ranges.into_iter().map(move |(style, text)| {
@@ -1222,5 +1260,5 @@ fn syntax_highlight(
         }
     });
 
-    itertools::Either::Right(spans)
+    Either::Right(spans)
 }
