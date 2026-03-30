@@ -370,27 +370,20 @@ export const useWorkspaceShortcuts = ({
 
 	const handleCommitSummaryAction = (action: CommitSummaryAction, selection: CommitItem) =>
 		Match.value(action).pipe(
-			Match.tagsExhaustive({
-				Move: ({ offset }) => move(offset, { _tag: "Commit", ...selection }),
-				NextSection: () => nextSection({ _tag: "Commit", ...selection }),
-				PreviousSection: () => previousSection({ _tag: "Commit", ...selection }),
-				TogglePreview: () => setShowPreviewPanel((visible) => !visible),
-				OpenFullscreenPreview: () => setShowFullscreenPreview(true),
+			Match.tags({
 				EditMessage: () => setEditingCommit(selection),
 				OpenDetails: () => select(commitItem({ ...selection, mode: { _tag: "Details" } })),
 			}),
+			Match.orElse((action) => handleSharedAction(action, { _tag: "Commit", ...selection })),
 		);
 
 	const handleCommitDetailsAction = (action: CommitDetailsAction, selection: CommitItem) =>
 		Match.value(action).pipe(
-			Match.tagsExhaustive({
+			Match.tags({
 				Move: ({ offset }) => moveCommitDetails(offset, selection),
-				NextSection: () => nextSection({ _tag: "Commit", ...selection }),
-				PreviousSection: () => previousSection({ _tag: "Commit", ...selection }),
-				TogglePreview: () => setShowPreviewPanel((visible) => !visible),
-				OpenFullscreenPreview: () => setShowFullscreenPreview(true),
 				CloseDetails: () => select(commitItem({ ...selection, mode: { _tag: "Summary" } })),
 			}),
+			Match.orElse((action) => handleSharedAction(action, { _tag: "Commit", ...selection })),
 		);
 
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
