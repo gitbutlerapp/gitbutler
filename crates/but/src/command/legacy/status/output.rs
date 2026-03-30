@@ -79,12 +79,12 @@ impl StatusOutput<'_> {
     pub(super) fn staged_file(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        line: FileLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Plain(line),
+            StatusOutputContent::File(line),
             StatusOutputLineData::StagedFile {
                 cli_id: Arc::new(id),
             },
@@ -106,15 +106,15 @@ impl StatusOutput<'_> {
         )
     }
 
-    pub(super) fn unstaged_file(
+    pub(super) fn unassigned_file(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        line: FileLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Plain(line),
+            StatusOutputContent::File(line),
             StatusOutputLineData::UnassignedFile {
                 cli_id: Arc::new(id),
             },
@@ -139,12 +139,12 @@ impl StatusOutput<'_> {
     pub(super) fn file(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: CommittedFileLineContent,
+        line: FileLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::CommittedFile(line),
+            StatusOutputContent::File(line),
             StatusOutputLineData::File {
                 cli_id: Arc::new(id),
             },
@@ -250,17 +250,12 @@ impl StatusOutput<'_> {
 /// The non-connector content rendered for one status line.
 #[derive(Debug, Clone)]
 pub(super) enum StatusOutputContent {
-    /// Generic status content represented as one flat list of spans.
     Plain(Vec<Span<'static>>),
-    /// Structured content for commit rows.
     Commit(CommitLineContent),
-    /// Structured content for branch rows.
     Branch(BranchLineContent),
-    /// Structured content for committed file rows.
-    CommittedFile(CommittedFileLineContent),
+    File(FileLineContent),
 }
 
-/// Structured content for a commit row in status output.
 #[derive(Debug, Default, Clone)]
 pub(super) struct CommitLineContent {
     pub(super) sha: Vec<Span<'static>>,
@@ -269,8 +264,6 @@ pub(super) struct CommitLineContent {
     pub(super) suffix: Vec<Span<'static>>,
 }
 
-/// Structured content for a branch row in status output.
-///
 /// Consdering the example "dp [dp-branch-1] (no commits)" see the field docs for what exactly they
 /// correspond to.
 #[derive(Debug, Default, Clone)]
@@ -287,12 +280,10 @@ pub(super) struct BranchLineContent {
     pub(super) suffix: Vec<Span<'static>>,
 }
 
-/// Structured content for a committed file row in status output.
-///
 /// Consdering the example "ae:sv A a/b/c.rs" see the field docs for what exactly they
 /// correspond to.
 #[derive(Debug, Default, Clone)]
-pub(super) struct CommittedFileLineContent {
+pub(super) struct FileLineContent {
     /// "ae:sv" in the example
     pub(super) id: Vec<Span<'static>>,
     /// "A" in the example

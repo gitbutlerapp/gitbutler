@@ -22,8 +22,7 @@ use crate::{
     command::legacy::{
         forge::review,
         status::output::{
-            BranchLineContent, CommitLineContent, CommittedFileLineContent, StatusOutput,
-            StatusOutputLine,
+            BranchLineContent, CommitLineContent, FileLineContent, StatusOutput, StatusOutputLine,
         },
     },
     id::{SegmentWithId, ShortId, StackWithId, TreeChangeWithId},
@@ -771,17 +770,18 @@ fn print_assignments(
             "uncommitted file",
         )?;
 
-        let file_line = Vec::from([
-            Span::raw(id_padding.clone()),
-            Span::styled(cli_id.to_string(), Style::default().bold().blue()),
-            Span::raw(" "),
-            Span::raw(status.to_string()),
-            Span::raw(" "),
-            path,
-        ]);
+        let file_line = FileLineContent {
+            id: Vec::from([
+                Span::raw(id_padding.clone()),
+                Span::styled(cli_id.to_string(), Style::default().bold().blue()),
+                Span::raw(" "),
+            ]),
+            status: Vec::from([Span::raw(status.to_string()), Span::raw(" ")]),
+            path: Vec::from([path]),
+        };
 
         if unstaged {
-            output.unstaged_file(Vec::from([Span::raw("┊   ")]), file_line, file_cli_id)?;
+            output.unassigned_file(Vec::from([Span::raw("┊   ")]), file_line, file_cli_id)?;
         } else {
             output.staged_file(Vec::from([Span::raw("┊  │ ")]), file_line, file_cli_id)?;
         }
@@ -1257,7 +1257,7 @@ fn print_commit(
                     let (status, path) = tree_change_display_cli(inner);
                     output.file(
                         Vec::from([Span::raw("┊│     ")]),
-                        CommittedFileLineContent {
+                        FileLineContent {
                             id: Vec::from([
                                 Span::styled(short_id.to_owned(), Style::default().blue().bold()),
                                 Span::raw(" "),
@@ -1274,7 +1274,7 @@ fn print_commit(
                     let (status, path) = tree_change_display_cli(change);
                     output.file(
                         Vec::from([Span::raw("┊│     ")]),
-                        CommittedFileLineContent {
+                        FileLineContent {
                             id: Vec::new(),
                             status: Vec::from([status]),
                             path: Vec::from([path]),

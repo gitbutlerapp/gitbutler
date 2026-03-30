@@ -23,8 +23,7 @@ use crate::{
     command::legacy::{
         rub::{RubOperation, route_operation},
         status::{
-            CommitLineContent, CommittedFileLineContent, StatusFlags, StatusOutputLine,
-            TuiLaunchOptions,
+            CommitLineContent, FileLineContent, StatusFlags, StatusOutputLine, TuiLaunchOptions,
             output::BranchLineContent,
             tui::{
                 confirm::{Confirm, ConfirmMessage},
@@ -1430,10 +1429,12 @@ impl App {
             CliId::Branch { name, .. } => Cow::Borrowed(&**name),
             CliId::Commit { commit_id, .. } => Cow::Owned(commit_id.to_hex_with_len(7).to_string()),
             CliId::CommittedFile { path, .. } => path.to_str_lossy(),
-            CliId::PathPrefix { .. }
-            | CliId::Unassigned { .. }
-            | CliId::Stack { .. }
-            | CliId::Uncommitted(_) => return Ok(()),
+            CliId::Uncommitted(uncommitted) => {
+                Cow::Borrowed(&*uncommitted.hunk_assignments.first().path)
+            }
+            CliId::PathPrefix { .. } | CliId::Unassigned { .. } | CliId::Stack { .. } => {
+                return Ok(());
+            }
         };
 
         arboard::Clipboard::new()
@@ -1928,7 +1929,7 @@ impl App {
                 spans.extend(suffix.iter().cloned());
                 spans
             }
-            StatusOutputContent::CommittedFile(CommittedFileLineContent { id, status, path }) => {
+            StatusOutputContent::File(FileLineContent { id, status, path }) => {
                 let mut spans = Vec::with_capacity(id.len() + status.len() + path.len());
                 spans.extend(id.iter().cloned());
                 spans.extend(status.iter().cloned());
