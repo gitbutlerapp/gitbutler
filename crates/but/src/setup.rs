@@ -7,7 +7,7 @@ use command_group::AsyncCommandGroup;
 
 use crate::{
     args::Args,
-    utils::{Confirm, ConfirmDefault, OutputChannel},
+    utils::{Confirm, ConfirmDefault, OutputChannel, WriteWithUtils as _},
 };
 
 #[derive(Default)]
@@ -393,21 +393,20 @@ enum SetupPromptResult {
 
 fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult {
     use std::fmt::Write;
-    let mut progress = out.progress_channel();
 
     // Progress channel only writes when output is for humans, so we can write unconditionally
     _ = writeln!(
-        progress,
+        out.progress_channel(),
         "The current project is not configured to be managed by GitButler.\n"
     );
-    writeln!(progress, "{}\n", message.red()).ok();
+    writeln!(out.progress_channel(), "{}\n", message.red()).ok();
 
     // Check if we have an interactive terminal and prompt the user
     let user_declined_in_interactive_mode = if let Some(mut inout) =
         out.prepare_for_terminal_input()
     {
         _ = writeln!(
-            progress,
+            inout.progress_channel(),
             "In order to manage projects with GitButler, we need to do some changes:\n\n - Switch you to a special `gitbutler/workspace` branch to enable parallel branches\n - Install Git hooks to help manage the tooling\n\nYou can go back to normal git workflows at any time by either:\n\n - Running `but teardown`\n - Manually checking out a normal branch with `git checkout <branch>`\n",
         );
 
@@ -426,7 +425,7 @@ fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult
     if user_declined_in_interactive_mode {
         // User declined in interactive mode
         _ = writeln!(
-            progress,
+            out.progress_channel(),
             "{}",
             "Please run `but setup` to switch to GitButler management.\n".yellow()
         );
@@ -441,7 +440,7 @@ fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult
     } else if out.for_human().is_some() && !user_declined_in_interactive_mode {
         // Non-interactive terminal, just show the hint
         _ = writeln!(
-            progress,
+            out.progress_channel(),
             "{}",
             "Please run `but setup` to switch to GitButler management.\n".yellow()
         );

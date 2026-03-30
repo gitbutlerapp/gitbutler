@@ -9,8 +9,8 @@ use serde::Serialize;
 
 use crate::{
     CliId, IdMap,
-    args::{push, push::Command},
-    utils::{OutputChannel, shorten_hex_object_id, shorten_object_id},
+    args::push::{self, Command},
+    utils::{OutputChannel, WriteWithUtils as _, shorten_hex_object_id, shorten_object_id},
 };
 
 /// Represents the result of branch selection when no branch is specified
@@ -141,10 +141,8 @@ fn handle_dry_run(
     branch_id: &Option<String>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let mut progress = out.progress_channel();
-
     // Fetch from remote first to get latest state
-    writeln!(progress, "Fetching from remote...")?;
+    writeln!(out.progress_channel(), "Fetching from remote...")?;
 
     but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("dry_run_push".into()))?;
 
@@ -175,7 +173,7 @@ fn handle_dry_run(
         }
 
         writeln!(
-            progress,
+            out.progress_channel(),
             "{}",
             "No branches have unpushed commits.".dimmed()
         )?;
@@ -323,14 +321,14 @@ fn handle_dry_run(
     }
 
     // Output human-readable format
-    writeln!(progress)?;
+    writeln!(out.progress_channel())?;
     writeln!(
-        progress,
+        out.progress_channel(),
         "{} {}",
         "Dry run:".bright_blue().bold(),
         "Showing what would be pushed".dimmed()
     )?;
-    writeln!(progress)?;
+    writeln!(out.progress_channel())?;
 
     // Group branches by stack
     let mut branches_by_stack: std::collections::HashMap<String, Vec<&DryRunBranchInfo>> =
@@ -351,7 +349,7 @@ fn handle_dry_run(
         // Highlight stacked branches (multiple branches in same stack)
         if branches.len() > 1 {
             writeln!(
-                progress,
+                out.progress_channel(),
                 "{} {} {}",
                 "Stack:".yellow().bold(),
                 stack_name.cyan(),
@@ -384,9 +382,9 @@ fn handle_dry_run(
             let has_next = is_in_stack && !is_last;
 
             if is_in_stack && !is_first {
-                writeln!(progress, "{}", "│".dimmed())?;
+                writeln!(out.progress_channel(), "{}", "│".dimmed())?;
             } else {
-                writeln!(progress)?;
+                writeln!(out.progress_channel())?;
             }
 
             // Determine the gutter character
@@ -405,7 +403,7 @@ fn handle_dry_run(
             // Display branch name with stacking indicator and visual line
             if let Some(stacked_on) = &info.stacked_on {
                 writeln!(
-                    progress,
+                    out.progress_channel(),
                     "{} {} {} {} {}",
                     gutter.dimmed(),
                     "Branch:".bold(),
@@ -415,7 +413,7 @@ fn handle_dry_run(
                 )?;
             } else {
                 writeln!(
-                    progress,
+                    out.progress_channel(),
                     "{} {} {}",
                     gutter.dimmed(),
                     "Branch:".bold(),
@@ -436,7 +434,7 @@ fn handle_dry_run(
             let line_prefix = if has_next { "│ " } else { "  " };
 
             writeln!(
-                progress,
+                out.progress_channel(),
                 "{}  {} {} {}",
                 line_prefix.dimmed(),
                 "→".green(),
@@ -444,7 +442,7 @@ fn handle_dry_run(
                 format!("{}/{}", info.remote, branch_name).yellow()
             )?;
             writeln!(
-                progress,
+                out.progress_channel(),
                 "{}  {} {}",
                 line_prefix.dimmed(),
                 "Commits:".dimmed(),
@@ -458,13 +456,13 @@ fn handle_dry_run(
 
             if !info.commits.is_empty() {
                 if is_in_stack {
-                    writeln!(progress, "{}", line_prefix.dimmed())?;
+                    writeln!(out.progress_channel(), "{}", line_prefix.dimmed())?;
                 } else {
-                    writeln!(progress)?;
+                    writeln!(out.progress_channel())?;
                 }
                 for commit in &info.commits {
                     writeln!(
-                        progress,
+                        out.progress_channel(),
                         "{}    {} {}",
                         line_prefix.dimmed(),
                         commit.sha_short.green(),
@@ -474,7 +472,7 @@ fn handle_dry_run(
 
                 if info.unpushed_commits > info.commits.len() {
                     writeln!(
-                        progress,
+                        out.progress_channel(),
                         "{}    {}",
                         line_prefix.dimmed(),
                         format!(
@@ -488,9 +486,9 @@ fn handle_dry_run(
 
             // Show upstream commits if any
             if !info.upstream_commits.is_empty() {
-                writeln!(progress)?;
+                writeln!(out.progress_channel())?;
                 writeln!(
-                    progress,
+                    out.progress_channel(),
                     "{}  {} {} {}",
                     line_prefix.dimmed(),
                     "⚠".yellow(),
@@ -506,10 +504,10 @@ fn handle_dry_run(
                     )
                     .yellow()
                 )?;
-                writeln!(progress)?;
+                writeln!(out.progress_channel())?;
                 for commit in &info.upstream_commits {
                     writeln!(
-                        progress,
+                        out.progress_channel(),
                         "{}    {} {}",
                         line_prefix.dimmed(),
                         commit.sha_short.red(),
@@ -520,9 +518,9 @@ fn handle_dry_run(
 
             // Show warning if present
             if let Some(warning) = &info.warning {
-                writeln!(progress)?;
+                writeln!(out.progress_channel())?;
                 writeln!(
-                    progress,
+                    out.progress_channel(),
                     "{}  {} {}",
                     line_prefix.dimmed(),
                     "⚠".red().bold(),
@@ -532,9 +530,9 @@ fn handle_dry_run(
 
             // Show force push indicator
             if info.requires_force {
-                writeln!(progress)?;
+                writeln!(out.progress_channel())?;
                 writeln!(
-                    progress,
+                    out.progress_channel(),
                     "{}  {} {}",
                     line_prefix.dimmed(),
                     "⚡".yellow(),
@@ -543,15 +541,15 @@ fn handle_dry_run(
             }
         }
 
-        writeln!(progress)?;
+        writeln!(out.progress_channel())?;
     }
 
     let total_commits: usize = dry_run_infos.iter().map(|i| i.unpushed_commits).sum();
     let total_branches = dry_run_infos.len();
 
-    writeln!(progress)?;
+    writeln!(out.progress_channel())?;
     writeln!(
-        progress,
+        out.progress_channel(),
         "{} Would push {} {} across {} {}",
         "Summary:".bright_blue().bold(),
         total_commits.to_string().yellow().bold(),
@@ -567,9 +565,9 @@ fn handle_dry_run(
             "branches"
         }
     )?;
-    writeln!(progress)?;
+    writeln!(out.progress_channel())?;
     writeln!(
-        progress,
+        out.progress_channel(),
         "{}",
         "Run without --dry-run to push these changes.".dimmed()
     )?;
@@ -585,19 +583,18 @@ fn push_single_branch(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let result = push_single_branch_impl(ctx, branch_name, args, gerrit_mode)?;
-    let mut progress = out.progress_channel();
 
     if let Some(out) = out.for_json() {
         out.write_value(&result)?;
     }
 
-    writeln!(progress)?;
+    writeln!(out.progress_channel())?;
     writeln!(
-        progress,
+        out.progress_channel(),
         "{} Push completed successfully",
         "✓".green().bold()
     )?;
-    writeln!(progress)?;
+    writeln!(out.progress_channel())?;
     if !result.branch_sha_updates.is_empty() {
         let repo = ctx.repo.get()?.clone().for_commit_shortening();
         for (branch, before_sha, after_sha) in &result.branch_sha_updates {
@@ -612,7 +609,7 @@ fn push_single_branch(
             let remote_ref = format!("{}/{}", result.remote, branch);
 
             writeln!(
-                progress,
+                out.progress_channel(),
                 "  {} -> {} ({} -> {})",
                 branch.cyan(),
                 remote_ref.dimmed(),
@@ -661,7 +658,6 @@ fn push_all_branches(
     gerrit_mode: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let mut progress = out.progress_channel();
     let branches_with_info = get_branches_with_unpushed_info(ctx)?;
 
     // Filter to only branches with unpushed commits
@@ -681,29 +677,38 @@ fn push_all_branches(
         }
 
         writeln!(
-            progress,
+            out.progress_channel(),
             "{}",
             "No branches have unpushed commits.".dimmed()
         )?;
         return Ok(());
     }
 
-    writeln!(progress)?;
-    writeln!(progress, "{}", "Pushing branches...".bright_blue().bold())?;
-    writeln!(progress)?;
+    writeln!(out.progress_channel())?;
+    writeln!(
+        out.progress_channel(),
+        "{}",
+        "Pushing branches...".bright_blue().bold()
+    )?;
+    writeln!(out.progress_channel())?;
 
     let mut total_commits_pushed = 0;
     let mut pushed_results = Vec::new();
     let mut failed_branches = Vec::new();
 
     for (branch_name, unpushed_count, _) in branches_to_push {
-        write!(progress, "  {} {}... ", "→".cyan(), branch_name.bold())?;
+        write!(
+            out.progress_channel(),
+            "  {} {}... ",
+            "→".cyan(),
+            branch_name.bold()
+        )?;
 
         match push_single_branch_impl(ctx, &branch_name, args, gerrit_mode) {
             Ok(result) => {
                 total_commits_pushed += unpushed_count;
                 writeln!(
-                    progress,
+                    out.progress_channel(),
                     "{} ({} commit{})",
                     "✓".green(),
                     unpushed_count.to_string().yellow(),
@@ -716,7 +721,12 @@ fn push_all_branches(
                     branch_name: branch_name.clone(),
                     error: e.to_string(),
                 });
-                writeln!(progress, "{} {}", "✗".red(), e.to_string().red())?;
+                writeln!(
+                    out.progress_channel(),
+                    "{} {}",
+                    "✗".red(),
+                    e.to_string().red()
+                )?;
             }
         }
     }
@@ -730,11 +740,11 @@ fn push_all_branches(
         out.write_value(&batch_result)?;
     }
 
-    writeln!(progress)?;
+    writeln!(out.progress_channel())?;
 
     if !pushed_results.is_empty() {
         writeln!(
-            progress,
+            out.progress_channel(),
             "{} {} {} {}",
             "✓".green().bold(),
             "Successfully pushed".green().bold(),
@@ -745,7 +755,7 @@ fn push_all_branches(
                 "commits"
             }
         )?;
-        writeln!(progress)?;
+        writeln!(out.progress_channel())?;
 
         // Print combined branch, remote, and SHA information for all pushed branches
         let repo = ctx.repo.get()?.clone().for_commit_shortening();
@@ -762,7 +772,7 @@ fn push_all_branches(
                 let remote_ref = format!("{}/{}", result.remote, branch);
 
                 writeln!(
-                    progress,
+                    out.progress_channel(),
                     "  {} -> {} ({} -> {})",
                     branch.cyan(),
                     remote_ref.dimmed(),
@@ -774,9 +784,9 @@ fn push_all_branches(
     }
 
     if !failed_branches.is_empty() {
-        writeln!(progress)?;
+        writeln!(out.progress_channel())?;
         writeln!(
-            progress,
+            out.progress_channel(),
             "{} Failed to push {} {}:",
             "✗".red().bold(),
             failed_branches.len().to_string().red().bold(),
@@ -788,7 +798,7 @@ fn push_all_branches(
         )?;
         for failed in &failed_branches {
             writeln!(
-                progress,
+                out.progress_channel(),
                 "    {} - {}",
                 failed.branch_name.red(),
                 failed.error.dimmed()

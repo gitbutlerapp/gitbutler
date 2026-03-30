@@ -66,6 +66,7 @@ where
 }
 
 fn json_pretty_to_stdout(value: &impl serde::Serialize) -> std::io::Result<()> {
+    // TODO: make this use OutputChannel
     let stdout = std::io::stdout();
     let mut stdout = stdout.lock();
     let value = serde_json::to_string_pretty(value).map_err(std::io::Error::other)?;

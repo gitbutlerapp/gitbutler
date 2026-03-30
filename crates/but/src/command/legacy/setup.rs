@@ -567,10 +567,9 @@ fn setup_local_remote(repo: &gix::Repository, out: &mut OutputChannel) -> anyhow
 fn setup_new_repo(current_dir: &Path, out: &mut OutputChannel) -> anyhow::Result<gix::Repository> {
     use std::fmt::Write as FmtWrite;
 
-    let mut progress = out.progress_channel();
     if let Some(mut inout) = out.prepare_for_terminal_input() {
         writeln!(
-            &mut progress as &mut dyn FmtWrite,
+            inout.progress_channel(),
             "{}",
             "No git repository found.".red()
         )?;
@@ -581,7 +580,7 @@ fn setup_new_repo(current_dir: &Path, out: &mut OutputChannel) -> anyhow::Result
         ))?;
         if input.as_deref() == Some("y") {
             writeln!(
-                &mut progress as &mut dyn FmtWrite,
+                inout.progress_channel(),
                 "{}",
                 "Initializing new repository and creating an empty first commit...".dimmed()
             )?;
@@ -590,7 +589,7 @@ fn setup_new_repo(current_dir: &Path, out: &mut OutputChannel) -> anyhow::Result
             create_empty_initial_commit(&repo)?;
 
             writeln!(
-                &mut progress as &mut dyn FmtWrite,
+                inout.progress_channel(),
                 "{}",
                 "Initialized a new repository and created an empty first commit.\n".green()
             )?;
