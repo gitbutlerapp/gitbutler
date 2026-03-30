@@ -245,6 +245,9 @@ export const handleRenameBranchKeyDown = ({
 	);
 };
 
+const isWithinBaseUiInert = (target: EventTarget | null): boolean =>
+	target instanceof Element && target.closest("[data-base-ui-inert]") !== null;
+
 type Scope =
 	| {
 			_tag: "FullscreenPreview";
@@ -537,6 +540,7 @@ export const useWorkspaceShortcuts = ({
 		if (event.defaultPrevented) return;
 		if (event.metaKey || event.ctrlKey || event.altKey) return;
 		if (isTypingTarget(event.target)) return;
+		if (isWithinBaseUiInert(event.target)) return;
 
 		const scope = getScope({ showFullscreenPreview, selection, editing });
 		if (!scope) return;
