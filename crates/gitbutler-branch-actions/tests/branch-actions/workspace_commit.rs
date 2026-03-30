@@ -21,7 +21,7 @@ fn command_ctx(name: &str) -> Result<(Context, TempDir)> {
 /// when diffing the workspace commit against its parents.
 #[test]
 fn conflicting_stacks_evicted_from_workspace_commit_parents() -> Result<()> {
-    let (mut ctx, _temp_dir) = command_ctx("conflicting-stacks")?;
+    let (ctx, _temp_dir) = command_ctx("conflicting-stacks")?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let stacks_before = vb_state.list_stacks_in_workspace()?;
@@ -37,9 +37,7 @@ fn conflicting_stacks_evicted_from_workspace_commit_parents() -> Result<()> {
     //   - The second stack conflicts (same file, different content) → in_workspace = false
     // remerged_workspace_commit_v2 (with our fix) then excludes the evicted stack
     // from the workspace commit's parent list.
-    let _guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::update_workspace_commit(&ctx, false)?;
-    drop(_guard);
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
