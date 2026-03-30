@@ -1,4 +1,4 @@
-import { getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
+import { getCommonBaseCommitId, getSegmentBranchRef } from "#ui/domain/RefInfo.ts";
 import { WorktreeChanges, type RefInfo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 
@@ -125,6 +125,9 @@ export const normalizeItem = (
 			if (!stack) return null;
 			const segment = stack.segments[item.segmentIndex];
 			if (!segment) return null;
+			const branchName = segment.refName?.displayName ?? null;
+			const branchRef = segment.refName ? getSegmentBranchRef(segment.refName) : null;
+			if (branchName !== item.branchName || branchRef !== item.branchRef) return null;
 			return item;
 		}),
 		Match.tag("Commit", (item) => {
