@@ -104,6 +104,7 @@ pub fn remerged_workspace_commit_v2(ctx: &Context) -> Result<gix::ObjectId> {
     let author = signature_gix(SignaturePurpose::Author);
     let mut heads = stacks
         .iter()
+        .filter(|stack| stack.in_workspace)
         .filter_map(|stack| stack.head_oid(ctx).ok())
         .collect::<Vec<_>>();
 
