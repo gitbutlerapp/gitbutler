@@ -1129,6 +1129,84 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Skill(skill::Platform),
 
+    /// Serve the GitButler UI over HTTP.
+    ///
+    /// Starts the embedded GitButler frontend and API on a local port.
+    /// By default opens a Cloudflare quick tunnel so you can access it
+    /// from any device. All non-localhost requests require a valid
+    /// GitButler token. Pass `--local` to skip the tunnel and bind to
+    /// localhost only (no auth required).
+    ///
+    /// Requires `cloudflared` to be installed. If it is missing, a one-line
+    /// install hint is printed.
+    ///
+    /// ## Examples
+    ///
+    /// ```text
+    /// but remote
+    /// ```
+    ///
+    /// Localhost only (no tunnel, no auth):
+    ///
+    /// ```text
+    /// but remote --local
+    /// ```
+    ///
+    /// Use a static hostname via a pre-configured named tunnel:
+    ///
+    /// ```text
+    /// but remote --name gitbutler --hostname git.example.com
+    /// ```
+    ///
+    /// Set up a named tunnel once (requires a Cloudflare account and a domain):
+    ///
+    /// ```text
+    /// cloudflared tunnel login
+    /// cloudflared tunnel create gitbutler
+    /// cloudflared tunnel route dns gitbutler git.example.com
+    /// ```
+    ///
+    /// Use an existing reverse proxy instead of cloudflared:
+    ///
+    /// ```text
+    /// but remote --remote-origin https://my-tunnel.example.com
+    /// ```
+    #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment, hide = true)]
+    Remote {
+        /// Port to listen on.
+        #[clap(long, default_value = "8080")]
+        port: u16,
+        /// Host to bind to.
+        #[clap(long)]
+        host: Option<String>,
+        /// Serve on localhost only without opening a tunnel. No authentication required.
+        #[clap(long)]
+        local: bool,
+        /// Cloudflare named tunnel name or UUID (e.g. `mytunnel`).
+        ///
+        /// Must be paired with `--hostname`. Runs `cloudflared tunnel run --url ... <name>`
+        /// which connects your pre-configured named tunnel to the local server.
+        /// Requires `cloudflared tunnel login` and `cloudflared tunnel route dns` to have
+        /// been run already. See `but remote --help` for setup instructions.
+        #[clap(long, requires = "hostname")]
+        name: Option<String>,
+        /// Public hostname routed to `--name` (e.g. `but.example.com`).
+        ///
+        /// Must be paired with `--name`. Used as the CORS origin and display URL.
+        #[clap(long, requires = "name")]
+        hostname: Option<String>,
+        /// Use this origin instead of spawning cloudflared (e.g. <https://my-tunnel.trycloudflare.com>).
+        #[clap(long)]
+        remote_origin: Option<String>,
+        /// Disable authentication entirely. DANGEROUS — only use on trusted networks.
+        #[clap(long)]
+        dangerously_allow_anyone: bool,
+        /// GitButler API base URL.
+        #[clap(long, default_value = "https://app.gitbutler.com")]
+        api_url: String,
+    },
+
     /// Show help information grouped by category.
     ///
     /// Displays all available commands organized into functional categories

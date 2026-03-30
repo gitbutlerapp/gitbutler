@@ -64,6 +64,9 @@
 	const projects = $derived(projectsQuery.response);
 	const currentProject = $derived(projects?.find((p) => p.id === projectId));
 
+	const serverInfoQuery = $derived(projectsService.serverInfo());
+	const projectPinned = $derived(serverInfoQuery.response?.projectPinned ?? false);
+
 	// =============================================================================
 	// REPOSITORY & BRANCH MANAGEMENT
 	// =============================================================================
@@ -449,7 +452,7 @@
 		{:else if baseBranch}
 			{#if mode.type === "OpenWorkspace" || mode.type === "Edit" || ($settingsStore?.featureFlags.singleBranch && mode.subject.branchName)}
 				<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
-					<AppLayout {projectId} sidebarDisabled={mode.type === "Edit"}>
+					<AppLayout {projectId} {projectPinned} sidebarDisabled={mode.type === "Edit"}>
 						{@render pageChildren()}
 					</AppLayout>
 				</div>

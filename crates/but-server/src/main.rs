@@ -1,3 +1,50 @@
+use but_server::Config;
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(name = "but-server", about = "GitButler remote access server")]
+struct Args {
+    /// Port to listen on.
+    #[arg(long, default_value = "6978")]
+    port: u16,
+
+    /// Host to bind to. Defaults to 127.0.0.1 in local mode, 0.0.0.0 when remote access is on.
+    #[arg(long)]
+    host: Option<String>,
+
+    /// Serve on localhost only without opening a tunnel. No authentication required.
+    #[arg(long)]
+    local: bool,
+
+    /// Spawn a Cloudflare quick tunnel and use its URL as the allowed remote origin.
+    #[arg(long)]
+    tunnel: bool,
+
+    /// Cloudflare named tunnel name or UUID to run (e.g. `mytunnel`). Must be paired with --hostname.
+    #[arg(long, requires = "hostname")]
+    name: Option<String>,
+
+    /// Public hostname routed to --name (e.g. `but.example.com`). Must be paired with --name.
+    #[arg(long, requires = "name")]
+    hostname: Option<String>,
+
+    /// Allow remote access from this specific origin (e.g. https://my-tunnel.trycloudflare.com).
+    #[arg(long)]
+    remote_origin: Option<String>,
+
+    /// Prefix all API routes with this path (e.g. /api).
+    #[arg(long)]
+    base_path: Option<String>,
+
+    /// Disable authentication entirely. DANGEROUS — only use on trusted networks.
+    #[arg(long)]
+    dangerously_allow_anyone: bool,
+
+    /// GitButler API base URL.
+    #[arg(long, default_value = "https://app.gitbutler.com")]
+    api_url: String,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     trace::init()?;
@@ -13,7 +60,21 @@ async fn main() -> anyhow::Result<()> {
     // the websocket. As the askpass broker historically hasn't been initialized for but-server,
     // it does not seem worthwhile to hook that up right now.
     gitbutler_repo_actions::askpass::disable();
-    but_server::run().await
+
+    let args = Args::parse();
+    let config = Config {
+        port: Some(args.port),
+        host: args.host,
+        tunnel: !args.local && args.tunnel && args.name.is_none(),
+        tunnel_name: args.name,
+        tunnel_hostname: args.hostname,
+        remote_origin: args.remote_origin,
+        base_path: args.base_path,
+        allow_anyone: args.dangerously_allow_anyone,
+        api_url: Some(args.api_url),
+        project_path: None,
+    };
+    but_server::run(config).await
 }
 
 mod trace {
