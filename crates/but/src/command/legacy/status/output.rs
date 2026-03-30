@@ -139,12 +139,12 @@ impl StatusOutput<'_> {
     pub(super) fn file(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        line: CommittedFileLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Plain(line),
+            StatusOutputContent::CommittedFile(line),
             StatusOutputLineData::File {
                 cli_id: Arc::new(id),
             },
@@ -256,6 +256,8 @@ pub(super) enum StatusOutputContent {
     Commit(CommitLineContent),
     /// Structured content for branch rows.
     Branch(BranchLineContent),
+    /// Structured content for committed file rows.
+    CommittedFile(CommittedFileLineContent),
 }
 
 /// Structured content for a commit row in status output.
@@ -283,6 +285,20 @@ pub(super) struct BranchLineContent {
     pub(super) decoration_end: Vec<Span<'static>>,
     /// "(no commits)" in the example
     pub(super) suffix: Vec<Span<'static>>,
+}
+
+/// Structured content for a committed file row in status output.
+///
+/// Consdering the example "ae:sv A a/b/c.rs" see the field docs for what exactly they
+/// correspond to.
+#[derive(Debug, Default, Clone)]
+pub(super) struct CommittedFileLineContent {
+    /// "ae:sv" in the example
+    pub(super) id: Vec<Span<'static>>,
+    /// "A" in the example
+    pub(super) status: Vec<Span<'static>>,
+    /// "a/b/c.rs" in the example
+    pub(super) path: Vec<Span<'static>>,
 }
 
 #[derive(Debug, Clone)]

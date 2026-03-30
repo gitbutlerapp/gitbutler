@@ -1,6 +1,7 @@
 use std::{borrow::Cow, ffi::OsString, process::Command, sync::Arc, time::Duration};
 
 use anyhow::Context as _;
+use bstr::ByteSlice;
 use but_core::tree::create_tree::RejectionReason;
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
@@ -22,7 +23,8 @@ use crate::{
     command::legacy::{
         rub::{RubOperation, route_operation},
         status::{
-            CommitLineContent, StatusFlags, StatusOutputLine, TuiLaunchOptions,
+            CommitLineContent, CommittedFileLineContent, StatusFlags, StatusOutputLine,
+            TuiLaunchOptions,
             output::BranchLineContent,
             tui::{
                 confirm::{Confirm, ConfirmMessage},
@@ -1427,8 +1429,8 @@ impl App {
         let what_to_copy = match &**cli_id {
             CliId::Branch { name, .. } => Cow::Borrowed(&**name),
             CliId::Commit { commit_id, .. } => Cow::Owned(commit_id.to_hex_with_len(7).to_string()),
+            CliId::CommittedFile { path, .. } => path.to_str_lossy(),
             CliId::PathPrefix { .. }
-            | CliId::CommittedFile { .. }
             | CliId::Unassigned { .. }
             | CliId::Stack { .. }
             | CliId::Uncommitted(_) => return Ok(()),
@@ -1924,6 +1926,17 @@ impl App {
                 }
                 spans.extend(decoration_end.iter().cloned());
                 spans.extend(suffix.iter().cloned());
+                spans
+            }
+            StatusOutputContent::CommittedFile(CommittedFileLineContent { id, status, path }) => {
+                let mut spans = Vec::with_capacity(id.len() + status.len() + path.len());
+                spans.extend(id.iter().cloned());
+                spans.extend(status.iter().cloned());
+                if data.cli_id().is_some_and(|id| self.highlight.contains(id)) {
+                    spans.extend(path.iter().cloned().map(with_highlight));
+                } else {
+                    spans.extend(path.iter().cloned());
+                }
                 spans
             }
         };

@@ -3,7 +3,7 @@ use ratatui::style::{Color, Modifier, Style};
 
 use crate::{
     command::legacy::status::{
-        StatusOutputLine,
+        CommittedFileLineContent, StatusOutputLine,
         output::{BranchLineContent, CommitLineContent, StatusOutputContent},
     },
     utils::WriteWithUtils,
@@ -55,6 +55,15 @@ pub(super) fn render_oneshot(
             spans.append(&mut branch_name);
             spans.append(&mut decoration_end);
             spans.append(&mut suffix);
+        }
+        StatusOutputContent::CommittedFile(CommittedFileLineContent {
+            mut id,
+            mut status,
+            mut path,
+        }) => {
+            spans.append(&mut id);
+            spans.append(&mut status);
+            spans.append(&mut path);
         }
     }
 
