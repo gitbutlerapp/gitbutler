@@ -72,11 +72,7 @@ export const baseCommitItem = (commitId: string): Item => ({
 
 export const getParentSection = (selection: Item): Item | null =>
 	Match.value(selection).pipe(
-		Match.tag("Commit", (item): Item | null =>
-			item.mode._tag === "Details"
-				? commitItem({ ...item, mode: { _tag: "Summary" } })
-				: segmentItem(item),
-		),
+		Match.tag("Commit", (item): Item | null => segmentItem(item)),
 		Match.tag("Changes", (item): Item | null =>
 			item.mode._tag === "Details" ? changesSummaryItem(item.stackId) : null,
 		),
