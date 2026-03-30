@@ -99,6 +99,7 @@ pub struct TuiLaunchOptions {
     pub skip_status_after: bool,
     pub show_diff: bool,
     pub select_commit: Option<gix::ObjectId>,
+    pub quit_after_rendering_full_diff: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

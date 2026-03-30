@@ -1158,6 +1158,14 @@ pub enum Subcommands {
         #[cfg(feature = "tui-profiling")]
         #[clap(long)]
         quit_after: Option<u64>,
+        /// Quit after rendering the full diff.
+        ///
+        /// Implies `--diff`.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
+        quit_after_rendering_full_diff: bool,
         /// Run the TUI with an in-memory terminal and no terminal event polling.
         ///
         /// Requires `tui-profiling` feature.

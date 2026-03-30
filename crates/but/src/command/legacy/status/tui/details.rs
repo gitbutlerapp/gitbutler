@@ -241,14 +241,14 @@ impl Details {
         &mut self,
         ctx: &mut Context,
         selection: Option<&CliId>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Option<RenderNextChunkResult>> {
         if let Some(widget) = &mut self.widget {
             let syntax_set = self.syntax_set.get()?;
             let theme = self.dark_theme.get()?;
-            match self
-                .renderer
-                .render_next_chunk(&syntax_set, &theme, widget.diff_line_items_mut())
-            {
+            let result =
+                self.renderer
+                    .render_next_chunk(&syntax_set, &theme, widget.diff_line_items_mut());
+            match result {
                 RenderNextChunkResult::Done => {
                     self.is_dirty = false;
                     tracing::trace!("rendered diff in {:?}", self.renderer.created_at.elapsed());
@@ -257,10 +257,11 @@ impl Details {
                     tracing::trace!("render_next_chunk");
                 }
             }
+            Ok(Some(result))
         } else {
             let Some(selection) = selection else {
                 self.is_dirty = false;
-                return Ok(());
+                return Ok(None);
             };
 
             self.is_dirty = true;
@@ -327,9 +328,9 @@ impl Details {
                     previous_diff_line_items,
                 )?,
             });
-        }
 
-        Ok(())
+            Ok(None)
+        }
     }
 
     pub(super) fn render(&self, area: Rect, frame: &mut Frame) {
@@ -685,7 +686,7 @@ enum PartiallyRenderedDiff {
 }
 
 /// The result of rendering the one diff chunk.
-enum RenderNextChunkResult {
+pub(super) enum RenderNextChunkResult {
     /// We're done. All chunks have been rendered.
     Done,
     /// Some meta data, such as the commit messages was rendered.

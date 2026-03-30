@@ -27,7 +27,7 @@ use crate::{
             tui::{
                 confirm::{Confirm, ConfirmMessage},
                 cursor::{Cursor, is_selectable_in_mode},
-                details::{Details, DetailsMessage},
+                details::{Details, DetailsMessage, RenderNextChunkResult},
                 graph_extension::{ExtensionDirection, extend_connector_spans},
                 highlight::{Highlights, with_highlight},
                 key_bind::{KeyBinds, confirm_key_binds, default_key_binds},
@@ -283,8 +283,19 @@ where
             .selected_line(&app.status_lines)
             .and_then(|line| line.data.cli_id())
             .map(|id| &**id);
-        if let Err(err) = app.details.update(ctx, selection) {
-            messages.push(Message::ShowError(Arc::new(err)));
+        match app.details.update(ctx, selection) {
+            Ok(Some(result)) => match result {
+                RenderNextChunkResult::Done => {
+                    if app.options.quit_after_rendering_full_diff {
+                        app.should_quit = true;
+                    }
+                }
+                RenderNextChunkResult::Meta | RenderNextChunkResult::Diff => {}
+            },
+            Ok(None) => {}
+            Err(err) => {
+                messages.push(Message::ShowError(Arc::new(err)));
+            }
         }
         app.should_render = true;
     }
