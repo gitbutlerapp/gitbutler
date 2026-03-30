@@ -1,4 +1,4 @@
-use std::convert::Infallible;
+use std::{convert::Infallible, time::Duration};
 
 use but_testsupport::Sandbox;
 use crossterm::event::*;
@@ -460,9 +460,9 @@ where
 {
     type Error = Infallible;
 
-    fn poll(self) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
-        Ok(self.into_iter().flat_map(|inner| {
-            let Ok(iter) = inner.poll();
+    fn poll(self, timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+        Ok(self.into_iter().flat_map(move |inner| {
+            let Ok(iter) = inner.poll(timeout);
             iter
         }))
     }
@@ -471,7 +471,7 @@ where
 impl EventPolling for Option<Event> {
     type Error = Infallible;
 
-    fn poll(mut self) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+    fn poll(mut self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
         Ok(self.take())
     }
 }
@@ -479,7 +479,7 @@ impl EventPolling for Option<Event> {
 impl EventPolling for KeyCode {
     type Error = Infallible;
 
-    fn poll(self) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+    fn poll(self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
         Ok([Event::Key(KeyEvent {
             code: self,
             modifiers: KeyModifiers::NONE,
@@ -492,7 +492,7 @@ impl EventPolling for KeyCode {
 impl EventPolling for (KeyModifiers, KeyCode) {
     type Error = Infallible;
 
-    fn poll(self) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+    fn poll(self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
         Ok([Event::Key(KeyEvent {
             code: self.1,
             modifiers: self.0,
@@ -505,15 +505,15 @@ impl EventPolling for (KeyModifiers, KeyCode) {
 impl EventPolling for char {
     type Error = Infallible;
 
-    fn poll(self) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
-        KeyCode::Char(self).poll()
+    fn poll(self, timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+        KeyCode::Char(self).poll(timeout)
     }
 }
 
 impl EventPolling for &str {
     type Error = Infallible;
 
-    fn poll(self) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+    fn poll(self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
         Ok(self.chars().map(KeyCode::Char).map(|code| {
             Event::Key(KeyEvent {
                 code,

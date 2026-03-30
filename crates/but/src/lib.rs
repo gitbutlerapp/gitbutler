@@ -672,6 +672,8 @@ async fn match_subcommand(
             diff,
             #[cfg(feature = "tui-profiling")]
             select_commit,
+            #[cfg(feature = "tui-profiling")]
+            quit_after_rendering_full_diff,
         } => {
             use crate::command::legacy::status::{StatusFlags, StatusRenderMode, TuiLaunchOptions};
 
@@ -689,8 +691,13 @@ async fn match_subcommand(
                 quit_after,
                 headless,
                 skip_status_after,
-                show_diff: diff,
+                show_diff: if quit_after_rendering_full_diff {
+                    true
+                } else {
+                    diff
+                },
                 select_commit,
+                quit_after_rendering_full_diff,
             };
             #[cfg(not(feature = "tui-profiling"))]
             let _options = TuiLaunchOptions::default();

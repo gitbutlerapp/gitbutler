@@ -13,6 +13,7 @@ use ratatui::{
     widgets::{List, ListItem},
 };
 use ratatui_textarea::{CursorMove, TextArea};
+use tracing::Level;
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
@@ -26,7 +27,7 @@ use crate::{
             tui::{
                 confirm::{Confirm, ConfirmMessage},
                 cursor::{Cursor, is_selectable_in_mode},
-                details::{Details, DetailsMessage},
+                details::{Details, DetailsMessage, RenderNextChunkResult},
                 graph_extension::{ExtensionDirection, extend_connector_spans},
                 highlight::{Highlights, with_highlight},
                 key_bind::{KeyBinds, confirm_key_binds, default_key_binds},
@@ -119,7 +120,7 @@ pub(super) async fn render_tui(
 trait EventPolling {
     type Error: std::error::Error + Send + Sync + 'static;
 
-    fn poll(self) -> Result<impl IntoIterator<Item = Event>, Self::Error>;
+    fn poll(self, timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error>;
 }
 
 /// An [`EventPolling`] implementation that polls events for real using crossterm.
@@ -129,8 +130,8 @@ struct CrosstermEventPolling;
 impl EventPolling for CrosstermEventPolling {
     type Error = std::io::Error;
 
-    fn poll(self) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
-        if event::poll(Duration::from_millis(30))? {
+    fn poll(self, timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+        if event::poll(timeout)? {
             Ok(Some(event::read()?))
         } else {
             Ok(None)
@@ -148,7 +149,7 @@ struct NoopEventPolling;
 impl EventPolling for NoopEventPolling {
     type Error = std::io::Error;
 
-    fn poll(self) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+    fn poll(self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
         Ok(None)
     }
 }
@@ -245,11 +246,14 @@ where
 {
     app.updates += 1;
 
-    // Poll terminal events.
-    //
-    // In headless mode, the configured event poller is a no-op and this loop does not touch the
-    // real terminal.
-    for event in event_polling.poll()? {
+    // update at full speed while we're rendering the diff
+    let event_poll_timeout = if app.details.needs_update() {
+        Duration::from_millis(0)
+    } else {
+        Duration::from_millis(30)
+    };
+    // poll terminal events
+    for event in event_polling.poll(event_poll_timeout)? {
         event_to_messages(event, app.active_key_binds(), &app.mode, messages);
     }
 
@@ -273,14 +277,25 @@ where
         app.should_render = true;
     }
 
-    if app.details.is_dirty() {
+    if app.details.needs_update() {
         let selection = app
             .cursor
             .selected_line(&app.status_lines)
             .and_then(|line| line.data.cli_id())
             .map(|id| &**id);
-        if let Err(err) = app.details.update(ctx, selection) {
-            messages.push(Message::ShowError(Arc::new(err)));
+        match app.details.update(ctx, selection) {
+            Ok(Some(result)) => match result {
+                RenderNextChunkResult::Done => {
+                    if app.options.quit_after_rendering_full_diff {
+                        app.should_quit = true;
+                    }
+                }
+                RenderNextChunkResult::Meta | RenderNextChunkResult::Diff => {}
+            },
+            Ok(None) => {}
+            Err(err) => {
+                messages.push(Message::ShowError(Arc::new(err)));
+            }
         }
         app.should_render = true;
     }
@@ -453,6 +468,7 @@ impl App {
         self.clamp_scroll_top(visible_height);
     }
 
+    #[tracing::instrument(level = Level::TRACE, skip(self, ctx, out, mode, terminal_guard, messages))]
     async fn handle_message<T>(
         &mut self,
         ctx: &mut Context,
@@ -1698,6 +1714,7 @@ impl App {
         Some(*commit_id)
     }
 
+    #[tracing::instrument(level = Level::TRACE, skip_all)]
     fn render(&self, frame: &mut Frame) {
         let content_layout =
             Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(frame.area());
