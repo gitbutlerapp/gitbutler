@@ -24,7 +24,7 @@ pub fn writable_context(script_name: &str, repo_name: &str) -> Result<(Context, 
     let (tmp, _) = gix_testtools::scripted_fixture_writable_with_args_with_post(
         script_name.clone(),
         None::<String>,
-        if script_name == "reorder.sh" {
+        if script_name == "reorder.sh" || script_name == "workspace-commit.sh" {
             gix_testtools::Creation::Execute
         } else {
             gix_testtools::Creation::CopyFromReadOnly
@@ -151,6 +151,18 @@ fn seed_fixture(repo: &gix::Repository, script_name: &str, repo_name: &str) -> R
             branches_base_to_top: &["a-branch-1"],
             in_workspace: true,
         }],
+        ("workspace-commit.sh", "conflicting-stacks") => vec![
+            StackSpec {
+                id: 1,
+                branches_base_to_top: &["stack_a"],
+                in_workspace: true,
+            },
+            StackSpec {
+                id: 2,
+                branches_base_to_top: &["stack_b"],
+                in_workspace: true,
+            },
+        ],
         unsupported => anyhow::bail!("unsupported driverless fixture {unsupported:?}"),
     };
 
