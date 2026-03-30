@@ -442,7 +442,7 @@ export const useWorkspaceShortcuts = ({
 	const previousSection = (selection: Item) =>
 		select(getParentSection(selection) ?? getAdjacentSection(navigationModel, selection, -1));
 
-	const handleSharedAction = (action: SelectionAction, selection: Item) =>
+	const handleSelectionAction = (action: SelectionAction, selection: Item) =>
 		Match.value(action).pipe(
 			Match.tagsExhaustive({
 				Move: ({ offset }) => move(offset, selection),
@@ -459,7 +459,7 @@ export const useWorkspaceShortcuts = ({
 				EditMessage: () => setEditing({ _tag: "CommitMessage", subject: selection }),
 				OpenDetails: () => select(commitItem({ ...selection, mode: { _tag: "Details" } })),
 			}),
-			Match.orElse((action) => handleSharedAction(action, { _tag: "Commit", ...selection })),
+			Match.orElse((action) => handleSelectionAction(action, { _tag: "Commit", ...selection })),
 		);
 
 	const handleCommitDetailsAction = (action: CommitDetailsAction, selection: CommitItem) =>
@@ -468,7 +468,7 @@ export const useWorkspaceShortcuts = ({
 				Move: ({ offset }) => moveCommitDetails(offset, selection),
 				CloseDetails: () => select(commitItem({ ...selection, mode: { _tag: "Summary" } })),
 			}),
-			Match.orElse((action) => handleSharedAction(action, { _tag: "Commit", ...selection })),
+			Match.orElse((action) => handleSelectionAction(action, { _tag: "Commit", ...selection })),
 		);
 
 	const handleBranchSegmentAction = (action: BranchSegmentAction, selection: SegmentItem) =>
@@ -484,7 +484,7 @@ export const useWorkspaceShortcuts = ({
 					});
 				},
 			}),
-			Match.orElse((action) => handleSharedAction(action, { _tag: "Segment", ...selection })),
+			Match.orElse((action) => handleSelectionAction(action, { _tag: "Segment", ...selection })),
 		);
 
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
@@ -511,19 +511,19 @@ export const useWorkspaceShortcuts = ({
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
 					event.preventDefault();
-					handleSharedAction(action, { _tag: "Changes", ...scope.context });
+					handleSelectionAction(action, { _tag: "Changes", ...scope.context });
 				},
 				BaseCommit: (scope) => {
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
 					event.preventDefault();
-					handleSharedAction(action, { _tag: "BaseCommit", ...scope.context });
+					handleSelectionAction(action, { _tag: "BaseCommit", ...scope.context });
 				},
 				Segment: (scope) => {
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
 					event.preventDefault();
-					handleSharedAction(action, { _tag: "Segment", ...scope.context });
+					handleSelectionAction(action, { _tag: "Segment", ...scope.context });
 				},
 				Branch: (scope) => {
 					const action = getAction(scope.bindings, event);
