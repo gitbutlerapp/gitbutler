@@ -242,7 +242,7 @@
 		overflow: auto;
 		border-radius: var(--radius-s);
 		background-color: var(--bg-danger);
-		color: var(--fill-danger-fg);
+		color: var(--text-danger);
 		font-size: 12px;
 		white-space: pre-wrap;
 		overflow-wrap: break-word;
