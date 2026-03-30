@@ -17,7 +17,7 @@
 	border-bottom: 1px solid;
 }
 
-.topBarPreviewActions {
+.topBarActions {
 	display: flex;
 	column-gap: 8px;
 	margin-left: auto;

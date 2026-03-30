@@ -5,7 +5,7 @@ import { Match } from "effect";
 export type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
 export type ChangesItem = { stackId: string | null; mode: ChangesMode };
 
-type SegmentItem = {
+export type SegmentItem = {
 	stackId: string;
 	segmentIndex: number;
 	branchName: string | null;
@@ -72,11 +72,7 @@ export const baseCommitItem = (commitId: string): Item => ({
 
 export const getParentSection = (selection: Item): Item | null =>
 	Match.value(selection).pipe(
-		Match.tag("Commit", (item): Item | null =>
-			item.mode._tag === "Details"
-				? commitItem({ ...item, mode: { _tag: "Summary" } })
-				: segmentItem(item),
-		),
+		Match.tag("Commit", (item): Item | null => segmentItem(item)),
 		Match.tag("Changes", (item): Item | null =>
 			item.mode._tag === "Details" ? changesSummaryItem(item.stackId) : null,
 		),

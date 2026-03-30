@@ -1,0 +1,458 @@
+import {
+	changesInWorktreeQueryOptions,
+	commitDetailsWithLineStatsQueryOptions,
+	headInfoQueryOptions,
+} from "#ui/api/queries.ts";
+import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
+import { usePreviewPanel } from "#ui/hooks/usePreviewPanel.ts";
+import { getAction, type ShortcutBinding } from "#ui/shortcuts.ts";
+import { isTypingTarget } from "#ui/routes/project/$id/-shared.tsx";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { Match } from "effect";
+import { useEffect, useEffectEvent } from "react";
+import { type EditingCommit } from "./-EditingCommit.ts";
+import {
+	commitItem,
+	type Item,
+	CommitItem,
+	getParentSection,
+	SegmentItem,
+	ChangesItem,
+	BaseCommitItem,
+} from "./-Item.ts";
+import {
+	buildNavigationModel,
+	getAdjacentCommitDetailsPath,
+	getAdjacentItem,
+	getAdjacentSection,
+	getSelectedCommitPath,
+} from "./-Selection.ts";
+
+type SelectionAction =
+	| { _tag: "Move"; offset: -1 | 1 }
+	| { _tag: "NextSection" }
+	| { _tag: "PreviousSection" }
+	| { _tag: "TogglePreview" }
+	| { _tag: "OpenFullscreenPreview" };
+
+type CommitSummaryAction = SelectionAction | { _tag: "EditMessage" } | { _tag: "OpenDetails" };
+
+type CommitDetailsAction = SelectionAction | { _tag: "CloseDetails" };
+
+export const togglePreviewBinding: ShortcutBinding<SelectionAction> = {
+	id: "toggle-preview",
+	description: "Preview",
+	keys: ["p"],
+	action: { _tag: "TogglePreview" },
+	repeat: false,
+};
+
+export const openFullscreenPreviewBinding: ShortcutBinding<SelectionAction> = {
+	id: "open-fullscreen-preview",
+	description: "Open fullscreen preview",
+	keys: ["d"],
+	action: { _tag: "OpenFullscreenPreview" },
+	repeat: false,
+};
+
+const selectionBindings: Array<ShortcutBinding<SelectionAction>> = [
+	{
+		id: "move-up",
+		description: "up",
+		keys: ["ArrowUp", "k"],
+		action: { _tag: "Move", offset: -1 },
+	},
+	{
+		id: "move-down",
+		description: "down",
+		keys: ["ArrowDown", "j"],
+		action: { _tag: "Move", offset: 1 },
+	},
+	{
+		id: "next-section",
+		description: "Next section",
+		keys: ["J"],
+		action: { _tag: "NextSection" },
+	},
+	{
+		id: "previous-section",
+		description: "Previous section",
+		keys: ["K"],
+		action: { _tag: "PreviousSection" },
+	},
+	togglePreviewBinding,
+	openFullscreenPreviewBinding,
+];
+
+const commitSummaryBindings: Array<ShortcutBinding<CommitSummaryAction>> = [
+	...selectionBindings,
+	{
+		id: "commit-edit-message",
+		description: "Edit message",
+		keys: ["Enter"],
+		action: { _tag: "EditMessage" },
+		repeat: false,
+	},
+	{
+		id: "commit-open-details",
+		description: "Open details",
+		keys: ["ArrowRight", "l"],
+		action: { _tag: "OpenDetails" },
+		repeat: false,
+	},
+];
+
+const commitDetailsBindings: Array<ShortcutBinding<CommitDetailsAction>> = [
+	...selectionBindings,
+	{
+		id: "commit-close-details",
+		description: "Close details",
+		keys: ["ArrowLeft", "Escape"],
+		action: { _tag: "CloseDetails" },
+		repeat: false,
+	},
+];
+
+type FullscreenPreviewAction = { _tag: "Close" };
+
+export const closeFullscreenPreviewBinding: ShortcutBinding<FullscreenPreviewAction> = {
+	id: "close-fullscreen-preview",
+	description: "Close",
+	keys: ["Escape"],
+	action: { _tag: "Close" },
+	repeat: false,
+};
+
+const fullscreenPreviewBindings: Array<ShortcutBinding<FullscreenPreviewAction>> = [
+	closeFullscreenPreviewBinding,
+];
+
+type CommitEditingMessageAction = { _tag: "Save" } | { _tag: "Cancel" };
+
+export const commitEditingMessageBindings: Array<ShortcutBinding<CommitEditingMessageAction>> = [
+	{
+		id: "commit-editing-message-save",
+		description: "Save",
+		keys: ["Enter"],
+		action: { _tag: "Save" },
+		repeat: false,
+	},
+	{
+		id: "commit-editing-message-cancel",
+		description: "Cancel",
+		keys: ["Escape"],
+		action: { _tag: "Cancel" },
+		repeat: false,
+	},
+];
+
+export const handleCommitEditingMessageKeyDown = ({
+	event,
+	onSave,
+	onCancel,
+}: {
+	event: KeyboardEvent;
+	onSave: () => void;
+	onCancel: () => void;
+}) => {
+	const action = getAction(commitEditingMessageBindings, event);
+	if (!action) return;
+
+	Match.value(action).pipe(
+		Match.tagsExhaustive({
+			Save: () => {
+				if (event.shiftKey) return;
+				event.preventDefault();
+				onSave();
+			},
+			Cancel: () => {
+				event.preventDefault();
+				onCancel();
+			},
+		}),
+	);
+};
+
+type Scope =
+	| {
+			_tag: "FullscreenPreview";
+			bindings: Array<ShortcutBinding<FullscreenPreviewAction>>;
+	  }
+	| {
+			_tag: "BaseCommit";
+			bindings: Array<ShortcutBinding<SelectionAction>>;
+			context: BaseCommitItem;
+	  }
+	| {
+			_tag: "Changes";
+			bindings: Array<ShortcutBinding<SelectionAction>>;
+			context: ChangesItem;
+	  }
+	| {
+			_tag: "CommitDetails";
+			bindings: Array<ShortcutBinding<CommitDetailsAction>>;
+			context: CommitItem;
+	  }
+	| {
+			_tag: "CommitEditMessage";
+			bindings: Array<ShortcutBinding<CommitEditingMessageAction>>;
+			context: CommitItem;
+	  }
+	| {
+			_tag: "CommitSummary";
+			bindings: Array<ShortcutBinding<CommitSummaryAction>>;
+			context: CommitItem;
+	  }
+	| {
+			_tag: "Segment";
+			bindings: Array<ShortcutBinding<SelectionAction>>;
+			context: SegmentItem;
+	  };
+
+export const getScope = ({
+	showFullscreenPreview,
+	selection,
+	editingCommit,
+}: {
+	showFullscreenPreview: boolean;
+	selection: Item | null;
+	editingCommit: EditingCommit | null;
+}): Scope | null => {
+	if (showFullscreenPreview)
+		return {
+			_tag: "FullscreenPreview",
+			bindings: fullscreenPreviewBindings,
+		};
+
+	if (!selection) return null;
+
+	return Match.value(selection).pipe(
+		Match.tag(
+			"Changes",
+			(selection): Scope => ({
+				_tag: "Changes",
+				bindings: selectionBindings,
+				context: selection,
+			}),
+		),
+		Match.tag("Commit", (selection): Scope => {
+			if (
+				editingCommit !== null &&
+				editingCommit.stackId === selection.stackId &&
+				editingCommit.segmentIndex === selection.segmentIndex &&
+				editingCommit.commitId === selection.commitId
+			)
+				return {
+					_tag: "CommitEditMessage",
+					bindings: commitEditingMessageBindings,
+					context: selection,
+				};
+
+			return Match.value(selection.mode).pipe(
+				Match.tagsExhaustive({
+					Details: (): Scope => ({
+						_tag: "CommitDetails",
+						bindings: commitDetailsBindings,
+						context: selection,
+					}),
+					Summary: (): Scope => ({
+						_tag: "CommitSummary",
+						bindings: commitSummaryBindings,
+						context: selection,
+					}),
+				}),
+			);
+		}),
+		Match.tag(
+			"BaseCommit",
+			(selection): Scope => ({
+				_tag: "BaseCommit",
+				bindings: selectionBindings,
+				context: selection,
+			}),
+		),
+		Match.tag(
+			"Segment",
+			(selection): Scope => ({
+				_tag: "Segment",
+				bindings: selectionBindings,
+				context: selection,
+			}),
+		),
+		Match.exhaustive,
+	);
+};
+
+export const getLabel = (scope: Scope): string =>
+	Match.value(scope).pipe(
+		Match.tag("FullscreenPreview", () => "Fullscreen preview"),
+		Match.tag("BaseCommit", () => "Base commit"),
+		Match.tag("Changes", () => "Changes"),
+		Match.tag("CommitDetails", () => "Commit details"),
+		Match.tag("CommitEditMessage", () => "Edit commit message"),
+		Match.tag("CommitSummary", () => "Commit"),
+		Match.tag("Segment", () => "Segment"),
+		Match.exhaustive,
+	);
+
+export const useWorkspaceShortcuts = ({
+	projectId,
+	showFullscreenPreview,
+	editingCommit,
+	selection,
+	select,
+	setEditingCommit,
+	commonBaseCommitId,
+}: {
+	projectId: string;
+	showFullscreenPreview: boolean;
+	selection: Item | null;
+	select: (selection: Item | null) => void;
+	editingCommit: EditingCommit | null;
+	setEditingCommit: (selection: EditingCommit | null) => void;
+	commonBaseCommitId?: string;
+}) => {
+	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
+	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
+	const [, setShowPreviewPanel] = usePreviewPanel();
+	const [, setShowFullscreenPreview] = useFullscreenPreview(projectId);
+
+	const queryClient = useQueryClient();
+	const navigationModel = buildNavigationModel({
+		headInfo,
+		changes: worktreeChanges.changes,
+		assignments: worktreeChanges.assignments,
+		commonBaseCommitId,
+	});
+
+	const moveCommitDetails = (offset: -1 | 1, selection: CommitItem) => {
+		const commitDetails = queryClient.getQueryData(
+			commitDetailsWithLineStatsQueryOptions({
+				projectId,
+				commitId: selection.commitId,
+			}).queryKey,
+		);
+		if (!commitDetails) return;
+
+		const paths = commitDetails.changes.map((change) => change.path);
+		const nextPath = getAdjacentCommitDetailsPath({
+			paths,
+			currentPath: getSelectedCommitPath({ paths, selection }),
+			offset,
+		});
+		if (nextPath === null) return;
+
+		select(
+			commitItem({
+				...selection,
+				mode: { _tag: "Details", path: nextPath },
+			}),
+		);
+	};
+
+	const move = (offset: -1 | 1, selection: Item) =>
+		select(getAdjacentItem(navigationModel, selection, offset));
+	const nextSection = (selection: Item) =>
+		select(getAdjacentSection(navigationModel, selection, 1));
+	const previousSection = (selection: Item) =>
+		select(getParentSection(selection) ?? getAdjacentSection(navigationModel, selection, -1));
+
+	const handleSharedAction = (action: SelectionAction, selection: Item) =>
+		Match.value(action).pipe(
+			Match.tagsExhaustive({
+				Move: ({ offset }) => move(offset, selection),
+				NextSection: () => nextSection(selection),
+				PreviousSection: () => previousSection(selection),
+				TogglePreview: () => setShowPreviewPanel((visible) => !visible),
+				OpenFullscreenPreview: () => setShowFullscreenPreview(true),
+			}),
+		);
+
+	const handleCommitSummaryAction = (action: CommitSummaryAction, selection: CommitItem) =>
+		Match.value(action).pipe(
+			Match.tagsExhaustive({
+				Move: ({ offset }) => move(offset, { _tag: "Commit", ...selection }),
+				NextSection: () => nextSection({ _tag: "Commit", ...selection }),
+				PreviousSection: () => previousSection({ _tag: "Commit", ...selection }),
+				TogglePreview: () => setShowPreviewPanel((visible) => !visible),
+				OpenFullscreenPreview: () => setShowFullscreenPreview(true),
+				EditMessage: () => setEditingCommit(selection),
+				OpenDetails: () => select(commitItem({ ...selection, mode: { _tag: "Details" } })),
+			}),
+		);
+
+	const handleCommitDetailsAction = (action: CommitDetailsAction, selection: CommitItem) =>
+		Match.value(action).pipe(
+			Match.tagsExhaustive({
+				Move: ({ offset }) => moveCommitDetails(offset, selection),
+				NextSection: () => nextSection({ _tag: "Commit", ...selection }),
+				PreviousSection: () => previousSection({ _tag: "Commit", ...selection }),
+				TogglePreview: () => setShowPreviewPanel((visible) => !visible),
+				OpenFullscreenPreview: () => setShowFullscreenPreview(true),
+				CloseDetails: () => select(commitItem({ ...selection, mode: { _tag: "Summary" } })),
+			}),
+		);
+
+	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
+		if (event.defaultPrevented) return;
+		if (event.metaKey || event.ctrlKey || event.altKey) return;
+		if (isTypingTarget(event.target)) return;
+
+		const scope = getScope({ showFullscreenPreview, selection, editingCommit });
+		if (!scope) return;
+
+		Match.value(scope).pipe(
+			Match.tagsExhaustive({
+				FullscreenPreview: (scope) => {
+					const action = getAction(scope.bindings, event);
+					if (!action) return;
+					event.preventDefault();
+					Match.value(action).pipe(
+						Match.tagsExhaustive({
+							Close: () => setShowFullscreenPreview(false),
+						}),
+					);
+				},
+				Changes: (scope) => {
+					const action = getAction(scope.bindings, event);
+					if (!action) return;
+					event.preventDefault();
+					handleSharedAction(action, { _tag: "Changes", ...scope.context });
+				},
+				BaseCommit: (scope) => {
+					const action = getAction(scope.bindings, event);
+					if (!action) return;
+					event.preventDefault();
+					handleSharedAction(action, { _tag: "BaseCommit", ...scope.context });
+				},
+				Segment: (scope) => {
+					const action = getAction(scope.bindings, event);
+					if (!action) return;
+					event.preventDefault();
+					handleSharedAction(action, { _tag: "Segment", ...scope.context });
+				},
+				CommitSummary: (scope) => {
+					const action = getAction(scope.bindings, event);
+					if (!action) return;
+					event.preventDefault();
+					handleCommitSummaryAction(action, scope.context);
+				},
+				CommitDetails: (scope) => {
+					const action = getAction(scope.bindings, event);
+					if (!action) return;
+					event.preventDefault();
+					handleCommitDetailsAction(action, scope.context);
+				},
+				CommitEditMessage: () => undefined,
+			}),
+		);
+	});
+
+	useEffect(() => {
+		window.addEventListener("keydown", handleKeyDown);
+
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+		};
+	}, []);
+};

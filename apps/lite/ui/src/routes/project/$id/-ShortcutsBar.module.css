@@ -1,4 +1,4 @@
-.shortcutsBar {
+.container {
 	display: flex;
 	column-gap: 12px;
 	row-gap: 4px;
@@ -7,21 +7,21 @@
 	padding: 4px var(--pane-padding);
 	border-top: 1px solid;
 	color: #555;
-}
-
-.shortcutsBarMode {
-	color: #111;
-	font-weight: 600;
 	text-transform: lowercase;
 }
 
-.shortcutsBarItem {
+.scope {
+	color: #111;
+	font-weight: 600;
+}
+
+.item {
 	display: flex;
 	column-gap: 4px;
 	align-items: baseline;
 }
 
-.shortcutsBarKeys {
+.keys {
 	color: #111;
 	font-family: monospace;
 }
