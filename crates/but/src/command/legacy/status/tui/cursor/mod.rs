@@ -155,11 +155,11 @@ impl Cursor {
                 StatusOutputLineData::Commit { .. }
                 | StatusOutputLineData::Branch { .. }
                 | StatusOutputLineData::StagedChanges { .. }
-                | StatusOutputLineData::UnstagedChanges { .. } => line.data.cli_id(),
+                | StatusOutputLineData::UnassignedChanges { .. } => line.data.cli_id(),
                 StatusOutputLineData::UpdateNotice
                 | StatusOutputLineData::Connector
                 | StatusOutputLineData::StagedFile { .. }
-                | StatusOutputLineData::UnstagedFile { .. }
+                | StatusOutputLineData::UnassignedFile { .. }
                 | StatusOutputLineData::CommitMessage
                 | StatusOutputLineData::EmptyCommitMessage
                 | StatusOutputLineData::File { .. }
@@ -354,7 +354,7 @@ fn is_section_header(line: &StatusOutputLine) -> bool {
         line.data,
         StatusOutputLineData::Branch { .. }
             | StatusOutputLineData::StagedChanges { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
             | StatusOutputLineData::MergeBase
     )
 }

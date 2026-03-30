@@ -980,8 +980,8 @@ impl App {
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -1004,7 +1004,7 @@ impl App {
         };
 
         let commit_mode = match &selection.data {
-            StatusOutputLineData::UnstagedChanges { cli_id } => {
+            StatusOutputLineData::UnassignedChanges { cli_id } => {
                 let Ok(has_unassigned_changes) = operations::has_unassigned_changes(ctx) else {
                     return;
                 };
@@ -1021,7 +1021,7 @@ impl App {
                     insert_side: InsertSide::Above,
                 }
             }
-            StatusOutputLineData::UnstagedFile { cli_id }
+            StatusOutputLineData::UnassignedFile { cli_id }
             | StatusOutputLineData::StagedChanges { cli_id }
             | StatusOutputLineData::StagedFile { cli_id } => {
                 let Ok(source) = CommitSource::try_from(Arc::unwrap_or_clone(Arc::clone(cli_id)))
@@ -1086,8 +1086,8 @@ impl App {
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -1198,8 +1198,8 @@ impl App {
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -1268,8 +1268,8 @@ impl App {
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -1352,8 +1352,8 @@ impl App {
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::Commit { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
@@ -1398,8 +1398,8 @@ impl App {
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::Commit { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
@@ -2599,8 +2599,8 @@ fn commit_operation_display(
         }
         StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
-        | StatusOutputLineData::UnstagedChanges { .. }
-        | StatusOutputLineData::UnstagedFile { .. }
+        | StatusOutputLineData::UnassignedChanges { .. }
+        | StatusOutputLineData::UnassignedFile { .. }
         | StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::Connector
         | StatusOutputLineData::CommitMessage
@@ -2626,8 +2626,8 @@ fn move_operation_display(data: &StatusOutputLineData, mode: &MoveMode) -> Optio
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -2645,8 +2645,8 @@ fn move_operation_display(data: &StatusOutputLineData, mode: &MoveMode) -> Optio
             | StatusOutputLineData::Connector
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -2665,8 +2665,8 @@ fn branch_operation_display(data: &StatusOutputLineData) -> Option<&'static str>
         | StatusOutputLineData::Connector
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
-        | StatusOutputLineData::UnstagedChanges { .. }
-        | StatusOutputLineData::UnstagedFile { .. }
+        | StatusOutputLineData::UnassignedChanges { .. }
+        | StatusOutputLineData::UnassignedFile { .. }
         | StatusOutputLineData::Commit { .. }
         | StatusOutputLineData::CommitMessage
         | StatusOutputLineData::EmptyCommitMessage

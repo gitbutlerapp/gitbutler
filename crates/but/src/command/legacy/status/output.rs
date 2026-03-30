@@ -100,7 +100,7 @@ impl StatusOutput<'_> {
         self.push_line(
             Some(connector),
             StatusOutputContent::Plain(line),
-            StatusOutputLineData::UnstagedChanges {
+            StatusOutputLineData::UnassignedChanges {
                 cli_id: Arc::new(id),
             },
         )
@@ -115,7 +115,7 @@ impl StatusOutput<'_> {
         self.push_line(
             Some(connector),
             StatusOutputContent::Plain(line),
-            StatusOutputLineData::UnstagedFile {
+            StatusOutputLineData::UnassignedFile {
                 cli_id: Arc::new(id),
             },
         )
@@ -338,8 +338,8 @@ impl StatusOutputLine {
             },
             StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnstagedChanges { .. }
-            | StatusOutputLineData::UnstagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::Branch { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::MergeBase
@@ -365,10 +365,10 @@ pub(super) enum StatusOutputLineData {
     StagedFile {
         cli_id: Arc<CliId>,
     },
-    UnstagedChanges {
+    UnassignedChanges {
         cli_id: Arc<CliId>,
     },
-    UnstagedFile {
+    UnassignedFile {
         cli_id: Arc<CliId>,
     },
     Branch {
@@ -394,8 +394,8 @@ pub(super) enum StatusOutputLineData {
 impl StatusOutputLineData {
     pub(super) fn cli_id(&self) -> Option<&Arc<CliId>> {
         match self {
-            StatusOutputLineData::UnstagedChanges { cli_id }
-            | StatusOutputLineData::UnstagedFile { cli_id }
+            StatusOutputLineData::UnassignedChanges { cli_id }
+            | StatusOutputLineData::UnassignedFile { cli_id }
             | StatusOutputLineData::Branch { cli_id }
             | StatusOutputLineData::StagedChanges { cli_id }
             | StatusOutputLineData::StagedFile { cli_id }
