@@ -1,12 +1,12 @@
 use std::{
     borrow::Cow,
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     iter::{empty, once, repeat_n},
     sync::LazyLock,
     time::Instant,
 };
 
-use bstr::{BStr, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 use but_core::{
     UnifiedPatch,
     ui::{TreeChange, TreeStatus},
@@ -76,6 +76,16 @@ pub(super) enum DetailsMessage {
     ToggleVisibility,
 }
 
+// The majority of time in diff rendering is spent syntax highlighting. So we cache highlighted
+// lines.
+//
+// Large files that take noticable time to highlight are also likely to contain many duplicate
+// lines, such as json files. Regular code files don't contain that many duplicate lines but
+// they're also unlikely to be big so they're fast to highlight.
+type LineHighlightCache = HashMap<BString, HashMap<Box<str>, Vec<Span<'static>>>>;
+//                                ^^^^^^^          ^^^^^^^^  ^^^^^^^^^^^^^^^^^^
+//                                file path        raw line  highlighted line
+
 #[derive(Debug)]
 pub(super) struct Details {
     is_dirty: bool,
@@ -85,6 +95,7 @@ pub(super) struct Details {
     syntax_set: DebugAsType<OnDemand<SyntaxSet>>,
     dark_theme: DebugAsType<OnDemand<Theme>>,
     visibility: DetailsVisibility,
+    line_highlight_cache: LineHighlightCache,
 }
 
 impl Details {
@@ -95,6 +106,7 @@ impl Details {
             renderer: Default::default(),
             scroll_top: Default::default(),
             visibility: Default::default(),
+            line_highlight_cache: Default::default(),
             syntax_set: OnDemand::new(|| Ok(SyntaxSet::load_defaults_newlines())).into(),
             dark_theme: OnDemand::new(|| {
                 Ok(ThemeSet::load_from_reader(&mut std::io::Cursor::new(MONOKAI_THEME)).unwrap())
@@ -251,17 +263,17 @@ impl Details {
         if let Some(widget) = &mut self.widget {
             let syntax_set = self.syntax_set.get()?;
             let theme = self.dark_theme.get()?;
-            let result =
-                self.renderer
-                    .render_next_chunk(&syntax_set, &theme, widget.diff_line_items_mut());
+            let result = self.renderer.render_next_chunk(
+                &syntax_set,
+                &theme,
+                &mut self.line_highlight_cache,
+                widget.diff_line_items_mut(),
+            );
             match result {
                 RenderNextChunkResult::Done => {
                     self.is_dirty = false;
-                    tracing::trace!("rendered diff in {:?}", self.renderer.created_at.elapsed());
                 }
-                RenderNextChunkResult::Meta | RenderNextChunkResult::Diff => {
-                    tracing::trace!("render_next_chunk");
-                }
+                RenderNextChunkResult::Meta | RenderNextChunkResult::Diff => {}
             }
             Ok(Some(result))
         } else {
@@ -346,6 +358,7 @@ impl Details {
                     match self.renderer.render_next_chunk(
                         &syntax_set,
                         &theme,
+                        &mut self.line_highlight_cache,
                         widget.diff_line_items_mut(),
                     ) {
                         RenderNextChunkResult::Done => {
@@ -735,6 +748,7 @@ enum PartiallyRenderedDiff {
     Header(Vec<ListItem<'static>>),
     SingleLine(ListItem<'static>),
     DiffLines {
+        path: BString,
         old_width: u32,
         new_width: u32,
         old_start: u32,
@@ -787,6 +801,7 @@ impl IncrementalDiffRenderer {
         &mut self,
         syntax_set: &SyntaxSet,
         theme: &Theme,
+        cache: &mut LineHighlightCache,
         out: &mut Vec<ListItem<'static>>,
     ) -> RenderNextChunkResult {
         loop {
@@ -837,6 +852,7 @@ impl IncrementalDiffRenderer {
                     new_line_num,
                 } => {
                     let PartiallyRenderedDiff::DiffLines {
+                        path,
                         old_width,
                         new_width,
                         syntax,
@@ -874,9 +890,11 @@ impl IncrementalDiffRenderer {
                                 .into_iter()
                                 .chain(syntax_highlight(
                                     &code,
+                                    path.as_ref(),
                                     Some(*PLUS_BG),
                                     &mut highlight_lines,
                                     syntax_set,
+                                    cache,
                                 )),
                             ));
                             *new_line_num += 1;
@@ -897,9 +915,11 @@ impl IncrementalDiffRenderer {
                                 .into_iter()
                                 .chain(syntax_highlight(
                                     &code,
+                                    path.as_ref(),
                                     Some(*MINUS_BG),
                                     &mut highlight_lines,
                                     syntax_set,
+                                    cache,
                                 )),
                             ));
                             *old_line_num += 1;
@@ -923,9 +943,11 @@ impl IncrementalDiffRenderer {
                                 .into_iter()
                                 .chain(syntax_highlight(
                                     &code,
+                                    path.as_ref(),
                                     None,
                                     &mut highlight_lines,
                                     syntax_set,
+                                    cache,
                                 )),
                             ));
                             *old_line_num += 1;
@@ -1222,6 +1244,7 @@ fn build_unified_patch(
         };
 
         out.push(PartiallyRenderedDiff::DiffLines {
+            path: path.to_owned(),
             old_width,
             new_width,
             old_start,
@@ -1242,23 +1265,41 @@ fn num_digits(n: u32) -> u32 {
 
 fn syntax_highlight(
     code: &str,
+    path: &BStr,
     bg: Option<Color>,
     highlight_lines: &mut HighlightLines<'_>,
     syntax_set: &SyntaxSet,
+    cache: &mut LineHighlightCache,
 ) -> impl Iterator<Item = Span<'static>> {
-    let Ok(ranges) = highlight_lines.highlight_line(code, syntax_set) else {
-        return Either::Left(std::iter::empty());
-    };
-
-    let spans = ranges.into_iter().map(move |(style, text)| {
-        let color = Color::Rgb(style.foreground.r, style.foreground.g, style.foreground.b);
-        let span = Span::raw(text.to_owned()).fg(color);
-        if let Some(background) = bg {
-            span.bg(background)
-        } else {
-            span
+    loop {
+        if let Some(cached_spans) = cache.get(path).and_then(|cache| cache.get(code)) {
+            return Either::Left(cached_spans.clone().into_iter().map(move |span| {
+                if let Some(background) = bg {
+                    span.bg(background)
+                } else {
+                    span
+                }
+            }));
         }
-    });
 
-    Either::Right(spans)
+        let Ok(ranges) = highlight_lines.highlight_line(code, syntax_set) else {
+            return Either::Right(once(Span::raw(code.to_owned())));
+        };
+
+        if let Some(lines) = cache.get_mut(path) {
+            lines.insert(
+                Box::from(code),
+                ranges
+                    .iter()
+                    .map(|(style, text)| {
+                        let color =
+                            Color::Rgb(style.foreground.r, style.foreground.g, style.foreground.b);
+                        Span::raw(text.to_string()).fg(color)
+                    })
+                    .collect(),
+            );
+        } else {
+            cache.insert(path.to_owned(), Default::default());
+        }
+    }
 }

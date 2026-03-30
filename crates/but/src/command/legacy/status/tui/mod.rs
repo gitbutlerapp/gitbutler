@@ -1,10 +1,4 @@
-use std::{
-    borrow::Cow,
-    ffi::OsString,
-    process::Command,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{borrow::Cow, ffi::OsString, process::Command, sync::Arc, time::Duration};
 
 use anyhow::Context as _;
 use but_core::tree::create_tree::RejectionReason;
@@ -1720,7 +1714,7 @@ impl App {
         Some(*commit_id)
     }
 
-    #[tracing::instrument(level = tracing::Level::TRACE, skip_all)]
+    #[tracing::instrument(level = Level::TRACE, skip_all)]
     fn render(&self, frame: &mut Frame) {
         let content_layout =
             Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(frame.area());
