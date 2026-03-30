@@ -8,6 +8,7 @@ use ratatui::{
     backend::TestBackend,
     style::{Color, Modifier},
 };
+use temp_env::with_var;
 
 use crate::{
     args::OutputFormat,
@@ -96,18 +97,22 @@ impl TestTui {
         let mut ctx = self.env.context().expect("failed to create context");
         let mut other_messages = Vec::new();
 
-        self.async_runtime
-            .block_on(render_loop_once(
-                &mut self.app,
-                &mut self.terminal,
-                event,
-                &mut messages,
-                &mut other_messages,
-                &mut ctx,
-                &mut self.out,
-                &self.mode,
-            ))
-            .unwrap();
+        with_var("GIT_AUTHOR_DATE", Some("2000-01-01T00:00:00Z"), || {
+            with_var("GIT_COMMITTER_DATE", Some("2000-01-01T00:00:00Z"), || {
+                self.async_runtime
+                    .block_on(render_loop_once(
+                        &mut self.app,
+                        &mut self.terminal,
+                        event,
+                        &mut messages,
+                        &mut other_messages,
+                        &mut ctx,
+                        &mut self.out,
+                        &self.mode,
+                    ))
+                    .unwrap();
+            });
+        });
 
         TestTuiInputThenRenderResult(self)
     }
@@ -234,22 +239,38 @@ fn backend_to_svg(backend: &TestBackend) -> String {
             }
 
             let text_x = PADDING + (x - area.x) * CELL_WIDTH;
-            let mut style = format!("fill:{};", rgb_hex(fg));
-            if cell.modifier.contains(Modifier::BOLD) {
-                style.push_str("font-weight:bold;");
-            }
-            if cell.modifier.contains(Modifier::DIM) {
-                style.push_str("opacity:0.75;");
-            }
-            if cell.modifier.contains(Modifier::ITALIC) {
-                style.push_str("font-style:italic;");
-            }
-            if cell.modifier.contains(Modifier::UNDERLINED) {
-                style.push_str("text-decoration:underline;");
-            }
-            if cell.modifier.contains(Modifier::CROSSED_OUT) {
-                style.push_str("text-decoration:line-through;");
-            }
+            let normalize_hash_start = short_hash_start_for_cell(buffer, area, x, y);
+            let normalize_hash_cell = normalize_hash_start.is_some();
+            let normalize_hash_tail =
+                normalize_hash_start.is_some_and(|start| x >= start.saturating_add(2));
+            let normalize_volatile_id_cell = volatile_id_hex_prefix_cell(buffer, area, x, y);
+            let symbol = if normalize_hash_cell || normalize_volatile_id_cell {
+                "0"
+            } else {
+                symbol
+            };
+
+            let style = if normalize_hash_tail {
+                format!("fill:{};opacity:0.75;", rgb_hex(default_fg))
+            } else {
+                let mut style = format!("fill:{};", rgb_hex(fg));
+                if cell.modifier.contains(Modifier::BOLD) {
+                    style.push_str("font-weight:bold;");
+                }
+                if cell.modifier.contains(Modifier::DIM) {
+                    style.push_str("opacity:0.75;");
+                }
+                if cell.modifier.contains(Modifier::ITALIC) {
+                    style.push_str("font-style:italic;");
+                }
+                if cell.modifier.contains(Modifier::UNDERLINED) {
+                    style.push_str("text-decoration:underline;");
+                }
+                if cell.modifier.contains(Modifier::CROSSED_OUT) {
+                    style.push_str("text-decoration:line-through;");
+                }
+                style
+            };
 
             svg.push_str(&format!(
                 "  <text x=\"{text_x}\" y=\"{text_y}\" style=\"{style}\" font-family=\"Menlo, Monaco, 'Courier New', monospace\" font-size=\"{FONT_SIZE}\" xml:space=\"preserve\">{}</text>\n",
@@ -260,6 +281,101 @@ fn backend_to_svg(backend: &TestBackend) -> String {
 
     svg.push_str("</svg>\n");
     svg
+}
+
+fn is_single_ascii_hex(symbol: &str) -> bool {
+    symbol.chars().count() == 1 && symbol.chars().next().is_some_and(|c| c.is_ascii_hexdigit())
+}
+
+fn is_blue_bold_hex_cell(cell: &ratatui::buffer::Cell) -> bool {
+    matches!(cell.fg, Color::Blue)
+        && cell.modifier.contains(Modifier::BOLD)
+        && is_single_ascii_hex(cell.symbol())
+}
+
+fn short_hash_start_for_cell(
+    buffer: &ratatui::buffer::Buffer,
+    area: ratatui::layout::Rect,
+    x: u16,
+    y: u16,
+) -> Option<u16> {
+    if !is_single_ascii_hex(buffer[(x, y)].symbol()) {
+        return None;
+    }
+
+    let row_start = area.x;
+    let row_end = area.x.saturating_add(area.width);
+    let search_start = x.saturating_sub(6).max(row_start);
+
+    for start in search_start..=x {
+        let Some(end) = start.checked_add(6) else {
+            continue;
+        };
+        if end >= row_end {
+            continue;
+        }
+
+        if !is_blue_bold_hex_cell(&buffer[(start, y)])
+            || !is_blue_bold_hex_cell(&buffer[(start.saturating_add(1), y)])
+        {
+            continue;
+        }
+
+        if (start..=end).all(|cell_x| is_single_ascii_hex(buffer[(cell_x, y)].symbol())) {
+            return Some(start);
+        }
+    }
+
+    None
+}
+
+fn volatile_id_hex_prefix_cell(
+    buffer: &ratatui::buffer::Buffer,
+    area: ratatui::layout::Rect,
+    x: u16,
+    y: u16,
+) -> bool {
+    if !is_single_ascii_hex(buffer[(x, y)].symbol()) {
+        return false;
+    }
+
+    let row_start = area.x;
+    let row_end = area.x.saturating_add(area.width);
+    let search_start = x.saturating_sub(1).max(row_start);
+
+    for start in search_start..=x {
+        let Some(end) = start.checked_add(4) else {
+            continue;
+        };
+        if end >= row_end {
+            continue;
+        }
+
+        let first = &buffer[(start, y)];
+        let second = &buffer[(start.saturating_add(1), y)];
+        let colon = &buffer[(start.saturating_add(2), y)];
+        let v = &buffer[(start.saturating_add(3), y)];
+        let o = &buffer[(start.saturating_add(4), y)];
+
+        let is_blue_bold = |cell: &ratatui::buffer::Cell| {
+            matches!(cell.fg, Color::Blue) && cell.modifier.contains(Modifier::BOLD)
+        };
+
+        if is_blue_bold_hex_cell(first)
+            && is_blue_bold_hex_cell(second)
+            && is_blue_bold(colon)
+            && colon.symbol() == ":"
+            && is_blue_bold(v)
+            && v.symbol() == "v"
+            && is_blue_bold(o)
+            && o.symbol() == "o"
+            && x <= start.saturating_add(1)
+        {
+            return true;
+        }
+    }
+
+    false
 }
 
 fn color_to_rgb(color: Color, default: (u8, u8, u8)) -> (u8, u8, u8) {
