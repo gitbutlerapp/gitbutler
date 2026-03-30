@@ -129,6 +129,12 @@
 					icon: "undo",
 					commitMessage: entryTrailer("message"),
 				};
+			case "DiscardCommit":
+				return {
+					text: `Discard commit ${getShortSha(entryTrailer("sha"))}`,
+					icon: "cross",
+					commitMessage: entryTrailer("message"),
+				};
 			case "SquashCommit":
 				return { text: "Squash commit", icon: "commit-arrow-down" };
 			case "MoveCommit":

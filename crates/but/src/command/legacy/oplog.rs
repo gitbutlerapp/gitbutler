@@ -84,6 +84,7 @@ pub(crate) fn show_oplog(
                     OperationKind::Absorb => "ABSORB",
                     OperationKind::AutoCommit => "AUTO_COMMIT",
                     OperationKind::UndoCommit => "UNDO",
+                    OperationKind::DiscardCommit => "DISCARD_COMMIT",
                     OperationKind::SquashCommit => "SQUASH",
                     OperationKind::UpdateCommitMessage => "REWORD",
                     OperationKind::MoveCommit => "MOVE",

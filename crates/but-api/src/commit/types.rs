@@ -39,3 +39,11 @@ pub struct CommitInsertBlankResult {
     /// Commits that were replaced by this operation. Maps `old_id -> new_id`.
     pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
 }
+
+/// Outcome of discarding a commit.
+pub struct CommitDiscardResult {
+    /// The ID of the commit discarded.
+    pub discarded_commit: gix::ObjectId,
+    /// Commits that were replaced by this operation. Maps `old_id -> new_id`.
+    pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+}
