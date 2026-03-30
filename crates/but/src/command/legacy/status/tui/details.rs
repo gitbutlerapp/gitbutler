@@ -329,6 +329,27 @@ impl Details {
                 )?,
             });
 
+            #[cfg(test)]
+            {
+                // the incremental rendering makes tests harder to write, so lets just render the
+                // whole diff in test mode
+                let widget = self.widget.as_mut().unwrap();
+                let syntax_set = self.syntax_set.get().unwrap();
+                let theme = self.dark_theme.get().unwrap();
+                loop {
+                    match self.renderer.render_next_chunk(
+                        &syntax_set,
+                        &theme,
+                        widget.diff_line_items_mut(),
+                    ) {
+                        RenderNextChunkResult::Done => {
+                            break;
+                        }
+                        RenderNextChunkResult::Meta | RenderNextChunkResult::Diff => {}
+                    }
+                }
+            }
+
             Ok(None)
         }
     }
