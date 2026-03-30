@@ -43,6 +43,8 @@ const hunkHeaderEquals = (a: HunkHeader, b: HunkHeader): boolean =>
 export const formatHunkHeader = (hunk: HunkHeader): string =>
 	`-${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines}`;
 
+export const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
+
 const assignedHunks = (
 	hunks: Array<DiffHunk>,
 	assignments: Array<HunkAssignment>,

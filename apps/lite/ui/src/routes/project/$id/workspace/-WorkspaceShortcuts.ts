@@ -7,6 +7,7 @@ import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
 import { usePreviewPanel } from "#ui/hooks/usePreviewPanel.ts";
 import { getAction, type ShortcutBinding } from "#ui/shortcuts.ts";
 import { isTypingTarget } from "#ui/routes/project/$id/-shared.tsx";
+import { TreeChange } from "@gitbutler/but-sdk";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { useEffect, useEffectEvent } from "react";
@@ -34,6 +35,8 @@ type SelectionAction =
 	| { _tag: "PreviousSection" }
 	| { _tag: "TogglePreview" }
 	| { _tag: "OpenFullscreenPreview" };
+
+type ChangesAction = SelectionAction | { _tag: "Absorb" };
 
 type CommitSummaryAction = SelectionAction | { _tag: "EditMessage" } | { _tag: "OpenDetails" };
 
@@ -82,6 +85,17 @@ const selectionBindings: Array<ShortcutBinding<SelectionAction>> = [
 	},
 	togglePreviewBinding,
 	openFullscreenPreviewBinding,
+];
+
+const changesBindings: Array<ShortcutBinding<ChangesAction>> = [
+	...selectionBindings,
+	{
+		id: "changes-absorb",
+		description: "Absorb",
+		keys: ["a"],
+		action: { _tag: "Absorb" },
+		repeat: false,
+	},
 ];
 
 const commitSummaryBindings: Array<ShortcutBinding<CommitSummaryAction>> = [
@@ -243,7 +257,7 @@ type Scope =
 	  }
 	| {
 			_tag: "Changes";
-			bindings: Array<ShortcutBinding<SelectionAction>>;
+			bindings: Array<ShortcutBinding<ChangesAction>>;
 			context: ChangesItem;
 	  }
 	| {
@@ -299,7 +313,7 @@ export const getScope = ({
 			"Changes",
 			(selection): Scope => ({
 				_tag: "Changes",
-				bindings: selectionBindings,
+				bindings: changesBindings,
 				context: selection,
 			}),
 		),
@@ -388,6 +402,7 @@ export const useWorkspaceShortcuts = ({
 	select,
 	setEditing,
 	commonBaseCommitId,
+	onAbsorbChanges,
 }: {
 	projectId: string;
 	showFullscreenPreview: boolean;
@@ -396,6 +411,7 @@ export const useWorkspaceShortcuts = ({
 	editing: Editing | null;
 	setEditing: (selection: Editing | null) => void;
 	commonBaseCommitId?: string;
+	onAbsorbChanges: (changes: Array<TreeChange>, stackId: string | null) => void;
 }) => {
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
@@ -451,6 +467,36 @@ export const useWorkspaceShortcuts = ({
 				TogglePreview: () => setShowPreviewPanel((visible) => !visible),
 				OpenFullscreenPreview: () => setShowFullscreenPreview(true),
 			}),
+		);
+
+	const handleChangesAction = (action: ChangesAction, selection: ChangesItem) =>
+		Match.value(action).pipe(
+			Match.tags({
+				Absorb: () => {
+					Match.value(selection.mode).pipe(
+						Match.tagsExhaustive({
+							Details: ({ path }) => {
+								if (path === undefined) return;
+								const change = worktreeChanges.changes.find((change) => change.path === path);
+								if (!change) return;
+								onAbsorbChanges([change], selection.stackId);
+							},
+							Summary: () => {
+								const assignmentsByPath = new Set(
+									worktreeChanges.assignments
+										.filter((assignment) => assignment.stackId === selection.stackId)
+										.map((assignment) => assignment.path),
+								);
+								const changes = worktreeChanges.changes.filter((change) =>
+									assignmentsByPath.has(change.path),
+								);
+								onAbsorbChanges(changes, selection.stackId);
+							},
+						}),
+					);
+				},
+			}),
+			Match.orElse((action) => handleSelectionAction(action, { _tag: "Changes", ...selection })),
 		);
 
 	const handleCommitSummaryAction = (action: CommitSummaryAction, selection: CommitItem) =>
@@ -511,7 +557,7 @@ export const useWorkspaceShortcuts = ({
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
 					event.preventDefault();
-					handleSelectionAction(action, { _tag: "Changes", ...scope.context });
+					handleChangesAction(action, scope.context);
 				},
 				BaseCommit: (scope) => {
 					const action = getAction(scope.bindings, event);

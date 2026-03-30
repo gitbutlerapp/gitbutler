@@ -8,6 +8,17 @@ export const applyBranchMutationOptions = mutationOptions({
 	},
 });
 
+export const absorptionPlanMutationOptions = mutationOptions({
+	mutationFn: window.lite.absorptionPlan,
+});
+
+export const absorbMutationOptions = mutationOptions({
+	mutationFn: window.lite.absorb,
+	onSuccess: async (_data, _input, _ctx, { client }) => {
+		await client.invalidateQueries();
+	},
+});
+
 export const commitInsertBlankMutationOptions = mutationOptions({
 	mutationFn: window.lite.commitInsertBlank,
 	onSuccess: async (_data, _input, _ctx, { client }) => {
