@@ -21,7 +21,7 @@ use crate::{
     command::legacy::{
         rub::{RubOperation, route_operation},
         status::{
-            CommitLineContent, StatusFlags, StatusOutputLine,
+            CommitLineContent, StatusFlags, StatusOutputLine, TuiLaunchOptions,
             output::BranchLineContent,
             tui::{
                 confirm::{Confirm, ConfirmMessage},
@@ -38,7 +38,7 @@ use crate::{
             },
         },
     },
-    tui::{CrosstermTerminalGuard, TerminalGuard},
+    tui::{CrosstermTerminalGuard, HeadlessTerminalGuard, TerminalGuard},
     utils::{DebugAsType, OutputChannel},
 };
 
@@ -71,21 +71,20 @@ pub(super) async fn render_tui(
     mode: &OperatingMode,
     flags: StatusFlags,
     status_lines: Vec<StatusOutputLine>,
-    debug: bool,
+    options: TuiLaunchOptions,
 ) -> anyhow::Result<Vec<StatusOutputLine>> {
-    let mut terminal_guard = CrosstermTerminalGuard::new(true)?;
-
-    let mut app = App::new(status_lines, flags, debug);
+    let mut app = App::new(status_lines, flags, options);
 
     let mut messages = Vec::new();
 
     // second buffer so we can send messages from `App::handle_message`
     let mut other_messages = Vec::new();
 
-    let event_polling = CrosstermEventPolling;
+    if app.options.headless {
+        let mut terminal_guard = HeadlessTerminalGuard::new(240, 240)?;
+        let event_polling = NoopEventPolling;
 
-    loop {
-        render_loop_once(
+        render_loop(
             &mut app,
             &mut terminal_guard,
             event_polling,
@@ -96,10 +95,21 @@ pub(super) async fn render_tui(
             mode,
         )
         .await?;
+    } else {
+        let mut terminal_guard = CrosstermTerminalGuard::new(true)?;
+        let event_polling = CrosstermEventPolling;
 
-        if app.should_quit {
-            break;
-        }
+        render_loop(
+            &mut app,
+            &mut terminal_guard,
+            event_polling,
+            &mut messages,
+            &mut other_messages,
+            ctx,
+            out,
+            mode,
+        )
+        .await?;
     }
 
     Ok(app.status_lines)
@@ -124,6 +134,64 @@ impl EventPolling for CrosstermEventPolling {
             Ok(Some(event::read()?))
         } else {
             Ok(None)
+        }
+    }
+}
+
+/// An [`EventPolling`] implementation that never yields events.
+///
+/// This is used for non-interactive runs where touching terminal input can stop the process when
+/// profilers launch the target in a background process group.
+#[derive(Copy, Clone)]
+struct NoopEventPolling;
+
+impl EventPolling for NoopEventPolling {
+    type Error = std::io::Error;
+
+    fn poll(self) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+        Ok(None)
+    }
+}
+
+#[expect(clippy::too_many_arguments)]
+async fn render_loop<T, E>(
+    app: &mut App,
+    terminal_guard: &mut T,
+    event_polling: E,
+    messages: &mut Vec<Message>,
+    other_messages: &mut Vec<Message>,
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    mode: &OperatingMode,
+) -> anyhow::Result<()>
+where
+    T: TerminalGuard,
+    anyhow::Error: From<<T::Backend as Backend>::Error>,
+    E: EventPolling + Copy,
+{
+    loop {
+        if app
+            .options
+            .quit_after
+            .is_some_and(|quit_after| quit_after <= app.updates)
+        {
+            break Ok(());
+        }
+
+        render_loop_once(
+            app,
+            terminal_guard,
+            event_polling,
+            messages,
+            other_messages,
+            ctx,
+            out,
+            mode,
+        )
+        .await?;
+
+        if app.should_quit {
+            break Ok(());
         }
     }
 }
@@ -175,7 +243,12 @@ where
     anyhow::Error: From<<T::Backend as Backend>::Error>,
     E: EventPolling,
 {
-    // poll events
+    app.updates += 1;
+
+    // Poll terminal events.
+    //
+    // In headless mode, the configured event poller is a no-op and this loop does not touch the
+    // real terminal.
     for event in event_polling.poll()? {
         event_to_messages(event, app.active_key_binds(), &app.mode, messages);
     }
@@ -241,17 +314,33 @@ struct App {
     mode: Mode,
     key_binds: KeyBinds,
     confirm_key_binds: KeyBinds,
-    debug_enabled: bool,
     toasts: Toasts,
     renders: u64,
+    updates: u64,
     highlight: Highlights,
     confirm: Option<Confirm>,
     details: Details,
+    options: TuiLaunchOptions,
 }
 
 impl App {
-    fn new(status_lines: Vec<StatusOutputLine>, flags: StatusFlags, debug: bool) -> Self {
-        let cursor = Cursor::new(&status_lines);
+    fn new(
+        status_lines: Vec<StatusOutputLine>,
+        flags: StatusFlags,
+        options: TuiLaunchOptions,
+    ) -> Self {
+        let cursor = if let Some(object_id) = options.select_commit {
+            Cursor::select_commit(object_id, &status_lines)
+                .unwrap_or_else(|| Cursor::new(&status_lines))
+        } else {
+            Cursor::new(&status_lines)
+        };
+
+        let details = if options.show_diff {
+            Details::new_visible()
+        } else {
+            Details::new_hidden()
+        };
 
         Self {
             status_lines,
@@ -263,12 +352,13 @@ impl App {
             mode: Mode::default(),
             key_binds: default_key_binds(),
             confirm_key_binds: confirm_key_binds(),
-            debug_enabled: debug,
             toasts: Default::default(),
             renders: 0,
+            updates: 0,
             highlight: Default::default(),
             confirm: None,
-            details: Default::default(),
+            details,
+            options,
         }
     }
 
@@ -780,8 +870,7 @@ impl App {
         mode: &OperatingMode,
         select_after_reload: Option<SelectAfterReload>,
     ) -> anyhow::Result<()> {
-        let new_lines =
-            operations::reload_legacy(ctx, out, mode, self.flags, self.debug_enabled).await?;
+        let new_lines = operations::reload_legacy(ctx, out, mode, self.flags, self.options).await?;
 
         self.cursor = if let Some(select_after_reload) = select_after_reload {
             match select_after_reload {
@@ -1618,7 +1707,7 @@ impl App {
     }
 
     fn status_layout(&self, area: Rect) -> StatusLayout {
-        let (main_content_area, debug_area) = if self.debug_enabled {
+        let (main_content_area, debug_area) = if self.options.debug {
             let layout =
                 Layout::horizontal([Constraint::Percentage(70), Constraint::Percentage(30)])
                     .split(area);

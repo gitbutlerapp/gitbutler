@@ -22,7 +22,7 @@ use crate::{
         self, ShowDiffInEditor,
         rub::RubOperation,
         status::{
-            StatusFlags, StatusOutput, StatusOutputLine, StatusRenderMode,
+            StatusFlags, StatusOutput, StatusOutputLine, StatusRenderMode, TuiLaunchOptions,
             tui::{CommitSource, SelectAfterReload, mode::StackCommitSource},
         },
     },
@@ -34,7 +34,7 @@ pub(super) async fn reload_legacy(
     out: &mut OutputChannel,
     mode: &OperatingMode,
     flags: StatusFlags,
-    debug_enabled: bool,
+    options: TuiLaunchOptions,
 ) -> anyhow::Result<Vec<StatusOutputLine>> {
     {
         let meta = ctx.meta()?;
@@ -44,25 +44,17 @@ pub(super) async fn reload_legacy(
 
     let mut new_lines = Vec::new();
 
-    legacy::status::build_status_context(
-        ctx,
-        out,
-        mode,
-        flags,
-        StatusRenderMode::Tui {
-            debug: debug_enabled,
-        },
-    )
-    .await
-    .and_then(|status_ctx| {
-        legacy::status::build_status_output(
-            ctx,
-            &status_ctx,
-            &mut StatusOutput::Buffer {
-                lines: &mut new_lines,
-            },
-        )
-    })?;
+    legacy::status::build_status_context(ctx, out, mode, flags, StatusRenderMode::Tui(options))
+        .await
+        .and_then(|status_ctx| {
+            legacy::status::build_status_output(
+                ctx,
+                &status_ctx,
+                &mut StatusOutput::Buffer {
+                    lines: &mut new_lines,
+                },
+            )
+        })?;
 
     Ok(new_lines)
 }

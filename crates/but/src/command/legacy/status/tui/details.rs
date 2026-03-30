@@ -83,10 +83,10 @@ pub(super) struct Details {
     visibility: DetailsVisibility,
 }
 
-impl Default for Details {
-    fn default() -> Self {
+impl Details {
+    pub(super) fn new_hidden() -> Self {
         Self {
-            is_dirty: true,
+            is_dirty: false,
             widget: Default::default(),
             scroll_top: Default::default(),
             visibility: Default::default(),
@@ -97,9 +97,15 @@ impl Default for Details {
             .into(),
         }
     }
-}
 
-impl Details {
+    pub(super) fn new_visible() -> Self {
+        Self {
+            is_dirty: true,
+            visibility: DetailsVisibility::VisibleVertical,
+            ..Self::new_hidden()
+        }
+    }
+
     pub(super) fn mark_dirty(&mut self) {
         self.is_dirty = true;
     }

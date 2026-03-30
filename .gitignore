@@ -78,3 +78,6 @@ storybook-static
 packages/ui/src/styles/tokens.css
 
 debug-graph-??.svg
+
+# written to by cargo-flamegraph
+/cargo-flamegraph.trace/

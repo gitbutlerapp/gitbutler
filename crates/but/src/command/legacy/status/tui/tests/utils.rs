@@ -13,7 +13,8 @@ use temp_env::with_var;
 use crate::{
     args::OutputFormat,
     command::legacy::status::{
-        StatusFlags, StatusOutput, StatusRenderMode, build_status_context, build_status_output,
+        StatusFlags, StatusOutput, StatusRenderMode, TuiLaunchOptions, build_status_context,
+        build_status_output,
         tui::{App, EventPolling, Message, render_loop_once},
     },
     tui::TerminalGuard,
@@ -48,7 +49,10 @@ pub(super) fn test_tui_with_size(env: Sandbox, width: u16, height: u16) -> TestT
     let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
 
     let flags = StatusFlags::all_false();
-    let debug = false;
+    let options = TuiLaunchOptions {
+        debug: false,
+        ..Default::default()
+    };
 
     let status_ctx = async_runtime
         .block_on(build_status_context(
@@ -56,7 +60,7 @@ pub(super) fn test_tui_with_size(env: Sandbox, width: u16, height: u16) -> TestT
             &mut out,
             &mode,
             flags,
-            StatusRenderMode::Tui { debug },
+            StatusRenderMode::Tui(options),
         ))
         .expect("failed to build status context");
     let mut lines = Vec::new();
@@ -64,7 +68,7 @@ pub(super) fn test_tui_with_size(env: Sandbox, width: u16, height: u16) -> TestT
     build_status_output(&mut ctx, &status_ctx, &mut status_output)
         .expect("failed to build status output");
 
-    let app = App::new(lines, flags, debug);
+    let app = App::new(lines, flags, options);
     let terminal =
         Terminal::new(TestBackend::new(width, height)).expect("failed to create test terminal");
 

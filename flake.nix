@@ -36,6 +36,7 @@
           pkgs.nodejs_22
           pkgs.pnpm
           pkgs.playwright-driver.browsers
+          pkgs.cargo-flamegraph
         ];
 
         env = {
