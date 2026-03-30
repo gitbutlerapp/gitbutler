@@ -27,6 +27,7 @@ import {
 } from "#ui/domain/RefInfo.ts";
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
+import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
 import { type Operation } from "#ui/Operation.ts";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import {
@@ -49,7 +50,6 @@ import {
 	FileDiff,
 	formatHunkHeader,
 	HunkDiff,
-	isTypingTarget,
 	Patch,
 	ShowBranch,
 	ShowCommitWithQuery,
@@ -69,12 +69,11 @@ import {
 	HunkDependencies,
 	HunkHeader,
 	InsertSide,
-	type RefInfo,
 	Segment,
 	Stack,
 	TreeChange,
 } from "@gitbutler/but-sdk";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
@@ -85,8 +84,6 @@ import {
 	ReactNode,
 	startTransition,
 	Suspense,
-	useEffect,
-	useEffectEvent,
 	useOptimistic,
 	useState,
 } from "react";
@@ -101,24 +98,19 @@ import {
 	normalizeItem,
 	type Item,
 	segmentItem,
-	getParentSection,
 	CommitItem,
 	ChangesMode,
 } from "./-Item.ts";
+import { buildNavigationModel, getSelectedCommitPath } from "./-Selection.ts";
 import {
-	buildNavigationModel,
-	getAdjacentItem,
-	getAdjacentSection,
-	changesSelectionBindings,
-	commitDetailsSelectionBindings,
 	commitEditingMessageBindings,
-	commitSummarySelectionBindings,
-	getShortcutsBarMode,
-	segmentSelectionBindings,
-	SharedSelectionAction,
-} from "./-Selection.ts";
+	handleCommitEditingMessageKeyDown,
+	getLabel,
+	getScope,
+	useWorkspaceShortcuts,
+} from "./-WorkspaceShortcuts.ts";
 import { PositionedShortcutsBar } from "../-ShortcutsBar.tsx";
-import { formatShortcutKeys, getShortcutAction } from "#ui/shortcuts.ts";
+import { formatShortcutKeys } from "#ui/shortcuts.ts";
 import styles from "./route.module.css";
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
@@ -128,23 +120,6 @@ const decodeRefName = (fullNameBytes: Array<number>): string =>
 const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
-
-const getAdjacentCommitDetailsPath = ({
-	paths,
-	currentPath,
-	offset,
-}: {
-	paths: Array<string>;
-	currentPath: string | undefined;
-	offset: -1 | 1;
-}): string | null => {
-	if (paths.length === 0) return null;
-	if (currentPath === undefined) return offset > 0 ? (paths[0] ?? null) : (paths.at(-1) ?? null);
-
-	const currentIndex = paths.indexOf(currentPath);
-	if (currentIndex === -1) return offset > 0 ? (paths[0] ?? null) : (paths.at(-1) ?? null);
-	return paths[currentIndex + offset] ?? null;
-};
 
 const DependencyIndicator: FC<
 	{
@@ -187,160 +162,6 @@ const DependencyIndicator: FC<
 			</Popover.Portal>
 		</Popover.Root>
 	);
-};
-
-const useSelectionKeyboardShortcuts = ({
-	projectId,
-	editingCommit,
-	selection,
-	select,
-	setEditingCommit,
-	headInfo,
-	worktreeChanges,
-	commonBaseCommitId,
-}: {
-	projectId: string;
-	selection: Item | null;
-	select: (selection: Item | null) => void;
-	editingCommit: EditingCommit | null;
-	setEditingCommit: (selection: EditingCommit | null) => void;
-	headInfo: RefInfo;
-	worktreeChanges: {
-		changes: Array<TreeChange>;
-		assignments: Array<HunkAssignment>;
-	};
-	commonBaseCommitId?: string;
-}) => {
-	const queryClient = useQueryClient();
-	const navigationModel = buildNavigationModel({
-		headInfo,
-		changes: worktreeChanges.changes,
-		assignments: worktreeChanges.assignments,
-		commonBaseCommitId,
-	});
-
-	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
-		if (event.defaultPrevented) return;
-		if (event.metaKey || event.ctrlKey || event.altKey) return;
-		if (isTypingTarget(event.target)) return;
-
-		if (editingCommit !== null) return;
-
-		if (!selection) return;
-
-		const handleSharedAction = (action: SharedSelectionAction) =>
-			Match.value(action).pipe(
-				Match.tag("Move", ({ offset }) =>
-					select(getAdjacentItem(navigationModel, selection, offset)),
-				),
-				Match.tag("NextSection", () => select(getAdjacentSection(navigationModel, selection, 1))),
-				Match.tag("PreviousSection", () =>
-					select(getParentSection(selection) ?? getAdjacentSection(navigationModel, selection, -1)),
-				),
-				Match.exhaustive,
-			);
-
-		Match.value(selection).pipe(
-			Match.tag("Changes", (selection) => {
-				const action = getShortcutAction(changesSelectionBindings, selection, event);
-				if (!action) return;
-
-				event.preventDefault();
-
-				Match.value(action).pipe(
-					Match.tagsExhaustive({
-						Move: ({ offset }) => handleSharedAction({ _tag: "Move", offset }),
-						NextSection: () => handleSharedAction({ _tag: "NextSection" }),
-						PreviousSection: () => handleSharedAction({ _tag: "PreviousSection" }),
-					}),
-				);
-			}),
-			Match.tag("Segment", () => {
-				const action = getShortcutAction(segmentSelectionBindings, undefined, event);
-				if (!action) return;
-
-				event.preventDefault();
-
-				handleSharedAction(action);
-			}),
-			Match.tag("BaseCommit", () => {
-				const action = getShortcutAction(segmentSelectionBindings, undefined, event);
-				if (!action) return;
-
-				event.preventDefault();
-
-				handleSharedAction(action);
-			}),
-			Match.tag("Commit", (selection) => {
-				Match.value(selection.mode).pipe(
-					Match.tag("Summary", () => {
-						const action = getShortcutAction(commitSummarySelectionBindings, selection, event);
-						if (!action) return;
-
-						event.preventDefault();
-
-						Match.value(action).pipe(
-							Match.tagsExhaustive({
-								Move: ({ offset }) => select(getAdjacentItem(navigationModel, selection, offset)),
-								NextSection: () => handleSharedAction({ _tag: "NextSection" }),
-								PreviousSection: () => handleSharedAction({ _tag: "PreviousSection" }),
-								EditCommitMessage: () => setEditingCommit(selection),
-								ExpandCommit: () => select(commitItem({ ...selection, mode: { _tag: "Details" } })),
-							}),
-						);
-					}),
-					Match.tag("Details", () => {
-						const action = getShortcutAction(commitDetailsSelectionBindings, selection, event);
-						if (!action) return;
-
-						event.preventDefault();
-
-						Match.value(action).pipe(
-							Match.tagsExhaustive({
-								Move: ({ offset }) => {
-									const commitDetails = queryClient.getQueryData(
-										commitDetailsWithLineStatsQueryOptions({
-											projectId,
-											commitId: selection.commitId,
-										}).queryKey,
-									);
-									if (!commitDetails) return;
-
-									const paths = commitDetails.changes.map((change) => change.path);
-									const nextPath = getAdjacentCommitDetailsPath({
-										paths,
-										currentPath: getSelectedCommitPath({ paths, selection }),
-										offset,
-									});
-									if (nextPath === null) return;
-									select(
-										commitItem({
-											...selection,
-											mode: { _tag: "Details", path: nextPath },
-										}),
-									);
-								},
-								NextSection: () => handleSharedAction({ _tag: "NextSection" }),
-								PreviousSection: () => handleSharedAction({ _tag: "PreviousSection" }),
-								CloseCommitDetails: () =>
-									select(commitItem({ ...selection, mode: { _tag: "Summary" } })),
-							}),
-						);
-					}),
-					Match.exhaustive,
-				);
-			}),
-			Match.exhaustive,
-		);
-	});
-
-	useEffect(() => {
-		window.addEventListener("keydown", handleKeyDown);
-
-		return () => {
-			window.removeEventListener("keydown", handleKeyDown);
-		};
-	}, []);
 };
 
 const CommitDetails: FC<{
@@ -395,19 +216,6 @@ const CommitDetails: FC<{
 		/>
 	);
 };
-
-const getSelectedCommitPath = ({
-	paths,
-	selection,
-}: {
-	paths: Array<string>;
-	selection: CommitItem;
-}): string | undefined =>
-	selection.mode._tag === "Details" &&
-	selection.mode.path !== undefined &&
-	paths.includes(selection.mode.path)
-		? selection.mode.path
-		: paths[0];
 
 // TODO: check this
 const assignedChangesDiffSpecs = (
@@ -939,25 +747,11 @@ const InlineCommitMessageEditor: FC<{
 				defaultValue={initialMessage}
 				className={styles.editCommitMessageInput}
 				onKeyDown={(event) => {
-					const action = getShortcutAction(
-						commitEditingMessageBindings,
-						undefined,
-						event.nativeEvent,
-					);
-					if (!action) return;
-
-					Match.value(action).pipe(
-						Match.tag("Save", () => {
-							if (event.shiftKey) return;
-							event.preventDefault();
-							event.currentTarget.form?.requestSubmit();
-						}),
-						Match.tag("Cancel", () => {
-							event.preventDefault();
-							onExit();
-						}),
-						Match.exhaustive,
-					);
+					handleCommitEditingMessageKeyDown({
+						event: event.nativeEvent,
+						onSave: () => event.currentTarget.form?.requestSubmit(),
+						onCancel: onExit,
+					});
 				}}
 				onBlur={onExit}
 			/>
@@ -1768,6 +1562,7 @@ const ProjectPage: FC = () => {
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 	const [editingCommit, setEditingCommit] = useState<EditingCommit | null>(null);
+	const [showFullscreenPreview] = useFullscreenPreview(projectId);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 
@@ -1794,16 +1589,16 @@ const ProjectPage: FC = () => {
 	const highlightCommits = (commitIds: Array<string> | null) => {
 		setHighlightedCommitIds(commitIds ? new Set(commitIds) : new Set());
 	};
+	const shortcutScope = getScope({ showFullscreenPreview, selection, editingCommit });
 
 	useMonitorDraggedSourceItem({ projectId });
-	useSelectionKeyboardShortcuts({
+	useWorkspaceShortcuts({
 		projectId,
+		showFullscreenPreview,
 		editingCommit,
 		selection,
 		select,
 		setEditingCommit,
-		headInfo,
-		worktreeChanges,
 		commonBaseCommitId,
 	});
 
@@ -1884,7 +1679,10 @@ const ProjectPage: FC = () => {
 				<TearOffBranchTarget className={styles.emptyLane} />
 			</div>
 
-			<PositionedShortcutsBar mode={getShortcutsBarMode({ selection, editingCommit })} />
+			<PositionedShortcutsBar
+				label={shortcutScope ? getLabel(shortcutScope) : null}
+				items={shortcutScope?.bindings ?? []}
+			/>
 		</ProjectPreviewLayout>
 	);
 };

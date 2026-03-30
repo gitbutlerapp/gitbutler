@@ -5,7 +5,7 @@ import { Match } from "effect";
 export type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
 export type ChangesItem = { stackId: string | null; mode: ChangesMode };
 
-type SegmentItem = {
+export type SegmentItem = {
 	stackId: string;
 	segmentIndex: number;
 	branchName: string | null;

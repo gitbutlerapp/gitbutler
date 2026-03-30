@@ -3,13 +3,16 @@ import { Link, Outlet, useMatch, useNavigate } from "@tanstack/react-router";
 import { FC, useState } from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext } from "@tanstack/react-router";
-import { usePreviewFullscreen } from "../hooks/usePreviewFullscreen";
-import { usePreviewVisible } from "../hooks/usePreviewVisible";
-import { classes } from "#ui/classes.ts";
+import { useFullscreenPreview } from "../hooks/useFullscreenPreview";
+import { usePreviewPanel } from "../hooks/usePreviewPanel";
+import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/-ShortcutsBar.tsx";
+import {
+	openFullscreenPreviewBinding,
+	togglePreviewBinding,
+} from "#ui/routes/project/$id/workspace/-WorkspaceShortcuts.ts";
 import uiStyles from "#ui/ui.module.css";
 import styles from "./__root.module.css";
-import { globalShortcutBindings, bindingLabelSuffix } from "#ui/shortcuts.ts";
 
 export const lastOpenedProjectKey = "lastProject";
 
@@ -87,33 +90,25 @@ const SidebarNav: FC = () => {
 	);
 };
 
-const ProjectPreviewActions: FC<{
+const TopBarActions: FC<{
 	projectId: string;
 }> = ({ projectId }) => {
-	const [previewVisible, setPreviewVisible] = usePreviewVisible();
-	const [, setShowPreviewFullscreen] = usePreviewFullscreen(projectId);
+	const [previewPanel, setPreviewPanel] = usePreviewPanel();
+	const [, setShowFullscreenPreview] = useFullscreenPreview(projectId);
 
 	return (
-		<div className={styles.topBarPreviewActions}>
-			<button
-				type="button"
-				className={classes(uiStyles.button)}
-				aria-pressed={previewVisible}
-				onClick={() => {
-					setPreviewVisible((visible) => !visible);
-				}}
-			>
-				{bindingLabelSuffix("Toggle preview", globalShortcutBindings, "TogglePreview")}
-			</button>
-			<button
-				type="button"
-				className={classes(uiStyles.button)}
-				onClick={() => {
-					setShowPreviewFullscreen(true);
-				}}
-			>
-				{bindingLabelSuffix("Open fullscreen", globalShortcutBindings, "ToggleFullscreenPreview")}
-			</button>
+		<div className={styles.topBarActions}>
+			<ShortcutButton
+				binding={togglePreviewBinding}
+				className={uiStyles.button}
+				aria-pressed={previewPanel}
+				onClick={() => setPreviewPanel((visible) => !visible)}
+			/>
+			<ShortcutButton
+				binding={openFullscreenPreviewBinding}
+				className={uiStyles.button}
+				onClick={() => setShowFullscreenPreview(true)}
+			/>
 		</div>
 	);
 };
@@ -127,7 +122,7 @@ const TopBar: FC = () => {
 	return (
 		<header className={styles.topBar}>
 			<ProjectSelect />
-			{projectMatch && <ProjectPreviewActions projectId={projectMatch.params.id} />}
+			{projectMatch && <TopBarActions projectId={projectMatch.params.id} />}
 		</header>
 	);
 };

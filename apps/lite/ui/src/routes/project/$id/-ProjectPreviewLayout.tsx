@@ -1,13 +1,12 @@
 import { Dialog } from "@base-ui/react";
-import { Match } from "effect";
-import { FC, ReactNode, use, useEffect, useEffectEvent, useState } from "react";
+import { FC, ReactNode, use, useState } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
+import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/-ShortcutsBar.tsx";
+import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
+import { usePreviewPanel } from "#ui/hooks/usePreviewPanel.ts";
 import uiStyles from "#ui/ui.module.css";
-import { usePreviewFullscreen } from "#ui/hooks/usePreviewFullscreen.ts";
-import { usePreviewVisible } from "#ui/hooks/usePreviewVisible.ts";
-import { getShortcutAction, globalShortcutBindings, bindingLabelSuffix } from "#ui/shortcuts.ts";
-import { isTypingTarget } from "./-shared.tsx";
+import { closeFullscreenPreviewBinding } from "./workspace/-WorkspaceShortcuts.ts";
 import sharedStyles from "./-shared.module.css";
 
 export const ProjectPreviewLayout: FC<{
@@ -15,8 +14,8 @@ export const ProjectPreviewLayout: FC<{
 	children: ReactNode;
 	preview: ReactNode | null;
 }> = ({ children, projectId, preview }) => {
-	const [showPreviewPanel, setShowPreviewPanel] = usePreviewVisible();
-	const [showPreviewFullscreen, setShowPreviewFullscreen] = usePreviewFullscreen(projectId);
+	const [showPreviewPanel] = usePreviewPanel();
+	const [showFullscreenPreview, setShowFullscreenPreview] = useFullscreenPreview(projectId);
 	const inheritedShortcutsBarPortalNode = use(ShortcutsBarPortalContext);
 	const [dialogShortcutsBarPortalNode, setDialogShortcutsBarPortalNode] =
 		useState<HTMLElement | null>(null);
@@ -25,35 +24,10 @@ export const ProjectPreviewLayout: FC<{
 		panelIds: showPreviewPanel ? ["primary", "preview"] : ["primary"],
 	});
 
-	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
-		if (event.defaultPrevented) return;
-		if (event.metaKey || event.ctrlKey || event.altKey) return;
-		if (isTypingTarget(event.target)) return;
-
-		const action = getShortcutAction(globalShortcutBindings, undefined, event);
-		if (!action) return;
-
-		event.preventDefault();
-
-		Match.value(action).pipe(
-			Match.tag("TogglePreview", () => setShowPreviewPanel((x) => !x)),
-			Match.tag("ToggleFullscreenPreview", () => setShowPreviewFullscreen((x) => !x)),
-			Match.exhaustive,
-		);
-	});
-
-	useEffect(() => {
-		window.addEventListener("keydown", handleKeyDown);
-
-		return () => {
-			window.removeEventListener("keydown", handleKeyDown);
-		};
-	}, []);
-
 	return (
 		<ShortcutsBarPortalContext
 			value={
-				showPreviewFullscreen
+				showFullscreenPreview
 					? (dialogShortcutsBarPortalNode ?? inheritedShortcutsBarPortalNode)
 					: inheritedShortcutsBarPortalNode
 			}
@@ -80,20 +54,15 @@ export const ProjectPreviewLayout: FC<{
 					</>
 				)}
 			</Group>
-			<Dialog.Root open={showPreviewFullscreen} onOpenChange={setShowPreviewFullscreen}>
+			<Dialog.Root open={showFullscreenPreview} onOpenChange={setShowFullscreenPreview}>
 				<Dialog.Portal>
 					<Dialog.Popup aria-label="Preview" className={sharedStyles.previewDialogPopup}>
 						<div className={sharedStyles.previewDialogBody}>
-							<Dialog.Close className={uiStyles.button}>
-								{bindingLabelSuffix(
-									"Close fullscreen",
-									globalShortcutBindings,
-									"ToggleFullscreenPreview",
-									{
-										extraKeys: ["Escape"],
-									},
-								)}
-							</Dialog.Close>
+							<ShortcutButton
+								binding={closeFullscreenPreviewBinding}
+								className={uiStyles.button}
+								onClick={() => setShowFullscreenPreview(false)}
+							/>
 							{preview}
 						</div>
 						<footer ref={setDialogShortcutsBarPortalNode} />
