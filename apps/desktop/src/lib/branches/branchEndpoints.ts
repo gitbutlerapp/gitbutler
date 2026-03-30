@@ -25,7 +25,7 @@ export function buildBranchEndpoints(build: BackendEndpointBuilder) {
 			query: (args) => args,
 			providesTags: [providesType(ReduxTag.ForgeProvider)],
 		}),
-		baseBranch: build.query<unknown, { projectId: string }>({
+		baseBranch: build.query<BaseBranch | undefined, { projectId: string }>({
 			extraOptions: { command: "get_base_branch_data" },
 			query: (args) => args,
 			providesTags: [providesType(ReduxTag.BaseBranchData)],

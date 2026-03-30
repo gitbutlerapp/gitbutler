@@ -23,7 +23,7 @@ pub(crate) fn commit_to_remote_commit(commit: &gix::Commit) -> Result<RemoteComm
     Ok(RemoteCommit {
         id: commit.id().to_string(),
         description: commit.message_bstr().into(),
-        created_at: commit.time()?.seconds.try_into().unwrap(),
+        created_at: u128::try_from(commit.time()?.seconds).unwrap() * 1000,
         author: commit.author()?.into(),
         change_id: commit.change_id().map(|c| c.to_string()),
         parent_ids,

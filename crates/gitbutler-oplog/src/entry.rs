@@ -17,8 +17,8 @@ pub struct Snapshot {
     /// The id of the commit that represents the snapshot
     #[serde(rename = "id", with = "but_serde::object_id")]
     pub commit_id: gix::ObjectId,
-    /// Snapshot creation time in seconds from Unix epoch seconds, based on a commit as `commit_id`.
-    #[serde(serialize_with = "but_serde::as_time_seconds_from_unix_epoch_gix")]
+    /// Snapshot creation time in milliseconds from Unix epoch, based on a commit as `commit_id`.
+    #[serde(serialize_with = "but_serde::as_time_milliseconds_from_unix_epoch")]
     pub created_at: gix::date::Time,
     /// Snapshot details as persisted in the commit message, or `None` if the details couldn't be parsed.
     pub details: Option<SnapshotDetails>,

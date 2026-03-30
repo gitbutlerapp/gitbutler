@@ -278,7 +278,7 @@
 				base = branchParent.name;
 			}
 
-			const pushRemoteName = baseBranch?.actualPushRemoteName();
+			const pushRemoteName = baseBranch?.pushRemoteName;
 			if (!pushRemoteName) {
 				chipToasts.error("No push remote name determined");
 				return;

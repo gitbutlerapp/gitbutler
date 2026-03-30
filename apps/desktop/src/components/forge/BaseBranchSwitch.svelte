@@ -14,7 +14,7 @@
 	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
 
 	let selectedBranch = $derived(baseBranch?.branchName);
-	let selectedRemote = $derived(baseBranch?.actualPushRemoteName());
+	let selectedRemote = $derived(baseBranch?.pushRemoteName);
 
 	const stacksQuery = $derived(stackService.stacks(projectId));
 	const stackCount = $derived(stacksQuery.response?.length);
@@ -115,7 +115,7 @@
 						id="set-base-branch"
 						loading={targetBranchSwitch.current.isLoading}
 						disabled={(selectedBranch === baseBranch?.branchName &&
-							selectedRemote === baseBranch?.actualPushRemoteName()) ||
+							selectedRemote === baseBranch?.pushRemoteName) ||
 							targetChangeDisabled}
 					>
 						{targetBranchSwitch.current.isLoading

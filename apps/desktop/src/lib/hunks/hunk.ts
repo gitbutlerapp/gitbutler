@@ -8,7 +8,6 @@ import {
 } from "@gitbutler/ui/utils/diffParsing";
 import type { HunkLocks } from "$lib/hunks/dependencies";
 import type { Prettify } from "@gitbutler/shared/utils/typeUtils";
-import "reflect-metadata";
 
 export type DiffSpec = {
 	/** lossless version of `previous_path` if this was a rename. */

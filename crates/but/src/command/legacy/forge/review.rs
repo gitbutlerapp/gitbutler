@@ -671,7 +671,7 @@ async fn publish_reviews_for_branch_and_dependents(
     let mut newly_published = Vec::new();
     let mut already_existing = Vec::new();
     let mut all_reviews_in_order = Vec::new();
-    let mut current_target_branch = base_branch.short_name();
+    let mut current_target_branch = base_branch.short_name.as_str();
     for head in stack_entry.heads.iter().rev() {
         if let Some(out) = out.for_human() {
             let draftiness = if draft { "draft " } else { "" };

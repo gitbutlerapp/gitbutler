@@ -170,7 +170,7 @@
 							lastCommit={lastCommit
 								? {
 										author: lastCommit.author,
-										ago: getTimeAgo(lastCommit.createdAt, true),
+										ago: getTimeAgo(new Date(lastCommit.createdAt), true),
 										branch: baseBranch.shortName,
 										sha: lastCommit.id.slice(0, 7),
 									}

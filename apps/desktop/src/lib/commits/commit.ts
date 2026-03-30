@@ -1,7 +1,4 @@
 import { splitMessage } from "$lib/commits/commitMessage";
-import { ConflictEntries } from "$lib/files/conflicts";
-import { Transform } from "class-transformer";
-import "reflect-metadata";
 
 export type CommitKey = {
 	stackId?: string;
@@ -10,21 +7,21 @@ export type CommitKey = {
 	upstream: boolean;
 };
 
-export class DetailedCommit {
-	id!: string;
-	author!: Author;
-	description!: string;
-	@Transform((obj) => new Date(obj.value))
-	createdAt!: Date;
-	isRemote!: boolean;
-	isLocalAndRemote!: boolean;
-	isIntegrated!: boolean;
-	parentIds!: string[];
-	branchId!: string;
-	changeId!: string;
-	isSigned!: boolean;
+export interface DetailedCommit {
+	id: string;
+	author: Author;
+	description: string;
+	/** Milliseconds since epoch. */
+	createdAt: number;
+	isRemote: boolean;
+	isLocalAndRemote: boolean;
+	isIntegrated: boolean;
+	parentIds: string[];
+	branchId: string;
+	changeId: string;
+	isSigned: boolean;
 	relatedTo?: DetailedCommit;
-	conflicted!: boolean;
+	conflicted: boolean;
 	// Set if a GitButler branch reference pointing to this commit exists. In the format of "refs/remotes/origin/my-branch"
 	remoteRef?: string | undefined;
 
@@ -44,87 +41,64 @@ export class DetailedCommit {
 	prev?: DetailedCommit;
 	next?: DetailedCommit;
 
-	@Transform(
-		(obj) =>
-			new ConflictEntries(obj.value.ancestorEntries, obj.value.ourEntries, obj.value.theirEntries),
-	)
-	conflictedFiles!: ConflictEntries;
+	conflictedFiles: {
+		ancestorEntries: string[];
+		ourEntries: string[];
+		theirEntries: string[];
+	};
 
 	// Dependency tracking
-	/**
-	 * The commit ids of the dependencies of this commit.
-	 */
-	dependencies!: string[];
-	/**
-	 * The ids of the commits that depend on this commit.
-	 */
-	reverseDependencies!: string[];
-	/**
-	 * The hunk hashes of uncommitted changes that depend on this commit.
-	 */
-	dependentDiffs!: string[];
-
-	get status(): CommitStatusType {
-		if (this.isIntegrated) return "Integrated";
-		if (this.isLocalAndRemote) return "LocalAndRemote";
-		if (this.isRemote) return "Remote";
-		return "LocalOnly";
-	}
-
-	get descriptionTitle(): string | undefined {
-		return splitMessage(this.description).title || undefined;
-	}
-
-	get descriptionBody(): string | undefined {
-		return splitMessage(this.description).description || undefined;
-	}
-
-	isParentOf(possibleChild: DetailedCommit) {
-		return possibleChild.parentIds.includes(this.id);
-	}
-
-	isMergeCommit() {
-		return this.parentIds.length > 1;
-	}
+	/** The commit ids of the dependencies of this commit. */
+	dependencies: string[];
+	/** The ids of the commits that depend on this commit. */
+	reverseDependencies: string[];
+	/** The hunk hashes of uncommitted changes that depend on this commit. */
+	dependentDiffs: string[];
 }
 
-export class Commit {
-	id!: string;
-	author!: Author;
-	description!: string;
-	@Transform((obj) => new Date(obj.value * 1000))
-	createdAt!: Date;
-	changeId!: string;
-	isSigned!: boolean;
-	parentIds!: string[];
-	conflicted!: boolean;
+export interface Commit {
+	id: string;
+	author: Author;
+	description: string;
+	/** Milliseconds since epoch. */
+	createdAt: number;
+	changeId: string;
+	isSigned: boolean;
+	parentIds: string[];
+	conflicted: boolean;
 
 	prev?: Commit;
 	next?: Commit;
 	relatedTo?: DetailedCommit;
-
-	get descriptionTitle(): string | undefined {
-		return splitMessage(this.description).title || undefined;
-	}
-
-	get descriptionBody(): string | undefined {
-		return splitMessage(this.description).description || undefined;
-	}
-
-	get status(): CommitStatusType {
-		return "Remote";
-	}
-
-	isMergeCommit() {
-		return this.parentIds.length > 1;
-	}
-
-	get conflictedFiles() {
-		return new ConflictEntries([], [], []);
-	}
 }
 
 export type AnyCommit = DetailedCommit | Commit;
+
+export function commitStatus(commit: AnyCommit): CommitStatusType {
+	if ("isIntegrated" in commit) {
+		if (commit.isIntegrated) return "Integrated";
+		if (commit.isLocalAndRemote) return "LocalAndRemote";
+		if (commit.isRemote) return "Remote";
+		return "LocalOnly";
+	}
+	return "Remote";
+}
+
+export function descriptionTitle(commit: AnyCommit): string | undefined {
+	return splitMessage(commit.description).title || undefined;
+}
+
+export function descriptionBody(commit: AnyCommit): string | undefined {
+	return splitMessage(commit.description).description || undefined;
+}
+
+export function isParentOf(parent: DetailedCommit, possibleChild: DetailedCommit): boolean {
+	return possibleChild.parentIds.includes(parent.id);
+}
+
+export function isMergeCommit(commit: AnyCommit): boolean {
+	return commit.parentIds.length > 1;
+}
 
 export interface Author {
 	id?: number;
