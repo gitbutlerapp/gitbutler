@@ -17,7 +17,7 @@ type RubOperationLabel = "Amend" | "Uncommit" | "Assign" | "Unassign" | "Squash"
 export const rubOperationLabel = ({ source, target }: RubOperation): RubOperationLabel | null =>
 	Match.value(source).pipe(
 		Match.withReturnType<RubOperationLabel | null>(),
-		Match.tag("TreeChange", ({ source }) =>
+		Match.tag("TreeChanges", ({ source }) =>
 			Match.value(source.parent).pipe(
 				Match.withReturnType<RubOperationLabel | null>(),
 				Match.tag("Changes", (source) =>

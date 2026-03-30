@@ -8,10 +8,12 @@ import { Match } from "effect";
 import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
 import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 
-export type TreeChangeRubSource = {
+export type TreeChangesRubSource = {
 	parent: ChangeUnit;
-	change: TreeChange;
-	hunkHeaders: Array<HunkHeader>;
+	changes: Array<{
+		change: TreeChange;
+		hunkHeaders: Array<HunkHeader>;
+	}>;
 };
 
 export type CommitRubSource = {
@@ -19,7 +21,7 @@ export type CommitRubSource = {
 };
 
 export type RubSource =
-	| { _tag: "TreeChange"; source: TreeChangeRubSource }
+	| { _tag: "TreeChanges"; source: TreeChangesRubSource }
 	| { _tag: "Commit"; source: CommitRubSource };
 
 export type RubParams = {
@@ -39,19 +41,21 @@ export type RubResult = {
 // In the future this may be implemented as a single API endpoint on the backend.
 export const rub = async ({ projectId, source, target }: RubParams): Promise<RubResult> =>
 	Match.value(source).pipe(
-		Match.tag("TreeChange", ({ source }) =>
+		Match.tag("TreeChanges", ({ source }) =>
 			Match.value(source.parent).pipe(
 				Match.tag("Changes", () =>
 					Match.value(target).pipe(
 						Match.tag("Changes", async (target): Promise<RubResult> => {
 							await window.lite.assignHunk({
 								projectId,
-								assignments: source.hunkHeaders.map(
-									(hunkHeader): HunkAssignmentRequest => ({
-										pathBytes: source.change.pathBytes,
-										hunkHeader,
-										stackId: target.stackId,
-									}),
+								assignments: source.changes.flatMap(({ change, hunkHeaders }) =>
+									hunkHeaders.map(
+										(hunkHeader): HunkAssignmentRequest => ({
+											pathBytes: change.pathBytes,
+											hunkHeader,
+											stackId: target.stackId,
+										}),
+									),
 								),
 							});
 							return {};
@@ -60,7 +64,9 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 							const response = await window.lite.commitAmend({
 								projectId,
 								commitId: target.commitId,
-								changes: [createDiffSpec(source.change, source.hunkHeaders)],
+								changes: source.changes.map(({ change, hunkHeaders }) =>
+									createDiffSpec(change, hunkHeaders),
+								),
 							});
 							return {
 								replacedCommits: response.replacedCommits,
@@ -79,7 +85,9 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 								projectId,
 								commitId: sourceParent.commitId,
 								assignTo: target.stackId,
-								changes: [createDiffSpec(source.change, source.hunkHeaders)],
+								changes: source.changes.map(({ change, hunkHeaders }) =>
+									createDiffSpec(change, hunkHeaders),
+								),
 							});
 							return {
 								replacedCommits: response.replacedCommits,
@@ -90,7 +98,9 @@ export const rub = async ({ projectId, source, target }: RubParams): Promise<Rub
 								projectId,
 								sourceCommitId: sourceParent.commitId,
 								destinationCommitId: target.commitId,
-								changes: [createDiffSpec(source.change, source.hunkHeaders)],
+								changes: source.changes.map(({ change, hunkHeaders }) =>
+									createDiffSpec(change, hunkHeaders),
+								),
 							});
 							return { replacedCommits: response.replacedCommits };
 						}),

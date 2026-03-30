@@ -5,9 +5,9 @@ import { type Operation, useRunOperation } from "#ui/Operation.ts";
 import { CommitLabel, formatHunkHeader, Patch } from "#ui/routes/project/$id/-shared.tsx";
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { mergeProps, useRender } from "@base-ui/react";
-import { Commit, DiffHunk, HunkAssignment, TreeChange } from "@gitbutler/but-sdk";
+import { Commit, DiffHunk, HunkAssignment, HunkHeader, TreeChange } from "@gitbutler/but-sdk";
 import { FC, ReactNode, useEffect } from "react";
-import { type SourceItem } from "./-SourceItem.ts";
+import { TreeChangeWithHunkHeaders, type SourceItem } from "./-SourceItem.ts";
 import styles from "./route.module.css";
 
 type DragData = {
@@ -27,6 +27,15 @@ const parseDropTargetData = (data: unknown): Operation | null => {
 const DragPreview: FC<{
 	children: ReactNode;
 }> = ({ children }) => <div className={styles.dragPreview}>{children}</div>;
+
+const hunkHeadersForAssignments = (
+	assignments: Array<HunkAssignment> | undefined,
+): Array<HunkHeader> =>
+	assignments
+		? assignments.flatMap((assignment) =>
+				assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
+			)
+		: [];
 
 export const DraggableBranch: FC<
 	{
@@ -88,19 +97,59 @@ export const DraggableFile: FC<
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: (): DragData => ({
 			sourceItem: {
-				_tag: "TreeChange",
+				_tag: "TreeChanges",
 				source: {
 					parent: changeUnit,
-					change,
-					hunkHeaders: assignments
-						? assignments.flatMap((assignment) =>
-								assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
-							)
-						: [],
+					changes: [
+						{
+							change,
+							hunkHeaders: hunkHeadersForAssignments(assignments),
+						},
+					],
 				},
 			},
 		}),
 		preview: <DragPreview>{change.path}</DragPreview>,
+	});
+
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isDragging && styles.dragging),
+		}),
+	});
+};
+
+export type TreeChangeWithAssignments = {
+	change: TreeChange;
+	assignments?: Array<HunkAssignment>;
+};
+
+export const DraggableChanges: FC<
+	{
+		changeUnit: ChangeUnit;
+		label: string;
+		changes: Array<TreeChangeWithAssignments>;
+	} & useRender.ComponentProps<"div">
+> = ({ changeUnit, label, changes, render, ...props }) => {
+	const [isDragging, dragRef] = useDraggable({
+		getInitialData: (): DragData => ({
+			sourceItem: {
+				_tag: "TreeChanges",
+				source: {
+					parent: changeUnit,
+					changes: changes.map(
+						({ change, assignments }): TreeChangeWithHunkHeaders => ({
+							change,
+							hunkHeaders: hunkHeadersForAssignments(assignments),
+						}),
+					),
+				},
+			},
+		}),
+		preview: <DragPreview>{label}</DragPreview>,
+		canDrag: () => changes.length > 0,
 	});
 
 	return useRender({
@@ -123,11 +172,15 @@ export const DraggableHunk: FC<
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: (): DragData => ({
 			sourceItem: {
-				_tag: "TreeChange",
+				_tag: "TreeChanges",
 				source: {
 					parent: changeUnit,
-					change,
-					hunkHeaders: [hunk],
+					changes: [
+						{
+							change,
+							hunkHeaders: [hunk],
+						},
+					],
 				},
 			},
 		}),
