@@ -14,18 +14,10 @@ import { RubParams } from "#ui/api/rub.ts";
 export type RubOperation = Omit<RubParams, "projectId">;
 
 export type Operation =
-	| ({
-			_tag: "Rub";
-	  } & RubOperation)
-	| ({
-			_tag: "CommitMove";
-	  } & Omit<CommitMoveParams, "projectId">)
-	| ({
-			_tag: "MoveBranch";
-	  } & Omit<MoveBranchParams, "projectId">)
-	| ({
-			_tag: "TearOffBranch";
-	  } & Omit<TearOffBranchParams, "projectId">);
+	| ({ _tag: "Rub" } & RubOperation)
+	| ({ _tag: "CommitMove" } & Omit<CommitMoveParams, "projectId">)
+	| ({ _tag: "MoveBranch" } & Omit<MoveBranchParams, "projectId">)
+	| ({ _tag: "TearOffBranch" } & Omit<TearOffBranchParams, "projectId">);
 
 export const useRunOperation = (projectId: string) => {
 	const toastManager = Toast.useToastManager();

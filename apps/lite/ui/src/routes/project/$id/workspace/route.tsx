@@ -32,10 +32,12 @@ import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayo
 import {
 	DraggableBranch,
 	DraggableCommit,
+	DraggableChanges,
 	DraggableFile,
 	DraggableHunk,
 	parseDragData,
 	useMonitorDraggedSourceItem,
+	TreeChangeWithAssignments,
 } from "#ui/routes/project/$id/workspace/-DragAndDrop.tsx";
 import { rubOperationLabel } from "#ui/routes/project/$id/workspace/-RubOperationLabel.ts";
 import { getRubOperation, type SourceItem } from "#ui/routes/project/$id/workspace/-SourceItem.ts";
@@ -1290,9 +1292,21 @@ const Changes: FC<{
 		selection?._tag === "Changes" && selection.stackId === stackId ? selection : null;
 
 	return (
-		<ChangesTarget
-			stackId={stackId}
-			className={classes(className, changesSelection && sharedStyles.sectionSelected)}
+		<DraggableChanges
+			changeUnit={{ _tag: "Changes", stackId }}
+			label={label}
+			changes={changes.map(
+				(change): TreeChangeWithAssignments => ({
+					change,
+					assignments: assignmentsByPath.get(change.path),
+				}),
+			)}
+			render={
+				<ChangesTarget
+					stackId={stackId}
+					className={classes(className, changesSelection && sharedStyles.sectionSelected)}
+				/>
+			}
 		>
 			<div
 				className={classes(
@@ -1361,7 +1375,7 @@ const Changes: FC<{
 					})}
 				</ul>
 			)}
-		</ChangesTarget>
+		</DraggableChanges>
 	);
 };
 

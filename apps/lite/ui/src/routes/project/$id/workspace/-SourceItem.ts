@@ -5,15 +5,19 @@ import { type HunkHeader, type TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { rubOperationLabel } from "./-RubOperationLabel.ts";
 
+export type TreeChangeWithHunkHeaders = {
+	change: TreeChange;
+	hunkHeaders: Array<HunkHeader>;
+};
+
 export type SourceItem =
 	| { _tag: "Commit"; commitId: string }
 	| { _tag: "Branch"; anchorRef: Array<number> }
 	| {
-			_tag: "TreeChange";
+			_tag: "TreeChanges";
 			source: {
 				parent: ChangeUnit;
-				change: TreeChange;
-				hunkHeaders: Array<HunkHeader>;
+				changes: Array<TreeChangeWithHunkHeaders>;
 			};
 	  };
 
@@ -24,8 +28,8 @@ const rubSourceFor = (item: SourceItem): RubSource | null =>
 			_tag: "Commit",
 			source: { commitId },
 		})),
-		Match.tag("TreeChange", ({ source }): RubSource | null => ({
-			_tag: "TreeChange",
+		Match.tag("TreeChanges", ({ source }): RubSource | null => ({
+			_tag: "TreeChanges",
 			source,
 		})),
 		Match.exhaustive,
