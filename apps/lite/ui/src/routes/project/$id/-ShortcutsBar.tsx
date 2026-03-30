@@ -41,8 +41,8 @@ const ShortcutsBar: FC<{
 export const PositionedShortcutsBar: FC<{
 	mode?: ShortcutsBarMode | null;
 }> = ({ mode = null }) => {
-	const shortcutsBarPortalNode = use(ShortcutsBarPortalContext);
-	if (!shortcutsBarPortalNode) return null;
+	const element = use(ShortcutsBarPortalContext);
+	if (!element) return null;
 
-	return createPortal(<ShortcutsBar mode={mode} />, shortcutsBarPortalNode);
+	return createPortal(<ShortcutsBar mode={mode} />, element);
 };
