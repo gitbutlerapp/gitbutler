@@ -11,6 +11,7 @@ mod claude;
 mod clean;
 #[cfg(feature = "legacy")]
 mod commit;
+mod config;
 #[cfg(feature = "legacy")]
 mod cursor;
 #[cfg(feature = "legacy")]

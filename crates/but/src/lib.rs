@@ -284,6 +284,12 @@ async fn match_subcommand(
                         .await
                         .emit_metrics(metrics_ctx)
                 }
+                Some(args::config::Subcommands::Ai {
+                    cmd: ai_cmd,
+                    local,
+                    global,
+                }) if !local => command::config::ai_config(out, ai_cmd.clone(), *local, *global)
+                    .emit_metrics(metrics_ctx),
                 _ => {
                     // Other subcommands need a repo context
                     cfg_if! {
