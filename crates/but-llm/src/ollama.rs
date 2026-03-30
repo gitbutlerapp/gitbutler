@@ -5,7 +5,7 @@ use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
 use crate::{
-    ChatMessage,
+    AI_OLLAMA_ENDPOINT_KEY, AI_OLLAMA_MODEL_NAME_KEY, ChatMessage,
     client::LLMClient,
     openai_utils::{
         OpenAIClientProvider, response_blocking, stream_response_blocking,
@@ -14,8 +14,6 @@ use crate::{
 };
 
 const OLLAMA_API_BASE_DEFAULT: &str = "http://localhost:11434/v1/";
-const OLLAMA_ENDPOINT: &str = "gitbutler.aiOllamaEndpoint";
-const OLLAMA_MODEL_NAME: &str = "gitbutler.aiOllamaModelName";
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct OllamaHostConfig {
@@ -77,10 +75,12 @@ impl LLMClient for OllamaProvider {
         Self: Sized,
     {
         let endpoint = config
-            .string(OLLAMA_ENDPOINT)
+            .string(AI_OLLAMA_ENDPOINT_KEY)
             .map(|v| v.to_string())
             .map(OllamaHostConfig::from);
-        let model = config.string(OLLAMA_MODEL_NAME).map(|v| v.to_string());
+        let model = config
+            .string(AI_OLLAMA_MODEL_NAME_KEY)
+            .map(|v| v.to_string());
         let ollama_config = OllamaConfig {
             host_config: endpoint,
         };

@@ -5,6 +5,7 @@ use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
 use crate::{
+    AI_LMSTUDIO_ENDPOINT_KEY, AI_LMSTUDIO_MODEL_NAME_KEY,
     chat::ChatMessage,
     client::LLMClient,
     openai_utils::{
@@ -14,8 +15,6 @@ use crate::{
 };
 
 const LMSTUDIO_API_BASE_DEFAULT: &str = "http://localhost:1234/v1";
-const LMSTUDIO_API_BASE_OPTION: &str = "gitbutler.aiLMStudioEndpoint";
-const LMSTUDIO_MODEL_NAME: &str = "gitbutler.aiLMStudioModelName";
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LMStudioConfig {
@@ -33,7 +32,7 @@ impl Default for LMStudioConfig {
 impl LMStudioConfig {
     fn from_git_config(config: &gix::config::File<'static>) -> Self {
         let api_base = config
-            .string(LMSTUDIO_API_BASE_OPTION)
+            .string(AI_LMSTUDIO_ENDPOINT_KEY)
             .map(|v| v.to_string())
             .unwrap_or_else(|| LMSTUDIO_API_BASE_DEFAULT.to_string());
 
@@ -74,7 +73,9 @@ impl LLMClient for LMStudioProvider {
         Self: Sized,
     {
         let lmstudio_config = LMStudioConfig::from_git_config(config);
-        let model = config.string(LMSTUDIO_MODEL_NAME).map(|v| v.to_string());
+        let model = config
+            .string(AI_LMSTUDIO_MODEL_NAME_KEY)
+            .map(|v| v.to_string());
         Some(Self {
             config: lmstudio_config,
             model,

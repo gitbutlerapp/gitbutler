@@ -8,6 +8,13 @@ use std::fmt::{Display, Write};
 use anyhow::{Context as _, Result};
 use but_core::git_config::{remove_config_value, set_config_value};
 use but_ctx::Context;
+use but_llm::{
+    AI_ANTHROPIC_KEY_OPTION_KEY, AI_ANTHROPIC_MODEL_NAME_KEY, AI_ANTHROPIC_SECRET_HANDLE,
+    AI_LMSTUDIO_ENDPOINT_KEY, AI_LMSTUDIO_MODEL_NAME_KEY, AI_MODEL_PROVIDER_KEY,
+    AI_OLLAMA_ENDPOINT_KEY, AI_OLLAMA_MODEL_NAME_KEY, AI_OPENAI_CUSTOM_ENDPOINT_KEY,
+    AI_OPENAI_KEY_OPTION_KEY, AI_OPENAI_MODEL_NAME_KEY, AI_OPENAI_SECRET_HANDLE, LLMProviderKind,
+};
+use but_secret::{Sensitive, secret};
 use but_settings::{AppSettingsWithDiskSync, api::TelemetryUpdate};
 use cfg_if::cfg_if;
 use colored::Colorize;
@@ -16,10 +23,62 @@ use serde::Serialize;
 
 use super::git_config::edit_git_config;
 use crate::{
-    args::config::{ForgeSubcommand, MetricsStatus, Subcommands, UiSubcommand, UserSubcommand},
+    args::config::{
+        AiKeyOption, AiSubcommand, ForgeSubcommand, MetricsStatus, Subcommands, UiSubcommand,
+        UserSubcommand,
+    },
     tui,
     utils::{ConfirmOrEmpty, InputOutputChannel, OutputChannel},
 };
+
+impl From<AiKeyOption> for String {
+    fn from(value: AiKeyOption) -> Self {
+        match value {
+            AiKeyOption::BringYourOwn => "Bring your own key".to_string(),
+            AiKeyOption::ButlerApi => "Use GitButler API".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum AiScope {
+    Global,
+    Local,
+}
+
+impl AiScope {
+    fn from_flags(local: bool, global: bool) -> Result<Self> {
+        if local && global {
+            anyhow::bail!("Cannot pass both --local and --global")
+        }
+        if local {
+            Ok(AiScope::Local)
+        } else {
+            Ok(AiScope::Global)
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            AiScope::Global => "global",
+            AiScope::Local => "local",
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct AiConfigInfo {
+    provider: Option<String>,
+    openai_key_option: Option<String>,
+    openai_model: Option<String>,
+    openai_endpoint: Option<String>,
+    anthropic_key_option: Option<String>,
+    anthropic_model: Option<String>,
+    ollama_endpoint: Option<String>,
+    ollama_model: Option<String>,
+    lmstudio_endpoint: Option<String>,
+    lmstudio_model: Option<String>,
+}
 
 /// Main entry point for config command
 pub async fn exec(
@@ -32,9 +91,27 @@ pub async fn exec(
         Some(Subcommands::Target { branch }) => target_config(ctx, out, branch).await,
         Some(Subcommands::Forge { cmd }) => forge_config(out, cmd).await,
         Some(Subcommands::Metrics { status }) => metrics_config(out, status).await,
+        Some(Subcommands::Ai { local, global, cmd }) => {
+            ai_config_with_repo(ctx, out, cmd, local, global)
+        }
         Some(Subcommands::Ui { cmd }) => ui_config(ctx, out, cmd),
         None => show_overview(ctx, out).await,
     }
+}
+
+/// Handle AI config subcommand without repository context.
+///
+/// This supports global configuration from outside of a git repository.
+pub(crate) fn ai_config(
+    out: &mut OutputChannel,
+    cmd: Option<AiSubcommand>,
+    local: bool,
+    global: bool,
+) -> Result<()> {
+    if local {
+        anyhow::bail!("Local AI configuration requires running inside a git repository")
+    }
+    ai_config_inner(None, out, cmd, local, global)
 }
 
 /// Show overview of important settings
@@ -154,6 +231,11 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
             out,
             "  {} - Metrics settings",
             "but config metrics".blue().dimmed()
+        )?;
+        writeln!(
+            out,
+            "  {}      - AI provider settings",
+            "but config ai".blue().dimmed()
         )?;
         writeln!(
             out,
@@ -933,6 +1015,539 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
     }
 
     Ok(())
+}
+
+fn ai_config_with_repo(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    cmd: Option<AiSubcommand>,
+    local: bool,
+    global: bool,
+) -> Result<()> {
+    let repo = ctx.repo.get()?;
+    ai_config_inner(Some(&*repo), out, cmd, local, global)
+}
+
+fn ai_config_inner(
+    repo: Option<&gix::Repository>,
+    out: &mut OutputChannel,
+    cmd: Option<AiSubcommand>,
+    local: bool,
+    global: bool,
+) -> Result<()> {
+    let scope = AiScope::from_flags(local, global)?;
+
+    match cmd {
+        None => {
+            if out.for_human().is_some() {
+                return ai_config_interactive(repo, out, scope);
+            }
+            show_ai_config(repo, out, scope)
+        }
+        Some(AiSubcommand::Show) => show_ai_config(repo, out, scope),
+        Some(cmd) => ai_config_non_interactive(repo, out, scope, cmd),
+    }
+}
+
+fn show_ai_config(
+    repo: Option<&gix::Repository>,
+    out: &mut OutputChannel,
+    scope: AiScope,
+) -> Result<()> {
+    let info = get_ai_config_info(repo, scope)?;
+
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "{} ({})",
+            "AI Configuration".bold(),
+            scope.as_str().dimmed()
+        )?;
+        writeln!(out)?;
+        writeln!(
+            out,
+            "  {}: {}",
+            "Provider".dimmed(),
+            info.provider
+                .as_deref()
+                .map(|provider| provider.cyan().to_string())
+                .unwrap_or_else(|| "(not set)".red().to_string())
+        )?;
+        writeln!(
+            out,
+            "  {}: {}",
+            "OpenAI key option".dimmed(),
+            info.openai_key_option
+                .as_deref()
+                .unwrap_or("(not set)")
+                .cyan()
+        )?;
+        writeln!(
+            out,
+            "  {}: {}",
+            "OpenAI model".dimmed(),
+            info.openai_model.as_deref().unwrap_or("(not set)").cyan()
+        )?;
+        writeln!(
+            out,
+            "  {}: {}",
+            "OpenAI endpoint".dimmed(),
+            info.openai_endpoint
+                .as_deref()
+                .unwrap_or("(not set)")
+                .cyan()
+        )?;
+        writeln!(
+            out,
+            "  {}: {}",
+            "Anthropic key option".dimmed(),
+            info.anthropic_key_option
+                .as_deref()
+                .unwrap_or("(not set)")
+                .cyan()
+        )?;
+        writeln!(
+            out,
+            "  {}: {}",
+            "Anthropic model".dimmed(),
+            info.anthropic_model
+                .as_deref()
+                .unwrap_or("(not set)")
+                .cyan()
+        )?;
+        writeln!(
+            out,
+            "  {}: {}",
+            "Ollama endpoint".dimmed(),
+            info.ollama_endpoint
+                .as_deref()
+                .unwrap_or("(not set)")
+                .cyan()
+        )?;
+        writeln!(
+            out,
+            "  {}: {}",
+            "Ollama model".dimmed(),
+            info.ollama_model.as_deref().unwrap_or("(not set)").cyan()
+        )?;
+        writeln!(
+            out,
+            "  {}: {}",
+            "LM Studio endpoint".dimmed(),
+            info.lmstudio_endpoint
+                .as_deref()
+                .unwrap_or("(not set)")
+                .cyan()
+        )?;
+        writeln!(
+            out,
+            "  {}: {}",
+            "LM Studio model".dimmed(),
+            info.lmstudio_model.as_deref().unwrap_or("(not set)").cyan()
+        )?;
+    } else if let Some(out) = out.for_shell() {
+        writeln!(out, "{}", info.provider.as_deref().unwrap_or(""))?;
+    } else if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!(info))?;
+    }
+
+    Ok(())
+}
+
+fn ai_config_non_interactive(
+    repo: Option<&gix::Repository>,
+    out: &mut OutputChannel,
+    scope: AiScope,
+    cmd: AiSubcommand,
+) -> Result<()> {
+    match cmd {
+        AiSubcommand::Show => {
+            return show_ai_config(repo, out, scope);
+        }
+        AiSubcommand::Openai {
+            key_option,
+            model,
+            endpoint,
+            api_key,
+            api_key_env,
+        } => {
+            let selected_key_option = key_option.unwrap_or(AiKeyOption::ButlerApi);
+            let secret = resolve_secret_input(api_key, api_key_env)?;
+            require_non_interactive_secret_if_byok(selected_key_option, secret.as_ref(), "OpenAI")?;
+            apply_openai_config(repo, scope, selected_key_option, model, endpoint, secret)?;
+            write_ai_config_success(out, scope, LLMProviderKind::OpenAi)?;
+        }
+        AiSubcommand::Anthropic {
+            key_option,
+            model,
+            api_key,
+            api_key_env,
+        } => {
+            let selected_key_option = key_option.unwrap_or(AiKeyOption::ButlerApi);
+            let secret = resolve_secret_input(api_key, api_key_env)?;
+            require_non_interactive_secret_if_byok(
+                selected_key_option,
+                secret.as_ref(),
+                "Anthropic",
+            )?;
+            apply_anthropic_config(repo, scope, selected_key_option, model, secret)?;
+            write_ai_config_success(out, scope, LLMProviderKind::Anthropic)?;
+        }
+        AiSubcommand::Ollama { endpoint, model } => {
+            apply_ollama_config(repo, scope, endpoint, model)?;
+            write_ai_config_success(out, scope, LLMProviderKind::Ollama)?;
+        }
+        AiSubcommand::Lmstudio { endpoint, model } => {
+            apply_lmstudio_config(repo, scope, endpoint, model)?;
+            write_ai_config_success(out, scope, LLMProviderKind::LMStudio)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn ai_config_interactive(
+    repo: Option<&gix::Repository>,
+    out: &mut OutputChannel,
+    scope: AiScope,
+) -> Result<()> {
+    use cli_prompts::DisplayPrompt;
+
+    let mut inout = out
+        .prepare_for_terminal_input()
+        .context("Human input required - run this in a terminal")?;
+
+    let provider_prompt = cli_prompts::prompts::Selection::new(
+        "Select an AI provider",
+        vec!["OpenAI", "Anthropic", "Ollama", "LM Studio"].into_iter(),
+    );
+
+    let provider_label = provider_prompt
+        .display()
+        .map_err(|_| anyhow::anyhow!("Could not determine selected AI provider"))?;
+    let provider = match provider_label {
+        "OpenAI" => LLMProviderKind::OpenAi,
+        "Anthropic" => LLMProviderKind::Anthropic,
+        "Ollama" => LLMProviderKind::Ollama,
+        "LM Studio" => LLMProviderKind::LMStudio,
+        _ => anyhow::bail!("Unsupported AI provider selection: {provider_label}"),
+    };
+
+    match provider {
+        LLMProviderKind::OpenAi => {
+            let key_option_prompt = cli_prompts::prompts::Selection::new(
+                "Select OpenAI credential source",
+                vec![AiKeyOption::ButlerApi, AiKeyOption::BringYourOwn].into_iter(),
+            );
+            let key_option = key_option_prompt
+                .display()
+                .map_err(|_| anyhow::anyhow!("Could not determine OpenAI credential source"))?;
+
+            let model = inout.prompt("Preferred OpenAI model (leave empty for default):")?;
+            let endpoint = inout.prompt("Custom endpoint URL (optional):")?;
+
+            let secret = if matches!(key_option, AiKeyOption::BringYourOwn) {
+                Some(
+                    inout
+                        .prompt_secret("Enter OpenAI API key:")?
+                        .context("No API key provided. Aborting configuration.")?,
+                )
+            } else {
+                None
+            };
+
+            apply_openai_config(repo, scope, key_option, model, endpoint, secret)?;
+        }
+        LLMProviderKind::Anthropic => {
+            let key_option_prompt = cli_prompts::prompts::Selection::new(
+                "Select Anthropic credential source",
+                vec![AiKeyOption::ButlerApi, AiKeyOption::BringYourOwn].into_iter(),
+            );
+            let key_option = key_option_prompt
+                .display()
+                .map_err(|_| anyhow::anyhow!("Could not determine Anthropic credential source"))?;
+
+            let model = inout.prompt("Preferred Anthropic model (leave empty for default):")?;
+            let secret = if matches!(key_option, AiKeyOption::BringYourOwn) {
+                Some(
+                    inout
+                        .prompt_secret("Enter Anthropic API key:")?
+                        .context("No API key provided. Aborting configuration.")?,
+                )
+            } else {
+                None
+            };
+
+            apply_anthropic_config(repo, scope, key_option, model, secret)?;
+        }
+        LLMProviderKind::Ollama => {
+            let endpoint = inout.prompt("Ollama endpoint host:port (optional):")?;
+            let model = inout.prompt("Preferred Ollama model (optional):")?;
+            apply_ollama_config(repo, scope, endpoint, model)?;
+        }
+        LLMProviderKind::LMStudio => {
+            let endpoint = inout.prompt("LM Studio endpoint URL (optional):")?;
+            let model = inout.prompt("Preferred LM Studio model (optional):")?;
+            apply_lmstudio_config(repo, scope, endpoint, model)?;
+        }
+    }
+
+    writeln!(
+        inout,
+        "{} AI provider set to {} ({})",
+        "✓".green(),
+        provider.display_name().cyan(),
+        scope.as_str().dimmed()
+    )?;
+    Ok(())
+}
+
+fn write_ai_config_success(
+    out: &mut OutputChannel,
+    scope: AiScope,
+    provider: LLMProviderKind,
+) -> Result<()> {
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "{} AI provider set to {} ({})",
+            "✓".green(),
+            provider.display_name().cyan(),
+            scope.as_str().dimmed()
+        )?;
+    } else if let Some(out) = out.for_shell() {
+        writeln!(out, "{}", provider.as_git_config_value())?;
+    } else if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({
+            "provider": provider.as_git_config_value(),
+            "scope": scope.as_str(),
+        }))?;
+    }
+    Ok(())
+}
+
+fn resolve_secret_input(
+    api_key: Option<String>,
+    api_key_env: Option<String>,
+) -> Result<Option<Sensitive<String>>> {
+    if api_key.is_some() && api_key_env.is_some() {
+        anyhow::bail!("Pass either --api-key or --api-key-env, not both")
+    }
+
+    if let Some(value) = api_key {
+        return Ok(Some(Sensitive(value)));
+    }
+
+    if let Some(env_name) = api_key_env {
+        let value = std::env::var(&env_name)
+            .with_context(|| format!("Environment variable '{env_name}' is not set"))?;
+        return Ok(Some(Sensitive(value)));
+    }
+
+    Ok(None)
+}
+
+fn require_non_interactive_secret_if_byok(
+    key_option: AiKeyOption,
+    secret: Option<&Sensitive<String>>,
+    provider: &str,
+) -> Result<()> {
+    if matches!(key_option, AiKeyOption::BringYourOwn) && secret.is_none() {
+        anyhow::bail!(
+            "{provider} with --key-option bring-your-own requires --api-key or --api-key-env"
+        );
+    }
+    Ok(())
+}
+
+fn maybe_set_secret(handle: &str, secret_value: Option<Sensitive<String>>) -> Result<()> {
+    if let Some(secret_value) = secret_value {
+        secret::persist(handle, &secret_value, secret::Namespace::Global)?;
+    }
+    Ok(())
+}
+
+fn edit_ai_git_config(
+    repo: Option<&gix::Repository>,
+    scope: AiScope,
+    edit: impl FnOnce(&mut gix::config::File<'static>) -> Result<bool>,
+) -> Result<()> {
+    match scope {
+        AiScope::Global => {
+            let (mut config, path) = but_core::git_config::open_user_global_config_for_editing()?;
+            let changed = edit(&mut config)?;
+            if changed {
+                but_core::git_config::write_config(&path, &config)?;
+            }
+            Ok(())
+        }
+        AiScope::Local => {
+            let repo = repo.context("Local AI configuration requires a git repository")?;
+            edit_git_config(repo, false.into(), edit)?;
+            Ok(())
+        }
+    }
+}
+
+fn set_optional_config_value(
+    config: &mut gix::config::File<'static>,
+    key: &str,
+    value: Option<String>,
+) -> Result<()> {
+    match value {
+        Some(value) if !value.trim().is_empty() => set_config_value(config, key, &value),
+        _ => remove_config_value(config, key),
+    }
+}
+
+fn apply_openai_config(
+    repo: Option<&gix::Repository>,
+    scope: AiScope,
+    key_option: AiKeyOption,
+    model: Option<String>,
+    endpoint: Option<String>,
+    api_key: Option<Sensitive<String>>,
+) -> Result<()> {
+    edit_ai_git_config(repo, scope, |config| {
+        set_config_value(
+            config,
+            AI_MODEL_PROVIDER_KEY,
+            LLMProviderKind::OpenAi.as_git_config_value(),
+        )?;
+        set_config_value(config, AI_OPENAI_KEY_OPTION_KEY, key_option.as_git_value())?;
+        set_optional_config_value(config, AI_OPENAI_MODEL_NAME_KEY, model)?;
+        set_optional_config_value(config, AI_OPENAI_CUSTOM_ENDPOINT_KEY, endpoint)?;
+        Ok(true)
+    })?;
+
+    if matches!(key_option, AiKeyOption::BringYourOwn) {
+        maybe_set_secret(AI_OPENAI_SECRET_HANDLE, api_key)?;
+    }
+    Ok(())
+}
+
+fn apply_anthropic_config(
+    repo: Option<&gix::Repository>,
+    scope: AiScope,
+    key_option: AiKeyOption,
+    model: Option<String>,
+    api_key: Option<Sensitive<String>>,
+) -> Result<()> {
+    edit_ai_git_config(repo, scope, |config| {
+        set_config_value(
+            config,
+            AI_MODEL_PROVIDER_KEY,
+            LLMProviderKind::Anthropic.as_git_config_value(),
+        )?;
+        set_config_value(
+            config,
+            AI_ANTHROPIC_KEY_OPTION_KEY,
+            key_option.as_git_value(),
+        )?;
+        set_optional_config_value(config, AI_ANTHROPIC_MODEL_NAME_KEY, model)?;
+        Ok(true)
+    })?;
+
+    if matches!(key_option, AiKeyOption::BringYourOwn) {
+        maybe_set_secret(AI_ANTHROPIC_SECRET_HANDLE, api_key)?;
+    }
+    Ok(())
+}
+
+fn apply_ollama_config(
+    repo: Option<&gix::Repository>,
+    scope: AiScope,
+    endpoint: Option<String>,
+    model: Option<String>,
+) -> Result<()> {
+    edit_ai_git_config(repo, scope, |config| {
+        set_config_value(
+            config,
+            AI_MODEL_PROVIDER_KEY,
+            LLMProviderKind::Ollama.as_git_config_value(),
+        )?;
+        set_optional_config_value(config, AI_OLLAMA_ENDPOINT_KEY, endpoint)?;
+        set_optional_config_value(config, AI_OLLAMA_MODEL_NAME_KEY, model)?;
+        Ok(true)
+    })
+}
+
+fn apply_lmstudio_config(
+    repo: Option<&gix::Repository>,
+    scope: AiScope,
+    endpoint: Option<String>,
+    model: Option<String>,
+) -> Result<()> {
+    edit_ai_git_config(repo, scope, |config| {
+        set_config_value(
+            config,
+            AI_MODEL_PROVIDER_KEY,
+            LLMProviderKind::LMStudio.as_git_config_value(),
+        )?;
+        set_optional_config_value(config, AI_LMSTUDIO_ENDPOINT_KEY, endpoint)?;
+        set_optional_config_value(config, AI_LMSTUDIO_MODEL_NAME_KEY, model)?;
+        Ok(true)
+    })
+}
+
+fn get_ai_config_info(repo: Option<&gix::Repository>, scope: AiScope) -> Result<AiConfigInfo> {
+    match scope {
+        AiScope::Global => {
+            let file = gix::config::File::from_globals()?;
+            Ok(AiConfigInfo {
+                provider: file.string(AI_MODEL_PROVIDER_KEY).map(|v| v.to_string()),
+                openai_key_option: file.string(AI_OPENAI_KEY_OPTION_KEY).map(|v| v.to_string()),
+                openai_model: file.string(AI_OPENAI_MODEL_NAME_KEY).map(|v| v.to_string()),
+                openai_endpoint: file
+                    .string(AI_OPENAI_CUSTOM_ENDPOINT_KEY)
+                    .map(|v| v.to_string()),
+                anthropic_key_option: file
+                    .string(AI_ANTHROPIC_KEY_OPTION_KEY)
+                    .map(|v| v.to_string()),
+                anthropic_model: file
+                    .string(AI_ANTHROPIC_MODEL_NAME_KEY)
+                    .map(|v| v.to_string()),
+                ollama_endpoint: file.string(AI_OLLAMA_ENDPOINT_KEY).map(|v| v.to_string()),
+                ollama_model: file.string(AI_OLLAMA_MODEL_NAME_KEY).map(|v| v.to_string()),
+                lmstudio_endpoint: file.string(AI_LMSTUDIO_ENDPOINT_KEY).map(|v| v.to_string()),
+                lmstudio_model: file
+                    .string(AI_LMSTUDIO_MODEL_NAME_KEY)
+                    .map(|v| v.to_string()),
+            })
+        }
+        AiScope::Local => {
+            let repo = repo.context("Local AI configuration requires a git repository")?;
+            let config = repo.config_snapshot();
+            Ok(AiConfigInfo {
+                provider: config.string(AI_MODEL_PROVIDER_KEY).map(|v| v.to_string()),
+                openai_key_option: config
+                    .string(AI_OPENAI_KEY_OPTION_KEY)
+                    .map(|v| v.to_string()),
+                openai_model: config
+                    .string(AI_OPENAI_MODEL_NAME_KEY)
+                    .map(|v| v.to_string()),
+                openai_endpoint: config
+                    .string(AI_OPENAI_CUSTOM_ENDPOINT_KEY)
+                    .map(|v| v.to_string()),
+                anthropic_key_option: config
+                    .string(AI_ANTHROPIC_KEY_OPTION_KEY)
+                    .map(|v| v.to_string()),
+                anthropic_model: config
+                    .string(AI_ANTHROPIC_MODEL_NAME_KEY)
+                    .map(|v| v.to_string()),
+                ollama_endpoint: config.string(AI_OLLAMA_ENDPOINT_KEY).map(|v| v.to_string()),
+                ollama_model: config
+                    .string(AI_OLLAMA_MODEL_NAME_KEY)
+                    .map(|v| v.to_string()),
+                lmstudio_endpoint: config
+                    .string(AI_LMSTUDIO_ENDPOINT_KEY)
+                    .map(|v| v.to_string()),
+                lmstudio_model: config
+                    .string(AI_LMSTUDIO_MODEL_NAME_KEY)
+                    .map(|v| v.to_string()),
+            })
+        }
+    }
 }
 
 /// Handle target config subcommand

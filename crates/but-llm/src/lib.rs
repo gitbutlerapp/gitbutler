@@ -15,7 +15,19 @@ use serde::de::DeserializeOwned;
 
 use crate::client::LLMClient;
 
-const MODEL_PROVIDER: &str = "gitbutler.aiModelProvider";
+pub const AI_MODEL_PROVIDER_KEY: &str = "gitbutler.aiModelProvider";
+pub const AI_OPENAI_KEY_OPTION_KEY: &str = "gitbutler.aiOpenAIKeyOption";
+pub const AI_OPENAI_MODEL_NAME_KEY: &str = "gitbutler.aiOpenAIModelName";
+pub const AI_OPENAI_CUSTOM_ENDPOINT_KEY: &str = "gitbutler.aiOpenAICustomEndpoint";
+pub const AI_ANTHROPIC_KEY_OPTION_KEY: &str = "gitbutler.aiAnthropicKeyOption";
+pub const AI_ANTHROPIC_MODEL_NAME_KEY: &str = "gitbutler.aiAnthropicModelName";
+pub const AI_OLLAMA_ENDPOINT_KEY: &str = "gitbutler.aiOllamaEndpoint";
+pub const AI_OLLAMA_MODEL_NAME_KEY: &str = "gitbutler.aiOllamaModelName";
+pub const AI_LMSTUDIO_ENDPOINT_KEY: &str = "gitbutler.aiLMStudioEndpoint";
+pub const AI_LMSTUDIO_MODEL_NAME_KEY: &str = "gitbutler.aiLMStudioModelName";
+
+pub const AI_OPENAI_SECRET_HANDLE: &str = "aiOpenAIKey";
+pub const AI_ANTHROPIC_SECRET_HANDLE: &str = "aiAnthropicKey";
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -27,7 +39,7 @@ pub enum LLMProviderKind {
 }
 
 impl LLMProviderKind {
-    fn from_str(s: &str) -> Option<Self> {
+    pub fn from_git_config_value(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "openai" => Some(LLMProviderKind::OpenAi),
             "anthropic" => Some(LLMProviderKind::Anthropic),
@@ -35,6 +47,30 @@ impl LLMProviderKind {
             "lmstudio" => Some(LLMProviderKind::LMStudio),
             _ => None,
         }
+    }
+
+    pub fn as_git_config_value(self) -> &'static str {
+        match self {
+            LLMProviderKind::OpenAi => "openai",
+            LLMProviderKind::Anthropic => "anthropic",
+            LLMProviderKind::Ollama => "ollama",
+            LLMProviderKind::LMStudio => "lmstudio",
+        }
+    }
+
+    pub fn display_name(self) -> &'static str {
+        match self {
+            LLMProviderKind::OpenAi => "OpenAI",
+            LLMProviderKind::Anthropic => "Anthropic",
+            LLMProviderKind::Ollama => "Ollama",
+            LLMProviderKind::LMStudio => "LM Studio",
+        }
+    }
+}
+
+impl From<LLMProviderKind> for String {
+    fn from(value: LLMProviderKind) -> Self {
+        value.display_name().to_string()
     }
 }
 
@@ -124,8 +160,10 @@ impl LLMProvider {
     /// - The configured provider is not supported
     /// - Provider-specific initialization fails (e.g., missing credentials)
     pub fn from_git_config(config: &gix::config::File<'static>) -> Option<Self> {
-        let provider_str = config.string(MODEL_PROVIDER).map(|v| v.to_string())?;
-        let provider = LLMProviderKind::from_str(&provider_str);
+        let provider_str = config
+            .string(AI_MODEL_PROVIDER_KEY)
+            .map(|v| v.to_string())?;
+        let provider = LLMProviderKind::from_git_config_value(&provider_str);
         match provider {
             Some(LLMProviderKind::OpenAi) => {
                 let client = openai::OpenAiProvider::from_git_config(config)?;
