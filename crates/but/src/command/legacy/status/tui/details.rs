@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, HashMap},
+    collections::HashMap,
     iter::{empty, once, repeat_n},
     sync::LazyLock,
     time::Instant,
@@ -14,7 +14,6 @@ use but_core::{
 };
 use but_ctx::{Context, OnDemand};
 use but_hunk_assignment::HunkAssignment;
-use gitbutler_stack::StackId;
 use gix::actor::Signature;
 use itertools::Either;
 use ratatui::{
@@ -33,12 +32,12 @@ use syntect::{
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
-    CliId,
+    CliId, IdMap,
     command::legacy::status::tui::{
         CommandMessage, CommitMessage, DebugAsType, FilesMessage, Message, MoveMessage,
         RewordMessage, RubMessage,
     },
-    id::UncommittedCliId,
+    id::UncommittedHunk,
 };
 
 use super::BranchMessage;
@@ -301,12 +300,21 @@ impl Details {
                     &mut self.renderer,
                     previous_diff_line_items,
                 )?,
-                CliId::Uncommitted(uncommitted) => from_uncommitted(
-                    uncommitted,
-                    &*self.syntax_set.get()?,
-                    &mut self.renderer,
-                    previous_diff_line_items,
-                )?,
+                CliId::Uncommitted(uncommitted) => {
+                    let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
+                    let id_map =
+                        IdMap::new_from_context(ctx, Some(wt_changes.assignments.clone()))?;
+                    let uncommitted_hunks = filter_uncommitted_hunks(&id_map, |hunk_assignment| {
+                        hunk_assignment.path_bytes
+                            == uncommitted.hunk_assignments.first().path_bytes
+                    })?;
+                    from_uncommitted_hunks(
+                        uncommitted_hunks,
+                        &*self.syntax_set.get()?,
+                        &mut self.renderer,
+                        previous_diff_line_items,
+                    )?
+                }
                 CliId::PathPrefix {
                     hunk_assignments, ..
                 } => from_path_prefix(
@@ -332,19 +340,34 @@ impl Details {
                     &mut self.renderer,
                     previous_diff_line_items,
                 )?,
-                CliId::Unassigned { .. } => from_unassigned(
-                    ctx,
-                    &*self.syntax_set.get()?,
-                    &mut self.renderer,
-                    previous_diff_line_items,
-                )?,
-                CliId::Stack { stack_id, .. } => from_stack(
-                    ctx,
-                    *stack_id,
-                    &*self.syntax_set.get()?,
-                    &mut self.renderer,
-                    previous_diff_line_items,
-                )?,
+                CliId::Unassigned { .. } => {
+                    let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
+                    let id_map =
+                        IdMap::new_from_context(ctx, Some(wt_changes.assignments.clone()))?;
+                    let uncommitted_hunks = filter_uncommitted_hunks(&id_map, |hunk_assignment| {
+                        hunk_assignment.stack_id.is_none()
+                    })?;
+                    from_uncommitted_hunks(
+                        uncommitted_hunks,
+                        &*self.syntax_set.get()?,
+                        &mut self.renderer,
+                        previous_diff_line_items,
+                    )?
+                }
+                CliId::Stack { stack_id, .. } => {
+                    let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
+                    let id_map =
+                        IdMap::new_from_context(ctx, Some(wt_changes.assignments.clone()))?;
+                    let uncommitted_hunks = filter_uncommitted_hunks(&id_map, |hunk_assignment| {
+                        hunk_assignment.stack_id.is_some_and(|id| id == *stack_id)
+                    })?;
+                    from_uncommitted_hunks(
+                        uncommitted_hunks,
+                        &*self.syntax_set.get()?,
+                        &mut self.renderer,
+                        previous_diff_line_items,
+                    )?
+                }
             });
 
             #[cfg(test)]
@@ -385,6 +408,43 @@ impl Details {
             diff.render(self.scroll_top, layout[1], frame);
         }
     }
+}
+
+fn filter_uncommitted_hunks<F>(
+    id_map: &IdMap,
+    mut filter: F,
+) -> anyhow::Result<Vec<(&String, &UncommittedHunk)>>
+where
+    F: FnMut(&HunkAssignment) -> bool,
+{
+    let mut uncommitted_hunks = id_map
+        .uncommitted_hunks
+        .iter()
+        .filter(move |(_, hunk)| filter(&hunk.hunk_assignment))
+        .collect::<Vec<_>>();
+
+    uncommitted_hunks.sort_by(|(id_a, hunk_a), (id_b, hunk_b)| {
+        (
+            &hunk_a.hunk_assignment.path_bytes,
+            hunk_a
+                .hunk_assignment
+                .hunk_header
+                .as_ref()
+                .map(|header| header.old_start),
+            id_a,
+        )
+            .cmp(&(
+                &hunk_b.hunk_assignment.path_bytes,
+                hunk_b
+                    .hunk_assignment
+                    .hunk_header
+                    .as_ref()
+                    .map(|header| header.old_start),
+                id_b,
+            ))
+    });
+
+    Ok(uncommitted_hunks)
 }
 
 #[derive(Debug)]
@@ -527,22 +587,20 @@ fn from_commit(
     })
 }
 
-fn from_uncommitted(
-    uncommitted: &UncommittedCliId,
+fn from_uncommitted_hunks(
+    uncommitted_hunks: Vec<(&String, &UncommittedHunk)>,
     syntax_set: &SyntaxSet,
     renderer: &mut IncrementalDiffRenderer,
     diff_line_items: Option<Vec<ListItem<'static>>>,
 ) -> anyhow::Result<DetailsAndDiffWidget> {
-    // the path is the same for all hunks so only show that once
-    let first_hunk = uncommitted.hunk_assignments.first();
-    build_hunk_path_header(
-        first_hunk.path_bytes.as_ref(),
-        Some(ShortIdOrTreeStatus::ShortId(&uncommitted.id)),
-        &mut renderer.partially_rendered_diff,
-    );
+    let mut hunk_assignments_iter = uncommitted_hunks.iter().peekable();
+    while let Some((id, UncommittedHunk { hunk_assignment })) = hunk_assignments_iter.next() {
+        build_hunk_path_header(
+            hunk_assignment.path_bytes.as_ref(),
+            Some(ShortIdOrTreeStatus::ShortId(id)),
+            &mut renderer.partially_rendered_diff,
+        );
 
-    let mut hunk_assignments_iter = uncommitted.hunk_assignments.iter().peekable();
-    while let Some(hunk_assignment) = hunk_assignments_iter.next() {
         build_hunk_assignment(
             hunk_assignment,
             syntax_set,
@@ -636,69 +694,6 @@ fn from_branch(
     build_tree_changes(
         ctx,
         &tree_changes.changes,
-        syntax_set,
-        &mut renderer.partially_rendered_diff,
-    );
-
-    Ok(DetailsAndDiffWidget::FromDiffLines {
-        diff_line_items: diff_line_items.unwrap_or_default(),
-    })
-}
-
-fn from_unassigned(
-    ctx: &mut Context,
-    syntax_set: &SyntaxSet,
-    renderer: &mut IncrementalDiffRenderer,
-    diff_line_items: Option<Vec<ListItem<'static>>>,
-) -> anyhow::Result<DetailsAndDiffWidget> {
-    let context_lines = ctx.settings.context_lines;
-    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-    let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
-    let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-        db.hunk_assignments_mut()?,
-        &repo,
-        &ws,
-        Some(changes),
-        context_lines,
-    )?;
-    let hunk_assignments = assignments
-        .iter()
-        .filter(|assignment| assignment.stack_id.is_none());
-
-    group_and_build_hunk_assignments(
-        hunk_assignments,
-        syntax_set,
-        &mut renderer.partially_rendered_diff,
-    );
-
-    Ok(DetailsAndDiffWidget::FromDiffLines {
-        diff_line_items: diff_line_items.unwrap_or_default(),
-    })
-}
-
-fn from_stack(
-    ctx: &mut Context,
-    stack: StackId,
-    syntax_set: &SyntaxSet,
-    renderer: &mut IncrementalDiffRenderer,
-    diff_line_items: Option<Vec<ListItem<'static>>>,
-) -> anyhow::Result<DetailsAndDiffWidget> {
-    let context_lines = ctx.settings.context_lines;
-    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-    let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
-    let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-        db.hunk_assignments_mut()?,
-        &repo,
-        &ws,
-        Some(changes),
-        context_lines,
-    )?;
-    let hunk_assignments = assignments
-        .iter()
-        .filter(|assignment| assignment.stack_id.is_some_and(|s| s == stack));
-
-    group_and_build_hunk_assignments(
-        hunk_assignments,
         syntax_set,
         &mut renderer.partially_rendered_diff,
     );
@@ -966,41 +961,6 @@ impl IncrementalDiffRenderer {
     }
 }
 
-fn group_and_build_hunk_assignments<'a, I>(
-    hunk_assignments: I,
-    syntax_set: &SyntaxSet,
-    out: &mut Vec<PartiallyRenderedDiff>,
-) where
-    I: IntoIterator<Item = &'a HunkAssignment>,
-{
-    // group hunks for the same file
-    let mut path_to_hunk_assignments = BTreeMap::<_, Vec<_>>::new();
-    for hunk_assignment in hunk_assignments {
-        path_to_hunk_assignments
-            .entry(&hunk_assignment.path_bytes)
-            .or_default()
-            .push(hunk_assignment);
-    }
-
-    let mut path_to_hunk_assignments_iter = path_to_hunk_assignments.into_iter().peekable();
-    while let Some((path, hunk_assignments)) = path_to_hunk_assignments_iter.next() {
-        build_hunk_path_header(path.as_ref(), None, out);
-
-        let mut hunk_assignments_iter = hunk_assignments.into_iter().peekable();
-        while let Some(hunk_assignment) = hunk_assignments_iter.next() {
-            build_hunk_assignment(hunk_assignment, syntax_set, out);
-
-            if hunk_assignments_iter.peek().is_some() {
-                out.push(PartiallyRenderedDiff::SingleLine(ListItem::new("")));
-            }
-        }
-
-        if path_to_hunk_assignments_iter.peek().is_some() {
-            out.push(PartiallyRenderedDiff::SingleLine(ListItem::new("")));
-        }
-    }
-}
-
 fn build_hunk_assignment(
     hunk_assignment: &HunkAssignment,
     syntax_set: &SyntaxSet,
@@ -1140,6 +1100,7 @@ fn build_hunk_path_header(
     out.push(PartiallyRenderedDiff::Header(
         bordered_line_top_right_bottom(path_line)
             .map(ListItem::new)
+            .chain([ListItem::from("")])
             .collect(),
     ));
 }
