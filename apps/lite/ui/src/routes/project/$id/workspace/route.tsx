@@ -1929,7 +1929,7 @@ const ProjectPage: FC = () => {
 			{absorptionPlan !== null && (
 				<AbsorptionDialog
 					absorptionPlan={absorptionPlan}
-					isAbsorbing={isAbsorbing}
+					isPending={isAbsorbing}
 					onConfirm={confirmAbsorption}
 					onOpenChange={(open) => {
 						if (!open) clearAbsorptionPlan();
