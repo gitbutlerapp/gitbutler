@@ -625,7 +625,7 @@ fn commit_file_toggle_on_commit_without_files_is_noop() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 100, 8);
+    let mut tui = test_tui_with_size(env, 100, 12);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
