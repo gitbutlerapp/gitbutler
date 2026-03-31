@@ -31,8 +31,8 @@ import {
 
 type SelectionAction =
 	| { _tag: "Move"; offset: -1 | 1 }
-	| { _tag: "NextSection" }
 	| { _tag: "PreviousSection" }
+	| { _tag: "NextSection" }
 	| { _tag: "TogglePreview" }
 	| { _tag: "OpenFullscreenPreview" };
 
@@ -72,16 +72,16 @@ const selectionBindings: Array<ShortcutBinding<SelectionAction>> = [
 		action: { _tag: "Move", offset: 1 },
 	},
 	{
-		id: "next-section",
-		description: "Next section",
-		keys: ["J"],
-		action: { _tag: "NextSection" },
-	},
-	{
 		id: "previous-section",
 		description: "Previous section",
 		keys: ["K"],
 		action: { _tag: "PreviousSection" },
+	},
+	{
+		id: "next-section",
+		description: "Next section",
+		keys: ["J"],
+		action: { _tag: "NextSection" },
 	},
 	togglePreviewBinding,
 	openFullscreenPreviewBinding,
@@ -464,17 +464,17 @@ export const useWorkspaceShortcuts = ({
 
 	const move = (offset: -1 | 1, selection: Item) =>
 		select(getAdjacentItem(navigationModel, selection, offset));
-	const nextSection = (selection: Item) =>
-		select(getAdjacentSection(navigationModel, selection, 1));
 	const previousSection = (selection: Item) =>
 		select(getParentSection(selection) ?? getAdjacentSection(navigationModel, selection, -1));
+	const nextSection = (selection: Item) =>
+		select(getAdjacentSection(navigationModel, selection, 1));
 
 	const handleSelectionAction = (action: SelectionAction, selection: Item) =>
 		Match.value(action).pipe(
 			Match.tagsExhaustive({
 				Move: ({ offset }) => move(offset, selection),
-				NextSection: () => nextSection(selection),
 				PreviousSection: () => previousSection(selection),
+				NextSection: () => nextSection(selection),
 				TogglePreview: () => setShowPreviewPanel((visible) => !visible),
 				OpenFullscreenPreview: () => setShowFullscreenPreview(true),
 			}),
