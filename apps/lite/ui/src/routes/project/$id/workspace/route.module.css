@@ -61,8 +61,19 @@
 	flex-grow: 1;
 	padding-inline: var(--item-inline-padding);
 	padding-block: var(--item-block-padding);
+	overflow: hidden;
 	font-weight: bold;
 	line-height: var(--item-line-height);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.segmentButtonPending {
+	opacity: 0.5;
+}
+
+.renameBranchInput {
+	font-weight: bold;
 }
 
 .commit {
@@ -143,36 +154,41 @@
 	line-height: var(--item-line-height);
 }
 
-.editCommitMessageForm {
+.editorForm {
 	display: flex;
+	row-gap: var(--item-block-padding);
 	flex-grow: 1;
 	flex-direction: column;
 	padding-block: var(--item-block-padding);
 	line-height: var(--item-line-height);
 }
 
-.editCommitMessageInput {
+.editorInput {
 	flex-grow: 1;
 	padding-inline: var(--item-inline-padding);
-	field-sizing: content;
-	box-sizing: content-box;
-	min-height: calc(2lh);
-	resize: none;
 
 	&:focus {
 		outline: none;
 	}
 }
 
-.editCommitMessageHelp {
+.editorHelp {
 	padding-inline: var(--item-inline-padding);
 	color: #ccc;
 	font-size: 11px;
+	line-height: 1.3;
 }
 
-.editCommitMessageShortcut {
+.editorShortcut {
 	color: white;
 	font-family: monospace;
+}
+
+.editCommitMessageInput {
+	field-sizing: content;
+	box-sizing: content-box;
+	min-height: calc(2lh);
+	resize: none;
 }
 
 .dragging {

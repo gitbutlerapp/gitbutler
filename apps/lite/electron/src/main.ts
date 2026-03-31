@@ -16,6 +16,7 @@ import {
 	type PushStackLegacyParams,
 	type TearOffBranchParams,
 	type TreeChangeDiffParams,
+	type UpdateBranchNameParams,
 	type ApplyParams,
 	type UnapplyStackParams,
 	WatcherSubscribeParams,
@@ -43,6 +44,7 @@ import {
 	tearOffBranch,
 	treeChangeDiffs,
 	unapplyStack,
+	updateBranchName,
 	BranchListingFilter,
 } from "@gitbutler/but-sdk";
 import { app, BrowserWindow, ipcMain } from "electron";
@@ -124,6 +126,11 @@ function registerIpcHandlers(): void {
 		liteIpcChannels.moveBranch,
 		(_e, { projectId, subjectBranch, targetBranch }: MoveBranchParams) =>
 			moveBranch(projectId, subjectBranch, targetBranch),
+	);
+	ipcMain.handle(
+		liteIpcChannels.updateBranchName,
+		(_e, { projectId, stackId, branchName, newName }: UpdateBranchNameParams) =>
+			updateBranchName(projectId, stackId, branchName, newName),
 	);
 	ipcMain.handle(
 		liteIpcChannels.tearOffBranch,

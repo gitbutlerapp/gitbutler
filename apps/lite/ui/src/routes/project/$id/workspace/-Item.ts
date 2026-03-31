@@ -1,5 +1,5 @@
-import { getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
-import { type RefInfo } from "@gitbutler/but-sdk";
+import { getCommonBaseCommitId, getSegmentBranchRef } from "#ui/domain/RefInfo.ts";
+import { WorktreeChanges, type RefInfo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 
 export type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
@@ -96,14 +96,38 @@ export const itemKey = (item: Item): string =>
 		Match.exhaustive,
 	);
 
-export const normalizeItem = (item: Item, headInfo: RefInfo): Item | null =>
+export const normalizeItem = (
+	item: Item,
+	headInfo: RefInfo,
+	worktreeChanges: WorktreeChanges,
+): Item | null =>
 	Match.value(item).pipe(
-		Match.tag("Changes", (item) => item),
+		Match.tag("Changes", (item) =>
+			Match.value(item.mode).pipe(
+				Match.tag("Summary", () => item),
+				Match.tag("Details", (mode) => {
+					if (mode.path === undefined) return item;
+
+					if (!worktreeChanges.changes.find((change) => change.path === mode.path)) return null;
+					if (
+						!worktreeChanges.assignments.find(
+							(assignment) => assignment.stackId === item.stackId && assignment.path === mode.path,
+						)
+					)
+						return null;
+					return item;
+				}),
+				Match.exhaustive,
+			),
+		),
 		Match.tag("Segment", (item) => {
 			const stack = headInfo.stacks.find((stack) => stack.id !== null && stack.id === item.stackId);
 			if (!stack) return null;
 			const segment = stack.segments[item.segmentIndex];
 			if (!segment) return null;
+			const branchName = segment.refName?.displayName ?? null;
+			const branchRef = segment.refName ? getSegmentBranchRef(segment.refName) : null;
+			if (branchName !== item.branchName || branchRef !== item.branchRef) return null;
 			return item;
 		}),
 		Match.tag("Commit", (item) => {
