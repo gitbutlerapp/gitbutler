@@ -334,6 +334,8 @@ Uncommit changes back to unstaged area.
 ```bash
 but uncommit <commit-id>      # Uncommit entire commit
 but uncommit <file-id>        # Uncommit specific file from its commit
+but uncommit <commit-id> -d   # Discard committed changes instead of moving to unassigned
+but uncommit <file-id> --discard  # Discard committed file changes completely
 but uncommit <commit-id> --status-after  # Uncommit then show workspace status
 ```
 

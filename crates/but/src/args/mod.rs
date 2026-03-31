@@ -862,12 +862,17 @@ pub enum Subcommands {
 
     /// Uncommit changes from a commit or file-in-commit to the unstaged area.
     ///
+    /// Use `--discard` to remove the selected committed changes entirely instead.
+    ///
     /// Wrapper for `but rub <source> zz`.
     #[cfg(feature = "legacy")]
     #[clap(verbatim_doc_comment)]
     Uncommit {
         /// Commit ID or file-in-commit ID to uncommit
         source: String,
+        /// Discard the selected committed changes instead of moving them to unassigned
+        #[clap(long, short = 'd')]
+        discard: bool,
     },
 
     /// Amend a file change into a specific commit and rebases any dependent commits.
