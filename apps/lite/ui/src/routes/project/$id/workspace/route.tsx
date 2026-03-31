@@ -162,7 +162,12 @@ const DependencyIndicator: FC<
 
 	return (
 		<Popover.Root>
-			<Popover.Trigger openOnHover render={trigger} />
+			<Popover.Trigger
+				openOnHover
+				// To match tooltips. [ref:nested-tooltips]
+				delay={0}
+				render={trigger}
+			/>
 			<Popover.Portal>
 				<Popover.Positioner
 					sideOffset={8}

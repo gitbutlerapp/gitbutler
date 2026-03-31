@@ -37,7 +37,13 @@ export const App: React.FC<{
 	<StrictMode>
 		<QueryClientProvider client={queryClient}>
 			<Toast.Provider toastManager={toastManager}>
-				<Tooltip.Provider>
+				<Tooltip.Provider
+					// Workaround for flicker issue when nesting tooltips
+					// https://discord.com/channels/1287292451308048406/1287292451308048409/1488499829104443424
+					// https://stackblitz.com/edit/zrcwexu5-k5ypazwg?file=src%2FApp.tsx
+					// [tag:nested-tooltips]
+					delay={0}
+				>
 					<RouterProvider router={router} />
 					<Toasts />
 				</Tooltip.Provider>
