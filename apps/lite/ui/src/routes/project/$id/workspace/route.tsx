@@ -716,15 +716,15 @@ const InlineCommitMessageEditor: FC<{
 	const saveMessage = (newMessage: string) => {
 		onExit();
 		const trimmed = newMessage.trim();
-		if (trimmed !== initialMessage)
-			startTransition(async () => {
-				await setMessageAction(trimmed);
-				await commitReword.mutateAsync({
-					projectId,
-					commitId,
-					message: trimmed,
-				});
+		if (trimmed === initialMessage) return;
+		startTransition(async () => {
+			await setMessageAction(trimmed);
+			await commitReword.mutateAsync({
+				projectId,
+				commitId,
+				message: trimmed,
 			});
+		});
 	};
 
 	return (
