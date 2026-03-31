@@ -140,14 +140,14 @@ type BranchSegmentAction = SelectionAction | { _tag: "RenameBranch" } | { _tag: 
 const branchSegmentBindings: Array<ShortcutBinding<BranchSegmentAction>> = [
 	...selectionBindings,
 	{
-		id: "segment-rename-branch",
+		id: "branch-segment-rename",
 		description: "Rename",
 		keys: ["Enter"],
 		action: { _tag: "RenameBranch" },
 		repeat: false,
 	},
 	{
-		id: "segment-remove-branch",
+		id: "branch-segment-remove",
 		description: "Remove branch",
 		keys: ["Backspace"],
 		action: { _tag: "RemoveBranch" },
