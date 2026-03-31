@@ -24,16 +24,27 @@ impl DetailsCursor {
         }
     }
 
-    pub(super) fn clamp(self, viewport: Rect, widget: Option<&DetailsAndDiffWidget>) -> Self {
+    pub(super) fn clamp(
+        self,
+        viewport: Rect,
+        widget: Option<&DetailsAndDiffWidget>,
+        pending_dynamic_rows: usize,
+    ) -> Self {
         // `render()` reserves one column for the left border before passing the remaining
         // area to `DetailsAndDiffWidget::render`. Clamp using the same content width so wrapped
         // commit messages compute the same number of rows in both places.
         let content_width = viewport.width.saturating_sub(1).max(1);
 
+        // The parent `Tui::render` places details inside a block with a bottom border,
+        // then calls `Details::render` with that inner area. So one terminal row is not
+        // available for diff content.
+        let content_height = viewport.height.saturating_sub(1).max(1) as usize;
+
         let max_scroll_top = widget
             .map(|diff| {
                 diff.total_rows(content_width)
-                    .saturating_sub(viewport.height as usize)
+                    .saturating_add(pending_dynamic_rows)
+                    .saturating_sub(content_height)
             })
             .unwrap_or(0);
 
