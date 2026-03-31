@@ -22,7 +22,7 @@
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
 	import type { BranchIconName } from "$lib/branches/branchIcon";
 	import type { DropzoneHandler } from "$lib/dragging/handler";
-	import type { PushStatus } from "$lib/stacks/stack";
+	import type { PushStatus } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
 
 	interface BranchCardProps {

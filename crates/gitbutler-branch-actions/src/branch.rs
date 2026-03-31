@@ -519,12 +519,13 @@ but_schemars::register_sdk_type!(BranchListingFilter);
 /// This also combines the concept of a remote, local and virtual branch in order to provide a unified interface for the UI
 /// Branch entry is not meant to contain all the data a branch can have (e.g. full commit history, all files and diffs, etc.).
 /// It is intended a summary that can be quickly retrieved and displayed in the UI.
-/// For more detailed information, each branch can be queried individually for it's `BranchData`.
+/// For more detailed information, each branch can be queried individually for its `BranchData`.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct BranchListing {
     /// The `identity` of the branch (e.g. `main`, `feature/branch`), excluding the remote name.
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub name: BranchIdentity,
     /// This is a list of remotes that this branch can be found on (e.g. `origin`, `upstream` etc.),
     /// by collecting remotes from all local branches with the same identity that have a tracking setup.
@@ -554,8 +555,7 @@ but_schemars::register_sdk_type!(BranchListing);
 /// Represents a "commit author" or "signature", based on the data from the git history
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[cfg_attr(feature = "export-schema", serde(rename = "BranchAuthor"))]
-#[serde(rename_all = "camelCase")]
+#[serde(rename = "BranchAuthor", rename_all = "camelCase")]
 pub struct Author {
     /// The name of the author as configured in the git config
     #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
@@ -788,9 +788,11 @@ pub fn get_branch_listing_details(
 
 /// Represents a fat struct with all the data associated with a branch
 #[derive(Debug, Clone, Serialize, PartialEq)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct BranchListingDetails {
     /// The name of the branch (e.g. `main`, `feature/branch`), excluding the remote name
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub name: BranchIdentity,
     /// The number of lines added within the branch
     /// Since the virtual branch, local branch and the remote one can have different number of lines removed,
@@ -821,3 +823,5 @@ pub struct BranchListingDetails {
     /// The branch may or may not have a virtual branch associated with it.
     pub stack: Option<StackReference>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(BranchListingDetails);

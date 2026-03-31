@@ -1,7 +1,5 @@
 import { InjectionToken } from "@gitbutler/core/context";
-import type { BackendApi } from "$lib/state/clientState.svelte";
-
-export type { CherryApplyStatus } from "$lib/git/gitEndpoints";
+import type { BackendApi } from "$lib/state/backendApi";
 
 export const CHERRY_APPLY_SERVICE = new InjectionToken<CherryApplyService>("CherryApplyService");
 

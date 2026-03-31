@@ -6,6 +6,9 @@ authors.workspace = true
 publish = false
 rust-version.workspace = true
 
+[features]
+export-schema = ["dep:schemars", "dep:but-schemars"]
+
 [lib]
 doctest = false
 
@@ -28,6 +31,8 @@ anyhow.workspace = true
 bstr.workspace = true
 serde.workspace = true
 tracing.workspace = true
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 but-testsupport.workspace = true

@@ -5,12 +5,12 @@ import {
 import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 import { inject } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
-import type { ButGitLabToken } from "@gitbutler/core/api";
+import type { GitlabAccountIdentifier } from "@gitbutler/but-sdk";
 import type { Reactive } from "@gitbutler/shared/storeUtils";
 
 type GitLabPreferences = {
-	preferredGitLabAccount: Reactive<ButGitLabToken.GitlabAccountIdentifier | undefined>;
-	gitlabAccounts: Reactive<ButGitLabToken.GitlabAccountIdentifier[]>;
+	preferredGitLabAccount: Reactive<GitlabAccountIdentifier | undefined>;
+	gitlabAccounts: Reactive<GitlabAccountIdentifier[]>;
 };
 
 /**

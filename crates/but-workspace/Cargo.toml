@@ -25,7 +25,6 @@ legacy = [
     "dep:gitbutler-commit",
     "dep:gitbutler-repo",
 ]
-export-ts = ["dep:ts-rs", "but-core/export-ts"]
 export-schema = ["dep:schemars", "dep:but-schemars", "but-core/export-schema"]
 
 [dependencies]
@@ -57,7 +56,6 @@ tracing.workspace = true
 # For SPMC channel
 flume = "0.11.1"
 tempfile.workspace = true
-ts-rs = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
 but-schemars = { workspace = true, optional = true }
 

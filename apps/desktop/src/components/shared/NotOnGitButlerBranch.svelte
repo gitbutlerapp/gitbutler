@@ -8,7 +8,7 @@
 	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { AsyncButton, RadioButton, FileListItem, Link } from "@gitbutler/ui";
-	import type { BaseBranch } from "$lib/baseBranch/baseBranch";
+	import type { BaseBranch } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
 
 	type OptionsType = "stash" | "bring-to-workspace";

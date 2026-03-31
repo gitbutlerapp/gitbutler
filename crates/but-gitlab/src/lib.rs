@@ -205,9 +205,12 @@ pub mod json {
     /// This struct is used for API responses where the access token needs to be
     /// sent as a plain string. Field names are converted to camelCase for JSON.
     #[derive(Debug, Serialize)]
-    #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(rename = "GitlabAuthStatusResponseSensitive")
+    )]
     #[serde(rename_all = "camelCase")]
-    #[cfg_attr(feature = "export-ts", ts(export, export_to = "./gitlab/index.ts"))]
     pub struct AuthStatusResponseSensitive {
         /// The GitLab access token as a plain string (sensitive data).
         pub access_token: String,
@@ -218,7 +221,6 @@ pub mod json {
         /// The user's email address, if available.
         pub email: Option<String>,
         /// The self-hosted GitLab host, if this is a self-hosted instance.
-        #[serde(skip_serializing_if = "Option::is_none")]
         pub host: Option<String>,
     }
 
@@ -242,14 +244,20 @@ pub mod json {
         }
     }
 
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(AuthStatusResponseSensitive);
+
     /// Serializable version of [`AuthenticatedUser`] with exposed access token.
     ///
     /// This struct represents an authenticated GitLab user with their credentials
     /// exposed as plain strings for API responses. Field names are converted to camelCase for JSON.
     #[derive(Debug, Serialize)]
-    #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(rename = "GitlabAuthenticatedUserSensitive")
+    )]
     #[serde(rename_all = "camelCase")]
-    #[cfg_attr(feature = "export-ts", ts(export, export_to = "./gitlab/index.ts"))]
     pub struct AuthenticatedUserSensitive {
         /// The GitLab access token as a plain string (sensitive data).
         pub access_token: String,
@@ -282,6 +290,9 @@ pub mod json {
             }
         }
     }
+
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(AuthenticatedUserSensitive);
 }
 
 #[cfg(test)]

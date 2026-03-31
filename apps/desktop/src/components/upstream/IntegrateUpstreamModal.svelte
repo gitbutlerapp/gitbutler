@@ -6,11 +6,7 @@
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import {
 		getBaseBranchResolution,
-		type BaseBranchResolutionApproach,
-		type Resolution,
-		type StackStatus,
 		stackFullyIntegrated,
-		type BranchStatus,
 		sortStatusInfoV3,
 		getResolutionApproachV3,
 		type StackStatusInfoV3,
@@ -40,9 +36,14 @@
 	import { tick } from "svelte";
 	import { SvelteMap } from "svelte/reactivity";
 	import type { PullRequest } from "$lib/forge/interface/types";
+	import type {
+		BaseBranchResolutionApproach,
+		BranchStatus,
+		Resolution,
+		StackStatus,
+	} from "@gitbutler/but-sdk";
 
 	type OperationState = "inert" | "loading" | "completed";
-	type OperationType = "rebase" | "merge" | "unapply" | "delete";
 
 	interface Props {
 		projectId: string;
@@ -64,6 +65,11 @@
 	let integratingUpstream = $state<OperationState>("inert");
 	const results = new SvelteMap<string, Resolution>();
 	let statuses = $state<StackStatusInfoV3[]>([]);
+	const baseResolutionOptions = [
+		{ label: "Rebase", value: "rebase" as const },
+		{ label: "Merge", value: "merge" as const },
+		{ label: "Hard reset", value: "hardReset" as const },
+	];
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
 	let targetCommitOid = $state<string | undefined>(undefined);
 	let branchStatuses = $state<StackStatusesWithBranchesV3 | undefined>();
@@ -132,7 +138,7 @@
 			upstreamIntegrationService
 				.resolveUpstreamIntegrationMutation({
 					projectId,
-					resolutionApproach: { type: baseResolutionApproach },
+					resolutionApproach: baseResolutionApproach,
 				})
 				.then((result) => {
 					targetCommitOid = result;
@@ -174,8 +180,8 @@
 		return `integrate-upstream-modal:dont-delete-branch:${projectId}:${branchName}`;
 	}
 
-	function handleBaseResolutionSelection(value: string) {
-		baseResolutionApproach = value as BaseBranchResolutionApproach;
+	function handleBaseResolutionSelection(value: BaseBranchResolutionApproach["type"]) {
+		baseResolutionApproach = { type: value };
 	}
 
 	async function integrate() {
@@ -183,7 +189,7 @@
 		await tick();
 		const baseResolution = getBaseBranchResolution(
 			targetCommitOid,
-			baseResolutionApproach || "hardReset",
+			baseResolutionApproach ?? { type: "hardReset" },
 		);
 
 		await integrateUpstream({
@@ -314,7 +320,7 @@
 				maxWidth={130}
 				onselect={(value) => {
 					const result = results.get(stackId)!;
-					results.set(stackId, { ...result, approach: { type: value as OperationType } });
+					results.set(stackId, { ...result, approach: { type: value } });
 				}}
 				options={integrationOptions(stackStatus)}
 			>
@@ -405,14 +411,10 @@
 
 				<div class="target-divergence-action">
 					<Select
-						value={baseResolutionApproach}
+						value={baseResolutionApproach?.type}
 						placeholder="Choose…"
 						onselect={handleBaseResolutionSelection}
-						options={[
-							{ label: "Rebase", value: "rebase" },
-							{ label: "Merge", value: "merge" },
-							{ label: "Hard reset", value: "hardReset" },
-						]}
+						options={baseResolutionOptions}
 					>
 						{#snippet itemSnippet({ item, highlighted })}
 							<SelectItem selected={highlighted} {highlighted}>

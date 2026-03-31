@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { changesToDiffSpec } from "$lib/commits/utils";
 	import { computeChangeStatus } from "$lib/files/fileStatus";
-	import { isTreeChange, type TreeChange } from "$lib/hunks/change";
+	import { isTreeChange } from "$lib/hunks/change";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { AsyncButton, Button, FileListItem, Modal, TestId } from "@gitbutler/ui";
 	import type { SelectionId } from "$lib/selection/key";
+	import type { TreeChange } from "@gitbutler/but-sdk";
 
 	type ChangedFilesItem = {
 		changes: TreeChange[];

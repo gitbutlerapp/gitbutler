@@ -2,10 +2,10 @@
 	import BranchHeaderIcon from "$components/branch/BranchHeaderIcon.svelte";
 	import { getColorFromCommitState } from "$components/lib";
 	import { type CommitStatusType } from "$lib/commits/commit";
-	import { type PushStatus } from "$lib/stacks/stack";
 	import { Icon, FileIcon } from "@gitbutler/ui";
 	import { type DragStateService } from "@gitbutler/ui/drag/dragStateService.svelte";
 	import { readable } from "svelte/store";
+	import type { PushStatus } from "@gitbutler/but-sdk";
 
 	type Props = {
 		type: "branch" | "commit" | "file" | "folder" | "hunk" | "ai-session";

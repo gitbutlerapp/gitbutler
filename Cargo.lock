@@ -874,6 +874,7 @@ dependencies = [
  "but-db",
  "but-hunk-assignment",
  "but-llm",
+ "but-schemars",
  "but-serde",
  "but-tools",
  "but-workspace",
@@ -893,7 +894,6 @@ dependencies = [
  "serde_json",
  "strum",
  "tracing",
- "ts-rs",
  "uuid",
 ]
 
@@ -1095,7 +1095,6 @@ dependencies = [
  "tempfile",
  "toml 0.9.12+spec-1.1.0",
  "tracing",
- "ts-rs",
  "unicode-segmentation",
  "uuid",
 ]
@@ -1202,7 +1201,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "ts-rs",
 ]
 
 [[package]]
@@ -1257,7 +1255,6 @@ dependencies = [
  "schemars 1.2.1",
  "serde",
  "serde_json",
- "ts-rs",
 ]
 
 [[package]]
@@ -1272,7 +1269,6 @@ dependencies = [
  "reqwest 0.12.28",
  "schemars 1.2.1",
  "serde",
- "ts-rs",
  "urlencoding",
 ]
 
@@ -1313,7 +1309,6 @@ dependencies = [
  "serde-error",
  "serde_json",
  "tracing",
- "ts-rs",
  "uuid",
 ]
 
@@ -1590,14 +1585,15 @@ dependencies = [
  "anyhow",
  "but-fs",
  "but-path",
+ "but-schemars",
  "notify",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
  "serde_json_lenient",
  "tempfile",
  "tokio",
  "tracing",
- "ts-rs",
 ]
 
 [[package]]
@@ -1755,7 +1751,6 @@ dependencies = [
  "serde",
  "tempfile",
  "tracing",
- "ts-rs",
  "url",
 ]
 
@@ -4028,6 +4023,7 @@ dependencies = [
  "but-meta",
  "but-oxidize",
  "but-rebase",
+ "but-schemars",
  "but-testsupport",
  "git2",
  "gitbutler-cherry-pick",
@@ -4037,6 +4033,7 @@ dependencies = [
  "gitbutler-workspace",
  "gix",
  "insta",
+ "schemars 1.2.1",
  "serde",
  "tempfile",
  "tracing",
@@ -11419,28 +11416,6 @@ dependencies = [
  "target-triple",
  "termcolor",
  "toml 1.0.3+spec-1.1.0",
-]
-
-[[package]]
-name = "ts-rs"
-version = "11.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4994acea2522cd2b3b85c1d9529a55991e3ad5e25cdcd3de9d505972c4379424"
-dependencies = [
- "thiserror 2.0.18",
- "ts-rs-macros",
-]
-
-[[package]]
-name = "ts-rs-macros"
-version = "11.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee6ff59666c9cbaec3533964505d39154dc4e0a56151fdea30a09ed0301f62e2"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.117",
- "termcolor",
 ]
 
 [[package]]

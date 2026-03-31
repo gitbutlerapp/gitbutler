@@ -15,12 +15,8 @@ import {
 } from "$lib/state/uiState.svelte";
 import { inject } from "@gitbutler/core/context";
 import { chipToasts } from "@gitbutler/ui";
-import type {
-	ModelType,
-	PermissionMode,
-	PromptAttachment,
-	ThinkingLevel,
-} from "$lib/codegen/types";
+import type { PromptAttachment } from "$lib/codegen/types";
+import type { ModelType, PermissionMode, ThinkingLevel } from "$lib/state/uiState.svelte";
 import type { Reactive } from "@gitbutler/shared/storeUtils";
 
 /**

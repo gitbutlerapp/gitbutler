@@ -16,8 +16,8 @@
 	import { inject } from "@gitbutler/core/context";
 	import { Badge, Button, EmptyStatePlaceholder, SegmentControl } from "@gitbutler/ui";
 	import Fuse from "fuse.js";
-	import type { BaseBranch } from "$lib/baseBranch/baseBranch";
 	import type { ForgeUser } from "$lib/forge/interface/types";
+	import type { BaseBranch } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
 
 	type Props = {

@@ -1,5 +1,5 @@
 import { InjectionToken } from "@gitbutler/core/context";
-import type { BackendApi } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/backendApi";
 
 export const OPLOG_SERVICE = new InjectionToken<OplogService>("OplogService");
 

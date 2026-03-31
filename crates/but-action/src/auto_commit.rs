@@ -9,13 +9,8 @@ use serde::Serialize;
 
 type AutoCommitEmitter = dyn Fn(&str, serde_json::Value) + Send + Sync + 'static;
 
-#[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+#[derive(Debug, Clone, Serialize, schemars::JsonSchema)]
 #[serde(tag = "type", rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./action/autoCommit.ts")
-)]
 enum AutoCommitEvent {
     /// Emitted when the auto-commit process has started.
     ///
@@ -26,7 +21,7 @@ enum AutoCommitEvent {
     /// `parent_commit_id`: The ID of the parent commit for which the message is being generated.
     /// `token`: A token representing the progress of the commit message generation.
     CommitGeneration {
-        #[cfg_attr(feature = "export-ts", ts(type = "string"))]
+        #[schemars(with = "String")]
         #[serde(with = "but_serde::object_id")]
         parent_commit_id: gix::ObjectId,
         token: String,
@@ -35,7 +30,7 @@ enum AutoCommitEvent {
     ///
     /// `commit_id`: The ID of the newly created commit.
     CommitSuccess {
-        #[cfg_attr(feature = "export-ts", ts(type = "string"))]
+        #[schemars(with = "String")]
         #[serde(with = "but_serde::object_id")]
         commit_id: gix::ObjectId,
     },
@@ -58,6 +53,8 @@ impl AutoCommitEvent {
         )
     }
 }
+
+but_schemars::register_sdk_type!(AutoCommitEvent);
 
 #[expect(clippy::too_many_arguments)]
 pub(crate) fn auto_commit(

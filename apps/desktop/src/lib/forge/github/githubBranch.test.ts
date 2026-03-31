@@ -1,7 +1,8 @@
 import { GitHub } from "$lib/forge/github/github";
 import { setupMockGitHubApi } from "$lib/testing/mockGitHubApi.svelte";
 import { expect, test, describe, vi } from "vitest";
-import type { AppDispatch, BackendApi } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { AppDispatch } from "$lib/state/clientState.svelte";
 
 // TODO: Rewrite this proof-of-concept into something valuable.
 describe("GitHubBranch", () => {

@@ -26,16 +26,6 @@ pub struct PushResult {
     pub branch_sha_updates: Vec<(String, String, String)>,
 }
 
-impl From<but_workspace::ui::Author> for crate::author::Author {
-    fn from(value: but_workspace::ui::Author) -> Self {
-        crate::author::Author {
-            name: value.name,
-            email: value.email,
-            gravatar_url: value.gravatar_url,
-        }
-    }
-}
-
 pub fn update_stack(ctx: &Context, update: &BranchUpdateRequest) -> Result<Stack> {
     let mut vb_state = ctx.virtual_branches();
     let mut stack = vb_state.get_stack_in_workspace(update.id.context("BUG(opt-stack-id)")?)?;

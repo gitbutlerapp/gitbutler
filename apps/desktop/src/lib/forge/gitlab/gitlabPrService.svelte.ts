@@ -11,8 +11,9 @@ import type {
 	MergeMethod,
 	PullRequest,
 } from "$lib/forge/interface/types";
+import type { BackendApi } from "$lib/state/backendApi";
 import type { QueryOptions } from "$lib/state/butlerModule";
-import type { BackendApi, GitLabApi } from "$lib/state/clientState.svelte";
+import type { GitLabApi } from "$lib/state/clientState.svelte";
 import type { PostHogWrapper } from "$lib/telemetry/posthog";
 import type { StartQueryActionCreatorOptions } from "@reduxjs/toolkit/query";
 

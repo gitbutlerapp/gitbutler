@@ -11,6 +11,7 @@ use crate::IgnoredWorktreeChange;
 /// Not registered as a frontend type library because it is flattened into a
 /// super WorktreeChanges type.
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct WorktreeChanges {
     /// Changes that could be committed.
@@ -86,19 +87,15 @@ fn changes_to_unidiff(
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/ui.ts"))]
 pub struct TreeChange {
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_lossy")
     )]
     pub path: BStringForFrontend,
     /// Something silently carried back and forth between the frontend and the backend.
-    #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_bytes")
@@ -134,10 +131,8 @@ pub struct TreeStats {
 but_schemars::register_sdk_type!(TreeStats);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(tag = "type", content = "subject")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/ui.ts"))]
 pub enum TreeStatus {
     Addition {
         state: ChangeState,
@@ -156,7 +151,6 @@ pub enum TreeStatus {
     },
     Rename {
         #[serde(rename = "previousPath")]
-        #[cfg_attr(feature = "export-ts", ts(type = "string"))]
         #[cfg_attr(
             feature = "export-schema",
             schemars(schema_with = "but_schemars::bstring_lossy")
@@ -164,7 +158,6 @@ pub enum TreeStatus {
         previous_path: BStringForFrontend,
         /// Something silently carried back and forth between the frontend and the backend.
         #[serde(rename = "previousPathBytes")]
-        #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
         #[cfg_attr(
             feature = "export-schema",
             schemars(schema_with = "but_schemars::bstring_bytes")
@@ -256,22 +249,15 @@ impl From<crate::TreeStatus> for TreeStatus {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/ui.ts"))]
 pub struct ChangeState {
     #[serde(with = "but_serde::object_id")]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id")
     )]
     pub id: gix::ObjectId,
-    #[cfg_attr(
-        feature = "export-ts",
-        ts(type = "'Tree' | 'Blob' | 'BlobExecutable' | 'Link' | 'Commit'")
-    )]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::entry_kind")
@@ -282,10 +268,8 @@ pub struct ChangeState {
 but_schemars::register_sdk_type!(ChangeState);
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[expect(missing_docs)]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/ui.ts"))]
 pub enum ModeFlags {
     ExecutableBitAdded,
     ExecutableBitRemoved,

@@ -3,7 +3,7 @@
 	import { FILE_SERVICE } from "$lib/files/fileService";
 	import { inject } from "@gitbutler/core/context";
 	import { ImageDiff, EmptyStatePlaceholder } from "@gitbutler/ui";
-	import type { TreeChange } from "$lib/hunks/change";
+	import type { TreeChange } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;

@@ -1,7 +1,13 @@
 import { showToast } from "$lib/notifications/toasts";
 import { TestId } from "@gitbutler/ui";
 import type { BranchIconName } from "$lib/branches/branchIcon";
-import type { Workspace, WorkspaceLegacy } from "@gitbutler/core/api";
+import type {
+	BranchDetails,
+	PushStatus,
+	StackDetails,
+	StackEntry,
+	StackHeadInfo,
+} from "@gitbutler/but-sdk";
 
 export type CreateBranchFromBranchOutcome = {
 	stackId: string;
@@ -51,7 +57,7 @@ You can always re-apply them later from the branches page.`,
 /**
  * Return type of Tauri `stacks` command.
  */
-export type Stack = WorkspaceLegacy.StackEntry;
+export type Stack = StackEntry;
 
 export type GerritPushFlag =
 	| { type: "wip" }
@@ -80,7 +86,7 @@ export type StackOpt = {
 	/**
 	 * Information about the branches contained in the stack.
 	 */
-	heads: WorkspaceLegacy.StackHeadInfo[];
+	heads: StackHeadInfo[];
 	/**
 	 * The commit hash of the tip of the stack.
 	 */
@@ -108,9 +114,6 @@ export function getStackName(stack: Stack): string {
 export function getStackBranchNames(stack: Stack): string[] {
 	return stack.heads.map((head) => head.name);
 }
-
-/** Represents the pushable status for the current stack */
-export type PushStatus = Workspace.PushStatus;
 
 /**
  * Converts push status directly to a CSS color string.
@@ -140,9 +143,6 @@ export function pushStatusToIcon(pushStatus: PushStatus): BranchIconName {
 			return "branch";
 	}
 }
-
-export type BranchDetails = Workspace.BranchDetails;
-export type StackDetails = Workspace.StackDetails;
 
 export function stackRequiresForcePush(stack: StackDetails): boolean {
 	return stack.pushStatus === "unpushedCommitsRequiringForce";

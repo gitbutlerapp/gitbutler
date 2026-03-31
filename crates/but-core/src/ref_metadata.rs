@@ -293,13 +293,8 @@ impl Workspace {
 
 /// Metadata about branches, associated with any Git branch.
 #[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./core/refMetadata/index.ts")
-)]
 pub struct Branch {
     /// Standard data we want to know about any ref.
     pub ref_info: RefInfo,
@@ -362,24 +357,17 @@ impl<T: std::fmt::Debug> std::fmt::Debug for MaybeDebug<'_, T> {
 /// It allows keeping track of when it changed, but also if we created it initially, a useful
 /// bit of information.
 #[derive(serde::Serialize, Default, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./core/refMetadata/index.ts")
-)]
 #[cfg_attr(feature = "export-schema", schemars(rename = "MetadataRefInfo"))]
 pub struct RefInfo {
     /// The time of creation, *if we created the reference*.
-    #[cfg_attr(feature = "export-ts", ts(type = "number | null"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::gix_time_opt")
     )]
     pub created_at: Option<gix::date::Time>,
     /// The time at which the reference was last modified if we modified it.
-    #[cfg_attr(feature = "export-ts", ts(type = "number | null"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::gix_time_opt")
@@ -540,13 +528,8 @@ impl WorkspaceStack {
 
 /// Metadata about branches, associated with any Git branch.
 #[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./core/refMetadata/index.ts")
-)]
 pub struct Review {
     /// The number for the PR that was associated with this branch.
     pub pull_request: Option<usize>,

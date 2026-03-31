@@ -1,4 +1,4 @@
-import type { DiffHunk } from "$lib/hunks/hunk";
+import type { DiffHunk, HunkDependencies, HunkLock, HunkLockTarget } from "@gitbutler/but-sdk";
 
 export type DependencyError = {
 	description: string;
@@ -12,63 +12,10 @@ export function shouldRaiseDependencyError(
 	return true;
 }
 
-export type CalculationError = {
-	/**
-	 * The error message.
-	 */
-	errorMessage: string;
-	/**
-	 * The stack ID that this error is associated with.
-	 */
-	stackId: string;
-	/**
-	 * The commit ID that this error is associated with.
-	 */
-	commitId: string;
-	/**
-	 * The file path that this error is associated with.
-	 */
-	path: string;
-};
-
-export type HunkLockTarget =
-	| {
-			type: "stack";
-			subject: string;
-	  }
-	| {
-			type: "unidentified";
-	  };
-
-/**
- * Represents the dependency of a diff hunk on a stack and commit.
- */
-export type HunkLock = {
-	/**
-	 * The stack that this hunk is dependent on.
-	 */
-	target: HunkLockTarget;
-	/**
-	 * The commit ID that this hunk is dependent on.
-	 */
-	commitId: string;
-};
-
 /**
  * The map of file paths and hunks to their locks
  */
 export type DiffDependency = [string, DiffHunk, HunkLock[]];
-
-export type HunkDependencies = {
-	/**
-	 * The dependencies of the hunks in the diff.
-	 */
-	diffs: DiffDependency[];
-	/**
-	 * Errors that occurred while calculating dependencies.
-	 */
-	errors: CalculationError[];
-};
 
 export type HunkLocks = {
 	/**

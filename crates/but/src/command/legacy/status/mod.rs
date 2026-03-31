@@ -864,7 +864,7 @@ fn print_group(
                         .get(&branch_name.to_string())
                 })
                 .map(|status| match status {
-                    UpstreamBranchStatus::SaflyUpdatable => {
+                    UpstreamBranchStatus::SafelyUpdatable => {
                         Span::styled(" [✓ upstream merges cleanly]", Style::default().blue())
                     }
                     UpstreamBranchStatus::Integrated => {

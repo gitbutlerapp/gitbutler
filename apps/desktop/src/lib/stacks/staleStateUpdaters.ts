@@ -1,4 +1,3 @@
-import type { StackDetails } from "$lib/stacks/stack";
 import type {
 	ExclusiveAction,
 	WritableReactiveStore,
@@ -6,6 +5,7 @@ import type {
 	StackSelection,
 	UiState,
 } from "$lib/state/uiState.svelte";
+import type { StackDetails } from "@gitbutler/but-sdk";
 
 export function replaceBranchInExclusiveAction(
 	action: ExclusiveAction,

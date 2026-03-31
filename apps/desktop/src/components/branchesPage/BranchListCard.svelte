@@ -1,6 +1,5 @@
 <script lang="ts">
 	import BranchesCardLayout from "$components/branchesPage/BranchesCardLayout.svelte";
-	import { type BranchListing, type BranchListingDetails } from "$lib/branches/branchListing";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { getPrStatus } from "$lib/forge/interface/prUtils";
@@ -11,6 +10,7 @@
 	import { gravatarUrlFromEmail } from "@gitbutler/ui/components/avatar/gravatar";
 	import type { ReviewUnitInfo } from "$lib/forge/interface/forgePrService";
 	import type { PullRequest } from "$lib/forge/interface/types";
+	import type { BranchListing, BranchListingDetails } from "@gitbutler/but-sdk";
 
 	interface Props {
 		reviewUnit: ReviewUnitInfo | undefined;

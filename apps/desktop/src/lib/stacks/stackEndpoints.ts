@@ -9,15 +9,9 @@ import {
 } from "$lib/state/tags";
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
-import type { StackOrder } from "$lib/branches/branch";
-import type { Commit, CommitDetails, UpstreamCommit } from "$lib/branches/v3";
 import type { MoveCommitIllegalAction } from "$lib/commits/commit";
-import type { TreeChange, TreeChanges, TreeStats } from "$lib/hunks/change";
-import type { DiffSpec } from "$lib/hunks/hunk";
 import type {
-	BranchDetails,
 	Stack,
-	StackDetails,
 	CreateRefRequest,
 	InteractiveIntegrationStep,
 	CreateBranchFromBranchOutcome,
@@ -26,9 +20,20 @@ import type {
 } from "$lib/stacks/stack";
 import type { BackendEndpointBuilder } from "$lib/state/backendApi";
 import type { RejectionReason } from "$lib/state/uiState.svelte";
-import type { HunkAssignment } from "@gitbutler/core/api";
-
-export type { RejectionReason };
+import type { DiffSpec } from "@gitbutler/but-sdk";
+import type {
+	StackOrder,
+	AbsorptionTarget,
+	CommitAbsorption,
+	StackDetails,
+	BranchDetails,
+	UpstreamCommit,
+	Commit,
+	TreeChange,
+	TreeStats,
+	TreeChanges,
+	CommitDetails,
+} from "@gitbutler/but-sdk";
 
 export type BranchParams = {
 	name?: string;
@@ -392,7 +397,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			{
 				changes: EntityState<TreeChange, string>;
 				details: Commit;
-				stats: TreeStats;
+				stats: TreeStats | null;
 				conflictEntries?: ConflictEntriesObj;
 			},
 			{ projectId: string; commitId: string }
@@ -543,17 +548,11 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				invalidatesList(ReduxTag.HeadSha),
 			],
 		}),
-		absorbPlan: build.query<
-			HunkAssignment.CommitAbsorption[],
-			{ projectId: string; target: HunkAssignment.AbsorptionTarget }
-		>({
+		absorbPlan: build.query<CommitAbsorption[], { projectId: string; target: AbsorptionTarget }>({
 			extraOptions: { command: "absorption_plan" },
 			query: (args) => args,
 		}),
-		absorb: build.mutation<
-			number,
-			{ projectId: string; absorptionPlan: HunkAssignment.CommitAbsorption[] }
-		>({
+		absorb: build.mutation<number, { projectId: string; absorptionPlan: CommitAbsorption[] }>({
 			extraOptions: {
 				command: "absorb",
 				actionName: "Absorb changes v2",

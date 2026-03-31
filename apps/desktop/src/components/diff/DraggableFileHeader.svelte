@@ -5,7 +5,6 @@
 	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
 	import { computeChangeStatus } from "$lib/files/fileStatus";
 	import { getFilename } from "$lib/files/utils";
-	import { type TreeChange } from "$lib/hunks/change";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { type SelectionId } from "$lib/selection/key";
 	import { SETTINGS } from "$lib/settings/userSettings";
@@ -14,6 +13,7 @@
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
 	import { sticky as stickyAction } from "@gitbutler/ui/utils/sticky";
 	import type { UnifiedDiff } from "$lib/hunks/diff";
+	import type { TreeChange } from "@gitbutler/but-sdk";
 
 	interface Props {
 		projectId: string;

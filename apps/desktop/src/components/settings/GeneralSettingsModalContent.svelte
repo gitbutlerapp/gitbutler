@@ -12,14 +12,11 @@
 	import TelemetrySettings from "$components/settings/TelemetrySettings.svelte";
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
-	import {
-		generalSettingsPages,
-		type GeneralSettingsPageId,
-	} from "$lib/settings/generalSettingsPages";
+	import { generalSettingsPages } from "$lib/settings/generalSettingsPages";
 	import { USER_SERVICE } from "$lib/user/userService";
 	import { inject } from "@gitbutler/core/context";
 	import { Icon } from "@gitbutler/ui";
-	import type { GeneralSettingsModalState } from "$lib/state/uiState.svelte";
+	import type { GeneralSettingsModalState, GeneralSettingsPageId } from "$lib/state/uiState.svelte";
 
 	type Props = {
 		data: GeneralSettingsModalState;

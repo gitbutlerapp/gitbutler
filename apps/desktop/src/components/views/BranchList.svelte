@@ -21,7 +21,6 @@
 	import { REORDER_DROPZONE_FACTORY } from "$lib/dragging/stackingReorderDropzoneManager";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { createBranchSelection } from "$lib/selection/key";
-	import { type BranchDetails } from "$lib/stacks/stack";
 	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { combineResults } from "$lib/state/helpers";
@@ -31,6 +30,7 @@
 	import { Button, TestId } from "@gitbutler/ui";
 	import { QueryStatus } from "@reduxjs/toolkit/query";
 	import { tick } from "svelte";
+	import type { BranchDetails } from "@gitbutler/but-sdk";
 
 	type Props = {
 		branches: BranchDetails[];

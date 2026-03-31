@@ -53,12 +53,8 @@
 
 	import VirtualList from "@gitbutler/ui/components/VirtualList.svelte";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
-	import type {
-		ThinkingLevel,
-		ModelType,
-		PermissionMode,
-		PermissionDecision,
-	} from "$lib/codegen/types";
+	import type { PermissionDecision } from "$lib/codegen/types";
+	import type { ThinkingLevel, ModelType, PermissionMode } from "$lib/state/uiState.svelte";
 
 	type Props = {
 		hasRulesToClear?: boolean;

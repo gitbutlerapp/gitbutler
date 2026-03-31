@@ -1,7 +1,7 @@
 // cli.ts, lol
 
 import { InjectionToken } from "@gitbutler/core/context";
-import type { BackendApi } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/backendApi";
 
 export const CLI_MANAGER = new InjectionToken<CLIManager>("CLIManager");
 

@@ -17,8 +17,9 @@ import { providesItem, invalidatesItem, ReduxTag, invalidatesList } from "$lib/s
 import { sleep } from "$lib/utils/sleep";
 import { writable } from "svelte/store";
 import type { ForgePrService } from "$lib/forge/interface/forgePrService";
+import type { BackendApi } from "$lib/state/backendApi";
 import type { QueryOptions } from "$lib/state/butlerModule";
-import type { BackendApi, GitHubApi } from "$lib/state/clientState.svelte";
+import type { GitHubApi } from "$lib/state/clientState.svelte";
 import type { PostHogWrapper } from "$lib/telemetry/posthog";
 import type { StartQueryActionCreatorOptions } from "@reduxjs/toolkit/query";
 

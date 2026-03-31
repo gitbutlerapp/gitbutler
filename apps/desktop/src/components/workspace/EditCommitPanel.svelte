@@ -4,14 +4,10 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { getEditorUri, URL_SERVICE } from "$lib/backend/url";
 	import { splitMessage } from "$lib/commits/commitMessage";
-	import {
-		conflictEntryHint,
-		getConflictState,
-		type ConflictEntryPresence,
-	} from "$lib/files/conflictEntryPresence";
+	import { conflictEntryHint, getConflictState } from "$lib/files/conflictEntryPresence";
 	import { FILE_SERVICE } from "$lib/files/fileService";
 	import { computeChangeStatus } from "$lib/files/fileStatus";
-	import { MODE_SERVICE, type EditModeMetadata } from "$lib/mode/modeService";
+	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { vscodePath } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { createCommitSelection } from "$lib/selection/key";
@@ -34,7 +30,8 @@
 	import { SvelteSet } from "svelte/reactivity";
 	import { derived, fromStore, readable, toStore, type Readable } from "svelte/store";
 	import type { FileInfo } from "$lib/files/file";
-	import type { TreeChange } from "$lib/hunks/change";
+	import type { EditModeMetadata, TreeChange } from "@gitbutler/but-sdk";
+	import type { ConflictEntryPresence } from "@gitbutler/but-sdk";
 	import type { FileStatus } from "@gitbutler/ui/components/file/types";
 
 	type Props = {

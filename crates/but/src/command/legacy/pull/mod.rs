@@ -6,10 +6,10 @@ use but_core::RepositoryExt;
 use but_ctx::Context;
 use colored::Colorize;
 use gitbutler_branch_actions::upstream_integration::{
-    BranchStatus::{self, Conflicted, Empty, Integrated, SaflyUpdatable},
+    BranchStatus::{self, Conflicted, Empty, Integrated, SafelyUpdatable},
     Resolution, ResolutionApproach,
     StackStatuses::{UpToDate, UpdatesRequired},
-    TreeStatus,
+    UpstreamTreeStatus,
 };
 use json::{BaseBranchInfo, BranchStatusInfo, PullCheckOutput, UpstreamCommit, UpstreamInfo};
 use serde::{Deserialize, Serialize};
@@ -101,7 +101,7 @@ async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<
                     .flat_map(|(_id, stack_status)| {
                         stack_status.branch_statuses.iter().map(|bs| {
                             let (status_str, rebasable) = match bs.status {
-                                SaflyUpdatable => ("updatable", None),
+                                SafelyUpdatable => ("updatable", None),
                                 Integrated => ("integrated", None),
                                 Conflicted { rebasable } => ("conflicted", Some(rebasable)),
                                 Empty => ("empty", None),
@@ -213,7 +213,7 @@ async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<
                     for (_id, status) in statuses {
                         for bs in status.branch_statuses {
                             let status_text = match bs.status {
-                                SaflyUpdatable => "[ok]".green(),
+                                SafelyUpdatable => "[ok]".green(),
                                 Integrated => "[integrated]".blue(),
                                 Conflicted { rebasable } => {
                                     if rebasable {
@@ -401,7 +401,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                             Conflicted { .. } => {
                                 pull_result.summary.branches_conflicted += 1;
                             }
-                            SaflyUpdatable => {
+                            SafelyUpdatable => {
                                 pull_result.summary.branches_updated += 1;
                             }
                             _ => {}
@@ -414,7 +414,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                         .branch_statuses
                         .iter()
                         .all(|s| s.status == Integrated)
-                        && status.tree_status != TreeStatus::Conflicted
+                        && status.tree_status != UpstreamTreeStatus::Conflicted
                     {
                         ResolutionApproach::Delete
                     } else {
@@ -540,7 +540,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                     } = &post_status
                     {
                         post_statuses.iter().any(|(_, status)| {
-                            status.tree_status == TreeStatus::Conflicted
+                            status.tree_status == UpstreamTreeStatus::Conflicted
                                 || status
                                     .branch_statuses
                                     .iter()
@@ -686,7 +686,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
 
 fn format_branch_status(status: &BranchStatus) -> String {
     match status {
-        SaflyUpdatable => "updatable".to_string(),
+        SafelyUpdatable => "updatable".to_string(),
         Integrated => "integrated".to_string(),
         Conflicted { rebasable } => {
             if *rebasable {

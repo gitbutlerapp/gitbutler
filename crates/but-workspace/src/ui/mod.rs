@@ -21,10 +21,8 @@ use crate::{
 
 /// Represents the state a commit could be in.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(tag = "type", content = "subject")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub enum CommitState {
     /// The commit is only local
     LocalOnly,
@@ -40,7 +38,7 @@ pub enum CommitState {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id")
     )]
-    LocalAndRemote(#[cfg_attr(feature = "export-ts", ts(type = "string"))] gix::ObjectId),
+    LocalAndRemote(gix::ObjectId),
     /// The commit is considered integrated.
     /// This should happen when this commit or the contents of this commit is already part of the base.
     Integrated,
@@ -66,10 +64,8 @@ impl CommitState {
 
 /// Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.
 #[derive(Clone, Serialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct Commit {
     /// The OID of the commit.
     #[serde(with = "but_serde::object_id")]
@@ -77,7 +73,6 @@ pub struct Commit {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub id: gix::ObjectId,
     /// The parent OIDs of the commit.
     #[serde(with = "but_serde::object_id_vec")]
@@ -85,7 +80,6 @@ pub struct Commit {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id_vec")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string[]"))]
     pub parent_ids: Vec<gix::ObjectId>,
     /// The message of the commit.
     #[serde(with = "but_serde::bstring_lossy")]
@@ -93,7 +87,6 @@ pub struct Commit {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_lossy")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub message: BString,
     /// Whether the commit is in a conflicted state.
     /// The Conflicted state of a commit is a GitButler concept.
@@ -171,10 +164,8 @@ impl std::fmt::Debug for Commit {
 /// Commit that is only at the remote.
 /// Unlike the `Commit` struct, there is no knowledge of GitButler concepts like conflicted state etc.
 #[derive(Clone, Serialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct UpstreamCommit {
     /// The OID of the commit.
     #[serde(with = "but_serde::object_id")]
@@ -182,7 +173,6 @@ pub struct UpstreamCommit {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub id: gix::ObjectId,
     /// The message of the commit.
     #[serde(with = "but_serde::bstring_lossy")]
@@ -190,7 +180,6 @@ pub struct UpstreamCommit {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_lossy")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub message: BString,
     /// Commit creation time in Epoch milliseconds.
     pub created_at: i128,
@@ -213,10 +202,8 @@ impl std::fmt::Debug for UpstreamCommit {
 
 /// Represents the pushable status for the current stack.
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Serialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub enum PushStatus {
     /// Can push, but there are no changes to be pushed
     NothingToPush,
@@ -234,10 +221,8 @@ but_schemars::register_sdk_type!(PushStatus);
 
 /// Information about the current state of a branch.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct BranchDetails {
     /// The name of the branch. This is the "given name" IE, just `foo` out of `refs/heads/foo`
     #[serde(with = "but_serde::bstring_lossy")]
@@ -245,14 +230,12 @@ pub struct BranchDetails {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_lossy")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub name: BString,
     #[serde(with = "but_serde::fullname_lossy")]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::fullname_lossy")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     /// The full reference of the branch
     pub reference: gix::refs::FullName,
     /// The id of the linked worktree that has the reference of `name` checked out.
@@ -262,7 +245,6 @@ pub struct BranchDetails {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_lossy_opt")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     pub linked_worktree_id: Option<BString>,
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
     #[serde(with = "but_serde::bstring_lossy_opt")]
@@ -270,7 +252,6 @@ pub struct BranchDetails {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_lossy_opt")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     pub remote_tracking_branch: Option<BString>,
     /// The pull(merge) request associated with the branch, or None if no such entity has not been created.
     pub pr_number: Option<usize>,
@@ -283,7 +264,6 @@ pub struct BranchDetails {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub tip: gix::ObjectId,
     /// This is the base commit from the perspective of this branch.
     /// If the branch is part of a stack and is on top of another branch, this is the head of the branch below it.
@@ -293,7 +273,6 @@ pub struct BranchDetails {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id")
     )]
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub base_commit: gix::ObjectId,
     /// The pushable status for the branch.
     pub push_status: PushStatus,
@@ -320,10 +299,8 @@ but_schemars::register_sdk_type!(BranchDetails);
 
 /// Information about the current state of a stack
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct StackDetails {
     /// This is the name of the top-most branch, provided by the API for convenience
     pub derived_name: String,
@@ -334,6 +311,8 @@ pub struct StackDetails {
     /// Whether the stack is conflicted.
     pub is_conflicted: bool,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(StackDetails);
 
 /// Represents a branch in a `Stack`. It contains commits derived from the local pseudo branch and it's respective remote
 #[derive(Debug, Clone, Serialize)]

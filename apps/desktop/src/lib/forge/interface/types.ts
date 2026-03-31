@@ -1,5 +1,13 @@
-import type { Author } from "$lib/commits/commit";
 import type { RepoInfo } from "$lib/git/gitUrl";
+
+/** Author as represented in forge contexts (GitHub/GitLab PR). Fields are optional since forges may omit them. */
+export type Author = {
+	id?: number;
+	name?: string;
+	email?: string;
+	gravatarUrl?: string;
+	isBot?: boolean;
+};
 
 export interface Label {
 	name: string;

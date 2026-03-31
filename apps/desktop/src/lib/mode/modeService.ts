@@ -1,7 +1,5 @@
 import { InjectionToken } from "@gitbutler/core/context";
-import type { BackendApi } from "$lib/state/clientState.svelte";
-
-export type { EditModeMetadata, OutsideWorkspaceMetadata, Mode } from "$lib/mode/modeEndpoints";
+import type { BackendApi } from "$lib/state/backendApi";
 
 export const MODE_SERVICE = new InjectionToken<ModeService>("ModeService");
 

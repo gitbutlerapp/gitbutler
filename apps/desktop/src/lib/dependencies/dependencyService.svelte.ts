@@ -1,12 +1,9 @@
-import {
-	aggregateFileDependencies,
-	type FileDependencies,
-	type HunkDependencies,
-} from "$lib/hunks/dependencies";
+import { aggregateFileDependencies, type FileDependencies } from "$lib/hunks/dependencies";
 import { createSelectByIds } from "$lib/state/customSelectors";
 import { InjectionToken } from "@gitbutler/core/context";
 import { createEntityAdapter } from "@reduxjs/toolkit";
 import type { WorktreeService } from "$lib/worktree/worktreeService.svelte";
+import type { HunkDependencies } from "@gitbutler/but-sdk";
 
 export const DEPENDENCY_SERVICE = new InjectionToken<DependencyService>("DependencyService");
 

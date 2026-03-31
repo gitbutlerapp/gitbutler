@@ -42,7 +42,7 @@
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { getTimeAgo } from "@gitbutler/ui/utils/timeAgo";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
-	import type { BranchDetails } from "$lib/stacks/stack";
+	import type { BranchDetails } from "@gitbutler/but-sdk";
 
 	interface Props {
 		branchName: string;
@@ -320,7 +320,7 @@
 														(change) =>
 															!(change.path in (changesResult.conflictEntries?.entries ?? {})),
 													)}
-													stats={changesResult.stats}
+													stats={changesResult.stats ?? undefined}
 													conflictEntries={changesResult.conflictEntries}
 													ancestorMostConflictedCommitId={firstConflictedCommitId}
 													autoselect

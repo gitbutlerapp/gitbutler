@@ -1,5 +1,16 @@
-<script lang="ts" module>
-	type T = string;
+<script lang="ts" generics="T extends string = string">
+	import Icon from "$components/Icon.svelte";
+	import Textbox from "$components/Textbox.svelte";
+	import ScrollableContainer from "$components/scroll/ScrollableContainer.svelte";
+	import OptionsGroup from "$components/select/OptionsGroup.svelte";
+	import SearchItem from "$components/select/SearchItem.svelte";
+	import { type IconName } from "$lib/icons/names";
+	import { portal } from "$lib/utils/portal";
+	import { pxToRem } from "$lib/utils/pxToRem";
+	import { resizeObserver } from "$lib/utils/resizeObserver";
+	import { type Snippet } from "svelte";
+
+	type Modifiers = { shift: boolean; ctrl: boolean; alt: boolean; meta: boolean };
 
 	export type SelectItem<T extends string = string> = {
 		label?: string;
@@ -12,9 +23,7 @@
 		| { label: string; value: T } // Regular items require label and value
 	);
 
-	type Modifiers = { shift: boolean; ctrl: boolean; alt: boolean; meta: boolean };
-
-	interface Props {
+	export type SelectProps<T extends string = string> = {
 		id?: string;
 		label?: string;
 		disabled?: boolean;
@@ -39,20 +48,7 @@
 		autofocus?: boolean;
 		onselect?: (value: T, modifiers?: Modifiers) => void;
 		ontoggle?: (isOpen: boolean) => void;
-	}
-</script>
-
-<script lang="ts" generics="T extends string">
-	import Icon from "$components/Icon.svelte";
-	import Textbox from "$components/Textbox.svelte";
-	import ScrollableContainer from "$components/scroll/ScrollableContainer.svelte";
-	import OptionsGroup from "$components/select/OptionsGroup.svelte";
-	import SearchItem from "$components/select/SearchItem.svelte";
-	import { type IconName } from "$lib/icons/names";
-	import { portal } from "$lib/utils/portal";
-	import { pxToRem } from "$lib/utils/pxToRem";
-	import { resizeObserver } from "$lib/utils/resizeObserver";
-	import { type Snippet } from "svelte";
+	};
 
 	const {
 		id,
@@ -79,7 +75,7 @@
 		autofocus,
 		onselect,
 		ontoggle,
-	}: Props = $props();
+	}: SelectProps<T> = $props();
 
 	let selectWrapperEl: HTMLElement;
 	let selectInputEl = $state<HTMLElement>();

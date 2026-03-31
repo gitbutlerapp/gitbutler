@@ -48,12 +48,17 @@
 		"ts-node": "^10.9.2"
 	},
 	"files": [
+		"./src/generated/browser.js",
 		"./src/generated/index.js",
 		"./src/generated/index.d.ts",
 		"./src/generated/*.node"
 	],
 	"exports": {
 		".": {
+			"browser": {
+				"types": "./src/generated/index.d.ts",
+				"default": "./src/generated/browser.js"
+			},
 			"import": {
 				"types": "./src/generated/index.d.ts",
 				"default": "./src/generated/index.js"

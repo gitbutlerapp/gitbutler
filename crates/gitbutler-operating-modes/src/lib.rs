@@ -60,40 +60,35 @@ pub fn write_edit_mode_metadata(
 }
 
 /// Holds relevant state required to switch to and from edit mode
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EditModeMetadata {
     /// The sha of the commit getting edited.
     #[serde(with = "but_serde::object_id")]
-    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+    #[schemars(with = "String")]
     pub commit_oid: gix::ObjectId,
     /// The ref of the vbranch which owns this commit.
-    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+    #[schemars(with = "String")]
     pub stack_id: StackId,
 }
 
-#[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(EditModeMetadata);
 
-#[derive(Debug, Default, Serialize, PartialEq, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[derive(Debug, Default, Serialize, PartialEq, Clone, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct OutsideWorkspaceMetadata {
     /// The name of the currently checked out branch or None if in detached head state.
     #[serde(with = "but_serde::bstring_lossy_opt")]
-    #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
+    #[schemars(with = "Option<String>")]
     pub branch_name: Option<BString>,
     /// The paths of any files that would conflict with the workspace as it currently is
-    #[cfg_attr(feature = "export-schema", schemars(with = "Vec<String>"))]
+    #[schemars(with = "Vec<String>")]
     pub worktree_conflicts: Vec<BStringForFrontend>,
 }
 
-#[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(OutsideWorkspaceMetadata);
 
-#[derive(PartialEq, Debug, Clone, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[derive(PartialEq, Debug, Clone, Serialize, schemars::JsonSchema)]
 #[serde(tag = "type", content = "subject")]
 pub enum OperatingMode {
     /// The typical app state when it's on the gitbutler/workspace branch
@@ -103,7 +98,6 @@ pub enum OperatingMode {
     /// When the app is off of gitbutler/workspace and in edit mode
     Edit(EditModeMetadata),
 }
-#[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(OperatingMode);
 
 pub fn operating_mode(ctx: &Context, perm: &RepoShared) -> Result<OperatingMode> {

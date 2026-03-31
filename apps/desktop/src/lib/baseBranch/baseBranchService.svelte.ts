@@ -3,8 +3,8 @@ import { isReduxError } from "$lib/error/reduxError";
 import { showError } from "$lib/error/showError";
 import { parseRemoteUrl } from "$lib/git/gitUrl";
 import { InjectionToken } from "@gitbutler/core/context";
-import type { BaseBranch } from "$lib/baseBranch/baseBranch";
-import type { BackendApi } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { BaseBranch } from "@gitbutler/but-sdk";
 
 export const BASE_BRANCH_SERVICE = new InjectionToken<BaseBranchService>("BaseBranchService");
 

@@ -7,7 +7,6 @@ publish = false
 rust-version.workspace = true
 
 [features]
-export-ts = []
 
 [lib]
 doctest = false
@@ -23,7 +22,8 @@ serde_json_lenient.workspace = true
 notify.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }
-ts-rs.workspace = true
+schemars.workspace = true
+but-schemars.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

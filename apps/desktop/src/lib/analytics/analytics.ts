@@ -1,10 +1,10 @@
 import { initSentry } from "$lib/analytics/sentry";
 import { PostHogWrapper } from "$lib/telemetry/posthog";
 import posthog from "posthog-js";
-import type { Settings } from "@gitbutler/core/api";
+import type { AppSettings } from "@gitbutler/but-sdk";
 
 export async function initAnalyticsIfEnabled(
-	appSettings: Settings.AppSettings,
+	appSettings: AppSettings,
 	postHog: PostHogWrapper,
 	confirmedOverride?: boolean,
 ) {

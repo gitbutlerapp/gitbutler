@@ -14,7 +14,6 @@ import type {
 	NavigationContext,
 	NavigationAction,
 } from "$lib/focus/focusTypes";
-export type { FocusableOptions } from "./focusTypes";
 
 export const FOCUS_MANAGER: InjectionToken<FocusManager> = new InjectionToken("FocusManager");
 

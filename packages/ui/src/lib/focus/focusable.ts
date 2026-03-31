@@ -1,5 +1,6 @@
-import { FOCUS_MANAGER, type FocusableOptions } from "$lib/focus/focusManager";
+import { FOCUS_MANAGER } from "$lib/focus/focusManager";
 import { injectOptional } from "@gitbutler/core/context";
+import type { FocusableOptions } from "$lib/focus/focusTypes";
 import type { Action } from "svelte/action";
 
 /**

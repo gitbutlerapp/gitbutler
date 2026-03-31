@@ -1,46 +1,4 @@
-import type { DependencyError, HunkDependencies } from "$lib/hunks/dependencies";
-import type { HunkAssignment, HunkAssignmentError } from "$lib/hunks/hunk";
-import type { CoreUI } from "@gitbutler/core/api";
-
-/** Contains the changes that are in the worktree */
-export type WorktreeChanges = {
-	/** Changes that could be committed. */
-	readonly changes: TreeChange[];
-	/**
-	 * Changes that were in the index that we can't handle.
-	 * The user can see them and interact with them to clear them out before a commit can be made.
-	 */
-	readonly ignoredChanges: IgnoredChange[];
-	readonly assignments: HunkAssignment[];
-	readonly assignmentsError: HunkAssignmentError | null;
-	readonly dependencies: HunkDependencies | null;
-	readonly dependenciesError: DependencyError | null;
-};
-
-/**
- * An entry in the worktree that changed and thus is eligible to being committed.
- * It either lives (or lived) in the in `.git/index`, or in the `worktree`.
- */
-export type TreeChange = CoreUI.TreeChange;
-
-export type TreeStats = {
-	/** The total amount of lines added. */
-	readonly linesAdded: number;
-	/** The total amount of lines removed.*/
-	readonly linesRemoved: number;
-	/** The number of files added, removed or modified.*/
-	readonly filesChanged: number;
-};
-
-/**
- * The list of changes and the stats
- */
-export type TreeChanges = {
-	/** The changes that were made to the tree. */
-	readonly changes: TreeChange[];
-	/** The stats of the changes. */
-	readonly stats: TreeStats;
-};
+import type { TreeChange, TreeStatus } from "@gitbutler/but-sdk";
 
 export function isTreeChange(something: unknown): something is TreeChange {
 	return (
@@ -55,11 +13,7 @@ export function isTreeChange(something: unknown): something is TreeChange {
 	);
 }
 
-export type Flags = CoreUI.ModeFlags;
-
-export type Status = CoreUI.TreeStatus;
-
-export function isExecutableStatus(status: Status): boolean {
+export function isExecutableStatus(status: TreeStatus): boolean {
 	switch (status.type) {
 		case "Addition":
 		case "Deletion":
@@ -73,7 +27,7 @@ export function isExecutableStatus(status: Status): boolean {
 	}
 }
 
-export function isSubmoduleStatus(status: Status): boolean {
+export function isSubmoduleStatus(status: TreeStatus): boolean {
 	switch (status.type) {
 		case "Addition":
 			return status.subject.state.kind === "Commit";
@@ -90,7 +44,7 @@ export function isSubmoduleStatus(status: Status): boolean {
 	}
 }
 
-function isChangeStatus(something: unknown): something is Status {
+function isChangeStatus(something: unknown): something is TreeStatus {
 	return (
 		typeof something === "object" &&
 		something !== null &&
@@ -98,18 +52,3 @@ function isChangeStatus(something: unknown): something is Status {
 		typeof something["type"] === "string"
 	);
 }
-
-/** A way to indicate that a path in the index isn't suitable for committing and needs to be dealt with.*/
-export type IgnoredChange = {
-	/** The worktree-relative path to the change.*/
-	readonly path: string;
-	/** The reason for the change being ignored.*/
-	readonly status: IgnoredChangeStatus;
-};
-
-/** The status we can't handle.*/
-type IgnoredChangeStatus =
-	/** A conflicting entry in the index. The worktree state of the entry is unclear.*/
-	| "Conflict"
-	/** A change in the `.git/index` that was overruled by a change to the same path in the *worktree*.*/
-	| "TreeIndex";

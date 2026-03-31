@@ -14,7 +14,7 @@
 	import { untrack } from "svelte";
 	import { SvelteMap } from "svelte/reactivity";
 	import type { AutoCommitModalState } from "$lib/state/uiState.svelte";
-	import type { Action } from "@gitbutler/core/api";
+	import type { AutoCommitEvent } from "@gitbutler/but-sdk";
 
 	type Props = {
 		data: AutoCommitModalState;
@@ -27,7 +27,7 @@
 	const stackService = inject(STACK_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 
-	let events = $state<Action.AutoCommitEvent[]>([]);
+	let events = $state<AutoCommitEvent[]>([]);
 	const commitMessageMap = new SvelteMap<string, string>();
 
 	// Listen for auto-commit events and update commit messages
@@ -50,7 +50,7 @@
 	// Check if generation is complete for a parent commit
 	function isGenerationComplete(
 		parentCommitId: string | undefined,
-		events: Action.AutoCommitEvent[],
+		events: AutoCommitEvent[],
 	): boolean {
 		if (!parentCommitId) return false;
 

@@ -19,8 +19,8 @@ import {
 	type EntityState,
 	type PayloadAction,
 } from "@reduxjs/toolkit";
-import type { TreeChange } from "$lib/hunks/change";
-import type { HunkAssignment, HunkHeader } from "$lib/hunks/hunk";
+import type { HunkAssignment, HunkHeader } from "@gitbutler/but-sdk";
+import type { TreeChange } from "@gitbutler/but-sdk";
 import type { LineId } from "@gitbutler/ui/utils/diffParsing";
 
 type UncommittedState = {

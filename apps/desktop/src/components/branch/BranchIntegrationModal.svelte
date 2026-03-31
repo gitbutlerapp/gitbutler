@@ -2,13 +2,7 @@
 	import CommitTimelineNode from "$components/commit/CommitTimelineNode.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
-	import {
-		commitCreatedAtDate,
-		extractUpstreamCommitId,
-		isCommit,
-		type Commit,
-		type UpstreamCommit,
-	} from "$lib/branches/v3";
+	import { commitCreatedAtDate, extractUpstreamCommitId, isCommit } from "$lib/branches/v3";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import {
 		canShiftStepDown,
@@ -26,6 +20,7 @@
 	import { Modal, ModalFooter, Button, ScrollableContainer, SimpleCommitRow } from "@gitbutler/ui";
 	import { flip } from "svelte/animate";
 	import type { InteractiveIntegrationStep } from "$lib/stacks/stack";
+	import type { Commit, UpstreamCommit } from "@gitbutler/but-sdk";
 
 	type Props = {
 		modalRef: Modal | undefined;

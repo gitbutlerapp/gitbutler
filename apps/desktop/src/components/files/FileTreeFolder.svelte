@@ -10,7 +10,7 @@
 	import { FolderListItem } from "@gitbutler/ui";
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
 	import type { SelectionId } from "$lib/selection/key";
-	import type { FocusableOptions } from "@gitbutler/ui/focus/focusManager";
+	import type { FocusableOptions } from "@gitbutler/ui/focus/focusTypes";
 
 	type Props = {
 		projectId: string;

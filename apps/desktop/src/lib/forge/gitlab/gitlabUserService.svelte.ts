@@ -1,14 +1,18 @@
 import { providesItem, providesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { SecretsService } from "$lib/secrets/secretsService";
-import type { BackendApi } from "$lib/state/clientState.svelte";
-import type { ButGitLab, ButGitLabToken } from "@gitbutler/core/api";
+import type { BackendApi } from "$lib/state/backendApi";
+import type {
+	GitlabAccountIdentifier,
+	GitlabAuthStatusResponseSensitive,
+	GitlabAuthenticatedUserSensitive,
+} from "@gitbutler/but-sdk";
 
 export const GITLAB_USER_SERVICE = new InjectionToken<GitLabUserService>("GitLabUserService");
 
 export function isSameGitLabAccountIdentifier(
-	a: ButGitLabToken.GitlabAccountIdentifier,
-	b: ButGitLabToken.GitlabAccountIdentifier,
+	a: GitlabAccountIdentifier,
+	b: GitlabAccountIdentifier,
 ): boolean {
 	if (a.type !== b.type) {
 		return false;
@@ -24,7 +28,7 @@ export function isSameGitLabAccountIdentifier(
 	}
 }
 
-export type GitLabAccountIdentifierType = ButGitLabToken.GitlabAccountIdentifier["type"];
+export type GitLabAccountIdentifierType = GitlabAccountIdentifier["type"];
 
 function isGitLabAccountIdentifierType(text: unknown): text is GitLabAccountIdentifierType {
 	if (typeof text !== "string") {
@@ -36,9 +40,7 @@ function isGitLabAccountIdentifierType(text: unknown): text is GitLabAccountIden
 // ASCII Unit Separator, used to separate data units within a record or field.
 const UNIT_SEP = "\u001F";
 
-export function gitlabAccountIdentifierToString(
-	account: ButGitLabToken.GitlabAccountIdentifier,
-): string {
+export function gitlabAccountIdentifierToString(account: GitlabAccountIdentifier): string {
 	switch (account.type) {
 		case "patUsername":
 			return `${account.type}${UNIT_SEP}${account.info.username}`;
@@ -47,9 +49,7 @@ export function gitlabAccountIdentifierToString(
 	}
 }
 
-export function stringToGitLabAccountIdentifier(
-	str: string,
-): ButGitLabToken.GitlabAccountIdentifier | null {
+export function stringToGitLabAccountIdentifier(str: string): GitlabAccountIdentifier | null {
 	const parts = str.split(UNIT_SEP);
 	if (parts.length < 2) {
 		return null;
@@ -120,7 +120,7 @@ export class GitLabUserService {
 		return this.backendApi.endpoints.forgetGitLabAccount.useMutation();
 	}
 
-	authenticatedUser(account: ButGitLabToken.GitlabAccountIdentifier) {
+	authenticatedUser(account: GitlabAccountIdentifier) {
 		return this.backendApi.endpoints.getGitLabUser.useQuery({ account });
 	}
 
@@ -136,7 +136,7 @@ export class GitLabUserService {
 function injectBackendEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
-			forgetGitLabAccount: build.mutation<void, ButGitLabToken.GitlabAccountIdentifier>({
+			forgetGitLabAccount: build.mutation<void, GitlabAccountIdentifier>({
 				extraOptions: {
 					command: "forget_gitlab_account",
 					actionName: "Forget GitLab Account",
@@ -147,8 +147,8 @@ function injectBackendEndpoints(api: BackendApi) {
 				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
 			}),
 			getGitLabUser: build.query<
-				ButGitLab.AuthenticatedUserSensitive | null,
-				{ account: ButGitLabToken.GitlabAccountIdentifier }
+				GitlabAuthenticatedUserSensitive | null,
+				{ account: GitlabAccountIdentifier }
 			>({
 				extraOptions: {
 					command: "get_gl_user",
@@ -158,7 +158,7 @@ function injectBackendEndpoints(api: BackendApi) {
 					...providesItem(ReduxTag.ForgeUser, `gitlab:${username}`),
 				],
 			}),
-			listKnownGitLabAccounts: build.query<ButGitLabToken.GitlabAccountIdentifier[], void>({
+			listKnownGitLabAccounts: build.query<GitlabAccountIdentifier[], void>({
 				extraOptions: {
 					command: "list_known_gitlab_accounts",
 				},
@@ -173,10 +173,7 @@ function injectBackendEndpoints(api: BackendApi) {
 				query: () => ({}),
 				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
 			}),
-			storeGitLabPat: build.mutation<
-				ButGitLab.AuthStatusResponseSensitive,
-				{ accessToken: string }
-			>({
+			storeGitLabPat: build.mutation<GitlabAuthStatusResponseSensitive, { accessToken: string }>({
 				extraOptions: {
 					command: "store_gitlab_pat",
 					actionName: "Store GitLab PAT",
@@ -185,7 +182,7 @@ function injectBackendEndpoints(api: BackendApi) {
 				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
 			}),
 			storeGitLabEnterprisePat: build.mutation<
-				ButGitLab.AuthStatusResponseSensitive,
+				GitlabAuthStatusResponseSensitive,
 				{ host: string; accessToken: string }
 			>({
 				extraOptions: {

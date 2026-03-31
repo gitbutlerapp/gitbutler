@@ -5,11 +5,12 @@
 	import CommitListItem from "$components/commit/CommitListItem.svelte";
 	import ChangedFilesPanel from "$components/files/ChangedFilesPanel.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import { commitCreatedAt, type Commit } from "$lib/branches/v3";
+	import { commitCreatedAt } from "$lib/branches/v3";
 	import { createCommitSelection } from "$lib/selection/key";
-	import { getColorFromPushStatus, pushStatusToIcon, type BranchDetails } from "$lib/stacks/stack";
+	import { getColorFromPushStatus, pushStatusToIcon } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
+	import type { BranchDetails, Commit } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;
@@ -104,7 +105,7 @@
 						changes={changesResult.changes.filter(
 							(change) => !(change.path in (changesResult.conflictEntries?.entries ?? {})),
 						)}
-						stats={changesResult.stats}
+						stats={changesResult.stats ?? undefined}
 						conflictEntries={changesResult.conflictEntries}
 						autoselect
 						allowUnselect={false}

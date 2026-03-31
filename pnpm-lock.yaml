@@ -230,6 +230,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.80.0
         version: 0.80.0(zod@4.3.6)
+      '@gitbutler/but-sdk':
+        specifier: workspace:*
+        version: link:../../packages/but-sdk
       '@gitbutler/core':
         specifier: workspace:*
         version: link:../../packages/core

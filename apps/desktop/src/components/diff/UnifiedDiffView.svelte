@@ -11,12 +11,7 @@
 	import { draggableChips } from "$lib/dragging/draggable";
 	import { HunkDropDataV3 } from "$lib/dragging/draggables";
 	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
-	import {
-		canBePartiallySelected,
-		getLineLocks,
-		hunkHeaderEquals,
-		type DiffHunk,
-	} from "$lib/hunks/hunk";
+	import { canBePartiallySelected, getLineLocks, hunkHeaderEquals } from "$lib/hunks/hunk";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { type SelectionId } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
@@ -28,10 +23,11 @@
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
 	import { parseHunk } from "@gitbutler/ui/utils/diffParsing";
 	import { untrack } from "svelte";
-	import type { TreeChange } from "$lib/hunks/change";
 	import type { FileDependencies } from "$lib/hunks/dependencies";
 	import type { UnifiedDiff } from "$lib/hunks/diff";
 	import type { Reaction } from "$lib/irc/ircEndpoints";
+	import type { DiffHunk } from "@gitbutler/but-sdk";
+	import type { TreeChange } from "@gitbutler/but-sdk";
 	import type { LineId } from "@gitbutler/ui/utils/diffParsing";
 
 	const LARGE_DIFF_THRESHOLD = 1000;

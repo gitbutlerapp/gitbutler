@@ -1,11 +1,11 @@
 import { isLockfile } from "@gitbutler/shared/lockfiles";
 import type { DiffInput } from "$lib/ai/service";
-import type { TreeChange } from "$lib/hunks/change";
 import type { ChangeDiff, DiffService } from "$lib/hunks/diffService.svelte";
 import type { SelectedFile } from "$lib/selection/key";
 import type { UncommittedService } from "$lib/selection/uncommittedService.svelte";
 import type { StackService } from "$lib/stacks/stackService.svelte";
 import type { WorktreeService } from "$lib/worktree/worktreeService.svelte";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 export type DiffInputContextType = "commit" | "change-selection" | "file-selection";
 

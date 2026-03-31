@@ -1,7 +1,7 @@
 import { updateStackSelection } from "$lib/stacks/staleStateUpdaters";
 import { describe, expect, test } from "vitest";
-import type { StackDetails } from "$lib/stacks/stack";
 import type { StackSelection, UiState } from "$lib/state/uiState.svelte";
+import type { StackDetails } from "@gitbutler/but-sdk";
 
 /**
  * Minimal mock of UiState that tracks the lane selection without Svelte reactivity.

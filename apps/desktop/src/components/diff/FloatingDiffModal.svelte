@@ -9,7 +9,7 @@
 	import Resizer from "$components/shared/Resizer.svelte";
 	import { computeChangeStatus } from "$lib/files/fileStatus";
 	import FloatingModal from "$lib/floating/FloatingModal.svelte";
-	import { isExecutableStatus, type TreeChange } from "$lib/hunks/change";
+	import { isExecutableStatus } from "$lib/hunks/change";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { type SelectionId } from "$lib/selection/key";
@@ -17,9 +17,11 @@
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, FileViewHeader, HunkDiffSkeleton, Icon, VirtualList } from "@gitbutler/ui";
-	import { FOCUS_MANAGER, type FocusableOptions } from "@gitbutler/ui/focus/focusManager";
+	import { FOCUS_MANAGER } from "@gitbutler/ui/focus/focusManager";
+	import { type FocusableOptions } from "@gitbutler/ui/focus/focusTypes";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { tick } from "svelte";
+	import type { TreeChange } from "@gitbutler/but-sdk";
 
 	interface Props {
 		projectId: string;

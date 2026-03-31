@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BranchBadge from "$components/branch/BranchBadge.svelte";
-	import { type BranchDetails } from "$lib/stacks/stack";
 	import { AvatarGroup, Button } from "@gitbutler/ui";
+	import type { BranchDetails } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
 
 	type Props = {

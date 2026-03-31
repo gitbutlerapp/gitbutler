@@ -75,24 +75,34 @@ pub fn reorder_stack(
 
 /// Represents the order of series (branches) and changes (commits) in a stack.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct StackOrder {
     /// The series are ordered from newest to oldest (most recent stacks go first)
     pub series: Vec<SeriesOrder>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(StackOrder);
 
 /// Represents the order of changes (commits) in a series (branch).
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct SeriesOrder {
     /// Unique name of the series (branch). Must already exist in the stack.
     pub name: String,
-    /// This is the desired commit order for the series. Because the commits will be rabased,
-    /// naturally, the the commit ids will be different after updating.
+    /// This is the desired commit order for the series. Because the commits will be rebased,
+    /// naturally, the commit ids will be different after updating.
     /// The changes are ordered from newest to oldest (most recent changes go first)
     #[serde(with = "but_serde::object_id_vec")]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::object_id_vec")
+    )]
     pub commit_ids: Vec<ObjectId>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(SeriesOrder);
 
 impl StackOrder {
     fn validate(&self, current_order: StackOrder) -> Result<()> {

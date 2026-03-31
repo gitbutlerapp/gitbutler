@@ -11,7 +11,7 @@
 	import FileStatusBadge from "$components/file/FileStatusBadge.svelte";
 	import { focusable } from "$lib/focus/focusable";
 	import type { FileStatus } from "$components/file/types";
-	import type { FocusableOptions } from "$lib/focus/focusManager";
+	import type { FocusableOptions } from "$lib/focus/focusTypes";
 
 	interface Props {
 		ref?: HTMLDivElement;

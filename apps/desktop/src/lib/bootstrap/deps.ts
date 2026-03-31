@@ -92,12 +92,12 @@ import {
 	type ExternalLinkService,
 } from "@gitbutler/ui/utils/externalLinkService";
 import { IMECompositionHandler, IME_COMPOSITION_HANDLER } from "@gitbutler/ui/utils/imeHandling";
-import type { Settings } from "@gitbutler/core/api";
+import type { AppSettings } from "@gitbutler/but-sdk";
 import { PUBLIC_API_BASE_URL } from "$env/static/public";
 
 export function initDependencies(args: {
 	backend: IBackend;
-	appSettings: Settings.AppSettings;
+	appSettings: AppSettings;
 	settingsService: SettingsService;
 	posthog: PostHogWrapper;
 	eventContext: EventContext;
