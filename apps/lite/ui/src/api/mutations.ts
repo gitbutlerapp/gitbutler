@@ -54,6 +54,13 @@ export const moveBranchMutationOptions = mutationOptions({
 	},
 });
 
+export const removeBranchMutationOptions = mutationOptions({
+	mutationFn: window.lite.removeBranch,
+	onSuccess: async (_data, _input, _ctx, { client }) => {
+		await client.invalidateQueries();
+	},
+});
+
 export const updateBranchNameMutationOptions = mutationOptions({
 	mutationFn: window.lite.updateBranchName,
 	onSuccess: async (_data, _input, _ctx, { client }) => {

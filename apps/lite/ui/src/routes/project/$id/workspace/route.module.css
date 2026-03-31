@@ -178,6 +178,12 @@
 	font-family: monospace;
 }
 
+.dialogActions {
+	display: flex;
+	column-gap: 8px;
+	justify-content: flex-end;
+}
+
 .editCommitMessageInput {
 	field-sizing: content;
 	box-sizing: content-box;

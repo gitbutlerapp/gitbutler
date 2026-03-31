@@ -135,7 +135,7 @@ const commitDetailsBindings: Array<ShortcutBinding<CommitDetailsAction>> = [
 	closeCommitDetailsBinding,
 ];
 
-type BranchSegmentAction = SelectionAction | { _tag: "RenameBranch" };
+type BranchSegmentAction = SelectionAction | { _tag: "RenameBranch" } | { _tag: "RemoveBranch" };
 
 const branchSegmentBindings: Array<ShortcutBinding<BranchSegmentAction>> = [
 	...selectionBindings,
@@ -144,6 +144,13 @@ const branchSegmentBindings: Array<ShortcutBinding<BranchSegmentAction>> = [
 		description: "Rename",
 		keys: ["Enter"],
 		action: { _tag: "RenameBranch" },
+		repeat: false,
+	},
+	{
+		id: "segment-remove-branch",
+		description: "Remove branch",
+		keys: ["Backspace"],
+		action: { _tag: "RemoveBranch" },
 		repeat: false,
 	},
 ];
@@ -409,6 +416,7 @@ export const useWorkspaceShortcuts = ({
 	setEditing,
 	commonBaseCommitId,
 	onAbsorbChanges,
+	onRemoveBranch,
 }: {
 	projectId: string;
 	showFullscreenPreview: boolean;
@@ -418,6 +426,7 @@ export const useWorkspaceShortcuts = ({
 	setEditing: (selection: Editing | null) => void;
 	commonBaseCommitId?: string;
 	onAbsorbChanges: (changes: Array<TreeChange>, stackId: string | null) => void;
+	onRemoveBranch: (selection: SegmentItem) => void;
 }) => {
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
@@ -535,6 +544,7 @@ export const useWorkspaceShortcuts = ({
 						},
 					});
 				},
+				RemoveBranch: () => onRemoveBranch(selection),
 			}),
 			Match.orElse((action) => handleSelectionAction(action, { _tag: "Segment", ...selection })),
 		);
