@@ -87,7 +87,6 @@ impl Subcommands {
             Subcommands::Pull { .. } => Pull,
             #[cfg(feature = "legacy")]
             Subcommands::Fetch => Pull,
-            Subcommands::Stack { .. } => BranchMove,
             Subcommands::Branch(branch::Platform { cmd }) => match cmd {
                 None => BranchList,
                 #[cfg(feature = "legacy")]
@@ -209,7 +208,7 @@ impl Subcommands {
             Subcommands::Squash { .. } => Rub,
             #[cfg(feature = "legacy")]
             Subcommands::Merge { .. } => Merge,
-            Subcommands::Move { .. } => Rub,
+            Subcommands::Move { .. } => Move,
             #[cfg(feature = "legacy")]
             Subcommands::Pick { .. } => Pick,
             Subcommands::Skill(skill::Platform { cmd }) => match cmd {

@@ -329,14 +329,6 @@ async fn match_subcommand(
 
             result.emit_metrics(metrics_ctx)
         }
-        Subcommands::Stack {
-            branch,
-            target_branch,
-        } => {
-            let ctx = but_ctx::Context::discover(&args.current_dir)?;
-            command::branch::move_branch(ctx, &branch, &target_branch, out)
-                .emit_metrics(metrics_ctx)
-        }
         Subcommands::Branch(branch::Platform { cmd }) => {
             let result = match cmd {
                 #[cfg(not(feature = "legacy"))]
@@ -434,16 +426,16 @@ async fn match_subcommand(
                     target_branch,
                     unstack,
                 }) => {
-                    let ctx = but_ctx::Context::discover(&args.current_dir)?;
+                    let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
                     if unstack {
-                        command::branch::tear_off_branch(ctx, &branch, out)
+                        command::branch::tear_off_branch(&mut ctx, &branch, out)
                     } else {
                         let target_branch = target_branch.ok_or_else(|| {
                             anyhow::anyhow!(
                                 "`but branch move` requires <TARGET_BRANCH> unless --unstack is used"
                             )
                         })?;
-                        command::branch::move_branch(ctx, &branch, &target_branch, out)
+                        command::branch::move_branch(&mut ctx, &branch, &target_branch, out)
                     }
                 }
             };
@@ -1392,17 +1384,15 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         Subcommands::Move {
-            source_commit,
+            source,
             target,
             after,
         } => {
             let status_after = args.status_after;
             let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
             out.begin_status_after(status_after);
-            let result =
-                command::commit::r#move::handle(&mut ctx, out, &source_commit, &target, after)
-                    .context("Failed to move commit.")
-                    .emit_metrics(metrics_ctx);
+            let result = command::r#move::handle(&mut ctx, out, &source, &target, after)
+                .emit_metrics(metrics_ctx);
             maybe_run_status_after(status_after, &result, &mut ctx, out).await;
             result.show_root_cause_error_then_exit_without_destructors(output)
         }
