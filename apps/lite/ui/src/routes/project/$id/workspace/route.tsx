@@ -908,11 +908,15 @@ const CommitRow: FC<
 		if (trimmed === initialMessage) return;
 		startCommitMessageTransition(async () => {
 			setOptimisticMessage(trimmed);
-			await commitReword.mutateAsync({
-				projectId,
-				commitId: commit.id,
-				message: trimmed,
-			});
+			await commitReword
+				.mutateAsync({
+					projectId,
+					commitId: commit.id,
+					message: trimmed,
+				})
+				// Use the global mutation error handler (shows toast) instead of React
+				// error boundaries.
+				.catch(() => {});
 		});
 	};
 
@@ -1474,12 +1478,16 @@ const SegmentRow: FC<
 		if (trimmed === "" || trimmed === branchName) return;
 		startRenameTransition(async () => {
 			setOptimisticBranchName(trimmed);
-			await updateBranchName.mutateAsync({
-				projectId,
-				stackId,
-				branchName,
-				newName: trimmed,
-			});
+			await updateBranchName
+				.mutateAsync({
+					projectId,
+					stackId,
+					branchName,
+					newName: trimmed,
+				})
+				// Use the global mutation error handler (shows toast) instead of React
+				// error boundaries.
+				.catch(() => {});
 		});
 	};
 
