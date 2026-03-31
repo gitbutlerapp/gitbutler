@@ -92,16 +92,16 @@
 
 	/* MODIFIERS */
 	.status-dot-wrap.added {
-		--file-dot-color: var(--fill-safe-bg);
+		--file-dot-color: var(--change-status-addition);
 	}
 	.status-dot-wrap.modified {
-		--file-dot-color: var(--fill-warn-bg);
+		--file-dot-color: var(--change-status-modification);
 	}
 	.status-dot-wrap.deleted {
-		--file-dot-color: var(--fill-danger-bg);
+		--file-dot-color: var(--change-status-deletion);
 	}
 	.status-dot-wrap.renamed {
-		--file-dot-color: var(--fill-purple-bg);
+		--file-dot-color: var(--change-status-rename);
 	}
 
 	/* FULL-LARGE VARIANT */
