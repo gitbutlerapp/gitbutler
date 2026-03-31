@@ -30,6 +30,7 @@ import {
 	ShowCommitWithQuery,
 	isTypingTarget,
 } from "#ui/routes/project/$id/-shared.tsx";
+import uiStyles from "#ui/ui.module.css";
 import sharedStyles from "../-shared.module.css";
 import { getDefaultSelection, normalizeBranchSelection, Selection } from "./-Selection.ts";
 
@@ -136,10 +137,10 @@ const BranchMenuPopup: FC<{
 	const stackId = branch.stack?.id;
 
 	return (
-		<Popup className={sharedStyles.menuPopup}>
+		<Popup className={classes(uiStyles.popup, uiStyles.menuPopup)}>
 			{!branch.stack?.inWorkspace ? (
 				<Item
-					className={sharedStyles.menuItem}
+					className={uiStyles.menuItem}
 					disabled={ref === null}
 					onClick={() => {
 						if (ref === null) return;
@@ -153,7 +154,7 @@ const BranchMenuPopup: FC<{
 				</Item>
 			) : (
 				<Item
-					className={sharedStyles.menuItem}
+					className={uiStyles.menuItem}
 					disabled={stackId === undefined}
 					onClick={() => {
 						if (stackId === undefined) return;

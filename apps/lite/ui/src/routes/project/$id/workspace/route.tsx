@@ -174,7 +174,9 @@ const DependencyIndicator: FC<
 					// To match tooltips.
 					side="top"
 				>
-					<Popover.Popup className={uiStyles.tooltip}>{tooltip}</Popover.Popup>
+					<Popover.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
+						{tooltip}
+					</Popover.Popup>
 				</Popover.Positioner>
 			</Popover.Portal>
 		</Popover.Root>
@@ -569,7 +571,9 @@ const ChangesTarget: FC<
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={uiStyles.tooltip}>{tooltip}</Tooltip.Popup>
+					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
+						{tooltip}
+					</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>
@@ -583,16 +587,16 @@ const StackMenuPopup: FC<{
 	const unapplyStack = useMutation(unapplyStackMutationOptions);
 
 	return (
-		<Menu.Popup className={sharedStyles.menuPopup}>
-			<Menu.Item className={sharedStyles.menuItem} disabled>
+		<Menu.Popup className={classes(uiStyles.popup, uiStyles.menuPopup)}>
+			<Menu.Item className={uiStyles.menuItem} disabled>
 				Move to leftmost
 			</Menu.Item>
-			<Menu.Item className={sharedStyles.menuItem} disabled>
+			<Menu.Item className={uiStyles.menuItem} disabled>
 				Move to rightmost
 			</Menu.Item>
 			<Menu.Separator />
 			<Menu.Item
-				className={sharedStyles.menuItem}
+				className={uiStyles.menuItem}
 				disabled={unapplyStack.isPending}
 				onClick={() => {
 					unapplyStack.mutate({ projectId, stackId });
@@ -698,7 +702,9 @@ const CommitTarget: FC<
 				<Tooltip.Trigger render={droppable} />
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={8}>
-						<Tooltip.Popup className={uiStyles.tooltip}>{tooltip}</Tooltip.Popup>
+						<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
+							{tooltip}
+						</Tooltip.Popup>
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
 			</Tooltip.Root>
@@ -783,16 +789,16 @@ const CommitMenuPopup: FC<{
 	const { Popup, Item, SubmenuRoot, SubmenuTrigger, Positioner } = parts;
 
 	return (
-		<Popup className={sharedStyles.menuPopup}>
-			<Item className={sharedStyles.menuItem} disabled={!canReword} onClick={onReword}>
+		<Popup className={classes(uiStyles.popup, uiStyles.menuPopup)}>
+			<Item className={uiStyles.menuItem} disabled={!canReword} onClick={onReword}>
 				Reword commit
 			</Item>
 			<SubmenuRoot>
-				<SubmenuTrigger className={sharedStyles.menuItem}>Add empty commit</SubmenuTrigger>
+				<SubmenuTrigger className={uiStyles.menuItem}>Add empty commit</SubmenuTrigger>
 				<Positioner>
-					<Popup className={sharedStyles.menuPopup}>
+					<Popup className={classes(uiStyles.popup, uiStyles.menuPopup)}>
 						<Item
-							className={sharedStyles.menuItem}
+							className={uiStyles.menuItem}
 							onClick={() => {
 								commitInsertBlank.mutate({
 									projectId,
@@ -804,7 +810,7 @@ const CommitMenuPopup: FC<{
 							Above
 						</Item>
 						<Item
-							className={sharedStyles.menuItem}
+							className={uiStyles.menuItem}
 							onClick={() => {
 								commitInsertBlank.mutate({
 									projectId,
@@ -1168,9 +1174,9 @@ const Changes: FC<{
 					</Menu.Trigger>
 					<Menu.Portal>
 						<Menu.Positioner align="end">
-							<Menu.Popup className={sharedStyles.menuPopup}>
+							<Menu.Popup className={classes(uiStyles.popup, uiStyles.menuPopup)}>
 								<Menu.Item
-									className={sharedStyles.menuItem}
+									className={uiStyles.menuItem}
 									disabled={changes.length === 0}
 									onClick={() => {
 										onAbsorbChanges(changes, stackId);
@@ -1381,7 +1387,9 @@ const BranchTarget: FC<
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={uiStyles.tooltip}>{tooltip}</Tooltip.Popup>
+					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
+						{tooltip}
+					</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>
@@ -1416,7 +1424,9 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={uiStyles.tooltip}>Tear off branch</Tooltip.Popup>
+					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
+						Tear off branch
+					</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>
@@ -1431,8 +1441,8 @@ const SegmentMenuPopup: FC<{
 	const { Popup, Item } = parts;
 
 	return (
-		<Popup className={sharedStyles.menuPopup}>
-			<Item className={sharedStyles.menuItem} disabled={!canRename} onClick={onRename}>
+		<Popup className={classes(uiStyles.popup, uiStyles.menuPopup)}>
+			<Item className={uiStyles.menuItem} disabled={!canRename} onClick={onRename}>
 				Rename branch
 			</Item>
 		</Popup>

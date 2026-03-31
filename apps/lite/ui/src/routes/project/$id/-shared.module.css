@@ -25,7 +25,7 @@
 	flex-direction: column;
 	inset: 0;
 	overflow: hidden;
-	background-color: white;
+	background-color: var(--color-bg);
 }
 
 .previewDialogBody {
@@ -36,7 +36,7 @@
 
 .previewResizeHandle {
 	width: 1px;
-	background-color: black;
+	background-color: var(--color-separator);
 }
 
 .laneDiffColumn {
@@ -48,29 +48,29 @@
 	align-items: start;
 
 	&:where(:hover) {
-		background-color: #e8e8e8;
+		background-color: var(--color-item-hover-bg);
 	}
 }
 
 .itemEmpty {
 	padding-inline: var(--item-inline-padding);
 	padding-block: var(--item-block-padding);
-	color: gray;
+	color: var(--color-text-secondary);
 	line-height: var(--item-line-height);
 }
 
 .selected {
-	background-color: black;
-	color: white;
+	background-color: var(--color-item-selected-bg);
+	color: var(--color-item-selected-fg);
 }
 
 .highlighted {
-	background-color: burlywood;
-	color: black;
+	background-color: var(--color-item-highlighted-bg);
+	color: var(--color-text);
 }
 
 .sectionSelected {
-	background-color: #f5f5f5;
+	background-color: var(--color-section-selected-bg);
 }
 
 .itemAction {
@@ -80,10 +80,10 @@
 	padding-block: var(--item-block-padding);
 
 	&:enabled:hover {
-		background-color: #dcdcdc;
+		background-color: var(--color-item-action-hover-bg);
 
 		.item.selected & {
-			background-color: #2b2b2b;
+			background-color: var(--color-item-selected-action-hover-bg);
 		}
 	}
 
@@ -137,7 +137,7 @@
 }
 
 .selectedFile {
-	background-color: lightgray;
+	background-color: var(--color-file-selected-bg);
 }
 
 .hunkHeaderRow {
@@ -153,22 +153,5 @@
 }
 
 .dragPreview {
-	padding: 4px 8px;
-	border: 1px solid;
-	background-color: white;
-}
-
-.menuPopup {
-	border: 1px solid;
-	background-color: white;
-}
-
-.menuItem {
-	padding: 4px;
-	border: 1px solid;
-	cursor: default;
-
-	&[data-disabled] {
-		opacity: 0.5;
-	}
+	padding: 8px;
 }

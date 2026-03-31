@@ -29,8 +29,8 @@ export const AbsorptionDialog: FC<{
 }> = ({ absorptionPlan, isAbsorbing, onConfirm, onOpenChange }) => (
 	<AlertDialog.Root open onOpenChange={onOpenChange}>
 		<AlertDialog.Portal>
-			<AlertDialog.Backdrop className={styles.backdrop} />
-			<AlertDialog.Popup className={styles.popup}>
+			<AlertDialog.Backdrop className={uiStyles.dialogBackdrop} />
+			<AlertDialog.Popup className={uiStyles.dialogPopup}>
 				<AlertDialog.Title>Absorb changes</AlertDialog.Title>
 				<ul className={styles.body}>
 					{absorptionPlan.map((commitAbsorption) => (

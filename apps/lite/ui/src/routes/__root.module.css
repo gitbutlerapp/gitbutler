@@ -14,7 +14,7 @@
 	grid-area: topBar;
 	align-items: center;
 	padding: 4px;
-	border-bottom: 1px solid;
+	border-bottom: 1px solid var(--color-separator);
 }
 
 .topBarActions {
@@ -29,7 +29,7 @@
 	grid-area: sidebar;
 	flex-direction: column;
 	padding: var(--pane-padding);
-	border-right: 1px solid;
+	border-right: 1px solid var(--color-separator);
 }
 
 .sidebarNav {
@@ -39,12 +39,12 @@
 }
 
 .navLink {
-	color: grey;
+	color: var(--color-text-secondary);
 	text-decoration: none;
 }
 
 .navLinkActive {
-	color: black;
+	color: var(--color-text);
 }
 
 .content {

@@ -3,10 +3,12 @@ import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { type Operation, useRunOperation } from "#ui/Operation.ts";
 import { CommitLabel, formatHunkHeader, Patch } from "#ui/routes/project/$id/-shared.tsx";
+import uiStyles from "#ui/ui.module.css";
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { mergeProps, useRender } from "@base-ui/react";
 import { Commit, DiffHunk, HunkAssignment, HunkHeader, TreeChange } from "@gitbutler/but-sdk";
 import { FC, ReactNode, useEffect } from "react";
+import sharedStyles from "../-shared.module.css";
 import { TreeChangeWithHunkHeaders, type SourceItem } from "./-SourceItem.ts";
 import styles from "./route.module.css";
 
@@ -26,7 +28,9 @@ const parseDropTargetData = (data: unknown): Operation | null => {
 
 const DragPreview: FC<{
 	children: ReactNode;
-}> = ({ children }) => <div className={styles.dragPreview}>{children}</div>;
+}> = ({ children }) => (
+	<div className={classes(uiStyles.popup, sharedStyles.dragPreview)}>{children}</div>
+);
 
 const hunkHeadersForAssignments = (
 	assignments: Array<HunkAssignment> | undefined,

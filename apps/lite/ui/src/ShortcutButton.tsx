@@ -1,3 +1,4 @@
+import { classes } from "#ui/classes.ts";
 import { Tooltip, useRender } from "@base-ui/react";
 import { FC } from "react";
 import { bindingButtonLabel, ShortcutActionBase, ShortcutBinding } from "#ui/shortcuts.ts";
@@ -20,7 +21,9 @@ export const ShortcutButton: FC<ShortcutButtonProps> = ({ binding, render, ...pr
 			<Tooltip.Trigger render={trigger} aria-label={tooltip} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={uiStyles.tooltip}>{tooltip}</Tooltip.Popup>
+					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
+						{tooltip}
+					</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>

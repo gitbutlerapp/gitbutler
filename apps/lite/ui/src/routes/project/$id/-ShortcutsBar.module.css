@@ -5,13 +5,13 @@
 	flex-wrap: wrap;
 	align-items: baseline;
 	padding: 4px var(--pane-padding);
-	border-top: 1px solid;
-	color: #555;
+	border-top: 1px solid var(--color-separator);
+	color: var(--color-text-secondary);
 	text-transform: lowercase;
 }
 
 .scope {
-	color: #111;
+	color: var(--color-text);
 	font-weight: 600;
 }
 
@@ -22,6 +22,6 @@
 }
 
 .keys {
-	color: #111;
+	color: var(--color-text);
 	font-family: monospace;
 }
