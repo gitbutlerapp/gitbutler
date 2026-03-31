@@ -1,5 +1,5 @@
 import { classes } from "#ui/classes.ts";
-import { Tooltip, useRender } from "@base-ui/react";
+import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { FC } from "react";
 import { bindingButtonLabel, ShortcutActionBase, ShortcutBinding } from "#ui/shortcuts.ts";
 import uiStyles from "#ui/ui.module.css";
@@ -13,7 +13,7 @@ export const ShortcutButton: FC<ShortcutButtonProps> = ({ binding, render, ...pr
 	const trigger = useRender({
 		render,
 		defaultTagName: "button",
-		props,
+		props: mergeProps<"button">({ "aria-label": tooltip }, props),
 	});
 
 	return (
@@ -23,7 +23,7 @@ export const ShortcutButton: FC<ShortcutButtonProps> = ({ binding, render, ...pr
 			// [tag:tooltip-disable-hoverable-popup]
 			disableHoverablePopup
 		>
-			<Tooltip.Trigger render={trigger} aria-label={tooltip} />
+			<Tooltip.Trigger render={trigger} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
 					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
