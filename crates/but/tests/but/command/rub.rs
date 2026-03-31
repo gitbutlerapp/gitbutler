@@ -132,6 +132,35 @@ fn branch_commit_id_for_file(
         })
 }
 
+fn committed_file_id_for_file(
+    status: &serde_json::Value,
+    branch_name: &str,
+    file_path: &str,
+) -> Option<String> {
+    status["stacks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|stack| stack["branches"].as_array().unwrap().iter())
+        .find(|branch| branch["name"].as_str().unwrap() == branch_name)
+        .and_then(|branch| {
+            branch["commits"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find_map(|commit| {
+                    commit["changes"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find_map(|change| {
+                            (change["filePath"].as_str().unwrap() == file_path)
+                                .then(|| change["cliId"].as_str().unwrap().to_string())
+                        })
+                })
+        })
+}
+
 #[test]
 fn assign_uncommitted_file() -> anyhow::Result<()> {
     let env = assigned_uncommitted_file_env()?;
@@ -625,6 +654,240 @@ Failed to uncommit. Cannot uncommit a.txt - it is an uncommitted file or hunk. O
 Failed to uncommit. Cannot uncommit A - it is a branch. Only commits and files-in-commits can be uncommitted.
 
 "#]]);
+
+    Ok(())
+}
+
+#[test]
+fn uncommit_command_with_discard_on_commit() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+
+    let before = status_json(&env)?;
+    let commits_before = branch_commit_ids(&before, "A");
+    let source_commit = commits_before[0].clone();
+
+    env.but("stf")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   fce8ecc create a.txt and b.txt
+┊│     fc:nk A a.txt
+┊│     fc:pn A b.txt
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+┊│     d3:pl A B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but(format!("uncommit {source_commit} --discard"))
+        .assert()
+        .success();
+
+    let after = status_json(&env)?;
+    let commits_after = branch_commit_ids(&after, "A");
+
+    assert_eq!(
+        commits_after.len() + 1,
+        commits_before.len(),
+        "discarding a commit via uncommit should remove that commit from branch history"
+    );
+    assert!(
+        !commits_after.contains(&source_commit),
+        "source commit should no longer be present after discard"
+    );
+    assert!(
+        !unassigned_contains_file(&after, "a.txt") && !unassigned_contains_file(&after, "b.txt"),
+        "discarding a commit should not move its changes into unassigned"
+    );
+
+    env.but("stf")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+┊│     d3:pl A B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn uncommit_command_with_discard_on_committed_file() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+
+    let before = status_json(&env)?;
+    let committed_file_id = committed_file_id_for_file(&before, "A", "b.txt")
+        .expect("b.txt committed-file id should exist");
+
+    env.but("stf")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   fce8ecc create a.txt and b.txt
+┊│     fc:nk A a.txt
+┊│     fc:pn A b.txt
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+┊│     d3:pl A B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but(format!("uncommit {committed_file_id} -d"))
+        .assert()
+        .success();
+
+    let after = status_json(&env)?;
+    assert!(
+        !unassigned_contains_file(&after, "b.txt"),
+        "discarded committed file changes should not end up unassigned"
+    );
+    assert!(
+        !branch_commits_contain_file(&after, "A", "b.txt"),
+        "discarded committed file changes should no longer be in commit history"
+    );
+    assert!(
+        branch_commits_contain_file(&after, "A", "a.txt"),
+        "other committed file changes should remain in history"
+    );
+
+    env.but("stf")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   993513d create a.txt and b.txt
+┊│     99:nk A a.txt
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+┊│     d3:pl A B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn uncommit_help_mentions_discard_flag() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
+
+    let output = env.but("uncommit --help").output()?;
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout)?;
+
+    assert!(
+        stdout.contains("-d, --discard"),
+        "expected uncommit help to list the discard flag"
+    );
+    assert!(
+        stdout.contains("Discard the selected committed changes"),
+        "expected uncommit help to describe discard behavior"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn uncommit_discard_multiple_sources_writes_single_json_with_status_after() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "second commit");
+
+    let before = status_json(&env)?;
+    let commits_before = branch_commit_ids(&before, "A");
+    let sources = format!("{},{}", commits_before[0], commits_before[1]);
+
+    let output = env
+        .but(format!(
+            "--json --status-after uncommit {sources} --discard"
+        ))
+        .allow_json()
+        .output()?;
+    assert!(output.status.success());
+
+    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    assert_eq!(parsed["result"]["ok"], serde_json::json!(true));
+    assert!(
+        parsed.get("status").is_some(),
+        "--status-after JSON wrapper should include status"
+    );
+
+    let after = status_json(&env)?;
+    let commits_after = branch_commit_ids(&after, "A");
+
+    assert_eq!(
+        commits_after.len() + 2,
+        commits_before.len(),
+        "discarding two commit sources should remove both from branch history"
+    );
+    assert!(
+        !unassigned_contains_file(&after, "a.txt") && !unassigned_contains_file(&after, "b.txt"),
+        "discarded commits should not move their changes into unassigned"
+    );
 
     Ok(())
 }
