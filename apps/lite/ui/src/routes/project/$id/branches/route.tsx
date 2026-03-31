@@ -87,7 +87,7 @@ const useSelectionKeyboardShortcuts = ({
 
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
 		if (event.defaultPrevented || event.repeat) return;
-		if (event.metaKey || event.ctrlKey || event.altKey) return;
+		if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
 		if (isTypingTarget(event.target)) return;
 		if (selection?._tag !== "Commit") return;
 

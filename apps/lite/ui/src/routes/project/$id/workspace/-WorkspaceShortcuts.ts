@@ -74,13 +74,13 @@ const selectionBindings: Array<ShortcutBinding<SelectionAction>> = [
 	{
 		id: "previous-section",
 		description: "Previous section",
-		keys: ["K"],
+		keys: ["Shift+k"],
 		action: { _tag: "PreviousSection" },
 	},
 	{
 		id: "next-section",
 		description: "Next section",
-		keys: ["J"],
+		keys: ["Shift+j"],
 		action: { _tag: "NextSection" },
 	},
 	togglePreviewBinding,
@@ -193,17 +193,12 @@ export const handleCommitEditingMessageKeyDown = ({
 	const action = getAction(commitEditingMessageBindings, event);
 	if (!action) return;
 
+	event.preventDefault();
+
 	Match.value(action).pipe(
 		Match.tagsExhaustive({
-			Save: () => {
-				if (event.shiftKey) return;
-				event.preventDefault();
-				onSave();
-			},
-			Cancel: () => {
-				event.preventDefault();
-				onCancel();
-			},
+			Save: onSave,
+			Cancel: onCancel,
 		}),
 	);
 };
@@ -546,7 +541,6 @@ export const useWorkspaceShortcuts = ({
 
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
 		if (event.defaultPrevented) return;
-		if (event.metaKey || event.ctrlKey || event.altKey) return;
 		if (isTypingTarget(event.target)) return;
 		if (isWithinBaseUiInert(event.target)) return;
 
