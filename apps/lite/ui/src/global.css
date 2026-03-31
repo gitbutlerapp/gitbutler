@@ -1,19 +1,20 @@
 :root {
+	color-scheme: light dark;
 	font-family: system-ui;
 
-	--color-white: #fff;
-	--color-gray-50: #f5f5f5;
-	--color-gray-100: #e8e8e8;
-	--color-gray-200: #dcdcdc;
-	--color-gray-400: #adacac;
-	--color-gray-700: #626262;
-	--color-gray-900: #2b2b2b;
-	--color-black: #000;
+	--color-white: light-dark(#fff, #121212);
+	--color-gray-50: light-dark(#f5f5f5, #1a1a1a);
+	--color-gray-100: light-dark(#e8e8e8, #242424);
+	--color-gray-200: light-dark(#dcdcdc, #303030);
+	--color-gray-400: light-dark(#adacac, #8f8f8f);
+	--color-gray-700: light-dark(#626262, #c5c5c5);
+	--color-gray-900: light-dark(#2b2b2b, #ececec);
+	--color-black: light-dark(#000, #fff);
 
 	--color-bg: var(--color-white);
 	--color-button-bg: var(--color-gray-50);
 	--color-button-disabled-fg: var(--color-gray-700);
-	--color-dialog-backdrop: rgb(0 0 0 / 0.35);
+	--color-dialog-backdrop: light-dark(rgb(0 0 0 / 0.35), rgb(0 0 0 / 0.65));
 	--color-drag-over-outline: var(--color-black);
 	--color-file-selected-bg: var(--color-gray-200);
 	--color-input-bg: var(--color-gray-50);
@@ -38,6 +39,8 @@
 
 body {
 	margin: 0;
+	background-color: var(--color-bg);
+	color: var(--color-text);
 	font-size: 16px;
 }
 
