@@ -398,6 +398,7 @@
 	:global(.sidebar .btn-square) {
 		aspect-ratio: 1 / 1;
 		height: unset;
+		padding: 0;
 		border-radius: var(--radius-ml);
 		/* codegen icon */
 		--clr-codegen-star: currentColor;
