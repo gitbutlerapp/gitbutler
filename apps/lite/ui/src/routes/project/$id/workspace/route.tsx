@@ -65,7 +65,7 @@ import {
 	attachInstruction,
 	extractInstruction,
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item";
-import { ContextMenu, Menu, mergeProps, Popover, Toast, Tooltip, useRender } from "@base-ui/react";
+import { ContextMenu, Menu, mergeProps, Tooltip, Toast, useRender } from "@base-ui/react";
 import {
 	Commit,
 	DiffHunk,
@@ -161,25 +161,16 @@ const DependencyIndicator: FC<
 	});
 
 	return (
-		<Popover.Root>
-			<Popover.Trigger
-				openOnHover
-				// To match tooltips. [ref:nested-tooltips]
-				delay={0}
-				render={trigger}
-			/>
-			<Popover.Portal>
-				<Popover.Positioner
-					sideOffset={8}
-					// To match tooltips.
-					side="top"
-				>
-					<Popover.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
+		<Tooltip.Root>
+			<Tooltip.Trigger render={trigger} />
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={8}>
+					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
 						{tooltip}
-					</Popover.Popup>
-				</Popover.Positioner>
-			</Popover.Portal>
-		</Popover.Root>
+					</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
 	);
 };
 
