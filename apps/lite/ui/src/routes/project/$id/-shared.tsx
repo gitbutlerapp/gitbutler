@@ -196,8 +196,11 @@ export const CommitDetails: FC<{
 	);
 };
 
-export const commitTitle = (message: string): string | undefined =>
-	message === "" ? "(no message)" : message.split("\n")[0];
+export const commitTitle = (message: string): string => {
+	const _title = message.trim().split("\n")[0];
+	const title = _title === "" ? undefined : _title;
+	return title ?? "(no message)";
+};
 
 export const CommitLabel: FC<{
 	commit: Commit;
