@@ -1834,9 +1834,7 @@ const ProjectPage: FC = () => {
 	useMonitorDraggedSourceItem({ projectId });
 	useWorkspaceShortcuts({
 		projectId,
-		showFullscreenPreview,
-		editing,
-		selection,
+		scope: shortcutScope,
 		select,
 		setEditing,
 		commonBaseCommitId,

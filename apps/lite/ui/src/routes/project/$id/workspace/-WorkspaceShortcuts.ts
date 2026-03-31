@@ -402,19 +402,15 @@ export const getLabel = (scope: Scope): string =>
 
 export const useWorkspaceShortcuts = ({
 	projectId,
-	showFullscreenPreview,
-	editing,
-	selection,
+	scope,
 	select,
 	setEditing,
 	commonBaseCommitId,
 	onAbsorbChanges,
 }: {
 	projectId: string;
-	showFullscreenPreview: boolean;
-	selection: Item | null;
+	scope: Scope | null;
 	select: (selection: Item | null) => void;
-	editing: Editing | null;
 	setEditing: (selection: Editing | null) => void;
 	commonBaseCommitId?: string;
 	onAbsorbChanges: (changes: Array<TreeChange>, stackId: string | null) => void;
@@ -544,7 +540,6 @@ export const useWorkspaceShortcuts = ({
 		if (isTypingTarget(event.target)) return;
 		if (isWithinBaseUiInert(event.target)) return;
 
-		const scope = getScope({ showFullscreenPreview, selection, editing });
 		if (!scope) return;
 
 		Match.value(scope).pipe(
