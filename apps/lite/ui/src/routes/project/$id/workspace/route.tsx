@@ -889,7 +889,6 @@ const CommitRow: FC<
 
 	const endEditing = () => {
 		setEditingCommit(null);
-		select(summaryItem);
 	};
 
 	const saveNewMessage = (newMessage: string) => {
