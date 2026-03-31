@@ -87,44 +87,52 @@ const selectionBindings: Array<ShortcutBinding<SelectionAction>> = [
 	openFullscreenPreviewBinding,
 ];
 
+export const absorbChangesBinding: ShortcutBinding<ChangesAction> = {
+	id: "changes-absorb",
+	description: "Absorb",
+	keys: ["a"],
+	action: { _tag: "Absorb" },
+	repeat: false,
+};
+
 const changesBindings: Array<ShortcutBinding<ChangesAction>> = [
 	...selectionBindings,
-	{
-		id: "changes-absorb",
-		description: "Absorb",
-		keys: ["a"],
-		action: { _tag: "Absorb" },
-		repeat: false,
-	},
+	absorbChangesBinding,
 ];
+
+const editCommitMessageBinding: ShortcutBinding<CommitSummaryAction> = {
+	id: "commit-edit-message",
+	description: "Edit message",
+	keys: ["Enter"],
+	action: { _tag: "EditMessage" },
+	repeat: false,
+};
+
+export const openCommitDetailsBinding: ShortcutBinding<CommitSummaryAction> = {
+	id: "commit-open-details",
+	description: "Open details",
+	keys: ["ArrowRight", "l"],
+	action: { _tag: "OpenDetails" },
+	repeat: false,
+};
 
 const commitSummaryBindings: Array<ShortcutBinding<CommitSummaryAction>> = [
 	...selectionBindings,
-	{
-		id: "commit-edit-message",
-		description: "Edit message",
-		keys: ["Enter"],
-		action: { _tag: "EditMessage" },
-		repeat: false,
-	},
-	{
-		id: "commit-open-details",
-		description: "Open details",
-		keys: ["ArrowRight", "l"],
-		action: { _tag: "OpenDetails" },
-		repeat: false,
-	},
+	editCommitMessageBinding,
+	openCommitDetailsBinding,
 ];
+
+export const closeCommitDetailsBinding: ShortcutBinding<CommitDetailsAction> = {
+	id: "commit-close-details",
+	description: "Close details",
+	keys: ["ArrowLeft", "Escape"],
+	action: { _tag: "CloseDetails" },
+	repeat: false,
+};
 
 const commitDetailsBindings: Array<ShortcutBinding<CommitDetailsAction>> = [
 	...selectionBindings,
-	{
-		id: "commit-close-details",
-		description: "Close details",
-		keys: ["ArrowLeft", "Escape"],
-		action: { _tag: "CloseDetails" },
-		repeat: false,
-	},
+	closeCommitDetailsBinding,
 ];
 
 type BranchSegmentAction = SelectionAction | { _tag: "RenameBranch" };

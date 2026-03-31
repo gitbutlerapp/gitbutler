@@ -31,6 +31,7 @@ import { stackRelativeTo } from "#ui/domain/Stack.ts";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
 import { type Operation } from "#ui/Operation.ts";
+import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import {
 	DraggableBranch,
@@ -107,9 +108,12 @@ import {
 } from "./-Item.ts";
 import { buildNavigationModel, getSelectedCommitPath } from "./-Selection.ts";
 import {
+	absorbChangesBinding,
+	closeCommitDetailsBinding,
 	renameBranchBindings,
 	handleRenameBranchKeyDown,
 	commitEditingMessageBindings,
+	openCommitDetailsBinding,
 	handleCommitEditingMessageKeyDown,
 	getLabel,
 	getScope,
@@ -971,19 +975,19 @@ const CommitRow: FC<
 							</ContextMenu.Portal>
 						</ContextMenu.Root>
 					)}
-					<button
+					<ShortcutButton
+						binding={
+							commitSelection?.mode._tag === "Details"
+								? closeCommitDetailsBinding
+								: openCommitDetailsBinding
+						}
 						className={sharedStyles.itemAction}
 						type="button"
 						onClick={toggleDetails}
 						aria-expanded={commitSelection?.mode._tag === "Details"}
-						aria-label={
-							commitSelection?.mode._tag === "Details"
-								? "Hide commit details"
-								: "Show commit details"
-						}
 					>
 						<ExpandCollapseIcon isExpanded={commitSelection?.mode._tag === "Details"} />
-					</button>
+					</ShortcutButton>
 					<Menu.Root>
 						<Menu.Trigger className={sharedStyles.itemAction} aria-label="Commit menu">
 							<MenuTriggerIcon />
@@ -1138,17 +1142,17 @@ const Changes: FC<{
 				>
 					{label}
 				</button>
-				<button
+				<ShortcutButton
+					binding={absorbChangesBinding}
 					type="button"
 					className={sharedStyles.itemAction}
-					aria-label={`Absorb all ${label.toLowerCase()}`}
 					disabled={changes.length === 0}
 					onClick={() => {
 						onAbsorbChanges(changes, stackId);
 					}}
 				>
 					<AbsorbIcon />
-				</button>
+				</ShortcutButton>
 				<Menu.Root>
 					<Menu.Trigger className={sharedStyles.itemAction} aria-label={`${label} menu`}>
 						<MenuTriggerIcon />
@@ -1203,16 +1207,16 @@ const Changes: FC<{
 													select(changesDetailsItem(stackId, change.path));
 												}}
 											/>
-											<button
+											<ShortcutButton
+												binding={absorbChangesBinding}
 												type="button"
 												className={sharedStyles.itemAction}
-												aria-label={`Absorb ${change.path}`}
 												onClick={() => {
 													onAbsorbChanges([change], stackId);
 												}}
 											>
 												<AbsorbIcon />
-											</button>
+											</ShortcutButton>
 											{isNonEmptyArray(dependencyCommitIds) && (
 												<DependencyIndicator
 													projectId={projectId}
