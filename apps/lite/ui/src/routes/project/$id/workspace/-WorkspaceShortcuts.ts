@@ -74,13 +74,13 @@ const selectionBindings: Array<ShortcutBinding<SelectionAction>> = [
 	{
 		id: "previous-section",
 		description: "Previous section",
-		keys: ["Shift+k"],
+		keys: ["Shift+ArrowUp", "Shift+k"],
 		action: { _tag: "PreviousSection" },
 	},
 	{
 		id: "next-section",
 		description: "Next section",
-		keys: ["Shift+j"],
+		keys: ["Shift+ArrowDown", "Shift+j"],
 		action: { _tag: "NextSection" },
 	},
 	togglePreviewBinding,
