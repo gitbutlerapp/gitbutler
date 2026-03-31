@@ -17,7 +17,12 @@ export const ShortcutButton: FC<ShortcutButtonProps> = ({ binding, render, ...pr
 	});
 
 	return (
-		<Tooltip.Root>
+		<Tooltip.Root
+			// Prevent tooltip from continuing to show when mouse moves from one
+			// selected item to another.
+			// [tag:tooltip-disable-hoverable-popup]
+			disableHoverablePopup
+		>
 			<Tooltip.Trigger render={trigger} aria-label={tooltip} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>

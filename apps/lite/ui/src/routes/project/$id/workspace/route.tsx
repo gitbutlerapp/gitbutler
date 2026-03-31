@@ -161,7 +161,10 @@ const DependencyIndicator: FC<
 	});
 
 	return (
-		<Tooltip.Root>
+		<Tooltip.Root
+			// [ref:tooltip-disable-hoverable-popup]
+			disableHoverablePopup
+		>
 			<Tooltip.Trigger render={trigger} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
