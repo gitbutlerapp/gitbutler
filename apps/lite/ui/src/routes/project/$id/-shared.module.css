@@ -94,6 +94,7 @@
 
 	.item:hover &,
 	.item:focus-within &,
+	.item:has(.itemAction[data-popup-open]) &,
 	.item:has(.itemAction[aria-expanded="true"]) &,
 	.item.selected & {
 		visibility: visible;
