@@ -112,16 +112,78 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         writeln!(out)?;
     }
 
-    // Uninstall managed hooks before checking out
-    if let Ok(repo) = ctx.repo.get()
-        && let Err(e) = gitbutler_repo::managed_hooks::uninstall_managed_hooks(&repo)
-        && let Some(out) = out.for_human()
-    {
-        writeln!(
-            out,
-            "  {}",
-            format!("Warning: Failed to uninstall Git hooks: {e}").yellow()
-        )?;
+    // Uninstall managed hooks before checking out.
+    // Always attempt cleanup: `uninstall_managed_hooks` is signature-safe and
+    // skips any hook that does not carry the `GITBUTLER_MANAGED_HOOK_V1`
+    // signature, so prek/user hooks are never touched.
+    if let Ok(repo) = ctx.repo.get() {
+        let hooks_dir = gitbutler_repo::managed_hooks::get_hooks_dir_gix(&repo);
+        match gitbutler_repo::managed_hooks::uninstall_managed_hooks(&hooks_dir) {
+            Ok(summary) => {
+                let hook_output_printed = !summary.removed.is_empty()
+                    || !summary.restored.is_empty()
+                    || !summary.warnings.is_empty();
+                if let Some(out) = out.for_human() {
+                    for name in &summary.removed {
+                        writeln!(out, "  {}", format!("✓ Removed {name}").green())?;
+                    }
+                    for name in &summary.restored {
+                        writeln!(
+                            out,
+                            "  {}",
+                            format!("✓ Restored {name} (your original hook is back)").green()
+                        )?;
+                    }
+                    for w in &summary.warnings {
+                        writeln!(out, "  {}", format!("Warning: {w}").yellow())?;
+                    }
+                    if hook_output_printed {
+                        writeln!(out)?;
+                    }
+                }
+
+                // Only show the "externally managed" message when an external hook
+                // manager is actually present in the hooks dir. Checking only the
+                // config flag is misleading: it can be `false` after `--no-hooks` or a
+                // manual edit even when no external manager exists.
+                let workdir = repo
+                    .workdir()
+                    .unwrap_or_else(|| repo.git_dir())
+                    .to_path_buf();
+                if let Some((manager_name, _)) =
+                    gitbutler_repo::hook_manager::detect_hook_manager_in_hooks_dir(
+                        &hooks_dir, &workdir,
+                    )
+                    && let Some(out) = out.for_human()
+                {
+                    writeln!(
+                        out,
+                        "  {}",
+                        format!("Hooks are managed by {manager_name} — leaving them untouched.")
+                            .dimmed()
+                    )?;
+                    writeln!(
+                        out,
+                        "  {}",
+                        format!(
+                            "If you wired 'but hook' commands into {manager_name}, remove those \
+                             entries to fully disable GitButler's workspace guards."
+                        )
+                        .dimmed()
+                    )?;
+                    writeln!(out)?;
+                }
+            }
+            Err(e) => {
+                if let Some(out) = out.for_human() {
+                    writeln!(
+                        out,
+                        "  {}",
+                        format!("Warning: Failed to uninstall Git hooks: {e}").yellow()
+                    )?;
+                }
+            }
+        }
     }
 
     // Check out the target branch using Git directly

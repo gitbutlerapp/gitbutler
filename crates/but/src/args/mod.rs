@@ -295,6 +295,24 @@ pub enum Subcommands {
         #[clap(long)]
         #[clap(verbatim_doc_comment)]
         init: bool,
+        /// Skip installation of GitButler managed hooks.
+        ///
+        /// Use this if you manage Git hooks externally (e.g., with prek, lefthook,
+        /// husky, or pre-commit) and want to handle hook integration yourself.
+        /// This persists a repo-local opt-out so later GitButler workspace updates
+        /// also avoid reinstalling managed hooks.
+        #[clap(long)]
+        #[clap(verbatim_doc_comment)]
+        no_hooks: bool,
+        /// Force installation of GitButler managed hooks even if an external
+        /// hook manager is detected.
+        ///
+        /// Use this to override false-positive detection — for example, when you
+        /// have a `.husky` directory or `lefthook.yml` from a previous setup but
+        /// your hooks are plain user scripts.
+        #[clap(long, conflicts_with = "no_hooks")]
+        #[clap(verbatim_doc_comment)]
+        force_hooks: bool,
     },
 
     /// Exit GitButler mode and return to normal Git workflow.
@@ -1117,6 +1135,29 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Skill(skill::Platform),
 
+    /// Git hook commands for use with external hook managers.
+    ///
+    /// These commands implement GitButler's workspace guard and cleanup logic
+    /// as standalone CLI commands. Any hook manager (prek, lefthook, husky, etc.)
+    /// can call these from its configuration.
+    ///
+    /// ## Examples
+    ///
+    /// Run the workspace guard (blocks commits on gitbutler/workspace):
+    ///
+    /// ```text
+    /// but hook pre-commit
+    /// ```
+    ///
+    /// Run post-checkout cleanup:
+    ///
+    /// ```text
+    /// but hook post-checkout
+    /// ```
+    ///
+    #[clap(verbatim_doc_comment)]
+    Hook(hook::Platform),
+
     /// Show help information grouped by category.
     ///
     /// Displays all available commands organized into functional categories
@@ -1196,6 +1237,7 @@ pub enum Subcommands {
 pub mod alias;
 pub mod commit;
 pub mod config;
+pub mod hook;
 pub mod skill;
 pub mod update;
 

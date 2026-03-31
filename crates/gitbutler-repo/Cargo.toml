@@ -16,6 +16,7 @@ but-core = { workspace = true, features = ["legacy"] }
 but-gerrit.workspace = true
 but-oxidize.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
+but-hooks.workspace = true
 
 gitbutler-project.workspace = true
 gitbutler-reference.workspace = true
@@ -28,7 +29,6 @@ gix = { workspace = true, features = ["merge", "status", "tree-editor"] }
 anyhow.workspace = true
 bstr.workspace = true
 tracing.workspace = true
-tempfile.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 resolve-path = "0.1.0"

@@ -71,6 +71,7 @@ but-llm.workspace = true
 but-action = { workspace = true, optional = true }
 # Still uses `gitbutler-stack`, but otherwise it is non-legacy.
 but-hunk-assignment.workspace = true
+but-hooks.workspace = true
 but-claude = { workspace = true, optional = true }
 but-cursor = { workspace = true, optional = true }
 but-tools = { workspace = true, optional = true }

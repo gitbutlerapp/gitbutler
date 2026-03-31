@@ -19,6 +19,13 @@ mod diff;
 mod format;
 mod gui;
 mod help;
+mod hook;
+#[cfg(feature = "legacy")]
+mod hook_lifecycle;
+#[cfg(feature = "legacy")]
+mod hook_prek_integration;
+#[cfg(feature = "legacy")]
+mod hook_status;
 #[cfg(feature = "legacy")]
 mod merge;
 #[cfg(feature = "legacy")]
