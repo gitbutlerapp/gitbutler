@@ -1,4 +1,10 @@
-use std::{borrow::Cow, ffi::OsString, process::Command, sync::Arc, time::Duration};
+use std::{
+    borrow::Cow,
+    ffi::OsString,
+    process::Command,
+    sync::{Arc, LazyLock},
+    time::Duration,
+};
 
 use anyhow::Context as _;
 use bstr::ByteSlice;
@@ -10,6 +16,7 @@ use gitbutler_operating_modes::OperatingMode;
 use itertools::Either;
 use ratatui::{
     Frame,
+    palette::Hsl,
     prelude::*,
     widgets::{Block, BorderType, Borders, List, ListItem},
 };
@@ -63,7 +70,11 @@ mod toast;
 #[cfg(test)]
 mod tests;
 
-const CURSOR_BG: Color = Color::Rgb(69, 71, 90);
+static CURSOR_BG: LazyLock<Color> = LazyLock::new(|| Color::Rgb(69, 71, 90));
+
+static DETAILS_CURSOR_BG: LazyLock<Color> =
+    LazyLock::new(|| Color::from_hsl(Hsl::new(236.8, 0.162, 0.229)));
+
 const NOOP: &str = "noop";
 const CURSOR_CONTEXT_ROWS: usize = 3;
 
@@ -638,7 +649,7 @@ impl App {
             Message::Details(details_message) => {
                 let details_viewport = self.details_viewport(terminal_area);
                 self.details
-                    .try_handle_message(details_message, details_viewport)?;
+                    .try_handle_message(details_message, details_viewport, messages)?;
             }
         }
 
@@ -2022,7 +2033,7 @@ impl App {
         }
 
         if is_selected && self.confirm.is_none() {
-            line = line.bg(CURSOR_BG);
+            line = line.bg(*CURSOR_BG);
         }
 
         if is_selected {
@@ -2030,7 +2041,7 @@ impl App {
                 Mode::Commit(commit_mode)
                     if matches!(data, StatusOutputLineData::Commit { .. }) =>
                 {
-                    let mut extension_line = Line::default().bg(CURSOR_BG);
+                    let mut extension_line = Line::default().bg(*CURSOR_BG);
                     extend_connector_spans(
                         connector.as_deref().unwrap_or_default(),
                         match commit_mode.insert_side {
@@ -2053,7 +2064,7 @@ impl App {
                     if let StatusOutputLineData::Commit { cli_id: target, .. } = data
                         && *move_mode.source != **target
                     {
-                        let mut extension_line = Line::default().bg(CURSOR_BG);
+                        let mut extension_line = Line::default().bg(*CURSOR_BG);
                         extend_connector_spans(
                             connector.as_deref().unwrap_or_default(),
                             match move_mode.insert_side {
@@ -2363,11 +2374,16 @@ impl App {
 
     fn render_debug(&self, area: Rect, frame: &mut Frame) {
         let list = List::new(
-            std::iter::once(ListItem::new(format!("Renders: {}", self.renders))).chain(
-                self.cursor
-                    .selected_line(&self.status_lines)
-                    .map(|selected_line| ListItem::new(format!("{selected_line:#?}"))),
-            ),
+            std::iter::once(ListItem::new(format!("Renders: {}", self.renders)))
+                .chain(std::iter::once(ListItem::new(format!(
+                    "Details selection: {:?}",
+                    self.details.selection()
+                ))))
+                .chain(
+                    self.cursor
+                        .selected_line(&self.status_lines)
+                        .map(|selected_line| ListItem::new(format!("{selected_line:#?}"))),
+                ),
         );
 
         frame.render_widget(list, area);

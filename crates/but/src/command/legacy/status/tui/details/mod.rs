@@ -2,6 +2,7 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     iter::{empty, once, repeat_n},
+    rc::Rc,
     sync::LazyLock,
     time::Instant,
 };
@@ -34,8 +35,8 @@ use unicode_width::UnicodeWidthStr;
 use crate::{
     CliId, IdMap,
     command::legacy::status::tui::{
-        CommandMessage, CommitMessage, DebugAsType, FilesMessage, Message, MoveMessage,
-        RewordMessage, RubMessage, details::details_cursor::DetailsCursor,
+        CommandMessage, CommitMessage, DETAILS_CURSOR_BG, DebugAsType, FilesMessage, Message,
+        MoveMessage, RewordMessage, RubMessage, details::details_cursor::DetailsCursor,
     },
     id::{UncommittedCliId, UncommittedHunk},
 };
@@ -74,10 +75,14 @@ pub(super) enum DetailsVisibility {
 
 #[derive(Debug, Clone)]
 pub(super) enum DetailsMessage {
-    ScrollUp(usize),
-    ScrollDown(usize),
     ToggleVisibility,
     ToggleFocus,
+    Deselect,
+    SelectFirstSection,
+    SelectNextSection,
+    SelectPrevSection,
+    ScrollUp(usize),
+    ScrollDown(usize),
 }
 
 // The majority of time in diff rendering is spent syntax highlighting. So we cache highlighted
@@ -94,6 +99,7 @@ type LineHighlightCache = HashMap<BString, HashMap<Box<str>, Vec<Span<'static>>>
 pub(super) struct Details {
     is_dirty: bool,
     cursor: DetailsCursor,
+    scroll_top: usize,
     widget: Option<DetailsAndDiffWidget>,
     renderer: IncrementalDiffRenderer,
     syntax_set: DebugAsType<OnDemand<SyntaxSet>>,
@@ -109,6 +115,7 @@ impl Details {
             widget: Default::default(),
             renderer: Default::default(),
             cursor: Default::default(),
+            scroll_top: 0,
             visibility: Default::default(),
             line_highlight_cache: Default::default(),
             syntax_set: OnDemand::new(|| Ok(SyntaxSet::load_defaults_newlines())).into(),
@@ -208,9 +215,13 @@ impl Details {
                 BranchMessage::New => true,
             },
             Message::Details(details_message) => match details_message {
-                DetailsMessage::ScrollUp(_)
+                DetailsMessage::ToggleFocus
+                | DetailsMessage::Deselect
+                | DetailsMessage::SelectFirstSection
+                | DetailsMessage::SelectNextSection
+                | DetailsMessage::SelectPrevSection
+                | DetailsMessage::ScrollUp(_)
                 | DetailsMessage::ScrollDown(_)
-                | DetailsMessage::ToggleFocus
                 | DetailsMessage::ToggleVisibility => false,
             },
         }
@@ -220,13 +231,26 @@ impl Details {
         &mut self,
         msg: DetailsMessage,
         viewport: Rect,
+        messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
         match msg {
             DetailsMessage::ScrollUp(n) => {
-                self.cursor = self.cursor.scroll_up(n);
+                self.scroll_top = self.scroll_top.saturating_sub(n);
             }
             DetailsMessage::ScrollDown(n) => {
-                self.cursor = self.cursor.scroll_down(n);
+                self.scroll_top = self.scroll_top.saturating_add(n);
+            }
+            DetailsMessage::SelectNextSection => {
+                self.cursor
+                    .move_selection_by(&self.renderer.sections, |i| i.saturating_add(1));
+
+                self.ensure_selection_visible(viewport);
+            }
+            DetailsMessage::SelectPrevSection => {
+                self.cursor
+                    .move_selection_by(&self.renderer.sections, |i| i.saturating_sub(1));
+
+                self.ensure_selection_visible(viewport);
             }
             DetailsMessage::ToggleVisibility => {
                 self.visibility = match self.visibility {
@@ -239,6 +263,7 @@ impl Details {
                 match self.visibility {
                     DetailsVisibility::Hidden => {
                         self.cursor = DetailsCursor::default();
+                        self.scroll_top = 0;
                     }
                     DetailsVisibility::VisibleVertical { .. } => {
                         self.mark_dirty();
@@ -248,9 +273,24 @@ impl Details {
             DetailsMessage::ToggleFocus => match &mut self.visibility {
                 DetailsVisibility::Hidden => {}
                 DetailsVisibility::VisibleVertical { focused } => {
-                    *focused = !*focused;
+                    if *focused {
+                        *focused = false;
+                        messages.push(Message::Details(DetailsMessage::Deselect));
+                    } else {
+                        *focused = true;
+                        messages.push(Message::Details(DetailsMessage::SelectFirstSection));
+                    }
                 }
             },
+            DetailsMessage::Deselect => {
+                self.cursor.deselect();
+            }
+            DetailsMessage::SelectFirstSection => {
+                if let Some(section) = self.renderer.sections.first() {
+                    self.cursor.select_section(section.id.clone());
+                    self.ensure_selection_visible(viewport);
+                }
+            }
         }
 
         self.clamp_scroll_top(viewport);
@@ -258,12 +298,56 @@ impl Details {
         Ok(())
     }
 
+    fn ensure_selection_visible(&mut self, viewport: Rect) {
+        let Some(selection) = self.cursor.selection() else {
+            return;
+        };
+
+        let Some(widget) = self.widget.as_ref() else {
+            return;
+        };
+
+        let content_width = details_content_width(viewport);
+        let content_height = details_content_height(viewport);
+
+        let Some((row_start, row_end)) = widget.section_row_range(selection, content_width) else {
+            return;
+        };
+
+        let row_height = row_end.saturating_sub(row_start);
+        let viewport_start = self.scroll_top;
+        let viewport_end = viewport_start.saturating_add(content_height);
+
+        if row_height <= content_height {
+            if row_start < viewport_start {
+                self.scroll_top = row_start;
+            } else if row_end > viewport_end {
+                self.scroll_top = row_end.saturating_sub(content_height);
+            }
+        } else {
+            self.scroll_top = row_start;
+        }
+    }
+
+    pub(super) fn selection(&self) -> Option<&SectionId> {
+        self.cursor.selection()
+    }
+
     fn clamp_scroll_top(&mut self, viewport: Rect) {
-        self.cursor = self.cursor.clamp(
-            viewport,
-            self.widget.as_ref(),
-            self.renderer.pending_section_separator_count(),
-        );
+        let content_width = details_content_width(viewport);
+        let content_height = details_content_height(viewport);
+
+        let max_scroll_top = self
+            .widget
+            .as_ref()
+            .map(|diff| {
+                diff.total_rows(content_width)
+                    .saturating_add(self.renderer.pending_section_separator_count())
+                    .saturating_sub(content_height)
+            })
+            .unwrap_or(0);
+
+        self.scroll_top = self.scroll_top.min(max_scroll_top);
     }
 
     pub(super) fn update(
@@ -295,6 +379,7 @@ impl Details {
 
             self.is_dirty = true;
             self.cursor = DetailsCursor::default();
+            self.scroll_top = 0;
             self.renderer.clear();
 
             // reuse the allocation of the previous `DetailsAndDiffWidget`
@@ -412,9 +497,22 @@ impl Details {
         frame.render_widget(outer_block, area);
 
         if let Some(diff) = &self.widget {
-            diff.render(self.cursor, inner_area, frame);
+            diff.render(&self.cursor, self.scroll_top, inner_area, frame);
         }
     }
+}
+
+fn details_content_width(viewport: Rect) -> u16 {
+    // `render()` reserves one column for the left border before passing the remaining
+    // area to `DetailsAndDiffWidget::render`.
+    viewport.width.saturating_sub(1).max(1)
+}
+
+fn details_content_height(viewport: Rect) -> usize {
+    // The parent `Tui::render` places details inside a block with a bottom border,
+    // then calls `Details::render` with that inner area. So one terminal row is not
+    // available for diff content.
+    viewport.height.saturating_sub(1).max(1) as usize
 }
 
 /// Returns true if `hunk_assignment` is part of the selected uncommitted entity.
@@ -470,19 +568,28 @@ where
 }
 
 #[derive(Debug)]
+enum DiffLineItem {
+    Separator,
+    DiffLine {
+        section_id: SectionId,
+        item: ListItem<'static>,
+    },
+}
+
+#[derive(Debug)]
 enum DetailsAndDiffWidget {
     FromCommit {
         header_items: Vec<ListItem<'static>>,
         message: String,
-        diff_line_items: Vec<ListItem<'static>>,
+        diff_line_items: Vec<DiffLineItem>,
     },
     FromDiffLines {
-        diff_line_items: Vec<ListItem<'static>>,
+        diff_line_items: Vec<DiffLineItem>,
     },
 }
 
 impl DetailsAndDiffWidget {
-    fn diff_line_items_mut(&mut self) -> &mut Vec<ListItem<'static>> {
+    fn diff_line_items_mut(&mut self) -> &mut Vec<DiffLineItem> {
         match self {
             DetailsAndDiffWidget::FromCommit {
                 diff_line_items, ..
@@ -513,9 +620,45 @@ impl DetailsAndDiffWidget {
         }
     }
 
-    fn render(&self, cursor: DetailsCursor, area: Rect, buf: &mut Frame) {
+    /// Returns the start and end (exclusive) row index for a rendered section.
+    ///
+    /// Row indexes are absolute in the same coordinate space as `Details::scroll_top`.
+    fn section_row_range(&self, section: &SectionId, width: u16) -> Option<(usize, usize)> {
+        let (rows_before_diff, diff_line_items) = match self {
+            DetailsAndDiffWidget::FromCommit {
+                header_items,
+                message,
+                diff_line_items,
+            } => {
+                let rows_before_diff = header_items.len()
+                    + 1 // +1 to match the empty line added in `render`
+                    + textwrap::wrap(message, textwrap::Options::new(width as usize)).len()
+                    + 1; // +1 to match the empty line added in `render`
+                (rows_before_diff, diff_line_items.as_slice())
+            }
+            DetailsAndDiffWidget::FromDiffLines { diff_line_items } => {
+                (0, diff_line_items.as_slice())
+            }
+        };
+
+        let first = diff_line_items
+            .iter()
+            .position(|line| matches!(line, DiffLineItem::DiffLine { section_id, .. } if section_id == section))?;
+
+        let last = diff_line_items
+            .iter()
+            .rposition(|line| matches!(line, DiffLineItem::DiffLine { section_id, .. } if section_id == section))?;
+
+        Some((
+            rows_before_diff.saturating_add(first),
+            rows_before_diff.saturating_add(last).saturating_add(1),
+        ))
+    }
+
+    fn render(&self, cursor: &DetailsCursor, scroll_top: usize, area: Rect, buf: &mut Frame) {
         enum ListItemOrString<'a> {
             ListItem(&'a ListItem<'a>),
+            ListItemInSection(&'a SectionId, &'a ListItem<'a>),
             Str(Cow<'a, str>),
         }
 
@@ -543,18 +686,38 @@ impl DetailsAndDiffWidget {
                     .chain([ListItemOrString::ListItem(&empty_list_item)])
                     .chain(wrapped_message_iter)
                     .chain([ListItemOrString::ListItem(&empty_list_item)])
-                    .chain(diff_line_items.iter().map(ListItemOrString::ListItem));
+                    .chain(diff_line_items.iter().map(|item| match item {
+                        DiffLineItem::Separator => ListItemOrString::ListItem(&empty_list_item),
+                        DiffLineItem::DiffLine { section_id, item } => {
+                            ListItemOrString::ListItemInSection(section_id, item)
+                        }
+                    }));
                 Either::Left(iter)
             }
             DetailsAndDiffWidget::FromDiffLines {
                 diff_line_items, ..
-            } => Either::Right(diff_line_items.iter().map(ListItemOrString::ListItem)),
+            } => Either::Right(diff_line_items.iter().map(|item| match item {
+                DiffLineItem::Separator => ListItemOrString::ListItem(&empty_list_item),
+                DiffLineItem::DiffLine { section_id, item } => {
+                    ListItemOrString::ListItemInSection(section_id, item)
+                }
+            })),
         }
         // ensure we `skip` and `take` before allocating anything
-        .skip(cursor.scroll_top())
+        .skip(scroll_top)
         .take(area.height as usize)
         .map(|item| match item {
             ListItemOrString::ListItem(list_item) => list_item.to_owned(),
+            ListItemOrString::ListItemInSection(section_id, list_item) => {
+                if cursor
+                    .selection()
+                    .is_some_and(|selection| selection == section_id)
+                {
+                    list_item.to_owned().bg(*DETAILS_CURSOR_BG)
+                } else {
+                    list_item.to_owned()
+                }
+            }
             ListItemOrString::Str(cow) => ListItem::new(cow),
         });
 
@@ -567,7 +730,7 @@ fn from_commit(
     commit_id: gix::ObjectId,
     syntax_set: &SyntaxSet,
     renderer: &mut IncrementalDiffRenderer,
-    diff_line_items: Option<Vec<ListItem<'static>>>,
+    diff_line_items: Option<Vec<DiffLineItem>>,
 ) -> anyhow::Result<DetailsAndDiffWidget> {
     let commit_details =
         but_api::diff::commit_details(ctx, commit_id, but_api::diff::ComputeLineStats::No)?;
@@ -608,10 +771,10 @@ fn from_uncommitted_hunks(
     uncommitted_hunks: Vec<(&String, &UncommittedHunk)>,
     syntax_set: &SyntaxSet,
     renderer: &mut IncrementalDiffRenderer,
-    diff_line_items: Option<Vec<ListItem<'static>>>,
+    diff_line_items: Option<Vec<DiffLineItem>>,
 ) -> anyhow::Result<DetailsAndDiffWidget> {
     for (id, UncommittedHunk { hunk_assignment }) in uncommitted_hunks {
-        let section = renderer.new_section_mut(SectionId::ShortId(id.to_owned()));
+        let section = renderer.new_section_mut(SectionId::ShortId(Rc::from(&**id)));
 
         build_hunk_path_header(
             hunk_assignment.path_bytes.as_ref(),
@@ -631,10 +794,10 @@ fn from_path_prefix<'a>(
     hunk_assignments: impl IntoIterator<Item = &'a (String, HunkAssignment)>,
     syntax_set: &SyntaxSet,
     renderer: &mut IncrementalDiffRenderer,
-    diff_line_items: Option<Vec<ListItem<'static>>>,
+    diff_line_items: Option<Vec<DiffLineItem>>,
 ) -> anyhow::Result<DetailsAndDiffWidget> {
     for (id, hunk_assignment) in hunk_assignments {
-        let section = renderer.new_section_mut(SectionId::ShortId(id.to_owned()));
+        let section = renderer.new_section_mut(SectionId::ShortId(Rc::from(&**id)));
 
         build_hunk_path_header(
             hunk_assignment.path_bytes.as_ref(),
@@ -656,7 +819,7 @@ fn from_committed_file(
     path: &BStr,
     syntax_set: &SyntaxSet,
     renderer: &mut IncrementalDiffRenderer,
-    diff_line_items: Option<Vec<ListItem<'static>>>,
+    diff_line_items: Option<Vec<DiffLineItem>>,
 ) -> anyhow::Result<DetailsAndDiffWidget> {
     let commit_details =
         but_api::diff::commit_details(ctx, commit_id, but_api::diff::ComputeLineStats::No)?;
@@ -680,7 +843,7 @@ fn from_branch(
     name: String,
     syntax_set: &SyntaxSet,
     renderer: &mut IncrementalDiffRenderer,
-    diff_line_items: Option<Vec<ListItem<'static>>>,
+    diff_line_items: Option<Vec<DiffLineItem>>,
 ) -> anyhow::Result<DetailsAndDiffWidget> {
     let tree_changes = but_api::branch::branch_diff(ctx, name)?;
 
@@ -725,9 +888,9 @@ enum IncrementalDiffRendererState {
     },
 }
 
-#[derive(Debug, Clone)]
-enum SectionId {
-    ShortId(String),
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub(super) enum SectionId {
+    ShortId(Rc<str>),
     TreeChange(uuid::Uuid),
 }
 
@@ -829,7 +992,7 @@ impl IncrementalDiffRenderer {
         syntax_set: &SyntaxSet,
         theme: &Theme,
         cache: &mut LineHighlightCache,
-        out: &mut Vec<ListItem<'static>>,
+        out: &mut Vec<DiffLineItem>,
     ) -> RenderNextChunkResult {
         loop {
             match self.state {
@@ -850,7 +1013,7 @@ impl IncrementalDiffRenderer {
 
                         // render separator if there is one more section
                         if section_idx + 1 < self.sections.len() {
-                            out.push(ListItem::new(""));
+                            out.push(DiffLineItem::Separator);
                         }
 
                         continue;
@@ -859,25 +1022,22 @@ impl IncrementalDiffRenderer {
                 IncrementalDiffRendererState::Diff { .. } => {}
             }
 
-            // TODO: This color will eventually be used for the section background highlight for
-            // selected sections.
-            let bg = Color::Reset;
-
             match &mut self.state {
                 IncrementalDiffRendererState::Top {
                     section_idx,
                     diff_idx,
                 } => {
-                    let PartiallyRenderedDiffSection { diffs, id: _ } =
+                    let PartiallyRenderedDiffSection { diffs, id } =
                         &mut self.sections[*section_idx];
                     match &mut diffs[*diff_idx] {
                         PartiallyRenderedDiff::Header(list_items) => {
                             // out.append(list_items);
-                            out.extend(
-                                std::mem::take(list_items)
-                                    .into_iter()
-                                    .map(|item| item.bg(bg)),
-                            );
+                            out.extend(std::mem::take(list_items).into_iter().map(|item| {
+                                DiffLineItem::DiffLine {
+                                    section_id: id.clone(),
+                                    item,
+                                }
+                            }));
 
                             self.state = IncrementalDiffRendererState::Top {
                                 section_idx: *section_idx,
@@ -886,10 +1046,10 @@ impl IncrementalDiffRenderer {
                             break RenderNextChunkResult::Meta;
                         }
                         PartiallyRenderedDiff::SingleLine(list_item) => {
-                            out.push(
-                                std::mem::replace(list_item, ListItem::from(Text::default()))
-                                    .bg(bg),
-                            );
+                            out.push(DiffLineItem::DiffLine {
+                                item: std::mem::replace(list_item, ListItem::from(Text::default())),
+                                section_id: id.clone(),
+                            });
                             self.state = IncrementalDiffRendererState::Top {
                                 section_idx: *section_idx,
                                 diff_idx: (*diff_idx) + 1,
@@ -919,7 +1079,7 @@ impl IncrementalDiffRenderer {
                     old_line_num,
                     new_line_num,
                 } => {
-                    let PartiallyRenderedDiffSection { diffs, id: _ } =
+                    let PartiallyRenderedDiffSection { diffs, id } =
                         &mut self.sections[*section_idx];
                     let PartiallyRenderedDiff::DiffLines {
                         path,
@@ -969,8 +1129,7 @@ impl IncrementalDiffRenderer {
                                     syntax_set,
                                     cache,
                                 )),
-                            ))
-                            .bg(bg);
+                            ));
                             *new_line_num += 1;
                             item
                         } else if let Some(rest) = line.strip_prefix(b"-") {
@@ -995,8 +1154,7 @@ impl IncrementalDiffRenderer {
                                     syntax_set,
                                     cache,
                                 )),
-                            ))
-                            .bg(bg);
+                            ));
                             *old_line_num += 1;
                             item
                         } else {
@@ -1024,13 +1182,15 @@ impl IncrementalDiffRenderer {
                                     syntax_set,
                                     cache,
                                 )),
-                            ))
-                            .bg(bg);
+                            ));
                             *old_line_num += 1;
                             *new_line_num += 1;
                             item
                         };
-                        out.push(item);
+                        out.push(DiffLineItem::DiffLine {
+                            section_id: id.clone(),
+                            item,
+                        });
                     }
 
                     self.chunk_size = std::cmp::min(self.chunk_size.saturating_mul(2), 10_000);
@@ -1232,7 +1392,8 @@ fn build_unified_patch(
     syntax_set: &SyntaxSet,
     out: &mut Vec<PartiallyRenderedDiff>,
 ) {
-    for hunk in hunks {
+    let mut hunks_iter = hunks.into_iter().peekable();
+    while let Some(hunk) = hunks_iter.next() {
         let DiffHunk {
             old_start,
             new_start,
@@ -1297,6 +1458,10 @@ fn build_unified_patch(
             syntax: Box::new(syntax.to_owned()),
             diff: diff_lines,
         });
+
+        if hunks_iter.peek().is_some() {
+            out.push(PartiallyRenderedDiff::SingleLine(ListItem::new("")));
+        }
     }
 }
 
