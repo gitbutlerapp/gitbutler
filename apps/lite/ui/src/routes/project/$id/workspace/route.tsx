@@ -1363,7 +1363,7 @@ const SegmentRow: FC<
 			? selection
 			: null;
 
-	return (
+	const children = (
 		<div
 			{...restProps}
 			className={classes(
@@ -1392,6 +1392,22 @@ const SegmentRow: FC<
 				<PushIcon />
 			</button>
 		</div>
+	);
+
+	return segment.refName != null ? (
+		<BranchTarget
+			anchorRef={segment.refName.fullNameBytes}
+			firstCommitId={segment.commits[0]?.id}
+			render={
+				<DraggableBranch
+					anchorRef={segment.refName.fullNameBytes}
+					branchName={segment.refName.displayName}
+					render={children}
+				/>
+			}
+		/>
+	) : (
+		children
 	);
 };
 
@@ -1424,39 +1440,15 @@ const SegmentC: FC<{
 			selection.stackId === stackId &&
 			segment.commits.some((commit) => commit.id === selection.commitId));
 
-	const refName = segment.refName;
-
 	return (
 		<div className={classes(isSelected && sharedStyles.sectionSelected)}>
-			{refName != null ? (
-				<BranchTarget
-					anchorRef={refName.fullNameBytes}
-					firstCommitId={segment.commits[0]?.id}
-					render={
-						<DraggableBranch
-							anchorRef={refName.fullNameBytes}
-							branchName={refName.displayName}
-							render={
-								<SegmentRow
-									segment={segment}
-									stackId={stackId}
-									segmentIndex={segmentIndex}
-									selection={selection}
-									select={select}
-								/>
-							}
-						/>
-					}
-				/>
-			) : (
-				<SegmentRow
-					segment={segment}
-					stackId={stackId}
-					segmentIndex={segmentIndex}
-					selection={selection}
-					select={select}
-				/>
-			)}
+			<SegmentRow
+				segment={segment}
+				stackId={stackId}
+				segmentIndex={segmentIndex}
+				selection={selection}
+				select={select}
+			/>
 
 			<CommitsList commits={segment.commits}>
 				{(commit, index) => (
