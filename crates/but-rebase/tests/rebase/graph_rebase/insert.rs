@@ -2,7 +2,7 @@
 use anyhow::{Context, Result};
 use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, Step, mutate::InsertSide};
-use but_testsupport::{git_status, visualize_commit_graph_all};
+use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable, standard_options};
 
@@ -43,7 +43,24 @@ fn insert_below_merge_commit() -> Result<()> {
     editor.insert(selector, Step::new_pick(new_commit), InsertSide::Below)?;
 
     let outcome = editor.rebase()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:with-inner-merge[🌳]
+        ├── ·ceb4158 (⌂|1)
+        └── ·ea55b6e (⌂|1)
+            └── ►:1[1]:anon:
+                └── ·ec48031 (⌂|1)
+                    ├── ►:2[2]:A
+                    │   └── ·add59d2 (⌂|1)
+                    │       └── ►:4[3]:main
+                    │           └── ·8f0d338 (⌂|1) ►tags/base
+                    └── ►:3[2]:B
+                        └── ·984fd1c (⌂|1)
+                            └── →:4: (main)
+    ");
     let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * ceb4158 (HEAD -> with-inner-merge) on top of inner merge
@@ -108,7 +125,24 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
     )?;
 
     let outcome = editor.rebase()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:with-inner-merge[🌳]
+        ├── ·ceb4158 (⌂|1)
+        └── ·ea55b6e (⌂|1)
+            └── ►:1[1]:anon:
+                └── ·ec48031 (⌂|1)
+                    ├── ►:2[2]:A
+                    │   └── ·add59d2 (⌂|1)
+                    │       └── ►:4[3]:main
+                    │           └── ·8f0d338 (⌂|1) ►tags/base
+                    └── ►:3[2]:B
+                        └── ·984fd1c (⌂|1)
+                            └── →:4: (main)
+    ");
     let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * ceb4158 (HEAD -> with-inner-merge) on top of inner merge
@@ -168,7 +202,24 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     editor.insert(selector, Step::new_pick(new_commit), InsertSide::Above)?;
 
     let outcome = editor.rebase()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:with-inner-merge[🌳]
+        └── ·9d2b9d9 (⌂|1)
+            └── ►:1[1]:anon:
+                └── ·8502201 (⌂|1)
+                    ├── ►:2[2]:A
+                    │   └── ·0379d6c (⌂|1)
+                    │       └── ►:4[3]:main
+                    │           ├── ·055ead5 (⌂|1) ►tags/base
+                    │           └── ·8f0d338 (⌂|1)
+                    └── ►:3[2]:B
+                        └── ·97c7cc6 (⌂|1)
+                            └── →:4: (main)
+    ");
     let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 9d2b9d9 (HEAD -> with-inner-merge) on top of inner merge

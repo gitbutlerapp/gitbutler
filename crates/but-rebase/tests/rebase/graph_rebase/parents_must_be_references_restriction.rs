@@ -3,7 +3,7 @@
 use anyhow::{Result, bail};
 use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, LookupStep, Step};
-use but_testsupport::visualize_commit_graph_all;
+use but_testsupport::{graph_tree, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable, standard_options};
 
@@ -25,7 +25,17 @@ fn by_default_parents_can_be_picks() -> Result<()> {
 
     // By default, picks can have other picks as parents
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        ├── ·120e3a9 (⌂|1)
+        ├── ·a96434e (⌂|1)
+        ├── ·d591dfe (⌂|1)
+        └── ·35b8235 (⌂|1)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     // The graph should remain unchanged since we made no modifications
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -106,7 +116,20 @@ fn if_a_commit_requires_reference_parents_and_has_reference_parent_result_is_ok(
 
     // The rebase should succeed because "a"'s parent is "base" which has a reference
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        └── ·f37690f (⌂|1) ►c
+            └── ►:1[1]:b
+                └── ·3b3bd41 (⌂|1)
+                    └── ►:2[2]:a
+                        └── ·5e0ba46 (⌂|1)
+                            └── ►:3[3]:base
+                                └── ·6155f21 (⌂|1)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     // The graph should remain unchanged since we made no content modifications
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"

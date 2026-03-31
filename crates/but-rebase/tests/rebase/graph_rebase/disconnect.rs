@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use anyhow::{Context, Result};
 use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, Step, mutate};
-use but_testsupport::{git_status, visualize_commit_graph_all};
+use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all};
 use gix::prelude::ObjectIdExt;
 
 use crate::utils::{fixture_writable, standard_options};
@@ -44,7 +44,16 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
     editor.replace(b_selector, Step::None)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        ├── ·4de0144 (⌂|1)
+        ├── ·d591dfe (⌂|1)
+        └── ·35b8235 (⌂|1)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
 	* 4de0144 (HEAD -> main) c
@@ -96,7 +105,15 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
     editor.replace(a_selector, Step::None)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        ├── ·f55e07c (⌂|1)
+        └── ·35b8235 (⌂|1)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f55e07c (HEAD -> main) c
@@ -145,7 +162,21 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
     editor.replace(a_selector, Step::None)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:with-inner-merge[🌳]
+        └── ·dde6cc8 (⌂|1)
+            └── ►:1[1]:anon:
+                └── ·5f962e2 (⌂|1)
+                    ├── ►:2[3]:anon:
+                    │   └── ·8f0d338 (⌂|1) ►A, ►main, ►tags/base
+                    └── ►:3[2]:B
+                        └── ·984fd1c (⌂|1)
+                            └── →:2:
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let a_now = repo.rev_parse_single("A")?.detach();
     let base = repo.rev_parse_single("base")?.detach();
@@ -206,7 +237,27 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
     editor.replace(merge_selector, Step::None)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:with-two-children[🌳]
+        └── ·f914957 (⌂|1)
+            ├── ►:1[1]:C1
+            │   └── ·d8cc9ec (⌂|1)
+            │       ├── ►:3[2]:anon:
+            │       │   └── ·bc0e772 (⌂|1) ►M, ►P1
+            │       │       └── ►:5[3]:main
+            │       │           └── ·7674a5e (⌂|1) ►tags/base
+            │       └── ►:4[2]:P2
+            │           └── ·392a8f8 (⌂|1)
+            │               └── →:5: (main)
+            └── ►:2[1]:C2
+                └── ·72b8072 (⌂|1)
+                    ├── →:3:
+                    └── →:4: (P2)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let p1 = repo.rev_parse_single("P1")?.detach();
     let p2 = repo.rev_parse_single("P2")?.detach();
@@ -311,7 +362,27 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
     )?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:with-two-children[🌳]
+        └── ·3305e26 (⌂|1)
+            ├── ►:1[1]:C1
+            │   └── ·f928700 (⌂|1)
+            │       └── ►:3[2]:P1
+            │           └── ·bc0e772 (⌂|1)
+            │               └── ►:5[4]:main
+            │                   └── ·7674a5e (⌂|1) ►tags/base
+            └── ►:2[1]:C2
+                └── ·0e87cd3 (⌂|1)
+                    └── ►:4[2]:M
+                        └── ·3089592 (⌂|1)
+                            └── ►:6[3]:P2
+                                └── ·392a8f8 (⌂|1)
+                                    └── →:5: (main)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let p1 = repo.rev_parse_single("P1")?.detach();
     let m = repo.rev_parse_single("M")?.detach();
@@ -408,7 +479,25 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
     )?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:with-two-children[🌳]
+        └── ·2eac185 (⌂|1)
+            ├── ►:1[1]:C1
+            │   └── ·76e6d3c (⌂|1)
+            │       └── ►:3[2]:M
+            │           └── ·3089592 (⌂|1)
+            │               └── ►:4[3]:P2
+            │                   └── ·392a8f8 (⌂|1)
+            │                       └── ►:5[4]:main
+            │                           └── ·7674a5e (⌂|1) ►tags/base
+            └── ►:2[1]:C2
+                └── ·0e87cd3 (⌂|1)
+                    └── →:3: (M)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let p1 = repo.rev_parse_single("P1")?.detach();
     let p2 = repo.rev_parse_single("P2")?.detach();
@@ -525,7 +614,28 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
     );
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:with-two-children[🌳]
+        └── ·d1cc4c7 (⌂|1)
+            ├── ►:1[1]:C1
+            │   └── ·f94f259 (⌂|1)
+            │       └── ►:3[2]:M
+            │           └── ·c5d1178 (⌂|1)
+            │               ├── ►:4[3]:P1
+            │               │   └── ·bc0e772 (⌂|1)
+            │               │       └── ►:6[4]:main
+            │               │           └── ·7674a5e (⌂|1) ►tags/base
+            │               └── ►:5[3]:P2
+            │                   └── ·392a8f8 (⌂|1)
+            │                       └── →:6: (main)
+            └── ►:2[1]:C2
+                └── ·ce6aca9 (⌂|1)
+                    └── →:3: (M)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let after = visualize_commit_graph_all(&repo)?;
     assert_eq!(before, after, "graph should remain unchanged on failure");
@@ -576,7 +686,28 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
     );
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:with-two-children[🌳]
+        └── ·d1cc4c7 (⌂|1)
+            ├── ►:1[1]:C1
+            │   └── ·f94f259 (⌂|1)
+            │       └── ►:3[2]:M
+            │           └── ·c5d1178 (⌂|1)
+            │               ├── ►:4[3]:P1
+            │               │   └── ·bc0e772 (⌂|1)
+            │               │       └── ►:6[4]:main
+            │               │           └── ·7674a5e (⌂|1) ►tags/base
+            │               └── ►:5[3]:P2
+            │                   └── ·392a8f8 (⌂|1)
+            │                       └── →:6: (main)
+            └── ►:2[1]:C2
+                └── ·ce6aca9 (⌂|1)
+                    └── →:3: (M)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let after = visualize_commit_graph_all(&repo)?;
     assert_eq!(before, after, "graph should remain unchanged on failure");
@@ -627,7 +758,28 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
     );
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:with-two-children[🌳]
+        └── ·d1cc4c7 (⌂|1)
+            ├── ►:1[1]:C1
+            │   └── ·f94f259 (⌂|1)
+            │       └── ►:3[2]:M
+            │           └── ·c5d1178 (⌂|1)
+            │               ├── ►:4[3]:P1
+            │               │   └── ·bc0e772 (⌂|1)
+            │               │       └── ►:6[4]:main
+            │               │           └── ·7674a5e (⌂|1) ►tags/base
+            │               └── ►:5[3]:P2
+            │                   └── ·392a8f8 (⌂|1)
+            │                       └── →:6: (main)
+            └── ►:2[1]:C2
+                └── ·ce6aca9 (⌂|1)
+                    └── →:3: (M)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     let after = visualize_commit_graph_all(&repo)?;
     assert_eq!(before, after, "graph should remain unchanged on failure");

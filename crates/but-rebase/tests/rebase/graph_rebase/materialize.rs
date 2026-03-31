@@ -2,7 +2,7 @@
 use anyhow::Result;
 use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, Step};
-use but_testsupport::{visualize_commit_graph_all, visualize_disk_tree_skip_dot_git};
+use but_testsupport::{graph_tree, visualize_commit_graph_all, visualize_disk_tree_skip_dot_git};
 
 use crate::utils::{fixture_writable, standard_options};
 
@@ -37,7 +37,16 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     editor.replace(c_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        ├── ·a96434e (⌂|1)
+        ├── ·d591dfe (⌂|1)
+        └── ·35b8235 (⌂|1)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     // After materialize, file 'c' should be GONE from worktree
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(worktree)?, @"
@@ -88,7 +97,16 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
     editor.replace(c_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize_without_checkout()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        ├── ·a96434e (⌂|1)
+        ├── ·d591dfe (⌂|1)
+        └── ·35b8235 (⌂|1)
+    ");
+    let outcome = outcome.materialize_without_checkout()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     // After materialize_without_checkout, file 'c' should STILL exist in worktree
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(worktree)?, @"
@@ -113,7 +131,7 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
 #[test]
 fn both_methods_update_references_identically() -> Result<()> {
     // Test with materialize
-    let ref_after_materialize = {
+    let (ref_after_materialize, overlayed_materialize) = {
         let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
         let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
@@ -125,13 +143,15 @@ fn both_methods_update_references_identically() -> Result<()> {
         editor.replace(c_sel, Step::None)?;
 
         let outcome = editor.rebase()?;
-        outcome.materialize()?;
+        let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+        let outcome = outcome.materialize()?;
+        assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
-        repo.rev_parse_single("main")?.detach().to_string()
+        (repo.rev_parse_single("main")?.detach().to_string(), overlayed)
     };
 
     // Test with materialize_without_checkout
-    let ref_after_materialize_without_checkout = {
+    let (ref_after_materialize_without_checkout, overlayed_without_checkout) = {
         let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
         let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
@@ -143,10 +163,21 @@ fn both_methods_update_references_identically() -> Result<()> {
         editor.replace(c_sel, Step::None)?;
 
         let outcome = editor.rebase()?;
-        outcome.materialize_without_checkout()?;
+        let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+        let outcome = outcome.materialize_without_checkout()?;
+        assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
-        repo.rev_parse_single("main")?.detach().to_string()
+        (repo.rev_parse_single("main")?.detach().to_string(), overlayed)
     };
+
+    insta::assert_snapshot!(overlayed_materialize, @"
+
+    └── 👉►:0[0]:main[🌳]
+        ├── ·a96434e (⌂|1)
+        ├── ·d591dfe (⌂|1)
+        └── ·35b8235 (⌂|1)
+    ");
+    assert_eq!(overlayed_materialize, overlayed_without_checkout);
 
     // Both should update 'main' to the same commit
     assert_eq!(
