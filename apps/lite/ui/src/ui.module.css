@@ -7,3 +7,9 @@
 		color: #aaa;
 	}
 }
+
+.tooltip {
+	padding: 4px 8px;
+	border: 1px solid;
+	background-color: white;
+}

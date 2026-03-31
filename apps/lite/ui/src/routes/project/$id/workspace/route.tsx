@@ -161,7 +161,7 @@ const DependencyIndicator: FC<
 			<Popover.Trigger openOnHover render={trigger} />
 			<Popover.Portal>
 				<Popover.Positioner sideOffset={8}>
-					<Popover.Popup className={styles.tooltip}>{tooltip}</Popover.Popup>
+					<Popover.Popup className={uiStyles.tooltip}>{tooltip}</Popover.Popup>
 				</Popover.Positioner>
 			</Popover.Portal>
 		</Popover.Root>
@@ -556,7 +556,7 @@ const ChangesTarget: FC<
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={styles.tooltip}>{tooltip}</Tooltip.Popup>
+					<Tooltip.Popup className={uiStyles.tooltip}>{tooltip}</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>
@@ -685,7 +685,7 @@ const CommitTarget: FC<
 				<Tooltip.Trigger render={droppable} />
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={8}>
-						<Tooltip.Popup className={styles.tooltip}>{tooltip}</Tooltip.Popup>
+						<Tooltip.Popup className={uiStyles.tooltip}>{tooltip}</Tooltip.Popup>
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
 			</Tooltip.Root>
@@ -1368,7 +1368,7 @@ const BranchTarget: FC<
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={styles.tooltip}>{tooltip}</Tooltip.Popup>
+					<Tooltip.Popup className={uiStyles.tooltip}>{tooltip}</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>
@@ -1403,7 +1403,7 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={styles.tooltip}>Tear off branch</Tooltip.Popup>
+					<Tooltip.Popup className={uiStyles.tooltip}>Tear off branch</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>

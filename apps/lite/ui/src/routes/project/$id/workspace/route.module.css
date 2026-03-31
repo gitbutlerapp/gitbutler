@@ -102,12 +102,6 @@
 	transform: translateY(calc(var(--indicator-height) / 2));
 }
 
-.tooltip {
-	padding: 4px 8px;
-	border: 1px solid;
-	background-color: white;
-}
-
 .dragOver {
 	outline: 2px dashed black;
 }
