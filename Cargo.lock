@@ -861,6 +861,7 @@ dependencies = [
  "tracing-forest",
  "tracing-subscriber",
  "unicode-width",
+ "uuid",
 ]
 
 [[package]]

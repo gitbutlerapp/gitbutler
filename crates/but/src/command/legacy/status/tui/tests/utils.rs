@@ -249,7 +249,8 @@ fn backend_to_svg(backend: &TestBackend) -> String {
                 normalize_hash_start.is_some_and(|start| x >= start.saturating_add(2));
             let normalize_volatile_id_cell = volatile_id_hex_prefix_cell(buffer, area, x, y);
             let normalize_long_hash = long_hash_cell(buffer, area, x, y);
-            let symbol = if normalize_hash_cell || normalize_volatile_id_cell || normalize_long_hash {
+            let symbol = if normalize_hash_cell || normalize_volatile_id_cell || normalize_long_hash
+            {
                 "0"
             } else {
                 symbol
@@ -361,8 +362,7 @@ fn long_hash_cell(
 
     // Walk right to find the end
     let mut end = x;
-    while end.saturating_add(1) < row_end && is_blue_hex_cell(&buffer[(end.saturating_add(1), y)])
-    {
+    while end.saturating_add(1) < row_end && is_blue_hex_cell(&buffer[(end.saturating_add(1), y)]) {
         end = end.saturating_add(1);
     }
 
