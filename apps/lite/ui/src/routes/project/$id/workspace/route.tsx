@@ -741,6 +741,7 @@ const InlineCommitMessageEditor: FC<{
 				const cursorPosition = el.value.length;
 				el.setSelectionRange(cursorPosition, cursorPosition);
 			}}
+			aria-label="Commit message"
 			name="message"
 			defaultValue={message.trim()}
 			className={classes(styles.editorInput, styles.editCommitMessageInput)}
@@ -1231,6 +1232,7 @@ const CommitForm: FC<{
 		>
 			<textarea
 				// TODO: inline editor uses enter to submit, this doesn't
+				aria-label="Commit message"
 				className={styles.commitFormMessageInput}
 				placeholder="Commit message"
 				value={message}
@@ -1383,6 +1385,7 @@ const InlineBranchNameEditor: FC<{
 		}}
 	>
 		<input
+			aria-label="Branch name"
 			ref={(el) => {
 				if (!el) return;
 				el.focus();
