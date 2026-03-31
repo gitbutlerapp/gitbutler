@@ -6,6 +6,7 @@ use ratatui_textarea::TextArea;
 
 use crate::{
     CliId,
+    command::legacy::status::tui::MessageOnDrop,
     id::{ShortId, UncommittedCliId},
 };
 
@@ -28,6 +29,7 @@ pub(super) enum Mode {
 pub(super) struct RubMode {
     pub(super) source: Arc<CliId>,
     pub(super) available_targets: Vec<Arc<CliId>>,
+    pub(super) _unlock_details: Option<MessageOnDrop>,
 }
 
 #[derive(Debug)]

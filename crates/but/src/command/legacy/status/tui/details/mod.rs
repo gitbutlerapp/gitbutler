@@ -2,11 +2,11 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     iter::{empty, once, repeat_n},
-    rc::Rc,
-    sync::LazyLock,
+    sync::{Arc, LazyLock},
     time::Instant,
 };
 
+use anyhow::bail;
 use bstr::{BStr, BString, ByteSlice};
 use but_core::{
     UnifiedPatch,
@@ -35,8 +35,7 @@ use unicode_width::UnicodeWidthStr;
 use crate::{
     CliId, IdMap,
     command::legacy::status::tui::{
-        CommandMessage, CommitMessage, DETAILS_CURSOR_BG, DebugAsType, FilesMessage, Message,
-        MoveMessage, RewordMessage, RubMessage, details::details_cursor::DetailsCursor,
+        CommandMessage, CommitMessage, DETAILS_CURSOR_BG, DebugAsType, FilesMessage, Message, MessageOnDrop, MoveMessage, RewordMessage, RubMessage, details::details_cursor::DetailsCursor, message_on_drop::message_on_drop
     },
     id::{UncommittedCliId, UncommittedHunk},
 };
@@ -83,6 +82,8 @@ pub(super) enum DetailsMessage {
     SelectPrevSection,
     ScrollUp(usize),
     ScrollDown(usize),
+    StartRub,
+    Unlock,
 }
 
 // The majority of time in diff rendering is spent syntax highlighting. So we cache highlighted
@@ -106,12 +107,14 @@ pub(super) struct Details {
     dark_theme: DebugAsType<OnDemand<Theme>>,
     visibility: DetailsVisibility,
     line_highlight_cache: LineHighlightCache,
+    is_locked: bool,
 }
 
 impl Details {
     pub(super) fn new_hidden() -> Self {
         Self {
             is_dirty: false,
+            is_locked: false,
             widget: Default::default(),
             renderer: Default::default(),
             cursor: Default::default(),
@@ -161,11 +164,28 @@ impl Details {
         }
     }
 
+    fn lock(&mut self, messages: &mut Vec<Message>) -> MessageOnDrop {
+        self.is_locked = true;
+        message_on_drop(Message::Details(DetailsMessage::Unlock), messages)
+    }
+
+    pub(super) fn unlock(&mut self) {
+        if !self.is_locked {
+            return;
+        }
+        self.is_locked = false;
+        self.mark_dirty();
+    }
+
     pub(super) fn needs_update(&self) -> bool {
         self.is_visible() && self.is_dirty()
     }
 
     pub(super) fn needs_update_after_message(&self, msg: &Message) -> bool {
+        if self.is_locked {
+            return false;
+        }
+
         match self.visibility {
             DetailsVisibility::Hidden => return false,
             DetailsVisibility::VisibleVertical { .. } => {}
@@ -178,6 +198,7 @@ impl Details {
             | Message::ShowError(_)
             | Message::ShowToast { .. }
             | Message::Confirm(_)
+            | Message::RegisterMessageOnDrop(_)
             | Message::EnterNormalMode => false,
 
             Message::MoveCursorUp
@@ -192,7 +213,7 @@ impl Details {
                 CommitMessage::Start | CommitMessage::SetInsertSide(_) => false,
             },
             Message::Rub(rub_message) => match rub_message {
-                RubMessage::Start { .. } => false,
+                RubMessage::Start { .. } | RubMessage::StartWithSource { .. } => false,
                 RubMessage::Confirm => true,
             },
             Message::Reword(reword_message) => match reword_message {
@@ -216,10 +237,12 @@ impl Details {
             },
             Message::Details(details_message) => match details_message {
                 DetailsMessage::ToggleFocus
+                | DetailsMessage::Unlock // `unlock` sets the dirty flag if necessary
                 | DetailsMessage::Deselect
                 | DetailsMessage::SelectFirstSection
                 | DetailsMessage::SelectNextSection
                 | DetailsMessage::SelectPrevSection
+                | DetailsMessage::StartRub
                 | DetailsMessage::ScrollUp(_)
                 | DetailsMessage::ScrollDown(_)
                 | DetailsMessage::ToggleVisibility => false,
@@ -275,7 +298,9 @@ impl Details {
                 DetailsVisibility::VisibleVertical { focused } => {
                     if *focused {
                         *focused = false;
-                        messages.push(Message::Details(DetailsMessage::Deselect));
+                        if !self.is_locked {
+                            messages.push(Message::Details(DetailsMessage::Deselect));
+                        }
                     } else {
                         *focused = true;
                         messages.push(Message::Details(DetailsMessage::SelectFirstSection));
@@ -290,6 +315,31 @@ impl Details {
                     self.cursor.select_section(section.id.clone());
                     self.ensure_selection_visible(viewport);
                 }
+            }
+            DetailsMessage::StartRub => {
+                let Some(selection) = self.cursor.selection() else {
+                    return Ok(());
+                };
+                let source = match selection {
+                    SectionId::ShortId(cli_id) => Arc::clone(cli_id),
+                    SectionId::TreeChange(_) => return Ok(()),
+                };
+
+                let unlock = self.lock(messages);
+
+                // TODO(david): allow rubbing committed hunks using `commit_move_changes_between`
+                let todo_ = ();
+
+                messages.extend([
+                    Message::Details(DetailsMessage::ToggleFocus),
+                    Message::Rub(RubMessage::StartWithSource {
+                        source,
+                        unlock_details: Some(unlock),
+                    }),
+                ]);
+            }
+            DetailsMessage::Unlock => {
+                self.unlock();
             }
         }
 
@@ -389,79 +439,80 @@ impl Details {
                 std::mem::take(buf)
             });
 
-            self.widget = Some(match selection {
-                CliId::Commit { commit_id, .. } => from_commit(
+            self.widget = match selection {
+                CliId::Commit { commit_id, .. } => Some(from_commit(
                     ctx,
                     *commit_id,
                     &*self.syntax_set.get()?,
                     &mut self.renderer,
                     previous_diff_line_items,
-                )?,
+                )?),
                 CliId::Uncommitted(uncommitted) => {
                     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
                     let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments))?;
-                    let uncommitted_hunks = filter_uncommitted_hunks(&id_map, |hunk_assignment| {
-                        uncommitted_hunk_matches_selection(hunk_assignment, uncommitted)
-                    })?;
-                    from_uncommitted_hunks(
+                    let uncommitted_hunks =
+                        filter_uncommitted_hunks(ctx, &id_map, |hunk_assignment| {
+                            uncommitted_hunk_matches_selection(hunk_assignment, uncommitted)
+                        })?;
+                    Some(from_uncommitted_hunks(
                         uncommitted_hunks,
                         &*self.syntax_set.get()?,
                         &mut self.renderer,
                         previous_diff_line_items,
-                    )?
+                    )?)
                 }
-                CliId::PathPrefix {
-                    hunk_assignments, ..
-                } => from_path_prefix(
-                    hunk_assignments,
-                    &*self.syntax_set.get()?,
-                    &mut self.renderer,
-                    previous_diff_line_items,
-                )?,
+                // the tui never shows path prefix ids, those only come from users
+                // so ignore them for now
+                CliId::PathPrefix { .. } => {
+                    tracing::error!("tui diff doesn't yet support path prefix cli ids");
+                    None
+                }
                 CliId::CommittedFile {
                     commit_id, path, ..
-                } => from_committed_file(
+                } => Some(from_committed_file(
                     ctx,
                     *commit_id,
                     path.as_ref(),
                     &*self.syntax_set.get()?,
                     &mut self.renderer,
                     previous_diff_line_items,
-                )?,
-                CliId::Branch { name, .. } => from_branch(
+                )?),
+                CliId::Branch { name, .. } => Some(from_branch(
                     ctx,
                     name.to_owned(),
                     &*self.syntax_set.get()?,
                     &mut self.renderer,
                     previous_diff_line_items,
-                )?,
+                )?),
                 CliId::Unassigned { .. } => {
                     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
                     let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments))?;
-                    let uncommitted_hunks = filter_uncommitted_hunks(&id_map, |hunk_assignment| {
-                        hunk_assignment.stack_id.is_none()
-                    })?;
-                    from_uncommitted_hunks(
+                    let uncommitted_hunks =
+                        filter_uncommitted_hunks(ctx, &id_map, |hunk_assignment| {
+                            hunk_assignment.stack_id.is_none()
+                        })?;
+                    Some(from_uncommitted_hunks(
                         uncommitted_hunks,
                         &*self.syntax_set.get()?,
                         &mut self.renderer,
                         previous_diff_line_items,
-                    )?
+                    )?)
                 }
                 CliId::Stack { stack_id, .. } => {
                     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
                     let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments))?;
-                    let uncommitted_hunks = filter_uncommitted_hunks(&id_map, |hunk_assignment| {
-                        hunk_assignment.stack_id.is_some_and(|id| id == *stack_id)
-                    })?;
-                    from_uncommitted_hunks(
+                    let uncommitted_hunks =
+                        filter_uncommitted_hunks(ctx, &id_map, |hunk_assignment| {
+                            hunk_assignment.stack_id.is_some_and(|id| id == *stack_id)
+                        })?;
+                    Some(from_uncommitted_hunks(
                         uncommitted_hunks,
                         &*self.syntax_set.get()?,
                         &mut self.renderer,
                         previous_diff_line_items,
-                    )?
+                    )?)
                 }
-            });
+            };
 
             #[cfg(test)]
             {
@@ -530,10 +581,11 @@ fn uncommitted_hunk_matches_selection(
     }
 }
 
-fn filter_uncommitted_hunks<F>(
-    id_map: &IdMap,
+fn filter_uncommitted_hunks<'a, F>(
+    ctx: &'a mut Context,
+    id_map: &'a IdMap,
     mut filter: F,
-) -> anyhow::Result<Vec<(&String, &UncommittedHunk)>>
+) -> anyhow::Result<Vec<(&'a str, Arc<CliId>, &'a UncommittedHunk)>>
 where
     F: FnMut(&HunkAssignment) -> bool,
 {
@@ -541,9 +593,22 @@ where
         .uncommitted_hunks
         .iter()
         .filter(move |(_, hunk)| filter(&hunk.hunk_assignment))
-        .collect::<Vec<_>>();
+        .map(|(raw_id, hunk)| {
+            let mut cli_ids = id_map.parse_using_context(raw_id, ctx)?;
+            if cli_ids.len() == 1 {
+                Ok((&**raw_id, Arc::new(cli_ids.remove(0)), hunk))
+            } else if cli_ids.is_empty() {
+                bail!("'{raw_id}' no found")
+            } else {
+                bail!(
+                    "'{raw_id}' resolved to more than one hunk ({})",
+                    cli_ids.len()
+                )
+            }
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
 
-    uncommitted_hunks.sort_by(|(id_a, hunk_a), (id_b, hunk_b)| {
+    uncommitted_hunks.sort_by(|(id_a, _, hunk_a), (id_b, _, hunk_b)| {
         (
             &hunk_a.hunk_assignment.path_bytes,
             hunk_a
@@ -768,40 +833,17 @@ fn from_commit(
 }
 
 fn from_uncommitted_hunks(
-    uncommitted_hunks: Vec<(&String, &UncommittedHunk)>,
+    uncommitted_hunks: Vec<(&str, Arc<CliId>, &UncommittedHunk)>,
     syntax_set: &SyntaxSet,
     renderer: &mut IncrementalDiffRenderer,
     diff_line_items: Option<Vec<DiffLineItem>>,
 ) -> anyhow::Result<DetailsAndDiffWidget> {
-    for (id, UncommittedHunk { hunk_assignment }) in uncommitted_hunks {
-        let section = renderer.new_section_mut(SectionId::ShortId(Rc::from(&**id)));
+    for (raw_id, cli_id, UncommittedHunk { hunk_assignment }) in uncommitted_hunks {
+        let section = renderer.new_section_mut(SectionId::ShortId(cli_id));
 
         build_hunk_path_header(
             hunk_assignment.path_bytes.as_ref(),
-            Some(ShortIdOrTreeStatus::ShortId(id)),
-            &mut section.diffs,
-        );
-
-        build_hunk_assignment(hunk_assignment, syntax_set, &mut section.diffs);
-    }
-
-    Ok(DetailsAndDiffWidget::FromDiffLines {
-        diff_line_items: diff_line_items.unwrap_or_default(),
-    })
-}
-
-fn from_path_prefix<'a>(
-    hunk_assignments: impl IntoIterator<Item = &'a (String, HunkAssignment)>,
-    syntax_set: &SyntaxSet,
-    renderer: &mut IncrementalDiffRenderer,
-    diff_line_items: Option<Vec<DiffLineItem>>,
-) -> anyhow::Result<DetailsAndDiffWidget> {
-    for (id, hunk_assignment) in hunk_assignments {
-        let section = renderer.new_section_mut(SectionId::ShortId(Rc::from(&**id)));
-
-        build_hunk_path_header(
-            hunk_assignment.path_bytes.as_ref(),
-            Some(ShortIdOrTreeStatus::ShortId(id)),
+            Some(ShortIdOrTreeStatus::ShortId(raw_id)),
             &mut section.diffs,
         );
 
@@ -890,7 +932,7 @@ enum IncrementalDiffRendererState {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(super) enum SectionId {
-    ShortId(Rc<str>),
+    ShortId(Arc<CliId>),
     TreeChange(uuid::Uuid),
 }
 
