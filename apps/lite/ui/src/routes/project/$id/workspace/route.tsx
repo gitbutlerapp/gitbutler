@@ -1356,10 +1356,12 @@ const SegmentRow: FC<
 		select: (selection: Item | null) => void;
 	} & ComponentProps<"div">
 > = ({ segment, stackId, segmentIndex, selection, select, ...restProps }) => {
-	const isSelected =
+	const segmentSelection =
 		selection?._tag === "Segment" &&
 		selection.stackId === stackId &&
-		selection.segmentIndex === segmentIndex;
+		selection.segmentIndex === segmentIndex
+			? selection
+			: null;
 
 	return (
 		<div
@@ -1367,7 +1369,7 @@ const SegmentRow: FC<
 			className={classes(
 				restProps.className,
 				sharedStyles.item,
-				isSelected && sharedStyles.selected,
+				segmentSelection && sharedStyles.selected,
 			)}
 		>
 			<button
