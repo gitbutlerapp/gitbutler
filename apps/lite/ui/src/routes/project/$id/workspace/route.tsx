@@ -753,15 +753,16 @@ const InlineCommitMessageEditor: FC<{
 const CommitMenuPopup: FC<{
 	projectId: string;
 	commitId: string;
+	canReword: boolean;
 	onReword: () => void;
 	parts: typeof Menu | typeof ContextMenu;
-}> = ({ projectId, commitId, onReword, parts }) => {
+}> = ({ projectId, commitId, canReword, onReword, parts }) => {
 	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
 	const { Popup, Item, SubmenuRoot, SubmenuTrigger, Positioner } = parts;
 
 	return (
 		<Popup className={sharedStyles.menuPopup}>
-			<Item className={sharedStyles.menuItem} onClick={onReword}>
+			<Item className={sharedStyles.menuItem} disabled={!canReword} onClick={onReword}>
 				Reword commit
 			</Item>
 			<SubmenuRoot>
@@ -936,6 +937,7 @@ const CommitRow: FC<
 									<CommitMenuPopup
 										projectId={projectId}
 										commitId={commit.id}
+										canReword={!isCommitMessagePending}
 										onReword={() => {
 											select(summaryItem);
 											setEditingCommit({
@@ -974,6 +976,7 @@ const CommitRow: FC<
 								<CommitMenuPopup
 									projectId={projectId}
 									commitId={commit.id}
+									canReword={!isCommitMessagePending}
 									onReword={() => {
 										select(summaryItem);
 										setEditingCommit({
