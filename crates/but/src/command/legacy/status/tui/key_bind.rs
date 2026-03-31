@@ -147,6 +147,15 @@ pub(super) fn detail_key_binds() -> KeyBinds {
     });
 
     key_binds.register(StaticKeyBind {
+        short_description: "rub",
+        chord_display: "r",
+        key_matcher: press().code(KeyCode::Char('r')),
+        modes: all_modes.clone(),
+        message: Message::Details(DetailsMessage::StartRub),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
         short_description: "focus status",
         chord_display: "h",
         key_matcher: press().code(KeyCode::Char('h')),
@@ -232,15 +241,6 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
     });
 
     key_binds.register(StaticKeyBind {
-        short_description: "focus diff",
-        chord_display: "l",
-        key_matcher: press().code(KeyCode::Char('l')),
-        modes: all_except_text_input_modes.clone(),
-        message: Message::Details(DetailsMessage::ToggleFocus),
-        hide_from_hotbar: false,
-    });
-
-    key_binds.register(StaticKeyBind {
         short_description: "diff",
         chord_display: "d",
         key_matcher: press().code(KeyCode::Char('d')),
@@ -317,6 +317,15 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Char('b')),
         modes: Vec::from([ModeDiscriminant::Normal]),
         message: Message::Branch(BranchMessage::Start),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "focus diff",
+        chord_display: "l",
+        key_matcher: press().code(KeyCode::Char('l')),
+        modes: Vec::from([ModeDiscriminant::Normal]),
+        message: Message::Details(DetailsMessage::ToggleFocus),
         hide_from_hotbar: false,
     });
 
