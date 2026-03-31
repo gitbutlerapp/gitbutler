@@ -103,6 +103,72 @@ pub(super) fn confirm_key_binds() -> KeyBinds {
     key_binds
 }
 
+pub(super) fn detail_key_binds() -> KeyBinds {
+    let mut key_binds = KeyBinds::new();
+
+    let all_modes = ModeDiscriminant::iter().collect::<Vec<_>>();
+
+    key_binds.register(StaticKeyBind {
+        short_description: "down",
+        chord_display: "↓/j",
+        key_matcher: press().code(KeyCode::Char('j')).alt_code(KeyCode::Down),
+        modes: all_modes.clone(),
+        message: Message::Details(DetailsMessage::ScrollDown(1)),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "up",
+        chord_display: "↑/k",
+        key_matcher: press().code(KeyCode::Char('k')).alt_code(KeyCode::Up),
+        modes: all_modes.clone(),
+        message: Message::Details(DetailsMessage::ScrollUp(1)),
+        hide_from_hotbar: false,
+    });
+
+    let jump_distance = 30;
+
+    key_binds.register(StaticKeyBind {
+        short_description: "jump down",
+        chord_display: "shift+j",
+        key_matcher: press().shift().code(KeyCode::Char('J')),
+        modes: all_modes.clone(),
+        message: Message::Details(DetailsMessage::ScrollDown(jump_distance)),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "jump up",
+        chord_display: "ctrl+k",
+        key_matcher: press().shift().code(KeyCode::Char('K')),
+        modes: all_modes.clone(),
+        message: Message::Details(DetailsMessage::ScrollUp(jump_distance)),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "focus status",
+        chord_display: "h",
+        key_matcher: press().code(KeyCode::Char('h')),
+        modes: all_modes.clone(),
+        message: Message::Details(DetailsMessage::ToggleFocus),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "diff",
+        chord_display: "d",
+        key_matcher: press().code(KeyCode::Char('d')),
+        modes: all_modes.clone(),
+        message: Message::Details(DetailsMessage::ToggleVisibility),
+        hide_from_hotbar: true,
+    });
+
+    register_quit_key_binds(&mut key_binds, all_modes.clone());
+
+    key_binds
+}
+
 fn register_global_key_binds(key_binds: &mut KeyBinds) {
     let all_except_text_input_modes = ModeDiscriminant::iter()
         .filter(|mode| match mode {
@@ -166,41 +232,12 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
     });
 
     key_binds.register(StaticKeyBind {
-        short_description: "scroll details down",
-        chord_display: "ctrl+n",
-        key_matcher: press().control().code(KeyCode::Char('n')),
+        short_description: "focus diff",
+        chord_display: "l",
+        key_matcher: press().code(KeyCode::Char('l')),
         modes: all_except_text_input_modes.clone(),
-        message: Message::Details(DetailsMessage::ScrollDown(1)),
-        hide_from_hotbar: true,
-    });
-
-    key_binds.register(StaticKeyBind {
-        short_description: "scroll details up",
-        chord_display: "ctrl+p",
-        key_matcher: press().control().code(KeyCode::Char('p')),
-        modes: all_except_text_input_modes.clone(),
-        message: Message::Details(DetailsMessage::ScrollUp(1)),
-        hide_from_hotbar: true,
-    });
-
-    let jump_distance = 30;
-
-    key_binds.register(StaticKeyBind {
-        short_description: "jump details down",
-        chord_display: "ctrl+d",
-        key_matcher: press().control().code(KeyCode::Char('d')),
-        modes: all_except_text_input_modes.clone(),
-        message: Message::Details(DetailsMessage::ScrollDown(jump_distance)),
-        hide_from_hotbar: true,
-    });
-
-    key_binds.register(StaticKeyBind {
-        short_description: "jump details up",
-        chord_display: "ctrl+u",
-        key_matcher: press().control().code(KeyCode::Char('u')),
-        modes: all_except_text_input_modes.clone(),
-        message: Message::Details(DetailsMessage::ScrollUp(jump_distance)),
-        hide_from_hotbar: true,
+        message: Message::Details(DetailsMessage::ToggleFocus),
+        hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {

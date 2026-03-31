@@ -18,7 +18,7 @@ use gix::actor::Signature;
 use itertools::Either;
 use ratatui::{
     Frame,
-    layout::{Constraint, Layout, Rect},
+    layout::Rect,
     palette::Hsl,
     style::{Color, Style, Stylize},
     text::{Line, Span, Text},
@@ -65,7 +65,9 @@ const MONOKAI_THEME: &[u8] =
 pub(super) enum DetailsVisibility {
     #[default]
     Hidden,
-    VisibleVertical,
+    VisibleVertical {
+        focused: bool,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -73,6 +75,7 @@ pub(super) enum DetailsMessage {
     ScrollUp(usize),
     ScrollDown(usize),
     ToggleVisibility,
+    ToggleFocus,
 }
 
 // The majority of time in diff rendering is spent syntax highlighting. So we cache highlighted
@@ -117,7 +120,7 @@ impl Details {
     pub(super) fn new_visible() -> Self {
         Self {
             is_dirty: true,
-            visibility: DetailsVisibility::VisibleVertical,
+            visibility: DetailsVisibility::VisibleVertical { focused: false },
             ..Self::new_hidden()
         }
     }
@@ -138,7 +141,14 @@ impl Details {
     pub(super) fn is_visible(&self) -> bool {
         match self.visibility {
             DetailsVisibility::Hidden => false,
-            DetailsVisibility::VisibleVertical => true,
+            DetailsVisibility::VisibleVertical { .. } => true,
+        }
+    }
+
+    pub(super) fn is_focused(&self) -> bool {
+        match self.visibility {
+            DetailsVisibility::VisibleVertical { focused } => focused,
+            DetailsVisibility::Hidden => false,
         }
     }
 
@@ -149,7 +159,7 @@ impl Details {
     pub(super) fn needs_update_after_message(&self, msg: &Message) -> bool {
         match self.visibility {
             DetailsVisibility::Hidden => return false,
-            DetailsVisibility::VisibleVertical => {}
+            DetailsVisibility::VisibleVertical { .. } => {}
         }
 
         match msg {
@@ -198,6 +208,7 @@ impl Details {
             Message::Details(details_message) => match details_message {
                 DetailsMessage::ScrollUp(_)
                 | DetailsMessage::ScrollDown(_)
+                | DetailsMessage::ToggleFocus
                 | DetailsMessage::ToggleVisibility => false,
             },
         }
@@ -216,19 +227,27 @@ impl Details {
             }
             DetailsMessage::ToggleVisibility => {
                 self.visibility = match self.visibility {
-                    DetailsVisibility::Hidden => DetailsVisibility::VisibleVertical,
-                    DetailsVisibility::VisibleVertical => DetailsVisibility::Hidden,
+                    DetailsVisibility::Hidden => {
+                        DetailsVisibility::VisibleVertical { focused: false }
+                    }
+                    DetailsVisibility::VisibleVertical { .. } => DetailsVisibility::Hidden,
                 };
 
                 match self.visibility {
                     DetailsVisibility::Hidden => {
                         self.scroll_top = 0;
                     }
-                    DetailsVisibility::VisibleVertical => {
+                    DetailsVisibility::VisibleVertical { .. } => {
                         self.mark_dirty();
                     }
                 }
             }
+            DetailsMessage::ToggleFocus => match &mut self.visibility {
+                DetailsVisibility::Hidden => {}
+                DetailsVisibility::VisibleVertical { focused } => {
+                    *focused = !*focused;
+                }
+            },
         }
 
         self.clamp_scroll_top(viewport);
@@ -393,15 +412,14 @@ impl Details {
     }
 
     pub(super) fn render(&self, area: Rect, frame: &mut Frame) {
-        let layout = Layout::horizontal([Constraint::Length(1), Constraint::Min(1)]).split(area);
-
-        let block = Block::new()
+        let outer_block = Block::bordered()
             .borders(Borders::LEFT)
             .border_style(Style::default().dim());
-        frame.render_widget(block, layout[0]);
+        let inner_area = outer_block.inner(area);
+        frame.render_widget(outer_block, area);
 
         if let Some(diff) = &self.widget {
-            diff.render(self.scroll_top, layout[1], frame);
+            diff.render(self.scroll_top, inner_area, frame);
         }
     }
 }
@@ -456,85 +474,6 @@ where
     });
 
     Ok(uncommitted_hunks)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::uncommitted_hunk_matches_selection;
-    use bstr::BString;
-    use but_core::{HunkHeader, ref_metadata::StackId};
-    use but_hunk_assignment::HunkAssignment;
-    use nonempty::NonEmpty;
-
-    use crate::id::UncommittedCliId;
-
-    fn hunk_assignment(path: &str, stack_id: Option<StackId>, old_start: u32) -> HunkAssignment {
-        HunkAssignment {
-            id: None,
-            hunk_header: Some(HunkHeader {
-                old_start,
-                old_lines: 1,
-                new_start: old_start,
-                new_lines: 1,
-            }),
-            path: path.to_owned(),
-            path_bytes: BString::from(path),
-            stack_id,
-            line_nums_added: None,
-            line_nums_removed: None,
-            diff: None,
-        }
-    }
-
-    #[test]
-    fn entire_file_selection_only_matches_same_path_and_stack() {
-        let stack_a = StackId::from_number_for_testing(1);
-        let stack_b = StackId::from_number_for_testing(2);
-        let selected_hunk = hunk_assignment("file.txt", Some(stack_a), 1);
-        let id = UncommittedCliId {
-            id: "aa".to_owned(),
-            hunk_assignments: NonEmpty::new(selected_hunk.clone()),
-            is_entire_file: true,
-        };
-
-        assert!(uncommitted_hunk_matches_selection(
-            &hunk_assignment("file.txt", Some(stack_a), 10),
-            &id
-        ));
-        assert!(!uncommitted_hunk_matches_selection(
-            &hunk_assignment("file.txt", None, 10),
-            &id
-        ));
-        assert!(!uncommitted_hunk_matches_selection(
-            &hunk_assignment("file.txt", Some(stack_b), 10),
-            &id
-        ));
-        assert!(!uncommitted_hunk_matches_selection(
-            &hunk_assignment("other.txt", Some(stack_a), 10),
-            &id
-        ));
-    }
-
-    #[test]
-    fn single_hunk_selection_only_matches_that_hunk() {
-        let stack_a = StackId::from_number_for_testing(1);
-        let selected_hunk = hunk_assignment("file.txt", Some(stack_a), 1);
-        let id = UncommittedCliId {
-            id: "ab".to_owned(),
-            hunk_assignments: NonEmpty::new(selected_hunk.clone()),
-            is_entire_file: false,
-        };
-
-        assert!(uncommitted_hunk_matches_selection(&selected_hunk, &id));
-        assert!(!uncommitted_hunk_matches_selection(
-            &hunk_assignment("file.txt", Some(stack_a), 2),
-            &id
-        ));
-        assert!(!uncommitted_hunk_matches_selection(
-            &hunk_assignment("file.txt", None, 1),
-            &id
-        ));
-    }
 }
 
 #[derive(Debug)]
@@ -801,7 +740,7 @@ fn from_branch(
 struct IncrementalDiffRenderer {
     partially_rendered_diff: Vec<PartiallyRenderedDiff>,
     state: IncrementalDiffRendererState,
-    /// How many diff lines to process on each poll.
+    /// How many diff lines to process on each update.
     ///
     /// Start with a small initial chunk size so the first diff render is quick if the
     /// initial chunk size is too large there is a noticable delay between opening the
@@ -1352,5 +1291,84 @@ fn syntax_highlight(
         } else {
             cache.insert(path.to_owned(), Default::default());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::uncommitted_hunk_matches_selection;
+    use bstr::BString;
+    use but_core::{HunkHeader, ref_metadata::StackId};
+    use but_hunk_assignment::HunkAssignment;
+    use nonempty::NonEmpty;
+
+    use crate::id::UncommittedCliId;
+
+    fn hunk_assignment(path: &str, stack_id: Option<StackId>, old_start: u32) -> HunkAssignment {
+        HunkAssignment {
+            id: None,
+            hunk_header: Some(HunkHeader {
+                old_start,
+                old_lines: 1,
+                new_start: old_start,
+                new_lines: 1,
+            }),
+            path: path.to_owned(),
+            path_bytes: BString::from(path),
+            stack_id,
+            line_nums_added: None,
+            line_nums_removed: None,
+            diff: None,
+        }
+    }
+
+    #[test]
+    fn entire_file_selection_only_matches_same_path_and_stack() {
+        let stack_a = StackId::from_number_for_testing(1);
+        let stack_b = StackId::from_number_for_testing(2);
+        let selected_hunk = hunk_assignment("file.txt", Some(stack_a), 1);
+        let id = UncommittedCliId {
+            id: "aa".to_owned(),
+            hunk_assignments: NonEmpty::new(selected_hunk.clone()),
+            is_entire_file: true,
+        };
+
+        assert!(uncommitted_hunk_matches_selection(
+            &hunk_assignment("file.txt", Some(stack_a), 10),
+            &id
+        ));
+        assert!(!uncommitted_hunk_matches_selection(
+            &hunk_assignment("file.txt", None, 10),
+            &id
+        ));
+        assert!(!uncommitted_hunk_matches_selection(
+            &hunk_assignment("file.txt", Some(stack_b), 10),
+            &id
+        ));
+        assert!(!uncommitted_hunk_matches_selection(
+            &hunk_assignment("other.txt", Some(stack_a), 10),
+            &id
+        ));
+    }
+
+    #[test]
+    fn single_hunk_selection_only_matches_that_hunk() {
+        let stack_a = StackId::from_number_for_testing(1);
+        let selected_hunk = hunk_assignment("file.txt", Some(stack_a), 1);
+        let id = UncommittedCliId {
+            id: "ab".to_owned(),
+            hunk_assignments: NonEmpty::new(selected_hunk.clone()),
+            is_entire_file: false,
+        };
+
+        assert!(uncommitted_hunk_matches_selection(&selected_hunk, &id));
+        assert!(!uncommitted_hunk_matches_selection(
+            &hunk_assignment("file.txt", Some(stack_a), 2),
+            &id
+        ));
+        assert!(!uncommitted_hunk_matches_selection(
+            &hunk_assignment("file.txt", None, 1),
+            &id
+        ));
     }
 }

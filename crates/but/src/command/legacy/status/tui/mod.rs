@@ -11,7 +11,7 @@ use itertools::Either;
 use ratatui::{
     Frame,
     prelude::*,
-    widgets::{List, ListItem},
+    widgets::{Block, BorderType, Borders, List, ListItem},
 };
 use ratatui_textarea::{CursorMove, TextArea};
 use tracing::Level;
@@ -28,10 +28,10 @@ use crate::{
             tui::{
                 confirm::{Confirm, ConfirmMessage},
                 cursor::{Cursor, is_selectable_in_mode},
-                details::{Details, DetailsMessage, RenderNextChunkResult},
+                details::{Details, DetailsMessage, DetailsVisibility, RenderNextChunkResult},
                 graph_extension::{ExtensionDirection, extend_connector_spans},
                 highlight::{Highlights, with_highlight},
-                key_bind::{KeyBinds, confirm_key_binds, default_key_binds},
+                key_bind::{KeyBinds, confirm_key_binds, default_key_binds, detail_key_binds},
                 mode::{
                     CommandMode, CommitMode, CommitSource, InlineRewordMode, Mode, MoveMode,
                     MoveSource, RubMode,
@@ -330,6 +330,7 @@ struct App {
     mode: Mode,
     key_binds: KeyBinds,
     confirm_key_binds: KeyBinds,
+    detail_key_binds: KeyBinds,
     toasts: Toasts,
     renders: u64,
     updates: u64,
@@ -368,6 +369,7 @@ impl App {
             mode: Mode::default(),
             key_binds: default_key_binds(),
             confirm_key_binds: confirm_key_binds(),
+            detail_key_binds: detail_key_binds(),
             toasts: Default::default(),
             renders: 0,
             updates: 0,
@@ -381,6 +383,8 @@ impl App {
     fn active_key_binds(&self) -> &KeyBinds {
         if self.confirm.is_some() {
             &self.confirm_key_binds
+        } else if self.details.is_focused() {
+            &self.detail_key_binds
         } else {
             &self.key_binds
         }
@@ -1721,45 +1725,79 @@ impl App {
     fn render(&self, frame: &mut Frame) {
         let content_layout =
             Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(frame.area());
+        let main_content_area = content_layout[0];
 
-        self.render_status(content_layout[0], frame);
-        self.render_hotbar(content_layout[1], frame);
-    }
-
-    fn status_layout(&self, area: Rect) -> StatusLayout {
         let (main_content_area, debug_area) = if self.options.debug {
             let layout =
                 Layout::horizontal([Constraint::Percentage(70), Constraint::Percentage(30)])
-                    .split(area);
+                    .split(main_content_area);
             (layout[0], Some(layout[1]))
         } else {
-            (area, None)
+            (main_content_area, None)
         };
 
-        let (content_area, details_area) = match self.details.visibility() {
-            details::DetailsVisibility::Hidden => (main_content_area, None),
-            details::DetailsVisibility::VisibleVertical => {
+        let hotbar_area = content_layout[1];
+
+        let status_layout = self.status_layout(main_content_area);
+
+        let dimmed_block = Block::bordered()
+            .border_style(Style::default().dark_gray())
+            .border_type(BorderType::Plain)
+            .borders(Borders::BOTTOM);
+        let focused_block = Block::bordered()
+            .border_style(Style::default().blue())
+            .border_type(BorderType::Thick)
+            .borders(Borders::BOTTOM);
+
+        let (status_block, details_block) = if self.details.is_focused() {
+            (dimmed_block, focused_block)
+        } else {
+            (focused_block, dimmed_block)
+        };
+
+        {
+            let inner_area = status_block.inner(status_layout.status_area);
+            frame.render_widget(status_block, status_layout.status_area);
+            self.render_status(inner_area, frame);
+        }
+
+        if let Some(details_area) = status_layout.details_area {
+            let inner_area = details_block.inner(details_area);
+            frame.render_widget(details_block, details_area);
+            self.details.render(inner_area, frame);
+        }
+
+        if let Some(debug_area) = debug_area {
+            let outer_block = Block::bordered()
+                .border_style(Style::default().dark_gray())
+                .border_type(BorderType::Thick)
+                .borders(Borders::LEFT);
+            let inner_area = outer_block.inner(debug_area);
+            frame.render_widget(outer_block, debug_area);
+            self.render_debug(inner_area, frame);
+        }
+
+        self.render_hotbar(hotbar_area, frame);
+    }
+
+    fn status_layout(&self, area: Rect) -> StatusLayout {
+        let (status_area, details_area) = match self.details.visibility() {
+            DetailsVisibility::Hidden => (area, None),
+            DetailsVisibility::VisibleVertical { .. } => {
                 let layout =
                     Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                        .split(main_content_area);
+                        .split(area);
                 (layout[0], Some(layout[1]))
             }
         };
 
         StatusLayout {
-            content_area,
+            status_area,
             details_area,
-            debug_area,
         }
     }
 
-    fn render_status(&self, area: Rect, frame: &mut Frame) {
-        let StatusLayout {
-            content_area,
-            details_area,
-            debug_area,
-        } = self.status_layout(area);
-
+    fn render_status(&self, content_area: Rect, frame: &mut Frame) {
         let visible_height = content_area.height as usize;
         let items = self
             .status_lines
@@ -1774,20 +1812,12 @@ impl App {
 
         frame.render_widget(list, content_area);
 
-        if let Some(details_area) = details_area {
-            self.details.render(details_area, frame);
-        }
-
         self.render_inline_reword(content_area, frame);
 
         self.render_toasts(content_area, frame);
 
         if let Some(confirm) = &self.confirm {
             confirm.render(content_area, frame);
-        }
-
-        if let Some(debug_area) = debug_area {
-            self.render_debug(debug_area, frame);
         }
     }
 
@@ -2751,7 +2781,6 @@ where
 }
 
 struct StatusLayout {
-    content_area: Rect,
+    status_area: Rect,
     details_area: Option<Rect>,
-    debug_area: Option<Rect>,
 }
