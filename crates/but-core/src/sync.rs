@@ -76,6 +76,12 @@ pub fn try_exclusive_inter_process_access(
 /// Also use `project_data_dir` if `Some` to create an *inter-process* exclusive lock.
 /// Creating, opening, or locking that file is best-effort. Failures are logged and ignored, so
 /// the hard guarantee provided by this function remains in-process exclusivity only.
+///
+/// If the current process inherits Git's commit-hook environment (`GIT_EDITOR=:` together with
+/// `GIT_INDEX_FILE`), acquiring the inter-process lock becomes non-blocking: if another process
+/// already holds it, we continue without that file lock instead of waiting. This avoids
+/// deadlocking hook re-entry when the parent GitButler command is already holding the same
+/// inter-process lock while waiting for the hook to finish.
 /// If `project_data_dir` is `None`, no inter-process lock is obtained.
 ///
 /// Use this only at the boundary where the lock is acquired. Keep the returned [`RepoExclusiveGuard`]
@@ -279,6 +285,17 @@ impl LockFile {
     }
 }
 
+/// Try to take the best-effort inter-process write lock used by [`exclusive_repo_access()`].
+///
+/// The lock file is created at `project_data_dir/gitbutler.write-lock`.
+/// Failures to create the directory, open the file, or acquire the lock are logged and ignored so
+/// callers still keep their in-process lock.
+///
+/// Normally this blocks until the file lock is acquired. However, if the current process inherits
+/// Git's commit-hook environment (`GIT_EDITOR=:` together with `GIT_INDEX_FILE`), we only try once
+/// and immediately continue without the inter-process lock when it is already held. This prevents
+/// a hook that re-enters GitButler from hanging forever behind the parent process that launched the
+/// hook and is itself waiting for the hook to exit.
 fn best_effort_inter_process_lock(project_data_dir: &Path) -> Option<LockFile> {
     if let Err(err) = std::fs::create_dir_all(project_data_dir) {
         tracing::warn!(
@@ -301,7 +318,27 @@ fn best_effort_inter_process_lock(project_data_dir: &Path) -> Option<LockFile> {
             return None;
         }
     };
-    if let Err(err) = lock.lock() {
+
+    if current_process_looks_like_git_commit_hook() {
+        match lock.try_lock() {
+            Ok(true) => {}
+            Ok(false) => {
+                tracing::info!(
+                    path = %inter_process_lock_path.display(),
+                    "Inter-process lock already held while running from a Git commit hook; continuing without it to avoid deadlock"
+                );
+                return None;
+            }
+            Err(err) => {
+                tracing::warn!(
+                    ?err,
+                    path = %inter_process_lock_path.display(),
+                    "Failed to try acquiring inter-process lock from a Git commit hook; continuing with in-process lock only"
+                );
+                return None;
+            }
+        }
+    } else if let Err(err) = lock.lock() {
         tracing::warn!(
             ?err,
             path = %inter_process_lock_path.display(),
@@ -323,4 +360,9 @@ fn log_error_if_unsupported(err: std::io::Error, self_path: &Path) -> Result<boo
     } else {
         Err(err)
     }
+}
+
+fn current_process_looks_like_git_commit_hook() -> bool {
+    std::env::var_os("GIT_INDEX_FILE").is_some()
+        && std::env::var_os("GIT_EDITOR").is_some_and(|value| value == ":")
 }

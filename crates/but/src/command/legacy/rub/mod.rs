@@ -718,7 +718,7 @@ pub(crate) fn handle(
     source_str: &str,
     target_str: &str,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let (sources, target) = ids(ctx, &id_map, source_str, target_str, out)?;
 
     for source in sources {
@@ -851,7 +851,7 @@ pub(crate) fn handle_uncommit(
     out: &mut OutputChannel,
     source_str: &str,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let sources = parse_sources_with_disambiguation(ctx, &id_map, source_str, out)?;
 
     // Validate that all sources are commits or committed files
@@ -882,7 +882,7 @@ pub(crate) fn handle_amend(
     file_str: &str,
     commit_str: &str,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let files = parse_sources_with_disambiguation(ctx, &id_map, file_str, out)?;
     let commit = resolve_single_id(ctx, &id_map, commit_str, "Commit", out)?;
 
@@ -928,7 +928,7 @@ pub(crate) fn handle_stage(
     file_or_hunk_str: &str,
     branch_str: &str,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let files = parse_sources_with_disambiguation(ctx, &id_map, file_or_hunk_str, out)?;
     let branch = resolve_single_id(ctx, &id_map, branch_str, "Branch", out)?;
 
@@ -975,7 +975,7 @@ pub(crate) fn handle_stage_tui(
 ) -> anyhow::Result<()> {
     use crate::tui::stage_viewer::{StageFileEntry, StageResult};
 
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
 
     // Resolve branch: from flag, or interactive selection
     let branch_name = if let Some(branch_str) = branch_str {
@@ -1084,7 +1084,7 @@ pub(crate) fn handle_unstage(
     file_or_hunk_str: &str,
     branch_str: Option<&str>,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let files = parse_sources_with_disambiguation(ctx, &id_map, file_or_hunk_str, out)?;
 
     // Validate that all files are uncommitted or a path prefix

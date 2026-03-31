@@ -47,7 +47,7 @@ pub(crate) fn handle(
         bail!("At least one commit or branch name must be provided");
     }
 
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
 
     // If there's only one argument, it could be a branch name or a range
     if commits.len() == 1 {

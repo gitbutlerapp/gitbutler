@@ -45,7 +45,7 @@ pub fn handle(
     ctx: &mut Context,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
 
     // Check gerrit mode early
     let gerrit_mode = {
@@ -154,7 +154,7 @@ fn handle_dry_run(
     // Filter based on branch_id if provided
     let branches_to_show: Vec<_> = if let Some(branch_id) = branch_id {
         // Resolve branch name
-        let id_map = IdMap::new_from_context(ctx, None)?;
+        let id_map = IdMap::legacy_new_from_context(ctx, None)?;
         let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
 
         branches_with_info

@@ -55,7 +55,7 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
     use gix::{prelude::ObjectIdExt as _, revision::walk::Sorting};
 
     // Create an IdMap to resolve commit IDs (supports both CLI IDs and partial SHAs)
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
 
     // Resolve the commit ID using the IdMap
     let matches = id_map.parse_using_context(commit_id_str, ctx)?;

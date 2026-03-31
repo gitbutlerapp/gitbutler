@@ -93,6 +93,7 @@ pub(super) fn create_commit_legacy(
     scope_to_stack: Option<gitbutler_stack::StackId>,
     insert_side: InsertSide,
 ) -> anyhow::Result<Option<CommitCreateResult>> {
+    let mut guard = ctx.exclusive_worktree_access();
     let (insert_commit_relative_to, insert_side) = match target {
         CliId::Branch { name, .. } => {
             let repo = ctx.repo.get()?;
@@ -116,7 +117,7 @@ pub(super) fn create_commit_legacy(
     let changes_to_commit = match source {
         CommitSource::Unassigned(..) => {
             let context_lines = ctx.settings.context_lines;
-            let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
             let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
             let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
                 db.hunk_assignments_mut()?,
@@ -140,7 +141,7 @@ pub(super) fn create_commit_legacy(
             .collect::<Vec<_>>(),
         CommitSource::Stack(StackCommitSource { stack_id, .. }) => {
             let context_lines = ctx.settings.context_lines;
-            let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
             let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
             let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
                 db.hunk_assignments_mut()?,
@@ -167,6 +168,7 @@ pub(super) fn create_commit_legacy(
         changes_to_commit,
         // we reword the commit with the editor before the next render
         String::new(),
+        guard.write_permission(),
     )
     .context("failed to create commit")
     .map(Some)

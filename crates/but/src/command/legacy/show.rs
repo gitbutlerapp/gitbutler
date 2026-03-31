@@ -48,7 +48,7 @@ pub(crate) fn show_commit(
 
     // Not a branch, proceed with commit logic
     // Try to resolve the commit ID through the IdMap
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
 
     let cli_ids = id_map.parse_using_context(commit_id_str, ctx)?;
 

@@ -39,7 +39,7 @@ pub(crate) fn handle(
     dry_run: bool,
     new: bool,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let source: Option<CliId> = source
         .and_then(|s| parse_sources(ctx, &id_map, s).ok())
         .and_then(|s| {
@@ -139,7 +139,7 @@ fn absorb_assignments(
     let total_rejected = if new {
         but_action::auto_commit_simple(repo, data_dir, context_lines, None, absorption_plan, perm)?
     } else {
-        but_api::legacy::absorb::absorb_impl(absorption_plan, perm, repo, data_dir)?
+        but_api::legacy::absorb::absorb_with_perm(absorption_plan, perm, repo, data_dir)?
     };
 
     // Refresh the workspace commit so `gitbutler/workspace` HEAD stays in sync

@@ -302,7 +302,7 @@ impl Details {
                 )?,
                 CliId::Uncommitted(uncommitted) => {
                     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
-                    let id_map = IdMap::new_from_context(ctx, Some(wt_changes.assignments))?;
+                    let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments))?;
                     let uncommitted_hunks = filter_uncommitted_hunks(&id_map, |hunk_assignment| {
                         uncommitted_hunk_matches_selection(hunk_assignment, uncommitted)
                     })?;
@@ -340,7 +340,7 @@ impl Details {
                 )?,
                 CliId::Unassigned { .. } => {
                     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
-                    let id_map = IdMap::new_from_context(ctx, Some(wt_changes.assignments))?;
+                    let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments))?;
                     let uncommitted_hunks = filter_uncommitted_hunks(&id_map, |hunk_assignment| {
                         hunk_assignment.stack_id.is_none()
                     })?;
@@ -353,7 +353,7 @@ impl Details {
                 }
                 CliId::Stack { stack_id, .. } => {
                     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
-                    let id_map = IdMap::new_from_context(ctx, Some(wt_changes.assignments))?;
+                    let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments))?;
                     let uncommitted_hunks = filter_uncommitted_hunks(&id_map, |hunk_assignment| {
                         hunk_assignment.stack_id.is_some_and(|id| id == *stack_id)
                     })?;

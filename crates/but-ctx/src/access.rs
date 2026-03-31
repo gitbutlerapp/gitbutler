@@ -24,6 +24,10 @@ impl Context {
     /// When `project_data_dir` is available we also attempt to obtain a best-effort
     /// inter-process file lock, but failures to create, open, or lock that file are logged and
     /// ignored, so the hard guarantee remains in-process exclusivity only.
+    /// If this process inherits Git's commit-hook environment (`GIT_EDITOR=:` together with
+    /// `GIT_INDEX_FILE`), that inter-process lock attempt is non-blocking and may be skipped when
+    /// another GitButler process already holds it. This avoids deadlocking hook re-entry while the
+    /// parent GitButler command waits for the hook.
     /// Note that this works on a shared reference as internal state isn't changed.
     ///
     /// # IMPORTANT: KEEP THE GUARD ALIVE!

@@ -75,7 +75,10 @@ pub mod legacy {
 
 #[cfg(feature = "legacy")]
 mod oplog_snapshot {
-    use but_ctx::{Context, access::RepoExclusive};
+    use but_ctx::{
+        Context,
+        access::{RepoExclusive, RepoShared},
+    };
     use gitbutler_oplog::OplogExt;
 
     use crate::UnmaterializedOplogSnapshot;
@@ -84,6 +87,7 @@ mod oplog_snapshot {
     impl UnmaterializedOplogSnapshot {
         /// Create a new instance from `details`, which is a snapshot that isn't committed to the oplog yet.
         /// This fails if the snapshot creation fails.
+        // TODO: deprecate this in favor of `_with_perm` version
         pub fn from_details(
             ctx: &but_ctx::Context,
             details: gitbutler_oplog::entry::SnapshotDetails,
@@ -91,6 +95,17 @@ mod oplog_snapshot {
             // TODO: these guards are probably something to remove as they don't belong into a plumbing crate, neither does Context.
             let guard = ctx.shared_worktree_access();
             let tree_id = ctx.prepare_snapshot(guard.read_permission())?;
+            Ok(Self { tree_id, details })
+        }
+
+        /// Create a new instance from `details`, which is a snapshot that isn't committed to the oplog yet.
+        /// This fails if the snapshot creation fails.
+        pub fn from_details_with_perm(
+            ctx: &but_ctx::Context,
+            details: gitbutler_oplog::entry::SnapshotDetails,
+            perm: &RepoShared,
+        ) -> anyhow::Result<Self> {
+            let tree_id = ctx.prepare_snapshot(perm)?;
             Ok(Self { tree_id, details })
         }
     }

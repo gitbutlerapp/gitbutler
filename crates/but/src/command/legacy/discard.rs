@@ -20,7 +20,7 @@ use crate::{CliId, IdMap, id::parser::parse_sources, utils::OutputChannel};
 /// The ID should be a file or hunk ID as shown in `but status`.
 pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()> {
     // Build ID map to resolve the user's ID
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
 
     // Resolve the ID to get file information
     let resolved_ids =

@@ -14,7 +14,7 @@ pub(crate) fn handle(
     target_str: &str,
     delete: bool,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let target_result = id_map.parse_using_context(target_str, ctx)?;
     if target_result.len() != 1 {
         return Err(anyhow::anyhow!(

@@ -28,7 +28,7 @@ pub fn handle(
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
 
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let parsed_ids = id_map.parse_using_context(identifier, ctx)?;
 
     // Try to find the stack to unapply

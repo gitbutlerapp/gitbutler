@@ -25,7 +25,7 @@ pub(crate) fn handle(
     target_str: &str,
     after: bool,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
 
     // Resolve source
     let source_matches = id_map.parse_using_context(source_str, ctx)?;

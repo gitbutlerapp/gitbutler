@@ -1,0 +1,5 @@
+error: Explicit repository permission parameters must use `&RepoShared` for shared access
+ --> tests/ui/fail/base_permission_param_reposhared_mut_ref.rs:8:12
+  |
+8 |     _perm: &mut but_ctx::access::RepoShared,
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

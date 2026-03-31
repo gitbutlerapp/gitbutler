@@ -1231,11 +1231,7 @@ mod concurrent_commits {
     /// This test creates three independent branches, adds a file to each, then
     /// fires three `but commit` processes simultaneously. All three should
     /// succeed without errors or lost data.
-    ///
-    /// Currently fails with: "Specified HEAD <sha> didn't match actual HEAD^{tree} <sha>"
-    /// — the workspace commit is updated by one process while another is mid-commit.
     #[test]
-    #[ignore = "concurrent commit race condition — workspace HEAD contention"]
     fn concurrent_commits_to_independent_branches() -> anyhow::Result<()> {
         let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
         env.setup_metadata(&["A"])?;

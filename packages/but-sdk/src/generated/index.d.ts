@@ -25,6 +25,9 @@ export declare function branchDetails(projectId: string, branchName: string, rem
 /** Gets the changes for a given branch. */
 export declare function branchDiff(projectId: string, branch: string): Promise<TreeChanges>
 
+/** See [`changes_in_worktree_with_perm()`]. */
+export declare function changesInWorktree(projectId: string): Promise<WorktreeChanges>
+
 /**
  * This UI-version of [`but_core::diff::worktree_changes()`] simplifies the `git status` information for display in
  * the user interface as it is right now. From here, it's always possible to add more information as the need arises.
@@ -36,7 +39,7 @@ export declare function branchDiff(projectId: string, branch: string): Promise<T
  *
  * All ignored status changes are also provided so they can be displayed separately.
  */
-export declare function changesInWorktree(projectId: string): Promise<WorktreeChanges>
+export declare function changesInWorktreeWithPerm(projectId: string): Promise<WorktreeChanges>
 
 /** Amends an existing commit with selected changes, with oplog support. */
 export declare function commitAmend(projectId: string, commitId: string, changes: Array<DiffSpec>): Promise<UICommitCreateResult>

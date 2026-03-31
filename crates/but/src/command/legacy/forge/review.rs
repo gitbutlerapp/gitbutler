@@ -429,9 +429,9 @@ fn get_branches_without_prs(
 
 fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<String>> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let id_map = IdMap::new_from_context(&mut ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(&mut ctx, None)?;
     let branch_ids = id_map
-        .parse_using_context(branch_id, &mut ctx)?
+        .parse_using_context(branch_id, &ctx)?
         .iter()
         .filter_map(|clid| match clid {
             CliId::Branch { name, .. } => Some(name.clone()),
@@ -1153,7 +1153,7 @@ fn resolve_review_selection(
     ctx: &mut Context,
     selector: Option<String>,
 ) -> anyhow::Result<Vec<usize>> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let applied_stacks = but_api::legacy::workspace::stacks(
         ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
