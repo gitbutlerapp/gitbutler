@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 pub struct ForgeSettings {
     /// GitHub-specific settings.
     pub github: GitHubSettings,
+    /// Gitea-specific settings.
+    #[serde(default)]
+    pub gitea: GiteaSettings,
     /// GitLab-specific settings.
     #[serde(default)]
     pub gitlab: GitLabSettings,
@@ -107,6 +110,78 @@ impl PartialEq for GitHubAccount {
             (GitHubAccount::OAuth { .. }, GitHubAccount::Enterprise { .. }) => false,
             (GitHubAccount::Pat { .. }, GitHubAccount::Enterprise { .. }) => false,
             (GitHubAccount::Enterprise { .. }, GitHubAccount::Pat { .. }) => false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct GiteaSettings {
+    /// Gitea-specific settings.
+    pub known_accounts: Vec<GiteaAccount>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum GiteaAccount {
+    Pat {
+        username: String,
+        access_token_key: String,
+    },
+    SelfHosted {
+        host: String,
+        username: String,
+        access_token_key: String,
+    },
+}
+
+impl GiteaAccount {
+    pub fn access_token_key(&self) -> &str {
+        match self {
+            GiteaAccount::Pat {
+                access_token_key, ..
+            } => access_token_key,
+            GiteaAccount::SelfHosted {
+                access_token_key, ..
+            } => access_token_key,
+        }
+    }
+
+    pub fn username(&self) -> &str {
+        match self {
+            GiteaAccount::Pat { username, .. } => username,
+            GiteaAccount::SelfHosted { host, .. } => host,
+        }
+    }
+}
+
+impl PartialEq for GiteaAccount {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                GiteaAccount::Pat {
+                    username: u1,
+                    access_token_key: k1,
+                },
+                GiteaAccount::Pat {
+                    username: u2,
+                    access_token_key: k2,
+                },
+            ) => u1 == u2 && k1 == k2,
+            (
+                GiteaAccount::SelfHosted {
+                    host: h1,
+                    username: u1,
+                    access_token_key: k1,
+                },
+                GiteaAccount::SelfHosted {
+                    host: h2,
+                    username: u2,
+                    access_token_key: k2,
+                },
+            ) => h1 == h2 && u1 == u2 && k1 == k2,
+            (GiteaAccount::Pat { .. }, GiteaAccount::SelfHosted { .. }) => false,
+            (GiteaAccount::SelfHosted { .. }, GiteaAccount::Pat { .. }) => false,
         }
     }
 }

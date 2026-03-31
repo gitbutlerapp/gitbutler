@@ -90,6 +90,16 @@ pub fn get_review_template_functions(forge_name: &ForgeName) -> ReviewTemplateFu
                 SupportedTemplateDirectory::Custom("docs"),
             ],
         },
+        ForgeName::Gitea => ReviewTemplateFunctions {
+            is_review_template: is_review_template_github,
+            get_root: get_github_directory_path,
+            is_valid_review_template_path: is_valid_review_template_path_github,
+            supported_template_directories: &[
+                SupportedTemplateDirectory::ForgeRoot,
+                SupportedTemplateDirectory::ProjectRoot,
+                SupportedTemplateDirectory::Custom("docs"),
+            ],
+        },
         ForgeName::GitLab => ReviewTemplateFunctions {
             is_review_template: is_review_template_gitlab,
             get_root: get_gitlab_directory_path,
@@ -202,6 +212,16 @@ impl From<but_github::GitHubPrLabel> for ForgeReviewLabel {
     }
 }
 
+impl From<but_gitea::GiteaLabel> for ForgeReviewLabel {
+    fn from(label: but_gitea::GiteaLabel) -> Self {
+        ForgeReviewLabel {
+            name: label.name,
+            description: label.description,
+            color: label.color,
+        }
+    }
+}
+
 impl From<but_gitlab::GitLabLabel> for ForgeReviewLabel {
     fn from(label: but_gitlab::GitLabLabel) -> Self {
         ForgeReviewLabel {
@@ -250,6 +270,19 @@ impl Display for ForgeReviewUser {
 
 impl From<but_github::GitHubUser> for ForgeReviewUser {
     fn from(user: but_github::GitHubUser) -> Self {
+        ForgeReviewUser {
+            id: user.id,
+            login: user.login,
+            name: user.name,
+            email: user.email,
+            avatar_url: user.avatar_url,
+            is_bot: user.is_bot,
+        }
+    }
+}
+
+impl From<but_gitea::GiteaUser> for ForgeReviewUser {
+    fn from(user: but_gitea::GiteaUser) -> Self {
         ForgeReviewUser {
             id: user.id,
             login: user.login,
@@ -402,6 +435,37 @@ impl From<but_github::PullRequest> for ForgeReview {
     }
 }
 
+impl From<but_gitea::PullRequest> for ForgeReview {
+    fn from(pr: but_gitea::PullRequest) -> Self {
+        ForgeReview {
+            html_url: pr.html_url,
+            number: pr.number,
+            title: pr.title,
+            body: pr.body,
+            author: pr.author.map(ForgeReviewUser::from),
+            labels: pr.labels.into_iter().map(ForgeReviewLabel::from).collect(),
+            draft: pr.draft,
+            source_branch: pr.source_branch,
+            target_branch: pr.target_branch,
+            sha: pr.sha,
+            created_at: pr.created_at,
+            modified_at: pr.modified_at,
+            merged_at: pr.merged_at,
+            closed_at: pr.closed_at,
+            repository_ssh_url: pr.repository_ssh_url,
+            repository_https_url: pr.repository_https_url,
+            repo_owner: pr.repo_owner,
+            reviewers: pr
+                .requested_reviewers
+                .into_iter()
+                .map(ForgeReviewUser::from)
+                .collect(),
+            unit_symbol: "#".to_string(),
+            last_sync_at: chrono::Local::now().naive_local(),
+        }
+    }
+}
+
 impl From<but_gitlab::MergeRequest> for ForgeReview {
     fn from(mr: but_gitlab::MergeRequest) -> Self {
         ForgeReview {
@@ -498,6 +562,16 @@ impl From<but_github::CredentialCheckResult> for ForgeAccountValidity {
     }
 }
 
+impl From<but_gitea::CredentialCheckResult> for ForgeAccountValidity {
+    fn from(value: but_gitea::CredentialCheckResult) -> Self {
+        match value {
+            but_gitea::CredentialCheckResult::Invalid => ForgeAccountValidity::Invalid,
+            but_gitea::CredentialCheckResult::NoCredentials => ForgeAccountValidity::NoCredentials,
+            but_gitea::CredentialCheckResult::Valid => ForgeAccountValidity::Valid,
+        }
+    }
+}
+
 impl From<but_gitlab::CredentialCheckResult> for ForgeAccountValidity {
     fn from(value: but_gitlab::CredentialCheckResult) -> Self {
         match value {
@@ -533,6 +607,27 @@ pub async fn check_forge_account_is_valid(
             };
 
             but_github::check_credentials(&preferred_account, storage)
+                .await
+                .map(Into::into)
+        }
+        ForgeName::Gitea => {
+            let preferred_account = match preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.gitea().cloned())
+            {
+                Some(account) => account,
+                None => {
+                    let known_accounts = but_gitea::list_known_gitea_accounts(storage)?;
+                    match known_accounts.first() {
+                        Some(account) => account.clone(),
+                        None => {
+                            return Ok(ForgeAccountValidity::NoCredentials);
+                        }
+                    }
+                }
+            };
+
+            but_gitea::check_credentials(&preferred_account, storage)
                 .await
                 .map(Into::into)
         }
@@ -587,6 +682,33 @@ fn list_forge_reviews(
                 tokio::runtime::Runtime::new()
                     .unwrap()
                     .block_on(but_github::pr::list(
+                        preferred_account.as_ref(),
+                        &owner,
+                        &repo,
+                        &storage,
+                    ))
+            })
+            .join()
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
+
+            pulls
+                .into_iter()
+                .map(ForgeReview::from)
+                .collect::<Vec<ForgeReview>>()
+        }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.gitea().cloned());
+
+            let owner = owner.clone();
+            let repo = repo.clone();
+            let storage = storage.clone();
+
+            let pulls = std::thread::spawn(move || {
+                tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(but_gitea::pr::list(
                         preferred_account.as_ref(),
                         &owner,
                         &repo,
@@ -678,6 +800,23 @@ pub async fn list_forge_reviews_for_branch(
 
             Ok(prs.into_iter().map(ForgeReview::from).collect())
         }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.gitea().cloned());
+            let prs = but_gitea::pr::list_all_for_branch(
+                preferred_account.as_ref(),
+                owner,
+                repo,
+                branch,
+                storage,
+            )
+            .await?;
+
+            let prs = filter_gitea_prs(prs, &filter);
+
+            Ok(prs.into_iter().map(ForgeReview::from).collect())
+        }
         ForgeName::GitLab => {
             let preferred_account = preferred_forge_user
                 .as_ref()
@@ -703,6 +842,49 @@ fn filter_prs(
     prs: Vec<but_github::PullRequest>,
     filter: &ForgeReviewFilter,
 ) -> Vec<but_github::PullRequest> {
+    let now = chrono::Utc::now();
+    prs.into_iter()
+        .filter(|pr| {
+            if pr.merged_at.is_none() {
+                return false;
+            }
+            match filter {
+                ForgeReviewFilter::Today => {
+                    if let Some(merged_at_str) = &pr.merged_at
+                        && let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(merged_at_str)
+                    {
+                        return merged_at.date_naive() == now.date_naive();
+                    }
+                    false
+                }
+                ForgeReviewFilter::ThisWeek => {
+                    if let Some(merged_at_str) = &pr.merged_at
+                        && let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(merged_at_str)
+                    {
+                        let week_start = now
+                            - chrono::Duration::days(now.weekday().num_days_from_monday() as i64);
+                        return merged_at.date_naive() >= week_start.date_naive();
+                    }
+                    false
+                }
+                ForgeReviewFilter::ThisMonth => {
+                    if let Some(merged_at_str) = &pr.merged_at
+                        && let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(merged_at_str)
+                    {
+                        return merged_at.year() == now.year() && merged_at.month() == now.month();
+                    }
+                    false
+                }
+                ForgeReviewFilter::All => true,
+            }
+        })
+        .collect()
+}
+
+fn filter_gitea_prs(
+    prs: Vec<but_gitea::PullRequest>,
+    filter: &ForgeReviewFilter,
+) -> Vec<but_gitea::PullRequest> {
     let now = chrono::Utc::now();
     prs.into_iter()
         .filter(|pr| {
@@ -801,6 +983,12 @@ async fn get_forge_review_inner(
                 but_github::pr::get(preferred_account, owner, repo, review_number, storage).await?;
             Ok(ForgeReview::from(pr))
         }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pr =
+                but_gitea::pr::get(preferred_account, owner, repo, review_number, storage).await?;
+            Ok(ForgeReview::from(pr))
+        }
         ForgeName::GitLab => {
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab());
             let project_id = GitLabProjectId::new(owner, repo);
@@ -878,6 +1066,21 @@ pub async fn merge_review(
             };
             but_github::pr::merge(preferred_account, params, storage).await
         }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pr_number = review_number
+                .try_into()
+                .context("PR: Failed to cast usize to i64, somehow")?;
+            let params = but_gitea::MergePullRequestParams {
+                owner,
+                repo,
+                pr_number,
+                commit_message: None,
+                commit_title: None,
+                merge_method: None,
+            };
+            but_gitea::pr::merge(preferred_account, params, storage).await
+        }
         ForgeName::GitLab => {
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab());
             let project_id = GitLabProjectId::new(owner, repo);
@@ -924,6 +1127,19 @@ pub async fn set_review_auto_merge_state(
             };
             but_github::pr::set_auto_merge(preferred_account, params, storage).await
         }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pr_number = review_number
+                .try_into()
+                .context("PR: Failed to cast usize to i64, somehow")?;
+            let params = but_gitea::SetPullRequestAutoMergeParams {
+                owner,
+                repo,
+                pr_number,
+                state: enable.into(),
+            };
+            but_gitea::pr::set_auto_merge(preferred_account, params, storage).await
+        }
         ForgeName::GitLab => {
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab());
             let project_id = GitLabProjectId::new(owner, repo);
@@ -968,6 +1184,19 @@ pub async fn set_review_draftiness(
                 draft,
             };
             but_github::pr::set_draft_state(preferred_account, params, storage).await
+        }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pr_number = review_number
+                .try_into()
+                .context("PR: Failed to cast usize to i64, somehow")?;
+            let params = but_gitea::SetPullRequestDraftStateParams {
+                owner,
+                repo,
+                pr_number,
+                draft,
+            };
+            but_gitea::pr::set_draft_state(preferred_account, params, storage).await
         }
         ForgeName::GitLab => {
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab());
@@ -1058,6 +1287,29 @@ pub async fn create_forge_review(
             let pr = but_github::pr::create(preferred_account, pr_params, storage).await?;
             Ok(ForgeReview::from(pr))
         }
+        ForgeName::Gitea => {
+            let head = if let Some(forge_push_repo_info) = forge_push_repo_info
+                && forge_push_repo_info != forge_repo_info
+            {
+                format!("{}:{}", forge_push_repo_info.owner, params.source_branch)
+            } else {
+                params.source_branch.clone()
+            };
+
+            let pr_params = but_gitea::CreatePullRequestParams {
+                owner,
+                repo,
+                title: &params.title,
+                body: &params.body,
+                head: &head,
+                head_repo: None,
+                base: &params.target_branch,
+                draft: params.draft,
+            };
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pr = but_gitea::pr::create(preferred_account, pr_params, storage).await?;
+            Ok(ForgeReview::from(pr))
+        }
         ForgeName::GitLab => {
             let project_id = GitLabProjectId::new(owner, repo);
             // If there's a push repo defined, we consider that the source repository.
@@ -1144,6 +1396,33 @@ pub async fn update_review_description_tables(
                 };
 
                 but_github::pr::update(preferred_account, params, storage).await?;
+            }
+
+            Ok(())
+        }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pr_numbers: Vec<i64> = reviews.iter().map(|r| r.number).collect();
+
+            for review in reviews {
+                let updated_body = update_body(
+                    review.body.as_deref(),
+                    review.number,
+                    &pr_numbers,
+                    &review.unit_symbol,
+                );
+
+                let params = but_gitea::UpdatePullRequestParams {
+                    owner,
+                    repo,
+                    pr_number: review.number,
+                    title: None,
+                    body: Some(&updated_body),
+                    base: None,
+                    state: None,
+                };
+
+                but_gitea::pr::update(preferred_account, params, storage).await?;
             }
 
             Ok(())

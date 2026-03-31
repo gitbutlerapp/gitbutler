@@ -12,7 +12,7 @@ use axum::{
     response::IntoResponse,
     routing::{MethodRouter, any, post},
 };
-use but_api::{commit, diff, github, gitlab, json, legacy, platform};
+use but_api::{commit, diff, gitea, github, gitlab, json, legacy, platform};
 use but_claude::{Broadcaster, Claude};
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 #[cfg(feature = "irc")]
@@ -596,6 +596,18 @@ pub async fn run() -> anyhow::Result<()> {
         .route(
             "/clear_all_github_tokens",
             but_post(github::clear_all_github_tokens_cmd),
+        )
+        .route(
+            "/forget_gitea_account",
+            but_post(gitea::forget_gitea_account_cmd),
+        )
+        .route(
+            "/list_known_gitea_accounts",
+            but_post(gitea::list_known_gitea_accounts_cmd),
+        )
+        .route(
+            "/clear_all_gitea_tokens",
+            but_post(gitea::clear_all_gitea_tokens_cmd),
         )
         .route(
             "/forget_gitlab_account",

@@ -6,28 +6,27 @@
  * This struct is used for API responses where the access token needs to be
  * sent as a plain string. Field names are converted to camelCase for JSON.
  */
-export type AuthStatusResponseSensitive = {
-	/**
-	 * The GitLab access token as a plain string (sensitive data).
-	 */
-	accessToken: string;
-	/**
-	 * The GitLab username.
-	 */
-	username: string;
-	/**
-	 * The user's display name, if available.
-	 */
-	name: string | null;
-	/**
-	 * The user's email address, if available.
-	 */
-	email: string | null;
-	/**
-	 * The self-hosted GitLab host, if this is a self-hosted instance.
-	 */
-	host: string | null;
-};
+export type AuthStatusResponseSensitive = { 
+/**
+ * The GitLab access token as a plain string (sensitive data).
+ */
+accessToken: string, 
+/**
+ * The GitLab username.
+ */
+username: string, 
+/**
+ * The user's display name, if available.
+ */
+name: string | null, 
+/**
+ * The user's email address, if available.
+ */
+email: string | null, 
+/**
+ * The self-hosted GitLab host, if this is a self-hosted instance.
+ */
+host: string | null, };
 
 /**
  * Serializable version of [`AuthenticatedUser`] with exposed access token.
@@ -35,25 +34,24 @@ export type AuthStatusResponseSensitive = {
  * This struct represents an authenticated GitLab user with their credentials
  * exposed as plain strings for API responses. Field names are converted to camelCase for JSON.
  */
-export type AuthenticatedUserSensitive = {
-	/**
-	 * The GitLab access token as a plain string (sensitive data).
-	 */
-	accessToken: string;
-	/**
-	 * The GitLab username.
-	 */
-	username: string;
-	/**
-	 * The URL to the user's avatar image, if available.
-	 */
-	avatarUrl: string | null;
-	/**
-	 * The user's display name, if available.
-	 */
-	name: string | null;
-	/**
-	 * The user's email address, if available.
-	 */
-	email: string | null;
-};
+export type AuthenticatedUserSensitive = { 
+/**
+ * The GitLab access token as a plain string (sensitive data).
+ */
+accessToken: string, 
+/**
+ * The GitLab username.
+ */
+username: string, 
+/**
+ * The URL to the user's avatar image, if available.
+ */
+avatarUrl: string | null, 
+/**
+ * The user's display name, if available.
+ */
+name: string | null, 
+/**
+ * The user's email address, if available.
+ */
+email: string | null, };

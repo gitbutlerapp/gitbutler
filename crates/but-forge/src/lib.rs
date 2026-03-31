@@ -19,6 +19,8 @@ pub use review::{
 fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
     if host.contains("github.com") || host.starts_with("github.") {
         Some(ForgeName::GitHub)
+    } else if host.contains("gitea.com") || host.starts_with("gitea.") {
+        Some(ForgeName::Gitea)
     } else if host.contains("gitlab.com") || host.starts_with("gitlab.") {
         Some(ForgeName::GitLab)
     } else if host.contains("bitbucket.org") {
@@ -66,6 +68,10 @@ fn match_host_to_accounts_custom_host(host: &str, accounts: &[ForgeUser]) -> Opt
             .custom_host()
             .as_deref()
             .is_some_and(|custom_host| custom_host_matches_repository_host(host, custom_host)),
+        ForgeUser::Gitea(gitea_account) => gitea_account
+            .custom_host()
+            .as_deref()
+            .is_some_and(|custom_host| custom_host_matches_repository_host(host, custom_host)),
         ForgeUser::GitLab(gl_account) => gl_account
             .custom_host()
             .as_deref()
@@ -74,6 +80,7 @@ fn match_host_to_accounts_custom_host(host: &str, accounts: &[ForgeUser]) -> Opt
 
     match user {
         Some(ForgeUser::GitHub(_)) => Some(ForgeName::GitHub),
+        Some(ForgeUser::Gitea(_)) => Some(ForgeName::Gitea),
         Some(ForgeUser::GitLab(_)) => Some(ForgeName::GitLab),
         None => None,
     }
@@ -131,11 +138,16 @@ fn normalize_host_for_comparison(value: &str) -> String {
 pub fn get_all_forge_accounts() -> anyhow::Result<Vec<ForgeUser>> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
     let gh_accounts = but_github::list_known_github_accounts(&storage)?;
+    let gitea_accounts = but_gitea::list_known_gitea_accounts(&storage)?;
     let gl_accounts = but_gitlab::list_known_gitlab_accounts(&storage)?;
 
     let mut forge_users = vec![];
     for gh_account in gh_accounts {
         forge_users.push(ForgeUser::GitHub(gh_account));
+    }
+
+    for gitea_account in gitea_accounts {
+        forge_users.push(ForgeUser::Gitea(gitea_account));
     }
 
     for gl_account in gl_accounts {

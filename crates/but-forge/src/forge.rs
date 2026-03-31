@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 /// Supported git forge types
 pub enum ForgeName {
     GitHub,
+    Gitea,
     GitLab,
     Bitbucket,
     Azure,
@@ -36,6 +37,7 @@ impl PartialEq for ForgeRepoInfo {
 #[cfg_attr(feature = "export-ts", ts(export, export_to = "./forge/user.ts"))]
 pub enum ForgeUser {
     GitHub(but_github::GithubAccountIdentifier),
+    Gitea(but_gitea::GiteaAccountIdentifier),
     GitLab(but_gitlab::GitlabAccountIdentifier),
 }
 #[cfg(feature = "export-schema")]
@@ -45,6 +47,12 @@ impl ForgeUser {
     pub fn github(&self) -> Option<&but_github::GithubAccountIdentifier> {
         match self {
             ForgeUser::GitHub(id) => Some(id),
+            _ => None,
+        }
+    }
+    pub fn gitea(&self) -> Option<&but_gitea::GiteaAccountIdentifier> {
+        match self {
+            ForgeUser::Gitea(id) => Some(id),
             _ => None,
         }
     }
