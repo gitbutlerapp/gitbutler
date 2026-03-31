@@ -3,7 +3,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RegisteredRouter, RouterProvider } from "@tanstack/react-router";
 import { FC, StrictMode } from "react";
+import { classes } from "./classes";
 import styles from "./App.module.css";
+import uiStyles from "./ui.module.css";
 
 const Toasts: FC = () => {
 	const { toasts } = Toast.useToastManager();
@@ -12,7 +14,11 @@ const Toasts: FC = () => {
 		<Toast.Portal>
 			<Toast.Viewport className={styles.toastViewport}>
 				{toasts.map((toast) => (
-					<Toast.Root key={toast.id} toast={toast} className={styles.toastRoot}>
+					<Toast.Root
+						key={toast.id}
+						toast={toast}
+						className={classes(uiStyles.popup, styles.toastRoot)}
+					>
 						<Toast.Content>
 							<Toast.Title />
 							<Toast.Description
@@ -37,7 +43,12 @@ export const App: React.FC<{
 	<StrictMode>
 		<QueryClientProvider client={queryClient}>
 			<Toast.Provider toastManager={toastManager}>
-				<Tooltip.Provider>
+				<Tooltip.Provider
+					// Workaround for flicker issue when nesting tooltips
+					// https://discord.com/channels/1287292451308048406/1287292451308048409/1488499829104443424
+					// https://stackblitz.com/edit/zrcwexu5-k5ypazwg?file=src%2FApp.tsx
+					delay={0}
+				>
 					<RouterProvider router={router} />
 					<Toasts />
 				</Tooltip.Provider>

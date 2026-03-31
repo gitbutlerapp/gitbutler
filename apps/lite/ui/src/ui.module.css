@@ -1,9 +1,64 @@
 .button {
 	padding-inline: 8px;
 	padding-block: 4px;
-	background-color: #eee;
+	background-color: var(--color-button-bg);
+
+	&:not(:disabled):hover {
+		background-color: var(--color-button-hover-bg);
+	}
 
 	&:disabled {
-		color: #aaa;
+		color: var(--color-button-disabled-fg);
 	}
+}
+
+.popup {
+	border-radius: 8px;
+	background-color: var(--color-bg);
+	box-shadow:
+		/* We use box shadow for the outline so it works with drag previews. */
+		inset 0 0 0 1px light-dark(rgb(0 0 0 / 0.2), rgb(255 255 255 / 0.16)),
+		0 12px 16px -8px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.4));
+}
+
+.dialogBackdrop {
+	position: fixed;
+	inset: 0;
+	background-color: var(--color-dialog-backdrop);
+}
+
+.dialogPopup {
+	display: flex;
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	row-gap: 12px;
+	flex-direction: column;
+	padding: 16px;
+	transform: translate(-50%, -50%);
+	border-radius: 8px;
+	background-color: var(--color-bg);
+	box-shadow: 0 8px 16px light-dark(rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.9));
+}
+
+.menuPopup {
+	padding: 4px;
+}
+
+.menuItem {
+	padding: 4px;
+	border-radius: 4px;
+	cursor: default;
+
+	&[data-disabled] {
+		opacity: 0.5;
+	}
+
+	&[data-highlighted] {
+		background-color: var(--color-menu-item-highlighted-bg);
+	}
+}
+
+.tooltip {
+	padding: 8px;
 }

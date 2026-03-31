@@ -91,7 +91,7 @@ export const HunkDiff: FC<{
 		patch={`${patchHeaderForChange(change, lineEndingForDiff(diff))}${diff}`}
 		options={{
 			diffStyle: "unified",
-			themeType: "light",
+			themeType: "system",
 			disableFileHeader: true,
 		}}
 	/>

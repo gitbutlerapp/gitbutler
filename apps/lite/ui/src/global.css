@@ -1,14 +1,47 @@
 :root {
+	color-scheme: light dark;
 	font-family: system-ui;
 
-	--pane-padding: 16px;
+	--color-white: light-dark(#fff, #121212);
+	--color-gray-50: light-dark(#f5f5f5, #1a1a1a);
+	--color-gray-100: light-dark(#e8e8e8, #242424);
+	--color-gray-200: light-dark(#dcdcdc, #303030);
+	--color-gray-400: light-dark(#adacac, #8f8f8f);
+	--color-gray-700: light-dark(#626262, #c5c5c5);
+	--color-gray-900: light-dark(#2b2b2b, #ececec);
+	--color-black: light-dark(#000, #fff);
+
+	--color-bg: var(--color-white);
+	--color-button-bg: var(--color-gray-50);
+	--color-button-hover-bg: var(--color-gray-100);
+	--color-button-disabled-fg: var(--color-gray-700);
+	--color-dialog-backdrop: light-dark(rgb(0 0 0 / 0.35), rgb(0 0 0 / 0.65));
+	--color-drag-over-outline: var(--color-black);
+	--color-file-selected-bg: var(--color-gray-200);
+	--color-input-bg: var(--color-gray-50);
+	--color-item-action-hover-bg: var(--color-gray-200);
+	--color-item-highlighted-bg: #63cdc7;
+	--color-item-hover-bg: var(--color-gray-100);
+	--color-item-selected-action-hover-bg: var(--color-gray-900);
+	--color-item-selected-bg: var(--color-black);
+	--color-item-selected-fg: var(--color-white);
+	--color-menu-item-highlighted-bg: var(--color-gray-50);
+	--color-move-indicator: var(--color-black);
+	--color-section-selected-bg: var(--color-gray-50);
+	--color-separator: var(--color-gray-400);
+	--color-text-secondary-inverse: var(--color-gray-400);
+	--color-text-secondary: var(--color-gray-700);
+	--color-text: var(--color-black);
 	--item-block-padding: 4px;
 	--item-inline-padding: 8px;
 	--item-line-height: 19px;
+	--pane-padding: 16px;
 }
 
 body {
 	margin: 0;
+	background-color: var(--color-bg);
+	color: var(--color-text);
 	font-size: 16px;
 }
 
