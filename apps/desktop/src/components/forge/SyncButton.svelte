@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { lastFetched as getLastFetched } from "$lib/baseBranch/baseBranch";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
@@ -19,7 +20,9 @@
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const listingService = $derived(forge.current.listService);
 
-	const lastFetched = $derived(baseBranch.result.data?.lastFetched);
+	const lastFetched = $derived(
+		baseBranch.result.data ? getLastFetched(baseBranch.result.data) : undefined,
+	);
 
 	let loading = $state(false);
 </script>

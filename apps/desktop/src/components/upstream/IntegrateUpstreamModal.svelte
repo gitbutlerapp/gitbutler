@@ -2,6 +2,7 @@
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { descriptionTitle } from "$lib/commits/commit";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import {
 		getBaseBranchResolution,
@@ -348,9 +349,9 @@
 						{#each base.upstreamCommits as commit}
 							{@const commitUrl = forge.current.commitUrl(commit.id)}
 							<SimpleCommitRow
-								title={commit.descriptionTitle ?? ""}
+								title={descriptionTitle(commit) ?? ""}
 								sha={commit.id}
-								date={commit.createdAt}
+								date={new Date(commit.createdAt)}
 								author={commit.author.name}
 								url={commitUrl}
 								onOpen={(url) => urlService.openExternalUrl(url)}

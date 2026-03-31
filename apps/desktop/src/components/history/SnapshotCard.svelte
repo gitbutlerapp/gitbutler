@@ -35,9 +35,8 @@
 		return `${sha.slice(0, 7)}`;
 	}
 
-	function createdOnDayAndTime(epoch: number) {
-		const date = new Date(epoch);
-		return `${createdOnDay(date)}, ${toHumanReadableTime(date)}`;
+	function createdOnDayAndTime(epochMs: number) {
+		return `${createdOnDay(epochMs)}, ${toHumanReadableTime(new Date(epochMs))}`;
 	}
 
 	function camelToTitleCase(str: string | undefined) {
@@ -198,7 +197,7 @@
 			>
 		</div>
 		<span class="snapshot-time text-11">
-			{toHumanReadableTime(entry.createdAt)}
+			{toHumanReadableTime(new Date(entry.createdAt))}
 		</span>
 	</div>
 

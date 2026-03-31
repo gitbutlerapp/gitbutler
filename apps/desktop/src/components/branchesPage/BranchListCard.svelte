@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BranchesCardLayout from "$components/branchesPage/BranchesCardLayout.svelte";
-	import { type BranchListing, BranchListingDetails } from "$lib/branches/branchListing";
+	import { type BranchListing, type BranchListingDetails } from "$lib/branches/branchListing";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { getPrStatus } from "$lib/forge/interface/prUtils";

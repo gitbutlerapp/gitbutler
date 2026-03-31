@@ -1,23 +1,10 @@
-import { BaseBranch } from "$lib/baseBranch/baseBranch";
 import { Code } from "$lib/error/knownErrors";
 import { isReduxError } from "$lib/error/reduxError";
 import { showError } from "$lib/error/showError";
 import { parseRemoteUrl } from "$lib/git/gitUrl";
 import { InjectionToken } from "@gitbutler/core/context";
-import { plainToInstance } from "class-transformer";
+import type { BaseBranch } from "$lib/baseBranch/baseBranch";
 import type { BackendApi } from "$lib/state/clientState.svelte";
-
-function mapBaseBranch(data: unknown): BaseBranch | undefined;
-function mapBaseBranch<T>(data: unknown, cb: (baseBranch: BaseBranch) => T): T | undefined;
-function mapBaseBranch<T>(
-	data: unknown,
-	cb?: (baseBranch: BaseBranch) => T,
-): BaseBranch | T | undefined {
-	if (!data) return undefined;
-	const baseBranch = plainToInstance(BaseBranch, data);
-	if (cb) return cb(baseBranch);
-	return baseBranch;
-}
 
 export const BASE_BRANCH_SERVICE = new InjectionToken<BaseBranchService>("BaseBranchService");
 
@@ -34,9 +21,7 @@ export default class BaseBranchService {
 				projectId,
 			},
 			{
-				transform: (data) => {
-					return mapBaseBranch(data);
-				},
+				transform: (data) => data as BaseBranch | undefined,
 			},
 		);
 	}
@@ -47,13 +32,9 @@ export default class BaseBranchService {
 				projectId,
 			},
 			{
-				transform: (data) =>
-					mapBaseBranch(data, (baseBranch) => {
-						if (baseBranch.branchName.startsWith(baseBranch.remoteName + "/")) {
-							return baseBranch.branchName.substring(baseBranch.remoteName.length + 1);
-						}
-						return baseBranch.branchName;
-					}),
+				transform: (data) => {
+					return data?.shortName;
+				},
 			},
 		);
 	}
@@ -64,8 +45,9 @@ export default class BaseBranchService {
 				projectId,
 			},
 			{
-				transform: (data) =>
-					mapBaseBranch(data, (baseBranch) => parseRemoteUrl(baseBranch.remoteUrl)),
+				transform: (data) => {
+					return data ? parseRemoteUrl(data.remoteUrl) : undefined;
+				},
 			},
 		);
 	}
@@ -76,8 +58,10 @@ export default class BaseBranchService {
 				projectId,
 			},
 			{
-				transform: (data) =>
-					mapBaseBranch(data, (baseBranch) => parseRemoteUrl(baseBranch.pushRemoteUrl)),
+				transform: (data) => {
+					const baseBranch = data as BaseBranch | undefined;
+					return baseBranch ? parseRemoteUrl(baseBranch.pushRemoteUrl) : undefined;
+				},
 			},
 		);
 	}

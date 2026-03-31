@@ -1,4 +1,3 @@
-import { Transform, Type } from "class-transformer";
 export type UpdatedBranch = {
 	/** The name of the branch that was updated. */
 	branchName: string;
@@ -69,34 +68,32 @@ export function isCursorActionSource(source: ActionSource): source is CursorActi
 }
 
 /** Represents a snapshot of an automatic action taken by a GitButler automation.  */
-export class ButlerAction {
+export interface ButlerAction {
 	/** UUID identifier of the action */
-	id!: string;
-	/** The time when the action was performed. */
-	@Transform((obj) => new Date(obj.value))
-	createdAt!: Date;
+	id: string;
+	/** The time when the action was performed. Milliseconds since epoch. */
+	createdAt: number;
 	/** A description of the change that was made and why it was made - i.e. the information that can be obtained from the caller. */
-	externalSummary!: string;
+	externalSummary: string;
 	/** The prompt used that triggered this thingy stuff figure it out yourself */
-	externalPrompt!: string;
+	externalPrompt: string;
 	/** The handler / implementation that performed the action. */
-	handler!: ActionHandler;
+	handler: ActionHandler;
 	/** A GitBulter Oplog snapshot ID before the action was performed. */
-	snapshotBefore!: string;
+	snapshotBefore: string;
 	/** A GitBulter Oplog snapshot ID after the action was performed. */
-	snapshotAfter!: string;
+	snapshotAfter: string;
 	/** The outcome of the action, if it was successful. */
-	response!: Outcome | null;
+	response: Outcome | null;
 	/** An error message if the action failed. */
-	error!: string | null;
+	error: string | null;
 	/** The source of the action, if known. */
-	source!: ActionSource;
+	source: ActionSource;
 }
 
-export class ActionListing {
-	total!: number;
-	@Type(() => ButlerAction)
-	actions!: ButlerAction[];
+export interface ActionListing {
+	total: number;
+	actions: ButlerAction[];
 }
 
 type RewordKind = {
@@ -140,28 +137,26 @@ export type Status =
 	| { readonly type: "interrupted"; readonly subject: string };
 
 /** Represents a workflow that was executed by GitButler. */
-export class Workflow {
+export interface Workflow {
 	/** UUID identifier of the workflow */
-	id!: string;
-	/** The time when the workflow was captured. */
-	@Transform((obj) => new Date(obj.value))
-	createdAt!: Date;
+	id: string;
+	/** The time when the workflow was captured. Milliseconds since epoch. */
+	createdAt: number;
 	/** The name of the workflow that was performed */
-	kind!: WorkflowKind;
+	kind: WorkflowKind;
 	/** The trigger that initiated the workflow. */
-	triggeredBy!: Trigger;
+	triggeredBy: Trigger;
 	/** The status of the workflow. */
-	status!: Status;
+	status: Status;
 	/** Input commits */
-	inputCommits!: string[];
+	inputCommits: string[];
 	/** Output commits */
-	outputCommits!: string[];
+	outputCommits: string[];
 	/** Optional summary of the workflow */
 	summary?: string;
 }
 
-export class WorkflowList {
-	total!: number;
-	@Type(() => Workflow)
-	workflows!: Workflow[];
+export interface WorkflowList {
+	total: number;
+	workflows: Workflow[];
 }

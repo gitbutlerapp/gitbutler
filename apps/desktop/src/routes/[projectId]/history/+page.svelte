@@ -107,7 +107,7 @@
 					}}
 				>
 					{#each $snapshots as entry, idx (entry.id)}
-						{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1]?.createdAt ?? new Date())}
+						{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1]?.createdAt ?? 0)}
 							<div class="history-view__snapshots__date-header">
 								<h4 class="text-12 text-semibold">
 									{createdOnDay(entry.createdAt)}
