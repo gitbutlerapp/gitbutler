@@ -1,10 +1,10 @@
 import { Dialog } from "@base-ui/react";
 import { FC, ReactNode, use, useState } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
+import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/-ShortcutsBar.tsx";
 import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
 import { usePreviewPanel } from "#ui/hooks/usePreviewPanel.ts";
-import { bindingButtonLabel } from "#ui/shortcuts.ts";
 import uiStyles from "#ui/ui.module.css";
 import { closeFullscreenPreviewBinding } from "./workspace/-WorkspaceShortcuts.ts";
 import sharedStyles from "./-shared.module.css";
@@ -58,13 +58,14 @@ export const ProjectPreviewLayout: FC<{
 				<Dialog.Portal>
 					<Dialog.Popup aria-label="Preview" className={sharedStyles.previewDialogPopup}>
 						<div className={sharedStyles.previewDialogBody}>
-							<button
+							<ShortcutButton
+								binding={closeFullscreenPreviewBinding}
 								type="button"
 								className={uiStyles.button}
 								onClick={() => setShowFullscreenPreview(false)}
 							>
-								{bindingButtonLabel(closeFullscreenPreviewBinding)}
-							</button>
+								{closeFullscreenPreviewBinding.description}
+							</ShortcutButton>
 							{preview}
 						</div>
 						<footer ref={setDialogShortcutsBarPortalNode} />

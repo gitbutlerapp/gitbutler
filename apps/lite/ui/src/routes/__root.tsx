@@ -5,8 +5,8 @@ import { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext } from "@tanstack/react-router";
 import { useFullscreenPreview } from "../hooks/useFullscreenPreview";
 import { usePreviewPanel } from "../hooks/usePreviewPanel";
+import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/-ShortcutsBar.tsx";
-import { bindingButtonLabel } from "#ui/shortcuts.ts";
 import {
 	openFullscreenPreviewBinding,
 	togglePreviewBinding,
@@ -98,21 +98,23 @@ const TopBarActions: FC<{
 
 	return (
 		<div className={styles.topBarActions}>
-			<button
+			<ShortcutButton
+				binding={togglePreviewBinding}
 				type="button"
 				className={uiStyles.button}
 				aria-pressed={previewPanel}
 				onClick={() => setPreviewPanel((visible) => !visible)}
 			>
-				{bindingButtonLabel(togglePreviewBinding)}
-			</button>
-			<button
+				{togglePreviewBinding.description}
+			</ShortcutButton>
+			<ShortcutButton
+				binding={openFullscreenPreviewBinding}
 				type="button"
 				className={uiStyles.button}
 				onClick={() => setShowFullscreenPreview(true)}
 			>
-				{bindingButtonLabel(openFullscreenPreviewBinding)}
-			</button>
+				{openFullscreenPreviewBinding.description}
+			</ShortcutButton>
 		</div>
 	);
 };
