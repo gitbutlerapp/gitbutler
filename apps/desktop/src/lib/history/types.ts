@@ -20,6 +20,7 @@ export type Operation =
 	| "Absorb"
 	| "AutoCommit"
 	| "UndoCommit"
+	| "DiscardCommit"
 	| "UnapplyBranch"
 	| "CherryPick"
 	| "SquashCommit"

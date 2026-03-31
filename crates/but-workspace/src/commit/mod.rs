@@ -18,6 +18,8 @@ pub mod uncommit_changes;
 pub use uncommit_changes::function::{UncommitChangesOutcome, uncommit_changes};
 pub mod move_commit;
 pub use move_commit::function::move_commit;
+pub mod discard_commit;
+pub use discard_commit::function::discard_commit;
 
 /// A minimal stack for use by [WorkspaceCommit::new_from_stacks()].
 #[derive(Clone)]

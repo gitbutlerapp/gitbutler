@@ -1,7 +1,7 @@
 use bstr::ByteSlice;
 use serde::{Deserialize, Serialize};
 
-use crate::json::HexHash;
+use crate::{commit::types::CommitDiscardResult, json::HexHash};
 
 use super::types::{
     CommitCreateResult, CommitInsertBlankResult, CommitMoveResult, CommitRewordResult,
@@ -202,6 +202,42 @@ impl From<CommitMoveResult> for UICommitMoveResult {
         let CommitMoveResult { replaced_commits } = value;
 
         Self {
+            replaced_commits: replaced_commits
+                .into_iter()
+                .map(|(old, new)| (old.into(), new.into()))
+                .collect(),
+        }
+    }
+}
+/// UI type for discarding a commit.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct UICommitDiscardResult {
+    /// The commit that was discarded as a result of this operation.
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+    pub discarded_commit: HexHash,
+    /// Commits that have been replaced as a side-effect of the commit discard.
+    /// Maps `oldId -> newId`.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(with = "std::collections::BTreeMap<String, String>")
+    )]
+    pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(UICommitDiscardResult);
+
+impl From<CommitDiscardResult> for UICommitDiscardResult {
+    fn from(value: CommitDiscardResult) -> Self {
+        let CommitDiscardResult {
+            replaced_commits,
+            discarded_commit,
+        } = value;
+
+        Self {
+            discarded_commit: discarded_commit.into(),
             replaced_commits: replaced_commits
                 .into_iter()
                 .map(|(old, new)| (old.into(), new.into()))

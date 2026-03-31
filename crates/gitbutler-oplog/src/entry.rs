@@ -143,6 +143,7 @@ pub enum OperationKind {
     Absorb,
     AutoCommit,
     UndoCommit,
+    DiscardCommit,
     UnapplyBranch,
     CherryPick,
     SquashCommit,
