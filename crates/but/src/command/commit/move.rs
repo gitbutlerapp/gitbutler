@@ -4,55 +4,17 @@ use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use colored::Colorize;
 
 use crate::{
-    CliId, IdMap,
+    CliId,
     utils::{OutputChannel, shorten_object_id},
 };
 
-/// Move a commit to a new location in the stack.
-///
-/// This handles two scenarios:
-/// 1. Moving a commit to be before/after another commit (reordering within or across stacks)
-/// 2. Moving a commit to a branch (places at top)
-///
-/// # Limitations
-/// - When moving commits within the same stack, you can specify exact position (before/after target)
-/// - When moving commits to a different stack, the commit goes to the top (API limitation)
-/// - You cannot currently move a commit to a specific position in a different stack in one operation
-pub(crate) fn handle(
+pub(crate) fn handle_resolved(
     ctx: &mut Context,
     out: &mut OutputChannel,
-    source_str: &str,
-    target_str: &str,
+    source_id: &CliId,
+    target_id: &CliId,
     after: bool,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
-
-    // Resolve source
-    let source_matches = id_map.parse_using_context(source_str, ctx)?;
-    if source_matches.is_empty() {
-        bail!(
-            "Source '{source_str}' not found. If you just performed a Git operation, try running 'but status' to refresh."
-        );
-    }
-    if source_matches.len() > 1 {
-        bail!("Source '{source_str}' is ambiguous. Try using more characters to disambiguate.");
-    }
-
-    let source_id = &source_matches[0];
-
-    // Resolve target
-    let target_matches = id_map.parse_using_context(target_str, ctx)?;
-    if target_matches.is_empty() {
-        bail!(
-            "Target '{target_str}' not found. If you just performed a Git operation, try running 'but status' to refresh."
-        );
-    }
-    if target_matches.len() > 1 {
-        bail!("Target '{target_str}' is ambiguous. Try using more characters to disambiguate.");
-    }
-
-    let target_id = &target_matches[0];
-
     // Validate --after flag usage
     if after {
         // Check if target is a branch (--after only makes sense for commit-to-commit moves)

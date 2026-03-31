@@ -85,7 +85,9 @@ Example: Adding a new API endpoint and updating button styles are independent.
 
 ### Stacked Branches (Dependent Work)
 
-**To stack an existing branch** on top of another: `but branch move <child-branch-name> <parent-branch-name>` — this is the primary way to stack branches.
+**To stack an existing branch** on top of another: `but move <child-branch-name> <parent-branch-name>`.
+
+Equivalent syntax: `but branch move <child-branch-name> <parent-branch-name>`.
 
 **To create a new stacked branch** from scratch: `but branch new <name> -a <anchor>` — only use this when the child branch doesn't exist yet.
 
@@ -102,10 +104,16 @@ Use when:
 
 Example: User profile page needs authentication to be implemented first.
 
-**Stacking two existing branches:** If both branches already exist and you need to make one depend on the other, use `but branch move`:
+**Stacking two existing branches:** If both branches already exist and you need to make one depend on the other, use top-level `move`:
 ```bash
-but branch move feature/frontend feature/backend
+but move feature/frontend feature/backend
 # Now frontend is stacked on top of backend — both in the same stack
+```
+
+To tear off a branch from a stack:
+
+```bash
+but move feature/frontend zz
 ```
 
 **Dependency tracking:** GitButler automatically tracks which changes depend on which commits. You can't stage dependent changes to the wrong branch.
@@ -156,15 +164,15 @@ File-in-Commit       │ Uncommit        │ Move       │ Uncommit & assign �
 
 **Common examples:**
 
-| Source | Target | Operation | Example |
-|--------|--------|-----------|---------|
-| File | Branch | Stage file to branch | `but rub a1 bu` |
-| File | Commit | Amend file into commit | `but rub a1 c3` |
-| Commit | Commit | Squash commits | `but rub c2 c3` |
-| Commit | Branch | Move commit to branch | `but rub c2 bu` |
-| File | `zz` | Unstage file | `but rub a1 zz` |
-| Commit | `zz` | Undo commit | `but rub c2 zz` |
-| `zz` | Branch | Stage all unassigned | `but rub zz bu` |
+| Source | Target | Operation              | Example         |
+| ------ | ------ | ---------------------- | --------------- |
+| File   | Branch | Stage file to branch   | `but rub a1 bu` |
+| File   | Commit | Amend file into commit | `but rub a1 c3` |
+| Commit | Commit | Squash commits         | `but rub c2 c3` |
+| Commit | Branch | Move commit to branch  | `but rub c2 bu` |
+| File   | `zz`   | Unstage file           | `but rub a1 zz` |
+| Commit | `zz`   | Undo commit            | `but rub c2 zz` |
+| `zz`   | Branch | Stage all unassigned   | `but rub zz bu` |
 
 ### Higher-Level Conveniences
 
@@ -173,7 +181,7 @@ These commands are wrappers around `but rub`:
 - `but stage <file> <branch>` = `but rub <file> <branch>`
 - `but amend <file> <commit>` = `but rub <file> <commit>`
 - `but squash` = Multiple `but rub <commit> <commit>` operations
-- `but move` = `but rub <commit> <target>` with position control
+- `but move` = commit move/reorder with position control, plus branch stack/tear-off (`<branch> <target-branch>` and `<branch> zz`)
 
 **Why this design?** One powerful primitive is easier to understand and maintain than many specialized commands. Once you understand `but rub`, you understand the editing model.
 

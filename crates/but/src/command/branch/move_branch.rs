@@ -3,22 +3,31 @@ use anyhow::{Context, bail};
 
 /// Move a branch on top of another
 pub fn move_branch(
-    mut ctx: but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     branch: &str,
     target_branch: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::legacy_new_from_context(&mut ctx, None)?;
-    let branch_name = resolve_branch_information(&mut ctx, &id_map, branch)
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let branch_name = resolve_branch_information(ctx, &id_map, branch)
         .context("Failed to determine information for the branch to move.")?;
-    let target_branch_name = resolve_branch_information(&mut ctx, &id_map, target_branch)
+    let target_branch_name = resolve_branch_information(ctx, &id_map, target_branch)
         .context("Failed to determine information for the target branch.")?;
 
+    move_branch_by_name(ctx, &branch_name, &target_branch_name, out)
+}
+
+pub(crate) fn move_branch_by_name(
+    ctx: &mut but_ctx::Context,
+    branch_name: &str,
+    target_branch_name: &str,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
     let branch_ref_name_str = &format!("refs/heads/{branch_name}");
     let target_ref_name_str = &format!("refs/heads/{target_branch_name}");
 
     but_api::branch::move_branch(
-        &mut ctx,
+        ctx,
         branch_ref_name_str.try_into()?,
         target_ref_name_str.try_into()?,
     )?;
@@ -34,17 +43,25 @@ pub fn move_branch(
 }
 
 pub fn tear_off_branch(
-    mut ctx: but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     branch: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::legacy_new_from_context(&mut ctx, None)?;
-    let branch_name = resolve_branch_information(&mut ctx, &id_map, branch)
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let branch_name = resolve_branch_information(ctx, &id_map, branch)
         .context("Failed to determine information for the branch to tear off.")?;
 
+    tear_off_branch_by_name(ctx, &branch_name, out)
+}
+
+pub(crate) fn tear_off_branch_by_name(
+    ctx: &mut but_ctx::Context,
+    branch_name: &str,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
     let branch_ref_name_str = &format!("refs/heads/{branch_name}");
 
-    but_api::branch::tear_off_branch(&mut ctx, branch_ref_name_str.try_into()?)?;
+    but_api::branch::tear_off_branch(ctx, branch_ref_name_str.try_into()?)?;
 
     if let Some(out) = out.for_human() {
         writeln!(out, "Unstacked branch '{branch_name}'.")?;

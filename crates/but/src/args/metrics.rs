@@ -10,6 +10,7 @@ pub enum CommandName {
     Tui,
     Stf,
     Rub,
+    Move,
     Diff,
     Edit,
     Show,

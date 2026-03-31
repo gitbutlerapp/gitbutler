@@ -186,8 +186,8 @@ but status -fv
 # Stack 2: feature/frontend (bv) — 1 commit
 
 # 2. Frontend now depends on backend API — stack frontend on backend
-#    IMPORTANT: Use full branch NAMES here, not CLI IDs
-but branch move feature/frontend feature/backend
+#    IMPORTANT: Prefer full branch NAMES here; branch CLI IDs are also accepted
+but move feature/frontend feature/backend
 
 # Result: Both branches are now in the same stack:
 # Stack 1: feature/backend → feature/frontend (stacked)
@@ -198,7 +198,7 @@ but commit bu -m "Add caching layer" --changes <id> --status-after   # To backen
 but commit bv -m "Add dialog component" --changes <id> --status-after # To frontend
 ```
 
-**Key point:** `but branch move` takes full branch **names** (like `feature/frontend`), NOT CLI IDs (like `bv`). This is different from `but move` which takes commit IDs.
+**Key point:** branch stack moves use branch **names** (like `feature/frontend`) or branch CLI IDs. The equivalent subcommand syntax is `but branch move <branch> <target-branch>`. Commit reordering still uses commit IDs.
 
 ## Example 6: Using Marks for Focused Work
 
