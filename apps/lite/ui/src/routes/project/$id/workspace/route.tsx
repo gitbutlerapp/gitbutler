@@ -876,7 +876,18 @@ const CommitRow: FC<
 
 	const commitReword = useMutation(commitRewordMutationOptions);
 
-	const exitEditor = () => {
+	const startEditing = () => {
+		select(summaryItem);
+		setEditingCommit({
+			stackId,
+			segmentIndex,
+			branchName,
+			branchRef,
+			commitId: commit.id,
+		});
+	};
+
+	const endEditing = () => {
 		setEditingCommit(null);
 		select(summaryItem);
 	};
@@ -912,7 +923,7 @@ const CommitRow: FC<
 						<InlineCommitMessageEditor
 							message={optimisticMessage}
 							onSubmit={saveNewMessage}
-							onExit={exitEditor}
+							onExit={endEditing}
 						/>
 					) : (
 						<ContextMenu.Root>
@@ -938,16 +949,7 @@ const CommitRow: FC<
 										projectId={projectId}
 										commitId={commit.id}
 										canReword={!isCommitMessagePending}
-										onReword={() => {
-											select(summaryItem);
-											setEditingCommit({
-												stackId,
-												segmentIndex,
-												branchName,
-												branchRef,
-												commitId: commit.id,
-											});
-										}}
+										onReword={startEditing}
 										parts={ContextMenu}
 									/>
 								</ContextMenu.Positioner>
@@ -977,16 +979,7 @@ const CommitRow: FC<
 									projectId={projectId}
 									commitId={commit.id}
 									canReword={!isCommitMessagePending}
-									onReword={() => {
-										select(summaryItem);
-										setEditingCommit({
-											stackId,
-											segmentIndex,
-											branchName,
-											branchRef,
-											commitId: commit.id,
-										});
-									}}
+									onReword={startEditing}
 									parts={Menu}
 								/>
 							</Menu.Positioner>
