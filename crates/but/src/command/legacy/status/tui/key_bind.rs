@@ -109,40 +109,40 @@ pub(super) fn detail_key_binds() -> KeyBinds {
     let all_modes = ModeDiscriminant::iter().collect::<Vec<_>>();
 
     key_binds.register(StaticKeyBind {
-        short_description: "down",
+        short_description: "next hunk",
         chord_display: "↓/j",
         key_matcher: press().code(KeyCode::Char('j')).alt_code(KeyCode::Down),
         modes: all_modes.clone(),
-        message: Message::Details(DetailsMessage::ScrollDown(1)),
+        message: Message::Details(DetailsMessage::SelectNextSection),
         hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
-        short_description: "up",
+        short_description: "prev hunk",
         chord_display: "↑/k",
         key_matcher: press().code(KeyCode::Char('k')).alt_code(KeyCode::Up),
         modes: all_modes.clone(),
-        message: Message::Details(DetailsMessage::ScrollUp(1)),
+        message: Message::Details(DetailsMessage::SelectPrevSection),
         hide_from_hotbar: false,
     });
 
-    let jump_distance = 30;
+    let scroll_distance = 5;
 
     key_binds.register(StaticKeyBind {
-        short_description: "jump down",
+        short_description: "scroll down",
         chord_display: "shift+j",
         key_matcher: press().shift().code(KeyCode::Char('J')),
         modes: all_modes.clone(),
-        message: Message::Details(DetailsMessage::ScrollDown(jump_distance)),
+        message: Message::Details(DetailsMessage::ScrollDown(scroll_distance)),
         hide_from_hotbar: false,
     });
 
     key_binds.register(StaticKeyBind {
-        short_description: "jump up",
+        short_description: "scroll up",
         chord_display: "ctrl+k",
         key_matcher: press().shift().code(KeyCode::Char('K')),
         modes: all_modes.clone(),
-        message: Message::Details(DetailsMessage::ScrollUp(jump_distance)),
+        message: Message::Details(DetailsMessage::ScrollUp(scroll_distance)),
         hide_from_hotbar: false,
     });
 

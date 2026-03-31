@@ -155,7 +155,7 @@ impl TestTuiInputThenRenderResult<'_> {
         let backend = self.0.terminal.backend();
         let buffer = backend.buffer();
         let area = *buffer.area();
-        let selected_bg = super::super::CURSOR_BG;
+        let selected_bg = *super::super::CURSOR_BG;
 
         let selected_row = (area.y..area.y.saturating_add(area.height))
             .find(|&y| {

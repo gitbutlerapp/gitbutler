@@ -1,55 +1,38 @@
-use ratatui::layout::Rect;
+use crate::command::legacy::status::tui::details::{PartiallyRenderedDiffSection, SectionId};
 
-use crate::command::legacy::status::tui::details::DetailsAndDiffWidget;
-
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug)]
 pub(super) struct DetailsCursor {
-    scroll_top: usize,
+    selection_section: Option<SectionId>,
 }
 
 impl DetailsCursor {
-    pub(super) fn scroll_top(self) -> usize {
-        self.scroll_top
+    pub(super) fn move_selection_by<F>(&mut self, sections: &[PartiallyRenderedDiffSection], f: F)
+    where
+        F: FnOnce(usize) -> usize,
+    {
+        let Some(selection) = self.selection() else {
+            return;
+        };
+        let Some(current_selection_idx) =
+            sections.iter().position(|section| &section.id == selection)
+        else {
+            return;
+        };
+        let Some(next) = sections.get(f(current_selection_idx)) else {
+            return;
+        };
+        self.select_section(next.id.clone());
     }
 
-    pub(super) fn scroll_up(self, amount: usize) -> Self {
-        Self {
-            scroll_top: self.scroll_top.saturating_sub(amount),
-        }
+    pub(super) fn select_section(&mut self, id: SectionId) {
+        self.selection_section = Some(id);
     }
 
-    pub(super) fn scroll_down(self, amount: usize) -> Self {
-        Self {
-            scroll_top: self.scroll_top.saturating_add(amount),
-        }
+    pub(super) fn deselect(&mut self) {
+        self.selection_section = None;
     }
 
-    pub(super) fn clamp(
-        self,
-        viewport: Rect,
-        widget: Option<&DetailsAndDiffWidget>,
-        pending_dynamic_rows: usize,
-    ) -> Self {
-        // `render()` reserves one column for the left border before passing the remaining
-        // area to `DetailsAndDiffWidget::render`. Clamp using the same content width so wrapped
-        // commit messages compute the same number of rows in both places.
-        let content_width = viewport.width.saturating_sub(1).max(1);
-
-        // The parent `Tui::render` places details inside a block with a bottom border,
-        // then calls `Details::render` with that inner area. So one terminal row is not
-        // available for diff content.
-        let content_height = viewport.height.saturating_sub(1).max(1) as usize;
-
-        let max_scroll_top = widget
-            .map(|diff| {
-                diff.total_rows(content_width)
-                    .saturating_add(pending_dynamic_rows)
-                    .saturating_sub(content_height)
-            })
-            .unwrap_or(0);
-
-        Self {
-            scroll_top: self.scroll_top.min(max_scroll_top),
-        }
+    pub(super) fn selection(&self) -> Option<&SectionId> {
+        self.selection_section.as_ref()
     }
 }
