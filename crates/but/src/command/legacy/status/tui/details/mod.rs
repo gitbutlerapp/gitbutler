@@ -35,12 +35,14 @@ use crate::{
     CliId, IdMap,
     command::legacy::status::tui::{
         CommandMessage, CommitMessage, DebugAsType, FilesMessage, Message, MoveMessage,
-        RewordMessage, RubMessage,
+        RewordMessage, RubMessage, details::details_cursor::DetailsCursor,
     },
     id::{UncommittedCliId, UncommittedHunk},
 };
 
 use super::BranchMessage;
+
+mod details_cursor;
 
 // we don't currently compute word level diffs so MINUS_EMPH_BG and PLUS_EMPH_BG aren't used (in
 // the diff lines themselves). Without that MINUS_BG and PLUS_BG are a little too hard to see, so
@@ -59,7 +61,7 @@ static PLUS_EMPH_BG: LazyLock<Color> =
     LazyLock::new(|| Color::from_hsl(Hsl::new(120.0, 1.0, 0.188)));
 
 const MONOKAI_THEME: &[u8] =
-    include_bytes!("../../../../../assets/syntax-highlighting-themes/Monokai Extended.tmTheme");
+    include_bytes!("../../../../../../assets/syntax-highlighting-themes/Monokai Extended.tmTheme");
 
 #[derive(Debug, Default, Copy, Clone)]
 pub(super) enum DetailsVisibility {
@@ -91,7 +93,7 @@ type LineHighlightCache = HashMap<BString, HashMap<Box<str>, Vec<Span<'static>>>
 #[derive(Debug)]
 pub(super) struct Details {
     is_dirty: bool,
-    scroll_top: usize,
+    cursor: DetailsCursor,
     widget: Option<DetailsAndDiffWidget>,
     renderer: IncrementalDiffRenderer,
     syntax_set: DebugAsType<OnDemand<SyntaxSet>>,
@@ -106,7 +108,7 @@ impl Details {
             is_dirty: false,
             widget: Default::default(),
             renderer: Default::default(),
-            scroll_top: Default::default(),
+            cursor: Default::default(),
             visibility: Default::default(),
             line_highlight_cache: Default::default(),
             syntax_set: OnDemand::new(|| Ok(SyntaxSet::load_defaults_newlines())).into(),
@@ -213,6 +215,7 @@ impl Details {
             },
         }
     }
+
     pub(super) fn try_handle_message(
         &mut self,
         msg: DetailsMessage,
@@ -220,10 +223,10 @@ impl Details {
     ) -> anyhow::Result<()> {
         match msg {
             DetailsMessage::ScrollUp(n) => {
-                self.scroll_top = self.scroll_top.saturating_sub(n);
+                self.cursor = self.cursor.scroll_up(n);
             }
             DetailsMessage::ScrollDown(n) => {
-                self.scroll_top = self.scroll_top.saturating_add(n);
+                self.cursor = self.cursor.scroll_down(n);
             }
             DetailsMessage::ToggleVisibility => {
                 self.visibility = match self.visibility {
@@ -235,7 +238,7 @@ impl Details {
 
                 match self.visibility {
                     DetailsVisibility::Hidden => {
-                        self.scroll_top = 0;
+                        self.cursor = DetailsCursor::default();
                     }
                     DetailsVisibility::VisibleVertical { .. } => {
                         self.mark_dirty();
@@ -256,21 +259,7 @@ impl Details {
     }
 
     fn clamp_scroll_top(&mut self, viewport: Rect) {
-        // `render()` reserves one column for the left border before passing the remaining
-        // area to `DetailsAndDiffWidget::render`. Clamp using the same content width so wrapped
-        // commit messages compute the same number of rows in both places.
-        let content_width = viewport.width.saturating_sub(1).max(1);
-
-        let max_scroll_top = self
-            .widget
-            .as_ref()
-            .map(|diff| {
-                diff.total_rows(content_width)
-                    .saturating_sub(viewport.height as usize)
-            })
-            .unwrap_or(0);
-
-        self.scroll_top = self.scroll_top.min(max_scroll_top);
+        self.cursor = self.cursor.clamp(viewport, self.widget.as_ref());
     }
 
     pub(super) fn update(
@@ -301,7 +290,7 @@ impl Details {
             };
 
             self.is_dirty = true;
-            self.scroll_top = 0;
+            self.cursor = DetailsCursor::default();
             self.renderer.clear();
 
             // reuse the allocation of the previous `DetailsAndDiffWidget`
@@ -419,7 +408,7 @@ impl Details {
         frame.render_widget(outer_block, area);
 
         if let Some(diff) = &self.widget {
-            diff.render(self.scroll_top, inner_area, frame);
+            diff.render(self.cursor, inner_area, frame);
         }
     }
 }
@@ -520,7 +509,7 @@ impl DetailsAndDiffWidget {
         }
     }
 
-    fn render(&self, scroll_top: usize, area: Rect, buf: &mut Frame) {
+    fn render(&self, cursor: DetailsCursor, area: Rect, buf: &mut Frame) {
         enum ListItemOrString<'a> {
             ListItem(&'a ListItem<'a>),
             Str(Cow<'a, str>),
@@ -558,7 +547,7 @@ impl DetailsAndDiffWidget {
             } => Either::Right(diff_line_items.iter().map(ListItemOrString::ListItem)),
         }
         // ensure we `skip` and `take` before allocating anything
-        .skip(scroll_top)
+        .skip(cursor.scroll_top())
         .take(area.height as usize)
         .map(|item| match item {
             ListItemOrString::ListItem(list_item) => list_item.to_owned(),
