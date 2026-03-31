@@ -77,6 +77,16 @@ export const ArrowUpIcon: FC<ComponentProps<"svg">> = (props) => (
 	</svg>
 );
 
+export const AbsorbIcon: FC<ComponentProps<"svg">> = (props) => (
+	<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" {...props}>
+		<path
+			d="M8 3.55c0 .98-.68 1.84-1.37 2.74-.74.96-1.5 1.95-1.5 3.16a2.87 2.87 0 1 0 5.74 0c0-1.21-.76-2.2-1.5-3.16C8.68 5.39 8 4.53 8 3.55Z"
+			fill="currentColor"
+			stroke="none"
+		/>
+	</svg>
+);
+
 export const MenuTriggerIcon: FC = () => (
 	<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
 		<circle cx="4" cy="8" r="1.25" fill="currentColor" />

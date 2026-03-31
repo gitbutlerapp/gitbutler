@@ -1,6 +1,8 @@
 import WatcherManager from "./watcher.js";
 import {
 	liteIpcChannels,
+	type AbsorbParams,
+	type AbsorptionPlanParams,
 	type AssignHunkParams,
 	type BranchDetailsParams,
 	type BranchDiffParams,
@@ -23,6 +25,8 @@ import {
 	WatcherUnsubscribeParams,
 } from "./ipc.js";
 import {
+	absorb,
+	absorptionPlan,
 	apply,
 	assignHunk,
 	branchDetails,
@@ -56,6 +60,13 @@ const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
 
 function registerIpcHandlers(): void {
+	ipcMain.handle(
+		liteIpcChannels.absorptionPlan,
+		(_e, { projectId, target }: AbsorptionPlanParams) => absorptionPlan(projectId, target),
+	);
+	ipcMain.handle(liteIpcChannels.absorb, (_e, { projectId, absorptionPlan }: AbsorbParams) =>
+		absorb(projectId, absorptionPlan),
+	);
 	ipcMain.handle(liteIpcChannels.apply, (_e, { projectId, existingBranch }: ApplyParams) =>
 		apply(projectId, existingBranch),
 	);

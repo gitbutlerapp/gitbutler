@@ -1,0 +1,30 @@
+.backdrop {
+	position: fixed;
+	inset: 0;
+	background-color: rgb(0 0 0 / 0.35);
+}
+
+.popup {
+	display: flex;
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	row-gap: 12px;
+	flex-direction: column;
+	padding: 16px;
+	transform: translate(-50%, -50%);
+	border: 1px solid;
+	background-color: white;
+}
+
+.body {
+	display: flex;
+	row-gap: 8px;
+	flex-direction: column;
+}
+
+.actions {
+	display: flex;
+	column-gap: 8px;
+	justify-content: end;
+}

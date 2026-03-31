@@ -13,6 +13,7 @@ import {
 } from "#ui/api/queries.ts";
 import { classes } from "#ui/classes.ts";
 import {
+	AbsorbIcon,
 	DependencyIcon,
 	ExpandCollapseIcon,
 	MenuTriggerIcon,
@@ -41,6 +42,7 @@ import {
 	useMonitorDraggedSourceItem,
 	TreeChangeWithAssignments,
 } from "#ui/routes/project/$id/workspace/-DragAndDrop.tsx";
+import { AbsorptionDialog, useAbsorption } from "#ui/routes/project/$id/workspace/-Absorption.tsx";
 import { rubOperationLabel } from "#ui/routes/project/$id/workspace/-RubOperationLabel.ts";
 import { getRubOperation, type SourceItem } from "#ui/routes/project/$id/workspace/-SourceItem.ts";
 import {
@@ -55,6 +57,7 @@ import {
 	ShowBranch,
 	ShowCommitWithQuery,
 	CommitLabel,
+	shortCommitId,
 } from "#ui/routes/project/$id/-shared.tsx";
 import uiStyles from "#ui/ui.module.css";
 import {
@@ -119,8 +122,6 @@ import styles from "./route.module.css";
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 const decodeRefName = (fullNameBytes: Array<number>): string =>
 	new TextDecoder().decode(Uint8Array.from(fullNameBytes));
-
-const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
 
@@ -1079,11 +1080,21 @@ const Changes: FC<{
 	label: string;
 	projectId: string;
 	stackId: string | null;
+	onAbsorbChanges: (changes: Array<TreeChange>, stackId: string | null) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 	selection: Item | null;
 	select: (selection: Item | null) => void;
 	className?: string;
-}> = ({ label, projectId, stackId, onDependencyHover, selection, select, className }) => {
+}> = ({
+	label,
+	projectId,
+	stackId,
+	onAbsorbChanges,
+	onDependencyHover,
+	selection,
+	select,
+	className,
+}) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
 	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
@@ -1127,6 +1138,37 @@ const Changes: FC<{
 				>
 					{label}
 				</button>
+				<button
+					type="button"
+					className={sharedStyles.itemAction}
+					aria-label={`Absorb all ${label.toLowerCase()}`}
+					disabled={changes.length === 0}
+					onClick={() => {
+						onAbsorbChanges(changes, stackId);
+					}}
+				>
+					<AbsorbIcon />
+				</button>
+				<Menu.Root>
+					<Menu.Trigger className={sharedStyles.itemAction} aria-label={`${label} menu`}>
+						<MenuTriggerIcon />
+					</Menu.Trigger>
+					<Menu.Portal>
+						<Menu.Positioner align="end">
+							<Menu.Popup className={sharedStyles.menuPopup}>
+								<Menu.Item
+									className={sharedStyles.menuItem}
+									disabled={changes.length === 0}
+									onClick={() => {
+										onAbsorbChanges(changes, stackId);
+									}}
+								>
+									Absorb all changes
+								</Menu.Item>
+							</Menu.Popup>
+						</Menu.Positioner>
+					</Menu.Portal>
+				</Menu.Root>
 			</div>
 			{changes.length === 0 ? (
 				<div className={sharedStyles.itemEmpty}>No changes.</div>
@@ -1161,6 +1203,16 @@ const Changes: FC<{
 													select(changesDetailsItem(stackId, change.path));
 												}}
 											/>
+											<button
+												type="button"
+												className={sharedStyles.itemAction}
+												aria-label={`Absorb ${change.path}`}
+												onClick={() => {
+													onAbsorbChanges([change], stackId);
+												}}
+											>
+												<AbsorbIcon />
+											</button>
 											{isNonEmptyArray(dependencyCommitIds) && (
 												<DependencyIndicator
 													projectId={projectId}
@@ -1637,6 +1689,7 @@ const SegmentC: FC<{
 
 const StackC: FC<{
 	highlightedCommitIds: Set<string>;
+	onAbsorbChanges: (changes: Array<TreeChange>, stackId: string | null) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 	projectId: string;
 	selection: Item | null;
@@ -1647,6 +1700,7 @@ const StackC: FC<{
 }> = ({
 	editing,
 	highlightedCommitIds,
+	onAbsorbChanges,
 	onDependencyHover,
 	projectId,
 	selection,
@@ -1683,6 +1737,7 @@ const StackC: FC<{
 					label="Assigned changes"
 					projectId={projectId}
 					stackId={stack.id}
+					onAbsorbChanges={onAbsorbChanges}
 					onDependencyHover={onDependencyHover}
 					selection={selection}
 					select={select}
@@ -1751,6 +1806,14 @@ const ProjectPage: FC = () => {
 		editing,
 	});
 
+	const {
+		absorptionPlan,
+		isAbsorbing,
+		requestAbsorptionPlan,
+		confirmAbsorption,
+		clearAbsorptionPlan,
+	} = useAbsorption(projectId);
+
 	useMonitorDraggedSourceItem({ projectId });
 	useWorkspaceShortcuts({
 		projectId,
@@ -1760,6 +1823,7 @@ const ProjectPage: FC = () => {
 		select,
 		setEditing,
 		commonBaseCommitId,
+		onAbsorbChanges: requestAbsorptionPlan,
 	});
 
 	// TODO: dedupe
@@ -1786,6 +1850,7 @@ const ProjectPage: FC = () => {
 						label="Unassigned changes"
 						projectId={project.id}
 						stackId={null}
+						onAbsorbChanges={requestAbsorptionPlan}
 						onDependencyHover={highlightCommits}
 						selection={selection}
 						select={select}
@@ -1800,6 +1865,7 @@ const ProjectPage: FC = () => {
 								<StackC
 									editing={editing}
 									highlightedCommitIds={highlightedCommitIds}
+									onAbsorbChanges={requestAbsorptionPlan}
 									onDependencyHover={highlightCommits}
 									projectId={project.id}
 									selection={selection}
@@ -1843,6 +1909,16 @@ const ProjectPage: FC = () => {
 				label={shortcutScope ? getLabel(shortcutScope) : null}
 				items={shortcutScope?.bindings ?? []}
 			/>
+			{absorptionPlan !== null && (
+				<AbsorptionDialog
+					absorptionPlan={absorptionPlan}
+					isAbsorbing={isAbsorbing}
+					onConfirm={confirmAbsorption}
+					onOpenChange={(open) => {
+						if (!open) clearAbsorptionPlan();
+					}}
+				/>
+			)}
 		</ProjectPreviewLayout>
 	);
 };

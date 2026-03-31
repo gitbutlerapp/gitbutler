@@ -43,6 +43,8 @@ const hunkHeaderEquals = (a: HunkHeader, b: HunkHeader): boolean =>
 export const formatHunkHeader = (hunk: HunkHeader): string =>
 	`-${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines}`;
 
+export const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
+
 const assignedHunks = (
 	hunks: Array<DiffHunk>,
 	assignments: Array<HunkAssignment>,
@@ -196,11 +198,17 @@ export const CommitDetails: FC<{
 	);
 };
 
+export const commitTitle = (message: string): string => {
+	const _title = message.trim().split("\n")[0];
+	const title = _title === "" ? undefined : _title;
+	return title ?? "(no message)";
+};
+
 export const CommitLabel: FC<{
 	commit: Commit;
 }> = ({ commit }) => (
 	<>
-		{commit.message === "" ? <>(no message)</> : commit.message.split("\n")[0]}
+		{commitTitle(commit.message)}
 		{commit.hasConflicts && " ⚠️"}
 	</>
 );

@@ -39,3 +39,6 @@ export const formatShortcutKeys = (keys: Array<string>): string =>
 			),
 		)
 		.join("/");
+
+export const bindingButtonLabel = (binding: ShortcutBinding<ShortcutActionBase>): string =>
+	`${binding.description} (${formatShortcutKeys(binding.keys)})`;
