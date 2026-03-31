@@ -164,7 +164,11 @@ const DependencyIndicator: FC<
 		<Popover.Root>
 			<Popover.Trigger openOnHover render={trigger} />
 			<Popover.Portal>
-				<Popover.Positioner sideOffset={8}>
+				<Popover.Positioner
+					sideOffset={8}
+					// To match tooltips.
+					side="top"
+				>
 					<Popover.Popup className={uiStyles.tooltip}>{tooltip}</Popover.Popup>
 				</Popover.Positioner>
 			</Popover.Portal>
