@@ -2,7 +2,8 @@ use std::{
     borrow::Cow,
     ffi::OsString,
     process::Command,
-    sync::{Arc, LazyLock},
+    rc::Rc,
+    sync::{Arc, LazyLock, mpsc::Receiver},
     time::Duration,
 };
 
@@ -39,6 +40,7 @@ use crate::{
                 graph_extension::{ExtensionDirection, extend_connector_spans},
                 highlight::{Highlights, with_highlight},
                 key_bind::{KeyBinds, confirm_key_binds, default_key_binds, detail_key_binds},
+                message_on_drop::MessageOnDrop,
                 mode::{
                     CommandMode, CommitMode, CommitSource, InlineRewordMode, Mode, MoveMode,
                     MoveSource, RubMode,
@@ -62,6 +64,7 @@ mod details;
 mod graph_extension;
 mod highlight;
 mod key_bind;
+mod message_on_drop;
 mod mode;
 mod operations;
 mod rub_api;
@@ -269,6 +272,19 @@ where
         event_to_messages(event, app.active_key_binds(), &app.mode, messages);
     }
 
+    // check for any out of band messages
+    app.incoming_out_of_band_messages
+        .retain(|rx| match rx.try_recv() {
+            Ok(msg) => {
+                messages.push(msg);
+                false
+            }
+            Err(err) => match err {
+                std::sync::mpsc::TryRecvError::Empty => true,
+                std::sync::mpsc::TryRecvError::Disconnected => false,
+            },
+        });
+
     // handle messages
     loop {
         if messages.is_empty() {
@@ -349,6 +365,7 @@ struct App {
     confirm: Option<Confirm>,
     details: Details,
     options: TuiLaunchOptions,
+    incoming_out_of_band_messages: Vec<Rc<Receiver<Message>>>,
 }
 
 impl App {
@@ -385,6 +402,7 @@ impl App {
             renders: 0,
             updates: 0,
             highlight: Default::default(),
+            incoming_out_of_band_messages: Default::default(),
             confirm: None,
             details,
             options,
@@ -573,6 +591,12 @@ impl App {
                         self.handle_start_rub()
                     }
                 }
+                RubMessage::StartWithSource {
+                    source,
+                    unlock_details,
+                } => {
+                    self.handle_start_rub_with_source(source, unlock_details);
+                }
                 RubMessage::Confirm => self.handle_confirm_rub(ctx, messages)?,
             },
             Message::EnterNormalMode => {
@@ -651,6 +675,9 @@ impl App {
                 self.details
                     .try_handle_message(details_message, details_viewport, messages)?;
             }
+            Message::RegisterMessageOnDrop(rx) => {
+                self.incoming_out_of_band_messages.push(rx);
+            }
         }
 
         self.ensure_cursor_visible(visible_height);
@@ -713,17 +740,26 @@ impl App {
             return;
         };
 
+        self.handle_start_rub_with_source(Arc::clone(cli_id), None);
+    }
+
+    fn handle_start_rub_with_source(
+        &mut self,
+        source: Arc<CliId>,
+        unlock_details: Option<MessageOnDrop>,
+    ) {
         let available_targets = self
             .status_lines
             .iter()
             .filter_map(|line| line.data.cli_id())
-            .filter(|target| *target == cli_id || route_operation(cli_id, target).is_some())
+            .filter(|target| **target == source || route_operation(&source, target).is_some())
             .cloned()
             .collect::<Vec<_>>();
 
         self.mode = Mode::Rub(RubMode {
-            source: Arc::clone(cli_id),
+            source,
             available_targets,
+            _unlock_details: unlock_details,
         });
 
         if self
@@ -773,6 +809,7 @@ impl App {
         self.mode = Mode::RubButApi(RubMode {
             source: Arc::clone(cli_id),
             available_targets,
+            _unlock_details: None,
         });
 
         if self
@@ -847,6 +884,7 @@ impl App {
             Mode::Rub(RubMode {
                 source,
                 available_targets: _,
+                _unlock_details: _,
             }) => {
                 if let Some(selected_line) = self.cursor.selected_line(&self.status_lines)
                     && let Some(target) = selected_line.data.cli_id()
@@ -859,6 +897,7 @@ impl App {
             Mode::RubButApi(RubMode {
                 source,
                 available_targets: _,
+                _unlock_details: _,
             }) => {
                 if let Some(selected_line) = self.cursor.selected_line(&self.status_lines)
                     && let Some(target) = selected_line.data.cli_id()
@@ -1855,12 +1894,14 @@ impl App {
                 Mode::Rub(RubMode {
                     source,
                     available_targets: _,
+                    _unlock_details: _,
                 }) => {
                     self.render_rub_inline_labels_for_selected_line(data, source, &mut line);
                 }
                 Mode::RubButApi(RubMode {
                     source,
                     available_targets: _,
+                    _unlock_details: _,
                 }) => {
                     self.render_rub_api_inline_labels_for_selected_line(data, source, &mut line);
                 }
@@ -1897,10 +1938,12 @@ impl App {
                 Mode::Rub(RubMode {
                     source,
                     available_targets: _,
+                    _unlock_details: _,
                 })
                 | Mode::RubButApi(RubMode {
                     source,
                     available_targets: _,
+                    _unlock_details: _,
                 }) => {
                     if let Some(cli_id) = data.cli_id()
                         && cli_id == source
@@ -2480,11 +2523,18 @@ enum Message {
     RunAfterConfirmation(
         DebugAsType<Arc<dyn Fn(&mut App, &mut Context, &mut Vec<Message>) -> anyhow::Result<()>>>,
     ),
+    RegisterMessageOnDrop(Rc<Receiver<Message>>),
 }
 
 #[derive(Debug, Clone)]
 enum RubMessage {
-    Start { using_but_api: bool },
+    Start {
+        using_but_api: bool,
+    },
+    StartWithSource {
+        source: Arc<CliId>,
+        unlock_details: Option<MessageOnDrop>,
+    },
     Confirm,
 }
 
