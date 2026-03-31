@@ -379,7 +379,7 @@ pub fn amend_commit_from_worktree_changes(
 }
 
 /// Amend a commit with the given changes and return the number of rejected files
-pub fn amend_commit_and_count_failures(
+pub(crate) fn amend_commit_and_count_failures(
     stack_id: StackId,
     commit_id: gix::ObjectId,
     worktree_changes: Vec<but_core::DiffSpec>,

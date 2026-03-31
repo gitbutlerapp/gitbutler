@@ -80,42 +80,10 @@ pub(crate) fn commit_create_only_impl(
 
 /// Creates and inserts a commit relative to either a commit or a reference, with oplog support.
 #[but_api(napi, crate::commit::json::UICommitCreateResult)]
-#[instrument(err(Debug))]
+#[instrument(skip_all, fields(relative_to, side, message), err(Debug))]
 pub fn commit_create(
     ctx: &mut but_ctx::Context,
     #[but_api(crate::commit::json::RelativeTo)] relative_to: RelativeTo,
-    side: InsertSide,
-    changes: Vec<DiffSpec>,
-    message: String,
-) -> anyhow::Result<CommitCreateResult> {
-    let context_lines = ctx.settings.context_lines;
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
-        ctx,
-        SnapshotDetails::new(OperationKind::CreateCommit),
-    )
-    .ok();
-
-    let mut guard = ctx.exclusive_worktree_access();
-    let res = commit_create_only_impl(
-        ctx,
-        relative_to,
-        side,
-        changes,
-        message,
-        context_lines,
-        guard.write_permission(),
-    );
-    if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
-        snapshot.commit(ctx, guard.write_permission()).ok();
-    };
-    res
-}
-
-/// Creates and inserts a commit relative to either a commit or a reference, with oplog support.
-#[instrument(skip_all, fields(relative_to, side, message), err(Debug))]
-pub fn commit_create_with_perm(
-    ctx: &mut but_ctx::Context,
-    relative_to: RelativeTo,
     side: InsertSide,
     changes: Vec<DiffSpec>,
     message: String,

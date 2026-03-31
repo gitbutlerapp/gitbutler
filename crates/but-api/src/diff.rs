@@ -107,6 +107,7 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
 /// * conflicts are ignored
 ///
 /// All ignored status changes are also provided so they can be displayed separately.
+#[but_api(napi)]
 #[instrument(skip_all, err(Debug))]
 pub fn changes_in_worktree_with_perm(
     ctx: &mut Context,

@@ -59,6 +59,7 @@ pub fn create_reference(
 ///
 /// This variant is more composable than [`create_reference`] when the caller already holds a lock,
 /// as it reuses the provided permission token instead of obtaining exclusive access itself.
+#[but_api]
 #[instrument(skip(ctx, perm), err(Debug))]
 pub fn create_reference_with_perm(
     ctx: &mut Context,

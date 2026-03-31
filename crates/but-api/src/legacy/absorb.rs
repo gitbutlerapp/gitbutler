@@ -48,7 +48,8 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
         )
         .ok(); // Ignore errors for snapshot creation
 
-    let total_rejected = absorb_impl(absorption_plan, guard.write_permission(), &repo, &data_dir)?;
+    let total_rejected =
+        absorb_with_perm(absorption_plan, guard.write_permission(), &repo, &data_dir)?;
 
     // Refresh the workspace commit so `gitbutler/workspace` HEAD stays in sync
     // with the rewritten branch commits. Without this, tools that inspect HEAD
@@ -58,7 +59,12 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
     Ok(total_rejected)
 }
 
-pub fn absorb_impl(
+/// Absorb the changes described by `absorption_plan` using the exclusive repository
+/// access granted by `perm`, applying the updates against `repo` and using `data_dir`
+/// for project data needed during commit amendment and rebasing.
+///
+/// Returns the total amount of rejected diff specs.
+pub fn absorb_with_perm(
     absorption_plan: Vec<CommitAbsorption>,
     perm: &mut RepoExclusive,
     repo: &gix::Repository,
