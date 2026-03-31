@@ -533,8 +533,9 @@ impl IdMap {
     /// Creates a new instance from `ctx` for more convenience over calling [IdMap::new].
     ///
     /// # NOTE: claims a read-only workspace lock!
-    /// TODO(ctx|ai): make it use perm so the caller keeps the state exclusive/shared over greater periods.
-    /// USE `new_from_context` instead - it takes `perm`
+    // TODO(ctx|ai): make it use perm so the caller keeps the state exclusive/shared over greater periods.
+    // Use `new_from_context` instead - it takes `perm`, and forces you to think about repository locks
+    // in the light of mutations.
     pub fn legacy_new_from_context(
         ctx: &mut Context,
         assignments: Option<Vec<HunkAssignment>>,

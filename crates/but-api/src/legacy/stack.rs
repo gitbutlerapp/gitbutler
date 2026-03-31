@@ -57,7 +57,7 @@ pub fn create_reference(
 /// Returns the stack id owning the created or attached reference when one exists, together with
 /// the full refname that was created.
 ///
-/// This variant is more composable than [`create_reference`] when the caller already holds a lock,
+/// This variant is more composable than [`create_reference()`] when the caller already holds a lock,
 /// as it reuses the provided permission token instead of obtaining exclusive access itself.
 #[but_api]
 #[instrument(skip(ctx, perm), err(Debug))]
