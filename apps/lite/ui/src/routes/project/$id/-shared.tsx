@@ -196,11 +196,14 @@ export const CommitDetails: FC<{
 	);
 };
 
+export const commitTitle = (message: string): string | undefined =>
+	message === "" ? "(no message)" : message.split("\n")[0];
+
 export const CommitLabel: FC<{
 	commit: Commit;
 }> = ({ commit }) => (
 	<>
-		{commit.message === "" ? <>(no message)</> : commit.message.split("\n")[0]}
+		{commitTitle(commit.message)}
 		{commit.hasConflicts && " ⚠️"}
 	</>
 );
