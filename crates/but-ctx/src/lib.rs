@@ -636,7 +636,7 @@ impl Context {
     }
 
     /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
-    /// along with `(guard, &repo, &mut ws, &mut db)`, given a read-`perm`ission.
+    /// along with `(&repo, &mut ws, &mut db)`, given a read-`perm`ission.
     /// The `db` is writable as this is more useful and naturally synced.
     /// The guard is for shared access to the repository.
     ///
@@ -723,7 +723,7 @@ impl Context {
     }
 
     /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
-    /// along with `(guard, &repo, &mut ws, &db)`, given a read-`perm`ission.
+    /// along with `(&repo, &mut ws, &db)`, given a read-`perm`ission.
     /// The `db` is read-only.
     ///
     /// # IMPORTANT
@@ -833,7 +833,7 @@ impl Context {
     }
 
     /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
-    /// along with `(guard, &repo, &ws, &db)`, given a read-`perm`ission.
+    /// along with `(&repo, &ws, &db)`, given a read-`perm`ission.
     /// The `db` is read-only.
     #[instrument(
         name = "Context::workspace_and_db_with_perm",
@@ -913,6 +913,19 @@ impl Context {
 
 /// Utilities
 impl Context {
+    /// Reload the cached repository handle and drop the cached workspace projection.
+    ///
+    /// Call this after taking exclusive repository access when earlier read-only setup may have
+    /// cached a workspace view from an outdated `HEAD`.
+    pub fn reload_repo_and_invalidate_workspace(
+        &mut self,
+        _perm: &mut RepoExclusive,
+    ) -> anyhow::Result<()> {
+        self.repo.get_mut()?.reload()?;
+        *self.workspace.try_borrow_mut()? = None;
+        Ok(())
+    }
+
     /// Return a wrapper for metadata that only supports read-only access when presented with the project wide permission
     /// to read data.
     /// This is helping to prevent races with mutable instances.

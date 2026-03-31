@@ -3,10 +3,7 @@ use std::{collections::BTreeMap, fmt::Write as _};
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::{
-    commit::{
-        create::{commit_create_with_perm},
-        insert_blank::commit_insert_blank,
-    },
+    commit::{create::commit_create_with_perm, insert_blank::commit_insert_blank},
     diff,
     legacy::{repo, workspace},
 };

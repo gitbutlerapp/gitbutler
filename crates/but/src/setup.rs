@@ -175,6 +175,7 @@ pub fn init_ctx(
                         }
                     }
                 }
+                ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
             }
 
             let fetch_interval_minutes = ctx.settings.fetch.auto_fetch_interval_minutes;
