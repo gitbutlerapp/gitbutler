@@ -3,7 +3,7 @@
 use anyhow::Result;
 use but_graph::Graph;
 use but_rebase::graph_rebase::Editor;
-use but_testsupport::{graph_workspace, visualize_commit_graph_all};
+use but_testsupport::{graph_tree, graph_workspace, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable, standard_options};
 
@@ -21,9 +21,15 @@ fn four_commits() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.clone().into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
+
+    assert_eq!(
+        graph_tree(&graph).to_string(),
+        graph_tree(&outcome.overlayed_graph()?).to_string()
+    );
+
     let outcome = outcome.materialize()?;
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
@@ -46,7 +52,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
 
     let options = standard_options().with_hard_limit(4);
     let graph = Graph::from_head(&repo, &*meta, options)?.validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.clone().into_workspace()?;
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
@@ -58,6 +64,12 @@ fn four_commits_with_short_traversal() -> Result<()> {
 
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
+
+    assert_eq!(
+        graph_tree(&graph).to_string(),
+        graph_tree(&outcome.overlayed_graph()?).to_string()
+    );
+
     let outcome = outcome.materialize()?;
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
@@ -83,9 +95,15 @@ fn merge_in_the_middle() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.clone().into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
+
+    assert_eq!(
+        graph_tree(&graph).to_string(),
+        graph_tree(&outcome.overlayed_graph()?).to_string()
+    );
+
     let outcome = outcome.materialize()?;
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
@@ -115,9 +133,15 @@ fn three_branches_merged() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.clone().into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
+
+    assert_eq!(
+        graph_tree(&graph).to_string(),
+        graph_tree(&outcome.overlayed_graph()?).to_string()
+    );
+
     let outcome = outcome.materialize()?;
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);

@@ -25,15 +25,18 @@ pub(crate) mod function {
     /// The subject commit will be detached from the source segment, and inserted relative
     /// to a given anchor (branch or commit).
     pub fn move_commit<'ws, 'meta, M: RefMetadata>(
-        mut editor: Editor<'ws, 'meta, M>,
+        editor: Editor<'ws, 'meta, M>,
         subject_commit: impl ToCommitSelector,
         anchor: impl ToSelector,
         side: InsertSide,
     ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+        let sucessful_rebase = editor.rebase()?;
+        let workspace = sucessful_rebase.overlayed_graph()?.into_workspace()?;
+        let mut editor = sucessful_rebase.into_editor();
         let (subject_commit_selector, subject_commit) =
             editor.find_selectable_commit(subject_commit)?;
 
-        let subject = retrieve_commit_and_containers(editor.workspace, &subject_commit)?;
+        let subject = retrieve_commit_and_containers(&workspace, &subject_commit)?;
 
         let (source_stack, source_segment, _) = subject;
 
@@ -54,6 +57,7 @@ pub(crate) mod function {
 
         let parent_to_disconnect = determine_parent_selector(
             &editor,
+            &workspace,
             source_stack,
             source_segment,
             index_of_subject_commit,
@@ -139,6 +143,7 @@ pub(crate) mod function {
     /// and the position of the source segment in the source stack.
     fn determine_parent_selector<'ws, 'meta, M: RefMetadata>(
         editor: &Editor<'ws, 'meta, M>,
+        workspace: &but_graph::projection::Workspace,
         source_stack: &but_graph::projection::Stack,
         source_segment: &but_graph::projection::StackSegment,
         index_of_subject_commit: usize,
@@ -161,7 +166,7 @@ pub(crate) mod function {
             // Look for the base segment in the graph data, as a fallback if there's no stack segment found.
             let graph_base_segment_ref_name = source_segment
                 .base_segment_id
-                .map(|base_segment_id| &editor.workspace.graph[base_segment_id])
+                .map(|base_segment_id| &workspace.graph[base_segment_id])
                 .and_then(|segment| segment.ref_name());
 
             match stack_base_segment_ref_name.or(graph_base_segment_ref_name) {
