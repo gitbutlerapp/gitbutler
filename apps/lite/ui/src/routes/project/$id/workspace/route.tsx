@@ -704,71 +704,51 @@ const CommitTarget: FC<
 };
 
 const InlineCommitMessageEditor: FC<{
-	projectId: string;
-	commitId: string;
 	message: string;
-	setMessageAction: (message: string) => void | Promise<void>;
+	onSubmit: (value: string) => void;
 	onExit: () => void;
-}> = ({ projectId, commitId, message, setMessageAction, onExit }) => {
-	const commitReword = useMutation(commitRewordMutationOptions);
-	const initialMessage = message.trim();
-
-	const saveMessage = (newMessage: string) => {
-		onExit();
-		const trimmed = newMessage.trim();
-		if (trimmed === initialMessage) return;
-		startTransition(async () => {
-			await setMessageAction(trimmed);
-			await commitReword.mutateAsync({
-				projectId,
-				commitId,
-				message: trimmed,
-			});
-		});
-	};
-
-	return (
-		<form
-			className={styles.editCommitMessageForm}
-			onSubmit={(event) => {
-				event.preventDefault();
-				const formData = new FormData(event.currentTarget);
-				saveMessage(formData.get("message") as string);
+}> = ({ message, onSubmit, onExit }) => (
+	<form
+		className={styles.editCommitMessageForm}
+		onSubmit={(event) => {
+			event.preventDefault();
+			const formData = new FormData(event.currentTarget);
+			onExit();
+			onSubmit(formData.get("message") as string);
+		}}
+	>
+		<textarea
+			ref={(el) => {
+				if (!el) return;
+				el.focus();
+				const cursorPosition = el.value.length;
+				el.setSelectionRange(cursorPosition, cursorPosition);
 			}}
-		>
-			<textarea
-				ref={(el) => {
-					if (!el) return;
-					el.focus();
-					const cursorPosition = el.value.length;
-					el.setSelectionRange(cursorPosition, cursorPosition);
-				}}
-				name="message"
-				defaultValue={initialMessage}
-				className={styles.editCommitMessageInput}
-				onKeyDown={(event) => {
-					handleCommitEditingMessageKeyDown({
-						event: event.nativeEvent,
-						onSave: () => event.currentTarget.form?.requestSubmit(),
-						onCancel: onExit,
-					});
-				}}
-				onBlur={onExit}
-			/>
-			<div className={styles.editCommitMessageHelp}>
-				{commitEditingMessageBindings.map((binding, index) => (
-					<Fragment key={binding.id}>
-						{index > 0 && " • "}
-						<span className={styles.editCommitMessageShortcut}>
-							{formatShortcutKeys(binding.keys)}
-						</span>{" "}
-						to {binding.description}
-					</Fragment>
-				))}
-			</div>
-		</form>
-	);
-};
+			name="message"
+			defaultValue={message.trim()}
+			className={styles.editCommitMessageInput}
+			onKeyDown={(event) => {
+				handleCommitEditingMessageKeyDown({
+					event: event.nativeEvent,
+					onSave: () => event.currentTarget.form?.requestSubmit(),
+					onCancel: onExit,
+				});
+			}}
+			onBlur={onExit}
+		/>
+		<div className={styles.editCommitMessageHelp}>
+			{commitEditingMessageBindings.map((binding, index) => (
+				<Fragment key={binding.id}>
+					{index > 0 && " • "}
+					<span className={styles.editCommitMessageShortcut}>
+						{formatShortcutKeys(binding.keys)}
+					</span>{" "}
+					to {binding.description}
+				</Fragment>
+			))}
+		</div>
+	</form>
+);
 
 const CommitMenuPopup: FC<{
 	projectId: string;
@@ -892,6 +872,27 @@ const CommitRow: FC<
 		);
 	};
 
+	const commitReword = useMutation(commitRewordMutationOptions);
+
+	const exitEditor = () => {
+		setEditingCommit(null);
+		select(summaryItem);
+	};
+
+	const saveNewMessage = (newMessage: string) => {
+		const initialMessage = commit.message.trim();
+		const trimmed = newMessage.trim();
+		if (trimmed === initialMessage) return;
+		startTransition(async () => {
+			setOptimisticMessage(trimmed);
+			await commitReword.mutateAsync({
+				projectId,
+				commitId: commit.id,
+				message: trimmed,
+			});
+		});
+	};
+
 	return (
 		<DraggableCommit
 			{...restProps}
@@ -907,14 +908,9 @@ const CommitRow: FC<
 				>
 					{isEditing ? (
 						<InlineCommitMessageEditor
-							projectId={projectId}
-							commitId={commit.id}
 							message={optimisticMessage}
-							setMessageAction={setOptimisticMessage}
-							onExit={() => {
-								setEditingCommit(null);
-								select(summaryItem);
-							}}
+							onSubmit={saveNewMessage}
+							onExit={exitEditor}
 						/>
 					) : (
 						<ContextMenu.Root>
