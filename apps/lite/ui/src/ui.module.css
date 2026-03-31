@@ -3,6 +3,10 @@
 	padding-block: 4px;
 	background-color: var(--color-button-bg);
 
+	&:not(:disabled):hover {
+		background-color: var(--color-button-hover-bg);
+	}
+
 	&:disabled {
 		color: var(--color-button-disabled-fg);
 	}

@@ -13,6 +13,7 @@
 
 	--color-bg: var(--color-white);
 	--color-button-bg: var(--color-gray-50);
+	--color-button-hover-bg: var(--color-gray-100);
 	--color-button-disabled-fg: var(--color-gray-700);
 	--color-dialog-backdrop: light-dark(rgb(0 0 0 / 0.35), rgb(0 0 0 / 0.65));
 	--color-drag-over-outline: var(--color-black);
