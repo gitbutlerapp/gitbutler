@@ -706,14 +706,14 @@ const CommitTarget: FC<
 const InlineCommitMessageEditor: FC<{
 	message: string;
 	onSubmit: (value: string) => void;
-	onExit: () => void;
-}> = ({ message, onSubmit, onExit }) => (
+	onCancel: () => void;
+}> = ({ message, onSubmit, onCancel }) => (
 	<form
 		className={styles.editCommitMessageForm}
 		onSubmit={(event) => {
 			event.preventDefault();
 			const formData = new FormData(event.currentTarget);
-			onExit();
+			onCancel();
 			onSubmit(formData.get("message") as string);
 		}}
 	>
@@ -731,10 +731,10 @@ const InlineCommitMessageEditor: FC<{
 				handleCommitEditingMessageKeyDown({
 					event: event.nativeEvent,
 					onSave: () => event.currentTarget.form?.requestSubmit(),
-					onCancel: onExit,
+					onCancel,
 				});
 			}}
-			onBlur={onExit}
+			onBlur={onCancel}
 		/>
 		<div className={styles.editCommitMessageHelp}>
 			{commitEditingMessageBindings.map((binding, index) => (
@@ -923,7 +923,7 @@ const CommitRow: FC<
 						<InlineCommitMessageEditor
 							message={optimisticMessage}
 							onSubmit={saveNewMessage}
-							onExit={endEditing}
+							onCancel={endEditing}
 						/>
 					) : (
 						<ContextMenu.Root>
