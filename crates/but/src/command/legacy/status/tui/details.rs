@@ -37,7 +37,7 @@ use crate::{
         CommandMessage, CommitMessage, DebugAsType, FilesMessage, Message, MoveMessage,
         RewordMessage, RubMessage,
     },
-    id::UncommittedHunk,
+    id::{UncommittedCliId, UncommittedHunk},
 };
 
 use super::BranchMessage;
@@ -302,11 +302,9 @@ impl Details {
                 )?,
                 CliId::Uncommitted(uncommitted) => {
                     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
-                    let id_map =
-                        IdMap::new_from_context(ctx, Some(wt_changes.assignments))?;
+                    let id_map = IdMap::new_from_context(ctx, Some(wt_changes.assignments))?;
                     let uncommitted_hunks = filter_uncommitted_hunks(&id_map, |hunk_assignment| {
-                        hunk_assignment.path_bytes
-                            == uncommitted.hunk_assignments.first().path_bytes
+                        uncommitted_hunk_matches_selection(hunk_assignment, uncommitted)
                     })?;
                     from_uncommitted_hunks(
                         uncommitted_hunks,
@@ -342,8 +340,7 @@ impl Details {
                 )?,
                 CliId::Unassigned { .. } => {
                     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
-                    let id_map =
-                        IdMap::new_from_context(ctx, Some(wt_changes.assignments))?;
+                    let id_map = IdMap::new_from_context(ctx, Some(wt_changes.assignments))?;
                     let uncommitted_hunks = filter_uncommitted_hunks(&id_map, |hunk_assignment| {
                         hunk_assignment.stack_id.is_none()
                     })?;
@@ -356,8 +353,7 @@ impl Details {
                 }
                 CliId::Stack { stack_id, .. } => {
                     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
-                    let id_map =
-                        IdMap::new_from_context(ctx, Some(wt_changes.assignments))?;
+                    let id_map = IdMap::new_from_context(ctx, Some(wt_changes.assignments))?;
                     let uncommitted_hunks = filter_uncommitted_hunks(&id_map, |hunk_assignment| {
                         hunk_assignment.stack_id.is_some_and(|id| id == *stack_id)
                     })?;
@@ -410,6 +406,21 @@ impl Details {
     }
 }
 
+/// Returns true if `hunk_assignment` is part of the selected uncommitted entity.
+fn uncommitted_hunk_matches_selection(
+    hunk_assignment: &HunkAssignment,
+    uncommitted: &UncommittedCliId,
+) -> bool {
+    let selected_hunk = uncommitted.hunk_assignments.first();
+
+    if uncommitted.is_entire_file {
+        hunk_assignment.path_bytes == selected_hunk.path_bytes
+            && hunk_assignment.stack_id == selected_hunk.stack_id
+    } else {
+        hunk_assignment == selected_hunk && hunk_assignment.stack_id == selected_hunk.stack_id
+    }
+}
+
 fn filter_uncommitted_hunks<F>(
     id_map: &IdMap,
     mut filter: F,
@@ -445,6 +456,85 @@ where
     });
 
     Ok(uncommitted_hunks)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::uncommitted_hunk_matches_selection;
+    use bstr::BString;
+    use but_core::{HunkHeader, ref_metadata::StackId};
+    use but_hunk_assignment::HunkAssignment;
+    use nonempty::NonEmpty;
+
+    use crate::id::UncommittedCliId;
+
+    fn hunk_assignment(path: &str, stack_id: Option<StackId>, old_start: u32) -> HunkAssignment {
+        HunkAssignment {
+            id: None,
+            hunk_header: Some(HunkHeader {
+                old_start,
+                old_lines: 1,
+                new_start: old_start,
+                new_lines: 1,
+            }),
+            path: path.to_owned(),
+            path_bytes: BString::from(path),
+            stack_id,
+            line_nums_added: None,
+            line_nums_removed: None,
+            diff: None,
+        }
+    }
+
+    #[test]
+    fn entire_file_selection_only_matches_same_path_and_stack() {
+        let stack_a = StackId::from_number_for_testing(1);
+        let stack_b = StackId::from_number_for_testing(2);
+        let selected_hunk = hunk_assignment("file.txt", Some(stack_a), 1);
+        let id = UncommittedCliId {
+            id: "aa".to_owned(),
+            hunk_assignments: NonEmpty::new(selected_hunk.clone()),
+            is_entire_file: true,
+        };
+
+        assert!(uncommitted_hunk_matches_selection(
+            &hunk_assignment("file.txt", Some(stack_a), 10),
+            &id
+        ));
+        assert!(!uncommitted_hunk_matches_selection(
+            &hunk_assignment("file.txt", None, 10),
+            &id
+        ));
+        assert!(!uncommitted_hunk_matches_selection(
+            &hunk_assignment("file.txt", Some(stack_b), 10),
+            &id
+        ));
+        assert!(!uncommitted_hunk_matches_selection(
+            &hunk_assignment("other.txt", Some(stack_a), 10),
+            &id
+        ));
+    }
+
+    #[test]
+    fn single_hunk_selection_only_matches_that_hunk() {
+        let stack_a = StackId::from_number_for_testing(1);
+        let selected_hunk = hunk_assignment("file.txt", Some(stack_a), 1);
+        let id = UncommittedCliId {
+            id: "ab".to_owned(),
+            hunk_assignments: NonEmpty::new(selected_hunk.clone()),
+            is_entire_file: false,
+        };
+
+        assert!(uncommitted_hunk_matches_selection(&selected_hunk, &id));
+        assert!(!uncommitted_hunk_matches_selection(
+            &hunk_assignment("file.txt", Some(stack_a), 2),
+            &id
+        ));
+        assert!(!uncommitted_hunk_matches_selection(
+            &hunk_assignment("file.txt", None, 1),
+            &id
+        ));
+    }
 }
 
 #[derive(Debug)]
