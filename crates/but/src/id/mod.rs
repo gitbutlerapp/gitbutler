@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::str::FromStr as _;
 
 use bstr::{BStr, BString, ByteSlice};
+use but_core::sync::RepoShared;
 use but_core::{ChangeId, ref_metadata::StackId};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
@@ -533,9 +534,25 @@ impl IdMap {
     ///
     /// # NOTE: claims a read-only workspace lock!
     /// TODO(ctx|ai): make it use perm so the caller keeps the state exclusive/shared over greater periods.
+    /// USE `new_from_context` instead - it takes `perm`
+    pub fn legacy_new_from_context(
+        ctx: &mut Context,
+        assignments: Option<Vec<HunkAssignment>>,
+    ) -> anyhow::Result<Self> {
+        let guard = ctx.shared_worktree_access();
+        Self::new_from_context(ctx, assignments, guard.read_permission())
+    }
+
+    ///
+    /// Creates a new instance from `ctx` for more convenience over calling [IdMap::new].
+    /// `perm` is needed to obtain a read-only workspace.
+    ///
+    /// # NOTE: claims a read-only workspace lock!
+    /// TODO(ctx|ai): Use a `ws` directly instead of creating a whole new RefInfo uncached.
     pub fn new_from_context(
         ctx: &mut Context,
         assignments: Option<Vec<HunkAssignment>>,
+        perm: &RepoShared,
     ) -> anyhow::Result<Self> {
         let meta = ctx.meta()?;
         let head_info = {
@@ -552,7 +569,7 @@ impl IdMap {
             )?
         };
         let context_lines = ctx.settings.context_lines;
-        let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
 
         let hunk_assignments = match assignments {
             Some(assignments) => assignments,
@@ -852,11 +869,7 @@ impl IdMap {
     }
 
     /// Convenience for [IdMap::parse] if a [Context] is available.
-    pub fn parse_using_context(
-        &self,
-        entity: &str,
-        ctx: &mut Context,
-    ) -> anyhow::Result<Vec<CliId>> {
+    pub fn parse_using_context(&self, entity: &str, ctx: &Context) -> anyhow::Result<Vec<CliId>> {
         let repo = &*ctx.repo.get()?;
         self.parse_using_repo(entity, repo)
     }

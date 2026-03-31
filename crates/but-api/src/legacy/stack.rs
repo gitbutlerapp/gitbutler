@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::but_api;
-use but_core::branch;
+use but_core::{branch, sync::RepoExclusive};
 use but_ctx::Context;
 use gitbutler_branch_actions::{internal::PushResult, stack::CreateSeriesRequest};
 use gitbutler_oplog::SnapshotExt;
@@ -44,6 +44,27 @@ pub fn create_reference(
     ctx: &mut Context,
     request: create_reference::Request,
 ) -> Result<(Option<StackId>, gix::refs::FullName)> {
+    let mut guard = ctx.exclusive_worktree_access();
+    create_reference_with_perm(ctx, request, guard.write_permission())
+}
+
+/// Create a local branch reference using an existing `perm` for exclusive access.
+///
+/// It normalizes the requested branch name in `request` into a full local refname,
+/// translates the legacy anchor payload into the `but_workspace` representation,
+/// and updates the workspace state in place without acquiring its own repository lock.
+///
+/// Returns the stack id owning the created or attached reference when one exists, together with
+/// the full refname that was created.
+///
+/// This variant is more composable than [`create_reference`] when the caller already holds a lock,
+/// as it reuses the provided permission token instead of obtaining exclusive access itself.
+#[instrument(skip(ctx, perm), err(Debug))]
+pub fn create_reference_with_perm(
+    ctx: &mut Context,
+    request: create_reference::Request,
+    perm: &mut RepoExclusive,
+) -> Result<(Option<StackId>, gix::refs::FullName)> {
     use bstr::ByteSlice;
     let create_reference::Request { new_name, anchor } = request;
     let new_ref = Category::LocalBranch
@@ -75,7 +96,7 @@ pub fn create_reference(
         .transpose()?;
 
     let mut meta = ctx.meta()?;
-    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let new_ws = but_workspace::branch::create_reference(
         new_ref.clone(),
         anchor,
@@ -163,7 +184,7 @@ pub fn create_branch(
 pub fn remove_branch_only(
     ctx: &mut Context,
     branch_name: &str,
-    perm: &mut but_core::sync::RepoExclusive,
+    perm: &mut RepoExclusive,
 ) -> Result<()> {
     let ref_name = Category::LocalBranch
         .to_full_name(branch_name)

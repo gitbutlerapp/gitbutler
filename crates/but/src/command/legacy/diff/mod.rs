@@ -13,7 +13,7 @@ pub fn handle_tui(ctx: &mut Context, target_str: Option<&str>) -> anyhow::Result
     use crate::tui::diff_viewer::{DiffFileEntry, WorktreeFilter};
 
     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
-    let id_map = IdMap::new_from_context(ctx, Some(wt_changes.assignments.clone()))?;
+    let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments.clone()))?;
 
     let files = if let Some(entity) = target_str {
         let id = id_map
@@ -59,7 +59,7 @@ pub fn handle(
     target_str: Option<&str>,
 ) -> anyhow::Result<()> {
     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
-    let id_map = IdMap::new_from_context(ctx, Some(wt_changes.assignments.clone()))?;
+    let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments.clone()))?;
 
     if let Some(entity) = target_str {
         let id = id_map

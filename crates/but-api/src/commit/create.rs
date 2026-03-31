@@ -110,3 +110,36 @@ pub fn commit_create(
     };
     res
 }
+
+/// Creates and inserts a commit relative to either a commit or a reference, with oplog support.
+#[instrument(skip_all, fields(relative_to, side, message), err(Debug))]
+pub fn commit_create_with_perm(
+    ctx: &mut but_ctx::Context,
+    relative_to: RelativeTo,
+    side: InsertSide,
+    changes: Vec<DiffSpec>,
+    message: String,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<CommitCreateResult> {
+    let context_lines = ctx.settings.context_lines;
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+        ctx,
+        SnapshotDetails::new(OperationKind::CreateCommit),
+        perm.read_permission(),
+    )
+    .ok();
+
+    let res = commit_create_only_impl(
+        ctx,
+        relative_to,
+        side,
+        changes,
+        message,
+        context_lines,
+        perm,
+    );
+    if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
+        snapshot.commit(ctx, perm).ok();
+    };
+    res
+}

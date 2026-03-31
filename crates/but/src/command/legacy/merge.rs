@@ -16,7 +16,7 @@ pub async fn handle(
 ) -> anyhow::Result<()> {
     let mut progress = out.progress_channel();
 
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
 
     // Resolve the branch ID
     let resolved_ids = id_map.parse_using_context(branch_id, ctx)?;

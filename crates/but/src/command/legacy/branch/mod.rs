@@ -48,7 +48,7 @@ pub fn new(
     branch_name: Option<String>,
     anchor: Option<String>,
 ) -> Result<(), anyhow::Error> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     // Get branch name or use canned name
     let branch_name = branch_name
         .map(Ok)

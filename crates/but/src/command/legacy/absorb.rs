@@ -39,7 +39,7 @@ pub(crate) fn handle(
     dry_run: bool,
     new: bool,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let source: Option<CliId> = source
         .and_then(|s| parse_sources(ctx, &id_map, s).ok())
         .and_then(|s| {

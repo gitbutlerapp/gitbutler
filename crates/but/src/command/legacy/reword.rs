@@ -21,7 +21,7 @@ pub(crate) fn reword_target(
     format: bool,
     show_diff_in_editor: ShowDiffInEditor,
 ) -> Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
 
     // Resolve the commit ID
     let cli_ids = id_map.parse_using_context(target, ctx)?;

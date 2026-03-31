@@ -8,7 +8,7 @@ pub fn move_branch(
     target_branch: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(&mut ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(&mut ctx, None)?;
     let branch_name = resolve_branch_information(&mut ctx, &id_map, branch)
         .context("Failed to determine information for the branch to move.")?;
     let target_branch_name = resolve_branch_information(&mut ctx, &id_map, target_branch)
@@ -38,7 +38,7 @@ pub fn tear_off_branch(
     branch: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(&mut ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(&mut ctx, None)?;
     let branch_name = resolve_branch_information(&mut ctx, &id_map, branch)
         .context("Failed to determine information for the branch to tear off.")?;
 

@@ -1,5 +1,5 @@
 use but_api_macros::but_api;
-use but_core::ui::TreeChange;
+use but_core::{sync::RepoExclusive, ui::TreeChange};
 use but_ctx::Context;
 use but_hunk_assignment::{HunkAssignmentRequest, WorktreeChanges};
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
@@ -90,6 +90,14 @@ pub fn tree_change_diffs(
     change.unified_patch(&repo, ctx.settings.context_lines)
 }
 
+/// See [`changes_in_worktree_with_perm()`].
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges> {
+    let mut guard = ctx.exclusive_worktree_access();
+    changes_in_worktree_with_perm(ctx, guard.write_permission())
+}
+
 /// This UI-version of [`but_core::diff::worktree_changes()`] simplifies the `git status` information for display in
 /// the user interface as it is right now. From here, it's always possible to add more information as the need arises.
 ///
@@ -99,15 +107,14 @@ pub fn tree_change_diffs(
 /// * conflicts are ignored
 ///
 /// All ignored status changes are also provided so they can be displayed separately.
-#[but_api(napi)]
-#[instrument(err(Debug))]
-pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges> {
+#[instrument(skip_all, err(Debug))]
+pub fn changes_in_worktree_with_perm(
+    ctx: &mut Context,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<WorktreeChanges> {
     let context_lines = ctx.settings.context_lines;
 
-    #[cfg(feature = "legacy")]
-    let (mut guard, repo, ws, mut db) = ctx.workspace_mut_and_db_mut()?;
-    #[cfg(not(feature = "legacy"))]
-    let (_guard, repo, ws, mut db) = ctx.workspace_mut_and_db_mut()?;
+    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
     let changes = but_core::diff::worktree_changes(&repo)?;
 
@@ -131,7 +138,7 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
     trans.commit()?;
     drop((repo, ws, db));
     #[cfg(feature = "legacy")]
-    but_rules::handler::process_workspace_rules(ctx, &assignments, guard.write_permission()).ok();
+    but_rules::handler::process_workspace_rules(ctx, &assignments, perm).ok();
 
     Ok(WorktreeChanges {
         worktree_changes: changes.into(),

@@ -3,11 +3,14 @@ use std::{collections::BTreeMap, fmt::Write as _};
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::{
-    commit::{create::commit_create, insert_blank::commit_insert_blank},
+    commit::{
+        create::{commit_create_with_perm},
+        insert_blank::commit_insert_blank,
+    },
     diff,
     legacy::{repo, workspace},
 };
-use but_core::{DiffSpec, ui::TreeChange};
+use but_core::{DiffSpec, sync::RepoExclusive, ui::TreeChange};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use colored::Colorize;
 use gitbutler_repo::hooks;
@@ -26,7 +29,7 @@ pub(crate) fn insert_blank_commit(
     target: &str,
     insert_side: InsertSide,
 ) -> Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
 
     // Resolve the target ID
     let cli_ids = id_map.parse_using_context(target, ctx)?;
@@ -289,7 +292,8 @@ pub(crate) fn commit(
     generate_message: Option<Option<String>>,
     show_diff_in_editor: ShowDiffInEditor,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
     // Get all stacks using but-api
     let stack_entries = workspace::stacks(ctx, None)?;
@@ -312,11 +316,18 @@ pub(crate) fn commit(
         bail!("Multiple branches found. Specify a branch to commit to using the branch argument");
     }
 
-    let (target_stack_id, target_stack) =
-        select_stack(&id_map, ctx, &stacks, branch_hint, create_branch, out)?;
+    let (target_stack_id, target_stack) = select_stack(
+        &id_map,
+        ctx,
+        &stacks,
+        branch_hint,
+        create_branch,
+        out,
+        guard.write_permission(),
+    )?;
 
     // Get changes and assignments using but-api
-    let worktree_changes = diff::changes_in_worktree(ctx)?;
+    let worktree_changes = diff::changes_in_worktree_with_perm(ctx, guard.write_permission())?;
     let changes = worktree_changes.worktree_changes.changes;
 
     // Get files to commit - either specific files by ID or all eligible files
@@ -454,12 +465,13 @@ pub(crate) fn commit(
     };
 
     // Insert relative to the branch reference itself so only that branch tip is advanced.
-    let outcome = commit_create(
+    let outcome = commit_create_with_perm(
         ctx,
         RelativeTo::Reference(target_branch.reference.clone()),
         InsertSide::Below,
         diff_specs,
         final_commit_message,
+        guard.write_permission(),
     )?;
 
     if !outcome.rejected_specs.is_empty() {
@@ -523,17 +535,19 @@ fn create_independent_branch(
     branch_name: &str,
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<(
     but_core::ref_metadata::StackId,
     but_workspace::ui::StackDetails,
 )> {
     // Create a new independent stack with the given branch name
-    let (new_stack_id_opt, _new_ref) = but_api::legacy::stack::create_reference(
+    let (new_stack_id_opt, _new_ref) = but_api::legacy::stack::create_reference_with_perm(
         ctx,
         but_api::legacy::stack::create_reference::Request {
             new_name: branch_name.to_string(),
             anchor: None,
         },
+        perm,
     )?;
 
     if let Some(new_stack_id) = new_stack_id_opt {
@@ -559,6 +573,7 @@ fn select_stack(
     branch_hint: Option<&str>,
     create_branch: bool,
     out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<(
     but_core::ref_metadata::StackId,
     but_workspace::ui::StackDetails,
@@ -569,7 +584,7 @@ fn select_stack(
             Some(hint) => String::from(hint),
             None => but_api::legacy::workspace::canned_branch_name(ctx)?,
         };
-        return create_independent_branch(&branch_name, ctx, out);
+        return create_independent_branch(&branch_name, ctx, out, perm);
     }
 
     match branch_hint {
@@ -581,7 +596,7 @@ fn select_stack(
 
             // Branch not found - create if flag is set, otherwise error
             if create_branch {
-                create_independent_branch(hint, ctx, out)
+                create_independent_branch(hint, ctx, out, perm)
             } else {
                 bail!("Branch '{hint}' not found")
             }
@@ -589,7 +604,7 @@ fn select_stack(
         None if create_branch => {
             // Create with canned name
             let branch_name = but_api::legacy::workspace::canned_branch_name(ctx)?;
-            create_independent_branch(&branch_name, ctx, out)
+            create_independent_branch(&branch_name, ctx, out, perm)
         }
         None if stacks.len() == 1 => {
             // Only one stack - use it

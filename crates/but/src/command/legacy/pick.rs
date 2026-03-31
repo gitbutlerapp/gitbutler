@@ -164,7 +164,7 @@ fn resolve_source_commits(
     }
 
     // Try using IdMap for CLI IDs
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let cli_ids = id_map.parse_using_context(source, ctx)?;
 
     for cli_id in &cli_ids {
@@ -396,7 +396,7 @@ fn find_stack_by_target(
     target: &str,
 ) -> Result<(StackId, String)> {
     // Try parsing as CLI ID first
-    if let Ok(id_map) = IdMap::new_from_context(ctx, None)
+    if let Ok(id_map) = IdMap::legacy_new_from_context(ctx, None)
         && let Ok(cli_ids) = id_map.parse_using_context(target, ctx)
     {
         for cli_id in &cli_ids {

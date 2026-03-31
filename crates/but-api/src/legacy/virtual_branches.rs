@@ -169,6 +169,11 @@ pub fn switch_back_to_workspace(ctx: &mut but_ctx::Context) -> Result<BaseBranch
 }
 
 #[instrument(skip(perm), err(Debug))]
+/// Switch back to the workspace branch using an existing exclusive permission token.
+///
+/// This variant is more composable than [`switch_back_to_workspace`] when the caller already
+/// holds a lock, as it reuses the provided permission token instead of obtaining exclusive access
+/// itself.
 pub fn switch_back_to_workspace_with_perm(
     ctx: &mut but_ctx::Context,
     perm: &mut RepoExclusive,
@@ -208,6 +213,10 @@ pub fn set_base_branch(
 }
 
 #[instrument(skip(perm), err(Debug))]
+/// Set the base branch using an existing exclusive permission token.
+///
+/// This variant is more composable than [`set_base_branch`] when the caller already holds a lock,
+/// as it reuses the provided permission token instead of obtaining exclusive access itself.
 pub fn set_base_branch_with_perm(
     ctx: &mut but_ctx::Context,
     branch: String,
