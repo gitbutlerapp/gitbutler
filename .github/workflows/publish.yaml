@@ -24,6 +24,11 @@ on:
           - patch
           - minor
           - major
+      dry_run:
+        description: Perform a dry run that builds the artifacts and uploads them to GitHub, but does not publish them to end users. Useful to test experimental features before they go out in a nightly.
+        type: boolean
+        required: true
+        default: false
 
 permissions: {}
 
@@ -364,6 +369,7 @@ jobs:
 
   publish-tauri:
     needs: [sign-tauri, sign-but, build-tauri]
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run == 'false' }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ env.version }}
