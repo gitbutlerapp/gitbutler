@@ -82,10 +82,10 @@ import {
 	FC,
 	Fragment,
 	ReactNode,
-	startTransition,
 	Suspense,
 	useOptimistic,
 	useState,
+	useTransition,
 } from "react";
 import useLocalStorageState from "use-local-storage-state";
 import sharedStyles from "../-shared.module.css";
@@ -850,6 +850,7 @@ const CommitRow: FC<
 		commit.message,
 		(_currentMessage, nextMessage: string) => nextMessage,
 	);
+	const [isCommitMessagePending, startCommitMessageTransition] = useTransition();
 
 	const commitWithOptimisticMessage: Commit = {
 		...commit,
@@ -883,7 +884,7 @@ const CommitRow: FC<
 		const initialMessage = commit.message.trim();
 		const trimmed = newMessage.trim();
 		if (trimmed === initialMessage) return;
-		startTransition(async () => {
+		startCommitMessageTransition(async () => {
 			setOptimisticMessage(trimmed);
 			await commitReword.mutateAsync({
 				projectId,
@@ -918,7 +919,10 @@ const CommitRow: FC<
 								render={
 									<button
 										type="button"
-										className={sharedStyles.commitButton}
+										className={classes(
+											sharedStyles.commitButton,
+											isCommitMessagePending && sharedStyles.commitButtonPending,
+										)}
 										onClick={() => {
 											select(summaryItem);
 										}}
