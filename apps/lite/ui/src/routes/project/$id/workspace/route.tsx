@@ -556,7 +556,12 @@ const ChangesTarget: FC<
 	const tooltip = operation && operation._tag === "Rub" ? rubOperationLabel(operation) : null;
 
 	return (
-		<Tooltip.Root open={tooltip !== null}>
+		<Tooltip.Root
+			open={tooltip !== null}
+			onOpenChange={(_open, eventDetails) => {
+				eventDetails.allowPropagation();
+			}}
+		>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
@@ -745,7 +750,12 @@ const CommitTarget: FC<
 
 	return (
 		<div className={styles.commit}>
-			<Tooltip.Root open={rubTooltip !== null}>
+			<Tooltip.Root
+				open={rubTooltip !== null}
+				onOpenChange={(_open, eventDetails) => {
+					eventDetails.allowPropagation();
+				}}
+			>
 				<Tooltip.Trigger render={droppable} />
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={8}>
@@ -1479,7 +1489,12 @@ const BranchTarget: FC<
 		: null;
 
 	return (
-		<Tooltip.Root open={tooltip !== null}>
+		<Tooltip.Root
+			open={tooltip !== null}
+			onOpenChange={(_open, eventDetails) => {
+				eventDetails.allowPropagation();
+			}}
+		>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
@@ -1516,7 +1531,12 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 	});
 
 	return (
-		<Tooltip.Root open={operation !== null}>
+		<Tooltip.Root
+			open={operation !== null}
+			onOpenChange={(_open, eventDetails) => {
+				eventDetails.allowPropagation();
+			}}
+		>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
