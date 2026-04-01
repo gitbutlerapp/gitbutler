@@ -233,7 +233,7 @@ impl GitHubAccount {
 fn retrieve_github_secret(account_secret_key: &str) -> Result<Option<Sensitive<String>>> {
     static FAIR_QUEUE: Mutex<()> = Mutex::new(());
     let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
-    secret::retrieve(account_secret_key, secret::Namespace::BuildKind)
+    secret::retrieve(account_secret_key, secret::Namespace::Global)
 }
 
 fn persist_github_account(
@@ -248,7 +248,7 @@ fn persist_github_account(
     secret::persist(
         &secret_key,
         &account.secret_value()?,
-        secret::Namespace::BuildKind,
+        secret::Namespace::Global,
     )
 }
 
@@ -261,7 +261,7 @@ fn delete_github_account(
 
     static FAIR_QUEUE: Mutex<()> = Mutex::new(());
     let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
-    secret::delete(&secret_key, secret::Namespace::BuildKind)
+    secret::delete(&secret_key, secret::Namespace::Global)
 }
 
 fn delete_all_github_accounts(storage: &but_forge_storage::Controller) -> Result<()> {
@@ -269,7 +269,7 @@ fn delete_all_github_accounts(storage: &but_forge_storage::Controller) -> Result
     static FAIR_QUEUE: Mutex<()> = Mutex::new(());
     let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
     for key in keys_to_delete {
-        secret::delete(&key, secret::Namespace::BuildKind)?;
+        secret::delete(&key, secret::Namespace::Global)?;
     }
     Ok(())
 }

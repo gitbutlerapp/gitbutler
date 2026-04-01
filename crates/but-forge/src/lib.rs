@@ -129,7 +129,7 @@ fn normalize_host_for_comparison(value: &str) -> String {
 
 /// Get all known forge accounts
 pub fn get_all_forge_accounts() -> anyhow::Result<Vec<ForgeUser>> {
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let storage = but_forge_storage::Controller::from_path(but_path::app_config_dir()?);
     let gh_accounts = but_github::list_known_github_accounts(&storage)?;
     let gl_accounts = but_gitlab::list_known_gitlab_accounts(&storage)?;
 
