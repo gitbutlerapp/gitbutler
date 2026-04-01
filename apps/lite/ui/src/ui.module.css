@@ -34,9 +34,6 @@
 	flex-direction: column;
 	padding: 16px;
 	transform: translate(-50%, -50%);
-	border-radius: 8px;
-	background-color: var(--color-bg);
-	box-shadow: 0 8px 16px light-dark(rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.9));
 }
 
 .menuPopup {

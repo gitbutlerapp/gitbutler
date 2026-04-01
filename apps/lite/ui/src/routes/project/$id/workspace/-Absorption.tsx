@@ -1,4 +1,5 @@
 import { absorbMutationOptions, absorptionPlanMutationOptions } from "#ui/api/mutations.ts";
+import { classes } from "#ui/classes.ts";
 import { commitTitle, shortCommitId } from "#ui/routes/project/$id/-shared.tsx";
 import uiStyles from "#ui/ui.module.css";
 import { AlertDialog, Toast } from "@base-ui/react";
@@ -30,7 +31,7 @@ export const AbsorptionDialog: FC<{
 	<AlertDialog.Root open onOpenChange={onOpenChange}>
 		<AlertDialog.Portal>
 			<AlertDialog.Backdrop className={uiStyles.dialogBackdrop} />
-			<AlertDialog.Popup className={uiStyles.dialogPopup}>
+			<AlertDialog.Popup className={classes(uiStyles.popup, uiStyles.dialogPopup)}>
 				<AlertDialog.Title>Absorb changes</AlertDialog.Title>
 				<ul className={styles.body}>
 					{absorptionPlan.map((commitAbsorption) => (
