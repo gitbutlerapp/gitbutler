@@ -1,8 +1,7 @@
-.unassignedChangesLane {
-	display: flex;
+.unassignedChanges {
 	flex-shrink: 0;
-	flex-direction: column;
 	width: 300px;
+	border: 1px dotted var(--color-separator);
 }
 
 .stackLane {
@@ -24,11 +23,6 @@
 .emptyLane {
 	flex-shrink: 0;
 	width: 300px;
-}
-
-.unassignedChanges {
-	flex-grow: 1;
-	border: 1px dotted var(--color-separator);
 }
 
 .assignedChanges {

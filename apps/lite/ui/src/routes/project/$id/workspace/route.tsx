@@ -1860,18 +1860,16 @@ const ProjectPage: FC = () => {
 			}
 		>
 			<div className={sharedStyles.lanes}>
-				<div className={styles.unassignedChangesLane}>
-					<Changes
-						label="Unassigned changes"
-						projectId={project.id}
-						stackId={null}
-						onAbsorbChanges={requestAbsorptionPlan}
-						onDependencyHover={highlightCommits}
-						selection={selection}
-						select={select}
-						className={styles.unassignedChanges}
-					/>
-				</div>
+				<Changes
+					label="Unassigned changes"
+					projectId={project.id}
+					stackId={null}
+					onAbsorbChanges={requestAbsorptionPlan}
+					onDependencyHover={highlightCommits}
+					selection={selection}
+					select={select}
+					className={styles.unassignedChanges}
+				/>
 
 				<div className={styles.headInfo}>
 					<div className={styles.stackLanes}>
