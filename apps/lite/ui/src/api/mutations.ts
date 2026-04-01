@@ -40,6 +40,13 @@ export const commitCreateMutationOptions = mutationOptions({
 	},
 });
 
+export const commitDiscardMutationOptions = mutationOptions({
+	mutationFn: window.lite.commitDiscard,
+	onSuccess: async (_data, _input, _ctx, { client }) => {
+		await client.invalidateQueries();
+	},
+});
+
 export const commitRewordMutationOptions = mutationOptions({
 	mutationFn: window.lite.commitReword,
 	onSuccess: async (_data, _input, _ctx, { client }) => {

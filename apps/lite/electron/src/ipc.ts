@@ -16,6 +16,7 @@ import type {
 	TreeChange,
 	TreeChanges,
 	UICommitCreateResult,
+	UICommitDiscardResult,
 	UICommitInsertBlankResult,
 	UICommitMoveResult,
 	UICommitRewordResult,
@@ -82,6 +83,11 @@ export interface CommitCreateParams {
 	side: InsertSide;
 	changes: Array<DiffSpec>;
 	message: string;
+}
+
+export interface CommitDiscardParams {
+	projectId: string;
+	subjectCommitId: string;
 }
 
 export interface CommitMoveChangesBetweenParams {
@@ -166,6 +172,7 @@ export interface LiteElectronApi {
 	changesInWorktree: (projectId: string) => Promise<WorktreeChanges>;
 	commitAmend: (params: CommitAmendParams) => Promise<UICommitCreateResult>;
 	commitCreate: (params: CommitCreateParams) => Promise<UICommitCreateResult>;
+	commitDiscard: (params: CommitDiscardParams) => Promise<UICommitDiscardResult>;
 	commitDetailsWithLineStats: (params: CommitDetailsWithLineStatsParams) => Promise<CommitDetails>;
 	commitInsertBlank: (params: CommitInsertBlankParams) => Promise<UICommitInsertBlankResult>;
 	commitMove: (params: CommitMoveParams) => Promise<UICommitMoveResult>;
@@ -203,6 +210,7 @@ export const liteIpcChannels = {
 	changesInWorktree: "workspace:changes-in-worktree",
 	commitAmend: "workspace:commit-amend",
 	commitCreate: "workspace:commit-create",
+	commitDiscard: "workspace:commit-discard",
 	commitDetailsWithLineStats: "workspace:commit-details-with-line-stats",
 	commitInsertBlank: "workspace:commit-insert-blank",
 	commitMove: "workspace:commit-move",

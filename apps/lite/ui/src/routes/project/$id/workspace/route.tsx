@@ -1,5 +1,6 @@
 import {
 	commitCreateMutationOptions,
+	commitDiscardMutationOptions,
 	commitInsertBlankMutationOptions,
 	commitRewordMutationOptions,
 	updateBranchNameMutationOptions,
@@ -780,6 +781,7 @@ const CommitMenuPopup: FC<{
 	parts: typeof Menu | typeof ContextMenu;
 }> = ({ projectId, commitId, canReword, onReword, parts }) => {
 	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
+	const commitDiscard = useMutation(commitDiscardMutationOptions);
 	const { Popup, Item, SubmenuRoot, SubmenuTrigger, Positioner } = parts;
 
 	return (
@@ -818,6 +820,18 @@ const CommitMenuPopup: FC<{
 					</Popup>
 				</Positioner>
 			</SubmenuRoot>
+			<Item
+				className={uiStyles.menuItem}
+				disabled={commitDiscard.isPending}
+				onClick={() => {
+					commitDiscard.mutate({
+						projectId,
+						subjectCommitId: commitId,
+					});
+				}}
+			>
+				{commitDiscard.isPending ? "Deleting commit…" : "Delete commit"}
+			</Item>
 		</Popup>
 	);
 };
