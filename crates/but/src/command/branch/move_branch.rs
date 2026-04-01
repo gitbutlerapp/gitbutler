@@ -1,3 +1,5 @@
+use but_core::sync::RepoExclusive;
+
 use crate::{CliId, IdMap, id::parser::parse_sources, utils::OutputChannel};
 use anyhow::{Context, bail};
 
@@ -8,28 +10,37 @@ pub fn move_branch(
     target_branch: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
     let branch_name = resolve_branch_information(ctx, &id_map, branch)
         .context("Failed to determine information for the branch to move.")?;
     let target_branch_name = resolve_branch_information(ctx, &id_map, target_branch)
         .context("Failed to determine information for the target branch.")?;
 
-    move_branch_by_name(ctx, &branch_name, &target_branch_name, out)
+    move_branch_by_name_with_perm(
+        ctx,
+        &branch_name,
+        &target_branch_name,
+        out,
+        guard.write_permission(),
+    )
 }
 
-pub(crate) fn move_branch_by_name(
+pub(crate) fn move_branch_by_name_with_perm(
     ctx: &mut but_ctx::Context,
     branch_name: &str,
     target_branch_name: &str,
     out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<()> {
     let branch_ref_name_str = &format!("refs/heads/{branch_name}");
     let target_ref_name_str = &format!("refs/heads/{target_branch_name}");
 
-    but_api::branch::move_branch(
+    but_api::branch::move_branch_with_perm(
         ctx,
         branch_ref_name_str.try_into()?,
         target_ref_name_str.try_into()?,
+        perm,
     )?;
 
     if let Some(out) = out.for_human() {
@@ -47,21 +58,23 @@ pub fn tear_off_branch(
     branch: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
     let branch_name = resolve_branch_information(ctx, &id_map, branch)
         .context("Failed to determine information for the branch to tear off.")?;
 
-    tear_off_branch_by_name(ctx, &branch_name, out)
+    tear_off_branch_by_name_with_perm(ctx, &branch_name, out, guard.write_permission())
 }
 
-pub(crate) fn tear_off_branch_by_name(
+pub(crate) fn tear_off_branch_by_name_with_perm(
     ctx: &mut but_ctx::Context,
     branch_name: &str,
     out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<()> {
     let branch_ref_name_str = &format!("refs/heads/{branch_name}");
 
-    but_api::branch::tear_off_branch(ctx, branch_ref_name_str.try_into()?)?;
+    but_api::branch::tear_off_branch_with_perm(ctx, branch_ref_name_str.try_into()?, perm)?;
 
     if let Some(out) = out.for_human() {
         writeln!(out, "Unstacked branch '{branch_name}'.")?;

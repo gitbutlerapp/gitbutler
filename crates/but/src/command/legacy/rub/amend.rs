@@ -17,6 +17,25 @@ pub(crate) fn uncommitted_to_commit(
     oid: ObjectId,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    uncommitted_to_commit_with_perm(
+        ctx,
+        hunk_assignments,
+        description,
+        oid,
+        out,
+        guard.write_permission(),
+    )
+}
+
+pub(crate) fn uncommitted_to_commit_with_perm(
+    ctx: &mut Context,
+    hunk_assignments: NonEmpty<&HunkAssignment>,
+    description: String,
+    oid: ObjectId,
+    out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<()> {
     let first_hunk_assignment = hunk_assignments.first();
     let stack_id = first_hunk_assignment.stack_id;
 
@@ -25,10 +44,7 @@ pub(crate) fn uncommitted_to_commit(
         .map(|assignment| assignment.to_owned().into())
         .collect();
 
-    let outcome = {
-        let mut guard = ctx.exclusive_worktree_access();
-        amend_diff_specs(ctx, diff_specs, stack_id, oid, guard.write_permission())?
-    };
+    let outcome = amend_diff_specs(ctx, diff_specs, stack_id, oid, perm)?;
     update_workspace_commit(ctx, false)?;
     if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?;
@@ -56,15 +72,24 @@ pub(crate) fn assignments_to_commit(
     oid: ObjectId,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    assignments_to_commit_with_perm(ctx, branch_name, oid, out, guard.write_permission())
+}
+
+pub(crate) fn assignments_to_commit_with_perm(
+    ctx: &mut Context,
+    branch_name: Option<&str>,
+    oid: ObjectId,
+    out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<()> {
     let stack_id = branch_name_to_stack_id(ctx, branch_name)?;
-    let diff_specs: Vec<DiffSpec> = wt_assignments(ctx)?
+    let diff_specs: Vec<DiffSpec> = wt_assignments_with_perm(ctx, perm)?
         .into_iter()
         .filter(|assignment| assignment.stack_id == stack_id)
         .map(|assignment| assignment.into())
         .collect();
-    let mut guard = ctx.exclusive_worktree_access();
-    let outcome = amend_diff_specs(ctx, diff_specs, stack_id, oid, guard.write_permission())?;
-    drop(guard);
+    let outcome = amend_diff_specs(ctx, diff_specs, stack_id, oid, perm)?;
     update_workspace_commit(ctx, false)?;
     if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?;
@@ -95,10 +120,13 @@ pub(crate) fn assignments_to_commit(
     Ok(())
 }
 
-fn wt_assignments(ctx: &mut Context) -> anyhow::Result<Vec<HunkAssignment>> {
+fn wt_assignments_with_perm(
+    ctx: &mut Context,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<Vec<HunkAssignment>> {
     let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
     let context_lines = ctx.settings.context_lines;
-    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
         db.hunk_assignments_mut()?,
         &repo,

@@ -2,9 +2,17 @@ use bstr::ByteSlice;
 use snapbox::str;
 
 use crate::{
-    command::util::commit_file_with_worktree_changes_as_two_hunks,
+    command::util::{self, commit_file_with_worktree_changes_as_two_hunks},
     utils::{CommandExt, Sandbox},
 };
+
+fn find_unassigned_cli_id(status: &serde_json::Value, path: &str) -> Option<String> {
+    status["unassignedChanges"]
+        .as_array()?
+        .iter()
+        .find(|change| change["filePath"].as_str() == Some(path))
+        .and_then(|change| change["cliId"].as_str().map(ToOwned::to_owned))
+}
 
 #[test]
 fn uncommitted_file() -> anyhow::Result<()> {
@@ -383,6 +391,48 @@ Hint: run `but help` for all commands
     line
     last new
     ");
+
+    Ok(())
+}
+
+#[test]
+fn concurrent_absorb_of_independent_files_succeeds() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+    commit_file_with_worktree_changes_as_two_hunks(&env, "B", "b.txt");
+
+    let status = util::status_json(&env)?;
+    let id_a = find_unassigned_cli_id(&status, "a.txt").expect("should find a.txt CLI ID");
+    let id_b = find_unassigned_cli_id(&status, "b.txt").expect("should find b.txt CLI ID");
+
+    let child_a = util::but_std_cmd(&env, &format!("absorb {id_a}")).spawn()?;
+    let child_b = util::but_std_cmd(&env, &format!("absorb {id_b}")).spawn()?;
+
+    let out_a = child_a.wait_with_output()?;
+    let out_b = child_b.wait_with_output()?;
+
+    assert!(
+        out_a.status.success(),
+        "absorb a.txt failed: {}",
+        out_a.stderr.as_bstr()
+    );
+    assert!(
+        out_b.status.success(),
+        "absorb b.txt failed: {}",
+        out_b.stderr.as_bstr()
+    );
+
+    let status = util::status_json(&env)?;
+    assert_eq!(
+        status["unassignedChanges"]
+            .as_array()
+            .map(|changes| changes.len())
+            .unwrap_or(0),
+        0,
+        "both files should be absorbed from the worktree"
+    );
 
     Ok(())
 }

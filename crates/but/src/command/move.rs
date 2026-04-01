@@ -9,7 +9,8 @@ pub(crate) fn handle(
     target: &str,
     after: bool,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
     let source_id =
         resolve_single(&id_map, ctx, source, "Source").context("Failed to move commit.")?;
     let target_id =
@@ -40,17 +41,33 @@ pub(crate) fn handle(
             ))
         } else {
             match target_id {
-                CliId::Unassigned { .. } => {
-                    super::branch::tear_off_branch_by_name(ctx, source_name, out)
-                }
+                CliId::Unassigned { .. } => super::branch::tear_off_branch_by_name_with_perm(
+                    ctx,
+                    source_name,
+                    out,
+                    guard.write_permission(),
+                ),
                 CliId::Branch {
                     name: target_name, ..
-                } => super::branch::move_branch_by_name(ctx, source_name, target_name, out),
+                } => super::branch::move_branch_by_name_with_perm(
+                    ctx,
+                    source_name,
+                    target_name,
+                    out,
+                    guard.write_permission(),
+                ),
                 _ => unreachable!("branch_route guarantees target is branch or unassigned"),
             }
         }
     } else {
-        super::commit::r#move::handle_resolved(ctx, out, &source_id, &target_id, after)
+        super::commit::r#move::handle_resolved_with_perm(
+            ctx,
+            out,
+            &source_id,
+            &target_id,
+            after,
+            guard.write_permission(),
+        )
     };
 
     if branch_route {

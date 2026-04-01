@@ -1,15 +1,29 @@
+use bstr::ByteSlice;
 use snapbox::str;
 
-use crate::utils::Sandbox;
+use crate::{command::util, utils::Sandbox};
 
 /// Helper to create multiple commits on a branch for testing
 fn setup_branch_with_commits(env: &Sandbox, branch: &str, num_commits: usize) {
+    let branch_prefix = branch.replace('/', "_");
     for i in 1..=num_commits {
-        env.file(format!("file{i}.txt"), format!("content for commit {i}\n"));
+        env.file(
+            format!("{branch_prefix}-file{i}.txt"),
+            format!("content for commit {i}\n"),
+        );
         env.but(format!("commit {branch} -m 'commit {i}'"))
             .assert()
             .success();
     }
+}
+
+fn branch_commit_count(env: &Sandbox, branch: &str) -> anyhow::Result<usize> {
+    let status = util::status_json(env)?;
+    let branch = util::find_branch(&status, branch)?;
+    Ok(branch["commits"]
+        .as_array()
+        .map(|commits| commits.len())
+        .unwrap_or(0))
 }
 
 #[test]
@@ -231,6 +245,38 @@ Usage: but squash --ai[=<AI>] <COMMITS>...
 For more information, try '--help'.
 
 "#]]);
+
+    Ok(())
+}
+
+#[test]
+fn concurrent_squashes_on_independent_branches_succeed() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("branch new branchB").assert().success();
+    setup_branch_with_commits(&env, "A", 1);
+    setup_branch_with_commits(&env, "branchB", 2);
+
+    let child_a = util::but_std_cmd(&env, "squash A").spawn()?;
+    let child_b = util::but_std_cmd(&env, "squash branchB").spawn()?;
+
+    let out_a = child_a.wait_with_output()?;
+    let out_b = child_b.wait_with_output()?;
+
+    assert!(
+        out_a.status.success(),
+        "squash on A failed: {}",
+        out_a.stderr.as_bstr()
+    );
+    assert!(
+        out_b.status.success(),
+        "squash on branchB failed: {}",
+        out_b.stderr.as_bstr()
+    );
+
+    assert_eq!(branch_commit_count(&env, "A")?, 1);
+    assert_eq!(branch_commit_count(&env, "branchB")?, 1);
 
     Ok(())
 }

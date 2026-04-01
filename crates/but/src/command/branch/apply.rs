@@ -5,11 +5,16 @@ use crate::utils::OutputChannel;
 
 /// Apply a branch to the workspace, and return the full ref name to it.
 pub fn apply(mut ctx: Context, branch_name: &str, out: &mut OutputChannel) -> anyhow::Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
     let reference = {
         let repo = ctx.repo.get()?;
         repo.find_reference(branch_name)?.detach()
     };
-    let mut outcome = but_api::branch::apply(&mut ctx, reference.name.as_ref())?;
+    let mut outcome = but_api::branch::apply_with_perm(
+        &mut ctx,
+        reference.name.as_ref(),
+        guard.write_permission(),
+    )?;
 
     if let Some(out) = out.for_human() {
         // Since `applied_branches` is the actual applied branches, turning remotes into local branches,

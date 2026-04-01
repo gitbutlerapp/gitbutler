@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::bail;
-use but_core::ref_metadata::StackId;
+use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_rules::Operation;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -14,7 +14,8 @@ pub(crate) fn handle(
     target_str: &str,
     delete: bool,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
     let target_result = id_map.parse_using_context(target_str, ctx)?;
     if target_result.len() != 1 {
         return Err(anyhow::anyhow!(
@@ -26,8 +27,10 @@ pub(crate) fn handle(
         but_rules::delete_rule(ctx, &rule.id())?;
     }
     match target_result[0].clone() {
-        CliId::Branch { name, .. } => mark_branch(ctx, name, delete, out),
-        CliId::Commit { commit_id: oid, .. } => mark_commit(ctx, oid, delete, out),
+        CliId::Branch { name, .. } => mark_branch(ctx, name, delete, out, guard.write_permission()),
+        CliId::Commit { commit_id: oid, .. } => {
+            mark_commit(ctx, oid, delete, out, guard.write_permission())
+        }
         _ => bail!("Nope"),
     }
 }
@@ -37,6 +40,7 @@ fn mark_commit(
     oid: gix::ObjectId,
     delete: bool,
     out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<()> {
     if delete {
         let repo = ctx.repo.get()?.clone();
@@ -53,8 +57,6 @@ fn mark_commit(
         return Ok(());
     }
 
-    let mut guard = ctx.exclusive_worktree_access();
-
     let req = {
         let repo = ctx.repo.get()?;
         let commit = repo.find_commit(oid)?;
@@ -70,7 +72,7 @@ fn mark_commit(
             action,
         }
     };
-    but_rules::create_rule(ctx, req, guard.write_permission())?;
+    but_rules::create_rule(ctx, req, perm)?;
     if let Some(out) = out.for_human() {
         writeln!(
             out,
@@ -86,6 +88,7 @@ fn mark_branch(
     branch_name: String,
     delete: bool,
     out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<()> {
     let stack_id = branch_name_to_stack_id(ctx, Some(&branch_name))?;
     if delete {
@@ -101,8 +104,6 @@ fn mark_branch(
         return Ok(());
     }
 
-    let mut guard = ctx.exclusive_worktree_access();
-
     // TODO: if there are other marks of this kind, get rid of them
     let stack_id = stack_id.expect("Cannot find stack for this branch");
     let action = but_rules::Action::Explicit(Operation::Assign {
@@ -115,7 +116,7 @@ fn mark_branch(
         )?)],
         action,
     };
-    but_rules::create_rule(ctx, req, guard.write_permission())?;
+    but_rules::create_rule(ctx, req, perm)?;
     if let Some(out) = out.for_human() {
         writeln!(out, "Changes will be assigned to → {branch_name}")?;
     }
@@ -144,6 +145,9 @@ pub(crate) fn commit_marked(ctx: &Context, commit_id: String) -> anyhow::Result<
 }
 
 pub(crate) fn unmark(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+    // TODO: do we need an exclusive lock here? This only affects metadata. This is very safe for now,
+    // and `create_rule()` already needs a write guard, so this is just symmetric.
+    let _guard = ctx.exclusive_worktree_access();
     let rules = but_rules::list_rules(ctx)?;
     let rule_count = rules.len();
 

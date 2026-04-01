@@ -22,13 +22,14 @@ pub fn handle(
     identifier: &str,
     force: bool,
 ) -> anyhow::Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
     // Fetch stacks once at the start
     let stacks = but_api::legacy::workspace::stacks(
         ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
 
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
     let parsed_ids = id_map.parse_using_context(identifier, ctx)?;
 
     // Try to find the stack to unapply
@@ -69,7 +70,14 @@ pub fn handle(
         );
     };
 
-    confirm_and_unapply_stack(ctx, stack_id, &branches, force, out)
+    confirm_and_unapply_stack(
+        ctx,
+        stack_id,
+        &branches,
+        force,
+        out,
+        guard.write_permission(),
+    )
 }
 
 /// Get branches for a stack by ID, validating the stack exists.
@@ -120,6 +128,7 @@ fn confirm_and_unapply_stack(
     branches: &[String],
     force: bool,
     out: &mut OutputChannel,
+    perm: &mut but_core::sync::RepoExclusive,
 ) -> anyhow::Result<()> {
     let branches_display = branches.join(", ");
 
@@ -133,7 +142,7 @@ fn confirm_and_unapply_stack(
         bail!("Aborted unapply operation.");
     }
 
-    but_api::legacy::virtual_branches::unapply_stack(ctx, sid)?;
+    but_api::legacy::virtual_branches::unapply_stack_with_perm(ctx, sid, perm)?;
 
     if let Some(out) = out.for_human() {
         writeln!(

@@ -1,4 +1,5 @@
 use anyhow::bail;
+use but_core::sync::RepoExclusive;
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use colored::Colorize;
@@ -8,12 +9,13 @@ use crate::{
     utils::{OutputChannel, shorten_object_id},
 };
 
-pub(crate) fn handle_resolved(
+pub(crate) fn handle_resolved_with_perm(
     ctx: &mut Context,
     out: &mut OutputChannel,
     source_id: &CliId,
     target_id: &CliId,
     after: bool,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<()> {
     // Validate --after flag usage
     if after {
@@ -47,7 +49,7 @@ pub(crate) fn handle_resolved(
         );
     };
 
-    operation.execute(ctx, out)
+    operation.execute_with_perm(ctx, out, perm)
 }
 
 /// Represents the operation to perform for a given source and target combination in `but move`.
@@ -73,40 +75,47 @@ enum MoveOperation<'a> {
 }
 
 impl<'a> MoveOperation<'a> {
-    /// Executes this move operation
-    fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+    /// Executes this move operation with an existing exclusive permission token.
+    fn execute_with_perm(
+        self,
+        ctx: &mut Context,
+        out: &mut OutputChannel,
+        perm: &mut RepoExclusive,
+    ) -> anyhow::Result<()> {
         match self {
             MoveOperation::CommitToCommit {
                 source,
                 target,
                 after,
-            } => move_commit_to_commit(ctx, source, target, after, out),
+            } => move_commit_to_commit_with_perm(ctx, source, target, after, out, perm),
             MoveOperation::CommitToBranch {
                 source,
                 target_branch,
-            } => move_commit_to_branch(ctx, source, target_branch, out),
+            } => move_commit_to_branch_with_perm(ctx, source, target_branch, out, perm),
             MoveOperation::CommittedFileToCommit {
                 path,
                 source_commit,
                 target_commit,
-            } => super::file::commited_file_to_another_commit(
+            } => super::file::commited_file_to_another_commit_with_perm(
                 ctx,
                 path,
                 source_commit,
                 target_commit,
                 out,
+                perm,
             ),
         }
     }
 }
 
 /// Mova a commit to a new position relative to another one.
-pub fn move_commit_to_commit(
+pub fn move_commit_to_commit_with_perm(
     ctx: &mut Context,
     source: gix::ObjectId,
     target: gix::ObjectId,
     after: bool,
     out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
 ) -> Result<(), anyhow::Error> {
     let side = if after {
         InsertSide::Above
@@ -124,7 +133,13 @@ pub fn move_commit_to_commit(
         return Ok(());
     }
 
-    but_api::commit::move_commit::commit_move(ctx, source, RelativeTo::Commit(target), side)?;
+    but_api::commit::move_commit::commit_move_with_perm(
+        ctx,
+        source,
+        RelativeTo::Commit(target),
+        side,
+        perm,
+    )?;
 
     if let Some(out) = out.for_human() {
         let repo = ctx.repo.get()?;
@@ -149,12 +164,24 @@ pub fn move_commit_to_branch(
     target_branch: &str,
     out: &mut OutputChannel,
 ) -> Result<(), anyhow::Error> {
+    let mut guard = ctx.exclusive_worktree_access();
+    move_commit_to_branch_with_perm(ctx, source, target_branch, out, guard.write_permission())
+}
+
+pub fn move_commit_to_branch_with_perm(
+    ctx: &mut Context,
+    source: gix::ObjectId,
+    target_branch: &str,
+    out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
+) -> Result<(), anyhow::Error> {
     let target_full_name = gix::refs::FullName::try_from(format!("refs/heads/{target_branch}"))?;
-    but_api::commit::move_commit::commit_move(
+    but_api::commit::move_commit::commit_move_with_perm(
         ctx,
         source,
         RelativeTo::Reference(target_full_name),
         InsertSide::Below,
+        perm,
     )?;
 
     if let Some(out) = out.for_human() {

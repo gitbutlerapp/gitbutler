@@ -1,6 +1,6 @@
 use anyhow::bail;
 use but_api::json::HexHash;
-use but_core::ref_metadata::StackId;
+use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 use colored::Colorize;
 
 use crate::{
@@ -19,6 +19,7 @@ pub fn delete(
     branch_name: String,
     force: bool,
 ) -> Result<(), anyhow::Error> {
+    let mut guard = ctx.exclusive_worktree_access();
     let stacks = but_api::legacy::workspace::stacks(
         ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
@@ -32,7 +33,14 @@ pub fn delete(
         }
 
         if let Some(sid) = stack_entry.id {
-            return confirm_branch_deletion(ctx, sid, &branch_name, force, out);
+            return confirm_branch_deletion(
+                ctx,
+                sid,
+                &branch_name,
+                force,
+                out,
+                guard.write_permission(),
+            );
         }
     }
 
@@ -48,7 +56,8 @@ pub fn new(
     branch_name: Option<String>,
     anchor: Option<String>,
 ) -> Result<(), anyhow::Error> {
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
     // Get branch name or use canned name
     let branch_name = branch_name
         .map(Ok)
@@ -111,12 +120,13 @@ pub fn new(
         })
     };
 
-    but_api::legacy::stack::create_reference(
+    but_api::legacy::stack::create_reference_with_perm(
         ctx,
         but_api::legacy::stack::create_reference::Request {
             new_name: branch_name.clone(),
             anchor,
         },
+        guard.write_permission(),
     )?;
 
     if let Some(out) = out.for_human() {
@@ -199,6 +209,7 @@ fn confirm_branch_deletion(
     branch_name: &str,
     force: bool,
     out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
 ) -> Result<(), anyhow::Error> {
     if !force
         && let Some(mut inout) = out.prepare_for_terminal_input()
@@ -210,7 +221,7 @@ fn confirm_branch_deletion(
         bail!("Aborted branch deletion.");
     }
 
-    but_api::legacy::stack::remove_branch(ctx, sid, branch_name.to_owned())?;
+    but_api::legacy::stack::remove_branch_with_perm(ctx, sid, branch_name.to_owned(), perm)?;
 
     if let Some(out) = out.for_human() {
         writeln!(out, "Deleted branch {branch_name}")?;
