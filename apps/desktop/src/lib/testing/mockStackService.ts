@@ -18,6 +18,7 @@ const MOCK_COMMIT_A: Commit = {
 	state: { type: "LocalOnly" },
 	createdAt: BigInt(1672531200000), // Example timestamp
 	author: MOCK_AUTHOR_A,
+	changeId: null,
 	gerritReviewUrl: null,
 };
 
@@ -26,6 +27,7 @@ const MOCK_UPSTREAM_COMMIT_A: UpstreamCommit = {
 	message: "Upstream commit message",
 	createdAt: BigInt(1672531200000), // Example timestamp
 	author: MOCK_AUTHOR_A,
+	changeId: null,
 };
 
 const BRANCH_DETAILS_A: BranchDetails = {

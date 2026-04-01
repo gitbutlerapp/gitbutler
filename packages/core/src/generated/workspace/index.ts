@@ -131,6 +131,10 @@ export type Commit = {
 	 */
 	author: Author;
 	/**
+	 * The GitButler change-id associated with this commit, if available.
+	 */
+	changeId: string | null;
+	/**
 	 * Optional URL to the Gerrit review for this commit, if applicable.
 	 * Only populated if Gerrit mode is enabled and the commit has an associated review.
 	 */
@@ -198,4 +202,8 @@ export type UpstreamCommit = {
 	 * The author of the commit.
 	 */
 	author: Author;
+	/**
+	 * The GitButler change-id associated with this commit, if available.
+	 */
+	changeId: string | null;
 };

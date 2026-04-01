@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use anyhow::Context as _;
 use but_core::RefMetadata;
+use gitbutler_commit::commit_ext::CommitExt as _;
 use gix::{
     date::parse::TimeBuf, prelude::ObjectIdExt as _, reference::Category, remote::Direction,
 };
@@ -184,6 +185,7 @@ fn upstream_commits_gix(
     for info in traversal {
         let info = info?;
         let commit = info.id().object()?.into_commit();
+        let change_id = commit.change_id().map(|id| id.to_string());
         let commit = commit.decode()?;
         let author: ui::Author = commit.author()?.into();
         let committer: ui::Author = commit.committer()?.into();
@@ -194,6 +196,7 @@ fn upstream_commits_gix(
             message: commit.message.into(),
             created_at: i128::from(commit.time()?.seconds) * 1000,
             author,
+            change_id,
         });
     }
     Ok(out)
@@ -230,6 +233,10 @@ fn local_commits_gix(
             state: CommitState::LocalAndRemote(info.id),
             created_at: i128::from(commit.committer.time.seconds) * 1000,
             author,
+            change_id: commit
+                .headers()
+                .and_then(|headers| headers.change_id)
+                .map(|id| id.to_string()),
             gerrit_review_url: None,
         });
     }
