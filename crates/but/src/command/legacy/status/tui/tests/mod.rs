@@ -565,10 +565,20 @@ fn rubbing() {
             "┊●   << amend commit >> [..] (no commit message) (no changes)"
         ]);
 
-    tui.input_then_render(KeyCode::Enter)
-        // that you end up on zz is a bug but requires moving the rub implementation to use but-api
-        // that work is in progress
-        .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
+    tui.input_then_render(KeyCode::Enter);
+    // that you end up on zz is a bug but requires moving the rub implementation to use but-api
+    // that work is in progress
+    tui.input_then_render([
+        KeyCode::Up,
+        KeyCode::Up,
+        KeyCode::Up,
+        KeyCode::Up,
+        KeyCode::Up,
+        KeyCode::Up,
+        KeyCode::Up,
+        KeyCode::Up,
+    ])
+    .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
         .assert_rendered_term_svg_eq(file!["snapshots/rubbing_003.svg"]);
