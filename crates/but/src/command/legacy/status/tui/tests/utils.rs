@@ -345,41 +345,64 @@ fn volatile_id_hex_prefix_cell(
 
     let row_start = area.x;
     let row_end = area.x.saturating_add(area.width);
-    let search_start = x.saturating_sub(1).max(row_start);
+    let is_blue_bold = |cell: &ratatui::buffer::Cell| {
+        matches!(cell.fg, Color::Blue) && cell.modifier.contains(Modifier::BOLD)
+    };
 
-    for start in search_start..=x {
-        let Some(end) = start.checked_add(4) else {
-            continue;
-        };
-        if end >= row_end {
-            continue;
+    let mut hex_start = x;
+    while hex_start > row_start {
+        let prev_x = hex_start.saturating_sub(1);
+        let prev_cell = &buffer[(prev_x, y)];
+        if !is_blue_bold_hex_cell(prev_cell) {
+            break;
         }
-
-        let first = &buffer[(start, y)];
-        let second = &buffer[(start.saturating_add(1), y)];
-        let colon = &buffer[(start.saturating_add(2), y)];
-        let v = &buffer[(start.saturating_add(3), y)];
-        let o = &buffer[(start.saturating_add(4), y)];
-
-        let is_blue_bold = |cell: &ratatui::buffer::Cell| {
-            matches!(cell.fg, Color::Blue) && cell.modifier.contains(Modifier::BOLD)
-        };
-
-        if is_blue_bold_hex_cell(first)
-            && is_blue_bold_hex_cell(second)
-            && is_blue_bold(colon)
-            && colon.symbol() == ":"
-            && is_blue_bold(v)
-            && v.symbol() == "v"
-            && is_blue_bold(o)
-            && o.symbol() == "o"
-            && x <= start.saturating_add(1)
-        {
-            return true;
-        }
+        hex_start = prev_x;
     }
 
-    false
+    let mut hex_end = x;
+    while hex_end.saturating_add(1) < row_end {
+        let next_x = hex_end.saturating_add(1);
+        let next_cell = &buffer[(next_x, y)];
+        if !is_blue_bold_hex_cell(next_cell) {
+            break;
+        }
+        hex_end = next_x;
+    }
+
+    if hex_end == hex_start {
+        return false;
+    }
+
+    let Some(colon_x) = hex_end.checked_add(1) else {
+        return false;
+    };
+    let Some(label_first_x) = hex_end.checked_add(2) else {
+        return false;
+    };
+    let Some(label_second_x) = hex_end.checked_add(3) else {
+        return false;
+    };
+    if label_second_x >= row_end {
+        return false;
+    }
+
+    let colon = &buffer[(colon_x, y)];
+    if !is_blue_bold(colon) || colon.symbol() != ":" {
+        return false;
+    }
+
+    let label_first = &buffer[(label_first_x, y)];
+    let label_second = &buffer[(label_second_x, y)];
+    let is_blue_bold_lower = |cell: &ratatui::buffer::Cell| {
+        is_blue_bold(cell)
+            && cell
+                .symbol()
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_lowercase())
+    };
+
+    is_blue_bold_lower(label_first) && is_blue_bold_lower(label_second)
 }
 
 fn color_to_rgb(color: Color, default: (u8, u8, u8)) -> (u8, u8, u8) {
