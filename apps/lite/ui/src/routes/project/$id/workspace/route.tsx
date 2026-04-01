@@ -700,22 +700,21 @@ const CommitTarget: FC<
 		}),
 	});
 
-	const tooltip = operation
+	const rubTooltip = operation
 		? Match.value(operation).pipe(
 				Match.tag("Rub", (operation) => rubOperationLabel(operation)),
-				Match.tag("CommitMove", () => null),
 				Match.orElse(() => null),
 			)
 		: null;
 
 	return (
 		<div className={styles.commit}>
-			<Tooltip.Root open={tooltip !== null}>
+			<Tooltip.Root open={rubTooltip !== null}>
 				<Tooltip.Trigger render={droppable} />
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={8}>
 						<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-							{tooltip}
+							{rubTooltip}
 						</Tooltip.Popup>
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
