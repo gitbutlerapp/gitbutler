@@ -6,7 +6,7 @@ import { BranchDetails, BranchListing, Commit, DiffHunk, TreeChange } from "@git
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Match } from "effect";
-import { ComponentProps, FC, Suspense, useEffect, useEffectEvent, useTransition } from "react";
+import { ComponentProps, FC, Suspense, useTransition } from "react";
 import useLocalStorageState from "use-local-storage-state";
 import styles from "./route.module.css";
 
@@ -28,7 +28,6 @@ import {
 	HunkDiff,
 	ShowBranch,
 	ShowCommitWithQuery,
-	isTypingTarget,
 } from "#ui/routes/project/$id/-shared.tsx";
 import uiStyles from "#ui/ui.module.css";
 import sharedStyles from "../-shared.module.css";
@@ -72,57 +71,6 @@ const getExpandedCommitSelection = async ({
 		commitId,
 		mode: { _tag: "Details", path: commitDetails.changes[0]?.path },
 	};
-};
-
-const useSelectionKeyboardShortcuts = ({
-	selection,
-	select,
-	projectId,
-}: {
-	selection: Selection | null;
-	select: (selection: Selection | null) => void;
-	projectId: string;
-}) => {
-	const queryClient = useQueryClient();
-
-	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
-		if (event.defaultPrevented || event.repeat) return;
-		if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-		if (isTypingTarget(event.target)) return;
-		if (selection?._tag !== "Commit") return;
-
-		switch (event.key) {
-			case "ArrowLeft":
-				if (selection.mode._tag !== "Details") return;
-				event.preventDefault();
-				select({
-					_tag: "Commit",
-					branchName: selection.branchName,
-					commitId: selection.commitId,
-					mode: { _tag: "Summary" },
-				});
-				break;
-			case "ArrowRight":
-				if (selection.mode._tag !== "Summary") return;
-				event.preventDefault();
-				// TODO: error handling
-				void getExpandedCommitSelection({
-					branchName: selection.branchName,
-					commitId: selection.commitId,
-					projectId,
-					queryClient,
-				}).then(select);
-				break;
-		}
-	});
-
-	useEffect(() => {
-		window.addEventListener("keydown", handleKeyDown);
-
-		return () => {
-			window.removeEventListener("keydown", handleKeyDown);
-		};
-	}, []);
 };
 
 const BranchMenuPopup: FC<{
@@ -557,8 +505,6 @@ const ProjectBranchesPage: FC = () => {
 		(_selection ? normalizeBranchSelection(_selection, sortedBranches) : null) ??
 		getDefaultSelection(sortedBranches);
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
-
-	useSelectionKeyboardShortcuts({ selection, select, projectId });
 
 	if (!project) return <p>Project not found.</p>;
 
