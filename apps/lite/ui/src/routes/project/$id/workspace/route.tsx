@@ -636,11 +636,13 @@ const getCommitTargetOperation = ({
 				element,
 				operations: {
 					"reorder-before":
-						sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "above")
+						(sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "above")) ||
+						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Changes")
 							? "available"
 							: "not-available",
 					"reorder-after":
-						sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "below")
+						(sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "below")) ||
+						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Changes")
 							? "available"
 							: "not-available",
 					combine: rubOperation ? "available" : "not-available",
@@ -655,20 +657,34 @@ const getCommitTargetOperation = ({
 		Match.when("combine", (): Operation | null =>
 			rubOperation ? { _tag: "Rub", ...rubOperation } : null,
 		),
-		Match.orElse((side): Operation | null =>
-			sourceItem._tag === "Commit"
-				? {
-						_tag: "CommitMove",
-						subjectCommitId: sourceItem.commitId,
-						relativeTo: { type: "commit", subject: commitId },
-						side: Match.value(side).pipe(
-							Match.when("reorder-before", (): InsertSide => "above"),
-							Match.when("reorder-after", (): InsertSide => "below"),
-							Match.exhaustive,
-						),
-					}
-				: null,
-		),
+		Match.orElse((side): Operation | null => {
+			const insertSide = Match.value(side).pipe(
+				Match.when("reorder-before", (): InsertSide => "above"),
+				Match.when("reorder-after", (): InsertSide => "below"),
+				Match.exhaustive,
+			);
+
+			if (sourceItem._tag === "Commit")
+				return {
+					_tag: "CommitMove",
+					subjectCommitId: sourceItem.commitId,
+					relativeTo: { type: "commit", subject: commitId },
+					side: insertSide,
+				};
+
+			if (sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Changes")
+				return {
+					_tag: "CommitCreate",
+					relativeTo: { type: "commit", subject: commitId },
+					side: insertSide,
+					changes: sourceItem.source.changes.map(({ change, hunkHeaders }) =>
+						createDiffSpec(change, hunkHeaders),
+					),
+					message: "",
+				};
+
+			return null;
+		}),
 	);
 };
 
@@ -720,18 +736,18 @@ const CommitTarget: FC<
 				</Tooltip.Portal>
 			</Tooltip.Root>
 
-			{operation?._tag === "CommitMove" && (
+			{(operation?._tag === "CommitMove" || operation?._tag === "CommitCreate") && (
 				<Tooltip.Root open>
 					<Tooltip.Trigger
 						render={
 							<div
 								className={classes(
-									styles.commitMoveTarget,
+									styles.commitInsertionTarget,
 									pipe(
 										operation.side,
 										Match.value,
-										Match.when("above", () => styles.commitMoveTargetAbove),
-										Match.when("below", () => styles.commitMoveTargetBelow),
+										Match.when("above", () => styles.commitInsertionTargetAbove),
+										Match.when("below", () => styles.commitInsertionTargetBelow),
 										Match.exhaustive,
 									),
 								)}
@@ -741,7 +757,11 @@ const CommitTarget: FC<
 					<Tooltip.Portal>
 						<Tooltip.Positioner sideOffset={8}>
 							<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-								Move commit here
+								{Match.value(operation).pipe(
+									Match.tag("CommitMove", () => "Move commit here"),
+									Match.tag("CommitCreate", () => "Commit changes here"),
+									Match.exhaustive,
+								)}
 							</Tooltip.Popup>
 						</Tooltip.Positioner>
 					</Tooltip.Portal>
