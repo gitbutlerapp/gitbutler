@@ -76,7 +76,7 @@
 	flex-direction: column;
 }
 
-.commitMoveTarget {
+.commitInsertionTarget {
 	--indicator-height: 3px;
 
 	position: absolute;
@@ -86,12 +86,12 @@
 	pointer-events: none;
 }
 
-.commitMoveTargetAbove {
+.commitInsertionTargetAbove {
 	top: 0;
 	transform: translateY(calc(var(--indicator-height) / -2));
 }
 
-.commitMoveTargetBelow {
+.commitInsertionTargetBelow {
 	bottom: 0;
 	transform: translateY(calc(var(--indicator-height) / 2));
 }

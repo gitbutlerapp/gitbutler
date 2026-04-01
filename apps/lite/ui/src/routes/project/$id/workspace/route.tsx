@@ -603,6 +603,104 @@ const StackMenuPopup: FC<{
 	);
 };
 
+const getCommitTargetOperation = ({
+	sourceItem,
+	commitId,
+	previousCommitId,
+	nextCommitId,
+	input,
+	element,
+}: {
+	sourceItem: SourceItem;
+	commitId: string;
+	previousCommitId: string | undefined;
+	nextCommitId: string | undefined;
+	input: Parameters<typeof attachInstruction>[1]["input"];
+	element: Element;
+}): Operation | null => {
+	const isNoOpCommitMove = (sourceCommitId: string, side: InsertSide): boolean =>
+		sourceCommitId === commitId ||
+		(side === "above" && previousCommitId === sourceCommitId) ||
+		(side === "below" && nextCommitId === sourceCommitId);
+
+	const rubOperation = getRubOperation({
+		sourceItem,
+		target: { _tag: "Commit", commitId },
+	});
+
+	const instruction = extractInstruction(
+		attachInstruction(
+			{ sourceItem },
+			{
+				input,
+				element,
+				operations: {
+					"reorder-before":
+						(sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "above")) ||
+						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Changes") ||
+						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Commit")
+							? "available"
+							: "not-available",
+					"reorder-after":
+						(sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "below")) ||
+						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Changes") ||
+						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Commit")
+							? "available"
+							: "not-available",
+					combine: rubOperation ? "available" : "not-available",
+				},
+			},
+		),
+	);
+
+	if (!instruction) return null;
+
+	return Match.value(instruction.operation).pipe(
+		Match.when("combine", (): Operation | null =>
+			rubOperation ? { _tag: "Rub", ...rubOperation } : null,
+		),
+		Match.orElse((side): Operation | null => {
+			const insertSide = Match.value(side).pipe(
+				Match.when("reorder-before", (): InsertSide => "above"),
+				Match.when("reorder-after", (): InsertSide => "below"),
+				Match.exhaustive,
+			);
+
+			if (sourceItem._tag === "Commit")
+				return {
+					_tag: "CommitMove",
+					subjectCommitId: sourceItem.commitId,
+					relativeTo: { type: "commit", subject: commitId },
+					side: insertSide,
+				};
+
+			if (sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Changes")
+				return {
+					_tag: "CommitCreate",
+					relativeTo: { type: "commit", subject: commitId },
+					side: insertSide,
+					changes: sourceItem.source.changes.map(({ change, hunkHeaders }) =>
+						createDiffSpec(change, hunkHeaders),
+					),
+					message: "",
+				};
+
+			if (sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Commit")
+				return {
+					_tag: "CommitCreateFromCommittedChanges",
+					sourceCommitId: sourceItem.source.parent.commitId,
+					relativeTo: { type: "commit", subject: commitId },
+					side: insertSide,
+					changes: sourceItem.source.changes.map(({ change, hunkHeaders }) =>
+						createDiffSpec(change, hunkHeaders),
+					),
+				};
+
+			return null;
+		}),
+	);
+};
+
 const CommitTarget: FC<
 	{
 		commitId: string;
@@ -610,69 +708,17 @@ const CommitTarget: FC<
 		nextCommitId: string | undefined;
 	} & useRender.ComponentProps<"div">
 > = ({ commitId, previousCommitId, nextCommitId, render, ...props }) => {
-	const isNoOpCommitMove = (sourceCommitId: string, side: InsertSide): boolean =>
-		sourceCommitId === commitId ||
-		(side === "above" && previousCommitId === sourceCommitId) ||
-		(side === "below" && nextCommitId === sourceCommitId);
-
 	const [operation, dropRef] = useDroppable(({ source, input, element }) => {
 		const sourceItem = parseDragData(source.data);
 		if (!sourceItem) return null;
-
-		const rubOperation = getRubOperation({
+		return getCommitTargetOperation({
 			sourceItem,
-			target: { _tag: "Commit", commitId },
+			commitId,
+			previousCommitId,
+			nextCommitId,
+			input,
+			element,
 		});
-
-		const instruction = extractInstruction(
-			attachInstruction(
-				{ sourceItem },
-				{
-					input,
-					element,
-					operations: {
-						"reorder-before":
-							sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "above")
-								? "available"
-								: "not-available",
-						"reorder-after":
-							sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "below")
-								? "available"
-								: "not-available",
-						combine: rubOperation ? "available" : "not-available",
-					},
-				},
-			),
-		);
-
-		if (!instruction) return null;
-
-		return Match.value(instruction.operation).pipe(
-			Match.when("combine", (): Operation | null =>
-				rubOperation ? { _tag: "Rub", ...rubOperation } : null,
-			),
-			Match.when("reorder-before", (): Operation | null =>
-				sourceItem._tag === "Commit"
-					? {
-							_tag: "CommitMove",
-							subjectCommitId: sourceItem.commitId,
-							relativeTo: { type: "commit", subject: commitId },
-							side: "above",
-						}
-					: null,
-			),
-			Match.when("reorder-after", (): Operation | null =>
-				sourceItem._tag === "Commit"
-					? {
-							_tag: "CommitMove",
-							subjectCommitId: sourceItem.commitId,
-							relativeTo: { type: "commit", subject: commitId },
-							side: "below",
-						}
-					: null,
-			),
-			Match.exhaustive,
-		);
 	});
 
 	const droppable = useRender({
@@ -683,39 +729,62 @@ const CommitTarget: FC<
 		}),
 	});
 
-	const tooltip = operation
+	const rubTooltip = operation
 		? Match.value(operation).pipe(
 				Match.tag("Rub", (operation) => rubOperationLabel(operation)),
-				Match.tag("CommitMove", () => null),
 				Match.orElse(() => null),
 			)
 		: null;
 
 	return (
 		<div className={styles.commit}>
-			<Tooltip.Root open={tooltip !== null}>
+			<Tooltip.Root open={rubTooltip !== null}>
 				<Tooltip.Trigger render={droppable} />
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={8}>
 						<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-							{tooltip}
+							{rubTooltip}
 						</Tooltip.Popup>
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
 			</Tooltip.Root>
-			{operation?._tag === "CommitMove" && (
-				<div
-					className={classes(
-						styles.commitMoveTarget,
-						pipe(
-							operation.side,
-							Match.value,
-							Match.when("above", () => styles.commitMoveTargetAbove),
-							Match.when("below", () => styles.commitMoveTargetBelow),
-							Match.exhaustive,
-						),
-					)}
-				/>
+
+			{(operation?._tag === "CommitMove" ||
+				operation?._tag === "CommitCreate" ||
+				operation?._tag === "CommitCreateFromCommittedChanges") && (
+				<Tooltip.Root open>
+					<Tooltip.Trigger
+						render={
+							<div
+								className={classes(
+									styles.commitInsertionTarget,
+									pipe(
+										operation.side,
+										Match.value,
+										Match.when("above", () => styles.commitInsertionTargetAbove),
+										Match.when("below", () => styles.commitInsertionTargetBelow),
+										Match.exhaustive,
+									),
+								)}
+							/>
+						}
+					/>
+					<Tooltip.Portal>
+						<Tooltip.Positioner sideOffset={8}>
+							<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
+								{Match.value(operation).pipe(
+									Match.tag("CommitMove", () => "Move commit here"),
+									Match.tag(
+										"CommitCreateFromCommittedChanges",
+										"CommitCreate",
+										() => "Commit changes here",
+									),
+									Match.exhaustive,
+								)}
+							</Tooltip.Popup>
+						</Tooltip.Positioner>
+					</Tooltip.Portal>
+				</Tooltip.Root>
 			)}
 		</div>
 	);
