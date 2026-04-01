@@ -200,8 +200,8 @@ fn find_stack_id_for_branch_with_perm(
 
 /// Refresh the workspace commit when legacy workspace state is available.
 /// TODO: remove this as it shouldn't be needed - all the functions it calls use the rebase engine which takes care of that.
-fn legacy_update_workspace_commit(ctx: &mut Context) -> Result<()> {
+fn legacy_update_workspace_commit(_ctx: &mut Context) -> Result<()> {
     #[cfg(feature = "legacy")]
-    gitbutler_branch_actions::update_workspace_commit(ctx, false)?;
+    gitbutler_branch_actions::update_workspace_commit(_ctx, false)?;
     Ok(())
 }
