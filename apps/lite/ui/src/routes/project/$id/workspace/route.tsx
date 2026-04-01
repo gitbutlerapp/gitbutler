@@ -720,6 +720,7 @@ const CommitTarget: FC<
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
 			</Tooltip.Root>
+
 			{operation?._tag === "CommitMove" && (
 				<div
 					className={classes(
