@@ -2,7 +2,9 @@
 
 set -eu -o pipefail
 
-ssh-keygen -t rsa -b 2048 -C "test@example.com" -N "" -f signature.key
+source "${BASH_SOURCE[0]%/*}/shared.sh"
+
+create_consistent_signing_key_at signature.key
 
 git init
 
