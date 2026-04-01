@@ -752,7 +752,11 @@ const CommitTarget: FC<
 			{(operation?._tag === "CommitMove" ||
 				operation?._tag === "CommitCreate" ||
 				operation?._tag === "CommitCreateFromCommittedChanges") && (
-				<Tooltip.Root open>
+				<Tooltip.Root
+					open
+					// Keep the tooltip popup from intercepting drag hover and causing flicker.
+					disableHoverablePopup
+				>
 					<Tooltip.Trigger
 						render={
 							<div
