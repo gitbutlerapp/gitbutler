@@ -43,10 +43,9 @@ const getBranchRemote = (branch: BranchListing) => {
 	return branch.remotes[0] ?? null;
 };
 
-const getBranchRef = (branch: BranchListing): string | null => {
-	if (branch.hasLocal) return `refs/heads/${branch.name}`;
-	const remote = branch.remotes[0];
-	if (remote === undefined) return null;
+const getBranchRef = (branch: BranchListing): string => {
+	const remote = getBranchRemote(branch);
+	if (remote === null) return `refs/heads/${branch.name}`;
 	return `refs/remotes/${remote}/${branch.name}`;
 };
 
@@ -81,7 +80,6 @@ const BranchMenuPopup: FC<{
 	const { Popup, Item } = parts;
 	const applyBranch = useMutation(applyBranchMutationOptions);
 	const unapplyStack = useMutation(unapplyStackMutationOptions);
-	const ref = getBranchRef(branch);
 	const stackId = branch.stack?.id;
 
 	return (
@@ -89,12 +87,10 @@ const BranchMenuPopup: FC<{
 			{!branch.stack?.inWorkspace ? (
 				<Item
 					className={uiStyles.menuItem}
-					disabled={ref === null}
 					onClick={() => {
-						if (ref === null) return;
 						applyBranch.mutate({
 							projectId,
-							existingBranch: ref,
+							existingBranch: getBranchRef(branch),
 						});
 					}}
 				>
@@ -122,7 +118,6 @@ const BranchApplyToggle: FC<{
 }> = ({ branch, projectId }) => {
 	const applyBranch = useMutation(applyBranchMutationOptions);
 	const unapplyStack = useMutation(unapplyStackMutationOptions);
-	const ref = getBranchRef(branch);
 	const stackId = branch.stack?.id;
 	const isApplied = branch.stack?.inWorkspace ?? false;
 
@@ -144,13 +139,11 @@ const BranchApplyToggle: FC<{
 		<button
 			type="button"
 			className={classes(sharedStyles.itemAction, styles.branchApplyToggle)}
-			disabled={ref === null}
 			aria-label={`Apply branch ${branch.name}`}
 			onClick={() => {
-				if (ref === null) return;
 				applyBranch.mutate({
 					projectId,
-					existingBranch: ref,
+					existingBranch: getBranchRef(branch),
 				});
 			}}
 		>
