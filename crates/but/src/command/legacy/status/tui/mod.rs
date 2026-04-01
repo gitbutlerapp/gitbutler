@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     ffi::OsString,
+    iter::once,
     process::Command,
     rc::Rc,
     sync::{Arc, LazyLock, mpsc::Receiver},
@@ -2417,11 +2418,16 @@ impl App {
 
     fn render_debug(&self, area: Rect, frame: &mut Frame) {
         let list = List::new(
-            std::iter::once(ListItem::new(format!("Renders: {}", self.renders)))
-                .chain(std::iter::once(ListItem::new(format!(
-                    "Details selection: {:?}",
+            once(ListItem::new("Renders").black().on_blue())
+                .chain(once(ListItem::new(format!("{}", self.renders))))
+                .chain(once(ListItem::new("")))
+                .chain(once(ListItem::new("Details selection").black().on_blue()))
+                .chain(once(ListItem::new(format!(
+                    "{:#?}",
                     self.details.selection()
                 ))))
+                .chain(once(ListItem::new("")))
+                .chain(once(ListItem::new("Status selection").black().on_blue()))
                 .chain(
                     self.cursor
                         .selected_line(&self.status_lines)
@@ -2822,7 +2828,7 @@ impl IntoIterator for StatusListItem {
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            StatusListItem::Single(line) => Either::Left(std::iter::once(ListItem::new(line))),
+            StatusListItem::Single(line) => Either::Left(once(ListItem::new(line))),
             StatusListItem::Double(line1, line2) => {
                 Either::Right([ListItem::new(line1), ListItem::new(line2)].into_iter())
             }
