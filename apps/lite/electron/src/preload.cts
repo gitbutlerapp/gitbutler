@@ -11,6 +11,7 @@ import type {
 	RefInfo,
 	TreeChanges,
 	UICommitCreateResult,
+	UICommitDiscardResult,
 	UICommitInsertBlankResult,
 	UICommitMoveResult,
 	UICommitRewordResult,
@@ -51,6 +52,8 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:commit-amend", params) as Promise<UICommitCreateResult>,
 	commitCreate: (params) =>
 		ipcRenderer.invoke("workspace:commit-create", params) as Promise<UICommitCreateResult>,
+	commitDiscard: (params) =>
+		ipcRenderer.invoke("workspace:commit-discard", params) as Promise<UICommitDiscardResult>,
 	commitDetailsWithLineStats: (params) =>
 		ipcRenderer.invoke(
 			"workspace:commit-details-with-line-stats",

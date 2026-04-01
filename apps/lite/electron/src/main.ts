@@ -8,6 +8,7 @@ import {
 	type BranchDiffParams,
 	type CommitAmendParams,
 	type CommitCreateParams,
+	type CommitDiscardParams,
 	type CommitDetailsWithLineStatsParams,
 	type CommitInsertBlankParams,
 	type CommitMoveParams,
@@ -34,6 +35,7 @@ import {
 	changesInWorktree,
 	commitAmend,
 	commitCreate,
+	commitDiscard,
 	commitInsertBlank,
 	commitReword,
 	commitUncommitChanges,
@@ -93,6 +95,11 @@ function registerIpcHandlers(): void {
 		liteIpcChannels.commitCreate,
 		(_e, { projectId, relativeTo, side, changes, message }: CommitCreateParams) =>
 			commitCreate(projectId, relativeTo, side, changes, message),
+	);
+	ipcMain.handle(
+		liteIpcChannels.commitDiscard,
+		(_e, { projectId, subjectCommitId }: CommitDiscardParams) =>
+			commitDiscard(projectId, subjectCommitId),
 	);
 	ipcMain.handle(
 		liteIpcChannels.commitDetailsWithLineStats,
