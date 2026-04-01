@@ -1904,7 +1904,7 @@ const ProjectPage: FC = () => {
 							>
 								<button
 									type="button"
-									className={classes(styles.commonBaseCommit)}
+									className={styles.commonBaseCommit}
 									onClick={() => {
 										select(baseCommitItem(commonBaseCommitId));
 										setEditing(null);
