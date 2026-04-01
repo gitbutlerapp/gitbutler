@@ -603,6 +603,82 @@ const StackMenuPopup: FC<{
 	);
 };
 
+const getCommitTargetOperation = ({
+	sourceItem,
+	commitId,
+	previousCommitId,
+	nextCommitId,
+	input,
+	element,
+}: {
+	sourceItem: SourceItem;
+	commitId: string;
+	previousCommitId: string | undefined;
+	nextCommitId: string | undefined;
+	input: Parameters<typeof attachInstruction>[1]["input"];
+	element: Element;
+}): Operation | null => {
+	const isNoOpCommitMove = (sourceCommitId: string, side: InsertSide): boolean =>
+		sourceCommitId === commitId ||
+		(side === "above" && previousCommitId === sourceCommitId) ||
+		(side === "below" && nextCommitId === sourceCommitId);
+
+	const rubOperation = getRubOperation({
+		sourceItem,
+		target: { _tag: "Commit", commitId },
+	});
+
+	const instruction = extractInstruction(
+		attachInstruction(
+			{ sourceItem },
+			{
+				input,
+				element,
+				operations: {
+					"reorder-before":
+						sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "above")
+							? "available"
+							: "not-available",
+					"reorder-after":
+						sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "below")
+							? "available"
+							: "not-available",
+					combine: rubOperation ? "available" : "not-available",
+				},
+			},
+		),
+	);
+
+	if (!instruction) return null;
+
+	return Match.value(instruction.operation).pipe(
+		Match.when("combine", (): Operation | null =>
+			rubOperation ? { _tag: "Rub", ...rubOperation } : null,
+		),
+		Match.when("reorder-before", (): Operation | null =>
+			sourceItem._tag === "Commit"
+				? {
+						_tag: "CommitMove",
+						subjectCommitId: sourceItem.commitId,
+						relativeTo: { type: "commit", subject: commitId },
+						side: "above",
+					}
+				: null,
+		),
+		Match.when("reorder-after", (): Operation | null =>
+			sourceItem._tag === "Commit"
+				? {
+						_tag: "CommitMove",
+						subjectCommitId: sourceItem.commitId,
+						relativeTo: { type: "commit", subject: commitId },
+						side: "below",
+					}
+				: null,
+		),
+		Match.exhaustive,
+	);
+};
+
 const CommitTarget: FC<
 	{
 		commitId: string;
@@ -610,69 +686,17 @@ const CommitTarget: FC<
 		nextCommitId: string | undefined;
 	} & useRender.ComponentProps<"div">
 > = ({ commitId, previousCommitId, nextCommitId, render, ...props }) => {
-	const isNoOpCommitMove = (sourceCommitId: string, side: InsertSide): boolean =>
-		sourceCommitId === commitId ||
-		(side === "above" && previousCommitId === sourceCommitId) ||
-		(side === "below" && nextCommitId === sourceCommitId);
-
 	const [operation, dropRef] = useDroppable(({ source, input, element }) => {
 		const sourceItem = parseDragData(source.data);
 		if (!sourceItem) return null;
-
-		const rubOperation = getRubOperation({
+		return getCommitTargetOperation({
 			sourceItem,
-			target: { _tag: "Commit", commitId },
+			commitId,
+			previousCommitId,
+			nextCommitId,
+			input,
+			element,
 		});
-
-		const instruction = extractInstruction(
-			attachInstruction(
-				{ sourceItem },
-				{
-					input,
-					element,
-					operations: {
-						"reorder-before":
-							sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "above")
-								? "available"
-								: "not-available",
-						"reorder-after":
-							sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "below")
-								? "available"
-								: "not-available",
-						combine: rubOperation ? "available" : "not-available",
-					},
-				},
-			),
-		);
-
-		if (!instruction) return null;
-
-		return Match.value(instruction.operation).pipe(
-			Match.when("combine", (): Operation | null =>
-				rubOperation ? { _tag: "Rub", ...rubOperation } : null,
-			),
-			Match.when("reorder-before", (): Operation | null =>
-				sourceItem._tag === "Commit"
-					? {
-							_tag: "CommitMove",
-							subjectCommitId: sourceItem.commitId,
-							relativeTo: { type: "commit", subject: commitId },
-							side: "above",
-						}
-					: null,
-			),
-			Match.when("reorder-after", (): Operation | null =>
-				sourceItem._tag === "Commit"
-					? {
-							_tag: "CommitMove",
-							subjectCommitId: sourceItem.commitId,
-							relativeTo: { type: "commit", subject: commitId },
-							side: "below",
-						}
-					: null,
-			),
-			Match.exhaustive,
-		);
 	});
 
 	const droppable = useRender({
