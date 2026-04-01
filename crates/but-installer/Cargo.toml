@@ -34,7 +34,7 @@ tar = "0.4"
 owo-colors = { version = "4.1.0", features = ["supports-colors"] }
 
 # For signature verification
-minisign-verify = "0.2.1"
+minisign-verify = "0.2.5"
 base64 = "0.22.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
