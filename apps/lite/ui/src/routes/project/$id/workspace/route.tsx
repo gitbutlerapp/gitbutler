@@ -23,11 +23,7 @@ import {
 import { rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx";
 import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
 import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
-import {
-	getBranchNameByCommitId,
-	getCommonBaseCommitId,
-	getSegmentBranchRef,
-} from "#ui/domain/RefInfo.ts";
+import { getBranchNameByCommitId, getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
@@ -419,12 +415,10 @@ const ShowCommitOrFile: FC<{
 const ShowSegment: FC<{
 	projectId: string;
 	branchName: string | null;
-	branchRef: string | null;
-}> = ({ projectId, branchName, branchRef }) =>
-	branchName != null && branchRef != null ? (
+}> = ({ projectId, branchName }) =>
+	branchName != null ? (
 		<ShowBranch
 			projectId={projectId}
-			branchRef={branchRef}
 			branchName={branchName}
 			remote={null}
 			renderHunk={(change, hunk, patch) => (
@@ -511,8 +505,8 @@ const Preview: FC<{
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 }> = ({ projectId, selection, onDependencyHover }) =>
 	Match.value(selection).pipe(
-		Match.tag("Segment", ({ branchName, branchRef }) => (
-			<ShowSegment projectId={projectId} branchName={branchName} branchRef={branchRef} />
+		Match.tag("Segment", ({ branchName }) => (
+			<ShowSegment projectId={projectId} branchName={branchName} />
 		)),
 		Match.tag("Changes", ({ stackId, mode }) => (
 			<ShowChangesOrFile
@@ -925,7 +919,6 @@ const CommitMenuPopup: FC<{
 const CommitRow: FC<
 	{
 		branchName: string | null;
-		branchRef: string | null;
 		commit: Commit;
 		editing: Editing | null;
 		isHighlighted: boolean;
@@ -938,7 +931,6 @@ const CommitRow: FC<
 	} & ComponentProps<"div">
 > = ({
 	branchName,
-	branchRef,
 	commit,
 	editing,
 	isHighlighted,
@@ -954,7 +946,6 @@ const CommitRow: FC<
 		stackId,
 		segmentIndex,
 		branchName,
-		branchRef,
 		commitId: commit.id,
 	});
 	const commitSelection =
@@ -989,7 +980,6 @@ const CommitRow: FC<
 						stackId,
 						segmentIndex,
 						branchName,
-						branchRef,
 						commitId: commit.id,
 						mode: { _tag: "Details" },
 					}),
@@ -1006,7 +996,6 @@ const CommitRow: FC<
 				stackId,
 				segmentIndex,
 				branchName,
-				branchRef,
 				commitId: commit.id,
 			},
 		});
@@ -1121,7 +1110,6 @@ const CommitRow: FC<
 
 const CommitC: FC<{
 	branchName: string | null;
-	branchRef: string | null;
 	commit: Commit;
 	editing: Editing | null;
 	isHighlighted: boolean;
@@ -1135,7 +1123,6 @@ const CommitC: FC<{
 	stackId: string;
 }> = ({
 	branchName,
-	branchRef,
 	commit,
 	editing,
 	isHighlighted,
@@ -1164,7 +1151,6 @@ const CommitC: FC<{
 		>
 			<CommitRow
 				branchName={branchName}
-				branchRef={branchRef}
 				commit={commit}
 				editing={editing}
 				isHighlighted={isHighlighted}
@@ -1623,7 +1609,6 @@ const SegmentRow: FC<
 		stackId,
 		segmentIndex,
 		branchName,
-		branchRef: segment.refName ? getSegmentBranchRef(segment.refName) : null,
 	});
 	const segmentSelection =
 		selection?._tag === "Segment" &&
@@ -1798,7 +1783,6 @@ const SegmentC: FC<{
 				{(commit, index) => (
 					<CommitC
 						branchName={segment.refName?.displayName ?? null}
-						branchRef={segment.refName ? getSegmentBranchRef(segment.refName) : null}
 						commit={commit}
 						editing={editing}
 						isHighlighted={highlightedCommitIds.has(commit.id)}

@@ -1,4 +1,4 @@
-import { getCommonBaseCommitId, getSegmentBranchRef } from "#ui/domain/RefInfo.ts";
+import { getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
 import { WorktreeChanges, type RefInfo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 
@@ -9,7 +9,6 @@ export type SegmentItem = {
 	stackId: string;
 	segmentIndex: number;
 	branchName: string | null;
-	branchRef: string | null;
 };
 
 type CommitMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
@@ -35,24 +34,17 @@ export const changesDetailsItem = (stackId: string | null, path?: string): Item 
 	mode: { _tag: "Details", path },
 });
 
-export const segmentItem = ({
-	stackId,
-	segmentIndex,
-	branchName,
-	branchRef,
-}: SegmentItem): Item => ({
+export const segmentItem = ({ stackId, segmentIndex, branchName }: SegmentItem): Item => ({
 	_tag: "Segment",
 	stackId,
 	segmentIndex,
 	branchName,
-	branchRef,
 });
 
 export const commitItem = ({
 	stackId,
 	segmentIndex,
 	branchName,
-	branchRef,
 	commitId,
 	mode = { _tag: "Summary" },
 }: Omit<CommitItem, "mode"> & { mode?: CommitItem["mode"] }): Item => ({
@@ -60,7 +52,6 @@ export const commitItem = ({
 	stackId,
 	segmentIndex,
 	branchName,
-	branchRef,
 	commitId,
 	mode,
 });
@@ -126,8 +117,7 @@ export const normalizeItem = (
 			const segment = stack.segments[item.segmentIndex];
 			if (!segment) return null;
 			const branchName = segment.refName?.displayName ?? null;
-			const branchRef = segment.refName ? getSegmentBranchRef(segment.refName) : null;
-			if (branchName !== item.branchName || branchRef !== item.branchRef) return null;
+			if (branchName !== item.branchName) return null;
 			return item;
 		}),
 		Match.tag("Commit", (item) => {

@@ -452,22 +452,16 @@ const Preview: FC<{
 	projectId: string;
 	selection: Selection;
 	remote: string | null;
-	branchRef: string | null;
-}> = ({ projectId, selection, remote, branchRef }) =>
+}> = ({ projectId, selection, remote }) =>
 	Match.value(selection).pipe(
-		Match.tag("Branch", ({ branchName }) =>
-			branchRef !== null ? (
-				<ShowBranch
-					projectId={projectId}
-					branchRef={branchRef}
-					branchName={branchName}
-					remote={remote}
-					renderHunk={(change, hunk) => <Hunk change={change} hunk={hunk} />}
-				/>
-			) : (
-				<div>No branch diff available.</div>
-			),
-		),
+		Match.tag("Branch", ({ branchName }) => (
+			<ShowBranch
+				projectId={projectId}
+				branchName={branchName}
+				remote={remote}
+				renderHunk={(change, hunk) => <Hunk change={change} hunk={hunk} />}
+			/>
+		)),
 		Match.tag("Commit", ({ branchName, commitId, mode }) =>
 			mode._tag === "Details" && mode.path !== undefined ? (
 				<ShowBranchCommitFile
@@ -520,7 +514,6 @@ const ProjectBranchesPage: FC = () => {
 						<Preview
 							projectId={projectId}
 							selection={selection}
-							branchRef={getBranchRef(selectedBranch)}
 							remote={getBranchRemote(selectedBranch)}
 						/>
 					</Suspense>

@@ -367,7 +367,7 @@ export const getScope = ({
 							bindings: renameBranchBindings,
 							context: selection,
 						}
-					: selection.branchName === null || selection.branchRef === null
+					: selection.branchName === null
 						? {
 								_tag: "Segment",
 								bindings: selectionBindings,

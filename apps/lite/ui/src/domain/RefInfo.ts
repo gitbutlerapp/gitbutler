@@ -1,4 +1,4 @@
-import { BranchReference, type RefInfo } from "@gitbutler/but-sdk";
+import { type RefInfo } from "@gitbutler/but-sdk";
 
 export const getCommonBaseCommitId = (headInfo: RefInfo): string | undefined => {
 	const bases = headInfo.stacks
@@ -20,7 +20,3 @@ export const getBranchNameByCommitId = (headInfo: RefInfo): Map<string, string> 
 
 	return byCommitId;
 };
-
-// TODO: move?
-export const getSegmentBranchRef = (refName: BranchReference) =>
-	`refs/heads/${refName.displayName}`;
