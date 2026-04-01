@@ -113,8 +113,9 @@ export const getAdjacentItem = (
 	selection: Item | null,
 	offset: -1 | 1,
 ): Item | null => {
-	const currentIndex = selection ? (model.indexByKey.get(itemKey(selection)) ?? -1) : -1;
-	if (currentIndex === -1) return null;
+	if (!selection) return null;
+	const currentIndex = model.indexByKey.get(itemKey(selection));
+	if (currentIndex === undefined) return null;
 	const itemCount = model.items.length;
 	if (itemCount === 0) return null;
 	return model.items[(currentIndex + offset + itemCount) % itemCount] ?? null;
