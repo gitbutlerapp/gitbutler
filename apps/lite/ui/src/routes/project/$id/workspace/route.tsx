@@ -1351,6 +1351,21 @@ const BranchTarget: FC<
 					side: "below",
 				};
 			}),
+			Match.tag("TreeChanges", ({ source }): Operation | null => {
+				if (anchorRef === null || source.parent._tag !== "Changes") return null;
+				return {
+					_tag: "CommitCreate",
+					relativeTo: {
+						type: "referenceBytes",
+						subject: anchorRef,
+					},
+					side: "below",
+					changes: source.changes.map(({ change, hunkHeaders }) =>
+						createDiffSpec(change, hunkHeaders),
+					),
+					message: "",
+				};
+			}),
 			Match.orElse(() => null),
 		);
 
@@ -1371,6 +1386,7 @@ const BranchTarget: FC<
 	const tooltip = operation
 		? Match.value(operation).pipe(
 				Match.tag("MoveBranch", () => "Stack branch onto here"),
+				Match.tag("CommitCreate", () => "Commit changes here"),
 				Match.tag("CommitMove", () => "Move commit here"),
 				Match.orElse(() => null),
 			)
@@ -1860,18 +1876,16 @@ const ProjectPage: FC = () => {
 			}
 		>
 			<div className={sharedStyles.lanes}>
-				<div className={styles.unassignedChangesLane}>
-					<Changes
-						label="Unassigned changes"
-						projectId={project.id}
-						stackId={null}
-						onAbsorbChanges={requestAbsorptionPlan}
-						onDependencyHover={highlightCommits}
-						selection={selection}
-						select={select}
-						className={styles.unassignedChanges}
-					/>
-				</div>
+				<Changes
+					label="Unassigned changes"
+					projectId={project.id}
+					stackId={null}
+					onAbsorbChanges={requestAbsorptionPlan}
+					onDependencyHover={highlightCommits}
+					selection={selection}
+					select={select}
+					className={styles.unassignedChanges}
+				/>
 
 				<div className={styles.headInfo}>
 					<div className={styles.stackLanes}>
@@ -1904,7 +1918,7 @@ const ProjectPage: FC = () => {
 							>
 								<button
 									type="button"
-									className={classes(styles.commonBaseCommit)}
+									className={styles.commonBaseCommit}
 									onClick={() => {
 										select(baseCommitItem(commonBaseCommitId));
 										setEditing(null);
