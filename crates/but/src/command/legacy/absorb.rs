@@ -39,7 +39,8 @@ pub(crate) fn handle(
     dry_run: bool,
     new: bool,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
     let source: Option<CliId> = source
         .and_then(|s| parse_sources(ctx, &id_map, s).ok())
         .and_then(|s| {
@@ -75,7 +76,8 @@ pub(crate) fn handle(
 
     // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
     // At this time, the context is passed pretty deep into the function.
-    let absorption_plan = but_api::legacy::absorb::absorption_plan(ctx, target)?;
+    let absorption_plan =
+        but_api::legacy::absorb::absorption_plan_with_perm(ctx, target, guard.write_permission())?;
 
     // Display the plan (in JSON mode for non-dry-run, collect without writing — we'll
     // combine it with the result in absorb_assignments to avoid a double-write that
@@ -94,7 +96,6 @@ pub(crate) fn handle(
         return Ok(());
     }
 
-    let mut guard = ctx.exclusive_worktree_access();
     let repo = ctx.repo.get()?;
     let data_dir = ctx.project_data_dir();
     let context_lines = ctx.settings.context_lines;

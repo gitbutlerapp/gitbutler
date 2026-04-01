@@ -1,6 +1,6 @@
 use anyhow::bail;
 use bstr::BStr;
-use but_core::ref_metadata::StackId;
+use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use colored::Colorize;
 mod amend;
@@ -803,8 +803,16 @@ fn ids(
 }
 fn create_snapshot(ctx: &mut Context, operation: OperationKind) {
     let mut guard = ctx.exclusive_worktree_access();
+    create_snapshot_with_perm(ctx, operation, guard.write_permission());
+}
+
+fn create_snapshot_with_perm(
+    ctx: &mut Context,
+    operation: OperationKind,
+    perm: &mut RepoExclusive,
+) {
     let _snapshot = ctx
-        .create_snapshot(SnapshotDetails::new(operation), guard.write_permission())
+        .create_snapshot(SnapshotDetails::new(operation), perm)
         .ok(); // Ignore errors for snapshot creation
 }
 
@@ -924,7 +932,8 @@ pub(crate) fn handle_amend(
     file_str: &str,
     commit_str: &str,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
     let files = parse_sources_with_disambiguation(ctx, &id_map, file_str, out)?;
     let commit = resolve_single_id(ctx, &id_map, commit_str, "Commit", out)?;
 
@@ -945,9 +954,31 @@ pub(crate) fn handle_amend(
     }
 
     // Validate that commit is a commit
-    match &commit {
-        CliId::Commit { .. } => {
-            // Valid type for target
+    match commit {
+        CliId::Commit { commit_id, .. } => {
+            // TODO(dp by st): This is a duplication of the UncommittedToCommitOperation which was previously
+            //                 called through `handle()` after validation. The problem is that it does its own locking.
+            //                 Since these are all mutations, it would have to be changed to take `perm` as well.
+            for file in files {
+                match file {
+                    CliId::Uncommitted(uncommitted) => {
+                        create_snapshot_with_perm(
+                            ctx,
+                            OperationKind::AmendCommit,
+                            guard.write_permission(),
+                        );
+                        amend::uncommitted_to_commit_with_perm(
+                            ctx,
+                            uncommitted.hunk_assignments.as_ref(),
+                            uncommitted.describe(),
+                            commit_id,
+                            out,
+                            guard.write_permission(),
+                        )?;
+                    }
+                    _ => unreachable!("validated beforehand"),
+                }
+            }
         }
         other => {
             bail!(
@@ -957,9 +988,7 @@ pub(crate) fn handle_amend(
             );
         }
     }
-
-    // Call the main rub handler
-    handle(ctx, out, file_str, commit_str)
+    Ok(())
 }
 
 /// Handler for `but stage <file_or_hunk> <branch>` - runs `but rub <file_or_hunk> <branch>`

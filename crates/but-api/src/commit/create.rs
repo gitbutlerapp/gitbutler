@@ -11,7 +11,12 @@ use tracing::instrument;
 
 use super::types::CommitCreateResult;
 
-/// Creates and inserts a commit relative to either a commit or a reference.
+/// Creates a commit from `changes` with `message`, inserted on `side` of
+/// `relative_to`.
+///
+/// This acquires exclusive worktree access from `ctx` before creating the
+/// commit. For lower-level implementation details, see
+/// [`but_workspace::commit::commit_create()`].
 #[but_api(crate::commit::json::UICommitCreateResult)]
 #[instrument(err(Debug))]
 pub fn commit_create_only(
@@ -78,7 +83,14 @@ pub(crate) fn commit_create_only_impl(
     })
 }
 
-/// Creates and inserts a commit relative to either a commit or a reference, with oplog support.
+/// Insert a new commit built from `changes` and record an oplog snapshot on
+/// success.
+///
+/// `relative_to` and `side` choose where the commit is inserted. `message` is
+/// the entire commit message text, not just the title. On success, this commits
+/// a best-effort `CreateCommit` oplog snapshot using the same lock. For
+/// lower-level implementation details, see
+/// [`but_workspace::commit::commit_create()`].
 #[but_api(napi, crate::commit::json::UICommitCreateResult)]
 #[instrument(skip_all, fields(relative_to, side, message), err(Debug))]
 pub fn commit_create(

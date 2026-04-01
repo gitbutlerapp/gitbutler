@@ -11,11 +11,10 @@ use super::types::MoveChangesResult;
 /// Uncommits changes from a commit (removes them from the commit tree) without
 /// performing a checkout.
 ///
-/// This has the practical effect of leaving the changes that were in the commit
-/// as uncommitted changes in the worktree.
+/// This acquires exclusive worktree access from `ctx` before extracting the
+/// changes.
 ///
-/// If `assign_to` is provided, the newly uncommitted changes will be assigned
-/// to the specified stack.
+/// See [`commit_uncommit_changes_only_with_perm()`] for details.
 #[but_api(crate::commit::json::UIMoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn commit_uncommit_changes_only(
@@ -24,9 +23,33 @@ pub fn commit_uncommit_changes_only(
     changes: Vec<but_core::DiffSpec>,
     assign_to: Option<but_core::ref_metadata::StackId>,
 ) -> anyhow::Result<MoveChangesResult> {
+    let mut guard = ctx.exclusive_worktree_access();
+    commit_uncommit_changes_only_with_perm(
+        ctx,
+        commit_id,
+        changes,
+        assign_to,
+        guard.write_permission(),
+    )
+}
+
+/// Extract `changes` from `commit_id` without performing a checkout, under
+/// caller-held exclusive repository access.
+///
+/// The removed diff stays in the workspace as uncommitted changes. When
+/// `assign_to` is set, newly surfaced hunks are reassigned to that stack after
+/// the rebase is materialized. For lower-level implementation details, see
+/// [`but_workspace::commit::uncommit_changes()`].
+pub fn commit_uncommit_changes_only_with_perm(
+    ctx: &mut but_ctx::Context,
+    commit_id: gix::ObjectId,
+    changes: Vec<but_core::DiffSpec>,
+    assign_to: Option<but_core::ref_metadata::StackId>,
+    perm: &mut but_ctx::access::RepoExclusive,
+) -> anyhow::Result<MoveChangesResult> {
     let context_lines = ctx.settings.context_lines;
     let mut meta = ctx.meta()?;
-    let (_guard, repo, mut ws, mut db, _cache) = ctx.workspace_mut_and_db_mut_and_cache()?;
+    let (repo, mut ws, mut db, _cache) = ctx.workspace_mut_and_db_mut_and_cache_with_perm(perm)?;
 
     let before_assignments = if assign_to.is_some() {
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
@@ -85,10 +108,12 @@ pub fn commit_uncommit_changes_only(
     })
 }
 
-/// Uncommits changes from a commit, with oplog and optional assign_to support.
+/// Extract `changes` from `commit_id` and record the rewrite in the oplog.
 ///
-/// If `assign_to` is provided, the newly uncommitted changes will be assigned
-/// to the specified stack.
+/// This acquires exclusive worktree access from `ctx` before extracting the
+/// changes.
+///
+/// See [`commit_uncommit_changes_with_perm()`] for details.
 #[but_api(napi, crate::commit::json::UIMoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn commit_uncommit_changes(
@@ -97,17 +122,36 @@ pub fn commit_uncommit_changes(
     changes: Vec<but_core::DiffSpec>,
     assign_to: Option<but_core::ref_metadata::StackId>,
 ) -> anyhow::Result<MoveChangesResult> {
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
+    let mut guard = ctx.exclusive_worktree_access();
+    commit_uncommit_changes_with_perm(ctx, commit_id, changes, assign_to, guard.write_permission())
+}
+
+/// Extract `changes` from `commit_id` under caller-held exclusive repository
+/// access and record an oplog snapshot on success.
+///
+/// When `assign_to` is set, newly surfaced hunks are assigned to that stack
+/// after the rebase is materialized. This prepares a best-effort
+/// `DiscardChanges` oplog snapshot and commits it only if the operation
+/// succeeds. For lower-level implementation details, see
+/// [`but_workspace::commit::uncommit_changes()`].
+pub fn commit_uncommit_changes_with_perm(
+    ctx: &mut but_ctx::Context,
+    commit_id: gix::ObjectId,
+    changes: Vec<but_core::DiffSpec>,
+    assign_to: Option<but_core::ref_metadata::StackId>,
+    perm: &mut but_ctx::access::RepoExclusive,
+) -> anyhow::Result<MoveChangesResult> {
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
         ctx,
         SnapshotDetails::new(OperationKind::DiscardChanges),
+        perm.read_permission(),
     )
     .ok();
 
-    let res = commit_uncommit_changes_only(ctx, commit_id, changes, assign_to);
+    let res = commit_uncommit_changes_only_with_perm(ctx, commit_id, changes, assign_to, perm);
 
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
-        let mut guard = ctx.exclusive_worktree_access();
-        snapshot.commit(ctx, guard.write_permission()).ok();
+        snapshot.commit(ctx, perm).ok();
     };
 
     res

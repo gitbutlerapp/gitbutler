@@ -15,8 +15,9 @@ pub async fn handle(
     branch_id: &str,
 ) -> anyhow::Result<()> {
     let mut progress = out.progress_channel();
+    let guard = ctx.exclusive_worktree_access();
 
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
     // Resolve the branch ID
     let resolved_ids = id_map.parse_using_context(branch_id, ctx)?;
@@ -119,6 +120,8 @@ pub async fn handle(
             "GitButler local merge",
         )?;
 
+        // TODO: Drop the guard as we can't keep it across await, and `handle` will obtain its own as well.
+        drop(guard);
         crate::command::legacy::pull::handle(ctx, out, false).await?;
 
         writeln!(

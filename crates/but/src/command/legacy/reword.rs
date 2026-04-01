@@ -1,6 +1,7 @@
 use anyhow::{Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
+use but_core::sync::RepoExclusive;
 use but_ctx::Context;
 use gix::prelude::ObjectIdExt;
 
@@ -21,7 +22,8 @@ pub(crate) fn reword_target(
     format: bool,
     show_diff_in_editor: ShowDiffInEditor,
 ) -> Result<()> {
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
     // Resolve the commit ID
     let cli_ids = id_map.parse_using_context(target, ctx)?;
@@ -48,7 +50,7 @@ pub(crate) fn reword_target(
             if !matches!(show_diff_in_editor, ShowDiffInEditor::Unspecified) {
                 bail!("--diff and --no-diff flags can only be used with commits, not branches");
             }
-            edit_branch_name(ctx, name, out, message)?;
+            edit_branch_name(ctx, name, out, message, guard.write_permission())?;
         }
         CliId::Commit { commit_id: oid, .. } => {
             edit_commit_message_by_id_and_reword_commit(
@@ -58,6 +60,7 @@ pub(crate) fn reword_target(
                 message,
                 format,
                 show_diff_in_editor,
+                guard.write_permission(),
             )?;
         }
         _ => {
@@ -76,6 +79,7 @@ fn edit_branch_name(
     branch_name: &str,
     out: &mut OutputChannel,
     message: Option<&str>,
+    perm: &mut RepoExclusive,
 ) -> Result<()> {
     // Find which stack this branch belongs to
     let stacks = but_api::legacy::workspace::stacks(
@@ -91,11 +95,12 @@ fn edit_branch_name(
         if let Some(sid) = stack_entry.id {
             let new_name = prepare_provided_message(message, "branch name")
                 .unwrap_or_else(|| get_branch_name_from_editor(branch_name))?;
-            but_api::legacy::stack::update_branch_name(
+            but_api::legacy::stack::update_branch_name_with_perm(
                 ctx,
                 sid,
                 branch_name.to_owned(),
                 new_name.clone(),
+                perm,
             )?;
             if let Some(out) = out.for_human() {
                 writeln!(out, "Renamed branch '{branch_name}' to '{new_name}'")?;
@@ -156,6 +161,7 @@ fn edit_commit_message_by_id_and_reword_commit(
     message: Option<&str>,
     format: bool,
     show_diff_in_editor: ShowDiffInEditor,
+    perm: &mut RepoExclusive,
 ) -> Result<()> {
     // Get commit details directly - no need to iterate through stacks
     let commit_details = but_api::diff::commit_details(ctx, commit_oid, ComputeLineStats::No)?;
@@ -183,10 +189,11 @@ fn edit_commit_message_by_id_and_reword_commit(
     .filter(|new_message| should_update_commit_message(&current_message, new_message));
 
     if let Some(new_message) = new_message {
-        let new_commit_oid = but_api::commit::reword::commit_reword_only(
+        let new_commit_oid = but_api::commit::reword::commit_reword_only_with_perm(
             ctx,
             commit_oid,
             BString::from(new_message),
+            perm,
         )?;
 
         if let Some(out) = out.for_human() {

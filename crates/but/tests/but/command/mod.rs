@@ -16,6 +16,8 @@ mod config;
 mod cursor;
 #[cfg(feature = "legacy")]
 mod diff;
+#[cfg(feature = "legacy")]
+mod discard;
 mod format;
 mod gui;
 mod help;
@@ -98,6 +100,22 @@ mod util {
     pub fn status_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
         let output = env.but("--json status").allow_json().output()?;
         serde_json::from_slice(&output.stdout).context("status output should be valid JSON")
+    }
+
+    /// Build an isolated `std::process::Command` for `but` with the same environment as the Sandbox.
+    pub fn but_std_cmd(env: &Sandbox, args: &str) -> std::process::Command {
+        let mut cmd = std::process::Command::new(snapbox::cmd::cargo_bin!("but"));
+        cmd.args(shell_words::split(args).unwrap());
+        cmd.current_dir(env.projects_root());
+        cmd.env("E2E_TEST_APP_DATA_DIR", env.app_data_dir());
+        cmd.env("GITBUTLER_CHANGE_ID", "42");
+        cmd.env("BUT_OUTPUT_FORMAT", "human");
+        cmd.env("NOPAGER", "1");
+        cmd.stdin(std::process::Stdio::null());
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
+        but_testsupport::isolate_env_std_cmd(&mut cmd);
+        cmd
     }
 
     /// Find a branch by name in `status` output.

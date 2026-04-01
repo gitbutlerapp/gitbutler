@@ -26,13 +26,18 @@ use itertools::Itertools;
 use tracing::instrument;
 
 use crate::{
-    commit::insert_blank::commit_insert_blank_only_impl, diff::changes_in_worktree,
+    commit::insert_blank::commit_insert_blank_only_impl,
     legacy::workspace::amend_commit_and_count_failures,
 };
 
-/// Absorb multiple changes into their target commits as per the provided absorption plan.
+/// Absorb the changes described by `absorption_plan` using the behavior documented by
+/// [`absorb_with_perm()`].
 ///
-/// Returns the total amount of rejected diff specs.
+/// This acquires exclusive worktree access from `ctx` before creating the
+/// snapshot and rewriting commits.
+///
+/// Before applying the plan, this records an `Absorb` oplog snapshot and refreshes the
+/// synthetic workspace commit after the rewritten commits are in place.
 #[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyhow::Result<usize> {
@@ -101,19 +106,37 @@ pub fn absorb_with_perm(
     Ok(total_rejected)
 }
 
-/// Generate an absorption plan based on the provided target, based on hunk dependencies, assignments and other heuristics
+/// Build an absorption plan for `target` using the behavior documented by
+/// [`absorption_plan_with_perm()`].
 #[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn absorption_plan(
     ctx: &mut Context,
     target: AbsorptionTarget,
 ) -> anyhow::Result<Vec<CommitAbsorption>> {
+    let mut guard = ctx.exclusive_worktree_access();
+    absorption_plan_with_perm(ctx, target, guard.write_permission())
+}
+
+/// Build an absorption plan for `target` while reusing the exclusive repository access
+/// in `perm`.
+///
+/// Depending on `target`, this reads assigned worktree changes, stack state, and hunk
+/// dependencies under the same locked view, then groups the selected hunks by destination
+/// commit for display and later absorption.
+///
+/// The worktree inspection is driven by [`crate::diff::changes_in_worktree_with_perm()`].
+pub fn absorption_plan_with_perm(
+    ctx: &mut Context,
+    target: AbsorptionTarget,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<Vec<CommitAbsorption>> {
     let (assignments, dependencies) = match target {
         AbsorptionTarget::Branch { branch_name } => {
             // Get all worktree changes, assignments, and dependencies
             // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
             // At this time, the context is passed pretty deep into the function.
-            let worktree_changes = changes_in_worktree(ctx)?;
+            let worktree_changes = crate::diff::changes_in_worktree_with_perm(ctx, perm)?;
             let all_assignments = worktree_changes.assignments;
             let dependencies = worktree_changes.dependencies;
 
@@ -150,7 +173,7 @@ pub fn absorption_plan(
             assigned_stack_id,
         } => {
             // Get all worktree changes, assignments, and dependencies
-            let worktree_changes = changes_in_worktree(ctx)?;
+            let worktree_changes = crate::diff::changes_in_worktree_with_perm(ctx, perm)?;
             let all_assignments = worktree_changes.assignments;
             let dependencies = worktree_changes.dependencies;
 
@@ -172,30 +195,24 @@ pub fn absorption_plan(
         }
         AbsorptionTarget::HunkAssignments { assignments } => {
             // Compute hunk dependencies only for this target since changes_in_worktree isn't called
-            let (_read_guard, repo, ws, _db) = ctx.workspace_and_db()?;
+            let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
             let dependencies =
                 hunk_dependencies_for_workspace_changes_by_worktree_dir(&repo, &ws, None).ok();
-            drop((_read_guard, repo, ws, _db));
+            drop((repo, ws, _db));
             (assignments, dependencies)
         }
         AbsorptionTarget::All => {
             // Get all worktree changes, assignments, and dependencies
             // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
             // At this time, the context is passed pretty deep into the function.
-            let worktree_changes = changes_in_worktree(ctx)?;
+            let worktree_changes = crate::diff::changes_in_worktree_with_perm(ctx, perm)?;
             (worktree_changes.assignments, worktree_changes.dependencies)
         }
     };
 
-    let mut guard = ctx.exclusive_worktree_access();
-
     // Group all changes by their target commit
-    let changes_by_commit = group_changes_by_target_commit(
-        ctx,
-        &assignments,
-        dependencies.as_ref(),
-        guard.write_permission(),
-    )?;
+    let changes_by_commit =
+        group_changes_by_target_commit(ctx, &assignments, dependencies.as_ref(), perm)?;
 
     // Prepare commit absorptions for display
     let commit_absorptions = prepare_commit_absorptions(ctx, changes_by_commit)?;
