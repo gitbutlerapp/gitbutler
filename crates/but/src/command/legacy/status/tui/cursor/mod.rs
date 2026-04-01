@@ -381,7 +381,7 @@ pub(super) fn is_selectable_in_mode(
     match mode {
         Mode::Rub(rub_mode) | Mode::RubButApi(rub_mode) => {
             if let Some(cli_id) = line.data.cli_id()
-                && &rub_mode.source == cli_id
+                && rub_mode.source == **cli_id
             {
                 return true;
             }

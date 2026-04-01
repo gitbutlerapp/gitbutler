@@ -39,11 +39,12 @@ use crate::{
         CommandMessage, CommitMessage, DETAILS_CURSOR_BG, DebugAsType, FilesMessage, Message,
         MessageOnDrop, MoveMessage, RewordMessage, RubMessage,
         details::details_cursor::DetailsCursor, message_on_drop::message_on_drop,
+        mode::CommittedHunk,
     },
     id::{UncommittedCliId, UncommittedHunk},
 };
 
-use super::BranchMessage;
+use super::{BranchMessage, RubSource};
 
 mod details_cursor;
 
@@ -324,21 +325,14 @@ impl Details {
                     return Ok(());
                 };
                 let source = match selection {
-                    SectionId::ShortId(cli_id) => Arc::clone(cli_id),
-                    SectionId::TreeChangeWithoutDiff(_) => return Ok(()),
-                    SectionId::CommittedHunk {
-                        header,
-                        path,
-                        id: _,
-                    } => {
-                        return Ok(());
+                    SectionId::ShortId(cli_id) => RubSource::CliId(Arc::clone(cli_id)),
+                    SectionId::Opaque(_) => return Ok(()),
+                    SectionId::CommittedHunk { id: _, hunk } => {
+                        RubSource::CommittedHunk(hunk.clone())
                     }
                 };
 
                 let unlock = self.lock(messages);
-
-                // TODO(david): allow rubbing committed hunks using `commit_move_changes_between`
-                let todo_ = ();
 
                 messages.extend([
                     Message::Details(DetailsMessage::ToggleFocus),
@@ -833,7 +827,7 @@ fn from_commit(
         .map(|change| TreeChange::from(change.clone()))
         .collect::<Vec<_>>();
 
-    build_tree_changes(ctx, &tree_changes, syntax_set, renderer);
+    build_tree_changes(ctx, &tree_changes, Some(commit_id), syntax_set, renderer);
 
     Ok(DetailsAndDiffWidget::FromCommit {
         header_items,
@@ -883,7 +877,7 @@ fn from_committed_file(
         .map(|change| TreeChange::from(change.clone()))
         .collect::<Vec<_>>();
 
-    build_tree_changes(ctx, &tree_changes, syntax_set, renderer);
+    build_tree_changes(ctx, &tree_changes, Some(commit_id), syntax_set, renderer);
 
     Ok(DetailsAndDiffWidget::FromDiffLines {
         diff_line_items: diff_line_items.unwrap_or_default(),
@@ -899,7 +893,7 @@ fn from_branch(
 ) -> anyhow::Result<DetailsAndDiffWidget> {
     let tree_changes = but_api::branch::branch_diff(ctx, name)?;
 
-    build_tree_changes(ctx, &tree_changes.changes, syntax_set, renderer);
+    build_tree_changes(ctx, &tree_changes.changes, None, syntax_set, renderer);
 
     Ok(DetailsAndDiffWidget::FromDiffLines {
         diff_line_items: diff_line_items.unwrap_or_default(),
@@ -943,7 +937,7 @@ enum IncrementalDiffRendererState {
 /// An id only used by the TUI to identify this section. Doesn't have any meaning in the
 /// rest of the system.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-struct TuiId(Uuid);
+pub(super) struct TuiId(Uuid);
 
 impl TuiId {
     fn new() -> Self {
@@ -954,12 +948,8 @@ impl TuiId {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(super) enum SectionId {
     ShortId(Arc<CliId>),
-    CommittedHunk {
-        id: TuiId,
-        header: HunkHeader,
-        path: Arc<BString>,
-    },
-    TreeChangeWithoutDiff(TuiId),
+    CommittedHunk { id: TuiId, hunk: CommittedHunk },
+    Opaque(TuiId),
 }
 
 #[derive(Debug)]
@@ -1334,6 +1324,7 @@ fn build_hunk_assignment(
 fn build_tree_changes(
     ctx: &mut Context,
     tree_changes: &[TreeChange],
+    commit_id: Option<gix::ObjectId>,
     syntax_set: &SyntaxSet,
     renderer: &mut IncrementalDiffRenderer,
 ) {
@@ -1351,11 +1342,19 @@ fn build_tree_changes(
                 } => {
                     let mut first_hunk = true;
                     for diff_hunk in hunks {
-                        let section = renderer.new_section_mut(SectionId::CommittedHunk {
-                            id: TuiId::new(),
-                            header: HunkHeader::from(&diff_hunk),
-                            path: Arc::from(tree_change.path_bytes.clone()),
-                        });
+                        let section_id = if let Some(commit_id) = commit_id {
+                            SectionId::CommittedHunk {
+                                id: TuiId::new(),
+                                hunk: CommittedHunk {
+                                    header: HunkHeader::from(&diff_hunk),
+                                    path: Arc::from(tree_change.path_bytes.clone()),
+                                    commit_id,
+                                },
+                            }
+                        } else {
+                            SectionId::Opaque(TuiId::new())
+                        };
+                        let section = renderer.new_section_mut(section_id);
 
                         if std::mem::take(&mut first_hunk) {
                             let mut header = Vec::new();
@@ -1377,8 +1376,7 @@ fn build_tree_changes(
                     }
                 }
                 UnifiedPatch::Binary => {
-                    let section =
-                        renderer.new_section_mut(SectionId::TreeChangeWithoutDiff(TuiId::new()));
+                    let section = renderer.new_section_mut(SectionId::Opaque(TuiId::new()));
 
                     let mut header = Vec::new();
                     render_hunk_path_header(
@@ -1393,8 +1391,7 @@ fn build_tree_changes(
                     ));
                 }
                 UnifiedPatch::TooLarge { size_in_bytes } => {
-                    let section =
-                        renderer.new_section_mut(SectionId::TreeChangeWithoutDiff(TuiId::new()));
+                    let section = renderer.new_section_mut(SectionId::Opaque(TuiId::new()));
 
                     let mut header = Vec::new();
                     render_hunk_path_header(

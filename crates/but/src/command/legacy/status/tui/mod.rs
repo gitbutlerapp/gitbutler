@@ -30,7 +30,7 @@ use crate::{
     CliId,
     args::OutputFormat,
     command::legacy::{
-        rub::{RubOperation, route_operation},
+        rub::{self, RubOperation},
         status::{
             CommitLineContent, FileLineContent, StatusFlags, StatusOutputLine, TuiLaunchOptions,
             output::BranchLineContent,
@@ -44,7 +44,7 @@ use crate::{
                 message_on_drop::MessageOnDrop,
                 mode::{
                     CommandMode, CommitMode, CommitSource, InlineRewordMode, Mode, MoveMode,
-                    MoveSource, RubMode,
+                    MoveSource, RubMode, RubSource,
                 },
                 toast::{ToastKind, Toasts},
             },
@@ -69,6 +69,7 @@ mod message_on_drop;
 mod mode;
 mod operations;
 mod rub_api;
+mod rub_committed_hunk;
 mod toast;
 
 #[cfg(test)]
@@ -741,19 +742,27 @@ impl App {
             return;
         };
 
-        self.handle_start_rub_with_source(Arc::clone(cli_id), None);
+        self.handle_start_rub_with_source(RubSource::CliId(Arc::clone(cli_id)), None);
     }
 
     fn handle_start_rub_with_source(
         &mut self,
-        source: Arc<CliId>,
+        source: RubSource,
         unlock_details: Option<MessageOnDrop>,
     ) {
         let available_targets = self
             .status_lines
             .iter()
             .filter_map(|line| line.data.cli_id())
-            .filter(|target| **target == source || route_operation(&source, target).is_some())
+            .filter(|target| {
+                source == ***target
+                    || match &source {
+                        RubSource::CliId(source) => rub::route_operation(source, target).is_some(),
+                        RubSource::CommittedHunk(hunk) => {
+                            rub_committed_hunk::route_operation(hunk, target).is_some()
+                        }
+                    }
+            })
             .cloned()
             .collect::<Vec<_>>();
 
@@ -803,12 +812,12 @@ impl App {
             .status_lines
             .iter()
             .filter_map(|line| line.data.cli_id())
-            .filter(|target| *target == cli_id || route_operation(cli_id, target).is_some())
+            .filter(|target| *target == cli_id || rub::route_operation(cli_id, target).is_some())
             .cloned()
             .collect::<Vec<_>>();
 
         self.mode = Mode::RubButApi(RubMode {
-            source: Arc::clone(cli_id),
+            source: RubSource::CliId(Arc::clone(cli_id)),
             available_targets,
             _unlock_details: None,
         });
@@ -889,11 +898,29 @@ impl App {
             }) => {
                 if let Some(selected_line) = self.cursor.selected_line(&self.status_lines)
                     && let Some(target) = selected_line.data.cli_id()
-                    && let Some(operation) = route_operation(source, target)
                 {
-                    with_noop_output(|out| operations::rub_legacy(ctx, out, operation))?;
+                    match source {
+                        RubSource::CliId(source) => {
+                            if let Some(operation) = rub::route_operation(source, target) {
+                                with_noop_output(|out| {
+                                    operations::rub_legacy(ctx, out, operation)
+                                })?;
+                            }
+                            None
+                        }
+                        RubSource::CommittedHunk(hunk) => {
+                            if let Some(operation) =
+                                rub_committed_hunk::route_operation(hunk, target)
+                            {
+                                Some(Message::Reload(Some(operation.execute(ctx)?)))
+                            } else {
+                                None
+                            }
+                        }
+                    }
+                } else {
+                    None
                 }
-                None
             }
             Mode::RubButApi(RubMode {
                 source,
@@ -902,15 +929,35 @@ impl App {
             }) => {
                 if let Some(selected_line) = self.cursor.selected_line(&self.status_lines)
                     && let Some(target) = selected_line.data.cli_id()
-                    && let Some(operation) = route_operation(source, target)
                 {
-                    if let Some(what_to_select) = operations::rub_using_but_api(ctx, &operation)? {
-                        Some(Message::Reload(Some(what_to_select)))
-                    } else {
-                        messages.push(Message::ShowError(Arc::new(anyhow::Error::from(
-                            rub_api::OperationNotSupported::new(&operation),
-                        ))));
-                        None
+                    match source {
+                        RubSource::CliId(source) => {
+                            if let Some(operation) = rub::route_operation(source, target) {
+                                if let Some(what_to_select) =
+                                    operations::rub_using_but_api(ctx, &operation)?
+                                {
+                                    Some(Message::Reload(Some(what_to_select)))
+                                } else {
+                                    messages.push(Message::ShowError(Arc::new(
+                                        anyhow::Error::from(rub_api::OperationNotSupported::new(
+                                            &operation,
+                                        )),
+                                    )));
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        }
+                        RubSource::CommittedHunk(hunk) => {
+                            if let Some(operation) =
+                                rub_committed_hunk::route_operation(hunk, target)
+                            {
+                                Some(Message::Reload(Some(operation.execute(ctx)?)))
+                            } else {
+                                None
+                            }
+                        }
                     }
                 } else {
                     None
@@ -1947,7 +1994,7 @@ impl App {
                     _unlock_details: _,
                 }) => {
                     if let Some(cli_id) = data.cli_id()
-                        && cli_id == source
+                        && source == &**cli_id
                     {
                         line.extend([source_span(), Span::raw(" ")]);
                     }
@@ -2144,20 +2191,25 @@ impl App {
     fn render_rub_inline_labels_for_selected_line(
         &self,
         data: &StatusOutputLineData,
-        source: &CliId,
+        source: &RubSource,
         line: &mut Line<'static>,
     ) {
         let Some(target) = data.cli_id() else {
             return;
         };
 
-        if &**target == source {
+        if source == &**target {
             line.extend([source_span(), Span::raw(" ")]);
         }
 
-        let rub_operation_display =
-            rub_operation_display_legacy(source, target).unwrap_or("invalid");
-
+        let rub_operation_display = match source {
+            RubSource::CliId(source) => {
+                rub_operation_display_legacy(source, target).unwrap_or("invalid")
+            }
+            RubSource::CommittedHunk(hunk) => {
+                rub_committed_hunk::rub_operation_display(hunk, target).unwrap_or("invalid")
+            }
+        };
         line.extend([
             Span::raw("<< ").mode_colors(&self.mode),
             Span::raw(rub_operation_display).mode_colors(&self.mode),
@@ -2169,37 +2221,38 @@ impl App {
     fn render_rub_api_inline_labels_for_selected_line(
         &self,
         data: &StatusOutputLineData,
-        source: &CliId,
+        source: &RubSource,
         line: &mut Line<'static>,
     ) {
         let Some(target) = data.cli_id() else {
             return;
         };
 
-        if &**target == source {
+        if source == &**target {
             line.extend([source_span(), Span::raw(" ")]);
         }
 
-        match rub_api::rub_operation_display(source, target)
-            .unwrap_or(rub_api::RubOperationDisplay::Supported("invalid"))
-        {
-            rub_api::RubOperationDisplay::Supported(display) => {
-                line.extend([
-                    Span::raw("<< ").mode_colors(&self.mode),
-                    Span::raw(display).mode_colors(&self.mode),
-                    Span::raw(" >>").mode_colors(&self.mode),
-                    Span::raw(" "),
-                ]);
+        let display = match source {
+            RubSource::CliId(source) => {
+                match rub_api::rub_operation_display(source, target)
+                    .unwrap_or(rub_api::RubOperationDisplay::Supported("invalid"))
+                {
+                    rub_api::RubOperationDisplay::Supported(display) => Cow::Borrowed(display),
+                    rub_api::RubOperationDisplay::NotSupported(_, discriminant) => {
+                        Cow::Owned(format!("{discriminant:?}"))
+                    }
+                }
             }
-            rub_api::RubOperationDisplay::NotSupported(_, discriminant) => {
-                line.extend([
-                    Span::raw("<< ").mode_colors(&self.mode),
-                    Span::raw(format!("{discriminant:?}")).mode_colors(&self.mode),
-                    Span::raw(" is not supported >>").mode_colors(&self.mode),
-                    Span::raw(" "),
-                ]);
-            }
-        }
+            RubSource::CommittedHunk(hunk) => Cow::Borrowed(
+                rub_committed_hunk::rub_operation_display(hunk, target).unwrap_or("invalid"),
+            ),
+        };
+        line.extend([
+            Span::raw("<< ").mode_colors(&self.mode),
+            Span::raw(display).mode_colors(&self.mode),
+            Span::raw(" >>").mode_colors(&self.mode),
+            Span::raw(" "),
+        ]);
     }
 
     fn render_commit_labels_for_selected_line(
@@ -2271,6 +2324,12 @@ impl App {
     }
 
     fn render_hotbar(&self, area: Rect, frame: &mut Frame) {
+        // When the diff view is focused, perhaps the bar at the bottom show a different mode
+        // instead of "normal". That's what jjui does and I've copied it for Lite also.
+        //
+        // I think details focus should just be a separate mode
+        let todo_ = ();
+
         let mode_span = Span::raw(format!(
             "  {}  ",
             match self.mode {
@@ -2538,7 +2597,7 @@ enum RubMessage {
         using_but_api: bool,
     },
     StartWithSource {
-        source: Arc<CliId>,
+        source: RubSource,
         unlock_details: Option<MessageOnDrop>,
     },
     Confirm,
@@ -2647,7 +2706,7 @@ fn rub_operation_display_legacy(source: &CliId, target: &CliId) -> Option<&'stat
         return Some(NOOP);
     }
 
-    Some(match route_operation(source, target)? {
+    Some(match rub::route_operation(source, target)? {
         RubOperation::UnassignUncommitted(..) => "unassign hunks",
         RubOperation::UncommittedToCommit(..) => "amend commit",
         RubOperation::UncommittedToBranch(..) => "assign hunks",
