@@ -20,7 +20,7 @@ function create_workspace_commit_once() {
 }
 
 function create_consistent_signing_key_at() {
-  if [ -z "$1" ]; then
+  if [ -z "${1-}" ]; then
     echo "usage: create_consistent_signing_key_at <output_path>" >&2
     return 1
   fi
