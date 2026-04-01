@@ -14,11 +14,9 @@
 
 .popup {
 	border-radius: 8px;
+	outline: 1px solid light-dark(rgb(0 0 0 / 0.2), rgb(255 255 255 / 0.16));
 	background-color: var(--color-bg);
-	box-shadow:
-		/* We use box shadow for the outline so it works with drag previews. */
-		inset 0 0 0 1px light-dark(rgb(0 0 0 / 0.2), rgb(255 255 255 / 0.16)),
-		0 12px 16px -8px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.4));
+	box-shadow: 0 12px 16px -8px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.4));
 }
 
 .dialogBackdrop {
