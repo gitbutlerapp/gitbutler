@@ -139,7 +139,7 @@ pub(super) fn detail_key_binds() -> KeyBinds {
 
     key_binds.register(StaticKeyBind {
         short_description: "scroll up",
-        chord_display: "ctrl+k",
+        chord_display: "shift+k",
         key_matcher: press().shift().code(KeyCode::Char('K')),
         modes: all_modes.clone(),
         message: Message::Details(DetailsMessage::ScrollUp(scroll_distance)),

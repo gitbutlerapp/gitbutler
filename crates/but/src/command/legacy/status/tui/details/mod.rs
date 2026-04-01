@@ -9,7 +9,7 @@ use std::{
 use anyhow::bail;
 use bstr::{BStr, BString, ByteSlice};
 use but_core::{
-    UnifiedPatch,
+    HunkHeader, UnifiedPatch,
     ui::{TreeChange, TreeStatus},
     unified_diff::DiffHunk,
 };
@@ -31,11 +31,14 @@ use syntect::{
     parsing::{SyntaxReference, SyntaxSet},
 };
 use unicode_width::UnicodeWidthStr;
+use uuid::Uuid;
 
 use crate::{
     CliId, IdMap,
     command::legacy::status::tui::{
-        CommandMessage, CommitMessage, DETAILS_CURSOR_BG, DebugAsType, FilesMessage, Message, MessageOnDrop, MoveMessage, RewordMessage, RubMessage, details::details_cursor::DetailsCursor, message_on_drop::message_on_drop
+        CommandMessage, CommitMessage, DETAILS_CURSOR_BG, DebugAsType, FilesMessage, Message,
+        MessageOnDrop, MoveMessage, RewordMessage, RubMessage,
+        details::details_cursor::DetailsCursor, message_on_drop::message_on_drop,
     },
     id::{UncommittedCliId, UncommittedHunk},
 };
@@ -322,7 +325,14 @@ impl Details {
                 };
                 let source = match selection {
                     SectionId::ShortId(cli_id) => Arc::clone(cli_id),
-                    SectionId::TreeChange(_) => return Ok(()),
+                    SectionId::TreeChangeWithoutDiff(_) => return Ok(()),
+                    SectionId::CommittedHunk {
+                        header,
+                        path,
+                        id: _,
+                    } => {
+                        return Ok(());
+                    }
                 };
 
                 let unlock = self.lock(messages);
@@ -633,7 +643,7 @@ where
 }
 
 #[derive(Debug)]
-enum DiffLineItem {
+enum RenderedDiffLine {
     Separator,
     DiffLine {
         section_id: SectionId,
@@ -646,15 +656,15 @@ enum DetailsAndDiffWidget {
     FromCommit {
         header_items: Vec<ListItem<'static>>,
         message: String,
-        diff_line_items: Vec<DiffLineItem>,
+        diff_line_items: Vec<RenderedDiffLine>,
     },
     FromDiffLines {
-        diff_line_items: Vec<DiffLineItem>,
+        diff_line_items: Vec<RenderedDiffLine>,
     },
 }
 
 impl DetailsAndDiffWidget {
-    fn diff_line_items_mut(&mut self) -> &mut Vec<DiffLineItem> {
+    fn diff_line_items_mut(&mut self) -> &mut Vec<RenderedDiffLine> {
         match self {
             DetailsAndDiffWidget::FromCommit {
                 diff_line_items, ..
@@ -708,11 +718,11 @@ impl DetailsAndDiffWidget {
 
         let first = diff_line_items
             .iter()
-            .position(|line| matches!(line, DiffLineItem::DiffLine { section_id, .. } if section_id == section))?;
+            .position(|line| matches!(line, RenderedDiffLine::DiffLine { section_id, .. } if section_id == section))?;
 
         let last = diff_line_items
             .iter()
-            .rposition(|line| matches!(line, DiffLineItem::DiffLine { section_id, .. } if section_id == section))?;
+            .rposition(|line| matches!(line, RenderedDiffLine::DiffLine { section_id, .. } if section_id == section))?;
 
         Some((
             rows_before_diff.saturating_add(first),
@@ -752,8 +762,8 @@ impl DetailsAndDiffWidget {
                     .chain(wrapped_message_iter)
                     .chain([ListItemOrString::ListItem(&empty_list_item)])
                     .chain(diff_line_items.iter().map(|item| match item {
-                        DiffLineItem::Separator => ListItemOrString::ListItem(&empty_list_item),
-                        DiffLineItem::DiffLine { section_id, item } => {
+                        RenderedDiffLine::Separator => ListItemOrString::ListItem(&empty_list_item),
+                        RenderedDiffLine::DiffLine { section_id, item } => {
                             ListItemOrString::ListItemInSection(section_id, item)
                         }
                     }));
@@ -762,8 +772,8 @@ impl DetailsAndDiffWidget {
             DetailsAndDiffWidget::FromDiffLines {
                 diff_line_items, ..
             } => Either::Right(diff_line_items.iter().map(|item| match item {
-                DiffLineItem::Separator => ListItemOrString::ListItem(&empty_list_item),
-                DiffLineItem::DiffLine { section_id, item } => {
+                RenderedDiffLine::Separator => ListItemOrString::ListItem(&empty_list_item),
+                RenderedDiffLine::DiffLine { section_id, item } => {
                     ListItemOrString::ListItemInSection(section_id, item)
                 }
             })),
@@ -795,7 +805,7 @@ fn from_commit(
     commit_id: gix::ObjectId,
     syntax_set: &SyntaxSet,
     renderer: &mut IncrementalDiffRenderer,
-    diff_line_items: Option<Vec<DiffLineItem>>,
+    diff_line_items: Option<Vec<RenderedDiffLine>>,
 ) -> anyhow::Result<DetailsAndDiffWidget> {
     let commit_details =
         but_api::diff::commit_details(ctx, commit_id, but_api::diff::ComputeLineStats::No)?;
@@ -836,7 +846,7 @@ fn from_uncommitted_hunks(
     uncommitted_hunks: Vec<(&str, Arc<CliId>, &UncommittedHunk)>,
     syntax_set: &SyntaxSet,
     renderer: &mut IncrementalDiffRenderer,
-    diff_line_items: Option<Vec<DiffLineItem>>,
+    diff_line_items: Option<Vec<RenderedDiffLine>>,
 ) -> anyhow::Result<DetailsAndDiffWidget> {
     for (raw_id, cli_id, UncommittedHunk { hunk_assignment }) in uncommitted_hunks {
         let section = renderer.new_section_mut(SectionId::ShortId(cli_id));
@@ -844,10 +854,10 @@ fn from_uncommitted_hunks(
         build_hunk_path_header(
             hunk_assignment.path_bytes.as_ref(),
             Some(ShortIdOrTreeStatus::ShortId(raw_id)),
-            &mut section.diffs,
+            &mut section.content,
         );
 
-        build_hunk_assignment(hunk_assignment, syntax_set, &mut section.diffs);
+        build_hunk_assignment(hunk_assignment, syntax_set, &mut section.content);
     }
 
     Ok(DetailsAndDiffWidget::FromDiffLines {
@@ -861,7 +871,7 @@ fn from_committed_file(
     path: &BStr,
     syntax_set: &SyntaxSet,
     renderer: &mut IncrementalDiffRenderer,
-    diff_line_items: Option<Vec<DiffLineItem>>,
+    diff_line_items: Option<Vec<RenderedDiffLine>>,
 ) -> anyhow::Result<DetailsAndDiffWidget> {
     let commit_details =
         but_api::diff::commit_details(ctx, commit_id, but_api::diff::ComputeLineStats::No)?;
@@ -885,7 +895,7 @@ fn from_branch(
     name: String,
     syntax_set: &SyntaxSet,
     renderer: &mut IncrementalDiffRenderer,
-    diff_line_items: Option<Vec<DiffLineItem>>,
+    diff_line_items: Option<Vec<RenderedDiffLine>>,
 ) -> anyhow::Result<DetailsAndDiffWidget> {
     let tree_changes = but_api::branch::branch_diff(ctx, name)?;
 
@@ -930,25 +940,50 @@ enum IncrementalDiffRendererState {
     },
 }
 
+/// An id only used by the TUI to identify this section. Doesn't have any meaning in the
+/// rest of the system.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+struct TuiId(Uuid);
+
+impl TuiId {
+    fn new() -> Self {
+        Self(Uuid::new_v4())
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub(super) enum SectionId {
     ShortId(Arc<CliId>),
-    TreeChange(uuid::Uuid),
+    CommittedHunk {
+        id: TuiId,
+        header: HunkHeader,
+        path: Arc<BString>,
+    },
+    TreeChangeWithoutDiff(TuiId),
 }
 
 #[derive(Debug)]
 struct PartiallyRenderedDiffSection {
     id: SectionId,
-    diffs: Vec<PartiallyRenderedDiff>,
+    content: Vec<SectionContent>,
 }
 
-/// A diff thats been partially rendered.
-///
-/// Used with `IncrementalDiffRenderer` which can incrementally render the final diff.
+/// The content of a section. This has not been fully rendered yet.
+/// `IncrementalDiffRenderer::render_next_chunk` does that and turns the content into
+/// `DiffLineItem` which represents the diff thats actually rendered by ratatui.
 #[derive(Debug)]
-enum PartiallyRenderedDiff {
-    Header(Vec<ListItem<'static>>),
-    SingleLine(ListItem<'static>),
+enum SectionContent {
+    /// A header for a file like
+    ///
+    /// ────────────────╮
+    /// added: a/b/c.rs │
+    /// ────────────────╯
+    FileHeader(Vec<ListItem<'static>>),
+    /// A hunk header line like `@@ -1,6 +1,8 @@`
+    HunkHeader([ListItem<'static>; 2]),
+    /// A line saying the diff is unavailable, perhaps because of binary files.
+    DiffUnavailable(Cow<'static, str>),
+    /// The actual lines of the diff
     DiffLines {
         path: BString,
         old_width: u32,
@@ -1006,7 +1041,7 @@ impl IncrementalDiffRenderer {
     fn new_section_mut(&mut self, id: SectionId) -> &mut PartiallyRenderedDiffSection {
         let section = PartiallyRenderedDiffSection {
             id,
-            diffs: Default::default(),
+            content: Default::default(),
         };
         self.sections.push(section);
         self.sections.last_mut().unwrap()
@@ -1034,7 +1069,7 @@ impl IncrementalDiffRenderer {
         syntax_set: &SyntaxSet,
         theme: &Theme,
         cache: &mut LineHighlightCache,
-        out: &mut Vec<DiffLineItem>,
+        out: &mut Vec<RenderedDiffLine>,
     ) -> RenderNextChunkResult {
         loop {
             match self.state {
@@ -1046,7 +1081,7 @@ impl IncrementalDiffRenderer {
                         break RenderNextChunkResult::Done;
                     }
 
-                    let section_len = self.sections[section_idx].diffs.len();
+                    let section_len = self.sections[section_idx].content.len();
                     if diff_idx >= section_len {
                         self.state = IncrementalDiffRendererState::Top {
                             section_idx: section_idx + 1,
@@ -1055,7 +1090,7 @@ impl IncrementalDiffRenderer {
 
                         // render separator if there is one more section
                         if section_idx + 1 < self.sections.len() {
-                            out.push(DiffLineItem::Separator);
+                            out.push(RenderedDiffLine::Separator);
                         }
 
                         continue;
@@ -1069,13 +1104,12 @@ impl IncrementalDiffRenderer {
                     section_idx,
                     diff_idx,
                 } => {
-                    let PartiallyRenderedDiffSection { diffs, id } =
+                    let PartiallyRenderedDiffSection { content: diffs, id } =
                         &mut self.sections[*section_idx];
                     match &mut diffs[*diff_idx] {
-                        PartiallyRenderedDiff::Header(list_items) => {
-                            // out.append(list_items);
+                        SectionContent::FileHeader(list_items) => {
                             out.extend(std::mem::take(list_items).into_iter().map(|item| {
-                                DiffLineItem::DiffLine {
+                                RenderedDiffLine::DiffLine {
                                     section_id: id.clone(),
                                     item,
                                 }
@@ -1087,9 +1121,28 @@ impl IncrementalDiffRenderer {
                             };
                             break RenderNextChunkResult::Meta;
                         }
-                        PartiallyRenderedDiff::SingleLine(list_item) => {
-                            out.push(DiffLineItem::DiffLine {
-                                item: std::mem::replace(list_item, ListItem::from(Text::default())),
+                        SectionContent::HunkHeader(list_items) => {
+                            for item in std::mem::replace(
+                                list_items,
+                                [
+                                    ListItem::from(Text::default()),
+                                    ListItem::from(Text::default()),
+                                ],
+                            ) {
+                                out.push(RenderedDiffLine::DiffLine {
+                                    item,
+                                    section_id: id.clone(),
+                                });
+                            }
+                            self.state = IncrementalDiffRendererState::Top {
+                                section_idx: *section_idx,
+                                diff_idx: (*diff_idx) + 1,
+                            };
+                            break RenderNextChunkResult::Meta;
+                        }
+                        SectionContent::DiffUnavailable(message) => {
+                            out.push(RenderedDiffLine::DiffLine {
+                                item: ListItem::from(std::mem::take(message)),
                                 section_id: id.clone(),
                             });
                             self.state = IncrementalDiffRendererState::Top {
@@ -1098,7 +1151,7 @@ impl IncrementalDiffRenderer {
                             };
                             break RenderNextChunkResult::Meta;
                         }
-                        PartiallyRenderedDiff::DiffLines {
+                        SectionContent::DiffLines {
                             old_start,
                             new_start,
                             ..
@@ -1121,9 +1174,9 @@ impl IncrementalDiffRenderer {
                     old_line_num,
                     new_line_num,
                 } => {
-                    let PartiallyRenderedDiffSection { diffs, id } =
+                    let PartiallyRenderedDiffSection { content: diffs, id } =
                         &mut self.sections[*section_idx];
-                    let PartiallyRenderedDiff::DiffLines {
+                    let SectionContent::DiffLines {
                         path,
                         old_width,
                         new_width,
@@ -1229,7 +1282,7 @@ impl IncrementalDiffRenderer {
                             *new_line_num += 1;
                             item
                         };
-                        out.push(DiffLineItem::DiffLine {
+                        out.push(RenderedDiffLine::DiffLine {
                             section_id: id.clone(),
                             item,
                         });
@@ -1247,36 +1300,34 @@ impl IncrementalDiffRenderer {
 fn build_hunk_assignment(
     hunk_assignment: &HunkAssignment,
     syntax_set: &SyntaxSet,
-    out: &mut Vec<PartiallyRenderedDiff>,
+    out: &mut Vec<SectionContent>,
 ) {
     if let Some(hunk_header) = hunk_assignment.hunk_header {
         if let Some(diff) = hunk_assignment.diff.clone() {
-            let hunks = [DiffHunk {
+            let hunk = DiffHunk {
                 old_start: hunk_header.old_start,
                 old_lines: hunk_header.old_lines,
                 new_start: hunk_header.new_start,
                 new_lines: hunk_header.new_lines,
                 diff,
-            }];
+            };
 
             let is_result_of_binary_to_text_conversion = false;
 
             build_unified_patch(
                 hunk_assignment.path_bytes.as_ref(),
-                hunks,
+                hunk,
                 is_result_of_binary_to_text_conversion,
                 syntax_set,
                 out,
             );
         } else {
-            out.push(PartiallyRenderedDiff::SingleLine(ListItem::new(
-                "No diff available",
-            )));
+            out.push(SectionContent::DiffUnavailable("No diff available".into()));
         }
     } else {
-        out.push(PartiallyRenderedDiff::SingleLine(ListItem::new(
-            "File is too large or binary - no diff available",
-        )));
+        out.push(SectionContent::DiffUnavailable(
+            "File is too large or binary - no diff available".into(),
+        ));
     }
 }
 
@@ -1287,16 +1338,6 @@ fn build_tree_changes(
     renderer: &mut IncrementalDiffRenderer,
 ) {
     for tree_change in tree_changes {
-        let section = renderer.new_section_mut(SectionId::TreeChange(uuid::Uuid::new_v4()));
-
-        let mut header = Vec::new();
-        render_hunk_path_header(
-            tree_change.path.as_ref(),
-            Some(ShortIdOrTreeStatus::TreeStatus(&tree_change.status)),
-            &mut header,
-        );
-        section.diffs.push(PartiallyRenderedDiff::Header(header));
-
         if let Some(patch) = but_api::diff::tree_change_diffs(ctx, tree_change.clone())
             .ok()
             .flatten()
@@ -1308,27 +1349,65 @@ fn build_tree_changes(
                     lines_added: _,
                     lines_removed: _,
                 } => {
-                    build_unified_patch(
-                        tree_change.path.as_ref(),
-                        hunks,
-                        is_result_of_binary_to_text_conversion,
-                        syntax_set,
-                        &mut section.diffs,
-                    );
+                    let mut first_hunk = true;
+                    for diff_hunk in hunks {
+                        let section = renderer.new_section_mut(SectionId::CommittedHunk {
+                            id: TuiId::new(),
+                            header: HunkHeader::from(&diff_hunk),
+                            path: Arc::from(tree_change.path_bytes.clone()),
+                        });
+
+                        if std::mem::take(&mut first_hunk) {
+                            let mut header = Vec::new();
+                            render_hunk_path_header(
+                                tree_change.path.as_ref(),
+                                Some(ShortIdOrTreeStatus::TreeStatus(&tree_change.status)),
+                                &mut header,
+                            );
+                            section.content.push(SectionContent::FileHeader(header));
+                        }
+
+                        build_unified_patch(
+                            tree_change.path.as_ref(),
+                            diff_hunk,
+                            is_result_of_binary_to_text_conversion,
+                            syntax_set,
+                            &mut section.content,
+                        );
+                    }
                 }
                 UnifiedPatch::Binary => {
-                    section
-                        .diffs
-                        .push(PartiallyRenderedDiff::SingleLine(ListItem::new(
-                            "Binary file - no diff available",
-                        )));
+                    let section =
+                        renderer.new_section_mut(SectionId::TreeChangeWithoutDiff(TuiId::new()));
+
+                    let mut header = Vec::new();
+                    render_hunk_path_header(
+                        tree_change.path.as_ref(),
+                        Some(ShortIdOrTreeStatus::TreeStatus(&tree_change.status)),
+                        &mut header,
+                    );
+                    section.content.push(SectionContent::FileHeader(header));
+
+                    section.content.push(SectionContent::DiffUnavailable(
+                        "Binary file - no diff available".into(),
+                    ));
                 }
                 UnifiedPatch::TooLarge { size_in_bytes } => {
-                    section
-                        .diffs
-                        .push(PartiallyRenderedDiff::SingleLine(ListItem::new(format!(
-                            "File too large ({size_in_bytes} bytes) - no diff available"
-                        ))));
+                    let section =
+                        renderer.new_section_mut(SectionId::TreeChangeWithoutDiff(TuiId::new()));
+
+                    let mut header = Vec::new();
+                    render_hunk_path_header(
+                        tree_change.path.as_ref(),
+                        Some(ShortIdOrTreeStatus::TreeStatus(&tree_change.status)),
+                        &mut header,
+                    );
+                    section.content.push(SectionContent::FileHeader(header));
+
+                    section.content.push(SectionContent::DiffUnavailable(
+                        format!("File too large ({size_in_bytes} bytes) - no diff available")
+                            .into(),
+                    ));
                 }
             }
         }
@@ -1367,7 +1446,7 @@ fn render_hunk_path_header(
 fn build_hunk_path_header(
     path: &BStr,
     status: Option<ShortIdOrTreeStatus<'_>>,
-    out: &mut Vec<PartiallyRenderedDiff>,
+    out: &mut Vec<SectionContent>,
 ) {
     let status = status.map(|id_or_status| match id_or_status {
         ShortIdOrTreeStatus::ShortId(id) => Span::raw(id.to_owned()).blue(),
@@ -1384,7 +1463,7 @@ fn build_hunk_path_header(
             )
             .chain([Span::raw(path)]),
     );
-    out.push(PartiallyRenderedDiff::Header(
+    out.push(SectionContent::FileHeader(
         bordered_line_top_right_bottom(path_line)
             .map(ListItem::new)
             .chain([ListItem::from("")])
@@ -1429,82 +1508,70 @@ fn render_signature(sig: &Signature) -> impl IntoIterator<Item = Span<'static>> 
 
 fn build_unified_patch(
     path: &BStr,
-    hunks: impl IntoIterator<Item = DiffHunk>,
+    hunk: DiffHunk,
     is_result_of_binary_to_text_conversion: bool,
     syntax_set: &SyntaxSet,
-    out: &mut Vec<PartiallyRenderedDiff>,
+    content: &mut Vec<SectionContent>,
 ) {
-    let mut hunks_iter = hunks.into_iter().peekable();
-    while let Some(hunk) = hunks_iter.next() {
-        let DiffHunk {
-            old_start,
-            new_start,
-            diff,
-            old_lines: _,
-            new_lines: _,
-        } = hunk;
+    let DiffHunk {
+        old_start,
+        new_start,
+        diff,
+        old_lines: _,
+        new_lines: _,
+    } = hunk;
 
-        if is_result_of_binary_to_text_conversion {
-            out.push(PartiallyRenderedDiff::SingleLine(ListItem::new(
-                "(diff generated from binary-to-text conversion)",
-            )));
-        }
-
-        if let Some(headers) = diff.lines().next() {
-            out.extend([
-                PartiallyRenderedDiff::SingleLine(ListItem::new(
-                    Span::raw(headers.to_str_lossy().to_string()).dim(),
-                )),
-                PartiallyRenderedDiff::SingleLine(ListItem::new(
-                    Line::from_iter(repeat_n("─", headers.to_str_lossy().width())).dim(),
-                )),
-            ]);
-        }
-
-        let (old_width, new_width) = {
-            let mut old_line = old_start;
-            let mut new_line = new_start;
-            for line in diff.lines().skip(1) {
-                if line.starts_with(b"+") {
-                    new_line += 1;
-                } else if line.starts_with(b"-") {
-                    old_line += 1;
-                } else {
-                    old_line += 1;
-                    new_line += 1;
-                }
-            }
-            (num_digits(old_line), num_digits(new_line))
-        };
-
-        let diff_lines = diff.lines().map(Box::<[u8]>::from).collect::<Vec<_>>();
-
-        let syntax = {
-            let path = path.to_path_lossy();
-            path.extension()
-                .and_then(|ext| syntax_set.find_syntax_by_extension(ext.to_str()?))
-                .or_else(|| {
-                    path.file_name().and_then(|file_name| {
-                        syntax_set.find_syntax_by_extension(file_name.to_str()?)
-                    })
-                })
-                .unwrap_or_else(|| syntax_set.find_syntax_plain_text())
-        };
-
-        out.push(PartiallyRenderedDiff::DiffLines {
-            path: path.to_owned(),
-            old_width,
-            new_width,
-            old_start,
-            new_start,
-            syntax: Box::new(syntax.to_owned()),
-            diff: diff_lines,
-        });
-
-        if hunks_iter.peek().is_some() {
-            out.push(PartiallyRenderedDiff::SingleLine(ListItem::new("")));
-        }
+    if is_result_of_binary_to_text_conversion {
+        content.push(SectionContent::DiffUnavailable(
+            "(diff generated from binary-to-text conversion)".into(),
+        ));
     }
+
+    if let Some(headers) = diff.lines().next() {
+        content.extend([SectionContent::HunkHeader([
+            ListItem::new(Span::raw(headers.to_str_lossy().to_string()).dim()),
+            ListItem::new(Line::from_iter(repeat_n("─", headers.to_str_lossy().width())).dim()),
+        ])]);
+    }
+
+    let (old_width, new_width) = {
+        let mut old_line = old_start;
+        let mut new_line = new_start;
+        for line in diff.lines().skip(1) {
+            if line.starts_with(b"+") {
+                new_line += 1;
+            } else if line.starts_with(b"-") {
+                old_line += 1;
+            } else {
+                old_line += 1;
+                new_line += 1;
+            }
+        }
+        (num_digits(old_line), num_digits(new_line))
+    };
+
+    let diff_lines = diff.lines().map(Box::<[u8]>::from).collect::<Vec<_>>();
+
+    let syntax = {
+        let path = path.to_path_lossy();
+        path.extension()
+            .and_then(|ext| syntax_set.find_syntax_by_extension(ext.to_str()?))
+            .or_else(|| {
+                path.file_name()
+                    .and_then(|file_name| syntax_set.find_syntax_by_extension(file_name.to_str()?))
+            })
+            .unwrap_or_else(|| syntax_set.find_syntax_plain_text())
+    };
+
+    content.push(SectionContent::DiffLines {
+        path: path.to_owned(),
+        old_width,
+        new_width,
+        old_start,
+        new_start,
+        syntax: Box::new(syntax.to_owned()),
+        diff: diff_lines,
+    });
 }
 
 fn num_digits(n: u32) -> u32 {
