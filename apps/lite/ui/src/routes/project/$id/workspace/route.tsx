@@ -597,7 +597,7 @@ const StackMenuPopup: FC<{
 					unapplyStack.mutate({ projectId, stackId });
 				}}
 			>
-				{unapplyStack.isPending ? "Unapplying stack…" : "Unapply stack"}
+				Unapply stack
 			</Menu.Item>
 		</Menu.Popup>
 	);
@@ -899,7 +899,7 @@ const CommitMenuPopup: FC<{
 					});
 				}}
 			>
-				{commitDiscard.isPending ? "Deleting commit…" : "Delete commit"}
+				Delete commit
 			</Item>
 		</Popup>
 	);
@@ -1399,7 +1399,7 @@ const CommitForm: FC<{
 				}}
 			/>
 			<button type="submit" disabled={disabled} className={uiStyles.button}>
-				{commitCreate.isPending ? "Committing…" : "Commit"}
+				Commit
 			</button>
 		</form>
 	);
