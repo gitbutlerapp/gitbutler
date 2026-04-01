@@ -33,6 +33,13 @@ export const commitMoveMutationOptions = mutationOptions({
 	},
 });
 
+export const commitMoveChangesBetweenMutationOptions = mutationOptions({
+	mutationFn: window.lite.commitMoveChangesBetween,
+	onSuccess: async (_data, _input, _ctx, { client }) => {
+		await client.invalidateQueries();
+	},
+});
+
 export const commitCreateMutationOptions = mutationOptions({
 	mutationFn: window.lite.commitCreate,
 	onSuccess: async (_data, _input, _ctx, { client }) => {

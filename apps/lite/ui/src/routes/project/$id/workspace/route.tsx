@@ -637,12 +637,14 @@ const getCommitTargetOperation = ({
 				operations: {
 					"reorder-before":
 						(sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "above")) ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Changes")
+						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Changes") ||
+						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Commit")
 							? "available"
 							: "not-available",
 					"reorder-after":
 						(sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "below")) ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Changes")
+						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Changes") ||
+						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Commit")
 							? "available"
 							: "not-available",
 					combine: rubOperation ? "available" : "not-available",
@@ -681,6 +683,17 @@ const getCommitTargetOperation = ({
 						createDiffSpec(change, hunkHeaders),
 					),
 					message: "",
+				};
+
+			if (sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Commit")
+				return {
+					_tag: "CommitCreateFromCommittedChanges",
+					sourceCommitId: sourceItem.source.parent.commitId,
+					relativeTo: { type: "commit", subject: commitId },
+					side: insertSide,
+					changes: sourceItem.source.changes.map(({ change, hunkHeaders }) =>
+						createDiffSpec(change, hunkHeaders),
+					),
 				};
 
 			return null;
@@ -736,7 +749,9 @@ const CommitTarget: FC<
 				</Tooltip.Portal>
 			</Tooltip.Root>
 
-			{(operation?._tag === "CommitMove" || operation?._tag === "CommitCreate") && (
+			{(operation?._tag === "CommitMove" ||
+				operation?._tag === "CommitCreate" ||
+				operation?._tag === "CommitCreateFromCommittedChanges") && (
 				<Tooltip.Root open>
 					<Tooltip.Trigger
 						render={
@@ -759,7 +774,11 @@ const CommitTarget: FC<
 							<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
 								{Match.value(operation).pipe(
 									Match.tag("CommitMove", () => "Move commit here"),
-									Match.tag("CommitCreate", () => "Commit changes here"),
+									Match.tag(
+										"CommitCreateFromCommittedChanges",
+										"CommitCreate",
+										() => "Commit changes here",
+									),
 									Match.exhaustive,
 								)}
 							</Tooltip.Popup>

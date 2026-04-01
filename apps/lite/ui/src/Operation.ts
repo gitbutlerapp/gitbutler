@@ -3,14 +3,18 @@ import { useMutation } from "@tanstack/react-query";
 import { Match } from "effect";
 import {
 	CommitCreateParams,
+	CommitInsertBlankParams,
 	CommitMoveParams,
+	CommitMoveChangesBetweenParams,
 	MoveBranchParams,
 	TearOffBranchParams,
 } from "#electron/ipc.ts";
 import { rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx";
 import {
 	commitCreateMutationOptions,
+	commitInsertBlankMutationOptions,
 	commitMoveMutationOptions,
+	commitMoveChangesBetweenMutationOptions,
 	moveBranchMutationOptions,
 	rubMutationOptions,
 	tearOffBranchMutationOptions,
@@ -22,6 +26,10 @@ export type RubOperation = Omit<RubParams, "projectId">;
 export type Operation =
 	| ({ _tag: "Rub" } & RubOperation)
 	| ({ _tag: "CommitCreate" } & Omit<CommitCreateParams, "projectId">)
+	| ({
+			_tag: "CommitCreateFromCommittedChanges";
+	  } & Omit<CommitInsertBlankParams, "projectId"> &
+			Pick<CommitMoveChangesBetweenParams, "changes" | "sourceCommitId">)
 	| ({ _tag: "CommitMove" } & Omit<CommitMoveParams, "projectId">)
 	| ({ _tag: "MoveBranch" } & Omit<MoveBranchParams, "projectId">)
 	| ({ _tag: "TearOffBranch" } & Omit<TearOffBranchParams, "projectId">);
@@ -30,7 +38,9 @@ export const useRunOperation = (projectId: string) => {
 	const toastManager = Toast.useToastManager();
 	const rubMutation = useMutation(rubMutationOptions);
 	const commitCreate = useMutation(commitCreateMutationOptions);
+	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
 	const commitMove = useMutation(commitMoveMutationOptions);
+	const commitMoveChangesBetween = useMutation(commitMoveChangesBetweenMutationOptions);
 	const moveBranch = useMutation(moveBranchMutationOptions);
 	const tearOffBranch = useMutation(tearOffBranchMutationOptions);
 
@@ -79,6 +89,24 @@ export const useRunOperation = (projectId: string) => {
 						},
 					},
 				);
+			}),
+			Match.tag("CommitCreateFromCommittedChanges", (operation) => {
+				// Ideally this would be an atomic backend operation.
+				void (async () => {
+					const insertedCommit = await commitInsertBlank.mutateAsync({
+						projectId,
+						relativeTo: operation.relativeTo,
+						side: operation.side,
+					});
+
+					await commitMoveChangesBetween.mutateAsync({
+						projectId,
+						sourceCommitId:
+							insertedCommit.replacedCommits[operation.sourceCommitId] ?? operation.sourceCommitId,
+						destinationCommitId: insertedCommit.newCommit,
+						changes: operation.changes,
+					});
+				})();
 			}),
 			Match.tag("CommitMove", (operation) => {
 				commitMove.mutate({
