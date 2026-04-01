@@ -4,6 +4,7 @@
 #[cfg(feature = "legacy")]
 mod absorb;
 mod alias;
+#[cfg(feature = "legacy")]
 mod branch;
 #[cfg(feature = "legacy")]
 mod claude;

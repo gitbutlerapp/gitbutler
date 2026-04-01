@@ -28,8 +28,14 @@ check:
 clippy:
 	cargo clippy --workspace --all-targets -- -D warnings
 
+# An alias for nextest
 .PHONY: test
 test: nextest
+
+# build and test a version of `but` without any legacy code
+.PHONY: test-modern-but
+test-modern-but:
+	cargo test -p but --no-default-features
 
 # Run all tests in the entire workspace and show all failures in the end.
 .PHONY: nextest
