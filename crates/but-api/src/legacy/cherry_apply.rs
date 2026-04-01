@@ -7,7 +7,7 @@ use tracing::instrument;
 /// Return the cherry-pick applicability of `subject` using the behavior documented by
 /// [`cherry_apply_status_with_perm()`].
 ///
-/// This acquires exclusive worktree access from `ctx` before reading the
+/// This acquires shared worktree access from `ctx` before reading the
 /// workspace state used for the applicability check.
 #[but_api]
 #[instrument(err(Debug))]

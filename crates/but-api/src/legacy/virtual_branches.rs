@@ -419,9 +419,8 @@ pub fn squash_commits(
     Ok(())
 }
 
-/// by `stack_id` while reusing caller-held exclusive access.
-/// Squash `source_commit_ids` into `target_commit_id` within the stack identified by `stack_id`
-/// while reusing caller-held exclusive access.
+/// Squash `source_commit_ids` into `target_commit_id` within the stack identified by `stack_id`,
+/// reusing caller-held exclusive access.
 ///
 /// This delegates to [`gitbutler_branch_actions::squash_commits_with_perm()`].
 pub fn squash_commits_with_perm(

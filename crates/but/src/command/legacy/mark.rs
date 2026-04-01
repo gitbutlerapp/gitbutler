@@ -146,7 +146,7 @@ pub(crate) fn commit_marked(ctx: &Context, commit_id: String) -> anyhow::Result<
 
 pub(crate) fn unmark(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
     // TODO: do we need an exclusive lock here? This only affects metadata. This is very safe for now,
-    // and `create_rule()` already needs a write guards, so this is just symmetic.
+    // and `create_rule()` already needs a write guard, so this is just symmetric.
     let _guard = ctx.exclusive_worktree_access();
     let rules = but_rules::list_rules(ctx)?;
     let rule_count = rules.len();
