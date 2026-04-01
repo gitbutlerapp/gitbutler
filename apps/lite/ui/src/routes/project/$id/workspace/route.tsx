@@ -1834,9 +1834,7 @@ const ProjectPage: FC = () => {
 	useMonitorDraggedSourceItem({ projectId });
 	useWorkspaceShortcuts({
 		projectId,
-		showFullscreenPreview,
-		editing,
-		selection,
+		scope: shortcutScope,
 		select,
 		setEditing,
 		commonBaseCommitId,
@@ -1929,7 +1927,7 @@ const ProjectPage: FC = () => {
 			{absorptionPlan !== null && (
 				<AbsorptionDialog
 					absorptionPlan={absorptionPlan}
-					isAbsorbing={isAbsorbing}
+					isPending={isAbsorbing}
 					onConfirm={confirmAbsorption}
 					onOpenChange={(open) => {
 						if (!open) clearAbsorptionPlan();

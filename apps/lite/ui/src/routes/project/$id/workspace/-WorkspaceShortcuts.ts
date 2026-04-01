@@ -248,9 +248,6 @@ export const handleRenameBranchKeyDown = ({
 	);
 };
 
-const isWithinBaseUiInert = (target: EventTarget | null): boolean =>
-	target instanceof Element && target.closest("[data-base-ui-inert]") !== null;
-
 type Scope =
 	| {
 			_tag: "FullscreenPreview";
@@ -402,19 +399,15 @@ export const getLabel = (scope: Scope): string =>
 
 export const useWorkspaceShortcuts = ({
 	projectId,
-	showFullscreenPreview,
-	editing,
-	selection,
+	scope,
 	select,
 	setEditing,
 	commonBaseCommitId,
 	onAbsorbChanges,
 }: {
 	projectId: string;
-	showFullscreenPreview: boolean;
-	selection: Item | null;
+	scope: Scope | null;
 	select: (selection: Item | null) => void;
-	editing: Editing | null;
 	setEditing: (selection: Editing | null) => void;
 	commonBaseCommitId?: string;
 	onAbsorbChanges: (changes: Array<TreeChange>, stackId: string | null) => void;
@@ -542,9 +535,7 @@ export const useWorkspaceShortcuts = ({
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
 		if (event.defaultPrevented) return;
 		if (isTypingTarget(event.target)) return;
-		if (isWithinBaseUiInert(event.target)) return;
 
-		const scope = getScope({ showFullscreenPreview, selection, editing });
 		if (!scope) return;
 
 		Match.value(scope).pipe(
