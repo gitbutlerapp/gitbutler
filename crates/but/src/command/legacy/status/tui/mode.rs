@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use bstr::BString;
+use but_core::HunkHeader;
 use but_rebase::graph_rebase::mutate::InsertSide;
 use gitbutler_stack::StackId;
 use ratatui_textarea::TextArea;
@@ -27,9 +29,31 @@ pub(super) enum Mode {
 
 #[derive(Debug)]
 pub(super) struct RubMode {
-    pub(super) source: Arc<CliId>,
+    pub(super) source: RubSource,
     pub(super) available_targets: Vec<Arc<CliId>>,
     pub(super) _unlock_details: Option<MessageOnDrop>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub(super) enum RubSource {
+    CliId(Arc<CliId>),
+    CommittedHunk(CommittedHunk),
+}
+
+impl PartialEq<CliId> for RubSource {
+    fn eq(&self, other: &CliId) -> bool {
+        match self {
+            RubSource::CliId(source) => &**source == other,
+            RubSource::CommittedHunk { .. } => false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub(super) struct CommittedHunk {
+    pub(super) commit_id: gix::ObjectId,
+    pub(super) header: HunkHeader,
+    pub(super) path: Arc<BString>,
 }
 
 #[derive(Debug)]
