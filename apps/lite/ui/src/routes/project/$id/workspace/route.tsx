@@ -1697,10 +1697,7 @@ const SegmentRow: FC<
 						render={
 							<button
 								type="button"
-								className={classes(
-									styles.segmentButton,
-									isRenamePending && styles.segmentButtonPending,
-								)}
+								className={styles.segmentButton}
 								onClick={() => select(segmentItemV)}
 							>
 								{optimisticBranchName ?? "Untitled"}

@@ -62,10 +62,6 @@
 	white-space: nowrap;
 }
 
-.segmentButtonPending {
-	opacity: 0.5;
-}
-
 .renameBranchInput {
 	font-weight: bold;
 }
