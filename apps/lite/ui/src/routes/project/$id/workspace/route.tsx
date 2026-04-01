@@ -655,27 +655,20 @@ const getCommitTargetOperation = ({
 		Match.when("combine", (): Operation | null =>
 			rubOperation ? { _tag: "Rub", ...rubOperation } : null,
 		),
-		Match.when("reorder-before", (): Operation | null =>
+		Match.orElse((side): Operation | null =>
 			sourceItem._tag === "Commit"
 				? {
 						_tag: "CommitMove",
 						subjectCommitId: sourceItem.commitId,
 						relativeTo: { type: "commit", subject: commitId },
-						side: "above",
+						side: Match.value(side).pipe(
+							Match.when("reorder-before", (): InsertSide => "above"),
+							Match.when("reorder-after", (): InsertSide => "below"),
+							Match.exhaustive,
+						),
 					}
 				: null,
 		),
-		Match.when("reorder-after", (): Operation | null =>
-			sourceItem._tag === "Commit"
-				? {
-						_tag: "CommitMove",
-						subjectCommitId: sourceItem.commitId,
-						relativeTo: { type: "commit", subject: commitId },
-						side: "below",
-					}
-				: null,
-		),
-		Match.exhaustive,
 	);
 };
 
