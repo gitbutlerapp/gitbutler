@@ -623,6 +623,13 @@ const getCommitTargetOperation = ({
 		(side === "above" && previousCommitId === sourceCommitId) ||
 		(side === "below" && nextCommitId === sourceCommitId);
 
+	const getSourceCommitId = (sourceItem: SourceItem): string | null =>
+		sourceItem._tag === "Commit"
+			? sourceItem.commitId
+			: sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Commit"
+				? sourceItem.source.parent.commitId
+				: null;
+
 	const rubOperation = getRubOperation({
 		sourceItem,
 		target: { _tag: "Commit", commitId },
@@ -647,7 +654,13 @@ const getCommitTargetOperation = ({
 						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Commit")
 							? "available"
 							: "not-available",
-					combine: rubOperation ? "available" : "not-available",
+					combine:
+						rubOperation ||
+						// Allow cancelling by dropping back where we started, otherwise
+						// this would be interpreted as a reorder.
+						getSourceCommitId(sourceItem) === commitId
+							? "available"
+							: "not-available",
 				},
 			},
 		),
