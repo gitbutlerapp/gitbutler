@@ -1648,16 +1648,25 @@ const SegmentRow: FC<
 		if (trimmed === "" || trimmed === branchName) return;
 		startRenameTransition(async () => {
 			setOptimisticBranchName(trimmed);
-			await updateBranchName
-				.mutateAsync({
+			try {
+				await updateBranchName.mutateAsync({
 					projectId,
 					stackId,
 					branchName,
 					newName: trimmed,
-				})
+				});
+			} catch {
 				// Use the global mutation error handler (shows toast) instead of React
 				// error boundaries.
-				.catch(() => {});
+				return;
+			}
+			select(
+				segmentItem({
+					stackId,
+					segmentIndex,
+					branchName: trimmed,
+				}),
+			);
 		});
 	};
 
