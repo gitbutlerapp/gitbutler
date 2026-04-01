@@ -220,6 +220,7 @@ jobs:
           cargo check -p but-workspace --all-targets
           cargo check -p but-api --all-targets
           cargo check -p but --all-targets
+          make check-modern-but
         name: Special `cargo check` runs
         env:
           RUSTFLAGS: "--deny warnings"
@@ -302,6 +303,7 @@ jobs:
       - run: cargo test --workspace --exclude gitbutler-tauri --exclude but-server --exclude but-api-macros-tests
       # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
       - run: cargo test -p but
+      - run: make test-modern-but
       - run: cargo test -p but-server
       - name: test vendored
         run: |

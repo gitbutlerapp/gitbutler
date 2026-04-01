@@ -1,11 +1,9 @@
+use crate::utils::OutputChannel;
 use anyhow::{Context as _, Result};
 use bstr::BStr;
 use bstr::ByteSlice;
 use but_core::{DiffSpec, diff::tree_changes, sync::RepoExclusive};
 use but_ctx::Context;
-use gitbutler_branch_actions::update_workspace_commit;
-
-use crate::utils::OutputChannel;
 
 pub fn commited_file_to_another_commit(
     ctx: &mut Context,
@@ -43,7 +41,7 @@ pub fn commited_file_to_another_commit_with_perm(
         perm,
     )?;
 
-    update_workspace_commit(ctx, false)?;
+    legacy_update_workspace_commit(ctx)?;
 
     if let Some(out) = out.for_human() {
         writeln!(out, "Moved files between commits!")?;
@@ -92,7 +90,7 @@ pub fn uncommit_file_with_perm(
         perm,
     )?;
 
-    update_workspace_commit(ctx, false)?;
+    legacy_update_workspace_commit(ctx)?;
 
     if let Some(out) = out.for_human() {
         writeln!(out, "Uncommitted changes")?;
@@ -140,10 +138,12 @@ pub fn uncommit_file_and_discard_with_perm(
         perm,
     )?;
 
-    let repo = ctx.repo.get()?;
-    let dropped = but_workspace::discard_workspace_changes(&repo, relevant_changes, context_lines)?;
+    let dropped = {
+        let repo = ctx.repo.get()?;
+        but_workspace::discard_workspace_changes(&repo, relevant_changes, context_lines)?
+    };
 
-    update_workspace_commit(ctx, false)?;
+    legacy_update_workspace_commit(ctx)?;
 
     if emit_output {
         if let Some(out) = out.for_human() {
@@ -196,4 +196,12 @@ fn find_stack_id_for_branch_with_perm(
         .and_then(|full_name| ws.find_segment_and_stack_by_refname(full_name.as_ref()))
         .and_then(|(stack, _)| stack.id);
     Ok(assign_to)
+}
+
+/// Refresh the workspace commit when legacy workspace state is available.
+/// TODO: remove this as it shouldn't be needed - all the functions it calls use the rebase engine which takes care of that.
+fn legacy_update_workspace_commit(_ctx: &mut Context) -> Result<()> {
+    #[cfg(feature = "legacy")]
+    gitbutler_branch_actions::update_workspace_commit(_ctx, false)?;
+    Ok(())
 }
