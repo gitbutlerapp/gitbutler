@@ -1,9 +1,16 @@
+## Dependencies
+
+- Native dependencies: sourced from Nix in a flake devshell
+- JavaScript dependencies: sourced from pnpm
+
+All commands should run in a Nix flake devshell.
+
 ## Typechecking
 
 Typechecking is the fastest way to validate that everything is okay. Always run this **exact** command to typecheck:
 
 ```console
-$ pnpm -F @gitbutler/lite check
+$ nix develop -c pnpm -F @gitbutler/lite check
 ```
 
 ## Components
@@ -27,5 +34,5 @@ export const MyComponent: FC<Props> = (p) => {
 Once the work is functionally complete, lint and format it with Oxlint, Prettier, and Knip:
 
 ```console
-$ pnpm oxlint:fix && pnpm exec prettier --write apps/lite && pnpm knip:prod && pnpm knip:non-prod
+$ nix develop -c bash -c "pnpm oxlint:fix && pnpm exec prettier --write apps/lite && pnpm knip:prod && pnpm knip:non-prod"
 ```
