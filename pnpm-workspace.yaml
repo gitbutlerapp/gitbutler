@@ -4,6 +4,8 @@ packages:
   - crates/*
   - e2e
 
+enableGlobalVirtualStore: true
+
 catalog:
   "@vitest/browser": 3.2.4
   "@vitest/ui": 3.2.4
