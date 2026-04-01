@@ -1,4 +1,3 @@
-import { getSegmentBranchRef } from "#ui/domain/RefInfo.ts";
 import { type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
 import {
 	baseCommitItem,
@@ -72,12 +71,10 @@ export const buildNavigationModel = ({
 
 		for (const [segmentIndex, segment] of stack.segments.entries()) {
 			const branchName = segment.refName?.displayName ?? null;
-			const branchRef = segment.refName ? getSegmentBranchRef(segment.refName) : null;
 			const section = segmentItem({
 				stackId: stack.id,
 				segmentIndex,
 				branchName,
-				branchRef,
 			});
 			const sectionIndex = sections.length;
 			sections.push(section);
@@ -90,7 +87,6 @@ export const buildNavigationModel = ({
 					stackId: stack.id,
 					segmentIndex,
 					branchName,
-					branchRef,
 					commitId: commit.id,
 				});
 				indexByKey.set(itemKey(commitItemV), items.length);

@@ -270,16 +270,18 @@ export const ShowCommitWithQuery: FC<{
 
 export const ShowBranch: FC<{
 	projectId: string;
-	branchRef: string;
 	branchName: string;
 	remote: string | null;
 	renderHunk: (change: TreeChange, hunk: DiffHunk, patch: Patch) => ReactNode;
-}> = ({ projectId, branchRef, branchName, remote, renderHunk }) => {
+}> = ({ projectId, branchName, remote, renderHunk }) => {
 	const { data: branchDetails } = useSuspenseQuery(
 		branchDetailsQueryOptions({ projectId, branchName, remote }),
 	);
 	const { data: branchDiff } = useSuspenseQuery(
-		branchDiffQueryOptions({ projectId, branch: branchRef }),
+		branchDiffQueryOptions({
+			projectId,
+			branch: remote !== null ? `refs/remotes/${remote}/${branchName}` : `refs/heads/${branchName}`,
+		}),
 	);
 
 	return (
