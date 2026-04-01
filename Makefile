@@ -32,7 +32,12 @@ clippy:
 .PHONY: test
 test: nextest
 
-# build and test a version of `but` without any legacy code
+# CI executes this to build a version of `but` without any legacy code.
+.PHONY: check-modern-but
+check-modern-but:
+	cargo check -p but --all-targets --no-default-features
+
+# CI executes this to test a version of `but` without any legacy code.
 .PHONY: test-modern-but
 test-modern-but:
 	cargo test -p but --no-default-features
