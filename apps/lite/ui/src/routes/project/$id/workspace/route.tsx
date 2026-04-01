@@ -722,18 +722,31 @@ const CommitTarget: FC<
 			</Tooltip.Root>
 
 			{operation?._tag === "CommitMove" && (
-				<div
-					className={classes(
-						styles.commitMoveTarget,
-						pipe(
-							operation.side,
-							Match.value,
-							Match.when("above", () => styles.commitMoveTargetAbove),
-							Match.when("below", () => styles.commitMoveTargetBelow),
-							Match.exhaustive,
-						),
-					)}
-				/>
+				<Tooltip.Root open>
+					<Tooltip.Trigger
+						render={
+							<div
+								className={classes(
+									styles.commitMoveTarget,
+									pipe(
+										operation.side,
+										Match.value,
+										Match.when("above", () => styles.commitMoveTargetAbove),
+										Match.when("below", () => styles.commitMoveTargetBelow),
+										Match.exhaustive,
+									),
+								)}
+							/>
+						}
+					/>
+					<Tooltip.Portal>
+						<Tooltip.Positioner sideOffset={8}>
+							<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
+								Move commit here
+							</Tooltip.Popup>
+						</Tooltip.Positioner>
+					</Tooltip.Portal>
+				</Tooltip.Root>
 			)}
 		</div>
 	);
