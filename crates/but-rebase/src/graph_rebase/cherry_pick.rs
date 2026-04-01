@@ -6,7 +6,7 @@ use anyhow::{Context as _, Result, bail};
 use bstr::BString;
 use but_core::{
     RepositoryExt as _,
-    commit::{HEADERS_CONFLICTED_FIELD, Headers, TreeKind},
+    commit::{HEADERS_CONFLICTED_FIELD, Headers, SignCommit, TreeKind},
 };
 use gix::{objs::tree::EntryKind, prelude::ObjectIdExt as _};
 
@@ -35,7 +35,18 @@ pub enum CherryPickOutcome {
     },
 }
 
-/// Cherry pick, but supports supports cherry-picking merge commits.
+/// Controls when a commit is cherry-picked during a rebase.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PickMode {
+    /// Cherry-picks the commit only if it's necessary because of changes to the commit or its
+    /// parents.
+    IfChanged,
+    /// Forces a cherry-pick on a commit. This is for example useful in combination with
+    /// [`SignCommit`] to sign/unsign commits that are otherwise unchanged.
+    Force,
+}
+
+/// Cherry pick, but supports cherry-picking merge commits.
 ///
 /// When cherry-picking a commit onto two or more commits, we first find the
 /// merge of the two "onto" commits, and then cherry-pick onto that.
@@ -52,15 +63,19 @@ pub enum CherryPickOutcome {
 ///
 /// Except in the case where X is conflicted. In that case we then make use of
 /// X's "base" sub-tree as the base.
+///
+/// `pick_mode` - controls how to determine if a commit should be cherry-picked.
+/// `sign_commit` - controls how the resulting commit is signed.
 pub fn cherry_pick(
     repo: &gix::Repository,
     target: gix::ObjectId,
     ontos: &[gix::ObjectId],
-    sign_if_configured: bool,
+    pick_mode: PickMode,
+    sign_commit: SignCommit,
 ) -> Result<CherryPickOutcome> {
     let target = but_core::Commit::from_id(target.attach(repo))?;
 
-    if ontos == target.parents.as_slice() {
+    if ontos == target.parents.as_slice() && pick_mode != PickMode::Force {
         // We don't need to rebase
         return Ok(CherryPickOutcome::Identity(target.id.detach()));
     }
@@ -72,9 +87,22 @@ pub fn cherry_pick(
     let onto_t = tree_from_merging_commits(repo, ontos, TreeKind::AutoResolution)?;
 
     match (&base_t, &onto_t) {
+        (MergeOutcome::NoCommit, MergeOutcome::NoCommit) if pick_mode == PickMode::Force => {
+            // We should only end up here when trying to force-pick a parentless commit. At that
+            // point, it's safe to simply recreate that commit outright.
+            //
+            // Currently, the only known use case for this is to forcibly sign/unsign root commits.
+            let commit = crate::commit::create(
+                repo,
+                target.inner,
+                DateMode::CommitterUpdateAuthorKeep,
+                sign_commit,
+            )?;
+            Ok(CherryPickOutcome::Commit(commit))
+        }
         (MergeOutcome::NoCommit, MergeOutcome::NoCommit) => {
             // We shouldn't actually ever hit this because it should be handled
-            // by the ontos & parents comparison.
+            // by the ontos & parents comparison or the PickMode::Force case.
             Ok(CherryPickOutcome::Identity(target.id.detach()))
         }
         // TODO(cto): We can handle the specific case where (the base is
@@ -130,15 +158,14 @@ pub fn cherry_pick(
                     base_t,
                     onto_t,
                     target_t.detach(),
-                    sign_if_configured,
+                    sign_commit,
                 )?;
                 Ok(CherryPickOutcome::ConflictedCommit(
                     conflicted_commit.detach(),
                 ))
             } else {
                 Ok(CherryPickOutcome::Commit(
-                    commit_from_unconflicted_tree(ontos, target, tree_id, sign_if_configured)?
-                        .detach(),
+                    commit_from_unconflicted_tree(ontos, target, tree_id, sign_commit)?.detach(),
                 ))
             }
         }
@@ -273,7 +300,7 @@ fn commit_from_unconflicted_tree<'repo>(
     parents: &[gix::ObjectId],
     to_rebase: but_core::Commit<'repo>,
     resolved_tree_id: gix::Id<'repo>,
-    sign_if_configured: bool,
+    sign_commit: SignCommit,
 ) -> anyhow::Result<gix::Id<'repo>> {
     let repo = to_rebase.id.repo;
 
@@ -303,7 +330,7 @@ fn commit_from_unconflicted_tree<'repo>(
         repo,
         new_commit,
         DateMode::CommitterUpdateAuthorKeep,
-        sign_if_configured,
+        sign_commit,
     )?
     .attach(repo))
 }
@@ -318,7 +345,7 @@ fn commit_from_conflicted_tree<'repo>(
     base_tree_id: gix::ObjectId,
     ours_tree_id: gix::ObjectId,
     theirs_tree_id: gix::ObjectId,
-    sign_if_configured: bool,
+    sign_commit: SignCommit,
 ) -> anyhow::Result<gix::Id<'repo>> {
     let repo = resolved_tree_id.repo;
     // in case someone checks this out with vanilla Git, we should warn why it looks like this
@@ -370,7 +397,7 @@ fn commit_from_conflicted_tree<'repo>(
         repo,
         to_rebase.inner,
         DateMode::CommitterUpdateAuthorKeep,
-        sign_if_configured,
+        sign_commit,
     )?
     .attach(repo))
 }

@@ -9,8 +9,11 @@ pub mod rebase;
 use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result, bail};
-use but_core::RefMetadata;
+use but_core::{RefMetadata, commit::SignCommit};
+pub use creation::GraphEditorOptions;
 use gix::refs::transaction::RefEdit;
+
+use crate::graph_rebase::cherry_pick::PickMode;
 pub mod cherry_pick;
 pub mod commit;
 pub mod materialize;
@@ -38,9 +41,14 @@ pub struct Pick {
     /// If set to true, a rebase will fail if not all of the parents (outgoing
     /// nodes) are references.
     pub parents_must_be_references: bool,
-    /// If set to true, the rebase engine will try to sign the commit if it
-    /// gets cherry-picked and the user has configured signing.
-    pub sign_if_configured: bool,
+    /// Controls under what circumstances the commit is cherry-picked.
+    pub pick_mode: PickMode,
+    /// Controls whether the resulting commit is signed.
+    ///
+    /// Note that signing a parent commit only causes descendants to be signed if those descendants
+    /// are also picked with a `sign_commit` value that enables signing (e.g. [`SignCommit::Yes`]
+    /// or [`SignCommit::IfSignCommitsEnabled`] with config enabled).
+    pub sign_commit: SignCommit,
     /// Exclude the commit from being included in the
     /// [`RevisionHistory::commit_mappings()`]. This is helpful if we are
     /// creating a new commit since the the mappings will be non-sensical to the
@@ -56,7 +64,8 @@ impl Pick {
             preserved_parents: None,
             conflictable: true,
             parents_must_be_references: false,
-            sign_if_configured: true,
+            pick_mode: PickMode::IfChanged,
+            sign_commit: SignCommit::IfSignCommitsEnabled,
             exclude_from_tracking: false,
         }
     }
@@ -78,7 +87,8 @@ impl Pick {
             preserved_parents: None,
             conflictable: false,
             parents_must_be_references: true,
-            sign_if_configured: false,
+            pick_mode: PickMode::IfChanged,
+            sign_commit: SignCommit::No,
             exclude_from_tracking: false,
         }
     }
@@ -354,7 +364,9 @@ impl RevisionHistory {
 mod test {
     use std::str::FromStr;
 
-    use crate::graph_rebase::Pick;
+    use but_core::commit::SignCommit;
+
+    use crate::graph_rebase::{Pick, cherry_pick::PickMode};
 
     #[test]
     fn workspace_commit_defaults() -> anyhow::Result<()> {
@@ -367,7 +379,8 @@ mod test {
                 preserved_parents: None,
                 conflictable: false,
                 parents_must_be_references: true,
-                sign_if_configured: false,
+                pick_mode: PickMode::IfChanged,
+                sign_commit: SignCommit::No,
                 exclude_from_tracking: false
             }
         );
@@ -386,7 +399,8 @@ mod test {
                 preserved_parents: None,
                 conflictable: true,
                 parents_must_be_references: false,
-                sign_if_configured: true,
+                pick_mode: PickMode::IfChanged,
+                sign_commit: SignCommit::IfSignCommitsEnabled,
                 exclude_from_tracking: false
             }
         );

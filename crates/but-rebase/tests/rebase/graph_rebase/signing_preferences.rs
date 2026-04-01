@@ -1,9 +1,10 @@
 use std::fs;
 
-/// These tests cover the `sign_if_configured` property on the Step::Pick.
+/// These tests cover the signing behavior on the Step::Pick.
 use anyhow::Result;
+use but_core::commit::SignCommit;
 use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, Pick, Step};
+use but_rebase::graph_rebase::{Editor, GraphEditorOptions, Pick, Step, cherry_pick::PickMode};
 use but_testsupport::{cat_commit, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable_with_signing, standard_options};
@@ -66,7 +67,7 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
     let c = repo.rev_parse_single("c")?;
     let c_sel = editor.select_commit(c.detach())?;
     let mut pick = Pick::new_pick(c.detach());
-    pick.sign_if_configured = false;
+    pick.sign_commit = SignCommit::No;
     editor.replace(c_sel, Step::Pick(pick))?;
 
     let outcome = editor.rebase()?;
@@ -155,7 +156,7 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     let c = repo.rev_parse_single("c")?;
     let c_sel = editor.select_commit(c.detach())?;
     let mut pick = Pick::new_pick(c.detach());
-    pick.sign_if_configured = false;
+    pick.sign_commit = SignCommit::No;
     editor.replace(c_sel, Step::Pick(pick))?;
 
     // Remove the "b" commit so "c" gets cherry-picked
@@ -182,6 +183,371 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
 
     c
     ");
+
+    Ok(())
+}
+
+/// Picking with [`PickMode::Force`] and [`SignCommit::Yes`] should cause the pick to be
+/// cherry-picked and signed even in absence of other changes, regardless of signing config.
+#[test]
+fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing(
+        "unsigned-commits-with-signing-key-setup-but-signing-disabled",
+    )?;
+
+    let before = visualize_commit_graph_all(&repo)?;
+    insta::assert_snapshot!(before, @"
+    * ea8caac (HEAD -> main, top) top
+    * 135e6ba (mid) mid
+    * 7a5aacf (base) base
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create_with_opts(
+        &mut ws,
+        &mut *meta,
+        &repo,
+        &GraphEditorOptions {
+            default_pick_mode: PickMode::IfChanged,
+            default_sign_commit: SignCommit::No,
+        },
+    )?;
+
+    // Force sign the top commit
+    let top_commit_id = repo.rev_parse_single("top")?.detach();
+    let top_commit_sel = editor.select_commit(top_commit_id)?;
+    let mut pick = Pick::new_pick(top_commit_id);
+    pick.pick_mode = PickMode::Force;
+    pick.sign_commit = SignCommit::Yes;
+    editor.replace(top_commit_sel, Step::Pick(pick))?;
+
+    let outcome = editor.rebase()?;
+    let materialize_outcome = outcome.materialize()?;
+
+    let after = visualize_commit_graph_all(&repo)?;
+    insta::assert_snapshot!(after, @"
+    * e2bc726 (HEAD -> main, top) top
+    * 135e6ba (mid) mid
+    * 7a5aacf (base) base
+    ");
+
+    let commit_mappings = materialize_outcome.history.commit_mappings();
+    assert_eq!(
+        commit_mappings.len(),
+        1,
+        "expected 1 commit to be cherry-picked"
+    );
+    let new_commit_id = commit_mappings
+        .get(&top_commit_id)
+        .expect("the force-signed commit should be in the commit mappings");
+
+    let new_commit = repo.find_commit(*new_commit_id)?;
+    assert!(
+        new_commit
+            .decode()?
+            .extra_headers()
+            .pgp_signature()
+            .is_some(),
+        "expected the force-signed commit to be signed"
+    );
+
+    Ok(())
+}
+
+/// Force-picking an ancestor with [`SignCommit::Yes`] should _not_ cause a cascade of signatures
+/// on descendants that are picked with [`SignCommit::No`].
+#[test]
+fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing(
+        "unsigned-commits-with-signing-key-setup-but-signing-disabled",
+    )?;
+
+    let before = visualize_commit_graph_all(&repo)?;
+    insta::assert_snapshot!(before, @"
+    * ea8caac (HEAD -> main, top) top
+    * 135e6ba (mid) mid
+    * 7a5aacf (base) base
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create_with_opts(
+        &mut ws,
+        &mut *meta,
+        &repo,
+        &GraphEditorOptions {
+            default_pick_mode: PickMode::IfChanged,
+            default_sign_commit: SignCommit::No,
+        },
+    )?;
+
+    let top_commit_id = repo.rev_parse_single("top")?.detach();
+    let mid_commit_id = repo.rev_parse_single("mid")?.detach();
+
+    // We pick the mid commit with forced signing. This should cause it to be signed, but its
+    // descendant top commit should _not_ get signed as it was picked with SignCommit::No
+    let mid_sel = editor.select_commit(mid_commit_id)?;
+    let mut pick = Pick::new_pick(mid_commit_id);
+    pick.pick_mode = PickMode::Force;
+    pick.sign_commit = SignCommit::Yes;
+    editor.replace(mid_sel, Step::Pick(pick))?;
+
+    let outcome = editor.rebase()?;
+    let materialize_outcome = outcome.materialize()?;
+
+    let after = visualize_commit_graph_all(&repo)?;
+    insta::assert_snapshot!(after, @"
+    * c30be65 (HEAD -> main, top) top
+    * 7814cd3 (mid) mid
+    * 7a5aacf (base) base
+    ");
+
+    let commit_mappings = materialize_outcome.history.commit_mappings();
+    assert_eq!(
+        commit_mappings.len(),
+        2,
+        "expected 2 commits to be cherry-picked"
+    );
+    let new_mid_commit_id = commit_mappings
+        .get(&mid_commit_id)
+        .expect("the force-signed commit should be in the commit mappings");
+    let new_top_commit_id = commit_mappings
+        .get(&top_commit_id)
+        .expect("the head commit should be in the commit mappings");
+
+    let new_top_commit = repo.find_commit(*new_top_commit_id)?;
+    let new_mid_commit = repo.find_commit(*new_mid_commit_id)?;
+    assert!(
+        new_top_commit
+            .decode()?
+            .extra_headers()
+            .pgp_signature()
+            .is_none(),
+        "top commit should not have been cascade-signed"
+    );
+    assert!(
+        new_mid_commit
+            .decode()?
+            .extra_headers()
+            .pgp_signature()
+            .is_some(),
+        "mid commit should have been force-signed"
+    );
+
+    Ok(())
+}
+
+/// Force-picking an ancestor with [`SignCommit::Yes`] _should_ cause a cascade of signatures
+/// when descendants are also picked with [`SignCommit::Yes`].
+///
+/// This is the primary mechanism by which we can programmatically sign/re-sign a branch
+/// independently of Git-compatible configuration.
+#[test]
+fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_with_sign_commit_yes()
+-> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing(
+        "unsigned-commits-with-signing-key-setup-but-signing-disabled",
+    )?;
+
+    let before = visualize_commit_graph_all(&repo)?;
+    insta::assert_snapshot!(before, @"
+    * ea8caac (HEAD -> main, top) top
+    * 135e6ba (mid) mid
+    * 7a5aacf (base) base
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create_with_opts(
+        &mut ws,
+        &mut *meta,
+        &repo,
+        &GraphEditorOptions {
+            default_pick_mode: PickMode::IfChanged,
+            default_sign_commit: SignCommit::Yes,
+        },
+    )?;
+
+    let top_commit_id = repo.rev_parse_single("top")?.detach();
+    let mid_commit_id = repo.rev_parse_single("mid")?.detach();
+
+    // We pick the mid commit with force. This should cause it to be signed, and its descendant
+    // top commit should get signed through the cascading rewrites.
+    let mid_sel = editor.select_commit(mid_commit_id)?;
+    let mut pick = Pick::new_pick(mid_commit_id);
+    pick.pick_mode = PickMode::Force;
+    pick.sign_commit = SignCommit::Yes;
+    editor.replace(mid_sel, Step::Pick(pick))?;
+
+    let outcome = editor.rebase()?;
+    let materialize_outcome = outcome.materialize()?;
+
+    let after = visualize_commit_graph_all(&repo)?;
+    insta::assert_snapshot!(after, @"
+    * 02d967f (HEAD -> main, top) top
+    * 7814cd3 (mid) mid
+    * 7a5aacf (base) base
+    ");
+
+    let commit_mappings = materialize_outcome.history.commit_mappings();
+    assert_eq!(
+        commit_mappings.len(),
+        2,
+        "expected 2 commits to be cherry-picked"
+    );
+    let new_mid_commit_id = commit_mappings
+        .get(&mid_commit_id)
+        .expect("the force-signed commit should be in the commit mappings");
+    let new_top_commit_id = commit_mappings
+        .get(&top_commit_id)
+        .expect("the head commit should be in the commit mappings");
+
+    let new_top_commit = repo.find_commit(*new_top_commit_id)?;
+    let new_mid_commit = repo.find_commit(*new_mid_commit_id)?;
+    assert!(
+        new_mid_commit
+            .decode()?
+            .extra_headers()
+            .pgp_signature()
+            .is_some(),
+        "mid commit should be signed"
+    );
+    assert!(
+        new_top_commit
+            .decode()?
+            .extra_headers()
+            .pgp_signature()
+            .is_some(),
+        "top commit should be signed"
+    );
+
+    Ok(())
+}
+
+/// A commit picked with [`SignCommit::IfSignCommitsEnabled`] should not be signed when
+/// Git-compatible signing is not enabled in the config.
+#[test]
+fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disabled() -> Result<()>
+{
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing(
+        "unsigned-commits-with-signing-key-setup-but-signing-disabled",
+    )?;
+
+    let before = visualize_commit_graph_all(&repo)?;
+    insta::assert_snapshot!(before, @"
+    * ea8caac (HEAD -> main, top) top
+    * 135e6ba (mid) mid
+    * 7a5aacf (base) base
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+
+    let mut editor = Editor::create_with_opts(
+        &mut ws,
+        &mut *meta,
+        &repo,
+        &GraphEditorOptions {
+            default_pick_mode: PickMode::IfChanged,
+            default_sign_commit: SignCommit::IfSignCommitsEnabled,
+        },
+    )?;
+
+    let top_commit_id = repo.rev_parse_single("top")?.detach();
+    let mid_commit_id = repo.rev_parse_single("mid")?.detach();
+
+    // Delete the mid commit so the top commit gets picked. The top commit should _NOT_ get signed
+    // as signing config is not enabled, and there is a sign guard in place on the pick.
+    let mid_sel = editor.select_commit(mid_commit_id)?;
+    editor.replace(mid_sel, Step::None)?;
+
+    let outcome = editor.rebase()?;
+    let materialize_outcome = outcome.materialize()?;
+
+    let after = visualize_commit_graph_all(&repo)?;
+    insta::assert_snapshot!(after, @"
+    * f923739 (HEAD -> main, top) top
+    * 7a5aacf (mid, base) base
+    ");
+
+    let commit_mappings = materialize_outcome.history.commit_mappings();
+    assert_eq!(
+        commit_mappings.len(),
+        1,
+        "expected 1 commit to be cherry-picked"
+    );
+    let new_top_commit_id = commit_mappings
+        .get(&top_commit_id)
+        .expect("the head commit should be in the commit mappings");
+
+    let new_commit = repo.find_commit(*new_top_commit_id)?;
+    assert!(
+        new_commit
+            .decode()?
+            .extra_headers()
+            .pgp_signature()
+            .is_none(),
+        "the cherry-picked top commit should not be signed due to the sign guard"
+    );
+
+    Ok(())
+}
+
+/// Test for an edge case where a parent-less commit would not be cherry-picked at all even when
+/// picked with [`PickMode::Force`] and [`SignCommit::Yes`].
+#[test]
+fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_with_signing(
+        "unsigned-commits-with-signing-key-setup-but-signing-disabled",
+    )?;
+
+    let before = visualize_commit_graph_all(&repo)?;
+    insta::assert_snapshot!(before, @"
+    * ea8caac (HEAD -> main, top) top
+    * 135e6ba (mid) mid
+    * 7a5aacf (base) base
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+
+    let mut editor = Editor::create_with_opts(
+        &mut ws,
+        &mut *meta,
+        &repo,
+        &GraphEditorOptions {
+            default_pick_mode: PickMode::IfChanged,
+            default_sign_commit: SignCommit::IfSignCommitsEnabled,
+        },
+    )?;
+
+    let base_commit_id = repo.rev_parse_single("base")?.detach();
+
+    // We pick the base commit with force, which should cause it to get signed.
+    let base_sel = editor.select_commit(base_commit_id)?;
+    let mut pick = Pick::new_pick(base_commit_id);
+    pick.pick_mode = PickMode::Force;
+    pick.sign_commit = SignCommit::Yes;
+    editor.replace(base_sel, Step::Pick(pick))?;
+
+    let outcome = editor.rebase()?;
+    let materialize_outcome = outcome.materialize()?;
+
+    let commit_mappings = materialize_outcome.history.commit_mappings();
+    let new_base_commit_id = commit_mappings
+        .get(&base_commit_id)
+        .expect("the base commit should be in the commit mappings");
+
+    let new_base_commit = repo.find_commit(*new_base_commit_id)?;
+    assert!(
+        new_base_commit
+            .decode()?
+            .extra_headers()
+            .pgp_signature()
+            .is_some(),
+        "the cherry-picked base commit should be signed"
+    );
 
     Ok(())
 }
