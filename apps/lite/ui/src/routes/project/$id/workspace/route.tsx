@@ -461,7 +461,13 @@ const ShowChangesOrFile: FC<{
 		<ul>
 			{changes.map((change) => (
 				<li key={change.path}>
-					<h4>{change.path}</h4>
+					<FileSource
+						change={change}
+						fileParent={{ _tag: "Changes", stackId }}
+						assignments={assignmentsByPath.get(change.path)}
+					>
+						<h4>{change.path}</h4>
+					</FileSource>
 					{renderChange(change)}
 				</li>
 			))}
