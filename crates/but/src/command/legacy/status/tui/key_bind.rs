@@ -14,33 +14,42 @@ use super::{BranchMessage, CommitMessage, DetailsMessage, FilesMessage, MoveMess
 pub(super) fn default_key_binds() -> KeyBinds {
     let mut key_binds = KeyBinds::new();
 
-    register_global_key_binds(&mut key_binds);
-
     for mode in ModeDiscriminant::iter() {
         match mode {
             ModeDiscriminant::Normal => {
+                register_global_key_binds(&mut key_binds, Vec::from([mode]));
                 register_normal_mode_key_binds(&mut key_binds);
             }
             ModeDiscriminant::Rub => {
+                register_global_key_binds(&mut key_binds, Vec::from([mode]));
                 register_rub_mode_key_binds(&mut key_binds);
             }
             ModeDiscriminant::RubButApi => {
+                register_global_key_binds(&mut key_binds, Vec::from([mode]));
                 register_rub_but_api_mode_key_binds(&mut key_binds);
             }
             ModeDiscriminant::InlineReword => {
                 register_inline_reword_mode_key_binds(&mut key_binds);
+                register_quit_key_binds(&mut key_binds, Vec::from([mode]));
             }
             ModeDiscriminant::Command => {
                 register_command_mode_key_binds(&mut key_binds);
+                register_quit_key_binds(&mut key_binds, Vec::from([mode]));
             }
             ModeDiscriminant::Commit => {
+                register_global_key_binds(&mut key_binds, Vec::from([mode]));
                 register_commit_mode_key_binds(&mut key_binds);
             }
             ModeDiscriminant::Move => {
+                register_global_key_binds(&mut key_binds, Vec::from([mode]));
                 register_move_mode_key_binds(&mut key_binds);
             }
             ModeDiscriminant::Branch => {
+                register_global_key_binds(&mut key_binds, Vec::from([mode]));
                 register_branch_mode_key_binds(&mut key_binds);
+            }
+            ModeDiscriminant::Details => {
+                register_detail_key_binds(&mut key_binds);
             }
         }
     }
@@ -103,26 +112,99 @@ pub(super) fn confirm_key_binds() -> KeyBinds {
     key_binds
 }
 
-fn register_global_key_binds(key_binds: &mut KeyBinds) {
-    let all_except_text_input_modes = ModeDiscriminant::iter()
-        .filter(|mode| match mode {
-            ModeDiscriminant::Normal
-            | ModeDiscriminant::Rub
-            | ModeDiscriminant::RubButApi
-            | ModeDiscriminant::Move
-            | ModeDiscriminant::Branch
-            | ModeDiscriminant::Commit => true,
-            ModeDiscriminant::InlineReword | ModeDiscriminant::Command => false,
-        })
-        .collect::<Vec<_>>();
+fn register_detail_key_binds(key_binds: &mut KeyBinds) {
+    key_binds.register(StaticKeyBind {
+        short_description: "next hunk",
+        chord_display: "↓/j",
+        key_matcher: press().code(KeyCode::Char('j')).alt_code(KeyCode::Down),
+        modes: Vec::from([ModeDiscriminant::Details]),
+        message: Message::Details(DetailsMessage::SelectNextSection),
+        hide_from_hotbar: false,
+    });
 
-    let all_modes = ModeDiscriminant::iter().collect::<Vec<_>>();
+    key_binds.register(StaticKeyBind {
+        short_description: "prev hunk",
+        chord_display: "↑/k",
+        key_matcher: press().code(KeyCode::Char('k')).alt_code(KeyCode::Up),
+        modes: Vec::from([ModeDiscriminant::Details]),
+        message: Message::Details(DetailsMessage::SelectPrevSection),
+        hide_from_hotbar: false,
+    });
 
+    let scroll_distance = 5;
+
+    key_binds.register(StaticKeyBind {
+        short_description: "scroll down",
+        chord_display: "shift+j",
+        key_matcher: press().shift().code(KeyCode::Char('J')),
+        modes: Vec::from([ModeDiscriminant::Details]),
+        message: Message::Details(DetailsMessage::ScrollDown(scroll_distance)),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "scroll up",
+        chord_display: "shift+k",
+        key_matcher: press().shift().code(KeyCode::Char('K')),
+        modes: Vec::from([ModeDiscriminant::Details]),
+        message: Message::Details(DetailsMessage::ScrollUp(scroll_distance)),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "rub",
+        chord_display: "r",
+        key_matcher: press().code(KeyCode::Char('r')),
+        modes: Vec::from([ModeDiscriminant::Details]),
+        message: Message::Details(DetailsMessage::StartRub),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "focus status",
+        chord_display: "h",
+        key_matcher: press().code(KeyCode::Char('h')),
+        modes: Vec::from([ModeDiscriminant::Details]),
+        message: Message::EnterNormalMode,
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "hide details",
+        chord_display: "d",
+        key_matcher: press().code(KeyCode::Char('d')),
+        modes: Vec::from([ModeDiscriminant::Details]),
+        message: Message::Details(DetailsMessage::ToggleVisibility),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "command",
+        chord_display: ":",
+        key_matcher: press().code(KeyCode::Char(':')),
+        modes: Vec::from([ModeDiscriminant::Details]),
+        message: Message::Command(CommandMessage::Start),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "normal mode",
+        chord_display: "ctrl+[",
+        key_matcher: press().control().code(KeyCode::Char('[')),
+        modes: Vec::from([ModeDiscriminant::Details]),
+        message: Message::EnterNormalMode,
+        hide_from_hotbar: true,
+    });
+
+    register_quit_key_binds(key_binds, Vec::from([ModeDiscriminant::Details]));
+}
+
+fn register_global_key_binds(key_binds: &mut KeyBinds, modes: Vec<ModeDiscriminant>) {
     key_binds.register(StaticKeyBind {
         short_description: "down",
         chord_display: "↓/j",
         key_matcher: press().code(KeyCode::Char('j')).alt_code(KeyCode::Down),
-        modes: all_except_text_input_modes.clone(),
+        modes: modes.clone(),
         message: Message::MoveCursorDown,
         hide_from_hotbar: false,
     });
@@ -131,7 +213,7 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         short_description: "up",
         chord_display: "↑/k",
         key_matcher: press().code(KeyCode::Char('k')).alt_code(KeyCode::Up),
-        modes: all_except_text_input_modes.clone(),
+        modes: modes.clone(),
         message: Message::MoveCursorUp,
         hide_from_hotbar: false,
     });
@@ -140,7 +222,7 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         short_description: "next section",
         chord_display: "shift+j",
         key_matcher: press().shift().code(KeyCode::Char('J')),
-        modes: all_except_text_input_modes.clone(),
+        modes: modes.clone(),
         message: Message::MoveCursorNextSection,
         hide_from_hotbar: true,
     });
@@ -149,65 +231,27 @@ fn register_global_key_binds(key_binds: &mut KeyBinds) {
         short_description: "prev section",
         chord_display: "shift+k",
         key_matcher: press().shift().code(KeyCode::Char('K')),
-        modes: all_except_text_input_modes.clone(),
+        modes: modes.clone(),
         message: Message::MoveCursorPreviousSection,
         hide_from_hotbar: true,
     });
 
-    register_quit_key_binds(key_binds, all_except_text_input_modes.clone());
+    register_quit_key_binds(key_binds, modes.clone());
 
     key_binds.register(StaticKeyBind {
         short_description: "normal mode",
         chord_display: "ctrl+[",
         key_matcher: press().control().code(KeyCode::Char('[')),
-        modes: all_modes,
+        modes: modes.clone(),
         message: Message::EnterNormalMode,
         hide_from_hotbar: true,
     });
 
     key_binds.register(StaticKeyBind {
-        short_description: "scroll details down",
-        chord_display: "ctrl+n",
-        key_matcher: press().control().code(KeyCode::Char('n')),
-        modes: all_except_text_input_modes.clone(),
-        message: Message::Details(DetailsMessage::ScrollDown(1)),
-        hide_from_hotbar: true,
-    });
-
-    key_binds.register(StaticKeyBind {
-        short_description: "scroll details up",
-        chord_display: "ctrl+p",
-        key_matcher: press().control().code(KeyCode::Char('p')),
-        modes: all_except_text_input_modes.clone(),
-        message: Message::Details(DetailsMessage::ScrollUp(1)),
-        hide_from_hotbar: true,
-    });
-
-    let jump_distance = 30;
-
-    key_binds.register(StaticKeyBind {
-        short_description: "jump details down",
-        chord_display: "ctrl+d",
-        key_matcher: press().control().code(KeyCode::Char('d')),
-        modes: all_except_text_input_modes.clone(),
-        message: Message::Details(DetailsMessage::ScrollDown(jump_distance)),
-        hide_from_hotbar: true,
-    });
-
-    key_binds.register(StaticKeyBind {
-        short_description: "jump details up",
-        chord_display: "ctrl+u",
-        key_matcher: press().control().code(KeyCode::Char('u')),
-        modes: all_except_text_input_modes.clone(),
-        message: Message::Details(DetailsMessage::ScrollUp(jump_distance)),
-        hide_from_hotbar: true,
-    });
-
-    key_binds.register(StaticKeyBind {
-        short_description: "diff",
+        short_description: "details",
         chord_display: "d",
         key_matcher: press().code(KeyCode::Char('d')),
-        modes: all_except_text_input_modes.clone(),
+        modes: modes.clone(),
         message: Message::Details(DetailsMessage::ToggleVisibility),
         hide_from_hotbar: false,
     });
@@ -280,6 +324,15 @@ fn register_normal_mode_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Char('b')),
         modes: Vec::from([ModeDiscriminant::Normal]),
         message: Message::Branch(BranchMessage::Start),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "focus details",
+        chord_display: "l",
+        key_matcher: press().code(KeyCode::Char('l')),
+        modes: Vec::from([ModeDiscriminant::Normal]),
+        message: Message::EnterDetailsMode,
         hide_from_hotbar: false,
     });
 
@@ -423,6 +476,15 @@ fn register_inline_reword_mode_key_binds(key_binds: &mut KeyBinds) {
         message: Message::EnterNormalMode,
         hide_from_hotbar: false,
     });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "normal mode",
+        chord_display: "ctrl+[",
+        key_matcher: press().control().code(KeyCode::Char('[')),
+        modes: Vec::from([ModeDiscriminant::InlineReword]),
+        message: Message::EnterNormalMode,
+        hide_from_hotbar: true,
+    });
 }
 
 fn register_command_mode_key_binds(key_binds: &mut KeyBinds) {
@@ -442,6 +504,15 @@ fn register_command_mode_key_binds(key_binds: &mut KeyBinds) {
         modes: Vec::from([ModeDiscriminant::Command]),
         message: Message::EnterNormalMode,
         hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "normal mode",
+        chord_display: "ctrl+[",
+        key_matcher: press().control().code(KeyCode::Char('[')),
+        modes: Vec::from([ModeDiscriminant::Command]),
+        message: Message::EnterNormalMode,
+        hide_from_hotbar: true,
     });
 }
 

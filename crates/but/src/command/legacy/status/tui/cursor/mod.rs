@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use gitbutler_stack::StackId;
+
 use crate::{
     CliId,
     command::legacy::status::{
@@ -85,6 +87,20 @@ impl Cursor {
         let idx = lines.iter().position(|line| {
             if let Some(CliId::Branch { name, .. }) = line.data.cli_id().map(|id| &**id)
                 && *name == branch_name
+            {
+                true
+            } else {
+                false
+            }
+        })?;
+        Some(Self(idx))
+    }
+
+    /// Select the first line that points to the given branch name.
+    pub(super) fn select_stack(stack_id: StackId, lines: &[StatusOutputLine]) -> Option<Self> {
+        let idx = lines.iter().position(|line| {
+            if let Some(CliId::Stack { stack_id: id, .. }) = line.data.cli_id().map(|id| &**id)
+                && stack_id == *id
             {
                 true
             } else {
@@ -381,7 +397,7 @@ pub(super) fn is_selectable_in_mode(
     match mode {
         Mode::Rub(rub_mode) | Mode::RubButApi(rub_mode) => {
             if let Some(cli_id) = line.data.cli_id()
-                && &rub_mode.source == cli_id
+                && rub_mode.source == **cli_id
             {
                 return true;
             }
@@ -400,11 +416,15 @@ pub(super) fn is_selectable_in_mode(
                 return true;
             }
         }
-        Mode::Command(..) | Mode::InlineReword(..) | Mode::Normal | Mode::Branch => {}
+        Mode::Command(..)
+        | Mode::InlineReword(..)
+        | Mode::Normal
+        | Mode::Branch
+        | Mode::Details => {}
     }
 
     match mode {
-        Mode::Normal => match show_files {
+        Mode::Normal | Mode::Details => match show_files {
             FilesStatusFlag::None | FilesStatusFlag::All => true,
             FilesStatusFlag::Commit(object_id) => {
                 if let Some(cli_id) = line.data.cli_id()

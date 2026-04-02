@@ -155,7 +155,7 @@ impl TestTuiInputThenRenderResult<'_> {
         let backend = self.0.terminal.backend();
         let buffer = backend.buffer();
         let area = *buffer.area();
-        let selected_bg = super::super::CURSOR_BG;
+        let selected_bg = *super::super::CURSOR_BG;
 
         let selected_row = (area.y..area.y.saturating_add(area.height))
             .find(|&y| {
@@ -248,7 +248,9 @@ fn backend_to_svg(backend: &TestBackend) -> String {
             let normalize_hash_tail =
                 normalize_hash_start.is_some_and(|start| x >= start.saturating_add(2));
             let normalize_volatile_id_cell = volatile_id_hex_prefix_cell(buffer, area, x, y);
-            let symbol = if normalize_hash_cell || normalize_volatile_id_cell {
+            let normalize_long_hash = long_hash_cell(buffer, area, x, y);
+            let symbol = if normalize_hash_cell || normalize_volatile_id_cell || normalize_long_hash
+            {
                 "0"
             } else {
                 symbol
@@ -297,6 +299,10 @@ fn is_blue_bold_hex_cell(cell: &ratatui::buffer::Cell) -> bool {
         && is_single_ascii_hex(cell.symbol())
 }
 
+fn is_blue_hex_cell(cell: &ratatui::buffer::Cell) -> bool {
+    matches!(cell.fg, Color::Blue) && is_single_ascii_hex(cell.symbol())
+}
+
 fn short_hash_start_for_cell(
     buffer: &ratatui::buffer::Buffer,
     area: ratatui::layout::Rect,
@@ -331,6 +337,38 @@ fn short_hash_start_for_cell(
     }
 
     None
+}
+
+/// Detect cells that are part of a full commit ID (40-char blue hex sequence),
+/// as rendered in the details view.
+fn long_hash_cell(
+    buffer: &ratatui::buffer::Buffer,
+    area: ratatui::layout::Rect,
+    x: u16,
+    y: u16,
+) -> bool {
+    if !is_blue_hex_cell(&buffer[(x, y)]) {
+        return false;
+    }
+
+    let row_start = area.x;
+    let row_end = area.x.saturating_add(area.width);
+
+    // Walk left to find the start of the blue hex run
+    let mut start = x;
+    while start > row_start && is_blue_hex_cell(&buffer[(start.saturating_sub(1), y)]) {
+        start = start.saturating_sub(1);
+    }
+
+    // Walk right to find the end
+    let mut end = x;
+    while end.saturating_add(1) < row_end && is_blue_hex_cell(&buffer[(end.saturating_add(1), y)]) {
+        end = end.saturating_add(1);
+    }
+
+    // A full SHA is 40 hex chars; accept runs of 20+ to be safe
+    let len = end.saturating_sub(start).saturating_add(1);
+    len >= 20
 }
 
 fn volatile_id_hex_prefix_cell(
