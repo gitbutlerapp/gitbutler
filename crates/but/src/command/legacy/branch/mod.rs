@@ -1,4 +1,5 @@
 use anyhow::bail;
+use bstr::ByteSlice;
 use but_api::json::HexHash;
 use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 use colored::Colorize;
@@ -120,7 +121,7 @@ pub fn new(
         })
     };
 
-    but_api::legacy::stack::create_reference_with_perm(
+    let (_, normalized_branch_name) = but_api::legacy::stack::create_reference_with_perm(
         ctx,
         but_api::legacy::stack::create_reference::Request {
             new_name: branch_name.clone(),
@@ -129,13 +130,23 @@ pub fn new(
         guard.write_permission(),
     )?;
 
+    let normalized_branch_name = normalized_branch_name.shorten();
     if let Some(out) = out.for_human() {
+        if normalized_branch_name != branch_name {
+            writeln!(
+                out,
+                "Branch name normalized: {} -> {}",
+                branch_name.dimmed(),
+                normalized_branch_name.to_str_lossy().yellow(),
+            )?;
+        }
+
         if let Some(anchor_name) = anchor_display {
             writeln!(
                 out,
                 "{} {} stacked on {}",
                 "✓ Created branch".green(),
-                branch_name.yellow(),
+                normalized_branch_name.to_str_lossy().yellow(),
                 anchor_name.dimmed()
             )?;
         } else {
@@ -143,14 +154,14 @@ pub fn new(
                 out,
                 "{} {}",
                 "✓ Created branch".green(),
-                branch_name.yellow()
+                normalized_branch_name.to_str_lossy().yellow()
             )?;
         }
     } else if let Some(out) = out.for_shell() {
-        writeln!(out, "{branch_name}")?;
+        writeln!(out, "{}", normalized_branch_name.to_str_lossy())?;
     } else if let Some(out) = out.for_json() {
         let value = json::BranchNewOutput {
-            branch: branch_name.clone(),
+            branch: normalized_branch_name.to_str_lossy().into(),
             anchor: anchor_for_json,
         };
         out.write_value(value)?;

@@ -34,6 +34,55 @@ fn outputs_branch_name() -> anyhow::Result<()> {
 }
 
 #[test]
+fn creates_branch_with_normalized_name() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&[])?;
+
+    env.but("branch new trailing-hyphen-stripped-")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Branch name normalized: trailing-hyphen-stripped- -> trailing-hyphen-stripped
+✓ Created branch trailing-hyphen-stripped
+
+"#]]);
+
+    env.but("show trailing-hyphen-stripped")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Branch: trailing-hyphen-stripped
+
+No commits on this branch.
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn json_outputs_normalized_branch_name() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&[])?;
+
+    env.but("--json branch new trailing-hyphen-stripped-")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+{
+  "branch": "trailing-hyphen-stripped"
+}
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
 fn with_json_output() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @r"
