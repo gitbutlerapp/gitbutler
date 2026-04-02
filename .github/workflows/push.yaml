@@ -146,7 +146,7 @@ jobs:
       - id: get_playwright_version
         uses: eviden-actions/get-playwright-version@4ab3bd9361d018d7931275b5106f2290fa54cfb6 # v1
       - name: Cache playwright binaries
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         id: playwright-cache
         with:
           path: |
@@ -167,7 +167,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Cache apt archives
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: .apt-cache
           key: ${{ runner.os }}-apt-but-sdk-${{ hashFiles('scripts/install-minimal-debian-dependencies.sh') }}
@@ -645,7 +645,7 @@ jobs:
       - id: get_playwright_version
         uses: eviden-actions/get-playwright-version@4ab3bd9361d018d7931275b5106f2290fa54cfb6 # v1
       - name: cache playwright binaries
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         id: playwright-cache
         with:
           path: |
