@@ -47,7 +47,7 @@ gitbutler-repo-actions.workspace = true
 gitbutler-watcher.workspace = true
 gitbutler-project.workspace = true
 gitbutler-oplog.workspace = true
-tauri = { version = "^2.10.2", features = ["unstable"] }
+tauri = { version = "^2.10.3", features = ["unstable"] }
 tauri-plugin-single-instance = { version = "2.4.0", features = ["deep-link"] }
 tauri-plugin-dialog = "2.6.0"
 tauri-plugin-fs = "2.4.5"

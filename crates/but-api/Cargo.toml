@@ -117,7 +117,7 @@ gitbutler-edit-mode = { workspace = true, optional = true }
 gitbutler-operating-modes = { workspace = true, optional = true }
 gitbutler-oplog = { workspace = true, optional = true }
 gitbutler-git = { workspace = true, optional = true }
-tauri = { version = "^2.9.5", features = [
+tauri = { version = "^2.10.3", features = [
     "unstable",
 ], optional = true } # For the #[tauri::command(async)] macro only
 napi = { version = "3.0.0", features = [
@@ -139,7 +139,7 @@ gix = { workspace = true, features = ["worktree-mutation"] }
 open.workspace = true
 url = { version = "2.5", optional = true }
 uuid.workspace = true
-which = "8.0.0"
+which = "8.0.2"
 but-schemars.workspace = true
 
 [dev-dependencies]
