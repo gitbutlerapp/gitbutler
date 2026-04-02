@@ -32,9 +32,10 @@ import {
 	BranchTarget,
 	ChangesSource,
 	ChangesTarget,
+	CommitFileSource,
 	CommitSource,
 	CommitTarget,
-	FileSource,
+	ChangesFileSource,
 	HunkSource,
 	TearOffBranchTarget,
 	TreeChangeWithAssignments,
@@ -187,7 +188,7 @@ const CommitDetails: FC<{
 			projectId={projectId}
 			commitId={commitId}
 			renderFile={(change) => (
-				<FileSource
+				<CommitFileSource
 					change={change}
 					fileParent={{ _tag: "Commit", commitId }}
 					className={classes(
@@ -207,7 +208,7 @@ const CommitDetails: FC<{
 							);
 						}}
 					/>
-				</FileSource>
+				</CommitFileSource>
 			)}
 		/>
 	);
@@ -461,13 +462,13 @@ const ShowChangesOrFile: FC<{
 		<ul>
 			{changes.map((change) => (
 				<li key={change.path}>
-					<FileSource
+					<ChangesFileSource
 						change={change}
 						fileParent={{ _tag: "Changes", stackId }}
 						assignments={assignmentsByPath.get(change.path)}
 					>
 						<h4>{change.path}</h4>
-					</FileSource>
+					</ChangesFileSource>
 					{renderChange(change)}
 				</li>
 			))}
@@ -1017,7 +1018,7 @@ const Changes: FC<{
 
 						return (
 							<li key={change.path}>
-								<FileSource
+								<ChangesFileSource
 									change={change}
 									fileParent={{ _tag: "Changes", stackId }}
 									assignments={assignmentsByPath.get(change.path)}

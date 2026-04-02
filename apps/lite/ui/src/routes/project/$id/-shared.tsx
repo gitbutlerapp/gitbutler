@@ -18,7 +18,7 @@ import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { ComponentProps, FC, ReactNode } from "react";
 import styles from "./-shared.module.css";
-import { FileSource } from "./workspace/-OperationSubjects";
+import { CommitFileSource } from "./workspace/-OperationSubjects";
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 export const decodeRefName = (fullNameBytes: Array<number>): string =>
@@ -240,9 +240,12 @@ export const ShowCommit: FC<{
 				<ul>
 					{changes.map((change) => (
 						<li key={change.path}>
-							<FileSource change={change} fileParent={{ _tag: "Commit", commitId: commit.id }}>
+							<CommitFileSource
+								change={change}
+								fileParent={{ _tag: "Commit", commitId: commit.id }}
+							>
 								<h4>{change.path}</h4>
-							</FileSource>
+							</CommitFileSource>
 							<FileDiff
 								projectId={projectId}
 								change={change}

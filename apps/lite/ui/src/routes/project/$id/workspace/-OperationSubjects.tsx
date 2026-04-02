@@ -96,11 +96,42 @@ export const CommitSource: FC<
 	});
 };
 
-export const FileSource: FC<
+export const CommitFileSource: FC<
 	{
 		change: TreeChange;
 		fileParent: FileParent;
-		assignments?: Array<HunkAssignment>;
+	} & useRender.ComponentProps<"div">
+> = ({ change, fileParent, render, ...props }) => {
+	const [isDragging, dragRef] = useDraggable({
+		getInitialData: () =>
+			getDragData({
+				_tag: "TreeChanges",
+				parent: fileParent,
+				changes: [
+					{
+						change,
+						hunkHeaders: [],
+					},
+				],
+			}) ?? {},
+		preview: <DragPreview>{change.path}</DragPreview>,
+	});
+	const isActive = isDragging;
+
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isActive && styles.activeSource),
+		}),
+	});
+};
+
+export const ChangesFileSource: FC<
+	{
+		change: TreeChange;
+		fileParent: FileParent;
+		assignments: Array<HunkAssignment> | undefined;
 	} & useRender.ComponentProps<"div">
 > = ({ change, fileParent, assignments, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
