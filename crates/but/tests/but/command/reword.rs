@@ -101,6 +101,36 @@ Renamed branch 'branch-to-rename-123' to 'renamed-branch'
 }
 
 #[test]
+fn reword_branch_normalizes_name() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+
+    env.setup_metadata(&["A"])?;
+    env.but("branch new branch-to-rename").assert().success();
+
+    env.but("reword branch-to-rename -m trailing-hyphen-stripped-")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+New branch name normalized: trailing-hyphen-stripped- -> trailing-hyphen-stripped
+Renamed branch 'branch-to-rename' to 'trailing-hyphen-stripped'
+
+"#]]);
+
+    env.but("show trailing-hyphen-stripped")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Branch: trailing-hyphen-stripped
+
+No commits on this branch.
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
 fn reword_commit_with_same_message_succeeds_as_noop() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @r"

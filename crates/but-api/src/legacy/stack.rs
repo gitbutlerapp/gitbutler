@@ -287,15 +287,14 @@ pub fn update_branch_name_with_perm(
     branch_name: String,
     new_name: String,
     perm: &mut RepoExclusive,
-) -> Result<()> {
+) -> Result<String> {
     gitbutler_branch_actions::stack::update_branch_name_with_perm(
         ctx,
         stack_id,
         branch_name,
         new_name,
         perm,
-    )?;
-    Ok(())
+    )
 }
 
 #[but_api]
