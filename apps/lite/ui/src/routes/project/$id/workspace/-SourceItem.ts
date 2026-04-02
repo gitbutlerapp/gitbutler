@@ -1,9 +1,8 @@
-import { type RubSource } from "#ui/api/rub.ts";
+import { type RubOperation } from "#ui/api/rub.ts";
+import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
-import { type RubOperation } from "#ui/Operation.ts";
 import { type HunkHeader, type TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
-import { rubOperationLabel } from "./-RubOperationLabel.ts";
 
 export type TreeChangeWithHunkHeaders = {
 	change: TreeChange;
@@ -19,34 +18,104 @@ export type SourceItem =
 			changes: Array<TreeChangeWithHunkHeaders>;
 	  };
 
-const rubSourceFor = (item: SourceItem): RubSource | null =>
-	Match.value(item).pipe(
-		Match.tag("Branch", (): RubSource | null => null),
-		Match.tag("Commit", ({ commitId }): RubSource | null => ({
-			_tag: "Commit",
-			commitId,
-		})),
-		Match.tag("TreeChanges", ({ parent, changes }): RubSource | null => ({
-			_tag: "TreeChanges",
-			parent,
-			changes,
-		})),
-		Match.exhaustive,
-	);
-
+/**
+ * | SOURCE ↓ / TARGET →    | Changes  | Commit |
+ * | ---------------------- | -------- | ------ |
+ * | File/hunk from changes | Assign   | Amend  |
+ * | File/hunk from commit  | Uncommit | Amend  |
+ * | Commit                 | Uncommit | Squash |
+ *
+ * Note this is currently different from the CLI's definition of "rubbing",
+ * which also includes move operations.
+ * https://linear.app/gitbutler/issue/GB-1160/what-should-rubbing-a-branch-into-another-branch-do#comment-db2abdb7
+ */
 export const getRubOperation = ({
 	sourceItem,
 	target,
 }: {
 	sourceItem: SourceItem;
 	target: ChangeUnit;
-}): RubOperation | null => {
-	const rubSource = rubSourceFor(sourceItem);
-	if (!rubSource) return null;
-	const rubOperation: RubOperation = {
-		source: rubSource,
-		target,
-	};
-	if (rubOperationLabel(rubOperation) === null) return null;
-	return rubOperation;
-};
+}): RubOperation | null =>
+	Match.value(sourceItem).pipe(
+		Match.tag("Branch", (): RubOperation | null => null),
+		Match.tag("Commit", ({ commitId: sourceCommitId }) =>
+			Match.value(target).pipe(
+				Match.tag(
+					"Changes",
+					({ stackId }): RubOperation => ({
+						_tag: "CommitUncommit",
+						commitId: sourceCommitId,
+						assignTo: stackId,
+					}),
+				),
+				Match.tag("Commit", ({ commitId: destinationCommitId }): RubOperation | null => {
+					if (sourceCommitId === destinationCommitId) return null;
+					return {
+						_tag: "CommitSquash",
+						sourceCommitId,
+						destinationCommitId,
+					};
+				}),
+				Match.exhaustive,
+			),
+		),
+		Match.tag("TreeChanges", ({ parent, changes: sourceChanges }) => {
+			const changes = sourceChanges.map(({ change, hunkHeaders }) =>
+				createDiffSpec(change, hunkHeaders),
+			);
+
+			return Match.value(parent).pipe(
+				Match.tag("Changes", ({ stackId: sourceStackId }) =>
+					Match.value(target).pipe(
+						Match.tag("Changes", ({ stackId: targetStackId }): RubOperation | null => {
+							if (sourceStackId === targetStackId) return null;
+							return {
+								_tag: "AssignHunk",
+								assignments: sourceChanges.flatMap(({ change, hunkHeaders }) =>
+									hunkHeaders.map((hunkHeader) => ({
+										pathBytes: change.pathBytes,
+										hunkHeader,
+										stackId: targetStackId,
+									})),
+								),
+							};
+						}),
+						Match.tag(
+							"Commit",
+							({ commitId }): RubOperation => ({
+								_tag: "CommitAmend",
+								commitId,
+								changes,
+							}),
+						),
+						Match.exhaustive,
+					),
+				),
+				Match.tag("Commit", ({ commitId: sourceCommitId }) =>
+					Match.value(target).pipe(
+						Match.tag(
+							"Changes",
+							({ stackId }): RubOperation => ({
+								_tag: "CommitUncommitChanges",
+								commitId: sourceCommitId,
+								assignTo: stackId,
+								changes,
+							}),
+						),
+						Match.tag("Commit", ({ commitId: destinationCommitId }): RubOperation | null => {
+							if (sourceCommitId === destinationCommitId) return null;
+							return {
+								_tag: "CommitMoveChangesBetween",
+								sourceCommitId,
+								destinationCommitId,
+								changes,
+							};
+						}),
+						Match.exhaustive,
+					),
+				),
+				Match.exhaustive,
+			);
+		}),
+		Match.exhaustive,
+	);

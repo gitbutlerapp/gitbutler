@@ -19,12 +19,10 @@ import {
 	rubMutationOptions,
 	tearOffBranchMutationOptions,
 } from "#ui/api/mutations.ts";
-import { RubParams } from "#ui/api/rub.ts";
-
-export type RubOperation = Omit<RubParams, "projectId">;
+import { type RubOperation } from "#ui/api/rub.ts";
 
 export type Operation =
-	| ({ _tag: "Rub" } & RubOperation)
+	| { _tag: "Rub"; operation: RubOperation }
 	| ({ _tag: "CommitCreate" } & Omit<CommitCreateParams, "projectId">)
 	| ({
 			_tag: "CommitCreateFromCommittedChanges";
@@ -50,8 +48,7 @@ export const useRunOperation = (projectId: string) => {
 				rubMutation.mutate(
 					{
 						projectId,
-						source: operation.source,
-						target: operation.target,
+						operation: operation.operation,
 					},
 					{
 						onSuccess: (response) => {

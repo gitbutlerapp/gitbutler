@@ -41,7 +41,6 @@ import {
 	TreeChangeWithAssignments,
 } from "#ui/routes/project/$id/workspace/-DragAndDrop.tsx";
 import { AbsorptionDialog, useAbsorption } from "#ui/routes/project/$id/workspace/-Absorption.tsx";
-import { rubOperationLabel } from "#ui/routes/project/$id/workspace/-RubOperationLabel.ts";
 import { getRubOperation, type SourceItem } from "#ui/routes/project/$id/workspace/-SourceItem.ts";
 import {
 	ShowCommit,
@@ -119,6 +118,18 @@ import {
 import { PositionedShortcutsBar } from "../-ShortcutsBar.tsx";
 import { formatShortcutKeys, ShortcutActionBase, type ShortcutBinding } from "#ui/shortcuts.ts";
 import styles from "./route.module.css";
+import { RubOperation } from "#ui/api/rub.ts";
+
+const rubOperationLabel = (rubOperation: RubOperation) =>
+	Match.value(rubOperation).pipe(
+		Match.tag("AssignHunk", (rubOperation) =>
+			rubOperation.assignments[0]?.stackId == null ? "Unassign" : "Assign",
+		),
+		Match.tag("CommitAmend", "CommitMoveChangesBetween", () => "Amend"),
+		Match.tag("CommitSquash", () => "Squash"),
+		Match.tag("CommitUncommit", "CommitUncommitChanges", () => "Uncommit"),
+		Match.exhaustive,
+	);
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 const decodeRefName = (fullNameBytes: Array<number>): string =>
@@ -536,7 +547,7 @@ const ChangesTarget: FC<
 			target: { _tag: "Changes", stackId },
 		});
 		if (!rubOperation) return null;
-		return { _tag: "Rub", ...rubOperation };
+		return { _tag: "Rub", operation: rubOperation };
 	};
 
 	const [operation, dropRef] = useDroppable(({ source }) => {
@@ -553,7 +564,8 @@ const ChangesTarget: FC<
 		}),
 	});
 
-	const rubTooltip = operation && operation._tag === "Rub" ? rubOperationLabel(operation) : null;
+	const rubTooltip =
+		operation && operation._tag === "Rub" ? rubOperationLabel(operation.operation) : null;
 
 	return (
 		<Tooltip.Root
@@ -669,7 +681,7 @@ const getCommitTargetOperation = ({
 
 	return Match.value(instruction.operation).pipe(
 		Match.when("combine", (): Operation | null =>
-			rubOperation ? { _tag: "Rub", ...rubOperation } : null,
+			rubOperation ? { _tag: "Rub", operation: rubOperation } : null,
 		),
 		Match.orElse((side): Operation | null => {
 			const insertSide = Match.value(side).pipe(
@@ -741,7 +753,8 @@ const CommitTarget: FC<
 		}),
 	});
 
-	const rubTooltip = operation && operation._tag === "Rub" ? rubOperationLabel(operation) : null;
+	const rubTooltip =
+		operation && operation._tag === "Rub" ? rubOperationLabel(operation.operation) : null;
 
 	return (
 		<div className={styles.commit}>
