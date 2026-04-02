@@ -28,6 +28,7 @@ import {
 	CommitSquashParams,
 	CommitUncommitParams,
 } from "#ui/api/mutations.ts";
+import { InsertSide } from "@gitbutler/but-sdk";
 
 export type Operation =
 	| ({ _tag: "AssignHunk" } & Omit<AssignHunkParams, "projectId">)
@@ -56,6 +57,16 @@ export const isCombineOperation = (operation: Operation): boolean =>
 			CommitUncommitChanges: () => true,
 		}),
 		Match.orElse(() => false),
+	);
+
+export const getInsertionSide = (operation: Operation): InsertSide | null =>
+	Match.value(operation).pipe(
+		Match.tags({
+			CommitMove: (x) => x.side,
+			CommitCreate: (x) => x.side,
+			CommitCreateFromCommittedChanges: (x) => x.side,
+		}),
+		Match.orElse(() => null),
 	);
 
 export const operationLabel = (operation: Operation): string | null =>

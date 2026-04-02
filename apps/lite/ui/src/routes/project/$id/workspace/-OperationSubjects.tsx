@@ -2,7 +2,7 @@ import { classes } from "#ui/classes.ts";
 import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
-import { isCombineOperation, operationLabel } from "#ui/Operation.ts";
+import { isCombineOperation, getInsertionSide, operationLabel } from "#ui/Operation.ts";
 import {
 	CommitLabel,
 	decodeRefName,
@@ -273,13 +273,14 @@ export const CommitTarget: FC<
 		}),
 	});
 
-	const combineTooltip =
-		operation && isCombineOperation(operation) ? operationLabel(operation) : null;
+	const tooltip = operation ? operationLabel(operation) : null;
+
+	const insertionSide = operation ? getInsertionSide(operation) : null;
 
 	return (
 		<div className={styles.commit}>
 			<Tooltip.Root
-				open={combineTooltip !== null}
+				open={!!operation && isCombineOperation(operation) && tooltip !== null}
 				onOpenChange={(_open, eventDetails) => {
 					eventDetails.allowPropagation();
 				}}
@@ -288,15 +289,13 @@ export const CommitTarget: FC<
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={8}>
 						<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-							{combineTooltip}
+							{tooltip}
 						</Tooltip.Popup>
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
 			</Tooltip.Root>
 
-			{(operation?._tag === "CommitMove" ||
-				operation?._tag === "CommitCreate" ||
-				operation?._tag === "CommitCreateFromCommittedChanges") && (
+			{insertionSide !== null && (
 				<Tooltip.Root open disableHoverablePopup>
 					<Tooltip.Trigger
 						render={
@@ -304,7 +303,7 @@ export const CommitTarget: FC<
 								className={classes(
 									styles.commitInsertionTarget,
 									pipe(
-										operation.side,
+										insertionSide,
 										Match.value,
 										Match.when("above", () => styles.commitInsertionTargetAbove),
 										Match.when("below", () => styles.commitInsertionTargetBelow),
@@ -317,13 +316,7 @@ export const CommitTarget: FC<
 					<Tooltip.Portal>
 						<Tooltip.Positioner sideOffset={8}>
 							<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-								{Match.value(operation).pipe(
-									Match.tagsExhaustive({
-										CommitMove: () => "Move commit here",
-										CommitCreate: () => "Commit changes here",
-										CommitCreateFromCommittedChanges: () => "Commit changes here",
-									}),
-								)}
+								{tooltip}
 							</Tooltip.Popup>
 						</Tooltip.Positioner>
 					</Tooltip.Portal>
