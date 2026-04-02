@@ -130,16 +130,16 @@ export const FileSource: FC<
 
 export const ChangesSource: FC<
 	{
-		changeUnit: ChangeUnit;
+		stackId: string | null;
 		label: string;
 		changes: Array<TreeChangeWithAssignments>;
 	} & useRender.ComponentProps<"div">
-> = ({ changeUnit, label, changes, render, ...props }) => {
+> = ({ stackId, label, changes, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: () =>
 			getDragData({
 				_tag: "TreeChanges",
-				parent: changeUnit,
+				parent: { _tag: "Changes", stackId },
 				changes: changes.map(({ change, assignments }) => ({
 					change,
 					hunkHeaders: hunkHeadersForAssignments(assignments),

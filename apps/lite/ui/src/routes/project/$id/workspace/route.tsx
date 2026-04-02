@@ -944,7 +944,7 @@ const Changes: FC<{
 
 	return (
 		<ChangesSource
-			changeUnit={{ _tag: "Changes", stackId }}
+			stackId={stackId}
 			label={label}
 			changes={changes.map(
 				(change): TreeChangeWithAssignments => ({
