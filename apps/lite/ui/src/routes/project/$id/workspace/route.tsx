@@ -763,7 +763,7 @@ const CommitRow: FC<
 	return (
 		<CommitSource
 			{...restProps}
-			canDrag={!isEditing}
+			isEnabled={!isEditing}
 			commit={commitWithOptimisticMessage}
 			render={
 				<div

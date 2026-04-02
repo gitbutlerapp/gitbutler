@@ -68,9 +68,9 @@ export const BranchSource: FC<
 export const CommitSource: FC<
 	{
 		commit: Commit;
-		canDrag?: boolean;
+		isEnabled?: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ commit, canDrag = true, render, ...props }) => {
+> = ({ commit, isEnabled = true, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: () => getDragData({ _tag: "Commit", commitId: commit.id }) ?? {},
 		preview: (
@@ -78,7 +78,7 @@ export const CommitSource: FC<
 				<CommitLabel commit={commit} />
 			</DragPreview>
 		),
-		canDrag: () => canDrag,
+		canDrag: () => isEnabled,
 	});
 	const isActive = isDragging;
 
