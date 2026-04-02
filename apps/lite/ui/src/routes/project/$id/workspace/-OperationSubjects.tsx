@@ -239,7 +239,7 @@ export const ChangesTarget: FC<
 		});
 	});
 
-	const droppable = useRender({
+	const target = useRender({
 		render,
 		ref: dropRef,
 		props: mergeProps<"div">(props, {
@@ -247,7 +247,7 @@ export const ChangesTarget: FC<
 		}),
 	});
 
-	return <OperationTooltip operation={operation} render={droppable} />;
+	return <OperationTooltip operation={operation} render={target} />;
 };
 
 export const CommitTarget: FC<
@@ -285,7 +285,7 @@ export const CommitTarget: FC<
 		});
 	});
 
-	const droppable = useRender({
+	const target = useRender({
 		render,
 		ref: dropRef,
 		props: mergeProps<"div">(props, {
@@ -299,7 +299,7 @@ export const CommitTarget: FC<
 		<div className={styles.commit}>
 			<OperationTooltip
 				operation={operation && isCombineOperation(operation) ? operation : null}
-				render={droppable}
+				render={target}
 			/>
 
 			{insertionSide !== null && (
@@ -333,7 +333,7 @@ export const BranchTarget: FC<
 		return getBranchTargetOperation({ sourceItem, branchRef, firstCommitId });
 	});
 
-	const droppable = useRender({
+	const target = useRender({
 		render,
 		ref: dropRef,
 		props: mergeProps<"div">(props, {
@@ -341,7 +341,7 @@ export const BranchTarget: FC<
 		}),
 	});
 
-	return <OperationTooltip operation={operation} render={droppable} />;
+	return <OperationTooltip operation={operation} render={target} />;
 };
 
 export const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...props }) => {
@@ -354,7 +354,7 @@ export const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ rende
 		};
 	});
 
-	const droppable = useRender({
+	const target = useRender({
 		render,
 		ref: dropRef,
 		props: mergeProps<"div">(props, {
@@ -362,5 +362,5 @@ export const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ rende
 		}),
 	});
 
-	return <OperationTooltip operation={operation} render={droppable} />;
+	return <OperationTooltip operation={operation} render={target} />;
 };
