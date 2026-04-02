@@ -418,6 +418,30 @@ export const useWorkspaceShortcuts = ({
 
 	const queryClient = useQueryClient();
 
+	const requestAbsorptionPlanForSelection = (selection: ChangesItem) => {
+		Match.value(selection.mode).pipe(
+			Match.tagsExhaustive({
+				Details: ({ path }) => {
+					if (path === undefined) return;
+					const change = worktreeChanges.changes.find((change) => change.path === path);
+					if (!change) return;
+					requestAbsorptionPlan([change], selection.stackId);
+				},
+				Summary: () => {
+					const assignmentsByPath = new Set(
+						worktreeChanges.assignments
+							.filter((assignment) => assignment.stackId === selection.stackId)
+							.map((assignment) => assignment.path),
+					);
+					const changes = worktreeChanges.changes.filter((change) =>
+						assignmentsByPath.has(change.path),
+					);
+					requestAbsorptionPlan(changes, selection.stackId);
+				},
+			}),
+		);
+	};
+
 	const moveCommitDetails = (offset: -1 | 1, selection: CommitItem) => {
 		const commitDetails = queryClient.getQueryData(
 			commitDetailsWithLineStatsQueryOptions({
@@ -464,29 +488,7 @@ export const useWorkspaceShortcuts = ({
 	const handleChangesAction = (action: ChangesAction, selection: ChangesItem) =>
 		Match.value(action).pipe(
 			Match.tags({
-				Absorb: () => {
-					Match.value(selection.mode).pipe(
-						Match.tagsExhaustive({
-							Details: ({ path }) => {
-								if (path === undefined) return;
-								const change = worktreeChanges.changes.find((change) => change.path === path);
-								if (!change) return;
-								requestAbsorptionPlan([change], selection.stackId);
-							},
-							Summary: () => {
-								const assignmentsByPath = new Set(
-									worktreeChanges.assignments
-										.filter((assignment) => assignment.stackId === selection.stackId)
-										.map((assignment) => assignment.path),
-								);
-								const changes = worktreeChanges.changes.filter((change) =>
-									assignmentsByPath.has(change.path),
-								);
-								requestAbsorptionPlan(changes, selection.stackId);
-							},
-						}),
-					);
-				},
+				Absorb: () => requestAbsorptionPlanForSelection(selection),
 			}),
 			Match.orElse((action) => handleSelectionAction(action, { _tag: "Changes", ...selection })),
 		);
