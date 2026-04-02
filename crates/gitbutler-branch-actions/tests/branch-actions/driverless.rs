@@ -163,6 +163,18 @@ fn seed_fixture(repo: &gix::Repository, script_name: &str, repo_name: &str) -> R
                 in_workspace: true,
             },
         ],
+        ("workspace-commit.sh", "adjacent-stacks") => vec![
+            StackSpec {
+                id: 1,
+                branches_base_to_top: &["stack_a"],
+                in_workspace: true,
+            },
+            StackSpec {
+                id: 2,
+                branches_base_to_top: &["stack_b"],
+                in_workspace: true,
+            },
+        ],
         unsupported => anyhow::bail!("unsupported driverless fixture {unsupported:?}"),
     };
 
