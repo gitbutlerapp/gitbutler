@@ -414,6 +414,7 @@ const ShowSegment: FC<{
 			renderHunk={(change, hunk, patch) => (
 				<Hunk
 					patch={patch}
+					// TODO: this should be branch!
 					changeUnit={{ _tag: "Changes", stackId: null }}
 					change={change}
 					hunk={hunk}
