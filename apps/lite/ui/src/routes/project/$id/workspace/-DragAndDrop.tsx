@@ -38,7 +38,7 @@ const hunkHeadersForAssignments = (
 			)
 		: [];
 
-export const DraggableBranch: FC<
+export const BranchSource: FC<
 	{
 		branchRef: Array<number> | null;
 		branchName: string;
@@ -51,17 +51,18 @@ export const DraggableBranch: FC<
 		preview: <DragPreview>{branchName}</DragPreview>,
 		canDrag: () => dragData !== null,
 	});
+	const isActive = isDragging;
 
 	return useRender({
 		render,
 		ref: dragRef,
 		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
+			className: classes(isActive && styles.active),
 		}),
 	});
 };
 
-export const DraggableCommit: FC<
+export const CommitSource: FC<
 	{
 		commit: Commit;
 		canDrag?: boolean;
@@ -78,17 +79,18 @@ export const DraggableCommit: FC<
 		),
 		canDrag: () => canDrag,
 	});
+	const isActive = isDragging;
 
 	return useRender({
 		render,
 		ref: dragRef,
 		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
+			className: classes(isActive && styles.active),
 		}),
 	});
 };
 
-export const DraggableFile: FC<
+export const FileSource: FC<
 	{
 		change: TreeChange;
 		changeUnit: ChangeUnit;
@@ -110,12 +112,13 @@ export const DraggableFile: FC<
 		}),
 		preview: <DragPreview>{change.path}</DragPreview>,
 	});
+	const isActive = isDragging;
 
 	return useRender({
 		render,
 		ref: dragRef,
 		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
+			className: classes(isActive && styles.active),
 		}),
 	});
 };
@@ -125,7 +128,7 @@ export type TreeChangeWithAssignments = {
 	assignments?: Array<HunkAssignment>;
 };
 
-export const DraggableChanges: FC<
+export const ChangesSource: FC<
 	{
 		changeUnit: ChangeUnit;
 		label: string;
@@ -148,17 +151,18 @@ export const DraggableChanges: FC<
 		preview: <DragPreview>{label}</DragPreview>,
 		canDrag: () => changes.length > 0,
 	});
+	const isActive = isDragging;
 
 	return useRender({
 		render,
 		ref: dragRef,
 		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
+			className: classes(isActive && styles.active),
 		}),
 	});
 };
 
-export const DraggableHunk: FC<
+export const HunkSource: FC<
 	{
 		patch: Patch;
 		changeUnit: ChangeUnit;
@@ -182,12 +186,13 @@ export const DraggableHunk: FC<
 		preview: <DragPreview>Hunk {formatHunkHeader(hunk)}</DragPreview>,
 		canDrag: () => !patch.subject.isResultOfBinaryToTextConversion,
 	});
+	const isActive = isDragging;
 
 	return useRender({
 		render,
 		ref: dragRef,
 		props: mergeProps<"div">(props, {
-			className: classes(isDragging && styles.dragging),
+			className: classes(isActive && styles.active),
 		}),
 	});
 };

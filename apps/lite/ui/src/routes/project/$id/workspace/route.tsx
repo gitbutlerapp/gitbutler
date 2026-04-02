@@ -31,11 +31,11 @@ import { isCombineOperation, operationLabel, type Operation } from "#ui/Operatio
 import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import {
-	DraggableBranch,
-	DraggableCommit,
-	DraggableChanges,
-	DraggableFile,
-	DraggableHunk,
+	BranchSource,
+	CommitSource,
+	ChangesSource,
+	FileSource,
+	HunkSource,
 	parseDragData,
 	useMonitorDraggedSourceItem,
 	TreeChangeWithAssignments,
@@ -199,7 +199,7 @@ const CommitDetails: FC<{
 			projectId={projectId}
 			commitId={commitId}
 			renderFile={(change) => (
-				<DraggableFile
+				<FileSource
 					change={change}
 					changeUnit={{ _tag: "Commit", commitId }}
 					render={
@@ -324,7 +324,7 @@ const Hunk: FC<{
 	<div>
 		<div className={styles.hunkHeaderRow}>
 			{headerStart}
-			<DraggableHunk
+			<HunkSource
 				patch={patch}
 				changeUnit={changeUnit}
 				change={change}
@@ -332,7 +332,7 @@ const Hunk: FC<{
 				className={styles.hunkHeader}
 			>
 				{formatHunkHeader(hunk)}
-			</DraggableHunk>
+			</HunkSource>
 		</div>
 		<HunkDiff change={change} diff={hunk.diff} />
 	</div>
@@ -1017,7 +1017,7 @@ const CommitRow: FC<
 	};
 
 	return (
-		<DraggableCommit
+		<CommitSource
 			{...restProps}
 			canDrag={!isEditing}
 			commit={commitWithOptimisticMessage}
@@ -1199,7 +1199,7 @@ const Changes: FC<{
 		selection?._tag === "Changes" && selection.stackId === stackId ? selection : null;
 
 	return (
-		<DraggableChanges
+		<ChangesSource
 			changeUnit={{ _tag: "Changes", stackId }}
 			label={label}
 			changes={changes.map(
@@ -1276,7 +1276,7 @@ const Changes: FC<{
 
 						return (
 							<li key={change.path}>
-								<DraggableFile
+								<FileSource
 									change={change}
 									changeUnit={{ _tag: "Changes", stackId }}
 									assignments={assignments}
@@ -1323,7 +1323,7 @@ const Changes: FC<{
 					})}
 				</ul>
 			)}
-		</DraggableChanges>
+		</ChangesSource>
 	);
 };
 
@@ -1730,7 +1730,7 @@ const SegmentRow: FC<
 			branchRef={segment.refName.fullNameBytes}
 			firstCommitId={segment.commits[0]?.id}
 			render={
-				<DraggableBranch
+				<BranchSource
 					branchRef={segment.refName.fullNameBytes}
 					branchName={segment.refName.displayName}
 					render={children}

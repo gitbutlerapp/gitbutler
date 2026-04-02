@@ -175,6 +175,6 @@
 	resize: none;
 }
 
-.dragging {
+.active {
 	opacity: 0.4;
 }
