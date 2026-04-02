@@ -2514,23 +2514,29 @@ impl App {
     }
 
     fn render_debug(&self, area: Rect, frame: &mut Frame) {
-        tracing::info!("HERE: {:?}", self.cursor.selected_line(&self.status_lines));
+        let renders = once(ListItem::new("Renders").black().on_blue())
+            .chain(once(ListItem::new(format!("{}", self.renders))));
+
+        let details_selection = format!("{:#?}", self.details.selection());
+        let details_selection = once(ListItem::new("Details selection").black().on_blue()).chain(
+            details_selection
+                .lines()
+                .map(|line| ListItem::new(line.to_owned())),
+        );
+
+        let status_selection = format!("{:#?}", self.cursor.selected_line(&self.status_lines));
+        let status_selection = once(ListItem::new("Status selection").black().on_blue()).chain(
+            status_selection
+                .lines()
+                .map(|line| ListItem::new(line.to_owned())),
+        );
 
         let list = List::new(
-            once(ListItem::new("Renders").black().on_blue())
-                .chain(once(ListItem::new(format!("{}", self.renders))))
+            renders
                 .chain(once(ListItem::new("")))
-                .chain(once(ListItem::new("Details selection").black().on_blue()))
-                .chain(once(ListItem::new(format!(
-                    "{:#?}",
-                    self.details.selection()
-                ))))
+                .chain(details_selection)
                 .chain(once(ListItem::new("")))
-                .chain(once(ListItem::new("Status selection").black().on_blue()))
-                .chain(once(ListItem::new(format!(
-                    "{:#?}",
-                    self.cursor.selected_line(&self.status_lines)
-                )))),
+                .chain(status_selection),
         );
 
         frame.render_widget(list, area);
