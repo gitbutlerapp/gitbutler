@@ -29,12 +29,12 @@ pub(super) fn default_key_binds() -> KeyBinds {
                 register_rub_but_api_mode_key_binds(&mut key_binds);
             }
             ModeDiscriminant::InlineReword => {
-                register_global_key_binds(&mut key_binds, Vec::from([mode]));
                 register_inline_reword_mode_key_binds(&mut key_binds);
+                register_quit_key_binds(&mut key_binds, Vec::from([mode]));
             }
             ModeDiscriminant::Command => {
-                register_global_key_binds(&mut key_binds, Vec::from([mode]));
                 register_command_mode_key_binds(&mut key_binds);
+                register_quit_key_binds(&mut key_binds, Vec::from([mode]));
             }
             ModeDiscriminant::Commit => {
                 register_global_key_binds(&mut key_binds, Vec::from([mode]));
@@ -175,6 +175,15 @@ fn register_detail_key_binds(key_binds: &mut KeyBinds) {
         key_matcher: press().code(KeyCode::Char('d')),
         modes: Vec::from([ModeDiscriminant::Details]),
         message: Message::Details(DetailsMessage::ToggleVisibility),
+        hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "command",
+        chord_display: ":",
+        key_matcher: press().code(KeyCode::Char(':')),
+        modes: Vec::from([ModeDiscriminant::Details]),
+        message: Message::Command(CommandMessage::Start),
         hide_from_hotbar: false,
     });
 
@@ -467,6 +476,15 @@ fn register_inline_reword_mode_key_binds(key_binds: &mut KeyBinds) {
         message: Message::EnterNormalMode,
         hide_from_hotbar: false,
     });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "normal mode",
+        chord_display: "ctrl+[",
+        key_matcher: press().control().code(KeyCode::Char('[')),
+        modes: Vec::from([ModeDiscriminant::InlineReword]),
+        message: Message::EnterNormalMode,
+        hide_from_hotbar: true,
+    });
 }
 
 fn register_command_mode_key_binds(key_binds: &mut KeyBinds) {
@@ -486,6 +504,15 @@ fn register_command_mode_key_binds(key_binds: &mut KeyBinds) {
         modes: Vec::from([ModeDiscriminant::Command]),
         message: Message::EnterNormalMode,
         hide_from_hotbar: false,
+    });
+
+    key_binds.register(StaticKeyBind {
+        short_description: "normal mode",
+        chord_display: "ctrl+[",
+        key_matcher: press().control().code(KeyCode::Char('[')),
+        modes: Vec::from([ModeDiscriminant::Command]),
+        message: Message::EnterNormalMode,
+        hide_from_hotbar: true,
     });
 }
 

@@ -14,9 +14,6 @@ pub(super) fn route_operation<'a>(
     source: &'a CommittedHunk,
     target: &'a CliId,
 ) -> Option<Operation<'a>> {
-    // TODO(david): support more operations
-    let todo_ = ();
-
     match target {
         CliId::Commit { commit_id, .. } => Some(Operation::CommittedHunkToCommit {
             source,

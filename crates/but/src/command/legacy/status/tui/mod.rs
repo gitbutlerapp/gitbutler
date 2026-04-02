@@ -39,6 +39,8 @@ use crate::{
                 confirm::{Confirm, ConfirmMessage},
                 cursor::{Cursor, is_selectable_in_mode},
                 details::{Details, DetailsMessage, DetailsVisibility, RenderNextChunkResult},
+                event_polling::{CrosstermEventPolling, EventPolling, NoopEventPolling},
+                fps::FpsCounter,
                 graph_extension::{ExtensionDirection, extend_connector_spans},
                 highlight::{Highlights, with_highlight},
                 key_bind::{KeyBinds, confirm_key_binds, default_key_binds},
@@ -63,6 +65,8 @@ use super::{
 mod confirm;
 mod cursor;
 mod details;
+mod event_polling;
+mod fps;
 mod graph_extension;
 mod highlight;
 mod key_bind;
@@ -132,44 +136,6 @@ pub(super) async fn render_tui(
     }
 
     Ok(app.status_lines)
-}
-
-/// Trait for abstracting event polling so we can hardcode events in tests.
-trait EventPolling {
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    fn poll(self, timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error>;
-}
-
-/// An [`EventPolling`] implementation that polls events for real using crossterm.
-#[derive(Copy, Clone)]
-struct CrosstermEventPolling;
-
-impl EventPolling for CrosstermEventPolling {
-    type Error = std::io::Error;
-
-    fn poll(self, timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
-        if event::poll(timeout)? {
-            Ok(Some(event::read()?))
-        } else {
-            Ok(None)
-        }
-    }
-}
-
-/// An [`EventPolling`] implementation that never yields events.
-///
-/// This is used for non-interactive runs where touching terminal input can stop the process when
-/// profilers launch the target in a background process group.
-#[derive(Copy, Clone)]
-struct NoopEventPolling;
-
-impl EventPolling for NoopEventPolling {
-    type Error = std::io::Error;
-
-    fn poll(self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
-        Ok(None)
-    }
 }
 
 #[expect(clippy::too_many_arguments)]
@@ -242,7 +208,11 @@ where
         mode,
     )
     .await?;
+
     render(app, terminal_guard)?;
+
+    app.fps.frame_finished();
+
     Ok(())
 }
 
@@ -332,6 +302,10 @@ where
         app.should_render = true;
     }
 
+    if app.fps.update() {
+        app.should_render = true;
+    }
+
     Ok(())
 }
 
@@ -341,6 +315,7 @@ where
     anyhow::Error: From<<T::Backend as Backend>::Error>,
 {
     if std::mem::take(&mut app.should_render) {
+        let _span = tracing::trace_span!("render").entered();
         terminal_guard.terminal_mut().draw(|frame| {
             app.renders += 1;
             app.render(frame)
@@ -370,6 +345,7 @@ struct App {
     options: TuiLaunchOptions,
     delayed_messages: Vec<Message>,
     incoming_out_of_band_messages: Vec<Rc<Receiver<Message>>>,
+    fps: FpsCounter,
 }
 
 impl App {
@@ -407,6 +383,7 @@ impl App {
             highlight: Default::default(),
             delayed_messages: Default::default(),
             incoming_out_of_band_messages: Default::default(),
+            fps: FpsCounter::new(),
             confirm: None,
             details,
             options,
@@ -1756,10 +1733,6 @@ impl App {
     }
 
     fn handle_enter_command_mode(&mut self) {
-        if !matches!(self.mode, Mode::Normal) {
-            return;
-        }
-
         let mut textarea = TextArea::default();
         textarea.set_cursor_line_style(Style::default());
         textarea.move_cursor(CursorMove::End);
@@ -1855,7 +1828,6 @@ impl App {
         Some(*commit_id)
     }
 
-    #[tracing::instrument(level = Level::TRACE, skip_all)]
     fn render(&self, frame: &mut Frame) {
         let content_layout =
             Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(frame.area());
@@ -2514,13 +2486,15 @@ impl App {
     }
 
     fn render_debug(&self, area: Rect, frame: &mut Frame) {
-        let renders = once(ListItem::new("Renders").black().on_blue())
-            .chain(once(ListItem::new(format!("{}", self.renders))));
+        let renders = once(ListItem::new("FPS").black().on_blue()).chain(once(ListItem::new(
+            format!("{} FPS ({} renders)", self.fps.fps(), self.renders),
+        )));
 
         let details_selection = format!("{:#?}", self.details.selection());
         let details_selection = once(ListItem::new("Details selection").black().on_blue()).chain(
             details_selection
                 .lines()
+                .take(100)
                 .map(|line| ListItem::new(line.to_owned())),
         );
 
@@ -2528,6 +2502,7 @@ impl App {
         let status_selection = once(ListItem::new("Status selection").black().on_blue()).chain(
             status_selection
                 .lines()
+                .take(100)
                 .map(|line| ListItem::new(line.to_owned())),
         );
 
