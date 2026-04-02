@@ -1902,10 +1902,7 @@ const ProjectPage: FC = () => {
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
-	const [_selection, select] = useLocalStorageState<Item | null>(
-		`project:${projectId}:workspace:selection`,
-		{ defaultValue: null },
-	);
+	const [_selection, select] = useState<Item | null>(null);
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
 	const selection =
 		(_selection ? normalizeItem(_selection, headInfo, worktreeChanges) : null) ??
