@@ -35,6 +35,9 @@ pub mod legacy;
 /// Types specifically for the user-interface.
 pub mod ui;
 
+/// Utilities for deterministic ordering operations.
+pub mod ordering;
+
 pub mod commit_engine;
 /// Tools for manipulating trees
 pub mod tree_manipulation;
@@ -45,6 +48,7 @@ pub use tree_manipulation::discard_worktree_changes::discard_workspace_changes;
 pub mod branch;
 
 mod changeset;
+mod workspace_graph;
 
 /// Utility types for the [`WorkspaceCommit`].
 pub mod commit;

@@ -3,7 +3,7 @@
 pub(crate) mod function {
     use anyhow::{Result, bail};
     use but_core::RefMetadata;
-    use but_graph::{SegmentIndex, SegmentRelation, projection::Workspace};
+    use but_graph::{SegmentRelation, projection::Workspace};
     use but_rebase::{
         commit::DateMode,
         graph_rebase::{
@@ -12,31 +12,12 @@ pub(crate) mod function {
         },
     };
 
+    use crate::workspace_graph::find_commit_segment_index;
+
     #[derive(Debug, Clone, Copy, Eq, PartialEq)]
     enum ReorderDirection {
         MoveSubjectAboveTarget,
         MoveSubjectBelowTarget,
-    }
-
-    fn find_commit_segment_index(
-        workspace: &Workspace,
-        commit_id: gix::ObjectId,
-    ) -> Option<SegmentIndex> {
-        let (_, stack_segment, _) = workspace.find_commit_and_containers(commit_id)?;
-        let commit_offset = stack_segment
-            .commits
-            .iter()
-            .position(|c| c.id == commit_id)?;
-
-        let mut owning_segment = stack_segment.id;
-        for (segment_id, offset) in &stack_segment.commits_by_segment {
-            if *offset > commit_offset {
-                break;
-            }
-            owning_segment = *segment_id;
-        }
-
-        Some(owning_segment)
     }
 
     fn determine_reorder_direction(
