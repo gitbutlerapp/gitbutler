@@ -1524,14 +1524,15 @@ const ProjectPage: FC = () => {
 
 	const [_selection, select] = useState<Item | null>(null);
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
+	const navigationModel = buildNavigationModel({
+		headInfo,
+		changes: worktreeChanges.changes,
+		assignments: worktreeChanges.assignments,
+		commonBaseCommitId,
+	});
 	const selection =
 		(_selection ? normalizeItem(_selection, headInfo, worktreeChanges) : null) ??
-		buildNavigationModel({
-			headInfo,
-			changes: worktreeChanges.changes,
-			assignments: worktreeChanges.assignments,
-			commonBaseCommitId,
-		}).items[0] ??
+		navigationModel.items[0] ??
 		null;
 	const highlightCommits = (commitIds: Array<string> | null) => {
 		setHighlightedCommitIds(commitIds ? new Set(commitIds) : new Set());
@@ -1556,7 +1557,7 @@ const ProjectPage: FC = () => {
 		scope: shortcutScope,
 		select,
 		setEditing,
-		commonBaseCommitId,
+		navigationModel,
 		requestAbsorptionPlan,
 	});
 

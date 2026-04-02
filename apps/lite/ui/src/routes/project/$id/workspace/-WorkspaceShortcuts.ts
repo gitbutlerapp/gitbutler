@@ -1,7 +1,6 @@
 import {
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
-	headInfoQueryOptions,
 } from "#ui/api/queries.ts";
 import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
 import { usePreviewPanel } from "#ui/hooks/usePreviewPanel.ts";
@@ -22,11 +21,11 @@ import {
 	BaseCommitItem,
 } from "./-Item.ts";
 import {
-	buildNavigationModel,
 	getAdjacentCommitDetailsPath,
 	getAdjacentItem,
 	getAdjacentSection,
 	getSelectedCommitPath,
+	type NavigationModel,
 } from "./-Selection.ts";
 
 type SelectionAction =
@@ -403,28 +402,21 @@ export const useWorkspaceShortcuts = ({
 	scope,
 	select,
 	setEditing,
-	commonBaseCommitId,
+	navigationModel,
 	requestAbsorptionPlan,
 }: {
 	projectId: string;
 	scope: Scope | null;
 	select: (selection: Item | null) => void;
 	setEditing: (selection: Editing | null) => void;
-	commonBaseCommitId?: string;
+	navigationModel: NavigationModel;
 	requestAbsorptionPlan: (changes: Array<TreeChange>, stackId: string | null) => void;
 }) => {
-	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 	const [, setShowPreviewPanel] = usePreviewPanel();
 	const [, setShowFullscreenPreview] = useFullscreenPreview(projectId);
 
 	const queryClient = useQueryClient();
-	const navigationModel = buildNavigationModel({
-		headInfo,
-		changes: worktreeChanges.changes,
-		assignments: worktreeChanges.assignments,
-		commonBaseCommitId,
-	});
 
 	const moveCommitDetails = (offset: -1 | 1, selection: CommitItem) => {
 		const commitDetails = queryClient.getQueryData(
