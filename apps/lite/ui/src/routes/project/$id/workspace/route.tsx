@@ -741,12 +741,7 @@ const CommitTarget: FC<
 		}),
 	});
 
-	const rubTooltip = operation
-		? Match.value(operation).pipe(
-				Match.tag("Rub", (operation) => rubOperationLabel(operation)),
-				Match.orElse(() => null),
-			)
-		: null;
+	const rubTooltip = operation && operation._tag === "Rub" ? rubOperationLabel(operation) : null;
 
 	return (
 		<div className={styles.commit}>
