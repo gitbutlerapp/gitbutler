@@ -3,6 +3,7 @@ import {
 	commitDiscardMutationOptions,
 	commitInsertBlankMutationOptions,
 	commitRewordMutationOptions,
+	removeBranchMutationOptions,
 	updateBranchNameMutationOptions,
 	unapplyStackMutationOptions,
 } from "#ui/api/mutations.ts";
@@ -64,7 +65,15 @@ import {
 	attachInstruction,
 	extractInstruction,
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item";
-import { ContextMenu, Menu, mergeProps, Tooltip, Toast, useRender } from "@base-ui/react";
+import {
+	AlertDialog,
+	ContextMenu,
+	Menu,
+	mergeProps,
+	Tooltip,
+	Toast,
+	useRender,
+} from "@base-ui/react";
 import {
 	Commit,
 	DiffHunk,
@@ -121,6 +130,7 @@ import {
 import { PositionedShortcutsBar } from "../-ShortcutsBar.tsx";
 import { formatShortcutKeys, ShortcutActionBase, type ShortcutBinding } from "#ui/shortcuts.ts";
 import styles from "./route.module.css";
+import { RemoveBranchParams } from "#electron/ipc.ts";
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 const decodeRefName = (fullNameBytes: Array<number>): string =>
@@ -1526,20 +1536,57 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 };
 
 const SegmentMenuPopup: FC<{
-	canRename: boolean;
-	onRename: () => void;
+	canRemoveBranch: boolean;
+	canRenameBranch: boolean;
+	onRemoveBranch: () => void;
+	onRenameBranch: () => void;
 	parts: typeof Menu | typeof ContextMenu;
-}> = ({ canRename, onRename, parts }) => {
+}> = ({ canRemoveBranch, canRenameBranch, onRemoveBranch, onRenameBranch, parts }) => {
 	const { Popup, Item } = parts;
 
 	return (
 		<Popup className={classes(uiStyles.popup, uiStyles.menuPopup)}>
-			<Item className={uiStyles.menuItem} disabled={!canRename} onClick={onRename}>
+			<Item className={uiStyles.menuItem} disabled={!canRenameBranch} onClick={onRenameBranch}>
 				Rename branch
+			</Item>
+			<Item className={uiStyles.menuItem} disabled={!canRemoveBranch} onClick={onRemoveBranch}>
+				Remove branch
 			</Item>
 		</Popup>
 	);
 };
+
+const RemoveBranchDialog: FC<{
+	branchName: string;
+	isPending: boolean;
+	onConfirm: () => void;
+	onOpenChange: (open: boolean) => void;
+}> = ({ branchName, isPending, onConfirm, onOpenChange }) => (
+	<AlertDialog.Root open onOpenChange={onOpenChange}>
+		<AlertDialog.Portal>
+			<AlertDialog.Backdrop className={uiStyles.dialogBackdrop} />
+			<AlertDialog.Popup className={uiStyles.dialogPopup}>
+				<AlertDialog.Title>Remove branch</AlertDialog.Title>
+				<p>
+					Are you sure you want to remove <code>{branchName}</code>?
+				</p>
+				<div className={styles.dialogActions}>
+					<AlertDialog.Close className={uiStyles.button} disabled={isPending}>
+						Cancel
+					</AlertDialog.Close>
+					<button
+						type="button"
+						className={uiStyles.button}
+						onClick={onConfirm}
+						disabled={isPending}
+					>
+						Remove branch
+					</button>
+				</div>
+			</AlertDialog.Popup>
+		</AlertDialog.Portal>
+	</AlertDialog.Root>
+);
 
 const InlineBranchNameEditor: FC<{
 	branchName: string;
@@ -1582,6 +1629,7 @@ const SegmentRow: FC<
 	{
 		projectId: string;
 		editing: Editing | null;
+		onRequestRemoveBranch: (params: { stackId: string; branchName: string }) => void;
 		segment: Segment;
 		stackId: string;
 		segmentIndex: number;
@@ -1592,6 +1640,7 @@ const SegmentRow: FC<
 > = ({
 	projectId,
 	editing,
+	onRequestRemoveBranch,
 	segment,
 	stackId,
 	segmentIndex,
@@ -1666,6 +1715,11 @@ const SegmentRow: FC<
 		});
 	};
 
+	const requestRemoveBranch = () => {
+		if (branchName === null) return;
+		onRequestRemoveBranch({ stackId, branchName });
+	};
+
 	const children = (
 		<div
 			{...restProps}
@@ -1697,8 +1751,10 @@ const SegmentRow: FC<
 					<ContextMenu.Portal>
 						<ContextMenu.Positioner>
 							<SegmentMenuPopup
-								canRename={branchName !== null && !isRenamePending}
-								onRename={startEditing}
+								canRemoveBranch={branchName !== null}
+								canRenameBranch={branchName !== null && !isRenamePending}
+								onRemoveBranch={requestRemoveBranch}
+								onRenameBranch={startEditing}
 								parts={ContextMenu}
 							/>
 						</ContextMenu.Positioner>
@@ -1715,8 +1771,10 @@ const SegmentRow: FC<
 				<Menu.Portal>
 					<Menu.Positioner align="end">
 						<SegmentMenuPopup
-							canRename={branchName !== null && !isRenamePending}
-							onRename={startEditing}
+							canRemoveBranch={branchName !== null}
+							canRenameBranch={branchName !== null && !isRenamePending}
+							onRemoveBranch={requestRemoveBranch}
+							onRenameBranch={startEditing}
 							parts={Menu}
 						/>
 					</Menu.Positioner>
@@ -1744,6 +1802,7 @@ const SegmentRow: FC<
 
 const SegmentC: FC<{
 	highlightedCommitIds: Set<string>;
+	onRequestRemoveBranch: (params: { stackId: string; branchName: string }) => void;
 	projectId: string;
 	segment: Segment;
 	segmentIndex: number;
@@ -1755,6 +1814,7 @@ const SegmentC: FC<{
 }> = ({
 	editing,
 	highlightedCommitIds,
+	onRequestRemoveBranch,
 	projectId,
 	segment,
 	segmentIndex,
@@ -1776,6 +1836,7 @@ const SegmentC: FC<{
 			<SegmentRow
 				projectId={projectId}
 				editing={editing}
+				onRequestRemoveBranch={onRequestRemoveBranch}
 				segment={segment}
 				stackId={stackId}
 				segmentIndex={segmentIndex}
@@ -1810,6 +1871,7 @@ const StackC: FC<{
 	highlightedCommitIds: Set<string>;
 	onAbsorbChanges: (changes: Array<TreeChange>, stackId: string | null) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
+	onRequestRemoveBranch: (params: Omit<RemoveBranchParams, "projectId">) => void;
 	projectId: string;
 	selection: Item | null;
 	select: (selection: Item | null) => void;
@@ -1821,6 +1883,7 @@ const StackC: FC<{
 	highlightedCommitIds,
 	onAbsorbChanges,
 	onDependencyHover,
+	onRequestRemoveBranch,
 	projectId,
 	selection,
 	select,
@@ -1872,6 +1935,7 @@ const StackC: FC<{
 						<SegmentC
 							editing={editing}
 							highlightedCommitIds={highlightedCommitIds}
+							onRequestRemoveBranch={onRequestRemoveBranch}
 							projectId={projectId}
 							segment={segment}
 							segmentIndex={segmentIndex}
@@ -1934,6 +1998,28 @@ const ProjectPage: FC = () => {
 	} = useAbsorption(projectId);
 
 	useMonitorDraggedSourceItem({ projectId });
+
+	const removeBranch = useMutation(removeBranchMutationOptions);
+	const [branchPendingRemoval, setBranchPendingRemoval] = useState<Omit<
+		RemoveBranchParams,
+		"projectId"
+	> | null>(null);
+	const confirmRemoveBranch = () => {
+		if (branchPendingRemoval === null) return;
+
+		removeBranch.mutate(
+			{
+				projectId,
+				stackId: branchPendingRemoval.stackId,
+				branchName: branchPendingRemoval.branchName,
+			},
+			{
+				onSuccess: () => {
+					setBranchPendingRemoval(null);
+				},
+			},
+		);
+	};
 	useWorkspaceShortcuts({
 		projectId,
 		scope: shortcutScope,
@@ -1941,6 +2027,10 @@ const ProjectPage: FC = () => {
 		setEditing,
 		commonBaseCommitId,
 		onAbsorbChanges: requestAbsorptionPlan,
+		onRemoveBranch: ({ stackId, branchName }) => {
+			if (branchName === null) return;
+			setBranchPendingRemoval({ stackId, branchName });
+		},
 	});
 
 	// TODO: dedupe
@@ -1982,6 +2072,7 @@ const ProjectPage: FC = () => {
 									highlightedCommitIds={highlightedCommitIds}
 									onAbsorbChanges={requestAbsorptionPlan}
 									onDependencyHover={highlightCommits}
+									onRequestRemoveBranch={setBranchPendingRemoval}
 									projectId={project.id}
 									selection={selection}
 									select={select}
@@ -2024,6 +2115,7 @@ const ProjectPage: FC = () => {
 				label={shortcutScope ? getLabel(shortcutScope) : null}
 				items={shortcutScope?.bindings ?? []}
 			/>
+
 			{absorptionPlan !== null && (
 				<AbsorptionDialog
 					absorptionPlan={absorptionPlan}
@@ -2031,6 +2123,16 @@ const ProjectPage: FC = () => {
 					onConfirm={confirmAbsorption}
 					onOpenChange={(open) => {
 						if (!open) clearAbsorptionPlan();
+					}}
+				/>
+			)}
+			{branchPendingRemoval !== null && (
+				<RemoveBranchDialog
+					branchName={branchPendingRemoval.branchName}
+					isPending={removeBranch.isPending}
+					onConfirm={confirmRemoveBranch}
+					onOpenChange={(open) => {
+						if (!open) setBranchPendingRemoval(null);
 					}}
 				/>
 			)}

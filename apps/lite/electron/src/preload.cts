@@ -84,6 +84,7 @@ const api: LiteElectronApi = {
 	listProjects: () => ipcRenderer.invoke("projects:list") as Promise<Array<ProjectForFrontend>>,
 	moveBranch: (params) =>
 		ipcRenderer.invoke("workspace:move-branch", params) as Promise<UIMoveBranchResult>,
+	removeBranch: (params) => ipcRenderer.invoke("workspace:remove-branch", params) as Promise<void>,
 	updateBranchName: (params) =>
 		ipcRenderer.invoke("workspace:update-branch-name", params) as Promise<void>,
 	tearOffBranch: (params) =>

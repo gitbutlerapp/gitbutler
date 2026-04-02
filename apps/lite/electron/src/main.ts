@@ -17,6 +17,7 @@ import {
 	type CommitUncommitChangesParams,
 	type MoveBranchParams,
 	type PushStackLegacyParams,
+	type RemoveBranchParams,
 	type TearOffBranchParams,
 	type TreeChangeDiffParams,
 	type UpdateBranchNameParams,
@@ -47,6 +48,7 @@ import {
 	listProjectsStateless,
 	moveBranch,
 	pushStackLegacy,
+	removeBranch,
 	tearOffBranch,
 	treeChangeDiffs,
 	unapplyStack,
@@ -144,6 +146,11 @@ function registerIpcHandlers(): void {
 		liteIpcChannels.moveBranch,
 		(_e, { projectId, subjectBranch, targetBranch }: MoveBranchParams) =>
 			moveBranch(projectId, subjectBranch, targetBranch),
+	);
+	ipcMain.handle(
+		liteIpcChannels.removeBranch,
+		(_e, { projectId, stackId, branchName }: RemoveBranchParams) =>
+			removeBranch(projectId, stackId, branchName),
 	);
 	ipcMain.handle(
 		liteIpcChannels.updateBranchName,
