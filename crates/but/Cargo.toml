@@ -105,7 +105,7 @@ clap = { workspace = true, features = [
     "usage",
     "suggestions",
 ] }
-clap_complete = "4.5.64"
+clap_complete = "4.6.0"
 chrono.workspace = true
 bstr.workspace = true
 regex.workspace = true
@@ -116,7 +116,7 @@ gix = { workspace = true, features = ["tracing", "tracing-detail"] }
 colored = "3.0.0"
 serde_json.workspace = true
 boolean-enums.workspace = true
-terminal_size = "0.4.3"
+terminal_size = "0.4.4"
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = [
     "env-filter",
