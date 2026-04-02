@@ -20,6 +20,8 @@ pub mod move_commit;
 pub use move_commit::function::move_commit;
 pub mod discard_commit;
 pub use discard_commit::function::discard_commit;
+pub mod squash_commits;
+pub use squash_commits::function::{SquashCommitsOutcome, squash_commits};
 
 /// A minimal stack for use by [WorkspaceCommit::new_from_stacks()].
 #[derive(Clone)]
