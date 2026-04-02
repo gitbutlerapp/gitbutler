@@ -14,7 +14,7 @@ import {
 	TreeChange,
 	UnifiedPatch,
 } from "@gitbutler/but-sdk";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { ComponentProps, FC, ReactNode } from "react";
 import styles from "./-shared.module.css";
@@ -278,15 +278,16 @@ export const ShowBranch: FC<{
 	remote: string | null;
 	renderHunk: (change: TreeChange, hunk: DiffHunk, patch: Patch) => ReactNode;
 }> = ({ projectId, branchName, remote, renderHunk }) => {
-	const { data: branchDetails } = useSuspenseQuery(
-		branchDetailsQueryOptions({ projectId, branchName, remote }),
-	);
-	const { data: branchDiff } = useSuspenseQuery(
-		branchDiffQueryOptions({
-			projectId,
-			branch: remote !== null ? `refs/remotes/${remote}/${branchName}` : `refs/heads/${branchName}`,
-		}),
-	);
+	const [{ data: branchDetails }, { data: branchDiff }] = useSuspenseQueries({
+		queries: [
+			branchDetailsQueryOptions({ projectId, branchName, remote }),
+			branchDiffQueryOptions({
+				projectId,
+				branch:
+					remote !== null ? `refs/remotes/${remote}/${branchName}` : `refs/heads/${branchName}`,
+			}),
+		],
+	});
 
 	return (
 		<>
