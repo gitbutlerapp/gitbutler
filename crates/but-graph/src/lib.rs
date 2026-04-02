@@ -263,6 +263,21 @@ pub struct EntryPoint<'graph> {
     pub commit: Option<&'graph Commit>,
 }
 
+/// Relationship of one segment to another in terms of graph ancestry.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum SegmentRelation {
+    /// Both segment indices point to the same segment.
+    Identity,
+    /// The first segment is an ancestor of the second segment.
+    Ancestor,
+    /// The first segment is a descendant of the second segment.
+    Descendant,
+    /// Segments share history, but neither is ancestor of the other.
+    Diverged,
+    /// Segments do not share any history.
+    Disjoint,
+}
+
 /// This structure is used as data associated with each edge and is mainly for collecting
 /// the intent of an edge, which should always represent the connection of a commit to another.
 /// Sometimes, it represents the connection from a commit (or segment) to an empty segment which

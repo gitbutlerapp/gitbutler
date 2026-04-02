@@ -5,6 +5,7 @@ mod insert_blank_commit;
 mod move_changes;
 mod move_commit;
 mod reword;
+mod squash_commits;
 mod uncommit_changes;
 
 mod from_new_merge_with_metadata {

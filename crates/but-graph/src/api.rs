@@ -14,7 +14,7 @@ use petgraph::{
 
 use crate::{
     Commit, CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentFlags, SegmentIndex,
-    init::PetGraph, projection::commit::is_managed_workspace_by_message,
+    SegmentRelation, init::PetGraph, projection::commit::is_managed_workspace_by_message,
 };
 
 /// Mutation
@@ -74,6 +74,24 @@ impl Graph {
 
 /// Merge-base computation
 impl Graph {
+    /// Determine the ancestry relationship of `a` relative to `b`.
+    ///
+    /// `Ancestor` means `a` is reachable from `b` when walking towards history,
+    /// `Descendant` means the inverse, and `Diverged` means they share history
+    /// but neither is ancestor of the other.
+    pub fn relation_between(&self, a: SegmentIndex, b: SegmentIndex) -> SegmentRelation {
+        if a == b {
+            return SegmentRelation::Identity;
+        }
+
+        match self.find_git_merge_base(a, b) {
+            Some(base) if base == a => SegmentRelation::Ancestor,
+            Some(base) if base == b => SegmentRelation::Descendant,
+            Some(_) => SegmentRelation::Diverged,
+            None => SegmentRelation::Disjoint,
+        }
+    }
+
     /// Compute the merge-base just like Git would between segments `a` and `b`, but finding all possible merge-bases of a walk,
     /// which are then truncated to the highest merge-base that includes all the other merge-bases.
     ///

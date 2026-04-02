@@ -1,5 +1,6 @@
 import {
 	aggregateFileDependencies,
+	filterDependenciesByAssignments,
 	type FileDependencies,
 	type HunkDependencies,
 } from "$lib/hunks/dependencies";
@@ -37,16 +38,17 @@ export default class DependencyService {
 		);
 	}
 
-	filesDependencies(projectId: string, filePaths: string[]) {
+	filesDependencies(projectId: string, filePaths: string[], stackId?: string) {
 		return this.worktreeService.worktreeChanges.useQuery(
 			{ projectId },
 			{
-				transform: ({ dependencies }) => {
+				transform: ({ dependencies, hunkAssignments }) => {
 					if (!dependencies) {
 						return [];
 					}
 
-					const e = toEntityAdapter(dependencies);
+					const filtered = filterDependenciesByAssignments(dependencies, hunkAssignments, stackId);
+					const e = toEntityAdapter(filtered);
 					return fileDependencySelectors.selectByIds(e.fileDependencies, filePaths);
 				},
 			},

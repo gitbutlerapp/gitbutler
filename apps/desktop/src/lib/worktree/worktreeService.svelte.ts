@@ -28,8 +28,7 @@ export class WorktreeService {
 	}
 
 	worktreeData(projectId: string) {
-		const result = $derived(this.backendApi.endpoints.worktreeChanges.useQuery({ projectId }));
-		return result;
+		return this.backendApi.endpoints.worktreeChanges.useQuery({ projectId });
 	}
 
 	treeChangeByPath(projectId: string, path: string) {
