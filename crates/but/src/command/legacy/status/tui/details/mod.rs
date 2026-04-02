@@ -71,15 +71,12 @@ const MONOKAI_THEME: &[u8] =
 pub(super) enum DetailsVisibility {
     #[default]
     Hidden,
-    VisibleVertical {
-        focused: bool,
-    },
+    VisibleVertical,
 }
 
 #[derive(Debug, Clone)]
 pub(super) enum DetailsMessage {
     ToggleVisibility,
-    ToggleFocus,
     Deselect,
     SelectFirstSection,
     SelectNextSection,
@@ -136,7 +133,7 @@ impl Details {
     pub(super) fn new_visible() -> Self {
         Self {
             is_dirty: true,
-            visibility: DetailsVisibility::VisibleVertical { focused: false },
+            visibility: DetailsVisibility::VisibleVertical,
             ..Self::new_hidden()
         }
     }
@@ -157,14 +154,7 @@ impl Details {
     pub(super) fn is_visible(&self) -> bool {
         match self.visibility {
             DetailsVisibility::Hidden => false,
-            DetailsVisibility::VisibleVertical { .. } => true,
-        }
-    }
-
-    pub(super) fn is_focused(&self) -> bool {
-        match self.visibility {
-            DetailsVisibility::VisibleVertical { focused } => focused,
-            DetailsVisibility::Hidden => false,
+            DetailsVisibility::VisibleVertical => true,
         }
     }
 
@@ -192,17 +182,20 @@ impl Details {
 
         match self.visibility {
             DetailsVisibility::Hidden => return false,
-            DetailsVisibility::VisibleVertical { .. } => {}
+            DetailsVisibility::VisibleVertical => {}
         }
 
         match msg {
             Message::JustRender
             | Message::CopySelection
             | Message::Quit
+            | Message::EnterDetailsMode
+            | Message::LeaveDetailsMode
             | Message::ShowError(_)
             | Message::ShowToast { .. }
             | Message::Confirm(_)
             | Message::RegisterMessageOnDrop(_)
+            | Message::WithOneFrameDelay(_)
             | Message::EnterNormalMode => false,
 
             Message::MoveCursorUp
@@ -240,8 +233,7 @@ impl Details {
                 BranchMessage::New => true,
             },
             Message::Details(details_message) => match details_message {
-                DetailsMessage::ToggleFocus
-                | DetailsMessage::Unlock // `unlock` sets the dirty flag if necessary
+                DetailsMessage::Unlock // `unlock` sets the dirty flag if necessary
                 | DetailsMessage::Deselect
                 | DetailsMessage::SelectFirstSection
                 | DetailsMessage::SelectNextSection
@@ -281,36 +273,21 @@ impl Details {
             }
             DetailsMessage::ToggleVisibility => {
                 self.visibility = match self.visibility {
-                    DetailsVisibility::Hidden => {
-                        DetailsVisibility::VisibleVertical { focused: false }
-                    }
-                    DetailsVisibility::VisibleVertical { .. } => DetailsVisibility::Hidden,
+                    DetailsVisibility::Hidden => DetailsVisibility::VisibleVertical,
+                    DetailsVisibility::VisibleVertical => DetailsVisibility::Hidden,
                 };
 
                 match self.visibility {
                     DetailsVisibility::Hidden => {
                         self.cursor = DetailsCursor::default();
                         self.scroll_top = 0;
+                        messages.push(Message::LeaveDetailsMode);
                     }
-                    DetailsVisibility::VisibleVertical { .. } => {
+                    DetailsVisibility::VisibleVertical => {
                         self.mark_dirty();
                     }
                 }
             }
-            DetailsMessage::ToggleFocus => match &mut self.visibility {
-                DetailsVisibility::Hidden => {}
-                DetailsVisibility::VisibleVertical { focused } => {
-                    if *focused {
-                        *focused = false;
-                        if !self.is_locked {
-                            messages.push(Message::Details(DetailsMessage::Deselect));
-                        }
-                    } else {
-                        *focused = true;
-                        messages.push(Message::Details(DetailsMessage::SelectFirstSection));
-                    }
-                }
-            },
             DetailsMessage::Deselect => {
                 self.cursor.deselect();
             }
@@ -334,13 +311,10 @@ impl Details {
 
                 let unlock = self.lock(messages);
 
-                messages.extend([
-                    Message::Details(DetailsMessage::ToggleFocus),
-                    Message::Rub(RubMessage::StartWithSource {
-                        source,
-                        unlock_details: Some(unlock),
-                    }),
-                ]);
+                messages.extend([Message::Rub(RubMessage::StartWithSource {
+                    source,
+                    unlock_details: Some(unlock),
+                })]);
             }
             DetailsMessage::Unlock => {
                 self.unlock();

@@ -46,7 +46,7 @@ impl<'a> Operation<'a> {
                     path,
                 } = source;
 
-                let changes: Vec<but_core::DiffSpec> = Vec::from([but_core::DiffSpec {
+                let changes = Vec::from([but_core::DiffSpec {
                     previous_path: None,
                     path: Arc::unwrap_or_clone(Arc::clone(path)),
                     hunk_headers: Vec::from([*header]),

@@ -40,7 +40,7 @@ use crate::{
                 details::{Details, DetailsMessage, DetailsVisibility, RenderNextChunkResult},
                 graph_extension::{ExtensionDirection, extend_connector_spans},
                 highlight::{Highlights, with_highlight},
-                key_bind::{KeyBinds, confirm_key_binds, default_key_binds, detail_key_binds},
+                key_bind::{KeyBinds, confirm_key_binds, default_key_binds},
                 message_on_drop::MessageOnDrop,
                 mode::{
                     CommandMode, CommitMode, CommitSource, InlineRewordMode, Mode, MoveMode,
@@ -69,7 +69,7 @@ mod message_on_drop;
 mod mode;
 mod operations;
 mod rub_api;
-mod rub_committed_hunk;
+mod rub_from_detail_view;
 mod toast;
 
 #[cfg(test)]
@@ -288,6 +288,7 @@ where
         });
 
     // handle messages
+    messages.append(&mut app.delayed_messages);
     loop {
         if messages.is_empty() {
             break;
@@ -359,7 +360,6 @@ struct App {
     mode: Mode,
     key_binds: KeyBinds,
     confirm_key_binds: KeyBinds,
-    detail_key_binds: KeyBinds,
     toasts: Toasts,
     renders: u64,
     updates: u64,
@@ -367,6 +367,7 @@ struct App {
     confirm: Option<Confirm>,
     details: Details,
     options: TuiLaunchOptions,
+    delayed_messages: Vec<Message>,
     incoming_out_of_band_messages: Vec<Rc<Receiver<Message>>>,
 }
 
@@ -399,11 +400,11 @@ impl App {
             mode: Mode::default(),
             key_binds: default_key_binds(),
             confirm_key_binds: confirm_key_binds(),
-            detail_key_binds: detail_key_binds(),
             toasts: Default::default(),
             renders: 0,
             updates: 0,
             highlight: Default::default(),
+            delayed_messages: Default::default(),
             incoming_out_of_band_messages: Default::default(),
             confirm: None,
             details,
@@ -414,8 +415,6 @@ impl App {
     fn active_key_binds(&self) -> &KeyBinds {
         if self.confirm.is_some() {
             &self.confirm_key_binds
-        } else if self.details.is_focused() {
-            &self.detail_key_binds
         } else {
             &self.key_binds
         }
@@ -604,6 +603,12 @@ impl App {
             Message::EnterNormalMode => {
                 self.handle_enter_normal_mode(messages);
             }
+            Message::EnterDetailsMode => {
+                self.handle_enter_details_mode(messages);
+            }
+            Message::LeaveDetailsMode => {
+                self.handle_leave_details_mode(messages);
+            }
             Message::Files(files_message) => match files_message {
                 FilesMessage::ToggleGlobalFilesList => {
                     self.handle_toggle_global_files_list(messages)
@@ -680,6 +685,9 @@ impl App {
             Message::RegisterMessageOnDrop(rx) => {
                 self.incoming_out_of_band_messages.push(rx);
             }
+            Message::WithOneFrameDelay(msg) => {
+                self.delayed_messages.push(*msg);
+            }
         }
 
         self.ensure_cursor_visible(visible_height);
@@ -698,6 +706,10 @@ impl App {
                     messages.push(Message::Files(FilesMessage::ToggleFilesForCommit));
                 }
             }
+        }
+
+        if matches!(self.mode, Mode::Details) {
+            messages.push(Message::Details(DetailsMessage::Deselect));
         }
 
         self.mode = Mode::Normal;
@@ -725,6 +737,27 @@ impl App {
                 }
             }
             FilesStatusFlag::None | FilesStatusFlag::All => {}
+        }
+    }
+
+    fn handle_enter_details_mode(&mut self, messages: &mut Vec<Message>) {
+        self.mode = Mode::Details;
+        if self.details.is_visible() {
+            messages.push(Message::Details(DetailsMessage::SelectFirstSection));
+        } else {
+            messages.push(Message::Details(DetailsMessage::ToggleVisibility));
+
+            // We can't select the first section on the same frame that we show the detail view.
+            // The incremental diff rendering introduces a one frame delay before the first section
+            // is shown.
+            messages
+                .push(Message::Details(DetailsMessage::SelectFirstSection).with_one_frame_delay());
+        }
+    }
+
+    fn handle_leave_details_mode(&mut self, messages: &mut Vec<Message>) {
+        if matches!(self.mode, Mode::Details) {
+            messages.push(Message::EnterNormalMode);
         }
     }
 
@@ -759,7 +792,7 @@ impl App {
                     || match &source {
                         RubSource::CliId(source) => rub::route_operation(source, target).is_some(),
                         RubSource::CommittedHunk(hunk) => {
-                            rub_committed_hunk::route_operation(hunk, target).is_some()
+                            rub_from_detail_view::route_operation(hunk, target).is_some()
                         }
                     }
             })
@@ -910,7 +943,7 @@ impl App {
                         }
                         RubSource::CommittedHunk(hunk) => {
                             if let Some(operation) =
-                                rub_committed_hunk::route_operation(hunk, target)
+                                rub_from_detail_view::route_operation(hunk, target)
                             {
                                 Some(Message::Reload(Some(operation.execute(ctx)?)))
                             } else {
@@ -951,7 +984,7 @@ impl App {
                         }
                         RubSource::CommittedHunk(hunk) => {
                             if let Some(operation) =
-                                rub_committed_hunk::route_operation(hunk, target)
+                                rub_from_detail_view::route_operation(hunk, target)
                             {
                                 Some(Message::Reload(Some(operation.execute(ctx)?)))
                             } else {
@@ -965,6 +998,7 @@ impl App {
             }
             Mode::Normal
             | Mode::Branch
+            | Mode::Details
             | Mode::InlineReword(..)
             | Mode::Command(..)
             | Mode::Commit(..)
@@ -1843,11 +1877,11 @@ impl App {
             .border_type(BorderType::Plain)
             .borders(Borders::BOTTOM);
         let focused_block = Block::bordered()
-            .border_style(Style::default().blue())
+            .border_style(Style::default().fg(self.mode.bg()))
             .border_type(BorderType::Thick)
             .borders(Borders::BOTTOM);
 
-        let (status_block, details_block) = if self.details.is_focused() {
+        let (status_block, details_block) = if matches!(self.mode, Mode::Details) {
             (dimmed_block, focused_block)
         } else {
             (focused_block, dimmed_block)
@@ -1881,7 +1915,7 @@ impl App {
     fn status_layout(&self, area: Rect) -> StatusLayout {
         let (status_area, details_area) = match self.details.visibility() {
             DetailsVisibility::Hidden => (area, None),
-            DetailsVisibility::VisibleVertical { .. } => {
+            DetailsVisibility::VisibleVertical => {
                 let layout =
                     Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
                         .split(area);
@@ -1938,7 +1972,7 @@ impl App {
 
         if is_selected {
             match &self.mode {
-                Mode::Normal | Mode::InlineReword(..) | Mode::Command(..) => {}
+                Mode::Normal | Mode::InlineReword(..) | Mode::Command(..) | Mode::Details => {}
                 Mode::Rub(RubMode {
                     source,
                     available_targets: _,
@@ -1982,7 +2016,11 @@ impl App {
             }
         } else {
             match &self.mode {
-                Mode::Normal | Mode::InlineReword(..) | Mode::Command(..) | Mode::Branch => {}
+                Mode::Normal
+                | Mode::InlineReword(..)
+                | Mode::Command(..)
+                | Mode::Branch
+                | Mode::Details => {}
                 Mode::Rub(RubMode {
                     source,
                     available_targets: _,
@@ -2106,6 +2144,7 @@ impl App {
             }
             Mode::Normal
             | Mode::Branch
+            | Mode::Details
             | Mode::Move(..)
             | Mode::Command(..)
             | Mode::Rub(..)
@@ -2178,6 +2217,7 @@ impl App {
                 Mode::Commit(..)
                 | Mode::Branch
                 | Mode::Normal
+                | Mode::Details
                 | Mode::Rub(..)
                 | Mode::RubButApi(..)
                 | Mode::InlineReword(..)
@@ -2207,7 +2247,7 @@ impl App {
                 rub_operation_display_legacy(source, target).unwrap_or("invalid")
             }
             RubSource::CommittedHunk(hunk) => {
-                rub_committed_hunk::rub_operation_display(hunk, target).unwrap_or("invalid")
+                rub_from_detail_view::rub_operation_display(hunk, target).unwrap_or("invalid")
             }
         };
         line.extend([
@@ -2244,7 +2284,7 @@ impl App {
                 }
             }
             RubSource::CommittedHunk(hunk) => Cow::Borrowed(
-                rub_committed_hunk::rub_operation_display(hunk, target).unwrap_or("invalid"),
+                rub_from_detail_view::rub_operation_display(hunk, target).unwrap_or("invalid"),
             ),
         };
         line.extend([
@@ -2324,12 +2364,6 @@ impl App {
     }
 
     fn render_hotbar(&self, area: Rect, frame: &mut Frame) {
-        // When the diff view is focused, perhaps the bar at the bottom show a different mode
-        // instead of "normal". That's what jjui does and I've copied it for Lite also.
-        //
-        // I think details focus should just be a separate mode
-        let todo_ = ();
-
         let mode_span = Span::raw(format!(
             "  {}  ",
             match self.mode {
@@ -2341,6 +2375,7 @@ impl App {
                 Mode::Commit(..) => "commit",
                 Mode::Move(..) => "move",
                 Mode::Branch => "branch",
+                Mode::Details => "details",
             }
         ))
         .mode_colors(&self.mode);
@@ -2359,6 +2394,7 @@ impl App {
         match &self.mode {
             Mode::Normal
             | Mode::Branch
+            | Mode::Details
             | Mode::Rub(..)
             | Mode::RubButApi(..)
             | Mode::Commit(..)
@@ -2519,6 +2555,7 @@ fn event_to_messages(ev: Event, key_binds: &KeyBinds, mode: &Mode, messages: &mu
                     }
                     Mode::Normal
                     | Mode::Branch
+                    | Mode::Details
                     | Mode::Rub(..)
                     | Mode::RubButApi(..)
                     | Mode::Commit(..)
@@ -2538,6 +2575,7 @@ fn event_to_messages(ev: Event, key_binds: &KeyBinds, mode: &Mode, messages: &mu
             }
             Mode::Normal
             | Mode::Branch
+            | Mode::Details
             | Mode::Rub(..)
             | Mode::RubButApi(..)
             | Mode::Commit(..)
@@ -2581,6 +2619,8 @@ enum Message {
     Move(MoveMessage),
     Branch(BranchMessage),
     Details(DetailsMessage),
+    EnterDetailsMode,
+    LeaveDetailsMode,
 
     // Utilities
     CopySelection,
@@ -2589,6 +2629,14 @@ enum Message {
         DebugAsType<Arc<dyn Fn(&mut App, &mut Context, &mut Vec<Message>) -> anyhow::Result<()>>>,
     ),
     RegisterMessageOnDrop(Rc<Receiver<Message>>),
+    WithOneFrameDelay(Box<Message>),
+}
+
+impl Message {
+    /// Delay a message so it wont be handled until the next frame.
+    pub(super) fn with_one_frame_delay(self) -> Self {
+        Self::WithOneFrameDelay(Box::new(self))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -2850,28 +2898,7 @@ trait SpanExt {
 
 impl SpanExt for Span<'_> {
     fn mode_colors(self, mode: &Mode) -> Self {
-        let bg = match mode {
-            Mode::Normal => Color::DarkGray,
-            Mode::Commit(_) => Color::Green,
-            Mode::Rub(_) | Mode::RubButApi(_) => Color::Blue,
-            Mode::InlineReword(_) => Color::Magenta,
-            Mode::Command(_) => Color::Yellow,
-            Mode::Move(..) => Color::Cyan,
-            Mode::Branch => Color::Red,
-        };
-
-        let fg = match mode {
-            Mode::Normal => Color::White,
-            Mode::Commit(_)
-            | Mode::Branch
-            | Mode::Rub(_)
-            | Mode::RubButApi(_)
-            | Mode::InlineReword(_)
-            | Mode::Move(..)
-            | Mode::Command(_) => Color::Black,
-        };
-
-        self.fg(fg).bg(bg)
+        self.fg(mode.fg()).bg(mode.bg())
     }
 }
 
