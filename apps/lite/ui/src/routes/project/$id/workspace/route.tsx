@@ -1010,9 +1010,7 @@ const Changes: FC<{
 			) : (
 				<ul>
 					{changes.map((change) => {
-						const assignments = assignmentsByPath.get(change.path);
 						const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
-
 						const dependencyCommitIds = hunkDependencyDiffs
 							? dependencyCommitIdsForFile(hunkDependencyDiffs)
 							: [];
@@ -1022,7 +1020,7 @@ const Changes: FC<{
 								<FileSource
 									change={change}
 									fileParent={{ _tag: "Changes", stackId }}
-									assignments={assignments}
+									assignments={assignmentsByPath.get(change.path)}
 									render={
 										<div
 											className={classes(
