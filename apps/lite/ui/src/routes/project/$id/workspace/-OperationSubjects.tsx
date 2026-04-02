@@ -2,7 +2,12 @@ import { classes } from "#ui/classes.ts";
 import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
-import { isCombineOperation, getInsertionSide, operationLabel, Operation } from "#ui/Operation.ts";
+import {
+	getInsertionSide,
+	isCombineOperation,
+	operationLabel,
+	type Operation,
+} from "#ui/Operation.ts";
 import {
 	CommitLabel,
 	decodeRefName,
@@ -188,6 +193,38 @@ export const HunkSource: FC<
 	});
 };
 
+const OperationTooltip: FC<
+	{
+		operation: Operation | null;
+	} & useRender.ComponentProps<"div">
+> = ({ operation, render, ...props }) => {
+	const tooltip = operation ? operationLabel(operation) : null;
+
+	const trigger = useRender({
+		render,
+		props,
+	});
+
+	return (
+		<Tooltip.Root
+			open={tooltip !== null}
+			disableHoverablePopup
+			onOpenChange={(_open, eventDetails) => {
+				eventDetails.allowPropagation();
+			}}
+		>
+			<Tooltip.Trigger render={trigger} />
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={8}>
+					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
+						{tooltip}
+					</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
+
 export const ChangesTarget: FC<
 	{
 		stackId: string | null;
@@ -209,25 +246,8 @@ export const ChangesTarget: FC<
 			className: classes(operation && styles.activeTarget),
 		}),
 	});
-	const tooltip = operation ? operationLabel(operation) : null;
 
-	return (
-		<Tooltip.Root
-			open={tooltip !== null}
-			onOpenChange={(_open, eventDetails) => {
-				eventDetails.allowPropagation();
-			}}
-		>
-			<Tooltip.Trigger render={droppable} />
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-						{tooltip}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	);
+	return <OperationTooltip operation={operation} render={droppable} />;
 };
 
 export const CommitTarget: FC<
@@ -273,54 +293,29 @@ export const CommitTarget: FC<
 		}),
 	});
 
-	const tooltip = operation ? operationLabel(operation) : null;
-
 	const insertionSide = operation ? getInsertionSide(operation) : null;
 
 	return (
 		<div className={styles.commit}>
-			<Tooltip.Root
-				open={!!operation && isCombineOperation(operation) && tooltip !== null}
-				onOpenChange={(_open, eventDetails) => {
-					eventDetails.allowPropagation();
-				}}
-			>
-				<Tooltip.Trigger render={droppable} />
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={8}>
-						<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-							{tooltip}
-						</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
+			<OperationTooltip
+				operation={operation && isCombineOperation(operation) ? operation : null}
+				render={droppable}
+			/>
 
 			{insertionSide !== null && (
-				<Tooltip.Root open disableHoverablePopup>
-					<Tooltip.Trigger
-						render={
-							<div
-								className={classes(
-									styles.commitInsertionTarget,
-									pipe(
-										insertionSide,
-										Match.value,
-										Match.when("above", () => styles.commitInsertionTargetAbove),
-										Match.when("below", () => styles.commitInsertionTargetBelow),
-										Match.exhaustive,
-									),
-								)}
-							/>
-						}
-					/>
-					<Tooltip.Portal>
-						<Tooltip.Positioner sideOffset={8}>
-							<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-								{tooltip}
-							</Tooltip.Popup>
-						</Tooltip.Positioner>
-					</Tooltip.Portal>
-				</Tooltip.Root>
+				<OperationTooltip
+					operation={operation}
+					className={classes(
+						styles.commitInsertionTarget,
+						pipe(
+							insertionSide,
+							Match.value,
+							Match.when("above", () => styles.commitInsertionTargetAbove),
+							Match.when("below", () => styles.commitInsertionTargetBelow),
+							Match.exhaustive,
+						),
+					)}
+				/>
 			)}
 		</div>
 	);
@@ -345,25 +340,8 @@ export const BranchTarget: FC<
 			className: classes(operation && styles.activeTarget),
 		}),
 	});
-	const tooltip = operation ? operationLabel(operation) : null;
 
-	return (
-		<Tooltip.Root
-			open={tooltip !== null}
-			onOpenChange={(_open, eventDetails) => {
-				eventDetails.allowPropagation();
-			}}
-		>
-			<Tooltip.Trigger render={droppable} />
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-						{tooltip}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	);
+	return <OperationTooltip operation={operation} render={droppable} />;
 };
 
 export const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...props }) => {
@@ -384,21 +362,5 @@ export const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ rende
 		}),
 	});
 
-	return (
-		<Tooltip.Root
-			open={operation !== null}
-			onOpenChange={(_open, eventDetails) => {
-				eventDetails.allowPropagation();
-			}}
-		>
-			<Tooltip.Trigger render={droppable} />
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-						Tear off branch
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	);
+	return <OperationTooltip operation={operation} render={droppable} />;
 };

@@ -83,7 +83,7 @@ export const operationLabel = (operation: Operation): string | null =>
 			CommitUncommit: () => "Uncommit",
 			CommitUncommitChanges: () => "Uncommit",
 			MoveBranch: () => "Stack branch onto here",
-			TearOffBranch: () => null,
+			TearOffBranch: () => "Tear off branch",
 		}),
 	);
 
