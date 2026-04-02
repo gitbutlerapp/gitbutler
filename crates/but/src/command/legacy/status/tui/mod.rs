@@ -411,7 +411,12 @@ impl App {
 
     /// Returns the number of terminal rows available for rendering the status list.
     fn status_viewport_height(&self, terminal_area: Rect) -> usize {
-        usize::from(self.status_content_area(terminal_area).height).max(1)
+        let content_area = self.status_content_area(terminal_area);
+        let status_area = self.status_layout(content_area).status_area;
+
+        // The status pane uses a bottom border, so the inner list viewport is one row shorter
+        // than the outer area.
+        usize::from(status_area.height.saturating_sub(1)).max(1)
     }
 
     /// Returns the rendered height in terminal rows for the given status line.
