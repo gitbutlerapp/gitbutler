@@ -205,7 +205,7 @@ export const ChangesTarget: FC<
 	const droppable = useRender({
 		render,
 		ref: dropRef,
-		props: mergeProps(props, {
+		props: mergeProps<"div">(props, {
 			className: classes(operation && styles.activeTarget),
 		}),
 	});
@@ -348,7 +348,7 @@ export const BranchTarget: FC<
 	const droppable = useRender({
 		render,
 		ref: dropRef,
-		props: mergeProps(props, {
+		props: mergeProps<"div">(props, {
 			className: classes(operation && styles.activeTarget),
 		}),
 	});
@@ -386,7 +386,7 @@ export const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ rende
 	const droppable = useRender({
 		render,
 		ref: dropRef,
-		props: mergeProps(props, {
+		props: mergeProps<"div">(props, {
 			className: classes(operation && styles.activeTarget),
 		}),
 	});
