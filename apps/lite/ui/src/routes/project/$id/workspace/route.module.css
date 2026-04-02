@@ -92,7 +92,7 @@
 	transform: translateY(calc(var(--indicator-height) / 2));
 }
 
-.dragOver {
+.activeTarget {
 	outline: 2px dashed var(--color-drag-over-outline);
 }
 
@@ -175,6 +175,6 @@
 	resize: none;
 }
 
-.active {
+.activeSource {
 	opacity: 0.4;
 }

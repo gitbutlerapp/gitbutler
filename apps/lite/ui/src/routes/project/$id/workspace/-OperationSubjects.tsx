@@ -60,7 +60,7 @@ export const BranchSource: FC<
 		render,
 		ref: dragRef,
 		props: mergeProps<"div">(props, {
-			className: classes(isActive && styles.active),
+			className: classes(isActive && styles.activeSource),
 		}),
 	});
 };
@@ -86,7 +86,7 @@ export const CommitSource: FC<
 		render,
 		ref: dragRef,
 		props: mergeProps<"div">(props, {
-			className: classes(isActive && styles.active),
+			className: classes(isActive && styles.activeSource),
 		}),
 	});
 };
@@ -118,7 +118,7 @@ export const FileSource: FC<
 		render,
 		ref: dragRef,
 		props: mergeProps<"div">(props, {
-			className: classes(isActive && styles.active),
+			className: classes(isActive && styles.activeSource),
 		}),
 	});
 };
@@ -149,7 +149,7 @@ export const ChangesSource: FC<
 		render,
 		ref: dragRef,
 		props: mergeProps<"div">(props, {
-			className: classes(isActive && styles.active),
+			className: classes(isActive && styles.activeSource),
 		}),
 	});
 };
@@ -183,7 +183,7 @@ export const HunkSource: FC<
 		render,
 		ref: dragRef,
 		props: mergeProps<"div">(props, {
-			className: classes(isActive && styles.active),
+			className: classes(isActive && styles.activeSource),
 		}),
 	});
 };
@@ -206,7 +206,7 @@ export const ChangesTarget: FC<
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			className: classes(operation && styles.dragOver),
+			className: classes(operation && styles.activeTarget),
 		}),
 	});
 	const tooltip = operation ? operationLabel(operation) : null;
@@ -269,7 +269,7 @@ export const CommitTarget: FC<
 		render,
 		ref: dropRef,
 		props: mergeProps<"div">(props, {
-			className: classes(operation && isCombineOperation(operation) && styles.dragOver),
+			className: classes(operation && isCombineOperation(operation) && styles.activeTarget),
 		}),
 	});
 
@@ -349,7 +349,7 @@ export const BranchTarget: FC<
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			className: classes(operation && styles.dragOver),
+			className: classes(operation && styles.activeTarget),
 		}),
 	});
 	const tooltip = operation ? operationLabel(operation) : null;
@@ -387,7 +387,7 @@ export const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ rende
 		render,
 		ref: dropRef,
 		props: mergeProps(props, {
-			className: classes(operation && styles.dragOver),
+			className: classes(operation && styles.activeTarget),
 		}),
 	});
 
