@@ -304,7 +304,7 @@ const dependencyCommitIdsForFile = (
 
 const Hunk: FC<{
 	patch: Patch;
-	fileParent: FileParent;
+	fileParent?: FileParent;
 	change: TreeChange;
 	hunk: DiffHunk;
 	headerStart?: ReactNode;
@@ -312,15 +312,19 @@ const Hunk: FC<{
 	<div>
 		<div className={styles.hunkHeaderRow}>
 			{headerStart}
-			<HunkSource
-				patch={patch}
-				fileParent={fileParent}
-				change={change}
-				hunk={hunk}
-				className={styles.hunkHeader}
-			>
-				{formatHunkHeader(hunk)}
-			</HunkSource>
+			{fileParent ? (
+				<HunkSource
+					patch={patch}
+					fileParent={fileParent}
+					change={change}
+					hunk={hunk}
+					className={styles.hunkHeader}
+				>
+					{formatHunkHeader(hunk)}
+				</HunkSource>
+			) : (
+				formatHunkHeader(hunk)
+			)}
 		</div>
 		<HunkDiff change={change} diff={hunk.diff} />
 	</div>
@@ -411,15 +415,7 @@ const ShowSegment: FC<{
 			projectId={projectId}
 			branchName={branchName}
 			remote={null}
-			renderHunk={(change, hunk, patch) => (
-				<Hunk
-					patch={patch}
-					// TODO: this should be branch!
-					fileParent={{ _tag: "Changes", stackId: null }}
-					change={change}
-					hunk={hunk}
-				/>
-			)}
+			renderHunk={(change, hunk, patch) => <Hunk patch={patch} change={change} hunk={hunk} />}
 		/>
 	) : (
 		<div>
