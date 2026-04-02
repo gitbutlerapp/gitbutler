@@ -2,7 +2,7 @@ import { classes } from "#ui/classes.ts";
 import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
-import { isCombineOperation, getInsertionSide, operationLabel } from "#ui/Operation.ts";
+import { isCombineOperation, getInsertionSide, operationLabel, Operation } from "#ui/Operation.ts";
 import {
 	CommitLabel,
 	decodeRefName,
@@ -367,7 +367,7 @@ export const BranchTarget: FC<
 };
 
 export const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...props }) => {
-	const [operation, dropRef] = useDroppable(({ source }) => {
+	const [operation, dropRef] = useDroppable(({ source }): Operation | null => {
 		const sourceItem = parseDragData(source.data);
 		if (!sourceItem || sourceItem._tag !== "Branch") return null;
 		return {
