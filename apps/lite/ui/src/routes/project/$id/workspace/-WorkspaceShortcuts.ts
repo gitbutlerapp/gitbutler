@@ -7,7 +7,7 @@ import { usePreviewPanel } from "#ui/hooks/usePreviewPanel.ts";
 import { getAction, type ShortcutBinding } from "#ui/shortcuts.ts";
 import { isTypingTarget } from "#ui/routes/project/$id/-shared.tsx";
 import { TreeChange } from "@gitbutler/but-sdk";
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
 import { useEffect, useEffectEvent } from "react";
 import { type Editing } from "./-Editing.ts";
@@ -412,13 +412,17 @@ export const useWorkspaceShortcuts = ({
 	navigationModel: NavigationModel;
 	requestAbsorptionPlan: (changes: Array<TreeChange>, stackId: string | null) => void;
 }) => {
-	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 	const [, setShowPreviewPanel] = usePreviewPanel();
 	const [, setShowFullscreenPreview] = useFullscreenPreview(projectId);
 
 	const queryClient = useQueryClient();
 
 	const requestAbsorptionPlanForSelection = (selection: ChangesItem) => {
+		const worktreeChanges = queryClient.getQueryData(
+			changesInWorktreeQueryOptions(projectId).queryKey,
+		);
+		if (!worktreeChanges) return;
+
 		Match.value(selection.mode).pipe(
 			Match.tagsExhaustive({
 				Details: ({ path }) => {
