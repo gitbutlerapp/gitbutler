@@ -40,7 +40,7 @@ import {
 	TreeChangeWithAssignments,
 } from "#ui/routes/project/$id/workspace/-OperationSubjects.tsx";
 import { AbsorptionDialog, useAbsorption } from "#ui/routes/project/$id/workspace/-Absorption.tsx";
-import { useMonitorDraggedSourceItem } from "#ui/routes/project/$id/workspace/-DragAndDrop.tsx";
+import { useMonitorDraggedOperationSource } from "#ui/routes/project/$id/workspace/-DragAndDrop.tsx";
 import {
 	ShowCommit,
 	CommitDetails as SharedCommitDetails,
@@ -1551,7 +1551,7 @@ const ProjectPage: FC = () => {
 		clearAbsorptionPlan,
 	} = useAbsorption(projectId);
 
-	useMonitorDraggedSourceItem({ projectId });
+	useMonitorDraggedOperationSource({ projectId });
 	useWorkspaceShortcuts({
 		projectId,
 		scope: shortcutScope,

@@ -8,15 +8,15 @@ import {
 import { type InsertSide } from "@gitbutler/but-sdk";
 import { FC, type ReactNode, useEffect } from "react";
 import sharedStyles from "../-shared.module.css";
-import { getCombineOperation, type SourceItem } from "./-SourceItem.ts";
+import { getCombineOperation, type OperationSource } from "./-OperationSource.ts";
 
 type DragData = {
-	sourceItem: SourceItem;
+	operationSource: OperationSource;
 };
 
-export const parseDragData = (data: unknown): SourceItem | null => {
-	if (typeof data !== "object" || data === null || !("sourceItem" in data)) return null;
-	return (data as DragData).sourceItem;
+export const parseDragData = (data: unknown): OperationSource | null => {
+	if (typeof data !== "object" || data === null || !("operationSource" in data)) return null;
+	return (data as DragData).operationSource;
 };
 
 const parseDropTargetData = (data: unknown): Operation | null => {
@@ -28,18 +28,18 @@ export const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={sharedStyles.dragPreview}>{children}</div>
 );
 
-export const getDragData = (sourceItem: SourceItem | null): DragData | null =>
-	sourceItem !== null ? { sourceItem } : null;
+export const getDragData = (operationSource: OperationSource | null): DragData | null =>
+	operationSource !== null ? { operationSource } : null;
 
 export const getCommitTargetInstruction = ({
-	sourceItem,
+	operationSource,
 	commitId,
 	previousCommitId,
 	nextCommitId,
 	input,
 	element,
 }: {
-	sourceItem: SourceItem;
+	operationSource: OperationSource;
 	commitId: string;
 	previousCommitId: string | undefined;
 	nextCommitId: string | undefined;
@@ -51,7 +51,7 @@ export const getCommitTargetInstruction = ({
 		(side === "above" && previousCommitId === sourceCommitId) ||
 		(side === "below" && nextCommitId === sourceCommitId);
 
-	const getSourceCommitId = (item: SourceItem): string | null =>
+	const getSourceCommitId = (item: OperationSource): string | null =>
 		item._tag === "Commit"
 			? item.commitId
 			: item._tag === "TreeChanges" && item.parent._tag === "Commit"
@@ -59,31 +59,33 @@ export const getCommitTargetInstruction = ({
 				: null;
 
 	const combineOperation = getCombineOperation({
-		sourceItem,
+		operationSource,
 		target: { _tag: "Commit", commitId },
 	});
 
 	return extractInstruction(
 		attachInstruction(
-			{ sourceItem },
+			{ operationSource },
 			{
 				input,
 				element,
 				operations: {
 					"reorder-before":
-						(sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "above")) ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Changes") ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit")
+						(operationSource._tag === "Commit" &&
+							!isNoOpCommitMove(operationSource.commitId, "above")) ||
+						(operationSource._tag === "TreeChanges" && operationSource.parent._tag === "Changes") ||
+						(operationSource._tag === "TreeChanges" && operationSource.parent._tag === "Commit")
 							? "available"
 							: "not-available",
 					"reorder-after":
-						(sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "below")) ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Changes") ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit")
+						(operationSource._tag === "Commit" &&
+							!isNoOpCommitMove(operationSource.commitId, "below")) ||
+						(operationSource._tag === "TreeChanges" && operationSource.parent._tag === "Changes") ||
+						(operationSource._tag === "TreeChanges" && operationSource.parent._tag === "Commit")
 							? "available"
 							: "not-available",
 					combine:
-						combineOperation || getSourceCommitId(sourceItem) === commitId
+						combineOperation || getSourceCommitId(operationSource) === commitId
 							? "available"
 							: "not-available",
 				},
@@ -92,7 +94,7 @@ export const getCommitTargetInstruction = ({
 	);
 };
 
-export const useMonitorDraggedSourceItem = ({ projectId }: { projectId: string }) => {
+export const useMonitorDraggedOperationSource = ({ projectId }: { projectId: string }) => {
 	const runOperation = useRunOperation(projectId);
 
 	useEffect(

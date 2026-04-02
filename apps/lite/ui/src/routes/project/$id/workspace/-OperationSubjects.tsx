@@ -31,7 +31,7 @@ import {
 	getBranchTargetOperation,
 	getCombineOperation,
 	getCommitTargetOperation,
-} from "./-SourceItem.ts";
+} from "./-OperationSource.ts";
 
 export type TreeChangeWithAssignments = {
 	change: TreeChange;
@@ -231,10 +231,10 @@ export const ChangesTarget: FC<
 	} & useRender.ComponentProps<"div">
 > = ({ stackId, render, ...props }) => {
 	const [operation, dropRef] = useDroppable(({ source }) => {
-		const sourceItem = parseDragData(source.data);
-		if (!sourceItem) return null;
+		const operationSource = parseDragData(source.data);
+		if (!operationSource) return null;
 		return getCombineOperation({
-			sourceItem,
+			operationSource,
 			target: { _tag: "Changes", stackId },
 		});
 	});
@@ -258,11 +258,11 @@ export const CommitTarget: FC<
 	} & useRender.ComponentProps<"div">
 > = ({ commitId, previousCommitId, nextCommitId, render, ...props }) => {
 	const [operation, dropRef] = useDroppable(({ source, input, element }) => {
-		const sourceItem = parseDragData(source.data);
-		if (!sourceItem) return null;
+		const operationSource = parseDragData(source.data);
+		if (!operationSource) return null;
 
 		const instruction = getCommitTargetInstruction({
-			sourceItem,
+			operationSource,
 			commitId,
 			previousCommitId,
 			nextCommitId,
@@ -273,7 +273,7 @@ export const CommitTarget: FC<
 		if (!instruction) return null;
 
 		return getCommitTargetOperation({
-			sourceItem,
+			operationSource,
 			commitId,
 			action: Match.value(instruction.operation).pipe(
 				Match.withReturnType<CommitTargetAction>(),
@@ -328,9 +328,9 @@ export const BranchTarget: FC<
 	} & useRender.ComponentProps<"div">
 > = ({ branchRef, firstCommitId, render, ...props }) => {
 	const [operation, dropRef] = useDroppable(({ source }) => {
-		const sourceItem = parseDragData(source.data);
-		if (!sourceItem) return null;
-		return getBranchTargetOperation({ sourceItem, branchRef, firstCommitId });
+		const operationSource = parseDragData(source.data);
+		if (!operationSource) return null;
+		return getBranchTargetOperation({ operationSource, branchRef, firstCommitId });
 	});
 
 	const target = useRender({
@@ -346,11 +346,11 @@ export const BranchTarget: FC<
 
 export const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...props }) => {
 	const [operation, dropRef] = useDroppable(({ source }): Operation | null => {
-		const sourceItem = parseDragData(source.data);
-		if (!sourceItem || sourceItem._tag !== "Branch") return null;
+		const operationSource = parseDragData(source.data);
+		if (!operationSource || operationSource._tag !== "Branch") return null;
 		return {
 			_tag: "TearOffBranch",
-			subjectBranch: decodeRefName(sourceItem.ref),
+			subjectBranch: decodeRefName(operationSource.ref),
 		};
 	});
 

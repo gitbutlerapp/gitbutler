@@ -10,7 +10,7 @@ export type TreeChangeWithHunkHeaders = {
 	hunkHeaders: Array<HunkHeader>;
 };
 
-export type SourceItem =
+export type OperationSource =
 	| { _tag: "Commit"; commitId: string }
 	| { _tag: "Branch"; ref: Array<number> }
 	| {
@@ -31,13 +31,13 @@ export type SourceItem =
  * https://linear.app/gitbutler/issue/GB-1160/what-should-rubbing-a-branch-into-another-branch-do#comment-db2abdb7
  */
 export const getCombineOperation = ({
-	sourceItem,
+	operationSource,
 	target,
 }: {
-	sourceItem: SourceItem;
+	operationSource: OperationSource;
 	target: ChangeUnit;
 }): Operation | null =>
-	Match.value(sourceItem).pipe(
+	Match.value(operationSource).pipe(
 		Match.tagsExhaustive({
 			Branch: (): Operation | null => null,
 			Commit: ({ commitId: sourceCommitId }) =>
@@ -115,15 +115,15 @@ export const getCombineOperation = ({
 	);
 
 export const getBranchTargetOperation = ({
-	sourceItem,
+	operationSource,
 	branchRef,
 	firstCommitId,
 }: {
-	sourceItem: SourceItem;
+	operationSource: OperationSource;
 	branchRef: Array<number> | null;
 	firstCommitId: string | undefined;
 }): Operation | null =>
-	Match.value(sourceItem).pipe(
+	Match.value(operationSource).pipe(
 		Match.tag("Branch", (source): Operation | null => {
 			if (branchRef === null || decodeRefName(branchRef) === decodeRefName(source.ref)) return null;
 			return {
@@ -165,50 +165,50 @@ export const getBranchTargetOperation = ({
 export type CommitTargetAction = "combine" | "insertAbove" | "insertBelow";
 
 export const getCommitTargetOperation = ({
-	sourceItem,
+	operationSource,
 	commitId,
 	action,
 }: {
-	sourceItem: SourceItem;
+	operationSource: OperationSource;
 	commitId: string;
 	action: CommitTargetAction;
 }): Operation | null =>
 	Match.value(action).pipe(
 		Match.when("combine", (): Operation | null =>
 			getCombineOperation({
-				sourceItem,
+				operationSource,
 				target: { _tag: "Commit", commitId },
 			}),
 		),
 		Match.whenOr("insertAbove", "insertBelow", (action): Operation | null => {
 			const side = action === "insertAbove" ? "above" : "below";
 
-			if (sourceItem._tag === "Commit")
+			if (operationSource._tag === "Commit")
 				return {
 					_tag: "CommitMove",
-					subjectCommitId: sourceItem.commitId,
+					subjectCommitId: operationSource.commitId,
 					relativeTo: { type: "commit", subject: commitId },
 					side,
 				};
 
-			if (sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Changes")
+			if (operationSource._tag === "TreeChanges" && operationSource.parent._tag === "Changes")
 				return {
 					_tag: "CommitCreate",
 					relativeTo: { type: "commit", subject: commitId },
 					side,
-					changes: sourceItem.changes.map(({ change, hunkHeaders }) =>
+					changes: operationSource.changes.map(({ change, hunkHeaders }) =>
 						createDiffSpec(change, hunkHeaders),
 					),
 					message: "",
 				};
 
-			if (sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit")
+			if (operationSource._tag === "TreeChanges" && operationSource.parent._tag === "Commit")
 				return {
 					_tag: "CommitCreateFromCommittedChanges",
-					sourceCommitId: sourceItem.parent.commitId,
+					sourceCommitId: operationSource.parent.commitId,
 					relativeTo: { type: "commit", subject: commitId },
 					side,
-					changes: sourceItem.changes.map(({ change, hunkHeaders }) =>
+					changes: operationSource.changes.map(({ change, hunkHeaders }) =>
 						createDiffSpec(change, hunkHeaders),
 					),
 				};
