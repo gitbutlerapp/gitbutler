@@ -37,8 +37,9 @@ pub fn normalize_short_name<'a>(name: impl Into<&'a BStr>) -> anyhow::Result<BSt
         true
     });
 
-    if sanitized.is_empty() {
+    if sanitized.is_empty() || sanitized == "HEAD" {
         bail!("Could not turn {name:?} into a valid reference name")
     }
+
     Ok(sanitized)
 }

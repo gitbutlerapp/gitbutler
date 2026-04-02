@@ -42,6 +42,24 @@ fn clear_error_on_failure() {
 }
 
 #[test]
+/// HEAD is not a valid branch name, so when we normalize names we should disallow it.
+///
+/// To validate this claim, run `git check-ref-format --branch 'HEAD'` or `git branch HEAD`, they
+/// will reject with `fatal: 'HEAD' is not a valid branch name`.
+fn head_is_rejected() {
+    assert_eq!(
+        normalize_short_name("HEAD").unwrap_err().to_string(),
+        "Could not turn \"HEAD\" into a valid reference name",
+        "HEAD is rejected"
+    );
+    assert_eq!(
+        normalize_short_name("HEAD-").unwrap_err().to_string(),
+        "Could not turn \"HEAD-\" into a valid reference name",
+        "name that normalizes to HEAD is rejected"
+    );
+}
+
+#[test]
 fn complex_valid() -> anyhow::Result<()> {
     assert_eq!(normalize_short_name("feature/branch")?, "feature/branch");
     assert_eq!(

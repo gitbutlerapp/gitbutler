@@ -34,6 +34,38 @@ fn outputs_branch_name() -> anyhow::Result<()> {
 }
 
 #[test]
+fn rejects_head() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("branch new HEAD")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Could not turn "HEAD" into a valid reference name
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn rejects_name_that_normalizes_to_head() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("branch new HEAD-")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Could not turn "HEAD-" into a valid reference name
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
 fn with_json_output() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @r"

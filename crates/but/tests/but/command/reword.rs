@@ -101,6 +101,24 @@ Renamed branch 'branch-to-rename-123' to 'renamed-branch'
 }
 
 #[test]
+fn reword_branch_rejects_head() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("branch new branch-to-rename").assert().success();
+
+    env.but("reword branch-to-rename -m HEAD")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Could not turn "HEAD" into a valid reference name
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
 fn reword_commit_with_same_message_succeeds_as_noop() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @r"
