@@ -1,4 +1,4 @@
-import type { DiffHunk } from "$lib/hunks/hunk";
+import type { DiffHunk, HunkAssignment } from "$lib/hunks/hunk";
 
 export type DependencyError = {
 	description: string;
@@ -92,6 +92,48 @@ export type FileDependencies = {
 	 */
 	dependencies: HunkLocks[];
 };
+/**
+ * Check whether two line ranges overlap.
+ * Ranges are `[start, start + lines)` (1-based start, length in lines).
+ * A range with 0 lines (pure insertion/deletion) is treated as a point at `start`.
+ */
+function rangesOverlap(startA: number, linesA: number, startB: number, linesB: number): boolean {
+	const endA = startA + Math.max(linesA, 1);
+	const endB = startB + Math.max(linesB, 1);
+	return startA < endB && startB < endA;
+}
+
+/**
+ * Filters dependency entries to only those whose hunk ranges overlap with
+ * assignments visible in the current view.
+ *
+ * When `stackId` is provided, includes only dependencies overlapping assignments
+ * assigned to that stack (matching the stack lane's visible hunks).
+ * When `stackId` is undefined, includes only dependencies overlapping
+ * unassigned assignments (matching the unassigned lane).
+ */
+export function filterDependenciesByAssignments(
+	dependencies: HunkDependencies,
+	assignments: HunkAssignment[],
+	stackId: string | undefined,
+): HunkDependencies {
+	const filtered = dependencies.diffs.filter(([depPath, depHunk]) => {
+		return assignments.some(
+			(a) =>
+				a.path === depPath &&
+				a.hunkHeader !== null &&
+				a.stackId === (stackId ?? null) &&
+				rangesOverlap(
+					depHunk.newStart,
+					depHunk.newLines,
+					a.hunkHeader.newStart,
+					a.hunkHeader.newLines,
+				),
+		);
+	});
+	return { diffs: filtered, errors: dependencies.errors };
+}
+
 /**
  * Aggregates file dependencies from a collection of hunk dependencies.
  *

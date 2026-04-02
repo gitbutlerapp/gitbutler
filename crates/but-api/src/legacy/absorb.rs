@@ -177,18 +177,19 @@ pub fn absorption_plan_with_perm(
             let all_assignments = worktree_changes.assignments;
             let dependencies = worktree_changes.dependencies;
 
-            // Filter assignments to just this stack
+            // Include hunks that are unassigned or assigned to the acting stack,
+            // so that dependency locks can route unassigned hunks correctly.
             let stack_assignments: Vec<_> = all_assignments
                 .iter()
                 .filter(|a| {
-                    a.stack_id == assigned_stack_id
-                        && changes.iter().any(|c| c.path_bytes == a.path_bytes)
+                    changes.iter().any(|c| c.path_bytes == a.path_bytes)
+                        && (a.stack_id.is_none() || a.stack_id == assigned_stack_id)
                 })
                 .cloned()
                 .collect();
 
             if stack_assignments.is_empty() {
-                anyhow::bail!("No uncommitted changes assigned to stack: {assigned_stack_id:?}");
+                anyhow::bail!("No uncommitted changes found for the selected files");
             }
 
             (stack_assignments, dependencies)
