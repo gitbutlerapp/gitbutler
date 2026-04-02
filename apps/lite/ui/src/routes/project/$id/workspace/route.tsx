@@ -1557,7 +1557,7 @@ const ProjectPage: FC = () => {
 		select,
 		setEditing,
 		commonBaseCommitId,
-		onAbsorbChanges: requestAbsorptionPlan,
+		requestAbsorptionPlan,
 	});
 
 	// TODO: dedupe

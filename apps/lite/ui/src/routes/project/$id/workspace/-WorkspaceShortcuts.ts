@@ -404,14 +404,14 @@ export const useWorkspaceShortcuts = ({
 	select,
 	setEditing,
 	commonBaseCommitId,
-	onAbsorbChanges,
+	requestAbsorptionPlan,
 }: {
 	projectId: string;
 	scope: Scope | null;
 	select: (selection: Item | null) => void;
 	setEditing: (selection: Editing | null) => void;
 	commonBaseCommitId?: string;
-	onAbsorbChanges: (changes: Array<TreeChange>, stackId: string | null) => void;
+	requestAbsorptionPlan: (changes: Array<TreeChange>, stackId: string | null) => void;
 }) => {
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
@@ -479,7 +479,7 @@ export const useWorkspaceShortcuts = ({
 								if (path === undefined) return;
 								const change = worktreeChanges.changes.find((change) => change.path === path);
 								if (!change) return;
-								onAbsorbChanges([change], selection.stackId);
+								requestAbsorptionPlan([change], selection.stackId);
 							},
 							Summary: () => {
 								const assignmentsByPath = new Set(
@@ -490,7 +490,7 @@ export const useWorkspaceShortcuts = ({
 								const changes = worktreeChanges.changes.filter((change) =>
 									assignmentsByPath.has(change.path),
 								);
-								onAbsorbChanges(changes, selection.stackId);
+								requestAbsorptionPlan(changes, selection.stackId);
 							},
 						}),
 					);
