@@ -27,7 +27,7 @@ import { getBranchNameByCommitId, getCommonBaseCommitId } from "#ui/domain/RefIn
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
-import { type Operation } from "#ui/Operation.ts";
+import { isCombineOperation, operationLabel, type Operation } from "#ui/Operation.ts";
 import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import {
@@ -41,7 +41,10 @@ import {
 	TreeChangeWithAssignments,
 } from "#ui/routes/project/$id/workspace/-DragAndDrop.tsx";
 import { AbsorptionDialog, useAbsorption } from "#ui/routes/project/$id/workspace/-Absorption.tsx";
-import { getRubOperation, type SourceItem } from "#ui/routes/project/$id/workspace/-SourceItem.ts";
+import {
+	getCombineOperation,
+	type SourceItem,
+} from "#ui/routes/project/$id/workspace/-SourceItem.ts";
 import {
 	ShowCommit,
 	CommitDetails as SharedCommitDetails,
@@ -118,20 +121,6 @@ import {
 import { PositionedShortcutsBar } from "../-ShortcutsBar.tsx";
 import { formatShortcutKeys, ShortcutActionBase, type ShortcutBinding } from "#ui/shortcuts.ts";
 import styles from "./route.module.css";
-import { RubOperation } from "#ui/api/rub.ts";
-
-const rubOperationLabel = (rubOperation: RubOperation) =>
-	Match.value(rubOperation).pipe(
-		Match.tagsExhaustive({
-			AssignHunk: (rubOperation) =>
-				rubOperation.assignments[0]?.stackId == null ? "Unassign" : "Assign",
-			CommitAmend: () => "Amend",
-			CommitMoveChangesBetween: () => "Amend",
-			CommitSquash: () => "Squash",
-			CommitUncommit: () => "Uncommit",
-			CommitUncommitChanges: () => "Uncommit",
-		}),
-	);
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 const decodeRefName = (fullNameBytes: Array<number>): string =>
@@ -538,19 +527,13 @@ const ChangesTarget: FC<
 		stackId: string | null;
 	} & useRender.ComponentProps<"div">
 > = ({ stackId, render, ...props }) => {
-	const getOperation = (sourceItem: SourceItem): Operation | null => {
-		const rubOperation = getRubOperation({
-			sourceItem,
-			target: { _tag: "Changes", stackId },
-		});
-		if (!rubOperation) return null;
-		return { _tag: "Rub", operation: rubOperation };
-	};
-
 	const [operation, dropRef] = useDroppable(({ source }) => {
 		const sourceItem = parseDragData(source.data);
 		if (!sourceItem) return null;
-		return getOperation(sourceItem);
+		return getCombineOperation({
+			sourceItem,
+			target: { _tag: "Changes", stackId },
+		});
 	});
 
 	const droppable = useRender({
@@ -561,12 +544,11 @@ const ChangesTarget: FC<
 		}),
 	});
 
-	const rubTooltip =
-		operation && operation._tag === "Rub" ? rubOperationLabel(operation.operation) : null;
+	const tooltip = operation ? operationLabel(operation) : null;
 
 	return (
 		<Tooltip.Root
-			open={rubTooltip !== null}
+			open={tooltip !== null}
 			onOpenChange={(_open, eventDetails) => {
 				eventDetails.allowPropagation();
 			}}
@@ -575,7 +557,7 @@ const ChangesTarget: FC<
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
 					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-						{rubTooltip}
+						{tooltip}
 					</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
@@ -638,7 +620,7 @@ const getCommitTargetOperation = ({
 				? sourceItem.parent.commitId
 				: null;
 
-	const rubOperation = getRubOperation({
+	const combineOperation = getCombineOperation({
 		sourceItem,
 		target: { _tag: "Commit", commitId },
 	});
@@ -663,7 +645,7 @@ const getCommitTargetOperation = ({
 							? "available"
 							: "not-available",
 					combine:
-						rubOperation ||
+						combineOperation ||
 						// Allow cancelling by dropping back where we started, otherwise
 						// this would be interpreted as a reorder.
 						getSourceCommitId(sourceItem) === commitId
@@ -677,9 +659,7 @@ const getCommitTargetOperation = ({
 	if (!instruction) return null;
 
 	return Match.value(instruction.operation).pipe(
-		Match.when("combine", (): Operation | null =>
-			rubOperation ? { _tag: "Rub", operation: rubOperation } : null,
-		),
+		Match.when("combine", (): Operation | null => combineOperation),
 		Match.orElse((side): Operation | null => {
 			const insertSide = Match.value(side).pipe(
 				Match.when("reorder-before", (): InsertSide => "above"),
@@ -746,17 +726,17 @@ const CommitTarget: FC<
 		render,
 		ref: dropRef,
 		props: mergeProps<"div">(props, {
-			className: classes(operation?._tag === "Rub" && styles.dragOver),
+			className: classes(operation && isCombineOperation(operation) && styles.dragOver),
 		}),
 	});
 
-	const rubTooltip =
-		operation && operation._tag === "Rub" ? rubOperationLabel(operation.operation) : null;
+	const combineTooltip =
+		operation && isCombineOperation(operation) ? operationLabel(operation) : null;
 
 	return (
 		<div className={styles.commit}>
 			<Tooltip.Root
-				open={rubTooltip !== null}
+				open={combineTooltip !== null}
 				onOpenChange={(_open, eventDetails) => {
 					eventDetails.allowPropagation();
 				}}
@@ -765,7 +745,7 @@ const CommitTarget: FC<
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={8}>
 						<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-							{rubTooltip}
+							{combineTooltip}
 						</Tooltip.Popup>
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
@@ -1482,14 +1462,7 @@ const BranchTarget: FC<
 		}),
 	});
 
-	const tooltip = operation
-		? Match.value(operation).pipe(
-				Match.tag("MoveBranch", () => "Stack branch onto here"),
-				Match.tag("CommitCreate", () => "Commit changes here"),
-				Match.tag("CommitMove", () => "Move commit here"),
-				Match.orElse(() => null),
-			)
-		: null;
+	const tooltip = operation ? operationLabel(operation) : null;
 
 	return (
 		<Tooltip.Root

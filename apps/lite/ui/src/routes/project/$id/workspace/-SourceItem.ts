@@ -1,4 +1,4 @@
-import { type RubOperation } from "#ui/api/rub.ts";
+import { type Operation } from "#ui/Operation.ts";
 import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
 import { type HunkHeader, type TreeChange } from "@gitbutler/but-sdk";
@@ -29,25 +29,25 @@ export type SourceItem =
  * which also includes move operations.
  * https://linear.app/gitbutler/issue/GB-1160/what-should-rubbing-a-branch-into-another-branch-do#comment-db2abdb7
  */
-export const getRubOperation = ({
+export const getCombineOperation = ({
 	sourceItem,
 	target,
 }: {
 	sourceItem: SourceItem;
 	target: ChangeUnit;
-}): RubOperation | null =>
+}): Operation | null =>
 	Match.value(sourceItem).pipe(
 		Match.tagsExhaustive({
-			Branch: (): RubOperation | null => null,
+			Branch: (): Operation | null => null,
 			Commit: ({ commitId: sourceCommitId }) =>
 				Match.value(target).pipe(
 					Match.tagsExhaustive({
-						Changes: ({ stackId }): RubOperation => ({
+						Changes: ({ stackId }): Operation => ({
 							_tag: "CommitUncommit",
 							commitId: sourceCommitId,
 							assignTo: stackId,
 						}),
-						Commit: ({ commitId: destinationCommitId }): RubOperation | null => {
+						Commit: ({ commitId: destinationCommitId }): Operation | null => {
 							if (sourceCommitId === destinationCommitId) return null;
 							return {
 								_tag: "CommitSquash",
@@ -67,7 +67,7 @@ export const getRubOperation = ({
 						Changes: ({ stackId: sourceStackId }) =>
 							Match.value(target).pipe(
 								Match.tagsExhaustive({
-									Changes: ({ stackId: targetStackId }): RubOperation | null => {
+									Changes: ({ stackId: targetStackId }): Operation | null => {
 										if (sourceStackId === targetStackId) return null;
 										return {
 											_tag: "AssignHunk",
@@ -80,7 +80,7 @@ export const getRubOperation = ({
 											),
 										};
 									},
-									Commit: ({ commitId }): RubOperation => ({
+									Commit: ({ commitId }): Operation => ({
 										_tag: "CommitAmend",
 										commitId,
 										changes,
@@ -90,13 +90,13 @@ export const getRubOperation = ({
 						Commit: ({ commitId: sourceCommitId }) =>
 							Match.value(target).pipe(
 								Match.tagsExhaustive({
-									Changes: ({ stackId }): RubOperation => ({
+									Changes: ({ stackId }): Operation => ({
 										_tag: "CommitUncommitChanges",
 										commitId: sourceCommitId,
 										assignTo: stackId,
 										changes,
 									}),
-									Commit: ({ commitId: destinationCommitId }): RubOperation | null => {
+									Commit: ({ commitId: destinationCommitId }): Operation | null => {
 										if (sourceCommitId === destinationCommitId) return null;
 										return {
 											_tag: "CommitMoveChangesBetween",
