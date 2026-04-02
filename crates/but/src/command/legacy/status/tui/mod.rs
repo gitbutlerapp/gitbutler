@@ -1,4 +1,12 @@
-use std::{borrow::Cow, ffi::OsString, process::Command, sync::Arc, time::Duration};
+use std::{
+    borrow::Cow,
+    ffi::OsString,
+    iter::once,
+    process::Command,
+    rc::Rc,
+    sync::{Arc, LazyLock, mpsc::Receiver},
+    time::Duration,
+};
 
 use anyhow::Context as _;
 use bstr::ByteSlice;
@@ -7,11 +15,13 @@ use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use gitbutler_operating_modes::OperatingMode;
+use gitbutler_stack::StackId;
 use itertools::Either;
 use ratatui::{
     Frame,
+    palette::Hsl,
     prelude::*,
-    widgets::{List, ListItem},
+    widgets::{Block, BorderType, Borders, List, ListItem},
 };
 use ratatui_textarea::{CursorMove, TextArea};
 use tracing::Level;
@@ -21,20 +31,23 @@ use crate::{
     CliId,
     args::OutputFormat,
     command::legacy::{
-        rub::{RubOperation, route_operation},
+        rub::{self, RubOperation},
         status::{
             CommitLineContent, FileLineContent, StatusFlags, StatusOutputLine, TuiLaunchOptions,
             output::BranchLineContent,
             tui::{
                 confirm::{Confirm, ConfirmMessage},
                 cursor::{Cursor, is_selectable_in_mode},
-                details::{Details, DetailsMessage, RenderNextChunkResult},
+                details::{Details, DetailsMessage, DetailsVisibility, RenderNextChunkResult},
+                event_polling::{CrosstermEventPolling, EventPolling, NoopEventPolling},
+                fps::FpsCounter,
                 graph_extension::{ExtensionDirection, extend_connector_spans},
                 highlight::{Highlights, with_highlight},
                 key_bind::{KeyBinds, confirm_key_binds, default_key_binds},
+                message_on_drop::MessageOnDrop,
                 mode::{
                     CommandMode, CommitMode, CommitSource, InlineRewordMode, Mode, MoveMode,
-                    MoveSource, RubMode,
+                    MoveSource, RubMode, RubSource,
                 },
                 toast::{ToastKind, Toasts},
             },
@@ -52,18 +65,26 @@ use super::{
 mod confirm;
 mod cursor;
 mod details;
+mod event_polling;
+mod fps;
 mod graph_extension;
 mod highlight;
 mod key_bind;
+mod message_on_drop;
 mod mode;
 mod operations;
 mod rub_api;
+mod rub_from_detail_view;
 mod toast;
 
 #[cfg(test)]
 mod tests;
 
-const CURSOR_BG: Color = Color::Rgb(69, 71, 90);
+static CURSOR_BG: LazyLock<Color> = LazyLock::new(|| Color::Rgb(69, 71, 90));
+
+static DETAILS_CURSOR_BG: LazyLock<Color> =
+    LazyLock::new(|| Color::from_hsl(Hsl::new(236.8, 0.162, 0.229)));
+
 const NOOP: &str = "noop";
 const CURSOR_CONTEXT_ROWS: usize = 3;
 
@@ -115,44 +136,6 @@ pub(super) async fn render_tui(
     }
 
     Ok(app.status_lines)
-}
-
-/// Trait for abstracting event polling so we can hardcode events in tests.
-trait EventPolling {
-    type Error: std::error::Error + Send + Sync + 'static;
-
-    fn poll(self, timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error>;
-}
-
-/// An [`EventPolling`] implementation that polls events for real using crossterm.
-#[derive(Copy, Clone)]
-struct CrosstermEventPolling;
-
-impl EventPolling for CrosstermEventPolling {
-    type Error = std::io::Error;
-
-    fn poll(self, timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
-        if event::poll(timeout)? {
-            Ok(Some(event::read()?))
-        } else {
-            Ok(None)
-        }
-    }
-}
-
-/// An [`EventPolling`] implementation that never yields events.
-///
-/// This is used for non-interactive runs where touching terminal input can stop the process when
-/// profilers launch the target in a background process group.
-#[derive(Copy, Clone)]
-struct NoopEventPolling;
-
-impl EventPolling for NoopEventPolling {
-    type Error = std::io::Error;
-
-    fn poll(self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
-        Ok(None)
-    }
 }
 
 #[expect(clippy::too_many_arguments)]
@@ -225,7 +208,11 @@ where
         mode,
     )
     .await?;
+
     render(app, terminal_guard)?;
+
+    app.fps.frame_finished();
+
     Ok(())
 }
 
@@ -258,7 +245,21 @@ where
         event_to_messages(event, app.active_key_binds(), &app.mode, messages);
     }
 
+    // check for any out of band messages
+    app.incoming_out_of_band_messages
+        .retain(|rx| match rx.try_recv() {
+            Ok(msg) => {
+                messages.push(msg);
+                false
+            }
+            Err(err) => match err {
+                std::sync::mpsc::TryRecvError::Empty => true,
+                std::sync::mpsc::TryRecvError::Disconnected => false,
+            },
+        });
+
     // handle messages
+    messages.append(&mut app.delayed_messages);
     loop {
         if messages.is_empty() {
             break;
@@ -301,6 +302,10 @@ where
         app.should_render = true;
     }
 
+    if app.fps.update() {
+        app.should_render = true;
+    }
+
     Ok(())
 }
 
@@ -310,6 +315,7 @@ where
     anyhow::Error: From<<T::Backend as Backend>::Error>,
 {
     if std::mem::take(&mut app.should_render) {
+        let _span = tracing::trace_span!("render").entered();
         terminal_guard.terminal_mut().draw(|frame| {
             app.renders += 1;
             app.render(frame)
@@ -337,6 +343,9 @@ struct App {
     confirm: Option<Confirm>,
     details: Details,
     options: TuiLaunchOptions,
+    delayed_messages: Vec<Message>,
+    incoming_out_of_band_messages: Vec<Rc<Receiver<Message>>>,
+    fps: FpsCounter,
 }
 
 impl App {
@@ -372,6 +381,9 @@ impl App {
             renders: 0,
             updates: 0,
             highlight: Default::default(),
+            delayed_messages: Default::default(),
+            incoming_out_of_band_messages: Default::default(),
+            fps: FpsCounter::new(),
             confirm: None,
             details,
             options,
@@ -399,7 +411,12 @@ impl App {
 
     /// Returns the number of terminal rows available for rendering the status list.
     fn status_viewport_height(&self, terminal_area: Rect) -> usize {
-        usize::from(self.status_content_area(terminal_area).height).max(1)
+        let content_area = self.status_content_area(terminal_area);
+        let status_area = self.status_layout(content_area).status_area;
+
+        // The status pane uses a bottom border, so the inner list viewport is one row shorter
+        // than the outer area.
+        usize::from(status_area.height.saturating_sub(1)).max(1)
     }
 
     /// Returns the rendered height in terminal rows for the given status line.
@@ -558,10 +575,22 @@ impl App {
                         self.handle_start_rub()
                     }
                 }
+                RubMessage::StartWithSource {
+                    source,
+                    unlock_details,
+                } => {
+                    self.handle_start_rub_with_source(source, unlock_details);
+                }
                 RubMessage::Confirm => self.handle_confirm_rub(ctx, messages)?,
             },
             Message::EnterNormalMode => {
                 self.handle_enter_normal_mode(messages);
+            }
+            Message::EnterDetailsMode => {
+                self.handle_enter_details_mode(messages);
+            }
+            Message::LeaveDetailsMode => {
+                self.handle_leave_details_mode(messages);
             }
             Message::Files(files_message) => match files_message {
                 FilesMessage::ToggleGlobalFilesList => {
@@ -634,7 +663,13 @@ impl App {
             Message::Details(details_message) => {
                 let details_viewport = self.details_viewport(terminal_area);
                 self.details
-                    .try_handle_message(details_message, details_viewport)?;
+                    .try_handle_message(details_message, details_viewport, messages)?;
+            }
+            Message::RegisterMessageOnDrop(rx) => {
+                self.incoming_out_of_band_messages.push(rx);
+            }
+            Message::WithOneFrameDelay(msg) => {
+                self.delayed_messages.push(*msg);
             }
         }
 
@@ -654,6 +689,10 @@ impl App {
                     messages.push(Message::Files(FilesMessage::ToggleFilesForCommit));
                 }
             }
+        }
+
+        if matches!(self.mode, Mode::Details) {
+            messages.push(Message::Details(DetailsMessage::Deselect));
         }
 
         self.mode = Mode::Normal;
@@ -684,6 +723,27 @@ impl App {
         }
     }
 
+    fn handle_enter_details_mode(&mut self, messages: &mut Vec<Message>) {
+        self.mode = Mode::Details;
+        if self.details.is_visible() {
+            messages.push(Message::Details(DetailsMessage::SelectFirstSection));
+        } else {
+            messages.push(Message::Details(DetailsMessage::ToggleVisibility));
+
+            // We can't select the first section on the same frame that we show the detail view.
+            // The incremental diff rendering introduces a one frame delay before the first section
+            // is shown.
+            messages
+                .push(Message::Details(DetailsMessage::SelectFirstSection).with_one_frame_delay());
+        }
+    }
+
+    fn handle_leave_details_mode(&mut self, messages: &mut Vec<Message>) {
+        if matches!(self.mode, Mode::Details) {
+            messages.push(Message::EnterNormalMode);
+        }
+    }
+
     /// Handles transitioning into rub mode and selecting a valid rub target.
     fn handle_start_rub(&mut self) {
         if !matches!(self.mode, Mode::Normal) {
@@ -698,17 +758,34 @@ impl App {
             return;
         };
 
+        self.handle_start_rub_with_source(RubSource::CliId(Arc::clone(cli_id)), None);
+    }
+
+    fn handle_start_rub_with_source(
+        &mut self,
+        source: RubSource,
+        unlock_details: Option<MessageOnDrop>,
+    ) {
         let available_targets = self
             .status_lines
             .iter()
             .filter_map(|line| line.data.cli_id())
-            .filter(|target| *target == cli_id || route_operation(cli_id, target).is_some())
+            .filter(|target| {
+                source == ***target
+                    || match &source {
+                        RubSource::CliId(source) => rub::route_operation(source, target).is_some(),
+                        RubSource::CommittedHunk(hunk) => {
+                            rub_from_detail_view::route_operation(hunk, target).is_some()
+                        }
+                    }
+            })
             .cloned()
             .collect::<Vec<_>>();
 
         self.mode = Mode::Rub(RubMode {
-            source: Arc::clone(cli_id),
+            source,
             available_targets,
+            _unlock_details: unlock_details,
         });
 
         if self
@@ -751,13 +828,14 @@ impl App {
             .status_lines
             .iter()
             .filter_map(|line| line.data.cli_id())
-            .filter(|target| *target == cli_id || route_operation(cli_id, target).is_some())
+            .filter(|target| *target == cli_id || rub::route_operation(cli_id, target).is_some())
             .cloned()
             .collect::<Vec<_>>();
 
         self.mode = Mode::RubButApi(RubMode {
-            source: Arc::clone(cli_id),
+            source: RubSource::CliId(Arc::clone(cli_id)),
             available_targets,
+            _unlock_details: None,
         });
 
         if self
@@ -832,30 +910,70 @@ impl App {
             Mode::Rub(RubMode {
                 source,
                 available_targets: _,
+                _unlock_details: _,
             }) => {
                 if let Some(selected_line) = self.cursor.selected_line(&self.status_lines)
                     && let Some(target) = selected_line.data.cli_id()
-                    && let Some(operation) = route_operation(source, target)
                 {
-                    with_noop_output(|out| operations::rub_legacy(ctx, out, operation))?;
+                    match source {
+                        RubSource::CliId(source) => {
+                            if let Some(operation) = rub::route_operation(source, target) {
+                                with_noop_output(|out| {
+                                    operations::rub_legacy(ctx, out, operation)
+                                })?;
+                            }
+                            None
+                        }
+                        RubSource::CommittedHunk(hunk) => {
+                            if let Some(operation) =
+                                rub_from_detail_view::route_operation(hunk, target)
+                            {
+                                Some(Message::Reload(Some(operation.execute(ctx)?)))
+                            } else {
+                                None
+                            }
+                        }
+                    }
+                } else {
+                    None
                 }
-                None
             }
             Mode::RubButApi(RubMode {
                 source,
                 available_targets: _,
+                _unlock_details: _,
             }) => {
                 if let Some(selected_line) = self.cursor.selected_line(&self.status_lines)
                     && let Some(target) = selected_line.data.cli_id()
-                    && let Some(operation) = route_operation(source, target)
                 {
-                    if let Some(what_to_select) = operations::rub_using_but_api(ctx, &operation)? {
-                        Some(Message::Reload(Some(what_to_select)))
-                    } else {
-                        messages.push(Message::ShowError(Arc::new(anyhow::Error::from(
-                            rub_api::OperationNotSupported::new(&operation),
-                        ))));
-                        None
+                    match source {
+                        RubSource::CliId(source) => {
+                            if let Some(operation) = rub::route_operation(source, target) {
+                                if let Some(what_to_select) =
+                                    operations::rub_using_but_api(ctx, &operation)?
+                                {
+                                    Some(Message::Reload(Some(what_to_select)))
+                                } else {
+                                    messages.push(Message::ShowError(Arc::new(
+                                        anyhow::Error::from(rub_api::OperationNotSupported::new(
+                                            &operation,
+                                        )),
+                                    )));
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        }
+                        RubSource::CommittedHunk(hunk) => {
+                            if let Some(operation) =
+                                rub_from_detail_view::route_operation(hunk, target)
+                            {
+                                Some(Message::Reload(Some(operation.execute(ctx)?)))
+                            } else {
+                                None
+                            }
+                        }
                     }
                 } else {
                     None
@@ -863,6 +981,7 @@ impl App {
             }
             Mode::Normal
             | Mode::Branch
+            | Mode::Details
             | Mode::InlineReword(..)
             | Mode::Command(..)
             | Mode::Commit(..)
@@ -899,6 +1018,7 @@ impl App {
                 SelectAfterReload::FirstFileInCommit(commit_id) => {
                     Cursor::select_first_file_in_commit(commit_id, &new_lines)
                 }
+                SelectAfterReload::Stack(stack_id) => Cursor::select_stack(stack_id, &new_lines),
             }
         } else {
             let default_restore = || {
@@ -1618,10 +1738,6 @@ impl App {
     }
 
     fn handle_enter_command_mode(&mut self) {
-        if !matches!(self.mode, Mode::Normal) {
-            return;
-        }
-
         let mut textarea = TextArea::default();
         textarea.set_cursor_line_style(Style::default());
         textarea.move_cursor(CursorMove::End);
@@ -1717,49 +1833,82 @@ impl App {
         Some(*commit_id)
     }
 
-    #[tracing::instrument(level = Level::TRACE, skip_all)]
     fn render(&self, frame: &mut Frame) {
         let content_layout =
             Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(frame.area());
+        let main_content_area = content_layout[0];
 
-        self.render_status(content_layout[0], frame);
-        self.render_hotbar(content_layout[1], frame);
-    }
-
-    fn status_layout(&self, area: Rect) -> StatusLayout {
         let (main_content_area, debug_area) = if self.options.debug {
             let layout =
                 Layout::horizontal([Constraint::Percentage(70), Constraint::Percentage(30)])
-                    .split(area);
+                    .split(main_content_area);
             (layout[0], Some(layout[1]))
         } else {
-            (area, None)
+            (main_content_area, None)
         };
 
-        let (content_area, details_area) = match self.details.visibility() {
-            details::DetailsVisibility::Hidden => (main_content_area, None),
-            details::DetailsVisibility::VisibleVertical => {
+        let hotbar_area = content_layout[1];
+
+        let status_layout = self.status_layout(main_content_area);
+
+        let dimmed_block = Block::bordered()
+            .border_style(Style::default().dark_gray())
+            .border_type(BorderType::Plain)
+            .borders(Borders::BOTTOM);
+        let focused_block = Block::bordered()
+            .border_style(Style::default().fg(self.mode.bg()))
+            .border_type(BorderType::Thick)
+            .borders(Borders::BOTTOM);
+
+        let (status_block, details_block) = if matches!(self.mode, Mode::Details) {
+            (dimmed_block, focused_block)
+        } else {
+            (focused_block, dimmed_block)
+        };
+
+        {
+            let inner_area = status_block.inner(status_layout.status_area);
+            frame.render_widget(status_block, status_layout.status_area);
+            self.render_status(inner_area, frame);
+        }
+
+        if let Some(details_area) = status_layout.details_area {
+            let inner_area = details_block.inner(details_area);
+            frame.render_widget(details_block, details_area);
+            self.details.render(inner_area, frame);
+        }
+
+        if let Some(debug_area) = debug_area {
+            let outer_block = Block::bordered()
+                .border_style(Style::default().dark_gray())
+                .border_type(BorderType::Thick)
+                .borders(Borders::LEFT);
+            let inner_area = outer_block.inner(debug_area);
+            frame.render_widget(outer_block, debug_area);
+            self.render_debug(inner_area, frame);
+        }
+
+        self.render_hotbar(hotbar_area, frame);
+    }
+
+    fn status_layout(&self, area: Rect) -> StatusLayout {
+        let (status_area, details_area) = match self.details.visibility() {
+            DetailsVisibility::Hidden => (area, None),
+            DetailsVisibility::VisibleVertical => {
                 let layout =
                     Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                        .split(main_content_area);
+                        .split(area);
                 (layout[0], Some(layout[1]))
             }
         };
 
         StatusLayout {
-            content_area,
+            status_area,
             details_area,
-            debug_area,
         }
     }
 
-    fn render_status(&self, area: Rect, frame: &mut Frame) {
-        let StatusLayout {
-            content_area,
-            details_area,
-            debug_area,
-        } = self.status_layout(area);
-
+    fn render_status(&self, content_area: Rect, frame: &mut Frame) {
         let visible_height = content_area.height as usize;
         let items = self
             .status_lines
@@ -1774,20 +1923,12 @@ impl App {
 
         frame.render_widget(list, content_area);
 
-        if let Some(details_area) = details_area {
-            self.details.render(details_area, frame);
-        }
-
         self.render_inline_reword(content_area, frame);
 
         self.render_toasts(content_area, frame);
 
         if let Some(confirm) = &self.confirm {
             confirm.render(content_area, frame);
-        }
-
-        if let Some(debug_area) = debug_area {
-            self.render_debug(debug_area, frame);
         }
     }
 
@@ -1810,16 +1951,18 @@ impl App {
 
         if is_selected {
             match &self.mode {
-                Mode::Normal | Mode::InlineReword(..) | Mode::Command(..) => {}
+                Mode::Normal | Mode::InlineReword(..) | Mode::Command(..) | Mode::Details => {}
                 Mode::Rub(RubMode {
                     source,
                     available_targets: _,
+                    _unlock_details: _,
                 }) => {
                     self.render_rub_inline_labels_for_selected_line(data, source, &mut line);
                 }
                 Mode::RubButApi(RubMode {
                     source,
                     available_targets: _,
+                    _unlock_details: _,
                 }) => {
                     self.render_rub_api_inline_labels_for_selected_line(data, source, &mut line);
                 }
@@ -1852,17 +1995,23 @@ impl App {
             }
         } else {
             match &self.mode {
-                Mode::Normal | Mode::InlineReword(..) | Mode::Command(..) | Mode::Branch => {}
+                Mode::Normal
+                | Mode::InlineReword(..)
+                | Mode::Command(..)
+                | Mode::Branch
+                | Mode::Details => {}
                 Mode::Rub(RubMode {
                     source,
                     available_targets: _,
+                    _unlock_details: _,
                 })
                 | Mode::RubButApi(RubMode {
                     source,
                     available_targets: _,
+                    _unlock_details: _,
                 }) => {
                     if let Some(cli_id) = data.cli_id()
-                        && cli_id == source
+                        && source == &**cli_id
                     {
                         line.extend([source_span(), Span::raw(" ")]);
                     }
@@ -1974,6 +2123,7 @@ impl App {
             }
             Mode::Normal
             | Mode::Branch
+            | Mode::Details
             | Mode::Move(..)
             | Mode::Command(..)
             | Mode::Rub(..)
@@ -1992,7 +2142,7 @@ impl App {
         }
 
         if is_selected && self.confirm.is_none() {
-            line = line.bg(CURSOR_BG);
+            line = line.bg(*CURSOR_BG);
         }
 
         if is_selected {
@@ -2000,7 +2150,7 @@ impl App {
                 Mode::Commit(commit_mode)
                     if matches!(data, StatusOutputLineData::Commit { .. }) =>
                 {
-                    let mut extension_line = Line::default().bg(CURSOR_BG);
+                    let mut extension_line = Line::default().bg(*CURSOR_BG);
                     extend_connector_spans(
                         connector.as_deref().unwrap_or_default(),
                         match commit_mode.insert_side {
@@ -2023,7 +2173,7 @@ impl App {
                     if let StatusOutputLineData::Commit { cli_id: target, .. } = data
                         && *move_mode.source != **target
                     {
-                        let mut extension_line = Line::default().bg(CURSOR_BG);
+                        let mut extension_line = Line::default().bg(*CURSOR_BG);
                         extend_connector_spans(
                             connector.as_deref().unwrap_or_default(),
                             match move_mode.insert_side {
@@ -2046,6 +2196,7 @@ impl App {
                 Mode::Commit(..)
                 | Mode::Branch
                 | Mode::Normal
+                | Mode::Details
                 | Mode::Rub(..)
                 | Mode::RubButApi(..)
                 | Mode::InlineReword(..)
@@ -2059,20 +2210,25 @@ impl App {
     fn render_rub_inline_labels_for_selected_line(
         &self,
         data: &StatusOutputLineData,
-        source: &CliId,
+        source: &RubSource,
         line: &mut Line<'static>,
     ) {
         let Some(target) = data.cli_id() else {
             return;
         };
 
-        if &**target == source {
+        if source == &**target {
             line.extend([source_span(), Span::raw(" ")]);
         }
 
-        let rub_operation_display =
-            rub_operation_display_legacy(source, target).unwrap_or("invalid");
-
+        let rub_operation_display = match source {
+            RubSource::CliId(source) => {
+                rub_operation_display_legacy(source, target).unwrap_or("invalid")
+            }
+            RubSource::CommittedHunk(hunk) => {
+                rub_from_detail_view::rub_operation_display(hunk, target).unwrap_or("invalid")
+            }
+        };
         line.extend([
             Span::raw("<< ").mode_colors(&self.mode),
             Span::raw(rub_operation_display).mode_colors(&self.mode),
@@ -2084,37 +2240,38 @@ impl App {
     fn render_rub_api_inline_labels_for_selected_line(
         &self,
         data: &StatusOutputLineData,
-        source: &CliId,
+        source: &RubSource,
         line: &mut Line<'static>,
     ) {
         let Some(target) = data.cli_id() else {
             return;
         };
 
-        if &**target == source {
+        if source == &**target {
             line.extend([source_span(), Span::raw(" ")]);
         }
 
-        match rub_api::rub_operation_display(source, target)
-            .unwrap_or(rub_api::RubOperationDisplay::Supported("invalid"))
-        {
-            rub_api::RubOperationDisplay::Supported(display) => {
-                line.extend([
-                    Span::raw("<< ").mode_colors(&self.mode),
-                    Span::raw(display).mode_colors(&self.mode),
-                    Span::raw(" >>").mode_colors(&self.mode),
-                    Span::raw(" "),
-                ]);
+        let display = match source {
+            RubSource::CliId(source) => {
+                match rub_api::rub_operation_display(source, target)
+                    .unwrap_or(rub_api::RubOperationDisplay::Supported("invalid"))
+                {
+                    rub_api::RubOperationDisplay::Supported(display) => Cow::Borrowed(display),
+                    rub_api::RubOperationDisplay::NotSupported(_, discriminant) => {
+                        Cow::Owned(format!("{discriminant:?}"))
+                    }
+                }
             }
-            rub_api::RubOperationDisplay::NotSupported(_, discriminant) => {
-                line.extend([
-                    Span::raw("<< ").mode_colors(&self.mode),
-                    Span::raw(format!("{discriminant:?}")).mode_colors(&self.mode),
-                    Span::raw(" is not supported >>").mode_colors(&self.mode),
-                    Span::raw(" "),
-                ]);
-            }
-        }
+            RubSource::CommittedHunk(hunk) => Cow::Borrowed(
+                rub_from_detail_view::rub_operation_display(hunk, target).unwrap_or("invalid"),
+            ),
+        };
+        line.extend([
+            Span::raw("<< ").mode_colors(&self.mode),
+            Span::raw(display).mode_colors(&self.mode),
+            Span::raw(" >>").mode_colors(&self.mode),
+            Span::raw(" "),
+        ]);
     }
 
     fn render_commit_labels_for_selected_line(
@@ -2197,6 +2354,7 @@ impl App {
                 Mode::Commit(..) => "commit",
                 Mode::Move(..) => "move",
                 Mode::Branch => "branch",
+                Mode::Details => "details",
             }
         ))
         .mode_colors(&self.mode);
@@ -2215,6 +2373,7 @@ impl App {
         match &self.mode {
             Mode::Normal
             | Mode::Branch
+            | Mode::Details
             | Mode::Rub(..)
             | Mode::RubButApi(..)
             | Mode::Commit(..)
@@ -2332,12 +2491,32 @@ impl App {
     }
 
     fn render_debug(&self, area: Rect, frame: &mut Frame) {
+        let renders = once(ListItem::new("FPS").black().on_blue()).chain(once(ListItem::new(
+            format!("{} FPS ({} renders)", self.fps.fps(), self.renders),
+        )));
+
+        let details_selection = format!("{:#?}", self.details.selection());
+        let details_selection = once(ListItem::new("Details selection").black().on_blue()).chain(
+            details_selection
+                .lines()
+                .take(100)
+                .map(|line| ListItem::new(line.to_owned())),
+        );
+
+        let status_selection = format!("{:#?}", self.cursor.selected_line(&self.status_lines));
+        let status_selection = once(ListItem::new("Status selection").black().on_blue()).chain(
+            status_selection
+                .lines()
+                .take(100)
+                .map(|line| ListItem::new(line.to_owned())),
+        );
+
         let list = List::new(
-            std::iter::once(ListItem::new(format!("Renders: {}", self.renders))).chain(
-                self.cursor
-                    .selected_line(&self.status_lines)
-                    .map(|selected_line| ListItem::new(format!("{selected_line:#?}"))),
-            ),
+            renders
+                .chain(once(ListItem::new("")))
+                .chain(details_selection)
+                .chain(once(ListItem::new("")))
+                .chain(status_selection),
         );
 
         frame.render_widget(list, area);
@@ -2365,6 +2544,7 @@ fn event_to_messages(ev: Event, key_binds: &KeyBinds, mode: &Mode, messages: &mu
                     }
                     Mode::Normal
                     | Mode::Branch
+                    | Mode::Details
                     | Mode::Rub(..)
                     | Mode::RubButApi(..)
                     | Mode::Commit(..)
@@ -2384,6 +2564,7 @@ fn event_to_messages(ev: Event, key_binds: &KeyBinds, mode: &Mode, messages: &mu
             }
             Mode::Normal
             | Mode::Branch
+            | Mode::Details
             | Mode::Rub(..)
             | Mode::RubButApi(..)
             | Mode::Commit(..)
@@ -2427,6 +2608,8 @@ enum Message {
     Move(MoveMessage),
     Branch(BranchMessage),
     Details(DetailsMessage),
+    EnterDetailsMode,
+    LeaveDetailsMode,
 
     // Utilities
     CopySelection,
@@ -2434,11 +2617,26 @@ enum Message {
     RunAfterConfirmation(
         DebugAsType<Arc<dyn Fn(&mut App, &mut Context, &mut Vec<Message>) -> anyhow::Result<()>>>,
     ),
+    RegisterMessageOnDrop(Rc<Receiver<Message>>),
+    WithOneFrameDelay(Box<Message>),
+}
+
+impl Message {
+    /// Delay a message so it wont be handled until the next frame.
+    pub(super) fn with_one_frame_delay(self) -> Self {
+        Self::WithOneFrameDelay(Box::new(self))
+    }
 }
 
 #[derive(Debug, Clone)]
 enum RubMessage {
-    Start { using_but_api: bool },
+    Start {
+        using_but_api: bool,
+    },
+    StartWithSource {
+        source: RubSource,
+        unlock_details: Option<MessageOnDrop>,
+    },
     Confirm,
 }
 
@@ -2490,6 +2688,7 @@ enum SelectAfterReload {
     Commit(gix::ObjectId),
     FirstFileInCommit(gix::ObjectId),
     Branch(String),
+    Stack(StackId),
     Unassigned,
 }
 
@@ -2545,7 +2744,7 @@ fn rub_operation_display_legacy(source: &CliId, target: &CliId) -> Option<&'stat
         return Some(NOOP);
     }
 
-    Some(match route_operation(source, target)? {
+    Some(match rub::route_operation(source, target)? {
         RubOperation::UnassignUncommitted(..) => "unassign hunks",
         RubOperation::UncommittedToCommit(..) => "amend commit",
         RubOperation::UncommittedToBranch(..) => "assign hunks",
@@ -2689,28 +2888,7 @@ trait SpanExt {
 
 impl SpanExt for Span<'_> {
     fn mode_colors(self, mode: &Mode) -> Self {
-        let bg = match mode {
-            Mode::Normal => Color::DarkGray,
-            Mode::Commit(_) => Color::Green,
-            Mode::Rub(_) | Mode::RubButApi(_) => Color::Blue,
-            Mode::InlineReword(_) => Color::Magenta,
-            Mode::Command(_) => Color::Yellow,
-            Mode::Move(..) => Color::Cyan,
-            Mode::Branch => Color::Red,
-        };
-
-        let fg = match mode {
-            Mode::Normal => Color::White,
-            Mode::Commit(_)
-            | Mode::Branch
-            | Mode::Rub(_)
-            | Mode::RubButApi(_)
-            | Mode::InlineReword(_)
-            | Mode::Move(..)
-            | Mode::Command(_) => Color::Black,
-        };
-
-        self.fg(fg).bg(bg)
+        self.fg(mode.fg()).bg(mode.bg())
     }
 }
 
@@ -2726,7 +2904,7 @@ impl IntoIterator for StatusListItem {
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            StatusListItem::Single(line) => Either::Left(std::iter::once(ListItem::new(line))),
+            StatusListItem::Single(line) => Either::Left(once(ListItem::new(line))),
             StatusListItem::Double(line1, line2) => {
                 Either::Right([ListItem::new(line1), ListItem::new(line2)].into_iter())
             }
@@ -2751,7 +2929,6 @@ where
 }
 
 struct StatusLayout {
-    content_area: Rect,
+    status_area: Rect,
     details_area: Option<Rect>,
-    debug_area: Option<Rect>,
 }

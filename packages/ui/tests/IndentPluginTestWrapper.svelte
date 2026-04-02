@@ -1,6 +1,7 @@
 <script lang="ts">
 	import RichTextEditor from "$lib/richText/RichTextEditor.svelte";
 	import IndentPlugin from "$lib/richText/plugins/IndentPlugin.svelte";
+	import { untrack } from "svelte";
 
 	type Props = {
 		initialText?: string;
@@ -11,7 +12,7 @@
 	let editor = $state<RichTextEditor>();
 	let paragraphCountDisplay = $state(0);
 	let textContentDisplay = $state("");
-	let value = $state(initialText);
+	let value = $state(untrack(() => initialText));
 
 	// Update display values from the editor
 	async function updateDisplayValues() {

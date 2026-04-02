@@ -23,6 +23,7 @@
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, FileViewHeader, HunkDiffSkeleton, VirtualList } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 
 	type Props = {
 		projectId: string;
@@ -69,7 +70,7 @@
 	}
 
 	let virtualList = $state<VirtualList<TreeChange>>();
-	let highlightedIndex = $state<number | undefined>(startIndex);
+	let highlightedIndex = $state<number | undefined>(untrack(() => startIndex));
 	// Prevents VirtualList scroll events from overwriting a user-clicked selection.
 	const scrollLock = new ScrollSelectionLock(getInitialLockedIndex());
 	let floatingDiffOpen = $state(false);

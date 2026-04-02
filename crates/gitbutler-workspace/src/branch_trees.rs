@@ -99,10 +99,11 @@ pub fn update_uncommitted_changes_with_tree(
     always_checkout: Option<bool>,
     _perm: &mut RepoExclusive,
 ) -> Result<()> {
+    let gix_repo = ctx.clone_repo_for_merging()?;
     let repo = &*ctx.git2_repo.get()?;
     if let Some(worktree_id) = old_uncommitted_changes {
         let mut new_uncommitted_changes =
-            move_tree_between_workspaces(repo, worktree_id, old, new)?;
+            move_tree_between_workspaces(repo, &gix_repo, worktree_id, old, new)?;
 
         // If the new tree and old tree are the same, then we don't need to do anything
         if !new_uncommitted_changes.has_conflicts() && !always_checkout.unwrap_or(false) {
@@ -122,9 +123,8 @@ pub fn update_uncommitted_changes_with_tree(
             ),
         )?;
     } else {
-        let old_tree_id = merge_workspace(repo, old)?.to_gix();
-        let new_tree_id = merge_workspace(repo, new)?.to_gix();
-        let gix_repo = ctx.clone_repo_for_merging()?;
+        let old_tree_id = merge_workspace(&gix_repo, &old)?;
+        let new_tree_id = merge_workspace(&gix_repo, &new)?;
         but_core::worktree::safe_checkout(
             old_tree_id,
             new_tree_id,
@@ -139,12 +139,13 @@ pub fn update_uncommitted_changes_with_tree(
 /// like if they were on top of the new workspace.
 fn move_tree_between_workspaces(
     repo: &git2::Repository,
+    gix_repo: &gix::Repository,
     tree: git2::Oid,
     old: WorkspaceState,
     new: WorkspaceState,
 ) -> Result<git2::Index> {
-    let old_workspace = merge_workspace(repo, old)?;
-    let new_workspace = merge_workspace(repo, new)?;
+    let old_workspace = merge_workspace(gix_repo, &old)?.to_git2();
+    let new_workspace = merge_workspace(gix_repo, &new)?.to_git2();
     move_tree(repo, tree, old_workspace, new_workspace)
 }
 
@@ -167,26 +168,32 @@ pub fn move_tree(
     Ok(merge)
 }
 
-/// Octopus merge
-/// What: Takes N trees and a base tree and all the heads together with respect
-/// to the given base.
+/// Octopus merge using gix, which correctly resolves adjacent-hunk changes that git2 treats as conflicts.
+/// Takes N trees and a base tree and merges all the heads together with respect to the given base.
 ///
 /// If there are no heads provided, the base will be returned.
-pub fn merge_workspace(repo: &git2::Repository, workspace: WorkspaceState) -> Result<git2::Oid> {
-    let mut output = workspace.base;
+pub fn merge_workspace(
+    repo: &gix::Repository,
+    workspace: &WorkspaceState,
+) -> Result<gix::ObjectId> {
+    let mut output = workspace.base.to_gix();
+    let base = workspace.base.to_gix();
 
-    for head in workspace.heads {
-        let mut merge_options = git2::MergeOptions::new();
-        merge_options.fail_on_conflict(true);
+    let (merge_options, conflict_kind) = repo.merge_options_fail_fast()?;
 
+    for head in &workspace.heads {
         let mut merge = repo.merge_trees(
-            &repo.find_tree(workspace.base)?,
-            &repo.find_tree(output)?,
-            &repo.find_tree(head)?,
-            Some(&merge_options),
+            base,
+            output,
+            head.to_gix(),
+            repo.default_merge_labels(),
+            merge_options.clone(),
         )?;
 
-        output = merge.write_tree_to(repo)?;
+        if merge.has_unresolved_conflicts(conflict_kind) {
+            anyhow::bail!("merge conflict when computing workspace tree");
+        }
+        output = merge.tree.write()?.detach();
     }
 
     Ok(output)

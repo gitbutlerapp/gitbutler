@@ -315,16 +315,26 @@ pub fn squash_commits(
     destination_id: gix::ObjectId,
 ) -> Result<gix::ObjectId> {
     let mut guard = ctx.exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx, guard.read_permission())
-        .context("Squashing a commit requires open workspace mode")?;
-    crate::squash::squash_commits(
+    squash_commits_with_perm(
         ctx,
         stack_id,
         source_ids,
         destination_id,
         guard.write_permission(),
     )
+}
+
+pub fn squash_commits_with_perm(
+    ctx: &mut Context,
+    stack_id: StackId,
+    source_ids: Vec<gix::ObjectId>,
+    destination_id: gix::ObjectId,
+    perm: &mut RepoExclusive,
+) -> Result<gix::ObjectId> {
+    ctx.verify(perm)?;
+    ensure_open_workspace_mode(ctx, perm.read_permission())
+        .context("Squashing a commit requires open workspace mode")?;
+    crate::squash::squash_commits(ctx, stack_id, source_ids, destination_id, perm)
 }
 
 pub fn update_commit_message(
@@ -453,16 +463,27 @@ pub fn create_virtual_branch_from_branch(
     pr_number: Option<usize>,
 ) -> Result<(StackId, Vec<StackId>, Vec<String>)> {
     let mut guard = ctx.exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx, guard.read_permission())
-        .context("Creating a virtual branch from a branch open workspace mode")?;
-    let branch_manager = ctx.branch_manager();
-    branch_manager.create_virtual_branch_from_branch(
+    create_virtual_branch_from_branch_with_perm(
+        ctx,
         branch,
         remote,
         pr_number,
         guard.write_permission(),
     )
+}
+
+pub fn create_virtual_branch_from_branch_with_perm(
+    ctx: &mut Context,
+    branch: &Refname,
+    remote: Option<RemoteRefname>,
+    pr_number: Option<usize>,
+    perm: &mut RepoExclusive,
+) -> Result<(StackId, Vec<StackId>, Vec<String>)> {
+    ctx.verify(perm)?;
+    ensure_open_workspace_mode(ctx, perm.read_permission())
+        .context("Creating a virtual branch from a branch open workspace mode")?;
+    let branch_manager = ctx.branch_manager();
+    branch_manager.create_virtual_branch_from_branch(branch, remote, pr_number, perm)
 }
 
 pub fn upstream_integration_statuses(

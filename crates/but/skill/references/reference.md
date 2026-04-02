@@ -133,19 +133,18 @@ but branch show <id> -r       # Fetch and display review information (PRs/MRs)
 Move an existing branch on top of another branch, stacking them.
 
 ```bash
-but branch move feature/frontend feature/backend    # Stack frontend on top of backend
-```
-
-To unstack (tear off) a branch, use:
-
-```bash
+but branch move feature/frontend feature/backend
 but branch move --unstack feature/frontend
 ```
 
-**This is the primary command for stacking/unstacking existing branches.** Uses full branch **names**, not CLI IDs.
+Equivalent top-level syntax:
 
-Alias: `but stack <branch> <target-branch>`
+```bash
+but move feature/frontend feature/backend
+but move feature/frontend zz
+```
 
+Uses branch names or branch CLI IDs.
 ### `but pick <source> [target]`
 
 Cherry-pick commits from unapplied branches into applied branches.
@@ -316,16 +315,20 @@ but amend <file-id> <commit-id> --status-after   # Amend then show workspace sta
 
 Alias for `but rub <file> <commit>`.
 
-### `but move <commit> <target>`
+### `but move <source> <target>`
 
-Move a commit to a different location.
+Move commits or branches to a different location.
 
 ```bash
-but move <source> <target>           # Move before target
-but move <source> <target> --after   # Move after target
-but move <commit> <branch>           # Move to top of branch
-but move <commit> <branch> --status-after  # Move then show workspace status
+but move <commit> <target-commit>            # Move before target commit
+but move <commit> <target-commit> --after    # Move after target commit
+but move <commit> <branch>                   # Move commit to top of branch
+but move <branch> <target-branch>            # Stack branch on top of target branch
+but move <branch> zz                          # Tear off (unstack) branch
+but move <source> <target> --status-after    # Move then show workspace status
 ```
+
+`--after` is valid only for commit-to-commit moves.
 
 ### `but uncommit <source>`
 

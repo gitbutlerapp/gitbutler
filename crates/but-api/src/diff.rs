@@ -55,7 +55,11 @@ pub mod json {
     }
 }
 
-/// Compute the tree-diff for `commit_id` with its first parent and optionally calculate `line_stats`.
+/// Computes the tree diff for `commit_id` against its first parent and
+/// optionally calculates `line_stats`.
+///
+/// For lower-level implementation details, see
+/// [`but_core::diff::CommitDetails::from_commit_id()`].
 #[but_api(json::CommitDetails)]
 #[instrument(err(Debug))]
 pub fn commit_details(
@@ -67,7 +71,10 @@ pub fn commit_details(
     CommitDetails::from_commit_id(commit_id.attach(&repo), line_stats.into())
 }
 
-/// This function just exists for the frontend to work without the need for line-stats to be enabled explicitly.
+/// Computes commit details for `commit_id` with line statistics enabled.
+///
+/// This exists for callers that always want line statistics without passing
+/// `line_stats` explicitly.
 #[but_api(napi, json::CommitDetails)]
 #[instrument(err(Debug))]
 pub fn commit_details_with_line_stats(
@@ -77,8 +84,10 @@ pub fn commit_details_with_line_stats(
     commit_details(ctx, commit_id, ComputeLineStats::Yes)
 }
 
-/// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
-/// or if it involves a change to a [submodule](gix::object::Kind::Commit).
+/// Produces a unified patch for `change`.
+///
+/// `change` must not be a type change or a submodule change. For lower-level
+/// implementation details, see [`but_core::TreeChange::unified_patch()`].
 #[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn tree_change_diffs(
@@ -107,6 +116,11 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
 /// * conflicts are ignored
 ///
 /// All ignored status changes are also provided so they can be displayed separately.
+///
+/// For lower-level implementation details, see
+/// [`but_core::diff::worktree_changes()`],
+/// [`but_hunk_assignment::assignments_with_fallback()`], and
+/// [`but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir()`].
 #[but_api(napi)]
 #[instrument(skip_all, err(Debug))]
 pub fn changes_in_worktree_with_perm(
@@ -153,9 +167,11 @@ pub fn changes_in_worktree_with_perm(
     })
 }
 
-/// Persist hunk-to-commit assignments for the current workspace.
+/// Persists `assignments` for the current workspace.
 ///
-/// `assignments` is a list of hunk assignment requests produced by the UI.
+/// `assignments` is applied against the current workspace state and stored in
+/// the hunk-assignment database. For lower-level implementation details, see
+/// [`but_hunk_assignment::assign()`].
 #[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn assign_hunk(

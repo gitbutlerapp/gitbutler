@@ -5,13 +5,14 @@
 	import { projectPath } from "$lib/routes/routes.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, OptionsGroup, Select, SelectItem } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 
 	const { projectId }: { projectId?: string } = $props();
 
 	const projectsService = inject(PROJECTS_SERVICE);
 	const projectsQuery = $derived(projectsService.projects());
 
-	let selectedId = $state<string | undefined>(projectId);
+	let selectedId = $state<string | undefined>(untrack(() => projectId));
 
 	const mappedProjects = $derived(
 		projectsQuery.response?.map((project) => ({

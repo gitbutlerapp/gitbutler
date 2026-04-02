@@ -25,7 +25,7 @@ serde_json.workspace = true
 gix.workspace = true
 futures.workspace = true
 bstr = { workspace = true, features = ["serde"] }
-tauri = { version = "^2.9.5", features = ["unstable"], optional = true }
+tauri = { version = "^2.10.3", features = ["unstable"], optional = true }
 napi = { version = "3.0.0", features = ["serde-json", "tokio_rt"], optional = true }
 napi-derive = { version = "3.0.0", optional = true }
 tokio = { workspace = true, optional = true, features = ["rt"] }

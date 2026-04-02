@@ -335,6 +335,23 @@ fn section_jumps_scroll_viewport_when_target_is_offscreen() {
 }
 
 #[test]
+fn moving_to_merge_base_in_branch_mode_scrolls_to_keep_selection_visible() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui_with_size(env, 100, 8);
+
+    tui.input_then_render('b')
+        .assert_current_line_eq(str!["┊╭┄<< target >> g0 [A]"]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+        .assert_current_line_eq(str!["┊╭┄<< target >> h0 [B]"]);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["[..]<< target >> [..] [origin/main] 2000-01-02 add M"]);
+}
+
+#[test]
 fn reload_preserves_visible_selection_when_scrolled() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
     env.setup_metadata(&["A", "B"]).unwrap();
@@ -565,10 +582,20 @@ fn rubbing() {
             "┊●   << amend commit >> [..] (no commit message) (no changes)"
         ]);
 
-    tui.input_then_render(KeyCode::Enter)
-        // that you end up on zz is a bug but requires moving the rub implementation to use but-api
-        // that work is in progress
-        .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
+    tui.input_then_render(KeyCode::Enter);
+    // that you end up on zz is a bug but requires moving the rub implementation to use but-api
+    // that work is in progress
+    tui.input_then_render([
+        KeyCode::Up,
+        KeyCode::Up,
+        KeyCode::Up,
+        KeyCode::Up,
+        KeyCode::Up,
+        KeyCode::Up,
+        KeyCode::Up,
+        KeyCode::Up,
+    ])
+    .assert_current_line_eq(str!["╭┄zz [unstaged changes]"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
         .assert_rendered_term_svg_eq(file!["snapshots/rubbing_003.svg"]);
@@ -625,7 +652,7 @@ fn commit_file_toggle_on_commit_without_files_is_noop() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 100, 8);
+    let mut tui = test_tui_with_size(env, 100, 12);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);

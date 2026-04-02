@@ -8,7 +8,10 @@ use tracing::instrument;
 
 use super::types::CommitCreateResult;
 
-/// Amends an existing commit with selected changes.
+/// Amends the commit at `commit_id` with `changes`.
+///
+/// See [`but_workspace::commit::commit_amend()`] for lower-level implementation
+/// details.
 #[but_api(crate::commit::json::UICommitCreateResult)]
 #[instrument(err(Debug))]
 pub fn commit_amend_only(
@@ -27,7 +30,6 @@ pub fn commit_amend_only(
     )
 }
 
-/// Amends an existing commit with selected changes.
 pub(crate) fn commit_amend_only_impl(
     ctx: &mut but_ctx::Context,
     commit_id: gix::ObjectId,
@@ -62,7 +64,12 @@ pub(crate) fn commit_amend_only_impl(
     })
 }
 
-/// Amends an existing commit with selected changes, with oplog support.
+/// Amend the commit at `commit_id` with `changes` and record an oplog snapshot on success.
+///
+/// This performs the rewrite under exclusive worktree access and creates a
+/// best-effort `AmendCommit` oplog entry if the operation succeeds. For
+/// lower-level implementation details, see
+/// [`but_workspace::commit::commit_amend()`].
 #[but_api(napi, crate::commit::json::UICommitCreateResult)]
 #[instrument(err(Debug))]
 pub fn commit_amend(

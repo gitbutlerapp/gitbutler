@@ -37,6 +37,7 @@ fn ai_openai_defaults_to_global_config() -> anyhow::Result<()> {
 fn ai_ollama_local_writes_repo_config() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
     env.invoke_bash("git init repo");
+    #[cfg(feature = "legacy")]
     env.but("-C repo setup").assert().success();
 
     env.but("-C repo config ai --local ollama --endpoint localhost:11434 --model llama3.1")
@@ -113,6 +114,7 @@ fn ai_show_outputs_current_global_configuration_json() -> anyhow::Result<()> {
 fn ai_show_outputs_current_local_configuration_json() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
     env.invoke_bash("git init repo");
+    #[cfg(feature = "legacy")]
     env.but("-C repo setup").assert().success();
 
     env.but("-C repo config ai --local ollama --endpoint localhost:11434 --model llama3.1")

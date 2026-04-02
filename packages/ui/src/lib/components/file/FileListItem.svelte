@@ -300,14 +300,6 @@
 			color: var(--fill-pop-fg);
 		}
 
-		/* &.notched {
-			padding-left: 18px;
-		}
-
-		&.notched .draggable-handle {
-			left: 8px;
-		} */
-
 		& .draggable-handle {
 			display: none;
 			position: absolute;
@@ -352,7 +344,7 @@
 
 		& .locked {
 			display: flex;
-			color: var(--fill-warn-bg);
+			color: var(--change-status-modification);
 		}
 	}
 </style>

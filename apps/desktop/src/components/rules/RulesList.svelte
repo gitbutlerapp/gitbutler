@@ -14,6 +14,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import { Badge, Button, chipToasts, Link, SkeletonBone } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { untrack } from "svelte";
 	import { slide } from "svelte/transition";
 
 	type Props = {
@@ -33,7 +34,7 @@
 	let editorInitialFilterValues = $state<Partial<RuleFilterMap>>({});
 
 	// Read initial collapsed state from persisted storage, default to false (open) if not found
-	const drawerPersistId = `rules-drawer-${projectId}`;
+	const drawerPersistId = `rules-drawer-${untrack(() => projectId)}`;
 	let drawer = $state<Drawer>();
 
 	const rules = $derived(rulesService.workspaceRules(projectId));

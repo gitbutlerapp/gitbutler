@@ -350,17 +350,6 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Branch(branch::Platform),
 
-    /// Move branches on top of others to stack them.
-    #[clap(verbatim_doc_comment)]
-    Stack {
-        /// The branch being moved.
-        #[clap(value_name = "BRANCH")]
-        branch: String,
-        /// The branch to move the other on top of.
-        #[clap(value_name = "TARGET_BRANCH")]
-        target_branch: String,
-    },
-
     /// Commands for managing worktrees.
     ///
     /// GitButler worktrees allow you to have multiple working directories
@@ -914,12 +903,17 @@ pub enum Subcommands {
         branch: String,
     },
 
-    /// Move a commit to a different location in the stack.
+    /// Move a commit or branch to a different location.
     ///
-    /// By default, commits are moved to be before (below) the target.
-    /// Use `--after` to move the commit after (above) the target instead.
+    /// Commit moves:
+    /// - By default, commits are moved to be before (below) the target.
+    /// - Use `--after` to move the commit after (above) the target instead.
     ///
-    /// When moving to a branch, the commit is placed at the top of that branch's stack.
+    /// - When moving to a branch, the commit is placed at the top of that branch's stack.
+    ///
+    /// Branch moves:
+    /// - Move one branch on top of another to stack them.
+    /// - Move a branch to `zz` to tear it off (unstack it).
     ///
     /// ## Examples
     ///
@@ -940,13 +934,26 @@ pub enum Subcommands {
     /// ```text
     /// but move abc123 my-feature-branch
     /// ```
+    ///
+    /// Stack one branch on top of another:
+    ///
+    /// ```text
+    /// but move feature/frontend feature/backend
+    /// ```
+    ///
+    /// Tear off (unstack) a branch:
+    ///
+    /// ```text
+    /// but move feature/frontend zz
+    /// ```
     #[clap(verbatim_doc_comment)]
     Move {
-        /// Commit ID to move
-        source_commit: String,
-        /// Target commit ID or branch name
+        /// Commit/branch identifier to move
+        source: String,
+        /// Target commit/branch identifier, or `zz` to unstack a branch
         target: String,
-        /// Move the commit after (above) the target instead of before (below)
+        /// Move the commit after (above) the target instead of before (below).
+        /// Only valid for commit-to-commit moves.
         #[clap(short = 'a', long = "after")]
         after: bool,
     },

@@ -187,6 +187,8 @@
 		<div class="video-content">
 			<div class="video-carousel__container">
 				<div
+					role="region"
+					aria-label="Video carousel"
 					class="video-carousel__scroll"
 					bind:this={carousel}
 					ontouchstart={handleTouchStart}

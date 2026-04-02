@@ -18,6 +18,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import { Button, chipToasts, Icon, Select, SelectItem, Spacer } from "@gitbutler/ui";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { untrack } from "svelte";
 
 	type Props = {
 		projectId: string;
@@ -43,8 +44,10 @@
 	const [create, creatingRule] = rulesService.createWorkspaceRule;
 	const [update, updatingRule] = rulesService.updateWorkspaceRule;
 
-	let stackTargetSelected = $state<StackTarget | undefined>(initialStackTarget);
-	let draftRuleFilterInitialValues = $state<Partial<RuleFilterMap>>(initialFilterValues);
+	let stackTargetSelected = $state<StackTarget | undefined>(untrack(() => initialStackTarget));
+	let draftRuleFilterInitialValues = $state<Partial<RuleFilterMap>>(
+		untrack(() => initialFilterValues),
+	);
 	const ruleFilterTypes = $derived(typedKeys(draftRuleFilterInitialValues));
 	const encodedStackTarget = $derived(
 		stackTargetSelected && encodeStackTarget(stackTargetSelected),

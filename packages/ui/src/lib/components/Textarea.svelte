@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { focusable } from "$lib/focus/focusable";
 	import { pxToRem } from "$lib/utils/pxToRem";
+	import { untrack } from "svelte";
 	import type { HTMLTextareaAttributes } from "svelte/elements";
 
 	interface Props extends HTMLTextareaAttributes {
@@ -104,7 +105,7 @@
 	);
 
 	// Initialize with approximate minHeight to prevent initial scroll flash
-	let measureElHeight = $state(fontSize * lineHeight * minRows + 24);
+	let measureElHeight = $state(untrack(() => fontSize * lineHeight * minRows) + 24);
 
 	// Ensure measureElHeight never goes below minHeight
 	$effect(() => {

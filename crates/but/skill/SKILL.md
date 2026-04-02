@@ -43,7 +43,9 @@ but <mutation> ... --status-after
 - Commit + create branch: `but commit <branch> -c -m "<msg>" --changes <id> --status-after`
 - Amend: `but amend <file-id> <commit-id> --status-after`
 - Reorder commits: `but move <source-commit-id> <target-commit-id> --status-after` (**commit IDs**, not branch names)
-- Stack branches: `but branch move <branch-name> <target-branch-name>` (**branch names**, not IDs — e.g. `but branch move feature/frontend feature/backend`)
+- Stack branches: `but move <branch-name-or-id> <target-branch-name-or-id> --status-after` (**branch names or branch CLI IDs**)
+- Tear off a branch: `but move <branch-name-or-id> zz --status-after` (`zz` = unassigned; branch name or branch CLI ID)
+- Equivalent branch subcommand syntax remains available: `but branch move <branch-name> <target-branch-name>` and `but branch move --unstack <branch-name>`
 - Push: `but push` or `but push <branch-id>`
 - Pull: `but pull --check` then `but pull --status-after`
 
@@ -63,9 +65,9 @@ but <mutation> ... --status-after
 2. Locate file ID and target commit ID.
 3. `but amend <file-id> <commit-id> --status-after`
 
-### Reorder commits (not branches)
+### Reorder commits
 
-**`but move` reorders commits within a branch. To stack branches, use `but branch move` instead.**
+`but move` supports both commit reordering and branch stack operations. Use commit IDs when reordering commits.
 
 1. `but status -fv`
 2. `but move <commit-a> <commit-b> --status-after` — uses commit IDs like `c3`, `c5`
@@ -73,23 +75,35 @@ but <mutation> ... --status-after
 
 ### Stack existing branches
 
-To make one existing branch depend on (stack on top of) another, use `but branch move`:
+To make one existing branch depend on (stack on top of) another, use top-level `move`:
+
+```bash
+but move feature/frontend feature/backend
+```
+
+This moves the frontend branch on top of the backend branch in one step.
+
+Equivalent subcommand syntax:
 
 ```bash
 but branch move feature/frontend feature/backend
 ```
 
-This moves the frontend branch on top of the backend branch in one step.
-
-**DO NOT** use `uncommit` + `branch delete` + `branch new -a` to stack existing branches. That approach fails because git branch names persist even after `but branch delete`. Always use `but branch move`.
+**DO NOT** use `uncommit` + `branch delete` + `branch new -a` to stack existing branches. That approach fails because git branch names persist even after `but branch delete`. Always use `but move <branch> <target-branch>` (or the equivalent `but branch move ...`).
 
 **To unstack** (make a stacked branch independent again):
+
+```bash
+but move feature/logging zz
+```
+
+Equivalent subcommand syntax:
 
 ```bash
 but branch move --unstack feature/logging
 ```
 
-**Note:** `but branch move` uses branch **names** (like `feature/frontend`), while `but move` uses commit **IDs** (like `c3`). Do not confuse them. Do NOT use `but undo` to unstack — it may revert more than intended and lose commits.
+**Note:** branch stack/tear-off operations use branch **names** (like `feature/frontend`) or branch CLI IDs, while commit reordering uses commit **IDs** (like `c3`). Do NOT use `but undo` to unstack — it may revert more than intended and lose commits.
 
 ### Stacked dependency / commit-lock recovery
 
@@ -100,11 +114,11 @@ A **dependency lock** occurs when a file was originally committed on branch A, b
 **Recovery:** Stack your branch on the dependency branch, then commit:
 
 1. `but status -fv` — identify which branch originally owns the file (check commit history).
-2. `but branch move <your-branch-name> <dependency-branch-name>` — stack your branch on the dependency. Uses full branch **names**, not CLI IDs.
+2. `but move <your-branch-name> <dependency-branch-name>` — stack your branch on the dependency. Uses full branch **names**, not CLI IDs.
 3. `but status -fv` — the file should now be assignable. Commit it.
 4. `but commit <branch> -m "<msg>" --changes <id> --status-after`
 
-**If `but branch move` fails:** Do NOT try `uncommit`, `squash`, or `undo` to work around it — these will leave the workspace in a worse state. Instead, re-run `but status -fv` to confirm both branches still exist and are applied, then retry `but branch move` with exact branch names from the status output.
+**If `but move <branch> <target-branch>` fails:** Do NOT try `uncommit`, `squash`, or `undo` to work around it — these will leave the workspace in a worse state. Instead, re-run `but status -fv` to confirm both branches still exist and are applied, then retry with exact branch names from the status output.
 
 ### Resolve conflicts after reorder/move
 

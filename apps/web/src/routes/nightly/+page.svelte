@@ -3,6 +3,7 @@
 	import Header from "$lib/components/marketing/Header.svelte";
 	import ReleaseDownloadLinks from "$lib/components/marketing/ReleaseDownloadLinks.svelte";
 	import { Icon } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 	import type { Release } from "$lib/types/releases";
 	import type { LatestReleaseBuilds } from "$lib/utils/releaseUtils";
 
@@ -16,7 +17,7 @@
 
 	const { data }: Props = $props();
 
-	const { latestNightly, latestNightlyBuilds, otherNightlies } = data;
+	const { latestNightly, latestNightlyBuilds, otherNightlies } = untrack(() => data);
 
 	let linuxArch = $state<"x86-64" | "ARM64">("x86-64");
 	let expandedRelease: string | null = $state(null);

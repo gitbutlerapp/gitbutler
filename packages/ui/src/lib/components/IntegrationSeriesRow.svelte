@@ -34,7 +34,7 @@
 		branchShouldBeDeletedMap,
 	}: Props = $props();
 
-	const allSeriesAreIntegrated = series.every((branch) => branch.status === "integrated");
+	const allSeriesAreIntegrated = $derived(series.every((branch) => branch.status === "integrated"));
 </script>
 
 {#snippet stackBranch({ name, status }: Branch, isLast: boolean)}

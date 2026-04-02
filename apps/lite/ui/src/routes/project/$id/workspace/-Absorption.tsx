@@ -1,4 +1,5 @@
 import { absorbMutationOptions, absorptionPlanMutationOptions } from "#ui/api/mutations.ts";
+import { classes } from "#ui/classes.ts";
 import { commitTitle, shortCommitId } from "#ui/routes/project/$id/-shared.tsx";
 import uiStyles from "#ui/ui.module.css";
 import { AlertDialog, Toast } from "@base-ui/react";
@@ -23,14 +24,14 @@ const describeAbsorptionReason = (reason: AbsorptionReason): string | null => {
 
 export const AbsorptionDialog: FC<{
 	absorptionPlan: Array<CommitAbsorption>;
-	isAbsorbing: boolean;
+	isPending: boolean;
 	onConfirm: () => void;
 	onOpenChange: (open: boolean) => void;
-}> = ({ absorptionPlan, isAbsorbing, onConfirm, onOpenChange }) => (
+}> = ({ absorptionPlan, isPending, onConfirm, onOpenChange }) => (
 	<AlertDialog.Root open onOpenChange={onOpenChange}>
 		<AlertDialog.Portal>
 			<AlertDialog.Backdrop className={uiStyles.dialogBackdrop} />
-			<AlertDialog.Popup className={uiStyles.dialogPopup}>
+			<AlertDialog.Popup className={classes(uiStyles.popup, uiStyles.dialogPopup)}>
 				<AlertDialog.Title>Absorb changes</AlertDialog.Title>
 				<ul className={styles.body}>
 					{absorptionPlan.map((commitAbsorption) => (
@@ -57,14 +58,14 @@ export const AbsorptionDialog: FC<{
 					))}
 				</ul>
 				<div className={styles.actions}>
-					<AlertDialog.Close className={uiStyles.button} disabled={isAbsorbing}>
+					<AlertDialog.Close className={uiStyles.button} disabled={isPending}>
 						Cancel
 					</AlertDialog.Close>
 					<button
 						type="button"
 						className={uiStyles.button}
 						onClick={onConfirm}
-						disabled={absorptionPlan.length === 0 || isAbsorbing}
+						disabled={absorptionPlan.length === 0 || isPending}
 					>
 						Absorb changes
 					</button>

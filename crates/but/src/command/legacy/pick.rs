@@ -30,6 +30,9 @@ pub fn handle(
     source: &str,
     target_branch: Option<&str>,
 ) -> Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+
     // Get applied stacks first - we'll need them for target resolution
     let stacks =
         workspace::stacks(ctx, Some(StacksFilter::InWorkspace)).context("Failed to list stacks")?;
@@ -52,32 +55,42 @@ pub fn handle(
     };
 
     // Resolve the source to commit(s) (may involve interactive multi-selection for branches)
-    let commit_oids = resolve_source_commits(ctx, out, source)?;
+    let commit_oids = resolve_source_commits(ctx, out, &id_map, source)?;
 
     // Save an oplog snapshot before applying picks so the operation can be undone
-    {
-        let mut guard = ctx.exclusive_worktree_access();
-        let _ = ctx.create_snapshot(
-            SnapshotDetails::new(OperationKind::CherryPick),
-            guard.write_permission(),
-        );
-    }
+    let _ = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::CherryPick),
+        guard.write_permission(),
+    );
 
     let mut picked = Vec::new();
     for commit_oid in &commit_oids {
         let commit_hex = commit_oid.to_string();
 
         // Check cherry-apply status for each commit
-        let status = cherry_apply::cherry_apply_status(ctx, *commit_oid)
-            .context("Failed to check cherry-apply status")?;
+        let status =
+            cherry_apply::cherry_apply_status_with_perm(ctx, *commit_oid, guard.read_permission())
+                .context("Failed to check cherry-apply status")?;
 
         // Resolve the target stack based on status and user input
-        let (target_stack_id, target_branch_name) =
-            resolve_target_stack(ctx, out, &stacks, effective_target, &status, &commit_hex)?;
+        let (target_stack_id, target_branch_name) = resolve_target_stack(
+            ctx,
+            out,
+            &id_map,
+            &stacks,
+            effective_target,
+            &status,
+            &commit_hex,
+        )?;
 
         // Execute cherry-apply
-        cherry_apply::cherry_apply(ctx, *commit_oid, target_stack_id)
-            .context("Failed to cherry-pick commit")?;
+        cherry_apply::cherry_apply_with_perm(
+            ctx,
+            *commit_oid,
+            target_stack_id,
+            guard.write_permission(),
+        )
+        .context("Failed to cherry-pick commit")?;
 
         picked.push((commit_hex, target_branch_name, target_stack_id));
     }
@@ -141,6 +154,7 @@ pub fn handle(
 fn resolve_source_commits(
     ctx: &mut Context,
     out: &mut OutputChannel,
+    id_map: &IdMap,
     source: &str,
 ) -> Result<Vec<gix::ObjectId>> {
     // Try as an unapplied branch name first (case-insensitive)
@@ -164,7 +178,6 @@ fn resolve_source_commits(
     }
 
     // Try using IdMap for CLI IDs
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let cli_ids = id_map.parse_using_context(source, ctx)?;
 
     for cli_id in &cli_ids {
@@ -302,6 +315,7 @@ fn select_commits_from_branch(
 fn resolve_target_stack(
     ctx: &mut Context,
     out: &mut OutputChannel,
+    id_map: &IdMap,
     stacks: &[StackEntry],
     target_branch: Option<&str>,
     status: &CherryApplyStatus,
@@ -331,7 +345,7 @@ fn resolve_target_stack(
 
     // If target is specified, find matching stack (by CLI ID or name)
     if let Some(target) = target_branch {
-        return find_stack_by_target(ctx, stacks, target);
+        return find_stack_by_target(ctx, id_map, stacks, target);
     }
 
     // If only one stack, use it automatically
@@ -392,13 +406,12 @@ fn handle_locked_to_stack(
 /// Find a stack by CLI ID or branch name (case-insensitive).
 fn find_stack_by_target(
     ctx: &mut Context,
+    id_map: &IdMap,
     stacks: &[StackEntry],
     target: &str,
 ) -> Result<(StackId, String)> {
     // Try parsing as CLI ID first
-    if let Ok(id_map) = IdMap::legacy_new_from_context(ctx, None)
-        && let Ok(cli_ids) = id_map.parse_using_context(target, ctx)
-    {
+    if let Ok(cli_ids) = id_map.parse_using_context(target, ctx) {
         for cli_id in &cli_ids {
             if let CliId::Branch {
                 stack_id: Some(stack_id),

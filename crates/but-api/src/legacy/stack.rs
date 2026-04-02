@@ -38,6 +38,13 @@ pub mod create_reference {
     }
 }
 
+/// Create the local branch reference described by `request`.
+///
+/// This acquires exclusive worktree access from `ctx` before normalizing and
+/// creating the reference.
+///
+/// See [`create_reference_with_perm()`] for how `request` is normalized and
+/// applied through [`but_workspace::branch::create_reference()`].
 #[but_api]
 #[instrument(err(Debug))]
 pub fn create_reference(
@@ -57,8 +64,7 @@ pub fn create_reference(
 /// Returns the stack id owning the created or attached reference when one exists, together with
 /// the full refname that was created.
 ///
-/// This variant is more composable than [`create_reference()`] when the caller already holds a lock,
-/// as it reuses the provided permission token instead of obtaining exclusive access itself.
+/// The underlying implementation is [`but_workspace::branch::create_reference()`],
 #[but_api]
 #[instrument(skip(ctx, perm), err(Debug))]
 pub fn create_reference_with_perm(
@@ -116,6 +122,11 @@ pub fn create_reference_with_perm(
     Ok((stack_id, new_ref))
 }
 
+/// Create a dependent branch named by `request.name` in the stack identified by
+/// `stack_id`.
+///
+/// This acquires exclusive worktree access from `ctx` before creating the
+/// dependent-branch snapshot and mutating the workspace.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn create_branch(
@@ -211,18 +222,41 @@ pub fn remove_branch_only(
 
 /// Remove a branch from a stack.
 ///
+/// This acquires exclusive worktree access from `ctx` before creating the
+/// removal snapshot and detaching the branch.
+///
 /// This can only be called on a branch that's inside of a stack of multiple branches and is not the top branch,
 /// or on a branch that's empty.
 #[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: String) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
-    ctx.snapshot_remove_dependent_branch(&branch_name, guard.write_permission())
-        .ok();
-    remove_branch_only(ctx, &branch_name, guard.write_permission())
+    remove_branch_with_perm(ctx, stack_id, branch_name, guard.write_permission())
 }
 
-/// Rename a branch
+/// Remove a branch from a stack while reusing caller-held exclusive access.
+///
+/// This records the dependent-branch removal snapshot and then delegates to
+/// [`remove_branch_only()`] for the actual workspace mutation.
+pub fn remove_branch_with_perm(
+    ctx: &mut Context,
+    stack_id: StackId,
+    branch_name: String,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
+    let _ = stack_id;
+    ctx.snapshot_remove_dependent_branch(&branch_name, perm)
+        .ok();
+    remove_branch_only(ctx, &branch_name, perm)
+}
+
+/// Change the branch name from `branch_name` to `new_name` in the stack
+/// identified by `stack_id`.
+///
+/// This acquires exclusive worktree access from `ctx` before applying the
+/// rename.
+///
+/// See [`update_branch_name_with_perm()`] for the underlying mutation.
 #[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn update_branch_name(
@@ -231,7 +265,36 @@ pub fn update_branch_name(
     branch_name: String,
     new_name: String,
 ) -> Result<()> {
-    gitbutler_branch_actions::stack::update_branch_name(ctx, stack_id, branch_name, new_name)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    update_branch_name_with_perm(
+        ctx,
+        stack_id,
+        branch_name,
+        new_name,
+        guard.write_permission(),
+    )?;
+    Ok(())
+}
+
+/// Apply the rename from `branch_name` to `new_name` in the stack identified by
+/// `stack_id` while reusing caller-held exclusive access.
+///
+/// This delegates to
+/// [`gitbutler_branch_actions::stack::update_branch_name_with_perm()`].
+pub fn update_branch_name_with_perm(
+    ctx: &mut Context,
+    stack_id: StackId,
+    branch_name: String,
+    new_name: String,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
+    gitbutler_branch_actions::stack::update_branch_name_with_perm(
+        ctx,
+        stack_id,
+        branch_name,
+        new_name,
+        perm,
+    )?;
     Ok(())
 }
 

@@ -155,7 +155,7 @@ impl TestTuiInputThenRenderResult<'_> {
         let backend = self.0.terminal.backend();
         let buffer = backend.buffer();
         let area = *buffer.area();
-        let selected_bg = super::super::CURSOR_BG;
+        let selected_bg = *super::super::CURSOR_BG;
 
         let selected_row = (area.y..area.y.saturating_add(area.height))
             .find(|&y| {
@@ -214,11 +214,18 @@ fn backend_to_svg(backend: &TestBackend) -> String {
     ));
 
     for y in area.y..area.y.saturating_add(area.height) {
+        let volatile_spans = volatile_id_spans_in_row(buffer, area, y);
+
         for x in area.x..area.x.saturating_add(area.width) {
+            if volatile_id_skip_cell(&volatile_spans, x) {
+                continue;
+            }
+
             let cell = &buffer[(x, y)];
             let bg = color_to_rgb(cell.bg, default_bg);
             if bg != default_bg {
-                let rect_x = PADDING + (x - area.x) * CELL_WIDTH;
+                let mapped_x = x.saturating_sub(volatile_id_shift_for_x(&volatile_spans, x));
+                let rect_x = PADDING + (mapped_x - area.x) * CELL_WIDTH;
                 let rect_y = PADDING + (y - area.y) * CELL_HEIGHT;
                 svg.push_str(&format!(
                     "  <rect x=\"{rect_x}\" y=\"{rect_y}\" width=\"{CELL_WIDTH}\" height=\"{CELL_HEIGHT}\" fill=\"{}\" />\n",
@@ -229,26 +236,36 @@ fn backend_to_svg(backend: &TestBackend) -> String {
     }
 
     for y in area.y..area.y.saturating_add(area.height) {
+        let volatile_spans = volatile_id_spans_in_row(buffer, area, y);
         let text_y = PADDING + (y - area.y + 1) * CELL_HEIGHT - 4;
+
         for x in area.x..area.x.saturating_add(area.width) {
+            if volatile_id_skip_cell(&volatile_spans, x) {
+                continue;
+            }
+
             let cell = &buffer[(x, y)];
             let symbol = cell.symbol();
             if symbol.is_empty() || symbol == " " {
                 continue;
             }
+
             let mut fg = color_to_rgb(cell.fg, default_fg);
             let mut bg = color_to_rgb(cell.bg, default_bg);
             if cell.modifier.contains(Modifier::REVERSED) {
                 std::mem::swap(&mut fg, &mut bg);
             }
 
-            let text_x = PADDING + (x - area.x) * CELL_WIDTH;
+            let mapped_x = x.saturating_sub(volatile_id_shift_for_x(&volatile_spans, x));
+            let text_x = PADDING + (mapped_x - area.x) * CELL_WIDTH;
             let normalize_hash_start = short_hash_start_for_cell(buffer, area, x, y);
             let normalize_hash_cell = normalize_hash_start.is_some();
             let normalize_hash_tail =
                 normalize_hash_start.is_some_and(|start| x >= start.saturating_add(2));
             let normalize_volatile_id_cell = volatile_id_hex_prefix_cell(buffer, area, x, y);
-            let symbol = if normalize_hash_cell || normalize_volatile_id_cell {
+            let normalize_long_hash = long_hash_cell(buffer, area, x, y);
+            let symbol = if normalize_hash_cell || normalize_volatile_id_cell || normalize_long_hash
+            {
                 "0"
             } else {
                 symbol
@@ -287,6 +304,129 @@ fn backend_to_svg(backend: &TestBackend) -> String {
     svg
 }
 
+#[derive(Clone, Copy)]
+struct VolatileIdSpan {
+    hex_start: u16,
+    hex_end: u16,
+}
+
+impl VolatileIdSpan {
+    fn hex_len(self) -> u16 {
+        self.hex_end
+            .saturating_sub(self.hex_start)
+            .saturating_add(1)
+    }
+
+    fn collapsed_cells(self) -> u16 {
+        self.hex_len().saturating_sub(2)
+    }
+
+    fn skip_cell(self, x: u16) -> bool {
+        x > self.hex_start.saturating_add(1) && x <= self.hex_end
+    }
+
+    fn shift_for_x(self, x: u16) -> u16 {
+        if x > self.hex_start.saturating_add(1) {
+            self.collapsed_cells()
+        } else {
+            0
+        }
+    }
+}
+
+fn volatile_id_spans_in_row(
+    buffer: &ratatui::buffer::Buffer,
+    area: ratatui::layout::Rect,
+    y: u16,
+) -> Vec<VolatileIdSpan> {
+    let mut spans = Vec::new();
+    let row_start = area.x;
+    let row_end = area.x.saturating_add(area.width);
+
+    let mut x = row_start;
+    while x < row_end {
+        if let Some(span) = volatile_id_span_starting_at(buffer, area, x, y) {
+            spans.push(span);
+            x = span.hex_end.saturating_add(1);
+        } else {
+            x = x.saturating_add(1);
+        }
+    }
+
+    spans
+}
+
+fn volatile_id_span_starting_at(
+    buffer: &ratatui::buffer::Buffer,
+    area: ratatui::layout::Rect,
+    x: u16,
+    y: u16,
+) -> Option<VolatileIdSpan> {
+    let row_end = area.x.saturating_add(area.width);
+    let is_blue_bold = |cell: &ratatui::buffer::Cell| {
+        matches!(cell.fg, Color::Blue) && cell.modifier.contains(Modifier::BOLD)
+    };
+
+    if !is_blue_bold_hex_cell(&buffer[(x, y)]) {
+        return None;
+    }
+
+    if x > area.x && is_blue_bold_hex_cell(&buffer[(x.saturating_sub(1), y)]) {
+        return None;
+    }
+
+    let mut hex_end = x;
+    while hex_end.saturating_add(1) < row_end
+        && is_blue_bold_hex_cell(&buffer[(hex_end.saturating_add(1), y)])
+    {
+        hex_end = hex_end.saturating_add(1);
+    }
+
+    if hex_end <= x {
+        return None;
+    }
+
+    let colon_x = hex_end.checked_add(1)?;
+    let label_first_x = hex_end.checked_add(2)?;
+    let label_second_x = hex_end.checked_add(3)?;
+    if label_second_x >= row_end {
+        return None;
+    }
+
+    let colon = &buffer[(colon_x, y)];
+    if !is_blue_bold(colon) || colon.symbol() != ":" {
+        return None;
+    }
+
+    let is_blue_bold_lower = |cell: &ratatui::buffer::Cell| {
+        is_blue_bold(cell)
+            && cell
+                .symbol()
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_lowercase())
+    };
+
+    if !is_blue_bold_lower(&buffer[(label_first_x, y)])
+        || !is_blue_bold_lower(&buffer[(label_second_x, y)])
+    {
+        return None;
+    }
+
+    Some(VolatileIdSpan {
+        hex_start: x,
+        hex_end,
+    })
+}
+
+fn volatile_id_skip_cell(spans: &[VolatileIdSpan], x: u16) -> bool {
+    spans.iter().any(|span| span.skip_cell(x))
+}
+
+fn volatile_id_shift_for_x(spans: &[VolatileIdSpan], x: u16) -> u16 {
+    spans.iter().map(|span| span.shift_for_x(x)).sum()
+}
+
 fn is_single_ascii_hex(symbol: &str) -> bool {
     symbol.chars().count() == 1 && symbol.chars().next().is_some_and(|c| c.is_ascii_hexdigit())
 }
@@ -295,6 +435,10 @@ fn is_blue_bold_hex_cell(cell: &ratatui::buffer::Cell) -> bool {
     matches!(cell.fg, Color::Blue)
         && cell.modifier.contains(Modifier::BOLD)
         && is_single_ascii_hex(cell.symbol())
+}
+
+fn is_blue_hex_cell(cell: &ratatui::buffer::Cell) -> bool {
+    matches!(cell.fg, Color::Blue) && is_single_ascii_hex(cell.symbol())
 }
 
 fn short_hash_start_for_cell(
@@ -333,6 +477,38 @@ fn short_hash_start_for_cell(
     None
 }
 
+/// Detect cells that are part of a full commit ID (40-char blue hex sequence),
+/// as rendered in the details view.
+fn long_hash_cell(
+    buffer: &ratatui::buffer::Buffer,
+    area: ratatui::layout::Rect,
+    x: u16,
+    y: u16,
+) -> bool {
+    if !is_blue_hex_cell(&buffer[(x, y)]) {
+        return false;
+    }
+
+    let row_start = area.x;
+    let row_end = area.x.saturating_add(area.width);
+
+    // Walk left to find the start of the blue hex run
+    let mut start = x;
+    while start > row_start && is_blue_hex_cell(&buffer[(start.saturating_sub(1), y)]) {
+        start = start.saturating_sub(1);
+    }
+
+    // Walk right to find the end
+    let mut end = x;
+    while end.saturating_add(1) < row_end && is_blue_hex_cell(&buffer[(end.saturating_add(1), y)]) {
+        end = end.saturating_add(1);
+    }
+
+    // A full SHA is 40 hex chars; accept runs of 20+ to be safe
+    let len = end.saturating_sub(start).saturating_add(1);
+    len >= 20
+}
+
 fn volatile_id_hex_prefix_cell(
     buffer: &ratatui::buffer::Buffer,
     area: ratatui::layout::Rect,
@@ -345,41 +521,64 @@ fn volatile_id_hex_prefix_cell(
 
     let row_start = area.x;
     let row_end = area.x.saturating_add(area.width);
-    let search_start = x.saturating_sub(1).max(row_start);
+    let is_blue_bold = |cell: &ratatui::buffer::Cell| {
+        matches!(cell.fg, Color::Blue) && cell.modifier.contains(Modifier::BOLD)
+    };
 
-    for start in search_start..=x {
-        let Some(end) = start.checked_add(4) else {
-            continue;
-        };
-        if end >= row_end {
-            continue;
+    let mut hex_start = x;
+    while hex_start > row_start {
+        let prev_x = hex_start.saturating_sub(1);
+        let prev_cell = &buffer[(prev_x, y)];
+        if !is_blue_bold_hex_cell(prev_cell) {
+            break;
         }
-
-        let first = &buffer[(start, y)];
-        let second = &buffer[(start.saturating_add(1), y)];
-        let colon = &buffer[(start.saturating_add(2), y)];
-        let v = &buffer[(start.saturating_add(3), y)];
-        let o = &buffer[(start.saturating_add(4), y)];
-
-        let is_blue_bold = |cell: &ratatui::buffer::Cell| {
-            matches!(cell.fg, Color::Blue) && cell.modifier.contains(Modifier::BOLD)
-        };
-
-        if is_blue_bold_hex_cell(first)
-            && is_blue_bold_hex_cell(second)
-            && is_blue_bold(colon)
-            && colon.symbol() == ":"
-            && is_blue_bold(v)
-            && v.symbol() == "v"
-            && is_blue_bold(o)
-            && o.symbol() == "o"
-            && x <= start.saturating_add(1)
-        {
-            return true;
-        }
+        hex_start = prev_x;
     }
 
-    false
+    let mut hex_end = x;
+    while hex_end.saturating_add(1) < row_end {
+        let next_x = hex_end.saturating_add(1);
+        let next_cell = &buffer[(next_x, y)];
+        if !is_blue_bold_hex_cell(next_cell) {
+            break;
+        }
+        hex_end = next_x;
+    }
+
+    if hex_end == hex_start {
+        return false;
+    }
+
+    let Some(colon_x) = hex_end.checked_add(1) else {
+        return false;
+    };
+    let Some(label_first_x) = hex_end.checked_add(2) else {
+        return false;
+    };
+    let Some(label_second_x) = hex_end.checked_add(3) else {
+        return false;
+    };
+    if label_second_x >= row_end {
+        return false;
+    }
+
+    let colon = &buffer[(colon_x, y)];
+    if !is_blue_bold(colon) || colon.symbol() != ":" {
+        return false;
+    }
+
+    let label_first = &buffer[(label_first_x, y)];
+    let label_second = &buffer[(label_second_x, y)];
+    let is_blue_bold_lower = |cell: &ratatui::buffer::Cell| {
+        is_blue_bold(cell)
+            && cell
+                .symbol()
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_lowercase())
+    };
+
+    is_blue_bold_lower(label_first) && is_blue_bold_lower(label_second)
 }
 
 fn color_to_rgb(color: Color, default: (u8, u8, u8)) -> (u8, u8, u8) {

@@ -1,4 +1,4 @@
-export type ChangeUnit =
+export type FileParent =
 	| {
 			_tag: "Commit";
 			commitId: string;

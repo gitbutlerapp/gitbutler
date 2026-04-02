@@ -28,6 +28,7 @@
 	import { AsyncButton, Button, Modal, TestId } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { getTimeAgo } from "@gitbutler/ui/utils/timeAgo";
+	import { untrack } from "svelte";
 	import type { BranchFilterOption, SidebarEntrySubject } from "$lib/branches/branchListing";
 	type Props = {
 		projectId: string;
@@ -57,7 +58,7 @@
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 	const selectedOption = persisted<BranchFilterOption>(
 		"all",
-		`branches-selectedOption-${projectId}`,
+		`branches-selectedOption-${untrack(() => projectId)}`,
 	);
 
 	let selection = $state<BranchesSelection>({ type: "target" });

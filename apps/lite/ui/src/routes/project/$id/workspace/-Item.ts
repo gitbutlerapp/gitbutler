@@ -1,4 +1,4 @@
-import { getCommonBaseCommitId, getSegmentBranchRef } from "#ui/domain/RefInfo.ts";
+import { getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
 import { WorktreeChanges, type RefInfo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 
@@ -9,7 +9,6 @@ export type SegmentItem = {
 	stackId: string;
 	segmentIndex: number;
 	branchName: string | null;
-	branchRef: string | null;
 };
 
 type CommitMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
@@ -35,24 +34,17 @@ export const changesDetailsItem = (stackId: string | null, path?: string): Item 
 	mode: { _tag: "Details", path },
 });
 
-export const segmentItem = ({
-	stackId,
-	segmentIndex,
-	branchName,
-	branchRef,
-}: SegmentItem): Item => ({
+export const segmentItem = ({ stackId, segmentIndex, branchName }: SegmentItem): Item => ({
 	_tag: "Segment",
 	stackId,
 	segmentIndex,
 	branchName,
-	branchRef,
 });
 
 export const commitItem = ({
 	stackId,
 	segmentIndex,
 	branchName,
-	branchRef,
 	commitId,
 	mode = { _tag: "Summary" },
 }: Omit<CommitItem, "mode"> & { mode?: CommitItem["mode"] }): Item => ({
@@ -60,7 +52,6 @@ export const commitItem = ({
 	stackId,
 	segmentIndex,
 	branchName,
-	branchRef,
 	commitId,
 	mode,
 });
@@ -72,28 +63,26 @@ export const baseCommitItem = (commitId: string): Item => ({
 
 export const getParentSection = (selection: Item): Item | null =>
 	Match.value(selection).pipe(
-		Match.tag("Commit", (item): Item | null => segmentItem(item)),
-		Match.tag("Changes", (item): Item | null =>
-			item.mode._tag === "Details" ? changesSummaryItem(item.stackId) : null,
-		),
-		Match.tag("BaseCommit", () => null),
-		Match.tag("Segment", () => null),
-		Match.exhaustive,
+		Match.tagsExhaustive({
+			Commit: (item): Item | null => segmentItem(item),
+			Changes: (item): Item | null =>
+				item.mode._tag === "Details" ? changesSummaryItem(item.stackId) : null,
+			BaseCommit: () => null,
+			Segment: () => null,
+		}),
 	);
 
 export const itemKey = (item: Item): string =>
 	Match.value(item).pipe(
-		Match.tag("Changes", (item) =>
-			item.mode._tag === "Details"
-				? JSON.stringify(["Changes", item.stackId, "Details", item.mode.path ?? null])
-				: JSON.stringify(["Changes", item.stackId, item.mode._tag]),
-		),
-		Match.tag("Segment", (item) => JSON.stringify(["Segment", item.stackId, item.segmentIndex])),
-		Match.tag("Commit", (item) =>
-			JSON.stringify(["Commit", item.stackId, item.segmentIndex, item.commitId]),
-		),
-		Match.tag("BaseCommit", (item) => JSON.stringify(["BaseCommit", item.commitId])),
-		Match.exhaustive,
+		Match.tagsExhaustive({
+			Changes: (item) =>
+				item.mode._tag === "Details"
+					? JSON.stringify(["Changes", item.stackId, "Details", item.mode.path ?? null])
+					: JSON.stringify(["Changes", item.stackId, item.mode._tag]),
+			Segment: (item) => JSON.stringify(["Segment", item.stackId, item.segmentIndex]),
+			Commit: (item) => JSON.stringify(["Commit", item.stackId, item.segmentIndex, item.commitId]),
+			BaseCommit: (item) => JSON.stringify(["BaseCommit", item.commitId]),
+		}),
 	);
 
 export const normalizeItem = (
@@ -126,8 +115,7 @@ export const normalizeItem = (
 			const segment = stack.segments[item.segmentIndex];
 			if (!segment) return null;
 			const branchName = segment.refName?.displayName ?? null;
-			const branchRef = segment.refName ? getSegmentBranchRef(segment.refName) : null;
-			if (branchName !== item.branchName || branchRef !== item.branchRef) return null;
+			if (branchName !== item.branchName) return null;
 			return item;
 		}),
 		Match.tag("Commit", (item) => {

@@ -4,7 +4,7 @@ use but_github::{AuthStatusResponse, AuthenticatedUser, Verification, json};
 use but_secret::Sensitive;
 use tracing::instrument;
 
-/// Initiates the GitHub device OAuth flow.
+/// Starts the GitHub device OAuth flow.
 ///
 /// This starts the OAuth device authorization flow, which allows users to authenticate
 /// by visiting a URL and entering a code. Returns verification details including the
@@ -14,6 +14,9 @@ use tracing::instrument;
 ///
 /// * `Ok(Verification)` - Contains the user code, device code, and verification URL
 /// * `Err(_)` - If the OAuth initialization request fails
+///
+/// For lower-level implementation details,
+/// see [`but_github::init_github_device_oauth()`].
 #[but_api]
 #[instrument(err(Debug))]
 pub async fn init_github_device_oauth() -> Result<Verification> {
@@ -33,6 +36,8 @@ pub async fn init_github_device_oauth() -> Result<Verification> {
 ///
 /// * `Ok(AuthStatusResponse)` - User is authenticated, contains access token and user details
 /// * `Err(_)` - If the authorization is pending, denied, or the request fails
+///
+/// For lower-level implementation details, see [`but_github::check_github_auth_status()`].
 #[but_api(json::AuthStatusResponseSensitive)]
 #[instrument(err(Debug))]
 pub async fn check_github_auth_status(device_code: String) -> Result<AuthStatusResponse> {

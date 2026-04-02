@@ -1,7 +1,11 @@
+use bstr::ByteSlice;
 use snapbox::str;
 use utils::create_local_branch_with_commit;
 
-use crate::utils::{CommandExt, Sandbox};
+use crate::{
+    command::util,
+    utils::{CommandExt, Sandbox},
+};
 
 #[test]
 fn single_branch() -> anyhow::Result<()> {
@@ -245,6 +249,45 @@ Unapplied stack with branches 'remote-feature' from workspace
     |/  
     * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
     ");
+
+    Ok(())
+}
+
+#[test]
+fn concurrent_unapply_of_independent_branches_succeeds() -> anyhow::Result<()> {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    create_local_branch_with_commit(&env, "feature-branch-a");
+
+    env.but("apply feature-branch-a").assert().success();
+
+    let child_a = util::but_std_cmd(&env, "unapply A").spawn()?;
+    let child_b = util::but_std_cmd(&env, "unapply feature-branch-a").spawn()?;
+
+    let out_a = child_a.wait_with_output()?;
+    let out_b = child_b.wait_with_output()?;
+
+    assert!(
+        out_a.status.success(),
+        "unapply A failed: {}",
+        out_a.stderr.as_bstr()
+    );
+    assert!(
+        out_b.status.success(),
+        "unapply feature-branch-a failed: {}",
+        out_b.stderr.as_bstr()
+    );
+
+    let status = util::status_json(&env)?;
+    assert!(
+        util::find_branch(&status, "A").is_err(),
+        "A should no longer be applied"
+    );
+    assert!(
+        util::find_branch(&status, "feature-branch-a").is_err(),
+        "feature-branch-a should no longer be applied"
+    );
 
     Ok(())
 }

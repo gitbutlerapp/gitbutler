@@ -11,7 +11,8 @@ use crate::{
         CommitClassification, FilesStatusFlag,
         output::{StatusOutputContent, StatusOutputLine, StatusOutputLineData},
         tui::{
-            CommitMode, CommitSource, InlineRewordMode, Mode, RubMode, mode::UnassignedCommitSource,
+            CommitMode, CommitSource, InlineRewordMode, Mode, RubMode, RubSource,
+            mode::UnassignedCommitSource,
         },
     },
 };
@@ -1023,8 +1024,9 @@ fn move_up_in_rub_mode_skips_unavailable_targets() {
         }),
     ];
     let mode = Mode::Rub(RubMode {
-        source: unassigned("source"),
+        source: RubSource::CliId(unassigned("source")),
         available_targets: vec![allowed],
+        _unlock_details: None,
     });
 
     let mut cursor = Cursor(2);
@@ -1057,8 +1059,9 @@ fn move_down_in_rub_mode_skips_unavailable_targets() {
         }),
     ];
     let mode = Mode::Rub(RubMode {
-        source: unassigned("source"),
+        source: RubSource::CliId(unassigned("source")),
         available_targets: vec![allowed],
+        _unlock_details: None,
     });
 
     let mut cursor = Cursor(0);
@@ -1101,8 +1104,9 @@ fn movement_in_rub_mode_handles_starting_on_unavailable_line() {
         }),
     ];
     let mode = Mode::Rub(RubMode {
-        source: unassigned("source"),
+        source: RubSource::CliId(unassigned("source")),
         available_targets: vec![allowed_a, allowed_b],
+        _unlock_details: None,
     });
 
     let mut cursor = Cursor(2);
@@ -1230,8 +1234,9 @@ fn move_next_section_in_rub_mode_skips_unavailable_sections() {
         }),
     ];
     let mode = Mode::Rub(RubMode {
-        source: unassigned("source"),
+        source: RubSource::CliId(unassigned("source")),
         available_targets: vec![allowed],
+        _unlock_details: None,
     });
 
     let mut cursor = Cursor(0);
@@ -1267,8 +1272,9 @@ fn move_previous_section_in_rub_mode_moves_to_current_available_section_header()
         }),
     ];
     let mode = Mode::Rub(RubMode {
-        source: unassigned("source"),
+        source: RubSource::CliId(unassigned("source")),
         available_targets: vec![allowed],
+        _unlock_details: None,
     });
 
     let mut cursor = Cursor(3);
@@ -1307,8 +1313,9 @@ fn move_previous_section_in_rub_mode_from_unavailable_section_header_goes_to_pre
         line(StatusOutputLineData::UnassignedChanges { cli_id: blocked }),
     ];
     let mode = Mode::Rub(RubMode {
-        source: unassigned("source"),
+        source: RubSource::CliId(unassigned("source")),
         available_targets: vec![allowed_a, allowed_b],
+        _unlock_details: None,
     });
 
     let mut cursor = Cursor(2);
@@ -1376,8 +1383,9 @@ fn is_selectable_in_rub_mode_requires_available_target() {
     let not_selectable_line = line(StatusOutputLineData::Hint);
 
     let mode = Mode::Rub(RubMode {
-        source: unassigned("source"),
+        source: RubSource::CliId(unassigned("source")),
         available_targets: vec![allowed],
+        _unlock_details: None,
     });
 
     assert!(is_selectable_in_mode(

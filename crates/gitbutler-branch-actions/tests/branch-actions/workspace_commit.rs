@@ -71,3 +71,35 @@ fn conflicting_stacks_evicted_from_workspace_commit_parents() -> Result<()> {
 
     Ok(())
 }
+
+/// When two applied stacks modify adjacent but non-overlapping sections of the same
+/// file, `merge_workspace` must produce a clean merge.
+///
+/// Stack A owns lines 1–5 and 11–15; Stack B owns lines 6–10.
+/// A's top hunk immediately precedes B's hunk (adjacency from above) and B's hunk
+/// immediately precedes A's bottom hunk (adjacency from below).
+///
+/// Before the fix, `merge_workspace` used git2's Myers diff which incorrectly flagged
+/// these adjacent hunks as conflicting (`MergeConflict (-24)`), breaking every workspace
+/// mutation (squash, reorder, etc.) that recomputed the workspace tree.
+#[test]
+fn merge_workspace_succeeds_with_adjacent_hunks_from_both_sides() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("adjacent-stacks")?;
+
+    // Build the workspace commit so both stacks are properly registered.
+    gitbutler_branch_actions::update_workspace_commit(&ctx, false)?;
+
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let stacks = vb_state.list_stacks_in_workspace()?;
+    assert_eq!(stacks.len(), 2, "both stacks should be in workspace");
+
+    // Build a WorkspaceState from both stacks and call merge_workspace directly.
+    // This is the exact function that was fixed from git2 to gix.
+    let guard = ctx.shared_worktree_access();
+    let workspace =
+        gitbutler_workspace::branch_trees::WorkspaceState::create(&ctx, guard.read_permission())?;
+    let gix_repo = ctx.clone_repo_for_merging()?;
+    gitbutler_workspace::branch_trees::merge_workspace(&gix_repo, &workspace)?;
+
+    Ok(())
+}

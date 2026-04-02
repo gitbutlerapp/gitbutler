@@ -5,7 +5,7 @@
 use anyhow::{Context as _, Result, bail};
 use bstr::ByteSlice;
 use but_api::diff;
-use but_core::DiffSpec;
+use but_core::{DiffSpec, sync::RepoExclusive};
 use but_ctx::Context;
 use gitbutler_oplog::{
     OplogExt,
@@ -19,8 +19,9 @@ use crate::{CliId, IdMap, id::parser::parse_sources, utils::OutputChannel};
 /// Discards changes to files or hunks identified by the given ID.
 /// The ID should be a file or hunk ID as shown in `but status`.
 pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
     // Build ID map to resolve the user's ID
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
     // Resolve the ID to get file information
     let resolved_ids =
@@ -32,7 +33,7 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
 
     // Get worktree changes once for the Unassigned case
     // Also used to determine file status for additions/deletions
-    let worktree_changes = diff::changes_in_worktree(ctx)?;
+    let worktree_changes = diff::changes_in_worktree_with_perm(ctx, guard.write_permission())?;
     let path_status: std::collections::HashMap<_, _> = worktree_changes
         .worktree_changes
         .changes
@@ -136,7 +137,12 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
 
     // Create a snapshot before performing discard operation
     // This allows the user to undo with `but undo` if needed
-    create_snapshot(ctx, OperationKind::Discard, &file_names);
+    create_snapshot(
+        ctx,
+        OperationKind::Discard,
+        &file_names,
+        guard.write_permission(),
+    );
 
     // Perform the discard operation
     let repo = ctx.repo.get()?;
@@ -195,10 +201,13 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
 }
 
 /// Create a snapshot in the oplog before performing an operation
-fn create_snapshot(ctx: &mut Context, operation: OperationKind, file_names: &[String]) {
+fn create_snapshot(
+    ctx: &mut Context,
+    operation: OperationKind,
+    file_names: &[String],
+    perm: &mut RepoExclusive,
+) {
     use gitbutler_oplog::entry::Trailer;
-
-    let mut guard = ctx.exclusive_worktree_access();
 
     // Create trailers with file names
     let trailers: Vec<Trailer> = file_names
@@ -210,5 +219,5 @@ fn create_snapshot(ctx: &mut Context, operation: OperationKind, file_names: &[St
         .collect();
 
     let details = SnapshotDetails::new(operation).with_trailers(trailers);
-    let _snapshot = ctx.create_snapshot(details, guard.write_permission()).ok();
+    let _snapshot = ctx.create_snapshot(details, perm).ok();
 }

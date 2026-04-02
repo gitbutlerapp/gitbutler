@@ -1,5 +1,6 @@
 <script lang="ts">
 	import RichTextEditor from "$lib/richText/RichTextEditor.svelte";
+	import { untrack } from "svelte";
 
 	type Props = {
 		initialText?: string;
@@ -10,7 +11,7 @@
 	let editor = $state<RichTextEditor>();
 	let textContentDisplay = $state("");
 	let inlineCodeCountDisplay = $state(0);
-	let value = $state(initialText);
+	let value = $state(untrack(() => initialText));
 
 	async function updateDisplayValues() {
 		if (!editor) return;

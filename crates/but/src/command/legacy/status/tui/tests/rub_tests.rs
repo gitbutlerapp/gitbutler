@@ -258,7 +258,7 @@ fn rub_api_squash_commits_operation() {
         .assert_current_line_eq(str!["┊●   << source >> << noop >> [..] add A"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   << SquashCommits is not supported >> [..] add B"]);
+        .assert_current_line_eq(str!["┊●   << SquashCommits >> d3e2ba3 add B"]);
 }
 
 // Tests RubOperation::CommittedFileToCommit.

@@ -9,9 +9,9 @@ use tracing::instrument;
 
 use super::types::CommitInsertBlankResult;
 
-/// Inserts a blank commit relative to either a commit or a reference.
+/// Inserts a blank commit on `side` of `relative_to`.
 ///
-/// Returns the result including the new commit ID and any replaced commits.
+/// `side` chooses whether the blank commit lands before or after `relative_to`.
 #[but_api(crate::commit::json::UICommitInsertBlankResult)]
 #[instrument(err(Debug))]
 pub fn commit_insert_blank_only(
@@ -23,9 +23,6 @@ pub fn commit_insert_blank_only(
     commit_insert_blank_only_impl(ctx, relative_to, side, guard.write_permission())
 }
 
-/// Implementation of inserting a blank commit relative to either a commit or a reference.
-///
-/// Returns the result including the new commit ID and any replaced commits.
 pub(crate) fn commit_insert_blank_only_impl(
     ctx: &mut but_ctx::Context,
     relative_to: RelativeTo,
@@ -49,9 +46,10 @@ pub(crate) fn commit_insert_blank_only_impl(
     })
 }
 
-/// Inserts a blank commit relative to either a commit or a reference, with oplog support.
+/// Inserts a blank commit on `side` of `relative_to` and records an oplog
+/// snapshot on success.
 ///
-/// Returns the result including the new commit ID and any replaced commits.
+/// For details, see [`commit_insert_blank_with_perm()`].
 #[but_api(napi, crate::commit::json::UICommitInsertBlankResult)]
 #[instrument(err(Debug))]
 pub fn commit_insert_blank(
@@ -59,16 +57,34 @@ pub fn commit_insert_blank(
     #[but_api(crate::commit::json::RelativeTo)] relative_to: RelativeTo,
     side: InsertSide,
 ) -> anyhow::Result<CommitInsertBlankResult> {
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
+    let mut guard = ctx.exclusive_worktree_access();
+    commit_insert_blank_with_perm(ctx, relative_to, side, guard.write_permission())
+}
+
+/// Create an empty commit next to `relative_to` under caller-held exclusive
+/// repository access and record an oplog snapshot on success.
+///
+/// `side` chooses whether the blank commit lands before or after `relative_to`.
+/// This prepares a best-effort `InsertBlankCommit` oplog snapshot, creates the
+/// commit, and commits the snapshot only if the operation succeeds. For
+/// lower-level implementation details, see
+/// [`but_workspace::commit::insert_blank_commit()`].
+pub fn commit_insert_blank_with_perm(
+    ctx: &mut but_ctx::Context,
+    relative_to: RelativeTo,
+    side: InsertSide,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<CommitInsertBlankResult> {
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
         ctx,
         SnapshotDetails::new(OperationKind::InsertBlankCommit),
+        perm.read_permission(),
     )
     .ok();
 
-    let mut guard = ctx.exclusive_worktree_access();
-    let res = commit_insert_blank_only_impl(ctx, relative_to, side, guard.write_permission());
+    let res = commit_insert_blank_only_impl(ctx, relative_to, side, perm);
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
-        snapshot.commit(ctx, guard.write_permission()).ok();
+        snapshot.commit(ctx, perm).ok();
     };
     res
 }

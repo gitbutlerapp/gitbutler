@@ -34,7 +34,7 @@
 	},
 	"devDependencies": {
 		"@csstools/postcss-bundler": "^2.0.8",
-		"@gitbutler/design-core": "2.0.0",
+		"@gitbutler/design-core": "2.2.1",
 		"@playwright/experimental-ct-svelte": "^1.58.2",
 		"@storybook/addon-docs": "^10.2.19",
 		"@storybook/addon-links": "^10.2.19",

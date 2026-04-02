@@ -6,8 +6,7 @@ import { BranchDetails, BranchListing, Commit, DiffHunk, TreeChange } from "@git
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Match } from "effect";
-import { ComponentProps, FC, Suspense, useEffect, useEffectEvent, useTransition } from "react";
-import useLocalStorageState from "use-local-storage-state";
+import { ComponentProps, FC, Suspense, useState, useTransition } from "react";
 import styles from "./route.module.css";
 
 import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/api/mutations.ts";
@@ -28,7 +27,6 @@ import {
 	HunkDiff,
 	ShowBranch,
 	ShowCommitWithQuery,
-	isTypingTarget,
 } from "#ui/routes/project/$id/-shared.tsx";
 import uiStyles from "#ui/ui.module.css";
 import sharedStyles from "../-shared.module.css";
@@ -44,10 +42,9 @@ const getBranchRemote = (branch: BranchListing) => {
 	return branch.remotes[0] ?? null;
 };
 
-const getBranchRef = (branch: BranchListing): string | null => {
-	if (branch.hasLocal) return `refs/heads/${branch.name}`;
-	const remote = branch.remotes[0];
-	if (remote === undefined) return null;
+const getBranchRef = (branch: BranchListing): string => {
+	const remote = getBranchRemote(branch);
+	if (remote === null) return `refs/heads/${branch.name}`;
 	return `refs/remotes/${remote}/${branch.name}`;
 };
 
@@ -74,57 +71,6 @@ const getExpandedCommitSelection = async ({
 	};
 };
 
-const useSelectionKeyboardShortcuts = ({
-	selection,
-	select,
-	projectId,
-}: {
-	selection: Selection | null;
-	select: (selection: Selection | null) => void;
-	projectId: string;
-}) => {
-	const queryClient = useQueryClient();
-
-	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
-		if (event.defaultPrevented || event.repeat) return;
-		if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-		if (isTypingTarget(event.target)) return;
-		if (selection?._tag !== "Commit") return;
-
-		switch (event.key) {
-			case "ArrowLeft":
-				if (selection.mode._tag !== "Details") return;
-				event.preventDefault();
-				select({
-					_tag: "Commit",
-					branchName: selection.branchName,
-					commitId: selection.commitId,
-					mode: { _tag: "Summary" },
-				});
-				break;
-			case "ArrowRight":
-				if (selection.mode._tag !== "Summary") return;
-				event.preventDefault();
-				// TODO: error handling
-				void getExpandedCommitSelection({
-					branchName: selection.branchName,
-					commitId: selection.commitId,
-					projectId,
-					queryClient,
-				}).then(select);
-				break;
-		}
-	});
-
-	useEffect(() => {
-		window.addEventListener("keydown", handleKeyDown);
-
-		return () => {
-			window.removeEventListener("keydown", handleKeyDown);
-		};
-	}, []);
-};
-
 const BranchMenuPopup: FC<{
 	branch: BranchListing;
 	projectId: string;
@@ -133,7 +79,6 @@ const BranchMenuPopup: FC<{
 	const { Popup, Item } = parts;
 	const applyBranch = useMutation(applyBranchMutationOptions);
 	const unapplyStack = useMutation(unapplyStackMutationOptions);
-	const ref = getBranchRef(branch);
 	const stackId = branch.stack?.id;
 
 	return (
@@ -141,12 +86,10 @@ const BranchMenuPopup: FC<{
 			{!branch.stack?.inWorkspace ? (
 				<Item
 					className={uiStyles.menuItem}
-					disabled={ref === null}
 					onClick={() => {
-						if (ref === null) return;
 						applyBranch.mutate({
 							projectId,
-							existingBranch: ref,
+							existingBranch: getBranchRef(branch),
 						});
 					}}
 				>
@@ -174,7 +117,6 @@ const BranchApplyToggle: FC<{
 }> = ({ branch, projectId }) => {
 	const applyBranch = useMutation(applyBranchMutationOptions);
 	const unapplyStack = useMutation(unapplyStackMutationOptions);
-	const ref = getBranchRef(branch);
 	const stackId = branch.stack?.id;
 	const isApplied = branch.stack?.inWorkspace ?? false;
 
@@ -196,13 +138,11 @@ const BranchApplyToggle: FC<{
 		<button
 			type="button"
 			className={classes(sharedStyles.itemAction, styles.branchApplyToggle)}
-			disabled={ref === null}
 			aria-label={`Apply branch ${branch.name}`}
 			onClick={() => {
-				if (ref === null) return;
 				applyBranch.mutate({
 					projectId,
-					existingBranch: ref,
+					existingBranch: getBranchRef(branch),
 				});
 			}}
 		>
@@ -504,22 +444,16 @@ const Preview: FC<{
 	projectId: string;
 	selection: Selection;
 	remote: string | null;
-	branchRef: string | null;
-}> = ({ projectId, selection, remote, branchRef }) =>
+}> = ({ projectId, selection, remote }) =>
 	Match.value(selection).pipe(
-		Match.tag("Branch", ({ branchName }) =>
-			branchRef !== null ? (
-				<ShowBranch
-					projectId={projectId}
-					branchRef={branchRef}
-					branchName={branchName}
-					remote={remote}
-					renderHunk={(change, hunk) => <Hunk change={change} hunk={hunk} />}
-				/>
-			) : (
-				<div>No branch diff available.</div>
-			),
-		),
+		Match.tag("Branch", ({ branchName }) => (
+			<ShowBranch
+				projectId={projectId}
+				branchName={branchName}
+				remote={remote}
+				renderHunk={(change, hunk) => <Hunk change={change} hunk={hunk} />}
+			/>
+		)),
 		Match.tag("Commit", ({ branchName, commitId, mode }) =>
 			mode._tag === "Details" && mode.path !== undefined ? (
 				<ShowBranchCommitFile
@@ -549,16 +483,11 @@ const ProjectBranchesPage: FC = () => {
 	const { data: branches } = useSuspenseQuery(listBranchesQueryOptions(projectId));
 
 	const sortedBranches = branches.slice().sort((a, b) => a.name.localeCompare(b.name));
-	const [_selection, select] = useLocalStorageState<Selection | null>(
-		`project:${projectId}:branches:selection`,
-		{ defaultValue: null },
-	);
+	const [_selection, select] = useState<Selection | null>(null);
 	const selection =
 		(_selection ? normalizeBranchSelection(_selection, sortedBranches) : null) ??
 		getDefaultSelection(sortedBranches);
 	const selectedBranch = sortedBranches.find((branch) => branch.name === selection?.branchName);
-
-	useSelectionKeyboardShortcuts({ selection, select, projectId });
 
 	if (!project) return <p>Project not found.</p>;
 
@@ -574,7 +503,6 @@ const ProjectBranchesPage: FC = () => {
 						<Preview
 							projectId={projectId}
 							selection={selection}
-							branchRef={getBranchRef(selectedBranch)}
 							remote={getBranchRemote(selectedBranch)}
 						/>
 					</Suspense>

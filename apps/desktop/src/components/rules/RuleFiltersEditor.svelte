@@ -13,6 +13,7 @@
 	} from "$lib/rules/rule";
 	import { typedKeys } from "$lib/utils/object";
 	import { Button, Select, SelectItem, Textbox, FileStatusBadge } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 	import type { FileStatus } from "@gitbutler/ui/components/file/types";
 
 	const FILE_STATUS_OPTIONS: FileStatus[] = ["addition", "modification", "deletion", "rename"];
@@ -29,14 +30,18 @@
 	let addFilterButton = $state<HTMLDivElement>();
 	let newFilterContextMenu = $state<NewRuleMenu>();
 
-	let pathRegex = $state<string | undefined>(initialFilterValues.pathMatchesRegex ?? undefined);
+	let pathRegex = $state<string | undefined>(
+		untrack(() => initialFilterValues.pathMatchesRegex ?? undefined),
+	);
 	let contentRegex = $state<string | undefined>(
-		initialFilterValues.contentMatchesRegex ?? undefined,
+		untrack(() => initialFilterValues.contentMatchesRegex ?? undefined),
 	);
 	let treeChangeType = $state<FileStatus | undefined>(
-		initialFilterValues.fileChangeType ?? undefined,
+		untrack(() => initialFilterValues.fileChangeType ?? undefined),
 	);
-	let semanticType = $state<SemanticType | undefined>(initialFilterValues.semanticType?.type);
+	let semanticType = $state<SemanticType | undefined>(
+		untrack(() => initialFilterValues.semanticType?.type),
+	);
 
 	const ruleFilterTypes = $derived(typedKeys(initialFilterValues));
 	const hasClaudeSession = $derived(ruleFilterTypes.includes("claudeCodeSessionId"));

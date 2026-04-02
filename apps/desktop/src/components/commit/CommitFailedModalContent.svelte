@@ -3,6 +3,7 @@
 	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import { REJECTTION_REASONS, type RejectionReason } from "$lib/stacks/stackService.svelte";
 	import { Icon, ModalHeader, TestId, Tooltip } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 	import type { CommitFailedModalState } from "$lib/state/uiState.svelte";
 
 	type Props = {
@@ -63,7 +64,7 @@
 		return result;
 	}
 
-	const groupedData = groupByReason(data);
+	const groupedData = groupByReason(untrack(() => data));
 
 	let isScrollTopVisible = $state(true);
 </script>

@@ -750,7 +750,7 @@
 		) {
 			// Maintain position as off-viewport elements resize after a jump.
 			// Skip during init — heightMap is incomplete.
-			const target = calculateHeightSum(0, lastJumpToIndex || startIndex || 0);
+			const target = calculateHeightSum(0, lastJumpToIndex ?? startIndex ?? 0);
 			// Subpixel tolerance: scrollTop is fractional, heightSum is integer.
 			if (Math.abs(viewport.scrollTop - target) < 1) return;
 			viewport.scrollTop = target;

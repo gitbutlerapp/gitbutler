@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fmt::Write as _};
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::{
-    commit::{create::commit_create, insert_blank::commit_insert_blank},
+    commit::create::commit_create,
     diff,
     legacy::{repo, workspace},
 };
@@ -26,7 +26,8 @@ pub(crate) fn insert_blank_commit(
     target: &str,
     insert_side: InsertSide,
 ) -> Result<()> {
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
     // Resolve the target ID
     let cli_ids = id_map.parse_using_context(target, ctx)?;
@@ -60,7 +61,12 @@ pub(crate) fn insert_blank_commit(
                 let repo = ctx.repo.get()?;
                 shorten_object_id(&repo, *oid)
             };
-            commit_insert_blank(ctx, RelativeTo::Commit(*oid), insert_side)?;
+            but_api::commit::insert_blank::commit_insert_blank_with_perm(
+                ctx,
+                RelativeTo::Commit(*oid),
+                insert_side,
+                guard.write_permission(),
+            )?;
             format!("Created blank commit {position_desc} commit {short_oid}")
         }
         CliId::Branch { name, .. } => {
@@ -68,7 +74,12 @@ pub(crate) fn insert_blank_commit(
                 let repo = ctx.repo.get()?;
                 repo.find_reference(name)?.detach()
             };
-            commit_insert_blank(ctx, RelativeTo::Reference(reference.name), insert_side)?;
+            but_api::commit::insert_blank::commit_insert_blank_with_perm(
+                ctx,
+                RelativeTo::Reference(reference.name),
+                insert_side,
+                guard.write_permission(),
+            )?;
             match insert_side {
                 InsertSide::Above => format!("Created blank commit at the top of stack '{name}'"),
                 InsertSide::Below => {

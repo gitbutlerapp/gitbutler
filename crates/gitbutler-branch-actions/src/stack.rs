@@ -89,9 +89,25 @@ pub fn update_branch_name(
     new_name: String,
 ) -> Result<String> {
     let mut guard = ctx.exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
-    let _ = ctx.snapshot_update_dependent_branch_name(&branch_name, guard.write_permission());
-    ensure_open_workspace_mode(ctx, guard.read_permission())
+    update_branch_name_with_perm(
+        ctx,
+        stack_id,
+        branch_name,
+        new_name,
+        guard.write_permission(),
+    )
+}
+
+pub fn update_branch_name_with_perm(
+    ctx: &mut Context,
+    stack_id: StackId,
+    branch_name: String,
+    new_name: String,
+    perm: &mut but_core::sync::RepoExclusive,
+) -> Result<String> {
+    ctx.verify(perm)?;
+    let _ = ctx.snapshot_update_dependent_branch_name(&branch_name, perm);
+    ensure_open_workspace_mode(ctx, perm.read_permission())
         .context("Requires an open workspace mode")?;
     let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&new_name)?;

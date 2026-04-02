@@ -15,6 +15,7 @@
 	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
 	import { AvatarGroup, Icon } from "@gitbutler/ui";
 	import { copyToClipboard } from "@gitbutler/ui/utils/clipboard";
+	import { untrack } from "svelte";
 
 	const NO_REVIEWERS = "Not reviewed yet";
 	const NO_CONTRIBUTORS = "No contributors";
@@ -42,7 +43,7 @@
 	const approvers = $derived(getPatchApproversWithAvatars(patchCommit));
 	const rejectors = $derived(getPatchRejectorsWithAvatars(patchCommit));
 
-	const commitShortSha = patchCommit.commitSha.substring(0, 7);
+	const commitShortSha = untrack(() => patchCommit).commitSha.substring(0, 7);
 </script>
 
 <InfoFlexRow>
