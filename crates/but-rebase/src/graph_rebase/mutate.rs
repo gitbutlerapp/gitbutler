@@ -250,6 +250,46 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         None
     }
 
+    /// Returns all direct children of `target` together with their edge order.
+    ///
+    /// Children are represented as incoming edges into `target` in the step graph.
+    pub fn direct_children(&self, target: impl ToSelector) -> Result<Vec<(Selector, usize)>> {
+        let target = self.history.normalize_selector(target.to_selector(self)?)?;
+        Ok(self
+            .graph
+            .edges_directed(target.id, Direction::Incoming)
+            .map(|edge| {
+                (
+                    Selector {
+                        id: edge.source(),
+                        revision: self.history.current_revision(),
+                    },
+                    edge.weight().order,
+                )
+            })
+            .collect())
+    }
+
+    /// Returns all direct parents of `target` together with their edge order.
+    ///
+    /// Parents are represented as outgoing edges from `target` in the step graph.
+    pub fn direct_parents(&self, target: impl ToSelector) -> Result<Vec<(Selector, usize)>> {
+        let target = self.history.normalize_selector(target.to_selector(self)?)?;
+        Ok(self
+            .graph
+            .edges_directed(target.id, Direction::Outgoing)
+            .map(|edge| {
+                (
+                    Selector {
+                        id: edge.target(),
+                        revision: self.history.current_revision(),
+                    },
+                    edge.weight().order,
+                )
+            })
+            .collect())
+    }
+
     /// Replaces the node that the function was pointing to.
     ///
     /// Returns the replaced step.
