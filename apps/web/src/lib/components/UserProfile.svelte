@@ -5,6 +5,7 @@
 	import { inject } from "@gitbutler/core/context";
 
 	import { AsyncButton, Button, Markdown, chipToasts } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 	import { get } from "svelte/store";
 	import type { ExtendedUser } from "$lib/owner/types";
 
@@ -58,7 +59,7 @@
 		}
 	}
 
-	let patchStacksStore = $state(userService.getPatchStacks(ownerSlug));
+	let patchStacksStore = $state(userService.getPatchStacks(untrack(() => ownerSlug)));
 	let patchStacks = $derived($patchStacksStore);
 	let patchStacksData = $derived(patchStacks.status === "found" ? patchStacks.value || [] : []);
 

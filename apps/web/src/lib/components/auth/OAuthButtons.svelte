@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from "svelte";
 	import { env } from "$env/dynamic/public";
 
 	interface Props {
@@ -7,7 +8,7 @@
 
 	let { mode = "signin" }: Props = $props();
 
-	const actionText = mode === "signup" ? "Sign up" : "Sign in";
+	const actionText = untrack(() => mode) === "signup" ? "Sign up" : "Sign in";
 </script>
 
 <div class="auth-form__social">

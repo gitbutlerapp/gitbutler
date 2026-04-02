@@ -9,6 +9,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import { Button, Icon, ScrollableContainer, type IconName } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { untrack } from "svelte";
 	import type { Snapshot, SnapshotDetails } from "$lib/history/types";
 
 	interface Props {
@@ -172,10 +173,10 @@
 		}
 	}
 
-	const isRestoreSnapshot = entry.details?.operation === "RestoreFromSnapshot";
-	const error = entry.details?.trailers.find((t) => t.key === "error")?.value;
+	const isRestoreSnapshot = untrack(() => entry.details?.operation === "RestoreFromSnapshot");
+	const error = untrack(() => entry.details?.trailers.find((t) => t.key === "error")?.value);
 
-	const operation = mapOperation(entry.details);
+	const operation = mapOperation(untrack(() => entry.details));
 
 	const modeService = inject(MODE_SERVICE);
 	const mode = $derived(modeService.mode(projectId));

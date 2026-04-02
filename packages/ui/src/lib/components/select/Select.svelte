@@ -52,7 +52,7 @@
 	import { portal } from "$lib/utils/portal";
 	import { pxToRem } from "$lib/utils/pxToRem";
 	import { resizeObserver } from "$lib/utils/resizeObserver";
-	import { type Snippet } from "svelte";
+	import { untrack, type Snippet } from "svelte";
 
 	const {
 		id,
@@ -133,11 +133,11 @@
 			highlightedIndex = undefined;
 		}
 	});
-	let maxHeightState = $state(maxHeight);
+	let maxHeightState = $state(untrack(() => maxHeight));
 	let listOpen = $state(false);
 	let inputBoundingRect = $state<DOMRect>();
 	let optionsGroupBoundingRect = $state<DOMRect>();
-	let computedVerticalAlign = $state<"top" | "bottom">(popupVerticalAlign);
+	let computedVerticalAlign = $state<"top" | "bottom">(untrack(() => popupVerticalAlign));
 
 	const maxBottomPadding = 20;
 

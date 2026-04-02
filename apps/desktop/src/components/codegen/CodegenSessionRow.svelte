@@ -23,6 +23,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import { Badge, Icon, type IconName } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { untrack } from "svelte";
 	import { slide } from "svelte/transition";
 	import type { ClaudeStatus, PromptAttachment } from "$lib/codegen/types";
 
@@ -46,12 +47,13 @@
 		draft = false,
 	}: Props = $props();
 
-	const uiState = draft ? undefined : inject(UI_STATE);
-	const laneState = draft || !stackId ? undefined : uiState?.lane(stackId);
+	const uiState = untrack(() => draft) ? undefined : inject(UI_STATE);
+	const laneState = untrack(() => (draft || !stackId ? undefined : uiState?.lane(stackId)));
 
-	const claudeService = draft ? undefined : inject(CLAUDE_CODE_SERVICE);
-	const messages =
-		draft || !projectId || !stackId ? undefined : claudeService?.messages({ projectId, stackId });
+	const claudeService = untrack(() => draft) ? undefined : inject(CLAUDE_CODE_SERVICE);
+	const messages = untrack(() =>
+		draft || !projectId || !stackId ? undefined : claudeService?.messages({ projectId, stackId }),
+	);
 	const permissionRequests = $derived(
 		draft || !projectId ? undefined : claudeService?.permissionRequests({ projectId }),
 	);
@@ -69,7 +71,7 @@
 		return "ai";
 	}
 
-	const attachmentService = draft ? undefined : inject(ATTACHMENT_SERVICE);
+	const attachmentService = untrack(() => draft) ? undefined : inject(ATTACHMENT_SERVICE);
 
 	function addAttachment(items: PromptAttachment[]) {
 		if (!branchName || !attachmentService) return;

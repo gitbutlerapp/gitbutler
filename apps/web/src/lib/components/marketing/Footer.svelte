@@ -225,12 +225,6 @@
 		transform: translateY(-4px);
 	}
 
-	.download-options {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-	}
-
 	.download-link {
 		color: var(--text-1);
 		font-size: 16px;

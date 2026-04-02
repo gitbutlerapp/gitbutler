@@ -7,6 +7,7 @@
 	import { persistWithExpiration } from "@gitbutler/shared/persisted";
 	import { Icon } from "@gitbutler/ui";
 	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
+	import { untrack } from "svelte";
 	import { writable, type Writable } from "svelte/store";
 	import type { ComponentProps, Snippet } from "svelte";
 
@@ -72,9 +73,13 @@
 	const zoom = $derived($userSettings.zoom);
 
 	let containerDiv = $state<HTMLDivElement>();
-	let internalCollapsed: Writable<boolean | undefined> = persistId
-		? persistWithExpiration<boolean>(defaultCollapsed, persistId, 1440)
-		: writable(defaultCollapsed);
+	let internalCollapsed: Writable<boolean | undefined> = untrack(() => persistId)
+		? persistWithExpiration<boolean>(
+				untrack(() => defaultCollapsed),
+				untrack(() => persistId)!,
+				1440,
+			)
+		: writable(untrack(() => defaultCollapsed));
 
 	const isCollapsed = $derived($internalCollapsed);
 

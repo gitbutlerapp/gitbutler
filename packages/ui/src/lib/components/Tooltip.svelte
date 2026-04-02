@@ -14,7 +14,7 @@
 	import { tooltip } from "$lib/utils/tooltipPosition";
 	import { flyScale } from "$lib/utils/transitions";
 	import { injectOptional } from "@gitbutler/core/context";
-	import { type Snippet } from "svelte";
+	import { untrack, type Snippet } from "svelte";
 
 	interface Props {
 		text?: string;
@@ -44,7 +44,7 @@
 	const draggingService = injectOptional(DRAG_STATE_SERVICE, undefined);
 	const isDragging = $derived(draggingService?.isDragging);
 	let targetEl: HTMLElement | undefined = $state();
-	let position = $state(requestedPosition);
+	let position = $state(untrack(() => requestedPosition));
 	let show = $state(false);
 	let timeoutId: undefined | ReturnType<typeof setTimeout> = $state();
 	let isInstant = $state(false);

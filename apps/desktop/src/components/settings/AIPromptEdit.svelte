@@ -3,6 +3,7 @@
 	import { PROMPT_SERVICE } from "$lib/ai/aiPromptService";
 	import { inject } from "@gitbutler/core/context";
 	import { Button } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 	import { get } from "svelte/store";
 	import type { Prompts, UserPrompt } from "$lib/ai/types";
 
@@ -16,7 +17,7 @@
 
 	let prompts = $state<Prompts>();
 
-	if (promptUse === "commits") {
+	if (untrack(() => promptUse) === "commits") {
 		prompts = promptService.commitPrompts;
 	} else {
 		prompts = promptService.branchPrompts;

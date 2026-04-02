@@ -2,6 +2,7 @@
 	import Footer from "$lib/components/marketing/Footer.svelte";
 	import Header from "$lib/components/marketing/Header.svelte";
 	import ReleaseCard from "$lib/components/marketing/ReleaseCard.svelte";
+	import { untrack } from "svelte";
 	import Markdown from "svelte-exmarkdown";
 	import type { Release } from "$lib/types/releases";
 	import type { LatestReleaseBuilds } from "$lib/utils/releaseUtils";
@@ -17,7 +18,7 @@
 
 	const { data }: Props = $props();
 
-	const { latestRelease, latestReleaseBuilds } = data;
+	const { latestRelease, latestReleaseBuilds } = untrack(() => data);
 
 	let linuxArch = $state<"x86-64" | "ARM64">("x86-64");
 </script>

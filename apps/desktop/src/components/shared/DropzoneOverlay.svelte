@@ -2,6 +2,7 @@
 	import { injectOptional } from "@gitbutler/core/context";
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
 	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
+	import { untrack } from "svelte";
 
 	interface Props {
 		hovered: boolean;
@@ -20,10 +21,10 @@
 	let defaultPadding = 4;
 	const dragStateService = injectOptional(DRAG_STATE_SERVICE, undefined);
 
-	const extraPaddingTop = extraPaddings?.top ?? 0;
-	const extraPaddingRight = extraPaddings?.right ?? 0;
-	const extraPaddingBottom = extraPaddings?.bottom ?? 0;
-	const extraPaddingLeft = extraPaddings?.left ?? 0;
+	const extraPaddingTop = untrack(() => extraPaddings?.top ?? 0);
+	const extraPaddingRight = untrack(() => extraPaddings?.right ?? 0);
+	const extraPaddingBottom = untrack(() => extraPaddings?.bottom ?? 0);
+	const extraPaddingLeft = untrack(() => extraPaddings?.left ?? 0);
 
 	$effect(() => {
 		if (activated && hovered && label && dragStateService) {

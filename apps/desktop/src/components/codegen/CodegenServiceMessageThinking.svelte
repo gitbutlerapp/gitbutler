@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CodegenServiceMessage from "$components/codegen/CodegenServiceMessage.svelte";
+	import { untrack } from "svelte";
 
 	type Props = {
 		startAt: Date;
@@ -71,7 +72,9 @@
 	}
 
 	let currentWord = $state(getWord());
-	let currentDuration = $state(milisToEnglish(Date.now() - startAt.getTime() - msSpentWaiting));
+	let currentDuration = $state(
+		untrack(() => milisToEnglish(Date.now() - startAt.getTime() - msSpentWaiting)),
+	);
 
 	$effect(() => {
 		const updateWordInterval = setInterval(() => {

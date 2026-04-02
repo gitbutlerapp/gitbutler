@@ -19,7 +19,7 @@
 	import { Button, FileViewHeader, HunkDiffSkeleton, Icon, VirtualList } from "@gitbutler/ui";
 	import { FOCUS_MANAGER, type FocusableOptions } from "@gitbutler/ui/focus/focusManager";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
-	import { tick } from "svelte";
+	import { tick, untrack } from "svelte";
 
 	interface Props {
 		projectId: string;
@@ -61,7 +61,7 @@
 
 	let listMode: "list" | "tree" = $state("list");
 	// Seeded from prop once on mount; subsequent user selection is independent.
-	let selectedIndex = $state(initialIndex);
+	let selectedIndex = $state(untrack(() => initialIndex));
 	// Prevents VirtualList scroll events from overwriting a user-clicked selection.
 	const scrollLock = new ScrollSelectionLock(getInitialLockedIndex());
 	let headerElRef = $state<HTMLDivElement | undefined>(undefined);

@@ -6,6 +6,7 @@
 	import { persisted, type Persisted } from "@gitbutler/shared/persisted";
 
 	import { ContextMenuItem, ContextMenuSection, DropdownButton } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 	import type { ButtonProps } from "@gitbutler/ui";
 
 	interface Props {
@@ -40,7 +41,7 @@
 		return persisted<MergeMethod>(MergeMethod.Merge, key + projectId);
 	}
 
-	const action = persistedAction(projectId);
+	const action = persistedAction(untrack(() => projectId));
 
 	// If GitLab and action is rebase, reset to merge
 	$effect(() => {

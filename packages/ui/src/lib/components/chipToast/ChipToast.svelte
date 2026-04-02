@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from "$components/Icon.svelte";
 	import { type IconName } from "$lib/icons/names";
+	import { untrack } from "svelte";
 	import { fly, fade } from "svelte/transition";
 	import type { ChipToastType, ChipToastButtonConfig } from "$components/chipToast/chipToastTypes";
 
@@ -30,7 +31,7 @@
 		}
 	}
 
-	const icon = getEmojiForType(type);
+	const icon = getEmojiForType(untrack(() => type));
 
 	function handleDismiss() {
 		onDismiss?.();

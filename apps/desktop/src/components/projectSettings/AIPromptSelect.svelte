@@ -2,7 +2,7 @@
 	import { PROMPT_SERVICE } from "$lib/ai/aiPromptService";
 	import { inject } from "@gitbutler/core/context";
 	import { Select, SelectItem } from "@gitbutler/ui";
-	import { onMount } from "svelte";
+	import { onMount, untrack } from "svelte";
 	import type { Prompts, UserPrompt } from "$lib/ai/types";
 	import type { Persisted } from "@gitbutler/shared/persisted";
 
@@ -18,12 +18,12 @@
 	let prompts: Prompts;
 	let selectedPromptId = $state<Persisted<string | undefined>>();
 
-	if (promptUse === "commits") {
+	if (untrack(() => promptUse) === "commits") {
 		prompts = promptService.commitPrompts;
-		selectedPromptId = promptService.selectedCommitPromptId(projectId);
+		selectedPromptId = promptService.selectedCommitPromptId(untrack(() => projectId));
 	} else {
 		prompts = promptService.branchPrompts;
-		selectedPromptId = promptService.selectedBranchPromptId(projectId);
+		selectedPromptId = promptService.selectedBranchPromptId(untrack(() => projectId));
 	}
 
 	let userPrompts = prompts.userPrompts;
