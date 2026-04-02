@@ -28,8 +28,7 @@ export const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={sharedStyles.dragPreview}>{children}</div>
 );
 
-export const getDragData = (operationSource: OperationSource | null): DragData | null =>
-	operationSource !== null ? { operationSource } : null;
+export const getDragData = (operationSource: OperationSource): DragData => ({ operationSource });
 
 export const getCommitTargetInstruction = ({
 	operationSource,
