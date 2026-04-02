@@ -765,83 +765,79 @@ const CommitRow: FC<
 			{...restProps}
 			isEnabled={!isEditing}
 			commit={commitWithOptimisticMessage}
-			render={
-				<div
-					className={classes(
-						sharedStyles.item,
-						commitSelection && sharedStyles.selected,
-						isHighlighted && sharedStyles.highlighted,
-					)}
-				>
-					{isEditing ? (
-						<InlineCommitMessageEditor
-							message={optimisticMessage}
-							onSubmit={saveNewMessage}
-							onCancel={endEditing}
-						/>
-					) : (
-						<ContextMenu.Root>
-							<ContextMenu.Trigger
-								render={
-									<button
-										type="button"
-										className={classes(
-											sharedStyles.commitButton,
-											isCommitMessagePending && sharedStyles.commitButtonPending,
-										)}
-										onClick={() => {
-											select(summaryItem);
-										}}
-									>
-										<CommitLabel commit={commitWithOptimisticMessage} />
-									</button>
-								}
-							/>
-							<ContextMenu.Portal>
-								<ContextMenu.Positioner>
-									<CommitMenuPopup
-										projectId={projectId}
-										commitId={commit.id}
-										canReword={!isCommitMessagePending}
-										onReword={startEditing}
-										parts={ContextMenu}
-									/>
-								</ContextMenu.Positioner>
-							</ContextMenu.Portal>
-						</ContextMenu.Root>
-					)}
-					<ShortcutButton
-						binding={
-							commitSelection?.mode._tag === "Details"
-								? closeCommitDetailsBinding
-								: openCommitDetailsBinding
+			className={classes(
+				sharedStyles.item,
+				commitSelection && sharedStyles.selected,
+				isHighlighted && sharedStyles.highlighted,
+			)}
+		>
+			{isEditing ? (
+				<InlineCommitMessageEditor
+					message={optimisticMessage}
+					onSubmit={saveNewMessage}
+					onCancel={endEditing}
+				/>
+			) : (
+				<ContextMenu.Root>
+					<ContextMenu.Trigger
+						render={
+							<button
+								type="button"
+								className={classes(
+									sharedStyles.commitButton,
+									isCommitMessagePending && sharedStyles.commitButtonPending,
+								)}
+								onClick={() => {
+									select(summaryItem);
+								}}
+							>
+								<CommitLabel commit={commitWithOptimisticMessage} />
+							</button>
 						}
-						className={sharedStyles.itemAction}
-						type="button"
-						onClick={toggleDetails}
-						aria-expanded={commitSelection?.mode._tag === "Details"}
-					>
-						<ExpandCollapseIcon isExpanded={commitSelection?.mode._tag === "Details"} />
-					</ShortcutButton>
-					<Menu.Root>
-						<Menu.Trigger className={sharedStyles.itemAction} aria-label="Commit menu">
-							<MenuTriggerIcon />
-						</Menu.Trigger>
-						<Menu.Portal>
-							<Menu.Positioner align="end">
-								<CommitMenuPopup
-									projectId={projectId}
-									commitId={commit.id}
-									canReword={!isCommitMessagePending}
-									onReword={startEditing}
-									parts={Menu}
-								/>
-							</Menu.Positioner>
-						</Menu.Portal>
-					</Menu.Root>
-				</div>
-			}
-		/>
+					/>
+					<ContextMenu.Portal>
+						<ContextMenu.Positioner>
+							<CommitMenuPopup
+								projectId={projectId}
+								commitId={commit.id}
+								canReword={!isCommitMessagePending}
+								onReword={startEditing}
+								parts={ContextMenu}
+							/>
+						</ContextMenu.Positioner>
+					</ContextMenu.Portal>
+				</ContextMenu.Root>
+			)}
+			<ShortcutButton
+				binding={
+					commitSelection?.mode._tag === "Details"
+						? closeCommitDetailsBinding
+						: openCommitDetailsBinding
+				}
+				className={sharedStyles.itemAction}
+				type="button"
+				onClick={toggleDetails}
+				aria-expanded={commitSelection?.mode._tag === "Details"}
+			>
+				<ExpandCollapseIcon isExpanded={commitSelection?.mode._tag === "Details"} />
+			</ShortcutButton>
+			<Menu.Root>
+				<Menu.Trigger className={sharedStyles.itemAction} aria-label="Commit menu">
+					<MenuTriggerIcon />
+				</Menu.Trigger>
+				<Menu.Portal>
+					<Menu.Positioner align="end">
+						<CommitMenuPopup
+							projectId={projectId}
+							commitId={commit.id}
+							canReword={!isCommitMessagePending}
+							onReword={startEditing}
+							parts={Menu}
+						/>
+					</Menu.Positioner>
+				</Menu.Portal>
+			</Menu.Root>
+		</CommitSource>
 	);
 };
 
@@ -1022,44 +1018,40 @@ const Changes: FC<{
 									change={change}
 									fileParent={{ _tag: "Changes", stackId }}
 									assignments={assignmentsByPath.get(change.path)}
-									render={
-										<div
-											className={classes(
-												sharedStyles.item,
-												changesSelection?.mode._tag === "Details" &&
-													changesSelection.mode.path === change.path &&
-													sharedStyles.selected,
-											)}
+									className={classes(
+										sharedStyles.item,
+										changesSelection?.mode._tag === "Details" &&
+											changesSelection.mode.path === change.path &&
+											sharedStyles.selected,
+									)}
+								>
+									<FileButton
+										change={change}
+										onClick={() => {
+											select(changesDetailsItem(stackId, change.path));
+										}}
+									/>
+									<ShortcutButton
+										binding={absorbChangesBinding}
+										type="button"
+										className={sharedStyles.itemAction}
+										onClick={() => {
+											onAbsorbChanges([change], stackId);
+										}}
+									>
+										<AbsorbIcon />
+									</ShortcutButton>
+									{isNonEmptyArray(dependencyCommitIds) && (
+										<DependencyIndicator
+											projectId={projectId}
+											commitIds={dependencyCommitIds}
+											onHover={onDependencyHover}
+											className={sharedStyles.itemAction}
 										>
-											<FileButton
-												change={change}
-												onClick={() => {
-													select(changesDetailsItem(stackId, change.path));
-												}}
-											/>
-											<ShortcutButton
-												binding={absorbChangesBinding}
-												type="button"
-												className={sharedStyles.itemAction}
-												onClick={() => {
-													onAbsorbChanges([change], stackId);
-												}}
-											>
-												<AbsorbIcon />
-											</ShortcutButton>
-											{isNonEmptyArray(dependencyCommitIds) && (
-												<DependencyIndicator
-													projectId={projectId}
-													commitIds={dependencyCommitIds}
-													onHover={onDependencyHover}
-													className={sharedStyles.itemAction}
-												>
-													<DependencyIcon />
-												</DependencyIndicator>
-											)}
-										</div>
-									}
-								/>
+											<DependencyIcon />
+										</DependencyIndicator>
+									)}
+								</ChangesFileSource>
 							</li>
 						);
 					})}
