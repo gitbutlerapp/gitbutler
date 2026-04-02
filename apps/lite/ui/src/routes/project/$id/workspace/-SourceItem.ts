@@ -11,7 +11,7 @@ export type TreeChangeWithHunkHeaders = {
 
 export type SourceItem =
 	| { _tag: "Commit"; commitId: string }
-	| { _tag: "Branch"; anchorRef: Array<number> }
+	| { _tag: "Branch"; ref: Array<number> }
 	| {
 			_tag: "TreeChanges";
 			parent: ChangeUnit;

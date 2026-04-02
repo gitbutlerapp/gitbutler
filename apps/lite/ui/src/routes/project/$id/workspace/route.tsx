@@ -1423,40 +1423,40 @@ const CommitForm: FC<{
 
 const BranchTarget: FC<
 	{
-		anchorRef: Array<number> | null;
+		branchRef: Array<number> | null;
 		firstCommitId: string | undefined;
 	} & useRender.ComponentProps<"div">
-> = ({ anchorRef, firstCommitId, render, ...props }) => {
+> = ({ branchRef, firstCommitId, render, ...props }) => {
 	const getOperation = (sourceItem: SourceItem): Operation | null =>
 		Match.value(sourceItem).pipe(
 			Match.tag("Branch", (source): Operation | null => {
-				if (anchorRef === null || decodeRefName(anchorRef) === decodeRefName(source.anchorRef))
+				if (branchRef === null || decodeRefName(branchRef) === decodeRefName(source.ref))
 					return null;
 				return {
 					_tag: "MoveBranch",
-					subjectBranch: decodeRefName(source.anchorRef),
-					targetBranch: decodeRefName(anchorRef),
+					subjectBranch: decodeRefName(source.ref),
+					targetBranch: decodeRefName(branchRef),
 				};
 			}),
 			Match.tag("Commit", ({ commitId }): Operation | null => {
-				if (anchorRef === null || commitId === firstCommitId) return null;
+				if (branchRef === null || commitId === firstCommitId) return null;
 				return {
 					_tag: "CommitMove",
 					subjectCommitId: commitId,
 					relativeTo: {
 						type: "referenceBytes",
-						subject: anchorRef,
+						subject: branchRef,
 					},
 					side: "below",
 				};
 			}),
 			Match.tag("TreeChanges", (source): Operation | null => {
-				if (anchorRef === null || source.parent._tag !== "Changes") return null;
+				if (branchRef === null || source.parent._tag !== "Changes") return null;
 				return {
 					_tag: "CommitCreate",
 					relativeTo: {
 						type: "referenceBytes",
-						subject: anchorRef,
+						subject: branchRef,
 					},
 					side: "below",
 					changes: source.changes.map(({ change, hunkHeaders }) =>
@@ -1515,7 +1515,7 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 		if (sourceItem._tag !== "Branch") return null;
 		return {
 			_tag: "TearOffBranch",
-			subjectBranch: decodeRefName(sourceItem.anchorRef),
+			subjectBranch: decodeRefName(sourceItem.ref),
 		};
 	};
 
@@ -1754,11 +1754,11 @@ const SegmentRow: FC<
 
 	return !isRenamePending && segment.refName != null ? (
 		<BranchTarget
-			anchorRef={segment.refName.fullNameBytes}
+			branchRef={segment.refName.fullNameBytes}
 			firstCommitId={segment.commits[0]?.id}
 			render={
 				<DraggableBranch
-					anchorRef={segment.refName.fullNameBytes}
+					branchRef={segment.refName.fullNameBytes}
 					branchName={segment.refName.displayName}
 					render={children}
 				/>

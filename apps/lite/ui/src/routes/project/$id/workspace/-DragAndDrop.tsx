@@ -40,12 +40,12 @@ const hunkHeadersForAssignments = (
 
 export const DraggableBranch: FC<
 	{
-		anchorRef: Array<number> | null;
+		branchRef: Array<number> | null;
 		branchName: string;
 	} & useRender.ComponentProps<"div">
-> = ({ anchorRef, branchName, render, ...props }) => {
+> = ({ branchRef, branchName, render, ...props }) => {
 	const dragData: DragData | null =
-		anchorRef !== null ? { sourceItem: { _tag: "Branch", anchorRef } } : null;
+		branchRef !== null ? { sourceItem: { _tag: "Branch", ref: branchRef } } : null;
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: (): DragData | {} => dragData ?? {},
 		preview: <DragPreview>{branchName}</DragPreview>,
