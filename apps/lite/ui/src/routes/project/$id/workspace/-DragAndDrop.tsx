@@ -1,15 +1,14 @@
-import { classes } from "#ui/classes.ts";
-import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
-import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { type Operation, useRunOperation } from "#ui/Operation.ts";
-import { CommitLabel, formatHunkHeader, Patch } from "#ui/routes/project/$id/-shared.tsx";
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
-import { mergeProps, useRender } from "@base-ui/react";
-import { Commit, DiffHunk, HunkAssignment, HunkHeader, TreeChange } from "@gitbutler/but-sdk";
-import { FC, ReactNode, useEffect } from "react";
+import {
+	attachInstruction,
+	extractInstruction,
+	Instruction,
+} from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item";
+import { type InsertSide } from "@gitbutler/but-sdk";
+import { FC, type ReactNode, useEffect } from "react";
 import sharedStyles from "../-shared.module.css";
-import { TreeChangeWithHunkHeaders, type SourceItem } from "./-SourceItem.ts";
-import styles from "./route.module.css";
+import { getCombineOperation, type SourceItem } from "./-SourceItem.ts";
 
 type DragData = {
 	sourceItem: SourceItem;
@@ -25,176 +24,72 @@ const parseDropTargetData = (data: unknown): Operation | null => {
 	return data as Operation;
 };
 
-const DragPreview: FC<{
-	children: ReactNode;
-}> = ({ children }) => <div className={sharedStyles.dragPreview}>{children}</div>;
+export const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
+	<div className={sharedStyles.dragPreview}>{children}</div>
+);
 
-const hunkHeadersForAssignments = (
-	assignments: Array<HunkAssignment> | undefined,
-): Array<HunkHeader> =>
-	assignments
-		? assignments.flatMap((assignment) =>
-				assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
-			)
-		: [];
+export const getDragData = (sourceItem: SourceItem | null): DragData | null =>
+	sourceItem !== null ? { sourceItem } : null;
 
-export const BranchSource: FC<
-	{
-		branchRef: Array<number> | null;
-		branchName: string;
-	} & useRender.ComponentProps<"div">
-> = ({ branchRef, branchName, render, ...props }) => {
-	const dragData: DragData | null =
-		branchRef !== null ? { sourceItem: { _tag: "Branch", ref: branchRef } } : null;
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData | {} => dragData ?? {},
-		preview: <DragPreview>{branchName}</DragPreview>,
-		canDrag: () => dragData !== null,
+export const getCommitTargetInstruction = ({
+	sourceItem,
+	commitId,
+	previousCommitId,
+	nextCommitId,
+	input,
+	element,
+}: {
+	sourceItem: SourceItem;
+	commitId: string;
+	previousCommitId: string | undefined;
+	nextCommitId: string | undefined;
+	input: Parameters<typeof attachInstruction>[1]["input"];
+	element: Element;
+}): Instruction | null => {
+	const isNoOpCommitMove = (sourceCommitId: string, side: InsertSide): boolean =>
+		sourceCommitId === commitId ||
+		(side === "above" && previousCommitId === sourceCommitId) ||
+		(side === "below" && nextCommitId === sourceCommitId);
+
+	const getSourceCommitId = (item: SourceItem): string | null =>
+		item._tag === "Commit"
+			? item.commitId
+			: item._tag === "TreeChanges" && item.parent._tag === "Commit"
+				? item.parent.commitId
+				: null;
+
+	const combineOperation = getCombineOperation({
+		sourceItem,
+		target: { _tag: "Commit", commitId },
 	});
-	const isActive = isDragging;
 
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isActive && styles.active),
-		}),
-	});
-};
-
-export const CommitSource: FC<
-	{
-		commit: Commit;
-		canDrag?: boolean;
-	} & useRender.ComponentProps<"div">
-> = ({ commit, canDrag = true, render, ...props }) => {
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData => ({
-			sourceItem: { _tag: "Commit", commitId: commit.id },
-		}),
-		preview: (
-			<DragPreview>
-				<CommitLabel commit={commit} />
-			</DragPreview>
+	return extractInstruction(
+		attachInstruction(
+			{ sourceItem },
+			{
+				input,
+				element,
+				operations: {
+					"reorder-before":
+						(sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "above")) ||
+						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Changes") ||
+						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit")
+							? "available"
+							: "not-available",
+					"reorder-after":
+						(sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "below")) ||
+						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Changes") ||
+						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit")
+							? "available"
+							: "not-available",
+					combine:
+						combineOperation || getSourceCommitId(sourceItem) === commitId
+							? "available"
+							: "not-available",
+				},
+			},
 		),
-		canDrag: () => canDrag,
-	});
-	const isActive = isDragging;
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isActive && styles.active),
-		}),
-	});
-};
-
-export const FileSource: FC<
-	{
-		change: TreeChange;
-		changeUnit: ChangeUnit;
-		assignments?: Array<HunkAssignment>;
-	} & useRender.ComponentProps<"div">
-> = ({ change, changeUnit, assignments, render, ...props }) => {
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData => ({
-			sourceItem: {
-				_tag: "TreeChanges",
-				parent: changeUnit,
-				changes: [
-					{
-						change,
-						hunkHeaders: hunkHeadersForAssignments(assignments),
-					},
-				],
-			},
-		}),
-		preview: <DragPreview>{change.path}</DragPreview>,
-	});
-	const isActive = isDragging;
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isActive && styles.active),
-		}),
-	});
-};
-
-export type TreeChangeWithAssignments = {
-	change: TreeChange;
-	assignments?: Array<HunkAssignment>;
-};
-
-export const ChangesSource: FC<
-	{
-		changeUnit: ChangeUnit;
-		label: string;
-		changes: Array<TreeChangeWithAssignments>;
-	} & useRender.ComponentProps<"div">
-> = ({ changeUnit, label, changes, render, ...props }) => {
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData => ({
-			sourceItem: {
-				_tag: "TreeChanges",
-				parent: changeUnit,
-				changes: changes.map(
-					({ change, assignments }): TreeChangeWithHunkHeaders => ({
-						change,
-						hunkHeaders: hunkHeadersForAssignments(assignments),
-					}),
-				),
-			},
-		}),
-		preview: <DragPreview>{label}</DragPreview>,
-		canDrag: () => changes.length > 0,
-	});
-	const isActive = isDragging;
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isActive && styles.active),
-		}),
-	});
-};
-
-export const HunkSource: FC<
-	{
-		patch: Patch;
-		changeUnit: ChangeUnit;
-		change: TreeChange;
-		hunk: DiffHunk;
-	} & useRender.ComponentProps<"div">
-> = ({ patch, changeUnit, change, hunk, render, ...props }) => {
-	const [isDragging, dragRef] = useDraggable({
-		getInitialData: (): DragData => ({
-			sourceItem: {
-				_tag: "TreeChanges",
-				parent: changeUnit,
-				changes: [
-					{
-						change,
-						hunkHeaders: [hunk],
-					},
-				],
-			},
-		}),
-		preview: <DragPreview>Hunk {formatHunkHeader(hunk)}</DragPreview>,
-		canDrag: () => !patch.subject.isResultOfBinaryToTextConversion,
-	});
-	const isActive = isDragging;
-
-	return useRender({
-		render,
-		ref: dragRef,
-		props: mergeProps<"div">(props, {
-			className: classes(isActive && styles.active),
-		}),
-	});
+	);
 };
 
 export const useMonitorDraggedSourceItem = ({ projectId }: { projectId: string }) => {

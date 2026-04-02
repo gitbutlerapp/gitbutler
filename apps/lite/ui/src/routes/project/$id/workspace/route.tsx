@@ -22,29 +22,25 @@ import {
 } from "#ui/components/icons.tsx";
 import { rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx";
 import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
-import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 import { getBranchNameByCommitId, getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
-import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
-import { isCombineOperation, operationLabel, type Operation } from "#ui/Operation.ts";
 import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import {
 	BranchSource,
-	CommitSource,
+	BranchTarget,
 	ChangesSource,
+	ChangesTarget,
+	CommitSource,
+	CommitTarget,
 	FileSource,
 	HunkSource,
-	parseDragData,
-	useMonitorDraggedSourceItem,
+	TearOffBranchTarget,
 	TreeChangeWithAssignments,
-} from "#ui/routes/project/$id/workspace/-DragAndDrop.tsx";
+} from "#ui/routes/project/$id/workspace/-OperationSubjects.tsx";
 import { AbsorptionDialog, useAbsorption } from "#ui/routes/project/$id/workspace/-Absorption.tsx";
-import {
-	getCombineOperation,
-	type SourceItem,
-} from "#ui/routes/project/$id/workspace/-SourceItem.ts";
+import { useMonitorDraggedSourceItem } from "#ui/routes/project/$id/workspace/-DragAndDrop.tsx";
 import {
 	ShowCommit,
 	CommitDetails as SharedCommitDetails,
@@ -60,11 +56,7 @@ import {
 	shortCommitId,
 } from "#ui/routes/project/$id/-shared.tsx";
 import uiStyles from "#ui/ui.module.css";
-import {
-	attachInstruction,
-	extractInstruction,
-} from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item";
-import { ContextMenu, Menu, mergeProps, Tooltip, Toast, useRender } from "@base-ui/react";
+import { ContextMenu, Menu, mergeProps, Toast, Tooltip, useRender } from "@base-ui/react";
 import {
 	Commit,
 	DiffHunk,
@@ -72,7 +64,6 @@ import {
 	HunkAssignment,
 	HunkDependencies,
 	HunkHeader,
-	InsertSide,
 	Segment,
 	Stack,
 	TreeChange,
@@ -121,10 +112,7 @@ import {
 import { PositionedShortcutsBar } from "../-ShortcutsBar.tsx";
 import { formatShortcutKeys, ShortcutActionBase, type ShortcutBinding } from "#ui/shortcuts.ts";
 import styles from "./route.module.css";
-
-// https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
-const decodeRefName = (fullNameBytes: Array<number>): string =>
-	new TextDecoder().decode(Uint8Array.from(fullNameBytes));
+import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
 
@@ -522,49 +510,6 @@ const Preview: FC<{
 		}),
 	);
 
-const ChangesTarget: FC<
-	{
-		stackId: string | null;
-	} & useRender.ComponentProps<"div">
-> = ({ stackId, render, ...props }) => {
-	const [operation, dropRef] = useDroppable(({ source }) => {
-		const sourceItem = parseDragData(source.data);
-		if (!sourceItem) return null;
-		return getCombineOperation({
-			sourceItem,
-			target: { _tag: "Changes", stackId },
-		});
-	});
-
-	const droppable = useRender({
-		render,
-		ref: dropRef,
-		props: mergeProps(props, {
-			className: classes(operation && styles.dragOver),
-		}),
-	});
-
-	const tooltip = operation ? operationLabel(operation) : null;
-
-	return (
-		<Tooltip.Root
-			open={tooltip !== null}
-			onOpenChange={(_open, eventDetails) => {
-				eventDetails.allowPropagation();
-			}}
-		>
-			<Tooltip.Trigger render={droppable} />
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-						{tooltip}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	);
-};
-
 const StackMenuPopup: FC<{
 	projectId: string;
 	stackId: string;
@@ -590,207 +535,6 @@ const StackMenuPopup: FC<{
 				Unapply stack
 			</Menu.Item>
 		</Menu.Popup>
-	);
-};
-
-const getCommitTargetOperation = ({
-	sourceItem,
-	commitId,
-	previousCommitId,
-	nextCommitId,
-	input,
-	element,
-}: {
-	sourceItem: SourceItem;
-	commitId: string;
-	previousCommitId: string | undefined;
-	nextCommitId: string | undefined;
-	input: Parameters<typeof attachInstruction>[1]["input"];
-	element: Element;
-}): Operation | null => {
-	const isNoOpCommitMove = (sourceCommitId: string, side: InsertSide): boolean =>
-		sourceCommitId === commitId ||
-		(side === "above" && previousCommitId === sourceCommitId) ||
-		(side === "below" && nextCommitId === sourceCommitId);
-
-	const getSourceCommitId = (sourceItem: SourceItem): string | null =>
-		sourceItem._tag === "Commit"
-			? sourceItem.commitId
-			: sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit"
-				? sourceItem.parent.commitId
-				: null;
-
-	const combineOperation = getCombineOperation({
-		sourceItem,
-		target: { _tag: "Commit", commitId },
-	});
-
-	const instruction = extractInstruction(
-		attachInstruction(
-			{ sourceItem },
-			{
-				input,
-				element,
-				operations: {
-					"reorder-before":
-						(sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "above")) ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Changes") ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit")
-							? "available"
-							: "not-available",
-					"reorder-after":
-						(sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "below")) ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Changes") ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit")
-							? "available"
-							: "not-available",
-					combine:
-						combineOperation ||
-						// Allow cancelling by dropping back where we started, otherwise
-						// this would be interpreted as a reorder.
-						getSourceCommitId(sourceItem) === commitId
-							? "available"
-							: "not-available",
-				},
-			},
-		),
-	);
-
-	if (!instruction) return null;
-
-	return Match.value(instruction.operation).pipe(
-		Match.when("combine", (): Operation | null => combineOperation),
-		Match.orElse((side): Operation | null => {
-			const insertSide = Match.value(side).pipe(
-				Match.when("reorder-before", (): InsertSide => "above"),
-				Match.when("reorder-after", (): InsertSide => "below"),
-				Match.exhaustive,
-			);
-
-			if (sourceItem._tag === "Commit")
-				return {
-					_tag: "CommitMove",
-					subjectCommitId: sourceItem.commitId,
-					relativeTo: { type: "commit", subject: commitId },
-					side: insertSide,
-				};
-
-			if (sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Changes")
-				return {
-					_tag: "CommitCreate",
-					relativeTo: { type: "commit", subject: commitId },
-					side: insertSide,
-					changes: sourceItem.changes.map(({ change, hunkHeaders }) =>
-						createDiffSpec(change, hunkHeaders),
-					),
-					message: "",
-				};
-
-			if (sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit")
-				return {
-					_tag: "CommitCreateFromCommittedChanges",
-					sourceCommitId: sourceItem.parent.commitId,
-					relativeTo: { type: "commit", subject: commitId },
-					side: insertSide,
-					changes: sourceItem.changes.map(({ change, hunkHeaders }) =>
-						createDiffSpec(change, hunkHeaders),
-					),
-				};
-
-			return null;
-		}),
-	);
-};
-
-const CommitTarget: FC<
-	{
-		commitId: string;
-		previousCommitId: string | undefined;
-		nextCommitId: string | undefined;
-	} & useRender.ComponentProps<"div">
-> = ({ commitId, previousCommitId, nextCommitId, render, ...props }) => {
-	const [operation, dropRef] = useDroppable(({ source, input, element }) => {
-		const sourceItem = parseDragData(source.data);
-		if (!sourceItem) return null;
-		return getCommitTargetOperation({
-			sourceItem,
-			commitId,
-			previousCommitId,
-			nextCommitId,
-			input,
-			element,
-		});
-	});
-
-	const droppable = useRender({
-		render,
-		ref: dropRef,
-		props: mergeProps<"div">(props, {
-			className: classes(operation && isCombineOperation(operation) && styles.dragOver),
-		}),
-	});
-
-	const combineTooltip =
-		operation && isCombineOperation(operation) ? operationLabel(operation) : null;
-
-	return (
-		<div className={styles.commit}>
-			<Tooltip.Root
-				open={combineTooltip !== null}
-				onOpenChange={(_open, eventDetails) => {
-					eventDetails.allowPropagation();
-				}}
-			>
-				<Tooltip.Trigger render={droppable} />
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={8}>
-						<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-							{combineTooltip}
-						</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
-
-			{(operation?._tag === "CommitMove" ||
-				operation?._tag === "CommitCreate" ||
-				operation?._tag === "CommitCreateFromCommittedChanges") && (
-				<Tooltip.Root
-					open
-					// Keep the tooltip popup from intercepting drag hover and causing flicker.
-					disableHoverablePopup
-				>
-					<Tooltip.Trigger
-						render={
-							<div
-								className={classes(
-									styles.commitInsertionTarget,
-									pipe(
-										operation.side,
-										Match.value,
-										Match.when("above", () => styles.commitInsertionTargetAbove),
-										Match.when("below", () => styles.commitInsertionTargetBelow),
-										Match.exhaustive,
-									),
-								)}
-							/>
-						}
-					/>
-					<Tooltip.Portal>
-						<Tooltip.Positioner sideOffset={8}>
-							<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-								{Match.value(operation).pipe(
-									Match.tagsExhaustive({
-										CommitMove: () => "Move commit here",
-										CommitCreate: () => "Commit changes here",
-										CommitCreateFromCommittedChanges: () => "Commit changes here",
-									}),
-								)}
-							</Tooltip.Popup>
-						</Tooltip.Positioner>
-					</Tooltip.Portal>
-				</Tooltip.Root>
-			)}
-		</div>
 	);
 };
 
@@ -1398,130 +1142,6 @@ const CommitForm: FC<{
 				Commit
 			</button>
 		</form>
-	);
-};
-
-const BranchTarget: FC<
-	{
-		branchRef: Array<number> | null;
-		firstCommitId: string | undefined;
-	} & useRender.ComponentProps<"div">
-> = ({ branchRef, firstCommitId, render, ...props }) => {
-	const getOperation = (sourceItem: SourceItem): Operation | null =>
-		Match.value(sourceItem).pipe(
-			Match.tag("Branch", (source): Operation | null => {
-				if (branchRef === null || decodeRefName(branchRef) === decodeRefName(source.ref))
-					return null;
-				return {
-					_tag: "MoveBranch",
-					subjectBranch: decodeRefName(source.ref),
-					targetBranch: decodeRefName(branchRef),
-				};
-			}),
-			Match.tag("Commit", ({ commitId }): Operation | null => {
-				if (branchRef === null || commitId === firstCommitId) return null;
-				return {
-					_tag: "CommitMove",
-					subjectCommitId: commitId,
-					relativeTo: {
-						type: "referenceBytes",
-						subject: branchRef,
-					},
-					side: "below",
-				};
-			}),
-			Match.tag("TreeChanges", (source): Operation | null => {
-				if (branchRef === null || source.parent._tag !== "Changes") return null;
-				return {
-					_tag: "CommitCreate",
-					relativeTo: {
-						type: "referenceBytes",
-						subject: branchRef,
-					},
-					side: "below",
-					changes: source.changes.map(({ change, hunkHeaders }) =>
-						createDiffSpec(change, hunkHeaders),
-					),
-					message: "",
-				};
-			}),
-			Match.orElse(() => null),
-		);
-
-	const [operation, dropRef] = useDroppable<Operation>(({ source }) => {
-		const sourceItem = parseDragData(source.data);
-		if (!sourceItem) return null;
-		return getOperation(sourceItem);
-	});
-
-	const droppable = useRender({
-		render,
-		ref: dropRef,
-		props: mergeProps(props, {
-			className: classes(operation && styles.dragOver),
-		}),
-	});
-
-	const tooltip = operation ? operationLabel(operation) : null;
-
-	return (
-		<Tooltip.Root
-			open={tooltip !== null}
-			onOpenChange={(_open, eventDetails) => {
-				eventDetails.allowPropagation();
-			}}
-		>
-			<Tooltip.Trigger render={droppable} />
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-						{tooltip}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	);
-};
-
-const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...props }) => {
-	const getOperation = (sourceItem: SourceItem): Operation | null => {
-		if (sourceItem._tag !== "Branch") return null;
-		return {
-			_tag: "TearOffBranch",
-			subjectBranch: decodeRefName(sourceItem.ref),
-		};
-	};
-
-	const [operation, dropRef] = useDroppable<Operation>(({ source }) => {
-		const sourceItem = parseDragData(source.data);
-		if (!sourceItem) return null;
-		return getOperation(sourceItem);
-	});
-
-	const droppable = useRender({
-		render,
-		ref: dropRef,
-		props: mergeProps(props, {
-			className: classes(operation && styles.dragOver),
-		}),
-	});
-
-	return (
-		<Tooltip.Root
-			open={operation !== null}
-			onOpenChange={(_open, eventDetails) => {
-				eventDetails.allowPropagation();
-			}}
-		>
-			<Tooltip.Trigger render={droppable} />
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-						Tear off branch
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
 	);
 };
 

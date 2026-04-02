@@ -3,6 +3,7 @@ import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
 import { type HunkHeader, type TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
+import { decodeRefName } from "../-shared";
 
 export type TreeChangeWithHunkHeaders = {
 	change: TreeChange;
@@ -111,4 +112,108 @@ export const getCombineOperation = ({
 				);
 			},
 		}),
+	);
+
+export const getBranchTargetOperation = ({
+	sourceItem,
+	branchRef,
+	firstCommitId,
+}: {
+	sourceItem: SourceItem;
+	branchRef: Array<number> | null;
+	firstCommitId: string | undefined;
+}): Operation | null =>
+	Match.value(sourceItem).pipe(
+		Match.tag("Branch", (source): Operation | null => {
+			if (branchRef === null || decodeRefName(branchRef) === decodeRefName(source.ref)) return null;
+			return {
+				_tag: "MoveBranch",
+				subjectBranch: decodeRefName(source.ref),
+				targetBranch: decodeRefName(branchRef),
+			};
+		}),
+		Match.tag("Commit", ({ commitId }): Operation | null => {
+			if (branchRef === null || commitId === firstCommitId) return null;
+			return {
+				_tag: "CommitMove",
+				subjectCommitId: commitId,
+				relativeTo: {
+					type: "referenceBytes",
+					subject: branchRef,
+				},
+				side: "below",
+			};
+		}),
+		Match.tag("TreeChanges", (source): Operation | null => {
+			if (branchRef === null || source.parent._tag !== "Changes") return null;
+			return {
+				_tag: "CommitCreate",
+				relativeTo: {
+					type: "referenceBytes",
+					subject: branchRef,
+				},
+				side: "below",
+				changes: source.changes.map(({ change, hunkHeaders }) =>
+					createDiffSpec(change, hunkHeaders),
+				),
+				message: "",
+			};
+		}),
+		Match.orElse(() => null),
+	);
+
+export type CommitTargetAction = "combine" | "insertAbove" | "insertBelow";
+
+export const getCommitTargetOperation = ({
+	sourceItem,
+	commitId,
+	action,
+}: {
+	sourceItem: SourceItem;
+	commitId: string;
+	action: CommitTargetAction;
+}): Operation | null =>
+	Match.value(action).pipe(
+		Match.when("combine", (): Operation | null =>
+			getCombineOperation({
+				sourceItem,
+				target: { _tag: "Commit", commitId },
+			}),
+		),
+		Match.whenOr("insertAbove", "insertBelow", (action): Operation | null => {
+			const side = action === "insertAbove" ? "above" : "below";
+
+			if (sourceItem._tag === "Commit")
+				return {
+					_tag: "CommitMove",
+					subjectCommitId: sourceItem.commitId,
+					relativeTo: { type: "commit", subject: commitId },
+					side,
+				};
+
+			if (sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Changes")
+				return {
+					_tag: "CommitCreate",
+					relativeTo: { type: "commit", subject: commitId },
+					side,
+					changes: sourceItem.changes.map(({ change, hunkHeaders }) =>
+						createDiffSpec(change, hunkHeaders),
+					),
+					message: "",
+				};
+
+			if (sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit")
+				return {
+					_tag: "CommitCreateFromCommittedChanges",
+					sourceCommitId: sourceItem.parent.commitId,
+					relativeTo: { type: "commit", subject: commitId },
+					side,
+					changes: sourceItem.changes.map(({ change, hunkHeaders }) =>
+						createDiffSpec(change, hunkHeaders),
+					),
+				};
+
+			return null;
+		}),
+		Match.exhaustive,
 	);

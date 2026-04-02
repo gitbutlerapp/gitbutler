@@ -19,6 +19,10 @@ import { Match } from "effect";
 import { ComponentProps, FC, ReactNode } from "react";
 import styles from "./-shared.module.css";
 
+// https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
+export const decodeRefName = (fullNameBytes: Array<number>): string =>
+	new TextDecoder().decode(Uint8Array.from(fullNameBytes));
+
 export const isTypingTarget = (target: EventTarget | null) => {
 	if (!(target instanceof HTMLElement)) return false;
 	return (
