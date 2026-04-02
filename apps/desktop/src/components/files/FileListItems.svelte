@@ -84,7 +84,7 @@
 
 	const filePaths = $derived(controller.changes.map((change) => change.path));
 	const fileDependenciesQuery = $derived(
-		showLockedIndicator ? dependencyService.filesDependencies(projectId, filePaths) : null,
+		showLockedIndicator ? dependencyService.filesDependencies(projectId, filePaths, stackId) : null,
 	);
 	const fileDependencies = $derived(fileDependenciesQuery?.result.data || []);
 </script>
