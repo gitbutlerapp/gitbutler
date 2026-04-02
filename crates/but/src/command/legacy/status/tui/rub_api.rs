@@ -84,10 +84,7 @@ pub(super) fn perform_operation(
         }
         RubOperation::UncommittedToCommit(operation) => {
             let result = execute_uncommitted_to_commit(ctx, operation)?;
-            result
-                .new_commit
-                .map(SelectAfterReload::Commit)
-                .unwrap_or(SelectAfterReload::Unassigned)
+            SelectAfterReload::Commit(result.new_commit.context("api returned no new commit")?)
         }
         RubOperation::UncommittedToBranch(operation) => {
             execute_uncommitted_to_branch(ctx, operation)?;
@@ -111,10 +108,7 @@ pub(super) fn perform_operation(
         }
         RubOperation::UnassignedToCommit(operation) => {
             let result = execute_unassigned_to_commit(ctx, operation)?;
-            result
-                .new_commit
-                .map(SelectAfterReload::Commit)
-                .unwrap_or(SelectAfterReload::Unassigned)
+            SelectAfterReload::Commit(result.new_commit.context("api returned no new commit")?)
         }
         RubOperation::UnassignedToBranch(operation) => {
             execute_unassigned_to_branch(ctx, operation)?;
