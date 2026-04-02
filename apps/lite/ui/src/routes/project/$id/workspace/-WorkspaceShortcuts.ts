@@ -385,16 +385,17 @@ export const getScope = ({
 
 export const getLabel = (scope: Scope): string =>
 	Match.value(scope).pipe(
-		Match.tag("FullscreenPreview", () => "Fullscreen preview"),
-		Match.tag("BaseCommit", () => "Base commit"),
-		Match.tag("RenameBranch", () => "Rename branch"),
-		Match.tag("Changes", () => "Changes"),
-		Match.tag("CommitDetails", () => "Commit details"),
-		Match.tag("CommitEditMessage", () => "Edit commit message"),
-		Match.tag("CommitSummary", () => "Commit"),
-		Match.tag("Branch", () => "Branch"),
-		Match.tag("Segment", () => "Segment"),
-		Match.exhaustive,
+		Match.tagsExhaustive({
+			FullscreenPreview: () => "Fullscreen preview",
+			BaseCommit: () => "Base commit",
+			RenameBranch: () => "Rename branch",
+			Changes: () => "Changes",
+			CommitDetails: () => "Commit details",
+			CommitEditMessage: () => "Edit commit message",
+			CommitSummary: () => "Commit",
+			Branch: () => "Branch",
+			Segment: () => "Segment",
+		}),
 	);
 
 export const useWorkspaceShortcuts = ({

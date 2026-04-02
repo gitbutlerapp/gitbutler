@@ -122,13 +122,15 @@ import { RubOperation } from "#ui/api/rub.ts";
 
 const rubOperationLabel = (rubOperation: RubOperation) =>
 	Match.value(rubOperation).pipe(
-		Match.tag("AssignHunk", (rubOperation) =>
-			rubOperation.assignments[0]?.stackId == null ? "Unassign" : "Assign",
-		),
-		Match.tag("CommitAmend", "CommitMoveChangesBetween", () => "Amend"),
-		Match.tag("CommitSquash", () => "Squash"),
-		Match.tag("CommitUncommit", "CommitUncommitChanges", () => "Uncommit"),
-		Match.exhaustive,
+		Match.tagsExhaustive({
+			AssignHunk: (rubOperation) =>
+				rubOperation.assignments[0]?.stackId == null ? "Unassign" : "Assign",
+			CommitAmend: () => "Amend",
+			CommitMoveChangesBetween: () => "Amend",
+			CommitSquash: () => "Squash",
+			CommitUncommit: () => "Uncommit",
+			CommitUncommitChanges: () => "Uncommit",
+		}),
 	);
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
@@ -516,24 +518,19 @@ const Preview: FC<{
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 }> = ({ projectId, selection, onDependencyHover }) =>
 	Match.value(selection).pipe(
-		Match.tag("Segment", ({ branchName }) => (
-			<ShowSegment projectId={projectId} branchName={branchName} />
-		)),
-		Match.tag("Changes", ({ stackId, mode }) => (
-			<ShowChangesOrFile
-				projectId={projectId}
-				stackId={stackId}
-				mode={mode}
-				onDependencyHover={onDependencyHover}
-			/>
-		)),
-		Match.tag("Commit", (selection) => (
-			<ShowCommitOrFile projectId={projectId} selection={selection} />
-		)),
-		Match.tag("BaseCommit", ({ commitId }) => (
-			<ShowBaseCommit projectId={projectId} commitId={commitId} />
-		)),
-		Match.exhaustive,
+		Match.tagsExhaustive({
+			Segment: ({ branchName }) => <ShowSegment projectId={projectId} branchName={branchName} />,
+			Changes: ({ stackId, mode }) => (
+				<ShowChangesOrFile
+					projectId={projectId}
+					stackId={stackId}
+					mode={mode}
+					onDependencyHover={onDependencyHover}
+				/>
+			),
+			Commit: (selection) => <ShowCommitOrFile projectId={projectId} selection={selection} />,
+			BaseCommit: ({ commitId }) => <ShowBaseCommit projectId={projectId} commitId={commitId} />,
+		}),
 	);
 
 const ChangesTarget: FC<
@@ -802,13 +799,11 @@ const CommitTarget: FC<
 						<Tooltip.Positioner sideOffset={8}>
 							<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
 								{Match.value(operation).pipe(
-									Match.tag("CommitMove", () => "Move commit here"),
-									Match.tag(
-										"CommitCreateFromCommittedChanges",
-										"CommitCreate",
-										() => "Commit changes here",
-									),
-									Match.exhaustive,
+									Match.tagsExhaustive({
+										CommitMove: () => "Move commit here",
+										CommitCreate: () => "Commit changes here",
+										CommitCreateFromCommittedChanges: () => "Commit changes here",
+									}),
 								)}
 							</Tooltip.Popup>
 						</Tooltip.Positioner>

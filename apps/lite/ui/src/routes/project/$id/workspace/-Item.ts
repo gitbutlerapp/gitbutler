@@ -63,28 +63,26 @@ export const baseCommitItem = (commitId: string): Item => ({
 
 export const getParentSection = (selection: Item): Item | null =>
 	Match.value(selection).pipe(
-		Match.tag("Commit", (item): Item | null => segmentItem(item)),
-		Match.tag("Changes", (item): Item | null =>
-			item.mode._tag === "Details" ? changesSummaryItem(item.stackId) : null,
-		),
-		Match.tag("BaseCommit", () => null),
-		Match.tag("Segment", () => null),
-		Match.exhaustive,
+		Match.tagsExhaustive({
+			Commit: (item): Item | null => segmentItem(item),
+			Changes: (item): Item | null =>
+				item.mode._tag === "Details" ? changesSummaryItem(item.stackId) : null,
+			BaseCommit: () => null,
+			Segment: () => null,
+		}),
 	);
 
 export const itemKey = (item: Item): string =>
 	Match.value(item).pipe(
-		Match.tag("Changes", (item) =>
-			item.mode._tag === "Details"
-				? JSON.stringify(["Changes", item.stackId, "Details", item.mode.path ?? null])
-				: JSON.stringify(["Changes", item.stackId, item.mode._tag]),
-		),
-		Match.tag("Segment", (item) => JSON.stringify(["Segment", item.stackId, item.segmentIndex])),
-		Match.tag("Commit", (item) =>
-			JSON.stringify(["Commit", item.stackId, item.segmentIndex, item.commitId]),
-		),
-		Match.tag("BaseCommit", (item) => JSON.stringify(["BaseCommit", item.commitId])),
-		Match.exhaustive,
+		Match.tagsExhaustive({
+			Changes: (item) =>
+				item.mode._tag === "Details"
+					? JSON.stringify(["Changes", item.stackId, "Details", item.mode.path ?? null])
+					: JSON.stringify(["Changes", item.stackId, item.mode._tag]),
+			Segment: (item) => JSON.stringify(["Segment", item.stackId, item.segmentIndex]),
+			Commit: (item) => JSON.stringify(["Commit", item.stackId, item.segmentIndex, item.commitId]),
+			BaseCommit: (item) => JSON.stringify(["BaseCommit", item.commitId]),
+		}),
 	);
 
 export const normalizeItem = (

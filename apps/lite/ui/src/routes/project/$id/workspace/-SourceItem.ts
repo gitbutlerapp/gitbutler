@@ -37,85 +37,78 @@ export const getRubOperation = ({
 	target: ChangeUnit;
 }): RubOperation | null =>
 	Match.value(sourceItem).pipe(
-		Match.tag("Branch", (): RubOperation | null => null),
-		Match.tag("Commit", ({ commitId: sourceCommitId }) =>
-			Match.value(target).pipe(
-				Match.tag(
-					"Changes",
-					({ stackId }): RubOperation => ({
-						_tag: "CommitUncommit",
-						commitId: sourceCommitId,
-						assignTo: stackId,
-					}),
-				),
-				Match.tag("Commit", ({ commitId: destinationCommitId }): RubOperation | null => {
-					if (sourceCommitId === destinationCommitId) return null;
-					return {
-						_tag: "CommitSquash",
-						sourceCommitId,
-						destinationCommitId,
-					};
-				}),
-				Match.exhaustive,
-			),
-		),
-		Match.tag("TreeChanges", ({ parent, changes: sourceChanges }) => {
-			const changes = sourceChanges.map(({ change, hunkHeaders }) =>
-				createDiffSpec(change, hunkHeaders),
-			);
-
-			return Match.value(parent).pipe(
-				Match.tag("Changes", ({ stackId: sourceStackId }) =>
-					Match.value(target).pipe(
-						Match.tag("Changes", ({ stackId: targetStackId }): RubOperation | null => {
-							if (sourceStackId === targetStackId) return null;
-							return {
-								_tag: "AssignHunk",
-								assignments: sourceChanges.flatMap(({ change, hunkHeaders }) =>
-									hunkHeaders.map((hunkHeader) => ({
-										pathBytes: change.pathBytes,
-										hunkHeader,
-										stackId: targetStackId,
-									})),
-								),
-							};
+		Match.tagsExhaustive({
+			Branch: (): RubOperation | null => null,
+			Commit: ({ commitId: sourceCommitId }) =>
+				Match.value(target).pipe(
+					Match.tagsExhaustive({
+						Changes: ({ stackId }): RubOperation => ({
+							_tag: "CommitUncommit",
+							commitId: sourceCommitId,
+							assignTo: stackId,
 						}),
-						Match.tag(
-							"Commit",
-							({ commitId }): RubOperation => ({
-								_tag: "CommitAmend",
-								commitId,
-								changes,
-							}),
-						),
-						Match.exhaustive,
-					),
-				),
-				Match.tag("Commit", ({ commitId: sourceCommitId }) =>
-					Match.value(target).pipe(
-						Match.tag(
-							"Changes",
-							({ stackId }): RubOperation => ({
-								_tag: "CommitUncommitChanges",
-								commitId: sourceCommitId,
-								assignTo: stackId,
-								changes,
-							}),
-						),
-						Match.tag("Commit", ({ commitId: destinationCommitId }): RubOperation | null => {
+						Commit: ({ commitId: destinationCommitId }): RubOperation | null => {
 							if (sourceCommitId === destinationCommitId) return null;
 							return {
-								_tag: "CommitMoveChangesBetween",
+								_tag: "CommitSquash",
 								sourceCommitId,
 								destinationCommitId,
-								changes,
 							};
-						}),
-						Match.exhaustive,
-					),
+						},
+					}),
 				),
-				Match.exhaustive,
-			);
+			TreeChanges: ({ parent, changes: sourceChanges }) => {
+				const changes = sourceChanges.map(({ change, hunkHeaders }) =>
+					createDiffSpec(change, hunkHeaders),
+				);
+
+				return Match.value(parent).pipe(
+					Match.tagsExhaustive({
+						Changes: ({ stackId: sourceStackId }) =>
+							Match.value(target).pipe(
+								Match.tagsExhaustive({
+									Changes: ({ stackId: targetStackId }): RubOperation | null => {
+										if (sourceStackId === targetStackId) return null;
+										return {
+											_tag: "AssignHunk",
+											assignments: sourceChanges.flatMap(({ change, hunkHeaders }) =>
+												hunkHeaders.map((hunkHeader) => ({
+													pathBytes: change.pathBytes,
+													hunkHeader,
+													stackId: targetStackId,
+												})),
+											),
+										};
+									},
+									Commit: ({ commitId }): RubOperation => ({
+										_tag: "CommitAmend",
+										commitId,
+										changes,
+									}),
+								}),
+							),
+						Commit: ({ commitId: sourceCommitId }) =>
+							Match.value(target).pipe(
+								Match.tagsExhaustive({
+									Changes: ({ stackId }): RubOperation => ({
+										_tag: "CommitUncommitChanges",
+										commitId: sourceCommitId,
+										assignTo: stackId,
+										changes,
+									}),
+									Commit: ({ commitId: destinationCommitId }): RubOperation | null => {
+										if (sourceCommitId === destinationCommitId) return null;
+										return {
+											_tag: "CommitMoveChangesBetween",
+											sourceCommitId,
+											destinationCommitId,
+											changes,
+										};
+									},
+								}),
+							),
+					}),
+				);
+			},
 		}),
-		Match.exhaustive,
 	);
