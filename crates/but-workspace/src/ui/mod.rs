@@ -1,5 +1,4 @@
 use bstr::{BString, ByteSlice};
-use gitbutler_commit::commit_ext::CommitExt as _;
 use gix::date::parse::TimeBuf;
 use serde::Serialize;
 
@@ -121,15 +120,20 @@ but_schemars::register_sdk_type!(Commit);
 impl TryFrom<gix::Commit<'_>> for Commit {
     type Error = anyhow::Error;
     fn try_from(commit: gix::Commit<'_>) -> Result<Self, Self::Error> {
+        let commit_id = commit.id;
+        let commit = commit.decode()?;
+        let headers = but_core::commit::Headers::try_from_commit_headers(|| commit.extra_headers());
         Ok(Commit {
-            id: commit.id,
-            parent_ids: commit.parent_ids().map(|id| id.detach()).collect(),
-            message: commit.message_raw_sloppy().into(),
-            has_conflicts: false,
-            state: CommitState::LocalAndRemote(commit.id),
+            id: commit_id,
+            parent_ids: commit.parents().collect(),
+            message: commit.message.to_owned(),
+            has_conflicts: headers.as_ref().is_some_and(|hdr| hdr.is_conflicted()),
+            state: CommitState::LocalAndRemote(commit_id),
             created_at: i128::from(commit.time()?.seconds) * 1000,
             author: commit.author()?.into(),
-            change_id: commit.change_id().map(|id| id.to_string()),
+            change_id: headers
+                .and_then(|headers| headers.change_id)
+                .map(|id| id.to_string()),
             gerrit_review_url: None,
         })
     }

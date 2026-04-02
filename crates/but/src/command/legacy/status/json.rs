@@ -567,6 +567,9 @@ pub(super) fn build_workspace_status_json(
             created_at: status_ctx.common_merge_base_data.created_at,
             message: status_ctx.common_merge_base_data.message.clone().into(),
             author,
+            // This is a synthetic upstream commit used only to reuse
+            // `Commit::from_upstream_commit()`. Legacy status JSON does not
+            // expose change-ids, so dropping it here is fine.
             change_id: None,
         },
         None,
@@ -584,6 +587,9 @@ pub(super) fn build_workspace_status_json(
                 created_at: upstream.created_at,
                 message: upstream.message.clone().into(),
                 author: upstream_author,
+                // This is a synthetic upstream commit used only to reuse
+                // `Commit::from_upstream_commit()`. Legacy status JSON does not
+                // expose change-ids, so dropping it here is fine.
                 change_id: None,
             },
             None,
@@ -616,6 +622,10 @@ pub(super) fn build_workspace_status_json(
                                     created_at: remote_commit.created_at as i128,
                                     message: remote_commit.description.clone().into(),
                                     author,
+                                    // This is a synthetic upstream commit used
+                                    // only to reuse `Commit::from_upstream_commit()`.
+                                    // Legacy status JSON does not expose
+                                    // change-ids, so dropping it here is fine.
                                     change_id: None,
                                 },
                                 None,

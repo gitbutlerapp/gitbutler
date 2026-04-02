@@ -2,7 +2,6 @@ use std::collections::HashSet;
 
 use anyhow::Context as _;
 use but_core::RefMetadata;
-use gitbutler_commit::commit_ext::CommitExt as _;
 use gix::{
     date::parse::TimeBuf, prelude::ObjectIdExt as _, reference::Category, remote::Direction,
 };
@@ -185,8 +184,10 @@ fn upstream_commits_gix(
     for info in traversal {
         let info = info?;
         let commit = info.id().object()?.into_commit();
-        let change_id = commit.change_id().map(|id| id.to_string());
         let commit = commit.decode()?;
+        let change_id =
+            but_core::commit::Headers::try_from_commit_headers(|| commit.extra_headers())
+                .and_then(|hdr| hdr.change_id.map(|id| id.to_string()));
         let author: ui::Author = commit.author()?.into();
         let committer: ui::Author = commit.committer()?.into();
         authors.insert(author.clone());
