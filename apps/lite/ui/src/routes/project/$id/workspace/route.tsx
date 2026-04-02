@@ -21,7 +21,7 @@ import {
 	PushIcon,
 } from "#ui/components/icons.tsx";
 import { rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx";
-import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
+import { type FileParent } from "#ui/domain/FileParent.ts";
 import { getBranchNameByCommitId, getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
 import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
@@ -189,7 +189,7 @@ const CommitDetails: FC<{
 			renderFile={(change) => (
 				<FileSource
 					change={change}
-					changeUnit={{ _tag: "Commit", commitId }}
+					fileParent={{ _tag: "Commit", commitId }}
 					render={
 						<div
 							className={classes(
@@ -304,17 +304,17 @@ const dependencyCommitIdsForFile = (
 
 const Hunk: FC<{
 	patch: Patch;
-	changeUnit: ChangeUnit;
+	fileParent: FileParent;
 	change: TreeChange;
 	hunk: DiffHunk;
 	headerStart?: ReactNode;
-}> = ({ patch, changeUnit, change, hunk, headerStart }) => (
+}> = ({ patch, fileParent, change, hunk, headerStart }) => (
 	<div>
 		<div className={styles.hunkHeaderRow}>
 			{headerStart}
 			<HunkSource
 				patch={patch}
-				changeUnit={changeUnit}
+				fileParent={fileParent}
 				change={change}
 				hunk={hunk}
 				className={styles.hunkHeader}
@@ -346,7 +346,7 @@ const ShowChangesFile: FC<{
 			return (
 				<Hunk
 					patch={patch}
-					changeUnit={{ _tag: "Changes", stackId }}
+					fileParent={{ _tag: "Changes", stackId }}
 					change={change}
 					hunk={hunk}
 					headerStart={
@@ -387,7 +387,7 @@ const ShowCommitOrFile: FC<{
 			projectId={projectId}
 			change={change}
 			renderHunk={(hunk, patch) => (
-				<Hunk patch={patch} changeUnit={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
+				<Hunk patch={patch} fileParent={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
 			)}
 		/>
 	) : (
@@ -396,7 +396,7 @@ const ShowCommitOrFile: FC<{
 			commit={commitDetails.commit}
 			changes={commitDetails.changes}
 			renderHunk={(change, hunk, patch) => (
-				<Hunk patch={patch} changeUnit={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
+				<Hunk patch={patch} fileParent={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
 			)}
 		/>
 	);
@@ -415,7 +415,7 @@ const ShowSegment: FC<{
 				<Hunk
 					patch={patch}
 					// TODO: this should be branch!
-					changeUnit={{ _tag: "Changes", stackId: null }}
+					fileParent={{ _tag: "Changes", stackId: null }}
 					change={change}
 					hunk={hunk}
 				/>
@@ -485,7 +485,7 @@ const ShowBaseCommit: FC<{
 		projectId={projectId}
 		commitId={commitId}
 		renderHunk={(change, hunk, patch) => (
-			<Hunk patch={patch} changeUnit={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
+			<Hunk patch={patch} fileParent={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
 		)}
 	/>
 );
@@ -1023,7 +1023,7 @@ const Changes: FC<{
 							<li key={change.path}>
 								<FileSource
 									change={change}
-									changeUnit={{ _tag: "Changes", stackId }}
+									fileParent={{ _tag: "Changes", stackId }}
 									assignments={assignments}
 									render={
 										<div

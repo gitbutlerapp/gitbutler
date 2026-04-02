@@ -1,6 +1,6 @@
 import { type Operation } from "#ui/Operation.ts";
 import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
-import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
+import { type FileParent } from "#ui/domain/FileParent.ts";
 import { type HunkHeader, type TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { decodeRefName } from "../-shared";
@@ -15,7 +15,7 @@ export type OperationSource =
 	| { _tag: "Branch"; ref: Array<number> }
 	| {
 			_tag: "TreeChanges";
-			parent: ChangeUnit;
+			parent: FileParent;
 			changes: Array<TreeChangeWithHunkHeaders>;
 	  };
 
@@ -35,7 +35,7 @@ export const getCombineOperation = ({
 	target,
 }: {
 	operationSource: OperationSource;
-	target: ChangeUnit;
+	target: FileParent;
 }): Operation | null =>
 	Match.value(operationSource).pipe(
 		Match.tagsExhaustive({

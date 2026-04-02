@@ -1,5 +1,5 @@
 import { classes } from "#ui/classes.ts";
-import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
+import { type FileParent } from "#ui/domain/FileParent.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import {
@@ -99,15 +99,15 @@ export const CommitSource: FC<
 export const FileSource: FC<
 	{
 		change: TreeChange;
-		changeUnit: ChangeUnit;
+		fileParent: FileParent;
 		assignments?: Array<HunkAssignment>;
 	} & useRender.ComponentProps<"div">
-> = ({ change, changeUnit, assignments, render, ...props }) => {
+> = ({ change, fileParent, assignments, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: () =>
 			getDragData({
 				_tag: "TreeChanges",
-				parent: changeUnit,
+				parent: fileParent,
 				changes: [
 					{
 						change,
@@ -162,16 +162,16 @@ export const ChangesSource: FC<
 export const HunkSource: FC<
 	{
 		patch: Patch;
-		changeUnit: ChangeUnit;
+		fileParent: FileParent;
 		change: TreeChange;
 		hunk: DiffHunk;
 	} & useRender.ComponentProps<"div">
-> = ({ patch, changeUnit, change, hunk, render, ...props }) => {
+> = ({ patch, fileParent, change, hunk, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: () =>
 			getDragData({
 				_tag: "TreeChanges",
-				parent: changeUnit,
+				parent: fileParent,
 				changes: [
 					{
 						change,
