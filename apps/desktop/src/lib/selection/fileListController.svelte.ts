@@ -18,9 +18,9 @@ import { inject } from "@gitbutler/core/context";
 import { FOCUS_MANAGER } from "@gitbutler/ui/focus/focusManager";
 import { getContext, setContext, untrack } from "svelte";
 import { get } from "svelte/store";
-import type { TreeChange } from "$lib/hunks/change";
 import type { FileSelectionManager } from "$lib/selection/fileSelectionManager.svelte";
 import type { SelectedFile } from "$lib/selection/key";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 const FILE_LIST_CTX = Symbol("FileListController");
 

@@ -5,10 +5,10 @@
 	import { inject } from "@gitbutler/core/context";
 	import { ForgeUserCard } from "@gitbutler/ui";
 	import { QueryStatus } from "@reduxjs/toolkit/query";
-	import type { ButGitHubToken } from "@gitbutler/core/api";
+	import type { GithubAccountIdentifier } from "@gitbutler/but-sdk";
 
 	type Props = {
-		account: ButGitHubToken.GithubAccountIdentifier;
+		account: GithubAccountIdentifier;
 	};
 
 	const { account }: Props = $props();

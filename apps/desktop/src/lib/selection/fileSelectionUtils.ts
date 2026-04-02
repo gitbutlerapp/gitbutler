@@ -7,8 +7,8 @@
 import { type SelectedFile, type SelectionId } from "$lib/selection/key";
 import { getSelectionDirection } from "$lib/utils/getSelectionDirection";
 import { get } from "svelte/store";
-import type { TreeChange } from "$lib/hunks/change";
 import type { FileSelectionManager } from "$lib/selection/fileSelectionManager.svelte";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 function getFile(
 	files: TreeChange[],

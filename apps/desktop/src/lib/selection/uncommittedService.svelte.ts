@@ -1,14 +1,10 @@
 import { sortLikeFileTree } from "$lib/files/filetreeV3";
-import { isSubmoduleStatus, type TreeChange } from "$lib/hunks/change";
+import { isSubmoduleStatus } from "$lib/hunks/change";
 import {
 	diffToHunkHeaders,
 	hunkHeaderEquals,
 	lineIdsToHunkHeaders,
 	orderHeaders,
-	type DiffHunk,
-	type DiffSpec,
-	type HunkAssignment,
-	type HunkHeader,
 } from "$lib/hunks/hunk";
 import { compositeKey, partialKey, type HunkSelection } from "$lib/selection/entityAdapters";
 import {
@@ -25,6 +21,9 @@ import type { UnifiedDiff } from "$lib/hunks/diff";
 import type { ChangeDiff, DiffService } from "$lib/hunks/diffService.svelte";
 import type { AppDispatch, ClientState } from "$lib/state/clientState.svelte";
 import type { WorktreeService } from "$lib/worktree/worktreeService.svelte";
+import type { DiffSpec, HunkAssignment, HunkHeader } from "@gitbutler/but-sdk";
+import type { DiffHunk } from "@gitbutler/but-sdk";
+import type { TreeChange } from "@gitbutler/but-sdk";
 import type { LineId } from "@gitbutler/ui/utils/diffParsing";
 
 export const UNCOMMITTED_SERVICE = new InjectionToken<UncommittedService>("UncommittedService");

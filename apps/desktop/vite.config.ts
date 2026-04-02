@@ -54,13 +54,21 @@ export default defineConfig({
 	// https://tauri.studio/v1/api/config#buildconfig.beforedevcommand
 	envPrefix: ["VITE_", "TAURI_"],
 	build: {
-		rollupOptions: { output: { manualChunks: {} } },
+		rollupOptions: {
+			output: {
+				manualChunks: {},
+				// When building for the embedded server, merge small chunks to
+				// reduce the number of files embedded in the binary.
+				...(process.env.VITE_EMBEDDED_BUILD ? { experimentalMinChunkSize: 500_000 } : {}),
+			},
+		},
 		// Tauri supports es2021
 		target: "modules",
 		// minify production builds
 		minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
-		// ship sourcemaps for better sentry error reports
-		sourcemap: true,
+		// Sourcemaps are useful for Sentry in Tauri builds but wasteful when
+		// the frontend is embedded in the server binary.
+		sourcemap: process.env.VITE_EMBEDDED_BUILD ? false : true,
 	},
 	test: {
 		includeSource: ["src/**/*.test.{js,ts}"],

@@ -1,8 +1,8 @@
-import type { TreeChange } from "$lib/hunks/change";
 import type { UnifiedDiff } from "$lib/hunks/diff";
 import type { DiffService } from "$lib/hunks/diffService.svelte";
-import type { DiffHunk } from "$lib/hunks/hunk";
 import type { StackService } from "$lib/stacks/stackService.svelte";
+import type { DiffHunk } from "@gitbutler/but-sdk";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 // ============================================================================
 // Patch Construction (for git apply)

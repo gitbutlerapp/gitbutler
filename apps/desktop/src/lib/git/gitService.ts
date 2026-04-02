@@ -1,8 +1,6 @@
 import { InjectionToken } from "@gitbutler/core/context";
 import type { IBackend } from "$lib/backend";
-import type { BackendApi } from "$lib/state/clientState.svelte";
-
-export type { AuthorInfo } from "$lib/git/gitEndpoints";
+import type { BackendApi } from "$lib/state/backendApi";
 
 export const GIT_SERVICE = new InjectionToken<GitService>("GitService");
 

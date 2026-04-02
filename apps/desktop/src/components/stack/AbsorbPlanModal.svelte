@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
-	import { type TreeChange } from "$lib/hunks/change";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import {
@@ -15,7 +14,7 @@
 		chipToasts,
 	} from "@gitbutler/ui";
 	import { tick } from "svelte";
-	import type { HunkAssignment } from "@gitbutler/core/api";
+	import type { CommitAbsorption, FileAbsorption, TreeChange } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;
@@ -29,7 +28,7 @@
 	const [absorb, absorbingChanges] = stackService.absorb;
 
 	let modal = $state<ReturnType<typeof Modal> | undefined>();
-	let absorbPlan = $state<HunkAssignment.CommitAbsorption[]>([]);
+	let absorbPlan = $state<CommitAbsorption[]>([]);
 	let isScrollVisible = $state(true);
 
 	export async function show(changes: TreeChange[]) {
@@ -50,7 +49,7 @@
 		modal?.show(null);
 	}
 
-	function uniquePaths(files: HunkAssignment.FileAbsorption[]): string[] {
+	function uniquePaths(files: FileAbsorption[]): string[] {
 		const pathSet = new Set<string>();
 		for (const file of files) {
 			pathSet.add(file.path);

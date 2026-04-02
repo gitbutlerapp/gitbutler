@@ -32,7 +32,8 @@
 	} from "@gitbutler/ui";
 
 	import { tick } from "svelte";
-	import type { AnchorPosition, BranchDetails } from "$lib/stacks/stack";
+	import type { AnchorPosition } from "$lib/stacks/stack";
+	import type { BranchDetails } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;

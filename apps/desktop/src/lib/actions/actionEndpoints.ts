@@ -6,9 +6,8 @@ import {
 } from "$lib/rules/rule";
 import { invalidatesList, providesItems, ReduxTag } from "$lib/state/tags";
 import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
-import type { TreeChange } from "$lib/hunks/change";
 import type { BackendEndpointBuilder } from "$lib/state/backendApi";
-import type { HunkAssignment } from "@gitbutler/core/api";
+import type { AbsorptionTarget, TreeChange } from "@gitbutler/but-sdk";
 
 type ChatMessage = {
 	type: "user" | "assistant";
@@ -20,7 +19,7 @@ export function buildActionEndpoints(build: BackendEndpointBuilder) {
 		// ── Actions ─────────────────────────────────────────────────
 		autoCommit: build.mutation<
 			void,
-			{ projectId: string; target: HunkAssignment.AbsorptionTarget; useAi: boolean }
+			{ projectId: string; target: AbsorptionTarget; useAi: boolean }
 		>({
 			extraOptions: {
 				command: "auto_commit",

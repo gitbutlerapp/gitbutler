@@ -1,4 +1,5 @@
 <script lang="ts" module>
+	import type { DiffHunk } from "@gitbutler/but-sdk";
 	export interface HunkContextItem {
 		hunk: DiffHunk;
 		selectedLines: LineId[] | undefined;
@@ -14,7 +15,7 @@
 <script lang="ts">
 	import IrcSendToSubmenus from "$components/diff/IrcSendToSubmenus.svelte";
 	import { getEditorUri, URL_SERVICE } from "$lib/backend/url";
-	import { isDiffHunk, lineIdsToHunkHeaders, type DiffHunk } from "$lib/hunks/hunk";
+	import { isDiffHunk, lineIdsToHunkHeaders } from "$lib/hunks/hunk";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { vscodePath } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
@@ -22,7 +23,7 @@
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { ContextMenu, ContextMenuItem, ContextMenuSection, TestId } from "@gitbutler/ui";
-	import type { TreeChange } from "$lib/hunks/change";
+	import type { TreeChange } from "@gitbutler/but-sdk";
 	import type { LineId } from "@gitbutler/ui/utils/diffParsing";
 
 	interface Props {

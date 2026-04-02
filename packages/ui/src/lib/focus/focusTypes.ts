@@ -1,5 +1,4 @@
-type NavigationAction = "tab" | "left" | "right" | "up" | "down";
-export type { NavigationAction };
+export type NavigationAction = "tab" | "left" | "right" | "up" | "down";
 
 export type KeyboardHandler = (event: KeyboardEvent) => boolean | void;
 

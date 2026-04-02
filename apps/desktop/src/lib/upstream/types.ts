@@ -1,36 +1,10 @@
 import { getStackName, type Stack } from "$lib/stacks/stack";
-
-export type StackStatus = {
-	treeStatus: TreeStatus;
-	branchStatuses: NameAndBranchStatus[];
-};
-
-type NameAndBranchStatus = {
-	name: string;
-	status: BranchStatus;
-};
-
-export type BranchStatus =
-	| {
-			type: "empty" | "integrated" | "saflyUpdatable";
-	  }
-	| {
-			type: "conflicted";
-			subject: {
-				rebasable: boolean;
-			};
-	  };
-
-export function stackFullyIntegrated(stackStatus: StackStatus): boolean {
-	return (
-		stackStatus.branchStatuses.every((branchStatus) => branchStatus.status.type === "integrated") &&
-		stackStatus.treeStatus.type === "empty"
-	);
-}
-
-type TreeStatus = {
-	type: "empty" | "conflicted" | "saflyUpdatable";
-};
+import type {
+	BaseBranchResolutionApproach,
+	BaseBranchResolution,
+	ResolutionApproach,
+	StackStatus,
+} from "@gitbutler/but-sdk";
 
 export type StackStatusInfoV3 = { stack: Stack; status: StackStatus };
 
@@ -44,26 +18,12 @@ export type StackStatusesWithBranchesV3 =
 			subject: StackStatusInfoV3[];
 	  };
 
-export type ResolutionApproach = {
-	type: "rebase" | "merge" | "unapply" | "delete";
-};
-
-export type Resolution = {
-	stackId: string;
-	approach: ResolutionApproach;
-	deleteIntegratedBranches: boolean;
-};
-
-export type BaseBranchResolutionApproach = "rebase" | "merge" | "hardReset";
-
-export type BaseBranchResolution = {
-	targetCommitOid: string;
-	approach: { type: BaseBranchResolutionApproach };
-};
-
-export type IntegrationOutcome = {
-	deletedBranches: string[];
-};
+export function stackFullyIntegrated(stackStatus: StackStatus): boolean {
+	return (
+		stackStatus.branchStatuses.every((branchStatus) => branchStatus.status.type === "integrated") &&
+		stackStatus.treeStatus.type === "empty"
+	);
+}
 
 export function getBaseBranchResolution(
 	targetCommitOid: string | undefined,
@@ -73,7 +33,7 @@ export function getBaseBranchResolution(
 
 	return {
 		targetCommitOid,
-		approach: { type: approach },
+		approach,
 	};
 }
 
@@ -100,20 +60,5 @@ export function getResolutionApproachV3(statusInfo: StackStatusInfoV3): Resoluti
 		return { type: "delete" };
 	}
 
-	// TODO: Do we need this?
-	// if (statusInfo.stack.allowRebasing) {
-	// 	return { type: 'rebase' };
-	// }
-
-	// return { type: 'merge' };
 	return { type: "rebase" };
 }
-
-export type BranchStatusesResponse =
-	| {
-			type: "upToDate";
-	  }
-	| {
-			type: "updatesRequired";
-			subject: { worktreeConflicts: string[]; statuses: [string, StackStatus][] };
-	  };

@@ -1,6 +1,6 @@
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
-import type { TreeChange } from "$lib/hunks/change";
-import type { DiffSpec, HunkAssignment } from "$lib/hunks/hunk";
+import type { DiffSpec, HunkAssignment } from "@gitbutler/but-sdk";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 /** Helper function that turns tree changes into a diff spec */
 export function changesToDiffSpec(

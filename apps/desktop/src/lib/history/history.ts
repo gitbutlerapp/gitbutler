@@ -3,8 +3,8 @@ import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
 import { get, writable } from "svelte/store";
 import type { IBackend } from "$lib/backend";
 import type { Snapshot } from "$lib/history/types";
-import type { TreeChange } from "$lib/hunks/change";
-import type { BackendApi } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 const snapshotDiffAdapter = createEntityAdapter({
 	selectId: (tc: TreeChange) => tc.path,

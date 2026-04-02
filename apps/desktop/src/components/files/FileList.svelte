@@ -10,7 +10,7 @@
 	import { DEPENDENCY_SERVICE } from "$lib/dependencies/dependencyService.svelte";
 	import { conflictEntryHint } from "$lib/files/conflictEntryPresence";
 	import { abbreviateFolders, changesToFileTree } from "$lib/files/filetreeV3";
-	import { type TreeChange, isExecutableStatus } from "$lib/hunks/change";
+	import { isExecutableStatus } from "$lib/hunks/change";
 	import { getLockedCommitIds, getLockedTargets, isFileLocked } from "$lib/hunks/dependencies";
 	import { editPatch } from "$lib/mode/editPatchUtils";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
@@ -26,6 +26,7 @@
 	import { untrack } from "svelte";
 	import { get } from "svelte/store";
 	import type { ConflictEntriesObj } from "$lib/files/conflicts";
+	import type { TreeChange } from "@gitbutler/but-sdk";
 
 	const DEFAULT_MODEL = "gpt-4.1";
 

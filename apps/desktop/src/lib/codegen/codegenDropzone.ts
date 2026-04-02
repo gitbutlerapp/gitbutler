@@ -4,8 +4,6 @@ import type { PromptAttachment } from "$lib/codegen/types";
 import type { DropzoneHandler } from "$lib/dragging/handler";
 import type RulesService from "$lib/rules/rulesService.svelte";
 
-export type { CodegenRuleDropData };
-
 export class CodegenRuleDropHandler implements DropzoneHandler {
 	constructor(
 		private projectId: string,

@@ -24,20 +24,10 @@ import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import { get } from "svelte/store";
 import type { ReduxError } from "$lib/error/reduxError";
 import type { DefaultForgeFactory } from "$lib/forge/forgeFactory.svelte";
-import type { StackDetails } from "$lib/stacks/stack";
-import type { AppDispatch, BackendApi } from "$lib/state/clientState.svelte";
-import type { HunkAssignment } from "@gitbutler/core/api";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { AppDispatch } from "$lib/state/clientState.svelte";
+import type { AbsorptionTarget, StackDetails } from "@gitbutler/but-sdk";
 
-export type {
-	BranchParams,
-	BranchPushResult,
-	CreateCommitOutcome,
-	CreateCommitRequest,
-	CreateCommitRequestWorktreeChanges,
-	RejectionReason,
-	RelativeTo,
-	SeriesIntegrationStrategy,
-} from "$lib/stacks/stackEndpoints";
 export { REJECTTION_REASONS } from "$lib/stacks/stackEndpoints";
 
 const PUSH_ERROR_REASONS: Record<string, string> = {
@@ -884,7 +874,7 @@ export class StackService {
 		return this.backendApi.endpoints.absorb.useMutation();
 	}
 
-	async fetchAbsorbPlan(projectId: string, target: HunkAssignment.AbsorptionTarget) {
+	async fetchAbsorbPlan(projectId: string, target: AbsorptionTarget) {
 		return await this.backendApi.endpoints.absorbPlan.fetch({ projectId, target });
 	}
 }

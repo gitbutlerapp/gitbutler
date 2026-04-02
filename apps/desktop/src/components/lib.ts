@@ -1,7 +1,6 @@
 import type { BranchIconName } from "$lib/branches/branchIcon";
-import type { UpstreamCommit, Commit, CommitState } from "$lib/branches/v3";
 import type { CommitStatusType } from "$lib/commits/commit";
-import type { PushStatus } from "$lib/stacks/stack";
+import type { Commit, CommitState, PushStatus, UpstreamCommit } from "@gitbutler/but-sdk";
 
 const colorMap: Record<CommitStatusType, string> & { Error: string } = {
 	LocalOnly: "var(--commit-local)",

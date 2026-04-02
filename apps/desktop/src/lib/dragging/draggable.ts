@@ -4,7 +4,7 @@ import { FileChangeDropData, type DropData } from "$lib/dragging/draggables";
 import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
 import { mount } from "svelte";
 import type { DropzoneRegistry } from "$lib/dragging/registry";
-import type { PushStatus } from "$lib/stacks/stack";
+import type { PushStatus } from "@gitbutler/but-sdk";
 import type { DragStateService } from "@gitbutler/ui/drag/dragStateService.svelte";
 
 // Added to element being dragged (not the clone that follows the cursor).

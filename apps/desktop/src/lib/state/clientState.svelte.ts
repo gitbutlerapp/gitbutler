@@ -28,12 +28,6 @@ import type { ReduxError } from "$lib/error/reduxError";
 import type { PostHogWrapper } from "$lib/telemetry/posthog";
 
 /**
- * Backend API object that enables the declaration and usage of endpoints
- * colocated with the feature they support.
- */
-export type { BackendApi } from "$lib/state/backendApi";
-
-/**
  * GitHub API object that enables the declaration and usage of endpoints
  * colocated with the feature they support.
  */

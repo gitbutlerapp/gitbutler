@@ -42,8 +42,10 @@ export-schema = [
     "but-hunk-assignment/export-schema",
     "gitbutler-project/export-schema",
     "but-rebase/export-schema",
-    "gitbutler-branch-actions/export-schema",
     "gitbutler-operating-modes/export-schema",
+    "gitbutler-branch/export-schema",
+    "gitbutler-branch-actions/export-schema",
+    "gitbutler-edit-mode/export-schema",
 ]
 ## Make legacy functionality available.
 legacy = [

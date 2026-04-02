@@ -16,7 +16,6 @@
 	import { AI_SERVICE } from "$lib/ai/service";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { getBranchNameFromRef } from "$lib/branches/branchUtils";
-	import { type Commit } from "$lib/branches/v3";
 	import { splitMessage } from "$lib/commits/commitMessage";
 	import { projectAiGenEnabled, projectRunCommitHooks } from "$lib/config/config";
 	import { showError } from "$lib/error/showError";
@@ -31,7 +30,8 @@
 	import { showToast } from "$lib/notifications/toasts";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { partialStackRequestsForcePush, requiresPush } from "$lib/stacks/stack";
-	import { STACK_SERVICE, type BranchPushResult } from "$lib/stacks/stackService.svelte";
+	import { type BranchPushResult } from "$lib/stacks/stackEndpoints";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { sleep } from "$lib/utils/sleep";
 	import { inject } from "@gitbutler/core/context";
@@ -40,6 +40,7 @@
 	import { IME_COMPOSITION_HANDLER } from "@gitbutler/ui/utils/imeHandling";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
 	import { tick } from "svelte";
+	import type { Commit } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;

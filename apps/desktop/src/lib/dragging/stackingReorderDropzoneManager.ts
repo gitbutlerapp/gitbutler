@@ -1,8 +1,8 @@
 import { CommitDropData } from "$lib/dragging/dropHandlers/commitDropHandler";
 import { InjectionToken } from "@gitbutler/core/context";
-import type { StackOrder } from "$lib/branches/branch";
 import type { DropzoneHandler } from "$lib/dragging/handler";
 import type { StackService } from "$lib/stacks/stackService.svelte";
+import type { StackOrder } from "@gitbutler/but-sdk";
 
 export class ReorderCommitDzHandler implements DropzoneHandler {
 	constructor(

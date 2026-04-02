@@ -20,7 +20,7 @@
 
 	import type { ForgeName } from "$lib/forge/interface/forge";
 	import type { Project } from "$lib/project/project";
-	import type { ButGitHubToken, ButGitLabToken } from "@gitbutler/core/api";
+	import type { GithubAccountIdentifier, GitlabAccountIdentifier } from "@gitbutler/but-sdk";
 
 	const FORGE_OPTIONS: { label: string; value: ForgeName }[] = [
 		{ label: "None", value: "default" },
@@ -62,20 +62,14 @@
 		projectsService.updateProject(mutableProject);
 	}
 
-	function updatePreferredGitHubAccount(
-		projectId: string,
-		account: ButGitHubToken.GithubAccountIdentifier,
-	) {
+	function updatePreferredGitHubAccount(projectId: string, account: GithubAccountIdentifier) {
 		projectsService.updatePreferredForgeUser(projectId, {
 			provider: "github",
 			details: account,
 		});
 	}
 
-	function updatePreferredGitLabAccount(
-		projectId: string,
-		account: ButGitLabToken.GitlabAccountIdentifier,
-	) {
+	function updatePreferredGitLabAccount(projectId: string, account: GitlabAccountIdentifier) {
 		projectsService.updatePreferredForgeUser(projectId, {
 			provider: "gitlab",
 			details: account,

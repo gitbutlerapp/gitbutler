@@ -1,4 +1,5 @@
 import { splitMessage } from "$lib/commits/commitMessage";
+import type { RemoteCommit } from "@gitbutler/but-sdk";
 
 export type CommitKey = {
 	stackId?: string;
@@ -7,105 +8,20 @@ export type CommitKey = {
 	upstream: boolean;
 };
 
-export interface DetailedCommit {
-	id: string;
-	author: Author;
-	description: string;
-	/** Milliseconds since epoch. */
-	createdAt: number;
-	isRemote: boolean;
-	isLocalAndRemote: boolean;
-	isIntegrated: boolean;
-	parentIds: string[];
-	branchId: string;
-	changeId: string;
-	isSigned: boolean;
-	relatedTo?: DetailedCommit;
-	conflicted: boolean;
-	// Set if a GitButler branch reference pointing to this commit exists. In the format of "refs/remotes/origin/my-branch"
-	remoteRef?: string | undefined;
-
-	/**
-	 *
-	 * Represents the remote commit id of this patch.
-	 * This field is set if:
-	 *   - The commit has been pushed
-	 *   - The commit has been copied from a remote commit (when applying a remote branch)
-	 *
-	 * The `remoteCommitId` may be the same as the `id` or it may be different if the commit has been rebased or updated.
-	 *
-	 * Note: This makes both the `isRemote` and `copiedFromRemoteId` fields redundant, but they are kept for compatibility.
-	 */
-	remoteCommitId?: string;
-
-	prev?: DetailedCommit;
-	next?: DetailedCommit;
-
-	conflictedFiles: {
-		ancestorEntries: string[];
-		ourEntries: string[];
-		theirEntries: string[];
-	};
-
-	// Dependency tracking
-	/** The commit ids of the dependencies of this commit. */
-	dependencies: string[];
-	/** The ids of the commits that depend on this commit. */
-	reverseDependencies: string[];
-	/** The hunk hashes of uncommitted changes that depend on this commit. */
-	dependentDiffs: string[];
-}
-
-export interface Commit {
-	id: string;
-	author: Author;
-	description: string;
-	/** Milliseconds since epoch. */
-	createdAt: number;
-	changeId: string;
-	isSigned: boolean;
-	parentIds: string[];
-	conflicted: boolean;
-
-	prev?: Commit;
-	next?: Commit;
-	relatedTo?: DetailedCommit;
-}
-
-export type AnyCommit = DetailedCommit | Commit;
-
-export function commitStatus(commit: AnyCommit): CommitStatusType {
-	if ("isIntegrated" in commit) {
-		if (commit.isIntegrated) return "Integrated";
-		if (commit.isLocalAndRemote) return "LocalAndRemote";
-		if (commit.isRemote) return "Remote";
-		return "LocalOnly";
-	}
-	return "Remote";
-}
-
-export function descriptionTitle(commit: AnyCommit): string | undefined {
+export function descriptionTitle(commit: { description: string }): string | undefined {
 	return splitMessage(commit.description).title || undefined;
 }
 
-export function descriptionBody(commit: AnyCommit): string | undefined {
+export function descriptionBody(commit: { description: string }): string | undefined {
 	return splitMessage(commit.description).description || undefined;
 }
 
-export function isParentOf(parent: DetailedCommit, possibleChild: DetailedCommit): boolean {
+export function isParentOf(parent: RemoteCommit, possibleChild: RemoteCommit): boolean {
 	return possibleChild.parentIds.includes(parent.id);
 }
 
-export function isMergeCommit(commit: AnyCommit): boolean {
+export function isMergeCommit(commit: { parentIds: string[] }): boolean {
 	return commit.parentIds.length > 1;
-}
-
-export interface Author {
-	id?: number;
-	email?: string;
-	name?: string;
-	gravatarUrl?: string;
-	isBot?: boolean;
 }
 
 export enum CommitStatus {

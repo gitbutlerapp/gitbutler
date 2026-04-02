@@ -8,7 +8,6 @@ rust-version.workspace = true
 description = "Utilities to interact with forges in a somewhat generic way"
 
 [features]
-export-ts = ["dep:ts-rs"]
 export-schema = [
   "dep:schemars",
   "dep:but-schemars",
@@ -34,7 +33,6 @@ git-url-parse = "0.6.0"
 serde.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 anyhow.workspace = true
-ts-rs = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
 but-schemars = { workspace = true, optional = true }
 

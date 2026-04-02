@@ -91,27 +91,6 @@ jobs:
       - uses: ./.github/actions/init-env-node
       - run: pnpm prettier
 
-  generate-ts-definitions:
-    needs: changes
-    if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
-    env:
-      CARGO_TERM_COLOR: always
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-        with:
-          shared-key: ts-def-gen
-          save-if: ${{ github.ref == 'refs/heads/master' }}
-      # Node is needed for the formatting of typescript files.
-      - uses: ./.github/actions/init-env-node
-      - name: Dependencies for 'keyring'
-        run: sudo ./scripts/install-minimal-debian-dependencies.sh
-      - run: ./scripts/generate-ts-definitions-from-rust.sh
-
   lint-node:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' }}

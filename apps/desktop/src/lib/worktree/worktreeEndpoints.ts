@@ -1,18 +1,20 @@
 import { showError } from "$lib/error/showError";
-import {
-	shouldRaiseDependencyError,
-	type DependencyError,
-	type HunkDependencies,
-} from "$lib/hunks/dependencies";
-import { shouldRaiseHunkAssignmentError, type HunkAssignment } from "$lib/hunks/hunk";
+import { shouldRaiseDependencyError, type DependencyError } from "$lib/hunks/dependencies";
+import { shouldRaiseHunkAssignmentError } from "$lib/hunks/hunk";
 import { hasBackendExtra } from "$lib/state/backendQuery";
 import { createSelectByIds } from "$lib/state/customSelectors";
 import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
 import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
-import type { IgnoredChange, TreeChange, WorktreeChanges } from "$lib/hunks/change";
 import type { UnifiedDiff } from "$lib/hunks/diff";
-import type { HunkAssignmentRequest } from "$lib/hunks/hunk";
 import type { BackendEndpointBuilder } from "$lib/state/backendApi";
+import type {
+	HunkAssignment,
+	HunkAssignmentRequest,
+	HunkDependencies,
+	IgnoredWorktreeChange,
+	TreeChange,
+	WorktreeChanges,
+} from "@gitbutler/but-sdk";
 
 export function buildWorktreeEndpoints(build: BackendEndpointBuilder) {
 	return {
@@ -21,7 +23,7 @@ export function buildWorktreeEndpoints(build: BackendEndpointBuilder) {
 			{
 				changes: EntityState<TreeChange, string>;
 				rawChanges: TreeChange[];
-				ignoredChanges: IgnoredChange[];
+				ignoredChanges: IgnoredWorktreeChange[];
 				hunkAssignments: HunkAssignment[];
 				dependencies: HunkDependencies | undefined;
 				dependenciesError: DependencyError | undefined;

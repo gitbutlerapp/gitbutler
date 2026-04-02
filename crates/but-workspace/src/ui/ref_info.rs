@@ -14,16 +14,10 @@ use crate::{
 
 /// A reference in `refs/heads`.
 #[derive(serde::Serialize, Debug, Clone)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/index.ts")
-)]
 pub struct BranchReference {
     /// The full ref name, like `refs/heads/feat`, for usage with the backend.
-    #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_bytes")
@@ -46,16 +40,10 @@ impl From<gix::refs::FullName> for BranchReference {
 
 /// A reference in `refs/remotes`.
 #[derive(serde::Serialize, Debug, Clone)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/index.ts")
-)]
 pub struct RemoteTrackingReference {
     /// The full ref name, like `refs/remotes/origin/on-remote`, for usage with the backend.
-    #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_bytes")
@@ -103,13 +91,8 @@ impl RemoteTrackingReference {
 
 /// Information about the target reference, the one we want to integrate with.
 #[derive(serde::Serialize, Debug, Clone)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/index.ts")
-)]
 pub struct Target {
     /// The remote tracking branch of the target to integrate with, like `refs/remotes/origin/main`.
     pub remote_tracking_ref: RemoteTrackingReference,
@@ -141,13 +124,8 @@ pub(crate) mod inner {
     /// The UI-clone of [`crate::RefInfo`].
     /// TODO: should also include base-branch data, see `get_base_branch_data()`.
     #[derive(serde::Serialize, Debug, Clone)]
-    #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
     #[serde(rename_all = "camelCase")]
-    #[cfg_attr(
-        feature = "export-ts",
-        ts(export, export_to = "./workspace/refInfo/index.ts")
-    )]
     pub struct RefInfo {
         /// The name of the ref that points to a workspace commit,
         /// *or* the name of the first stack segment.
@@ -241,16 +219,10 @@ impl TryFrom<crate::RefInfo> for inner::RefInfo {
 
 /// The UI-clone of `branch::Stack`.
 #[derive(serde::Serialize, Debug, Clone)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/index.ts")
-)]
 pub struct Stack {
     /// Otherwise, it is `None`.
-    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::stack_id_opt")
@@ -261,7 +233,6 @@ pub struct Stack {
     /// Otherwise, it's the merge-base of all stacks in the current workspace.
     /// It is `None` if this is a stack derived from a branch without relation to any other branch.
     #[serde(with = "but_serde::object_id_opt")]
-    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id_opt")
@@ -289,13 +260,8 @@ impl Stack {
 
 /// A segment of a commit graph, representing a set of commits exclusively.
 #[derive(serde::Serialize, Debug, Clone)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/index.ts")
-)]
 pub struct Segment {
     ///
     /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
@@ -343,7 +309,6 @@ pub struct Segment {
     /// It is `None` if the stack segment contains the first commit in the history, an orphan without ancestry,
     /// or if the history traversal was stopped early.
     #[serde(with = "but_serde::object_id_opt")]
-    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::object_id_opt")

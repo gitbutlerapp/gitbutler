@@ -1,8 +1,7 @@
 import { mockReduxFulfilled } from "$lib/testing/mockRedux";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { vi } from "vitest";
-import type { Author, Commit, UpstreamCommit } from "$lib/branches/v3";
-import type { BranchDetails } from "$lib/stacks/stack";
+import type { Author, BranchDetails, Commit, UpstreamCommit } from "@gitbutler/but-sdk";
 
 const MOCK_AUTHOR_A: Author = {
 	name: "Author A",
@@ -16,7 +15,7 @@ const MOCK_COMMIT_A: Commit = {
 	message: "Initial commit message",
 	hasConflicts: false,
 	state: { type: "LocalOnly" },
-	createdAt: BigInt(1672531200000), // Example timestamp
+	createdAt: 1672531200000, // Example timestamp
 	author: MOCK_AUTHOR_A,
 	gerritReviewUrl: null,
 };
@@ -24,7 +23,7 @@ const MOCK_COMMIT_A: Commit = {
 const MOCK_UPSTREAM_COMMIT_A: UpstreamCommit = {
 	id: "upstream-commit-a-id",
 	message: "Upstream commit message",
-	createdAt: BigInt(1672531200000), // Example timestamp
+	createdAt: 1672531200000, // Example timestamp
 	author: MOCK_AUTHOR_A,
 };
 
@@ -43,7 +42,7 @@ const BRANCH_DETAILS_A: BranchDetails = {
 	baseCommit: "base-commit-a",
 	isRemoteHead: false,
 	linkedWorktreeId: null,
-	lastUpdatedAt: BigInt(1672531200000),
+	lastUpdatedAt: 1672531200000,
 };
 
 export function getStackServiceMock() {

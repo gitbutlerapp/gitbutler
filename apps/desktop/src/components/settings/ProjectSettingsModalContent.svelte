@@ -6,11 +6,8 @@
 	import PreferencesForm from "$components/projectSettings/PreferencesForm.svelte";
 	import SettingsModalLayout from "$components/settings/SettingsModalLayout.svelte";
 	import { projectDisableCodegen } from "$lib/config/config";
-	import {
-		projectSettingsPages,
-		type ProjectSettingsPageId,
-	} from "$lib/settings/projectSettingsPages";
-	import type { ProjectSettingsModalState } from "$lib/state/uiState.svelte";
+	import { projectSettingsPages } from "$lib/settings/projectSettingsPages";
+	import type { ProjectSettingsModalState, ProjectSettingsPageId } from "$lib/state/uiState.svelte";
 
 	type Props = {
 		data: ProjectSettingsModalState;

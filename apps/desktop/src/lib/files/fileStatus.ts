@@ -1,5 +1,5 @@
 import { type FileStatus } from "@gitbutler/ui/components/file/types";
-import type { TreeChange } from "$lib/hunks/change";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 export function computeChangeStatus(change: TreeChange): FileStatus {
 	switch (change.status.type) {

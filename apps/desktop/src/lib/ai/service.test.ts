@@ -28,7 +28,7 @@ import { HttpClient } from "@gitbutler/shared/network/httpClient";
 import { expect, test, describe, vi } from "vitest";
 import type { SecretsService } from "$lib/secrets/secretsService";
 import type { AppDispatch } from "$lib/state/clientState.svelte";
-import type { GitConfigSettings } from "@gitbutler/core/api";
+import type { GitConfigSettings } from "@gitbutler/but-sdk";
 
 const defaultGitConfig = Object.freeze({
 	[GitAIConfigKey.ModelProvider]: ModelKind.OpenAI,

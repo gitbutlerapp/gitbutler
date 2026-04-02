@@ -1,7 +1,7 @@
 import { InjectionToken } from "@gitbutler/core/context";
 import type { IBackend } from "$lib/backend";
 import type { FileInfo } from "$lib/files/file";
-import type { BackendApi } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/backendApi";
 
 export const FILE_SERVICE = new InjectionToken<FileService>("FileService");
 

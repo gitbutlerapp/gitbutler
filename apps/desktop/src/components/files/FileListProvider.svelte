@@ -14,8 +14,8 @@
 -->
 <script lang="ts">
 	import { FileListController, setFileListContext } from "$lib/selection/fileListController.svelte";
-	import type { TreeChange } from "$lib/hunks/change";
 	import type { SelectionId } from "$lib/selection/key";
+	import type { TreeChange } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
 
 	type Props = {

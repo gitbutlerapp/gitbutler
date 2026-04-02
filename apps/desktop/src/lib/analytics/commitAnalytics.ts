@@ -5,12 +5,12 @@ import { UiState } from "$lib/state/uiState.svelte";
 import { WorktreeService } from "$lib/worktree/worktreeService.svelte";
 import { InjectionToken } from "@gitbutler/core/context";
 import { get } from "svelte/store";
-import type { Commit } from "$lib/branches/v3";
-import type { HunkAssignment } from "$lib/hunks/hunk";
 import type { ProjectsService } from "$lib/project/projectsService";
 import type RulesService from "$lib/rules/rulesService.svelte";
-import type { Stack, BranchDetails } from "$lib/stacks/stack";
+import type { Stack } from "$lib/stacks/stack";
 import type { EventProperties } from "$lib/state/customHooks.svelte";
+import type { HunkAssignment } from "@gitbutler/but-sdk";
+import type { BranchDetails, Commit } from "@gitbutler/but-sdk";
 import type { FModeManager } from "@gitbutler/ui/focus/fModeManager";
 
 export const COMMIT_ANALYTICS = new InjectionToken<CommitAnalytics>("CommitAnalytics");

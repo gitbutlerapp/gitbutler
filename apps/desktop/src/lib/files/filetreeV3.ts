@@ -5,7 +5,7 @@
  * hirerarchical structure for easy rendering.
  */
 
-import type { TreeChange } from "$lib/hunks/change";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 /**
  * Sort configuration for file lists.

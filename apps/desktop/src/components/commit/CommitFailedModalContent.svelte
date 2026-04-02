@@ -1,7 +1,8 @@
 <script lang="ts">
 	import CommitFailedFileEntry from "$components/commit/CommitFailedFileEntry.svelte";
 	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
-	import { REJECTTION_REASONS, type RejectionReason } from "$lib/stacks/stackService.svelte";
+	import { REJECTTION_REASONS } from "$lib/stacks/stackService.svelte";
+	import { type RejectionReason } from "$lib/state/uiState.svelte";
 	import { Icon, ModalHeader, TestId, Tooltip } from "@gitbutler/ui";
 	import type { CommitFailedModalState } from "$lib/state/uiState.svelte";
 

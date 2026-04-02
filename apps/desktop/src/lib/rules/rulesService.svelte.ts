@@ -2,7 +2,7 @@ import { workspaceRulesSelectors } from "$lib/actions/actionEndpoints";
 import { isAiRule } from "$lib/rules/rule";
 export { workspaceRulesSelectors } from "$lib/actions/actionEndpoints";
 import { InjectionToken } from "@gitbutler/core/context";
-import type { BackendApi } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/backendApi";
 
 export const RULES_SERVICE = new InjectionToken<RulesService>("RulesService");
 

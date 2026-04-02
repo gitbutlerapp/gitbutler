@@ -1,7 +1,7 @@
 import { InjectionToken } from "@gitbutler/core/context";
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import type { StackService } from "$lib/stacks/stackService.svelte";
-import type { BackendApi } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/backendApi";
 import type { StackStatusesWithBranchesV3 } from "$lib/upstream/types";
 
 export const UPSTREAM_INTEGRATION_SERVICE = new InjectionToken<UpstreamIntegrationService>(

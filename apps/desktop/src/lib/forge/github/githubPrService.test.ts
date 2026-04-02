@@ -3,7 +3,8 @@ import { setupMockGitHubApi } from "$lib/testing/mockGitHubApi.svelte";
 import { type RestEndpointMethodTypes } from "@octokit/rest";
 import { expect, test, describe, vi, beforeEach } from "vitest";
 import type { ForgePrService as GitHubPrService } from "$lib/forge/interface/forgePrService";
-import type { AppDispatch, BackendApi } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { AppDispatch } from "$lib/state/clientState.svelte";
 
 // TODO: Rewrite this proof-of-concept into something valuable.
 describe("GitHubPrService", () => {

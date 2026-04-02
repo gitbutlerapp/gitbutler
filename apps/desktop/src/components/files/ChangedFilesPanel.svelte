@@ -10,7 +10,8 @@
 	import { EmptyStatePlaceholder, Icon } from "@gitbutler/ui";
 
 	import type { ConflictEntriesObj } from "$lib/files/conflicts";
-	import type { TreeChange, TreeStats } from "$lib/hunks/change";
+	import type { TreeStats } from "@gitbutler/but-sdk";
+	import type { TreeChange } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;

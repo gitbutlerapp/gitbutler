@@ -1,8 +1,8 @@
 import { InjectionToken } from "@gitbutler/core/context";
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
-import type { TreeChange } from "$lib/hunks/change";
 import type { UnifiedDiff } from "$lib/hunks/diff";
-import type { BackendApi } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 export type ChangeDiff = {
 	path: string;

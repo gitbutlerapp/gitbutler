@@ -1,7 +1,8 @@
 import { GitLab } from "$lib/forge/gitlab/gitlab";
 import { expect, test, describe, vi } from "vitest";
 import type { GitLabClient } from "$lib/forge/gitlab/gitlabClient.svelte";
-import type { AppDispatch, BackendApi, GitLabApi } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { AppDispatch, GitLabApi } from "$lib/state/clientState.svelte";
 
 describe("GitLab", () => {
 	// Mock GitLab API and client

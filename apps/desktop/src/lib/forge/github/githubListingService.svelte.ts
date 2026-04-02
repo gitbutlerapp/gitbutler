@@ -10,7 +10,8 @@ import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
 import type { ForgeListingService } from "$lib/forge/interface/forgeListingService";
-import type { AppDispatch, BackendApi, GitHubApi } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { AppDispatch, GitHubApi } from "$lib/state/clientState.svelte";
 
 export class GitHubListingService implements ForgeListingService {
 	private api: ReturnType<typeof injectEndpoints>;

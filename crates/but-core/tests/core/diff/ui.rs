@@ -354,7 +354,7 @@ fn worktree_changes() -> anyhow::Result<()> {
           }
         }
       ],
-      "ignored_changes": [
+      "ignoredChanges": [
         {
           "path": "conflicting",
           "status": "Conflict"

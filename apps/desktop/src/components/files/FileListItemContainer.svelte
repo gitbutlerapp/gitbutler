@@ -6,8 +6,7 @@
 	import { conflictEntryHint } from "$lib/files/conflictEntryPresence";
 	import { computeChangeStatus } from "$lib/files/fileStatus";
 	import { getFilename } from "$lib/files/utils";
-	import { type TreeChange } from "$lib/hunks/change";
-	import { targetEqual, type HunkLockTarget } from "$lib/hunks/dependencies";
+	import { targetEqual } from "$lib/hunks/dependencies";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { key, type SelectionId } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
@@ -17,8 +16,10 @@
 	import { inject } from "@gitbutler/core/context";
 	import { FileListItem, TestId } from "@gitbutler/ui";
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
-	import { type FocusableOptions } from "@gitbutler/ui/focus/focusManager";
+	import { type FocusableOptions } from "@gitbutler/ui/focus/focusTypes";
 	import type { ConflictEntriesObj } from "$lib/files/conflicts";
+	import type { HunkLockTarget } from "@gitbutler/but-sdk";
+	import type { TreeChange } from "@gitbutler/but-sdk";
 
 	interface Props {
 		projectId: string;

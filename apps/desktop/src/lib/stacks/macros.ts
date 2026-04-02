@@ -1,12 +1,10 @@
 import { getStackName } from "$lib/stacks/stack";
 import { ensureValue } from "$lib/utils/validation";
-import type { DiffSpec } from "$lib/hunks/hunk";
-import type {
-	CreateCommitRequestWorktreeChanges,
-	RejectionReason,
-	StackService,
-} from "$lib/stacks/stackService.svelte";
+import type { CreateCommitRequestWorktreeChanges } from "$lib/stacks/stackEndpoints";
+import type { StackService } from "$lib/stacks/stackService.svelte";
+import type { RejectionReason } from "$lib/state/uiState.svelte";
 import type { UiState } from "$lib/state/uiState.svelte";
+import type { DiffSpec } from "@gitbutler/but-sdk";
 
 const STUB_COMMIT_MESSAGE = "New commit";
 

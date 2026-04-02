@@ -6,8 +6,8 @@
 	import { inject } from "@gitbutler/core/context";
 	import { TestId } from "@gitbutler/ui";
 	import type { TreeNode } from "$lib/files/filetreeV3";
-	import type { TreeChange } from "$lib/hunks/change";
 	import type { SelectionId } from "$lib/selection/key";
+	import type { TreeChange } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
 
 	type Props = {

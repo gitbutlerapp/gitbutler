@@ -1,7 +1,7 @@
 import { InjectionToken } from "@gitbutler/core/context";
 import { writable } from "svelte/store";
 import type { IBackend } from "$lib/backend";
-import type { Settings } from "@gitbutler/core/api";
+import type { AppSettings } from "@gitbutler/but-sdk";
 
 /** Update request matching the Rust `IrcUpdate` struct. */
 export interface IrcUpdate {
@@ -22,7 +22,7 @@ export interface IrcConnectionUpdate {
 export const SETTINGS_SERVICE = new InjectionToken<SettingsService>("SettingsService");
 
 export class SettingsService {
-	readonly appSettings = writable<Settings.AppSettings | undefined>(undefined, () => {
+	readonly appSettings = writable<AppSettings | undefined>(undefined, () => {
 		this.fetchAppSettings();
 		const unsubscribe = this.listen(async (settings) => await this.handlePayload(settings));
 		return () => {
@@ -34,21 +34,21 @@ export class SettingsService {
 
 	constructor(private backend: IBackend) {}
 
-	private async handlePayload(settings: Settings.AppSettings) {
+	private async handlePayload(settings: AppSettings) {
 		this.appSettings.set(settings);
 	}
 
 	/**
 	 * Fetches the application settings from the backend & stores them in the local store.
 	 */
-	async fetchAppSettings(): Promise<Settings.AppSettings> {
-		const settings = await this.backend.invoke<Settings.AppSettings>("get_app_settings");
+	async fetchAppSettings(): Promise<AppSettings> {
+		const settings = await this.backend.invoke<AppSettings>("get_app_settings");
 		this.handlePayload(settings);
 		return settings;
 	}
 
-	private listen(callback: (settings: Settings.AppSettings) => void) {
-		return this.backend.listen<Settings.AppSettings>(`settings://update`, (event) =>
+	private listen(callback: (settings: AppSettings) => void) {
+		return this.backend.listen<AppSettings>(`settings://update`, (event) =>
 			callback(event.payload),
 		);
 	}
@@ -57,7 +57,7 @@ export class SettingsService {
 		await this.invokeAndRefresh("update_onboarding_complete", { update });
 	}
 
-	async updateTelemetry(update: Partial<Settings.AppSettings["telemetry"]>) {
+	async updateTelemetry(update: Partial<AppSettings["telemetry"]>) {
 		await this.invokeAndRefresh("update_telemetry", { update });
 	}
 
@@ -65,23 +65,23 @@ export class SettingsService {
 		await this.invokeAndRefresh("update_telemetry_distinct_id", { appDistinctId });
 	}
 
-	async updateFeatureFlags(update: Partial<Settings.AppSettings["featureFlags"]>) {
+	async updateFeatureFlags(update: Partial<AppSettings["featureFlags"]>) {
 		await this.invokeAndRefresh("update_feature_flags", { update });
 	}
 
-	async updateClaude(update: Partial<Settings.AppSettings["claude"]>) {
+	async updateClaude(update: Partial<AppSettings["claude"]>) {
 		await this.invokeAndRefresh("update_claude", { update });
 	}
 
-	async updateReviews(update: Partial<Settings.AppSettings["reviews"]>) {
+	async updateReviews(update: Partial<AppSettings["reviews"]>) {
 		await this.invokeAndRefresh("update_reviews", { update });
 	}
 
-	async updateFetch(update: Partial<Settings.AppSettings["fetch"]>) {
+	async updateFetch(update: Partial<AppSettings["fetch"]>) {
 		await this.invokeAndRefresh("update_fetch", { update });
 	}
 
-	async updateUi(update: Partial<Settings.AppSettings["ui"]>) {
+	async updateUi(update: Partial<AppSettings["ui"]>) {
 		await this.invokeAndRefresh("update_ui", { update });
 	}
 

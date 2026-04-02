@@ -1,7 +1,7 @@
 import { invalidatesList, providesItem, providesList, ReduxTag } from "$lib/state/tags";
-import type { TreeChanges } from "$lib/hunks/change";
 import type { AddProjectOutcome, Project } from "$lib/project/project";
 import type { BackendEndpointBuilder } from "$lib/state/backendApi";
+import type { TreeChanges } from "@gitbutler/but-sdk";
 
 export type ProjectInfo = {
 	is_exclusive: boolean;

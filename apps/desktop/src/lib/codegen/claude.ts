@@ -3,9 +3,6 @@ import {
 	type ClaudeMessage,
 	type ClaudePermissionRequest,
 	type ClaudeSessionDetails,
-	type ThinkingLevel,
-	type ModelType,
-	type PermissionMode,
 	type PermissionDecision,
 	type PromptTemplate,
 	type PromptDir,
@@ -21,9 +18,10 @@ import {
 	providesList,
 	ReduxTag,
 } from "$lib/state/tags";
+import { type ThinkingLevel, type ModelType, type PermissionMode } from "$lib/state/uiState.svelte";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { IBackend } from "$lib/backend/backend";
-import type { BackendApi } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/backendApi";
 
 export const CLAUDE_CODE_SERVICE = new InjectionToken<ClaudeCodeService>("Claude code service");
 

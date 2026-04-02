@@ -9,10 +9,8 @@ import { chipToasts } from "@gitbutler/ui";
 import { get } from "svelte/store";
 import type { IBackend } from "$lib/backend";
 import type { ProjectInfo } from "$lib/project/projectEndpoints";
-import type { BackendApi } from "$lib/state/clientState.svelte";
-import type { ForgeUser } from "@gitbutler/core/api";
-
-export type { ProjectInfo } from "$lib/project/projectEndpoints";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { ForgeUser } from "@gitbutler/but-sdk";
 
 export const PROJECTS_SERVICE = new InjectionToken<ProjectsService>("ProjectsService");
 

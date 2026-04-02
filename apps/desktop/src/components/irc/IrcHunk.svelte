@@ -2,8 +2,8 @@
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { inject } from "@gitbutler/core/context";
 	import { HunkDiff, FileIcon } from "@gitbutler/ui";
-	import type { TreeChange } from "$lib/hunks/change";
-	import type { DiffHunk } from "$lib/hunks/hunk";
+	import type { DiffHunk } from "@gitbutler/but-sdk";
+	import type { TreeChange } from "@gitbutler/but-sdk";
 
 	type Props = {
 		change: TreeChange;

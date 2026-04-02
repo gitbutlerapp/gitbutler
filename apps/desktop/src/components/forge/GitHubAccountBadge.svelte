@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { Badge } from "@gitbutler/ui";
-	import type { ButGitHubToken } from "@gitbutler/core/api";
+	import type { GithubAccountIdentifier } from "@gitbutler/but-sdk";
 
 	type Props = {
-		account: ButGitHubToken.GithubAccountIdentifier;
+		account: GithubAccountIdentifier;
 		class?: string;
 	};
 
@@ -11,7 +11,7 @@
 
 	// const tooltipText = $derived(account.type === 'enterprise' ? 'GitHub Enterprise' : account.type);
 	// const badgeText = $derived(account.type === 'enterprise' ? account.info.host : account.type);
-	export function badgeText(account: ButGitHubToken.GithubAccountIdentifier): string | null {
+	export function badgeText(account: GithubAccountIdentifier): string | null {
 		switch (account.type) {
 			case "oAuthUsername":
 				return null;
@@ -22,7 +22,7 @@
 		}
 	}
 
-	export function tooltipText(account: ButGitHubToken.GithubAccountIdentifier): string {
+	export function tooltipText(account: GithubAccountIdentifier): string {
 		switch (account.type) {
 			case "oAuthUsername":
 				return "";

@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { Badge } from "@gitbutler/ui";
-	import type { ButGitLabToken } from "@gitbutler/core/api";
+	import type { GitlabAccountIdentifier } from "@gitbutler/but-sdk";
 
 	type Props = {
-		account: ButGitLabToken.GitlabAccountIdentifier;
+		account: GitlabAccountIdentifier;
 		class?: string;
 	};
 
 	const { account, class: className }: Props = $props();
 
-	export function badgeText(account: ButGitLabToken.GitlabAccountIdentifier): string | null {
+	export function badgeText(account: GitlabAccountIdentifier): string | null {
 		switch (account.type) {
 			case "patUsername":
 				return "PAT";
@@ -18,7 +18,7 @@
 		}
 	}
 
-	export function tooltipText(account: ButGitLabToken.GitlabAccountIdentifier): string {
+	export function tooltipText(account: GitlabAccountIdentifier): string {
 		switch (account.type) {
 			case "patUsername":
 				return "Personal Access Token";

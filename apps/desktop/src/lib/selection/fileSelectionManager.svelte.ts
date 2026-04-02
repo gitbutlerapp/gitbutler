@@ -14,11 +14,11 @@ import { SvelteSet } from "svelte/reactivity";
 import { get, writable, type Writable } from "svelte/store";
 import type { HistoryService } from "$lib/history/history";
 import type { OplogService } from "$lib/history/oplogService.svelte";
-import type { TreeChange } from "$lib/hunks/change";
-import type { HunkAssignment } from "$lib/hunks/hunk";
 import type { UncommittedService } from "$lib/selection/uncommittedService.svelte";
 import type { Result } from "$lib/state/helpers";
 import type { WorktreeService } from "$lib/worktree/worktreeService.svelte";
+import type { HunkAssignment } from "@gitbutler/but-sdk";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 // Structural type for the return value of change-by-path queries.
 type ChangeResult = { result: Result<TreeChange>; response: TreeChange | undefined };

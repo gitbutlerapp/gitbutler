@@ -1,7 +1,7 @@
 import { invalidatesItem, providesItem, providesList, ReduxTag } from "$lib/state/tags";
-import type { DiffSpec } from "$lib/hunks/hunk";
 import type { BackendEndpointBuilder } from "$lib/state/backendApi";
-import type { GitConfigSettings } from "@gitbutler/core/api";
+import type { DiffSpec } from "@gitbutler/but-sdk";
+import type { GitConfigSettings } from "@gitbutler/but-sdk";
 
 export function buildGitEndpoints(build: BackendEndpointBuilder) {
 	return {

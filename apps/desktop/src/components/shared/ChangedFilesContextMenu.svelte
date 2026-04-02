@@ -12,7 +12,7 @@
 	import { changesToDiffSpec } from "$lib/commits/utils";
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from "$lib/config/config";
 	import { FILE_SERVICE } from "$lib/files/fileService";
-	import { isTreeChange, type TreeChange } from "$lib/hunks/change";
+	import { isTreeChange } from "$lib/hunks/change";
 	import { vscodePath } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
@@ -29,6 +29,7 @@
 		TestId,
 	} from "@gitbutler/ui";
 	import type { SelectionId } from "$lib/selection/key";
+	import type { TreeChange } from "@gitbutler/but-sdk";
 
 	const DEFAULT_MODEL = "gpt-4";
 

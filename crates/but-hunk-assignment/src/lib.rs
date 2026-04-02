@@ -26,19 +26,13 @@ use tracing::instrument;
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./hunkAssignment/index.ts")
-)]
 pub struct HunkAssignment {
     /// A stable identifier for the hunk assignment.
     ///   - When a new hunk is first observed (from the uncommitted changes), it is assigned a new id.
     ///   - If a hunk is modified (i.e. it has gained or lost lines), the UUID remains the same.
     ///   - If two or more hunks become merged (due to edits causing the contexts to overlap), the id of the hunk with the most lines is adopted.
-    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     pub id: Option<Uuid>,
     /// The hunk that is being assigned. Together with path_bytes, this identifies the hunk.
     /// If the file is binary, or too large to load, this will be None and in this case the path name is the only identity.
@@ -46,14 +40,12 @@ pub struct HunkAssignment {
     /// The file path of the hunk.
     pub path: String,
     /// The file path of the hunk in bytes.
-    #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::bstring_bytes")
     )]
     pub path_bytes: BString,
     /// The stack to which the hunk is assigned. If None, the hunk is not assigned to any stack.
-    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::stack_id_opt")
@@ -143,12 +135,7 @@ impl From<HunkAssignment> for but_core::DiffSpec {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./hunkAssignment/index.ts")
-)]
 pub enum AbsorptionTarget {
     Branch {
         branch_name: String,
@@ -159,7 +146,6 @@ pub enum AbsorptionTarget {
     TreeChanges {
         changes: Vec<but_core::ui::TreeChange>,
         // Optionally, the stack to which the changes are assigned
-        #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
         #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
         assigned_stack_id: Option<StackId>,
     },
@@ -173,12 +159,7 @@ but_schemars::register_sdk_type!(AbsorptionTarget);
 /// Reason why a file is being absorbed to a particular commit
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./hunkAssignment/index.ts")
-)]
 pub enum AbsorptionReason {
     /// File has hunk range overlap with this commit
     HunkDependency,
@@ -204,12 +185,7 @@ impl AbsorptionReason {
 /// Information about a file being absorbed
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./hunkAssignment/index.ts")
-)]
 pub struct FileAbsorption {
     pub path: String,
     pub assignment: HunkAssignment,
@@ -221,17 +197,10 @@ but_schemars::register_sdk_type!(FileAbsorption);
 /// Information about absorptions grouped by commit
 #[derive(Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./hunkAssignment/index.ts")
-)]
 pub struct CommitAbsorption {
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub stack_id: but_core::ref_metadata::StackId,
-    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     #[serde(with = "but_serde::object_id")]
     pub commit_id: gix::ObjectId,

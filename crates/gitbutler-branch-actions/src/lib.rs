@@ -42,7 +42,6 @@ pub mod reorder;
 pub use reorder::StackOrder;
 mod undo_commit;
 
-mod author;
 mod gravatar;
 use gitbutler_stack::VirtualBranchesHandle;
 

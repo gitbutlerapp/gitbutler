@@ -19,7 +19,7 @@
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { slide } from "svelte/transition";
-	import type { PushStatus } from "$lib/stacks/stack";
+	import type { PushStatus } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
 	import type { ComponentProps } from "svelte";
 

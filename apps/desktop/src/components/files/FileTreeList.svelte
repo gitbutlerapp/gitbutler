@@ -5,8 +5,8 @@
 	import { FileListItem, FolderListItem } from "@gitbutler/ui";
 	import { SvelteMap } from "svelte/reactivity";
 	import type { TreeNode } from "$lib/files/filetreeV3";
-	import type { TreeChange } from "$lib/hunks/change";
-	import type { FocusableOptions } from "@gitbutler/ui/focus/focusManager";
+	import type { TreeChange } from "@gitbutler/but-sdk";
+	import type { FocusableOptions } from "@gitbutler/ui/focus/focusTypes";
 
 	type Props = {
 		changes: TreeChange[];

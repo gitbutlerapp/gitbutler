@@ -4,10 +4,11 @@
 	import ChangedFilesPanel from "$components/files/ChangedFilesPanel.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
-	import { commitCreatedAt, type Commit } from "$lib/branches/v3";
+	import { commitCreatedAt } from "$lib/branches/v3";
 	import { createCommitSelection } from "$lib/selection/key";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { type Commit } from "@gitbutler/but-sdk";
 	import { inject } from "@gitbutler/core/context";
 
 	import VirtualList from "@gitbutler/ui/components/VirtualList.svelte";
@@ -131,7 +132,7 @@
 													(change) =>
 														!(change.path in (changesResult.conflictEntries?.entries ?? {})),
 												)}
-												stats={changesResult.stats}
+												stats={changesResult.stats ?? undefined}
 												conflictEntries={changesResult.conflictEntries}
 												autoselect
 												allowUnselect={false}

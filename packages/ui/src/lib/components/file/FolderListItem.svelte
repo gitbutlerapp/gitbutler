@@ -3,8 +3,8 @@
 	import Icon from "$components/Icon.svelte";
 	import FileIcon from "$components/file/FileIcon.svelte";
 	import FileIndent from "$components/file/FileIndent.svelte";
+	import { type FocusableOptions } from "$lib/focus/focusTypes";
 	import { focusable } from "$lib/focus/focusable";
-	import type { FocusableOptions } from "$lib/focus/focusManager";
 
 	interface Props {
 		name: string;

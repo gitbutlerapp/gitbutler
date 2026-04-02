@@ -25,7 +25,7 @@
 	import { FOCUS_MANAGER } from "@gitbutler/ui/focus/focusManager";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import type { ConflictEntriesObj } from "$lib/files/conflicts";
-	import type { TreeChange } from "$lib/hunks/change";
+	import type { TreeChange } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;

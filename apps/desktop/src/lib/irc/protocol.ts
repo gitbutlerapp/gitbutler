@@ -26,9 +26,9 @@ import type {
 	PermissionDecision,
 	AskUserQuestion,
 } from "$lib/codegen/types";
-import type { TreeChange } from "$lib/hunks/change";
-import type { DiffHunk } from "$lib/hunks/hunk";
 import type { SharedCommitPayload } from "$lib/irc/sharedStack";
+import type { DiffHunk } from "@gitbutler/but-sdk";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 // ============================================================================
 // Constants

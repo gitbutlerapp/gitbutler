@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getBranchStatusLabelAndColor } from "$components/lib";
-	import type { PushStatus } from "$lib/stacks/stack";
+	import type { PushStatus } from "@gitbutler/but-sdk";
 
 	type Props = {
 		pushStatus: PushStatus;

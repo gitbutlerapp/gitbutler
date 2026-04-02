@@ -1,7 +1,7 @@
 import { InjectionToken } from "@gitbutler/core/context";
 import type { IBackend } from "$lib/backend";
-import type { BackendApi } from "$lib/state/clientState.svelte";
-import type { Action } from "@gitbutler/core/api";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { AutoCommitEvent } from "@gitbutler/but-sdk";
 
 export const ACTION_SERVICE = new InjectionToken<ActionService>("ActionService");
 
@@ -15,9 +15,9 @@ export class ActionService {
 		return this.backendApi.endpoints.autoCommit.useMutation();
 	}
 
-	listenForAutoCommit(projectId: string, listen: (event: Action.AutoCommitEvent) => void) {
+	listenForAutoCommit(projectId: string, listen: (event: AutoCommitEvent) => void) {
 		const unlisten = this.backend.listen(`project://${projectId}/auto-commit`, (event) => {
-			const payload = event.payload as Action.AutoCommitEvent;
+			const payload = event.payload as AutoCommitEvent;
 			listen(payload);
 		});
 

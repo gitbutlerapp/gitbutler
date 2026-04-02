@@ -1,23 +1,4 @@
-import type { BaseBranch } from "$lib/baseBranch/baseBranch";
-import type { Commit } from "$lib/commits/commit";
-
-export function getMockCommit(): Commit {
-	return {
-		id: "mock-id",
-		author: {
-			name: "Mock Author",
-			email: "mock@example.com",
-			gravatarUrl: "",
-			isBot: false,
-		},
-		description: "Mock description",
-		createdAt: Date.now(),
-		changeId: "mock-change-id",
-		isSigned: false,
-		parentIds: [],
-		conflicted: false,
-	};
-}
+import type { BaseBranch } from "@gitbutler/but-sdk";
 
 export function getMockBaseBranch(): BaseBranch {
 	return {
@@ -31,7 +12,7 @@ export function getMockBaseBranch(): BaseBranch {
 		behind: 0,
 		upstreamCommits: [],
 		recentCommits: [],
-		lastFetchedMs: undefined,
+		lastFetchedMs: null,
 		conflicted: false,
 		diverged: false,
 		divergedAhead: [],

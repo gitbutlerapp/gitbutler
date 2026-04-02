@@ -1,8 +1,9 @@
 import { invalidatesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { IBackend } from "$lib/backend";
-import type { AppDispatch, BackendApi } from "$lib/state/clientState.svelte";
-import type { GitConfigSettings } from "@gitbutler/core/api";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { AppDispatch } from "$lib/state/clientState.svelte";
+import type { GitConfigSettings } from "@gitbutler/but-sdk";
 
 export const GIT_CONFIG_SERVICE = new InjectionToken<GitConfigService>("GitConfigService");
 

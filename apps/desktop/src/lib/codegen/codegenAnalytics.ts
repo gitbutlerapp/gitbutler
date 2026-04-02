@@ -3,8 +3,8 @@ import { SettingsService } from "$lib/settings/appSettings";
 import { InjectionToken } from "@gitbutler/core/context";
 import { get } from "svelte/store";
 import type { ClaudeCodeService } from "$lib/codegen/claude";
-import type { ThinkingLevel, ModelType } from "$lib/codegen/types";
 import type { EventProperties } from "$lib/state/customHooks.svelte";
+import type { ThinkingLevel, ModelType } from "$lib/state/uiState.svelte";
 
 export const CODEGEN_ANALYTICS = new InjectionToken<CodegenAnalytics>("CodegenAnalytics");
 

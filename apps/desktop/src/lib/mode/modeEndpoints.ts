@@ -1,8 +1,7 @@
 import { hasBackendExtra } from "$lib/state/backendQuery";
 import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
-import type { ConflictEntryPresence } from "$lib/files/conflictEntryPresence";
-import type { TreeChange } from "$lib/hunks/change";
 import type { BackendEndpointBuilder } from "$lib/state/backendApi";
+import type { ConflictEntryPresence, HeadAndMode, HeadSha, TreeChange } from "@gitbutler/but-sdk";
 
 export function buildModeEndpoints(build: BackendEndpointBuilder) {
 	return {
@@ -100,34 +99,4 @@ export function buildModeEndpoints(build: BackendEndpointBuilder) {
 			},
 		}),
 	};
-}
-
-export interface EditModeMetadata {
-	commitOid: string;
-	branchReference: string;
-}
-
-export interface OutsideWorkspaceMetadata {
-	branchName: string | null;
-	worktreeConflicts: string[];
-}
-
-export type Mode =
-	| { type: "OpenWorkspace" }
-	| {
-			type: "OutsideWorkspace";
-			subject: OutsideWorkspaceMetadata;
-	  }
-	| {
-			type: "Edit";
-			subject: EditModeMetadata;
-	  };
-
-interface HeadAndMode {
-	head?: string;
-	operatingMode?: Mode;
-}
-
-interface HeadSha {
-	headSha?: string;
 }
