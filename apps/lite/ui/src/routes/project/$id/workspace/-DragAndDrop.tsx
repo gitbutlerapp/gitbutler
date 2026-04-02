@@ -40,12 +40,12 @@ const hunkHeadersForAssignments = (
 
 export const DraggableBranch: FC<
 	{
-		anchorRef: Array<number> | null;
+		branchRef: Array<number> | null;
 		branchName: string;
 	} & useRender.ComponentProps<"div">
-> = ({ anchorRef, branchName, render, ...props }) => {
+> = ({ branchRef, branchName, render, ...props }) => {
 	const dragData: DragData | null =
-		anchorRef !== null ? { sourceItem: { _tag: "Branch", anchorRef } } : null;
+		branchRef !== null ? { sourceItem: { _tag: "Branch", ref: branchRef } } : null;
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: (): DragData | {} => dragData ?? {},
 		preview: <DragPreview>{branchName}</DragPreview>,
@@ -99,15 +99,13 @@ export const DraggableFile: FC<
 		getInitialData: (): DragData => ({
 			sourceItem: {
 				_tag: "TreeChanges",
-				source: {
-					parent: changeUnit,
-					changes: [
-						{
-							change,
-							hunkHeaders: hunkHeadersForAssignments(assignments),
-						},
-					],
-				},
+				parent: changeUnit,
+				changes: [
+					{
+						change,
+						hunkHeaders: hunkHeadersForAssignments(assignments),
+					},
+				],
 			},
 		}),
 		preview: <DragPreview>{change.path}</DragPreview>,
@@ -138,15 +136,13 @@ export const DraggableChanges: FC<
 		getInitialData: (): DragData => ({
 			sourceItem: {
 				_tag: "TreeChanges",
-				source: {
-					parent: changeUnit,
-					changes: changes.map(
-						({ change, assignments }): TreeChangeWithHunkHeaders => ({
-							change,
-							hunkHeaders: hunkHeadersForAssignments(assignments),
-						}),
-					),
-				},
+				parent: changeUnit,
+				changes: changes.map(
+					({ change, assignments }): TreeChangeWithHunkHeaders => ({
+						change,
+						hunkHeaders: hunkHeadersForAssignments(assignments),
+					}),
+				),
 			},
 		}),
 		preview: <DragPreview>{label}</DragPreview>,
@@ -174,15 +170,13 @@ export const DraggableHunk: FC<
 		getInitialData: (): DragData => ({
 			sourceItem: {
 				_tag: "TreeChanges",
-				source: {
-					parent: changeUnit,
-					changes: [
-						{
-							change,
-							hunkHeaders: [hunk],
-						},
-					],
-				},
+				parent: changeUnit,
+				changes: [
+					{
+						change,
+						hunkHeaders: [hunk],
+					},
+				],
 			},
 		}),
 		preview: <DragPreview>Hunk {formatHunkHeader(hunk)}</DragPreview>,

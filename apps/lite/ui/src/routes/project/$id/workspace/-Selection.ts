@@ -108,16 +108,21 @@ export const buildNavigationModel = ({
 	return { items, sections, sectionIndexByItemIndex, indexByKey };
 };
 
+const getRelative = <T>(items: Array<T>, index: number, offset: -1 | 1): T | null => {
+	const itemCount = items.length;
+	if (itemCount === 0) return null;
+	return items[(index + offset + itemCount) % itemCount] ?? null;
+};
+
 export const getAdjacentItem = (
 	model: NavigationModel,
 	selection: Item | null,
 	offset: -1 | 1,
 ): Item | null => {
-	const currentIndex = selection ? (model.indexByKey.get(itemKey(selection)) ?? -1) : -1;
-	if (currentIndex === -1) return null;
-	const itemCount = model.items.length;
-	if (itemCount === 0) return null;
-	return model.items[(currentIndex + offset + itemCount) % itemCount] ?? null;
+	if (!selection) return null;
+	const currentIndex = model.indexByKey.get(itemKey(selection));
+	if (currentIndex === undefined) return null;
+	return getRelative(model.items, currentIndex, offset);
 };
 
 export const getAdjacentSection = (
@@ -130,9 +135,7 @@ export const getAdjacentSection = (
 	if (currentIndex === undefined) return null;
 	const currentSectionIndex = model.sectionIndexByItemIndex[currentIndex] ?? -1;
 	if (currentSectionIndex === -1) return null;
-	const sectionCount = model.sections.length;
-	if (sectionCount === 0) return null;
-	return model.sections[(currentSectionIndex + offset + sectionCount) % sectionCount] ?? null;
+	return getRelative(model.sections, currentSectionIndex, offset);
 };
 
 export const getAdjacentCommitDetailsPath = ({

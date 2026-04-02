@@ -1,9 +1,8 @@
-import { type RubSource } from "#ui/api/rub.ts";
+import { type Operation } from "#ui/Operation.ts";
+import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 import { type ChangeUnit } from "#ui/domain/ChangeUnit.ts";
-import { type RubOperation } from "#ui/Operation.ts";
 import { type HunkHeader, type TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
-import { rubOperationLabel } from "./-RubOperationLabel.ts";
 
 export type TreeChangeWithHunkHeaders = {
 	change: TreeChange;
@@ -12,42 +11,104 @@ export type TreeChangeWithHunkHeaders = {
 
 export type SourceItem =
 	| { _tag: "Commit"; commitId: string }
-	| { _tag: "Branch"; anchorRef: Array<number> }
+	| { _tag: "Branch"; ref: Array<number> }
 	| {
 			_tag: "TreeChanges";
-			source: {
-				parent: ChangeUnit;
-				changes: Array<TreeChangeWithHunkHeaders>;
-			};
+			parent: ChangeUnit;
+			changes: Array<TreeChangeWithHunkHeaders>;
 	  };
 
-const rubSourceFor = (item: SourceItem): RubSource | null =>
-	Match.value(item).pipe(
-		Match.tag("Branch", (): RubSource | null => null),
-		Match.tag("Commit", ({ commitId }): RubSource | null => ({
-			_tag: "Commit",
-			source: { commitId },
-		})),
-		Match.tag("TreeChanges", ({ source }): RubSource | null => ({
-			_tag: "TreeChanges",
-			source,
-		})),
-		Match.exhaustive,
-	);
-
-export const getRubOperation = ({
+/**
+ * | SOURCE ↓ / TARGET →    | Changes  | Commit |
+ * | ---------------------- | -------- | ------ |
+ * | File/hunk from changes | Assign   | Amend  |
+ * | File/hunk from commit  | Uncommit | Amend  |
+ * | Commit                 | Uncommit | Squash |
+ *
+ * Note this is currently different from the CLI's definition of "rubbing",
+ * which also includes move operations.
+ * https://linear.app/gitbutler/issue/GB-1160/what-should-rubbing-a-branch-into-another-branch-do#comment-db2abdb7
+ */
+export const getCombineOperation = ({
 	sourceItem,
 	target,
 }: {
 	sourceItem: SourceItem;
 	target: ChangeUnit;
-}): RubOperation | null => {
-	const rubSource = rubSourceFor(sourceItem);
-	if (!rubSource) return null;
-	const rubOperation: RubOperation = {
-		source: rubSource,
-		target,
-	};
-	if (rubOperationLabel(rubOperation) === null) return null;
-	return rubOperation;
-};
+}): Operation | null =>
+	Match.value(sourceItem).pipe(
+		Match.tagsExhaustive({
+			Branch: (): Operation | null => null,
+			Commit: ({ commitId: sourceCommitId }) =>
+				Match.value(target).pipe(
+					Match.tagsExhaustive({
+						Changes: ({ stackId }): Operation => ({
+							_tag: "CommitUncommit",
+							commitId: sourceCommitId,
+							assignTo: stackId,
+						}),
+						Commit: ({ commitId: destinationCommitId }): Operation | null => {
+							if (sourceCommitId === destinationCommitId) return null;
+							return {
+								_tag: "CommitSquash",
+								sourceCommitId,
+								destinationCommitId,
+							};
+						},
+					}),
+				),
+			TreeChanges: ({ parent, changes: sourceChanges }) => {
+				const changes = sourceChanges.map(({ change, hunkHeaders }) =>
+					createDiffSpec(change, hunkHeaders),
+				);
+
+				return Match.value(parent).pipe(
+					Match.tagsExhaustive({
+						Changes: ({ stackId: sourceStackId }) =>
+							Match.value(target).pipe(
+								Match.tagsExhaustive({
+									Changes: ({ stackId: targetStackId }): Operation | null => {
+										if (sourceStackId === targetStackId) return null;
+										return {
+											_tag: "AssignHunk",
+											assignments: sourceChanges.flatMap(({ change, hunkHeaders }) =>
+												hunkHeaders.map((hunkHeader) => ({
+													pathBytes: change.pathBytes,
+													hunkHeader,
+													stackId: targetStackId,
+												})),
+											),
+										};
+									},
+									Commit: ({ commitId }): Operation => ({
+										_tag: "CommitAmend",
+										commitId,
+										changes,
+									}),
+								}),
+							),
+						Commit: ({ commitId: sourceCommitId }) =>
+							Match.value(target).pipe(
+								Match.tagsExhaustive({
+									Changes: ({ stackId }): Operation => ({
+										_tag: "CommitUncommitChanges",
+										commitId: sourceCommitId,
+										assignTo: stackId,
+										changes,
+									}),
+									Commit: ({ commitId: destinationCommitId }): Operation | null => {
+										if (sourceCommitId === destinationCommitId) return null;
+										return {
+											_tag: "CommitMoveChangesBetween",
+											sourceCommitId,
+											destinationCommitId,
+											changes,
+										};
+									},
+								}),
+							),
+					}),
+				);
+			},
+		}),
+	);

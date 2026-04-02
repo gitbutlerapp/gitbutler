@@ -27,7 +27,7 @@ import { getBranchNameByCommitId, getCommonBaseCommitId } from "#ui/domain/RefIn
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
 import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
-import { type Operation } from "#ui/Operation.ts";
+import { isCombineOperation, operationLabel, type Operation } from "#ui/Operation.ts";
 import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import {
@@ -41,8 +41,10 @@ import {
 	TreeChangeWithAssignments,
 } from "#ui/routes/project/$id/workspace/-DragAndDrop.tsx";
 import { AbsorptionDialog, useAbsorption } from "#ui/routes/project/$id/workspace/-Absorption.tsx";
-import { rubOperationLabel } from "#ui/routes/project/$id/workspace/-RubOperationLabel.ts";
-import { getRubOperation, type SourceItem } from "#ui/routes/project/$id/workspace/-SourceItem.ts";
+import {
+	getCombineOperation,
+	type SourceItem,
+} from "#ui/routes/project/$id/workspace/-SourceItem.ts";
 import {
 	ShowCommit,
 	CommitDetails as SharedCommitDetails,
@@ -505,24 +507,19 @@ const Preview: FC<{
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 }> = ({ projectId, selection, onDependencyHover }) =>
 	Match.value(selection).pipe(
-		Match.tag("Segment", ({ branchName }) => (
-			<ShowSegment projectId={projectId} branchName={branchName} />
-		)),
-		Match.tag("Changes", ({ stackId, mode }) => (
-			<ShowChangesOrFile
-				projectId={projectId}
-				stackId={stackId}
-				mode={mode}
-				onDependencyHover={onDependencyHover}
-			/>
-		)),
-		Match.tag("Commit", (selection) => (
-			<ShowCommitOrFile projectId={projectId} selection={selection} />
-		)),
-		Match.tag("BaseCommit", ({ commitId }) => (
-			<ShowBaseCommit projectId={projectId} commitId={commitId} />
-		)),
-		Match.exhaustive,
+		Match.tagsExhaustive({
+			Segment: ({ branchName }) => <ShowSegment projectId={projectId} branchName={branchName} />,
+			Changes: ({ stackId, mode }) => (
+				<ShowChangesOrFile
+					projectId={projectId}
+					stackId={stackId}
+					mode={mode}
+					onDependencyHover={onDependencyHover}
+				/>
+			),
+			Commit: (selection) => <ShowCommitOrFile projectId={projectId} selection={selection} />,
+			BaseCommit: ({ commitId }) => <ShowBaseCommit projectId={projectId} commitId={commitId} />,
+		}),
 	);
 
 const ChangesTarget: FC<
@@ -530,19 +527,13 @@ const ChangesTarget: FC<
 		stackId: string | null;
 	} & useRender.ComponentProps<"div">
 > = ({ stackId, render, ...props }) => {
-	const getOperation = (sourceItem: SourceItem): Operation | null => {
-		const rubOperation = getRubOperation({
-			sourceItem,
-			target: { _tag: "Changes", stackId },
-		});
-		if (!rubOperation) return null;
-		return { _tag: "Rub", ...rubOperation };
-	};
-
 	const [operation, dropRef] = useDroppable(({ source }) => {
 		const sourceItem = parseDragData(source.data);
 		if (!sourceItem) return null;
-		return getOperation(sourceItem);
+		return getCombineOperation({
+			sourceItem,
+			target: { _tag: "Changes", stackId },
+		});
 	});
 
 	const droppable = useRender({
@@ -553,10 +544,15 @@ const ChangesTarget: FC<
 		}),
 	});
 
-	const tooltip = operation && operation._tag === "Rub" ? rubOperationLabel(operation) : null;
+	const tooltip = operation ? operationLabel(operation) : null;
 
 	return (
-		<Tooltip.Root open={tooltip !== null}>
+		<Tooltip.Root
+			open={tooltip !== null}
+			onOpenChange={(_open, eventDetails) => {
+				eventDetails.allowPropagation();
+			}}
+		>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
@@ -620,11 +616,11 @@ const getCommitTargetOperation = ({
 	const getSourceCommitId = (sourceItem: SourceItem): string | null =>
 		sourceItem._tag === "Commit"
 			? sourceItem.commitId
-			: sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Commit"
-				? sourceItem.source.parent.commitId
+			: sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit"
+				? sourceItem.parent.commitId
 				: null;
 
-	const rubOperation = getRubOperation({
+	const combineOperation = getCombineOperation({
 		sourceItem,
 		target: { _tag: "Commit", commitId },
 	});
@@ -638,18 +634,18 @@ const getCommitTargetOperation = ({
 				operations: {
 					"reorder-before":
 						(sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "above")) ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Changes") ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Commit")
+						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Changes") ||
+						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit")
 							? "available"
 							: "not-available",
 					"reorder-after":
 						(sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "below")) ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Changes") ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Commit")
+						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Changes") ||
+						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit")
 							? "available"
 							: "not-available",
 					combine:
-						rubOperation ||
+						combineOperation ||
 						// Allow cancelling by dropping back where we started, otherwise
 						// this would be interpreted as a reorder.
 						getSourceCommitId(sourceItem) === commitId
@@ -663,9 +659,7 @@ const getCommitTargetOperation = ({
 	if (!instruction) return null;
 
 	return Match.value(instruction.operation).pipe(
-		Match.when("combine", (): Operation | null =>
-			rubOperation ? { _tag: "Rub", ...rubOperation } : null,
-		),
+		Match.when("combine", (): Operation | null => combineOperation),
 		Match.orElse((side): Operation | null => {
 			const insertSide = Match.value(side).pipe(
 				Match.when("reorder-before", (): InsertSide => "above"),
@@ -681,24 +675,24 @@ const getCommitTargetOperation = ({
 					side: insertSide,
 				};
 
-			if (sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Changes")
+			if (sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Changes")
 				return {
 					_tag: "CommitCreate",
 					relativeTo: { type: "commit", subject: commitId },
 					side: insertSide,
-					changes: sourceItem.source.changes.map(({ change, hunkHeaders }) =>
+					changes: sourceItem.changes.map(({ change, hunkHeaders }) =>
 						createDiffSpec(change, hunkHeaders),
 					),
 					message: "",
 				};
 
-			if (sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Commit")
+			if (sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit")
 				return {
 					_tag: "CommitCreateFromCommittedChanges",
-					sourceCommitId: sourceItem.source.parent.commitId,
+					sourceCommitId: sourceItem.parent.commitId,
 					relativeTo: { type: "commit", subject: commitId },
 					side: insertSide,
-					changes: sourceItem.source.changes.map(({ change, hunkHeaders }) =>
+					changes: sourceItem.changes.map(({ change, hunkHeaders }) =>
 						createDiffSpec(change, hunkHeaders),
 					),
 				};
@@ -732,25 +726,26 @@ const CommitTarget: FC<
 		render,
 		ref: dropRef,
 		props: mergeProps<"div">(props, {
-			className: classes(operation?._tag === "Rub" && styles.dragOver),
+			className: classes(operation && isCombineOperation(operation) && styles.dragOver),
 		}),
 	});
 
-	const rubTooltip = operation
-		? Match.value(operation).pipe(
-				Match.tag("Rub", (operation) => rubOperationLabel(operation)),
-				Match.orElse(() => null),
-			)
-		: null;
+	const combineTooltip =
+		operation && isCombineOperation(operation) ? operationLabel(operation) : null;
 
 	return (
 		<div className={styles.commit}>
-			<Tooltip.Root open={rubTooltip !== null}>
+			<Tooltip.Root
+				open={combineTooltip !== null}
+				onOpenChange={(_open, eventDetails) => {
+					eventDetails.allowPropagation();
+				}}
+			>
 				<Tooltip.Trigger render={droppable} />
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={8}>
 						<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-							{rubTooltip}
+							{combineTooltip}
 						</Tooltip.Popup>
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
@@ -784,13 +779,11 @@ const CommitTarget: FC<
 						<Tooltip.Positioner sideOffset={8}>
 							<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
 								{Match.value(operation).pipe(
-									Match.tag("CommitMove", () => "Move commit here"),
-									Match.tag(
-										"CommitCreateFromCommittedChanges",
-										"CommitCreate",
-										() => "Commit changes here",
-									),
-									Match.exhaustive,
+									Match.tagsExhaustive({
+										CommitMove: () => "Move commit here",
+										CommitCreate: () => "Commit changes here",
+										CommitCreateFromCommittedChanges: () => "Commit changes here",
+									}),
 								)}
 							</Tooltip.Popup>
 						</Tooltip.Positioner>
@@ -1410,40 +1403,40 @@ const CommitForm: FC<{
 
 const BranchTarget: FC<
 	{
-		anchorRef: Array<number> | null;
+		branchRef: Array<number> | null;
 		firstCommitId: string | undefined;
 	} & useRender.ComponentProps<"div">
-> = ({ anchorRef, firstCommitId, render, ...props }) => {
+> = ({ branchRef, firstCommitId, render, ...props }) => {
 	const getOperation = (sourceItem: SourceItem): Operation | null =>
 		Match.value(sourceItem).pipe(
 			Match.tag("Branch", (source): Operation | null => {
-				if (anchorRef === null || decodeRefName(anchorRef) === decodeRefName(source.anchorRef))
+				if (branchRef === null || decodeRefName(branchRef) === decodeRefName(source.ref))
 					return null;
 				return {
 					_tag: "MoveBranch",
-					subjectBranch: decodeRefName(source.anchorRef),
-					targetBranch: decodeRefName(anchorRef),
+					subjectBranch: decodeRefName(source.ref),
+					targetBranch: decodeRefName(branchRef),
 				};
 			}),
 			Match.tag("Commit", ({ commitId }): Operation | null => {
-				if (anchorRef === null || commitId === firstCommitId) return null;
+				if (branchRef === null || commitId === firstCommitId) return null;
 				return {
 					_tag: "CommitMove",
 					subjectCommitId: commitId,
 					relativeTo: {
 						type: "referenceBytes",
-						subject: anchorRef,
+						subject: branchRef,
 					},
 					side: "below",
 				};
 			}),
-			Match.tag("TreeChanges", ({ source }): Operation | null => {
-				if (anchorRef === null || source.parent._tag !== "Changes") return null;
+			Match.tag("TreeChanges", (source): Operation | null => {
+				if (branchRef === null || source.parent._tag !== "Changes") return null;
 				return {
 					_tag: "CommitCreate",
 					relativeTo: {
 						type: "referenceBytes",
-						subject: anchorRef,
+						subject: branchRef,
 					},
 					side: "below",
 					changes: source.changes.map(({ change, hunkHeaders }) =>
@@ -1469,17 +1462,15 @@ const BranchTarget: FC<
 		}),
 	});
 
-	const tooltip = operation
-		? Match.value(operation).pipe(
-				Match.tag("MoveBranch", () => "Stack branch onto here"),
-				Match.tag("CommitCreate", () => "Commit changes here"),
-				Match.tag("CommitMove", () => "Move commit here"),
-				Match.orElse(() => null),
-			)
-		: null;
+	const tooltip = operation ? operationLabel(operation) : null;
 
 	return (
-		<Tooltip.Root open={tooltip !== null}>
+		<Tooltip.Root
+			open={tooltip !== null}
+			onOpenChange={(_open, eventDetails) => {
+				eventDetails.allowPropagation();
+			}}
+		>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
@@ -1497,7 +1488,7 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 		if (sourceItem._tag !== "Branch") return null;
 		return {
 			_tag: "TearOffBranch",
-			subjectBranch: decodeRefName(sourceItem.anchorRef),
+			subjectBranch: decodeRefName(sourceItem.ref),
 		};
 	};
 
@@ -1516,7 +1507,12 @@ const TearOffBranchTarget: FC<useRender.ComponentProps<"div">> = ({ render, ...p
 	});
 
 	return (
-		<Tooltip.Root open={operation !== null}>
+		<Tooltip.Root
+			open={operation !== null}
+			onOpenChange={(_open, eventDetails) => {
+				eventDetails.allowPropagation();
+			}}
+		>
 			<Tooltip.Trigger render={droppable} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
@@ -1731,11 +1727,11 @@ const SegmentRow: FC<
 
 	return !isRenamePending && segment.refName != null ? (
 		<BranchTarget
-			anchorRef={segment.refName.fullNameBytes}
+			branchRef={segment.refName.fullNameBytes}
 			firstCommitId={segment.commits[0]?.id}
 			render={
 				<DraggableBranch
-					anchorRef={segment.refName.fullNameBytes}
+					branchRef={segment.refName.fullNameBytes}
 					branchName={segment.refName.displayName}
 					render={children}
 				/>
