@@ -4,6 +4,7 @@ use bstr::BString;
 use but_core::HunkHeader;
 use but_rebase::graph_rebase::mutate::InsertSide;
 use gitbutler_stack::StackId;
+use ratatui::style::Color;
 use ratatui_textarea::TextArea;
 
 use crate::{
@@ -25,6 +26,36 @@ pub(super) enum Mode {
     Commit(CommitMode),
     Move(MoveMode),
     Branch,
+    Details,
+}
+
+impl Mode {
+    pub(super) fn bg(&self) -> Color {
+        match self {
+            Mode::Normal => Color::DarkGray,
+            Mode::Commit(_) => Color::Green,
+            Mode::Rub(_) | Mode::RubButApi(_) => Color::Blue,
+            Mode::InlineReword(_) => Color::Magenta,
+            Mode::Command(_) => Color::Yellow,
+            Mode::Move(..) => Color::Cyan,
+            Mode::Branch => Color::Red,
+            Mode::Details => Color::Rgb(255, 165, 0), // orange
+        }
+    }
+
+    pub(super) fn fg(&self) -> Color {
+        match self {
+            Mode::Normal => Color::White,
+            Mode::Commit(_)
+            | Mode::Branch
+            | Mode::Details
+            | Mode::Rub(_)
+            | Mode::RubButApi(_)
+            | Mode::InlineReword(_)
+            | Mode::Move(..)
+            | Mode::Command(_) => Color::Black,
+        }
+    }
 }
 
 #[derive(Debug)]

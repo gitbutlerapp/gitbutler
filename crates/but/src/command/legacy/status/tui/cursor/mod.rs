@@ -400,11 +400,15 @@ pub(super) fn is_selectable_in_mode(
                 return true;
             }
         }
-        Mode::Command(..) | Mode::InlineReword(..) | Mode::Normal | Mode::Branch => {}
+        Mode::Command(..)
+        | Mode::InlineReword(..)
+        | Mode::Normal
+        | Mode::Branch
+        | Mode::Details => {}
     }
 
     match mode {
-        Mode::Normal => match show_files {
+        Mode::Normal | Mode::Details => match show_files {
             FilesStatusFlag::None | FilesStatusFlag::All => true,
             FilesStatusFlag::Commit(object_id) => {
                 if let Some(cli_id) = line.data.cli_id()
