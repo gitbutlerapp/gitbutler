@@ -120,7 +120,7 @@ export class MessageQueueProcessor {
 		// extra recomputations when one of the message queues changes.
 		$effect(() => {
 			for (const id of queueIds) {
-				const queue = $derived(messageQueueSelectors.selectById(this.clientState.messageQueue, id));
+				const queue = messageQueueSelectors.selectById(this.clientState.messageQueue, id);
 				if (queue) {
 					$effect(() => {
 						this.handleQueue(queue);

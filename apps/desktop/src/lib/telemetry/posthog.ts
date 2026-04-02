@@ -1,6 +1,6 @@
 import { parseQueryError } from "$lib/error/error";
 import { InjectionToken } from "@gitbutler/core/context";
-import { PostHog, posthog, type Properties } from "posthog-js";
+import { posthog, type PostHog, type Properties } from "posthog-js";
 import type { IBackend } from "$lib/backend";
 import type { RepoInfo } from "$lib/git/gitUrl";
 import type { SettingsService } from "$lib/settings/appSettings";
