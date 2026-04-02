@@ -30,11 +30,9 @@ pub(super) fn default_key_binds() -> KeyBinds {
             }
             ModeDiscriminant::InlineReword => {
                 register_inline_reword_mode_key_binds(&mut key_binds);
-                register_quit_key_binds(&mut key_binds, Vec::from([mode]));
             }
             ModeDiscriminant::Command => {
                 register_command_mode_key_binds(&mut key_binds);
-                register_quit_key_binds(&mut key_binds, Vec::from([mode]));
             }
             ModeDiscriminant::Commit => {
                 register_global_key_binds(&mut key_binds, Vec::from([mode]));
