@@ -190,28 +190,24 @@ const CommitDetails: FC<{
 				<FileSource
 					change={change}
 					fileParent={{ _tag: "Commit", commitId }}
-					render={
-						<div
-							className={classes(
-								sharedStyles.item,
-								sharedStyles.file,
-								selectedPath === change.path && sharedStyles.selectedFile,
-							)}
-						>
-							<FileButton
-								change={change}
-								onClick={() => {
-									select(
-										commitItem({
-											...commitSelection,
-											mode: { _tag: "Details", path: change.path },
-										}),
-									);
-								}}
-							/>
-						</div>
-					}
-				/>
+					className={classes(
+						sharedStyles.item,
+						sharedStyles.file,
+						selectedPath === change.path && sharedStyles.selectedFile,
+					)}
+				>
+					<FileButton
+						change={change}
+						onClick={() => {
+							select(
+								commitItem({
+									...commitSelection,
+									mode: { _tag: "Details", path: change.path },
+								}),
+							);
+						}}
+					/>
+				</FileSource>
 			)}
 		/>
 	);
