@@ -4,6 +4,7 @@
 	import FileListProvider from "$components/files/FileListProvider.svelte";
 	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import { createCommitSelection } from "$lib/selection/key";
+	import { untrack } from "svelte";
 	import type { UnifiedDiff } from "$lib/hunks/diff";
 	import type { SharedCommitPayload } from "$lib/irc/sharedStack";
 
@@ -14,7 +15,7 @@
 
 	const { projectId, commit }: Props = $props();
 
-	const selectionId = createCommitSelection({ commitId: commit.commitId });
+	const selectionId = createCommitSelection({ commitId: untrack(() => commit).commitId });
 	const changes = $derived(commit.commit.files.map((f) => f.change));
 
 	let selectedIndex: number = $state(0);

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Codeblock } from "@gitbutler/ui";
 	import { Modal, SegmentControl, Button } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 	import type { PromptDir } from "$lib/codegen/types";
 
 	type Props = {
@@ -16,7 +17,7 @@
 
 	const { promptDirs, openPromptConfigDir }: Props = $props();
 
-	let selectedSegment = $state<string>(promptDirs[0]?.label || "");
+	let selectedSegment = $state<string>(untrack(() => promptDirs[0]?.label || ""));
 </script>
 
 {#snippet pathContent({ path, caption }: { path: string; caption: string })}

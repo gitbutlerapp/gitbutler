@@ -13,6 +13,7 @@
 	} from "@gitbutler/shared/routing/webRoutes.svelte";
 
 	import { AsyncButton, Button, Markdown, Modal, chipToasts } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 
 	interface Props {
 		data: ProjectParameters;
@@ -32,7 +33,7 @@
 	let projectData = $state<any>(null);
 
 	// Create a promise for the project data
-	const projectSlug = `${data.ownerSlug}/${data.projectSlug}`;
+	const projectSlug = untrack(() => `${data.ownerSlug}/${data.projectSlug}`);
 	const projectPromise = projectService.getProjectBySlug(projectSlug).then((result) => {
 		if (result) {
 			projectData = result;

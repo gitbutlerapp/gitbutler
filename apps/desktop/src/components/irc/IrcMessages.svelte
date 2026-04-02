@@ -13,7 +13,7 @@
 		Avatar,
 		Markdown,
 	} from "@gitbutler/ui";
-	import { onDestroy } from "svelte";
+	import { onDestroy, untrack } from "svelte";
 	import type { Reaction, StoredMessage } from "$lib/irc/ircEndpoints";
 
 	function avatarUrl(sender: string): string {
@@ -94,7 +94,7 @@
 	const grouped = $derived(groupConsecutive(messages));
 
 	// True when there is no more history to load — banner is shown only then.
-	let reachedTop = $state(!onLoadMore);
+	let reachedTop = $state(!untrack(() => onLoadMore));
 
 	async function handleLoadMore() {
 		const hasMore = await onLoadMore?.();
@@ -211,6 +211,7 @@
 	{@const reactions = groupReactions(msg.msgid ? (messageReactions[msg.msgid] ?? []) : [])}
 	{@const displayContent = msg.content.trim() ? msg.content : "\u00a0"}
 	<div
+		role="listitem"
 		class="message-row"
 		class:active={activeMessageId === msg.msgid}
 		onpointerenter={(e) => {
@@ -325,6 +326,8 @@
 	</VirtualList>
 	{#if activeMsg}
 		<div
+			role="toolbar"
+			tabindex="-1"
 			class="floating-actions"
 			style={actionsStyle}
 			bind:this={actionsEl}

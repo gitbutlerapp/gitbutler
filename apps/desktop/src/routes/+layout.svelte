@@ -31,7 +31,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import { ChipToastContainer } from "@gitbutler/ui";
 	import { FOCUS_MANAGER } from "@gitbutler/ui/focus/focusManager";
-	import { type Snippet } from "svelte";
+	import { untrack, type Snippet } from "svelte";
 	import type { LayoutData } from "./$types";
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
@@ -41,8 +41,8 @@
 	// BOOTSTRAP & INIT
 	// =============================================================================
 
-	const { backend } = data;
-	initDependencies(data);
+	const { backend } = untrack(() => data);
+	initDependencies(untrack(() => data));
 
 	new MessageQueueProcessor();
 

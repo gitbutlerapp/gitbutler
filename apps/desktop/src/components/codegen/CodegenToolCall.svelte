@@ -3,6 +3,7 @@
 	import { formatToolCall, getToolIcon, getToolLabel } from "$lib/codegen/codegenTools";
 	import { toolCallLoading, type ToolCall } from "$lib/codegen/messages";
 	import { Codeblock } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 
 	type Props = {
 		projectId: string;
@@ -26,10 +27,11 @@
 	}: Props = $props();
 
 	// Initialize expanded state from map, default to false (collapsed)
-	const initialExpanded =
+	const initialExpanded = untrack(() =>
 		toolCallKey && toolCallExpandedState
 			? (toolCallExpandedState.individual.get(toolCallKey) ?? false)
-			: false;
+			: false,
+	);
 
 	function handleToggle(newExpanded: boolean) {
 		// Persist to map if available

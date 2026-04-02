@@ -39,7 +39,7 @@
 	import { chipToasts, TestId } from "@gitbutler/ui";
 	import { IME_COMPOSITION_HANDLER } from "@gitbutler/ui/utils/imeHandling";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
-	import { tick } from "svelte";
+	import { tick, untrack } from "svelte";
 
 	type Props = {
 		projectId: string;
@@ -95,7 +95,7 @@
 	const imeHandler = inject(IME_COMPOSITION_HANDLER);
 
 	// AI things
-	const aiGenEnabled = projectAiGenEnabled(projectId);
+	const aiGenEnabled = projectAiGenEnabled(untrack(() => projectId));
 	let aiConfigurationValid = $state(false);
 	const canUseAI = $derived($aiGenEnabled && aiConfigurationValid);
 	let aiIsLoading = $state(false);
@@ -120,8 +120,11 @@
 		return branchName;
 	}
 
-	const templatePath = persisted<string | undefined>(undefined, `last-template-${projectId}`);
-	const templateEnabled = persisted(false, `enable-template-${projectId}`);
+	const templatePath = persisted<string | undefined>(
+		undefined,
+		`last-template-${untrack(() => projectId)}`,
+	);
+	const templateEnabled = persisted(false, `enable-template-${untrack(() => projectId)}`);
 
 	async function getDefaultBody(commits: Commit[]): Promise<string> {
 		if ($templateEnabled && $templatePath) {

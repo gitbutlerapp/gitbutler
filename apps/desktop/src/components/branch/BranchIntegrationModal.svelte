@@ -24,6 +24,7 @@
 	} from "$lib/upstream/integrationStepUtils";
 	import { inject } from "@gitbutler/core/context";
 	import { Modal, ModalFooter, Button, ScrollableContainer, SimpleCommitRow } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 	import { flip } from "svelte/animate";
 	import type { InteractiveIntegrationStep } from "$lib/stacks/stack";
 
@@ -44,9 +45,9 @@
 	const stackService = inject(STACK_SERVICE);
 	const [integrate, integrating] = stackService.integrateBranchWithSteps;
 	const initialIntegrationSteps = stackService.initialIntegrationSteps(
-		projectId,
-		stackId,
-		branchName,
+		untrack(() => projectId),
+		untrack(() => stackId),
+		untrack(() => branchName),
 	);
 
 	let editableSteps = $derived(initialIntegrationSteps.response ?? []);

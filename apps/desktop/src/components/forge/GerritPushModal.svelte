@@ -12,6 +12,7 @@
 
 <script lang="ts">
 	import { Button, Modal, Select, SelectItem, Textbox, TagInput, Toggle } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 	import type { GerritPushFlag } from "$lib/stacks/stack";
 
 	const {
@@ -30,7 +31,7 @@
 	let status = $state<"wip" | "ready">("ready");
 
 	// Topic section
-	let topicValue = $state(branchName);
+	let topicValue = $state(untrack(() => branchName));
 
 	// Tags section
 	let tags = $state<Array<{ id: string; label: string }>>([]);

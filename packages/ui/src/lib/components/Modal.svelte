@@ -37,7 +37,7 @@
 	import { focusable } from "$lib/focus/focusable";
 	import { portal } from "$lib/utils/portal";
 	import { pxToRem } from "$lib/utils/pxToRem";
-	import { onDestroy } from "svelte";
+	import { onDestroy, untrack } from "svelte";
 	import type { Snippet } from "svelte";
 
 	const {
@@ -58,7 +58,7 @@
 	}: ModalProps = $props();
 
 	let open = $state(false);
-	let item = $state<T>(defaultItem as any);
+	let item = $state<T>(untrack(() => defaultItem) as any);
 	let isClosing = $state(false);
 	let closingPromise: Promise<void> | undefined = undefined;
 	let formEl: HTMLFormElement | undefined = $state();

@@ -39,7 +39,7 @@
 		type DropFileResult,
 	} from "@gitbutler/ui/richText/plugins/FileUpload.svelte";
 
-	import { tick } from "svelte";
+	import { tick, untrack } from "svelte";
 
 	const ACCEPTED_FILE_TYPES = ["image/*", "application/*", "text/*", "audio/*", "video/*"];
 
@@ -92,9 +92,11 @@
 
 	const uploadsService = inject(UPLOADS_SERVICE);
 	const userSettings = inject(SETTINGS);
-	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(projectId);
-	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(projectId);
-	const commitGenerationHaiku = projectCommitGenerationHaiku(projectId);
+	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(
+		untrack(() => projectId),
+	);
+	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(untrack(() => projectId));
+	const commitGenerationHaiku = projectCommitGenerationHaiku(untrack(() => projectId));
 
 	const useFloatingBox = uiState.global.useFloatingBox;
 

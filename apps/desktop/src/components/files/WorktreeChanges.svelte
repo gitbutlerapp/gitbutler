@@ -24,7 +24,7 @@
 	import { Badge, TestId } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
-	import { type Snippet } from "svelte";
+	import { untrack, type Snippet } from "svelte";
 	import type { DropzoneHandler } from "$lib/dragging/handler";
 	import type { TreeChange } from "$lib/hunks/change";
 	import type { FileListKeyHandler } from "$lib/selection/fileListController.svelte";
@@ -58,7 +58,7 @@
 	}: Props = $props();
 
 	// Create a unique persist ID based on stackId and mode (both are static props)
-	const persistId = stackId ? `worktree-${mode}-${stackId}` : `worktree-${mode}`;
+	const persistId = untrack(() => (stackId ? `worktree-${mode}-${stackId}` : `worktree-${mode}`));
 
 	const diffService = inject(DIFF_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);

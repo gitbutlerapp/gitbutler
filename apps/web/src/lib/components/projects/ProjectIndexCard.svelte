@@ -6,6 +6,7 @@
 	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
 	import dayjs from "dayjs";
 	import relativeTime from "dayjs/plugin/relativeTime";
+	import { untrack } from "svelte";
 
 	dayjs.extend(relativeTime);
 	type Props = {
@@ -18,7 +19,7 @@
 
 	const routes = inject(WEB_ROUTES_SERVICE);
 
-	const project = getProjectByRepositoryId(projectId);
+	const project = getProjectByRepositoryId(untrack(() => projectId));
 	const projectRoute = $featureShowProjectPage ? routes.projectPath : routes.projectReviewPath;
 </script>
 

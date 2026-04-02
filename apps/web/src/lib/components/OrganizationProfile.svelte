@@ -8,6 +8,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import { ORGANIZATION_SERVICE } from "@gitbutler/shared/organizations/organizationService";
 	import { Button, Modal } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 
 	import type { ExtendedOrganization, OrganizationMember } from "$lib/owner/types";
 
@@ -27,7 +28,7 @@
 	// Get owner service to refresh organization data
 	const ownerService = inject(OWNER_SERVICE);
 
-	let patchStacksStore = $state(organizationService.getPatchStacks(ownerSlug));
+	let patchStacksStore = $state(organizationService.getPatchStacks(untrack(() => ownerSlug)));
 	let patchStacks = $derived($patchStacksStore);
 	let patchStacksData = $derived(patchStacks.status === "found" ? patchStacks.value || [] : []);
 

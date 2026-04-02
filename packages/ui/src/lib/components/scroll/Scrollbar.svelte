@@ -3,6 +3,8 @@
 </script>
 
 <script lang="ts">
+	import { untrack } from "svelte";
+
 	interface Props {
 		viewport: HTMLElement;
 		initiallyVisible?: boolean;
@@ -66,12 +68,12 @@
 
 	const vert = $derived(!horz);
 
-	let wholeHeight = $state(viewport?.scrollHeight ?? 0);
-	let wholeWidth = $state(viewport?.scrollWidth ?? 0);
-	let scrollTop = $state(viewport?.scrollTop ?? 0);
-	let scrollLeft = $state(viewport?.scrollLeft ?? 0);
-	let trackHeight = $state(viewport?.offsetHeight ?? 0);
-	let trackWidth = $state(viewport?.offsetWidth ?? 0);
+	let wholeHeight = $state(untrack(() => viewport?.scrollHeight ?? 0));
+	let wholeWidth = $state(untrack(() => viewport?.scrollWidth ?? 0));
+	let scrollTop = $state(untrack(() => viewport?.scrollTop ?? 0));
+	let scrollLeft = $state(untrack(() => viewport?.scrollLeft ?? 0));
+	let trackHeight = $state(untrack(() => viewport?.offsetHeight ?? 0));
+	let trackWidth = $state(untrack(() => viewport?.offsetWidth ?? 0));
 
 	const thumbHeight = $derived(wholeHeight > 0 ? (trackHeight / wholeHeight) * trackHeight : 0);
 	const thumbWidth = $derived(wholeWidth > 0 ? (trackWidth / wholeWidth) * trackWidth : 0);

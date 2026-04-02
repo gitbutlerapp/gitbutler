@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { untrack } from "svelte";
+
 	interface Props {
 		scriptsData: Record<string, any>;
 		onScriptChange?: (scriptId: string) => void;
@@ -13,7 +15,7 @@
 		scriptProgress = 0,
 	}: Props = $props();
 
-	const scripts = Object.values(scriptsData);
+	const scripts = Object.values(untrack(() => scriptsData));
 
 	function handleScriptSelect(scriptId: string) {
 		onScriptChange?.(scriptId);

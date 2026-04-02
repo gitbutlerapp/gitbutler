@@ -1,6 +1,7 @@
 <script lang="ts">
 	import VirtualList from "$components/VirtualList.svelte";
 	import AsyncContent from "$lib/helpers/AsyncContent.svelte";
+	import { untrack } from "svelte";
 
 	type Props = {
 		defaultHeight: number;
@@ -56,7 +57,7 @@
 		return 30; // short message
 	}
 
-	let items = $state(Array.from({ length: itemCount }, (_, i) => `Item ${i + 1}`));
+	let items = $state(Array.from({ length: untrack(() => itemCount) }, (_, i) => `Item ${i + 1}`));
 	let container = $state<HTMLDivElement>();
 	let loadMoreCallCount = $state(0);
 	let virtualList = $state<VirtualList<any>>();

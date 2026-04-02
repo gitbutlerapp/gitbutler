@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { setContext } from "svelte";
+	import { setContext, untrack } from "svelte";
 	import { writable } from "svelte/store";
 	import type { TabContext } from "$lib/utils/tabs";
 	import type { Snippet } from "svelte";
@@ -11,7 +11,7 @@
 
 	const { children, defaultSelected }: Props = $props();
 
-	let selectedIndex = writable(defaultSelected);
+	let selectedIndex = writable(untrack(() => defaultSelected));
 
 	const context: TabContext = {
 		selectedIndex,
