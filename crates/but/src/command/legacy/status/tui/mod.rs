@@ -15,6 +15,7 @@ use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use gitbutler_operating_modes::OperatingMode;
+use gitbutler_stack::StackId;
 use itertools::Either;
 use ratatui::{
     Frame,
@@ -1035,6 +1036,7 @@ impl App {
                 SelectAfterReload::FirstFileInCommit(commit_id) => {
                     Cursor::select_first_file_in_commit(commit_id, &new_lines)
                 }
+                SelectAfterReload::Stack(stack_id) => Cursor::select_stack(stack_id, &new_lines),
             }
         } else {
             let default_restore = || {
@@ -2512,6 +2514,8 @@ impl App {
     }
 
     fn render_debug(&self, area: Rect, frame: &mut Frame) {
+        tracing::info!("HERE: {:?}", self.cursor.selected_line(&self.status_lines));
+
         let list = List::new(
             once(ListItem::new("Renders").black().on_blue())
                 .chain(once(ListItem::new(format!("{}", self.renders))))
@@ -2523,11 +2527,10 @@ impl App {
                 ))))
                 .chain(once(ListItem::new("")))
                 .chain(once(ListItem::new("Status selection").black().on_blue()))
-                .chain(
-                    self.cursor
-                        .selected_line(&self.status_lines)
-                        .map(|selected_line| ListItem::new(format!("{selected_line:#?}"))),
-                ),
+                .chain(once(ListItem::new(format!(
+                    "{:#?}",
+                    self.cursor.selected_line(&self.status_lines)
+                )))),
         );
 
         frame.render_widget(list, area);
@@ -2699,6 +2702,7 @@ enum SelectAfterReload {
     Commit(gix::ObjectId),
     FirstFileInCommit(gix::ObjectId),
     Branch(String),
+    Stack(StackId),
     Unassigned,
 }
 

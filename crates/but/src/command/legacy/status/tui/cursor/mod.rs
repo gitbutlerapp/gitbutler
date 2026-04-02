@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use gitbutler_stack::StackId;
+
 use crate::{
     CliId,
     command::legacy::status::{
@@ -85,6 +87,20 @@ impl Cursor {
         let idx = lines.iter().position(|line| {
             if let Some(CliId::Branch { name, .. }) = line.data.cli_id().map(|id| &**id)
                 && *name == branch_name
+            {
+                true
+            } else {
+                false
+            }
+        })?;
+        Some(Self(idx))
+    }
+
+    /// Select the first line that points to the given branch name.
+    pub(super) fn select_stack(stack_id: StackId, lines: &[StatusOutputLine]) -> Option<Self> {
+        let idx = lines.iter().position(|line| {
+            if let Some(CliId::Stack { stack_id: id, .. }) = line.data.cli_id().map(|id| &**id)
+                && stack_id == *id
             {
                 true
             } else {
