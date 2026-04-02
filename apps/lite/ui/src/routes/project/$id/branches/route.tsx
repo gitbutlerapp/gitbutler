@@ -6,8 +6,7 @@ import { BranchDetails, BranchListing, Commit, DiffHunk, TreeChange } from "@git
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Match } from "effect";
-import { ComponentProps, FC, Suspense, useTransition } from "react";
-import useLocalStorageState from "use-local-storage-state";
+import { ComponentProps, FC, Suspense, useState, useTransition } from "react";
 import styles from "./route.module.css";
 
 import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/api/mutations.ts";
@@ -484,10 +483,7 @@ const ProjectBranchesPage: FC = () => {
 	const { data: branches } = useSuspenseQuery(listBranchesQueryOptions(projectId));
 
 	const sortedBranches = branches.slice().sort((a, b) => a.name.localeCompare(b.name));
-	const [_selection, select] = useLocalStorageState<Selection | null>(
-		`project:${projectId}:branches:selection`,
-		{ defaultValue: null },
-	);
+	const [_selection, select] = useState<Selection | null>(null);
 	const selection =
 		(_selection ? normalizeBranchSelection(_selection, sortedBranches) : null) ??
 		getDefaultSelection(sortedBranches);

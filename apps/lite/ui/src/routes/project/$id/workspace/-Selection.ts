@@ -23,7 +23,7 @@ const hasAssignmentsForPath = ({
 		(assignment) => (assignment.stackId ?? null) === stackId && assignment.path === path,
 	);
 
-type NavigationModel = {
+export type NavigationModel = {
 	items: Array<Item>;
 	sections: Array<Item>;
 	sectionIndexByItemIndex: Array<number>;

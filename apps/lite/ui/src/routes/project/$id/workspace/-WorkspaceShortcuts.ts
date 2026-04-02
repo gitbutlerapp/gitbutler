@@ -1,14 +1,13 @@
 import {
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
-	headInfoQueryOptions,
 } from "#ui/api/queries.ts";
 import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
 import { usePreviewPanel } from "#ui/hooks/usePreviewPanel.ts";
 import { getAction, type ShortcutBinding } from "#ui/shortcuts.ts";
 import { isTypingTarget } from "#ui/routes/project/$id/-shared.tsx";
 import { TreeChange } from "@gitbutler/but-sdk";
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
 import { useEffect, useEffectEvent } from "react";
 import { type Editing } from "./-Editing.ts";
@@ -22,11 +21,11 @@ import {
 	BaseCommitItem,
 } from "./-Item.ts";
 import {
-	buildNavigationModel,
 	getAdjacentCommitDetailsPath,
 	getAdjacentItem,
 	getAdjacentSection,
 	getSelectedCommitPath,
+	type NavigationModel,
 } from "./-Selection.ts";
 
 type SelectionAction =
@@ -403,28 +402,49 @@ export const useWorkspaceShortcuts = ({
 	scope,
 	select,
 	setEditing,
-	commonBaseCommitId,
-	onAbsorbChanges,
+	navigationModel,
+	requestAbsorptionPlan,
 }: {
 	projectId: string;
 	scope: Scope | null;
 	select: (selection: Item | null) => void;
 	setEditing: (selection: Editing | null) => void;
-	commonBaseCommitId?: string;
-	onAbsorbChanges: (changes: Array<TreeChange>, stackId: string | null) => void;
+	navigationModel: NavigationModel;
+	requestAbsorptionPlan: (changes: Array<TreeChange>, stackId: string | null) => void;
 }) => {
-	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
-	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 	const [, setShowPreviewPanel] = usePreviewPanel();
 	const [, setShowFullscreenPreview] = useFullscreenPreview(projectId);
 
 	const queryClient = useQueryClient();
-	const navigationModel = buildNavigationModel({
-		headInfo,
-		changes: worktreeChanges.changes,
-		assignments: worktreeChanges.assignments,
-		commonBaseCommitId,
-	});
+
+	const requestAbsorptionPlanForSelection = (selection: ChangesItem) => {
+		const worktreeChanges = queryClient.getQueryData(
+			changesInWorktreeQueryOptions(projectId).queryKey,
+		);
+		if (!worktreeChanges) return;
+
+		Match.value(selection.mode).pipe(
+			Match.tagsExhaustive({
+				Details: ({ path }) => {
+					if (path === undefined) return;
+					const change = worktreeChanges.changes.find((change) => change.path === path);
+					if (!change) return;
+					requestAbsorptionPlan([change], selection.stackId);
+				},
+				Summary: () => {
+					const assignmentsByPath = new Set(
+						worktreeChanges.assignments
+							.filter((assignment) => assignment.stackId === selection.stackId)
+							.map((assignment) => assignment.path),
+					);
+					const changes = worktreeChanges.changes.filter((change) =>
+						assignmentsByPath.has(change.path),
+					);
+					requestAbsorptionPlan(changes, selection.stackId);
+				},
+			}),
+		);
+	};
 
 	const moveCommitDetails = (offset: -1 | 1, selection: CommitItem) => {
 		const commitDetails = queryClient.getQueryData(
@@ -472,29 +492,7 @@ export const useWorkspaceShortcuts = ({
 	const handleChangesAction = (action: ChangesAction, selection: ChangesItem) =>
 		Match.value(action).pipe(
 			Match.tags({
-				Absorb: () => {
-					Match.value(selection.mode).pipe(
-						Match.tagsExhaustive({
-							Details: ({ path }) => {
-								if (path === undefined) return;
-								const change = worktreeChanges.changes.find((change) => change.path === path);
-								if (!change) return;
-								onAbsorbChanges([change], selection.stackId);
-							},
-							Summary: () => {
-								const assignmentsByPath = new Set(
-									worktreeChanges.assignments
-										.filter((assignment) => assignment.stackId === selection.stackId)
-										.map((assignment) => assignment.path),
-								);
-								const changes = worktreeChanges.changes.filter((change) =>
-									assignmentsByPath.has(change.path),
-								);
-								onAbsorbChanges(changes, selection.stackId);
-							},
-						}),
-					);
-				},
+				Absorb: () => requestAbsorptionPlanForSelection(selection),
 			}),
 			Match.orElse((action) => handleSelectionAction(action, { _tag: "Changes", ...selection })),
 		);
