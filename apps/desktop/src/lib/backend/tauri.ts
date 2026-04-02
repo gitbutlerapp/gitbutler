@@ -3,7 +3,7 @@ import { getName, getVersion, getVersion as tauriGetVersion } from "@tauri-apps/
 import { invoke as invokeTauri } from "@tauri-apps/api/core";
 import { documentDir as documentDirTauri } from "@tauri-apps/api/path";
 import { join as joinPathTauri } from "@tauri-apps/api/path";
-import { getCurrentWindow, Window } from "@tauri-apps/api/window";
+import { getCurrentWindow, type Window } from "@tauri-apps/api/window";
 import {
 	writeText as tauriWriteText,
 	readText as tauriReadText,
