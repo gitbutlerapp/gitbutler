@@ -1140,7 +1140,6 @@ dependencies = [
  "git2",
  "gitbutler-project",
  "gix",
- "serde_json",
  "tracing",
 ]
 
@@ -1382,7 +1381,6 @@ dependencies = [
 name = "but-irc"
 version = "0.0.0"
 dependencies = [
- "anyhow",
  "base64 0.22.1",
  "but-project-handle",
  "but-settings",
@@ -1437,7 +1435,6 @@ dependencies = [
  "md5",
  "serde",
  "sha2",
- "snapbox",
  "toml 0.9.12+spec-1.1.0",
  "tracing",
 ]
@@ -1774,7 +1771,6 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-meta",
- "but-oxidize",
  "but-rebase",
  "but-testsupport",
  "but-workspace",
@@ -4062,7 +4058,6 @@ dependencies = [
  "file-id 0.2.3 (git+https://github.com/notify-rs/notify?rev=978fe719b066a8ce76b9a9d346546b1569eecfb6)",
  "futures",
  "gix",
- "nix 0.30.1",
  "rand 0.9.2",
  "snapbox",
  "sysinfo",
@@ -4124,7 +4119,6 @@ dependencies = [
  "but-testsupport",
  "git2",
  "gitbutler-branch",
- "gitbutler-cherry-pick",
  "gitbutler-repo",
  "gitbutler-stack",
  "gix",
@@ -4182,7 +4176,6 @@ dependencies = [
  "bstr",
  "but-core",
  "but-ctx",
- "but-error",
  "but-gerrit",
  "but-oxidize",
  "but-settings",
@@ -4219,7 +4212,6 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-error",
- "but-oxidize",
  "git2",
  "gitbutler-git",
  "gitbutler-project",
@@ -7000,7 +6992,6 @@ dependencies = [
  "cfg-if",
  "cfg_aliases",
  "libc",
- "memoffset",
 ]
 
 [[package]]

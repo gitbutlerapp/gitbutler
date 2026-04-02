@@ -35,7 +35,6 @@ git2.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true
-serde_json.workspace = true
 
 [lints]
 workspace = true

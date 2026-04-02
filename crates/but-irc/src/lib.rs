@@ -17,7 +17,7 @@
 //! use but_irc::{IrcClient, IrcConfig};
 //!
 //! #[tokio::main]
-//! async fn main() -> anyhow::Result<()> {
+//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     let config = IrcConfig {
 //!         server: "irc.example.com".to_string(),
 //!         port: 6697,

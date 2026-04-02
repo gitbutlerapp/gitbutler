@@ -6,14 +6,13 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, anyhow, bail};
-use but_core::{RepositoryExt, TreeChange, diff::tree_changes};
+use but_core::{RepositoryExt, TreeChange, commit::Headers, diff::tree_changes};
 use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
 use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{ObjectIdExt as _, OidExt};
-use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
 use gix::objs::Write as _;
@@ -852,8 +851,7 @@ fn tree_from_applied_vbranches(
         .map(|b| {
             let head_oid = b.head_oid(ctx)?;
             let commit = repo.find_commit(head_oid)?;
-            repo.find_real_tree(&commit, Default::default())
-                .map(|id| id.detach())
+            find_real_tree(repo, &commit).map(|id| id.detach())
         })
         .collect::<Result<Vec<_>>>()?;
 
@@ -882,4 +880,30 @@ fn tree_from_applied_vbranches(
     }
 
     Ok(workdir_tree_id)
+}
+
+fn find_real_tree<'repo>(
+    _repo: &'repo gix::Repository,
+    commit: &'repo gix::Commit<'repo>,
+) -> Result<gix::Id<'repo>> {
+    Ok(if commit_is_conflicted(commit) {
+        commit
+            .tree()?
+            .find_entry(".auto-resolution")
+            .context("Failed to get conflicted side of commit")?
+            .id()
+    } else {
+        commit.tree_id()?
+    })
+}
+
+fn commit_is_conflicted(commit: &gix::Commit<'_>) -> bool {
+    commit
+        .decode()
+        .ok()
+        .and_then(|commit| {
+            let headers = Headers::try_from_commit_headers(|| commit.extra_headers())?;
+            Some(headers.conflicted? > 0)
+        })
+        .unwrap_or(false)
 }

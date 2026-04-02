@@ -12,7 +12,6 @@ doctest = false
 [dependencies]
 but-error.workspace = true
 but-core.workspace = true
-but-oxidize.workspace = true
 but-ctx.workspace = true
 
 gitbutler-stack.workspace = true

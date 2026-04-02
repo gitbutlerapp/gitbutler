@@ -11,7 +11,6 @@ autotests = false
 doctest = false
 
 [dependencies]
-but-error.workspace = true
 but-core = { workspace = true, features = ["legacy"] }
 but-gerrit.workspace = true
 but-oxidize.workspace = true

@@ -28,7 +28,6 @@ bstr.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-but-oxidize.workspace = true
 but-testsupport.workspace = true
 
 insta.workspace = true

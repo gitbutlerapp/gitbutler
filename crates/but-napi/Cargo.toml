@@ -12,10 +12,8 @@ rust-version.workspace = true
 
 [package.metadata.cargo-machete]
 ignored = [
-    # Consumed via napi attribute macros and generated bindings that machete misses.
-    "napi",
-    # Consumed via napi attribute macros and generated bindings that machete misses.
-    "napi-derive",
+    # Used from build.rs, which machete does not detect here.
+    "napi-build",
 ]
 
 [lib]
