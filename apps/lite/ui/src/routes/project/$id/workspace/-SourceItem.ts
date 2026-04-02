@@ -15,10 +15,8 @@ export type SourceItem =
 	| { _tag: "Branch"; anchorRef: Array<number> }
 	| {
 			_tag: "TreeChanges";
-			source: {
-				parent: ChangeUnit;
-				changes: Array<TreeChangeWithHunkHeaders>;
-			};
+			parent: ChangeUnit;
+			changes: Array<TreeChangeWithHunkHeaders>;
 	  };
 
 const rubSourceFor = (item: SourceItem): RubSource | null =>
@@ -26,11 +24,12 @@ const rubSourceFor = (item: SourceItem): RubSource | null =>
 		Match.tag("Branch", (): RubSource | null => null),
 		Match.tag("Commit", ({ commitId }): RubSource | null => ({
 			_tag: "Commit",
-			source: { commitId },
+			commitId,
 		})),
-		Match.tag("TreeChanges", ({ source }): RubSource | null => ({
+		Match.tag("TreeChanges", ({ parent, changes }): RubSource | null => ({
 			_tag: "TreeChanges",
-			source,
+			parent,
+			changes,
 		})),
 		Match.exhaustive,
 	);

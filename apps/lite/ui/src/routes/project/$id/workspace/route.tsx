@@ -625,8 +625,8 @@ const getCommitTargetOperation = ({
 	const getSourceCommitId = (sourceItem: SourceItem): string | null =>
 		sourceItem._tag === "Commit"
 			? sourceItem.commitId
-			: sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Commit"
-				? sourceItem.source.parent.commitId
+			: sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit"
+				? sourceItem.parent.commitId
 				: null;
 
 	const rubOperation = getRubOperation({
@@ -643,14 +643,14 @@ const getCommitTargetOperation = ({
 				operations: {
 					"reorder-before":
 						(sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "above")) ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Changes") ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Commit")
+						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Changes") ||
+						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit")
 							? "available"
 							: "not-available",
 					"reorder-after":
 						(sourceItem._tag === "Commit" && !isNoOpCommitMove(sourceItem.commitId, "below")) ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Changes") ||
-						(sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Commit")
+						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Changes") ||
+						(sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit")
 							? "available"
 							: "not-available",
 					combine:
@@ -686,24 +686,24 @@ const getCommitTargetOperation = ({
 					side: insertSide,
 				};
 
-			if (sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Changes")
+			if (sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Changes")
 				return {
 					_tag: "CommitCreate",
 					relativeTo: { type: "commit", subject: commitId },
 					side: insertSide,
-					changes: sourceItem.source.changes.map(({ change, hunkHeaders }) =>
+					changes: sourceItem.changes.map(({ change, hunkHeaders }) =>
 						createDiffSpec(change, hunkHeaders),
 					),
 					message: "",
 				};
 
-			if (sourceItem._tag === "TreeChanges" && sourceItem.source.parent._tag === "Commit")
+			if (sourceItem._tag === "TreeChanges" && sourceItem.parent._tag === "Commit")
 				return {
 					_tag: "CommitCreateFromCommittedChanges",
-					sourceCommitId: sourceItem.source.parent.commitId,
+					sourceCommitId: sourceItem.parent.commitId,
 					relativeTo: { type: "commit", subject: commitId },
 					side: insertSide,
-					changes: sourceItem.source.changes.map(({ change, hunkHeaders }) =>
+					changes: sourceItem.changes.map(({ change, hunkHeaders }) =>
 						createDiffSpec(change, hunkHeaders),
 					),
 				};
@@ -1447,7 +1447,7 @@ const BranchTarget: FC<
 					side: "below",
 				};
 			}),
-			Match.tag("TreeChanges", ({ source }): Operation | null => {
+			Match.tag("TreeChanges", (source): Operation | null => {
 				if (anchorRef === null || source.parent._tag !== "Changes") return null;
 				return {
 					_tag: "CommitCreate",

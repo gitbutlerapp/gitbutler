@@ -21,8 +21,8 @@ export type CommitRubSource = {
 };
 
 export type RubSource =
-	| { _tag: "TreeChanges"; source: TreeChangesRubSource }
-	| { _tag: "Commit"; source: CommitRubSource };
+	| ({ _tag: "TreeChanges" } & TreeChangesRubSource)
+	| ({ _tag: "Commit" } & CommitRubSource);
 
 export type RubParams = {
 	projectId: string;
@@ -41,7 +41,7 @@ export type RubResult = {
 // In the future this may be implemented as a single API endpoint on the backend.
 export const rub = async ({ projectId, source, target }: RubParams): Promise<RubResult> =>
 	Match.value(source).pipe(
-		Match.tag("TreeChanges", ({ source }) =>
+		Match.tag("TreeChanges", (source) =>
 			Match.value(source.parent).pipe(
 				Match.tag("Changes", () =>
 					Match.value(target).pipe(
