@@ -2,7 +2,7 @@ import { getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
 import { WorktreeChanges, type RefInfo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 
-export type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
+export type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; path: string };
 export type ChangesItem = { stackId: string | null; mode: ChangesMode };
 
 export type SegmentItem = {
@@ -28,7 +28,7 @@ export const changesSummaryItem = (stackId: string | null): Item => ({
 	mode: { _tag: "Summary" },
 });
 
-export const changesDetailsItem = (stackId: string | null, path?: string): Item => ({
+export const changesDetailsItem = (stackId: string | null, path: string): Item => ({
 	_tag: "Changes",
 	stackId,
 	mode: { _tag: "Details", path },
@@ -77,7 +77,7 @@ export const itemKey = (item: Item): string =>
 		Match.tagsExhaustive({
 			Changes: (item) =>
 				item.mode._tag === "Details"
-					? JSON.stringify(["Changes", item.stackId, "Details", item.mode.path ?? null])
+					? JSON.stringify(["Changes", item.stackId, "Details", item.mode.path])
 					: JSON.stringify(["Changes", item.stackId, item.mode._tag]),
 			Segment: (item) => JSON.stringify(["Segment", item.stackId, item.segmentIndex]),
 			Commit: (item) => JSON.stringify(["Commit", item.stackId, item.segmentIndex, item.commitId]),
@@ -95,8 +95,6 @@ export const normalizeItem = (
 			Match.value(item.mode).pipe(
 				Match.tag("Summary", () => item),
 				Match.tag("Details", (mode) => {
-					if (mode.path === undefined) return item;
-
 					if (!worktreeChanges.changes.find((change) => change.path === mode.path)) return null;
 					if (
 						!worktreeChanges.assignments.find(

@@ -426,7 +426,6 @@ export const useWorkspaceShortcuts = ({
 		Match.value(selection.mode).pipe(
 			Match.tagsExhaustive({
 				Details: ({ path }) => {
-					if (path === undefined) return;
 					const change = worktreeChanges.changes.find((change) => change.path === path);
 					if (!change) return;
 					requestAbsorptionPlan([change], selection.stackId);
