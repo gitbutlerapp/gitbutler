@@ -553,11 +553,11 @@ const ChangesTarget: FC<
 		}),
 	});
 
-	const tooltip = operation && operation._tag === "Rub" ? rubOperationLabel(operation) : null;
+	const rubTooltip = operation && operation._tag === "Rub" ? rubOperationLabel(operation) : null;
 
 	return (
 		<Tooltip.Root
-			open={tooltip !== null}
+			open={rubTooltip !== null}
 			onOpenChange={(_open, eventDetails) => {
 				eventDetails.allowPropagation();
 			}}
@@ -566,7 +566,7 @@ const ChangesTarget: FC<
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8}>
 					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-						{tooltip}
+						{rubTooltip}
 					</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
