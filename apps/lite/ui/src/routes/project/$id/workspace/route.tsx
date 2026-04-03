@@ -500,14 +500,14 @@ const ShowBaseCommit: FC<{
 	<ShowCommitWithQuery
 		projectId={projectId}
 		commitId={commitId}
-		editable
+		editable={false}
 		renderHunk={(change, hunk, patch) => (
 			<Hunk
 				patch={patch}
 				fileParent={{ _tag: "Commit", commitId }}
 				change={change}
 				hunk={hunk}
-				editable
+				editable={false}
 			/>
 		)}
 	/>
