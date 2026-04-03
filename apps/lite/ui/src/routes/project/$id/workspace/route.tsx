@@ -325,8 +325,19 @@ const FileDiff: FC<{
 	projectId: string;
 	change: TreeChange;
 	assignments?: Array<HunkAssignment>;
-	renderHunk: (hunk: DiffHunk, patch: Patch) => ReactNode;
-}> = ({ projectId, change, assignments, renderHunk }) => {
+	fileParent?: FileParent;
+	editable: boolean;
+	hunkDependencyDiffs?: Array<HunkDependencyDiff>;
+	onDependencyHover: (commitIds: Array<string> | null) => void;
+}> = ({
+	projectId,
+	change,
+	assignments,
+	fileParent,
+	editable,
+	hunkDependencyDiffs,
+	onDependencyHover,
+}) => {
 	const { data } = useSuspenseQuery(treeChangeDiffsQueryOptions({ projectId, change }));
 
 	return Match.value(data).pipe(
@@ -344,9 +355,34 @@ const FileDiff: FC<{
 
 			return (
 				<ul>
-					{visibleHunks.map((hunk) => (
-						<li key={hunkKey(hunk)}>{renderHunk(hunk, patch)}</li>
-					))}
+					{visibleHunks.map((hunk) => {
+						const dependencyCommitIds = hunkDependencyDiffs
+							? dependencyCommitIdsForHunk(hunk, hunkDependencyDiffs)
+							: [];
+
+						return (
+							<li key={hunkKey(hunk)}>
+								<Hunk
+									patch={patch}
+									fileParent={fileParent}
+									change={change}
+									hunk={hunk}
+									editable={editable}
+									headerStart={
+										fileParent?._tag === "Changes" && isNonEmptyArray(dependencyCommitIds) ? (
+											<DependencyIndicator
+												projectId={projectId}
+												commitIds={dependencyCommitIds}
+												onHover={onDependencyHover}
+											>
+												<DependencyIcon />
+											</DependencyIndicator>
+										) : undefined
+									}
+								/>
+							</li>
+						);
+					})}
 				</ul>
 			);
 		}),
@@ -366,32 +402,10 @@ const ShowChangesFile: FC<{
 		projectId={projectId}
 		change={change}
 		assignments={assignments}
-		renderHunk={(hunk, patch) => {
-			const dependencyCommitIds = hunkDependencyDiffs
-				? dependencyCommitIdsForHunk(hunk, hunkDependencyDiffs)
-				: [];
-
-			return (
-				<Hunk
-					patch={patch}
-					fileParent={{ _tag: "Changes", stackId }}
-					change={change}
-					hunk={hunk}
-					editable
-					headerStart={
-						isNonEmptyArray(dependencyCommitIds) && (
-							<DependencyIndicator
-								projectId={projectId}
-								commitIds={dependencyCommitIds}
-								onHover={onDependencyHover}
-							>
-								<DependencyIcon />
-							</DependencyIndicator>
-						)
-					}
-				/>
-			);
-		}}
+		fileParent={{ _tag: "Changes", stackId }}
+		editable
+		hunkDependencyDiffs={hunkDependencyDiffs}
+		onDependencyHover={onDependencyHover}
 	/>
 );
 
@@ -413,15 +427,9 @@ const ShowCommitOrFile: FC<{
 		<FileDiff
 			projectId={projectId}
 			change={change}
-			renderHunk={(hunk, patch) => (
-				<Hunk
-					patch={patch}
-					fileParent={{ _tag: "Commit", commitId }}
-					change={change}
-					hunk={hunk}
-					editable
-				/>
-			)}
+			fileParent={{ _tag: "Commit", commitId }}
+			editable
+			onDependencyHover={() => {}}
 		/>
 	) : (
 		<ShowCommit
