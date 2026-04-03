@@ -77,7 +77,7 @@ export const togglePreviewBinding: ShortcutBinding<SelectionAction> = {
 
 export const openFullscreenPreviewBinding: ShortcutBinding<SelectionAction> = {
 	id: "open-fullscreen-preview",
-	description: "Open fullscreen preview",
+	description: "Fullscreen preview",
 	keys: ["d"],
 	action: { _tag: "OpenFullscreenPreview" },
 	repeat: false,
