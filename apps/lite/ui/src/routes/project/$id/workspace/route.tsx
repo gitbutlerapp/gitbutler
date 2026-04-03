@@ -177,7 +177,7 @@ const CommitDetails: FC<{
 			commitId,
 		}),
 	);
-	const paths = commitDetails.changes.map((change: TreeChange) => change.path);
+	const paths = commitDetails.changes.map((change) => change.path);
 	const selectedPath = getSelectedCommitPath({
 		paths,
 		selection: commitSelection,
