@@ -124,7 +124,7 @@ export const getAdjacentSection = (
 	return getRelative(model.sections, currentSectionIndex, offset);
 };
 
-export const getAdjacentCommitDetailsPath = ({
+export const getAdjacentPath = ({
 	paths,
 	currentPath,
 	offset,

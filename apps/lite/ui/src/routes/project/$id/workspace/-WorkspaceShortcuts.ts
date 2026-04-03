@@ -21,7 +21,7 @@ import {
 	BaseCommitItem,
 } from "./-Item.ts";
 import {
-	getAdjacentCommitDetailsPath,
+	getAdjacentPath,
 	getAdjacentItem,
 	getAdjacentSection,
 	type NavigationModel,
@@ -469,7 +469,7 @@ export const useWorkspaceShortcuts = ({
 
 		const paths = commitDetails.changes.map((change) => change.path);
 		const currentPath = selection.mode.path;
-		const nextPath = getAdjacentCommitDetailsPath({ paths, currentPath, offset });
+		const nextPath = getAdjacentPath({ paths, currentPath, offset });
 		if (nextPath === null) return;
 
 		select(
