@@ -185,8 +185,8 @@ export const openCommitFileDetailsBinding: ShortcutBinding<CommitDetailsAction> 
 
 const commitDetailsBindings: Array<ShortcutBinding<CommitDetailsAction>> = [
 	...selectionBindings,
-	openCommitFileDetailsBinding,
 	closeCommitDetailsBinding,
+	openCommitFileDetailsBinding,
 ];
 
 export const closeCommitFileDetailsBinding: ShortcutBinding<CommitFileDetailsAction> = {
