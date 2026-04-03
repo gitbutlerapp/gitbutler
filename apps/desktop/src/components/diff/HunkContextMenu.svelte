@@ -20,6 +20,7 @@
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { ContextMenu, ContextMenuItem, ContextMenuSection, TestId } from "@gitbutler/ui";
 	import type { TreeChange } from "$lib/hunks/change";
@@ -29,6 +30,8 @@
 		trigger: HTMLElement | undefined;
 		projectId: string;
 		change: TreeChange;
+		stackId?: string;
+		commitId?: string;
 		discardable: boolean;
 		selectable: boolean;
 		selectAllHunkLines: (hunk: DiffHunk) => void;
@@ -40,6 +43,8 @@
 		trigger,
 		projectId,
 		change,
+		stackId,
+		commitId,
 		discardable,
 		selectable,
 		selectAllHunkLines,
@@ -48,6 +53,7 @@
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
+	const uiState = inject(UI_STATE);
 	const ircApiService = inject(IRC_API_SERVICE);
 	const projectService = inject(PROJECTS_SERVICE);
 	const urlService = inject(URL_SERVICE);
@@ -106,6 +112,40 @@
 		});
 	}
 
+	async function uncommitHunk(item: HunkContextItem) {
+		if (!(stackId && commitId)) return;
+
+		const previousPathBytes =
+			change.status.type === "Rename" ? change.status.subject.previousPathBytes : null;
+
+		unselectAllHunkLines(item.hunk);
+
+		const isWholeFileChange =
+			change.status.type === "Addition" || change.status.type === "Deletion";
+
+		const { replacedCommits } = await stackService.uncommitChanges({
+			projectId,
+			stackId,
+			commitId,
+			changes: [
+				{
+					previousPathBytes,
+					pathBytes: change.pathBytes,
+					hunkHeaders: isWholeFileChange ? [] : [item.hunk],
+				},
+			],
+		});
+
+		const replacementCommit = replacedCommits.find(([before]) => before === commitId)?.[1];
+		const selection = uiState.lane(stackId).selection.current;
+
+		if (replacementCommit && selection) {
+			uiState.lane(stackId).selection.set({ ...selection, commitId: replacementCommit });
+		}
+
+		contextMenu?.close();
+	}
+
 	export function open(e: MouseEvent | HTMLElement | undefined, item: HunkContextItem) {
 		contextMenu?.open(e, item);
 	}
@@ -146,6 +186,17 @@
 							}}
 						/>
 					{/if}
+				</ContextMenuSection>
+			{/if}
+			{#if stackId && commitId}
+				<ContextMenuSection>
+					<ContextMenuItem
+						label="Uncommit changes"
+						icon="commit-undo"
+						onclick={async () => {
+							await uncommitHunk(item);
+						}}
+					/>
 				</ContextMenuSection>
 			{/if}
 			<ContextMenuSection>
