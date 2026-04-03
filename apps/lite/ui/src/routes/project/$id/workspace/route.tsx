@@ -298,27 +298,24 @@ const Hunk: FC<{
 	hunk: DiffHunk;
 	editable: boolean;
 	headerStart?: ReactNode;
-}> = ({ patch, fileParent, change, hunk, editable, headerStart }) => (
-	<div>
-		<div className={sharedStyles.hunkHeaderRow}>
-			{headerStart}
-			{fileParent && editable ? (
-				<HunkSource
-					patch={patch}
-					fileParent={fileParent}
-					change={change}
-					hunk={hunk}
-					className={sharedStyles.hunkHeader}
-				>
-					{formatHunkHeader(hunk)}
-				</HunkSource>
-			) : (
-				formatHunkHeader(hunk)
-			)}
+}> = ({ patch, fileParent, change, hunk, editable, headerStart }) => {
+	const children = (
+		<div>
+			<div className={sharedStyles.hunkHeaderRow}>
+				{headerStart}
+				<div className={sharedStyles.hunkHeader}>{formatHunkHeader(hunk)}</div>
+			</div>
+			<HunkDiff change={change} diff={hunk.diff} />
 		</div>
-		<HunkDiff change={change} diff={hunk.diff} />
-	</div>
-);
+	);
+	return fileParent && editable ? (
+		<HunkSource patch={patch} fileParent={fileParent} change={change} hunk={hunk}>
+			{children}
+		</HunkSource>
+	) : (
+		children
+	);
+};
 
 const ShowChangesFile: FC<{
 	projectId: string;
