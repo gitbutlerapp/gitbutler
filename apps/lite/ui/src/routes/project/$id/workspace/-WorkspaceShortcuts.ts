@@ -117,28 +117,32 @@ const changesSummaryBindings: Array<ShortcutBinding<ChangesSummaryAction>> = [
 	absorbBinding,
 ];
 
+export const openChangeFileDetailsBinding: ShortcutBinding<ChangeDetailsAction> = {
+	id: "changes-open-file-details",
+	description: "Open details",
+	keys: ["ArrowRight", "l"],
+	action: { _tag: "OpenFileDetails" },
+	repeat: false,
+};
+
 const changeDetailsBindings: Array<ShortcutBinding<ChangeDetailsAction>> = [
 	...selectionBindings,
-	{
-		id: "changes-open-file-details",
-		description: "Open details",
-		keys: ["ArrowRight", "l"],
-		action: { _tag: "OpenFileDetails" },
-		repeat: false,
-	},
+	openChangeFileDetailsBinding,
 	absorbBinding,
 ];
+
+export const closeChangeFileDetailsBinding: ShortcutBinding<ChangeFileDetailsAction> = {
+	id: "change-file-details-close",
+	description: "Close details",
+	keys: ["ArrowLeft", "Escape"],
+	action: { _tag: "CloseDetails" },
+	repeat: false,
+};
 
 const changesFileDetailsBindings: Array<ShortcutBinding<ChangeFileDetailsAction>> = [
 	...selectionBindings,
 	absorbBinding,
-	{
-		id: "change-file-details-close",
-		description: "Close details",
-		keys: ["ArrowLeft", "Escape"],
-		action: { _tag: "CloseDetails" },
-		repeat: false,
-	},
+	closeChangeFileDetailsBinding,
 ];
 
 const editCommitMessageBinding: ShortcutBinding<CommitSummaryAction> = {
@@ -171,27 +175,31 @@ export const closeCommitDetailsBinding: ShortcutBinding<CommitDetailsAction> = {
 	repeat: false,
 };
 
+export const openCommitFileDetailsBinding: ShortcutBinding<CommitDetailsAction> = {
+	id: "commit-open-file-details",
+	description: "Open details",
+	keys: ["ArrowRight", "l"],
+	action: { _tag: "OpenFileDetails" },
+	repeat: false,
+};
+
 const commitDetailsBindings: Array<ShortcutBinding<CommitDetailsAction>> = [
 	...selectionBindings,
-	{
-		id: "commit-open-file-details",
-		description: "Open details",
-		keys: ["ArrowRight", "l"],
-		action: { _tag: "OpenFileDetails" },
-		repeat: false,
-	},
+	openCommitFileDetailsBinding,
 	closeCommitDetailsBinding,
 ];
 
+export const closeCommitFileDetailsBinding: ShortcutBinding<CommitFileDetailsAction> = {
+	id: "commit-file-details-close",
+	description: "Close details",
+	keys: ["ArrowLeft", "Escape"],
+	action: { _tag: "CloseDetails" },
+	repeat: false,
+};
+
 const commitFileDetailsBindings: Array<ShortcutBinding<CommitFileDetailsAction>> = [
 	...selectionBindings,
-	{
-		id: "commit-file-details-close",
-		description: "Close details",
-		keys: ["ArrowLeft", "Escape"],
-		action: { _tag: "CloseDetails" },
-		repeat: false,
-	},
+	closeCommitFileDetailsBinding,
 ];
 
 type BranchSegmentAction = SelectionAction | { _tag: "RenameBranch" };

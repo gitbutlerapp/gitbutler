@@ -89,6 +89,12 @@ import useLocalStorageState from "use-local-storage-state";
 import sharedStyles from "../-shared.module.css";
 import { type Editing } from "./-Editing.ts";
 import {
+	closeChangeFileDetails,
+	closeCommitFileDetails,
+	openChangeFileDetails,
+	openCommitFileDetails,
+} from "./-FileDetails.ts";
+import {
 	baseCommitItem,
 	changesDetailsItem,
 	changesSummaryItem,
@@ -104,11 +110,15 @@ import {
 import { buildNavigationModel } from "./-Selection.ts";
 import {
 	absorbBinding,
+	closeChangeFileDetailsBinding,
 	closeCommitDetailsBinding,
+	closeCommitFileDetailsBinding,
 	renameBranchBindings,
 	handleRenameBranchKeyDown,
 	commitEditingMessageBindings,
+	openChangeFileDetailsBinding,
 	openCommitDetailsBinding,
+	openCommitFileDetailsBinding,
 	handleCommitEditingMessageKeyDown,
 	getLabel,
 	getScope,
@@ -175,35 +185,67 @@ const CommitDetails: FC<{
 	projectId: string;
 	select: (selection: Item | null) => void;
 }> = ({ commitId, commitSelection, projectId, select }) => {
-	const selectedPath = commitSelection.mode._tag === "Details" && commitSelection.mode.item?.path;
+	const queryClient = useQueryClient();
+	const selectedItem = commitSelection.mode._tag === "Details" ? commitSelection.mode.item : null;
+	const selectedPath = selectedItem?.path;
 
 	return (
 		<SharedCommitDetails
 			projectId={projectId}
 			commitId={commitId}
-			renderFile={(change) => (
-				<CommitFileSource
-					change={change}
-					fileParent={{ _tag: "Commit", commitId }}
-					className={classes(
-						sharedStyles.item,
-						sharedStyles.file,
-						selectedPath === change.path && sharedStyles.selectedFile,
-					)}
-				>
-					<FileButton
+			renderFile={(change) => {
+				const isFileDetailsOpen =
+					selectedItem?._tag === "Hunk" && selectedItem.path === change.path;
+
+				return (
+					<CommitFileSource
 						change={change}
-						onClick={() => {
-							select(
-								commitItem({
-									...commitSelection,
-									mode: { _tag: "Details", item: detailsFileItem(change.path) },
-								}),
-							);
-						}}
-					/>
-				</CommitFileSource>
-			)}
+						fileParent={{ _tag: "Commit", commitId }}
+						className={classes(
+							sharedStyles.item,
+							sharedStyles.file,
+							selectedPath === change.path && sharedStyles.selectedFile,
+						)}
+					>
+						<FileButton
+							change={change}
+							onClick={() => {
+								select(
+									commitItem({
+										...commitSelection,
+										mode: { _tag: "Details", item: detailsFileItem(change.path) },
+									}),
+								);
+							}}
+						/>
+						<ShortcutButton
+							binding={
+								isFileDetailsOpen ? closeCommitFileDetailsBinding : openCommitFileDetailsBinding
+							}
+							className={sharedStyles.itemAction}
+							type="button"
+							onClick={() => {
+								if (isFileDetailsOpen) {
+									closeCommitFileDetails({ select, selection: commitSelection });
+									return;
+								}
+								void openCommitFileDetails({
+									projectId,
+									queryClient,
+									select,
+									selection: {
+										...commitSelection,
+										mode: { _tag: "Details", item: detailsFileItem(change.path) },
+									},
+								});
+							}}
+							aria-expanded={isFileDetailsOpen}
+						>
+							<ExpandCollapseIcon isExpanded={isFileDetailsOpen} />
+						</ShortcutButton>
+					</CommitFileSource>
+				);
+			}}
 		/>
 	);
 };
@@ -1037,6 +1079,7 @@ const Changes: FC<{
 	className,
 }) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
+	const queryClient = useQueryClient();
 
 	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
 	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
@@ -1132,6 +1175,10 @@ const Changes: FC<{
 						const dependencyCommitIds = hunkDependencyDiffs
 							? dependencyCommitIdsForFile(hunkDependencyDiffs)
 							: [];
+						const isFileDetailsOpen =
+							changesSelection?.mode._tag === "Details" &&
+							changesSelection.mode.item._tag === "Hunk" &&
+							changesSelection.mode.item.path === change.path;
 
 						return (
 							<li key={change.path}>
@@ -1152,6 +1199,33 @@ const Changes: FC<{
 											select(changesDetailsItem(stackId, detailsFileItem(change.path)));
 										}}
 									/>
+									<ShortcutButton
+										binding={
+											isFileDetailsOpen
+												? closeChangeFileDetailsBinding
+												: openChangeFileDetailsBinding
+										}
+										type="button"
+										className={sharedStyles.itemAction}
+										onClick={() => {
+											if (isFileDetailsOpen) {
+												closeChangeFileDetails({ select, selection: changesSelection });
+												return;
+											}
+											void openChangeFileDetails({
+												projectId,
+												queryClient,
+												select,
+												selection: {
+													stackId,
+													mode: { _tag: "Details", item: detailsFileItem(change.path) },
+												},
+											});
+										}}
+										aria-expanded={isFileDetailsOpen}
+									>
+										<ExpandCollapseIcon isExpanded={isFileDetailsOpen} />
+									</ShortcutButton>
 									<ShortcutButton
 										binding={absorbBinding}
 										type="button"
