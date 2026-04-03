@@ -308,7 +308,7 @@ const Hunk: FC<{
 	headerStart?: ReactNode;
 }> = ({ patch, fileParent, change, hunk, editable, headerStart }) => (
 	<div>
-		<div className={styles.hunkHeaderRow}>
+		<div className={sharedStyles.hunkHeaderRow}>
 			{headerStart}
 			{fileParent && editable ? (
 				<HunkSource
@@ -316,7 +316,7 @@ const Hunk: FC<{
 					fileParent={fileParent}
 					change={change}
 					hunk={hunk}
-					className={styles.hunkHeader}
+					className={sharedStyles.hunkHeader}
 				>
 					{formatHunkHeader(hunk)}
 				</HunkSource>
