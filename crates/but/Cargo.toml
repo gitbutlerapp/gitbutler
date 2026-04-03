@@ -112,7 +112,7 @@ regex.workspace = true
 anyhow.workspace = true
 rmcp.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
-gix = { workspace = true, features = ["tracing", "tracing-detail"] }
+gix = { workspace = true, features = ["tracing", "tracing-detail", "revision"] }
 colored = "3.0.0"
 serde_json.workspace = true
 boolean-enums.workspace = true

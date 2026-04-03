@@ -901,6 +901,12 @@ pub enum Subcommands {
     Merge {
         /// Branch ID or name to merge
         branch: String,
+         #[clap(long = "remote")]
+        remote: Option<String>,
+        #[clap(long = "local")]
+        local: Option<String>,
+        #[clap(long = "graph")]
+        graph: Option<String>,
     },
 
     /// Move a commit or branch to a different location.
