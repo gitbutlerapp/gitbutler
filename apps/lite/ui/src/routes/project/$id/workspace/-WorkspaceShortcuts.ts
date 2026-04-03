@@ -149,7 +149,7 @@ const changesFileDetailsBindings: Array<ShortcutBinding<ChangeFileDetailsAction>
 
 const editCommitMessageBinding: ShortcutBinding<CommitSummaryAction> = {
 	id: "commit-edit-message",
-	description: "Edit message",
+	description: "Reword",
 	keys: ["Enter"],
 	action: { _tag: "EditMessage" },
 	repeat: false,
@@ -505,7 +505,7 @@ export const getLabel = (scope: Scope): string =>
 			CommitDetails: () => "Commit details",
 			ChangeFileDetails: () => "Change file details",
 			CommitFileDetails: () => "Commit file details",
-			CommitEditMessage: () => "Edit commit message",
+			CommitEditMessage: () => "Reword commit",
 			CommitSummary: () => "Commit",
 			Branch: () => "Branch",
 			Segment: () => "Segment",
