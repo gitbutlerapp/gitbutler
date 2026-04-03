@@ -1,10 +1,5 @@
 import { PatchDiff } from "@pierre/diffs/react";
-import {
-	branchDetailsQueryOptions,
-	branchDiffQueryOptions,
-	commitDetailsWithLineStatsQueryOptions,
-	treeChangeDiffsQueryOptions,
-} from "#ui/api/queries.ts";
+import { commitDetailsWithLineStatsQueryOptions } from "#ui/api/queries.ts";
 import { classes } from "#ui/classes.ts";
 import {
 	Commit,
@@ -14,11 +9,10 @@ import {
 	TreeChange,
 	UnifiedPatch,
 } from "@gitbutler/but-sdk";
-import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { ComponentProps, FC, ReactNode } from "react";
 import styles from "./-shared.module.css";
-import { CommitFileSource } from "./workspace/-OperationSubjects";
 
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 export const decodeRefName = (fullNameBytes: Array<number>): string =>
@@ -44,17 +38,16 @@ export const getRelative = <T,>(items: Array<T>, index: number, offset: -1 | 1):
 	if (itemCount === 0) return null;
 	return items[(index + offset + itemCount) % itemCount] ?? null;
 };
+export const formatHunkHeader = (hunk: HunkHeader): string =>
+	`-${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines}`;
+
+export const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
 const hunkHeaderEquals = (a: HunkHeader, b: HunkHeader): boolean =>
 	a.oldStart === b.oldStart &&
 	a.oldLines === b.oldLines &&
 	a.newStart === b.newStart &&
 	a.newLines === b.newLines;
-
-export const formatHunkHeader = (hunk: HunkHeader): string =>
-	`-${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines}`;
-
-export const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
 export const assignedHunks = (
 	hunks: Array<DiffHunk>,
@@ -112,39 +105,6 @@ export const hunkKey = (hunk: HunkHeader): string =>
 	`${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`;
 
 export type Patch = Extract<UnifiedPatch, { type: "Patch" }>;
-
-export const FileDiff: FC<{
-	projectId: string;
-	change: TreeChange;
-	assignments?: Array<HunkAssignment>;
-	renderHunk: (hunk: DiffHunk, patch: Patch) => ReactNode;
-}> = ({ projectId, change, assignments, renderHunk }) => {
-	const { data } = useSuspenseQuery(treeChangeDiffsQueryOptions({ projectId, change }));
-
-	return Match.value(data).pipe(
-		Match.when(null, () => <div>No diff available for this file.</div>),
-		Match.when({ type: "Binary" }, () => <div>Binary file (diff not available).</div>),
-		Match.when({ type: "TooLarge" }, ({ subject }) => (
-			<div>Diff too large ({subject.sizeInBytes} bytes).</div>
-		)),
-		Match.when({ type: "Patch" }, (patch) => {
-			const visibleHunks = assignments
-				? assignedHunks(patch.subject.hunks, assignments)
-				: patch.subject.hunks;
-
-			if (visibleHunks.length === 0) return <div>No hunks.</div>;
-
-			return (
-				<ul>
-					{visibleHunks.map((hunk) => (
-						<li key={hunkKey(hunk)}>{renderHunk(hunk, patch)}</li>
-					))}
-				</ul>
-			);
-		}),
-		Match.exhaustive,
-	);
-};
 
 export const FileButton: FC<
 	{
@@ -223,114 +183,6 @@ export const CommitLabel: FC<{
 		{commit.hasConflicts && " ⚠️"}
 	</>
 );
-
-export const ShowCommit: FC<{
-	projectId: string;
-	commit: Commit;
-	changes: Array<TreeChange>;
-	editable: boolean;
-	renderHunk: (change: TreeChange, hunk: DiffHunk, patch: Patch) => ReactNode;
-}> = ({ projectId, commit, changes, editable, renderHunk }) => {
-	const firstLineEnd = commit.message.indexOf("\n");
-	const commitMessageBody =
-		firstLineEnd === -1 ? "" : commit.message.slice(firstLineEnd + 1).trim();
-
-	return (
-		<>
-			<h3>
-				<CommitLabel commit={commit} />
-			</h3>
-			{commitMessageBody !== "" && <p className={styles.commitMessageBody}>{commitMessageBody}</p>}
-			{changes.length === 0 ? (
-				<div>No file changes.</div>
-			) : (
-				<ul>
-					{changes.map((change) => (
-						<li key={change.path}>
-							{editable ? (
-								<CommitFileSource
-									change={change}
-									fileParent={{ _tag: "Commit", commitId: commit.id }}
-								>
-									<h4>{change.path}</h4>
-								</CommitFileSource>
-							) : (
-								<h4>{change.path}</h4>
-							)}
-							<FileDiff
-								projectId={projectId}
-								change={change}
-								renderHunk={(hunk, patch) => renderHunk(change, hunk, patch)}
-							/>
-						</li>
-					))}
-				</ul>
-			)}
-		</>
-	);
-};
-
-export const ShowCommitWithQuery: FC<{
-	projectId: string;
-	commitId: string;
-	editable: boolean;
-	renderHunk: (change: TreeChange, hunk: DiffHunk, patch: Patch) => ReactNode;
-}> = ({ projectId, commitId, editable, renderHunk }) => {
-	const { data } = useSuspenseQuery(
-		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
-	);
-
-	return (
-		<ShowCommit
-			projectId={projectId}
-			commit={data.commit}
-			changes={data.changes}
-			editable={editable}
-			renderHunk={renderHunk}
-		/>
-	);
-};
-
-export const ShowBranch: FC<{
-	projectId: string;
-	branchName: string;
-	remote: string | null;
-	renderHunk: (change: TreeChange, hunk: DiffHunk, patch: Patch) => ReactNode;
-}> = ({ projectId, branchName, remote, renderHunk }) => {
-	const [{ data: branchDetails }, { data: branchDiff }] = useSuspenseQueries({
-		queries: [
-			branchDetailsQueryOptions({ projectId, branchName, remote }),
-			branchDiffQueryOptions({
-				projectId,
-				branch:
-					remote !== null ? `refs/remotes/${remote}/${branchName}` : `refs/heads/${branchName}`,
-			}),
-		],
-	});
-
-	return (
-		<>
-			<h3>{branchDetails.name}</h3>
-			{branchDetails.prNumber != null && <p>PR #{branchDetails.prNumber}</p>}
-			{branchDiff.changes.length === 0 ? (
-				<div>No file changes.</div>
-			) : (
-				<ul>
-					{branchDiff.changes.map((change) => (
-						<li key={change.path}>
-							<h4>{change.path}</h4>
-							<FileDiff
-								projectId={projectId}
-								change={change}
-								renderHunk={(hunk, patch) => renderHunk(change, hunk, patch)}
-							/>
-						</li>
-					))}
-				</ul>
-			)}
-		</>
-	);
-};
 
 export const CommitsList: FC<{
 	commits: Array<Commit>;
