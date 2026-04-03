@@ -6,7 +6,7 @@ import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
 import { usePreviewPanel } from "#ui/hooks/usePreviewPanel.ts";
 import { getAction, type ShortcutBinding } from "#ui/shortcuts.ts";
 import { isTypingTarget } from "#ui/routes/project/$id/-shared.tsx";
-import { TreeChange } from "@gitbutler/but-sdk";
+import { AbsorptionTarget } from "@gitbutler/but-sdk";
 import { useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
 import { useEffect, useEffectEvent } from "react";
@@ -21,10 +21,9 @@ import {
 	BaseCommitItem,
 } from "./-Item.ts";
 import {
-	getAdjacentCommitDetailsPath,
+	getAdjacentPath,
 	getAdjacentItem,
 	getAdjacentSection,
-	getSelectedCommitPath,
 	type NavigationModel,
 } from "./-Selection.ts";
 
@@ -410,7 +409,7 @@ export const useWorkspaceShortcuts = ({
 	select: (selection: Item | null) => void;
 	setEditing: (selection: Editing | null) => void;
 	navigationModel: NavigationModel;
-	requestAbsorptionPlan: (changes: Array<TreeChange>, stackId: string | null) => void;
+	requestAbsorptionPlan: (target: AbsorptionTarget) => void;
 }) => {
 	const [, setShowPreviewPanel] = usePreviewPanel();
 	const [, setShowFullscreenPreview] = useFullscreenPreview(projectId);
@@ -426,10 +425,15 @@ export const useWorkspaceShortcuts = ({
 		Match.value(selection.mode).pipe(
 			Match.tagsExhaustive({
 				Details: ({ path }) => {
-					if (path === undefined) return;
 					const change = worktreeChanges.changes.find((change) => change.path === path);
 					if (!change) return;
-					requestAbsorptionPlan([change], selection.stackId);
+					requestAbsorptionPlan({
+						type: "treeChanges",
+						subject: {
+							changes: [change],
+							assigned_stack_id: selection.stackId,
+						},
+					});
 				},
 				Summary: () => {
 					const assignmentsByPath = new Set(
@@ -440,13 +444,21 @@ export const useWorkspaceShortcuts = ({
 					const changes = worktreeChanges.changes.filter((change) =>
 						assignmentsByPath.has(change.path),
 					);
-					requestAbsorptionPlan(changes, selection.stackId);
+					requestAbsorptionPlan({
+						type: "treeChanges",
+						subject: {
+							changes,
+							assigned_stack_id: selection.stackId,
+						},
+					});
 				},
 			}),
 		);
 	};
 
-	const moveCommitDetails = (offset: -1 | 1, selection: CommitItem) => {
+	const moveCommitDetailsFile = (offset: -1 | 1, selection: CommitItem) => {
+		if (selection.mode._tag !== "Details") return;
+
 		const commitDetails = queryClient.getQueryData(
 			commitDetailsWithLineStatsQueryOptions({
 				projectId,
@@ -456,17 +468,35 @@ export const useWorkspaceShortcuts = ({
 		if (!commitDetails) return;
 
 		const paths = commitDetails.changes.map((change) => change.path);
-		const nextPath = getAdjacentCommitDetailsPath({
-			paths,
-			currentPath: getSelectedCommitPath({ paths, selection }),
-			offset,
-		});
+		const currentPath = selection.mode.path;
+		const nextPath = getAdjacentPath({ paths, currentPath, offset });
 		if (nextPath === null) return;
 
 		select(
 			commitItem({
 				...selection,
 				mode: { _tag: "Details", path: nextPath },
+			}),
+		);
+	};
+
+	const openCommitDetails = async (selection: CommitItem) => {
+		const commitDetails = await queryClient
+			.fetchQuery(
+				commitDetailsWithLineStatsQueryOptions({
+					projectId,
+					commitId: selection.commitId,
+				}),
+			)
+			.catch(() => null);
+		if (!commitDetails) return;
+
+		const firstPath = commitDetails.changes[0]?.path;
+
+		select(
+			commitItem({
+				...selection,
+				mode: firstPath === undefined ? { _tag: "Details" } : { _tag: "Details", path: firstPath },
 			}),
 		);
 	};
@@ -501,7 +531,9 @@ export const useWorkspaceShortcuts = ({
 		Match.value(action).pipe(
 			Match.tags({
 				EditMessage: () => setEditing({ _tag: "CommitMessage", subject: selection }),
-				OpenDetails: () => select(commitItem({ ...selection, mode: { _tag: "Details" } })),
+				OpenDetails: () => {
+					void openCommitDetails(selection);
+				},
 			}),
 			Match.orElse((action) => handleSelectionAction(action, { _tag: "Commit", ...selection })),
 		);
@@ -509,7 +541,7 @@ export const useWorkspaceShortcuts = ({
 	const handleCommitDetailsAction = (action: CommitDetailsAction, selection: CommitItem) =>
 		Match.value(action).pipe(
 			Match.tags({
-				Move: ({ offset }) => moveCommitDetails(offset, selection),
+				Move: ({ offset }) => moveCommitDetailsFile(offset, selection),
 				CloseDetails: () => select(commitItem({ ...selection, mode: { _tag: "Summary" } })),
 			}),
 			Match.orElse((action) => handleSelectionAction(action, { _tag: "Commit", ...selection })),

@@ -32,9 +32,10 @@ import {
 	BranchTarget,
 	ChangesSource,
 	ChangesTarget,
+	CommitFileSource,
 	CommitSource,
 	CommitTarget,
-	FileSource,
+	ChangesFileSource,
 	HunkSource,
 	TearOffBranchTarget,
 	TreeChangeWithAssignments,
@@ -58,6 +59,7 @@ import {
 import uiStyles from "#ui/ui.module.css";
 import { ContextMenu, Menu, mergeProps, Toast, Tooltip, useRender } from "@base-ui/react";
 import {
+	AbsorptionTarget,
 	Commit,
 	DiffHunk,
 	DiffSpec,
@@ -68,7 +70,7 @@ import {
 	Stack,
 	TreeChange,
 } from "@gitbutler/but-sdk";
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
@@ -96,7 +98,7 @@ import {
 	CommitItem,
 	ChangesMode,
 } from "./-Item.ts";
-import { buildNavigationModel, getSelectedCommitPath } from "./-Selection.ts";
+import { buildNavigationModel } from "./-Selection.ts";
 import {
 	absorbChangesBinding,
 	closeCommitDetailsBinding,
@@ -170,48 +172,35 @@ const CommitDetails: FC<{
 	projectId: string;
 	select: (selection: Item | null) => void;
 }> = ({ commitId, commitSelection, projectId, select }) => {
-	const { data: commitDetails } = useSuspenseQuery(
-		commitDetailsWithLineStatsQueryOptions({
-			projectId,
-			commitId,
-		}),
-	);
-	const paths = commitDetails.changes.map((change: TreeChange) => change.path);
-	const selectedPath = getSelectedCommitPath({
-		paths,
-		selection: commitSelection,
-	});
+	const selectedPath =
+		commitSelection.mode._tag === "Details" ? commitSelection.mode.path : undefined;
 
 	return (
 		<SharedCommitDetails
 			projectId={projectId}
 			commitId={commitId}
 			renderFile={(change) => (
-				<FileSource
+				<CommitFileSource
 					change={change}
 					fileParent={{ _tag: "Commit", commitId }}
-					render={
-						<div
-							className={classes(
-								sharedStyles.item,
-								sharedStyles.file,
-								selectedPath === change.path && sharedStyles.selectedFile,
-							)}
-						>
-							<FileButton
-								change={change}
-								onClick={() => {
-									select(
-										commitItem({
-											...commitSelection,
-											mode: { _tag: "Details", path: change.path },
-										}),
-									);
-								}}
-							/>
-						</div>
-					}
-				/>
+					className={classes(
+						sharedStyles.item,
+						sharedStyles.file,
+						selectedPath === change.path && sharedStyles.selectedFile,
+					)}
+				>
+					<FileButton
+						change={change}
+						onClick={() => {
+							select(
+								commitItem({
+									...commitSelection,
+									mode: { _tag: "Details", path: change.path },
+								}),
+							);
+						}}
+					/>
+				</CommitFileSource>
 			)}
 		/>
 	);
@@ -307,28 +296,28 @@ const Hunk: FC<{
 	fileParent?: FileParent;
 	change: TreeChange;
 	hunk: DiffHunk;
+	editable: boolean;
 	headerStart?: ReactNode;
-}> = ({ patch, fileParent, change, hunk, headerStart }) => (
-	<div>
-		<div className={styles.hunkHeaderRow}>
+}> = ({ patch, fileParent, change, hunk, editable, headerStart }) => {
+	const headerRow = (
+		<div className={sharedStyles.hunkHeaderRow}>
 			{headerStart}
-			{fileParent ? (
-				<HunkSource
-					patch={patch}
-					fileParent={fileParent}
-					change={change}
-					hunk={hunk}
-					className={styles.hunkHeader}
-				>
-					{formatHunkHeader(hunk)}
+			<div className={sharedStyles.hunkHeader}>{formatHunkHeader(hunk)}</div>
+		</div>
+	);
+	return (
+		<div>
+			{fileParent && editable ? (
+				<HunkSource patch={patch} fileParent={fileParent} change={change} hunk={hunk}>
+					{headerRow}
 				</HunkSource>
 			) : (
-				formatHunkHeader(hunk)
+				headerRow
 			)}
+			<HunkDiff change={change} diff={hunk.diff} />
 		</div>
-		<HunkDiff change={change} diff={hunk.diff} />
-	</div>
-);
+	);
+};
 
 const ShowChangesFile: FC<{
 	projectId: string;
@@ -353,6 +342,7 @@ const ShowChangesFile: FC<{
 					fileParent={{ _tag: "Changes", stackId }}
 					change={change}
 					hunk={hunk}
+					editable
 					headerStart={
 						isNonEmptyArray(dependencyCommitIds) && (
 							<DependencyIndicator
@@ -378,9 +368,7 @@ const ShowCommitOrFile: FC<{
 	const { data: commitDetails } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
-	const paths = commitDetails.changes.map((change) => change.path);
-	const selectedPath =
-		selection.mode._tag === "Details" ? getSelectedCommitPath({ paths, selection }) : undefined;
+	const selectedPath = selection.mode._tag === "Details" ? selection.mode.path : undefined;
 	const change =
 		selectedPath !== undefined
 			? commitDetails.changes.find((candidate) => candidate.path === selectedPath)
@@ -391,7 +379,13 @@ const ShowCommitOrFile: FC<{
 			projectId={projectId}
 			change={change}
 			renderHunk={(hunk, patch) => (
-				<Hunk patch={patch} fileParent={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
+				<Hunk
+					patch={patch}
+					fileParent={{ _tag: "Commit", commitId }}
+					change={change}
+					hunk={hunk}
+					editable
+				/>
 			)}
 		/>
 	) : (
@@ -399,8 +393,15 @@ const ShowCommitOrFile: FC<{
 			projectId={projectId}
 			commit={commitDetails.commit}
 			changes={commitDetails.changes}
+			editable
 			renderHunk={(change, hunk, patch) => (
-				<Hunk patch={patch} fileParent={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
+				<Hunk
+					patch={patch}
+					fileParent={{ _tag: "Commit", commitId }}
+					change={change}
+					hunk={hunk}
+					editable
+				/>
 			)}
 		/>
 	);
@@ -415,7 +416,9 @@ const ShowSegment: FC<{
 			projectId={projectId}
 			branchName={branchName}
 			remote={null}
-			renderHunk={(change, hunk, patch) => <Hunk patch={patch} change={change} hunk={hunk} />}
+			renderHunk={(change, hunk, patch) => (
+				<Hunk patch={patch} change={change} hunk={hunk} editable={false} />
+			)}
 		/>
 	) : (
 		<div>
@@ -427,16 +430,16 @@ const ShowSegment: FC<{
 const ShowChangesOrFile: FC<{
 	projectId: string;
 	stackId: string | null;
-	mode: ChangesMode;
+	modeSelection: ChangesMode;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, stackId, mode, onDependencyHover }) => {
+}> = ({ projectId, stackId, modeSelection, onDependencyHover }) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
 	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
 		worktreeChanges.dependencies?.diffs ?? [],
 	);
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
-	const selectedPath = mode._tag === "Details" ? mode.path : undefined;
+	const selectedPath = modeSelection._tag === "Details" ? modeSelection.path : undefined;
 	const selectedChange =
 		selectedPath !== undefined
 			? changes.find((candidate) => candidate.path === selectedPath)
@@ -465,7 +468,13 @@ const ShowChangesOrFile: FC<{
 		<ul>
 			{changes.map((change) => (
 				<li key={change.path}>
-					<h4>{change.path}</h4>
+					<ChangesFileSource
+						change={change}
+						fileParent={{ _tag: "Changes", stackId }}
+						assignments={assignmentsByPath.get(change.path)}
+					>
+						<h4>{change.path}</h4>
+					</ChangesFileSource>
 					{renderChange(change)}
 				</li>
 			))}
@@ -480,8 +489,15 @@ const ShowBaseCommit: FC<{
 	<ShowCommitWithQuery
 		projectId={projectId}
 		commitId={commitId}
+		editable={false}
 		renderHunk={(change, hunk, patch) => (
-			<Hunk patch={patch} fileParent={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
+			<Hunk
+				patch={patch}
+				fileParent={{ _tag: "Commit", commitId }}
+				change={change}
+				hunk={hunk}
+				editable={false}
+			/>
 		)}
 	/>
 );
@@ -498,7 +514,7 @@ const Preview: FC<{
 				<ShowChangesOrFile
 					projectId={projectId}
 					stackId={stackId}
-					mode={mode}
+					modeSelection={mode}
 					onDependencyHover={onDependencyHover}
 				/>
 			),
@@ -699,25 +715,42 @@ const CommitRow: FC<
 		(_currentMessage, nextMessage: string) => nextMessage,
 	);
 	const [isCommitMessagePending, startCommitMessageTransition] = useTransition();
+	const queryClient = useQueryClient();
 
 	const commitWithOptimisticMessage: Commit = {
 		...commit,
 		message: optimisticMessage,
 	};
 
+	const openDetails = async () => {
+		const commitDetails = await queryClient
+			.fetchQuery(
+				commitDetailsWithLineStatsQueryOptions({
+					projectId,
+					commitId: commit.id,
+				}),
+			)
+			.catch(() => null);
+		if (!commitDetails) return;
+
+		const firstPath = commitDetails.changes[0]?.path;
+
+		select(
+			commitItem({
+				stackId,
+				segmentIndex,
+				branchName,
+				commitId: commit.id,
+				mode: firstPath === undefined ? { _tag: "Details" } : { _tag: "Details", path: firstPath },
+			}),
+		);
+	};
+
 	const toggleDetails = () => {
 		setEditing(null);
-		select(
-			commitSelection?.mode._tag === "Details"
-				? summaryItem
-				: commitItem({
-						stackId,
-						segmentIndex,
-						branchName,
-						commitId: commit.id,
-						mode: { _tag: "Details" },
-					}),
-		);
+
+		if (commitSelection?.mode._tag === "Details") select(summaryItem);
+		else void openDetails();
 	};
 
 	const commitReword = useMutation(commitRewordMutationOptions);
@@ -762,83 +795,79 @@ const CommitRow: FC<
 			{...restProps}
 			isEnabled={!isEditing}
 			commit={commitWithOptimisticMessage}
-			render={
-				<div
-					className={classes(
-						sharedStyles.item,
-						commitSelection && sharedStyles.selected,
-						isHighlighted && sharedStyles.highlighted,
-					)}
-				>
-					{isEditing ? (
-						<InlineCommitMessageEditor
-							message={optimisticMessage}
-							onSubmit={saveNewMessage}
-							onCancel={endEditing}
-						/>
-					) : (
-						<ContextMenu.Root>
-							<ContextMenu.Trigger
-								render={
-									<button
-										type="button"
-										className={classes(
-											sharedStyles.commitButton,
-											isCommitMessagePending && sharedStyles.commitButtonPending,
-										)}
-										onClick={() => {
-											select(summaryItem);
-										}}
-									>
-										<CommitLabel commit={commitWithOptimisticMessage} />
-									</button>
-								}
-							/>
-							<ContextMenu.Portal>
-								<ContextMenu.Positioner>
-									<CommitMenuPopup
-										projectId={projectId}
-										commitId={commit.id}
-										canReword={!isCommitMessagePending}
-										onReword={startEditing}
-										parts={ContextMenu}
-									/>
-								</ContextMenu.Positioner>
-							</ContextMenu.Portal>
-						</ContextMenu.Root>
-					)}
-					<ShortcutButton
-						binding={
-							commitSelection?.mode._tag === "Details"
-								? closeCommitDetailsBinding
-								: openCommitDetailsBinding
+			className={classes(
+				sharedStyles.item,
+				commitSelection && sharedStyles.selected,
+				isHighlighted && sharedStyles.highlighted,
+			)}
+		>
+			{isEditing ? (
+				<InlineCommitMessageEditor
+					message={optimisticMessage}
+					onSubmit={saveNewMessage}
+					onCancel={endEditing}
+				/>
+			) : (
+				<ContextMenu.Root>
+					<ContextMenu.Trigger
+						render={
+							<button
+								type="button"
+								className={classes(
+									sharedStyles.commitButton,
+									isCommitMessagePending && sharedStyles.commitButtonPending,
+								)}
+								onClick={() => {
+									select(summaryItem);
+								}}
+							>
+								<CommitLabel commit={commitWithOptimisticMessage} />
+							</button>
 						}
-						className={sharedStyles.itemAction}
-						type="button"
-						onClick={toggleDetails}
-						aria-expanded={commitSelection?.mode._tag === "Details"}
-					>
-						<ExpandCollapseIcon isExpanded={commitSelection?.mode._tag === "Details"} />
-					</ShortcutButton>
-					<Menu.Root>
-						<Menu.Trigger className={sharedStyles.itemAction} aria-label="Commit menu">
-							<MenuTriggerIcon />
-						</Menu.Trigger>
-						<Menu.Portal>
-							<Menu.Positioner align="end">
-								<CommitMenuPopup
-									projectId={projectId}
-									commitId={commit.id}
-									canReword={!isCommitMessagePending}
-									onReword={startEditing}
-									parts={Menu}
-								/>
-							</Menu.Positioner>
-						</Menu.Portal>
-					</Menu.Root>
-				</div>
-			}
-		/>
+					/>
+					<ContextMenu.Portal>
+						<ContextMenu.Positioner>
+							<CommitMenuPopup
+								projectId={projectId}
+								commitId={commit.id}
+								canReword={!isCommitMessagePending}
+								onReword={startEditing}
+								parts={ContextMenu}
+							/>
+						</ContextMenu.Positioner>
+					</ContextMenu.Portal>
+				</ContextMenu.Root>
+			)}
+			<ShortcutButton
+				binding={
+					commitSelection?.mode._tag === "Details"
+						? closeCommitDetailsBinding
+						: openCommitDetailsBinding
+				}
+				className={sharedStyles.itemAction}
+				type="button"
+				onClick={toggleDetails}
+				aria-expanded={commitSelection?.mode._tag === "Details"}
+			>
+				<ExpandCollapseIcon isExpanded={commitSelection?.mode._tag === "Details"} />
+			</ShortcutButton>
+			<Menu.Root>
+				<Menu.Trigger className={sharedStyles.itemAction} aria-label="Commit menu">
+					<MenuTriggerIcon />
+				</Menu.Trigger>
+				<Menu.Portal>
+					<Menu.Positioner align="end">
+						<CommitMenuPopup
+							projectId={projectId}
+							commitId={commit.id}
+							canReword={!isCommitMessagePending}
+							onReword={startEditing}
+							parts={Menu}
+						/>
+					</Menu.Positioner>
+				</Menu.Portal>
+			</Menu.Root>
+		</CommitSource>
 	);
 };
 
@@ -913,7 +942,7 @@ const Changes: FC<{
 	label: string;
 	projectId: string;
 	stackId: string | null;
-	onAbsorbChanges: (changes: Array<TreeChange>, stackId: string | null) => void;
+	onAbsorbChanges: (target: AbsorptionTarget) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 	selection: Item | null;
 	select: (selection: Item | null) => void;
@@ -977,7 +1006,13 @@ const Changes: FC<{
 					className={sharedStyles.itemAction}
 					disabled={changes.length === 0}
 					onClick={() => {
-						onAbsorbChanges(changes, stackId);
+						onAbsorbChanges({
+							type: "treeChanges",
+							subject: {
+								changes,
+								assigned_stack_id: stackId,
+							},
+						});
 					}}
 				>
 					<AbsorbIcon />
@@ -993,7 +1028,13 @@ const Changes: FC<{
 									className={uiStyles.menuItem}
 									disabled={changes.length === 0}
 									onClick={() => {
-										onAbsorbChanges(changes, stackId);
+										onAbsorbChanges({
+											type: "treeChanges",
+											subject: {
+												changes,
+												assigned_stack_id: stackId,
+											},
+										});
 									}}
 								>
 									Absorb all changes
@@ -1008,57 +1049,57 @@ const Changes: FC<{
 			) : (
 				<ul>
 					{changes.map((change) => {
-						const assignments = assignmentsByPath.get(change.path);
 						const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
-
 						const dependencyCommitIds = hunkDependencyDiffs
 							? dependencyCommitIdsForFile(hunkDependencyDiffs)
 							: [];
 
 						return (
 							<li key={change.path}>
-								<FileSource
+								<ChangesFileSource
 									change={change}
 									fileParent={{ _tag: "Changes", stackId }}
-									assignments={assignments}
-									render={
-										<div
-											className={classes(
-												sharedStyles.item,
-												changesSelection?.mode._tag === "Details" &&
-													changesSelection.mode.path === change.path &&
-													sharedStyles.selected,
-											)}
+									assignments={assignmentsByPath.get(change.path)}
+									className={classes(
+										sharedStyles.item,
+										changesSelection?.mode._tag === "Details" &&
+											changesSelection.mode.path === change.path &&
+											sharedStyles.selected,
+									)}
+								>
+									<FileButton
+										change={change}
+										onClick={() => {
+											select(changesDetailsItem(stackId, change.path));
+										}}
+									/>
+									<ShortcutButton
+										binding={absorbChangesBinding}
+										type="button"
+										className={sharedStyles.itemAction}
+										onClick={() => {
+											onAbsorbChanges({
+												type: "treeChanges",
+												subject: {
+													changes: [change],
+													assigned_stack_id: stackId,
+												},
+											});
+										}}
+									>
+										<AbsorbIcon />
+									</ShortcutButton>
+									{isNonEmptyArray(dependencyCommitIds) && (
+										<DependencyIndicator
+											projectId={projectId}
+											commitIds={dependencyCommitIds}
+											onHover={onDependencyHover}
+											className={sharedStyles.itemAction}
 										>
-											<FileButton
-												change={change}
-												onClick={() => {
-													select(changesDetailsItem(stackId, change.path));
-												}}
-											/>
-											<ShortcutButton
-												binding={absorbChangesBinding}
-												type="button"
-												className={sharedStyles.itemAction}
-												onClick={() => {
-													onAbsorbChanges([change], stackId);
-												}}
-											>
-												<AbsorbIcon />
-											</ShortcutButton>
-											{isNonEmptyArray(dependencyCommitIds) && (
-												<DependencyIndicator
-													projectId={projectId}
-													commitIds={dependencyCommitIds}
-													onHover={onDependencyHover}
-													className={sharedStyles.itemAction}
-												>
-													<DependencyIcon />
-												</DependencyIndicator>
-											)}
-										</div>
-									}
-								/>
+											<DependencyIcon />
+										</DependencyIndicator>
+									)}
+								</ChangesFileSource>
 							</li>
 						);
 					})}
@@ -1425,7 +1466,7 @@ const SegmentC: FC<{
 
 const StackC: FC<{
 	highlightedCommitIds: Set<string>;
-	onAbsorbChanges: (changes: Array<TreeChange>, stackId: string | null) => void;
+	onAbsorbChanges: (target: AbsorptionTarget) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 	projectId: string;
 	selection: Item | null;

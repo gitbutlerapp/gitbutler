@@ -1,4 +1,4 @@
-import { type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
+import { Segment, type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
 import {
 	baseCommitItem,
 	changesDetailsItem,
@@ -7,7 +7,6 @@ import {
 	type Item,
 	segmentItem,
 	commitItem,
-	CommitItem,
 } from "./-Item.ts";
 
 const hasAssignmentsForPath = ({
@@ -41,71 +40,58 @@ export const buildNavigationModel = ({
 	assignments: Array<HunkAssignment>;
 	commonBaseCommitId?: string;
 }): NavigationModel => {
-	const items: Array<Item> = [];
-	const sections: Array<Item> = [];
-	const sectionIndexByItemIndex: Array<number> = [];
-	const indexByKey = new Map<string, number>();
+	const model: NavigationModel = {
+		items: [],
+		sections: [],
+		sectionIndexByItemIndex: [],
+		indexByKey: new Map<string, number>(),
+	};
 
-	const addChangesItems = (stackId: string | null) => {
-		const section = changesSummaryItem(stackId);
-		const sectionIndex = sections.length;
-		sections.push(section);
-		indexByKey.set(itemKey(section), items.length);
-		sectionIndexByItemIndex.push(sectionIndex);
-		items.push(section);
+	const addItem = (item: Item, sectionIndex: number) => {
+		model.indexByKey.set(itemKey(item), model.items.length);
+		model.sectionIndexByItemIndex.push(sectionIndex);
+		model.items.push(item);
+	};
+
+	const addSection = (section: Item) => {
+		const sectionIndex = model.sections.length;
+		model.sections.push(section);
+		addItem(section, sectionIndex);
+	};
+
+	const addChangesSection = (stackId: string | null) => {
+		const sectionIndex = model.sections.length;
+		addSection(changesSummaryItem(stackId));
 
 		for (const change of changes) {
 			if (!hasAssignmentsForPath({ assignments, stackId, path: change.path })) continue;
-			const item = changesDetailsItem(stackId, change.path);
-			indexByKey.set(itemKey(item), items.length);
-			sectionIndexByItemIndex.push(sectionIndex);
-			items.push(item);
+			addItem(changesDetailsItem(stackId, change.path), sectionIndex);
 		}
 	};
 
-	addChangesItems(null);
+	const addSegmentSection = (stackId: string, segmentIndex: number, segment: Segment) => {
+		const branchName = segment.refName?.displayName ?? null;
+		const sectionIndex = model.sections.length;
+		addSection(segmentItem({ stackId, segmentIndex, branchName }));
+
+		for (const commit of segment.commits)
+			addItem(commitItem({ stackId, segmentIndex, branchName, commitId: commit.id }), sectionIndex);
+	};
+
+	addChangesSection(null);
 
 	for (const stack of headInfo.stacks) {
 		if (stack.id == null) continue;
-		addChangesItems(stack.id);
+		const stackId = stack.id;
+		addChangesSection(stackId);
 
-		for (const [segmentIndex, segment] of stack.segments.entries()) {
-			const branchName = segment.refName?.displayName ?? null;
-			const section = segmentItem({
-				stackId: stack.id,
-				segmentIndex,
-				branchName,
-			});
-			const sectionIndex = sections.length;
-			sections.push(section);
-			indexByKey.set(itemKey(section), items.length);
-			sectionIndexByItemIndex.push(sectionIndex);
-			items.push(section);
-
-			for (const commit of segment.commits) {
-				const commitItemV = commitItem({
-					stackId: stack.id,
-					segmentIndex,
-					branchName,
-					commitId: commit.id,
-				});
-				indexByKey.set(itemKey(commitItemV), items.length);
-				sectionIndexByItemIndex.push(sectionIndex);
-				items.push(commitItemV);
-			}
-		}
+		for (const [segmentIndex, segment] of stack.segments.entries())
+			addSegmentSection(stackId, segmentIndex, segment);
 	}
 
-	if (commonBaseCommitId !== undefined) {
-		const section = baseCommitItem(commonBaseCommitId);
-		const sectionIndex = sections.length;
-		sections.push(section);
-		indexByKey.set(itemKey(section), items.length);
-		sectionIndexByItemIndex.push(sectionIndex);
-		items.push(section);
-	}
+	if (commonBaseCommitId !== undefined) addSection(baseCommitItem(commonBaseCommitId));
 
-	return { items, sections, sectionIndexByItemIndex, indexByKey };
+	return model;
 };
 
 const getRelative = <T>(items: Array<T>, index: number, offset: -1 | 1): T | null => {
@@ -138,7 +124,7 @@ export const getAdjacentSection = (
 	return getRelative(model.sections, currentSectionIndex, offset);
 };
 
-export const getAdjacentCommitDetailsPath = ({
+export const getAdjacentPath = ({
 	paths,
 	currentPath,
 	offset,
@@ -154,16 +140,3 @@ export const getAdjacentCommitDetailsPath = ({
 	if (currentIndex === -1) return offset > 0 ? (paths[0] ?? null) : (paths.at(-1) ?? null);
 	return paths[currentIndex + offset] ?? null;
 };
-
-export const getSelectedCommitPath = ({
-	paths,
-	selection,
-}: {
-	paths: Array<string>;
-	selection: CommitItem;
-}): string | undefined =>
-	selection.mode._tag === "Details" &&
-	selection.mode.path !== undefined &&
-	paths.includes(selection.mode.path)
-		? selection.mode.path
-		: paths[0];

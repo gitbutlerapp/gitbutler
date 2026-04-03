@@ -387,7 +387,7 @@ const Hunk: FC<{
 	hunk: DiffHunk;
 }> = ({ change, hunk }) => (
 	<div>
-		<div className={styles.hunkHeaderRow}>{formatHunkHeader(hunk)}</div>
+		<div className={sharedStyles.hunkHeaderRow}>{formatHunkHeader(hunk)}</div>
 		<HunkDiff change={change} diff={hunk.diff} />
 	</div>
 );
@@ -435,6 +435,7 @@ const ShowBranchCommit: FC<{
 		<ShowCommitWithQuery
 			projectId={projectId}
 			commitId={commitId}
+			editable={false}
 			renderHunk={(change, hunk) => <Hunk change={change} hunk={hunk} />}
 		/>
 	);

@@ -53,7 +53,7 @@ export const BranchSource: FC<
 		branchName: string;
 	} & useRender.ComponentProps<"div">
 > = ({ branchRef, branchName, render, ...props }) => {
-	const dragData = getDragData(branchRef !== null ? { _tag: "Branch", ref: branchRef } : null);
+	const dragData = branchRef ? getDragData({ _tag: "Branch", ref: branchRef }) : null;
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: () => dragData ?? {},
 		preview: <DragPreview>{branchName}</DragPreview>,
@@ -77,7 +77,7 @@ export const CommitSource: FC<
 	} & useRender.ComponentProps<"div">
 > = ({ commit, isEnabled = true, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
-		getInitialData: () => getDragData({ _tag: "Commit", commitId: commit.id }) ?? {},
+		getInitialData: () => getDragData({ _tag: "Commit", commitId: commit.id }),
 		preview: (
 			<DragPreview>
 				<CommitLabel commit={commit} />
@@ -96,11 +96,42 @@ export const CommitSource: FC<
 	});
 };
 
-export const FileSource: FC<
+export const CommitFileSource: FC<
 	{
 		change: TreeChange;
 		fileParent: FileParent;
-		assignments?: Array<HunkAssignment>;
+	} & useRender.ComponentProps<"div">
+> = ({ change, fileParent, render, ...props }) => {
+	const [isDragging, dragRef] = useDraggable({
+		getInitialData: () =>
+			getDragData({
+				_tag: "TreeChanges",
+				parent: fileParent,
+				changes: [
+					{
+						change,
+						hunkHeaders: [],
+					},
+				],
+			}),
+		preview: <DragPreview>{change.path}</DragPreview>,
+	});
+	const isActive = isDragging;
+
+	return useRender({
+		render,
+		ref: dragRef,
+		props: mergeProps<"div">(props, {
+			className: classes(isActive && styles.activeSource),
+		}),
+	});
+};
+
+export const ChangesFileSource: FC<
+	{
+		change: TreeChange;
+		fileParent: FileParent;
+		assignments: Array<HunkAssignment> | undefined;
 	} & useRender.ComponentProps<"div">
 > = ({ change, fileParent, assignments, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
@@ -114,7 +145,7 @@ export const FileSource: FC<
 						hunkHeaders: hunkHeadersForAssignments(assignments),
 					},
 				],
-			}) ?? {},
+			}),
 		preview: <DragPreview>{change.path}</DragPreview>,
 	});
 	const isActive = isDragging;
@@ -144,7 +175,7 @@ export const ChangesSource: FC<
 					change,
 					hunkHeaders: hunkHeadersForAssignments(assignments),
 				})),
-			}) ?? {},
+			}),
 		preview: <DragPreview>{label}</DragPreview>,
 		canDrag: () => changes.length > 0,
 	});
@@ -178,7 +209,7 @@ export const HunkSource: FC<
 						hunkHeaders: [hunk],
 					},
 				],
-			}) ?? {},
+			}),
 		preview: <DragPreview>Hunk {formatHunkHeader(hunk)}</DragPreview>,
 		canDrag: () => !patch.subject.isResultOfBinaryToTextConversion,
 	});
