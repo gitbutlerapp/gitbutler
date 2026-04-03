@@ -304,12 +304,13 @@ const Hunk: FC<{
 	fileParent?: FileParent;
 	change: TreeChange;
 	hunk: DiffHunk;
+	editable: boolean;
 	headerStart?: ReactNode;
-}> = ({ patch, fileParent, change, hunk, headerStart }) => (
+}> = ({ patch, fileParent, change, hunk, editable, headerStart }) => (
 	<div>
 		<div className={styles.hunkHeaderRow}>
 			{headerStart}
-			{fileParent ? (
+			{fileParent && editable ? (
 				<HunkSource
 					patch={patch}
 					fileParent={fileParent}
@@ -350,6 +351,7 @@ const ShowChangesFile: FC<{
 					fileParent={{ _tag: "Changes", stackId }}
 					change={change}
 					hunk={hunk}
+					editable
 					headerStart={
 						isNonEmptyArray(dependencyCommitIds) && (
 							<DependencyIndicator
@@ -388,7 +390,13 @@ const ShowCommitOrFile: FC<{
 			projectId={projectId}
 			change={change}
 			renderHunk={(hunk, patch) => (
-				<Hunk patch={patch} fileParent={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
+				<Hunk
+					patch={patch}
+					fileParent={{ _tag: "Commit", commitId }}
+					change={change}
+					hunk={hunk}
+					editable
+				/>
 			)}
 		/>
 	) : (
@@ -396,8 +404,15 @@ const ShowCommitOrFile: FC<{
 			projectId={projectId}
 			commit={commitDetails.commit}
 			changes={commitDetails.changes}
+			editable
 			renderHunk={(change, hunk, patch) => (
-				<Hunk patch={patch} fileParent={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
+				<Hunk
+					patch={patch}
+					fileParent={{ _tag: "Commit", commitId }}
+					change={change}
+					hunk={hunk}
+					editable
+				/>
 			)}
 		/>
 	);
@@ -412,7 +427,9 @@ const ShowSegment: FC<{
 			projectId={projectId}
 			branchName={branchName}
 			remote={null}
-			renderHunk={(change, hunk, patch) => <Hunk patch={patch} change={change} hunk={hunk} />}
+			renderHunk={(change, hunk, patch) => (
+				<Hunk patch={patch} change={change} hunk={hunk} editable={false} />
+			)}
 		/>
 	) : (
 		<div>
@@ -483,8 +500,15 @@ const ShowBaseCommit: FC<{
 	<ShowCommitWithQuery
 		projectId={projectId}
 		commitId={commitId}
+		editable
 		renderHunk={(change, hunk, patch) => (
-			<Hunk patch={patch} fileParent={{ _tag: "Commit", commitId }} change={change} hunk={hunk} />
+			<Hunk
+				patch={patch}
+				fileParent={{ _tag: "Commit", commitId }}
+				change={change}
+				hunk={hunk}
+				editable
+			/>
 		)}
 	/>
 );

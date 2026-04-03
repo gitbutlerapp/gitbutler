@@ -222,8 +222,9 @@ export const ShowCommit: FC<{
 	projectId: string;
 	commit: Commit;
 	changes: Array<TreeChange>;
+	editable: boolean;
 	renderHunk: (change: TreeChange, hunk: DiffHunk, patch: Patch) => ReactNode;
-}> = ({ projectId, commit, changes, renderHunk }) => {
+}> = ({ projectId, commit, changes, editable, renderHunk }) => {
 	const firstLineEnd = commit.message.indexOf("\n");
 	const commitMessageBody =
 		firstLineEnd === -1 ? "" : commit.message.slice(firstLineEnd + 1).trim();
@@ -240,12 +241,16 @@ export const ShowCommit: FC<{
 				<ul>
 					{changes.map((change) => (
 						<li key={change.path}>
-							<CommitFileSource
-								change={change}
-								fileParent={{ _tag: "Commit", commitId: commit.id }}
-							>
+							{editable ? (
+								<CommitFileSource
+									change={change}
+									fileParent={{ _tag: "Commit", commitId: commit.id }}
+								>
+									<h4>{change.path}</h4>
+								</CommitFileSource>
+							) : (
 								<h4>{change.path}</h4>
-							</CommitFileSource>
+							)}
 							<FileDiff
 								projectId={projectId}
 								change={change}
@@ -262,8 +267,9 @@ export const ShowCommit: FC<{
 export const ShowCommitWithQuery: FC<{
 	projectId: string;
 	commitId: string;
+	editable: boolean;
 	renderHunk: (change: TreeChange, hunk: DiffHunk, patch: Patch) => ReactNode;
-}> = ({ projectId, commitId, renderHunk }) => {
+}> = ({ projectId, commitId, editable, renderHunk }) => {
 	const { data } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
@@ -273,6 +279,7 @@ export const ShowCommitWithQuery: FC<{
 			projectId={projectId}
 			commit={data.commit}
 			changes={data.changes}
+			editable={editable}
 			renderHunk={renderHunk}
 		/>
 	);
