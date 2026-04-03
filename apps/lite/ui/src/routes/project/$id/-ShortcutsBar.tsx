@@ -9,12 +9,13 @@ const ShortcutsBar: FC<{
 	label: string | null;
 	items: Array<ShortcutBinding<ShortcutActionBase>>;
 }> = ({ label, items }) => {
-	if (items.length === 0) return null;
+	const visibleItems = items.filter((item) => item.showInShortcutsBar !== false);
+	if (visibleItems.length === 0) return null;
 
 	return (
 		<div className={styles.container}>
 			{label != null && <span className={styles.scope}>{label}</span>}
-			{items.map((item) => (
+			{visibleItems.map((item) => (
 				<div key={item.id} className={styles.item}>
 					<span className={styles.keys}>{formatShortcutKeys(item.keys)}</span>
 					<span>{item.description}</span>

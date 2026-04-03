@@ -50,7 +50,7 @@ export const togglePreviewBinding: ShortcutBinding<SelectionAction> = {
 
 export const openFullscreenPreviewBinding: ShortcutBinding<SelectionAction> = {
 	id: "open-fullscreen-preview",
-	description: "Open fullscreen preview",
+	description: "Fullscreen preview",
 	keys: ["d"],
 	action: { _tag: "OpenFullscreenPreview" },
 	repeat: false,
@@ -74,12 +74,14 @@ const selectionBindings: Array<ShortcutBinding<SelectionAction>> = [
 		description: "Previous section",
 		keys: ["Shift+ArrowUp", "Shift+k"],
 		action: { _tag: "PreviousSection" },
+		showInShortcutsBar: false,
 	},
 	{
 		id: "next-section",
 		description: "Next section",
 		keys: ["Shift+ArrowDown", "Shift+j"],
 		action: { _tag: "NextSection" },
+		showInShortcutsBar: false,
 	},
 	togglePreviewBinding,
 	openFullscreenPreviewBinding,
@@ -100,7 +102,7 @@ const changesBindings: Array<ShortcutBinding<ChangesAction>> = [
 
 const editCommitMessageBinding: ShortcutBinding<CommitSummaryAction> = {
 	id: "commit-edit-message",
-	description: "Edit message",
+	description: "Reword",
 	keys: ["Enter"],
 	action: { _tag: "EditMessage" },
 	repeat: false,
@@ -389,7 +391,7 @@ export const getLabel = (scope: Scope): string =>
 			RenameBranch: () => "Rename branch",
 			Changes: () => "Changes",
 			CommitDetails: () => "Commit details",
-			CommitEditMessage: () => "Edit commit message",
+			CommitEditMessage: () => "Reword commit",
 			CommitSummary: () => "Commit",
 			Branch: () => "Branch",
 			Segment: () => "Segment",

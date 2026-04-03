@@ -54,24 +54,26 @@ export const ProjectPreviewLayout: FC<{
 					</>
 				)}
 			</Group>
-			<Dialog.Root open={showFullscreenPreview} onOpenChange={setShowFullscreenPreview}>
-				<Dialog.Portal>
-					<Dialog.Popup aria-label="Preview" className={sharedStyles.previewDialogPopup}>
-						<div className={sharedStyles.previewDialogBody}>
-							<ShortcutButton
-								binding={closeFullscreenPreviewBinding}
-								type="button"
-								className={uiStyles.button}
-								onClick={() => setShowFullscreenPreview(false)}
-							>
-								{closeFullscreenPreviewBinding.description}
-							</ShortcutButton>
-							{preview}
-						</div>
-						<footer ref={setDialogShortcutsBarPortalNode} />
-					</Dialog.Popup>
-				</Dialog.Portal>
-			</Dialog.Root>
+			{showFullscreenPreview && (
+				<Dialog.Root open onOpenChange={setShowFullscreenPreview}>
+					<Dialog.Portal>
+						<Dialog.Popup aria-label="Preview" className={sharedStyles.previewDialogPopup}>
+							<div className={sharedStyles.previewDialogBody}>
+								<ShortcutButton
+									binding={closeFullscreenPreviewBinding}
+									type="button"
+									className={uiStyles.button}
+									onClick={() => setShowFullscreenPreview(false)}
+								>
+									{closeFullscreenPreviewBinding.description}
+								</ShortcutButton>
+								{preview}
+							</div>
+							<footer ref={setDialogShortcutsBarPortalNode} />
+						</Dialog.Popup>
+					</Dialog.Portal>
+				</Dialog.Root>
+			)}
 		</ShortcutsBarPortalContext>
 	);
 };

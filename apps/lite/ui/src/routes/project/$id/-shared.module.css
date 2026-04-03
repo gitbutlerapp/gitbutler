@@ -149,7 +149,6 @@
 .hunkHeader {
 	flex-grow: 1;
 	font-family: monospace;
-	cursor: grab;
 }
 
 .dragPreview {

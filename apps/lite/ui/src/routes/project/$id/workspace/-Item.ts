@@ -78,19 +78,6 @@ export const getParentSection = (selection: Item): Item | null =>
 		}),
 	);
 
-export const itemKey = (item: Item): string =>
-	Match.value(item).pipe(
-		Match.tagsExhaustive({
-			Changes: (item) =>
-				item.mode._tag === "Details"
-					? JSON.stringify(["Changes", item.stackId, "Details", item.mode.path])
-					: JSON.stringify(["Changes", item.stackId, item.mode._tag]),
-			Segment: (item) => JSON.stringify(["Segment", item.stackId, item.segmentIndex]),
-			Commit: (item) => JSON.stringify(["Commit", item.stackId, item.segmentIndex, item.commitId]),
-			BaseCommit: (item) => JSON.stringify(["BaseCommit", item.commitId]),
-		}),
-	);
-
 export const normalizeItem = (
 	item: Item,
 	headInfo: RefInfo,
