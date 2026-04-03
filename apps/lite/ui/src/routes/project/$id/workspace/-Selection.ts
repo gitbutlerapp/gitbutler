@@ -1,13 +1,22 @@
-import { Segment, type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
+import {
+	DiffHunk,
+	HunkHeader,
+	Segment,
+	type HunkAssignment,
+	type RefInfo,
+	type TreeChange,
+} from "@gitbutler/but-sdk";
 import {
 	baseCommitItem,
 	changesDetailsItem,
 	changesSummaryItem,
+	detailsFileItem,
 	itemKey,
 	type Item,
 	segmentItem,
 	commitItem,
 } from "./-Item.ts";
+import { hunkHeaderEquals } from "../-shared.tsx";
 
 const hasAssignmentsForPath = ({
 	assignments,
@@ -65,7 +74,7 @@ export const buildNavigationModel = ({
 
 		for (const change of changes) {
 			if (!hasAssignmentsForPath({ assignments, stackId, path: change.path })) continue;
-			addItem(changesDetailsItem(stackId, change.path), sectionIndex);
+			addItem(changesDetailsItem(stackId, detailsFileItem(change.path)), sectionIndex);
 		}
 	};
 
@@ -139,4 +148,21 @@ export const getAdjacentPath = ({
 	const currentIndex = paths.indexOf(currentPath);
 	if (currentIndex === -1) return offset > 0 ? (paths[0] ?? null) : (paths.at(-1) ?? null);
 	return paths[currentIndex + offset] ?? null;
+};
+
+export const getAdjacentHunk = ({
+	hunks,
+	currentHunk,
+	offset,
+}: {
+	hunks: Array<DiffHunk>;
+	currentHunk: HunkHeader | undefined;
+	offset: -1 | 1;
+}): DiffHunk | null => {
+	if (hunks.length === 0) return null;
+	if (currentHunk === undefined) return offset > 0 ? (hunks[0] ?? null) : (hunks.at(-1) ?? null);
+
+	const currentIndex = hunks.findIndex((hunk) => hunkHeaderEquals(hunk, currentHunk));
+	if (currentIndex === -1) return offset > 0 ? (hunks[0] ?? null) : (hunks.at(-1) ?? null);
+	return hunks[currentIndex + offset] ?? null;
 };

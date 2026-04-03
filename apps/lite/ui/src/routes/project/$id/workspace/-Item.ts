@@ -1,8 +1,12 @@
 import { getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
-import { WorktreeChanges, type RefInfo } from "@gitbutler/but-sdk";
+import { HunkHeader, WorktreeChanges, type RefInfo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 
-export type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; path: string };
+export type DetailsItem =
+	| { _tag: "File"; path: string }
+	| { _tag: "Hunk"; path: string; hunkHeader: HunkHeader };
+
+export type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; item: DetailsItem };
 export type ChangesItem = { stackId: string | null; mode: ChangesMode };
 
 export type SegmentItem = {
@@ -16,7 +20,7 @@ type CommitMode =
 	| {
 			_tag: "Details";
 			// This is optional because there may be no files in the commit.
-			path?: string;
+			item: DetailsItem | null;
 	  };
 export type CommitItem = SegmentItem & { commitId: string; mode: CommitMode };
 
@@ -34,10 +38,21 @@ export const changesSummaryItem = (stackId: string | null): Item => ({
 	mode: { _tag: "Summary" },
 });
 
-export const changesDetailsItem = (stackId: string | null, path: string): Item => ({
+export const detailsFileItem = (path: string): DetailsItem => ({
+	_tag: "File",
+	path,
+});
+
+export const detailsHunkItem = (path: string, hunkHeader: HunkHeader): DetailsItem => ({
+	_tag: "Hunk",
+	path,
+	hunkHeader,
+});
+
+export const changesDetailsItem = (stackId: string | null, item: DetailsItem): Item => ({
 	_tag: "Changes",
 	stackId,
-	mode: { _tag: "Details", path },
+	mode: { _tag: "Details", item },
 });
 
 export const segmentItem = ({ stackId, segmentIndex, branchName }: SegmentItem): Item => ({
@@ -83,7 +98,7 @@ export const itemKey = (item: Item): string =>
 		Match.tagsExhaustive({
 			Changes: (item) =>
 				item.mode._tag === "Details"
-					? JSON.stringify(["Changes", item.stackId, "Details", item.mode.path])
+					? JSON.stringify(["Changes", item.stackId, "Details", item.mode.item.path])
 					: JSON.stringify(["Changes", item.stackId, item.mode._tag]),
 			Segment: (item) => JSON.stringify(["Segment", item.stackId, item.segmentIndex]),
 			Commit: (item) => JSON.stringify(["Commit", item.stackId, item.segmentIndex, item.commitId]),
@@ -101,10 +116,12 @@ export const normalizeItem = (
 			Match.value(item.mode).pipe(
 				Match.tag("Summary", () => item),
 				Match.tag("Details", (mode) => {
-					if (!worktreeChanges.changes.find((change) => change.path === mode.path)) return null;
+					if (!worktreeChanges.changes.find((change) => change.path === mode.item.path))
+						return null;
 					if (
 						!worktreeChanges.assignments.find(
-							(assignment) => assignment.stackId === item.stackId && assignment.path === mode.path,
+							(assignment) =>
+								assignment.stackId === item.stackId && assignment.path === mode.item.path,
 						)
 					)
 						return null;

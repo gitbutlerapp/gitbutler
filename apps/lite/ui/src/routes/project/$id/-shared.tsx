@@ -39,7 +39,7 @@ export const assert = <T,>(t: T | null | undefined): T => {
 	return t;
 };
 
-const hunkHeaderEquals = (a: HunkHeader, b: HunkHeader): boolean =>
+export const hunkHeaderEquals = (a: HunkHeader, b: HunkHeader): boolean =>
 	a.oldStart === b.oldStart &&
 	a.oldLines === b.oldLines &&
 	a.newStart === b.newStart &&
@@ -50,7 +50,7 @@ export const formatHunkHeader = (hunk: HunkHeader): string =>
 
 export const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
-const assignedHunks = (
+export const assignedHunks = (
 	hunks: Array<DiffHunk>,
 	assignments: Array<HunkAssignment>,
 ): Array<DiffHunk> => {

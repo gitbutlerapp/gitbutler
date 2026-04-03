@@ -15,6 +15,10 @@
 	padding: var(--pane-padding);
 }
 
+.primaryPaneDeemphasized {
+	opacity: 0.5;
+}
+
 .previewPane {
 	padding: var(--pane-padding);
 }
@@ -138,6 +142,14 @@
 
 .selectedFile {
 	background-color: var(--color-file-selected-bg);
+}
+
+.hunk {
+	border: 2px solid transparent;
+}
+
+.selectedHunk {
+	border-color: var(--color-separator);
 }
 
 .hunkHeaderRow {

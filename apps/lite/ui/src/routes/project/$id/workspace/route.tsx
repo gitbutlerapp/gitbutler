@@ -49,6 +49,7 @@ import {
 	FileButton,
 	FileDiff,
 	formatHunkHeader,
+	hunkHeaderEquals,
 	HunkDiff,
 	Patch,
 	ShowBranch,
@@ -92,6 +93,8 @@ import {
 	changesDetailsItem,
 	changesSummaryItem,
 	commitItem,
+	detailsFileItem,
+	detailsHunkItem,
 	normalizeItem,
 	type Item,
 	segmentItem,
@@ -100,7 +103,7 @@ import {
 } from "./-Item.ts";
 import { buildNavigationModel } from "./-Selection.ts";
 import {
-	absorbChangesBinding,
+	absorbBinding,
 	closeCommitDetailsBinding,
 	renameBranchBindings,
 	handleRenameBranchKeyDown,
@@ -172,8 +175,7 @@ const CommitDetails: FC<{
 	projectId: string;
 	select: (selection: Item | null) => void;
 }> = ({ commitId, commitSelection, projectId, select }) => {
-	const selectedPath =
-		commitSelection.mode._tag === "Details" ? commitSelection.mode.path : undefined;
+	const selectedPath = commitSelection.mode._tag === "Details" && commitSelection.mode.item?.path;
 
 	return (
 		<SharedCommitDetails
@@ -195,7 +197,7 @@ const CommitDetails: FC<{
 							select(
 								commitItem({
 									...commitSelection,
-									mode: { _tag: "Details", path: change.path },
+									mode: { _tag: "Details", item: detailsFileItem(change.path) },
 								}),
 							);
 						}}
@@ -233,6 +235,14 @@ const hunkContainsHunk = (a: HunkHeader, b: HunkHeader): boolean =>
 	a.oldStart + a.oldLines - 1 >= b.oldStart + b.oldLines - 1 &&
 	a.newStart <= b.newStart &&
 	a.newStart + a.newLines - 1 >= b.newStart + b.newLines - 1;
+
+const isSelectionInsidePreview = (selection: Item | null): boolean =>
+	(selection?._tag === "Changes" &&
+		selection.mode._tag === "Details" &&
+		selection.mode.item._tag === "Hunk") ||
+	(selection?._tag === "Commit" &&
+		selection.mode._tag === "Details" &&
+		selection.mode.item?._tag === "Hunk");
 
 const getAssignmentsByPath = (
 	assignments: Array<HunkAssignment>,
@@ -298,15 +308,24 @@ const Hunk: FC<{
 	hunk: DiffHunk;
 	editable: boolean;
 	headerStart?: ReactNode;
-}> = ({ patch, fileParent, change, hunk, editable, headerStart }) => {
+	isSelected?: boolean;
+	onSelect?: () => void;
+}> = ({ patch, fileParent, change, hunk, editable, headerStart, isSelected = false, onSelect }) => {
 	const headerRow = (
-		<div className={sharedStyles.hunkHeaderRow}>
+		<div className={classes(sharedStyles.hunkHeaderRow)}>
 			{headerStart}
-			<div className={sharedStyles.hunkHeader}>{formatHunkHeader(hunk)}</div>
+			<button
+				type="button"
+				onClick={onSelect}
+				aria-pressed={isSelected}
+				className={sharedStyles.hunkHeader}
+			>
+				{formatHunkHeader(hunk)}
+			</button>
 		</div>
 	);
 	return (
-		<div>
+		<div className={classes(sharedStyles.hunk, isSelected && sharedStyles.selectedHunk)}>
 			{fileParent && editable ? (
 				<HunkSource patch={patch} fileParent={fileParent} change={change} hunk={hunk}>
 					{headerRow}
@@ -326,7 +345,18 @@ const ShowChangesFile: FC<{
 	assignments: Array<HunkAssignment>;
 	hunkDependencyDiffs: Array<HunkDependencyDiff> | undefined;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, stackId, change, assignments, hunkDependencyDiffs, onDependencyHover }) => (
+	selectedHunkHeader?: HunkHeader;
+	onSelectHunk: (hunk: DiffHunk) => void;
+}> = ({
+	projectId,
+	stackId,
+	change,
+	assignments,
+	hunkDependencyDiffs,
+	onDependencyHover,
+	selectedHunkHeader,
+	onSelectHunk,
+}) => (
 	<FileDiff
 		projectId={projectId}
 		change={change}
@@ -343,6 +373,10 @@ const ShowChangesFile: FC<{
 					change={change}
 					hunk={hunk}
 					editable
+					isSelected={selectedHunkHeader && hunkHeaderEquals(hunk, selectedHunkHeader)}
+					onSelect={() => {
+						onSelectHunk(hunk);
+					}}
 					headerStart={
 						isNonEmptyArray(dependencyCommitIds) && (
 							<DependencyIndicator
@@ -363,16 +397,32 @@ const ShowChangesFile: FC<{
 const ShowCommitOrFile: FC<{
 	projectId: string;
 	selection: CommitItem;
-}> = ({ projectId, selection }) => {
+	select: (selection: Item | null) => void;
+}> = ({ projectId, selection, select }) => {
 	const { commitId } = selection;
 	const { data: commitDetails } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
-	const selectedPath = selection.mode._tag === "Details" ? selection.mode.path : undefined;
+	const detailsItemSelection = selection.mode._tag === "Details" ? selection.mode.item : null;
+	const selectedPath = detailsItemSelection?.path;
+	const selectedHunkHeader =
+		detailsItemSelection &&
+		detailsItemSelection.path === selectedPath &&
+		detailsItemSelection._tag === "Hunk"
+			? detailsItemSelection.hunkHeader
+			: undefined;
 	const change =
 		selectedPath !== undefined
 			? commitDetails.changes.find((candidate) => candidate.path === selectedPath)
 			: undefined;
+
+	const selectHunk = (change: TreeChange, hunk: DiffHunk) =>
+		select(
+			commitItem({
+				...selection,
+				mode: { _tag: "Details", item: detailsHunkItem(change.path, hunk) },
+			}),
+		);
 
 	return change ? (
 		<FileDiff
@@ -385,6 +435,10 @@ const ShowCommitOrFile: FC<{
 					change={change}
 					hunk={hunk}
 					editable
+					isSelected={selectedHunkHeader && hunkHeaderEquals(hunk, selectedHunkHeader)}
+					onSelect={() => {
+						selectHunk(change, hunk);
+					}}
 				/>
 			)}
 		/>
@@ -401,6 +455,9 @@ const ShowCommitOrFile: FC<{
 					change={change}
 					hunk={hunk}
 					editable
+					onSelect={() => {
+						selectHunk(change, hunk);
+					}}
 				/>
 			)}
 		/>
@@ -432,14 +489,16 @@ const ShowChangesOrFile: FC<{
 	stackId: string | null;
 	modeSelection: ChangesMode;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, stackId, modeSelection, onDependencyHover }) => {
+	select: (selection: Item | null) => void;
+}> = ({ projectId, stackId, modeSelection, onDependencyHover, select }) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
 	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
 		worktreeChanges.dependencies?.diffs ?? [],
 	);
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
-	const selectedPath = modeSelection._tag === "Details" ? modeSelection.path : undefined;
+	const detailsItemSelection = modeSelection._tag === "Details" ? modeSelection.item : null;
+	const selectedPath = detailsItemSelection?.path;
 	const selectedChange =
 		selectedPath !== undefined
 			? changes.find((candidate) => candidate.path === selectedPath)
@@ -449,6 +508,17 @@ const ShowChangesOrFile: FC<{
 		const assignments = assignmentsByPath.get(change.path);
 		if (!assignments) return null;
 
+		const selectedHunkHeader =
+			detailsItemSelection &&
+			detailsItemSelection.path === change.path &&
+			detailsItemSelection._tag === "Hunk"
+				? detailsItemSelection.hunkHeader
+				: undefined;
+
+		const selectHunk = (hunk: DiffHunk) => {
+			select(changesDetailsItem(stackId, detailsHunkItem(change.path, hunk)));
+		};
+
 		return (
 			<ShowChangesFile
 				projectId={projectId}
@@ -457,6 +527,8 @@ const ShowChangesOrFile: FC<{
 				assignments={assignments}
 				hunkDependencyDiffs={hunkDependencyDiffsByPath.get(change.path)}
 				onDependencyHover={onDependencyHover}
+				selectedHunkHeader={selectedHunkHeader}
+				onSelectHunk={selectHunk}
 			/>
 		);
 	};
@@ -506,7 +578,8 @@ const Preview: FC<{
 	projectId: string;
 	selection: Item;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, selection, onDependencyHover }) =>
+	select: (selection: Item | null) => void;
+}> = ({ projectId, selection, onDependencyHover, select }) =>
 	Match.value(selection).pipe(
 		Match.tagsExhaustive({
 			Segment: ({ branchName }) => <ShowSegment projectId={projectId} branchName={branchName} />,
@@ -516,9 +589,12 @@ const Preview: FC<{
 					stackId={stackId}
 					modeSelection={mode}
 					onDependencyHover={onDependencyHover}
+					select={select}
 				/>
 			),
-			Commit: (selection) => <ShowCommitOrFile projectId={projectId} selection={selection} />,
+			Commit: (selection) => (
+				<ShowCommitOrFile projectId={projectId} selection={selection} select={select} />
+			),
 			BaseCommit: ({ commitId }) => <ShowBaseCommit projectId={projectId} commitId={commitId} />,
 		}),
 	);
@@ -741,7 +817,10 @@ const CommitRow: FC<
 				segmentIndex,
 				branchName,
 				commitId: commit.id,
-				mode: firstPath === undefined ? { _tag: "Details" } : { _tag: "Details", path: firstPath },
+				mode:
+					firstPath === undefined
+						? { _tag: "Details", item: null }
+						: { _tag: "Details", item: detailsFileItem(firstPath) },
 			}),
 		);
 	};
@@ -1001,7 +1080,7 @@ const Changes: FC<{
 					{label}
 				</button>
 				<ShortcutButton
-					binding={absorbChangesBinding}
+					binding={absorbBinding}
 					type="button"
 					className={sharedStyles.itemAction}
 					disabled={changes.length === 0}
@@ -1063,18 +1142,18 @@ const Changes: FC<{
 									className={classes(
 										sharedStyles.item,
 										changesSelection?.mode._tag === "Details" &&
-											changesSelection.mode.path === change.path &&
+											changesSelection.mode.item.path === change.path &&
 											sharedStyles.selected,
 									)}
 								>
 									<FileButton
 										change={change}
 										onClick={() => {
-											select(changesDetailsItem(stackId, change.path));
+											select(changesDetailsItem(stackId, detailsFileItem(change.path)));
 										}}
 									/>
 									<ShortcutButton
-										binding={absorbChangesBinding}
+										binding={absorbBinding}
 										type="button"
 										className={sharedStyles.itemAction}
 										onClick={() => {
@@ -1605,6 +1684,7 @@ const ProjectPage: FC = () => {
 	return (
 		<ProjectPreviewLayout
 			projectId={projectId}
+			isSelectionInsidePreview={isSelectionInsidePreview(selection)}
 			preview={
 				selection && (
 					<Suspense fallback={<div>Loading preview…</div>}>
@@ -1612,6 +1692,7 @@ const ProjectPage: FC = () => {
 							projectId={projectId}
 							selection={selection}
 							onDependencyHover={highlightCommits}
+							select={select}
 						/>
 					</Suspense>
 				)

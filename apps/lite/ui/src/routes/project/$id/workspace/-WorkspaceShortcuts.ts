@@ -1,11 +1,12 @@
 import {
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
+	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
 import { usePreviewPanel } from "#ui/hooks/usePreviewPanel.ts";
 import { getAction, type ShortcutBinding } from "#ui/shortcuts.ts";
-import { isTypingTarget } from "#ui/routes/project/$id/-shared.tsx";
+import { assignedHunks, isTypingTarget } from "#ui/routes/project/$id/-shared.tsx";
 import { AbsorptionTarget } from "@gitbutler/but-sdk";
 import { useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -13,6 +14,9 @@ import { useEffect, useEffectEvent } from "react";
 import { type Editing } from "./-Editing.ts";
 import {
 	commitItem,
+	changesDetailsItem,
+	detailsFileItem,
+	detailsHunkItem,
 	type Item,
 	CommitItem,
 	getParentSection,
@@ -21,11 +25,22 @@ import {
 	BaseCommitItem,
 } from "./-Item.ts";
 import {
+	getAdjacentHunk,
 	getAdjacentPath,
 	getAdjacentItem,
 	getAdjacentSection,
 	type NavigationModel,
 } from "./-Selection.ts";
+
+type AbsorbAction = { _tag: "Absorb" };
+
+export const absorbBinding: ShortcutBinding<AbsorbAction> = {
+	id: "absorb",
+	description: "Absorb",
+	keys: ["a"],
+	action: { _tag: "Absorb" },
+	repeat: false,
+};
 
 type SelectionAction =
 	| { _tag: "Move"; offset: -1 | 1 }
@@ -34,11 +49,17 @@ type SelectionAction =
 	| { _tag: "TogglePreview" }
 	| { _tag: "OpenFullscreenPreview" };
 
-type ChangesAction = SelectionAction | { _tag: "Absorb" };
+type ChangesSummaryAction = SelectionAction | AbsorbAction;
+
+type ChangeDetailsAction = SelectionAction | AbsorbAction | { _tag: "OpenFileDetails" };
+
+type ChangeFileDetailsAction = SelectionAction | { _tag: "CloseDetails" } | AbsorbAction;
 
 type CommitSummaryAction = SelectionAction | { _tag: "EditMessage" } | { _tag: "OpenDetails" };
 
-type CommitDetailsAction = SelectionAction | { _tag: "CloseDetails" };
+type CommitDetailsAction = SelectionAction | { _tag: "CloseDetails" } | { _tag: "OpenFileDetails" };
+
+type CommitFileDetailsAction = SelectionAction | { _tag: "CloseDetails" };
 
 export const togglePreviewBinding: ShortcutBinding<SelectionAction> = {
 	id: "toggle-preview",
@@ -85,17 +106,33 @@ const selectionBindings: Array<ShortcutBinding<SelectionAction>> = [
 	openFullscreenPreviewBinding,
 ];
 
-export const absorbChangesBinding: ShortcutBinding<ChangesAction> = {
-	id: "changes-absorb",
-	description: "Absorb",
-	keys: ["a"],
-	action: { _tag: "Absorb" },
-	repeat: false,
-};
-
-const changesBindings: Array<ShortcutBinding<ChangesAction>> = [
+const changesSummaryBindings: Array<ShortcutBinding<ChangesSummaryAction>> = [
 	...selectionBindings,
-	absorbChangesBinding,
+	absorbBinding,
+];
+
+const changeDetailsBindings: Array<ShortcutBinding<ChangeDetailsAction>> = [
+	...selectionBindings,
+	{
+		id: "changes-open-file-details",
+		description: "Open details",
+		keys: ["ArrowRight", "l"],
+		action: { _tag: "OpenFileDetails" },
+		repeat: false,
+	},
+	absorbBinding,
+];
+
+const changesFileDetailsBindings: Array<ShortcutBinding<ChangeFileDetailsAction>> = [
+	...selectionBindings,
+	absorbBinding,
+	{
+		id: "change-file-details-close",
+		description: "Close details",
+		keys: ["ArrowLeft", "Escape"],
+		action: { _tag: "CloseDetails" },
+		repeat: false,
+	},
 ];
 
 const editCommitMessageBinding: ShortcutBinding<CommitSummaryAction> = {
@@ -130,7 +167,25 @@ export const closeCommitDetailsBinding: ShortcutBinding<CommitDetailsAction> = {
 
 const commitDetailsBindings: Array<ShortcutBinding<CommitDetailsAction>> = [
 	...selectionBindings,
+	{
+		id: "commit-open-file-details",
+		description: "Open details",
+		keys: ["ArrowRight", "l"],
+		action: { _tag: "OpenFileDetails" },
+		repeat: false,
+	},
 	closeCommitDetailsBinding,
+];
+
+const commitFileDetailsBindings: Array<ShortcutBinding<CommitFileDetailsAction>> = [
+	...selectionBindings,
+	{
+		id: "commit-file-details-close",
+		description: "Close details",
+		keys: ["ArrowLeft", "Escape"],
+		action: { _tag: "CloseDetails" },
+		repeat: false,
+	},
 ];
 
 type BranchSegmentAction = SelectionAction | { _tag: "RenameBranch" };
@@ -257,13 +312,28 @@ type Scope =
 			context: BaseCommitItem;
 	  }
 	| {
-			_tag: "Changes";
-			bindings: Array<ShortcutBinding<ChangesAction>>;
+			_tag: "ChangesSummary";
+			bindings: Array<ShortcutBinding<ChangesSummaryAction>>;
+			context: ChangesItem;
+	  }
+	| {
+			_tag: "ChangeDetails";
+			bindings: Array<ShortcutBinding<ChangeDetailsAction>>;
 			context: ChangesItem;
 	  }
 	| {
 			_tag: "CommitDetails";
 			bindings: Array<ShortcutBinding<CommitDetailsAction>>;
+			context: CommitItem;
+	  }
+	| {
+			_tag: "ChangeFileDetails";
+			bindings: Array<ShortcutBinding<ChangeFileDetailsAction>>;
+			context: ChangesItem;
+	  }
+	| {
+			_tag: "CommitFileDetails";
+			bindings: Array<ShortcutBinding<CommitFileDetailsAction>>;
 			context: CommitItem;
 	  }
 	| {
@@ -312,11 +382,31 @@ export const getScope = ({
 	return Match.value(selection).pipe(
 		Match.tag(
 			"Changes",
-			(selection): Scope => ({
-				_tag: "Changes",
-				bindings: changesBindings,
-				context: selection,
-			}),
+			(selection): Scope =>
+				Match.value(selection.mode).pipe(
+					Match.tagsExhaustive({
+						Summary: (): Scope => ({
+							_tag: "ChangesSummary",
+							bindings: changesSummaryBindings,
+							context: selection,
+						}),
+						Details: ({ item }): Scope =>
+							Match.value(item).pipe(
+								Match.tagsExhaustive({
+									Hunk: (): Scope => ({
+										_tag: "ChangeFileDetails",
+										bindings: changesFileDetailsBindings,
+										context: selection,
+									}),
+									File: (): Scope => ({
+										_tag: "ChangeDetails",
+										bindings: changeDetailsBindings,
+										context: selection,
+									}),
+								}),
+							),
+					}),
+				),
 		),
 		Match.tag("Commit", (selection): Scope => {
 			if (
@@ -333,11 +423,18 @@ export const getScope = ({
 
 			return Match.value(selection.mode).pipe(
 				Match.tagsExhaustive({
-					Details: (): Scope => ({
-						_tag: "CommitDetails",
-						bindings: commitDetailsBindings,
-						context: selection,
-					}),
+					Details: ({ item }): Scope =>
+						item?._tag === "Hunk"
+							? {
+									_tag: "CommitFileDetails",
+									bindings: commitFileDetailsBindings,
+									context: selection,
+								}
+							: {
+									_tag: "CommitDetails",
+									bindings: commitDetailsBindings,
+									context: selection,
+								},
 					Summary: (): Scope => ({
 						_tag: "CommitSummary",
 						bindings: commitSummaryBindings,
@@ -387,8 +484,11 @@ export const getLabel = (scope: Scope): string =>
 			FullscreenPreview: () => "Fullscreen preview",
 			BaseCommit: () => "Base commit",
 			RenameBranch: () => "Rename branch",
-			Changes: () => "Changes",
+			ChangesSummary: () => "Changes",
+			ChangeDetails: () => "Change details",
 			CommitDetails: () => "Commit details",
+			ChangeFileDetails: () => "Change file details",
+			CommitFileDetails: () => "Commit file details",
 			CommitEditMessage: () => "Edit commit message",
 			CommitSummary: () => "Commit",
 			Branch: () => "Branch",
@@ -424,16 +524,36 @@ export const useWorkspaceShortcuts = ({
 
 		Match.value(selection.mode).pipe(
 			Match.tagsExhaustive({
-				Details: ({ path }) => {
-					const change = worktreeChanges.changes.find((change) => change.path === path);
+				Details: ({ item }) => {
+					const change = worktreeChanges.changes.find((change) => change.path === item.path);
 					if (!change) return;
-					requestAbsorptionPlan({
-						type: "treeChanges",
-						subject: {
-							changes: [change],
-							assigned_stack_id: selection.stackId,
-						},
-					});
+
+					Match.value(item).pipe(
+						Match.tagsExhaustive({
+							File: () =>
+								requestAbsorptionPlan({
+									type: "treeChanges",
+									subject: {
+										changes: [change],
+										assigned_stack_id: selection.stackId,
+									},
+								}),
+							Hunk: ({ hunkHeader }) =>
+								requestAbsorptionPlan({
+									type: "hunkAssignments",
+									subject: {
+										assignments: [
+											{
+												path: change.path,
+												pathBytes: change.pathBytes,
+												hunkHeader,
+												stackId: selection.stackId,
+											},
+										],
+									},
+								}),
+						}),
+					);
 				},
 				Summary: () => {
 					const assignmentsByPath = new Set(
@@ -456,7 +576,13 @@ export const useWorkspaceShortcuts = ({
 		);
 	};
 
-	const moveCommitDetailsFile = (offset: -1 | 1, selection: CommitItem) => {
+	const moveCommitDetailsFile = ({
+		offset,
+		selection,
+	}: {
+		offset: -1 | 1;
+		selection: CommitItem;
+	}) => {
 		if (selection.mode._tag !== "Details") return;
 
 		const commitDetails = queryClient.getQueryData(
@@ -468,14 +594,16 @@ export const useWorkspaceShortcuts = ({
 		if (!commitDetails) return;
 
 		const paths = commitDetails.changes.map((change) => change.path);
-		const currentPath = selection.mode.path;
+		const currentPath = selection.mode.item?.path;
+		if (currentPath === undefined) return;
+
 		const nextPath = getAdjacentPath({ paths, currentPath, offset });
 		if (nextPath === null) return;
 
 		select(
 			commitItem({
 				...selection,
-				mode: { _tag: "Details", path: nextPath },
+				mode: { _tag: "Details", item: detailsFileItem(nextPath) },
 			}),
 		);
 	};
@@ -496,9 +624,156 @@ export const useWorkspaceShortcuts = ({
 		select(
 			commitItem({
 				...selection,
-				mode: firstPath === undefined ? { _tag: "Details" } : { _tag: "Details", path: firstPath },
+				mode:
+					firstPath === undefined
+						? { _tag: "Details", item: null }
+						: { _tag: "Details", item: detailsFileItem(firstPath) },
 			}),
 		);
+	};
+
+	const openCommitFileDetails = async (selection: CommitItem) => {
+		if (selection.mode._tag !== "Details") return;
+
+		const commitDetails = queryClient.getQueryData(
+			commitDetailsWithLineStatsQueryOptions({
+				projectId,
+				commitId: selection.commitId,
+			}).queryKey,
+		);
+		if (!commitDetails) return;
+
+		const currentPath = selection.mode.item?.path;
+		if (currentPath === undefined) return;
+
+		const change = commitDetails.changes.find((change) => change.path === currentPath);
+		if (!change) return;
+
+		const diff = await queryClient.fetchQuery(treeChangeDiffsQueryOptions({ projectId, change }));
+		if (!diff || diff.type !== "Patch") return;
+
+		const firstHunk = diff.subject.hunks[0];
+		if (!firstHunk) return;
+
+		select(
+			commitItem({
+				...selection,
+				mode: { _tag: "Details", item: detailsHunkItem(currentPath, firstHunk) },
+			}),
+		);
+	};
+
+	const moveCommitDetailsHunk = ({
+		offset,
+		selection,
+	}: {
+		offset: -1 | 1;
+		selection: CommitItem;
+	}) => {
+		if (selection.mode._tag !== "Details" || selection.mode.item?._tag !== "Hunk") return;
+
+		const currentPath = selection.mode.item.path;
+
+		const commitDetails = queryClient.getQueryData(
+			commitDetailsWithLineStatsQueryOptions({
+				projectId,
+				commitId: selection.commitId,
+			}).queryKey,
+		);
+		if (!commitDetails) return;
+
+		const change = commitDetails.changes.find((change) => change.path === currentPath);
+		if (!change) return;
+
+		const diff = queryClient.getQueryData(
+			treeChangeDiffsQueryOptions({ projectId, change }).queryKey,
+		);
+		if (!diff || diff.type !== "Patch") return;
+
+		const nextHunk = getAdjacentHunk({
+			hunks: diff.subject.hunks,
+			currentHunk: selection.mode.item.hunkHeader,
+			offset,
+		});
+		if (nextHunk === null) return;
+
+		select(
+			commitItem({
+				...selection,
+				mode: { _tag: "Details", item: detailsHunkItem(currentPath, nextHunk) },
+			}),
+		);
+	};
+
+	const closeCommitFileDetails = (selection: CommitItem) => {
+		if (selection.mode._tag !== "Details" || selection.mode.item === null) return;
+		select(
+			commitItem({
+				...selection,
+				mode: { _tag: "Details", item: detailsFileItem(selection.mode.item.path) },
+			}),
+		);
+	};
+
+	const openChangeFileDetails = async (selection: ChangesItem) => {
+		if (selection.mode._tag !== "Details" || selection.mode.item._tag !== "File") return;
+		const currentPath = selection.mode.item.path;
+
+		const worktreeChanges = queryClient.getQueryData(
+			changesInWorktreeQueryOptions(projectId).queryKey,
+		);
+		if (!worktreeChanges) return;
+
+		const change = worktreeChanges.changes.find((change) => change.path === currentPath);
+		if (!change) return;
+
+		const diff = await queryClient.fetchQuery(treeChangeDiffsQueryOptions({ projectId, change }));
+		if (!diff || diff.type !== "Patch") return;
+
+		const assignments = worktreeChanges.assignments.filter(
+			(assignment) =>
+				(assignment.stackId ?? null) === selection.stackId && assignment.path === change.path,
+		);
+		const firstHunk = assignedHunks(diff.subject.hunks, assignments)[0];
+		if (!firstHunk) return;
+
+		select(changesDetailsItem(selection.stackId, detailsHunkItem(currentPath, firstHunk)));
+	};
+
+	const moveChangesDetailsHunk = (offset: -1 | 1, selection: ChangesItem) => {
+		if (selection.mode._tag !== "Details" || selection.mode.item._tag !== "Hunk") return;
+		const currentItem = selection.mode.item;
+
+		const worktreeChanges = queryClient.getQueryData(
+			changesInWorktreeQueryOptions(projectId).queryKey,
+		);
+		if (!worktreeChanges) return;
+
+		const change = worktreeChanges.changes.find((change) => change.path === currentItem.path);
+		if (!change) return;
+
+		const diff = queryClient.getQueryData(
+			treeChangeDiffsQueryOptions({ projectId, change }).queryKey,
+		);
+		if (!diff || diff.type !== "Patch") return;
+
+		const assignments = worktreeChanges.assignments.filter(
+			(assignment) =>
+				(assignment.stackId ?? null) === selection.stackId && assignment.path === change.path,
+		);
+		const nextHunk = getAdjacentHunk({
+			hunks: assignedHunks(diff.subject.hunks, assignments),
+			currentHunk: currentItem.hunkHeader,
+			offset,
+		});
+		if (nextHunk === null) return;
+
+		select(changesDetailsItem(selection.stackId, detailsHunkItem(change.path, nextHunk)));
+	};
+
+	const closeChangeFileDetails = (selection: ChangesItem) => {
+		if (selection.mode._tag !== "Details") return;
+		select(changesDetailsItem(selection.stackId, detailsFileItem(selection.mode.item.path)));
 	};
 
 	const move = (offset: -1 | 1, selection: Item) =>
@@ -519,10 +794,31 @@ export const useWorkspaceShortcuts = ({
 			}),
 		);
 
-	const handleChangesAction = (action: ChangesAction, selection: ChangesItem) =>
+	const handleChangesAction = (action: ChangesSummaryAction, selection: ChangesItem) =>
 		Match.value(action).pipe(
 			Match.tags({
 				Absorb: () => requestAbsorptionPlanForSelection(selection),
+			}),
+			Match.orElse((action) => handleSelectionAction(action, { _tag: "Changes", ...selection })),
+		);
+
+	const handleChangeDetailsAction = (action: ChangeDetailsAction, selection: ChangesItem) =>
+		Match.value(action).pipe(
+			Match.tags({
+				Absorb: () => requestAbsorptionPlanForSelection(selection),
+				OpenFileDetails: () => {
+					void openChangeFileDetails(selection);
+				},
+			}),
+			Match.orElse((action) => handleSelectionAction(action, { _tag: "Changes", ...selection })),
+		);
+
+	const handleChangeFileDetailsAction = (action: ChangeFileDetailsAction, selection: ChangesItem) =>
+		Match.value(action).pipe(
+			Match.tags({
+				Absorb: () => requestAbsorptionPlanForSelection(selection),
+				Move: ({ offset }) => moveChangesDetailsHunk(offset, selection),
+				CloseDetails: () => closeChangeFileDetails(selection),
 			}),
 			Match.orElse((action) => handleSelectionAction(action, { _tag: "Changes", ...selection })),
 		);
@@ -541,8 +837,20 @@ export const useWorkspaceShortcuts = ({
 	const handleCommitDetailsAction = (action: CommitDetailsAction, selection: CommitItem) =>
 		Match.value(action).pipe(
 			Match.tags({
-				Move: ({ offset }) => moveCommitDetailsFile(offset, selection),
+				Move: ({ offset }) => moveCommitDetailsFile({ offset, selection }),
+				OpenFileDetails: () => {
+					void openCommitFileDetails(selection);
+				},
 				CloseDetails: () => select(commitItem({ ...selection, mode: { _tag: "Summary" } })),
+			}),
+			Match.orElse((action) => handleSelectionAction(action, { _tag: "Commit", ...selection })),
+		);
+
+	const handleCommitFileDetailsAction = (action: CommitFileDetailsAction, selection: CommitItem) =>
+		Match.value(action).pipe(
+			Match.tags({
+				Move: ({ offset }) => moveCommitDetailsHunk({ offset, selection }),
+				CloseDetails: () => closeCommitFileDetails(selection),
 			}),
 			Match.orElse((action) => handleSelectionAction(action, { _tag: "Commit", ...selection })),
 		);
@@ -581,11 +889,23 @@ export const useWorkspaceShortcuts = ({
 						}),
 					);
 				},
-				Changes: (scope) => {
+				ChangesSummary: (scope) => {
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
 					event.preventDefault();
 					handleChangesAction(action, scope.context);
+				},
+				ChangeDetails: (scope) => {
+					const action = getAction(scope.bindings, event);
+					if (!action) return;
+					event.preventDefault();
+					handleChangeDetailsAction(action, scope.context);
+				},
+				ChangeFileDetails: (scope) => {
+					const action = getAction(scope.bindings, event);
+					if (!action) return;
+					event.preventDefault();
+					handleChangeFileDetailsAction(action, scope.context);
 				},
 				BaseCommit: (scope) => {
 					const action = getAction(scope.bindings, event);
@@ -617,6 +937,12 @@ export const useWorkspaceShortcuts = ({
 					if (!action) return;
 					event.preventDefault();
 					handleCommitDetailsAction(action, scope.context);
+				},
+				CommitFileDetails: (scope) => {
+					const action = getAction(scope.bindings, event);
+					if (!action) return;
+					event.preventDefault();
+					handleCommitFileDetailsAction(action, scope.context);
 				},
 				CommitEditMessage: () => undefined,
 			}),

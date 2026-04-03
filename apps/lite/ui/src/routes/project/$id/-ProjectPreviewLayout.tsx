@@ -1,6 +1,7 @@
 import { Dialog } from "@base-ui/react";
 import { FC, ReactNode, use, useState } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
+import { classes } from "#ui/classes.ts";
 import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/-ShortcutsBar.tsx";
 import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
@@ -13,15 +14,17 @@ export const ProjectPreviewLayout: FC<{
 	projectId: string;
 	children: ReactNode;
 	preview: ReactNode | null;
-}> = ({ children, projectId, preview }) => {
+	isSelectionInsidePreview?: boolean;
+}> = ({ children, projectId, preview, isSelectionInsidePreview = false }) => {
 	const [showPreviewPanel] = usePreviewPanel();
 	const [showFullscreenPreview, setShowFullscreenPreview] = useFullscreenPreview(projectId);
+	const shouldShowPreviewPanel = showPreviewPanel || isSelectionInsidePreview;
 	const inheritedShortcutsBarPortalNode = use(ShortcutsBarPortalContext);
 	const [dialogShortcutsBarPortalNode, setDialogShortcutsBarPortalNode] =
 		useState<HTMLElement | null>(null);
 	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
 		id: `project:${projectId}:layout`,
-		panelIds: showPreviewPanel ? ["primary", "preview"] : ["primary"],
+		panelIds: shouldShowPreviewPanel ? ["primary", "preview"] : ["primary"],
 	});
 
 	return (
@@ -38,9 +41,16 @@ export const ProjectPreviewLayout: FC<{
 				onLayoutChange={onLayoutChanged}
 			>
 				<Panel id="primary" minSize={500}>
-					<div className={sharedStyles.primaryPane}>{children}</div>
+					<div
+						className={classes(
+							sharedStyles.primaryPane,
+							isSelectionInsidePreview && sharedStyles.primaryPaneDeemphasized,
+						)}
+					>
+						{children}
+					</div>
 				</Panel>
-				{showPreviewPanel && (
+				{shouldShowPreviewPanel && (
 					<>
 						<Separator className={sharedStyles.previewResizeHandle} />
 						<Panel
