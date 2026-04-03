@@ -11,6 +11,7 @@ use but_workspace::{
     legacy::stack_ext::StackExt,
 };
 use gitbutler_branch::{self, BranchCreateRequest, dedup};
+use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
@@ -281,7 +282,10 @@ impl BranchManager<'_> {
             .context(format!("failed to find merge base commit {merge_base}"))?
             .tree_id()?
             .detach();
-        let branch_tree_id = stack.tree(self.ctx)?;
+        let branch_head_commit = repo.find_commit(stack_head)?;
+        let branch_tree_id = repo
+            .find_real_tree(&branch_head_commit, Default::default())?
+            .detach();
 
         let mut unapplied_stacks = vec![];
 
