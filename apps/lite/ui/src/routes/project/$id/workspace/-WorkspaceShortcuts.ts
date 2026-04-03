@@ -102,7 +102,7 @@ const changesBindings: Array<ShortcutBinding<ChangesAction>> = [
 
 const editCommitMessageBinding: ShortcutBinding<CommitSummaryAction> = {
 	id: "commit-edit-message",
-	description: "Edit message",
+	description: "Reword",
 	keys: ["Enter"],
 	action: { _tag: "EditMessage" },
 	repeat: false,
@@ -391,7 +391,7 @@ export const getLabel = (scope: Scope): string =>
 			RenameBranch: () => "Rename branch",
 			Changes: () => "Changes",
 			CommitDetails: () => "Commit details",
-			CommitEditMessage: () => "Edit commit message",
+			CommitEditMessage: () => "Reword commit",
 			CommitSummary: () => "Commit",
 			Branch: () => "Branch",
 			Segment: () => "Segment",
