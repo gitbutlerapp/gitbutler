@@ -50,7 +50,7 @@ export const formatHunkHeader = (hunk: HunkHeader): string =>
 
 export const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
-const assignedHunks = (
+export const assignedHunks = (
 	hunks: Array<DiffHunk>,
 	assignments: Array<HunkAssignment>,
 ): Array<DiffHunk> => {
@@ -102,7 +102,7 @@ export const HunkDiff: FC<{
 	/>
 );
 
-const hunkKey = (hunk: HunkHeader): string =>
+export const hunkKey = (hunk: HunkHeader): string =>
 	`${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`;
 
 export type Patch = Extract<UnifiedPatch, { type: "Patch" }>;

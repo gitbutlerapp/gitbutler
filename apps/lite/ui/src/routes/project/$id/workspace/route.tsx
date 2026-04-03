@@ -11,6 +11,7 @@ import {
 	commitDetailsWithLineStatsQueryOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
+	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { classes } from "#ui/classes.ts";
 import {
@@ -47,7 +48,6 @@ import {
 	CommitDetails as SharedCommitDetails,
 	CommitsList,
 	FileButton,
-	FileDiff,
 	formatHunkHeader,
 	HunkDiff,
 	Patch,
@@ -55,6 +55,8 @@ import {
 	ShowCommitWithQuery,
 	CommitLabel,
 	shortCommitId,
+	assignedHunks,
+	hunkKey,
 } from "#ui/routes/project/$id/-shared.tsx";
 import uiStyles from "#ui/ui.module.css";
 import { ContextMenu, Menu, mergeProps, Toast, Tooltip, useRender } from "@base-ui/react";
@@ -316,6 +318,39 @@ const Hunk: FC<{
 			)}
 			<HunkDiff change={change} diff={hunk.diff} />
 		</div>
+	);
+};
+
+const FileDiff: FC<{
+	projectId: string;
+	change: TreeChange;
+	assignments?: Array<HunkAssignment>;
+	renderHunk: (hunk: DiffHunk, patch: Patch) => ReactNode;
+}> = ({ projectId, change, assignments, renderHunk }) => {
+	const { data } = useSuspenseQuery(treeChangeDiffsQueryOptions({ projectId, change }));
+
+	return Match.value(data).pipe(
+		Match.when(null, () => <div>No diff available for this file.</div>),
+		Match.when({ type: "Binary" }, () => <div>Binary file (diff not available).</div>),
+		Match.when({ type: "TooLarge" }, ({ subject }) => (
+			<div>Diff too large ({subject.sizeInBytes} bytes).</div>
+		)),
+		Match.when({ type: "Patch" }, (patch) => {
+			const visibleHunks = assignments
+				? assignedHunks(patch.subject.hunks, assignments)
+				: patch.subject.hunks;
+
+			if (visibleHunks.length === 0) return <div>No hunks.</div>;
+
+			return (
+				<ul>
+					{visibleHunks.map((hunk) => (
+						<li key={hunkKey(hunk)}>{renderHunk(hunk, patch)}</li>
+					))}
+				</ul>
+			);
+		}),
+		Match.exhaustive,
 	);
 };
 
