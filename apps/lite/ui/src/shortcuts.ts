@@ -10,6 +10,7 @@ export type ShortcutBinding<Action extends ShortcutActionBase> = {
 	keys: Array<string>;
 	action: Action;
 	repeat?: boolean;
+	showInShortcutsBar?: boolean;
 };
 
 const normalizeShortcutKey = (key: string): string => (key.length === 1 ? key.toLowerCase() : key);
