@@ -13,6 +13,12 @@ import { Match } from "effect";
 import { useEffect, useEffectEvent } from "react";
 import { type Editing } from "./-Editing.ts";
 import {
+	closeChangeFileDetails,
+	closeCommitFileDetails,
+	openChangeFileDetails,
+	openCommitFileDetails,
+} from "./-FileDetails.ts";
+import {
 	commitItem,
 	changesDetailsItem,
 	detailsFileItem,
@@ -632,37 +638,6 @@ export const useWorkspaceShortcuts = ({
 		);
 	};
 
-	const openCommitFileDetails = async (selection: CommitItem) => {
-		if (selection.mode._tag !== "Details") return;
-
-		const commitDetails = queryClient.getQueryData(
-			commitDetailsWithLineStatsQueryOptions({
-				projectId,
-				commitId: selection.commitId,
-			}).queryKey,
-		);
-		if (!commitDetails) return;
-
-		const currentPath = selection.mode.item?.path;
-		if (currentPath === undefined) return;
-
-		const change = commitDetails.changes.find((change) => change.path === currentPath);
-		if (!change) return;
-
-		const diff = await queryClient.fetchQuery(treeChangeDiffsQueryOptions({ projectId, change }));
-		if (!diff || diff.type !== "Patch") return;
-
-		const firstHunk = diff.subject.hunks[0];
-		if (!firstHunk) return;
-
-		select(
-			commitItem({
-				...selection,
-				mode: { _tag: "Details", item: detailsHunkItem(currentPath, firstHunk) },
-			}),
-		);
-	};
-
 	const moveCommitDetailsHunk = ({
 		offset,
 		selection,
@@ -705,41 +680,6 @@ export const useWorkspaceShortcuts = ({
 		);
 	};
 
-	const closeCommitFileDetails = (selection: CommitItem) => {
-		if (selection.mode._tag !== "Details" || selection.mode.item === null) return;
-		select(
-			commitItem({
-				...selection,
-				mode: { _tag: "Details", item: detailsFileItem(selection.mode.item.path) },
-			}),
-		);
-	};
-
-	const openChangeFileDetails = async (selection: ChangesItem) => {
-		if (selection.mode._tag !== "Details" || selection.mode.item._tag !== "File") return;
-		const currentPath = selection.mode.item.path;
-
-		const worktreeChanges = queryClient.getQueryData(
-			changesInWorktreeQueryOptions(projectId).queryKey,
-		);
-		if (!worktreeChanges) return;
-
-		const change = worktreeChanges.changes.find((change) => change.path === currentPath);
-		if (!change) return;
-
-		const diff = await queryClient.fetchQuery(treeChangeDiffsQueryOptions({ projectId, change }));
-		if (!diff || diff.type !== "Patch") return;
-
-		const assignments = worktreeChanges.assignments.filter(
-			(assignment) =>
-				(assignment.stackId ?? null) === selection.stackId && assignment.path === change.path,
-		);
-		const firstHunk = assignedHunks(diff.subject.hunks, assignments)[0];
-		if (!firstHunk) return;
-
-		select(changesDetailsItem(selection.stackId, detailsHunkItem(currentPath, firstHunk)));
-	};
-
 	const moveChangesDetailsHunk = (offset: -1 | 1, selection: ChangesItem) => {
 		if (selection.mode._tag !== "Details" || selection.mode.item._tag !== "Hunk") return;
 		const currentItem = selection.mode.item;
@@ -769,11 +709,6 @@ export const useWorkspaceShortcuts = ({
 		if (nextHunk === null) return;
 
 		select(changesDetailsItem(selection.stackId, detailsHunkItem(change.path, nextHunk)));
-	};
-
-	const closeChangeFileDetails = (selection: ChangesItem) => {
-		if (selection.mode._tag !== "Details") return;
-		select(changesDetailsItem(selection.stackId, detailsFileItem(selection.mode.item.path)));
 	};
 
 	const move = (offset: -1 | 1, selection: Item) =>
@@ -807,7 +742,7 @@ export const useWorkspaceShortcuts = ({
 			Match.tags({
 				Absorb: () => requestAbsorptionPlanForSelection(selection),
 				OpenFileDetails: () => {
-					void openChangeFileDetails(selection);
+					void openChangeFileDetails({ projectId, queryClient, select, selection });
 				},
 			}),
 			Match.orElse((action) => handleSelectionAction(action, { _tag: "Changes", ...selection })),
@@ -818,7 +753,7 @@ export const useWorkspaceShortcuts = ({
 			Match.tags({
 				Absorb: () => requestAbsorptionPlanForSelection(selection),
 				Move: ({ offset }) => moveChangesDetailsHunk(offset, selection),
-				CloseDetails: () => closeChangeFileDetails(selection),
+				CloseDetails: () => closeChangeFileDetails({ select, selection }),
 			}),
 			Match.orElse((action) => handleSelectionAction(action, { _tag: "Changes", ...selection })),
 		);
@@ -839,7 +774,7 @@ export const useWorkspaceShortcuts = ({
 			Match.tags({
 				Move: ({ offset }) => moveCommitDetailsFile({ offset, selection }),
 				OpenFileDetails: () => {
-					void openCommitFileDetails(selection);
+					void openCommitFileDetails({ projectId, queryClient, select, selection });
 				},
 				CloseDetails: () => select(commitItem({ ...selection, mode: { _tag: "Summary" } })),
 			}),
@@ -850,7 +785,7 @@ export const useWorkspaceShortcuts = ({
 		Match.value(action).pipe(
 			Match.tags({
 				Move: ({ offset }) => moveCommitDetailsHunk({ offset, selection }),
-				CloseDetails: () => closeCommitFileDetails(selection),
+				CloseDetails: () => closeCommitFileDetails({ select, selection }),
 			}),
 			Match.orElse((action) => handleSelectionAction(action, { _tag: "Commit", ...selection })),
 		);
