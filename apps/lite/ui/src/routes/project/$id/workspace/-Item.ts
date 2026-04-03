@@ -11,7 +11,17 @@ export type SegmentItem = {
 	branchName: string | null;
 };
 
-type CommitMode = { _tag: "Summary" } | { _tag: "Details"; path?: string };
+type CommitMode =
+	| { _tag: "Summary" }
+	| {
+			_tag: "Details";
+			// This is optional because:
+			// - There may be no files in the commit.
+			// - We expand the details view synchronously but commit details are
+			//   loaded asynchronously. After data has loaded, the path will be
+			//   returned using `getSelectedCommitPath`.
+			path?: string;
+	  };
 export type CommitItem = SegmentItem & { commitId: string; mode: CommitMode };
 
 export type BaseCommitItem = { commitId: string };
