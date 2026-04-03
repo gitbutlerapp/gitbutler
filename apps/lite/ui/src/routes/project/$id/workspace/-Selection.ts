@@ -6,12 +6,12 @@ import {
 	type RefInfo,
 	type TreeChange,
 } from "@gitbutler/but-sdk";
+import { Match } from "effect";
 import {
 	baseCommitItem,
 	changesDetailsItem,
 	changesSummaryItem,
 	detailsFileItem,
-	itemKey,
 	type Item,
 	segmentItem,
 	commitItem,
@@ -38,6 +38,19 @@ export type NavigationModel = {
 	indexByKey: Map<string, number>;
 };
 
+const navigationItemKey = (item: Item): string =>
+	Match.value(item).pipe(
+		Match.tagsExhaustive({
+			Changes: (item) =>
+				item.mode._tag === "Details"
+					? JSON.stringify(["Changes", item.stackId, "Details", item.mode.item.path])
+					: JSON.stringify(["Changes", item.stackId, item.mode._tag]),
+			Segment: (item) => JSON.stringify(["Segment", item.stackId, item.segmentIndex]),
+			Commit: (item) => JSON.stringify(["Commit", item.stackId, item.segmentIndex, item.commitId]),
+			BaseCommit: (item) => JSON.stringify(["BaseCommit", item.commitId]),
+		}),
+	);
+
 export const buildNavigationModel = ({
 	headInfo,
 	changes,
@@ -57,7 +70,7 @@ export const buildNavigationModel = ({
 	};
 
 	const addItem = (item: Item, sectionIndex: number) => {
-		model.indexByKey.set(itemKey(item), model.items.length);
+		model.indexByKey.set(navigationItemKey(item), model.items.length);
 		model.sectionIndexByItemIndex.push(sectionIndex);
 		model.items.push(item);
 	};
@@ -115,7 +128,7 @@ export const getAdjacentItem = (
 	offset: -1 | 1,
 ): Item | null => {
 	if (!selection) return null;
-	const currentIndex = model.indexByKey.get(itemKey(selection));
+	const currentIndex = model.indexByKey.get(navigationItemKey(selection));
 	if (currentIndex === undefined) return null;
 	return getRelative(model.items, currentIndex, offset);
 };
@@ -126,7 +139,7 @@ export const getAdjacentSection = (
 	offset: -1 | 1,
 ): Item | null => {
 	if (!selection) return null;
-	const currentIndex = model.indexByKey.get(itemKey(selection));
+	const currentIndex = model.indexByKey.get(navigationItemKey(selection));
 	if (currentIndex === undefined) return null;
 	const currentSectionIndex = model.sectionIndexByItemIndex[currentIndex] ?? -1;
 	if (currentSectionIndex === -1) return null;
