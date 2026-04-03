@@ -131,6 +131,13 @@ pub trait RepositoryExt: Sized {
     /// to favor ours, both when dealing with content merges and with tree merges.
     fn merge_options_force_ours(&self) -> anyhow::Result<gix::merge::tree::Options>;
 
+    /// Tree merge options that enforce undecidable file/content conflicts to be
+    /// forcefully resolved to favor theirs.
+    ///
+    /// `gix` does not currently expose a tree-level `Theirs` mode, so tree
+    /// conflicts keep the default tree behavior.
+    fn merge_options_force_theirs(&self) -> anyhow::Result<gix::merge::tree::Options>;
+
     /// Return options suitable for merging so that the merge stops immediately after the first conflict.
     /// It also returns the conflict kind to use when checking for unresolved conflicts.
     fn merge_options_fail_fast(
@@ -448,6 +455,12 @@ impl RepositoryExt for gix::Repository {
             .tree_merge_options()?
             .with_tree_favor(Some(gix::merge::tree::TreeFavor::Ours))
             .with_file_favor(Some(gix::merge::tree::FileFavor::Ours)))
+    }
+
+    fn merge_options_force_theirs(&self) -> anyhow::Result<Options> {
+        Ok(self
+            .tree_merge_options()?
+            .with_file_favor(Some(gix::merge::tree::FileFavor::Theirs)))
     }
 
     fn merge_options_fail_fast(

@@ -84,11 +84,52 @@ impl Pick {
     }
 }
 
+/// Represents a divergent-change resolution step.
+///
+/// Each remote family member gets one `PickDivergent` step. Steps with the
+/// same `family_id` share `local_commits` and `ancestor` and are processed
+/// in normal graph traversal order. After resolution, each step is lowered
+/// into an ordinary `Pick` in the output graph.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PickDivergent {
+    /// The ordered local commits (parentmost → childmost) that form the
+    /// local side of the divergence. Identical across all steps in a family.
+    pub local_commits: Vec<gix::ObjectId>,
+    /// The optional divergence ancestor (common base before local/remote
+    /// diverged). Identical across all steps in a family.
+    pub ancestor: Option<gix::ObjectId>,
+    /// The remote commit that occupies this position in the family.
+    pub remote_commit: gix::ObjectId,
+    /// Opaque identifier that groups related remote commits into a single
+    /// family. All steps sharing this value are processed together.
+    pub family_id: [u8; 20],
+}
+
+impl PickDivergent {
+    /// Creates a `PickDivergent` with the given parameters.
+    pub fn new(
+        local_commits: Vec<gix::ObjectId>,
+        ancestor: Option<gix::ObjectId>,
+        remote_commit: gix::ObjectId,
+        family_id: [u8; 20],
+    ) -> Self {
+        Self {
+            local_commits,
+            ancestor,
+            remote_commit,
+            family_id,
+        }
+    }
+}
+
 /// Describes what action the engine should take
 #[derive(Debug, Clone, PartialEq)]
 pub enum Step {
     /// Cherry picks the given commit into the new location in the graph
     Pick(Pick),
+    /// Resolves one position of a divergent local/remote change. See
+    /// [`PickDivergent`] for details.
+    PickDivergent(PickDivergent),
     /// Represents applying a reference to the commit found at it's first parent
     Reference {
         /// The refname
@@ -110,6 +151,21 @@ impl Step {
     /// `insert_blank_commit` operation.
     pub fn new_untracked_pick(id: gix::ObjectId) -> Self {
         Self::Pick(Pick::new_untracked_pick(id))
+    }
+
+    /// Creates a `PickDivergent` step.
+    pub fn new_pick_divergent(
+        local_commits: Vec<gix::ObjectId>,
+        ancestor: Option<gix::ObjectId>,
+        remote_commit: gix::ObjectId,
+        family_id: [u8; 20],
+    ) -> Self {
+        Self::PickDivergent(PickDivergent::new(
+            local_commits,
+            ancestor,
+            remote_commit,
+            family_id,
+        ))
     }
 }
 

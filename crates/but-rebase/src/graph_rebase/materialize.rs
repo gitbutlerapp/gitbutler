@@ -28,6 +28,9 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
 
                     let new_head = match step {
                         Step::None => bail!("Checkout selector is pointing to none"),
+                        Step::PickDivergent(_) => {
+                            bail!("Checkout selector is pointing to an unresolved PickDivergent")
+                        }
                         Step::Pick(Pick { id, .. }) => id,
                         Step::Reference { .. } => {
                             let parents = collect_ordered_parents(&self.graph, selector.id);

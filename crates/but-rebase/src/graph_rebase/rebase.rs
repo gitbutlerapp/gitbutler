@@ -18,6 +18,59 @@ use crate::graph_rebase::{
     cherry_pick::{CherryPickOutcome, cherry_pick},
     util::collect_ordered_parents,
 };
+mod pick_divergent;
+
+fn resolved_cherry_pick_id(
+    target: gix::ObjectId,
+    outcome: CherryPickOutcome,
+) -> Result<gix::ObjectId> {
+    match outcome {
+        CherryPickOutcome::Commit(new_id)
+        | CherryPickOutcome::ConflictedCommit(new_id)
+        | CherryPickOutcome::Identity(new_id) => Ok(new_id),
+        CherryPickOutcome::FailedToMergeBases {
+            base_merge_failed,
+            bases,
+            onto_merge_failed,
+            ontos,
+        } => {
+            bail!(format_base_merge_error(
+                target,
+                base_merge_failed,
+                bases,
+                onto_merge_failed,
+                ontos
+            ));
+        }
+    }
+}
+
+fn output_pick_id(
+    output_graph: &StepGraph,
+    graph_mapping: &HashMap<StepGraphIndex, StepGraphIndex>,
+    graph_parent: StepGraphIndex,
+) -> Result<gix::ObjectId> {
+    let Some(new_idx) = graph_mapping.get(&graph_parent) else {
+        bail!("A matching parent can't be found in the output graph");
+    };
+
+    match output_graph[*new_idx] {
+        Step::Pick(Pick { id, .. }) => Ok(id),
+        _ => bail!("A parent in the output graph is not a pick"),
+    }
+}
+
+fn collect_output_pick_parents(
+    graph: &StepGraph,
+    output_graph: &StepGraph,
+    graph_mapping: &HashMap<StepGraphIndex, StepGraphIndex>,
+    step_idx: StepGraphIndex,
+) -> Result<Vec<gix::ObjectId>> {
+    collect_ordered_parents(graph, step_idx)
+        .into_iter()
+        .map(|graph_parent| output_pick_id(output_graph, graph_mapping, graph_parent))
+        .collect()
+}
 
 impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
     /// Perform the rebase
@@ -44,7 +97,7 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
         // The step graph with updated commit oids
         let mut output_graph = StepGraph::new();
         let mut unchanged_references = vec![];
-
+        let mut divergent_state = pick_divergent::State::new(&self.graph, &steps_to_pick);
         let mut history = self.history;
 
         for step_idx in steps_to_pick {
@@ -52,22 +105,14 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
             let step = self.graph[step_idx].clone();
             let new_idx = match step {
                 Step::Pick(pick) => {
-                    let graph_parents = collect_ordered_parents(&self.graph, step_idx);
                     let ontos = match pick.preserved_parents.clone() {
                         Some(ontos) => ontos,
-                        None => graph_parents
-                            .iter()
-                            .map(|idx| {
-                                let Some(new_idx) = graph_mapping.get(idx) else {
-                                    bail!("A matching parent can't be found in the output graph");
-                                };
-
-                                match output_graph[*new_idx] {
-                                    Step::Pick(Pick { id, .. }) => Ok(id),
-                                    _ => bail!("A parent in the output graph is not a pick"),
-                                }
-                            })
-                            .collect::<Result<Vec<_>>>()?,
+                        None => collect_output_pick_parents(
+                            &self.graph,
+                            &output_graph,
+                            &graph_mapping,
+                            step_idx,
+                        )?,
                     };
 
                     let outcome =
@@ -82,50 +127,27 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                         );
                     }
 
-                    match outcome {
-                        CherryPickOutcome::Commit(new_id)
-                        | CherryPickOutcome::ConflictedCommit(new_id)
-                        | CherryPickOutcome::Identity(new_id) => {
-                            let mut new_pick = pick.clone();
-                            new_pick.id = new_id;
-                            let new_idx = output_graph.add_node(Step::Pick(new_pick));
-                            graph_mapping.insert(step_idx, new_idx);
-                            if !pick.exclude_from_tracking {
-                                history.update_mapping(pick.id, new_id);
-                            }
-
-                            new_idx
-                        }
-                        CherryPickOutcome::FailedToMergeBases {
-                            base_merge_failed,
-                            bases,
-                            onto_merge_failed,
-                            ontos,
-                        } => {
-                            // Exit early - the rebase failed because it encountered a commit it couldn't pick
-                            bail!(format_base_merge_error(
-                                pick.id,
-                                base_merge_failed,
-                                bases,
-                                onto_merge_failed,
-                                ontos
-                            ));
-                        }
+                    let new_id = resolved_cherry_pick_id(pick.id, outcome)?;
+                    let mut new_pick = pick.clone();
+                    new_pick.id = new_id;
+                    let new_idx = output_graph.add_node(Step::Pick(new_pick));
+                    graph_mapping.insert(step_idx, new_idx);
+                    if !pick.exclude_from_tracking {
+                        history.update_mapping(pick.id, new_id);
                     }
+
+                    new_idx
                 }
                 Step::Reference { refname } => {
-                    let graph_parents = collect_ordered_parents(&self.graph, step_idx);
-                    let first_parent_idx = graph_parents
-                        .first()
-                        .context("References should have at least one parent")?;
-                    let Some(new_idx) = graph_mapping.get(first_parent_idx) else {
-                        bail!("A matching parent can't be found in the output graph");
-                    };
-
-                    let to_reference = match output_graph[*new_idx] {
-                        Step::Pick(Pick { id, .. }) => id,
-                        _ => bail!("A parent in the output graph is not a pick"),
-                    };
+                    let to_reference = collect_output_pick_parents(
+                        &self.graph,
+                        &output_graph,
+                        &graph_mapping,
+                        step_idx,
+                    )?
+                    .into_iter()
+                    .next()
+                    .context("References should have at least one parent")?;
 
                     let reference = self.repo.try_find_reference(&refname)?;
 
@@ -166,6 +188,19 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                     };
 
                     output_graph.add_node(Step::Reference { refname })
+                }
+                Step::PickDivergent(ref pick_divergent) => {
+                    let ontos = collect_output_pick_parents(
+                        &self.graph,
+                        &output_graph,
+                        &graph_mapping,
+                        step_idx,
+                    )?;
+                    let resolved_id =
+                        divergent_state.rebase_step(&self.repo, &ontos, pick_divergent)?;
+                    let new_idx = output_graph.add_node(Step::Pick(Pick::new_pick(resolved_id)));
+                    history.update_mapping(pick_divergent.remote_commit, resolved_id);
+                    new_idx
                 }
                 Step::None => output_graph.add_node(Step::None),
             };
@@ -256,7 +291,7 @@ pub(crate) fn all_parents_are_references(graph: &StepGraph, target: StepGraphInd
         match graph[candidate.target()] {
             // We encountered a `pick` step before a `reference` step so we can
             // stop the search and return false early.
-            Step::Pick(_) => return false,
+            Step::Pick(_) | Step::PickDivergent(_) => return false,
             // We can stop searching down this leg since we found a reference.
             Step::Reference { .. } => continue,
             // Skip over `None`s and consider their parents.
@@ -572,6 +607,70 @@ mod test {
 
             let ordered_from_a = order_steps_picking(&graph, &[a]);
             assert_eq!(&ordered_from_a, &[c, b, e, d, a]);
+
+            Ok(())
+        }
+    }
+
+    mod pick_divergent_ordering {
+        use std::str::FromStr;
+
+        use anyhow::Result;
+
+        use crate::graph_rebase::{
+            Edge, Step, StepGraph, rebase::order_steps_picking, testing::render_ascii_graph,
+        };
+
+        /// Given a graph where two divergent remote commits (R1, R2) from the
+        /// same family sit on top of a normal `Pick` base:
+        ///
+        /// ```text
+        /// Before (graph edges, child -> parent):
+        ///   R2 (cc00000, divergent) -> R1 (bb00000, divergent) -> Base (aa00000, pick)
+        ///
+        /// Expected ordering (parentmost first):
+        ///   [Base, R1, R2]
+        /// ```
+        ///
+        /// The ordering algorithm must emit the base pick first, then walk
+        /// the divergent family from parentmost (R1) to childmost (R2).
+        #[test]
+        fn family_of_two_orders_correctly() -> Result<()> {
+            let base_id = gix::ObjectId::from_str("aa00000000000000000000000000000000000000")?;
+            let r1_id = gix::ObjectId::from_str("bb00000000000000000000000000000000000000")?;
+            let r2_id = gix::ObjectId::from_str("cc00000000000000000000000000000000000000")?;
+            let l1_id = gix::ObjectId::from_str("dd00000000000000000000000000000000000000")?;
+            let family_id = [0xFFu8; 20];
+
+            let mut graph = StepGraph::new();
+            let base = graph.add_node(Step::new_pick(base_id));
+            let r1 = graph.add_node(Step::new_pick_divergent(
+                vec![l1_id],
+                None,
+                r1_id,
+                family_id,
+            ));
+            let r2 = graph.add_node(Step::new_pick_divergent(
+                vec![l1_id],
+                None,
+                r2_id,
+                family_id,
+            ));
+
+            // r2 is the head (childmost), r1 is its parent, base is r1's parent
+            graph.add_edge(r2, r1, Edge { order: 0 });
+            graph.add_edge(r1, base, Edge { order: 0 });
+
+            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @"
+            ● cc00000 [divergent]
+            ● bb00000 [divergent]
+            ● aa00000
+            ╵
+            ");
+
+            let ordered = order_steps_picking(&graph, &[r2]);
+            // base first, then r1 (parentmost family member), then r2 (childmost)
+            assert_eq!(&ordered, &[base, r1, r2]);
 
             Ok(())
         }

@@ -145,8 +145,52 @@ pub fn cherry_pick(
     }
 }
 
+/// Merge `theirs_tree` into `ours_tree` using `base_tree` as merge base and
+/// write the result as a commit that preserves `target` metadata.
+pub(crate) fn merge_trees_into_target_commit(
+    repo: &gix::Repository,
+    parents: &[gix::ObjectId],
+    target: gix::ObjectId,
+    base_tree: gix::ObjectId,
+    ours_tree: gix::ObjectId,
+    theirs_tree: gix::ObjectId,
+    sign_if_configured: bool,
+) -> Result<CherryPickOutcome> {
+    let target = but_core::Commit::from_id(target.attach(repo))?;
+    let mut outcome = repo.merge_trees(
+        base_tree,
+        ours_tree,
+        theirs_tree,
+        repo.default_merge_labels(),
+        repo.merge_options_force_ours()?,
+    )?;
+    let tree_id = outcome.tree.write()?;
+
+    let conflict_kind = gix::merge::tree::TreatAsUnresolved::forced_resolution();
+    if outcome.has_unresolved_conflicts(conflict_kind) {
+        let conflicted_commit = commit_from_conflicted_tree(
+            parents,
+            target,
+            tree_id,
+            outcome,
+            conflict_kind,
+            base_tree,
+            ours_tree,
+            theirs_tree,
+            sign_if_configured,
+        )?;
+        Ok(CherryPickOutcome::ConflictedCommit(
+            conflicted_commit.detach(),
+        ))
+    } else {
+        Ok(CherryPickOutcome::Commit(
+            commit_from_unconflicted_tree(parents, target, tree_id, sign_if_configured)?.detach(),
+        ))
+    }
+}
+
 #[derive(Debug, Clone)]
-enum MergeOutcome {
+pub(crate) enum MergeOutcome {
     Success(gix::ObjectId),
     NoCommit,
     Conflict {
@@ -156,12 +200,19 @@ enum MergeOutcome {
 }
 
 impl MergeOutcome {
-    fn object_id(&self) -> Option<gix::ObjectId> {
+    pub(crate) fn object_id(&self) -> Option<gix::ObjectId> {
         match self {
             Self::Success(oid) => Some(*oid),
             _ => None,
         }
     }
+}
+
+pub(crate) fn auto_resolution_tree_from_merging_commits(
+    repo: &gix::Repository,
+    commits: &[gix::ObjectId],
+) -> Result<MergeOutcome> {
+    tree_from_merging_commits(repo, commits, TreeKind::AutoResolution)
 }
 
 fn find_base_tree(target: &but_core::Commit) -> Result<MergeOutcome> {
