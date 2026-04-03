@@ -435,7 +435,7 @@ const ShowBranchCommit: FC<{
 		<ShowCommitWithQuery
 			projectId={projectId}
 			commitId={commitId}
-			editable
+			editable={false}
 			renderHunk={(change, hunk) => <Hunk change={change} hunk={hunk} />}
 		/>
 	);
