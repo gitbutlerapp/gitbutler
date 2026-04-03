@@ -457,7 +457,7 @@ export const useWorkspaceShortcuts = ({
 		);
 	};
 
-	const moveCommitDetails = (offset: -1 | 1, selection: CommitItem) => {
+	const moveCommitDetailsFile = (offset: -1 | 1, selection: CommitItem) => {
 		const commitDetails = queryClient.getQueryData(
 			commitDetailsWithLineStatsQueryOptions({
 				projectId,
@@ -517,7 +517,7 @@ export const useWorkspaceShortcuts = ({
 	const handleCommitDetailsAction = (action: CommitDetailsAction, selection: CommitItem) =>
 		Match.value(action).pipe(
 			Match.tags({
-				Move: ({ offset }) => moveCommitDetails(offset, selection),
+				Move: ({ offset }) => moveCommitDetailsFile(offset, selection),
 				CloseDetails: () => select(commitItem({ ...selection, mode: { _tag: "Summary" } })),
 			}),
 			Match.orElse((action) => handleSelectionAction(action, { _tag: "Commit", ...selection })),
