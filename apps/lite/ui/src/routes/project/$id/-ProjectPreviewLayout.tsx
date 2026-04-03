@@ -38,7 +38,7 @@ export const ProjectPreviewLayout: FC<{
 				onLayoutChange={onLayoutChanged}
 			>
 				<Panel id="primary" minSize={500}>
-					<div className={sharedStyles.primaryPane}>{children}</div>
+					<div className={sharedStyles.primaryPanel}>{children}</div>
 				</Panel>
 				{showPreviewPanel && (
 					<>
@@ -47,7 +47,7 @@ export const ProjectPreviewLayout: FC<{
 							id="preview"
 							minSize={300}
 							defaultSize="30%"
-							className={sharedStyles.previewPane}
+							className={sharedStyles.previewPanel}
 						>
 							{preview}
 						</Panel>

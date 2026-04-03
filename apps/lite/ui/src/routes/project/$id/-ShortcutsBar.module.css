@@ -4,7 +4,7 @@
 	row-gap: 4px;
 	flex-wrap: wrap;
 	align-items: baseline;
-	padding: 4px var(--pane-padding);
+	padding: 4px var(--panel-padding);
 	border-top: 1px solid var(--color-separator);
 	color: var(--color-text-secondary);
 	text-transform: lowercase;
