@@ -7,6 +7,7 @@ import {
 	segmentItem,
 	commitItem,
 } from "./-Item.ts";
+import { getRelative } from "../-shared.tsx";
 import { Match } from "effect";
 
 const navigationItemKey = (item: Item): string =>
@@ -105,12 +106,6 @@ export const buildNavigationModel = ({
 	if (commonBaseCommitId !== undefined) addSection(baseCommitItem(commonBaseCommitId));
 
 	return model;
-};
-
-const getRelative = <T>(items: Array<T>, index: number, offset: -1 | 1): T | null => {
-	const itemCount = items.length;
-	if (itemCount === 0) return null;
-	return items[(index + offset + itemCount) % itemCount] ?? null;
 };
 
 export const getAdjacentItem = (

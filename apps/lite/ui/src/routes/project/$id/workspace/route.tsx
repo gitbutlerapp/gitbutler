@@ -7,6 +7,8 @@ import {
 	unapplyStackMutationOptions,
 } from "#ui/api/mutations.ts";
 import {
+	branchDetailsQueryOptions,
+	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	headInfoQueryOptions,
@@ -25,9 +27,9 @@ import { rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx"
 import { type FileParent } from "#ui/domain/FileParent.ts";
 import { getBranchNameByCommitId, getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
-import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
 import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
+import { getFocus, WorkspaceLayoutContext } from "#ui/state/WorkspaceLayout.tsx";
 import {
 	BranchSource,
 	BranchTarget,
@@ -44,18 +46,17 @@ import {
 import { AbsorptionDialog, useAbsorption } from "#ui/routes/project/$id/workspace/-Absorption.tsx";
 import { useMonitorDraggedOperationSource } from "#ui/routes/project/$id/workspace/-DragAndDrop.tsx";
 import {
-	ShowCommit,
 	CommitDetails as SharedCommitDetails,
 	CommitsList,
 	FileButton,
 	formatHunkHeader,
 	HunkDiff,
 	Patch,
-	ShowBranch,
-	ShowCommitWithQuery,
 	CommitLabel,
 	shortCommitId,
 	assignedHunks,
+	assert,
+	getRelative,
 	hunkKey,
 } from "#ui/routes/project/$id/-shared.tsx";
 import uiStyles from "#ui/ui.module.css";
@@ -71,8 +72,14 @@ import {
 	Segment,
 	Stack,
 	TreeChange,
+	UnifiedPatch,
 } from "@gitbutler/but-sdk";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import {
+	useMutation,
+	useQueryClient,
+	useSuspenseQueries,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
@@ -81,8 +88,12 @@ import {
 	FC,
 	Fragment,
 	ReactNode,
+	Ref,
 	Suspense,
+	use,
+	useImperativeHandle,
 	useOptimistic,
+	useRef,
 	useState,
 	useTransition,
 } from "react";
@@ -119,6 +130,7 @@ import styles from "./route.module.css";
 import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
+const fileHunkKey = (path: string, hunk: HunkHeader): string => `${path}:${hunkKey(hunk)}`;
 
 const DependencyIndicator: FC<
 	{
@@ -168,7 +180,7 @@ const DependencyIndicator: FC<
 	);
 };
 
-const CommitDetails: FC<{
+const CommitDetailsC: FC<{
 	commitId: string;
 	commitSelection: CommitItem;
 	projectId: string;
@@ -300,15 +312,36 @@ const Hunk: FC<{
 	hunk: DiffHunk;
 	editable: boolean;
 	headerStart?: ReactNode;
-}> = ({ patch, fileParent, change, hunk, editable, headerStart }) => {
+	onSelectHunk?: (key: string) => void;
+	isSelected?: boolean;
+	isFocused: boolean;
+}> = ({
+	patch,
+	fileParent,
+	change,
+	hunk,
+	editable,
+	headerStart,
+	onSelectHunk,
+	isSelected,
+	isFocused,
+}) => {
 	const headerRow = (
 		<div className={sharedStyles.hunkHeaderRow}>
 			{headerStart}
 			<div className={sharedStyles.hunkHeader}>{formatHunkHeader(hunk)}</div>
 		</div>
 	);
+
 	return (
-		<div>
+		// oxlint-disable-next-line jsx_a11y/click-events-have-key-events, jsx_a11y/no-static-element-interactions -- TODO
+		<div
+			onClick={() => onSelectHunk?.(fileHunkKey(change.path, hunk))}
+			className={classes(
+				sharedStyles.previewHunk,
+				isSelected && isFocused && sharedStyles.previewHunkSelected,
+			)}
+		>
 			{fileParent && editable ? (
 				<HunkSource patch={patch} fileParent={fileParent} change={change} hunk={hunk}>
 					{headerRow}
@@ -328,7 +361,11 @@ const FileDiff: FC<{
 	fileParent?: FileParent;
 	editable: boolean;
 	hunkDependencyDiffs?: Array<HunkDependencyDiff>;
+	diff: UnifiedPatch | null;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
+	onSelectHunk: (key: string) => void;
+	selectionKey: string | undefined;
+	isFocused: boolean;
 }> = ({
 	projectId,
 	change,
@@ -336,11 +373,13 @@ const FileDiff: FC<{
 	fileParent,
 	editable,
 	hunkDependencyDiffs,
+	diff,
 	onDependencyHover,
-}) => {
-	const { data } = useSuspenseQuery(treeChangeDiffsQueryOptions({ projectId, change }));
-
-	return Match.value(data).pipe(
+	onSelectHunk,
+	selectionKey,
+	isFocused,
+}) =>
+	Match.value(diff).pipe(
 		Match.when(null, () => <div>No diff available for this file.</div>),
 		Match.when({ type: "Binary" }, () => <div>Binary file (diff not available).</div>),
 		Match.when({ type: "TooLarge" }, ({ subject }) => (
@@ -350,7 +389,6 @@ const FileDiff: FC<{
 			const visibleHunks = assignments
 				? assignedHunks(patch.subject.hunks, assignments)
 				: patch.subject.hunks;
-
 			if (visibleHunks.length === 0) return <div>No hunks.</div>;
 
 			return (
@@ -368,6 +406,9 @@ const FileDiff: FC<{
 									change={change}
 									hunk={hunk}
 									editable={editable}
+									onSelectHunk={onSelectHunk}
+									isSelected={selectionKey === fileHunkKey(change.path, hunk)}
+									isFocused={isFocused}
 									headerStart={
 										fileParent?._tag === "Changes" && isNonEmptyArray(dependencyCommitIds) ? (
 											<DependencyIndicator
@@ -388,94 +429,64 @@ const FileDiff: FC<{
 		}),
 		Match.exhaustive,
 	);
+
+const hunkKeysFromChangeWithDiff = (
+	[change, diff]: [TreeChange, UnifiedPatch | null],
+	assignments?: Array<HunkAssignment>,
+): Array<string> =>
+	diff?.type === "Patch"
+		? (assignments ? assignedHunks(diff.subject.hunks, assignments) : diff.subject.hunks).map(
+				(hunk) => fileHunkKey(change.path, hunk),
+			)
+		: [];
+
+type PreviewImperativeHandle = {
+	moveSelection: (offset: -1 | 1) => void;
 };
 
-const ShowChangesFile: FC<{
-	projectId: string;
-	stackId: string | null;
-	change: TreeChange;
-	assignments: Array<HunkAssignment>;
-	hunkDependencyDiffs: Array<HunkDependencyDiff> | undefined;
-	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, stackId, change, assignments, hunkDependencyDiffs, onDependencyHover }) => (
-	<FileDiff
-		projectId={projectId}
-		change={change}
-		assignments={assignments}
-		fileParent={{ _tag: "Changes", stackId }}
-		editable
-		hunkDependencyDiffs={hunkDependencyDiffs}
-		onDependencyHover={onDependencyHover}
-	/>
-);
+const createPreviewImperativeHandle = ({
+	hunkKeys,
+	selectionKey,
+	setSelectionKey,
+}: {
+	hunkKeys: Array<string>;
+	selectionKey: string | undefined;
+	setSelectionKey: (key: string | null) => void;
+}): PreviewImperativeHandle => ({
+	moveSelection: (offset) => {
+		if (hunkKeys.length === 0) return;
 
-const ShowCommitOrFile: FC<{
-	projectId: string;
-	selection: CommitItem;
-}> = ({ projectId, selection }) => {
-	const { commitId } = selection;
-	const { data: commitDetails } = useSuspenseQuery(
-		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
-	);
-	const selectedPath = selection.mode._tag === "Details" ? selection.mode.path : undefined;
-	const change =
-		selectedPath !== undefined
-			? commitDetails.changes.find((candidate) => candidate.path === selectedPath)
-			: undefined;
+		const currentKey = selectionKey ?? hunkKeys[0];
+		if (currentKey === undefined) return;
 
-	return change ? (
-		<FileDiff
-			projectId={projectId}
-			change={change}
-			fileParent={{ _tag: "Commit", commitId }}
-			editable
-			onDependencyHover={() => {}}
-		/>
-	) : (
-		<ShowCommit
-			projectId={projectId}
-			commit={commitDetails.commit}
-			changes={commitDetails.changes}
-			editable
-			renderHunk={(change, hunk, patch) => (
-				<Hunk
-					patch={patch}
-					fileParent={{ _tag: "Commit", commitId }}
-					change={change}
-					hunk={hunk}
-					editable
-				/>
-			)}
-		/>
-	);
-};
+		// We assume a valid key was provided.
+		const currentIndex = hunkKeys.indexOf(currentKey);
 
-const ShowSegment: FC<{
-	projectId: string;
-	branchName: string | null;
-}> = ({ projectId, branchName }) =>
-	branchName != null ? (
-		<ShowBranch
-			projectId={projectId}
-			branchName={branchName}
-			remote={null}
-			renderHunk={(change, hunk, patch) => (
-				<Hunk patch={patch} change={change} hunk={hunk} editable={false} />
-			)}
-		/>
-	) : (
-		<div>
-			TODO: the API doesn't provide a way to show details/diffs for segments that don't have branch
-			names.
-		</div>
-	);
+		setSelectionKey(getRelative(hunkKeys, currentIndex, offset));
+	},
+});
 
-const ShowChangesOrFile: FC<{
+const ChangesPreview: FC<{
 	projectId: string;
 	stackId: string | null;
 	modeSelection: ChangesMode;
+	onSelectHunk: (key: string) => void;
+	selectionKey: string | null;
+	isFocused: boolean;
+	setSelectionKey: (key: string | null) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, stackId, modeSelection, onDependencyHover }) => {
+	ref?: Ref<PreviewImperativeHandle>;
+}> = ({
+	projectId,
+	stackId,
+	modeSelection,
+	onSelectHunk,
+	selectionKey,
+	isFocused,
+	setSelectionKey,
+	onDependencyHover,
+	ref,
+}) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
 	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
@@ -487,82 +498,322 @@ const ShowChangesOrFile: FC<{
 		selectedPath !== undefined
 			? changes.find((candidate) => candidate.path === selectedPath)
 			: undefined;
-
-	const renderChange = (change: TreeChange) => {
-		const assignments = assignmentsByPath.get(change.path);
-		if (!assignments) return null;
-
-		return (
-			<ShowChangesFile
-				projectId={projectId}
-				stackId={stackId}
-				change={change}
-				assignments={assignments}
-				hunkDependencyDiffs={hunkDependencyDiffsByPath.get(change.path)}
-				onDependencyHover={onDependencyHover}
-			/>
-		);
-	};
-
-	if (selectedChange) return renderChange(selectedChange);
-	if (changes.length === 0) return <div>No file changes.</div>;
+	const visibleChanges = selectedChange ? [selectedChange] : changes;
+	const treeChangeDiffs = useSuspenseQueries({
+		queries: visibleChanges.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
+	}).map((result) => result.data);
+	const changesWithDiffs = pipe(visibleChanges, Array.zip(treeChangeDiffs));
+	const hunkKeys = changesWithDiffs.flatMap(([change, diff]) =>
+		hunkKeysFromChangeWithDiff([change, diff], assignmentsByPath.get(change.path)),
+	);
+	const normalizedSelectionKey =
+		selectionKey !== null && hunkKeys.includes(selectionKey) ? selectionKey : hunkKeys[0];
+	useImperativeHandle(
+		ref,
+		() =>
+			createPreviewImperativeHandle({
+				hunkKeys,
+				selectionKey: normalizedSelectionKey,
+				setSelectionKey,
+			}),
+		[normalizedSelectionKey, hunkKeys, setSelectionKey],
+	);
 
 	return (
-		<ul>
-			{changes.map((change) => (
-				<li key={change.path}>
-					<ChangesFileSource
-						change={change}
-						fileParent={{ _tag: "Changes", stackId }}
-						assignments={assignmentsByPath.get(change.path)}
-					>
-						<h4>{change.path}</h4>
-					</ChangesFileSource>
-					{renderChange(change)}
-				</li>
-			))}
-		</ul>
+		<div>
+			{changesWithDiffs.length === 0 ? (
+				<div>No file changes.</div>
+			) : (
+				<ul>
+					{changesWithDiffs.map(([change, diff]) => (
+						<li key={change.path}>
+							<ChangesFileSource
+								change={change}
+								fileParent={{ _tag: "Changes", stackId }}
+								assignments={assignmentsByPath.get(change.path)}
+							>
+								<h4>{change.path}</h4>
+							</ChangesFileSource>
+							<FileDiff
+								projectId={projectId}
+								change={change}
+								fileParent={{ _tag: "Changes", stackId }}
+								editable
+								assignments={assignmentsByPath.get(change.path)}
+								hunkDependencyDiffs={hunkDependencyDiffsByPath.get(change.path)}
+								diff={diff}
+								onDependencyHover={onDependencyHover}
+								onSelectHunk={onSelectHunk}
+								selectionKey={normalizedSelectionKey}
+								isFocused={isFocused}
+							/>
+						</li>
+					))}
+				</ul>
+			)}
+		</div>
 	);
 };
 
-const ShowBaseCommit: FC<{
+const CommitPreview: FC<{
 	projectId: string;
 	commitId: string;
-}> = ({ projectId, commitId }) => (
-	<ShowCommitWithQuery
-		projectId={projectId}
-		commitId={commitId}
-		editable={false}
-		renderHunk={(change, hunk, patch) => (
-			<Hunk
-				patch={patch}
-				fileParent={{ _tag: "Commit", commitId }}
-				change={change}
-				hunk={hunk}
-				editable={false}
-			/>
-		)}
-	/>
-);
+	selectedPath?: string;
+	editable: boolean;
+	onSelectHunk: (key: string) => void;
+	selectionKey: string | null;
+	isFocused: boolean;
+	setSelectionKey: (key: string | null) => void;
+	onDependencyHover: (commitIds: Array<string> | null) => void;
+	ref?: Ref<PreviewImperativeHandle>;
+}> = ({
+	projectId,
+	commitId,
+	selectedPath,
+	editable,
+	onSelectHunk,
+	selectionKey,
+	isFocused,
+	setSelectionKey,
+	onDependencyHover,
+	ref,
+}) => {
+	const { data: commitDetails } = useSuspenseQuery(
+		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
+	);
+	const selectedChange =
+		selectedPath !== undefined
+			? commitDetails.changes.find((candidate) => candidate.path === selectedPath)
+			: undefined;
+	const visibleChanges = selectedChange ? [selectedChange] : commitDetails.changes;
+	const treeChangeDiffs = useSuspenseQueries({
+		queries: visibleChanges.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
+	}).map((result) => result.data);
+	const changesWithDiffs = pipe(visibleChanges, Array.zip(treeChangeDiffs));
+	const hunkKeys = changesWithDiffs.flatMap(([change, diff]) =>
+		hunkKeysFromChangeWithDiff([change, diff]),
+	);
+	const normalizedSelectionKey =
+		selectionKey !== null && hunkKeys.includes(selectionKey) ? selectionKey : hunkKeys[0];
+	useImperativeHandle(
+		ref,
+		() =>
+			createPreviewImperativeHandle({
+				hunkKeys,
+				selectionKey: normalizedSelectionKey,
+				setSelectionKey,
+			}),
+		[normalizedSelectionKey, hunkKeys, setSelectionKey],
+	);
+
+	return (
+		<div>
+			{selectedPath === undefined && (
+				<>
+					<h3>
+						<CommitLabel commit={commitDetails.commit} />
+					</h3>
+					{commitDetails.commit.message.includes("\n") && (
+						<p className={sharedStyles.commitMessageBody}>
+							{commitDetails.commit.message
+								.slice(commitDetails.commit.message.indexOf("\n") + 1)
+								.trim()}
+						</p>
+					)}
+				</>
+			)}
+			{changesWithDiffs.length === 0 ? (
+				<div>No file changes.</div>
+			) : (
+				<ul>
+					{changesWithDiffs.map(([change, diff]) => (
+						<li key={change.path}>
+							{editable ? (
+								<CommitFileSource change={change} fileParent={{ _tag: "Commit", commitId }}>
+									<h4>{change.path}</h4>
+								</CommitFileSource>
+							) : (
+								<h4>{change.path}</h4>
+							)}
+							<FileDiff
+								projectId={projectId}
+								change={change}
+								fileParent={{ _tag: "Commit", commitId }}
+								editable={editable}
+								diff={diff}
+								onDependencyHover={onDependencyHover}
+								onSelectHunk={onSelectHunk}
+								selectionKey={normalizedSelectionKey}
+								isFocused={isFocused}
+							/>
+						</li>
+					))}
+				</ul>
+			)}
+		</div>
+	);
+};
+
+const BranchPreview: FC<{
+	projectId: string;
+	branchName: string;
+	onSelectHunk: (key: string) => void;
+	selectionKey: string | null;
+	isFocused: boolean;
+	setSelectionKey: (key: string | null) => void;
+	onDependencyHover: (commitIds: Array<string> | null) => void;
+	ref?: Ref<PreviewImperativeHandle>;
+}> = ({
+	projectId,
+	branchName,
+	onSelectHunk,
+	selectionKey,
+	isFocused,
+	setSelectionKey,
+	onDependencyHover,
+	ref,
+}) => {
+	const [{ data: branchDetails }, { data: branchDiff }] = useSuspenseQueries({
+		queries: [
+			branchDetailsQueryOptions({ projectId, branchName, remote: null }),
+			branchDiffQueryOptions({ projectId, branch: `refs/heads/${branchName}` }),
+		],
+	});
+	const treeChangeDiffs = useSuspenseQueries({
+		queries: branchDiff.changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
+	}).map((result) => result.data);
+	const changesWithDiffs = pipe(branchDiff.changes, Array.zip(treeChangeDiffs));
+	const hunkKeys = changesWithDiffs.flatMap(([change, diff]) =>
+		hunkKeysFromChangeWithDiff([change, diff]),
+	);
+	const normalizedSelectionKey =
+		selectionKey !== null && hunkKeys.includes(selectionKey) ? selectionKey : hunkKeys[0];
+	useImperativeHandle(
+		ref,
+		() =>
+			createPreviewImperativeHandle({
+				hunkKeys,
+				selectionKey: normalizedSelectionKey,
+				setSelectionKey,
+			}),
+		[normalizedSelectionKey, hunkKeys, setSelectionKey],
+	);
+
+	return (
+		<div>
+			<h3>{branchDetails.name}</h3>
+			{branchDetails.prNumber != null && <p>PR #{branchDetails.prNumber}</p>}
+			{changesWithDiffs.length === 0 ? (
+				<div>No file changes.</div>
+			) : (
+				<ul>
+					{changesWithDiffs.map(([change, diff]) => (
+						<li key={change.path}>
+							<h4>{change.path}</h4>
+							<FileDiff
+								projectId={projectId}
+								change={change}
+								editable={false}
+								diff={diff}
+								onDependencyHover={onDependencyHover}
+								onSelectHunk={onSelectHunk}
+								selectionKey={normalizedSelectionKey}
+								isFocused={isFocused}
+							/>
+						</li>
+					))}
+				</ul>
+			)}
+		</div>
+	);
+};
 
 const Preview: FC<{
 	projectId: string;
 	selection: Item;
+	onSelectHunk: (key: string) => void;
+	selectionKey: string | null;
+	isFocused: boolean;
+	setSelectionKey: (key: string | null) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, selection, onDependencyHover }) =>
+	ref?: Ref<PreviewImperativeHandle>;
+}> = ({
+	projectId,
+	selection,
+	onSelectHunk,
+	selectionKey,
+	isFocused,
+	setSelectionKey,
+	onDependencyHover,
+	ref,
+}) =>
 	Match.value(selection).pipe(
 		Match.tagsExhaustive({
-			Segment: ({ branchName }) => <ShowSegment projectId={projectId} branchName={branchName} />,
+			Segment: ({ branchName }) => {
+				if (branchName == null)
+					return (
+						<div>
+							TODO: the API doesn't provide a way to show details/diffs for segments that don't have
+							branch names.
+						</div>
+					);
+
+				return (
+					<BranchPreview
+						projectId={projectId}
+						branchName={branchName}
+						onSelectHunk={onSelectHunk}
+						selectionKey={selectionKey}
+						isFocused={isFocused}
+						setSelectionKey={setSelectionKey}
+						onDependencyHover={onDependencyHover}
+						ref={ref}
+					/>
+				);
+			},
 			Changes: ({ stackId, mode }) => (
-				<ShowChangesOrFile
+				<ChangesPreview
 					projectId={projectId}
 					stackId={stackId}
 					modeSelection={mode}
+					onSelectHunk={onSelectHunk}
+					selectionKey={selectionKey}
+					isFocused={isFocused}
+					setSelectionKey={setSelectionKey}
 					onDependencyHover={onDependencyHover}
+					ref={ref}
 				/>
 			),
-			Commit: (selection) => <ShowCommitOrFile projectId={projectId} selection={selection} />,
-			BaseCommit: ({ commitId }) => <ShowBaseCommit projectId={projectId} commitId={commitId} />,
+			Commit: (selection) => {
+				const selectedPath = selection.mode._tag === "Details" ? selection.mode.path : undefined;
+				return (
+					<CommitPreview
+						projectId={projectId}
+						commitId={selection.commitId}
+						selectedPath={selectedPath}
+						editable
+						onSelectHunk={onSelectHunk}
+						selectionKey={selectionKey}
+						isFocused={isFocused}
+						setSelectionKey={setSelectionKey}
+						onDependencyHover={onDependencyHover}
+						ref={ref}
+					/>
+				);
+			},
+			BaseCommit: ({ commitId }) => (
+				<CommitPreview
+					projectId={projectId}
+					commitId={commitId}
+					editable={false}
+					onSelectHunk={onSelectHunk}
+					selectionKey={selectionKey}
+					isFocused={isFocused}
+					setSelectionKey={setSelectionKey}
+					onDependencyHover={onDependencyHover}
+					ref={ref}
+				/>
+			),
 		}),
 	);
 
@@ -969,7 +1220,7 @@ const CommitC: FC<{
 			/>
 			{commitSelection?.mode._tag === "Details" && (
 				<Suspense fallback={<div className={sharedStyles.itemEmpty}>Loading change details…</div>}>
-					<CommitDetails
+					<CommitDetailsC
 						commitSelection={commitSelection}
 						projectId={projectId}
 						commitId={commit.id}
@@ -1590,10 +1841,12 @@ const StackC: FC<{
 
 const ProjectPage: FC = () => {
 	const { id: projectId } = Route.useParams();
+	const [layoutState, dispatchLayout] = assert(use(WorkspaceLayoutContext));
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
-	const [editing, setEditing] = useState<Editing | null>(null);
-	const [showFullscreenPreview] = useFullscreenPreview(projectId);
+	const [editing, setEditingState] = useState<Editing | null>(null);
+	const [previewSelectionKey, setPreviewSelectionKey] = useState<string | null>(null);
+	const previewRef = useRef<PreviewImperativeHandle | null>(null);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
 
@@ -1603,7 +1856,7 @@ const ProjectPage: FC = () => {
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
-	const [_selection, select] = useState<Item | null>(null);
+	const [_selection, setSelection] = useState<Item | null>(null);
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
 	const navigationModel = buildNavigationModel({
 		headInfo,
@@ -1615,13 +1868,32 @@ const ProjectPage: FC = () => {
 		(_selection ? normalizeItem(_selection, headInfo, worktreeChanges) : null) ??
 		navigationModel.items[0] ??
 		null;
+
+	const select = (nextSelection: Item | null) => {
+		dispatchLayout({ _tag: "FocusPrimary" });
+		setPreviewSelectionKey(null);
+		setSelection(nextSelection);
+	};
+	const setEditing = (nextEditing: Editing | null) => {
+		dispatchLayout({ _tag: "FocusPrimary" });
+		setEditingState(nextEditing);
+	};
 	const highlightCommits = (commitIds: Array<string> | null) => {
 		setHighlightedCommitIds(commitIds ? new Set(commitIds) : new Set());
 	};
+
+	const movePreviewSelection = (offset: -1 | 1) => {
+		previewRef.current?.moveSelection(offset);
+	};
+	const onSelectPreviewHunk = (key: string) => {
+		dispatchLayout({ _tag: "FocusPreview" });
+		setPreviewSelectionKey(key);
+	};
+
 	const shortcutScope = getScope({
-		showFullscreenPreview,
 		selection,
 		editing,
+		layoutState,
 	});
 
 	const {
@@ -1640,6 +1912,8 @@ const ProjectPage: FC = () => {
 		setEditing,
 		navigationModel,
 		requestAbsorptionPlan,
+		dispatchLayout,
+		movePreviewSelection,
 	});
 
 	// TODO: dedupe
@@ -1654,7 +1928,12 @@ const ProjectPage: FC = () => {
 						<Preview
 							projectId={projectId}
 							selection={selection}
+							onSelectHunk={onSelectPreviewHunk}
+							selectionKey={previewSelectionKey}
+							isFocused={getFocus(layoutState) === "preview"}
+							setSelectionKey={setPreviewSelectionKey}
 							onDependencyHover={highlightCommits}
+							ref={previewRef}
 						/>
 					</Suspense>
 				)

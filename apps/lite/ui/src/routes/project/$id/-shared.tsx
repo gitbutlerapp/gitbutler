@@ -39,6 +39,12 @@ export const assert = <T,>(t: T | null | undefined): T => {
 	return t;
 };
 
+export const getRelative = <T,>(items: Array<T>, index: number, offset: -1 | 1): T | null => {
+	const itemCount = items.length;
+	if (itemCount === 0) return null;
+	return items[(index + offset + itemCount) % itemCount] ?? null;
+};
+
 const hunkHeaderEquals = (a: HunkHeader, b: HunkHeader): boolean =>
 	a.oldStart === b.oldStart &&
 	a.oldLines === b.oldLines &&

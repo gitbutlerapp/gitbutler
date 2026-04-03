@@ -2,14 +2,12 @@ import {
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 } from "#ui/api/queries.ts";
-import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
-import { usePreviewPanel } from "#ui/hooks/usePreviewPanel.ts";
 import { getAction, type ShortcutBinding } from "#ui/shortcuts.ts";
 import { isTypingTarget } from "#ui/routes/project/$id/-shared.tsx";
 import { AbsorptionTarget } from "@gitbutler/but-sdk";
 import { useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
-import { useEffect, useEffectEvent } from "react";
+import { Dispatch, useEffect, useEffectEvent } from "react";
 import { type Editing } from "./-Editing.ts";
 import {
 	commitItem,
@@ -26,19 +24,32 @@ import {
 	getAdjacentSection,
 	type NavigationModel,
 } from "./-Selection.ts";
+import {
+	getFocus,
+	type WorkspaceLayoutAction,
+	type WorkspaceLayoutState,
+} from "#ui/state/WorkspaceLayout.tsx";
 
 type SelectionAction =
 	| { _tag: "Move"; offset: -1 | 1 }
 	| { _tag: "PreviousSection" }
 	| { _tag: "NextSection" }
-	| { _tag: "TogglePreview" }
-	| { _tag: "OpenFullscreenPreview" };
+	| { _tag: "FocusPreview" }
+	| { _tag: "ToggleFullscreenPreview" }
+	| { _tag: "TogglePreview" };
 
 type ChangesAction = SelectionAction | { _tag: "Absorb" };
 
 type CommitSummaryAction = SelectionAction | { _tag: "EditMessage" } | { _tag: "OpenDetails" };
 
 type CommitDetailsAction = SelectionAction | { _tag: "CloseDetails" };
+
+type PreviewAction =
+	| { _tag: "Move"; offset: -1 | 1 }
+	| { _tag: "FocusPrimary" }
+	| { _tag: "ToggleFullscreenPreview" }
+	| { _tag: "CloseFullscreenPreview" }
+	| { _tag: "TogglePreview" };
 
 export const togglePreviewBinding: ShortcutBinding<SelectionAction> = {
 	id: "toggle-preview",
@@ -48,11 +59,27 @@ export const togglePreviewBinding: ShortcutBinding<SelectionAction> = {
 	repeat: false,
 };
 
-export const openFullscreenPreviewBinding: ShortcutBinding<SelectionAction> = {
-	id: "open-fullscreen-preview",
+export const toggleFullscreenPreviewBinding: ShortcutBinding<SelectionAction> = {
+	id: "toggle-fullscreen-preview",
 	description: "Fullscreen preview",
 	keys: ["d"],
-	action: { _tag: "OpenFullscreenPreview" },
+	action: { _tag: "ToggleFullscreenPreview" },
+	repeat: false,
+};
+
+const focusPreviewBinding: ShortcutBinding<SelectionAction> = {
+	id: "focus-preview",
+	description: "Focus preview",
+	keys: ["Ctrl+l"],
+	action: { _tag: "FocusPreview" },
+	repeat: false,
+};
+
+const focusPrimaryBinding: ShortcutBinding<PreviewAction> = {
+	id: "focus-primary",
+	description: "Focus primary",
+	keys: ["Ctrl+h"],
+	action: { _tag: "FocusPrimary" },
 	repeat: false,
 };
 
@@ -83,8 +110,55 @@ const selectionBindings: Array<ShortcutBinding<SelectionAction>> = [
 		action: { _tag: "NextSection" },
 		showInShortcutsBar: false,
 	},
+	focusPreviewBinding,
+	toggleFullscreenPreviewBinding,
 	togglePreviewBinding,
-	openFullscreenPreviewBinding,
+];
+
+export const closeFullscreenPreviewBinding: ShortcutBinding<PreviewAction> = {
+	id: "close-fullscreen-preview",
+	description: "Close",
+	keys: ["Escape"],
+	action: { _tag: "CloseFullscreenPreview" },
+	repeat: false,
+};
+
+const previewBindings: Array<ShortcutBinding<PreviewAction>> = [
+	{
+		id: "preview-move-up",
+		description: "up",
+		keys: ["ArrowUp", "k"],
+		action: { _tag: "Move", offset: -1 },
+	},
+	{
+		id: "preview-move-down",
+		description: "down",
+		keys: ["ArrowDown", "j"],
+		action: { _tag: "Move", offset: 1 },
+	},
+	focusPrimaryBinding,
+	{
+		id: "preview-toggle-fullscreen",
+		description: "Fullscreen preview",
+		keys: ["d"],
+		action: { _tag: "ToggleFullscreenPreview" },
+		repeat: false,
+	},
+	{
+		id: "preview-toggle",
+		description: "Preview",
+		keys: ["p"],
+		action: { _tag: "TogglePreview" },
+		repeat: false,
+	},
+];
+
+const fullscreenPreviewBindings: Array<ShortcutBinding<PreviewAction>> = [
+	...previewBindings
+		// The preview panel is not visible as it sits behind the fullscreen dialog, so
+		// there's no point having the toggle preview shortcut here.
+		.filter((binding) => binding.action._tag !== "TogglePreview"),
+	closeFullscreenPreviewBinding,
 ];
 
 export const absorbChangesBinding: ShortcutBinding<ChangesAction> = {
@@ -146,20 +220,6 @@ const branchSegmentBindings: Array<ShortcutBinding<BranchSegmentAction>> = [
 		action: { _tag: "RenameBranch" },
 		repeat: false,
 	},
-];
-
-type FullscreenPreviewAction = { _tag: "Close" };
-
-export const closeFullscreenPreviewBinding: ShortcutBinding<FullscreenPreviewAction> = {
-	id: "close-fullscreen-preview",
-	description: "Close",
-	keys: ["Escape"],
-	action: { _tag: "Close" },
-	repeat: false,
-};
-
-const fullscreenPreviewBindings: Array<ShortcutBinding<FullscreenPreviewAction>> = [
-	closeFullscreenPreviewBinding,
 ];
 
 type CommitEditingMessageAction = { _tag: "Save" } | { _tag: "Cancel" };
@@ -250,10 +310,6 @@ export const handleRenameBranchKeyDown = ({
 
 type Scope =
 	| {
-			_tag: "FullscreenPreview";
-			bindings: Array<ShortcutBinding<FullscreenPreviewAction>>;
-	  }
-	| {
 			_tag: "BaseCommit";
 			bindings: Array<ShortcutBinding<SelectionAction>>;
 			context: BaseCommitItem;
@@ -292,23 +348,28 @@ type Scope =
 			_tag: "Branch";
 			bindings: Array<ShortcutBinding<BranchSegmentAction>>;
 			context: SegmentItem;
+	  }
+	| {
+			_tag: "Preview";
+			bindings: Array<ShortcutBinding<PreviewAction>>;
+			context: { isFullscreen: boolean };
 	  };
 
 export const getScope = ({
-	showFullscreenPreview,
 	selection,
 	editing,
+	layoutState,
 }: {
-	showFullscreenPreview: boolean;
 	selection: Item | null;
 	editing: Editing | null;
+	layoutState: WorkspaceLayoutState;
 }): Scope | null => {
-	if (showFullscreenPreview)
+	if (getFocus(layoutState) === "preview")
 		return {
-			_tag: "FullscreenPreview",
-			bindings: fullscreenPreviewBindings,
+			_tag: "Preview",
+			bindings: layoutState.isFullscreenPreviewOpen ? fullscreenPreviewBindings : previewBindings,
+			context: { isFullscreen: layoutState.isFullscreenPreviewOpen },
 		};
-
 	if (!selection) return null;
 
 	return Match.value(selection).pipe(
@@ -386,7 +447,6 @@ export const getScope = ({
 export const getLabel = (scope: Scope): string =>
 	Match.value(scope).pipe(
 		Match.tagsExhaustive({
-			FullscreenPreview: () => "Fullscreen preview",
 			BaseCommit: () => "Base commit",
 			RenameBranch: () => "Rename branch",
 			Changes: () => "Changes",
@@ -395,6 +455,7 @@ export const getLabel = (scope: Scope): string =>
 			CommitSummary: () => "Commit",
 			Branch: () => "Branch",
 			Segment: () => "Segment",
+			Preview: () => "Preview",
 		}),
 	);
 
@@ -405,6 +466,8 @@ export const useWorkspaceShortcuts = ({
 	setEditing,
 	navigationModel,
 	requestAbsorptionPlan,
+	dispatchLayout,
+	movePreviewSelection,
 }: {
 	projectId: string;
 	scope: Scope | null;
@@ -412,10 +475,9 @@ export const useWorkspaceShortcuts = ({
 	setEditing: (selection: Editing | null) => void;
 	navigationModel: NavigationModel;
 	requestAbsorptionPlan: (target: AbsorptionTarget) => void;
+	dispatchLayout: Dispatch<WorkspaceLayoutAction>;
+	movePreviewSelection: (offset: -1 | 1) => void;
 }) => {
-	const [, setShowPreviewPanel] = usePreviewPanel();
-	const [, setShowFullscreenPreview] = useFullscreenPreview(projectId);
-
 	const queryClient = useQueryClient();
 
 	const requestAbsorptionPlanForSelection = (selection: ChangesItem) => {
@@ -516,8 +578,20 @@ export const useWorkspaceShortcuts = ({
 				Move: ({ offset }) => move(offset, selection),
 				PreviousSection: () => previousSection(selection),
 				NextSection: () => nextSection(selection),
-				TogglePreview: () => setShowPreviewPanel((visible) => !visible),
-				OpenFullscreenPreview: () => setShowFullscreenPreview(true),
+				FocusPreview: () => dispatchLayout({ _tag: "FocusPreview" }),
+				ToggleFullscreenPreview: () => dispatchLayout({ _tag: "ToggleFullscreenPreview" }),
+				TogglePreview: () => dispatchLayout({ _tag: "TogglePreview" }),
+			}),
+		);
+
+	const handlePreviewAction = (action: PreviewAction) =>
+		Match.value(action).pipe(
+			Match.tagsExhaustive({
+				Move: ({ offset }) => movePreviewSelection(offset),
+				FocusPrimary: () => dispatchLayout({ _tag: "FocusPrimary" }),
+				ToggleFullscreenPreview: () => dispatchLayout({ _tag: "ToggleFullscreenPreview" }),
+				CloseFullscreenPreview: () => dispatchLayout({ _tag: "CloseFullscreenPreview" }),
+				TogglePreview: () => dispatchLayout({ _tag: "TogglePreview" }),
 			}),
 		);
 
@@ -573,16 +647,6 @@ export const useWorkspaceShortcuts = ({
 
 		Match.value(scope).pipe(
 			Match.tagsExhaustive({
-				FullscreenPreview: (scope) => {
-					const action = getAction(scope.bindings, event);
-					if (!action) return;
-					event.preventDefault();
-					Match.value(action).pipe(
-						Match.tagsExhaustive({
-							Close: () => setShowFullscreenPreview(false),
-						}),
-					);
-				},
 				Changes: (scope) => {
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
@@ -606,6 +670,12 @@ export const useWorkspaceShortcuts = ({
 					if (!action) return;
 					event.preventDefault();
 					handleBranchSegmentAction(action, scope.context);
+				},
+				Preview: (scope) => {
+					const action = getAction(scope.bindings, event);
+					if (!action) return;
+					event.preventDefault();
+					handlePreviewAction(action);
 				},
 				RenameBranch: () => undefined,
 				CommitSummary: (scope) => {

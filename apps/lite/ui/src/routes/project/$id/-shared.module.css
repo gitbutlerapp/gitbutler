@@ -151,6 +151,18 @@
 	font-family: monospace;
 }
 
+.previewHunk {
+	padding: 4px 6px;
+
+	&:where(:hover) {
+		outline: 2px solid var(--color-separator);
+	}
+}
+
+.previewHunkSelected {
+	outline: 2px solid light-dark(black, white);
+}
+
 .dragPreview {
 	padding: 8px;
 	border: 1px solid light-dark(rgb(0 0 0 / 0.2), rgb(255 255 255 / 0.16));
