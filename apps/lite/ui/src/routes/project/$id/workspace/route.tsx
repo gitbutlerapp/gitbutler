@@ -299,21 +299,23 @@ const Hunk: FC<{
 	editable: boolean;
 	headerStart?: ReactNode;
 }> = ({ patch, fileParent, change, hunk, editable, headerStart }) => {
-	const children = (
-		<div>
-			<div className={sharedStyles.hunkHeaderRow}>
-				{headerStart}
-				<div className={sharedStyles.hunkHeader}>{formatHunkHeader(hunk)}</div>
-			</div>
-			<HunkDiff change={change} diff={hunk.diff} />
+	const headerRow = (
+		<div className={sharedStyles.hunkHeaderRow}>
+			{headerStart}
+			<div className={sharedStyles.hunkHeader}>{formatHunkHeader(hunk)}</div>
 		</div>
 	);
-	return fileParent && editable ? (
-		<HunkSource patch={patch} fileParent={fileParent} change={change} hunk={hunk}>
-			{children}
-		</HunkSource>
-	) : (
-		children
+	return (
+		<div>
+			{fileParent && editable ? (
+				<HunkSource patch={patch} fileParent={fileParent} change={change} hunk={hunk}>
+					{headerRow}
+				</HunkSource>
+			) : (
+				headerRow
+			)}
+			<HunkDiff change={change} diff={hunk.diff} />
+		</div>
 	);
 };
 
