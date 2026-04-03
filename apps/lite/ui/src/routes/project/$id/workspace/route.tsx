@@ -59,6 +59,7 @@ import {
 import uiStyles from "#ui/ui.module.css";
 import { ContextMenu, Menu, mergeProps, Toast, Tooltip, useRender } from "@base-ui/react";
 import {
+	AbsorptionTarget,
 	Commit,
 	DiffHunk,
 	DiffSpec,
@@ -936,7 +937,7 @@ const Changes: FC<{
 	label: string;
 	projectId: string;
 	stackId: string | null;
-	onAbsorbChanges: (changes: Array<TreeChange>, stackId: string | null) => void;
+	onAbsorbChanges: (target: AbsorptionTarget) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 	selection: Item | null;
 	select: (selection: Item | null) => void;
@@ -1000,7 +1001,13 @@ const Changes: FC<{
 					className={sharedStyles.itemAction}
 					disabled={changes.length === 0}
 					onClick={() => {
-						onAbsorbChanges(changes, stackId);
+						onAbsorbChanges({
+							type: "treeChanges",
+							subject: {
+								changes,
+								assigned_stack_id: stackId,
+							},
+						});
 					}}
 				>
 					<AbsorbIcon />
@@ -1016,7 +1023,13 @@ const Changes: FC<{
 									className={uiStyles.menuItem}
 									disabled={changes.length === 0}
 									onClick={() => {
-										onAbsorbChanges(changes, stackId);
+										onAbsorbChanges({
+											type: "treeChanges",
+											subject: {
+												changes,
+												assigned_stack_id: stackId,
+											},
+										});
 									}}
 								>
 									Absorb all changes
@@ -1060,7 +1073,13 @@ const Changes: FC<{
 										type="button"
 										className={sharedStyles.itemAction}
 										onClick={() => {
-											onAbsorbChanges([change], stackId);
+											onAbsorbChanges({
+												type: "treeChanges",
+												subject: {
+													changes: [change],
+													assigned_stack_id: stackId,
+												},
+											});
 										}}
 									>
 										<AbsorbIcon />
@@ -1442,7 +1461,7 @@ const SegmentC: FC<{
 
 const StackC: FC<{
 	highlightedCommitIds: Set<string>;
-	onAbsorbChanges: (changes: Array<TreeChange>, stackId: string | null) => void;
+	onAbsorbChanges: (target: AbsorptionTarget) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 	projectId: string;
 	selection: Item | null;

@@ -6,7 +6,7 @@ import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
 import { usePreviewPanel } from "#ui/hooks/usePreviewPanel.ts";
 import { getAction, type ShortcutBinding } from "#ui/shortcuts.ts";
 import { isTypingTarget } from "#ui/routes/project/$id/-shared.tsx";
-import { TreeChange } from "@gitbutler/but-sdk";
+import { AbsorptionTarget } from "@gitbutler/but-sdk";
 import { useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
 import { useEffect, useEffectEvent } from "react";
@@ -410,7 +410,7 @@ export const useWorkspaceShortcuts = ({
 	select: (selection: Item | null) => void;
 	setEditing: (selection: Editing | null) => void;
 	navigationModel: NavigationModel;
-	requestAbsorptionPlan: (changes: Array<TreeChange>, stackId: string | null) => void;
+	requestAbsorptionPlan: (target: AbsorptionTarget) => void;
 }) => {
 	const [, setShowPreviewPanel] = usePreviewPanel();
 	const [, setShowFullscreenPreview] = useFullscreenPreview(projectId);
@@ -428,7 +428,13 @@ export const useWorkspaceShortcuts = ({
 				Details: ({ path }) => {
 					const change = worktreeChanges.changes.find((change) => change.path === path);
 					if (!change) return;
-					requestAbsorptionPlan([change], selection.stackId);
+					requestAbsorptionPlan({
+						type: "treeChanges",
+						subject: {
+							changes: [change],
+							assigned_stack_id: selection.stackId,
+						},
+					});
 				},
 				Summary: () => {
 					const assignmentsByPath = new Set(
@@ -439,7 +445,13 @@ export const useWorkspaceShortcuts = ({
 					const changes = worktreeChanges.changes.filter((change) =>
 						assignmentsByPath.has(change.path),
 					);
-					requestAbsorptionPlan(changes, selection.stackId);
+					requestAbsorptionPlan({
+						type: "treeChanges",
+						subject: {
+							changes,
+							assigned_stack_id: selection.stackId,
+						},
+					});
 				},
 			}),
 		);

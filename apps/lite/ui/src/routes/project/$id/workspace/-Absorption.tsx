@@ -3,7 +3,7 @@ import { classes } from "#ui/classes.ts";
 import { commitTitle, shortCommitId } from "#ui/routes/project/$id/-shared.tsx";
 import uiStyles from "#ui/ui.module.css";
 import { AlertDialog, Toast } from "@base-ui/react";
-import { AbsorptionReason, CommitAbsorption, TreeChange } from "@gitbutler/but-sdk";
+import { AbsorptionReason, AbsorptionTarget, CommitAbsorption } from "@gitbutler/but-sdk";
 import { useMutation } from "@tanstack/react-query";
 import { FC, useState } from "react";
 import styles from "./-Absorption.module.css";
@@ -82,19 +82,11 @@ export const useAbsorption = (projectId: string) => {
 	const absorptionPlanMutation = useMutation(absorptionPlanMutationOptions);
 	const absorbMutation = useMutation(absorbMutationOptions);
 
-	const requestAbsorptionPlan = (changes: Array<TreeChange>, stackId: string | null) => {
-		if (changes.length === 0) return;
-
+	const requestAbsorptionPlan = (target: AbsorptionTarget) => {
 		absorptionPlanMutation.mutate(
 			{
 				projectId,
-				target: {
-					type: "treeChanges",
-					subject: {
-						changes,
-						assigned_stack_id: stackId,
-					},
-				},
+				target,
 			},
 			{
 				onSuccess: (plan) => {
