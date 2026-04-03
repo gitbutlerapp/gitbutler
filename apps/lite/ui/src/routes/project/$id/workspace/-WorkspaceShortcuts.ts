@@ -455,11 +455,8 @@ export const useWorkspaceShortcuts = ({
 		if (!commitDetails) return;
 
 		const paths = commitDetails.changes.map((change) => change.path);
-		const nextPath = getAdjacentCommitDetailsPath({
-			paths,
-			currentPath: getSelectedCommitPath({ paths, selection }),
-			offset,
-		});
+		const currentPath = getSelectedCommitPath({ paths, selection });
+		const nextPath = getAdjacentCommitDetailsPath({ paths, currentPath, offset });
 		if (nextPath === null) return;
 
 		select(
