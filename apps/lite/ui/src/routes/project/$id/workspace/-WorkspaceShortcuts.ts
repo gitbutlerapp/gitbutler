@@ -24,7 +24,6 @@ import {
 	getAdjacentCommitDetailsPath,
 	getAdjacentItem,
 	getAdjacentSection,
-	getSelectedCommitPath,
 	type NavigationModel,
 } from "./-Selection.ts";
 
@@ -458,6 +457,8 @@ export const useWorkspaceShortcuts = ({
 	};
 
 	const moveCommitDetailsFile = (offset: -1 | 1, selection: CommitItem) => {
+		if (selection.mode._tag !== "Details") return;
+
 		const commitDetails = queryClient.getQueryData(
 			commitDetailsWithLineStatsQueryOptions({
 				projectId,
@@ -467,7 +468,7 @@ export const useWorkspaceShortcuts = ({
 		if (!commitDetails) return;
 
 		const paths = commitDetails.changes.map((change) => change.path);
-		const currentPath = getSelectedCommitPath({ paths, selection });
+		const currentPath = selection.mode.path;
 		const nextPath = getAdjacentCommitDetailsPath({ paths, currentPath, offset });
 		if (nextPath === null) return;
 
@@ -475,6 +476,27 @@ export const useWorkspaceShortcuts = ({
 			commitItem({
 				...selection,
 				mode: { _tag: "Details", path: nextPath },
+			}),
+		);
+	};
+
+	const openCommitDetails = async (selection: CommitItem) => {
+		const commitDetails = await queryClient
+			.fetchQuery(
+				commitDetailsWithLineStatsQueryOptions({
+					projectId,
+					commitId: selection.commitId,
+				}),
+			)
+			.catch(() => null);
+		if (!commitDetails) return;
+
+		const firstPath = commitDetails.changes[0]?.path;
+
+		select(
+			commitItem({
+				...selection,
+				mode: firstPath === undefined ? { _tag: "Details" } : { _tag: "Details", path: firstPath },
 			}),
 		);
 	};
@@ -509,7 +531,9 @@ export const useWorkspaceShortcuts = ({
 		Match.value(action).pipe(
 			Match.tags({
 				EditMessage: () => setEditing({ _tag: "CommitMessage", subject: selection }),
-				OpenDetails: () => select(commitItem({ ...selection, mode: { _tag: "Details" } })),
+				OpenDetails: () => {
+					void openCommitDetails(selection);
+				},
 			}),
 			Match.orElse((action) => handleSelectionAction(action, { _tag: "Commit", ...selection })),
 		);

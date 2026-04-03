@@ -15,11 +15,7 @@ type CommitMode =
 	| { _tag: "Summary" }
 	| {
 			_tag: "Details";
-			// This is optional because:
-			// - There may be no files in the commit.
-			// - We expand the details view synchronously but commit details are
-			//   loaded asynchronously. After data has loaded, the path will be
-			//   returned using `getSelectedCommitPath`.
+			// This is optional because there may be no files in the commit.
 			path?: string;
 	  };
 export type CommitItem = SegmentItem & { commitId: string; mode: CommitMode };

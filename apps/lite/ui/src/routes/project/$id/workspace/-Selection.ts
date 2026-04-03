@@ -7,7 +7,6 @@ import {
 	type Item,
 	segmentItem,
 	commitItem,
-	CommitItem,
 } from "./-Item.ts";
 
 const hasAssignmentsForPath = ({
@@ -141,16 +140,3 @@ export const getAdjacentCommitDetailsPath = ({
 	if (currentIndex === -1) return offset > 0 ? (paths[0] ?? null) : (paths.at(-1) ?? null);
 	return paths[currentIndex + offset] ?? null;
 };
-
-export const getSelectedCommitPath = ({
-	paths,
-	selection,
-}: {
-	paths: Array<string>;
-	selection: CommitItem;
-}): string | undefined =>
-	selection.mode._tag === "Details" &&
-	selection.mode.path !== undefined &&
-	paths.includes(selection.mode.path)
-		? selection.mode.path
-		: paths[0];

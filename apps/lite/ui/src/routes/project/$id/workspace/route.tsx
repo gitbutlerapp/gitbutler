@@ -70,7 +70,7 @@ import {
 	Stack,
 	TreeChange,
 } from "@gitbutler/but-sdk";
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
@@ -98,7 +98,7 @@ import {
 	CommitItem,
 	ChangesMode,
 } from "./-Item.ts";
-import { buildNavigationModel, getSelectedCommitPath } from "./-Selection.ts";
+import { buildNavigationModel } from "./-Selection.ts";
 import {
 	absorbChangesBinding,
 	closeCommitDetailsBinding,
@@ -172,17 +172,8 @@ const CommitDetails: FC<{
 	projectId: string;
 	select: (selection: Item | null) => void;
 }> = ({ commitId, commitSelection, projectId, select }) => {
-	const { data: commitDetails } = useSuspenseQuery(
-		commitDetailsWithLineStatsQueryOptions({
-			projectId,
-			commitId,
-		}),
-	);
-	const paths = commitDetails.changes.map((change) => change.path);
-	const selectedPath = getSelectedCommitPath({
-		paths,
-		selection: commitSelection,
-	});
+	const selectedPath =
+		commitSelection.mode._tag === "Details" ? commitSelection.mode.path : undefined;
 
 	return (
 		<SharedCommitDetails
@@ -378,9 +369,7 @@ const ShowCommitOrFile: FC<{
 	const { data: commitDetails } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
-	const paths = commitDetails.changes.map((change) => change.path);
-	const selectedPath =
-		selection.mode._tag === "Details" ? getSelectedCommitPath({ paths, selection }) : undefined;
+	const selectedPath = selection.mode._tag === "Details" ? selection.mode.path : undefined;
 	const change =
 		selectedPath !== undefined
 			? commitDetails.changes.find((candidate) => candidate.path === selectedPath)
@@ -727,25 +716,42 @@ const CommitRow: FC<
 		(_currentMessage, nextMessage: string) => nextMessage,
 	);
 	const [isCommitMessagePending, startCommitMessageTransition] = useTransition();
+	const queryClient = useQueryClient();
 
 	const commitWithOptimisticMessage: Commit = {
 		...commit,
 		message: optimisticMessage,
 	};
 
+	const openDetails = async () => {
+		const commitDetails = await queryClient
+			.fetchQuery(
+				commitDetailsWithLineStatsQueryOptions({
+					projectId,
+					commitId: commit.id,
+				}),
+			)
+			.catch(() => null);
+		if (!commitDetails) return;
+
+		const firstPath = commitDetails.changes[0]?.path;
+
+		select(
+			commitItem({
+				stackId,
+				segmentIndex,
+				branchName,
+				commitId: commit.id,
+				mode: firstPath === undefined ? { _tag: "Details" } : { _tag: "Details", path: firstPath },
+			}),
+		);
+	};
+
 	const toggleDetails = () => {
 		setEditing(null);
-		select(
-			commitSelection?.mode._tag === "Details"
-				? summaryItem
-				: commitItem({
-						stackId,
-						segmentIndex,
-						branchName,
-						commitId: commit.id,
-						mode: { _tag: "Details" },
-					}),
-		);
+
+		if (commitSelection?.mode._tag === "Details") select(summaryItem);
+		else void openDetails();
 	};
 
 	const commitReword = useMutation(commitRewordMutationOptions);
