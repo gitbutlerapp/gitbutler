@@ -430,16 +430,16 @@ const ShowSegment: FC<{
 const ShowChangesOrFile: FC<{
 	projectId: string;
 	stackId: string | null;
-	mode: ChangesMode;
+	modeSelection: ChangesMode;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
-}> = ({ projectId, stackId, mode, onDependencyHover }) => {
+}> = ({ projectId, stackId, modeSelection, onDependencyHover }) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stackId);
 	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
 		worktreeChanges.dependencies?.diffs ?? [],
 	);
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
-	const selectedPath = mode._tag === "Details" ? mode.path : undefined;
+	const selectedPath = modeSelection._tag === "Details" ? modeSelection.path : undefined;
 	const selectedChange =
 		selectedPath !== undefined
 			? changes.find((candidate) => candidate.path === selectedPath)
@@ -514,7 +514,7 @@ const Preview: FC<{
 				<ShowChangesOrFile
 					projectId={projectId}
 					stackId={stackId}
-					mode={mode}
+					modeSelection={mode}
 					onDependencyHover={onDependencyHover}
 				/>
 			),
