@@ -3,6 +3,7 @@ use bstr::{BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
 use but_core::sync::RepoExclusive;
 use but_ctx::Context;
+use colored::Colorize;
 use gix::prelude::ObjectIdExt;
 
 use super::{
@@ -95,7 +96,7 @@ fn edit_branch_name(
         if let Some(sid) = stack_entry.id {
             let new_name = prepare_provided_message(message, "branch name")
                 .unwrap_or_else(|| get_branch_name_from_editor(branch_name))?;
-            but_api::legacy::stack::update_branch_name_with_perm(
+            let normalized_name = but_api::legacy::stack::update_branch_name_with_perm(
                 ctx,
                 sid,
                 branch_name.to_owned(),
@@ -103,7 +104,15 @@ fn edit_branch_name(
                 perm,
             )?;
             if let Some(out) = out.for_human() {
-                writeln!(out, "Renamed branch '{branch_name}' to '{new_name}'")?;
+                if normalized_name != new_name {
+                    writeln!(
+                        out,
+                        "New branch name normalized: {} -> {}",
+                        new_name.dimmed(),
+                        normalized_name.yellow()
+                    )?;
+                }
+                writeln!(out, "Renamed branch '{branch_name}' to '{normalized_name}'")?;
             }
             return Ok(());
         }
