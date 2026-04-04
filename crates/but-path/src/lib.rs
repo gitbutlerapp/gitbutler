@@ -51,6 +51,9 @@ pub fn app_config_dir() -> anyhow::Result<PathBuf> {
     if let Some(test_dir) = std::env::var_os("E2E_TEST_APP_DATA_DIR") {
         return Ok(PathBuf::from(test_dir).join("gitbutler"));
     }
+    if let Some(config_dir) = std::env::var_os("BUTLER_CONFIG_DIR") {
+        return Ok(PathBuf::from(config_dir));
+    }
     dirs::config_dir()
         .ok_or(anyhow::anyhow!("Could not get app data dir"))
         .map(|dir| dir.join("gitbutler"))
