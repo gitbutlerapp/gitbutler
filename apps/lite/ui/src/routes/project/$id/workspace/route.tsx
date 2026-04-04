@@ -69,10 +69,12 @@ import {
 	HunkAssignment,
 	HunkDependencies,
 	HunkHeader,
+	type RefInfo,
 	Segment,
 	Stack,
 	TreeChange,
 	UnifiedPatch,
+	type WorktreeChanges,
 } from "@gitbutler/but-sdk";
 import {
 	useMutation,
@@ -1864,6 +1866,21 @@ const selectionStateReducer = (state: SelectionState, action: SelectionAction): 
 		}),
 	);
 
+const getSelectedItem = ({
+	selectionState,
+	headInfo,
+	worktreeChanges,
+	navigationModelItems,
+}: {
+	selectionState: SelectionState;
+	headInfo: RefInfo;
+	worktreeChanges: WorktreeChanges;
+	navigationModelItems: Array<Item>;
+}): Item | null =>
+	(selectionState.item ? normalizeItem(selectionState.item, headInfo, worktreeChanges) : null) ??
+	navigationModelItems[0] ??
+	null;
+
 const ProjectPage: FC = () => {
 	const { id: projectId } = Route.useParams();
 
@@ -1893,10 +1910,12 @@ const ProjectPage: FC = () => {
 		commonBaseCommitId,
 	});
 
-	const selectedItem =
-		(selectionState.item ? normalizeItem(selectionState.item, headInfo, worktreeChanges) : null) ??
-		navigationModel.items[0] ??
-		null;
+	const selectedItem = getSelectedItem({
+		selectionState,
+		headInfo,
+		worktreeChanges,
+		navigationModelItems: navigationModel.items,
+	});
 	const selectItem = (nextSelectedItem: Item | null) => {
 		dispatchLayout({ _tag: "FocusPrimary" });
 		dispatchSelectionState({ _tag: "SelectItem", item: nextSelectedItem });
