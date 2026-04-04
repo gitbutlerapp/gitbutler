@@ -93,6 +93,7 @@ import {
 	use,
 	useImperativeHandle,
 	useOptimistic,
+	useReducer,
 	useRef,
 	useState,
 	useTransition,
@@ -1840,18 +1841,36 @@ const StackC: FC<{
 	);
 };
 
+type SelectionState = {
+	item: Item | null;
+	hunk: string | null;
+};
+
+type SelectionAction =
+	| { _tag: "SelectItem"; item: Item | null }
+	| { _tag: "SelectHunk"; hunk: string | null };
+
+const selectionStateReducer = (state: SelectionState, action: SelectionAction): SelectionState =>
+	Match.value(action).pipe(
+		Match.tagsExhaustive({
+			SelectItem: ({ item }): SelectionState => ({
+				item,
+				hunk: null,
+			}),
+			SelectHunk: ({ hunk }): SelectionState => ({
+				...state,
+				hunk,
+			}),
+		}),
+	);
+
 const ProjectPage: FC = () => {
 	const { id: projectId } = Route.useParams();
 
 	const [layoutState, dispatchLayout] = assert(use(WorkspaceLayoutContext));
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 	const [editing, setEditingState] = useState<Editing | null>(null);
-
-	type SelectionState = {
-		item: Item | null;
-		hunk: string | null;
-	};
-	const [selectionState, setSelectionState] = useState<SelectionState>({
+	const [selectionState, dispatchSelectionState] = useReducer(selectionStateReducer, {
 		item: null,
 		hunk: null,
 	});
@@ -1880,17 +1899,11 @@ const ProjectPage: FC = () => {
 		null;
 	const selectItem = (nextSelectedItem: Item | null) => {
 		dispatchLayout({ _tag: "FocusPrimary" });
-		setSelectionState({
-			item: nextSelectedItem,
-			hunk: null,
-		});
+		dispatchSelectionState({ _tag: "SelectItem", item: nextSelectedItem });
 	};
 
 	const selectHunk = (selectedHunk: string | null) => {
-		setSelectionState((current) => ({
-			...current,
-			hunk: selectedHunk,
-		}));
+		dispatchSelectionState({ _tag: "SelectHunk", hunk: selectedHunk });
 	};
 
 	const setEditing = (nextEditing: Editing | null) => {
