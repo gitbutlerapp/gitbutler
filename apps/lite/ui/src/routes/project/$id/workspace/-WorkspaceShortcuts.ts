@@ -27,28 +27,33 @@ import {
 import { getFocus, type ProjectLayoutState } from "#ui/routes/project/$id/-state/layout.ts";
 import { type ProjectStateAction } from "#ui/routes/project/$id/-state/project.ts";
 
-type SelectionAction =
+type ItemSelectionAction =
 	| { _tag: "Move"; offset: -1 | 1 }
 	| { _tag: "PreviousSection" }
-	| { _tag: "NextSection" }
+	| { _tag: "NextSection" };
+
+type PrimaryPanelAction =
+	| ItemSelectionAction
 	| { _tag: "FocusPreview" }
 	| { _tag: "ToggleFullscreenPreview" }
 	| { _tag: "TogglePreview" };
 
-type ChangesAction = SelectionAction | { _tag: "Absorb" };
+type ChangesAction = PrimaryPanelAction | { _tag: "Absorb" };
 
-type CommitSummaryAction = SelectionAction | { _tag: "EditMessage" } | { _tag: "OpenDetails" };
+type CommitSummaryAction = PrimaryPanelAction | { _tag: "EditMessage" } | { _tag: "OpenDetails" };
 
-type CommitDetailsAction = SelectionAction | { _tag: "CloseDetails" };
+type CommitDetailsAction = PrimaryPanelAction | { _tag: "CloseDetails" };
+
+type HunkSelectionAction = { _tag: "Move"; offset: -1 | 1 };
 
 type PreviewAction =
-	| { _tag: "Move"; offset: -1 | 1 }
+	| HunkSelectionAction
 	| { _tag: "FocusPrimary" }
 	| { _tag: "ToggleFullscreenPreview" }
 	| { _tag: "CloseFullscreenPreview" }
 	| { _tag: "TogglePreview" };
 
-export const togglePreviewBinding: ShortcutBinding<SelectionAction> = {
+export const togglePreviewBinding: ShortcutBinding<PrimaryPanelAction> = {
 	id: "toggle-preview",
 	description: "Preview",
 	keys: ["p"],
@@ -56,7 +61,7 @@ export const togglePreviewBinding: ShortcutBinding<SelectionAction> = {
 	repeat: false,
 };
 
-export const toggleFullscreenPreviewBinding: ShortcutBinding<SelectionAction> = {
+export const toggleFullscreenPreviewBinding: ShortcutBinding<PrimaryPanelAction> = {
 	id: "toggle-fullscreen-preview",
 	description: "Fullscreen preview",
 	keys: ["d"],
@@ -64,7 +69,7 @@ export const toggleFullscreenPreviewBinding: ShortcutBinding<SelectionAction> = 
 	repeat: false,
 };
 
-const focusPreviewBinding: ShortcutBinding<SelectionAction> = {
+const focusPreviewBinding: ShortcutBinding<PrimaryPanelAction> = {
 	id: "focus-preview",
 	description: "Focus preview",
 	keys: ["Ctrl+l"],
@@ -80,7 +85,7 @@ const focusPrimaryBinding: ShortcutBinding<PreviewAction> = {
 	repeat: false,
 };
 
-const selectionBindings: Array<ShortcutBinding<SelectionAction>> = [
+const primaryPanelBindings: Array<ShortcutBinding<PrimaryPanelAction>> = [
 	{
 		id: "move-up",
 		description: "up",
@@ -167,7 +172,7 @@ export const absorbChangesBinding: ShortcutBinding<ChangesAction> = {
 };
 
 const changesBindings: Array<ShortcutBinding<ChangesAction>> = [
-	...selectionBindings,
+	...primaryPanelBindings,
 	absorbChangesBinding,
 ];
 
@@ -188,7 +193,7 @@ export const openCommitDetailsBinding: ShortcutBinding<CommitSummaryAction> = {
 };
 
 const commitSummaryBindings: Array<ShortcutBinding<CommitSummaryAction>> = [
-	...selectionBindings,
+	...primaryPanelBindings,
 	editCommitMessageBinding,
 	openCommitDetailsBinding,
 ];
@@ -202,14 +207,14 @@ export const closeCommitDetailsBinding: ShortcutBinding<CommitDetailsAction> = {
 };
 
 const commitDetailsBindings: Array<ShortcutBinding<CommitDetailsAction>> = [
-	...selectionBindings,
+	...primaryPanelBindings,
 	closeCommitDetailsBinding,
 ];
 
-type BranchAction = SelectionAction | { _tag: "RenameBranch" };
+type BranchAction = PrimaryPanelAction | { _tag: "RenameBranch" };
 
 const branchBindings: Array<ShortcutBinding<BranchAction>> = [
-	...selectionBindings,
+	...primaryPanelBindings,
 	{
 		id: "segment-rename-branch",
 		description: "Rename",
@@ -308,7 +313,7 @@ export const handleRenameBranchKeyDown = ({
 type Scope =
 	| {
 			_tag: "BaseCommit";
-			bindings: Array<ShortcutBinding<SelectionAction>>;
+			bindings: Array<ShortcutBinding<PrimaryPanelAction>>;
 			context: BaseCommitItem;
 	  }
 	| {
@@ -338,7 +343,7 @@ type Scope =
 	  }
 	| {
 			_tag: "Segment";
-			bindings: Array<ShortcutBinding<SelectionAction>>;
+			bindings: Array<ShortcutBinding<PrimaryPanelAction>>;
 			context: SegmentItem;
 	  }
 	| {
@@ -410,7 +415,7 @@ export const getScope = ({
 			"BaseCommit",
 			(selectedItem): Scope => ({
 				_tag: "BaseCommit",
-				bindings: selectionBindings,
+				bindings: primaryPanelBindings,
 				context: selectedItem,
 			}),
 		),
@@ -428,7 +433,7 @@ export const getScope = ({
 					: selectedItem.branchName === null
 						? {
 								_tag: "Segment",
-								bindings: selectionBindings,
+								bindings: primaryPanelBindings,
 								context: selectedItem,
 							}
 						: {
@@ -571,27 +576,41 @@ export const useWorkspaceShortcuts = ({
 	const nextSection = (selectedItem: Item) =>
 		selectItem(getAdjacentSection(navigationModel, selectedItem, 1));
 
-	const handleSelectionAction = (action: SelectionAction, selectedItem: Item) =>
+	const handleItemSelectionAction = (action: ItemSelectionAction, selectedItem: Item) =>
 		Match.value(action).pipe(
 			Match.tagsExhaustive({
 				Move: ({ offset }) => move(offset, selectedItem),
 				PreviousSection: () => previousSection(selectedItem),
 				NextSection: () => nextSection(selectedItem),
+			}),
+		);
+
+	const handlePrimaryPanelAction = (action: PrimaryPanelAction, selectedItem: Item) =>
+		Match.value(action).pipe(
+			Match.tags({
 				FocusPreview: () => dispatchProjectState({ _tag: "FocusPreview" }),
 				ToggleFullscreenPreview: () => dispatchProjectState({ _tag: "ToggleFullscreenPreview" }),
 				TogglePreview: () => dispatchProjectState({ _tag: "TogglePreview" }),
+			}),
+			Match.orElse((action) => handleItemSelectionAction(action, selectedItem)),
+		);
+
+	const handleHunkSelectionAction = (action: HunkSelectionAction) =>
+		Match.value(action).pipe(
+			Match.tagsExhaustive({
+				Move: ({ offset }) => movePreviewSelection(offset),
 			}),
 		);
 
 	const handlePreviewAction = (action: PreviewAction) =>
 		Match.value(action).pipe(
-			Match.tagsExhaustive({
-				Move: ({ offset }) => movePreviewSelection(offset),
+			Match.tags({
 				FocusPrimary: () => dispatchProjectState({ _tag: "FocusPrimary" }),
 				ToggleFullscreenPreview: () => dispatchProjectState({ _tag: "ToggleFullscreenPreview" }),
 				CloseFullscreenPreview: () => dispatchProjectState({ _tag: "CloseFullscreenPreview" }),
 				TogglePreview: () => dispatchProjectState({ _tag: "TogglePreview" }),
 			}),
+			Match.orElse((action) => handleHunkSelectionAction(action)),
 		);
 
 	const handleChangesAction = (action: ChangesAction, selectedItem: ChangesItem) =>
@@ -599,7 +618,9 @@ export const useWorkspaceShortcuts = ({
 			Match.tags({
 				Absorb: () => requestAbsorptionPlanForSelection(selectedItem),
 			}),
-			Match.orElse((action) => handleSelectionAction(action, { _tag: "Changes", ...selectedItem })),
+			Match.orElse((action) =>
+				handlePrimaryPanelAction(action, { _tag: "Changes", ...selectedItem }),
+			),
 		);
 
 	const handleCommitSummaryAction = (action: CommitSummaryAction, selectedItem: CommitItem) =>
@@ -610,7 +631,9 @@ export const useWorkspaceShortcuts = ({
 					void openCommitDetails(selectedItem);
 				},
 			}),
-			Match.orElse((action) => handleSelectionAction(action, { _tag: "Commit", ...selectedItem })),
+			Match.orElse((action) =>
+				handlePrimaryPanelAction(action, { _tag: "Commit", ...selectedItem }),
+			),
 		);
 
 	const handleCommitDetailsAction = (action: CommitDetailsAction, selectedItem: CommitItem) =>
@@ -619,7 +642,9 @@ export const useWorkspaceShortcuts = ({
 				Move: ({ offset }) => moveCommitDetailsFile(offset, selectedItem),
 				CloseDetails: () => selectItem(commitItem({ ...selectedItem, mode: { _tag: "Summary" } })),
 			}),
-			Match.orElse((action) => handleSelectionAction(action, { _tag: "Commit", ...selectedItem })),
+			Match.orElse((action) =>
+				handlePrimaryPanelAction(action, { _tag: "Commit", ...selectedItem }),
+			),
 		);
 
 	const handleBranchAction = (action: BranchAction, selectedItem: SegmentItem) =>
@@ -635,7 +660,9 @@ export const useWorkspaceShortcuts = ({
 					});
 				},
 			}),
-			Match.orElse((action) => handleSelectionAction(action, { _tag: "Segment", ...selectedItem })),
+			Match.orElse((action) =>
+				handlePrimaryPanelAction(action, { _tag: "Segment", ...selectedItem }),
+			),
 		);
 
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
@@ -656,13 +683,13 @@ export const useWorkspaceShortcuts = ({
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
 					event.preventDefault();
-					handleSelectionAction(action, { _tag: "BaseCommit", ...scope.context });
+					handlePrimaryPanelAction(action, { _tag: "BaseCommit", ...scope.context });
 				},
 				Segment: (scope) => {
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
 					event.preventDefault();
-					handleSelectionAction(action, { _tag: "Segment", ...scope.context });
+					handlePrimaryPanelAction(action, { _tag: "Segment", ...scope.context });
 				},
 				Branch: (scope) => {
 					const action = getAction(scope.bindings, event);
