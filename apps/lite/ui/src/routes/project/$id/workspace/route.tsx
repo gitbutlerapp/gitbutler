@@ -1910,7 +1910,6 @@ const ProjectPage: FC = () => {
 	useWorkspaceShortcuts({
 		projectId,
 		scope: shortcutScope,
-		selectItem,
 		setEditing,
 		navigationModel,
 		requestAbsorptionPlan,

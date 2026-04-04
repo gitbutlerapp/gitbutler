@@ -464,7 +464,6 @@ export const getLabel = (scope: Scope): string =>
 export const useWorkspaceShortcuts = ({
 	projectId,
 	scope,
-	selectItem,
 	setEditing,
 	navigationModel,
 	requestAbsorptionPlan,
@@ -473,7 +472,6 @@ export const useWorkspaceShortcuts = ({
 }: {
 	projectId: string;
 	scope: Scope | null;
-	selectItem: (item: Item | null) => void;
 	setEditing: (editing: Editing | null) => void;
 	navigationModel: NavigationModel;
 	requestAbsorptionPlan: (target: AbsorptionTarget) => void;
@@ -538,12 +536,13 @@ export const useWorkspaceShortcuts = ({
 		const nextPath = getAdjacentPath({ paths, currentPath, offset });
 		if (nextPath === null) return;
 
-		selectItem(
-			commitItem({
+		dispatchProjectState({
+			_tag: "SelectItem",
+			item: commitItem({
 				...selectedItem,
 				mode: { _tag: "Details", path: nextPath },
 			}),
-		);
+		});
 	};
 
 	const openCommitDetails = async (selectedItem: CommitItem) => {
@@ -559,22 +558,30 @@ export const useWorkspaceShortcuts = ({
 
 		const firstPath = commitDetails.changes[0]?.path;
 
-		selectItem(
-			commitItem({
+		dispatchProjectState({
+			_tag: "SelectItem",
+			item: commitItem({
 				...selectedItem,
 				mode: firstPath === undefined ? { _tag: "Details" } : { _tag: "Details", path: firstPath },
 			}),
-		);
+		});
 	};
 
 	const move = (offset: -1 | 1, selectedItem: Item) =>
-		selectItem(getAdjacentItem(navigationModel, selectedItem, offset));
+		dispatchProjectState({
+			_tag: "SelectItem",
+			item: getAdjacentItem(navigationModel, selectedItem, offset),
+		});
 	const previousSection = (selectedItem: Item) =>
-		selectItem(
-			getParentSection(selectedItem) ?? getAdjacentSection(navigationModel, selectedItem, -1),
-		);
+		dispatchProjectState({
+			_tag: "SelectItem",
+			item: getParentSection(selectedItem) ?? getAdjacentSection(navigationModel, selectedItem, -1),
+		});
 	const nextSection = (selectedItem: Item) =>
-		selectItem(getAdjacentSection(navigationModel, selectedItem, 1));
+		dispatchProjectState({
+			_tag: "SelectItem",
+			item: getAdjacentSection(navigationModel, selectedItem, 1),
+		});
 
 	const handleItemSelectionAction = (action: ItemSelectionAction, selectedItem: Item) =>
 		Match.value(action).pipe(
@@ -640,7 +647,11 @@ export const useWorkspaceShortcuts = ({
 		Match.value(action).pipe(
 			Match.tags({
 				Move: ({ offset }) => moveCommitDetailsFile(offset, selectedItem),
-				CloseDetails: () => selectItem(commitItem({ ...selectedItem, mode: { _tag: "Summary" } })),
+				CloseDetails: () =>
+					dispatchProjectState({
+						_tag: "SelectItem",
+						item: commitItem({ ...selectedItem, mode: { _tag: "Summary" } }),
+					}),
 			}),
 			Match.orElse((action) =>
 				handlePrimaryPanelAction(action, { _tag: "Commit", ...selectedItem }),
