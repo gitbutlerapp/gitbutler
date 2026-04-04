@@ -1846,7 +1846,7 @@ const ProjectPage: FC = () => {
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 	const [editing, setEditingState] = useState<Editing | null>(null);
 	const [previewSelectionKey, setPreviewSelectionKey] = useState<string | null>(null);
-	const [_selection, setSelection] = useState<Item | null>(null);
+	const [selectionState, setSelectionState] = useState<Item | null>(null);
 
 	const previewRef = useRef<PreviewImperativeHandle | null>(null);
 
@@ -1866,14 +1866,14 @@ const ProjectPage: FC = () => {
 		commonBaseCommitId,
 	});
 	const selection =
-		(_selection ? normalizeItem(_selection, headInfo, worktreeChanges) : null) ??
+		(selectionState ? normalizeItem(selectionState, headInfo, worktreeChanges) : null) ??
 		navigationModel.items[0] ??
 		null;
 
 	const select = (nextSelection: Item | null) => {
 		dispatchLayout({ _tag: "FocusPrimary" });
 		setPreviewSelectionKey(null);
-		setSelection(nextSelection);
+		setSelectionState(nextSelection);
 	};
 	const setEditing = (nextEditing: Editing | null) => {
 		dispatchLayout({ _tag: "FocusPrimary" });
