@@ -1872,17 +1872,11 @@ const ProjectPage: FC = () => {
 		assignments: worktreeChanges.assignments,
 		commonBaseCommitId,
 	});
+
 	const selection =
 		(selectionState.item ? normalizeItem(selectionState.item, headInfo, worktreeChanges) : null) ??
 		navigationModel.items[0] ??
 		null;
-	const setPreviewSelectionKey = (selectionKey: string | null) => {
-		setSelectionState((current) => ({
-			...current,
-			hunk: selectionKey,
-		}));
-	};
-
 	const select = (nextSelection: Item | null) => {
 		dispatchLayout({ _tag: "FocusPrimary" });
 		setSelectionState({
@@ -1890,6 +1884,14 @@ const ProjectPage: FC = () => {
 			hunk: null,
 		});
 	};
+
+	const setPreviewSelectionKey = (selectionKey: string | null) => {
+		setSelectionState((current) => ({
+			...current,
+			hunk: selectionKey,
+		}));
+	};
+
 	const setEditing = (nextEditing: Editing | null) => {
 		dispatchLayout({ _tag: "FocusPrimary" });
 		setEditingState(nextEditing);
