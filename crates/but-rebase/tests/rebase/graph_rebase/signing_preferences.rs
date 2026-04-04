@@ -2,7 +2,7 @@
 use anyhow::Result;
 use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, Pick, Step};
-use but_testsupport::{cat_commit, visualize_commit_graph_all};
+use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable_with_signing, standard_options};
 
@@ -30,7 +30,20 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
     editor.replace(c_sel, Step::Pick(pick))?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        └── ·dd72792 (⌂|1) ►c
+            └── ►:1[1]:b
+                └── ·e5aa7b5 (⌂|1)
+                    └── ►:2[2]:a
+                        └── ·3bfeb52 (⌂|1)
+                            └── ►:3[3]:base
+                                └── ·b6e2f57 (⌂|1)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
 
@@ -59,7 +72,17 @@ fn commits_are_signed_by_default() -> Result<()> {
     editor.replace(b_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        ├── ·de980c3 (⌂|1) ►c
+        └── ·3bfeb52 (⌂|1) ►a, ►b
+            └── ►:1[1]:base
+                └── ·b6e2f57 (⌂|1)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * de980c3 (HEAD -> main, c) c
@@ -124,7 +147,17 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     editor.replace(b_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        ├── ·06fee46 (⌂|1) ►c
+        └── ·3bfeb52 (⌂|1) ►a, ►b
+            └── ►:1[1]:base
+                └── ·b6e2f57 (⌂|1)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 06fee46 (HEAD -> main, c) c

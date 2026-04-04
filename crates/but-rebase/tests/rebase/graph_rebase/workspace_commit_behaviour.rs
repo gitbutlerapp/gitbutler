@@ -3,7 +3,7 @@
 use anyhow::Result;
 use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, LookupStep, Pick, Step};
-use but_testsupport::{cat_commit, visualize_commit_graph_all};
+use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable, fixture_writable_with_signing, standard_options};
 
@@ -36,6 +36,19 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
     );
 
     let outcome = editor.rebase()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:gitbutler/workspace[🌳]
+        ├── ·8600a31 (⌂|1)
+        └── ·2b9cba3 (⌂|1) ►c, ►main
+            └── ►:1[1]:b
+                └── ·8df3400 (⌂|1)
+                    └── ►:2[2]:a
+                        └── ·5b128a2 (⌂|1)
+                            └── ►:3[3]:base
+                                └── ·3b506ba (⌂|1)
+    ");
 
     let step = outcome.lookup_step(selector)?;
     assert_eq!(
@@ -45,6 +58,7 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
     );
 
     let mat_outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&mat_outcome.workspace.graph).to_string());
 
     let step = mat_outcome.lookup_step(selector)?;
     assert_eq!(
@@ -81,7 +95,18 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
     editor.replace(b_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:gitbutler/workspace[🌳]
+        ├── ·04c2142 (⌂|1)
+        ├── ·f5d7b3a (⌂|1) ►c, ►main
+        └── ·5b128a2 (⌂|1) ►a, ►b
+            └── ►:1[1]:base
+                └── ·3b506ba (⌂|1)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 31c75e2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -158,6 +183,15 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
     );
 
     let outcome = editor.rebase()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        ├── ·120e3a9 (⌂|1)
+        ├── ·a96434e (⌂|1)
+        ├── ·d591dfe (⌂|1)
+        └── ·35b8235 (⌂|1)
+    ");
 
     let step = outcome.lookup_step(selector)?;
     assert_eq!(
@@ -167,6 +201,7 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
     );
 
     let mat_outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&mat_outcome.workspace.graph).to_string());
 
     let step = mat_outcome.lookup_step(selector)?;
     assert_eq!(

@@ -613,7 +613,7 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
     );
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   6d5c23e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   de62bba (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
     | * 09d8e52 (B) A
     |/  

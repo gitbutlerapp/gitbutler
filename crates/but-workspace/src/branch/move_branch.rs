@@ -48,14 +48,14 @@ pub(super) mod function {
     ///
     /// Returns the in memory update [outcome](Outcome) that can then used for materialisation.
     pub fn tear_off_branch<'ws, 'meta, M: RefMetadata>(
-        mut editor: Editor<'ws, 'meta, M>,
+        editor: Editor<'ws, 'meta, M>,
         subject_branch_name: &FullNameRef,
         stack_id_override: Option<StackId>,
     ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
-        let Some(source) = editor
-            .workspace
-            .find_segment_and_stack_by_refname(subject_branch_name)
-        else {
+        let sucessful_rebase = editor.rebase()?;
+        let workspace = sucessful_rebase.overlayed_graph()?.into_workspace()?;
+        let mut editor = sucessful_rebase.into_editor();
+        let Some(source) = workspace.find_segment_and_stack_by_refname(subject_branch_name) else {
             bail!(
                 "Couldn't find branch to move in workspace with reference name: {subject_branch_name}"
             );
@@ -64,7 +64,7 @@ pub(super) mod function {
         // We're currently stopping the move branch operations imperatively at this stage, in order to
         // reduce the scope of this first iteration of moving the branches.
         // TODO: Enable and test that we can move branches in any kind of workspace.
-        match &editor.workspace.kind {
+        match &workspace.kind {
             WorkspaceKind::Managed { .. } => {}
             WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
                 bail!("Moving branches currently need a workspace commit")
@@ -74,7 +74,7 @@ pub(super) mod function {
             }
         };
 
-        let mut ws_meta = editor.workspace.metadata.clone();
+        let mut ws_meta = workspace.metadata.clone();
 
         let (source_stack, subject_segment) = source;
 
@@ -86,17 +86,16 @@ pub(super) mod function {
             });
         }
 
-        let Some(workspace_head) = editor.workspace.tip_commit().map(|commit| commit.id) else {
+        let Some(workspace_head) = workspace.tip_commit().map(|commit| commit.id) else {
             bail!("Couldn't find workspace head.")
         };
         let head_selector = editor
             .select_commit(workspace_head)
             .context("Failed to find the workspace head in the graph.")?;
 
-        let Some(lower_bound_ref) = editor
-            .workspace
+        let Some(lower_bound_ref) = workspace
             .lower_bound_segment_id
-            .map(|segment_id| &editor.workspace.graph[segment_id])
+            .map(|segment_id| &workspace.graph[segment_id])
             .and_then(|segment| segment.ref_name())
         else {
             bail!("Tearing off a branch requires a workspace common base");
@@ -107,7 +106,13 @@ pub(super) mod function {
             .context("Failed to find target reference in graph.")?;
 
         let (subject_delimiter, children_to_disconnect, parents_to_disconnect) =
-            get_disconnect_parameters(&editor, source_stack, subject_segment, workspace_head)?;
+            get_disconnect_parameters(
+                &editor,
+                &workspace,
+                source_stack,
+                subject_segment,
+                workspace_head,
+            )?;
 
         editor.disconnect_segment_from(
             subject_delimiter.clone(),
@@ -158,24 +163,25 @@ pub(super) mod function {
     ///
     /// Returns an [outcome](Outcome) for potential materialisation.
     pub fn move_branch<'ws, 'meta, M: RefMetadata>(
-        mut editor: Editor<'ws, 'meta, M>,
+        editor: Editor<'ws, 'meta, M>,
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
     ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
-        let (source, destination) = retrieve_branches_and_containers(
-            editor.workspace,
-            subject_branch_name,
-            target_branch_name,
-        )?;
+        let sucessful_rebase = editor.rebase()?;
+        let workspace = sucessful_rebase.overlayed_graph()?.into_workspace()?;
+        let mut editor = sucessful_rebase.into_editor();
 
-        let Some(workspace_head) = editor.workspace.tip_commit().map(|commit| commit.id) else {
+        let (source, destination) =
+            retrieve_branches_and_containers(&workspace, subject_branch_name, target_branch_name)?;
+
+        let Some(workspace_head) = workspace.tip_commit().map(|commit| commit.id) else {
             bail!("Couldn't find workspace head.")
         };
 
         // We're currently stopping the move branch operations imperatively at this stage, in order to
         // reduce the scope of this first iteration of moving the branches.
         // TODO: Enable and test that we can move branches in any kind of workspace.
-        match &editor.workspace.kind {
+        match &workspace.kind {
             WorkspaceKind::Managed { .. } => {}
             WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
                 bail!("Moving branches currently need a workspace commit")
@@ -185,7 +191,7 @@ pub(super) mod function {
             }
         };
 
-        let mut ws_meta = editor.workspace.metadata.clone();
+        let mut ws_meta = workspace.metadata.clone();
 
         let (source_stack, subject_segment) = source;
         let (_, target_segment) = destination;
@@ -197,7 +203,13 @@ pub(super) mod function {
             .context("Failed to find target reference in graph.")?;
 
         let (subject_delimiter, children_to_disconnect, parents_to_disconnect) =
-            get_disconnect_parameters(&editor, &source_stack, &subject_segment, workspace_head)?;
+            get_disconnect_parameters(
+                &editor,
+                &workspace,
+                &source_stack,
+                &subject_segment,
+                workspace_head,
+            )?;
 
         let skip_reconnect_step = source_stack.segments.len() == 1;
         editor.disconnect_segment_from(
@@ -306,6 +318,7 @@ pub(super) mod function {
 /// as well as the right segment delimiter to move.
 fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
     editor: &Editor<'ws, 'meta, M>,
+    workspace: &but_graph::projection::Workspace,
     source_stack: &Stack,
     subject_segment: &StackSegment,
     workspace_head: gix::ObjectId,
@@ -358,7 +371,7 @@ fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
     // graph data, and it's probably the target branch, which is not included in the workspace.
     let graph_base_segment = subject_segment
         .base_segment_id
-        .map(|segment_idx| &editor.workspace.graph[segment_idx]);
+        .map(|segment_idx| &workspace.graph[segment_idx]);
 
     let parents_to_disconnect = if let Some(stack_base_segment) = stack_base_segment {
         // Base segment is part of the source stack.

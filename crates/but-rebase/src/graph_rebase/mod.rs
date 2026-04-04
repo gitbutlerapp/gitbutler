@@ -10,7 +10,10 @@ use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result, bail};
 use but_core::RefMetadata;
+use but_graph::init::Overlay;
 use gix::refs::transaction::RefEdit;
+
+use crate::graph_rebase::util::collect_ordered_parents;
 pub mod cherry_pick;
 pub mod commit;
 pub mod materialize;
@@ -211,7 +214,7 @@ pub struct Editor<'ws, 'meta, M: RefMetadata> {
     /// Provides data about how the editor instance was transformed.
     history: RevisionHistory,
     /// A reference to the workspace that the editor was created for.
-    pub workspace: &'ws mut but_graph::projection::Workspace,
+    workspace: &'ws mut but_graph::projection::Workspace,
     /// A reference to the metadata that the editor was created for.
     meta: &'meta mut M,
 }
@@ -233,6 +236,68 @@ pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
     workspace: &'ws mut but_graph::projection::Workspace,
     /// A reference to the metadata that the editor was created for.
     meta: &'meta mut M,
+}
+
+impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
+    /// Returns a preview of what the but-graph will look like after
+    /// materialization.
+    ///
+    /// Any objects referenced in the resulting graph must be accessed via the
+    /// in memory repo owned by the [`Editor`] since they might be in-memory
+    /// only.
+    pub fn overlayed_graph(&self) -> Result<but_graph::Graph> {
+        let dropped_refs = self.ref_edits.iter().filter_map(|edit| match &edit.change {
+            gix::refs::transaction::Change::Delete { .. } => Some(edit.name.clone()),
+            _ => None,
+        });
+        let updated_refs = self.ref_edits.iter().filter_map(|edit| match &edit.change {
+            gix::refs::transaction::Change::Update { new, .. } => Some(gix::refs::Reference {
+                name: edit.name.clone(),
+                target: new.clone(),
+                // TODO(CTO): Peeled is only relevant for symbolic refs?
+                peeled: None,
+            }),
+            _ => None,
+        });
+
+        let Some((entrypoint_id, entrypoint_refname)) = self
+            .checkouts
+            .iter()
+            .filter_map(|checkout| match checkout {
+                Checkout::Head(selector) => {
+                    let selector = self.history.normalize_selector(*selector).ok()?;
+                    let step = &self.graph[selector.id];
+
+                    match step {
+                        Step::None => None,
+                        Step::Pick(Pick { id, .. }) => Some((*id, None)),
+                        Step::Reference { refname } => {
+                            let parents = collect_ordered_parents(&self.graph, selector.id);
+
+                            if let Some(to_reference) = parents.first()
+                                && let Step::Pick(Pick { id, .. }) = self.graph[*to_reference]
+                            {
+                                Some((id, Some(refname.clone())))
+                            } else {
+                                None
+                            }
+                        }
+                    }
+                }
+            })
+            .next()
+        else {
+            bail!("BUG: Tried to construct rebase engine graph overlay with no entrypoints");
+        };
+
+        let overlay = Overlay::default()
+            .with_references(updated_refs)
+            .with_dropped_references(dropped_refs)
+            .with_entrypoint(entrypoint_id, entrypoint_refname);
+        self.workspace
+            .graph
+            .redo_traversal_with_overlay(&self.repo, self.meta, overlay)
+    }
 }
 
 /// The outcome of a materialize

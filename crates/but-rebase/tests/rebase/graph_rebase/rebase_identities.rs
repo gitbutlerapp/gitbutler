@@ -3,7 +3,7 @@
 use anyhow::Result;
 use but_graph::Graph;
 use but_rebase::graph_rebase::Editor;
-use but_testsupport::{graph_workspace, visualize_commit_graph_all};
+use but_testsupport::{graph_tree, graph_workspace, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable, standard_options};
 
@@ -21,10 +21,20 @@ fn four_commits() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.clone().into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        ├── ·120e3a9 (⌂|1)
+        ├── ·a96434e (⌂|1)
+        ├── ·d591dfe (⌂|1)
+        └── ·35b8235 (⌂|1)
+    ");
     let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
     insta::assert_debug_snapshot!(outcome.history.commit_mappings(), @"{}");
@@ -46,7 +56,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
 
     let options = standard_options().with_hard_limit(4);
     let graph = Graph::from_head(&repo, &*meta, options)?.validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.clone().into_workspace()?;
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
@@ -58,7 +68,15 @@ fn four_commits_with_short_traversal() -> Result<()> {
 
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        ├── ·120e3a9 (⌂|1)
+        └── ❌·a96434e (⌂|1)
+    ");
     let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
     insta::assert_debug_snapshot!(outcome.history.commit_mappings(), @"{}");
@@ -83,10 +101,26 @@ fn merge_in_the_middle() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.clone().into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:with-inner-merge[🌳]
+        └── ·e8ee978 (⌂|1)
+            └── ►:1[1]:anon:
+                └── ·2fc288c (⌂|1)
+                    ├── ►:2[2]:A
+                    │   └── ·add59d2 (⌂|1)
+                    │       └── ►:4[3]:main
+                    │           └── ·8f0d338 (⌂|1) ►tags/base
+                    └── ►:3[2]:B
+                        └── ·984fd1c (⌂|1)
+                            └── →:4: (main)
+    ");
     let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
     insta::assert_debug_snapshot!(outcome.history.commit_mappings(), @"{}");
@@ -115,10 +149,30 @@ fn three_branches_merged() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph.clone().into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        └── ·1348870 (⌂|1)
+            ├── ►:1[1]:A
+            │   └── ·add59d2 (⌂|1)
+            │       └── ►:4[2]:anon:
+            │           └── ·8f0d338 (⌂|1) ►tags/base
+            ├── ►:2[1]:B
+            │   ├── ·a748762 (⌂|1)
+            │   └── ·62e05ba (⌂|1)
+            │       └── →:4:
+            └── ►:3[1]:C
+                ├── ·930563a (⌂|1)
+                ├── ·68a2fc3 (⌂|1)
+                └── ·984fd1c (⌂|1)
+                    └── →:4:
+    ");
     let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
     insta::assert_debug_snapshot!(outcome.history.commit_mappings(), @"{}");

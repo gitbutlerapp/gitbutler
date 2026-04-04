@@ -6,7 +6,7 @@ use but_rebase::{
     commit::DateMode,
     graph_rebase::{Editor, LookupStep, Step, mutate::InsertSide},
 };
-use but_testsupport::{cat_commit, visualize_commit_graph_all};
+use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable, standard_options};
 
@@ -32,7 +32,17 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
     editor.replace(b_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        ├── ·3411540 (⌂|1) ►c
+        └── ·5e0ba46 (⌂|1) ►a, ►b
+            └── ►:1[1]:base
+                └── ·6155f21 (⌂|1)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     // We expect to see conflicted headers
     insta::assert_snapshot!(cat_commit(&repo, "c")?, @"
@@ -126,7 +136,21 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
     editor.replace(c_sel, Step::Pick(c_pick))?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        └── ·00c31ec (⌂|1) ►c
+            └── ►:1[1]:b
+                ├── ·7762cf9 (⌂|1)
+                └── ·3b3bd41 (⌂|1)
+                    └── ►:2[2]:a
+                        └── ·5e0ba46 (⌂|1)
+                            └── ►:3[3]:base
+                                └── ·6155f21 (⌂|1)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     // The rebase is successful because `c` remained unconflicted
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"

@@ -2,7 +2,7 @@
 use anyhow::{Context, Result};
 use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, mutate};
-use but_testsupport::{git_status, visualize_commit_graph, visualize_commit_graph_all};
+use but_testsupport::{git_status, graph_tree, visualize_commit_graph, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable, standard_options};
 
@@ -45,7 +45,27 @@ fn insert_single_node_segment_above() -> Result<()> {
     editor.insert_segment(b_selector, delimiter, mutate::InsertSide::Above)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        └── ·5ae394a (⌂|1)
+            ├── ►:1[1]:A
+            │   └── ·77b07be (⌂|1)
+            │       ├── ►:3[3]:anon:
+            │       │   └── ·8f0d338 (⌂|1) ►tags/base
+            │       └── ►:4[2]:B
+            │           ├── ·a748762 (⌂|1)
+            │           └── ·62e05ba (⌂|1)
+            │               └── →:3:
+            └── ►:2[1]:C
+                ├── ·930563a (⌂|1)
+                ├── ·68a2fc3 (⌂|1)
+                └── ·984fd1c (⌂|1)
+                    └── →:3:
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   5ae394a (HEAD -> main) Merge branches 'A', 'B' and 'C'
@@ -106,7 +126,29 @@ fn insert_single_node_segment_below() -> Result<()> {
     editor.insert_segment(b_selector, delimiter, mutate::InsertSide::Below)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        └── ·e22f751 (⌂|1)
+            ├── ►:1[2]:A
+            │   └── ·507ce96 (⌂|1)
+            │       ├── ►:4[4]:anon:
+            │       │   └── ·8f0d338 (⌂|1) ►tags/base
+            │       └── ►:5[3]:anon:
+            │           └── ·62e05ba (⌂|1)
+            │               └── →:4:
+            ├── ►:2[1]:B
+            │   └── ·743ea2e (⌂|1)
+            │       └── →:1: (A)
+            └── ►:3[1]:C
+                ├── ·930563a (⌂|1)
+                ├── ·68a2fc3 (⌂|1)
+                └── ·984fd1c (⌂|1)
+                    └── →:4:
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *-.   e22f751 (HEAD -> main) Merge branches 'A', 'B' and 'C'
@@ -172,7 +214,28 @@ fn insert_multi_node_segment_above() -> Result<()> {
     editor.insert_segment(a_selector, delimiter, mutate::InsertSide::Above)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        └── ·b7346f3 (⌂|1)
+            ├── ►:1[1]:anon:
+            │   └── ·4670c6d (⌂|1) ►A, ►B
+            │       └── ►:3[2]:anon:
+            │           └── ·1470cfe (⌂|1)
+            │               ├── ►:4[4]:anon:
+            │               │   └── ·8f0d338 (⌂|1) ►tags/base
+            │               └── ►:5[3]:anon:
+            │                   └── ·add59d2 (⌂|1)
+            │                       └── →:4:
+            └── ►:2[1]:C
+                ├── ·930563a (⌂|1)
+                ├── ·68a2fc3 (⌂|1)
+                └── ·984fd1c (⌂|1)
+                    └── →:4:
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   b7346f3 (HEAD -> main) Merge branches 'A', 'B' and 'C'
@@ -237,7 +300,27 @@ fn insert_multi_node_segment_below() -> Result<()> {
     editor.insert_segment(a_selector, delimiter, mutate::InsertSide::Below)?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        └── ·78624ea (⌂|1)
+            ├── ►:1[1]:A
+            │   └── ·e4c78ba (⌂|1)
+            │       └── ►:2[2]:B
+            │           ├── ·a748762 (⌂|1)
+            │           └── ·62e05ba (⌂|1)
+            │               └── ►:4[3]:anon:
+            │                   └── ·8f0d338 (⌂|1) ►tags/base
+            ├── →:2: (B)
+            └── ►:3[1]:C
+                ├── ·930563a (⌂|1)
+                ├── ·68a2fc3 (⌂|1)
+                └── ·984fd1c (⌂|1)
+                    └── →:4:
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *-.   78624ea (HEAD -> main) Merge branches 'A', 'B' and 'C'
@@ -305,7 +388,30 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
     )?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        └── ·a14ecd6 (⌂|1)
+            ├── ►:1[2]:A
+            │   └── ·77b07be (⌂|1)
+            │       ├── ►:4[4]:anon:
+            │       │   └── ·8f0d338 (⌂|1) ►tags/base
+            │       └── ►:2[3]:B
+            │           ├── ·a748762 (⌂|1)
+            │           └── ·62e05ba (⌂|1)
+            │               └── →:4:
+            ├── →:2: (B)
+            └── ►:3[1]:C
+                └── ·53c45c8 (⌂|1)
+                    ├── ►:5[2]:anon:
+                    │   ├── ·68a2fc3 (⌂|1)
+                    │   └── ·984fd1c (⌂|1)
+                    │       └── →:4:
+                    └── →:1: (A)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *-.   a14ecd6 (HEAD -> main) Merge branches 'A', 'B' and 'C'
@@ -377,7 +483,30 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
     )?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:main[🌳]
+        └── ·9cf36b2 (⌂|1)
+            ├── ►:1[1]:A
+            │   └── ·37fb54d (⌂|1)
+            │       ├── ►:4[4]:anon:
+            │       │   └── ·8f0d338 (⌂|1) ►tags/base
+            │       └── ►:2[2]:B
+            │           └── ·d202f84 (⌂|1)
+            │               ├── ►:5[3]:anon:
+            │               │   └── ·62e05ba (⌂|1)
+            │               │       └── →:4:
+            │               └── ►:3[3]:C
+            │                   ├── ·930563a (⌂|1)
+            │                   ├── ·68a2fc3 (⌂|1)
+            │                   └── ·984fd1c (⌂|1)
+            │                       └── →:4:
+            ├── →:2: (B)
+            └── →:3: (C)
+    ");
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *-.   9cf36b2 (HEAD -> main) Merge branches 'A', 'B' and 'C'
