@@ -2,9 +2,13 @@ import { Dialog } from "@base-ui/react";
 import { FC, ReactNode, use, useState } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import { ShortcutButton } from "#ui/ShortcutButton.tsx";
+import {
+	isPreviewPanelVisible,
+	Panel as PanelType,
+	WorkspaceLayoutContext,
+} from "#ui/state/WorkspaceLayout.tsx";
 import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/-ShortcutsBar.tsx";
-import { useFullscreenPreview } from "#ui/hooks/useFullscreenPreview.ts";
-import { usePreviewPanel } from "#ui/hooks/usePreviewPanel.ts";
+import { assert } from "#ui/routes/project/$id/-shared.tsx";
 import uiStyles from "#ui/ui.module.css";
 import { closeFullscreenPreviewBinding } from "./workspace/-WorkspaceShortcuts.ts";
 import sharedStyles from "./-shared.module.css";
@@ -14,20 +18,22 @@ export const ProjectPreviewLayout: FC<{
 	children: ReactNode;
 	preview: ReactNode | null;
 }> = ({ children, projectId, preview }) => {
-	const [showPreviewPanel] = usePreviewPanel();
-	const [showFullscreenPreview, setShowFullscreenPreview] = useFullscreenPreview(projectId);
+	const [layoutState, dispatchLayout] = assert(use(WorkspaceLayoutContext));
 	const inheritedShortcutsBarPortalNode = use(ShortcutsBarPortalContext);
 	const [dialogShortcutsBarPortalNode, setDialogShortcutsBarPortalNode] =
 		useState<HTMLElement | null>(null);
+	const panelIds: Array<PanelType> = isPreviewPanelVisible(layoutState)
+		? ["primary", "preview"]
+		: ["primary"];
 	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
 		id: `project:${projectId}:layout`,
-		panelIds: showPreviewPanel ? ["primary", "preview"] : ["primary"],
+		panelIds,
 	});
 
 	return (
 		<ShortcutsBarPortalContext
 			value={
-				showFullscreenPreview
+				layoutState.isFullscreenPreviewOpen
 					? (dialogShortcutsBarPortalNode ?? inheritedShortcutsBarPortalNode)
 					: inheritedShortcutsBarPortalNode
 			}
@@ -37,25 +43,35 @@ export const ProjectPreviewLayout: FC<{
 				defaultLayout={defaultLayout}
 				onLayoutChange={onLayoutChanged}
 			>
-				<Panel id="primary" minSize={500}>
-					<div className={sharedStyles.primaryPane}>{children}</div>
+				<Panel id={"primary" satisfies PanelType} minSize={500}>
+					<div className={sharedStyles.primaryPanel}>{children}</div>
 				</Panel>
-				{showPreviewPanel && (
+				{isPreviewPanelVisible(layoutState) && (
 					<>
 						<Separator className={sharedStyles.previewResizeHandle} />
 						<Panel
-							id="preview"
+							id={"preview" satisfies PanelType}
 							minSize={300}
 							defaultSize="30%"
-							className={sharedStyles.previewPane}
+							className={sharedStyles.previewPanel}
 						>
-							{preview}
+							{
+								// There can only be one user of the ref at a time.
+								layoutState.isFullscreenPreviewOpen ? null : preview
+							}
 						</Panel>
 					</>
 				)}
 			</Group>
-			{showFullscreenPreview && (
-				<Dialog.Root open onOpenChange={setShowFullscreenPreview}>
+			{layoutState.isFullscreenPreviewOpen && (
+				<Dialog.Root
+					open
+					onOpenChange={(open) => {
+						dispatchLayout({
+							_tag: open ? "OpenFullscreenPreview" : "CloseFullscreenPreview",
+						});
+					}}
+				>
 					<Dialog.Portal>
 						<Dialog.Popup aria-label="Preview" className={sharedStyles.previewDialogPopup}>
 							<div className={sharedStyles.previewDialogBody}>
@@ -63,7 +79,7 @@ export const ProjectPreviewLayout: FC<{
 									binding={closeFullscreenPreviewBinding}
 									type="button"
 									className={uiStyles.button}
-									onClick={() => setShowFullscreenPreview(false)}
+									onClick={() => dispatchLayout({ _tag: "CloseFullscreenPreview" })}
 								>
 									{closeFullscreenPreviewBinding.description}
 								</ShortcutButton>

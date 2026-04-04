@@ -1,20 +1,26 @@
-import { commitDetailsWithLineStatsQueryOptions } from "#ui/api/queries.ts";
+import {
+	branchDetailsQueryOptions,
+	branchDiffQueryOptions,
+	commitDetailsWithLineStatsQueryOptions,
+	treeChangeDiffsQueryOptions,
+} from "#ui/api/queries.ts";
 import { classes } from "#ui/classes.ts";
 import { ExpandCollapseIcon, MenuTriggerIcon } from "#ui/components/icons.tsx";
 import { ContextMenu, Menu } from "@base-ui/react";
 import { BranchDetails, BranchListing, Commit, DiffHunk, TreeChange } from "@gitbutler/but-sdk";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import {
+	useMutation,
+	useQueryClient,
+	useSuspenseQueries,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Match } from "effect";
-import { ComponentProps, FC, Suspense, useState, useTransition } from "react";
+import { ComponentProps, FC, ReactNode, Suspense, useState, useTransition } from "react";
 import styles from "./route.module.css";
 
 import { applyBranchMutationOptions, unapplyStackMutationOptions } from "#ui/api/mutations.ts";
-import {
-	branchDetailsQueryOptions,
-	listBranchesQueryOptions,
-	listProjectsQueryOptions,
-} from "#ui/api/queries.ts";
+import { listBranchesQueryOptions, listProjectsQueryOptions } from "#ui/api/queries.ts";
 import { CheckIcon, ArrowDownIcon, ArrowUpIcon, AddCircleIcon } from "#ui/components/icons.tsx";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import {
@@ -22,15 +28,45 @@ import {
 	CommitLabel,
 	CommitsList,
 	FileButton,
-	FileDiff,
 	formatHunkHeader,
 	HunkDiff,
-	ShowBranch,
-	ShowCommitWithQuery,
+	hunkKey,
+	Patch,
 } from "#ui/routes/project/$id/-shared.tsx";
+import { CommitFileSource } from "#ui/routes/project/$id/workspace/-OperationSubjects.tsx";
 import uiStyles from "#ui/ui.module.css";
 import sharedStyles from "../-shared.module.css";
 import { getDefaultSelection, normalizeBranchSelection, Selection } from "./-Selection.ts";
+
+const FileDiff: FC<{
+	projectId: string;
+	change: TreeChange;
+	renderHunk: (hunk: DiffHunk, patch: Patch) => ReactNode;
+}> = ({ projectId, change, renderHunk }) => {
+	const { data } = useSuspenseQuery(treeChangeDiffsQueryOptions({ projectId, change }));
+
+	return Match.value(data).pipe(
+		Match.when(null, () => <div>No diff available for this file.</div>),
+		Match.when({ type: "Binary" }, () => <div>Binary file (diff not available).</div>),
+		Match.when({ type: "TooLarge" }, ({ subject }) => (
+			<div>Diff too large ({subject.sizeInBytes} bytes).</div>
+		)),
+		Match.when({ type: "Patch" }, (patch) => {
+			const visibleHunks = patch.subject.hunks;
+
+			if (visibleHunks.length === 0) return <div>No hunks.</div>;
+
+			return (
+				<ul>
+					{visibleHunks.map((hunk) => (
+						<li key={hunkKey(hunk)}>{renderHunk(hunk, patch)}</li>
+					))}
+				</ul>
+			);
+		}),
+		Match.exhaustive,
+	);
+};
 
 const isValidCommit = (commitId: string, branchDetails: BranchDetails): boolean => {
 	const commitIds = new Set(branchDetails.commits.map((commit) => commit.id));
@@ -69,6 +105,116 @@ const getExpandedCommitSelection = async ({
 		commitId,
 		mode: { _tag: "Details", path: commitDetails.changes[0]?.path },
 	};
+};
+
+const ShowCommit: FC<{
+	projectId: string;
+	commit: Commit;
+	changes: Array<TreeChange>;
+	editable: boolean;
+	renderHunk: (change: TreeChange, hunk: DiffHunk, patch: Patch) => ReactNode;
+}> = ({ projectId, commit, changes, editable, renderHunk }) => {
+	const firstLineEnd = commit.message.indexOf("\n");
+	const commitMessageBody =
+		firstLineEnd === -1 ? "" : commit.message.slice(firstLineEnd + 1).trim();
+
+	return (
+		<>
+			<h3>
+				<CommitLabel commit={commit} />
+			</h3>
+			{commitMessageBody !== "" && (
+				<p className={sharedStyles.commitMessageBody}>{commitMessageBody}</p>
+			)}
+			{changes.length === 0 ? (
+				<div>No file changes.</div>
+			) : (
+				<ul>
+					{changes.map((change) => (
+						<li key={change.path}>
+							{editable ? (
+								<CommitFileSource
+									change={change}
+									fileParent={{ _tag: "Commit", commitId: commit.id }}
+								>
+									<h4>{change.path}</h4>
+								</CommitFileSource>
+							) : (
+								<h4>{change.path}</h4>
+							)}
+							<FileDiff
+								projectId={projectId}
+								change={change}
+								renderHunk={(hunk, patch) => renderHunk(change, hunk, patch)}
+							/>
+						</li>
+					))}
+				</ul>
+			)}
+		</>
+	);
+};
+
+const ShowCommitWithQuery: FC<{
+	projectId: string;
+	commitId: string;
+	editable: boolean;
+	renderHunk: (change: TreeChange, hunk: DiffHunk, patch: Patch) => ReactNode;
+}> = ({ projectId, commitId, editable, renderHunk }) => {
+	const { data } = useSuspenseQuery(
+		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
+	);
+
+	return (
+		<ShowCommit
+			projectId={projectId}
+			commit={data.commit}
+			changes={data.changes}
+			editable={editable}
+			renderHunk={renderHunk}
+		/>
+	);
+};
+
+const ShowBranch: FC<{
+	projectId: string;
+	branchName: string;
+	remote: string | null;
+	renderHunk: (change: TreeChange, hunk: DiffHunk, patch: Patch) => ReactNode;
+}> = ({ projectId, branchName, remote, renderHunk }) => {
+	const [{ data: branchDetails }, { data: branchDiff }] = useSuspenseQueries({
+		queries: [
+			branchDetailsQueryOptions({ projectId, branchName, remote }),
+			branchDiffQueryOptions({
+				projectId,
+				branch:
+					remote !== null ? `refs/remotes/${remote}/${branchName}` : `refs/heads/${branchName}`,
+			}),
+		],
+	});
+
+	return (
+		<>
+			<h3>{branchDetails.name}</h3>
+			{branchDetails.prNumber != null && <p>PR #{branchDetails.prNumber}</p>}
+			{branchDiff.changes.length === 0 ? (
+				<div>No file changes.</div>
+			) : (
+				<ul>
+					{branchDiff.changes.map((change) => (
+						<li key={change.path}>
+							<h4>{change.path}</h4>
+							<FileDiff
+								projectId={projectId}
+								change={change}
+								renderHunk={(hunk, patch) => renderHunk(change, hunk, patch)}
+							/>
+						</li>
+					))}
+				</ul>
+			)}
+		</>
+	);
 };
 
 const BranchMenuPopup: FC<{

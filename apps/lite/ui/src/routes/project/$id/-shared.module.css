@@ -8,15 +8,15 @@
 	flex-grow: 1;
 }
 
-.primaryPane {
+.primaryPanel {
 	display: flex;
 	flex-direction: column;
 	min-height: 100%;
-	padding: var(--pane-padding);
+	padding: var(--panel-padding);
 }
 
-.previewPane {
-	padding: var(--pane-padding);
+.previewPanel {
+	padding: var(--panel-padding);
 }
 
 .previewDialogPopup {
@@ -30,7 +30,7 @@
 
 .previewDialogBody {
 	flex: 1;
-	padding: var(--pane-padding);
+	padding: var(--panel-padding);
 	overflow: auto;
 }
 
@@ -149,6 +149,18 @@
 .hunkHeader {
 	flex-grow: 1;
 	font-family: monospace;
+}
+
+.previewHunk {
+	padding: 4px 6px;
+
+	&:where(:hover) {
+		outline: 2px solid var(--color-separator);
+	}
+}
+
+.previewHunkSelected {
+	outline: 2px solid light-dark(black, white);
 }
 
 .dragPreview {

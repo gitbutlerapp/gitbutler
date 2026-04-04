@@ -28,7 +28,7 @@
 	row-gap: 16px;
 	grid-area: sidebar;
 	flex-direction: column;
-	padding: var(--pane-padding);
+	padding: var(--panel-padding);
 	border-right: 1px solid var(--color-separator);
 }
 

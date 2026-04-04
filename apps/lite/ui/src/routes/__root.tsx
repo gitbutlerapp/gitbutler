@@ -1,14 +1,18 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, Outlet, useMatch, useNavigate } from "@tanstack/react-router";
-import { FC, useState } from "react";
+import { FC, use, useState } from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext } from "@tanstack/react-router";
-import { useFullscreenPreview } from "../hooks/useFullscreenPreview";
-import { usePreviewPanel } from "../hooks/usePreviewPanel";
+import {
+	isPreviewPanelVisible,
+	WorkspaceLayoutContext,
+	WorkspaceLayoutProvider,
+} from "../state/WorkspaceLayout";
+import { assert } from "#ui/routes/project/$id/-shared.tsx";
 import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/-ShortcutsBar.tsx";
 import {
-	openFullscreenPreviewBinding,
+	toggleFullscreenPreviewBinding,
 	togglePreviewBinding,
 } from "#ui/routes/project/$id/workspace/-WorkspaceShortcuts.ts";
 import uiStyles from "#ui/ui.module.css";
@@ -90,11 +94,8 @@ const SidebarNav: FC = () => {
 	);
 };
 
-const TopBarActions: FC<{
-	projectId: string;
-}> = ({ projectId }) => {
-	const [previewPanel, setPreviewPanel] = usePreviewPanel();
-	const [, setShowFullscreenPreview] = useFullscreenPreview(projectId);
+const TopBarActions: FC = () => {
+	const [layoutState, dispatchLayout] = assert(use(WorkspaceLayoutContext));
 
 	return (
 		<div className={styles.topBarActions}>
@@ -102,18 +103,19 @@ const TopBarActions: FC<{
 				binding={togglePreviewBinding}
 				type="button"
 				className={uiStyles.button}
-				aria-pressed={previewPanel}
-				onClick={() => setPreviewPanel((visible) => !visible)}
+				aria-pressed={isPreviewPanelVisible(layoutState)}
+				onClick={() => dispatchLayout({ _tag: "TogglePreview" })}
 			>
 				{togglePreviewBinding.description}
 			</ShortcutButton>
 			<ShortcutButton
-				binding={openFullscreenPreviewBinding}
+				binding={toggleFullscreenPreviewBinding}
 				type="button"
 				className={uiStyles.button}
-				onClick={() => setShowFullscreenPreview(true)}
+				aria-pressed={layoutState.isFullscreenPreviewOpen}
+				onClick={() => dispatchLayout({ _tag: "ToggleFullscreenPreview" })}
 			>
-				{openFullscreenPreviewBinding.description}
+				{toggleFullscreenPreviewBinding.description}
 			</ShortcutButton>
 		</div>
 	);
@@ -128,7 +130,7 @@ const TopBar: FC = () => {
 	return (
 		<header className={styles.topBar}>
 			<ProjectSelect />
-			{projectMatch && <TopBarActions projectId={projectMatch.params.id} />}
+			{projectMatch && <TopBarActions />}
 		</header>
 	);
 };
@@ -137,18 +139,20 @@ function RootLayout() {
 	const [shortcutsBarPortalNode, setShortcutsBarPortalNode] = useState<HTMLElement | null>(null);
 
 	return (
-		<ShortcutsBarPortalContext value={shortcutsBarPortalNode}>
-			<main className={styles.layout}>
-				<TopBar />
-				<aside className={styles.sidebar}>
-					<SidebarNav />
-				</aside>
-				<section className={styles.content}>
-					<Outlet />
-				</section>
-				<footer className={styles.shortcutsBarFooter} ref={setShortcutsBarPortalNode} />
-			</main>
-		</ShortcutsBarPortalContext>
+		<WorkspaceLayoutProvider>
+			<ShortcutsBarPortalContext value={shortcutsBarPortalNode}>
+				<main className={styles.layout}>
+					<TopBar />
+					<aside className={styles.sidebar}>
+						<SidebarNav />
+					</aside>
+					<section className={styles.content}>
+						<Outlet />
+					</section>
+					<footer className={styles.shortcutsBarFooter} ref={setShortcutsBarPortalNode} />
+				</main>
+			</ShortcutsBarPortalContext>
+		</WorkspaceLayoutProvider>
 	);
 }
 
