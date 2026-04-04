@@ -1,9 +1,14 @@
-use anyhow::bail;
+use std::collections::BTreeMap;
+
+use anyhow::{Context as _, bail};
 use bstr::BString;
 use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use colored::Colorize;
-use gitbutler_branch_actions::squash_commits_with_perm;
+use gitbutler_oplog::{
+    OplogExt,
+    entry::{OperationKind, SnapshotDetails},
+};
 use gix::ObjectId;
 
 use super::undo::stack_id_by_commit_id;
@@ -274,44 +279,78 @@ fn squash_commits_internal(
         None
     };
 
-    // Perform the squash using the API - it can handle multiple source commits
-    let new_commit_oid =
-        squash_commits_with_perm(ctx, target_stack, source_oids.clone(), target_oid, perm)?;
+    // Keep the complete multi-rewrite sequence atomic: if any step fails,
+    // restore the pre-squash snapshot so we don't leave partial rewrites.
+    let snapshot = ctx.create_snapshot(SnapshotDetails::new(OperationKind::SquashCommit), perm)?;
+    let squash_result: anyhow::Result<ObjectId> = (|| {
+        // Perform the squash by folding sources into the current target one by one.
+        // We process from bottom to top so each next source remains adjacent to the
+        // rewritten target commit.
+        let mut new_commit_oid = target_oid;
+        let mut rewritten_commits = BTreeMap::<ObjectId, ObjectId>::new();
+        for source_oid in source_oids.iter().rev() {
+            let mut remapped_source_oid = *source_oid;
+            while let Some(next_oid) = rewritten_commits.get(&remapped_source_oid) {
+                remapped_source_oid = *next_oid;
+            }
 
-    // Determine the final message and apply if needed
-    let final_commit_oid = if let Some(user_summary) = ai {
-        // Use AI to generate the commit message
-        let ai_message = ai::generate_commit_message_from_multiple_messages(
-            out,
-            source_messages.unwrap_or_default(),
-            destination_message.unwrap_or_default(),
-            user_summary,
-        )?;
-        but_api::commit::reword::commit_reword_only_with_perm(
-            ctx,
-            new_commit_oid,
-            BString::from(ai_message),
-            perm,
-        )?
-        .new_commit
-    } else if let Some(msg) = custom_message {
-        but_api::commit::reword::commit_reword_only_with_perm(
-            ctx,
-            new_commit_oid,
-            BString::from(msg),
-            perm,
-        )?
-        .new_commit
-    } else if let Some(target_msg) = target_message {
-        but_api::commit::reword::commit_reword_only_with_perm(
-            ctx,
-            new_commit_oid,
-            BString::from(target_msg),
-            perm,
-        )?
-        .new_commit
-    } else {
-        new_commit_oid
+            let squash_result = but_api::commit::squash::commit_squash_only_with_perm(
+                ctx,
+                remapped_source_oid,
+                new_commit_oid,
+                perm,
+            )?;
+            rewritten_commits.extend(squash_result.replaced_commits.iter().map(|(k, v)| (*k, *v)));
+            new_commit_oid = squash_result.new_commit;
+        }
+
+        // Determine the final message and apply if needed.
+        let final_commit_oid = if let Some(user_summary) = ai {
+            // Use AI to generate the commit message.
+            let ai_message = ai::generate_commit_message_from_multiple_messages(
+                out,
+                source_messages.unwrap_or_default(),
+                destination_message.unwrap_or_default(),
+                user_summary,
+            )?;
+            but_api::commit::reword::commit_reword_only_with_perm(
+                ctx,
+                new_commit_oid,
+                BString::from(ai_message),
+                perm,
+            )?
+            .new_commit
+        } else if let Some(msg) = custom_message {
+            but_api::commit::reword::commit_reword_only_with_perm(
+                ctx,
+                new_commit_oid,
+                BString::from(msg),
+                perm,
+            )?
+            .new_commit
+        } else if let Some(target_msg) = target_message {
+            but_api::commit::reword::commit_reword_only_with_perm(
+                ctx,
+                new_commit_oid,
+                BString::from(target_msg),
+                perm,
+            )?
+            .new_commit
+        } else {
+            new_commit_oid
+        };
+
+        Ok(final_commit_oid)
+    })();
+
+    let final_commit_oid = match squash_result {
+        Ok(final_commit_oid) => final_commit_oid,
+        Err(err) => {
+            ctx.restore_snapshot(snapshot, perm).with_context(|| {
+                format!("Failed to restore snapshot {snapshot} after squash failure")
+            })?;
+            return Err(err);
+        }
     };
 
     // Output message based on context

@@ -144,6 +144,17 @@ export declare function commitMoveChangesBetween(projectId: string, sourceCommit
 export declare function commitReword(projectId: string, commitId: string, message: string): Promise<UICommitRewordResult>
 
 /**
+ * Squash `subject_commit_id` into `target_commit_id` and record an oplog
+ * snapshot on success.
+ *
+ * This acquires exclusive worktree access from `ctx` before rewriting the
+ * commits.
+ *
+ * For details, see [`commit_squash_with_perm()`].
+ */
+export declare function commitSquash(projectId: string, subjectCommitId: string, targetCommitId: string): Promise<UICommitSquashResult>
+
+/**
  * Extract `changes` from `commit_id` and record the rewrite in the oplog.
  *
  * This acquires exclusive worktree access from `ctx` before extracting the
@@ -1367,6 +1378,17 @@ export type UICommitRewordResult = {
   newCommit: string;
   /**
    * Commits that have been replaced as a side-effect of the reword.
+   * Maps `oldId -> newId`.
+   */
+  replacedCommits: Record<string, string>;
+};
+
+/** UI type for squashing commits. */
+export type UICommitSquashResult = {
+  /** The new commit ID after squashing. */
+  newCommit: string;
+  /**
+   * Commits that have been replaced as a side-effect of the squash.
    * Maps `oldId -> newId`.
    */
   replacedCommits: Record<string, string>;

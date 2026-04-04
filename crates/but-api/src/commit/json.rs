@@ -5,7 +5,7 @@ use crate::{commit::types::CommitDiscardResult, json::HexHash};
 
 use super::types::{
     CommitCreateResult, CommitInsertBlankResult, CommitMoveResult, CommitRewordResult,
-    MoveChangesResult,
+    CommitSquashResult, MoveChangesResult,
 };
 
 /// UI type for a move changes between commits result.
@@ -129,6 +129,43 @@ but_schemars::register_sdk_type!(UICommitRewordResult);
 impl From<CommitRewordResult> for UICommitRewordResult {
     fn from(value: CommitRewordResult) -> Self {
         let CommitRewordResult {
+            new_commit,
+            replaced_commits,
+        } = value;
+
+        Self {
+            new_commit: new_commit.into(),
+            replaced_commits: replaced_commits
+                .into_iter()
+                .map(|(old, new)| (old.into(), new.into()))
+                .collect(),
+        }
+    }
+}
+
+/// UI type for squashing commits.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct UICommitSquashResult {
+    /// The new commit ID after squashing.
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+    pub new_commit: HexHash,
+    /// Commits that have been replaced as a side-effect of the squash.
+    /// Maps `oldId -> newId`.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(with = "std::collections::BTreeMap<String, String>")
+    )]
+    pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(UICommitSquashResult);
+
+impl From<CommitSquashResult> for UICommitSquashResult {
+    fn from(value: CommitSquashResult) -> Self {
+        let CommitSquashResult {
             new_commit,
             replaced_commits,
         } = value;

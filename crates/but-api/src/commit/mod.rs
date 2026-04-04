@@ -22,6 +22,9 @@ pub mod move_commit;
 /// Functions for rewording commits.
 pub mod reword;
 
+/// Functions for squashing commits.
+pub mod squash;
+
 /// Shared result and selector types for commit APIs.
 pub mod types;
 
