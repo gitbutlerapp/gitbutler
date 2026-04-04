@@ -274,6 +274,54 @@ pub fn set_review_template(
     Ok(())
 }
 
+/// Open the review URL(s) in the default web browser.
+/// If no selector is given, prompts the user to choose from reviews in the workspace.
+pub async fn open_review(
+    ctx: &mut Context,
+    selector: Option<String>,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    let review_ids = resolve_review_selection(ctx, selector)?;
+
+    if review_ids.is_empty() {
+        if let Some(out) = out.for_human() {
+            writeln!(out, "No reviews selected")?;
+        }
+        return Ok(());
+    }
+
+    for review_id in review_ids {
+        let review = but_api::legacy::forge::get_review(ctx, review_id)
+            .with_context(|| format!("Failed to get review {review_id}"))?;
+        open::that(&review.html_url)
+            .with_context(|| format!("Failed to open URL: {}", review.html_url))?;
+        if let Some(out) = out.for_human() {
+            writeln!(
+                out,
+                "{} {} {}{}",
+                "→".cyan(),
+                "Opened".green(),
+                review.unit_symbol.cyan(),
+                review.number.to_string().cyan().bold()
+            )?;
+            writeln!(
+                out,
+                "  {} {}",
+                "URL:".dimmed(),
+                review.html_url.underline().blue()
+            )?;
+        }
+        if let Some(out) = out.for_json() {
+            out.write_value(serde_json::json!({
+                "url": review.html_url,
+                "number": review.number,
+            }))?;
+        }
+    }
+
+    Ok(())
+}
+
 /// Create a new forge review for a branch.
 /// If no branch is specified, prompts the user to select one.
 /// If there is only one branch without a an acco, asks for confirmation.
