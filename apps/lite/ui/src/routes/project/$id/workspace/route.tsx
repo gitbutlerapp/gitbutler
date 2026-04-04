@@ -441,7 +441,7 @@ const hunkKeysFromChangeWithDiff = (
 			)
 		: [];
 
-type PreviewImperativeHandle = {
+export type PreviewImperativeHandle = {
 	moveSelection: (offset: -1 | 1) => void;
 };
 
@@ -1887,9 +1887,6 @@ const ProjectPage: FC = () => {
 	const highlightCommits = (commitIds: Array<string> | null) => {
 		setHighlightedCommitIds(commitIds ? new Set(commitIds) : new Set());
 	};
-	const movePreviewSelection = (offset: -1 | 1) => {
-		previewRef.current?.moveSelection(offset);
-	};
 
 	const shortcutScope = getScope({
 		selectedItem,
@@ -1914,7 +1911,7 @@ const ProjectPage: FC = () => {
 		navigationModel,
 		requestAbsorptionPlan,
 		dispatchProjectState,
-		movePreviewSelection,
+		previewRef,
 	});
 
 	// TODO: dedupe

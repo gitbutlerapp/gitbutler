@@ -7,7 +7,7 @@ import { isTypingTarget } from "#ui/routes/project/$id/-shared.tsx";
 import { AbsorptionTarget } from "@gitbutler/but-sdk";
 import { useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
-import { Dispatch, useEffect, useEffectEvent } from "react";
+import { Dispatch, RefObject, useEffect, useEffectEvent } from "react";
 import { type Editing } from "./-Editing.ts";
 import {
 	commitItem,
@@ -26,6 +26,7 @@ import {
 } from "./-Selection.ts";
 import { getFocus, type ProjectLayoutState } from "#ui/routes/project/$id/-state/layout.ts";
 import { type ProjectStateAction } from "#ui/routes/project/$id/-state/project.ts";
+import { PreviewImperativeHandle } from "./route.tsx";
 
 type ItemSelectionAction =
 	| { _tag: "Move"; offset: -1 | 1 }
@@ -468,7 +469,7 @@ export const useWorkspaceShortcuts = ({
 	navigationModel,
 	requestAbsorptionPlan,
 	dispatchProjectState,
-	movePreviewSelection,
+	previewRef,
 }: {
 	projectId: string;
 	scope: Scope | null;
@@ -476,7 +477,7 @@ export const useWorkspaceShortcuts = ({
 	navigationModel: NavigationModel;
 	requestAbsorptionPlan: (target: AbsorptionTarget) => void;
 	dispatchProjectState: Dispatch<ProjectStateAction>;
-	movePreviewSelection: (offset: -1 | 1) => void;
+	previewRef: RefObject<PreviewImperativeHandle | null>;
 }) => {
 	const queryClient = useQueryClient();
 
@@ -605,7 +606,7 @@ export const useWorkspaceShortcuts = ({
 	const handleHunkSelectionAction = (action: HunkSelectionAction) =>
 		Match.value(action).pipe(
 			Match.tagsExhaustive({
-				Move: ({ offset }) => movePreviewSelection(offset),
+				Move: ({ offset }) => previewRef.current?.moveSelection(offset),
 			}),
 		);
 
