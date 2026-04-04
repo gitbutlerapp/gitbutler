@@ -325,12 +325,12 @@ type Scope =
 			context: CommitItem;
 	  }
 	| {
-			_tag: "CommitEditMessage";
+			_tag: "CommitReword";
 			bindings: Array<ShortcutBinding<CommitEditingMessageAction>>;
 			context: CommitItem;
 	  }
 	| {
-			_tag: "RenameBranch";
+			_tag: "BranchRename";
 			bindings: Array<ShortcutBinding<RenameBranchAction>>;
 			context: SegmentItem;
 	  }
@@ -389,7 +389,7 @@ export const getScope = ({
 				editing.subject.commitId === selection.commitId
 			)
 				return {
-					_tag: "CommitEditMessage",
+					_tag: "CommitReword",
 					bindings: commitEditingMessageBindings,
 					context: selection,
 				};
@@ -424,7 +424,7 @@ export const getScope = ({
 				editing.subject.stackId === selection.stackId &&
 				editing.subject.segmentIndex === selection.segmentIndex
 					? {
-							_tag: "RenameBranch",
+							_tag: "BranchRename",
 							bindings: renameBranchBindings,
 							context: selection,
 						}
@@ -448,10 +448,10 @@ export const getLabel = (scope: Scope): string =>
 	Match.value(scope).pipe(
 		Match.tagsExhaustive({
 			BaseCommit: () => "Base commit",
-			RenameBranch: () => "Rename branch",
+			BranchRename: () => "Rename branch",
 			Changes: () => "Changes",
 			CommitDetails: () => "Commit details",
-			CommitEditMessage: () => "Reword commit",
+			CommitReword: () => "Reword commit",
 			CommitSummary: () => "Commit",
 			Branch: () => "Branch",
 			Segment: () => "Segment",
@@ -677,7 +677,7 @@ export const useWorkspaceShortcuts = ({
 					event.preventDefault();
 					handlePreviewAction(action);
 				},
-				RenameBranch: () => undefined,
+				BranchRename: () => undefined,
 				CommitSummary: (scope) => {
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
@@ -690,7 +690,7 @@ export const useWorkspaceShortcuts = ({
 					event.preventDefault();
 					handleCommitDetailsAction(action, scope.context);
 				},
-				CommitEditMessage: () => undefined,
+				CommitReword: () => undefined,
 			}),
 		);
 	});
