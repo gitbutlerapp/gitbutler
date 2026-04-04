@@ -342,6 +342,23 @@ impl Graph {
         })
     }
 
+    /// Return the `(segment, commit)` that contains `commit_id`.
+    ///
+    /// ### Performance
+    ///
+    /// This is a brute-force search through all nodes and all commits - beware of hot-loop usage.
+    pub fn segment_and_commit_by_commit_id(
+        &self,
+        commit_id: gix::ObjectId,
+    ) -> Option<(&Segment, &Commit)> {
+        self.inner.node_weights().find_map(|s| {
+            s.commits
+                .iter()
+                .find(|c| c.id == commit_id)
+                .map(|commit| (s, commit))
+        })
+    }
+
     /// Return the segment that is named `name`,
     ///
     /// Note that tags may or may not be included in the graph, depending on how it was created.

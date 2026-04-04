@@ -362,6 +362,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
         workspacecommit_relation: Merged,
         branches: vec![WorkspaceStackBranch {
             ref_name: branch1.clone(),
+            head_commit_id: None,
             archived: false,
         }],
     });
@@ -370,6 +371,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
         workspacecommit_relation: Outside,
         branches: vec![WorkspaceStackBranch {
             ref_name: branch2.clone(),
+            head_commit_id: None,
             archived: false,
         }],
     });
@@ -491,6 +493,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
             workspacecommit_relation: Merged,
             branches: vec![WorkspaceStackBranch {
                 ref_name: ref_name.try_into()?,
+                head_commit_id: None,
                 archived: false,
             }],
         });
@@ -586,6 +589,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         workspacecommit_relation: Merged,
         branches: vec![WorkspaceStackBranch {
             ref_name: branch_name.clone(),
+            head_commit_id: None,
             archived: false,
         }],
     });
@@ -626,6 +630,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         0,
         WorkspaceStackBranch {
             ref_name: stacked_branch_name.clone(),
+            head_commit_id: None,
             archived: false,
         },
     );
@@ -739,6 +744,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         1,
         WorkspaceStackBranch {
             ref_name: archived_branch.clone(),
+            head_commit_id: None,
             archived: true,
         },
     );
@@ -797,6 +803,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         workspacecommit_relation: Merged,
         branches: vec![WorkspaceStackBranch {
             ref_name: branch.as_ref().into(), /* always a matching name */
+            head_commit_id: None,
             archived: true,
         }],
     });
@@ -855,6 +862,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         workspacecommit_relation: Merged,
         branches: vec![WorkspaceStackBranch {
             ref_name: second_stack.clone(),
+            head_commit_id: None,
             archived: true,
         }],
     });
@@ -998,14 +1006,17 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
         branches: vec![
             WorkspaceStackBranch {
                 ref_name: "refs/heads/top".try_into()?,
+                head_commit_id: None,
                 archived: false,
             },
             WorkspaceStackBranch {
                 ref_name: "refs/heads/one-below-top".try_into()?,
+                head_commit_id: None,
                 archived: true,
             },
             WorkspaceStackBranch {
                 ref_name: "refs/heads/base".try_into()?,
+                head_commit_id: None,
                 archived: true,
             },
         ],
@@ -1015,6 +1026,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
         workspacecommit_relation: Merged,
         branches: vec![WorkspaceStackBranch {
             ref_name: "refs/heads/second-branch".try_into()?,
+            head_commit_id: None,
             archived: false,
         }],
     });

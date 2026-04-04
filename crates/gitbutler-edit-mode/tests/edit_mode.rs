@@ -45,6 +45,7 @@ fn seed_metadata(repo: &gix::Repository) -> Result<()> {
         id: StackId::from_number_for_testing(1),
         branches: vec![WorkspaceStackBranch {
             ref_name: "refs/heads/branchy".try_into()?,
+            head_commit_id: None,
             archived: false,
         }],
         workspacecommit_relation: WorkspaceCommitRelation::Merged,

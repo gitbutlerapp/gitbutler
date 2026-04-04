@@ -2620,6 +2620,7 @@ fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
             id: StackId::from_number_for_testing(idx as u128),
             branches: vec![WorkspaceStackBranch {
                 ref_name: ref_name.try_into()?,
+                head_commit_id: None,
                 archived: false,
             }],
             workspacecommit_relation: WorkspaceCommitRelation::Merged,

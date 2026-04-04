@@ -1,3 +1,11 @@
+use crate::{
+    ref_info::with_workspace_commit::utils::{
+        StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
+        named_writable_scenario_with_description,
+        named_writable_scenario_with_description_and_graph,
+    },
+    utils::r,
+};
 use bstr::ByteSlice;
 use but_core::{
     RefMetadata, RepositoryExt, ref_metadata,
@@ -6,22 +14,15 @@ use but_core::{
 };
 use but_graph::init::{Options, Overlay};
 use but_testsupport::{
-    InMemoryRefMetadata, git, graph_workspace, id_at, sanitize_uuids_and_timestamps,
+    CommandExt, InMemoryRefMetadata, git, graph_workspace, id_at, sanitize_uuids_and_timestamps,
     visualize_commit_graph_all,
 };
+use but_workspace::branch::unapply::{WorkspaceMergeCommit, WorkspaceReference};
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
 };
 use gix::refs::Category;
-
-use crate::{
-    ref_info::with_workspace_commit::utils::{
-        StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
-        named_writable_scenario_with_description_and_graph,
-    },
-    utils::r,
-};
 
 #[test]
 fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
@@ -44,23 +45,29 @@ fn operation_denied_on_improper_workspace() -> anyhow::Result<()> {
             └── ·4979833 (🏘️)
     ");
 
+    let branch_b = r("refs/heads/B");
     let err =
-        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())
-            .unwrap_err();
+        but_workspace::branch::apply(branch_b, &ws, &repo, &mut meta, apply_options()).unwrap_err();
     assert_eq!(
         err.to_string(),
         "Refusing to work on workspace whose workspace commit isn't at the top",
         "cannot apply on a workspace that isn't proper"
     );
 
-    let err = but_workspace::branch::apply(r("HEAD"), &ws, &repo, &mut meta, default_options())
+    let err = but_workspace::branch::apply(r("HEAD"), &ws, &repo, &mut meta, apply_options())
         .unwrap_err();
     assert_eq!(
         err.to_string(),
         "Refusing to apply symbolic ref 'HEAD' due to potential ambiguity"
     );
 
-    // TODO: unapply, commit, uncommit
+    let err = but_workspace::branch::unapply(branch_b, &ws, &repo, &mut meta, unapply_options())
+        .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Refusing to work on workspace whose workspace commit isn't at the top",
+        "cannot unapply on a workspace that isn't proper"
+    );
     Ok(())
 }
 
@@ -82,7 +89,7 @@ fn ws_ref_no_ws_commit_two_virtual_stacks_on_same_commit_apply_dependent_first()
 
     // Put "B" into the workspace, even though it's the dependent branch of A.
     let out =
-        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -99,8 +106,8 @@ fn ws_ref_no_ws_commit_two_virtual_stacks_on_same_commit_apply_dependent_first()
 
     // Applying A is always a new stack then.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
-    insta::assert_snapshot!(graph_workspace(&out.workspace), @"
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
+    insta::assert_snapshot!(graph_workspace(&out.workspace), @r"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
     ├── ≡📙:3:A on e5d0542 {41}
     │   └── 📙:3:A
@@ -147,7 +154,7 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
         &ws,
         &repo,
         &mut meta,
-        default_options(),
+        apply_options(),
     )?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -163,7 +170,7 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
         &ws,
         &repo,
         &mut meta,
-        default_options(),
+        apply_options(),
     )?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -243,7 +250,7 @@ fn workspace_with_out_of_ws_ref_and_anon_stack() -> anyhow::Result<()> {
         &ws,
         &repo,
         &mut meta,
-        default_options(),
+        apply_options(),
     )?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -282,7 +289,7 @@ fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
 
     // Put "A" into the workspace, yielding a single branch.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -300,7 +307,7 @@ fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A");
 
     let out =
-        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -323,7 +330,7 @@ fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
 
     // TODO: create
     // TODO: commit/uncommit
-    // TODO: unapply
+    // Unapply is covered by focused tests below.
 
     Ok(())
 }
@@ -359,10 +366,24 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
             └── ·e5d0542 ►A, ►B
     ");
 
+    let err = but_workspace::branch::unapply(
+        r("refs/heads/main"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Cannot unapply anything on a checked-out branch",
+        "cannot do anything in an ad-hoc workspace, i.e. single-branch mode"
+    );
+
     // Put "A" into the workspace, creating the workspace ref, but never put a branch related to the target in as well,
     // which is currently checked out with `main`.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -390,7 +411,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
         but_workspace::branch::apply::Options {
             // Make it appear in place of A, in the center.
             order: Some(1),
-            ..default_options()
+            ..apply_options()
         },
     )?;
     insta::assert_debug_snapshot!(out, @r#"
@@ -439,7 +460,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
         &mut meta,
         but_workspace::branch::apply::Options {
             workspace_merge: WorkspaceMerge::AlwaysMerge,
-            ..default_options()
+            ..apply_options()
         },
     )?;
     // A workspace commit was created, even though it does nothing.
@@ -463,7 +484,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
         &mut meta,
         but_workspace::branch::apply::Options {
             workspace_merge: WorkspaceMerge::AlwaysMerge,
-            ..default_options()
+            ..apply_options()
         },
     )?;
 
@@ -482,6 +503,8 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     └── ≡📙:2:B on e5d0542 {42}
         └── 📙:2:B
     ");
+
+    // Unapply is covered by focused tests below.
 
     Ok(())
 }
@@ -508,7 +531,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
     // Put "A" into the workspace, creating the workspace ref, but never put a branch related to the target in as well,
     // which is currently checked out with `main`.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -528,7 +551,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* e5d0542 (HEAD -> gitbutler/workspace, origin/main, main, B, A) A");
 
     let out =
-        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -550,7 +573,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
 
     // Cannot put local tracking branch of target into workspace that has it configured.
     for branch in ["refs/heads/main", "refs/remotes/origin/main"] {
-        let err = but_workspace::branch::apply(r(branch), &ws, &repo, &mut meta, default_options())
+        let err = but_workspace::branch::apply(r(branch), &ws, &repo, &mut meta, apply_options())
             .unwrap_err();
         assert_eq!(
             err.to_string(),
@@ -559,7 +582,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
     }
 
     // TODO: commit/uncommit
-    // TODO: unapply
+    // Unapply is covered by focused tests below.
 
     Ok(())
 }
@@ -589,7 +612,7 @@ fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> any
 
     // Put "A" into the workspace, hence we want "A" and "B" in it.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -642,7 +665,7 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
     ");
 
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -678,7 +701,7 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
         &ws,
         &repo,
         &mut meta,
-        default_options(),
+        apply_options(),
     )?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -738,7 +761,7 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
     ");
 
     assert_eq!(
-        default_options().workspace_merge,
+        apply_options().workspace_merge,
         WorkspaceMerge::MergeIfNeeded
     );
 
@@ -748,7 +771,7 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
         &ws,
         &repo,
         &mut meta,
-        default_options(),
+        apply_options(),
     )?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -770,7 +793,7 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
     let ws = out.workspace.into_owned();
 
     let out =
-        but_workspace::branch::apply(r("refs/heads/A1"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A1"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -798,7 +821,7 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
         but_workspace::branch::apply::Options {
             // TODO: remove this, use default options.
             on_workspace_conflict: OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
-            ..default_options()
+            ..apply_options()
         },
     )?;
     insta::assert_debug_snapshot!(out, @r#"
@@ -892,7 +915,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
     ");
 
     let out =
-        but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, apply_options())?;
 
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -921,7 +944,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
     ");
 
     let out =
-        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, apply_options())?;
 
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -961,7 +984,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
         but_workspace::branch::apply::Options {
             // Make 'A' appear at the front.
             order: Some(0),
-            ..default_options()
+            ..apply_options()
         },
     )?;
 
@@ -1024,7 +1047,7 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
 
     // Apply the dependent branch, to bring in only the dependent branch
     let out =
-        but_workspace::branch::apply(r("refs/heads/E"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/E"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -1044,7 +1067,7 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     // Apply the former tip of the stack, to create a new stack. Note how it won't double-list the
     // other stack.
     let out =
-        but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, apply_options())?;
     let ws = out.workspace.into_owned();
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
@@ -1070,7 +1093,7 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     // Accepting this behaviour for now as it's quite rare to have such ambiguity, even though I'd love if one day
     // for this to just work as people might intuitively want, even if that means the same commit is used multiple times.
     let out =
-        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, apply_options())?;
     let ws = out.workspace.into_owned();
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
@@ -1086,7 +1109,7 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     // This is what happens because we notice that C can't be applied as independent stack due to the graph algorithm,
     // and then it tries it a dependent stack, which should always work.
     let out =
-        but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, default_options())
+        but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, apply_options())
             .unwrap();
     let ws = out.workspace.into_owned();
     insta::assert_snapshot!(graph_workspace(&ws), @"
@@ -1125,7 +1148,7 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
 
     // Apply `A` first.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -1150,7 +1173,7 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
 
     // Apply `B` - the only sane way is to make it its own stack, but allow it to diverge.
     let out =
-        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, default_options())
+        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, apply_options())
             .expect("apply actually works");
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
@@ -1229,7 +1252,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
             &ws,
             &repo,
             &mut meta,
-            default_options(),
+            apply_options(),
         )
         .unwrap_or_else(|err| panic!("{branch_to_apply}: {err}"));
         ws = out.workspace.into_owned();
@@ -1282,7 +1305,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
         &ws,
         &repo,
         &mut meta,
-        default_options(),
+        apply_options(),
     )?;
     insta::assert_snapshot!(sanitize_uuids_and_timestamps(format!("{out:#?}")), @r#"
     Outcome {
@@ -1337,7 +1360,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
         &mut meta,
         but_workspace::branch::apply::Options {
             on_workspace_conflict: OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
-            ..default_options()
+            ..apply_options()
         },
     )?;
     // It does still report conflicts.
@@ -1507,13 +1530,8 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     ");
 
     // Apply the workspace ref itself, it's a no-op
-    let out = but_workspace::branch::apply(
-        r("refs/heads/gitbutler/workspace"),
-        &ws,
-        &repo,
-        &mut meta,
-        default_options(),
-    )?;
+    let ws_ref = r("refs/heads/gitbutler/workspace");
+    let out = but_workspace::branch::apply(ws_ref, &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: false,
@@ -1521,6 +1539,14 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
         applied_branches: "[refs/heads/gitbutler/workspace]",
     }
     "#);
+
+    let err = but_workspace::branch::unapply(ws_ref, &ws, &repo, &mut meta, unapply_options())
+        .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Refusing to unapply a reference that already is a workspace: 'gitbutler/workspace'",
+        "the unapply API only accepts stack or segment references; workspace-ref removal is a separate operation"
+    );
 
     let (b_id, b_ref) = id_at(&repo, "B");
     let ws = but_graph::Graph::from_commit_traversal(
@@ -1538,8 +1564,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
         └── 📙:2:A
     ");
     // Already applied (the HEAD points to it, it literally IS the workspace).
-    let out =
-        but_workspace::branch::apply(b_ref.as_ref(), &ws, &repo, &mut meta, default_options())?;
+    let out = but_workspace::branch::apply(b_ref.as_ref(), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: false,
@@ -1550,7 +1575,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
 
     // To apply A, we just checkout the surrounding workspace, as it's contained there.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -1593,7 +1618,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
 
     // Nothing changed, the desired branch was already applied.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: false,
@@ -1615,7 +1640,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
 
     // Apply the first branch, it must be independent.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -1669,7 +1694,7 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
 
     // Apply the workspace ref itself, it's a no-op
     let ws_ref = r("refs/heads/gitbutler/workspace");
-    let out = but_workspace::branch::apply(ws_ref, &ws, &repo, &mut meta, default_options())?;
+    let out = but_workspace::branch::apply(ws_ref, &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: false,
@@ -1693,8 +1718,7 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
     ");
 
     // Already applied (the HEAD points to it, it literally IS the workspace).
-    let out =
-        but_workspace::branch::apply(b_ref.as_ref(), &ws, &repo, &mut meta, default_options())?;
+    let out = but_workspace::branch::apply(b_ref.as_ref(), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: false,
@@ -1704,7 +1728,7 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
     "#);
 
     let err =
-        but_workspace::branch::apply(ws_ref, &ws, &repo, &mut meta, default_options()).unwrap_err();
+        but_workspace::branch::apply(ws_ref, &ws, &repo, &mut meta, apply_options()).unwrap_err();
     assert_eq!(
         err.to_string(),
         "Refusing to apply a reference that already is a workspace: 'gitbutler/workspace'",
@@ -1714,7 +1738,7 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
 
     // To apply, we just checkout the surrounding workspace.
     let out =
-        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, default_options())?;
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -1761,7 +1785,7 @@ fn apply_nonexisting_branch_failure() -> anyhow::Result<()> {
         &ws,
         &repo,
         &mut *meta,
-        default_options(),
+        apply_options(),
     )
     .unwrap_err();
     assert_eq!(
@@ -1775,8 +1799,647 @@ fn apply_nonexisting_branch_failure() -> anyhow::Result<()> {
 }
 
 #[test]
-#[ignore = "TBD: needs unapply"]
 fn unapply_nonexisting_branch() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        named_read_only_in_memory_scenario("ws-ref-no-ws-commit-one-stack-one-branch", "")?;
+    let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
+    let ws = graph.into_workspace()?;
+
+    let err = but_workspace::branch::unapply(
+        r("refs/heads/does-not-exist"),
+        &ws,
+        &repo,
+        &mut *meta,
+        unapply_options(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Branch 'does-not-exist' not found in any applied stack"
+    );
+    insta::assert_snapshot!(
+        visualize_commit_graph_all(&repo)?,
+        @"* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A"
+    );
+    Ok(())
+}
+
+#[test]
+fn unapply_already_unapplied_branch_is_idempotent() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-no-ws-commit-one-stack-one-branch",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+            },
+        )?;
+    let ws = graph.into_workspace()?;
+    let mut ws_md = meta.workspace(ws.ref_name().expect("managed workspace"))?;
+    ws_md.stacks[0].workspacecommit_relation = Outside;
+    meta.set_workspace(&ws_md)?;
+
+    let ws = ws
+        .graph
+        .redo_traversal_with_overlay(&repo, &meta, Overlay::default())?
+        .into_workspace()?;
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @r#"
+    Outcome {
+        workspace_changed: false,
+        workspace_ref_created: false,
+    }
+    "#);
+    Ok(())
+}
+
+#[test]
+fn unapply_keeps_managed_workspace_commit_with_single_remaining_stack() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-ws-commit-two-stacks",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
+            },
+        )?;
+    let ws = graph.into_workspace()?;
+
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_keep_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @r#"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: false,
+    }
+    "#);
+    let ws = out.workspace.into_owned();
+    assert_eq!(ws.stacks.len(), 1);
+    assert_eq!(ws.stacks[0].ref_name(), Some(r("refs/heads/B")));
+    assert!(matches!(
+        ws.kind,
+        but_graph::projection::WorkspaceKind::Managed { .. }
+    ));
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 09d8e52 (A) A
+    | * c503ba7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * c813d8d (B) B
+    |/  
+    * 85efbe4 (origin/main, main) M
+    ");
+    Ok(())
+}
+
+#[test]
+fn unapply_switches_to_remaining_stack_and_deletes_workspace_ref() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-ws-commit-two-stacks",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
+            },
+        )?;
+    let ws = graph.into_workspace()?;
+
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @r#"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: false,
+        checked_out: "refs/heads/B",
+    }
+    "#);
+    let ws = out.workspace.into_owned();
+    assert!(matches!(
+        ws.kind,
+        but_graph::projection::WorkspaceKind::AdHoc
+    ));
+    assert_eq!(
+        repo.head_name()?.expect("attached HEAD").as_ref(),
+        r("refs/heads/B")
+    );
+    assert!(
+        repo.try_find_reference("refs/heads/gitbutler/workspace")?
+            .is_none()
+    );
+    assert!(
+        meta.workspace_opt(r("refs/heads/gitbutler/workspace"))?
+            .is_none()
+    );
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 09d8e52 (A) A
+    | * c813d8d (HEAD -> B) B
+    |/  
+    * 85efbe4 (origin/main, main) M
+    ");
+    Ok(())
+}
+
+#[test]
+fn unapply_switches_to_remaining_stack_but_keeps_workspace_ref() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-ws-commit-two-stacks",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
+            },
+        )?;
+    let ws = graph.into_workspace()?;
+
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_switch_keep_ref_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @r#"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: false,
+        checked_out: "refs/heads/B",
+    }
+    "#);
+    let ws = out.workspace.into_owned();
+    assert_eq!(ws.ref_name(), Some(r("refs/heads/gitbutler/workspace")));
+    assert_eq!(
+        repo.head_name()?.expect("attached HEAD").as_ref(),
+        r("refs/heads/B")
+    );
+    assert!(
+        repo.try_find_reference("refs/heads/gitbutler/workspace")?
+            .is_some()
+    );
+    assert!(
+        meta.workspace_opt(r("refs/heads/gitbutler/workspace"))?
+            .is_some()
+    );
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 09d8e52 (A) A
+    | * c813d8d (HEAD -> B, gitbutler/workspace) B
+    |/  
+    * 85efbe4 (origin/main, main) M
+    ");
+    Ok(())
+}
+
+#[test]
+fn unapply_does_not_switch_when_checkout_would_conflict() -> anyhow::Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("merge-with-two-branches-line-offset-two-files")?;
+    git(&repo).args(["checkout", "main"]).run();
+    git(&repo)
+        .args(["checkout", "-B", "gitbutler/workspace", "main"])
+        .run();
+    git(&repo)
+        .args([
+            "merge",
+            "--no-ff",
+            "-m",
+            "GitButler Workspace Commit",
+            "A",
+            "B",
+        ])
+        .run();
+
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
+
+    let ws = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        standard_traversal_options_with_extra_target(&repo),
+    )?
+    .into_workspace()?;
+
+    std::fs::write(repo.workdir_path("file").expect("non-bare"), "conflict\n")?;
+
+    let err =
+        but_workspace::branch::unapply(r("refs/heads/A"), &ws, &repo, &mut meta, unapply_options())
+            .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Worktree changes would be overwritten by checkout: \"file\""
+    );
+    assert_eq!(
+        repo.head_name()?.expect("attached HEAD").as_ref(),
+        r("refs/heads/gitbutler/workspace")
+    );
+    assert!(
+        repo.try_find_reference("refs/heads/gitbutler/workspace")?
+            .is_some()
+    );
+    let ws_md = meta.workspace(r("refs/heads/gitbutler/workspace"))?;
+    assert_eq!(
+        ws_md
+            .stacks
+            .iter()
+            .filter(|stack| stack.is_in_workspace())
+            .count(),
+        2,
+        "metadata must remain unchanged on checkout failure"
+    );
+    Ok(())
+}
+
+#[test]
+fn unapply_does_not_switch_or_delete_workspace_ref_when_head_is_already_on_remaining_stack()
+-> anyhow::Result<()> {
+    let (_tmp, _graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-ws-commit-two-stacks",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
+            },
+        )?;
+    git(&repo).args(["checkout", "B"]).run();
+    let (b_id, b_ref) = id_at(&repo, "B");
+    let ws = but_graph::Graph::from_commit_traversal(b_id, b_ref, &meta, Default::default())?
+        .into_workspace()?;
+    assert!(
+        !ws.is_entrypoint(),
+        "the traversal entrypoint is the remaining stack, not the workspace ref"
+    );
+
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @r#"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: false,
+    }
+    "#);
+    assert_eq!(
+        repo.head_name()?.expect("attached HEAD").as_ref(),
+        r("refs/heads/B")
+    );
+    assert_eq!(
+        repo.find_reference("refs/heads/gitbutler/workspace")?
+            .peel_to_id()?
+            .detach(),
+        repo.find_reference("refs/heads/B")?.peel_to_id()?.detach()
+    );
+    assert!(
+        meta.workspace_opt(r("refs/heads/gitbutler/workspace"))?
+            .is_some()
+    );
+    Ok(())
+}
+
+#[test]
+fn unapply_does_not_switch_to_missing_remaining_branch() -> anyhow::Result<()> {
+    let (_tmp, _graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-ws-commit-two-stacks",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
+            },
+        )?;
+    persist_workspace_branch_heads(&repo, &mut meta)?;
+    git(&repo).args(["branch", "-D", "B"]).run();
+
+    let ws = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        standard_traversal_options_with_extra_target(&repo),
+    )?
+    .into_workspace()?;
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @r#"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: false,
+    }
+    "#);
+    assert_eq!(
+        repo.head_name()?.expect("attached HEAD").as_ref(),
+        r("refs/heads/gitbutler/workspace")
+    );
+    assert!(repo.try_find_reference("refs/heads/B")?.is_none());
+    assert!(
+        repo.try_find_reference("refs/heads/gitbutler/workspace")?
+            .is_some()
+    );
+    Ok(())
+}
+
+#[test]
+fn unapply_rebuilds_workspace_commit_with_missing_remaining_branch_ref() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-ws-commit-two-stacks",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
+            },
+        )?;
+    git(&repo).args(["checkout", "-b", "C", "main"]).run();
+    std::fs::write(repo.workdir_path("for-c.txt").expect("non-bare"), "C\n")?;
+    git(&repo).args(["add", "for-c.txt"]).run();
+    git(&repo).args(["commit", "-m", "add C"]).run();
+    git(&repo).args(["checkout", "gitbutler/workspace"]).run();
+
+    let ws = graph.into_workspace()?;
+    let out =
+        but_workspace::branch::apply(r("refs/heads/C"), &ws, &repo, &mut meta, apply_options())?;
+    let _ws = out.workspace.into_owned();
+    persist_workspace_branch_heads(&repo, &mut meta)?;
+    let ws_ref_before = repo
+        .find_reference("refs/heads/gitbutler/workspace")?
+        .peel_to_id()?
+        .detach();
+    let add_b = repo.find_reference("refs/heads/B")?.peel_to_id()?.detach();
+    let add_c = repo.find_reference("refs/heads/C")?.peel_to_id()?.detach();
+    git(&repo).args(["branch", "-D", "C"]).run();
+
+    let ws = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        standard_traversal_options_with_extra_target(&repo),
+    )?
+    .into_workspace()?;
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @r#"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: false,
+    }
+    "#);
+
+    let ws_ref_after = repo
+        .find_reference("refs/heads/gitbutler/workspace")?
+        .peel_to_id()?
+        .detach();
+    assert_ne!(
+        ws_ref_after, ws_ref_before,
+        "workspace commit should be rebuilt"
+    );
+    let workspace_commit = repo.find_commit(ws_ref_after)?;
+    let parent_ids: Vec<_> = workspace_commit
+        .parent_ids()
+        .map(|id| id.detach())
+        .collect();
+    assert_eq!(parent_ids, vec![add_b, add_c]);
+    assert!(repo.try_find_reference("refs/heads/C")?.is_none());
+
+    let ws_md = meta.workspace(r("refs/heads/gitbutler/workspace"))?;
+    let in_workspace_stacks: Vec<_> = ws_md
+        .stacks
+        .iter()
+        .filter(|stack| stack.is_in_workspace())
+        .collect();
+    assert_eq!(in_workspace_stacks.len(), 2);
+    assert_eq!(
+        in_workspace_stacks
+            .iter()
+            .map(|stack| stack.ref_name().expect("named stack").as_ref())
+            .collect::<Vec<_>>(),
+        vec![r("refs/heads/B"), r("refs/heads/C")]
+    );
+    assert_eq!(
+        ws_md
+            .find_branch(r("refs/heads/C"), ref_metadata::StackKind::Applied)
+            .and_then(|branch| branch.head_commit_id),
+        Some(add_c)
+    );
+    Ok(())
+}
+
+#[test]
+fn unapply_middle_segment_of_stack_reveals_lower_segment() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "single-stack-two-segments",
+            |_meta| {},
+        )?;
+    git(&repo).args(["checkout", "-b", "A3", "A2"]).run();
+    std::fs::write(repo.workdir_path("for-a3.txt").expect("non-bare"), "A3\n")?;
+    git(&repo).args(["add", "for-a3.txt"]).run();
+    git(&repo).args(["commit", "-m", "add A3"]).run();
+    git(&repo).args(["checkout", "main"]).run();
+
+    let ws = graph.into_workspace()?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/unrelated"),
+        &ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+    )?;
+    let ws = out.workspace.into_owned();
+    let _out =
+        but_workspace::branch::apply(r("refs/heads/A3"), &ws, &repo, &mut meta, apply_options())?;
+
+    meta.data_mut().branches.clear();
+    add_stack_with_segments(&mut meta, 1, "A3", StackState::InWorkspace, &["A2", "A1"]);
+    add_stack_with_segments(&mut meta, 2, "unrelated", StackState::InWorkspace, &[]);
+    let ws = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        standard_traversal_options_with_extra_target(&repo),
+    )?
+    .into_workspace()?;
+    let a1_id = repo.find_reference("refs/heads/A1")?.peel_to_id()?.detach();
+    let a3_id = repo.find_reference("refs/heads/A3")?.peel_to_id()?.detach();
+    let unrelated_id = repo
+        .find_reference("refs/heads/unrelated")?
+        .peel_to_id()?
+        .detach();
+
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A2"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_keep_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @r#"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: false,
+    }
+    "#);
+
+    let ws = out.workspace.into_owned();
+    let (stack, a1_segment) = ws
+        .find_segment_and_stack_by_refname(r("refs/heads/A1"))
+        .expect("A1 should become the visible segment");
+    assert_eq!(stack.ref_name(), Some(r("refs/heads/A3")));
+    assert!(
+        !a1_segment.is_projected_from_outside(&ws.graph),
+        "A1 should become visible inside the workspace"
+    );
+
+    let workspace_commit = repo.find_commit(
+        repo.find_reference("refs/heads/gitbutler/workspace")?
+            .peel_to_id()?
+            .detach(),
+    )?;
+    assert_eq!(
+        workspace_commit
+            .parent_ids()
+            .map(|id| id.detach())
+            .collect::<Vec<_>>(),
+        vec![a3_id, unrelated_id],
+        "the stack should keep its original parent while exposing A1's tree"
+    );
+
+    let ws_md = meta.workspace(r("refs/heads/gitbutler/workspace"))?;
+    let a3_stack = ws_md
+        .find_stack_with_branch(r("refs/heads/A3"), ref_metadata::StackKind::Applied)
+        .expect("A3 stack should remain applied");
+    assert_eq!(
+        a3_stack.workspacecommit_relation,
+        ref_metadata::WorkspaceCommitRelation::MergeFrom {
+            commit_id: Some(a1_id),
+        }
+    );
+    assert_eq!(
+        a3_stack
+            .branches
+            .iter()
+            .map(|branch| branch.ref_name.as_ref())
+            .collect::<Vec<_>>(),
+        vec![r("refs/heads/A3"), r("refs/heads/A2"), r("refs/heads/A1")]
+    );
+    Ok(())
+}
+
+#[test]
+fn reapply_middle_segment_after_partial_unapply_restores_stack_order() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "single-stack-two-segments",
+            |_meta| {},
+        )?;
+    git(&repo).args(["checkout", "-b", "A3", "A2"]).run();
+    std::fs::write(repo.workdir_path("for-a3.txt").expect("non-bare"), "A3\n")?;
+    git(&repo).args(["add", "for-a3.txt"]).run();
+    git(&repo).args(["commit", "-m", "add A3"]).run();
+    git(&repo).args(["checkout", "main"]).run();
+
+    let ws = graph.into_workspace()?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/unrelated"),
+        &ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+    )?;
+    let ws = out.workspace.into_owned();
+    let _out =
+        but_workspace::branch::apply(r("refs/heads/A3"), &ws, &repo, &mut meta, apply_options())?;
+
+    meta.data_mut().branches.clear();
+    add_stack_with_segments(&mut meta, 1, "A3", StackState::InWorkspace, &["A2", "A1"]);
+    add_stack_with_segments(&mut meta, 2, "unrelated", StackState::InWorkspace, &[]);
+    let ws = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        standard_traversal_options_with_extra_target(&repo),
+    )?
+    .into_workspace()?;
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A2"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_keep_options(),
+    )?;
+    let ws = out.workspace.into_owned();
+    let partial_stack_order = ws
+        .stacks
+        .iter()
+        .filter_map(|stack| stack.ref_name())
+        .collect::<Vec<_>>();
+
+    let out =
+        but_workspace::branch::apply(r("refs/heads/A2"), &ws, &repo, &mut meta, apply_options())?;
+    let ws = out.workspace.into_owned();
+    let (stack, top_segment) = ws
+        .find_segment_and_stack_by_refname(r("refs/heads/A3"))
+        .expect("reapplying A2 should restore the stack");
+    assert_eq!(stack.ref_name(), Some(r("refs/heads/A3")));
+    assert!(
+        !top_segment.is_projected_from_outside(&ws.graph),
+        "A3 should be visible again after reapplying A2"
+    );
+    assert_eq!(
+        ws.stacks
+            .iter()
+            .filter_map(|stack| stack.ref_name())
+            .collect::<Vec<_>>(),
+        partial_stack_order
+    );
+
+    let expected_parent_ids = partial_stack_order
+        .iter()
+        .map(|ref_name| {
+            repo.find_reference(*ref_name)?
+                .peel_to_id()
+                .map(|id| id.detach())
+                .map_err(Into::into)
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    let workspace_commit = repo.find_commit(
+        repo.find_reference("refs/heads/gitbutler/workspace")?
+            .peel_to_id()?
+            .detach(),
+    )?;
+    assert_eq!(
+        workspace_commit
+            .parent_ids()
+            .map(|id| id.detach())
+            .collect::<Vec<_>>(),
+        expected_parent_ids,
+        "reapply should restore the original parent ordering"
+    );
+
+    let ws_md = meta.workspace(r("refs/heads/gitbutler/workspace"))?;
+    let a3_stack = ws_md
+        .find_stack_with_branch(r("refs/heads/A3"), ref_metadata::StackKind::Applied)
+        .expect("A3 stack should be applied again");
+    assert_eq!(
+        a3_stack.workspacecommit_relation,
+        ref_metadata::WorkspaceCommitRelation::Merged
+    );
     Ok(())
 }
 
@@ -1797,13 +2460,8 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
     ");
 
     // Idempotency in ad-hoc workspace
-    let out = but_workspace::branch::apply(
-        r("refs/heads/main"),
-        &ws,
-        &repo,
-        &mut *meta,
-        default_options(),
-    )?;
+    let main = r("refs/heads/main");
+    let out = but_workspace::branch::apply(main, &ws, &repo, &mut *meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: false,
@@ -1814,13 +2472,8 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
 
     // Cannot apply branch without a base,
     // but since remote is transformed into a local tracking branch, it's a noop.
-    let out = but_workspace::branch::apply(
-        r("refs/remotes/orphan/main"),
-        &ws,
-        &repo,
-        &mut *meta,
-        default_options(),
-    )?;
+    let orphan_main = r("refs/remotes/orphan/main");
+    let out = but_workspace::branch::apply(orphan_main, &ws, &repo, &mut *meta, apply_options())?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: false,
@@ -1836,15 +2489,17 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
         └── :0:main[🌳]
     ");
 
-    // TODO: can we reproduce this original error?
-    // assert_eq!(
-    //     err.to_string(),
-    //     "Cannot create reference on unborn branch 'main'"
-    // );
+    let err =
+        but_workspace::branch::unapply(orphan_main, &ws, &repo, &mut *meta, unapply_options())
+            .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Cannot unapply anything on a checked-out branch"
+    );
     Ok(())
 }
 
-fn default_options() -> but_workspace::branch::apply::Options {
+fn apply_options() -> but_workspace::branch::apply::Options {
     but_workspace::branch::apply::Options {
         workspace_merge: WorkspaceMerge::MergeIfNeeded,
         on_workspace_conflict: OnWorkspaceMergeConflict::AbortAndReportConflictingStacks,
@@ -1855,8 +2510,53 @@ fn default_options() -> but_workspace::branch::apply::Options {
     }
 }
 
+fn unapply_options() -> but_workspace::branch::unapply::Options {
+    but_workspace::branch::unapply::Options {
+        workspace_merge_commit: WorkspaceMergeCommit::RemoveIfPossible,
+        on_workspace_conflict: OnWorkspaceMergeConflict::AbortAndReportConflictingStacks,
+        workspace_reference: WorkspaceReference::DeleteAfterSwitchingToRemainingStack,
+        uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
+    }
+}
+
+fn unapply_keep_options() -> but_workspace::branch::unapply::Options {
+    but_workspace::branch::unapply::Options {
+        workspace_merge_commit: WorkspaceMergeCommit::Keep,
+        on_workspace_conflict: OnWorkspaceMergeConflict::AbortAndReportConflictingStacks,
+        workspace_reference: WorkspaceReference::KeepCheckedOut,
+        uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
+    }
+}
+
+fn unapply_switch_keep_ref_options() -> but_workspace::branch::unapply::Options {
+    but_workspace::branch::unapply::Options {
+        workspace_merge_commit: WorkspaceMergeCommit::RemoveIfPossible,
+        on_workspace_conflict: OnWorkspaceMergeConflict::AbortAndReportConflictingStacks,
+        workspace_reference: WorkspaceReference::KeepButAllowSwitchingToRemainingStack,
+        uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
+    }
+}
+
 fn stack_id_for_name(rn: &gix::refs::FullNameRef) -> StackId {
     StackId::from_number_for_testing(rn.shorten().chars().map(|c| c as u128).sum())
+}
+
+fn persist_workspace_branch_heads(
+    repo: &gix::Repository,
+    meta: &mut impl RefMetadata,
+) -> anyhow::Result<()> {
+    let mut ws_md = meta.workspace(r("refs/heads/gitbutler/workspace"))?;
+    for stack in &mut ws_md.stacks {
+        for branch in &mut stack.branches {
+            branch.head_commit_id = repo
+                .try_find_reference(branch.ref_name.as_ref())?
+                .map(|mut reference| reference.peel_to_id())
+                .transpose()?
+                .map(|id| id.detach());
+        }
+    }
+    meta.set_workspace(&ws_md)?;
+    Ok(())
 }
 
 mod utils {
