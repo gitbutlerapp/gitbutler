@@ -5,6 +5,10 @@ fn local_alias_roundtrip_uses_repo_config() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
     env.invoke_bash("git init repo");
 
+    env.invoke_git_fails(
+        "-C repo config --local --get but.alias.st",
+        "no local alias is set",
+    );
     env.but("-C repo alias add st status").assert().success();
     assert_eq!(
         env.invoke_git("-C repo config --local --get but.alias.st"),

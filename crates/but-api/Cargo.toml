@@ -75,7 +75,6 @@ legacy = [
 but-serde.workspace = true
 but-path.workspace = true
 but-api-macros.workspace = true
-but-oxidize.workspace = true
 but-error.workspace = true
 but-core.workspace = true
 but-graph.workspace = true

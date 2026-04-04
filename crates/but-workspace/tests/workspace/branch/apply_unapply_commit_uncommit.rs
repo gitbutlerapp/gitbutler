@@ -1,6 +1,6 @@
 use bstr::ByteSlice;
 use but_core::{
-    RefMetadata, RepositoryExt, ref_metadata,
+    RefMetadata, ref_metadata,
     ref_metadata::{StackId, WorkspaceCommitRelation::Outside},
     worktree::checkout::UncommitedWorktreeChanges,
 };
@@ -115,7 +115,7 @@ fn ws_ref_no_ws_commit_two_virtual_stacks_on_same_commit_apply_dependent_first()
 
 #[test]
 fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, _vb_version_cannot_have_remotes, _description) =
+    let (_tmp, graph, mut repo, _vb_version_cannot_have_remotes, _description) =
         named_writable_scenario_with_description_and_graph(
             "main-with-advanced-remote",
             |_meta| {},
@@ -194,7 +194,8 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
     * 3183e43 (main) M1
     ");
 
-    let config = repo.local_common_config_for_editing()?;
+    repo.reload()?;
+    let config = repo.config_snapshot();
     let section = config.section("branch", Some("feature".into()))?;
     insta::assert_snapshot!(section.to_bstring(), @r#"
     [branch "feature"]

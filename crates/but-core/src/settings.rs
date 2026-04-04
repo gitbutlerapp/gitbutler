@@ -5,6 +5,8 @@ pub mod git {
     use anyhow::Result;
     use bstr::{BStr, BString, ByteSlice, ByteVec};
 
+    use crate::git_config::edit_repo_config;
+
     const GIT_SIGN_COMMITS: &str = "commit.gpgsign";
     const GITBUTLER_SIGN_COMMITS: &str = "gitbutler.signCommits";
     const GITBUTLER_GERRIT_MODE: &str = "gitbutler.gerritMode";
@@ -145,8 +147,6 @@ pub mod git {
     }
     use types::GitConfigSettings;
 
-    use crate::RepositoryExt;
-
     impl GitConfigSettings {
         /// Read all settings from the given snapshot.
         pub fn try_from_snapshot(config: &gix::config::Snapshot<'_>) -> anyhow::Result<Self> {
@@ -188,52 +188,56 @@ pub mod git {
         pub fn persist_to_local_config(&self, repo: &gix::Repository) -> Result<()> {
             // TODO: make this easier in `gix`. Could use config-snapshot-mut, but there is no way to
             //       auto-reload it/assure it's up-to-date.
-            let mut config = repo.local_common_config_for_editing()?;
-            if let Some(sign_commits) = self.gitbutler_sign_commits {
-                config.set_raw_value(
-                    GITBUTLER_SIGN_COMMITS,
-                    if sign_commits { "true" } else { "false" },
-                )?;
-            };
-            if let Some(gerrit_mode) = self.gitbutler_gerrit_mode {
-                config.set_raw_value(
-                    GITBUTLER_GERRIT_MODE,
-                    if gerrit_mode { "true" } else { "false" },
-                )?;
-            };
-            if let Some(forge_template_path) = &self.gitbutler_forge_review_template_path {
-                config
-                    .set_raw_value(GITBUTLER_FORGE_TEMPLATE_PATH, forge_template_path.as_bstr())?;
-            };
-            if let Some(signing_key) = &self.signing_key {
-                config.set_raw_value(SIGNING_KEY, signing_key.as_bstr())?;
-            };
-            if let Some(signing_format) = &self.signing_format {
-                config.set_raw_value(SIGNING_FORMAT, signing_format.as_bstr())?;
-            }
-            if let Some(gpg_program) = self.gpg_program.as_ref().and_then(osstring_into_bstring) {
-                config.set_raw_value(GPG_PROGRAM, gpg_program.as_bstr())?;
-            }
-            if let Some(gpg_ssh_program) = self
-                .gpg_ssh_program
-                .as_ref()
-                .and_then(osstring_into_bstring)
-            {
-                config.set_raw_value(GPG_SSH_PROGRAM, gpg_ssh_program.as_bstr())?;
-            }
-            if let Some(gitlab_project_id) = self.gitbutler_gitlab_project_id.as_deref() {
-                config.set_raw_value(GITBUTLER_GITLAB_PROJECT_ID, gitlab_project_id)?;
-            }
-            if let Some(gitlab_upstream_project_id) =
-                self.gitbutler_gitlab_upstream_project_id.as_deref()
-            {
-                config.set_raw_value(
-                    GITBUTLER_GITLAB_UPSTREAM_PROJECT_ID,
-                    gitlab_upstream_project_id,
-                )?;
-            }
+            edit_repo_config(repo, gix::config::Source::Local, |config| {
+                if let Some(sign_commits) = self.gitbutler_sign_commits {
+                    config.set_raw_value(
+                        GITBUTLER_SIGN_COMMITS,
+                        if sign_commits { "true" } else { "false" },
+                    )?;
+                };
+                if let Some(gerrit_mode) = self.gitbutler_gerrit_mode {
+                    config.set_raw_value(
+                        GITBUTLER_GERRIT_MODE,
+                        if gerrit_mode { "true" } else { "false" },
+                    )?;
+                };
+                if let Some(forge_template_path) = &self.gitbutler_forge_review_template_path {
+                    config.set_raw_value(
+                        GITBUTLER_FORGE_TEMPLATE_PATH,
+                        forge_template_path.as_bstr(),
+                    )?;
+                };
+                if let Some(signing_key) = &self.signing_key {
+                    config.set_raw_value(SIGNING_KEY, signing_key.as_bstr())?;
+                };
+                if let Some(signing_format) = &self.signing_format {
+                    config.set_raw_value(SIGNING_FORMAT, signing_format.as_bstr())?;
+                }
+                if let Some(gpg_program) = self.gpg_program.as_ref().and_then(osstring_into_bstring)
+                {
+                    config.set_raw_value(GPG_PROGRAM, gpg_program.as_bstr())?;
+                }
+                if let Some(gpg_ssh_program) = self
+                    .gpg_ssh_program
+                    .as_ref()
+                    .and_then(osstring_into_bstring)
+                {
+                    config.set_raw_value(GPG_SSH_PROGRAM, gpg_ssh_program.as_bstr())?;
+                }
+                if let Some(gitlab_project_id) = self.gitbutler_gitlab_project_id.as_deref() {
+                    config.set_raw_value(GITBUTLER_GITLAB_PROJECT_ID, gitlab_project_id)?;
+                }
+                if let Some(gitlab_upstream_project_id) =
+                    self.gitbutler_gitlab_upstream_project_id.as_deref()
+                {
+                    config.set_raw_value(
+                        GITBUTLER_GITLAB_UPSTREAM_PROJECT_ID,
+                        gitlab_upstream_project_id,
+                    )?;
+                }
 
-            repo.write_local_common_config(&config)?;
+                Ok(())
+            })?;
             Ok(())
         }
     }

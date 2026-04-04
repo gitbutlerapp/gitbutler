@@ -1,7 +1,7 @@
 use std::path::{self, Path};
 
 use but_core::{
-    RepositoryExt,
+    git_config::edit_repo_config,
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
@@ -506,10 +506,11 @@ fn setup_local_remote(repo: &gix::Repository, out: &mut OutputChannel) -> anyhow
         )?;
     }
 
-    let mut config = repo.local_common_config_for_editing()?;
-    let mut section = config.section_mut_or_create_new("remote", Some("gb-local".into()))?;
-    section.push("url".try_into()?, Some(repo_url.into()));
-    repo.write_local_common_config(&config)?;
+    edit_repo_config(repo, gix::config::Source::Local, |config| {
+        let mut section = config.section_mut_or_create_new("remote", Some("gb-local".into()))?;
+        section.push("url".try_into()?, Some(repo_url.into()));
+        Ok(())
+    })?;
 
     // Figure out what local branch is probably the default target
     let mut head_ref = repo.head()?;

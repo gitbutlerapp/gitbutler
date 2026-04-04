@@ -1,4 +1,4 @@
-use but_core::git_config::{set_config_value, write_config};
+use but_core::git_config::{edit_config, set_config_value};
 use but_testsupport::legacy::stack_details;
 
 use super::*;
@@ -253,15 +253,14 @@ fn bootstrap_missing_target_preserves_existing_workspace_ref() -> anyhow::Result
         .detach();
     let expected_stack_name = stack_details(ctx)[0].1.derived_name.clone();
 
-    let config_path = repo.git_dir().join("config");
-    let mut config =
-        gix::config::File::from_path_no_includes(config_path.clone(), gix::config::Source::Local)?;
-    set_config_value(
-        &mut config,
-        but_project_handle::storage_path_config_key(),
-        "gitbutler-alt",
-    )?;
-    write_config(&config_path, &config)?;
+    edit_config(Some(&repo), gix::config::Source::Local, |config| {
+        set_config_value(
+            config,
+            but_project_handle::storage_path_config_key(),
+            "gitbutler-alt",
+        )?;
+        Ok(())
+    })?;
     drop(repo);
 
     let mut reopened: Context = project_id.clone().try_into()?;

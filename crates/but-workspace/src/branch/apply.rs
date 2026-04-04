@@ -367,7 +367,7 @@ pub(crate) mod function {
         let (local_tracking_config_and_ref_info, commit_to_create_branch_at) =
             if incoming_branch_is_remote_tracking_without_local_tracking {
                 setup_local_tracking_configuration(repo, branch.as_ref(), branch_orig)?
-                    .map(|(config, commit)| (Some(config), Some(commit)))
+                    .map(|(config, lock, commit)| (Some((config, lock)), Some(commit)))
                     .unwrap_or_default()
             } else {
                 (None, None)
@@ -402,11 +402,12 @@ pub(crate) mod function {
                 .is_some_and(|(_stack, segment)| !segment.is_projected_from_outside(&ws.graph))
         });
         let needs_ws_ref_creation = !ws_ref_exists;
-        let local_tracking_config_and_ref_info =
-            local_tracking_config_and_ref_info.zip(commit_to_create_branch_at.map({
+        let local_tracking_config_and_ref_info = local_tracking_config_and_ref_info
+            .zip(commit_to_create_branch_at.map({
                 let branch = branch.clone();
                 |commit| (branch, branch_orig, commit.attach(repo))
-            }));
+            }))
+            .map(|((config, lock), ref_info)| (config, lock, ref_info));
         let applied_branches = branches_to_apply
             .iter()
             .map(|rn| (*rn).to_owned())
@@ -825,7 +826,7 @@ pub(crate) mod function {
         repo: &gix::Repository,
         local_tracking_ref: &FullNameRef,
         remote_tracking_ref: &FullNameRef,
-    ) -> anyhow::Result<Option<(gix::config::File<'static>, gix::ObjectId)>> {
+    ) -> anyhow::Result<Option<(gix::config::File<'static>, gix::lock::File, gix::ObjectId)>> {
         let remote_tracking_commit_id = repo
             .find_reference(remote_tracking_ref)?
             .peel_to_commit()?
@@ -834,7 +835,7 @@ pub(crate) mod function {
         // TODO(gix): Make config refreshes possible, and use the higher level API, and add a way
         //       to only write back what changed and of course to add local sections more obviously.
         //       Make it way easier to work with sections.
-        let mut config = repo.local_common_config_for_editing()?;
+        let (mut config, lock) = repo.local_common_config_for_editing()?;
         let mut section =
             config.section_mut_or_create_new("branch", Some(local_tracking_ref.shorten()))?;
         // Only edit the configuration if truly empty, let's not overwrite user data.
@@ -852,7 +853,7 @@ pub(crate) mod function {
                     Some(local_tracking_ref.as_bstr()),
                 );
         }
-        Ok(Some((config, remote_tracking_commit_id.into())))
+        Ok(Some((config, lock, remote_tracking_commit_id.into())))
     }
 
     fn add_branch_as_stack_forcefully(
@@ -916,7 +917,8 @@ pub(crate) mod function {
         branches_to_apply: &[gix::refs::FullName],
         ws_md: &T::Handle<Workspace>,
         config_and_ref: Option<(
-            gix::config::File,
+            gix::config::File<'static>,
+            gix::lock::File,
             (gix::refs::FullName, &gix::refs::FullNameRef, gix::Id),
         )>,
     ) -> anyhow::Result<()> {
@@ -930,10 +932,11 @@ pub(crate) mod function {
             meta.set_branch(&md)?;
         }
 
-        if let Some((config, (ref_to_create, remote_tracking_ref, ref_target_id))) = config_and_ref
+        if let Some((config, lock, (ref_to_create, remote_tracking_ref, ref_target_id))) =
+            config_and_ref
         {
             let repo = ref_target_id.repo;
-            repo.write_local_common_config(&config)?;
+            repo.write_locked_config(&config, lock)?;
 
             repo.reference(
                 ref_to_create,

@@ -443,7 +443,7 @@ async fn user_config(
             let git_key = key.to_git_key();
             edit_git_config(&repo, global.into(), |config| {
                 set_config_value(config, git_key, &value)?;
-                Ok(true)
+                Ok(())
             })?;
 
             if let Some(out) = out.for_human() {
@@ -471,7 +471,7 @@ async fn user_config(
             let git_key = key.to_git_key();
             edit_git_config(&repo, global.into(), |config| {
                 remove_config_value(config, git_key)?;
-                Ok(true)
+                Ok(())
             })?;
 
             if let Some(out) = out.for_human() {
@@ -1370,15 +1370,11 @@ fn maybe_set_secret(handle: &str, secret_value: Option<Sensitive<String>>) -> Re
 fn edit_ai_git_config(
     repo: Option<&gix::Repository>,
     scope: AiScope,
-    edit: impl FnOnce(&mut gix::config::File<'static>) -> Result<bool>,
+    edit: impl FnOnce(&mut gix::config::File<'static>) -> Result<()>,
 ) -> Result<()> {
     match scope {
         AiScope::Global => {
-            let (mut config, path) = but_core::git_config::open_user_global_config_for_editing()?;
-            let changed = edit(&mut config)?;
-            if changed {
-                but_core::git_config::write_config(&path, &config)?;
-            }
+            but_core::git_config::edit_config(None, gix::config::Source::User, edit)?;
             Ok(())
         }
         AiScope::Local => {
@@ -1417,7 +1413,7 @@ fn apply_openai_config(
         set_config_value(config, AI_OPENAI_KEY_OPTION_KEY, key_option.as_git_value())?;
         set_optional_config_value(config, AI_OPENAI_MODEL_NAME_KEY, model)?;
         set_optional_config_value(config, AI_OPENAI_CUSTOM_ENDPOINT_KEY, endpoint)?;
-        Ok(true)
+        Ok(())
     })?;
 
     if matches!(key_option, AiKeyOption::BringYourOwn) {
@@ -1445,7 +1441,7 @@ fn apply_anthropic_config(
             key_option.as_git_value(),
         )?;
         set_optional_config_value(config, AI_ANTHROPIC_MODEL_NAME_KEY, model)?;
-        Ok(true)
+        Ok(())
     })?;
 
     if matches!(key_option, AiKeyOption::BringYourOwn) {
@@ -1468,7 +1464,7 @@ fn apply_ollama_config(
         )?;
         set_optional_config_value(config, AI_OLLAMA_ENDPOINT_KEY, endpoint)?;
         set_optional_config_value(config, AI_OLLAMA_MODEL_NAME_KEY, model)?;
-        Ok(true)
+        Ok(())
     })
 }
 
@@ -1486,7 +1482,7 @@ fn apply_lmstudio_config(
         )?;
         set_optional_config_value(config, AI_LMSTUDIO_ENDPOINT_KEY, endpoint)?;
         set_optional_config_value(config, AI_LMSTUDIO_MODEL_NAME_KEY, model)?;
-        Ok(true)
+        Ok(())
     })
 }
 
@@ -1698,7 +1694,7 @@ fn ui_config(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<UiSubcomman
             let serialized = if bool_value { "true" } else { "false" };
             edit_git_config(&repo, global.into(), |config| {
                 set_config_value(config, git_key, serialized)?;
-                Ok(true)
+                Ok(())
             })?;
 
             if let Some(out) = out.for_human() {
@@ -1729,7 +1725,7 @@ fn ui_config(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<UiSubcomman
             let git_key = key.to_git_key();
             edit_git_config(&repo, global.into(), |config| {
                 remove_config_value(config, git_key)?;
-                Ok(true)
+                Ok(())
             })?;
 
             if let Some(out) = out.for_human() {

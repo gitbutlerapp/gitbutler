@@ -2,7 +2,7 @@ use std::{path::Path, time};
 
 use anyhow::{Context as _, Result, anyhow};
 use but_core::{
-    RepositoryExt as _, git_config::ensure_config_value,
+    git_config::{edit_repo_config, ensure_config_value},
     worktree::checkout::UncommitedWorktreeChanges,
 };
 use but_ctx::Context;
@@ -312,12 +312,11 @@ pub(crate) fn set_target_push_remote(ctx: &Context, push_remote_name: &str) -> R
 
 fn set_exclude_decoration(ctx: &Context) -> Result<()> {
     let repo = ctx.repo.get()?;
-    let mut config = repo.local_common_config_for_editing()?;
-    let changed = ensure_config_value(&mut config, "log.excludeDecoration", "refs/gitbutler")
-        .context("failed to set log.excludeDecoration")?;
-    if changed {
-        repo.write_local_common_config(&config)?;
-    }
+    edit_repo_config(&repo, gix::config::Source::Local, |config| {
+        ensure_config_value(config, "log.excludeDecoration", "refs/gitbutler")
+            .context("failed to set log.excludeDecoration")?;
+        Ok(())
+    })?;
     Ok(())
 }
 

@@ -32,7 +32,8 @@ fn set_storage_path_config(
     let key = but_project_handle::storage_path_config_key();
     repo.config_snapshot_mut()
         .set_raw_value(key, gix::path::os_str_into_bstr(value.as_ref())?)?;
-    repo.write_local_common_config(&repo.config_snapshot())?;
+    let (_config, lock) = repo.local_common_config_for_editing()?;
+    repo.write_locked_config(&repo.config_snapshot(), lock)?;
     Ok(repo)
 }
 
