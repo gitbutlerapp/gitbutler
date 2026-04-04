@@ -6,7 +6,11 @@ export enum ModelKind {
 	Anthropic = "anthropic",
 	Ollama = "ollama",
 	LMStudio = "lmstudio",
+	OpenRouter = "openrouter",
 }
+
+// OpenRouter model names follow the `provider/model` format (e.g. `openai/gpt-4.1-mini`)
+export type OpenRouterModelName = `${string}/${string}`;
 
 // https://platform.openai.com/docs/models
 export enum OpenAIModelName {
