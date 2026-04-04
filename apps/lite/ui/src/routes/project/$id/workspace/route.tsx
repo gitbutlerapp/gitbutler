@@ -1891,10 +1891,6 @@ const ProjectPage: FC = () => {
 	const movePreviewSelection = (offset: -1 | 1) => {
 		previewRef.current?.moveSelection(offset);
 	};
-	const onSelectPreviewHunk = (key: string) => {
-		dispatchProjectState({ _tag: "FocusPreview" });
-		selectHunk(key);
-	};
 
 	const shortcutScope = getScope({
 		selectedItem,
@@ -1935,7 +1931,7 @@ const ProjectPage: FC = () => {
 						<Preview
 							projectId={projectId}
 							selectedItem={selectedItem}
-							onSelectHunk={onSelectPreviewHunk}
+							onSelectHunk={selectHunk}
 							selectedHunk={workspaceSelection.hunk}
 							isFocused={getFocus(layoutState) === "preview"}
 							selectHunk={selectHunk}

@@ -35,7 +35,7 @@ export const projectStateReducer = (
 				workspaceSelection: workspaceSelectionReducer(state.workspaceSelection, action),
 			}),
 			SelectHunk: (action): ProjectState => ({
-				...state,
+				layout: projectLayoutReducer(state.layout, { _tag: "FocusPreview" }),
 				workspaceSelection: workspaceSelectionReducer(state.workspaceSelection, action),
 			}),
 		}),
