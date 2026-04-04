@@ -1845,8 +1845,15 @@ const ProjectPage: FC = () => {
 	const [layoutState, dispatchLayout] = assert(use(WorkspaceLayoutContext));
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 	const [editing, setEditingState] = useState<Editing | null>(null);
-	const [previewSelectionKey, setPreviewSelectionKey] = useState<string | null>(null);
-	const [selectionState, setSelectionState] = useState<Item | null>(null);
+
+	type SelectionState = {
+		item: Item | null;
+		hunk: string | null;
+	};
+	const [selectionState, setSelectionState] = useState<SelectionState>({
+		item: null,
+		hunk: null,
+	});
 
 	const previewRef = useRef<PreviewImperativeHandle | null>(null);
 
@@ -1866,14 +1873,22 @@ const ProjectPage: FC = () => {
 		commonBaseCommitId,
 	});
 	const selection =
-		(selectionState ? normalizeItem(selectionState, headInfo, worktreeChanges) : null) ??
+		(selectionState.item ? normalizeItem(selectionState.item, headInfo, worktreeChanges) : null) ??
 		navigationModel.items[0] ??
 		null;
+	const setPreviewSelectionKey = (selectionKey: string | null) => {
+		setSelectionState((current) => ({
+			...current,
+			hunk: selectionKey,
+		}));
+	};
 
 	const select = (nextSelection: Item | null) => {
 		dispatchLayout({ _tag: "FocusPrimary" });
-		setPreviewSelectionKey(null);
-		setSelectionState(nextSelection);
+		setSelectionState({
+			item: nextSelection,
+			hunk: null,
+		});
 	};
 	const setEditing = (nextEditing: Editing | null) => {
 		dispatchLayout({ _tag: "FocusPrimary" });
@@ -1930,7 +1945,7 @@ const ProjectPage: FC = () => {
 							projectId={projectId}
 							selection={selection}
 							onSelectHunk={onSelectPreviewHunk}
-							selectionKey={previewSelectionKey}
+							selectionKey={selectionState.hunk}
 							isFocused={getFocus(layoutState) === "preview"}
 							setSelectionKey={setPreviewSelectionKey}
 							onDependencyHover={highlightCommits}
