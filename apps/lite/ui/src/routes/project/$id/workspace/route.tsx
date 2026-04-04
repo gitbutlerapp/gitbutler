@@ -1841,11 +1841,13 @@ const StackC: FC<{
 
 const ProjectPage: FC = () => {
 	const { id: projectId } = Route.useParams();
-	const [layoutState, dispatchLayout] = assert(use(WorkspaceLayoutContext));
 
+	const [layoutState, dispatchLayout] = assert(use(WorkspaceLayoutContext));
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 	const [editing, setEditingState] = useState<Editing | null>(null);
 	const [previewSelectionKey, setPreviewSelectionKey] = useState<string | null>(null);
+	const [_selection, setSelection] = useState<Item | null>(null);
+
 	const previewRef = useRef<PreviewImperativeHandle | null>(null);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
@@ -1856,7 +1858,6 @@ const ProjectPage: FC = () => {
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
-	const [_selection, setSelection] = useState<Item | null>(null);
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
 	const navigationModel = buildNavigationModel({
 		headInfo,
@@ -1881,7 +1882,6 @@ const ProjectPage: FC = () => {
 	const highlightCommits = (commitIds: Array<string> | null) => {
 		setHighlightedCommitIds(commitIds ? new Set(commitIds) : new Set());
 	};
-
 	const movePreviewSelection = (offset: -1 | 1) => {
 		previewRef.current?.moveSelection(offset);
 	};
@@ -1905,6 +1905,7 @@ const ProjectPage: FC = () => {
 	} = useAbsorption(projectId);
 
 	useMonitorDraggedOperationSource({ projectId });
+
 	useWorkspaceShortcuts({
 		projectId,
 		scope: shortcutScope,
