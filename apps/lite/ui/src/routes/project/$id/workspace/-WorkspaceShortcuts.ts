@@ -209,9 +209,9 @@ const commitDetailsBindings: Array<ShortcutBinding<CommitDetailsAction>> = [
 	closeCommitDetailsBinding,
 ];
 
-type BranchSegmentAction = SelectionAction | { _tag: "RenameBranch" };
+type BranchAction = SelectionAction | { _tag: "RenameBranch" };
 
-const branchSegmentBindings: Array<ShortcutBinding<BranchSegmentAction>> = [
+const branchBindings: Array<ShortcutBinding<BranchAction>> = [
 	...selectionBindings,
 	{
 		id: "segment-rename-branch",
@@ -346,7 +346,7 @@ type Scope =
 	  }
 	| {
 			_tag: "Branch";
-			bindings: Array<ShortcutBinding<BranchSegmentAction>>;
+			bindings: Array<ShortcutBinding<BranchAction>>;
 			context: SegmentItem;
 	  }
 	| {
@@ -436,7 +436,7 @@ export const getScope = ({
 							}
 						: {
 								_tag: "Branch",
-								bindings: branchSegmentBindings,
+								bindings: branchBindings,
 								context: selection,
 							},
 		),
@@ -623,7 +623,7 @@ export const useWorkspaceShortcuts = ({
 			Match.orElse((action) => handleSelectionAction(action, { _tag: "Commit", ...selection })),
 		);
 
-	const handleBranchSegmentAction = (action: BranchSegmentAction, selection: SegmentItem) =>
+	const handleBranchAction = (action: BranchAction, selection: SegmentItem) =>
 		Match.value(action).pipe(
 			Match.tags({
 				RenameBranch: () => {
@@ -669,7 +669,7 @@ export const useWorkspaceShortcuts = ({
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
 					event.preventDefault();
-					handleBranchSegmentAction(action, scope.context);
+					handleBranchAction(action, scope.context);
 				},
 				Preview: (scope) => {
 					const action = getAction(scope.bindings, event);
