@@ -26,6 +26,14 @@ pub struct CommitRewordResult {
     pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
 }
 
+/// Outcome of squashing one commit into another.
+pub struct CommitSquashResult {
+    /// The ID of the newly created squashed commit.
+    pub new_commit: gix::ObjectId,
+    /// Commits that were replaced by this operation. Maps `old_id -> new_id`.
+    pub replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
+}
+
 /// Outcome of moving a commit.
 pub struct CommitMoveResult {
     /// Commits that were replaced by this operation. Maps `old_id -> new_id`.
