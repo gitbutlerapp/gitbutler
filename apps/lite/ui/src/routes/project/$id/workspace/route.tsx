@@ -29,7 +29,9 @@ import { getBranchNameByCommitId, getCommonBaseCommitId } from "#ui/domain/RefIn
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
 import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
-import { getFocus, WorkspaceLayoutContext } from "#ui/state/WorkspaceLayout.tsx";
+import { getFocus } from "#ui/routes/project/$id/-state/layout.ts";
+import { resolveSelectedWorkspaceItem } from "#ui/routes/project/$id/-state/selection.ts";
+import { ProjectStateContext } from "#ui/routes/project/$id/-ProjectState.tsx";
 import {
 	BranchSource,
 	BranchTarget,
@@ -69,12 +71,10 @@ import {
 	HunkAssignment,
 	HunkDependencies,
 	HunkHeader,
-	type RefInfo,
 	Segment,
 	Stack,
 	TreeChange,
 	UnifiedPatch,
-	type WorktreeChanges,
 } from "@gitbutler/but-sdk";
 import {
 	useMutation,
@@ -95,7 +95,6 @@ import {
 	use,
 	useImperativeHandle,
 	useOptimistic,
-	useReducer,
 	useRef,
 	useState,
 	useTransition,
@@ -108,7 +107,6 @@ import {
 	changesDetailsItem,
 	changesSummaryItem,
 	commitItem,
-	normalizeItem,
 	type Item,
 	segmentItem,
 	CommitItem,
@@ -1843,54 +1841,13 @@ const StackC: FC<{
 	);
 };
 
-type SelectionState = {
-	item: Item | null;
-	hunk: string | null;
-};
-
-type SelectionAction =
-	| { _tag: "SelectItem"; item: Item | null }
-	| { _tag: "SelectHunk"; hunk: string | null };
-
-const selectionStateReducer = (state: SelectionState, action: SelectionAction): SelectionState =>
-	Match.value(action).pipe(
-		Match.tagsExhaustive({
-			SelectItem: ({ item }): SelectionState => ({
-				item,
-				hunk: null,
-			}),
-			SelectHunk: ({ hunk }): SelectionState => ({
-				...state,
-				hunk,
-			}),
-		}),
-	);
-
-const getSelectedItem = ({
-	selectionState,
-	headInfo,
-	worktreeChanges,
-	navigationModelItems,
-}: {
-	selectionState: SelectionState;
-	headInfo: RefInfo;
-	worktreeChanges: WorktreeChanges;
-	navigationModelItems: Array<Item>;
-}): Item | null =>
-	(selectionState.item ? normalizeItem(selectionState.item, headInfo, worktreeChanges) : null) ??
-	navigationModelItems[0] ??
-	null;
-
 const ProjectPage: FC = () => {
 	const { id: projectId } = Route.useParams();
 
-	const [layoutState, dispatchLayout] = assert(use(WorkspaceLayoutContext));
+	const [projectState, dispatchProjectState] = assert(use(ProjectStateContext));
+	const { layout: layoutState, workspaceSelection } = projectState;
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 	const [editing, setEditingState] = useState<Editing | null>(null);
-	const [selectionState, dispatchSelectionState] = useReducer(selectionStateReducer, {
-		item: null,
-		hunk: null,
-	});
 
 	const previewRef = useRef<PreviewImperativeHandle | null>(null);
 
@@ -1910,23 +1867,22 @@ const ProjectPage: FC = () => {
 		commonBaseCommitId,
 	});
 
-	const selectedItem = getSelectedItem({
-		selectionState,
+	const selectedItem = resolveSelectedWorkspaceItem({
+		workspaceSelection,
 		headInfo,
 		worktreeChanges,
 		navigationModelItems: navigationModel.items,
 	});
 	const selectItem = (nextSelectedItem: Item | null) => {
-		dispatchLayout({ _tag: "FocusPrimary" });
-		dispatchSelectionState({ _tag: "SelectItem", item: nextSelectedItem });
+		dispatchProjectState({ _tag: "SelectItem", item: nextSelectedItem });
 	};
 
 	const selectHunk = (selectedHunk: string | null) => {
-		dispatchSelectionState({ _tag: "SelectHunk", hunk: selectedHunk });
+		dispatchProjectState({ _tag: "SelectHunk", hunk: selectedHunk });
 	};
 
 	const setEditing = (nextEditing: Editing | null) => {
-		dispatchLayout({ _tag: "FocusPrimary" });
+		dispatchProjectState({ _tag: "FocusPrimary" });
 		setEditingState(nextEditing);
 	};
 	const highlightCommits = (commitIds: Array<string> | null) => {
@@ -1936,7 +1892,7 @@ const ProjectPage: FC = () => {
 		previewRef.current?.moveSelection(offset);
 	};
 	const onSelectPreviewHunk = (key: string) => {
-		dispatchLayout({ _tag: "FocusPreview" });
+		dispatchProjectState({ _tag: "FocusPreview" });
 		selectHunk(key);
 	};
 
@@ -1963,7 +1919,7 @@ const ProjectPage: FC = () => {
 		setEditing,
 		navigationModel,
 		requestAbsorptionPlan,
-		dispatchLayout,
+		dispatchProjectState,
 		movePreviewSelection,
 	});
 
@@ -1980,7 +1936,7 @@ const ProjectPage: FC = () => {
 							projectId={projectId}
 							selectedItem={selectedItem}
 							onSelectHunk={onSelectPreviewHunk}
-							selectedHunk={selectionState.hunk}
+							selectedHunk={workspaceSelection.hunk}
 							isFocused={getFocus(layoutState) === "preview"}
 							selectHunk={selectHunk}
 							onDependencyHover={highlightCommits}

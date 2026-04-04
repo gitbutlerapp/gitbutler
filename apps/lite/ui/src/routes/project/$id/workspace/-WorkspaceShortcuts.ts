@@ -24,11 +24,8 @@ import {
 	getAdjacentSection,
 	type NavigationModel,
 } from "./-Selection.ts";
-import {
-	getFocus,
-	type WorkspaceLayoutAction,
-	type WorkspaceLayoutState,
-} from "#ui/state/WorkspaceLayout.tsx";
+import { getFocus, type ProjectLayoutState } from "#ui/routes/project/$id/-state/layout.ts";
+import { type ProjectStateAction } from "#ui/routes/project/$id/-state/project.ts";
 
 type SelectionAction =
 	| { _tag: "Move"; offset: -1 | 1 }
@@ -362,7 +359,7 @@ export const getScope = ({
 }: {
 	selectedItem: Item | null;
 	editing: Editing | null;
-	layoutState: WorkspaceLayoutState;
+	layoutState: ProjectLayoutState;
 }): Scope | null => {
 	if (getFocus(layoutState) === "preview")
 		return {
@@ -466,7 +463,7 @@ export const useWorkspaceShortcuts = ({
 	setEditing,
 	navigationModel,
 	requestAbsorptionPlan,
-	dispatchLayout,
+	dispatchProjectState,
 	movePreviewSelection,
 }: {
 	projectId: string;
@@ -475,7 +472,7 @@ export const useWorkspaceShortcuts = ({
 	setEditing: (editing: Editing | null) => void;
 	navigationModel: NavigationModel;
 	requestAbsorptionPlan: (target: AbsorptionTarget) => void;
-	dispatchLayout: Dispatch<WorkspaceLayoutAction>;
+	dispatchProjectState: Dispatch<ProjectStateAction>;
 	movePreviewSelection: (offset: -1 | 1) => void;
 }) => {
 	const queryClient = useQueryClient();
@@ -580,9 +577,9 @@ export const useWorkspaceShortcuts = ({
 				Move: ({ offset }) => move(offset, selectedItem),
 				PreviousSection: () => previousSection(selectedItem),
 				NextSection: () => nextSection(selectedItem),
-				FocusPreview: () => dispatchLayout({ _tag: "FocusPreview" }),
-				ToggleFullscreenPreview: () => dispatchLayout({ _tag: "ToggleFullscreenPreview" }),
-				TogglePreview: () => dispatchLayout({ _tag: "TogglePreview" }),
+				FocusPreview: () => dispatchProjectState({ _tag: "FocusPreview" }),
+				ToggleFullscreenPreview: () => dispatchProjectState({ _tag: "ToggleFullscreenPreview" }),
+				TogglePreview: () => dispatchProjectState({ _tag: "TogglePreview" }),
 			}),
 		);
 
@@ -590,10 +587,10 @@ export const useWorkspaceShortcuts = ({
 		Match.value(action).pipe(
 			Match.tagsExhaustive({
 				Move: ({ offset }) => movePreviewSelection(offset),
-				FocusPrimary: () => dispatchLayout({ _tag: "FocusPrimary" }),
-				ToggleFullscreenPreview: () => dispatchLayout({ _tag: "ToggleFullscreenPreview" }),
-				CloseFullscreenPreview: () => dispatchLayout({ _tag: "CloseFullscreenPreview" }),
-				TogglePreview: () => dispatchLayout({ _tag: "TogglePreview" }),
+				FocusPrimary: () => dispatchProjectState({ _tag: "FocusPrimary" }),
+				ToggleFullscreenPreview: () => dispatchProjectState({ _tag: "ToggleFullscreenPreview" }),
+				CloseFullscreenPreview: () => dispatchProjectState({ _tag: "CloseFullscreenPreview" }),
+				TogglePreview: () => dispatchProjectState({ _tag: "TogglePreview" }),
 			}),
 		);
 
