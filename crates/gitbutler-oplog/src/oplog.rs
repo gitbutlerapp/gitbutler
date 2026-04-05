@@ -13,7 +13,7 @@ use but_ctx::{
 };
 use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{ObjectIdExt as _, OidExt};
-use gitbutler_cherry_pick::RepositoryExtLite;
+use gitbutler_cherry_pick::{GixRepositoryExt as _, RepositoryExtLite};
 use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
 use gix::objs::Write as _;
@@ -792,8 +792,13 @@ fn tree_from_applied_vbranches(
     let applied_branch_trees: Vec<_> = vbs_from_toml
         .list_stacks_in_workspace()?
         .iter()
-        .flat_map(|b| b.tree(ctx))
-        .collect();
+        .map(|b| {
+            let head_oid = b.head_oid(ctx)?;
+            let commit = repo.find_commit(head_oid)?;
+            repo.find_real_tree(&commit, Default::default())
+                .map(|id| id.detach())
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     let mut workdir_tree_id = target_tree_id;
     let base_tree_id = target_tree_id;
