@@ -29,7 +29,9 @@ import { getBranchNameByCommitId, getCommonBaseCommitId } from "#ui/domain/RefIn
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
 import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
-import { getFocus, WorkspaceLayoutContext } from "#ui/state/WorkspaceLayout.tsx";
+import { getFocus } from "#ui/routes/project/$id/-state/layout.ts";
+import { resolveSelectedWorkspaceItem } from "#ui/routes/project/$id/-state/selection.ts";
+import { ProjectStateContext } from "#ui/routes/project/$id/-ProjectState.tsx";
 import {
 	BranchSource,
 	BranchTarget,
@@ -105,7 +107,6 @@ import {
 	changesDetailsItem,
 	changesSummaryItem,
 	commitItem,
-	normalizeItem,
 	type Item,
 	segmentItem,
 	CommitItem,
@@ -184,8 +185,8 @@ const CommitDetailsC: FC<{
 	commitId: string;
 	commitSelection: CommitItem;
 	projectId: string;
-	select: (selection: Item | null) => void;
-}> = ({ commitId, commitSelection, projectId, select }) => {
+	selectItem: (item: Item | null) => void;
+}> = ({ commitId, commitSelection, projectId, selectItem }) => {
 	const selectedPath =
 		commitSelection.mode._tag === "Details" ? commitSelection.mode.path : undefined;
 
@@ -206,7 +207,7 @@ const CommitDetailsC: FC<{
 					<FileButton
 						change={change}
 						onClick={() => {
-							select(
+							selectItem(
 								commitItem({
 									...commitSelection,
 									mode: { _tag: "Details", path: change.path },
@@ -364,7 +365,7 @@ const FileDiff: FC<{
 	diff: UnifiedPatch | null;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 	onSelectHunk: (key: string) => void;
-	selectionKey: string | undefined;
+	selectedHunk: string | undefined;
 	isFocused: boolean;
 }> = ({
 	projectId,
@@ -376,7 +377,7 @@ const FileDiff: FC<{
 	diff,
 	onDependencyHover,
 	onSelectHunk,
-	selectionKey,
+	selectedHunk,
 	isFocused,
 }) =>
 	Match.value(diff).pipe(
@@ -407,7 +408,7 @@ const FileDiff: FC<{
 									hunk={hunk}
 									editable={editable}
 									onSelectHunk={onSelectHunk}
-									isSelected={selectionKey === fileHunkKey(change.path, hunk)}
+									isSelected={selectedHunk === fileHunkKey(change.path, hunk)}
 									isFocused={isFocused}
 									headerStart={
 										fileParent?._tag === "Changes" && isNonEmptyArray(dependencyCommitIds) ? (
@@ -440,29 +441,29 @@ const hunkKeysFromChangeWithDiff = (
 			)
 		: [];
 
-type PreviewImperativeHandle = {
+export type PreviewImperativeHandle = {
 	moveSelection: (offset: -1 | 1) => void;
 };
 
 const createPreviewImperativeHandle = ({
 	hunkKeys,
-	selectionKey,
-	setSelectionKey,
+	selectedHunk,
+	selectHunk,
 }: {
 	hunkKeys: Array<string>;
-	selectionKey: string | undefined;
-	setSelectionKey: (key: string | null) => void;
+	selectedHunk: string | undefined;
+	selectHunk: (key: string | null) => void;
 }): PreviewImperativeHandle => ({
 	moveSelection: (offset) => {
 		if (hunkKeys.length === 0) return;
 
-		const currentKey = selectionKey ?? hunkKeys[0];
+		const currentKey = selectedHunk ?? hunkKeys[0];
 		if (currentKey === undefined) return;
 
 		// We assume a valid key was provided.
 		const currentIndex = hunkKeys.indexOf(currentKey);
 
-		setSelectionKey(getRelative(hunkKeys, currentIndex, offset));
+		selectHunk(getRelative(hunkKeys, currentIndex, offset));
 	},
 });
 
@@ -471,9 +472,9 @@ const ChangesPreview: FC<{
 	stackId: string | null;
 	modeSelection: ChangesMode;
 	onSelectHunk: (key: string) => void;
-	selectionKey: string | null;
+	selectedHunk: string | null;
 	isFocused: boolean;
-	setSelectionKey: (key: string | null) => void;
+	selectHunk: (key: string | null) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 	ref?: Ref<PreviewImperativeHandle>;
 }> = ({
@@ -481,9 +482,9 @@ const ChangesPreview: FC<{
 	stackId,
 	modeSelection,
 	onSelectHunk,
-	selectionKey,
+	selectedHunk,
 	isFocused,
-	setSelectionKey,
+	selectHunk,
 	onDependencyHover,
 	ref,
 }) => {
@@ -506,17 +507,17 @@ const ChangesPreview: FC<{
 	const hunkKeys = changesWithDiffs.flatMap(([change, diff]) =>
 		hunkKeysFromChangeWithDiff([change, diff], assignmentsByPath.get(change.path)),
 	);
-	const normalizedSelectionKey =
-		selectionKey !== null && hunkKeys.includes(selectionKey) ? selectionKey : hunkKeys[0];
+	const normalizedSelectedHunk =
+		selectedHunk !== null && hunkKeys.includes(selectedHunk) ? selectedHunk : hunkKeys[0];
 	useImperativeHandle(
 		ref,
 		() =>
 			createPreviewImperativeHandle({
 				hunkKeys,
-				selectionKey: normalizedSelectionKey,
-				setSelectionKey,
+				selectedHunk: normalizedSelectedHunk,
+				selectHunk,
 			}),
-		[normalizedSelectionKey, hunkKeys, setSelectionKey],
+		[normalizedSelectedHunk, hunkKeys, selectHunk],
 	);
 
 	return (
@@ -544,7 +545,7 @@ const ChangesPreview: FC<{
 								diff={diff}
 								onDependencyHover={onDependencyHover}
 								onSelectHunk={onSelectHunk}
-								selectionKey={normalizedSelectionKey}
+								selectedHunk={normalizedSelectedHunk}
 								isFocused={isFocused}
 							/>
 						</li>
@@ -561,9 +562,9 @@ const CommitPreview: FC<{
 	selectedPath?: string;
 	editable: boolean;
 	onSelectHunk: (key: string) => void;
-	selectionKey: string | null;
+	selectedHunk: string | null;
 	isFocused: boolean;
-	setSelectionKey: (key: string | null) => void;
+	selectHunk: (key: string | null) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 	ref?: Ref<PreviewImperativeHandle>;
 }> = ({
@@ -572,9 +573,9 @@ const CommitPreview: FC<{
 	selectedPath,
 	editable,
 	onSelectHunk,
-	selectionKey,
+	selectedHunk,
 	isFocused,
-	setSelectionKey,
+	selectHunk,
 	onDependencyHover,
 	ref,
 }) => {
@@ -593,17 +594,17 @@ const CommitPreview: FC<{
 	const hunkKeys = changesWithDiffs.flatMap(([change, diff]) =>
 		hunkKeysFromChangeWithDiff([change, diff]),
 	);
-	const normalizedSelectionKey =
-		selectionKey !== null && hunkKeys.includes(selectionKey) ? selectionKey : hunkKeys[0];
+	const normalizedSelectedHunk =
+		selectedHunk !== null && hunkKeys.includes(selectedHunk) ? selectedHunk : hunkKeys[0];
 	useImperativeHandle(
 		ref,
 		() =>
 			createPreviewImperativeHandle({
 				hunkKeys,
-				selectionKey: normalizedSelectionKey,
-				setSelectionKey,
+				selectedHunk: normalizedSelectedHunk,
+				selectHunk,
 			}),
-		[normalizedSelectionKey, hunkKeys, setSelectionKey],
+		[normalizedSelectedHunk, hunkKeys, selectHunk],
 	);
 
 	return (
@@ -643,7 +644,7 @@ const CommitPreview: FC<{
 								diff={diff}
 								onDependencyHover={onDependencyHover}
 								onSelectHunk={onSelectHunk}
-								selectionKey={normalizedSelectionKey}
+								selectedHunk={normalizedSelectedHunk}
 								isFocused={isFocused}
 							/>
 						</li>
@@ -658,18 +659,18 @@ const BranchPreview: FC<{
 	projectId: string;
 	branchName: string;
 	onSelectHunk: (key: string) => void;
-	selectionKey: string | null;
+	selectedHunk: string | null;
 	isFocused: boolean;
-	setSelectionKey: (key: string | null) => void;
+	selectHunk: (key: string | null) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 	ref?: Ref<PreviewImperativeHandle>;
 }> = ({
 	projectId,
 	branchName,
 	onSelectHunk,
-	selectionKey,
+	selectedHunk,
 	isFocused,
-	setSelectionKey,
+	selectHunk,
 	onDependencyHover,
 	ref,
 }) => {
@@ -686,17 +687,17 @@ const BranchPreview: FC<{
 	const hunkKeys = changesWithDiffs.flatMap(([change, diff]) =>
 		hunkKeysFromChangeWithDiff([change, diff]),
 	);
-	const normalizedSelectionKey =
-		selectionKey !== null && hunkKeys.includes(selectionKey) ? selectionKey : hunkKeys[0];
+	const normalizedSelectedHunk =
+		selectedHunk !== null && hunkKeys.includes(selectedHunk) ? selectedHunk : hunkKeys[0];
 	useImperativeHandle(
 		ref,
 		() =>
 			createPreviewImperativeHandle({
 				hunkKeys,
-				selectionKey: normalizedSelectionKey,
-				setSelectionKey,
+				selectedHunk: normalizedSelectedHunk,
+				selectHunk,
 			}),
-		[normalizedSelectionKey, hunkKeys, setSelectionKey],
+		[normalizedSelectedHunk, hunkKeys, selectHunk],
 	);
 
 	return (
@@ -717,7 +718,7 @@ const BranchPreview: FC<{
 								diff={diff}
 								onDependencyHover={onDependencyHover}
 								onSelectHunk={onSelectHunk}
-								selectionKey={normalizedSelectionKey}
+								selectedHunk={normalizedSelectedHunk}
 								isFocused={isFocused}
 							/>
 						</li>
@@ -730,24 +731,24 @@ const BranchPreview: FC<{
 
 const Preview: FC<{
 	projectId: string;
-	selection: Item;
+	selectedItem: Item;
 	onSelectHunk: (key: string) => void;
-	selectionKey: string | null;
+	selectedHunk: string | null;
 	isFocused: boolean;
-	setSelectionKey: (key: string | null) => void;
+	selectHunk: (key: string | null) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 	ref?: Ref<PreviewImperativeHandle>;
 }> = ({
 	projectId,
-	selection,
+	selectedItem,
 	onSelectHunk,
-	selectionKey,
+	selectedHunk,
 	isFocused,
-	setSelectionKey,
+	selectHunk,
 	onDependencyHover,
 	ref,
 }) =>
-	Match.value(selection).pipe(
+	Match.value(selectedItem).pipe(
 		Match.tagsExhaustive({
 			Segment: ({ branchName }) => {
 				if (branchName == null)
@@ -763,9 +764,9 @@ const Preview: FC<{
 						projectId={projectId}
 						branchName={branchName}
 						onSelectHunk={onSelectHunk}
-						selectionKey={selectionKey}
+						selectedHunk={selectedHunk}
 						isFocused={isFocused}
-						setSelectionKey={setSelectionKey}
+						selectHunk={selectHunk}
 						onDependencyHover={onDependencyHover}
 						ref={ref}
 					/>
@@ -777,25 +778,26 @@ const Preview: FC<{
 					stackId={stackId}
 					modeSelection={mode}
 					onSelectHunk={onSelectHunk}
-					selectionKey={selectionKey}
+					selectedHunk={selectedHunk}
 					isFocused={isFocused}
-					setSelectionKey={setSelectionKey}
+					selectHunk={selectHunk}
 					onDependencyHover={onDependencyHover}
 					ref={ref}
 				/>
 			),
-			Commit: (selection) => {
-				const selectedPath = selection.mode._tag === "Details" ? selection.mode.path : undefined;
+			Commit: (selectedItem) => {
+				const selectedPath =
+					selectedItem.mode._tag === "Details" ? selectedItem.mode.path : undefined;
 				return (
 					<CommitPreview
 						projectId={projectId}
-						commitId={selection.commitId}
+						commitId={selectedItem.commitId}
 						selectedPath={selectedPath}
 						editable
 						onSelectHunk={onSelectHunk}
-						selectionKey={selectionKey}
+						selectedHunk={selectedHunk}
 						isFocused={isFocused}
-						setSelectionKey={setSelectionKey}
+						selectHunk={selectHunk}
 						onDependencyHover={onDependencyHover}
 						ref={ref}
 					/>
@@ -807,9 +809,9 @@ const Preview: FC<{
 					commitId={commitId}
 					editable={false}
 					onSelectHunk={onSelectHunk}
-					selectionKey={selectionKey}
+					selectedHunk={selectedHunk}
 					isFocused={isFocused}
-					setSelectionKey={setSelectionKey}
+					selectHunk={selectHunk}
 					onDependencyHover={onDependencyHover}
 					ref={ref}
 				/>
@@ -968,9 +970,9 @@ const CommitRow: FC<
 		isHighlighted: boolean;
 		projectId: string;
 		segmentIndex: number;
-		selection: Item | null;
-		select: (selection: Item | null) => void;
-		setEditing: (selection: Editing | null) => void;
+		selectedItem: Item;
+		selectItem: (item: Item | null) => void;
+		setEditing: (editing: Editing | null) => void;
 		stackId: string;
 	} & ComponentProps<"div">
 > = ({
@@ -980,8 +982,8 @@ const CommitRow: FC<
 	isHighlighted,
 	projectId,
 	segmentIndex,
-	selection,
-	select,
+	selectedItem,
+	selectItem,
 	setEditing,
 	stackId,
 	...restProps
@@ -993,11 +995,11 @@ const CommitRow: FC<
 		commitId: commit.id,
 	});
 	const commitSelection =
-		selection?._tag === "Commit" &&
-		selection.stackId === stackId &&
-		selection.segmentIndex === segmentIndex &&
-		selection.commitId === commit.id
-			? selection
+		selectedItem._tag === "Commit" &&
+		selectedItem.stackId === stackId &&
+		selectedItem.segmentIndex === segmentIndex &&
+		selectedItem.commitId === commit.id
+			? selectedItem
 			: null;
 	const isEditing =
 		editing?._tag === "CommitMessage" &&
@@ -1029,7 +1031,7 @@ const CommitRow: FC<
 
 		const firstPath = commitDetails.changes[0]?.path;
 
-		select(
+		selectItem(
 			commitItem({
 				stackId,
 				segmentIndex,
@@ -1043,14 +1045,14 @@ const CommitRow: FC<
 	const toggleDetails = () => {
 		setEditing(null);
 
-		if (commitSelection?.mode._tag === "Details") select(summaryItem);
+		if (commitSelection?.mode._tag === "Details") selectItem(summaryItem);
 		else void openDetails();
 	};
 
 	const commitReword = useMutation(commitRewordMutationOptions);
 
 	const startEditing = () => {
-		select(summaryItem);
+		selectItem(summaryItem);
 		setEditing({
 			_tag: "CommitMessage",
 			subject: {
@@ -1112,7 +1114,7 @@ const CommitRow: FC<
 									isCommitMessagePending && sharedStyles.commitButtonPending,
 								)}
 								onClick={() => {
-									select(summaryItem);
+									selectItem(summaryItem);
 								}}
 							>
 								<CommitLabel commit={commitWithOptimisticMessage} />
@@ -1174,9 +1176,9 @@ const CommitC: FC<{
 	previousCommitId: string | undefined;
 	projectId: string;
 	segmentIndex: number;
-	selection: Item | null;
-	select: (selection: Item | null) => void;
-	setEditing: (selection: Editing | null) => void;
+	selectedItem: Item;
+	selectItem: (item: Item | null) => void;
+	setEditing: (editing: Editing | null) => void;
 	stackId: string;
 }> = ({
 	branchName,
@@ -1187,17 +1189,17 @@ const CommitC: FC<{
 	previousCommitId,
 	projectId,
 	segmentIndex,
-	selection,
-	select,
+	selectedItem,
+	selectItem,
 	setEditing,
 	stackId,
 }) => {
 	const commitSelection =
-		selection?._tag === "Commit" &&
-		selection.stackId === stackId &&
-		selection.segmentIndex === segmentIndex &&
-		selection.commitId === commit.id
-			? selection
+		selectedItem._tag === "Commit" &&
+		selectedItem.stackId === stackId &&
+		selectedItem.segmentIndex === segmentIndex &&
+		selectedItem.commitId === commit.id
+			? selectedItem
 			: null;
 
 	return (
@@ -1213,8 +1215,8 @@ const CommitC: FC<{
 				isHighlighted={isHighlighted}
 				projectId={projectId}
 				segmentIndex={segmentIndex}
-				selection={selection}
-				select={select}
+				selectedItem={selectedItem}
+				selectItem={selectItem}
 				setEditing={setEditing}
 				stackId={stackId}
 			/>
@@ -1224,7 +1226,7 @@ const CommitC: FC<{
 						commitSelection={commitSelection}
 						projectId={projectId}
 						commitId={commit.id}
-						select={select}
+						selectItem={selectItem}
 					/>
 				</Suspense>
 			)}
@@ -1238,8 +1240,8 @@ const Changes: FC<{
 	stackId: string | null;
 	onAbsorbChanges: (target: AbsorptionTarget) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
-	selection: Item | null;
-	select: (selection: Item | null) => void;
+	selectedItem: Item;
+	selectItem: (item: Item | null) => void;
 	className?: string;
 }> = ({
 	label,
@@ -1247,8 +1249,8 @@ const Changes: FC<{
 	stackId,
 	onAbsorbChanges,
 	onDependencyHover,
-	selection,
-	select,
+	selectedItem,
+	selectItem,
 	className,
 }) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
@@ -1260,7 +1262,7 @@ const Changes: FC<{
 
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
 	const changesSelection =
-		selection?._tag === "Changes" && selection.stackId === stackId ? selection : null;
+		selectedItem._tag === "Changes" && selectedItem.stackId === stackId ? selectedItem : null;
 
 	return (
 		<ChangesSource
@@ -1289,7 +1291,7 @@ const Changes: FC<{
 					type="button"
 					className={styles.segmentButton}
 					onClick={() => {
-						select(changesSummaryItem(stackId));
+						selectItem(changesSummaryItem(stackId));
 					}}
 				>
 					{label}
@@ -1364,7 +1366,7 @@ const Changes: FC<{
 									<FileButton
 										change={change}
 										onClick={() => {
-											select(changesDetailsItem(stackId, change.path));
+											selectItem(changesDetailsItem(stackId, change.path));
 										}}
 									/>
 									<ShortcutButton
@@ -1537,9 +1539,9 @@ const SegmentRow: FC<
 		segment: Segment;
 		stackId: string;
 		segmentIndex: number;
-		selection: Item | null;
-		select: (selection: Item | null) => void;
-		setEditing: (selection: Editing | null) => void;
+		selectedItem: Item;
+		selectItem: (item: Item | null) => void;
+		setEditing: (editing: Editing | null) => void;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -1547,8 +1549,8 @@ const SegmentRow: FC<
 	segment,
 	stackId,
 	segmentIndex,
-	selection,
-	select,
+	selectedItem,
+	selectItem,
 	setEditing,
 	...restProps
 }) => {
@@ -1559,10 +1561,10 @@ const SegmentRow: FC<
 		branchName,
 	});
 	const segmentSelection =
-		selection?._tag === "Segment" &&
-		selection.stackId === stackId &&
-		selection.segmentIndex === segmentIndex
-			? selection
+		selectedItem._tag === "Segment" &&
+		selectedItem.stackId === stackId &&
+		selectedItem.segmentIndex === segmentIndex
+			? selectedItem
 			: null;
 	const isEditing =
 		branchName !== null &&
@@ -1579,7 +1581,7 @@ const SegmentRow: FC<
 
 	const startEditing = () => {
 		if (branchName === null) return;
-		select(segmentItemV);
+		selectItem(segmentItemV);
 		setEditing({
 			_tag: "BranchName",
 			subject: { stackId, segmentIndex },
@@ -1608,7 +1610,7 @@ const SegmentRow: FC<
 				// error boundaries.
 				return;
 			}
-			select(
+			selectItem(
 				segmentItem({
 					stackId,
 					segmentIndex,
@@ -1640,7 +1642,7 @@ const SegmentRow: FC<
 							<button
 								type="button"
 								className={styles.segmentButton}
-								onClick={() => select(segmentItemV)}
+								onClick={() => selectItem(segmentItemV)}
 							>
 								{optimisticBranchName ?? "Untitled"}
 							</button>
@@ -1699,10 +1701,10 @@ const SegmentC: FC<{
 	projectId: string;
 	segment: Segment;
 	segmentIndex: number;
-	selection: Item | null;
-	select: (selection: Item | null) => void;
+	selectedItem: Item;
+	selectItem: (item: Item | null) => void;
 	editing: Editing | null;
-	setEditing: (selection: Editing | null) => void;
+	setEditing: (editing: Editing | null) => void;
 	stackId: string;
 }> = ({
 	editing,
@@ -1710,18 +1712,18 @@ const SegmentC: FC<{
 	projectId,
 	segment,
 	segmentIndex,
-	selection,
-	select,
+	selectedItem,
+	selectItem,
 	setEditing,
 	stackId,
 }) => {
 	const isSelected =
-		(selection?._tag === "Segment" &&
-			selection.stackId === stackId &&
-			selection.segmentIndex === segmentIndex) ||
-		(selection?._tag === "Commit" &&
-			selection.stackId === stackId &&
-			segment.commits.some((commit) => commit.id === selection.commitId));
+		(selectedItem._tag === "Segment" &&
+			selectedItem.stackId === stackId &&
+			selectedItem.segmentIndex === segmentIndex) ||
+		(selectedItem._tag === "Commit" &&
+			selectedItem.stackId === stackId &&
+			segment.commits.some((commit) => commit.id === selectedItem.commitId));
 
 	return (
 		<div className={classes(isSelected && sharedStyles.sectionSelected)}>
@@ -1731,8 +1733,8 @@ const SegmentC: FC<{
 				segment={segment}
 				stackId={stackId}
 				segmentIndex={segmentIndex}
-				selection={selection}
-				select={select}
+				selectedItem={selectedItem}
+				selectItem={selectItem}
 				setEditing={setEditing}
 			/>
 
@@ -1747,8 +1749,8 @@ const SegmentC: FC<{
 						previousCommitId={segment.commits[index - 1]?.id}
 						projectId={projectId}
 						segmentIndex={segmentIndex}
-						selection={selection}
-						select={select}
+						selectedItem={selectedItem}
+						selectItem={selectItem}
 						setEditing={setEditing}
 						stackId={stackId}
 					/>
@@ -1763,10 +1765,10 @@ const StackC: FC<{
 	onAbsorbChanges: (target: AbsorptionTarget) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 	projectId: string;
-	selection: Item | null;
-	select: (selection: Item | null) => void;
+	selectedItem: Item;
+	selectItem: (item: Item | null) => void;
 	editing: Editing | null;
-	setEditing: (selection: Editing | null) => void;
+	setEditing: (editing: Editing | null) => void;
 	stack: Stack;
 }> = ({
 	editing,
@@ -1774,8 +1776,8 @@ const StackC: FC<{
 	onAbsorbChanges,
 	onDependencyHover,
 	projectId,
-	selection,
-	select,
+	selectedItem,
+	selectItem,
 	setEditing,
 	stack,
 }) => {
@@ -1810,8 +1812,8 @@ const StackC: FC<{
 					stackId={stack.id}
 					onAbsorbChanges={onAbsorbChanges}
 					onDependencyHover={onDependencyHover}
-					selection={selection}
-					select={select}
+					selectedItem={selectedItem}
+					selectItem={selectItem}
 					className={styles.assignedChanges}
 				/>
 				<CommitForm projectId={projectId} stack={stack} />
@@ -1827,8 +1829,8 @@ const StackC: FC<{
 							projectId={projectId}
 							segment={segment}
 							segmentIndex={segmentIndex}
-							selection={selection}
-							select={select}
+							selectedItem={selectedItem}
+							selectItem={selectItem}
 							setEditing={setEditing}
 							stackId={stackId}
 						/>
@@ -1841,11 +1843,12 @@ const StackC: FC<{
 
 const ProjectPage: FC = () => {
 	const { id: projectId } = Route.useParams();
-	const [layoutState, dispatchLayout] = assert(use(WorkspaceLayoutContext));
 
+	const [projectState, dispatchProjectState] = assert(use(ProjectStateContext));
+	const { layout: layoutState, workspaceSelection } = projectState;
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
 	const [editing, setEditingState] = useState<Editing | null>(null);
-	const [previewSelectionKey, setPreviewSelectionKey] = useState<string | null>(null);
+
 	const previewRef = useRef<PreviewImperativeHandle | null>(null);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
@@ -1856,7 +1859,6 @@ const ProjectPage: FC = () => {
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
-	const [_selection, setSelection] = useState<Item | null>(null);
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
 	const navigationModel = buildNavigationModel({
 		headInfo,
@@ -1864,34 +1866,30 @@ const ProjectPage: FC = () => {
 		assignments: worktreeChanges.assignments,
 		commonBaseCommitId,
 	});
-	const selection =
-		(_selection ? normalizeItem(_selection, headInfo, worktreeChanges) : null) ??
-		navigationModel.items[0] ??
-		null;
 
-	const select = (nextSelection: Item | null) => {
-		dispatchLayout({ _tag: "FocusPrimary" });
-		setPreviewSelectionKey(null);
-		setSelection(nextSelection);
+	const selectedItem = resolveSelectedWorkspaceItem({
+		workspaceSelection,
+		headInfo,
+		worktreeChanges,
+	});
+	const selectItem = (nextSelectedItem: Item | null) => {
+		dispatchProjectState({ _tag: "SelectItem", item: nextSelectedItem });
 	};
+
+	const selectHunk = (selectedHunk: string | null) => {
+		dispatchProjectState({ _tag: "SelectHunk", hunk: selectedHunk });
+	};
+
 	const setEditing = (nextEditing: Editing | null) => {
-		dispatchLayout({ _tag: "FocusPrimary" });
+		dispatchProjectState({ _tag: "FocusPrimary" });
 		setEditingState(nextEditing);
 	};
 	const highlightCommits = (commitIds: Array<string> | null) => {
 		setHighlightedCommitIds(commitIds ? new Set(commitIds) : new Set());
 	};
 
-	const movePreviewSelection = (offset: -1 | 1) => {
-		previewRef.current?.moveSelection(offset);
-	};
-	const onSelectPreviewHunk = (key: string) => {
-		dispatchLayout({ _tag: "FocusPreview" });
-		setPreviewSelectionKey(key);
-	};
-
 	const shortcutScope = getScope({
-		selection,
+		selectedItem,
 		editing,
 		layoutState,
 	});
@@ -1905,15 +1903,15 @@ const ProjectPage: FC = () => {
 	} = useAbsorption(projectId);
 
 	useMonitorDraggedOperationSource({ projectId });
+
 	useWorkspaceShortcuts({
 		projectId,
 		scope: shortcutScope,
-		select,
 		setEditing,
 		navigationModel,
 		requestAbsorptionPlan,
-		dispatchLayout,
-		movePreviewSelection,
+		dispatchProjectState,
+		previewRef,
 	});
 
 	// TODO: dedupe
@@ -1923,20 +1921,18 @@ const ProjectPage: FC = () => {
 		<ProjectPreviewLayout
 			projectId={projectId}
 			preview={
-				selection && (
-					<Suspense fallback={<div>Loading preview…</div>}>
-						<Preview
-							projectId={projectId}
-							selection={selection}
-							onSelectHunk={onSelectPreviewHunk}
-							selectionKey={previewSelectionKey}
-							isFocused={getFocus(layoutState) === "preview"}
-							setSelectionKey={setPreviewSelectionKey}
-							onDependencyHover={highlightCommits}
-							ref={previewRef}
-						/>
-					</Suspense>
-				)
+				<Suspense fallback={<div>Loading preview…</div>}>
+					<Preview
+						projectId={projectId}
+						selectedItem={selectedItem}
+						onSelectHunk={selectHunk}
+						selectedHunk={workspaceSelection.hunk}
+						isFocused={getFocus(layoutState) === "preview"}
+						selectHunk={selectHunk}
+						onDependencyHover={highlightCommits}
+						ref={previewRef}
+					/>
+				</Suspense>
 			}
 		>
 			<div className={sharedStyles.lanes}>
@@ -1946,8 +1942,8 @@ const ProjectPage: FC = () => {
 					stackId={null}
 					onAbsorbChanges={requestAbsorptionPlan}
 					onDependencyHover={highlightCommits}
-					selection={selection}
-					select={select}
+					selectedItem={selectedItem}
+					selectItem={selectItem}
 					className={styles.unassignedChanges}
 				/>
 
@@ -1961,8 +1957,8 @@ const ProjectPage: FC = () => {
 									onAbsorbChanges={requestAbsorptionPlan}
 									onDependencyHover={highlightCommits}
 									projectId={project.id}
-									selection={selection}
-									select={select}
+									selectedItem={selectedItem}
+									selectItem={selectItem}
 									setEditing={setEditing}
 									stack={stack}
 								/>
@@ -1975,8 +1971,8 @@ const ProjectPage: FC = () => {
 							<div
 								className={classes(
 									sharedStyles.item,
-									selection?._tag === "BaseCommit" &&
-										selection.commitId === commonBaseCommitId &&
+									selectedItem._tag === "BaseCommit" &&
+										selectedItem.commitId === commonBaseCommitId &&
 										sharedStyles.selected,
 								)}
 							>
@@ -1984,7 +1980,7 @@ const ProjectPage: FC = () => {
 									type="button"
 									className={styles.commonBaseCommit}
 									onClick={() => {
-										select(baseCommitItem(commonBaseCommitId));
+										selectItem(baseCommitItem(commonBaseCommitId));
 										setEditing(null);
 									}}
 								>

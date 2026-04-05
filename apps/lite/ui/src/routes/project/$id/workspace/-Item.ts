@@ -67,8 +67,8 @@ export const baseCommitItem = (commitId: string): Item => ({
 	commitId,
 });
 
-export const getParentSection = (selection: Item): Item | null =>
-	Match.value(selection).pipe(
+export const getParentSection = (item: Item): Item | null =>
+	Match.value(item).pipe(
 		Match.tagsExhaustive({
 			Commit: (item): Item | null => segmentItem(item),
 			Changes: (item): Item | null =>

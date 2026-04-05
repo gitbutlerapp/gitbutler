@@ -3,14 +3,14 @@ import { Link, Outlet, useMatch, useNavigate } from "@tanstack/react-router";
 import { FC, use, useState } from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext } from "@tanstack/react-router";
-import {
-	isPreviewPanelVisible,
-	WorkspaceLayoutContext,
-	WorkspaceLayoutProvider,
-} from "../state/WorkspaceLayout";
 import { assert } from "#ui/routes/project/$id/-shared.tsx";
 import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/-ShortcutsBar.tsx";
+import { isPreviewPanelVisible } from "#ui/routes/project/$id/-state/layout.ts";
+import {
+	ProjectStateContext,
+	ProjectStateProvider,
+} from "#ui/routes/project/$id/-ProjectState.tsx";
 import {
 	toggleFullscreenPreviewBinding,
 	togglePreviewBinding,
@@ -95,7 +95,8 @@ const SidebarNav: FC = () => {
 };
 
 const TopBarActions: FC = () => {
-	const [layoutState, dispatchLayout] = assert(use(WorkspaceLayoutContext));
+	const [projectState, dispatchProjectState] = assert(use(ProjectStateContext));
+	const { layout: layoutState } = projectState;
 
 	return (
 		<div className={styles.topBarActions}>
@@ -104,7 +105,7 @@ const TopBarActions: FC = () => {
 				type="button"
 				className={uiStyles.button}
 				aria-pressed={isPreviewPanelVisible(layoutState)}
-				onClick={() => dispatchLayout({ _tag: "TogglePreview" })}
+				onClick={() => dispatchProjectState({ _tag: "TogglePreview" })}
 			>
 				{togglePreviewBinding.description}
 			</ShortcutButton>
@@ -113,7 +114,7 @@ const TopBarActions: FC = () => {
 				type="button"
 				className={uiStyles.button}
 				aria-pressed={layoutState.isFullscreenPreviewOpen}
-				onClick={() => dispatchLayout({ _tag: "ToggleFullscreenPreview" })}
+				onClick={() => dispatchProjectState({ _tag: "ToggleFullscreenPreview" })}
 			>
 				{toggleFullscreenPreviewBinding.description}
 			</ShortcutButton>
@@ -137,23 +138,29 @@ const TopBar: FC = () => {
 
 function RootLayout() {
 	const [shortcutsBarPortalNode, setShortcutsBarPortalNode] = useState<HTMLElement | null>(null);
+	const projectMatch = useMatch({
+		from: "/project/$id",
+		shouldThrow: false,
+	});
 
-	return (
-		<WorkspaceLayoutProvider>
-			<ShortcutsBarPortalContext value={shortcutsBarPortalNode}>
-				<main className={styles.layout}>
-					<TopBar />
-					<aside className={styles.sidebar}>
-						<SidebarNav />
-					</aside>
-					<section className={styles.content}>
-						<Outlet />
-					</section>
-					<footer className={styles.shortcutsBarFooter} ref={setShortcutsBarPortalNode} />
-				</main>
-			</ShortcutsBarPortalContext>
-		</WorkspaceLayoutProvider>
+	const content = (
+		<ShortcutsBarPortalContext value={shortcutsBarPortalNode}>
+			<main className={styles.layout}>
+				<TopBar />
+				<aside className={styles.sidebar}>
+					<SidebarNav />
+				</aside>
+				<section className={styles.content}>
+					<Outlet />
+				</section>
+				<footer className={styles.shortcutsBarFooter} ref={setShortcutsBarPortalNode} />
+			</main>
+		</ShortcutsBarPortalContext>
 	);
+
+	if (!projectMatch) return content;
+
+	return <ProjectStateProvider key={projectMatch.params.id}>{content}</ProjectStateProvider>;
 }
 
 export const Route = createRootRouteWithContext<RouteContext>()({

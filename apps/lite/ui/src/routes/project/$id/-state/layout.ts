@@ -1,16 +1,15 @@
-import { createContext, Dispatch, FC, ReactNode, useReducer } from "react";
 import { Match } from "effect";
 
 export type Panel = "primary" | "preview";
 
 export type PanelLayout = { _tag: "Primary" } | { _tag: "Split"; focus: Panel };
 
-export type WorkspaceLayoutState = {
+export type ProjectLayoutState = {
 	panelLayout: PanelLayout;
 	isFullscreenPreviewOpen: boolean;
 };
 
-export type WorkspaceLayoutAction =
+export type ProjectLayoutAction =
 	| { _tag: "FocusPrimary" }
 	| { _tag: "FocusPreview" }
 	| { _tag: "TogglePreview" }
@@ -18,18 +17,18 @@ export type WorkspaceLayoutAction =
 	| { _tag: "CloseFullscreenPreview" }
 	| { _tag: "ToggleFullscreenPreview" };
 
-const initialState: WorkspaceLayoutState = {
+export const initialProjectLayoutState: ProjectLayoutState = {
 	panelLayout: { _tag: "Split", focus: "primary" },
 	isFullscreenPreviewOpen: false,
 };
 
-const workspaceLayoutReducer = (
-	state: WorkspaceLayoutState,
-	action: WorkspaceLayoutAction,
-): WorkspaceLayoutState =>
+export const projectLayoutReducer = (
+	state: ProjectLayoutState,
+	action: ProjectLayoutAction,
+): ProjectLayoutState =>
 	Match.value(action).pipe(
 		Match.tagsExhaustive({
-			FocusPrimary: (): WorkspaceLayoutState => ({
+			FocusPrimary: (): ProjectLayoutState => ({
 				...state,
 				isFullscreenPreviewOpen: false,
 				panelLayout:
@@ -37,52 +36,40 @@ const workspaceLayoutReducer = (
 						? state.panelLayout
 						: { _tag: "Split", focus: "primary" },
 			}),
-			FocusPreview: (): WorkspaceLayoutState =>
+			FocusPreview: (): ProjectLayoutState =>
 				state.isFullscreenPreviewOpen
 					? state
 					: {
 							...state,
 							panelLayout: { _tag: "Split", focus: "preview" },
 						},
-			TogglePreview: (): WorkspaceLayoutState => ({
+			TogglePreview: (): ProjectLayoutState => ({
 				...state,
 				panelLayout:
 					state.panelLayout._tag === "Primary"
 						? { _tag: "Split", focus: "primary" }
 						: { _tag: "Primary" },
 			}),
-			OpenFullscreenPreview: (): WorkspaceLayoutState => ({
+			OpenFullscreenPreview: (): ProjectLayoutState => ({
 				...state,
 				isFullscreenPreviewOpen: true,
 			}),
-			CloseFullscreenPreview: (): WorkspaceLayoutState => ({
+			CloseFullscreenPreview: (): ProjectLayoutState => ({
 				...state,
 				isFullscreenPreviewOpen: false,
 			}),
-			ToggleFullscreenPreview: (): WorkspaceLayoutState => ({
+			ToggleFullscreenPreview: (): ProjectLayoutState => ({
 				...state,
 				isFullscreenPreviewOpen: !state.isFullscreenPreviewOpen,
 			}),
 		}),
 	);
 
-export const WorkspaceLayoutContext = createContext<
-	[WorkspaceLayoutState, Dispatch<WorkspaceLayoutAction>] | null
->(null);
-
-export const isPreviewPanelVisible = (state: WorkspaceLayoutState): boolean =>
+export const isPreviewPanelVisible = (state: ProjectLayoutState): boolean =>
 	state.panelLayout._tag === "Split";
 
-const getPanelFocus = (state: WorkspaceLayoutState): Panel =>
+const getPanelFocus = (state: ProjectLayoutState): Panel =>
 	state.panelLayout._tag === "Split" ? state.panelLayout.focus : "primary";
 
-export const getFocus = (state: WorkspaceLayoutState): Panel =>
+export const getFocus = (state: ProjectLayoutState): Panel =>
 	state.isFullscreenPreviewOpen ? "preview" : getPanelFocus(state);
-
-export const WorkspaceLayoutProvider: FC<{
-	children: ReactNode;
-}> = ({ children }) => {
-	const state = useReducer(workspaceLayoutReducer, initialState);
-
-	return <WorkspaceLayoutContext value={state}>{children}</WorkspaceLayoutContext>;
-};
