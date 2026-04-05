@@ -27,7 +27,6 @@ import { rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx"
 import { type FileParent } from "#ui/domain/FileParent.ts";
 import { getBranchNameByCommitId, getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
-import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import { getFocus } from "#ui/routes/project/$id/-state/layout.ts";
 import { resolveSelectedWorkspaceItem } from "#ui/routes/project/$id/-state/selection.ts";
@@ -114,12 +113,9 @@ import {
 } from "./-Item.ts";
 import { buildNavigationModel } from "./-Selection.ts";
 import {
-	absorbChangesBinding,
-	closeCommitDetailsBinding,
 	renameBranchBindings,
 	handleRenameBranchKeyDown,
 	commitEditingMessageBindings,
-	openCommitDetailsBinding,
 	handleCommitEditingMessageKeyDown,
 	getLabel,
 	getScope,
@@ -1134,19 +1130,14 @@ const CommitRow: FC<
 					</ContextMenu.Portal>
 				</ContextMenu.Root>
 			)}
-			<ShortcutButton
-				binding={
-					commitSelection?.mode._tag === "Details"
-						? closeCommitDetailsBinding
-						: openCommitDetailsBinding
-				}
+			<button
 				className={sharedStyles.itemAction}
 				type="button"
 				onClick={toggleDetails}
 				aria-expanded={commitSelection?.mode._tag === "Details"}
 			>
 				<ExpandCollapseIcon isExpanded={commitSelection?.mode._tag === "Details"} />
-			</ShortcutButton>
+			</button>
 			<Menu.Root>
 				<Menu.Trigger className={sharedStyles.itemAction} aria-label="Commit menu">
 					<MenuTriggerIcon />
@@ -1296,8 +1287,7 @@ const Changes: FC<{
 				>
 					{label}
 				</button>
-				<ShortcutButton
-					binding={absorbChangesBinding}
+				<button
 					type="button"
 					className={sharedStyles.itemAction}
 					disabled={changes.length === 0}
@@ -1312,7 +1302,7 @@ const Changes: FC<{
 					}}
 				>
 					<AbsorbIcon />
-				</ShortcutButton>
+				</button>
 				<Menu.Root>
 					<Menu.Trigger className={sharedStyles.itemAction} aria-label={`${label} menu`}>
 						<MenuTriggerIcon />
@@ -1369,8 +1359,7 @@ const Changes: FC<{
 											selectItem(changesDetailsItem(stackId, change.path));
 										}}
 									/>
-									<ShortcutButton
-										binding={absorbChangesBinding}
+									<button
 										type="button"
 										className={sharedStyles.itemAction}
 										onClick={() => {
@@ -1384,7 +1373,7 @@ const Changes: FC<{
 										}}
 									>
 										<AbsorbIcon />
-									</ShortcutButton>
+									</button>
 									{isNonEmptyArray(dependencyCommitIds) && (
 										<DependencyIndicator
 											projectId={projectId}
