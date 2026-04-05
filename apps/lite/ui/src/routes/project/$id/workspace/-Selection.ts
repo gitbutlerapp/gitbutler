@@ -17,7 +17,8 @@ const navigationItemKey = (item: Item): string =>
 				item.mode._tag === "Details"
 					? JSON.stringify(["Changes", item.stackId, "Details", item.mode.path])
 					: JSON.stringify(["Changes", item.stackId, item.mode._tag]),
-			Segment: (item) => JSON.stringify(["Segment", item.stackId, item.segmentIndex]),
+			Segment: (item) =>
+				JSON.stringify(["Segment", item.stackId, item.segmentIndex, item.branchName]),
 			// This intentionally omits state like mode which doesn't affect navigation.
 			Commit: (item) => JSON.stringify(["Commit", item.stackId, item.segmentIndex, item.commitId]),
 			BaseCommit: (item) => JSON.stringify(["BaseCommit", item.commitId]),
