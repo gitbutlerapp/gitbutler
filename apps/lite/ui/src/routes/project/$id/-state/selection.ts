@@ -1,6 +1,7 @@
+import { getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
 import { type RefInfo, type WorktreeChanges } from "@gitbutler/but-sdk";
 import { Match } from "effect";
-import { changesSectionItem, normalizeItem, type Item } from "../workspace/-Item.ts";
+import { changesSectionItem, type Item } from "../workspace/-Item.ts";
 
 export type WorkspaceSelectionState = {
 	item: Item | null;
@@ -42,6 +43,47 @@ export const workspaceSelectionReducer = (
 		}),
 	);
 
+const normalizeSelectedItem = (
+	item: Item,
+	headInfo: RefInfo,
+	worktreeChanges: WorktreeChanges,
+): Item | null =>
+	Match.value(item).pipe(
+		Match.tag("Changes", (item) => item),
+		Match.tag("Change", (item) => {
+			if (!worktreeChanges.changes.find((change) => change.path === item.path)) return null;
+			if (
+				!worktreeChanges.assignments.find(
+					(assignment) => assignment.stackId === item.stackId && assignment.path === item.path,
+				)
+			)
+				return null;
+			return item;
+		}),
+		Match.tag("Segment", (item) => {
+			const stack = headInfo.stacks.find((stack) => stack.id !== null && stack.id === item.stackId);
+			if (!stack) return null;
+			const segment = stack.segments[item.segmentIndex];
+			if (!segment) return null;
+			const branchName = segment.refName?.displayName ?? null;
+			if (branchName !== item.branchName) return null;
+			return item;
+		}),
+		Match.tag("Commit", (item) => {
+			const stack = headInfo.stacks.find((stack) => stack.id !== null && stack.id === item.stackId);
+			if (!stack) return null;
+			const segment = stack.segments[item.segmentIndex];
+			if (!segment) return null;
+			if (!segment.commits.some((commit) => commit.id === item.commitId)) return null;
+			return item;
+		}),
+		Match.tag("BaseCommit", (item) => {
+			const commonBaseCommitId = getCommonBaseCommitId(headInfo);
+			return commonBaseCommitId === item.commitId ? item : null;
+		}),
+		Match.exhaustive,
+	);
+
 export const resolveSelectedWorkspaceItem = ({
 	workspaceSelection,
 	headInfo,
@@ -52,7 +94,7 @@ export const resolveSelectedWorkspaceItem = ({
 	worktreeChanges: WorktreeChanges;
 }): Item =>
 	(workspaceSelection.item
-		? normalizeItem(workspaceSelection.item, headInfo, worktreeChanges)
+		? normalizeSelectedItem(workspaceSelection.item, headInfo, worktreeChanges)
 		: null) ?? changesSectionItem(null);
 
 export const normalizeSelectedFile = ({
