@@ -314,7 +314,7 @@
 		position: relative;
 		align-items: center;
 		width: 100%;
-		padding-right: 9px;
+		padding-right: 11px;
 		overflow: hidden;
 		gap: 4px;
 
