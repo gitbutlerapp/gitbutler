@@ -163,7 +163,7 @@ const fullscreenPreviewBindings: Array<ShortcutBinding<PreviewAction>> = preview
 	// there's no point having the toggle preview shortcut here.
 	.filter((binding) => binding.action._tag !== "TogglePreview");
 
-export const absorbChangesBinding: ShortcutBinding<ChangesAction> = {
+const absorbChangesBinding: ShortcutBinding<ChangesAction> = {
 	id: "changes-absorb",
 	description: "Absorb",
 	keys: ["a"],
@@ -184,7 +184,7 @@ const editCommitMessageBinding: ShortcutBinding<CommitDefaultAction> = {
 	repeat: false,
 };
 
-export const openCommitDetailsBinding: ShortcutBinding<CommitDefaultAction> = {
+const openCommitDetailsBinding: ShortcutBinding<CommitDefaultAction> = {
 	id: "commit-open-details",
 	description: "Open details",
 	keys: ["ArrowRight", "l"],
@@ -198,7 +198,7 @@ const commitDefaultBindings: Array<ShortcutBinding<CommitDefaultAction>> = [
 	openCommitDetailsBinding,
 ];
 
-export const closeCommitDetailsBinding: ShortcutBinding<CommitDetailsAction> = {
+const closeCommitDetailsBinding: ShortcutBinding<CommitDetailsAction> = {
 	id: "commit-close-details",
 	description: "Close details",
 	keys: ["ArrowLeft", "Escape"],
