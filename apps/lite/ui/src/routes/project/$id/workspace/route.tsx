@@ -34,8 +34,8 @@ import { ProjectStateContext } from "#ui/routes/project/$id/-ProjectState.tsx";
 import {
 	BranchSource,
 	BranchTarget,
-	ChangesSource,
-	ChangesTarget,
+	ChangesSectionSource,
+	ChangesSectionTarget,
 	CommitFileSource,
 	CommitSource,
 	CommitTarget,
@@ -1366,7 +1366,7 @@ const Changes: FC<{
 		selectedItem._tag === "Change" && selectedItem.stackId === stackId ? selectedItem : null;
 
 	return (
-		<ChangesSource
+		<ChangesSectionSource
 			stackId={stackId}
 			label={label}
 			changes={changes.map(
@@ -1376,7 +1376,7 @@ const Changes: FC<{
 				}),
 			)}
 			render={
-				<ChangesTarget
+				<ChangesSectionTarget
 					stackId={stackId}
 					className={classes(
 						className,
@@ -1422,7 +1422,7 @@ const Changes: FC<{
 					})}
 				</ul>
 			)}
-		</ChangesSource>
+		</ChangesSectionSource>
 	);
 };
 

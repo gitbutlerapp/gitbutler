@@ -159,7 +159,7 @@ export const ChangesFileSource: FC<
 	});
 };
 
-export const ChangesSource: FC<
+export const ChangesSectionSource: FC<
 	{
 		stackId: string | null;
 		label: string;
@@ -256,7 +256,7 @@ const OperationTooltip: FC<
 	);
 };
 
-export const ChangesTarget: FC<
+export const ChangesSectionTarget: FC<
 	{
 		stackId: string | null;
 	} & useRender.ComponentProps<"div">
