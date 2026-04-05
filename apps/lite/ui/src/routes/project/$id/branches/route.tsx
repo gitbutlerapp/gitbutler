@@ -316,6 +316,7 @@ const BranchRow: FC<
 			{...restProps}
 			className={classes(
 				sharedStyles.row,
+				(branchSelection || commitSelection) && sharedStyles.rowSelected,
 				(branchSelection || commitSelection) && sharedStyles.itemSelected,
 				className,
 			)}
@@ -405,6 +406,7 @@ const CommitRow: FC<{
 		<div
 			className={classes(
 				sharedStyles.row,
+				commitSelection && sharedStyles.rowSelected,
 				commitSelection && sharedStyles.itemSelected,
 				isHighlighted && sharedStyles.itemHighlighted,
 			)}
@@ -469,32 +471,36 @@ const CommitC: FC<{
 					<CommitDetails
 						projectId={projectId}
 						commitId={commit.id}
-						renderFile={(change) => (
-							<div
-								className={classes(
-									sharedStyles.row,
-									sharedStyles.file,
-									commitSelection.mode._tag === "Details" &&
-										commitSelection.mode.path === change.path &&
-										sharedStyles.fileSelected,
-								)}
-							>
-								<FileButton
-									change={change}
-									onClick={() => {
-										select({
-											_tag: "Commit",
-											branchName,
-											commitId: commit.id,
-											mode: {
-												_tag: "Details",
-												path: change.path,
-											},
-										});
-									}}
-								/>
-							</div>
-						)}
+						renderFile={(change) => {
+							const isSelected =
+								commitSelection.mode._tag === "Details" &&
+								commitSelection.mode.path === change.path;
+							return (
+								<div
+									className={classes(
+										sharedStyles.row,
+										isSelected && sharedStyles.rowSelected,
+										sharedStyles.file,
+										isSelected && sharedStyles.fileSelected,
+									)}
+								>
+									<FileButton
+										change={change}
+										onClick={() => {
+											select({
+												_tag: "Commit",
+												branchName,
+												commitId: commit.id,
+												mode: {
+													_tag: "Details",
+													path: change.path,
+												},
+											});
+										}}
+									/>
+								</div>
+							);
+						}}
 					/>
 				</Suspense>
 			)}

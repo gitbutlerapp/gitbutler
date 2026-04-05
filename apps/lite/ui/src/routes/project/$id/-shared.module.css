@@ -82,7 +82,7 @@
 	&:enabled:hover {
 		background-color: var(--color-item-action-hover-bg);
 
-		.row.itemSelected & {
+		.row.rowSelected & {
 			background-color: var(--color-item-selected-action-hover-bg);
 		}
 	}
@@ -95,7 +95,7 @@
 	.row:hover &,
 	.row:focus-within &,
 	.row:has(.rowAction[aria-expanded="true"]) &,
-	.row.itemSelected & {
+	.row.rowSelected & {
 		visibility: visible;
 	}
 
