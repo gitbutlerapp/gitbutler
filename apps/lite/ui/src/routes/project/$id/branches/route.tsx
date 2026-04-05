@@ -476,7 +476,7 @@ const CommitC: FC<{
 									sharedStyles.file,
 									commitSelection.mode._tag === "Details" &&
 										commitSelection.mode.path === change.path &&
-										sharedStyles.selectedFile,
+										sharedStyles.fileSelected,
 								)}
 							>
 								<FileButton

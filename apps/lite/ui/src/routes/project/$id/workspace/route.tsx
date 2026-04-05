@@ -185,7 +185,7 @@ const CommitFileRow: FC<{
 		className={classes(
 			sharedStyles.row,
 			sharedStyles.file,
-			isSelected && sharedStyles.selectedFile,
+			isSelected && sharedStyles.fileSelected,
 		)}
 	>
 		<FileButton

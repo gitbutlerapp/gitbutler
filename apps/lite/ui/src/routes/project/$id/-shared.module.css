@@ -136,7 +136,7 @@
 	padding-left: 8px;
 }
 
-.selectedFile {
+.fileSelected {
 	background-color: var(--color-file-selected-bg);
 }
 
