@@ -13,29 +13,29 @@
 
 	--color-bg: var(--color-white);
 	--color-button-bg: var(--color-gray-50);
-	--color-button-hover-bg: var(--color-gray-100);
 	--color-button-disabled-fg: var(--color-gray-700);
+	--color-button-hover-bg: var(--color-gray-100);
 	--color-dialog-backdrop: light-dark(rgb(0 0 0 / 0.35), rgb(0 0 0 / 0.65));
 	--color-drag-over-outline: var(--color-black);
 	--color-file-selected-bg: var(--color-gray-200);
 	--color-input-bg: var(--color-gray-50);
 	--color-item-action-hover-bg: var(--color-gray-200);
 	--color-item-highlighted-bg: #63cdc7;
-	--color-item-hover-bg: var(--color-gray-100);
 	--color-item-selected-action-hover-bg: var(--color-gray-900);
 	--color-item-selected-bg: var(--color-black);
 	--color-item-selected-fg: var(--color-white);
 	--color-menu-item-highlighted-bg: var(--color-gray-50);
 	--color-move-indicator: var(--color-black);
+	--color-row-hover-bg: var(--color-gray-100);
 	--color-section-selected-bg: var(--color-gray-50);
 	--color-separator: var(--color-gray-400);
 	--color-text-secondary-inverse: var(--color-gray-400);
 	--color-text-secondary: var(--color-gray-700);
 	--color-text: var(--color-black);
-	--item-block-padding: 4px;
-	--item-inline-padding: 8px;
-	--item-line-height: 19px;
 	--panel-padding: 16px;
+	--row-block-padding: 4px;
+	--row-inline-padding: 8px;
+	--row-line-height: 19px;
 }
 
 body {

@@ -269,7 +269,7 @@ const BranchApplyToggle: FC<{
 	return isApplied ? (
 		<button
 			type="button"
-			className={classes(sharedStyles.itemAction, styles.branchApplyToggle)}
+			className={classes(sharedStyles.rowAction, styles.branchApplyToggle)}
 			disabled={stackId === undefined}
 			aria-label={`Unapply branch ${branch.name}`}
 			onClick={() => {
@@ -283,7 +283,7 @@ const BranchApplyToggle: FC<{
 	) : (
 		<button
 			type="button"
-			className={classes(sharedStyles.itemAction, styles.branchApplyToggle)}
+			className={classes(sharedStyles.rowAction, styles.branchApplyToggle)}
 			aria-label={`Apply branch ${branch.name}`}
 			onClick={() => {
 				applyBranch.mutate({
@@ -315,8 +315,9 @@ const BranchRow: FC<
 		<div
 			{...restProps}
 			className={classes(
-				sharedStyles.item,
-				(branchSelection || commitSelection) && sharedStyles.selected,
+				sharedStyles.row,
+				(branchSelection || commitSelection) && sharedStyles.rowSelected,
+				(branchSelection || commitSelection) && sharedStyles.itemSelected,
 				className,
 			)}
 		>
@@ -348,7 +349,7 @@ const BranchRow: FC<
 			</ContextMenu.Root>
 			<BranchApplyToggle branch={branch} projectId={projectId} />
 			<Menu.Root>
-				<Menu.Trigger className={sharedStyles.itemAction} aria-label={`Branch ${branch.name} menu`}>
+				<Menu.Trigger className={sharedStyles.rowAction} aria-label={`Branch ${branch.name} menu`}>
 					<MenuTriggerIcon />
 				</Menu.Trigger>
 				<Menu.Portal>
@@ -404,9 +405,10 @@ const CommitRow: FC<{
 	return (
 		<div
 			className={classes(
-				sharedStyles.item,
-				commitSelection && sharedStyles.selected,
-				isHighlighted && sharedStyles.highlighted,
+				sharedStyles.row,
+				commitSelection && sharedStyles.rowSelected,
+				commitSelection && sharedStyles.itemSelected,
+				isHighlighted && sharedStyles.itemHighlighted,
 			)}
 			style={{ ...(isDetailsPending && { opacity: 0.5 }) }}
 			aria-busy={isDetailsPending}
@@ -426,7 +428,7 @@ const CommitRow: FC<{
 				<CommitLabel commit={commit} />
 			</button>
 			<button
-				className={sharedStyles.itemAction}
+				className={sharedStyles.rowAction}
 				type="button"
 				onClick={toggleDetails}
 				aria-expanded={commitSelection?.mode._tag === "Details"}
@@ -465,36 +467,40 @@ const CommitC: FC<{
 				isHighlighted={false}
 			/>
 			{commitSelection?.mode._tag === "Details" && (
-				<Suspense fallback={<div className={sharedStyles.itemEmpty}>Loading change details…</div>}>
+				<Suspense fallback={<div className={sharedStyles.rowEmpty}>Loading change details…</div>}>
 					<CommitDetails
 						projectId={projectId}
 						commitId={commit.id}
-						renderFile={(change) => (
-							<div
-								className={classes(
-									sharedStyles.item,
-									sharedStyles.file,
-									commitSelection.mode._tag === "Details" &&
-										commitSelection.mode.path === change.path &&
-										sharedStyles.selectedFile,
-								)}
-							>
-								<FileButton
-									change={change}
-									onClick={() => {
-										select({
-											_tag: "Commit",
-											branchName,
-											commitId: commit.id,
-											mode: {
-												_tag: "Details",
-												path: change.path,
-											},
-										});
-									}}
-								/>
-							</div>
-						)}
+						renderFile={(change) => {
+							const isSelected =
+								commitSelection.mode._tag === "Details" &&
+								commitSelection.mode.path === change.path;
+							return (
+								<div
+									className={classes(
+										sharedStyles.row,
+										isSelected && sharedStyles.rowSelected,
+										sharedStyles.file,
+										isSelected && sharedStyles.fileSelected,
+									)}
+								>
+									<FileButton
+										change={change}
+										onClick={() => {
+											select({
+												_tag: "Commit",
+												branchName,
+												commitId: commit.id,
+												mode: {
+													_tag: "Details",
+													path: change.path,
+												},
+											});
+										}}
+									/>
+								</div>
+							);
+						}}
 					/>
 				</Suspense>
 			)}

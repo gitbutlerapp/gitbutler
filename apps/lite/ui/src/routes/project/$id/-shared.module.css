@@ -43,28 +43,28 @@
 	width: 500px;
 }
 
-.item {
+.row {
 	display: flex;
 	align-items: start;
 
 	&:where(:hover) {
-		background-color: var(--color-item-hover-bg);
+		background-color: var(--color-row-hover-bg);
 	}
 }
 
-.itemEmpty {
-	padding-inline: var(--item-inline-padding);
-	padding-block: var(--item-block-padding);
+.rowEmpty {
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
 	color: var(--color-text-secondary);
-	line-height: var(--item-line-height);
+	line-height: var(--row-line-height);
 }
 
-.selected {
+.itemSelected {
 	background-color: var(--color-item-selected-bg);
 	color: var(--color-item-selected-fg);
 }
 
-.highlighted {
+.itemHighlighted {
 	background-color: var(--color-item-highlighted-bg);
 	color: var(--color-text);
 }
@@ -73,29 +73,29 @@
 	background-color: var(--color-section-selected-bg);
 }
 
-.itemAction {
+.rowAction {
 	display: grid;
 	visibility: hidden;
-	padding-inline: var(--item-inline-padding);
-	padding-block: var(--item-block-padding);
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
 
 	&:enabled:hover {
 		background-color: var(--color-item-action-hover-bg);
 
-		.item.selected & {
+		.rowSelected & {
 			background-color: var(--color-item-selected-action-hover-bg);
 		}
 	}
 
 	svg {
-		width: var(--item-line-height);
-		height: var(--item-line-height);
+		width: var(--row-line-height);
+		height: var(--row-line-height);
 	}
 
-	.item:hover &,
-	.item:focus-within &,
-	.item:has(.itemAction[aria-expanded="true"]) &,
-	.item.selected & {
+	.row:hover &,
+	.row:focus-within &,
+	.row:has(.rowAction[aria-expanded="true"]) &,
+	.rowSelected & {
 		visibility: visible;
 	}
 
@@ -110,10 +110,10 @@
 
 .commitButton {
 	flex-grow: 1;
-	padding-inline: var(--item-inline-padding);
-	padding-block: var(--item-block-padding);
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
 	overflow: hidden;
-	line-height: var(--item-line-height);
+	line-height: var(--row-line-height);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -124,10 +124,10 @@
 
 .fileButton {
 	flex-grow: 1;
-	padding-inline: var(--item-inline-padding);
-	padding-block: var(--item-block-padding);
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
 	overflow: hidden;
-	line-height: var(--item-line-height);
+	line-height: var(--row-line-height);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -136,7 +136,7 @@
 	padding-left: 8px;
 }
 
-.selectedFile {
+.fileSelected {
 	background-color: var(--color-file-selected-bg);
 }
 
