@@ -1945,6 +1945,7 @@ const ProjectPage: FC = () => {
 				label={shortcutScope ? getLabel(shortcutScope) : null}
 				items={shortcutScope?.bindings ?? []}
 			/>
+
 			{absorptionPlan !== null && (
 				<AbsorptionDialog
 					absorptionPlan={absorptionPlan}
