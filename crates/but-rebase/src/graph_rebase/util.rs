@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use petgraph::visit::EdgeRef as _;
 
-use crate::graph_rebase::{Pick, Step, StepGraph, StepGraphIndex};
+use crate::graph_rebase::{Pick, PickDivergent, Step, StepGraph, StepGraphIndex};
 
 /// Find the parents of a given node that are commit - in correct parent
 /// ordering.
@@ -28,7 +28,10 @@ pub(crate) fn collect_ordered_parents(
     let mut parents = vec![];
 
     while let Some(candidate) = potential_parent_edges.pop() {
-        if let Step::Pick(Pick { .. }) = graph[candidate.target()] {
+        if matches!(
+            graph[candidate.target()],
+            Step::Pick(Pick { .. }) | Step::PickDivergent(PickDivergent { .. })
+        ) {
             parents.push(candidate.target());
             // Don't pursue the children
             continue;
