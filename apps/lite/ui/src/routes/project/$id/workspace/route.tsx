@@ -1209,6 +1209,67 @@ const CommitC: FC<{
 	);
 };
 
+const ChangeRow: FC<{
+	assignments: Array<HunkAssignment> | undefined;
+	change: TreeChange;
+	dependencyCommitIds: Array<string>;
+	isSelected: boolean;
+	onAbsorbChanges: (target: AbsorptionTarget) => void;
+	onDependencyHover: (commitIds: Array<string> | null) => void;
+	projectId: string;
+	selectItem: (item: Item | null) => void;
+	stackId: string | null;
+}> = ({
+	assignments,
+	change,
+	dependencyCommitIds,
+	isSelected,
+	onAbsorbChanges,
+	onDependencyHover,
+	projectId,
+	selectItem,
+	stackId,
+}) => (
+	<ChangesFileSource
+		change={change}
+		fileParent={{ _tag: "Changes", stackId }}
+		assignments={assignments}
+		className={classes(sharedStyles.item, isSelected && sharedStyles.selected)}
+	>
+		<FileButton
+			change={change}
+			onClick={() => {
+				selectItem(changeItem(stackId, change.path));
+			}}
+		/>
+		<button
+			type="button"
+			className={sharedStyles.itemAction}
+			onClick={() => {
+				onAbsorbChanges({
+					type: "treeChanges",
+					subject: {
+						changes: [change],
+						assigned_stack_id: stackId,
+					},
+				});
+			}}
+		>
+			<AbsorbIcon />
+		</button>
+		{isNonEmptyArray(dependencyCommitIds) && (
+			<DependencyIndicator
+				projectId={projectId}
+				commitIds={dependencyCommitIds}
+				onHover={onDependencyHover}
+				className={sharedStyles.itemAction}
+			>
+				<DependencyIcon />
+			</DependencyIndicator>
+		)}
+	</ChangesFileSource>
+);
+
 const Changes: FC<{
 	label: string;
 	projectId: string;
@@ -1327,47 +1388,17 @@ const Changes: FC<{
 
 						return (
 							<li key={change.path}>
-								<ChangesFileSource
-									change={change}
-									fileParent={{ _tag: "Changes", stackId }}
+								<ChangeRow
 									assignments={assignmentsByPath.get(change.path)}
-									className={classes(
-										sharedStyles.item,
-										selectedChange?.path === change.path && sharedStyles.selected,
-									)}
-								>
-									<FileButton
-										change={change}
-										onClick={() => {
-											selectItem(changeItem(stackId, change.path));
-										}}
-									/>
-									<button
-										type="button"
-										className={sharedStyles.itemAction}
-										onClick={() => {
-											onAbsorbChanges({
-												type: "treeChanges",
-												subject: {
-													changes: [change],
-													assigned_stack_id: stackId,
-												},
-											});
-										}}
-									>
-										<AbsorbIcon />
-									</button>
-									{isNonEmptyArray(dependencyCommitIds) && (
-										<DependencyIndicator
-											projectId={projectId}
-											commitIds={dependencyCommitIds}
-											onHover={onDependencyHover}
-											className={sharedStyles.itemAction}
-										>
-											<DependencyIcon />
-										</DependencyIndicator>
-									)}
-								</ChangesFileSource>
+									change={change}
+									dependencyCommitIds={dependencyCommitIds}
+									isSelected={selectedChange?.path === change.path}
+									onAbsorbChanges={onAbsorbChanges}
+									onDependencyHover={onDependencyHover}
+									projectId={projectId}
+									selectItem={selectItem}
+									stackId={stackId}
+								/>
 							</li>
 						);
 					})}
