@@ -11,6 +11,7 @@ export type ProjectInfo = {
 
 export type ServerInfo = {
 	projectPinned: boolean;
+	pinnedProjectId: string | null;
 };
 
 export function buildProjectEndpoints(build: BackendEndpointBuilder) {

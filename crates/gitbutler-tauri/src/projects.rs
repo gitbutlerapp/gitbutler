@@ -18,7 +18,7 @@ use crate::{WindowState, window, window::state::ProjectAccessMode};
 /// In the Tauri desktop app, projects are never pinned, so `projectPinned` is always `false`.
 #[tauri::command(async)]
 pub fn server_info() -> serde_json::Value {
-    serde_json::json!({ "projectPinned": false })
+    serde_json::json!({ "projectPinned": false, "pinnedProjectId": null })
 }
 
 #[tauri::command(async)]

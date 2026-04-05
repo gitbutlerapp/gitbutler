@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { page } from "$app/state";
 	import FilePreviewPlaceholder from "$components/diff/FilePreviewPlaceholder.svelte";
 	import SelectionView from "$components/diff/SelectionView.svelte";
 	import CreateSnapshotModal from "$components/history/CreateSnapshotModal.svelte";
@@ -17,9 +16,10 @@
 	import { EmptyStatePlaceholder, Icon, Button } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import type { Snapshot } from "$lib/history/types";
+	import type { PageData } from "./$types";
 
-	// TODO: Refactor so we don't need non-null assertion.
-	const projectId = $derived(page.params.projectId!);
+	const { data }: { data: PageData } = $props();
+	const projectId = $derived(data.projectId);
 
 	const MIN_SNAPSHOTS_TO_LOAD = 30;
 

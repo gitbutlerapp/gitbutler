@@ -3,12 +3,15 @@
 	import { page } from "$app/state";
 	import WorkspaceView from "$components/views/WorkspaceView.svelte";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
+	import { editModePath } from "$lib/routes/routes.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
+	import type { PageData } from "./$types";
+
+	const { data }: { data: PageData } = $props();
+	const projectId = $derived(data.projectId);
 
 	const modeService = inject(MODE_SERVICE);
-
-	const projectId = $derived(page.params.projectId!);
 	const mode = $derived(modeService.mode(projectId));
 	const stackService = inject(STACK_SERVICE);
 
@@ -28,12 +31,11 @@
 	});
 
 	function gotoEdit() {
-		goto(`/${projectId}/edit`);
+		goto(editModePath(projectId));
 	}
 
 	$effect(() => {
 		if (mode.response?.type === "Edit") {
-			// That was causing an incorrect linting error when project.id was accessed inside the reactive block
 			gotoEdit();
 		}
 	});

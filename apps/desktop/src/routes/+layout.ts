@@ -19,7 +19,12 @@ export const load: LayoutLoad = async () => {
 	// settings on telemetry.
 	const backend = createBackend();
 
-	const homeDir = await backend.homeDirectory();
+	const [homeDir, serverInfo] = await Promise.all([
+		backend.homeDirectory(),
+		backend.invoke<{ pinnedProjectId: string | null }>("server_info", {}).catch(() => ({
+			pinnedProjectId: null,
+		})),
+	]);
 
 	const eventContext = new EventContext();
 
@@ -36,5 +41,6 @@ export const load: LayoutLoad = async () => {
 		appSettings,
 		posthog,
 		eventContext,
+		pinnedProjectId: serverInfo.pinnedProjectId,
 	};
 };

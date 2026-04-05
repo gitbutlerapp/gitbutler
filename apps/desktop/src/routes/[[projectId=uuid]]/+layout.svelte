@@ -50,7 +50,7 @@
 	// PROJECT SETUP & CORE STATE
 	// =============================================================================
 
-	const { projectId } = $derived(data);
+	const { projectId, projectPinned } = $derived(data);
 
 	// Core services
 	const posthog = inject(POSTHOG_WRAPPER);
@@ -63,9 +63,6 @@
 	const projectsQuery = $derived(projectsService.projects());
 	const projects = $derived(projectsQuery.response);
 	const currentProject = $derived(projects?.find((p) => p.id === projectId));
-
-	const serverInfoQuery = $derived(projectsService.serverInfo());
-	const projectPinned = $derived(serverInfoQuery.response?.projectPinned ?? false);
 
 	// =============================================================================
 	// REPOSITORY & BRANCH MANAGEMENT

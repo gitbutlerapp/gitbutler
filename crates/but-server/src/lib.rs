@@ -1320,7 +1320,10 @@ async fn handle_command(
             legacy::settings::update_irc(&app_settings_sync, params).map(|r| json!(r))
         }),
         // Project management (need extra or app)
-        "server_info" => Ok(json!({ "projectPinned": extra.pinned_project.is_some() })),
+        "server_info" => Ok(json!({
+            "projectPinned": extra.pinned_project.is_some(),
+            "pinnedProjectId": extra.pinned_project.as_ref().map(|p| p.to_string()),
+        })),
         "list_projects" => projects::list_projects(&extra).await,
         "set_project_active" => {
             #[cfg(feature = "irc")]
