@@ -12,10 +12,11 @@ import { type Editing } from "./-Editing.ts";
 import {
 	commitItem,
 	type Item,
+	type ChangeItem,
 	CommitItem,
 	getParentSection,
 	SegmentItem,
-	ChangesItem,
+	type ChangesSectionItem,
 	BaseCommitItem,
 } from "./-Item.ts";
 import {
@@ -321,7 +322,12 @@ type Scope =
 	| {
 			_tag: "Changes";
 			bindings: Array<ShortcutBinding<ChangesAction>>;
-			context: ChangesItem;
+			context: ChangesSectionItem;
+	  }
+	| {
+			_tag: "Change";
+			bindings: Array<ShortcutBinding<ChangesAction>>;
+			context: ChangeItem;
 	  }
 	| {
 			_tag: "CommitDetails";
@@ -381,6 +387,14 @@ export const getScope = ({
 			"Changes",
 			(selectedItem): Scope => ({
 				_tag: "Changes",
+				bindings: changesBindings,
+				context: selectedItem,
+			}),
+		),
+		Match.tag(
+			"Change",
+			(selectedItem): Scope => ({
+				_tag: "Change",
 				bindings: changesBindings,
 				context: selectedItem,
 			}),
@@ -453,6 +467,7 @@ export const getLabel = (scope: Scope): string =>
 		Match.tagsExhaustive({
 			BaseCommit: () => "Base commit",
 			BranchRename: () => "Rename branch",
+			Change: () => "Change",
 			Changes: () => "Changes",
 			CommitDetails: () => "Commit details",
 			CommitReword: () => "Reword commit",
@@ -484,29 +499,31 @@ export const useWorkspaceShortcuts = ({
 }) => {
 	const queryClient = useQueryClient();
 
-	const requestAbsorptionPlanForSelection = (selectedItem: ChangesItem) => {
+	const requestAbsorptionPlanForSelection = (
+		selectedItem: ({ _tag: "Changes" } & ChangesSectionItem) | ({ _tag: "Change" } & ChangeItem),
+	) => {
 		const worktreeChanges = queryClient.getQueryData(
 			changesInWorktreeQueryOptions(projectId).queryKey,
 		);
 		if (!worktreeChanges) return;
 
-		Match.value(selectedItem.mode).pipe(
+		Match.value(selectedItem).pipe(
 			Match.tagsExhaustive({
-				Details: ({ path }) => {
-					const change = worktreeChanges.changes.find((change) => change.path === path);
+				Change: ({ path, stackId }) => {
+					const change = worktreeChanges.changes.find((candidate) => candidate.path === path);
 					if (!change) return;
 					requestAbsorptionPlan({
 						type: "treeChanges",
 						subject: {
 							changes: [change],
-							assigned_stack_id: selectedItem.stackId,
+							assigned_stack_id: stackId,
 						},
 					});
 				},
-				Summary: () => {
+				Changes: ({ stackId }) => {
 					const assignmentsByPath = new Set(
 						worktreeChanges.assignments
-							.filter((assignment) => assignment.stackId === selectedItem.stackId)
+							.filter((assignment) => assignment.stackId === stackId)
 							.map((assignment) => assignment.path),
 					);
 					const changes = worktreeChanges.changes.filter((change) =>
@@ -516,7 +533,7 @@ export const useWorkspaceShortcuts = ({
 						type: "treeChanges",
 						subject: {
 							changes,
-							assigned_stack_id: selectedItem.stackId,
+							assigned_stack_id: stackId,
 						},
 					});
 				},
@@ -609,14 +626,15 @@ export const useWorkspaceShortcuts = ({
 			Match.orElse((action) => handleHunkSelectionAction(action)),
 		);
 
-	const handleChangesAction = (action: ChangesAction, selectedItem: ChangesItem) =>
+	const handleChangesAction = (
+		action: ChangesAction,
+		selectedItem: ({ _tag: "Changes" } & ChangesSectionItem) | ({ _tag: "Change" } & ChangeItem),
+	) =>
 		Match.value(action).pipe(
 			Match.tags({
 				Absorb: () => requestAbsorptionPlanForSelection(selectedItem),
 			}),
-			Match.orElse((action) =>
-				handlePrimaryPanelAction(action, { _tag: "Changes", ...selectedItem }),
-			),
+			Match.orElse((action) => handlePrimaryPanelAction(action, selectedItem)),
 		);
 
 	const handleCommitSummaryAction = (action: CommitSummaryAction, selectedItem: CommitItem) =>
@@ -675,7 +693,13 @@ export const useWorkspaceShortcuts = ({
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
 					event.preventDefault();
-					handleChangesAction(action, scope.context);
+					handleChangesAction(action, { _tag: "Changes", ...scope.context });
+				},
+				Change: (scope) => {
+					const action = getAction(scope.bindings, event);
+					if (!action) return;
+					event.preventDefault();
+					handleChangesAction(action, { _tag: "Change", ...scope.context });
 				},
 				BaseCommit: (scope) => {
 					const action = getAction(scope.bindings, event);

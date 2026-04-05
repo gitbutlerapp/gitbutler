@@ -2,8 +2,8 @@ import { getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
 import { WorktreeChanges, type RefInfo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 
-export type ChangesMode = { _tag: "Summary" } | { _tag: "Details"; path: string };
-export type ChangesItem = { stackId: string | null; mode: ChangesMode };
+export type ChangesSectionItem = { stackId: string | null };
+export type ChangeItem = ChangesSectionItem & { path: string };
 
 export type SegmentItem = {
 	stackId: string;
@@ -17,21 +17,21 @@ export type CommitItem = SegmentItem & { commitId: string; mode: CommitMode };
 export type BaseCommitItem = { commitId: string };
 
 export type Item =
-	| ({ _tag: "Changes" } & ChangesItem)
+	| ({ _tag: "Changes" } & ChangesSectionItem)
+	| ({ _tag: "Change" } & ChangeItem)
 	| ({ _tag: "Segment" } & SegmentItem)
 	| ({ _tag: "Commit" } & CommitItem)
 	| ({ _tag: "BaseCommit" } & BaseCommitItem);
 
-export const changesSummaryItem = (stackId: string | null): Item => ({
+export const changesSectionItem = (stackId: string | null): Item => ({
 	_tag: "Changes",
 	stackId,
-	mode: { _tag: "Summary" },
 });
 
-export const changesDetailsItem = (stackId: string | null, path: string): Item => ({
-	_tag: "Changes",
+export const changeItem = (stackId: string | null, path: string): Item => ({
+	_tag: "Change",
 	stackId,
-	mode: { _tag: "Details", path },
+	path,
 });
 
 export const segmentItem = ({ stackId, segmentIndex, branchName }: SegmentItem): Item => ({
@@ -65,8 +65,8 @@ export const getParentSection = (item: Item): Item | null =>
 	Match.value(item).pipe(
 		Match.tagsExhaustive({
 			Commit: (item): Item | null => segmentItem(item),
-			Changes: (item): Item | null =>
-				item.mode._tag === "Details" ? changesSummaryItem(item.stackId) : null,
+			Change: (item): Item | null => changesSectionItem(item.stackId),
+			Changes: () => null,
 			BaseCommit: () => null,
 			Segment: () => null,
 		}),
@@ -78,22 +78,17 @@ export const normalizeItem = (
 	worktreeChanges: WorktreeChanges,
 ): Item | null =>
 	Match.value(item).pipe(
-		Match.tag("Changes", (item) =>
-			Match.value(item.mode).pipe(
-				Match.tag("Summary", () => item),
-				Match.tag("Details", (mode) => {
-					if (!worktreeChanges.changes.find((change) => change.path === mode.path)) return null;
-					if (
-						!worktreeChanges.assignments.find(
-							(assignment) => assignment.stackId === item.stackId && assignment.path === mode.path,
-						)
-					)
-						return null;
-					return item;
-				}),
-				Match.exhaustive,
-			),
-		),
+		Match.tag("Changes", (item) => item),
+		Match.tag("Change", (item) => {
+			if (!worktreeChanges.changes.find((change) => change.path === item.path)) return null;
+			if (
+				!worktreeChanges.assignments.find(
+					(assignment) => assignment.stackId === item.stackId && assignment.path === item.path,
+				)
+			)
+				return null;
+			return item;
+		}),
 		Match.tag("Segment", (item) => {
 			const stack = headInfo.stacks.find((stack) => stack.id !== null && stack.id === item.stackId);
 			if (!stack) return null;

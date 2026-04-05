@@ -1,8 +1,8 @@
 import { Segment, type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
 import {
 	baseCommitItem,
-	changesDetailsItem,
-	changesSummaryItem,
+	changeItem,
+	changesSectionItem,
 	type Item,
 	segmentItem,
 	commitItem,
@@ -13,10 +13,8 @@ import { Match } from "effect";
 const navigationItemKey = (item: Item): string =>
 	Match.value(item).pipe(
 		Match.tagsExhaustive({
-			Changes: (item) =>
-				item.mode._tag === "Details"
-					? JSON.stringify(["Changes", item.stackId, "Details", item.mode.path])
-					: JSON.stringify(["Changes", item.stackId, item.mode._tag]),
+			Changes: (item) => JSON.stringify(["Changes", item.stackId]),
+			Change: (item) => JSON.stringify(["Change", item.stackId, item.path]),
 			Segment: (item) =>
 				JSON.stringify(["Segment", item.stackId, item.segmentIndex, item.branchName]),
 			// This intentionally omits state like mode which doesn't affect navigation.
@@ -77,11 +75,11 @@ export const buildNavigationModel = ({
 
 	const addChangesSection = (stackId: string | null) => {
 		const sectionIndex = model.sections.length;
-		addSection(changesSummaryItem(stackId));
+		addSection(changesSectionItem(stackId));
 
 		for (const change of changes) {
 			if (!hasAssignmentsForPath({ assignments, stackId, path: change.path })) continue;
-			addItem(changesDetailsItem(stackId, change.path), sectionIndex);
+			addItem(changeItem(stackId, change.path), sectionIndex);
 		}
 	};
 

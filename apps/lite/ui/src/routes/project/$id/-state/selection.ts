@@ -1,6 +1,6 @@
 import { type RefInfo, type WorktreeChanges } from "@gitbutler/but-sdk";
 import { Match } from "effect";
-import { changesSummaryItem, normalizeItem, type Item } from "../workspace/-Item.ts";
+import { changesSectionItem, normalizeItem, type Item } from "../workspace/-Item.ts";
 
 export type WorkspaceSelectionState = {
 	item: Item | null;
@@ -53,4 +53,4 @@ export const resolveSelectedWorkspaceItem = ({
 }): Item =>
 	(workspaceSelection.item
 		? normalizeItem(workspaceSelection.item, headInfo, worktreeChanges)
-		: null) ?? changesSummaryItem(null);
+		: null) ?? changesSectionItem(null);

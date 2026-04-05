@@ -98,12 +98,11 @@ import sharedStyles from "../-shared.module.css";
 import { type Editing } from "./-Editing.ts";
 import {
 	baseCommitItem,
-	changesDetailsItem,
-	changesSummaryItem,
+	changeItem,
+	changesSectionItem,
 	commitItem,
 	type Item,
 	segmentItem,
-	ChangesMode,
 } from "./-Item.ts";
 import {
 	buildNavigationModel,
@@ -464,7 +463,7 @@ const createPreviewImperativeHandle = ({
 const ChangesPreview: FC<{
 	projectId: string;
 	stackId: string | null;
-	modeSelection: ChangesMode;
+	selectedPath?: string;
 	onSelectHunk: (key: string) => void;
 	selectedHunk: string | null;
 	isFocused: boolean;
@@ -474,7 +473,7 @@ const ChangesPreview: FC<{
 }> = ({
 	projectId,
 	stackId,
-	modeSelection,
+	selectedPath,
 	onSelectHunk,
 	selectedHunk,
 	isFocused,
@@ -488,7 +487,6 @@ const ChangesPreview: FC<{
 		worktreeChanges.dependencies?.diffs ?? [],
 	);
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
-	const selectedPath = modeSelection._tag === "Details" ? modeSelection.path : undefined;
 	const selectedChange =
 		selectedPath !== undefined
 			? changes.find((candidate) => candidate.path === selectedPath)
@@ -773,11 +771,23 @@ const Preview: FC<{
 					/>
 				);
 			},
-			Changes: ({ stackId, mode }) => (
+			Changes: ({ stackId }) => (
 				<ChangesPreview
 					projectId={projectId}
 					stackId={stackId}
-					modeSelection={mode}
+					onSelectHunk={onSelectHunk}
+					selectedHunk={selectedHunk}
+					isFocused={isFocused}
+					selectHunk={selectHunk}
+					onDependencyHover={onDependencyHover}
+					ref={ref}
+				/>
+			),
+			Change: ({ stackId, path }) => (
+				<ChangesPreview
+					projectId={projectId}
+					stackId={stackId}
+					selectedPath={path}
 					onSelectHunk={onSelectHunk}
 					selectedHunk={selectedHunk}
 					isFocused={isFocused}
@@ -1244,8 +1254,10 @@ const Changes: FC<{
 	);
 
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
-	const changesSelection =
+	const changesSectionSelection =
 		selectedItem._tag === "Changes" && selectedItem.stackId === stackId ? selectedItem : null;
+	const changeSelection =
+		selectedItem._tag === "Change" && selectedItem.stackId === stackId ? selectedItem : null;
 
 	return (
 		<ChangesSource
@@ -1260,21 +1272,20 @@ const Changes: FC<{
 			render={
 				<ChangesTarget
 					stackId={stackId}
-					className={classes(className, changesSelection && sharedStyles.sectionSelected)}
+					className={classes(
+						className,
+						(changesSectionSelection != null || changeSelection != null) &&
+							sharedStyles.sectionSelected,
+					)}
 				/>
 			}
 		>
-			<div
-				className={classes(
-					sharedStyles.item,
-					changesSelection?.mode._tag === "Summary" && sharedStyles.selected,
-				)}
-			>
+			<div className={classes(sharedStyles.item, changesSectionSelection && sharedStyles.selected)}>
 				<button
 					type="button"
 					className={styles.segmentButton}
 					onClick={() => {
-						selectItem(changesSummaryItem(stackId));
+						selectItem(changesSectionItem(stackId));
 					}}
 				>
 					{label}
@@ -1340,15 +1351,13 @@ const Changes: FC<{
 									assignments={assignmentsByPath.get(change.path)}
 									className={classes(
 										sharedStyles.item,
-										changesSelection?.mode._tag === "Details" &&
-											changesSelection.mode.path === change.path &&
-											sharedStyles.selected,
+										changeSelection?.path === change.path && sharedStyles.selected,
 									)}
 								>
 									<FileButton
 										change={change}
 										onClick={() => {
-											selectItem(changesDetailsItem(stackId, change.path));
+											selectItem(changeItem(stackId, change.path));
 										}}
 									/>
 									<button
