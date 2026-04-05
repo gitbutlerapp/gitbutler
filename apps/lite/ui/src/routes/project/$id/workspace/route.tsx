@@ -173,6 +173,30 @@ const DependencyIndicator: FC<
 	);
 };
 
+const CommitFileRow: FC<{
+	change: TreeChange;
+	commitId: string;
+	isSelected: boolean;
+	selectFile: (path: string | null) => void;
+}> = ({ change, commitId, isSelected, selectFile }) => (
+	<CommitFileSource
+		change={change}
+		fileParent={{ _tag: "Commit", commitId }}
+		className={classes(
+			sharedStyles.item,
+			sharedStyles.file,
+			isSelected && sharedStyles.selectedFile,
+		)}
+	>
+		<FileButton
+			change={change}
+			onClick={() => {
+				selectFile(change.path);
+			}}
+		/>
+	</CommitFileSource>
+);
+
 const CommitDetailsC: FC<{
 	commitId: string;
 	projectId: string;
@@ -192,22 +216,12 @@ const CommitDetailsC: FC<{
 			projectId={projectId}
 			commitId={commitId}
 			renderFile={(change) => (
-				<CommitFileSource
+				<CommitFileRow
 					change={change}
-					fileParent={{ _tag: "Commit", commitId }}
-					className={classes(
-						sharedStyles.item,
-						sharedStyles.file,
-						normalizedSelectedFile === change.path && sharedStyles.selectedFile,
-					)}
-				>
-					<FileButton
-						change={change}
-						onClick={() => {
-							selectFile(change.path);
-						}}
-					/>
-				</CommitFileSource>
+					commitId={commitId}
+					isSelected={normalizedSelectedFile === change.path}
+					selectFile={selectFile}
+				/>
 			)}
 		/>
 	);
