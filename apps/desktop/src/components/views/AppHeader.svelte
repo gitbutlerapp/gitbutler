@@ -22,9 +22,15 @@
 		projectId: string;
 		projectTitle: string;
 		actionsDisabled?: boolean;
+		projectPinned?: boolean;
 	};
 
-	const { projectId, projectTitle, actionsDisabled = false }: Props = $props();
+	const {
+		projectId,
+		projectTitle,
+		actionsDisabled = false,
+		projectPinned = false,
+	}: Props = $props();
 
 	const { createAiStack } = useCreateAiStack(reactive(() => projectId));
 
@@ -133,81 +139,88 @@
 
 	<div class="chrome-center" data-tauri-drag-region={useCustomTitleBar}>
 		<div class="chrome-selector-wrapper">
-			<Select
-				searchable
-				value={projectId}
-				options={mappedProjects}
-				loading={newProjectLoading}
-				disabled={newProjectLoading}
-				onselect={(value: string, modifiers?) => {
-					if (modifiers?.meta) {
-						projectsService.openProjectInNewWindow(value);
-					} else {
-						goto(projectPath(value));
-					}
-				}}
-				ontoggle={(isOpen) => (projectSelectorOpen = isOpen)}
-				popupAlign="center"
-				customWidth={280}
-			>
-				{#snippet customSelectButton()}
-					<Button
-						testId={TestId.ChromeHeaderProjectSelector}
-						reversedDirection
-						width="auto"
-						kind="outline"
-						isDropdown
-						dropdownOpen={projectSelectorOpen}
-						class="project-selector-btn"
-					>
-						{#snippet custom()}
-							<div class="project-selector-btn__content">
-								<Icon name="repo" color="var(--text-2)" />
-								<span class="text-12 text-bold">{projectTitle}</span>
-							</div>
-						{/snippet}
-					</Button>
-				{/snippet}
+			{#if projectPinned}
+				<div class="project-title-static">
+					<Icon name="repo" color="var(--text-2)" />
+					<span class="text-12 text-bold">{projectTitle}</span>
+				</div>
+			{:else}
+				<Select
+					searchable
+					value={projectId}
+					options={mappedProjects}
+					loading={newProjectLoading}
+					disabled={newProjectLoading}
+					onselect={(value: string, modifiers?) => {
+						if (modifiers?.meta) {
+							projectsService.openProjectInNewWindow(value);
+						} else {
+							goto(projectPath(value));
+						}
+					}}
+					ontoggle={(isOpen) => (projectSelectorOpen = isOpen)}
+					popupAlign="center"
+					customWidth={280}
+				>
+					{#snippet customSelectButton()}
+						<Button
+							testId={TestId.ChromeHeaderProjectSelector}
+							reversedDirection
+							width="auto"
+							kind="outline"
+							isDropdown
+							dropdownOpen={projectSelectorOpen}
+							class="project-selector-btn"
+						>
+							{#snippet custom()}
+								<div class="project-selector-btn__content">
+									<Icon name="repo" color="var(--text-2)" />
+									<span class="text-12 text-bold">{projectTitle}</span>
+								</div>
+							{/snippet}
+						</Button>
+					{/snippet}
 
-				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={item.value === projectId} {highlighted}>
-						{item.label}
-					</SelectItem>
-				{/snippet}
+					{#snippet itemSnippet({ item, highlighted })}
+						<SelectItem selected={item.value === projectId} {highlighted}>
+							{item.label}
+						</SelectItem>
+					{/snippet}
 
-				<OptionsGroup>
-					<SelectItem
-						icon="plus"
-						testId={TestId.ChromeHeaderProjectSelectorAddLocalProject}
-						loading={newProjectLoading}
-						onClick={async () => {
-							newProjectLoading = true;
-							try {
-								const outcome = await projectsService.addProject();
-								if (!outcome) {
-									// User cancelled the project creation
+					<OptionsGroup>
+						<SelectItem
+							icon="plus"
+							testId={TestId.ChromeHeaderProjectSelectorAddLocalProject}
+							loading={newProjectLoading}
+							onClick={async () => {
+								newProjectLoading = true;
+								try {
+									const outcome = await projectsService.addProject();
+									if (!outcome) {
+										// User cancelled the project creation
+										newProjectLoading = false;
+										return;
+									}
+
+									handleAddProjectOutcome(outcome, (project) => goto(projectPath(project.id)));
+								} finally {
 									newProjectLoading = false;
-									return;
 								}
-
-								handleAddProjectOutcome(outcome, (project) => goto(projectPath(project.id)));
-							} finally {
-								newProjectLoading = false;
-							}
-						}}
-					>
-						Add local repository
-					</SelectItem>
-					<SelectItem
-						icon="clone"
-						onClick={() => {
-							goto("/onboarding/clone");
-						}}
-					>
-						Clone repository
-					</SelectItem>
-				</OptionsGroup>
-			</Select>
+							}}
+						>
+							Add local repository
+						</SelectItem>
+						<SelectItem
+							icon="clone"
+							onClick={() => {
+								goto("/onboarding/clone");
+							}}
+						>
+							Clone repository
+						</SelectItem>
+					</OptionsGroup>
+				</Select>
+			{/if}
 			{#if singleBranchMode}
 				<Tooltip text="Current branch">
 					<div class="chrome-current-branch">
@@ -288,6 +301,13 @@
 	:global(.chrome-header.single-branch .project-selector-btn) {
 		border-top-right-radius: 0;
 		border-bottom-right-radius: 0;
+	}
+
+	.project-title-static {
+		display: flex;
+		align-items: center;
+		padding: 0 8px;
+		gap: 6px;
 	}
 
 	.project-selector-btn__content {

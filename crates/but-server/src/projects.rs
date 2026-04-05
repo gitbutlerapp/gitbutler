@@ -177,6 +177,17 @@ pub async fn set_project_active(
 ) -> Result<serde_json::Value> {
     let params: SetProjectActiveParams = serde_json::from_value(params).to_json_error()?;
 
+    // When a project is pinned, reject attempts to switch to a different one.
+    if extra
+        .pinned_project
+        .as_ref()
+        .is_some_and(|pinned| &params.id != pinned)
+    {
+        anyhow::bail!(
+            "Project switching is disabled: only the current directory's project is accessible"
+        );
+    }
+
     // TODO(ctx): Adding projects to a list of active projects requires some more
     //            knowledge around how many unique tabs are looking at it
 

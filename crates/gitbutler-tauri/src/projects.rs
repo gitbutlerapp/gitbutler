@@ -13,6 +13,14 @@ use tracing::instrument;
 
 use crate::{WindowState, window, window::state::ProjectAccessMode};
 
+/// Returns server-level metadata.
+///
+/// In the Tauri desktop app, projects are never pinned, so `projectPinned` is always `false`.
+#[tauri::command(async)]
+pub fn server_info() -> serde_json::Value {
+    serde_json::json!({ "projectPinned": false, "pinnedProjectId": null })
+}
+
 #[tauri::command(async)]
 #[instrument(skip(window_state), err(Debug))]
 pub fn list_projects(

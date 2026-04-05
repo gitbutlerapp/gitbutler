@@ -450,6 +450,7 @@ fn main() -> anyhow::Result<()> {
                 action::auto_branch_changes,
                 askpass::submit_prompt_response,
                 menu::menu_item_set_enabled,
+                projects::server_info,
                 projects::list_projects,
                 projects::set_project_active,
                 projects::open_project_in_window,

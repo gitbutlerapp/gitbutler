@@ -122,7 +122,10 @@ export function initDependencies(args: {
 
 	const secretsService = new RustSecretService(backend);
 	const tokenMemoryService = new TokenMemoryService();
-	const httpClient = new HttpClient(window.fetch, PUBLIC_API_BASE_URL, tokenMemoryService.token);
+	const runtimeApiUrl =
+		document.querySelector<HTMLMetaElement>('meta[name="gitbutler-api-url"]')?.content ||
+		PUBLIC_API_BASE_URL;
+	const httpClient = new HttpClient(window.fetch, runtimeApiUrl, tokenMemoryService.token);
 
 	// ============================================================================
 	// FORGE CLIENTS & INTEGRATIONS

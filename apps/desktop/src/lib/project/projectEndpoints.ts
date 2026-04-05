@@ -9,8 +9,19 @@ export type ProjectInfo = {
 	headsup?: string;
 };
 
+export type ServerInfo = {
+	projectPinned: boolean;
+	pinnedProjectId: string | null;
+};
+
 export function buildProjectEndpoints(build: BackendEndpointBuilder) {
 	return {
+		// ── Server ──────────────────────────────────────────────────
+		serverInfo: build.query<ServerInfo, void>({
+			extraOptions: { command: "server_info" },
+			query: () => undefined,
+		}),
+
 		// ── Projects ────────────────────────────────────────────────
 		listProjects: build.query<Project[], void>({
 			extraOptions: { command: "list_projects" },

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from "$app/stores";
+	import { page } from "$app/state";
 	import { BACKEND } from "$lib/backend";
 	import { FILE_SERVICE } from "$lib/files/fileService";
 	import { GIT_SERVICE } from "$lib/git/gitService";
@@ -33,6 +33,7 @@
 	}
 
 	async function gitIndexLength() {
+		if (!projectId) return 0;
 		return await gitService.indexSize(projectId);
 	}
 
@@ -44,7 +45,7 @@
 	let sendProjectRepository = $state(false);
 	let sendGraph = $state(false);
 
-	const projectId = $derived($page.params.projectId!);
+	const projectId = $derived(page.data.projectId);
 
 	function reset() {
 		messageInputValue = "";
@@ -81,12 +82,12 @@
 				sendLogs
 					? dataSharingService.logs().then(async (path) => await readZipFile(path, "logs.zip"))
 					: undefined,
-				sendProjectRepository
+				sendProjectRepository && projectId
 					? dataSharingService
 							.projectData(projectId)
 							.then(async (path) => await readZipFile(path, "project.zip"))
 					: undefined,
-				sendGraph
+				sendGraph && projectId
 					? dataSharingService
 							.graphFile(projectId)
 							.then(async (path) => await readZipFile(path, "graph.zip"))

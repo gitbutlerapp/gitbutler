@@ -12,7 +12,7 @@ import type { ProjectInfo } from "$lib/project/projectEndpoints";
 import type { BackendApi } from "$lib/state/clientState.svelte";
 import type { ForgeUser } from "@gitbutler/core/api";
 
-export type { ProjectInfo } from "$lib/project/projectEndpoints";
+export type { ProjectInfo, ServerInfo } from "$lib/project/projectEndpoints";
 
 export const PROJECTS_SERVICE = new InjectionToken<ProjectsService>("ProjectsService");
 
@@ -24,6 +24,10 @@ export class ProjectsService {
 		private homeDir: string | undefined,
 		private backend: IBackend,
 	) {}
+
+	serverInfo() {
+		return this.backendApi.endpoints.serverInfo.useQuery();
+	}
 
 	projects() {
 		return this.backendApi.endpoints.listProjects.useQuery();

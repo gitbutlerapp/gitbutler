@@ -17,6 +17,7 @@ doctest = false
 
 [features]
 irc = ["dep:but-irc"]
+embedded-frontend = ["dep:rust-embed", "dep:mime_guess"]
 
 [dependencies]
 but-api = { workspace = true, features = ["path-bytes", "legacy"] }
@@ -28,18 +29,26 @@ but-settings.workspace = true
 but-feedback.workspace = true
 but-secret.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
+gitbutler-user.workspace = true
 gitbutler-watcher.workspace = true
 gitbutler-repo-actions.workspace = true
 
+reqwest.workspace = true
+sha2.workspace = true
+base64.workspace = true
+rust-embed = { workspace = true, optional = true }
+mime_guess = { workspace = true, optional = true }
 serde.workspace = true
 axum = { version = "0.8.8", features = ["ws"] }
 futures-util = { version = "0.3", default-features = false, features = [
     "sink",
     "std",
 ] }
-tower-http = { version = "0.6.8", features = ["cors"] }
+tower-http = { version = "0.6.8", features = ["cors", "compression-full"] }
 tower = { version = "0.5.3" }
 tokio = { workspace = true, features = ["full"] }
+clap.workspace = true
+colored = "3.0.0"
 anyhow.workspace = true
 serde_json.workspace = true
 uuid.workspace = true

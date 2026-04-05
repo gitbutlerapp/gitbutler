@@ -50,7 +50,7 @@
 	// PROJECT SETUP & CORE STATE
 	// =============================================================================
 
-	const { projectId } = $derived(data);
+	const { projectId, projectPinned } = $derived(data);
 
 	// Core services
 	const posthog = inject(POSTHOG_WRAPPER);
@@ -449,7 +449,7 @@
 		{:else if baseBranch}
 			{#if mode.type === "OpenWorkspace" || mode.type === "Edit" || ($settingsStore?.featureFlags.singleBranch && mode.subject.branchName)}
 				<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
-					<AppLayout {projectId} sidebarDisabled={mode.type === "Edit"}>
+					<AppLayout {projectId} {projectPinned} sidebarDisabled={mode.type === "Edit"}>
 						{@render pageChildren()}
 					</AppLayout>
 				</div>

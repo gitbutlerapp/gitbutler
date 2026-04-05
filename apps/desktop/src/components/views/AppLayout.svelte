@@ -14,7 +14,13 @@
 		projectId,
 		children: children2,
 		sidebarDisabled = false,
-	}: { projectId: string; children: Snippet; sidebarDisabled?: boolean } = $props();
+		projectPinned = false,
+	}: {
+		projectId: string;
+		children: Snippet;
+		sidebarDisabled?: boolean;
+		projectPinned?: boolean;
+	} = $props();
 
 	const projectService = inject(PROJECTS_SERVICE);
 	const projectQuery = $derived(projectService.getProject(projectId));
@@ -23,7 +29,12 @@
 <ReduxResult {projectId} result={projectQuery.result}>
 	{#snippet children(project, { projectId })}
 		<div class="chrome" use:focusable={{ vertical: true, activate: true }}>
-			<AppHeader {projectId} projectTitle={project.title} actionsDisabled={sidebarDisabled} />
+			<AppHeader
+				{projectId}
+				projectTitle={project.title}
+				actionsDisabled={sidebarDisabled}
+				{projectPinned}
+			/>
 			<div class="chrome-body" use:focusable>
 				<EnsureAuthorInfo {projectId} />
 				<AppSidebar {projectId} disabled={sidebarDisabled} />

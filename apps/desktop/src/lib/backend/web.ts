@@ -183,13 +183,18 @@ async function webRelaunch(): Promise<void> {
  */
 async function webInvoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {
 	try {
-		const response = await fetch(`http://${getWebUrl()}/${command}`, {
+		const response = await fetch(`${getApiBaseUrl()}/${command}`, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
 			},
+			credentials: "include",
 			body: JSON.stringify(params),
 		});
+		if (response.status === 401) {
+			window.location.href = `${getApiBaseUrl()}/auth/login`;
+			throw new Error("Authentication required");
+		}
 		const out: ServerResonse<T> = await response.json();
 		if (out.type === "success") {
 			return out.subject;
@@ -259,7 +264,7 @@ class WebListener {
 		this.handlers.push(handler);
 		this.count++;
 		if (!this.socket) {
-			this.socket = new ReconnectingWebSocket(`ws://${getWebUrl()}/ws`);
+			this.socket = new ReconnectingWebSocket(getWsUrl());
 			this.socket.addEventListener("message", (event) => {
 				const data: { name: string; payload: any } = JSON.parse(event.data);
 				for (const handler of this.handlers) {
@@ -284,10 +289,48 @@ class WebListener {
 	}
 }
 
-function getWebUrl(): string {
-	const host = getCookie("butlerHost") || import.meta.env.VITE_BUTLER_HOST || "localhost";
-	const port = getCookie("butlerPort") || import.meta.env.VITE_BUTLER_PORT || "6978";
-	return `${host}:${port}`;
+/**
+ * Returns the base URL for API calls (without trailing slash).
+ *
+ * Resolution order:
+ * 1. `VITE_BUTLER_API_BASE_URL` — full base URL (e.g. `http://localhost:6978`)
+ * 2. `VITE_BUTLER_HOST` + `VITE_BUTLER_PORT` — legacy host/port env vars
+ * 3. `` — empty string (same origin, no prefix). When running with `--tunnel`,
+ *    the server auto-sets `--base-path=/api` so `VITE_BUTLER_API_BASE_URL`
+ *    should be set to `/api` if needed.
+ */
+export function getApiBaseUrl(): string {
+	const base = import.meta.env.VITE_BUTLER_API_BASE_URL;
+	if (base) return base.replace(/\/$/, "");
+
+	const host = import.meta.env.VITE_BUTLER_HOST;
+	const port = import.meta.env.VITE_BUTLER_PORT;
+	if (host && port) {
+		const protocol = "http";
+		return `${protocol}://${host}:${port}`;
+	}
+
+	return "";
+}
+
+/**
+ * Returns the WebSocket URL for the event stream.
+ * Derived from `getApiBaseUrl()` — replaces http(s) with ws(s) and
+ * points at `/ws` on the same host (without any `/api` prefix).
+ */
+function getWsUrl(): string {
+	const base = getApiBaseUrl();
+	// Empty string or relative URL (e.g. /api) — use window.location.host
+	if (!base || base.startsWith("/")) {
+		const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+		return `${wsProtocol}//${window.location.host}${base}/ws`;
+	}
+	// Absolute URL (e.g. http://localhost:6978 or https://tunnel.com/api) —
+	// keep any path component from the base and append /ws.
+	const url = new URL(base);
+	const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
+	const basePath = url.pathname.replace(/\/$/, "");
+	return `${wsProtocol}//${url.host}${basePath}/ws`;
 }
 
 type EventName = string;
