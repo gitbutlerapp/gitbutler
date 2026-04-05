@@ -161,3 +161,14 @@ export const normalizeSelectedFile = ({
 	if (selectedFile != null && paths.includes(selectedFile)) return selectedFile;
 	return paths[0];
 };
+
+export const normalizeSelectedHunk = ({
+	hunkKeys,
+	selectedHunk,
+}: {
+	hunkKeys: Array<string>;
+	selectedHunk: string | null;
+}): string | undefined => {
+	if (selectedHunk !== null && hunkKeys.includes(selectedHunk)) return selectedHunk;
+	return hunkKeys[0];
+};

@@ -105,7 +105,11 @@ import {
 	segmentItem,
 	ChangesMode,
 } from "./-Item.ts";
-import { buildNavigationModel, normalizeSelectedFile } from "./-Selection.ts";
+import {
+	buildNavigationModel,
+	normalizeSelectedFile,
+	normalizeSelectedHunk,
+} from "./-Selection.ts";
 import {
 	renameBranchBindings,
 	handleRenameBranchKeyDown,
@@ -497,8 +501,7 @@ const ChangesPreview: FC<{
 	const hunkKeys = changesWithDiffs.flatMap(([change, diff]) =>
 		hunkKeysFromChangeWithDiff([change, diff], assignmentsByPath.get(change.path)),
 	);
-	const normalizedSelectedHunk =
-		selectedHunk !== null && hunkKeys.includes(selectedHunk) ? selectedHunk : hunkKeys[0];
+	const normalizedSelectedHunk = normalizeSelectedHunk({ hunkKeys, selectedHunk });
 	useImperativeHandle(
 		ref,
 		() =>
@@ -592,8 +595,7 @@ const CommitPreview: FC<{
 	const hunkKeys = changesWithDiffs.flatMap(([change, diff]) =>
 		hunkKeysFromChangeWithDiff([change, diff]),
 	);
-	const normalizedSelectedHunk =
-		selectedHunk !== null && hunkKeys.includes(selectedHunk) ? selectedHunk : hunkKeys[0];
+	const normalizedSelectedHunk = normalizeSelectedHunk({ hunkKeys, selectedHunk });
 	useImperativeHandle(
 		ref,
 		() =>
@@ -685,8 +687,7 @@ const BranchPreview: FC<{
 	const hunkKeys = changesWithDiffs.flatMap(([change, diff]) =>
 		hunkKeysFromChangeWithDiff([change, diff]),
 	);
-	const normalizedSelectedHunk =
-		selectedHunk !== null && hunkKeys.includes(selectedHunk) ? selectedHunk : hunkKeys[0];
+	const normalizedSelectedHunk = normalizeSelectedHunk({ hunkKeys, selectedHunk });
 	useImperativeHandle(
 		ref,
 		() =>
