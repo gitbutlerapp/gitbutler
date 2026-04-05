@@ -14,6 +14,11 @@ cargo build --release -p gitbutler-git
 if [ "${OS:-}" == "windows" ] || [ "${OS:-}" == "linux" ]; then
   # NOTE: Should run either if the builtin-but feature is *not* selected in `release.sh` (case for Windows), OR if we
   # need the standalone CLI for separate publishing (case for Linux)
-  cargo build --release -p but
+  BUT_FEATURES=""
+  if [ "${CHANNEL:-}" != "release" ]; then
+    BUT_FEATURES="--features irc"
+  fi
+  # shellcheck disable=SC2086
+  cargo build --release -p but $BUT_FEATURES
 fi
 bash ./crates/gitbutler-tauri/inject-git-binaries.sh

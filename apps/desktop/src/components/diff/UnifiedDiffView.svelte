@@ -20,6 +20,7 @@
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { type SelectionId } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -92,8 +93,13 @@
 	const assignments = $derived(uncommittedService.assignmentsByPath(stackId || null, change.path));
 
 	const ircApiService = inject(IRC_API_SERVICE);
+	const settingsService = inject(SETTINGS_SERVICE);
+	const settingsStore = settingsService.appSettings;
+	const ircEnabled = $derived(
+		($settingsStore?.featureFlags?.irc && $settingsStore?.irc?.connection?.enabled) ?? false,
+	);
 	const fileReactionsQuery = $derived(
-		ircApiService.fileMessageReactions({ filePath: change.path }),
+		ircEnabled ? ircApiService.fileMessageReactions({ filePath: change.path }) : undefined,
 	);
 	const fileReactions = $derived(fileReactionsQuery?.response ?? {});
 

@@ -31,6 +31,7 @@
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { createCommitSelection } from "$lib/selection/key";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 
@@ -59,13 +60,19 @@
 	const stackService = inject(STACK_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const ircApiService = inject(IRC_API_SERVICE);
+	const settingsService = inject(SETTINGS_SERVICE);
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
 
 	const projectId = $derived(controller.projectId);
 	const stackId = $derived(controller.stackId);
 
-	const commitReactionsQuery = $derived(ircApiService.commitReactions());
+	const settingsStore = settingsService.appSettings;
+	const ircEnabled = $derived(
+		($settingsStore?.featureFlags?.irc && $settingsStore?.irc?.connection?.enabled) ?? false,
+	);
+
+	const commitReactionsQuery = $derived(ircEnabled ? ircApiService.commitReactions() : undefined);
 	const commitReactions = $derived(commitReactionsQuery?.response ?? {});
 
 	const exclusiveAction = $derived(controller.exclusiveAction);
