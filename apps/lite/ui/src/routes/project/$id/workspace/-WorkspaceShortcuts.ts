@@ -546,19 +546,7 @@ export const useWorkspaceShortcuts = ({
 		});
 	};
 
-	const openCommitDetails = async (selectedItem: CommitItem) => {
-		const commitDetails = await queryClient
-			.fetchQuery(
-				commitDetailsWithLineStatsQueryOptions({
-					projectId,
-					commitId: selectedItem.commitId,
-				}),
-			)
-			.catch(() => null);
-		if (!commitDetails) return;
-
-		const firstFile = commitDetails.changes[0]?.path;
-
+	const openCommitDetails = (selectedItem: CommitItem) => {
 		dispatchProjectState({
 			_tag: "SelectItem",
 			item: commitItem({
@@ -566,7 +554,6 @@ export const useWorkspaceShortcuts = ({
 				mode: { _tag: "Details" },
 			}),
 		});
-		dispatchProjectState({ _tag: "SelectFile", file: firstFile ?? null });
 	};
 
 	const move = (offset: -1 | 1, selectedItem: Item) =>
@@ -636,9 +623,7 @@ export const useWorkspaceShortcuts = ({
 		Match.value(action).pipe(
 			Match.tags({
 				EditMessage: () => setEditing({ _tag: "CommitMessage", subject: selectedItem }),
-				OpenDetails: () => {
-					void openCommitDetails(selectedItem);
-				},
+				OpenDetails: () => openCommitDetails(selectedItem),
 			}),
 			Match.orElse((action) =>
 				handlePrimaryPanelAction(action, { _tag: "Commit", ...selectedItem }),

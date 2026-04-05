@@ -75,12 +75,7 @@ import {
 	TreeChange,
 	UnifiedPatch,
 } from "@gitbutler/but-sdk";
-import {
-	useMutation,
-	useQueryClient,
-	useSuspenseQueries,
-	useSuspenseQuery,
-} from "@tanstack/react-query";
+import { useMutation, useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
@@ -973,7 +968,6 @@ const CommitRow: FC<
 		segmentIndex: number;
 		selectedItem: Item;
 		selectItem: (item: Item | null) => void;
-		selectFile: (path: string | null) => void;
 		setEditing: (editing: Editing | null) => void;
 		stackId: string;
 	} & ComponentProps<"div">
@@ -986,7 +980,6 @@ const CommitRow: FC<
 	segmentIndex,
 	selectedItem,
 	selectItem,
-	selectFile,
 	setEditing,
 	stackId,
 	...restProps
@@ -1014,26 +1007,13 @@ const CommitRow: FC<
 		(_currentMessage, nextMessage: string) => nextMessage,
 	);
 	const [isCommitMessagePending, startCommitMessageTransition] = useTransition();
-	const queryClient = useQueryClient();
 
 	const commitWithOptimisticMessage: Commit = {
 		...commit,
 		message: optimisticMessage,
 	};
 
-	const openDetails = async () => {
-		const commitDetails = await queryClient
-			.fetchQuery(
-				commitDetailsWithLineStatsQueryOptions({
-					projectId,
-					commitId: commit.id,
-				}),
-			)
-			.catch(() => null);
-		if (!commitDetails) return;
-
-		const firstFile = commitDetails.changes[0]?.path;
-
+	const openDetails = () => {
 		selectItem(
 			commitItem({
 				stackId,
@@ -1043,14 +1023,13 @@ const CommitRow: FC<
 				mode: { _tag: "Details" },
 			}),
 		);
-		selectFile(firstFile ?? null);
 	};
 
 	const toggleDetails = () => {
 		setEditing(null);
 
 		if (commitSelection?.mode._tag === "Details") selectItem(summaryItem);
-		else void openDetails();
+		else openDetails();
 	};
 
 	const commitReword = useMutation(commitRewordMutationOptions);
@@ -1220,7 +1199,6 @@ const CommitC: FC<{
 				segmentIndex={segmentIndex}
 				selectedItem={selectedItem}
 				selectItem={selectItem}
-				selectFile={selectFile}
 				setEditing={setEditing}
 				stackId={stackId}
 			/>
