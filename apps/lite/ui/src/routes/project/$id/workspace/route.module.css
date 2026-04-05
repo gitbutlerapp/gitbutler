@@ -11,7 +11,7 @@
 
 .headInfo {
 	display: flex;
-	row-gap: calc(var(--item-block-padding) + var(--item-line-height));
+	row-gap: 24px;
 	flex-direction: column;
 }
 
@@ -47,7 +47,7 @@
 
 .segments {
 	display: flex;
-	row-gap: calc(var(--item-block-padding) + var(--item-line-height));
+	row-gap: 24px;
 	flex-direction: column;
 }
 
@@ -98,7 +98,7 @@
 
 .stack {
 	display: flex;
-	row-gap: calc(var(--item-block-padding) + var(--item-line-height));
+	row-gap: 24px;
 	flex-direction: column;
 }
 
