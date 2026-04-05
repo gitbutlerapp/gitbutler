@@ -54,3 +54,25 @@ export const resolveSelectedWorkspaceItem = ({
 	(workspaceSelection.item
 		? normalizeItem(workspaceSelection.item, headInfo, worktreeChanges)
 		: null) ?? changesSectionItem(null);
+
+export const normalizeSelectedFile = ({
+	paths,
+	selectedFile,
+}: {
+	paths: Array<string>;
+	selectedFile: string | null | undefined;
+}): string | undefined => {
+	if (selectedFile != null && paths.includes(selectedFile)) return selectedFile;
+	return paths[0];
+};
+
+export const normalizeSelectedHunk = ({
+	hunkKeys,
+	selectedHunk,
+}: {
+	hunkKeys: Array<string>;
+	selectedHunk: string | null;
+}): string | undefined => {
+	if (selectedHunk !== null && hunkKeys.includes(selectedHunk)) return selectedHunk;
+	return hunkKeys[0];
+};

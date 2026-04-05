@@ -3,6 +3,7 @@ import {
 	commitDetailsWithLineStatsQueryOptions,
 } from "#ui/api/queries.ts";
 import { getAction, type ShortcutBinding } from "#ui/shortcuts.ts";
+import { normalizeSelectedFile } from "#ui/routes/project/$id/-state/selection.ts";
 import { isTypingTarget } from "#ui/routes/project/$id/-shared.tsx";
 import { AbsorptionTarget } from "@gitbutler/but-sdk";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,12 +20,10 @@ import {
 	BaseCommitItem,
 } from "./-Item.ts";
 import {
-	getAdjacentPath,
 	getAdjacentItem,
 	getAdjacentSection,
-	normalizeSelectedFile,
 	type NavigationIndex,
-} from "./-Selection.ts";
+} from "./-WorkspaceNavigation.ts";
 import { getFocus, type ProjectLayoutState } from "#ui/routes/project/$id/-state/layout.ts";
 import { type ProjectStateAction } from "#ui/routes/project/$id/-state/project.ts";
 import { PreviewImperativeHandle } from "./route.tsx";
@@ -54,6 +53,23 @@ type PreviewAction =
 	| { _tag: "ToggleFullscreenPreview" }
 	| { _tag: "ClosePreview" }
 	| { _tag: "TogglePreview" };
+
+const getAdjacentPath = ({
+	paths,
+	currentPath,
+	offset,
+}: {
+	paths: Array<string>;
+	currentPath: string | undefined;
+	offset: -1 | 1;
+}): string | null => {
+	if (paths.length === 0) return null;
+	if (currentPath === undefined) return offset > 0 ? (paths[0] ?? null) : (paths.at(-1) ?? null);
+
+	const currentIndex = paths.indexOf(currentPath);
+	if (currentIndex === -1) return offset > 0 ? (paths[0] ?? null) : (paths.at(-1) ?? null);
+	return paths[currentIndex + offset] ?? null;
+};
 
 export const togglePreviewBinding: ShortcutBinding<PrimaryPanelAction> = {
 	id: "toggle-preview",

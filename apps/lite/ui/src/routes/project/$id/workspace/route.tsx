@@ -29,7 +29,11 @@ import { getBranchNameByCommitId, getCommonBaseCommitId } from "#ui/domain/RefIn
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import { getFocus } from "#ui/routes/project/$id/-state/layout.ts";
-import { resolveSelectedWorkspaceItem } from "#ui/routes/project/$id/-state/selection.ts";
+import {
+	normalizeSelectedFile,
+	normalizeSelectedHunk,
+	resolveSelectedWorkspaceItem,
+} from "#ui/routes/project/$id/-state/selection.ts";
 import { ProjectStateContext } from "#ui/routes/project/$id/-ProjectState.tsx";
 import {
 	BranchSource,
@@ -107,12 +111,7 @@ import {
 	type SegmentMode,
 	segmentItem,
 } from "./-Item.ts";
-import {
-	buildWorkspaceOutline,
-	buildNavigationIndex,
-	normalizeSelectedFile,
-	normalizeSelectedHunk,
-} from "./-Selection.ts";
+import { buildWorkspaceOutline, buildNavigationIndex } from "./-WorkspaceNavigation.ts";
 import {
 	renameBranchBindings,
 	handleRenameBranchKeyDown,
