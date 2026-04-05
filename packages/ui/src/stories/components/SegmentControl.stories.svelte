@@ -9,9 +9,8 @@
 			fullWidth: false,
 			size: "default",
 			segments: [
-				{ id: "1", icon: "horz-columns" },
-				{ id: "2", icon: "single-view" },
-				{ id: "3", icon: "vert-columns" },
+				{ id: "1", icon: "folder-tree" },
+				{ id: "2", icon: "list" },
 			],
 		},
 		argTypes: {

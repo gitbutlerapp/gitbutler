@@ -34,6 +34,9 @@
 
 	const context: SegmentContext = {
 		selectedSegmentId,
+		get size() {
+			return size;
+		},
 		registerSegment: (id: string) => {
 			if (!registeredSegments.includes(id)) {
 				registeredSegments.push(id);
