@@ -96,7 +96,7 @@ workspace = true
 [features]
 default = ["custom-protocol", "devtools", "opener"]
 ## Enable IRC-based real-time collaboration features.
-irc = ["dep:but-irc"]
+irc = ["dep:but-irc", "but?/irc"]
 #! ## Build- and package-related Options
 ## If enabled, we will pretend to be `but` when the binary filename is `but`.
 builtin-but = ["dep:but", "but-action/builtin-but"]

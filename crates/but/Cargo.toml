@@ -44,6 +44,8 @@ legacy = [
     "dep:gitbutler-repo",
     "dep:gitbutler-repo-actions",
 ]
+## Enable IRC collaboration features (enabled for dev and nightly builds).
+irc = ["but-server?/irc"]
 # Feature that enables profiling related features of the TUI.
 tui-profiling = []
 
