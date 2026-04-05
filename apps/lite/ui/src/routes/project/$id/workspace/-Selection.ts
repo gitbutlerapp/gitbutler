@@ -103,7 +103,7 @@ export const buildWorkspaceOutline = ({
 
 export type NavigationIndex = {
 	items: Array<Item>;
-	sections: Array<Item>;
+	sectionStartIndexes: Array<number>;
 	sectionIndexByItemIndex: Array<number>;
 	indexByKey: Map<string, number>;
 };
@@ -111,7 +111,7 @@ export type NavigationIndex = {
 export const buildNavigationIndex = (outline: WorkspaceOutline): NavigationIndex => {
 	const model: NavigationIndex = {
 		items: [],
-		sections: [],
+		sectionStartIndexes: [],
 		sectionIndexByItemIndex: [],
 		indexByKey: new Map<string, number>(),
 	};
@@ -123,8 +123,8 @@ export const buildNavigationIndex = (outline: WorkspaceOutline): NavigationIndex
 	};
 
 	for (const { section, items } of outline) {
-		const sectionIndex = model.sections.length;
-		model.sections.push(section);
+		const sectionIndex = model.sectionStartIndexes.length;
+		model.sectionStartIndexes.push(model.items.length);
 		addItem(section, sectionIndex);
 
 		for (const item of items) addItem(item, sectionIndex);
@@ -154,7 +154,13 @@ export const getAdjacentSection = (
 	if (currentIndex === undefined) return null;
 	const currentSectionIndex = index.sectionIndexByItemIndex[currentIndex] ?? -1;
 	if (currentSectionIndex === -1) return null;
-	return getRelative(index.sections, currentSectionIndex, offset);
+	const adjacentSectionStartIndex = getRelative(
+		index.sectionStartIndexes,
+		currentSectionIndex,
+		offset,
+	);
+	if (adjacentSectionStartIndex === null) return null;
+	return index.items[adjacentSectionStartIndex] ?? null;
 };
 
 export const getAdjacentPath = ({
