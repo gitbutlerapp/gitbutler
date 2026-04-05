@@ -1375,16 +1375,11 @@ const Changes: FC<{
 					assignments: assignmentsByPath.get(change.path),
 				}),
 			)}
-			render={
-				<ChangesSectionTarget
-					stackId={stackId}
-					className={classes(
-						className,
-						(selectedChangesSection != null || selectedChange != null) &&
-							sharedStyles.sectionSelected,
-					)}
-				/>
-			}
+			className={classes(
+				className,
+				(selectedChangesSection != null || selectedChange != null) && sharedStyles.sectionSelected,
+			)}
+			render={<ChangesSectionTarget stackId={stackId} />}
 		>
 			<ChangesSectionRow
 				changes={changes}
