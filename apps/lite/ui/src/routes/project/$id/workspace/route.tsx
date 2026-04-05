@@ -1089,8 +1089,8 @@ const CommitRow: FC<
 			commit={commitWithOptimisticMessage}
 			className={classes(
 				sharedStyles.row,
-				selectedCommit && sharedStyles.selected,
-				isHighlighted && sharedStyles.highlighted,
+				selectedCommit && sharedStyles.itemSelected,
+				isHighlighted && sharedStyles.itemHighlighted,
 			)}
 		>
 			{isEditing ? (
@@ -1248,7 +1248,7 @@ const ChangeRow: FC<{
 		change={change}
 		fileParent={{ _tag: "Changes", stackId }}
 		assignments={assignments}
-		className={classes(sharedStyles.row, isSelected && sharedStyles.selected)}
+		className={classes(sharedStyles.row, isSelected && sharedStyles.itemSelected)}
 	>
 		<FileButton
 			change={change}
@@ -1292,7 +1292,7 @@ const ChangesSectionRow: FC<{
 	selectItem: (item: Item | null) => void;
 	stackId: string | null;
 }> = ({ changes, isSelected, label, onAbsorbChanges, selectItem, stackId }) => (
-	<div className={classes(sharedStyles.row, isSelected && sharedStyles.selected)}>
+	<div className={classes(sharedStyles.row, isSelected && sharedStyles.itemSelected)}>
 		<button
 			type="button"
 			className={styles.segmentButton}
@@ -1352,7 +1352,7 @@ const BaseCommitRow: FC<{
 	isSelected: boolean;
 	selectItem: (item: Item | null) => void;
 }> = ({ commitId, isSelected, selectItem }) => (
-	<div className={classes(sharedStyles.row, isSelected && sharedStyles.selected)}>
+	<div className={classes(sharedStyles.row, isSelected && sharedStyles.itemSelected)}>
 		<button
 			type="button"
 			className={styles.commonBaseCommit}
@@ -1654,7 +1654,7 @@ const SegmentRow: FC<
 			className={classes(
 				restProps.className,
 				sharedStyles.row,
-				selectedSegment && sharedStyles.selected,
+				selectedSegment && sharedStyles.itemSelected,
 			)}
 		>
 			{isEditing && optimisticBranchName !== null ? (

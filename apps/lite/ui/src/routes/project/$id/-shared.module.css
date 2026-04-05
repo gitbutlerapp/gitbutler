@@ -59,12 +59,12 @@
 	line-height: var(--row-line-height);
 }
 
-.selected {
+.itemSelected {
 	background-color: var(--color-item-selected-bg);
 	color: var(--color-item-selected-fg);
 }
 
-.highlighted {
+.itemHighlighted {
 	background-color: var(--color-item-highlighted-bg);
 	color: var(--color-text);
 }
@@ -82,7 +82,7 @@
 	&:enabled:hover {
 		background-color: var(--color-item-action-hover-bg);
 
-		.row.selected & {
+		.row.itemSelected & {
 			background-color: var(--color-item-selected-action-hover-bg);
 		}
 	}
@@ -95,7 +95,7 @@
 	.row:hover &,
 	.row:focus-within &,
 	.row:has(.rowAction[aria-expanded="true"]) &,
-	.row.selected & {
+	.row.itemSelected & {
 		visibility: visible;
 	}
 

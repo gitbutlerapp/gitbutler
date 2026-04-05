@@ -316,7 +316,7 @@ const BranchRow: FC<
 			{...restProps}
 			className={classes(
 				sharedStyles.row,
-				(branchSelection || commitSelection) && sharedStyles.selected,
+				(branchSelection || commitSelection) && sharedStyles.itemSelected,
 				className,
 			)}
 		>
@@ -405,8 +405,8 @@ const CommitRow: FC<{
 		<div
 			className={classes(
 				sharedStyles.row,
-				commitSelection && sharedStyles.selected,
-				isHighlighted && sharedStyles.highlighted,
+				commitSelection && sharedStyles.itemSelected,
+				isHighlighted && sharedStyles.itemHighlighted,
 			)}
 			style={{ ...(isDetailsPending && { opacity: 0.5 }) }}
 			aria-busy={isDetailsPending}
