@@ -39,8 +39,8 @@
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);
-	padding-inline: var(--item-inline-padding);
-	padding-block: var(--item-block-padding);
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
 	background-color: var(--color-input-bg);
 	resize: vertical;
 }
@@ -53,11 +53,11 @@
 
 .segmentButton {
 	flex-grow: 1;
-	padding-inline: var(--item-inline-padding);
-	padding-block: var(--item-block-padding);
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
 	overflow: hidden;
 	font-weight: bold;
-	line-height: var(--item-line-height);
+	line-height: var(--row-line-height);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -111,12 +111,12 @@
 .stackMenuTrigger {
 	display: grid;
 	margin-left: auto;
-	padding-inline: var(--item-inline-padding);
-	padding-block: var(--item-block-padding);
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
 
 	svg {
-		width: var(--item-line-height);
-		height: var(--item-line-height);
+		width: var(--row-line-height);
+		height: var(--row-line-height);
 	}
 
 	&:hover,
@@ -133,23 +133,23 @@
 }
 
 .commonBaseCommit {
-	padding-inline: var(--item-inline-padding);
-	padding-block: var(--item-block-padding);
-	line-height: var(--item-line-height);
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
+	line-height: var(--row-line-height);
 }
 
 .editorForm {
 	display: flex;
-	row-gap: var(--item-block-padding);
+	row-gap: var(--row-block-padding);
 	flex-grow: 1;
 	flex-direction: column;
-	padding-block: var(--item-block-padding);
-	line-height: var(--item-line-height);
+	padding-block: var(--row-block-padding);
+	line-height: var(--row-line-height);
 }
 
 .editorInput {
 	flex-grow: 1;
-	padding-inline: var(--item-inline-padding);
+	padding-inline: var(--row-inline-padding);
 
 	&:focus {
 		outline: none;
@@ -157,7 +157,7 @@
 }
 
 .editorHelp {
-	padding-inline: var(--item-inline-padding);
+	padding-inline: var(--row-inline-padding);
 	color: var(--color-text-secondary-inverse);
 	font-size: 11px;
 	line-height: 1.3;

@@ -269,7 +269,7 @@ const BranchApplyToggle: FC<{
 	return isApplied ? (
 		<button
 			type="button"
-			className={classes(sharedStyles.itemAction, styles.branchApplyToggle)}
+			className={classes(sharedStyles.rowAction, styles.branchApplyToggle)}
 			disabled={stackId === undefined}
 			aria-label={`Unapply branch ${branch.name}`}
 			onClick={() => {
@@ -283,7 +283,7 @@ const BranchApplyToggle: FC<{
 	) : (
 		<button
 			type="button"
-			className={classes(sharedStyles.itemAction, styles.branchApplyToggle)}
+			className={classes(sharedStyles.rowAction, styles.branchApplyToggle)}
 			aria-label={`Apply branch ${branch.name}`}
 			onClick={() => {
 				applyBranch.mutate({
@@ -315,7 +315,7 @@ const BranchRow: FC<
 		<div
 			{...restProps}
 			className={classes(
-				sharedStyles.item,
+				sharedStyles.row,
 				(branchSelection || commitSelection) && sharedStyles.selected,
 				className,
 			)}
@@ -348,7 +348,7 @@ const BranchRow: FC<
 			</ContextMenu.Root>
 			<BranchApplyToggle branch={branch} projectId={projectId} />
 			<Menu.Root>
-				<Menu.Trigger className={sharedStyles.itemAction} aria-label={`Branch ${branch.name} menu`}>
+				<Menu.Trigger className={sharedStyles.rowAction} aria-label={`Branch ${branch.name} menu`}>
 					<MenuTriggerIcon />
 				</Menu.Trigger>
 				<Menu.Portal>
@@ -404,7 +404,7 @@ const CommitRow: FC<{
 	return (
 		<div
 			className={classes(
-				sharedStyles.item,
+				sharedStyles.row,
 				commitSelection && sharedStyles.selected,
 				isHighlighted && sharedStyles.highlighted,
 			)}
@@ -426,7 +426,7 @@ const CommitRow: FC<{
 				<CommitLabel commit={commit} />
 			</button>
 			<button
-				className={sharedStyles.itemAction}
+				className={sharedStyles.rowAction}
 				type="button"
 				onClick={toggleDetails}
 				aria-expanded={commitSelection?.mode._tag === "Details"}
@@ -465,14 +465,14 @@ const CommitC: FC<{
 				isHighlighted={false}
 			/>
 			{commitSelection?.mode._tag === "Details" && (
-				<Suspense fallback={<div className={sharedStyles.itemEmpty}>Loading change details…</div>}>
+				<Suspense fallback={<div className={sharedStyles.rowEmpty}>Loading change details…</div>}>
 					<CommitDetails
 						projectId={projectId}
 						commitId={commit.id}
 						renderFile={(change) => (
 							<div
 								className={classes(
-									sharedStyles.item,
+									sharedStyles.row,
 									sharedStyles.file,
 									commitSelection.mode._tag === "Details" &&
 										commitSelection.mode.path === change.path &&

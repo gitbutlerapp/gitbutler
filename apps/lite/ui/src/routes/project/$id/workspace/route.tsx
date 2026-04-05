@@ -183,7 +183,7 @@ const CommitFileRow: FC<{
 		change={change}
 		fileParent={{ _tag: "Commit", commitId }}
 		className={classes(
-			sharedStyles.item,
+			sharedStyles.row,
 			sharedStyles.file,
 			isSelected && sharedStyles.selectedFile,
 		)}
@@ -1088,7 +1088,7 @@ const CommitRow: FC<
 			isEnabled={!isEditing}
 			commit={commitWithOptimisticMessage}
 			className={classes(
-				sharedStyles.item,
+				sharedStyles.row,
 				selectedCommit && sharedStyles.selected,
 				isHighlighted && sharedStyles.highlighted,
 			)}
@@ -1131,7 +1131,7 @@ const CommitRow: FC<
 				</ContextMenu.Root>
 			)}
 			<button
-				className={sharedStyles.itemAction}
+				className={sharedStyles.rowAction}
 				type="button"
 				onClick={toggleDetails}
 				aria-expanded={selectedCommit?.mode._tag === "Details"}
@@ -1139,7 +1139,7 @@ const CommitRow: FC<
 				<ExpandCollapseIcon isExpanded={selectedCommit?.mode._tag === "Details"} />
 			</button>
 			<Menu.Root>
-				<Menu.Trigger className={sharedStyles.itemAction} aria-label="Commit menu">
+				<Menu.Trigger className={sharedStyles.rowAction} aria-label="Commit menu">
 					<MenuTriggerIcon />
 				</Menu.Trigger>
 				<Menu.Portal>
@@ -1210,7 +1210,7 @@ const CommitC: FC<{
 				stackId={stackId}
 			/>
 			{selectedCommit?.mode._tag === "Details" && (
-				<Suspense fallback={<div className={sharedStyles.itemEmpty}>Loading change details…</div>}>
+				<Suspense fallback={<div className={sharedStyles.rowEmpty}>Loading change details…</div>}>
 					<CommitDetailsC
 						projectId={projectId}
 						commitId={commit.id}
@@ -1248,7 +1248,7 @@ const ChangeRow: FC<{
 		change={change}
 		fileParent={{ _tag: "Changes", stackId }}
 		assignments={assignments}
-		className={classes(sharedStyles.item, isSelected && sharedStyles.selected)}
+		className={classes(sharedStyles.row, isSelected && sharedStyles.selected)}
 	>
 		<FileButton
 			change={change}
@@ -1258,7 +1258,7 @@ const ChangeRow: FC<{
 		/>
 		<button
 			type="button"
-			className={sharedStyles.itemAction}
+			className={sharedStyles.rowAction}
 			onClick={() => {
 				onAbsorbChanges({
 					type: "treeChanges",
@@ -1276,7 +1276,7 @@ const ChangeRow: FC<{
 				projectId={projectId}
 				commitIds={dependencyCommitIds}
 				onHover={onDependencyHover}
-				className={sharedStyles.itemAction}
+				className={sharedStyles.rowAction}
 			>
 				<DependencyIcon />
 			</DependencyIndicator>
@@ -1292,7 +1292,7 @@ const ChangesSectionRow: FC<{
 	selectItem: (item: Item | null) => void;
 	stackId: string | null;
 }> = ({ changes, isSelected, label, onAbsorbChanges, selectItem, stackId }) => (
-	<div className={classes(sharedStyles.item, isSelected && sharedStyles.selected)}>
+	<div className={classes(sharedStyles.row, isSelected && sharedStyles.selected)}>
 		<button
 			type="button"
 			className={styles.segmentButton}
@@ -1304,7 +1304,7 @@ const ChangesSectionRow: FC<{
 		</button>
 		<button
 			type="button"
-			className={sharedStyles.itemAction}
+			className={sharedStyles.rowAction}
 			disabled={changes.length === 0}
 			onClick={() => {
 				onAbsorbChanges({
@@ -1319,7 +1319,7 @@ const ChangesSectionRow: FC<{
 			<AbsorbIcon />
 		</button>
 		<Menu.Root>
-			<Menu.Trigger className={sharedStyles.itemAction} aria-label={`${label} menu`}>
+			<Menu.Trigger className={sharedStyles.rowAction} aria-label={`${label} menu`}>
 				<MenuTriggerIcon />
 			</Menu.Trigger>
 			<Menu.Portal>
@@ -1352,7 +1352,7 @@ const BaseCommitRow: FC<{
 	isSelected: boolean;
 	selectItem: (item: Item | null) => void;
 }> = ({ commitId, isSelected, selectItem }) => (
-	<div className={classes(sharedStyles.item, isSelected && sharedStyles.selected)}>
+	<div className={classes(sharedStyles.row, isSelected && sharedStyles.selected)}>
 		<button
 			type="button"
 			className={styles.commonBaseCommit}
@@ -1422,7 +1422,7 @@ const Changes: FC<{
 				stackId={stackId}
 			/>
 			{changes.length === 0 ? (
-				<div className={sharedStyles.itemEmpty}>No changes.</div>
+				<div className={sharedStyles.rowEmpty}>No changes.</div>
 			) : (
 				<ul>
 					{changes.map((change) => {
@@ -1653,7 +1653,7 @@ const SegmentRow: FC<
 			{...restProps}
 			className={classes(
 				restProps.className,
-				sharedStyles.item,
+				sharedStyles.row,
 				selectedSegment && sharedStyles.selected,
 			)}
 		>
@@ -1687,11 +1687,11 @@ const SegmentRow: FC<
 					</ContextMenu.Portal>
 				</ContextMenu.Root>
 			)}
-			<button type="button" className={sharedStyles.itemAction} aria-label="Push branch" disabled>
+			<button type="button" className={sharedStyles.rowAction} aria-label="Push branch" disabled>
 				<PushIcon />
 			</button>
 			<Menu.Root>
-				<Menu.Trigger className={sharedStyles.itemAction} aria-label="Branch menu">
+				<Menu.Trigger className={sharedStyles.rowAction} aria-label="Branch menu">
 					<MenuTriggerIcon />
 				</Menu.Trigger>
 				<Menu.Portal>

@@ -143,7 +143,7 @@ export const CommitDetails: FC<{
 		: [];
 
 	if (conflictedPaths.length === 0 && data.changes.length === 0)
-		return <div className={styles.itemEmpty}>No file changes.</div>;
+		return <div className={styles.rowEmpty}>No file changes.</div>;
 
 	return (
 		<>
