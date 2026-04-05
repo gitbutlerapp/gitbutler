@@ -1,4 +1,5 @@
 import { Segment, type HunkAssignment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
+import { type NonEmptyArray } from "effect/Array";
 import {
 	baseCommitItem,
 	changeItem,
@@ -28,7 +29,7 @@ type WorkspaceSection = {
 	items: Array<Item>;
 };
 
-type WorkspaceOutline = Array<WorkspaceSection>;
+type WorkspaceOutline = NonEmptyArray<WorkspaceSection>;
 
 type BuildWorkspaceOutlineArgs = {
 	headInfo: RefInfo;
@@ -37,7 +38,7 @@ type BuildWorkspaceOutlineArgs = {
 	commonBaseCommitId?: string;
 };
 
-const buildWorkspaceOutline = ({
+export const buildWorkspaceOutline = ({
 	headInfo,
 	changes,
 	assignments,
@@ -96,7 +97,7 @@ export type NavigationIndex = {
 	indexByKey: Map<string, number>;
 };
 
-const fromOutline = (outline: WorkspaceOutline): NavigationIndex => {
+export const buildNavigationIndex = (outline: WorkspaceOutline): NavigationIndex => {
 	const model: NavigationIndex = {
 		items: [],
 		sectionStartIndexes: [],
@@ -120,9 +121,6 @@ const fromOutline = (outline: WorkspaceOutline): NavigationIndex => {
 
 	return model;
 };
-
-export const buildNavigationIndex = (args: BuildWorkspaceOutlineArgs): NavigationIndex =>
-	fromOutline(buildWorkspaceOutline(args));
 
 export const getAdjacentItem = (
 	index: NavigationIndex,
