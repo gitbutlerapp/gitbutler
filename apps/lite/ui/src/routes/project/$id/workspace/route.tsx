@@ -1347,6 +1347,24 @@ const ChangesSectionRow: FC<{
 	</div>
 );
 
+const BaseCommitRow: FC<{
+	commitId: string;
+	isSelected: boolean;
+	selectItem: (item: Item | null) => void;
+}> = ({ commitId, isSelected, selectItem }) => (
+	<div className={classes(sharedStyles.item, isSelected && sharedStyles.selected)}>
+		<button
+			type="button"
+			className={styles.commonBaseCommit}
+			onClick={() => {
+				selectItem(baseCommitItem(commitId));
+			}}
+		>
+			{shortCommitId(commitId)} (common base commit)
+		</button>
+	</div>
+);
+
 const Changes: FC<{
 	label: string;
 	projectId: string;
@@ -1974,24 +1992,13 @@ const ProjectPage: FC = () => {
 
 					{commonBaseCommitId !== undefined && (
 						<TearOffBranchTarget className={styles.commonBaseCommitContainer}>
-							<div
-								className={classes(
-									sharedStyles.item,
-									selectedItem._tag === "BaseCommit" &&
-										selectedItem.commitId === commonBaseCommitId &&
-										sharedStyles.selected,
-								)}
-							>
-								<button
-									type="button"
-									className={styles.commonBaseCommit}
-									onClick={() => {
-										selectItem(baseCommitItem(commonBaseCommitId));
-									}}
-								>
-									{shortCommitId(commonBaseCommitId)} (common base commit)
-								</button>
-							</div>
+							<BaseCommitRow
+								commitId={commonBaseCommitId}
+								isSelected={
+									selectedItem._tag === "BaseCommit" && selectedItem.commitId === commonBaseCommitId
+								}
+								selectItem={selectItem}
+							/>
 						</TearOffBranchTarget>
 					)}
 				</div>
