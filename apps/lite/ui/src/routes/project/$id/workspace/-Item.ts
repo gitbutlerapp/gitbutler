@@ -11,11 +11,13 @@ type SegmentItemBase = {
 	branchName: string | null;
 };
 
-type SegmentMode = { _tag: "Default" } | { _tag: "Rename" };
+export type SegmentMode = { _tag: "Default" } | { _tag: "Rename" };
+export const defaultSegmentMode: SegmentMode = { _tag: "Default" };
 
 export type SegmentItem = SegmentItemBase & { mode: SegmentMode };
 
-type CommitMode = { _tag: "Default" } | { _tag: "Details" } | { _tag: "Reword" };
+export type CommitMode = { _tag: "Default" } | { _tag: "Details" } | { _tag: "Reword" };
+export const defaultCommitMode: CommitMode = { _tag: "Default" };
 export type CommitItem = SegmentItemBase & { commitId: string; mode: CommitMode };
 
 export type BaseCommitItem = { commitId: string };
@@ -42,8 +44,8 @@ export const segmentItem = ({
 	stackId,
 	segmentIndex,
 	branchName,
-	mode = { _tag: "Default" },
-}: Omit<SegmentItem, "mode"> & { mode?: SegmentItem["mode"] }): Item => ({
+	mode = defaultSegmentMode,
+}: Omit<SegmentItem, "mode"> & { mode?: SegmentMode }): Item => ({
 	_tag: "Segment",
 	stackId,
 	segmentIndex,
@@ -56,8 +58,8 @@ export const commitItem = ({
 	segmentIndex,
 	branchName,
 	commitId,
-	mode = { _tag: "Default" },
-}: Omit<CommitItem, "mode"> & { mode?: CommitItem["mode"] }): Item => ({
+	mode = defaultCommitMode,
+}: Omit<CommitItem, "mode"> & { mode?: CommitMode }): Item => ({
 	_tag: "Commit",
 	stackId,
 	segmentIndex,
