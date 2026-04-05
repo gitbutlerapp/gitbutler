@@ -53,7 +53,7 @@ type PreviewAction =
 	| HunkSelectionAction
 	| { _tag: "FocusPrimary" }
 	| { _tag: "ToggleFullscreenPreview" }
-	| { _tag: "CloseFullscreenPreview" }
+	| { _tag: "ClosePreview" }
 	| { _tag: "TogglePreview" };
 
 export const togglePreviewBinding: ShortcutBinding<PrimaryPanelAction> = {
@@ -120,11 +120,11 @@ const primaryPanelBindings: Array<ShortcutBinding<PrimaryPanelAction>> = [
 	togglePreviewBinding,
 ];
 
-export const closeFullscreenPreviewBinding: ShortcutBinding<PreviewAction> = {
-	id: "close-fullscreen-preview",
+export const closePreviewBinding: ShortcutBinding<PreviewAction> = {
+	id: "close-preview",
 	description: "Close",
 	keys: ["Escape"],
-	action: { _tag: "CloseFullscreenPreview" },
+	action: { _tag: "ClosePreview" },
 	repeat: false,
 };
 
@@ -156,15 +156,13 @@ const previewBindings: Array<ShortcutBinding<PreviewAction>> = [
 		action: { _tag: "TogglePreview" },
 		repeat: false,
 	},
+	closePreviewBinding,
 ];
 
-const fullscreenPreviewBindings: Array<ShortcutBinding<PreviewAction>> = [
-	...previewBindings
-		// The preview panel is not visible as it sits behind the fullscreen dialog, so
-		// there's no point having the toggle preview shortcut here.
-		.filter((binding) => binding.action._tag !== "TogglePreview"),
-	closeFullscreenPreviewBinding,
-];
+const fullscreenPreviewBindings: Array<ShortcutBinding<PreviewAction>> = previewBindings
+	// The preview panel is not visible as it sits behind the fullscreen dialog, so
+	// there's no point having the toggle preview shortcut here.
+	.filter((binding) => binding.action._tag !== "TogglePreview");
 
 export const absorbChangesBinding: ShortcutBinding<ChangesAction> = {
 	id: "changes-absorb",
@@ -620,7 +618,7 @@ export const useWorkspaceShortcuts = ({
 			Match.tags({
 				FocusPrimary: () => dispatchProjectState({ _tag: "FocusPrimary" }),
 				ToggleFullscreenPreview: () => dispatchProjectState({ _tag: "ToggleFullscreenPreview" }),
-				CloseFullscreenPreview: () => dispatchProjectState({ _tag: "CloseFullscreenPreview" }),
+				ClosePreview: () => dispatchProjectState({ _tag: "ClosePreview" }),
 				TogglePreview: () => dispatchProjectState({ _tag: "TogglePreview" }),
 			}),
 			Match.orElse((action) => handleHunkSelectionAction(action)),

@@ -12,6 +12,7 @@ export type ProjectLayoutState = {
 export type ProjectLayoutAction =
 	| { _tag: "FocusPrimary" }
 	| { _tag: "FocusPreview" }
+	| { _tag: "ClosePreview" }
 	| { _tag: "TogglePreview" }
 	| { _tag: "OpenFullscreenPreview" }
 	| { _tag: "CloseFullscreenPreview" }
@@ -42,6 +43,16 @@ export const projectLayoutReducer = (
 					: {
 							...state,
 							panelLayout: { _tag: "Split", focus: "preview" },
+						},
+			ClosePreview: (): ProjectLayoutState =>
+				state.isFullscreenPreviewOpen
+					? {
+							...state,
+							isFullscreenPreviewOpen: false,
+						}
+					: {
+							...state,
+							panelLayout: { _tag: "Primary" },
 						},
 			TogglePreview: (): ProjectLayoutState => ({
 				...state,

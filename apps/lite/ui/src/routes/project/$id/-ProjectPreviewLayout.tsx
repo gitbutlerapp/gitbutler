@@ -7,7 +7,7 @@ import { ProjectStateContext } from "#ui/routes/project/$id/-ProjectState.tsx";
 import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/-ShortcutsBar.tsx";
 import { assert } from "#ui/routes/project/$id/-shared.tsx";
 import uiStyles from "#ui/ui.module.css";
-import { closeFullscreenPreviewBinding } from "./workspace/-WorkspaceShortcuts.ts";
+import { closePreviewBinding } from "./workspace/-WorkspaceShortcuts.ts";
 import sharedStyles from "./-shared.module.css";
 
 export const ProjectPreviewLayout: FC<{
@@ -74,12 +74,12 @@ export const ProjectPreviewLayout: FC<{
 						<Dialog.Popup aria-label="Preview" className={sharedStyles.previewDialogPopup}>
 							<div className={sharedStyles.previewDialogBody}>
 								<ShortcutButton
-									binding={closeFullscreenPreviewBinding}
+									binding={closePreviewBinding}
 									type="button"
 									className={uiStyles.button}
-									onClick={() => dispatchProjectState({ _tag: "CloseFullscreenPreview" })}
+									onClick={() => dispatchProjectState({ _tag: "ClosePreview" })}
 								>
-									{closeFullscreenPreviewBinding.description}
+									{closePreviewBinding.description}
 								</ShortcutButton>
 								{preview}
 							</div>
