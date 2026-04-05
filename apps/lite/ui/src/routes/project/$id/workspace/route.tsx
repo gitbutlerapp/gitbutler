@@ -111,7 +111,7 @@ import {
 	type SegmentMode,
 	segmentItem,
 } from "./-Item.ts";
-import { buildWorkspaceOutline, buildNavigationIndex } from "./-WorkspaceNavigation.ts";
+import { buildNavigationIndex } from "./-WorkspaceOutline.ts";
 import {
 	renameBranchBindings,
 	handleRenameBranchKeyDown,
@@ -1905,14 +1905,12 @@ const ProjectPage: FC = () => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
-	const navigationIndex = buildNavigationIndex(
-		buildWorkspaceOutline({
-			headInfo,
-			changes: worktreeChanges.changes,
-			assignments: worktreeChanges.assignments,
-			commonBaseCommitId,
-		}),
-	);
+	const navigationIndex = buildNavigationIndex({
+		headInfo,
+		changes: worktreeChanges.changes,
+		assignments: worktreeChanges.assignments,
+		commonBaseCommitId,
+	});
 
 	const selectedItem = resolveSelectedWorkspaceItem({
 		workspaceSelection,

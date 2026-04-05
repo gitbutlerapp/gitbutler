@@ -19,11 +19,7 @@ import {
 	type ChangesSectionItem,
 	BaseCommitItem,
 } from "./-Item.ts";
-import {
-	getAdjacentItem,
-	getAdjacentSection,
-	type NavigationIndex,
-} from "./-WorkspaceNavigation.ts";
+import { getAdjacentItem, getAdjacentSection, type NavigationIndex } from "./-WorkspaceOutline.ts";
 import { getFocus, type ProjectLayoutState } from "#ui/routes/project/$id/-state/layout.ts";
 import { type ProjectStateAction } from "#ui/routes/project/$id/-state/project.ts";
 import { PreviewImperativeHandle } from "./route.tsx";

@@ -44,17 +44,19 @@ export type WorkspaceSection = {
 
 export type WorkspaceOutline = Array<WorkspaceSection>;
 
+type BuildWorkspaceOutlineArgs = {
+	headInfo: RefInfo;
+	changes: Array<TreeChange>;
+	assignments: Array<HunkAssignment>;
+	commonBaseCommitId?: string;
+};
+
 export const buildWorkspaceOutline = ({
 	headInfo,
 	changes,
 	assignments,
 	commonBaseCommitId,
-}: {
-	headInfo: RefInfo;
-	changes: Array<TreeChange>;
-	assignments: Array<HunkAssignment>;
-	commonBaseCommitId?: string;
-}): WorkspaceOutline => {
+}: BuildWorkspaceOutlineArgs): WorkspaceOutline => {
 	const changesSection = (stackId: string | null): WorkspaceSection => ({
 		section: changesSectionItem(stackId),
 		items: changes.flatMap((change) =>
@@ -108,7 +110,7 @@ export type NavigationIndex = {
 	indexByKey: Map<string, number>;
 };
 
-export const buildNavigationIndex = (outline: WorkspaceOutline): NavigationIndex => {
+const fromOutline = (outline: WorkspaceOutline): NavigationIndex => {
 	const model: NavigationIndex = {
 		items: [],
 		sectionStartIndexes: [],
@@ -132,6 +134,9 @@ export const buildNavigationIndex = (outline: WorkspaceOutline): NavigationIndex
 
 	return model;
 };
+
+export const buildNavigationIndex = (args: BuildWorkspaceOutlineArgs): NavigationIndex =>
+	fromOutline(buildWorkspaceOutline(args));
 
 export const getAdjacentItem = (
 	index: NavigationIndex,
