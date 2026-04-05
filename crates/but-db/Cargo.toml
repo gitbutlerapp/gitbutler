@@ -5,6 +5,7 @@ edition.workspace = true
 authors.workspace = true
 publish = false
 rust-version.workspace = true
+description = "A place for defining metadata stored in a sqlite file"
 
 [lib]
 doctest = false
@@ -19,6 +20,9 @@ bitflags.workspace = true
 serde.workspace = true
 anyhow.workspace = true
 chrono = { workspace = true, features = ["serde"] }
+but-core.workspace = true
+bstr.workspace = true
+gix.workspace = true
 # other things
 tracing.workspace = true
 backoff.workspace = true
@@ -31,7 +35,7 @@ insta.workspace = true
 
 # for multi-process migration testing.
 [target."cfg(unix)".dev-dependencies]
-libc = "0.2.180"
+libc = "0.2.183"
 
 [lints]
 workspace = true

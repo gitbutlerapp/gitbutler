@@ -4,7 +4,6 @@ use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::but_api;
 use but_core::{DiffSpec, sync::RepoExclusive};
 use but_ctx::{Context, ThreadSafeContext};
-use but_oxidize::ObjectIdExt;
 use but_workspace::legacy::ui::{StackEntryNoOpt, StackHeadInfo};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::{
@@ -102,6 +101,14 @@ pub fn delete_local_branch(
     Ok(())
 }
 
+/// Turn `branch` into an applied virtual branch, optionally associating
+/// `remote` and `pr_number`.
+///
+/// This acquires exclusive worktree access from `ctx` before applying the
+/// branch in the workspace.
+///
+/// See [`create_virtual_branch_from_branch_with_perm()`] for the underlying
+/// mutation.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn create_virtual_branch_from_branch(
@@ -110,8 +117,31 @@ pub fn create_virtual_branch_from_branch(
     remote: Option<RemoteRefname>,
     pr_number: Option<usize>,
 ) -> Result<gitbutler_branch_actions::CreateBranchFromBranchOutcome> {
-    let outcome = gitbutler_branch_actions::create_virtual_branch_from_branch(
-        ctx, &branch, remote, pr_number,
+    let mut guard = ctx.exclusive_worktree_access();
+    let outcome = create_virtual_branch_from_branch_with_perm(
+        ctx,
+        &branch,
+        remote,
+        pr_number,
+        guard.write_permission(),
+    )?;
+    Ok(outcome)
+}
+
+/// Turn `branch` into an applied virtual branch, optionally associating
+/// `remote` and `pr_number`, while reusing caller-held exclusive access.
+///
+/// This delegates to
+/// [`gitbutler_branch_actions::create_virtual_branch_from_branch_with_perm()`].
+pub fn create_virtual_branch_from_branch_with_perm(
+    ctx: &mut but_ctx::Context,
+    branch: &Refname,
+    remote: Option<RemoteRefname>,
+    pr_number: Option<usize>,
+    perm: &mut RepoExclusive,
+) -> Result<gitbutler_branch_actions::CreateBranchFromBranchOutcome> {
+    let outcome = gitbutler_branch_actions::create_virtual_branch_from_branch_with_perm(
+        ctx, branch, remote, pr_number, perm,
     )?;
     Ok(outcome.into())
 }
@@ -162,6 +192,10 @@ pub fn integrate_branch_with_steps(
     gitbutler_branch_actions::integrate_branch_with_steps(ctx, stack_id, branch_name, steps)
 }
 
+/// Switch back to the workspace branch state.
+///
+/// This acquires exclusive worktree access from `ctx` before restoring the
+/// workspace branch.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn switch_back_to_workspace(ctx: &mut but_ctx::Context) -> Result<BaseBranch> {
@@ -170,6 +204,11 @@ pub fn switch_back_to_workspace(ctx: &mut but_ctx::Context) -> Result<BaseBranch
 }
 
 #[instrument(skip(perm), err(Debug))]
+/// Switch back to the workspace branch using an existing exclusive permission token.
+///
+/// This variant is more composable than [`switch_back_to_workspace`] when the caller already
+/// holds a lock, as it reuses the provided permission token instead of obtaining exclusive access
+/// itself.
 pub fn switch_back_to_workspace_with_perm(
     ctx: &mut but_ctx::Context,
     perm: &mut RepoExclusive,
@@ -197,6 +236,10 @@ pub fn get_base_branch_data(ctx: &but_ctx::Context) -> Result<Option<BaseBranch>
     }
 }
 
+/// Set the base branch to `branch`, optionally updating `push_remote` as well.
+///
+/// This acquires exclusive worktree access from `ctx` before updating the base
+/// branch state.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn set_base_branch(
@@ -209,6 +252,10 @@ pub fn set_base_branch(
 }
 
 #[instrument(skip(perm), err(Debug))]
+/// Set the base branch using an existing exclusive permission token.
+///
+/// This variant is more composable than [`set_base_branch`] when the caller already holds a lock,
+/// as it reuses the provided permission token instead of obtaining exclusive access itself.
 pub fn set_base_branch_with_perm(
     ctx: &mut but_ctx::Context,
     branch: String,
@@ -248,18 +295,37 @@ pub fn update_stack_order(
     Ok(())
 }
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
+/// Take the stack identified by `stack_id` out of the workspace.
+///
+/// This acquires exclusive worktree access from `ctx` before collecting the
+/// assigned changes and unapplying the stack.
+///
+/// See [`unapply_stack_with_perm()`] for how assigned changes are collected before
+/// delegating to the underlying mutation.
 pub fn unapply_stack(ctx: &mut Context, stack_id: StackId) -> Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    unapply_stack_with_perm(ctx, stack_id, guard.write_permission())
+}
+
+/// Take the stack identified by `stack_id` out of the workspace while reusing
+/// caller-held exclusive access.
+///
+/// This computes the currently assigned diffspecs for `stack_id` from the
+/// workspace and then delegates to [`gitbutler_branch_actions::unapply_stack()`].
+pub fn unapply_stack_with_perm(
+    ctx: &mut Context,
+    stack_id: StackId,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
     let context_lines = ctx.settings.context_lines;
-    let (mut guard, repo, ws, mut db) = ctx.workspace_mut_and_db_mut()?;
+    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         db.hunk_assignments_mut()?,
         &repo,
         &ws,
-        false,
         Some(but_core::diff::ui::worktree_changes(&repo)?.changes),
-        None,
         context_lines,
     )?;
     let assigned_diffspec = but_workspace::flatten_diff_specs(
@@ -270,12 +336,7 @@ pub fn unapply_stack(ctx: &mut Context, stack_id: StackId) -> Result<()> {
             .collect::<Vec<DiffSpec>>(),
     );
     drop((repo, ws, db));
-    gitbutler_branch_actions::unapply_stack(
-        ctx,
-        guard.write_permission(),
-        stack_id,
-        assigned_diffspec,
-    )?;
+    gitbutler_branch_actions::unapply_stack(ctx, perm, stack_id, assigned_diffspec)?;
     Ok(())
 }
 
@@ -287,8 +348,7 @@ pub fn amend_virtual_branch(
     commit_id: gix::ObjectId,
     worktree_changes: Vec<DiffSpec>,
 ) -> Result<String> {
-    let oid =
-        gitbutler_branch_actions::amend(ctx, stack_id, commit_id.to_git2(), worktree_changes)?;
+    let oid = gitbutler_branch_actions::amend(ctx, stack_id, commit_id, worktree_changes)?;
     Ok(oid.to_string())
 }
 
@@ -299,7 +359,7 @@ pub fn undo_commit(
     stack_id: StackId,
     commit_id: gix::ObjectId,
 ) -> Result<()> {
-    gitbutler_branch_actions::undo_commit(ctx, stack_id, commit_id.to_git2())?;
+    gitbutler_branch_actions::undo_commit(ctx, stack_id, commit_id)?;
     Ok(())
 }
 
@@ -314,7 +374,7 @@ pub fn reorder_stack(
     Ok(())
 }
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn list_branches(
     ctx: &Context,
@@ -335,6 +395,11 @@ pub fn get_branch_listing_details(
 }
 
 /// Squash `source_commit_ids` into `target_commit_id` within the stack identified by `stack_id`.
+///
+/// This acquires exclusive worktree access from `ctx` before rewriting the
+/// stack.
+///
+/// See [`squash_commits_with_perm()`] for the underlying mutation.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn squash_commits(
@@ -343,15 +408,34 @@ pub fn squash_commits(
     source_commit_ids: Vec<gix::ObjectId>,
     target_commit_id: gix::ObjectId,
 ) -> Result<()> {
-    let source_commit_ids: Vec<git2::Oid> = source_commit_ids
-        .into_iter()
-        .map(|oid| oid.to_git2())
-        .collect();
-    gitbutler_branch_actions::squash_commits(
+    let mut guard = ctx.exclusive_worktree_access();
+    squash_commits_with_perm(
         ctx,
         stack_id,
         source_commit_ids,
-        target_commit_id.to_git2(),
+        target_commit_id,
+        guard.write_permission(),
+    )?;
+    Ok(())
+}
+
+/// Squash `source_commit_ids` into `target_commit_id` within the stack identified by `stack_id`,
+/// reusing caller-held exclusive access.
+///
+/// This delegates to [`gitbutler_branch_actions::squash_commits_with_perm()`].
+pub fn squash_commits_with_perm(
+    ctx: &mut Context,
+    stack_id: StackId,
+    source_commit_ids: Vec<gix::ObjectId>,
+    target_commit_id: gix::ObjectId,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
+    gitbutler_branch_actions::squash_commits_with_perm(
+        ctx,
+        stack_id,
+        source_commit_ids,
+        target_commit_id,
+        perm,
     )?;
     Ok(())
 }
@@ -369,7 +453,7 @@ pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseB
     // TODO: This cross dependency likely indicates that last_fetched is stored in the wrong place - value is coupled with virtual branches state
     gitbutler_project::update(gitbutler_project::UpdateRequest {
         project_data_last_fetched: Some(project_data_last_fetched.clone()),
-        ..gitbutler_project::UpdateRequest::default_with_id(ctx.legacy_project.id)
+        ..gitbutler_project::UpdateRequest::default_with_id(ctx.legacy_project.id.clone())
     })
     .context("failed to update project with last fetched timestamp")?;
 
@@ -389,17 +473,12 @@ pub fn move_commit(
     target_stack_id: StackId,
     source_stack_id: StackId,
 ) -> Result<Option<MoveCommitIllegalAction>> {
-    gitbutler_branch_actions::move_commit(
-        ctx,
-        target_stack_id,
-        commit_id.to_git2(),
-        source_stack_id,
-    )
+    gitbutler_branch_actions::move_commit(ctx, target_stack_id, commit_id, source_stack_id)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn move_branch(
+pub fn move_branch_legacy(
     ctx: &mut but_ctx::Context,
     target_stack_id: StackId,
     target_branch_name: String,
@@ -417,7 +496,7 @@ pub fn move_branch(
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn tear_off_branch(
+pub fn tear_off_branch_legacy(
     ctx: &mut but_ctx::Context,
     source_stack_id: StackId,
     subject_branch_name: String,
@@ -433,12 +512,8 @@ pub fn update_commit_message(
     commit_id: gix::ObjectId,
     message: String,
 ) -> Result<String> {
-    let new_commit_id = gitbutler_branch_actions::update_commit_message(
-        ctx,
-        stack_id,
-        commit_id.to_git2(),
-        &message,
-    )?;
+    let new_commit_id =
+        gitbutler_branch_actions::update_commit_message(ctx, stack_id, commit_id, &message)?;
     Ok(new_commit_id.to_string())
 }
 
@@ -450,13 +525,12 @@ pub async fn upstream_integration_statuses(
     target_commit_id: Option<gix::ObjectId>,
 ) -> Result<StackStatuses> {
     let (base_branch, commit_id, ctx) = {
-        let commit_id = target_commit_id.map(|commit_id| commit_id.to_git2());
         let ctx = ctx.into_thread_local();
 
         // Get all the actively applied reviews
         (
             gitbutler_branch_actions::base::get_base_branch_data(&ctx)?,
-            commit_id,
+            target_commit_id,
             ctx.into_sync(),
         )
     };
@@ -508,8 +582,7 @@ pub async fn resolve_upstream_integration(
         resolution_approach,
         &resolved_reviews,
     )?;
-    let commit_id = git2::Oid::to_string(&new_target_id);
-    Ok(commit_id)
+    Ok(new_target_id.to_string())
 }
 
 /// Resolve all actively applied reviews for the given project and command context

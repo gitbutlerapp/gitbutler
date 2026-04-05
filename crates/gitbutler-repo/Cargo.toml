@@ -12,9 +12,7 @@ doctest = false
 
 [dependencies]
 but-error.workspace = true
-but-rebase.workspace = true
 but-core = { workspace = true, features = ["legacy"] }
-but-status.workspace = true
 but-gerrit.workspace = true
 but-oxidize.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
@@ -47,7 +45,7 @@ name = "repo"
 path = "tests/mod.rs"
 
 [dev-dependencies]
-gitbutler-testsupport.workspace = true
+but-testsupport = { workspace = true, features = ["legacy"] }
 gitbutler-user.workspace = true
 but-settings.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }

@@ -59,7 +59,7 @@
 	.todos-container {
 		display: flex;
 		flex-direction: column;
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 	}
 
 	.todo-header {
@@ -71,14 +71,14 @@
 
 		&:hover {
 			& .todo-header__chevron {
-				color: var(--clr-text-2);
+				color: var(--text-2);
 			}
 		}
 	}
 
 	.todo-header__chevron {
 		display: flex;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		transition:
 			transform var(--transition-medium),
 			color var(--transition-fast);
@@ -115,10 +115,10 @@
 	.blinking-text {
 		background: linear-gradient(
 			90deg,
-			var(--clr-text-2) 0%,
-			var(--clr-text-2) 50%,
-			color-mix(in srgb, var(--clr-text-2), transparent 70%) 60%,
-			var(--clr-text-2) 100%
+			var(--text-2) 0%,
+			var(--text-2) 50%,
+			color-mix(in srgb, var(--text-2), transparent 70%) 60%,
+			var(--text-2) 100%
 		);
 		background-size: 300% 100%;
 		background-clip: text;

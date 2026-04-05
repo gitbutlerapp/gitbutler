@@ -1,5 +1,5 @@
 import { emitQueryError, parseQueryError, SilentError } from "$lib/error/error";
-import { isReduxError, type ReduxError } from "$lib/state/reduxError";
+import { isReduxError, type ReduxError } from "$lib/error/reduxError";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { type Reactive } from "@gitbutler/shared/storeUtils";
 import { isErrorlike } from "@gitbutler/ui/utils/typeguards";
@@ -390,29 +390,48 @@ export function buildMutationHook<
 		});
 	}
 
+	/**
+	 * Shared mutation execution logic used by both `mutate` and `useMutation`.
+	 */
+	async function executeMutation(
+		queryArg: QueryArgFrom<D>,
+		dispatchResult: MutationActionCreatorResult<D>,
+		options: {
+			properties: EventProperties;
+			sideEffect?: UseMutationHookParams<D>["sideEffect"];
+			onError?: UseMutationHookParams<D>["onError"];
+			throwSilentError?: boolean;
+		},
+	) {
+		const startTime = Date.now();
+		try {
+			const result = await dispatchResult.unwrap();
+			options.sideEffect?.(result, queryArg);
+			track({ failure: false, properties: options.properties, startTime });
+			return result;
+		} catch (error: unknown) {
+			track({ failure: true, properties: options.properties, startTime, error });
+			if (options.onError && isReduxError(error)) {
+				options.onError(error, queryArg);
+			}
+			throwError(error, options.throwSilentError ?? false);
+		}
+	}
+
 	async function mutate(queryArg: QueryArgFrom<D>, options?: UseMutationHookParams<D>) {
 		const dispatch = getDispatch();
 		const { fixedCacheKey, sideEffect, preEffect, onError, propertiesFn, throwSilentError } =
 			options ?? {};
 
-		const properties = propertiesFn?.() || {};
-
 		preEffect?.(queryArg);
 
 		const dispatchResult = dispatch(initiate(queryArg, { fixedCacheKey }));
-		const startTime = Date.now();
-		try {
-			const result = await dispatchResult.unwrap();
-			sideEffect?.(result, queryArg);
-			track({ failure: false, properties, startTime });
-			return result;
-		} catch (error: unknown) {
-			track({ failure: true, properties, startTime, error });
-			if (onError && isReduxError(error)) {
-				onError(error, queryArg);
-			}
-			throwError(error, throwSilentError ?? false);
-		}
+		return executeMutation(queryArg, dispatchResult, {
+			properties: propertiesFn?.() || {},
+			sideEffect,
+			onError,
+			throwSilentError,
+		});
 	}
 
 	/**
@@ -435,22 +454,14 @@ export function buildMutationHook<
 			queryArg: QueryArgFrom<D>,
 			options?: { properties?: EventProperties },
 		) {
-			const properties = Object.assign({}, propertiesFn?.(), options?.properties);
 			preEffect?.(queryArg);
 			promise = dispatch(initiate(queryArg, { fixedCacheKey }));
-			const startTime = Date.now();
-			try {
-				const result = await promise.unwrap();
-				sideEffect?.(result, queryArg);
-				track({ failure: false, properties, startTime });
-				return result;
-			} catch (error: unknown) {
-				track({ failure: true, properties, startTime, error });
-				if (onError && isReduxError(error)) {
-					onError(error, queryArg);
-				}
-				throwError(error, throwSilentError ?? false);
-			}
+			return executeMutation(queryArg, promise, {
+				properties: Object.assign({}, propertiesFn?.(), options?.properties),
+				sideEffect,
+				onError,
+				throwSilentError,
+			});
 		}
 
 		function reset() {

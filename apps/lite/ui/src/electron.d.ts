@@ -1,4 +1,4 @@
-import type { LiteElectronApi } from "#electron/ipc";
+import type { LiteElectronApi } from "#electron/ipc.ts";
 
 declare global {
 	interface Window {

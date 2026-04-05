@@ -28,13 +28,13 @@
 		}
 
 		&:not(:first-child) {
-			border-top: 1px solid var(--clr-border-2);
+			border-top: 1px solid var(--border-2);
 		}
 	}
 
 	.context-menu-section__title {
 		padding: 8px 8px 6px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		user-select: none;
 	}
 </style>

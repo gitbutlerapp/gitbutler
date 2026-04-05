@@ -29,10 +29,10 @@
 		gap: 2px;
 
 		& .added {
-			color: var(--clr-theme-safe-element);
+			color: var(--fill-safe-bg);
 		}
 		& .removed {
-			color: var(--clr-theme-danger-element);
+			color: var(--fill-danger-bg);
 		}
 	}
 </style>

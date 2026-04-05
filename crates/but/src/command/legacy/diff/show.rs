@@ -11,7 +11,7 @@ use super::{
 };
 use crate::{IdMap, id::UncommittedCliId, utils::OutputChannel};
 
-#[allow(clippy::large_enum_variant)]
+#[expect(clippy::large_enum_variant)]
 pub(crate) enum Filter {
     Unassigned,
     Uncommitted(UncommittedCliId),
@@ -110,7 +110,7 @@ pub(crate) fn commit(
             .into_iter()
             .filter(|change| path.as_ref().is_none_or(|p| p == &change.path))
             .map(|change| {
-                let patch = but_api::legacy::diff::tree_change_diffs(ctx, change.clone().into())
+                let patch = but_api::diff::tree_change_diffs(ctx, change.clone().into())
                     .ok()
                     .flatten();
                 tree_change_to_json(None, change.into(), patch)
@@ -122,7 +122,7 @@ pub(crate) fn commit(
     } else if let Some(out) = out.for_human_or_shell() {
         for change in result.diff_with_first_parent {
             if path.as_ref().is_none_or(|p| p == &change.path) {
-                let patch = but_api::legacy::diff::tree_change_diffs(ctx, change.clone().into())
+                let patch = but_api::diff::tree_change_diffs(ctx, change.clone().into())
                     .ok()
                     .flatten();
                 let diff = TreeChangeWithPatch::new(change.into(), patch);
@@ -145,7 +145,7 @@ pub(crate) fn branch(
             .changes
             .into_iter()
             .map(|change| {
-                let patch = but_api::legacy::diff::tree_change_diffs(ctx, change.clone())
+                let patch = but_api::diff::tree_change_diffs(ctx, change.clone())
                     .ok()
                     .flatten();
                 tree_change_to_json(None, change, patch)
@@ -156,7 +156,7 @@ pub(crate) fn branch(
         json_out.write_value(output)?;
     } else if let Some(out) = out.for_human_or_shell() {
         for change in result.changes {
-            let patch = but_api::legacy::diff::tree_change_diffs(ctx, change.clone())
+            let patch = but_api::diff::tree_change_diffs(ctx, change.clone())
                 .ok()
                 .flatten();
 

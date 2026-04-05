@@ -46,18 +46,18 @@
 		padding: 14px 16px;
 		padding-left: 12px;
 		gap: 12px;
-		border-bottom: 1px solid var(--clr-border-3);
+		border-bottom: 1px solid var(--border-3);
 
-		border-left: 4px solid var(--clr-theme-safe-element);
-		background: var(--clr-theme-safe-bg);
+		border-left: 4px solid var(--fill-safe-bg);
+		background: var(--bg-safe);
 
 		&:first-child {
 			border-bottom: none;
 		}
 
 		&.request-changes {
-			border-left-color: var(--clr-br-commit-changes-requested-bg);
-			background: var(--clr-bg-1);
+			border-left-color: var(--fill-warn-bg);
+			background: var(--bg-1);
 		}
 	}
 
@@ -70,11 +70,11 @@
 		padding: 4px;
 
 		border-radius: 8px;
-		background: var(--clr-theme-safe-element);
-		color: var(--clr-core-gray-100);
+		background: var(--fill-safe-bg);
+		color: var(--clr-gray-100);
 
 		&.request-changes {
-			background: var(--clr-br-commit-changes-requested-bg);
+			background: var(--fill-warn-bg);
 		}
 	}
 
@@ -100,25 +100,25 @@
 
 	.patch-status__name {
 		overflow: hidden;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		text-overflow: ellipsis;
 	}
 
 	.patch-status__message {
 		overflow: hidden;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		text-overflow: ellipsis;
 	}
 
 	.patch-status__timestamp {
 		overflow: hidden;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		text-overflow: ellipsis;
 
 		opacity: 0.4;
 	}
 
 	.patch-status__text-content {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 </style>

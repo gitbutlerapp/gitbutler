@@ -15,7 +15,6 @@ pub enum ChangesSource {
         id: gix::ObjectId,
     },
     /// Changes between two arbitrary trees
-    #[allow(dead_code)]
     Tree {
         /// The "after" tree ID
         after_id: gix::ObjectId,

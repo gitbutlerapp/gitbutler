@@ -6,6 +6,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
+use but_core::RefMetadata;
 use gix::refs::{
     Target,
     transaction::{Change, LogChange, PreviousValue, RefEdit},
@@ -18,9 +19,9 @@ use crate::graph_rebase::{
     util::collect_ordered_parents,
 };
 
-impl Editor {
+impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
     /// Perform the rebase
-    pub fn rebase(self) -> Result<SuccessfulRebase> {
+    pub fn rebase(self) -> Result<SuccessfulRebase<'ws, 'graph, M>> {
         // First we want to get a list of nodes that can be reached by
         // traversing downwards from the heads that we care about.
         // Usually there would be just one "head" which is an index to access
@@ -43,6 +44,8 @@ impl Editor {
         // The step graph with updated commit oids
         let mut output_graph = StepGraph::new();
         let mut unchanged_references = vec![];
+
+        let mut history = self.history;
 
         for step_idx in steps_to_pick {
             // Do the frikkin rebase man!
@@ -87,6 +90,9 @@ impl Editor {
                             new_pick.id = new_id;
                             let new_idx = output_graph.add_node(Step::Pick(new_pick));
                             graph_mapping.insert(step_idx, new_idx);
+                            if !pick.exclude_from_tracking {
+                                history.update_mapping(pick.id, new_id);
+                            }
 
                             new_idx
                         }
@@ -202,7 +208,6 @@ impl Editor {
             }
         }
 
-        let mut history = self.history;
         history.add_revision(graph_mapping);
 
         Ok(SuccessfulRebase {
@@ -212,6 +217,8 @@ impl Editor {
             graph: output_graph,
             checkouts: self.checkouts.to_owned(),
             history,
+            workspace: self.workspace,
+            meta: self.meta,
         })
     }
 }

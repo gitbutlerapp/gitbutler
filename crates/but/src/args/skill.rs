@@ -47,6 +47,7 @@ pub enum Subcommands {
     /// ```text
     /// but skill install --detect
     /// ```
+    ///
     #[clap(verbatim_doc_comment)]
     Install {
         /// Install the skill globally instead of in the current repository

@@ -2,11 +2,14 @@ use std::{collections::HashSet, str::FromStr};
 
 use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
-use but_core::{RepositoryExt, sync::RepoExclusiveGuard};
+use but_core::{RepositoryExt, sync::RepoExclusive};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_settings::AppSettings;
-use but_workspace::{commit_engine, commit_engine::StackSegmentId, legacy::ui::StackEntry};
+use but_workspace::{
+    commit_engine::{self, StackSegmentId},
+    legacy::{StacksFilter, ui::StackEntry},
+};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::{
@@ -14,16 +17,46 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
 };
 use gitbutler_reference::{LocalRefname, Refname};
-use gitbutler_stack::{StackId, VirtualBranchesHandle};
+use gitbutler_stack::StackId;
 use tracing::instrument;
 
 use crate::json::HexHash;
 
-#[but_api(napi)]
+mod json {
+    use but_workspace::legacy::MoveChangesResult;
+    use serde::Serialize;
+
+    use crate::json::HexHash;
+
+    /// UI type for a move changes between commits result.
+    #[derive(Debug, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    /// UI type for a move changes between commits result
+    pub struct UIMoveChangesResult {
+        /// Commits that have been mapped from one thing to another
+        pub replaced_commits: Vec<(HexHash, HexHash)>,
+    }
+
+    impl From<MoveChangesResult> for UIMoveChangesResult {
+        fn from(value: MoveChangesResult) -> Self {
+            let MoveChangesResult { replaced_commits } = value;
+
+            Self {
+                replaced_commits: replaced_commits
+                    .into_iter()
+                    .map(|(x, y)| (x.into(), y.into()))
+                    .collect(),
+            }
+        }
+    }
+}
+
+#[but_api(napi, try_from = but_workspace::ui::RefInfo)]
 #[instrument(err(Debug))]
-pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::ui::RefInfo> {
+pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = ctx.legacy_meta()?;
+    let meta = ctx.meta()?;
+    let mut cache = ctx.cache.get_cache_mut()?;
     but_workspace::head_info(
         &repo,
         &meta,
@@ -31,11 +64,9 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::ui::RefInfo> {
             traversal: but_graph::init::Options::limited(),
             expensive_commit_info: true,
         },
+        &mut cache,
     )
-    .and_then(|info| {
-        but_workspace::ui::RefInfo::for_ui(info, &repo)
-            .map(|ref_info| ref_info.pruned_to_entrypoint())
-    })
+    .map(|info| info.pruned_to_entrypoint())
 }
 
 #[but_api]
@@ -44,9 +75,18 @@ pub fn stacks(
     ctx: &Context,
     filter: Option<but_workspace::legacy::StacksFilter>,
 ) -> Result<Vec<StackEntry>> {
+    stacks_v3_from_ctx(ctx, filter.unwrap_or_default())
+}
+///
+/// Return stack information for the repository that `ctx` refers to using legacy metadata.
+pub(crate) fn stacks_v3_from_ctx(
+    ctx: &Context,
+    filter: StacksFilter,
+) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = ctx.legacy_meta()?;
-    but_workspace::legacy::stacks_v3(&repo, &meta, filter.unwrap_or_default(), None)
+    let meta = ctx.meta()?;
+    let mut cache = ctx.cache.get_cache_mut()?;
+    but_workspace::legacy::stacks_v3(&repo, &meta, filter, None, &mut cache)
 }
 
 #[cfg(unix)]
@@ -54,13 +94,12 @@ pub fn stacks(
 #[instrument(err(Debug))]
 pub fn show_graph_svg(ctx: &Context) -> Result<()> {
     let repo = ctx.open_isolated_repo()?;
-    let meta = ctx.legacy_meta()?;
+    let meta = ctx.meta()?;
     let mut graph = but_graph::Graph::from_head(
         &repo,
         &meta,
         but_graph::init::Options {
             collect_tags: true,
-            extra_target_commit_id: meta.data().default_target.as_ref().map(|t| t.sha),
             ..but_graph::init::Options::limited()
         },
     )?;
@@ -146,8 +185,9 @@ pub fn stack_details(
 ) -> Result<but_workspace::ui::StackDetails> {
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
-        let meta = ctx.legacy_meta()?;
-        but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
+        let meta = ctx.meta()?;
+        let mut cache = ctx.cache.get_cache_mut()?;
+        but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta, &mut cache)
     }?;
     let repo = ctx.repo.get()?;
     let gerrit_mode = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
@@ -224,7 +264,7 @@ fn handle_gerrit(
     Ok(())
 }
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn branch_details(
     ctx: &but_ctx::Context,
@@ -233,7 +273,7 @@ pub fn branch_details(
 ) -> Result<but_workspace::ui::BranchDetails> {
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
-        let meta = ctx.legacy_meta()?;
+        let meta = ctx.meta()?;
         let ref_name: gix::refs::FullName = match remote.as_deref() {
             None => {
                 format!("refs/heads/{branch_name}")
@@ -269,7 +309,7 @@ pub fn branch_details(
 /// hunks would fail.
 /// `stack_branch_name` is the short name of the reference that the UI knows is present in a given segment.
 /// It is necessary to insert the new commit into the right bucket.
-#[but_api]
+#[but_api(commit_engine::ui::CreateCommitOutcome)]
 #[instrument(err(Debug))]
 pub fn create_commit_from_worktree_changes(
     ctx: &mut but_ctx::Context,
@@ -278,7 +318,7 @@ pub fn create_commit_from_worktree_changes(
     worktree_changes: Vec<but_core::DiffSpec>,
     message: String,
     stack_branch_name: String,
-) -> Result<commit_engine::ui::CreateCommitOutcome> {
+) -> Result<commit_engine::CreateCommitOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
     let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
 
@@ -302,8 +342,7 @@ pub fn create_commit_from_worktree_changes(
         )
     });
 
-    let outcome = outcome?;
-    Ok(outcome.into())
+    outcome
 }
 
 /// Amend all `changes` to `commit_id`, keeping its commit message exactly as is.
@@ -311,36 +350,43 @@ pub fn create_commit_from_worktree_changes(
 /// All `changes` are meant to be relative to the worktree.
 /// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
 /// hunks would fail.
-#[but_api]
+#[but_api(commit_engine::ui::CreateCommitOutcome)]
 #[instrument(err(Debug))]
 pub fn amend_commit_from_worktree_changes(
     ctx: &mut Context,
     stack_id: StackId,
     commit_id: gix::ObjectId,
     worktree_changes: Vec<but_core::DiffSpec>,
-) -> Result<commit_engine::ui::CreateCommitOutcome> {
+) -> Result<commit_engine::CreateCommitOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
     let repo = ctx.repo.get()?;
     let data_dir = ctx.project_data_dir();
-    amend_commit_and_count_failures(
+    let outcome = amend_commit_and_count_failures(
         stack_id,
         commit_id,
         worktree_changes,
-        &mut guard,
+        guard.write_permission(),
         &repo,
         &data_dir,
-    )
+    )?;
+
+    // Refresh the workspace commit so `gitbutler/workspace` HEAD stays in sync
+    // with the rewritten branch commits. Without this, tools that inspect HEAD
+    // (e.g. pre-push hooks that stash against it) see a stale synthetic commit.
+    update_workspace_commit(ctx, false)?;
+
+    Ok(outcome)
 }
 
 /// Amend a commit with the given changes and return the number of rejected files
-pub fn amend_commit_and_count_failures(
+pub(crate) fn amend_commit_and_count_failures(
     stack_id: StackId,
     commit_id: gix::ObjectId,
     worktree_changes: Vec<but_core::DiffSpec>,
-    guard: &mut RepoExclusiveGuard,
+    perm: &mut RepoExclusive,
     repo: &gix::Repository,
     data_dir: &std::path::Path,
-) -> anyhow::Result<commit_engine::ui::CreateCommitOutcome> {
+) -> anyhow::Result<commit_engine::CreateCommitOutcome> {
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         repo,
@@ -353,12 +399,12 @@ pub fn amend_commit_and_count_failures(
         },
         worktree_changes,
         app_settings.context_lines,
-        guard.write_permission(),
+        perm,
     )?;
     if !outcome.rejected_specs.is_empty() {
         tracing::warn!(?outcome.rejected_specs, "Failed to commit at least one hunk");
     }
-    Ok(outcome.into())
+    Ok(outcome)
 }
 
 /// Discard all worktree changes that match the specs in `worktree_changes`.
@@ -389,25 +435,7 @@ pub fn discard_worktree_changes(
     Ok(refused)
 }
 
-mod json {
-    use but_workspace::legacy::MoveChangesResult;
-
-    pub use crate::json::UIMoveChangesResult;
-
-    impl From<MoveChangesResult> for UIMoveChangesResult {
-        fn from(value: MoveChangesResult) -> Self {
-            Self {
-                replaced_commits: value
-                    .replaced_commits
-                    .into_iter()
-                    .map(|(x, y)| (x.into(), y.into()))
-                    .collect(),
-            }
-        }
-    }
-}
-
-#[but_api]
+#[but_api(json::UIMoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn move_changes_between_commits(
     ctx: &mut Context,
@@ -416,7 +444,7 @@ pub fn move_changes_between_commits(
     destination_stack_id: StackId,
     destination_commit_id: gix::ObjectId,
     changes: Vec<but_core::DiffSpec>,
-) -> Result<json::UIMoveChangesResult> {
+) -> Result<but_workspace::legacy::MoveChangesResult> {
     let mut guard = ctx.exclusive_worktree_access();
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::AmendCommit),
@@ -433,13 +461,12 @@ pub fn move_changes_between_commits(
     )?;
 
     // TODO(ctx): remove this, with the rebase engine this is done above - needs at least manual testing to be sure
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    update_workspace_commit(&vb_state, ctx, false)?;
+    update_workspace_commit(ctx, false)?;
 
-    Ok(result.into())
+    Ok(result)
 }
 
-#[but_api]
+#[but_api(json::UIMoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn split_branch(
     ctx: &mut Context,
@@ -447,7 +474,7 @@ pub fn split_branch(
     source_branch_name: String,
     new_branch_name: String,
     file_changes_to_split_off: Vec<String>,
-) -> Result<json::UIMoveChangesResult> {
+) -> Result<but_workspace::legacy::MoveChangesResult> {
     let mut guard = ctx.exclusive_worktree_access();
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::SplitBranch),
@@ -464,8 +491,7 @@ pub fn split_branch(
     )?;
 
     // TODO(ctx): remove this, it's done above
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    update_workspace_commit(&vb_state, ctx, false)?;
+    update_workspace_commit(ctx, false)?;
 
     let refname = Refname::Local(LocalRefname::new(&new_branch_name, None));
     let branch_manager = ctx.branch_manager();
@@ -481,10 +507,10 @@ pub fn split_branch(
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
     ws.refresh_from_head(&repo, &meta)?;
 
-    Ok(move_changes_result.into())
+    Ok(move_changes_result)
 }
 
-#[but_api]
+#[but_api(json::UIMoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn split_branch_into_dependent_branch(
     ctx: &mut but_ctx::Context,
@@ -492,7 +518,7 @@ pub fn split_branch_into_dependent_branch(
     source_branch_name: String,
     new_branch_name: String,
     file_changes_to_split_off: Vec<String>,
-) -> Result<json::UIMoveChangesResult> {
+) -> Result<but_workspace::legacy::MoveChangesResult> {
     let mut guard = ctx.exclusive_worktree_access();
 
     let _ = ctx.create_snapshot(
@@ -509,10 +535,9 @@ pub fn split_branch_into_dependent_branch(
         guard.write_permission(),
     )?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    update_workspace_commit(&vb_state, ctx, false)?;
+    update_workspace_commit(ctx, false)?;
 
-    Ok(move_changes_result.into())
+    Ok(move_changes_result)
 }
 
 /// Uncommits the changes specified in the `diffspec`.
@@ -520,7 +545,7 @@ pub fn split_branch_into_dependent_branch(
 /// If `assign_to` is provided, the changes will be assigned to the stack
 /// specified.
 /// If `assign_to` is not provided, the changes will be unassigned.
-#[but_api]
+#[but_api(json::UIMoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn uncommit_changes(
     ctx: &mut Context,
@@ -528,7 +553,7 @@ pub fn uncommit_changes(
     commit_id: gix::ObjectId,
     changes: Vec<but_core::DiffSpec>,
     assign_to: Option<StackId>,
-) -> Result<json::UIMoveChangesResult> {
+) -> Result<but_workspace::legacy::MoveChangesResult> {
     let mut guard = ctx.exclusive_worktree_access();
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::DiscardChanges),
@@ -549,9 +574,7 @@ pub fn uncommit_changes(
             db.hunk_assignments_mut()?,
             &repo,
             &ws,
-            false,
             None::<Vec<but_core::TreeChange>>,
-            None,
             context_lines,
         )?;
         Some(changes.0)
@@ -567,8 +590,7 @@ pub fn uncommit_changes(
         guard.write_permission(),
     )?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    update_workspace_commit(&vb_state, ctx, false)?;
+    update_workspace_commit(ctx, false)?;
 
     if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
@@ -576,9 +598,7 @@ pub fn uncommit_changes(
             db.hunk_assignments_mut()?,
             &repo,
             &ws,
-            false,
             None::<Vec<but_core::TreeChange>>,
-            None,
             context_lines,
         )?;
 
@@ -602,25 +622,24 @@ pub fn uncommit_changes(
             &repo,
             &ws,
             to_assign,
-            None,
             context_lines,
         )?;
     }
 
-    Ok(result.into())
+    Ok(result)
 }
 
 /// This API allows the user to quickly "stash" a bunch of uncommitted changes - getting them out of the worktree.
 /// Unlike the regular stash, the user specifies a new branch where those changes will be 'saved'/committed.
 /// Immediately after the changes are committed, the branch is unapplied from the workspace, and the "stash" branch can be re-applied at a later time
 /// In theory it should be possible to specify an existing "dumping" branch for this, but currently this endpoint expects a new branch.
-#[but_api]
+#[but_api(commit_engine::ui::CreateCommitOutcome)]
 #[instrument(err(Debug))]
 pub fn stash_into_branch(
     ctx: &mut Context,
     branch_name: String,
     worktree_changes: Vec<but_core::DiffSpec>,
-) -> Result<commit_engine::ui::CreateCommitOutcome> {
+) -> Result<commit_engine::CreateCommitOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
 
@@ -657,8 +676,7 @@ pub fn stash_into_branch(
         perm,
     );
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    gitbutler_branch_actions::update_workspace_commit(&vb_state, ctx, false)
+    gitbutler_branch_actions::update_workspace_commit(ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     branch_manager.unapply(
@@ -669,8 +687,7 @@ pub fn stash_into_branch(
         ctx.settings.feature_flags.cv3,
     )?;
 
-    let outcome = outcome?;
-    Ok(outcome.into())
+    outcome
 }
 
 /// Returns a new available branch name based on a simple template - user_initials-branch-count

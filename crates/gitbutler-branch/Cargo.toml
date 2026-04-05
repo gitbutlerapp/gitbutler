@@ -7,6 +7,9 @@ publish = false
 rust-version.workspace = true
 autotests = false
 
+[features]
+export-schema = ["dep:schemars", "dep:but-schemars"]
+
 [lib]
 doctest = false
 
@@ -15,12 +18,12 @@ gitbutler-reference.workspace = true
 gitbutler-stack.workspace = true
 
 anyhow.workspace = true
-git2.workspace = true
 gix = { workspace = true, features = [] }
-itertools.workspace = true
 serde.workspace = true
 bstr.workspace = true
 lazy_static = "1.4.0"
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
 
 [[test]]
 name = "branch"

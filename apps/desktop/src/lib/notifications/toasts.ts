@@ -1,11 +1,3 @@
-import { persistSwallowGitHubOrgAuthErrors } from "$lib/config/config";
-import {
-	getTitleFromCommonErrorMessage,
-	isBundlingError,
-	isGitHubOrgAuthError,
-	parseError,
-	shouldIgnoreThistError,
-} from "$lib/error/parser";
 import posthog from "posthog-js";
 import { writable, type Writable } from "svelte/store";
 import type { MessageStyle } from "@gitbutler/ui";
@@ -55,44 +47,6 @@ export function showToast(toast: Toast) {
 		...items.filter((t) => toast.id === undefined || t.id !== toast.id),
 		toast,
 	]);
-}
-
-export function showError(title: string, error: unknown, extraAction?: ExtraAction, id?: string) {
-	const { name, message, description, ignored } = parseError(error);
-	if (isBundlingError(message)) {
-		console.warn(
-			"You are likely experiencing a dev mode bundling error, " +
-				"try disabling the cache from the network tab and " +
-				"reload the page.",
-		);
-		return;
-	}
-	const commonErrorTitle = getTitleFromCommonErrorMessage(message);
-	const actualTitle = name || commonErrorTitle || title;
-	const shouldIgnoreThisSpecificError = shouldIgnoreThistError(actualTitle);
-
-	if (!ignored && !shouldIgnoreThisSpecificError) {
-		const offerToIgnore = isGitHubOrgAuthError(actualTitle);
-		const actualExtraAction =
-			extraAction ??
-			(offerToIgnore
-				? {
-						label: "Don't show this again",
-						onClick: () => {
-							persistSwallowGitHubOrgAuthErrors(true);
-						},
-					}
-				: undefined);
-
-		showToast({
-			id,
-			title: actualTitle,
-			message: description,
-			error: message,
-			style: "danger",
-			extraAction: actualExtraAction,
-		});
-	}
 }
 
 export function showInfo(title: string, message: string, extraAction?: ExtraAction) {

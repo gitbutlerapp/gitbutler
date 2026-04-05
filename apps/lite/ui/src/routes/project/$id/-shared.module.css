@@ -1,0 +1,172 @@
+.lanes {
+	display: flex;
+	column-gap: 8px;
+	flex-grow: 1;
+}
+
+.pageWithPreview {
+	flex-grow: 1;
+}
+
+.primaryPanel {
+	display: flex;
+	flex-direction: column;
+	min-height: 100%;
+	padding: var(--panel-padding);
+}
+
+.previewPanel {
+	padding: var(--panel-padding);
+}
+
+.previewDialogPopup {
+	display: flex;
+	position: fixed;
+	flex-direction: column;
+	inset: 0;
+	overflow: hidden;
+	background-color: var(--color-bg);
+}
+
+.previewDialogBody {
+	flex: 1;
+	padding: var(--panel-padding);
+	overflow: auto;
+}
+
+.previewResizeHandle {
+	width: 1px;
+	background-color: var(--color-separator);
+}
+
+.laneDiffColumn {
+	width: 500px;
+}
+
+.item {
+	display: flex;
+	align-items: start;
+
+	&:where(:hover) {
+		background-color: var(--color-item-hover-bg);
+	}
+}
+
+.itemEmpty {
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
+	color: var(--color-text-secondary);
+	line-height: var(--item-line-height);
+}
+
+.selected {
+	background-color: var(--color-item-selected-bg);
+	color: var(--color-item-selected-fg);
+}
+
+.highlighted {
+	background-color: var(--color-item-highlighted-bg);
+	color: var(--color-text);
+}
+
+.sectionSelected {
+	background-color: var(--color-section-selected-bg);
+}
+
+.itemAction {
+	display: grid;
+	visibility: hidden;
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
+
+	&:enabled:hover {
+		background-color: var(--color-item-action-hover-bg);
+
+		.item.selected & {
+			background-color: var(--color-item-selected-action-hover-bg);
+		}
+	}
+
+	svg {
+		width: var(--item-line-height);
+		height: var(--item-line-height);
+	}
+
+	.item:hover &,
+	.item:focus-within &,
+	.item:has(.itemAction[aria-expanded="true"]) &,
+	.item.selected & {
+		visibility: visible;
+	}
+
+	&:disabled {
+		opacity: 0.5;
+	}
+}
+
+.commitMessageBody {
+	white-space: pre-wrap;
+}
+
+.commitButton {
+	flex-grow: 1;
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
+	overflow: hidden;
+	line-height: var(--item-line-height);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.commitButtonPending {
+	opacity: 0.5;
+}
+
+.fileButton {
+	flex-grow: 1;
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
+	overflow: hidden;
+	line-height: var(--item-line-height);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.file {
+	padding-left: 8px;
+}
+
+.selectedFile {
+	background-color: var(--color-file-selected-bg);
+}
+
+.hunkHeaderRow {
+	display: flex;
+	column-gap: 4px;
+	align-items: center;
+}
+
+.hunkHeader {
+	flex-grow: 1;
+	font-family: monospace;
+}
+
+.previewHunk {
+	padding: 4px 6px;
+
+	&:where(:hover) {
+		outline: 2px solid var(--color-separator);
+	}
+}
+
+.previewHunkSelected {
+	outline: 2px solid light-dark(black, white);
+}
+
+.dragPreview {
+	padding: 8px;
+	border: 1px solid light-dark(rgb(0 0 0 / 0.2), rgb(255 255 255 / 0.16));
+	border-radius: 8px;
+	background-color: var(--color-bg);
+	box-shadow: 0 12px 16px -8px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.4));
+}

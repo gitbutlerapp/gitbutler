@@ -12,7 +12,10 @@ use crate::{
 
 #[derive(Default)]
 pub(crate) enum BackgroundSync {
-    Enabled,
+    Enabled {
+        /// If true nothing will be printed when spawning background sync.
+        silent: bool,
+    },
     #[default]
     Disabled,
 }
@@ -172,6 +175,7 @@ pub fn init_ctx(
                         }
                     }
                 }
+                ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
             }
 
             let fetch_interval_minutes = ctx.settings.fetch.auto_fetch_interval_minutes;
@@ -201,7 +205,7 @@ pub fn init_ctx(
         BackgroundSync::Disabled => {
             return Ok(ctx);
         }
-        BackgroundSync::Enabled => {
+        BackgroundSync::Enabled { silent } => {
             // Check if background tasks are disabled via environment variable
             if std::env::var("NO_BG_TASKS").is_ok() {
                 return Ok(ctx);
@@ -218,7 +222,7 @@ pub fn init_ctx(
 
             // Spawn background sync if there's anything to do
             if sync_operations.has_work() {
-                spawn_background_sync(args, out, last_fetch, sync_operations);
+                spawn_background_sync(args, out, last_fetch, sync_operations, silent);
             }
         }
     }
@@ -318,6 +322,7 @@ fn spawn_background_sync(
     out: &mut OutputChannel,
     last_fetch: Option<std::time::SystemTime>,
     operations: SyncOperations,
+    silent: bool,
 ) {
     let binary_path = std::env::current_exe().unwrap_or_default();
     let mut cmd = tokio::process::Command::new(binary_path);
@@ -343,7 +348,7 @@ fn spawn_background_sync(
         .group()
         .kill_on_drop(false);
 
-    if cmd.spawn().is_ok() {
+    if cmd.spawn().is_ok() && !silent {
         // Show user feedback about what's happening
         // Only show "last fetch" message if we're actually fetching
         let msg = if operations.fetch {

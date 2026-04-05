@@ -378,14 +378,14 @@
 		gap: 12px;
 		border-bottom: 1px solid transparent;
 
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 
 		transition:
 			border-bottom var(--transition-medium),
 			padding var(--transition-medium);
 
 		&.bottom-line {
-			border-bottom: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--border-2);
 		}
 	}
 
@@ -411,7 +411,7 @@
 		gap: 6px;
 
 		& span {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 			opacity: 0.8;
 		}
 
@@ -421,7 +421,7 @@
 	}
 
 	.review-main-title {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 	}
 
 	.review-main__patch-navigator {
@@ -443,9 +443,9 @@
 		flex-direction: column;
 		padding: 16px;
 		gap: 8px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: 10px;
-		background: var(--clr-bg-1);
+		background: var(--bg-1);
 		color: var(--text-1);
 		font-style: normal;
 		font-size: 13px;
@@ -454,12 +454,12 @@
 	}
 
 	.review-main-description__placeholder {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		font-style: italic;
 	}
 
 	.review-main-description__caption {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.review-chat {

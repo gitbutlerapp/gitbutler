@@ -38,7 +38,7 @@
 		}
 
 		:global(:last-child .overflow-actions-btn) {
-			border-right: 1px solid var(--clr-border-2);
+			border-right: 1px solid var(--border-2);
 			border-top-right-radius: var(--radius-m);
 			border-bottom-right-radius: var(--radius-m);
 		}

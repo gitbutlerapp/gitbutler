@@ -1,0 +1,27 @@
+.container {
+	display: flex;
+	column-gap: 12px;
+	row-gap: 4px;
+	flex-wrap: wrap;
+	align-items: baseline;
+	padding: 4px var(--panel-padding);
+	border-top: 1px solid var(--color-separator);
+	color: var(--color-text-secondary);
+	text-transform: lowercase;
+}
+
+.scope {
+	color: var(--color-text);
+	font-weight: 600;
+}
+
+.item {
+	display: flex;
+	column-gap: 4px;
+	align-items: baseline;
+}
+
+.keys {
+	color: var(--color-text);
+	font-family: monospace;
+}

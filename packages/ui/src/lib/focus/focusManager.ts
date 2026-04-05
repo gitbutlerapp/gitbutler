@@ -56,6 +56,15 @@ export class FocusManager {
 	// ============================================
 
 	// Handles keyboard navigation with arrow keys, Tab, and custom handlers
+	// True while processKeyboardEvent is on the call stack. Readable by focusable
+	// onActive callbacks to distinguish keyboard-initiated focus changes from
+	// mouse-initiated ones (handleClick does not set this flag).
+	private _inKeyboardNav = false;
+
+	get isKeyboardNavigation(): boolean {
+		return this._inKeyboardNav;
+	}
+
 	private handleKeydown(event: KeyboardEvent) {
 		if (this.processKeyboardEvent(event)) {
 			event.stopPropagation();
@@ -64,24 +73,29 @@ export class FocusManager {
 	}
 
 	private processKeyboardEvent(event: KeyboardEvent): boolean {
-		// Allow Tab and Escape through even in input elements for focus trap handling
-		const isTabOrEscape = event.key === "Tab" || event.key === "Escape";
-		if (!isTabOrEscape && this.shouldSkipEvent(event)) return false;
+		this._inKeyboardNav = true;
+		try {
+			// Allow Tab and Escape through even in input elements for focus trap handling
+			const isTabOrEscape = event.key === "Tab" || event.key === "Escape";
+			if (!isTabOrEscape && this.shouldSkipEvent(event)) return false;
 
-		if (this.handleFModeInput(event)) return true;
-		if (this.handleHotkeyPress(event)) return true;
+			if (this.handleFModeInput(event)) return true;
+			if (this.handleHotkeyPress(event)) return true;
 
-		const node = this.updateCurrentNode(event);
-		if (!node) return false;
+			const node = this.updateCurrentNode(event);
+			if (!node) return false;
 
-		const context = this.buildNavigationContext(event, node);
+			const context = this.buildNavigationContext(event, node);
 
-		if (this.handleTabKey(context, event)) return true;
-		if (this.handleEscapeKey(event)) return true;
-		if (this.hasSelection()) return false;
-		if (this.handleActions(event)) return true;
+			if (this.handleTabKey(context, event)) return true;
+			if (this.handleEscapeKey(event)) return true;
+			if (this.hasSelection()) return false;
+			if (this.handleActions(event)) return true;
 
-		return this.handleNavigation(event, context);
+			return this.handleNavigation(event, context);
+		} finally {
+			this._inKeyboardNav = false;
+		}
 	}
 
 	// Handles mouse clicks to update focus, traversing up to find focusables
@@ -280,6 +294,21 @@ export class FocusManager {
 		const navigableChildren = this.getNavigableChildNodes(this.currentNode.parent);
 		const child = navigableChildren.at(n);
 		return this.setActiveNode(child);
+	}
+
+	/** Show the keyboard focus ring on the current cursor element. */
+	activateOutline(): void {
+		this.setOutline(true);
+	}
+
+	/**
+	 * Move FM focus directly to a known DOM element (bypasses index arithmetic).
+	 * Safe to call from outside because it looks up the FM node by element reference,
+	 * so it cannot accidentally land on a folder header.
+	 */
+	focusByElement(element: HTMLElement): boolean {
+		const node = this.nodeMap.get(element);
+		return this.setActiveNode(node);
 	}
 
 	updateElementOptions(element: HTMLElement, updates: Partial<FocusableOptions>): boolean {

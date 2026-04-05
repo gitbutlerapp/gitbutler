@@ -6,13 +6,12 @@ import { GitHubPrService } from "$lib/forge/github/githubPrService.svelte";
 import { GitHubRepoService } from "$lib/forge/github/githubRepoService.svelte";
 import { GitHubIssueService } from "$lib/forge/github/issueService";
 import { providesList, ReduxTag } from "$lib/state/tags";
-import type { PostHogWrapper } from "$lib/analytics/posthog";
 import type { GitHubClient } from "$lib/forge/github/githubClient";
 import type { Forge, ForgeName } from "$lib/forge/interface/forge";
 import type { ForgeArguments } from "$lib/forge/interface/types";
-import type { BackendApi, GitHubApi } from "$lib/state/clientState.svelte";
+import type { AppDispatch, BackendApi, GitHubApi } from "$lib/state/clientState.svelte";
+import type { PostHogWrapper } from "$lib/telemetry/posthog";
 import type { RestEndpointMethodTypes } from "@octokit/rest";
-import type { ThunkDispatch, UnknownAction } from "@reduxjs/toolkit";
 import type { TagDescription } from "@reduxjs/toolkit/query";
 
 export const GITHUB_DOMAIN = "github.com";
@@ -27,7 +26,7 @@ export class GitHub implements Forge {
 
 	constructor(
 		private params: ForgeArguments & {
-			dispatch: ThunkDispatch<any, any, UnknownAction>;
+			dispatch: AppDispatch;
 			posthog?: PostHogWrapper;
 			client: GitHubClient;
 			api: GitHubApi;

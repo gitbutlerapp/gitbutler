@@ -556,6 +556,6 @@
 		width: 100%;
 		padding: 400px 0 100px;
 		border-radius: var(--radius-ml);
-		background: var(--clr-bg-2);
+		background: var(--bg-2);
 	}
 </style>

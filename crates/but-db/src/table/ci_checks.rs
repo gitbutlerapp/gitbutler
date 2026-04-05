@@ -2,10 +2,11 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DbHandle, M, Transaction};
+use crate::{DbHandle, M, SchemaVersion, Transaction};
 
 pub(crate) const M: &[M<'static>] = &[M::up(
     20260105095934,
+    SchemaVersion::Zero,
     "CREATE TABLE `ci_checks`(
 	`id` BIGINT NOT NULL PRIMARY KEY,
 	`name` TEXT NOT NULL,

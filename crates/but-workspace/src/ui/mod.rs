@@ -45,6 +45,8 @@ pub enum CommitState {
     /// This should happen when this commit or the contents of this commit is already part of the base.
     Integrated,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(CommitState);
 
 impl CommitState {
     fn display(&self, id: gix::ObjectId) -> &'static str {
@@ -110,6 +112,8 @@ pub struct Commit {
     /// Only populated if Gerrit mode is enabled and the commit has an associated review.
     pub gerrit_review_url: Option<String>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(Commit);
 
 impl TryFrom<gix::Commit<'_>> for Commit {
     type Error = anyhow::Error;
@@ -193,6 +197,8 @@ pub struct UpstreamCommit {
     /// The author of the commit.
     pub author: Author,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(UpstreamCommit);
 
 impl std::fmt::Debug for UpstreamCommit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -223,6 +229,8 @@ pub enum PushStatus {
     /// Fully integrated, no changes to push.
     Integrated,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(PushStatus);
 
 /// Information about the current state of a branch.
 #[derive(Debug, Clone, Serialize)]
@@ -296,12 +304,19 @@ pub struct BranchDetails {
     /// Whether the branch is conflicted.
     pub is_conflicted: bool,
     /// The commits contained in the branch, excluding the upstream commits.
+    ///
+    /// Note that legacy stack details currently do not expose
+    /// [`crate::ref_info::Segment::commits_outside`], so commits that only appear there are
+    /// omitted from this list rather than represented separately.
+    /// It's also unclear how to recover from there.
     pub commits: Vec<Commit>,
     /// The commits that are only at the remote.
     pub upstream_commits: Vec<UpstreamCommit>,
     /// Whether it's representing a remote head
     pub is_remote_head: bool,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(BranchDetails);
 
 /// Information about the current state of a stack
 #[derive(Debug, Clone, Serialize)]

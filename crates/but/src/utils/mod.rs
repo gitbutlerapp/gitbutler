@@ -5,13 +5,20 @@ pub use output_channel::{
     Confirm, ConfirmDefault, ConfirmOrEmpty, InputOutputChannel, OutputChannel, WriteWithUtils,
 };
 
+mod object_id;
+pub use object_id::{shorten_hex_object_id, shorten_object_id, split_short_id};
+
 mod pager;
+
+mod debug_as_type;
+pub(crate) use debug_as_type::DebugAsType;
 
 pub mod metrics;
 #[cfg(feature = "legacy")]
 pub use metrics::types::BackgroundMetrics;
 pub use metrics::types::OneshotMetricsContext;
 
+pub mod detect_agent;
 pub mod time;
 
 /// Utilities attached to `anyhow::Result<impl serde::Serialize>`.

@@ -18,11 +18,8 @@ use anyhow::Result;
 use bstr::{BString, ByteSlice};
 use but_core::{DiffSpec, HunkHeader, TreeChange, UnifiedPatch, ref_metadata::StackId};
 use but_db::{HunkAssignmentsHandle, HunkAssignmentsHandleMut};
-use but_hunk_dependency::ui::{
-    HunkDependencies, HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir,
-};
+use but_hunk_dependency::ui::HunkDependencies;
 use gix::ObjectId;
-use itertools::Itertools;
 use reconcile::MultipleOverlapping;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -57,11 +54,11 @@ pub struct HunkAssignment {
     pub path_bytes: BString,
     /// The stack to which the hunk is assigned. If None, the hunk is not assigned to any stack.
     #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::stack_id_opt")
+    )]
     pub stack_id: Option<StackId>,
-    /// The dependencies(locks) that this hunk has. This determines where the hunk can be assigned.
-    /// This field is ignored when HunkAssignment is passed by the UI to create a new assignment.
-    #[serde(skip)]
-    pub hunk_locks: Option<Vec<HunkLock>>,
     /// The line numbers that were added in this hunk.
     pub line_nums_added: Option<Vec<usize>>,
     /// The line numbers that were removed in this hunk.
@@ -70,6 +67,8 @@ pub struct HunkAssignment {
     #[serde(skip)]
     pub diff: Option<BString>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HunkAssignment);
 
 impl HunkAssignment {
     pub fn from_tree_change(change: &TreeChange, patch: Option<UnifiedPatch>) -> Vec<Self> {
@@ -95,7 +94,6 @@ impl TryFrom<but_db::HunkAssignment> for HunkAssignment {
             path: value.path,
             path_bytes: value.path_bytes.into(),
             stack_id,
-            hunk_locks: None,
             line_nums_added: None,   // derived data (not persisted)
             line_nums_removed: None, // derived data (not persisted)
             diff: None,              // derived data (not persisted)
@@ -144,6 +142,7 @@ impl From<HunkAssignment> for but_core::DiffSpec {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 #[cfg_attr(
@@ -161,14 +160,19 @@ pub enum AbsorptionTarget {
         changes: Vec<but_core::ui::TreeChange>,
         // Optionally, the stack to which the changes are assigned
         #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
+        #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
         assigned_stack_id: Option<StackId>,
     },
     #[default]
     All,
 }
 
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(AbsorptionTarget);
+
 /// Reason why a file is being absorbed to a particular commit
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(
@@ -184,6 +188,9 @@ pub enum AbsorptionReason {
     DefaultStack,
 }
 
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(AbsorptionReason);
+
 impl AbsorptionReason {
     pub fn description(&self) -> &str {
         match self {
@@ -196,6 +203,7 @@ impl AbsorptionReason {
 
 /// Information about a file being absorbed
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
@@ -207,8 +215,12 @@ pub struct FileAbsorption {
     pub assignment: HunkAssignment,
 }
 
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(FileAbsorption);
+
 /// Information about absorptions grouped by commit
 #[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
@@ -217,14 +229,19 @@ pub struct FileAbsorption {
 )]
 pub struct CommitAbsorption {
     #[cfg_attr(feature = "export-ts", ts(type = "string"))]
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub stack_id: but_core::ref_metadata::StackId,
     #[cfg_attr(feature = "export-ts", ts(type = "string"))]
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     #[serde(with = "but_serde::object_id")]
     pub commit_id: gix::ObjectId,
     pub commit_summary: String,
     pub files: Vec<FileAbsorption>,
     pub reason: AbsorptionReason,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(CommitAbsorption);
 
 /// JSON output structure for a file being absorbed
 #[derive(Debug, Serialize)]
@@ -253,17 +270,6 @@ pub struct JsonAbsorbOutput {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-/// Indicates that the assignment request was rejected due to locking - the hunk depends on a commit in the stack it is currently in.
-pub struct AssignmentRejection {
-    /// The request that was rejected.
-    request: HunkAssignmentRequest,
-    /// The locks that caused the rejection.
-    locks: Vec<HunkLock>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
 /// A request to update a hunk assignment.
 /// If a a file has multiple hunks, the UI client should send a list of assignment requests with the appropriate hunk headers.
 pub struct HunkAssignmentRequest {
@@ -279,8 +285,14 @@ pub struct HunkAssignmentRequest {
     pub path_bytes: BString,
     /// The stack to which the hunk is assigned. If set to None, the hunk is set as "unassigned".
     /// If a stack id is set, it must be one of the applied stacks.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::stack_id_opt")
+    )]
     pub stack_id: Option<StackId>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HunkAssignmentRequest);
 
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -302,6 +314,8 @@ pub struct WorktreeChanges {
     )]
     pub dependencies_error: Option<serde_error::Error>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(WorktreeChanges);
 
 impl From<but_core::ui::WorktreeChanges> for WorktreeChanges {
     fn from(worktree_changes: but_core::ui::WorktreeChanges) -> Self {
@@ -371,14 +385,8 @@ impl HunkAssignment {
     }
 }
 
-/// Sets the assignment for a hunk. It must be already present in the current assignments, errors out if it isn't.
-/// If the stack is not in the list of applied stacks, it errors out.
-/// Returns the updated assignments list.
-///
-/// Optionally takes pre-computed hunk dependencies. If not provided, they will
-/// be computed using the provided `repo` and `workspace`.
-///
-/// The provided hunk dependencies should be computed for all workspace changes.
+/// Applies assignment requests by reconciling them with the current worktree and persisted assignments.
+/// Persists the updated assignments and returns `Ok(())` on success.
 ///
 /// `context_lines` determines the amount of context lines in diffs, and it should match the UI.
 pub fn assign(
@@ -386,23 +394,14 @@ pub fn assign(
     repo: &gix::Repository,
     workspace: &but_graph::projection::Workspace,
     requests: Vec<HunkAssignmentRequest>,
-    deps: Option<&HunkDependencies>,
     context_lines: u32,
-) -> Result<Vec<AssignmentRejection>> {
+) -> Result<()> {
     let identifiable_stacks = workspace
         .stacks
         .iter()
         .filter_map(|s| s.id)
         .collect::<Vec<_>>();
 
-    let owned_deps;
-    let deps = if let Some(deps) = deps {
-        deps
-    } else {
-        owned_deps =
-            hunk_dependencies_for_workspace_changes_by_worktree_dir(repo, workspace, None)?;
-        &owned_deps
-    };
     let worktree_changes: Vec<but_core::TreeChange> =
         but_core::diff::worktree_changes(repo)?.changes;
     let mut worktree_assignments = vec![];
@@ -427,92 +426,44 @@ pub fn assign(
     // Reconcile with the requested changes
     let with_requests = reconcile::assignments(
         &with_worktree,
-        &requests_to_assignments(requests.clone()),
+        &requests_to_assignments(requests),
         &identifiable_stacks,
         MultipleOverlapping::SetMostLines,
         true,
     );
 
-    // Reconcile with hunk locks
-    let lock_assignments = hunk_dependency_assignments(deps);
-    let with_locks = reconcile::assignments(
-        &with_requests,
-        &lock_assignments,
-        &identifiable_stacks,
-        MultipleOverlapping::SetNone,
-        false,
-    );
+    state::set_assignments(db, with_requests)?;
 
-    state::set_assignments(db, with_locks.clone())?;
-
-    // Request where the stack_id is different from the outcome are considered rejections - this is due to locking
-    // Collect all the rejected requests together with the locks that caused the rejection
-    let mut rejections = vec![];
-    for req in requests {
-        let locks = with_locks
-            .iter()
-            .filter(|assignment| {
-                req.matches_assignment(assignment) && req.stack_id != assignment.stack_id
-            })
-            .flat_map(|assignment| assignment.hunk_locks.clone().unwrap_or_default())
-            .collect_vec();
-        if !locks.is_empty() {
-            rejections.push(AssignmentRejection {
-                request: req.clone(),
-                locks,
-            });
-        }
-    }
-    Ok(rejections)
+    Ok(())
 }
 
-/// Similar to the `reconcile_with_worktree_and_locks` function.
-/// TODO: figure out a better name for this function
 pub fn assignments_with_fallback(
     db: HunkAssignmentsHandleMut,
     repo: &gix::Repository,
     workspace: &but_graph::projection::Workspace,
-    set_assignment_from_locks: bool,
     worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
-    deps: Option<&HunkDependencies>,
     context_lines: u32,
 ) -> Result<(Vec<HunkAssignment>, Option<anyhow::Error>)> {
-    let hunk_assignments = reconcile_worktree_changes_with_worktree_and_locks(
+    let hunk_assignments = reconcile_worktree_changes_with_worktree(
         db,
         repo,
         workspace,
-        set_assignment_from_locks,
         worktree_changes,
-        deps,
         context_lines,
     )?;
     Ok((hunk_assignments, None))
 }
 
-fn reconcile_worktree_changes_with_worktree_and_locks(
+fn reconcile_worktree_changes_with_worktree(
     db: HunkAssignmentsHandleMut,
     repo: &gix::Repository,
     workspace: &but_graph::projection::Workspace,
-    set_assignment_from_locks: bool,
     worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
-    deps: Option<&HunkDependencies>,
     context_lines: u32,
 ) -> Result<Vec<HunkAssignment>> {
     let worktree_changes: Vec<but_core::TreeChange> = match worktree_changes {
         Some(wtc) => wtc.into_iter().map(Into::into).collect(),
         None => but_core::diff::worktree_changes(repo)?.changes,
-    };
-
-    let owned_deps;
-    let deps = if let Some(deps) = deps {
-        deps
-    } else {
-        owned_deps = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-            repo,
-            workspace,
-            Some(worktree_changes.clone()),
-        )?;
-        &owned_deps
     };
 
     if worktree_changes.is_empty() {
@@ -526,14 +477,7 @@ fn reconcile_worktree_changes_with_worktree_and_locks(
             diff.ok().flatten(),
         ));
     }
-    let reconciled = reconcile_with_worktree_and_locks(
-        db.to_ref(),
-        workspace,
-        set_assignment_from_locks,
-        &worktree_assignments,
-        deps,
-        context_lines,
-    )?;
+    let reconciled = reconcile_with_worktree(db.to_ref(), workspace, &worktree_assignments)?;
 
     state::set_assignments(db, reconciled.clone())?;
     Ok(reconciled)
@@ -552,23 +496,12 @@ fn reconcile_worktree_changes_with_worktree_and_locks(
 ///
 /// If a stack is no longer present in the workspace (either unapplied or deleted), any assignments to it are removed.
 ///
-/// If a hunk has a dependency on a particular stack and it has been previously assigned to another stack, the assignment is updated to reflect that dependency.
-/// If a hunk has a dependency but it has not been previously assigned to any stack, it is left unassigned (stack_id is None). This is so that the hunk assignment workflow can remain optional.
-///
 /// This needs to be ran only after the worktree has changed.
-///
-/// If `worktree_changes` is `None`, they will be fetched automatically.
-///
-/// `context_lines` determines the amount of context lines in diffs, and it should match the UI.
-// TODO: Isn't it usually better to have no context, and look at hunks themselves?
-#[instrument(skip(db, workspace, worktree_assignments, deps), err(Debug))]
-fn reconcile_with_worktree_and_locks(
+#[instrument(skip(db, workspace, worktree_assignments), err(Debug))]
+fn reconcile_with_worktree(
     db: HunkAssignmentsHandle,
     workspace: &but_graph::projection::Workspace,
-    set_assignment_from_locks: bool,
     worktree_assignments: &[HunkAssignment],
-    deps: &HunkDependencies,
-    context_lines: u32,
 ) -> Result<Vec<HunkAssignment>> {
     let identifiable_stacks = workspace
         .stacks
@@ -585,46 +518,7 @@ fn reconcile_with_worktree_and_locks(
         true,
     );
 
-    let lock_assignments = hunk_dependency_assignments(deps);
-    let with_locks = reconcile::assignments(
-        &with_worktree,
-        &lock_assignments,
-        &identifiable_stacks,
-        MultipleOverlapping::SetNone,
-        set_assignment_from_locks,
-    );
-
-    Ok(with_locks)
-}
-
-fn hunk_dependency_assignments(deps: &HunkDependencies) -> Vec<HunkAssignment> {
-    let mut assignments = vec![];
-    for (path, hunk, locks) in &deps.diffs {
-        // If there are locks towards more than one stack, this means double locking and the assignment None - the user can resolve this by partial committing.
-        let locked_to_stack_ids_count = locks
-            .iter()
-            .map(|lock| lock.target)
-            .collect::<std::collections::HashSet<_>>()
-            .len();
-        let stack_id: Option<StackId> = if locked_to_stack_ids_count == 1 {
-            locks[0].target.into()
-        } else {
-            None
-        };
-        let assignment = HunkAssignment {
-            id: None,
-            hunk_header: Some(hunk.into()),
-            path: path.clone(),
-            path_bytes: path.clone().into(),
-            stack_id,
-            hunk_locks: Some(locks.clone()),
-            line_nums_added: None,   // derived data (not persisted)
-            line_nums_removed: None, // derived data (not persisted)
-            diff: None,              // derived data (not persisted)
-        };
-        assignments.push(assignment);
-    }
-    assignments
+    Ok(with_worktree)
 }
 
 /// This also generates a UUID for the assignment
@@ -638,7 +532,6 @@ fn diff_to_assignments(diff: Option<UnifiedPatch>, path: BString) -> Vec<HunkAss
                 path: path_str.into(),
                 path_bytes: path,
                 stack_id: None,
-                hunk_locks: None,
                 line_nums_added: None,
                 line_nums_removed: None,
                 diff: None,
@@ -649,7 +542,6 @@ fn diff_to_assignments(diff: Option<UnifiedPatch>, path: BString) -> Vec<HunkAss
                 path: path_str.into(),
                 path_bytes: path,
                 stack_id: None,
-                hunk_locks: None,
                 line_nums_added: None,
                 line_nums_removed: None,
                 diff: None,
@@ -667,7 +559,6 @@ fn diff_to_assignments(diff: Option<UnifiedPatch>, path: BString) -> Vec<HunkAss
                         path: path_str.into(),
                         path_bytes: path,
                         stack_id: None,
-                        hunk_locks: None,
                         line_nums_added: None,
                         line_nums_removed: None,
                         diff: None,
@@ -684,7 +575,6 @@ fn diff_to_assignments(diff: Option<UnifiedPatch>, path: BString) -> Vec<HunkAss
                                 path: path_str.clone().into(),
                                 path_bytes: path.clone(),
                                 stack_id: None,
-                                hunk_locks: None,
                                 line_nums_added: Some(line_nums_added_new),
                                 line_nums_removed: Some(line_nums_removed_old),
                                 diff: Some(hunk.diff.clone()),
@@ -701,7 +591,6 @@ fn diff_to_assignments(diff: Option<UnifiedPatch>, path: BString) -> Vec<HunkAss
             path: path_str.into(),
             path_bytes: path.clone(),
             stack_id: None,
-            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,
@@ -761,7 +650,6 @@ fn requests_to_assignments(request: Vec<HunkAssignmentRequest>) -> Vec<HunkAssig
             path: req.path_bytes.to_str_lossy().into(),
             path_bytes: req.path_bytes,
             stack_id: req.stack_id,
-            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,
@@ -871,7 +759,6 @@ mod tests {
                 path: path.to_string(),
                 path_bytes: BString::from(path),
                 stack_id: stack_id.map(stack_id_seq),
-                hunk_locks: None,
                 line_nums_added: None,
                 line_nums_removed: None,
                 diff: None,
@@ -914,7 +801,6 @@ mod tests {
             && a.path == b.path
             && a.path_bytes == b.path_bytes
             && a.stack_id == b.stack_id
-            && a.hunk_locks == b.hunk_locks
     }
     fn assert_eq(a: Vec<HunkAssignment>, b: Vec<HunkAssignment>) {
         assert!(
@@ -1083,7 +969,6 @@ mod tests {
             path: "image.png".to_string(),
             path_bytes: BString::from("image.png"),
             stack_id: Some(stack_id_seq(1)),
-            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,
@@ -1095,7 +980,6 @@ mod tests {
             path: "image.png".to_string(),
             path_bytes: BString::from("image.png"),
             stack_id: None,
-            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,
@@ -1122,7 +1006,6 @@ mod tests {
             path: "file.txt".to_string(),
             path_bytes: BString::from("file.txt"),
             stack_id: None,
-            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,
@@ -1147,7 +1030,6 @@ mod tests {
             path: "image1.png".to_string(),
             path_bytes: BString::from("image1.png"),
             stack_id: Some(stack_id_seq(1)),
-            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,
@@ -1159,7 +1041,6 @@ mod tests {
             path: "image2.png".to_string(),
             path_bytes: BString::from("image2.png"),
             stack_id: None,
-            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,
@@ -1184,7 +1065,6 @@ mod tests {
                 path: "logo.png".to_string(),
                 path_bytes: BString::from("logo.png"),
                 stack_id: Some(stack_id_seq(1)),
-                hunk_locks: None,
                 line_nums_added: None,
                 line_nums_removed: None,
                 diff: None,
@@ -1201,7 +1081,6 @@ mod tests {
                 path: "logo.png".to_string(),
                 path_bytes: BString::from("logo.png"),
                 stack_id: None,
-                hunk_locks: None,
                 line_nums_added: None,
                 line_nums_removed: None,
                 diff: None,
@@ -1248,7 +1127,6 @@ mod tests {
             path: "data.file".to_string(),
             path_bytes: BString::from("data.file"),
             stack_id: None,
-            hunk_locks: None,
             line_nums_added: None,
             line_nums_removed: None,
             diff: None,

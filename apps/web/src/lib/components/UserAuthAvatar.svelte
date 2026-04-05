@@ -38,8 +38,8 @@
 		height: var(--size-button);
 		overflow: hidden;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-pop-element);
-		color: var(--clr-core-gray-100);
+		background-color: var(--fill-pop-bg);
+		color: var(--clr-gray-100);
 
 		& img {
 			width: 100%;

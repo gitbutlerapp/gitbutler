@@ -43,7 +43,7 @@ workspace (gitbutler/workspace)
 
 ## CLI IDs: Short Identifiers
 
-Every object gets a short, human-readable CLI ID shown in `but status`. IDs are generated per-session and are unique across all entity types (no two objects share an ID) — always read them from `but status --json`.
+Every object gets a short, human-readable CLI ID shown in `but status`. IDs are generated per-session and are unique across all entity types (no two objects share an ID) — always read them from `but status`.
 
 ```
 Commits:    1b, 8f, c2     (short hex prefixes of the SHA, long enough to be unique)
@@ -85,7 +85,11 @@ Example: Adding a new API endpoint and updating button styles are independent.
 
 ### Stacked Branches (Dependent Work)
 
-Create with `but branch new <name> -a <anchor>`:
+**To stack an existing branch** on top of another: `but move <child-branch-name> <parent-branch-name>`.
+
+Equivalent syntax: `but branch move <child-branch-name> <parent-branch-name>`.
+
+**To create a new stacked branch** from scratch: `but branch new <name> -a <anchor>` — only use this when the child branch doesn't exist yet.
 
 ```
 main ── authentication ── user-profile ── settings-page
@@ -99,6 +103,18 @@ Use when:
 - Creating a series of related changes
 
 Example: User profile page needs authentication to be implemented first.
+
+**Stacking two existing branches:** If both branches already exist and you need to make one depend on the other, use top-level `move`:
+```bash
+but move feature/frontend feature/backend
+# Now frontend is stacked on top of backend — both in the same stack
+```
+
+To tear off a branch from a stack:
+
+```bash
+but move feature/frontend zz
+```
 
 **Dependency tracking:** GitButler automatically tracks which changes depend on which commits. You can't stage dependent changes to the wrong branch.
 
@@ -148,15 +164,15 @@ File-in-Commit       │ Uncommit        │ Move       │ Uncommit & assign �
 
 **Common examples:**
 
-| Source | Target | Operation | Example |
-|--------|--------|-----------|---------|
-| File | Branch | Stage file to branch | `but rub a1 bu` |
-| File | Commit | Amend file into commit | `but rub a1 c3` |
-| Commit | Commit | Squash commits | `but rub c2 c3` |
-| Commit | Branch | Move commit to branch | `but rub c2 bu` |
-| File | `zz` | Unstage file | `but rub a1 zz` |
-| Commit | `zz` | Undo commit | `but rub c2 zz` |
-| `zz` | Branch | Stage all unassigned | `but rub zz bu` |
+| Source | Target | Operation              | Example         |
+| ------ | ------ | ---------------------- | --------------- |
+| File   | Branch | Stage file to branch   | `but rub a1 bu` |
+| File   | Commit | Amend file into commit | `but rub a1 c3` |
+| Commit | Commit | Squash commits         | `but rub c2 c3` |
+| Commit | Branch | Move commit to branch  | `but rub c2 bu` |
+| File   | `zz`   | Unstage file           | `but rub a1 zz` |
+| Commit | `zz`   | Undo commit            | `but rub c2 zz` |
+| `zz`   | Branch | Stage all unassigned   | `but rub zz bu` |
 
 ### Higher-Level Conveniences
 
@@ -165,7 +181,7 @@ These commands are wrappers around `but rub`:
 - `but stage <file> <branch>` = `but rub <file> <branch>`
 - `but amend <file> <commit>` = `but rub <file> <commit>`
 - `but squash` = Multiple `but rub <commit> <commit>` operations
-- `but move` = `but rub <commit> <target>` with position control
+- `but move` = commit move/reorder with position control, plus branch stack/tear-off (`<branch> <target-branch>` and `<branch> zz`)
 
 **Why this design?** One powerful primitive is easier to understand and maintain than many specialized commands. Once you understand `but rub`, you understand the editing model.
 
@@ -337,7 +353,7 @@ Git commands that don't modify state are safe to use:
 **Safe (read-only):**
 
 - `git log` - View history
-- `git diff` - See changes (but prefer `but diff` — it supports CLI IDs and `--json`)
+- `git diff` - See changes (but prefer `but diff` — it supports CLI IDs)
 - `git show` - View commits
 - `git blame` - See line history
 - `git reflog` - View reference log

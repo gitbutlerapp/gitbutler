@@ -102,7 +102,7 @@ pub fn pre_commit_hook_diffspecs(
     let (new_tree, ..) =
         but_core::tree::apply_worktree_changes(head.detach(), &repo, &mut changes, context_lines)?;
 
-    hooks::pre_commit_with_tree(ctx, new_tree.to_git2())
+    hooks::pre_commit_with_tree(ctx, new_tree.detach())
 }
 #[but_api]
 #[instrument(err(Debug))]

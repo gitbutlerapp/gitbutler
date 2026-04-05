@@ -933,6 +933,30 @@ impl Graph {
                 if !is_stack_tip {
                     self[sidx].sibling_segment_id = Some(named_sid);
                 } else {
+                    let named_is_direct_parent = self
+                        .inner
+                        .neighbors_directed(sidx, Direction::Incoming)
+                        .any(|n| n == named_sid);
+                    let named_direct_parent_has_outside_commits = named_is_direct_parent && {
+                        let mut has_outside_commits = false;
+                        self.visit_all_segments_including_start_until(
+                            named_sid,
+                            Direction::Outgoing,
+                            |segment| {
+                                let prune = true;
+                                if segment
+                                    .commits
+                                    .iter()
+                                    .any(|c| c.flags.contains(CommitFlags::InWorkspace))
+                                {
+                                    return prune;
+                                }
+                                has_outside_commits |= !segment.commits.is_empty();
+                                has_outside_commits
+                            },
+                        );
+                        has_outside_commits
+                    };
                     let named_is_direct_ws_child = self
                         .inner
                         .neighbors_directed(ws_sidx, Direction::Outgoing)
@@ -941,7 +965,9 @@ impl Graph {
                         .inner
                         .neighbors_directed(sidx, Direction::Outgoing)
                         .any(|n| unique_ws_segment_ids.contains(&n));
-                    if !named_is_direct_ws_child && !has_ws_segments_below {
+                    if named_direct_parent_has_outside_commits
+                        || (!named_is_direct_ws_child && !has_ws_segments_below)
+                    {
                         self[sidx].sibling_segment_id = Some(named_sid);
                     }
                 }

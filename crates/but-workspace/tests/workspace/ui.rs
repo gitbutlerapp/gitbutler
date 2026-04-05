@@ -8,7 +8,7 @@ mod changes_in_branch {
     #[test]
     fn multiple_inside_and_outside_of_workspace() -> anyhow::Result<()> {
         let (repo, meta) = read_only_in_memory_scenario("remote-advanced-ff")?;
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
         * fb27086 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
         | * 89cc2d3 (origin/A) change in A
         |/  
@@ -118,7 +118,7 @@ mod changes_in_branch {
         "#);
 
         // Nothing here, it's the target.
-        insta::assert_debug_snapshot!(ui::diff::changes_in_branch(&repo, &ws, r("refs/remotes/origin/main"))?, @r"
+        insta::assert_debug_snapshot!(ui::diff::changes_in_branch(&repo, &ws, r("refs/remotes/origin/main"))?, @"
         TreeChanges {
             changes: [],
             stats: TreeStats {
@@ -137,11 +137,11 @@ mod changes_in_branch {
             "passing strange ref-names still causes an error - they must exist"
         );
 
-        let mut ref_info = ui::RefInfo::for_ui(
-            but_workspace::head_info(&repo, &*meta, Default::default())?,
-            &repo,
-        )?
-        .pruned_to_entrypoint();
+        let mut ref_info: ui::RefInfo = {
+            let mut cache = crate::ref_info::in_memory_cache();
+            but_workspace::head_info(&repo, &*meta, Default::default(), &mut cache)?.try_into()?
+        };
+        ref_info = ref_info.pruned_to_entrypoint();
         insta::assert_json_snapshot!(&ref_info, @r#"
         {
           "workspaceRef": {

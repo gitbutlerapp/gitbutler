@@ -1,5 +1,8 @@
 use but_api_macros::but_api;
+use but_core::{sync::RepoExclusive, ui::TreeChange};
 use but_ctx::Context;
+use but_hunk_assignment::{HunkAssignmentRequest, WorktreeChanges};
+use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use gix::prelude::ObjectIdExt;
 use tracing::instrument;
 
@@ -30,16 +33,18 @@ pub mod json {
         /// Conflicting entries in `commit` as stored in the conflict commit metadata.
         pub conflict_entries: Option<but_core::commit::ConflictEntries>,
     }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(CommitDetails);
 
     impl From<but_core::diff::CommitDetails> for CommitDetails {
-        fn from(
-            but_core::diff::CommitDetails {
+        fn from(value: but_core::diff::CommitDetails) -> Self {
+            let but_core::diff::CommitDetails {
                 commit,
                 diff_with_first_parent,
                 line_stats,
                 conflict_entries,
-            }: but_core::diff::CommitDetails,
-        ) -> Self {
+            } = value;
+
             CommitDetails {
                 commit: commit.into(),
                 changes: diff_with_first_parent.into_iter().map(Into::into).collect(),
@@ -50,7 +55,11 @@ pub mod json {
     }
 }
 
-/// Compute the tree-diff for `commit_id` with its first parent and optionally calculate `line_stats`.
+/// Computes the tree diff for `commit_id` against its first parent and
+/// optionally calculates `line_stats`.
+///
+/// For lower-level implementation details, see
+/// [`but_core::diff::CommitDetails::from_commit_id()`].
 #[but_api(json::CommitDetails)]
 #[instrument(err(Debug))]
 pub fn commit_details(
@@ -62,7 +71,10 @@ pub fn commit_details(
     CommitDetails::from_commit_id(commit_id.attach(&repo), line_stats.into())
 }
 
-/// This function just exists for the frontend to work without the need for line-stats to be enabled explicitly.
+/// Computes commit details for `commit_id` with line statistics enabled.
+///
+/// This exists for callers that always want line statistics without passing
+/// `line_stats` explicitly.
 #[but_api(napi, json::CommitDetails)]
 #[instrument(err(Debug))]
 pub fn commit_details_with_line_stats(
@@ -70,4 +82,110 @@ pub fn commit_details_with_line_stats(
     commit_id: gix::ObjectId,
 ) -> anyhow::Result<CommitDetails> {
     commit_details(ctx, commit_id, ComputeLineStats::Yes)
+}
+
+/// Produces a unified patch for `change`.
+///
+/// `change` must not be a type change or a submodule change. For lower-level
+/// implementation details, see [`but_core::TreeChange::unified_patch()`].
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub fn tree_change_diffs(
+    ctx: &Context,
+    change: TreeChange,
+) -> anyhow::Result<Option<but_core::UnifiedPatch>> {
+    let change: but_core::TreeChange = change.into();
+    let repo = ctx.repo.get()?;
+    change.unified_patch(&repo, ctx.settings.context_lines)
+}
+
+/// See [`changes_in_worktree_with_perm()`].
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges> {
+    let mut guard = ctx.exclusive_worktree_access();
+    changes_in_worktree_with_perm(ctx, guard.write_permission())
+}
+
+/// This UI-version of [`but_core::diff::worktree_changes()`] simplifies the `git status` information for display in
+/// the user interface as it is right now. From here, it's always possible to add more information as the need arises.
+///
+/// ### Notable Transformations
+/// * There is no notion of an index (`.git/index`) - all changes seem to have happened in the worktree.
+/// * Modifications that were made to the index will be ignored *only if* there is a worktree modification to the same file.
+/// * conflicts are ignored
+///
+/// All ignored status changes are also provided so they can be displayed separately.
+///
+/// For lower-level implementation details, see
+/// [`but_core::diff::worktree_changes()`],
+/// [`but_hunk_assignment::assignments_with_fallback()`], and
+/// [`but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir()`].
+#[but_api(napi)]
+#[instrument(skip_all, err(Debug))]
+pub fn changes_in_worktree_with_perm(
+    ctx: &mut Context,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<WorktreeChanges> {
+    let context_lines = ctx.settings.context_lines;
+
+    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+
+    let changes = but_core::diff::worktree_changes(&repo)?;
+
+    let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
+        &repo,
+        &ws,
+        Some(changes.changes.clone()),
+    );
+    let mut trans = db.immediate_transaction()?;
+
+    let (assignments, assignments_error) = {
+        but_hunk_assignment::assignments_with_fallback(
+            trans.hunk_assignments_mut()?,
+            &repo,
+            &ws,
+            Some(changes.changes.clone()),
+            context_lines,
+        )?
+    };
+
+    trans.commit()?;
+    drop((repo, ws, db));
+    #[cfg(feature = "legacy")]
+    but_rules::handler::process_workspace_rules(ctx, &assignments, perm).ok();
+
+    Ok(WorktreeChanges {
+        worktree_changes: changes.into(),
+        assignments,
+        assignments_error: assignments_error.map(|err| serde_error::Error::new(&*err)),
+        dependencies: dependencies.as_ref().ok().cloned(),
+        dependencies_error: dependencies
+            .as_ref()
+            .err()
+            .map(|err| serde_error::Error::new(&**err)),
+    })
+}
+
+/// Persists `assignments` for the current workspace.
+///
+/// `assignments` is applied against the current workspace state and stored in
+/// the hunk-assignment database. For lower-level implementation details, see
+/// [`but_hunk_assignment::assign()`].
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub fn assign_hunk(
+    ctx: &mut Context,
+    assignments: Vec<HunkAssignmentRequest>,
+) -> anyhow::Result<()> {
+    let context_lines = ctx.settings.context_lines;
+    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+    but_hunk_assignment::assign(
+        db.hunk_assignments_mut()?,
+        &repo,
+        &ws,
+        assignments,
+        context_lines,
+    )?;
+    Ok(())
 }

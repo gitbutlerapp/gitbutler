@@ -91,11 +91,11 @@
 	}
 
 	.empty-state__title {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.empty-state__caption {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		opacity: 0.6;
 	}
 

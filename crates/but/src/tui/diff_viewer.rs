@@ -10,7 +10,7 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
 };
 
-use crate::id::UncommittedCliId;
+use crate::{id::UncommittedCliId, tui::TerminalGuard as _};
 
 /// A single file's diff information for TUI display.
 pub(crate) struct DiffFileEntry {
@@ -124,7 +124,7 @@ impl DiffFileEntry {
                 let ui_change: but_core::ui::TreeChange = change.into();
                 let status = status_char(&ui_change.status);
                 let path = ui_change.path_bytes.to_string();
-                let patch = but_api::legacy::diff::tree_change_diffs(ctx, ui_change)
+                let patch = but_api::diff::tree_change_diffs(ctx, ui_change)
                     .ok()
                     .flatten();
                 let diff_lines = match patch {
@@ -153,9 +153,7 @@ impl DiffFileEntry {
             .map(|change| {
                 let status = status_char(&change.status);
                 let path = change.path_bytes.to_string();
-                let patch = but_api::legacy::diff::tree_change_diffs(ctx, change)
-                    .ok()
-                    .flatten();
+                let patch = but_api::diff::tree_change_diffs(ctx, change).ok().flatten();
                 let diff_lines = match patch {
                     Some(p) => parse_unified_patch(&p),
                     None => vec![DiffLine::Info("(no diff available)".to_string())],
@@ -554,7 +552,7 @@ fn ui(frame: &mut ratatui::Frame, app: &mut DiffViewerApp) {
 }
 
 pub(crate) fn run_diff_viewer(files: Vec<DiffFileEntry>) -> anyhow::Result<()> {
-    let mut guard = super::TerminalGuard::new(true)?;
+    let mut guard = super::CrosstermTerminalGuard::new(true)?;
     let mut app = DiffViewerApp::new(files);
 
     loop {

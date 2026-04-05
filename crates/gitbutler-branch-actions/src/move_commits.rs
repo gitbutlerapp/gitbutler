@@ -1,6 +1,5 @@
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_ctx::{Context, access::RepoExclusive};
-use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
@@ -15,13 +14,13 @@ use crate::VirtualBranchesExt;
 pub(crate) fn move_commit(
     ctx: &Context,
     target_stack_id: StackId,
-    subject_commit_oid: git2::Oid,
+    subject_commit_oid: gix::ObjectId,
     perm: &mut RepoExclusive,
     source_stack_id: StackId,
 ) -> Result<Option<MoveCommitIllegalAction>> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let vb_state = ctx.virtual_branches();
-    let repo = &*ctx.git2_repo.get()?;
+    let mut vb_state = ctx.virtual_branches();
+    let repo = ctx.repo.get()?;
 
     let applied_stacks = vb_state
         .list_stacks_in_workspace()
@@ -39,18 +38,17 @@ pub(crate) fn move_commit(
         .try_stack(target_stack_id)?
         .ok_or(anyhow!("Destination branch not found"))?;
 
-    let subject_commit = repo
-        .find_commit(subject_commit_oid)
+    repo.find_commit(subject_commit_oid)
         .with_context(|| format!("commit {subject_commit_oid} to be moved could not be found"))?;
 
-    take_commit_from_source_stack(ctx, &mut source_stack, subject_commit)?;
+    take_commit_from_source_stack(ctx, &mut source_stack, subject_commit_oid)?;
 
-    move_commit_to_destination_stack(&vb_state, ctx, destination_stack, subject_commit_oid)?;
+    move_commit_to_destination_stack(&mut vb_state, ctx, destination_stack, subject_commit_oid)?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     // Even if this fails, it's not actionable
     let _ = update_uncommitted_changes(ctx, old_workspace, new_workspace, perm);
-    crate::integration::update_workspace_commit(&vb_state, ctx, false)
+    crate::integration::update_workspace_commit_with_vb_state(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     Ok(None)
@@ -73,10 +71,10 @@ pub enum MoveCommitIllegalAction {
 fn take_commit_from_source_stack(
     ctx: &Context,
     source_stack: &mut gitbutler_stack::Stack,
-    subject_commit: git2::Commit<'_>,
+    subject_commit_id: gix::ObjectId,
 ) -> Result<Option<MoveCommitIllegalAction>, anyhow::Error> {
     let merge_base = source_stack.merge_base(ctx)?;
-    let gix_repo = ctx.repo.get()?;
+    let repo = ctx.repo.get()?;
     let steps = source_stack
         .as_rebase_steps(ctx)?
         .into_iter()
@@ -84,47 +82,45 @@ fn take_commit_from_source_stack(
             RebaseStep::Pick {
                 commit_id,
                 new_message: _,
-            } => commit_id != &subject_commit.id().to_gix(),
+            } => commit_id != &subject_commit_id,
             _ => true,
         })
         .collect::<Vec<_>>();
-    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base), None)?;
+    let mut rebase = but_rebase::Rebase::new(&repo, Some(merge_base), None)?;
     rebase.rebase_noops(false);
     rebase.steps(steps)?;
-    let output = rebase.rebase()?;
-    let new_source_head = output.top_commit.to_git2();
+    let output = rebase.rebase(&*ctx.cache.get_cache()?)?;
 
     source_stack.set_heads_from_rebase_output(ctx, output.references)?;
-    let vb_state = ctx.virtual_branches();
-    source_stack.set_stack_head(&vb_state, &gix_repo, new_source_head)?;
+    let mut vb_state = ctx.virtual_branches();
+    source_stack.set_stack_head(&mut vb_state, &repo, output.top_commit)?;
     Ok(None)
 }
 
 /// Move the commit to the destination stack.
 fn move_commit_to_destination_stack(
-    vb_state: &VirtualBranchesHandle,
+    vb_state: &mut VirtualBranchesHandle,
     ctx: &Context,
     mut destination_stack: gitbutler_stack::Stack,
-    commit_id: git2::Oid,
+    commit_id: gix::ObjectId,
 ) -> Result<(), anyhow::Error> {
-    let gix_repo = ctx.repo.get()?;
+    let repo = ctx.repo.get()?;
     let merge_base = destination_stack.merge_base(ctx)?;
     let mut steps = destination_stack.as_rebase_steps(ctx)?;
     // TODO: In the future we can make the API provide additional info for exactly where to place the commit on the destination stack
     steps.insert(
         steps.len() - 1,
         RebaseStep::Pick {
-            commit_id: commit_id.to_gix(),
+            commit_id,
             new_message: None,
         },
     );
-    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base), None)?;
+    let mut rebase = but_rebase::Rebase::new(&repo, Some(merge_base), None)?;
     rebase.rebase_noops(false);
     rebase.steps(steps)?;
-    let output = rebase.rebase()?;
-    let new_destination_head_oid = output.top_commit.to_git2();
+    let output = rebase.rebase(&*ctx.cache.get_cache()?)?;
 
     destination_stack.set_heads_from_rebase_output(ctx, output.references)?;
-    destination_stack.set_stack_head(vb_state, &gix_repo, new_destination_head_oid)?;
+    destination_stack.set_stack_head(vb_state, &repo, output.top_commit)?;
     Ok(())
 }

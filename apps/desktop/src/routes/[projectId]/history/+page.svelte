@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { page } from "$app/state";
-	import ScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
-	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
-	import CreateSnapshotModal from "$components/CreateSnapshotModal.svelte";
-	import FilePreviewPlaceholder from "$components/FilePreviewPlaceholder.svelte";
-	import FullviewLoading from "$components/FullviewLoading.svelte";
-	import LazyloadContainer from "$components/LazyloadContainer.svelte";
-	import Resizer from "$components/Resizer.svelte";
-	import SelectionView from "$components/SelectionView.svelte";
-	import SnapshotCard from "$components/SnapshotCard.svelte";
+	import FilePreviewPlaceholder from "$components/diff/FilePreviewPlaceholder.svelte";
+	import SelectionView from "$components/diff/SelectionView.svelte";
+	import CreateSnapshotModal from "$components/history/CreateSnapshotModal.svelte";
+	import SnapshotCard from "$components/history/SnapshotCard.svelte";
+	import ScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
+	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
+	import FullviewLoading from "$components/shared/FullviewLoading.svelte";
+	import InfiniteScrollTrigger from "$components/shared/InfiniteScrollTrigger.svelte";
+	import Resizer from "$components/shared/Resizer.svelte";
 	import emptyFolderSvg from "$lib/assets/empty-state/empty-folder.svg?raw";
 	import { HISTORY_SERVICE, createdOnDay } from "$lib/history/history";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
@@ -100,14 +100,14 @@
 		<ScrollableContainer>
 			<div class="snapshots-wrapper">
 				<!-- SNAPSHOTS FEED -->
-				<LazyloadContainer
+				<InfiniteScrollTrigger
 					minTriggerCount={MIN_SNAPSHOTS_TO_LOAD}
 					ontrigger={() => {
 						onLastInView();
 					}}
 				>
 					{#each $snapshots as entry, idx (entry.id)}
-						{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1]?.createdAt ?? new Date())}
+						{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1]?.createdAt ?? 0)}
 							<div class="history-view__snapshots__date-header">
 								<h4 class="text-12 text-semibold">
 									{createdOnDay(entry.createdAt)}
@@ -136,7 +136,7 @@
 							/>
 						{/if}
 					{/each}
-				</LazyloadContainer>
+				</InfiniteScrollTrigger>
 
 				<!-- LOAD MORE -->
 				{#if $loading}
@@ -195,9 +195,9 @@
 	<div class="history-view__preview dotted-pattern" use:focusable>
 		{#if selectedFile}
 			<div class="history-view__preview-file">
-				<ConfigurableScrollableContainer bind:viewport={scrollContainer}>
+				<AppScrollableContainer bind:viewport={scrollContainer}>
 					<SelectionView {projectId} {scrollContainer} selectionId={currentSelectionId} />
-				</ConfigurableScrollableContainer>
+				</AppScrollableContainer>
 			</div>
 		{:else}
 			<FilePreviewPlaceholder />
@@ -225,9 +225,9 @@
 		max-width: 620px;
 		height: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 
 	/* SIDEVIEW HEADER */
@@ -236,7 +236,7 @@
 		align-items: center;
 		padding: 12px 12px 12px 14px;
 		gap: 12px;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 	}
 
 	.history-view__snapshots-header-title {
@@ -250,12 +250,12 @@
 		position: sticky;
 		top: -1px;
 		padding: 10px 14px 8px 86px;
-		border-top: 1px solid var(--clr-border-2);
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
+		border-top: 1px solid var(--border-2);
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-2);
 
 		& h4 {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 
 		&:first-child {
@@ -278,7 +278,7 @@
 	}
 
 	.welcome-point__caption {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 
 	/* LOAD MORE */
@@ -289,7 +289,7 @@
 	}
 
 	.load-more span {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 
 	/* PREVIEW */
@@ -299,7 +299,7 @@
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 
@@ -307,6 +307,6 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 </style>

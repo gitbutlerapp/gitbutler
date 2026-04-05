@@ -5,9 +5,8 @@ use std::{
 
 use anyhow::{Context as _, bail};
 use but_api::json;
-use but_ctx::Context;
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_settings::AppSettingsWithDiskSync;
-use gitbutler_project::ProjectId;
 use gix::bstr::ByteSlice;
 use tauri::{State, Window};
 use tracing::instrument;
@@ -44,38 +43,23 @@ pub fn set_project_active(
     window_state: State<'_, WindowState>,
     app_settings_sync: tauri::State<'_, AppSettingsWithDiskSync>,
     window: Window,
-    id: ProjectId,
+    id: ProjectHandleOrLegacyProjectId,
 ) -> Result<Option<ProjectInfo>, json::Error> {
-    let project = match gitbutler_project::get_validated(id).ok() {
-        Some(project) => project,
-        None => {
-            tracing::warn!("Project with ID {id} not found, cannot set it active");
+    // We don't get the legacy object in a validated fashion anymore, but that should be fine
+    // as this only tries to open a Repo, and that's something we do later here as well.
+    let mut ctx: Context = match id.clone().try_into() {
+        Ok(ctx) => ctx,
+        Err(err) => {
+            tracing::warn!("Project with ID {id} not found, cannot set it active: {err}");
             return Ok(None);
         }
     };
-    let repo = git2::Repository::open(project.git_dir())
-        // Only capture this information here to prevent spawning too many errors because of this
-        // (the UI has many parallel calls in flight).
-        .map_err(|err| {
-            let code = err.code();
-            let err = anyhow::Error::from(err);
-            if code == git2::ErrorCode::Owner {
-                err.context(but_error::Code::RepoOwnership)
-            } else {
-                err
-            }
-        })?;
     // --> WARNING <-- Be sure this runs BEFORE the database on `ctx` is used.
-    let mut ctx = Context::new_from_legacy_project(project.clone())?.with_git2_repo(repo);
+    // Only capture this information here to prevent spawning too many errors because of this
+    // (the UI has many parallel calls in flight).
+    ctx.eagerly_populate_git2_repo_cache()?;
 
-    {
-        let mut guard = ctx.exclusive_worktree_access();
-        but_api::legacy::meta::reconcile_in_workspace_state_of_vb_toml(
-            &mut ctx,
-            guard.write_permission(),
-        )
-        .ok();
-    }
+    but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
 
     let db_error = assure_database_valid(ctx.project_data_dir())?;
     let filter_error = warn_about_filters_and_git_lfs(&*ctx.repo.get()?)?;
@@ -102,7 +86,10 @@ pub fn set_project_active(
 /// without having to lock explicitly.
 #[tauri::command]
 #[instrument(skip(handle), err(Debug))]
-pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result<(), json::Error> {
+pub fn open_project_in_window(
+    handle: tauri::AppHandle,
+    id: ProjectHandleOrLegacyProjectId,
+) -> Result<(), json::Error> {
     let label = std::time::UNIX_EPOCH
         .elapsed()
         .or_else(|_| std::time::UNIX_EPOCH.duration_since(std::time::SystemTime::now()))

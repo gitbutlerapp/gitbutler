@@ -59,6 +59,7 @@ pub fn cherry_pick(
     sign_if_configured: bool,
 ) -> Result<CherryPickOutcome> {
     let target = but_core::Commit::from_id(target.attach(repo))?;
+
     if ontos == target.parents.as_slice() {
         // We don't need to rebase
         return Ok(CherryPickOutcome::Identity(target.id.detach()));
@@ -307,7 +308,7 @@ fn commit_from_unconflicted_tree<'repo>(
     .attach(repo))
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn commit_from_conflicted_tree<'repo>(
     parents: &[gix::ObjectId],
     mut to_rebase: but_core::Commit<'repo>,

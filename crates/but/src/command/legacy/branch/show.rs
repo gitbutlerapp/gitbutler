@@ -1,12 +1,12 @@
+use super::super::FileChange;
+use bstr::ByteSlice;
 use but_ctx::Context;
 use but_llm::ChatMessage;
-use but_oxidize::{ObjectIdExt, OidExt};
 use colored::Colorize;
 use tracing::instrument;
 
-use crate::utils::OutputChannel;
+use crate::utils::{OutputChannel, shorten_object_id};
 
-#[allow(clippy::too_many_arguments)]
 pub fn show(
     ctx: &mut Context,
     branch_id: &str,
@@ -109,9 +109,8 @@ struct CommitRef {
 fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck, anyhow::Error> {
     use but_core::RepositoryExt;
 
-    let git2_repo = &*ctx.git2_repo.get()?;
-    let gix_repo = ctx.repo.get()?;
-    let repo = ctx.clone_repo_for_merging_non_persisting()?;
+    let repo = ctx.repo.get()?;
+    let merge_repo = ctx.clone_repo_for_merging_non_persisting()?;
 
     // Get the target (remote tracking branch like origin/master)
     let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -123,15 +122,9 @@ fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck,
         target.branch.remote(),
         target.branch.branch()
     );
-    let target_commit = match repo.find_reference(&target_ref_name) {
-        Ok(reference) => {
-            let target_oid = reference.id();
-            git2_repo.find_commit(target_oid.to_git2())?
-        }
-        Err(_) => {
-            // Fallback to the stored SHA if remote branch doesn't exist
-            git2_repo.find_commit(target.sha)?
-        }
+    let target_commit_id = match merge_repo.find_reference(&target_ref_name) {
+        Ok(mut reference) => reference.peel_to_commit()?.id,
+        Err(_) => target.sha,
     };
 
     // Find the branch by name
@@ -141,52 +134,31 @@ fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck,
         .find(|b| b.name.to_string() == branch_name)
         .ok_or_else(|| anyhow::anyhow!("Branch '{branch_name}' not found"))?;
 
-    let branch_commit = git2_repo.find_commit(branch.head)?;
-
     // Find merge base
-    let merge_base = git2_repo.merge_base(target_commit.id(), branch_commit.id())?;
-    let merge_base_commit = git2_repo.find_commit(merge_base)?;
+    let merge_base = repo.merge_base(branch.head, target_commit_id)?.detach();
+    let merge_base_tree_id = repo.find_commit(merge_base)?.tree_id()?.detach();
+    let target_tree_id = repo.find_commit(target_commit_id)?.tree_id()?.detach();
+    let branch_tree_id = repo.find_commit(branch.head)?.tree_id()?.detach();
 
     // Check if branch merges cleanly into target
-    let merges_cleanly = repo.merges_cleanly(
-        merge_base_commit.tree_id().to_gix(),
-        target_commit.tree_id().to_gix(),
-        branch_commit.tree_id().to_gix(),
-    )?;
+    let merges_cleanly =
+        merge_repo.merges_cleanly(merge_base_tree_id, target_tree_id, branch_tree_id)?;
 
     let mut conflicting_files = Vec::new();
 
     // If there are conflicts, identify which files conflict and which commits modified them
     if !merges_cleanly {
         // Get the list of conflicting files from the merge
-        let conflict_paths = get_merge_conflict_paths(
-            &repo,
-            merge_base_commit.tree_id(),
-            target_commit.tree_id(),
-            branch_commit.tree_id(),
-        )?;
-
-        let merge_base_gix = merge_base.to_gix();
-        let branch_commit_gix = branch_commit.id().to_gix();
-        let target_commit_gix = target_commit.id().to_gix();
+        let conflict_paths =
+            get_merge_conflict_paths(&repo, merge_base_tree_id, target_tree_id, branch_tree_id)?;
 
         // For each conflicting file, find which commits on both sides modified it
         for path in conflict_paths {
-            let branch_commits = find_commits_modifying_file(
-                git2_repo,
-                &gix_repo,
-                &path,
-                merge_base_gix,
-                branch_commit_gix,
-            )?;
+            let branch_commits =
+                find_commits_modifying_file(&repo, &path, merge_base, branch.head)?;
 
-            let upstream_commits = find_commits_modifying_file(
-                git2_repo,
-                &gix_repo,
-                &path,
-                merge_base_gix,
-                target_commit_gix,
-            )?;
+            let upstream_commits =
+                find_commits_modifying_file(&repo, &path, merge_base, target_commit_id)?;
 
             conflicting_files.push(ConflictingFile {
                 path,
@@ -204,17 +176,17 @@ fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck,
 
 fn get_merge_conflict_paths(
     gix_repo: &gix::Repository,
-    base_tree: git2::Oid,
-    ours_tree: git2::Oid,
-    theirs_tree: git2::Oid,
+    base_tree: gix::ObjectId,
+    ours_tree: gix::ObjectId,
+    theirs_tree: gix::ObjectId,
 ) -> Result<Vec<String>, anyhow::Error> {
     use but_core::RepositoryExt;
 
     let (options, conflict_kind) = gix_repo.merge_options_fail_fast()?;
     let merge_result = gix_repo.merge_trees(
-        base_tree.to_gix(),
-        ours_tree.to_gix(),
-        theirs_tree.to_gix(),
+        base_tree,
+        ours_tree,
+        theirs_tree,
         gix_repo.default_merge_labels(),
         options,
     )?;
@@ -236,9 +208,9 @@ fn get_merge_conflict_paths(
     Ok(paths)
 }
 
+// TODO(perf): we need a common mechanism for doing this and let it create a per-commit cache per repository.
 fn find_commits_modifying_file(
-    git2_repo: &git2::Repository,
-    gix_repo: &gix::Repository,
+    repo: &gix::Repository,
     path: &str,
     from_commit: gix::ObjectId,
     to_commit: gix::ObjectId,
@@ -246,59 +218,36 @@ fn find_commits_modifying_file(
     use gix::prelude::ObjectIdExt as _;
 
     let traversal = to_commit
-        .attach(gix_repo)
+        .attach(repo)
         .ancestors()
         .with_hidden(Some(from_commit))
         .all()?;
 
     let mut commits = Vec::new();
+    let path = path.as_bytes().as_bstr();
 
     for info in traversal {
         let info = info?;
-        let oid = info.id.to_git2();
-        let commit = git2_repo.find_commit(oid)?;
+        let commit = repo.find_commit(info.id)?;
+        let commit = commit.decode()?;
 
         // Check if this commit modified the file
-        let tree = commit.tree()?;
-        let parent_tree = if commit.parent_count() > 0 {
-            Some(commit.parent(0)?.tree()?)
-        } else {
-            None
-        };
-
-        let diff = git2_repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
-
-        // Check if any delta in the diff touches this file
-        let mut modified_file = false;
-        for delta in diff.deltas() {
-            let delta_path = delta
-                .new_file()
-                .path()
-                .or_else(|| delta.old_file().path())
-                .and_then(|p| p.to_str());
-
-            if let Some(delta_path) = delta_path
-                && delta_path == path
-            {
-                modified_file = true;
-                break;
-            }
-        }
+        let modified_file = but_core::diff::commit_changes(info.id())?
+            .into_tree_changes()
+            .into_iter()
+            .any(|change| {
+                change.path.as_bstr() == path
+                    || change.previous_path().is_some_and(|prev| prev == path)
+            });
 
         if modified_file {
-            let author = commit.author();
+            let author = commit.author()?;
             commits.push(CommitRef {
-                sha: oid.to_string(),
-                short_sha: oid.to_string()[..7].to_string(),
-                message: commit
-                    .message()
-                    .unwrap_or("(no message)")
-                    .lines()
-                    .next()
-                    .unwrap_or("(no message)")
-                    .to_string(),
-                author_name: author.name().unwrap_or("Unknown").to_string(),
-                timestamp: commit.time().seconds(),
+                sha: info.id.to_string(),
+                short_sha: shorten_object_id(repo, info.id),
+                message: super::super::commit_summary(&commit),
+                author_name: author.name.to_str_lossy().to_string(),
+                timestamp: commit.committer()?.time()?.seconds,
             });
         }
     }
@@ -313,8 +262,7 @@ fn get_commits_ahead(
 ) -> Result<Vec<CommitInfo>, anyhow::Error> {
     use gix::prelude::ObjectIdExt as _;
 
-    let repo = &*ctx.git2_repo.get()?;
-    let gix_repo = ctx.repo.get()?;
+    let repo = ctx.repo.get()?;
 
     // Get the target (remote tracking branch like origin/master)
     let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -326,12 +274,9 @@ fn get_commits_ahead(
         target.branch.remote(),
         target.branch.branch()
     );
-    let target_oid_gix = match gix_repo.find_reference(&target_ref_name) {
-        Ok(reference) => reference.id().detach(),
-        Err(_) => {
-            // Fallback to the stored SHA if remote branch doesn't exist
-            target.sha.to_gix()
-        }
+    let target_oid_gix = match repo.find_reference(&target_ref_name) {
+        Ok(mut reference) => reference.peel_to_commit()?.id,
+        Err(_) => target.sha,
     };
 
     // Find the branch by name
@@ -341,14 +286,14 @@ fn get_commits_ahead(
         .find(|b| b.name.to_string() == branch_name)
         .ok_or_else(|| anyhow::anyhow!("Branch '{branch_name}' not found"))?;
 
-    let branch_oid_gix = branch.head.to_gix();
+    let branch_oid_gix = branch.head;
 
     // Find merge base
-    let merge_base = gix_repo.merge_base(branch_oid_gix, target_oid_gix)?;
+    let merge_base = repo.merge_base(branch_oid_gix, target_oid_gix)?;
 
     // Walk from branch head to merge base, collecting commits
     let traversal = branch_oid_gix
-        .attach(&gix_repo)
+        .attach(&repo)
         .ancestors()
         .with_hidden(Some(merge_base))
         .all()?;
@@ -356,94 +301,34 @@ fn get_commits_ahead(
     let mut commits = Vec::new();
     for info in traversal {
         let info = info?;
-        let oid = info.id.to_git2();
-        let commit = repo.find_commit(oid)?;
-        let author = commit.author();
-
-        // Calculate diff stats
-        let tree = commit.tree()?;
-        let parent_tree = if commit.parent_count() > 0 {
-            Some(commit.parent(0)?.tree()?)
-        } else {
-            None
-        };
-        let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
-        let stats = diff.stats()?;
+        let commit = repo.find_commit(info.id)?;
+        let commit = commit.decode()?;
+        let author = commit.author()?;
+        let changes = but_core::diff::commit_changes(info.id())?;
+        let stats = changes.compute_line_stats(&repo)?;
 
         // Collect per-file stats if requested
         let files = if show_files {
-            let mut files_with_stats = Vec::new();
-
-            // Iterate through deltas and collect stats per file
-            for delta_idx in 0..diff.deltas().len() {
-                let delta = diff.get_delta(delta_idx).unwrap();
-
-                let path = delta
-                    .new_file()
-                    .path()
-                    .or_else(|| delta.old_file().path())
-                    .and_then(|p| p.to_str())
-                    .unwrap_or("(unknown)")
-                    .to_string();
-
-                let status = match delta.status() {
-                    git2::Delta::Added => "added",
-                    git2::Delta::Deleted => "deleted",
-                    git2::Delta::Modified => "modified",
-                    git2::Delta::Renamed => "renamed",
-                    git2::Delta::Copied => "copied",
-                    git2::Delta::Typechange => "typechange",
-                    _ => "unknown",
-                };
-
-                // Get patch for this specific file to count lines
-                let patch = git2::Patch::from_diff(&diff, delta_idx)?;
-                let mut insertions = 0;
-                let mut deletions = 0;
-
-                if let Some(patch) = patch {
-                    for hunk_idx in 0..patch.num_hunks() {
-                        let hunk_lines = patch.num_lines_in_hunk(hunk_idx)?;
-                        for line_idx in 0..hunk_lines {
-                            let line = patch.line_in_hunk(hunk_idx, line_idx)?;
-                            match line.origin() {
-                                '+' => insertions += 1,
-                                '-' => deletions += 1,
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-
-                files_with_stats.push(FileChange {
-                    path,
-                    status: status.to_string(),
-                    insertions,
-                    deletions,
-                });
-            }
-
-            files_with_stats
+            changes
+                .clone()
+                .into_tree_changes()
+                .into_iter()
+                .map(|change| super::super::file_change_from_tree_change(&repo, change))
+                .collect::<Result<Vec<_>, _>>()?
         } else {
             Vec::new()
         };
 
         commits.push(CommitInfo {
-            sha: oid.to_string(),
-            short_sha: oid.to_string()[..7].to_string(),
-            message: commit
-                .message()
-                .unwrap_or("(no message)")
-                .lines()
-                .next()
-                .unwrap_or("(no message)")
-                .to_string(),
-            author_name: author.name().unwrap_or("Unknown").to_string(),
-            author_email: author.email().unwrap_or("").to_string(),
-            timestamp: commit.time().seconds(),
-            files_changed: stats.files_changed(),
-            insertions: stats.insertions(),
-            deletions: stats.deletions(),
+            sha: info.id.to_string(),
+            short_sha: shorten_object_id(&repo, info.id),
+            message: super::super::commit_summary(&commit),
+            author_name: author.name.to_str_lossy().to_string(),
+            author_email: author.email.to_str_lossy().to_string(),
+            timestamp: commit.committer()?.time()?.seconds,
+            files_changed: usize::try_from(stats.files_changed).unwrap_or(usize::MAX),
+            insertions: usize::try_from(stats.lines_added).unwrap_or(usize::MAX),
+            deletions: usize::try_from(stats.lines_removed).unwrap_or(usize::MAX),
             files,
         });
     }
@@ -474,7 +359,7 @@ fn get_unassigned_files(
 
     if let Some(stack_id) = stack_id {
         // Get worktree changes and assignments
-        let worktree_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
+        let worktree_changes = but_api::diff::changes_in_worktree(ctx)?;
 
         let mut by_file: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
         for assignment in worktree_changes.assignments {
@@ -499,14 +384,6 @@ fn get_unassigned_files(
         // Branch is not in workspace, so no unassigned files
         Ok(vec![])
     }
-}
-
-#[derive(Debug, serde::Serialize)]
-struct FileChange {
-    path: String,
-    status: String, // "modified", "added", "deleted"
-    insertions: usize,
-    deletions: usize,
 }
 
 #[derive(Debug, serde::Serialize)]

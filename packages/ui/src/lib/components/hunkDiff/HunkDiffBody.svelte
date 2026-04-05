@@ -2,16 +2,18 @@
 	import HunkDiffRow, { type ContextMenuParams } from "$components/hunkDiff/HunkDiffRow.svelte";
 	import LineSelection from "$components/hunkDiff/lineSelection.svelte";
 	import {
+		clearHighlightingCaches,
 		type ContentSection,
 		type DependencyLock,
 		generateRows,
 		type LineId,
 		lineIdKey,
 		type LineLock,
-		parserFromFilename,
+		langFromFilename,
 		type Row,
 		SectionType,
 	} from "$lib/utils/diffParsing";
+	import { onHighlighterChange } from "$lib/utils/shikiHighlighter";
 	import type { LineSelectionParams } from "$components/hunkDiff/lineSelection.svelte";
 	import type { Snippet } from "svelte";
 
@@ -54,10 +56,23 @@
 	}: Props = $props();
 
 	const lineSelection = new LineSelection();
-	const parser = $derived(parserFromFilename(filePath));
-	const renderRows = $derived(
-		generateRows(filePath, content, inlineUnifiedDiffs, parser, undefined, lineLocks),
-	);
+
+	// Reactive trigger: re-compute rows when shiki highlighter becomes ready
+	// or the app theme (light/dark) changes.
+	let highlighterVersion = $state(0);
+	$effect(() => {
+		return onHighlighterChange(() => {
+			clearHighlightingCaches();
+			highlighterVersion += 1;
+		});
+	});
+
+	const lang = $derived(langFromFilename(filePath));
+	const renderRows = $derived.by(() => {
+		// Access highlighterVersion so rows recompute when shiki finishes loading
+		void highlighterVersion;
+		return generateRows(filePath, content, inlineUnifiedDiffs, lang, undefined, lineLocks);
+	});
 	const clickable = $derived(!!isSelectable);
 	const maxLineNumber = $derived.by(() => {
 		if (renderRows.length === 0) return 0;
@@ -117,7 +132,7 @@
 				},
 			],
 			false,
-			parser,
+			lang,
 			undefined,
 			undefined,
 		);
@@ -176,8 +191,8 @@
 	.diff-comment {
 		width: 100%;
 		padding-left: 4px;
-		border-bottom: 1px solid var(--clr-diff-count-border);
-		background-color: var(--clr-diff-count-bg);
+		border-bottom: 1px solid var(--diff-count-border);
+		background-color: var(--diff-count-bg);
 		font-size: 12px;
 		line-height: 1.25;
 		text-wrap: wrap;
@@ -189,10 +204,10 @@
 
 	.diff-comment__number-column {
 		padding: 4px 4px;
-		border-right: 1px solid var(--clr-diff-count-border);
-		border-bottom: 1px solid var(--clr-diff-count-border);
-		background-color: var(--clr-diff-count-bg);
-		color: var(--clr-diff-count-text);
+		border-right: 1px solid var(--diff-count-border);
+		border-bottom: 1px solid var(--diff-count-border);
+		background-color: var(--diff-count-bg);
+		color: var(--diff-count-text);
 		font-size: 11px;
 		text-align: right;
 		vertical-align: middle;

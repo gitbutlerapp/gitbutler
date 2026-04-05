@@ -74,14 +74,14 @@ fn journey_single_branch_no_ws_commit_no_target() -> anyhow::Result<()> {
         },
     )?;
     insta::assert_snapshot!(desc, @"Single commit, target, no ws commit, but ws-reference and a named segment, and branches on each commit");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c2878fb (HEAD -> gitbutler/workspace, A2, A) A2
     * 49d4b34 (A1) A1
     * 3183e43 (origin/main, main) M1
     ");
 
     let mut ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
     └── ≡📙:3:A on 3183e43 {0}
         ├── 📙:3:A
@@ -108,7 +108,7 @@ fn journey_single_branch_no_ws_commit_no_target() -> anyhow::Result<()> {
     }
 
     let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
     └── ≡:3:anon: on 3183e43
         └── :3:anon:
@@ -135,7 +135,7 @@ fn journey_single_branch_ws_commit_no_target() -> anyhow::Result<()> {
     )?;
 
     insta::assert_snapshot!(desc, @"Two commits in main, target setup, ws commit, many more usable branches");
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 05240ea (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 43f9472 (A2-3, A2-2, A2-1, A) A2
     * 6fdab32 (A1-3, A1-2, A1-1) A1
@@ -143,7 +143,7 @@ fn journey_single_branch_ws_commit_no_target() -> anyhow::Result<()> {
     * 3183e43 M1
     ");
     let mut ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
     └── ≡📙:5:A on bce0c5e {0}
         ├── 📙:5:A
@@ -173,7 +173,7 @@ fn journey_single_branch_ws_commit_no_target() -> anyhow::Result<()> {
         )?
         .expect("we deleted something");
     }
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
     └── ≡📙:3:A1-1 on bce0c5e {0}
         ├── 📙:3:A1-1
@@ -198,7 +198,7 @@ fn journey_single_branch_ws_commit_no_target() -> anyhow::Result<()> {
         .expect("we deleted something");
     }
     // Just one segment left.
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
     └── ≡📙:3:A1-3 on bce0c5e {0}
         └── 📙:3:A1-3
@@ -241,7 +241,7 @@ fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 3183e43 (HEAD -> gitbutler/workspace, main, E, D, C, B, A) M1");
 
     let ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
     ├── ≡📙:5:D on 3183e43 {1}
     │   ├── 📙:5:D
@@ -265,7 +265,7 @@ fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
     )?
     .expect("we deleted something");
 
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
     ├── ≡📙:4:D on 3183e43 {1}
     │   ├── 📙:4:D
@@ -284,7 +284,7 @@ fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
     )?;
 
     let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
     ├── ≡📙:5:D on 3183e43 {1}
     │   ├── 📙:5:D
@@ -310,7 +310,7 @@ fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
         "recreate ref - this time it's not visible as it lacks metadata",
     )?;
 
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
     ├── ≡📙:4:D on 3183e43 {1}
     │   ├── 📙:4:D

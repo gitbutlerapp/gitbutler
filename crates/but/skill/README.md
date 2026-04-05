@@ -16,7 +16,6 @@ The command prompts you to choose local (repository) or global (home directory) 
 - `--path <path>` - Install to a custom path (outside a repository, relative paths require `--global`)
 - `--global` - Install globally (in home directory) instead of current repository
 - `--detect` - Auto-detect installation location from existing installation (useful for updates)
-
 In non-interactive mode, use `--path` or `--detect`.
 
 **Requirements:**
@@ -46,7 +45,7 @@ The skill directory contains both distributable skill files and development docu
 
 ```text
 crates/but/skill/
-├── SKILL.md                   ← Main skill entry point (INSTALLED)
+├── SKILL.md                   ← Skill entry point (INSTALLED)
 ├── README.md                  ← This file - development docs (NOT installed)
 ├── RESEARCH.md                ← Tier 4 testing research and strategy (NOT installed)
 ├── eval/                      ← Tier 4 integration eval harness (NOT installed)

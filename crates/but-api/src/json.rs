@@ -1,4 +1,11 @@
-//! JSON types and utilities to produce decent JSON from API types.
+//! Shared JSON types and utilities to produce decent JSON from API types.
+//!
+//! This module is reserved for general-purpose transport helpers and JSON types
+//! that are shared across API modules.
+//!
+//! If a JSON type only mirrors one API submodule, define it next to that API in
+//! a local `json` module instead of adding it here. See `crate::branch::json`,
+//! `crate::commit::json`, and `crate::diff::json` for the intended pattern.
 pub use error::{Error, ToJsonError, UnmarkedError};
 use gix::refs::Target;
 use schemars::{self, JsonSchema};
@@ -10,7 +17,7 @@ mod hex_hash {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// A type that deserializes a hexadecimal hash into an object id automatically.
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct HexHash(pub gix::ObjectId);
 
     impl From<HexHash> for gix::ObjectId {
@@ -123,8 +130,6 @@ mod hex_hash {
     }
 }
 pub use hex_hash::{HexHash, HexHashString};
-
-use crate::commit::{CommitCreateResult, MoveChangesResult};
 
 mod error {
     //! Utilities to control which errors show in the frontend.
@@ -384,6 +389,8 @@ pub struct FullRefName {
     #[schemars(schema_with = "bstring_schema")]
     pub full_bytes: bstr::BString,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(FullRefName);
 
 impl From<gix::refs::FullName> for FullRefName {
     fn from(value: gix::refs::FullName) -> Self {
@@ -427,57 +434,6 @@ impl From<gix::refs::Reference> for Reference {
                 Target::Object(_) => None,
                 Target::Symbolic(rn) => Some(rn.into()),
             },
-        }
-    }
-}
-
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
-/// UI type for a move changes between commits result
-pub struct UIMoveChangesResult {
-    /// Commits that have been mapped from one thing to another
-    #[cfg_attr(feature = "export-schema", schemars(with = "Vec<(String, String)>"))]
-    pub replaced_commits: Vec<(HexHash, HexHash)>,
-}
-
-impl From<MoveChangesResult> for UIMoveChangesResult {
-    fn from(value: MoveChangesResult) -> Self {
-        Self {
-            replaced_commits: value
-                .replaced_commits
-                .into_iter()
-                .map(|(old, new)| (old.into(), new.into()))
-                .collect(),
-        }
-    }
-}
-
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
-/// UI type for creating a commit in the rebase graph.
-pub struct UICommitCreateResult {
-    /// The new commit if one was created.
-    #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
-    pub new_commit: Option<HexHash>,
-    /// Paths that contained at least one rejected hunk, matching legacy rejection reporting semantics.
-    #[cfg_attr(feature = "export-schema", schemars(with = "Vec<(String, String)>"))]
-    pub paths_to_rejected_changes: Vec<(
-        but_core::tree::create_tree::RejectionReason,
-        but_serde::BStringForFrontend,
-    )>,
-}
-
-impl From<CommitCreateResult> for UICommitCreateResult {
-    fn from(value: CommitCreateResult) -> Self {
-        Self {
-            new_commit: value.new_commit.map(Into::into),
-            paths_to_rejected_changes: value
-                .rejected_specs
-                .into_iter()
-                .map(|(r, d)| (r, d.path.into()))
-                .collect(),
         }
     }
 }

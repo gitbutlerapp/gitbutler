@@ -1,5 +1,7 @@
+import noCrossDomainImports from "@gitbutler/no-cross-domain-imports";
 import noRelativeImportPaths from "@gitbutler/no-relative-imports";
 import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import prettier from "eslint-config-prettier";
 import { createNextImportResolver } from "eslint-import-resolver-next";
 import pluginImportX from "eslint-plugin-import-x";
@@ -7,7 +9,7 @@ import svelte from "eslint-plugin-svelte";
 import globals from "globals";
 import ts from "typescript-eslint";
 
-export default ts.config(
+export default defineConfig(
 	js.configs.recommended,
 	...ts.configs.recommended,
 	...svelte.configs.recommended,
@@ -96,6 +98,7 @@ export default ts.config(
 				},
 			],
 			"no-relative-import-paths/no-relative-import-paths": "error",
+			"no-cross-domain-imports/no-cross-domain-imports": ["error", { maxDomains: 2 }],
 			"no-undef": "off", // eslint faq advises `no-undef` turned off for typescript projects.
 			"svelte/require-each-key": "off",
 			"svelte/no-inspect": "error",
@@ -116,6 +119,14 @@ export default ts.config(
 		plugins: {
 			"import-x": pluginImportX,
 			"no-relative-import-paths": noRelativeImportPaths,
+			"no-cross-domain-imports": noCrossDomainImports,
+		},
+	},
+	{
+		// Composition-layer folders and routes compose across domains by design — no restriction.
+		files: ["apps/desktop/src/components/views/**", "apps/desktop/src/routes/**"],
+		rules: {
+			"no-cross-domain-imports/no-cross-domain-imports": "off",
 		},
 	},
 	{
@@ -132,6 +143,7 @@ export default ts.config(
 	},
 	{
 		ignores: [
+			"apps/lite/**",
 			"**/.*", // dotfiles aren't ignored by default in FlatConfig
 			".*", // dotfiles aren't ignored by default in FlatConfig
 			"**/.DS_Store",
@@ -160,6 +172,8 @@ export default ts.config(
 			"packages/ui/src/stories/**/*.stories.ts",
 			// but-sdk generated code
 			"packages/but-sdk/src/generated",
+			// Standalone scripts not covered by a tsconfig
+			"scripts/**",
 		],
 	},
 );

@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { codeContentToTokens, parserFromExtension } from "@gitbutler/ui/utils/diffParsing";
+	import {
+		clearHighlightingCaches,
+		codeContentToTokens,
+		langFromExtension,
+	} from "@gitbutler/ui/utils/diffParsing";
+	import { onHighlighterChange } from "@gitbutler/ui/utils/shikiHighlighter";
 
 	interface Props {
 		text: string;
@@ -8,8 +13,21 @@
 
 	const { text, lang }: Props = $props();
 
-	const parser = $derived(parserFromExtension(lang));
-	const lines = $derived(codeContentToTokens(text, parser));
+	// Reactive trigger: re-derive when shiki highlighter becomes ready
+	// or the app theme (light/dark) changes.
+	let highlighterVersion = $state(0);
+	$effect(() => {
+		return onHighlighterChange(() => {
+			clearHighlightingCaches();
+			highlighterVersion += 1;
+		});
+	});
+
+	const langId = $derived(langFromExtension(lang));
+	const lines = $derived.by(() => {
+		void highlighterVersion;
+		return codeContentToTokens(text, langId);
+	});
 </script>
 
 <div class="code-wrapper scrollbar">
@@ -29,9 +47,9 @@
 		max-width: 640px;
 		padding: 8px;
 		overflow-x: auto;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 
 		@media (--tablet-viewport) {
 			max-width: 80vw;

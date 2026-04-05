@@ -1,6 +1,6 @@
 <script lang="ts">
-	import BranchesCardTemplate from "$components/branchesPage/BranchesCardTemplate.svelte";
-	import { type BranchListing, BranchListingDetails } from "$lib/branches/branchListing";
+	import BranchesCardLayout from "$components/branchesPage/BranchesCardLayout.svelte";
+	import { type BranchListing, type BranchListingDetails } from "$lib/branches/branchListing";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { getPrStatus } from "$lib/forge/interface/prUtils";
@@ -106,7 +106,7 @@
 	);
 </script>
 
-<BranchesCardTemplate
+<BranchesCardLayout
 	testId={TestId.BranchListCard}
 	{selected}
 	onclick={() => onclick?.({ listing: branchListing, pr })}
@@ -192,14 +192,14 @@
 			{/if}
 		</div>
 	{/snippet}
-</BranchesCardTemplate>
+</BranchesCardLayout>
 
 <style lang="postcss">
 	.sidebar-entry__about {
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.sidebar-entry__header {
@@ -209,7 +209,7 @@
 	}
 
 	.sidebar-entry__divider {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 
 		&:last-child {
 			display: none;
@@ -220,8 +220,8 @@
 		display: flex;
 		padding: 2px 4px;
 		border-radius: 10px;
-		background-color: var(--clr-theme-gray-element);
-		color: var(--clr-theme-gray-on-element);
+		background-color: var(--fill-gray-bg);
+		color: var(--fill-gray-fg);
 	}
 
 	.sidebar-entry__details {
@@ -236,6 +236,6 @@
 		display: flex;
 		align-items: center;
 		gap: 5px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

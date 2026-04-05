@@ -26,7 +26,7 @@
 <Story name="Basic Sticky">
 	<div
 		bind:this={scrollContainer1}
-		style="height: 200px; overflow-y: auto; border: 2px solid var(--clr-border-2); border-radius: 8px;"
+		style="height: 200px; overflow-y: auto; border: 2px solid var(--border-2); border-radius: 8px;"
 	>
 		<div
 			class="sticky-header"
@@ -92,7 +92,7 @@
 		</div>
 
 		<div
-			style="height: 200px; overflow-y: auto; border: 2px solid var(--clr-border-2); border-radius: 8px;"
+			style="height: 200px; overflow-y: auto; border: 2px solid var(--border-2); border-radius: 8px;"
 			bind:this={scrollContainer2}
 		>
 			<div
@@ -130,13 +130,13 @@
 	.sticky-header {
 		margin: 0;
 		padding: 12px 16px;
-		border-bottom: 1px solid var(--clr-border-1);
-		background-color: var(--clr-bg-1);
+		border-bottom: 1px solid var(--border-1);
+		background-color: var(--bg-1);
 	}
 
 	.sticky-header.stuck {
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-2);
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-2);
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	}
 
@@ -152,7 +152,7 @@
 
 	.sticky-header p {
 		margin: 0;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 14px;
 	}
 </style>

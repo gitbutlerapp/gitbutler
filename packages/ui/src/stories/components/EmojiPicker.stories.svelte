@@ -34,7 +34,7 @@
 		display: flex;
 		width: fit-content;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
 	}
 </style>

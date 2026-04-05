@@ -1,7 +1,7 @@
 <script lang="ts">
-	import CommitDetails from "$components/CommitDetails.svelte";
-	import ReduxResult from "$components/ReduxResult.svelte";
-	import ExpandableSection from "$components/codegen/ExpandableSection.svelte";
+	import CommitDetails from "$components/commit/CommitDetails.svelte";
+	import ExpandableSection from "$components/shared/ExpandableSection.svelte";
+	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Icon } from "@gitbutler/ui";
@@ -23,7 +23,7 @@
 			{#snippet summary()}
 				{#each message.commitIds as commitId}
 					<div class="commit-hash">
-						<Icon name="commit" color="var(--clr-text-3)" />
+						<Icon name="commit" color="var(--text-3)" />
 						<span>{commitId.slice(0, 7)}</span>
 					</div>
 				{/each}
@@ -41,7 +41,7 @@
 							{/snippet}
 							{#snippet empty()}
 								<div class="commit-not-found text-12">
-									<Icon name="danger" color="var(--clr-text-2)" />
+									<Icon name="danger" color="var(--text-2)" />
 									<span>Commit {commitId.slice(0, 7)} not found</span>
 								</div>
 							{/snippet}
@@ -65,7 +65,7 @@
 	.commit-bubble {
 		max-width: 520px;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
 	}
 
@@ -76,15 +76,15 @@
 		padding: 12px;
 		gap: 6px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-2);
+		background-color: var(--bg-2);
+		color: var(--text-2);
 	}
 
 	.commit-hash {
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 0.78rem;
 		line-height: 1;
 		font-family: var(--font-mono);

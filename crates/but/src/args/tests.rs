@@ -1,5 +1,135 @@
 use super::*;
 
+#[cfg(feature = "legacy")]
+mod commit;
+#[cfg(feature = "legacy")]
+mod reword;
+
+mod config_ai {
+    use clap::Parser;
+
+    use crate::args::{
+        Args, Subcommands,
+        config::{AiKeyOption, AiSubcommand, Platform as ConfigPlatform, Subcommands as ConfigCmd},
+    };
+
+    #[test]
+    fn interactive_defaults_to_global_scope() {
+        let args = Args::try_parse_from(["but", "config", "ai"]).expect("parse args");
+        let cmd = args.cmd.expect("subcommand");
+
+        match cmd {
+            Subcommands::Config(ConfigPlatform {
+                cmd: Some(ConfigCmd::Ai { local, global, cmd }),
+            }) => {
+                assert!(!local);
+                assert!(!global);
+                assert!(cmd.is_none());
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn openai_non_interactive_parses_provider_flags() {
+        let args = Args::try_parse_from([
+            "but",
+            "config",
+            "ai",
+            "openai",
+            "--key-option",
+            "bring-your-own",
+            "--model",
+            "gpt-5.4-nano",
+            "--endpoint",
+            "https://api.openai.com/v1",
+            "--api-key-env",
+            "OPENAI_API_KEY",
+        ])
+        .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Config(ConfigPlatform {
+                cmd:
+                    Some(ConfigCmd::Ai {
+                        cmd:
+                            Some(AiSubcommand::Openai {
+                                key_option,
+                                model,
+                                endpoint,
+                                api_key,
+                                api_key_env,
+                            }),
+                        ..
+                    }),
+            }) => {
+                assert!(matches!(key_option, Some(AiKeyOption::BringYourOwn)));
+                assert_eq!(model.as_deref(), Some("gpt-5.4-nano"));
+                assert_eq!(endpoint.as_deref(), Some("https://api.openai.com/v1"));
+                assert!(api_key.is_none());
+                assert_eq!(api_key_env.as_deref(), Some("OPENAI_API_KEY"));
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn local_scope_flag_parses_before_provider() {
+        let args = Args::try_parse_from([
+            "but",
+            "config",
+            "ai",
+            "--local",
+            "ollama",
+            "--endpoint",
+            "localhost:11434",
+            "--model",
+            "llama3.1",
+        ])
+        .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Config(ConfigPlatform {
+                cmd:
+                    Some(ConfigCmd::Ai {
+                        local,
+                        global,
+                        cmd: Some(AiSubcommand::Ollama { endpoint, model }),
+                    }),
+            }) => {
+                assert!(local);
+                assert!(!global);
+                assert_eq!(endpoint.as_deref(), Some("localhost:11434"));
+                assert_eq!(model.as_deref(), Some("llama3.1"));
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn show_subcommand_parses() {
+        let args = Args::try_parse_from(["but", "config", "ai", "show"]).expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Config(ConfigPlatform {
+                cmd:
+                    Some(ConfigCmd::Ai {
+                        local,
+                        global,
+                        cmd: Some(AiSubcommand::Show),
+                    }),
+            }) => {
+                assert!(!local);
+                assert!(!global);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+}
+
 #[test]
 fn clap() {
     use clap::CommandFactory;

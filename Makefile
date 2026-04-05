@@ -28,6 +28,25 @@ check:
 clippy:
 	cargo clippy --workspace --all-targets -- -D warnings
 
+# An alias for nextest
+.PHONY: test
+test: nextest
+
+# CI executes this to build a version of `but` without any legacy code.
+.PHONY: check-modern-but
+check-modern-but:
+	cargo check -p but --all-targets --no-default-features
+
+# CI executes this to test a version of `but` without any legacy code.
+.PHONY: test-modern-but
+test-modern-but:
+	cargo test -p but --no-default-features
+
+# Run all tests in the entire workspace and show all failures in the end.
+.PHONY: nextest
+nextest:
+	cargo nextest run --workspace --no-fail-fast
+
 # Format: clippy issues --allow-dirty allows the fix to be run even with a dirty
 # working tree which can technically cause code to break, but I've never seen it
 # happen in practice.

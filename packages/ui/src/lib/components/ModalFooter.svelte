@@ -19,8 +19,8 @@
 		width: 100%;
 		padding: 16px;
 		gap: 8px;
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 		border-radius: 0 0 var(--radius-l) var(--radius-l);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 	}
 </style>

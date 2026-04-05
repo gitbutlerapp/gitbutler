@@ -132,6 +132,6 @@
 		justify-content: center;
 		margin-right: -6px;
 		margin-left: -6px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 	}
 </style>

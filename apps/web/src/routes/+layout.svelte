@@ -64,7 +64,6 @@
 			page.route.id === "/(app)/home" ||
 			page.route.id === "/downloads" ||
 			page.route.id === "/nightly" ||
-			page.route.id === "/color-generator" ||
 			page.route.id === "/cli",
 	);
 

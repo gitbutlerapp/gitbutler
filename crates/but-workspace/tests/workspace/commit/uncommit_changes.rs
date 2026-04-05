@@ -1,6 +1,6 @@
 use anyhow::Result;
 use but_core::DiffSpec;
-use but_rebase::graph_rebase::{GraphExt, LookupStep};
+use but_rebase::graph_rebase::{Editor, LookupStep};
 use but_testsupport::{visualize_commit_graph_all, visualize_tree};
 use but_workspace::commit::uncommit_changes;
 use gix::prelude::ObjectIdExt;
@@ -19,7 +19,7 @@ fn diff_spec_for_file(path: &str) -> DiffSpec {
 fn uncommit_file_from_head() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -37,14 +37,15 @@ fn uncommit_file_from_head() -> Result<()> {
     "#);
 
     // Uncommit three.txt from commit three
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = uncommit_changes(editor, three_id, vec![diff_spec_for_file("three.txt")], 0)?;
 
     let materialized = outcome.rebase.materialize()?;
     let new_commit_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     // Graph structure should be maintained (commit hash will change)
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 832a93c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -65,7 +66,7 @@ fn uncommit_file_from_head() -> Result<()> {
 fn uncommit_file_from_parent() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -82,14 +83,15 @@ fn uncommit_file_from_parent() -> Result<()> {
     "#);
 
     // Uncommit two.txt from commit two
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = uncommit_changes(editor, two_id, vec![diff_spec_for_file("two.txt")], 0)?;
 
     let materialized = outcome.rebase.materialize()?;
     let new_commit_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     // Graph structure should be maintained
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 2c4471e (HEAD -> three) commit three
     * 0f198e0 (two) commit two
     | * 16fd221 (origin/two) commit two
@@ -120,7 +122,7 @@ fn uncommit_file_from_parent() -> Result<()> {
 fn uncommit_file_from_root_commit() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -136,14 +138,15 @@ fn uncommit_file_from_root_commit() -> Result<()> {
     "#);
 
     // Uncommit one.txt from commit one (the root commit)
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = uncommit_changes(editor, one_id, vec![diff_spec_for_file("one.txt")], 0)?;
 
     let materialized = outcome.rebase.materialize()?;
     let new_commit_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     // Graph structure should be maintained
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 72f5d24 (HEAD -> three) commit three
     * 0a49f31 (two) commit two
     * 7fcda42 (one) commit one
@@ -168,7 +171,8 @@ fn error_when_changes_not_found() -> Result<()> {
     let three_id = repo.rev_parse_single("three")?.detach();
 
     // Try to uncommit a file that doesn't exist in source commit
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let result = uncommit_changes(
         editor,
         three_id,
@@ -191,7 +195,7 @@ fn error_when_changes_not_found() -> Result<()> {
 fn uncommit_empty_changes_is_noop() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -200,13 +204,14 @@ fn uncommit_empty_changes_is_noop() -> Result<()> {
     let three_id = repo.rev_parse_single("three")?.detach();
 
     // Uncommit with empty changes should effectively be a no-op rebase
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = uncommit_changes(editor, three_id, Vec::<DiffSpec>::new(), 0)?;
 
     outcome.rebase.materialize()?;
 
     // Graph should be unchanged
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * fbb2bd1 (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one

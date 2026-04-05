@@ -18,6 +18,10 @@
 )]
 
 pub mod claude;
+#[cfg(feature = "irc")]
+pub mod irc;
+#[cfg(feature = "irc")]
+pub mod irc_lifecycle;
 
 pub mod logs;
 pub mod menu;

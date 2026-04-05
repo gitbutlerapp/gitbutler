@@ -6,6 +6,12 @@ authors.workspace = true
 publish = false
 rust-version.workspace = true
 
+[package.metadata.cargo-machete]
+ignored = [
+    # Used only by feature-gated legacy modules.
+    "git2",
+]
+
 [lib]
 doctest = false
 
@@ -14,6 +20,7 @@ legacy = [
     "dep:but-meta",
     "dep:gitbutler-stack",
     "dep:but-ctx",
+    "dep:git2",
     "dep:gitbutler-cherry-pick",
     "dep:gitbutler-commit",
     "dep:gitbutler-repo",
@@ -23,6 +30,7 @@ export-schema = ["dep:schemars", "dep:but-schemars", "but-core/export-schema"]
 
 [dependencies]
 but-core.workspace = true
+but-db.workspace = true
 but-graph.workspace = true
 but-rebase.workspace = true
 but-error.workspace = true
@@ -38,7 +46,7 @@ gitbutler-repo = { workspace = true, optional = true }
 
 anyhow.workspace = true
 bstr.workspace = true
-git2.workspace = true
+git2 = { workspace = true, optional = true }
 gix = { workspace = true, features = ["worktree-mutation"] }
 serde.workspace = true
 itertools.workspace = true

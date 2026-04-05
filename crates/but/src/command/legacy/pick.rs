@@ -4,9 +4,8 @@ use anyhow::{Context as _, Result, bail};
 use bstr::ByteSlice;
 use but_api::legacy::{cherry_apply, virtual_branches, workspace};
 use but_cherry_apply::CherryApplyStatus;
-use but_core::ref_metadata::StackId;
+use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
 use but_workspace::legacy::{StacksFilter, ui::StackEntry};
 use cli_prompts::DisplayPrompt;
 use colored::Colorize;
@@ -19,7 +18,7 @@ use gix::{revision::walk::Sorting, traverse::commit::simple::CommitTimeOrder};
 
 use crate::{
     CliId, IdMap,
-    utils::{OutputChannel, WriteWithUtils},
+    utils::{OutputChannel, WriteWithUtils, shorten_hex_object_id, shorten_object_id},
 };
 
 /// Handle the `but pick` command.
@@ -31,6 +30,9 @@ pub fn handle(
     source: &str,
     target_branch: Option<&str>,
 ) -> Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+
     // Get applied stacks first - we'll need them for target resolution
     let stacks =
         workspace::stacks(ctx, Some(StacksFilter::InWorkspace)).context("Failed to list stacks")?;
@@ -53,39 +55,50 @@ pub fn handle(
     };
 
     // Resolve the source to commit(s) (may involve interactive multi-selection for branches)
-    let commit_oids = resolve_source_commits(ctx, out, source)?;
+    let commit_oids = resolve_source_commits(ctx, out, &id_map, source)?;
 
     // Save an oplog snapshot before applying picks so the operation can be undone
-    {
-        let mut guard = ctx.exclusive_worktree_access();
-        let _ = ctx.create_snapshot(
-            SnapshotDetails::new(OperationKind::CherryPick),
-            guard.write_permission(),
-        );
-    }
+    let _ = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::CherryPick),
+        guard.write_permission(),
+    );
 
     let mut picked = Vec::new();
     for commit_oid in &commit_oids {
         let commit_hex = commit_oid.to_string();
 
         // Check cherry-apply status for each commit
-        let status = cherry_apply::cherry_apply_status(ctx, *commit_oid)
-            .context("Failed to check cherry-apply status")?;
+        let status =
+            cherry_apply::cherry_apply_status_with_perm(ctx, *commit_oid, guard.read_permission())
+                .context("Failed to check cherry-apply status")?;
 
         // Resolve the target stack based on status and user input
-        let (target_stack_id, target_branch_name) =
-            resolve_target_stack(ctx, out, &stacks, effective_target, &status, &commit_hex)?;
+        let (target_stack_id, target_branch_name) = resolve_target_stack(
+            ctx,
+            out,
+            &id_map,
+            &stacks,
+            effective_target,
+            &status,
+            &commit_hex,
+        )?;
 
         // Execute cherry-apply
-        cherry_apply::cherry_apply(ctx, *commit_oid, target_stack_id)
-            .context("Failed to cherry-pick commit")?;
+        cherry_apply::cherry_apply_with_perm(
+            ctx,
+            *commit_oid,
+            target_stack_id,
+            guard.write_permission(),
+        )
+        .context("Failed to cherry-pick commit")?;
 
         picked.push((commit_hex, target_branch_name, target_stack_id));
     }
 
     // Output results
+    let repo = ctx.repo.get()?.clone().for_commit_shortening();
     for (commit_hex, target_branch_name, _) in &picked {
-        let commit_short = &commit_hex[..7.min(commit_hex.len())];
+        let commit_short = shorten_hex_object_id(&repo, commit_hex);
         if let Some(out) = out.for_human() {
             writeln!(
                 out,
@@ -141,6 +154,7 @@ pub fn handle(
 fn resolve_source_commits(
     ctx: &mut Context,
     out: &mut OutputChannel,
+    id_map: &IdMap,
     source: &str,
 ) -> Result<Vec<gix::ObjectId>> {
     // Try as an unapplied branch name first (case-insensitive)
@@ -164,7 +178,6 @@ fn resolve_source_commits(
     }
 
     // Try using IdMap for CLI IDs
-    let id_map = IdMap::new_from_context(ctx, None)?;
     let cli_ids = id_map.parse_using_context(source, ctx)?;
 
     for cli_id in &cli_ids {
@@ -194,23 +207,22 @@ Run 'but status' to see available CLI IDs, or 'but branch list' to see branches.
 fn select_commits_from_branch(
     ctx: &mut Context,
     out: &mut OutputChannel,
-    branch_head: git2::Oid,
+    branch_head: gix::ObjectId,
     branch_name: &str,
 ) -> Result<Vec<gix::ObjectId>> {
     use gix::prelude::ObjectIdExt as _;
 
-    let git2_repo = ctx.git2_repo.get()?;
-    let gix_repo = ctx.repo.get()?;
+    let repo = ctx.repo.get()?;
 
     // Get the target branch to find merge base
     let vb_state = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
     let default_target = vb_state.get_default_target()?;
 
-    let branch_head_gix = branch_head.to_gix();
-    let target_oid_gix = default_target.sha.to_gix();
+    let branch_head_gix = branch_head;
+    let target_oid_gix = default_target.sha;
 
     // Find merge base
-    let merge_base = gix_repo
+    let merge_base = repo
         .merge_base(branch_head_gix, target_oid_gix)
         .context("Failed to find merge base")?;
 
@@ -225,23 +237,28 @@ fn select_commits_from_branch(
 
     // Interactive mode: walk commits from branch head to merge base
     let traversal = branch_head_gix
-        .attach(&gix_repo)
+        .attach(&repo)
         .ancestors()
         .sorting(Sorting::ByCommitTime(CommitTimeOrder::NewestFirst))
         .with_hidden(Some(merge_base))
         .all()?;
 
-    // Collect commit OIDs and then look up git2 commits for message display
+    // Collect commit OIDs and then decode them for message display
     let commit_oids: Vec<gix::ObjectId> = traversal
         .filter_map(Result::ok)
         .map(|info| info.id)
         .take(50) // Limit to reasonable number
         .collect();
 
-    // Keep OID paired with each commit so indices stay aligned after filtering.
+    // Keep OID paired with each commit summary so indices stay aligned after filtering.
     let commits: Vec<_> = commit_oids
         .iter()
-        .filter_map(|oid| git2_repo.find_commit(oid.to_git2()).ok().map(|c| (*oid, c)))
+        .filter_map(|oid| {
+            repo.find_commit(*oid).ok().and_then(|commit| {
+                let commit = commit.decode().ok()?;
+                (*oid, super::commit_summary(&commit)).into()
+            })
+        })
         .collect();
 
     if commits.is_empty() {
@@ -257,9 +274,8 @@ fn select_commits_from_branch(
     let options: Vec<String> = commits
         .iter()
         .enumerate()
-        .map(|(i, (_oid, c))| {
-            let short_id = &c.id().to_string()[..7];
-            let message = c.summary().unwrap_or("(no message)");
+        .map(|(i, (oid, message))| {
+            let short_id = shorten_object_id(&repo, *oid);
             let display = out.truncate_if_unpaged(message, 60);
             format!("[{}] {} {}", i + 1, short_id, display)
         })
@@ -299,6 +315,7 @@ fn select_commits_from_branch(
 fn resolve_target_stack(
     ctx: &mut Context,
     out: &mut OutputChannel,
+    id_map: &IdMap,
     stacks: &[StackEntry],
     target_branch: Option<&str>,
     status: &CherryApplyStatus,
@@ -311,10 +328,11 @@ fn resolve_target_stack(
             bail!("No applied stacks in workspace. Apply a branch first with 'but branch apply'.");
         }
         CherryApplyStatus::CausesWorkspaceConflict => {
+            let repo = ctx.repo.get()?;
+            let commit_short = shorten_hex_object_id(&repo, commit_hex);
             bail!(
-                "Commit {} would cause conflicts with multiple stacks. \
-                 Resolve workspace conflicts first.",
-                &commit_hex[..7.min(commit_hex.len())]
+                "Commit {commit_short} would cause conflicts with multiple stacks. \
+                 Resolve workspace conflicts first."
             );
         }
         CherryApplyStatus::LockedToStack(locked_stack_id) => {
@@ -327,7 +345,7 @@ fn resolve_target_stack(
 
     // If target is specified, find matching stack (by CLI ID or name)
     if let Some(target) = target_branch {
-        return find_stack_by_target(ctx, stacks, target);
+        return find_stack_by_target(ctx, id_map, stacks, target);
     }
 
     // If only one stack, use it automatically
@@ -388,13 +406,12 @@ fn handle_locked_to_stack(
 /// Find a stack by CLI ID or branch name (case-insensitive).
 fn find_stack_by_target(
     ctx: &mut Context,
+    id_map: &IdMap,
     stacks: &[StackEntry],
     target: &str,
 ) -> Result<(StackId, String)> {
     // Try parsing as CLI ID first
-    if let Ok(id_map) = IdMap::new_from_context(ctx, None)
-        && let Ok(cli_ids) = id_map.parse_using_context(target, ctx)
-    {
+    if let Ok(cli_ids) = id_map.parse_using_context(target, ctx) {
         for cli_id in &cli_ids {
             if let CliId::Branch {
                 stack_id: Some(stack_id),

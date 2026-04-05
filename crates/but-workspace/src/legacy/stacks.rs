@@ -1,12 +1,14 @@
 //! Functions related to retrieving stack information.
+
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context as _, bail};
 use bstr::BString;
-use but_core::RefMetadata;
+use but_core::{
+    RefMetadata,
+    ref_metadata::{StackKind, Workspace},
+};
 use but_ctx::Context;
-use but_meta::VirtualBranchesTomlMetadata;
-use but_oxidize::{OidExt, git2_signature_to_gix_signature};
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use gitbutler_stack::{Stack, StackId};
 use gix::date::parse::TimeBuf;
@@ -26,39 +28,62 @@ use crate::{
     ui::{CommitState, StackDetails},
 };
 
-/// Get a stable `StackId` for the given `name`. It's fetched from `meta`, assuming it's backed by a toml file
-/// and assuming that `name` is stored there as applied or unapplied branch.
-fn id_from_name_v2_to_v3(
-    name: &gix::refs::FullNameRef,
-    meta: &VirtualBranchesTomlMetadata,
-) -> anyhow::Result<StackId> {
-    id_from_name_v2_to_v3_opt(name, meta)?.with_context(|| {
-        format!(
-            "{name:?} didn't have a stack-id even though \
-        it was supposed to be in virtualbranches.toml"
-        )
-    })
+fn default_workspace_metadata(meta: &impl RefMetadata) -> anyhow::Result<Option<Workspace>> {
+    ref_info::function::workspace_data_of_default_workspace_branch(meta)
 }
 
-/// Get a stable `StackId` for the given `name`. It's fetched from `meta`, assuming it's backed by a toml file
-/// and assuming that `name` is stored there as applied or unapplied branch.
-/// It's `None` if `name` isn't known to the workspace.
-fn id_from_name_v2_to_v3_opt(
-    name: &gix::refs::FullNameRef,
-    meta: &VirtualBranchesTomlMetadata,
-) -> anyhow::Result<Option<StackId>> {
-    let ref_meta = meta.branch(name)?;
-    Ok(ref_meta.stack_id().map(|id| {
-        id.to_string()
-            .parse()
-            .expect("new stack ids are just UUIDs, like the old ones")
-    }))
+/// Build a lookup from workspace branch ref names to their stable stack IDs.
+///
+/// The mapping covers both applied and unapplied stacks from the default workspace metadata so
+/// callers can attach a V3 [`StackId`] to branch-derived UI entries without reaching into legacy
+/// TOML-backed metadata.
+fn stack_ids_by_ref_name(
+    meta: &impl RefMetadata,
+) -> anyhow::Result<HashMap<gix::refs::FullName, StackId>> {
+    let Some(workspace) = default_workspace_metadata(meta)? else {
+        return Ok(HashMap::new());
+    };
+    Ok(workspace
+        .stacks(StackKind::AppliedAndUnapplied)
+        .flat_map(|stack| {
+            stack
+                .branches
+                .iter()
+                .map(move |branch| (branch.ref_name.clone(), stack.id))
+        })
+        .collect())
+}
+
+/// Build a reverse lookup from stable stack IDs to the branch refs that currently represent them.
+///
+/// Each entry contains every branch ref recorded for the stack in default workspace metadata. This
+/// allows callers to find a surviving repository ref for a stack before asking `ref_info()` to
+/// reconstruct the current workspace projection for that stack.
+fn branch_names_by_stack_id(
+    meta: &impl RefMetadata,
+) -> anyhow::Result<HashMap<StackId, Vec<gix::refs::FullName>>> {
+    let Some(workspace) = default_workspace_metadata(meta)? else {
+        return Ok(HashMap::new());
+    };
+    Ok(workspace
+        .stacks(StackKind::AppliedAndUnapplied)
+        .map(|stack| {
+            (
+                stack.id,
+                stack
+                    .branches
+                    .iter()
+                    .map(|branch| branch.ref_name.clone())
+                    .collect(),
+            )
+        })
+        .collect())
 }
 
 /// Get the associated forge review information out of the metadata, if any.
 fn review_id_from_meta(
     name: &gix::refs::FullNameRef,
-    meta: &VirtualBranchesTomlMetadata,
+    meta: &impl RefMetadata,
 ) -> anyhow::Result<Option<usize>> {
     let pull_request = meta
         .branch_opt(name)?
@@ -92,7 +117,7 @@ pub fn stack_heads_info(
 fn try_from_stack_v3(
     repo: &gix::Repository,
     stack: branch::Stack,
-    meta: &VirtualBranchesTomlMetadata,
+    stack_ids_by_ref_name: &HashMap<gix::refs::FullName, StackId>,
 ) -> anyhow::Result<StackEntry> {
     let name = stack
         .name()
@@ -121,7 +146,7 @@ fn try_from_stack_v3(
         })
         .collect::<anyhow::Result<_>>()?;
     Ok(StackEntry {
-        id: id_from_name_v2_to_v3_opt(name.as_ref(), meta)?,
+        id: stack_ids_by_ref_name.get(&name).copied(),
         tip: heads
             .first()
             .map(|h| h.tip)
@@ -140,9 +165,10 @@ fn try_from_stack_v3(
 // TODO: See if the UI can migrate to `head_info()` or a variant of it so the information is only called once.
 pub fn stacks_v3(
     repo: &gix::Repository,
-    meta: &VirtualBranchesTomlMetadata,
+    meta: &impl RefMetadata,
     filter: StacksFilter,
     ref_name_override: Option<&gix::refs::FullNameRef>,
+    cache: &mut but_db::CacheHandle,
 ) -> anyhow::Result<Vec<StackEntry>> {
     // TODO: See if this works at all once VirtualBranches.toml isn't the backing anymore.
     //       Probably needs to change, maybe even alongside the notion of 'unapplied'.
@@ -150,8 +176,9 @@ pub fn stacks_v3(
     //       found while traversing its commits to some base becomes a stack in that very sense.
     fn unapplied_stacks(
         repo: &gix::Repository,
-        meta: &VirtualBranchesTomlMetadata,
+        meta: &impl RefMetadata,
         applied_stacks: &[branch::Stack],
+        stack_ids_by_ref_name: &HashMap<gix::refs::FullName, StackId>,
     ) -> anyhow::Result<Vec<StackEntry>> {
         let mut out = Vec::new();
         for item in meta.iter() {
@@ -179,7 +206,7 @@ pub fn stacks_v3(
                 .with_context(|| format!("Encountered symbolic reference: {ref_name}"))?
                 .detach();
             out.push(StackEntry {
-                id: id_from_name_v2_to_v3_opt(ref_name.as_ref(), meta)?,
+                id: stack_ids_by_ref_name.get(&ref_name).copied(),
                 // TODO: this is just a simulation and such a thing doesn't really exist in the V3 world, let's see how it goes.
                 //       Thus, we just pass ourselves as first segment, similar to having no other segments.
                 heads: vec![StackHeadInfo {
@@ -201,30 +228,34 @@ pub fn stacks_v3(
         traversal: but_graph::init::Options::limited(),
     };
     let info = match ref_name_override {
-        None => head_info(repo, meta, options),
-        Some(ref_name) => ref_info(repo.find_reference(ref_name)?, meta, options),
+        None => head_info(repo, meta, options, cache),
+        Some(ref_name) => ref_info(repo.find_reference(ref_name)?, meta, options, cache),
     }?;
+    let stack_ids_by_ref_name = stack_ids_by_ref_name(meta)?;
 
     fn into_ui_stacks(
         repo: &gix::Repository,
         stacks: Vec<branch::Stack>,
-        meta: &VirtualBranchesTomlMetadata,
+        stack_ids_by_ref_name: &HashMap<gix::refs::FullName, StackId>,
     ) -> Vec<StackEntry> {
         stacks
             .into_iter()
-            .filter_map(|stack| try_from_stack_v3(repo, stack, meta).ok())
+            .filter_map(|stack| try_from_stack_v3(repo, stack, stack_ids_by_ref_name).ok())
             .collect()
     }
 
     let mut stacks = match filter {
-        StacksFilter::InWorkspace => into_ui_stacks(repo, info.stacks, meta),
+        StacksFilter::InWorkspace => into_ui_stacks(repo, info.stacks, &stack_ids_by_ref_name),
         StacksFilter::All => {
-            let unapplied_stacks = unapplied_stacks(repo, meta, &info.stacks)?;
+            let unapplied_stacks =
+                unapplied_stacks(repo, meta, &info.stacks, &stack_ids_by_ref_name)?;
             let mut all_stacks = unapplied_stacks;
-            all_stacks.extend(into_ui_stacks(repo, info.stacks, meta));
+            all_stacks.extend(into_ui_stacks(repo, info.stacks, &stack_ids_by_ref_name));
             all_stacks
         }
-        StacksFilter::Unapplied => unapplied_stacks(repo, meta, &info.stacks)?,
+        StacksFilter::Unapplied => {
+            unapplied_stacks(repo, meta, &info.stacks, &stack_ids_by_ref_name)?
+        }
     };
 
     let needs_filtering_to_hide_segments_not_checked_out = stacks
@@ -257,26 +288,16 @@ pub fn stacks_v3(
 pub fn stack_details_v3(
     stack_id: Option<StackId>,
     repo: &gix::Repository,
-    meta: &VirtualBranchesTomlMetadata,
+    meta: &impl RefMetadata,
+    cache: &mut but_db::CacheHandle,
 ) -> anyhow::Result<ui::StackDetails> {
-    fn stack_by_id(
-        head_info: RefInfo,
-        stack_id: StackId,
-        alt_stack_id: Option<StackId>,
-        meta: &VirtualBranchesTomlMetadata,
-    ) -> anyhow::Result<Option<branch::Stack>> {
-        let stacks_with_id: Vec<_> = head_info
+    // Prefer the current `HEAD` projection if it can still see the requested stack, and only fall
+    // back to resolving from a surviving ref when that stack is no longer reachable from `HEAD`.
+    fn stack_by_id(head_info: RefInfo, stack_id: StackId) -> Option<branch::Stack> {
+        head_info
             .stacks
             .into_iter()
-            .filter_map(|stack| {
-                let name = stack.name()?.to_owned();
-                Some(id_from_name_v2_to_v3(name.as_ref(), meta).map(|stack_id| (stack_id, stack)))
-            })
-            .collect::<Result<_, _>>()?;
-
-        Ok(stacks_with_id
-            .into_iter()
-            .find_map(|(id, stack)| (id == stack_id || Some(id) == alt_stack_id).then_some(stack)))
+            .find(|stack| stack.id == Some(stack_id))
     }
     let mut ref_info_options = ref_info::Options {
         // TODO(perf): make this so it can be enabled for a specific stack-id.
@@ -290,7 +311,7 @@ pub fn stack_details_v3(
             // would otherwise be returned. The problem is that then the workspace might not be correct, but there isn't
             // another way that still allows to extend the range via gas-stations. Maybe one day we won't need this.
             ref_info_options.traversal.hard_limit = Some(500);
-            let mut info = head_info(repo, meta, ref_info_options)?;
+            let mut info = head_info(repo, meta, ref_info_options, cache)?;
             if info.is_entrypoint {
                 if info.stacks.len() != 1 {
                     bail!(
@@ -308,31 +329,27 @@ pub fn stack_details_v3(
             }
         }
         Some(stack_id) => {
-            // Even though it shouldn't be the case, the ids can totally go out of sync. Use both to play it safer.
-            let (vb_stack, alt_stack_id) = meta
-                .data()
-                .branches
-                .iter()
-                .find_map(|(k, s)| {
-                    if s.id == stack_id {
-                        Some((s, Some(*k)))
-                    } else if *k == stack_id {
-                        Some((s, Some(s.id)))
-                    } else {
-                        None
-                    }
-                })
-                .with_context(|| {
-                    format!("Couldn't find {stack_id} even when looking at virtual_branches.toml directly")
-                })?;
-            let full_name = gix::refs::FullName::try_from(format!(
-                "refs/heads/{shortname}",
-                shortname = vb_stack.derived_name()?
-            ))?;
-            let existing_ref = repo.find_reference(&full_name)?;
-            let ref_info = ref_info(existing_ref, meta, ref_info_options)?;
-            stack_by_id(ref_info, stack_id, alt_stack_id, meta)?
-                .with_context(|| format!("Really couldn't find {stack_id} or {alt_stack_id:?} in current HEAD or when searching virtual_branches.toml plainly"))?
+            if let Some(stack) = stack_by_id(
+                head_info(repo, meta, ref_info_options.clone(), cache)?,
+                stack_id,
+            ) {
+                stack
+            } else {
+                let branch_names_by_stack_id = branch_names_by_stack_id(meta)?;
+                let branch_names = branch_names_by_stack_id
+                    .get(&stack_id)
+                    .with_context(|| format!("Couldn't find {stack_id} in workspace metadata"))?;
+                let existing_ref = branch_names
+                    .iter()
+                    .find_map(|ref_name| repo.find_reference(ref_name.as_ref()).ok())
+                    .with_context(|| {
+                        format!("Couldn't find any refs for stack {stack_id} in the repository")
+                    })?;
+                let ref_info = ref_info(existing_ref, meta, ref_info_options, cache)?;
+                stack_by_id(ref_info, stack_id).with_context(|| {
+                    format!("Really couldn't find {stack_id} in the current workspace projection")
+                })?
+            }
         }
     };
 
@@ -390,7 +407,7 @@ impl ui::BranchDetails {
             commits_on_remote: commits_unique_in_remote_tracking_branch,
             remote_tracking_ref_name,
             // There is nothing equivalent
-            commits_outside: _,
+            commits_outside,
             metadata,
             push_status,
             is_entrypoint: _,
@@ -400,6 +417,16 @@ impl ui::BranchDetails {
         let ref_info = ref_info
             .clone()
             .context("Can't handle a stack yet whose tip isn't pointed to by a ref")?;
+        if let Some(commits_outside) = commits_outside
+            .as_ref()
+            .filter(|commits| !commits.is_empty())
+        {
+            tracing::warn!(
+                ignored_outside_commits = commits_outside.len(),
+                stack_segment_ref = %ref_info.ref_name,
+                "Legacy StackDetails drops commits_outside for this stack segment"
+            );
+        }
         let (updated_at, review_id, pr_number) = metadata
             .clone()
             .map(|meta| {
@@ -537,33 +564,32 @@ pub fn local_and_remote_commits(
         .context("failed to get default target")?;
     let cache = repo.commit_graph_if_enabled()?;
     let mut graph = repo.revision_graph(cache.as_ref());
-    let git2_repo = ctx.git2_repo.get()?;
-    let mut check_commit = IsCommitIntegrated::new(repo, &git2_repo, &default_target, &mut graph)?;
+    let mut check_commit = IsCommitIntegrated::new(repo, &default_target, &mut graph)?;
 
-    let branch_commits = stack_branch.commits(&git2_repo, ctx, stack)?;
+    let branch_commits = stack_branch.commit_ids(repo, ctx, stack)?;
     let mut local_and_remote: Vec<ui::Commit> = vec![];
     let mut is_integrated = false;
 
     let remote_commit_data = branch_commits
         .remote_commits
         .iter()
-        .filter_map(|commit| {
-            let data = CommitData::try_from(commit).ok()?;
-            Some((data, commit.id()))
+        .filter_map(|commit_id| {
+            let gix_commit = repo.find_commit(*commit_id).ok()?;
+            let data = CommitData::try_from(&gix_commit).ok()?;
+            Some((data, *commit_id))
         })
         .collect::<HashMap<_, _>>();
 
     // Local and remote
     // Reverse first instead of later, so that we catch the first integrated commit
-    for commit in branch_commits.clone().local_commits.iter().rev() {
+    for commit_id in branch_commits.local_commits.iter().rev() {
         if !is_integrated {
-            is_integrated = check_commit.is_integrated(commit)?;
+            is_integrated = check_commit.is_integrated(*commit_id)?;
         }
-        let copied_from_remote_id = CommitData::try_from(commit)
+        let gix_commit = repo.find_commit(*commit_id)?;
+        let copied_from_remote_id = CommitData::try_from(&gix_commit)
             .ok()
             .and_then(|data| remote_commit_data.get(&data).copied());
-
-        let gix_commit = repo.find_commit(commit.id().to_gix())?;
         let change_id = gix_commit.change_id();
 
         let state = if is_integrated {
@@ -574,38 +600,38 @@ pub fn local_and_remote_commits(
             // - the commit has an identical sha as the remote commit (the no brainer case)
             // - the commit has a change id that matches a remote commit
             if let Some(remote_id) = copied_from_remote_id {
-                CommitState::LocalAndRemote(remote_id.to_gix())
+                CommitState::LocalAndRemote(remote_id)
             } else if let Some(remote_id) = branch_commits
                 .remote_commits
                 .iter()
-                .find(|c| {
-                    if c.id() == commit.id() {
+                .find(|remote_id| {
+                    if **remote_id == *commit_id {
                         return true;
                     }
 
-                    repo.find_commit(c.id().to_gix())
+                    repo.find_commit(**remote_id)
                         .ok()
                         .map(|c| c.change_id() == change_id)
                         .unwrap_or(false)
                 })
-                .map(|c| c.id())
+                .copied()
             {
-                CommitState::LocalAndRemote(remote_id.to_gix())
+                CommitState::LocalAndRemote(remote_id)
             } else {
                 CommitState::LocalOnly
             }
         };
 
-        let created_at = i128::from(commit.time().seconds()) * 1000;
+        let created_at = i128::from(gix_commit.time()?.seconds) * 1000;
 
         let api_commit = ui::Commit {
-            id: commit.id().to_gix(),
-            parent_ids: commit.parents().map(|p| p.id().to_gix()).collect(),
+            id: *commit_id,
+            parent_ids: gix_commit.parent_ids().map(|id| id.detach()).collect(),
             message: gix_commit.message_bstr().into(),
             has_conflicts: gix_commit.is_conflicted(),
             state,
             created_at,
-            author: commit.author().into(),
+            author: gix_commit.author()?.into(),
             gerrit_review_url: None,
         };
         local_and_remote.push(api_commit);
@@ -623,13 +649,13 @@ pub(crate) struct CommitData {
     author: gix::actor::Signature,
 }
 
-impl TryFrom<&git2::Commit<'_>> for CommitData {
+impl TryFrom<&gix::Commit<'_>> for CommitData {
     type Error = anyhow::Error;
 
-    fn try_from(commit: &git2::Commit<'_>) -> std::result::Result<Self, Self::Error> {
+    fn try_from(commit: &gix::Commit<'_>) -> std::result::Result<Self, Self::Error> {
         Ok(CommitData {
-            message: commit.message_raw_bytes().into(),
-            author: git2_signature_to_gix_signature(commit.author()),
+            message: commit.message_bstr().into(),
+            author: commit.author()?.into(),
         })
     }
 }

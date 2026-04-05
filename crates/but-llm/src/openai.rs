@@ -7,6 +7,8 @@ use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
 use crate::{
+    AI_OPENAI_CUSTOM_ENDPOINT_KEY, AI_OPENAI_KEY_OPTION_KEY, AI_OPENAI_MODEL_NAME_KEY,
+    AI_OPENAI_SECRET_HANDLE,
     chat::ChatMessage,
     client::LLMClient,
     key::CredentialsKeyOption,
@@ -18,10 +20,6 @@ use crate::{
 
 pub const GB_OPENAI_API_BASE: &str = "https://app.gitbutler.com/api/proxy/openai";
 
-const OPEN_AI_KEY_OPTION: &str = "gitbutler.aiOpenAIKeyOption";
-const OPEN_AI_MODEL_NAME: &str = "gitbutler.aiOpenAIModelName";
-const OPEN_AI_CUSTOM_ENDPOINT: &str = "gitbutler.aiOpenAICustomEndpoint";
-
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, strum::Display)]
 pub enum CredentialsKind {
     EnvVarOpenAiKey,
@@ -31,7 +29,9 @@ pub enum CredentialsKind {
 
 impl CredentialsKind {
     fn from_git_config(config: &gix::config::File<'static>) -> Option<Self> {
-        let key_option_str = config.string(OPEN_AI_KEY_OPTION).map(|v| v.to_string())?;
+        let key_option_str = config
+            .string(AI_OPENAI_KEY_OPTION_KEY)
+            .map(|v| v.to_string())?;
         let key_option = CredentialsKeyOption::from_str(&key_option_str)?;
         match key_option {
             CredentialsKeyOption::BringYourOwn => Some(CredentialsKind::OwnOpenAiKey),
@@ -103,10 +103,11 @@ impl OpenAiProvider {
     }
 
     fn openai_own_key_creds() -> Result<(CredentialsKind, Sensitive<String>)> {
-        let creds =
-            secret::retrieve("aiOpenAIKey", secret::Namespace::Global)?.ok_or(anyhow::anyhow!(
+        let creds = secret::retrieve(AI_OPENAI_SECRET_HANDLE, secret::Namespace::Global)?.ok_or(
+            anyhow::anyhow!(
                 "No OpenAI own key configured. Add this through the GitButler settings"
-            ))?;
+            ),
+        )?;
         Ok((CredentialsKind::OwnOpenAiKey, creds))
     }
 
@@ -162,9 +163,11 @@ impl LLMClient for OpenAiProvider {
         Self: Sized,
     {
         let credentials_kind = CredentialsKind::from_git_config(config)?;
-        let model = config.string(OPEN_AI_MODEL_NAME).map(|v| v.to_string());
+        let model = config
+            .string(AI_OPENAI_MODEL_NAME_KEY)
+            .map(|v| v.to_string());
         let custom_endpoint = config
-            .string(OPEN_AI_CUSTOM_ENDPOINT)
+            .string(AI_OPENAI_CUSTOM_ENDPOINT_KEY)
             .map(|v| v.to_string());
 
         OpenAiProvider::with(Some(credentials_kind), model, custom_endpoint)

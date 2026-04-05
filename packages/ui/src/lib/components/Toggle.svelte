@@ -58,7 +58,7 @@
 		width: 26px;
 		height: 16px;
 		border-radius: 16px;
-		background-color: var(--clr-border-2);
+		background-color: var(--border-2);
 		cursor: pointer;
 		transition:
 			background-color var(--transition-fast),
@@ -69,11 +69,11 @@
 		/* not checked */
 		&:hover,
 		&:focus {
-			background-color: var(--clr-border-1);
+			background-color: var(--border-1);
 		}
 
 		&:focus-visible {
-			outline: 2px solid var(--clr-theme-pop-element);
+			outline: 2px solid var(--fill-pop-bg);
 			outline-offset: -2px;
 		}
 
@@ -86,14 +86,14 @@
 
 		/* checked */
 		&:checked {
-			background-color: var(--clr-theme-pop-element);
+			background-color: var(--fill-pop-bg);
 
 			&:hover {
 				background-color: var(--hover-pop);
 			}
 
 			&:focus-visible {
-				outline: 2px solid color-mix(in srgb, var(--clr-theme-pop-element) 60%, var(--clr-text-1));
+				outline: 2px solid color-mix(in srgb, var(--fill-pop-bg) 60%, var(--text-1));
 				outline-offset: -2px;
 			}
 
@@ -116,7 +116,7 @@
 			width: 12px;
 			height: 12px;
 			border-radius: 12px;
-			background-color: var(--clr-core-gray-100);
+			background-color: var(--clr-gray-100);
 			content: "";
 			transition:
 				background-color var(--transition-fast),

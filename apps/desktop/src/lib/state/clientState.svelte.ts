@@ -1,11 +1,11 @@
-import { messageQueueAdapter, messageQueueSlice } from "$lib/codegen/messageQueueSlice";
-import { tauriBaseQuery } from "$lib/state/backendQuery";
+import { createBackendApi, type BackendApi } from "$lib/state/backendApi";
 import { butlerModule } from "$lib/state/butlerModule";
+import { messageQueueAdapter, messageQueueSlice } from "$lib/state/messageQueueSlice";
 import { ReduxTag } from "$lib/state/tags";
 import { uiStateSlice } from "$lib/state/uiState.svelte";
 import { InjectionToken } from "@gitbutler/core/context";
 import { mergeUnlisten } from "@gitbutler/ui/utils/mergeUnlisten";
-import { combineSlices, configureStore, type Reducer } from "@reduxjs/toolkit";
+import { combineSlices, configureStore, type Slice } from "@reduxjs/toolkit";
 import {
 	buildCreateApi,
 	coreModule,
@@ -17,18 +17,21 @@ import {
 import { FLUSH, PAUSE, PERSIST, persistReducer, PURGE, REGISTER, REHYDRATE } from "redux-persist";
 import persistStore from "redux-persist/lib/persistStore";
 import storage from "redux-persist/lib/storage";
-import type { PostHogWrapper } from "$lib/analytics/posthog";
 import type { IBackend } from "$lib/backend";
-import type { GitHubClient } from "$lib/forge/github/githubClient";
-import type { GitLabClient } from "$lib/forge/gitlab/gitlabClient.svelte";
-import type { IrcClient } from "$lib/irc/ircClient.svelte";
-import type { ReduxError } from "$lib/state/reduxError";
+// Forge client types are opaque here to avoid circular imports.
+// Concrete types are provided at construction time via bootstrap/deps.ts.
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type GitHubClient = {};
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type GitLabClient = {};
+import type { ReduxError } from "$lib/error/reduxError";
+import type { PostHogWrapper } from "$lib/telemetry/posthog";
 
 /**
  * Backend API object that enables the declaration and usage of endpoints
  * colocated with the feature they support.
  */
-export type BackendApi = ReturnType<typeof createBackendApi>;
+export type { BackendApi } from "$lib/state/backendApi";
 
 /**
  * GitHub API object that enables the declaration and usage of endpoints
@@ -44,18 +47,23 @@ export type GitLabApi = ReturnType<typeof createGitLabApi>;
 
 export const CLIENT_STATE = new InjectionToken<ClientState>("ClientState");
 
+type StoreResult = ReturnType<typeof createStore>;
+type AppStore = StoreResult["store"];
+type AppState = ReturnType<AppStore["getState"]>;
+export type AppDispatch = AppStore["dispatch"];
+
 /**
  * A redux store with dependency injection through middleware.
  */
 export class ClientState {
-	private store: ReturnType<typeof createStore>["store"];
-	private reducer: ReturnType<typeof createStore>["reducer"];
+	private store: AppStore;
+	private reducer: StoreResult["reducer"];
 	readonly dispatch: typeof this.store.dispatch;
 
 	// $state requires field declaration, but we have to assign the initial
 	// value in the constructor such that we can inject dependencies. The
 	// incorrect casting `as` seems difficult to avoid.
-	rootState = $state.raw<ReturnType<typeof this.store.getState> | undefined>(undefined);
+	rootState = $state.raw<AppState | undefined>(undefined);
 	readonly uiState = $derived(this.rootState?.uiState);
 
 	readonly messageQueue = $derived(
@@ -71,32 +79,29 @@ export class ClientState {
 	/** rtk-query api for communicating with GitLab. */
 	readonly gitlabApi: GitLabApi;
 
-	get reactiveState() {
-		return this.rootState;
-	}
-
 	constructor(
 		backend: IBackend,
 		gitHubClient: GitHubClient,
 		gitLabClient: GitLabClient,
-		ircClient: IrcClient,
 		posthog: PostHogWrapper,
 	) {
-		const butlerMod = butlerModule({
-			// Returns a function that returns the current state (required by butlerModule API)
+		// Cast required: store state has non-RTKQ slices (uiState, messageQueue)
+		// that don't satisfy RootState's CombinedState index signature.
+		const ctx = {
 			getState: () => this.rootState as unknown as RootState<any, any, any>,
 			getDispatch: () => this.dispatch,
 			posthog,
-		});
+		};
+		this.backendApi = createBackendApi(ctx);
+
+		const butlerMod = butlerModule(ctx);
 		this.githubApi = createGitHubApi(butlerMod);
 		this.gitlabApi = createGitLabApi(butlerMod);
-		this.backendApi = createBackendApi(butlerMod);
 
 		const { store, reducer } = createStore({
 			backend,
 			gitHubClient,
 			gitLabClient,
-			ircClient,
 			backendApi: this.backendApi,
 			githubApi: this.githubApi,
 			gitlabApi: this.gitlabApi,
@@ -117,12 +122,30 @@ export class ClientState {
 		);
 	}
 
-	inject(reducerPath: string, reducer: Reducer<any>) {
-		return this.reducer.inject({ reducerPath, reducer }, { overrideExisting: false });
-	}
-
 	initPersist() {
 		persistStore(this.store);
+	}
+
+	/**
+	 * Inject a persisted slice into the store and return a reactive getter
+	 * for the slice state. Consumers should use this in an `$effect` to
+	 * keep a local `$state.raw` field in sync.
+	 */
+	injectPersistedSlice<S>(slice: Slice<S>): () => S | undefined {
+		this.reducer.inject(
+			{
+				reducerPath: slice.reducerPath,
+				reducer: persistReducer({ key: slice.reducerPath, storage }, slice.reducer),
+			},
+			{ overrideExisting: false },
+		);
+		return () => {
+			const state = this.rootState as Record<string, unknown> | undefined;
+			if (state && slice.reducerPath in state) {
+				return state[slice.reducerPath] as S;
+			}
+			return undefined;
+		};
 	}
 }
 
@@ -134,13 +157,11 @@ function createStore(params: {
 	backend: IBackend;
 	gitHubClient: GitHubClient;
 	gitLabClient: GitLabClient;
-	ircClient: IrcClient;
 	backendApi: BackendApi;
 	githubApi: GitHubApi;
 	gitlabApi: GitLabApi;
 }) {
-	const { backend, gitHubClient, gitLabClient, ircClient, backendApi, githubApi, gitlabApi } =
-		params;
+	const { backend, gitHubClient, gitLabClient, backendApi, githubApi, gitlabApi } = params;
 
 	// We can't use the `persistStore` function because it doesn't work
 	// with injected reducers. We should inject all reduces so we don't
@@ -178,7 +199,6 @@ function createStore(params: {
 						backend,
 						gitHubClient,
 						gitLabClient,
-						ircClient,
 					},
 				},
 				serializableCheck: {
@@ -193,37 +213,13 @@ function createStore(params: {
 	return { store, reducer };
 }
 
-/**
- * Creates an rtk-query API object with extended endpoint methods.
- *
- * Inspired by the react hooks bundled with rtk we want to enable an API
- * that does not require any handling state in services. In said hooks
- * the state and dispatcher are acquired from the application context.
- * Unlike with React, it isn't possible to access the Svelte context
- * during event handling.
- */
-function createBackendApi(butlerMod: ReturnType<typeof butlerModule>) {
-	return buildCreateApi(
-		coreModule(),
-		butlerMod,
-	)({
-		reducerPath: "backend",
-		tagTypes: Object.values(ReduxTag),
-		invalidationBehavior: "immediately",
-		keepUnusedDataFor: 0,
-		baseQuery: tauriBaseQuery,
-		endpoints: (_) => {
-			return {};
-		},
-	});
-}
-
 // Default cache expiration for unused items is 60 seconds. This is too little
 // for forge data, so we keep forge data cached for 24 hours.
 const FORGE_CACHE_TTL_SECONDS = 24 * 60 * 60; // 24 hours
 
 // Fake base query that allows us to use the same error type when the query
-// definitions only use `queryFn` instead of `query`.
+// definitions only use `queryFn` instead of `query`. Intentionally typed as
+// bare BaseQueryFn for compatibility with the butlerModule type augmentation.
 // eslint-disable-next-line func-style
 const fakeBaseQuery: BaseQueryFn = () => {
 	return { data: undefined } as QueryReturnValue<never, ReduxError, any>;
@@ -251,7 +247,7 @@ export function createGitHubApi(butlerMod: ReturnType<typeof butlerModule>) {
 	});
 }
 
-function createGitLabApi(butlerMod: ReturnType<typeof butlerModule>) {
+export function createGitLabApi(butlerMod: ReturnType<typeof butlerModule>) {
 	return buildCreateApi(
 		coreModule(),
 		butlerMod,

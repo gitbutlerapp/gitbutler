@@ -18,12 +18,12 @@ but-settings.workspace = true
 but-hunk-assignment.workspace = true
 but-workspace = { workspace = true, features = ["legacy"] }
 but-path.workspace = true
-but-ctx.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
 but-llm.workspace = true
+
 gitbutler-branch.workspace = true
-gitbutler-stack.workspace = true
-gitbutler-project.workspace = true
 gitbutler-branch-actions.workspace = true
+
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true

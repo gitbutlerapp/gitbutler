@@ -3,6 +3,7 @@
 use std::collections::HashSet;
 
 use anyhow::{Result, anyhow};
+use but_core::RefMetadata;
 use petgraph::{Direction, visit::EdgeRef};
 use serde::{Deserialize, Serialize};
 
@@ -13,6 +14,7 @@ use crate::graph_rebase::{
 /// Describes where relative to the selector a step should be inserted
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub enum InsertSide {
     /// When inserting above, any nodes that point to the selector will now
     /// point to the inserted node instead.
@@ -25,6 +27,8 @@ pub enum InsertSide {
     /// IE: Any parent commits will become a parent of what is getting inserted.
     Below,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(InsertSide);
 
 /// Defines the start and end of a segment by pointing to it's parent-most and child-most nodes.
 #[derive(Debug, Clone)]
@@ -80,7 +84,7 @@ pub enum AnySelector {
 }
 
 impl ToSelector for AnySelector {
-    fn to_selector(&self, editor: &Editor) -> Result<Selector> {
+    fn to_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         match self {
             Self::Selector(selector) => selector.to_selector(editor),
             Self::Commit(id) => editor.select_commit(*id),
@@ -135,15 +139,15 @@ pub enum SelectorSet {
 /// An enum that is helpful for describing where something should be inserted
 /// relative to.
 #[derive(Debug, Clone)]
-pub enum RelativeTo<'a> {
+pub enum RelativeToRef<'a> {
     /// Relative to a commit
     Commit(gix::ObjectId),
     /// Relative to a reference
     Reference(&'a gix::refs::FullNameRef),
 }
 
-impl ToSelector for RelativeTo<'_> {
-    fn to_selector(&self, editor: &Editor) -> Result<Selector> {
+impl ToSelector for RelativeToRef<'_> {
+    fn to_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         match self {
             Self::Commit(id) => editor.select_commit(*id),
             Self::Reference(reference) => editor.select_reference(reference),
@@ -151,26 +155,51 @@ impl ToSelector for RelativeTo<'_> {
     }
 }
 
+/// Specifies a location relative to which a commit operation should occur.
+/// This is the fully-owned cousin of [RelativeTo].
+#[derive(Debug, Clone)]
+pub enum RelativeTo {
+    /// Relative to a commit.
+    Commit(gix::ObjectId),
+    /// Relative to a reference.
+    Reference(gix::refs::FullName),
+}
+
+impl ToSelector for RelativeTo {
+    fn to_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
+        match self {
+            Self::Commit(commit) => editor.select_commit(*commit),
+            Self::Reference(reference) => editor.select_reference(reference.as_ref()),
+        }
+    }
+}
+
 impl ToCommitSelector for gix::ObjectId {
-    fn to_commit_selector(&self, editor: &Editor) -> Result<Selector> {
+    fn to_commit_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         editor.select_commit(*self)
     }
 }
 
+impl ToCommitSelector for gix::Id<'_> {
+    fn to_commit_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
+        editor.select_commit(self.detach())
+    }
+}
+
 impl ToReferenceSelector for &gix::refs::FullNameRef {
-    fn to_reference_selector(&self, editor: &Editor) -> Result<Selector> {
+    fn to_reference_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         editor.select_reference(self)
     }
 }
 
 impl ToReferenceSelector for gix::refs::FullName {
-    fn to_reference_selector(&self, editor: &Editor) -> Result<Selector> {
+    fn to_reference_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         editor.select_reference(self.as_ref())
     }
 }
 
 /// Operations for mutating the commit graph
-impl Editor {
+impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Get a selector to a particular commit in the graph
     pub fn select_commit(&self, target: gix::ObjectId) -> Result<Selector> {
         match self.try_select_commit(target) {
@@ -242,6 +271,9 @@ impl Editor {
     /// `target` delimiter's child and parent can be the same node.
     /// This is the way to disconnect a single node.
     ///
+    /// All disconnected children will be reconnected to all the disconnected parents unless
+    /// the `skip_reconnect_step` is set to true.
+    ///
     /// Returns an error when:
     /// - `parents_to_disconnect` is `SelectorSet::None`
     /// - `parents_to_disconnect` contains any parent that is not a direct parent of `target.parent`
@@ -251,6 +283,7 @@ impl Editor {
         target: SegmentDelimiter<C, P>,
         children_to_disconnect: SelectorSet,
         parents_to_disconnect: SelectorSet,
+        skip_reconnect_step: bool,
     ) -> Result<()>
     where
         C: ToSelector,
@@ -363,7 +396,12 @@ impl Editor {
                 .as_ref()
                 .is_none_or(|ids| ids.contains(&edge_source));
             if should_disconnect {
-                self.reconnect_edges_to_parents(&disconnected_parent_edges, edge_id, edge_source);
+                // Remove the child edge.
+                self.graph.remove_edge(edge_id);
+                // Reconnect the child node to all the disconnected parents.
+                if !skip_reconnect_step {
+                    self.reconnect_edges_to_parents(&disconnected_parent_edges, edge_source);
+                }
             }
         }
 
@@ -374,11 +412,8 @@ impl Editor {
     fn reconnect_edges_to_parents(
         &mut self,
         disconnected_parent_edges: &[(Edge, petgraph::prelude::NodeIndex)],
-        child_edge_id: petgraph::prelude::EdgeIndex,
         child_node: petgraph::prelude::NodeIndex,
     ) {
-        // Remove the child edge.
-        self.graph.remove_edge(child_edge_id);
         // Reconnect the child node to all the disconnected parents.
         for (parent_edge_weight, edge_target) in disconnected_parent_edges {
             self.graph
@@ -386,18 +421,28 @@ impl Editor {
         }
     }
 
-    /// Insert a segement relative to a selector.
+    /// Insert a segment relative to a selector.
     ///
-    /// The segment is described by its delimiter: First (parent-most) and last (child-most) node.
+    /// `target` - Selector to insert the segment relative to.
     ///
-    /// If inserted above, all the target selector's children will be disconnected and reconnected to the last
-    /// node of the segment.
+    /// `delimiter` - The segment is described by its delimiter: First (parent-most) and last (child-most) node.
     ///
-    pub fn insert_segment<C, P>(
+    /// `side` - The relative side to do the insertion.
+    ///
+    /// `nodes_to_connect` - Optional set of selector to connect instead of the parents/children determined.
+    ///
+    /// If `nodes_to_connect` is None:
+    ///     If inserted above, all the target selector's children will be disconnected and reconnected to the last
+    ///     node of the segment.
+    /// If `nodes_to_connect` is Some:
+    ///     If inserted above, connect the given nodes as children. If inserted below, connect the given nodes as parents.
+    ///
+    pub fn insert_segment_into<C, P>(
         &mut self,
         target: impl ToSelector,
         delimiter: SegmentDelimiter<C, P>,
         side: InsertSide,
+        nodes_to_connect: Option<SomeSelectors>,
     ) -> Result<()>
     where
         C: ToSelector,
@@ -410,13 +455,6 @@ impl Editor {
 
         match side {
             InsertSide::Above => {
-                // Children edges of target.
-                let edges = self
-                    .graph
-                    .edges_directed(target.id, Direction::Incoming)
-                    .map(|e| (e.id(), e.weight().to_owned(), e.source()))
-                    .collect::<Vec<_>>();
-
                 // Find the child node of the highest order from the child-most node in the segment being inserted.
                 let chubbiest_grand_child = self
                     .graph
@@ -424,20 +462,48 @@ impl Editor {
                     .map(|e| (e.id(), e.weight().to_owned(), e.source()))
                     .max_by_key(|gc| gc.1.order);
 
-                // Connect all target's children with the child-most node in the given segment.
-                for (edge_id, edge_weight, edge_source) in edges {
-                    self.graph.remove_edge(edge_id);
-                    // Avoid weight collision by adding the order value of the highest order child plus one,
-                    // accommodating for order 0.
-                    let new_weight =
-                        if let Some((_, grand_child_weight, _)) = chubbiest_grand_child.as_ref() {
+                if let Some(nodes_to_connect) = nodes_to_connect {
+                    // If there were nodes to connect defined, create edges from them into the child node of the segment
+                    // being inserted.
+                    for (index, any_selector) in nodes_to_connect.as_slice().iter().enumerate() {
+                        let selector = any_selector.to_selector(self)?;
+                        let node = self.history.normalize_selector(selector)?;
+                        // Avoid weight collision by adding the order value of the highest order child plus one,
+                        // accommodating for order 0.
+                        let new_weight = if let Some((_, grand_child_weight, _)) =
+                            chubbiest_grand_child.as_ref()
+                        {
+                            Edge {
+                                order: index + grand_child_weight.order + 1,
+                            }
+                        } else {
+                            Edge { order: index }
+                        };
+                        self.graph.add_edge(node.id, child.id, new_weight);
+                    }
+                } else {
+                    let edges = self
+                        .graph
+                        .edges_directed(target.id, Direction::Incoming)
+                        .map(|e| (e.id(), e.weight().to_owned(), e.source()))
+                        .collect::<Vec<_>>();
+
+                    // Connect all target's children with the child-most node in the given segment.
+                    for (edge_id, edge_weight, edge_source) in edges {
+                        self.graph.remove_edge(edge_id);
+                        // Avoid weight collision by adding the order value of the highest order child plus one,
+                        // accommodating for order 0.
+                        let new_weight = if let Some((_, grand_child_weight, _)) =
+                            chubbiest_grand_child.as_ref()
+                        {
                             Edge {
                                 order: edge_weight.order + grand_child_weight.order + 1,
                             }
                         } else {
                             edge_weight
                         };
-                    self.graph.add_edge(edge_source, child.id, new_weight);
+                        self.graph.add_edge(edge_source, child.id, new_weight);
+                    }
                 }
 
                 // Find the parent node of the highest order from the parent-most node in the segment being inserted.
@@ -459,12 +525,6 @@ impl Editor {
                 self.graph.add_edge(parent.id, target.id, new_weight);
             }
             InsertSide::Below => {
-                let edges = self
-                    .graph
-                    .edges_directed(target.id, Direction::Outgoing)
-                    .map(|e| (e.id(), e.weight().to_owned(), e.target()))
-                    .collect::<Vec<_>>();
-
                 // Find the parent node of the highest order from the parent-most node in the segment being inserted.
                 let chubbiest_grand_parent = self
                     .graph
@@ -472,23 +532,49 @@ impl Editor {
                     .map(|e| (e.id(), e.weight().to_owned(), e.target()))
                     .max_by_key(|gc| gc.1.order);
 
-                // Connect all target's parents to the parent-most node in the given segment.
-                for (edge_id, edge_weight, edge_target) in edges {
-                    self.graph.remove_edge(edge_id);
-                    // Avoid weight collision by adding the order value of the highest order parent plus one,
-                    // accommodating for order 0.
-                    let new_weight = if let Some((_, grand_parent_weight, _)) =
-                        chubbiest_grand_parent.as_ref()
-                    {
-                        Edge {
-                            order: edge_weight.order + grand_parent_weight.order + 1,
-                        }
-                    } else {
-                        edge_weight
-                    };
-                    self.graph.add_edge(parent.id, edge_target, new_weight);
-                }
+                if let Some(nodes_to_connect) = nodes_to_connect {
+                    // If there were nodes to connect defined, create edges into them from the parent node of the segment
+                    // being inserted.
+                    for (index, any_selector) in nodes_to_connect.as_slice().iter().enumerate() {
+                        let selector = any_selector.to_selector(self)?;
+                        let node = self.history.normalize_selector(selector)?;
+                        // Avoid weight collision by adding the order value of the highest order parent plus one,
+                        // accommodating for order 0.
+                        let new_weight = if let Some((_, grand_parent_weight, _)) =
+                            chubbiest_grand_parent.as_ref()
+                        {
+                            Edge {
+                                order: index + grand_parent_weight.order + 1,
+                            }
+                        } else {
+                            Edge { order: index }
+                        };
+                        self.graph.add_edge(parent.id, node.id, new_weight);
+                    }
+                } else {
+                    let edges = self
+                        .graph
+                        .edges_directed(target.id, Direction::Outgoing)
+                        .map(|e| (e.id(), e.weight().to_owned(), e.target()))
+                        .collect::<Vec<_>>();
 
+                    // Connect all target's parents to the parent-most node in the given segment.
+                    for (edge_id, edge_weight, edge_target) in edges {
+                        self.graph.remove_edge(edge_id);
+                        // Avoid weight collision by adding the order value of the highest order parent plus one,
+                        // accommodating for order 0.
+                        let new_weight = if let Some((_, grand_parent_weight, _)) =
+                            chubbiest_grand_parent.as_ref()
+                        {
+                            Edge {
+                                order: edge_weight.order + grand_parent_weight.order + 1,
+                            }
+                        } else {
+                            edge_weight
+                        };
+                        self.graph.add_edge(parent.id, edge_target, new_weight);
+                    }
+                }
                 // Find the child node of the highest order from the child-most node in the segment being inserted.
                 let chubbiest_grand_child = self
                     .graph
@@ -510,6 +596,25 @@ impl Editor {
         }
 
         Ok(())
+    }
+    /// Insert a segment relative to a selector.
+    ///
+    /// The segment is described by its delimiter: First (parent-most) and last (child-most) node.
+    ///
+    /// If inserted above, all the target selector's children will be disconnected and reconnected to the last
+    /// node of the segment.
+    ///
+    pub fn insert_segment<C, P>(
+        &mut self,
+        target: impl ToSelector,
+        delimiter: SegmentDelimiter<C, P>,
+        side: InsertSide,
+    ) -> Result<()>
+    where
+        C: ToSelector,
+        P: ToSelector,
+    {
+        self.insert_segment_into(target, delimiter, side, None)
     }
 
     /// Inserts a new node relative to a selector

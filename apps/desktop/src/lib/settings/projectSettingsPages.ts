@@ -36,4 +36,5 @@ export const projectSettingsPages = [
 ] as const satisfies readonly SettingsPage[];
 
 export type ProjectSettingsPage = (typeof projectSettingsPages)[number];
-export type ProjectSettingsPageId = ProjectSettingsPage["id"];
+// Canonical definition lives in state/uiState.svelte.ts to avoid circular imports.
+export type { ProjectSettingsPageId } from "$lib/state/uiState.svelte";

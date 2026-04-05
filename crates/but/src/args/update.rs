@@ -30,7 +30,7 @@ pub enum Subcommands {
     /// Linux: Installs and updates only the CLI itself.
     ///
     /// Note: For other platforms and install forms, see <https://gitbutler.com/downloads>
-    #[cfg(unix)]
+    #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
     Install {
         /// What to install: "nightly", "release", or a version like "0.18.7"
         ///

@@ -2,18 +2,18 @@
 
 pub(crate) mod function {
     use anyhow::{Result, bail};
-    use but_core::DiffSpec;
+    use but_core::{DiffSpec, RefMetadata};
     use but_rebase::graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToCommitSelector};
 
     use crate::commit_engine::{Destination, create_commit};
 
     /// The result of amending a commit in the graph rebase editor.
     #[derive(Debug)]
-    pub struct CommitAmendOutcome {
+    pub struct CommitAmendOutcome<'ws, 'meta, M: RefMetadata> {
         /// A successful rebase result for continuing operations. This will be
         /// always provided regardless of whether a commit was actually
         /// created.
-        pub rebase: SuccessfulRebase,
+        pub rebase: SuccessfulRebase<'ws, 'meta, M>,
         /// Selector pointing to the amended commit, if the amend was
         /// successful.
         ///
@@ -38,22 +38,23 @@ pub(crate) mod function {
     /// this particular function call. The provided `context_lines` MUST align
     /// with the `context_lines` value used to generate the `DiffSpec`s passed
     /// in the `changes` parameter.
-    pub fn commit_amend(
-        mut editor: Editor,
+    pub fn commit_amend<'ws, 'meta, M: RefMetadata>(
+        mut editor: Editor<'ws, 'meta, M>,
         commit: impl ToCommitSelector,
         changes: Vec<DiffSpec>,
         context_lines: u32,
-    ) -> Result<CommitAmendOutcome> {
+    ) -> Result<CommitAmendOutcome<'ws, 'meta, M>> {
         let (target_selector, target) = editor.find_selectable_commit(commit)?;
 
-        if target.is_conflicted() {
+        let target_id = target.id;
+        if target.attach(editor.repo()).is_conflicted() {
             bail!("Cannot amend a conflicted commit")
         }
 
         let create_out = create_commit(
             editor.repo(),
             Destination::AmendCommit {
-                commit_id: target.id.into(),
+                commit_id: target_id,
                 new_message: None,
             },
             changes,

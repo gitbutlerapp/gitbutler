@@ -214,7 +214,7 @@
 	.erectangle {
 		width: 10px;
 		height: 16px;
-		background-color: var(--clr-core-gray-70);
+		background-color: var(--clr-gray-70);
 		cursor: pointer;
 		transition: width var(--transition-medium);
 
@@ -232,10 +232,10 @@
 		flex-direction: column;
 
 		width: 208px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
 
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 
 		transition: none;
 	}
@@ -249,7 +249,7 @@
 		gap: 8px;
 
 		&.bottom {
-			border-top: 1px solid var(--clr-border-2);
+			border-top: 1px solid var(--border-2);
 		}
 	}
 
@@ -259,7 +259,7 @@
 		align-items: center;
 		gap: 8px;
 
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.no-wrap {
@@ -269,14 +269,14 @@
 	}
 
 	.changes-requested {
-		background-color: var(--clr-br-commit-changes-requested-bg);
+		background-color: var(--fill-warn-bg);
 	}
 
 	.approved {
-		background-color: var(--clr-br-commit-approved-bg);
+		background-color: var(--fill-safe-bg);
 	}
 
 	.in-discussion {
-		background-color: var(--clr-br-commit-in-discussion-bg);
+		background-color: var(--fill-pop-bg);
 	}
 </style>

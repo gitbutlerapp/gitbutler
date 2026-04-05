@@ -1,11 +1,10 @@
-import { Snapshot } from "$lib/history/types";
 import { InjectionToken } from "@gitbutler/core/context";
 import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
-import { plainToInstance } from "class-transformer";
 import { get, writable } from "svelte/store";
 import type { IBackend } from "$lib/backend";
+import type { Snapshot } from "$lib/history/types";
 import type { TreeChange } from "$lib/hunks/change";
-import type { BackendApi, ClientState } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/clientState.svelte";
 
 const snapshotDiffAdapter = createEntityAdapter({
 	selectId: (tc: TreeChange) => tc.path,
@@ -65,7 +64,7 @@ class SnapshotPager {
 			limit: 32,
 		});
 		this.loading.set(false);
-		return plainToInstance(Snapshot, resp);
+		return resp;
 	}
 
 	clear() {
@@ -134,12 +133,14 @@ export class HistoryService {
 	}
 }
 
-export function createdOnDay(d: Date) {
+/** Formats a date (milliseconds since epoch) as a human-readable day string. */
+export function createdOnDay(epochMs: number) {
+	const d = new Date(epochMs);
 	const t = new Date();
 	return `${t.toDateString() === d.toDateString() ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" })}, ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 }
 
-function injectEndpoints(api: ClientState["backendApi"]) {
+function injectEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			snapshotDiff: build.query<EntityState<TreeChange, string>, SnapshotDiffParams>({

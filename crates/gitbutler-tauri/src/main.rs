@@ -16,7 +16,11 @@ use std::sync::Arc;
 use anyhow::{Context, bail};
 use but_api::{commit, diff, github, gitlab, legacy, platform};
 use but_claude::{Broadcaster, Claude};
+#[cfg(feature = "irc")]
+use but_irc::IrcManager;
 use but_settings::AppSettingsWithDiskSync;
+#[cfg(feature = "irc")]
+use gitbutler_tauri::irc;
 use gitbutler_tauri::{
     WindowState, action, askpass, bot, claude, csp::csp_with_extras, env, logs, menu, projects,
     settings, zip,
@@ -25,6 +29,23 @@ use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_log::{Target, TargetKind};
 use tokio::sync::Mutex;
+
+#[cfg(feature = "irc")]
+/// Return a copy of `irc` with `connection.enabled` forced to `false` when
+/// the IRC feature flag is off. This lets the existing reconciliation logic
+/// treat "flag turned off" the same as "user disabled the connection".
+fn effective_irc(
+    irc: &but_settings::app_settings::IrcSettings,
+    feature_enabled: bool,
+) -> but_settings::app_settings::IrcSettings {
+    if feature_enabled {
+        irc.clone()
+    } else {
+        let mut copy = irc.clone();
+        copy.connection.enabled = false;
+        copy
+    }
+}
 
 fn main() -> anyhow::Result<()> {
     but_api::panic_capture::install_panic_hook();
@@ -42,9 +63,16 @@ fn main() -> anyhow::Result<()> {
     let performance_logging = std::env::var_os("GITBUTLER_PERFORMANCE_LOG").is_some();
     let tauri_debug_logging = std::env::var_os("GITBUTLER_TAURI_DEBUG_LOG").is_some();
 
-    gitbutler_project::configure_git2();
     let mut tauri_context = generate_context!();
     but_secret::secret::set_application_namespace(&tauri_context.config().identifier);
+
+    // Set the macOS notification bundle ID so notifications appear as GitButler.
+    #[cfg(target_os = "macos")]
+    {
+        if let Err(e) = notify_rust::set_application(&tauri_context.config().identifier) {
+            tracing::warn!(error = %e, "Failed to set notification application");
+        }
+    }
 
     let config_dir = but_path::app_config_dir().expect("missing config dir");
     std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
@@ -154,10 +182,39 @@ fn main() -> anyhow::Result<()> {
                                    name = %app_handle.package_info().name, "starting app");
 
                 app_handle.manage(WindowState::new(app_handle.clone()));
+                #[cfg(feature = "irc")]
+                {
+                    let irc_manager = IrcManager::new();
+                    app_handle.manage(but_irc::WorkingFilesBroadcast::new(irc_manager.clone()));
+                    app_handle.manage(irc_manager);
+                }
+
+                // Track previous effective IRC settings for diffing on changes.
+                // "Effective" means connection.enabled is forced false when the
+                // feature flag is off, so toggling the flag also disconnects.
+                #[cfg(feature = "irc")]
+                let prev_irc_settings = std::sync::Mutex::new(
+                    app_settings.get().ok().map(|s| effective_irc(&s.irc, s.feature_flags.irc))
+                );
 
                 app_settings.watch_in_background({
                     let app_handle = app_handle.clone();
                     move |app_settings| {
+                        #[cfg(feature = "irc")]
+                        {
+                            let new_irc = effective_irc(&app_settings.irc, app_settings.feature_flags.irc);
+                            if let Ok(mut prev) = prev_irc_settings.lock() {
+                                if let Some(old_irc) = prev.as_ref()
+                                    && old_irc != &new_irc
+                                {
+                                    gitbutler_tauri::irc_lifecycle::on_settings_changed(
+                                        &app_handle, old_irc, &new_irc,
+                                    );
+                                }
+                                *prev = Some(new_irc);
+                            }
+                        }
+
                         gitbutler_tauri::ChangeForFrontend::from(app_settings).send(&app_handle)
                     }
                 })?;
@@ -192,8 +249,27 @@ fn main() -> anyhow::Result<()> {
                 app_handle.manage(app_settings);
                 app_handle.manage(claude);
 
-                tauri_app.on_menu_event(move |_handle, event| {
-                    menu::handle_event(&window.clone(), &event)
+                // Auto-connect IRC connections based on settings (only when feature flag is on).
+                #[cfg(feature = "irc")]
+                if let Ok(settings) = app_handle.state::<AppSettingsWithDiskSync>().get() {
+                    let irc = effective_irc(&settings.irc, settings.feature_flags.irc);
+                    gitbutler_tauri::irc_lifecycle::auto_connect_on_startup(app_handle, &irc);
+                }
+                tauri_app.on_menu_event(move |handle, event| {
+                    let target_window = handle
+                        .webview_windows()
+                        .into_values()
+                        .find(|webview| webview.is_focused().unwrap_or(false))
+                        .or_else(|| handle.get_webview_window("main"));
+
+                    if let Some(webview) = target_window {
+                        menu::handle_event(&webview, &event);
+                    } else {
+                        tracing::warn!(
+                            menu_event = %event.id().as_ref(),
+                            "no webview window available to handle menu event"
+                        );
+                    }
                 });
 
                 let app_handle_for_deep_link = app_handle.clone();
@@ -208,7 +284,6 @@ fn main() -> anyhow::Result<()> {
                 Ok(())
             })
             .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
-            .plugin(tauri_plugin_http::init())
             .plugin(tauri_plugin_shell::init())
             .plugin(tauri_plugin_os::init())
             .plugin(tauri_plugin_process::init())
@@ -286,8 +361,8 @@ fn main() -> anyhow::Result<()> {
                 legacy::virtual_branches::tauri_squash_commits::squash_commits,
                 legacy::virtual_branches::tauri_fetch_from_remotes::fetch_from_remotes,
                 legacy::virtual_branches::tauri_move_commit::move_commit,
-                legacy::virtual_branches::tauri_move_branch::move_branch,
-                legacy::virtual_branches::tauri_tear_off_branch::tear_off_branch,
+                legacy::virtual_branches::tauri_move_branch_legacy::move_branch_legacy,
+                legacy::virtual_branches::tauri_tear_off_branch_legacy::tear_off_branch_legacy,
                 legacy::virtual_branches::tauri_normalize_branch_name::normalize_branch_name,
                 legacy::virtual_branches::tauri_upstream_integration_statuses::upstream_integration_statuses,
                 legacy::virtual_branches::tauri_integrate_upstream::integrate_upstream,
@@ -351,9 +426,9 @@ fn main() -> anyhow::Result<()> {
                 legacy::workspace::tauri_split_branch_into_dependent_branch::split_branch_into_dependent_branch,
                 legacy::absorb::tauri_absorb::absorb,
                 legacy::absorb::tauri_absorption_plan::absorption_plan,
-                legacy::diff::tauri_changes_in_worktree::changes_in_worktree,
-                legacy::diff::tauri_tree_change_diffs::tree_change_diffs,
-                legacy::diff::tauri_assign_hunk::assign_hunk,
+                diff::tauri_changes_in_worktree::changes_in_worktree,
+                diff::tauri_tree_change_diffs::tree_change_diffs,
+                diff::tauri_assign_hunk::assign_hunk,
                 #[cfg(unix)]
                 legacy::workspace::tauri_show_graph_svg::show_graph_svg,
                 legacy::claude::tauri_claude_get_session_details::claude_get_session_details,
@@ -390,6 +465,7 @@ fn main() -> anyhow::Result<()> {
                 settings::update_fetch,
                 settings::update_reviews,
                 settings::update_ui,
+                settings::update_irc,
                 bot::bot,
                 bot::forge_branch_chat,
                 // Debug-only - not for production!
@@ -400,12 +476,74 @@ fn main() -> anyhow::Result<()> {
                 claude::claude_cancel_session,
                 claude::claude_is_stack_active,
                 claude::claude_compact_history,
-                commit::tauri_commit_reword::commit_reword,
-                commit::tauri_commit_insert_blank::commit_insert_blank,
-                commit::tauri_commit_create::commit_create,
-                commit::tauri_commit_amend::commit_amend,
-                commit::tauri_commit_move_changes_between::commit_move_changes_between,
-                commit::tauri_commit_uncommit_changes::commit_uncommit_changes,
+                #[cfg(feature = "irc")]
+                irc::irc_connect,
+                #[cfg(feature = "irc")]
+                irc::irc_disconnect,
+                #[cfg(feature = "irc")]
+                irc::irc_state,
+                #[cfg(feature = "irc")]
+                irc::irc_wait_ready,
+                #[cfg(feature = "irc")]
+                irc::irc_join,
+                #[cfg(feature = "irc")]
+                irc::irc_part,
+                #[cfg(feature = "irc")]
+                irc::irc_auto_join,
+                #[cfg(feature = "irc")]
+                irc::irc_auto_leave,
+                #[cfg(feature = "irc")]
+                irc::irc_send_message,
+                #[cfg(feature = "irc")]
+                irc::irc_send_message_with_data,
+                #[cfg(feature = "irc")]
+                irc::irc_send_raw,
+                #[cfg(feature = "irc")]
+                irc::irc_send_typing,
+                #[cfg(feature = "irc")]
+                irc::irc_send_reaction,
+                #[cfg(feature = "irc")]
+                irc::irc_remove_reaction,
+                #[cfg(feature = "irc")]
+                irc::irc_redact_message,
+                #[cfg(feature = "irc")]
+                irc::irc_list_connections,
+                #[cfg(feature = "irc")]
+                irc::irc_exists,
+                #[cfg(feature = "irc")]
+                irc::irc_nick,
+                #[cfg(feature = "irc")]
+                irc::irc_request_history,
+                #[cfg(feature = "irc")]
+                irc::irc_request_history_before,
+                #[cfg(feature = "irc")]
+                irc::irc_messages,
+                #[cfg(feature = "irc")]
+                irc::irc_channels,
+                #[cfg(feature = "irc")]
+                irc::irc_users,
+                #[cfg(feature = "irc")]
+                irc::irc_mark_read,
+                #[cfg(feature = "irc")]
+                irc::irc_clear_messages,
+                #[cfg(feature = "irc")]
+                irc::irc_get_all_commit_reactions,
+                #[cfg(feature = "irc")]
+                irc::irc_get_all_message_reactions,
+                #[cfg(feature = "irc")]
+                irc::irc_get_file_message_reactions,
+                #[cfg(feature = "irc")]
+                irc::irc_get_working_files,
+                #[cfg(feature = "irc")]
+                irc::irc_start_working_files_broadcast,
+                #[cfg(feature = "irc")]
+                irc::irc_stop_working_files_broadcast,
+                commit::reword::tauri_commit_reword::commit_reword,
+                commit::insert_blank::tauri_commit_insert_blank::commit_insert_blank,
+                commit::create::tauri_commit_create::commit_create,
+                commit::amend::tauri_commit_amend::commit_amend,
+                commit::move_changes::tauri_commit_move_changes_between::commit_move_changes_between,
+                commit::uncommit::tauri_commit_uncommit_changes::commit_uncommit_changes,
                 platform::tauri_build_type::build_type,
             ])
             .menu(move |handle| menu::build(handle, &app_settings_for_menu))
@@ -440,8 +578,14 @@ fn main() -> anyhow::Result<()> {
         builder
             .build(tauri_context)
             .expect("Failed to build tauri app")
-            .run(|app_handle, event| {
-                let _ = (app_handle, event);
+            .run(|#[cfg_attr(not(feature = "irc"), allow(unused_variables))] app_handle,
+                  #[cfg_attr(not(feature = "irc"), allow(unused_variables))] event| {
+                #[cfg(feature = "irc")]
+                if let tauri::RunEvent::Exit = event {
+                    let irc_manager = app_handle.state::<IrcManager>();
+                    // Note that we can't use `tauri::async_runtime::block_on`  during shutdown as it panics.
+                    irc_manager.shutdown_now();
+                }
             });
     });
     Ok(())

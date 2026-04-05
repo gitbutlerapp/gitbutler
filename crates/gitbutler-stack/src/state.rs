@@ -6,8 +6,6 @@ use std::{
 use anyhow::{Result, anyhow};
 use but_error::Code;
 use but_meta::virtual_branches_legacy_types;
-use but_oxidize::{ObjectIdExt, OidExt as _, RepoExt};
-use git2::Repository;
 use gitbutler_reference::Refname;
 use gitbutler_repo::commit_message::CommitMessage;
 use itertools::Itertools;
@@ -125,7 +123,7 @@ impl VirtualBranchesHandle {
     /// Persists the default target for the given repository.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn set_default_target(&self, target: Target) -> Result<()> {
+    pub fn set_default_target(&mut self, target: Target) -> Result<()> {
         let mut virtual_branches = self.read_file()?;
         virtual_branches.default_target = Some(target);
         self.write_file(&virtual_branches)?;
@@ -153,7 +151,7 @@ impl VirtualBranchesHandle {
     /// Sets the state of the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn set_stack(&self, stack: Stack) -> Result<()> {
+    pub fn set_stack(&mut self, stack: Stack) -> Result<()> {
         let mut virtual_branches = self.read_file()?;
         virtual_branches.branches.insert(stack.id, stack);
         self.write_file(&virtual_branches)?;
@@ -163,7 +161,7 @@ impl VirtualBranchesHandle {
     /// Marks a particular branch as not in the workspace
     ///
     /// Errors if the file cannot be read or written.
-    pub fn mark_as_not_in_workspace(&self, id: StackId) -> Result<()> {
+    pub fn mark_as_not_in_workspace(&mut self, id: StackId) -> Result<()> {
         let mut stack = self.get_stack(id)?;
         stack.in_workspace = false;
         self.set_stack(stack)?;
@@ -269,7 +267,7 @@ impl VirtualBranchesHandle {
     }
 
     /// Write the given `virtual_branches` back to disk in one go.
-    pub fn write_file(&self, virtual_branches: &VirtualBranches) -> Result<()> {
+    pub fn write_file(&mut self, virtual_branches: &VirtualBranches) -> Result<()> {
         let _ = self.ensure_vb_storage_in_sync()?;
         let legacy = virtual_branches_legacy_types::VirtualBranches::from(virtual_branches.clone());
         but_meta::legacy_storage::write_virtual_branches_and_sync(&self.file_path, &legacy)
@@ -283,11 +281,11 @@ impl VirtualBranchesHandle {
     /// Import TOML into DB and refresh sync metadata.
     ///
     /// This is primarily used for oplog restore, where TOML was restored externally.
-    pub fn import_toml_into_db_for_restore(&self) -> Result<()> {
+    pub fn import_toml_into_db_for_restore(&mut self) -> Result<()> {
         but_meta::legacy_storage::import_toml_into_db(&self.file_path)
     }
 
-    pub fn update_ordering(&self) -> Result<()> {
+    pub fn update_ordering(&mut self) -> Result<()> {
         let succeeded = self
             .list_stacks_in_workspace()?
             .iter()
@@ -306,7 +304,7 @@ impl VirtualBranchesHandle {
         }
     }
 
-    pub fn next_order_index(&self) -> Result<usize> {
+    pub fn next_order_index(&mut self) -> Result<usize> {
         self.update_ordering()?;
         let order = self
             .list_stacks_in_workspace()?
@@ -319,7 +317,7 @@ impl VirtualBranchesHandle {
         Ok(order)
     }
 
-    pub fn delete_branch_entry(&self, branch_id: &StackId) -> Result<()> {
+    pub fn delete_branch_entry(&mut self, branch_id: &StackId) -> Result<()> {
         let mut virtual_branches = self.read_file()?;
         virtual_branches.branches.remove(branch_id);
         self.write_file(&virtual_branches)?;
@@ -331,7 +329,7 @@ impl VirtualBranchesHandle {
     ///   2. They have no regular commits
     ///
     /// Also collects branches with a head oid pointing to a commit that can't be found in the repo
-    pub fn garbage_collect(&self, repo: &Repository) -> Result<()> {
+    pub fn garbage_collect(&mut self, repo: &gix::Repository) -> Result<()> {
         let target = self.get_default_target()?;
         let stacks_not_in_workspace = self
             .list_all_stacks()?
@@ -339,17 +337,22 @@ impl VirtualBranchesHandle {
             .filter(|b| !b.in_workspace)
             .collect_vec();
         let mut to_remove: Vec<StackId> = vec![];
-        let gix_repo = repo.to_gix_repo()?;
-        let ctx = but_ctx::Context::try_from(gix_repo)?;
+        let ctx = but_ctx::Context::try_from(repo.clone())?;
+        let cache = repo.commit_graph_if_enabled()?;
+        let mut graph = repo.revision_graph(cache.as_ref());
         for branch in stacks_not_in_workspace {
-            if let Ok(branch_head) = branch.head_oid(&ctx).map(|h| h.to_git2()) {
+            if let Ok(branch_head) = branch.head_oid(&ctx) {
                 if repo.find_commit(branch_head).is_err() {
                     // if the head commit can't be found, we can GC the branch
                     to_remove.push(branch.id);
                 } else {
                     // if there are no commits between the head and the merge base,
                     // i.e. the head is the merge base, we can GC the branch
-                    if branch_head == repo.merge_base(branch_head, target.sha)? {
+                    if branch_head
+                        == repo
+                            .merge_base_with_graph(branch_head, target.sha, &mut graph)?
+                            .detach()
+                    {
                         to_remove.push(branch.id);
                     }
                 }
@@ -376,7 +379,7 @@ impl VirtualBranchesHandle {
     ///
     /// This function will return `Ok(None)` if there is no default target.
     pub fn upsert_last_pushed_base(
-        &self,
+        &mut self,
         repository: &gix::Repository,
     ) -> Result<Option<gix::ObjectId>> {
         let mut virtual_branches = self.read_file()?;
@@ -385,7 +388,7 @@ impl VirtualBranchesHandle {
         };
 
         let base_tree_id = repository
-            .find_commit(default_target.sha.to_gix())?
+            .find_commit(default_target.sha)?
             .tree_id()?
             .detach();
 
@@ -411,17 +414,14 @@ impl VirtualBranchesHandle {
 
             virtual_branches.last_pushed_base = Some(alter_parentage(
                 repository,
-                default_target.sha.to_gix(),
+                default_target.sha,
                 &[last_pushed_base],
             )?);
         } else {
             // There was no previous last_pushed_base to point to, so we create
             // the first base which doesn't have any parents.
-            virtual_branches.last_pushed_base = Some(alter_parentage(
-                repository,
-                default_target.sha.to_gix(),
-                &[],
-            )?);
+            virtual_branches.last_pushed_base =
+                Some(alter_parentage(repository, default_target.sha, &[])?);
         }
 
         self.write_file(&virtual_branches)?;

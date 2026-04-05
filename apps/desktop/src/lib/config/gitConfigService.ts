@@ -1,26 +1,24 @@
-import { invalidatesItem, invalidatesList, providesItem, ReduxTag } from "$lib/state/tags";
+import { invalidatesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { IBackend } from "$lib/backend";
-import type { ClientState } from "$lib/state/clientState.svelte";
+import type { AppDispatch, BackendApi } from "$lib/state/clientState.svelte";
 import type { GitConfigSettings } from "@gitbutler/core/api";
 
 export const GIT_CONFIG_SERVICE = new InjectionToken<GitConfigService>("GitConfigService");
 
 export class GitConfigService {
-	private api: ReturnType<typeof injectEndpoints>;
-
 	constructor(
-		private clientApi: ClientState,
+		private backendApi: BackendApi,
+		private dispatch: AppDispatch,
 		private backend: IBackend,
-	) {
-		this.api = injectEndpoints(clientApi.backendApi);
-	}
+	) {}
+
 	async get<T extends string>(key: string): Promise<T | undefined> {
-		return ((await this.api.endpoints.gitGetGlobalConfig.fetch({ key })) as T) ?? undefined;
+		return ((await this.backendApi.endpoints.gitGetGlobalConfig.fetch({ key })) as T) ?? undefined;
 	}
 
 	async remove(key: string): Promise<undefined> {
-		return await this.api.endpoints.gitRemoveGlobalConfig.mutate({ key });
+		return await this.backendApi.endpoints.gitRemoveGlobalConfig.mutate({ key });
 	}
 
 	async getWithDefault<T extends string>(key: string, defaultValue: T): Promise<T> {
@@ -29,25 +27,25 @@ export class GitConfigService {
 	}
 
 	async set<T extends string>(key: string, value: T) {
-		return await this.api.endpoints.gitSetGlobalConfig.mutate({ key, value });
+		return await this.backendApi.endpoints.gitSetGlobalConfig.mutate({ key, value });
 	}
 
 	invalidateGitConfig() {
-		this.clientApi.dispatch(
-			this.api.util.invalidateTags([invalidatesList(ReduxTag.GitConfigProperty)]),
+		this.dispatch(
+			this.backendApi.util.invalidateTags([invalidatesList(ReduxTag.GitConfigProperty)]),
 		);
 	}
 
 	gbConfig(projectId: string) {
-		return this.api.endpoints.gbConfig.useQuery({ projectId });
+		return this.backendApi.endpoints.gbConfig.useQuery({ projectId });
 	}
 
 	async getGbConfig(projectId: string): Promise<GitConfigSettings> {
-		return await this.api.endpoints.gbConfig.fetch({ projectId });
+		return await this.backendApi.endpoints.gbConfig.fetch({ projectId });
 	}
 
 	async setGbConfig(projectId: string, config: Partial<GitConfigSettings>) {
-		return await this.api.endpoints.setGbConfig.mutate({
+		return await this.backendApi.endpoints.setGbConfig.mutate({
 			projectId,
 			config: {
 				signCommits: config.signCommits ?? null,
@@ -98,48 +96,4 @@ export class GitConfigService {
 		if (resp) throw new Error(resp);
 		return { name: "push", ok: true };
 	}
-}
-
-function injectEndpoints(api: ClientState["backendApi"]) {
-	return api.injectEndpoints({
-		endpoints: (build) => ({
-			gitGetGlobalConfig: build.query<unknown, { key: string }>({
-				keepUnusedDataFor: 30,
-				extraOptions: { command: "git_get_global_config" },
-				query: (args) => args,
-				transformResponse: (response: unknown) => {
-					return response;
-				},
-				providesTags: (_result, _error, args) => providesItem(ReduxTag.GitConfigProperty, args.key),
-			}),
-			gitRemoveGlobalConfig: build.mutation<undefined, { key: string }>({
-				extraOptions: { command: "git_remove_global_config" },
-				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.GitConfigProperty, args.key),
-				],
-			}),
-			gitSetGlobalConfig: build.mutation<unknown, { key: string; value: unknown }>({
-				extraOptions: { command: "git_set_global_config" },
-				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.GitConfigProperty, args.key),
-				],
-			}),
-			gbConfig: build.query<GitConfigSettings, { projectId: string }>({
-				extraOptions: { command: "get_gb_config" },
-				query: (args) => args,
-				providesTags: (_result, _error, args) =>
-					providesItem(ReduxTag.GitButlerConfig, args.projectId),
-			}),
-			setGbConfig: build.mutation<void, { projectId: string; config: GitConfigSettings }>({
-				extraOptions: { command: "set_gb_config" },
-				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.GitButlerConfig, args.projectId),
-					invalidatesItem(ReduxTag.Project, args.projectId),
-				],
-			}),
-		}),
-	});
 }

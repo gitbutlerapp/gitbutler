@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
 set -eu -o pipefail
-CLI=${1:?The first argument is the GitButler CLI}
 
-git init remote
+git init --initial-branch=main remote
 (cd remote
+  git config user.name "Author"
+  git config user.email "author@example.com"
   echo first > file
   git add . && git commit -m "init"
 )
 
-export GITBUTLER_CLI_DATA_DIR=../user/gitbutler/app-data
 git clone remote workspace-migration
 (cd workspace-migration
-  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
-  $CLI branch create virtual
-  # Start the test on the old integration branch.
+  git config user.name "Author"
+  git config user.email "author@example.com"
+  git branch virtual
+  git checkout -b gitbutler/workspace virtual
+  git commit --allow-empty -m "GitButler Workspace Commit"
   git checkout -b gitbutler/integration
 )

@@ -12,7 +12,7 @@ rust-version.workspace = true
 
 [features]
 export-ts = ["dep:ts-rs"]
-export-schema = ["dep:schemars"]
+export-schema = ["dep:schemars", "dep:but-schemars"]
 
 [lib]
 doctest = false
@@ -24,9 +24,10 @@ but-error.workspace = true
 serde.workspace = true
 anyhow.workspace = true
 reqwest = { workspace = true, features = ["json"] }
-urlencoding = "2.1"
+urlencoding.workspace = true
 ts-rs = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 reqwest = { workspace = true, features = ["blocking"] }

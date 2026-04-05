@@ -1,0 +1,59 @@
+.layout {
+	display: grid;
+	grid-template:
+		"topBar topBar" auto
+		"sidebar content" minmax(0, 1fr)
+		"shortcutsBar shortcutsBar" auto
+		/ max-content minmax(0, 1fr);
+	height: 100dvh;
+}
+
+.topBar {
+	display: flex;
+	row-gap: 8px;
+	grid-area: topBar;
+	align-items: center;
+	padding: 4px;
+	border-bottom: 1px solid var(--color-separator);
+}
+
+.topBarActions {
+	display: flex;
+	column-gap: 8px;
+	margin-left: auto;
+}
+
+.sidebar {
+	display: flex;
+	row-gap: 16px;
+	grid-area: sidebar;
+	flex-direction: column;
+	padding: var(--panel-padding);
+	border-right: 1px solid var(--color-separator);
+}
+
+.sidebarNav {
+	display: flex;
+	row-gap: 8px;
+	flex-direction: column;
+}
+
+.navLink {
+	color: var(--color-text-secondary);
+	text-decoration: none;
+}
+
+.navLinkActive {
+	color: var(--color-text);
+}
+
+.content {
+	display: flex;
+	grid-area: content;
+	flex-direction: column;
+	overflow: auto;
+}
+
+.shortcutsBarFooter {
+	grid-area: shortcutsBar;
+}

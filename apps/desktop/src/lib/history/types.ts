@@ -1,5 +1,3 @@
-import { Transform, Type } from "class-transformer";
-
 export type Operation =
 	| "CreateCommit"
 	| "CreateBranch"
@@ -22,6 +20,7 @@ export type Operation =
 	| "Absorb"
 	| "AutoCommit"
 	| "UndoCommit"
+	| "DiscardCommit"
 	| "UnapplyBranch"
 	| "CherryPick"
 	| "SquashCommit"
@@ -46,23 +45,21 @@ export type Operation =
 	| "SplitBranch"
 	| "OnDemandSnapshot";
 
-export class Trailer {
-	key!: string;
-	value!: string;
+export interface Trailer {
+	key: string;
+	value: string;
 }
 
-export class SnapshotDetails {
-	title!: string;
-	operation!: Operation;
+export interface SnapshotDetails {
+	title: string;
+	operation: Operation;
 	body?: string | undefined;
-	@Type(() => Trailer)
-	trailers!: Trailer[];
+	trailers: Trailer[];
 }
 
-export class Snapshot {
-	id!: string;
-	@Type(() => SnapshotDetails)
+export interface Snapshot {
+	id: string;
 	details?: SnapshotDetails;
-	@Transform((obj) => new Date(obj.value * 1000))
-	createdAt!: Date;
+	/** Milliseconds since epoch. */
+	createdAt: number;
 }

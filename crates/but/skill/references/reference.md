@@ -12,6 +12,7 @@ Comprehensive reference for all `but` commands.
 - [Conflict Resolution](#conflict-resolution) - `resolve`
 - [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `merge`
 - [Automation](#automation) - `mark`, `unmark`
+- [Workspace Maintenance](#workspace-maintenance) - `clean`
 - [History & Undo](#history--undo) - `undo`, `oplog`
 - [Setup & Configuration](#setup--configuration) - `setup`, `teardown`, `config`, `gui`, `update`, `alias`
 - [Global Options](#global-options)
@@ -24,8 +25,7 @@ Overview of workspace state - this is your entry point.
 
 ```bash
 but status              # Human-readable view
-but status -f           # File-centric view (shows which files in which commits)
-but status --json       # Structured output for parsing
+but status -fv          # File-centric view with full commit details (recommended)
 but status --verbose    # Detailed information
 but status --upstream   # Show upstream relationship
 ```
@@ -43,8 +43,7 @@ Details about a commit or branch.
 
 ```bash
 but show <id>           # Show details
-but show <id> --verbose # More detailed information
-but show <id> --json    # Structured output
+but show <id> --verbose # Show with full messages and file details
 ```
 
 ### `but diff [target]`
@@ -56,10 +55,9 @@ but diff <file-id>      # Diff for specific file
 but diff <branch-id>    # Diff for all changes in branch
 but diff <commit-id>    # Diff for specific commit
 but diff                # Diff for entire workspace
-but diff --json         # JSON output with hunk IDs for `but commit --changes`
 ```
 
-**Hunk IDs in JSON output:** For uncommitted changes, `but diff --json` returns each hunk as a separate entry in `changes[]` with an `id` field (e.g., `e8`, `j0`). Pass these IDs to `but commit --changes` for fine-grained, hunk-level commits. For commit/branch diffs, `id` is absent — entries are per-file with hunks nested under `diff.hunks`.
+**Hunk IDs:** For uncommitted changes, `but diff` shows each hunk with an ID (e.g., `e8`, `j0`). Pass these IDs to `but commit --changes` for fine-grained, hunk-level commits.
 
 ## Branching
 
@@ -69,7 +67,6 @@ List all branches (default when no subcommand).
 
 ```bash
 but branch              # List branches
-but branch --json       # JSON output
 but branch list [filter]  # Filter branches by name (case-insensitive substring)
 but branch list --no-ahead  # Skip commits-ahead calculation (faster)
 but branch list --no-check  # Skip clean-merge check (faster)
@@ -131,6 +128,23 @@ but branch show <id> --check  # Check if branch merges cleanly into upstream
 but branch show <id> -r       # Fetch and display review information (PRs/MRs)
 ```
 
+### `but branch move <branch> <target-branch>`
+
+Move an existing branch on top of another branch, stacking them.
+
+```bash
+but branch move feature/frontend feature/backend
+but branch move --unstack feature/frontend
+```
+
+Equivalent top-level syntax:
+
+```bash
+but move feature/frontend feature/backend
+but move feature/frontend zz
+```
+
+Uses branch names or branch CLI IDs.
 ### `but pick <source> [target]`
 
 Cherry-pick commits from unapplied branches into applied branches.
@@ -196,8 +210,8 @@ but commit empty --after <target>        # Insert empty commit after target
 **Important:** Without `--only`, ALL uncommitted changes are committed to the branch, not just staged files. Use `--only` when you've staged specific files and want to commit only those.
 
 **Committing specific files or hunks:** Use `--changes` (or `-p`) with comma-separated CLI IDs to commit only those files or hunks:
-- **File IDs** from `but status --json`: commits entire files
-- **Hunk IDs** from `but diff --json`: commits individual hunks
+- **File IDs** from `but status`: commits entire files
+- **Hunk IDs** from `but diff`: commits individual hunks
 - `--changes` takes one argument per flag. Use `--changes a1,b2` or `--changes a1 --changes b2`, not `--changes a1 b2`.
 
 **Note:** `--changes` and `--only` are mutually exclusive.
@@ -208,7 +222,7 @@ but commit empty --after <target>        # Insert empty commit after target
 
 Example: `but commit my-branch -m "Fix bug" --changes ab,cd` commits files/hunks `ab` and `cd`.
 
-To commit specific hunks from a file with multiple changes, use `but diff --json` to see hunk IDs, then specify them individually.
+To commit specific hunks from a file with multiple changes, use `but diff` to see hunk IDs, then specify them individually.
 
 If only one branch is applied, you can omit the branch ID.
 
@@ -301,16 +315,20 @@ but amend <file-id> <commit-id> --status-after   # Amend then show workspace sta
 
 Alias for `but rub <file> <commit>`.
 
-### `but move <commit> <target>`
+### `but move <source> <target>`
 
-Move a commit to a different location.
+Move commits or branches to a different location.
 
 ```bash
-but move <source> <target>           # Move before target
-but move <source> <target> --after   # Move after target
-but move <commit> <branch>           # Move to top of branch
-but move <commit> <branch> --status-after  # Move then show workspace status
+but move <commit> <target-commit>            # Move before target commit
+but move <commit> <target-commit> --after    # Move after target commit
+but move <commit> <branch>                   # Move commit to top of branch
+but move <branch> <target-branch>            # Stack branch on top of target branch
+but move <branch> zz                          # Tear off (unstack) branch
+but move <source> <target> --status-after    # Move then show workspace status
 ```
+
+`--after` is valid only for commit-to-commit moves.
 
 ### `but uncommit <source>`
 
@@ -319,6 +337,8 @@ Uncommit changes back to unstaged area.
 ```bash
 but uncommit <commit-id>      # Uncommit entire commit
 but uncommit <file-id>        # Uncommit specific file from its commit
+but uncommit <commit-id> -d   # Discard committed changes instead of moving to unassigned
+but uncommit <file-id> --discard  # Discard committed file changes completely
 but uncommit <commit-id> --status-after  # Uncommit then show workspace status
 ```
 
@@ -343,7 +363,7 @@ but discard <hunk-id>         # Discard hunk changes
 
 ## Conflict Resolution
 
-When commits have conflicts (shown in `but status`):
+When commits have conflicts (shown in `but status` — look for commits marked as conflicted):
 
 ### `but resolve <commit>`
 
@@ -379,10 +399,14 @@ but resolve cancel
 
 **Workflow:**
 
-1. `but resolve <commit>` - Enter mode
-2. Edit files to resolve conflicts
-3. `but resolve status` - Check progress
-4. `but resolve finish` - Complete
+1. `but status` — identify conflicted commits (marked as conflicted in the output)
+2. `but resolve <commit-id>` — enter resolution mode for the conflicted commit
+3. Edit the conflicted files — remove `<<<<<<<`, `=======`, `>>>>>>>` markers and keep the correct content
+4. `but resolve status` — verify no conflicts remain
+5. `but resolve finish` — finalize and return to normal mode
+6. If multiple commits are conflicted, repeat steps 2-5 for each one
+
+**Important:** Never use `git add`, `git commit`, or other git write commands during conflict resolution. Only use `but resolve` commands and edit files directly.
 
 ## Remote Operations
 
@@ -463,6 +487,23 @@ but unmark
 
 Use marks when working on a focused area to automatically organize changes.
 
+## Workspace Maintenance
+
+### `but clean`
+
+Remove empty branches from the workspace.
+
+```bash
+but clean                   # Delete all empty branches
+but clean --dry-run         # Preview which branches would be deleted
+but clean --pull            # Pull latest changes first, then clean
+but clean --include-upstream # Also remove branches with upstream-only commits
+```
+
+A branch is considered empty if it has no local commits and no assigned changes. Branches with upstream-only commits are preserved by default unless `--include-upstream` is used.
+
+The entire operation is a single oplog entry — use `but undo` to restore all deleted branches.
+
 ## History & Undo
 
 ### `but undo`
@@ -481,7 +522,6 @@ View operation history.
 
 ```bash
 but oplog
-but oplog --json
 ```
 
 Shows all operations with snapshot IDs.
@@ -551,8 +591,7 @@ but alias
 
 Available on most commands:
 
-- `-j, --json` - Output in JSON format for parsing
-- `--status-after` - After a mutation command, also output workspace status. In human mode, prints status after the command output. In JSON mode, wraps both in `{"result": ..., "status": ...}` on success, or `{"result": ..., "status_error": "..."}` if the status query fails. Supported on: `rub`, `commit`, `stage`, `amend`, `absorb`, `squash`, `move`, `uncommit`.
+- `--status-after` - After a mutation command, also output workspace status. Supported on: `rub`, `commit`, `stage`, `amend`, `absorb`, `squash`, `move`, `uncommit`.
 - `-C, --current-dir <PATH>` - Run as if started in different directory
 - `-h, --help` - Show help for command
 

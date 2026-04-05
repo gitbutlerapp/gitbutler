@@ -109,7 +109,7 @@
 			left: 0;
 			width: 100%;
 			height: 0.094rem;
-			background-color: var(--clr-text-1);
+			background-color: var(--text-1);
 			content: "";
 			transition:
 				transform 0.15s ease,
@@ -170,7 +170,7 @@
 		width: 100%;
 		height: 100dvh; /* Dynamic viewport height for mobile browsers */
 		backdrop-filter: blur(16px);
-		background: color-mix(in srgb, var(--clr-bg-2) 70%, transparent);
+		background: color-mix(in srgb, var(--bg-2) 70%, transparent);
 	}
 
 	.mobile-nav {
@@ -188,7 +188,7 @@
 
 		&:hover {
 			text-decoration: underline wavy;
-			text-decoration-color: var(--clr-theme-pop-element);
+			text-decoration-color: var(--fill-pop-bg);
 		}
 	}
 

@@ -2,9 +2,17 @@ use bstr::ByteSlice;
 use snapbox::str;
 
 use crate::{
-    command::util::commit_file_with_worktree_changes_as_two_hunks,
+    command::util::{self, commit_file_with_worktree_changes_as_two_hunks},
     utils::{CommandExt, Sandbox},
 };
+
+fn find_unassigned_cli_id(status: &serde_json::Value, path: &str) -> Option<String> {
+    status["unassignedChanges"]
+        .as_array()?
+        .iter()
+        .find(|change| change["filePath"].as_str() == Some(path))
+        .and_then(|change| change["cliId"].as_str().map(ToOwned::to_owned))
+}
 
 #[test]
 fn uncommitted_file() -> anyhow::Result<()> {
@@ -290,24 +298,24 @@ k0 a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unstaged changes] 
-┊   nk M a.txt 🔒 889385c, a7aa4ef, f4ea7f8
+╭┄zz [unstaged changes]
+┊   nk M a.txt
 ┊
-┊╭┄g0 [A]  
-┊●   a7aa4ef partial change to a.txt 3  
+┊╭┄g0 [A]
+┊●   a7aa4ef partial change to a.txt 3
 ┊│     a7:nk M a.txt
-┊●   889385c partial change to a.txt 2  
+┊●   889385c partial change to a.txt 2
 ┊│     88:nk M a.txt
-┊●   8dc39e0 partial change to a.txt 1  
+┊●   8dc39e0 partial change to a.txt 1
 ┊│     8d:nk M a.txt
-┊●   f4ea7f8 a.txt  
+┊●   f4ea7f8 a.txt
 ┊│     f4:nk A a.txt
-┊●   9477ae7 add A  
+┊●   9477ae7 add A
 ┊│     94:tm A A
 ├╯
 ┊
-┊╭┄h0 [B]  
-┊●   d3e2ba3 add B  
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
 ┊│     d3:pl A B
 ├╯
 ┊
@@ -342,24 +350,24 @@ Hint: you can run `but undo` to undo these changes
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [A]  
-┊●   4822140 partial change to a.txt 3  
+┊╭┄g0 [A]
+┊●   4822140 partial change to a.txt 3
 ┊│     48:nk M a.txt
-┊●   4593422 partial change to a.txt 2  
+┊●   4593422 partial change to a.txt 2
 ┊│     45:nk M a.txt
-┊●   8dc39e0 partial change to a.txt 1  
+┊●   8dc39e0 partial change to a.txt 1
 ┊│     8d:nk M a.txt
-┊●   f4ea7f8 a.txt  
+┊●   f4ea7f8 a.txt
 ┊│     f4:nk A a.txt
-┊●   9477ae7 add A  
+┊●   9477ae7 add A
 ┊│     94:tm A A
 ├╯
 ┊
-┊╭┄h0 [B]  
-┊●   d3e2ba3 add B  
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
 ┊│     d3:pl A B
 ├╯
 ┊
@@ -383,6 +391,48 @@ Hint: run `but help` for all commands
     line
     last new
     ");
+
+    Ok(())
+}
+
+#[test]
+fn concurrent_absorb_of_independent_files_succeeds() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+    commit_file_with_worktree_changes_as_two_hunks(&env, "B", "b.txt");
+
+    let status = util::status_json(&env)?;
+    let id_a = find_unassigned_cli_id(&status, "a.txt").expect("should find a.txt CLI ID");
+    let id_b = find_unassigned_cli_id(&status, "b.txt").expect("should find b.txt CLI ID");
+
+    let child_a = util::but_std_cmd(&env, &format!("absorb {id_a}")).spawn()?;
+    let child_b = util::but_std_cmd(&env, &format!("absorb {id_b}")).spawn()?;
+
+    let out_a = child_a.wait_with_output()?;
+    let out_b = child_b.wait_with_output()?;
+
+    assert!(
+        out_a.status.success(),
+        "absorb a.txt failed: {}",
+        out_a.stderr.as_bstr()
+    );
+    assert!(
+        out_b.status.success(),
+        "absorb b.txt failed: {}",
+        out_b.stderr.as_bstr()
+    );
+
+    let status = util::status_json(&env)?;
+    assert_eq!(
+        status["unassignedChanges"]
+            .as_array()
+            .map(|changes| changes.len())
+            .unwrap_or(0),
+        0,
+        "both files should be absorbed from the worktree"
+    );
 
     Ok(())
 }
@@ -463,17 +513,17 @@ Hint: you can run `but undo` to undo these changes
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unstaged changes] 
+╭┄zz [unstaged changes]
 ┊     no changes
 ┊
-┊╭┄g0 [A]  
-┊●   27686df [AUTO-COMMIT] Generated commit message  
-┊●   f4ea7f8 a.txt  
-┊●   9477ae7 add A  
+┊╭┄g0 [A]
+┊●   27686df [AUTO-COMMIT] Generated commit message
+┊●   f4ea7f8 a.txt
+┊●   9477ae7 add A
 ├╯
 ┊
-┊╭┄h0 [B]  
-┊●   d3e2ba3 add B  
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
@@ -580,17 +630,17 @@ Hint: you can run `but undo` to undo these changes
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unstaged changes] 
-┊   nk M a.txt 🔒 f4ea7f8
+╭┄zz [unstaged changes]
+┊   nk M a.txt
 ┊
-┊╭┄g0 [A]  
-┊●   5a72bff [AUTO-COMMIT] Generated commit message  
-┊●   f4ea7f8 a.txt  
-┊●   9477ae7 add A  
+┊╭┄g0 [A]
+┊●   5a72bff [AUTO-COMMIT] Generated commit message
+┊●   f4ea7f8 a.txt
+┊●   9477ae7 add A
 ├╯
 ┊
-┊╭┄h0 [B]  
-┊●   d3e2ba3 add B  
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
 ├╯
 ┊
 ┴ 0dc3733 [origin/main] 2000-01-02 add M
@@ -726,6 +776,14 @@ Dry run complete. No changes were made.
         "Status should be unchanged after dry-run"
     );
 
+    // Also verify the workspace commit did NOT change during dry-run
+    let repo = env.open_repo()?;
+    let ws_id = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
+    // Re-run dry-run and confirm workspace is still the same
+    env.but("absorb i0 --dry-run").assert().success();
+    let ws_id_after = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
+    assert_eq!(ws_id, ws_id_after, "dry-run must not touch workspace HEAD");
+
     // Verify the file content wasn't actually changed
     let repo = env.open_repo()?;
     let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
@@ -759,6 +817,34 @@ Dry run complete. No changes were made.
 ...
 
 "#]]);
+
+    Ok(())
+}
+
+/// Regression test for https://github.com/gitbutlerapp/gitbutler/issues/12750
+/// After absorb, the `gitbutler/workspace` HEAD must be refreshed so that
+/// tools inspecting HEAD (e.g. pre-push hooks that stash against it) see
+/// an up-to-date synthetic commit rather than a stale one.
+#[test]
+fn workspace_head_is_refreshed_after_absorb() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    // Record the workspace commit *before* absorb.
+    let repo = env.open_repo()?;
+    let ws_before = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
+
+    env.but("absorb i0").assert().success().stderr_eq(str![""]);
+
+    // After absorb the workspace commit must have changed.
+    let ws_after = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
+
+    assert_ne!(
+        ws_before, ws_after,
+        "gitbutler/workspace HEAD should be refreshed after absorb"
+    );
 
     Ok(())
 }

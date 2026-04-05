@@ -107,6 +107,6 @@
 		height: 32px;
 		padding: 6px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 	}
 </style>

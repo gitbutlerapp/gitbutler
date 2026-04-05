@@ -579,17 +579,48 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { assignHunkNapi, branchDiffNapi, changesInWorktreeNapi, commitAmendNapi, commitCreateNapi, commitDetailsWithLineStatsNapi, commitInsertBlankNapi, commitMoveChangesBetweenNapi, commitRewordNapi, commitUncommitChangesNapi, headInfoNapi, listProjectsNapi, treeChangeDiffsNapi } = nativeBinding
-export { assignHunkNapi }
-export { branchDiffNapi }
-export { changesInWorktreeNapi }
-export { commitAmendNapi }
-export { commitCreateNapi }
-export { commitDetailsWithLineStatsNapi }
-export { commitInsertBlankNapi }
-export { commitMoveChangesBetweenNapi }
-export { commitRewordNapi }
-export { commitUncommitChangesNapi }
-export { headInfoNapi }
-export { listProjectsNapi }
-export { treeChangeDiffsNapi }
+const { absorb, absorptionPlan, apply, assignHunk, branchDetails, branchDiff, changesInWorktree, changesInWorktreeWithPerm, commitAmend, commitCreate, commitDetailsWithLineStats, commitDiscard, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitSquash, commitUncommitChanges, forgeProvider, getReview, headInfo, listAvailableReviewTemplates, listBranches, listCiChecksAndUpdateCache, listProjectsStateless, listReviews, listReviewsForBranch, mergeReview, moveBranch, publishReview, pushStackLegacy, removeBranch, reviewTemplate, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, tearOffBranch, treeChangeDiffs, unapplyStack, updateBranchName, updateReviewFooters, warmCiChecksCache, WatcherHandle, watcherStart } = nativeBinding
+export { absorb }
+export { absorptionPlan }
+export { apply }
+export { assignHunk }
+export { branchDetails }
+export { branchDiff }
+export { changesInWorktree }
+export { changesInWorktreeWithPerm }
+export { commitAmend }
+export { commitCreate }
+export { commitDetailsWithLineStats }
+export { commitDiscard }
+export { commitInsertBlank }
+export { commitMove }
+export { commitMoveChangesBetween }
+export { commitReword }
+export { commitSquash }
+export { commitUncommitChanges }
+export { forgeProvider }
+export { getReview }
+export { headInfo }
+export { listAvailableReviewTemplates }
+export { listBranches }
+export { listCiChecksAndUpdateCache }
+export { listProjectsStateless }
+export { listReviews }
+export { listReviewsForBranch }
+export { mergeReview }
+export { moveBranch }
+export { publishReview }
+export { pushStackLegacy }
+export { removeBranch }
+export { reviewTemplate }
+export { setReviewAutoMerge }
+export { setReviewDraftiness }
+export { setReviewTemplate }
+export { tearOffBranch }
+export { treeChangeDiffs }
+export { unapplyStack }
+export { updateBranchName }
+export { updateReviewFooters }
+export { warmCiChecksCache }
+export { WatcherHandle }
+export { watcherStart }

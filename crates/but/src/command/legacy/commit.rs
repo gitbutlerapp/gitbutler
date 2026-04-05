@@ -3,19 +3,21 @@ use std::{collections::BTreeMap, fmt::Write as _};
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::{
-    commit::{commit_create, commit_insert_blank},
-    legacy::{diff, repo, workspace},
+    commit::create::commit_create,
+    diff,
+    legacy::{repo, workspace},
 };
-use but_core::{DiffSpec, ui::TreeChange};
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_core::{DiffSpec, sync::RepoExclusive, ui::TreeChange};
+use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use colored::Colorize;
 use gitbutler_repo::hooks;
 
+use super::{ShowDiffInEditor, estimate_diff_blob_size};
 use crate::{
     CliId, IdMap,
     command::legacy::status::assignment::{CLIHunkAssignment, FileAssignment},
     tui,
-    utils::{InputOutputChannel, OutputChannel},
+    utils::{InputOutputChannel, OutputChannel, shorten_object_id},
 };
 
 pub(crate) fn insert_blank_commit(
@@ -24,7 +26,8 @@ pub(crate) fn insert_blank_commit(
     target: &str,
     insert_side: InsertSide,
 ) -> Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
     // Resolve the target ID
     let cli_ids = id_map.parse_using_context(target, ctx)?;
@@ -54,26 +57,28 @@ pub(crate) fn insert_blank_commit(
     // Determine target commit ID and use provided insert_side
     let success_message = match cli_id {
         CliId::Commit { commit_id: oid, .. } => {
-            commit_insert_blank(
+            let short_oid = {
+                let repo = ctx.repo.get()?;
+                shorten_object_id(&repo, *oid)
+            };
+            but_api::commit::insert_blank::commit_insert_blank_with_perm(
                 ctx,
-                but_api::commit::ui::RelativeTo::Commit(*oid),
+                RelativeTo::Commit(*oid),
                 insert_side,
+                guard.write_permission(),
             )?;
-            format!(
-                "Created blank commit {} commit {}",
-                position_desc,
-                &oid.to_string()[..7]
-            )
+            format!("Created blank commit {position_desc} commit {short_oid}")
         }
         CliId::Branch { name, .. } => {
             let reference = {
                 let repo = ctx.repo.get()?;
                 repo.find_reference(name)?.detach()
             };
-            commit_insert_blank(
+            but_api::commit::insert_blank::commit_insert_blank_with_perm(
                 ctx,
-                but_api::commit::ui::RelativeTo::Reference(reference.name),
+                RelativeTo::Reference(reference.name),
                 insert_side,
+                guard.write_permission(),
             )?;
             match insert_side {
                 InsertSide::Above => format!("Created blank commit at the top of stack '{name}'"),
@@ -293,8 +298,10 @@ pub(crate) fn commit(
     create_branch: bool,
     no_hooks: bool,
     generate_message: Option<Option<String>>,
+    show_diff_in_editor: ShowDiffInEditor,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
     // Get all stacks using but-api
     let stack_entries = workspace::stacks(ctx, None)?;
@@ -317,11 +324,18 @@ pub(crate) fn commit(
         bail!("Multiple branches found. Specify a branch to commit to using the branch argument");
     }
 
-    let (target_stack_id, target_stack) =
-        select_stack(&id_map, ctx, &stacks, branch_hint, create_branch, out)?;
+    let (target_stack_id, target_stack) = select_stack(
+        &id_map,
+        ctx,
+        &stacks,
+        branch_hint,
+        create_branch,
+        out,
+        guard.write_permission(),
+    )?;
 
     // Get changes and assignments using but-api
-    let worktree_changes = diff::changes_in_worktree(ctx)?;
+    let worktree_changes = diff::changes_in_worktree_with_perm(ctx, guard.write_permission())?;
     let changes = worktree_changes.worktree_changes.changes;
 
     // Get files to commit - either specific files by ID or all eligible files
@@ -393,7 +407,7 @@ pub(crate) fn commit(
                 "In JSON mode, a commit message must be provided via --message (-m), --message-file, or --ai (-i)"
             );
         }
-        get_commit_message_from_editor(&files_to_commit, &changes)?
+        get_commit_message_from_editor(ctx, &files_to_commit, &changes, show_diff_in_editor)?
     };
 
     if commit_message.trim().is_empty() {
@@ -461,10 +475,11 @@ pub(crate) fn commit(
     // Insert relative to the branch reference itself so only that branch tip is advanced.
     let outcome = commit_create(
         ctx,
-        but_api::commit::ui::RelativeTo::Reference(target_branch.reference.clone()),
+        RelativeTo::Reference(target_branch.reference.clone()),
         InsertSide::Below,
         diff_specs,
         final_commit_message,
+        guard.write_permission(),
     )?;
 
     if !outcome.rejected_specs.is_empty() {
@@ -528,17 +543,19 @@ fn create_independent_branch(
     branch_name: &str,
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<(
     but_core::ref_metadata::StackId,
     but_workspace::ui::StackDetails,
 )> {
     // Create a new independent stack with the given branch name
-    let (new_stack_id_opt, _new_ref) = but_api::legacy::stack::create_reference(
+    let (new_stack_id_opt, _new_ref) = but_api::legacy::stack::create_reference_with_perm(
         ctx,
         but_api::legacy::stack::create_reference::Request {
             new_name: branch_name.to_string(),
             anchor: None,
         },
+        perm,
     )?;
 
     if let Some(new_stack_id) = new_stack_id_opt {
@@ -564,6 +581,7 @@ fn select_stack(
     branch_hint: Option<&str>,
     create_branch: bool,
     out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<(
     but_core::ref_metadata::StackId,
     but_workspace::ui::StackDetails,
@@ -574,7 +592,7 @@ fn select_stack(
             Some(hint) => String::from(hint),
             None => but_api::legacy::workspace::canned_branch_name(ctx)?,
         };
-        return create_independent_branch(&branch_name, ctx, out);
+        return create_independent_branch(&branch_name, ctx, out, perm);
     }
 
     match branch_hint {
@@ -586,7 +604,7 @@ fn select_stack(
 
             // Branch not found - create if flag is set, otherwise error
             if create_branch {
-                create_independent_branch(hint, ctx, out)
+                create_independent_branch(hint, ctx, out, perm)
             } else {
                 bail!("Branch '{hint}' not found")
             }
@@ -594,7 +612,7 @@ fn select_stack(
         None if create_branch => {
             // Create with canned name
             let branch_name = but_api::legacy::workspace::canned_branch_name(ctx)?;
-            create_independent_branch(&branch_name, ctx, out)
+            create_independent_branch(&branch_name, ctx, out, perm)
         }
         None if stacks.len() == 1 => {
             // Only one stack - use it
@@ -678,8 +696,10 @@ fn prompt_for_stack_selection(
 }
 
 fn get_commit_message_from_editor(
+    ctx: &mut but_ctx::Context,
     files_to_commit: &[FileAssignment],
     changes: &[TreeChange],
+    show_diff_in_editor: ShowDiffInEditor,
 ) -> anyhow::Result<String> {
     // Generate commit message template
     let mut template = String::new();
@@ -694,9 +714,32 @@ fn get_commit_message_from_editor(
     }
     template.push_str("#\n");
 
+    // Compute diff for the editor if requested
+    let should_show_diff = show_diff_in_editor.should_show_diff(|| {
+        // Convert ui::TreeChange to core::TreeChange for blob size estimation
+        let core_changes: Vec<but_core::TreeChange> = changes
+            .iter()
+            .filter(|c| files_to_commit.iter().any(|f| f.path == c.path_bytes))
+            .cloned()
+            .map(but_core::TreeChange::from)
+            .collect();
+        estimate_diff_blob_size(&core_changes, ctx)
+    })?;
+
+    let diff_text = if should_show_diff {
+        let diff = generate_unified_diff(ctx, files_to_commit, changes)?;
+        if diff.is_empty() { None } else { Some(diff) }
+    } else {
+        None
+    };
+
     // Read the result from the editor and strip comments
-    let lossy_message =
-        tui::get_text::from_editor_no_comments("commit_msg", &template)?.to_string();
+    let lossy_message = tui::get_text::from_editor_no_comments_as_patch(
+        "commit_msg",
+        &template,
+        diff_text.as_deref(),
+    )?
+    .to_string();
     Ok(lossy_message)
 }
 
@@ -729,7 +772,6 @@ mod tests {
                     path: path.to_owned(),
                     path_bytes: path.as_bytes().into(),
                     stack_id: None,
-                    hunk_locks: None,
                     line_nums_added: None,
                     line_nums_removed: None,
                     diff: None,

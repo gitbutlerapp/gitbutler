@@ -1,8 +1,8 @@
 use anyhow::Result;
 use but_core::DiffSpec;
 use but_rebase::graph_rebase::{
-    GraphExt as _, LookupStep as _,
-    mutate::{InsertSide, RelativeTo},
+    Editor, LookupStep as _,
+    mutate::{InsertSide, RelativeToRef},
 };
 use but_workspace::commit::commit_create;
 
@@ -27,11 +27,12 @@ fn commit_above_commit() -> Result<()> {
         "inserted\n",
     )?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = commit_create(
         editor,
         worktree_changes_as_specs(&repo)?,
-        RelativeTo::Commit(two_id),
+        RelativeToRef::Commit(two_id),
         InsertSide::Above,
         "insert above commit",
         0,
@@ -73,11 +74,12 @@ fn commit_below_commit() -> Result<()> {
         "inserted\n",
     )?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = commit_create(
         editor,
         worktree_changes_as_specs(&repo)?,
-        RelativeTo::Commit(two_id),
+        RelativeToRef::Commit(two_id),
         InsertSide::Below,
         "insert below commit",
         0,
@@ -113,11 +115,12 @@ fn commit_above_reference() -> Result<()> {
         "inserted\n",
     )?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = commit_create(
         editor,
         worktree_changes_as_specs(&repo)?,
-        RelativeTo::Reference(reference.name()),
+        RelativeToRef::Reference(reference.name()),
         InsertSide::Above,
         "insert above reference",
         0,
@@ -164,11 +167,12 @@ fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
         "inserted\n",
     )?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = commit_create(
         editor,
         worktree_changes_as_specs(&repo)?,
-        RelativeTo::Commit(merge_id),
+        RelativeToRef::Commit(merge_id),
         InsertSide::Below,
         "insert below merge",
         0,
@@ -201,7 +205,8 @@ fn commit_all_rejected_is_noop() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     let two_id = repo.rev_parse_single("two")?.detach();
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
 
     let outcome = commit_create(
         editor,
@@ -210,7 +215,7 @@ fn commit_all_rejected_is_noop() -> Result<()> {
             path: "does-not-exist".into(),
             hunk_headers: vec![],
         }],
-        RelativeTo::Commit(two_id),
+        RelativeToRef::Commit(two_id),
         InsertSide::Above,
         "no-op commit",
         0,

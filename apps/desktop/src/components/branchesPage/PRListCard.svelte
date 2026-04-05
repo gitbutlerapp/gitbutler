@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BranchesCardTemplate from "$components/branchesPage/BranchesCardTemplate.svelte";
+	import BranchesCardLayout from "$components/branchesPage/BranchesCardLayout.svelte";
 	import { getPrStatus } from "$lib/forge/interface/prUtils";
 	import { Avatar, ReviewBadge, SeriesIcon, TestId, TimeAgo } from "@gitbutler/ui";
 	import type { ReviewUnitInfo } from "$lib/forge/interface/forgePrService";
@@ -46,7 +46,7 @@
 	const prStatus = $derived(getPrStatus({ mergedAt, closedAt, draft: isDraft }));
 </script>
 
-<BranchesCardTemplate
+<BranchesCardLayout
 	testId={TestId.PRListCard}
 	{selected}
 	onclick={() =>
@@ -90,14 +90,14 @@
 			{author.name || unknownName}
 		{/if}
 	{/snippet}
-</BranchesCardTemplate>
+</BranchesCardLayout>
 
 <style lang="postcss">
 	.sidebar-entry__about {
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.sidebar-entry__header {
@@ -111,7 +111,7 @@
 	}
 
 	.sidebar-entry__divider {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 
 		&:last-child {
 			display: none;
@@ -122,6 +122,6 @@
 		display: flex;
 		align-items: center;
 		gap: 4px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

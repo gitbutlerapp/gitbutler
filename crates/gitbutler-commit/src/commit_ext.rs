@@ -1,7 +1,7 @@
 use bstr::{BStr, ByteSlice};
 use but_core::{ChangeId, commit::Headers};
 
-/// Extension trait for `git2::Commit`.
+/// Extension trait for `gix::Commit`.
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Commit`
 pub trait CommitExt {
@@ -18,8 +18,7 @@ pub trait CommitMessageBstr {
 impl CommitExt for gix::Commit<'_> {
     fn change_id(&self) -> Option<ChangeId> {
         let commit = self.decode().ok()?;
-        let commit = commit.to_owned().ok()?;
-        Headers::try_from_commit(&commit)?.change_id
+        Headers::try_from_commit_headers(|| commit.extra_headers())?.change_id
     }
 
     fn is_signed(&self) -> bool {
@@ -31,8 +30,7 @@ impl CommitExt for gix::Commit<'_> {
         self.decode()
             .ok()
             .and_then(|commit| {
-                let commit = commit.to_owned().ok()?;
-                let headers = Headers::try_from_commit(&commit)?;
+                let headers = Headers::try_from_commit_headers(|| commit.extra_headers())?;
                 Some(headers.conflicted? > 0)
             })
             .unwrap_or(false)

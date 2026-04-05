@@ -54,15 +54,27 @@ The `but_ctx::Context` is the solution to this problem, and is passed around as 
 
 ### 1. Sync `.git/gitbutler/virtual-branches.toml` with database representation
 
-- [ ] [in progress](https://github.com/gitbutlerapp/gitbutler/issues/12075)
+- [x] https://github.com/gitbutlerapp/gitbutler/issues/12075
 
-### 2. Port consumers of `gitbutler_stack::VirtualBranchesHandle` to `ctx.ws`
+### 2. Port legacy virtual-branches consumers to `ctx.ws`
 
-Crates with references to `VirtualBranchesHandle`: 15
+Track all remaining access paths to `.git/gitbutler/virtual-branches.toml`, including:
 
-#### but-api (1)
+- `gitbutler_stack::VirtualBranchesHandle`
+- `ctx.virtual_branches()`
+- `but_meta::legacy_storage::read_synced_virtual_branches()`
+- `but_meta::legacy_storage::write_virtual_branches_and_sync()`
 
-- [ ] `crates/but-api/src/legacy/workspace.rs`
+The crate list below started from direct `VirtualBranchesHandle` references and should also cover
+callers that only touch the same legacy state via `ctx.virtual_branches()` or the legacy
+read/write helpers.
+
+#### but-api (2)
+
+`legacy_meta()` and `legacy_meta_mut()`, needed for stacks/details V3 and vb.toml reconciliation.
+
+- [x] `crates/but-api/src/legacy/workspace.rs`
+- [ ] `crates/but-api/src/legacy/meta.rs`
 
 #### but-claude (1)
 
@@ -72,17 +84,28 @@ Crates with references to `VirtualBranchesHandle`: 15
 
 - [ ] `crates/but-tools/src/workspace.rs`
 
-#### gitbutler-cli (1)
+#### but (10)
 
-- [ ] `crates/gitbutler-cli/src/command/vbranch.rs`
+- [ ] `crates/but/src/command/legacy/branch/list.rs`
+- [ ] `crates/but/src/command/legacy/branch/show.rs`
+- [ ] `crates/but/src/command/legacy/mcp_internal/commit.rs`
+- [ ] `crates/but/src/command/legacy/mcp_internal/stack.rs`
+- [ ] `crates/but/src/command/legacy/pick.rs`
+- [ ] `crates/but/src/command/legacy/push.rs`
+- [ ] `crates/but/src/command/legacy/rub/commits.rs`
+- [ ] `crates/but/src/command/legacy/rub/move.rs`
+- [ ] `crates/but/src/command/legacy/rub/move_commit.rs`
+- [ ] `crates/but/src/command/legacy/status/mod.rs`
 
-#### gitbutler-operating-modes (1)
+#### but-workspace (7)
 
-- [ ] `crates/gitbutler-operating-modes/src/lib.rs`
-
-#### gitbutler-testsupport (1)
-
-- [ ] `crates/gitbutler-testsupport/src/lib.rs`
+- [ ] `crates/but-workspace/src/legacy/commit_engine/mod.rs`
+- [ ] `crates/but-workspace/src/legacy/head.rs`
+- [ ] `crates/but-workspace/src/legacy/mod.rs`
+- [ ] `crates/but-workspace/src/legacy/tree_manipulation/move_between_commits.rs`
+- [ ] `crates/but-workspace/src/legacy/tree_manipulation/remove_changes_from_commit_in_stack.rs`
+- [ ] `crates/but-workspace/src/legacy/tree_manipulation/split_branch.rs`
+- [ ] `crates/but-workspace/src/legacy/tree_manipulation/split_commit.rs`
 
 #### but-action (2)
 
@@ -99,10 +122,41 @@ Crates with references to `VirtualBranchesHandle`: 15
 - [ ] `crates/but-worktrees/src/integrate.rs`
 - [ ] `crates/but-worktrees/tests/worktree/main.rs`
 
+#### Reconciliation for workspace-commit refresh
+
+`VirtualBranchesHandle` is only a concurrency-safe handle to `virtual_branches.toml`, not an
+in-memory snapshot of workspace state. The same applies to `ctx.virtual_branches()`, which merely
+creates another handle to the same file. Passing a `VBH` around explicitly should therefore not be
+treated as its own consistency boundary.
+
+The special case in this migration is `gitbutler-branch-actions::update_workspace_commit()`.
+Today it still reads applied stacks from `VirtualBranchesHandle` and delegates the actual merge
+shape to `but_workspace::legacy::remerged_workspace_commit_v2()`. That means the relevant VBH
+work is not "port this function to `ctx.ws` line-by-line", but rather:
+
+- [ ] make `update_workspace_commit()` build the workspace commit via
+      `WorkspaceCommit::from_new_merge_with_tips()`
+- [ ] treat `crates/gitbutler-branch-actions/src/integration.rs` and
+      `crates/but-workspace/src/legacy/head.rs` as one migration cluster
+- [ ] only after that, remove leftover explicit `VirtualBranchesHandle` threading that existed
+      solely to support workspace-commit refresh
+
+Until that refactor lands, the `gitbutler-branch-actions` items below should be read as
+"remaining legacy virtual-branches consumers", including `ctx.virtual_branches()` call sites,
+not as independent stateful-handle flows.
+
+#### gitbutler-cli (1)
+
+- [ ] `crates/gitbutler-cli/src/command/vbranch.rs`
+
+#### gitbutler-operating-modes (1)
+
+- [ ] `crates/gitbutler-operating-modes/src/lib.rs`
+
 #### gitbutler-edit-mode (2)
 
-- [ ] `crates/gitbutler-edit-mode/src/lib.rs`
-- [ ] `crates/gitbutler-edit-mode/tests/edit_mode.rs`
+- [x] `crates/gitbutler-edit-mode/src/lib.rs`
+- [x] `crates/gitbutler-edit-mode/tests/edit_mode.rs`
 
 #### gitbutler-oplog (2)
 
@@ -121,29 +175,6 @@ Crates with references to `VirtualBranchesHandle`: 15
 - [ ] `crates/gitbutler-stack/src/stack_branch.rs`
 - [ ] `crates/gitbutler-stack/src/state.rs`
 - [ ] `crates/gitbutler-stack/tests/mod.rs`
-
-#### but-workspace (7)
-
-- [ ] `crates/but-workspace/src/legacy/commit_engine/mod.rs`
-- [ ] `crates/but-workspace/src/legacy/head.rs`
-- [ ] `crates/but-workspace/src/legacy/mod.rs`
-- [ ] `crates/but-workspace/src/legacy/tree_manipulation/move_between_commits.rs`
-- [ ] `crates/but-workspace/src/legacy/tree_manipulation/remove_changes_from_commit_in_stack.rs`
-- [ ] `crates/but-workspace/src/legacy/tree_manipulation/split_branch.rs`
-- [ ] `crates/but-workspace/src/legacy/tree_manipulation/split_commit.rs`
-
-#### but (10)
-
-- [ ] `crates/but/src/command/legacy/branch/list.rs`
-- [ ] `crates/but/src/command/legacy/branch/show.rs`
-- [ ] `crates/but/src/command/legacy/mcp_internal/commit.rs`
-- [ ] `crates/but/src/command/legacy/mcp_internal/stack.rs`
-- [ ] `crates/but/src/command/legacy/pick.rs`
-- [ ] `crates/but/src/command/legacy/push.rs`
-- [ ] `crates/but/src/command/legacy/rub/commits.rs`
-- [ ] `crates/but/src/command/legacy/rub/move.rs`
-- [ ] `crates/but/src/command/legacy/rub/move_commit.rs`
-- [ ] `crates/but/src/command/legacy/status/mod.rs`
 
 #### gitbutler-branch-actions (11)
 
@@ -165,6 +196,23 @@ Also write the database after _each change_ so it's semantically similar to how 
 
 Sync the TOML file _on drop_ only, knowing well that this may write data that is going to be rolled back. The TOML sync is only for backward compatibility with older application versions.
 
+- [ ] First migrate every remaining `ctx.legacy_meta()` caller to `ctx.meta()`
+  - Current baseline:
+    - `crates/but-action/src/lib.rs`
+    - `crates/but-action/src/reword.rs`
+    - `crates/but-cherry-apply/tests/cherry_apply/main.rs`
+    - `crates/but-claude/src/hooks/mod.rs`
+    - `crates/but-cursor/src/lib.rs`
+    - `crates/but-testing/src/command/mod.rs`
+    - `crates/but-tools/src/workspace.rs`
+    - `crates/but-workspace/src/legacy/mod.rs`
+    - `crates/but-worktrees/tests/worktree/main.rs`
+    - `crates/but/src/command/legacy/mcp_internal/stack.rs`
+    - `crates/but/src/legacy/commits.rs`
+    - `crates/gitbutler-branch-actions/src/upstream_integration.rs`
+    - `crates/gitbutler-branch-actions/tests/branch-actions/virtual_branches/mod.rs`
+    - `crates/gitbutler-cli/src/command/vbranch.rs`
+    - `crates/but-testsupport/src/legacy.rs`
 - [ ] Not started
 
 ### 4. Modernize workspace metadata schema
@@ -173,6 +221,16 @@ Migrate the existing workspace metadata to metadata that fits its purpose.
 Remove `but-meta` in favor of a `but-db` implementation of the `RefMetadata` trait which is as minimal as it can be based on the data it actually reads and writes.
 
 - [ ] Not started
+
+## `ProjectId` to `ProjectHandle`
+
+A transition from `ProjectId` to `ProjectHandle` to leverage the usability of `ProjectHandle` as `ProjectId`.
+This means that all places that previously used `ProjectId` may now support `ProjectHandle` transparently
+_as long_ as they are run through the `but-api` or use `ProjectHandleOrLegacyProjectId` explicitly.
+
+- [x] implement `ProjectHandleOrLegacyProjectId`
+- [x] Replace all manual mentions of `ProjectId` with `ProjectHandleOrLegacyProjectId`
+- [x] Let `add_project` return a `ProjectHandle`
 
 ## DB for application data
 
@@ -183,5 +241,6 @@ Migrate app-support JSON metadata into SQLite-backed application data and remove
 - [ ] `<app-support/projects.json>` into `but_db::DbHandle`
   - [ ] recent projects as identified by `but_ctx::ProjectHandle` to `but_db::AppCache`
   - [ ] `but_ctx::LegacyProject` is removed
+  - [ ] Replace `ProjectHandleOrLegacyProjectId` with `ProjectHandle` and remove the type.
 - [ ] `<app-support>/forge_settings.json` to `but_db::AppDb` (`but_ctx::AppDb` also is guaranteed to be available just like a cache)
 - [ ] `<app-general>/settings.json` should rather be per application-channel (nightly, stable, dev), i.e. in `<app-support>/settings.json`

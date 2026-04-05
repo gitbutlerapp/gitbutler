@@ -68,18 +68,7 @@ pub fn octopus(
         if merge.has_unresolved_conflicts(unresolved) {
             return Err(anyhow!(
                 "Encountered conflict when merging tree {tree_to_merge}{details}",
-                details = if successfully_merged.len() > 1 {
-                    format!(
-                        " after the trees {} were merged successfully",
-                        successfully_merged
-                            .iter()
-                            .map(|id| id.to_string())
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    )
-                } else {
-                    format!(" and tree {tree_to_merge}")
-                }
+                details = merge_conflict_details(&successfully_merged)
             )
             .context(ConflictErrorContext {
                 paths: merge
@@ -114,6 +103,25 @@ pub fn octopus(
     }
 }
 
+fn merge_conflict_details(successfully_merged: &[gix::ObjectId]) -> String {
+    if successfully_merged.len() > 1 {
+        format!(
+            " after the trees {} were merged successfully",
+            successfully_merged
+                .iter()
+                .map(|id| id.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    } else {
+        // Callers seed this list with the initial `ours` tree before any merge happens,
+        // but we return an empty suffix defensively if the invariant is broken.
+        successfully_merged
+            .first()
+            .map_or_else(String::new, |tree| format!(" and tree {tree}"))
+    }
+}
+
 /// A type that can be retrieved as an `anyhow` context to see if the rebase failed due to merge conflicts.
 #[derive(Debug, Clone)]
 pub struct ConflictErrorContext {
@@ -132,5 +140,39 @@ impl std::fmt::Display for ConflictErrorContext {
                 .collect::<Vec<_>>()
                 .join(", ")
         )
+    }
+}
+
+#[cfg(test)]
+mod test_merge_confict_details {
+    use std::str::FromStr;
+
+    use super::merge_conflict_details;
+
+    #[test]
+    fn single_merged_tree() {
+        let successfully_merged_tree =
+            gix::ObjectId::from_str("1111111111111111111111111111111111111111").unwrap();
+
+        assert_eq!(
+            merge_conflict_details(&[successfully_merged_tree]),
+            format!(" and tree {successfully_merged_tree}")
+        );
+    }
+
+    #[test]
+    fn two_merged_trees() {
+        let first = gix::ObjectId::from_str("1111111111111111111111111111111111111111").unwrap();
+        let second = gix::ObjectId::from_str("2222222222222222222222222222222222222222").unwrap();
+
+        assert_eq!(
+            merge_conflict_details(&[first, second]),
+            format!(" after the trees {first}, {second} were merged successfully")
+        );
+    }
+
+    #[test]
+    fn empty_merged_trees() {
+        assert_eq!(merge_conflict_details(&[]), "");
     }
 }

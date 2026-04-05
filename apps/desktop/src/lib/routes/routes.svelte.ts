@@ -18,14 +18,6 @@ export function workspacePath(projectId: string) {
 	return `/${projectId}/workspace`;
 }
 
-export function ircPath(projectId: string) {
-	return `/${projectId}/irc`;
-}
-
-export function isIrcPath() {
-	return isUrl<{ projectId: string }>("/[projectId]/irc");
-}
-
 export function isWorkspacePath(): { projectId: string; stackId?: string } | undefined {
 	const isStackUrl = isUrl<{ projectId: string; stackId?: string }>(
 		"/[projectId]/workspace?stackId=[stackId]",

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getFileIcon } from "$components/file/getFileIcon";
+	import { getFileIcon } from "$components/file/icon/getFileIcon";
 
 	interface Props {
 		fileName: string;

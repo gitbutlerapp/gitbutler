@@ -1,7 +1,7 @@
 use anyhow::{Context as _, Result};
 use but_core::RepositoryExt;
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::OidExt;
 use gitbutler_operating_modes::ensure_open_workspace_mode;
 use gitbutler_oplog::{
     OplogExt, SnapshotExt,
@@ -11,7 +11,6 @@ use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo::hooks;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{PatchReferenceUpdate, StackBranch, StackId};
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -35,7 +34,8 @@ pub fn create_branch(ctx: &mut Context, stack_id: StackId, req: CreateSeriesRequ
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_create_dependent_branch(&req.name, guard.write_permission());
-    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Requires an open workspace mode")?;
     let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&req.name)?;
     let repo = ctx.repo.get()?;
@@ -72,32 +72,53 @@ pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: &str) ->
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_remove_dependent_branch(branch_name, guard.write_permission());
-    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Requires an open workspace mode")?;
     let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     stack.remove_branch(ctx, branch_name)
 }
 
 /// Updates the name an existing branch and resets the pr_number to None.
 /// Same invariants as `create_branch` apply.
+///
+/// Returns the new normalized name of the branch.
 pub fn update_branch_name(
     ctx: &mut Context,
     stack_id: StackId,
     branch_name: String,
     new_name: String,
-) -> Result<()> {
+) -> Result<String> {
     let mut guard = ctx.exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
-    let _ = ctx.snapshot_update_dependent_branch_name(&branch_name, guard.write_permission());
-    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    update_branch_name_with_perm(
+        ctx,
+        stack_id,
+        branch_name,
+        new_name,
+        guard.write_permission(),
+    )
+}
+
+pub fn update_branch_name_with_perm(
+    ctx: &mut Context,
+    stack_id: StackId,
+    branch_name: String,
+    new_name: String,
+    perm: &mut but_core::sync::RepoExclusive,
+) -> Result<String> {
+    ctx.verify(perm)?;
+    let _ = ctx.snapshot_update_dependent_branch_name(&branch_name, perm);
+    ensure_open_workspace_mode(ctx, perm.read_permission())
+        .context("Requires an open workspace mode")?;
     let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&new_name)?;
     stack.update_branch(
         ctx,
         branch_name,
         &PatchReferenceUpdate {
-            name: Some(normalized_head_name),
+            name: Some(normalized_head_name.clone()),
         },
-    )
+    )?;
+    Ok(normalized_head_name)
 }
 
 /// Sets the forge identifier for a given series/branch. Existing value is overwritten.
@@ -121,7 +142,8 @@ pub fn update_branch_pr_number(
         SnapshotDetails::new(OperationKind::UpdateDependentBranchPrNumber),
         guard.write_permission(),
     );
-    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Requires an open workspace mode")?;
     let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     stack.set_pr_number(ctx, &branch_name, pr_number)
 }
@@ -139,17 +161,16 @@ pub fn push_stack(
 ) -> Result<PushResult> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Requires an open workspace mode")?;
     let state = ctx.virtual_branches();
     let stack = state.get_stack(stack_id)?;
 
-    let git2_repo = ctx.git2_repo.get()?;
     let default_target = state.get_default_target()?;
     let gix_repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let merge_base_id = git2_repo
-        .find_commit(git2_repo.merge_base(stack.head_oid(ctx)?.to_git2(), default_target.sha)?)?
-        .id()
-        .to_gix();
+    let merge_base_id = gix_repo
+        .merge_base(stack.head_oid(ctx)?, default_target.sha)?
+        .detach();
 
     // First fetch, because we dont want to push integrated series
     ctx.fetch(
@@ -171,9 +192,7 @@ pub fn push_stack(
     let force_push_protection =
         !skip_force_push_protection && ctx.legacy_project.force_push_protection;
 
-    drop(git2_repo);
     for branch in stack_branches {
-        let git2_repo = ctx.git2_repo.get()?;
         if branch.archived {
             // Nothing to push for this one
             tracing::debug!(branch = branch.name, "skipping archived branch for pushing");
@@ -188,9 +207,8 @@ pub fn push_stack(
             continue;
         }
         let mut graph = gix_repo.revision_graph(cache.as_ref());
-        let mut check_commit =
-            IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
-        if branch_integrated(&mut check_commit, &branch, &git2_repo, &gix_repo)? {
+        let mut check_commit = IsCommitIntegrated::new(&default_target, &gix_repo, &mut graph)?;
+        if branch_integrated(&mut check_commit, &branch, &gix_repo)? {
             // Already integrated, nothing to push
             tracing::debug!(branch = branch.name, "Skipping push for integrated branch");
             continue;
@@ -199,24 +217,27 @@ pub fn push_stack(
         let push_details = stack.push_details(ctx, branch.name().to_owned())?;
 
         // Capture the SHA before push (remote ref if exists, otherwise zero)
-        let before_sha = git2_repo
-            .find_reference(&push_details.remote_refname.to_string())
-            .and_then(|r| r.peel_to_commit())
-            .map(|c| c.id())
-            .unwrap_or_else(|_| git2::Oid::zero());
+        let before_sha = gix_repo
+            .try_find_reference(&push_details.remote_refname.to_string())?
+            .map(|mut reference| reference.peel_to_commit())
+            .transpose()?
+            .map(|commit| commit.id)
+            .unwrap_or(gix_repo.object_hash().null());
         let local_sha = push_details.head;
 
         if run_hooks {
             let remote_name = default_target.push_remote_name();
-            let remote = git2_repo.find_remote(&remote_name)?;
-            let url = &remote
-                .url()
+            let remote = gix_repo.find_remote(remote_name.as_str())?;
+            let url = remote
+                .url(gix::remote::Direction::Push)
+                .or_else(|| remote.url(gix::remote::Direction::Fetch))
+                .map(|url| url.to_bstring().to_string())
                 .with_context(|| format!("Remote named {remote_name} didn't have a URL"))?;
             match hooks::pre_push(
-                &git2_repo,
+                &gix_repo,
                 &remote_name,
-                url,
-                push_details.head,
+                &url,
+                push_details.head.to_gix(),
                 &push_details.remote_refname,
                 ctx.legacy_project.husky_hooks_enabled,
             )? {
@@ -256,14 +277,9 @@ pub fn push_stack(
             push_opts,
         )?;
 
-        drop(git2_repo);
         if gerrit_mode {
             let push_output = but_gerrit::parse::push_output(&out)?;
-            let stacks = stack
-                .commits(ctx)?
-                .iter()
-                .map(|id| id.to_gix())
-                .collect_vec();
+            let stacks = stack.commits(ctx)?;
             but_gerrit::record_push_metadata(ctx, stacks, push_output)?;
         }
 
@@ -290,13 +306,11 @@ pub fn push_stack(
 pub(crate) fn branch_integrated(
     check_commit: &mut IsCommitIntegrated,
     branch: &StackBranch,
-    repo: &git2::Repository,
     gix_repo: &gix::Repository,
 ) -> Result<bool> {
     if branch.archived {
         return Ok(true);
     }
     let oid = branch.head_oid(gix_repo)?;
-    let branch_head = repo.find_commit(oid.to_git2())?;
-    check_commit.is_integrated(&branch_head)
+    check_commit.is_integrated(oid)
 }

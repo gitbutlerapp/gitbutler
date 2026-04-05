@@ -13,6 +13,7 @@
 	} from "@gitbutler/shared/routing/webRoutes.svelte";
 
 	import { AsyncButton, Button, Markdown, Modal, chipToasts } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 
 	interface Props {
 		data: ProjectParameters;
@@ -32,7 +33,7 @@
 	let projectData = $state<any>(null);
 
 	// Create a promise for the project data
-	const projectSlug = `${data.ownerSlug}/${data.projectSlug}`;
+	const projectSlug = untrack(() => `${data.ownerSlug}/${data.projectSlug}`);
 	const projectPromise = projectService.getProjectBySlug(projectSlug).then((result) => {
 		if (result) {
 			projectData = result;
@@ -501,7 +502,7 @@
 		align-items: center;
 		justify-content: center;
 		height: 200px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 1.2rem;
 	}
 
@@ -542,7 +543,7 @@
 		align-items: center;
 		margin-top: 10px;
 		gap: 0.5rem;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 13px;
 	}
 
@@ -553,7 +554,7 @@
 		font-size: 1.2rem;
 
 		a {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 			text-decoration: none;
 
 			&:hover {
@@ -650,7 +651,7 @@
 
 	.preview-title {
 		margin: 0 0 0.75rem 0;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 1rem;
 	}
 
@@ -670,7 +671,7 @@
 
 	.sidebar-section-title {
 		margin: 0 0 0.5rem 0;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 1rem;
 	}
 
@@ -713,7 +714,7 @@
 		a {
 			display: inline-block;
 			margin-top: 0.25rem;
-			color: var(--clr-core-pop-50);
+			color: var(--clr-pop-50);
 			font-weight: 500;
 
 			&:hover {
@@ -783,7 +784,7 @@
 	}
 
 	.form-group small {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 12px;
 	}
 

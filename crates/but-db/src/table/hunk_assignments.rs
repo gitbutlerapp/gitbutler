@@ -2,11 +2,12 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DbHandle, M, Transaction};
+use crate::{DbHandle, M, SchemaVersion, Transaction};
 
 pub(crate) const M: &[M<'static>] = &[
     M::up(
         20250526145725,
+        SchemaVersion::Zero,
         "CREATE TABLE `hunk_assignments`(
 	`hunk_header` TEXT,
 	`path` TEXT NOT NULL,
@@ -18,10 +19,12 @@ pub(crate) const M: &[M<'static>] = &[
     ),
     M::up(
         20250603111503,
+        SchemaVersion::Zero,
         "ALTER TABLE `hunk_assignments` ADD COLUMN `id` TEXT;",
     ),
     M::up(
         20250607113323,
+        SchemaVersion::Zero,
         "ALTER TABLE `hunk_assignments` DROP COLUMN `hunk_locks`;",
     ),
 ];

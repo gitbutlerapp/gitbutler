@@ -371,23 +371,23 @@
 		align-items: center;
 		margin-top: 10px;
 		gap: 6px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 
 		& .negative {
-			color: var(--clr-theme-danger-on-soft);
+			color: var(--chip-danger-fg);
 		}
 		& .positive {
-			color: var(--clr-theme-safe-on-soft);
+			color: var(--chip-safe-fg);
 		}
 	}
 
 	/* Shared checkered background pattern */
 	.checkered-bg {
 		background-image:
-			linear-gradient(45deg, var(--clr-bg-3) 25%, transparent 25%),
-			linear-gradient(-45deg, var(--clr-bg-3) 25%, transparent 25%),
-			linear-gradient(45deg, transparent 75%, var(--clr-bg-3) 75%),
-			linear-gradient(-45deg, transparent 75%, var(--clr-bg-3) 75%);
+			linear-gradient(45deg, var(--bg-3) 25%, transparent 25%),
+			linear-gradient(-45deg, var(--bg-3) 25%, transparent 25%),
+			linear-gradient(45deg, transparent 75%, var(--bg-3) 75%),
+			linear-gradient(-45deg, transparent 75%, var(--bg-3) 75%);
 		background-position:
 			0 0,
 			0 12px,
@@ -402,7 +402,7 @@
 		justify-content: center;
 		min-height: 200px;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
 	}
 
@@ -439,7 +439,7 @@
 		justify-content: center;
 		min-height: 400px;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-bottom: none;
 		border-radius: var(--radius-m) var(--radius-m) 0 0;
 
@@ -448,7 +448,7 @@
 		}
 
 		&.is-swipe {
-			border-bottom: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--border-2);
 			border-radius: var(--radius-m) var(--radius-m);
 			cursor: ew-resize;
 		}
@@ -495,7 +495,7 @@
 		top: 0;
 		bottom: 0;
 		width: 2px;
-		background-color: var(--clr-core-gray-0);
+		background-color: var(--clr-gray-0);
 	}
 
 	.swipe-handle-grip {
@@ -505,8 +505,8 @@
 		justify-content: center;
 		padding: 4px 6px;
 		border-radius: 20px;
-		background-color: var(--clr-core-gray-0);
-		color: var(--clr-core-gray-100);
+		background-color: var(--clr-gray-0);
+		color: var(--clr-gray-100);
 		cursor: col-resize;
 		pointer-events: all;
 	}
@@ -516,7 +516,7 @@
 		align-items: center;
 		padding: 12px;
 		gap: 10px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
 	}
 </style>

@@ -1,5 +1,5 @@
-import { PostHogWrapper } from "$lib/analytics/posthog";
 import { initSentry } from "$lib/analytics/sentry";
+import { PostHogWrapper } from "$lib/telemetry/posthog";
 import posthog from "posthog-js";
 import type { Settings } from "@gitbutler/core/api";
 

@@ -2,10 +2,11 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{DbHandle, M, Transaction};
+use crate::{DbHandle, M, SchemaVersion, Transaction};
 
 pub(crate) const M: &[M<'static>] = &[M::up(
     20260101223932,
+    SchemaVersion::Zero,
     "-- Your SQL goes here
 CREATE TABLE `forge_reviews`(
 	`html_url` TEXT NOT NULL,

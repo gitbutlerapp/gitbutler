@@ -112,13 +112,6 @@ impl OutputChannel {
     pub fn format(&self) -> OutputFormat {
         self.format
     }
-
-    /// Return `true` if the output is being passed through a pager.
-    ///
-    /// This is typically used to avoid truncating text when output is being piped to a pager.
-    pub fn is_paged(&self) -> bool {
-        self.pager.is_some()
-    }
 }
 
 /// An [`std::fmt::Write`] implementation that supports additional utility methods for output formatting.
@@ -130,6 +123,8 @@ pub trait WriteWithUtils: std::fmt::Write + 'static {
     fn truncate_if_unpaged(&self, text: &str, max_width: usize) -> String;
 
     /// Return `true` if the output is being passed through a pager.
+    ///
+    /// This is typically used to avoid truncating text when output is being piped to a pager.
     fn is_paged(&self) -> bool;
 }
 
@@ -143,7 +138,7 @@ impl WriteWithUtils for OutputChannel {
     }
 
     fn is_paged(&self) -> bool {
-        self.is_paged()
+        self.pager.is_some()
     }
 }
 
@@ -406,6 +401,19 @@ impl InputOutputChannel<'_> {
     pub fn prompt(&mut self, prompt: impl AsRef<str>) -> anyhow::Result<Option<String>> {
         Ok(
             match self.readline(&format!("{}\n> ", prompt.as_ref()), InputEcho::Visible)? {
+                ReadlineInput::Text(line) => Some(line),
+                ReadlineInput::Empty | ReadlineInput::EndOfInput => None,
+            },
+        )
+    }
+
+    /// Like [`Self::prompt`] but without a newline between the prompt and the input.
+    pub fn prompt_single_line(
+        &mut self,
+        prompt: impl AsRef<str>,
+    ) -> anyhow::Result<Option<String>> {
+        Ok(
+            match self.readline(&format!("{} ", prompt.as_ref()), InputEcho::Visible)? {
                 ReadlineInput::Text(line) => Some(line),
                 ReadlineInput::Empty | ReadlineInput::EndOfInput => None,
             },

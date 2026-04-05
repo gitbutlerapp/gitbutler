@@ -1,7 +1,8 @@
-use crate::{DbHandle, M, Transaction};
+use crate::{DbHandle, M, SchemaVersion, Transaction};
 
 pub(crate) const M: &[M<'static>] = &[M::up(
     20260219130000,
+    SchemaVersion::Zero,
     "CREATE TABLE `vb_state`(
 	`id` INTEGER PRIMARY KEY CHECK (`id` = 1),
 	`initialized` INTEGER NOT NULL DEFAULT 0,

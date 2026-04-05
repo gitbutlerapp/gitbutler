@@ -10,14 +10,14 @@ doctest = false
 
 [dependencies]
 anyhow.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
 tracing.workspace = true
 gix = { workspace = true, features = ["excludes"] }
+but-project-handle = { workspace = true, features = ["legacy"] }
 
 backoff.workspace = true
 notify.workspace = true
 gitbutler-notify-debouncer.path = "vendor/debouncer"
-gitbutler-project.workspace = true
 
 [lints]
 workspace = true

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { setContext } from "svelte";
+	import { setContext, untrack } from "svelte";
 	import { writable } from "svelte/store";
 	import type { SegmentContext } from "$components/segmentControl/segmentTypes";
 	import type { Snippet } from "svelte";
@@ -23,7 +23,7 @@
 	}: SegmentProps = $props();
 
 	const registeredSegments: string[] = [];
-	const selectedSegmentId = writable<string | undefined>(selected);
+	const selectedSegmentId = writable<string | undefined>(untrack(() => selected));
 
 	// Sync external selected prop to internal store
 	$effect(() => {

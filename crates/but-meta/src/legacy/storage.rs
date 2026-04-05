@@ -586,7 +586,7 @@ fn snapshot_to_legacy(snapshot: &VirtualBranchesSnapshot) -> anyhow::Result<Virt
     })
 }
 
-#[allow(clippy::large_enum_variant)]
+#[expect(clippy::large_enum_variant)]
 enum TomlInfo {
     Missing,
     Parsed(ParsedToml),

@@ -36,20 +36,21 @@ but-action.workspace = true
 but-bot.workspace = true
 but-api = { workspace = true, features = ["tauri", "path-bytes", "legacy"] }
 but-claude.workspace = true
-but-ctx.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
 but-forge.workspace = true
 but-llm.workspace = true
 but-hunk-assignment.workspace = true
+but-irc = { workspace = true, optional = true }
+notify-rust.workspace = true
 
 gitbutler-repo-actions.workspace = true
 gitbutler-watcher.workspace = true
 gitbutler-project.workspace = true
 gitbutler-oplog.workspace = true
-tauri = { version = "^2.10.2", features = ["unstable"] }
+tauri = { version = "^2.10.3", features = ["unstable"] }
 tauri-plugin-single-instance = { version = "2.4.0", features = ["deep-link"] }
 tauri-plugin-dialog = "2.6.0"
 tauri-plugin-fs = "2.4.5"
-tauri-plugin-http = "2.5.7"
 tauri-plugin-log = "2.8.0"
 tauri-plugin-os = "2.3.2"
 tauri-plugin-process = "2.3.1"
@@ -70,7 +71,6 @@ serde_json = { workspace = true, features = ["arbitrary_precision"] }
 
 parking_lot.workspace = true
 log = "^0.4"
-git2.workspace = true
 # The features here optimize for performance.
 tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot"] }
 tracing.workspace = true
@@ -80,7 +80,7 @@ tracing-forest.workspace = true
 open.workspace = true
 ## This is only used on macOS when it's the stable build to open `com.gitbutler.app` folders.
 ## Ideally, we could only use the dependency then.
-opener = { version = "0.8.3", features = ["reveal"] }
+opener = { version = "0.8.3", features = ["reveal"], optional = true }
 url = "2.5.4"
 but-path.workspace = true
 uuid.workspace = true
@@ -94,12 +94,14 @@ tauri-plugin-trafficlights-positioner = { git = "https://github.com/gitbutlerapp
 workspace = true
 
 [features]
-default = ["custom-protocol", "devtools"]
+default = ["custom-protocol", "devtools", "opener"]
+## Enable IRC-based real-time collaboration features.
+irc = ["dep:but-irc"]
 #! ## Build- and package-related Options
 ## If enabled, we will pretend to be `but` when the binary filename is `but`.
 builtin-but = ["dep:but", "but-action/builtin-but"]
 ## A very specific utility flag to make clear that the 'but' binary is managed by a package manager.
-packaged-but-distribution = []
+packaged-but-distribution = ["but?/packaged-but-distribution"]
 ## Disable the auto-updater in the frontend.
 ##
 ## Note that it will still be compiled into the backend, so the technical capability of auto-updates remains.
@@ -108,6 +110,8 @@ disable-auto-updates = []
 windows = []
 ## Allow dev-tools to appear to help debugging the frontend.
 devtools = ["tauri/devtools"]
+## Enable filesystem reveal integration.
+opener = ["dep:opener"]
 
 #! ## Development
 ## This feature is used for production builds where `devPath` points to the filesystem

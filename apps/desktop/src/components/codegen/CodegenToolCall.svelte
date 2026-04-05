@@ -1,8 +1,9 @@
 <script lang="ts">
-	import ExpandableSection from "$components/codegen/ExpandableSection.svelte";
+	import ExpandableSection from "$components/shared/ExpandableSection.svelte";
+	import { formatToolCall, getToolIcon, getToolLabel } from "$lib/codegen/codegenTools";
 	import { toolCallLoading, type ToolCall } from "$lib/codegen/messages";
-	import { formatToolCall, getToolIcon, getToolLabel } from "$lib/utils/codegenTools";
 	import { Codeblock } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 
 	type Props = {
 		projectId: string;
@@ -26,10 +27,11 @@
 	}: Props = $props();
 
 	// Initialize expanded state from map, default to false (collapsed)
-	const initialExpanded =
+	const initialExpanded = untrack(() =>
 		toolCallKey && toolCallExpandedState
 			? (toolCallExpandedState.individual.get(toolCallKey) ?? false)
-			: false;
+			: false,
+	);
 
 	function handleToggle(newExpanded: boolean) {
 		// Persist to map if available
@@ -92,8 +94,8 @@
 	.summary {
 		padding: 3px 6px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-2);
+		background-color: var(--bg-2);
+		color: var(--text-2);
 		font-size: 12px;
 		font-family: var(--font-mono);
 	}

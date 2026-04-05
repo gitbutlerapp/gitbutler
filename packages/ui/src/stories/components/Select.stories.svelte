@@ -340,7 +340,7 @@
 		width: 100%;
 		height: 600px;
 		border-radius: var(--radius-ml);
-		background: var(--clr-bg-2);
+		background: var(--bg-2);
 	}
 
 	.emoji {

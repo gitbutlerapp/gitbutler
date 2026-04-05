@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from "$components/Icon.svelte";
 	import { type IconName } from "$lib/icons/names";
+	import { untrack } from "svelte";
 	import { fly, fade } from "svelte/transition";
 	import type { ChipToastType, ChipToastButtonConfig } from "$components/chipToast/chipToastTypes";
 
@@ -20,17 +21,17 @@
 	} {
 		switch (type) {
 			case "success":
-				return { name: "tick-circle", color: "var(--clr-theme-safe-element)" };
+				return { name: "tick-circle", color: "var(--fill-safe-bg)" };
 			case "warning":
-				return { name: "warning", color: "var(--clr-theme-warn-element)" };
+				return { name: "warning", color: "var(--fill-warn-bg)" };
 			case "danger":
-				return { name: "danger", color: "var(--clr-theme-danger-element)" };
+				return { name: "danger", color: "var(--fill-danger-bg)" };
 			default:
-				return { name: "info", color: "var(--clr-theme-pop-element)" };
+				return { name: "info", color: "var(--fill-pop-bg)" };
 		}
 	}
 
-	const icon = getEmojiForType(type);
+	const icon = getEmojiForType(untrack(() => type));
 
 	function handleDismiss() {
 		onDismiss?.();
@@ -81,9 +82,9 @@
 		display: flex;
 		width: fit-content;
 		border-radius: var(--radius-m);
-		background: var(--clr-bg-toast);
+		background: var(--bg-toast);
 		box-shadow: var(--fx-shadow-m);
-		color: var(--clr-theme-gray-on-element);
+		color: var(--fill-gray-fg);
 		text-align: center;
 	}
 
@@ -117,7 +118,7 @@
 
 	.chip-toast__button {
 		padding: var(--toast-padding);
-		border-left: 1px solid color-mix(in srgb, var(--clr-border-2) 30%, transparent);
+		border-left: 1px solid color-mix(in srgb, var(--border-2) 30%, transparent);
 		transition: opacity var(--transition-fast);
 
 		&:hover {

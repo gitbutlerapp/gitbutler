@@ -1,15 +1,111 @@
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_error::Code;
 
-use super::{Project, ProjectId, storage, storage::UpdateRequest};
-use crate::{AuthKey, project::AddProjectOutcome};
+use super::{Project, storage, storage::UpdateRequest};
+use crate::{AuthKey, ProjectHandle, ProjectHandleOrLegacyProjectId, project::AddProjectOutcome};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Controller {
     local_data_dir: PathBuf,
     projects_storage: storage::Storage,
+}
+
+struct ResolvedProjectRepo {
+    repo: gix::Repository,
+    worktree_dir: PathBuf,
+}
+
+#[expect(clippy::result_large_err)]
+fn normalize_project_repo(
+    repo: gix::Repository,
+) -> std::result::Result<ResolvedProjectRepo, AddProjectOutcome> {
+    if repo.is_bare() {
+        return Err(AddProjectOutcome::BareRepository);
+    }
+    // Submodules also use a `.git` file in the worktree, so the repository identity must come
+    // from the resolved gitdir instead of the worktree-local `.git` entry.
+    if repo.worktree().is_some_and(|wt| !wt.is_main()) {
+        return Err(AddProjectOutcome::NonMainWorktree);
+    }
+
+    let Some(worktree_dir) = repo.workdir().map(ToOwned::to_owned) else {
+        return Err(AddProjectOutcome::NoWorkdir);
+    };
+
+    Ok(ResolvedProjectRepo { repo, worktree_dir })
+}
+
+#[expect(clippy::result_large_err)]
+fn resolve_project_repo_exact(
+    path: &Path,
+) -> std::result::Result<ResolvedProjectRepo, AddProjectOutcome> {
+    let repo = match gix::open_opts(path, gix::open::Options::isolated()) {
+        Ok(repo) => repo,
+        Err(err) => return Err(AddProjectOutcome::NotAGitRepository(err.to_string())),
+    };
+
+    normalize_project_repo(repo)
+}
+
+#[expect(clippy::result_large_err)]
+fn resolve_project_repo_by_discovery(
+    path: &Path,
+) -> std::result::Result<ResolvedProjectRepo, AddProjectOutcome> {
+    let repo = match gix::discover(path) {
+        Ok(repo) => repo,
+        Err(err) => return Err(AddProjectOutcome::NotAGitRepository(err.to_string())),
+    };
+
+    normalize_project_repo(repo)
+}
+
+fn find_existing_project_by_git_dir(
+    all_projects: &[Project],
+    git_dir: &Path,
+) -> Result<Option<Project>> {
+    for project in all_projects {
+        let project = project
+            .clone()
+            .migrated()
+            .unwrap_or_else(|_| project.clone());
+        if project.git_dir_opt() == Some(git_dir) {
+            return Ok(Some(project));
+        }
+    }
+    Ok(None)
+}
+
+fn find_existing_project_containing_path(
+    all_projects: &[Project],
+    path: &Path,
+) -> Result<Option<Project>> {
+    let mut best_match: Option<(usize, Project)> = None;
+
+    for project in all_projects {
+        let project = project
+            .clone()
+            .migrated()
+            .unwrap_or_else(|_| project.clone());
+        let Ok(project_worktree_dir) = gix::path::realpath(&project.worktree_dir) else {
+            continue;
+        };
+
+        if !path.starts_with(&project_worktree_dir) {
+            continue;
+        }
+
+        let candidate_len = project_worktree_dir.as_os_str().len();
+        if best_match
+            .as_ref()
+            .is_none_or(|(best_len, _)| candidate_len > *best_len)
+        {
+            best_match = Some((candidate_len, project));
+        }
+    }
+
+    Ok(best_match.map(|(_, project)| project))
 }
 
 impl Controller {
@@ -65,95 +161,73 @@ impl Controller {
         worktree_dir: P,
     ) -> Result<AddProjectOutcome> {
         let worktree_dir = worktree_dir.as_ref();
+        if !worktree_dir.exists() {
+            return Ok(AddProjectOutcome::PathNotFound);
+        }
 
         let all_projects = self
             .projects_storage
             .list()
             .context("failed to list projects from storage")?;
-
         let resolved_path = gix::path::realpath(worktree_dir)?;
-        // Check if any existing project contains the given path
-        if let Some(existing_project) = all_projects.iter().find(|project| {
-            resolved_path.starts_with(project.worktree_dir_but_should_use_git_dir())
-        }) {
-            return Ok(AddProjectOutcome::AlreadyExists(
-                existing_project.clone().migrated()?,
-            ));
+        if !resolved_path.is_dir() {
+            if let Some(existing_project) =
+                find_existing_project_containing_path(&all_projects, &resolved_path)?
+            {
+                return Ok(AddProjectOutcome::AlreadyExists(existing_project));
+            }
+            return Ok(AddProjectOutcome::NotADirectory);
+        }
+        let resolved_repo = match resolve_project_repo_by_discovery(&resolved_path) {
+            Ok(repo) => repo,
+            Err(outcome) => return Ok(outcome),
+        };
+
+        if let Some(existing_project) =
+            find_existing_project_by_git_dir(&all_projects, resolved_repo.repo.git_dir())?
+        {
+            return Ok(AddProjectOutcome::AlreadyExists(existing_project));
         }
 
-        self.add(worktree_dir)
+        self.add(resolved_repo.worktree_dir)
     }
 
     pub(crate) fn add(&self, worktree_dir: impl AsRef<Path>) -> Result<AddProjectOutcome> {
         let worktree_dir = worktree_dir.as_ref();
+        if !worktree_dir.exists() {
+            return Ok(AddProjectOutcome::PathNotFound);
+        }
+        if !worktree_dir.is_dir() {
+            return Ok(AddProjectOutcome::NotADirectory);
+        }
         let resolved_path = gix::path::realpath(worktree_dir)?;
+        let resolved_repo = match resolve_project_repo_exact(&resolved_path) {
+            Ok(repo) => repo,
+            Err(outcome) => return Ok(outcome),
+        };
         let all_projects = self
             .projects_storage
             .list()
             .context("failed to list projects from storage")?;
-        if let Some(existing_project) = all_projects
-            .iter()
-            .find(|project| project.worktree_dir_but_should_use_git_dir() == resolved_path)
+        if let Some(existing_project) =
+            find_existing_project_by_git_dir(&all_projects, resolved_repo.repo.git_dir())?
         {
-            return Ok(AddProjectOutcome::AlreadyExists(
-                existing_project.clone().migrated()?,
-            ));
+            return Ok(AddProjectOutcome::AlreadyExists(existing_project));
         }
-        if !resolved_path.exists() {
-            return Ok(AddProjectOutcome::PathNotFound);
-        }
-        if !resolved_path.is_dir() {
-            return Ok(AddProjectOutcome::NotADirectory);
-        }
-        // Make sure the repo is opened from the resolved path - it must be absolute for persistence.
-        let repo = match gix::open_opts(&resolved_path, gix::open::Options::isolated()) {
-            Ok(repo) if repo.is_bare() => {
-                return Ok(AddProjectOutcome::BareRepository);
-            }
-            Ok(repo) if repo.worktree().is_some_and(|wt| !wt.is_main()) => {
-                if worktree_dir.join(".git").is_file() {
-                    return Ok(AddProjectOutcome::NonMainWorktree);
-                };
-                repo
-            }
-            Ok(repo) => match repo.workdir() {
-                None => {
-                    return Ok(AddProjectOutcome::NoWorkdir);
-                }
-                Some(wd) => {
-                    if !wd.join(".git").is_dir() {
-                        return Ok(AddProjectOutcome::NoDotGitDirectory);
-                    }
-                    repo
-                }
-            },
-            Err(err) => {
-                return Ok(AddProjectOutcome::NotAGitRepository(err.to_string()));
-            }
-        };
+        let repo = resolved_repo.repo;
+        let id = ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(
+            repo.git_dir(),
+        )?);
 
-        let id = ProjectId::generate();
-
-        // Resolve the path first to get the actual directory name
-        let title_is_not_normal_component = worktree_dir
-            .components()
-            .next_back()
-            .is_none_or(|c| !matches!(c, Component::Normal(_)));
-        let path_for_title = if title_is_not_normal_component {
-            &resolved_path
-        } else {
-            worktree_dir
-        };
-
-        let title = path_for_title.file_name().map_or_else(
-            || id.to_string(),
+        let title = resolved_repo.worktree_dir.file_name().map_or_else(
+            || resolved_repo.worktree_dir.display().to_string(),
             |name| name.to_string_lossy().into_owned(),
         );
 
         let project = Project {
             title,
             // TODO(1.0): make this always `None`, until the field can be removed for good.
-            worktree_dir: resolved_path,
+            worktree_dir: resolved_repo.worktree_dir,
             api: None,
             git_dir: repo.git_dir().to_owned(),
             ..Project::default_with_id(id)
@@ -163,9 +237,16 @@ impl Controller {
             .add(&project)
             .context("failed to add project to storage")?;
 
-        // Create a .git/gitbutler directory for app data
-        if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
-            tracing::error!(project_id = %project.id, ?error, "failed to create {:?} on project add", project.gb_dir());
+        // Create the repository-local GitButler storage directory for app data.
+        match project.gb_dir() {
+            Ok(gb_dir) => {
+                if let Err(error) = std::fs::create_dir_all(&gb_dir) {
+                    tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project add", gb_dir.display());
+                }
+            }
+            Err(error) => {
+                tracing::error!(project_id = %project.id, ?error, "failed to resolve storage directory on project add");
+            }
         }
 
         Ok(AddProjectOutcome::Added(project))
@@ -204,13 +285,13 @@ impl Controller {
         self.projects_storage.update(project)
     }
 
-    pub(crate) fn get(&self, id: ProjectId) -> Result<Project> {
+    pub(crate) fn get(&self, id: ProjectHandleOrLegacyProjectId) -> Result<Project> {
         self.get_inner(id, false)
     }
 
     /// Only get the project information. No state validation is done.
     /// This is intended to be used only when updating the path of a missing project.
-    pub(crate) fn get_raw(&self, id: ProjectId) -> Result<Project> {
+    pub(crate) fn get_raw(&self, id: ProjectHandleOrLegacyProjectId) -> Result<Project> {
         #[cfg_attr(not(windows), allow(unused_mut))]
         let project = self.projects_storage.get(id)?;
         Ok(project)
@@ -218,11 +299,11 @@ impl Controller {
 
     /// Like [`Self::get()`], but will assure the project still exists and is valid by
     /// opening a git repository. This should only be done for critical points in time.
-    pub(crate) fn get_validated(&self, id: ProjectId) -> Result<Project> {
+    pub(crate) fn get_validated(&self, id: ProjectHandleOrLegacyProjectId) -> Result<Project> {
         self.get_inner(id, true)
     }
 
-    fn get_inner(&self, id: ProjectId, validate: bool) -> Result<Project> {
+    fn get_inner(&self, id: ProjectHandleOrLegacyProjectId, validate: bool) -> Result<Project> {
         #[cfg_attr(not(windows), allow(unused_mut))]
         let mut project = self.projects_storage.get(id)?;
         // BACKWARD-COMPATIBLE MIGRATION
@@ -243,10 +324,17 @@ impl Controller {
             }
         }
 
-        if !project.gb_dir().exists()
-            && let Err(error) = std::fs::create_dir_all(project.gb_dir())
-        {
-            tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project get", project.gb_dir().display());
+        match project.gb_dir() {
+            Ok(gb_dir) => {
+                if !gb_dir.exists()
+                    && let Err(error) = std::fs::create_dir_all(&gb_dir)
+                {
+                    tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project get", gb_dir.display());
+                }
+            }
+            Err(error) => {
+                tracing::error!(project_id = %project.id, ?error, "failed to resolve storage directory on project get");
+            }
         }
         // Clean up old virtual_branches.toml that was never used
         let old_virtual_branches_path = project.git_dir().join("virtual_branches.toml");
@@ -268,23 +356,31 @@ impl Controller {
         self.projects_storage.list()
     }
 
-    pub(crate) fn delete(&self, id: ProjectId) -> Result<()> {
-        let Some(project) = self.projects_storage.try_get(id)? else {
+    pub(crate) fn delete(&self, id: ProjectHandleOrLegacyProjectId) -> Result<()> {
+        let Some(project) = self.projects_storage.try_get(id.clone())? else {
             return Ok(());
         };
 
-        self.projects_storage.purge(project.id)?;
+        let project_id = project.id.clone();
+        self.projects_storage.purge(project_id.clone())?;
 
-        if let Err(error) = std::fs::remove_dir_all(self.project_metadata_dir(project.id))
+        if let Err(error) = std::fs::remove_dir_all(self.project_metadata_dir(project_id))
             && error.kind() != std::io::ErrorKind::NotFound
         {
             tracing::error!(project_id = %id, ?error, "failed to remove project data",);
         }
 
-        if project.gb_dir().exists()
-            && let Err(error) = std::fs::remove_dir_all(project.gb_dir())
-        {
-            tracing::error!(project_id = %project.id, ?error, "failed to remove {:?} on project delete", project.gb_dir());
+        match project.gb_dir() {
+            Ok(gb_dir) => {
+                if gb_dir.exists()
+                    && let Err(error) = std::fs::remove_dir_all(&gb_dir)
+                {
+                    tracing::error!(project_id = %project.id, ?error, "failed to remove \"{}\" on project delete", gb_dir.display());
+                }
+            }
+            Err(error) => {
+                tracing::error!(project_id = %project.id, ?error, "failed to resolve storage directory on project delete");
+            }
         }
 
         // Delete references in the gitbutler namespace
@@ -298,7 +394,7 @@ impl Controller {
         Ok(())
     }
 
-    fn project_metadata_dir(&self, id: ProjectId) -> PathBuf {
+    fn project_metadata_dir(&self, id: ProjectHandleOrLegacyProjectId) -> PathBuf {
         self.local_data_dir.join("projects").join(id.to_string())
     }
 }

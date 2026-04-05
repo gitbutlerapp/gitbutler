@@ -303,7 +303,8 @@ pub fn create_commit_and_update_refs(
                         commit_id,
                         new_message: None,
                     }])?;
-                    match builder.rebase() {
+                    let cache = ctx.cache.get_cache()?;
+                    match builder.rebase(&cache) {
                         Ok(mut outcome) => {
                             if commit_id != workspace_tip {
                                 let Some(rewritten_old) =
@@ -331,7 +332,8 @@ pub fn create_commit_and_update_refs(
                         }
                     }
                 } else {
-                    match builder.rebase() {
+                    let cache = ctx.cache.get_cache()?;
+                    match builder.rebase(&cache) {
                         Ok(rebase) => rebase,
                         Err(err) => {
                             return if let Some(conflicts) =
@@ -411,7 +413,7 @@ pub fn create_commit_and_update_refs_with_project(
     context_lines: u32,
     _perm: &mut RepoExclusive,
 ) -> anyhow::Result<CreateCommitOutcome> {
-    let vbh = VirtualBranchesHandle::new(project_data_dir);
+    let mut vbh = VirtualBranchesHandle::new(project_data_dir);
     let mut vb = vbh.read_file()?;
     let frame = match maybe_stackid {
         None => {

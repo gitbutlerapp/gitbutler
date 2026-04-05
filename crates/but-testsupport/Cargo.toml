@@ -12,6 +12,29 @@ test = false
 doctest = false
 
 [features]
+## Provide legacy GitButler test helpers that are still being migrated into `but-*` crates.
+legacy = [
+    "dep:but-ctx",
+    "dep:but-fs",
+    "dep:but-oxidize",
+    "dep:but-project-handle",
+    "dep:but-settings",
+    "dep:but-workspace",
+    "dep:gitbutler-branch-actions",
+    "dep:gitbutler-project",
+    "dep:gitbutler-reference",
+    "dep:gitbutler-repo",
+    "dep:gitbutler-stack",
+    "dep:gitbutler-url",
+    "dep:gitbutler-user",
+    "dep:git2",
+    "dep:keyring",
+    "dep:serde_json",
+    "dep:tempfile",
+    "dep:uuid",
+    "but-core/legacy",
+    "but-ctx/legacy"
+]
 ## Make `snapbox` utilities available, generally useful for CLI testing.
 snapbox = ["dep:snapbox"]
 ## Provide a writable sandbox for testing of higher-level functions, with everything *but* the `Context`, useful even for plumbing.
@@ -30,11 +53,34 @@ sandbox-but-api = [
 [dependencies]
 but-graph.workspace = true
 but-core.workspace = true
+but-db.workspace = true
 but-settings = { workspace = true, optional = true }
 but-meta = { workspace = true, optional = true, features = ["legacy"] }
 but-ctx = { workspace = true, optional = true }
 
 shell-words = {  workspace = true, optional = true }
+
+# for gitbutler-testtools
+# Goal is to replace these with `but-testsupport` helpers next
+but-fs = { workspace = true, optional = true, features = ["legacy"] }
+but-oxidize = { workspace = true, optional = true }
+but-project-handle = { workspace = true, optional = true }
+but-workspace = { workspace = true, optional = true, features = ["legacy"] }
+
+gitbutler-branch-actions = { workspace = true, optional = true }
+gitbutler-project = { workspace = true, optional = true }
+gitbutler-reference = { workspace = true, optional = true }
+gitbutler-repo = { workspace = true, optional = true }
+gitbutler-stack = { workspace = true, optional = true }
+gitbutler-url = { workspace = true, optional = true }
+gitbutler-user = { workspace = true, optional = true }
+
+git2 = { workspace = true, optional = true }
+keyring = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+tempfile = { workspace = true, optional = true }
+uuid = { workspace = true, optional = true }
+# END for gitbutler-testtools
 
 gix-testtools.workspace = true
 gix.workspace = true

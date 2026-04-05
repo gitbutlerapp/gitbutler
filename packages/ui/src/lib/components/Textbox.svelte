@@ -310,15 +310,15 @@
 	}
 
 	.textbox__label {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.textbox__helper-text {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.textbox__error-text {
-		color: var(--clr-theme-danger-element);
+		color: var(--fill-danger-bg);
 	}
 
 	.textbox__icon {
@@ -327,7 +327,7 @@
 		position: absolute;
 		top: 50%;
 		transform: translateY(-50%);
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		pointer-events: none;
 	}
 
@@ -340,7 +340,7 @@
 		padding: 2px 4px;
 		transform: translateY(-50%);
 		border-radius: var(--radius-s);
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		transition: background-color var(--transition-fast);
 
 		&:hover,
@@ -395,7 +395,7 @@
 		width: 1px;
 		height: 100%;
 		transform: translateY(-50%);
-		background-color: var(--clr-border-2);
+		background-color: var(--border-2);
 		content: "";
 	}
 
@@ -405,7 +405,7 @@
 		justify-content: center;
 		padding: 2px 4px;
 		border-radius: var(--radius-s);
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		transition: background-color var(--transition-fast);
 
 		&:hover,

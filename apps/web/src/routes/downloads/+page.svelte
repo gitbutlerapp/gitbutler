@@ -2,6 +2,7 @@
 	import Footer from "$lib/components/marketing/Footer.svelte";
 	import Header from "$lib/components/marketing/Header.svelte";
 	import ReleaseCard from "$lib/components/marketing/ReleaseCard.svelte";
+	import { untrack } from "svelte";
 	import Markdown from "svelte-exmarkdown";
 	import type { Release } from "$lib/types/releases";
 	import type { LatestReleaseBuilds } from "$lib/utils/releaseUtils";
@@ -17,7 +18,7 @@
 
 	const { data }: Props = $props();
 
-	const { latestRelease, latestReleaseBuilds } = data;
+	const { latestRelease, latestReleaseBuilds } = untrack(() => data);
 
 	let linuxArch = $state<"x86-64" | "ARM64">("x86-64");
 </script>
@@ -178,7 +179,7 @@
 		<div class="nightly-info">
 			<p class="text-14 text-body clr-text-2">
 				Experience GitButler’s newest features before anyone else. ⋆˚₊
-				<a href="/nightly" class="download-link"> Get Nightly </a>
+				<a href="/nightly" class="nightly-info__download-link"> Get Nightly </a>
 				☽˚.⋆
 			</p>
 		</div>
@@ -186,6 +187,10 @@
 </section>
 
 <section class="releases">
+	<h2>
+		Other <i>releases:</i>
+	</h2>
+
 	{#each data.releases.filter((release) => release.version !== latestRelease.version) as release (release.version)}
 		<ReleaseCard
 			{release}
@@ -215,9 +220,9 @@
 		flex-direction: column;
 		padding: 28px;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-xl);
-		background: var(--clr-bg-1);
+		background: var(--bg-1);
 	}
 
 	.latest-release__header {
@@ -239,7 +244,7 @@
 		}
 
 		& span {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 			font-size: 13px;
 			font-family: var(--font-mono);
 		}
@@ -256,6 +261,14 @@
 		padding-bottom: 40px;
 		font-size: 13px;
 		font-family: var(--font-mono);
+	}
+
+	.nightly-info__download-link {
+		text-decoration: underline;
+
+		&:hover {
+			text-decoration: underline wavy;
+		}
 	}
 
 	/* LINKS */
@@ -275,8 +288,8 @@
 			height: 1px;
 			background: repeating-linear-gradient(
 				to right,
-				var(--clr-text-2),
-				var(--clr-text-2) 2px,
+				var(--text-2),
+				var(--text-2) 2px,
 				transparent 2px,
 				transparent 6px
 			);
@@ -295,7 +308,7 @@
 		padding: 24px;
 		overflow: hidden;
 		gap: 16px;
-		border: 1px solid var(--clr-border-3);
+		border: 1px solid var(--border-3);
 		border-radius: var(--radius-xl);
 	}
 
@@ -315,24 +328,24 @@
 		top: 16px;
 		right: 16px;
 		padding: 3px 24px 3px 6px;
-		border: 1px solid var(--clr-border-3);
+		border: 1px solid var(--border-3);
 		border-radius: 8px;
 		background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 		background-position: right 8px center;
 		background-repeat: no-repeat;
-		background-color: var(--clr-bg-1);
-		color: var(--clr-text-1);
+		background-color: var(--bg-1);
+		color: var(--text-1);
 		font-size: 13px;
 		font-family: var(--font-mono);
 		cursor: pointer;
 		transition: border-color 0.1s ease;
 
 		&:hover {
-			border-color: var(--clr-border-2);
+			border-color: var(--border-2);
 		}
 
 		&:focus {
-			border-color: var(--clr-border-2);
+			border-color: var(--border-2);
 			outline: none;
 		}
 	}
@@ -342,9 +355,9 @@
 		text-underline-offset: 2px;
 
 		&:hover {
-			color: var(--clr-text-1);
+			color: var(--text-1);
 			text-decoration: underline wavy;
-			text-decoration-color: var(--clr-theme-pop-element);
+			text-decoration-color: var(--fill-pop-bg);
 		}
 	}
 
@@ -354,12 +367,12 @@
 	}
 
 	.download-card-subtile {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 14px;
 	}
 
 	.download-card-small-subtile {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		font-size: 12px;
 	}
 
@@ -369,16 +382,16 @@
 		margin: 10px -24px -24px -24px;
 		padding: 16px 22px 18px 22px;
 		gap: 8px;
-		background-color: var(--clr-bg-2);
+		background-color: var(--bg-2);
 
 		& a {
 			font-size: 14px;
 			text-decoration: underline;
 
 			&:hover {
-				color: var(--clr-text-1);
+				color: var(--text-1);
 				text-decoration: underline wavy;
-				text-decoration-color: var(--clr-theme-pop-element);
+				text-decoration-color: var(--fill-pop-bg);
 			}
 		}
 	}
@@ -396,8 +409,8 @@
 			height: 1px;
 			background: repeating-linear-gradient(
 				to right,
-				var(--clr-text-2),
-				var(--clr-text-2) 2px,
+				var(--text-2),
+				var(--text-2) 2px,
 				transparent 2px,
 				transparent 6px
 			);
@@ -410,9 +423,35 @@
 		display: flex;
 		grid-column: narrow-start / narrow-end;
 		flex-direction: column;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-xl);
 		font-family: var(--font-mono);
+
+		& h2 {
+			position: relative;
+			padding: 16px 24px 12px;
+			font-size: 40px;
+			line-height: 1.2;
+			font-family: var(--font-accent);
+		}
+
+		& h2:after {
+			z-index: 0;
+			position: absolute;
+			right: 24px;
+			bottom: 0;
+			left: 24px;
+			height: 1px;
+			background: repeating-linear-gradient(
+				to right,
+				var(--text-2),
+				var(--text-2) 2px,
+				transparent 2px,
+				transparent 6px
+			);
+			content: "";
+			pointer-events: none;
+		}
 	}
 
 	@media (max-width: 900px) {

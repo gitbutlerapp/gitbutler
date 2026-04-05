@@ -1,10 +1,14 @@
 import { key, type SelectionId } from "$lib/selection/key";
-import type { BranchDropData } from "$lib/branches/dropHandler";
-import type { CodegenRuleDropData } from "$lib/codegen/dropzone";
-import type { CommitDropData } from "$lib/commits/dropHandler";
+import type { BranchDropData } from "$lib/dragging/dropHandlers/branchDropHandler";
+import type { CommitDropData } from "$lib/dragging/dropHandlers/commitDropHandler";
 import type { TreeChange } from "$lib/hunks/change";
 import type { HunkAssignment, HunkHeader } from "$lib/hunks/hunk";
+import type { AiRule } from "$lib/rules/rule";
 import type { FileSelectionManager } from "$lib/selection/fileSelectionManager.svelte";
+
+export class CodegenRuleDropData {
+	constructor(public rule: AiRule) {}
+}
 
 export class HunkDropDataV3 {
 	constructor(

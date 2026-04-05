@@ -1,11 +1,18 @@
-use std::{collections::HashSet, path::PathBuf};
+use std::{
+    borrow::Cow, collections::HashSet, io::Write, path::Path, path::PathBuf, process::Stdio,
+};
 
 use anyhow::{Context as _, bail};
-use bstr::{BString, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
+use but_error::Code;
+use gix::objs::WriteTo;
 use gix::prelude::ObjectIdExt;
 use serde::{Deserialize, Serialize};
 
-use crate::{ChangeId, Commit, CommitOwned};
+use crate::{
+    ChangeId, Commit, CommitOwned, GitConfigSettings, RepositoryExt,
+    cmd::prepare_with_shell_on_windows,
+};
 
 /// A collection of all the extra information we keep in the headers of a commit.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,14 +66,23 @@ impl Headers {
 
     /// Extract header information from the given `commit`, or return `None` if not present.
     pub fn try_from_commit(commit: &gix::objs::Commit) -> Option<Self> {
-        let change_id = commit
-            .extra_headers()
+        Self::try_from_commit_headers(|| commit.extra_headers())
+    }
+
+    /// Extract header information from the given [`extra_headers`](gix::objs::Commit::extra_headers()) function,
+    /// or return `None` if not present.
+    pub fn try_from_commit_headers<'a, I>(
+        extra_headers: impl Fn() -> gix::objs::commit::ExtraHeaders<I>,
+    ) -> Option<Self>
+    where
+        I: Iterator<Item = (&'a BStr, &'a BStr)>,
+    {
+        let change_id = extra_headers()
             .find(HEADERS_NEW_CHANGE_ID_FIELD)
-            .or_else(|| commit.extra_headers().find(HEADERS_CHANGE_ID_FIELD))
+            .or_else(|| extra_headers().find(HEADERS_CHANGE_ID_FIELD))
             .map(ChangeId::from);
 
-        let conflicted = commit
-            .extra_headers()
+        let conflicted = extra_headers()
             .find(HEADERS_CONFLICTED_FIELD)
             .and_then(|value| value.to_str().ok()?.parse::<u64>().ok());
 
@@ -129,6 +145,244 @@ impl From<&Headers> for Vec<(BString, BString)> {
             ));
         }
         out
+    }
+}
+
+/// Determines how to sign the commit.
+#[derive(Default, PartialEq, Copy, Clone, Debug)]
+pub enum SignCommit {
+    /// Unconditionally sign the commit. Note that this places responsibility on the caller to
+    /// ensure that commit signing is configured, or at least handling that it was not.
+    Yes,
+    /// Do not sign the commit.
+    No,
+    /// Sign the commit only if `gitbutler.signCommits=true`, *or* `gitbutler.signCommits` is unset
+    /// but `commit.gpgSign=true`. In other words, `gitbutler.signCommits` takes precedence over
+    /// `commit.gpgSign`, the latter only being checked if the former is not at all configured.
+    ///
+    /// If signing fails, `gitbutler.signCommits` is set to `false` locally, preventing further
+    /// signing when this variant is supplied. This step is however skipped if
+    /// `gitbutler.signCommits` has been explicitly configured in non-local Git Config.
+    ///
+    /// The need for `gitbutler.signCommits` stems from the fact that it can be difficult to
+    /// impossible to validate before hand that signing is properly configured. Signing may also
+    /// break after validation has been performed. If signing is enabled for *all* committing but
+    /// fails, GitButler basically can't do anything, so we flip `gitbutler.signCommits=false` as a
+    /// kill switch to disable signing for GitButler. `gitbutler.signCommits` taking precedence
+    /// over `commit.gpgSign` means we can honor Git's signing settings by default, but disable it
+    /// in the event that we fail to sign without affecting Git.
+    #[default]
+    IfSignCommitsEnabled,
+}
+
+/// Write `commit` into `repo`, removing any existing commit signature first, optionally creating a
+/// new one based on repository configuration, and optionally updating `update_ref` to the new ID.
+///
+/// Apply any desired message/header mutations, such as Gerrit trailers, before calling this helper.
+pub fn create(
+    repo: &gix::Repository,
+    mut commit: gix::objs::Commit,
+    update_ref: Option<&gix::refs::FullNameRef>,
+    sign_commit: SignCommit,
+) -> anyhow::Result<gix::ObjectId> {
+    if let Some(pos) = commit
+        .extra_headers()
+        .find_pos(gix::objs::commit::SIGNATURE_FIELD_NAME)
+    {
+        commit.extra_headers.remove(pos);
+    }
+
+    if (sign_commit == SignCommit::IfSignCommitsEnabled
+        && repo.git_settings()?.gitbutler_sign_commits.unwrap_or(false))
+        || sign_commit == SignCommit::Yes
+    {
+        let mut buf = Vec::new();
+        commit.write_to(&mut buf)?;
+        match sign_buffer(repo, &buf) {
+            Ok(signature) => {
+                commit
+                    .extra_headers
+                    .push((gix::objs::commit::SIGNATURE_FIELD_NAME.into(), signature));
+            }
+            Err(err) => {
+                tracing::warn!("Commit signing failed with sign_commit={sign_commit:?}");
+                if sign_commit == SignCommit::IfSignCommitsEnabled {
+                    if repo
+                        .config_snapshot()
+                        .boolean_filter("gitbutler.signCommits", |md| {
+                            md.source != gix::config::Source::Local
+                        })
+                        .is_none()
+                    {
+                        repo.set_git_settings(&GitConfigSettings {
+                            gitbutler_sign_commits: Some(false),
+                            ..GitConfigSettings::default()
+                        })?;
+                    } else {
+                        tracing::warn!(
+                            "Commit signing failed but remains enabled as gitbutler.signCommits is explicitly enabled globally"
+                        );
+                    }
+                }
+                return Err(err
+                    .context("Failed to sign commit")
+                    .context(Code::CommitSigningFailed));
+            }
+        }
+    }
+
+    let oid = repo.write_object(&commit)?.detach();
+    if let Some(update_ref) = update_ref {
+        repo.reference(
+            update_ref,
+            oid,
+            gix::refs::transaction::PreviousValue::Any,
+            commit.message.as_bstr(),
+        )?;
+    }
+    Ok(oid)
+}
+
+/// Sign `buffer` using repository configuration as obtained through `repo`,
+/// similarly to Git's commit signing behavior.
+pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BString> {
+    fn into_command(prepare: gix::command::Prepare) -> std::process::Command {
+        let cmd: std::process::Command = prepare.into();
+        tracing::debug!(?cmd, "command to produce commit signature");
+        cmd
+    }
+
+    fn as_literal_key(maybe_key: &BStr) -> Option<&BStr> {
+        if let Some(key) = maybe_key.strip_prefix(b"key::") {
+            return Some(key.into());
+        }
+        if maybe_key.starts_with(b"ssh-") {
+            return Some(maybe_key);
+        }
+        None
+    }
+
+    fn signing_key(repo: &gix::Repository) -> anyhow::Result<BString> {
+        if let Some(key) = repo.config_snapshot().string("user.signingkey") {
+            return Ok(key.into_owned());
+        }
+        tracing::info!("Falling back to committer identity as user.signingKey isn't configured.");
+        let mut buf = Vec::<u8>::new();
+        repo.committer()
+            .transpose()?
+            .context("user.signingKey isn't configured and no committer is available either")?
+            .actor()
+            .trim()
+            .write_to(&mut buf)?;
+        Ok(buf.into())
+    }
+
+    let config = repo.config_snapshot();
+    let signing_key = signing_key(repo)?;
+    let sign_format = config.string("gpg.format");
+    let is_ssh = sign_format.is_some_and(|value| value.as_ref() == "ssh");
+
+    if is_ssh {
+        let mut signature_storage = tempfile::NamedTempFile::new()?;
+        signature_storage.write_all(buffer)?;
+        let buffer_file_to_sign_path = signature_storage.into_temp_path();
+
+        let gpg_program = config
+            .trusted_program("gpg.ssh.program")
+            .filter(|program| !program.is_empty())
+            .map_or_else(
+                || Path::new("ssh-keygen").into(),
+                |program| Cow::Owned(program.into_owned().into()),
+            );
+
+        let mut signing_cmd = prepare_with_shell_on_windows(gpg_program.into_owned())
+            .args(["-Y", "sign", "-n", "git", "-f"]);
+
+        let _key_storage;
+        signing_cmd = if let Some(signing_key) = as_literal_key(signing_key.as_bstr()) {
+            let mut keyfile = tempfile::NamedTempFile::new()?;
+            keyfile.write_all(signing_key.as_bytes())?;
+
+            #[cfg(unix)]
+            {
+                use std::os::unix::prelude::PermissionsExt;
+
+                let mut permissions = keyfile.as_file().metadata()?.permissions();
+                permissions.set_mode(0o600);
+                keyfile.as_file().set_permissions(permissions)?;
+            }
+
+            let keyfile_path = keyfile.path().to_owned();
+            _key_storage = keyfile.into_temp_path();
+            signing_cmd
+                .arg(keyfile_path)
+                .arg("-U")
+                .arg(buffer_file_to_sign_path.to_path_buf())
+        } else {
+            let signing_key = config
+                .trusted_path("user.signingkey")
+                .transpose()?
+                .with_context(|| format!("Didn't trust 'ssh.signingKey': {signing_key}"))?;
+            signing_cmd
+                .arg(signing_key.into_owned())
+                .arg(buffer_file_to_sign_path.to_path_buf())
+        };
+        let output = into_command(signing_cmd)
+            .stderr(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stdin(Stdio::null())
+            .output()?;
+
+        if output.status.success() {
+            let signature_path = buffer_file_to_sign_path.with_extension("sig");
+            let sig_data = std::fs::read(signature_path)?;
+            Ok(BString::new(sig_data))
+        } else {
+            let stderr = BString::new(output.stderr);
+            let stdout = BString::new(output.stdout);
+            bail!("Failed to sign SSH: {stdout} {stderr}");
+        }
+    } else {
+        let gpg_program = config
+            .trusted_program("gpg.program")
+            .filter(|program| !program.is_empty())
+            .map_or_else(
+                || Path::new("gpg").into(),
+                |program| Cow::Owned(program.into_owned().into()),
+            );
+
+        let mut cmd = into_command(
+            prepare_with_shell_on_windows(gpg_program.as_ref())
+                .args(["--status-fd=2", "-bsau"])
+                .arg(gix::path::from_bstring(signing_key))
+                .arg("-"),
+        );
+        cmd.stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .stdin(Stdio::piped());
+
+        let mut child = match cmd.spawn() {
+            Ok(child) => child,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                bail!(
+                    "Could not find '{}'. Please make sure it is in your `PATH` or configure the full path using `gpg.program` in the Git configuration",
+                    gpg_program.display()
+                )
+            }
+            Err(err) => {
+                return Err(err).context(format!("Could not execute GPG program using {cmd:?}"));
+            }
+        };
+        child.stdin.take().expect("configured").write_all(buffer)?;
+
+        let output = child.wait_with_output()?;
+        if output.status.success() {
+            Ok(BString::new(output.stdout))
+        } else {
+            let stderr = BString::new(output.stderr);
+            let stdout = BString::new(output.stdout);
+            bail!("Failed to sign GPG: {stdout} {stderr}");
+        }
     }
 }
 
@@ -211,6 +465,20 @@ impl std::ops::DerefMut for Commit<'_> {
     }
 }
 
+impl std::ops::Deref for CommitOwned {
+    type Target = gix::objs::Commit;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl std::ops::DerefMut for CommitOwned {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
 impl Headers {
     /// Return `true` if this commit contains a tree that is conflicted.
     pub fn is_conflicted(&self) -> bool {
@@ -270,6 +538,27 @@ impl<'repo> Commit<'repo> {
         })
     }
 
+    /// If the commit is conflicted, returns the base, ours, and theirs tree IDs.
+    pub fn conflicted_tree_ids(
+        &self,
+    ) -> anyhow::Result<Option<(gix::Id<'repo>, gix::Id<'repo>, gix::Id<'repo>)>> {
+        if !self.is_conflicted() {
+            return Ok(None);
+        }
+        let tree = self.inner.tree.attach(self.id.repo).object()?.into_tree();
+        Ok(Some((
+            tree.find_entry(TreeKind::Base.as_tree_entry_name())
+                .with_context(|| format!("No base tree in conflicting commit {}", self.id))?
+                .id(),
+            tree.find_entry(TreeKind::Ours.as_tree_entry_name())
+                .with_context(|| format!("No ours tree in conflicting commit {}", self.id))?
+                .id(),
+            tree.find_entry(TreeKind::Theirs.as_tree_entry_name())
+                .with_context(|| format!("No theirs tree in conflicting commit {}", self.id))?
+                .id(),
+        )))
+    }
+
     /// Return our custom headers, of present.
     pub fn headers(&self) -> Option<Headers> {
         Headers::try_from_commit(&self.inner)
@@ -315,6 +604,8 @@ pub struct ConflictEntries {
     /// The theirs side entries that were conflicted
     pub their_entries: Vec<PathBuf>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ConflictEntries);
 
 impl ConflictEntries {
     /// If there are any conflict entries

@@ -1,19 +1,14 @@
 import { InjectionToken } from "@gitbutler/core/context";
-import type { TreeChanges } from "$lib/hunks/change";
-import type { BackendApi, ClientState } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/clientState.svelte";
 
 export const OPLOG_SERVICE = new InjectionToken<OplogService>("OplogService");
 
 /** Supersedes the HistoryService */
 export class OplogService {
-	private api: ReturnType<typeof injectEndpoints>;
-
-	constructor(backendApi: BackendApi) {
-		this.api = injectEndpoints(backendApi);
-	}
+	constructor(private backendApi: BackendApi) {}
 
 	get diffWorktree() {
-		return this.api.endpoints.oplogDiffWorktrees.useQuery;
+		return this.backendApi.endpoints.oplogDiffWorktrees.useQuery;
 	}
 
 	diffWorktreeByPath({
@@ -25,7 +20,7 @@ export class OplogService {
 		snapshotId: string;
 		path: string;
 	}) {
-		return this.api.endpoints.oplogDiffWorktrees.useQuery(
+		return this.backendApi.endpoints.oplogDiffWorktrees.useQuery(
 			{ projectId, snapshotId },
 			{
 				transform: (result) => {
@@ -34,15 +29,4 @@ export class OplogService {
 			},
 		);
 	}
-}
-
-function injectEndpoints(api: ClientState["backendApi"]) {
-	return api.injectEndpoints({
-		endpoints: (build) => ({
-			oplogDiffWorktrees: build.query<TreeChanges, { projectId: string; snapshotId: string }>({
-				extraOptions: { command: "oplog_diff_worktrees" },
-				query: (args) => args,
-			}),
-		}),
-	});
 }

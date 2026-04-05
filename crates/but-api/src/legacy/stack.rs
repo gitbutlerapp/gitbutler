@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::but_api;
-use but_core::branch;
+use but_core::{branch, sync::RepoExclusive};
 use but_ctx::Context;
 use gitbutler_branch_actions::{internal::PushResult, stack::CreateSeriesRequest};
 use gitbutler_oplog::SnapshotExt;
@@ -38,11 +38,39 @@ pub mod create_reference {
     }
 }
 
+/// Create the local branch reference described by `request`.
+///
+/// This acquires exclusive worktree access from `ctx` before normalizing and
+/// creating the reference.
+///
+/// See [`create_reference_with_perm()`] for how `request` is normalized and
+/// applied through [`but_workspace::branch::create_reference()`].
 #[but_api]
 #[instrument(err(Debug))]
 pub fn create_reference(
     ctx: &mut Context,
     request: create_reference::Request,
+) -> Result<(Option<StackId>, gix::refs::FullName)> {
+    let mut guard = ctx.exclusive_worktree_access();
+    create_reference_with_perm(ctx, request, guard.write_permission())
+}
+
+/// Create a local branch reference using an existing `perm` for exclusive access.
+///
+/// It normalizes the requested branch name in `request` into a full local refname,
+/// translates the legacy anchor payload into the `but_workspace` representation,
+/// and updates the workspace state in place without acquiring its own repository lock.
+///
+/// Returns the stack id owning the created or attached reference when one exists, together with
+/// the full refname that was created.
+///
+/// The underlying implementation is [`but_workspace::branch::create_reference()`],
+#[but_api]
+#[instrument(skip(ctx, perm), err(Debug))]
+pub fn create_reference_with_perm(
+    ctx: &mut Context,
+    request: create_reference::Request,
+    perm: &mut RepoExclusive,
 ) -> Result<(Option<StackId>, gix::refs::FullName)> {
     use bstr::ByteSlice;
     let create_reference::Request { new_name, anchor } = request;
@@ -75,7 +103,7 @@ pub fn create_reference(
         .transpose()?;
 
     let mut meta = ctx.meta()?;
-    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let new_ws = but_workspace::branch::create_reference(
         new_ref.clone(),
         anchor,
@@ -94,6 +122,11 @@ pub fn create_reference(
     Ok((stack_id, new_ref))
 }
 
+/// Create a dependent branch named by `request.name` in the stack identified by
+/// `stack_id`.
+///
+/// This acquires exclusive worktree access from `ctx` before creating the
+/// dependent-branch snapshot and mutating the workspace.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn create_branch(
@@ -156,17 +189,20 @@ pub fn create_branch(
     Ok(())
 }
 
-#[but_api]
-#[instrument(err(Debug))]
-pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: String) -> Result<()> {
+/// Remove a branch without creating an oplog snapshot.
+///
+/// This is the core implementation used by both [`remove_branch`] (which creates its own snapshot)
+/// and batch operations like `but clean` (which create a single snapshot for multiple removals).
+pub fn remove_branch_only(
+    ctx: &mut Context,
+    branch_name: &str,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
     let ref_name = Category::LocalBranch
-        .to_full_name(branch_name.as_str())
+        .to_full_name(branch_name)
         .map_err(anyhow::Error::from)?;
-    let mut guard = ctx.exclusive_worktree_access();
-    ctx.snapshot_remove_dependent_branch(&branch_name, guard.write_permission())
-        .ok();
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let new_ws = but_workspace::branch::remove_reference(
         ref_name.as_ref(),
         &repo,
@@ -174,9 +210,6 @@ pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: String) 
         &mut meta,
         but_workspace::branch::remove_reference::Options {
             avoid_anonymous_stacks: true,
-            // The UI kind of keeps it, but we can't do that somehow
-            // the object id is null, and stuff breaks. Fine for now.
-            // Delete is delete.
             keep_metadata: false,
         },
     )?;
@@ -187,7 +220,44 @@ pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: String) 
     Ok(())
 }
 
-#[but_api]
+/// Remove a branch from a stack.
+///
+/// This acquires exclusive worktree access from `ctx` before creating the
+/// removal snapshot and detaching the branch.
+///
+/// This can only be called on a branch that's inside of a stack of multiple branches and is not the top branch,
+/// or on a branch that's empty.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: String) -> Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    remove_branch_with_perm(ctx, stack_id, branch_name, guard.write_permission())
+}
+
+/// Remove a branch from a stack while reusing caller-held exclusive access.
+///
+/// This records the dependent-branch removal snapshot and then delegates to
+/// [`remove_branch_only()`] for the actual workspace mutation.
+pub fn remove_branch_with_perm(
+    ctx: &mut Context,
+    stack_id: StackId,
+    branch_name: String,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
+    let _ = stack_id;
+    ctx.snapshot_remove_dependent_branch(&branch_name, perm)
+        .ok();
+    remove_branch_only(ctx, &branch_name, perm)
+}
+
+/// Change the branch name from `branch_name` to `new_name` in the stack
+/// identified by `stack_id`.
+///
+/// This acquires exclusive worktree access from `ctx` before applying the
+/// rename.
+///
+/// See [`update_branch_name_with_perm()`] for the underlying mutation.
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn update_branch_name(
     ctx: &mut Context,
@@ -195,7 +265,36 @@ pub fn update_branch_name(
     branch_name: String,
     new_name: String,
 ) -> Result<()> {
-    gitbutler_branch_actions::stack::update_branch_name(ctx, stack_id, branch_name, new_name)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    update_branch_name_with_perm(
+        ctx,
+        stack_id,
+        branch_name,
+        new_name,
+        guard.write_permission(),
+    )?;
+    Ok(())
+}
+
+/// Apply the rename from `branch_name` to `new_name` in the stack identified by
+/// `stack_id` while reusing caller-held exclusive access.
+///
+/// This delegates to
+/// [`gitbutler_branch_actions::stack::update_branch_name_with_perm()`].
+pub fn update_branch_name_with_perm(
+    ctx: &mut Context,
+    stack_id: StackId,
+    branch_name: String,
+    new_name: String,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
+    gitbutler_branch_actions::stack::update_branch_name_with_perm(
+        ctx,
+        stack_id,
+        branch_name,
+        new_name,
+        perm,
+    )?;
     Ok(())
 }
 
@@ -214,6 +313,40 @@ pub fn update_branch_pr_number(
         pr_number,
     )?;
     Ok(())
+}
+
+pub mod json {
+    use serde::Serialize;
+
+    /// JSON-friendly version of [`gitbutler_branch_actions::internal::PushResult`].
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct PushResult {
+        /// The name of the remote to which the branches were pushed.
+        pub remote: String,
+        /// The list of pushed branches and their corresponding remote refnames.
+        pub branch_to_remote: Vec<(String, String)>,
+        /// The list of branches with their before/after commit SHAs.
+        /// Format: (branch_name, before_sha, after_sha)
+        pub branch_sha_updates: Vec<(String, String, String)>,
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(PushResult);
+
+    impl From<gitbutler_branch_actions::internal::PushResult> for PushResult {
+        fn from(value: gitbutler_branch_actions::internal::PushResult) -> Self {
+            Self {
+                remote: value.remote,
+                branch_to_remote: value
+                    .branch_to_remote
+                    .into_iter()
+                    .map(|(name, refname)| (name, refname.to_string()))
+                    .collect(),
+                branch_sha_updates: value.branch_sha_updates,
+            }
+        }
+    }
 }
 
 #[but_api]
@@ -235,5 +368,26 @@ pub fn push_stack(
         branch,
         run_hooks,
         push_opts,
+    )
+}
+
+#[but_api(napi, json::PushResult)]
+#[instrument(err(Debug))]
+pub fn push_stack_legacy(
+    ctx: &mut Context,
+    stack_id: StackId,
+    with_force: bool,
+    skip_force_push_protection: bool,
+    branch: String,
+    run_hooks: bool,
+) -> Result<PushResult> {
+    push_stack(
+        ctx,
+        stack_id,
+        with_force,
+        skip_force_push_protection,
+        branch,
+        run_hooks,
+        Vec::new(),
     )
 }

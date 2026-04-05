@@ -1,5 +1,5 @@
 use but_core::ref_metadata::StackId;
-use gitbutler_project::ProjectId;
+use but_ctx::ProjectHandleOrLegacyProjectId;
 
 pub type Emitter = dyn Fn(&str, serde_json::Value) + Send + Sync + 'static;
 pub trait Emittable {
@@ -7,7 +7,7 @@ pub trait Emittable {
 }
 
 pub struct StackUpdate {
-    pub project_id: ProjectId,
+    pub project_id: ProjectHandleOrLegacyProjectId,
     pub stack_id: StackId,
 }
 
@@ -20,7 +20,7 @@ impl Emittable for StackUpdate {
 }
 
 pub struct ToolCall {
-    pub project_id: ProjectId,
+    pub project_id: ProjectHandleOrLegacyProjectId,
     pub message_id: String,
     pub name: String,
     pub parameters: String,
@@ -42,7 +42,7 @@ impl Emittable for ToolCall {
 
 pub struct TokenUpdate {
     pub token: String,
-    pub project_id: ProjectId,
+    pub project_id: ProjectHandleOrLegacyProjectId,
     pub message_id: String,
 }
 
@@ -58,7 +58,7 @@ impl Emittable for TokenUpdate {
 }
 
 pub struct TokenEnd {
-    pub project_id: ProjectId,
+    pub project_id: ProjectHandleOrLegacyProjectId,
     pub message_id: String,
 }
 
@@ -80,7 +80,7 @@ pub struct TodoState {
 }
 
 pub struct TodoUpdate {
-    pub project_id: ProjectId,
+    pub project_id: ProjectHandleOrLegacyProjectId,
     pub message_id: String,
     pub list: Vec<TodoState>,
 }

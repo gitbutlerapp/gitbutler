@@ -54,12 +54,25 @@ impl ObjectIdExt for gix::Id<'_> {
 }
 
 pub trait RepoExt {
+    /// Reopen a `git2` repository as a `gix` repository with the normal Git configuration chain.
+    ///
+    /// Use this for helpers that inspect worktree state or run filters and therefore must see
+    /// global ignores, `core.autocrlf`, and globally configured filters like Git LFS.
     fn to_gix_repo(&self) -> anyhow::Result<gix::Repository>;
+
+    /// Reopen a `git2` repository as an isolated `gix` repository for helpers that only need
+    /// object access and repository-local configuration.
+    fn to_isolated_gix_repo(&self) -> anyhow::Result<gix::Repository>;
 }
 
 impl RepoExt for &git2::Repository {
     fn to_gix_repo(&self) -> anyhow::Result<gix::Repository> {
         let repo = gix::open(self.path())?;
+        Ok(repo)
+    }
+
+    fn to_isolated_gix_repo(&self) -> anyhow::Result<gix::Repository> {
+        let repo = gix::open_opts(self.path(), gix::open::Options::isolated())?;
         Ok(repo)
     }
 }
@@ -145,17 +158,4 @@ pub fn gix_to_git2_index(index: &gix::index::State) -> anyhow::Result<git2::Inde
         out.add(&git2_entry)?
     }
     Ok(out)
-}
-
-pub fn print_tree(tree: gix::Tree<'_>) {
-    let mut recorder = gix::traverse::tree::Recorder::default();
-    tree.traverse().breadthfirst(&mut recorder).unwrap();
-    let repo = tree.repo;
-    for record in recorder.records {
-        println!(
-            "{}: {}",
-            record.filepath,
-            repo.find_blob(record.oid).unwrap().data.as_bstr()
-        );
-    }
 }

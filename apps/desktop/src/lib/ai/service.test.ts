@@ -22,17 +22,18 @@ import {
 	type Prompt,
 } from "$lib/ai/types";
 import { GitConfigService } from "$lib/config/gitConfigService";
-import { TokenMemoryService } from "$lib/stores/tokenMemoryService";
 import { mockCreateBackend } from "$lib/testing/mockBackend";
+import { TokenMemoryService } from "$lib/user/tokenMemoryService";
 import { HttpClient } from "@gitbutler/shared/network/httpClient";
 import { expect, test, describe, vi } from "vitest";
 import type { SecretsService } from "$lib/secrets/secretsService";
+import type { AppDispatch } from "$lib/state/clientState.svelte";
 import type { GitConfigSettings } from "@gitbutler/core/api";
 
 const defaultGitConfig = Object.freeze({
 	[GitAIConfigKey.ModelProvider]: ModelKind.OpenAI,
 	[GitAIConfigKey.OpenAIKeyOption]: KeyOption.ButlerAPI,
-	[GitAIConfigKey.OpenAIModelName]: OpenAIModelName.GPT4oMini,
+	[GitAIConfigKey.OpenAIModelName]: OpenAIModelName.GPT54Nano,
 	[GitAIConfigKey.AnthropicKeyOption]: KeyOption.ButlerAPI,
 	[GitAIConfigKey.AnthropicModelName]: AnthropicModelName.Haiku,
 });
@@ -45,13 +46,10 @@ const defaultSecretsConfig = Object.freeze({
 class DummyGitConfigService extends GitConfigService {
 	constructor(private config: { [index: string]: string | undefined }) {
 		const backend = mockCreateBackend();
-		const MockClientState = vi.fn();
-		MockClientState.prototype.dispatch = vi.fn();
-		MockClientState.prototype.backendApi = {
-			injectEndpoints: vi.fn(),
-		};
-		const mockClientState = new MockClientState();
-		super(mockClientState, backend);
+		const MockBackendApi = vi.fn();
+		MockBackendApi.prototype.injectEndpoints = vi.fn();
+		const mockBackendApi = new MockBackendApi();
+		super(mockBackendApi, vi.fn() as unknown as AppDispatch, backend);
 	}
 	async getGbConfig(_projectId: string): Promise<GitConfigSettings> {
 		throw new Error("Method not implemented.");
@@ -247,6 +245,66 @@ describe("AIService", () => {
 					"When using Anthropic in a bring your own key configuration, you must provide a valid token",
 				),
 			);
+		});
+	});
+
+	describe("#getOpenAIModelName", () => {
+		test("When a valid model is stored, it returns the stored value", async () => {
+			const gitConfig = new DummyGitConfigService({
+				...defaultGitConfig,
+				[GitAIConfigKey.OpenAIModelName]: OpenAIModelName.GPT54,
+			});
+			const secretsService = new DummySecretsService();
+			const tokenMemoryService = new TokenMemoryService();
+			const fetchMock = vi.fn();
+			const cloud = new HttpClient(fetchMock, "https://www.example.com", tokenMemoryService.token);
+			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
+
+			expect(await aiService.getOpenAIModelName()).toBe(OpenAIModelName.GPT54);
+		});
+
+		test("When a legacy/unknown model is stored, it falls back to the default", async () => {
+			const gitConfig = new DummyGitConfigService({
+				...defaultGitConfig,
+				[GitAIConfigKey.OpenAIModelName]: "gpt-4-turbo",
+			});
+			const secretsService = new DummySecretsService();
+			const tokenMemoryService = new TokenMemoryService();
+			const fetchMock = vi.fn();
+			const cloud = new HttpClient(fetchMock, "https://www.example.com", tokenMemoryService.token);
+			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
+
+			expect(await aiService.getOpenAIModelName()).toBe(OpenAIModelName.GPT54Nano);
+		});
+	});
+
+	describe("#getAnthropicModelName", () => {
+		test("When a valid model is stored, it returns the stored value", async () => {
+			const gitConfig = new DummyGitConfigService({
+				...defaultGitConfig,
+				[GitAIConfigKey.AnthropicModelName]: AnthropicModelName.Opus,
+			});
+			const secretsService = new DummySecretsService();
+			const tokenMemoryService = new TokenMemoryService();
+			const fetchMock = vi.fn();
+			const cloud = new HttpClient(fetchMock, "https://www.example.com", tokenMemoryService.token);
+			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
+
+			expect(await aiService.getAnthropicModelName()).toBe(AnthropicModelName.Opus);
+		});
+
+		test("When a legacy/unknown model is stored, it falls back to the default", async () => {
+			const gitConfig = new DummyGitConfigService({
+				...defaultGitConfig,
+				[GitAIConfigKey.AnthropicModelName]: "claude-3-opus-20240229",
+			});
+			const secretsService = new DummySecretsService();
+			const tokenMemoryService = new TokenMemoryService();
+			const fetchMock = vi.fn();
+			const cloud = new HttpClient(fetchMock, "https://www.example.com", tokenMemoryService.token);
+			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
+
+			expect(await aiService.getAnthropicModelName()).toBe(AnthropicModelName.Haiku);
 		});
 	});
 

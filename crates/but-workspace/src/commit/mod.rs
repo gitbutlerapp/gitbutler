@@ -16,6 +16,12 @@ pub mod move_changes;
 pub use move_changes::function::{MoveChangesOutcome, move_changes_between_commits};
 pub mod uncommit_changes;
 pub use uncommit_changes::function::{UncommitChangesOutcome, uncommit_changes};
+pub mod move_commit;
+pub use move_commit::function::move_commit;
+pub mod discard_commit;
+pub use discard_commit::function::discard_commit;
+pub mod squash_commits;
+pub use squash_commits::function::{SquashCommitsOutcome, squash_commits};
 
 /// A minimal stack for use by [WorkspaceCommit::new_from_stacks()].
 #[derive(Clone)]
@@ -139,7 +145,7 @@ pub mod merge {
                 tips.into_iter().map(|t| (I::Merge, t)).collect();
 
             let mut ran_merge_trials_loop_safety = false;
-            #[allow(clippy::indexing_slicing)]
+            #[expect(clippy::indexing_slicing)]
             'retry_loop: loop {
                 let mut prev_base_sidx = None;
                 let mut merge_tree_id = None;

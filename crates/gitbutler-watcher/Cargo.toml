@@ -10,7 +10,7 @@ test = false
 doctest = false
 
 [dependencies]
-but-ctx.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
 but-db.workspace = true
 but-core.workspace = true
 but-graph.workspace = true
@@ -21,7 +21,6 @@ but-hunk-dependency.workspace = true
 
 gitbutler-filemonitor.workspace = true
 gitbutler-operating-modes.workspace = true
-gitbutler-project.workspace = true
 
 gix.workspace = true
 anyhow.workspace = true

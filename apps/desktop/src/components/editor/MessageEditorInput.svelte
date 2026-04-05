@@ -88,7 +88,7 @@
 		position: absolute;
 		top: 6px;
 		right: 6px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		pointer-events: none;
 
 		& span {

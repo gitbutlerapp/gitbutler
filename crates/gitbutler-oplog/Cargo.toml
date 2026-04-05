@@ -32,6 +32,7 @@ gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 toml.workspace = true
 
 [dev-dependencies]
+but-testsupport.workspace = true
 pretty_assertions = "1.4"
 tempfile.workspace = true
 

@@ -291,6 +291,20 @@ mkdir ws
     create_workspace_commit_once B A
   )
 
+  git init advanced-stack-tip-outside-workspace
+  (cd advanced-stack-tip-outside-workspace
+    commit M
+    setup_target_to_match_main
+    git checkout -b A
+      commit A
+    git checkout -b B
+      commit B
+    create_workspace_commit_once B
+    git checkout B
+      commit B-outside
+    git checkout gitbutler/workspace
+  )
+
   git init reproduce-11459
   (cd reproduce-11459
     commit M1

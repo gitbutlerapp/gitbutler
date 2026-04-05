@@ -1,4 +1,4 @@
-use crate::M;
+use crate::{M, SchemaVersion};
 
 pub(crate) mod butler_actions;
 pub(crate) mod ci_checks;
@@ -15,6 +15,7 @@ pub(crate) mod workspace_rules;
 pub(crate) const M_FULLY_REMOVED: &[M<'static>] = &[
     M::up(
         20251013092749,
+        SchemaVersion::Zero,
         "CREATE TABLE `worktrees`(
 	`path` TEXT NOT NULL PRIMARY KEY,
 	`reference` TEXT NOT NULL,
@@ -25,6 +26,7 @@ pub(crate) const M_FULLY_REMOVED: &[M<'static>] = &[
     ),
     M::up(
         20251014144801,
+        SchemaVersion::Zero,
         "-- Create new table with BLOB columns
 CREATE TABLE `worktrees_new`(
 	`path` BLOB NOT NULL PRIMARY KEY,
@@ -42,6 +44,7 @@ ALTER TABLE worktrees_new RENAME TO worktrees;
     ),
     M::up(
         20251015105125,
+        SchemaVersion::Zero,
         "-- Create new table with updated schema
 CREATE TABLE `worktrees_new`(
 	`path` BLOB NOT NULL PRIMARY KEY,
@@ -57,6 +60,7 @@ ALTER TABLE worktrees_new RENAME TO worktrees;",
     ),
     M::up(
         20251017092314,
+        SchemaVersion::Zero,
         "-- Drop worktrees table as metadata is now stored in .git/worktrees/ as files
 DROP TABLE IF EXISTS worktrees;",
     ),

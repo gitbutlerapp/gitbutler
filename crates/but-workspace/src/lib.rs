@@ -70,6 +70,13 @@ pub struct RefInfo {
     /// The name of the ref that points to a workspace commit,
     /// *or* the name of the first stack segment, along with worktree information.
     pub workspace_ref_info: Option<but_graph::RefInfo>,
+    /// Symbolic remote names known when the ref info was created, based on all known remotes.
+    /// The order is shortest to longest.
+    ///
+    /// These are carried along so UI conversions can resolve remote-tracking references
+    /// without needing repository access. That is, they can know if `refs/remotes/name/foo/bar`
+    /// has the symbolic remote `name/foo` or just `name`.
+    pub symbolic_remote_names: gix::remote::Names<'static>,
     /// The stacks visible in the current workspace.
     ///
     /// This is an empty array if the `HEAD` is unborn.
@@ -116,6 +123,25 @@ pub struct RefInfo {
     pub ancestor_workspace_commit: Option<AncestorWorkspaceCommit>,
     /// The workspace represents what `HEAD` is pointing to.
     pub is_entrypoint: bool,
+}
+
+impl RefInfo {
+    /// Keep only the stack and segment that contains the entrypoint.
+    pub fn pruned_to_entrypoint(mut self) -> Self {
+        if self.is_entrypoint {
+            return self;
+        }
+        self.stacks
+            .retain(|s| s.segments.iter().any(|s| s.is_entrypoint));
+        if let Some(only_stack) = self.stacks.first_mut() {
+            let mut found_entrypoint = false;
+            only_stack.segments.retain(|s| {
+                found_entrypoint |= s.is_entrypoint;
+                found_entrypoint
+            })
+        }
+        self
+    }
 }
 
 /// Describes a workspace commit that is in the ancestry of a managed workspace reference,

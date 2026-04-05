@@ -1,6 +1,3 @@
-// Class transformers will bust a gut if this isn't imported first
-import "reflect-metadata";
-
 import { msSinceDaysAgo } from "$lib/utils/time";
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import type { ForgeUser, PullRequest } from "$lib/forge/interface/types";
@@ -66,9 +63,9 @@ export type Author = {
 };
 
 /** Represents a fat struct with all the data associated with a branch */
-export class BranchListingDetails {
+export interface BranchListingDetails {
 	/** The name of the branch (e.g. `main`, `feature/branch`), excluding the remote name */
-	name!: string;
+	name: string;
 	/**
 	 * The number of lines added within the branch
 	 * Since the virtual branch, local branch and the remote one can have different number of lines removed,
@@ -76,7 +73,7 @@ export class BranchListingDetails {
 	 * followed by the local branch and then the remote branches (taking the max if there are multiple).
 	 * If this branch has a virtual branch, lines_added does NOT include the uncommitted lines.
 	 */
-	linesAdded!: number;
+	linesAdded: number;
 	/**
 	 * The number of lines removed within the branch
 	 * Since the virtual branch, local branch and the remote one can have different number of lines removed,
@@ -84,26 +81,26 @@ export class BranchListingDetails {
 	 * followed by the local branch and then the remote branches (taking the max if there are multiple)
 	 * If this branch has a virtual branch, lines_removed does NOT include the uncommitted lines.
 	 */
-	linesRemoved!: number;
+	linesRemoved: number;
 	/**
 	 * The number of files that were modified within the branch
 	 * Since the virtual branch, local branch and the remote one can have different number files modified,
 	 * the value from the virtual branch (if present) takes the highest precedence,
 	 * followed by the local branch and then the remote branches (taking the max if there are multiple)
 	 */
-	numberOfFiles!: number;
+	numberOfFiles: number;
 	/**
 	 * The number of commits associated with a branch
 	 * Since the virtual branch, local branch and the remote one can have different number of commits,
 	 * the value from the virtual branch (if present) takes the highest precedence,
 	 * followed by the local branch and then the remote branches (taking the max if there are multiple)
 	 */
-	numberOfCommits!: number;
+	numberOfCommits: number;
 	/**
 	 * A list of authors that have contributes commits to this branch.
 	 * In the case of multiple remote tracking branches, it takes the full list of unique authors.
 	 */
-	authors!: Author[];
+	authors: Author[];
 	/** The branch may or may not have a virtual branch associated with it */
 	stack?: StackReference | undefined;
 }

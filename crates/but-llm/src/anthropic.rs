@@ -11,14 +11,13 @@ use schemars::{JsonSchema, schema_for};
 use serde::de::DeserializeOwned;
 
 use crate::{
+    AI_ANTHROPIC_KEY_OPTION_KEY, AI_ANTHROPIC_MODEL_NAME_KEY, AI_ANTHROPIC_SECRET_HANDLE,
     StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent, chat::ChatMessage,
     client::LLMClient, key::CredentialsKeyOption,
 };
 
 const ANTHROPIC_API_BASE: &str = "https://api.anthropic.com/v1";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
-const ANTHROPIC_KEY_OPTION: &str = "gitbutler.aiAnthropicKeyOption";
-const ANTHROPIC_MODEL_NAME: &str = "gitbutler.aiAnthropicModelName";
 pub const GB_ANTHROPIC_API_BASE: &str = "https://app.gitbutler.com/api/proxy/anthropic";
 
 /// Result of a tool calling loop with streaming
@@ -36,7 +35,9 @@ pub enum CredentialsKind {
 
 impl CredentialsKind {
     fn from_git_config(config: &gix::config::File<'static>) -> Option<Self> {
-        let key_option_str = config.string(ANTHROPIC_KEY_OPTION).map(|v| v.to_string())?;
+        let key_option_str = config
+            .string(AI_ANTHROPIC_KEY_OPTION_KEY)
+            .map(|v| v.to_string())?;
         let key_option = CredentialsKeyOption::from_str(&key_option_str)?;
         match key_option {
             CredentialsKeyOption::BringYourOwn => Some(CredentialsKind::OwnAnthropicKey),
@@ -155,11 +156,10 @@ impl AnthropicProvider {
     }
 
     fn anthropic_own_key_creds() -> Result<(CredentialsKind, Sensitive<String>)> {
-        let creds = secret::retrieve("aiAnthropicKey", secret::Namespace::Global)?.ok_or(
-            anyhow::anyhow!(
+        let creds = secret::retrieve(AI_ANTHROPIC_SECRET_HANDLE, secret::Namespace::Global)?
+            .ok_or(anyhow::anyhow!(
                 "No Anthropic own key configured. Add this through the GitButler settings"
-            ),
-        )?;
+            ))?;
         Ok((CredentialsKind::OwnAnthropicKey, creds))
     }
 
@@ -182,7 +182,9 @@ impl LLMClient for AnthropicProvider {
         Self: Sized,
     {
         let credentials_kind = CredentialsKind::from_git_config(config)?;
-        let model = config.string(ANTHROPIC_MODEL_NAME).map(|v| v.to_string());
+        let model = config
+            .string(AI_ANTHROPIC_MODEL_NAME_KEY)
+            .map(|v| v.to_string());
         AnthropicProvider::with(Some(credentials_kind), model)
     }
 

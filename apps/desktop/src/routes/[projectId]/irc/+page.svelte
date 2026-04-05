@@ -1,5 +1,8 @@
 <script lang="ts">
-	import IrcChat from "$components/IrcChat.svelte";
+	import { page } from "$app/state";
+	import IrcChat from "$components/irc/IrcChat.svelte";
+
+	const projectId = $derived(page.params.projectId!);
 </script>
 
-<IrcChat />
+<IrcChat {projectId} />

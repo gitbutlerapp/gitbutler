@@ -1,13 +1,13 @@
 import { resetSentry, setSentryUser } from "$lib/analytics/sentry";
-import { showError } from "$lib/notifications/toasts";
+import { showError } from "$lib/error/showError";
 import { type UiState } from "$lib/state/uiState.svelte";
 import { InjectionToken } from "@gitbutler/core/context";
 import { type HttpClient } from "@gitbutler/shared/network/httpClient";
 import { chipToasts } from "@gitbutler/ui";
 import { derived, writable, type Readable } from "svelte/store";
-import type { PostHogWrapper } from "$lib/analytics/posthog";
 import type { IBackend } from "$lib/backend";
-import type { TokenMemoryService } from "$lib/stores/tokenMemoryService";
+import type { PostHogWrapper } from "$lib/telemetry/posthog";
+import type { TokenMemoryService } from "$lib/user/tokenMemoryService";
 import type { User } from "$lib/user/user";
 import type { ApiUser } from "@gitbutler/shared/users/types";
 

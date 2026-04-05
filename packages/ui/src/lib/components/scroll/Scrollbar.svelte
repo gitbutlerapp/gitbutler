@@ -3,6 +3,8 @@
 </script>
 
 <script lang="ts">
+	import { untrack } from "svelte";
+
 	interface Props {
 		viewport: HTMLElement;
 		initiallyVisible?: boolean;
@@ -66,12 +68,12 @@
 
 	const vert = $derived(!horz);
 
-	let wholeHeight = $state(viewport?.scrollHeight ?? 0);
-	let wholeWidth = $state(viewport?.scrollWidth ?? 0);
-	let scrollTop = $state(viewport?.scrollTop ?? 0);
-	let scrollLeft = $state(viewport?.scrollLeft ?? 0);
-	let trackHeight = $state(viewport?.offsetHeight ?? 0);
-	let trackWidth = $state(viewport?.offsetWidth ?? 0);
+	let wholeHeight = $state(untrack(() => viewport?.scrollHeight ?? 0));
+	let wholeWidth = $state(untrack(() => viewport?.scrollWidth ?? 0));
+	let scrollTop = $state(untrack(() => viewport?.scrollTop ?? 0));
+	let scrollLeft = $state(untrack(() => viewport?.scrollLeft ?? 0));
+	let trackHeight = $state(untrack(() => viewport?.offsetHeight ?? 0));
+	let trackWidth = $state(untrack(() => viewport?.offsetWidth ?? 0));
 
 	const thumbHeight = $derived(wholeHeight > 0 ? (trackHeight / wholeHeight) * trackHeight : 0);
 	const thumbWidth = $derived(wholeWidth > 0 ? (trackWidth / wholeWidth) * trackWidth : 0);
@@ -138,7 +140,9 @@
 			throw new Error("window.ResizeObserver is missing.");
 		}
 
-		const observerSize = new ResizeObserver(() => updateTrack());
+		const observerSize = new ResizeObserver(() => {
+			updateTrack();
+		});
 		observerSize.observe(viewport);
 
 		const content = viewport.children.item(0);
@@ -146,13 +150,21 @@
 			throw new Error("Expected to find content container");
 		}
 
-		// Sometimes the content size changes before scrollTop, so we
-		// compensate here to avoid jumpiness. The position will be reset
-		// on next scroll event.
+		// Sometimes the content size changes before the browser fires a
+		// scroll event, so we compensate here to avoid thumb jumpiness.
+		// However, if viewport.scrollTop has already been adjusted by
+		// another component (e.g. VirtualList's scroll compensation),
+		// we must use the actual value to avoid double-compensating.
 		const observerContentSize = new ResizeObserver(() => {
 			if (lastHeight) {
 				const diff = content.scrollHeight - lastHeight;
-				scrollTop = viewport.scrollTop + diff;
+				// If viewport.scrollTop diverged from our last-known value,
+				// another component (e.g. VirtualList) already compensated.
+				if (viewport.scrollTop !== scrollTop) {
+					scrollTop = viewport.scrollTop;
+				} else if (diff !== 0) {
+					scrollTop = viewport.scrollTop + diff;
+				}
 			}
 			lastHeight = content.scrollHeight;
 		});
@@ -346,7 +358,7 @@
 		/* variable props */
 		width: var(--thumb-width);
 		height: var(--thumb-height);
-		background-color: var(--clr-text-1);
+		background-color: var(--text-1);
 		opacity: 0;
 		will-change: transform, opacity;
 	}

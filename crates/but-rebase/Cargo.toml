@@ -6,13 +6,17 @@ authors.workspace = true
 publish = false
 rust-version.workspace = true
 
+[features]
+default = []
+export-schema = ["dep:schemars", "dep:but-schemars"]
+
 [lib]
 doctest = false
 
 [dependencies]
 but-core.workspace = true
+but-db.workspace = true
 but-gerrit.workspace = true
-but-error.workspace = true
 but-graph.workspace = true
 
 gix = { workspace = true, features = ["revision", "merge"] }
@@ -23,6 +27,8 @@ tempfile.workspace = true
 serde.workspace = true
 toml.workspace = true
 petgraph.workspace = true
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 but-testsupport.workspace = true

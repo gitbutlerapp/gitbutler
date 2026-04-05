@@ -185,7 +185,7 @@
 		cursor: text;
 
 		&:focus-within {
-			border-color: var(--clr-border-1);
+			border-color: var(--border-1);
 		}
 
 		&.disabled {
@@ -209,10 +209,10 @@
 		align-items: center;
 		padding: 2px 4px 2px 8px;
 		gap: 2px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: 100px;
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-1);
+		background-color: var(--bg-2);
+		color: var(--text-1);
 		transition: background-color var(--transition-fast);
 	}
 
@@ -230,11 +230,11 @@
 		align-items: center;
 		justify-content: center;
 		border-radius: 100px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		transition: color var(--transition-fast);
 
 		&:hover {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 	}
 
@@ -245,10 +245,10 @@
 		border: none;
 		outline: none;
 		background: transparent;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 
 		&::placeholder {
-			color: var(--clr-text-3);
+			color: var(--text-3);
 		}
 
 		&:disabled,
@@ -262,14 +262,14 @@
 	}
 
 	.tag-input-label {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.tag-input-helper {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.tag-input-error {
-		color: var(--clr-theme-danger-element);
+		color: var(--fill-danger-bg);
 	}
 </style>

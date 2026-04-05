@@ -19,9 +19,7 @@ fn intersect_workspace_ranges(
         };
         let mut intersections = Vec::new();
         for hunk in hunks {
-            if let Some(hunk_ranges) =
-                ranges.intersection(&change.path, hunk.old_start, hunk.old_lines)
-            {
+            if let Some(hunk_ranges) = ranges.intersection(&change.path, &hunk) {
                 let hunk_ranges: Vec<_> =
                     hunk_ranges.into_iter().cloned().map(Into::into).collect();
                 intersections.push(HunkIntersection {

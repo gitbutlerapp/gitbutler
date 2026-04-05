@@ -590,7 +590,7 @@
 
 	.story-group h4 {
 		margin: 0;
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		font-weight: 600;
 		font-size: 14px;
 	}

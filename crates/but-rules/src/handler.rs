@@ -5,7 +5,6 @@ use but_core::{ChangeId, DiffSpec, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_db::HunkAssignmentsHandleMut;
 use but_hunk_assignment::HunkAssignment;
-use but_hunk_dependency::ui::HunkDependencies;
 use but_workspace::legacy::commit_engine;
 use itertools::Itertools;
 
@@ -14,7 +13,6 @@ use crate::{Filter, StackTarget};
 pub fn process_workspace_rules(
     ctx: &mut Context,
     assignments: &[HunkAssignment],
-    dependencies: &Option<HunkDependencies>,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<usize> {
     let mut updates = 0;
@@ -75,7 +73,6 @@ pub fn process_workspace_rules(
                         &repo,
                         new_ws.as_ref().unwrap_or(&ws),
                         assignments,
-                        dependencies.as_ref(),
                         context_lines,
                     )
                     .unwrap_or_default();
@@ -216,7 +213,6 @@ fn handle_assign(
     repo: &gix::Repository,
     workspace: &but_graph::projection::Workspace,
     assignments: Vec<HunkAssignment>,
-    deps: Option<&HunkDependencies>,
     context_lines: u32,
 ) -> anyhow::Result<usize> {
     let len = assignments.len();
@@ -225,10 +221,9 @@ fn handle_assign(
         repo,
         workspace,
         but_hunk_assignment::assignments_to_requests(assignments),
-        deps,
         context_lines,
     )
-    .map(|_| len)
+    .map(|()| len)
     .or_else(|_| Ok(0))
 }
 

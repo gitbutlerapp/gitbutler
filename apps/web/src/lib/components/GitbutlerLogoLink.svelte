@@ -24,7 +24,7 @@
 			fill="none"
 			xmlns="http://www.w3.org/2000/svg"
 		>
-			<path d="M0 22V0L11.4819 9.63333L23 0V22L11.4819 12.4L0 22Z" fill="var(--clr-text-1)" />
+			<path d="M0 22V0L11.4819 9.63333L23 0V22L11.4819 12.4L0 22Z" fill="var(--text-1)" />
 		</svg>
 	</div>
 {/snippet}
@@ -48,7 +48,7 @@
 	}
 
 	.logo-text {
-		color: var(--clr-text-1);
+		color: var(--text-1);
 		font-size: 40px;
 		font-family: var(--font-accent);
 	}

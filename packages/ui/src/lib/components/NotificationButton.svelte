@@ -36,8 +36,8 @@
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
-		background-color: var(--clr-theme-danger-element);
-		box-shadow: 0 0 0 2px var(--clr-bg-2);
+		background-color: var(--fill-danger-bg);
+		box-shadow: 0 0 0 2px var(--bg-2);
 	}
 
 	/* global button styles */

@@ -1,4 +1,5 @@
 mod apply;
-#[cfg(feature = "legacy")]
+mod move_branch;
 mod new;
+mod tear_off;
 mod unapply;

@@ -1,7 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_core::ref_metadata::StackId;
 use but_ctx::{Context, access::RepoExclusive};
-use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseStep};
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_reference::{LocalRefname, Refname};
@@ -32,7 +31,7 @@ pub(crate) fn move_branch(
 ) -> Result<MoveBranchResult> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let repo = ctx.repo.get()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let source_stack = vb_state.get_stack_in_workspace(source_stack_id)?;
     let source_merge_base = source_stack.merge_base(ctx)?;
@@ -51,7 +50,7 @@ pub(crate) fn move_branch(
         source_stack_id,
         subject_branch_name,
         &repo,
-        &vb_state,
+        &mut vb_state,
         source_stack,
         source_merge_base,
     )?;
@@ -62,7 +61,7 @@ pub(crate) fn move_branch(
         target_branch_name,
         subject_branch_name,
         &repo,
-        &vb_state,
+        &mut vb_state,
         destination_stack,
         destination_merge_base,
         subject_branch_steps,
@@ -71,7 +70,7 @@ pub(crate) fn move_branch(
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let _ = update_uncommitted_changes(ctx, old_workspace, new_workspace, perm);
-    crate::integration::update_workspace_commit(&vb_state, ctx, false)
+    crate::integration::update_workspace_commit_with_vb_state(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     Ok(MoveBranchResult {
@@ -89,7 +88,7 @@ pub(crate) fn tear_off_branch(
 ) -> Result<MoveBranchResult> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let repo = ctx.repo.get()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let source_stack = vb_state.get_stack_in_workspace(source_stack_id)?;
     let source_merge_base = source_stack.merge_base(ctx)?;
@@ -99,7 +98,7 @@ pub(crate) fn tear_off_branch(
         source_stack_id,
         subject_branch_name,
         &repo,
-        &vb_state,
+        &mut vb_state,
         source_stack,
         source_merge_base,
     )?;
@@ -108,7 +107,7 @@ pub(crate) fn tear_off_branch(
     let mut new_stack_rebase = Rebase::new(&repo, source_merge_base, None)?;
     new_stack_rebase.steps(subject_branch_steps)?;
     new_stack_rebase.rebase_noops(false);
-    let new_stack_rebase_output = new_stack_rebase.rebase()?;
+    let new_stack_rebase_output = new_stack_rebase.rebase(&*ctx.cache.get_cache()?)?;
 
     let subject_branch_reference_spec = new_stack_rebase_output
         .clone()
@@ -127,7 +126,7 @@ pub(crate) fn tear_off_branch(
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let _ = update_uncommitted_changes(ctx, old_workspace, new_workspace, perm);
-    crate::integration::update_workspace_commit(&vb_state, ctx, false)
+    crate::integration::update_workspace_commit_with_vb_state(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     let branch_manager = ctx.branch_manager();
@@ -152,7 +151,7 @@ fn inject_branch_steps_into_destination(
     target_branch_name: &str,
     subject_branch_name: &str,
     repo: &gix::Repository,
-    vb_state: &VirtualBranchesHandle,
+    vb_state: &mut VirtualBranchesHandle,
     destination_stack: gitbutler_stack::Stack,
     destination_merge_base: gix::ObjectId,
     subject_branch_steps: Vec<RebaseStep>,
@@ -169,7 +168,7 @@ fn inject_branch_steps_into_destination(
     let mut destination_stack_rebase = Rebase::new(repo, destination_merge_base, None)?;
     destination_stack_rebase.steps(new_destination_steps)?;
     destination_stack_rebase.rebase_noops(false);
-    let destination_rebase_result = destination_stack_rebase.rebase()?;
+    let destination_rebase_result = destination_stack_rebase.rebase(&*ctx.cache.get_cache()?)?;
     let new_destination_head = repo.find_commit(destination_rebase_result.top_commit)?;
     let mut destination_stack = destination_stack;
 
@@ -188,7 +187,7 @@ fn inject_branch_steps_into_destination(
 
     destination_stack.add_series(ctx, new_head, Some(target_branch_name.to_string()))?;
 
-    destination_stack.set_stack_head(vb_state, repo, new_destination_head.id().to_git2())?;
+    destination_stack.set_stack_head(vb_state, repo, new_destination_head.id().detach())?;
 
     destination_stack
         .set_heads_from_rebase_output(ctx, destination_rebase_result.clone().references)?;
@@ -201,7 +200,7 @@ fn extract_and_rebase_source_branch(
     source_stack_id: StackId,
     subject_branch_name: &str,
     repository: &gix::Repository,
-    vb_state: &VirtualBranchesHandle,
+    vb_state: &mut VirtualBranchesHandle,
     source_stack: gitbutler_stack::Stack,
     source_merge_base: gix::ObjectId,
 ) -> Result<(Vec<RebaseStep>, Vec<StackId>), anyhow::Error> {
@@ -219,12 +218,12 @@ fn extract_and_rebase_source_branch(
         let mut source_stack_rebase = Rebase::new(repository, source_merge_base, None)?;
         source_stack_rebase.steps(new_source_steps)?;
         source_stack_rebase.rebase_noops(false);
-        let source_rebase_result = source_stack_rebase.rebase()?;
+        let source_rebase_result = source_stack_rebase.rebase(&*ctx.cache.get_cache()?)?;
         let new_source_head = repository.find_commit(source_rebase_result.top_commit)?;
 
         source_stack.remove_branch(ctx, subject_branch_name)?;
 
-        source_stack.set_stack_head(vb_state, repository, new_source_head.id().to_git2())?;
+        source_stack.set_stack_head(vb_state, repository, new_source_head.id().detach())?;
 
         source_stack.set_heads_from_rebase_output(ctx, source_rebase_result.clone().references)?;
     }

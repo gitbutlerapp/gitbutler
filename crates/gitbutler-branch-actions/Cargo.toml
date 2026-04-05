@@ -9,6 +9,15 @@ rust-version.workspace = true
 [lib]
 doctest = false
 
+[features]
+export-schema = [
+  "but-workspace/export-schema",
+  "gitbutler-project/export-schema",
+  "gitbutler-branch/export-schema",
+  "dep:schemars",
+  "dep:but-schemars",
+]
+
 [dependencies]
 but-error.workspace = true
 but-serde = { workspace = true, features = ["legacy"] }
@@ -18,6 +27,7 @@ but-gerrit.workspace = true
 but-workspace = { workspace = true, features = ["legacy"] }
 but-rebase.workspace = true
 but-core = { workspace = true, features = ["legacy"] }
+but-project-handle.workspace = true
 but-graph.workspace = true
 but-oxidize.workspace = true
 but-forge.workspace = true
@@ -48,11 +58,13 @@ bstr.workspace = true
 url = { version = "2.5.4", features = ["serde"] }
 md5.workspace = true
 itertools.workspace = true
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 pretty_assertions = "1.4"
 but-graph.workspace = true
-gitbutler-testsupport.workspace = true
+but-testsupport = { workspace = true, features = ["legacy"] }
 gitbutler-workspace.workspace = true
 gix = { workspace = true, features = [] }
 glob = "0.3.3"

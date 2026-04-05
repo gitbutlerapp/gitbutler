@@ -24,18 +24,6 @@ export function buildCommitPatch(commit: SharedCommitPayload): string {
 // Payload Types
 // ============================================================================
 
-export type SharedStackPayload = {
-	stackId: string;
-	projectName: string;
-	branches: SharedBranch[];
-};
-
-export type SharedBranch = {
-	name: string;
-	tip: string;
-	commits: SharedCommit[];
-};
-
 export type SharedCommit = {
 	id: string;
 	message: string;
@@ -59,58 +47,6 @@ export type SharedCommitPayload = {
 // ============================================================================
 // Builder
 // ============================================================================
-
-/**
- * Fetch all stack data (branches, commits, diffs) and assemble a
- * `SharedStackPayload` for sending over IRC.
- *
- * The IRC server supports 1MB lines, so the payload is sent as a single message.
- */
-export async function buildSharedStackPayload(
-	stackId: string,
-	projectId: string,
-	projectName: string,
-	stackService: StackService,
-	diffService: DiffService,
-): Promise<SharedStackPayload> {
-	const branches = await stackService.fetchBranches(projectId, stackId);
-
-	const sharedBranches: SharedBranch[] = [];
-
-	for (const branch of branches ?? []) {
-		const sharedCommits: SharedCommit[] = [];
-
-		for (const commit of branch.commits) {
-			const commitResult = await stackService.fetchCommitChanges(projectId, commit.id);
-			const changes = commitResult?.changes ?? [];
-
-			const sharedFiles: SharedFile[] = [];
-
-			for (const change of changes) {
-				const hunks: DiffHunk[] = [];
-
-				const diff: UnifiedDiff | null = await diffService.fetchDiff(projectId, change);
-				if (diff?.type === "Patch") {
-					hunks.push(...diff.subject.hunks);
-				}
-
-				sharedFiles.push({ path: change.path, change, hunks });
-			}
-
-			sharedCommits.push({
-				id: commit.id,
-				message: commit.message,
-				author: { name: commit.author.name, email: commit.author.email },
-				createdAt: Number(commit.createdAt),
-				files: sharedFiles,
-			});
-		}
-
-		sharedBranches.push({ name: branch.name, tip: branch.tip, commits: sharedCommits });
-	}
-
-	return { stackId, projectName, branches: sharedBranches };
-}
 
 /**
  * Fetch a single commit's data (metadata + diffs) and assemble a

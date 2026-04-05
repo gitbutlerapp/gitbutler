@@ -251,17 +251,17 @@
 		left: calc(var(--offset) * -1);
 		width: 100%;
 		height: 100%;
-		border-right: 1px solid var(--clr-theme-warn-element);
-		border-left: 1px solid var(--clr-theme-warn-element);
-		background: color-mix(in srgb, var(--clr-btn-warn-outline-bg), transparent 30%);
+		border-right: 1px solid var(--fill-warn-bg);
+		border-left: 1px solid var(--fill-warn-bg);
+		background: color-mix(in srgb, var(--btn-warn-outline-bg), transparent 30%);
 		mix-blend-mode: multiply;
 
 		&.is-first {
-			border-top: 1px solid var(--clr-theme-warn-element);
+			border-top: 1px solid var(--fill-warn-bg);
 		}
 
 		&.is-last {
-			border-bottom: 1px solid var(--clr-theme-warn-element);
+			border-bottom: 1px solid var(--fill-warn-bg);
 		}
 	}
 
@@ -270,10 +270,10 @@
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
 		padding: 0 4px;
-		border-color: var(--clr-diff-count-border);
-		border-right: 1px solid var(--clr-diff-count-border);
-		background-color: var(--clr-diff-count-bg);
-		color: var(--clr-diff-count-text);
+		border-color: var(--diff-count-border);
+		border-right: 1px solid var(--diff-count-border);
+		background-color: var(--diff-count-bg);
+		color: var(--diff-count-text);
 		font-size: 11px;
 		line-height: 1.5; /* Visually centered with 12px font size that diff lines have */
 		text-align: right;
@@ -282,15 +282,15 @@
 		user-select: none;
 
 		&.diff-line-addition {
-			border-color: var(--clr-diff-addition-count-border);
-			background-color: var(--clr-diff-addition-count-bg);
-			color: var(--clr-diff-addition-count-text);
+			border-color: var(--diff-addition-count-border);
+			background-color: var(--diff-addition-count-bg);
+			color: var(--diff-addition-count-text);
 		}
 
 		&.diff-line-deletion {
-			border-color: var(--clr-diff-deletion-count-border);
-			background-color: var(--clr-diff-deletion-count-bg);
-			color: var(--clr-diff-deletion-count-text);
+			border-color: var(--diff-deletion-count-border);
+			background-color: var(--diff-deletion-count-bg);
+			color: var(--diff-deletion-count-text);
 		}
 
 		&.clickable {
@@ -305,53 +305,53 @@
 		}
 
 		&.staged {
-			border-color: var(--clr-diff-selected-count-border);
-			background-color: var(--clr-diff-selected-count-bg);
-			color: var(--clr-diff-selected-count-text);
+			border-color: var(--diff-selected-count-border);
+			background-color: var(--diff-selected-count-bg);
+			color: var(--diff-selected-count-text);
 		}
 
 		&.locked {
-			border-color: var(--clr-diff-locked-count-border);
-			background-color: var(--clr-diff-locked-count-bg);
-			color: var(--clr-diff-locked-count-text);
+			border-color: var(--diff-locked-count-border);
+			background-color: var(--diff-locked-count-bg);
+			color: var(--diff-locked-count-text);
 
 			&.staged {
-				border-color: var(--clr-diff-locked-selected-count-border);
-				background-color: var(--clr-diff-locked-selected-count-bg);
-				color: var(--clr-diff-locked-selected-count-text);
+				border-color: var(--diff-locked-selected-count-border);
+				background-color: var(--diff-locked-selected-count-bg);
+				color: var(--diff-locked-selected-count-text);
 			}
 		}
 	}
 
 	.table__lockColumn {
 		padding: 0 4px;
-		border-color: var(--clr-diff-count-border);
-		border-right: 1px solid var(--clr-diff-count-border);
-		background-color: var(--clr-diff-count-bg);
+		border-color: var(--diff-count-border);
+		border-right: 1px solid var(--diff-count-border);
+		background-color: var(--diff-count-bg);
 		line-height: 1;
 		vertical-align: top;
 
 		&.diff-line-addition {
-			border-color: var(--clr-diff-addition-count-border);
-			background-color: var(--clr-diff-addition-count-bg);
-			color: var(--clr-diff-addition-count-text);
+			border-color: var(--diff-addition-count-border);
+			background-color: var(--diff-addition-count-bg);
+			color: var(--diff-addition-count-text);
 		}
 
 		&.diff-line-deletion {
-			border-color: var(--clr-diff-deletion-count-border);
-			background-color: var(--clr-diff-deletion-count-bg);
-			color: var(--clr-diff-deletion-count-text);
+			border-color: var(--diff-deletion-count-border);
+			background-color: var(--diff-deletion-count-bg);
+			color: var(--diff-deletion-count-text);
 		}
 
 		&.locked {
-			border-color: var(--clr-diff-locked-count-border);
-			background-color: var(--clr-diff-locked-count-bg);
-			color: var(--clr-diff-locked-count-text);
+			border-color: var(--diff-locked-count-border);
+			background-color: var(--diff-locked-count-bg);
+			color: var(--diff-locked-count-text);
 
 			&.staged {
-				border-color: var(--clr-diff-locked-selected-count-border);
-				background-color: var(--clr-diff-locked-selected-count-bg);
-				color: var(--clr-diff-locked-selected-count-text);
+				border-color: var(--diff-locked-selected-count-border);
+				background-color: var(--diff-locked-selected-count-bg);
+				color: var(--diff-locked-selected-count-text);
 			}
 		}
 	}
@@ -364,11 +364,11 @@
 
 	/* DIFF LINE */
 	.diff-line-addition {
-		background-color: var(--clr-diff-addition-line-bg);
+		background-color: var(--diff-addition-line-bg);
 	}
 
 	.diff-line-deletion {
-		background-color: var(--clr-diff-deletion-line-bg);
+		background-color: var(--diff-deletion-line-bg);
 	}
 
 	.table__row-checkbox {
@@ -384,13 +384,13 @@
 		pointer-events: none;
 
 		&:not(.locked).staged {
-			color: var(--clr-diff-selected-count-text);
+			color: var(--diff-selected-count-text);
 		}
 		&.locked {
-			color: var(--clr-diff-locked-count-text);
+			color: var(--diff-locked-count-text);
 		}
 		&.staged.locked {
-			color: var(--clr-diff-locked-selected-count-text);
+			color: var(--diff-locked-selected-count-text);
 		}
 	}
 </style>

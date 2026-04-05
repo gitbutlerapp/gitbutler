@@ -1,7 +1,7 @@
 <script lang="ts">
 	import AttachmentList from "$components/codegen/AttachmentList.svelte";
-	import { messageQueueSelectors, messageQueueSlice } from "$lib/codegen/messageQueueSlice";
 	import { CLIENT_STATE } from "$lib/state/clientState.svelte";
+	import { messageQueueSelectors, messageQueueSlice } from "$lib/state/messageQueueSlice";
 	import { inject } from "@gitbutler/core/context";
 	import { Icon, Button } from "@gitbutler/ui";
 	import { slide } from "svelte/transition";
@@ -106,8 +106,8 @@
 	.queued-messages {
 		padding: 12px;
 		overflow: hidden;
-		border-bottom: 1px solid var(--clr-border-3);
-		background-color: var(--clr-bg-2);
+		border-bottom: 1px solid var(--border-3);
+		background-color: var(--bg-2);
 	}
 
 	.queue-header {
@@ -117,15 +117,15 @@
 		justify-content: space-between;
 		margin-bottom: 10px;
 		gap: 8px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.queue-clear-button {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		transition: color var(--transition-fast);
 
 		&:hover {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 	}
 
@@ -144,7 +144,7 @@
 		padding: 10px 14px;
 		overflow: hidden;
 		gap: 8px;
-		border: 1px dashed var(--clr-border-1);
+		border: 1px dashed var(--border-1);
 		border-radius: var(--radius-ml);
 		border-bottom-right-radius: 0;
 
@@ -182,9 +182,9 @@
 		gap: 2px;
 		transform: scale(0.9);
 		transform-origin: bottom right;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		opacity: 0;
 		transition:
 			opacity var(--transition-fast),

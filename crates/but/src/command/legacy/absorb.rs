@@ -1,12 +1,13 @@
 use std::path::Path;
 
-use but_core::sync::RepoExclusiveGuard;
+use but_core::{RepositoryExt, sync::RepoExclusive};
 use but_ctx::Context;
 use but_hunk_assignment::{
     AbsorptionTarget, CommitAbsorption, HunkAssignment, JsonAbsorbOutput, JsonCommitAbsorption,
     JsonFileAbsorption,
 };
 use colored::Colorize;
+use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
@@ -16,7 +17,7 @@ use itertools::Itertools;
 use crate::{
     CliId, IdMap,
     id::{UncommittedCliId, parser::parse_sources},
-    utils::OutputChannel,
+    utils::{OutputChannel, shorten_object_id},
 };
 /// Amends changes into the appropriate commits where they belong.
 ///
@@ -38,7 +39,8 @@ pub(crate) fn handle(
     dry_run: bool,
     new: bool,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
     let source: Option<CliId> = source
         .and_then(|s| parse_sources(ctx, &id_map, s).ok())
         .and_then(|s| {
@@ -74,12 +76,16 @@ pub(crate) fn handle(
 
     // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
     // At this time, the context is passed pretty deep into the function.
-    let absorption_plan = but_api::legacy::absorb::absorption_plan(ctx, target)?;
+    let absorption_plan =
+        but_api::legacy::absorb::absorption_plan_with_perm(ctx, target, guard.write_permission())?;
 
     // Display the plan (in JSON mode for non-dry-run, collect without writing — we'll
     // combine it with the result in absorb_assignments to avoid a double-write that
     // would overwrite the plan in the JSON buffer).
-    let plan_json = display_absorption_plan(&absorption_plan, out, new, dry_run)?;
+    let plan_json = {
+        let repo = ctx.repo.get()?.clone().for_commit_shortening();
+        display_absorption_plan(&absorption_plan, &repo, out, new, dry_run)?
+    };
 
     if dry_run {
         // Nothing more to do
@@ -90,7 +96,6 @@ pub(crate) fn handle(
         return Ok(());
     }
 
-    let mut guard = ctx.exclusive_worktree_access();
     let repo = ctx.repo.get()?;
     let data_dir = ctx.project_data_dir();
     let context_lines = ctx.settings.context_lines;
@@ -105,8 +110,9 @@ pub(crate) fn handle(
         .create_snapshot(SnapshotDetails::new(operation), guard.write_permission())
         .ok(); // Ignore errors for snapshot creation
     absorb_assignments(
+        ctx,
         absorption_plan,
-        &mut guard,
+        guard.write_permission(),
         &repo,
         &data_dir,
         out,
@@ -119,10 +125,11 @@ pub(crate) fn handle(
 }
 
 /// Absorb a single file into the appropriate commit
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn absorb_assignments(
+    ctx: &Context,
     absorption_plan: Vec<CommitAbsorption>,
-    guard: &mut RepoExclusiveGuard,
+    perm: &mut RepoExclusive,
     repo: &gix::Repository,
     data_dir: &Path,
     out: &mut OutputChannel,
@@ -131,10 +138,15 @@ fn absorb_assignments(
     plan_json: Option<JsonAbsorbOutput>,
 ) -> anyhow::Result<()> {
     let total_rejected = if new {
-        but_action::auto_commit_simple(repo, data_dir, context_lines, None, absorption_plan, guard)?
+        but_action::auto_commit_simple(repo, data_dir, context_lines, None, absorption_plan, perm)?
     } else {
-        but_api::legacy::absorb::absorb_impl(absorption_plan, guard, repo, data_dir)?
+        but_api::legacy::absorb::absorb_with_perm(absorption_plan, perm, repo, data_dir)?
     };
+
+    // Refresh the workspace commit so `gitbutler/workspace` HEAD stays in sync
+    // with the rewritten branch commits. Without this, tools that inspect HEAD
+    // (e.g. pre-push hooks that stash against it) see a stale synthetic commit.
+    update_workspace_commit(ctx, false)?;
 
     // Display completion message
     if let Some(out) = out.for_human() {
@@ -206,6 +218,7 @@ fn get_hunk_ranges(assignment: &HunkAssignment) -> Vec<String> {
 /// in a single JSON write — avoiding a double-write that would overwrite the buffer.
 fn display_absorption_plan(
     commit_absorptions: &[CommitAbsorption],
+    repo: &gix::Repository,
     out: &mut OutputChannel,
     new: bool,
     write_json: bool,
@@ -277,7 +290,7 @@ fn display_absorption_plan(
         writeln!(out)?;
 
         for absorption in commit_absorptions {
-            let short_hash = &absorption.commit_id.to_hex().to_string()[..7];
+            let short_hash = shorten_object_id(repo, absorption.commit_id);
             let verb = if new {
                 "Created on top of commit"
             } else {

@@ -51,7 +51,7 @@
 				{#snippet caption()}
 					This card has additional content below
 				{/snippet}
-				<div style="padding: 12px; background: var(--clr-bg-2); border-radius: 6px;">
+				<div style="padding: 12px; background: var(--bg-2); border-radius: 6px;">
 					Custom content can go here
 				</div>
 			</CardGroup.Item>

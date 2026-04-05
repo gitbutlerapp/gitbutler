@@ -1,6 +1,7 @@
 <script lang="ts">
 	import VirtualList from "$components/VirtualList.svelte";
 	import AsyncContent from "$lib/helpers/AsyncContent.svelte";
+	import { untrack } from "svelte";
 
 	type Props = {
 		defaultHeight: number;
@@ -12,6 +13,7 @@
 		showBottomButton?: boolean;
 		onVisibleChange?: (change: { start: number; end: number } | undefined) => void;
 		renderDistance?: number;
+		initSettleMs?: number;
 		/**
 		 * When set, onloadmore will automatically prepend this many items.
 		 * Simulates the IRC history-loading pattern where scrolling near the top
@@ -43,6 +45,7 @@
 		showBottomButton = false,
 		onVisibleChange,
 		renderDistance = 0,
+		initSettleMs,
 		loadMorePrependCount,
 		variableHeights = false,
 		itemHeight,
@@ -54,7 +57,7 @@
 		return 30; // short message
 	}
 
-	let items = $state(Array.from({ length: itemCount }, (_, i) => `Item ${i + 1}`));
+	let items = $state(Array.from({ length: untrack(() => itemCount) }, (_, i) => `Item ${i + 1}`));
 	let container = $state<HTMLDivElement>();
 	let loadMoreCallCount = $state(0);
 	let virtualList = $state<VirtualList<any>>();
@@ -198,6 +201,7 @@
 		{startIndex}
 		{showBottomButton}
 		{renderDistance}
+		{initSettleMs}
 		onloadmore={onloadmore || loadMorePrependCount ? handleLoadMore : undefined}
 		onVisibleChange={handleVisibleChange}
 		visibility="hover"

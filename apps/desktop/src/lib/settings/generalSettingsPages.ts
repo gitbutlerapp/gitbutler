@@ -39,6 +39,11 @@ export const generalSettingsPages = [
 		icon: "ai",
 	},
 	{
+		id: "irc",
+		label: "IRC",
+		icon: "chat",
+	},
+	{
 		id: "telemetry",
 		label: "Telemetry",
 		icon: "chart-bar-x",
@@ -57,4 +62,5 @@ export const generalSettingsPages = [
 ] as const satisfies readonly SettingsPage[];
 
 export type GeneralSettingsPage = (typeof generalSettingsPages)[number];
-export type GeneralSettingsPageId = GeneralSettingsPage["id"];
+// Canonical definition lives in state/uiState.svelte.ts to avoid circular imports.
+export type { GeneralSettingsPageId } from "$lib/state/uiState.svelte";

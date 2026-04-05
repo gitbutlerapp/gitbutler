@@ -1,5 +1,5 @@
 import { isBackend, type IBackend } from "$lib/backend";
-import { isReduxError, type ReduxError } from "$lib/state/reduxError";
+import { isReduxError, type ReduxError } from "$lib/error/reduxError";
 import { isErrorlike } from "@gitbutler/ui/utils/typeguards";
 import { type BaseQueryApi, type QueryReturnValue } from "@reduxjs/toolkit/query";
 import type { ExtraOptions } from "$lib/state/butlerModule";

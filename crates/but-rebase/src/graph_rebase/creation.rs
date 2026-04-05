@@ -1,7 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, bail};
-use but_graph::{Commit, Graph, SegmentIndex};
+use but_core::RefMetadata;
+use but_graph::{Commit, SegmentIndex};
 use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{
@@ -9,15 +10,14 @@ use crate::graph_rebase::{
     SuccessfulRebase, util,
 };
 
-/// Provides an extension for creating an Editor out of the segment graph
-pub trait GraphExt {
-    /// Creates an editor.
-    fn to_editor(&self, repo: &gix::Repository) -> Result<Editor>;
-}
-
-impl GraphExt for Graph {
-    /// Creates an editor out of the segment graph.
-    fn to_editor(&self, repo: &gix::Repository) -> Result<Editor> {
+/// Creates an editor out of the workspace graph.
+impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
+    /// Creates an editor out of the workspace graph.
+    pub fn create(
+        workspace: &'ws mut but_graph::projection::Workspace,
+        meta: &'meta mut M,
+        repo: &gix::Repository,
+    ) -> Result<Self> {
         // This first creates runs of nodes and associates them with the
         // but-graph segments. We then do a second pass over all the segments
         // and use the but_graph to connect up the runs. Finally, we validate
@@ -28,8 +28,11 @@ impl GraphExt for Graph {
         // TODO(CTO): Look into traversing "in workspace" segments that are not
         // reachable from the entrypoint TODO(CTO): Look into stopping at the
         // common base
-        let entrypoint = self.lookup_entrypoint()?;
-        let workspace_commit_id = self.managed_entrypoint_commit(repo)?.map(|c| c.id);
+        let entrypoint = workspace.graph.lookup_entrypoint()?;
+        let workspace_commit_id = workspace
+            .graph
+            .managed_entrypoint_commit(repo)?
+            .map(|c| c.id);
 
         let mut commits: Vec<Commit> = vec![];
         let mut commit_to_idx = HashMap::<gix::ObjectId, SegmentIndex>::new();
@@ -43,7 +46,7 @@ impl GraphExt for Graph {
 
         let mut segments = HashMap::<SegmentIndex, NodeSegment>::new();
 
-        self.visit_all_segments_including_start_until(
+        workspace.graph.visit_all_segments_including_start_until(
             entrypoint.segment_index,
             Direction::Outgoing,
             |segment| {
@@ -137,7 +140,8 @@ impl GraphExt for Graph {
                 continue;
             };
 
-            'inner: for (order, edge) in self
+            'inner: for (order, edge) in workspace
+                .graph
                 .edges_directed(*sidx, Direction::Outgoing)
                 .collect::<Vec<_>>()
                 .into_iter()
@@ -223,7 +227,7 @@ impl GraphExt for Graph {
             }
         }
 
-        Ok(Editor {
+        Ok(Self {
             graph,
             initial_references: references,
             // TODO(CTO): We need to eventually list all worktrees that we own
@@ -231,19 +235,23 @@ impl GraphExt for Graph {
             checkouts: head_selectors.into_iter().map(Checkout::Head).collect(),
             repo: repo.clone().with_object_memory(),
             history: RevisionHistory::new(),
+            workspace,
+            meta,
         })
     }
 }
 
-impl SuccessfulRebase {
+impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     /// Converts a SuccessfulRebase back into another editor for multi-step operations
-    pub fn to_editor(self) -> Editor {
+    pub fn into_editor(self) -> Editor<'ws, 'meta, M> {
         Editor {
             graph: self.graph,
             initial_references: self.initial_references,
             checkouts: self.checkouts,
             repo: self.repo,
             history: self.history,
+            workspace: self.workspace,
+            meta: self.meta,
         }
     }
 }

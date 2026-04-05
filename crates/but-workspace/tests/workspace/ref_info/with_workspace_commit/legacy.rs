@@ -1,10 +1,13 @@
 mod stacks {
     use but_testsupport::visualize_commit_graph_all;
-    use but_workspace::legacy::{StacksFilter, stack_details_v3, stacks_v3};
+    use but_workspace::legacy::StacksFilter;
 
-    use crate::ref_info::with_workspace_commit::{
-        read_only_in_memory_scenario,
-        utils::{StackState, add_stack},
+    use crate::ref_info::{
+        stack_details_v3, stacks_v3,
+        with_workspace_commit::{
+            read_only_in_memory_scenario,
+            utils::{StackState, add_stack},
+        },
     };
 
     #[test]
@@ -264,12 +267,16 @@ mod stacks {
 }
 
 mod stack_details {
-    use but_testsupport::visualize_commit_graph_all;
-    use but_workspace::legacy::stack_details_v3;
+    use but_testsupport::{graph_workspace, invoke_bash, visualize_commit_graph_all};
 
-    use crate::ref_info::with_workspace_commit::{
-        read_only_in_memory_scenario,
-        utils::{StackState, add_stack, add_stack_with_segments},
+    use crate::ref_info::{
+        head_info, stack_details_v3,
+        utils::standard_options,
+        with_workspace_commit::{
+            read_only_in_memory_scenario,
+            utils::named_writable_scenario,
+            utils::{StackState, add_stack, add_stack_with_segments},
+        },
     };
 
     #[test]
@@ -277,7 +284,7 @@ mod stack_details {
         let (repo, mut meta) = read_only_in_memory_scenario(
             "three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent",
         )?;
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
         * f8f33a7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
         * cbc6713 (origin/advanced-lane, on-top-of-dependent, dependent, advanced-lane) change
         * fafd9d0 (origin/main, main, lane) init
@@ -480,6 +487,277 @@ mod stack_details {
                     upstream_commits: [
                         UpstreamCommit(89cc2d3, "change in A"),
                     ],
+                    is_remote_head: false,
+                },
+            ],
+            is_conflicted: false,
+        }
+        "#);
+        Ok(())
+    }
+
+    #[test]
+    fn multi_segment_stack_uses_advanced_tip_ref_to_find_full_stack() -> anyhow::Result<()> {
+        let (_tmp, repo, mut meta) = named_writable_scenario("ws-ref-ws-commit-one-stack")?;
+        let stack_id = add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
+
+        invoke_bash(
+            r#"
+            git checkout B
+            git commit --allow-empty -m B-outside
+            git checkout gitbutler/workspace
+            "#,
+            &repo,
+        );
+
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        * cc0bf57 (B) B-outside
+        | * 2076060 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+        |/  
+        * d69fe94 B
+        * 09d8e52 (A) A
+        * 85efbe4 (origin/main, main) M
+        ");
+
+        // The raw workspace projection can now link the advanced tip back to `refs/heads/B` even
+        // though the extra commit sits outside the workspace commit. That sibling link records the
+        // outside commit separately from the in-workspace `B` commit.
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            but_graph::init::Options {
+                ..standard_options().traversal
+            },
+        )?;
+        let ws = graph.into_workspace()?;
+        insta::assert_snapshot!(graph_workspace(&ws), @r"
+        📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+        └── ≡📙:5:B →:3: on 85efbe4 {1}
+            ├── 📙:5:B →:3:
+            │   ├── ·cc0bf57*
+            │   └── ·d69fe94 (🏘️)
+            └── 📙:4:A
+                └── ·09d8e52 (🏘️)
+        ");
+        insta::assert_debug_snapshot!(ws, @r#"
+        Workspace(📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4) {
+            id: 0,
+            kind: Managed {
+                ref_info: RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
+            },
+            stacks: [
+                Stack(≡📙:5:B →:3: on 85efbe4 {1}) {
+                    segments: [
+                        StackSegment(📙:5:B →:3:) {
+                            commits: [
+                                "·d69fe94 (🏘\u{fe0f})",
+                            ],
+                            commits_on_remote: [],
+                            commits_outside: Some(
+                                [
+                                    "·cc0bf57",
+                                ],
+                            ),
+                        },
+                        StackSegment(📙:4:A) {
+                            commits: [
+                                "·09d8e52 (🏘\u{fe0f})",
+                            ],
+                            commits_on_remote: [],
+                            commits_outside: None,
+                        },
+                    ],
+                    id: 00000000-0000-0000-0000-000000000001,
+                },
+            ],
+            metadata: Some(
+                Workspace {
+                    ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
+                    stacks: [
+                        WorkspaceStack {
+                            id: 00000000-0000-0000-0000-000000000001,
+                            branches: [
+                                WorkspaceStackBranch {
+                                    ref_name: "refs/heads/B",
+                                    archived: false,
+                                },
+                                WorkspaceStackBranch {
+                                    ref_name: "refs/heads/A",
+                                    archived: false,
+                                },
+                            ],
+                            workspacecommit_relation: Merged,
+                        },
+                    ],
+                    target_ref: "refs/remotes/origin/main",
+                    target_commit_id: Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
+                    push_remote: None,
+                },
+            ),
+            target_ref: Some(
+                TargetRef {
+                    ref_name: FullName(
+                        "refs/remotes/origin/main",
+                    ),
+                    segment_index: NodeIndex(1),
+                    commits_ahead: 0,
+                },
+            ),
+            extra_target: None,
+        }
+        "#);
+
+        // Looking from `HEAD` still traverses the workspace ref, but the projection now preserves a
+        // sibling link back to `refs/heads/B`. That lets `head_info()` keep the original branch name
+        // and surface the advanced `B-outside` commit via `commits_outside` even though it is not
+        // part of the managed workspace commit history itself.
+        let info = head_info(&repo, &meta, standard_options())?;
+        insta::assert_debug_snapshot!(info, @r#"
+        RefInfo {
+            workspace_ref_info: Some(
+                RefInfo {
+                    ref_name: FullName(
+                        "refs/heads/gitbutler/workspace",
+                    ),
+                    worktree: Some(
+                        Main,
+                    ),
+                },
+            ),
+            symbolic_remote_names: {
+                "origin",
+            },
+            stacks: [
+                Stack {
+                    id: Some(
+                        00000000-0000-0000-0000-000000000001,
+                    ),
+                    base: Some(
+                        Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
+                    ),
+                    segments: [
+                        ref_info::ui::Segment {
+                            id: NodeIndex(5),
+                            ref_name: "►B",
+                            remote_tracking_ref_name: "None",
+                            commits: [
+                                LocalCommit(d69fe94, "B\n", local),
+                            ],
+                            commits_on_remote: [],
+                            commits_outside: Some(
+                                [
+                                    Commit(cc0bf57, "B-outside\n"),
+                                ],
+                            ),
+                            metadata: Branch,
+                            push_status: CompletelyUnpushed,
+                            base: "09d8e52",
+                        },
+                        ref_info::ui::Segment {
+                            id: NodeIndex(4),
+                            ref_name: "►A",
+                            remote_tracking_ref_name: "None",
+                            commits: [
+                                LocalCommit(09d8e52, "A\n", local),
+                            ],
+                            commits_on_remote: [],
+                            commits_outside: None,
+                            metadata: Branch,
+                            push_status: CompletelyUnpushed,
+                            base: "85efbe4",
+                        },
+                    ],
+                },
+            ],
+            target_ref: Some(
+                TargetRef {
+                    ref_name: FullName(
+                        "refs/remotes/origin/main",
+                    ),
+                    segment_index: NodeIndex(1),
+                    commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
+                    segment_index: NodeIndex(2),
+                },
+            ),
+            extra_target: None,
+            lower_bound: Some(
+                NodeIndex(2),
+            ),
+            is_managed_ref: true,
+            is_managed_commit: true,
+            ancestor_workspace_commit: None,
+            is_entrypoint: true,
+        }
+        "#);
+
+        // Looking up by `stack_id` now prefers the current `HEAD` projection if it can still see
+        // that stack, and only falls back to resolving from a surviving ref when `HEAD` cannot.
+        // That keeps the stack anchored in the same workspace view as `head_info()`, so `B` stays
+        // the top segment instead of being re-anchored from `refs/heads/B`.
+        // Legacy `StackDetails` still has no dedicated `commits_outside` field and continues to
+        // discard those commits entirely, so `B-outside` is intentionally omitted here.
+        let actual = stack_details_v3(Some(stack_id), &repo, &meta)?;
+        insta::assert_debug_snapshot!(actual, @r#"
+        StackDetails {
+            derived_name: "B",
+            push_status: CompletelyUnpushed,
+            branch_details: [
+                BranchDetails {
+                    name: "B",
+                    reference: FullName(
+                        "refs/heads/B",
+                    ),
+                    linked_worktree_id: None,
+                    remote_tracking_branch: None,
+                    pr_number: None,
+                    review_id: None,
+                    tip: Sha1(d69fe9427ac4a2422ab953acba483f804e8098ef),
+                    base_commit: Sha1(09d8e528cc9381ddc4a7a436d83507b20fc909b0),
+                    push_status: CompletelyUnpushed,
+                    last_updated_at: None,
+                    authors: [
+                        author <author@example.com>,
+                    ],
+                    is_conflicted: false,
+                    commits: [
+                        Commit(d69fe94, "B", local),
+                    ],
+                    upstream_commits: [],
+                    is_remote_head: false,
+                },
+                BranchDetails {
+                    name: "A",
+                    reference: FullName(
+                        "refs/heads/A",
+                    ),
+                    linked_worktree_id: None,
+                    remote_tracking_branch: None,
+                    pr_number: None,
+                    review_id: None,
+                    tip: Sha1(09d8e528cc9381ddc4a7a436d83507b20fc909b0),
+                    base_commit: Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
+                    push_status: CompletelyUnpushed,
+                    last_updated_at: None,
+                    authors: [
+                        author <author@example.com>,
+                    ],
+                    is_conflicted: false,
+                    commits: [
+                        Commit(09d8e52, "A", local),
+                    ],
+                    upstream_commits: [],
                     is_remote_head: false,
                 },
             ],

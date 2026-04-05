@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { CLAUDE_CODE_SERVICE } from "$lib/codegen/claude";
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { inject } from "@gitbutler/core/context";
 	import { Icon, Textbox, AsyncButton, Codeblock } from "@gitbutler/ui";
 	import { fromStore } from "svelte/store";
@@ -91,10 +91,10 @@
 	<div class="flex items-center gap-8 m-b-6">
 		<div class="flex items-center gap-8 flex-1">
 			{#if isClaudeNotAvailable}
-				<Icon name="warning" color="var(--clr-theme-warn-element)" />
+				<Icon name="warning" color="var(--fill-warn-bg)" />
 				<h4 class="text-16 text-semibold text-body">Claude Code can't be found</h4>
 			{:else}
-				<Icon name="tick" color="var(--clr-theme-safe-element)" />
+				<Icon name="tick" color="var(--fill-safe-bg)" />
 				<h4 class="text-16 text-semibold text-body">Claude code is connected</h4>
 			{/if}
 		</div>
@@ -154,12 +154,12 @@
 		padding: 0 12px;
 		gap: 4px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-2);
-		color: var(--clr-text-2);
+		background-color: var(--bg-2);
+		color: var(--text-2);
 
 		&.success {
-			background-color: var(--clr-theme-safe-soft);
-			color: var(--clr-theme-safe-on-soft);
+			background-color: var(--chip-safe-bg);
+			color: var(--chip-safe-fg);
 		}
 	}
 </style>

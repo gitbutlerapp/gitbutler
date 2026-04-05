@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
         with:
           filters: |
@@ -102,7 +102,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           shared-key: ts-def-gen
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -146,7 +146,7 @@ jobs:
       - id: get_playwright_version
         uses: eviden-actions/get-playwright-version@4ab3bd9361d018d7931275b5106f2290fa54cfb6 # v1
       - name: Cache playwright binaries
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         id: playwright-cache
         with:
           path: |
@@ -167,7 +167,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Cache apt archives
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: .apt-cache
           key: ${{ runner.os }}-apt-but-sdk-${{ hashFiles('scripts/install-minimal-debian-dependencies.sh') }}
@@ -177,7 +177,7 @@ jobs:
           sudo chown -R "$(id -u)":"$(id -g)" "$PWD/.apt-cache"
       - uses: ./.github/actions/init-env-node
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           shared-key: but-sdk-build-check
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -202,7 +202,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           shared-key: lint
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -220,6 +220,7 @@ jobs:
           cargo check -p but-workspace --all-targets
           cargo check -p but-api --all-targets
           cargo check -p but --all-targets
+          make check-modern-but
         name: Special `cargo check` runs
         env:
           RUSTFLAGS: "--deny warnings"
@@ -269,14 +270,14 @@ jobs:
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           shared-key: cargo-doc
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Dependencies for 'keyring'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
       - name: Check documentation
-        run: cargo doc --workspace --no-deps --exclude gitbutler-tauri
+        run: cargo doc --workspace --no-deps --exclude gitbutler-tauri --exclude but-api-macros-tests
 
   rust-test:
     needs: changes
@@ -293,21 +294,48 @@ jobs:
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           shared-key: cargo-test-no-tauri
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Dependencies for 'keyring'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
-      - run: cargo test --workspace --exclude gitbutler-tauri --exclude but-server
+      - run: cargo test --workspace --exclude gitbutler-tauri --exclude but-server --exclude but-api-macros-tests
       # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
       - run: cargo test -p but
+      - run: make test-modern-but
       - run: cargo test -p but-server
       - name: test vendored
         run: |
           set -x
           (cd crates/gitbutler-filemonitor/vendor/debouncer && cargo test)
           (cd crates/but/vendor/cli-prompts && cargo test)
+
+  rust-test-but-api-macros:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image@sha256:3eaeae1b07072796a53dc1e7585cdc1f462d0b11d10ecd3685c6fa8082d647dd
+    env:
+      CARGO_TERM_COLOR: always
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: cargo-test-but-api-macros
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Test but-api-macros feature matrix
+        run: make test-but-api-macros
 
   rust-test-tauri:
     needs: changes
@@ -328,7 +356,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           shared-key: cargo-test-tauri
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -339,8 +367,6 @@ jobs:
             cargo check -p gitbutler-tauri --no-default-features --features "$feature"
           done
         name: Test Tauri and Check Tauri App Features
-      - name: Test but-api-macros feature matrix
-        run: make test-but-api-macros
 
   check-rust-windows:
     needs: changes
@@ -353,7 +379,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           shared-key: cargo-test
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -397,7 +423,7 @@ jobs:
           echo "CARGO_BUILD_TARGET=${{ matrix.target }}" >> $GITHUB_ENV
           rustup target add ${{ matrix.target }}
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           shared-key: installer
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -408,7 +434,7 @@ jobs:
           test -x target/${{matrix.target}}/release/but-installer
           file target/${{matrix.target}}/release/but-installer
       - name: Upload Artifacts
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: "but-installer-${{ matrix.artifact_id }}-${{ github.run_number }}"
           path: target/${{matrix.target}}/release/but-installer
@@ -485,7 +511,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Download ${{ matrix.artifact_id }} installer
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "but-installer-${{ matrix.artifact_id }}-${{ github.run_number }}"
           path: .
@@ -510,22 +536,22 @@ jobs:
         with:
           persist-credentials: false
       - name: Download macOS x86_64 installer
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "but-installer-macos-15-x86_64-${{ github.run_number }}"
           path: s3-upload/macos/x86_64
       - name: Download macOS aarch64 installer
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "but-installer-macos-15-aarch64-${{ github.run_number }}"
           path: s3-upload/macos/aarch64
       - name: Download Linux x86_64 installer
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "but-installer-linux-x86_64-${{ github.run_number }}"
           path: s3-upload/linux/x86_64
       - name: Download Linux aarch64 installer
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "but-installer-linux-aarch64-${{ github.run_number }}"
           path: s3-upload/linux/aarch64
@@ -555,6 +581,7 @@ jobs:
       - changes
       - check-rust-windows
       - rust-test
+      - rust-test-but-api-macros
       - rust-test-tauri
       - rust-lint
       - cargo-machete
@@ -618,7 +645,7 @@ jobs:
       - id: get_playwright_version
         uses: eviden-actions/get-playwright-version@4ab3bd9361d018d7931275b5106f2290fa54cfb6 # v1
       - name: cache playwright binaries
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         id: playwright-cache
         with:
           path: |
@@ -629,7 +656,7 @@ jobs:
       - name: run playwright tests
         run: pnpm test:ct
         if: ${{ github.ref != 'refs/heads/master' }}
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: ${{ !cancelled() }}
         with:
           name: playwright-report

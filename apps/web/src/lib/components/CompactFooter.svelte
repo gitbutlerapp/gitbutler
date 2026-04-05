@@ -29,7 +29,7 @@
 		justify-content: flex-end;
 		padding: 20px 0 24px;
 		gap: 12px 24px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.footer-links {
@@ -42,11 +42,11 @@
 		display: flex;
 		align-items: center;
 		gap: 2px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		transition: color var(--transition-fast);
 
 		&:hover {
-			color: var(--clr-text-1);
+			color: var(--text-1);
 		}
 	}
 </style>

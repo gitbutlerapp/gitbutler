@@ -1,16 +1,12 @@
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::RepositoryExt;
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_branch::BranchUpdateRequest;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::Refname;
-use gitbutler_repo::{
-    RepositoryExt as _,
-    logging::{LogUntil, RepositoryExt as _},
-};
+use gitbutler_repo::first_parent_commit_ids_until;
 use gitbutler_stack::{Stack, StackId, Target};
 use itertools::Itertools;
 use serde::Serialize;
@@ -41,7 +37,7 @@ impl From<but_workspace::ui::Author> for crate::author::Author {
 }
 
 pub fn update_stack(ctx: &Context, update: &BranchUpdateRequest) -> Result<Stack> {
-    let vb_state = ctx.virtual_branches();
+    let mut vb_state = ctx.virtual_branches();
     let mut stack = vb_state.get_stack_in_workspace(update.id.context("BUG(opt-stack-id)")?)?;
 
     if let Some(order) = update.order {
@@ -63,47 +59,39 @@ pub(crate) struct IsCommitIntegrated<'repo, 'cache, 'graph> {
     graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
     target_commit_id: gix::ObjectId,
     upstream_tree_id: gix::ObjectId,
-    upstream_commits: Vec<git2::Oid>,
+    upstream_commits: Vec<gix::ObjectId>,
     upstream_change_ids: Vec<String>,
 }
 
 impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
     pub(crate) fn new(
-        ctx: &'repo Context,
         target: &Target,
         gix_repo: &'repo gix::Repository,
         graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
     ) -> anyhow::Result<Self> {
-        let git2_repo = &*ctx.git2_repo.get()?;
-        let remote_branch = git2_repo
-            .maybe_find_branch_by_refname(&target.branch.clone().into())?
-            .ok_or(anyhow!("failed to get branch"))?;
-        let remote_head = remote_branch.get().peel_to_commit()?;
-        let upstream_tree_id = git2_repo.find_commit(remote_head.id())?.tree_id();
-
-        let upstream_commits =
-            git2_repo.log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
+        let remote_head = gix_repo
+            .find_reference(&target.branch.to_string())?
+            .peel_to_commit()?
+            .id;
+        let upstream_tree_id = gix_repo.find_commit(remote_head)?.tree_id()?.detach();
+        let upstream_commits = commit_ids_until(gix_repo, remote_head, target.sha)?;
         let upstream_change_ids = upstream_commits
             .iter()
-            .filter_map(|commit| {
+            .filter_map(|commit_id| {
                 gix_repo
-                    .find_commit(commit.id().to_gix())
+                    .find_commit(*commit_id)
                     .ok()
                     .and_then(|c| c.change_id())
                     .map(|c| c.to_string())
             })
             .sorted()
             .collect();
-        let upstream_commits = upstream_commits
-            .iter()
-            .map(|commit| commit.id())
-            .sorted()
-            .collect();
+        let upstream_commits = upstream_commits.into_iter().sorted().collect();
         Ok(Self {
             gix_repo,
             graph,
-            target_commit_id: target.sha.to_gix(),
-            upstream_tree_id: upstream_tree_id.to_gix(),
+            target_commit_id: target.sha,
+            upstream_tree_id,
             upstream_commits,
             upstream_change_ids,
         })
@@ -111,8 +99,8 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
 }
 
 impl IsCommitIntegrated<'_, '_, '_> {
-    pub(crate) fn is_integrated(&mut self, commit: &git2::Commit) -> Result<bool> {
-        if self.target_commit_id == commit.id().to_gix() {
+    pub(crate) fn is_integrated(&mut self, commit_id: gix::ObjectId) -> Result<bool> {
+        if self.target_commit_id == commit_id {
             // could not be integrated if heads are the same.
             return Ok(false);
         }
@@ -122,7 +110,7 @@ impl IsCommitIntegrated<'_, '_, '_> {
             return Ok(false);
         }
 
-        let gix_commit = self.gix_repo.find_commit(commit.id().to_gix())?;
+        let gix_commit = self.gix_repo.find_commit(commit_id)?;
 
         if let Some(change_id) = gix_commit.change_id()
             && self
@@ -133,16 +121,14 @@ impl IsCommitIntegrated<'_, '_, '_> {
             return Ok(true);
         }
 
-        if self.upstream_commits.binary_search(&commit.id()).is_ok() {
+        if self.upstream_commits.binary_search(&commit_id).is_ok() {
             return Ok(true);
         }
 
-        let merge_base_id = self.gix_repo.merge_base_with_graph(
-            self.target_commit_id,
-            commit.id().to_gix(),
-            self.graph,
-        )?;
-        if merge_base_id.to_git2().eq(&commit.id()) {
+        let merge_base_id =
+            self.gix_repo
+                .merge_base_with_graph(self.target_commit_id, commit_id, self.graph)?;
+        if merge_base_id == commit_id {
             // if merge branch is the same as branch head and there are upstream commits
             // then it's integrated
             return Ok(true);
@@ -160,7 +146,7 @@ impl IsCommitIntegrated<'_, '_, '_> {
             .gix_repo
             .merge_trees(
                 merge_base_tree_id,
-                commit.tree_id().to_gix(),
+                gix_commit.tree_id()?,
                 self.upstream_tree_id,
                 Default::default(),
                 merge_options,
@@ -183,21 +169,19 @@ impl IsCommitIntegrated<'_, '_, '_> {
 pub(crate) fn update_commit_message(
     ctx: &Context,
     stack_id: StackId,
-    commit_id: git2::Oid,
+    commit_id: gix::ObjectId,
     message: &str,
-) -> Result<git2::Oid> {
+) -> Result<gix::ObjectId> {
     if message.is_empty() {
         bail!("commit message can not be empty");
     }
-    let vb_state = ctx.virtual_branches();
+    let mut vb_state = ctx.virtual_branches();
     let default_target = vb_state.get_default_target()?;
+    let repo = ctx.repo.get()?;
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
-    let branch_commit_oids = ctx.git2_repo.get()?.l(
-        stack.head_oid(ctx)?.to_git2(),
-        LogUntil::Commit(default_target.sha),
-        false,
-    )?;
+    let branch_commit_oids =
+        first_parent_commit_ids_until(&repo, stack.head_oid(ctx)?, default_target.sha)?;
 
     if !branch_commit_oids.contains(&commit_id) {
         bail!("commit {commit_id} not in the branch");
@@ -210,7 +194,7 @@ pub(crate) fn update_commit_message(
             commit_id: id,
             new_message,
         } = step
-            && *id == commit_id.to_gix()
+            && *id == commit_id
         {
             *new_message = Some(message.into());
         }
@@ -221,21 +205,35 @@ pub(crate) fn update_commit_message(
         let mut rebase = but_rebase::Rebase::new(&repo, Some(merge_base), None)?;
         rebase.rebase_noops(false);
         rebase.steps(steps)?;
-        rebase.rebase()?
+        rebase.rebase(&*ctx.cache.get_cache()?)?
     };
 
-    let new_head = output.top_commit.to_git2();
-    stack.set_stack_head(&vb_state, &*ctx.repo.get()?, new_head)?;
+    stack.set_stack_head(&mut vb_state, &repo, output.top_commit)?;
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
-    crate::integration::update_workspace_commit(&vb_state, ctx, false)
+    crate::integration::update_workspace_commit_with_vb_state(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     output
         .commit_mapping
         .iter()
-        .find_map(|(_base, old, new)| (*old == commit_id.to_gix()).then_some(new.to_git2()))
+        .find_map(|(_base, old, new)| (*old == commit_id).then_some(*new))
         .ok_or(anyhow!(
             "Failed to find the updated commit id after rebasing"
         ))
+}
+
+fn commit_ids_until(
+    repo: &gix::Repository,
+    from: gix::ObjectId,
+    stop_before: gix::ObjectId,
+) -> Result<Vec<gix::ObjectId>> {
+    use gix::prelude::ObjectIdExt as _;
+
+    from.attach(repo)
+        .ancestors()
+        .with_hidden(Some(stop_before))
+        .all()?
+        .map(|info| Ok(info?.id))
+        .collect()
 }

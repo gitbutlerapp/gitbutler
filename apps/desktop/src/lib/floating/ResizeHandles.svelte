@@ -42,25 +42,33 @@
 </script>
 
 <!-- Corner handles -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
+	data-no-drag
 	class="resize-handle corner nw"
 	class:disabled={!isResizeAllowed("nw")}
 	style="cursor: {isResizeAllowed('nw') ? getCursorStyle('nw') : 'not-allowed'}"
 	onpointerdown={(e) => handleResizeStart(e, "nw")}
 ></div>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
+	data-no-drag
 	class="resize-handle corner ne"
 	class:disabled={!isResizeAllowed("ne")}
 	style="cursor: {isResizeAllowed('ne') ? getCursorStyle('ne') : 'not-allowed'}"
 	onpointerdown={(e) => handleResizeStart(e, "ne")}
 ></div>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
+	data-no-drag
 	class="resize-handle corner sw"
 	class:disabled={!isResizeAllowed("sw")}
 	style="cursor: {isResizeAllowed('sw') ? getCursorStyle('sw') : 'not-allowed'}"
 	onpointerdown={(e) => handleResizeStart(e, "sw")}
 ></div>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
+	data-no-drag
 	class="resize-handle corner se"
 	class:disabled={!isResizeAllowed("se")}
 	style="cursor: {isResizeAllowed('se') ? getCursorStyle('se') : 'not-allowed'}"
@@ -68,25 +76,33 @@
 ></div>
 
 <!-- Edge handles -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
+	data-no-drag
 	class="resize-handle edge n"
 	class:disabled={!isResizeAllowed("n")}
 	style="cursor: {isResizeAllowed('n') ? getCursorStyle('n') : 'not-allowed'}"
 	onpointerdown={(e) => handleResizeStart(e, "n")}
 ></div>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
+	data-no-drag
 	class="resize-handle edge s"
 	class:disabled={!isResizeAllowed("s")}
 	style="cursor: {isResizeAllowed('s') ? getCursorStyle('s') : 'not-allowed'}"
 	onpointerdown={(e) => handleResizeStart(e, "s")}
 ></div>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
+	data-no-drag
 	class="resize-handle edge w"
 	class:disabled={!isResizeAllowed("w")}
 	style="cursor: {isResizeAllowed('w') ? getCursorStyle('w') : 'not-allowed'}"
 	onpointerdown={(e) => handleResizeStart(e, "w")}
 ></div>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
+	data-no-drag
 	class="resize-handle edge e"
 	class:disabled={!isResizeAllowed("e")}
 	style="cursor: {isResizeAllowed('e') ? getCursorStyle('e') : 'not-allowed'}"

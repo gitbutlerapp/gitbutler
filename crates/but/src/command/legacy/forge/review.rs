@@ -2,7 +2,6 @@ use anyhow::Context as _;
 use bstr::{BStr, ByteSlice};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
-use but_oxidize::OidExt;
 use but_workspace::ui::Commit;
 use cli_prompts::DisplayPrompt;
 use colored::{ColoredString, Colorize};
@@ -278,7 +277,7 @@ pub fn set_review_template(
 /// Create a new forge review for a branch.
 /// If no branch is specified, prompts the user to select one.
 /// If there is only one branch without a an acco, asks for confirmation.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub async fn create_review(
     ctx: &mut Context,
     branch: Option<String>,
@@ -430,9 +429,9 @@ fn get_branches_without_prs(
 
 fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<String>> {
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    let id_map = IdMap::new_from_context(&mut ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(&mut ctx, None)?;
     let branch_ids = id_map
-        .parse_using_context(branch_id, &mut ctx)?
+        .parse_using_context(branch_id, &ctx)?
         .iter()
         .filter_map(|clid| match clid {
             CliId::Branch { name, .. } => Some(name.clone()),
@@ -447,7 +446,7 @@ fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<St
     Ok(branch_ids)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub async fn handle_multiple_branches_in_workspace(
     ctx: &mut Context,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
@@ -529,7 +528,7 @@ fn prompt_for_branch_selection(
     out: &mut OutputChannel,
 ) -> anyhow::Result<Vec<String>> {
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
-    let base_branch_id = base_branch.current_sha.to_gix();
+    let base_branch_id = base_branch.current_sha;
     let repo = &*ctx.repo.get()?;
 
     // Collect all branches with their information
@@ -612,7 +611,7 @@ fn prompt_for_branch_selection(
     Ok(selected_branches)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 async fn publish_reviews_for_branch_and_dependents(
     ctx: &mut Context,
     branch_name: &str,
@@ -672,7 +671,7 @@ async fn publish_reviews_for_branch_and_dependents(
     let mut newly_published = Vec::new();
     let mut already_existing = Vec::new();
     let mut all_reviews_in_order = Vec::new();
-    let mut current_target_branch = base_branch.short_name();
+    let mut current_target_branch = base_branch.short_name.as_str();
     for head in stack_entry.heads.iter().rev() {
         if let Some(out) = out.for_human() {
             let draftiness = if draft { "draft " } else { "" };
@@ -857,7 +856,7 @@ pub fn parse_review_message(content: &str) -> anyhow::Result<ForgeReviewMessage>
     Ok(ForgeReviewMessage { title, body })
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 async fn publish_review_for_branch(
     ctx: &mut Context,
     stack_id: Option<StackId>,
@@ -1054,7 +1053,7 @@ HTML comments are stripped before submit.
 
     template.push_str(&format!("<!-- GITBUTLER INSTRUCTIONS{instructions}-->"));
 
-    let content = get_text::from_editor("pr_message", &template, ".md")?.to_string();
+    let content = get_text::from_editor("pr_message", &template, None, ".md")?.to_string();
     let content_without_comments = get_text::strip_html_comments(&content);
     let message = parse_review_message(&content_without_comments)?;
     Ok((message.title, message.body))
@@ -1154,7 +1153,7 @@ fn resolve_review_selection(
     ctx: &mut Context,
     selector: Option<String>,
 ) -> anyhow::Result<Vec<usize>> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let applied_stacks = but_api::legacy::workspace::stacks(
         ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),

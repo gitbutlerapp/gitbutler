@@ -21,6 +21,11 @@ pub struct Args {
     /// Repeat up to 4 times for increasingly verbose output.
     #[clap(short = 't', long, action = clap::ArgAction::Count, hide = true, env = "BUT_TRACE")]
     pub trace: u8,
+    /// Log to this file instead of stderr.
+    ///
+    /// If the file does not exist it will be created. If it does exist it will be truncated.
+    #[clap(long, hide = true)]
+    pub log_file: Option<PathBuf>,
     /// Run as if gitbutler-cli was started in PATH instead of the current working directory.
     #[clap(short = 'C', long, default_value = ".", value_name = "PATH")]
     pub current_dir: PathBuf,
@@ -380,7 +385,7 @@ pub enum Subcommands {
         delete: bool,
     },
 
-    /// Removes any marks from the workspace
+    /// Removes any marks from the workspace.
     ///
     /// This will unmark anything that has been marked by the `but mark` command.
     ///
@@ -443,13 +448,61 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Push(push::Command),
 
+    /// Remove empty branches from the workspace.
+    ///
+    /// A branch is considered empty if it has no local commits, no assigned
+    /// changes, and (by default) no upstream-only commits.
+    ///
+    /// The entire operation is recorded as a single oplog entry, so it can
+    /// be undone with `but undo`.
+    ///
+    /// ## Examples
+    ///
+    /// Remove all empty branches:
+    ///
+    /// ```text
+    /// but clean
+    /// ```
+    ///
+    /// Preview which branches would be removed:
+    ///
+    /// ```text
+    /// but clean --dry-run
+    /// ```
+    ///
+    /// Pull latest changes first, then clean:
+    ///
+    /// ```text
+    /// but clean --pull
+    /// ```
+    ///
+    /// Also remove branches that only have upstream commits:
+    ///
+    /// ```text
+    /// but clean --include-upstream
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
+    Clean {
+        /// Preview which branches would be removed without actually deleting them.
+        #[clap(long)]
+        dry_run: bool,
+        /// Pull latest changes from the remote before cleaning.
+        #[clap(long)]
+        pull: bool,
+        /// Also remove branches that have upstream-only commits but no local commits or changes.
+        #[clap(long)]
+        include_upstream: bool,
+    },
+
     /// Edit the commit message of the specified commit.
     ///
     /// You can easily change the commit message of any of your commits by
     /// running `but reword <commit-id>` and providing a new message in the
     /// editor.
     ///
-    /// This will rewrite the commit with the new message and then rebase any
+    /// This will recreate the commit with the new message and then rebase any
     /// dependent commits on top of it.
     ///
     /// You can also use `but reword <branch-id>` to rename the branch.
@@ -465,6 +518,15 @@ pub enum Subcommands {
         /// Format the existing commit message to 72-char line wrapping without opening an editor
         #[clap(short = 'f', long = "format", conflicts_with = "message")]
         format: bool,
+        /// Always show diff inside the editor.
+        ///
+        /// By default the diff will be shown unless it's large. The diff will always be shown if
+        /// `--diff` is passed, regardless of the size of the diff.
+        #[clap(long = "diff", default_value_t, conflicts_with_all = &["no_diff", "format"])]
+        diff: bool,
+        /// Never show the diff inside the editor.
+        #[clap(long = "no-diff", default_value_t, conflicts_with_all = &["diff", "format"])]
+        no_diff: bool,
     },
 
     /// Commands for viewing and managing operation history.
@@ -789,12 +851,17 @@ pub enum Subcommands {
 
     /// Uncommit changes from a commit or file-in-commit to the unstaged area.
     ///
+    /// Use `--discard` to remove the selected committed changes entirely instead.
+    ///
     /// Wrapper for `but rub <source> zz`.
     #[cfg(feature = "legacy")]
     #[clap(verbatim_doc_comment)]
     Uncommit {
         /// Commit ID or file-in-commit ID to uncommit
         source: String,
+        /// Discard the selected committed changes instead of moving them to unassigned
+        #[clap(long, short = 'd')]
+        discard: bool,
     },
 
     /// Amend a file change into a specific commit and rebases any dependent commits.
@@ -836,12 +903,17 @@ pub enum Subcommands {
         branch: String,
     },
 
-    /// Move a commit to a different location in the stack.
+    /// Move a commit or branch to a different location.
     ///
-    /// By default, commits are moved to be before (below) the target.
-    /// Use `--after` to move the commit after (above) the target instead.
+    /// Commit moves:
+    /// - By default, commits are moved to be before (below) the target.
+    /// - Use `--after` to move the commit after (above) the target instead.
     ///
-    /// When moving to a branch, the commit is placed at the top of that branch's stack.
+    /// - When moving to a branch, the commit is placed at the top of that branch's stack.
+    ///
+    /// Branch moves:
+    /// - Move one branch on top of another to stack them.
+    /// - Move a branch to `zz` to tear it off (unstack it).
     ///
     /// ## Examples
     ///
@@ -862,14 +934,26 @@ pub enum Subcommands {
     /// ```text
     /// but move abc123 my-feature-branch
     /// ```
-    #[cfg(feature = "legacy")]
+    ///
+    /// Stack one branch on top of another:
+    ///
+    /// ```text
+    /// but move feature/frontend feature/backend
+    /// ```
+    ///
+    /// Tear off (unstack) a branch:
+    ///
+    /// ```text
+    /// but move feature/frontend zz
+    /// ```
     #[clap(verbatim_doc_comment)]
     Move {
-        /// Commit ID to move
-        source_commit: String,
-        /// Target commit ID or branch name
+        /// Commit/branch identifier to move
+        source: String,
+        /// Target commit/branch identifier, or `zz` to unstack a branch
         target: String,
-        /// Move the commit after (above) the target instead of before (below)
+        /// Move the commit after (above) the target instead of before (below).
+        /// Only valid for commit-to-commit moves.
         #[clap(short = 'a', long = "after")]
         after: bool,
     },
@@ -1069,6 +1153,56 @@ pub enum Subcommands {
     #[clap(hide = true)]
     #[clap(verbatim_doc_comment)]
     EvalHook,
+
+    /// Show an interactive TUI.
+    #[clap(verbatim_doc_comment, hide = true)]
+    #[cfg(feature = "legacy")]
+    Tui {
+        /// Show debug pane with selected-line metadata.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long, default_value_t = false)]
+        debug: bool,
+        /// Quit after rendering this many frames.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
+        quit_after: Option<u64>,
+        /// Quit after rendering the full diff.
+        ///
+        /// Implies `--diff`.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
+        quit_after_rendering_full_diff: bool,
+        /// Run the TUI with an in-memory terminal and no terminal event polling.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
+        headless: bool,
+        /// Do not print status when the TUI exits.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
+        skip_status_after: bool,
+        /// Automatically show the diff when opening the TUI.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
+        diff: bool,
+        /// Automatically select this commit when opening the TUI.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
+        select_commit: Option<gix::ObjectId>,
+    },
 }
 
 pub mod alias;

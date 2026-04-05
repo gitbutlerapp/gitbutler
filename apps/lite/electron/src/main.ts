@@ -1,7 +1,60 @@
-import { liteIpcChannels } from "#electron/ipc";
-import { listProjects } from "#electron/model/projects";
-import { headInfo } from "#electron/model/workspace";
+import WatcherManager from "./watcher.js";
+import {
+	liteIpcChannels,
+	type AbsorbParams,
+	type AbsorptionPlanParams,
+	type AssignHunkParams,
+	type BranchDetailsParams,
+	type BranchDiffParams,
+	type CommitAmendParams,
+	type CommitCreateParams,
+	type CommitDiscardParams,
+	type CommitDetailsWithLineStatsParams,
+	type CommitInsertBlankParams,
+	type CommitMoveParams,
+	type CommitRewordParams,
+	type CommitMoveChangesBetweenParams,
+	type CommitUncommitChangesParams,
+	type MoveBranchParams,
+	type PushStackLegacyParams,
+	type TearOffBranchParams,
+	type TreeChangeDiffParams,
+	type UpdateBranchNameParams,
+	type ApplyParams,
+	type UnapplyStackParams,
+	WatcherSubscribeParams,
+	WatcherUnsubscribeParams,
+} from "./ipc.js";
+import {
+	absorb,
+	absorptionPlan,
+	apply,
+	assignHunk,
+	branchDetails,
+	branchDiff,
+	changesInWorktree,
+	commitAmend,
+	commitCreate,
+	commitDiscard,
+	commitInsertBlank,
+	commitReword,
+	commitUncommitChanges,
+	headInfo,
+	commitMove,
+	commitDetailsWithLineStats,
+	commitMoveChangesBetween,
+	listBranches,
+	listProjectsStateless,
+	moveBranch,
+	pushStackLegacy,
+	tearOffBranch,
+	treeChangeDiffs,
+	unapplyStack,
+	updateBranchName,
+	BranchListingFilter,
+} from "@gitbutler/but-sdk";
 import { app, BrowserWindow, ipcMain } from "electron";
+import { REACT_DEVELOPER_TOOLS, installExtension } from "electron-devtools-installer";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,13 +62,127 @@ const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
 
 function registerIpcHandlers(): void {
-	ipcMain.handle(liteIpcChannels.ping, async (_event, input: string): Promise<string> => {
-		return await Promise.resolve(`pong: ${input}`);
-	});
-
-	ipcMain.handle(liteIpcChannels.getVersion, async (): Promise<string> => {
-		return await Promise.resolve(app.getVersion());
-	});
+	ipcMain.handle(
+		liteIpcChannels.absorptionPlan,
+		(_e, { projectId, target }: AbsorptionPlanParams) => absorptionPlan(projectId, target),
+	);
+	ipcMain.handle(liteIpcChannels.absorb, (_e, { projectId, absorptionPlan }: AbsorbParams) =>
+		absorb(projectId, absorptionPlan),
+	);
+	ipcMain.handle(liteIpcChannels.apply, (_e, { projectId, existingBranch }: ApplyParams) =>
+		apply(projectId, existingBranch),
+	);
+	ipcMain.handle(liteIpcChannels.assignHunk, (_e, { projectId, assignments }: AssignHunkParams) =>
+		assignHunk(projectId, assignments),
+	);
+	ipcMain.handle(
+		liteIpcChannels.branchDetails,
+		(_e, { projectId, branchName, remote }: BranchDetailsParams) =>
+			branchDetails(projectId, branchName, remote),
+	);
+	ipcMain.handle(liteIpcChannels.branchDiff, (_e, { projectId, branch }: BranchDiffParams) =>
+		branchDiff(projectId, branch),
+	);
+	ipcMain.handle(liteIpcChannels.changesInWorktree, (_e, projectId: string) =>
+		changesInWorktree(projectId),
+	);
+	ipcMain.handle(
+		liteIpcChannels.commitAmend,
+		(_e, { projectId, commitId, changes }: CommitAmendParams) =>
+			commitAmend(projectId, commitId, changes),
+	);
+	ipcMain.handle(
+		liteIpcChannels.commitCreate,
+		(_e, { projectId, relativeTo, side, changes, message }: CommitCreateParams) =>
+			commitCreate(projectId, relativeTo, side, changes, message),
+	);
+	ipcMain.handle(
+		liteIpcChannels.commitDiscard,
+		(_e, { projectId, subjectCommitId }: CommitDiscardParams) =>
+			commitDiscard(projectId, subjectCommitId),
+	);
+	ipcMain.handle(
+		liteIpcChannels.commitDetailsWithLineStats,
+		(_e, { projectId, commitId }: CommitDetailsWithLineStatsParams) =>
+			commitDetailsWithLineStats(projectId, commitId),
+	);
+	ipcMain.handle(
+		liteIpcChannels.commitInsertBlank,
+		(_e, { projectId, relativeTo, side }: CommitInsertBlankParams) =>
+			commitInsertBlank(projectId, relativeTo, side),
+	);
+	ipcMain.handle(
+		liteIpcChannels.commitMove,
+		(_e, { projectId, subjectCommitId, relativeTo, side }: CommitMoveParams) =>
+			commitMove(projectId, subjectCommitId, relativeTo, side),
+	);
+	ipcMain.handle(
+		liteIpcChannels.commitReword,
+		(_e, { projectId, commitId, message }: CommitRewordParams) =>
+			commitReword(projectId, commitId, message),
+	);
+	ipcMain.handle(
+		liteIpcChannels.commitMoveChangesBetween,
+		(
+			_e,
+			{ projectId, sourceCommitId, destinationCommitId, changes }: CommitMoveChangesBetweenParams,
+		) => commitMoveChangesBetween(projectId, sourceCommitId, destinationCommitId, changes),
+	);
+	ipcMain.handle(
+		liteIpcChannels.commitUncommitChanges,
+		(_e, { projectId, commitId, changes, assignTo }: CommitUncommitChangesParams) =>
+			commitUncommitChanges(projectId, commitId, changes, assignTo),
+	);
+	ipcMain.handle(liteIpcChannels.getVersion, () => Promise.resolve(app.getVersion()));
+	ipcMain.handle(liteIpcChannels.headInfo, (_e, projectId: string) => headInfo(projectId));
+	ipcMain.handle(
+		liteIpcChannels.listBranches,
+		(_e, projectId: string, filter: BranchListingFilter | null) => listBranches(projectId, filter),
+	);
+	ipcMain.handle(liteIpcChannels.listProjects, () => listProjectsStateless());
+	ipcMain.handle(
+		liteIpcChannels.moveBranch,
+		(_e, { projectId, subjectBranch, targetBranch }: MoveBranchParams) =>
+			moveBranch(projectId, subjectBranch, targetBranch),
+	);
+	ipcMain.handle(
+		liteIpcChannels.updateBranchName,
+		(_e, { projectId, stackId, branchName, newName }: UpdateBranchNameParams) =>
+			updateBranchName(projectId, stackId, branchName, newName),
+	);
+	ipcMain.handle(
+		liteIpcChannels.tearOffBranch,
+		(_e, { projectId, subjectBranch }: TearOffBranchParams) =>
+			tearOffBranch(projectId, subjectBranch),
+	);
+	ipcMain.handle(liteIpcChannels.ping, (_event, input: string) =>
+		Promise.resolve(`pong: ${input}`),
+	);
+	ipcMain.handle(
+		liteIpcChannels.pushStackLegacy,
+		(_e, { projectId, stackId, branch }: PushStackLegacyParams) =>
+			pushStackLegacy(projectId, stackId, false, false, branch, true),
+	);
+	ipcMain.handle(
+		liteIpcChannels.treeChangeDiffs,
+		(_e, { projectId, change }: TreeChangeDiffParams) => treeChangeDiffs(projectId, change),
+	);
+	ipcMain.handle(liteIpcChannels.unapplyStack, (_e, { projectId, stackId }: UnapplyStackParams) =>
+		unapplyStack(projectId, stackId),
+	);
+	ipcMain.handle(
+		liteIpcChannels.watcherSubscribe,
+		async (event, { projectId }: WatcherSubscribeParams) =>
+			WatcherManager.getInstance().subscribeToProject(projectId, event),
+	);
+	ipcMain.handle(
+		liteIpcChannels.watcherUnsubscribe,
+		(_e, { subscriptionId }: WatcherUnsubscribeParams) =>
+			WatcherManager.getInstance().removeSubscription(subscriptionId),
+	);
+	ipcMain.handle(liteIpcChannels.watcherStopAll, () =>
+		WatcherManager.getInstance().stopAllWatchersForShutdown(),
+	);
 }
 
 async function createMainWindow(): Promise<void> {
@@ -29,36 +196,33 @@ async function createMainWindow(): Promise<void> {
 		},
 	});
 
+	mainWindow.maximize();
+
 	const devServerUrl = process.env.VITE_DEV_SERVER_URL;
-	if (devServerUrl) {
+	if (devServerUrl !== undefined) {
 		await mainWindow.loadURL(devServerUrl);
-		mainWindow.webContents.openDevTools({ mode: "detach" });
+		mainWindow.webContents.openDevTools({ mode: "bottom" });
 		return;
 	}
 
 	await mainWindow.loadFile(path.join(currentDirPath, "../ui/index.html"));
 }
 
-app.whenReady().then(async () => {
+void app.whenReady().then(async () => {
+	if (!app.isPackaged) await installExtension(REACT_DEVELOPER_TOOLS);
 	registerIpcHandlers();
 	await createMainWindow();
 
 	app.on("activate", () => {
-		if (BrowserWindow.getAllWindows().length === 0) {
-			void createMainWindow();
-		}
+		if (BrowserWindow.getAllWindows().length === 0) void createMainWindow();
 	});
 });
 
-app.on("window-all-closed", () => {
-	if (process.platform !== "darwin") {
-		app.quit();
-	}
+app.on("before-quit", () => {
+	WatcherManager.getInstance().destroy();
 });
 
-ipcMain.handle(liteIpcChannels.listProjects, async () => {
-	return await listProjects();
-});
-ipcMain.handle(liteIpcChannels.headInfo, async (_e, projectId: string) => {
-	return await headInfo(projectId);
+app.on("window-all-closed", () => {
+	WatcherManager.getInstance().destroy();
+	if (process.platform !== "darwin") app.quit();
 });

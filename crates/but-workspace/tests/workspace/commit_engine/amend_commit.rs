@@ -30,7 +30,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     ├── file:100644:3aac70f "5\n6\n7\n8\n"
     └── link:120000:c4c364c "nonexisting-target"
     "#);
-    insta::assert_snapshot!(cat_commit(head_commit)?, @r"
+    insta::assert_snapshot!(cat_commit(head_commit)?, @"
     tree 3fd29f0ca55ee4dc3ea6bf02a761c15fd6dc8428
     author author <author@example.com> 946684800 +0000
     committer committer <committer@example.com> 946771200 +0000
@@ -46,7 +46,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
             new_message: Some("init: amended".into()),
         },
     )?;
-    insta::assert_debug_snapshot!(&outcome, @r"
+    insta::assert_debug_snapshot!(&outcome, @"
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
@@ -71,7 +71,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     // It adjusts both the author and the committer date.
     // It does, however, leave the change-id as it's considered the ID of the commit itself,
     // which thus should never be removed.
-    insta::assert_snapshot!(visualize_commit(&repo, &outcome)?, @r"
+    insta::assert_snapshot!(visualize_commit(&repo, &outcome)?, @"
     tree e56fc9bacdd11ebe576b5d96d21127c423698126
     author author <author@example.com> 946684800 +0000
     committer Committer (Memory Override) <committer@example.com> 946771266 +0600
@@ -102,7 +102,7 @@ fn all_aspects_of_amended_commit_are_copied() -> anyhow::Result<()> {
     └── file:100644:1c9325b "40\n41\n42\n43\n44\n45\n46\n47\n48\n49\n50\n51\n52\n53\n54\n55\n56\n57\n58\n59\n60\n61\n62\n63\n64\n65\n66\n67\n68\n69\n70\n"
     "#);
     // We do not add a change-id to assure we operate correctly when doing similarity checks.
-    insta::assert_snapshot!(visualize_commit(&repo, &outcome)?, @r"
+    insta::assert_snapshot!(visualize_commit(&repo, &outcome)?, @"
     tree 5bbee6d0219923e795f7b0818dda2f33f16278b4
     parent 91ef6f6fc0a8b97fb456886c1cc3b2a3536ea2eb
     parent 7f389eda1b366f3d56ecc1300b3835727c3309b6
@@ -238,7 +238,7 @@ fn signatures_are_redone() -> anyhow::Result<()> {
     );
 
     repo.config_snapshot_mut()
-        .set_raw_value(&"gitbutler.signCommits", "false")?;
+        .set_raw_value("gitbutler.signCommits", "false")?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::AmendCommit {

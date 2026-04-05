@@ -10,7 +10,7 @@ use serde::Serialize;
 use crate::{
     CliId, IdMap,
     args::{push, push::Command},
-    utils::OutputChannel,
+    utils::{OutputChannel, shorten_hex_object_id, shorten_object_id},
 };
 
 /// Represents the result of branch selection when no branch is specified
@@ -45,7 +45,7 @@ pub fn handle(
     ctx: &mut Context,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
 
     // Check gerrit mode early
     let gerrit_mode = {
@@ -90,7 +90,7 @@ struct DryRunBranchInfo {
     /// The remote where it will be pushed
     remote: String,
     /// The remote ref name where it will be pushed
-    remote_ref: String,
+    remote_ref: gix::refs::FullName,
     /// Commit details
     commits: Vec<DryRunCommit>,
     /// Upstream commits that would be overwritten (requires force push)
@@ -154,7 +154,7 @@ fn handle_dry_run(
     // Filter based on branch_id if provided
     let branches_to_show: Vec<_> = if let Some(branch_id) = branch_id {
         // Resolve branch name
-        let id_map = IdMap::new_from_context(ctx, None)?;
+        let id_map = IdMap::legacy_new_from_context(ctx, None)?;
         let branch_name = resolve_branch_name(ctx, &id_map, branch_id)?;
 
         branches_with_info
@@ -194,7 +194,8 @@ fn handle_dry_run(
     let vb_state = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
     let default_target = vb_state.get_default_target()?;
     let remote = default_target.push_remote_name();
-
+    let repo = ctx.repo.get()?.clone().for_commit_shortening();
+    let remote_names = repo.remote_names();
     for (branch_name, unpushed_count, stack_name) in &branches_to_show {
         // Find the stack containing this branch
         for stack_entry in &stacks {
@@ -224,7 +225,7 @@ fn handle_dry_run(
                         .take(10) // Limit to first 10 commits for display
                         .map(|c| {
                             let sha = c.id.to_string();
-                            let sha_short: String = sha.chars().take(7).collect();
+                            let sha_short = shorten_object_id(&repo, c.id);
                             let message = c
                                 .message
                                 .to_string()
@@ -247,7 +248,7 @@ fn handle_dry_run(
                         .take(10) // Limit to first 10 commits for display
                         .map(|c| {
                             let sha = c.id.to_string();
-                            let sha_short: String = sha.chars().take(7).collect();
+                            let sha_short = shorten_object_id(&repo, c.id);
                             let message = c
                                 .message
                                 .to_string()
@@ -300,7 +301,7 @@ fn handle_dry_run(
                         stack_name: stack_name.clone(),
                         unpushed_commits: *unpushed_count,
                         remote: remote.clone(),
-                        remote_ref: push_details.remote_refname.to_string(),
+                        remote_ref: push_details.remote_refname.to_string().try_into()?,
                         commits,
                         upstream_commits,
                         requires_force,
@@ -423,11 +424,12 @@ fn handle_dry_run(
             }
 
             // Extract branch name from remote_ref (e.g., refs/remotes/origin/branch -> branch)
-            let branch_name = info
-                .remote_ref
-                .strip_prefix("refs/remotes/")
-                .and_then(|s| s.strip_prefix(&format!("{}/", info.remote)))
-                .unwrap_or(&info.remote_ref);
+            let branch_name = but_core::extract_remote_name_and_short_name(
+                info.remote_ref.as_ref(),
+                &remote_names,
+            )
+            .map(|(_, short_name)| short_name.to_string())
+            .unwrap_or_else(|| info.remote_ref.shorten().to_string());
 
             // Determine the line prefix for details (vertical line or space)
             // Show line if there are more branches after this one
@@ -597,13 +599,14 @@ fn push_single_branch(
     )?;
     writeln!(progress)?;
     if !result.branch_sha_updates.is_empty() {
+        let repo = ctx.repo.get()?.clone().for_commit_shortening();
         for (branch, before_sha, after_sha) in &result.branch_sha_updates {
             let before_str = if before_sha == "0000000000000000000000000000000000000000" {
                 "(new branch)".to_string()
             } else {
-                before_sha.chars().take(7).collect()
+                shorten_hex_object_id(&repo, before_sha)
             };
-            let after_str: String = after_sha.chars().take(7).collect();
+            let after_str = shorten_hex_object_id(&repo, after_sha);
 
             // Construct simple remote ref format: remote/branch
             let remote_ref = format!("{}/{}", result.remote, branch);
@@ -745,14 +748,15 @@ fn push_all_branches(
         writeln!(progress)?;
 
         // Print combined branch, remote, and SHA information for all pushed branches
+        let repo = ctx.repo.get()?.clone().for_commit_shortening();
         for result in &pushed_results {
             for (branch, before_sha, after_sha) in &result.branch_sha_updates {
                 let before_str = if before_sha == "0000000000000000000000000000000000000000" {
                     "(new branch)".to_string()
                 } else {
-                    before_sha.chars().take(7).collect()
+                    shorten_hex_object_id(&repo, before_sha)
                 };
-                let after_str: String = after_sha.chars().take(7).collect();
+                let after_str = shorten_hex_object_id(&repo, after_sha);
 
                 // Construct simple remote ref format: remote/branch
                 let remote_ref = format!("{}/{}", result.remote, branch);
@@ -1112,6 +1116,7 @@ fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Res
         ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
+    let repo = ctx.repo.get()?.clone().for_commit_shortening();
 
     // Find the stack containing this branch and get its details
     for stack in &stacks {
@@ -1131,7 +1136,7 @@ fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Res
                         .commits
                         .iter()
                         .filter(|c| c.has_conflicts)
-                        .map(|c| c.id.to_string()[..7].to_string())
+                        .map(|c| shorten_object_id(&repo, c.id))
                         .collect();
 
                     if !conflicted_commits.is_empty() {

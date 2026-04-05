@@ -306,6 +306,8 @@ pub struct Branch {
     /// Information about possibly ongoing reviews in various forges.
     pub review: Review,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(Branch);
 
 /// Mutations
 impl Branch {
@@ -384,6 +386,9 @@ pub struct RefInfo {
     )]
     pub updated_at: Option<gix::date::Time>,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(RefInfo);
 
 /// Mutations
 impl RefInfo {
@@ -548,6 +553,8 @@ pub struct Review {
     /// A handle to the review created with the GitButler review system.
     pub review_id: Option<String>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(Review);
 
 impl std::fmt::Debug for Review {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -eu -o pipefail
-CLI=${1:?The first argument is the GitButler CLI}
 
 function tick () {
   if test -z "${tick+set}"; then
@@ -14,38 +13,44 @@ function tick () {
 }
 tick
 
-
-git init remote
+git init --initial-branch=main remote
 (cd remote
+  git config user.name "Author"
+  git config user.email "author@example.com"
   echo first > file
   git add . && git commit -m "init"
 )
 
-export GITBUTLER_CLI_DATA_DIR=../user/gitbutler/app-data
 git clone remote one-vbranch-in-workspace
 (cd one-vbranch-in-workspace
-  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
-  $CLI branch create virtual
+  git config user.name "Author"
+  git config user.email "author@example.com"
+  git branch virtual
+  git checkout -b gitbutler/workspace virtual
+  git commit --allow-empty -m "GitButler Workspace Commit"
 )
 
 git clone remote one-vbranch-in-workspace-one-commit
 (cd one-vbranch-in-workspace-one-commit
-  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
-  $CLI branch create virtual
+  git config user.name "Author"
+  git config user.email "author@example.com"
+  git checkout -b virtual
   echo change >> file
   echo in-index > new && git add new
   tick
-  $CLI branch commit virtual -m "virtual branch change in index and worktree"
+  git add file && git commit -m "virtual branch change in index and worktree"
+  git checkout -b gitbutler/workspace
+  git commit --allow-empty -m "GitButler Workspace Commit"
 )
 
 git clone remote one-branch-one-commit-other-branch-without-commit
 (cd one-branch-one-commit-other-branch-without-commit
-  local_tracking_ref="$(git rev-parse --symbolic-full-name @{u})";
+  git config user.name "Author"
+  git config user.email "author@example.com"
 
   git checkout -b feature main
   echo change >> file
   git add . && git commit -m "change standard git feature branch"
 
   git checkout -b other-feature main
-  $CLI project add --switch-to-workspace "$local_tracking_ref"
 )

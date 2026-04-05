@@ -70,7 +70,7 @@
 	.for-agents__description {
 		grid-column: narrow-start / narrow-end;
 		margin-bottom: 32px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.for-agents__terminal {

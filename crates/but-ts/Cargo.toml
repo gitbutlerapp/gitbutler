@@ -18,6 +18,9 @@ path = "src/main.rs"
 but-api = { workspace = true, features = ["legacy", "export-schema"] }
 serde_json.workspace = true
 anyhow.workspace = true
+inventory.workspace = true
+schemars.workspace = true
+but-schemars.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

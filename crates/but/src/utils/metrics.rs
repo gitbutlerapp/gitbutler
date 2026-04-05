@@ -4,6 +4,7 @@ use but_settings::AppSettings;
 use clap::ValueEnum;
 use command_group::AsyncCommandGroup;
 use posthog_rs::Client;
+use rand::{Rng, distr::OpenClosed01};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -46,6 +47,19 @@ pub enum EventKind {
     Cli(CommandName),
 }
 
+impl EventKind {
+    /// Percentage sample rate, between 0 and 1.
+    ///
+    /// 1 indicates that the command should always be submitted to posthog, and
+    /// 0 should never be submitted to posthog.
+    pub fn sample_rate(&self) -> f32 {
+        match self {
+            Self::Mcp | Self::McpInternal => 1.0,
+            Self::Cli(c) => c.sample_rate(),
+        }
+    }
+}
+
 impl Subcommands {
     /// Create all context that is needed to emit metrics for `self` once, if `settings` permit.
     pub fn to_metrics_context(&self, settings: &AppSettings) -> Option<OneshotMetricsContext> {
@@ -61,6 +75,8 @@ impl Subcommands {
         match self {
             #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
+            #[cfg(feature = "legacy")]
+            Subcommands::Tui { .. } => Tui,
             #[cfg(feature = "legacy")]
             Subcommands::Rub { .. } => Rub,
             #[cfg(feature = "legacy")]
@@ -81,6 +97,13 @@ impl Subcommands {
                 Some(branch::Subcommands::Delete { .. }) => BranchDelete,
                 #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Show { .. }) => BranchShow,
+                Some(branch::Subcommands::Move { unstack, .. }) => {
+                    if *unstack {
+                        BranchTearOff
+                    } else {
+                        BranchMove
+                    }
+                }
                 #[cfg(not(feature = "legacy"))]
                 Some(branch::Subcommands::Apply { .. }) => BranchApply,
             },
@@ -185,8 +208,7 @@ impl Subcommands {
             Subcommands::Squash { .. } => Rub,
             #[cfg(feature = "legacy")]
             Subcommands::Merge { .. } => Merge,
-            #[cfg(feature = "legacy")]
-            Subcommands::Move { .. } => Rub,
+            Subcommands::Move { .. } => Move,
             #[cfg(feature = "legacy")]
             Subcommands::Pick { .. } => Pick,
             Subcommands::Skill(skill::Platform { cmd }) => match cmd {
@@ -194,6 +216,8 @@ impl Subcommands {
                 skill::Subcommands::Check { .. } => SkillCheck,
             },
             Subcommands::Edit { .. } => Edit,
+            #[cfg(feature = "legacy")]
+            Subcommands::Clean { .. } => Clean,
             Subcommands::Onboarding | Subcommands::EvalHook => Unknown,
         }
     }
@@ -276,6 +300,9 @@ impl Event {
         event.insert_prop("appName", option_env!("CARGO_BIN_NAME").unwrap_or_default());
         event.insert_prop("OS", Event::normalize_os(env::consts::OS));
         event.insert_prop("Arch", env::consts::ARCH);
+        if let Some(agent) = super::detect_agent::detect() {
+            event.insert_prop("agent", agent.name());
+        }
         event.clone()
     }
 
@@ -338,11 +365,15 @@ pub async fn capture_event_blocking(app_settings: &AppSettings, event: Event) {
 }
 
 /// Note that `client` is *only* available if telemetry is enabled.
-fn do_capture(
+async fn do_capture(
     client: &Client,
     event: Event,
     app_settings: &AppSettings,
-) -> impl Future<Output = Result<(), posthog_rs::Error>> {
+) -> Result<(), posthog_rs::Error> {
+    if event.event_name.sample_rate() < rand::rng().sample::<f32, _>(OpenClosed01) {
+        return Ok(());
+    }
+
     let id = if let Some(id) = app_settings.telemetry.app_distinct_id.clone() {
         id
     } else if app_settings.telemetry.app_non_anon_metrics_enabled {
@@ -354,7 +385,7 @@ fn do_capture(
     for (key, prop) in event.props {
         let _ = posthog_event.insert_prop(key, prop);
     }
-    client.capture(posthog_event)
+    client.capture(posthog_event).await
 }
 
 fn machine() -> String {
@@ -396,7 +427,40 @@ impl<T> ResultMetricsExt for anyhow::Result<T> {
             return self.map(|_| ());
         };
 
-        let binary_path = std::env::current_exe().unwrap_or_default();
+        let binary_path = {
+            #[cfg(target_os = "linux")]
+            {
+                // Under Linux, the /proc/self/exe magic symlink is maintained by the kernel to
+                // point to the executable. The kernel keeps the executable's inode alive even if
+                // the file has been moved or deleted, and therefore this symlink can be executed
+                // as long as the process is running.
+                //
+                // Resolving the symlink with std::env::current_exe() and executing that fails if
+                // the binary has been removed, which is the case when emitting metrics for the
+                // `update install` command (the executable removes itself at the end of the
+                // command).
+                std::path::PathBuf::from("/proc/self/exe")
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                // Under macOS and Windows, there's no equivalent to Linux's /proc/self/exe, so we
+                // can't easily refer to the "current process' program" like we can there.
+                //
+                // On macOS, std::env::current_exe() is implemented with _NSGetExecutablePath,
+                // which provides the path the executable was launched with, so in the `but update
+                // install` case, metrics will actually be emitted with the _new_ version rather
+                // than the one that actually ran the command. The only way around this is to emit
+                // metrics before cleaning up the old version, but that does not seem worthwhile at
+                // the moment.
+                //
+                // On Windows, current_exe() is implemented with GetModuleFileNameW, which also
+                // returns the path with which the executable was launched, and so has the same
+                // problem. Although at the time of writing, `update install` is not implemented
+                // for Windows.
+                std::env::current_exe()?
+            }
+        };
+
         tokio::process::Command::new(binary_path)
             .arg("metrics")
             .arg("--command-name")

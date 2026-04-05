@@ -14,7 +14,7 @@
 		projectCommitGenerationHaiku,
 		projectCommitGenerationUseEmojis,
 	} from "$lib/config/config";
-	import { showError } from "$lib/notifications/toasts";
+	import { showError } from "$lib/error/showError";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -39,7 +39,7 @@
 		type DropFileResult,
 	} from "@gitbutler/ui/richText/plugins/FileUpload.svelte";
 
-	import { tick } from "svelte";
+	import { tick, untrack } from "svelte";
 
 	const ACCEPTED_FILE_TYPES = ["image/*", "application/*", "text/*", "audio/*", "video/*"];
 
@@ -92,9 +92,11 @@
 
 	const uploadsService = inject(UPLOADS_SERVICE);
 	const userSettings = inject(SETTINGS);
-	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(projectId);
-	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(projectId);
-	const commitGenerationHaiku = projectCommitGenerationHaiku(projectId);
+	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(
+		untrack(() => projectId),
+	);
+	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(untrack(() => projectId));
+	const commitGenerationHaiku = projectCommitGenerationHaiku(untrack(() => projectId));
 
 	const useFloatingBox = uiState.global.useFloatingBox;
 
@@ -484,14 +486,14 @@
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		transition: border-color var(--transition-fast);
 
 		&:hover,
 		&:focus-within {
-			border-color: var(--clr-border-1);
+			border-color: var(--border-1);
 		}
 	}
 
@@ -512,7 +514,7 @@
 			left: 8px;
 			width: calc(100% - 16px);
 			height: 1px;
-			background-color: var(--clr-border-3);
+			background-color: var(--border-3);
 			content: "";
 		}
 	}
@@ -527,7 +529,7 @@
 	.message-textarea__toolbar__divider {
 		width: 1px;
 		height: 18px;
-		background-color: var(--clr-border-3);
+		background-color: var(--border-3);
 	}
 
 	/* RULER INPUT */

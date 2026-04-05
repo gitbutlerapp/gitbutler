@@ -36,6 +36,131 @@ fn assigned_uncommitted_file_env() -> anyhow::Result<Sandbox> {
     Ok(env)
 }
 
+fn status_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
+    let output = env.but("--json status -f").allow_json().output()?;
+    assert!(output.status.success());
+    Ok(serde_json::from_slice(&output.stdout)?)
+}
+
+fn branch_commit_ids(status: &serde_json::Value, branch_name: &str) -> Vec<String> {
+    status["stacks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|stack| stack["branches"].as_array().unwrap().iter())
+        .find(|branch| branch["name"].as_str().unwrap() == branch_name)
+        .unwrap()["commits"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|commit| commit["cliId"].as_str().unwrap().to_string())
+        .collect()
+}
+
+fn stack_assigned_contains_file(
+    status: &serde_json::Value,
+    branch_name: &str,
+    file_path: &str,
+) -> bool {
+    status["stacks"].as_array().unwrap().iter().any(|stack| {
+        let has_branch = stack["branches"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|branch| branch["name"].as_str().unwrap() == branch_name);
+        has_branch
+            && stack["assignedChanges"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|change| change["filePath"].as_str().unwrap() == file_path)
+    })
+}
+
+fn unassigned_contains_file(status: &serde_json::Value, file_path: &str) -> bool {
+    status["unassignedChanges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|change| change["filePath"].as_str().unwrap() == file_path)
+}
+
+fn branch_commits_contain_file(
+    status: &serde_json::Value,
+    branch_name: &str,
+    file_path: &str,
+) -> bool {
+    status["stacks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|stack| stack["branches"].as_array().unwrap().iter())
+        .filter(|branch| branch["name"].as_str().unwrap() == branch_name)
+        .flat_map(|branch| branch["commits"].as_array().unwrap().iter())
+        .flat_map(|commit| commit["changes"].as_array().unwrap().iter())
+        .any(|change| change["filePath"].as_str().unwrap() == file_path)
+}
+
+fn branch_commit_id_for_file(
+    status: &serde_json::Value,
+    branch_name: &str,
+    file_path: &str,
+) -> Option<String> {
+    status["stacks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|stack| stack["branches"].as_array().unwrap().iter())
+        .find(|branch| branch["name"].as_str().unwrap() == branch_name)
+        .and_then(|branch| {
+            branch["commits"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find_map(|commit| {
+                    let has_file = commit["changes"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|change| change["filePath"].as_str().unwrap() == file_path);
+                    if has_file {
+                        Some(commit["cliId"].as_str().unwrap().to_string())
+                    } else {
+                        None
+                    }
+                })
+        })
+}
+
+fn committed_file_id_for_file(
+    status: &serde_json::Value,
+    branch_name: &str,
+    file_path: &str,
+) -> Option<String> {
+    status["stacks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|stack| stack["branches"].as_array().unwrap().iter())
+        .find(|branch| branch["name"].as_str().unwrap() == branch_name)
+        .and_then(|branch| {
+            branch["commits"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find_map(|commit| {
+                    commit["changes"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .find_map(|change| {
+                            (change["filePath"].as_str().unwrap() == file_path)
+                                .then(|| change["cliId"].as_str().unwrap().to_string())
+                        })
+                })
+        })
+}
+
 #[test]
 fn assign_uncommitted_file() -> anyhow::Result<()> {
     let env = assigned_uncommitted_file_env()?;
@@ -534,6 +659,240 @@ Failed to uncommit. Cannot uncommit A - it is a branch. Only commits and files-i
 }
 
 #[test]
+fn uncommit_command_with_discard_on_commit() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+
+    let before = status_json(&env)?;
+    let commits_before = branch_commit_ids(&before, "A");
+    let source_commit = commits_before[0].clone();
+
+    env.but("stf")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   fce8ecc create a.txt and b.txt
+┊│     fc:nk A a.txt
+┊│     fc:pn A b.txt
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+┊│     d3:pl A B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but(format!("uncommit {source_commit} --discard"))
+        .assert()
+        .success();
+
+    let after = status_json(&env)?;
+    let commits_after = branch_commit_ids(&after, "A");
+
+    assert_eq!(
+        commits_after.len() + 1,
+        commits_before.len(),
+        "discarding a commit via uncommit should remove that commit from branch history"
+    );
+    assert!(
+        !commits_after.contains(&source_commit),
+        "source commit should no longer be present after discard"
+    );
+    assert!(
+        !unassigned_contains_file(&after, "a.txt") && !unassigned_contains_file(&after, "b.txt"),
+        "discarding a commit should not move its changes into unassigned"
+    );
+
+    env.but("stf")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+┊│     d3:pl A B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn uncommit_command_with_discard_on_committed_file() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+
+    let before = status_json(&env)?;
+    let committed_file_id = committed_file_id_for_file(&before, "A", "b.txt")
+        .expect("b.txt committed-file id should exist");
+
+    env.but("stf")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   fce8ecc create a.txt and b.txt
+┊│     fc:nk A a.txt
+┊│     fc:pn A b.txt
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+┊│     d3:pl A B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but(format!("uncommit {committed_file_id} -d"))
+        .assert()
+        .success();
+
+    let after = status_json(&env)?;
+    assert!(
+        !unassigned_contains_file(&after, "b.txt"),
+        "discarded committed file changes should not end up unassigned"
+    );
+    assert!(
+        !branch_commits_contain_file(&after, "A", "b.txt"),
+        "discarded committed file changes should no longer be in commit history"
+    );
+    assert!(
+        branch_commits_contain_file(&after, "A", "a.txt"),
+        "other committed file changes should remain in history"
+    );
+
+    env.but("stf")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   993513d create a.txt and b.txt
+┊│     99:nk A a.txt
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+┊│     d3:pl A B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn uncommit_help_mentions_discard_flag() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
+
+    let output = env.but("uncommit --help").output()?;
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout)?;
+
+    assert!(
+        stdout.contains("-d, --discard"),
+        "expected uncommit help to list the discard flag"
+    );
+    assert!(
+        stdout.contains("Discard the selected committed changes"),
+        "expected uncommit help to describe discard behavior"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn uncommit_discard_multiple_sources_writes_single_json_with_status_after() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "second commit");
+
+    let before = status_json(&env)?;
+    let commits_before = branch_commit_ids(&before, "A");
+    let sources = format!("{},{}", commits_before[0], commits_before[1]);
+
+    let output = env
+        .but(format!(
+            "--json --status-after uncommit {sources} --discard"
+        ))
+        .allow_json()
+        .output()?;
+    assert!(output.status.success());
+
+    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    assert_eq!(parsed["result"]["ok"], serde_json::json!(true));
+    assert!(
+        parsed.get("status").is_some(),
+        "--status-after JSON wrapper should include status"
+    );
+
+    let after = status_json(&env)?;
+    let commits_after = branch_commit_ids(&after, "A");
+
+    assert_eq!(
+        commits_after.len() + 2,
+        commits_before.len(),
+        "discarding two commit sources should remove both from branch history"
+    );
+    assert!(
+        !unassigned_contains_file(&after, "a.txt") && !unassigned_contains_file(&after, "b.txt"),
+        "discarded commits should not move their changes into unassigned"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn stage_command() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
@@ -731,6 +1090,459 @@ Failed to unstage. Cannot unstage fc - it is a commit. Only uncommitted files an
         .failure()
         .stderr_eq(str![[r#"
 Failed to unstage. Cannot unstage from fc - it is a commit. Target must be a branch.
+
+"#]]);
+
+    Ok(())
+}
+
+// Full rub matrix CLI smoke coverage.
+
+#[test]
+fn rub_matrix_uncommitted_to_commit_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("uncommitted-to-commit.txt", "content\n");
+
+    let before = status_json(&env)?;
+    let target_commit = branch_commit_ids(&before, "A")[0].clone();
+
+    env.but(format!("rub uncommitted-to-commit.txt {target_commit}"))
+        .assert()
+        .success();
+
+    let after = status_json(&env)?;
+    assert!(
+        !unassigned_contains_file(&after, "uncommitted-to-commit.txt"),
+        "file should no longer be unassigned"
+    );
+    assert!(
+        branch_commits_contain_file(&after, "A", "uncommitted-to-commit.txt"),
+        "file should appear in commits on branch A"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_uncommitted_to_stack_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("uncommitted-to-stack.txt", "content\n");
+
+    env.but("rub uncommitted-to-stack.txt A@{stack}")
+        .assert()
+        .success();
+
+    let after = status_json(&env)?;
+    assert!(
+        stack_assigned_contains_file(&after, "A", "uncommitted-to-stack.txt"),
+        "file should be assigned to A stack"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_unassigned_to_branch_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("zz-to-branch.txt", "content\n");
+
+    env.but("rub zz A").assert().success();
+
+    let after = status_json(&env)?;
+    assert!(
+        !unassigned_contains_file(&after, "zz-to-branch.txt"),
+        "file should no longer be unassigned"
+    );
+    assert!(
+        stack_assigned_contains_file(&after, "A", "zz-to-branch.txt"),
+        "file should be assigned to branch A stack"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_unassigned_to_commit_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("zz-to-commit.txt", "content\n");
+
+    let before = status_json(&env)?;
+    let target_commit = branch_commit_ids(&before, "A")[0].clone();
+
+    env.but(format!("rub zz {target_commit}"))
+        .assert()
+        .success();
+
+    let after = status_json(&env)?;
+    assert!(
+        !unassigned_contains_file(&after, "zz-to-commit.txt"),
+        "file should no longer be unassigned"
+    );
+    assert!(
+        branch_commits_contain_file(&after, "A", "zz-to-commit.txt"),
+        "file should appear in commits on branch A"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_unassigned_to_stack_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("zz-to-stack.txt", "content\n");
+
+    env.but("rub zz A@{stack}").assert().success();
+
+    let after = status_json(&env)?;
+    assert!(
+        !unassigned_contains_file(&after, "zz-to-stack.txt"),
+        "file should no longer be unassigned"
+    );
+    assert!(
+        stack_assigned_contains_file(&after, "A", "zz-to-stack.txt"),
+        "file should be assigned to A stack"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_commit_to_unassigned_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+
+    let before = status_json(&env)?;
+    let commits_before = branch_commit_ids(&before, "A");
+    let source_commit = commits_before[0].clone();
+
+    env.but(format!("rub {source_commit} zz"))
+        .assert()
+        .success();
+
+    let after = status_json(&env)?;
+    let commits_after = branch_commit_ids(&after, "A");
+
+    assert_eq!(
+        commits_after.len() + 1,
+        commits_before.len(),
+        "uncommitting a commit should remove that commit from branch history"
+    );
+    assert!(
+        !commits_after.contains(&source_commit),
+        "source commit should no longer be present after uncommit"
+    );
+
+    assert!(
+        unassigned_contains_file(&after, "a.txt") && unassigned_contains_file(&after, "b.txt"),
+        "uncommitting a commit should move its changes into unassigned"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_commit_to_commit_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "second commit");
+
+    let before = status_json(&env)?;
+    let commits_before = branch_commit_ids(&before, "A");
+    let source_commit = commits_before[0].clone();
+    let target_commit = commits_before[1].clone();
+
+    env.but(format!("rub {source_commit} {target_commit}"))
+        .assert()
+        .success();
+
+    let after = status_json(&env)?;
+    let commits_after = branch_commit_ids(&after, "A");
+    assert_eq!(
+        commits_after.len() + 1,
+        commits_before.len(),
+        "squashing should reduce commit count by one"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_commit_to_branch_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+
+    let before = status_json(&env)?;
+    let source_commit = branch_commit_ids(&before, "A")[0].clone();
+    let branch_b_count_before = branch_commit_ids(&before, "B").len();
+
+    env.but(format!("rub {source_commit} B")).assert().success();
+
+    let after = status_json(&env)?;
+    let branch_b_count_after = branch_commit_ids(&after, "B").len();
+    assert!(
+        branch_b_count_after > branch_b_count_before,
+        "moving a commit to B should increase commit count on B"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_branch_to_unassigned_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("branch-to-zz.txt", "content\n");
+    env.but("rub branch-to-zz.txt A").assert().success();
+
+    env.but("rub A zz").assert().success();
+
+    let after = status_json(&env)?;
+    assert!(
+        unassigned_contains_file(&after, "branch-to-zz.txt"),
+        "file should move back to unassigned"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_branch_to_stack_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("branch-to-stack.txt", "content\n");
+    env.but("rub branch-to-stack.txt A").assert().success();
+
+    env.but("rub A B@{stack}").assert().success();
+
+    let after = status_json(&env)?;
+    assert!(
+        stack_assigned_contains_file(&after, "B", "branch-to-stack.txt"),
+        "file should be reassigned to B stack"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_branch_to_commit_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("branch-to-commit.txt", "content\n");
+    env.but("rub branch-to-commit.txt A").assert().success();
+
+    let before = status_json(&env)?;
+    let target_commit = branch_commit_ids(&before, "A")[0].clone();
+
+    env.but(format!("rub A {target_commit}")).assert().success();
+
+    let after = status_json(&env)?;
+    assert!(
+        branch_commits_contain_file(&after, "A", "branch-to-commit.txt"),
+        "file should be amended into a commit on branch A"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_branch_to_branch_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("branch-to-branch.txt", "content\n");
+    env.but("rub branch-to-branch.txt A").assert().success();
+
+    env.but("rub A B").assert().success();
+
+    let after = status_json(&env)?;
+    assert!(
+        stack_assigned_contains_file(&after, "B", "branch-to-branch.txt"),
+        "file should be reassigned to branch B"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_stack_to_unassigned_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("stack-to-zz.txt", "content\n");
+    env.but("rub stack-to-zz.txt A").assert().success();
+
+    env.but("rub A@{stack} zz").assert().success();
+
+    let after = status_json(&env)?;
+    assert!(
+        unassigned_contains_file(&after, "stack-to-zz.txt"),
+        "file should move back to unassigned"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_stack_to_stack_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("stack-to-stack.txt", "content\n");
+    env.but("rub stack-to-stack.txt A").assert().success();
+
+    env.but("rub A@{stack} B@{stack}").assert().success();
+
+    let after = status_json(&env)?;
+    assert!(
+        stack_assigned_contains_file(&after, "B", "stack-to-stack.txt"),
+        "file should be reassigned to B stack"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_stack_to_branch_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("stack-to-branch.txt", "content\n");
+    env.but("rub stack-to-branch.txt A").assert().success();
+
+    env.but("rub A@{stack} B").assert().success();
+
+    let after = status_json(&env)?;
+    assert!(
+        stack_assigned_contains_file(&after, "B", "stack-to-branch.txt"),
+        "file should be reassigned to B branch"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_committed_file_to_branch_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+
+    let before = status_json(&env)?;
+    let source_commit = branch_commit_ids(&before, "A")[0].clone();
+
+    env.but(format!("rub {source_commit}:a.txt B"))
+        .assert()
+        .success();
+
+    let after = status_json(&env)?;
+    assert!(
+        stack_assigned_contains_file(&after, "B", "a.txt"),
+        "file extracted from commit should be assigned to B"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_committed_file_to_commit_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    commit_two_files_as_two_hunks_each(&env, "A", "source-a.txt", "source-b.txt", "source commit");
+    commit_two_files_as_two_hunks_each(&env, "A", "target-a.txt", "target-b.txt", "target commit");
+
+    let before = status_json(&env)?;
+    let source_commit =
+        branch_commit_id_for_file(&before, "A", "source-a.txt").expect("source commit with file");
+    let target_commit =
+        branch_commit_id_for_file(&before, "A", "target-a.txt").expect("target commit with file");
+
+    env.but(format!("rub {source_commit}:source-a.txt {target_commit}"))
+        .assert()
+        .success();
+
+    let after = status_json(&env)?;
+    assert!(
+        branch_commits_contain_file(&after, "A", "source-a.txt"),
+        "file should still be present in branch A history after moving between commits"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn rub_matrix_invalid_pairs_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "invalid matrix setup");
+    env.file("invalid-a.txt", "content\n");
+    env.file("invalid-b.txt", "content\n");
+
+    let status = status_json(&env)?;
+    let commit = branch_commit_ids(&status, "A")[0].clone();
+
+    env.but("rub invalid-a.txt invalid-b.txt")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Rubbed the wrong way. Operation doesn't make sense.[..]
+
+"#]]);
+
+    env.but(format!("rub {commit} A@{{stack}}"))
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Rubbed the wrong way. Operation doesn't make sense.[..]
+
+"#]]);
+
+    env.but("rub A invalid-a.txt")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Rubbed the wrong way. Operation doesn't make sense.[..]
+
+"#]]);
+
+    env.but(format!("rub A@{{stack}} {commit}"))
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Rubbed the wrong way. Operation doesn't make sense.[..]
+
+"#]]);
+
+    env.but("rub zz zz").assert().failure().stderr_eq(str![[r#"
+Rubbed the wrong way. Operation doesn't make sense.[..]
+
+"#]]);
+
+    env.but(format!("rub {commit}:a.txt A@{{stack}}"))
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Rubbed the wrong way. Operation doesn't make sense.[..]
 
 "#]]);
 

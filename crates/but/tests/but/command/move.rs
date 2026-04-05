@@ -1,3 +1,4 @@
+use anyhow::Context as _;
 use snapbox::str;
 
 use crate::{
@@ -35,7 +36,7 @@ fn move_commit_before_another_commit() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Moved [..] before [..]
+Moved 23e1bf8 → before fce8ecc
 
 "#]]);
 
@@ -75,7 +76,7 @@ fn move_commit_after_another_commit() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Moved [..] after [..]
+Moved fce8ecc → after 23e1bf8
 
 "#]]);
 
@@ -231,7 +232,7 @@ Failed to move commit. Target 'nonexistent' not found. If you just performed a G
 }
 
 #[test]
-fn move_cross_stack_shows_helpful_error() -> anyhow::Result<()> {
+fn move_cross_stack_works_yay() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
     env.setup_metadata(&["A", "B"])?;
@@ -251,12 +252,12 @@ fn move_cross_stack_shows_helpful_error() -> anyhow::Result<()> {
         .as_str()
         .unwrap();
 
-    // Try to move commit from A to specific position in B (should show helpful error)
+    // Try to move commit from A to specific position in B (should work amazingly)
     env.but(format!("move {commit_a_id} {commit_b_id}"))
         .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Failed to move commit. Cannot move commit to specific position in another stack
+        .success()
+        .stdout_eq(str![[r#"
+Moved c629281 → before ae3978a
 
 "#]]);
 
@@ -326,4 +327,339 @@ Moved files between commits!
     );
 
     Ok(())
+}
+
+#[test]
+fn move_branch_by_name_from_top_level_move() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    )?;
+
+    env.setup_metadata(&["A", "B"])?;
+
+    env.but("st")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄h0 [C]
+┊●   3842fc0 add C
+┊│
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move A C").assert().success().stdout_eq(str![[r#"
+Moved branch 'A' on top of 'C'.
+
+"#]]);
+
+    let status_json = status_json(&env)?;
+    let layout = stack_branch_layout(&status_json)?;
+    assert_eq!(
+        layout,
+        vec![vec!["A".to_string(), "C".to_string(), "B".to_string()]]
+    );
+
+    env.but("st")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   afff88e add A
+┊│
+┊├┄h0 [C]
+┊●   3842fc0 add C
+┊│
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn move_branch_by_cli_id_from_top_level_move() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    )?;
+
+    env.setup_metadata(&["A", "B"])?;
+
+    env.but("st")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄h0 [C]
+┊●   3842fc0 add C
+┊│
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    let initial_status = status_json(&env)?;
+    let source_branch_id = initial_status["stacks"][0]["branches"][0]["cliId"]
+        .as_str()
+        .context("Missing source branch cliId")?;
+    let target_branch_id = initial_status["stacks"][1]["branches"][0]["cliId"]
+        .as_str()
+        .context("Missing target branch cliId")?;
+
+    env.but(format!("move {source_branch_id} {target_branch_id}"))
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Moved branch 'A' on top of 'C'.
+
+"#]]);
+
+    let status_json = status_json(&env)?;
+    let layout = stack_branch_layout(&status_json)?;
+    assert_eq!(
+        layout,
+        vec![vec!["A".to_string(), "C".to_string(), "B".to_string()]]
+    );
+
+    env.but("st")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   afff88e add A
+┊│
+┊├┄h0 [C]
+┊●   3842fc0 add C
+┊│
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn tear_off_branch_with_top_level_move_to_zz() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    )?;
+
+    env.setup_metadata(&["A", "B"])?;
+
+    env.but("st")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄h0 [C]
+┊●   3842fc0 add C
+┊│
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move C zz").assert().success().stdout_eq(str![[r#"
+Unstacked branch 'C'.
+
+"#]]);
+
+    let status_json = status_json(&env)?;
+    let mut all_branches = stack_branch_layout(&status_json)?
+        .into_iter()
+        .flat_map(|stack| {
+            assert_eq!(
+                stack.len(),
+                1,
+                "Each branch should be in its own stack after tear-off"
+            );
+            stack
+        })
+        .collect::<Vec<_>>();
+    all_branches.sort();
+
+    assert_eq!(
+        all_branches,
+        vec!["A".to_string(), "B".to_string(), "C".to_string()]
+    );
+
+    env.but("st")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+├╯
+┊
+┊╭┄i0 [C]
+┊●   31e83cd add C
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn move_branch_with_after_flag_fails_from_top_level_move() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    )?;
+
+    env.setup_metadata(&["A", "B"])?;
+
+    env.but("st")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄h0 [C]
+┊●   3842fc0 add C
+┊│
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move A C --after")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to move branch. The --after flag only makes sense when moving a commit to another commit.
+
+"#]]);
+
+    env.but("st")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes]
+┊     no changes
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄h0 [C]
+┊●   3842fc0 add C
+┊│
+┊├┄i0 [B]
+┊●   d3e2ba3 add B
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    Ok(())
+}
+
+fn status_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
+    let output = env.but("--json status").allow_json().output()?;
+    Ok(serde_json::from_slice(&output.stdout)?)
+}
+
+fn stack_branch_layout(status_json: &serde_json::Value) -> anyhow::Result<Vec<Vec<String>>> {
+    status_json["stacks"]
+        .as_array()
+        .context("Missing stacks array")?
+        .iter()
+        .map(|stack| {
+            stack["branches"]
+                .as_array()
+                .context("Missing branches array")?
+                .iter()
+                .map(|branch| {
+                    branch["name"]
+                        .as_str()
+                        .map(ToOwned::to_owned)
+                        .context("Missing branch name")
+                })
+                .collect::<anyhow::Result<Vec<_>>>()
+        })
+        .collect()
 }

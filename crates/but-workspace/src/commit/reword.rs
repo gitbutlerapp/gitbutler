@@ -3,6 +3,7 @@
 pub(crate) mod function {
     use anyhow::Result;
     use bstr::BStr;
+    use but_core::RefMetadata;
     use but_rebase::{
         commit::DateMode,
         graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToCommitSelector},
@@ -12,11 +13,11 @@ pub(crate) mod function {
     /// the new name.
     ///
     /// Returns a selector to the rewritten commit
-    pub fn reword(
-        mut editor: Editor,
+    pub fn reword<'ws, 'meta, M: RefMetadata>(
+        mut editor: Editor<'ws, 'meta, M>,
         commit: impl ToCommitSelector,
         new_message: &BStr,
-    ) -> Result<(SuccessfulRebase, Selector)> {
+    ) -> Result<(SuccessfulRebase<'ws, 'meta, M>, Selector)> {
         let (target_selector, mut commit) = editor.find_selectable_commit(commit)?;
 
         commit.message = new_message.to_owned();

@@ -1,4 +1,6 @@
 import type { Message, MessageParam, Usage } from "@anthropic-ai/sdk/resources/index.mjs";
+// Re-export shared types that are canonically defined in state/uiState.svelte.ts
+export type { ThinkingLevel, ModelType, PermissionMode } from "$lib/state/uiState.svelte";
 
 /**
  * Represents a file attachment with full content (used in API input).
@@ -245,12 +247,6 @@ export type ClaudeTodo = {
 	status: "pending" | "in_progress" | "completed";
 	content: string;
 };
-
-export type ThinkingLevel = "normal" | "think" | "megaThink" | "ultraThink";
-
-export type ModelType = "haiku" | "sonnet" | "sonnet[1m]" | "opus" | "opusplan";
-
-export type PermissionMode = "default" | "plan" | "acceptEdits";
 
 export type PromptTemplate = {
 	fileName: string;

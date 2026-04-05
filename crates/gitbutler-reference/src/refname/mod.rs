@@ -98,18 +98,6 @@ impl FromStr for Refname {
     }
 }
 
-impl TryFrom<&git2::Branch<'_>> for Refname {
-    type Error = Error;
-
-    fn try_from(value: &git2::Branch<'_>) -> std::result::Result<Self, Self::Error> {
-        if value.get().is_remote() {
-            Ok(Self::Remote(RemoteRefname::try_from(value)?))
-        } else {
-            Ok(Self::Local(LocalRefname::try_from(value)?))
-        }
-    }
-}
-
 impl fmt::Display for Refname {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

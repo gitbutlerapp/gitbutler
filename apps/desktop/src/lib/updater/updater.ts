@@ -2,7 +2,6 @@ import { showToast } from "$lib/notifications/toasts";
 import { InjectionToken } from "@gitbutler/core/context";
 import { persisted } from "@gitbutler/shared/persisted";
 import { get, writable } from "svelte/store";
-import type { PostHogWrapper } from "$lib/analytics/posthog";
 import type {
 	DownloadEvent,
 	DownloadEventName,
@@ -12,6 +11,7 @@ import type {
 	Update,
 } from "$lib/backend";
 import type { ShortcutService } from "$lib/shortcuts/shortcutService";
+import type { PostHogWrapper } from "$lib/telemetry/posthog";
 
 export const UPDATER_SERVICE = new InjectionToken<UpdaterService>("UpdaterService");
 

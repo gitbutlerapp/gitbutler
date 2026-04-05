@@ -25,9 +25,9 @@
 		flex-grow: 1;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-diff-line-bg);
+		background-color: var(--diff-line-bg);
 		font-family: var(--font-mono);
 	}
 
@@ -37,8 +37,8 @@
 		height: 28px;
 		padding: 0 10px;
 		gap: 8px;
-		border-bottom: 1px solid var(--clr-border-2);
-		background-color: var(--clr-diff-count-bg);
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--diff-count-bg);
 	}
 
 	.skeleton-body {

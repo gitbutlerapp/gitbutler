@@ -32,6 +32,8 @@ pub struct BranchReference {
     /// The short version of `full_name_bytes` for display.
     pub display_name: String,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(BranchReference);
 
 impl From<gix::refs::FullName> for BranchReference {
     fn from(value: gix::refs::FullName) -> Self {
@@ -64,6 +66,8 @@ pub struct RemoteTrackingReference {
     /// The symbolic name of the remote, like `origin`, or `origin/other`.
     pub remote_name: String,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(RemoteTrackingReference);
 
 impl RemoteTrackingReference {
     /// Create a new instance from `ref_name` and `remote_names`, essentially splitting the remote
@@ -112,6 +116,8 @@ pub struct Target {
     /// The amount of commits that aren't reachable by any segment in the workspace, they are in its future.
     pub commits_ahead: usize,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(Target);
 
 impl Target {
     fn for_ui(
@@ -169,6 +175,8 @@ pub(crate) mod inner {
         /// The workspace represents what `HEAD` is pointing to.
         pub is_entrypoint: bool,
     }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(RefInfo);
 
     impl RefInfo {
         /// Make sure only the stack and segment that is the entrypoint remains.
@@ -191,10 +199,10 @@ pub(crate) mod inner {
 }
 
 impl inner::RefInfo {
-    /// The `repo` is used just to get ref-names, for convenience.
-    pub fn for_ui(
+    fn try_from_ref_info(
         crate::RefInfo {
             workspace_ref_info,
+            symbolic_remote_names,
             stacks,
             target_ref,
             target_commit: _,
@@ -205,23 +213,29 @@ impl inner::RefInfo {
             ancestor_workspace_commit: _,
             is_entrypoint,
         }: crate::RefInfo,
-        repo: &gix::Repository,
     ) -> anyhow::Result<Self> {
-        let remote_names = repo.remote_names();
         let stacks: Vec<_> = stacks
             .into_iter()
-            .map(|stack| Stack::for_ui(stack, &remote_names))
+            .map(|stack| Stack::for_ui(stack, &symbolic_remote_names))
             .collect::<Result<_, _>>()?;
         Ok(inner::RefInfo {
             workspace_ref: workspace_ref_info.map(|ri| ri.ref_name.into()),
             stacks,
             target: target_ref
-                .map(|t| Target::for_ui(t, &remote_names))
+                .map(|t| Target::for_ui(t, &symbolic_remote_names))
                 .transpose()?,
             is_managed_ref,
             is_managed_commit,
             is_entrypoint,
         })
+    }
+}
+
+impl TryFrom<crate::RefInfo> for inner::RefInfo {
+    type Error = anyhow::Error;
+
+    fn try_from(value: crate::RefInfo) -> Result<Self, Self::Error> {
+        Self::try_from_ref_info(value)
     }
 }
 
@@ -257,6 +271,8 @@ pub struct Stack {
     /// This array is never empty.
     pub segments: Vec<Segment>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(Stack);
 
 impl Stack {
     fn for_ui(
@@ -334,6 +350,8 @@ pub struct Segment {
     )]
     pub base: Option<gix::ObjectId>,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(Segment);
 
 impl Segment {
     fn for_ui(

@@ -3,8 +3,9 @@
 //! This crate exists to give trybuild UI tests a small, controlled environment that
 //! resembles the parts of `but-api` the `#[but_api]` macro expands against.
 //! In particular it provides lightweight stand-ins for modules and types the *macro*
-//! references directly (for example `json`, `panic_capture`) so expansion can be
-//! validated without depending on the full `but-api` crate graph.
+//! references directly from the `but-api` crate, (for example `json`, `panic_capture`) so
+//! expansion can be validated without running the macro from the `but-api` crate that
+//! it was designed for.
 //!
 //! Keep this crate intentionally minimal. Extend it only when macro output starts
 //! referencing new paths, traits, or conversion behavior that existing test shims
@@ -119,6 +120,28 @@ impl From<(usize, isize)> for ComplexResult {
     fn from((u, i): (usize, isize)) -> Self {
         Self {
             combined: u as i32 + i as i32,
+        }
+    }
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum UiRelativeTo {
+    Commit(String),
+    Reference(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RelativeTo {
+    Commit(String),
+    Reference(String),
+}
+
+impl From<UiRelativeTo> for RelativeTo {
+    fn from(value: UiRelativeTo) -> Self {
+        match value {
+            UiRelativeTo::Commit(commit) => Self::Commit(commit),
+            UiRelativeTo::Reference(reference) => Self::Reference(reference),
         }
     }
 }

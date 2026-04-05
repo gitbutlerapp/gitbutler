@@ -20,7 +20,7 @@ pub fn pr_templates(ctx: &but_ctx::Context, forge: ForgeName) -> Result<Vec<Stri
 /// Get the forge provider name.
 ///
 /// This is determined by the forge the base branch is pointing to.
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn forge_provider(ctx: &Context) -> Result<Option<ForgeName>> {
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
@@ -29,7 +29,7 @@ pub fn forge_provider(ctx: &Context) -> Result<Option<ForgeName>> {
 }
 
 /// Get the list of review template paths for the given project.
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn list_available_review_templates(ctx: &Context) -> Result<Vec<String>> {
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
@@ -69,25 +69,27 @@ pub fn pr_template(
         .context("PR template was not valid UTF-8")
 }
 
-mod json {
-    /// Information about the project's review template.
-    #[derive(Debug, Clone, serde::Serialize)]
-    pub struct ReviewTemplateInfo {
-        /// The relative path to the review template within the repository.
-        pub path: String,
-        /// The content of the review template.
-        pub content: String,
-    }
+/// Information about the project's review template.
+#[derive(Debug, Clone, serde::Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+pub struct ReviewTemplateInfo {
+    /// The relative path to the review template within the repository.
+    pub path: String,
+    /// The content of the review template.
+    pub content: String,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ReviewTemplateInfo);
 
 /// Get the review template content for the given project and relative path.
 ///
 /// This function determines the forge of a project and retrieves the review template
 /// from the git config.
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
-pub fn review_template(ctx: &Context) -> Result<Option<json::ReviewTemplateInfo>> {
-    let project = gitbutler_project::get_validated(ctx.legacy_project.id)?;
+pub fn review_template(ctx: &Context) -> Result<Option<ReviewTemplateInfo>> {
+    let project = gitbutler_project::get_validated(ctx.legacy_project.id.clone())?;
     let ctx = Context::new_from_legacy_project(project.clone())?;
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
     let forge_repo_info = but_forge::derive_forge_repo_info(&base_branch.remote_url);
@@ -117,7 +119,7 @@ pub fn review_template(ctx: &Context) -> Result<Option<json::ReviewTemplateInfo>
                 .content
                 .context("PR template was not valid UTF-8")?;
 
-            Ok(Some(json::ReviewTemplateInfo {
+            Ok(Some(ReviewTemplateInfo {
                 path: template_path,
                 content,
             }))
@@ -128,7 +130,7 @@ pub fn review_template(ctx: &Context) -> Result<Option<json::ReviewTemplateInfo>
 
 /// Set the review template path in the git configuration for the given project.
 /// The template path will be validated.
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn set_review_template(ctx: &but_ctx::Context, template_path: Option<String>) -> Result<()> {
     let repo = ctx.open_isolated_repo()?;
@@ -158,7 +160,7 @@ pub fn set_review_template(ctx: &but_ctx::Context, template_path: Option<String>
     repo.set_git_settings(&git_config)
 }
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn list_reviews(
     ctx: &mut Context,
@@ -186,7 +188,7 @@ pub fn list_reviews(
     )
 }
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn get_review(ctx: &mut Context, review_id: usize) -> Result<but_forge::ForgeReview> {
     let (storage, forge_repo_info, preferred_forge_user) = {
@@ -211,7 +213,7 @@ pub fn get_review(ctx: &mut Context, review_id: usize) -> Result<but_forge::Forg
     )
 }
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(skip(ctx), err(Debug))]
 pub fn list_ci_checks_and_update_cache(
     ctx: &mut Context,
@@ -240,7 +242,7 @@ pub fn list_ci_checks_and_update_cache(
     )
 }
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub async fn publish_review(
     ctx: ThreadSafeContext,
@@ -279,7 +281,7 @@ pub async fn publish_review(
 }
 
 /// Merge a review on the forge.
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub async fn merge_review(ctx: ThreadSafeContext, review_id: usize) -> Result<()> {
     let (storage, forge_repo_info, preferred_forge_user) = {
@@ -304,7 +306,7 @@ pub async fn merge_review(ctx: ThreadSafeContext, review_id: usize) -> Result<()
 }
 
 /// Enable or disable a review's auto-merge.
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub async fn set_review_auto_merge(
     ctx: ThreadSafeContext,
@@ -334,7 +336,7 @@ pub async fn set_review_auto_merge(
 }
 
 /// Set a review to draft or ready-for-review
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub async fn set_review_draftiness(
     ctx: ThreadSafeContext,
@@ -364,7 +366,7 @@ pub async fn set_review_draftiness(
 }
 
 /// Update the stacked review descriptions to have the correct footers.
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub async fn update_review_footers(
     ctx: ThreadSafeContext,
@@ -391,7 +393,7 @@ pub async fn update_review_footers(
     .await
 }
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub async fn list_reviews_for_branch(
     ctx: ThreadSafeContext,
@@ -424,7 +426,7 @@ pub async fn list_reviews_for_branch(
 /// without returning any data. It only processes branches that have associated pull requests.
 /// Additionally, it cleans up stale CI check entries for references that are no longer
 /// part of any applied stack.
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn warm_ci_checks_cache(ctx: &mut Context) -> Result<()> {
     // Get all stacks

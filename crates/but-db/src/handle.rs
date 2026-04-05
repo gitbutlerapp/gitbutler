@@ -17,12 +17,7 @@ impl DbHandle {
     /// Create a new instance connecting to a file-based database contained in `db_dir`.
     /// It will be created or updated automatically.
     pub fn new_in_directory(db_dir: impl AsRef<Path>) -> anyhow::Result<Self> {
-        let mut db_dir = db_dir.as_ref().to_owned();
-        let cwd = std::env::current_dir()?;
-        if db_dir.is_relative() {
-            db_dir = cwd.join(db_dir);
-        }
-        let db_file_path = Self::db_file_path(&db_dir);
+        let db_file_path = Self::db_file_path(db_dir);
         if let Some(parent_dir_to_create) = db_file_path.parent().filter(|dir| !dir.exists()) {
             std::fs::create_dir_all(parent_dir_to_create)?;
         }
@@ -51,11 +46,7 @@ impl DbHandle {
 }
 
 fn run_migrations(conn: &mut rusqlite::Connection) -> anyhow::Result<()> {
-    let policy = backoff::ExponentialBackoffBuilder::new()
-        .with_max_elapsed_time(Some(std::time::Duration::from_millis(500)))
-        .build();
-
-    backoff::retry(policy, || {
+    crate::backoff(|| {
         let count = migration::run(conn, migration::ours())?;
         if count > 0 {
             tracing::info!("Database updated with {count} migrations");

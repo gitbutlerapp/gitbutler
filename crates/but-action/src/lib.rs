@@ -6,13 +6,11 @@ use std::{
     str::FromStr,
 };
 
-use but_core::{TreeChange, sync::RepoExclusiveGuard};
-use but_ctx::{Context, access::RepoExclusive};
+use but_core::{TreeChange, sync::RepoExclusive};
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_hunk_assignment::CommitAbsorption;
-use but_oxidize::ObjectIdExt;
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_project::ProjectId;
 use gitbutler_stack::{Target, VirtualBranchesHandle};
 use serde::{Deserialize, Serialize};
 
@@ -41,16 +39,16 @@ pub fn branch_changes(
     branch_changes::branch_changes(ctx, llm, changes, model)
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn auto_commit(
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     repo: &gix::Repository,
     project_data_dir: &Path,
     context_lines: u32,
     llm: Option<&but_llm::LLMProvider>,
     emitter: impl Fn(&str, serde_json::Value) + Send + Sync + 'static,
     absorption_plan: Vec<CommitAbsorption>,
-    guard: &mut RepoExclusiveGuard,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<usize> {
     auto_commit::auto_commit(
         project_id,
@@ -60,7 +58,7 @@ pub fn auto_commit(
         llm,
         emitter,
         absorption_plan,
-        guard,
+        perm,
     )
 }
 
@@ -70,7 +68,7 @@ pub fn auto_commit_simple(
     context_lines: u32,
     llm: Option<&but_llm::LLMProvider>,
     absorption_plan: Vec<CommitAbsorption>,
-    guard: &mut RepoExclusiveGuard,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<usize> {
     auto_commit::auto_commit_simple(
         repo,
@@ -78,7 +76,7 @@ pub fn auto_commit_simple(
         context_lines,
         llm,
         absorption_plan,
-        guard,
+        perm,
     )
 }
 
@@ -103,7 +101,7 @@ pub fn handle_changes(
 
 fn default_target_setting_if_none(
     ctx: &Context,
-    vb_state: &VirtualBranchesHandle,
+    vb_state: &mut VirtualBranchesHandle,
 ) -> anyhow::Result<Target> {
     if let Ok(default_target) = vb_state.get_default_target() {
         return Ok(default_target);
@@ -128,7 +126,7 @@ fn default_target_setting_if_none(
     let target = Target {
         branch: remote_refname,
         remote_url: "".to_string(),
-        sha: head_commit.id.to_git2(),
+        sha: head_commit.id,
         push_remote_name: None,
     };
 
@@ -138,11 +136,13 @@ fn default_target_setting_if_none(
 
 fn stacks(ctx: &Context, repo: &gix::Repository) -> anyhow::Result<Vec<StackEntry>> {
     let meta = ctx.legacy_meta()?;
+    let mut cache = ctx.cache.get_cache_mut()?;
     but_workspace::legacy::stacks_v3(
         repo,
         &meta,
         but_workspace::legacy::StacksFilter::InWorkspace,
         None,
+        &mut cache,
     )
 }
 

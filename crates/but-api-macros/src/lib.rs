@@ -19,6 +19,20 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 ///     - Use it like `but_api(try_from = JSONReturnType)` where `JSONReturnType::try_from(actual_return_type)?` is implemented.
 ///     - Controls how the actual return value is fallibly converted for JSON serialization in `func_json` and `func_cmd`.
 ///
+/// # Parameter Attributes
+///
+/// Function parameters may use `#[but_api(TransportType)]` to keep the implementation
+/// signature on a pure Rust type while generated wrappers accept a transport-oriented serde type.
+/// This is currently limited to owned parameters and requires `impl From<TransportType> for ParamType`.
+///
+/// Functions may also take an explicit repository permission token which stays internal to generated
+/// wrappers:
+/// * `perm: &mut RepoExclusive` acquires exclusive access from the generated wrapper.
+/// * `perm: &RepoShared` acquires shared access from the generated wrapper.
+///
+/// These permission-bearing variants are more composable for Rust callers because they reuse a
+/// caller-held lock instead of acquiring one themselves.
+///
 /// These can be combined with commas, e.g. `#[but_api(napi, try_from = json::CommitDetails)]`
 /// or `#[but_api(napi, json::CommitDetails)]`.
 ///
@@ -31,8 +45,11 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 ///     - This is also annotated with the `tauri` macro when the feature is enabled in the `but-api` crate.
 ///     - **Parameter Transformation**
 ///         - It supports `but_ctx::Context`, `&Context`, `&mut Context` or `ThreadSafeContext` as parameter,
-///           which will be translated to `LegacyProjectId` with the `project_id` parameter name.
+///           which will be translated to `project_id`:
+///           - `but_ctx::ProjectHandleOrLegacyProjectId`
 ///         - `gix::ObjectId` will be translated into `json::HexHash`.
+///         - `&mut RepoExclusive` and `&RepoShared` stay internal and are derived from the context
+///           parameter by acquiring the matching lock in the generated wrapper.
 /// * `func_cmd` for calls from the `but-server`, taking `(params: Params) ` and returning `Result<serde_json::Value, json::Error>`.
 ///     - It performs all **Parameter Transformations** of `func_json`.
 /// * `func_napi` (opt-in) for calls from Node.js via napi-rs, taking individual typed parameters and returning `napi::Result<serde_json::Value>`.
@@ -42,15 +59,19 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 ///         - `Context`/`&Context`/`&mut Context`/`ThreadSafeContext` → `String` named `project_id`
 ///         - `gix::ObjectId` / `HexHash` → `String` (hex-encoded)
 ///         - `BString` → `String`
+///         - `&mut RepoExclusive` and `&RepoShared` stay internal and are derived from the context
+///           parameter by acquiring the matching lock in the generated wrapper
 ///         - Other serde-compatible types → `serde_json::Value`
 ///     - Automatically converts `anyhow::Error` → `napi::Error`.
 #[proc_macro_attribute]
 pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(item as ItemFn);
+    let sanitized_input_fn = strip_param_but_api_attrs(&input_fn);
 
     let vis = &input_fn.vis;
     let sig = &input_fn.sig;
     let fn_name = &sig.ident;
+    let napi_doc_attrs = doc_attributes(&input_fn.attrs);
     let asyncness = &sig.asyncness;
     let input = &sig.inputs;
     let output = &sig.output;
@@ -260,11 +281,26 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {}
     };
 
+    let js_name = fn_name
+        .to_string()
+        .split("_")
+        .enumerate()
+        .map(|(idx, word)| {
+            if idx == 0 {
+                word.into()
+            } else if let Some((head, tail)) = word.split_at_checked(1) {
+                [head.to_uppercase(), tail.to_string()].concat()
+            } else {
+                word.into()
+            }
+        })
+        .reduce(|a, b| format!("{a}{b}"));
+
     let napi_fn_block = if opts.napi {
         quote! {
-            /// napi function - strongly typed params, serde_json::Value output, automatic error conversion.
+            #(#napi_doc_attrs)*
             #napi_legacy_cfg
-            #[napi_derive::napi(ts_return_type = #ts_return_type_str)]
+            #[napi_derive::napi(ts_return_type = #ts_return_type_str, js_name = #js_name)]
             #vis async fn #fn_napi_name(
                 #(#napi_fn_params),*
             ) -> napi::Result<::serde_json::Value> {
@@ -292,14 +328,14 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         // Original function stays
-        #input_fn
+        #sanitized_input_fn
 
         const _: () = {
-            #[allow(dead_code)]
+            #[expect(dead_code)]
             fn keep_json(_json: #json_ty) {}
         };
 
-        /// Cmd function - this is legacy just while most of its functionality depend on `LegacyProjectId`.
+        /// Cmd function - this is legacy while most of its functionality depends on legacy project integration.
         /// parameter struct input via json value, json output.
         #[cfg(feature = "legacy")]
         #vis #asyncness fn #fn_cmd_name(
@@ -346,6 +382,29 @@ struct WrapperParamsInfo {
     requires_legacy: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ContextParamKind {
+    Context,
+    ThreadSafeContext,
+}
+
+struct ContextParamBinding {
+    ident: syn::Ident,
+    kind: ContextParamKind,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PermissionParamKind {
+    Exclusive,
+    Shared,
+}
+
+struct PermissionParamBinding {
+    ty: syn::Type,
+    kind: PermissionParamKind,
+    guard_ident: syn::Ident,
+}
+
 struct WrapperParameterMapping {
     transport_ty: syn::Type,
     binding_ty: syn::Type,
@@ -369,6 +428,12 @@ enum WrapperCallArgKind {
     AsRef,
 }
 
+/// A custom wrapper-surface transport type declared on a function parameter via
+/// `#[but_api(TransportType)]`.
+struct ParamTransportMapping {
+    transport_ty: syn::Type,
+}
+
 fn build_wrapper_params<'a>(
     input: impl IntoIterator<Item = &'a syn::FnArg>,
 ) -> Result<WrapperParamsInfo, syn::Error> {
@@ -378,6 +443,8 @@ fn build_wrapper_params<'a>(
     let mut param_conversions = Vec::new();
     let mut call_arg_idents = Vec::new();
     let mut requires_legacy = false;
+    let mut context_bindings = Vec::new();
+    let mut permission_bindings = Vec::new();
 
     for arg in input {
         let FnArg::Typed(pat_ty) = arg else {
@@ -393,6 +460,40 @@ fn build_wrapper_params<'a>(
             ));
         };
         let ident = &pat_ident.ident;
+
+        if let Some(context_kind) = context_param_kind(&pat_ty.ty) {
+            context_bindings.push(ContextParamBinding {
+                ident: ident.clone(),
+                kind: context_kind,
+            });
+        }
+
+        if let Some(custom_transport) = parse_param_transport_mapping(pat_ty)? {
+            let transport_ty = &custom_transport.transport_ty;
+            let binding_ty = &pat_ty.ty;
+            param_field_names.push(ident.clone());
+            struct_fields_with_json_types.push(quote! { pub #ident: #transport_ty });
+            json_fn_input_params.push(syn::parse_quote! { #ident: #transport_ty });
+            param_conversions.push(quote! {
+                let mut #ident: #binding_ty = <#binding_ty>::from(#ident);
+            });
+            call_arg_idents.push(quote! { #ident });
+            continue;
+        }
+
+        if let Some(permission_kind) = permission_param_kind(&pat_ty.ty)? {
+            let guard_ident = permission_guard_ident(ident);
+            permission_bindings.push(PermissionParamBinding {
+                ty: (*pat_ty.ty).clone(),
+                kind: permission_kind,
+                guard_ident: guard_ident.clone(),
+            });
+            call_arg_idents.push(match permission_kind {
+                PermissionParamKind::Exclusive => quote! { #guard_ident.write_permission() },
+                PermissionParamKind::Shared => quote! { #guard_ident.read_permission() },
+            });
+            continue;
+        }
 
         if let Some(mapping) = build_wrapper_parameter_mapping(&pat_ty.ty)? {
             let json_ident = mapping.json_ident.unwrap_or_else(|| ident.clone());
@@ -434,6 +535,49 @@ fn build_wrapper_params<'a>(
         }
     }
 
+    if let Some(permission) = permission_bindings.first() {
+        if permission_bindings.len() > 1 {
+            return Err(syn::Error::new_spanned(
+                &permission.ty,
+                "Only one explicit repository permission parameter is supported",
+            ));
+        }
+
+        let context_binding = match context_bindings.as_slice() {
+            [] => {
+                return Err(syn::Error::new_spanned(
+                    &permission.ty,
+                    "Explicit repository permission parameters require a `Context`, `&Context`, or `&mut Context` parameter",
+                ));
+            }
+            [binding] => binding,
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    &permission.ty,
+                    "Explicit repository permission parameters require exactly one context parameter",
+                ));
+            }
+        };
+
+        if context_binding.kind == ContextParamKind::ThreadSafeContext {
+            return Err(syn::Error::new_spanned(
+                &permission.ty,
+                "Explicit repository permission parameters are not supported with `ThreadSafeContext`; convert it to `Context` before locking",
+            ));
+        }
+
+        let context_ident = &context_binding.ident;
+        let guard_ident = &permission.guard_ident;
+        param_conversions.push(match permission.kind {
+            PermissionParamKind::Exclusive => quote! {
+                let mut #guard_ident = #context_ident.exclusive_worktree_access();
+            },
+            PermissionParamKind::Shared => quote! {
+                let #guard_ident = #context_ident.shared_worktree_access();
+            },
+        });
+    }
+
     Ok(WrapperParamsInfo {
         struct_fields_with_json_types,
         param_field_names,
@@ -442,6 +586,78 @@ fn build_wrapper_params<'a>(
         call_arg_idents,
         requires_legacy,
     })
+}
+
+/// Remove parameter-level `#[but_api(...)]` attributes from the original function item before it
+/// is emitted again, as only the proc-macro implementation should interpret them.
+fn strip_param_but_api_attrs(input_fn: &ItemFn) -> ItemFn {
+    let mut stripped = input_fn.clone();
+    for arg in &mut stripped.sig.inputs {
+        let FnArg::Typed(pat_ty) = arg else {
+            continue;
+        };
+        pat_ty.attrs.retain(|attr| !attr.path().is_ident("but_api"));
+    }
+    stripped
+}
+
+/// Parse an optional parameter-local transport override from `#[but_api(TransportType)]`.
+///
+/// This mirrors the top-level `#[but_api(Type)]` shorthand by treating the provided type as the
+/// wrapper-facing transport type and assuming `impl From<TransportType> for ParamType`.
+/// The override is intentionally limited to owned parameters and cannot overlap with built-in
+/// remappings like `Context` or `gix::ObjectId`.
+fn parse_param_transport_mapping(
+    pat_ty: &syn::PatType,
+) -> Result<Option<ParamTransportMapping>, syn::Error> {
+    let mut transport_ty = None;
+
+    for attr in &pat_ty.attrs {
+        if !attr.path().is_ident("but_api") {
+            continue;
+        }
+
+        let parsed: syn::Type = attr.parse_args_with(|input: syn::parse::ParseStream| {
+            if input.peek(syn::Ident) && input.peek2(syn::Token![=]) {
+                let ident: syn::Ident = input.parse()?;
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "Expected `Type`; use `#[but_api(Type)]` instead of `#[but_api(transport = Type)]` for parameter attributes",
+                ));
+            }
+
+            let ty: syn::Type = input.parse()?;
+            if !input.is_empty() {
+                return Err(input.error("Unexpected tokens after parameter transport type"));
+            }
+            Ok(ty)
+        })?;
+
+        if transport_ty.is_some() {
+            return Err(syn::Error::new_spanned(
+                attr,
+                "Only one `#[but_api(Type)]` attribute may be specified per parameter",
+            ));
+        }
+
+        if matches!(&*pat_ty.ty, syn::Type::Reference(_)) {
+            return Err(syn::Error::new_spanned(
+                &pat_ty.ty,
+                "`#[but_api(Type)]` only supports owned parameters",
+            ));
+        }
+
+        if build_wrapper_parameter_mapping(&pat_ty.ty)?.is_some() {
+            return Err(syn::Error::new_spanned(
+                &pat_ty.ty,
+                "`#[but_api(Type)]` cannot be combined with built-in parameter remapping",
+            ));
+        }
+
+        transport_ty = Some(parsed);
+    }
+
+    Ok(transport_ty.map(|transport_ty| ParamTransportMapping { transport_ty }))
 }
 
 fn build_wrapper_parameter_mapping(
@@ -459,7 +675,7 @@ fn build_wrapper_parameter_mapping(
             if is_context_path(path) {
                 let binding_ty: syn::Type = (*reference.elem).clone();
                 return Ok(Some(WrapperParameterMapping {
-                    transport_ty: syn::parse_quote! { but_ctx::LegacyProjectId },
+                    transport_ty: syn::parse_quote! { but_ctx::ProjectHandleOrLegacyProjectId },
                     binding_ty,
                     json_ident: Some(syn::parse_str("project_id")?),
                     conversion_kind: WrapperConversionKind::TryFrom,
@@ -488,7 +704,7 @@ fn build_wrapper_parameter_mapping(
             let path = &type_path.path;
             if is_context_path(path) {
                 return Ok(Some(WrapperParameterMapping {
-                    transport_ty: syn::parse_quote! { but_ctx::LegacyProjectId },
+                    transport_ty: syn::parse_quote! { but_ctx::ProjectHandleOrLegacyProjectId },
                     binding_ty: ty.clone(),
                     json_ident: Some(syn::parse_str("project_id")?),
                     conversion_kind: WrapperConversionKind::TryFrom,
@@ -536,6 +752,77 @@ fn build_wrapper_parameter_mapping(
     }
 }
 
+fn context_param_kind(ty: &syn::Type) -> Option<ContextParamKind> {
+    let path = match ty {
+        syn::Type::Reference(reference) => match &*reference.elem {
+            syn::Type::Path(type_path) => &type_path.path,
+            _ => return None,
+        },
+        syn::Type::Path(type_path) => &type_path.path,
+        _ => return None,
+    };
+
+    if !is_context_path(path) {
+        return None;
+    }
+
+    path.segments.last().map(|segment| {
+        if segment.ident == "ThreadSafeContext" {
+            ContextParamKind::ThreadSafeContext
+        } else {
+            ContextParamKind::Context
+        }
+    })
+}
+
+fn permission_param_kind(ty: &syn::Type) -> Result<Option<PermissionParamKind>, syn::Error> {
+    let syn::Type::Reference(reference) = ty else {
+        return Ok(None);
+    };
+    let syn::Type::Path(type_path) = &*reference.elem else {
+        return Ok(None);
+    };
+    let path = &type_path.path;
+    let Some(last) = path.segments.last() else {
+        return Ok(None);
+    };
+
+    let kind = match last.ident.to_string().as_str() {
+        "RepoExclusive" => PermissionParamKind::Exclusive,
+        "RepoShared" => PermissionParamKind::Shared,
+        _ => return Ok(None),
+    };
+
+    let supported_root = path.segments.len() == 1
+        || path
+            .segments
+            .first()
+            .is_some_and(|first| first.ident == "but_core" || first.ident == "but_ctx");
+    if !supported_root {
+        return Ok(None);
+    }
+
+    match kind {
+        PermissionParamKind::Exclusive if reference.mutability.is_some() => Ok(Some(kind)),
+        PermissionParamKind::Shared if reference.mutability.is_none() => Ok(Some(kind)),
+        PermissionParamKind::Exclusive => Err(syn::Error::new_spanned(
+            ty,
+            "Explicit repository permission parameters must use `&mut RepoExclusive` for exclusive access",
+        )),
+        PermissionParamKind::Shared => Err(syn::Error::new_spanned(
+            ty,
+            "Explicit repository permission parameters must use `&RepoShared` for shared access",
+        )),
+    }
+}
+
+fn permission_guard_ident(ident: &syn::Ident) -> syn::Ident {
+    let ident = ident.to_string();
+    let ident = ident.trim_start_matches('_');
+    let suffix = if ident.is_empty() { "perm" } else { ident };
+    format_ident!("__but_api_{}_guard", suffix)
+}
+
 fn is_context_path(path: &syn::Path) -> bool {
     path.segments
         .last()
@@ -576,6 +863,14 @@ fn single_generic_type_arg<'a>(path: &'a syn::Path, expected: &str) -> Option<&'
         syn::GenericArgument::Type(ty) => Some(ty),
         _ => None,
     }
+}
+
+fn doc_attributes(attrs: &[syn::Attribute]) -> Vec<syn::Attribute> {
+    attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("doc"))
+        .cloned()
+        .collect()
 }
 
 struct JsonParameterMapping {
@@ -630,18 +925,15 @@ fn build_json_type_mapping<'a>(
             ));
         }
 
-        let last = &segments.last().unwrap().ident;
-        let (name, mapping) = if (last == "Context" || last == "ThreadSafeContext")
-            && (segments.len() == 1 || segments[0].ident == "but_ctx")
-        {
+        let (name, mapping) = if is_context_path(path) {
             (
                 pat_ident.ident.to_string(),
                 JsonParameterMapping {
-                    json_ty: syn::parse_str("but_ctx::LegacyProjectId")?,
+                    json_ty: syn::parse_str("but_ctx::ProjectHandleOrLegacyProjectId")?,
                     json_ident: Some(syn::parse_str("project_id")?),
                 },
             )
-        } else if last == "ObjectId" && (segments.len() == 1 || segments[0].ident == "gix") {
+        } else if is_object_id_path(path) {
             (
                 pat_ident.ident.to_string(),
                 JsonParameterMapping {
@@ -649,10 +941,20 @@ fn build_json_type_mapping<'a>(
                     json_ident: None,
                 },
             )
+        } else if is_full_name_ref_path(path) {
+            (
+                pat_ident.ident.to_string(),
+                JsonParameterMapping {
+                    json_ty: syn::parse_str("gix::refs::FullName")?,
+                    json_ident: None,
+                },
+            )
+        } else if permission_param_kind(ty)?.is_some() {
+            continue;
         } else if is_reference {
             return Err(syn::Error::new_spanned(
                 ty,
-                "Only `&Context` or `&but_ctx::Context` may be references",
+                "Only `&Context`, `&but_ctx::Context`, `&ThreadSafeContext`, `&RepoShared`, `&mut RepoExclusive`, or `&gix::refs::FullNameRef` may be references",
             ));
         } else {
             continue;
@@ -852,6 +1154,8 @@ fn build_napi_params<'a>(
     let mut params = Vec::new();
     let mut conversions = Vec::new();
     let mut call_arg_idents = Vec::new();
+    let mut context_bindings = Vec::new();
+    let mut permission_bindings = Vec::new();
 
     for arg in input {
         let syn::FnArg::Typed(pat_ty) = arg else {
@@ -865,13 +1169,49 @@ fn build_napi_params<'a>(
         };
         let ident = &pat_ident.ident;
 
+        if let Some(context_kind) = context_param_kind(&pat_ty.ty) {
+            context_bindings.push(ContextParamBinding {
+                ident: ident.clone(),
+                kind: context_kind,
+            });
+        }
+
+        if let Some(custom_transport) = parse_param_transport_mapping(pat_ty)? {
+            let transport_ty = &custom_transport.transport_ty;
+            let ts_type_str = type_to_ts_name(transport_ty);
+            let transport_ident = format_ident!("__{}_transport", ident);
+            let actual_ty = &pat_ty.ty;
+            params.push(quote! { #[napi(ts_arg_type = #ts_type_str)] #ident: ::serde_json::Value });
+            conversions.push(quote! {
+                let #transport_ident: #transport_ty = ::serde_json::from_value(#ident)
+                    .map_err(|e| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
+                let #ident: #actual_ty = <#actual_ty>::from(#transport_ident);
+            });
+            call_arg_idents.push(quote! { #ident });
+            continue;
+        }
+
+        if let Some(permission_kind) = permission_param_kind(&pat_ty.ty)? {
+            let guard_ident = permission_guard_ident(ident);
+            permission_bindings.push(PermissionParamBinding {
+                ty: (*pat_ty.ty).clone(),
+                kind: permission_kind,
+                guard_ident: guard_ident.clone(),
+            });
+            call_arg_idents.push(match permission_kind {
+                PermissionParamKind::Exclusive => quote! { #guard_ident.write_permission() },
+                PermissionParamKind::Shared => quote! { #guard_ident.read_permission() },
+            });
+            continue;
+        }
+
         // Check if this parameter has a json type mapping (Context, ObjectId)
         if let Some(mapping) = json_ty_by_name.get(&ident.to_string()) {
             let param_name = mapping.json_ident.as_ref().unwrap_or(ident);
             let last_segment = mapping.json_ty.segments.last().unwrap();
             let last_ident = &last_segment.ident;
 
-            if *last_ident == "LegacyProjectId" {
+            if *last_ident == "LegacyProjectId" || *last_ident == "ProjectHandleOrLegacyProjectId" {
                 // Context → String project_id, then convert to Context
                 params.push(quote! { #param_name: String });
                 // Determine the actual type we need to produce (stripping references)
@@ -879,9 +1219,10 @@ fn build_napi_params<'a>(
                     syn::Type::Reference(r) => &*r.elem,
                     other => other,
                 };
+                let json_ty = &mapping.json_ty;
                 conversions.push(quote! {
-                    let project_id: but_ctx::LegacyProjectId = #param_name.parse()
-                        .map_err(|e: <but_ctx::LegacyProjectId as ::std::str::FromStr>::Err| {
+                    let project_id: #json_ty = #param_name.parse()
+                        .map_err(|e: <#json_ty as ::std::str::FromStr>::Err| {
                             napi::Error::new(napi::Status::InvalidArg, format!("{e:#}"))
                         })?;
                     let mut #ident = <#actual_ty>::try_from(project_id)
@@ -908,6 +1249,18 @@ fn build_napi_params<'a>(
                         let mutability = &r.mutability;
                         quote! { &#mutability #ident }
                     }
+                    _ => quote! { #ident },
+                };
+                call_arg_idents.push(call_ident);
+            } else if *last_ident == "FullName" {
+                // FullNameRef via FullName transport → String, then parse
+                params.push(quote! { #param_name: String });
+                conversions.push(quote! {
+                    let #ident: gix::refs::FullName = gix::refs::FullName::try_from(#param_name)
+                        .map_err(|e: gix::refs::name::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
+                });
+                let call_ident = match &*pat_ty.ty {
+                    syn::Type::Reference(_) => quote! { #ident.as_ref() },
                     _ => quote! { #ident },
                 };
                 call_arg_idents.push(call_ident);
@@ -1022,6 +1375,49 @@ fn build_napi_params<'a>(
         }
     }
 
+    if let Some(permission) = permission_bindings.first() {
+        if permission_bindings.len() > 1 {
+            return Err(syn::Error::new_spanned(
+                &permission.ty,
+                "Only one explicit repository permission parameter is supported",
+            ));
+        }
+
+        let context_binding = match context_bindings.as_slice() {
+            [] => {
+                return Err(syn::Error::new_spanned(
+                    &permission.ty,
+                    "Explicit repository permission parameters require a `Context`, `&Context`, or `&mut Context` parameter",
+                ));
+            }
+            [binding] => binding,
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    &permission.ty,
+                    "Explicit repository permission parameters require exactly one context parameter",
+                ));
+            }
+        };
+
+        if context_binding.kind == ContextParamKind::ThreadSafeContext {
+            return Err(syn::Error::new_spanned(
+                &permission.ty,
+                "Explicit repository permission parameters are not supported with `ThreadSafeContext`; convert it to `Context` before locking",
+            ));
+        }
+
+        let context_ident = &context_binding.ident;
+        let guard_ident = &permission.guard_ident;
+        conversions.push(match permission.kind {
+            PermissionParamKind::Exclusive => quote! {
+                let mut #guard_ident = #context_ident.exclusive_worktree_access();
+            },
+            PermissionParamKind::Shared => quote! {
+                let #guard_ident = #context_ident.shared_worktree_access();
+            },
+        });
+    }
+
     Ok(NapiParamsInfo {
         params,
         conversions,
@@ -1124,6 +1520,7 @@ fn type_to_ts_name(ty: &syn::Type) -> String {
                 "HexHash" | "HexHashString" => "string".to_string(),
                 "ObjectId" => "string".to_string(),
                 "BString" => "string".to_string(),
+                "StackId" => "string".to_string(),
                 // Named types — use their name as-is (these will be defined in the generated .d.ts)
                 other => other.to_string(),
             }
@@ -1144,12 +1541,36 @@ fn type_to_ts_name(ty: &syn::Type) -> String {
 #[cfg(test)]
 mod tests {
     use quote::quote;
-    use syn::{FnArg, parse_quote};
+    use syn::{FnArg, ItemFn, parse_quote};
 
     use super::{
-        WrapperCallArgKind, WrapperConversionKind, build_wrapper_parameter_mapping,
-        build_wrapper_params,
+        ContextParamKind, PermissionParamKind, WrapperCallArgKind, WrapperConversionKind,
+        build_wrapper_parameter_mapping, build_wrapper_params, context_param_kind, doc_attributes,
+        permission_param_kind,
     };
+
+    #[test]
+    fn collects_only_doc_attributes_for_napi_forwarding() {
+        let item_fn: ItemFn = parse_quote! {
+            #[doc = "First line."]
+            #[cfg(feature = "napi")]
+            #[doc = "Second line."]
+            pub fn my_api() -> anyhow::Result<()> {
+                Ok(())
+            }
+        };
+
+        let attrs = doc_attributes(&item_fn.attrs);
+
+        assert_eq!(
+            quote!(#(#attrs)*).to_string(),
+            quote!(
+                #[doc = "First line."]
+                #[doc = "Second line."]
+            )
+            .to_string()
+        );
+    }
 
     #[test]
     fn maps_object_id_to_hex_hash_transport() {
@@ -1213,11 +1634,11 @@ mod tests {
 
         assert_eq!(
             quote!(#(#struct_fields),*).to_string(),
-            quote!(pub project_id: but_ctx::LegacyProjectId).to_string()
+            quote!(pub project_id: but_ctx::ProjectHandleOrLegacyProjectId).to_string()
         );
         assert_eq!(
             quote!(#(#json_inputs),*).to_string(),
-            quote!(project_id: but_ctx::LegacyProjectId).to_string()
+            quote!(project_id: but_ctx::ProjectHandleOrLegacyProjectId).to_string()
         );
         assert_eq!(
             quote!(#(#call_args),*).to_string(),
@@ -1226,6 +1647,45 @@ mod tests {
         assert!(
             params.requires_legacy,
             "context parameters should require the legacy project-id wrapper setup"
+        );
+    }
+
+    #[test]
+    fn detects_supported_permission_tokens() {
+        let exclusive_ty = parse_quote!(&mut but_ctx::access::RepoExclusive);
+        let shared_ty = parse_quote!(&but_core::sync::RepoShared);
+
+        assert_eq!(
+            permission_param_kind(&exclusive_ty).unwrap(),
+            Some(PermissionParamKind::Exclusive)
+        );
+        assert_eq!(
+            permission_param_kind(&shared_ty).unwrap(),
+            Some(PermissionParamKind::Shared)
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_permission_token_forms() {
+        let exclusive_ty = parse_quote!(&but_ctx::access::RepoExclusive);
+        let shared_ty = parse_quote!(&mut but_ctx::access::RepoShared);
+
+        assert!(permission_param_kind(&exclusive_ty).is_err());
+        assert!(permission_param_kind(&shared_ty).is_err());
+    }
+
+    #[test]
+    fn detects_thread_safe_context_bindings() {
+        let thread_safe_ctx: syn::Type = parse_quote!(but_ctx::ThreadSafeContext);
+        let borrowed_ctx: syn::Type = parse_quote!(&mut but_ctx::Context);
+
+        assert_eq!(
+            context_param_kind(&thread_safe_ctx),
+            Some(ContextParamKind::ThreadSafeContext)
+        );
+        assert_eq!(
+            context_param_kind(&borrowed_ctx),
+            Some(ContextParamKind::Context)
         );
     }
 

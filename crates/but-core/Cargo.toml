@@ -18,6 +18,7 @@ legacy = []
 
 [dependencies]
 but-error.workspace = true
+but-project-handle.workspace = true
 but-serde.workspace = true
 
 # for safe-checkout
@@ -29,6 +30,7 @@ bstr.workspace = true
 tracing.workspace = true
 anyhow.workspace = true
 unicode-segmentation.workspace = true
+tempfile.workspace = true
 gix = { workspace = true, features = [
     "dirwalk",
     "credentials",

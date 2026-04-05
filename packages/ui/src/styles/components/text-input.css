@@ -1,10 +1,10 @@
 @layer components {
 	.text-input {
 		padding: 4px 10px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-s);
-		background-color: var(--clr-bg-1);
-		color: var(--clr-text-1);
+		background-color: var(--bg-1);
+		color: var(--text-1);
 		font-family: var(--font-default);
 		cursor: text;
 		transition:
@@ -12,40 +12,40 @@
 			background-color var(--transition-fast);
 
 		&::placeholder {
-			color: var(--clr-text-3);
+			color: var(--text-3);
 		}
 
 		&:hover {
-			border-color: var(--clr-border-1);
+			border-color: var(--border-1);
 		}
 
 		&:focus,
 		&:focus-within {
-			border-color: var(--clr-border-1);
+			border-color: var(--border-1);
 			outline: none;
 		}
 
 		&:invalid,
 		&.invalid,
 		&.error {
-			border-color: var(--clr-theme-danger-element);
+			border-color: var(--fill-danger-bg);
 		}
 
 		&.error {
-			background-color: var(--clr-theme-danger-bg);
+			background-color: var(--bg-danger);
 		}
 
 		&:disabled,
 		&.disabled {
-			border-color: var(--clr-border-3);
-			background-color: var(--clr-bg-muted);
-			color: var(--clr-text-2);
+			border-color: var(--border-3);
+			background-color: var(--bg-mute);
+			color: var(--text-2);
 			cursor: default;
 		}
 
 		&.readonly {
-			border-color: var(--clr-border-2);
-			background-color: var(--clr-bg-muted);
+			border-color: var(--border-2);
+			background-color: var(--bg-mute);
 		}
 	}
 }

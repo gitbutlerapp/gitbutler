@@ -40,7 +40,7 @@
 	.theme-switcher {
 		display: flex;
 		align-self: flex-start;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: 100px;
 	}
 
@@ -50,16 +50,16 @@
 		justify-content: center;
 		width: 24px;
 		height: 24px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		cursor: pointer;
 		transition: color 0.1s ease-in-out;
 
 		&:hover {
-			color: var(--clr-text-2);
+			color: var(--text-2);
 		}
 
 		&.active {
-			color: var(--clr-text-1);
+			color: var(--text-1);
 		}
 	}
 </style>

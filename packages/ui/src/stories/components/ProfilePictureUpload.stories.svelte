@@ -55,9 +55,7 @@
 	{#snippet template()}
 		<div style="display: flex; gap: 24px; align-items: flex-end;">
 			<div>
-				<p style="margin-bottom: 8px; font-size: 12px; color: var(--clr-text-3);">
-					Small (3.75rem)
-				</p>
+				<p style="margin-bottom: 8px; font-size: 12px; color: var(--text-3);">Small (3.75rem)</p>
 				<ProfilePictureUpload
 					picture="https://avatars.githubusercontent.com/u/1942963?v=4"
 					alt="Small avatar"
@@ -71,9 +69,7 @@
 				/>
 			</div>
 			<div>
-				<p style="margin-bottom: 8px; font-size: 12px; color: var(--clr-text-3);">
-					Default (6.25rem)
-				</p>
+				<p style="margin-bottom: 8px; font-size: 12px; color: var(--text-3);">Default (6.25rem)</p>
 				<ProfilePictureUpload
 					picture="https://avatars.githubusercontent.com/u/1942963?v=4"
 					alt="Default avatar"
@@ -87,9 +83,7 @@
 				/>
 			</div>
 			<div>
-				<p style="margin-bottom: 8px; font-size: 12px; color: var(--clr-text-3);">
-					Large (9.375rem)
-				</p>
+				<p style="margin-bottom: 8px; font-size: 12px; color: var(--text-3);">Large (9.375rem)</p>
 				<ProfilePictureUpload
 					picture="https://avatars.githubusercontent.com/u/1942963?v=4"
 					alt="Large avatar"

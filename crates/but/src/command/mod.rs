@@ -3,13 +3,15 @@
 pub mod legacy;
 
 pub mod alias;
-#[cfg(not(feature = "legacy"))]
 pub mod branch;
+pub mod commit;
 pub mod completions;
 pub mod config;
 pub mod eval_hook;
+pub(crate) mod git_config;
 pub mod gui;
 pub mod help;
+pub mod r#move;
 pub mod onboarding;
 pub mod push;
 pub mod skill;

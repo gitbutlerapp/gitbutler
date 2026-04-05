@@ -64,9 +64,9 @@
 	}
 
 	.indicator {
-		--label-clr: var(--clr-text-1);
-		--btn-border-clr: var(--clr-btn-gray-outline);
-		--btn-border-opacity: var(--opacity-mix-btn-outline-border);
+		--label-clr: var(--text-1);
+		--btn-border-clr: var(--btn-gray-outline);
+		--btn-border-opacity: var(--btn-opacity-outline-border);
 
 		display: flex;
 		align-items: center;

@@ -55,7 +55,7 @@
 	padding: 8px 8px 8px 16px;
 	overflow: hidden;
 	border-radius: var(--radius-m);
-	background-color: var(--clr-bg-2);
+	background-color: var(--bg-2);
 	font-weight: var(--text-weight-regular);
 	font-size: var(--lexical-default-font-size);
 	line-height: var(--text-lineheight-body);
@@ -72,7 +72,7 @@
 		left: 0;
 		width: 4px;
 		height: 100%;
-		background-color: var(--clr-border-1);
+		background-color: var(--border-1);
 		content: "";
 	}
 }
@@ -114,7 +114,7 @@
 .StandardTheme__textCode {
 	padding: 2px 3px;
 	border-radius: var(--radius-s);
-	background-color: var(--clr-theme-gray-soft);
+	background-color: var(--chip-gray-bg);
 	font-size: 96%;
 	font-family: var(--code-block-font, var(--font-mono));
 	font-variant-ligatures: var(--code-block-ligatures, normal);
@@ -164,9 +164,9 @@
 	margin: 8px 0;
 	padding: 8px 12px;
 	overflow: auto;
-	border: 1px solid var(--clr-border-2);
+	border: 1px solid var(--border-2);
 	border-radius: var(--radius-m);
-	background-color: var(--clr-bg-1);
+	background-color: var(--bg-1);
 	font-size: var(--lexical-default-font-size);
 	line-height: 1.53;
 	font-family: var(--code-block-font, var(--font-mono));
@@ -312,13 +312,13 @@
 }
 
 .StandardTheme__listItemUnchecked:before {
-	border: 1px solid var(--clr-border-2);
+	border: 1px solid var(--border-2);
 }
 
 .StandardTheme__listItemChecked:before {
-	border: 1px solid var(--clr-theme-pop-element);
+	border: 1px solid var(--fill-pop-bg);
 	background-repeat: no-repeat;
-	background-color: var(--clr-theme-pop-element);
+	background-color: var(--fill-pop-bg);
 }
 
 .StandardTheme__listItemChecked:after {
@@ -414,7 +414,7 @@
 .StandardTheme__hr:after {
 	display: block;
 	height: 1px;
-	background-color: var(--clr-border-2);
+	background-color: var(--border-2);
 	content: "";
 }
 

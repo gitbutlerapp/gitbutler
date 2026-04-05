@@ -13,7 +13,7 @@
 .Placeholder__root {
 	top: var(--lexical-input-padding) !important;
 	left: var(--lexical-input-padding) !important;
-	color: var(--clr-text-3) !important;
+	color: var(--text-3) !important;
 	font-size: var(--lexical-default-font-size) !important;
 	line-height: var(--text-lineheight-body);
 	font-family: var(--font-default) !important;
@@ -47,9 +47,9 @@
 	position: relative;
 	width: calc(100% - 75px);
 	padding: 6px;
-	border: 1px solid var(--clr-border-1);
+	border: 1px solid var(--border-1);
 	border-radius: var(--radius-m);
-	background-color: var(--clr-bg-1);
+	background-color: var(--bg-1);
 	font-family: inherit;
 }
 
@@ -168,7 +168,7 @@
 	position: fixed;
 	min-height: 40px;
 	border-radius: var(--radius-s);
-	background-color: var(--clr-bg-1);
+	background-color: var(--bg-1);
 	box-shadow:
 		0 12px 28px 0 rgba(0, 0, 0, 0.2),
 		0 2px 4px 0 rgba(0, 0, 0, 0.1),
@@ -187,7 +187,7 @@
 	padding: 8px;
 	border: 0;
 	border-radius: 8px;
-	background-color: var(--clr-bg-1);
+	background-color: var(--bg-1);
 	color: #050505;
 	font-size: 15px;
 	line-height: 16px;
@@ -256,14 +256,14 @@
 	padding: 0px 4px;
 	gap: 10px;
 	border-radius: var(--radius-s);
-	background: var(--clr-theme-pop-soft);
-	color: var(--clr-theme-pop-on-soft);
+	background: var(--chip-pop-bg);
+	color: var(--chip-pop-fg);
 }
 
 .inline-code {
 	padding: 2px 4px;
 	border-radius: var(--radius-s);
-	background: var(--clr-bg-2);
+	background: var(--bg-2);
 	font-size: 0.9em;
 	font-family: var(--font-mono);
 }
@@ -275,14 +275,14 @@
 
 .filepath {
 	border-radius: var(--radius-s);
-	background: var(--clr-theme-scale-pop-80);
-	color: var(--clr-theme-scale-pop-30);
+	background: var(--clr-pop-80);
+	color: var(--clr-pop-30);
 	font-family: var(--font-mono);
 	cursor: pointer;
 }
 
 .filepath:hover {
-	background: var(--clr-theme-scale-pop-70);
+	background: var(--clr-pop-70);
 }
 
 .filepath:focus {

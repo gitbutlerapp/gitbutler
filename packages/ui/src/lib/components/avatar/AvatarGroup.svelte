@@ -103,23 +103,23 @@
 		color: white;
 
 		&.success {
-			background: var(--clr-theme-safe-element);
+			background: var(--fill-safe-bg);
 		}
 
 		&.error {
-			background: var(--clr-theme-danger-element);
+			background: var(--fill-danger-bg);
 		}
 
 		&.pop {
-			background: var(--clr-theme-pop-element);
+			background: var(--fill-pop-bg);
 		}
 
 		&.warning {
-			background: var(--clr-theme-warn-element);
+			background: var(--fill-warn-bg);
 		}
 
 		&.purple {
-			background: var(--clr-theme-purple-element);
+			background: var(--fill-purple-bg);
 		}
 	}
 
@@ -132,11 +132,11 @@
 		margin-left: 2px;
 		padding: 0 4px;
 		border-radius: 10px;
-		background-color: var(--clr-theme-gray-soft);
+		background-color: var(--chip-gray-bg);
 		user-select: none;
 
 		& span {
-			color: var(--clr-text-1);
+			color: var(--text-1);
 			opacity: 0.8;
 		}
 	}

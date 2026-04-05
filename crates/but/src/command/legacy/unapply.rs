@@ -2,10 +2,6 @@
 
 use anyhow::{Context as _, bail};
 use but_core::ref_metadata::StackId;
-use gitbutler_oplog::{
-    OplogExt,
-    entry::{OperationKind, SnapshotDetails, Trailer},
-};
 
 use crate::{
     CliId, IdMap,
@@ -26,13 +22,14 @@ pub fn handle(
     identifier: &str,
     force: bool,
 ) -> anyhow::Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
     // Fetch stacks once at the start
     let stacks = but_api::legacy::workspace::stacks(
         ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
 
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
     let parsed_ids = id_map.parse_using_context(identifier, ctx)?;
 
     // Try to find the stack to unapply
@@ -73,7 +70,14 @@ pub fn handle(
         );
     };
 
-    confirm_and_unapply_stack(ctx, stack_id, &branches, force, out)
+    confirm_and_unapply_stack(
+        ctx,
+        stack_id,
+        &branches,
+        force,
+        out,
+        guard.write_permission(),
+    )
 }
 
 /// Get branches for a stack by ID, validating the stack exists.
@@ -117,23 +121,6 @@ fn find_stack_by_branch_name(
     bail!("Branch '{branch_name}' not found in any applied stack");
 }
 
-/// Create a snapshot in the oplog before performing an unapply operation
-fn create_snapshot(ctx: &mut but_ctx::Context, branches: &[String]) {
-    let mut guard = ctx.exclusive_worktree_access();
-
-    // Create trailers with branch names
-    let trailers: Vec<Trailer> = branches
-        .iter()
-        .map(|name| Trailer {
-            key: "branch".to_string(),
-            value: name.clone(),
-        })
-        .collect();
-
-    let details = SnapshotDetails::new(OperationKind::UnapplyBranch).with_trailers(trailers);
-    let _snapshot = ctx.create_snapshot(details, guard.write_permission()).ok();
-}
-
 /// Confirm with the user and unapply the stack.
 fn confirm_and_unapply_stack(
     ctx: &mut but_ctx::Context,
@@ -141,6 +128,7 @@ fn confirm_and_unapply_stack(
     branches: &[String],
     force: bool,
     out: &mut OutputChannel,
+    perm: &mut but_core::sync::RepoExclusive,
 ) -> anyhow::Result<()> {
     let branches_display = branches.join(", ");
 
@@ -154,10 +142,7 @@ fn confirm_and_unapply_stack(
         bail!("Aborted unapply operation.");
     }
 
-    // Create snapshot before destructive operation
-    create_snapshot(ctx, branches);
-
-    but_api::legacy::virtual_branches::unapply_stack(ctx, sid)?;
+    but_api::legacy::virtual_branches::unapply_stack_with_perm(ctx, sid, perm)?;
 
     if let Some(out) = out.for_human() {
         writeln!(

@@ -10,16 +10,16 @@ use but_claude::{
     ThinkingLevel,
 };
 use but_core::ref_metadata::StackId;
-use gitbutler_project::ProjectId;
+use but_ctx::ProjectHandleOrLegacyProjectId;
 use tauri::State;
 use tracing::instrument;
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 #[tauri::command(async)]
 #[instrument(skip(claude), err(Debug))]
 pub async fn claude_send_message(
     claude: State<'_, Claude>,
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     stack_id: StackId,
     message: String,
     thinking_level: ThinkingLevel,
@@ -53,7 +53,7 @@ pub async fn claude_send_message(
 #[instrument(skip(claude), err(Debug))]
 pub fn claude_get_messages(
     claude: State<'_, Claude>,
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     stack_id: StackId,
 ) -> Result<Vec<ClaudeMessage>, Error> {
     claude::claude_get_messages(
@@ -70,7 +70,7 @@ pub fn claude_get_messages(
 #[instrument(skip(claude), err(Debug))]
 pub async fn claude_cancel_session(
     claude: State<'_, Claude>,
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     stack_id: StackId,
 ) -> Result<bool, Error> {
     claude::claude_cancel_session(
@@ -88,7 +88,7 @@ pub async fn claude_cancel_session(
 #[instrument(skip(claude), err(Debug))]
 pub async fn claude_is_stack_active(
     claude: State<'_, Claude>,
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     stack_id: StackId,
 ) -> Result<bool, Error> {
     claude::claude_is_stack_active(
@@ -106,7 +106,7 @@ pub async fn claude_is_stack_active(
 #[instrument(skip(claude), err(Debug))]
 pub async fn claude_compact_history(
     claude: State<'_, Claude>,
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     stack_id: StackId,
 ) -> Result<(), Error> {
     claude::claude_compact_history(

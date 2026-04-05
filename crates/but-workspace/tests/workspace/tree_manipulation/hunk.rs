@@ -45,7 +45,7 @@ fn dropped_hunks() -> anyhow::Result<()> {
 #[test]
 fn non_modifications_trigger_error() -> anyhow::Result<()> {
     let repo = read_only_in_memory_scenario("deletion-addition-untracked")?;
-    insta::assert_snapshot!(git_status(&repo)?, @r"
+    insta::assert_snapshot!(git_status(&repo)?, @"
     A  added-to-index
      D to-be-deleted
     D  to-be-deleted-in-index
@@ -83,7 +83,7 @@ fn from_end() -> anyhow::Result<()> {
     let mut hunk_info = Vec::new();
     let filename = "file-in-index";
     let file_content = || std::fs::read(repo.workdir().unwrap().join(filename)).map(BString::from);
-    insta::assert_snapshot!(file_content()?, @r"
+    insta::assert_snapshot!(file_content()?, @"
     1
     2
     3
@@ -107,7 +107,7 @@ fn from_end() -> anyhow::Result<()> {
         .find(|change| change.path == filename)
     {
         let previous_text = previous_change_text(&repo, &change)?;
-        insta::allow_duplicates!(insta::assert_snapshot!(previous_text, @r"
+        insta::allow_duplicates!(insta::assert_snapshot!(previous_text, @"
         5
         6
         7
@@ -298,7 +298,7 @@ fn from_selections() -> anyhow::Result<()> {
     assert_eq!(dropped, [], "all sub-hunks could be associated");
 
     let file_content: BString = std::fs::read(repo.workdir().unwrap().join(filename))?.into();
-    insta::assert_snapshot!(file_content, @r"
+    insta::assert_snapshot!(file_content, @"
     1
     3
     4
@@ -328,7 +328,7 @@ fn from_selections_with_context() -> anyhow::Result<()> {
         1,
         "one big hunk with context and everything, similar to what the UI sees"
     );
-    insta::assert_snapshot!(hunks[0].diff, @r"
+    insta::assert_snapshot!(hunks[0].diff, @"
     @@ -1,14 +1,16 @@
     +1
     +2
@@ -383,7 +383,7 @@ fn from_selections_with_context() -> anyhow::Result<()> {
     assert_eq!(dropped.len(), 0, "all sub-hunks could be associated");
 
     let file_content = read_file_content()?;
-    insta::assert_snapshot!(file_content, @r"
+    insta::assert_snapshot!(file_content, @"
     1
     6
     7
@@ -410,7 +410,7 @@ fn from_selections_with_context() -> anyhow::Result<()> {
     );
     let actual = read_file_content()?;
     // The order of old/new additions or removals do matter also doesn't matter, the result is stable.
-    insta::assert_snapshot!(actual, @r"
+    insta::assert_snapshot!(actual, @"
     1
     6
     7
@@ -440,7 +440,7 @@ fn hunk_removal_of_additions_single_line() -> anyhow::Result<()> {
         1,
         "one big hunk with context and everything, similar to what the UI sees"
     );
-    insta::assert_snapshot!(hunks[0].diff, @r"
+    insta::assert_snapshot!(hunks[0].diff, @"
     @@ -1,0 +1,10 @@
     +1
     +2
@@ -469,7 +469,7 @@ fn hunk_removal_of_additions_single_line() -> anyhow::Result<()> {
     assert_eq!(dropped.len(), 0, "all sub-hunks could be associated");
 
     let file_content: BString = std::fs::read(repo.workdir().unwrap().join(filename))?.into();
-    insta::assert_snapshot!(file_content, @r"
+    insta::assert_snapshot!(file_content, @"
     1
     2
     3
@@ -494,7 +494,7 @@ fn hunk_removal_of_removal_single_line() -> anyhow::Result<()> {
         1,
         "one big hunk with context and everything, similar to what the UI sees"
     );
-    insta::assert_snapshot!(hunks[0].diff, @r"
+    insta::assert_snapshot!(hunks[0].diff, @"
     @@ -1,10 +1,0 @@
     -1
     -2
@@ -537,7 +537,7 @@ fn hunk_removal_of_modifications() -> anyhow::Result<()> {
         1,
         "one big hunk with context and everything, similar to what the UI sees"
     );
-    insta::assert_snapshot!(hunks[0].diff, @r"
+    insta::assert_snapshot!(hunks[0].diff, @"
     @@ -1,10 +1,10 @@
     -1
     -2
@@ -580,7 +580,7 @@ fn hunk_removal_of_modifications() -> anyhow::Result<()> {
     assert_eq!(dropped.len(), 0, "all sub-hunks could be associated");
 
     let file_content: BString = std::fs::read(repo.workdir().unwrap().join(filename))?.into();
-    insta::assert_snapshot!(file_content, @r"
+    insta::assert_snapshot!(file_content, @"
     11
     12
     13
@@ -601,7 +601,7 @@ fn hunk_removal_of_modifications() -> anyhow::Result<()> {
 fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("mixed-hunk-modifications");
     // Note that one of these renames can't be detected by Git but is visible to us.
-    insta::assert_snapshot!(git_status(&repo)?, @r"
+    insta::assert_snapshot!(git_status(&repo)?, @"
      M file
     M  file-in-index
     RM file-to-be-renamed-in-index -> file-renamed-in-index
@@ -609,7 +609,7 @@ fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> a
     ?? file-renamed
     ");
 
-    insta::assert_snapshot!(visualize_index(&**repo.index()?), @r"
+    insta::assert_snapshot!(visualize_index(&**repo.index()?), @"
     100755:3d3b36f file
     100755:cb89473 file-in-index
     100644:3d3b36f file-renamed-in-index
@@ -617,7 +617,7 @@ fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> a
     ");
 
     let workdir = repo.workdir().unwrap();
-    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(workdir)?, @r"
+    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(workdir)?, @"
     .
     ├── .git:40755
     ├── file:100644
@@ -711,7 +711,7 @@ fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> a
 
     // Only the data is undone; the executable bit change can be undone in the next discard,
     // making this a two-step process. This seems valuable as it gives users a choice.
-    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(repo.workdir().unwrap())?, @r"
+    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(repo.workdir().unwrap())?, @"
     .
     ├── .git:40755
     ├── file:100644
@@ -736,7 +736,7 @@ fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> a
 
     // Notably, discarding all hunks leaves the renamed file in place, but without modifications.
     // Executable bits stay and can be discarded in a separate step.
-    insta::assert_snapshot!(git_status(&repo)?, @r"
+    insta::assert_snapshot!(git_status(&repo)?, @"
      M file
     MM file-in-index
     R  file-to-be-renamed-in-index -> file-renamed-in-index
@@ -744,7 +744,7 @@ fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> a
     ?? file-renamed
     ");
     // The index still only holds what was in the index before, but is representing the changed worktree.
-    insta::assert_snapshot!(visualize_index(&**repo.index()?), @r"
+    insta::assert_snapshot!(visualize_index(&**repo.index()?), @"
     100755:3d3b36f file
     100755:cb89473 file-in-index
     100644:3d3b36f file-renamed-in-index

@@ -6,7 +6,7 @@ use cli_prompts::{
 #[derive(Debug)]
 enum CarModel {
     Audi,
-    #[allow(clippy::upper_case_acronyms)]
+    #[expect(clippy::upper_case_acronyms)]
     BMW,
     Chevrolet,
 }

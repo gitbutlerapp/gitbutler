@@ -8,7 +8,10 @@ use but_core::{
         WorkspaceStack, WorkspaceStackBranch,
     },
 };
-use but_meta::{VirtualBranchesTomlMetadata, virtual_branches_legacy_types::Target};
+use but_meta::{
+    VirtualBranchesTomlMetadata,
+    virtual_branches_legacy_types::{Stack as LegacyStack, StackBranch, Target},
+};
 use but_testsupport::{
     debug_str,
     gix_testtools::tempfile::{TempDir, tempdir},
@@ -1306,15 +1309,16 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
     )?;
     insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?), @"
     📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-    └── ≡📙:2:main[🌳] <> origin/main →:1: on 3183e43 {1}
+    ├── ≡📙:4:confidence on 3183e43 {1}
+    │   └── 📙:4:confidence
+    └── ≡📙:2:main[🌳] <> origin/main →:1: on 3183e43
         └── 📙:2:main[🌳] <> origin/main →:1:
             └── ❄️bce0c5e (🏘️|✓)
     ");
 
     let (actual, _uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
-    // Now both stacks are outside workspace, as is indicated by the workspace above.
-    // Also, their uniqueness constraint is enforced.
-    // AND: The above is no more and it's all just weird.
+    // Reconciliation now preserves the explicitly-written stack layout instead of allowing the
+    // drop-time write path to collapse it again.
     insta::assert_snapshot!(actual, @r#"
     [
         WorkspaceStack {
@@ -1331,38 +1335,70 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
             ],
             workspacecommit_relation: Merged,
         },
+        WorkspaceStack {
+            id: 2,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/main",
+                    archived: false,
+                },
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/confidence",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Outside,
+        },
+        WorkspaceStack {
+            id: 3,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/confidence",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Merged,
+        },
     ]
     "#);
 
-    // Now that there is one stack left, we can manipulate it and look at vb.toml data directly.
-    // AND: this makes no sense with the lack of a `Stack::name` field.
+    // Mutate one concrete stack and verify that persisted key/id mismatches are normalized on reload.
     store
         .data_mut()
         .branches
         .values_mut()
-        .next()
-        .expect("exactly one")
+        .find(|stack| stack.in_workspace && stack.heads.iter().any(|head| head.name == "main"))
+        .expect("a reconciled in-workspace stack with 'main' exists")
         .id = StackId::from_number_for_testing(8);
     // Now the ID and the ID used for storage are out of sync.
-    snapbox::assert_data_eq!(
-        debug_str(&store.data().branches),
-        snapbox::str![[r#"
-{
-    1819a203-26ef-477c-ac56-2d07a034ddb8: Stack {
-...
-        id: 00000000-0000-0000-0000-000000000008,
-...
-}
-"#]]
+    let mismatched_stack = store
+        .data()
+        .branches
+        .iter()
+        .find(|(stack_id, stack)| {
+            **stack_id != stack.id && stack.id == StackId::from_number_for_testing(8)
+        })
+        .map(|(stack_id, stack)| (*stack_id, stack.id));
+    assert!(
+        mismatched_stack.is_some(),
+        "a persisted stack should be writable even if its stored key and inner id diverge temporarily",
     );
     store.write_reconciled(&repo)?;
 
-    let _store = VirtualBranchesTomlMetadata::from_path(path)?;
+    let store = VirtualBranchesTomlMetadata::from_path(path)?;
 
     // now the ID is in sync again
-    // AND: this test makes no sense anymore… . Maybe the test was too tuned to a particular thing?
-    //      Now there are two branches here, because the names are all off and strange in this data.
-    //      Let's just hope we get to DB backed metadata soon so all this can go away.
+    let mismatched_ids: Vec<_> = store
+        .data()
+        .branches
+        .iter()
+        .filter_map(|(stack_id, stack)| (*stack_id != stack.id).then_some((*stack_id, stack.id)))
+        .collect();
+    assert_eq!(
+        mismatched_ids,
+        Vec::<(StackId, StackId)>::new(),
+        "reloading should restore key/id consistency in persisted legacy metadata",
+    );
     Ok(())
 }
 
@@ -1457,6 +1493,118 @@ fn legacy_change_id_deserializes_as_null_sha() -> anyhow::Result<()> {
         stack.heads[0].head,
         gix::hash::Kind::Sha1.null(),
         "legacy ChangeId should deserialize as null SHA to allow loading old toml files"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn removes_duplicate_heads_even_if_they_point_to_the_same_commit() -> anyhow::Result<()> {
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+    let head = gix::ObjectId::from_str("1111111111111111111111111111111111111111")?;
+
+    let first = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head,
+            name: "shared".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        0,
+        true,
+    );
+    let second = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head,
+            name: "shared".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        1,
+        true,
+    );
+    let first_id = first.id;
+    let second_id = second.id;
+    store.data_mut().branches.insert(first_id, first);
+    store.data_mut().branches.insert(second_id, second);
+    store.set_changed_to_necessitate_write();
+
+    let path = store.path().to_owned();
+    drop(store);
+
+    let store = VirtualBranchesTomlMetadata::from_path(path)?;
+    let shared_heads = store
+        .data()
+        .branches
+        .values()
+        .flat_map(|stack| stack.heads.iter())
+        .filter(|head| head.name == "shared")
+        .count();
+    assert_eq!(
+        shared_heads, 1,
+        "without a workspace projection, duplicate names still use first-wins cleanup",
+    );
+
+    Ok(())
+}
+
+#[test]
+fn preserves_duplicate_heads_if_they_map_to_the_same_workspace_segment() -> anyhow::Result<()> {
+    let repo = but_testsupport::read_only_in_memory_scenario("ws/multi-lane-with-shared-segment")?;
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+    store.data_mut().default_target = Some(Target {
+        branch: RemoteRefname::new("origin", "main"),
+        remote_url: "https://example.com/example-org/example-repo".to_string(),
+        sha: gix::hash::Kind::Sha1.null(),
+        push_remote_name: Some("origin".into()),
+    });
+
+    let stack_a = LegacyStack::new_with_just_heads(
+        vec![
+            StackBranch::new_with_zero_head("shared".into(), None, None, false),
+            StackBranch::new_with_zero_head("A".into(), None, None, false),
+        ],
+        0,
+        true,
+    );
+    let stack_b = LegacyStack::new_with_just_heads(
+        vec![
+            StackBranch::new_with_zero_head("shared".into(), None, None, false),
+            StackBranch::new_with_zero_head("B".into(), None, None, false),
+        ],
+        1,
+        true,
+    );
+    let stack_d = LegacyStack::new_with_just_heads(
+        vec![
+            StackBranch::new_with_zero_head("shared".into(), None, None, false),
+            StackBranch::new_with_zero_head("C".into(), None, None, false),
+            StackBranch::new_with_zero_head("D".into(), None, None, false),
+        ],
+        2,
+        true,
+    );
+    store.data_mut().branches.insert(stack_a.id, stack_a);
+    store.data_mut().branches.insert(stack_b.id, stack_b);
+    store.data_mut().branches.insert(stack_d.id, stack_d);
+    store.set_changed_to_necessitate_write();
+
+    let path = store.path().to_owned();
+    store.write_reconciled(&repo)?;
+
+    let store = VirtualBranchesTomlMetadata::from_path(path)?;
+    let shared_heads = store
+        .data()
+        .branches
+        .values()
+        .flat_map(|stack| stack.heads.iter())
+        .filter(|head| head.name == "shared")
+        .count();
+    assert_eq!(
+        shared_heads, 3,
+        "repo-backed cleanup should preserve duplicate names when they resolve to the same projected segment",
     );
 
     Ok(())

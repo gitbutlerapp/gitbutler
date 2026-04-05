@@ -1,0 +1,11 @@
+.body {
+	display: flex;
+	row-gap: 8px;
+	flex-direction: column;
+}
+
+.actions {
+	display: flex;
+	column-gap: 8px;
+	justify-content: end;
+}

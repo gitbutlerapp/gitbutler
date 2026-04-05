@@ -1,15 +1,15 @@
-import type { BranchIconName } from "$components/BranchHeaderIcon.svelte";
+import type { BranchIconName } from "$lib/branches/branchIcon";
 import type { UpstreamCommit, Commit, CommitState } from "$lib/branches/v3";
 import type { CommitStatusType } from "$lib/commits/commit";
 import type { PushStatus } from "$lib/stacks/stack";
 
 const colorMap: Record<CommitStatusType, string> & { Error: string } = {
-	LocalOnly: "var(--clr-commit-local)",
-	LocalAndRemote: "var(--clr-commit-remote)",
-	Integrated: "var(--clr-commit-integrated)",
-	Remote: "var(--clr-commit-upstream)", // TODO: rename Remote -> Upstream.
-	Base: "var(--clr-commit-upstream)", // TODO: Introduce separate color for base.
-	Error: "var(--clr-theme-danger-element)",
+	LocalOnly: "var(--commit-local)",
+	LocalAndRemote: "var(--commit-remote)",
+	Integrated: "var(--commit-integrated)",
+	Remote: "var(--commit-upstream)", // TODO: rename Remote -> Upstream.
+	Base: "var(--commit-upstream)", // TODO: Introduce separate color for base.
+	Error: "var(--fill-danger-bg)",
 };
 
 export function getIconFromCommitState(

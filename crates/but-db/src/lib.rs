@@ -1,4 +1,4 @@
-//! # VORM - a vibe-code friendly ORM
+//! # An agent-friendly ORM
 //!
 //! There are a couple of layers that work together to make this possible.
 //!
@@ -13,6 +13,14 @@
 //! Migrations are in-module and colocated with the ORM abstraction. That way the LLM can imagine the
 //! final shape of the data, along with the shape of the corresponding Rust structure, which helps with
 //! precision and type-safety.
+//!
+//! Each migration also passes a [`SchemaVersion`] into [`M::up`]. That version is about
+//! forward-compatibility, not ordering. Keep the current version when older binaries can
+//! still open the database safely after the migration, for example when the change is
+//! additive or only affects data that older code ignores. Add the next schema-version
+//! variant only when an older binary must reject the migrated database, for example after
+//! dropping or repurposing persisted data that older code still depends on. Doing so
+//! is the exception, and backward compatible changes are what we aim for.
 //!
 //! ## ORM Types - for `Connection` and `Transaction`
 //!
@@ -47,6 +55,8 @@
 //! ```
 #![expect(clippy::inconsistent_digit_grouping)]
 #![deny(missing_docs)]
+use rusqlite::ErrorCode;
+use std::path::PathBuf;
 
 #[cfg(feature = "poll")]
 /// Polling helpers to watch for database-backed state changes.
@@ -61,7 +71,6 @@ pub mod cache;
 /// Migration helpers for applying and configuring database schema updates.
 pub mod migration;
 
-use std::path::PathBuf;
 #[rustfmt::skip]
 pub use table::{
     hunk_assignments::{HunkAssignmentsHandleMut, HunkAssignmentsHandle, HunkAssignment},
@@ -75,6 +84,49 @@ pub use table::{
     ci_checks::CiCheck,
     virtual_branches::{VbBranchTarget, VbStack, VbStackHead, VbState, VirtualBranchesSnapshot, VirtualBranchesHandle, VirtualBranchesHandleMut},
 };
+
+/// The *retryable* error type used by [`backoff()`] for SQLite operations.
+pub type Error = ::backoff::Error<rusqlite::Error>;
+
+/// Retry a short SQLite operation that was intentionally configured to fail fast on lock contention.
+///
+/// This is meant for operations that should prefer responsiveness over waiting for a database lock.
+/// You *may* pair it with [`Transaction::set_nonblocking()`] or one of the `*_nonblocking` transaction acquisition
+/// functions so each attempt fails immediately with `SQLITE_BUSY` or `SQLITE_LOCKED` instead of spending
+/// the whole retry budget in one blocking call.
+/// This function *must* be used if a [`Transaction`] is used lock in a read, followed by a write, as the
+/// deferred write lock acquisition may fail immediately if another write happened while you were reading.
+///
+/// Consider using [`map_err()`] to decide which database errors can be retried.
+///
+/// Only lock-contention errors are retried. Everything else is treated as permanent and returned immediately.
+pub fn backoff<T, E>(
+    operation: impl FnMut() -> Result<T, ::backoff::Error<E>>,
+) -> Result<T, ::backoff::Error<E>> {
+    // Set this value reasonably high as strong contention can actually lead to failures
+    // if the value is too low (500ms previously). The idea is that failures basically never
+    // happen, but with a low value they are just more likely.
+    let max_duration = std::time::Duration::from_millis(2500);
+    let policy = ::backoff::ExponentialBackoffBuilder::new()
+        .with_max_elapsed_time(Some(max_duration))
+        .build();
+    ::backoff::retry(policy, operation)
+}
+
+/// Classify SQLite lock-contention failures as transient so [`backoff()`] can retry them.
+///
+/// This is the adapter to use with `Result::map_err()` for database operations that participate in
+/// fail-fast retry loops.
+pub fn map_err(err: rusqlite::Error) -> ::backoff::Error<rusqlite::Error> {
+    if err
+        .sqlite_error_code()
+        .is_some_and(|code| matches!(code, ErrorCode::DatabaseLocked | ErrorCode::DatabaseBusy))
+    {
+        ::backoff::Error::transient(err)
+    } else {
+        ::backoff::Error::permanent(err)
+    }
+}
 
 /// The migrations to run, in any order, as ordering is maintained by their date number.
 pub const MIGRATIONS: &[&[M<'static>]] = &[
@@ -101,6 +153,31 @@ pub struct M<'a> {
     up: &'a str,
     /// The creation time of the `up` field, in a format like `20250529110746`, so it's suitable for sorting
     up_created_at: u64,
+    /// The forward-compatibility schema version after this migration has been applied.
+    schema_version: SchemaVersion,
+}
+
+/// Documents the forward-compatibility boundary associated with a migration.
+///
+/// The numeric migration id remains the source of truth for ordering. This enum exists so
+/// each migration must state whether it crosses into a new forward-incompatible database
+/// shape or remains readable by older client binaries.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum SchemaVersion {
+    /// The current forward-compatible schema line.
+    ///
+    /// Keep using `Zero` for migrations that older binaries can still tolerate after the
+    /// migration runs, such as adding tables or columns that they don't require.
+    ///
+    /// Switch to `One` only once a migration makes the database unsafe for binaries that only
+    /// understand `Zero`, such as removing or reinterpreting persisted data they still use.
+    Zero = 0,
+    /// The first forward-incompatible schema line.
+    ///
+    /// Use `One` once a migration requires older `Zero`-only binaries to reject the
+    /// database, and keep using it until the next forward-incompatible boundary is introduced.
+    /// Document here WHY the schema is breaking application forward compatibility.
+    One = 1,
 }
 
 /// A structure to receive an application-wide cache.
@@ -108,6 +185,14 @@ pub struct AppCacheHandle {
     /// The open connection to the cache.
     conn: rusqlite::Connection,
     /// The path to the application cache.
+    path: PathBuf,
+}
+
+/// A structure to receive a project-local cache.
+pub struct CacheHandle {
+    /// The open connection to the cache.
+    conn: rusqlite::Connection,
+    /// The path to the project-local cache.
     path: PathBuf,
 }
 

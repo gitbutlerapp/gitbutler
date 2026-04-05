@@ -1,20 +1,20 @@
 <script lang="ts">
-	import CardOverlay from "$components/CardOverlay.svelte";
-	import Dropzone from "$components/Dropzone.svelte";
 	import AttachmentList from "$components/codegen/AttachmentList.svelte";
 	import CodegenQueued from "$components/codegen/CodegenQueued.svelte";
 	import FileSearch from "$components/codegen/FileSearch.svelte";
+	import Dropzone from "$components/shared/Dropzone.svelte";
+	import DropzoneOverlay from "$components/shared/DropzoneOverlay.svelte";
 	import { BACKEND } from "$lib/backend";
 	import { ATTACHMENT_SERVICE } from "$lib/codegen/attachmentService.svelte";
 	import {
 		CodegenCommitDropHandler,
 		CodegenFileDropHandler,
 		CodegenHunkDropHandler,
-	} from "$lib/codegen/dropzone";
+	} from "$lib/codegen/codegenDropzone";
 	import { type UserInput, type PromptAttachment, type ClaudeMessage } from "$lib/codegen/types";
 	import { newlineOnEnter } from "$lib/config/uiFeatureFlags";
+	import { showError } from "$lib/error/showError";
 	import { FILE_SERVICE } from "$lib/files/fileService";
-	import { showError } from "$lib/notifications/toasts";
 	import { inject } from "@gitbutler/core/context";
 	import { Tooltip, AsyncButton, RichTextEditor, FilePlugin, UpDownPlugin } from "@gitbutler/ui";
 	import { tick, type Snippet } from "svelte";
@@ -229,7 +229,7 @@
 
 		<Dropzone {handlers}>
 			{#snippet overlay({ hovered, activated })}
-				<CardOverlay {hovered} {activated} label="Reference" />
+				<DropzoneOverlay {hovered} {activated} label="Reference" />
 			{/snippet}
 			{#if attachments.length > 0}
 				<div class="attached-files-section">
@@ -408,7 +408,7 @@
 			right: 12px;
 			left: 12px;
 			height: 1px;
-			background-color: var(--clr-border-3);
+			background-color: var(--border-3);
 			content: "";
 		}
 	}
@@ -423,7 +423,7 @@
 	.actions-separator {
 		width: 1px;
 		margin: 0 5px;
-		background-color: var(--clr-border-3);
+		background-color: var(--border-3);
 	}
 
 	/* SEND BUTTON */
@@ -435,9 +435,9 @@
 		justify-content: center;
 		height: var(--size-button);
 		padding: 0 6px;
-		border-radius: var(--radius-btn);
-		background-color: var(--clr-theme-pop-element);
-		color: var(--clr-theme-pop-on-element);
+		border-radius: var(--radius-button);
+		background-color: var(--fill-pop-bg);
+		color: var(--fill-pop-fg);
 		transition:
 			background-color 0.2s ease-in-out,
 			transform 0.2s ease-in-out;

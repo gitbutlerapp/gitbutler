@@ -1,6 +1,5 @@
 import { dev } from "$app/environment";
 import * as Sentry from "@sentry/sveltekit";
-import type { User } from "$lib/user/user";
 import { PUBLIC_SENTRY_ENVIRONMENT } from "$env/static/public";
 
 const { setUser, init } = Sentry;
@@ -15,7 +14,7 @@ export function initSentry() {
 	});
 }
 
-export function setSentryUser(user: User) {
+export function setSentryUser(user: { id: number; email?: string; name?: string }) {
 	setUser({
 		id: user.id.toString(),
 		email: user.email,

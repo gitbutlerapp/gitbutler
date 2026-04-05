@@ -1,0 +1,29 @@
+{
+	"$schema": "https://unpkg.com/knip@5/schema-jsonc.json",
+	"rules": {
+		// Disabled due to too many false positives: Knip doesn't consider catalog
+		// usages in ignored workspaces.
+		"catalog": "off",
+	},
+	"ignoreWorkspaces": [".", "apps/desktop", "apps/web", "e2e", "packages/*"],
+	"workspaces": {
+		"apps/lite": {
+			"entry": [
+				"electron/src/ipc.ts!",
+				"electron/src/main.ts!",
+				"electron/src/preload.cts!",
+
+				"ui/src/close-watcher.d.ts!",
+				"ui/src/css-modules.d.ts!",
+				"ui/src/electron.d.ts!",
+				"ui/src/react-css-properties.d.ts!",
+			],
+			"project": ["electron/src/**!", "ui/src/**!"],
+			"tanstack-router": {
+				"entry": ["ui/src/routeTree.gen.ts"],
+			},
+			"includeEntryExports": true,
+			"ignoreDependencies": ["@tanstack/eslint-plugin-query"],
+		},
+	},
+}

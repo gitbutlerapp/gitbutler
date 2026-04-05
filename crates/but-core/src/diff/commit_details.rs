@@ -23,6 +23,8 @@ pub struct LineStats {
     /// The number of files that contributed to these statistics as they were added, removed or modified.
     pub files_changed: u64,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(LineStats);
 
 /// Lifecycle
 impl CommitDetails {

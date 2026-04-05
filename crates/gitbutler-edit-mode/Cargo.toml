@@ -10,18 +10,15 @@ rust-version.workspace = true
 doctest = false
 
 [dependencies]
-but-workspace.workspace = true
+but-graph.workspace = true
 but-rebase.workspace = true
 but-core.workspace = true
 but-oxidize.workspace = true
 but-ctx.workspace = true
 
 gitbutler-commit.workspace = true
-gitbutler-repo.workspace = true
 gitbutler-operating-modes.workspace = true
-gitbutler-branch-actions.workspace = true
 gitbutler-oplog.workspace = true
-gitbutler-stack.workspace = true
 gitbutler-cherry-pick.workspace = true
 gitbutler-workspace.workspace = true
 
@@ -33,8 +30,8 @@ serde.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-gitbutler-testsupport.workspace = true
 but-testsupport.workspace = true
+but-meta = { workspace = true, features = ["legacy"] }
 insta.workspace = true
 
 tempfile.workspace = true

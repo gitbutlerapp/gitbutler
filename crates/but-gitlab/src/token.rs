@@ -62,6 +62,8 @@ pub enum GitlabAccountIdentifier {
     PatUsername { username: String },
     SelfHosted { username: String, host: String },
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(GitlabAccountIdentifier);
 
 impl GitlabAccountIdentifier {
     pub fn pat(username: &str) -> Self {
@@ -113,12 +115,10 @@ impl std::fmt::Display for GitlabAccountIdentifier {
 }
 
 pub enum GitLabAccount {
-    #[allow(dead_code)]
     Pat {
         username: String,
         access_token: Sensitive<String>,
     },
-    #[allow(dead_code)]
     SelfHosted {
         username: String,
         host: String,

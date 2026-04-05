@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::str::FromStr as _;
 
 use bstr::{BStr, BString, ByteSlice};
+use but_core::sync::RepoShared;
 use but_core::{ChangeId, ref_metadata::StackId};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
@@ -32,7 +33,7 @@ mod uncommitted_info;
 mod tests;
 
 /// A helper to indicate that this is a short-id as a user would see.
-type ShortId = String;
+pub(crate) type ShortId = String;
 
 const UNASSIGNED: &str = "zz";
 
@@ -532,14 +533,44 @@ impl IdMap {
     /// Creates a new instance from `ctx` for more convenience over calling [IdMap::new].
     ///
     /// # NOTE: claims a read-only workspace lock!
-    /// TODO(ctx|ai): make it use perm so the caller keeps the state exclusive/shared over greater periods.
-    pub fn new_from_context(
+    // TODO(ctx|ai): make it use perm so the caller keeps the state exclusive/shared over greater periods.
+    // Use `new_from_context` instead - it takes `perm`, and forces you to think about repository locks
+    // in the light of mutations.
+    pub fn legacy_new_from_context(
         ctx: &mut Context,
         assignments: Option<Vec<HunkAssignment>>,
     ) -> anyhow::Result<Self> {
+        let guard = ctx.shared_worktree_access();
+        Self::new_from_context(ctx, assignments, guard.read_permission())
+    }
+
+    ///
+    /// Creates a new instance from `ctx` for more convenience over calling [IdMap::new].
+    /// `perm` is needed to obtain a read-only workspace.
+    ///
+    /// # NOTE: claims a read-only workspace lock!
+    /// TODO(ctx|ai): Use a `ws` directly instead of creating a whole new RefInfo uncached.
+    pub fn new_from_context(
+        ctx: &mut Context,
+        assignments: Option<Vec<HunkAssignment>>,
+        perm: &RepoShared,
+    ) -> anyhow::Result<Self> {
         let meta = ctx.meta()?;
+        let head_info = {
+            let repo = ctx.clone_repo_for_merging_non_persisting()?;
+            let mut cache = ctx.cache.get_cache_mut()?;
+            but_workspace::head_info(
+                &repo,
+                &meta,
+                but_workspace::ref_info::Options {
+                    expensive_commit_info: false,
+                    ..Default::default()
+                },
+                &mut cache,
+            )?
+        };
         let context_lines = ctx.settings.context_lines;
-        let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
 
         let hunk_assignments = match assignments {
             Some(assignments) => assignments,
@@ -549,23 +580,13 @@ impl IdMap {
                     db.hunk_assignments_mut()?,
                     &repo,
                     &ws,
-                    false,
                     Some(changes),
-                    None,
                     context_lines,
                 )?;
                 assignments
             }
         };
 
-        let head_info = but_workspace::head_info(
-            &repo,
-            &meta,
-            but_workspace::ref_info::Options {
-                expensive_commit_info: false,
-                ..Default::default()
-            },
-        )?;
         Self::new(head_info.stacks, hunk_assignments)
     }
 }
@@ -849,11 +870,7 @@ impl IdMap {
     }
 
     /// Convenience for [IdMap::parse] if a [Context] is available.
-    pub fn parse_using_context(
-        &self,
-        entity: &str,
-        ctx: &mut Context,
-    ) -> anyhow::Result<Vec<CliId>> {
+    pub fn parse_using_context(&self, entity: &str, ctx: &Context) -> anyhow::Result<Vec<CliId>> {
         let repo = &*ctx.repo.get()?;
         self.parse_using_repo(entity, repo)
     }
@@ -879,10 +896,7 @@ impl IdMap {
 
 fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
     match (lhs, rhs) {
-        (CliId::Uncommitted(lhs_uncommitted), CliId::Uncommitted(rhs_uncommitted)) => {
-            lhs_uncommitted.hunk_assignments == rhs_uncommitted.hunk_assignments
-                && lhs_uncommitted.is_entire_file == rhs_uncommitted.is_entire_file
-        }
+        (CliId::Uncommitted(lhs), CliId::Uncommitted(rhs)) => lhs == rhs,
         (
             CliId::Commit {
                 commit_id: lhs_commit_id,
@@ -951,6 +965,13 @@ pub struct UncommittedCliId {
     /// `true` if self represents all hunks in a stack-assignment or file pair.
     /// Note that this file may have hunks with other stack assignments.
     pub is_entire_file: bool,
+}
+
+impl PartialEq for UncommittedCliId {
+    fn eq(&self, other: &Self) -> bool {
+        self.hunk_assignments == other.hunk_assignments
+            && self.is_entire_file == other.is_entire_file
+    }
 }
 
 impl UncommittedCliId {
@@ -1035,6 +1056,7 @@ pub enum CliId {
         stack_id: StackId,
     },
 }
+
 impl PartialEq for CliId {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -1042,16 +1064,27 @@ impl PartialEq for CliId {
                 Self::Uncommitted(UncommittedCliId { id: l_id, .. }),
                 Self::Uncommitted(UncommittedCliId { id: r_id, .. }),
             ) => l_id == r_id,
-            (Self::CommittedFile { id: l_id, .. }, Self::CommittedFile { id: r_id, .. }) => {
-                l_id == r_id
-            }
+            (
+                Self::CommittedFile {
+                    id: l_id,
+                    path: l_path,
+                    ..
+                },
+                Self::CommittedFile {
+                    id: r_id,
+                    path: r_path,
+                    ..
+                },
+            ) => l_id == r_id && l_path == r_path,
             (Self::Branch { id: l_id, .. }, Self::Branch { id: r_id, .. }) => l_id == r_id,
             (Self::Commit { id: l_id, .. }, Self::Commit { id: r_id, .. }) => l_id == r_id,
+            (Self::Stack { id: l_id, .. }, Self::Stack { id: r_id, .. }) => l_id == r_id,
             (Self::Unassigned { .. }, Self::Unassigned { .. }) => true,
             _ => false,
         }
     }
 }
+
 impl Eq for CliId {}
 
 /// Methods for accessing `CliId` information.
@@ -1079,6 +1112,21 @@ impl CliId {
             | CliId::Commit { id, .. }
             | CliId::Stack { id, .. }
             | CliId::Unassigned { id, .. } => id.clone(),
+        }
+    }
+
+    /// Get the stack id, if any.
+    pub fn stack_id(&self) -> Option<StackId> {
+        match self {
+            CliId::Branch { stack_id, .. } => *stack_id,
+            CliId::Stack { stack_id, .. } => Some(*stack_id),
+            CliId::Uncommitted(uncommitted_cli_id) => {
+                uncommitted_cli_id.hunk_assignments.first().stack_id
+            }
+            CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Commit { .. }
+            | CliId::Unassigned { .. } => None,
         }
     }
 }

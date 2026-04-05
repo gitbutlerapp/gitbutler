@@ -2,14 +2,14 @@
 
 use anyhow::{Result, bail};
 use but_graph::Graph;
-use but_rebase::graph_rebase::{GraphExt as _, LookupStep, Step};
+use but_rebase::graph_rebase::{Editor, LookupStep, Step};
 use but_testsupport::visualize_commit_graph_all;
 
 use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn by_default_parents_can_be_picks() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 120e3a9 (HEAD -> main) c
@@ -20,7 +20,8 @@ fn by_default_parents_can_be_picks() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // By default, picks can have other picks as parents
     let outcome = editor.rebase()?;
@@ -39,7 +40,7 @@ fn by_default_parents_can_be_picks() -> Result<()> {
 
 #[test]
 fn if_a_commit_requires_reference_parents_but_has_pick_parent_an_error_is_raised() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("four-commits-one-file")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits-one-file")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f37690f (HEAD -> main, c) c
@@ -50,7 +51,8 @@ fn if_a_commit_requires_reference_parents_but_has_pick_parent_an_error_is_raised
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Set c to require reference parents
     let c = repo.rev_parse_single("c")?;
@@ -78,7 +80,7 @@ fn if_a_commit_requires_reference_parents_but_has_pick_parent_an_error_is_raised
 
 #[test]
 fn if_a_commit_requires_reference_parents_and_has_reference_parent_result_is_ok() -> Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("four-commits-one-file")?;
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits-one-file")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f37690f (HEAD -> main, c) c
@@ -89,7 +91,8 @@ fn if_a_commit_requires_reference_parents_and_has_reference_parent_result_is_ok(
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    let mut editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Set "a" to require reference parents - "a"'s parent is "base" which has
     // a reference pointing to it

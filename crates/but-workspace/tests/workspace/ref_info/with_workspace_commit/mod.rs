@@ -10,7 +10,7 @@ pub fn head_info(
     if opts.traversal.extra_target_commit_id.is_none() {
         opts.traversal.extra_target_commit_id = meta.data().default_target.as_ref().map(|t| t.sha);
     }
-    but_workspace::head_info(repo, meta, opts)
+    crate::ref_info::head_info(repo, meta, opts)
 }
 
 pub fn ref_info(
@@ -21,13 +21,14 @@ pub fn ref_info(
     if opts.traversal.extra_target_commit_id.is_none() {
         opts.traversal.extra_target_commit_id = meta.data().default_target.as_ref().map(|t| t.sha);
     }
-    but_workspace::ref_info(existing_ref, meta, opts)
+    let mut cache = crate::ref_info::in_memory_cache();
+    but_workspace::ref_info(existing_ref, meta, opts, &mut cache)
 }
 
 #[test]
 fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
     let (mut repo, mut meta) = read_only_in_memory_scenario("remote-advanced-ff")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * fb27086 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | * 89cc2d3 (origin/A) change in A
     |/  
@@ -52,6 +53,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -122,6 +126,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -196,6 +203,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -257,7 +267,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
 fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
     let (repo, mut meta) =
         read_only_in_memory_scenario("two-dependent-branches-rebased-with-remotes")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * d909178 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 3ba6995 (B-on-A) change in B
     * f504e38 (A) change after push
@@ -283,6 +293,9 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -357,7 +370,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
     let (repo, mut meta) = read_only_in_memory_scenario(
         "two-dependent-branches-rebased-explicit-remote-in-extra-segment",
     )?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * d909178 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 3ba6995 (B-on-A) change in B
     * f504e38 (A) change after push
@@ -385,6 +398,9 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -498,6 +514,9 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -607,6 +626,9 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -679,6 +701,9 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -753,7 +778,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
 fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Result<()> {
     let (mut repo, mut meta) =
         read_only_in_memory_scenario("two-dependent-branches-first-rebased-and-merged")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 0b6b861 (origin/main, origin/A) A
     | * 4f08b8d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | * da597e8 (B) B
@@ -778,6 +803,9 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: None,
@@ -859,6 +887,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 ),
             },
         ),
+        symbolic_remote_names: {},
         stacks: [
             Stack {
                 id: None,
@@ -928,7 +957,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
 #[test]
 fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("target-ahead-remote-rewritten")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 03d2336 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * d5d3a92 (A) unique local tip
     * 6ffd040 shared by name
@@ -958,6 +987,9 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -1052,6 +1084,9 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -1155,7 +1190,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
 fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> anyhow::Result<()> {
     let (repo, mut meta) =
         read_only_in_memory_scenario("multiple-dependent-branches-per-stack-without-commit")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * cbc6713 (HEAD -> gitbutler/workspace, lane) change
     * fafd9d0 (origin/main, main, lane-segment-02, lane-segment-01, lane-2-segment-02, lane-2-segment-01, lane-2) init
     ");
@@ -1192,6 +1227,9 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -1341,6 +1379,9 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -1491,6 +1532,9 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -1596,6 +1640,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: None,
@@ -1684,6 +1731,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -1772,6 +1822,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -1843,7 +1896,7 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario(
         "three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent",
     )?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f8f33a7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * cbc6713 (origin/advanced-lane, on-top-of-dependent, dependent, advanced-lane) change
     * fafd9d0 (origin/main, main, lane) init
@@ -1871,6 +1924,9 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -1968,6 +2024,9 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -2049,7 +2108,7 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
 fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
     let (repo, mut meta) =
         read_only_in_memory_scenario("two-dependent-branches-with-one-commit-with-remotes")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 9b3cfd4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 788ad06 (origin/on-top-of-lane, on-top-of-lane) change on top
     * cbc6713 (origin/lane, lane) change
@@ -2078,6 +2137,9 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -2150,7 +2212,7 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
 fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
     let (repo, mut meta) =
         read_only_in_memory_scenario("two-dependent-branches-with-interesting-remote-setup")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * a221221 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * aadad9d (A) shared by name
     * 96a2408 (origin/main) another unrelated
@@ -2179,6 +2241,9 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -2253,7 +2318,7 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
 fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<()> {
     let (repo, mut meta) =
         read_only_in_memory_scenario("two-branches-one-advanced-ws-commit-on-top-of-stack")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * cbc6713 (HEAD -> gitbutler/workspace, advanced-lane) change
     * fafd9d0 (origin/main, main, lane) init
     ");
@@ -2277,6 +2342,9 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -2364,6 +2432,9 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -2474,6 +2545,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
             },
         ),
+        symbolic_remote_names: {},
         stacks: [
             Stack {
                 id: Some(
@@ -2562,6 +2634,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
             },
         ),
+        symbolic_remote_names: {},
         stacks: [
             Stack {
                 id: Some(
@@ -2649,6 +2722,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
             },
         ),
+        symbolic_remote_names: {},
         stacks: [
             Stack {
                 id: Some(
@@ -2742,6 +2816,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
             },
         ),
+        symbolic_remote_names: {},
         stacks: [
             Stack {
                 id: Some(
@@ -2821,7 +2896,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
 #[test]
 fn disjoint() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("disjoint")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 32791d2 (HEAD -> disjoint) disjoint init
     * fafd9d0 (origin/main, main) init
     ");
@@ -2844,6 +2919,9 @@ fn disjoint() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -2916,6 +2994,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -3035,6 +3116,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -3154,6 +3238,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -3274,6 +3361,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -3383,7 +3473,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
 #[test]
 fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("empty-workspace-with-branch-below")?;
-    insta::assert_snapshot!(visualize_commit_graph(&repo, "HEAD")?, @r"
+    insta::assert_snapshot!(visualize_commit_graph(&repo, "HEAD")?, @"
     * c7276fa (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * c166d42 (origin/main, origin/HEAD, unrelated, main) init-integration
     ");
@@ -3406,6 +3496,9 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -3471,6 +3564,9 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -3539,6 +3635,9 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ),
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [],
         target_ref: Some(
             TargetRef {
@@ -3581,6 +3680,9 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 worktree: None,
             },
         ),
+        symbolic_remote_names: {
+            "origin",
+        },
         stacks: [
             Stack {
                 id: Some(
@@ -3644,7 +3746,7 @@ fn advanced_workspace_multi_stack() -> anyhow::Result<()> {
 
     let opts = standard_options();
     let err = head_info(&repo, &meta, opts).unwrap_err();
-    insta::assert_snapshot!(err.to_string(), @r"
+    insta::assert_snapshot!(err.to_string(), @"
     Found 5 commit(s) on top of the workspace commit.
 
     Run the following command in your working directory to fix this while leaving your worktree unchanged.
@@ -3676,7 +3778,7 @@ fn advanced_workspace_single_stack() -> anyhow::Result<()> {
 
     let opts = standard_options();
     let err = head_info(&repo, &meta, opts).unwrap_err();
-    insta::assert_snapshot!(err.to_string(), @r"
+    insta::assert_snapshot!(err.to_string(), @"
     Found 5 commit(s) on top of the workspace commit.
 
     Run the following command in your working directory to fix this while leaving your worktree unchanged.

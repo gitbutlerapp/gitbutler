@@ -1,10 +1,10 @@
 use std::path::Path;
 
 use bstr::BString;
-use but_core::sync::RepoExclusiveGuard;
+use but_core::sync::RepoExclusive;
+use but_ctx::ProjectHandleOrLegacyProjectId;
 use but_hunk_assignment::{CommitMap, convert_assignments_to_diff_specs};
 use but_workspace::commit_engine;
-use gitbutler_project::ProjectId;
 use serde::Serialize;
 
 type AutoCommitEmitter = dyn Fn(&str, serde_json::Value) + Send + Sync + 'static;
@@ -48,7 +48,7 @@ enum AutoCommitEvent {
 }
 
 impl AutoCommitEvent {
-    fn event_name(&self, project_id: ProjectId) -> String {
+    fn event_name(&self, project_id: &ProjectHandleOrLegacyProjectId) -> String {
         format!("project://{project_id}/auto-commit")
     }
 
@@ -59,16 +59,16 @@ impl AutoCommitEvent {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(crate) fn auto_commit(
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     repo: &gix::Repository,
     project_data_dir: &Path,
     context_lines: u32,
     llm: Option<&but_llm::LLMProvider>,
     emitter: impl Fn(&str, serde_json::Value) + Send + Sync + 'static,
     absorption_plan: Vec<but_hunk_assignment::CommitAbsorption>,
-    guard: &mut RepoExclusiveGuard,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<usize> {
     let commit_map = CommitMap::default();
 
@@ -78,17 +78,17 @@ pub(crate) fn auto_commit(
     let event = AutoCommitEvent::Started {
         steps_length: absorption_plan.len(),
     };
-    let event_name = event.event_name(project_id);
+    let event_name = event.event_name(&project_id);
     emitter(&event_name, event.emit_payload());
 
     match apply_commit_changes(
-        Some(project_id),
+        Some(project_id.clone()),
         repo,
         project_data_dir,
         context_lines,
         llm,
         absorption_plan,
-        guard,
+        perm,
         commit_map,
         Some(emitter.clone()),
     ) {
@@ -97,14 +97,14 @@ pub(crate) fn auto_commit(
             let event = AutoCommitEvent::CommitError {
                 error_message: e.to_string(),
             };
-            let event_name = event.event_name(project_id);
+            let event_name = event.event_name(&project_id);
             let emitter = emitter.clone();
             emitter(&event_name, event.emit_payload());
             Err(e)
         }
         Ok(number_of_rejections) => {
             let event = AutoCommitEvent::Completed;
-            let event_name = event.event_name(project_id);
+            let event_name = event.event_name(&project_id);
             let emitter = emitter.clone();
             emitter(&event_name, event.emit_payload());
             Ok(number_of_rejections)
@@ -118,7 +118,7 @@ pub(crate) fn auto_commit_simple(
     context_lines: u32,
     llm: Option<&but_llm::LLMProvider>,
     absorption_plan: Vec<but_hunk_assignment::CommitAbsorption>,
-    guard: &mut RepoExclusiveGuard,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<usize> {
     let commit_map = CommitMap::default();
 
@@ -129,21 +129,21 @@ pub(crate) fn auto_commit_simple(
         context_lines,
         llm,
         absorption_plan,
-        guard,
+        perm,
         commit_map,
         None,
     )
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn apply_commit_changes(
-    project_id: Option<ProjectId>,
+    project_id: Option<ProjectHandleOrLegacyProjectId>,
     repo: &gix::Repository,
     project_data_dir: &Path,
     context_lines: u32,
     llm: Option<&but_llm::LLMProvider>,
     absorption_plan: Vec<but_hunk_assignment::CommitAbsorption>,
-    guard: &mut RepoExclusiveGuard,
+    perm: &mut RepoExclusive,
     mut commit_map: CommitMap,
     emitter: Option<std::sync::Arc<AutoCommitEmitter>>,
 ) -> anyhow::Result<usize> {
@@ -159,8 +159,13 @@ fn apply_commit_changes(
         let diff_infos = absorption_files_to_diff_infos(&absorption.files);
         let commit_id = commit_map.find_mapped_id(absorption.commit_id);
         let stack_id = absorption.stack_id;
-        let commit_message =
-            commit_message_generation(project_id, commit_id, llm, emitter.as_ref(), &diff_infos)?;
+        let commit_message = commit_message_generation(
+            project_id.as_ref(),
+            commit_id,
+            llm,
+            emitter.as_ref(),
+            &diff_infos,
+        )?;
         let outcome =
             but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
                 repo,
@@ -173,11 +178,11 @@ fn apply_commit_changes(
                 },
                 diff_specs,
                 context_lines,
-                guard.write_permission(),
+                perm,
             )?;
 
         if let Some(new_commit_id) = outcome.new_commit
-            && let Some(project_id) = project_id
+            && let Some(project_id) = project_id.as_ref()
             && let Some(emitter) = &emitter
         {
             let event = AutoCommitEvent::CommitSuccess {
@@ -231,7 +236,7 @@ fn absorption_files_to_diff_infos(
 ///
 /// If no project and no emitter are provided, the function will not stream tokens.
 fn commit_message_generation(
-    project_id: Option<ProjectId>,
+    project_id: Option<&ProjectHandleOrLegacyProjectId>,
     parent_commit_id: gix::ObjectId,
     llm: Option<&but_llm::LLMProvider>,
     emitter: Option<&std::sync::Arc<AutoCommitEmitter>>,
@@ -276,12 +281,13 @@ fn commit_message_generation(
             (Some(project_id), Some(emitter)) => {
                 llm.stream_response(system_message, vec![prompt.into()], &model, {
                     let emitter = std::sync::Arc::clone(emitter);
+                    let project_id = project_id.clone();
                     move |token| {
                         let event = AutoCommitEvent::CommitGeneration {
                             parent_commit_id,
                             token: token.to_string(),
                         };
-                        let event_name = event.event_name(project_id);
+                        let event_name = event.event_name(&project_id);
                         emitter(&event_name, event.emit_payload());
                     }
                 })?

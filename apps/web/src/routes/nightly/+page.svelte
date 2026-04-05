@@ -3,12 +3,13 @@
 	import Header from "$lib/components/marketing/Header.svelte";
 	import ReleaseDownloadLinks from "$lib/components/marketing/ReleaseDownloadLinks.svelte";
 	import { Icon } from "@gitbutler/ui";
+	import { untrack } from "svelte";
 	import type { Release } from "$lib/types/releases";
 	import type { LatestReleaseBuilds } from "$lib/utils/releaseUtils";
 
 	interface Props {
 		data: {
-			nightlies: Release[];
+			otherNightlies: Release[];
 			latestNightly: Release | null;
 			latestNightlyBuilds: LatestReleaseBuilds;
 		};
@@ -16,7 +17,7 @@
 
 	const { data }: Props = $props();
 
-	const { latestNightly, latestNightlyBuilds } = data;
+	const { latestNightly, latestNightlyBuilds, otherNightlies } = untrack(() => data);
 
 	let linuxArch = $state<"x86-64" | "ARM64">("x86-64");
 	let expandedRelease: string | null = $state(null);
@@ -202,13 +203,13 @@
 	{/if}
 </section>
 
-{#if data.nightlies.length > 0}
+{#if otherNightlies.length > 0}
 	<section class="releases">
-		<h3>
+		<h2>
 			Other <i>nightly</i> builds:
-		</h3>
+		</h2>
 
-		{#each data.nightlies as release, index (`${release.version}-${release.sha}-${index}`)}
+		{#each otherNightlies as release, index (`${release.version}-${release.sha}-${index}`)}
 			<div class="release-row">
 				<button
 					type="button"
@@ -280,8 +281,8 @@
 		overflow: hidden;
 		gap: 32px;
 		border-radius: var(--radius-xl);
-		background-color: var(--clr-theme-gray-element);
-		color: var(--clr-theme-gray-on-element);
+		background-color: var(--fill-gray-bg);
+		color: var(--fill-gray-fg);
 	}
 
 	.nightly-hero__header {
@@ -341,8 +342,8 @@
 			height: 1px;
 			background: repeating-linear-gradient(
 				to right,
-				var(--clr-text-2),
-				var(--clr-text-2) 2px,
+				var(--text-2),
+				var(--text-2) 2px,
 				transparent 2px,
 				transparent 6px
 			);
@@ -361,9 +362,9 @@
 		padding: 24px;
 		overflow: hidden;
 		gap: 16px;
-		border: 1px solid var(--clr-text-2);
+		border: 1px solid var(--text-2);
 		border-radius: var(--radius-xl);
-		color: var(--clr-theme-gray-on-element);
+		color: var(--fill-gray-fg);
 	}
 
 	.download-card__linux {
@@ -382,23 +383,23 @@
 		top: 16px;
 		right: 16px;
 		padding: 3px 24px 3px 6px;
-		border: 1px solid var(--clr-text-2);
+		border: 1px solid var(--text-2);
 		border-radius: 8px;
 		background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 		background-position: right 8px center;
 		background-repeat: no-repeat;
-		color: var(--clr-theme-gray-on-element);
+		color: var(--fill-gray-fg);
 		font-size: 13px;
 		font-family: var(--font-mono);
 		cursor: pointer;
 		transition: border-color 0.1s ease;
 
 		&:hover {
-			border-color: var(--clr-text-3);
+			border-color: var(--text-3);
 		}
 
 		&:focus {
-			border-color: var(--clr-text-3);
+			border-color: var(--text-3);
 			outline: none;
 		}
 	}
@@ -409,7 +410,7 @@
 
 		&:hover {
 			text-decoration: underline wavy;
-			text-decoration-color: var(--clr-theme-pop-element);
+			text-decoration-color: var(--fill-pop-bg);
 		}
 	}
 
@@ -419,12 +420,12 @@
 	}
 
 	.download-card-subtile {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 14px;
 	}
 
 	.download-card-small-subtile {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		font-size: 12px;
 	}
 
@@ -434,7 +435,7 @@
 		margin: 10px -24px -24px -24px;
 		padding: 16px 22px 18px 22px;
 		gap: 8px;
-		background-color: var(--clr-text-1);
+		background-color: var(--text-1);
 
 		& a {
 			font-size: 14px;
@@ -442,25 +443,25 @@
 
 			&:hover {
 				text-decoration: underline wavy;
-				text-decoration-color: var(--clr-theme-pop-element);
+				text-decoration-color: var(--fill-pop-bg);
 			}
 		}
 	}
 
 	.nightly-warning {
-		color: var(--clr-theme-warn-soft);
+		color: var(--chip-warn-bg);
 		font-size: 13px;
 		line-height: 1.5;
 		font-family: var(--font-mono);
 
 		& a {
-			color: var(--clr-theme-warn);
+			color: var(--fill-warn-bg);
 			text-decoration: underline;
 			text-underline-offset: 2px;
 
 			&:hover {
 				text-decoration: underline wavy;
-				text-decoration-color: var(--clr-theme-warn);
+				text-decoration-color: var(--fill-warn-bg);
 			}
 		}
 	}
@@ -470,11 +471,11 @@
 		grid-column: narrow-start / narrow-end;
 		flex-direction: column;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-xl);
 		font-family: var(--font-mono);
 
-		& h3 {
+		& h2 {
 			padding: 16px 24px 12px;
 			font-size: 40px;
 			line-height: 1.2;
@@ -483,7 +484,7 @@
 	}
 
 	.release-row {
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--border-2);
 
 		&:last-child {
 			border-bottom: none;
@@ -502,7 +503,7 @@
 		transition: background-color 0.1s ease;
 
 		&:hover {
-			background-color: var(--clr-bg-1);
+			background-color: var(--bg-1);
 		}
 	}
 
@@ -511,7 +512,7 @@
 		flex-shrink: 0;
 		align-items: center;
 		margin-right: 8px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		transition: transform 0.15s ease;
 
 		&.expanded {
@@ -538,26 +539,26 @@
 	}
 
 	.release-row__date {
-		color: var(--clr-text-2);
+		color: var(--text-2);
 		font-size: 14px;
 	}
 
 	.release-row__separator {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		font-size: 14px;
 	}
 
 	.sha-link {
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		font-size: 14px;
 		text-decoration: underline;
 		text-underline-offset: 2px;
 		transition: all 0.1s ease;
 
 		&:hover {
-			color: var(--clr-theme-pop-element);
+			color: var(--fill-pop-bg);
 			text-decoration: underline wavy;
-			text-decoration-color: var(--clr-theme-pop-element);
+			text-decoration-color: var(--fill-pop-bg);
 		}
 	}
 

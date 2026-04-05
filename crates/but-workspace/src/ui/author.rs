@@ -17,6 +17,8 @@ pub struct Author {
     #[cfg_attr(feature = "export-schema", schemars(schema_with = "but_schemars::url"))]
     pub gravatar_url: url::Url,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(Author);
 
 impl std::fmt::Debug for Author {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -24,21 +26,20 @@ impl std::fmt::Debug for Author {
     }
 }
 
-impl From<git2::Signature<'_>> for Author {
-    fn from(value: git2::Signature<'_>) -> Self {
-        let name = value.name().unwrap_or_default().to_string();
-        let email = value.email().unwrap_or_default().to_string();
-        let gravatar_url = gravatar_url_from_email(email.as_str());
+impl From<gix::actor::SignatureRef<'_>> for Author {
+    fn from(value: gix::actor::SignatureRef<'_>) -> Self {
+        let gravatar_url = gravatar_url_from_email(&value.email.to_str_lossy());
+
         Author {
-            name,
-            email,
+            name: value.name.to_string(),
+            email: value.email.to_string(),
             gravatar_url,
         }
     }
 }
 
-impl From<gix::actor::SignatureRef<'_>> for Author {
-    fn from(value: gix::actor::SignatureRef<'_>) -> Self {
+impl From<gix::actor::Signature> for Author {
+    fn from(value: gix::actor::Signature) -> Self {
         let gravatar_url = gravatar_url_from_email(&value.email.to_str_lossy());
 
         Author {

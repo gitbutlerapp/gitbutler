@@ -5,13 +5,13 @@ use but_core::{
     DiffSpec, HunkHeader, RepositoryExt, UnifiedPatch, ref_metadata::StackId,
     worktree::checkout::UncommitedWorktreeChanges,
 };
+use but_ctx::{ProjectHandle, ProjectHandleOrLegacyProjectId};
 use but_db::poll::ItemKind;
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
     create_reference::{Anchor, Position},
 };
-use gitbutler_project::ProjectId;
 use gix::{
     bstr::{BString, ByteSlice},
     refs::Category,
@@ -61,9 +61,7 @@ pub mod assignment {
             db.hunk_assignments_mut()?,
             &repo,
             &ws,
-            false,
             None::<Vec<but_core::TreeChange>>,
-            None,
             context_lines,
         )?;
         if use_json {
@@ -83,21 +81,17 @@ pub mod assignment {
         let mut ctx = Context::discover(current_dir)?;
         let context_lines = ctx.settings.context_lines;
         let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-        let rejections = but_hunk_assignment::assign(
+        but_hunk_assignment::assign(
             db.hunk_assignments_mut()?,
             &repo,
             &ws,
             vec![assignment],
-            None,
             context_lines,
         )?;
         if use_json {
-            let json = serde_json::to_string_pretty(&rejections)?;
-            println!("{json}");
-            Ok(())
-        } else {
-            debug_print(rejections)
+            println!("{{}}");
         }
+        Ok(())
     }
 }
 
@@ -123,7 +117,8 @@ pub mod stacks {
         };
         let stacks = {
             let meta = ctx.legacy_meta()?;
-            but_workspace::legacy::stacks_v3(&repo, &meta, filter, None)
+            let mut cache = ctx.cache.get_cache_mut()?;
+            but_workspace::legacy::stacks_v3(&repo, &meta, filter, None, &mut cache)
         }?;
         if use_json {
             let json = serde_json::to_string_pretty(&stacks)?;
@@ -139,7 +134,8 @@ pub mod stacks {
         let details = {
             let meta = ctx.legacy_meta()?;
             let repo = ctx.clone_repo_for_merging_non_persisting()?;
-            but_workspace::legacy::stack_details_v3(id, &repo, &meta)
+            let mut cache = ctx.cache.get_cache_mut()?;
+            but_workspace::legacy::stack_details_v3(id, &repo, &meta, &mut cache)
         }?;
         debug_print(details)
     }
@@ -192,11 +188,15 @@ pub mod stacks {
             )?;
 
             let repo = ctx.repo.get()?;
-            let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-                ctx.project_data_dir().join("virtual_branches.toml"),
+            let meta = ctx.legacy_meta()?;
+            let mut cache = ctx.cache.get_cache_mut()?;
+            let stack_entries = but_workspace::legacy::stacks_v3(
+                &repo,
+                &meta,
+                Default::default(),
+                None,
+                &mut cache,
             )?;
-            let stack_entries =
-                but_workspace::legacy::stacks_v3(&repo, &meta, Default::default(), None)?;
             let stack_entry = stack_entries
                 .into_iter()
                 .find(|entry| entry.id == Some(stack_id))
@@ -234,11 +234,10 @@ pub mod stacks {
 
         gitbutler_branch_actions::stack::create_branch(ctx, stack_id, creation_request)?;
         let repo = ctx.repo.get()?;
-        let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-            ctx.project_data_dir().join("virtual_branches.toml"),
-        )?;
+        let meta = ctx.legacy_meta()?;
+        let mut cache = ctx.cache.get_cache_mut()?;
         let stack_entries =
-            but_workspace::legacy::stacks_v3(&repo, &meta, Default::default(), None)?;
+            but_workspace::legacy::stacks_v3(&repo, &meta, Default::default(), None, &mut cache)?;
 
         let stack_entry = stack_entries
             .into_iter()
@@ -256,8 +255,16 @@ pub mod stacks {
     ) -> anyhow::Result<()> {
         let mut ctx = Context::discover(current_dir)?;
         let meta = ctx.legacy_meta()?;
-        let stacks =
-            but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, Default::default(), None)?;
+        let stacks = {
+            let mut cache = ctx.cache.get_cache_mut()?;
+            but_workspace::legacy::stacks_v3(
+                &*ctx.repo.get()?,
+                &meta,
+                Default::default(),
+                None,
+                &mut cache,
+            )?
+        };
         let subject_stack = stacks
             .clone()
             .into_iter()
@@ -352,8 +359,10 @@ pub async fn watch(args: &super::Args, watch_mode: Option<&str>) -> anyhow::Resu
     let (tx, mut rx) = unbounded_channel();
     let start = std::time::Instant::now();
     let workdir = ctx.workdir_or_fail()?;
+    let project_id =
+        ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&workdir)?);
     let _monitor = gitbutler_filemonitor::spawn(
-        ProjectId::generate(),
+        project_id,
         &workdir,
         tx,
         watch_mode.and_then(|m| m.parse().ok()).unwrap_or_default(),
@@ -387,7 +396,11 @@ pub fn watch_db(args: &super::Args) -> anyhow::Result<()> {
 
 pub fn operating_mode(args: &super::Args) -> anyhow::Result<()> {
     let ctx = Context::discover(&args.current_dir)?;
-    debug_print(gitbutler_operating_modes::operating_mode(&ctx))
+    let guard = ctx.shared_worktree_access();
+    debug_print(gitbutler_operating_modes::operating_mode(
+        &ctx,
+        guard.read_permission(),
+    )?)
 }
 
 pub fn ref_info(args: &super::Args, ref_name: Option<&str>, expensive: bool) -> anyhow::Result<()> {
@@ -400,9 +413,12 @@ pub fn ref_info(args: &super::Args, ref_name: Option<&str>, expensive: bool) -> 
     let _guard = ctx.shared_worktree_access();
     let meta = ctx.meta()?;
     let repo = &*ctx.repo.get()?;
+    let mut cache = ctx.cache.get_cache_mut()?;
     debug_print(match ref_name {
-        None => but_workspace::head_info(repo, &meta, opts),
-        Some(ref_name) => but_workspace::ref_info(repo.find_reference(ref_name)?, &meta, opts),
+        None => but_workspace::head_info(repo, &meta, opts, &mut cache),
+        Some(ref_name) => {
+            but_workspace::ref_info(repo.find_reference(ref_name)?, &meta, opts, &mut cache)
+        }
     }?)
 }
 

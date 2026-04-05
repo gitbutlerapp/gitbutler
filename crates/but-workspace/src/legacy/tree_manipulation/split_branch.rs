@@ -1,9 +1,9 @@
 use anyhow::Result;
 use but_core::{Reference, sync::RepoExclusive};
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::OidExt;
 use but_rebase::{Rebase, RebaseStep, ReferenceSpec};
-use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
+use gitbutler_repo::first_parent_commit_ids_until;
 use gitbutler_stack::{StackBranch, StackId, VirtualBranchesHandle};
 use gix::prelude::ReferenceExt;
 
@@ -81,10 +81,9 @@ pub fn split_branch(
     let move_changes_result = MoveChangesResult { replaced_commits };
 
     // Remove all but the specified changes from the new branch
+    let repo = ctx.repo.get()?;
     let new_branch_commits =
-        ctx.git2_repo
-            .get()?
-            .l(branch_head, LogUntil::Commit(merge_base.to_git2()), false)?;
+        first_parent_commit_ids_until(&repo, branch_head.to_gix(), merge_base)?;
 
     // Branch as rebase steps
     let mut steps: Vec<RebaseStep> = Vec::new();
@@ -93,9 +92,8 @@ pub fn split_branch(
     steps.push(reference_step);
 
     for commit in new_branch_commits {
-        let commit_id = commit.to_gix();
         if let Some(new_commit_id) =
-            keep_only_file_changes_in_commit(ctx, commit_id, file_changes_to_split_off, true, perm)?
+            keep_only_file_changes_in_commit(ctx, commit, file_changes_to_split_off, true, perm)?
         {
             let pick_step = RebaseStep::Pick {
                 commit_id: new_commit_id,
@@ -108,10 +106,11 @@ pub fn split_branch(
 
     let result = {
         let repo = ctx.repo.get()?;
+        let cache = ctx.cache.get_cache()?;
         let mut rebase = Rebase::new(&repo, merge_base, None)?;
         rebase.steps(steps)?;
         rebase.rebase_noops(false);
-        rebase.rebase()?
+        rebase.rebase(&cache)?
     };
 
     let new_branch_full_name: gix::refs::FullName = new_branch_ref_name.try_into()?;
@@ -156,7 +155,7 @@ pub fn split_into_dependent_branch(
     file_changes_to_split_off: &[String],
     perm: &mut RepoExclusive,
 ) -> Result<MoveChangesResult> {
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let source_stack = vb_state.get_stack_in_workspace(stack_id)?;
     let merge_base = source_stack.merge_base(ctx)?;
@@ -183,10 +182,9 @@ pub fn split_into_dependent_branch(
         .detach();
 
     // Remove all but the specified changes from the new branch
+    let repo = ctx.repo.get()?;
     let new_branch_commits =
-        ctx.git2_repo
-            .get()?
-            .l(branch_head, LogUntil::Commit(merge_base.to_git2()), false)?;
+        first_parent_commit_ids_until(&repo, branch_head.to_gix(), merge_base)?;
 
     // Branch as rebase steps
     let mut dependent_branch_steps: Vec<RebaseStep> = Vec::new();
@@ -195,9 +193,8 @@ pub fn split_into_dependent_branch(
     dependent_branch_steps.push(reference_step);
 
     for commit in new_branch_commits {
-        let commit_id = commit.to_gix();
         if let Some(new_commit_id) =
-            keep_only_file_changes_in_commit(ctx, commit_id, file_changes_to_split_off, true, perm)?
+            keep_only_file_changes_in_commit(ctx, commit, file_changes_to_split_off, true, perm)?
         {
             let pick_step = RebaseStep::Pick {
                 commit_id: new_commit_id,
@@ -221,7 +218,8 @@ pub fn split_into_dependent_branch(
     let mut source_rebase = Rebase::new(&repo, merge_base, None)?;
     source_rebase.steps(steps)?;
     source_rebase.rebase_noops(false);
-    let source_result = source_rebase.rebase()?;
+    let cache = ctx.cache.get_cache()?;
+    let source_result = source_rebase.rebase(&cache)?;
     let new_head = repo.find_commit(source_result.top_commit)?;
 
     let mut source_stack = source_stack;
@@ -232,7 +230,7 @@ pub fn split_into_dependent_branch(
         Some(source_branch_name),
     )?;
 
-    source_stack.set_stack_head(&vb_state, &repo, new_head.id().to_git2())?;
+    source_stack.set_stack_head(&mut vb_state, &repo, new_head.id().detach())?;
     source_stack.set_heads_from_rebase_output(ctx, source_result.clone().references)?;
 
     let move_changes_result = MoveChangesResult {
@@ -270,10 +268,11 @@ fn filter_file_changes_in_branch(
 
     let source_result = {
         let repo = ctx.repo.get()?;
+        let cache = ctx.cache.get_cache()?;
         let mut source_rebase = Rebase::new(&repo, merge_base, None)?;
         source_rebase.steps(source_steps)?;
         source_rebase.rebase_noops(false);
-        source_rebase.rebase()?
+        source_rebase.rebase(&cache)?
     };
 
     let mut source_stack = source_stack;

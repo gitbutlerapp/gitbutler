@@ -1,13 +1,10 @@
 use anyhow::bail;
 use bstr::BStr;
-use but_core::ref_metadata::StackId;
+use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use colored::Colorize;
 mod amend;
 mod assign;
-mod commits;
-pub(crate) mod r#move;
-mod move_commit;
 pub(crate) mod squash;
 mod undo;
 pub(crate) use assign::branch_name_to_stack_id;
@@ -19,207 +16,455 @@ use nonempty::NonEmpty;
 
 use crate::{
     CliId, IdMap,
+    command::commit::r#move::move_commit_to_branch,
     id::parser::{parse_sources_with_disambiguation, prompt_for_disambiguation},
-    utils::OutputChannel,
+    utils::{OutputChannel, shorten_object_id},
 };
-
-/// Serialize a [`gitbutler_branch_actions::MoveCommitIllegalAction`] to a structured JSON value.
-///
-/// Shared between `move.rs` and `move_commit.rs` to avoid duplicated match arms.
-pub(crate) fn illegal_move_to_json(
-    action: &gitbutler_branch_actions::MoveCommitIllegalAction,
-) -> serde_json::Value {
-    let (reason, deps) = match action {
-        gitbutler_branch_actions::MoveCommitIllegalAction::DependsOnCommits(deps) => {
-            ("depends_on_commits", Some(deps.clone()))
-        }
-        gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentChanges(deps) => {
-            ("has_dependent_changes", Some(deps.clone()))
-        }
-        gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentUncommittedChanges => {
-            ("has_dependent_uncommitted_changes", None)
-        }
-    };
-    serde_json::json!({
-        "ok": false,
-        "error": "illegal_move",
-        "reason": reason,
-        "dependencies": deps,
-    })
-}
 
 /// A description of a set of hunks.
 type Description = String;
 
+/// Represents moving selected uncommitted hunks to unassigned.
+#[derive(Debug)]
+pub(crate) struct UnassignUncommittedOperation<'a> {
+    /// The uncommitted hunk assignments to unassign.
+    pub(crate) hunk_assignments: NonEmpty<&'a but_hunk_assignment::HunkAssignment>,
+    /// A human-readable description of the selected hunks.
+    pub(crate) description: Description,
+}
+
+/// Represents amending selected uncommitted hunks into a commit.
+#[derive(Debug)]
+pub(crate) struct UncommittedToCommitOperation<'a> {
+    /// The uncommitted hunk assignments to amend.
+    pub(crate) hunk_assignments: NonEmpty<&'a but_hunk_assignment::HunkAssignment>,
+    /// A human-readable description of the selected hunks.
+    pub(crate) description: Description,
+    /// The destination commit id.
+    pub(crate) oid: gix::ObjectId,
+}
+
+/// Represents assigning selected uncommitted hunks to a branch.
+#[derive(Debug)]
+pub(crate) struct UncommittedToBranchOperation<'a> {
+    /// The uncommitted hunk assignments to assign.
+    pub(crate) hunk_assignments: NonEmpty<&'a but_hunk_assignment::HunkAssignment>,
+    /// A human-readable description of the selected hunks.
+    pub(crate) description: Description,
+    /// The destination branch name.
+    pub(crate) name: &'a str,
+}
+
+/// Represents assigning selected uncommitted hunks to a stack.
+#[derive(Debug)]
+pub(crate) struct UncommittedToStackOperation<'a> {
+    /// The uncommitted hunk assignments to assign.
+    pub(crate) hunk_assignments: NonEmpty<&'a but_hunk_assignment::HunkAssignment>,
+    /// A human-readable description of the selected hunks.
+    pub(crate) description: Description,
+    /// The destination stack id.
+    pub(crate) stack_id: StackId,
+}
+
+/// Represents moving all assignments from a stack to unassigned.
+#[derive(Debug)]
+pub(crate) struct StackToUnassignedOperation {
+    /// The source stack id.
+    pub(crate) stack_id: StackId,
+}
+
+/// Represents moving all assignments from one stack to another.
+#[derive(Debug)]
+pub(crate) struct StackToStackOperation {
+    /// The source stack id.
+    pub(crate) from: StackId,
+    /// The destination stack id.
+    pub(crate) to: StackId,
+}
+
+/// Represents moving all assignments from a stack to a branch.
+#[derive(Debug)]
+pub(crate) struct StackToBranchOperation<'a> {
+    /// The source stack id.
+    pub(crate) from: StackId,
+    /// The destination branch name.
+    pub(crate) to: &'a str,
+}
+
+/// Represents amending all unassigned hunks into a commit.
+#[derive(Debug)]
+pub(crate) struct UnassignedToCommitOperation {
+    /// The destination commit id.
+    pub(crate) oid: gix::ObjectId,
+}
+
+/// Represents assigning all unassigned hunks to a branch.
+#[derive(Debug)]
+pub(crate) struct UnassignedToBranchOperation<'a> {
+    /// The destination branch name.
+    pub(crate) to: &'a str,
+}
+
+/// Represents assigning all unassigned hunks to a stack.
+#[derive(Debug)]
+pub(crate) struct UnassignedToStackOperation {
+    /// The destination stack id.
+    pub(crate) to: StackId,
+}
+
+/// Represents undoing a commit.
+#[derive(Debug)]
+pub(crate) struct UndoCommitOperation {
+    /// The commit id to undo.
+    pub(crate) oid: gix::ObjectId,
+}
+
+/// Represents squashing one commit into another.
+#[derive(Debug)]
+pub(crate) struct SquashCommitsOperation {
+    /// The source commit id.
+    pub(crate) source: gix::ObjectId,
+    /// The destination commit id.
+    pub(crate) destination: gix::ObjectId,
+}
+
+/// Represents moving a commit to a branch.
+#[derive(Debug)]
+pub(crate) struct MoveCommitToBranchOperation<'a> {
+    /// The commit id to move.
+    pub(crate) oid: gix::ObjectId,
+    /// The destination branch name.
+    pub(crate) name: &'a str,
+}
+
+/// Represents moving all assignments from a branch to unassigned.
+#[derive(Debug)]
+pub(crate) struct BranchToUnassignedOperation<'a> {
+    /// The source branch name.
+    pub(crate) from: &'a str,
+}
+
+/// Represents moving all assignments from a branch to a stack.
+#[derive(Debug)]
+pub(crate) struct BranchToStackOperation<'a> {
+    /// The source branch name.
+    pub(crate) from: &'a str,
+    /// The destination stack id.
+    pub(crate) to: StackId,
+}
+
+/// Represents amending branch-assigned hunks into a commit.
+#[derive(Debug)]
+pub(crate) struct BranchToCommitOperation<'a> {
+    /// The source branch name.
+    pub(crate) name: &'a str,
+    /// The destination commit id.
+    pub(crate) oid: gix::ObjectId,
+}
+
+/// Represents moving all assignments from one branch to another.
+#[derive(Debug)]
+pub(crate) struct BranchToBranchOperation<'a> {
+    /// The source branch name.
+    pub(crate) from: &'a str,
+    /// The destination branch name.
+    pub(crate) to: &'a str,
+}
+
+/// Represents uncommitting file changes from a commit into a branch.
+#[derive(Debug)]
+pub(crate) struct CommittedFileToBranchOperation<'a> {
+    /// The file path.
+    pub(crate) path: &'a BStr,
+    /// The source commit id.
+    pub(crate) commit_oid: gix::ObjectId,
+    /// The destination branch name.
+    pub(crate) name: &'a str,
+}
+
+/// Represents moving file changes from one commit into another.
+#[derive(Debug)]
+pub(crate) struct CommittedFileToCommitOperation<'a> {
+    /// The file path.
+    pub(crate) path: &'a BStr,
+    /// The source commit id.
+    pub(crate) commit_oid: gix::ObjectId,
+    /// The destination commit id.
+    pub(crate) oid: gix::ObjectId,
+}
+
+/// Represents uncommitting file changes from a commit into unassigned.
+#[derive(Debug)]
+pub(crate) struct CommittedFileToUnassignedOperation<'a> {
+    /// The file path.
+    pub(crate) path: &'a BStr,
+    /// The source commit id.
+    pub(crate) commit_oid: gix::ObjectId,
+}
+
 /// Represents the operation to perform for a given source and target combination.
 /// This enum serves as the single source of truth for valid rub operations.
-#[derive(Debug)]
+#[derive(Debug, strum::EnumDiscriminants)]
 pub(crate) enum RubOperation<'a> {
-    UnassignUncommitted(
-        NonEmpty<&'a but_hunk_assignment::HunkAssignment>,
-        Description,
-    ),
-    UncommittedToCommit(
-        NonEmpty<&'a but_hunk_assignment::HunkAssignment>,
-        Description,
-        &'a gix::ObjectId,
-    ),
-    UncommittedToBranch(
-        NonEmpty<&'a but_hunk_assignment::HunkAssignment>,
-        Description,
-        &'a str,
-    ),
-    UncommittedToStack(
-        NonEmpty<&'a but_hunk_assignment::HunkAssignment>,
-        Description,
-        StackId,
-    ),
-    StackToUnassigned(StackId),
-    StackToStack {
-        from: StackId,
-        to: StackId,
-    },
-    StackToBranch {
-        from: StackId,
-        to: &'a str,
-    },
-    UnassignedToCommit(&'a gix::ObjectId),
-    UnassignedToBranch(&'a str),
-    UnassignedToStack(StackId),
-    UndoCommit(&'a gix::ObjectId),
-    SquashCommits {
-        source: &'a gix::ObjectId,
-        destination: &'a gix::ObjectId,
-    },
-    MoveCommitToBranch(&'a gix::ObjectId, &'a str),
-    BranchToUnassigned(&'a str),
-    BranchToStack {
-        from: &'a str,
-        to: StackId,
-    },
-    BranchToCommit(&'a str, &'a gix::ObjectId),
-    BranchToBranch {
-        from: &'a str,
-        to: &'a str,
-    },
-    CommittedFileToBranch(&'a BStr, &'a gix::ObjectId, &'a str),
-    CommittedFileToCommit(&'a BStr, &'a gix::ObjectId, &'a gix::ObjectId),
-    CommittedFileToUnassigned(&'a BStr, &'a gix::ObjectId),
+    UnassignUncommitted(UnassignUncommittedOperation<'a>),
+    UncommittedToCommit(UncommittedToCommitOperation<'a>),
+    UncommittedToBranch(UncommittedToBranchOperation<'a>),
+    UncommittedToStack(UncommittedToStackOperation<'a>),
+    StackToUnassigned(StackToUnassignedOperation),
+    StackToStack(StackToStackOperation),
+    StackToBranch(StackToBranchOperation<'a>),
+    UnassignedToCommit(UnassignedToCommitOperation),
+    UnassignedToBranch(UnassignedToBranchOperation<'a>),
+    UnassignedToStack(UnassignedToStackOperation),
+    UndoCommit(UndoCommitOperation),
+    SquashCommits(SquashCommitsOperation),
+    MoveCommitToBranch(MoveCommitToBranchOperation<'a>),
+    BranchToUnassigned(BranchToUnassignedOperation<'a>),
+    BranchToStack(BranchToStackOperation<'a>),
+    BranchToCommit(BranchToCommitOperation<'a>),
+    BranchToBranch(BranchToBranchOperation<'a>),
+    CommittedFileToBranch(CommittedFileToBranchOperation<'a>),
+    CommittedFileToCommit(CommittedFileToCommitOperation<'a>),
+    CommittedFileToUnassigned(CommittedFileToUnassignedOperation<'a>),
+}
+
+impl<'a> UnassignUncommittedOperation<'a> {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::MoveHunk);
+        assign::unassign_uncommitted(ctx, self.hunk_assignments, self.description, out)
+    }
+}
+
+impl<'a> UncommittedToCommitOperation<'a> {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::AmendCommit);
+        amend::uncommitted_to_commit(ctx, self.hunk_assignments, self.description, self.oid, out)
+    }
+}
+
+impl<'a> UncommittedToBranchOperation<'a> {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::MoveHunk);
+        assign::assign_uncommitted_to_branch(
+            ctx,
+            self.hunk_assignments,
+            self.description,
+            self.name,
+            out,
+        )
+    }
+}
+
+impl<'a> UncommittedToStackOperation<'a> {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::MoveHunk);
+        assign::assign_uncommitted_to_stack(
+            ctx,
+            self.hunk_assignments,
+            self.description,
+            &self.stack_id,
+            out,
+        )
+    }
+}
+
+impl StackToUnassignedOperation {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::MoveHunk);
+        assign::assign_all(
+            ctx,
+            Some(assign::AssignTarget::Stack(&self.stack_id)),
+            None,
+            out,
+        )
+    }
+}
+
+impl StackToStackOperation {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::MoveHunk);
+        assign::assign_all(
+            ctx,
+            Some(assign::AssignTarget::Stack(&self.from)),
+            Some(assign::AssignTarget::Stack(&self.to)),
+            out,
+        )
+    }
+}
+
+impl<'a> StackToBranchOperation<'a> {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::MoveHunk);
+        assign::assign_all(
+            ctx,
+            Some(assign::AssignTarget::Stack(&self.from)),
+            Some(assign::AssignTarget::Branch(self.to)),
+            out,
+        )
+    }
+}
+
+impl UnassignedToCommitOperation {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::AmendCommit);
+        amend::assignments_to_commit(ctx, None, self.oid, out)
+    }
+}
+
+impl<'a> UnassignedToBranchOperation<'a> {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::MoveHunk);
+        assign::assign_all(ctx, None, Some(assign::AssignTarget::Branch(self.to)), out)
+    }
+}
+
+impl UnassignedToStackOperation {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::MoveHunk);
+        assign::assign_all(ctx, None, Some(assign::AssignTarget::Stack(&self.to)), out)
+    }
+}
+
+impl UndoCommitOperation {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::UndoCommit);
+        undo::commit(ctx, self.oid, out)
+    }
+}
+
+impl SquashCommitsOperation {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::SquashCommit);
+        squash::commits(ctx, self.source, self.destination, None, out)
+    }
+}
+
+impl<'a> MoveCommitToBranchOperation<'a> {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        move_commit_to_branch(ctx, self.oid, self.name, out)
+    }
+}
+
+impl<'a> BranchToUnassignedOperation<'a> {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::MoveHunk);
+        assign::assign_all(
+            ctx,
+            Some(assign::AssignTarget::Branch(self.from)),
+            None,
+            out,
+        )
+    }
+}
+
+impl<'a> BranchToStackOperation<'a> {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::MoveHunk);
+        assign::assign_all(
+            ctx,
+            Some(assign::AssignTarget::Branch(self.from)),
+            Some(assign::AssignTarget::Stack(&self.to)),
+            out,
+        )
+    }
+}
+
+impl<'a> BranchToCommitOperation<'a> {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::AmendCommit);
+        amend::assignments_to_commit(ctx, Some(self.name), self.oid, out)
+    }
+}
+
+impl<'a> BranchToBranchOperation<'a> {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::MoveHunk);
+        assign::assign_all(
+            ctx,
+            Some(assign::AssignTarget::Branch(self.from)),
+            Some(assign::AssignTarget::Branch(self.to)),
+            out,
+        )
+    }
+}
+
+impl<'a> CommittedFileToBranchOperation<'a> {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::FileChanges);
+        crate::command::commit::file::uncommit_file(
+            ctx,
+            self.path,
+            self.commit_oid,
+            Some(self.name),
+            out,
+        )
+    }
+}
+
+impl<'a> CommittedFileToCommitOperation<'a> {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::FileChanges);
+        crate::command::commit::file::commited_file_to_another_commit(
+            ctx,
+            self.path,
+            self.commit_oid,
+            self.oid,
+            out,
+        )
+    }
+}
+
+impl<'a> CommittedFileToUnassignedOperation<'a> {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        create_snapshot(ctx, OperationKind::FileChanges);
+        crate::command::commit::file::uncommit_file(ctx, self.path, self.commit_oid, None, out)
+    }
 }
 
 impl<'a> RubOperation<'a> {
-    /// Executes this operation, creating snapshots and performing the necessary actions.
-    fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+    /// Executes this operation, delegating to the wrapped operation payload.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
         match self {
-            RubOperation::UnassignUncommitted(hunk_assignments, description) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::unassign_uncommitted(ctx, hunk_assignments, description, out)
-            }
-            RubOperation::UncommittedToCommit(hunk_assignments, description, oid) => {
-                create_snapshot(ctx, OperationKind::AmendCommit);
-                amend::uncommitted_to_commit(ctx, hunk_assignments, description, oid, out)
-            }
-            RubOperation::UncommittedToBranch(hunk_assignments, description, name) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_uncommitted_to_branch(ctx, hunk_assignments, description, name, out)
-            }
-            RubOperation::UncommittedToStack(hunk_assignments, description, stack_id) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_uncommitted_to_stack(
-                    ctx,
-                    hunk_assignments,
-                    description,
-                    &stack_id,
-                    out,
-                )
-            }
-            RubOperation::StackToUnassigned(stack_id) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(ctx, Some(assign::AssignTarget::Stack(&stack_id)), None, out)
-            }
-            RubOperation::StackToStack { from, to } => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(
-                    ctx,
-                    Some(assign::AssignTarget::Stack(&from)),
-                    Some(assign::AssignTarget::Stack(&to)),
-                    out,
-                )
-            }
-            RubOperation::StackToBranch { from, to } => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(
-                    ctx,
-                    Some(assign::AssignTarget::Stack(&from)),
-                    Some(assign::AssignTarget::Branch(to)),
-                    out,
-                )
-            }
-            RubOperation::UnassignedToCommit(oid) => {
-                create_snapshot(ctx, OperationKind::AmendCommit);
-                amend::assignments_to_commit(ctx, None, oid, out)
-            }
-            RubOperation::UnassignedToBranch(to) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(ctx, None, Some(assign::AssignTarget::Branch(to)), out)
-            }
-            RubOperation::UnassignedToStack(to) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(ctx, None, Some(assign::AssignTarget::Stack(&to)), out)
-            }
-            RubOperation::UndoCommit(oid) => {
-                create_snapshot(ctx, OperationKind::UndoCommit);
-                undo::commit(ctx, oid, out)
-            }
-            RubOperation::SquashCommits {
-                source,
-                destination,
-            } => {
-                create_snapshot(ctx, OperationKind::SquashCommit);
-                squash::commits(ctx, source, destination, None, out)
-            }
-            RubOperation::MoveCommitToBranch(oid, name) => {
-                create_snapshot(ctx, OperationKind::MoveCommit);
-                move_commit::to_branch(ctx, oid, name, out)
-            }
-            RubOperation::BranchToUnassigned(from) => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(ctx, Some(assign::AssignTarget::Branch(from)), None, out)
-            }
-            RubOperation::BranchToStack { from, to } => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(
-                    ctx,
-                    Some(assign::AssignTarget::Branch(from)),
-                    Some(assign::AssignTarget::Stack(&to)),
-                    out,
-                )
-            }
-            RubOperation::BranchToCommit(name, oid) => {
-                create_snapshot(ctx, OperationKind::AmendCommit);
-                amend::assignments_to_commit(ctx, Some(name), oid, out)
-            }
-            RubOperation::BranchToBranch { from, to } => {
-                create_snapshot(ctx, OperationKind::MoveHunk);
-                assign::assign_all(
-                    ctx,
-                    Some(assign::AssignTarget::Branch(from)),
-                    Some(assign::AssignTarget::Branch(to)),
-                    out,
-                )
-            }
-            RubOperation::CommittedFileToBranch(path, commit_oid, name) => {
-                create_snapshot(ctx, OperationKind::FileChanges);
-                commits::uncommit_file(ctx, path, *commit_oid, Some(name), out)
-            }
-            RubOperation::CommittedFileToCommit(path, commit_oid, oid) => {
-                create_snapshot(ctx, OperationKind::FileChanges);
-                commits::commited_file_to_another_commit(ctx, path, *commit_oid, *oid, out)
-            }
-            RubOperation::CommittedFileToUnassigned(path, commit_oid) => {
-                create_snapshot(ctx, OperationKind::FileChanges);
-                commits::uncommit_file(ctx, path, *commit_oid, None, out)
-            }
+            RubOperation::UnassignUncommitted(operation) => operation.execute(ctx, out),
+            RubOperation::UncommittedToCommit(operation) => operation.execute(ctx, out),
+            RubOperation::UncommittedToBranch(operation) => operation.execute(ctx, out),
+            RubOperation::UncommittedToStack(operation) => operation.execute(ctx, out),
+            RubOperation::StackToUnassigned(operation) => operation.execute(ctx, out),
+            RubOperation::StackToStack(operation) => operation.execute(ctx, out),
+            RubOperation::StackToBranch(operation) => operation.execute(ctx, out),
+            RubOperation::UnassignedToCommit(operation) => operation.execute(ctx, out),
+            RubOperation::UnassignedToBranch(operation) => operation.execute(ctx, out),
+            RubOperation::UnassignedToStack(operation) => operation.execute(ctx, out),
+            RubOperation::UndoCommit(operation) => operation.execute(ctx, out),
+            RubOperation::SquashCommits(operation) => operation.execute(ctx, out),
+            RubOperation::MoveCommitToBranch(operation) => operation.execute(ctx, out),
+            RubOperation::BranchToUnassigned(operation) => operation.execute(ctx, out),
+            RubOperation::BranchToStack(operation) => operation.execute(ctx, out),
+            RubOperation::BranchToCommit(operation) => operation.execute(ctx, out),
+            RubOperation::BranchToBranch(operation) => operation.execute(ctx, out),
+            RubOperation::CommittedFileToBranch(operation) => operation.execute(ctx, out),
+            RubOperation::CommittedFileToCommit(operation) => operation.execute(ctx, out),
+            RubOperation::CommittedFileToUnassigned(operation) => operation.execute(ctx, out),
         }
     }
 }
@@ -229,7 +474,6 @@ impl<'a> RubOperation<'a> {
 ///
 /// This function is the single source of truth for what operations are valid.
 /// Both `handle()` and disambiguation logic use this function.
-#[allow(private_interfaces)]
 pub(crate) fn route_operation<'a>(
     source: &'a CliId,
     target: &'a CliId,
@@ -242,35 +486,43 @@ pub(crate) fn route_operation<'a>(
             let hunk_assignments = uncommitted.hunk_assignments.as_ref();
             let description = uncommitted.describe();
             Some(RubOperation::UnassignUncommitted(
-                hunk_assignments,
-                description,
+                UnassignUncommittedOperation {
+                    hunk_assignments,
+                    description,
+                },
             ))
         }
         (Uncommitted(uncommitted), Commit { commit_id, .. }) => {
             let hunk_assignments = uncommitted.hunk_assignments.as_ref();
             let description = uncommitted.describe();
             Some(RubOperation::UncommittedToCommit(
-                hunk_assignments,
-                description,
-                commit_id,
+                UncommittedToCommitOperation {
+                    hunk_assignments,
+                    description,
+                    oid: *commit_id,
+                },
             ))
         }
         (Uncommitted(uncommitted), Branch { name, .. }) => {
             let hunk_assignments = uncommitted.hunk_assignments.as_ref();
             let description = uncommitted.describe();
             Some(RubOperation::UncommittedToBranch(
-                hunk_assignments,
-                description,
-                name,
+                UncommittedToBranchOperation {
+                    hunk_assignments,
+                    description,
+                    name,
+                },
             ))
         }
         (Uncommitted(uncommitted), Stack { stack_id, .. }) => {
             let hunk_assignments = uncommitted.hunk_assignments.as_ref();
             let description = uncommitted.describe();
             Some(RubOperation::UncommittedToStack(
-                hunk_assignments,
-                description,
-                *stack_id,
+                UncommittedToStackOperation {
+                    hunk_assignments,
+                    description,
+                    stack_id: *stack_id,
+                },
             ))
         }
         // Uncommitted path prefix -> *
@@ -284,8 +536,10 @@ pub(crate) fn route_operation<'a>(
                 .as_ref()
                 .map(|(_, hunk_assignment)| hunk_assignment);
             Some(RubOperation::UnassignUncommitted(
-                hunk_assignments,
-                "hunk(s)".to_string(),
+                UnassignUncommittedOperation {
+                    hunk_assignments,
+                    description: "hunk(s)".to_string(),
+                },
             ))
         }
         (
@@ -298,9 +552,11 @@ pub(crate) fn route_operation<'a>(
                 .as_ref()
                 .map(|(_, hunk_assignment)| hunk_assignment);
             Some(RubOperation::UncommittedToCommit(
-                hunk_assignments,
-                "hunk(s)".to_string(),
-                commit_id,
+                UncommittedToCommitOperation {
+                    hunk_assignments,
+                    description: "hunk(s)".to_string(),
+                    oid: *commit_id,
+                },
             ))
         }
         (
@@ -313,9 +569,11 @@ pub(crate) fn route_operation<'a>(
                 .as_ref()
                 .map(|(_, hunk_assignment)| hunk_assignment);
             Some(RubOperation::UncommittedToBranch(
-                hunk_assignments,
-                "hunk(s)".to_string(),
-                name,
+                UncommittedToBranchOperation {
+                    hunk_assignments,
+                    description: "hunk(s)".to_string(),
+                    name,
+                },
             ))
         }
         (
@@ -328,34 +586,47 @@ pub(crate) fn route_operation<'a>(
                 .as_ref()
                 .map(|(_, hunk_assignment)| hunk_assignment);
             Some(RubOperation::UncommittedToStack(
-                hunk_assignments,
-                "hunk(s)".to_string(),
-                *stack_id,
+                UncommittedToStackOperation {
+                    hunk_assignments,
+                    description: "hunk(s)".to_string(),
+                    stack_id: *stack_id,
+                },
             ))
         }
         // Stack -> *
-        (Stack { stack_id, .. }, Unassigned { .. }) => {
-            Some(RubOperation::StackToUnassigned(*stack_id))
-        }
+        (Stack { stack_id, .. }, Unassigned { .. }) => Some(RubOperation::StackToUnassigned(
+            StackToUnassignedOperation {
+                stack_id: *stack_id,
+            },
+        )),
         (Stack { stack_id: from, .. }, Stack { stack_id: to, .. }) => {
-            Some(RubOperation::StackToStack {
+            Some(RubOperation::StackToStack(StackToStackOperation {
                 from: *from,
                 to: *to,
-            })
+            }))
         }
         (Stack { stack_id: from, .. }, Branch { name: to, .. }) => {
-            Some(RubOperation::StackToBranch { from: *from, to })
+            Some(RubOperation::StackToBranch(StackToBranchOperation {
+                from: *from,
+                to,
+            }))
         }
         // Unassigned -> *
-        (Unassigned { .. }, Commit { commit_id, .. }) => {
-            Some(RubOperation::UnassignedToCommit(commit_id))
-        }
-        (Unassigned { .. }, Branch { name, .. }) => Some(RubOperation::UnassignedToBranch(name)),
-        (Unassigned { .. }, Stack { stack_id, .. }) => {
-            Some(RubOperation::UnassignedToStack(*stack_id))
-        }
+        (Unassigned { .. }, Commit { commit_id, .. }) => Some(RubOperation::UnassignedToCommit(
+            UnassignedToCommitOperation { oid: *commit_id },
+        )),
+        (Unassigned { .. }, Branch { name, .. }) => Some(RubOperation::UnassignedToBranch(
+            UnassignedToBranchOperation { to: name },
+        )),
+        (Unassigned { .. }, Stack { stack_id, .. }) => Some(RubOperation::UnassignedToStack(
+            UnassignedToStackOperation { to: *stack_id },
+        )),
         // Commit -> *
-        (Commit { commit_id, .. }, Unassigned { .. }) => Some(RubOperation::UndoCommit(commit_id)),
+        (Commit { commit_id, .. }, Unassigned { .. }) => {
+            Some(RubOperation::UndoCommit(UndoCommitOperation {
+                oid: *commit_id,
+            }))
+        }
         (
             Commit {
                 commit_id: source, ..
@@ -364,24 +635,37 @@ pub(crate) fn route_operation<'a>(
                 commit_id: destination,
                 ..
             },
-        ) => Some(RubOperation::SquashCommits {
-            source,
-            destination,
-        }),
-        (Commit { commit_id, .. }, Branch { name, .. }) => {
-            Some(RubOperation::MoveCommitToBranch(commit_id, name))
-        }
+        ) => Some(RubOperation::SquashCommits(SquashCommitsOperation {
+            source: *source,
+            destination: *destination,
+        })),
+        (Commit { commit_id, .. }, Branch { name, .. }) => Some(RubOperation::MoveCommitToBranch(
+            MoveCommitToBranchOperation {
+                oid: *commit_id,
+                name,
+            },
+        )),
         // Branch -> *
-        (Branch { name, .. }, Unassigned { .. }) => Some(RubOperation::BranchToUnassigned(name)),
-        (Branch { name: from, .. }, Stack { stack_id, .. }) => Some(RubOperation::BranchToStack {
-            from,
-            to: *stack_id,
-        }),
+        (Branch { name, .. }, Unassigned { .. }) => Some(RubOperation::BranchToUnassigned(
+            BranchToUnassignedOperation { from: name },
+        )),
+        (Branch { name: from, .. }, Stack { stack_id, .. }) => {
+            Some(RubOperation::BranchToStack(BranchToStackOperation {
+                from,
+                to: *stack_id,
+            }))
+        }
         (Branch { name, .. }, Commit { commit_id, .. }) => {
-            Some(RubOperation::BranchToCommit(name, commit_id))
+            Some(RubOperation::BranchToCommit(BranchToCommitOperation {
+                name,
+                oid: *commit_id,
+            }))
         }
         (Branch { name: from, .. }, Branch { name: to, .. }) => {
-            Some(RubOperation::BranchToBranch { from, to })
+            Some(RubOperation::BranchToBranch(BranchToBranchOperation {
+                from,
+                to,
+            }))
         }
         // CommittedFile -> *
         (
@@ -390,9 +674,11 @@ pub(crate) fn route_operation<'a>(
             },
             Branch { name, .. },
         ) => Some(RubOperation::CommittedFileToBranch(
-            path.as_ref(),
-            commit_id,
-            name,
+            CommittedFileToBranchOperation {
+                path: path.as_ref(),
+                commit_oid: *commit_id,
+                name,
+            },
         )),
         (
             CommittedFile {
@@ -404,9 +690,11 @@ pub(crate) fn route_operation<'a>(
                 commit_id: target, ..
             },
         ) => Some(RubOperation::CommittedFileToCommit(
-            path.as_ref(),
-            source,
-            target,
+            CommittedFileToCommitOperation {
+                path: path.as_ref(),
+                commit_oid: *source,
+                oid: *target,
+            },
         )),
         (
             CommittedFile {
@@ -414,8 +702,10 @@ pub(crate) fn route_operation<'a>(
             },
             Unassigned { .. },
         ) => Some(RubOperation::CommittedFileToUnassigned(
-            path.as_ref(),
-            commit_id,
+            CommittedFileToUnassignedOperation {
+                path: path.as_ref(),
+                commit_oid: *commit_id,
+            },
         )),
         // All other combinations are invalid
         _ => None,
@@ -428,7 +718,7 @@ pub(crate) fn handle(
     source_str: &str,
     target_str: &str,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let (sources, target) = ids(ctx, &id_map, source_str, target_str, out)?;
 
     for source in sources {
@@ -513,8 +803,16 @@ fn ids(
 }
 fn create_snapshot(ctx: &mut Context, operation: OperationKind) {
     let mut guard = ctx.exclusive_worktree_access();
+    create_snapshot_with_perm(ctx, operation, guard.write_permission());
+}
+
+fn create_snapshot_with_perm(
+    ctx: &mut Context,
+    operation: OperationKind,
+    perm: &mut RepoExclusive,
+) {
     let _snapshot = ctx
-        .create_snapshot(SnapshotDetails::new(operation), guard.write_permission())
+        .create_snapshot(SnapshotDetails::new(operation), perm)
         .ok(); // Ignore errors for snapshot creation
 }
 
@@ -560,8 +858,9 @@ pub(crate) fn handle_uncommit(
     ctx: &mut Context,
     out: &mut OutputChannel,
     source_str: &str,
+    discard: bool,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let sources = parse_sources_with_disambiguation(ctx, &id_map, source_str, out)?;
 
     // Validate that all sources are commits or committed files
@@ -580,6 +879,47 @@ pub(crate) fn handle_uncommit(
         }
     }
 
+    if discard {
+        let json_mode = out.for_json().is_some();
+
+        for source in sources {
+            match source {
+                CliId::Commit { commit_id, .. } => {
+                    but_api::commit::discard_commit::commit_discard(ctx, commit_id)?;
+
+                    if !json_mode && let Some(out) = out.for_human() {
+                        let repo = ctx.repo.get()?;
+                        writeln!(
+                            out,
+                            "Discarded {}",
+                            shorten_object_id(&repo, commit_id).blue()
+                        )?;
+                    }
+                }
+                CliId::CommittedFile {
+                    path, commit_id, ..
+                } => {
+                    crate::command::commit::file::uncommit_file_and_discard(
+                        ctx,
+                        path.as_ref(),
+                        commit_id,
+                        out,
+                        !json_mode,
+                    )?;
+                }
+                _ => {
+                    unreachable!("uncommit sources were validated before execution");
+                }
+            }
+        }
+
+        if json_mode && let Some(out) = out.for_json() {
+            out.write_value(serde_json::json!({"ok": true}))?;
+        }
+
+        return Ok(());
+    }
+
     // Call the main rub handler with "zz" as target
     handle(ctx, out, source_str, "zz")
 }
@@ -592,7 +932,8 @@ pub(crate) fn handle_amend(
     file_str: &str,
     commit_str: &str,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
     let files = parse_sources_with_disambiguation(ctx, &id_map, file_str, out)?;
     let commit = resolve_single_id(ctx, &id_map, commit_str, "Commit", out)?;
 
@@ -613,9 +954,31 @@ pub(crate) fn handle_amend(
     }
 
     // Validate that commit is a commit
-    match &commit {
-        CliId::Commit { .. } => {
-            // Valid type for target
+    match commit {
+        CliId::Commit { commit_id, .. } => {
+            // TODO(dp by st): This is a duplication of the UncommittedToCommitOperation which was previously
+            //                 called through `handle()` after validation. The problem is that it does its own locking.
+            //                 Since these are all mutations, it would have to be changed to take `perm` as well.
+            for file in files {
+                match file {
+                    CliId::Uncommitted(uncommitted) => {
+                        create_snapshot_with_perm(
+                            ctx,
+                            OperationKind::AmendCommit,
+                            guard.write_permission(),
+                        );
+                        amend::uncommitted_to_commit_with_perm(
+                            ctx,
+                            uncommitted.hunk_assignments.as_ref(),
+                            uncommitted.describe(),
+                            commit_id,
+                            out,
+                            guard.write_permission(),
+                        )?;
+                    }
+                    _ => unreachable!("validated beforehand"),
+                }
+            }
         }
         other => {
             bail!(
@@ -625,9 +988,7 @@ pub(crate) fn handle_amend(
             );
         }
     }
-
-    // Call the main rub handler
-    handle(ctx, out, file_str, commit_str)
+    Ok(())
 }
 
 /// Handler for `but stage <file_or_hunk> <branch>` - runs `but rub <file_or_hunk> <branch>`
@@ -638,7 +999,7 @@ pub(crate) fn handle_stage(
     file_or_hunk_str: &str,
     branch_str: &str,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let files = parse_sources_with_disambiguation(ctx, &id_map, file_or_hunk_str, out)?;
     let branch = resolve_single_id(ctx, &id_map, branch_str, "Branch", out)?;
 
@@ -685,7 +1046,7 @@ pub(crate) fn handle_stage_tui(
 ) -> anyhow::Result<()> {
     use crate::tui::stage_viewer::{StageFileEntry, StageResult};
 
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
 
     // Resolve branch: from flag, or interactive selection
     let branch_name = if let Some(branch_str) = branch_str {
@@ -766,7 +1127,7 @@ pub(crate) fn handle_stage_tui(
                 unselected.into_iter(),
                 None,
             )?);
-            assign::do_assignments(ctx, reqs, out)?;
+            assign::do_assignments(ctx, reqs)?;
             if let Some(out) = out.for_human() {
                 writeln!(
                     out,
@@ -794,7 +1155,7 @@ pub(crate) fn handle_unstage(
     file_or_hunk_str: &str,
     branch_str: Option<&str>,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let files = parse_sources_with_disambiguation(ctx, &id_map, file_or_hunk_str, out)?;
 
     // Validate that all files are uncommitted or a path prefix
@@ -851,7 +1212,6 @@ mod tests {
                 path: "test.txt".to_string(),
                 path_bytes: BString::from("test.txt"),
                 stack_id: None,
-                hunk_locks: None,
                 line_nums_added: None,
                 line_nums_removed: None,
                 diff: None,
@@ -1062,37 +1422,37 @@ mod tests {
 
         // Commit -> Commit should be SquashCommits
         match route_operation(&commit, &commit_id()) {
-            Some(RubOperation::SquashCommits { .. }) => {}
+            Some(RubOperation::SquashCommits(..)) => {}
             _ => panic!("Expected SquashCommits variant"),
         }
 
         // Commit -> Unassigned should be UndoCommit
         match route_operation(&commit, &unassigned) {
-            Some(RubOperation::UndoCommit(_)) => {}
+            Some(RubOperation::UndoCommit(..)) => {}
             _ => panic!("Expected UndoCommit variant"),
         }
 
         // Branch -> Stack should be BranchToStack
         match route_operation(&branch, &stack) {
-            Some(RubOperation::BranchToStack { .. }) => {}
+            Some(RubOperation::BranchToStack(..)) => {}
             _ => panic!("Expected BranchToStack variant"),
         }
 
         // Stack -> Branch should be StackToBranch
         match route_operation(&stack, &branch) {
-            Some(RubOperation::StackToBranch { .. }) => {}
+            Some(RubOperation::StackToBranch(..)) => {}
             _ => panic!("Expected StackToBranch variant"),
         }
 
         // CommittedFile -> Commit should be CommittedFileToCommit
         match route_operation(&committed_file, &commit) {
-            Some(RubOperation::CommittedFileToCommit(_, _, _)) => {}
+            Some(RubOperation::CommittedFileToCommit(..)) => {}
             _ => panic!("Expected CommittedFileToCommit variant"),
         }
 
         // Unassigned -> Stack should be UnassignedToStack
         match route_operation(&unassigned, &stack) {
-            Some(RubOperation::UnassignedToStack(_)) => {}
+            Some(RubOperation::UnassignedToStack(..)) => {}
             _ => panic!("Expected UnassignedToStack variant"),
         }
     }

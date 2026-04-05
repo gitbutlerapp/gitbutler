@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -eu -o pipefail
-CLI=${1:?The first argument is the GitButler CLI}
 
 function tick () {
   if test -z "${tick+set}"; then
@@ -13,40 +12,69 @@ function tick () {
   export GIT_COMMITTER_DATE GIT_AUTHOR_DATE
 }
 
-git init remote
+function commit_exact () {
+  local message=${1:?}
+  git add -A
+  local tree
+  tree=$(git write-tree)
+  local parent_args=()
+  if git rev-parse --verify HEAD >/dev/null 2>&1; then
+    parent_args=(-p HEAD)
+  fi
+  local commit
+  commit=$(printf "%s" "$message" | git commit-tree "$tree" "${parent_args[@]}")
+  local current_branch
+  current_branch=$(git symbolic-ref -q HEAD || true)
+  if [[ -n "$current_branch" ]]; then
+    git update-ref "$current_branch" "$commit"
+  fi
+  git reset --hard "$commit" >/dev/null
+}
+
+function commit_with_tick () {
+  local message=${1:?}
+  tick
+  commit_exact "$message"
+}
+
+git init --initial-branch=main remote
 (cd remote
+  git config user.name "Author"
+  git config user.email "author@example.com"
   echo a > file
   git add . && git commit -m "init"
 )
 
-export GITBUTLER_CLI_DATA_DIR=../user/gitbutler/app-data
 git clone remote multiple-commits
 (cd multiple-commits
   git config user.name "Author"
   git config user.email "author@example.com"
 
   git branch existing-branch
-  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
-
-  $CLI branch create --set-default other_stack
+  git checkout -b other_stack
   echo change0 >> other_file
-  $CLI branch commit other_stack -m "commit 0"
+  commit_with_tick "commit 0"
 
-  $CLI branch create --set-default my_stack
+  git checkout main
+  git checkout -b my_stack
   echo change1 >> file
-  $CLI branch commit my_stack -m "commit 1"
+  commit_with_tick "commit 1"
   echo change2 >> file
-  $CLI branch commit my_stack -m "commit 2"
+  commit_with_tick "commit 2"
   echo change3 >> file
-  $CLI branch commit my_stack -m "commit 3"
+  commit_with_tick "commit 3"
 
-  $CLI branch series my_stack -s "top-series"
+  git branch top-series HEAD
+  git checkout top-series
   echo change4 >> file
-  $CLI branch commit my_stack -m "commit 4"
+  commit_with_tick "commit 4"
   echo change5 >> file
-  $CLI branch commit my_stack -m "commit 5"
+  commit_with_tick "commit 5"
   echo change6 >> file
-  $CLI branch commit my_stack -m "commit 6"
+  commit_with_tick "commit 6"
+
+  git checkout -b gitbutler/workspace
+  git merge --no-ff -m "GitButler Workspace Commit" other_stack
 )
 
 git clone remote multiple-commits-small
@@ -55,19 +83,22 @@ git clone remote multiple-commits-small
   git config user.email "author@example.com"
 
   git branch existing-branch
-  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
-
-  $CLI branch create --set-default other_stack
+  git checkout -b other_stack
   echo change0 >> other_file
-  $CLI branch commit other_stack -m "commit 0"
+  commit_with_tick "commit 0"
 
-  $CLI branch create --set-default my_stack
+  git checkout main
+  git checkout -b my_stack
   echo change1 >> file
-  $CLI branch commit my_stack -m "commit 1"
+  commit_with_tick "commit 1"
 
-  $CLI branch series my_stack -s "top-series"
+  git branch top-series HEAD
+  git checkout top-series
   echo change4 >> file
-  $CLI branch commit my_stack -m "commit 2"
+  commit_with_tick "commit 2"
+
+  git checkout -b gitbutler/workspace
+  git merge --no-ff -m "GitButler Workspace Commit" other_stack
 )
 
 git clone remote multiple-commits-empty-top
@@ -76,17 +107,19 @@ git clone remote multiple-commits-empty-top
   git config user.email "author@example.com"
 
   git branch existing-branch
-  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
-
-  $CLI branch create --set-default other_stack
+  git checkout -b other_stack
   echo change0 >> other_file
-  $CLI branch commit other_stack -m "commit 0"
+  commit_with_tick "commit 0"
 
-  $CLI branch create --set-default my_stack
+  git checkout main
+  git checkout -b my_stack
   echo change1 >> file
-  $CLI branch commit my_stack -m "commit 1"
+  commit_with_tick "commit 1"
 
-  $CLI branch series my_stack -s "top-series"
+  git branch top-series HEAD
+
+  git checkout -b gitbutler/workspace
+  git merge --no-ff -m "GitButler Workspace Commit" other_stack
 )
 
 git clone remote overlapping-commits
@@ -96,18 +129,19 @@ tick
   git config user.email "author@example.com"
   
   git branch existing-branch
-  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
-
-  $CLI branch create --set-default other_stack
+  git checkout -b other_stack
   echo change0 >> other_file
-  $CLI branch commit other_stack -m "commit 0"
+  commit_with_tick "commit 0"
 
-  $CLI branch create --set-default my_stack
+  git checkout main
+  git checkout -b my_stack
   echo x > file
-  $CLI branch commit my_stack -m "commit 1"
-  tick
+  commit_with_tick "commit 1"
   echo y > file
-  $CLI branch commit my_stack -m "commit 2"
+  commit_with_tick "commit 2"
 
-  $CLI branch series my_stack -s "top-series"
+  git branch top-series HEAD
+
+  git checkout -b gitbutler/workspace
+  git merge --no-ff -m "GitButler Workspace Commit" other_stack
 )

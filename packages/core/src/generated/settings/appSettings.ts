@@ -73,6 +73,10 @@ export type FeatureFlags = {
 	 */
 	singleBranch: boolean;
 	/**
+	 * Enable IRC integration.
+	 */
+	irc: boolean;
+	/**
 	 * Control how the filesystem watch should be established.
 	 * Possible values: "auto", "legacy", "modern".
 	 * "auto" automatically picks based on platform heuristics (default).
@@ -94,6 +98,68 @@ export type GitHubOAuthAppSettings = {
 	 * Client ID for the GitHub OAuth application. Set this to use custom (non-GitButler) OAuth application.
 	 */
 	oauthClientId: string;
+};
+
+export type IrcConnectionSettings = {
+	/**
+	 * Whether this connection is enabled (controls connect/disconnect).
+	 */
+	enabled: boolean;
+	/**
+	 * IRC nickname
+	 */
+	nickname: string | null;
+	/**
+	 * Shared server connection password (the gate all clients must pass).
+	 *
+	 * # Security note
+	 * Stored in plaintext on disk. Do not use a password that protects sensitive
+	 * personal accounts — treat this as a low-value shared secret.
+	 */
+	serverPassword: string | null;
+	/**
+	 * Per-user SASL account password. On first use this registers the account.
+	 *
+	 * # Security note
+	 * Stored in plaintext on disk. Do not reuse a password from another service.
+	 */
+	saslPassword: string | null;
+	/**
+	 * IRC real name
+	 */
+	realname: string | null;
+};
+
+export type IrcServerSettings = {
+	/**
+	 * IRC server hostname (e.g., "irc.gitbutler.com")
+	 */
+	host: string;
+	/**
+	 * IRC server port (default: 6697 for TLS)
+	 */
+	port: number;
+};
+
+export type IrcSettings = {
+	/**
+	 * IRC server configuration
+	 */
+	server: IrcServerSettings;
+	/**
+	 * Auto-share new Claude Code sessions to IRC channels
+	 */
+	autoShare: boolean;
+	/**
+	 * Channel to auto-join when opening a project
+	 * If set, joins that channel name (sanitized)
+	 * If null, auto-constructs #project-name
+	 */
+	projectChannel: string | null;
+	/**
+	 * IRC connection settings
+	 */
+	connection: IrcConnectionSettings;
 };
 
 export type Reviews = {

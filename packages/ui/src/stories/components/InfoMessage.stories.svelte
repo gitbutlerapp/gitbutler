@@ -69,7 +69,7 @@
 	}}
 >
 	{#snippet template(args)}
-		<div style="padding: 20px; background: var(--clr-bg-1);">
+		<div style="padding: 20px; background: var(--bg-1);">
 			<InfoMessage
 				style={args.style}
 				outlined={args.outlined}
@@ -106,7 +106,7 @@
 >
 	{#snippet template()}
 		<div
-			style="padding: 20px; background: var(--clr-bg-1); display: flex; flex-direction: column; gap: 16px;"
+			style="padding: 20px; background: var(--bg-1); display: flex; flex-direction: column; gap: 16px;"
 		>
 			<InfoMessage style="info">
 				{#snippet title()}
@@ -160,7 +160,7 @@
 >
 	{#snippet template()}
 		<div
-			style="padding: 20px; background: var(--clr-bg-1); display: flex; flex-direction: column; gap: 16px;"
+			style="padding: 20px; background: var(--bg-1); display: flex; flex-direction: column; gap: 16px;"
 		>
 			<InfoMessage
 				style="info"
@@ -223,7 +223,7 @@
 >
 	{#snippet template()}
 		<div
-			style="padding: 20px; background: var(--clr-bg-1); display: flex; flex-direction: column; gap: 16px;"
+			style="padding: 20px; background: var(--bg-1); display: flex; flex-direction: column; gap: 16px;"
 		>
 			<InfoMessage style="info" filled>
 				{#snippet title()}
@@ -276,7 +276,7 @@
 	}}
 >
 	{#snippet template()}
-		<div style="padding: 20px; background: var(--clr-bg-1);">
+		<div style="padding: 20px; background: var(--bg-1);">
 			<InfoMessage
 				primaryLabel="Retry"
 				primaryAction={() => alert("Retry clicked!")}
@@ -366,7 +366,7 @@ Details: Connection timeout after 30 seconds
 >
 	{#snippet template()}
 		<div
-			style="padding: 20px; background: var(--clr-bg-1); display: flex; flex-direction: column; gap: 16px;"
+			style="padding: 20px; background: var(--bg-1); display: flex; flex-direction: column; gap: 16px;"
 		>
 			<InfoMessage style="info" outlined={false}>
 				{#snippet title()}
@@ -401,7 +401,7 @@ Details: Connection timeout after 30 seconds
 >
 	{#snippet template()}
 		<div
-			style="padding: 20px; background: var(--clr-bg-1); display: flex; flex-direction: column; gap: 16px;"
+			style="padding: 20px; background: var(--bg-1); display: flex; flex-direction: column; gap: 16px;"
 		>
 			<InfoMessage style="info" shadow>
 				{#snippet title()}
@@ -426,7 +426,7 @@ Details: Connection timeout after 30 seconds
 	}}
 >
 	{#snippet template()}
-		<div style="padding: 20px; background: var(--clr-bg-1);">
+		<div style="padding: 20px; background: var(--bg-1);">
 			<InfoMessage style="info">
 				{#snippet content()}
 					This is a simple message without a title.

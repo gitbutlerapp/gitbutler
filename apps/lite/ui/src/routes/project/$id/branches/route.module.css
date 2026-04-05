@@ -1,0 +1,32 @@
+.branchesListLane {
+	flex-shrink: 0;
+	width: 350px;
+}
+
+.branchDetailsLane {
+	flex-shrink: 0;
+	width: 350px;
+}
+
+.branchButton {
+	flex-grow: 1;
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
+	line-height: var(--item-line-height);
+}
+
+.branchApplyToggleDefaultIcon {
+	.branchApplyToggle:hover &,
+	.branchApplyToggle:focus-visible & {
+		display: none;
+	}
+}
+
+.branchApplyToggleHoverIcon {
+	display: none;
+
+	.branchApplyToggle:hover &,
+	.branchApplyToggle:focus-visible & {
+		display: block;
+	}
+}

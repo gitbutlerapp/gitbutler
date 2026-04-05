@@ -1,21 +1,25 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
-	import PreviewHeader from "$components/PreviewHeader.svelte";
-	import ReduxResult from "$components/ReduxResult.svelte";
 	import AddedDirectories from "$components/codegen/AddedDirectories.svelte";
 	import ClaudeCheck from "$components/codegen/ClaudeCheck.svelte";
+	import ClaudeUnavailableBanner from "$components/codegen/ClaudeUnavailableBanner.svelte";
 	import CodegenAskUserQuestion from "$components/codegen/CodegenAskUserQuestion.svelte";
-	import CodegenChatClaudeNotAvaliableBanner from "$components/codegen/CodegenChatClaudeNotAvaliableBanner.svelte";
 	import CodegenChatClaudeNotRegistered from "$components/codegen/CodegenChatClaudeNotRegistered.svelte";
-	import CodegenClaudeMessage from "$components/codegen/CodegenClaudeMessage.svelte";
 	import CodegenInput from "$components/codegen/CodegenInput.svelte";
+	import CodegenMessageItem from "$components/codegen/CodegenMessageItem.svelte";
 	import CodegenPromptConfigModal from "$components/codegen/CodegenPromptConfigModal.svelte";
 	import CodegenServiceMessageThinking from "$components/codegen/CodegenServiceMessageThinking.svelte";
 	import CodegenServiceMessageUseTool from "$components/codegen/CodegenServiceMessageUseTool.svelte";
 	import CodegenTodoAccordion from "$components/codegen/CodegenTodoAccordion.svelte";
+	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
+	import DrawerHeader from "$components/shared/DrawerHeader.svelte";
+	import ErrorBoundary from "$components/shared/ErrorBoundary.svelte";
+	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import noClaudeCodeSvg from "$lib/assets/empty-state/claude-disconected.svg?raw";
 	import laneNewSvg from "$lib/assets/empty-state/lane-new.svg?raw";
+	import { getEditorUri, URL_SERVICE } from "$lib/backend/url";
+	import { ATTACHMENT_SERVICE } from "$lib/codegen/attachmentService.svelte";
 	import { CLAUDE_CODE_SERVICE } from "$lib/codegen/claude";
+	import { MessageSender } from "$lib/codegen/messageQueue.svelte";
 	import {
 		currentStatus,
 		thinkingOrCompactingStartedAt,
@@ -27,13 +31,13 @@
 	} from "$lib/codegen/messages";
 	import { parseTemplates } from "$lib/codegen/templateParser";
 
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
 	import { RULES_SERVICE } from "$lib/rules/rulesService.svelte";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { SETTINGS } from "$lib/settings/userSettings";
-	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { formatCompactNumber } from "$lib/utils/number";
-	import { getEditorUri, URL_SERVICE } from "$lib/utils/url";
 	import { inject } from "@gitbutler/core/context";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import {
 		Button,
 		ContextMenu,
@@ -50,66 +54,46 @@
 	import VirtualList from "@gitbutler/ui/components/VirtualList.svelte";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import type {
-		ClaudeMessage,
 		ThinkingLevel,
 		ModelType,
 		PermissionMode,
 		PermissionDecision,
-		ClaudePermissionRequest,
 	} from "$lib/codegen/types";
 
 	type Props = {
-		projectId: string;
-		branchName: string;
-		stackId?: string;
-		laneId: string;
-		initialPrompt?: string;
-		isStackActive?: boolean;
-		projectRegistered?: boolean;
-		events: ClaudeMessage[];
-		permissionRequests: ClaudePermissionRequest[];
-		sessionId?: string;
 		hasRulesToClear?: boolean;
-		onMcpSettings?: () => void;
+		projectRegistered?: boolean;
 		onclose?: () => void;
-		onChange: (value: string) => void;
-		onAbort?: () => Promise<void>;
-		onSubmit?: (prompt: string) => Promise<void>;
-		onAnswerQuestion?: (answers: Record<string, string>) => Promise<void>;
-		onRetryConfig?: () => Promise<void>;
+		onMcpSettings?: () => void;
 	};
-	const {
-		projectId,
-		stackId,
-		laneId,
-		branchName,
-		initialPrompt,
-		isStackActive,
-		projectRegistered,
-		events,
-		permissionRequests,
-		sessionId,
-		hasRulesToClear,
-		onclose,
-		onChange,
-		onAbort,
-		onSubmit,
-		onMcpSettings,
-		onAnswerQuestion,
-		onRetryConfig,
-	}: Props = $props();
+	const { hasRulesToClear, projectRegistered, onclose, onMcpSettings }: Props = $props();
 
-	const stableBranchName = $derived(branchName);
+	const controller = getStackContext();
+	const projectId = $derived(controller.projectId);
+	const stackId = $derived(controller.stackId);
+
+	const branchName = $derived(controller.branchName ?? "");
 
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const rulesService = inject(RULES_SERVICE);
-	const uiState = inject(UI_STATE);
 	const urlService = inject(URL_SERVICE);
 	const userSettings = inject(SETTINGS);
 	const settingsService = inject(SETTINGS_SERVICE);
+	const attachmentService = inject(ATTACHMENT_SERVICE);
 	const claudeSettings = $derived($settingsService?.claude);
 
+	const isStackActiveQuery = $derived(claudeCodeService.isStackActive(projectId, stackId));
+	const isStackActive = $derived(isStackActiveQuery?.response || false);
+	const eventsQuery = $derived(claudeCodeService.messages({ projectId, stackId }));
+	const events = $derived(eventsQuery.response || []);
+	const sessionIdQuery = $derived(rulesService.aiSessionId(projectId, stackId));
+	const sessionId = $derived(sessionIdQuery.response);
+	const permissionRequestsQuery = $derived(claudeCodeService.permissionRequests({ projectId }));
+	const permissionRequests = $derived(permissionRequestsQuery.response || []);
+	const attachments = $derived(attachmentService.getByBranch(branchName));
+
 	const claudeAvailable = $derived(claudeCodeService.checkAvailable(undefined));
+	const canEnterChat = $derived(!!projectRegistered);
 
 	let clearContextModal = $state<Modal>();
 	let modelContextMenu = $state<ContextMenu>();
@@ -173,10 +157,25 @@
 		urlService.openExternalUrl(editorUri);
 	}
 
-	const projectState = uiState.project(projectId);
-	const selectedThinkingLevel = $derived(projectState.thinkingLevel.current);
-	const selectedModel = $derived(projectState.selectedModel.current);
-	const selectedPermissionMode = $derived(uiState.lane(laneId).permissionMode.current);
+	const selectedThinkingLevel = $derived(controller.projectState.thinkingLevel.current);
+	const selectedModel = $derived(controller.projectState.selectedModel.current);
+	const selectedPermissionMode = $derived(controller.laneState.permissionMode.current);
+
+	const messageSender = $derived(
+		stackId && branchName
+			? new MessageSender({
+					projectId: reactive(() => projectId),
+					selectedBranch: reactive(() => ({
+						stackId: stackId!,
+						head: branchName!,
+					})),
+					thinkingLevel: reactive(() => selectedThinkingLevel),
+					model: reactive(() => selectedModel),
+					permissionMode: reactive(() => selectedPermissionMode),
+				})
+			: undefined,
+	);
+	const initialPrompt = $derived(messageSender?.prompt);
 
 	async function onPermissionDecision(
 		id: string,
@@ -192,17 +191,17 @@
 	}
 
 	function selectModel(model: ModelType) {
-		projectState.selectedModel.set(model);
+		controller.projectState.selectedModel.set(model);
 		modelContextMenu?.close();
 	}
 
 	function selectThinkingLevel(level: ThinkingLevel) {
-		projectState.thinkingLevel.set(level);
+		controller.projectState.thinkingLevel.set(level);
 		thinkingModeContextMenu?.close();
 	}
 
 	function selectPermissionMode(mode: PermissionMode) {
-		uiState.lane(laneId).permissionMode.set(mode);
+		controller.laneState.permissionMode.set(mode);
 		permissionModeContextMenu?.close();
 	}
 
@@ -230,17 +229,30 @@
 	async function insertTemplate(templateContent: string) {
 		const currentPrompt = await inputRef?.getText();
 		const newPrompt = currentPrompt + (currentPrompt ? "\n\n" : "") + templateContent;
-		onChange?.(newPrompt);
+		messageSender?.setPrompt(newPrompt);
 		inputRef?.setText(newPrompt);
 		templateContextMenu?.close();
 	}
 
-	// function getCurrentSessionId(events: ClaudeMessage[]): string | undefined {
-	// 	// Get the most recent session ID from the messages
-	// 	if (events.length === 0) return undefined;
-	// 	const lastEvent = events[events.length - 1];
-	// 	return lastEvent?.sessionId;
-	// }
+	async function onAbort() {
+		if (stackId) {
+			await claudeCodeService.cancelSession({ projectId, stackId });
+		}
+	}
+
+	async function sendMessage(prompt: string) {
+		await messageSender?.sendMessage(prompt, attachments);
+		attachmentService.clearByBranch(branchName);
+	}
+
+	async function handleAnswerQuestion(answers: Record<string, string>) {
+		if (!stackId) return;
+		await claudeCodeService.answerAskUserQuestion({ projectId, stackId, answers });
+	}
+
+	async function retryConfig() {
+		await claudeCodeService.fetchClaudeConfig({ projectId }, { forceRefetch: true });
+	}
 
 	function clearContextAndRules() {
 		clearContextModal?.show();
@@ -317,348 +329,359 @@
 </script>
 
 <div class="chat" use:focusable={{ vertical: true }}>
-	<ReduxResult result={claudeAvailable.result}>
-		{#snippet loading()}
-			<PreviewHeader {onclose}>
-				{#snippet content()}
-					<h3 class="text-14 text-semibold truncate">Chat for {branchName}</h3>
-				{/snippet}
-				{#snippet actions()}
-					<div class="flex gap-4 items-center">
-						<SkeletonBone width="2.5rem" height="1.2rem" />
-						<SkeletonBone width="1.5rem" height="1.2rem" />
+	<ErrorBoundary title="Something went wrong in the chat">
+		<ReduxResult result={claudeAvailable.result}>
+			{#snippet loading()}
+				<DrawerHeader {onclose}>
+					{#snippet content()}
+						<h3 class="text-14 text-semibold truncate">Chat for {branchName}</h3>
+					{/snippet}
+					{#snippet actions()}
+						<div class="flex gap-4 items-center">
+							<SkeletonBone width="2.5rem" height="1.2rem" />
+							<SkeletonBone width="1.5rem" height="1.2rem" />
+						</div>
+					{/snippet}
+				</DrawerHeader>
+
+				<div class="chat-skeleton">
+					<div class="chat-skeleton__user">
+						<SkeletonBone
+							width="80%"
+							height="3rem"
+							color="var(--bg-3)"
+							opacity={0.4}
+							radius="var(--radius-ml) var(--radius-ml) 0 var(--radius-ml)"
+						/>
 					</div>
-				{/snippet}
-			</PreviewHeader>
+					<div class="chat-skeleton__assistant">
+						<SkeletonBone width="100%" height="1rem" />
+						<SkeletonBone width="90%" height="1rem" />
+						<SkeletonBone width="95%" height="1rem" />
+					</div>
+					<div class="chat-skeleton__user">
+						<SkeletonBone
+							width="50%"
+							height="3rem"
+							color="var(--bg-3)"
+							opacity={0.4}
+							radius="var(--radius-ml) var(--radius-ml) 0 var(--radius-ml)"
+						/>
+					</div>
+					<div class="chat-skeleton__assistant">
+						<SkeletonBone width="90%" height="1rem" />
+						<SkeletonBone width="70%" height="1rem" />
+					</div>
+				</div>
 
-			<div class="chat-skeleton">
-				<div class="chat-skeleton__user">
-					<SkeletonBone
-						width="80%"
-						height="3rem"
-						color="var(--clr-bg-3)"
-						opacity={0.4}
-						radius="var(--radius-ml) var(--radius-ml) 0 var(--radius-ml)"
-					/>
-				</div>
-				<div class="chat-skeleton__assistant">
-					<SkeletonBone width="100%" height="1rem" />
-					<SkeletonBone width="90%" height="1rem" />
-					<SkeletonBone width="95%" height="1rem" />
-				</div>
-				<div class="chat-skeleton__user">
-					<SkeletonBone
-						width="50%"
-						height="3rem"
-						color="var(--clr-bg-3)"
-						opacity={0.4}
-						radius="var(--radius-ml) var(--radius-ml) 0 var(--radius-ml)"
-					/>
-				</div>
-				<div class="chat-skeleton__assistant">
-					<SkeletonBone width="90%" height="1rem" />
-					<SkeletonBone width="70%" height="1rem" />
-				</div>
-			</div>
-
-			<div class="dialog-wrapper">
-				<div class="input-skeleton">
-					<div class="input-skeleton__text"><SkeletonBone width="60%" height="1rem" /></div>
-					<div class="input-skeleton__actions">
-						<SkeletonBone width="4rem" height="var(--size-button)" radius="var(--radius-btn)" />
-						<div class="flex gap-8">
-							<SkeletonBone width="4rem" height="var(--size-button)" radius="var(--radius-btn)" />
+				<div class="dialog-wrapper">
+					<div class="input-skeleton">
+						<div class="input-skeleton__text"><SkeletonBone width="60%" height="1rem" /></div>
+						<div class="input-skeleton__actions">
 							<SkeletonBone
-								width="calc(var(--size-button) + 0.188rem)"
+								width="4rem"
 								height="var(--size-button)"
-								color="var(--clr-theme-pop-element)"
-								radius="var(--radius-btn)"
+								radius="var(--radius-button)"
 							/>
+							<div class="flex gap-8">
+								<SkeletonBone
+									width="4rem"
+									height="var(--size-button)"
+									radius="var(--radius-button)"
+								/>
+								<SkeletonBone
+									width="calc(var(--size-button) + 0.188rem)"
+									height="var(--size-button)"
+									color="var(--fill-pop-bg)"
+									radius="var(--radius-button)"
+								/>
+							</div>
 						</div>
 					</div>
 				</div>
-			</div>
-		{/snippet}
-		{#snippet children(claudeAvailable)}
-			{@const todos = getTodos(events)}
+			{/snippet}
+			{#snippet children(claudeAvailable)}
+				{@const todos = getTodos(events)}
 
-			<!-- TODO: remove this header when we move to the workspace layout -->
-			<PreviewHeader {onclose}>
-				{#snippet content()}
-					<h3 class="text-14 text-semibold truncate">Chat for {branchName}</h3>
-				{/snippet}
+				<!-- TODO: remove this header when we move to the workspace layout -->
+				<DrawerHeader {onclose}>
+					{#snippet content()}
+						<h3 class="text-14 text-semibold truncate">Chat for {branchName}</h3>
+					{/snippet}
 
-				{#snippet actions()}
-					{@const stats = usageStats(events)}
-					{@const contextUsage = Math.round(stats.contextUtilization * 100)}
+					{#snippet actions()}
+						{@const stats = usageStats(events)}
+						{@const contextUsage = Math.round(stats.contextUtilization * 100)}
 
-					<div class="flex gap-10 items-center">
-						{#if stats.tokens > 0}
-							<Tooltip text="Tokens: {stats.tokens.toLocaleString()} / ${stats.cost.toFixed(2)}">
-								<span class="text-12 clr-text-2">
-									{formatCompactNumber(stats.tokens)}
-								</span>
-							</Tooltip>
+						<div class="flex gap-10 items-center">
+							{#if stats.tokens > 0}
+								<Tooltip text="Tokens: {stats.tokens.toLocaleString()} / ${stats.cost.toFixed(2)}">
+									<span class="text-12 clr-text-2">
+										{formatCompactNumber(stats.tokens)}
+									</span>
+								</Tooltip>
 
-							<Tooltip text="{contextUsage}% context used">
-								<div
-									class="context-utilization-scale"
-									style="--context-utilization: {contextUsage}"
-								>
-									<svg viewBox="0 0 17 17">
-										<circle class="bg-circle" cx="8.5" cy="8.5" r="6.5" />
-										<circle class="progress-circle" cx="8.5" cy="8.5" r="6.5" />
-									</svg>
-								</div>
-							</Tooltip>
-						{/if}
+								<Tooltip text="{contextUsage}% context used">
+									<div
+										class="context-utilization-scale"
+										style="--context-utilization: {contextUsage}"
+									>
+										<svg viewBox="0 0 17 17">
+											<circle class="bg-circle" cx="8.5" cy="8.5" r="6.5" />
+											<circle class="progress-circle" cx="8.5" cy="8.5" r="6.5" />
+										</svg>
+									</div>
+								</Tooltip>
+							{/if}
 
-						<KebabButton>
-							{#snippet contextMenu({ close })}
-								{@const isDisabled =
-									!hasRulesToClear ||
-									!events ||
-									events.length === 0 ||
-									["running", "compacting"].includes(currentStatus(events, isStackActive))}
+							<KebabButton>
+								{#snippet contextMenu({ close })}
+									{@const isDisabled =
+										!hasRulesToClear ||
+										!events ||
+										events.length === 0 ||
+										["running", "compacting"].includes(currentStatus(events, isStackActive))}
 
-								{#if onMcpSettings}
+									{#if onMcpSettings}
+										<ContextMenuSection>
+											<ContextMenuItem
+												label="MCP settings"
+												icon="mcp"
+												onclick={() => {
+													onMcpSettings?.();
+													close();
+												}}
+											/>
+										</ContextMenuSection>
+									{/if}
 									<ContextMenuSection>
 										<ContextMenuItem
-											label="MCP settings"
-											icon="mcp"
+											label="Clear context"
+											icon="eraser"
+											disabled={isDisabled}
 											onclick={() => {
-												onMcpSettings?.();
+												clearContextAndRules();
+												close();
+											}}
+										/>
+										<ContextMenuItem
+											label="Compact context"
+											icon="compact"
+											disabled={isDisabled}
+											onclick={() => {
+												compactContext();
 												close();
 											}}
 										/>
 									</ContextMenuSection>
-								{/if}
-								<ContextMenuSection>
-									<ContextMenuItem
-										label="Clear context"
-										icon="eraser"
-										disabled={isDisabled}
-										onclick={() => {
-											clearContextAndRules();
-											close();
-										}}
-									/>
-									<ContextMenuItem
-										label="Compact context"
-										icon="compact"
-										disabled={isDisabled}
-										onclick={() => {
-											compactContext();
-											close();
-										}}
-									/>
-								</ContextMenuSection>
-							{/snippet}
-						</KebabButton>
-					</div>
-				{/snippet}
-			</PreviewHeader>
-
-			<div class="chat-container">
-				{#if claudeAvailable.status !== "available" && formattedMessages.length === 0}
-					<ConfigurableScrollableContainer childrenWrapDisplay="contents">
-						<div class="no-agent-placeholder">
-							<div class="no-agent-placeholder__content">
-								{@html noClaudeCodeSvg}
-								<h2 class="text-serif-42">Connect Claude Code</h2>
-								<p class="text-13 text-body clr-text-2">
-									<br />
-									Click the button below to check if Claude Code is now available.
-								</p>
-
-								<ClaudeCheck />
-							</div>
-
-							<p class="text-12 text-body clr-text-2">
-								Having trouble connecting?
-								<br />
-								Check the <Link href="https://docs.claude.com/en/docs/claude-code/troubleshooting"
-									>troubleshooting guide</Link
-								> for common issues and solutions.
-							</p>
+								{/snippet}
+							</KebabButton>
 						</div>
-					</ConfigurableScrollableContainer>
-				{:else if !isStackActive && formattedMessages.length === 0}
-					<div class="chat-view__placeholder">
-						<EmptyStatePlaceholder
-							image={laneNewSvg}
-							width={320}
-							topBottomPadding={0}
-							bottomMargin={0}
-						>
-							{#snippet title()}
-								Let's build something amazing
-							{/snippet}
-							{#snippet caption()}
-								Your canvas is clear
-								<br />
-								Let the code take shape
-							{/snippet}
-						</EmptyStatePlaceholder>
-					</div>
-				{:else}
-					<VirtualList
-						bind:this={virtualList}
-						grow
-						stickToBottom
-						showBottomButton
-						items={messagesForList}
-						visibility={$userSettings.scrollbarVisibilityState}
-						padding={{ left: 20, right: 20, top: 12, bottom: 12 }}
-						defaultHeight={65}
-						getId={(item) => item.createdAt}
-					>
-						{#snippet template(message)}
-							<CodegenClaudeMessage
-								{projectId}
-								{message}
-								{onPermissionDecision}
-								{toolCallExpandedState}
-							/>
-						{/snippet}
-						{@const thinkingStatus = currentStatus(events, isStackActive)}
-						{@const startAt = thinkingOrCompactingStartedAt(events)}
-						{#if ["running", "compacting"].includes(thinkingStatus) && startAt}
-							{@const status = userFeedbackStatus(formattedMessages)}
-							{#if status.waitingForFeedback}
-								<CodegenServiceMessageUseTool toolCall={status.toolCall} />
-							{:else if !pendingAskUserQuestion}
-								<CodegenServiceMessageThinking
-									{startAt}
-									msSpentWaiting={status.msSpentWaiting}
-									overrideWord={thinkingStatus === "compacting" ? "compacting" : undefined}
-								/>
-							{/if}
-						{/if}
-					</VirtualList>
-				{/if}
-				{#if todos.length > 0}
-					<CodegenTodoAccordion {todos} />
-				{/if}
-			</div>
-			{#if claudeAvailable.status !== "available"}
-				{#if formattedMessages.length > 0}
-					<CodegenChatClaudeNotAvaliableBanner
-						onSettingsBtnClick={() => {
-							uiState.global.modal.set({
-								type: "project-settings",
-								projectId,
-								selectedId: "agent",
-							});
-						}}
-					/>
-				{/if}
-			{:else if !projectRegistered}
-				{#if formattedMessages.length > 0}
-					<CodegenChatClaudeNotRegistered {onRetryConfig} />
-				{/if}
-			{:else}
-				{@const status = currentStatus(events, isStackActive)}
-				{@const laneState = uiState.lane(laneId)}
-				{@const addedDirs = laneState.addedDirs.current}
+					{/snippet}
+				</DrawerHeader>
 
-				<div class="dialog-wrapper">
-					{#if pendingAskUserQuestion}
-						<CodegenAskUserQuestion
-							questions={pendingAskUserQuestion.questions}
-							answered={pendingAskUserQuestion.answered}
-							onSubmitAnswers={async (answers) => {
-								await onAnswerQuestion?.(answers);
-							}}
-							onCancel={async () => {
-								dismissedAskUserQuestions = {
-									...dismissedAskUserQuestions,
-									[pendingAskUserQuestion.toolUseId]: true,
-								};
-								await onAbort?.();
-							}}
-						/>
-					{:else}
-						<AddedDirectories
-							{addedDirs}
-							onRemoveDir={(dir) => {
-								laneState.addedDirs.remove(dir);
-							}}
-						/>
+				<div class="chat-container">
+					{#if claudeAvailable.status !== "available" && formattedMessages.length === 0}
+						<AppScrollableContainer childrenWrapDisplay="contents">
+							<div class="no-agent-placeholder">
+								<div class="no-agent-placeholder__content">
+									{@html noClaudeCodeSvg}
+									<h2 class="text-serif-42">Connect Claude Code</h2>
+									<p class="text-13 text-body clr-text-2">
+										<br />
+										Click the button below to check if Claude Code is now available.
+									</p>
 
-						<CodegenInput
-							bind:this={inputRef}
-							{projectId}
-							{stackId}
-							branchName={stableBranchName}
-							value={initialPrompt || ""}
-							loading={["running", "compacting"].includes(status)}
-							compacting={status === "compacting"}
-							{onChange}
-							onSubmit={async (prompt) => {
-								await onSubmit?.(prompt);
-								setTimeout(() => {
-									virtualList?.scrollToBottom();
-								}, 100);
-							}}
-							{onAbort}
-							onCancel={onclose}
-						>
-							{#snippet actionsOnLeft()}
-								{@const permissionModeLabel = permissionModeOptions.find(
-									(a) => a.value === selectedPermissionMode,
-								)?.label}
-
-								<div class="flex m-right-4 gap-2">
-									<Button
-										bind:el={templateTrigger}
-										kind="ghost"
-										icon="script"
-										tooltip="Insert template"
-										onclick={(e) => templateContextMenu?.toggle(e)}
-									/>
-									<Button
-										bind:el={thinkingModeTrigger}
-										kind="ghost"
-										icon="thinking"
-										reversedDirection
-										onclick={() => thinkingModeContextMenu?.toggle()}
-										tooltip="Thinking mode"
-										children={selectedThinkingLevel === "normal" ? undefined : thinkingBtnText}
-									/>
-									<Button
-										bind:el={permissionModeTrigger}
-										kind="ghost"
-										icon={getPermissionModeIcon(selectedPermissionMode)}
-										shrinkable
-										onclick={() => permissionModeContextMenu?.toggle()}
-										tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
-											? "Permission modes disable when all permissions are allowed"
-											: permissionModeLabel}
-										disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
-									/>
+									<ClaudeCheck />
 								</div>
-							{/snippet}
 
-							{#snippet actionsOnRight()}
-								{#if !claudeSettings?.useConfiguredModel}
-									<Button
-										bind:el={modelTrigger}
-										kind="ghost"
-										icon="chevron-down"
-										shrinkable
-										onclick={() => modelContextMenu?.toggle()}
-									>
-										{modelOptions.find((a) => a.value === selectedModel)?.label}
-									</Button>
-								{/if}
+								<p class="text-12 text-body clr-text-2">
+									Having trouble connecting?
+									<br />
+									Check the <Link href="https://docs.claude.com/en/docs/claude-code/troubleshooting"
+										>troubleshooting guide</Link
+									> for common issues and solutions.
+								</p>
+							</div>
+						</AppScrollableContainer>
+					{:else if !isStackActive && formattedMessages.length === 0}
+						<div class="chat-view__placeholder">
+							<EmptyStatePlaceholder
+								image={laneNewSvg}
+								width={320}
+								topBottomPadding={0}
+								bottomMargin={0}
+							>
+								{#snippet title()}
+									Let's build something amazing
+								{/snippet}
+								{#snippet caption()}
+									{#if canEnterChat}
+										Your canvas is clear
+										<br />
+										Let the code take shape
+									{:else}
+										Run `claude` once
+										<br />
+										to initialise the chat
+									{/if}
+								{/snippet}
+							</EmptyStatePlaceholder>
+						</div>
+					{:else}
+						<VirtualList
+							bind:this={virtualList}
+							grow
+							stickToBottom
+							showBottomButton
+							items={messagesForList}
+							visibility={$userSettings.scrollbarVisibilityState}
+							padding={{ left: 20, right: 20, top: 12, bottom: 12 }}
+							defaultHeight={65}
+							getId={(item) => item.createdAt}
+						>
+							{#snippet template(message)}
+								<CodegenMessageItem
+									{projectId}
+									{message}
+									{onPermissionDecision}
+									{toolCallExpandedState}
+								/>
 							{/snippet}
-						</CodegenInput>
+							{@const thinkingStatus = currentStatus(events, isStackActive)}
+							{@const startAt = thinkingOrCompactingStartedAt(events)}
+							{#if ["running", "compacting"].includes(thinkingStatus) && startAt}
+								{@const status = userFeedbackStatus(formattedMessages)}
+								{#if status.waitingForFeedback}
+									<CodegenServiceMessageUseTool toolCall={status.toolCall} />
+								{:else if !pendingAskUserQuestion}
+									<CodegenServiceMessageThinking
+										{startAt}
+										msSpentWaiting={status.msSpentWaiting}
+										overrideWord={thinkingStatus === "compacting" ? "compacting" : undefined}
+									/>
+								{/if}
+							{/if}
+						</VirtualList>
+					{/if}
+					{#if todos.length > 0}
+						<CodegenTodoAccordion {todos} />
 					{/if}
 				</div>
-			{/if}
-		{/snippet}
-	</ReduxResult>
+				{#if claudeAvailable.status !== "available"}
+					{#if formattedMessages.length > 0}
+						<ClaudeUnavailableBanner
+							onSettingsBtnClick={() => {
+								controller.openProjectSettingsModal("agent");
+							}}
+						/>
+					{/if}
+				{:else if !projectRegistered}
+					{#if formattedMessages.length > 0}
+						<CodegenChatClaudeNotRegistered onRetryConfig={retryConfig} />
+					{/if}
+				{:else}
+					{@const status = currentStatus(events, isStackActive)}
+					{@const addedDirs = controller.laneState.addedDirs.current}
+
+					<div class="dialog-wrapper">
+						{#if pendingAskUserQuestion}
+							<CodegenAskUserQuestion
+								questions={pendingAskUserQuestion.questions}
+								answered={pendingAskUserQuestion.answered}
+								onSubmitAnswers={async (answers) => {
+									await handleAnswerQuestion(answers);
+								}}
+								onCancel={async () => {
+									dismissedAskUserQuestions = {
+										...dismissedAskUserQuestions,
+										[pendingAskUserQuestion.toolUseId]: true,
+									};
+									await onAbort();
+								}}
+							/>
+						{:else}
+							<AddedDirectories
+								{addedDirs}
+								onRemoveDir={(dir) => {
+									controller.laneState.addedDirs.remove(dir);
+								}}
+							/>
+
+							<CodegenInput
+								bind:this={inputRef}
+								{projectId}
+								{stackId}
+								{branchName}
+								value={initialPrompt || ""}
+								loading={["running", "compacting"].includes(status)}
+								compacting={status === "compacting"}
+								onChange={(prompt) => messageSender?.setPrompt(prompt)}
+								onSubmit={async (prompt) => {
+									await sendMessage(prompt);
+									setTimeout(() => {
+										virtualList?.scrollToBottom();
+									}, 100);
+								}}
+								{onAbort}
+								onCancel={onclose}
+							>
+								{#snippet actionsOnLeft()}
+									{@const permissionModeLabel = permissionModeOptions.find(
+										(a) => a.value === selectedPermissionMode,
+									)?.label}
+
+									<div class="flex m-right-4 gap-2">
+										<Button
+											bind:el={templateTrigger}
+											kind="ghost"
+											icon="script"
+											tooltip="Insert template"
+											onclick={(e) => templateContextMenu?.toggle(e)}
+										/>
+										<Button
+											bind:el={thinkingModeTrigger}
+											kind="ghost"
+											icon="thinking"
+											reversedDirection
+											onclick={() => thinkingModeContextMenu?.toggle()}
+											tooltip="Thinking mode"
+											children={selectedThinkingLevel === "normal" ? undefined : thinkingBtnText}
+										/>
+										<Button
+											bind:el={permissionModeTrigger}
+											kind="ghost"
+											icon={getPermissionModeIcon(selectedPermissionMode)}
+											shrinkable
+											onclick={() => permissionModeContextMenu?.toggle()}
+											tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
+												? "Permission modes disable when all permissions are allowed"
+												: permissionModeLabel}
+											disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
+										/>
+									</div>
+								{/snippet}
+
+								{#snippet actionsOnRight()}
+									{#if !claudeSettings?.useConfiguredModel}
+										<Button
+											bind:el={modelTrigger}
+											kind="ghost"
+											icon="chevron-down"
+											shrinkable
+											onclick={() => modelContextMenu?.toggle()}
+										>
+											{modelOptions.find((a) => a.value === selectedModel)?.label}
+										</Button>
+									{/if}
+								{/snippet}
+							</CodegenInput>
+						{/if}
+					</div>
+				{/if}
+			{/snippet}
+		</ReduxResult>
+	</ErrorBoundary>
 </div>
 
 {#snippet thinkingBtnText()}
@@ -816,7 +839,7 @@
 		width: 100%;
 		padding: 16px;
 		gap: 8px;
-		border-top: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--border-2);
 	}
 
 	.no-agent-placeholder {
@@ -855,11 +878,11 @@
 		}
 
 		& .bg-circle {
-			stroke: color-mix(in srgb, var(--clr-text-2), transparent 85%);
+			stroke: color-mix(in srgb, var(--text-2), transparent 85%);
 		}
 
 		& .progress-circle {
-			stroke: var(--clr-text-2);
+			stroke: var(--text-2);
 			stroke-dasharray: calc(3.14159 * 13);
 			stroke-dashoffset: calc(3.14159 * 13 * (1 - var(--context-utilization) / 100));
 			transition: stroke-dashoffset 0.3s ease;
@@ -894,7 +917,7 @@
 		flex-direction: column;
 		width: 100%;
 		padding: 12px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
 	}
 
@@ -907,6 +930,6 @@
 		display: flex;
 		justify-content: space-between;
 		padding-top: 12px;
-		border-top: 1px solid var(--clr-border-3);
+		border-top: 1px solid var(--border-3);
 	}
 </style>

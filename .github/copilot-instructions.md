@@ -33,9 +33,9 @@ The packages are:
 
 ### Prerequisites
 
-1. **Rust**: Version 1.91 (as specified in `rust-toolchain.toml`). Install via rustup.
-2. **Node.js**: Version 20.11 or higher (specified in `package.json`). Use the version in `.nvmrc` (lts/jod, which resolves to Node 22).
-3. **pnpm**: Version 10.17.0 (specified in `package.json`). Enabled via corepack. Run `corepack enable` in the project root.
+1. **Rust**: as specified in `rust-toolchain.toml`. Install via rustup.
+2. **Node.js**: as specified in `package.json`. Use the version in `.nvmrc` (lts/jod, which resolves to Node 22).
+3. **pnpm**: as specified in `package.json`. Enabled via corepack. Run `corepack enable` in the project root.
 4. **System Dependencies**: Tauri requires platform-specific dependencies (see DEVELOPMENT.md for details).
 
 ### Initial Setup
@@ -160,6 +160,8 @@ cargo clippy --all-targets
 
 - Group imports: Std, External, Crate
 - Imports granularity: Crate level
+
+**temporary directories** - use `but-testsupport` for scenario creation. Read-only functions should use read-only fixtures. DO NOT USE the `std::env::temp_dir().join(format!(…)` pattern.
 
 ## Dependency Management
 

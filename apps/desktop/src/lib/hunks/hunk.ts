@@ -6,9 +6,8 @@ import {
 	type LineId,
 	type LineLock,
 } from "@gitbutler/ui/utils/diffParsing";
-import type { HunkLock, HunkLocks } from "$lib/dependencies/dependencies";
+import type { HunkLocks } from "$lib/hunks/dependencies";
 import type { Prettify } from "@gitbutler/shared/utils/typeUtils";
-import "reflect-metadata";
 
 export type DiffSpec = {
 	/** lossless version of `previous_path` if this was a rename. */
@@ -93,14 +92,6 @@ export type HunkAssignmentRequest = {
 	 * If a stack id is set, it must be one of the applied stacks.
 	 */
 	stackId: string | null;
-};
-
-/** Indicates that the assignment request was rejected due to locking - the hunk depends on a commit in the stack it is currently in. */
-export type AssignmentRejection = {
-	/** The request that was rejected. */
-	request: HunkAssignmentRequest;
-	/** The locks that caused the rejection. */
-	locks: HunkLock[];
 };
 
 type DeltaLineGroup = {

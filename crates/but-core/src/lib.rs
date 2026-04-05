@@ -72,6 +72,10 @@ pub mod commit;
 /// Utilities related to branches
 pub mod branch;
 
+/// Utilities for editing Git configuration files.
+// TODO(gix): this should be so easy that nobody needs helpers.
+pub mod git_config;
+
 /// Types for use in the user interface.
 pub mod ui;
 
@@ -110,7 +114,7 @@ mod ext;
 pub use ext::ObjectStorageExt;
 
 mod repo_ext;
-pub use repo_ext::RepositoryExt;
+pub use repo_ext::{RepositoryExt, update_head_reference};
 
 /// Return `true` if `ref_name` looks like the standard GitButler workspace.
 ///
@@ -277,6 +281,8 @@ pub enum UnifiedPatch {
         lines_removed: u32,
     },
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(UnifiedPatch);
 
 /// Either git reference or a virtual reference (i.e. a reference not visible in Git).
 #[derive(Debug, Clone, PartialEq)]
@@ -291,10 +297,10 @@ pub enum Reference {
 impl std::fmt::Display for Reference {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Reference::Git(r) => {
-                let s = r.to_string();
-                s.strip_prefix("refs/heads/").unwrap_or_default().fmt(f)
-            }
+            Reference::Git(r) => match r.category_and_short_name() {
+                Some((gix::refs::Category::LocalBranch, short_name)) => short_name.fmt(f),
+                _ => "".fmt(f),
+            },
             Reference::Virtual(r) => r.fmt(f),
         }
     }
@@ -412,6 +418,8 @@ pub enum IgnoredWorktreeTreeChangeStatus {
     /// is the same as what Git is currently tracking.
     TreeIndexWorktreeChangeIneffective,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(IgnoredWorktreeTreeChangeStatus);
 
 /// A way to indicate that a path in the index isn't suitable for committing and needs to be dealt with.
 #[derive(Clone, Serialize)]
@@ -427,6 +435,8 @@ pub struct IgnoredWorktreeChange {
     /// The status that caused this change to be ignored.
     pub status: IgnoredWorktreeTreeChangeStatus,
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(IgnoredWorktreeChange);
 
 /// The type returned by [`worktree_changes()`](diff::worktree_changes).
 #[derive(Clone)]

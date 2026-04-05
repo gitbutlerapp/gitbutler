@@ -1,7 +1,7 @@
 use std::{io::Write, ops::DerefMut, path::Path};
 
 use but_core::{
-    RefMetadata,
+    RefMetadata, RepositoryExt,
     ref_metadata::{StackId, WorkspaceCommitRelation},
 };
 use but_meta::VirtualBranchesTomlMetadata;
@@ -143,7 +143,7 @@ impl Sandbox {
             && let Ok(commit_id) = repo.rev_parse_single("origin/main")
         {
             sandbox.file(
-                ".git/gitbutler/virtual_branches.toml",
+                repo.gitbutler_storage_path()?.join("virtual_branches.toml"),
                 r#"
 [default_target]
 branchName = "main"
@@ -240,21 +240,20 @@ impl Sandbox {
     /// Create a metadata instance on the project.
     pub fn meta(&self) -> anyhow::Result<impl but_core::RefMetadata> {
         VirtualBranchesTomlMetadata::from_path(
-            self.projects_root()
-                .join(".git/gitbutler/virtual_branches.toml"),
+            self.open_repo()?
+                .gitbutler_storage_path()?
+                .join("virtual_branches.toml"),
         )
     }
 
     /// Return a context configured to interact with this repository.
-    ///
-    /// Note that in legacy mode, it will provide a minimal `LegacyProject` as well, but with all settings defaulted.
     ///
     /// ### Not for plumbing
     ///
     /// This feature is only meant for higher-level Client or API tests. Plumbing crates must not use the [`but_ctx::Context`].
     #[cfg(feature = "sandbox-but-api")]
     pub fn context(&self) -> anyhow::Result<but_ctx::Context> {
-        self.open_repo()?.try_into()
+        but_ctx::Context::from_repo(self.open_repo()?)
     }
 
     /// Return the graph at `HEAD`, along with the `(graph, repo, meta)` repository and metadata used to create it.
@@ -448,6 +447,7 @@ impl Sandbox {
                 undo: true,
                 rules: true,
                 single_branch: true,
+                irc: false,
                 watch_mode: "auto".into(),
             },
             extra_csp: ExtraCsp {
@@ -475,6 +475,21 @@ impl Sandbox {
                 check_for_updates_interval_in_seconds: 0,
             },
             app_updates_check_interval_sec: 0,
+            irc: but_settings::app_settings::IrcSettings {
+                server: but_settings::app_settings::IrcServerSettings {
+                    host: "irc.example.com".to_string(),
+                    port: 6697,
+                },
+                auto_share: false,
+                project_channel: None,
+                connection: but_settings::app_settings::IrcConnectionSettings {
+                    enabled: false,
+                    nickname: None,
+                    server_password: None,
+                    sasl_password: None,
+                    realname: None,
+                },
+            },
         };
         settings.save(&self.app_data_dir().join("gitbutler/settings.json"), None)?;
         self.app_settings = Some(settings);

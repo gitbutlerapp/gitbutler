@@ -37,6 +37,8 @@ use but_settings::AppSettings;
 use colored::Colorize;
 use gix::date::time::CustomFormat;
 
+#[cfg(feature = "legacy")]
+use crate::command::legacy::ShowDiffInEditor;
 use crate::{
     setup::{BackgroundSync, InitCtxOptions},
     utils::{
@@ -117,9 +119,11 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         }) => file_or_hunk.is_some(),
         _ => false,
     };
-    if args.trace > 0 {
-        trace::init(args.trace)?;
-    }
+    let _tracing_appender_worker_guard = if args.trace > 0 {
+        trace::init(args.trace, args.log_file.as_deref())?
+    } else {
+        None
+    };
     let _span =
         tracing::info_span!("CLI", cmd = ?args.cmd.as_ref().map(|cmd| cmd.to_metrics_command()))
             .entered();
@@ -260,10 +264,11 @@ async fn match_subcommand(
                     name,
                     value,
                     global,
-                }) => command::alias::add(&mut ctx, out, &name, &value, global)
+                }) => command::alias::add(&mut ctx, out, &name, &value, global.into())
                     .emit_metrics(metrics_ctx),
                 Some(alias_args::Subcommands::Remove { name, global }) => {
-                    command::alias::remove(&mut ctx, out, &name, global).emit_metrics(metrics_ctx)
+                    command::alias::remove(&mut ctx, out, &name, global.into())
+                        .emit_metrics(metrics_ctx)
                 }
             }
         }
@@ -280,6 +285,12 @@ async fn match_subcommand(
                         .await
                         .emit_metrics(metrics_ctx)
                 }
+                Some(args::config::Subcommands::Ai {
+                    cmd: ai_cmd,
+                    local,
+                    global,
+                }) if !local => command::config::ai_config(out, ai_cmd.clone(), *local, *global)
+                    .emit_metrics(metrics_ctx),
                 _ => {
                     // Other subcommands need a repo context
                     cfg_if! {
@@ -320,16 +331,116 @@ async fn match_subcommand(
             result.emit_metrics(metrics_ctx)
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
-            cfg_if! {
-                if #[cfg(feature = "legacy")]  {
-                    let mut ctx = setup::init_ctx(&args, InitCtxOptions { background_sync: BackgroundSync::Enabled, ..Default::default() }, out)?;
-                    command::legacy::branch::handle(cmd, &mut ctx, out)
-                        .emit_metrics(metrics_ctx)
-                } else {
-                    let ctx = but_ctx::Context::discover(&args.current_dir)?;
-                    command::branch::handle(cmd, ctx, out)
+            let result = match cmd {
+                #[cfg(not(feature = "legacy"))]
+                None => todo!("implement list and call recursively"),
+                #[cfg(feature = "legacy")]
+                None => {
+                    let mut ctx = setup::init_ctx(
+                        &args,
+                        InitCtxOptions {
+                            background_sync: BackgroundSync::Enabled { silent: false },
+                            ..Default::default()
+                        },
+                        out,
+                    )?;
+                    command::legacy::branch::handle_no_subcommand(&mut ctx, out)
                 }
-            }
+                #[cfg(feature = "legacy")]
+                Some(branch::Subcommands::List {
+                    filter,
+                    local,
+                    remote,
+                    all,
+                    no_ahead,
+                    review,
+                    no_check,
+                    empty,
+                }) => {
+                    let mut ctx = setup::init_ctx(
+                        &args,
+                        InitCtxOptions {
+                            background_sync: BackgroundSync::Enabled { silent: false },
+                            ..Default::default()
+                        },
+                        out,
+                    )?;
+                    command::legacy::branch::list_branches(
+                        &mut ctx, out, filter, local, remote, all, no_ahead, review, no_check,
+                        empty,
+                    )
+                }
+                #[cfg(feature = "legacy")]
+                Some(branch::Subcommands::Show {
+                    branch_id,
+                    review,
+                    files,
+                    ai,
+                    check,
+                }) => {
+                    let mut ctx = setup::init_ctx(
+                        &args,
+                        InitCtxOptions {
+                            background_sync: BackgroundSync::Enabled { silent: false },
+                            ..Default::default()
+                        },
+                        out,
+                    )?;
+                    command::legacy::branch::show_branches(
+                        &mut ctx, out, branch_id, review, files, ai, check,
+                    )
+                }
+                #[cfg(feature = "legacy")]
+                Some(branch::Subcommands::New {
+                    branch_name,
+                    anchor,
+                }) => {
+                    let mut ctx = setup::init_ctx(
+                        &args,
+                        InitCtxOptions {
+                            background_sync: BackgroundSync::Enabled { silent: false },
+                            ..Default::default()
+                        },
+                        out,
+                    )?;
+                    command::legacy::branch::new(&mut ctx, out, branch_name, anchor)
+                }
+                #[cfg(feature = "legacy")]
+                Some(branch::Subcommands::Delete { branch_name, force }) => {
+                    let mut ctx = setup::init_ctx(
+                        &args,
+                        InitCtxOptions {
+                            background_sync: BackgroundSync::Enabled { silent: false },
+                            ..Default::default()
+                        },
+                        out,
+                    )?;
+                    command::legacy::branch::delete(&mut ctx, out, branch_name, force)
+                }
+                #[cfg(not(feature = "legacy"))]
+                Some(branch::Subcommands::Apply { branch_name }) => {
+                    let ctx = but_ctx::Context::discover(&args.current_dir)?;
+                    command::branch::apply(ctx, &branch_name, out)
+                }
+                Some(branch::Subcommands::Move {
+                    branch,
+                    target_branch,
+                    unstack,
+                }) => {
+                    let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
+                    if unstack {
+                        command::branch::tear_off_branch(&mut ctx, &branch, out)
+                    } else {
+                        let target_branch = target_branch.ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "`but branch move` requires <TARGET_BRANCH> unless --unstack is used"
+                            )
+                        })?;
+                        command::branch::move_branch(&mut ctx, &branch, &target_branch, out)
+                    }
+                }
+            };
+            result.emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Mcp { internal } => {
@@ -457,6 +568,43 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
+        Subcommands::Clean {
+            dry_run,
+            pull,
+            include_upstream,
+        } => {
+            let status_after = args.status_after;
+            let mut ctx = setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled { silent: false },
+                    ..Default::default()
+                },
+                out,
+            )?;
+            if pull {
+                use std::fmt::Write;
+                let mut progress = out.progress_channel();
+                writeln!(progress, "Pulling latest...")?;
+                let mut pull_out =
+                    OutputChannel::new_with_optional_pager(OutputFormat::None, false);
+                command::legacy::pull::handle(&ctx, &mut pull_out, false).await?;
+                writeln!(progress, "Pull complete.")?;
+            }
+            out.begin_status_after(status_after);
+            let result = command::legacy::clean::handle(
+                &mut ctx,
+                out,
+                command::legacy::clean::CleanOptions {
+                    dry_run,
+                    include_upstream,
+                },
+            )
+            .emit_metrics(metrics_ctx);
+            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
+            result
+        }
+        #[cfg(feature = "legacy")]
         Subcommands::Worktree(worktree::Platform { cmd }) => {
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             command::legacy::worktree::handle(cmd, &mut ctx, out)
@@ -471,16 +619,86 @@ async fn match_subcommand(
             upstream,
             no_hint,
         } => {
+            use crate::command::legacy::status::FilesStatusFlag;
+            use crate::command::legacy::status::StatusFlags;
+
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
             )?;
+            let show_files = if show_files {
+                FilesStatusFlag::All
+            } else {
+                FilesStatusFlag::None
+            };
+            let flags = StatusFlags {
+                show_files,
+                verbose,
+                refresh_prs: sync_prs,
+                show_upstream: upstream,
+                hint: !no_hint,
+            };
             command::legacy::status::worktree(
-                &mut ctx, out, show_files, verbose, sync_prs, upstream, !no_hint,
+                &mut ctx,
+                out,
+                flags,
+                command::legacy::status::StatusRenderMode::Oneshot,
+            )
+            .await
+            .emit_metrics(metrics_ctx)
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Tui {
+            #[cfg(feature = "tui-profiling")]
+            debug,
+            #[cfg(feature = "tui-profiling")]
+            quit_after,
+            #[cfg(feature = "tui-profiling")]
+            headless,
+            #[cfg(feature = "tui-profiling")]
+            skip_status_after,
+            #[cfg(feature = "tui-profiling")]
+            diff,
+            #[cfg(feature = "tui-profiling")]
+            select_commit,
+            #[cfg(feature = "tui-profiling")]
+            quit_after_rendering_full_diff,
+        } => {
+            use crate::command::legacy::status::{StatusFlags, StatusRenderMode, TuiLaunchOptions};
+
+            let mut ctx = setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled { silent: true },
+                    ..Default::default()
+                },
+                out,
+            )?;
+            #[cfg(feature = "tui-profiling")]
+            let _options = TuiLaunchOptions {
+                debug,
+                quit_after,
+                headless,
+                skip_status_after,
+                show_diff: if quit_after_rendering_full_diff {
+                    true
+                } else {
+                    diff
+                },
+                select_commit,
+                quit_after_rendering_full_diff,
+            };
+            #[cfg(not(feature = "tui-profiling"))]
+            let _options = TuiLaunchOptions::default();
+            command::legacy::status::worktree(
+                &mut ctx,
+                out,
+                StatusFlags::all_false(),
+                StatusRenderMode::Tui(_options),
             )
             .await
             .emit_metrics(metrics_ctx)
@@ -491,7 +709,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -512,7 +730,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -523,11 +741,10 @@ async fn match_subcommand(
                 false
             } else {
                 // Check git config for but.ui.tui
-                ctx.git2_repo
+                ctx.repo
                     .get()
                     .ok()
-                    .and_then(|repo| repo.config().ok())
-                    .map(|config| command::config::get_tui_enabled(&config))
+                    .map(|repo| command::config::get_tui_enabled(&repo.config_snapshot()))
                     .unwrap_or(false)
             };
             if use_tui {
@@ -551,7 +768,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -565,7 +782,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -580,7 +797,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -596,7 +813,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -638,6 +855,12 @@ async fn match_subcommand(
                     }
                     if commit_args.ai.is_some() {
                         anyhow::bail!("--ai cannot be used with 'commit empty'.");
+                    }
+                    if commit_args.diff {
+                        anyhow::bail!("--diff cannot be used with 'commit empty'.");
+                    }
+                    if commit_args.no_diff {
+                        anyhow::bail!("--no-diff cannot be used with 'commit empty'.");
                     }
                     // Note: --paths with commit empty is rejected by clap at parse time
                     // because --paths is not a flag on the empty subcommand
@@ -742,6 +965,8 @@ async fn match_subcommand(
                         commit_args.create,
                         commit_args.no_hooks,
                         commit_args.ai.clone(),
+                        ShowDiffInEditor::from_args(commit_args.diff, commit_args.no_diff)
+                            .unwrap_or(ShowDiffInEditor::Unspecified),
                     )
                     .emit_metrics(metrics_ctx)
                 }
@@ -760,11 +985,13 @@ async fn match_subcommand(
             target,
             message,
             format,
+            diff,
+            no_diff,
         } => {
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -775,6 +1002,9 @@ async fn match_subcommand(
                 &target,
                 message.as_deref(),
                 format,
+                // clap's `conflicts_with` should prevent this being `None` but better safe than
+                // sorry
+                ShowDiffInEditor::from_args(diff, no_diff).unwrap_or(ShowDiffInEditor::Unspecified),
             )
             .emit_metrics(metrics_ctx)
         }
@@ -821,7 +1051,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -838,7 +1068,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -888,7 +1118,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1012,7 +1242,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1023,18 +1253,18 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Uncommit { source } => {
+        Subcommands::Uncommit { source, discard } => {
             let status_after = args.status_after;
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
             )?;
             out.begin_status_after(status_after);
-            let result = command::legacy::rub::handle_uncommit(&mut ctx, out, &source)
+            let result = command::legacy::rub::handle_uncommit(&mut ctx, out, &source, discard)
                 .context("Failed to uncommit.")
                 .emit_metrics(metrics_ctx);
             maybe_run_status_after(status_after, &result, &mut ctx, out).await;
@@ -1046,7 +1276,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1068,7 +1298,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1105,7 +1335,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1126,7 +1356,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1154,26 +1384,16 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
-        #[cfg(feature = "legacy")]
         Subcommands::Move {
-            source_commit,
+            source,
             target,
             after,
         } => {
             let status_after = args.status_after;
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
-                    ..Default::default()
-                },
-                out,
-            )?;
+            let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
             out.begin_status_after(status_after);
-            let result =
-                command::legacy::rub::r#move::handle(&mut ctx, out, &source_commit, &target, after)
-                    .context("Failed to move commit.")
-                    .emit_metrics(metrics_ctx);
+            let result = command::r#move::handle(&mut ctx, out, &source, &target, after)
+                .emit_metrics(metrics_ctx);
             maybe_run_status_after(status_after, &result, &mut ctx, out).await;
             result.show_root_cause_error_then_exit_without_destructors(output)
         }
@@ -1185,7 +1405,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1200,7 +1420,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1215,7 +1435,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled,
+                    background_sync: BackgroundSync::Enabled { silent: false },
                     ..Default::default()
                 },
                 out,
@@ -1269,6 +1489,16 @@ async fn maybe_run_status_after(
     }
 }
 
+/// Ignore `--status-after` in non-legacy builds until a non-legacy status command exists.
+#[cfg(not(feature = "legacy"))]
+async fn maybe_run_status_after(
+    _status_after: bool,
+    _result: &anyhow::Result<()>,
+    _ctx: &mut but_ctx::Context,
+    _out: &mut OutputChannel,
+) {
+}
+
 /// Run workspace status output after a mutation command completes.
 ///
 /// In human mode, prints a blank line then full status.
@@ -1284,10 +1514,17 @@ async fn run_status_after(
     out: &mut OutputChannel,
     mutation_json: Option<serde_json::Value>,
 ) {
+    use crate::command::legacy::status::StatusFlags;
+
     if out.is_json() {
         out.start_json_buffering();
-        let status_result =
-            command::legacy::status::worktree(ctx, out, false, false, false, false, false).await;
+        let status_result = command::legacy::status::worktree(
+            ctx,
+            out,
+            StatusFlags::all_false(),
+            command::legacy::status::StatusRenderMode::Oneshot,
+        )
+        .await;
         let status_json = out.take_json_buffer().unwrap_or(serde_json::Value::Null);
 
         let combined = match status_result {
@@ -1312,8 +1549,18 @@ async fn run_status_after(
         if let Some(human) = out.for_human() {
             writeln!(human).ok();
         }
-        if let Err(err) =
-            command::legacy::status::worktree(ctx, out, false, false, false, false, true).await
+        if let Err(err) = command::legacy::status::worktree(
+            ctx,
+            out,
+            StatusFlags {
+                show_files: crate::command::legacy::status::FilesStatusFlag::All,
+                verbose: true,
+                hint: true,
+                ..StatusFlags::all_false()
+            },
+            command::legacy::status::StatusRenderMode::Oneshot,
+        )
+        .await
         {
             eprintln!(
                 "warning: --status-after failed: {err:#}. Run 'but status' separately to check workspace state."

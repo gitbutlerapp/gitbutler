@@ -2,6 +2,7 @@ mod json;
 
 use std::{collections::HashMap, fmt::Write};
 
+use but_core::RepositoryExt;
 use but_ctx::Context;
 use colored::Colorize;
 use gitbutler_branch_actions::upstream_integration::{
@@ -13,7 +14,7 @@ use gitbutler_branch_actions::upstream_integration::{
 use json::{BaseBranchInfo, BranchStatusInfo, PullCheckOutput, UpstreamCommit, UpstreamInfo};
 use serde::{Deserialize, Serialize};
 
-use crate::utils::OutputChannel;
+use crate::utils::{OutputChannel, shorten_hex_object_id};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -165,13 +166,15 @@ async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<
         )?;
 
         if !base_branch.upstream_commits.is_empty() {
+            let repo = ctx.repo.get()?.clone().for_commit_shortening();
             writeln!(out)?;
             let commits = base_branch.upstream_commits.iter().take(3);
             for commit in commits {
+                let commit_short = shorten_hex_object_id(&repo, &commit.id);
                 writeln!(
                     out,
                     "  {} {}",
-                    commit.id[..7].yellow(),
+                    commit_short.yellow(),
                     commit
                         .description
                         .to_string()
@@ -297,6 +300,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
             )?;
 
             // Show upstream commits (actual new commits to integrate)
+            let repo = ctx.repo.get()?.clone().for_commit_shortening();
             for commit_info in &pull_result.recent_commits {
                 let msg = commit_info
                     .message
@@ -306,8 +310,8 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                     .chars()
                     .take(65)
                     .collect::<String>();
-
-                writeln!(out, "   {} {}", &commit_info.id[..7].bright_black(), msg)?;
+                let commit_short = shorten_hex_object_id(&repo, &commit_info.id);
+                writeln!(out, "   {} {}", commit_short.bright_black(), msg)?;
             }
 
             let hidden = base_branch.behind.saturating_sub(commits_to_show);

@@ -8,7 +8,6 @@ use anyhow::Context as _;
 use bstr::BString;
 use but_core::{TreeChange, UnifiedPatch, ref_metadata::StackId};
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
 use but_workspace::legacy::{CommmitSplitOutcome, ui::StackEntryNoOpt};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_oplog::{
@@ -703,8 +702,7 @@ fn move_file_changes(
     )?;
 
     // TODO(ctx): remove this, with the rebase engine this is done above
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    gitbutler_branch_actions::update_workspace_commit(&vb_state, ctx, false)?;
+    gitbutler_branch_actions::update_workspace_commit(ctx, false)?;
 
     // Update the commit mapping with the new commit ids.
     for (old_commit_id, new_commit_id) in result.replaced_commits.clone().iter() {
@@ -992,16 +990,12 @@ pub fn squash_commits(
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> Result<gix::ObjectId, anyhow::Error> {
     let destination_id = gix::ObjectId::from_str(&params.destination_commit_id)
-        .map(|id| find_the_right_commit_id(id, commit_mapping))?
-        .to_git2();
+        .map(|id| find_the_right_commit_id(id, commit_mapping))?;
     let source_ids = params
         .source_commit_ids
         .iter()
         .map(|id| {
-            gix::ObjectId::from_str(id).map(|oid| {
-                let id = find_the_right_commit_id(oid, commit_mapping);
-                id.to_git2()
-            })
+            gix::ObjectId::from_str(id).map(|oid| find_the_right_commit_id(oid, commit_mapping))
         })
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -1024,9 +1018,9 @@ pub fn squash_commits(
     )?;
 
     // Update the commit mapping with the new commit id.
-    commit_mapping.insert(destination_id.to_gix(), new_commit_id.to_gix());
+    commit_mapping.insert(destination_id, new_commit_id);
 
-    Ok(new_commit_id.to_gix())
+    Ok(new_commit_id)
 }
 
 pub struct SplitBranch;
@@ -1118,7 +1112,6 @@ pub fn split_branch(
     commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
 ) -> Result<StackId, anyhow::Error> {
     let mut guard = ctx.exclusive_worktree_access();
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let stacks = stacks(ctx)?;
     let source_stack_id = stacks
@@ -1146,7 +1139,7 @@ pub fn split_branch(
         guard.write_permission(),
     )?;
 
-    update_workspace_commit(&vb_state, ctx, false)?;
+    update_workspace_commit(ctx, false)?;
 
     let refname = Refname::Local(LocalRefname::new(&params.new_branch_name, None));
     let branch_manager = ctx.branch_manager();
@@ -1359,8 +1352,6 @@ pub struct RichHunk {
     pub diff: String,
     /// The stack ID this hunk is assigned to, if any.
     pub assigned_to_stack: Option<but_core::ref_metadata::StackId>,
-    /// The locks this hunk has, if any.
-    pub dependency_locks: Vec<but_hunk_dependency::ui::HunkLock>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -1522,9 +1513,7 @@ pub fn get_filtered_changes(
         db.hunk_assignments_mut()?,
         &repo,
         &ws,
-        false,
         None::<Vec<but_core::TreeChange>>,
-        None,
         context_lines,
     )
     .map_err(|err| serde_error::Error::new(&*err))?;
@@ -1602,20 +1591,13 @@ fn get_file_changes(
                             .find(|a| {
                                 a.path_bytes == change.path && a.hunk_header == Some(hunk.into())
                             })
-                            .map(|a| (a.stack_id, a.hunk_locks.clone()));
+                            .map(|a| a.stack_id);
 
-                        let (assigned_to_stack, dependency_locks) =
-                            if let Some((stack_id, locks)) = assignment {
-                                let locks = locks.unwrap_or_default();
-                                (stack_id, locks)
-                            } else {
-                                (None, vec![])
-                            };
+                        let assigned_to_stack = assignment.flatten();
 
                         RichHunk {
                             diff,
                             assigned_to_stack,
-                            dependency_locks,
                         }
                     })
                     .collect::<Vec<_>>();
@@ -1660,9 +1642,7 @@ fn changes_in_branch_inner(
     } else {
         let start_commit_id = repo.find_reference(&branch_name)?.peel_to_commit()?.id;
         let target = state.get_default_target()?;
-        let merge_base = repo
-            .merge_base(start_commit_id, target.sha.to_gix())?
-            .detach();
+        let merge_base = repo.merge_base(start_commit_id, target.sha)?.detach();
         Ok((start_commit_id, merge_base))
     }?;
 
@@ -1765,10 +1745,12 @@ fn find_the_right_commit_id(
 fn stacks(ctx: &Context) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
     let meta = ctx.legacy_meta()?;
     let repo = &*ctx.repo.get()?;
+    let mut cache = ctx.cache.get_cache_mut()?;
     but_workspace::legacy::stacks_v3(
         repo,
         &meta,
         but_workspace::legacy::StacksFilter::InWorkspace,
         None,
+        &mut cache,
     )
 }

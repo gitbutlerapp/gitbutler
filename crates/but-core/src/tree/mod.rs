@@ -11,6 +11,7 @@ pub mod create_tree {
 
     /// Provide a description of why a [`crate::DiffSpec`] was rejected for application to the tree of a commit.
     #[derive(Default, Debug, Copy, Clone, PartialEq, serde::Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
     #[serde(rename_all = "camelCase")]
     pub enum RejectionReason {
         /// All changes were applied, but they didn't end up effectively change the tree to something differing from the target tree.
@@ -46,6 +47,9 @@ pub mod create_tree {
         /// However, at least one hunk was not fully contained.
         MissingDiffSpecAssociation,
     }
+
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(RejectionReason);
 }
 use create_tree::RejectionReason;
 
@@ -485,7 +489,7 @@ fn to_additive_hunks(
 ///
 /// Note that this algorithm is kind of the opposite of what people would expect if it's run where `to_additive_hunks()` works.
 /// But here we are… just making this work.
-#[allow(clippy::indexing_slicing)]
+#[expect(clippy::indexing_slicing)]
 fn to_additive_hunks_fallback(
     hunks_to_keep: impl IntoIterator<Item = HunkHeader>,
     worktree_hunks: &[HunkHeader],

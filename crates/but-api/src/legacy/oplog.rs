@@ -18,7 +18,6 @@
 //!
 use anyhow::Result;
 use but_api_macros::but_api;
-use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, Snapshot, SnapshotDetails},
@@ -46,12 +45,8 @@ pub fn list_snapshots(
     exclude_kind: Option<Vec<OperationKind>>,
     include_kind: Option<Vec<OperationKind>>,
 ) -> Result<Vec<Snapshot>> {
-    let snapshots = ctx.list_snapshots(
-        limit,
-        sha.map(|id| id.to_git2()),
-        exclude_kind.unwrap_or_default(),
-        include_kind,
-    )?;
+    let snapshots =
+        ctx.list_snapshots(limit, sha, exclude_kind.unwrap_or_default(), include_kind)?;
     Ok(snapshots)
 }
 
@@ -67,7 +62,7 @@ pub fn list_snapshots(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn get_snapshot(ctx: &but_ctx::Context, sha: gix::ObjectId) -> Result<Snapshot> {
-    let snapshot = ctx.get_snapshot(sha.to_git2())?;
+    let snapshot = ctx.get_snapshot(sha)?;
     Ok(snapshot)
 }
 
@@ -90,7 +85,7 @@ pub fn create_snapshot(
     let mut details = SnapshotDetails::new(OperationKind::OnDemandSnapshot);
     details.body = message;
     let oid = ctx.create_snapshot(details, guard.write_permission())?;
-    Ok(oid.to_gix())
+    Ok(oid)
 }
 
 /// Restores the project to a specific snapshot. This operation also creates a new snapshot in the oplog.
@@ -109,7 +104,7 @@ pub fn create_snapshot(
 #[instrument(err(Debug))]
 pub fn restore_snapshot(ctx: &mut but_ctx::Context, sha: gix::ObjectId) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
-    ctx.restore_snapshot(sha.to_git2(), guard.write_permission())?;
+    ctx.restore_snapshot(sha, guard.write_permission())?;
     Ok(())
 }
 
@@ -130,7 +125,7 @@ pub fn snapshot_diff(
     ctx: &but_ctx::Context,
     sha: gix::ObjectId,
 ) -> Result<Vec<but_core::ui::TreeChange>> {
-    let diff = ctx.snapshot_diff(sha.to_git2())?;
+    let diff = ctx.snapshot_diff(sha)?;
     let diff: Vec<but_core::ui::TreeChange> = diff.into_iter().map(Into::into).collect();
     Ok(diff)
 }

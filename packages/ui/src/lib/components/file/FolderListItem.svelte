@@ -3,6 +3,8 @@
 	import Icon from "$components/Icon.svelte";
 	import FileIcon from "$components/file/FileIcon.svelte";
 	import FileIndent from "$components/file/FileIndent.svelte";
+	import { focusable } from "$lib/focus/focusable";
+	import type { FocusableOptions } from "$lib/focus/focusManager";
 
 	interface Props {
 		name: string;
@@ -13,6 +15,9 @@
 		depth?: number;
 		transparent?: boolean;
 		draggable?: boolean;
+		selected?: boolean;
+		active?: boolean;
+		actionOpts?: FocusableOptions;
 		oncheck?: (
 			e: Event & {
 				currentTarget: EventTarget & HTMLInputElement;
@@ -21,6 +26,7 @@
 		ontoggle?: (expanded: boolean) => void;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
+		onmousedown?: (e: MouseEvent) => void;
 		oncontextmenu?: (e: MouseEvent) => void;
 		testId?: string;
 	}
@@ -34,10 +40,14 @@
 		depth,
 		transparent,
 		draggable = false,
+		selected = false,
+		active = false,
+		actionOpts,
 		oncheck,
 		ontoggle,
 		onclick,
 		onkeydown,
+		onmousedown,
 		oncontextmenu,
 		testId,
 	}: Props = $props();
@@ -46,10 +56,15 @@
 <div
 	data-testid={testId}
 	class="folder-list-item"
-	role="presentation"
-	tabindex="-1"
+	role="option"
+	aria-selected={selected}
+	tabindex="0"
 	class:transparent
 	class:draggable
+	class:selected
+	class:active
+	use:focusable={actionOpts}
+	{onmousedown}
 	onclick={(e) => {
 		e.stopPropagation();
 		onclick?.(e);
@@ -117,14 +132,33 @@
 		height: 30px;
 		padding: 0 8px 0 14px;
 		gap: 8px;
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 		cursor: pointer;
 
-		&:hover {
+		&:not(.selected):hover {
 			background-color: var(--hover-bg-1);
 		}
 		&.transparent {
 			background-color: transparent;
+		}
+		&.selected {
+			background-color: var(--focus-bg-mute);
+
+			&:hover {
+				background-color: color-mix(in srgb, var(--focus-bg-mute) 96%, var(--fill-gray-bg));
+			}
+		}
+		&.active.selected {
+			background-color: var(--focus-bg);
+
+			&:hover {
+				background-color: color-mix(in srgb, var(--focus-bg) 95%, var(--fill-pop-bg));
+			}
+		}
+
+		&:focus-visible {
+			outline: none;
+			background-color: var(--focus-bg);
 		}
 
 		.draggable-handle {
@@ -134,7 +168,7 @@
 			align-items: center;
 			justify-content: center;
 			width: 6px;
-			color: var(--clr-text-2);
+			color: var(--text-2);
 			opacity: 0.6;
 		}
 
@@ -152,7 +186,7 @@
 		align-items: center;
 		height: 100%;
 		gap: 6px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 
 	.folder-list-item__arrow {
@@ -167,7 +201,7 @@
 		border-radius: var(--radius-s);
 
 		&:hover {
-			color: var(--clr-text-1);
+			color: var(--text-1);
 		}
 
 		&.expanded {
@@ -181,6 +215,6 @@
 		align-items: center;
 		justify-content: center;
 		margin-left: 2px;
-		color: var(--clr-text-2);
+		color: var(--text-2);
 	}
 </style>

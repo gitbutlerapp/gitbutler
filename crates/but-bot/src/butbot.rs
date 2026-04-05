@@ -1,6 +1,6 @@
 use but_ctx::Context;
+use but_ctx::ProjectHandleOrLegacyProjectId;
 use but_tools::emit::Emittable;
-use gitbutler_project::ProjectId;
 
 use crate::{
     agent::{Agent, AgentGraphNode},
@@ -93,7 +93,7 @@ pub struct ButBot<'a> {
     ctx: &'a mut Context,
     emitter: std::sync::Arc<but_tools::emit::Emitter>,
     message_id: String,
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     llm: &'a but_llm::LLMProvider,
     chat_messages: Vec<but_llm::ChatMessage>,
     text_response_buffer: Vec<String>,
@@ -104,12 +104,12 @@ impl<'a> ButBot<'a> {
         ctx: &'a mut Context,
         emitter: std::sync::Arc<but_tools::emit::Emitter>,
         message_id: String,
-        project_id: ProjectId,
+        project_id: ProjectHandleOrLegacyProjectId,
         llm: &'a but_llm::LLMProvider,
         chat_messages: Vec<but_llm::ChatMessage>,
     ) -> Self {
         Self {
-            state: AgentState::new(project_id, message_id.clone(), emitter.clone()),
+            state: AgentState::new(project_id.clone(), message_id.clone(), emitter.clone()),
             ctx,
             emitter,
             message_id,
@@ -286,7 +286,7 @@ Based on the conversation below and the project status, please update the status
 
         // Now we trigger the tool calling loop.
         let message_id_cloned = self.message_id.clone();
-        let project_id_cloned = self.project_id;
+        let project_id_cloned = self.project_id.clone();
 
         let (response, _) = self.llm.tool_calling_loop_stream(
             SYS_PROMPT,
@@ -298,7 +298,7 @@ Based on the conversation below and the project status, please update the status
                 move |token: &str| {
                     let token_update = but_tools::emit::TokenUpdate {
                         token: token.to_string(),
-                        project_id: project_id_cloned,
+                        project_id: project_id_cloned.clone(),
                         message_id: message_id_cloned.clone(),
                     };
                     let (name, payload) = token_update.emittable();
@@ -360,7 +360,7 @@ If you need to perform actions, do so, and be concise in the description of the 
 
         // Now we trigger the tool calling loop.
         let message_id_cloned = self.message_id.clone();
-        let project_id_cloned = self.project_id;
+        let project_id_cloned = self.project_id.clone();
 
         let (response, _) = self.llm.tool_calling_loop_stream(
             SYS_PROMPT,
@@ -374,7 +374,7 @@ If you need to perform actions, do so, and be concise in the description of the 
                 move |token: &str| {
                     let token_update = but_tools::emit::TokenUpdate {
                         token: token.to_string(),
-                        project_id,
+                        project_id: project_id.clone(),
                         message_id: message_id.clone(),
                     };
                     let (name, payload) = token_update.emittable();
@@ -391,7 +391,7 @@ If you need to perform actions, do so, and be concise in the description of the 
 
         // Emit a new line
         let end_token_update = but_tools::emit::TokenEnd {
-            project_id: self.project_id,
+            project_id: self.project_id.clone(),
             message_id: self.message_id.clone(),
         };
         let (end_name, end_payload) = end_token_update.emittable();

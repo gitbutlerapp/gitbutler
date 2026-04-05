@@ -1,6 +1,5 @@
 use anyhow::{Context as _, Result};
 use but_ctx::{Context, access::RepoExclusive};
-use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_stack::{Stack, StackId};
@@ -23,10 +22,10 @@ use crate::VirtualBranchesExt as _;
 pub(crate) fn undo_commit(
     ctx: &Context,
     stack_id: StackId,
-    commit_to_remove: git2::Oid,
+    commit_to_remove: gix::ObjectId,
     _perm: &mut RepoExclusive,
 ) -> Result<Stack> {
-    let vb_state = ctx.virtual_branches();
+    let mut vb_state = ctx.virtual_branches();
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
 
@@ -39,7 +38,7 @@ pub(crate) fn undo_commit(
             RebaseStep::Pick {
                 commit_id,
                 new_message: _,
-            } => commit_id != &commit_to_remove.to_gix(),
+            } => commit_id != &commit_to_remove,
             _ => true,
         })
         .collect::<Vec<_>>();
@@ -47,14 +46,13 @@ pub(crate) fn undo_commit(
     let mut rebase = but_rebase::Rebase::new(&repo, Some(merge_base), None)?;
     rebase.rebase_noops(false);
     rebase.steps(steps)?;
-    let output = rebase.rebase()?;
+    let output = rebase.rebase(&*ctx.cache.get_cache()?)?;
 
-    let new_head = output.top_commit.to_git2();
-    stack.set_stack_head(&vb_state, &repo, new_head)?;
+    stack.set_stack_head(&mut vb_state, &repo, output.top_commit)?;
 
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
-    crate::integration::update_workspace_commit(&vb_state, ctx, false)
+    crate::integration::update_workspace_commit_with_vb_state(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     Ok(stack)

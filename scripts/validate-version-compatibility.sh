@@ -39,6 +39,12 @@ tmpdir=$(mktemp -d)
 git clone https://github.com/gitbutlerapp/gitbutler "$tmpdir/test" --depth 100 # depth is pretty arbitrary, we just want a non-empty repo
 cd "$tmpdir/test"
 
+# The smoke tests typically switch channels release <-> nightly, but that's not really what the
+# tests are about. We want to validate breakage release to release, and use nightly only because
+# that gives us more granular testing in between releases. Therefore, we set the storage to be the
+# same to more closely emulate that we're switching between two releases.
+git config --local gitbutler.nightly.storagePath gitbutler
+
 but setup | cat
 but config user set name "Smoke Testingsson"
 but config user set email "example@example.com"

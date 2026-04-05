@@ -1,7 +1,5 @@
 use anyhow::{Result, bail};
 use but_ctx::{Context, access::RepoExclusive};
-use but_meta::VirtualBranchesTomlMetadata;
-use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseStep};
 use but_workspace::{legacy::stack_ext::StackExt, ui::CommitState};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
@@ -48,10 +46,10 @@ pub fn get_initial_integration_steps_for_branch(
     branch_name: String,
 ) -> Result<Vec<InteractiveIntegrationStep>> {
     let repo = ctx.repo.get()?;
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project_data_dir().join("virtual_branches.toml"),
-    )?;
-    let stack_details = but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)?;
+    let meta = ctx.legacy_meta()?;
+    let mut cache = ctx.cache.get_cache_mut()?;
+    let stack_details =
+        but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta, &mut cache)?;
 
     let branch_details = stack_details
         .branch_details
@@ -102,7 +100,7 @@ pub fn integrate_branch_with_steps(
 ) -> Result<()> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let repo = ctx.repo.get()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let mut source_stack = vb_state.get_stack_in_workspace(stack_id)?;
     let merge_base = source_stack.merge_base(ctx)?;
@@ -161,15 +159,14 @@ pub fn integrate_branch_with_steps(
     let mut rebase = Rebase::new(&repo, merge_base, None)?;
     rebase.steps(new_rebase_steps)?;
     rebase.rebase_noops(false);
-    let result = rebase.rebase()?;
-    let head = result.top_commit.to_git2();
+    let result = rebase.rebase(&*ctx.cache.get_cache()?)?;
 
-    source_stack.set_stack_head(&vb_state, &repo, head)?;
+    source_stack.set_stack_head(&mut vb_state, &repo, result.top_commit)?;
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     update_uncommitted_changes(ctx, old_workspace, new_workspace, perm)?;
     source_stack.set_heads_from_rebase_output(ctx, result.references)?;
 
-    crate::integration::update_workspace_commit(&vb_state, ctx, false)?;
+    crate::integration::update_workspace_commit_with_vb_state(&vb_state, ctx, false)?;
 
     Ok(())
 }

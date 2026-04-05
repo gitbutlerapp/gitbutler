@@ -1,10 +1,9 @@
-import { isReduxError } from "$lib/state/reduxError";
+import { isReduxError } from "$lib/error/reduxError";
 import { getName, getVersion, getVersion as tauriGetVersion } from "@tauri-apps/api/app";
 import { invoke as invokeTauri } from "@tauri-apps/api/core";
-import { listen as listenTauri } from "@tauri-apps/api/event";
 import { documentDir as documentDirTauri } from "@tauri-apps/api/path";
 import { join as joinPathTauri } from "@tauri-apps/api/path";
-import { getCurrentWindow, Window } from "@tauri-apps/api/window";
+import { getCurrentWindow, type Window } from "@tauri-apps/api/window";
 import {
 	writeText as tauriWriteText,
 	readText as tauriReadText,
@@ -297,7 +296,8 @@ async function tauriInvoke<T>(command: string, params: Record<string, unknown> =
 }
 
 function tauriListen<T>(event: EventName, handle: EventCallback<T>) {
-	const unlisten = listenTauri(event, handle);
+	const appWindow = getCurrentWindow();
+	const unlisten = appWindow.listen(event, handle);
 	return async () => await unlisten.then((unlistenFn) => unlistenFn());
 }
 

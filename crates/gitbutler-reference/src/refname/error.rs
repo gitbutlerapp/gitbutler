@@ -8,8 +8,4 @@ pub enum Error {
     NotLocal(String),
     #[error("branch is not remote: {0}")]
     NotRemote(String),
-    #[error(transparent)]
-    Git(#[from] git2::Error),
-    #[error(transparent)]
-    Utf8(#[from] std::string::FromUtf8Error),
 }

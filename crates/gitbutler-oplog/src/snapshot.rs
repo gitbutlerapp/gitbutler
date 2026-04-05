@@ -17,25 +17,25 @@ pub type ReferenceName = String;
 pub trait SnapshotExt {
     fn snapshot_branch_unapplied(
         &self,
-        snapshot_tree: git2::Oid,
+        snapshot_tree: gix::ObjectId,
         result: Result<&ReferenceName, &anyhow::Error>,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()>;
 
     fn snapshot_commit_undo(
         &self,
-        snapshot_tree: git2::Oid,
+        snapshot_tree: gix::ObjectId,
         result: Result<&(), &anyhow::Error>,
-        commit_sha: git2::Oid,
+        commit_sha: gix::ObjectId,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()>;
 
     fn snapshot_commit_creation(
         &self,
-        snapshot_tree: git2::Oid,
+        snapshot_tree: gix::ObjectId,
         error: Option<&anyhow::Error>,
         commit_message: String,
-        sha: Option<git2::Oid>,
+        sha: Option<gix::ObjectId>,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()>;
 
@@ -57,7 +57,7 @@ pub trait SnapshotExt {
     ) -> anyhow::Result<()>;
     fn snapshot_branch_update(
         &self,
-        snapshot_tree: git2::Oid,
+        snapshot_tree: gix::ObjectId,
         old_stack: &Stack,
         update: &BranchUpdateRequest,
         error: Option<&anyhow::Error>,
@@ -84,7 +84,7 @@ pub trait SnapshotExt {
 impl SnapshotExt for but_ctx::Context {
     fn snapshot_branch_unapplied(
         &self,
-        snapshot_tree: git2::Oid,
+        snapshot_tree: gix::ObjectId,
         result: Result<&ReferenceName, &anyhow::Error>,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()> {
@@ -96,9 +96,9 @@ impl SnapshotExt for but_ctx::Context {
     }
     fn snapshot_commit_undo(
         &self,
-        snapshot_tree: git2::Oid,
+        snapshot_tree: gix::ObjectId,
         result: Result<&(), &anyhow::Error>,
-        commit_sha: git2::Oid,
+        commit_sha: gix::ObjectId,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()> {
         let result = result.map(|_| Some(commit_sha.to_string()));
@@ -109,10 +109,10 @@ impl SnapshotExt for but_ctx::Context {
     }
     fn snapshot_commit_creation(
         &self,
-        snapshot_tree: git2::Oid,
+        snapshot_tree: gix::ObjectId,
         error: Option<&anyhow::Error>,
         commit_message: String,
-        sha: Option<git2::Oid>,
+        sha: Option<gix::ObjectId>,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()> {
         let details = SnapshotDetails::new(OperationKind::CreateCommit).with_trailers(
@@ -178,7 +178,7 @@ impl SnapshotExt for but_ctx::Context {
     }
     fn snapshot_branch_update(
         &self,
-        snapshot_tree: git2::Oid,
+        snapshot_tree: gix::ObjectId,
         old_stack: &Stack,
         update: &BranchUpdateRequest,
         error: Option<&anyhow::Error>,

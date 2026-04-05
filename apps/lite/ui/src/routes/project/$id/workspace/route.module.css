@@ -1,0 +1,180 @@
+.unassignedChanges {
+	flex-shrink: 0;
+	width: 300px;
+	border: 1px dotted var(--color-separator);
+}
+
+.stackLane {
+	flex-shrink: 0;
+	width: 350px;
+}
+
+.headInfo {
+	display: flex;
+	row-gap: calc(var(--item-block-padding) + var(--item-line-height));
+	flex-direction: column;
+}
+
+.stackLanes {
+	display: flex;
+	column-gap: 8px;
+}
+
+.emptyLane {
+	flex-shrink: 0;
+	width: 300px;
+}
+
+.assignedChanges {
+	min-height: 80px;
+	border: 1px dotted var(--color-separator);
+}
+
+.commitForm {
+	display: flex;
+	flex-direction: column;
+}
+
+.commitFormMessageInput {
+	field-sizing: content;
+	box-sizing: content-box;
+	min-height: calc(2lh);
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
+	background-color: var(--color-input-bg);
+	resize: vertical;
+}
+
+.segments {
+	display: flex;
+	row-gap: calc(var(--item-block-padding) + var(--item-line-height));
+	flex-direction: column;
+}
+
+.segmentButton {
+	flex-grow: 1;
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
+	overflow: hidden;
+	font-weight: bold;
+	line-height: var(--item-line-height);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.renameBranchInput {
+	font-weight: bold;
+}
+
+.commit {
+	display: flex;
+	position: relative;
+	flex-direction: column;
+}
+
+.commitInsertionTarget {
+	--indicator-height: 3px;
+
+	position: absolute;
+	height: var(--indicator-height);
+	inset-inline: 0;
+	background-color: var(--color-move-indicator);
+	pointer-events: none;
+}
+
+.commitInsertionTargetAbove {
+	top: 0;
+	transform: translateY(calc(var(--indicator-height) / -2));
+}
+
+.commitInsertionTargetBelow {
+	bottom: 0;
+	transform: translateY(calc(var(--indicator-height) / 2));
+}
+
+.activeTarget {
+	outline: 2px dashed var(--color-drag-over-outline);
+}
+
+.stack {
+	display: flex;
+	row-gap: calc(var(--item-block-padding) + var(--item-line-height));
+	flex-direction: column;
+}
+
+.stackHeader {
+	display: flex;
+	column-gap: 8px;
+	align-items: center;
+}
+
+.stackMenuTrigger {
+	display: grid;
+	margin-left: auto;
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
+
+	svg {
+		width: var(--item-line-height);
+		height: var(--item-line-height);
+	}
+
+	&:hover,
+	&[aria-expanded="true"] {
+		background-color: var(--color-button-bg);
+	}
+}
+
+.commonBaseCommitContainer {
+	display: flex;
+	flex-grow: 1;
+	flex-direction: column;
+	align-items: center;
+}
+
+.commonBaseCommit {
+	padding-inline: var(--item-inline-padding);
+	padding-block: var(--item-block-padding);
+	line-height: var(--item-line-height);
+}
+
+.editorForm {
+	display: flex;
+	row-gap: var(--item-block-padding);
+	flex-grow: 1;
+	flex-direction: column;
+	padding-block: var(--item-block-padding);
+	line-height: var(--item-line-height);
+}
+
+.editorInput {
+	flex-grow: 1;
+	padding-inline: var(--item-inline-padding);
+
+	&:focus {
+		outline: none;
+	}
+}
+
+.editorHelp {
+	padding-inline: var(--item-inline-padding);
+	color: var(--color-text-secondary-inverse);
+	font-size: 11px;
+	line-height: 1.3;
+}
+
+.editorShortcut {
+	color: var(--color-item-selected-fg);
+	font-family: monospace;
+}
+
+.editCommitMessageInput {
+	field-sizing: content;
+	box-sizing: content-box;
+	min-height: calc(2lh);
+	resize: none;
+}
+
+.activeSource {
+	opacity: 0.4;
+}

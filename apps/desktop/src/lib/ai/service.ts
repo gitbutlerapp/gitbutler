@@ -28,12 +28,12 @@ import {
 	type PromptMessage,
 	type FileChange,
 } from "$lib/ai/types";
-import { splitMessage } from "$lib/utils/commitMessage";
+import { splitMessage } from "$lib/commits/commitMessage";
 import { InjectionToken } from "@gitbutler/core/context";
 import { get } from "svelte/store";
 import type { GitConfigService } from "$lib/config/gitConfigService";
 import type { SecretsService } from "$lib/secrets/secretsService";
-import type { TokenMemoryService } from "$lib/stores/tokenMemoryService";
+import type { TokenMemoryService } from "$lib/user/tokenMemoryService";
 import type { HttpClient } from "@gitbutler/shared/network/httpClient";
 
 const maxDiffLengthLimitForAPI = 5000;
@@ -153,11 +153,16 @@ export class AIService {
 		return await this.secretsService.get(AISecretHandle.OpenAIKey);
 	}
 
-	async getOpenAIModleName() {
-		return await this.gitConfig.getWithDefault<OpenAIModelName>(
+	async getOpenAIModelName() {
+		const defaultModel = OpenAIModelName.GPT54Nano;
+		const storedValue = await this.gitConfig.getWithDefault<string>(
 			GitAIConfigKey.OpenAIModelName,
-			OpenAIModelName.GPT4oMini,
+			defaultModel,
 		);
+		if (Object.values(OpenAIModelName).includes(storedValue as OpenAIModelName)) {
+			return storedValue as OpenAIModelName;
+		}
+		return defaultModel;
 	}
 
 	async getAnthropicKeyOption() {
@@ -172,10 +177,15 @@ export class AIService {
 	}
 
 	async getAnthropicModelName() {
-		return await this.gitConfig.getWithDefault<AnthropicModelName>(
+		const defaultModel = AnthropicModelName.Haiku;
+		const storedValue = await this.gitConfig.getWithDefault<string>(
 			GitAIConfigKey.AnthropicModelName,
-			AnthropicModelName.Haiku,
+			defaultModel,
 		);
+		if (Object.values(AnthropicModelName).includes(storedValue as AnthropicModelName)) {
+			return storedValue as AnthropicModelName;
+		}
+		return defaultModel;
 	}
 
 	async getDiffLengthLimit() {
@@ -308,7 +318,7 @@ export class AIService {
 		}
 
 		if (modelKind === ModelKind.OpenAI) {
-			const openAIModelName = await this.getOpenAIModleName();
+			const openAIModelName = await this.getOpenAIModelName();
 			const openAIKey = await this.getOpenAIKey();
 			const openAICustomEndpoint = await this.getOpenAICustomEndpoint();
 
@@ -364,7 +374,7 @@ export class AIService {
 			);
 
 			const extraConcisePart = useHaiku
-				? "Compose the commit message in the form of a haiku. A haiku is a three-line poem with a 5-7-5 syllable structure."
+				? "Write the commit body as a haiku (a three-line poem with a 5-7-5 syllable structure). The title should still be a normal short summary of the changes."
 				: useExtraConciseStyle
 					? "Keep the commit message extra concise: output only the title line, no body or description. Keep it as short as possible."
 					: "";

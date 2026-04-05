@@ -4,7 +4,10 @@ use anyhow::bail;
 use but_ctx::Context;
 use colored::Colorize;
 
-use crate::{CliId, IdMap, utils::OutputChannel};
+use crate::{
+    CliId, IdMap,
+    utils::{OutputChannel, shorten_object_id},
+};
 
 pub async fn handle(
     ctx: &mut Context,
@@ -12,8 +15,9 @@ pub async fn handle(
     branch_id: &str,
 ) -> anyhow::Result<()> {
     let mut progress = out.progress_channel();
+    let guard = ctx.exclusive_worktree_access();
 
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
     // Resolve the branch ID
     let resolved_ids = id_map.parse_using_context(branch_id, ctx)?;
@@ -70,9 +74,9 @@ pub async fn handle(
             progress,
             "Merging {} ({}) into {} ({})",
             branch_name.bright_cyan(),
-            merge_in_branch_head_oid.to_string()[..7].bright_black(),
+            shorten_object_id(&repo, merge_in_branch_head_oid).bright_black(),
             local_branch_name.bright_cyan(),
-            local_branch_head_oid.to_string()[..7].bright_black()
+            shorten_object_id(&repo, local_branch_head_oid).bright_black()
         )?;
 
         // do the merge
@@ -116,6 +120,8 @@ pub async fn handle(
             "GitButler local merge",
         )?;
 
+        // TODO: Drop the guard as we can't keep it across await, and `handle` will obtain its own as well.
+        drop(guard);
         crate::command::legacy::pull::handle(ctx, out, false).await?;
 
         writeln!(

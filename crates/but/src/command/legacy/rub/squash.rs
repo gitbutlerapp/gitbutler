@@ -1,29 +1,40 @@
-use anyhow::bail;
+use std::collections::BTreeMap;
+
+use anyhow::{Context as _, bail};
 use bstr::BString;
-use but_core::ref_metadata::StackId;
+use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
 use colored::Colorize;
+use gitbutler_oplog::{
+    OplogExt,
+    entry::{OperationKind, SnapshotDetails},
+};
 use gix::ObjectId;
 
 use super::undo::stack_id_by_commit_id;
-use crate::{CliId, IdMap, command::legacy::ai, utils::OutputChannel};
+use crate::{
+    CliId, IdMap,
+    command::legacy::ai,
+    utils::{OutputChannel, shorten_object_id},
+};
 
 pub(crate) fn commits(
     ctx: &mut Context,
-    source: &ObjectId,
-    destination: &ObjectId,
+    source: ObjectId,
+    destination: ObjectId,
     custom_message: Option<&str>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
     // Delegate to the shared squashing logic
     squash_commits_internal(
         ctx,
-        vec![*source],
-        *destination,
+        vec![source],
+        destination,
         false,
         custom_message,
         None,
+        guard.write_permission(),
         out,
     )
 }
@@ -44,7 +55,8 @@ pub(crate) fn handle(
         bail!("At least one commit or branch name must be provided");
     }
 
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
     // If there's only one argument, it could be a branch name or a range
     if commits.len() == 1 {
@@ -68,6 +80,7 @@ pub(crate) fn handle(
                     custom_message,
                     ai,
                     &id_map,
+                    guard.write_permission(),
                 );
             }
 
@@ -92,7 +105,15 @@ pub(crate) fn handle(
             if sources.len() < 2 {
                 bail!("Need at least 2 commits to squash");
             }
-            return handle_multi_commit_squash(ctx, out, sources, drop_message, custom_message, ai);
+            return handle_multi_commit_squash(
+                ctx,
+                out,
+                sources,
+                drop_message,
+                custom_message,
+                ai,
+                guard.write_permission(),
+            );
         }
 
         if entity_str.contains(',') {
@@ -100,7 +121,15 @@ pub(crate) fn handle(
             if sources.len() < 2 {
                 bail!("Need at least 2 commits to squash");
             }
-            return handle_multi_commit_squash(ctx, out, sources, drop_message, custom_message, ai);
+            return handle_multi_commit_squash(
+                ctx,
+                out,
+                sources,
+                drop_message,
+                custom_message,
+                ai,
+                guard.write_permission(),
+            );
         }
 
         // If it contains a single dash (but not ..), it might be a branch name with a dash
@@ -123,7 +152,15 @@ pub(crate) fn handle(
         sources.push(matches[0].clone());
     }
 
-    handle_multi_commit_squash(ctx, out, sources, drop_message, custom_message, ai)
+    handle_multi_commit_squash(
+        ctx,
+        out,
+        sources,
+        drop_message,
+        custom_message,
+        ai,
+        guard.write_permission(),
+    )
 }
 
 /// Helper function to handle squashing multiple commits
@@ -134,6 +171,7 @@ fn handle_multi_commit_squash(
     drop_message: bool,
     custom_message: Option<&str>,
     ai: Option<Option<String>>,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<()> {
     if sources.len() < 2 {
         bail!("Need at least 2 commits to squash");
@@ -167,11 +205,13 @@ fn handle_multi_commit_squash(
         drop_message,
         custom_message,
         ai,
+        perm,
         out,
     )
 }
 
 /// Internal shared logic for squashing commits
+#[expect(clippy::too_many_arguments)]
 fn squash_commits_internal(
     ctx: &mut Context,
     source_oids: Vec<ObjectId>,
@@ -179,12 +219,13 @@ fn squash_commits_internal(
     drop_message: bool,
     custom_message: Option<&str>,
     ai: Option<Option<String>>,
+    perm: &mut RepoExclusive,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Validate all commits are on the same stack
-    let target_stack = stack_id_by_commit_id(ctx, &target_oid)?;
+    let target_stack = stack_id_by_commit_id(ctx, target_oid)?;
     for source_oid in &source_oids {
-        let source_stack = stack_id_by_commit_id(ctx, source_oid)?;
+        let source_stack = stack_id_by_commit_id(ctx, *source_oid)?;
         if source_stack != target_stack {
             bail!(
                 "Commits must be on the same stack to squash them together. Try squashing commits within a single branch or stack."
@@ -238,52 +279,91 @@ fn squash_commits_internal(
         None
     };
 
-    // Perform the squash using the API - it can handle multiple source commits
-    let new_commit_oid = gitbutler_branch_actions::squash_commits(
-        ctx,
-        target_stack,
-        source_oids.iter().map(|oid| oid.to_git2()).collect(),
-        target_oid.to_git2(),
-    )?;
+    // Keep the complete multi-rewrite sequence atomic: if any step fails,
+    // restore the pre-squash snapshot so we don't leave partial rewrites.
+    let snapshot = ctx.create_snapshot(SnapshotDetails::new(OperationKind::SquashCommit), perm)?;
+    let squash_result: anyhow::Result<ObjectId> = (|| {
+        // Perform the squash by folding sources into the current target one by one.
+        // We process from bottom to top so each next source remains adjacent to the
+        // rewritten target commit.
+        let mut new_commit_oid = target_oid;
+        let mut rewritten_commits = BTreeMap::<ObjectId, ObjectId>::new();
+        for source_oid in source_oids.iter().rev() {
+            let mut remapped_source_oid = *source_oid;
+            while let Some(next_oid) = rewritten_commits.get(&remapped_source_oid) {
+                remapped_source_oid = *next_oid;
+            }
 
-    // Determine the final message and apply if needed
-    let final_commit_oid = if let Some(user_summary) = ai {
-        // Use AI to generate the commit message
-        let ai_message = ai::generate_commit_message_from_multiple_messages(
-            out,
-            source_messages.unwrap_or_default(),
-            destination_message.unwrap_or_default(),
-            user_summary,
-        )?;
-        but_api::commit::commit_reword_only(
-            ctx,
-            new_commit_oid.to_gix(),
-            BString::from(ai_message),
-        )?
-        .to_git2()
-    } else if let Some(msg) = custom_message {
-        but_api::commit::commit_reword_only(ctx, new_commit_oid.to_gix(), BString::from(msg))?
-            .to_git2()
-    } else if let Some(target_msg) = target_message {
-        but_api::commit::commit_reword_only(
-            ctx,
-            new_commit_oid.to_gix(),
-            BString::from(target_msg),
-        )?
-        .to_git2()
-    } else {
-        new_commit_oid
+            let squash_result = but_api::commit::squash::commit_squash_only_with_perm(
+                ctx,
+                remapped_source_oid,
+                new_commit_oid,
+                perm,
+            )?;
+            rewritten_commits.extend(squash_result.replaced_commits.iter().map(|(k, v)| (*k, *v)));
+            new_commit_oid = squash_result.new_commit;
+        }
+
+        // Determine the final message and apply if needed.
+        let final_commit_oid = if let Some(user_summary) = ai {
+            // Use AI to generate the commit message.
+            let ai_message = ai::generate_commit_message_from_multiple_messages(
+                out,
+                source_messages.unwrap_or_default(),
+                destination_message.unwrap_or_default(),
+                user_summary,
+            )?;
+            but_api::commit::reword::commit_reword_only_with_perm(
+                ctx,
+                new_commit_oid,
+                BString::from(ai_message),
+                perm,
+            )?
+            .new_commit
+        } else if let Some(msg) = custom_message {
+            but_api::commit::reword::commit_reword_only_with_perm(
+                ctx,
+                new_commit_oid,
+                BString::from(msg),
+                perm,
+            )?
+            .new_commit
+        } else if let Some(target_msg) = target_message {
+            but_api::commit::reword::commit_reword_only_with_perm(
+                ctx,
+                new_commit_oid,
+                BString::from(target_msg),
+                perm,
+            )?
+            .new_commit
+        } else {
+            new_commit_oid
+        };
+
+        Ok(final_commit_oid)
+    })();
+
+    let final_commit_oid = match squash_result {
+        Ok(final_commit_oid) => final_commit_oid,
+        Err(err) => {
+            ctx.restore_snapshot(snapshot, perm).with_context(|| {
+                format!("Failed to restore snapshot {snapshot} after squash failure")
+            })?;
+            return Err(err);
+        }
     };
 
     // Output message based on context
     if let Some(out) = out.for_human() {
+        let repo = ctx.repo.get()?;
+        let final_short = shorten_object_id(&repo, final_commit_oid);
         if source_oids.len() == 1 {
             // Single commit squash (for backwards compatibility with `but rub`)
             writeln!(
                 out,
                 "Squashed {} → {}",
-                source_oids[0].to_string()[..7].blue(),
-                final_commit_oid.to_gix().to_string()[..7].blue()
+                shorten_object_id(&repo, source_oids[0]).blue(),
+                final_short.blue()
             )?
         } else {
             // Multiple commits squash
@@ -291,13 +371,13 @@ fn squash_commits_internal(
                 out,
                 "Squashed {} commits → {}",
                 source_oids.len(),
-                final_commit_oid.to_gix().to_string()[..7].blue()
+                final_short.blue()
             )?
         }
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({
             "ok": true,
-            "new_commit_id": final_commit_oid.to_gix().to_string(),
+            "new_commit_id": final_commit_oid.to_string(),
             "squashed_count": source_oids.len(),
         }))?;
     }
@@ -305,7 +385,7 @@ fn squash_commits_internal(
 }
 
 /// Helper function to squash all commits in a branch into the bottom-most commit
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn squash_branch_commits(
     ctx: &mut Context,
     out: &mut OutputChannel,
@@ -315,6 +395,7 @@ fn squash_branch_commits(
     custom_message: Option<&str>,
     ai: Option<Option<String>>,
     id_map: &IdMap,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<()> {
     // Find the stack containing this branch
     let stack_id = stack_id
@@ -360,6 +441,7 @@ fn squash_branch_commits(
         drop_message,
         custom_message,
         ai,
+        perm,
         out,
     )?;
 
@@ -419,8 +501,8 @@ fn parse_commit_range(
     };
 
     // Verify both commits are on the same stack FIRST
-    let start_stack = stack_id_by_commit_id(ctx, start_commit_oid)?;
-    let end_stack = stack_id_by_commit_id(ctx, end_commit_oid)?;
+    let start_stack = stack_id_by_commit_id(ctx, *start_commit_oid)?;
+    let end_stack = stack_id_by_commit_id(ctx, *end_commit_oid)?;
     if start_stack != end_stack {
         bail!(
             "Range endpoints must be on the same stack. '{start_str}' and '{end_str}' are on different stacks."

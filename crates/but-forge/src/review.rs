@@ -181,12 +181,16 @@ fn is_valid_review_template_path_azure(_path: &path::Path) -> bool {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct ForgeReviewLabel {
     pub name: String,
     pub description: Option<String>,
     pub color: Option<String>,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ForgeReviewLabel);
 
 impl From<but_github::GitHubPrLabel> for ForgeReviewLabel {
     fn from(label: but_github::GitHubPrLabel) -> Self {
@@ -209,12 +213,13 @@ impl From<but_gitlab::GitLabLabel> for ForgeReviewLabel {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 /// Represents a user from a forge platform (e.g., GitHub, GitLab).
 ///
 /// This structure contains information about a user account on a forge platform,
 /// including their identification details and profile information.
-pub struct ForgeUser {
+pub struct ForgeReviewUser {
     /// The unique numeric identifier for the user on the forge platform
     pub id: i64,
     /// The user's login username
@@ -229,7 +234,10 @@ pub struct ForgeUser {
     pub is_bot: bool,
 }
 
-impl Display for ForgeUser {
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ForgeReviewUser);
+
+impl Display for ForgeReviewUser {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -240,9 +248,9 @@ impl Display for ForgeUser {
     }
 }
 
-impl From<but_github::GitHubUser> for ForgeUser {
+impl From<but_github::GitHubUser> for ForgeReviewUser {
     fn from(user: but_github::GitHubUser) -> Self {
-        ForgeUser {
+        ForgeReviewUser {
             id: user.id,
             login: user.login,
             name: user.name,
@@ -253,9 +261,9 @@ impl From<but_github::GitHubUser> for ForgeUser {
     }
 }
 
-impl From<but_gitlab::GitLabUser> for ForgeUser {
+impl From<but_gitlab::GitLabUser> for ForgeReviewUser {
     fn from(user: but_gitlab::GitLabUser) -> Self {
-        ForgeUser {
+        ForgeReviewUser {
             id: user.id,
             login: user.username,
             name: user.name,
@@ -267,6 +275,7 @@ impl From<but_gitlab::GitLabUser> for ForgeUser {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 /// Represents a review (pull request/merge request) from a forge platform (GitHub, GitLab, etc.).
 ///
@@ -283,7 +292,7 @@ pub struct ForgeReview {
     /// The detailed description or body text of the review, if provided.
     pub body: Option<String>,
     /// The user who created this review.
-    pub author: Option<ForgeUser>,
+    pub author: Option<ForgeReviewUser>,
     /// Labels or tags applied to categorize this review.
     pub labels: Vec<ForgeReviewLabel>,
     /// Whether this review is in draft state (not ready for final review).
@@ -312,12 +321,15 @@ pub struct ForgeReview {
     /// In the case of a fork, this will be the fork owner's username.
     pub repo_owner: Option<String>,
     /// Users who have been requested to review or have reviewed this code.
-    pub reviewers: Vec<ForgeUser>,
+    pub reviewers: Vec<ForgeReviewUser>,
     /// The platform-specific symbol for this review type (e.g., "#" for GitHub pull requests and "!" for MRs).
     pub unit_symbol: String,
     /// The timestamp when this review was last fetched from the forge.
     pub last_sync_at: chrono::NaiveDateTime,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ForgeReview);
 
 impl ForgeReview {
     /// Whether the review is still open (not merged or closed)
@@ -366,7 +378,7 @@ impl From<but_github::PullRequest> for ForgeReview {
             number: pr.number,
             title: pr.title,
             body: pr.body,
-            author: pr.author.map(ForgeUser::from),
+            author: pr.author.map(ForgeReviewUser::from),
             labels: pr.labels.into_iter().map(ForgeReviewLabel::from).collect(),
             draft: pr.draft,
             source_branch: pr.source_branch,
@@ -382,7 +394,7 @@ impl From<but_github::PullRequest> for ForgeReview {
             reviewers: pr
                 .requested_reviewers
                 .into_iter()
-                .map(ForgeUser::from)
+                .map(ForgeReviewUser::from)
                 .collect(),
             unit_symbol: "#".to_string(),
             last_sync_at: chrono::Local::now().naive_local(),
@@ -397,7 +409,7 @@ impl From<but_gitlab::MergeRequest> for ForgeReview {
             number: mr.iid,
             title: mr.title,
             body: mr.description,
-            author: mr.author.map(ForgeUser::from),
+            author: mr.author.map(ForgeReviewUser::from),
             labels: mr.labels.into_iter().map(ForgeReviewLabel::from).collect(),
             draft: mr.draft,
             source_branch: mr.source_branch,
@@ -410,16 +422,20 @@ impl From<but_gitlab::MergeRequest> for ForgeReview {
             repository_ssh_url: None,
             repository_https_url: None,
             repo_owner: None,
-            reviewers: mr.reviewers.into_iter().map(ForgeUser::from).collect(),
+            reviewers: mr
+                .reviewers
+                .into_iter()
+                .map(ForgeReviewUser::from)
+                .collect(),
             unit_symbol: "!".to_string(),
             last_sync_at: chrono::Local::now().naive_local(),
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-#[derive(Default)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub enum CacheConfig {
     CacheOnly,
     CacheWithFallback {
@@ -428,6 +444,9 @@ pub enum CacheConfig {
     #[default]
     NoCache,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(CacheConfig);
 
 /// List the open reviews (e.g. pull requests) for a given forge repository
 pub fn list_forge_reviews_with_cache(
@@ -617,6 +636,7 @@ fn list_forge_reviews(
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum ForgeReviewFilter {
     Today,
@@ -625,6 +645,9 @@ pub enum ForgeReviewFilter {
     #[default]
     All,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ForgeReviewFilter);
 
 pub async fn list_forge_reviews_for_branch(
     preferred_forge_user: Option<crate::ForgeUser>,
@@ -966,6 +989,7 @@ pub async fn set_review_draftiness(
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct CreateForgeReviewParams {
     pub title: String,
@@ -974,6 +998,9 @@ pub struct CreateForgeReviewParams {
     pub target_branch: String,
     pub draft: bool,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(CreateForgeReviewParams);
 
 fn github_head_owner_and_repo<'a>(
     forge_repo_info: &'a crate::forge::ForgeRepoInfo,
@@ -1058,6 +1085,7 @@ pub async fn create_forge_review(
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct ForgeReviewDescriptionUpdate {
     /// The unique identifier number for this review within its repository. This can be a PR or MR number.
@@ -1067,6 +1095,9 @@ pub struct ForgeReviewDescriptionUpdate {
     /// The platform-specific symbol for this review type (e.g., "#" for GitHub pull requests and "!" for MRs).
     pub unit_symbol: String,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ForgeReviewDescriptionUpdate);
 
 impl From<ForgeReview> for ForgeReviewDescriptionUpdate {
     fn from(review: ForgeReview) -> Self {

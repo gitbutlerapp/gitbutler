@@ -34,7 +34,10 @@ pub mod json;
 /// Functions releated to platform detection and information.
 pub mod platform;
 
-/// Functions related to the generation of TS types out of schemas
-pub mod schema;
-
 pub mod panic_capture;
+
+/// The types for watcher events
+#[cfg(feature = "export-schema")]
+pub mod watcher;
+
+pub mod types;

@@ -1,0 +1,16 @@
+.toastViewport {
+	display: flex;
+	/* Appear above other floating UI e.g. dialogs. */
+	z-index: 1;
+	position: fixed;
+	right: 16px;
+	bottom: 16px;
+	row-gap: 8px;
+	flex-direction: column;
+	align-items: flex-end;
+	max-width: 400px;
+}
+
+.toastRoot {
+	padding: 8px;
+}

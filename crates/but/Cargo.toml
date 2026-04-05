@@ -17,6 +17,9 @@ doctest = false
 
 [features]
 default = ["legacy"]
+## A very specific utility flag to make clear that the 'but' binary is managed by a package manager.
+## When set, the CLI cannot self-manage itself and commands like `but update install` are disabled.
+packaged-but-distribution = []
 legacy = [
     "but-workspace/legacy",
     "but-api/legacy",
@@ -41,6 +44,8 @@ legacy = [
     "dep:gitbutler-repo",
     "dep:gitbutler-repo-actions",
 ]
+# Feature that enables profiling related features of the TUI.
+tui-profiling = []
 
 [dependencies]
 but-core.workspace = true
@@ -49,7 +54,6 @@ but-serde.workspace = true
 but-secret.workspace = true
 but-update.workspace = true
 but-installer.workspace = true
-but-oxidize.workspace = true
 but-path.workspace = true
 but-ctx.workspace = true
 but-rebase.workspace = true
@@ -87,7 +91,6 @@ gitbutler-operating-modes = { workspace = true, optional = true }
 gitbutler-repo = { workspace = true, optional = true }
 gitbutler-repo-actions = { workspace = true, optional = true }
 
-git2.workspace = true
 schemars.workspace = true
 posthog-rs = { git = "https://github.com/gitbutlerapp/posthog-rs", rev = "664c9245f79aaedcdd025b9f3c141b62bb866b8e" }
 serde.workspace = true
@@ -102,7 +105,7 @@ clap = { workspace = true, features = [
     "usage",
     "suggestions",
 ] }
-clap_complete = "4.5.64"
+clap_complete = "4.6.0"
 chrono.workspace = true
 bstr.workspace = true
 regex.workspace = true
@@ -112,7 +115,8 @@ command-group = { version = "5.0.1", features = ["with-tokio"] }
 gix = { workspace = true, features = ["tracing", "tracing-detail"] }
 colored = "3.0.0"
 serde_json.workspace = true
-terminal_size = "0.4.3"
+boolean-enums.workspace = true
+terminal_size = "0.4.4"
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = [
     "env-filter",
@@ -128,7 +132,7 @@ minus = { git = "https://github.com/arijit79/minus", rev = "57f1848f831d153a10d6
 ] }
 unicode-width = "0.2"
 cfg-if = "1.0.4"
-ratatui.workspace = true
+ratatui = { workspace = true, features = ["unstable-rendered-line-info", "palette"] }
 crossterm.workspace = true
 sha2.workspace = true
 machine-uid = "0.5.4"
@@ -136,6 +140,20 @@ tempfile.workspace = true
 nonempty.workspace = true
 itertools.workspace = true
 self_cell.workspace = true
+rand.workspace = true
+ratatui-textarea = "0.8.0"
+arboard = { version = "3.6.1", default-features = false }
+ansi-to-tui = "8.0.1"
+textwrap = "0.16.2"
+syntect = { version = "5.3.0", default-features = false, features = [
+    "default-syntaxes",
+    "default-themes",
+    "regex-onig",
+    "metadata",
+    "html",
+] }
+tracing-appender = "0.2.4"
+uuid.workspace = true
 
 [dev-dependencies]
 but-graph.workspace = true
@@ -144,6 +162,7 @@ but-testsupport = { workspace = true, features = ["sandbox-but-api"] }
 snapbox = { workspace = true, features = ["term-svg"] }
 shell-words.workspace = true
 insta.workspace = true
+temp-env = "0.3"
 
 [lints]
 workspace = true

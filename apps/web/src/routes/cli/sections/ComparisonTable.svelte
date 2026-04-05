@@ -128,7 +128,7 @@
 		padding: 58px 32px;
 		overflow: hidden;
 		border-radius: var(--radius-xl);
-		background-color: var(--clr-theme-pop-soft);
+		background-color: var(--chip-pop-bg);
 	}
 
 	.comparison-table {
@@ -136,16 +136,16 @@
 		position: relative;
 		grid-column: narrow-start / narrow-end;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--border-2);
 		border-radius: 16px;
-		background: var(--clr-bg-1);
+		background: var(--bg-1);
 	}
 
 	.table-header {
 		display: grid;
 		grid-template-columns: 2fr 1fr 1fr;
-		border-bottom: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-2);
+		border-bottom: 1px solid var(--border-2);
+		background: var(--bg-2);
 	}
 
 	.header-cell {
@@ -160,8 +160,8 @@
 	.table-row {
 		display: grid;
 		grid-template-columns: 2fr 1fr 1fr;
-		border-bottom: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
+		border-bottom: 1px solid var(--border-2);
+		background: var(--bg-1);
 	}
 
 	.table-row:last-child {
@@ -249,7 +249,7 @@
 			margin-bottom: 6px;
 			overflow: hidden;
 			border-bottom: none;
-			border: 1px solid var(--clr-border-2);
+			border: 1px solid var(--border-2);
 			border-radius: 12px;
 		}
 
@@ -261,8 +261,8 @@
 		.feature-cell {
 			display: block;
 			padding: 16px;
-			border-bottom: 1px solid var(--clr-border-2);
-			background: var(--clr-bg-2);
+			border-bottom: 1px solid var(--border-2);
+			background: var(--bg-2);
 			font-size: 14px;
 		}
 
@@ -272,7 +272,7 @@
 			align-items: center;
 			justify-content: space-between;
 			padding: 12px 16px;
-			border-bottom: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--border-2);
 		}
 
 		.status-cell:last-child {
@@ -282,7 +282,7 @@
 		/* Show the data-label attribute before the icon */
 		.status-cell::before {
 			content: attr(data-label);
-			color: var(--clr-text-2);
+			color: var(--text-2);
 			font-weight: 600;
 			font-size: 13px;
 		}

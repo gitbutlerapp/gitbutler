@@ -2,6 +2,11 @@ use anyhow::Result;
 use but_settings::AppSettingsWithDiskSync;
 use tauri::utils::config::{Csp, CspDirectiveSources};
 
+// NOTE: The base CSP in `tauri.conf.json` includes `'wasm-unsafe-eval'` in `script-src`.
+// This is required by Shiki's Oniguruma WASM regex engine for syntax highlighting.
+// Unlike `'unsafe-eval'`, `'wasm-unsafe-eval'` only permits WebAssembly compilation —
+// it does not allow `eval()`, `new Function()`, or other dynamic JS execution.
+
 /// Constructs a new CSP object with additional `connect-src` and `img-src` hosts as provided by the AppSettings.
 pub fn csp_with_extras(
     csp: Option<Csp>,

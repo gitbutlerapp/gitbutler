@@ -45,7 +45,7 @@
 				width: 6px;
 				height: 6px;
 				border-radius: 50%;
-				background-color: var(--clr-theme-pop-element);
+				background-color: var(--fill-pop-bg);
 				content: "";
 			}
 		}

@@ -1,11 +1,14 @@
 {
 	"eslint.useFlatConfig": true,
-	"eslint.validate": ["typescript", "javascript", "svelte"],
+	"eslint.validate": ["typescript", "typescriptreact", "javascript", "svelte"],
 	"eslint.workingDirectories": [{ "directory": "./", "changeProcessCWD": true }],
 	"svelte.enable-ts-plugin": true,
 	"prettier.configPath": ".prettierrc.mjs",
 	"prettier.useEditorConfig": false,
 	"editor.defaultFormatter": null,
+	"files.associations": {
+		"*.cts": "typescript"
+	},
 	"rust-analyzer.check.command": "clippy",
 	"rust-analyzer.check.allTargets": true,
 	"rust-analyzer.check.features": "all",
@@ -17,6 +20,9 @@
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
 	"[typescript]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"[typescriptreact]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
 	"[javascript]": {
@@ -38,6 +44,6 @@
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
 	"svelte.plugin.css.globals": "packages/ui/src/**/*.css",
-	"typescript.preferences.importModuleSpecifier": "non-relative",
-	"javascript.preferences.importModuleSpecifier": "non-relative"
+	"js/ts.preferences.importModuleSpecifier": "non-relative",
+	"editor.formatOnSave": true
 }

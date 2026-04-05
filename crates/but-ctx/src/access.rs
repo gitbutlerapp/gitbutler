@@ -15,21 +15,24 @@ impl Context {
     /// so it can't go stale.
     ///
     /// # IMPORTANT: KEEP THE LOCK ALIVE!
-    // TODO(ctx): make it need &mut
-    pub fn try_exclusive_access(&self) -> anyhow::Result<LockFile> {
+    pub fn try_exclusive_access(&mut self) -> anyhow::Result<LockFile> {
         but_core::sync::try_exclusive_inter_process_access(&self.gitdir, AllOperations)
     }
-    /// Return a guard for exclusive (read+write) worktree access, blocking while waiting for someone else,
-    /// in the same process only, to release it, or for all readers to disappear.
-    /// Locking is fair.
+    /// Return a guard for exclusive (read+write) worktree access, blocking while waiting for
+    /// someone else in the same process to release it, or for all readers to disappear.
+    /// Locking is fair within this process.
+    /// When `project_data_dir` is available we also attempt to obtain a best-effort
+    /// inter-process file lock, but failures to create, open, or lock that file are logged and
+    /// ignored, so the hard guarantee remains in-process exclusivity only.
+    /// If this process inherits Git's commit-hook environment (`GIT_EDITOR=:` together with
+    /// `GIT_INDEX_FILE`), that inter-process lock attempt is non-blocking and may be skipped when
+    /// another GitButler process already holds it. This avoids deadlocking hook re-entry while the
+    /// parent GitButler command waits for the hook.
     /// Note that this works on a shared reference as internal state isn't changed.
-    ///
-    /// Note that this in-process locking works only under the assumption that no two instances of
-    /// GitButler are able to read or write the same repository.
     ///
     /// # IMPORTANT: KEEP THE GUARD ALIVE!
     pub fn exclusive_worktree_access(&mut self) -> RepoExclusiveGuard {
-        but_core::sync::exclusive_repo_access(&self.gitdir)
+        but_core::sync::exclusive_repo_access(&self.gitdir, Some(&self.project_data_dir))
     }
 
     /// Return a guard for shared (read) worktree access, and block while waiting for writers to disappear.

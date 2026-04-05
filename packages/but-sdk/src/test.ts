@@ -1,8 +1,8 @@
 /* eslint-disable no-console */
-import { listProjectsNapi, stackDetailsNapi, stacksNapi } from "./generated/index.js";
+import { listProjectsStatelessNapi, stackDetailsNapi, stacksNapi } from "./generated/index.js";
 
 async function main() {
-	const projects = await listProjectsNapi([]);
+	const projects = await listProjectsStatelessNapi();
 	console.log(projects);
 
 	if (projects.length === 0) {

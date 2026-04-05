@@ -1,6 +1,6 @@
 use anyhow::Result;
 use but_core::DiffSpec;
-use but_rebase::graph_rebase::GraphExt;
+use but_rebase::graph_rebase::Editor;
 use but_testsupport::visualize_commit_graph_all;
 use but_workspace::commit::move_changes_between_commits;
 use gix::prelude::ObjectIdExt;
@@ -23,14 +23,15 @@ fn visualize_tree(id: gix::Id<'_>) -> String {
 fn move_changes_same_commit_is_noop() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
     ");
 
     let commit_id = repo.rev_parse_single("three")?.detach();
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
 
     // Moving changes from a commit to itself should be a no-op
     let outcome =
@@ -40,7 +41,7 @@ fn move_changes_same_commit_is_noop() -> Result<()> {
     outcome.rebase.materialize()?;
 
     // Graph should be unchanged
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -53,7 +54,7 @@ fn move_changes_same_commit_is_noop() -> Result<()> {
 fn move_file_from_head_to_parent() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -79,7 +80,8 @@ fn move_file_from_head_to_parent() -> Result<()> {
     "#);
 
     // Move three.txt from commit three to commit two
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = move_changes_between_commits(
         editor,
         three_id,
@@ -88,10 +90,16 @@ fn move_file_from_head_to_parent() -> Result<()> {
         0,
     )?;
 
-    outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize()?;
+    insta::assert_debug_snapshot!(materialized.history.commit_mappings(), @"
+    {
+        Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(88ba151b2f14a87051cdbeb3bdf850a6175eb8fe),
+        Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae): Sha1(95562c28cbe1efce7d36dafe97fc35b1f804fba7),
+    }
+    ");
 
     // Graph structure should be maintained (commit hashes will change)
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 95562c2 (HEAD -> three) commit three
     * 88ba151 (two) commit two
     | * 16fd221 (origin/two) commit two
@@ -128,7 +136,7 @@ fn move_file_from_head_to_parent() -> Result<()> {
 fn move_file_from_parent_to_head() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -138,7 +146,8 @@ fn move_file_from_parent_to_head() -> Result<()> {
     let two_id = repo.rev_parse_single("two")?.detach();
 
     // Move two.txt from commit two up to commit three
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = move_changes_between_commits(
         editor,
         two_id,
@@ -147,10 +156,16 @@ fn move_file_from_parent_to_head() -> Result<()> {
         0,
     )?;
 
-    outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize()?;
+    insta::assert_debug_snapshot!(materialized.history.commit_mappings(), @"
+    {
+        Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(0f198e0be723143e843ec2e2f9538f4ba815cd62),
+        Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae): Sha1(c7eb64bce6de865a5cc4c97ab296f424ec41210d),
+    }
+    ");
 
     // Graph structure should be maintained
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c7eb64b (HEAD -> three) commit three
     * 0f198e0 (two) commit two
     | * 16fd221 (origin/two) commit two
@@ -185,7 +200,7 @@ fn move_file_from_parent_to_head() -> Result<()> {
 fn move_file_between_non_adjacent_commits() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
@@ -195,7 +210,8 @@ fn move_file_between_non_adjacent_commits() -> Result<()> {
     let one_id = repo.rev_parse_single("one")?.detach();
 
     // Move three.txt from commit three to commit one (skipping two)
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = move_changes_between_commits(
         editor,
         three_id,
@@ -204,10 +220,17 @@ fn move_file_between_non_adjacent_commits() -> Result<()> {
         0,
     )?;
 
-    outcome.rebase.materialize()?;
+    let materialized = outcome.rebase.materialize()?;
+    insta::assert_debug_snapshot!(materialized.history.commit_mappings(), @"
+    {
+        Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(364d4a2e248a71c66f26bb2b4651ea773fe214a5),
+        Sha1(8b426d09509e2a1e924d939055e1e3eb4b6e7fb4): Sha1(9bc8248dd9ea42b08f66103cd43352fcd2f45f3d),
+        Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae): Sha1(4d3039f44cc829fd5f1622cecc5eafe93b252fe2),
+    }
+    ");
 
     // Graph structure should be maintained
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 4d3039f (HEAD -> three) commit three
     * 364d4a2 (two) commit two
     * 9bc8248 (one) commit one
@@ -258,7 +281,8 @@ fn error_when_changes_not_found_in_source() -> Result<()> {
     let two_id = repo.rev_parse_single("two")?.detach();
 
     // Try to move a file that doesn't exist in source commit
-    let editor = graph.to_editor(&repo)?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let result = move_changes_between_commits(
         editor,
         three_id,

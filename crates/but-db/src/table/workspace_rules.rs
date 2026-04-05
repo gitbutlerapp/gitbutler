@@ -3,10 +3,11 @@
 use rusqlite::OptionalExtension;
 use serde::{Deserialize, Serialize};
 
-use crate::{DbHandle, M, Transaction};
+use crate::{DbHandle, M, SchemaVersion, Transaction};
 
 pub(crate) const M: &[M<'static>] = &[M::up(
     20250717150441,
+    SchemaVersion::Zero,
     "CREATE TABLE `workspace_rules`(
 	`id` TEXT NOT NULL PRIMARY KEY,
 	`created_at` TIMESTAMP NOT NULL,

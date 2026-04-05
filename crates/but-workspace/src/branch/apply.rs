@@ -127,7 +127,7 @@ pub struct Options {
     pub new_stack_id: Option<fn(&gix::refs::FullNameRef) -> StackId>,
 }
 
-#[allow(clippy::indexing_slicing)]
+#[expect(clippy::indexing_slicing)]
 pub(crate) mod function {
     use std::borrow::Cow;
 

@@ -161,6 +161,125 @@ pub enum Subcommands {
         #[clap(subcommand)]
         cmd: Option<UiSubcommand>,
     },
+
+    /// View and configure AI provider settings.
+    ///
+    /// Without subcommands, this starts an interactive setup flow.
+    /// Use provider subcommands for non-interactive configuration.
+    ///
+    /// ## Examples
+    ///
+    /// Interactive setup:
+    ///
+    /// ```text
+    /// but config ai
+    /// ```
+    ///
+    /// View current AI configuration:
+    ///
+    /// ```text
+    /// but config ai show
+    /// ```
+    ///
+    /// Configure OpenAI non-interactively:
+    ///
+    /// ```text
+    /// but config ai openai --key-option bring-your-own --api-key-env OPENAI_API_KEY --model gpt-5.4-nano
+    /// ```
+    ///
+    /// Configure Ollama locally:
+    ///
+    /// ```text
+    /// but config ai --local ollama --endpoint localhost:11434 --model llama3.1
+    /// ```
+    Ai {
+        /// Configure local repository git config instead of global user config
+        #[clap(long, conflicts_with = "global")]
+        local: bool,
+        /// Configure global user git config
+        #[clap(long)]
+        global: bool,
+        #[clap(subcommand)]
+        cmd: Option<AiSubcommand>,
+    },
+}
+
+/// Subcommands for `but config ai`
+#[derive(Debug, Clone, clap::Subcommand)]
+pub enum AiSubcommand {
+    /// Show current AI provider configuration.
+    Show,
+
+    /// Configure OpenAI as the active AI provider.
+    Openai {
+        /// Which credential source to use.
+        #[clap(long, value_enum)]
+        key_option: Option<AiKeyOption>,
+        /// Preferred model name (for example, gpt-5.4-nano).
+        #[clap(long)]
+        model: Option<String>,
+        /// Optional custom OpenAI-compatible endpoint URL.
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// OpenAI API key. Prefer --api-key-env to avoid shell history exposure.
+        #[clap(long, hide_env_values = true)]
+        api_key: Option<String>,
+        /// Name of an environment variable holding the OpenAI API key.
+        #[clap(long)]
+        api_key_env: Option<String>,
+    },
+
+    /// Configure Anthropic as the active AI provider.
+    Anthropic {
+        /// Which credential source to use.
+        #[clap(long, value_enum)]
+        key_option: Option<AiKeyOption>,
+        /// Preferred model name (for example, claude-3-5-haiku-latest).
+        #[clap(long)]
+        model: Option<String>,
+        /// Anthropic API key. Prefer --api-key-env to avoid shell history exposure.
+        #[clap(long, hide_env_values = true)]
+        api_key: Option<String>,
+        /// Name of an environment variable holding the Anthropic API key.
+        #[clap(long)]
+        api_key_env: Option<String>,
+    },
+
+    /// Configure Ollama as the active AI provider.
+    Ollama {
+        /// Ollama endpoint in host:port form (for example, localhost:11434).
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// Preferred model name.
+        #[clap(long)]
+        model: Option<String>,
+    },
+
+    /// Configure LM Studio as the active AI provider.
+    Lmstudio {
+        /// LM Studio API base endpoint (for example, http://localhost:1234/v1).
+        #[clap(long)]
+        endpoint: Option<String>,
+        /// Preferred model name.
+        #[clap(long)]
+        model: Option<String>,
+    },
+}
+
+/// Credential source options for OpenAI/Anthropic.
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum AiKeyOption {
+    BringYourOwn,
+    ButlerApi,
+}
+
+impl AiKeyOption {
+    pub fn as_git_value(self) -> &'static str {
+        match self {
+            AiKeyOption::BringYourOwn => "bringYourOwn",
+            AiKeyOption::ButlerApi => "butlerAPI",
+        }
+    }
 }
 
 /// Subcommands for `but config user`

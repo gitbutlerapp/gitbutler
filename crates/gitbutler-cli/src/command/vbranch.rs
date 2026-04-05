@@ -32,7 +32,8 @@ pub(crate) fn stacks(ctx: &Context) -> Result<Vec<(StackId, StackDetails)>> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let stacks = {
         let meta = ctx.legacy_meta()?;
-        but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
+        let mut cache = ctx.cache.get_cache_mut()?;
+        but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None, &mut cache)
     }?;
     let mut details = vec![];
     for stack in stacks {
@@ -41,7 +42,8 @@ pub(crate) fn stacks(ctx: &Context) -> Result<Vec<(StackId, StackDetails)>> {
             .context("BUG(opt-stack-id): CLI code shouldn't trigger this")?;
         details.push((stack_id, {
             let meta = ctx.legacy_meta()?;
-            but_workspace::legacy::stack_details_v3(stack_id.into(), &repo, &meta)
+            let mut cache = ctx.cache.get_cache_mut()?;
+            but_workspace::legacy::stack_details_v3(stack_id.into(), &repo, &meta, &mut cache)
         }?));
     }
     Ok(details)

@@ -1,12 +1,13 @@
+use super::FileChange;
 use anyhow::{Result, bail};
 use bstr::ByteSlice;
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_ctx::access::RepoShared;
 use colored::Colorize;
 
 use crate::{
     CLI_DATE, CliId, IdMap,
-    utils::{OutputChannel, time::format_relative_time},
+    utils::{OutputChannel, shorten_object_id, time::format_relative_time},
 };
 
 pub(crate) fn show_commit(
@@ -47,7 +48,7 @@ pub(crate) fn show_commit(
 
     // Not a branch, proceed with commit logic
     // Try to resolve the commit ID through the IdMap
-    let id_map = IdMap::new_from_context(ctx, None)?;
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
 
     let cli_ids = id_map.parse_using_context(commit_id_str, ctx)?;
 
@@ -238,8 +239,10 @@ fn show_branch(
     branch_name: &str,
     verbose: bool,
 ) -> Result<()> {
-    // Get the commits for the branch
-    let (commits, base_commit_info) = get_branch_commits(ctx, branch_name, verbose)?;
+    // In JSON mode, always include file info (verbose) so agents and tools
+    // get complete data without needing to pass extra flags.
+    let effective_verbose = verbose || out.is_json();
+    let (commits, base_commit_info) = get_branch_commits(ctx, branch_name, effective_verbose)?;
 
     // Get the stack chain (branches this branch is stacked on)
     let stack_chain = get_stack_chain(ctx, branch_name)?;
@@ -428,21 +431,13 @@ struct BranchCommitInfo {
 }
 
 #[derive(Debug, serde::Serialize)]
-struct FileChange {
-    path: String,
-    status: String,
-    insertions: usize,
-    deletions: usize,
-}
-
-#[derive(Debug, serde::Serialize)]
 struct StackChainBranch {
     name: String,
     commit_count: usize,
 }
 
 /// Helper function to find a branch OID by name, checking both list_branches and stacks
-fn find_branch_oid(ctx: &Context, branch_name: &str) -> Result<git2::Oid> {
+fn find_branch_oid(ctx: &Context, branch_name: &str) -> Result<gix::ObjectId> {
     // First check list_branches
     let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
     if let Some(branch) = branches.iter().find(|b| b.name.to_string() == branch_name) {
@@ -458,7 +453,7 @@ fn find_branch_oid(ctx: &Context, branch_name: &str) -> Result<git2::Oid> {
     for stack in &stacks {
         for head in &stack.heads {
             if head.name.to_str_lossy() == branch_name {
-                return Ok(git2::Oid::from_bytes(head.tip.as_slice())?);
+                return Ok(head.tip);
             }
         }
     }
@@ -473,20 +468,14 @@ fn get_branch_commits(
 ) -> Result<(Vec<BranchCommitInfo>, Option<BranchCommitInfo>)> {
     use gix::prelude::ObjectIdExt as _;
 
-    let repo = &*ctx.git2_repo.get()?;
-    let gix_repo = ctx.repo.get()?;
+    let repo = ctx.repo.get()?;
 
-    // Get the target from workspace
-    let guard = ctx.shared_worktree_access();
-    let (_, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
     // Find the branch by name
     let branch_oid = find_branch_oid(ctx, branch_name)?;
-    let branch_commit = repo.find_commit(branch_oid)?;
 
     // Find merge base
-    let Some(merge_base) = ws
-        .merge_base_with_target_branch(branch_commit.id().to_gix())
-        .map(|t| t.0)
+    let guard = ctx.shared_worktree_access();
+    let Some(merge_base) = merge_base_with_target_branch(ctx, guard.read_permission(), branch_oid)?
     else {
         tracing::warn!(
             branch_name,
@@ -496,9 +485,8 @@ fn get_branch_commits(
     };
 
     // Walk from branch head to merge base, collecting commits
-    let branch_gix_oid = branch_commit.id().to_gix();
-    let traversal = branch_gix_oid
-        .attach(&gix_repo)
+    let traversal = branch_oid
+        .attach(&repo)
         .ancestors()
         .with_hidden(Some(merge_base))
         .all()?;
@@ -506,83 +494,27 @@ fn get_branch_commits(
     let mut commits = Vec::new();
     for info in traversal {
         let info = info?;
-        let oid = info.id.to_git2();
-        let commit = repo.find_commit(oid)?;
-        let author = commit.author();
+        let commit = repo.find_commit(info.id)?;
+        let commit = commit.decode()?;
+        let author = commit.author()?;
+        let committer = commit.committer()?;
 
-        let full_message = commit.message().map(|m| m.to_string());
-        let message = full_message
-            .as_deref()
-            .unwrap_or("(no message)")
-            .lines()
-            .next()
-            .unwrap_or("(no message)")
-            .to_string();
+        let full_message = (!commit.message.is_empty()).then(|| commit.message.to_string());
+        let message = super::commit_summary(&commit);
 
         let (files_changed, insertions, deletions, files) = if verbose {
-            // Calculate diff stats and collect file information
-            let tree = commit.tree()?;
-            let parent_tree = if commit.parent_count() > 0 {
-                Some(commit.parent(0)?.tree()?)
-            } else {
-                None
-            };
-            let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
-            let stats = diff.stats()?;
-
-            let mut file_changes = Vec::new();
-            for delta_idx in 0..diff.deltas().len() {
-                let delta = diff.get_delta(delta_idx).unwrap();
-
-                let path = delta
-                    .new_file()
-                    .path()
-                    .or_else(|| delta.old_file().path())
-                    .and_then(|p| p.to_str())
-                    .unwrap_or("(unknown)")
-                    .to_string();
-
-                let status = match delta.status() {
-                    git2::Delta::Added => "added",
-                    git2::Delta::Deleted => "deleted",
-                    git2::Delta::Modified => "modified",
-                    git2::Delta::Renamed => "renamed",
-                    git2::Delta::Copied => "copied",
-                    git2::Delta::Typechange => "typechange",
-                    _ => "unknown",
-                };
-
-                // Get patch for this specific file to count lines
-                let patch = git2::Patch::from_diff(&diff, delta_idx)?;
-                let mut insertions = 0;
-                let mut deletions = 0;
-
-                if let Some(patch) = patch {
-                    for hunk_idx in 0..patch.num_hunks() {
-                        let hunk_lines = patch.num_lines_in_hunk(hunk_idx)?;
-                        for line_idx in 0..hunk_lines {
-                            let line = patch.line_in_hunk(hunk_idx, line_idx)?;
-                            match line.origin() {
-                                '+' => insertions += 1,
-                                '-' => deletions += 1,
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-
-                file_changes.push(FileChange {
-                    path,
-                    status: status.to_string(),
-                    insertions,
-                    deletions,
-                });
-            }
+            let changes = but_core::diff::commit_changes(info.id())?;
+            let stats = changes.compute_line_stats(&repo)?;
+            let file_changes = changes
+                .into_tree_changes()
+                .into_iter()
+                .map(|change| super::file_change_from_tree_change(&repo, change))
+                .collect::<Result<Vec<_>>>()?;
 
             (
-                Some(stats.files_changed()),
-                Some(stats.insertions()),
-                Some(stats.deletions()),
+                Some(usize::try_from(stats.files_changed).unwrap_or(usize::MAX)),
+                Some(usize::try_from(stats.lines_added).unwrap_or(usize::MAX)),
+                Some(usize::try_from(stats.lines_removed).unwrap_or(usize::MAX)),
                 Some(file_changes),
             )
         } else {
@@ -590,13 +522,13 @@ fn get_branch_commits(
         };
 
         commits.push(BranchCommitInfo {
-            sha: oid.to_string(),
-            short_sha: oid.to_string()[..7].to_string(),
+            sha: info.id.to_string(),
+            short_sha: shorten_object_id(&repo, info.id),
             message,
             full_message,
-            author_name: author.name().unwrap_or("Unknown").to_string(),
-            author_email: author.email().unwrap_or("").to_string(),
-            timestamp: commit.time().seconds(),
+            author_name: author.name.to_str_lossy().to_string(),
+            author_email: author.email.to_str_lossy().to_string(),
+            timestamp: committer.time()?.seconds,
             files_changed,
             insertions,
             deletions,
@@ -606,25 +538,19 @@ fn get_branch_commits(
 
     // Get base commit info
     let base_commit_info = if verbose {
-        let merge_base_git2 = merge_base.to_git2();
-        let base_commit = repo.find_commit(merge_base_git2)?;
-        let base_author = base_commit.author();
-        let base_message = base_commit
-            .message()
-            .unwrap_or("(no message)")
-            .lines()
-            .next()
-            .unwrap_or("(no message)")
-            .to_string();
+        let base_commit = repo.find_commit(merge_base)?;
+        let base_commit = base_commit.decode()?;
+        let base_author = base_commit.author()?;
+        let base_message = super::commit_summary(&base_commit);
 
         Some(BranchCommitInfo {
-            sha: merge_base_git2.to_string(),
-            short_sha: merge_base_git2.to_string()[..7].to_string(),
+            sha: merge_base.to_string(),
+            short_sha: shorten_object_id(&repo, merge_base),
             message: base_message,
             full_message: None,
-            author_name: base_author.name().unwrap_or("Unknown").to_string(),
-            author_email: base_author.email().unwrap_or("").to_string(),
-            timestamp: base_commit.time().seconds(),
+            author_name: base_author.name.to_str_lossy().to_string(),
+            author_email: base_author.email.to_str_lossy().to_string(),
+            timestamp: base_commit.committer()?.time()?.seconds,
             files_changed: None,
             insertions: None,
             deletions: None,
@@ -635,6 +561,17 @@ fn get_branch_commits(
     };
 
     Ok((commits, base_commit_info))
+}
+
+fn merge_base_with_target_branch(
+    ctx: &Context,
+    perm: &RepoShared,
+    branch_oid: gix::ObjectId,
+) -> Result<Option<gix::ObjectId>> {
+    let (_, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
+    Ok(workspace
+        .merge_base_with_target_branch(branch_oid)
+        .map(|t| t.0))
 }
 
 fn format_timestamp(timestamp: i64) -> String {
@@ -784,19 +721,12 @@ fn get_stack_chain(ctx: &Context, branch_name: &str) -> Result<Vec<StackChainBra
 fn get_branch_commit_count(ctx: &Context, branch_name: &str) -> Result<usize> {
     use gix::prelude::ObjectIdExt as _;
 
-    let repo = &*ctx.git2_repo.get()?;
-    let gix_repo = ctx.repo.get()?;
-
-    // Get the target from workspace
-    let guard = ctx.shared_worktree_access();
-    let (_, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+    let repo = ctx.repo.get()?;
 
     // Find the branch OID
     let branch_oid = find_branch_oid(ctx, branch_name)?;
-    let branch_commit = repo.find_commit(branch_oid)?;
-    let Some(merge_base) = ws
-        .merge_base_with_target_branch(branch_commit.id().to_gix())
-        .map(|t| t.0)
+    let guard = ctx.shared_worktree_access();
+    let Some(merge_base) = merge_base_with_target_branch(ctx, guard.read_permission(), branch_oid)?
     else {
         tracing::warn!(
             branch_name,
@@ -806,9 +736,8 @@ fn get_branch_commit_count(ctx: &Context, branch_name: &str) -> Result<usize> {
     };
 
     // Count commits
-    let branch_gix_oid = branch_commit.id().to_gix();
-    let traversal = branch_gix_oid
-        .attach(&gix_repo)
+    let traversal = branch_oid
+        .attach(&repo)
         .ancestors()
         .with_hidden(Some(merge_base))
         .all()?;

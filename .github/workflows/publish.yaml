@@ -24,6 +24,11 @@ on:
           - patch
           - minor
           - major
+      dry_run:
+        description: Perform a dry run that builds the artifacts and uploads them to GitHub, but does not publish them to end users. Useful to test experimental features before they go out in a nightly.
+        type: boolean
+        required: true
+        default: false
 
 permissions: {}
 
@@ -58,13 +63,13 @@ jobs:
         run: pnpm build:desktop -- --mode ${{ env.vitemode }}
         env:
           SENTRY_RELEASE: ${{ env.version }}
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         name: Upload pnpm-store contents
         with:
           name: pnpm-store
           path: /home/runner/setup-pnpm/node_modules/.bin/store/v3
           retention-days: 7
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         name: Upload SvelteKit build output
         with:
           name: sveltekit-build
@@ -126,7 +131,7 @@ jobs:
           rustup target add ${{ matrix.target }}
       # The cache doesn't pick up the environment variable set above, so we have to set it ourselves.
       - name: Rust Cache ${{ matrix.target }}
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           shared-key: app-release-build-${{ github.event.inputs.channel || 'nightly' }}${{ matrix.target }}${{ matrix.platform }}
       - name: Init Node Environment
@@ -148,7 +153,7 @@ jobs:
 
       - name: Import GPG key
         if: runner.os == 'Linux'
-        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6
+        uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
         with:
           gpg_private_key: ${{ secrets.APPIMAGE_PRIVATE_KEY }}
           passphrase: ${{ secrets.APPIMAGE_KEY_PASSPHRASE }}
@@ -178,7 +183,7 @@ jobs:
             gir1.2-javascriptcoregtk-4.1="$webkit_version" \
             gir1.2-webkit2-4.1="$webkit_version";
 
-      - uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         name: Download SvelteKit build output
         with:
           name: sveltekit-build
@@ -216,7 +221,7 @@ jobs:
             echo "artifact_suffix=" >> $GITHUB_ENV
           fi
       - name: Upload Artifacts
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: "${{ env.channel }}-${{ matrix.platform }}${{ env.artifact_suffix }}-${{ github.run_number }}"
           path: release/
@@ -231,7 +236,7 @@ jobs:
           cp target/release/gitbutler-git-askpass.exe tauri-aux-artifacts/
 
       - name: Upload Windows Aux Binary Artifacts
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: runner.os == 'Windows'
         with:
           name: "${{ env.channel }}-windows-aux-${{ github.run_number }}"
@@ -250,7 +255,7 @@ jobs:
         shell: bash
         run: rm -rf release
       - name: Download unsigned artifacts
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release
@@ -261,7 +266,7 @@ jobs:
         env:
           EVCODESIGND_PSK: ${{ secrets.EVCODESIGND_PSK }}
       - name: Upload signed artifacts
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release/
@@ -280,7 +285,7 @@ jobs:
         shell: bash
         run: rm -rf release
       - name: Download ev-signed artifacts
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release
@@ -310,7 +315,7 @@ jobs:
         run: |
           Compress-Archive -Force -Path "release/${{ steps.set-path.outputs.msi_file }}" -DestinationPath "release/${{ steps.set-path.outputs.msi_file }}.zip"
       - name: Upload re-signed artifacts
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release/
@@ -332,7 +337,7 @@ jobs:
         shell: bash
         run: rm -rf release
       - name: Download unsigned artifacts
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release
@@ -355,7 +360,7 @@ jobs:
           rm "release/$but_file.minisig"
           rm minisign.key
       - name: Upload signed artifacts
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release/
@@ -364,6 +369,7 @@ jobs:
 
   publish-tauri:
     needs: [sign-tauri, sign-but, build-tauri]
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run == 'false' }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ env.version }}
@@ -394,7 +400,7 @@ jobs:
             echo "artifact_suffix=" >> $GITHUB_ENV
           fi
       - name: Download artifacts
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}${{ env.artifact_suffix }}-${{ github.run_number }}"
           path: release

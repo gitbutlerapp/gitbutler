@@ -2,7 +2,8 @@ import { goto } from "$app/navigation";
 import { showToast } from "$lib/notifications/toasts";
 import { projectPath } from "$lib/routes/routes.svelte";
 import { TestId } from "@gitbutler/ui";
-import type { ForgeName } from "$lib/forge/interface/forge";
+// Inlined to avoid circular import with forge/.
+type ForgeName = "github" | "gitlab" | "bitbucket" | "azure" | "default";
 import type { ForgeUser } from "@gitbutler/core/api";
 
 export type KeyType = "gitCredentialsHelper" | "local" | "systemExecutable";

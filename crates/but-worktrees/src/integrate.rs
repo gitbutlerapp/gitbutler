@@ -7,7 +7,6 @@ use but_ctx::{
 };
 use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseOutput, RebaseStep};
-use but_status::create_wd_tree;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
@@ -77,8 +76,7 @@ pub fn worktree_integrate(
         .set_heads_from_rebase_output(ctx, status.rebase_output.references)?;
     let after = WorkspaceState::create(ctx, perm.read_permission())?;
     update_uncommitted_changes(ctx, before, after, perm)?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    update_workspace_commit(&vb_state, ctx, false)?;
+    update_workspace_commit(ctx, false)?;
 
     git_worktree_remove(ctx.repo.get()?.common_dir(), id, true)?;
 
@@ -132,7 +130,8 @@ fn worktree_integration_inner(
 
     // Create a squash commit which we will then cherry pick into the
     // target branch
-    let wd_tree = create_wd_tree(&worktree_repo, 0)?;
+    #[expect(deprecated)]
+    let wd_tree = worktree_repo.create_wd_tree(0)?;
     let author = repo
         .author()
         .transpose()
@@ -195,14 +194,16 @@ fn worktree_integration_inner(
     let mut rebase = Rebase::new(&repo, stack.merge_base(ctx)?, None)?;
     rebase.steps(steps)?;
     rebase.rebase_noops(false);
-    let output = rebase.rebase()?;
+    let output = rebase.rebase(&*ctx.cache.get_cache()?)?;
 
     // Does the new stack tip conflict with any of the other stacks.
     let tip_tree = repo.find_commit(output.top_commit)?.tree_id()?;
+    let cache = repo.commit_graph_if_enabled()?;
+    let mut graph = repo.revision_graph(cache.as_ref());
     for stack in stacks.iter().filter(|s| s.id != stack.id) {
         let head_id = stack.head_oid(ctx)?;
         let head_tree = repo.find_commit(head_id)?.tree_id()?;
-        let merge_base = repo.merge_base(head_id, output.top_commit)?;
+        let merge_base = repo.merge_base_with_graph(head_id, output.top_commit, &mut graph)?;
         let merge_base_tree = repo.find_commit(merge_base)?.tree_id()?;
 
         if !repo.merges_cleanly(
@@ -239,15 +240,17 @@ fn worktree_integration_inner(
             }
         });
 
-    let wd_tree = create_wd_tree(&repo, 0)?;
+    #[expect(deprecated)]
+    let wd_tree = repo.create_wd_tree(0)?;
 
     let working_dir_conflicts = {
+        let gix_repo = ctx.clone_repo_for_merging()?;
         let before_heads = stacks
             .iter()
             .map(|s| s.head_oid(ctx))
             .collect::<Result<Vec<_>>>()?;
         let before = WorkspaceState::create_from_heads(ctx, perm, &before_heads)?;
-        let before = merge_workspace(&*ctx.git2_repo.get()?, before)?;
+        let before = merge_workspace(&gix_repo, &before)?.to_git2();
         let mut after_heads = stacks
             .iter()
             .filter(|s| s.id != stack.id)
@@ -255,7 +258,7 @@ fn worktree_integration_inner(
             .collect::<Result<Vec<_>>>()?;
         after_heads.push(output.top_commit);
         let after = WorkspaceState::create_from_heads(ctx, perm, &after_heads)?;
-        let after = merge_workspace(&*ctx.git2_repo.get()?, after)?;
+        let after = merge_workspace(&gix_repo, &after)?.to_git2();
         let index = move_tree(&*ctx.git2_repo.get()?, wd_tree.to_git2(), before, after)?;
 
         index.has_conflicts()

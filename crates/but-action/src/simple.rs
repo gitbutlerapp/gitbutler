@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use anyhow::anyhow;
 use but_core::{DiffSpec, ref_metadata::StackId};
 use but_ctx::{Context, access::RepoExclusive};
-use but_oxidize::OidExt;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::{
     OplogExt,
@@ -34,31 +33,27 @@ pub(crate) fn handle_changes(
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
 
-    let vb_state = &VirtualBranchesHandle::new(ctx.project_data_dir());
-    default_target_setting_if_none(ctx, vb_state)?; // Create a default target if none exists.
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    default_target_setting_if_none(ctx, &mut vb_state)?; // Create a default target if none exists.
 
-    let snapshot_before = ctx
-        .create_snapshot(
-            SnapshotDetails::new(OperationKind::AutoHandleChangesBefore),
-            perm,
-        )?
-        .to_gix();
+    let snapshot_before = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::AutoHandleChangesBefore),
+        perm,
+    )?;
 
     let response = handle_changes_simple_inner(
         ctx,
         change_summary,
         external_prompt.clone(),
-        vb_state,
+        &mut vb_state,
         perm,
         exclusive_stack,
     );
 
-    let snapshot_after = ctx
-        .create_snapshot(
-            SnapshotDetails::new(OperationKind::AutoHandleChangesAfter),
-            perm,
-        )?
-        .to_gix();
+    let snapshot_after = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::AutoHandleChangesAfter),
+        perm,
+    )?;
 
     let action = crate::action::ButlerAction::new(
         crate::ActionHandler::HandleChangesSimple,
@@ -78,11 +73,11 @@ fn handle_changes_simple_inner(
     ctx: &mut Context,
     change_summary: &str,
     external_prompt: Option<String>,
-    vb_state: &VirtualBranchesHandle,
+    vb_state: &mut VirtualBranchesHandle,
     perm: &mut RepoExclusive,
     exclusive_stack: Option<StackId>,
 ) -> anyhow::Result<Outcome> {
-    match gitbutler_operating_modes::operating_mode(ctx) {
+    match gitbutler_operating_modes::operating_mode(ctx, perm.read_permission())? {
         OperatingMode::OpenWorkspace => {
             // No action needed, we're already in the workspace
         }
@@ -97,16 +92,13 @@ fn handle_changes_simple_inner(
         }
     }
 
-    // Get any assignments that may have been made, which also includes any hunk locks. Assignments should be updated according to locks where applicable.
     let context_lines = ctx.settings.context_lines;
     let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         db.hunk_assignments_mut()?,
         &repo,
         &ws,
-        true,
         None::<Vec<but_core::TreeChange>>,
-        None,
         context_lines,
     )
     .map_err(|err| serde_error::Error::new(&*err))?;

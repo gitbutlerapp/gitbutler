@@ -9,7 +9,7 @@
 			width: "100%",
 			height: "1rem",
 			radius: "var(--radius-ml)",
-			color: "var(--clr-text-3)",
+			color: "var(--text-3)",
 			opacity: 0.14,
 		},
 	});
@@ -43,7 +43,7 @@
 <Story name="Button">
 	{#snippet template()}
 		<div style="padding: 20px;">
-			<SkeletonBone width="6rem" height="var(--size-button)" radius="var(--radius-btn)" />
+			<SkeletonBone width="6rem" height="var(--size-button)" radius="var(--radius-button)" />
 		</div>
 	{/snippet}
 </Story>
@@ -70,16 +70,16 @@
 			<SkeletonBone
 				width="80%"
 				height="3rem"
-				color="var(--clr-bg-3)"
+				color="var(--bg-3)"
 				opacity={0.4}
 				radius="var(--radius-ml)"
 			/>
 			<SkeletonBone
 				width="100%"
 				height="2rem"
-				color="var(--clr-theme-pop-element)"
+				color="var(--fill-pop-bg)"
 				opacity={0.2}
-				radius="var(--radius-btn)"
+				radius="var(--radius-button)"
 			/>
 		</div>
 	{/snippet}

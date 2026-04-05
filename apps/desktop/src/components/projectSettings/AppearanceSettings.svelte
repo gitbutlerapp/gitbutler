@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ThemeSelector from "$components/ThemeSelector.svelte";
+	import ThemeSelector from "$components/projectSettings/ThemeSelector.svelte";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { inject } from "@gitbutler/core/context";
 	import {
@@ -11,9 +11,15 @@
 		Textbox,
 		Toggle,
 	} from "@gitbutler/ui";
+	import { LIGHT_THEMES, DARK_THEMES, setSyntaxThemes } from "@gitbutler/ui/utils/shikiHighlighter";
 	import type { ScrollbarVisilitySettings } from "@gitbutler/ui/components/scroll/Scrollbar.svelte";
 
 	const userSettings = inject(SETTINGS);
+
+	// Sync persisted syntax theme settings to the shiki highlighter.
+	$effect(() => {
+		setSyntaxThemes($userSettings.syntaxThemeLight, $userSettings.syntaxThemeDark);
+	});
 	const diff = `@@ -56,10 +56,10 @@
 			// Diff example
 			projectName={project.title}
@@ -162,6 +168,62 @@
 			inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 			hunkStr={diff}
 		/>
+	</CardGroup.Item>
+
+	<CardGroup.Item alignment="center">
+		{#snippet title()}
+			Syntax theme (light)
+		{/snippet}
+		{#snippet caption()}
+			Color scheme used for syntax highlighting when the app is in light mode.
+		{/snippet}
+		{#snippet actions()}
+			<Select
+				maxWidth={200}
+				value={$userSettings.syntaxThemeLight}
+				options={LIGHT_THEMES}
+				onselect={(value) => {
+					userSettings.update((s) => ({
+						...s,
+						syntaxThemeLight: value,
+					}));
+				}}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === $userSettings.syntaxThemeLight} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		{/snippet}
+	</CardGroup.Item>
+
+	<CardGroup.Item alignment="center">
+		{#snippet title()}
+			Syntax theme (dark)
+		{/snippet}
+		{#snippet caption()}
+			Color scheme used for syntax highlighting when the app is in dark mode.
+		{/snippet}
+		{#snippet actions()}
+			<Select
+				maxWidth={200}
+				value={$userSettings.syntaxThemeDark}
+				options={DARK_THEMES}
+				onselect={(value) => {
+					userSettings.update((s) => ({
+						...s,
+						syntaxThemeDark: value,
+					}));
+				}}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === $userSettings.syntaxThemeDark} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		{/snippet}
 	</CardGroup.Item>
 
 	<CardGroup.Item>
@@ -313,6 +375,27 @@
 					userSettings.update((s) => ({
 						...s,
 						inlineUnifiedDiffs: !s.inlineUnifiedDiffs,
+					}));
+				}}
+			/>
+		{/snippet}
+	</CardGroup.Item>
+
+	<CardGroup.Item labelFor="svgAsImage">
+		{#snippet title()}
+			Preview SVG files as images
+		{/snippet}
+		{#snippet caption()}
+			Show SVG file changes as an image diff instead of a code diff.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="svgAsImage"
+				checked={$userSettings.svgAsImage}
+				onclick={() => {
+					userSettings.update((s) => ({
+						...s,
+						svgAsImage: !s.svgAsImage,
 					}));
 				}}
 			/>

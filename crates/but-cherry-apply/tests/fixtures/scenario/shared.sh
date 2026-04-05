@@ -62,4 +62,3 @@ function commit() {
   local message=${1:?first argument is the commit message}
   git commit -am "$message" --allow-empty
 }
-

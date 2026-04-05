@@ -1,20 +1,19 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
-	import AnalyticsMonitor from "$components/AnalyticsMonitor.svelte";
-	import Chrome from "$components/Chrome.svelte";
-	import FileMenuAction from "$components/FileMenuAction.svelte";
-	import FullviewLoading from "$components/FullviewLoading.svelte";
-	import IrcPopups from "$components/IrcPopups.svelte";
-	import NoBaseBranch from "$components/NoBaseBranch.svelte";
-	import NotOnGitButlerBranch from "$components/NotOnGitButlerBranch.svelte";
-	import ProblemLoadingRepo from "$components/ProblemLoadingRepo.svelte";
-	import ProjectSettingsMenuAction from "$components/ProjectSettingsMenuAction.svelte";
-	import ReduxResult from "$components/ReduxResult.svelte";
-	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
+	import IrcChatWindow from "$components/irc/IrcChatWindow.svelte";
+	import ProjectSettingsShortcutHandler from "$components/settings/ProjectSettingsShortcutHandler.svelte";
+	import AnalyticsMonitor from "$components/shared/AnalyticsMonitor.svelte";
+	import FullviewLoading from "$components/shared/FullviewLoading.svelte";
+	import NotOnGitButlerBranch from "$components/shared/NotOnGitButlerBranch.svelte";
+	import ProjectShortcutHandler from "$components/shared/ProjectShortcutHandler.svelte";
+	import ReduxResult from "$components/shared/ReduxResult.svelte";
+	import AppLayout from "$components/views/AppLayout.svelte";
+	import NoBaseBranch from "$components/views/NoBaseBranch.svelte";
+	import ProblemLoadingRepo from "$components/views/ProblemLoadingRepo.svelte";
 	import { BACKEND } from "$lib/backend";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
-	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { showError } from "$lib/error/showError";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { GITHUB_CLIENT } from "$lib/forge/github/githubClient";
 	import { useGitHubAccessToken } from "$lib/forge/github/hooks.svelte";
@@ -23,18 +22,25 @@
 	import { GITLAB_USER_SERVICE } from "$lib/forge/gitlab/gitlabUserService.svelte";
 	import { useGitLabAccessToken } from "$lib/forge/gitlab/hooks.svelte";
 	import { GIT_SERVICE } from "$lib/git/gitService";
+	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
+	import { projectChannel } from "$lib/irc/protocol";
+	import { WORKING_FILES_BROADCAST } from "$lib/irc/workingFilesBroadcast.svelte";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
-	import { showError, showInfo, showWarning } from "$lib/notifications/toasts";
+	import { showInfo, showWarning } from "$lib/notifications/toasts";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { CLIENT_STATE } from "$lib/state/clientState.svelte";
 	import { combineResults } from "$lib/state/helpers";
+	import { invalidatesList, ReduxTag } from "$lib/state/tags";
+	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { debounce } from "$lib/utils/debounce";
 	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+	import { mergeUnlisten } from "@gitbutler/ui/utils/mergeUnlisten";
 	import { onDestroy, untrack, type Snippet } from "svelte";
 	import type { LayoutData } from "./$types";
 
@@ -247,6 +253,25 @@
 	const headResponse = $derived(modeService.head(projectId));
 	const head = $derived(headResponse.response);
 
+	// Invalidate caches in response to backend events.
+	$effect(() =>
+		mergeUnlisten(
+			backend.listen(`project://${projectId}/hunk-assignment-update`, () => {
+				stackService.invalidateStacksAndDetails();
+			}),
+			backend.listen(`project://${projectId}/worktree_changes`, () => {
+				clientState.dispatch(
+					clientState.backendApi.util.invalidateTags([invalidatesList(ReduxTag.Diff)]),
+				);
+			}),
+			backend.listen(`project://${projectId}/rule-updates`, () => {
+				clientState.dispatch(
+					clientState.backendApi.util.invalidateTags([invalidatesList(ReduxTag.WorkspaceRules)]),
+				);
+			}),
+		),
+	);
+
 	// If the head changes, invalidate stacks and details
 	// We need to track the previous head value to avoid infinite loops
 	let previousHead = $state<string | undefined>(undefined);
@@ -372,14 +397,50 @@
 		}
 	});
 
+	// =============================================================================
+	// IRC PROJECT CHANNEL
+	// =============================================================================
+
+	const ircApiService = inject(IRC_API_SERVICE);
+	const workingFilesBroadcast = inject(WORKING_FILES_BROADCAST);
+
+	// Extract primitive values via $derived so the effect only re-runs when
+	// the actual IRC-relevant settings change, not on every settings store emit.
+	const ircEnabled = $derived(
+		($settingsStore?.featureFlags?.irc && $settingsStore?.irc?.connection?.enabled) ?? false,
+	);
+	const ircProjectChannelSetting = $derived($settingsStore?.irc?.projectChannel);
+	const projectTitle = $derived(currentProject?.title);
+
+	$effect(() => {
+		if (!ircEnabled || !projectTitle) return;
+
+		const channel =
+			ircProjectChannelSetting !== null && ircProjectChannelSetting !== undefined
+				? ircProjectChannelSetting
+				: projectChannel(projectTitle);
+
+		const botsChannel = `${channel}/bots`;
+
+		ircApiService.autoJoin({ channel });
+		ircApiService.autoJoin({ channel: botsChannel });
+		workingFilesBroadcast.start(projectId, botsChannel);
+
+		return () => {
+			ircApiService.autoLeave({ channel });
+			ircApiService.autoLeave({ channel: botsChannel });
+			workingFilesBroadcast.stop();
+		};
+	});
+
 	// Cleanup on destroy
 	onDestroy(() => {
 		clearFetchInterval();
 	});
 </script>
 
-<ProjectSettingsMenuAction {projectId} />
-<FileMenuAction />
+<ProjectSettingsShortcutHandler {projectId} />
+<ProjectShortcutHandler />
 
 <ReduxResult {projectId} result={combineResults(baseBranchQuery.result, modeQuery.result)}>
 	{#snippet children([baseBranch, mode], { projectId })}
@@ -388,9 +449,9 @@
 		{:else if baseBranch}
 			{#if mode.type === "OpenWorkspace" || mode.type === "Edit" || ($settingsStore?.featureFlags.singleBranch && mode.subject.branchName)}
 				<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
-					<Chrome {projectId} sidebarDisabled={mode.type === "Edit"}>
+					<AppLayout {projectId} sidebarDisabled={mode.type === "Edit"}>
 						{@render pageChildren()}
-					</Chrome>
+					</AppLayout>
 				</div>
 			{:else if mode.type === "OutsideWorkspace"}
 				<NotOnGitButlerBranch {projectId} {baseBranch}>
@@ -407,9 +468,7 @@
 	{/snippet}
 </ReduxResult>
 
-<!-- {#if $settingsStore?.featureFlags.v3} -->
-<IrcPopups />
-<!-- {/if} -->
+<IrcChatWindow {projectId} />
 
 <AnalyticsMonitor {projectId} />
 

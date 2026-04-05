@@ -76,6 +76,27 @@
 	const hunkHasLocks = $derived(lineLocks && lineLocks.length > 0);
 	const colspan = $derived(showingCheckboxes || hunkHasLocks ? 3 : 2);
 	let tableWrapperElem = $state<HTMLElement>();
+	let isVisible = $state(false);
+
+	// Rough line count for height reservation while body is not yet mounted
+	const estimatedBodyHeight = $derived(Math.max(hunkStr.split("\n").length - 1, 1) * 22);
+
+	$effect(() => {
+		if (!tableWrapperElem) return;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					if (entry.isIntersecting) {
+						isVisible = true;
+						observer.disconnect();
+					}
+				}
+			},
+			{ rootMargin: "300px 0px" },
+		);
+		observer.observe(tableWrapperElem);
+		return () => observer.disconnect();
+	});
 
 	function handleHunkContextMenu(e: MouseEvent | KeyboardEvent) {
 		e.preventDefault();
@@ -114,7 +135,16 @@
 		</div>
 	{/if}
 	<ScrollableContainer horz whenToShow="always" zIndex="0">
-		<table class="table__section">
+		<table
+			class="table__section"
+			oncopy={(event) => {
+				const selection = document.getSelection()?.toString();
+				if (selection) {
+					event.preventDefault();
+					event.clipboardData?.setData("text/plain", selection);
+				}
+			}}
+		>
 			<thead class="table__title" class:draggable={!draggingDisabled}>
 				<tr>
 					<th
@@ -149,7 +179,7 @@
 				</tr>
 			</thead>
 
-			{#if tableWrapperElem}
+			{#if tableWrapperElem && isVisible}
 				<HunkDiffBody
 					comment={hunk.comment}
 					{filePath}
@@ -168,6 +198,12 @@
 					{handleLineContextMenu}
 					{lockWarning}
 				/>
+			{:else if tableWrapperElem}
+				<tbody>
+					<tr style="height: {estimatedBodyHeight}px">
+						<td colspan="10"></td>
+					</tr>
+				</tbody>
 			{/if}
 		</table>
 	</ScrollableContainer>
@@ -178,9 +214,9 @@
 		position: relative;
 		width: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-diff-count-border);
+		border: 1px solid var(--diff-count-border);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1);
+		background-color: var(--bg-1);
 
 		&:hover .table__drag-handle {
 			opacity: 1;
@@ -213,17 +249,17 @@
 
 	.table__checkbox-container {
 		box-sizing: border-box;
-		border-right: 1px solid var(--clr-diff-count-border);
-		border-bottom: 1px solid var(--clr-diff-count-border);
-		background-color: var(--clr-diff-count-bg);
+		border-right: 1px solid var(--diff-count-border);
+		border-bottom: 1px solid var(--diff-count-border);
+		background-color: var(--diff-count-bg);
 
 		&.stageable {
 			cursor: pointer;
 		}
 
 		&.staged {
-			border-color: var(--clr-diff-selected-count-border);
-			background-color: var(--clr-diff-selected-count-bg);
+			border-color: var(--diff-selected-count-border);
+			background-color: var(--diff-selected-count-bg);
 		}
 	}
 
@@ -232,11 +268,11 @@
 		align-items: center;
 		justify-content: flex-start;
 		padding: 4px;
-		color: var(--clr-diff-count-text);
+		color: var(--diff-count-text);
 		pointer-events: none;
 
 		&.staged {
-			color: var(--clr-diff-selected-count-text);
+			color: var(--diff-selected-count-text);
 		}
 	}
 
@@ -253,7 +289,7 @@
 		position: absolute;
 		top: 6px;
 		right: 6px;
-		color: var(--clr-text-3);
+		color: var(--text-3);
 		opacity: 0;
 		pointer-events: none;
 		transition: opacity 0.15s;
@@ -264,8 +300,8 @@
 		display: flex;
 		align-items: center;
 		padding: 4px 6px;
-		border-bottom: 1px solid var(--clr-border-2);
-		color: var(--clr-diff-count-text);
+		border-bottom: 1px solid var(--border-2);
+		color: var(--diff-count-text);
 		font-size: 12px;
 		text-wrap: nowrap;
 	}

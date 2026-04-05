@@ -1,15 +1,15 @@
 import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from "$lib/codegen/claude";
+import { CODEGEN_ANALYTICS, CodegenAnalytics } from "$lib/codegen/codegenAnalytics";
+import { currentStatus, isCompletedWithStatus } from "$lib/codegen/messages";
+import { CLIENT_STATE, type ClientState } from "$lib/state/clientState.svelte";
 import {
 	messageQueueSelectors,
 	messageQueueSlice,
 	type MessageQueue,
-} from "$lib/codegen/messageQueueSlice";
-import { currentStatus, isCompletedWithStatus } from "$lib/codegen/messages";
-import { CODEGEN_ANALYTICS, CodegenAnalytics } from "$lib/soup/codegenAnalytics";
-import { CLIENT_STATE, type ClientState } from "$lib/state/clientState.svelte";
+} from "$lib/state/messageQueueSlice";
 import {
 	UI_STATE,
-	type GlobalStore,
+	type WritableReactiveStore,
 	type StackState,
 	type UiState,
 } from "$lib/state/uiState.svelte";
@@ -45,7 +45,7 @@ async function performSend({
 	thinkingLevel: ThinkingLevel;
 	model: ModelType;
 	permissionMode: PermissionMode;
-	laneState: GlobalStore<StackState> | undefined;
+	laneState: WritableReactiveStore<StackState> | undefined;
 	claudeCodeService: ClaudeCodeService;
 	codegenAnalytics: CodegenAnalytics;
 	attachments?: PromptAttachment[];
@@ -120,7 +120,7 @@ export class MessageQueueProcessor {
 		// extra recomputations when one of the message queues changes.
 		$effect(() => {
 			for (const id of queueIds) {
-				const queue = $derived(messageQueueSelectors.selectById(this.clientState.messageQueue, id));
+				const queue = messageQueueSelectors.selectById(this.clientState.messageQueue, id);
 				if (queue) {
 					$effect(() => {
 						this.handleQueue(queue);

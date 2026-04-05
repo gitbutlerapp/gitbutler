@@ -26,6 +26,7 @@ jobs:
         uses: google/osv-scanner-action/osv-scanner-action@c5996e0193a3df57d695c1b8a1dec2a4c62e8730 # v2.3.3
         with:
           scan-args: |-
+            --config=.github/osv-scanner.toml
             --output=results.sarif
             --format=sarif
             -r
@@ -40,7 +41,7 @@ jobs:
           fi
       - name: Upload artifact
         if: ${{ !cancelled() && hashFiles('results.sarif') != '' }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: osv-scanner-sarif-default-${{ github.run_id }}-${{ github.run_attempt }}
           path: results.sarif
@@ -95,6 +96,7 @@ jobs:
         uses: google/osv-scanner-action/osv-scanner-action@c5996e0193a3df57d695c1b8a1dec2a4c62e8730 # v2.3.3
         with:
           scan-args: |-
+            --config=.github/osv-scanner.toml
             --format=json
             --output=old-results.json
             -r
@@ -106,6 +108,7 @@ jobs:
         uses: google/osv-scanner-action/osv-scanner-action@c5996e0193a3df57d695c1b8a1dec2a4c62e8730 # v2.3.3
         with:
           scan-args: |-
+            --config=.github/osv-scanner.toml
             --format=json
             --output=new-results.json
             -r
@@ -146,21 +149,21 @@ jobs:
           fi
       - name: Upload artifact
         if: ${{ always() && !cancelled() && hashFiles('results.sarif') != '' }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: osv-scanner-sarif-pr-${{ github.run_id }}-${{ github.run_attempt }}
           path: results.sarif
           retention-days: 5
       - name: Upload old scan json results
         if: ${{ always() && !cancelled() && hashFiles('old-results.json') != '' }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: osv-scanner-old-json-${{ github.run_id }}-${{ github.run_attempt }}
           path: old-results.json
           retention-days: 5
       - name: Upload new scan json results
         if: ${{ always() && !cancelled() && hashFiles('new-results.json') != '' }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: osv-scanner-new-json-${{ github.run_id }}-${{ github.run_attempt }}
           path: new-results.json

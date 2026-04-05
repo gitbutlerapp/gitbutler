@@ -1,9 +1,8 @@
 use anyhow::{Context as _, Result};
 use but_core::{DiffSpec, RepositoryExt};
 use but_ctx::access::RepoExclusive;
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::ObjectIdExt;
 use gitbutler_cherry_pick::GixRepositoryExt as _;
-use gitbutler_oplog::SnapshotExt;
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::StackId;
@@ -23,7 +22,7 @@ impl BranchManager<'_> {
         assigned_diffspec: Vec<DiffSpec>,
         safe_checkout: bool,
     ) -> Result<String> {
-        let vb_state = self.ctx.virtual_branches();
+        let mut vb_state = self.ctx.virtual_branches();
         let mut stack = vb_state.get_stack(stack_id)?;
 
         // We don't want to try unapplying branches which are marked as not in workspace by the new metric
@@ -35,8 +34,6 @@ impl BranchManager<'_> {
                 .full_name()?
                 .to_string());
         }
-
-        _ = self.ctx.snapshot_branch_deletion(stack.name(), perm);
 
         let git2_repo = self.ctx.git2_repo.get()?;
 
@@ -90,11 +87,13 @@ impl BranchManager<'_> {
                 .with_file_favor(Some(gix::merge::tree::FileFavor::Ours))
                 .with_tree_favor(Some(gix::merge::tree::TreeFavor::Ours));
 
-            let cwdt = git2_repo.create_wd_tree(0)?.id().to_gix();
+            #[expect(deprecated)]
+            let cwdt = repo.create_wd_tree(0)?;
             let workspace_base = repo
                 .find_commit(workspace_base(self.ctx, perm.read_permission())?)?
                 .tree_id()?;
-            let stack_head = repo.find_real_tree(&stack.head_oid(self.ctx)?, Default::default())?;
+            let commit = repo.find_commit(stack.head_oid(self.ctx)?)?;
+            let stack_head = repo.find_real_tree(&commit, Default::default())?;
 
             let mut merge = repo.merge_trees(
                 stack_head,
@@ -120,7 +119,7 @@ impl BranchManager<'_> {
 
         vb_state.update_ordering()?;
 
-        crate::integration::update_workspace_commit(&vb_state, self.ctx, false)
+        crate::integration::update_workspace_commit_with_vb_state(&vb_state, self.ctx, false)
             .context("failed to update gitbutler workspace")?;
 
         Ok(stack
