@@ -23,7 +23,7 @@ import {
 	getAdjacentItem,
 	getAdjacentSection,
 	normalizeSelectedFile,
-	type NavigationModel,
+	type NavigationIndex,
 } from "./-Selection.ts";
 import { getFocus, type ProjectLayoutState } from "#ui/routes/project/$id/-state/layout.ts";
 import { type ProjectStateAction } from "#ui/routes/project/$id/-state/project.ts";
@@ -470,7 +470,7 @@ export const useWorkspaceShortcuts = ({
 	projectId,
 	scope,
 	selectedFile,
-	navigationModel,
+	navigationIndex,
 	requestAbsorptionPlan,
 	dispatchProjectState,
 	previewRef,
@@ -478,7 +478,7 @@ export const useWorkspaceShortcuts = ({
 	projectId: string;
 	scope: Scope | null;
 	selectedFile: string | null;
-	navigationModel: NavigationModel;
+	navigationIndex: NavigationIndex;
 	requestAbsorptionPlan: (target: AbsorptionTarget) => void;
 	dispatchProjectState: Dispatch<ProjectStateAction>;
 	previewRef: RefObject<PreviewImperativeHandle | null>;
@@ -562,17 +562,17 @@ export const useWorkspaceShortcuts = ({
 	const move = (offset: -1 | 1, selectedItem: Item) =>
 		dispatchProjectState({
 			_tag: "SelectItem",
-			item: getAdjacentItem(navigationModel, selectedItem, offset),
+			item: getAdjacentItem(navigationIndex, selectedItem, offset),
 		});
 	const previousSection = (selectedItem: Item) =>
 		dispatchProjectState({
 			_tag: "SelectItem",
-			item: getParentSection(selectedItem) ?? getAdjacentSection(navigationModel, selectedItem, -1),
+			item: getParentSection(selectedItem) ?? getAdjacentSection(navigationIndex, selectedItem, -1),
 		});
 	const nextSection = (selectedItem: Item) =>
 		dispatchProjectState({
 			_tag: "SelectItem",
-			item: getAdjacentSection(navigationModel, selectedItem, 1),
+			item: getAdjacentSection(navigationIndex, selectedItem, 1),
 		});
 
 	const handleItemSelectionAction = (action: ItemSelectionAction, selectedItem: Item) =>

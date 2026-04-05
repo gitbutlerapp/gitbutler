@@ -101,15 +101,15 @@ export const buildWorkspaceOutline = ({
 	];
 };
 
-export type NavigationModel = {
+export type NavigationIndex = {
 	items: Array<Item>;
 	sections: Array<Item>;
 	sectionIndexByItemIndex: Array<number>;
 	indexByKey: Map<string, number>;
 };
 
-export const buildNavigationModel = (outline: WorkspaceOutline): NavigationModel => {
-	const model: NavigationModel = {
+export const buildNavigationIndex = (outline: WorkspaceOutline): NavigationIndex => {
+	const model: NavigationIndex = {
 		items: [],
 		sections: [],
 		sectionIndexByItemIndex: [],
@@ -134,27 +134,27 @@ export const buildNavigationModel = (outline: WorkspaceOutline): NavigationModel
 };
 
 export const getAdjacentItem = (
-	model: NavigationModel,
+	index: NavigationIndex,
 	selection: Item | null,
 	offset: -1 | 1,
 ): Item | null => {
 	if (!selection) return null;
-	const currentIndex = model.indexByKey.get(navigationItemKey(selection));
+	const currentIndex = index.indexByKey.get(navigationItemKey(selection));
 	if (currentIndex === undefined) return null;
-	return getRelative(model.items, currentIndex, offset);
+	return getRelative(index.items, currentIndex, offset);
 };
 
 export const getAdjacentSection = (
-	model: NavigationModel,
+	index: NavigationIndex,
 	selection: Item | null,
 	offset: -1 | 1,
 ): Item | null => {
 	if (!selection) return null;
-	const currentIndex = model.indexByKey.get(navigationItemKey(selection));
+	const currentIndex = index.indexByKey.get(navigationItemKey(selection));
 	if (currentIndex === undefined) return null;
-	const currentSectionIndex = model.sectionIndexByItemIndex[currentIndex] ?? -1;
+	const currentSectionIndex = index.sectionIndexByItemIndex[currentIndex] ?? -1;
 	if (currentSectionIndex === -1) return null;
-	return getRelative(model.sections, currentSectionIndex, offset);
+	return getRelative(index.sections, currentSectionIndex, offset);
 };
 
 export const getAdjacentPath = ({

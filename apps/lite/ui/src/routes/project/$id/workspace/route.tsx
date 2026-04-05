@@ -109,7 +109,7 @@ import {
 } from "./-Item.ts";
 import {
 	buildWorkspaceOutline,
-	buildNavigationModel,
+	buildNavigationIndex,
 	normalizeSelectedFile,
 	normalizeSelectedHunk,
 } from "./-Selection.ts";
@@ -1906,7 +1906,7 @@ const ProjectPage: FC = () => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
-	const navigationModel = buildNavigationModel(
+	const navigationIndex = buildNavigationIndex(
 		buildWorkspaceOutline({
 			headInfo,
 			changes: worktreeChanges.changes,
@@ -1954,7 +1954,7 @@ const ProjectPage: FC = () => {
 		projectId,
 		scope: shortcutScope,
 		selectedFile: workspaceSelection.file,
-		navigationModel,
+		navigationIndex,
 		requestAbsorptionPlan,
 		dispatchProjectState,
 		previewRef,
