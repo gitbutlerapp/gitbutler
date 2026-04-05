@@ -13,6 +13,7 @@ export-schema = [
   "dep:schemars",
   "dep:but-schemars",
   "but-github/export-schema",
+  "but-gitea/export-schema",
   "but-gitlab/export-schema",
 ]
 
@@ -22,6 +23,7 @@ doctest = false
 [dependencies]
 but-fs.workspace = true
 but-github.workspace = true
+but-gitea.workspace = true
 but-gitlab.workspace = true
 but-forge-storage.workspace = true
 but-db.workspace = true

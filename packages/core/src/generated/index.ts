@@ -7,6 +7,8 @@ export * as HunkAssignment from "./hunkAssignment";
 export * as Settings from "./settings";
 export * as Action from "./action/autoCommit";
 export type { ForgeUser } from "./forge/user";
+export * as ButGitea from "./gitea/index";
+export * as ButGiteaToken from "./gitea/token";
 export * as ButGitHub from "./github/index";
 export * as ButGitHubToken from "./github/token";
 export * as ButGitLab from "./gitlab/index";
