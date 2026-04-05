@@ -22,6 +22,7 @@ import {
 	getAdjacentPath,
 	getAdjacentItem,
 	getAdjacentSection,
+	normalizeSelectedFile,
 	type NavigationModel,
 } from "./-Selection.ts";
 import { getFocus, type ProjectLayoutState } from "#ui/routes/project/$id/-state/layout.ts";
@@ -465,6 +466,7 @@ export const getLabel = (scope: Scope): string =>
 export const useWorkspaceShortcuts = ({
 	projectId,
 	scope,
+	selectedFile,
 	setEditing,
 	navigationModel,
 	requestAbsorptionPlan,
@@ -473,6 +475,7 @@ export const useWorkspaceShortcuts = ({
 }: {
 	projectId: string;
 	scope: Scope | null;
+	selectedFile: string | null;
 	setEditing: (editing: Editing | null) => void;
 	navigationModel: NavigationModel;
 	requestAbsorptionPlan: (target: AbsorptionTarget) => void;
@@ -533,16 +536,13 @@ export const useWorkspaceShortcuts = ({
 		if (!commitDetails) return;
 
 		const paths = commitDetails.changes.map((change) => change.path);
-		const currentPath = selectedItem.mode.path;
+		const currentPath = normalizeSelectedFile({ paths: paths, selectedFile });
 		const nextPath = getAdjacentPath({ paths, currentPath, offset });
 		if (nextPath === null) return;
 
 		dispatchProjectState({
-			_tag: "SelectItem",
-			item: commitItem({
-				...selectedItem,
-				mode: { _tag: "Details", path: nextPath },
-			}),
+			_tag: "SelectFile",
+			file: nextPath,
 		});
 	};
 
@@ -557,15 +557,16 @@ export const useWorkspaceShortcuts = ({
 			.catch(() => null);
 		if (!commitDetails) return;
 
-		const firstPath = commitDetails.changes[0]?.path;
+		const firstFile = commitDetails.changes[0]?.path;
 
 		dispatchProjectState({
 			_tag: "SelectItem",
 			item: commitItem({
 				...selectedItem,
-				mode: firstPath === undefined ? { _tag: "Details" } : { _tag: "Details", path: firstPath },
+				mode: { _tag: "Details" },
 			}),
 		});
+		dispatchProjectState({ _tag: "SelectFile", file: firstFile ?? null });
 	};
 
 	const move = (offset: -1 | 1, selectedItem: Item) =>

@@ -34,6 +34,10 @@ export const projectStateReducer = (
 				layout: projectLayoutReducer(state.layout, { _tag: "FocusPrimary" }),
 				workspaceSelection: workspaceSelectionReducer(state.workspaceSelection, action),
 			}),
+			SelectFile: (action): ProjectState => ({
+				layout: projectLayoutReducer(state.layout, { _tag: "FocusPrimary" }),
+				workspaceSelection: workspaceSelectionReducer(state.workspaceSelection, action),
+			}),
 			SelectHunk: (action): ProjectState => ({
 				layout: projectLayoutReducer(state.layout, { _tag: "FocusPreview" }),
 				workspaceSelection: workspaceSelectionReducer(state.workspaceSelection, action),

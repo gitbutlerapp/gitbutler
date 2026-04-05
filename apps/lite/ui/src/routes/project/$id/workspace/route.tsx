@@ -108,10 +108,9 @@ import {
 	commitItem,
 	type Item,
 	segmentItem,
-	CommitItem,
 	ChangesMode,
 } from "./-Item.ts";
-import { buildNavigationModel } from "./-Selection.ts";
+import { buildNavigationModel, normalizeSelectedFile } from "./-Selection.ts";
 import {
 	renameBranchBindings,
 	handleRenameBranchKeyDown,
@@ -179,12 +178,17 @@ const DependencyIndicator: FC<
 
 const CommitDetailsC: FC<{
 	commitId: string;
-	commitSelection: CommitItem;
 	projectId: string;
-	selectItem: (item: Item | null) => void;
-}> = ({ commitId, commitSelection, projectId, selectItem }) => {
-	const selectedPath =
-		commitSelection.mode._tag === "Details" ? commitSelection.mode.path : undefined;
+	selectedFile: string | null;
+	selectFile: (path: string | null) => void;
+}> = ({ commitId, projectId, selectedFile, selectFile }) => {
+	const { data: commitDetails } = useSuspenseQuery(
+		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
+	);
+	const normalizedSelectedFile = normalizeSelectedFile({
+		paths: commitDetails.changes.map((change) => change.path),
+		selectedFile,
+	});
 
 	return (
 		<SharedCommitDetails
@@ -197,18 +201,13 @@ const CommitDetailsC: FC<{
 					className={classes(
 						sharedStyles.item,
 						sharedStyles.file,
-						selectedPath === change.path && sharedStyles.selectedFile,
+						normalizedSelectedFile === change.path && sharedStyles.selectedFile,
 					)}
 				>
 					<FileButton
 						change={change}
 						onClick={() => {
-							selectItem(
-								commitItem({
-									...commitSelection,
-									mode: { _tag: "Details", path: change.path },
-								}),
-							);
+							selectFile(change.path);
 						}}
 					/>
 				</CommitFileSource>
@@ -555,7 +554,7 @@ const ChangesPreview: FC<{
 const CommitPreview: FC<{
 	projectId: string;
 	commitId: string;
-	selectedPath?: string;
+	selectedFile?: string | null;
 	editable: boolean;
 	onSelectHunk: (key: string) => void;
 	selectedHunk: string | null;
@@ -566,7 +565,7 @@ const CommitPreview: FC<{
 }> = ({
 	projectId,
 	commitId,
-	selectedPath,
+	selectedFile,
 	editable,
 	onSelectHunk,
 	selectedHunk,
@@ -578,11 +577,19 @@ const CommitPreview: FC<{
 	const { data: commitDetails } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
+	const normalizedSelectedFile =
+		selectedFile === undefined
+			? undefined
+			: normalizeSelectedFile({
+					paths: commitDetails.changes.map((change) => change.path),
+					selectedFile,
+				});
 	const selectedChange =
-		selectedPath !== undefined
-			? commitDetails.changes.find((candidate) => candidate.path === selectedPath)
+		normalizedSelectedFile !== undefined
+			? commitDetails.changes.find((candidate) => candidate.path === normalizedSelectedFile)
 			: undefined;
-	const visibleChanges = selectedChange ? [selectedChange] : commitDetails.changes;
+	const visibleChanges =
+		selectedFile === undefined ? commitDetails.changes : selectedChange ? [selectedChange] : [];
 	const treeChangeDiffs = useSuspenseQueries({
 		queries: visibleChanges.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 	}).map((result) => result.data);
@@ -605,7 +612,7 @@ const CommitPreview: FC<{
 
 	return (
 		<div>
-			{selectedPath === undefined && (
+			{normalizedSelectedFile === undefined && (
 				<>
 					<h3>
 						<CommitLabel commit={commitDetails.commit} />
@@ -730,6 +737,7 @@ const Preview: FC<{
 	selectedItem: Item;
 	onSelectHunk: (key: string) => void;
 	selectedHunk: string | null;
+	selectedFile: string | null;
 	isFocused: boolean;
 	selectHunk: (key: string | null) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
@@ -739,6 +747,7 @@ const Preview: FC<{
 	selectedItem,
 	onSelectHunk,
 	selectedHunk,
+	selectedFile,
 	isFocused,
 	selectHunk,
 	onDependencyHover,
@@ -781,24 +790,20 @@ const Preview: FC<{
 					ref={ref}
 				/>
 			),
-			Commit: (selectedItem) => {
-				const selectedPath =
-					selectedItem.mode._tag === "Details" ? selectedItem.mode.path : undefined;
-				return (
-					<CommitPreview
-						projectId={projectId}
-						commitId={selectedItem.commitId}
-						selectedPath={selectedPath}
-						editable
-						onSelectHunk={onSelectHunk}
-						selectedHunk={selectedHunk}
-						isFocused={isFocused}
-						selectHunk={selectHunk}
-						onDependencyHover={onDependencyHover}
-						ref={ref}
-					/>
-				);
-			},
+			Commit: (selectedItem) => (
+				<CommitPreview
+					projectId={projectId}
+					commitId={selectedItem.commitId}
+					selectedFile={selectedItem.mode._tag === "Details" ? selectedFile : undefined}
+					editable
+					onSelectHunk={onSelectHunk}
+					selectedHunk={selectedHunk}
+					isFocused={isFocused}
+					selectHunk={selectHunk}
+					onDependencyHover={onDependencyHover}
+					ref={ref}
+				/>
+			),
 			BaseCommit: ({ commitId }) => (
 				<CommitPreview
 					projectId={projectId}
@@ -968,6 +973,7 @@ const CommitRow: FC<
 		segmentIndex: number;
 		selectedItem: Item;
 		selectItem: (item: Item | null) => void;
+		selectFile: (path: string | null) => void;
 		setEditing: (editing: Editing | null) => void;
 		stackId: string;
 	} & ComponentProps<"div">
@@ -980,6 +986,7 @@ const CommitRow: FC<
 	segmentIndex,
 	selectedItem,
 	selectItem,
+	selectFile,
 	setEditing,
 	stackId,
 	...restProps
@@ -1025,7 +1032,7 @@ const CommitRow: FC<
 			.catch(() => null);
 		if (!commitDetails) return;
 
-		const firstPath = commitDetails.changes[0]?.path;
+		const firstFile = commitDetails.changes[0]?.path;
 
 		selectItem(
 			commitItem({
@@ -1033,9 +1040,10 @@ const CommitRow: FC<
 				segmentIndex,
 				branchName,
 				commitId: commit.id,
-				mode: firstPath === undefined ? { _tag: "Details" } : { _tag: "Details", path: firstPath },
+				mode: { _tag: "Details" },
 			}),
 		);
+		selectFile(firstFile ?? null);
 	};
 
 	const toggleDetails = () => {
@@ -1169,6 +1177,8 @@ const CommitC: FC<{
 	segmentIndex: number;
 	selectedItem: Item;
 	selectItem: (item: Item | null) => void;
+	selectedFile: string | null;
+	selectFile: (path: string | null) => void;
 	setEditing: (editing: Editing | null) => void;
 	stackId: string;
 }> = ({
@@ -1182,6 +1192,8 @@ const CommitC: FC<{
 	segmentIndex,
 	selectedItem,
 	selectItem,
+	selectedFile,
+	selectFile,
 	setEditing,
 	stackId,
 }) => {
@@ -1208,16 +1220,17 @@ const CommitC: FC<{
 				segmentIndex={segmentIndex}
 				selectedItem={selectedItem}
 				selectItem={selectItem}
+				selectFile={selectFile}
 				setEditing={setEditing}
 				stackId={stackId}
 			/>
 			{commitSelection?.mode._tag === "Details" && (
 				<Suspense fallback={<div className={sharedStyles.itemEmpty}>Loading change details…</div>}>
 					<CommitDetailsC
-						commitSelection={commitSelection}
 						projectId={projectId}
 						commitId={commit.id}
-						selectItem={selectItem}
+						selectedFile={selectedFile}
+						selectFile={selectFile}
 					/>
 				</Suspense>
 			)}
@@ -1692,6 +1705,8 @@ const SegmentC: FC<{
 	segmentIndex: number;
 	selectedItem: Item;
 	selectItem: (item: Item | null) => void;
+	selectedFile: string | null;
+	selectFile: (path: string | null) => void;
 	editing: Editing | null;
 	setEditing: (editing: Editing | null) => void;
 	stackId: string;
@@ -1703,6 +1718,8 @@ const SegmentC: FC<{
 	segmentIndex,
 	selectedItem,
 	selectItem,
+	selectedFile,
+	selectFile,
 	setEditing,
 	stackId,
 }) => {
@@ -1740,6 +1757,8 @@ const SegmentC: FC<{
 						segmentIndex={segmentIndex}
 						selectedItem={selectedItem}
 						selectItem={selectItem}
+						selectedFile={selectedFile}
+						selectFile={selectFile}
 						setEditing={setEditing}
 						stackId={stackId}
 					/>
@@ -1756,6 +1775,8 @@ const StackC: FC<{
 	projectId: string;
 	selectedItem: Item;
 	selectItem: (item: Item | null) => void;
+	selectedFile: string | null;
+	selectFile: (path: string | null) => void;
 	editing: Editing | null;
 	setEditing: (editing: Editing | null) => void;
 	stack: Stack;
@@ -1767,6 +1788,8 @@ const StackC: FC<{
 	projectId,
 	selectedItem,
 	selectItem,
+	selectedFile,
+	selectFile,
 	setEditing,
 	stack,
 }) => {
@@ -1820,6 +1843,8 @@ const StackC: FC<{
 							segmentIndex={segmentIndex}
 							selectedItem={selectedItem}
 							selectItem={selectItem}
+							selectedFile={selectedFile}
+							selectFile={selectFile}
 							setEditing={setEditing}
 							stackId={stackId}
 						/>
@@ -1864,6 +1889,9 @@ const ProjectPage: FC = () => {
 	const selectItem = (nextSelectedItem: Item | null) => {
 		dispatchProjectState({ _tag: "SelectItem", item: nextSelectedItem });
 	};
+	const selectFile = (nextSelectedFile: string | null) => {
+		dispatchProjectState({ _tag: "SelectFile", file: nextSelectedFile });
+	};
 
 	const selectHunk = (selectedHunk: string | null) => {
 		dispatchProjectState({ _tag: "SelectHunk", hunk: selectedHunk });
@@ -1896,6 +1924,7 @@ const ProjectPage: FC = () => {
 	useWorkspaceShortcuts({
 		projectId,
 		scope: shortcutScope,
+		selectedFile: workspaceSelection.file,
 		setEditing,
 		navigationModel,
 		requestAbsorptionPlan,
@@ -1916,6 +1945,7 @@ const ProjectPage: FC = () => {
 						selectedItem={selectedItem}
 						onSelectHunk={selectHunk}
 						selectedHunk={workspaceSelection.hunk}
+						selectedFile={workspaceSelection.file}
 						isFocused={getFocus(layoutState) === "preview"}
 						selectHunk={selectHunk}
 						onDependencyHover={highlightCommits}
@@ -1948,6 +1978,8 @@ const ProjectPage: FC = () => {
 									projectId={project.id}
 									selectedItem={selectedItem}
 									selectItem={selectItem}
+									selectedFile={workspaceSelection.file}
+									selectFile={selectFile}
 									setEditing={setEditing}
 									stack={stack}
 								/>

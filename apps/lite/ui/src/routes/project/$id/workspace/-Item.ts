@@ -11,13 +11,7 @@ export type SegmentItem = {
 	branchName: string | null;
 };
 
-type CommitMode =
-	| { _tag: "Summary" }
-	| {
-			_tag: "Details";
-			// This is optional because there may be no files in the commit.
-			path?: string;
-	  };
+type CommitMode = { _tag: "Summary" } | { _tag: "Details" };
 export type CommitItem = SegmentItem & { commitId: string; mode: CommitMode };
 
 export type BaseCommitItem = { commitId: string };

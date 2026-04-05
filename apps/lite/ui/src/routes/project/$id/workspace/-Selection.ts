@@ -150,3 +150,14 @@ export const getAdjacentPath = ({
 	if (currentIndex === -1) return offset > 0 ? (paths[0] ?? null) : (paths.at(-1) ?? null);
 	return paths[currentIndex + offset] ?? null;
 };
+
+export const normalizeSelectedFile = ({
+	paths,
+	selectedFile,
+}: {
+	paths: Array<string>;
+	selectedFile: string | null | undefined;
+}): string | undefined => {
+	if (selectedFile != null && paths.includes(selectedFile)) return selectedFile;
+	return paths[0];
+};
