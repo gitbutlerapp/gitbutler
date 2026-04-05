@@ -5,14 +5,18 @@ import { Match } from "effect";
 export type ChangesSectionItem = { stackId: string | null };
 export type ChangeItem = ChangesSectionItem & { path: string };
 
-export type SegmentItem = {
+type SegmentItemBase = {
 	stackId: string;
 	segmentIndex: number;
 	branchName: string | null;
 };
 
-type CommitMode = { _tag: "Summary" } | { _tag: "Details" };
-export type CommitItem = SegmentItem & { commitId: string; mode: CommitMode };
+type SegmentMode = { _tag: "Default" } | { _tag: "Rename" };
+
+export type SegmentItem = SegmentItemBase & { mode: SegmentMode };
+
+type CommitMode = { _tag: "Default" } | { _tag: "Details" } | { _tag: "Reword" };
+export type CommitItem = SegmentItemBase & { commitId: string; mode: CommitMode };
 
 export type BaseCommitItem = { commitId: string };
 
@@ -34,11 +38,17 @@ export const changeItem = (stackId: string | null, path: string): Item => ({
 	path,
 });
 
-export const segmentItem = ({ stackId, segmentIndex, branchName }: SegmentItem): Item => ({
+export const segmentItem = ({
+	stackId,
+	segmentIndex,
+	branchName,
+	mode = { _tag: "Default" },
+}: Omit<SegmentItem, "mode"> & { mode?: SegmentItem["mode"] }): Item => ({
 	_tag: "Segment",
 	stackId,
 	segmentIndex,
 	branchName,
+	mode,
 });
 
 export const commitItem = ({
@@ -46,7 +56,7 @@ export const commitItem = ({
 	segmentIndex,
 	branchName,
 	commitId,
-	mode = { _tag: "Summary" },
+	mode = { _tag: "Default" },
 }: Omit<CommitItem, "mode"> & { mode?: CommitItem["mode"] }): Item => ({
 	_tag: "Commit",
 	stackId,
@@ -64,7 +74,12 @@ export const baseCommitItem = (commitId: string): Item => ({
 export const getParentSection = (item: Item): Item | null =>
 	Match.value(item).pipe(
 		Match.tagsExhaustive({
-			Commit: (item): Item | null => segmentItem(item),
+			Commit: (item): Item | null =>
+				segmentItem({
+					stackId: item.stackId,
+					segmentIndex: item.segmentIndex,
+					branchName: item.branchName,
+				}),
 			Change: (item): Item | null => changesSectionItem(item.stackId),
 			Changes: () => null,
 			BaseCommit: () => null,

@@ -10,6 +10,8 @@ import {
 import { getRelative } from "../-shared.tsx";
 import { Match } from "effect";
 
+// We intentionally omit state like mode, which affects presentation but not
+// navigation.
 const navigationItemKey = (item: Item): string =>
 	Match.value(item).pipe(
 		Match.tagsExhaustive({
@@ -17,7 +19,6 @@ const navigationItemKey = (item: Item): string =>
 			Change: (item) => JSON.stringify(["Change", item.stackId, item.path]),
 			Segment: (item) =>
 				JSON.stringify(["Segment", item.stackId, item.segmentIndex, item.branchName]),
-			// This intentionally omits state like mode which doesn't affect navigation.
 			Commit: (item) => JSON.stringify(["Commit", item.stackId, item.segmentIndex, item.commitId]),
 			BaseCommit: (item) => JSON.stringify(["BaseCommit", item.commitId]),
 		}),

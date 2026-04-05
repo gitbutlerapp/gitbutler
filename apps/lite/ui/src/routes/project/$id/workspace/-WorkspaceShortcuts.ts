@@ -8,7 +8,6 @@ import { AbsorptionTarget } from "@gitbutler/but-sdk";
 import { useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
 import { Dispatch, RefObject, useEffect, useEffectEvent } from "react";
-import { type Editing } from "./-Editing.ts";
 import {
 	commitItem,
 	type Item,
@@ -43,7 +42,7 @@ type PrimaryPanelAction =
 
 type ChangesAction = PrimaryPanelAction | { _tag: "Absorb" };
 
-type CommitSummaryAction = PrimaryPanelAction | { _tag: "EditMessage" } | { _tag: "OpenDetails" };
+type CommitDefaultAction = PrimaryPanelAction | { _tag: "EditMessage" } | { _tag: "OpenDetails" };
 
 type CommitDetailsAction = PrimaryPanelAction | { _tag: "CloseDetails" };
 
@@ -177,7 +176,7 @@ const changesBindings: Array<ShortcutBinding<ChangesAction>> = [
 	absorbChangesBinding,
 ];
 
-const editCommitMessageBinding: ShortcutBinding<CommitSummaryAction> = {
+const editCommitMessageBinding: ShortcutBinding<CommitDefaultAction> = {
 	id: "commit-edit-message",
 	description: "Reword",
 	keys: ["Enter"],
@@ -185,7 +184,7 @@ const editCommitMessageBinding: ShortcutBinding<CommitSummaryAction> = {
 	repeat: false,
 };
 
-export const openCommitDetailsBinding: ShortcutBinding<CommitSummaryAction> = {
+export const openCommitDetailsBinding: ShortcutBinding<CommitDefaultAction> = {
 	id: "commit-open-details",
 	description: "Open details",
 	keys: ["ArrowRight", "l"],
@@ -193,7 +192,7 @@ export const openCommitDetailsBinding: ShortcutBinding<CommitSummaryAction> = {
 	repeat: false,
 };
 
-const commitSummaryBindings: Array<ShortcutBinding<CommitSummaryAction>> = [
+const commitDefaultBindings: Array<ShortcutBinding<CommitDefaultAction>> = [
 	...primaryPanelBindings,
 	editCommitMessageBinding,
 	openCommitDetailsBinding,
@@ -343,8 +342,8 @@ type Scope =
 			context: SegmentItem;
 	  }
 	| {
-			_tag: "CommitSummary";
-			bindings: Array<ShortcutBinding<CommitSummaryAction>>;
+			_tag: "CommitDefault";
+			bindings: Array<ShortcutBinding<CommitDefaultAction>>;
 			context: CommitItem;
 	  }
 	| {
@@ -353,7 +352,7 @@ type Scope =
 			context: SegmentItem;
 	  }
 	| {
-			_tag: "Branch";
+			_tag: "BranchDefault";
 			bindings: Array<ShortcutBinding<BranchAction>>;
 			context: SegmentItem;
 	  }
@@ -365,11 +364,9 @@ type Scope =
 
 export const getScope = ({
 	selectedItem,
-	editing,
 	layoutState,
 }: {
 	selectedItem: Item | null;
-	editing: Editing | null;
 	layoutState: ProjectLayoutState;
 }): Scope | null => {
 	if (getFocus(layoutState) === "preview")
@@ -397,34 +394,29 @@ export const getScope = ({
 				context: selectedItem,
 			}),
 		),
-		Match.tag("Commit", (selectedItem): Scope => {
-			if (
-				editing?._tag === "CommitMessage" &&
-				editing.subject.stackId === selectedItem.stackId &&
-				editing.subject.segmentIndex === selectedItem.segmentIndex &&
-				editing.subject.commitId === selectedItem.commitId
-			)
-				return {
-					_tag: "CommitReword",
-					bindings: commitEditingMessageBindings,
-					context: selectedItem,
-				};
-
-			return Match.value(selectedItem.mode).pipe(
-				Match.tagsExhaustive({
-					Details: (): Scope => ({
-						_tag: "CommitDetails",
-						bindings: commitDetailsBindings,
-						context: selectedItem,
+		Match.tag(
+			"Commit",
+			(selectedItem): Scope =>
+				Match.value(selectedItem.mode).pipe(
+					Match.tagsExhaustive({
+						Reword: (): Scope => ({
+							_tag: "CommitReword",
+							bindings: commitEditingMessageBindings,
+							context: selectedItem,
+						}),
+						Details: (): Scope => ({
+							_tag: "CommitDetails",
+							bindings: commitDetailsBindings,
+							context: selectedItem,
+						}),
+						Default: (): Scope => ({
+							_tag: "CommitDefault",
+							bindings: commitDefaultBindings,
+							context: selectedItem,
+						}),
 					}),
-					Summary: (): Scope => ({
-						_tag: "CommitSummary",
-						bindings: commitSummaryBindings,
-						context: selectedItem,
-					}),
-				}),
-			);
-		}),
+				),
+		),
 		Match.tag(
 			"BaseCommit",
 			(selectedItem): Scope => ({
@@ -436,9 +428,7 @@ export const getScope = ({
 		Match.tag(
 			"Segment",
 			(selectedItem): Scope =>
-				editing?._tag === "BranchName" &&
-				editing.subject.stackId === selectedItem.stackId &&
-				editing.subject.segmentIndex === selectedItem.segmentIndex
+				selectedItem.mode._tag === "Rename"
 					? {
 							_tag: "BranchRename",
 							bindings: renameBranchBindings,
@@ -451,7 +441,7 @@ export const getScope = ({
 								context: selectedItem,
 							}
 						: {
-								_tag: "Branch",
+								_tag: "BranchDefault",
 								bindings: branchBindings,
 								context: selectedItem,
 							},
@@ -469,8 +459,8 @@ export const getLabel = (scope: Scope): string =>
 			Changes: () => "Changes",
 			CommitDetails: () => "Commit details",
 			CommitReword: () => "Reword commit",
-			CommitSummary: () => "Commit",
-			Branch: () => "Branch",
+			CommitDefault: () => "Commit",
+			BranchDefault: () => "Branch",
 			Segment: () => "Segment",
 			Preview: () => "Preview",
 		}),
@@ -480,7 +470,6 @@ export const useWorkspaceShortcuts = ({
 	projectId,
 	scope,
 	selectedFile,
-	setEditing,
 	navigationModel,
 	requestAbsorptionPlan,
 	dispatchProjectState,
@@ -489,7 +478,6 @@ export const useWorkspaceShortcuts = ({
 	projectId: string;
 	scope: Scope | null;
 	selectedFile: string | null;
-	setEditing: (editing: Editing | null) => void;
 	navigationModel: NavigationModel;
 	requestAbsorptionPlan: (target: AbsorptionTarget) => void;
 	dispatchProjectState: Dispatch<ProjectStateAction>;
@@ -635,10 +623,14 @@ export const useWorkspaceShortcuts = ({
 			Match.orElse((action) => handlePrimaryPanelAction(action, selectedItem)),
 		);
 
-	const handleCommitSummaryAction = (action: CommitSummaryAction, selectedItem: CommitItem) =>
+	const handleCommitDefaultAction = (action: CommitDefaultAction, selectedItem: CommitItem) =>
 		Match.value(action).pipe(
 			Match.tags({
-				EditMessage: () => setEditing({ _tag: "CommitMessage", subject: selectedItem }),
+				EditMessage: () =>
+					dispatchProjectState({
+						_tag: "SelectItem",
+						item: commitItem({ ...selectedItem, mode: { _tag: "Reword" } }),
+					}),
 				OpenDetails: () => openCommitDetails(selectedItem),
 			}),
 			Match.orElse((action) =>
@@ -653,7 +645,7 @@ export const useWorkspaceShortcuts = ({
 				CloseDetails: () =>
 					dispatchProjectState({
 						_tag: "SelectItem",
-						item: commitItem({ ...selectedItem, mode: { _tag: "Summary" } }),
+						item: commitItem({ ...selectedItem, mode: { _tag: "Default" } }),
 					}),
 			}),
 			Match.orElse((action) =>
@@ -664,15 +656,15 @@ export const useWorkspaceShortcuts = ({
 	const handleBranchAction = (action: BranchAction, selectedItem: SegmentItem) =>
 		Match.value(action).pipe(
 			Match.tags({
-				RenameBranch: () => {
-					setEditing({
-						_tag: "BranchName",
-						subject: {
-							stackId: selectedItem.stackId,
-							segmentIndex: selectedItem.segmentIndex,
+				RenameBranch: () =>
+					dispatchProjectState({
+						_tag: "SelectItem",
+						item: {
+							_tag: "Segment",
+							...selectedItem,
+							mode: { _tag: "Rename" },
 						},
-					});
-				},
+					}),
 			}),
 			Match.orElse((action) =>
 				handlePrimaryPanelAction(action, { _tag: "Segment", ...selectedItem }),
@@ -711,7 +703,7 @@ export const useWorkspaceShortcuts = ({
 					event.preventDefault();
 					handlePrimaryPanelAction(action, { _tag: "Segment", ...scope.context });
 				},
-				Branch: (scope) => {
+				BranchDefault: (scope) => {
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
 					event.preventDefault();
@@ -724,11 +716,11 @@ export const useWorkspaceShortcuts = ({
 					handlePreviewAction(action);
 				},
 				BranchRename: () => undefined,
-				CommitSummary: (scope) => {
+				CommitDefault: (scope) => {
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
 					event.preventDefault();
-					handleCommitSummaryAction(action, scope.context);
+					handleCommitDefaultAction(action, scope.context);
 				},
 				CommitDetails: (scope) => {
 					const action = getAction(scope.bindings, event);

@@ -95,7 +95,6 @@ import {
 } from "react";
 import useLocalStorageState from "use-local-storage-state";
 import sharedStyles from "../-shared.module.css";
-import { type Editing } from "./-Editing.ts";
 import {
 	baseCommitItem,
 	changeItem,
@@ -973,29 +972,25 @@ const CommitRow: FC<
 	{
 		branchName: string | null;
 		commit: Commit;
-		editing: Editing | null;
 		isHighlighted: boolean;
 		projectId: string;
 		segmentIndex: number;
 		selectedItem: Item;
 		selectItem: (item: Item | null) => void;
-		setEditing: (editing: Editing | null) => void;
 		stackId: string;
 	} & ComponentProps<"div">
 > = ({
 	branchName,
 	commit,
-	editing,
 	isHighlighted,
 	projectId,
 	segmentIndex,
 	selectedItem,
 	selectItem,
-	setEditing,
 	stackId,
 	...restProps
 }) => {
-	const summaryItem = commitItem({
+	const defaultItem = commitItem({
 		stackId,
 		segmentIndex,
 		branchName,
@@ -1008,11 +1003,7 @@ const CommitRow: FC<
 		selectedItem.commitId === commit.id
 			? selectedItem
 			: null;
-	const isEditing =
-		editing?._tag === "CommitMessage" &&
-		editing.subject.stackId === stackId &&
-		editing.subject.segmentIndex === segmentIndex &&
-		editing.subject.commitId === commit.id;
+	const isEditing = commitSelection?.mode._tag === "Reword";
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
 		(_currentMessage, nextMessage: string) => nextMessage,
@@ -1037,29 +1028,26 @@ const CommitRow: FC<
 	};
 
 	const toggleDetails = () => {
-		setEditing(null);
-
-		if (commitSelection?.mode._tag === "Details") selectItem(summaryItem);
+		if (commitSelection?.mode._tag === "Details") selectItem(defaultItem);
 		else openDetails();
 	};
 
 	const commitReword = useMutation(commitRewordMutationOptions);
 
 	const startEditing = () => {
-		selectItem(summaryItem);
-		setEditing({
-			_tag: "CommitMessage",
-			subject: {
+		selectItem(
+			commitItem({
 				stackId,
 				segmentIndex,
 				branchName,
 				commitId: commit.id,
-			},
-		});
+				mode: { _tag: "Reword" },
+			}),
+		);
 	};
 
 	const endEditing = () => {
-		setEditing(null);
+		selectItem(defaultItem);
 	};
 
 	const saveNewMessage = (newMessage: string) => {
@@ -1108,7 +1096,7 @@ const CommitRow: FC<
 									isCommitMessagePending && sharedStyles.commitButtonPending,
 								)}
 								onClick={() => {
-									selectItem(summaryItem);
+									selectItem(defaultItem);
 								}}
 							>
 								<CommitLabel commit={commitWithOptimisticMessage} />
@@ -1159,7 +1147,6 @@ const CommitRow: FC<
 const CommitC: FC<{
 	branchName: string | null;
 	commit: Commit;
-	editing: Editing | null;
 	isHighlighted: boolean;
 	nextCommitId: string | undefined;
 	previousCommitId: string | undefined;
@@ -1169,12 +1156,10 @@ const CommitC: FC<{
 	selectItem: (item: Item | null) => void;
 	selectedFile: string | null;
 	selectFile: (path: string | null) => void;
-	setEditing: (editing: Editing | null) => void;
 	stackId: string;
 }> = ({
 	branchName,
 	commit,
-	editing,
 	isHighlighted,
 	nextCommitId,
 	previousCommitId,
@@ -1184,7 +1169,6 @@ const CommitC: FC<{
 	selectItem,
 	selectedFile,
 	selectFile,
-	setEditing,
 	stackId,
 }) => {
 	const commitSelection =
@@ -1204,13 +1188,11 @@ const CommitC: FC<{
 			<CommitRow
 				branchName={branchName}
 				commit={commit}
-				editing={editing}
 				isHighlighted={isHighlighted}
 				projectId={projectId}
 				segmentIndex={segmentIndex}
 				selectedItem={selectedItem}
 				selectItem={selectItem}
-				setEditing={setEditing}
 				stackId={stackId}
 			/>
 			{commitSelection?.mode._tag === "Details" && (
@@ -1525,25 +1507,13 @@ const InlineBranchNameEditor: FC<{
 const SegmentRow: FC<
 	{
 		projectId: string;
-		editing: Editing | null;
 		segment: Segment;
 		stackId: string;
 		segmentIndex: number;
 		selectedItem: Item;
 		selectItem: (item: Item | null) => void;
-		setEditing: (editing: Editing | null) => void;
 	} & ComponentProps<"div">
-> = ({
-	projectId,
-	editing,
-	segment,
-	stackId,
-	segmentIndex,
-	selectedItem,
-	selectItem,
-	setEditing,
-	...restProps
-}) => {
+> = ({ projectId, segment, stackId, segmentIndex, selectedItem, selectItem, ...restProps }) => {
 	const branchName = segment.refName?.displayName ?? null;
 	const segmentItemV = segmentItem({
 		stackId,
@@ -1556,11 +1526,7 @@ const SegmentRow: FC<
 		selectedItem.segmentIndex === segmentIndex
 			? selectedItem
 			: null;
-	const isEditing =
-		branchName !== null &&
-		editing?._tag === "BranchName" &&
-		editing.subject.stackId === stackId &&
-		editing.subject.segmentIndex === segmentIndex;
+	const isEditing = segmentSelection?.mode._tag === "Rename";
 	const [optimisticBranchName, setOptimisticBranchName] = useOptimistic(
 		branchName,
 		(_currentBranchName, nextBranchName: string) => nextBranchName,
@@ -1571,15 +1537,11 @@ const SegmentRow: FC<
 
 	const startEditing = () => {
 		if (branchName === null) return;
-		selectItem(segmentItemV);
-		setEditing({
-			_tag: "BranchName",
-			subject: { stackId, segmentIndex },
-		});
+		selectItem(segmentItem({ stackId, segmentIndex, branchName, mode: { _tag: "Rename" } }));
 	};
 
 	const endEditing = () => {
-		setEditing(null);
+		selectItem(segmentItemV);
 	};
 
 	const saveBranchName = (newBranchName: string) => {
@@ -1695,11 +1657,8 @@ const SegmentC: FC<{
 	selectItem: (item: Item | null) => void;
 	selectedFile: string | null;
 	selectFile: (path: string | null) => void;
-	editing: Editing | null;
-	setEditing: (editing: Editing | null) => void;
 	stackId: string;
 }> = ({
-	editing,
 	highlightedCommitIds,
 	projectId,
 	segment,
@@ -1708,7 +1667,6 @@ const SegmentC: FC<{
 	selectItem,
 	selectedFile,
 	selectFile,
-	setEditing,
 	stackId,
 }) => {
 	const isSelected =
@@ -1723,13 +1681,11 @@ const SegmentC: FC<{
 		<div className={classes(isSelected && sharedStyles.sectionSelected)}>
 			<SegmentRow
 				projectId={projectId}
-				editing={editing}
 				segment={segment}
 				stackId={stackId}
 				segmentIndex={segmentIndex}
 				selectedItem={selectedItem}
 				selectItem={selectItem}
-				setEditing={setEditing}
 			/>
 
 			<CommitsList commits={segment.commits}>
@@ -1737,7 +1693,6 @@ const SegmentC: FC<{
 					<CommitC
 						branchName={segment.refName?.displayName ?? null}
 						commit={commit}
-						editing={editing}
 						isHighlighted={highlightedCommitIds.has(commit.id)}
 						nextCommitId={segment.commits[index + 1]?.id}
 						previousCommitId={segment.commits[index - 1]?.id}
@@ -1747,7 +1702,6 @@ const SegmentC: FC<{
 						selectItem={selectItem}
 						selectedFile={selectedFile}
 						selectFile={selectFile}
-						setEditing={setEditing}
 						stackId={stackId}
 					/>
 				)}
@@ -1765,11 +1719,8 @@ const StackC: FC<{
 	selectItem: (item: Item | null) => void;
 	selectedFile: string | null;
 	selectFile: (path: string | null) => void;
-	editing: Editing | null;
-	setEditing: (editing: Editing | null) => void;
 	stack: Stack;
 }> = ({
-	editing,
 	highlightedCommitIds,
 	onAbsorbChanges,
 	onDependencyHover,
@@ -1778,7 +1729,6 @@ const StackC: FC<{
 	selectItem,
 	selectedFile,
 	selectFile,
-	setEditing,
 	stack,
 }) => {
 	// From Caleb:
@@ -1824,7 +1774,6 @@ const StackC: FC<{
 					// oxlint-disable-next-line react/no-array-index-key -- It's all we have.
 					<li key={segmentIndex}>
 						<SegmentC
-							editing={editing}
 							highlightedCommitIds={highlightedCommitIds}
 							projectId={projectId}
 							segment={segment}
@@ -1833,7 +1782,6 @@ const StackC: FC<{
 							selectItem={selectItem}
 							selectedFile={selectedFile}
 							selectFile={selectFile}
-							setEditing={setEditing}
 							stackId={stackId}
 						/>
 					</li>
@@ -1849,7 +1797,6 @@ const ProjectPage: FC = () => {
 	const [projectState, dispatchProjectState] = assert(use(ProjectStateContext));
 	const { layout: layoutState, workspaceSelection } = projectState;
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
-	const [editing, setEditingState] = useState<Editing | null>(null);
 
 	const previewRef = useRef<PreviewImperativeHandle | null>(null);
 
@@ -1885,17 +1832,12 @@ const ProjectPage: FC = () => {
 		dispatchProjectState({ _tag: "SelectHunk", hunk: selectedHunk });
 	};
 
-	const setEditing = (nextEditing: Editing | null) => {
-		dispatchProjectState({ _tag: "FocusPrimary" });
-		setEditingState(nextEditing);
-	};
 	const highlightCommits = (commitIds: Array<string> | null) => {
 		setHighlightedCommitIds(commitIds ? new Set(commitIds) : new Set());
 	};
 
 	const shortcutScope = getScope({
 		selectedItem,
-		editing,
 		layoutState,
 	});
 
@@ -1913,7 +1855,6 @@ const ProjectPage: FC = () => {
 		projectId,
 		scope: shortcutScope,
 		selectedFile: workspaceSelection.file,
-		setEditing,
 		navigationModel,
 		requestAbsorptionPlan,
 		dispatchProjectState,
@@ -1959,7 +1900,6 @@ const ProjectPage: FC = () => {
 						{headInfo.stacks.map((stack) => (
 							<div key={stack.id} className={styles.stackLane}>
 								<StackC
-									editing={editing}
 									highlightedCommitIds={highlightedCommitIds}
 									onAbsorbChanges={requestAbsorptionPlan}
 									onDependencyHover={highlightCommits}
@@ -1968,7 +1908,6 @@ const ProjectPage: FC = () => {
 									selectItem={selectItem}
 									selectedFile={workspaceSelection.file}
 									selectFile={selectFile}
-									setEditing={setEditing}
 									stack={stack}
 								/>
 							</div>
@@ -1990,7 +1929,6 @@ const ProjectPage: FC = () => {
 									className={styles.commonBaseCommit}
 									onClick={() => {
 										selectItem(baseCommitItem(commonBaseCommitId));
-										setEditing(null);
 									}}
 								>
 									{shortCommitId(commonBaseCommitId)} (common base commit)
