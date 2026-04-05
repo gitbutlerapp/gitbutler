@@ -1270,6 +1270,69 @@ const ChangeRow: FC<{
 	</ChangesFileSource>
 );
 
+const ChangesSectionRow: FC<{
+	changes: Array<TreeChange>;
+	isSelected: boolean;
+	label: string;
+	onAbsorbChanges: (target: AbsorptionTarget) => void;
+	selectItem: (item: Item | null) => void;
+	stackId: string | null;
+}> = ({ changes, isSelected, label, onAbsorbChanges, selectItem, stackId }) => (
+	<div className={classes(sharedStyles.item, isSelected && sharedStyles.selected)}>
+		<button
+			type="button"
+			className={styles.segmentButton}
+			onClick={() => {
+				selectItem(changesSectionItem(stackId));
+			}}
+		>
+			{label}
+		</button>
+		<button
+			type="button"
+			className={sharedStyles.itemAction}
+			disabled={changes.length === 0}
+			onClick={() => {
+				onAbsorbChanges({
+					type: "treeChanges",
+					subject: {
+						changes,
+						assigned_stack_id: stackId,
+					},
+				});
+			}}
+		>
+			<AbsorbIcon />
+		</button>
+		<Menu.Root>
+			<Menu.Trigger className={sharedStyles.itemAction} aria-label={`${label} menu`}>
+				<MenuTriggerIcon />
+			</Menu.Trigger>
+			<Menu.Portal>
+				<Menu.Positioner align="end">
+					<Menu.Popup className={classes(uiStyles.popup, uiStyles.menuPopup)}>
+						<Menu.Item
+							className={uiStyles.menuItem}
+							disabled={changes.length === 0}
+							onClick={() => {
+								onAbsorbChanges({
+									type: "treeChanges",
+									subject: {
+										changes,
+										assigned_stack_id: stackId,
+									},
+								});
+							}}
+						>
+							Absorb all changes
+						</Menu.Item>
+					</Menu.Popup>
+				</Menu.Positioner>
+			</Menu.Portal>
+		</Menu.Root>
+	</div>
+);
+
 const Changes: FC<{
 	label: string;
 	projectId: string;
@@ -1323,59 +1386,14 @@ const Changes: FC<{
 				/>
 			}
 		>
-			<div className={classes(sharedStyles.item, selectedChangesSection && sharedStyles.selected)}>
-				<button
-					type="button"
-					className={styles.segmentButton}
-					onClick={() => {
-						selectItem(changesSectionItem(stackId));
-					}}
-				>
-					{label}
-				</button>
-				<button
-					type="button"
-					className={sharedStyles.itemAction}
-					disabled={changes.length === 0}
-					onClick={() => {
-						onAbsorbChanges({
-							type: "treeChanges",
-							subject: {
-								changes,
-								assigned_stack_id: stackId,
-							},
-						});
-					}}
-				>
-					<AbsorbIcon />
-				</button>
-				<Menu.Root>
-					<Menu.Trigger className={sharedStyles.itemAction} aria-label={`${label} menu`}>
-						<MenuTriggerIcon />
-					</Menu.Trigger>
-					<Menu.Portal>
-						<Menu.Positioner align="end">
-							<Menu.Popup className={classes(uiStyles.popup, uiStyles.menuPopup)}>
-								<Menu.Item
-									className={uiStyles.menuItem}
-									disabled={changes.length === 0}
-									onClick={() => {
-										onAbsorbChanges({
-											type: "treeChanges",
-											subject: {
-												changes,
-												assigned_stack_id: stackId,
-											},
-										});
-									}}
-								>
-									Absorb all changes
-								</Menu.Item>
-							</Menu.Popup>
-						</Menu.Positioner>
-					</Menu.Portal>
-				</Menu.Root>
-			</div>
+			<ChangesSectionRow
+				changes={changes}
+				isSelected={selectedChangesSection !== null}
+				label={label}
+				onAbsorbChanges={onAbsorbChanges}
+				selectItem={selectItem}
+				stackId={stackId}
+			/>
 			{changes.length === 0 ? (
 				<div className={sharedStyles.itemEmpty}>No changes.</div>
 			) : (
