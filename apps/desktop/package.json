@@ -65,7 +65,7 @@
 		"postcss-load-config": "catalog:postcss",
 		"postcss-nesting": "catalog:postcss",
 		"postcss-pxtorem": "catalog:postcss",
-		"posthog-js": "1.360.2",
+		"posthog-js": "1.364.1",
 		"sass-embedded": "^1.98.0",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
@@ -81,7 +81,7 @@
 		"@tauri-apps/plugin-deep-link": "~2.4.7",
 		"dayjs": "^1.11.20",
 		"ollama": "^0.6.3",
-		"openai": "^6.32.0",
+		"openai": "^6.33.0",
 		"reconnecting-websocket": "^4.4.0",
 		"redux-persist": "^6.0.0",
 		"rxjs": "catalog:"

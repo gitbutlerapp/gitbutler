@@ -22,7 +22,7 @@
 	},
 	"dependencies": {
 		"@gitbutler/ui": "workspace:*",
-		"get-port": "^7.1.0",
+		"get-port": "^7.2.0",
 		"tmp-promise": "^3.0.3"
 	}
 }
