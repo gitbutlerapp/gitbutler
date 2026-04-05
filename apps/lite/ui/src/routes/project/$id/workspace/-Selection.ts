@@ -122,15 +122,10 @@ export const buildNavigationModel = (outline: WorkspaceOutline): NavigationModel
 		model.items.push(item);
 	};
 
-	const addSection = (section: Item) => {
+	for (const { section, items } of outline) {
 		const sectionIndex = model.sections.length;
 		model.sections.push(section);
 		addItem(section, sectionIndex);
-	};
-
-	for (const { section, items } of outline) {
-		const sectionIndex = model.sections.length;
-		addSection(section);
 
 		for (const item of items) addItem(item, sectionIndex);
 	}
