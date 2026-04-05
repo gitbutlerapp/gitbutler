@@ -111,7 +111,7 @@ import {
 	type SegmentMode,
 	segmentItem,
 } from "./-Item.ts";
-import { buildNavigationIndex, buildWorkspaceOutline } from "./-WorkspaceOutline.ts";
+import { buildNavigationIndex, buildWorkspaceOutline } from "./-WorkspaceModel.ts";
 import {
 	renameBranchBindings,
 	handleRenameBranchKeyDown,
