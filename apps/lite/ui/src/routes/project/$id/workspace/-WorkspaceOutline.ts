@@ -4,25 +4,11 @@ import {
 	changeItem,
 	changesSectionItem,
 	type Item,
-	segmentItem,
 	commitItem,
+	itemIdentityKey,
+	segmentItem,
 } from "./-Item.ts";
 import { getRelative } from "../-shared.tsx";
-import { Match } from "effect";
-
-// We intentionally omit state like mode, which affects presentation but not
-// navigation.
-const navigationItemKey = (item: Item): string =>
-	Match.value(item).pipe(
-		Match.tagsExhaustive({
-			Changes: (item) => JSON.stringify(["Changes", item.stackId]),
-			Change: (item) => JSON.stringify(["Change", item.stackId, item.path]),
-			Segment: (item) =>
-				JSON.stringify(["Segment", item.stackId, item.segmentIndex, item.branchName]),
-			Commit: (item) => JSON.stringify(["Commit", item.stackId, item.segmentIndex, item.commitId]),
-			BaseCommit: (item) => JSON.stringify(["BaseCommit", item.commitId]),
-		}),
-	);
 
 const hasAssignmentsForPath = ({
 	assignments,
@@ -119,7 +105,7 @@ const fromOutline = (outline: WorkspaceOutline): NavigationIndex => {
 	};
 
 	const addItem = (item: Item, sectionIndex: number) => {
-		model.indexByKey.set(navigationItemKey(item), model.items.length);
+		model.indexByKey.set(itemIdentityKey(item), model.items.length);
 		model.sectionIndexByItemIndex.push(sectionIndex);
 		model.items.push(item);
 	};
@@ -144,7 +130,7 @@ export const getAdjacentItem = (
 	offset: -1 | 1,
 ): Item | null => {
 	if (!selection) return null;
-	const currentIndex = index.indexByKey.get(navigationItemKey(selection));
+	const currentIndex = index.indexByKey.get(itemIdentityKey(selection));
 	if (currentIndex === undefined) return null;
 	return getRelative(index.items, currentIndex, offset);
 };
@@ -155,7 +141,7 @@ export const getAdjacentSection = (
 	offset: -1 | 1,
 ): Item | null => {
 	if (!selection) return null;
-	const currentIndex = index.indexByKey.get(navigationItemKey(selection));
+	const currentIndex = index.indexByKey.get(itemIdentityKey(selection));
 	if (currentIndex === undefined) return null;
 	const currentSectionIndex = index.sectionIndexByItemIndex[currentIndex] ?? -1;
 	if (currentSectionIndex === -1) return null;

@@ -73,6 +73,20 @@ export const baseCommitItem = (commitId: string): Item => ({
 	commitId,
 });
 
+// We intentionally omit state like mode, which affects presentation but not
+// identity.
+export const itemIdentityKey = (item: Item): string =>
+	Match.value(item).pipe(
+		Match.tagsExhaustive({
+			Changes: (item) => JSON.stringify(["Changes", item.stackId]),
+			Change: (item) => JSON.stringify(["Change", item.stackId, item.path]),
+			Segment: (item) =>
+				JSON.stringify(["Segment", item.stackId, item.segmentIndex, item.branchName]),
+			Commit: (item) => JSON.stringify(["Commit", item.stackId, item.segmentIndex, item.commitId]),
+			BaseCommit: (item) => JSON.stringify(["BaseCommit", item.commitId]),
+		}),
+	);
+
 export const getParentSection = (item: Item): Item | null =>
 	Match.value(item).pipe(
 		Match.tagsExhaustive({
