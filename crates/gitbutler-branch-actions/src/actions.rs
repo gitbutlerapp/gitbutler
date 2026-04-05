@@ -396,10 +396,6 @@ pub fn move_commit(
     ctx.verify(guard.write_permission())?;
     ensure_open_workspace_mode(ctx, guard.read_permission())
         .context("Moving a commit requires open workspace mode")?;
-    let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::MoveCommit),
-        guard.write_permission(),
-    );
     move_commits::move_commit(
         ctx,
         target_stack_id,
@@ -420,10 +416,6 @@ pub fn move_branch(
     ctx.verify(guard.write_permission())?;
     ensure_open_workspace_mode(ctx, guard.read_permission())
         .context("Moving a branch requires open workspace mode")?;
-    let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::MoveBranch),
-        guard.write_permission(),
-    );
     crate::move_branch::move_branch(
         ctx,
         target_stack_id,
