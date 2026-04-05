@@ -23,12 +23,12 @@ const hasAssignmentsForPath = ({
 		(assignment) => (assignment.stackId ?? null) === stackId && assignment.path === path,
 	);
 
-export type WorkspaceSection = {
+type WorkspaceSection = {
 	section: Item;
 	items: Array<Item>;
 };
 
-export type WorkspaceOutline = Array<WorkspaceSection>;
+type WorkspaceOutline = Array<WorkspaceSection>;
 
 type BuildWorkspaceOutlineArgs = {
 	headInfo: RefInfo;
@@ -37,7 +37,7 @@ type BuildWorkspaceOutlineArgs = {
 	commonBaseCommitId?: string;
 };
 
-export const buildWorkspaceOutline = ({
+const buildWorkspaceOutline = ({
 	headInfo,
 	changes,
 	assignments,
