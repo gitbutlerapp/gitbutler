@@ -185,6 +185,9 @@ fn upstream_commits_gix(
         let info = info?;
         let commit = info.id().object()?.into_commit();
         let commit = commit.decode()?;
+        let change_id =
+            but_core::commit::Headers::try_from_commit_headers(|| commit.extra_headers())
+                .and_then(|hdr| hdr.change_id.map(|id| id.to_string()));
         let author: ui::Author = commit.author()?.into();
         let committer: ui::Author = commit.committer()?.into();
         authors.insert(author.clone());
@@ -194,6 +197,7 @@ fn upstream_commits_gix(
             message: commit.message.into(),
             created_at: i128::from(commit.time()?.seconds) * 1000,
             author,
+            change_id,
         });
     }
     Ok(out)
@@ -230,6 +234,10 @@ fn local_commits_gix(
             state: CommitState::LocalAndRemote(info.id),
             created_at: i128::from(commit.committer.time.seconds) * 1000,
             author,
+            change_id: commit
+                .headers()
+                .and_then(|headers| headers.change_id)
+                .map(|id| id.to_string()),
             gerrit_review_url: None,
         });
     }

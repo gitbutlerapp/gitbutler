@@ -108,6 +108,8 @@ pub struct Commit {
     pub created_at: i128,
     /// The author of the commit.
     pub author: Author,
+    /// The GitButler change-id associated with this commit, if available.
+    pub change_id: Option<String>,
     /// Optional URL to the Gerrit review for this commit, if applicable.
     /// Only populated if Gerrit mode is enabled and the commit has an associated review.
     pub gerrit_review_url: Option<String>,
@@ -118,14 +120,20 @@ but_schemars::register_sdk_type!(Commit);
 impl TryFrom<gix::Commit<'_>> for Commit {
     type Error = anyhow::Error;
     fn try_from(commit: gix::Commit<'_>) -> Result<Self, Self::Error> {
+        let commit_id = commit.id;
+        let commit = commit.decode()?;
+        let headers = but_core::commit::Headers::try_from_commit_headers(|| commit.extra_headers());
         Ok(Commit {
-            id: commit.id,
-            parent_ids: commit.parent_ids().map(|id| id.detach()).collect(),
-            message: commit.message_raw_sloppy().into(),
-            has_conflicts: false,
-            state: CommitState::LocalAndRemote(commit.id),
+            id: commit_id,
+            parent_ids: commit.parents().collect(),
+            message: commit.message.to_owned(),
+            has_conflicts: headers.as_ref().is_some_and(|hdr| hdr.is_conflicted()),
+            state: CommitState::LocalAndRemote(commit_id),
             created_at: i128::from(commit.time()?.seconds) * 1000,
             author: commit.author()?.into(),
+            change_id: headers
+                .and_then(|headers| headers.change_id)
+                .map(|id| id.to_string()),
             gerrit_review_url: None,
         })
     }
@@ -134,6 +142,10 @@ impl TryFrom<gix::Commit<'_>> for Commit {
 impl From<but_core::CommitOwned> for Commit {
     fn from(CommitOwned { id, inner }: CommitOwned) -> Self {
         let headers = commit::Headers::try_from_commit(&inner);
+        let has_conflicts = headers.as_ref().is_some_and(|hdr| hdr.is_conflicted());
+        let change_id = headers
+            .and_then(|hdr| hdr.change_id)
+            .map(|id| id.to_string());
         let gix::objs::Commit {
             tree: _,
             parents,
@@ -147,10 +159,11 @@ impl From<but_core::CommitOwned> for Commit {
             id,
             parent_ids: parents.into_iter().collect(),
             message,
-            has_conflicts: headers.is_some_and(|hdr| hdr.is_conflicted()),
+            has_conflicts,
             state: CommitState::LocalAndRemote(id),
             created_at: committer.time.seconds as i128 * 1000,
             author: author.to_ref(&mut TimeBuf::default()).into(),
+            change_id,
             gerrit_review_url: None,
         }
     }
@@ -196,6 +209,8 @@ pub struct UpstreamCommit {
     pub created_at: i128,
     /// The author of the commit.
     pub author: Author,
+    /// The GitButler change-id associated with this commit, if available.
+    pub change_id: Option<String>,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(UpstreamCommit);
@@ -379,7 +394,7 @@ impl From<&crate::ref_info::Commit> for ui::UpstreamCommit {
             flags: _,
             // TODO: Represent this in the UI (maybe) and/or deal with divergence of the local and remote tracking branch.
             has_conflicts: _,
-            change_id: _,
+            change_id,
         }: &crate::ref_info::Commit,
     ) -> Self {
         ui::UpstreamCommit {
@@ -389,6 +404,7 @@ impl From<&crate::ref_info::Commit> for ui::UpstreamCommit {
             author: author
                 .to_ref(&mut gix::date::parse::TimeBuf::default())
                 .into(),
+            change_id: change_id.as_ref().map(ToString::to_string),
         }
     }
 }
@@ -408,7 +424,7 @@ impl From<&LocalCommit> for ui::Commit {
                     // TODO: also flags refs
                     flags: _,
                     has_conflicts,
-                    change_id: _,
+                    change_id,
                 },
             relation,
         }: &LocalCommit,
@@ -423,6 +439,7 @@ impl From<&LocalCommit> for ui::Commit {
             author: author
                 .to_ref(&mut gix::date::parse::TimeBuf::default())
                 .into(),
+            change_id: change_id.as_ref().map(ToString::to_string),
             gerrit_review_url: None,
         }
     }
