@@ -129,6 +129,7 @@
 	]);
 
 	const displayHotkey = $derived(hotkey ? formatHotkeyForPlatform(hotkey) : undefined);
+	const iconSize = $derived(size === "tag" ? 14 : 16);
 	let tooltipInstance = $state<Tooltip>();
 
 	function onmousedown(e: MouseEvent) {
@@ -196,13 +197,13 @@
 		{#if icon || loading || isDropdown}
 			<div class={["btn-icon", iconClass]}>
 				{#if loading}
-					<Icon name="spinner" />
+					<Icon name="spinner" size={iconSize} />
 				{:else if isDropdown}
 					<div class="btn-dropdown-chevron" class:open={dropdownOpen}>
-						<Icon name="chevron-down" />
+						<Icon name="chevron-down" size={iconSize} />
 					</div>
 				{:else if icon}
-					<Icon name={icon} />
+					<Icon name={icon} size={iconSize} />
 				{/if}
 			</div>
 		{/if}
@@ -229,7 +230,6 @@
 		background: var(--btn-bg);
 		color: var(--label-clr);
 		cursor: pointer;
-
 		transition:
 			background var(--transition-fast),
 			opacity var(--transition-fast),
@@ -237,9 +237,31 @@
 			max-width var(--transition-medium);
 		user-select: none;
 
+		/* ---- Sizes ---- */
+		&.tag-size {
+			--btn-size: var(--size-tag);
+			--btn-padding: 2px 6px;
+			--btn-gap: 4px;
+		}
+
+		&.button-size {
+			--btn-size: var(--size-button);
+			--btn-padding: 4px 8px;
+			--btn-gap: 6px;
+		}
+
+		&[class*="-size"] {
+			height: var(--btn-size);
+			padding: var(--btn-padding);
+			gap: var(--btn-gap);
+		}
+
+		&.fixed-width[class*="-size"] {
+			width: var(--btn-size);
+		}
+
 		/* ---- Child elements ---- */
 		.btn-label {
-			padding: 0 3px;
 			overflow: hidden;
 			white-space: nowrap;
 			pointer-events: none;
@@ -380,29 +402,6 @@
 			outline: 2px solid
 				color-mix(in srgb, var(--_focus-ring) var(--_focus-solid-mix, 50%), var(--text-1));
 			outline-offset: -2px;
-		}
-
-		/* ---- Sizes ---- */
-		&.tag-size {
-			--btn-size: var(--size-tag);
-			--btn-padding: 2px 4px;
-			--btn-gap: 0;
-		}
-
-		&.button-size {
-			--btn-size: var(--size-button);
-			--btn-padding: 4px 6px;
-			--btn-gap: 2px;
-		}
-
-		&[class*="-size"] {
-			height: var(--btn-size);
-			padding: var(--btn-padding);
-			gap: var(--btn-gap);
-		}
-
-		&.fixed-width[class*="-size"] {
-			width: var(--btn-size);
 		}
 
 		/* ---- Dropdown split-button ---- */

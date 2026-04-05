@@ -13,7 +13,7 @@
 </script>
 
 <div class="stack__status--icon" style:--bg-color={color} class:small class:large>
-	<Icon name={iconName} size={15} />
+	<Icon name={iconName} size={14} />
 </div>
 
 <style>

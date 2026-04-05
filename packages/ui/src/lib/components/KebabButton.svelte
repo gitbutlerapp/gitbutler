@@ -109,7 +109,7 @@
 		data-testid={testId}
 		aria-label="Open context menu"
 	>
-		<Icon name={icon} />
+		<Icon name={icon} size={14} />
 	</button>
 {:else}
 	<Button

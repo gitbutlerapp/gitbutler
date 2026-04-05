@@ -20,6 +20,7 @@
 
 	const context = getContext<SegmentContext>("SegmentControl");
 	const selectedSegmentId = context.selectedSegmentId;
+	const iconSize = $derived(context.size === "small" ? 14 : 16);
 
 	let elRef = $state<HTMLButtonElement>();
 	let isFocused = $state(false);
@@ -67,7 +68,7 @@
 		{/if}
 		{#if icon}
 			<span class="segment-control-item__icon" aria-hidden="true">
-				<Icon name={icon} />
+				<Icon name={icon} size={iconSize} />
 			</span>
 		{/if}
 	</button>
