@@ -462,7 +462,7 @@ const createPreviewImperativeHandle = ({
 const ChangesPreview: FC<{
 	projectId: string;
 	stackId: string | null;
-	selectedPath?: string;
+	selectedFile?: string;
 	onSelectHunk: (key: string) => void;
 	selectedHunk: string | null;
 	isFocused: boolean;
@@ -472,7 +472,7 @@ const ChangesPreview: FC<{
 }> = ({
 	projectId,
 	stackId,
-	selectedPath,
+	selectedFile,
 	onSelectHunk,
 	selectedHunk,
 	isFocused,
@@ -487,8 +487,8 @@ const ChangesPreview: FC<{
 	);
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
 	const selectedChange =
-		selectedPath !== undefined
-			? changes.find((candidate) => candidate.path === selectedPath)
+		selectedFile !== undefined
+			? changes.find((candidate) => candidate.path === selectedFile)
 			: undefined;
 	const visibleChanges = selectedChange ? [selectedChange] : changes;
 	const treeChangeDiffs = useSuspenseQueries({
@@ -786,7 +786,7 @@ const Preview: FC<{
 				<ChangesPreview
 					projectId={projectId}
 					stackId={stackId}
-					selectedPath={path}
+					selectedFile={path}
 					onSelectHunk={onSelectHunk}
 					selectedHunk={selectedHunk}
 					isFocused={isFocused}
@@ -996,14 +996,14 @@ const CommitRow: FC<
 		branchName,
 		commitId: commit.id,
 	});
-	const commitSelection =
+	const selectedCommit =
 		selectedItem._tag === "Commit" &&
 		selectedItem.stackId === stackId &&
 		selectedItem.segmentIndex === segmentIndex &&
 		selectedItem.commitId === commit.id
 			? selectedItem
 			: null;
-	const isEditing = commitSelection?.mode._tag === "Reword";
+	const isEditing = selectedCommit?.mode._tag === "Reword";
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
 		(_currentMessage, nextMessage: string) => nextMessage,
@@ -1028,7 +1028,7 @@ const CommitRow: FC<
 	};
 
 	const toggleDetails = () => {
-		if (commitSelection?.mode._tag === "Details") selectItem(defaultItem);
+		if (selectedCommit?.mode._tag === "Details") selectItem(defaultItem);
 		else openDetails();
 	};
 
@@ -1075,7 +1075,7 @@ const CommitRow: FC<
 			commit={commitWithOptimisticMessage}
 			className={classes(
 				sharedStyles.item,
-				commitSelection && sharedStyles.selected,
+				selectedCommit && sharedStyles.selected,
 				isHighlighted && sharedStyles.highlighted,
 			)}
 		>
@@ -1120,9 +1120,9 @@ const CommitRow: FC<
 				className={sharedStyles.itemAction}
 				type="button"
 				onClick={toggleDetails}
-				aria-expanded={commitSelection?.mode._tag === "Details"}
+				aria-expanded={selectedCommit?.mode._tag === "Details"}
 			>
-				<ExpandCollapseIcon isExpanded={commitSelection?.mode._tag === "Details"} />
+				<ExpandCollapseIcon isExpanded={selectedCommit?.mode._tag === "Details"} />
 			</button>
 			<Menu.Root>
 				<Menu.Trigger className={sharedStyles.itemAction} aria-label="Commit menu">
@@ -1171,7 +1171,7 @@ const CommitC: FC<{
 	selectFile,
 	stackId,
 }) => {
-	const commitSelection =
+	const selectedCommit =
 		selectedItem._tag === "Commit" &&
 		selectedItem.stackId === stackId &&
 		selectedItem.segmentIndex === segmentIndex &&
@@ -1195,7 +1195,7 @@ const CommitC: FC<{
 				selectItem={selectItem}
 				stackId={stackId}
 			/>
-			{commitSelection?.mode._tag === "Details" && (
+			{selectedCommit?.mode._tag === "Details" && (
 				<Suspense fallback={<div className={sharedStyles.itemEmpty}>Loading change details…</div>}>
 					<CommitDetailsC
 						projectId={projectId}
@@ -1236,9 +1236,9 @@ const Changes: FC<{
 	);
 
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
-	const changesSectionSelection =
+	const selectedChangesSection =
 		selectedItem._tag === "Changes" && selectedItem.stackId === stackId ? selectedItem : null;
-	const changeSelection =
+	const selectedChange =
 		selectedItem._tag === "Change" && selectedItem.stackId === stackId ? selectedItem : null;
 
 	return (
@@ -1256,13 +1256,13 @@ const Changes: FC<{
 					stackId={stackId}
 					className={classes(
 						className,
-						(changesSectionSelection != null || changeSelection != null) &&
+						(selectedChangesSection != null || selectedChange != null) &&
 							sharedStyles.sectionSelected,
 					)}
 				/>
 			}
 		>
-			<div className={classes(sharedStyles.item, changesSectionSelection && sharedStyles.selected)}>
+			<div className={classes(sharedStyles.item, selectedChangesSection && sharedStyles.selected)}>
 				<button
 					type="button"
 					className={styles.segmentButton}
@@ -1333,7 +1333,7 @@ const Changes: FC<{
 									assignments={assignmentsByPath.get(change.path)}
 									className={classes(
 										sharedStyles.item,
-										changeSelection?.path === change.path && sharedStyles.selected,
+										selectedChange?.path === change.path && sharedStyles.selected,
 									)}
 								>
 									<FileButton
@@ -1515,18 +1515,18 @@ const SegmentRow: FC<
 	} & ComponentProps<"div">
 > = ({ projectId, segment, stackId, segmentIndex, selectedItem, selectItem, ...restProps }) => {
 	const branchName = segment.refName?.displayName ?? null;
-	const segmentItemV = segmentItem({
+	const defaultItem = segmentItem({
 		stackId,
 		segmentIndex,
 		branchName,
 	});
-	const segmentSelection =
+	const selectedSegment =
 		selectedItem._tag === "Segment" &&
 		selectedItem.stackId === stackId &&
 		selectedItem.segmentIndex === segmentIndex
 			? selectedItem
 			: null;
-	const isEditing = segmentSelection?.mode._tag === "Rename";
+	const isEditing = selectedSegment?.mode._tag === "Rename";
 	const [optimisticBranchName, setOptimisticBranchName] = useOptimistic(
 		branchName,
 		(_currentBranchName, nextBranchName: string) => nextBranchName,
@@ -1541,7 +1541,7 @@ const SegmentRow: FC<
 	};
 
 	const endEditing = () => {
-		selectItem(segmentItemV);
+		selectItem(defaultItem);
 	};
 
 	const saveBranchName = (newBranchName: string) => {
@@ -1578,7 +1578,7 @@ const SegmentRow: FC<
 			className={classes(
 				restProps.className,
 				sharedStyles.item,
-				segmentSelection && sharedStyles.selected,
+				selectedSegment && sharedStyles.selected,
 			)}
 		>
 			{isEditing && optimisticBranchName !== null ? (
@@ -1594,7 +1594,7 @@ const SegmentRow: FC<
 							<button
 								type="button"
 								className={styles.segmentButton}
-								onClick={() => selectItem(segmentItemV)}
+								onClick={() => selectItem(defaultItem)}
 							>
 								{optimisticBranchName ?? "Untitled"}
 							</button>
