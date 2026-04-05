@@ -37,14 +37,14 @@ const hasAssignmentsForPath = ({
 		(assignment) => (assignment.stackId ?? null) === stackId && assignment.path === path,
 	);
 
-export type NavigationModel = {
+export type WorkspaceSection = {
+	section: Item;
 	items: Array<Item>;
-	sections: Array<Item>;
-	sectionIndexByItemIndex: Array<number>;
-	indexByKey: Map<string, number>;
 };
 
-export const buildNavigationModel = ({
+export type WorkspaceOutline = Array<WorkspaceSection>;
+
+export const buildWorkspaceOutline = ({
 	headInfo,
 	changes,
 	assignments,
@@ -54,7 +54,61 @@ export const buildNavigationModel = ({
 	changes: Array<TreeChange>;
 	assignments: Array<HunkAssignment>;
 	commonBaseCommitId?: string;
-}): NavigationModel => {
+}): WorkspaceOutline => {
+	const changesSection = (stackId: string | null): WorkspaceSection => ({
+		section: changesSectionItem(stackId),
+		items: changes.flatMap((change) =>
+			hasAssignmentsForPath({ assignments, stackId, path: change.path })
+				? [changeItem(stackId, change.path)]
+				: [],
+		),
+	});
+
+	const segmentSection = (
+		stackId: string,
+		segmentIndex: number,
+		segment: Segment,
+	): WorkspaceSection => {
+		const branchName = segment.refName?.displayName ?? null;
+		return {
+			section: segmentItem({ stackId, segmentIndex, branchName }),
+			items: segment.commits.map((commit) =>
+				commitItem({ stackId, segmentIndex, branchName, commitId: commit.id }),
+			),
+		};
+	};
+
+	const baseCommitSection = (commitId: string): WorkspaceSection => ({
+		section: baseCommitItem(commitId),
+		items: [],
+	});
+
+	return [
+		changesSection(null),
+
+		...headInfo.stacks.flatMap((stack) => {
+			if (stack.id == null) return [];
+			const stackId = stack.id;
+			return [
+				changesSection(stackId),
+				...stack.segments.map((segment, segmentIndex) =>
+					segmentSection(stackId, segmentIndex, segment),
+				),
+			];
+		}),
+
+		...(commonBaseCommitId !== undefined ? [baseCommitSection(commonBaseCommitId)] : []),
+	];
+};
+
+export type NavigationModel = {
+	items: Array<Item>;
+	sections: Array<Item>;
+	sectionIndexByItemIndex: Array<number>;
+	indexByKey: Map<string, number>;
+};
+
+export const buildNavigationModel = (outline: WorkspaceOutline): NavigationModel => {
 	const model: NavigationModel = {
 		items: [],
 		sections: [],
@@ -74,37 +128,12 @@ export const buildNavigationModel = ({
 		addItem(section, sectionIndex);
 	};
 
-	const addChangesSection = (stackId: string | null) => {
+	for (const { section, items } of outline) {
 		const sectionIndex = model.sections.length;
-		addSection(changesSectionItem(stackId));
+		addSection(section);
 
-		for (const change of changes) {
-			if (!hasAssignmentsForPath({ assignments, stackId, path: change.path })) continue;
-			addItem(changeItem(stackId, change.path), sectionIndex);
-		}
-	};
-
-	const addSegmentSection = (stackId: string, segmentIndex: number, segment: Segment) => {
-		const branchName = segment.refName?.displayName ?? null;
-		const sectionIndex = model.sections.length;
-		addSection(segmentItem({ stackId, segmentIndex, branchName }));
-
-		for (const commit of segment.commits)
-			addItem(commitItem({ stackId, segmentIndex, branchName, commitId: commit.id }), sectionIndex);
-	};
-
-	addChangesSection(null);
-
-	for (const stack of headInfo.stacks) {
-		if (stack.id == null) continue;
-		const stackId = stack.id;
-		addChangesSection(stackId);
-
-		for (const [segmentIndex, segment] of stack.segments.entries())
-			addSegmentSection(stackId, segmentIndex, segment);
+		for (const item of items) addItem(item, sectionIndex);
 	}
-
-	if (commonBaseCommitId !== undefined) addSection(baseCommitItem(commonBaseCommitId));
 
 	return model;
 };

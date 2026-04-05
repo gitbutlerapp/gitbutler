@@ -108,6 +108,7 @@ import {
 	segmentItem,
 } from "./-Item.ts";
 import {
+	buildWorkspaceOutline,
 	buildNavigationModel,
 	normalizeSelectedFile,
 	normalizeSelectedHunk,
@@ -1905,12 +1906,14 @@ const ProjectPage: FC = () => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
-	const navigationModel = buildNavigationModel({
-		headInfo,
-		changes: worktreeChanges.changes,
-		assignments: worktreeChanges.assignments,
-		commonBaseCommitId,
-	});
+	const navigationModel = buildNavigationModel(
+		buildWorkspaceOutline({
+			headInfo,
+			changes: worktreeChanges.changes,
+			assignments: worktreeChanges.assignments,
+			commonBaseCommitId,
+		}),
+	);
 
 	const selectedItem = resolveSelectedWorkspaceItem({
 		workspaceSelection,
