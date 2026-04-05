@@ -74,12 +74,20 @@ pub trait RepositoryExt: Sized {
     /// Return all signatures that would be needed to perform a commit as configured in Git: `(author, committer)`.
     fn commit_signatures(&self) -> anyhow::Result<(gix::actor::Signature, gix::actor::Signature)>;
 
-    /// Return the configuration freshly loaded from `.git/config` so that it can be changed in memory,
-    /// and possibly written back with [`Self::write_local_common_config()`].
-    fn local_common_config_for_editing(&self) -> anyhow::Result<gix::config::File<'static>>;
-    /// Write the given `local_config` to `.git/config` of the common repository.
-    /// Note that we never write linked worktree-local configuration.
-    fn write_local_common_config(&self, local_config: &gix::config::File) -> anyhow::Result<()>;
+    /// Return the configuration freshly loaded from `.git/config` together with an acquired lock
+    /// for that file so it can be changed in memory and safely written back without another writer
+    /// racing the read-modify-write cycle.
+    fn local_common_config_for_editing(
+        &self,
+    ) -> anyhow::Result<(gix::config::File<'static>, gix::lock::File)>;
+    /// Write the given `local_config` to the file at `lock` of the while consuming
+    /// the lock previously acquired with [`Self::local_common_config_for_editing()`].
+    /// Note that only local configuraiton is written, so it's safe to use it with `repo.config_snapshot_mut()`.
+    fn write_locked_config(
+        &self,
+        local_config: &gix::config::File,
+        lock: gix::lock::File,
+    ) -> anyhow::Result<()>;
     /// Cherry-pick the changes in the tree of `to_rebase_commit_id` onto `new_base_commit_id`.
     /// This method deals with the presence of conflicting commits to select the correct trees
     /// for the cheery-pick merge.
@@ -184,37 +192,28 @@ impl RepositoryExt for gix::Repository {
         Ok((author.into(), committer))
     }
 
-    fn local_common_config_for_editing(&self) -> anyhow::Result<gix::config::File<'static>> {
+    fn local_common_config_for_editing(
+        &self,
+    ) -> anyhow::Result<(gix::config::File<'static>, gix::lock::File)> {
         let local_config_path = self.common_dir().join("config");
-        let config = gix::config::File::from_path_no_includes(
-            local_config_path.clone(),
-            gix::config::Source::Local,
-        )?;
-        Ok(config)
-    }
-
-    fn write_local_common_config(&self, local_config: &gix::config::File) -> anyhow::Result<()> {
-        use std::io::Write;
-        // Note: we don't use a lock file here to not risk changing the mode, and it's what Git does.
-        //       But we lock the file so there is no raciness.
-        let local_config_path = self.common_dir().join("config");
-        let _lock = gix::lock::Marker::acquire_to_hold_resource(
+        let lock = gix::lock::File::acquire_to_update_resource(
             &local_config_path,
             gix::lock::acquire::Fail::Immediately,
             None,
         )?;
-        let mut config_file = std::io::BufWriter::new(
-            std::fs::File::options()
-                .write(true)
-                .truncate(true)
-                .create(false)
-                .open(local_config_path)?,
-        );
-        local_config.write_to_filter(&mut config_file, |section| {
-            section.meta().source.kind() == gix::config::source::Kind::Repository
-        })?;
-        config_file.flush()?;
-        Ok(())
+        let config = gix::config::File::from_path_no_includes(
+            local_config_path.clone(),
+            gix::config::Source::Local,
+        )?;
+        Ok((config, lock))
+    }
+
+    fn write_locked_config(
+        &self,
+        local_config: &gix::config::File,
+        lock: gix::lock::File,
+    ) -> anyhow::Result<()> {
+        crate::git_config::write_locked_config(local_config, lock)
     }
 
     fn cherry_pick_commits_to_tree(

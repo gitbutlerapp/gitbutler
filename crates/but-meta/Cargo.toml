@@ -54,7 +54,6 @@ but-meta = {workspace = true, features = ["legacy"] }
 but-testsupport.workspace = true
 
 insta.workspace = true
-snapbox.workspace = true
 
 
 [lints]

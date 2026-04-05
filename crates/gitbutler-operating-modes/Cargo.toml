@@ -30,7 +30,7 @@ uuid.workspace = true
 schemars.workspace = true
 
 [dev-dependencies]
-but-testsupport = { workspace = true, features = ["legacy"] }
+but-testsupport.workspace = true
 
 [lints]
 workspace = true

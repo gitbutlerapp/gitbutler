@@ -1,8 +1,8 @@
 use std::{fs, path::Path};
 
+use crate::support::{commit_all, test_repository};
 use but_ctx::{Context, RepoOpenMode};
 use but_settings::AppSettings;
-use but_testsupport::legacy::{commit_all, test_repository};
 use gitbutler_project as projects;
 use gitbutler_repo::RepoCommands;
 

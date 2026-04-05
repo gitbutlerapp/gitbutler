@@ -3,12 +3,9 @@ use std::{
     path::Path,
 };
 
+use crate::support::testing_repository::TestingRepository;
 use but_core::RepositoryExt as _;
-use but_testsupport::{
-    gix_testtools::scripted_fixture_read_only, legacy::testing_repository::TestingRepository,
-    open_repo, visualize_tree,
-};
-use gitbutler_repo::RepositoryExt as _;
+use but_testsupport::{gix_testtools::scripted_fixture_read_only, open_repo, visualize_tree};
 use gix::prelude::ObjectIdExt as _;
 
 const MAX_SIZE: u64 = 20;
@@ -294,11 +291,14 @@ fn should_be_empty_after_checking_out_empty_tree() -> anyhow::Result<()> {
     {
         let tree_oid = test.repository.treebuilder(None)?.write()?;
         let tree = test.repository.find_tree(tree_oid)?;
-        test.repository
-            .checkout_tree_builder(&tree)
-            .force()
-            .remove_untracked()
-            .checkout()?;
+        test.repository.checkout_tree(
+            tree.as_object(),
+            Some(
+                git2::build::CheckoutBuilder::new()
+                    .force()
+                    .remove_untracked(true),
+            ),
+        )?;
     }
 
     assert!(!test.tempdir.path().join("file1.txt").exists());

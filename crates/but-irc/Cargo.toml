@@ -26,5 +26,4 @@ notify-rust.workspace = true
 irc = { version = "1.0", default-features = false, features = ["tls-native"] }
 
 [dev-dependencies]
-anyhow.workspace = true
 tokio = { workspace = true, features = ["full"] }

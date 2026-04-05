@@ -1,8 +1,8 @@
 use std::{path::PathBuf, str};
 
+use crate::support::{setup_blackhole_store, test_repository};
 use but_ctx::{Context, RepoOpenMode};
 use but_settings::AppSettings;
-use but_testsupport::legacy::test_repository;
 use gitbutler_project as projects;
 use gitbutler_repo::credentials::{Credential, SshCredential, help};
 use gitbutler_user as users;
@@ -16,7 +16,7 @@ struct TestCase<'a> {
 
 impl TestCase<'_> {
     fn run(&self) -> Vec<(String, Vec<Credential>)> {
-        but_testsupport::legacy::secrets::setup_blackhole_store();
+        setup_blackhole_store();
         let user: users::User = serde_json::from_str(if self.with_github_login {
             include_str!("../tests/fixtures/users/with-github.v1")
         } else {
@@ -38,6 +38,7 @@ impl TestCase<'_> {
         )
         .expect("can create context");
 
+        #[expect(deprecated, reason = "transport/auth compatibility coverage")]
         let git2_repo = &*ctx.git2_repo.get().unwrap();
         let flow = help(git2_repo, &ctx.legacy_project, "origin").unwrap();
         flow.into_iter()

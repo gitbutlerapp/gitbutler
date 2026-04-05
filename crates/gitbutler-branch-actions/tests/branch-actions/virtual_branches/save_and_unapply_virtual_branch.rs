@@ -1,6 +1,5 @@
 use but_core::DiffSpec;
 use but_hunk_assignment::HunkAssignmentRequest;
-use but_testsupport::legacy::stack_details;
 
 use super::*;
 

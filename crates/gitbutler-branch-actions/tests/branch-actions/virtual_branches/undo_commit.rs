@@ -1,4 +1,3 @@
-use but_testsupport::legacy::stack_details;
 use gitbutler_branch::BranchCreateRequest;
 
 use super::*;

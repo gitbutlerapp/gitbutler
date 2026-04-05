@@ -219,8 +219,8 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
         .collect();
 
     // Check which files still have conflict markers
-    let git2_repo = ctx.git2_repo.get()?;
-    let repo_path = git2_repo.workdir().context("No workdir")?;
+    let repo = ctx.repo.get()?;
+    let repo_path = repo.workdir().context("No workdir")?;
     let mut still_conflicted = Vec::new();
     let mut resolved = Vec::new();
 

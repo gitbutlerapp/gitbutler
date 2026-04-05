@@ -1,7 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_core::RepositoryExt;
 use but_ctx::Context;
-use but_oxidize::OidExt;
 use gitbutler_operating_modes::ensure_open_workspace_mode;
 use gitbutler_oplog::{
     OplogExt, SnapshotExt,
@@ -237,7 +236,7 @@ pub fn push_stack(
                 &gix_repo,
                 &remote_name,
                 &url,
-                push_details.head.to_gix(),
+                push_details.head,
                 &push_details.remote_refname,
                 ctx.legacy_project.husky_hooks_enabled,
             )? {

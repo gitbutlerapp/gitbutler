@@ -2,11 +2,14 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use but_core::RepositoryExt;
-use but_testsupport::{CommandExt, git_at_dir, legacy::paths};
+use but_testsupport::{CommandExt, git_at_dir};
 use tempfile::TempDir;
 
+#[path = "../support.rs"]
+mod support;
+
 pub fn new() -> TempDir {
-    paths::data_dir()
+    support::data_dir()
 }
 
 fn repo_path_at(name: &str) -> PathBuf {
@@ -32,7 +35,8 @@ fn set_storage_path_config(
     let key = but_project_handle::storage_path_config_key();
     repo.config_snapshot_mut()
         .set_raw_value(key, gix::path::os_str_into_bstr(value.as_ref())?)?;
-    repo.write_local_common_config(&repo.config_snapshot())?;
+    let (_config, lock) = repo.local_common_config_for_editing()?;
+    repo.write_locked_config(&repo.config_snapshot(), lock)?;
     Ok(repo)
 }
 
@@ -41,8 +45,8 @@ mod add {
 
     #[test]
     fn success() -> anyhow::Result<()> {
-        let tmp = paths::data_dir();
-        let repo = but_testsupport::legacy::TestProject::default();
+        let tmp = support::data_dir();
+        let repo = support::TestProject::default();
         let path = repo.path();
         let project = gitbutler_project::add_at_app_data_dir(tmp.path(), path)
             .unwrap()
@@ -56,10 +60,13 @@ mod add {
 
     #[test]
     fn creates_configured_storage_dir() -> anyhow::Result<()> {
-        let data_dir = paths::data_dir();
-        let repo = but_testsupport::legacy::TestProject::default();
+        let data_dir = support::data_dir();
+        let repo = support::TestProject::default();
         let configured_repo = set_storage_path_config(repo.path(), "gitbutler-custom")?;
-        let expected_gb_dir = configured_repo.git_dir().join("gitbutler-custom");
+        let expected_gb_dir = configured_repo
+            .git_dir()
+            .canonicalize()?
+            .join("gitbutler-custom");
 
         assert!(!expected_gb_dir.exists());
         let project =
@@ -72,10 +79,13 @@ mod add {
 
     #[test]
     fn get_recreates_configured_storage_dir() -> anyhow::Result<()> {
-        let data_dir = paths::data_dir();
-        let repo = but_testsupport::legacy::TestProject::default();
+        let data_dir = support::data_dir();
+        let repo = support::TestProject::default();
         let configured_repo = set_storage_path_config(repo.path(), "gitbutler-custom")?;
-        let expected_gb_dir = configured_repo.git_dir().join("gitbutler-custom");
+        let expected_gb_dir = configured_repo
+            .git_dir()
+            .canonicalize()?
+            .join("gitbutler-custom");
 
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())?.unwrap_project();
@@ -91,7 +101,7 @@ mod add {
 
     #[test]
     fn submodule_is_added_as_project() -> anyhow::Result<()> {
-        let data_dir = paths::data_dir();
+        let data_dir = support::data_dir();
         let fixture = writable_fixture();
         let superproject = fixture.path().join("with-submodule").canonicalize()?;
         let submodule = superproject.join("submodule");
@@ -118,7 +128,7 @@ mod add {
 
     #[test]
     fn best_effort_adds_submodule_even_if_superproject_exists() -> anyhow::Result<()> {
-        let data_dir = paths::data_dir();
+        let data_dir = support::data_dir();
         let fixture = writable_fixture();
         let superproject = fixture.path().join("with-submodule").canonicalize()?;
         let submodule = superproject.join("submodule");
@@ -144,8 +154,8 @@ mod add {
 
     #[test]
     fn best_effort_adds_parent_repo_from_nested_directory() -> anyhow::Result<()> {
-        let data_dir = paths::data_dir();
-        let repo = but_testsupport::legacy::TestProject::default();
+        let data_dir = support::data_dir();
+        let repo = support::TestProject::default();
         let nested_dir = repo.path().join("nested/inside");
         let expected_worktree_dir = repo.path().canonicalize()?;
         let expected_git_dir = repo_git_dir(repo.path())?;
@@ -169,8 +179,8 @@ mod add {
     /// Used in deep-links for instance
     #[test]
     fn best_effort_finds_existing_project_from_file_path() -> anyhow::Result<()> {
-        let data_dir = paths::data_dir();
-        let repo = but_testsupport::legacy::TestProject::default();
+        let data_dir = support::data_dir();
+        let repo = support::TestProject::default();
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())?.unwrap_project();
         let file_path = repo.path().join("nested/inside/file.txt");
@@ -199,7 +209,7 @@ mod add {
 
         #[test]
         fn non_bare_without_worktree() {
-            let tmp = paths::data_dir();
+            let tmp = support::data_dir();
             let root = repo_path_at("non-bare-without-worktree");
             let outcome =
                 gitbutler_project::add_at_app_data_dir(tmp.path(), root.as_path()).unwrap();
@@ -208,7 +218,7 @@ mod add {
 
         #[test]
         fn missing() {
-            let data_dir = paths::data_dir();
+            let data_dir = support::data_dir();
             let tmp = tempfile::tempdir().unwrap();
             let outcome =
                 gitbutler_project::add_at_app_data_dir(data_dir.path(), tmp.path().join("missing"))
@@ -218,7 +228,7 @@ mod add {
 
         #[test]
         fn directory_without_git() {
-            let data_dir = paths::data_dir();
+            let data_dir = support::data_dir();
             let tmp = tempfile::tempdir().unwrap();
             let path = tmp.path();
             std::fs::write(path.join("file.txt"), "hello world").unwrap();
@@ -228,7 +238,7 @@ mod add {
 
         #[test]
         fn empty() {
-            let data_dir = paths::data_dir();
+            let data_dir = support::data_dir();
             let tmp = tempfile::tempdir().unwrap();
             let outcome =
                 gitbutler_project::add_at_app_data_dir(data_dir.path(), tmp.path()).unwrap();
@@ -237,8 +247,8 @@ mod add {
 
         #[test]
         fn nested_directory_inside_repo_is_not_added_by_exact_path_but_is_by_best_effort() {
-            let data_dir = paths::data_dir();
-            let repo = but_testsupport::legacy::TestProject::default();
+            let data_dir = support::data_dir();
+            let repo = support::TestProject::default();
             let nested_dir = repo.path().join("nested/inside");
             std::fs::create_dir_all(&nested_dir).unwrap();
             let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())
@@ -266,8 +276,8 @@ mod add {
 
         #[test]
         fn twice() {
-            let data_dir = paths::data_dir();
-            let repo = but_testsupport::legacy::TestProject::default();
+            let data_dir = support::data_dir();
+            let repo = support::TestProject::default();
             let path = repo.path();
             gitbutler_project::add_at_app_data_dir(data_dir.path(), path).unwrap();
 
@@ -277,7 +287,7 @@ mod add {
 
         #[test]
         fn bare() {
-            let data_dir = paths::data_dir();
+            let data_dir = support::data_dir();
             let tmp = tempfile::tempdir().unwrap();
             let repo_dir = tmp.path().join("bare");
 
@@ -294,7 +304,7 @@ mod add {
 
         #[test]
         fn worktree() {
-            let data_dir = paths::data_dir();
+            let data_dir = support::data_dir();
             let tmp = tempfile::tempdir().unwrap();
             let main_worktree_dir = tmp.path().join("main");
             let worktree_dir = tmp.path().join("worktree");
@@ -321,8 +331,8 @@ mod delete {
     use super::*;
     #[test]
     fn success() {
-        let data_dir = paths::data_dir();
-        let repo = but_testsupport::legacy::TestProject::default();
+        let data_dir = support::data_dir();
+        let repo = support::TestProject::default();
         let path = repo.path();
         let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), path)
             .unwrap()
@@ -344,7 +354,7 @@ mod delete {
 
     #[test]
     fn submodule_success_without_accidentally_removing_submodule() -> anyhow::Result<()> {
-        let data_dir = paths::data_dir();
+        let data_dir = support::data_dir();
         let fixture = writable_fixture();
         let submodule = fixture
             .path()
@@ -366,8 +376,8 @@ mod delete {
 
     #[test]
     fn deletes_gitbutler_references() -> anyhow::Result<()> {
-        let data_dir = paths::data_dir();
-        let repo = but_testsupport::legacy::TestProject::default();
+        let data_dir = support::data_dir();
+        let repo = support::TestProject::default();
         let path = repo.path();
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
@@ -425,8 +435,8 @@ mod delete {
     #[test]
     fn deletes_project_without_gitbutler_references() -> anyhow::Result<()> {
         // This test ensures that deletion works even when there are no gitbutler references
-        let data_dir = paths::data_dir();
-        let repo = but_testsupport::legacy::TestProject::default();
+        let data_dir = support::data_dir();
+        let repo = support::TestProject::default();
         let path = repo.path();
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
@@ -467,8 +477,8 @@ mod delete {
 
     #[test]
     fn removes_configured_storage_dir() -> anyhow::Result<()> {
-        let data_dir = paths::data_dir();
-        let repo = but_testsupport::legacy::TestProject::default();
+        let data_dir = support::data_dir();
+        let repo = support::TestProject::default();
         let path = repo.path();
         let project =
             gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
@@ -482,8 +492,8 @@ mod delete {
 
     #[test]
     fn refuses_to_delete_git_dir_when_storage_path_points_to_dot_git() -> anyhow::Result<()> {
-        let data_dir = paths::data_dir();
-        let repo = but_testsupport::legacy::TestProject::default();
+        let data_dir = support::data_dir();
+        let repo = support::TestProject::default();
         let git_dir = repo_git_dir(repo.path())?;
         let repo_after_config = set_storage_path_config(repo.path(), ".")?;
         assert!(

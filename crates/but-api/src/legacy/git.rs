@@ -3,7 +3,7 @@ use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::git_config::{
-    open_user_global_config_for_editing, remove_config_value, set_config_value, write_config,
+    edit_config, open_global_config_for_reading, remove_config_value, set_config_value,
 };
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo_actions::RepoActionsExt as _;
@@ -80,25 +80,27 @@ pub fn delete_all_data() -> Result<()> {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn git_set_global_config(key: String, value: String) -> Result<String> {
-    let (mut config, path) = open_user_global_config_for_editing()?;
-    set_config_value(&mut config, &key, &value)?;
-    write_config(&path, &config)?;
+    _ = edit_config(None, gix::config::Source::User, |config| {
+        set_config_value(config, &key, &value)?;
+        Ok(())
+    })?;
     Ok(value)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn git_remove_global_config(key: String) -> Result<()> {
-    let (mut config, path) = open_user_global_config_for_editing()?;
-    remove_config_value(&mut config, &key)?;
-    write_config(&path, &config)?;
+    _ = edit_config(None, gix::config::Source::User, |config| {
+        remove_config_value(config, &key)?;
+        Ok(())
+    })?;
     Ok(())
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn git_get_global_config(key: String) -> Result<Option<String>> {
-    let (config, _) = open_user_global_config_for_editing()?;
+    let config = open_global_config_for_reading()?;
     Ok(get_config_string(&config, &key))
 }
 

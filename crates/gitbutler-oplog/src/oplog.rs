@@ -6,18 +6,22 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, anyhow, bail};
-use but_core::{RepositoryExt, TreeChange, diff::tree_changes};
+use but_core::{RepositoryExt, TreeChange, commit::Headers, diff::tree_changes};
 use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
 use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{ObjectIdExt as _, OidExt};
-use gitbutler_cherry_pick::{GixRepositoryExt as _, RepositoryExtLite};
 use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
 use gix::objs::Write as _;
-use gix::{ObjectId, bstr::ByteSlice, object::tree::EntryKind, prelude::ObjectIdExt};
+use gix::{
+    ObjectId,
+    bstr::{BString, ByteSlice, ByteVec},
+    object::tree::EntryKind,
+    prelude::ObjectIdExt,
+};
 use tracing::instrument;
 
 use super::{
@@ -352,8 +356,73 @@ fn get_workdir_tree(
     }
 }
 
-pub fn prepare_snapshot(ctx: &Context, _shared_access: &RepoShared) -> Result<gix::ObjectId> {
+fn write_index_tree(ctx: &Context) -> Result<gix::ObjectId> {
+    #[expect(deprecated, reason = "index materialization boundary")]
     let git2_repo = ctx.git2_repo.get()?;
+    let mut index = git2_repo.index()?;
+    Ok(index.write_tree()?.to_gix())
+}
+
+fn checkout_workdir_tree(ctx: &Context, workdir_tree_id: gix::ObjectId) -> Result<()> {
+    #[expect(deprecated, reason = "checkout/materialization boundary")]
+    let git2_repo = ctx.git2_repo.get()?;
+    ignore_large_files_in_diffs(&git2_repo, AUTO_TRACK_LIMIT_BYTES)?;
+    let workdir_tree = git2_repo.find_tree(workdir_tree_id.to_git2())?;
+    let mut checkout_builder = git2::build::CheckoutBuilder::new();
+    checkout_builder.remove_untracked(true);
+    checkout_builder.force();
+    git2_repo.checkout_tree(workdir_tree.as_object(), Some(&mut checkout_builder))?;
+    Ok(())
+}
+
+fn ignore_large_files_in_diffs(repo: &git2::Repository, limit_in_bytes: u64) -> Result<()> {
+    if limit_in_bytes == 0 {
+        return Ok(());
+    }
+    let gix_repo = gix::open(repo.path())?;
+    let worktree_dir = gix_repo
+        .workdir()
+        .context("All repos are expected to have a worktree")?;
+    let files_to_exclude: Vec<_> = gix_repo
+        .dirwalk_iter(
+            gix_repo.index_or_empty()?,
+            None::<BString>,
+            Default::default(),
+            gix_repo
+                .dirwalk_options()?
+                .emit_ignored(None)
+                .emit_pruned(false)
+                .emit_untracked(gix::dir::walk::EmissionMode::Matching),
+        )?
+        .filter_map(Result::ok)
+        .filter_map(|item| {
+            let path = worktree_dir.join(gix::path::from_bstr(item.entry.rela_path.as_bstr()));
+            let file_is_too_large = path
+                .metadata()
+                .is_ok_and(|md| md.is_file() && md.len() > limit_in_bytes);
+            file_is_too_large
+                .then(|| Vec::from(item.entry.rela_path).into_string().ok())
+                .flatten()
+        })
+        .collect();
+    let ignore_list = files_to_exclude.join(" ");
+    repo.add_ignore_rule(&ignore_list)?;
+    Ok(())
+}
+
+fn reset_index_to_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<()> {
+    #[expect(deprecated, reason = "index materialization boundary")]
+    let git2_repo = ctx.git2_repo.get()?;
+    let tree = git2_repo
+        .find_tree(tree_id.to_git2())
+        .context("failed to convert index tree entry to tree")?;
+    let mut index = git2_repo.index()?;
+    index.read_tree(&tree)?;
+    index.write()?;
+    Ok(())
+}
+
+pub fn prepare_snapshot(ctx: &Context, _shared_access: &RepoShared) -> Result<gix::ObjectId> {
     let repo = ctx.repo.get()?;
     let empty_tree_id = repo.empty_tree().id;
 
@@ -370,12 +439,11 @@ pub fn prepare_snapshot(ctx: &Context, _shared_access: &RepoShared) -> Result<gi
     let conflicts_tree_id = write_conflicts_tree(&repo)?;
 
     // write out the index as a tree to store
-    let mut index = git2_repo.index()?;
-    let index_tree_oid = index.write_tree()?;
+    let index_tree_id = write_index_tree(ctx)?;
 
     // start building our snapshot tree
     let mut snapshot_tree = repo.empty_tree().edit()?;
-    snapshot_tree.upsert("index", EntryKind::Tree, index_tree_oid.to_gix())?;
+    snapshot_tree.upsert("index", EntryKind::Tree, index_tree_id)?;
     snapshot_tree.upsert("target_tree", EntryKind::Tree, target_tree_id)?;
     snapshot_tree.upsert("conflicts", EntryKind::Tree, conflicts_tree_id)?;
     snapshot_tree.upsert("virtual_branches", EntryKind::Tree, empty_tree_id)?;
@@ -505,7 +573,6 @@ fn restore_snapshot(
     snapshot_commit_id: gix::ObjectId,
     exclusive_access: &mut RepoExclusive,
 ) -> Result<gix::ObjectId> {
-    let git2_repo = ctx.git2_repo.get()?;
     // Use a separate repo without caching so we are sure the 'has commit' checks pick up all changes.
     let repo = ctx.repo.get()?;
 
@@ -598,8 +665,6 @@ fn restore_snapshot(
     let gix_repo = ctx.clone_repo_for_merging()?;
     let workdir_tree_id = get_workdir_tree(None, snapshot_commit_id, &gix_repo, ctx)?;
 
-    git2_repo.ignore_large_files_in_diffs(AUTO_TRACK_LIMIT_BYTES)?;
-
     // Define the checkout builder
     if ctx.settings.feature_flags.cv3 {
         but_core::worktree::safe_checkout_from_head(
@@ -608,12 +673,7 @@ fn restore_snapshot(
             but_core::worktree::checkout::Options::default(),
         )?;
     } else {
-        let workdir_tree = git2_repo.find_tree(workdir_tree_id.to_git2())?;
-        let mut checkout_builder = git2::build::CheckoutBuilder::new();
-        checkout_builder.remove_untracked(true);
-        checkout_builder.force();
-        // Checkout the tree
-        git2_repo.checkout_tree(workdir_tree.as_object(), Some(&mut checkout_builder))?;
+        checkout_workdir_tree(ctx, workdir_tree_id)?;
     }
 
     // Update virtual_branches.toml with the state from the snapshot
@@ -636,11 +696,7 @@ fn restore_snapshot(
     let index_tree_entry = snapshot_tree
         .lookup_entry_by_path("index")?
         .context("failed to get virtual_branches.toml blob")?;
-    let index_tree = git2_repo
-        .find_tree(index_tree_entry.id().to_git2())
-        .context("failed to convert index tree entry to tree")?;
-    let mut index = git2_repo.index()?;
-    index.read_tree(&index_tree)?;
+    reset_index_to_tree(ctx, index_tree_entry.id().detach())?;
 
     let restored_operation = snapshot_commit
         .message_raw()?
@@ -795,8 +851,7 @@ fn tree_from_applied_vbranches(
         .map(|b| {
             let head_oid = b.head_oid(ctx)?;
             let commit = repo.find_commit(head_oid)?;
-            repo.find_real_tree(&commit, Default::default())
-                .map(|id| id.detach())
+            find_real_tree(repo, &commit).map(|id| id.detach())
         })
         .collect::<Result<Vec<_>>>()?;
 
@@ -825,4 +880,30 @@ fn tree_from_applied_vbranches(
     }
 
     Ok(workdir_tree_id)
+}
+
+fn find_real_tree<'repo>(
+    _repo: &'repo gix::Repository,
+    commit: &'repo gix::Commit<'repo>,
+) -> Result<gix::Id<'repo>> {
+    Ok(if commit_is_conflicted(commit) {
+        commit
+            .tree()?
+            .find_entry(".auto-resolution")
+            .context("Failed to get conflicted side of commit")?
+            .id()
+    } else {
+        commit.tree_id()?
+    })
+}
+
+fn commit_is_conflicted(commit: &gix::Commit<'_>) -> bool {
+    commit
+        .decode()
+        .ok()
+        .and_then(|commit| {
+            let headers = Headers::try_from_commit_headers(|| commit.extra_headers())?;
+            Some(headers.conflicted? > 0)
+        })
+        .unwrap_or(false)
 }

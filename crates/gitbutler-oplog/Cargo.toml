@@ -20,7 +20,6 @@ but-ctx = { workspace = true }
 gitbutler-branch.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-repo.workspace = true
-gitbutler-cherry-pick.workspace = true
 
 anyhow.workspace = true
 git2.workspace = true

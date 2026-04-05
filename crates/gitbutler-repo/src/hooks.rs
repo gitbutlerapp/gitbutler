@@ -55,6 +55,7 @@ fn husky_search_paths(ctx: &Context) -> Option<&'static [&'static str]> {
 
 pub fn commit_msg(ctx: &Context, mut message: String) -> Result<MessageHookResult> {
     let original_message = message.clone();
+    #[expect(deprecated, reason = "libgit2 hook adapter boundary")]
     match git2_hooks::hooks_commit_msg(
         &*ctx.git2_repo.get()?,
         husky_search_paths(ctx),
@@ -78,6 +79,7 @@ pub fn commit_msg(ctx: &Context, mut message: String) -> Result<MessageHookResul
 }
 
 pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<HookResult> {
+    #[expect(deprecated, reason = "libgit2 hook/index adapter boundary")]
     let repo = &*ctx.git2_repo.get()?;
     let original_tree = repo.index()?.write_tree()?;
 
@@ -94,7 +96,7 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
     index.write()?;
 
     Ok(
-        match git2_hooks::hooks_pre_commit(&*ctx.git2_repo.get()?, husky_search_paths(ctx))? {
+        match git2_hooks::hooks_pre_commit(repo, husky_search_paths(ctx))? {
             H::Ok { hook: _ } => HookResult::Success,
             H::NoHookFound => HookResult::NotConfigured,
             H::RunNotSuccessful {
@@ -117,6 +119,7 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
 }
 
 pub fn post_commit(ctx: &Context) -> Result<HookResult> {
+    #[expect(deprecated, reason = "libgit2 hook adapter boundary")]
     match git2_hooks::hooks_post_commit(&*ctx.git2_repo.get()?, husky_search_paths(ctx))? {
         H::Ok { hook: _ } => Ok(HookResult::Success),
         H::NoHookFound => Ok(HookResult::NotConfigured),

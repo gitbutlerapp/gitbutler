@@ -54,11 +54,6 @@ pub fn set_project_active(
             return Ok(None);
         }
     };
-    // --> WARNING <-- Be sure this runs BEFORE the database on `ctx` is used.
-    // Only capture this information here to prevent spawning too many errors because of this
-    // (the UI has many parallel calls in flight).
-    ctx.eagerly_populate_git2_repo_cache()?;
-
     but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
 
     let db_error = assure_database_valid(ctx.project_data_dir())?;

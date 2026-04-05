@@ -256,7 +256,7 @@ pub fn add(
     let repo = ctx.repo.get()?;
     edit_git_config(&repo, global, |config| {
         set_alias(config, name, value)?;
-        Ok(true)
+        Ok(())
     })?;
 
     if let Some(out) = out.for_human() {
@@ -291,7 +291,10 @@ pub fn remove(
 ) -> Result<()> {
     let is_global: bool = global.into();
     let repo = ctx.repo.get()?;
-    let success = edit_git_config(&repo, global, |config| Ok(remove_alias(config, name)))?;
+    let success = edit_git_config(&repo, global, |config| {
+        remove_alias(config, name);
+        Ok(())
+    })?;
 
     if let Some(out) = out.for_human() {
         if !success {
@@ -314,12 +317,11 @@ pub fn remove(
     Ok(())
 }
 
-fn remove_alias(config: &mut gix::config::File<'_>, name: &str) -> bool {
+fn remove_alias(config: &mut gix::config::File<'_>, name: &str) {
     config
         .section_mut("but", Some("alias".into()))
         .ok()
-        .and_then(|mut section| section.remove(name))
-        .is_some()
+        .and_then(|mut section| section.remove(name));
 }
 
 fn set_alias(config: &mut gix::config::File<'static>, name: &str, value: &str) -> Result<()> {

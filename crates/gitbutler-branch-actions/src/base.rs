@@ -2,7 +2,7 @@ use std::{path::Path, time};
 
 use anyhow::{Context as _, Result, anyhow};
 use but_core::{
-    RepositoryExt as _, git_config::ensure_config_value,
+    git_config::{edit_repo_config, ensure_config_value},
     worktree::checkout::UncommitedWorktreeChanges,
 };
 use but_ctx::Context;
@@ -11,7 +11,7 @@ use but_oxidize::ObjectIdExt;
 use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{RepositoryExt, first_parent_commit_ids_until};
+use gitbutler_repo::first_parent_commit_ids_until;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{Stack, Target, VirtualBranchesHandle, canned_branch_name};
 use serde::Serialize;
@@ -156,12 +156,14 @@ fn go_back_to_integration(ctx: &Context, default_target: &Target) -> Result<Base
 
         let final_tree_id = outcome.tree.write()?.detach();
 
+        #[expect(deprecated, reason = "checkout/materialization boundary")]
         let git2_repo = &*ctx.git2_repo.get()?;
         let final_tree = git2_repo.find_tree(final_tree_id.to_git2())?;
         git2_repo
-            .checkout_tree_builder(&final_tree)
-            .force()
-            .checkout()
+            .checkout_tree(
+                final_tree.as_object(),
+                Some(git2::build::CheckoutBuilder::new().force()),
+            )
             .context("failed to checkout tree")?;
     }
 
@@ -312,12 +314,11 @@ pub(crate) fn set_target_push_remote(ctx: &Context, push_remote_name: &str) -> R
 
 fn set_exclude_decoration(ctx: &Context) -> Result<()> {
     let repo = ctx.repo.get()?;
-    let mut config = repo.local_common_config_for_editing()?;
-    let changed = ensure_config_value(&mut config, "log.excludeDecoration", "refs/gitbutler")
-        .context("failed to set log.excludeDecoration")?;
-    if changed {
-        repo.write_local_common_config(&config)?;
-    }
+    edit_repo_config(&repo, gix::config::Source::Local, |config| {
+        ensure_config_value(config, "log.excludeDecoration", "refs/gitbutler")
+            .context("failed to set log.excludeDecoration")?;
+        Ok(())
+    })?;
     Ok(())
 }
 
@@ -509,7 +510,7 @@ fn first_parent_commit_ids_with_limit(
 pub(crate) fn push(ctx: &Context, with_force: bool) -> Result<()> {
     let target = default_target(&ctx.project_data_dir())?;
     let _ = ctx.push(
-        target.sha.to_git2(),
+        target.sha,
         &target.branch,
         with_force,
         ctx.legacy_project.force_push_protection,

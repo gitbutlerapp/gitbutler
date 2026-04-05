@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use but_api_macros::but_api;
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
+use but_error::Code;
 use tracing::instrument;
 
 use super::legacy_project;
@@ -116,10 +117,25 @@ pub fn delete_project(project_id: ProjectHandleOrLegacyProjectId) -> Result<()> 
 /// the legacy metadata view with the workspace currently present in Git. It is safe for activation
 /// paths because it avoids rewriting `gitbutler/workspace`.
 pub fn prepare_project_for_activation(ctx: &mut Context) -> Result<()> {
+    assure_repo_ownership(&*ctx.repo.get()?)?;
     let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::base::bootstrap_default_target_if_missing(ctx)?;
     super::meta::reconcile_in_workspace_state_of_vb_toml(ctx, guard.write_permission()).ok();
     Ok(())
+}
+
+// TODO(gix): remove this once there is no `git2` as `gix` provides safety by not trusting Git configuration instead.
+fn assure_repo_ownership(repo: &gix::Repository) -> Result<()> {
+    if repo.git_dir_trust() == gix::sec::Trust::Full {
+        return Ok(());
+    }
+
+    let path = repo.workdir().unwrap_or(repo.git_dir());
+    Err(anyhow!(
+        "The git directory is considered unsafe as it's not owned by the current user. Use `git config --global --add safe.directory '{}'` to allow it",
+        path.display()
+    )
+    .context(Code::RepoOwnership))
 }
 
 #[but_api]

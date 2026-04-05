@@ -5,7 +5,7 @@ use but_ctx::{
     access::{RepoExclusive, RepoShared},
 };
 use but_oxidize::{ObjectIdExt, OidExt};
-use gitbutler_cherry_pick::RepositoryExt;
+use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_stack::VirtualBranchesHandle;
 
 use crate::{workspace_base, workspace_base_from_heads};
@@ -14,29 +14,29 @@ use crate::{workspace_base, workspace_base_from_heads};
 #[derive(Debug)]
 pub struct WorkspaceState {
     /// The heads of the stacks in the workspace.
-    heads: Vec<git2::Oid>,
+    heads: Vec<gix::ObjectId>,
     /// The base of the workspace.
-    base: git2::Oid,
+    base: gix::ObjectId,
 }
 
 impl WorkspaceState {
     pub fn create(ctx: &Context, perm: &RepoShared) -> Result<Self> {
-        let repo = &*ctx.git2_repo.get()?;
+        let repo = &*ctx.repo.get()?;
         let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
         let heads = vb_state
             .list_stacks_in_workspace()?
             .iter()
-            .map(|stack| -> Result<git2::Oid> {
-                let head = stack.head_oid(ctx)?.to_git2();
+            .map(|stack| -> Result<gix::ObjectId> {
+                let head = stack.head_oid(ctx)?;
                 let commit = repo.find_commit(head)?;
                 let tree = repo.find_real_tree(&commit, Default::default())?;
-                Ok(tree.id())
+                Ok(tree.detach())
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let base = workspace_base(ctx, perm)?.to_git2();
-        let base_tree_id = repo.find_commit(base)?.tree_id();
+        let base = workspace_base(ctx, perm)?;
+        let base_tree_id = repo.find_commit(base)?.tree_id()?.detach();
 
         Ok(WorkspaceState {
             heads,
@@ -49,20 +49,20 @@ impl WorkspaceState {
         perm: &RepoShared,
         heads: &[gix::ObjectId],
     ) -> Result<Self> {
-        let repo = &*ctx.git2_repo.get()?;
+        let repo = &*ctx.repo.get()?;
 
         let base = workspace_base_from_heads(ctx, perm, heads)?;
 
         let heads = heads
             .iter()
-            .map(|head| -> Result<git2::Oid> {
-                let commit = repo.find_commit(head.to_git2())?;
+            .map(|head| -> Result<gix::ObjectId> {
+                let commit = repo.find_commit(*head)?;
                 let tree = repo.find_real_tree(&commit, Default::default())?;
-                Ok(tree.id())
+                Ok(tree.detach())
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let base_tree_id = repo.find_commit(base.to_git2())?.tree_id();
+        let base_tree_id = repo.find_commit(base)?.tree_id()?.detach();
 
         Ok(WorkspaceState {
             heads,
@@ -80,12 +80,12 @@ pub fn update_uncommitted_changes(
     perm: &mut RepoExclusive,
 ) -> Result<()> {
     let repo = &*ctx.repo.get()?;
-    let uncommitted_changes = (!ctx.settings.feature_flags.cv3)
-        .then(|| {
-            #[expect(deprecated)]
-            repo.create_wd_tree(0).map(|tree| tree.to_git2())
-        })
-        .transpose()?;
+    let uncommitted_changes = if ctx.settings.feature_flags.cv3 {
+        None
+    } else {
+        #[expect(deprecated)]
+        Some(repo.create_wd_tree(0)?)
+    };
 
     update_uncommitted_changes_with_tree(ctx, old, new, uncommitted_changes, None, perm)
 }
@@ -95,19 +95,20 @@ pub fn update_uncommitted_changes_with_tree(
     ctx: &Context,
     old: WorkspaceState,
     new: WorkspaceState,
-    old_uncommitted_changes: Option<git2::Oid>,
+    old_uncommitted_changes: Option<gix::ObjectId>,
     always_checkout: Option<bool>,
     _perm: &mut RepoExclusive,
 ) -> Result<()> {
-    let gix_repo = ctx.clone_repo_for_merging()?;
-    let repo = &*ctx.git2_repo.get()?;
     if let Some(worktree_id) = old_uncommitted_changes {
+        let gix_repo = ctx.clone_repo_for_merging()?;
+        #[expect(deprecated, reason = "checkout/index materialization boundary")]
+        let repo = &*ctx.git2_repo.get()?;
         let mut new_uncommitted_changes =
-            move_tree_between_workspaces(repo, &gix_repo, worktree_id, old, new)?;
+            move_tree_between_workspaces(repo, &gix_repo, worktree_id, &old, &new)?;
 
         // If the new tree and old tree are the same, then we don't need to do anything
         if !new_uncommitted_changes.has_conflicts() && !always_checkout.unwrap_or(false) {
-            let tree = new_uncommitted_changes.write_tree_to(repo)?;
+            let tree = new_uncommitted_changes.write_tree_to(repo)?.to_gix();
             if tree == worktree_id {
                 return Ok(());
             }
@@ -123,6 +124,7 @@ pub fn update_uncommitted_changes_with_tree(
             ),
         )?;
     } else {
+        let gix_repo = ctx.clone_repo_for_merging()?;
         let old_tree_id = merge_workspace(&gix_repo, &old)?;
         let new_tree_id = merge_workspace(&gix_repo, &new)?;
         but_core::worktree::safe_checkout(
@@ -140,28 +142,28 @@ pub fn update_uncommitted_changes_with_tree(
 fn move_tree_between_workspaces(
     repo: &git2::Repository,
     gix_repo: &gix::Repository,
-    tree: git2::Oid,
-    old: WorkspaceState,
-    new: WorkspaceState,
+    tree: gix::ObjectId,
+    old: &WorkspaceState,
+    new: &WorkspaceState,
 ) -> Result<git2::Index> {
-    let old_workspace = merge_workspace(gix_repo, &old)?.to_git2();
-    let new_workspace = merge_workspace(gix_repo, &new)?.to_git2();
+    let old_workspace = merge_workspace(gix_repo, old)?;
+    let new_workspace = merge_workspace(gix_repo, new)?;
     move_tree(repo, tree, old_workspace, new_workspace)
 }
 
 /// Cherry pick a tree from one base tree on to another, favoring the contents of the tree when conflicts occur
-pub fn move_tree(
+fn move_tree(
     repo: &git2::Repository,
-    tree: git2::Oid,
-    old_workspace: git2::Oid,
-    new_workspace: git2::Oid,
+    tree: gix::ObjectId,
+    old_workspace: gix::ObjectId,
+    new_workspace: gix::ObjectId,
 ) -> Result<git2::Index> {
     // Read: Take the diff between old_workspace and tree, and apply it on top
     //   of new_workspace
     let merge = repo.merge_trees(
-        &repo.find_tree(old_workspace)?,
-        &repo.find_tree(tree)?,
-        &repo.find_tree(new_workspace)?,
+        &repo.find_tree(old_workspace.to_git2())?,
+        &repo.find_tree(tree.to_git2())?,
+        &repo.find_tree(new_workspace.to_git2())?,
         None,
     )?;
 
@@ -176,8 +178,8 @@ pub fn merge_workspace(
     repo: &gix::Repository,
     workspace: &WorkspaceState,
 ) -> Result<gix::ObjectId> {
-    let mut output = workspace.base.to_gix();
-    let base = workspace.base.to_gix();
+    let mut output = workspace.base;
+    let base = workspace.base;
 
     let (merge_options, conflict_kind) = repo.merge_options_fail_fast()?;
 
@@ -185,7 +187,7 @@ pub fn merge_workspace(
         let mut merge = repo.merge_trees(
             base,
             output,
-            head.to_gix(),
+            *head,
             repo.default_merge_labels(),
             merge_options.clone(),
         )?;
@@ -197,4 +199,15 @@ pub fn merge_workspace(
     }
 
     Ok(output)
+}
+
+pub fn move_tree_has_conflicts(
+    ctx: &Context,
+    tree: gix::ObjectId,
+    old_workspace: gix::ObjectId,
+    new_workspace: gix::ObjectId,
+) -> Result<bool> {
+    #[expect(deprecated, reason = "tree merge/index materialization boundary")]
+    let repo = &*ctx.git2_repo.get()?;
+    Ok(move_tree(repo, tree, old_workspace, new_workspace)?.has_conflicts())
 }

@@ -10,10 +10,10 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_oxidize::{ObjectIdExt as _, OidExt, gix_to_git2_index};
+use but_oxidize::{ObjectIdExt as _, gix_to_git2_index};
 use but_rebase::graph_rebase::{Editor, Pick, Step};
 use git2::build::CheckoutBuilder;
-use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _, RepositoryExt as _};
+use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _};
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_operating_modes::{
     EDIT_BRANCH_REF, EditModeMetadata, INTEGRATION_BRANCH_REF, OperatingMode, WORKSPACE_BRANCH_REF,
@@ -58,11 +58,9 @@ fn get_commit_index(ctx: &Context, commit_id: gix::ObjectId) -> Result<git2::Ind
         }
         gix_to_git2_index(&index)
     } else {
-        let git2_repo = &*ctx.git2_repo.get()?;
-        let commit_tree = git2_repo.find_tree(commit.tree.to_git2())?;
-        let mut index = git2::Index::new()?;
-        index.read_tree(&commit_tree)?;
-        Ok(index)
+        let commit_tree_id = commit.tree_id_or_auto_resolution()?;
+        let index = repo.index_from_tree(&commit_tree_id)?;
+        gix_to_git2_index(&index)
     }
 }
 
@@ -115,7 +113,13 @@ fn get_uncommitted_changes(repo: &gix::Repository) -> Result<gix::ObjectId> {
 
 fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     let repo = &*ctx.repo.get()?;
-    let git2_repo = &*ctx.git2_repo.get()?;
+    let git2_repo = {
+        #[allow(
+            deprecated,
+            reason = "Edit mode still crosses the residual libgit2 checkout/index materialization boundary for checkout_head and checkout_index."
+        )]
+        ctx.git2_repo.get()?
+    };
     let commit = git2_repo.find_commit(commit_id.to_git2())?;
 
     // Checkout commits's parent
@@ -234,7 +238,13 @@ pub(crate) fn abort_and_return_to_workspace(
         );
     }
 
-    let repo = &*ctx.git2_repo.get()?;
+    let repo = {
+        #[allow(
+            deprecated,
+            reason = "Edit mode still crosses the residual libgit2 checkout/worktree materialization boundary to restore the workspace tree."
+        )]
+        ctx.git2_repo.get()?
+    };
 
     // Checkout gitbutler workspace branch
     repo.set_head(WORKSPACE_BRANCH_REF)
@@ -253,7 +263,13 @@ pub(crate) fn abort_and_return_to_workspace(
 
 pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     let edit_mode_metadata = read_edit_mode_metadata(ctx).context("Failed to read metadata")?;
-    let git2_repo = &*ctx.git2_repo.get()?;
+    let git2_repo = {
+        #[allow(
+            deprecated,
+            reason = "Edit mode still crosses the residual libgit2 checkout/index materialization boundary when returning to the workspace."
+        )]
+        ctx.git2_repo.get()?
+    };
     let repo = &*ctx.repo.get()?;
 
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
@@ -330,7 +346,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         ctx,
         old_workspace,
         new_workspace,
-        Some(uncommtied_changes.to_git2()),
+        Some(uncommtied_changes),
         Some(true),
         perm,
     )?;
@@ -360,15 +376,17 @@ pub(crate) fn starting_index_state(
         bail!("Starting index state can only be fetched while in edit mode")
     };
 
-    let git2_repo = &*ctx.git2_repo.get()?;
     let repo = &*ctx.repo.get()?;
-
-    let commit = git2_repo.find_commit(metadata.commit_oid.to_git2())?;
-    let gix_commit = repo.find_commit(commit.id().to_gix())?;
-    let commit_parent_tree = if gix_commit.is_conflicted() {
-        git2_repo.find_real_tree(&commit, ConflictedTreeKey::Base)?
+    let commit = repo.find_commit(metadata.commit_oid)?;
+    let commit_parent_tree = if commit.is_conflicted() {
+        repo.find_real_tree(&commit, ConflictedTreeKey::Base)?
+            .detach()
     } else {
-        commit.parent(0)?.tree()?
+        let parent_id = commit
+            .parent_ids()
+            .next()
+            .context("edited commit must have a first parent")?;
+        repo.find_commit(parent_id.detach())?.tree_id()?.detach()
     };
 
     let index = get_commit_index(ctx, metadata.commit_oid)?;
@@ -402,11 +420,9 @@ pub(crate) fn starting_index_state(
 
     let tree_changes = but_core::diff::tree_changes(
         &repo,
-        Some(commit_parent_tree.id().to_gix()),
-        git2_repo
-            .find_real_tree(&commit, ConflictedTreeKey::Theirs)?
-            .id()
-            .to_gix(),
+        Some(commit_parent_tree),
+        repo.find_real_tree(&commit, ConflictedTreeKey::Theirs)?
+            .detach(),
     )?;
 
     let outcome = tree_changes

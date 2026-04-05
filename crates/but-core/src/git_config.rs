@@ -1,54 +1,120 @@
 //! Utilities for mutating Git configuration entries by dotted key.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, bail};
 use bstr::ByteSlice as _;
 use gix::config::AsKey as _;
 
-/// Open the user-global Git config for editing, creating it first if needed.
-pub fn open_user_global_config_for_editing() -> Result<(gix::config::File<'static>, PathBuf)> {
-    let path = gix::config::Source::User
+fn config_path(repo: Option<&gix::Repository>, source: gix::config::Source) -> Result<PathBuf> {
+    let path = source
         .storage_location(&mut |name| std::env::var_os(name))
-        .context("failed to determine global git config location")?
-        .into_owned();
-    if !path.exists() {
-        std::fs::create_dir_all(
-            path.parent()
-                .context("global git config path has no parent")?,
-        )?;
-        std::fs::File::create(&path)?;
-    }
-    let config = gix::config::File::from_path_no_includes(path.clone(), gix::config::Source::User)
-        .with_context(|| format!("failed to open global git config at {}", path.display()))?;
-    Ok((config, path))
+        .with_context(|| format!("failed to determine {source:?} git config location"))?;
+    let path = if path.is_relative() {
+        let repo = repo.with_context(|| {
+            format!("determining the {source:?} git config location requires a repository")
+        })?;
+        if source == gix::config::Source::Local {
+            repo.common_dir().join(path.as_ref())
+        } else {
+            repo.git_dir().join(path.as_ref())
+        }
+    } else {
+        path.into_owned()
+    };
+    Ok(path)
 }
 
-/// Serialize a Git `config` file back to disk at `path`.
-pub fn write_config(path: &Path, config: &gix::config::File<'_>) -> Result<()> {
-    let mut file = std::io::BufWriter::new(
-        std::fs::OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .create(true)
-            .open(path)
-            .with_context(|| {
-                format!(
-                    "failed to open git config for writing at {}",
-                    path.display()
-                )
-            })?,
-    );
+/// Open the Git config for `source` for editing, creating it first if needed.
+/// `repo` is used to resolve repo-local paths, depending on `source`.
+/// Return `(config, lock)`.
+/// Write it back with [`write_locked_config()`].
+pub fn open_config_for_editing(
+    repo: Option<&gix::Repository>,
+    source: gix::config::Source,
+) -> Result<(gix::config::File<'static>, gix::lock::File)> {
+    let path = config_path(repo, source)?;
+    std::fs::create_dir_all(path.parent().context("git config path has no parent")?)?;
+    let lock = gix::lock::File::acquire_to_update_resource(
+        &path,
+        gix::lock::acquire::Fail::Immediately,
+        None,
+    )?;
+    if !path.exists() {
+        std::fs::File::create(&path)?;
+    }
+    let config = gix::config::File::from_path_no_includes(path.clone(), source)
+        .with_context(|| format!("failed to open {source:?} git config at {}", path.display()))?;
+    Ok((config, lock))
+}
+
+/// Open the user-global Git config for reading without acquiring a write lock.
+///
+/// If the config file doesn't exist yet, an empty in-memory config is returned.
+pub fn open_global_config_for_reading() -> Result<gix::config::File<'static>> {
+    let path = config_path(None, gix::config::Source::User)?;
+    if !path.exists() {
+        return Ok(gix::config::File::new(gix::config::file::Metadata::from(
+            gix::config::Source::User,
+        )));
+    }
+    gix::config::File::from_path_no_includes(path.clone(), gix::config::Source::User)
+        .with_context(|| format!("failed to open User git config at {}", path.display()))
+}
+
+/// Serialize a Git `config` file back to disk at `lock`.
+pub fn write_locked_config(
+    config: &gix::config::File<'_>,
+    mut lock: gix::lock::File,
+) -> Result<()> {
+    let path = lock.resource_path();
     config
-        .write_to(&mut file)
+        .write_to(&mut lock)
         .with_context(|| format!("failed to serialize git config at {}", path.display()))?;
-    std::io::Write::flush(&mut file)
+    std::io::Write::flush(&mut lock)
         .with_context(|| format!("failed to flush git config at {}", path.display()))?;
+    lock.commit()
+        .map_err(|err| err.error)
+        .with_context(|| format!("failed to commit git config at {}", path.display()))?;
     Ok(())
 }
 
+/// Open the Git config for `source` using `repo` when needed, let `edit` mutate it, and
+/// write it back if the edited configuration differs from its original state.
+/// Return `true` if the file changed and was written, `false` otherwise.
+pub fn edit_config(
+    repo: Option<&gix::Repository>,
+    source: gix::config::Source,
+    edit: impl FnOnce(&mut gix::config::File<'static>) -> Result<()>,
+) -> Result<bool> {
+    let (mut config, lock) = open_config_for_editing(repo, source)?;
+    let previous_contents = config.to_bstring();
+    edit(&mut config)?;
+    let changed = config.to_bstring() != previous_contents;
+    if changed {
+        write_locked_config(&config, lock)?;
+    }
+    Ok(changed)
+}
+
+/// Open the Git config for `source` relative to `repo`, let `edit` mutate it, and write it back
+/// if the edited configuration differs from its original state.
+pub fn edit_repo_config(
+    repo: &gix::Repository,
+    source: gix::config::Source,
+    edit: impl FnOnce(&mut gix::config::File<'static>) -> Result<()>,
+) -> Result<bool> {
+    if matches!(
+        source,
+        gix::config::Source::System | gix::config::Source::GitInstallation
+    ) {
+        bail!("editing {source:?} config through a repository is not supported");
+    }
+    edit_config(Some(repo), source, edit)
+}
+
 /// Set the entry in `config` identified by the dotted `key` (like `section.value` or `section.subsection.value`) to `value`.
-/// This will create sections as needed.
+/// This will create sections as needed, and remove all previous values under the same section with the same name.
 pub fn set_config_value(
     config: &mut gix::config::File<'static>,
     key: &str,
