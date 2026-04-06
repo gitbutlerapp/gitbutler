@@ -1,3 +1,7 @@
+.changes {
+	min-height: 80px;
+}
+
 .unassignedChangesLane {
 	display: flex;
 	flex-shrink: 0;
@@ -6,7 +10,6 @@
 }
 
 .unassignedChanges {
-	flex-grow: 1;
 	border: 1px dotted var(--color-separator);
 }
 
@@ -32,7 +35,6 @@
 }
 
 .assignedChanges {
-	min-height: 80px;
 	border: 1px dotted var(--color-separator);
 }
 

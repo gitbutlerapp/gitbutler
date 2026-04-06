@@ -1597,7 +1597,11 @@ const Changes: FC<{
 			label={label}
 			changeCount={changes.length}
 			isActive={isSectionSourceActive}
-			className={classes(className, isSectionSelected && sharedStyles.sectionSelected)}
+			className={classes(
+				className,
+				styles.changes,
+				isSectionSelected && sharedStyles.sectionSelected,
+			)}
 			render={<ChangesSectionTarget projectId={projectId} stackId={stackId} />}
 		>
 			<ChangesSectionRow
