@@ -168,3 +168,21 @@
 .activeSource {
 	opacity: 0.4;
 }
+
+.commitModePreview {
+	display: flex;
+	z-index: 1;
+	/* Relative to panel */
+	position: absolute;
+	bottom: var(--panel-padding);
+	left: 50%;
+	column-gap: 8px;
+	align-items: center;
+	max-width: 500px;
+	padding: 8px;
+	transform: translateX(-50%);
+	border: 1px solid light-dark(rgb(0 0 0 / 0.2), rgb(255 255 255 / 0.16));
+	border-radius: 8px;
+	background-color: var(--color-bg);
+	box-shadow: 0 12px 16px -8px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.4));
+}

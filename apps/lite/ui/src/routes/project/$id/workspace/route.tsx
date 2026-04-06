@@ -52,7 +52,10 @@ import {
 } from "#ui/routes/project/$id/workspace/-OperationSource.ts";
 import { operationSourceRefFromItem } from "#ui/routes/project/$id/workspace/-OperationSourceRef.ts";
 import { AbsorptionDialog, useAbsorption } from "#ui/routes/project/$id/workspace/-Absorption.tsx";
-import { useMonitorDraggedOperationSourceRef } from "#ui/routes/project/$id/workspace/-DragAndDrop.tsx";
+import {
+	DragPreview,
+	useMonitorDraggedOperationSourceRef,
+} from "#ui/routes/project/$id/workspace/-DragAndDrop.tsx";
 import {
 	CommitDetails as SharedCommitDetails,
 	CommitsList,
@@ -335,6 +338,46 @@ const isCommitModeTarget = ({ item, source }: { item: Item; source: Item }) =>
 		),
 		Match.orElse(() => false),
 	);
+
+const CommitModePreview: FC<{
+	canConfirm: boolean;
+	isConfirming: boolean;
+	onConfirm: () => void;
+	onExit: () => void;
+	source: Item;
+}> = ({ canConfirm, isConfirming, onConfirm, onExit, source }) => {
+	const label = Match.value(source).pipe(
+		Match.tags({
+			ChangesSection: ({ stackId }) =>
+				stackId === null ? "Unassigned changes" : "Assigned changes",
+			Change: ({ path }) => path,
+		}),
+		Match.orElse(() => null),
+	);
+	if (label === null) return null;
+
+	return (
+		<div className={styles.commitModePreview}>
+			<span>Committing: {label}</span>
+			<button
+				type="button"
+				className={uiStyles.button}
+				disabled={!canConfirm || isConfirming}
+				onClick={onConfirm}
+			>
+				Confirm
+			</button>
+			<button
+				type="button"
+				className={uiStyles.button}
+				aria-label="Exit commit mode"
+				onClick={onExit}
+			>
+				Exit
+			</button>
+		</div>
+	);
+};
 
 const getCommitModeOperation = ({
 	source,
@@ -2268,6 +2311,16 @@ const ProjectPage: FC = () => {
 				label={shortcutScope ? getLabel(shortcutScope) : null}
 				items={shortcutScope?.bindings ?? []}
 			/>
+
+			{commitModeSource !== null && (
+				<CommitModePreview
+					canConfirm={commitModeOperation?._tag === "CommitCreate"}
+					isConfirming={commitCreate.isPending}
+					source={commitModeSource}
+					onConfirm={runCommitModeOperation}
+					onExit={exitCommitMode}
+				/>
+			)}
 
 			{absorptionPlan !== null && (
 				<AbsorptionDialog

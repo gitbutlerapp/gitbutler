@@ -8,6 +8,10 @@
 	flex-grow: 1;
 }
 
+[data-panel] {
+	position: relative;
+}
+
 .primaryPanel {
 	display: flex;
 	flex-direction: column;
