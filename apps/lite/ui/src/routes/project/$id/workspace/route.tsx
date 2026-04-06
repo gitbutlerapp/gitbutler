@@ -1566,10 +1566,12 @@ const Changes: FC<{
 	selectItem: (item: SelectedItem | null) => void;
 	className?: string;
 	commitModeSource: Item | null;
+	onCommit: () => void;
 }> = ({
 	isDisabledItem,
 	label,
 	commitModeSource,
+	onCommit,
 	projectId,
 	stackId,
 	isSelected,
@@ -1592,61 +1594,66 @@ const Changes: FC<{
 		commitModeSource?._tag === "ChangesSection" && commitModeSource.stackId === stackId;
 
 	return (
-		<ChangesSectionSource
-			stackId={stackId}
-			label={label}
-			changeCount={changes.length}
-			isActive={isSectionSourceActive}
-			className={classes(
-				className,
-				styles.changes,
-				isSectionSelected && sharedStyles.sectionSelected,
-			)}
-			render={<ChangesSectionTarget projectId={projectId} stackId={stackId} />}
-		>
-			<ChangesSectionRow
-				changes={changes}
-				isDisabled={isDisabledItem(changesSectionItem(stackId))}
-				isSelected={isSelected}
-				label={label}
-				onAbsorbChanges={onAbsorbChanges}
-				selectItem={selectItem}
+		<div className={styles.changesContainer}>
+			<ChangesSectionSource
 				stackId={stackId}
-			/>
-			{changes.length === 0 ? (
-				<div className={sharedStyles.rowEmpty}>No changes.</div>
-			) : (
-				<ul>
-					{changes.map((change) => {
-						const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
-						const dependencyCommitIds = hunkDependencyDiffs
-							? dependencyCommitIdsForFile(hunkDependencyDiffs)
-							: [];
+				label={label}
+				changeCount={changes.length}
+				isActive={isSectionSourceActive}
+				className={classes(
+					className,
+					styles.changes,
+					isSectionSelected && sharedStyles.sectionSelected,
+				)}
+				render={<ChangesSectionTarget projectId={projectId} stackId={stackId} />}
+			>
+				<ChangesSectionRow
+					changes={changes}
+					isDisabled={isDisabledItem(changesSectionItem(stackId))}
+					isSelected={isSelected}
+					label={label}
+					onAbsorbChanges={onAbsorbChanges}
+					selectItem={selectItem}
+					stackId={stackId}
+				/>
+				{changes.length === 0 ? (
+					<div className={sharedStyles.rowEmpty}>No changes.</div>
+				) : (
+					<ul>
+						{changes.map((change) => {
+							const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
+							const dependencyCommitIds = hunkDependencyDiffs
+								? dependencyCommitIdsForFile(hunkDependencyDiffs)
+								: [];
 
-						return (
-							<li key={change.path}>
-								<ChangeRow
-									change={change}
-									dependencyCommitIds={dependencyCommitIds}
-									isDisabled={isDisabledItem(changeItem(stackId, change.path))}
-									isActiveSource={
-										commitModeSource?._tag === "Change" &&
-										commitModeSource.stackId === stackId &&
-										commitModeSource.path === change.path
-									}
-									isSelected={selectedPath === change.path}
-									onAbsorbChanges={onAbsorbChanges}
-									onDependencyHover={onDependencyHover}
-									projectId={projectId}
-									selectItem={selectItem}
-									stackId={stackId}
-								/>
-							</li>
-						);
-					})}
-				</ul>
-			)}
-		</ChangesSectionSource>
+							return (
+								<li key={change.path}>
+									<ChangeRow
+										change={change}
+										dependencyCommitIds={dependencyCommitIds}
+										isDisabled={isDisabledItem(changeItem(stackId, change.path))}
+										isActiveSource={
+											commitModeSource?._tag === "Change" &&
+											commitModeSource.stackId === stackId &&
+											commitModeSource.path === change.path
+										}
+										isSelected={selectedPath === change.path}
+										onAbsorbChanges={onAbsorbChanges}
+										onDependencyHover={onDependencyHover}
+										projectId={projectId}
+										selectItem={selectItem}
+										stackId={stackId}
+									/>
+								</li>
+							);
+						})}
+					</ul>
+				)}
+			</ChangesSectionSource>
+			<button type="button" className={uiStyles.button} onClick={onCommit}>
+				Commit
+			</button>
+		</div>
 	);
 };
 
@@ -1983,6 +1990,7 @@ const UnassignedChangesLane: FC<{
 				isDisabledItem={isDisabledItem}
 				label="Unassigned changes"
 				commitModeSource={commitModeSource}
+				onCommit={commit}
 				projectId={projectId}
 				stackId={null}
 				isSelected={selectedItem?._tag === "ChangesSection" && selectedItem.stackId === null}
@@ -1996,9 +2004,6 @@ const UnassignedChangesLane: FC<{
 				selectItem={selectItem}
 				className={styles.unassignedChanges}
 			/>
-			<button type="button" className={uiStyles.button} onClick={commit}>
-				Commit
-			</button>
 		</div>
 	);
 };
@@ -2048,7 +2053,7 @@ const StackC: FC<{
 
 	return (
 		<div className={styles.stack}>
-			<div className={styles.stackHeader}>
+			<div>
 				<div className={styles.stackActions}>
 					<Menu.Root>
 						<Menu.Trigger className={styles.stackMenuTrigger} aria-label="Stack menu">
@@ -2065,6 +2070,7 @@ const StackC: FC<{
 					isDisabledItem={isDisabledItem}
 					label="Assigned changes"
 					commitModeSource={commitModeSource}
+					onCommit={commit}
 					projectId={projectId}
 					stackId={stack.id}
 					isSelected={selectedItem?._tag === "ChangesSection" && selectedItem.stackId === stackId}
@@ -2078,9 +2084,6 @@ const StackC: FC<{
 					selectItem={selectItem}
 					className={styles.assignedChanges}
 				/>
-				<button type="button" className={uiStyles.button} onClick={commit}>
-					Commit
-				</button>
 			</div>
 
 			<ul className={styles.segments}>

@@ -1,18 +1,21 @@
+.changesContainer {
+	display: flex;
+	flex-direction: column;
+}
+
 .changes {
+	/* Ensure active source/target outline appears above next sibling commit
+	button. */
+	z-index: 1;
 	min-height: 80px;
 }
 
 .unassignedChangesLane {
-	display: flex;
 	flex-shrink: 0;
-	flex-direction: column;
 	width: 300px;
 }
 
 .unassignedChanges {
-	/* Ensure active source/target outline appears above next sibling commit
-	button. */
-	z-index: 1;
 	border: 1px dotted var(--color-separator);
 }
 
@@ -38,9 +41,6 @@
 }
 
 .assignedChanges {
-	/* Ensure active source/target outline appears above next sibling commit
-	button. */
-	z-index: 1;
 	border: 1px dotted var(--color-separator);
 }
 
@@ -98,11 +98,6 @@
 .stack {
 	display: flex;
 	row-gap: 24px;
-	flex-direction: column;
-}
-
-.stackHeader {
-	display: flex;
 	flex-direction: column;
 }
 
