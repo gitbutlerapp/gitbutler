@@ -79,3 +79,14 @@ export const getParentSection = (item: Item): Item | null =>
 			Segment: () => null,
 		}),
 	);
+
+export const getStackId = (item: Item): string | null =>
+	Match.value(item).pipe(
+		Match.tagsExhaustive({
+			ChangesSection: (item) => item.stackId,
+			Change: (item) => item.stackId,
+			Commit: (item) => item.stackId,
+			BaseCommit: () => null,
+			Segment: (item) => item.stackId,
+		}),
+	);

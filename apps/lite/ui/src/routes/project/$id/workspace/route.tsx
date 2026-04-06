@@ -72,10 +72,12 @@ import {
 	HunkAssignment,
 	HunkDependencies,
 	HunkHeader,
+	type RefInfo,
 	Segment,
 	Stack,
 	TreeChange,
 	UnifiedPatch,
+	WorktreeChanges,
 } from "@gitbutler/but-sdk";
 import { useMutation, useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
@@ -106,18 +108,19 @@ import {
 	segmentItem,
 } from "./-Item.ts";
 import {
-	selectedBaseCommitItem,
-	selectedChangeItem,
-	selectedChangesSectionItem,
 	type SelectedCommitItem,
 	type SelectedItem,
 	type SelectedSegmentItem,
 	selectedCommitItem,
 	selectedSegmentItem,
+	selectedChangeItem,
+	selectedChangesSectionItem,
+	selectedBaseCommitItem,
 } from "./-SelectedItem.ts";
 import {
 	buildNavigationIndex,
 	buildWorkspaceOutline,
+	filterNavigationIndex,
 	getDefaultSelectedItem,
 	navigationIndexIncludes,
 } from "./-WorkspaceModel.ts";
@@ -308,6 +311,41 @@ const dependencyCommitIdsForFile = (
 
 	return globalThis.Array.from(commitIds);
 };
+
+const isValidCommitModeSource = ({
+	source,
+	headInfo,
+	worktreeChanges,
+}: {
+	source: Item;
+	headInfo: RefInfo;
+	worktreeChanges: WorktreeChanges;
+}): boolean =>
+	Match.value(source).pipe(
+		Match.tags({
+			ChangesSection: ({ stackId }) =>
+				stackId === null || headInfo.stacks.some((stack) => stack.id === stackId),
+			Change: ({ stackId, path }) =>
+				worktreeChanges.changes.some((change) => change.path === path) &&
+				worktreeChanges.assignments.some(
+					(assignment) => (assignment.stackId ?? null) === stackId && assignment.path === path,
+				) &&
+				(stackId === null || headInfo.stacks.some((stack) => stack.id === stackId)),
+		}),
+		Match.orElse(() => false),
+	);
+
+const isCommitModeTarget = ({ item, source }: { item: Item; source: Item }) =>
+	Match.value(source).pipe(
+		Match.tag(
+			"ChangesSection",
+			"Change",
+			({ stackId }) =>
+				((item._tag === "Segment" && item.branchName !== null) || item._tag === "Commit") &&
+				(stackId === null || item.stackId === stackId),
+		),
+		Match.orElse(() => false),
+	);
 
 const Hunk: FC<{
 	patch: Patch;
@@ -1245,10 +1283,12 @@ const ChangeRow: FC<{
 	projectId: string;
 	selectItem: (item: SelectedItem | null) => void;
 	stackId: string | null;
+	isActiveSource: boolean;
 }> = ({
 	change,
 	dependencyCommitIds,
 	isDisabled,
+	isActiveSource,
 	isSelected,
 	onAbsorbChanges,
 	onDependencyHover,
@@ -1260,6 +1300,7 @@ const ChangeRow: FC<{
 		change={change}
 		fileParent={{ _tag: "ChangesSection", stackId }}
 		inert={isDisabled}
+		isActive={isActiveSource}
 		className={classes(
 			sharedStyles.row,
 			isDisabled && sharedStyles.itemRowDisabled,
@@ -1443,9 +1484,11 @@ const Changes: FC<{
 	onDependencyHover: (commitIds: Array<string> | null) => void;
 	selectItem: (item: SelectedItem | null) => void;
 	className?: string;
+	commitModeSource: Item | null;
 }> = ({
 	isDisabledItem,
 	label,
+	commitModeSource,
 	projectId,
 	stackId,
 	isSelected,
@@ -1464,12 +1507,15 @@ const Changes: FC<{
 
 	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
 	const isSectionSelected = isSelected || selectedPath !== null;
+	const isSectionSourceActive =
+		commitModeSource?._tag === "ChangesSection" && commitModeSource.stackId === stackId;
 
 	return (
 		<ChangesSectionSource
 			stackId={stackId}
 			label={label}
 			changeCount={changes.length}
+			isActive={isSectionSourceActive}
 			className={classes(className, isSectionSelected && sharedStyles.sectionSelected)}
 			render={<ChangesSectionTarget projectId={projectId} stackId={stackId} />}
 		>
@@ -1498,6 +1544,11 @@ const Changes: FC<{
 									change={change}
 									dependencyCommitIds={dependencyCommitIds}
 									isDisabled={isDisabledItem(changeItem(stackId, change.path))}
+									isActiveSource={
+										commitModeSource?._tag === "Change" &&
+										commitModeSource.stackId === stackId &&
+										commitModeSource.path === change.path
+									}
 									isSelected={selectedPath === change.path}
 									onAbsorbChanges={onAbsorbChanges}
 									onDependencyHover={onDependencyHover}
@@ -1896,9 +1947,11 @@ const StackC: FC<{
 	selectedFile: string | null;
 	selectFile: (path: string | null) => void;
 	stack: Stack;
+	commitModeSource: Item | null;
 }> = ({
 	isDisabledItem,
 	highlightedCommitIds,
+	commitModeSource,
 	onAbsorbChanges,
 	onDependencyHover,
 	projectId,
@@ -1936,6 +1989,7 @@ const StackC: FC<{
 				<Changes
 					isDisabledItem={isDisabledItem}
 					label="Assigned changes"
+					commitModeSource={commitModeSource}
 					projectId={projectId}
 					stackId={stack.id}
 					isSelected={selectedItem?._tag === "ChangesSection" && selectedItem.stackId === stackId}
@@ -1981,6 +2035,10 @@ const ProjectPage: FC = () => {
 	const [projectState, dispatchProjectState] = assert(use(ProjectStateContext));
 	const { layout: layoutState, workspaceSelection } = projectState;
 	const [highlightedCommitIds, setHighlightedCommitIds] = useState<Set<string>>(() => new Set());
+	const [commitModeState, setCommitModeState] = useState<{
+		source: Item;
+		initialSelectedItem: SelectedItem | null;
+	} | null>(null);
 
 	const previewRef = useRef<PreviewImperativeHandle | null>(null);
 
@@ -1993,20 +2051,51 @@ const ProjectPage: FC = () => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
 	const commonBaseCommitId = getCommonBaseCommitId(headInfo);
+
 	const workspaceOutline = buildWorkspaceOutline({
 		headInfo,
 		changes: worktreeChanges.changes,
 		assignments: worktreeChanges.assignments,
 		commonBaseCommitId,
 	});
-	const navigationIndex = buildNavigationIndex(workspaceOutline);
+
+	const commitModeSource =
+		commitModeState &&
+		isValidCommitModeSource({ source: commitModeState.source, headInfo, worktreeChanges })
+			? commitModeState.source
+			: null;
+
+	const _navigationIndex = buildNavigationIndex(workspaceOutline);
 
 	const isDisabledItem = (item: Item) => !navigationIndexIncludes(navigationIndex, item);
+	const navigationIndex = commitModeSource
+		? filterNavigationIndex(_navigationIndex, (item) =>
+				isCommitModeTarget({ item, source: commitModeSource }),
+			)
+		: _navigationIndex;
 
 	const selectedItem =
 		workspaceSelection.item && navigationIndexIncludes(navigationIndex, workspaceSelection.item)
 			? workspaceSelection.item
 			: getDefaultSelectedItem(navigationIndex);
+
+	const enterCommitMode = (stackId: string | null) => {
+		setCommitModeState({
+			source: changesSectionItem(stackId),
+			initialSelectedItem: selectedItem,
+		});
+	};
+	const exitCommitMode = () => {
+		dispatchProjectState({
+			_tag: "SelectItem",
+			item:
+				commitModeState?.initialSelectedItem &&
+				navigationIndexIncludes(_navigationIndex, commitModeState.initialSelectedItem)
+					? commitModeState.initialSelectedItem
+					: null,
+		});
+		setCommitModeState(null);
+	};
 
 	const selectItem = (nextSelectedItem: SelectedItem | null) => {
 		dispatchProjectState({ _tag: "SelectItem", item: nextSelectedItem });
@@ -2025,6 +2114,7 @@ const ProjectPage: FC = () => {
 	const shortcutScope = getScope({
 		selectedItem,
 		layoutState,
+		commitModeSource,
 	});
 
 	const {
@@ -2043,6 +2133,8 @@ const ProjectPage: FC = () => {
 		selectedFile: workspaceSelection.file,
 		navigationIndex,
 		requestAbsorptionPlan,
+		enterCommitMode,
+		exitCommitMode,
 		dispatchProjectState,
 		previewRef,
 	});
@@ -2073,6 +2165,7 @@ const ProjectPage: FC = () => {
 				<Changes
 					isDisabledItem={isDisabledItem}
 					label="Unassigned changes"
+					commitModeSource={commitModeSource}
 					projectId={project.id}
 					stackId={null}
 					isSelected={selectedItem?._tag === "ChangesSection" && selectedItem.stackId === null}
@@ -2094,6 +2187,7 @@ const ProjectPage: FC = () => {
 								<StackC
 									highlightedCommitIds={highlightedCommitIds}
 									isDisabledItem={isDisabledItem}
+									commitModeSource={commitModeSource}
 									onAbsorbChanges={requestAbsorptionPlan}
 									onDependencyHover={highlightCommits}
 									projectId={project.id}

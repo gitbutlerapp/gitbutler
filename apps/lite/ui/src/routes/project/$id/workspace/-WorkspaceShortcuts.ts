@@ -11,6 +11,8 @@ import {
 	getParentSection,
 	type ChangesSectionItem,
 	type BaseCommitItem,
+	Item,
+	getStackId,
 } from "./-Item.ts";
 import {
 	type SelectedCommitItem,
@@ -28,10 +30,21 @@ import { getFocus, type ProjectLayoutState } from "#ui/routes/project/$id/-state
 import { type ProjectStateAction } from "#ui/routes/project/$id/-state/project.ts";
 import { PreviewImperativeHandle } from "./route.tsx";
 
+type EnterCommitModeAction = { _tag: "EnterCommitMode" };
+
+const enterCommitModeBinding: ShortcutBinding<EnterCommitModeAction> = {
+	id: "enter-commit-mode",
+	description: "Commit",
+	keys: ["c"],
+	action: { _tag: "EnterCommitMode" },
+	repeat: false,
+};
+
 type ItemSelectionAction =
 	| { _tag: "Move"; offset: -1 | 1 }
 	| { _tag: "PreviousSection" }
-	| { _tag: "NextSection" };
+	| { _tag: "NextSection" }
+	| EnterCommitModeAction;
 
 const itemSelectionBindings: Array<ShortcutBinding<ItemSelectionAction>> = [
 	{
@@ -60,6 +73,7 @@ const itemSelectionBindings: Array<ShortcutBinding<ItemSelectionAction>> = [
 		action: { _tag: "NextSection" },
 		showInShortcutsBar: false,
 	},
+	enterCommitModeBinding,
 ];
 
 type PrimaryPanelAction =
@@ -201,7 +215,23 @@ const absorbChangesBinding: ShortcutBinding<ChangesAction> = {
 
 const changesBindings: Array<ShortcutBinding<ChangesAction>> = [
 	...primaryPanelBindings,
+	enterCommitModeBinding,
 	absorbChangesBinding,
+];
+
+type CommitModeAction = ItemSelectionAction | { _tag: "ExitCommitMode" };
+
+const exitCommitModeBinding: ShortcutBinding<CommitModeAction> = {
+	id: "commit-mode-exit",
+	description: "Exit commit mode",
+	keys: ["Escape"],
+	action: { _tag: "ExitCommitMode" },
+	repeat: false,
+};
+
+const commitModeBindings: Array<ShortcutBinding<CommitModeAction>> = [
+	...itemSelectionBindings,
+	exitCommitModeBinding,
 ];
 
 const editCommitMessageBinding: ShortcutBinding<CommitDefaultAction> = {
@@ -222,6 +252,7 @@ const openCommitDetailsBinding: ShortcutBinding<CommitDefaultAction> = {
 
 const commitDefaultBindings: Array<ShortcutBinding<CommitDefaultAction>> = [
 	...primaryPanelBindings,
+	enterCommitModeBinding,
 	editCommitMessageBinding,
 	openCommitDetailsBinding,
 ];
@@ -236,6 +267,7 @@ const closeCommitDetailsBinding: ShortcutBinding<CommitDetailsAction> = {
 
 const commitDetailsBindings: Array<ShortcutBinding<CommitDetailsAction>> = [
 	...primaryPanelBindings,
+	enterCommitModeBinding,
 	closeCommitDetailsBinding,
 ];
 
@@ -243,6 +275,7 @@ type BranchAction = PrimaryPanelAction | { _tag: "RenameBranch" };
 
 const branchBindings: Array<ShortcutBinding<BranchAction>> = [
 	...primaryPanelBindings,
+	enterCommitModeBinding,
 	{
 		id: "segment-rename-branch",
 		description: "Rename",
@@ -355,6 +388,11 @@ type Scope =
 			context: ChangeItem;
 	  }
 	| {
+			_tag: "CommitMode";
+			bindings: Array<ShortcutBinding<ItemSelectionAction | CommitModeAction>>;
+			context: SelectedItem | null;
+	  }
+	| {
 			_tag: "CommitDetails";
 			bindings: Array<ShortcutBinding<CommitDetailsAction>>;
 			context: SelectedCommitItem;
@@ -393,15 +431,23 @@ type Scope =
 export const getScope = ({
 	selectedItem,
 	layoutState,
+	commitModeSource,
 }: {
 	selectedItem: SelectedItem | null;
 	layoutState: ProjectLayoutState;
+	commitModeSource: Item | null;
 }): Scope | null => {
 	if (getFocus(layoutState) === "preview")
 		return {
 			_tag: "Preview",
 			bindings: layoutState.isFullscreenPreviewOpen ? fullscreenPreviewBindings : previewBindings,
 			context: { isFullscreen: layoutState.isFullscreenPreviewOpen },
+		};
+	if (commitModeSource)
+		return {
+			_tag: "CommitMode",
+			bindings: commitModeBindings,
+			context: selectedItem,
 		};
 	if (!selectedItem) return null;
 
@@ -485,6 +531,7 @@ export const getLabel = (scope: Scope): string =>
 			BranchRename: () => "Rename branch",
 			Change: () => "Change",
 			ChangesSection: () => "Changes",
+			CommitMode: () => "Commit mode",
 			CommitDetails: () => "Commit details",
 			CommitReword: () => "Reword commit",
 			CommitDefault: () => "Commit",
@@ -500,6 +547,8 @@ export const useWorkspaceShortcuts = ({
 	selectedFile,
 	navigationIndex,
 	requestAbsorptionPlan,
+	enterCommitMode,
+	exitCommitMode,
 	dispatchProjectState,
 	previewRef,
 }: {
@@ -508,6 +557,8 @@ export const useWorkspaceShortcuts = ({
 	selectedFile: string | null;
 	navigationIndex: NavigationIndex;
 	requestAbsorptionPlan: (target: AbsorptionTarget) => void;
+	enterCommitMode: (stackId: string | null) => void;
+	exitCommitMode: () => void;
 	dispatchProjectState: Dispatch<ProjectStateAction>;
 	previewRef: RefObject<PreviewImperativeHandle | null>;
 }) => {
@@ -599,6 +650,7 @@ export const useWorkspaceShortcuts = ({
 				Move: ({ offset }) => move(offset, selectedItem),
 				PreviousSection: () => previousSection(selectedItem),
 				NextSection: () => nextSection(selectedItem),
+				EnterCommitMode: () => enterCommitMode(getStackId(selectedItem)),
 			}),
 		);
 
@@ -646,6 +698,17 @@ export const useWorkspaceShortcuts = ({
 				Absorb: () => requestAbsorptionPlanForSelection(selectedItem),
 			}),
 			Match.orElse((action) => handlePrimaryPanelAction(action, selectedItem)),
+		);
+
+	const handleCommitModeAction = (action: CommitModeAction, selectedItem: SelectedItem | null) =>
+		Match.value(action).pipe(
+			Match.tags({
+				ExitCommitMode: exitCommitMode,
+			}),
+			Match.orElse((action) => {
+				if (!selectedItem) return;
+				handleItemSelectionAction(action, selectedItem);
+			}),
 		);
 
 	const handleCommitDefaultAction = (
@@ -720,6 +783,12 @@ export const useWorkspaceShortcuts = ({
 					if (!action) return;
 					event.preventDefault();
 					handleChangesAction(action, { _tag: "Change", ...scope.context });
+				},
+				CommitMode: (scope) => {
+					const action = getAction(scope.bindings, event);
+					if (!action) return;
+					event.preventDefault();
+					handleCommitModeAction(action, scope.context);
 				},
 				BaseCommit: (scope) => {
 					const action = getAction(scope.bindings, event);

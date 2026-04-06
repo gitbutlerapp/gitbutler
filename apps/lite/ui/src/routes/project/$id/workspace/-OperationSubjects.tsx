@@ -38,15 +38,16 @@ export const BranchSource: FC<
 	{
 		branchRef: Array<number> | null;
 		branchName: string;
+		isActive?: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ branchRef, branchName, render, ...props }) => {
+> = ({ branchRef, branchName, isActive: isActiveProp = false, render, ...props }) => {
 	const dragData = branchRef ? getDragData({ _tag: "Branch", ref: branchRef }) : null;
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: () => dragData ?? {},
 		preview: <DragPreview>{branchName}</DragPreview>,
 		canDrag: () => dragData !== null,
 	});
-	const isActive = isDragging;
+	const isActive = isDragging || isActiveProp;
 
 	return useRender({
 		render,
@@ -61,8 +62,9 @@ export const CommitSource: FC<
 	{
 		commit: Commit;
 		isEnabled?: boolean;
+		isActive?: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ commit, isEnabled = true, render, ...props }) => {
+> = ({ commit, isEnabled = true, isActive: isActiveProp = false, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: () => getDragData({ _tag: "Commit", commitId: commit.id }),
 		preview: (
@@ -72,7 +74,7 @@ export const CommitSource: FC<
 		),
 		canDrag: () => isEnabled,
 	});
-	const isActive = isDragging;
+	const isActive = isDragging || isActiveProp;
 
 	return useRender({
 		render,
@@ -87,13 +89,14 @@ export const CommitFileSource: FC<
 	{
 		change: TreeChange;
 		fileParent: FileParent;
+		isActive?: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ change, fileParent, render, ...props }) => {
+> = ({ change, fileParent, isActive: isActiveProp = false, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: () => getDragData({ _tag: "File", parent: fileParent, path: change.path }),
 		preview: <DragPreview>{change.path}</DragPreview>,
 	});
-	const isActive = isDragging;
+	const isActive = isDragging || isActiveProp;
 
 	return useRender({
 		render,
@@ -108,13 +111,14 @@ export const ChangesFileSource: FC<
 	{
 		change: TreeChange;
 		fileParent: FileParent;
+		isActive?: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ change, fileParent, render, ...props }) => {
+> = ({ change, fileParent, isActive: isActiveProp = false, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: () => getDragData({ _tag: "File", parent: fileParent, path: change.path }),
 		preview: <DragPreview>{change.path}</DragPreview>,
 	});
-	const isActive = isDragging;
+	const isActive = isDragging || isActiveProp;
 
 	return useRender({
 		render,
@@ -130,14 +134,15 @@ export const ChangesSectionSource: FC<
 		stackId: string | null;
 		label: string;
 		changeCount: number;
+		isActive?: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ stackId, label, changeCount, render, ...props }) => {
+> = ({ stackId, label, changeCount, isActive: isActiveProp = false, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: () => getDragData({ _tag: "ChangesSection", stackId }),
 		preview: <DragPreview>{label}</DragPreview>,
 		canDrag: () => changeCount > 0,
 	});
-	const isActive = isDragging;
+	const isActive = isDragging || isActiveProp;
 
 	return useRender({
 		render,
@@ -154,8 +159,9 @@ export const HunkSource: FC<
 		fileParent: FileParent;
 		change: TreeChange;
 		hunk: DiffHunk;
+		isActive?: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ patch, fileParent, change, hunk, render, ...props }) => {
+> = ({ patch, fileParent, change, hunk, isActive: isActiveProp = false, render, ...props }) => {
 	const [isDragging, dragRef] = useDraggable({
 		getInitialData: () =>
 			getDragData({
@@ -167,7 +173,7 @@ export const HunkSource: FC<
 		preview: <DragPreview>Hunk {formatHunkHeader(hunk)}</DragPreview>,
 		canDrag: () => !patch.subject.isResultOfBinaryToTextConversion,
 	});
-	const isActive = isDragging;
+	const isActive = isDragging || isActiveProp;
 
 	return useRender({
 		render,
