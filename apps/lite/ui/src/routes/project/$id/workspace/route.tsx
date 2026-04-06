@@ -1086,6 +1086,7 @@ const CommitRow: FC<
 	{
 		branchName: string | null;
 		commit: Commit;
+		isOperationPending: boolean;
 		isDisabled: boolean;
 		isHighlighted: boolean;
 		selected: SelectedCommitItem | null;
@@ -1097,6 +1098,7 @@ const CommitRow: FC<
 > = ({
 	branchName,
 	commit,
+	isOperationPending,
 	isDisabled,
 	isHighlighted,
 	selected,
@@ -1185,6 +1187,7 @@ const CommitRow: FC<
 			inert={isDisabled}
 			className={classes(
 				sharedStyles.row,
+				isOperationPending && sharedStyles.itemRowOperationPending,
 				isDisabled && sharedStyles.itemRowDisabled,
 				selected && sharedStyles.rowSelected,
 				selected && sharedStyles.itemRowSelected,
@@ -1262,6 +1265,7 @@ const CommitRow: FC<
 const CommitC: FC<{
 	branchName: string | null;
 	commit: Commit;
+	isOperationPending: boolean;
 	isDisabled: boolean;
 	commitModeOperation: Operation | null;
 	isHighlighted: boolean;
@@ -1277,6 +1281,7 @@ const CommitC: FC<{
 }> = ({
 	branchName,
 	commit,
+	isOperationPending,
 	isDisabled,
 	commitModeOperation,
 	isHighlighted,
@@ -1306,6 +1311,7 @@ const CommitC: FC<{
 		<CommitRow
 			branchName={branchName}
 			commit={commit}
+			isOperationPending={isOperationPending}
 			isDisabled={isDisabled}
 			isHighlighted={isHighlighted}
 			selected={selected}
@@ -1713,6 +1719,7 @@ const InlineBranchNameEditor: FC<{
 const SegmentRow: FC<
 	{
 		isDisabled: boolean;
+		isOperationPending: boolean;
 		commitModeOperation: Operation | null;
 		selected: SelectedSegmentItem | null;
 		projectId: string;
@@ -1723,6 +1730,7 @@ const SegmentRow: FC<
 	} & ComponentProps<"div">
 > = ({
 	isDisabled,
+	isOperationPending,
 	commitModeOperation,
 	selected,
 	projectId,
@@ -1794,6 +1802,7 @@ const SegmentRow: FC<
 			className={classes(
 				restProps.className,
 				sharedStyles.row,
+				isOperationPending && sharedStyles.itemRowOperationPending,
 				isDisabled && sharedStyles.itemRowDisabled,
 				selected && sharedStyles.rowSelected,
 				selected && sharedStyles.itemRowSelected,
@@ -1870,6 +1879,7 @@ const SegmentRow: FC<
 
 const SegmentC: FC<{
 	commitModeOperation: Operation | null;
+	isSelectedItemOperationPending: boolean;
 	highlightedCommitIds: Set<string>;
 	projectId: string;
 	segment: Segment;
@@ -1882,6 +1892,7 @@ const SegmentC: FC<{
 	isDisabledItem: (item: Item) => boolean;
 }> = ({
 	commitModeOperation,
+	isSelectedItemOperationPending,
 	highlightedCommitIds,
 	isDisabledItem,
 	projectId,
@@ -1917,6 +1928,7 @@ const SegmentC: FC<{
 		<div className={classes(isSectionSelected && sharedStyles.sectionSelected)}>
 			<SegmentRow
 				isDisabled={isDisabledItem(item)}
+				isOperationPending={selectedSegment !== null && isSelectedItemOperationPending}
 				commitModeOperation={selectedSegment ? commitModeOperation : null}
 				selected={selectedSegment}
 				projectId={projectId}
@@ -1939,6 +1951,7 @@ const SegmentC: FC<{
 						<CommitC
 							branchName={segment.refName?.displayName ?? null}
 							commit={commit}
+							isOperationPending={isSelected && isSelectedItemOperationPending}
 							isDisabled={isDisabledItem(item)}
 							commitModeOperation={isSelected ? commitModeOperation : null}
 							isHighlighted={highlightedCommitIds.has(commit.id)}
@@ -2011,6 +2024,7 @@ const UnassignedChangesLane: FC<{
 const StackC: FC<{
 	isDisabledItem: (item: Item) => boolean;
 	commitModeOperation: Operation | null;
+	isSelectedItemOperationPending: boolean;
 	highlightedCommitIds: Set<string>;
 	onAbsorbChanges: (target: AbsorptionTarget) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
@@ -2025,6 +2039,7 @@ const StackC: FC<{
 }> = ({
 	isDisabledItem,
 	commitModeOperation,
+	isSelectedItemOperationPending,
 	highlightedCommitIds,
 	commitModeSource,
 	enterCommitMode,
@@ -2092,6 +2107,7 @@ const StackC: FC<{
 					<li key={segmentIndex}>
 						<SegmentC
 							commitModeOperation={commitModeOperation}
+							isSelectedItemOperationPending={isSelectedItemOperationPending}
 							highlightedCommitIds={highlightedCommitIds}
 							isDisabledItem={isDisabledItem}
 							projectId={projectId}
@@ -2321,6 +2337,7 @@ const ProjectPage: FC = () => {
 							<div key={stack.id} className={styles.stackLane}>
 								<StackC
 									commitModeOperation={commitModeOperation}
+									isSelectedItemOperationPending={commitCreate.isPending}
 									highlightedCommitIds={highlightedCommitIds}
 									isDisabledItem={isDisabledItem}
 									commitModeSource={commitModeSource}

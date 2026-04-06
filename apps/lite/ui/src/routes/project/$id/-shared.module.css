@@ -77,6 +77,10 @@
 	opacity: 0.45;
 }
 
+.itemRowOperationPending {
+	opacity: 0.45;
+}
+
 .sectionSelected {
 	background-color: var(--color-section-selected-bg);
 }
