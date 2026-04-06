@@ -86,7 +86,7 @@
 }
 
 .activeTarget {
-	outline: 2px dashed var(--color-drag-over-outline);
+	outline: 2px dashed var(--color-active-operation-subject-outline);
 }
 
 .stack {
@@ -174,6 +174,7 @@
 }
 
 .activeSource {
+	outline: 2px solid var(--color-active-operation-subject-outline);
 	opacity: 0.4;
 }
 

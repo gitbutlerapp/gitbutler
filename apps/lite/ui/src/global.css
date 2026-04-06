@@ -11,12 +11,12 @@
 	--color-gray-900: light-dark(#2b2b2b, #ececec);
 	--color-black: light-dark(#000, #fff);
 
+	--color-active-operation-subject-outline: var(--color-black);
 	--color-bg: var(--color-white);
 	--color-button-bg: var(--color-gray-50);
 	--color-button-disabled-fg: var(--color-gray-700);
 	--color-button-hover-bg: var(--color-gray-100);
 	--color-dialog-backdrop: light-dark(rgb(0 0 0 / 0.35), rgb(0 0 0 / 0.65));
-	--color-drag-over-outline: var(--color-black);
 	--color-file-row-selected-bg: var(--color-gray-200);
 	--color-input-bg: var(--color-gray-50);
 	--color-item-row-action-hover-bg: var(--color-gray-200);
