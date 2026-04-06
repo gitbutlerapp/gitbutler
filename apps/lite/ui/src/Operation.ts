@@ -46,19 +46,6 @@ export type Operation =
 	| ({ _tag: "MoveBranch" } & Omit<MoveBranchParams, "projectId">)
 	| ({ _tag: "TearOffBranch" } & Omit<TearOffBranchParams, "projectId">);
 
-export const isCombineOperation = (operation: Operation): boolean =>
-	Match.value(operation).pipe(
-		Match.tags({
-			AssignHunk: () => true,
-			CommitAmend: () => true,
-			CommitMoveChangesBetween: () => true,
-			CommitSquash: () => true,
-			CommitUncommit: () => true,
-			CommitUncommitChanges: () => true,
-		}),
-		Match.orElse(() => false),
-	);
-
 export const getInsertionSide = (operation: Operation): InsertSide | null =>
 	Match.value(operation).pipe(
 		Match.tags({

@@ -2,12 +2,7 @@ import { classes } from "#ui/classes.ts";
 import { type FileParent } from "#ui/domain/FileParent.ts";
 import { useDraggable } from "#ui/hooks/useDraggable.tsx";
 import { useDroppable } from "#ui/hooks/useDroppable.ts";
-import {
-	getInsertionSide,
-	isCombineOperation,
-	operationLabel,
-	type Operation,
-} from "#ui/Operation.ts";
+import { getInsertionSide, operationLabel, type Operation } from "#ui/Operation.ts";
 import {
 	CommitLabel,
 	decodeRefName,
@@ -297,30 +292,29 @@ export const CommitTarget: FC<
 	});
 	const operation = dragOperation ?? activeOperationProp;
 
+	const dragInsertionSide = dragOperation ? getInsertionSide(dragOperation) : null;
+
+	const targetTooltipOperation = dragInsertionSide === null ? operation : null;
+
 	const target = useRender({
 		render,
 		ref: dropRef,
 		props: mergeProps<"div">(props, {
-			className: classes(operation && isCombineOperation(operation) && styles.activeTarget),
+			className: classes(targetTooltipOperation && styles.activeTarget),
 		}),
 	});
 
-	const insertionSide = operation ? getInsertionSide(operation) : null;
-
 	return (
 		<div className={styles.commit}>
-			<OperationTooltip
-				operation={operation && isCombineOperation(operation) ? operation : null}
-				render={target}
-			/>
+			<OperationTooltip operation={targetTooltipOperation} render={target} />
 
-			{insertionSide !== null && (
+			{dragInsertionSide !== null && (
 				<OperationTooltip
-					operation={operation}
+					operation={dragOperation}
 					className={classes(
 						styles.commitInsertionTarget,
 						pipe(
-							insertionSide,
+							dragInsertionSide,
 							Match.value,
 							Match.when("above", () => styles.commitInsertionTargetAbove),
 							Match.when("below", () => styles.commitInsertionTargetBelow),
