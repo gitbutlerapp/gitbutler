@@ -98,6 +98,14 @@ import {
 import useLocalStorageState from "use-local-storage-state";
 import sharedStyles from "../-shared.module.css";
 import {
+	baseCommitItem,
+	changeItem,
+	changesSectionItem,
+	commitItem,
+	type Item,
+	segmentItem,
+} from "./-Item.ts";
+import {
 	selectedBaseCommitItem,
 	selectedChangeItem,
 	selectedChangesSectionItem,
@@ -962,6 +970,7 @@ const CommitRow: FC<
 	{
 		branchName: string | null;
 		commit: Commit;
+		isDisabled: boolean;
 		isHighlighted: boolean;
 		selected: SelectedCommitItem | null;
 		projectId: string;
@@ -972,6 +981,7 @@ const CommitRow: FC<
 > = ({
 	branchName,
 	commit,
+	isDisabled,
 	isHighlighted,
 	selected,
 	projectId,
@@ -1056,8 +1066,10 @@ const CommitRow: FC<
 	return (
 		<div
 			{...restProps}
+			inert={isDisabled}
 			className={classes(
 				sharedStyles.row,
+				isDisabled && sharedStyles.itemRowDisabled,
 				selected && sharedStyles.rowSelected,
 				selected && sharedStyles.itemRowSelected,
 				isHighlighted && sharedStyles.itemRowHighlighted,
@@ -1134,6 +1146,7 @@ const CommitRow: FC<
 const CommitC: FC<{
 	branchName: string | null;
 	commit: Commit;
+	isDisabled: boolean;
 	isHighlighted: boolean;
 	selected: SelectedCommitItem | null;
 	nextCommitId: string | undefined;
@@ -1147,6 +1160,7 @@ const CommitC: FC<{
 }> = ({
 	branchName,
 	commit,
+	isDisabled,
 	isHighlighted,
 	selected,
 	nextCommitId,
@@ -1173,6 +1187,7 @@ const CommitC: FC<{
 		<CommitRow
 			branchName={branchName}
 			commit={commit}
+			isDisabled={isDisabled}
 			isHighlighted={isHighlighted}
 			selected={selected}
 			projectId={projectId}
@@ -1223,6 +1238,7 @@ const ChangeRowMenuPopup: FC<{
 const ChangeRow: FC<{
 	change: TreeChange;
 	dependencyCommitIds: Array<string>;
+	isDisabled: boolean;
 	isSelected: boolean;
 	onAbsorbChanges: (target: AbsorptionTarget) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
@@ -1232,6 +1248,7 @@ const ChangeRow: FC<{
 }> = ({
 	change,
 	dependencyCommitIds,
+	isDisabled,
 	isSelected,
 	onAbsorbChanges,
 	onDependencyHover,
@@ -1242,8 +1259,10 @@ const ChangeRow: FC<{
 	<ChangesFileSource
 		change={change}
 		fileParent={{ _tag: "ChangesSection", stackId }}
+		inert={isDisabled}
 		className={classes(
 			sharedStyles.row,
+			isDisabled && sharedStyles.itemRowDisabled,
 			isSelected && sharedStyles.rowSelected,
 			isSelected && sharedStyles.itemRowSelected,
 		)}
@@ -1327,15 +1346,18 @@ const ChangesSectionRowMenuPopup: FC<{
 
 const ChangesSectionRow: FC<{
 	changes: Array<TreeChange>;
+	isDisabled: boolean;
 	isSelected: boolean;
 	label: string;
 	onAbsorbChanges: (target: AbsorptionTarget) => void;
 	selectItem: (item: SelectedItem | null) => void;
 	stackId: string | null;
-}> = ({ changes, isSelected, label, onAbsorbChanges, selectItem, stackId }) => (
+}> = ({ changes, isDisabled, isSelected, label, onAbsorbChanges, selectItem, stackId }) => (
 	<div
+		inert={isDisabled}
 		className={classes(
 			sharedStyles.row,
+			isDisabled && sharedStyles.itemRowDisabled,
 			isSelected && sharedStyles.rowSelected,
 			isSelected && sharedStyles.itemRowSelected,
 		)}
@@ -1385,12 +1407,15 @@ const ChangesSectionRow: FC<{
 
 const BaseCommitRow: FC<{
 	commitId: string;
+	isDisabled: boolean;
 	isSelected: boolean;
 	selectItem: (item: SelectedItem | null) => void;
-}> = ({ commitId, isSelected, selectItem }) => (
+}> = ({ commitId, isDisabled, isSelected, selectItem }) => (
 	<div
+		inert={isDisabled}
 		className={classes(
 			sharedStyles.row,
+			isDisabled && sharedStyles.itemRowDisabled,
 			isSelected && sharedStyles.rowSelected,
 			isSelected && sharedStyles.itemRowSelected,
 		)}
@@ -1408,6 +1433,7 @@ const BaseCommitRow: FC<{
 );
 
 const Changes: FC<{
+	isDisabledItem: (item: Item) => boolean;
 	label: string;
 	projectId: string;
 	stackId: string | null;
@@ -1418,6 +1444,7 @@ const Changes: FC<{
 	selectItem: (item: SelectedItem | null) => void;
 	className?: string;
 }> = ({
+	isDisabledItem,
 	label,
 	projectId,
 	stackId,
@@ -1448,6 +1475,7 @@ const Changes: FC<{
 		>
 			<ChangesSectionRow
 				changes={changes}
+				isDisabled={isDisabledItem(changesSectionItem(stackId))}
 				isSelected={isSelected}
 				label={label}
 				onAbsorbChanges={onAbsorbChanges}
@@ -1469,6 +1497,7 @@ const Changes: FC<{
 								<ChangeRow
 									change={change}
 									dependencyCommitIds={dependencyCommitIds}
+									isDisabled={isDisabledItem(changeItem(stackId, change.path))}
 									isSelected={selectedPath === change.path}
 									onAbsorbChanges={onAbsorbChanges}
 									onDependencyHover={onDependencyHover}
@@ -1614,6 +1643,7 @@ const InlineBranchNameEditor: FC<{
 
 const SegmentRow: FC<
 	{
+		isDisabled: boolean;
 		selected: SelectedSegmentItem | null;
 		projectId: string;
 		segment: Segment;
@@ -1621,7 +1651,16 @@ const SegmentRow: FC<
 		segmentIndex: number;
 		selectItem: (item: SelectedItem | null) => void;
 	} & ComponentProps<"div">
-> = ({ selected, projectId, segment, stackId, segmentIndex, selectItem, ...restProps }) => {
+> = ({
+	isDisabled,
+	selected,
+	projectId,
+	segment,
+	stackId,
+	segmentIndex,
+	selectItem,
+	...restProps
+}) => {
 	const branchName = segment.refName?.displayName ?? null;
 	const defaultItem = selectedSegmentItem({
 		stackId,
@@ -1680,9 +1719,11 @@ const SegmentRow: FC<
 	const children = (
 		<div
 			{...restProps}
+			inert={isDisabled}
 			className={classes(
 				restProps.className,
 				sharedStyles.row,
+				isDisabled && sharedStyles.itemRowDisabled,
 				selected && sharedStyles.rowSelected,
 				selected && sharedStyles.itemRowSelected,
 			)}
@@ -1765,8 +1806,10 @@ const SegmentC: FC<{
 	selectedFile: string | null;
 	selectFile: (path: string | null) => void;
 	stackId: string;
+	isDisabledItem: (item: Item) => boolean;
 }> = ({
 	highlightedCommitIds,
+	isDisabledItem,
 	projectId,
 	segment,
 	segmentIndex,
@@ -1790,9 +1833,16 @@ const SegmentC: FC<{
 			: null;
 	const isSectionSelected = selectedSegment !== null || selectedCommit !== null;
 
+	const item = segmentItem({
+		stackId,
+		segmentIndex,
+		branchName: segment.refName?.displayName ?? null,
+	});
+
 	return (
 		<div className={classes(isSectionSelected && sharedStyles.sectionSelected)}>
 			<SegmentRow
+				isDisabled={isDisabledItem(item)}
 				selected={selectedSegment}
 				projectId={projectId}
 				segment={segment}
@@ -1804,10 +1854,17 @@ const SegmentC: FC<{
 			<CommitsList commits={segment.commits}>
 				{(commit, index) => {
 					const isSelected = selectedCommit?.commitId === commit.id;
+					const item = commitItem({
+						stackId,
+						segmentIndex,
+						branchName: segment.refName?.displayName ?? null,
+						commitId: commit.id,
+					});
 					return (
 						<CommitC
 							branchName={segment.refName?.displayName ?? null}
 							commit={commit}
+							isDisabled={isDisabledItem(item)}
 							isHighlighted={highlightedCommitIds.has(commit.id)}
 							selected={isSelected ? selectedCommit : null}
 							nextCommitId={segment.commits[index + 1]?.id}
@@ -1829,6 +1886,7 @@ const SegmentC: FC<{
 };
 
 const StackC: FC<{
+	isDisabledItem: (item: Item) => boolean;
 	highlightedCommitIds: Set<string>;
 	onAbsorbChanges: (target: AbsorptionTarget) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
@@ -1839,6 +1897,7 @@ const StackC: FC<{
 	selectFile: (path: string | null) => void;
 	stack: Stack;
 }> = ({
+	isDisabledItem,
 	highlightedCommitIds,
 	onAbsorbChanges,
 	onDependencyHover,
@@ -1875,6 +1934,7 @@ const StackC: FC<{
 					</Menu.Root>
 				</div>
 				<Changes
+					isDisabledItem={isDisabledItem}
 					label="Assigned changes"
 					projectId={projectId}
 					stackId={stack.id}
@@ -1898,6 +1958,7 @@ const StackC: FC<{
 					<li key={segmentIndex}>
 						<SegmentC
 							highlightedCommitIds={highlightedCommitIds}
+							isDisabledItem={isDisabledItem}
 							projectId={projectId}
 							segment={segment}
 							segmentIndex={segmentIndex}
@@ -1939,6 +2000,8 @@ const ProjectPage: FC = () => {
 		commonBaseCommitId,
 	});
 	const navigationIndex = buildNavigationIndex(workspaceOutline);
+
+	const isDisabledItem = (item: Item) => !navigationIndexIncludes(navigationIndex, item);
 
 	const selectedItem =
 		workspaceSelection.item && navigationIndexIncludes(navigationIndex, workspaceSelection.item)
@@ -2008,6 +2071,7 @@ const ProjectPage: FC = () => {
 		>
 			<div className={sharedStyles.lanes}>
 				<Changes
+					isDisabledItem={isDisabledItem}
 					label="Unassigned changes"
 					projectId={project.id}
 					stackId={null}
@@ -2029,6 +2093,7 @@ const ProjectPage: FC = () => {
 							<div key={stack.id} className={styles.stackLane}>
 								<StackC
 									highlightedCommitIds={highlightedCommitIds}
+									isDisabledItem={isDisabledItem}
 									onAbsorbChanges={requestAbsorptionPlan}
 									onDependencyHover={highlightCommits}
 									projectId={project.id}
@@ -2046,6 +2111,7 @@ const ProjectPage: FC = () => {
 						<TearOffBranchTarget projectId={projectId} className={styles.commonBaseCommitContainer}>
 							<BaseCommitRow
 								commitId={commonBaseCommitId}
+								isDisabled={isDisabledItem(baseCommitItem(commonBaseCommitId))}
 								isSelected={
 									selectedItem?._tag === "BaseCommit" &&
 									selectedItem.commitId === commonBaseCommitId
