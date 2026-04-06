@@ -1999,6 +1999,14 @@ const UnassignedChangesLane: FC<{
 
 	return (
 		<div className={styles.unassignedChangesLane}>
+			<div className={styles.laneActions}>
+				<Menu.Root>
+					<Menu.Trigger className={styles.stackMenuTrigger} aria-label="Menu" disabled>
+						<MenuTriggerIcon />
+					</Menu.Trigger>
+				</Menu.Root>
+			</div>
+
 			<Changes
 				isDisabledItem={isDisabledItem}
 				label="Unassigned changes"
@@ -2069,7 +2077,7 @@ const StackC: FC<{
 	return (
 		<div className={styles.stack}>
 			<div>
-				<div className={styles.stackActions}>
+				<div className={styles.laneActions}>
 					<Menu.Root>
 						<Menu.Trigger className={styles.stackMenuTrigger} aria-label="Stack menu">
 							<MenuTriggerIcon />

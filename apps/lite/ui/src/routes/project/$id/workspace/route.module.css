@@ -101,7 +101,7 @@
 	flex-direction: column;
 }
 
-.stackActions {
+.laneActions {
 	display: flex;
 	column-gap: 8px;
 	align-items: center;
@@ -118,7 +118,11 @@
 		height: var(--row-line-height);
 	}
 
-	&:hover,
+	&:disabled {
+		opacity: 0.5;
+	}
+
+	&:enabled:hover,
 	&[aria-expanded="true"] {
 		background-color: var(--color-button-hover-bg);
 	}
