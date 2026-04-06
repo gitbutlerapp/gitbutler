@@ -123,6 +123,40 @@ export const buildNavigationIndex = (outline: WorkspaceOutline): NavigationIndex
 	return model;
 };
 
+export const filterNavigationIndex = (
+	index: NavigationIndex,
+	predicate: (item: Item) => boolean,
+): NavigationIndex => {
+	const filteredIndex: NavigationIndex = {
+		items: [],
+		sectionStartIndexes: [],
+		sectionIndexByItemIndex: [],
+		indexByKey: new Map<string, number>(),
+	};
+
+	let currentSectionIndex = -1;
+	let filteredSectionIndex = -1;
+
+	for (const [itemIndex, item] of index.items.entries()) {
+		if (!predicate(item)) continue;
+
+		const sectionIndex = index.sectionIndexByItemIndex[itemIndex] ?? -1;
+		if (sectionIndex !== currentSectionIndex) {
+			// Preserve the original section grouping, even when the section header
+			// itself is filtered out and the retained item is one of its children.
+			currentSectionIndex = sectionIndex;
+			filteredSectionIndex = filteredIndex.sectionStartIndexes.length;
+			filteredIndex.sectionStartIndexes.push(filteredIndex.items.length);
+		}
+
+		filteredIndex.indexByKey.set(itemIdentityKey(item), filteredIndex.items.length);
+		filteredIndex.sectionIndexByItemIndex.push(filteredSectionIndex);
+		filteredIndex.items.push(item);
+	}
+
+	return filteredIndex;
+};
+
 export const getAdjacentItem = (
 	index: NavigationIndex,
 	selection: Item | null,
