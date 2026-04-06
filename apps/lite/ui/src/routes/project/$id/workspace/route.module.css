@@ -10,6 +10,9 @@
 }
 
 .unassignedChanges {
+	/* Ensure active source/target outline appears above next sibling commit
+	button. */
+	z-index: 1;
 	border: 1px dotted var(--color-separator);
 }
 
@@ -35,6 +38,9 @@
 }
 
 .assignedChanges {
+	/* Ensure active source/target outline appears above next sibling commit
+	button. */
+	z-index: 1;
 	border: 1px dotted var(--color-separator);
 }
 
