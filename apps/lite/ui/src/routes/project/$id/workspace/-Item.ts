@@ -1,3 +1,4 @@
+import { RefInfo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 
 export type ChangesSectionItem = { stackId: string | null };
@@ -90,3 +91,27 @@ export const getStackId = (item: Item): string | null =>
 			Segment: (item) => item.stackId,
 		}),
 	);
+export const findCommitItem = ({
+	headInfo,
+	commitId,
+}: {
+	headInfo: RefInfo;
+	commitId: string;
+}): CommitItem | null => {
+	for (const stack of headInfo.stacks) {
+		if (stack.id == null) continue;
+
+		for (const [segmentIndex, segment] of stack.segments.entries()) {
+			if (!segment.commits.some((commit) => commit.id === commitId)) continue;
+
+			return {
+				stackId: stack.id,
+				segmentIndex,
+				branchName: segment.refName?.displayName ?? null,
+				commitId,
+			};
+		}
+	}
+
+	return null;
+};

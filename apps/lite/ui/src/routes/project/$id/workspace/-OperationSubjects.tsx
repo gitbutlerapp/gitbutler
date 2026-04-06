@@ -249,14 +249,23 @@ export const ChangesSectionTarget: FC<
 
 export const CommitTarget: FC<
 	{
+		activeOperation?: Operation | null;
 		commitId: string;
 		previousCommitId: string | undefined;
 		nextCommitId: string | undefined;
 		projectId: string;
 	} & useRender.ComponentProps<"div">
-> = ({ commitId, previousCommitId, nextCommitId, projectId, render, ...props }) => {
+> = ({
+	activeOperation: activeOperationProp = null,
+	commitId,
+	previousCommitId,
+	nextCommitId,
+	projectId,
+	render,
+	...props
+}) => {
 	const resolveOperationSource = useResolveOperationSource(projectId);
-	const [operation, dropRef] = useDroppable(({ source, input, element }) => {
+	const [dragOperation, dropRef] = useDroppable(({ source, input, element }) => {
 		const operationSourceRef = parseDragData(source.data);
 		if (!operationSourceRef) return null;
 
@@ -286,6 +295,7 @@ export const CommitTarget: FC<
 			),
 		});
 	});
+	const operation = dragOperation ?? activeOperationProp;
 
 	const target = useRender({
 		render,
@@ -325,13 +335,21 @@ export const CommitTarget: FC<
 
 export const BranchTarget: FC<
 	{
+		activeOperation?: Operation | null;
 		branchRef: Array<number> | null;
 		firstCommitId: string | undefined;
 		projectId: string;
 	} & useRender.ComponentProps<"div">
-> = ({ branchRef, firstCommitId, projectId, render, ...props }) => {
+> = ({
+	activeOperation: activeOperationProp = null,
+	branchRef,
+	firstCommitId,
+	projectId,
+	render,
+	...props
+}) => {
 	const resolveOperationSource = useResolveOperationSource(projectId);
-	const [operation, dropRef] = useDroppable(({ source }) => {
+	const [dragOperation, dropRef] = useDroppable(({ source }) => {
 		const operationSourceRef = parseDragData(source.data);
 		if (!operationSourceRef) return null;
 
@@ -340,6 +358,7 @@ export const BranchTarget: FC<
 
 		return getBranchTargetOperation({ operationSource, branchRef, firstCommitId });
 	});
+	const operation = dragOperation ?? activeOperationProp;
 
 	const target = useRender({
 		render,

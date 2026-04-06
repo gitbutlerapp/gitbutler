@@ -26,6 +26,7 @@ import { rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx"
 import { type FileParent } from "#ui/domain/FileParent.ts";
 import { getBranchNameByCommitId, getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
 import { stackRelativeTo } from "#ui/domain/Stack.ts";
+import { type Operation } from "#ui/Operation.ts";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import { getFocus } from "#ui/routes/project/$id/-state/layout.ts";
 import {
@@ -45,6 +46,12 @@ import {
 	HunkSource,
 	TearOffBranchTarget,
 } from "#ui/routes/project/$id/workspace/-OperationSubjects.tsx";
+import {
+	getBranchTargetOperation,
+	getCommitTargetOperation,
+	resolveOperationSource,
+} from "#ui/routes/project/$id/workspace/-OperationSource.ts";
+import { operationSourceRefFromItem } from "#ui/routes/project/$id/workspace/-OperationSourceRef.ts";
 import { AbsorptionDialog, useAbsorption } from "#ui/routes/project/$id/workspace/-Absorption.tsx";
 import { useMonitorDraggedOperationSourceRef } from "#ui/routes/project/$id/workspace/-DragAndDrop.tsx";
 import {
@@ -79,7 +86,12 @@ import {
 	UnifiedPatch,
 	WorktreeChanges,
 } from "@gitbutler/but-sdk";
-import { useMutation, useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
+import {
+	useMutation,
+	useQueryClient,
+	useSuspenseQueries,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
@@ -103,7 +115,9 @@ import {
 	baseCommitItem,
 	changeItem,
 	changesSectionItem,
+	CommitItem,
 	commitItem,
+	findCommitItem,
 	type Item,
 	segmentItem,
 } from "./-Item.ts";
@@ -116,6 +130,7 @@ import {
 	selectedChangeItem,
 	selectedChangesSectionItem,
 	selectedBaseCommitItem,
+	asSelectedItem,
 } from "./-SelectedItem.ts";
 import {
 	buildNavigationIndex,
@@ -346,6 +361,52 @@ const isCommitModeTarget = ({ item, source }: { item: Item; source: Item }) =>
 		),
 		Match.orElse(() => false),
 	);
+
+const getCommitModeOperation = ({
+	source,
+	target,
+	headInfo,
+	worktreeChanges,
+}: {
+	source: Item;
+	target: Item;
+	headInfo: RefInfo;
+	worktreeChanges: WorktreeChanges;
+}): Operation | null => {
+	const operationSourceRef = operationSourceRefFromItem(source);
+	if (!operationSourceRef) return null;
+
+	const operationSource = resolveOperationSource({
+		operationSourceRef,
+		worktreeChanges,
+		getCommitDetails: () => undefined,
+	});
+	if (!operationSource) return null;
+
+	return Match.value(target).pipe(
+		Match.tag("Segment", ({ stackId, segmentIndex }): Operation | null => {
+			const stack = headInfo.stacks.find((stack) => stack.id === stackId);
+			if (!stack) return null;
+
+			const segment = stack.segments[segmentIndex];
+			if (!segment) return null;
+
+			return getBranchTargetOperation({
+				operationSource,
+				branchRef: segment.refName?.fullNameBytes ?? null,
+				firstCommitId: segment.commits[0]?.id,
+			});
+		}),
+		Match.tag("Commit", ({ commitId }): Operation | null =>
+			getCommitTargetOperation({
+				operationSource,
+				commitId,
+				action: "insertBelow",
+			}),
+		),
+		Match.orElse(() => null),
+	);
+};
 
 const Hunk: FC<{
 	patch: Patch;
@@ -1185,6 +1246,7 @@ const CommitC: FC<{
 	branchName: string | null;
 	commit: Commit;
 	isDisabled: boolean;
+	commitModeOperation: Operation | null;
 	isHighlighted: boolean;
 	selected: SelectedCommitItem | null;
 	nextCommitId: string | undefined;
@@ -1199,6 +1261,7 @@ const CommitC: FC<{
 	branchName,
 	commit,
 	isDisabled,
+	commitModeOperation,
 	isHighlighted,
 	selected,
 	nextCommitId,
@@ -1215,6 +1278,7 @@ const CommitC: FC<{
 		commit={commit}
 		render={
 			<CommitTarget
+				activeOperation={commitModeOperation}
 				projectId={projectId}
 				commitId={commit.id}
 				previousCommitId={previousCommitId}
@@ -1695,6 +1759,7 @@ const InlineBranchNameEditor: FC<{
 const SegmentRow: FC<
 	{
 		isDisabled: boolean;
+		commitModeOperation: Operation | null;
 		selected: SelectedSegmentItem | null;
 		projectId: string;
 		segment: Segment;
@@ -1704,6 +1769,7 @@ const SegmentRow: FC<
 	} & ComponentProps<"div">
 > = ({
 	isDisabled,
+	commitModeOperation,
 	selected,
 	projectId,
 	segment,
@@ -1831,6 +1897,7 @@ const SegmentRow: FC<
 
 	return !isRenamePending && segment.refName != null ? (
 		<BranchTarget
+			activeOperation={commitModeOperation}
 			projectId={projectId}
 			branchRef={segment.refName.fullNameBytes}
 			firstCommitId={segment.commits[0]?.id}
@@ -1848,6 +1915,7 @@ const SegmentRow: FC<
 };
 
 const SegmentC: FC<{
+	commitModeOperation: Operation | null;
 	highlightedCommitIds: Set<string>;
 	projectId: string;
 	segment: Segment;
@@ -1859,6 +1927,7 @@ const SegmentC: FC<{
 	stackId: string;
 	isDisabledItem: (item: Item) => boolean;
 }> = ({
+	commitModeOperation,
 	highlightedCommitIds,
 	isDisabledItem,
 	projectId,
@@ -1894,6 +1963,7 @@ const SegmentC: FC<{
 		<div className={classes(isSectionSelected && sharedStyles.sectionSelected)}>
 			<SegmentRow
 				isDisabled={isDisabledItem(item)}
+				commitModeOperation={selectedSegment ? commitModeOperation : null}
 				selected={selectedSegment}
 				projectId={projectId}
 				segment={segment}
@@ -1916,6 +1986,7 @@ const SegmentC: FC<{
 							branchName={segment.refName?.displayName ?? null}
 							commit={commit}
 							isDisabled={isDisabledItem(item)}
+							commitModeOperation={isSelected ? commitModeOperation : null}
 							isHighlighted={highlightedCommitIds.has(commit.id)}
 							selected={isSelected ? selectedCommit : null}
 							nextCommitId={segment.commits[index + 1]?.id}
@@ -1938,6 +2009,7 @@ const SegmentC: FC<{
 
 const StackC: FC<{
 	isDisabledItem: (item: Item) => boolean;
+	commitModeOperation: Operation | null;
 	highlightedCommitIds: Set<string>;
 	onAbsorbChanges: (target: AbsorptionTarget) => void;
 	onDependencyHover: (commitIds: Array<string> | null) => void;
@@ -1950,6 +2022,7 @@ const StackC: FC<{
 	commitModeSource: Item | null;
 }> = ({
 	isDisabledItem,
+	commitModeOperation,
 	highlightedCommitIds,
 	commitModeSource,
 	onAbsorbChanges,
@@ -2011,6 +2084,7 @@ const StackC: FC<{
 					// oxlint-disable-next-line react/no-array-index-key -- It's all we have.
 					<li key={segmentIndex}>
 						<SegmentC
+							commitModeOperation={commitModeOperation}
 							highlightedCommitIds={highlightedCommitIds}
 							isDisabledItem={isDisabledItem}
 							projectId={projectId}
@@ -2039,6 +2113,9 @@ const ProjectPage: FC = () => {
 		source: Item;
 		initialSelectedItem: SelectedItem | null;
 	} | null>(null);
+	const queryClient = useQueryClient();
+	const toastManager = Toast.useToastManager();
+	const commitCreate = useMutation(commitCreateMutationOptions);
 
 	const previewRef = useRef<PreviewImperativeHandle | null>(null);
 
@@ -2079,6 +2156,16 @@ const ProjectPage: FC = () => {
 			? workspaceSelection.item
 			: getDefaultSelectedItem(navigationIndex);
 
+	const commitModeOperation =
+		commitModeSource && selectedItem
+			? getCommitModeOperation({
+					source: commitModeSource,
+					target: selectedItem,
+					headInfo,
+					worktreeChanges,
+				})
+			: null;
+
 	const enterCommitMode = (stackId: string | null) => {
 		setCommitModeState({
 			source: changesSectionItem(stackId),
@@ -2095,6 +2182,53 @@ const ProjectPage: FC = () => {
 					: null,
 		});
 		setCommitModeState(null);
+	};
+	const runCommitModeOperation = () => {
+		if (commitModeOperation?._tag !== "CommitCreate") return;
+
+		void commitCreate
+			.mutateAsync(
+				{
+					projectId,
+					relativeTo: commitModeOperation.relativeTo,
+					side: commitModeOperation.side,
+					changes: commitModeOperation.changes,
+					message: commitModeOperation.message,
+				},
+				{
+					onSuccess: (response) => {
+						if (response.rejectedChanges.length > 0)
+							toastManager.add(
+								rejectedChangesToastOptions({
+									newCommit: response.newCommit,
+									rejectedChanges: response.rejectedChanges,
+								}),
+							);
+					},
+				},
+			)
+			.then((response) => {
+				if (response.newCommit == null) return;
+
+				const headInfo = queryClient.getQueryData(headInfoQueryOptions(projectId).queryKey);
+				if (!headInfo) return;
+
+				const item = findCommitItem({ headInfo, commitId: response.newCommit });
+
+				setCommitModeState(null);
+				if (item)
+					dispatchProjectState({
+						_tag: "SelectItem",
+						item: selectedCommitItem({
+							...item,
+							mode: { _tag: "Reword" },
+						}),
+					});
+			})
+			.catch(() => {
+				// Use the global mutation error handler (shows toast) instead of React
+				// error boundaries.
+			});
 	};
 
 	const selectItem = (nextSelectedItem: SelectedItem | null) => {
@@ -2135,6 +2269,7 @@ const ProjectPage: FC = () => {
 		requestAbsorptionPlan,
 		enterCommitMode,
 		exitCommitMode,
+		runCommitModeOperation,
 		dispatchProjectState,
 		previewRef,
 	});
@@ -2185,6 +2320,7 @@ const ProjectPage: FC = () => {
 						{headInfo.stacks.map((stack) => (
 							<div key={stack.id} className={styles.stackLane}>
 								<StackC
+									commitModeOperation={commitModeOperation}
 									highlightedCommitIds={highlightedCommitIds}
 									isDisabledItem={isDisabledItem}
 									commitModeSource={commitModeSource}

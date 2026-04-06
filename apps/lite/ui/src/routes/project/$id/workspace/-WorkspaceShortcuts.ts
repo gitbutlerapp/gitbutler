@@ -219,7 +219,15 @@ const changesBindings: Array<ShortcutBinding<ChangesAction>> = [
 	absorbChangesBinding,
 ];
 
-type CommitModeAction = ItemSelectionAction | { _tag: "ExitCommitMode" };
+type CommitModeAction = ItemSelectionAction | { _tag: "RunOperation" } | { _tag: "ExitCommitMode" };
+
+const runCommitModeOperationBinding: ShortcutBinding<CommitModeAction> = {
+	id: "commit-mode-run-operation",
+	description: "Commit here",
+	keys: ["Enter"],
+	action: { _tag: "RunOperation" },
+	repeat: false,
+};
 
 const exitCommitModeBinding: ShortcutBinding<CommitModeAction> = {
 	id: "commit-mode-exit",
@@ -231,6 +239,7 @@ const exitCommitModeBinding: ShortcutBinding<CommitModeAction> = {
 
 const commitModeBindings: Array<ShortcutBinding<CommitModeAction>> = [
 	...itemSelectionBindings,
+	runCommitModeOperationBinding,
 	exitCommitModeBinding,
 ];
 
@@ -549,6 +558,7 @@ export const useWorkspaceShortcuts = ({
 	requestAbsorptionPlan,
 	enterCommitMode,
 	exitCommitMode,
+	runCommitModeOperation,
 	dispatchProjectState,
 	previewRef,
 }: {
@@ -559,6 +569,7 @@ export const useWorkspaceShortcuts = ({
 	requestAbsorptionPlan: (target: AbsorptionTarget) => void;
 	enterCommitMode: (stackId: string | null) => void;
 	exitCommitMode: () => void;
+	runCommitModeOperation: () => void;
 	dispatchProjectState: Dispatch<ProjectStateAction>;
 	previewRef: RefObject<PreviewImperativeHandle | null>;
 }) => {
@@ -703,6 +714,7 @@ export const useWorkspaceShortcuts = ({
 	const handleCommitModeAction = (action: CommitModeAction, selectedItem: SelectedItem | null) =>
 		Match.value(action).pipe(
 			Match.tags({
+				RunOperation: runCommitModeOperation,
 				ExitCommitMode: exitCommitMode,
 			}),
 			Match.orElse((action) => {

@@ -52,7 +52,7 @@ const treeChangesOperationSource = ({
 	changes,
 });
 
-const resolveOperationSource = ({
+export const resolveOperationSource = ({
 	operationSourceRef,
 	worktreeChanges,
 	getCommitDetails,
