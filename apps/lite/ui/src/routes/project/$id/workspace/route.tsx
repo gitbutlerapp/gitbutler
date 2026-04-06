@@ -1963,7 +1963,7 @@ const StackC: FC<{
 	selectFile: (path: string | null) => void;
 	stack: Stack;
 	commitModeSource: Item | null;
-	enterCommitMode: (source: Item) => void;
+	enterCommitMode: (stackId: string | null) => void;
 }> = ({
 	isDisabledItem,
 	commitModeOperation,
@@ -1990,7 +1990,7 @@ const StackC: FC<{
 	const stackId = stack.id!;
 
 	const commit = () => {
-		enterCommitMode(changesSectionItem(stackId));
+		enterCommitMode(stackId);
 	};
 
 	return (
@@ -2123,6 +2123,9 @@ const ProjectPage: FC = () => {
 			initialSelectedItem: selectedItem,
 		});
 	};
+	const commitUnassignedChanges = () => {
+		enterCommitMode(null);
+	};
 	const exitCommitMode = () => {
 		dispatchProjectState({
 			_tag: "SelectItem",
@@ -2248,23 +2251,28 @@ const ProjectPage: FC = () => {
 			}
 		>
 			<div className={sharedStyles.lanes}>
-				<Changes
-					isDisabledItem={isDisabledItem}
-					label="Unassigned changes"
-					commitModeSource={commitModeSource}
-					projectId={project.id}
-					stackId={null}
-					isSelected={selectedItem?._tag === "ChangesSection" && selectedItem.stackId === null}
-					selectedPath={
-						selectedItem?._tag === "Change" && selectedItem.stackId === null
-							? selectedItem.path
-							: null
-					}
-					onAbsorbChanges={requestAbsorptionPlan}
-					onDependencyHover={highlightCommits}
-					selectItem={selectItem}
-					className={styles.unassignedChanges}
-				/>
+				<div className={styles.unassignedChangesLane}>
+					<Changes
+						isDisabledItem={isDisabledItem}
+						label="Unassigned changes"
+						commitModeSource={commitModeSource}
+						projectId={project.id}
+						stackId={null}
+						isSelected={selectedItem?._tag === "ChangesSection" && selectedItem.stackId === null}
+						selectedPath={
+							selectedItem?._tag === "Change" && selectedItem.stackId === null
+								? selectedItem.path
+								: null
+						}
+						onAbsorbChanges={requestAbsorptionPlan}
+						onDependencyHover={highlightCommits}
+						selectItem={selectItem}
+						className={styles.unassignedChanges}
+					/>
+					<button type="button" className={uiStyles.button} onClick={commitUnassignedChanges}>
+						Commit
+					</button>
+				</div>
 
 				<div className={styles.headInfo}>
 					<div className={styles.stackLanes}>
