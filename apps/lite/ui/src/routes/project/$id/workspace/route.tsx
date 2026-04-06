@@ -25,7 +25,6 @@ import {
 import { rejectedChangesToastOptions } from "#ui/components/RejectedChanges.tsx";
 import { type FileParent } from "#ui/domain/FileParent.ts";
 import { getBranchNameByCommitId, getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
-import { stackRelativeTo } from "#ui/domain/Stack.ts";
 import { type Operation } from "#ui/Operation.ts";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/-ProjectPreviewLayout.tsx";
 import { getFocus } from "#ui/routes/project/$id/-state/layout.ts";
@@ -75,7 +74,6 @@ import {
 	AbsorptionTarget,
 	Commit,
 	DiffHunk,
-	DiffSpec,
 	HunkAssignment,
 	HunkDependencies,
 	HunkHeader,
@@ -109,7 +107,6 @@ import {
 	useState,
 	useTransition,
 } from "react";
-import useLocalStorageState from "use-local-storage-state";
 import sharedStyles from "../-shared.module.css";
 import {
 	baseCommitItem,
@@ -151,7 +148,6 @@ import {
 import { PositionedShortcutsBar } from "../-ShortcutsBar.tsx";
 import { formatShortcutKeys, ShortcutActionBase, type ShortcutBinding } from "#ui/shortcuts.ts";
 import styles from "./route.module.css";
-import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
 const fileHunkKey = (path: string, hunk: HunkHeader): string => `${path}:${hunkKey(hunk)}`;
@@ -258,28 +254,6 @@ const CommitDetailsC: FC<{
 		/>
 	);
 };
-
-// TODO: check this
-const assignedChangesDiffSpecs = (
-	changes: Array<TreeChange>,
-	assignmentsByPath: Map<string, Array<HunkAssignment>>,
-): Array<DiffSpec> =>
-	changes.flatMap((change) => {
-		const assignments = assignmentsByPath.get(change.path);
-		if (!assignments || assignments.length === 0) return [];
-
-		if (assignments.some((assignment) => assignment.hunkHeader == null))
-			return [createDiffSpec(change, [])];
-
-		return [
-			createDiffSpec(
-				change,
-				assignments.flatMap((assignment) =>
-					assignment.hunkHeader != null ? [assignment.hunkHeader] : [],
-				),
-			),
-		];
-	});
 
 const hunkContainsHunk = (a: HunkHeader, b: HunkHeader): boolean =>
 	a.oldStart <= b.oldStart &&
@@ -1629,80 +1603,6 @@ const Changes: FC<{
 	);
 };
 
-const CommitForm: FC<{
-	projectId: string;
-	stack: Stack;
-}> = ({ projectId, stack }) => {
-	const [message, setMessage] = useLocalStorageState(
-		// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
-		`project:${projectId}:commitMessage:${stack.id!}`,
-		{ defaultValue: "" },
-	);
-	const toastManager = Toast.useToastManager();
-	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
-
-	const relativeTo = stackRelativeTo(stack);
-	const assignmentsByPath = getAssignmentsByPath(worktreeChanges.assignments, stack.id);
-	const changes = worktreeChanges.changes.filter((change) => assignmentsByPath.has(change.path));
-	const diffSpecs = assignedChangesDiffSpecs(changes, assignmentsByPath);
-
-	const commitCreate = useMutation(commitCreateMutationOptions);
-
-	const disabled = commitCreate.isPending || !relativeTo;
-
-	return (
-		<form
-			className={styles.commitForm}
-			onSubmit={(event) => {
-				event.preventDefault();
-				if (disabled) return;
-				commitCreate.mutate(
-					{
-						projectId,
-						relativeTo,
-						side: "below",
-						changes: diffSpecs,
-						message: message.trim(),
-					},
-					{
-						onSuccess: (response) => {
-							if (response.rejectedChanges.length > 0)
-								toastManager.add(
-									rejectedChangesToastOptions({
-										newCommit: response.newCommit,
-										rejectedChanges: response.rejectedChanges,
-									}),
-								);
-
-							setMessage("");
-						},
-					},
-				);
-			}}
-		>
-			<textarea
-				// TODO: inline editor uses enter to submit, this doesn't
-				aria-label="Commit message"
-				className={styles.commitFormMessageInput}
-				placeholder="Commit message"
-				value={message}
-				onChange={(event) => {
-					setMessage(event.target.value);
-				}}
-				onKeyDown={(event) => {
-					if (event.key === "Enter" && event.metaKey) {
-						event.preventDefault();
-						if (!disabled) event.currentTarget.form?.requestSubmit();
-					}
-				}}
-			/>
-			<button type="submit" disabled={disabled} className={uiStyles.button}>
-				Commit
-			</button>
-		</form>
-	);
-};
-
 const SegmentMenuPopup: FC<{
 	canRename: boolean;
 	onRename: () => void;
@@ -2020,11 +1920,13 @@ const StackC: FC<{
 	selectFile: (path: string | null) => void;
 	stack: Stack;
 	commitModeSource: Item | null;
+	enterCommitMode: (source: Item) => void;
 }> = ({
 	isDisabledItem,
 	commitModeOperation,
 	highlightedCommitIds,
 	commitModeSource,
+	enterCommitMode,
 	onAbsorbChanges,
 	onDependencyHover,
 	projectId,
@@ -2044,9 +1946,13 @@ const StackC: FC<{
 	// oxlint-disable-next-line typescript/no-non-null-assertion -- [tag:stack-id-required]
 	const stackId = stack.id!;
 
+	const commit = () => {
+		enterCommitMode(changesSectionItem(stackId));
+	};
+
 	return (
 		<div className={styles.stack}>
-			<div>
+			<div className={styles.stackHeader}>
 				<div className={styles.stackActions}>
 					<Menu.Root>
 						<Menu.Trigger className={styles.stackMenuTrigger} aria-label="Stack menu">
@@ -2076,7 +1982,9 @@ const StackC: FC<{
 					selectItem={selectItem}
 					className={styles.assignedChanges}
 				/>
-				<CommitForm projectId={projectId} stack={stack} />
+				<button type="button" className={uiStyles.button} onClick={commit}>
+					Commit
+				</button>
 			</div>
 
 			<ul className={styles.segments}>
@@ -2324,6 +2232,7 @@ const ProjectPage: FC = () => {
 									highlightedCommitIds={highlightedCommitIds}
 									isDisabledItem={isDisabledItem}
 									commitModeSource={commitModeSource}
+									enterCommitMode={enterCommitMode}
 									onAbsorbChanges={requestAbsorptionPlan}
 									onDependencyHover={highlightCommits}
 									projectId={project.id}

@@ -30,21 +30,6 @@
 	border: 1px dotted var(--color-separator);
 }
 
-.commitForm {
-	display: flex;
-	flex-direction: column;
-}
-
-.commitFormMessageInput {
-	field-sizing: content;
-	box-sizing: content-box;
-	min-height: calc(2lh);
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
-	background-color: var(--color-input-bg);
-	resize: vertical;
-}
-
 .segments {
 	display: flex;
 	row-gap: 24px;
@@ -99,6 +84,11 @@
 .stack {
 	display: flex;
 	row-gap: 24px;
+	flex-direction: column;
+}
+
+.stackHeader {
+	display: flex;
 	flex-direction: column;
 }
 
