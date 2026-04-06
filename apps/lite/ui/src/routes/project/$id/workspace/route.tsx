@@ -1954,6 +1954,55 @@ const SegmentC: FC<{
 	);
 };
 
+const UnassignedChangesLane: FC<{
+	isDisabledItem: (item: Item) => boolean;
+	commitModeSource: Item | null;
+	enterCommitMode: (stackId: string | null) => void;
+	onAbsorbChanges: (target: AbsorptionTarget) => void;
+	onDependencyHover: (commitIds: Array<string> | null) => void;
+	projectId: string;
+	selectedItem: SelectedItem | null;
+	selectItem: (item: SelectedItem | null) => void;
+}> = ({
+	isDisabledItem,
+	commitModeSource,
+	enterCommitMode,
+	onAbsorbChanges,
+	onDependencyHover,
+	projectId,
+	selectedItem,
+	selectItem,
+}) => {
+	const commit = () => {
+		enterCommitMode(null);
+	};
+
+	return (
+		<div className={styles.unassignedChangesLane}>
+			<Changes
+				isDisabledItem={isDisabledItem}
+				label="Unassigned changes"
+				commitModeSource={commitModeSource}
+				projectId={projectId}
+				stackId={null}
+				isSelected={selectedItem?._tag === "ChangesSection" && selectedItem.stackId === null}
+				selectedPath={
+					selectedItem?._tag === "Change" && selectedItem.stackId === null
+						? selectedItem.path
+						: null
+				}
+				onAbsorbChanges={onAbsorbChanges}
+				onDependencyHover={onDependencyHover}
+				selectItem={selectItem}
+				className={styles.unassignedChanges}
+			/>
+			<button type="button" className={uiStyles.button} onClick={commit}>
+				Commit
+			</button>
+		</div>
+	);
+};
+
 const StackC: FC<{
 	isDisabledItem: (item: Item) => boolean;
 	commitModeOperation: Operation | null;
@@ -2127,9 +2176,6 @@ const ProjectPage: FC = () => {
 			initialSelectedItem: selectedItem,
 		});
 	};
-	const commitUnassignedChanges = () => {
-		enterCommitMode(null);
-	};
 	const exitCommitMode = () => {
 		dispatchProjectState({
 			_tag: "SelectItem",
@@ -2255,28 +2301,16 @@ const ProjectPage: FC = () => {
 			}
 		>
 			<div className={sharedStyles.lanes}>
-				<div className={styles.unassignedChangesLane}>
-					<Changes
-						isDisabledItem={isDisabledItem}
-						label="Unassigned changes"
-						commitModeSource={commitModeSource}
-						projectId={project.id}
-						stackId={null}
-						isSelected={selectedItem?._tag === "ChangesSection" && selectedItem.stackId === null}
-						selectedPath={
-							selectedItem?._tag === "Change" && selectedItem.stackId === null
-								? selectedItem.path
-								: null
-						}
-						onAbsorbChanges={requestAbsorptionPlan}
-						onDependencyHover={highlightCommits}
-						selectItem={selectItem}
-						className={styles.unassignedChanges}
-					/>
-					<button type="button" className={uiStyles.button} onClick={commitUnassignedChanges}>
-						Commit
-					</button>
-				</div>
+				<UnassignedChangesLane
+					isDisabledItem={isDisabledItem}
+					commitModeSource={commitModeSource}
+					enterCommitMode={enterCommitMode}
+					onAbsorbChanges={requestAbsorptionPlan}
+					onDependencyHover={highlightCommits}
+					projectId={project.id}
+					selectedItem={selectedItem}
+					selectItem={selectItem}
+				/>
 
 				<div className={styles.headInfo}>
 					<div className={styles.stackLanes}>
