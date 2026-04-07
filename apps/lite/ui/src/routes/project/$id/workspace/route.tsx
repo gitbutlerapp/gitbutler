@@ -1039,15 +1039,17 @@ const CommitRow: FC<
 		if (trimmed === initialMessage) return;
 		startCommitMessageTransition(async () => {
 			setOptimisticMessage(trimmed);
-			await commitReword
-				.mutateAsync({
+			try {
+				await commitReword.mutateAsync({
 					projectId,
 					commitId: commit.id,
 					message: trimmed,
-				})
+				});
+			} catch {
 				// Use the global mutation error handler (shows toast) instead of React
 				// error boundaries.
-				.catch(() => {});
+				return;
+			}
 		});
 	};
 
