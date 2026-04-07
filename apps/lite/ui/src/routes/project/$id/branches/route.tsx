@@ -667,6 +667,7 @@ const ProjectBranchesPage: FC = () => {
 				<ul
 					className={classes(
 						styles.branchesListLane,
+						sharedStyles.section,
 						selection?._tag === "Branch" ? sharedStyles.sectionSelected : undefined,
 					)}
 				>
@@ -686,6 +687,7 @@ const ProjectBranchesPage: FC = () => {
 					<div
 						className={classes(
 							styles.branchDetailsLane,
+							sharedStyles.section,
 							selection?._tag === "Commit" ? sharedStyles.sectionSelected : undefined,
 						)}
 					>

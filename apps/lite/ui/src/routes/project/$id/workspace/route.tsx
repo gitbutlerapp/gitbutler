@@ -1607,6 +1607,7 @@ const Changes: FC<{
 				className={classes(
 					className,
 					styles.changes,
+					sharedStyles.section,
 					isSectionSelected && sharedStyles.sectionSelected,
 				)}
 				render={<ChangesSectionTarget projectId={projectId} stackId={stackId} />}
@@ -1924,7 +1925,13 @@ const SegmentC: FC<{
 	});
 
 	return (
-		<div className={classes(styles.segment, isSectionSelected && sharedStyles.sectionSelected)}>
+		<div
+			className={classes(
+				styles.segment,
+				sharedStyles.section,
+				isSectionSelected && sharedStyles.sectionSelected,
+			)}
+		>
 			<SegmentRow
 				branchRenameFormRef={branchRenameFormRef}
 				isDisabled={isDisabledItem(item)}

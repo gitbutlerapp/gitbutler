@@ -50,6 +50,8 @@
 .row {
 	display: flex;
 	align-items: start;
+	overflow: clip;
+	border-radius: 8px;
 
 	&:where(:hover) {
 		background-color: var(--color-row-hover-bg);
@@ -75,6 +77,10 @@
 
 .itemRowDisabled {
 	opacity: 0.45;
+}
+
+.section {
+	border-radius: 8px;
 }
 
 .itemRowOperationPending {
