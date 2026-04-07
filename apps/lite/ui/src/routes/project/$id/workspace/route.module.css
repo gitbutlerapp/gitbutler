@@ -1,5 +1,6 @@
 .changesContainer {
 	display: flex;
+	row-gap: 4px;
 	flex-direction: column;
 }
 
