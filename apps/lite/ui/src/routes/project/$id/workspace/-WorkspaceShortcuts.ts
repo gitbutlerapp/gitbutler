@@ -33,6 +33,35 @@ type ItemSelectionAction =
 	| { _tag: "PreviousSection" }
 	| { _tag: "NextSection" };
 
+const itemSelectionBindings: Array<ShortcutBinding<ItemSelectionAction>> = [
+	{
+		id: "move-up",
+		description: "up",
+		keys: ["ArrowUp", "k"],
+		action: { _tag: "Move", offset: -1 },
+	},
+	{
+		id: "move-down",
+		description: "down",
+		keys: ["ArrowDown", "j"],
+		action: { _tag: "Move", offset: 1 },
+	},
+	{
+		id: "previous-section",
+		description: "Previous section",
+		keys: ["Shift+ArrowUp", "Shift+k"],
+		action: { _tag: "PreviousSection" },
+		showInShortcutsBar: false,
+	},
+	{
+		id: "next-section",
+		description: "Next section",
+		keys: ["Shift+ArrowDown", "Shift+j"],
+		action: { _tag: "NextSection" },
+		showInShortcutsBar: false,
+	},
+];
+
 type PrimaryPanelAction =
 	| ItemSelectionAction
 	| { _tag: "SelectUnassignedChanges" }
@@ -103,35 +132,6 @@ const focusPrimaryBinding: ShortcutBinding<PreviewAction> = {
 	action: { _tag: "FocusPrimary" },
 	repeat: false,
 };
-
-const itemSelectionBindings: Array<ShortcutBinding<ItemSelectionAction>> = [
-	{
-		id: "move-up",
-		description: "up",
-		keys: ["ArrowUp", "k"],
-		action: { _tag: "Move", offset: -1 },
-	},
-	{
-		id: "move-down",
-		description: "down",
-		keys: ["ArrowDown", "j"],
-		action: { _tag: "Move", offset: 1 },
-	},
-	{
-		id: "previous-section",
-		description: "Previous section",
-		keys: ["Shift+ArrowUp", "Shift+k"],
-		action: { _tag: "PreviousSection" },
-		showInShortcutsBar: false,
-	},
-	{
-		id: "next-section",
-		description: "Next section",
-		keys: ["Shift+ArrowDown", "Shift+j"],
-		action: { _tag: "NextSection" },
-		showInShortcutsBar: false,
-	},
-];
 
 const primaryPanelBindings: Array<ShortcutBinding<PrimaryPanelAction>> = [
 	...itemSelectionBindings,
