@@ -89,6 +89,8 @@
 }
 
 .activeTarget {
+	/* Ensure outset outline appears above siblings. */
+	z-index: 1;
 	outline: 2px dashed var(--color-active-operation-target-outline);
 	outline-offset: 1px;
 }
