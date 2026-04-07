@@ -1,6 +1,8 @@
 .button {
-	padding-inline: 8px;
-	padding-block: 4px;
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
+	border: 1px solid var(--color-button-border);
+	border-radius: 8px;
 	background-color: var(--color-button-bg);
 
 	&:not(:disabled):hover {
