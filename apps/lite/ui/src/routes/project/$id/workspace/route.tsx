@@ -2023,7 +2023,6 @@ const UnassignedChangesLane: FC<{
 				onAbsorbChanges={onAbsorbChanges}
 				onDependencyHover={onDependencyHover}
 				selectItem={selectItem}
-				className={styles.unassignedChanges}
 			/>
 		</div>
 	);
@@ -2105,7 +2104,6 @@ const StackC: FC<{
 					onAbsorbChanges={onAbsorbChanges}
 					onDependencyHover={onDependencyHover}
 					selectItem={selectItem}
-					className={styles.assignedChanges}
 				/>
 			</div>
 

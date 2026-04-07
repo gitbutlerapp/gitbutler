@@ -8,15 +8,12 @@
 	button. */
 	z-index: 1;
 	min-height: 80px;
+	border: 1px dotted var(--color-separator);
 }
 
 .unassignedChangesLane {
 	flex-shrink: 0;
 	width: 300px;
-}
-
-.unassignedChanges {
-	border: 1px dotted var(--color-separator);
 }
 
 .stackLane {
@@ -38,10 +35,6 @@
 .emptyLane {
 	flex-shrink: 0;
 	width: 300px;
-}
-
-.assignedChanges {
-	border: 1px dotted var(--color-separator);
 }
 
 .segments {
