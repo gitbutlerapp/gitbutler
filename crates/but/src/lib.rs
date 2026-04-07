@@ -1376,9 +1376,14 @@ async fn match_subcommand(
             result.show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Merge { branch } => {
+        Subcommands::Merge {
+            branch,
+            remote,
+            local,
+            graph,
+        } => {
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::merge::handle(&mut ctx, out, &branch)
+            command::legacy::merge::handle(&mut ctx, out, &branch, remote, local, graph)
                 .await
                 .context("Failed to merge branch.")
                 .emit_metrics(metrics_ctx)
