@@ -1,7 +1,4 @@
-import {
-	changesInWorktreeQueryOptions,
-	commitDetailsWithLineStatsQueryOptions,
-} from "#ui/api/queries.ts";
+import { commitDetailsWithLineStatsQueryOptions } from "#ui/api/queries.ts";
 import { getAction, type ShortcutBinding } from "#ui/shortcuts.ts";
 import { normalizeSelectedFile } from "#ui/routes/project/$id/-state/selection.ts";
 import { isTypingTarget } from "#ui/routes/project/$id/-shared.tsx";
@@ -24,6 +21,8 @@ import {
 	selectedCommitItem,
 	selectedSegmentItem,
 } from "./-SelectedItem.ts";
+import { useResolveOperationSource } from "./-OperationSource.ts";
+import { operationSourceRefFromItem } from "./-OperationSourceRef.ts";
 import { getAdjacentItem, getAdjacentSection, type NavigationIndex } from "./-WorkspaceModel.ts";
 import { getFocus, type ProjectLayoutState } from "#ui/routes/project/$id/-state/layout.ts";
 import { type ProjectStateAction } from "#ui/routes/project/$id/-state/project.ts";
@@ -513,49 +512,27 @@ export const useWorkspaceShortcuts = ({
 	previewRef: RefObject<PreviewImperativeHandle | null>;
 }) => {
 	const queryClient = useQueryClient();
+	const resolveOperationSource = useResolveOperationSource(projectId);
 
 	const requestAbsorptionPlanForSelection = (
 		selectedItem:
 			| ({ _tag: "ChangesSection" } & ChangesSectionItem)
 			| ({ _tag: "Change" } & ChangeItem),
 	) => {
-		const worktreeChanges = queryClient.getQueryData(
-			changesInWorktreeQueryOptions(projectId).queryKey,
-		);
-		if (!worktreeChanges) return;
+		const operationSourceRef = operationSourceRefFromItem(selectedItem);
+		if (!operationSourceRef) return;
 
-		Match.value(selectedItem).pipe(
-			Match.tagsExhaustive({
-				Change: ({ path, stackId }) => {
-					const change = worktreeChanges.changes.find((candidate) => candidate.path === path);
-					if (!change) return;
-					requestAbsorptionPlan({
-						type: "treeChanges",
-						subject: {
-							changes: [change],
-							assigned_stack_id: stackId,
-						},
-					});
-				},
-				ChangesSection: ({ stackId }) => {
-					const assignmentsByPath = new Set(
-						worktreeChanges.assignments
-							.filter((assignment) => assignment.stackId === stackId)
-							.map((assignment) => assignment.path),
-					);
-					const changes = worktreeChanges.changes.filter((change) =>
-						assignmentsByPath.has(change.path),
-					);
-					requestAbsorptionPlan({
-						type: "treeChanges",
-						subject: {
-							changes,
-							assigned_stack_id: stackId,
-						},
-					});
-				},
-			}),
-		);
+		const operationSource = resolveOperationSource(operationSourceRef);
+		if (operationSource?._tag !== "TreeChanges") return;
+		if (operationSource.parent._tag !== "ChangesSection") return;
+
+		requestAbsorptionPlan({
+			type: "treeChanges",
+			subject: {
+				changes: operationSource.changes.map(({ change }) => change),
+				assigned_stack_id: operationSource.parent.stackId,
+			},
+		});
 	};
 
 	const moveCommitDetailsFile = (offset: -1 | 1, selectedItem: SelectedCommitItem) => {
