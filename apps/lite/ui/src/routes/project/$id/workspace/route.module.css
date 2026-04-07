@@ -42,6 +42,11 @@
 	flex-direction: column;
 }
 
+.segment {
+	display: flex;
+	flex-direction: column;
+}
+
 .segmentButton {
 	flex-grow: 1;
 	padding-inline: var(--row-inline-padding);

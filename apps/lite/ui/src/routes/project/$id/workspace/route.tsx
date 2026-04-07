@@ -1924,7 +1924,7 @@ const SegmentC: FC<{
 	});
 
 	return (
-		<div className={classes(isSectionSelected && sharedStyles.sectionSelected)}>
+		<div className={classes(styles.segment, isSectionSelected && sharedStyles.sectionSelected)}>
 			<SegmentRow
 				branchRenameFormRef={branchRenameFormRef}
 				isDisabled={isDisabledItem(item)}
