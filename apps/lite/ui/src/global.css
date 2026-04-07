@@ -11,7 +11,7 @@
 	--color-gray-900: light-dark(#2b2b2b, #ececec);
 	--color-black: light-dark(#000, #fff);
 
-	--color-active-operation-subject-outline: var(--color-black);
+	--color-active-operation-target-outline: var(--color-black);
 	--color-bg: var(--color-white);
 	--color-button-bg: var(--color-gray-50);
 	--color-button-border: var(--color-gray-200);
