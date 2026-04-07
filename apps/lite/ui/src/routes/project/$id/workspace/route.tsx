@@ -1199,20 +1199,19 @@ const ChangeRowMenuPopup: FC<{
 }> = ({ change, onAbsorbChanges, parts, stackId }) => {
 	const { Popup, Item } = parts;
 
+	const absorb = () => {
+		onAbsorbChanges({
+			type: "treeChanges",
+			subject: {
+				changes: [change],
+				assigned_stack_id: stackId,
+			},
+		});
+	};
+
 	return (
 		<Popup className={classes(uiStyles.popup, uiStyles.menuPopup)}>
-			<Item
-				className={uiStyles.menuItem}
-				onClick={() => {
-					onAbsorbChanges({
-						type: "treeChanges",
-						subject: {
-							changes: [change],
-							assigned_stack_id: stackId,
-						},
-					});
-				}}
-			>
+			<Item className={uiStyles.menuItem} onClick={absorb}>
 				Absorb
 			</Item>
 		</Popup>
@@ -1305,21 +1304,19 @@ const ChangesSectionRowMenuPopup: FC<{
 }> = ({ changes, onAbsorbChanges, parts, stackId }) => {
 	const { Popup, Item } = parts;
 
+	const absorb = () => {
+		onAbsorbChanges({
+			type: "treeChanges",
+			subject: {
+				changes,
+				assigned_stack_id: stackId,
+			},
+		});
+	};
+
 	return (
 		<Popup className={classes(uiStyles.popup, uiStyles.menuPopup)}>
-			<Item
-				className={uiStyles.menuItem}
-				disabled={changes.length === 0}
-				onClick={() => {
-					onAbsorbChanges({
-						type: "treeChanges",
-						subject: {
-							changes,
-							assigned_stack_id: stackId,
-						},
-					});
-				}}
-			>
+			<Item className={uiStyles.menuItem} disabled={changes.length === 0} onClick={absorb}>
 				Absorb
 			</Item>
 		</Popup>
