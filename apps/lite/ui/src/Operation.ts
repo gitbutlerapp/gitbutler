@@ -79,7 +79,7 @@ export const operationLabel = (operation: Operation): string | null =>
 		}),
 	);
 
-export const useRunOperation = (projectId: string) => {
+export const useRunOperation = () => {
 	const toastManager = Toast.useToastManager();
 	const assignHunk = useMutation(assignHunkMutationOptions);
 	const commitAmend = useMutation(commitAmendMutationOptions);
@@ -93,7 +93,7 @@ export const useRunOperation = (projectId: string) => {
 	const moveBranch = useMutation(moveBranchMutationOptions);
 	const tearOffBranch = useMutation(tearOffBranchMutationOptions);
 
-	return (operation: Operation): void => {
+	return (projectId: string, operation: Operation): void => {
 		Match.value(operation).pipe(
 			Match.tag("AssignHunk", (operation) => {
 				assignHunk.mutate({

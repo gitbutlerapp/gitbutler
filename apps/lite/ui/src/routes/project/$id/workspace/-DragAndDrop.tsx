@@ -99,7 +99,7 @@ export const getCommitTargetInstruction = ({
 };
 
 export const useMonitorDraggedOperationSourceRef = ({ projectId }: { projectId: string }) => {
-	const runOperation = useRunOperation(projectId);
+	const runOperation = useRunOperation();
 
 	useEffect(
 		() =>
@@ -112,9 +112,9 @@ export const useMonitorDraggedOperationSourceRef = ({ projectId }: { projectId: 
 
 					if (!operation) return;
 
-					runOperation(operation);
+					runOperation(projectId, operation);
 				},
 			}),
-		[runOperation],
+		[runOperation, projectId],
 	);
 };
