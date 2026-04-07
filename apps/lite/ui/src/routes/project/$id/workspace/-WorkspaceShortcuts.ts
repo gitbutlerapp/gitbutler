@@ -313,28 +313,6 @@ export const commitEditingMessageBindings: Array<ShortcutBinding<CommitEditingMe
 	},
 ];
 
-export const handleCommitEditingMessageKeyDown = ({
-	event,
-	onSave,
-	onCancel,
-}: {
-	event: KeyboardEvent;
-	onSave: () => void;
-	onCancel: () => void;
-}) => {
-	const action = getAction(commitEditingMessageBindings, event);
-	if (!action) return;
-
-	event.preventDefault();
-
-	Match.value(action).pipe(
-		Match.tagsExhaustive({
-			Save: onSave,
-			Cancel: onCancel,
-		}),
-	);
-};
-
 type RenameBranchAction = { _tag: "Save" } | { _tag: "Cancel" };
 
 export const renameBranchBindings: Array<ShortcutBinding<RenameBranchAction>> = [
@@ -353,32 +331,6 @@ export const renameBranchBindings: Array<ShortcutBinding<RenameBranchAction>> = 
 		repeat: false,
 	},
 ];
-
-export const handleRenameBranchKeyDown = ({
-	event,
-	onSave,
-	onCancel,
-}: {
-	event: KeyboardEvent;
-	onSave: () => void;
-	onCancel: () => void;
-}) => {
-	const action = getAction(renameBranchBindings, event);
-	if (!action) return;
-
-	Match.value(action).pipe(
-		Match.tagsExhaustive({
-			Save: () => {
-				event.preventDefault();
-				onSave();
-			},
-			Cancel: () => {
-				event.preventDefault();
-				onCancel();
-			},
-		}),
-	);
-};
 
 type Scope =
 	| {
@@ -551,6 +503,8 @@ export const getLabel = (scope: Scope): string =>
 	);
 
 export const useWorkspaceShortcuts = ({
+	branchRenameFormRef,
+	commitMessageFormRef,
 	projectId,
 	scope,
 	selectedFile,
@@ -562,6 +516,8 @@ export const useWorkspaceShortcuts = ({
 	dispatchProjectState,
 	previewRef,
 }: {
+	branchRenameFormRef: RefObject<HTMLFormElement | null>;
+	commitMessageFormRef: RefObject<HTMLFormElement | null>;
 	projectId: string;
 	scope: Scope | null;
 	selectedFile: string | null;
@@ -759,6 +715,21 @@ export const useWorkspaceShortcuts = ({
 			),
 		);
 
+	const handleCommitEditingMessageAction = (
+		action: CommitEditingMessageAction,
+		selectedItem: SelectedCommitItem,
+	) =>
+		Match.value(action).pipe(
+			Match.tagsExhaustive({
+				Save: () => commitMessageFormRef.current?.requestSubmit(),
+				Cancel: () =>
+					dispatchProjectState({
+						_tag: "SelectItem",
+						item: selectedCommitItem({ ...selectedItem, mode: { _tag: "Default" } }),
+					}),
+			}),
+		);
+
 	const handleBranchAction = (action: BranchAction, selectedItem: SelectedSegmentItem) =>
 		Match.value(action).pipe(
 			Match.tags({
@@ -776,11 +747,30 @@ export const useWorkspaceShortcuts = ({
 			),
 		);
 
+	const handleRenameBranchAction = (
+		action: RenameBranchAction,
+		selectedItem: SelectedSegmentItem,
+	) =>
+		Match.value(action).pipe(
+			Match.tagsExhaustive({
+				Save: () => branchRenameFormRef.current?.requestSubmit(),
+				Cancel: () =>
+					dispatchProjectState({
+						_tag: "SelectItem",
+						item: selectedSegmentItem({ ...selectedItem, mode: { _tag: "Default" } }),
+					}),
+			}),
+		);
+
 	const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
 		if (event.defaultPrevented) return;
-		if (isTypingTarget(event.target)) return;
-
 		if (!scope) return;
+		if (
+			scope._tag !== "CommitReword" &&
+			scope._tag !== "BranchRename" &&
+			isTypingTarget(event.target)
+		)
+			return;
 
 		Match.value(scope).pipe(
 			Match.tagsExhaustive({
@@ -826,7 +816,12 @@ export const useWorkspaceShortcuts = ({
 					event.preventDefault();
 					handlePreviewAction(action);
 				},
-				BranchRename: () => undefined,
+				BranchRename: (scope) => {
+					const action = getAction(scope.bindings, event);
+					if (!action) return;
+					event.preventDefault();
+					handleRenameBranchAction(action, scope.context);
+				},
 				CommitDefault: (scope) => {
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
@@ -839,7 +834,12 @@ export const useWorkspaceShortcuts = ({
 					event.preventDefault();
 					handleCommitDetailsAction(action, scope.context);
 				},
-				CommitReword: () => undefined,
+				CommitReword: (scope) => {
+					const action = getAction(scope.bindings, event);
+					if (!action) return;
+					event.preventDefault();
+					handleCommitEditingMessageAction(action, scope.context);
+				},
 			}),
 		);
 	});

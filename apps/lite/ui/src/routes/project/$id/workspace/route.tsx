@@ -141,9 +141,7 @@ import {
 } from "./-WorkspaceModel.ts";
 import {
 	renameBranchBindings,
-	handleRenameBranchKeyDown,
 	commitEditingMessageBindings,
-	handleCommitEditingMessageKeyDown,
 	getLabel,
 	getScope,
 	useWorkspaceShortcuts,
@@ -985,8 +983,10 @@ const InlineCommitMessageEditor: FC<{
 	message: string;
 	onSubmit: (value: string) => void;
 	onCancel: () => void;
-}> = ({ message, onSubmit, onCancel }) => (
+	formRef?: Ref<HTMLFormElement>;
+}> = ({ message, onSubmit, onCancel, formRef }) => (
 	<form
+		ref={formRef}
 		className={styles.editorForm}
 		onSubmit={(event) => {
 			event.preventDefault();
@@ -1006,14 +1006,6 @@ const InlineCommitMessageEditor: FC<{
 			name="message"
 			defaultValue={message.trim()}
 			className={classes(styles.editorInput, styles.editCommitMessageInput)}
-			onKeyDown={(event) => {
-				handleCommitEditingMessageKeyDown({
-					event: event.nativeEvent,
-					onSave: () => event.currentTarget.form?.requestSubmit(),
-					onCancel,
-				});
-			}}
-			onBlur={onCancel}
 		/>
 		<EditorHelp bindings={commitEditingMessageBindings} />
 	</form>
@@ -1086,6 +1078,7 @@ const CommitRow: FC<
 	{
 		branchName: string | null;
 		commit: Commit;
+		commitMessageFormRef: Ref<HTMLFormElement>;
 		isOperationPending: boolean;
 		isDisabled: boolean;
 		isHighlighted: boolean;
@@ -1099,6 +1092,7 @@ const CommitRow: FC<
 	branchName,
 	commit,
 	isOperationPending,
+	commitMessageFormRef,
 	isDisabled,
 	isHighlighted,
 	selected,
@@ -1196,6 +1190,7 @@ const CommitRow: FC<
 		>
 			{selected?.mode._tag === "Reword" ? (
 				<InlineCommitMessageEditor
+					formRef={commitMessageFormRef}
 					message={optimisticMessage}
 					onSubmit={saveNewMessage}
 					onCancel={endEditing}
@@ -1265,6 +1260,7 @@ const CommitRow: FC<
 const CommitC: FC<{
 	branchName: string | null;
 	commit: Commit;
+	commitMessageFormRef: Ref<HTMLFormElement>;
 	isOperationPending: boolean;
 	isDisabled: boolean;
 	commitModeOperation: Operation | null;
@@ -1282,6 +1278,7 @@ const CommitC: FC<{
 	branchName,
 	commit,
 	isOperationPending,
+	commitMessageFormRef,
 	isDisabled,
 	commitModeOperation,
 	isHighlighted,
@@ -1311,6 +1308,7 @@ const CommitC: FC<{
 		<CommitRow
 			branchName={branchName}
 			commit={commit}
+			commitMessageFormRef={commitMessageFormRef}
 			isOperationPending={isOperationPending}
 			isDisabled={isDisabled}
 			isHighlighted={isHighlighted}
@@ -1683,8 +1681,10 @@ const InlineBranchNameEditor: FC<{
 	branchName: string;
 	onSubmit: (value: string) => void;
 	onExit: () => void;
-}> = ({ branchName, onSubmit, onExit }) => (
+	formRef?: Ref<HTMLFormElement>;
+}> = ({ branchName, onSubmit, onExit, formRef }) => (
 	<form
+		ref={formRef}
 		className={styles.editorForm}
 		onSubmit={(event) => {
 			event.preventDefault();
@@ -1703,14 +1703,6 @@ const InlineBranchNameEditor: FC<{
 			name="branchName"
 			defaultValue={branchName}
 			className={classes(styles.editorInput, styles.renameBranchInput)}
-			onKeyDown={(event) => {
-				handleRenameBranchKeyDown({
-					event: event.nativeEvent,
-					onSave: () => event.currentTarget.form?.requestSubmit(),
-					onCancel: onExit,
-				});
-			}}
-			onBlur={onExit}
 		/>
 		<EditorHelp bindings={renameBranchBindings} />
 	</form>
@@ -1718,6 +1710,7 @@ const InlineBranchNameEditor: FC<{
 
 const SegmentRow: FC<
 	{
+		branchRenameFormRef: Ref<HTMLFormElement>;
 		isDisabled: boolean;
 		isOperationPending: boolean;
 		commitModeOperation: Operation | null;
@@ -1729,6 +1722,7 @@ const SegmentRow: FC<
 		selectItem: (item: SelectedItem | null) => void;
 	} & ComponentProps<"div">
 > = ({
+	branchRenameFormRef,
 	isDisabled,
 	isOperationPending,
 	commitModeOperation,
@@ -1811,6 +1805,7 @@ const SegmentRow: FC<
 			{selected?.mode._tag === "Rename" && optimisticBranchName !== null ? (
 				<InlineBranchNameEditor
 					branchName={optimisticBranchName}
+					formRef={branchRenameFormRef}
 					onSubmit={saveBranchName}
 					onExit={endEditing}
 				/>
@@ -1878,7 +1873,9 @@ const SegmentRow: FC<
 };
 
 const SegmentC: FC<{
+	branchRenameFormRef: Ref<HTMLFormElement>;
 	commitModeOperation: Operation | null;
+	commitMessageFormRef: Ref<HTMLFormElement>;
 	isSelectedItemOperationPending: boolean;
 	highlightedCommitIds: Set<string>;
 	projectId: string;
@@ -1891,8 +1888,10 @@ const SegmentC: FC<{
 	stackId: string;
 	isDisabledItem: (item: Item) => boolean;
 }> = ({
+	branchRenameFormRef,
 	commitModeOperation,
 	isSelectedItemOperationPending,
+	commitMessageFormRef,
 	highlightedCommitIds,
 	isDisabledItem,
 	projectId,
@@ -1927,6 +1926,7 @@ const SegmentC: FC<{
 	return (
 		<div className={classes(isSectionSelected && sharedStyles.sectionSelected)}>
 			<SegmentRow
+				branchRenameFormRef={branchRenameFormRef}
 				isDisabled={isDisabledItem(item)}
 				isOperationPending={selectedSegment !== null && isSelectedItemOperationPending}
 				commitModeOperation={selectedSegment ? commitModeOperation : null}
@@ -1951,6 +1951,7 @@ const SegmentC: FC<{
 						<CommitC
 							branchName={segment.refName?.displayName ?? null}
 							commit={commit}
+							commitMessageFormRef={commitMessageFormRef}
 							isOperationPending={isSelected && isSelectedItemOperationPending}
 							isDisabled={isDisabledItem(item)}
 							commitModeOperation={isSelected ? commitModeOperation : null}
@@ -2029,8 +2030,10 @@ const UnassignedChangesLane: FC<{
 };
 
 const StackC: FC<{
+	branchRenameFormRef: Ref<HTMLFormElement>;
 	isDisabledItem: (item: Item) => boolean;
 	commitModeOperation: Operation | null;
+	commitMessageFormRef: Ref<HTMLFormElement>;
 	isSelectedItemOperationPending: boolean;
 	highlightedCommitIds: Set<string>;
 	onAbsorbChanges: (target: AbsorptionTarget) => void;
@@ -2044,9 +2047,11 @@ const StackC: FC<{
 	commitModeSource: Item | null;
 	enterCommitMode: (stackId: string | null) => void;
 }> = ({
+	branchRenameFormRef,
 	isDisabledItem,
 	commitModeOperation,
 	isSelectedItemOperationPending,
+	commitMessageFormRef,
 	highlightedCommitIds,
 	commitModeSource,
 	enterCommitMode,
@@ -2112,7 +2117,9 @@ const StackC: FC<{
 					// oxlint-disable-next-line react/no-array-index-key -- It's all we have.
 					<li key={segmentIndex}>
 						<SegmentC
+							branchRenameFormRef={branchRenameFormRef}
 							commitModeOperation={commitModeOperation}
+							commitMessageFormRef={commitMessageFormRef}
 							isSelectedItemOperationPending={isSelectedItemOperationPending}
 							highlightedCommitIds={highlightedCommitIds}
 							isDisabledItem={isDisabledItem}
@@ -2146,6 +2153,8 @@ const ProjectPage: FC = () => {
 	const toastManager = Toast.useToastManager();
 	const commitCreate = useMutation(commitCreateMutationOptions);
 
+	const branchRenameFormRef = useRef<HTMLFormElement | null>(null);
+	const commitMessageFormRef = useRef<HTMLFormElement | null>(null);
 	const previewRef = useRef<PreviewImperativeHandle | null>(null);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions());
@@ -2291,6 +2300,8 @@ const ProjectPage: FC = () => {
 	useMonitorDraggedOperationSourceRef({ projectId });
 
 	useWorkspaceShortcuts({
+		branchRenameFormRef,
+		commitMessageFormRef,
 		projectId,
 		scope: shortcutScope,
 		selectedFile: workspaceSelection.file,
@@ -2342,7 +2353,9 @@ const ProjectPage: FC = () => {
 						{headInfo.stacks.map((stack) => (
 							<div key={stack.id} className={styles.stackLane}>
 								<StackC
+									branchRenameFormRef={branchRenameFormRef}
 									commitModeOperation={commitModeOperation}
+									commitMessageFormRef={commitMessageFormRef}
 									isSelectedItemOperationPending={commitCreate.isPending}
 									highlightedCommitIds={highlightedCommitIds}
 									isDisabledItem={isDisabledItem}
