@@ -19,7 +19,7 @@
 		"@gitbutler/design-core": "2.2.1",
 		"@gitbutler/shared": "workspace:*",
 		"@gitbutler/ui": "workspace:*",
-		"@playwright/test": "1.58.2",
+		"@playwright/test": "1.59.1",
 		"@reduxjs/toolkit": "catalog:redux",
 		"@sveltejs/adapter-vercel": "^6.3.3",
 		"@sveltejs/kit": "catalog:svelte",
@@ -44,7 +44,7 @@
 	},
 	"dependencies": {
 		"@sentry/sveltekit": "catalog:svelte",
-		"@tryghost/content-api": "^1.12.5",
+		"@tryghost/content-api": "^1.12.6",
 		"@types/tryghost__content-api": "^1.3.17",
 		"dayjs": "^1.11.20",
 		"highlight.js": "^11.10.0",
