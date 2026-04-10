@@ -76,7 +76,7 @@ where
     Ok(Options {
         input,
         iterations,
-        csv
+        csv,
     })
 }
 
@@ -98,27 +98,27 @@ fn run_benchmarks(options: &Options) -> io::Result<Vec<Row>> {
     let cases = [
         Case {
             name: "gzip_read_copy",
-            bench: bench_read_decoder_copy
+            bench: bench_read_decoder_copy,
         },
         Case {
             name: "gzip_read_small_chunks",
-            bench: bench_read_decoder_small_chunks
+            bench: bench_read_decoder_small_chunks,
         },
         Case {
             name: "gzip_decompress_small_output",
-            bench: bench_decompress_small_output
+            bench: bench_decompress_small_output,
         },
         Case {
             name: "gzip_bufread_copy",
-            bench: bench_bufread_decoder_copy
+            bench: bench_bufread_decoder_copy,
         },
         Case {
             name: "tar_archive_entries",
-            bench: bench_tar_archive_entries
+            bench: bench_tar_archive_entries,
         },
         Case {
             name: "tar_archive_entries_bufread",
-            bench: bench_tar_archive_entries_bufread
+            bench: bench_tar_archive_entries_bufread,
         },
     ];
     let mut rows = Vec::with_capacity(cases.len() * options.iterations);
