@@ -190,7 +190,7 @@ fn capabilities_for(forge: &ForgeName) -> ForgeCapabilities {
             list_service: true,
         },
         ForgeName::GitLab => ForgeCapabilities {
-            checks: false,
+            checks: true,
             repo_info: true,
             pr_service: true,
             list_service: true,
@@ -323,6 +323,8 @@ mod tests {
 
     #[test]
     fn gitlab_commit_and_mr_urls() {
+        let info = forge_info("https://gitlab.com/group/repo.git").unwrap();
+        assert!(info.capabilities.checks);
         assert_eq!(
             composed_commit_url("https://gitlab.com/group/repo.git", "abc123"),
             "https://gitlab.com/group/repo/-/commit/abc123"
