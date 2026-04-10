@@ -126,6 +126,23 @@ fn detect_shell_config(
     }
 }
 
+#[cfg(target_os = "freebsd")]
+fn detect_shell_config(
+    zshrc: &Path,
+    // bash_profile is only sourced when executing a login shell, which is rarely how shells are
+    // invoked on Linux distros. Therefore, we ignore it when detecting shell config on Linux.
+    _bash_profile: &Path,
+    bashrc: &Path,
+) -> Option<(PathBuf, ShellType)> {
+    if zshrc.exists() {
+        Some((zshrc.to_path_buf(), ShellType::Zsh))
+    } else if bashrc.exists() {
+        Some((bashrc.to_path_buf(), ShellType::Bash))
+    } else {
+        None
+    }
+}
+
 fn setup_fish_config(fish_config: &Path, _bin_dir: &Path, already_in_path: bool) -> Result<()> {
     let contents = fs::read_to_string(fish_config).unwrap_or_default();
 

@@ -30,6 +30,8 @@ struct ClaudeSetting {
 const ENTERPRISE_PATH: &str = "/Library/Application Support/ClaudeCode/managed-settings.json";
 #[cfg(target_os = "linux")]
 const ENTERPRISE_PATH: &str = "/etc/claude-code/managed-settings.json";
+#[cfg(target_os = "freebsd")]
+const ENTERPRISE_PATH: &str = "/usr/local/etc/claude-code/managed-settings.json";
 #[cfg(target_os = "windows")]
 const ENTERPRISE_PATH: &str = "C:\\ProgramData\\ClaudeCode\\managed-settings.json";
 

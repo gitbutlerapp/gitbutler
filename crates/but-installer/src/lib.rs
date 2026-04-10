@@ -19,6 +19,9 @@ mod install_linux;
 #[cfg(target_os = "macos")]
 mod install_macos;
 
+#[cfg(target_os = "freebsd")]
+mod install_freebsd;
+
 use anyhow::Result;
 use config::{Channel, InstallerConfig};
 // Re-export types for public API consumers
@@ -32,6 +35,8 @@ use ui::{info, success};
 use crate::install_linux::download_and_install_app;
 #[cfg(target_os = "macos")]
 use crate::install_macos::download_and_install_app;
+#[cfg(target_os = "freebsd")]
+use crate::install_freebsd::download_and_install_app;
 
 /// Runs the complete GitButler installation process with a specific version.
 ///

@@ -229,10 +229,9 @@ serde_json = "1.0.148"
 thiserror = "2.0.17"
 tokio = { version = "1.50.0", default-features = false }
 keyring = { version = "3.6.3", features = [
-    "apple-native",
-    "windows-native",
-    "linux-native-sync-persistent",
     "crypto-rust",
+    "sync-secret-service",
+
 ] }
 anyhow = "1.0.100"
 parking_lot = "0.12.4"

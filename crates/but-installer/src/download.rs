@@ -7,7 +7,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use crate::http::create_client;
 
 /// Download a URL and return its contents as a string.
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 pub(crate) fn download_to_string(url: &str) -> Result<String> {
     let mut easy = create_client()?;
 
