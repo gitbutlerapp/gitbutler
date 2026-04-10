@@ -43,8 +43,8 @@
 		"node": ">= 18"
 	},
 	"devDependencies": {
-		"@napi-rs/cli": "^3.5.1",
-		"@types/node": "^22.19.11",
+		"@napi-rs/cli": "^3.6.0",
+		"@types/node": "^22.19.17",
 		"ts-node": "^10.9.2"
 	},
 	"files": [

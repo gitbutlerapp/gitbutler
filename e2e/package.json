@@ -2,8 +2,8 @@
 	"name": "@gitbutler/e2e",
 	"type": "module",
 	"devDependencies": {
-		"@playwright/test": "1.58.2",
-		"@types/node": "^22.19.11",
+		"@playwright/test": "1.59.1",
+		"@types/node": "^22.19.17",
 		"@wdio/cli": "^9.26.1",
 		"@wdio/globals": "^9.26.1",
 		"@wdio/local-runner": "^9.26.1",
@@ -22,7 +22,7 @@
 	},
 	"dependencies": {
 		"@gitbutler/ui": "workspace:*",
-		"get-port": "^7.1.0",
+		"get-port": "^7.2.0",
 		"tmp-promise": "^3.0.3"
 	}
 }
