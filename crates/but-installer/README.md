@@ -40,3 +40,13 @@ cargo test -p but-installer
 ```
 
 The binary is optimized for size (~1.0MB) using system libcurl instead of bundling an HTTP client. Keeping this installer slim is a priority since it is downloaded before every installation.
+
+## Flate2 backend regression benchmark
+
+To compare the flate2 `zlib-ng` and `zlib-rs` backends against the installer's gzip/tar workloads, run:
+
+```bash
+cargo test -p but-installer --release --test flate2_backends -- --ignored --nocapture
+```
+
+The test writes per-iteration CSV output for both backends into a temporary directory and fails if `zlib-rs` is more than 2.5x slower than the `zlib-ng` baseline on any benchmarked API.

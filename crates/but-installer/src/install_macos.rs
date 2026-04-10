@@ -3,14 +3,14 @@
 use std::{
     fs::{self, File},
     io,
-    io::Read,
+    io::{BufReader, Read},
     os::unix::fs as unix_fs,
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 
 use anyhow::{Context, Result, anyhow, bail};
-use flate2::read::GzDecoder;
+use flate2::bufread::GzDecoder;
 use tar::Archive;
 
 use crate::{
@@ -313,7 +313,7 @@ fn copy_dir_all(src: &Path, dst: &Path) -> io::Result<()> {
 
 pub(crate) fn extract_tarball(tarball: &Path, dest_dir: &Path) -> Result<PathBuf> {
     let file = File::open(tarball)?;
-    let decoder = GzDecoder::new(file);
+    let decoder = GzDecoder::new(BufReader::new(file));
     let mut archive = Archive::new(decoder);
     archive
         .unpack(dest_dir)

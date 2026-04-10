@@ -1,0 +1,17 @@
+[package]
+name = "but-installer-flate2-bench"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.89"
+publish = false
+
+[workspace]
+
+[features]
+default = []
+zlib-ng-backend = ["flate2/zlib-ng"]
+zlib-rs-backend = ["flate2/zlib-rs"]
+
+[dependencies]
+flate2 = { version = "1.0", default-features = false }
+tar = "0.4"

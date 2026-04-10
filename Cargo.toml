@@ -134,6 +134,7 @@ members = [
     # To be removed and ported.
     "crates/gitbutler-*",
 ]
+exclude = ["crates/but-installer/perf/flate2-bench"]
 resolver = "2"
 
 [workspace.package]
