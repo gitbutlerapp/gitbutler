@@ -171,7 +171,7 @@ pub fn list_reviews(
         let forge_repo_info = but_forge::derive_forge_repo_info(&base_branch.remote_url);
 
         (
-            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            but_forge_storage::Controller::from_path(but_path::app_config_dir()?),
             forge_repo_info,
             ctx.legacy_project.preferred_forge_user.clone(),
         )
@@ -197,7 +197,7 @@ pub fn get_review(ctx: &mut Context, review_id: usize) -> Result<but_forge::Forg
             .context("No forge could be determined for this repository.")?;
 
         (
-            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            but_forge_storage::Controller::from_path(but_path::app_config_dir()?),
             forge_repo_info,
             ctx.legacy_project.preferred_forge_user.clone(),
         )
@@ -225,7 +225,7 @@ pub fn list_ci_checks_and_update_cache(
         let forge_repo_info = but_forge::derive_forge_repo_info(&base_branch.remote_url);
 
         (
-            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            but_forge_storage::Controller::from_path(but_path::app_config_dir()?),
             forge_repo_info,
             ctx.legacy_project.preferred_forge_user.clone(),
         )
@@ -263,7 +263,7 @@ pub async fn publish_review(
         };
 
         (
-            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            but_forge_storage::Controller::from_path(but_path::app_config_dir()?),
             forge_repo_info,
             forge_push_repo_info,
             ctx.legacy_project.preferred_forge_user.clone(),
@@ -290,7 +290,7 @@ pub async fn merge_review(ctx: ThreadSafeContext, review_id: usize) -> Result<()
         let forge_repo_info = but_forge::derive_forge_repo_info(&base_branch.remote_url);
 
         (
-            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            but_forge_storage::Controller::from_path(but_path::app_config_dir()?),
             forge_repo_info,
             ctx.legacy_project.preferred_forge_user.clone(),
         )
@@ -319,7 +319,7 @@ pub async fn set_review_auto_merge(
         let forge_repo_info = but_forge::derive_forge_repo_info(&base_branch.remote_url);
 
         (
-            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            but_forge_storage::Controller::from_path(but_path::app_config_dir()?),
             forge_repo_info,
             ctx.legacy_project.preferred_forge_user.clone(),
         )
@@ -349,7 +349,7 @@ pub async fn set_review_draftiness(
         let forge_repo_info = but_forge::derive_forge_repo_info(&base_branch.remote_url);
 
         (
-            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            but_forge_storage::Controller::from_path(but_path::app_config_dir()?),
             forge_repo_info,
             ctx.legacy_project.preferred_forge_user.clone(),
         )
@@ -378,7 +378,7 @@ pub async fn update_review_footers(
         let forge_repo_info = but_forge::derive_forge_repo_info(&base_branch.remote_url);
 
         (
-            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            but_forge_storage::Controller::from_path(but_path::app_config_dir()?),
             forge_repo_info,
             ctx.legacy_project.preferred_forge_user.clone(),
         )
@@ -405,7 +405,7 @@ pub async fn list_reviews_for_branch(
         let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
         let forge_repo_info = but_forge::derive_forge_repo_info(&base_branch.remote_url);
         (
-            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            but_forge_storage::Controller::from_path(but_path::app_config_dir()?),
             forge_repo_info,
             ctx.legacy_project.clone(),
         )

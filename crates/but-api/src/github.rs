@@ -41,7 +41,7 @@ pub async fn init_github_device_oauth() -> Result<Verification> {
 #[but_api(json::AuthStatusResponseSensitive)]
 #[instrument(err(Debug))]
 pub async fn check_github_auth_status(device_code: String) -> Result<AuthStatusResponse> {
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let storage = but_forge_storage::Controller::from_path(but_path::app_config_dir()?);
     but_github::check_github_auth_status(device_code, &storage).await
 }
 
@@ -61,7 +61,7 @@ pub async fn check_github_auth_status(device_code: String) -> Result<AuthStatusR
 #[but_api(json::AuthStatusResponseSensitive)]
 #[instrument(err(Debug))]
 pub async fn store_github_pat(access_token: Sensitive<String>) -> Result<AuthStatusResponse> {
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let storage = but_forge_storage::Controller::from_path(but_path::app_config_dir()?);
     but_github::store_pat(&access_token, &storage).await
 }
 
@@ -85,7 +85,7 @@ pub async fn store_github_enterprise_pat(
     access_token: Sensitive<String>,
     host: String,
 ) -> Result<AuthStatusResponse> {
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let storage = but_forge_storage::Controller::from_path(but_path::app_config_dir()?);
     but_github::store_enterprise_pat(&host, &access_token, &storage).await
 }
 
@@ -104,7 +104,7 @@ pub async fn store_github_enterprise_pat(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn forget_github_account(account: but_github::GithubAccountIdentifier) -> Result<()> {
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let storage = but_forge_storage::Controller::from_path(but_path::app_config_dir()?);
     but_github::forget_gh_access_token(&account, &storage).ok();
     Ok(())
 }
@@ -121,7 +121,7 @@ pub fn forget_github_account(account: but_github::GithubAccountIdentifier) -> Re
 #[but_api]
 #[instrument(err(Debug))]
 pub fn clear_all_github_tokens() -> Result<()> {
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let storage = but_forge_storage::Controller::from_path(but_path::app_config_dir()?);
     but_github::clear_all_github_tokens(&storage)
 }
 
@@ -144,7 +144,7 @@ pub fn clear_all_github_tokens() -> Result<()> {
 pub async fn get_gh_user(
     account: but_github::GithubAccountIdentifier,
 ) -> Result<Option<AuthenticatedUser>> {
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let storage = but_forge_storage::Controller::from_path(but_path::app_config_dir()?);
     but_github::get_gh_user(&account, &storage).await
 }
 
@@ -160,7 +160,7 @@ pub async fn get_gh_user(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn list_known_github_accounts() -> Result<Vec<but_github::GithubAccountIdentifier>> {
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let storage = but_forge_storage::Controller::from_path(but_path::app_config_dir()?);
     but_github::list_known_github_accounts(&storage)
 }
 
@@ -182,6 +182,6 @@ pub fn list_known_github_accounts() -> Result<Vec<but_github::GithubAccountIdent
 pub async fn check_github_credentials(
     account: but_github::GithubAccountIdentifier,
 ) -> Result<but_github::CredentialCheckResult> {
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let storage = but_forge_storage::Controller::from_path(but_path::app_config_dir()?);
     but_github::check_credentials(&account, &storage).await
 }

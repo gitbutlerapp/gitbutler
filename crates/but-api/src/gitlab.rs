@@ -20,7 +20,7 @@ use tracing::instrument;
 #[but_api(json::AuthStatusResponseSensitive)]
 #[instrument(err(Debug))]
 pub async fn store_gitlab_pat(access_token: Sensitive<String>) -> Result<AuthStatusResponse> {
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let storage = but_forge_storage::Controller::from_path(but_path::app_config_dir()?);
     but_gitlab::store_pat(&access_token, &storage).await
 }
 
@@ -44,7 +44,7 @@ pub async fn store_gitlab_selfhosted_pat(
     access_token: Sensitive<String>,
     host: String,
 ) -> Result<AuthStatusResponse> {
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let storage = but_forge_storage::Controller::from_path(but_path::app_config_dir()?);
     but_gitlab::store_selfhosted_pat(&host, &access_token, &storage).await
 }
 
@@ -63,7 +63,7 @@ pub async fn store_gitlab_selfhosted_pat(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn forget_gitlab_account(account: but_gitlab::GitlabAccountIdentifier) -> Result<()> {
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let storage = but_forge_storage::Controller::from_path(but_path::app_config_dir()?);
     but_gitlab::forget_gl_access_token(&account, &storage).ok();
     Ok(())
 }
@@ -80,7 +80,7 @@ pub fn forget_gitlab_account(account: but_gitlab::GitlabAccountIdentifier) -> Re
 #[but_api]
 #[instrument(err(Debug))]
 pub fn clear_all_gitlab_tokens() -> Result<()> {
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let storage = but_forge_storage::Controller::from_path(but_path::app_config_dir()?);
     but_gitlab::clear_all_gitlab_tokens(&storage)
 }
 
@@ -103,7 +103,7 @@ pub fn clear_all_gitlab_tokens() -> Result<()> {
 pub async fn get_gl_user(
     account: but_gitlab::GitlabAccountIdentifier,
 ) -> Result<Option<AuthenticatedUser>> {
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let storage = but_forge_storage::Controller::from_path(but_path::app_config_dir()?);
     but_gitlab::get_gl_user(&account, &storage).await
 }
 
@@ -119,7 +119,7 @@ pub async fn get_gl_user(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn list_known_gitlab_accounts() -> Result<Vec<but_gitlab::GitlabAccountIdentifier>> {
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let storage = but_forge_storage::Controller::from_path(but_path::app_config_dir()?);
     but_gitlab::list_known_gitlab_accounts(&storage)
 }
 
@@ -141,6 +141,6 @@ pub fn list_known_gitlab_accounts() -> Result<Vec<but_gitlab::GitlabAccountIdent
 pub async fn check_gitlab_credentials(
     account: but_gitlab::GitlabAccountIdentifier,
 ) -> Result<but_gitlab::CredentialCheckResult> {
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+    let storage = but_forge_storage::Controller::from_path(but_path::app_config_dir()?);
     but_gitlab::check_credentials(&account, &storage).await
 }
