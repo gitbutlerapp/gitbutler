@@ -1,6 +1,7 @@
 <script lang="ts">
 	import GithubIntegration from "$components/settings/GithubIntegration.svelte";
 	import GitlabIntegration from "$components/settings/GitlabIntegration.svelte";
+	import GiteaIntegration from "$components/settings/GiteaIntegration.svelte";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { inject } from "@gitbutler/core/context";
 	import { CardGroup, Spacer, Toggle } from "@gitbutler/ui";
@@ -17,6 +18,7 @@
 
 <GithubIntegration />
 <GitlabIntegration />
+<GiteaIntegration />
 <Spacer />
 <CardGroup>
 	<CardGroup.Item labelFor="autoFillPrDescription">

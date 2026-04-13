@@ -21,6 +21,8 @@ fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
         Some(ForgeName::GitHub)
     } else if host.contains("gitlab.com") || host.starts_with("gitlab.") {
         Some(ForgeName::GitLab)
+    } else if host.contains("gitea.com") || host.starts_with("gitea.") {
+        Some(ForgeName::Gitea)
     } else if host.contains("bitbucket.org") {
         Some(ForgeName::Bitbucket)
     } else if host.contains("azure.com") {
@@ -70,11 +72,16 @@ fn match_host_to_accounts_custom_host(host: &str, accounts: &[ForgeUser]) -> Opt
             .custom_host()
             .as_deref()
             .is_some_and(|custom_host| custom_host_matches_repository_host(host, custom_host)),
+        ForgeUser::Gitea(gt_account) => gt_account
+            .custom_host()
+            .as_deref()
+            .is_some_and(|custom_host| custom_host_matches_repository_host(host, custom_host)),
     });
 
     match user {
         Some(ForgeUser::GitHub(_)) => Some(ForgeName::GitHub),
         Some(ForgeUser::GitLab(_)) => Some(ForgeName::GitLab),
+        Some(ForgeUser::Gitea(_)) => Some(ForgeName::Gitea),
         None => None,
     }
 }
@@ -132,6 +139,7 @@ pub fn get_all_forge_accounts() -> anyhow::Result<Vec<ForgeUser>> {
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
     let gh_accounts = but_github::list_known_github_accounts(&storage)?;
     let gl_accounts = but_gitlab::list_known_gitlab_accounts(&storage)?;
+    let gt_accounts = but_gitea::list_known_gitea_accounts(&storage)?;
 
     let mut forge_users = vec![];
     for gh_account in gh_accounts {
@@ -140,6 +148,10 @@ pub fn get_all_forge_accounts() -> anyhow::Result<Vec<ForgeUser>> {
 
     for gl_account in gl_accounts {
         forge_users.push(ForgeUser::GitLab(gl_account));
+    }
+
+    for gt_account in gt_accounts {
+        forge_users.push(ForgeUser::Gitea(gt_account));
     }
 
     Ok(forge_users)
@@ -172,6 +184,18 @@ mod tests {
         assert_eq!(
             match_host_to_accounts_custom_host("gl.example.com", &accounts),
             Some(ForgeName::GitLab)
+        );
+    }
+
+    #[test]
+    fn matches_gitea_self_hosted_custom_host() {
+        let accounts = vec![ForgeUser::Gitea(
+            but_gitea::GiteaAccountIdentifier::selfhosted("charlie", "gt.example.com"),
+        )];
+
+        assert_eq!(
+            match_host_to_accounts_custom_host("gt.example.com", &accounts),
+            Some(ForgeName::Gitea)
         );
     }
 

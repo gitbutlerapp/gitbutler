@@ -24,6 +24,8 @@ import type { IBackend } from "$lib/backend";
 type GitHubClient = {};
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 type GitLabClient = {};
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type GiteaClient = {};
 import type { ReduxError } from "$lib/error/reduxError";
 import type { PostHogWrapper } from "$lib/telemetry/posthog";
 
@@ -44,6 +46,12 @@ export type GitHubApi = ReturnType<typeof createGitHubApi>;
  * colocated with the feature they support.
  */
 export type GitLabApi = ReturnType<typeof createGitLabApi>;
+
+/**
+ * Gitea API object that enables the declaration and usage of endpoints
+ * colocated with the feature they support.
+ */
+export type GiteaApi = ReturnType<typeof createGiteaApi>;
 
 export const CLIENT_STATE = new InjectionToken<ClientState>("ClientState");
 
@@ -79,10 +87,14 @@ export class ClientState {
 	/** rtk-query api for communicating with GitLab. */
 	readonly gitlabApi: GitLabApi;
 
+	/** rtk-query api for communicating with Gitea. */
+	readonly giteaApi: GiteaApi;
+
 	constructor(
 		backend: IBackend,
 		gitHubClient: GitHubClient,
 		gitLabClient: GitLabClient,
+		giteaClient: GiteaClient,
 		posthog: PostHogWrapper,
 	) {
 		// Cast required: store state has non-RTKQ slices (uiState, messageQueue)
@@ -97,14 +109,17 @@ export class ClientState {
 		const butlerMod = butlerModule(ctx);
 		this.githubApi = createGitHubApi(butlerMod);
 		this.gitlabApi = createGitLabApi(butlerMod);
+		this.giteaApi = createGiteaApi(butlerMod);
 
 		const { store, reducer } = createStore({
 			backend,
 			gitHubClient,
 			gitLabClient,
+			giteaClient,
 			backendApi: this.backendApi,
 			githubApi: this.githubApi,
 			gitlabApi: this.gitlabApi,
+			giteaApi: this.giteaApi,
 		});
 
 		this.store = store;
@@ -157,11 +172,13 @@ function createStore(params: {
 	backend: IBackend;
 	gitHubClient: GitHubClient;
 	gitLabClient: GitLabClient;
+	giteaClient: GiteaClient;
 	backendApi: BackendApi;
 	githubApi: GitHubApi;
 	gitlabApi: GitLabApi;
+	giteaApi: GiteaApi;
 }) {
-	const { backend, gitHubClient, gitLabClient, backendApi, githubApi, gitlabApi } = params;
+	const { backend, gitHubClient, gitLabClient, giteaClient, backendApi, githubApi, gitlabApi, giteaApi } = params;
 
 	// We can't use the `persistStore` function because it doesn't work
 	// with injected reducers. We should inject all reduces so we don't
@@ -171,6 +188,7 @@ function createStore(params: {
 		backendApi,
 		githubApi,
 		gitlabApi,
+		giteaApi,
 	)
 		.inject({
 			reducerPath: uiStateSlice.reducerPath,
@@ -199,14 +217,15 @@ function createStore(params: {
 						backend,
 						gitHubClient,
 						gitLabClient,
+						giteaClient,
 					},
 				},
 				serializableCheck: {
 					ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
 					// skip the serializable check for rtk-query cache (contains only serializable data)
-					ignoredPaths: ["backend", "github", "gitlab"],
+					ignoredPaths: ["backend", "github", "gitlab", "gitea"],
 				},
-			}).concat(backendApi.middleware, githubApi.middleware, gitlabApi.middleware);
+			}).concat(backendApi.middleware, githubApi.middleware, gitlabApi.middleware, giteaApi.middleware);
 		},
 	});
 
@@ -253,6 +272,17 @@ export function createGitLabApi(butlerMod: ReturnType<typeof butlerModule>) {
 		butlerMod,
 	)({
 		reducerPath: "gitlab",
+		// Using fake base query for forge APIs (GitHub/GitLab) since they use queryFn
+		...FORGE_API_CONFIG,
+	});
+}
+
+export function createGiteaApi(butlerMod: ReturnType<typeof butlerModule>) {
+	return buildCreateApi(
+		coreModule(),
+		butlerMod,
+	)({
+		reducerPath: "gitea",
 		// Using fake base query for forge APIs (GitHub/GitLab) since they use queryFn
 		...FORGE_API_CONFIG,
 	});

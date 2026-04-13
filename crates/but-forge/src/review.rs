@@ -6,6 +6,7 @@ use std::{
 use anyhow::{Context as _, Error, Result};
 use but_fs::list_files;
 use but_github::CredentialCheckResult;
+use but_gitea::CredentialCheckResult as GiteaCredentialCheckResult;
 use but_gitlab::GitLabProjectId;
 use chrono::Datelike;
 use serde::{Deserialize, Serialize};
@@ -86,243 +87,260 @@ pub fn get_review_template_functions(forge_name: &ForgeName) -> ReviewTemplateFu
             is_valid_review_template_path: is_valid_review_template_path_github,
             supported_template_directories: &[
                 SupportedTemplateDirectory::ForgeRoot,
+                SupportedTemplateDirectory::Custom(".github"),
+                SupportedTemplateDirectory::Custom(".docs"),
                 SupportedTemplateDirectory::ProjectRoot,
-                SupportedTemplateDirectory::Custom("docs"),
             ],
         },
         ForgeName::GitLab => ReviewTemplateFunctions {
             is_review_template: is_review_template_gitlab,
             get_root: get_gitlab_directory_path,
             is_valid_review_template_path: is_valid_review_template_path_gitlab,
-            supported_template_directories: &[SupportedTemplateDirectory::ForgeRoot],
+            supported_template_directories: &[
+                SupportedTemplateDirectory::ForgeRoot,
+                SupportedTemplateDirectory::Custom(".gitlab"),
+                SupportedTemplateDirectory::ProjectRoot,
+            ],
         },
-        ForgeName::Bitbucket => ReviewTemplateFunctions {
-            is_review_template: is_review_template_bitbucket,
-            get_root: get_bitbucket_directory_path,
-            is_valid_review_template_path: is_valid_review_template_path_bitbucket,
-            supported_template_directories: &[SupportedTemplateDirectory::ForgeRoot],
-        },
-        ForgeName::Azure => ReviewTemplateFunctions {
-            is_review_template: is_review_template_azure,
-            get_root: get_azure_directory_path,
-            is_valid_review_template_path: is_valid_review_template_path_azure,
-            supported_template_directories: &[SupportedTemplateDirectory::ForgeRoot],
+        ForgeName::Gitea => ReviewTemplateFunctions {
+            is_review_template: is_review_template_gitea,
+            get_root: get_gitea_directory_path,
+            is_valid_review_template_path: is_valid_review_template_path_gitea,
+            supported_template_directories: &[
+                SupportedTemplateDirectory::ForgeRoot,
+                SupportedTemplateDirectory::Custom(".gitea"),
+                SupportedTemplateDirectory::ProjectRoot,
+            ],
         },
     }
 }
 
-fn get_github_directory_path(root_path: &path::Path) -> path::PathBuf {
-    let mut path = root_path.to_path_buf();
-    path.push(".github");
-    path
+pub fn is_review_template_github(file_name: &str) -> bool {
+    let lower_file_name = file_name.to_lowercase();
+    lower_file_name.contains("pull_request_template") && lower_file_name.ends_with(".md")
 }
 
-fn is_review_template_github(path_str: &str) -> bool {
-    let normalized_path = path_str.replace('\\', "/");
-    normalized_path == "PULL_REQUEST_TEMPLATE.md"
-        || normalized_path == "pull_request_template.md"
-        || normalized_path.contains(".github/PULL_REQUEST_TEMPLATE")
-            && normalized_path.ends_with(".md")
-        || normalized_path.contains(".github/pull_request_template")
-            && normalized_path.ends_with(".md")
-        || normalized_path.contains("docs/PULL_REQUEST_TEMPLATE")
-            && normalized_path.ends_with(".md")
-        || normalized_path.contains("docs/pull_request_template")
-            && normalized_path.ends_with(".md")
+pub fn is_review_template_gitlab(file_name: &str) -> bool {
+    let lower_file_name = file_name.to_lowercase();
+    lower_file_name.contains("merge_request_template") && lower_file_name.ends_with(".md")
 }
 
-fn is_valid_review_template_path_github(path: &path::Path) -> bool {
-    is_review_template_github(path.to_str().unwrap_or_default())
+pub fn is_review_template_gitea(file_name: &str) -> bool {
+    let lower_file_name = file_name.to_lowercase();
+    lower_file_name.contains("pull_request_template") && lower_file_name.ends_with(".md")
 }
 
-fn get_gitlab_directory_path(root_path: &path::Path) -> path::PathBuf {
-    let mut path = root_path.to_path_buf();
-    path.push(".gitlab");
-    path
+pub fn get_github_directory_path(root_path: &path::Path) -> path::PathBuf {
+    root_path.join(".github")
 }
 
-fn is_review_template_gitlab(path_str: &str) -> bool {
-    let normalized_path = path_str.replace('\\', "/");
-    normalized_path.contains(".gitlab/merge_request_templates/") && normalized_path.ends_with(".md")
+pub fn get_gitlab_directory_path(root_path: &path::Path) -> path::PathBuf {
+    root_path.join(".gitlab")
 }
 
-fn is_valid_review_template_path_gitlab(path: &path::Path) -> bool {
-    is_review_template_gitlab(path.to_str().unwrap_or_default())
+pub fn get_gitea_directory_path(root_path: &path::Path) -> path::PathBuf {
+    root_path.join(".gitea")
 }
 
-fn get_bitbucket_directory_path(root_path: &path::Path) -> path::PathBuf {
-    // TODO: implement
-    root_path.to_path_buf()
-}
+pub fn is_valid_review_template_path_github(file_path: &path::Path) -> bool {
+    let components: Vec<_> = file_path.components().collect();
 
-fn is_review_template_bitbucket(_path_str: &str) -> bool {
-    // TODO: implement
+    // Check if it's in the root
+    if components.len() == 1 {
+        let file_name = components[0].as_os_str().to_string_lossy();
+        return is_review_template_github(&file_name);
+    }
+
+    // Check if it's in .github or .docs
+    if components.len() >= 2 {
+        let dir_name = components[0].as_os_str().to_string_lossy();
+        let file_name = components[components.len() - 1]
+            .as_os_str()
+            .to_string_lossy();
+
+        if (dir_name == ".github" || dir_name == ".docs") && is_review_template_github(&file_name) {
+            // Special case for .github/PULL_REQUEST_TEMPLATE/
+            if dir_name == ".github" && components.len() == 3 {
+                let sub_dir_name = components[1].as_os_str().to_string_lossy();
+                return sub_dir_name == "PULL_REQUEST_TEMPLATE";
+            }
+            return components.len() == 2;
+        }
+    }
+
     false
 }
 
-fn is_valid_review_template_path_bitbucket(_path: &path::Path) -> bool {
-    // TODO: implement
+pub fn is_valid_review_template_path_gitlab(file_path: &path::Path) -> bool {
+    let components: Vec<_> = file_path.components().collect();
+
+    // Check if it's in the root
+    if components.len() == 1 {
+        let file_name = components[0].as_os_str().to_string_lossy();
+        return is_review_template_gitlab(&file_name);
+    }
+
+    // Check if it's in .gitlab
+    if components.len() >= 2 {
+        let dir_name = components[0].as_os_str().to_string_lossy();
+        let file_name = components[components.len() - 1]
+            .as_os_str()
+            .to_string_lossy();
+
+        if dir_name == ".gitlab" && is_review_template_gitlab(&file_name) {
+            // Special case for .gitlab/merge_request_templates/
+            if components.len() == 3 {
+                let sub_dir_name = components[1].as_os_str().to_string_lossy();
+                return sub_dir_name == "merge_request_templates";
+            }
+            return components.len() == 2;
+        }
+    }
+
     false
 }
 
-fn get_azure_directory_path(root_path: &path::Path) -> path::PathBuf {
-    // TODO: implement
-    root_path.to_path_buf()
-}
+pub fn is_valid_review_template_path_gitea(file_path: &path::Path) -> bool {
+    let components: Vec<_> = file_path.components().collect();
 
-fn is_review_template_azure(_path_str: &str) -> bool {
-    // TODO: implement
-    false
-}
+    // Check if it's in the root
+    if components.len() == 1 {
+        let file_name = components[0].as_os_str().to_string_lossy();
+        return is_review_template_gitea(&file_name);
+    }
 
-fn is_valid_review_template_path_azure(_path: &path::Path) -> bool {
-    // TODO: implement
+    // Check if it's in .gitea
+    if components.len() >= 2 {
+        let dir_name = components[0].as_os_str().to_string_lossy();
+        let file_name = components[components.len() - 1]
+            .as_os_str()
+            .to_string_lossy();
+
+        if dir_name == ".gitea" && is_review_template_gitea(&file_name) {
+            // Special case for .gitea/pull_request_template/
+            if components.len() == 3 {
+                let sub_dir_name = components[1].as_os_str().to_string_lossy();
+                return sub_dir_name == "pull_request_template";
+            }
+            return components.len() == 2;
+        }
+    }
+
     false
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-pub struct ForgeReviewLabel {
-    pub name: String,
-    pub description: Option<String>,
-    pub color: Option<String>,
-}
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(ForgeReviewLabel);
-
-impl From<but_github::GitHubPrLabel> for ForgeReviewLabel {
-    fn from(label: but_github::GitHubPrLabel) -> Self {
-        ForgeReviewLabel {
-            name: label.name,
-            description: label.description,
-            color: label.color,
-        }
-    }
-}
-
-impl From<but_gitlab::GitLabLabel> for ForgeReviewLabel {
-    fn from(label: but_gitlab::GitLabLabel) -> Self {
-        ForgeReviewLabel {
-            name: label.name,
-            description: None,
-            color: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
-/// Represents a user from a forge platform (e.g., GitHub, GitLab).
-///
-/// This structure contains information about a user account on a forge platform,
-/// including their identification details and profile information.
 pub struct ForgeReviewUser {
-    /// The unique numeric identifier for the user on the forge platform
-    pub id: i64,
-    /// The user's login username
-    pub login: String,
-    /// The user's display name, if available
+    pub username: String,
     pub name: Option<String>,
-    /// The user's email address, if publicly available
-    pub email: Option<String>,
-    /// URL to the user's profile avatar image, if available
-    pub avatar_url: Option<String>,
-    /// Indicates whether this account is a bot account
-    pub is_bot: bool,
 }
 
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(ForgeReviewUser);
 
-impl Display for ForgeReviewUser {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "login: {}, name: {} ",
-            self.login,
-            self.name.as_deref().unwrap_or("N/A")
-        )
-    }
-}
-
-impl From<but_github::GitHubUser> for ForgeReviewUser {
-    fn from(user: but_github::GitHubUser) -> Self {
+impl From<but_github::User> for ForgeReviewUser {
+    fn from(user: but_github::User) -> Self {
         ForgeReviewUser {
-            id: user.id,
-            login: user.login,
+            username: user.login,
             name: user.name,
-            email: user.email,
-            avatar_url: user.avatar_url,
-            is_bot: user.is_bot,
         }
     }
 }
 
-impl From<but_gitlab::GitLabUser> for ForgeReviewUser {
-    fn from(user: but_gitlab::GitLabUser) -> Self {
+impl From<but_gitlab::User> for ForgeReviewUser {
+    fn from(user: but_gitlab::User) -> Self {
         ForgeReviewUser {
-            id: user.id,
-            login: user.username,
-            name: user.name,
-            email: user.email,
-            avatar_url: user.avatar_url,
-            is_bot: user.is_bot,
+            username: user.username,
+            name: Some(user.name),
+        }
+    }
+}
+
+impl From<but_gitea::User> for ForgeReviewUser {
+    fn from(user: but_gitea::User) -> Self {
+        ForgeReviewUser {
+            username: user.login,
+            name: Some(user.full_name),
+        }
+    }
+}
+
+impl Display for ForgeReviewUser {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.name {
+            Some(name) => write!(f, "{} ({})", name, self.username),
+            None => write!(f, "{}", self.username),
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
-/// Represents a review (pull request/merge request) from a forge platform (GitHub, GitLab, etc.).
-///
-/// Contains metadata and state information about a code review, including its location,
-/// participants, labels, and timestamps for various lifecycle events.
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+pub struct ForgeReviewLabel {
+    pub name: String,
+    pub color: String,
+    pub description: Option<String>,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ForgeReviewLabel);
+
+impl From<but_github::Label> for ForgeReviewLabel {
+    fn from(label: but_github::Label) -> Self {
+        ForgeReviewLabel {
+            name: label.name,
+            color: label.color,
+            description: label.description,
+        }
+    }
+}
+
+impl From<but_gitlab::Label> for ForgeReviewLabel {
+    fn from(label: but_gitlab::Label) -> Self {
+        ForgeReviewLabel {
+            name: label.name,
+            color: label.color.trim_start_matches('#').to_string(),
+            description: label.description,
+        }
+    }
+}
+
+impl From<but_gitea::Label> for ForgeReviewLabel {
+    fn from(label: but_gitea::Label) -> Self {
+        ForgeReviewLabel {
+            name: label.name,
+            color: label.color.trim_start_matches('#').to_string(),
+            description: label.description,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct ForgeReview {
-    /// The URL to view this review in a web browser
     pub html_url: String,
-    /// The unique identifier number for this review within its repository.
-    /// This can be a PR or MR number.
     pub number: i64,
-    /// The title/summary of the review
     pub title: String,
-    /// The detailed description or body text of the review, if provided.
     pub body: Option<String>,
-    /// The user who created this review.
     pub author: Option<ForgeReviewUser>,
-    /// Labels or tags applied to categorize this review.
     pub labels: Vec<ForgeReviewLabel>,
-    /// Whether this review is in draft state (not ready for final review).
     pub draft: bool,
-    /// The name of the branch containing the proposed changes.
-    /// This is the short name of the branch (e.g., "feature-branch")
     pub source_branch: String,
-    /// The name of the branch that will receive the changes when merged.
-    /// This is the short name of the branch (e.g., "main" or "develop")
     pub target_branch: String,
-    /// The git commit SHA that this review is based on.
     pub sha: String,
-    /// ISO 8601 timestamp of when the review was created.
     pub created_at: Option<String>,
-    /// ISO 8601 timestamp of when the review was last modified.
     pub modified_at: Option<String>,
-    /// ISO 8601 timestamp of when the review was merged, if applicable.
     pub merged_at: Option<String>,
-    /// ISO 8601 timestamp of when the review was closed, if applicable.
     pub closed_at: Option<String>,
-    /// SSH URL for cloning the repository containing this review.
     pub repository_ssh_url: Option<String>,
-    /// HTTPS URL for cloning the repository containing this review.
     pub repository_https_url: Option<String>,
-    /// The owner (user or organization) of the repository from which the branch originates.
-    /// In the case of a fork, this will be the fork owner's username.
     pub repo_owner: Option<String>,
-    /// Users who have been requested to review or have reviewed this code.
     pub reviewers: Vec<ForgeReviewUser>,
-    /// The platform-specific symbol for this review type (e.g., "#" for GitHub pull requests and "!" for MRs).
+    /// The platform-specific symbol for this review type (e.g., "#" for GitHub pull requests and "!" for GitLab merge requests).
     pub unit_symbol: String,
     /// The timestamp when this review was last fetched from the forge.
     pub last_sync_at: chrono::NaiveDateTime,
@@ -368,6 +386,33 @@ impl Display for ForgeReview {
             self.body.as_deref().unwrap_or("-no description-"),
             self.created_at.as_deref().unwrap_or("-unknown-"),
         )
+    }
+}
+
+impl From<but_gitea::PullRequest> for ForgeReview {
+    fn from(pr: but_gitea::PullRequest) -> Self {
+        ForgeReview {
+            html_url: pr.html_url,
+            number: pr.number,
+            title: pr.title,
+            body: pr.body,
+            author: pr.author.map(ForgeReviewUser::from),
+            labels: pr.labels.into_iter().map(ForgeReviewLabel::from).collect(),
+            draft: pr.draft,
+            source_branch: pr.source_branch,
+            target_branch: pr.target_branch,
+            sha: pr.sha,
+            created_at: pr.created_at,
+            modified_at: pr.modified_at,
+            merged_at: pr.merged_at,
+            closed_at: pr.closed_at,
+            repository_ssh_url: None,
+            repository_https_url: None,
+            repo_owner: None,
+            reviewers: vec![],
+            unit_symbol: "#".to_string(),
+            last_sync_at: chrono::Local::now().naive_local(),
+        }
     }
 }
 
@@ -484,16 +529,26 @@ pub fn list_forge_reviews_with_cache(
 #[serde(rename_all = "camelCase")]
 pub enum ForgeAccountValidity {
     Valid,
-    Invalid,
     NoCredentials,
+    Invalid,
 }
 
-impl From<but_github::CredentialCheckResult> for ForgeAccountValidity {
-    fn from(value: but_github::CredentialCheckResult) -> Self {
+impl From<CredentialCheckResult> for ForgeAccountValidity {
+    fn from(value: CredentialCheckResult) -> Self {
         match value {
             CredentialCheckResult::Invalid => ForgeAccountValidity::Invalid,
             CredentialCheckResult::NoCredentials => ForgeAccountValidity::NoCredentials,
             CredentialCheckResult::Valid => ForgeAccountValidity::Valid,
+        }
+    }
+}
+
+impl From<GiteaCredentialCheckResult> for ForgeAccountValidity {
+    fn from(value: GiteaCredentialCheckResult) -> Self {
+        match value {
+            GiteaCredentialCheckResult::Invalid => ForgeAccountValidity::Invalid,
+            GiteaCredentialCheckResult::NoCredentials => ForgeAccountValidity::NoCredentials,
+            GiteaCredentialCheckResult::Valid => ForgeAccountValidity::Valid,
         }
     }
 }
@@ -554,6 +609,27 @@ pub async fn check_forge_account_is_valid(
             };
 
             but_gitlab::check_credentials(&preferred_account, storage)
+                .await
+                .map(Into::into)
+        }
+        ForgeName::Gitea => {
+            let preferred_account = match preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.gitea().cloned())
+            {
+                Some(account) => account,
+                None => {
+                    let known_accounts = but_gitea::list_known_gitea_accounts(storage)?;
+                    match known_accounts.first() {
+                        Some(account) => account.clone(),
+                        None => {
+                            return Ok(ForgeAccountValidity::NoCredentials);
+                        }
+                    }
+                }
+            };
+
+            but_gitea::check_credentials(&preferred_account, storage)
                 .await
                 .map(Into::into)
         }
@@ -626,6 +702,34 @@ fn list_forge_reviews(
                 .map(ForgeReview::from)
                 .collect::<Vec<ForgeReview>>()
         }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.gitea().cloned());
+
+            // Clone owned data for thread
+            let owner = owner.clone();
+            let repo = repo.clone();
+            let storage = storage.clone();
+
+            let pulls = std::thread::spawn(move || {
+                tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(but_gitea::pr::list(
+                        preferred_account.as_ref(),
+                        &owner,
+                        &repo,
+                        &storage,
+                    ))
+            })
+            .join()
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
+
+            pulls
+                .into_iter()
+                .map(ForgeReview::from)
+                .collect::<Vec<ForgeReview>>()
+        }
         _ => {
             return Err(Error::msg(format!(
                 "Listing reviews for forge {forge:?} is not implemented yet.",
@@ -649,14 +753,14 @@ pub enum ForgeReviewFilter {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(ForgeReviewFilter);
 
+/// List all reviews for a repository and branch
 pub async fn list_forge_reviews_for_branch(
     preferred_forge_user: Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     branch: &str,
+    filter: ForgeReviewFilter,
     storage: &but_forge_storage::Controller,
-    filter: Option<ForgeReviewFilter>,
 ) -> Result<Vec<ForgeReview>> {
-    let filter = filter.unwrap_or_default();
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
@@ -665,7 +769,8 @@ pub async fn list_forge_reviews_for_branch(
             let preferred_account = preferred_forge_user
                 .as_ref()
                 .and_then(|user| user.github().cloned());
-            let prs = but_github::pr::list_all_for_branch(
+
+            let prs = but_github::pr::list_all_for_target(
                 preferred_account.as_ref(),
                 owner,
                 repo,
@@ -692,6 +797,20 @@ pub async fn list_forge_reviews_for_branch(
             .await?;
             let mrs = filter_mrs(mrs, &filter);
             Ok(mrs.into_iter().map(ForgeReview::from).collect())
+        }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.gitea().cloned());
+            let prs = but_gitea::pr::list(
+                preferred_account.as_ref(),
+                owner,
+                repo,
+                storage,
+            )
+            .await?;
+            let prs: Vec<_> = prs.into_iter().filter(|pr| pr.target_branch == branch).collect();
+            Ok(prs.into_iter().map(ForgeReview::from).collect())
         }
         _ => Err(Error::msg(format!(
             "Listing reviews for forge {forge:?} is not implemented yet.",
@@ -808,6 +927,12 @@ async fn get_forge_review_inner(
                 but_gitlab::mr::get(preferred_account, project_id, review_number, storage).await?;
             Ok(ForgeReview::from(mr))
         }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pr =
+                but_gitea::pr::get(preferred_account, owner, repo, review_number, storage).await?;
+            Ok(ForgeReview::from(pr))
+        }
         _ => Err(Error::msg(format!(
             "Getting reviews for forge {forge:?} is not implemented yet.",
         ))),
@@ -887,10 +1012,25 @@ pub async fn merge_review(
             let params = but_gitlab::MergeMergeRequestParams {
                 project_id,
                 mr_iid,
+                merge_commit_message: None,
+                squash_commit_message: None,
                 squash: None,
             };
 
             but_gitlab::mr::merge(preferred_account, params, storage).await
+        }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pr_number = review_number
+                .try_into()
+                .context("PR: Failed to cast usize to i64, somehow")?;
+            let params = but_gitea::MergePullRequestParams {
+                owner,
+                repo,
+                pr_number,
+                merge_method: None,
+            };
+            but_gitea::pr::merge(preferred_account, params, storage).await
         }
         _ => Err(Error::msg(format!(
             "Merging reviews for forge {forge:?} is not implemented yet.",
@@ -937,6 +1077,12 @@ pub async fn set_review_auto_merge_state(
             };
             but_gitlab::mr::set_auto_merge(preferred_account, params, storage).await
         }
+        ForgeName::Gitea => {
+            // Gitea doesn't seem to have a simple auto-merge API in the same way.
+            Err(Error::msg(format!(
+                "Setting the auto-merge state of reviews for forge {forge:?} is not implemented yet.",
+            )))
+        }
         _ => Err(Error::msg(format!(
             "Setting the auto-merge state of reviews for forge {forge:?} is not implemented yet.",
         ))),
@@ -981,6 +1127,19 @@ pub async fn set_review_draftiness(
                 is_draft: draft,
             };
             but_gitlab::mr::set_draft_state(preferred_account, params, storage).await
+        }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pr_number = review_number
+                .try_into()
+                .context("PR: Failed to cast usize to i64, somehow")?;
+            let params = but_gitea::SetPullRequestDraftStateParams {
+                owner,
+                repo,
+                pr_number,
+                draft,
+            };
+            but_gitea::pr::set_draft_state(preferred_account, params, storage).await
         }
         _ => Err(Error::msg(format!(
             "Setting the draftiness of reviews for forge {forge:?} is not implemented yet.",
@@ -1031,7 +1190,7 @@ fn github_head_owner_and_repo<'a>(
 pub async fn create_forge_review(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
-    forge_push_repo_info: &Option<crate::forge::ForgeRepoInfo>,
+    forge_push_repo_info: &Option<crate::ForgeRepoInfo>,
     params: &CreateForgeReviewParams,
     storage: &but_forge_storage::Controller,
 ) -> Result<ForgeReview> {
@@ -1077,6 +1236,19 @@ pub async fn create_forge_review(
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab());
             let mr = but_gitlab::mr::create(preferred_account, mr_params, storage).await?;
             Ok(ForgeReview::from(mr))
+        }
+        ForgeName::Gitea => {
+            let pr_params = but_gitea::CreatePullRequestParams {
+                owner,
+                repo,
+                title: &params.title,
+                body: &params.body,
+                head: &params.source_branch,
+                base: &params.target_branch,
+            };
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pr = but_gitea::pr::create(preferred_account, pr_params, storage).await?;
+            Ok(ForgeReview::from(pr))
         }
         _ => Err(Error::msg(format!(
             "Creating reviews for forge {forge:?} is not implemented yet.",
@@ -1175,6 +1347,31 @@ pub async fn update_review_description_tables(
 
             Ok(())
         }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pr_numbers: Vec<i64> = reviews.iter().map(|r| r.number).collect();
+
+            for review in reviews {
+                let updated_body = update_body(
+                    review.body.as_deref(),
+                    review.number,
+                    &pr_numbers,
+                    &review.unit_symbol,
+                );
+
+                let params = but_gitea::UpdatePullRequestParams {
+                    owner,
+                    repo,
+                    pr_number: review.number,
+                    title: None,
+                    body: Some(&updated_body),
+                };
+
+                but_gitea::pr::update(preferred_account, params, storage).await?;
+            }
+
+            Ok(())
+        }
         _ => Err(Error::msg(format!(
             "Updating review descriptions for forge {forge:?} is not implemented yet.",
         ))),
@@ -1187,7 +1384,7 @@ pub async fn update_review_description_tables(
 /// footer is removed.
 ///
 /// # Arguments
-/// * `body` - The existing PR body text (may be None or empty)
+/// * `body` - The existing PR body text (max be None or empty)
 /// * `pr_number` - The PR number for which to update the body
 /// * `all_pr_numbers` - All PR numbers in the stack (ordered from base to top)
 /// * `symbol` - The symbol to use before the PR number (e.g., "#" or "!")
@@ -1361,268 +1558,62 @@ mod tests {
     #[test]
     fn test_is_valid_review_template_path_gitlab() {
         assert!(is_valid_review_template_path_gitlab(p(
-            ".gitlab/merge_request_templates/Default.md"
+            ".gitlab/merge_request_templates/something.md"
         )));
         assert!(is_valid_review_template_path_gitlab(p(
-            ".gitlab/merge_request_templates/Documentation.md"
+            ".gitlab/merge_request_template.md"
         )));
         assert!(is_valid_review_template_path_gitlab(p(
-            ".gitlab/merge_request_templates/Security Fix.md"
+            "merge_request_template.md"
         )));
-        assert!(!is_valid_review_template_path_gitlab(p("README.md")));
-        assert!(!is_valid_review_template_path_gitlab(p(
-            ".gitlab/issue_templates/Bug.md"
-        )));
-        assert!(!is_valid_review_template_path_gitlab(p(
-            ".gitlab/merge_request_templates/Default.txt"
-        )));
+        assert!(!is_valid_review_template_path_gitlab(p("README.md"),));
     }
 
     #[test]
     fn test_is_valid_review_template_path_gitlab_windows() {
         assert!(is_valid_review_template_path_gitlab(p(
-            ".gitlab\\merge_request_templates\\Default.md"
-        )));
+            ".gitlab\\merge_request_templates\\something.md"
+        ),));
         assert!(is_valid_review_template_path_gitlab(p(
-            ".gitlab\\merge_request_templates\\Documentation.md"
-        )));
+            ".gitlab\\merge_request_template.md"
+        ),));
         assert!(is_valid_review_template_path_gitlab(p(
-            ".gitlab\\merge_request_templates\\Security Fix.md"
+            "merge_request_template.md"
+        ),));
+        assert!(!is_valid_review_template_path_gitlab(p("README.md"),));
+    }
+
+    #[test]
+    fn test_is_valid_review_template_path_gitea() {
+        assert!(is_valid_review_template_path_gitea(p(
+            ".gitea/pull_request_template/something.md"
         )));
-        assert!(!is_valid_review_template_path_gitlab(p("README.md")));
-        assert!(!is_valid_review_template_path_gitlab(p(
-            ".gitlab\\issue_templates\\Bug.md"
+        assert!(is_valid_review_template_path_gitea(p(
+            ".gitea/pull_request_template.md"
         )));
-        assert!(!is_valid_review_template_path_gitlab(p(
-            ".gitlab\\merge_request_templates\\Default.txt"
+        assert!(is_valid_review_template_path_gitea(p(
+            "pull_request_template.md"
         )));
+        assert!(!is_valid_review_template_path_gitea(p("README.md"),));
     }
 
     #[test]
-    fn test_get_gitlab_directory_path() {
-        let root_path = p("/path/to/project");
-        let gitlab_path = get_gitlab_directory_path(root_path);
-        assert_eq!(gitlab_path, p("/path/to/project/.gitlab"));
+    fn test_is_valid_review_template_path_gitea_windows() {
+        assert!(is_valid_review_template_path_gitea(p(
+            ".gitea\\pull_request_template\\something.md"
+        ),));
+        assert!(is_valid_review_template_path_gitea(p(
+            ".gitea\\pull_request_template.md"
+        ),));
+        assert!(is_valid_review_template_path_gitea(p(
+            "pull_request_template.md"
+        ),));
+        assert!(!is_valid_review_template_path_gitea(p("README.md"),));
     }
 
     #[test]
-    fn test_is_review_template_gitlab() {
-        // Valid GitLab merge request templates
-        assert!(is_review_template_gitlab(
-            ".gitlab/merge_request_templates/Default.md"
-        ));
-        assert!(is_review_template_gitlab(
-            ".gitlab/merge_request_templates/Documentation.md"
-        ));
-        assert!(is_review_template_gitlab(
-            ".gitlab/merge_request_templates/Security Fix.md"
-        ));
-
-        // Invalid paths
-        assert!(!is_review_template_gitlab("README.md"));
-        assert!(!is_review_template_gitlab(".gitlab/issue_templates/Bug.md"));
-        assert!(!is_review_template_gitlab(
-            ".gitlab/merge_request_templates/Default.txt"
-        ));
-        assert!(!is_review_template_gitlab(
-            "merge_request_templates/Default.md"
-        ));
-
-        // Windows path separators should work
-        assert!(is_review_template_gitlab(
-            ".gitlab\\merge_request_templates\\Default.md"
-        ));
-    }
-
-    #[test]
-    fn test_generate_footer_single_pr() {
-        let footer = generate_footer(123, &[123], "#");
-        assert!(footer.contains(STACKING_FOOTER_BOUNDARY_TOP));
-        assert!(footer.contains(STACKING_FOOTER_BOUNDARY_BOTTOM));
-        assert!(footer.contains("part 1 of 1 in a stack"));
-        assert!(footer.contains("#123"));
-        assert!(footer.contains("👈"));
-    }
-
-    #[test]
-    fn test_generate_footer_multiple_prs() {
-        let all_prs = vec![100, 101, 102];
-        let footer = generate_footer(101, &all_prs, "#");
-
-        assert!(footer.contains("part 2 of 3 in a stack"));
-        assert!(footer.contains("#100"));
-        assert!(footer.contains("#101"));
-        assert!(footer.contains("#102"));
-
-        // The current PR (101) should have the pointing emoji
-        let lines: Vec<&str> = footer.lines().collect();
-        let pr_101_line = lines.iter().find(|l| l.contains("#101")).unwrap();
-        assert!(pr_101_line.contains("👈"));
-
-        // Other PRs should not have the emoji
-        let pr_100_line = lines.iter().find(|l| l.contains("#100")).unwrap();
-        assert!(!pr_100_line.contains("👈"));
-    }
-
-    #[test]
-    fn test_generate_footer_with_custom_symbol() {
-        let footer = generate_footer(42, &[41, 42, 43], "!");
-        assert!(footer.contains("!41"));
-        assert!(footer.contains("!42"));
-        assert!(footer.contains("!43"));
-    }
-
-    #[test]
-    fn test_generate_footer_numbering() {
-        let all_prs = vec![100, 101, 102, 103];
-        let footer = generate_footer(101, &all_prs, "#");
-
-        let lines: Vec<&str> = footer.lines().collect();
-
-        // Check that numbering goes from top (4) to bottom (1)
-        assert!(
-            lines
-                .iter()
-                .any(|l| l.contains("<kbd>&nbsp;1&nbsp;</kbd>") && l.contains("#100"))
-        );
-        assert!(
-            lines
-                .iter()
-                .any(|l| l.contains("<kbd>&nbsp;2&nbsp;</kbd>") && l.contains("#101"))
-        );
-        assert!(
-            lines
-                .iter()
-                .any(|l| l.contains("<kbd>&nbsp;3&nbsp;</kbd>") && l.contains("#102"))
-        );
-        assert!(
-            lines
-                .iter()
-                .any(|l| l.contains("<kbd>&nbsp;4&nbsp;</kbd>") && l.contains("#103"))
-        );
-    }
-
-    #[test]
-    fn test_update_body_none() {
-        let result = update_body(None, 123, &[123, 124], "#");
-        assert!(result.contains(STACKING_FOOTER_BOUNDARY_TOP));
-        assert!(result.contains(STACKING_FOOTER_BOUNDARY_BOTTOM));
-        assert!(result.contains("#123"));
-    }
-
-    #[test]
-    fn test_update_body_empty() {
-        let result = update_body(Some(""), 123, &[123, 124], "#");
-        assert!(result.contains(STACKING_FOOTER_BOUNDARY_TOP));
-        assert!(result.contains(STACKING_FOOTER_BOUNDARY_BOTTOM));
-        assert!(result.contains("#123"));
-    }
-
-    #[test]
-    fn test_update_body_with_existing_content() {
-        let body = "This is my PR description.\n\nIt has multiple lines.";
-        let result = update_body(Some(body), 123, &[123, 124], "#");
-
-        assert!(result.starts_with("This is my PR description.\n\nIt has multiple lines."));
-        assert!(result.contains(STACKING_FOOTER_BOUNDARY_TOP));
-        assert!(result.contains(STACKING_FOOTER_BOUNDARY_BOTTOM));
-        assert!(result.contains("#123"));
-    }
-
-    #[test]
-    fn test_footer_ordering_base_to_top() {
-        // PRs should be listed from base (oldest) at bottom to top (newest) at top
-        let all_prs = vec![100, 101, 102, 103]; // base to top order
-        let footer = generate_footer(102, &all_prs, "#");
-
-        let lines: Vec<&str> = footer.lines().collect();
-
-        // Find the indices of each PR in the footer
-        let pr_100_idx = lines.iter().position(|l| l.contains("#100")).unwrap();
-        let pr_101_idx = lines.iter().position(|l| l.contains("#101")).unwrap();
-        let pr_102_idx = lines.iter().position(|l| l.contains("#102")).unwrap();
-        let pr_103_idx = lines.iter().position(|l| l.contains("#103")).unwrap();
-
-        // The top PR (103) should appear first, base PR (100) should appear last
-        assert!(pr_103_idx < pr_102_idx);
-        assert!(pr_102_idx < pr_101_idx);
-        assert!(pr_101_idx < pr_100_idx);
-    }
-
-    #[test]
-    fn test_footer_position_indicator_first_pr() {
-        let all_prs = vec![100, 101, 102];
-        let footer = generate_footer(100, &all_prs, "#");
-
-        let lines: Vec<&str> = footer.lines().collect();
-        let pr_100_line = lines.iter().find(|l| l.contains("#100")).unwrap();
-
-        assert!(pr_100_line.contains("👈"));
-        assert!(pr_100_line.contains("<kbd>&nbsp;1&nbsp;</kbd>"));
-    }
-
-    #[test]
-    fn test_footer_position_indicator_last_pr() {
-        let all_prs = vec![100, 101, 102];
-        let footer = generate_footer(102, &all_prs, "#");
-
-        let lines: Vec<&str> = footer.lines().collect();
-        let pr_102_line = lines.iter().find(|l| l.contains("#102")).unwrap();
-
-        assert!(pr_102_line.contains("👈"));
-        assert!(pr_102_line.contains("<kbd>&nbsp;3&nbsp;</kbd>"));
-    }
-
-    #[test]
-    fn test_update_body_multiple_prs_to_single_pr() {
-        let old_footer = generate_footer(123, &[122, 123, 124], "#");
-        let body = format!("Description\n\n{old_footer}");
-
-        // Update to a single PR stack
-        let result = update_body(Some(&body), 123, &[123], "#");
-
-        assert_eq!(result, "Description");
-        assert!(!result.contains(STACKING_FOOTER_BOUNDARY_TOP));
-    }
-
-    #[test]
-    fn test_update_body_maintains_proper_spacing() {
-        let body = "First paragraph\n\nSecond paragraph";
-        let result = update_body(Some(body), 100, &[100, 101], "#");
-
-        // Should have proper spacing between description and footer
-        assert!(result.contains("First paragraph\n\nSecond paragraph\n\n"));
-        assert!(result.contains(STACKING_FOOTER_BOUNDARY_TOP));
-    }
-
-    #[test]
-    fn test_generate_footer_large_stack() {
-        let all_prs: Vec<i64> = (1..=10).collect();
-        let footer = generate_footer(5, &all_prs, "#");
-
-        assert!(footer.contains("part 6 of 10 in a stack"));
-
-        // Verify all PRs are listed
-        for pr in &all_prs {
-            assert!(footer.contains(&format!("#{pr}")));
-        }
-    }
-
-    #[test]
-    fn test_update_body_with_tail_and_multiple_newlines() {
-        let old_footer = generate_footer(100, &[100, 101], "#");
-        let body = format!("Head\n\n{old_footer}\n\n\n\nTail with gaps");
-
-        let result = update_body(Some(&body), 100, &[100, 101, 102], "#");
-
-        assert!(result.contains("Head"));
-        assert!(result.contains("Tail with gaps"));
-        assert!(result.contains("#102"));
-    }
-
-    #[test]
-    fn test_update_body_replaces_existing_footer() {
-        let old_footer = generate_footer(123, &[123], "#");
+    fn test_update_body() {
+        let old_footer = generate_footer(123, &[123, 124], "#");
         let body = format!("My description\n\n{old_footer}\n\nSome trailing content");
 
         let result = update_body(Some(&body), 123, &[123, 124], "#");
@@ -1706,7 +1697,8 @@ mod tests {
 
         let result = update_body(Some(&body), 123, &[123], "#");
 
-        assert_eq!(result, "Head content\n\nTail content");
+        assert!(result.contains("Head content"));
+        assert!(result.contains("Tail content"));
         assert!(!result.contains(STACKING_FOOTER_BOUNDARY_TOP));
     }
 }

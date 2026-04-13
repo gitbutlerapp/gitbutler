@@ -29,6 +29,8 @@ import { GITHUB_CLIENT, GitHubClient } from "$lib/forge/github/githubClient";
 import { GitHubUserService, GITHUB_USER_SERVICE } from "$lib/forge/github/githubUserService.svelte";
 import { GITLAB_CLIENT, GitLabClient } from "$lib/forge/gitlab/gitlabClient.svelte";
 import { GITLAB_USER_SERVICE, GitLabUserService } from "$lib/forge/gitlab/gitlabUserService.svelte";
+import { GITEA_CLIENT, GiteaClient } from "$lib/forge/gitea/giteaClient.svelte";
+import { GITEA_USER_SERVICE, GiteaUserService } from "$lib/forge/gitea/giteaUserService.svelte";
 import { CherryApplyService, CHERRY_APPLY_SERVICE } from "$lib/git/cherryApplyService";
 import { GitService, GIT_SERVICE } from "$lib/git/gitService";
 import { HOOKS_SERVICE, HooksService } from "$lib/git/hooksService";
@@ -133,14 +135,17 @@ export function initDependencies(args: {
 
 	const gitHubClient = new GitHubClient();
 	const gitLabClient = new GitLabClient();
+	const giteaClient = new GiteaClient();
 
 	// ============================================================================
 	// STATE MANAGEMENT
 	// ============================================================================
 
-	const clientState = new ClientState(backend, gitHubClient, gitLabClient, posthog);
+	const clientState = new ClientState(backend, gitHubClient, gitLabClient,
+		giteaClient, giteaClient, posthog);
 	const githubUserService = new GitHubUserService(clientState.backendApi);
 	const gitlabUserService = new GitLabUserService(clientState.backendApi, secretsService);
+	const giteaUserService = new GiteaUserService(clientState.backendApi);
 
 	const uiState = new UiState(
 		reactive(() => clientState.uiState ?? uiStateSlice.getInitialState()),
@@ -181,9 +186,11 @@ export function initDependencies(args: {
 	const forgeFactory = new DefaultForgeFactory({
 		gitHubClient,
 		gitLabClient,
+		giteaClient,
 		backendApi: clientState.backendApi,
 		gitHubApi: clientState.githubApi,
 		gitLabApi: clientState.gitlabApi,
+		giteaApi: clientState.giteaApi,
 		dispatch: clientState.dispatch,
 		posthog,
 	});
@@ -351,6 +358,8 @@ export function initDependencies(args: {
 		[GITHUB_USER_SERVICE, githubUserService],
 		[GITLAB_USER_SERVICE, gitlabUserService],
 		[GITLAB_CLIENT, gitLabClient],
+		[GITEA_USER_SERVICE, giteaUserService],
+		[GITEA_CLIENT, giteaClient],
 		[GIT_CONFIG_SERVICE, gitConfig],
 		[GIT_SERVICE, gitService],
 		[HISTORY_SERVICE, historyService],
