@@ -78,6 +78,7 @@
 		{ identifier: "alacritty-mac", displayName: "Alacritty", platform: "macos" },
 		{ identifier: "wezterm-mac", displayName: "WezTerm", platform: "macos" },
 		{ identifier: "hyper", displayName: "Hyper", platform: "macos" },
+		{ identifier: "kitty", displayName: "Kitty", platform: "macos" },
 		// Windows
 		{ identifier: "wt", displayName: "Windows Terminal", platform: "windows" },
 		{ identifier: "powershell", displayName: "PowerShell", platform: "windows" },
@@ -91,6 +92,7 @@
 		{ identifier: "warp", displayName: "Warp", platform: "linux" },
 		{ identifier: "hyper", displayName: "Hyper", platform: "linux" },
 		{ identifier: "wezterm", displayName: "WezTerm", platform: "linux" },
+		{ identifier: "kitty", displayName: "Kitty", platform: "linux" },
 	];
 
 	const terminalOptions = allTerminalOptions.filter((t) => t.platform === platformName);

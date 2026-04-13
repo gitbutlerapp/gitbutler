@@ -118,6 +118,7 @@ pub fn open_url(url: String) -> Result<()> {
 /// - `alacritty-mac` - Alacritty
 /// - `wezterm-mac` - WezTerm
 /// - `hyper` - Hyper
+/// - `kitty` - Kitty
 ///
 /// **Windows:**
 /// - `wt` - Windows Terminal
@@ -133,6 +134,7 @@ pub fn open_url(url: String) -> Result<()> {
 /// - `warp` - Warp
 /// - `hyper` - Hyper
 /// - `wezterm` - WezTerm
+/// - `kitty` - Kitty
 ///
 /// # Errors
 /// Returns an error if:
@@ -214,8 +216,10 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
                 .status()
                 .context("Failed to run 'open -Ra' to check application availability")?;
             if !status.success() {
-                return Err(anyhow::anyhow!("'{app_name}' was not found.")
-                    .context(but_error::Code::DefaultTerminalNotFound));
+                return Err(anyhow::anyhow!(
+                    "'{app_name}' was not found - `open -Ra {app_name}` failed."
+                )
+                .context(but_error::Code::DefaultTerminalNotFound));
             }
             Ok(())
         }
@@ -245,6 +249,7 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
                     .arg(&path);
                 run_terminal_command(cmd, "Alacritty", &path)?;
             }
+            "kitty" => open_with_path("kitty", Some("Kitty"))?,
             // WezTerm does not support `open -a WezTerm <path>`. Their docs state you have to use their CLI.
             // https://wezterm.org/config/launch.html#specifying-the-current-working-directory
             "wezterm-mac" => {
@@ -271,15 +276,18 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
         // a vague launch failure (which could be confused with path issues).
         let binary_found = which::which(binary).is_ok();
         if !binary_found {
-            return Err(anyhow::anyhow!("'{binary}' was not found.")
-                .context(but_error::Code::DefaultTerminalNotFound));
+            return Err(anyhow::anyhow!(
+                "'{binary}' was not found. Make sure it is installed and available on your PATH."
+            )
+            .context(but_error::Code::DefaultTerminalNotFound));
         }
 
         match terminal_id.as_str() {
             // Terminals that inherit parent process CWD (no explicit flags needed).
             // Note: `binary` is used instead of the terminal ID because some terminals
             // have a different binary name (e.g. "warp" launches "warp-terminal").
-            "gnome-terminal" | "konsole" | "xfce4-terminal" | "alacritty" | "ghostty" | "warp" => {
+            "gnome-terminal" | "konsole" | "xfce4-terminal" | "alacritty" | "ghostty" | "warp"
+            | "kitty" => {
                 let mut cmd = Command::new(binary);
                 cmd.current_dir(&path);
                 spawn_and_reap(cmd, binary, &path)?;
