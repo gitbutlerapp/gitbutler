@@ -20,7 +20,7 @@
 		"prepare": "svelte-kit sync"
 	},
 	"devDependencies": {
-		"@anthropic-ai/sdk": "^0.80.0",
+		"@anthropic-ai/sdk": "^0.81.0",
 		"@gitbutler/but-sdk": "workspace:*",
 		"@gitbutler/core": "workspace:*",
 		"@gitbutler/design-core": "2.2.2",
