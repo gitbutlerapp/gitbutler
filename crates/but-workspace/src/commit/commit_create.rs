@@ -4,7 +4,8 @@ pub(crate) mod function {
     use anyhow::Result;
     use but_core::{DiffSpec, RefMetadata};
     use but_rebase::graph_rebase::{
-        Editor, LookupStep, Pick, Selector, Step, SuccessfulRebase, ToSelector, mutate::InsertSide,
+        Editor, LookupStep, Pick, PickDivergent, Selector, Step, SuccessfulRebase, ToSelector,
+        mutate::InsertSide,
     };
 
     use crate::commit_engine::{Destination, create_commit};
@@ -97,8 +98,20 @@ pub(crate) mod function {
         side: InsertSide,
     ) -> Result<Option<gix::ObjectId>> {
         Ok(match (target_step, side) {
-            (Step::Pick(Pick { id, .. }), InsertSide::Above) => Some(id),
-            (Step::Pick(Pick { id, .. }), InsertSide::Below) => {
+            (
+                Step::Pick(Pick { id, .. })
+                | Step::PickDivergent(PickDivergent {
+                    remote_commit: id, ..
+                }),
+                InsertSide::Above,
+            ) => Some(id),
+            (
+                Step::Pick(Pick { id, .. })
+                | Step::PickDivergent(PickDivergent {
+                    remote_commit: id, ..
+                }),
+                InsertSide::Below,
+            ) => {
                 let commit = editor.find_commit(id)?;
                 commit.parents.first().copied()
             }

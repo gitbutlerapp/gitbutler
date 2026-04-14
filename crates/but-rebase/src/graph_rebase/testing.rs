@@ -59,6 +59,9 @@ impl TestingDot for StepGraph {
                 &|_, (_, step)| {
                     match step {
                         Step::Pick(Pick { id, .. }) => format!("label=\"pick: {id}\""),
+                        Step::PickDivergent(pick_div) => {
+                            format!("label=\"pick_divergent: {}\"", pick_div.remote_commit)
+                        }
                         Step::Reference { refname } => {
                             format!("label=\"reference: {}\"", refname.as_bstr())
                         }
@@ -100,7 +103,7 @@ trait ToSymbol {
 impl ToSymbol for Step {
     fn to_symbol(&self) -> char {
         match self {
-            Self::Pick(_) => chars::STEP_PICK,
+            Self::Pick(_) | Self::PickDivergent(_) => chars::STEP_PICK,
             Self::Reference { .. } => chars::STEP_REFERENCE,
             Self::None => chars::STEP_NONE,
         }
@@ -210,6 +213,11 @@ fn format_step(step: &Step, title: Option<String>) -> String {
                 Some(t) => format!("{sha} {t}"),
                 None => sha,
             }
+        }
+        Step::PickDivergent(pick_div) => {
+            let mut sha = pick_div.remote_commit.to_string();
+            sha.truncate(7);
+            format!("{sha} [divergent]")
         }
         Step::Reference { refname } => refname.as_bstr().to_string(),
         Step::None => "no-op".to_string(),

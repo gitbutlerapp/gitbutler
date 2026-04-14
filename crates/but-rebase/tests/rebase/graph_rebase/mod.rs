@@ -14,6 +14,7 @@ mod insert_segment;
 mod materialize;
 mod multiple_operations;
 mod parents_must_be_references_restriction;
+mod pick_divergent;
 mod rebase_identities;
 mod replace;
 mod signing_preferences;
