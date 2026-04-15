@@ -104,27 +104,3 @@ export const itemIdentityKey = (item: Item): string =>
 	);
 
 export const itemEquals = (a: Item, b: Item): boolean => itemIdentityKey(a) === itemIdentityKey(b);
-
-export const getParentSection = (item: Item): Item | null =>
-	Match.value(item).pipe(
-		Match.tagsExhaustive({
-			Commit: (item) =>
-				segmentItem({
-					stackId: item.stackId,
-					segmentIndex: item.segmentIndex,
-					branchRef: item.branchRef,
-				}),
-			CommitFile: (item) =>
-				commitItem({
-					stackId: item.stackId,
-					segmentIndex: item.segmentIndex,
-					branchRef: item.branchRef,
-					commitId: item.commitId,
-				}),
-			Change: () => changesSectionItem({}),
-			ChangesSection: () => null,
-			BaseCommit: () => null,
-			Segment: () => null,
-			Stack: () => null,
-		}),
-	);

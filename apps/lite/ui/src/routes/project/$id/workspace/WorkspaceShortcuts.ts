@@ -17,7 +17,6 @@ import {
 	type ChangesSectionItem,
 	type CommitFileItem,
 	type CommitItem,
-	getParentSection,
 	type Item,
 	segmentItem,
 	type SegmentItem,
@@ -28,7 +27,12 @@ import { operationModeToOperation } from "./OperationMode.tsx";
 import { operationSourceFromItem } from "./OperationSource.ts";
 import { useResolveOperationSource } from "./ResolvedOperationSource.ts";
 import { PreviewImperativeHandle } from "./route.tsx";
-import { getAdjacentItem, getAdjacentSection, type NavigationIndex } from "./WorkspaceModel.ts";
+import {
+	getAdjacentItem,
+	getAdjacentSection,
+	getPreviousSection,
+	type NavigationIndex,
+} from "./WorkspaceModel.ts";
 import { OperationMode, type WorkspaceMode } from "./WorkspaceMode.ts";
 
 type MoveItemSelectionAction = { offset: -1 | 1 };
@@ -741,9 +745,7 @@ export const useWorkspaceShortcuts = ({
 		selectItem(getAdjacentItem(navigationIndex, selectedItem, offset) ?? null);
 
 	const selectPreviousSectionItem = (selectedItem: Item) =>
-		selectItem(
-			getParentSection(selectedItem) ?? getAdjacentSection(navigationIndex, selectedItem, -1),
-		);
+		selectItem(getPreviousSection(navigationIndex, selectedItem));
 
 	const selectNextSectionItem = (selectedItem: Item) =>
 		selectItem(getAdjacentSection(navigationIndex, selectedItem, 1) ?? null);

@@ -13,6 +13,7 @@ import {
 	type Item,
 	commitItem,
 	commitFileItem,
+	itemEquals,
 	itemIdentityKey,
 	segmentItem,
 	stackItem,
@@ -198,13 +199,25 @@ export const getAdjacentItem = (
 	return getRelative(index.items, currentIndex, offset);
 };
 
-export const getAdjacentSection = (
-	index: NavigationIndex,
-	selection: Item | null,
-	offset: -1 | 1,
-): Item | null => {
+const getCurrentSection = (index: NavigationIndex, selection: Item | null): Item | null => {
 	if (!selection) return null;
 	const currentIndex = index.indexByKey.get(itemIdentityKey(selection));
+	if (currentIndex === undefined) return null;
+	const currentSectionIndex = index.sectionIndexByItemIndex[currentIndex] ?? -1;
+	if (currentSectionIndex === -1) return null;
+	const currentSectionStartIndex = index.sectionStartIndexes[currentSectionIndex];
+	if (currentSectionStartIndex === undefined) return null;
+	return index.items[currentSectionStartIndex] ?? null;
+};
+
+export const getAdjacentSection = (
+	index: NavigationIndex,
+	selectedItem: Item | null,
+	offset: -1 | 1,
+): Item | null => {
+	const currentSection = getCurrentSection(index, selectedItem);
+	if (currentSection === null) return null;
+	const currentIndex = index.indexByKey.get(itemIdentityKey(currentSection));
 	if (currentIndex === undefined) return null;
 	const currentSectionIndex = index.sectionIndexByItemIndex[currentIndex] ?? -1;
 	if (currentSectionIndex === -1) return null;
@@ -215,6 +228,17 @@ export const getAdjacentSection = (
 	);
 	if (adjacentSectionStartIndex === null) return null;
 	return index.items[adjacentSectionStartIndex] ?? null;
+};
+
+export const getPreviousSection = (
+	index: NavigationIndex,
+	selectedItem: Item | null,
+): Item | null => {
+	const currentSection = getCurrentSection(index, selectedItem);
+	if (currentSection === null) return null;
+	return selectedItem !== null && !itemEquals(currentSection, selectedItem)
+		? currentSection
+		: getAdjacentSection(index, currentSection, -1);
 };
 
 export const navigationIndexIncludes = (navigationIndex: NavigationIndex, item: Item): boolean =>
