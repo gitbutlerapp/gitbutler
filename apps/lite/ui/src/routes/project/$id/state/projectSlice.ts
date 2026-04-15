@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "#ui/state/store.ts";
-import { type CommitItem, type Item, type SegmentItem } from "../workspace/Item.ts";
+import { type BranchItem, type CommitItem, type Item } from "../workspace/Item.ts";
 import type { OperationSource } from "../workspace/OperationSource.ts";
 import * as layout from "./layout.ts";
 import * as workspace from "./workspace.ts";
@@ -59,7 +59,7 @@ const projectSlice = createSlice({
 			layout.focusPrimary(projectState.layout);
 			workspace.startRewordCommit(projectState.workspace, item);
 		},
-		startRenameBranch: (state, action: PayloadAction<{ projectId: string; item: SegmentItem }>) => {
+		startRenameBranch: (state, action: PayloadAction<{ projectId: string; item: BranchItem }>) => {
 			const { projectId, item } = action.payload;
 			const projectState = ensureProjectState(state, projectId);
 			layout.focusPrimary(projectState.layout);

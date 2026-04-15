@@ -119,13 +119,11 @@ const dropTargetToOperation = ({
 					resolvedOperationSource,
 					target: changesSectionFileParent({}),
 				}),
-			Segment: ({ branchRef }) =>
-				branchRef === null
-					? null
-					: getBranchTargetOperation({
-							resolvedOperationSource,
-							branchRef,
-						}),
+			Branch: ({ branchRef }) =>
+				getBranchTargetOperation({
+					resolvedOperationSource,
+					branchRef,
+				}),
 			Commit: ({ commitId }) =>
 				getCombineOperation({
 					resolvedOperationSource,

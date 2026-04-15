@@ -8,18 +8,19 @@ import { AbsorptionTarget } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { RefObject, useEffect, useEffectEvent } from "react";
 import {
+	branchItem,
 	baseCommitItem,
 	changeItem,
 	commitFileItem,
 	commitItem,
+	itemEquals,
+	type BranchItem,
 	type ChangeItem,
 	changesSectionItem,
 	type ChangesSectionItem,
 	type CommitFileItem,
 	type CommitItem,
 	type Item,
-	segmentItem,
-	type SegmentItem,
 	StackItem,
 	stackItem,
 } from "./Item.ts";
@@ -234,7 +235,7 @@ type BaseCommitDefaultModeScope = {
 };
 type BranchDefaultModeScope = {
 	bindings: Array<ShortcutBinding<BranchAction>>;
-	context: SegmentItem;
+	context: BranchItem;
 };
 type ChangeDefaultModeScope = {
 	bindings: Array<ShortcutBinding<ChangesAction>>;
@@ -252,10 +253,6 @@ type CommitFileDefaultModeScope = {
 	bindings: Array<ShortcutBinding<CommitFileAction>>;
 	context: CommitFileItem;
 };
-type SegmentDefaultModeScope = {
-	bindings: Array<ShortcutBinding<PrimaryPanelAction>>;
-	context: SegmentItem;
-};
 
 type StackDefaultModeScope = {
 	bindings: Array<ShortcutBinding<PrimaryPanelAction>>;
@@ -269,8 +266,7 @@ type DefaultModeScope =
 	| ({ _tag: "ChangesSection" } & ChangesSectionDefaultModeScope)
 	| ({ _tag: "Commit" } & CommitDefaultModeScope)
 	| ({ _tag: "CommitFile" } & CommitFileDefaultModeScope)
-	| ({ _tag: "Stack" } & StackDefaultModeScope)
-	| ({ _tag: "Segment" } & SegmentDefaultModeScope);
+	| ({ _tag: "Stack" } & StackDefaultModeScope);
 
 const baseCommitDefaultModeScope = ({
 	bindings,
@@ -330,15 +326,6 @@ const stackDefaultModeScope = ({ bindings, context }: StackDefaultModeScope): De
 	context,
 });
 
-const segmentDefaultModeScope = ({
-	bindings,
-	context,
-}: SegmentDefaultModeScope): DefaultModeScope => ({
-	_tag: "Segment",
-	bindings,
-	context,
-});
-
 const getDefaultModeScope = (selectedItem: Item): DefaultModeScope =>
 	Match.value(selectedItem).pipe(
 		Match.tagsExhaustive({
@@ -371,16 +358,11 @@ const getDefaultModeScope = (selectedItem: Item): DefaultModeScope =>
 					bindings: primaryPanelBindings,
 					context: selectedItem,
 				}),
-			Segment: (selectedItem) =>
-				selectedItem.branchRef === null
-					? segmentDefaultModeScope({
-							bindings: primaryPanelBindings,
-							context: selectedItem,
-						})
-					: branchDefaultModeScope({
-							bindings: branchBindings,
-							context: selectedItem,
-						}),
+			Branch: (selectedItem) =>
+				branchDefaultModeScope({
+					bindings: branchBindings,
+					context: selectedItem,
+				}),
 		}),
 	);
 
@@ -394,7 +376,6 @@ const getDefaultModeScopeLabel = (scope: DefaultModeScope): string =>
 			Commit: () => "Commit",
 			CommitFile: () => "Commit file",
 			Stack: () => "Stack",
-			Segment: () => "Segment",
 		}),
 	);
 
@@ -565,7 +546,7 @@ export const renameBranchBindings: Array<ShortcutBinding<RenameBranchAction>> = 
 type DefaultModeScopeContainer = { scope: DefaultModeScope };
 type RenameBranchModeScope = {
 	bindings: Array<ShortcutBinding<RenameBranchAction>>;
-	context: SegmentItem;
+	context: BranchItem;
 };
 type RewordCommitModeScope = {
 	bindings: Array<ShortcutBinding<RewordCommitAction>>;
@@ -616,9 +597,14 @@ const getModeScope = ({
 					context: selectedItem,
 				}),
 			RenameBranch: (workspaceMode) =>
-				selectedItem?._tag === "Segment" &&
-				workspaceMode.stackId === selectedItem.stackId &&
-				workspaceMode.segmentIndex === selectedItem.segmentIndex
+				selectedItem?._tag === "Branch" &&
+				itemEquals(
+					selectedItem,
+					branchItem({
+						stackId: workspaceMode.stackId,
+						branchRef: workspaceMode.branchRef,
+					}),
+				)
 					? renameBranchModeScope({
 							bindings: renameBranchBindings,
 							context: selectedItem,
@@ -843,7 +829,7 @@ export const useWorkspaceShortcuts = ({
 			Match.orElse((action) => handlePrimaryPanelAction(action, commitFileItem(selectedItem))),
 		);
 
-	const handleBranchScopeAction = (action: BranchAction, selectedItem: SegmentItem) =>
+	const handleBranchScopeAction = (action: BranchAction, selectedItem: BranchItem) =>
 		Match.value(action).pipe(
 			Match.tags({
 				RenameBranch: () =>
@@ -854,7 +840,7 @@ export const useWorkspaceShortcuts = ({
 						}),
 					),
 			}),
-			Match.orElse((action) => handlePrimaryPanelAction(action, segmentItem(selectedItem))),
+			Match.orElse((action) => handlePrimaryPanelAction(action, branchItem(selectedItem))),
 		);
 
 	const handleDefaultScopeKeyDown = (scope: DefaultModeScope, event: KeyboardEvent) =>
@@ -901,12 +887,6 @@ export const useWorkspaceShortcuts = ({
 					if (!action) return;
 					event.preventDefault();
 					handlePrimaryPanelAction(action, stackItem(scope.context));
-				},
-				Segment: (scope) => {
-					const action = getAction(scope.bindings, event);
-					if (!action) return;
-					event.preventDefault();
-					handlePrimaryPanelAction(action, segmentItem(scope.context));
 				},
 			}),
 		);

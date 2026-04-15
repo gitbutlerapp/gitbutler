@@ -7,6 +7,7 @@ import { Segment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { type NonEmptyArray } from "effect/Array";
 import {
+	branchItem,
 	baseCommitItem,
 	changeItem,
 	changesSectionItem,
@@ -15,13 +16,12 @@ import {
 	commitFileItem,
 	itemEquals,
 	itemIdentityKey,
-	segmentItem,
 	stackItem,
 } from "./Item.ts";
 import { getRelative } from "../shared.tsx";
 
 type WorkspaceSection = {
-	section: Item;
+	section: Item | null;
 	children: Array<Item>;
 };
 
@@ -45,15 +45,9 @@ const buildWorkspaceOutline = ({
 		children: changes.map((change) => changeItem({ path: change.path })),
 	});
 
-	const segmentSection = (
-		stackId: string,
-		segmentIndex: number,
-		segment: Segment,
-	): WorkspaceSection => {
-		const branchRef = segment.refName?.fullNameBytes ?? null;
-		return {
-			section: segmentItem({ stackId, segmentIndex, branchRef }),
-			children: segment.commits.flatMap((commit) => [
+	const segmentChildren = (stackId: string, segment: Segment): Array<Item> =>
+		segment.commits.flatMap(
+			(commit): Array<Item> => [
 				commitItem({ stackId, commitId: commit.id }),
 				...(commit.id === expandedCommitId
 					? (expandedCommitPaths ?? []).map((path) =>
@@ -64,7 +58,17 @@ const buildWorkspaceOutline = ({
 							}),
 						)
 					: []),
-			]),
+			],
+		);
+
+	const segmentSection = (stackId: string, segment: Segment): WorkspaceSection | null => {
+		const children = segmentChildren(stackId, segment);
+		const branchRef = segment.refName?.fullNameBytes;
+		if (!branchRef && children.length === 0) return null;
+
+		return {
+			section: branchRef ? branchItem({ stackId, branchRef }) : null,
+			children,
 		};
 	};
 
@@ -85,9 +89,10 @@ const buildWorkspaceOutline = ({
 			};
 			return [
 				stackItemSection,
-				...stack.segments.map((segment, segmentIndex) =>
-					segmentSection(stackId, segmentIndex, segment),
-				),
+				...stack.segments.flatMap((segment) => {
+					const section = segmentSection(stackId, segment);
+					return section ? [section] : [];
+				}),
 			];
 		}),
 
@@ -144,7 +149,7 @@ export const buildNavigationIndex = (outline: WorkspaceOutline): NavigationIndex
 	for (const { section, children } of outline) {
 		const sectionIndex = model.sectionStartIndexes.length;
 		model.sectionStartIndexes.push(model.items.length);
-		addItem(section, sectionIndex);
+		if (section) addItem(section, sectionIndex);
 
 		for (const item of children) addItem(item, sectionIndex);
 	}

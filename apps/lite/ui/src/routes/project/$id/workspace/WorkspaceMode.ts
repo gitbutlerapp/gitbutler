@@ -1,5 +1,6 @@
 import { Match } from "effect";
 import { type OperationSource, operationSourceMatchesItem } from "./OperationSource.ts";
+import { branchItem, itemEquals } from "./Item.ts";
 import { type NavigationIndex } from "./WorkspaceModel.ts";
 
 /** @public */
@@ -13,7 +14,7 @@ export type OperationMode =
 /** @public */
 export type RewordCommitWorkspaceMode = { commitId: string };
 /** @public */
-export type RenameBranchWorkspaceMode = { stackId: string; segmentIndex: number };
+export type RenameBranchWorkspaceMode = { stackId: string; branchRef: Array<number> };
 export type WorkspaceMode =
 	| { _tag: "Default" }
 	| ({ _tag: "RewordCommit" } & RewordCommitWorkspaceMode)
@@ -48,11 +49,11 @@ export const rewordCommitWorkspaceMode = ({
 /** @public */
 export const renameBranchWorkspaceMode = ({
 	stackId,
-	segmentIndex,
+	branchRef,
 }: RenameBranchWorkspaceMode): WorkspaceMode => ({
 	_tag: "RenameBranch",
 	stackId,
-	segmentIndex,
+	branchRef,
 });
 
 export const getOperationMode = (mode: WorkspaceMode): OperationMode | null =>
@@ -83,11 +84,14 @@ export const normalizeWorkspaceMode = ({
 					? mode
 					: defaultWorkspaceMode,
 			RenameBranch: (mode) =>
-				navigationIndex.items.some(
-					(item) =>
-						item._tag === "Segment" &&
-						item.stackId === mode.stackId &&
-						item.segmentIndex === mode.segmentIndex,
+				navigationIndex.items.some((item) =>
+					itemEquals(
+						item,
+						branchItem({
+							stackId: mode.stackId,
+							branchRef: mode.branchRef,
+						}),
+					),
 				)
 					? mode
 					: defaultWorkspaceMode,

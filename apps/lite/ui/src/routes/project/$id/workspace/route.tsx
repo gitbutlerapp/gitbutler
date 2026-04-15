@@ -56,6 +56,7 @@ import {
 	decodeRefName,
 	getRelative,
 	encodeRefName,
+	assert,
 } from "#ui/routes/project/$id/shared.tsx";
 import {
 	type NativeMenuItem,
@@ -71,7 +72,6 @@ import {
 	DiffHunk,
 	HunkDependencies,
 	HunkHeader,
-	Segment,
 	Stack,
 	TreeChange,
 	UnifiedPatch,
@@ -96,16 +96,17 @@ import {
 import { Route as projectRoute } from "#ui/routes/project/$id/route.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/state/hooks.ts";
 import {
+	branchItem,
 	baseCommitItem,
 	changeItem,
 	changesSectionItem,
+	type BranchItem,
 	CommitFileItem,
 	commitFileItem,
 	CommitItem,
 	commitItem,
+	itemEquals,
 	type Item,
-	SegmentItem,
-	segmentItem,
 	stackItem,
 } from "./Item.ts";
 import {
@@ -763,24 +764,14 @@ const Preview: FC<{
 	Match.value(selectedItem).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
-			Segment: ({ branchRef }) => {
-				if (branchRef == null)
-					return (
-						<div>
-							TODO: the API doesn't provide a way to show details/diffs for segments that don't have
-							branch names.
-						</div>
-					);
-
-				return (
-					<BranchPreview
-						operationMode={operationMode}
-						projectId={projectId}
-						branchRef={branchRef}
-						ref={ref}
-					/>
-				);
-			},
+			Branch: ({ branchRef }) => (
+				<BranchPreview
+					operationMode={operationMode}
+					projectId={projectId}
+					branchRef={branchRef}
+					ref={ref}
+				/>
+			),
 			ChangesSection: () => (
 				<ChangesPreview operationMode={operationMode} projectId={projectId} ref={ref} />
 			),
@@ -1458,16 +1449,16 @@ const InlineBranchNameEditor: FC<{
 	);
 };
 
-const SegmentRow: FC<
+const BranchRow: FC<
 	{
 		branchRenameFormRef: Ref<HTMLFormElement>;
 		operationMode: OperationMode | null;
-		selected: SegmentItem | null;
+		selected: BranchItem | null;
 		workspaceMode: WorkspaceMode;
 		projectId: string;
-		segment: Segment;
+		branchName: string;
+		branchRef: Array<number>;
 		stackId: string;
-		segmentIndex: number;
 		navigationIndex: NavigationIndex;
 	} & ComponentProps<"div">
 > = ({
@@ -1476,26 +1467,27 @@ const SegmentRow: FC<
 	selected,
 	workspaceMode,
 	projectId,
-	segment,
+	branchName,
+	branchRef,
 	stackId,
-	segmentIndex,
 	navigationIndex,
 	...restProps
 }) => {
 	const dispatch = useAppDispatch();
-	const branchName = segment.refName?.displayName ?? null;
-	const branchRef = segment.refName?.fullNameBytes ?? null;
-	const segmentItemV: SegmentItem = {
+	const branchItemV: BranchItem = {
 		stackId,
-		segmentIndex,
 		branchRef,
 	};
-	const item = segmentItem(segmentItemV);
+	const item = branchItem(branchItemV);
 	const isRenaming =
-		selected !== null &&
 		workspaceMode._tag === "RenameBranch" &&
-		workspaceMode.stackId === stackId &&
-		workspaceMode.segmentIndex === segmentIndex;
+		itemEquals(
+			item,
+			branchItem({
+				stackId: workspaceMode.stackId,
+				branchRef: workspaceMode.branchRef,
+			}),
+		);
 	const [optimisticBranchName, setOptimisticBranchName] = useOptimistic(
 		branchName,
 		(_currentBranchName, nextBranchName: string) => nextBranchName,
@@ -1505,8 +1497,7 @@ const SegmentRow: FC<
 	const updateBranchName = useMutation(updateBranchNameMutationOptions);
 
 	const startEditing = () => {
-		if (branchName === null) return;
-		dispatch(projectActions.startRenameBranch({ projectId, item: segmentItemV }));
+		dispatch(projectActions.startRenameBranch({ projectId, item: branchItemV }));
 	};
 
 	const endEditing = () => {
@@ -1515,7 +1506,6 @@ const SegmentRow: FC<
 	};
 
 	const saveBranchName = (newBranchName: string) => {
-		if (branchName === null) return;
 		const trimmed = newBranchName.trim();
 		if (trimmed === "" || trimmed === branchName) return;
 		startRenameTransition(async () => {
@@ -1535,9 +1525,8 @@ const SegmentRow: FC<
 			dispatch(
 				projectActions.selectItem({
 					projectId,
-					item: segmentItem({
+					item: branchItem({
 						stackId,
-						segmentIndex,
 						// TODO: ideally the API would return the new ref?
 						branchRef: encodeRefName(`refs/heads/${trimmed}`),
 					}),
@@ -1551,7 +1540,7 @@ const SegmentRow: FC<
 		{
 			_tag: "Item",
 			label: "Rename branch",
-			enabled: branchName !== null && !isRenamePending,
+			enabled: !isRenamePending,
 			onSelect: startEditing,
 		},
 	];
@@ -1573,7 +1562,7 @@ const SegmentRow: FC<
 							inert={!navigationIndexIncludes(navigationIndex, item)}
 							isSelected={selected !== null}
 						>
-							{isRenaming && optimisticBranchName !== null ? (
+							{isRenaming ? (
 								<InlineBranchNameEditor
 									branchName={optimisticBranchName}
 									formRef={branchRenameFormRef}
@@ -1594,7 +1583,7 @@ const SegmentRow: FC<
 												: undefined
 										}
 									>
-										{optimisticBranchName ?? "Untitled"}
+										{optimisticBranchName}
 									</button>
 									{workspaceMode._tag === "Default" && (
 										<>
@@ -1712,12 +1701,16 @@ const StackC: FC<{
 			</ItemRow>
 
 			<ul className={styles.segments}>
-				{stack.segments.map((segment, segmentIndex) => {
-					const selectedSegment =
-						selectedItem?._tag === "Segment" &&
-						selectedItem.stackId === stackId &&
-						selectedItem.segmentIndex === segmentIndex
-							? selectedItem
+				{stack.segments.map((segment) => {
+					const branchRef = segment.refName?.fullNameBytes;
+
+					if (!branchRef && segment.commits.length === 0) return null;
+
+					const selectedBranch =
+						branchRef && selectedItem?._tag === "Branch"
+							? itemEquals(selectedItem, branchItem({ stackId, branchRef }))
+								? selectedItem
+								: null
 							: null;
 					const selectedCommit =
 						selectedItem?._tag === "Commit" && selectedItem.stackId === stackId
@@ -1728,21 +1721,28 @@ const StackC: FC<{
 							? selectedItem
 							: null;
 
+					const segmentKey = branchRef
+						? JSON.stringify(branchRef)
+						: // A segment should always either have a branch reference or at
+							// least one commit, so this assertion should be safe.
+							assert(segment.commits[0]).id;
+
 					return (
-						// oxlint-disable-next-line react/no-array-index-key -- It's all we have.
-						<li key={segmentIndex}>
+						<li key={segmentKey}>
 							<div className={classes(styles.section, styles.segment)}>
-								<SegmentRow
-									branchRenameFormRef={branchRenameFormRef}
-									operationMode={operationMode}
-									selected={selectedSegment}
-									workspaceMode={workspaceMode}
-									projectId={projectId}
-									segment={segment}
-									stackId={stackId}
-									segmentIndex={segmentIndex}
-									navigationIndex={navigationIndex}
-								/>
+								{segment.refName && (
+									<BranchRow
+										branchRenameFormRef={branchRenameFormRef}
+										operationMode={operationMode}
+										selected={selectedBranch}
+										workspaceMode={workspaceMode}
+										projectId={projectId}
+										branchName={segment.refName.displayName}
+										branchRef={segment.refName.fullNameBytes}
+										stackId={stackId}
+										navigationIndex={navigationIndex}
+									/>
+								)}
 
 								<CommitsList commits={segment.commits}>
 									{(commit) => {

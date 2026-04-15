@@ -41,7 +41,7 @@ export type CommitResolvedOperationSource = { commitId: string };
 /** @public */
 export type StackResolvedOperationSource = { stackId: string };
 /** @public */
-export type SegmentResolvedOperationSource = { branchRef: Array<number> | null };
+export type BranchResolvedOperationSource = { branchRef: Array<number> };
 /** @public */
 export type TreeChangesResolvedOperationSource = {
 	parent: FileParent;
@@ -55,7 +55,7 @@ export type ResolvedOperationSource =
 	| { _tag: "BaseCommit" }
 	| ({ _tag: "Commit" } & CommitResolvedOperationSource)
 	| ({ _tag: "Stack" } & StackResolvedOperationSource)
-	| ({ _tag: "Segment" } & SegmentResolvedOperationSource)
+	| ({ _tag: "Branch" } & BranchResolvedOperationSource)
 	| ({ _tag: "TreeChanges" } & TreeChangesResolvedOperationSource);
 
 /** @public */
@@ -80,10 +80,10 @@ export const stackResolvedOperationSource = ({
 });
 
 /** @public */
-export const segmentResolvedOperationSource = ({
+export const branchResolvedOperationSource = ({
 	branchRef,
-}: SegmentResolvedOperationSource): ResolvedOperationSource => ({
-	_tag: "Segment",
+}: BranchResolvedOperationSource): ResolvedOperationSource => ({
+	_tag: "Branch",
 	branchRef,
 });
 
@@ -109,7 +109,7 @@ const resolveOperationSource = ({
 	Match.value(operationSource).pipe(
 		Match.tagsExhaustive({
 			Stack: ({ stackId }) => stackResolvedOperationSource({ stackId }),
-			Segment: ({ branchRef }) => segmentResolvedOperationSource({ branchRef }),
+			Branch: ({ branchRef }) => branchResolvedOperationSource({ branchRef }),
 			BaseCommit: () => baseCommitResolvedOperationSource,
 			Commit: ({ commitId }) => commitResolvedOperationSource({ commitId }),
 			ChangesSection: () => {
@@ -215,7 +215,7 @@ export const getCombineOperation = ({
 	Match.value(resolvedOperationSource).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
-			Segment: () => null,
+			Branch: () => null,
 			BaseCommit: () => null,
 			Commit: ({ commitId: sourceCommitId }) =>
 				Match.value(target).pipe(
@@ -346,14 +346,12 @@ export const getBranchTargetOperation = ({
 }): Operation | null =>
 	Match.value(resolvedOperationSource).pipe(
 		Match.tags({
-			Segment: (source) => {
-				if (source.branchRef === null) return null;
-				return moveBranchOperation({
+			Branch: (source) =>
+				moveBranchOperation({
 					subjectBranch: decodeRefName(source.branchRef),
 					targetBranch: decodeRefName(branchRef),
 					dryRun: false,
-				});
-			},
+				}),
 			Commit: ({ commitId }) =>
 				commitMoveOperation({
 					subjectCommitId: commitId,
@@ -397,8 +395,7 @@ export const getBranchTargetOperation = ({
 export const getTearOffBranchTargetOperation = (
 	resolvedOperationSource: ResolvedOperationSource,
 ): Operation | null => {
-	if (resolvedOperationSource._tag !== "Segment") return null;
-	if (resolvedOperationSource.branchRef === null) return null;
+	if (resolvedOperationSource._tag !== "Branch") return null;
 
 	return tearOffBranchOperation({
 		subjectBranch: decodeRefName(resolvedOperationSource.branchRef),

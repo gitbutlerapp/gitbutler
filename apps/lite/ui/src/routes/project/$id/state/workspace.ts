@@ -1,9 +1,10 @@
 import {
+	branchItem,
 	commitItem,
-	segmentItem,
+	itemEquals,
+	type BranchItem,
 	type CommitItem,
 	type Item,
-	type SegmentItem,
 } from "../workspace/Item.ts";
 import { type OperationSource } from "../workspace/OperationSource.ts";
 import {
@@ -46,9 +47,13 @@ const normalizeModeForSelectedItem = (mode: WorkspaceMode, item: Item | null) =>
 		(item === null || item._tag !== "Commit" || item.commitId !== mode.commitId)) ||
 	(mode._tag === "RenameBranch" &&
 		(item === null ||
-			item._tag !== "Segment" ||
-			item.stackId !== mode.stackId ||
-			item.segmentIndex !== mode.segmentIndex))
+			!itemEquals(
+				item,
+				branchItem({
+					stackId: mode.stackId,
+					branchRef: mode.branchRef,
+				}),
+			)))
 		? defaultWorkspaceMode
 		: mode;
 
@@ -92,11 +97,11 @@ export const setHighlightedCommitIds = (state: WorkspaceState, commitIds: Array<
 	state.highlightedCommitIds = commitIds ?? [];
 };
 
-export const startRenameBranch = (state: WorkspaceState, item: SegmentItem) => {
-	selectItem(state, segmentItem(item));
+export const startRenameBranch = (state: WorkspaceState, item: BranchItem) => {
+	selectItem(state, branchItem(item));
 	state.mode = renameBranchWorkspaceMode({
 		stackId: item.stackId,
-		segmentIndex: item.segmentIndex,
+		branchRef: item.branchRef,
 	});
 };
 

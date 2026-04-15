@@ -17,7 +17,7 @@ export type FileOperationSource = { parent: FileParent; path: string };
 export type HunkOperationSource = { parent: FileParent; path: string; hunkHeader: HunkHeader };
 /** @public */
 export type StackOperationSource = { stackId: string };
-export type SegmentOperationSource = { branchRef: Array<number> | null };
+export type BranchOperationSource = { branchRef: Array<number> };
 
 /**
  * The source of an operation before it has been materialized into data that can
@@ -30,7 +30,7 @@ export type OperationSource =
 	| ({ _tag: "File" } & FileOperationSource)
 	| ({ _tag: "Hunk" } & HunkOperationSource)
 	| ({ _tag: "Stack" } & StackOperationSource)
-	| ({ _tag: "Segment" } & SegmentOperationSource);
+	| ({ _tag: "Branch" } & BranchOperationSource);
 
 /** @public */
 export const baseCommitOperationSource: OperationSource = {
@@ -77,8 +77,8 @@ export const stackOperationSource = ({ stackId }: StackOperationSource): Operati
 });
 
 /** @public */
-export const segmentOperationSource = ({ branchRef }: SegmentOperationSource): OperationSource => ({
-	_tag: "Segment",
+export const branchOperationSource = ({ branchRef }: BranchOperationSource): OperationSource => ({
+	_tag: "Branch",
 	branchRef,
 });
 
@@ -91,7 +91,7 @@ const operationSourceIdentityKey = (operationSource: OperationSource): string =>
 			File: ({ parent, path }) => JSON.stringify(["File", parent, path]),
 			Hunk: ({ parent, path, hunkHeader }) => JSON.stringify(["Hunk", parent, path, hunkHeader]),
 			Stack: ({ stackId }) => JSON.stringify(["Stack", stackId]),
-			Segment: ({ branchRef }) => JSON.stringify(["Segment", branchRef]),
+			Branch: ({ branchRef }) => JSON.stringify(["Branch", branchRef]),
 		}),
 	);
 
@@ -115,7 +115,7 @@ export const operationSourceFromItem = (item: Item): OperationSource =>
 					path,
 				}),
 			Stack: ({ stackId }) => stackOperationSource({ stackId }),
-			Segment: ({ branchRef }) => segmentOperationSource({ branchRef }),
+			Branch: ({ branchRef }) => branchOperationSource({ branchRef }),
 		}),
 	);
 

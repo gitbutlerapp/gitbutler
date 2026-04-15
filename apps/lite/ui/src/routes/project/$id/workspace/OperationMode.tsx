@@ -44,13 +44,11 @@ const moveModeOperationSourceToOperation = ({
 }) =>
 	Match.value(target).pipe(
 		Match.tags({
-			Segment: ({ branchRef }) =>
-				branchRef === null
-					? null
-					: getBranchTargetOperation({
-							resolvedOperationSource,
-							branchRef,
-						}),
+			Branch: ({ branchRef }) =>
+				getBranchTargetOperation({
+					resolvedOperationSource,
+					branchRef,
+				}),
 			Commit: (target) =>
 				getCommitTargetMoveOperation({
 					resolvedOperationSource,

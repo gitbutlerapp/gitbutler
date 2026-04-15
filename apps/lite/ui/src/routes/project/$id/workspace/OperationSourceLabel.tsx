@@ -17,11 +17,10 @@ export const OperationSourceLabel: FC<{
 	Match.value(source).pipe(
 		Match.tagsExhaustive({
 			Stack: () => "Stack",
-			Segment: ({ branchRef }) => {
+			Branch: ({ branchRef }) => {
 				const segment = findSegmentByBranchRef({ headInfo, branchRef });
 				if (segment?.refName) return segment.refName.displayName;
-				if (branchRef) return decodeRefName(branchRef);
-				return "Segment";
+				return decodeRefName(branchRef);
 			},
 			BaseCommit: () => "Base commit",
 			Commit: ({ commitId }) => {
