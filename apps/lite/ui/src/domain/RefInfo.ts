@@ -21,31 +21,19 @@ export const getBranchNameByCommitId = (headInfo: RefInfo): Map<string, string> 
 	return byCommitId;
 };
 
-type CommitWithContext = {
-	stackId: string | null;
-	segmentIndex: number;
-	segment: Segment;
-	commit: Commit;
-};
-
-export const findCommitWithContext = ({
+export const findCommit = ({
 	headInfo,
 	commitId,
 }: {
 	headInfo: RefInfo;
 	commitId: string;
-}): CommitWithContext | null => {
+}): Commit | null => {
 	for (const stack of headInfo.stacks)
-		for (const [segmentIndex, segment] of stack.segments.entries()) {
+		for (const segment of stack.segments) {
 			const commit = segment.commits.find((candidate) => candidate.id === commitId);
 			if (!commit) continue;
 
-			return {
-				stackId: stack.id,
-				segmentIndex,
-				segment,
-				commit,
-			};
+			return commit;
 		}
 
 	return null;

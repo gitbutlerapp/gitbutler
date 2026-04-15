@@ -1,4 +1,4 @@
-import { findCommitWithContext, findSegmentByBranchRef } from "#ui/domain/RefInfo.ts";
+import { findCommit, findSegmentByBranchRef } from "#ui/domain/RefInfo.ts";
 import {
 	CommitLabel,
 	decodeRefName,
@@ -25,7 +25,7 @@ export const OperationSourceLabel: FC<{
 			},
 			BaseCommit: () => "Base commit",
 			Commit: ({ commitId }) => {
-				const commit = findCommitWithContext({ headInfo, commitId })?.commit;
+				const commit = findCommit({ headInfo, commitId });
 				return commit ? <CommitLabel commit={commit} /> : shortCommitId(commitId);
 			},
 			ChangesSection: () => "Changes",
