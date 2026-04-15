@@ -1,12 +1,15 @@
 {
 	"$schema": "https://turborepo.org/schema.json",
 	"tasks": {
+		"compile": {
+			"outputs": ["dist/**", ".svelte-kit/**", "src/generated/**"]
+		},
 		"package": {
-			"dependsOn": ["^package"],
+			"dependsOn": ["^package", "^compile"],
 			"outputs": ["dist/**", ".svelte-kit/**"]
 		},
 		"build": {
-			"dependsOn": ["package"],
+			"dependsOn": ["package", "^compile"],
 			"passThroughEnv": ["SENTRY_AUTH_TOKEN", "GITHUB_TOKEN"],
 			"env": ["SENTRY_RELEASE"],
 			"outputs": [
@@ -18,7 +21,7 @@
 			]
 		},
 		"dev": {
-			"dependsOn": ["package"],
+			"dependsOn": ["package", "compile"],
 			"cache": false,
 			"persistent": true
 		},
