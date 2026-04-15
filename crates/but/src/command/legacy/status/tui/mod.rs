@@ -11,7 +11,7 @@ use std::{
 
 use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
-use but_core::tree::create_tree::RejectionReason;
+use but_core::{DryRun, tree::create_tree::RejectionReason};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
@@ -39,6 +39,7 @@ use crate::{
                 confirm::{Confirm, ConfirmMessage},
                 cursor::{Cursor, is_selectable_in_mode},
                 details::{Details, DetailsMessage, DetailsVisibility, RenderNextChunkResult},
+                dry_run_workspace::DryRunWorkspace,
                 event_polling::{CrosstermEventPolling, EventPolling, NoopEventPolling},
                 fps::FpsCounter,
                 graph_extension::{ExtensionDirection, extend_connector_spans},
@@ -67,6 +68,7 @@ use super::{
 mod confirm;
 mod cursor;
 mod details;
+mod dry_run_workspace;
 mod event_polling;
 mod fps;
 mod graph_extension;
@@ -356,6 +358,7 @@ struct App {
     fps: FpsCounter,
     to_be_discarded: Option<Arc<CliId>>,
     status_width_percentage: u16,
+    dry_run_workspace: DryRunWorkspace,
 }
 
 impl App {
@@ -394,6 +397,7 @@ impl App {
             delayed_messages: Default::default(),
             incoming_out_of_band_messages: Default::default(),
             to_be_discarded: Default::default(),
+            dry_run_workspace: Default::default(),
             fps: FpsCounter::new(),
             confirm: None,
             details,
@@ -551,6 +555,7 @@ impl App {
                         .move_up(&self.status_lines, &self.mode, self.flags.show_files)
                 {
                     self.cursor = new_cursor;
+                    self.update_dry_run_state(ctx);
                 }
             }
             Message::MoveCursorDown => {
@@ -559,6 +564,7 @@ impl App {
                         .move_down(&self.status_lines, &self.mode, self.flags.show_files)
                 {
                     self.cursor = new_cursor;
+                    self.update_dry_run_state(ctx);
                 }
             }
             Message::MoveCursorPreviousSection => {
@@ -568,6 +574,7 @@ impl App {
                     self.flags.show_files,
                 ) {
                     self.cursor = new_cursor;
+                    self.update_dry_run_state(ctx);
                 }
             }
             Message::MoveCursorNextSection => {
@@ -577,6 +584,7 @@ impl App {
                     self.flags.show_files,
                 ) {
                     self.cursor = new_cursor;
+                    self.update_dry_run_state(ctx);
                 }
             }
             Message::SelectUnassigned => {
@@ -589,6 +597,7 @@ impl App {
                     )
                 {
                     self.cursor = new_cursor;
+                    self.update_dry_run_state(ctx);
                 }
             }
             Message::Rub(rub_message) => match rub_message {
@@ -747,6 +756,8 @@ impl App {
         if matches!(self.mode, Mode::Details) {
             messages.push(Message::Details(DetailsMessage::Deselect));
         }
+
+        self.dry_run_workspace.clear();
 
         self.mode = Mode::Normal;
 
@@ -1404,8 +1415,14 @@ impl App {
             }
         };
 
-        let Some(commit_create_result) =
-            operations::create_commit_legacy(ctx, target, source, *scope_to_stack, *insert_side)?
+        let Some(commit_create_result) = operations::create_commit(
+            ctx,
+            target,
+            source,
+            *scope_to_stack,
+            *insert_side,
+            DryRun::No,
+        )?
         else {
             return Ok(());
         };
@@ -1487,6 +1504,64 @@ impl App {
     fn handle_commit_toggle_empty_message(&mut self) {
         if let Mode::Commit(mode) = &mut self.mode {
             mode.empty_message = !mode.empty_message;
+        }
+    }
+
+    fn update_dry_run_state(&mut self, ctx: &mut Context) {
+        self.dry_run_workspace.clear();
+
+        let Mode::Commit(CommitMode {
+            source,
+            scope_to_stack,
+            insert_side,
+            ..
+        }) = &self.mode
+        else {
+            return;
+        };
+        let Some(target) = self
+            .cursor
+            .selected_line(&self.status_lines)
+            .and_then(|selection| selection.data.cli_id())
+        else {
+            return;
+        };
+
+        let Ok(Some(result)) = operations::create_commit(
+            ctx,
+            target,
+            source,
+            *scope_to_stack,
+            *insert_side,
+            DryRun::Yes,
+        ) else {
+            return;
+        };
+
+        let conflicted_commits = result
+            .workspace
+            .head_info
+            .stacks
+            .iter()
+            .flat_map(|stack| &stack.segments)
+            .flat_map(|segment| &segment.commits)
+            .filter(|commit| commit.has_conflicts)
+            .collect::<Vec<_>>();
+
+        self.toasts
+            .insert(ToastKind::Debug, format!("conflicted commits: {}", conflicted_commits.len()));
+
+        for conflicted_commit in conflicted_commits {
+            if let Some(commit_id_in_current_workspace) =
+                result.workspace.replaced_commits.iter().find_map(
+                    |(old_commit_id, new_commit_id)| {
+                        (*new_commit_id == conflicted_commit.id).then_some(*old_commit_id)
+                    },
+                )
+            {
+                self.dry_run_workspace
+                    .insert_conflicted_commit(commit_id_in_current_workspace);
+            }
         }
     }
 
@@ -2342,6 +2417,20 @@ impl App {
             }
         }
 
+        let is_conflicted_in_dry_run_workspace = data
+            .cli_id()
+            .and_then(|id| {
+                if let CliId::Commit { commit_id, .. } = &**id {
+                    Some(*commit_id)
+                } else {
+                    None
+                }
+            })
+            .is_some_and(|commit| self.dry_run_workspace.is_commit_conflicted(commit));
+        if is_conflicted_in_dry_run_workspace {
+            line.push_span(Span::raw(" {will conflict}").red());
+        }
+
         if is_selected {
             line = line.bg(*CURSOR_BG);
         }
@@ -2668,6 +2757,14 @@ impl App {
             format!("{} FPS ({} renders)", self.fps.fps(), self.renders),
         )));
 
+        let dry_run_workspace = format!("{:#?}", self.dry_run_workspace);
+        let dry_run_workspace = once(ListItem::new("Dry run workspace").black().on_blue()).chain(
+            dry_run_workspace
+                .lines()
+                .take(100)
+                .map(|line| ListItem::new(line.to_owned())),
+        );
+
         let details_selection = format!("{:#?}", self.details.selection());
         let details_selection = once(ListItem::new("Details selection").black().on_blue()).chain(
             details_selection
@@ -2686,6 +2783,8 @@ impl App {
 
         let list = List::new(
             renders
+                .chain(once(ListItem::new("")))
+                .chain(dry_run_workspace)
                 .chain(once(ListItem::new("")))
                 .chain(details_selection)
                 .chain(once(ListItem::new("")))

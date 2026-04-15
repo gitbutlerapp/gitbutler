@@ -12,7 +12,7 @@ use but_api::{
     },
     diff::ComputeLineStats,
 };
-use but_core::{DiffSpec, DryRun};
+use but_core::{DiffSpec, DryRun, sync::RepoShared};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use gitbutler_operating_modes::OperatingMode;
@@ -90,38 +90,16 @@ pub(super) fn create_empty_commit_relative_to_commit(
     )
 }
 
-pub(super) fn create_commit_legacy(
+fn changes_to_commit(
     ctx: &mut Context,
-    target: &CliId,
+    guard: &RepoShared,
     source: &CommitSource,
     scope_to_stack: Option<gitbutler_stack::StackId>,
-    insert_side: InsertSide,
-) -> anyhow::Result<Option<CommitCreateResult>> {
-    let mut guard = ctx.exclusive_worktree_access();
-    let (insert_commit_relative_to, insert_side) = match target {
-        CliId::Branch { name, .. } => {
-            let repo = ctx.repo.get()?;
-            let reference = repo.find_reference(name)?;
-            (
-                RelativeTo::Reference(reference.name().to_owned()),
-                InsertSide::Below,
-            )
-        }
-        CliId::Commit { commit_id, .. } => (RelativeTo::Commit(*commit_id), insert_side),
-        CliId::Uncommitted(_)
-        | CliId::PathPrefix { .. }
-        | CliId::CommittedFile { .. }
-        | CliId::Unassigned { .. }
-        | CliId::Stack { .. } => {
-            return Ok(None);
-        }
-    };
-
-    // find what to commit
+) -> anyhow::Result<Option<Vec<but_core::DiffSpec>>> {
     let changes_to_commit = match source {
         CommitSource::Unassigned(..) => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
+            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard)?;
             let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
             let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
                 db.hunk_assignments_mut()?,
@@ -145,7 +123,7 @@ pub(super) fn create_commit_legacy(
             .collect::<Vec<_>>(),
         CommitSource::Stack(StackCommitSource { stack_id, .. }) => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
+            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard)?;
             let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
             let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
                 db.hunk_assignments_mut()?,
@@ -162,9 +140,44 @@ pub(super) fn create_commit_legacy(
         }
     };
 
-    let changes_to_commit = but_workspace::flatten_diff_specs(changes_to_commit);
+    Ok(Some(but_workspace::flatten_diff_specs(changes_to_commit)))
+}
 
-    // create commit
+pub(super) fn create_commit(
+    ctx: &mut Context,
+    target: &CliId,
+    source: &CommitSource,
+    scope_to_stack: Option<gitbutler_stack::StackId>,
+    insert_side: InsertSide,
+    dry_run: DryRun,
+) -> anyhow::Result<Option<CommitCreateResult>> {
+    let mut guard = ctx.exclusive_worktree_access();
+
+    let (insert_commit_relative_to, insert_side) = match target {
+        CliId::Branch { name, .. } => {
+            let repo = ctx.repo.get()?;
+            let reference = repo.find_reference(name)?;
+            (
+                RelativeTo::Reference(reference.name().to_owned()),
+                InsertSide::Below,
+            )
+        }
+        CliId::Commit { commit_id, .. } => (RelativeTo::Commit(*commit_id), insert_side),
+        CliId::Uncommitted(_)
+        | CliId::PathPrefix { .. }
+        | CliId::CommittedFile { .. }
+        | CliId::Unassigned { .. }
+        | CliId::Stack { .. } => {
+            return Ok(None);
+        }
+    };
+
+    let Some(changes_to_commit) =
+        changes_to_commit(ctx, guard.read_permission(), source, scope_to_stack)?
+    else {
+        return Ok(None);
+    };
+
     but_api::commit::create::commit_create(
         ctx,
         insert_commit_relative_to,
@@ -172,7 +185,7 @@ pub(super) fn create_commit_legacy(
         changes_to_commit,
         // we reword the commit with the editor before the next render
         String::new(),
-        DryRun::No,
+        dry_run,
         guard.write_permission(),
     )
     .context("failed to create commit")
