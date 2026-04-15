@@ -78,8 +78,8 @@ const buildWorkspaceOutline = ({
 		changesSection(null),
 
 		...headInfo.stacks.flatMap((stack) => {
-			if (stack.id == null) return [];
-			const stackId = stack.id;
+			// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
+			const stackId = stack.id!;
 			const stackItemSection: WorkspaceSection = {
 				section: stackItem({ stackId }),
 				children: [],
