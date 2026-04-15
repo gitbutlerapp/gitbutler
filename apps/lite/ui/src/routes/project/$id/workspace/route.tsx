@@ -1640,86 +1640,6 @@ const SegmentRow: FC<
 	);
 };
 
-const SegmentC: FC<{
-	branchRenameFormRef: Ref<HTMLFormElement>;
-	commitMessageFormRef: Ref<HTMLFormElement>;
-	operationMode: OperationMode | null;
-	projectId: string;
-	selectedItem: Item | null;
-	segment: Segment;
-	segmentIndex: number;
-	stackId: string;
-	workspaceMode: WorkspaceMode;
-	navigationIndex: NavigationIndex;
-}> = ({
-	branchRenameFormRef,
-	commitMessageFormRef,
-	operationMode,
-	projectId,
-	segment,
-	segmentIndex,
-	selectedItem,
-	stackId,
-	workspaceMode,
-	navigationIndex,
-}) => {
-	const selectedSegment =
-		selectedItem?._tag === "Segment" &&
-		selectedItem.stackId === stackId &&
-		selectedItem.segmentIndex === segmentIndex
-			? selectedItem
-			: null;
-	const selectedCommit =
-		selectedItem?._tag === "Commit" &&
-		selectedItem.stackId === stackId &&
-		selectedItem.segmentIndex === segmentIndex
-			? selectedItem
-			: null;
-	const selectedCommitFile =
-		selectedItem?._tag === "CommitFile" &&
-		selectedItem.stackId === stackId &&
-		selectedItem.segmentIndex === segmentIndex
-			? selectedItem
-			: null;
-
-	return (
-		<div className={classes(styles.section, styles.segment)}>
-			<SegmentRow
-				branchRenameFormRef={branchRenameFormRef}
-				operationMode={operationMode}
-				selected={selectedSegment}
-				workspaceMode={workspaceMode}
-				projectId={projectId}
-				segment={segment}
-				stackId={stackId}
-				segmentIndex={segmentIndex}
-				navigationIndex={navigationIndex}
-			/>
-
-			<CommitsList commits={segment.commits}>
-				{(commit) => {
-					const isSelected = selectedCommit?.commitId === commit.id;
-					return (
-						<CommitC
-							branchRef={segment.refName?.fullNameBytes ?? null}
-							commit={commit}
-							commitMessageFormRef={commitMessageFormRef}
-							operationMode={operationMode}
-							workspaceMode={workspaceMode}
-							selected={isSelected ? selectedCommit : null}
-							selectedFile={selectedCommitFile?.commitId === commit.id ? selectedCommitFile : null}
-							projectId={projectId}
-							segmentIndex={segmentIndex}
-							stackId={stackId}
-							navigationIndex={navigationIndex}
-						/>
-					);
-				}}
-			</CommitsList>
-		</div>
-	);
-};
-
 const StackC: FC<{
 	branchRenameFormRef: Ref<HTMLFormElement>;
 	commitMessageFormRef: Ref<HTMLFormElement>;
@@ -1804,23 +1724,68 @@ const StackC: FC<{
 			</ItemRow>
 
 			<ul className={styles.segments}>
-				{stack.segments.map((segment, segmentIndex) => (
-					// oxlint-disable-next-line react/no-array-index-key -- It's all we have.
-					<li key={segmentIndex}>
-						<SegmentC
-							branchRenameFormRef={branchRenameFormRef}
-							commitMessageFormRef={commitMessageFormRef}
-							operationMode={operationMode}
-							projectId={projectId}
-							segment={segment}
-							segmentIndex={segmentIndex}
-							selectedItem={selectedItem}
-							stackId={stackId}
-							workspaceMode={workspaceMode}
-							navigationIndex={navigationIndex}
-						/>
-					</li>
-				))}
+				{stack.segments.map((segment, segmentIndex) => {
+					const selectedSegment =
+						selectedItem?._tag === "Segment" &&
+						selectedItem.stackId === stackId &&
+						selectedItem.segmentIndex === segmentIndex
+							? selectedItem
+							: null;
+					const selectedCommit =
+						selectedItem?._tag === "Commit" &&
+						selectedItem.stackId === stackId &&
+						selectedItem.segmentIndex === segmentIndex
+							? selectedItem
+							: null;
+					const selectedCommitFile =
+						selectedItem?._tag === "CommitFile" &&
+						selectedItem.stackId === stackId &&
+						selectedItem.segmentIndex === segmentIndex
+							? selectedItem
+							: null;
+
+					return (
+						// oxlint-disable-next-line react/no-array-index-key -- It's all we have.
+						<li key={segmentIndex}>
+							<div className={classes(styles.section, styles.segment)}>
+								<SegmentRow
+									branchRenameFormRef={branchRenameFormRef}
+									operationMode={operationMode}
+									selected={selectedSegment}
+									workspaceMode={workspaceMode}
+									projectId={projectId}
+									segment={segment}
+									stackId={stackId}
+									segmentIndex={segmentIndex}
+									navigationIndex={navigationIndex}
+								/>
+
+								<CommitsList commits={segment.commits}>
+									{(commit) => {
+										const isSelected = selectedCommit?.commitId === commit.id;
+										return (
+											<CommitC
+												branchRef={segment.refName?.fullNameBytes ?? null}
+												commit={commit}
+												commitMessageFormRef={commitMessageFormRef}
+												operationMode={operationMode}
+												workspaceMode={workspaceMode}
+												selected={isSelected ? selectedCommit : null}
+												selectedFile={
+													selectedCommitFile?.commitId === commit.id ? selectedCommitFile : null
+												}
+												projectId={projectId}
+												segmentIndex={segmentIndex}
+												stackId={stackId}
+												navigationIndex={navigationIndex}
+											/>
+										);
+									}}
+								</CommitsList>
+							</div>
+						</li>
+					);
+				})}
 			</ul>
 		</div>
 	);
