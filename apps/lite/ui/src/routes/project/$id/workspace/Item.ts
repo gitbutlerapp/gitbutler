@@ -16,7 +16,7 @@ export type SegmentItem = StackItem & {
 	branchRef: Array<number> | null;
 };
 /** @public */
-export type CommitItem = SegmentItem & { commitId: string };
+export type CommitItem = StackItem & { commitId: string };
 /** @public */
 export type CommitFileItem = CommitItem & { path: string };
 
@@ -59,26 +59,16 @@ export const segmentItem = ({ stackId, segmentIndex, branchRef }: SegmentItem): 
 });
 
 /** @public */
-export const commitItem = ({ stackId, segmentIndex, branchRef, commitId }: CommitItem): Item => ({
+export const commitItem = ({ stackId, commitId }: CommitItem): Item => ({
 	_tag: "Commit",
 	stackId,
-	segmentIndex,
-	branchRef,
 	commitId,
 });
 
 /** @public */
-export const commitFileItem = ({
-	stackId,
-	segmentIndex,
-	branchRef,
-	commitId,
-	path,
-}: CommitFileItem): Item => ({
+export const commitFileItem = ({ stackId, commitId, path }: CommitFileItem): Item => ({
 	_tag: "CommitFile",
 	stackId,
-	segmentIndex,
-	branchRef,
 	commitId,
 	path,
 });
@@ -96,9 +86,8 @@ export const itemIdentityKey = (item: Item): string =>
 			Stack: (item) => JSON.stringify(["Stack", item.stackId]),
 			Segment: (item) =>
 				JSON.stringify(["Segment", item.stackId, item.segmentIndex, item.branchRef]),
-			Commit: (item) => JSON.stringify(["Commit", item.stackId, item.segmentIndex, item.commitId]),
-			CommitFile: (item) =>
-				JSON.stringify(["CommitFile", item.stackId, item.segmentIndex, item.commitId, item.path]),
+			Commit: (item) => JSON.stringify(["Commit", item.stackId, item.commitId]),
+			CommitFile: (item) => JSON.stringify(["CommitFile", item.stackId, item.commitId, item.path]),
 			BaseCommit: () => JSON.stringify(["BaseCommit"]),
 		}),
 	);

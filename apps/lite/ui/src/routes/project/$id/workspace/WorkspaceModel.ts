@@ -54,13 +54,11 @@ const buildWorkspaceOutline = ({
 		return {
 			section: segmentItem({ stackId, segmentIndex, branchRef }),
 			children: segment.commits.flatMap((commit) => [
-				commitItem({ stackId, segmentIndex, branchRef, commitId: commit.id }),
+				commitItem({ stackId, commitId: commit.id }),
 				...(commit.id === expandedCommitId
 					? (expandedCommitPaths ?? []).map((path) =>
 							commitFileItem({
 								stackId,
-								segmentIndex,
-								branchRef,
 								commitId: commit.id,
 								path,
 							}),

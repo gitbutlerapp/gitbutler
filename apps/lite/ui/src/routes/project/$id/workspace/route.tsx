@@ -862,7 +862,6 @@ const InlineCommitMessageEditor: FC<{
 
 const CommitRow: FC<
 	{
-		branchRef: Array<number> | null;
 		commit: Commit;
 		commitMessageFormRef: Ref<HTMLFormElement>;
 		workspaceMode: WorkspaceMode;
@@ -870,12 +869,10 @@ const CommitRow: FC<
 		isHighlighted: boolean;
 		selected: CommitItem | null;
 		projectId: string;
-		segmentIndex: number;
 		stackId: string;
 		navigationIndex: NavigationIndex;
 	} & ComponentProps<"div">
 > = ({
-	branchRef,
 	commit,
 	commitMessageFormRef,
 	workspaceMode,
@@ -883,7 +880,6 @@ const CommitRow: FC<
 	isHighlighted,
 	selected,
 	projectId,
-	segmentIndex,
 	stackId,
 	navigationIndex,
 	...restProps
@@ -891,8 +887,6 @@ const CommitRow: FC<
 	const dispatch = useAppDispatch();
 	const commitItemV: CommitItem = {
 		stackId,
-		segmentIndex,
-		branchRef,
 		commitId: commit.id,
 	};
 	const item = commitItem(commitItemV);
@@ -1110,7 +1104,6 @@ const CommitFileRow: FC<{
 };
 
 const CommitC: FC<{
-	branchRef: Array<number> | null;
 	commit: Commit;
 	commitMessageFormRef: Ref<HTMLFormElement>;
 	operationMode: OperationMode | null;
@@ -1118,11 +1111,9 @@ const CommitC: FC<{
 	selected: CommitItem | null;
 	selectedFile: CommitFileItem | null;
 	projectId: string;
-	segmentIndex: number;
 	stackId: string;
 	navigationIndex: NavigationIndex;
 }> = ({
-	branchRef,
 	commit,
 	commitMessageFormRef,
 	operationMode,
@@ -1130,7 +1121,6 @@ const CommitC: FC<{
 	selected,
 	selectedFile,
 	projectId,
-	segmentIndex,
 	stackId,
 	navigationIndex,
 }) => {
@@ -1140,7 +1130,7 @@ const CommitC: FC<{
 	const isHighlighted = useAppSelector((state) =>
 		selectProjectHighlightedCommitIds(state, projectId).includes(commit.id),
 	);
-	const commitItemV: CommitItem = { stackId, segmentIndex, branchRef, commitId: commit.id };
+	const commitItemV: CommitItem = { stackId, commitId: commit.id };
 	const item = commitItem(commitItemV);
 	return (
 		<OperationSourceC
@@ -1159,7 +1149,6 @@ const CommitC: FC<{
 			}
 		>
 			<CommitRow
-				branchRef={branchRef}
 				commit={commit}
 				commitMessageFormRef={commitMessageFormRef}
 				workspaceMode={workspaceMode}
@@ -1167,7 +1156,6 @@ const CommitC: FC<{
 				isHighlighted={isHighlighted}
 				selected={selected}
 				projectId={projectId}
-				segmentIndex={segmentIndex}
 				stackId={stackId}
 				navigationIndex={navigationIndex}
 			/>
@@ -1732,15 +1720,11 @@ const StackC: FC<{
 							? selectedItem
 							: null;
 					const selectedCommit =
-						selectedItem?._tag === "Commit" &&
-						selectedItem.stackId === stackId &&
-						selectedItem.segmentIndex === segmentIndex
+						selectedItem?._tag === "Commit" && selectedItem.stackId === stackId
 							? selectedItem
 							: null;
 					const selectedCommitFile =
-						selectedItem?._tag === "CommitFile" &&
-						selectedItem.stackId === stackId &&
-						selectedItem.segmentIndex === segmentIndex
+						selectedItem?._tag === "CommitFile" && selectedItem.stackId === stackId
 							? selectedItem
 							: null;
 
@@ -1765,7 +1749,6 @@ const StackC: FC<{
 										const isSelected = selectedCommit?.commitId === commit.id;
 										return (
 											<CommitC
-												branchRef={segment.refName?.fullNameBytes ?? null}
 												commit={commit}
 												commitMessageFormRef={commitMessageFormRef}
 												operationMode={operationMode}
@@ -1775,7 +1758,6 @@ const StackC: FC<{
 													selectedCommitFile?.commitId === commit.id ? selectedCommitFile : null
 												}
 												projectId={projectId}
-												segmentIndex={segmentIndex}
 												stackId={stackId}
 												navigationIndex={navigationIndex}
 											/>
