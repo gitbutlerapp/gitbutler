@@ -65,6 +65,7 @@ jobs:
               - *rust
               - 'crates/**'
             but_installer:
+              - *workflows
               - 'Cargo.lock'
               - 'Cargo.toml'
               - 'crates/but-installer/**'
@@ -421,6 +422,53 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  benchmark-flate2-backends:
+    needs: changes
+    if: ${{ needs.changes.outputs.but_installer == 'true' }}
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - backend: rust_backend
+            cargo_args: ""
+          - backend: zlib
+            cargo_args: "--no-default-features --features flate2-zlib"
+          - backend: zlib-ng
+            cargo_args: "--no-default-features --features flate2-zlib-ng"
+          - backend: cloudflare-zlib
+            cargo_args: "--no-default-features --features flate2-cloudflare-zlib"
+          - backend: zlib-rs
+            cargo_args: "--no-default-features --features flate2-zlib-rs"
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: installer-benchmark-${{ matrix.backend }}
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Run flate2 backend benchmark
+        shell: bash
+        run: |
+          cargo run --release -p but-installer --bin flate2-backend-benchmark \
+            ${{ matrix.cargo_args }} -- \
+            --suite current \
+            --samples 5 \
+            --baseline crates/but-installer/benchmarks/flate2-baseline.json \
+            | tee flate2-${{ matrix.backend }}.json
+      - name: Upload benchmark report
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: flate2-benchmark-${{ matrix.backend }}-${{ github.run_number }}
+          path: flate2-${{ matrix.backend }}.json
+          retention-days: 7
+
   fetch-published-versions:
     needs: changes
     if: ${{ needs.changes.outputs.install_script == 'true' || needs.changes.outputs.but_installer == 'true' }}
@@ -567,6 +615,7 @@ jobs:
       - cargo-machete
       - cargo-doc
       - build-installer
+      - benchmark-flate2-backends
       - but-sdk-build-check
     runs-on: ubuntu-latest
     env:

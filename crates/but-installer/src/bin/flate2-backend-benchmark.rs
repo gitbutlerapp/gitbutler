@@ -10,9 +10,7 @@ use std::time::Instant;
 use anyhow::{Context, Result, bail, ensure};
 use flate2::bufread::ZlibDecoder;
 use flate2::write::ZlibEncoder;
-use flate2::{
-    Compress, Compression, Decompress, FlushCompress, FlushDecompress, Status,
-};
+use flate2::{Compress, Compression, Decompress, FlushCompress, FlushDecompress, Status};
 use serde::Serialize;
 
 const CHUNK_IN: usize = 2_048;
@@ -370,7 +368,10 @@ fn chunked_compress(fixture: &Fixture, mode: CompressMode) -> Result<u64> {
     }
 
     let roundtripped = decompress_fixture(&result)?;
-    ensure!(roundtripped == fixture.plain, "compression roundtrip mismatch");
+    ensure!(
+        roundtripped == fixture.plain,
+        "compression roundtrip mismatch"
+    );
     Ok(hash_bytes(&result) ^ fixture.plain_hash)
 }
 
@@ -419,7 +420,9 @@ fn validate_against_baseline(report: &BenchmarkReport, path: &PathBuf) -> Result
             .get(name)
             .and_then(|value| value.get("ns_per_byte"))
             .and_then(serde_json::Value::as_f64)
-            .with_context(|| format!("missing ns_per_byte baseline for {suite}/{backend}/{name}"))?;
+            .with_context(|| {
+                format!("missing ns_per_byte baseline for {suite}/{backend}/{name}")
+            })?;
         let ratio = metric.ns_per_byte / expected;
         ensure!(
             (0.6..=1.75).contains(&ratio),

@@ -1,0 +1,331 @@
+{
+  "schema_version": 1,
+  "notes": {
+    "historical_baseline": "Collected with flate2 1.1.2, before rust-lang/flate2-rs#502.",
+    "current_suite_baseline": "Collected with flate2 1.1.9 on the GitButler benchmark runner.",
+    "fixture": {
+      "plain_len": 4194304,
+      "chunk_in": 2048,
+      "large_chunk_out": 2097152,
+      "samples": 5
+    }
+  },
+  "historical_baseline": {
+    "rust_backend": {
+      "chunked_decompress_with_large_output_buf": {
+        "median_nanos": 3175107,
+        "ns_per_byte": 0.7570044994354248,
+        "min_nanos": 3134892,
+        "max_nanos": 3948082,
+        "checksum": 16592128280052162400
+      }
+    },
+    "zlib": {
+      "chunked_decompress_with_large_output_buf": {
+        "median_nanos": 3560798,
+        "ns_per_byte": 0.8489603996276855,
+        "min_nanos": 3512517,
+        "max_nanos": 4329195,
+        "checksum": 4072375615448012203
+      }
+    },
+    "zlib-ng": {
+      "chunked_decompress_with_large_output_buf": {
+        "median_nanos": 2287828,
+        "ns_per_byte": 0.5454607009887695,
+        "min_nanos": 2231371,
+        "max_nanos": 3069488,
+        "checksum": 14604988854693685096
+      }
+    },
+    "cloudflare-zlib": {
+      "chunked_decompress_with_large_output_buf": {
+        "median_nanos": 2407381,
+        "ns_per_byte": 0.5739643573760986,
+        "min_nanos": 2371273,
+        "max_nanos": 3194933,
+        "checksum": 14604988854693685096
+      }
+    },
+    "zlib-rs": {
+      "chunked_decompress_with_large_output_buf": {
+        "median_nanos": 2259109,
+        "ns_per_byte": 0.5386135578155518,
+        "min_nanos": 2235265,
+        "max_nanos": 3115432,
+        "checksum": 14604988854693685096
+      }
+    }
+  },
+  "suite_baselines": {
+    "legacy": {
+      "rust_backend": {
+        "chunked_decompress_with_large_output_buf": {
+          "median_nanos": 3175107,
+          "ns_per_byte": 0.7570044994354248,
+          "min_nanos": 3134892,
+          "max_nanos": 3948082,
+          "checksum": 16592128280052162400
+        }
+      },
+      "zlib": {
+        "chunked_decompress_with_large_output_buf": {
+          "median_nanos": 3560798,
+          "ns_per_byte": 0.8489603996276855,
+          "min_nanos": 3512517,
+          "max_nanos": 4329195,
+          "checksum": 4072375615448012203
+        }
+      },
+      "zlib-ng": {
+        "chunked_decompress_with_large_output_buf": {
+          "median_nanos": 2287828,
+          "ns_per_byte": 0.5454607009887695,
+          "min_nanos": 2231371,
+          "max_nanos": 3069488,
+          "checksum": 14604988854693685096
+        }
+      },
+      "cloudflare-zlib": {
+        "chunked_decompress_with_large_output_buf": {
+          "median_nanos": 2407381,
+          "ns_per_byte": 0.5739643573760986,
+          "min_nanos": 2371273,
+          "max_nanos": 3194933,
+          "checksum": 14604988854693685096
+        }
+      },
+      "zlib-rs": {
+        "chunked_decompress_with_large_output_buf": {
+          "median_nanos": 2259109,
+          "ns_per_byte": 0.5386135578155518,
+          "min_nanos": 2235265,
+          "max_nanos": 3115432,
+          "checksum": 14604988854693685096
+        }
+      }
+    },
+    "current": {
+      "rust_backend": {
+        "chunked_compress_uninit_with_large_output_buf": {
+          "median_nanos": 195349354,
+          "ns_per_byte": 46.574915409088135,
+          "min_nanos": 194784959,
+          "max_nanos": 196920220,
+          "checksum": 16592128280052162400
+        },
+        "chunked_compress_vec_with_reserved_spare_capacity": {
+          "median_nanos": 251957242,
+          "ns_per_byte": 60.071287631988525,
+          "min_nanos": 250366880,
+          "max_nanos": 252677119,
+          "checksum": 16592128280052162400
+        },
+        "chunked_compress_with_large_output_buf": {
+          "median_nanos": 117380722,
+          "ns_per_byte": 27.985744953155518,
+          "min_nanos": 117197079,
+          "max_nanos": 117662870,
+          "checksum": 16592128280052162400
+        },
+        "chunked_decompress_uninit_with_large_output_buf": {
+          "median_nanos": 67206898,
+          "ns_per_byte": 16.023373126983643,
+          "min_nanos": 66956400,
+          "max_nanos": 67374281,
+          "checksum": 16592128280052162400
+        },
+        "chunked_decompress_vec_with_reserved_spare_capacity": {
+          "median_nanos": 121681380,
+          "ns_per_byte": 29.011101722717285,
+          "min_nanos": 121509339,
+          "max_nanos": 128595142,
+          "checksum": 16592128280052162400
+        },
+        "chunked_decompress_with_large_output_buf": {
+          "median_nanos": 1915159,
+          "ns_per_byte": 0.45660948753356934,
+          "min_nanos": 1897346,
+          "max_nanos": 2092601,
+          "checksum": 16592128280052162400
+        }
+      },
+      "zlib": {
+        "chunked_compress_uninit_with_large_output_buf": {
+          "median_nanos": 97547796,
+          "ns_per_byte": 23.257206916809082,
+          "min_nanos": 97288251,
+          "max_nanos": 98779724,
+          "checksum": 4072375615448012203
+        },
+        "chunked_compress_vec_with_reserved_spare_capacity": {
+          "median_nanos": 94403247,
+          "ns_per_byte": 22.507488012313843,
+          "min_nanos": 94179118,
+          "max_nanos": 95513162,
+          "checksum": 4072375615448012203
+        },
+        "chunked_compress_with_large_output_buf": {
+          "median_nanos": 93261393,
+          "ns_per_byte": 22.235248804092407,
+          "min_nanos": 93077589,
+          "max_nanos": 93288263,
+          "checksum": 4072375615448012203
+        },
+        "chunked_decompress_uninit_with_large_output_buf": {
+          "median_nanos": 4216862,
+          "ns_per_byte": 1.005378246307373,
+          "min_nanos": 4215569,
+          "max_nanos": 4280190,
+          "checksum": 4072375615448012203
+        },
+        "chunked_decompress_vec_with_reserved_spare_capacity": {
+          "median_nanos": 2873240,
+          "ns_per_byte": 0.6850337982177734,
+          "min_nanos": 2871628,
+          "max_nanos": 2882929,
+          "checksum": 4072375615448012203
+        },
+        "chunked_decompress_with_large_output_buf": {
+          "median_nanos": 2957769,
+          "ns_per_byte": 0.7051870822906494,
+          "min_nanos": 2938222,
+          "max_nanos": 2970953,
+          "checksum": 4072375615448012203
+        }
+      },
+      "zlib-ng": {
+        "chunked_compress_uninit_with_large_output_buf": {
+          "median_nanos": 110996709,
+          "ns_per_byte": 26.463677644729614,
+          "min_nanos": 110864171,
+          "max_nanos": 111189119,
+          "checksum": 14604988854693685096
+        },
+        "chunked_compress_vec_with_reserved_spare_capacity": {
+          "median_nanos": 108471870,
+          "ns_per_byte": 25.861709117889404,
+          "min_nanos": 108318654,
+          "max_nanos": 109001189,
+          "checksum": 14604988854693685096
+        },
+        "chunked_compress_with_large_output_buf": {
+          "median_nanos": 106569080,
+          "ns_per_byte": 25.408048629760742,
+          "min_nanos": 106426083,
+          "max_nanos": 106785280,
+          "checksum": 14604988854693685096
+        },
+        "chunked_decompress_uninit_with_large_output_buf": {
+          "median_nanos": 2305139,
+          "ns_per_byte": 0.5495879650115967,
+          "min_nanos": 2294028,
+          "max_nanos": 2506626,
+          "checksum": 14604988854693685096
+        },
+        "chunked_decompress_vec_with_reserved_spare_capacity": {
+          "median_nanos": 1614218,
+          "ns_per_byte": 0.384859561920166,
+          "min_nanos": 1601704,
+          "max_nanos": 1641659,
+          "checksum": 14604988854693685096
+        },
+        "chunked_decompress_with_large_output_buf": {
+          "median_nanos": 1706450,
+          "ns_per_byte": 0.40684938430786133,
+          "min_nanos": 1688747,
+          "max_nanos": 2045555,
+          "checksum": 14604988854693685096
+        }
+      },
+      "cloudflare-zlib": {
+        "chunked_compress_uninit_with_large_output_buf": {
+          "median_nanos": 100531412,
+          "ns_per_byte": 23.96855640411377,
+          "min_nanos": 100320037,
+          "max_nanos": 100815196,
+          "checksum": 14604988854693685096
+        },
+        "chunked_compress_vec_with_reserved_spare_capacity": {
+          "median_nanos": 99286573,
+          "ns_per_byte": 23.67176365852356,
+          "min_nanos": 98971724,
+          "max_nanos": 99363917,
+          "checksum": 14604988854693685096
+        },
+        "chunked_compress_with_large_output_buf": {
+          "median_nanos": 97101048,
+          "ns_per_byte": 23.150693893432617,
+          "min_nanos": 96953703,
+          "max_nanos": 99782039,
+          "checksum": 14604988854693685096
+        },
+        "chunked_decompress_uninit_with_large_output_buf": {
+          "median_nanos": 2437736,
+          "ns_per_byte": 0.5812015533447266,
+          "min_nanos": 2402361,
+          "max_nanos": 2704535,
+          "checksum": 14604988854693685096
+        },
+        "chunked_decompress_vec_with_reserved_spare_capacity": {
+          "median_nanos": 1724303,
+          "ns_per_byte": 0.4111058712005615,
+          "min_nanos": 1709314,
+          "max_nanos": 1788462,
+          "checksum": 14604988854693685096
+        },
+        "chunked_decompress_with_large_output_buf": {
+          "median_nanos": 1794725,
+          "ns_per_byte": 0.42789578437805176,
+          "min_nanos": 1782362,
+          "max_nanos": 1833346,
+          "checksum": 14604988854693685096
+        }
+      },
+      "zlib-rs": {
+        "chunked_compress_uninit_with_large_output_buf": {
+          "median_nanos": 173182284,
+          "ns_per_byte": 41.28987407684326,
+          "min_nanos": 172925341,
+          "max_nanos": 176247274,
+          "checksum": 14604988854693685096
+        },
+        "chunked_compress_vec_with_reserved_spare_capacity": {
+          "median_nanos": 234506067,
+          "ns_per_byte": 55.910603284835815,
+          "min_nanos": 231072289,
+          "max_nanos": 236141945,
+          "checksum": 14604988854693685096
+        },
+        "chunked_compress_with_large_output_buf": {
+          "median_nanos": 102490324,
+          "ns_per_byte": 24.43559741973877,
+          "min_nanos": 102218847,
+          "max_nanos": 102618143,
+          "checksum": 14604988854693685096
+        },
+        "chunked_decompress_uninit_with_large_output_buf": {
+          "median_nanos": 60917857,
+          "ns_per_byte": 14.523948907852173,
+          "min_nanos": 60506288,
+          "max_nanos": 61131336,
+          "checksum": 14604988854693685096
+        },
+        "chunked_decompress_vec_with_reserved_spare_capacity": {
+          "median_nanos": 126640361,
+          "ns_per_byte": 30.19341492652893,
+          "min_nanos": 126145120,
+          "max_nanos": 128042486,
+          "checksum": 14604988854693685096
+        },
+        "chunked_decompress_with_large_output_buf": {
+          "median_nanos": 1916970,
+          "ns_per_byte": 0.45704126358032227,
+          "min_nanos": 1779163,
+          "max_nanos": 1931547,
+          "checksum": 14604988854693685096
+        }
+      }
+    }
+  }
+}
