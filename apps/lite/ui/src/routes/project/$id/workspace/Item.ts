@@ -32,9 +32,8 @@ export type Item =
 	| { _tag: "BaseCommit" };
 
 /** @public */
-export const changesSectionItem = (x: ChangesSectionItem): Item => ({
+export const changesSectionItem = (_x: ChangesSectionItem): Item => ({
 	_tag: "ChangesSection",
-	...x,
 });
 
 /** @public */
