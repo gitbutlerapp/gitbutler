@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "notes": {
-    "historical_baseline": "Collected with flate2 1.1.2, before rust-lang/flate2-rs#502.",
+    "historical_baseline": "Collected with flate2 1.1.2, before the performance regression introduced by rust-lang/flate2-rs#502.",
     "current_suite_baseline": "Collected with flate2 1.1.9 on the GitButler benchmark runner.",
     "fixture": {
       "plain_len": 4194304,
