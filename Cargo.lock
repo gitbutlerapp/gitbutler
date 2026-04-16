@@ -2130,6 +2130,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloudflare-zlib-sys"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d11ad9b1a14235a8ce48c2622c57fde45c3f8e7d29344775583a847d245360be"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "clru"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3389,8 +3398,12 @@ version = "1.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "843fba2746e448b37e26a819579957415c8cef339bf08564fe8b7ddbd959573c"
 dependencies = [
+ "cloudflare-zlib-sys",
  "crc32fast",
+ "libz-ng-sys",
+ "libz-sys",
  "miniz_oxide",
+ "zlib-rs",
 ]
 
 [[package]]
@@ -6523,6 +6536,16 @@ dependencies = [
  "openssl-sys",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "libz-ng-sys"
+version = "1.1.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be734b33b7bc6a42d92d23e25e69758f866cf564a88d0bf80866fcf5a52c2255"
+dependencies = [
+ "cmake",
+ "libc",
 ]
 
 [[package]]
