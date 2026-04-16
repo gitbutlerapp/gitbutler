@@ -65,8 +65,7 @@ jobs:
               - *rust
               - 'crates/**'
             but_installer:
-              - '.github/workflows/**'
-              - '.github/actions/**'
+              - '.github/workflows/push.yaml'
               - 'Cargo.lock'
               - 'Cargo.toml'
               - 'crates/but-installer/**'

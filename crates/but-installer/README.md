@@ -39,6 +39,9 @@ cargo build --release -p but-installer
 cargo test -p but-installer
 ```
 
+The binary is optimized for size (~1.0MB) using system libcurl instead of bundling an HTTP client.
+Keeping this installer slim is a priority since it is downloaded before every installation.
+
 ## Flate2 benchmark baseline
 
 The stored baseline combines a historical flate2 1.1.2 run (before the
@@ -61,5 +64,3 @@ cargo run --release -p but-installer --bin flate2-backend-benchmark \
   --samples 5 \
   --baseline crates/but-installer/benchmarks/flate2-baseline.json
 ```
-
-The binary is optimized for size (~1.0MB) using system libcurl instead of bundling an HTTP client. Keeping this installer slim is a priority since it is downloaded before every installation.
