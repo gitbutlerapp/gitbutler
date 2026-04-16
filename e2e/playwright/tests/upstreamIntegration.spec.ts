@@ -14,6 +14,12 @@ test.afterEach(async () => {
 	await gitbutler?.destroy();
 });
 
+async function enableWorkspaceUpstreamIntegration(page: import("@playwright/test").Page) {
+	await page.addInitScript(() => {
+		localStorage.setItem("feature-use-workspace-upstream-integration", "true");
+	});
+}
+
 test("should handle the update of workspace with one conflicting branch gracefully", async ({
 	page,
 	context,
@@ -271,4 +277,30 @@ test("should handle the update of a branch with an empty commit", async ({
 	// There should be one commit
 	commits = getByTestId(page, "commit-row");
 	await expect(commits).toHaveCount(1);
+});
+
+test("workspace modal hides the stash option and updates the workspace", async ({
+	page,
+	context,
+}, testInfo) => {
+	const workdir = testInfo.outputPath("workdir");
+	const configdir = testInfo.outputPath("config");
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await gitbutler.runScript("apply-upstream-branch.sh", ["branch1", "local-clone"]);
+	await enableWorkspaceUpstreamIntegration(page);
+
+	await page.goto("/");
+	await waitForTestId(page, "workspace-view");
+
+	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
+
+	await clickByTestId(page, "sync-button");
+	await clickByTestId(page, "integrate-upstream-commits-button");
+
+	await expect(page.getByText("Stash")).toHaveCount(0);
+
+	await clickByTestId(page, "integrate-upstream-action-button");
+	await waitForTestIdToNotExist(page, "stack");
 });

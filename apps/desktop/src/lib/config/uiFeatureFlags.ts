@@ -6,6 +6,8 @@
  */
 import { persisted, persistWithExpiration } from "@gitbutler/shared/persisted";
 
+const USE_WORKSPACE_UPSTREAM_INTEGRATION_KEY = "feature-use-workspace-upstream-integration";
+
 export const autoSelectBranchNameFeature = persisted(false, "autoSelectBranchLaneContentsFeature");
 export const autoSelectBranchCreationFeature = persisted(false, "autoSelectBranchCreationFeature");
 
@@ -14,3 +16,7 @@ export type StagingBehavior = "all" | "selection" | "none";
 export const stagingBehaviorFeature = persisted<StagingBehavior>("all", "feature-staging-behavior");
 export const fModeEnabled = persisted(true, "f-mode");
 export const newlineOnEnter = persisted(false, "feature-newline-on-enter");
+export const useWorkspaceUpstreamIntegration = persisted(
+	false,
+	USE_WORKSPACE_UPSTREAM_INTEGRATION_KEY,
+);

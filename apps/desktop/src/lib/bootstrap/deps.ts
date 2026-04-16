@@ -66,6 +66,10 @@ import {
 	UpstreamIntegrationService,
 	UPSTREAM_INTEGRATION_SERVICE,
 } from "$lib/upstream/upstreamIntegrationService.svelte";
+import {
+	WorkspaceUpstreamIntegrationService,
+	WORKSPACE_UPSTREAM_INTEGRATION_SERVICE,
+} from "$lib/upstream/workspaceUpstreamIntegrationService.svelte";
 import { TokenMemoryService } from "$lib/user/tokenMemoryService";
 import { USER } from "$lib/user/user";
 import { USER_SERVICE, UserService } from "$lib/user/userService";
@@ -266,6 +270,9 @@ export function initDependencies(args: {
 		clientState.backendApi,
 		stackService,
 	);
+	const workspaceUpstreamIntegrationService = new WorkspaceUpstreamIntegrationService(
+		clientState.backendApi,
+	);
 
 	// ============================================================================
 	// FEEDS & NOTIFICATIONS
@@ -380,6 +387,7 @@ export function initDependencies(args: {
 		[UPDATER_SERVICE, updaterService],
 		[UPLOADS_SERVICE, uploadsService],
 		[UPSTREAM_INTEGRATION_SERVICE, upstreamIntegrationService],
+		[WORKSPACE_UPSTREAM_INTEGRATION_SERVICE, workspaceUpstreamIntegrationService],
 		[URL_SERVICE, urlService],
 		[USER, userService.user],
 		[USER_SERVICE, userService],

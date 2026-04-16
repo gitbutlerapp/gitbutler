@@ -9,5 +9,6 @@ mod ref_info;
 mod shallow_clone;
 mod tree_manipulation;
 mod ui;
+mod upstream_integration;
 
 mod utils;

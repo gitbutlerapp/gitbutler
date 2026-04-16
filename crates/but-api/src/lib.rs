@@ -25,6 +25,9 @@ pub mod gitlab;
 /// Functions that take a branch as input.
 pub mod branch;
 
+/// Functions that operate on the workspace.
+pub mod workspace;
+
 /// Functions that operate commits
 pub mod commit;
 
