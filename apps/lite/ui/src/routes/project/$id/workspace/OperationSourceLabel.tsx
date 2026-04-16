@@ -1,7 +1,7 @@
 import { findCommit, findSegmentByBranchRef } from "#ui/domain/RefInfo.ts";
 import {
+	assert,
 	CommitLabel,
-	decodeRefName,
 	formatHunkHeader,
 	shortCommitId,
 } from "#ui/routes/project/$id/shared.tsx";
@@ -19,8 +19,7 @@ export const OperationSourceLabel: FC<{
 			Stack: () => "Stack",
 			Branch: ({ branchRef }) => {
 				const segment = findSegmentByBranchRef({ headInfo, branchRef });
-				if (segment?.refName) return segment.refName.displayName;
-				return decodeRefName(branchRef);
+				return assert(segment?.refName).displayName;
 			},
 			BaseCommit: () => "Base commit",
 			Commit: ({ commitId }) => {
