@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { fModeEnabled } from "$lib/config/uiFeatureFlags";
+	import { fModeEnabled, useWorkspaceUpstreamIntegration } from "$lib/config/uiFeatureFlags";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { USER } from "$lib/user/user";
 	import { inject } from "@gitbutler/core/context";
@@ -30,6 +30,21 @@
 				id="f-mode"
 				checked={$fModeEnabled}
 				onclick={() => fModeEnabled.set(!$fModeEnabled)}
+			/>
+		{/snippet}
+	</CardGroup.Item>
+	<CardGroup.Item labelFor="workspace-upstream-integration">
+		{#snippet title()}
+			Workspace upstream integration
+		{/snippet}
+		{#snippet caption()}
+			Use the workspace-backed upstream integration modal with dry-run preview overlays.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="workspace-upstream-integration"
+				checked={$useWorkspaceUpstreamIntegration}
+				onclick={() => useWorkspaceUpstreamIntegration.set(!$useWorkspaceUpstreamIntegration)}
 			/>
 		{/snippet}
 	</CardGroup.Item>

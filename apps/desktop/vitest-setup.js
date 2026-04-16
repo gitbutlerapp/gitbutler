@@ -7,3 +7,11 @@ Element.prototype.animate = () => ({
 	cancel: () => {},
 	finish: () => {},
 });
+
+class ResizeObserverMock {
+	observe() {}
+	unobserve() {}
+	disconnect() {}
+}
+
+globalThis.ResizeObserver = ResizeObserverMock;

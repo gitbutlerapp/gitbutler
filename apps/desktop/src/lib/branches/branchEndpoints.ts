@@ -15,9 +15,12 @@ import type {
 	BranchListing,
 	BranchListingDetails,
 	IntegrationOutcome,
+	RefInfo,
 	Resolution,
 	StackStatuses,
+	WorkspaceState,
 } from "@gitbutler/but-sdk";
+import type { WorkspaceBottomUpdate } from "$lib/upstream/workspaceUpstreamIntegration";
 
 export function buildBranchEndpoints(build: BackendEndpointBuilder) {
 	return {
@@ -110,6 +113,34 @@ export function buildBranchEndpoints(build: BackendEndpointBuilder) {
 			extraOptions: { command: "upstream_integration_statuses" },
 			query: (args) => args,
 			providesTags: [providesList(ReduxTag.UpstreamIntegrationStatus)],
+		}),
+		workspaceHeadInfo: build.query<RefInfo, { projectId: string }>({
+			extraOptions: { command: "head_info" },
+			query: (args) => args,
+			providesTags: [providesList(ReduxTag.HeadSha)],
+		}),
+		workspaceIntegrateUpstreamPreview: build.query<
+			WorkspaceState,
+			{ projectId: string; updates: WorkspaceBottomUpdate[] }
+		>({
+			extraOptions: { command: "workspace_integrate_upstream" },
+			query: ({ projectId, updates }) => ({ projectId, updates, dryRun: true }),
+		}),
+		workspaceIntegrateUpstream: build.mutation<
+			WorkspaceState,
+			{ projectId: string; updates: WorkspaceBottomUpdate[] }
+		>({
+			extraOptions: {
+				command: "workspace_integrate_upstream",
+				actionName: "Update Workspace",
+			},
+			query: ({ projectId, updates }) => ({ projectId, updates, dryRun: false }),
+			invalidatesTags: [
+				invalidatesList(ReduxTag.HeadSha),
+				invalidatesList(ReduxTag.Stacks),
+				invalidatesList(ReduxTag.StackDetails),
+				invalidatesList(ReduxTag.BranchListing),
+			],
 		}),
 		integrateUpstream: build.mutation<
 			IntegrationOutcome,

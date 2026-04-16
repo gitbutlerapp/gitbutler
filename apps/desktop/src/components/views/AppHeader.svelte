@@ -3,8 +3,10 @@
 	import CreateBranchModal from "$components/branch/CreateBranchModal.svelte";
 	import SyncButton from "$components/forge/SyncButton.svelte";
 	import IntegrateUpstreamModal from "$components/upstream/IntegrateUpstreamModal.svelte";
+	import IntegrateUpstreamWorkspaceModal from "$components/upstream/IntegrateUpstreamWorkspaceModal.svelte";
 	import { BACKEND } from "$lib/backend";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { useWorkspaceUpstreamIntegration } from "$lib/config/uiFeatureFlags";
 	import { projectDisableCodegen } from "$lib/config/config";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { handleAddProjectOutcome } from "$lib/project/project";
@@ -72,7 +74,11 @@
 	const upstreamCommits = $derived(base?.behind ?? 0);
 	const isHasUpstreamCommits = $derived(upstreamCommits > 0);
 
-	let modal = $state<ReturnType<typeof IntegrateUpstreamModal>>();
+	type UpstreamModalHandle = {
+		show: () => Promise<void>;
+	};
+
+	let modal = $state<UpstreamModalHandle>();
 
 	const projects = $derived(projectsService.projects());
 
@@ -101,7 +107,11 @@
 </script>
 
 {#if projectId}
-	<IntegrateUpstreamModal bind:this={modal} {projectId} />
+	{#if $useWorkspaceUpstreamIntegration}
+		<IntegrateUpstreamWorkspaceModal bind:this={modal} {projectId} />
+	{:else}
+		<IntegrateUpstreamModal bind:this={modal} {projectId} />
+	{/if}
 {/if}
 
 <div

@@ -335,7 +335,6 @@ fn is_similarity_candidate(commit: &crate::ref_info::LocalCommit) -> bool {
 }
 
 /// Similarity matches between workspace commits and upstream commits, computed from commit IDs.
-#[expect(dead_code)]
 pub(crate) struct SimilarityByCommitIds {
     /// Upstream commit IDs keyed by the workspace commit ID that matched them.
     pub(crate) matches_by_workspace_commit: HashMap<gix::ObjectId, gix::ObjectId>,
@@ -345,7 +344,6 @@ pub(crate) struct SimilarityByCommitIds {
 ///
 /// The returned matches use the same cheap and optional expensive checks as [`RefInfo::compute_similarity`]
 /// for upstream integration: change IDs are skipped, while commit data and changeset IDs are considered.
-#[expect(dead_code)]
 pub(crate) fn compute_similarity_by_commit_ids(
     repo: &gix::Repository,
     upstream_commit_ids: &[gix::ObjectId],

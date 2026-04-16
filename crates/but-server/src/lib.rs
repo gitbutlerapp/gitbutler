@@ -14,7 +14,7 @@ use axum::{
     response::IntoResponse,
     routing::{MethodRouter, any, get, post},
 };
-use but_api::{commit, diff, github, gitlab, json, legacy, platform};
+use but_api::{commit, diff, github, gitlab, json, legacy, platform, workspace};
 use but_claude::{Broadcaster, Claude};
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 #[cfg(feature = "irc")]
@@ -1159,6 +1159,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         .route(
             "/commit_uncommit",
             but_post(commit::uncommit::commit_uncommit_cmd),
+        )
+        .route(
+            "/workspace_integrate_upstream",
+            but_post(workspace::workspace_integrate_upstream_cmd),
         )
         .route("/build_type", but_post(platform::build_type_cmd));
 
