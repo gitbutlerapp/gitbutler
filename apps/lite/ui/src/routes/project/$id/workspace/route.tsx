@@ -1135,7 +1135,7 @@ const CommitC: FC<{
 					item={item}
 					projectId={projectId}
 					operationMode={operationMode}
-					selectedItem={selected ? item : null}
+					isSelected={!!selected}
 				/>
 			}
 		>
@@ -1378,7 +1378,7 @@ const Changes: FC<{
 					item={item}
 					projectId={projectId}
 					operationMode={operationMode}
-					selectedItem={isSelected ? item : null}
+					isSelected={isSelected}
 				/>
 			}
 		>
@@ -1551,7 +1551,7 @@ const BranchRow: FC<
 			projectId={projectId}
 			item={item}
 			operationMode={operationMode}
-			selectedItem={selected ? item : null}
+			isSelected={!!selected}
 			render={
 				<OperationSourceC
 					operationMode={operationMode}
@@ -1913,7 +1913,7 @@ const ProjectPage: FC = () => {
 						projectId={projectId}
 						item={baseCommitItem}
 						operationMode={operationMode}
-						selectedItem={selectedItem?._tag === "BaseCommit" ? selectedItem : null}
+						isSelected={selectedItem?._tag === "BaseCommit"}
 						render={
 							<BaseCommitRow
 								commitId={commonBaseCommitId}

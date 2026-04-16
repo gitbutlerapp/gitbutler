@@ -12,7 +12,7 @@ import { mergeProps, useRender } from "@base-ui/react";
 import { Match, pipe } from "effect";
 import { FC } from "react";
 import { DropData, parseDragData } from "./DragAndDrop.tsx";
-import { itemEquals, type Item } from "./Item.ts";
+import { type Item } from "./Item.ts";
 import { operationModeToOperation } from "./OperationMode.tsx";
 import { OperationTooltip } from "./OperationTooltip.tsx";
 import {
@@ -52,13 +52,13 @@ const useOperationTarget = ({
 	projectId,
 	item,
 	operationMode,
-	selectedItem,
+	isSelected,
 	getOperation,
 }: {
 	projectId: string;
 	item: Item;
 	operationMode: OperationMode | null;
-	selectedItem: Item | null;
+	isSelected: boolean;
 	getOperation: (
 		args: GetDataParams[0] & { resolvedOperationSource: ResolvedOperationSource },
 	) => Operation | null;
@@ -72,8 +72,7 @@ const useOperationTarget = ({
 	const resolvedOperationModeSource = operationMode
 		? resolveOperationSource(operationMode.source)
 		: null;
-	const isActiveOperationModeTarget =
-		!!operationMode && !!selectedItem && itemEquals(selectedItem, item);
+	const isActiveOperationModeTarget = !!operationMode && isSelected;
 	const operationModeOperation =
 		isActiveOperationModeTarget && resolvedOperationModeSource
 			? operationModeToOperation({
@@ -139,14 +138,14 @@ export const OperationTarget: FC<
 		projectId: string;
 		item: Item;
 		operationMode: OperationMode | null;
-		selectedItem: Item | null;
+		isSelected: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ projectId, item, operationMode, selectedItem, render, ...props }) => {
+> = ({ projectId, item, operationMode, isSelected, render, ...props }) => {
 	const { dropRef, isActiveTarget, source, operation, controls } = useOperationTarget({
 		projectId,
 		item,
 		operationMode,
-		selectedItem,
+		isSelected,
 		getOperation: ({ resolvedOperationSource }) =>
 			dropTargetToOperation({ target: item, resolvedOperationSource }),
 	});
@@ -226,14 +225,14 @@ export const CommitTarget: FC<
 		item: Item;
 		projectId: string;
 		operationMode: OperationMode | null;
-		selectedItem: Item | null;
+		isSelected: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ commitId, item, projectId, operationMode, selectedItem, render, ...props }) => {
+> = ({ commitId, item, projectId, operationMode, isSelected, render, ...props }) => {
 	const { drag, dropRef, isActiveTarget, source, operation, controls } = useOperationTarget({
 		projectId,
 		item,
 		operationMode,
-		selectedItem,
+		isSelected,
 		getOperation: (args) => commitDropTargetToOperation({ ...args, commitId }),
 	});
 
