@@ -858,7 +858,7 @@ const CommitRow: FC<
 		workspaceMode: WorkspaceMode;
 		isExpanded: boolean;
 		isHighlighted: boolean;
-		selected: CommitItem | null;
+		isSelected: boolean;
 		projectId: string;
 		stackId: string;
 		navigationIndex: NavigationIndex;
@@ -869,7 +869,7 @@ const CommitRow: FC<
 	workspaceMode,
 	isExpanded,
 	isHighlighted,
-	selected,
+	isSelected,
 	projectId,
 	stackId,
 	navigationIndex,
@@ -882,9 +882,7 @@ const CommitRow: FC<
 	};
 	const item = commitItem(commitItemV);
 	const isRewording =
-		selected !== null &&
-		workspaceMode._tag === "RewordCommit" &&
-		workspaceMode.commitId === commit.id;
+		isSelected && workspaceMode._tag === "RewordCommit" && workspaceMode.commitId === commit.id;
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
 		(_currentMessage, nextMessage: string) => nextMessage,
@@ -985,7 +983,7 @@ const CommitRow: FC<
 		<ItemRow
 			{...restProps}
 			inert={!navigationIndexIncludes(navigationIndex, item)}
-			isSelected={selected !== null}
+			isSelected={isSelected}
 			className={classes(restProps.className, isHighlighted && styles.itemRowHighlighted)}
 		>
 			{isRewording ? (
@@ -1099,7 +1097,7 @@ const CommitC: FC<{
 	commitMessageFormRef: Ref<HTMLFormElement>;
 	operationMode: OperationMode | null;
 	workspaceMode: WorkspaceMode;
-	selected: CommitItem | null;
+	isSelected: boolean;
 	selectedFile: CommitFileItem | null;
 	projectId: string;
 	stackId: string;
@@ -1109,7 +1107,7 @@ const CommitC: FC<{
 	commitMessageFormRef,
 	operationMode,
 	workspaceMode,
-	selected,
+	isSelected,
 	selectedFile,
 	projectId,
 	stackId,
@@ -1128,14 +1126,14 @@ const CommitC: FC<{
 			operationMode={operationMode}
 			projectId={projectId}
 			source={operationSourceFromItem(item)}
-			canDrag={() => !selected || workspaceMode._tag !== "RewordCommit"}
+			canDrag={() => !isSelected || workspaceMode._tag !== "RewordCommit"}
 			render={
 				<CommitTarget
 					commitId={commit.id}
 					item={item}
 					projectId={projectId}
 					operationMode={operationMode}
-					isSelected={!!selected}
+					isSelected={!!isSelected}
 				/>
 			}
 		>
@@ -1145,7 +1143,7 @@ const CommitC: FC<{
 				workspaceMode={workspaceMode}
 				isExpanded={isExpanded}
 				isHighlighted={isHighlighted}
-				selected={selected}
+				isSelected={isSelected}
 				projectId={projectId}
 				stackId={stackId}
 				navigationIndex={navigationIndex}
@@ -1453,7 +1451,7 @@ const BranchRow: FC<
 	{
 		branchRenameFormRef: Ref<HTMLFormElement>;
 		operationMode: OperationMode | null;
-		selected: BranchItem | null;
+		isSelected: boolean;
 		workspaceMode: WorkspaceMode;
 		projectId: string;
 		branchName: string;
@@ -1464,7 +1462,7 @@ const BranchRow: FC<
 > = ({
 	branchRenameFormRef,
 	operationMode,
-	selected,
+	isSelected,
 	workspaceMode,
 	projectId,
 	branchName,
@@ -1551,7 +1549,7 @@ const BranchRow: FC<
 			projectId={projectId}
 			item={item}
 			operationMode={operationMode}
-			isSelected={!!selected}
+			isSelected={isSelected}
 			render={
 				<OperationSourceC
 					operationMode={operationMode}
@@ -1560,7 +1558,7 @@ const BranchRow: FC<
 					render={
 						<ItemRow
 							inert={!navigationIndexIncludes(navigationIndex, item)}
-							isSelected={selected !== null}
+							isSelected={isSelected}
 						>
 							{isRenaming ? (
 								<InlineBranchNameEditor
@@ -1734,7 +1732,7 @@ const StackC: FC<{
 									<BranchRow
 										branchRenameFormRef={branchRenameFormRef}
 										operationMode={operationMode}
-										selected={selectedBranch}
+										isSelected={!!selectedBranch}
 										workspaceMode={workspaceMode}
 										projectId={projectId}
 										branchName={segment.refName.displayName}
@@ -1753,7 +1751,7 @@ const StackC: FC<{
 												commitMessageFormRef={commitMessageFormRef}
 												operationMode={operationMode}
 												workspaceMode={workspaceMode}
-												selected={isSelected ? selectedCommit : null}
+												isSelected={isSelected}
 												selectedFile={
 													selectedCommitFile?.commitId === commit.id ? selectedCommitFile : null
 												}
