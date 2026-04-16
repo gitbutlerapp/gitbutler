@@ -1238,7 +1238,7 @@ const ChangeRow: FC<{
 			<button
 				type="button"
 				className={styles.itemRowAction}
-				aria-label={`${change.path} menu`}
+				aria-label="File menu"
 				onClick={(event) => {
 					void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 				}}
