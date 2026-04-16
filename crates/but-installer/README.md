@@ -41,8 +41,9 @@ cargo test -p but-installer
 
 ## Flate2 benchmark baseline
 
-The stored baseline combines a historical flate2 1.1.2 run (before
-rust-lang/flate2-rs#502) and a current flate2 1.1.9 run for the same benchmark fixture.
+The stored baseline combines a historical flate2 1.1.2 run (before the
+rust-lang/flate2-rs#502 change that later surfaced as rust-lang/flate2-rs#544) and a current
+flate2 1.1.9 run for the same benchmark fixture.
 
 Use the benchmark runner to compare the current backend against the stored baseline:
 
