@@ -133,7 +133,7 @@ export type NavigationIndex = {
 };
 
 export const buildNavigationIndex = (outline: WorkspaceOutline): NavigationIndex => {
-	const model: NavigationIndex = {
+	const index: NavigationIndex = {
 		items: [],
 		sectionStartIndexes: [],
 		sectionIndexByItemIndex: [],
@@ -141,20 +141,20 @@ export const buildNavigationIndex = (outline: WorkspaceOutline): NavigationIndex
 	};
 
 	const addItem = (item: Item, sectionIndex: number) => {
-		model.indexByKey.set(itemIdentityKey(item), model.items.length);
-		model.sectionIndexByItemIndex.push(sectionIndex);
-		model.items.push(item);
+		index.indexByKey.set(itemIdentityKey(item), index.items.length);
+		index.sectionIndexByItemIndex.push(sectionIndex);
+		index.items.push(item);
 	};
 
 	for (const { section, children } of outline) {
-		const sectionIndex = model.sectionStartIndexes.length;
-		model.sectionStartIndexes.push(model.items.length);
+		const sectionIndex = index.sectionStartIndexes.length;
+		index.sectionStartIndexes.push(index.items.length);
 		if (section) addItem(section, sectionIndex);
 
 		for (const item of children) addItem(item, sectionIndex);
 	}
 
-	return model;
+	return index;
 };
 
 export const filterNavigationIndex = (
