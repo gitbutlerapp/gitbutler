@@ -1,5 +1,11 @@
 import { Commit, HunkHeader } from "@gitbutler/but-sdk";
 
+/** @public */
+export const assert = <T,>(t: T | null | undefined): T => {
+	if (t == null) throw new Error("Expected value to be non-null and defined");
+	return t;
+};
+
 // https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 export const decodeRefName = (fullNameBytes: Array<number>): string =>
 	new TextDecoder().decode(Uint8Array.from(fullNameBytes));
