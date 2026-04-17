@@ -1559,6 +1559,7 @@ mod tests {
 
         assert!(pr_100_line.contains("👈"));
         assert!(pr_100_line.contains("<kbd>&nbsp;1&nbsp;</kbd>"));
+        assert!(footer.contains("part 1 of 3 in a stack"));
     }
 
     #[test]
@@ -1571,6 +1572,7 @@ mod tests {
 
         assert!(pr_102_line.contains("👈"));
         assert!(pr_102_line.contains("<kbd>&nbsp;3&nbsp;</kbd>"));
+        assert!(footer.contains("part 3 of 3 in a stack"));
     }
 
     #[test]
