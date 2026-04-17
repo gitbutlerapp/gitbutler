@@ -193,18 +193,18 @@ export const filterNavigationIndex = (
 
 export const getAdjacentItem = (
 	index: NavigationIndex,
-	selection: Item | null,
+	selectedItem: Item | null,
 	offset: -1 | 1,
 ): Item | null => {
-	if (!selection) return null;
-	const currentIndex = index.indexByKey.get(itemIdentityKey(selection));
+	if (!selectedItem) return null;
+	const currentIndex = index.indexByKey.get(itemIdentityKey(selectedItem));
 	if (currentIndex === undefined) return null;
 	return getRelative(index.items, currentIndex, offset);
 };
 
-const getCurrentSection = (index: NavigationIndex, selection: Item | null): Item | null => {
-	if (!selection) return null;
-	const currentIndex = index.indexByKey.get(itemIdentityKey(selection));
+const getCurrentSection = (index: NavigationIndex, selectedItem: Item | null): Item | null => {
+	if (!selectedItem) return null;
+	const currentIndex = index.indexByKey.get(itemIdentityKey(selectedItem));
 	if (currentIndex === undefined) return null;
 	const currentSectionIndex = index.sectionIndexByItemIndex[currentIndex] ?? -1;
 	if (currentSectionIndex === -1) return null;
