@@ -1430,6 +1430,98 @@ Squashed [..] → [..]
 }
 
 #[test]
+fn rub_commit_without_message_to_commit() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.file("one.txt", "one.txt contents");
+    env.but("commit -m 'add one.txt'").assert().success();
+
+    env.but("status --no-hint")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   aec35ac add one.txt
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+"#]]);
+
+    env.but("commit empty --after aec35ac").assert().success();
+
+    env.but("status --no-hint")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   5e5c05a (no commit message) (no changes)
+┊●   aec35ac add one.txt
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+"#]]);
+
+    env.but("rub 5e5c05a aec35ac").assert().success();
+
+    env.but("status --no-hint")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   aec35ac add one.txt
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 [origin/main] 2000-01-02 add M
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn rub_commit_to_commit_without_message() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.file("one.txt", "one.txt contents");
+    env.but("commit -m 'add one.txt'").assert().success();
+    env.but("commit empty --after aec35ac").assert().success();
+
+    env.but("rub aec35ac 5e5c05a").assert().success();
+
+    let status = status_json(&env)?;
+    let branch = status["stacks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|stack| stack["branches"].as_array().unwrap().iter())
+        .find(|branch| branch["name"].as_str().unwrap() == "A")
+        .unwrap();
+    let commit_messages = branch["commits"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|commit| commit["message"].as_str().unwrap().trim_end_matches('\n'))
+        .collect::<Vec<_>>();
+
+    assert_eq!(commit_messages, vec!["add one.txt", "add A"]);
+
+    Ok(())
+}
+
+#[test]
 fn rub_matrix_commit_to_branch_smoke() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
     env.setup_metadata(&["A", "B"])?;

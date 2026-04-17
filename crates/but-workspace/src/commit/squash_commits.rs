@@ -118,12 +118,25 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata>(
     let direction = determine_reorder_direction(&workspace, &repo, &subject, &target)?;
 
     let mut combined_message = Vec::new();
-    combined_message.extend_from_slice(subject.message.as_ref());
-    if !combined_message.ends_with(b"\n") {
-        combined_message.push(b'\n');
+    match (subject.message.is_empty(), target.message.is_empty()) {
+        (true, true) => {
+            // both messages are empty, leave combined message as empty
+        }
+        (true, false) => {
+            combined_message.extend_from_slice(target.message.as_ref());
+        }
+        (false, true) => {
+            combined_message.extend_from_slice(subject.message.as_ref());
+        }
+        (false, false) => {
+            combined_message.extend_from_slice(subject.message.as_ref());
+            if !combined_message.ends_with(b"\n") {
+                combined_message.push(b'\n');
+            }
+            combined_message.push(b'\n');
+            combined_message.extend_from_slice(target.message.as_ref());
+        }
     }
-    combined_message.push(b'\n');
-    combined_message.extend_from_slice(target.message.as_ref());
 
     let (replace_selector, dropped_selector, mut commit_to_replace, top_tree_id) = match direction {
         ReorderDirection::MoveSubjectAboveTarget => (
