@@ -1728,7 +1728,7 @@ const StackC: FC<{
 								)}
 
 								{segment.commits.length === 0 ? (
-									<div>No commits.</div>
+									<div className={styles.itemRowEmpty}>No commits.</div>
 								) : (
 									<ul>
 										{segment.commits.map((commit) => {
