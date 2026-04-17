@@ -1298,29 +1298,38 @@ const BaseCommitRow: FC<
 		commitId?: string;
 		isSelected: boolean;
 		navigationIndex: NavigationIndex;
+		operationMode: OperationMode | null;
 	} & ComponentProps<"div">
-> = ({ commitId, isSelected, navigationIndex, ...props }) => {
+> = ({ commitId, isSelected, navigationIndex, operationMode, ...props }) => {
 	const dispatch = useAppDispatch();
 	const projectId = Route.useParams().id;
 
 	return (
-		<ItemRow
-			{...props}
-			inert={!navigationIndexIncludes(navigationIndex, baseCommitItem)}
+		<OperationTarget
+			projectId={projectId}
+			item={baseCommitItem}
+			operationMode={operationMode}
 			isSelected={isSelected}
-		>
-			<button
-				type="button"
-				className={styles.commonBaseCommit}
-				onClick={() => {
-					dispatch(projectActions.selectItem({ projectId, item: baseCommitItem }));
-				}}
-			>
-				{commitId !== undefined
-					? `${shortCommitId(commitId)} (common base commit)`
-					: "(base commit)"}
-			</button>
-		</ItemRow>
+			render={
+				<ItemRow
+					{...props}
+					inert={!navigationIndexIncludes(navigationIndex, baseCommitItem)}
+					isSelected={isSelected}
+				>
+					<button
+						type="button"
+						className={styles.commonBaseCommit}
+						onClick={() => {
+							dispatch(projectActions.selectItem({ projectId, item: baseCommitItem }));
+						}}
+					>
+						{commitId !== undefined
+							? `${shortCommitId(commitId)} (common base commit)`
+							: "(base commit)"}
+					</button>
+				</ItemRow>
+			}
+		/>
 	);
 };
 
@@ -1918,18 +1927,11 @@ const ProjectPage: FC = () => {
 				))}
 
 				<div className={styles.section}>
-					<OperationTarget
-						projectId={projectId}
-						item={baseCommitItem}
-						operationMode={operationMode}
+					<BaseCommitRow
+						commitId={commonBaseCommitId}
 						isSelected={selectedItem?._tag === "BaseCommit"}
-						render={
-							<BaseCommitRow
-								commitId={commonBaseCommitId}
-								isSelected={selectedItem?._tag === "BaseCommit"}
-								navigationIndex={navigationIndex}
-							/>
-						}
+						navigationIndex={navigationIndex}
+						operationMode={operationMode}
 					/>
 				</div>
 			</div>
