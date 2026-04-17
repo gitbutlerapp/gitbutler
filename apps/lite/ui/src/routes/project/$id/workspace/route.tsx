@@ -112,7 +112,6 @@ import {
 import {
 	buildNavigationIndex,
 	filterNavigationIndex,
-	getDefaultItem,
 	navigationIndexIncludes,
 	type NavigationIndex,
 	useWorkspaceOutline,
@@ -1813,7 +1812,7 @@ const ProjectPage: FC = () => {
 	const selectedItem =
 		selectedItemState && navigationIndexIncludes(navigationIndex, selectedItemState)
 			? selectedItemState
-			: getDefaultItem(navigationIndex);
+			: (navigationIndex.items[0] ?? null);
 
 	const shortcutScope = getScope({ selectedItem, layoutState, workspaceMode });
 

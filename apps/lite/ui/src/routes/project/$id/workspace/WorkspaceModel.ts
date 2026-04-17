@@ -246,6 +246,3 @@ export const getPreviousSection = (
 
 export const navigationIndexIncludes = (navigationIndex: NavigationIndex, item: Item): boolean =>
 	navigationIndex.indexByKey.has(itemIdentityKey(item));
-
-export const getDefaultItem = (navigationIndex: NavigationIndex): Item | null =>
-	navigationIndex.items[0] ?? null;
