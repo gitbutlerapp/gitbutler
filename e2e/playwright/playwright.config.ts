@@ -27,15 +27,22 @@ export default defineConfig({
 	workers: AMOUNT_OF_WORKERS,
 	/* Reporter to use. See https://playwright.dev/docs/test-reporters */
 	reporter: process.env.CI ? "github" : "dot",
+	/* Per-test timeout. The default 30s is too tight for tests that perform
+	   multiple commits in CI, where backend operations are slower. */
+	timeout: 60_000,
 	/* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
 	use: {
 		/* Base URL to use in actions like `await page.goto('/')`. */
 		baseURL: `http://localhost:${DESKTOP_PORT}`,
 
+		/* Individual actions (click, fill, etc.) fail after 15s so a stuck
+		   action surfaces quickly instead of burning the full test timeout. */
+		actionTimeout: 15_000,
+
 		/* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
 		// I have no idea why, but with this disabled, some tests just always fail. I have no idea why.
 		trace: "retain-on-failure",
-		video: "retain-on-failure",
+		video: { mode: "retain-on-failure", size: { width: 1920, height: 1080 } },
 	},
 
 	/* Configure projects for major browsers */
@@ -51,18 +58,17 @@ function projects() {
 	const projects = [];
 	if (process.env.CI) {
 		projects.push({
-			name: "chromium",
-			use: { ...devices["Desktop Chrome"], viewport: { width: 1920, height: 1080 } },
+			name: "webkit",
+			use: { ...devices["Desktop Safari"], viewport: { width: 1920, height: 1080 } },
 		});
 		return projects;
 	}
 
 	projects.push({
-		name: "Chrome",
+		name: "webkit",
 		use: {
-			...devices["Desktop Chrome"],
+			...devices["Desktop Safari"],
 			headless: process.env.PLAYWRIGHT_UI === "1" ? false : true,
-			channel: "chrome",
 		},
 	});
 

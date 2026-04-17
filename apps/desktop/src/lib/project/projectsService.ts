@@ -28,6 +28,10 @@ export class ProjectsService {
 		return this.backendApi.endpoints.listProjects.useQuery();
 	}
 
+	async fetchProjects() {
+		return await this.backendApi.endpoints.listProjects.fetch();
+	}
+
 	/**
 	 * Capabilities that vary by how the backend was launched (local Tauri app
 	 * vs. but-server running behind a tunnel). Used to hide UI entry points

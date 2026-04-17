@@ -120,9 +120,9 @@ test("no author setup - should start the application and be able to commit", asy
 
 	// Should see the author missing modal
 	await waitForTestId(page, "global-modal-author-missing");
-	// Idk why, but someone this fills the input too quickly and... something...
-	// causes it to get unset
-	await sleep(30);
+	// WebKit needs extra time for the modal inputs to become interactive.
+	// Without this, fill() silently fails and the values don't persist.
+	await sleep(200);
 	await fillByTestId(page, "global-modal-author-missing-name-input", "Test User");
 	await fillByTestId(page, "global-modal-author-missing-email-input", "test@example.com");
 	await clickByTestId(page, "global-modal-author-missing-action-button", true);

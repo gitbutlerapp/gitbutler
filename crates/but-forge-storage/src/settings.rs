@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de::DeserializeOwned};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -14,6 +14,7 @@ pub struct ForgeSettings {
 #[serde(rename_all = "camelCase")]
 pub struct GitHubSettings {
     /// GitHub-specific settings.
+    #[serde(default, deserialize_with = "deserialize_lenient_vec")]
     pub known_accounts: Vec<GitHubAccount>,
 }
 
@@ -115,6 +116,7 @@ impl PartialEq for GitHubAccount {
 #[serde(rename_all = "camelCase")]
 pub struct GitLabSettings {
     /// GitLab-specific settings.
+    #[serde(default, deserialize_with = "deserialize_lenient_vec")]
     pub known_accounts: Vec<GitLabAccount>,
 }
 
@@ -185,5 +187,81 @@ impl PartialEq for GitLabAccount {
             (GitLabAccount::Pat { .. }, GitLabAccount::SelfHosted { .. }) => false,
             (GitLabAccount::SelfHosted { .. }, GitLabAccount::Pat { .. }) => false,
         }
+    }
+}
+
+/// Deserialize a list of values, silently discarding entries that cannot be
+/// deserialized (e.g. legacy bare-string usernames from an older storage format).
+fn deserialize_lenient_vec<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: DeserializeOwned,
+{
+    let raw: Vec<serde_json::Value> = Vec::deserialize(deserializer)?;
+    Ok(raw
+        .into_iter()
+        .filter_map(|v| match serde_json::from_value::<T>(v.clone()) {
+            Ok(account) => Some(account),
+            Err(_) if v.is_string() => None, // known legacy bare-string format
+            Err(err) => {
+                eprintln!("warning: discarding unrecognised account entry: {err}");
+                None
+            }
+        })
+        .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bare_string_accounts_are_discarded() {
+        let json = r#"{
+            "github": { "knownAccounts": ["someuser"] },
+            "gitlab": { "knownAccounts": ["johnsonjs2", "anotheruser"] }
+        }"#;
+        let settings: ForgeSettings = serde_json::from_str(json).unwrap();
+        assert!(settings.github.known_accounts.is_empty());
+        assert!(settings.gitlab.known_accounts.is_empty());
+    }
+
+    #[test]
+    fn mixed_legacy_and_valid_accounts() {
+        let json = r#"{
+            "github": { "knownAccounts": [] },
+            "gitlab": {
+                "knownAccounts": [
+                    "legacyuser",
+                    { "type": "Pat", "username": "validuser", "access_token_key": "gitlab_pat_validuser" },
+                    "anotherlegacy"
+                ]
+            }
+        }"#;
+        let settings: ForgeSettings = serde_json::from_str(json).unwrap();
+        assert_eq!(settings.gitlab.known_accounts.len(), 1);
+        assert_eq!(settings.gitlab.known_accounts[0].username(), "validuser");
+    }
+
+    #[test]
+    fn roundtrip_serialization_preserves_accounts() {
+        let settings = ForgeSettings {
+            github: GitHubSettings {
+                known_accounts: vec![GitHubAccount::Pat {
+                    username: "testuser".into(),
+                    access_token_key: "github_pat_testuser".into(),
+                }],
+            },
+            gitlab: GitLabSettings {
+                known_accounts: vec![GitLabAccount::Pat {
+                    username: "gltest".into(),
+                    access_token_key: "gitlab_pat_gltest".into(),
+                }],
+            },
+        };
+        let json = serde_json::to_string(&settings).unwrap();
+        let roundtripped: ForgeSettings = serde_json::from_str(&json).unwrap();
+        assert_eq!(roundtripped.github.known_accounts.len(), 1);
+        assert_eq!(roundtripped.gitlab.known_accounts.len(), 1);
     }
 }

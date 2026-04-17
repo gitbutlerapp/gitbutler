@@ -21,14 +21,23 @@
 		isDeleting = true;
 		try {
 			await projectsService.deleteProject(projectId);
-			closeSettings();
-			goto("/");
-			chipToasts.success("Project deleted");
 		} catch (err: any) {
 			console.error(err);
 			showError("Failed to delete project", err);
+			return;
 		} finally {
 			isDeleting = false;
+		}
+
+		chipToasts.success("Project deleted");
+		closeSettings();
+
+		const projects = await projectsService.fetchProjects();
+		const remainingProject = projects?.find((p) => p.id !== projectId);
+		if (remainingProject) {
+			goto(`/${remainingProject.id}`);
+		} else {
+			goto("/");
 		}
 	}
 </script>

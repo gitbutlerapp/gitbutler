@@ -87,6 +87,7 @@ test("should be able to commit a bunch of times in a row and edit their message"
 	page,
 	context,
 }, testInfo) => {
+	test.setTimeout(120_000);
 	const workdir = testInfo.outputPath("workdir");
 	const configdir = testInfo.outputPath("config");
 	gitbutler = await startGitButler(workdir, configdir, context);
@@ -361,9 +362,9 @@ function getAmendedCommitTitle(i: number): string {
 }
 
 function getCommitDescription(i: number): string {
-	return `Description for commit ${i + 1}`;
+	return `Desc ${i + 1}`;
 }
 
 function getAmendedCommitDescription(i: number): string {
-	return `Amended description for commit ${i + 1}`;
+	return `Amended ${i + 1}`;
 }

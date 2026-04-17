@@ -138,12 +138,17 @@ export class Dropzone {
 
 	private onMouseUp(e: MouseEvent) {
 		// Handle drop via pointer events (mouseup)
-		if (!this.activated || !this.hovered) return;
+		if (!this.activated) return;
 
 		e.preventDefault();
 		// Don't call stopPropagation() here - the draggable needs the mouseup event
 		// to reach the window listener so it can clean up the drag clone
 
+		// Note: we intentionally do NOT gate on this.hovered here. The mouseup
+		// listener is registered on this.target, so it only fires when the mouse
+		// is released on this element or a descendant. The RAF-based position
+		// observer can race with the mouseup event and clear hovered=false right
+		// before this fires (the root cause of flaky drag-and-drop on CI).
 		this.acceptedHandler?.ondrop(this.data);
 	}
 
@@ -210,11 +215,6 @@ export function dropzone(node: HTMLElement, configuration: DropzoneConfiguration
 
 	return {
 		update(newConfig: DropzoneConfiguration) {
-			if (newConfig.disabled) {
-				cleanup();
-				return;
-			}
-
 			if (instance) {
 				instance.reactivate(newConfig);
 			} else {

@@ -83,8 +83,14 @@ export async function dragAndDropByLocator(
 ) {
 	await source.hover();
 	await page.mouse.down();
+	// Always wait a bit in case CSS causes content shift.
+	await page.waitForTimeout(100);
 	await target.hover({ force: options.force, position: options.position });
-	await target.hover({ force: true, position: options.position });
+	// The drag system uses requestAnimationFrame to detect dropzones via
+	// document.elementFromPoint. Wait for at least one animation frame so the
+	// dropzone is detected as hovered before we release the mouse button.
+	// eslint-disable-next-line @typescript-eslint/promise-function-async
+	await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
 	await page.mouse.up();
 }
 
@@ -115,6 +121,34 @@ export async function textEditorFillByTestId(page: Page, testId: TestIdValues, v
 
 export async function sleep(ms: number): Promise<void> {
 	return await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Wait until an element's bounding box stops changing between animation frames.
+ * Useful for popups positioned by Floating UI that take a few frames to settle.
+ */
+export async function waitForElementToStabilize(page: Page, locator: Locator, timeout = 5000) {
+	const start = Date.now();
+	let lastBox = await locator.boundingBox();
+	while (Date.now() - start < timeout) {
+		// eslint-disable-next-line @typescript-eslint/promise-function-async
+		await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
+		const box = await locator.boundingBox();
+		if (
+			box &&
+			lastBox &&
+			Math.abs(box.x - lastBox.x) < 1 &&
+			Math.abs(box.y - lastBox.y) < 1 &&
+			Math.abs(box.width - lastBox.width) < 1 &&
+			Math.abs(box.height - lastBox.height) < 1
+		) {
+			return;
+		}
+		lastBox = box;
+	}
+	throw new Error(
+		`Element did not stabilize within ${timeout}ms — last bounding box: ${JSON.stringify(lastBox)}`,
+	);
 }
 
 /**

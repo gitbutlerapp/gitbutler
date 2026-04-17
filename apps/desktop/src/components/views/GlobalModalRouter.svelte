@@ -98,14 +98,12 @@
 
 	let modal = $state<Modal>();
 
-	// Handle modal showing/hiding with proper timing
+	// Show the modal whenever modalProps becomes truthy.
+	// When modalProps becomes falsy the {#if} block unmounts the Modal,
+	// so we only need to handle the "show" direction here.
 	$effect(() => {
-		if (!modal) return;
-
-		if (modalProps) {
+		if (modal && modalProps) {
 			modal.show();
-		} else {
-			modal.close();
 		}
 	});
 

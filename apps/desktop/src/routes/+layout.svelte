@@ -112,6 +112,11 @@
 		migrateUseNewRebaseEngineDefaultToTrue();
 	});
 
+	// Mark the body for e2e tests so CSS can disable animations.
+	if (browser && import.meta.env.VITE_E2E === "true") {
+		document.body.setAttribute("data-e2e", "");
+	}
+
 	// =============================================================================
 	// DEBUG & DEVELOPMENT TOOLS
 	// =============================================================================

@@ -254,6 +254,23 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             }
         }
 
+        // If the workspace commit's parent edges don't all lead through
+        // Reference nodes, relax the constraint so the rebase can still
+        // proceed.  This can happen when a branch ref is deleted or
+        // force-pushed after the workspace commit was created, leaving a
+        // parent commit without a corresponding reference in the graph.
+        if let Some(ws_id) = workspace_commit_id
+            && let Some(&ws_pick_ix) = commit_to_pick_ix.get(&ws_id)
+            && !super::rebase::all_parents_are_references(&graph, ws_pick_ix)
+        {
+            tracing::warn!(
+                "Workspace commit {ws_id} has parents that are not behind reference nodes — relaxing parents_must_be_references constraint"
+            );
+            if let Step::Pick(ref mut pick) = graph[ws_pick_ix] {
+                pick.parents_must_be_references = false;
+            }
+        }
+
         Ok(Self {
             graph,
             initial_references: references,

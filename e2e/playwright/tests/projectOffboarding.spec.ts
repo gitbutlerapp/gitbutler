@@ -12,7 +12,10 @@ test.afterEach(async () => {
 	await gitbutler?.destroy();
 });
 
-test("should be able to delete the last project gracefuly", async ({ page, context }, testInfo) => {
+test("should be able to delete the last project gracefully", async ({
+	page,
+	context,
+}, testInfo) => {
 	const workdir = testInfo.outputPath("workdir");
 	const configdir = testInfo.outputPath("config");
 	gitbutler = await startGitButler(workdir, configdir, context, undefined, {

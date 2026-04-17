@@ -1,5 +1,16 @@
 @import "@gitbutler/ui/main.css";
 
+/* Disable all animations and transitions during e2e tests so that Playwright's
+   element stability checks pass without needing force-clicks. */
+body[data-e2e] *,
+body[data-e2e] *::before,
+body[data-e2e] *::after {
+	animation-duration: 0s !important;
+	animation-delay: 0s !important;
+	transition-delay: 0s !important;
+	transition-duration: 0s !important;
+}
+
 :root {
 	--dropzone-fill: oklch(from var(--clr-pop-50) l c h / 0.1);
 	--dropzone-stroke: oklch(from var(--fill-pop-bg) l c h / 0.8);

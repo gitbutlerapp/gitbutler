@@ -1,4 +1,10 @@
-import { clickByTestId, fillByTestId, getByTestId, textEditorFillByTestId } from "./util.ts";
+import {
+	fillByTestId,
+	getByTestId,
+	textEditorFillByTestId,
+	waitForElementToStabilize,
+	waitForTestId,
+} from "./util.ts";
 import { expect, Locator, Page } from "@playwright/test";
 
 /**
@@ -38,7 +44,13 @@ export async function startEditingCommitMessage(page: Page, commitDrawer: Locato
 	const commitKebabMenuButton = commitDrawer.getByTestId("kebab-menu-btn");
 	await expect(commitKebabMenuButton).toBeVisible();
 	await commitKebabMenuButton.click();
-	await clickByTestId(page, "commit-row-context-menu-edit-message-menu-btn");
+	// Wait for the context menu popup to finish positioning (Floating UI takes
+	// a few frames to measure and place the popup). We wait until the menu item's
+	// bounding box stops moving before clicking.
+	const menuItem = await waitForTestId(page, "commit-row-context-menu-edit-message-menu-btn");
+	await expect(menuItem).toBeVisible();
+	await waitForElementToStabilize(page, menuItem);
+	await menuItem.click();
 }
 
 /**
