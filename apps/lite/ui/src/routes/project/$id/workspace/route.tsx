@@ -248,21 +248,6 @@ const CommitFiles: FC<{
 	);
 };
 
-const CommitsList: FC<{
-	commits: Array<Commit>;
-	children: (commit: Commit, index: number) => ReactNode;
-}> = ({ commits, children }) => {
-	if (commits.length === 0) return <div>No commits.</div>;
-
-	return (
-		<ul>
-			{commits.map((commit, index) => (
-				<li key={commit.id}>{children(commit, index)}</li>
-			))}
-		</ul>
-	);
-};
-
 const ItemRow: FC<
 	{
 		isSelected?: boolean;
@@ -1742,26 +1727,32 @@ const StackC: FC<{
 									/>
 								)}
 
-								<CommitsList commits={segment.commits}>
-									{(commit) => {
-										const isSelected = selectedCommit?.commitId === commit.id;
-										return (
-											<CommitC
-												commit={commit}
-												commitMessageFormRef={commitMessageFormRef}
-												operationMode={operationMode}
-												workspaceMode={workspaceMode}
-												isSelected={isSelected}
-												selectedFile={
-													selectedCommitFile?.commitId === commit.id ? selectedCommitFile : null
-												}
-												projectId={projectId}
-												stackId={stackId}
-												navigationIndex={navigationIndex}
-											/>
-										);
-									}}
-								</CommitsList>
+								{segment.commits.length === 0 ? (
+									<div>No commits.</div>
+								) : (
+									<ul>
+										{segment.commits.map((commit) => {
+											const isSelected = selectedCommit?.commitId === commit.id;
+											return (
+												<li key={commit.id}>
+													<CommitC
+														commit={commit}
+														commitMessageFormRef={commitMessageFormRef}
+														operationMode={operationMode}
+														workspaceMode={workspaceMode}
+														isSelected={isSelected}
+														selectedFile={
+															selectedCommitFile?.commitId === commit.id ? selectedCommitFile : null
+														}
+														projectId={projectId}
+														stackId={stackId}
+														navigationIndex={navigationIndex}
+													/>
+												</li>
+											);
+										})}
+									</ul>
+								)}
 							</div>
 						</li>
 					);
