@@ -1599,6 +1599,70 @@ const BranchRow: FC<
 	);
 };
 
+const StackRow: FC<
+	{
+		isSelected: boolean;
+		navigationIndex: NavigationIndex;
+		projectId: string;
+		stackId: string;
+		workspaceMode: WorkspaceMode;
+	} & ComponentProps<"div">
+> = ({ isSelected, navigationIndex, projectId, stackId, workspaceMode, ...restProps }) => {
+	const dispatch = useAppDispatch();
+	const item = stackItem({ stackId });
+
+	const unapplyStack = useMutation(unapplyStackMutationOptions);
+
+	const menuItems: Array<NativeMenuItem> = [
+		{ _tag: "Item", label: "Move up", enabled: false },
+		{ _tag: "Item", label: "Move down", enabled: false },
+		{ _tag: "Separator" },
+		{
+			_tag: "Item",
+			label: "Unapply stack",
+			enabled: !unapplyStack.isPending,
+			onSelect: () => {
+				unapplyStack.mutate({ projectId, stackId });
+			},
+		},
+	];
+
+	return (
+		<ItemRow
+			{...restProps}
+			isSelected={isSelected}
+			inert={!navigationIndexIncludes(navigationIndex, item)}
+		>
+			<button
+				type="button"
+				className={classes(styles.itemRowButton, styles.sectionButton)}
+				onClick={() => {
+					dispatch(projectActions.selectItem({ projectId, item }));
+				}}
+				onContextMenu={
+					workspaceMode._tag === "Default"
+						? (event) => {
+								void showNativeContextMenu(event, menuItems);
+							}
+						: undefined
+				}
+			>
+				Stack
+			</button>
+			<button
+				type="button"
+				className={styles.itemRowAction}
+				aria-label="Stack menu"
+				onClick={(event) => {
+					void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+				}}
+			>
+				<MenuTriggerIcon />
+			</button>
+		</ItemRow>
+	);
+};
+
 const StackC: FC<{
 	branchRenameFormRef: Ref<HTMLFormElement>;
 	commitMessageFormRef: Ref<HTMLFormElement>;
@@ -1628,59 +1692,16 @@ const StackC: FC<{
 	// oxlint-disable-next-line typescript/no-non-null-assertion -- [tag:stack-id-required]
 	const stackId = stack.id!;
 
-	const dispatch = useAppDispatch();
-	const unapplyStack = useMutation(unapplyStackMutationOptions);
-
-	const item = stackItem({ stackId });
-
-	const menuItems: Array<NativeMenuItem> = [
-		{ _tag: "Item", label: "Move up", enabled: false },
-		{ _tag: "Item", label: "Move down", enabled: false },
-		{ _tag: "Separator" },
-		{
-			_tag: "Item",
-			label: "Unapply stack",
-			enabled: !unapplyStack.isPending,
-			onSelect: () => {
-				unapplyStack.mutate({ projectId, stackId });
-			},
-		},
-	];
-
 	return (
 		<div className={classes(styles.stack, styles.section)}>
-			<ItemRow
+			<StackRow
 				isSelected={selectedItem?._tag === "Stack" && selectedItem.stackId === stackId}
-				inert={!navigationIndexIncludes(navigationIndex, item)}
+				workspaceMode={workspaceMode}
+				projectId={projectId}
+				stackId={stackId}
+				navigationIndex={navigationIndex}
 				className={styles.stackRow}
-			>
-				<button
-					type="button"
-					className={classes(styles.itemRowButton, styles.sectionButton)}
-					onClick={() => {
-						dispatch(projectActions.selectItem({ projectId, item }));
-					}}
-					onContextMenu={
-						workspaceMode._tag === "Default"
-							? (event) => {
-									void showNativeContextMenu(event, menuItems);
-								}
-							: undefined
-					}
-				>
-					Stack
-				</button>
-				<button
-					type="button"
-					className={styles.itemRowAction}
-					aria-label="Stack menu"
-					onClick={(event) => {
-						void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-					}}
-				>
-					<MenuTriggerIcon />
-				</button>
-			</ItemRow>
+			/>
 
 			<ul className={styles.segments}>
 				{stack.segments.map((segment) => {
