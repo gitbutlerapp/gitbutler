@@ -9,7 +9,6 @@ import type {
 	CommitDetails,
 	DiffSpec,
 	InsertSide,
-	PushResult,
 	ProjectForFrontend,
 	RelativeTo,
 	RefInfo,
@@ -161,12 +160,6 @@ export interface UnapplyStackParams {
 	stackId: string;
 }
 
-export interface PushStackLegacyParams {
-	projectId: string;
-	stackId: string;
-	branch: string;
-}
-
 export interface WatcherSubscribeParams {
 	projectId: string;
 }
@@ -230,7 +223,6 @@ export interface LiteElectronApi {
 	updateBranchName: (params: UpdateBranchNameParams) => Promise<void>;
 	tearOffBranch: (params: TearOffBranchParams) => Promise<MoveBranchResult>;
 	ping: (input: string) => Promise<string>;
-	pushStackLegacy: (params: PushStackLegacyParams) => Promise<PushResult>;
 	showNativeMenu: (params: ShowNativeMenuParams) => Promise<string | null>;
 	treeChangeDiffs: (params: TreeChangeDiffParams) => Promise<UnifiedPatch | null>;
 	unapplyStack: (params: UnapplyStackParams) => Promise<void>;
@@ -265,7 +257,6 @@ export const liteIpcChannels = {
 	updateBranchName: "workspace:update-branch-name",
 	tearOffBranch: "workspace:tear-off-branch",
 	ping: "lite:ping",
-	pushStackLegacy: "workspace:push-stack-legacy",
 	showNativeMenu: "lite:show-native-menu",
 	treeChangeDiffs: "workspace:tree-change-diffs",
 	unapplyStack: "workspace:unapply-stack",

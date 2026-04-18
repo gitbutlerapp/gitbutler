@@ -7,7 +7,6 @@ import type {
 	BranchListing,
 	CommitDetails,
 	ProjectForFrontend,
-	PushResult,
 	RefInfo,
 	TreeChanges,
 	CommitCreateResult,
@@ -89,8 +88,6 @@ const api: LiteElectronApi = {
 	tearOffBranch: (params) =>
 		ipcRenderer.invoke("workspace:tear-off-branch", params) as Promise<MoveBranchResult>,
 	ping: (input) => ipcRenderer.invoke("lite:ping", input) as Promise<string>,
-	pushStackLegacy: (params) =>
-		ipcRenderer.invoke("workspace:push-stack-legacy", params) as Promise<PushResult>,
 	showNativeMenu: (params) =>
 		ipcRenderer.invoke("lite:show-native-menu", params) as Promise<string | null>,
 	treeChangeDiffs: (params) =>

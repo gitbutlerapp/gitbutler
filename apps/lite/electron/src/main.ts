@@ -17,7 +17,6 @@ import {
 	type CommitMoveChangesBetweenParams,
 	type CommitUncommitChangesParams,
 	type MoveBranchParams,
-	type PushStackLegacyParams,
 	type TearOffBranchParams,
 	type TreeChangeDiffParams,
 	type UpdateBranchNameParams,
@@ -50,7 +49,6 @@ import {
 	listBranches,
 	listProjectsStateless,
 	moveBranch,
-	pushStackLegacy,
 	tearOffBranch,
 	treeChangeDiffs,
 	unapplyStack,
@@ -188,11 +186,6 @@ const registerIpcHandlers = (): void => {
 	);
 	ipcMain.handle(liteIpcChannels.ping, (_event, input: string) =>
 		Promise.resolve(`pong: ${input}`),
-	);
-	ipcMain.handle(
-		liteIpcChannels.pushStackLegacy,
-		(_e, { projectId, stackId, branch }: PushStackLegacyParams) =>
-			pushStackLegacy(projectId, stackId, false, false, branch, true),
 	);
 	ipcMain.handle(
 		liteIpcChannels.showNativeMenu,
