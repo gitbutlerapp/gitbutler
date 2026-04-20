@@ -9,7 +9,7 @@ pub use reword::reword;
 pub mod commit_create;
 pub use commit_create::{CommitCreateOutcome, commit_create};
 pub mod commit_amend;
-pub use commit_amend::{CommitAmendOutcome, commit_amend};
+pub use commit_amend::{CommitAmendOutcome, commit_amend, reject_cross_stack_file_deletions};
 pub mod insert_blank_commit;
 pub use insert_blank_commit::insert_blank_commit;
 pub mod move_changes;

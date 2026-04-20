@@ -1,6 +1,9 @@
 //! An action to amend an existing commit with selected changes.
 
+use std::collections::BTreeSet;
+
 use anyhow::{Result, bail};
+use bstr::BString;
 use but_core::{DiffSpec, RefMetadata};
 use but_rebase::graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToCommitSelector};
 
@@ -75,4 +78,60 @@ pub fn commit_amend<'ws, 'meta, M: RefMetadata>(
         commit_selector: Some(target_selector),
         rejected_specs: create_out.rejected_specs,
     })
+}
+
+/// Reject whole-file deletions that target a file already committed in another
+/// stack. Hunk-level amends naturally fail when the content doesn't match, but
+/// a file deletion removes the tree entry regardless of content — so it can
+/// silently create a modify/delete conflict across stacks, causing the
+/// workspace merge to skip the deleting stack entirely.
+pub fn reject_cross_stack_file_deletions(
+    ws: &but_graph::projection::Workspace,
+    repo: &gix::Repository,
+    target_commit_id: gix::ObjectId,
+    changes: &[DiffSpec],
+) -> Result<()> {
+    // A deletion is a DiffSpec with a path but no hunk_headers and no
+    // previous_path (not a rename).
+    let deleted_paths: BTreeSet<&BString> = changes
+        .iter()
+        .filter(|c| c.hunk_headers.is_empty() && c.previous_path.is_none())
+        .map(|c| &c.path)
+        .collect();
+    if deleted_paths.is_empty() {
+        return Ok(());
+    }
+
+    let target_stack = ws.find_commit_and_containers(target_commit_id);
+
+    for stack in &ws.stacks {
+        if let Some((target_stack, ..)) = target_stack
+            && std::ptr::eq(stack, target_stack)
+        {
+            continue;
+        }
+
+        let Some(tip) = stack.tip() else { continue };
+        let base = stack.base();
+
+        let stack_changes = but_core::diff::tree_changes(repo, base, tip)?;
+        for change in &stack_changes {
+            if deleted_paths.contains(&change.path) {
+                let stack_name = stack
+                    .segments
+                    .first()
+                    .and_then(|s| s.ref_name())
+                    .map(|n| n.shorten().to_string())
+                    .unwrap_or_else(|| "another stack".into());
+                bail!(
+                    "Cannot delete '{}' here — it is already committed in \
+                     '{stack_name}'. Deleting it in a different stack would \
+                     create a modify/delete conflict in the workspace.",
+                    change.path,
+                );
+            }
+        }
+    }
+
+    Ok(())
 }

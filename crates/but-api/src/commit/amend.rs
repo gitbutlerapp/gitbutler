@@ -42,6 +42,7 @@ pub(crate) fn commit_amend_only_impl(
 ) -> anyhow::Result<CommitCreateResult> {
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    but_workspace::commit::reject_cross_stack_file_deletions(&ws, &repo, commit_id, &changes)?;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
     let but_workspace::commit::CommitAmendOutcome {

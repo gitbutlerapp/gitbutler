@@ -54,6 +54,10 @@ fn amend_diff_specs(
     oid: ObjectId,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CreateCommitOutcome> {
+    {
+        let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+        but_workspace::commit::reject_cross_stack_file_deletions(&ws, &repo, oid, &diff_specs)?;
+    }
     but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &*ctx.repo.get()?,
         &ctx.project_data_dir(),

@@ -525,6 +525,48 @@ mod from_new_merge_with_metadata {
         Ok(())
     }
 
+    /// Amending a whole-file deletion into a stack that doesn't own the file
+    /// would silently create a modify/delete conflict in the workspace merge.
+    /// `reject_cross_stack_file_deletions` must catch this and return an error.
+    #[test]
+    fn reject_file_deletion_targeting_path_committed_in_another_stack() {
+        let (repo, mut meta) =
+            named_read_only_in_memory_scenario("merge-with-modify-delete-conflict", "").unwrap();
+        insta::assert_snapshot!(
+            "modify-delete-graph",
+            visualize_commit_graph_all(&repo).unwrap()
+        );
+
+        let stacks = ["modify-shared", "delete-shared"];
+        add_stacks(&mut meta, stacks);
+        let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited()).unwrap();
+        let ws = graph.into_workspace().unwrap();
+
+        // Try to delete "shared-file" targeting a commit in delete-shared.
+        // modify-shared already commits changes to that file, so this must be rejected.
+        let delete_shared_tip = repo.rev_parse_single("delete-shared").unwrap().detach();
+        let deletion_spec = but_core::DiffSpec {
+            path: "shared-file".into(),
+            previous_path: None,
+            hunk_headers: vec![],
+        };
+        let err = but_workspace::commit::reject_cross_stack_file_deletions(
+            &ws,
+            &repo,
+            delete_shared_tip,
+            &[deletion_spec],
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string().contains("shared-file"),
+            "error should mention the conflicting file, got: {err}"
+        );
+        assert!(
+            err.to_string().contains("modify-shared"),
+            "error should mention the stack that owns the file, got: {err}"
+        );
+    }
+
     mod utils {
         use but_core::ref_metadata::{
             StackId, WorkspaceCommitRelation::Merged, WorkspaceStack, WorkspaceStackBranch,

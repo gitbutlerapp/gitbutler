@@ -1,0 +1,10 @@
+---
+source: crates/but-workspace/tests/workspace/commit/mod.rs
+expression: visualize_commit_graph_all(&repo)?
+---
+*   b3efcfb (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 8d26d4d (delete-shared) delete shared-file and also-deleted
+* | b2d5bd5 (modify-shared) modify shared-file
+|/  
+* fbab7b5 (main) init
