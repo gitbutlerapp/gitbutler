@@ -32,6 +32,8 @@ fn main() {
     };
     println!("cargo:rustc-env=IDENTIFIER={identifier}");
 
-    tauri_build::try_build(tauri_build::Attributes::new())
-        .expect("failed to run tauri_build");
+    tauri_build::try_build(
+        tauri_build::Attributes::new().app_manifest(tauri_build::AppManifest::new()),
+    )
+    .expect("failed to run tauri_build");
 }
