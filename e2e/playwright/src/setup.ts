@@ -7,7 +7,7 @@ import {
 	GIT_CONFIG_GLOBAL,
 } from "./env.ts";
 import { type BrowserContext } from "@playwright/test";
-import { ChildProcess, spawn } from "node:child_process";
+import { ChildProcess, execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
@@ -117,16 +117,16 @@ class GitButlerManager implements GitButler {
 
 			const forceKillTimer = setTimeout(() => {
 				if (settled) return;
-				log(`but-server did not stop after ${shutdownTimeoutMs}ms, sending SIGKILL...`, colors.red);
+				log(`but-server did not stop after ${shutdownTimeoutMs}ms, force killing...`, colors.red);
 				try {
-					this.butServerProcess.kill("SIGKILL");
+					forceKillProcess(this.butServerProcess);
 				} catch {
 					finish();
 				}
 			}, shutdownTimeoutMs);
 
 			try {
-				const killed = this.butServerProcess.kill("SIGTERM");
+				const killed = gracefulKillProcess(this.butServerProcess);
 				if (!killed) {
 					finish();
 				}
@@ -145,7 +145,7 @@ class GitButlerManager implements GitButler {
 		args?: string[],
 		env?: Record<string, string>,
 	): Promise<void> {
-		const scriptPath = path.resolve(this.scriptsDir, scriptName);
+		const scriptPath = resolveScript(this.scriptsDir, scriptName);
 		if (!existsSync(scriptPath)) log(`Script not found: ${scriptPath}`, colors.red);
 		const scriptArgs = args ?? [];
 
@@ -157,7 +157,12 @@ class GitButlerManager implements GitButler {
 			...env,
 		};
 
-		await runCommand("bash", [scriptPath, ...scriptArgs], this.workdir, envVars);
+		await runCommand(
+			process.execPath,
+			["--experimental-strip-types", "--no-warnings", scriptPath, ...scriptArgs],
+			this.workdir,
+			envVars,
+		);
 	}
 }
 
@@ -186,6 +191,56 @@ function createButServerProcess(rootDir: string, serverEnv: Record<string, strin
 
 function getButlerDataDir(configDir: string): string {
 	return path.join(configDir, "com.gitbutler.app");
+}
+
+/**
+ * Resolve a script name, mapping `.sh` references to `.ts` files.
+ * This allows existing test files to keep using `.sh` names while
+ * the actual scripts are now cross-platform TypeScript.
+ */
+function resolveScript(scriptsDir: string, scriptName: string): string {
+	// If the caller asks for a .sh, try the .ts equivalent first.
+	if (scriptName.endsWith(".sh")) {
+		const tsName = scriptName.replace(/\.sh$/, ".ts");
+		const tsPath = path.resolve(scriptsDir, tsName);
+		if (existsSync(tsPath)) {
+			return tsPath;
+		}
+	}
+	return path.resolve(scriptsDir, scriptName);
+}
+
+/**
+ * Gracefully stop a child process (cross-platform).
+ * On Windows, SIGTERM is not reliable, so we use `taskkill`.
+ */
+function gracefulKillProcess(child: ChildProcess): boolean {
+	if (process.platform === "win32") {
+		if (child.pid === undefined) return false;
+		try {
+			execFileSync("taskkill", ["/pid", child.pid.toString()]);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+	return child.kill("SIGTERM");
+}
+
+/**
+ * Force-kill a child process (cross-platform).
+ */
+function forceKillProcess(child: ChildProcess): void {
+	if (process.platform === "win32") {
+		if (child.pid === undefined) return;
+		try {
+			execFileSync("taskkill", ["/F", "/pid", child.pid.toString()]);
+		} catch {
+			// Process may already be gone.
+		}
+		return;
+	}
+	child.kill("SIGKILL");
 }
 
 async function waitForServer(port: string, host = "localhost", maxAttempts = 500) {

@@ -102,3 +102,80 @@ jobs:
             ./e2e/playwright-report/
             ./e2e/test-results/
           retention-days: 30
+
+  playwright-windows:
+    name: e2e-playwright-windows
+    needs: changes
+    if: ${{ needs.changes.outputs.should_run == 'true' }}
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    timeout-minutes: 90
+    env:
+      DESKTOP_PORT: 3000
+      BUTLER_PORT: 6978
+      VITE_E2E: "true"
+      VITE_BUTLER_PORT: 6978
+      VITE_BUTLER_HOST: "localhost"
+      VITE_BUILD_TARGET: "web"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.inputs.sha }}
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: e2e-playwright-windows-rust-binaries
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Preset Git Configuration and but-testing location
+        shell: pwsh
+        run: |
+          "GIT_CONFIG_GLOBAL=$PWD\e2e\playwright\fixtures\.gitconfig" | Out-File -Append $env:GITHUB_ENV
+          "BUT_TESTING=$PWD\target\debug\but-testing.exe" | Out-File -Append $env:GITHUB_ENV
+      - name: Setup node environment
+        uses: ./.github/actions/init-env-node
+        if: ${{ github.ref != 'refs/heads/master' }}
+      - id: get_playwright_version
+        uses: eviden-actions/get-playwright-version@c83e8a285b395cc1e3d99df43d4ddaa0c889d8ff # v1
+        if: ${{ github.ref != 'refs/heads/master' }}
+      - name: Cache playwright binaries
+        if: ${{ github.ref != 'refs/heads/master' }}
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        id: playwright-cache
+        with:
+          path: |
+            ~\AppData\Local\ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
+      - name: Build Rust binaries
+        if: ${{ github.ref != 'refs/heads/master' }}
+        run: cargo build -p gitbutler-git -p but-server -p but-testing
+      - name: Build SvelteKit
+        if: ${{ github.ref != 'refs/heads/master' }}
+        run: pnpm build:desktop
+      - name: Install Playwright browsers
+        if: ${{ github.ref != 'refs/heads/master' && steps.playwright-cache.outputs.cache-hit != 'true' }}
+        run: cd e2e && pnpm exec playwright install chromium webkit
+      - name: Build Rust binaries (cache warming)
+        if: ${{ github.ref == 'refs/heads/master' }}
+        run: cargo build -p gitbutler-git -p but-server -p but-testing
+      - name: Run Playwright tests
+        run: pnpm exec turbo run test:e2e:playwright
+        if: ${{ github.ref != 'refs/heads/master' }}
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: playwright-report-windows
+          path: |
+            ./e2e/playwright-report/
+            ./e2e/test-results/**/trace.zip
+            ./e2e/test-results/**/video.webm
+            ./e2e/test-results/**/error-context.md
+          retention-days: 30
