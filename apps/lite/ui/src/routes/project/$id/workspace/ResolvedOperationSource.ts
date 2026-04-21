@@ -327,72 +327,69 @@ export const rubOperationSourceToOperation = ({
 	resolvedOperationSource: ResolvedOperationSource;
 	target: Item;
 }): Operation | null =>
-	Match.value(resolvedOperationSource).pipe(
-		Match.tagsExhaustive({
-			Stack: () => null,
-			Branch: () => null,
-			BaseCommit: () => null,
-			Commit: (source) =>
-				Match.value(target).pipe(
-					Match.tags({
-						ChangesSection: () =>
-							commitUncommitOperation({
-								commitId: source.commitId,
-								assignTo: null,
-							}),
-						Commit: (target) =>
-							commitSquashOperation({
-								sourceCommitId: source.commitId,
-								destinationCommitId: target.commitId,
-								dryRun: false,
-							}),
-					}),
-					Match.orElse(() => null),
-				),
-			TreeChanges: (source) => {
-				const changes = source.changes.map(({ change, hunkHeaders }) =>
-					createDiffSpec(change, hunkHeaders),
-				);
-
-				return Match.value(source.parent).pipe(
-					Match.tagsExhaustive({
-						Change: () =>
-							Match.value(target).pipe(
-								Match.tags({
-									ChangesSection: () => null,
-									Commit: ({ commitId }) =>
-										commitAmendOperation({
-											commitId,
-											changes,
-											dryRun: false,
-										}),
-								}),
-								Match.orElse(() => null),
-							),
-						Commit: (source) =>
-							Match.value(target).pipe(
-								Match.tags({
-									ChangesSection: () =>
-										commitUncommitChangesOperation({
-											commitId: source.commitId,
-											assignTo: null,
-											changes,
-											dryRun: false,
-										}),
-									Commit: (target) =>
-										commitMoveChangesBetweenOperation({
-											sourceCommitId: source.commitId,
-											destinationCommitId: target.commitId,
-											changes,
-											dryRun: false,
-										}),
-								}),
-								Match.orElse(() => null),
-							),
-					}),
-				);
+	Match.value({ resolvedOperationSource, target }).pipe(
+		Match.when(
+			{ resolvedOperationSource: { _tag: "Commit" }, target: { _tag: "Commit" } },
+			({ resolvedOperationSource, target }) =>
+				commitSquashOperation({
+					sourceCommitId: resolvedOperationSource.commitId,
+					destinationCommitId: target.commitId,
+					dryRun: false,
+				}),
+		),
+		Match.when(
+			{ resolvedOperationSource: { _tag: "Commit" }, target: { _tag: "ChangesSection" } },
+			({ resolvedOperationSource }) =>
+				commitUncommitOperation({
+					commitId: resolvedOperationSource.commitId,
+					assignTo: null,
+				}),
+		),
+		Match.when(
+			{
+				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Change" } },
+				target: { _tag: "Commit" },
 			},
-		}),
+			({ resolvedOperationSource, target }) =>
+				commitAmendOperation({
+					commitId: target.commitId,
+					changes: resolvedOperationSource.changes.map(({ change, hunkHeaders }) =>
+						createDiffSpec(change, hunkHeaders),
+					),
+					dryRun: false,
+				}),
+		),
+		Match.when(
+			{
+				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Commit" } },
+				target: { _tag: "ChangesSection" },
+			},
+			({ resolvedOperationSource }) =>
+				commitUncommitChangesOperation({
+					commitId: resolvedOperationSource.parent.commitId,
+					assignTo: null,
+					changes: resolvedOperationSource.changes.map(({ change, hunkHeaders }) =>
+						createDiffSpec(change, hunkHeaders),
+					),
+					dryRun: false,
+				}),
+		),
+		Match.when(
+			{
+				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Commit" } },
+				target: { _tag: "Commit" },
+			},
+			({ resolvedOperationSource, target }) =>
+				commitMoveChangesBetweenOperation({
+					sourceCommitId: resolvedOperationSource.parent.commitId,
+					destinationCommitId: target.commitId,
+					changes: resolvedOperationSource.changes.map(({ change, hunkHeaders }) =>
+						createDiffSpec(change, hunkHeaders),
+					),
+					dryRun: false,
+				}),
+		),
+		Match.orElse(() => null),
 	);
 
 export const moveOperationSourceToOperation = ({
