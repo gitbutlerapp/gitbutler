@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use anyhow::{Context as _, bail};
 use bstr::BString;
 use but_core::{DryRun, ref_metadata::StackId, sync::RepoExclusive};
@@ -202,17 +200,6 @@ fn squash_commits_internal(
     perm: &mut RepoExclusive,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    // Validate all commits are on the same stack
-    let target_stack = stack_id_by_commit_id(ctx, target_oid)?;
-    for source_oid in &source_oids {
-        let source_stack = stack_id_by_commit_id(ctx, *source_oid)?;
-        if source_stack != target_stack {
-            bail!(
-                "Commits must be on the same stack to squash them together. Try squashing commits within a single branch or stack."
-            );
-        }
-    }
-
     // Collect commit messages if we need them for AI generation
     let (source_messages, destination_message) = if ai.is_some() {
         let repo = ctx.repo.get()?;
@@ -263,33 +250,14 @@ fn squash_commits_internal(
     // restore the pre-squash snapshot so we don't leave partial rewrites.
     let snapshot = ctx.create_snapshot(SnapshotDetails::new(OperationKind::SquashCommit), perm)?;
     let squash_result: anyhow::Result<ObjectId> = (|| {
-        // Perform the squash by folding sources into the current target one by one.
-        // We process from bottom to top so each next source remains adjacent to the
-        // rewritten target commit.
-        let mut new_commit_oid = target_oid;
-        let mut rewritten_commits = BTreeMap::<ObjectId, ObjectId>::new();
-        for source_oid in source_oids.iter().rev() {
-            let mut remapped_source_oid = *source_oid;
-            while let Some(next_oid) = rewritten_commits.get(&remapped_source_oid) {
-                remapped_source_oid = *next_oid;
-            }
-
-            let squash_result = but_api::commit::squash::commit_squash_only_with_perm(
-                ctx,
-                remapped_source_oid,
-                new_commit_oid,
-                DryRun::No,
-                perm,
-            )?;
-            rewritten_commits.extend(
-                squash_result
-                    .workspace
-                    .replaced_commits
-                    .iter()
-                    .map(|(k, v)| (*k, *v)),
-            );
-            new_commit_oid = squash_result.new_commit;
-        }
+        let squash_result = but_api::commit::squash::commit_squash_only_with_perm(
+            ctx,
+            source_oids.clone(),
+            target_oid,
+            DryRun::No,
+            perm,
+        )?;
+        let new_commit_oid = squash_result.new_commit;
 
         // Determine the final message and apply if needed.
         let final_commit_oid = if let Some(user_summary) = ai {

@@ -107,7 +107,7 @@ export interface CommitMoveChangesBetweenParams {
 
 export interface CommitSquashParams {
 	projectId: string;
-	sourceCommitId: string;
+	sourceCommitIds: Array<string>;
 	destinationCommitId: string;
 	dryRun: boolean;
 }

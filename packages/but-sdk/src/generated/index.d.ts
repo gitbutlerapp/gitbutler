@@ -160,7 +160,7 @@ export declare function commitMoveChangesBetween(projectId: string, sourceCommit
 export declare function commitReword(projectId: string, commitId: string, message: string, dryRun: boolean): Promise<CommitRewordResult>
 
 /**
- * Squash `subject_commit_id` into `target_commit_id` and record an oplog
+ * Squash `subject_commit_ids` into `target_commit_id` and record an oplog
  * snapshot on success.
  *
  * This acquires exclusive worktree access from `ctx` before rewriting the
@@ -169,7 +169,7 @@ export declare function commitReword(projectId: string, commitId: string, messag
  * When `dry_run` is enabled, the returned workspace previews the squashed
  * result and no oplog entry is persisted. For details, see [`commit_squash_with_perm()`].
  */
-export declare function commitSquash(projectId: string, subjectCommitId: string, targetCommitId: string, dryRun: boolean): Promise<CommitSquashResult>
+export declare function commitSquash(projectId: string, subjectCommitIds: Array<string>, targetCommitId: string, dryRun: boolean): Promise<CommitSquashResult>
 
 /**
  * Uncommit one or more commits, removing them from branch history while

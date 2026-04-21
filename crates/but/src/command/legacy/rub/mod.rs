@@ -660,7 +660,7 @@ impl SquashCommitsOperation {
 
     /// Executes `SquashCommits` by squashing source into target.
     pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<CommitSquashResult> {
-        but_api::commit::squash::commit_squash(ctx, self.source, self.destination, DryRun::No)
+        but_api::commit::squash::commit_squash(ctx, vec![self.source], self.destination, DryRun::No)
     }
 }
 

@@ -52,6 +52,11 @@ mod undo;
 
 #[cfg(feature = "legacy")]
 mod util {
+    use std::{
+        collections::BTreeMap,
+        path::{Path, PathBuf},
+    };
+
     use anyhow::Context as _;
 
     use crate::utils::{CommandExt as _, Sandbox};
@@ -122,6 +127,86 @@ mod util {
         cmd.stderr(std::process::Stdio::piped());
         but_testsupport::isolate_env_std_cmd(&mut cmd);
         cmd
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub enum SnapshotFileContents {
+        Text(String),
+        Binary(Vec<u8>),
+    }
+
+    pub type WorkingDirectorySnapshot = BTreeMap<PathBuf, SnapshotFileContents>;
+
+    /// Capture all regular files from the working directory recursively, excluding `.git`.
+    pub fn working_directory_snapshot(env: &Sandbox) -> anyhow::Result<WorkingDirectorySnapshot> {
+        let root = env.projects_root();
+        let mut snapshot = WorkingDirectorySnapshot::new();
+        collect_files_recursively(root, root, &mut snapshot)?;
+        Ok(snapshot)
+    }
+
+    fn collect_files_recursively(
+        root: &Path,
+        dir: &Path,
+        out: &mut WorkingDirectorySnapshot,
+    ) -> anyhow::Result<()> {
+        for entry in std::fs::read_dir(dir)
+            .with_context(|| format!("failed to read directory '{}'", dir.display()))?
+        {
+            let entry = entry.with_context(|| {
+                format!("failed to read directory entry in '{}'", dir.display())
+            })?;
+            let path = entry.path();
+            let file_name = entry.file_name();
+
+            if file_name.to_string_lossy() == ".git" {
+                continue;
+            }
+
+            let file_type = entry
+                .file_type()
+                .with_context(|| format!("failed to determine type for '{}'", path.display()))?;
+            if file_type.is_dir() {
+                collect_files_recursively(root, &path, out)?;
+                continue;
+            }
+            if !file_type.is_file() {
+                continue;
+            }
+
+            let relative_path = path
+                .strip_prefix(root)
+                .with_context(|| {
+                    format!(
+                        "expected '{}' to be under root '{}'",
+                        path.display(),
+                        root.display()
+                    )
+                })?
+                .to_path_buf();
+            let contents = std::fs::read(&path)
+                .with_context(|| format!("failed to read file '{}'", path.display()))?;
+            out.insert(relative_path, snapshot_file_contents(contents));
+        }
+        Ok(())
+    }
+
+    fn snapshot_file_contents(contents: Vec<u8>) -> SnapshotFileContents {
+        if is_printable_text(&contents) {
+            // Safe because `is_printable_text` verifies valid UTF-8 first.
+            SnapshotFileContents::Text(String::from_utf8(contents).expect("validated utf-8"))
+        } else {
+            SnapshotFileContents::Binary(contents)
+        }
+    }
+
+    fn is_printable_text(contents: &[u8]) -> bool {
+        let Ok(text) = std::str::from_utf8(contents) else {
+            return false;
+        };
+
+        text.chars()
+            .all(|ch| !ch.is_control() || matches!(ch, '\n' | '\r' | '\t'))
     }
 
     /// Find a branch by name in `status` output.

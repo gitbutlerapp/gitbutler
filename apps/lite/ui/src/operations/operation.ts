@@ -241,7 +241,7 @@ export const useRunOperation = () => {
 				CommitSquash: (operation) => {
 					commitSquash.mutate({
 						projectId,
-						sourceCommitId: operation.sourceCommitId,
+						sourceCommitIds: operation.sourceCommitIds,
 						destinationCommitId: operation.destinationCommitId,
 						dryRun: false,
 					});
@@ -376,7 +376,7 @@ const rubOperation = ({ source, target }: { source: Operand; target: Operand }):
 			},
 			({ source, target }) =>
 				commitSquashOperation({
-					sourceCommitId: source.commitId,
+					sourceCommitIds: [source.commitId],
 					destinationCommitId: target.commitId,
 				}),
 		),

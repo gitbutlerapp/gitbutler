@@ -17,7 +17,7 @@ pub use move_changes::{MoveChangesOutcome, move_changes_between_commits};
 pub mod uncommit_changes;
 pub use uncommit_changes::{UncommitChangesOutcome, uncommit_changes};
 pub mod move_commit;
-pub use move_commit::move_commit;
+pub use move_commit::{move_commit, move_commit_no_rebase};
 pub mod discard_commit;
 pub use discard_commit::discard_commits;
 pub mod squash_commits;
