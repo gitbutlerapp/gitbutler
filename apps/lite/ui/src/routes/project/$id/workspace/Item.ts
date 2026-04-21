@@ -22,9 +22,6 @@ export type CommitFileItem = CommitItem & { path: string };
 /** @public */
 export type HunkItem = { parent: FileParent; path: string; hunkHeader: HunkHeader };
 
-/**
- * A selectable item in the primary panel.
- */
 export type Item =
 	| { _tag: "ChangesSection" }
 	| ({ _tag: "ChangeFile" } & ChangeItem)
