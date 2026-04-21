@@ -27,8 +27,7 @@ import {
 	CommitUncommitParams,
 } from "#ui/api/mutations.ts";
 import { InsertSide, RelativeTo } from "@gitbutler/but-sdk";
-import { Item } from "./routes/project/$id/workspace/Item";
-import { ResolvedOperationSource } from "./routes/project/$id/workspace/ResolvedOperationSource";
+import { Item, type TreeChangeWithHunkHeaders } from "./routes/project/$id/workspace/Item";
 import { decodeRefName } from "./routes/project/$id/shared";
 import { createDiffSpec } from "./domain/DiffSpec";
 
@@ -327,72 +326,94 @@ export const useRunOperation = () => {
  * which also includes move operations.
  * https://linear.app/gitbutler/issue/GB-1160/what-should-rubbing-a-branch-into-another-branch-do#comment-db2abdb7
  */
+const treeChangesToDiffSpecs = (changes: Array<TreeChangeWithHunkHeaders>) =>
+	changes.map(({ change, hunkHeaders }) => createDiffSpec(change, hunkHeaders));
+
 export const rubOperationSourceToOperation = ({
-	resolvedOperationSource,
+	source,
 	target,
 }: {
-	resolvedOperationSource: ResolvedOperationSource;
+	source: Item;
 	target: Item;
 }): Operation | null =>
-	Match.value({ resolvedOperationSource, target }).pipe(
-		Match.when(
-			{ resolvedOperationSource: { _tag: "Commit" }, target: { _tag: "Commit" } },
-			({ resolvedOperationSource, target }) =>
-				commitSquashOperation({
-					sourceCommitId: resolvedOperationSource.commitId,
-					destinationCommitId: target.commitId,
-					dryRun: false,
-				}),
+	Match.value({ source, target }).pipe(
+		Match.when({ source: { _tag: "Commit" }, target: { _tag: "Commit" } }, ({ source, target }) =>
+			commitSquashOperation({
+				sourceCommitId: source.commitId,
+				destinationCommitId: target.commitId,
+				dryRun: false,
+			}),
+		),
+		Match.when({ source: { _tag: "Commit" }, target: { _tag: "ChangesSection" } }, ({ source }) =>
+			commitUncommitOperation({
+				commitId: source.commitId,
+				assignTo: null,
+			}),
 		),
 		Match.when(
-			{ resolvedOperationSource: { _tag: "Commit" }, target: { _tag: "ChangesSection" } },
-			({ resolvedOperationSource }) =>
-				commitUncommitOperation({
-					commitId: resolvedOperationSource.commitId,
-					assignTo: null,
-				}),
-		),
-		Match.when(
-			{
-				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Change" } },
-				target: { _tag: "Commit" },
-			},
-			({ resolvedOperationSource, target }) =>
+			{ source: { _tag: "ChangeFile" }, target: { _tag: "Commit" } },
+			({ source, target }) =>
 				commitAmendOperation({
 					commitId: target.commitId,
-					changes: resolvedOperationSource.changes.map(({ change, hunkHeaders }) =>
-						createDiffSpec(change, hunkHeaders),
-					),
+					changes: [createDiffSpec(source.treeChange, [])],
 					dryRun: false,
 				}),
 		),
 		Match.when(
-			{
-				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Commit" } },
-				target: { _tag: "ChangesSection" },
-			},
-			({ resolvedOperationSource }) =>
+			{ source: { _tag: "ChangesSection" }, target: { _tag: "Commit" } },
+			({ source, target }) =>
+				commitAmendOperation({
+					commitId: target.commitId,
+					changes: source.treeChanges.map((change) => createDiffSpec(change, [])),
+					dryRun: false,
+				}),
+		),
+		Match.when(
+			{ source: { _tag: "Hunk", parent: { _tag: "Change" } }, target: { _tag: "Commit" } },
+			({ source, target }) =>
+				commitAmendOperation({
+					commitId: target.commitId,
+					changes: treeChangesToDiffSpecs([source.treeChange]),
+					dryRun: false,
+				}),
+		),
+		Match.when(
+			{ source: { _tag: "CommitFile" }, target: { _tag: "ChangesSection" } },
+			({ source }) =>
 				commitUncommitChangesOperation({
-					commitId: resolvedOperationSource.parent.commitId,
+					commitId: source.commitId,
 					assignTo: null,
-					changes: resolvedOperationSource.changes.map(({ change, hunkHeaders }) =>
-						createDiffSpec(change, hunkHeaders),
-					),
+					changes: [createDiffSpec(source.treeChange, [])],
 					dryRun: false,
 				}),
 		),
 		Match.when(
-			{
-				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Commit" } },
-				target: { _tag: "Commit" },
-			},
-			({ resolvedOperationSource, target }) =>
+			{ source: { _tag: "Hunk", parent: { _tag: "Commit" } }, target: { _tag: "ChangesSection" } },
+			({ source }) =>
+				commitUncommitChangesOperation({
+					commitId: source.parent.commitId,
+					assignTo: null,
+					changes: treeChangesToDiffSpecs([source.treeChange]),
+					dryRun: false,
+				}),
+		),
+		Match.when(
+			{ source: { _tag: "CommitFile" }, target: { _tag: "Commit" } },
+			({ source, target }) =>
 				commitMoveChangesBetweenOperation({
-					sourceCommitId: resolvedOperationSource.parent.commitId,
+					sourceCommitId: source.commitId,
 					destinationCommitId: target.commitId,
-					changes: resolvedOperationSource.changes.map(({ change, hunkHeaders }) =>
-						createDiffSpec(change, hunkHeaders),
-					),
+					changes: [createDiffSpec(source.treeChange, [])],
+					dryRun: false,
+				}),
+		),
+		Match.when(
+			{ source: { _tag: "Hunk", parent: { _tag: "Commit" } }, target: { _tag: "Commit" } },
+			({ source, target }) =>
+				commitMoveChangesBetweenOperation({
+					sourceCommitId: source.parent.commitId,
+					destinationCommitId: target.commitId,
+					changes: treeChangesToDiffSpecs([source.treeChange]),
 					dryRun: false,
 				}),
 		),
@@ -400,11 +421,11 @@ export const rubOperationSourceToOperation = ({
 	);
 
 export const moveOperationSourceToOperation = ({
-	resolvedOperationSource,
+	source,
 	target,
 	side,
 }: {
-	resolvedOperationSource: ResolvedOperationSource;
+	source: Item;
 	target: Item;
 	side: InsertSide;
 }) => {
@@ -417,30 +438,30 @@ export const moveOperationSourceToOperation = ({
 		Match.orElse(() => null),
 	);
 
-	return Match.value({ resolvedOperationSource, target, relativeTo }).pipe(
+	return Match.value({ source, target, relativeTo }).pipe(
 		Match.when(
-			{ resolvedOperationSource: { _tag: "Branch" }, relativeTo: { type: "referenceBytes" } },
-			({ resolvedOperationSource, relativeTo }) =>
+			{ source: { _tag: "Branch" }, relativeTo: { type: "referenceBytes" } },
+			({ source, relativeTo }) =>
 				moveBranchOperation({
-					subjectBranch: decodeRefName(resolvedOperationSource.branchRef),
+					subjectBranch: decodeRefName(source.branchRef),
 					targetBranch: decodeRefName(relativeTo.subject),
 					dryRun: false,
 				}),
 		),
 		Match.when(
 			{
-				resolvedOperationSource: { _tag: "Branch" },
+				source: { _tag: "Branch" },
 				target: { _tag: "BaseCommit" },
 			},
-			({ resolvedOperationSource }) =>
+			({ source }) =>
 				tearOffBranchOperation({
-					subjectBranch: decodeRefName(resolvedOperationSource.branchRef),
+					subjectBranch: decodeRefName(source.branchRef),
 					dryRun: false,
 				}),
 		),
 		Match.whenOr(
-			{ resolvedOperationSource: { _tag: "Commit" }, relativeTo: Match.defined },
-			({ resolvedOperationSource: { commitId }, relativeTo }) =>
+			{ source: { _tag: "Commit" }, relativeTo: Match.defined },
+			({ source: { commitId }, relativeTo }) =>
 				commitMoveOperation({
 					subjectCommitIds: [commitId],
 					relativeTo,
@@ -449,34 +470,57 @@ export const moveOperationSourceToOperation = ({
 				}),
 		),
 		Match.when(
-			{
-				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Change" } },
-				relativeTo: Match.defined,
-			},
-			({ resolvedOperationSource, relativeTo }) =>
+			{ source: { _tag: "ChangeFile" }, relativeTo: Match.defined },
+			({ source, relativeTo }) =>
 				commitCreateOperation({
 					relativeTo,
 					side,
-					changes: resolvedOperationSource.changes.map(({ change, hunkHeaders }) =>
-						createDiffSpec(change, hunkHeaders),
-					),
+					changes: [source.treeChange].map((change) => createDiffSpec(change, [])),
 					message: "",
 					dryRun: false,
 				}),
 		),
 		Match.when(
-			{
-				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Commit" } },
-				relativeTo: Match.defined,
-			},
-			({ resolvedOperationSource, relativeTo }) =>
-				commitCreateFromCommittedChangesOperation({
-					sourceCommitId: resolvedOperationSource.parent.commitId,
+			{ source: { _tag: "ChangesSection" }, relativeTo: Match.defined },
+			({ source, relativeTo }) =>
+				commitCreateOperation({
 					relativeTo,
 					side,
-					changes: resolvedOperationSource.changes.map(({ change, hunkHeaders }) =>
-						createDiffSpec(change, hunkHeaders),
-					),
+					changes: source.treeChanges.map((change) => createDiffSpec(change, [])),
+					message: "",
+					dryRun: false,
+				}),
+		),
+		Match.when(
+			{ source: { _tag: "Hunk", parent: { _tag: "Commit" } }, relativeTo: Match.defined },
+			({ source, relativeTo }) =>
+				commitCreateFromCommittedChangesOperation({
+					sourceCommitId: source.parent.commitId,
+					relativeTo,
+					side,
+					changes: treeChangesToDiffSpecs([source.treeChange]),
+					dryRun: false,
+				}),
+		),
+		Match.when(
+			{ source: { _tag: "Hunk", parent: { _tag: "Change" } }, relativeTo: Match.defined },
+			({ source, relativeTo }) =>
+				commitCreateOperation({
+					relativeTo,
+					side,
+					changes: treeChangesToDiffSpecs([source.treeChange]),
+					message: "",
+					dryRun: false,
+				}),
+		),
+		Match.when(
+			{ source: { _tag: "CommitFile" }, relativeTo: Match.defined },
+			({ source, relativeTo }) =>
+				commitCreateFromCommittedChangesOperation({
+					sourceCommitId: source.commitId,
+					relativeTo,
+					side,
+					changes: [source.treeChange].map((change) => createDiffSpec(change, [])),
 					dryRun: false,
 				}),
 		),

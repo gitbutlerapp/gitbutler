@@ -17,31 +17,30 @@ import { parseDragData } from "./OperationDragAndDrop.tsx";
 import { type Item } from "./Item.ts";
 import { operationModeToOperation } from "./OperationMode.tsx";
 import { OperationTooltip } from "./OperationTooltip.tsx";
-import { resolveOperationSource, type ResolvedOperationSource } from "./ResolvedOperationSource.ts";
 import { type OperationMode } from "./WorkspaceMode.ts";
 import styles from "./OperationTarget.module.css";
 
 const dropTargetToOperation =
-	(item: Item, resolvedOperationSource: ResolvedOperationSource) =>
+	(item: Item, source: Item) =>
 	({ input, element }: GetDataParams[0]): Operation | null => {
 		const combine = rubOperationSourceToOperation({
-			resolvedOperationSource,
+			source,
 			target: item,
 		});
 		const insertAbove = moveOperationSourceToOperation({
-			resolvedOperationSource,
+			source,
 			target: item,
 			side: "above",
 		});
 		const insertBelow = moveOperationSourceToOperation({
-			resolvedOperationSource,
+			source,
 			target: item,
 			side: "below",
 		});
 
 		const instruction = extractInstruction(
 			attachInstruction(
-				{ resolvedOperationSource },
+				{ source },
 				{
 					input,
 					element,
@@ -76,9 +75,7 @@ const useDropTarget = ({ item }: { item: Item }) =>
 
 		const { source } = dragData;
 
-		const resolvedOperationSource = resolveOperationSource(source);
-
-		const operation = dropTargetToOperation(item, resolvedOperationSource)(args);
+		const operation = dropTargetToOperation(item, source)(args);
 
 		return {
 			source,
@@ -101,11 +98,8 @@ const useOperationModeTarget = ({
 
 	const source = operationMode.source;
 
-	const resolvedOperationSource = resolveOperationSource(source);
-
 	const operation = operationModeToOperation({
 		operationMode,
-		resolvedOperationSource,
 		target: item,
 	});
 

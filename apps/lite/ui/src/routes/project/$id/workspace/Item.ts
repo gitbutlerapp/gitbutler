@@ -1,7 +1,11 @@
 import { Match } from "effect";
 import { type FileParent } from "#ui/domain/FileParent.ts";
-import { TreeChange } from "@gitbutler/but-sdk";
-import { TreeChangeWithHunkHeaders } from "./ResolvedOperationSource";
+import { type HunkHeader, TreeChange } from "@gitbutler/but-sdk";
+
+export type TreeChangeWithHunkHeaders = {
+	change: TreeChange;
+	hunkHeaders: Array<HunkHeader>;
+};
 
 export type ChangesSectionItem = {
 	treeChanges: Array<TreeChange>;

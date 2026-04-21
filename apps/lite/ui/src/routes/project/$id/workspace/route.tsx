@@ -32,7 +32,6 @@ import { AbsorptionDialog, useAbsorption } from "#ui/routes/project/$id/workspac
 import { useMonitorDraggedOperationSource } from "#ui/routes/project/$id/workspace/OperationDragAndDrop.tsx";
 import { isOperationModeSourceOrTarget } from "#ui/routes/project/$id/workspace/OperationMode.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import { resolveOperationSource } from "#ui/routes/project/$id/workspace/ResolvedOperationSource.ts";
 import { OperationTarget } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { OperationSourceLabel } from "#ui/routes/project/$id/workspace/OperationSourceLabel.tsx";
 import {
@@ -1729,16 +1728,11 @@ const ProjectPage: FC = () => {
 
 	const operationMode = getOperationMode(workspaceMode);
 
-	const resolvedOperationSource = operationMode
-		? resolveOperationSource(operationMode.source)
-		: null;
-
 	const navigationIndex = operationMode
 		? filterNavigationIndex(navigationIndexUnfiltered, (item) =>
 				isOperationModeSourceOrTarget({
 					item,
 					operationMode,
-					resolvedOperationSource,
 				}),
 			)
 		: navigationIndexUnfiltered;

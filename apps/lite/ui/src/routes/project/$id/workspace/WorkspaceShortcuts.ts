@@ -24,7 +24,6 @@ import {
 	stackItem,
 } from "./Item.ts";
 import { operationModeToOperation } from "./OperationMode.tsx";
-import { resolveOperationSource } from "./ResolvedOperationSource.ts";
 import {
 	getAdjacent,
 	getNextSection,
@@ -788,20 +787,37 @@ export const useWorkspaceShortcuts = ({
 			}),
 		);
 
-	const requestAbsorptionPlanForItem = (selectedItem: Item) => {
-		const resolvedOperationSource = resolveOperationSource(selectedItem);
-
-		if (resolvedOperationSource._tag !== "TreeChanges") return;
-		if (resolvedOperationSource.parent._tag !== "Change") return;
-
-		requestAbsorptionPlan({
-			type: "treeChanges",
-			subject: {
-				changes: resolvedOperationSource.changes.map(({ change }) => change),
-				assignedStackId: null,
-			},
-		});
-	};
+	const requestAbsorptionPlanForItem = (selectedItem: Item) =>
+		Match.value(selectedItem).pipe(
+			Match.when({ _tag: "ChangeFile" }, (item) =>
+				requestAbsorptionPlan({
+					type: "treeChanges",
+					subject: {
+						changes: [item.treeChange],
+						assignedStackId: null,
+					},
+				}),
+			),
+			Match.when({ _tag: "ChangesSection" }, (item) =>
+				requestAbsorptionPlan({
+					type: "treeChanges",
+					subject: {
+						changes: item.treeChanges,
+						assignedStackId: null,
+					},
+				}),
+			),
+			Match.when({ _tag: "Hunk", parent: { _tag: "Change" } }, (item) =>
+				requestAbsorptionPlan({
+					type: "treeChanges",
+					subject: {
+						changes: [item.treeChange.change],
+						assignedStackId: null,
+					},
+				}),
+			),
+			Match.orElse(() => {}),
+		);
 
 	const handleChangesScopeAction = (action: ChangesAction, selectedItem: Item) =>
 		Match.value(action).pipe(
@@ -918,11 +934,8 @@ export const useWorkspaceShortcuts = ({
 
 		if (!selectedItem) return;
 
-		const resolvedOperationSource = resolveOperationSource(operationMode.source);
-
 		const operation = operationModeToOperation({
 			operationMode,
-			resolvedOperationSource,
 			target: selectedItem,
 		});
 
