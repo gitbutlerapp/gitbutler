@@ -326,41 +326,36 @@ const getCommitTargetMoveOperation = ({
 	side: InsertSide;
 }) =>
 	Match.value(resolvedOperationSource).pipe(
-		Match.tags({
-			Commit: (source) =>
-				commitMoveOperation({
-					subjectCommitIds: [source.commitId],
-					relativeTo: { type: "commit", subject: commitId },
-					side,
-					dryRun: false,
-				}),
-			TreeChanges: (source) => {
-				const changes = source.changes.map(({ change, hunkHeaders }) =>
+		Match.tag("Commit", (source) =>
+			commitMoveOperation({
+				subjectCommitIds: [source.commitId],
+				relativeTo: { type: "commit", subject: commitId },
+				side,
+				dryRun: false,
+			}),
+		),
+		Match.when({ _tag: "TreeChanges", parent: { _tag: "Change" } }, (source) =>
+			commitCreateOperation({
+				relativeTo: { type: "commit", subject: commitId },
+				side,
+				changes: source.changes.map(({ change, hunkHeaders }) =>
 					createDiffSpec(change, hunkHeaders),
-				);
-
-				return Match.value(source.parent).pipe(
-					Match.tagsExhaustive({
-						Change: () =>
-							commitCreateOperation({
-								relativeTo: { type: "commit", subject: commitId },
-								side,
-								changes,
-								message: "",
-								dryRun: false,
-							}),
-						Commit: (source) =>
-							commitCreateFromCommittedChangesOperation({
-								sourceCommitId: source.commitId,
-								relativeTo: { type: "commit", subject: commitId },
-								side,
-								changes,
-								dryRun: false,
-							}),
-					}),
-				);
-			},
-		}),
+				),
+				message: "",
+				dryRun: false,
+			}),
+		),
+		Match.when({ _tag: "TreeChanges", parent: { _tag: "Commit" } }, (source) =>
+			commitCreateFromCommittedChangesOperation({
+				sourceCommitId: source.parent.commitId,
+				relativeTo: { type: "commit", subject: commitId },
+				side,
+				changes: source.changes.map(({ change, hunkHeaders }) =>
+					createDiffSpec(change, hunkHeaders),
+				),
+				dryRun: false,
+			}),
+		),
 		Match.orElse(() => null),
 	);
 
@@ -372,50 +367,46 @@ const getBranchTargetOperation = ({
 	branchRef: Array<number>;
 }): Operation | null =>
 	Match.value(resolvedOperationSource).pipe(
-		Match.tags({
-			Branch: (source) =>
-				moveBranchOperation({
-					subjectBranch: decodeRefName(source.branchRef),
-					targetBranch: decodeRefName(branchRef),
-					dryRun: false,
-				}),
-			Commit: ({ commitId }) =>
-				commitMoveOperation({
-					subjectCommitIds: [commitId],
-					relativeTo: {
-						type: "referenceBytes",
-						subject: branchRef,
-					},
-					side: "below",
-					dryRun: false,
-				}),
-			TreeChanges: (source) => {
-				const changes = source.changes.map(({ change, hunkHeaders }) =>
+		Match.tag("Branch", (source) =>
+			moveBranchOperation({
+				subjectBranch: decodeRefName(source.branchRef),
+				targetBranch: decodeRefName(branchRef),
+				dryRun: false,
+			}),
+		),
+		Match.tag("Commit", ({ commitId }) =>
+			commitMoveOperation({
+				subjectCommitIds: [commitId],
+				relativeTo: {
+					type: "referenceBytes",
+					subject: branchRef,
+				},
+				side: "below",
+				dryRun: false,
+			}),
+		),
+		Match.when({ _tag: "TreeChanges", parent: { _tag: "Change" } }, (source) =>
+			commitCreateOperation({
+				relativeTo: { type: "referenceBytes", subject: branchRef },
+				side: "below",
+				changes: source.changes.map(({ change, hunkHeaders }) =>
 					createDiffSpec(change, hunkHeaders),
-				);
-
-				return Match.value(source.parent).pipe(
-					Match.tagsExhaustive({
-						Change: () =>
-							commitCreateOperation({
-								relativeTo: { type: "referenceBytes", subject: branchRef },
-								side: "below",
-								changes,
-								message: "",
-								dryRun: false,
-							}),
-						Commit: (source) =>
-							commitCreateFromCommittedChangesOperation({
-								sourceCommitId: source.commitId,
-								relativeTo: { type: "referenceBytes", subject: branchRef },
-								side: "below",
-								changes,
-								dryRun: false,
-							}),
-					}),
-				);
-			},
-		}),
+				),
+				message: "",
+				dryRun: false,
+			}),
+		),
+		Match.when({ _tag: "TreeChanges", parent: { _tag: "Commit" } }, (source) =>
+			commitCreateFromCommittedChangesOperation({
+				sourceCommitId: source.parent.commitId,
+				relativeTo: { type: "referenceBytes", subject: branchRef },
+				side: "below",
+				changes: source.changes.map(({ change, hunkHeaders }) =>
+					createDiffSpec(change, hunkHeaders),
+				),
+				dryRun: false,
+			}),
+		),
 		Match.orElse(() => null),
 	);
 
