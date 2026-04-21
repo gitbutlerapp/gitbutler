@@ -1,11 +1,11 @@
 import { useRunOperation } from "#ui/Operation.ts";
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { useEffect } from "react";
-import { type OperationSource } from "./OperationSource.ts";
 import { TargetData } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
+import { Item } from "./Item";
 
 export type DragData = {
-	source: OperationSource;
+	source: Item;
 };
 
 export const parseDragData = (data: unknown): DragData | null => {

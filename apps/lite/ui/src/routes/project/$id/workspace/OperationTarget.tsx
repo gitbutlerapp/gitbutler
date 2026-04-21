@@ -21,10 +21,6 @@ import {
 import { type OperationMode } from "./WorkspaceMode.ts";
 import styles from "./OperationTarget.module.css";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-	itemOperationSource,
-	OperationSource,
-} from "#ui/routes/project/$id/workspace/OperationSource.ts";
 
 const dropTargetToOperation =
 	(item: Item, resolvedOperationSource: ResolvedOperationSource) =>
@@ -70,7 +66,7 @@ const dropTargetToOperation =
 	};
 
 export type TargetData = {
-	source: OperationSource;
+	source: Item;
 	operation: Operation | null;
 };
 
@@ -117,7 +113,7 @@ const useOperationModeTarget = ({
 
 	if (!isActiveTarget) return null;
 
-	const source = itemOperationSource(operationMode.source);
+	const source = operationMode.source;
 
 	const resolvedOperationSource = resolveOperationSource({
 		operationSource: source,
