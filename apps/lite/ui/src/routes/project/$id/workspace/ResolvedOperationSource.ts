@@ -195,89 +195,6 @@ export const resolveOperationSource = ({
 			),
 	});
 
-/**
- * | SOURCE ↓ / TARGET →    | Changes  | Commit |
- * | ---------------------- | -------- | ------ |
- * | File/hunk from changes | No-op    | Amend  |
- * | File/hunk from commit  | Uncommit | Amend  |
- * | Commit                 | Uncommit | Squash |
- *
- * Note this is currently different from the CLI's definition of "rubbing",
- * which also includes move operations.
- * https://linear.app/gitbutler/issue/GB-1160/what-should-rubbing-a-branch-into-another-branch-do#comment-db2abdb7
- */
-const getCombineOperation = ({
-	resolvedOperationSource,
-	target,
-}: {
-	resolvedOperationSource: ResolvedOperationSource;
-	target: FileParent;
-}): Operation | null =>
-	Match.value(resolvedOperationSource).pipe(
-		Match.tagsExhaustive({
-			Stack: () => null,
-			Branch: () => null,
-			BaseCommit: () => null,
-			Commit: (source) =>
-				Match.value(target).pipe(
-					Match.tagsExhaustive({
-						Change: () =>
-							commitUncommitOperation({
-								commitId: source.commitId,
-								assignTo: null,
-							}),
-						Commit: (target) =>
-							commitSquashOperation({
-								sourceCommitId: source.commitId,
-								destinationCommitId: target.commitId,
-								dryRun: false,
-							}),
-					}),
-				),
-			TreeChanges: (source) => {
-				const changes = source.changes.map(({ change, hunkHeaders }) =>
-					createDiffSpec(change, hunkHeaders),
-				);
-
-				return Match.value(source.parent).pipe(
-					Match.tagsExhaustive({
-						Change: () =>
-							Match.value(target).pipe(
-								Match.tagsExhaustive({
-									Change: () => null,
-									Commit: ({ commitId }) =>
-										commitAmendOperation({
-											commitId,
-											changes,
-											dryRun: false,
-										}),
-								}),
-							),
-						Commit: (source) =>
-							Match.value(target).pipe(
-								Match.tagsExhaustive({
-									Change: () =>
-										commitUncommitChangesOperation({
-											commitId: source.commitId,
-											assignTo: null,
-											changes,
-											dryRun: false,
-										}),
-									Commit: (target) =>
-										commitMoveChangesBetweenOperation({
-											sourceCommitId: source.commitId,
-											destinationCommitId: target.commitId,
-											changes,
-											dryRun: false,
-										}),
-								}),
-							),
-					}),
-				);
-			},
-		}),
-	);
-
 const getCommitTargetMoveOperation = ({
 	resolvedOperationSource,
 	commitId,
@@ -392,27 +309,91 @@ const getTearOffBranchTargetOperation = (
 	});
 };
 
+/**
+ * | SOURCE ↓ / TARGET →    | Changes  | Commit |
+ * | ---------------------- | -------- | ------ |
+ * | File/hunk from changes | No-op    | Amend  |
+ * | File/hunk from commit  | Uncommit | Amend  |
+ * | Commit                 | Uncommit | Squash |
+ *
+ * Note this is currently different from the CLI's definition of "rubbing",
+ * which also includes move operations.
+ * https://linear.app/gitbutler/issue/GB-1160/what-should-rubbing-a-branch-into-another-branch-do#comment-db2abdb7
+ */
 export const rubOperationSourceToOperation = ({
 	resolvedOperationSource,
 	target,
 }: {
 	resolvedOperationSource: ResolvedOperationSource;
 	target: Item;
-}) => {
-	const fileParent = Match.value(target).pipe(
-		Match.tags({
-			ChangesSection: () => changeFileParent,
-			Commit: (target) => commitFileParent({ commitId: target.commitId }),
-		}),
-		Match.orElse(() => null),
-	);
-	if (!fileParent) return null;
+}): Operation | null =>
+	Match.value(resolvedOperationSource).pipe(
+		Match.tagsExhaustive({
+			Stack: () => null,
+			Branch: () => null,
+			BaseCommit: () => null,
+			Commit: (source) =>
+				Match.value(target).pipe(
+					Match.tags({
+						ChangesSection: () =>
+							commitUncommitOperation({
+								commitId: source.commitId,
+								assignTo: null,
+							}),
+						Commit: (target) =>
+							commitSquashOperation({
+								sourceCommitId: source.commitId,
+								destinationCommitId: target.commitId,
+								dryRun: false,
+							}),
+					}),
+					Match.orElse(() => null),
+				),
+			TreeChanges: (source) => {
+				const changes = source.changes.map(({ change, hunkHeaders }) =>
+					createDiffSpec(change, hunkHeaders),
+				);
 
-	return getCombineOperation({
-		resolvedOperationSource,
-		target: fileParent,
-	});
-};
+				return Match.value(source.parent).pipe(
+					Match.tagsExhaustive({
+						Change: () =>
+							Match.value(target).pipe(
+								Match.tags({
+									ChangesSection: () => null,
+									Commit: ({ commitId }) =>
+										commitAmendOperation({
+											commitId,
+											changes,
+											dryRun: false,
+										}),
+								}),
+								Match.orElse(() => null),
+							),
+						Commit: (source) =>
+							Match.value(target).pipe(
+								Match.tags({
+									ChangesSection: () =>
+										commitUncommitChangesOperation({
+											commitId: source.commitId,
+											assignTo: null,
+											changes,
+											dryRun: false,
+										}),
+									Commit: (target) =>
+										commitMoveChangesBetweenOperation({
+											sourceCommitId: source.commitId,
+											destinationCommitId: target.commitId,
+											changes,
+											dryRun: false,
+										}),
+								}),
+								Match.orElse(() => null),
+							),
+					}),
+				);
+			},
+		}),
+	);
 
 export const moveOperationSourceToOperation = ({
 	resolvedOperationSource,
