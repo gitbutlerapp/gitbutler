@@ -26,7 +26,7 @@ import {
 	tearOffBranchMutationOptions,
 	CommitUncommitParams,
 } from "#ui/api/mutations.ts";
-import { InsertSide } from "@gitbutler/but-sdk";
+import { InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 import { ResolvedOperationSource } from "#ui/routes/project/$id/workspace/ResolvedOperationSource.ts";
 import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 import { decodeRefName } from "#ui/routes/project/$id/shared.tsx";
@@ -316,111 +316,6 @@ export const useRunOperation = () => {
 	};
 };
 
-const getCommitTargetMoveOperation = ({
-	resolvedOperationSource,
-	commitId,
-	side,
-}: {
-	resolvedOperationSource: ResolvedOperationSource;
-	commitId: string;
-	side: InsertSide;
-}) =>
-	Match.value(resolvedOperationSource).pipe(
-		Match.tag("Commit", (source) =>
-			commitMoveOperation({
-				subjectCommitIds: [source.commitId],
-				relativeTo: { type: "commit", subject: commitId },
-				side,
-				dryRun: false,
-			}),
-		),
-		Match.when({ _tag: "TreeChanges", parent: { _tag: "Change" } }, (source) =>
-			commitCreateOperation({
-				relativeTo: { type: "commit", subject: commitId },
-				side,
-				changes: source.changes.map(({ change, hunkHeaders }) =>
-					createDiffSpec(change, hunkHeaders),
-				),
-				message: "",
-				dryRun: false,
-			}),
-		),
-		Match.when({ _tag: "TreeChanges", parent: { _tag: "Commit" } }, (source) =>
-			commitCreateFromCommittedChangesOperation({
-				sourceCommitId: source.parent.commitId,
-				relativeTo: { type: "commit", subject: commitId },
-				side,
-				changes: source.changes.map(({ change, hunkHeaders }) =>
-					createDiffSpec(change, hunkHeaders),
-				),
-				dryRun: false,
-			}),
-		),
-		Match.orElse(() => null),
-	);
-
-const getBranchTargetOperation = ({
-	resolvedOperationSource,
-	branchRef,
-}: {
-	resolvedOperationSource: ResolvedOperationSource;
-	branchRef: Array<number>;
-}): Operation | null =>
-	Match.value(resolvedOperationSource).pipe(
-		Match.tag("Branch", (source) =>
-			moveBranchOperation({
-				subjectBranch: decodeRefName(source.branchRef),
-				targetBranch: decodeRefName(branchRef),
-				dryRun: false,
-			}),
-		),
-		Match.tag("Commit", ({ commitId }) =>
-			commitMoveOperation({
-				subjectCommitIds: [commitId],
-				relativeTo: {
-					type: "referenceBytes",
-					subject: branchRef,
-				},
-				side: "below",
-				dryRun: false,
-			}),
-		),
-		Match.when({ _tag: "TreeChanges", parent: { _tag: "Change" } }, (source) =>
-			commitCreateOperation({
-				relativeTo: { type: "referenceBytes", subject: branchRef },
-				side: "below",
-				changes: source.changes.map(({ change, hunkHeaders }) =>
-					createDiffSpec(change, hunkHeaders),
-				),
-				message: "",
-				dryRun: false,
-			}),
-		),
-		Match.when({ _tag: "TreeChanges", parent: { _tag: "Commit" } }, (source) =>
-			commitCreateFromCommittedChangesOperation({
-				sourceCommitId: source.parent.commitId,
-				relativeTo: { type: "referenceBytes", subject: branchRef },
-				side: "below",
-				changes: source.changes.map(({ change, hunkHeaders }) =>
-					createDiffSpec(change, hunkHeaders),
-				),
-				dryRun: false,
-			}),
-		),
-		Match.orElse(() => null),
-	);
-
-const getTearOffBranchTargetOperation = (
-	resolvedOperationSource: ResolvedOperationSource,
-): Operation | null => {
-	if (resolvedOperationSource._tag !== "Branch") return null;
-
-	return tearOffBranchOperation({
-		subjectBranch: decodeRefName(resolvedOperationSource.branchRef),
-		dryRun: false,
-	});
-};
-
 /**
  * | SOURCE ↓ / TARGET →    | Changes  | Commit |
  * | ---------------------- | -------- | ------ |
@@ -512,21 +407,79 @@ export const moveOperationSourceToOperation = ({
 	resolvedOperationSource: ResolvedOperationSource;
 	target: Item;
 	side: InsertSide;
-}) =>
-	Match.value(target).pipe(
+}) => {
+	const relativeTo: RelativeTo | null = Match.value(target).pipe(
+		Match.withReturnType<RelativeTo | null>(),
 		Match.tags({
-			Branch: ({ branchRef }) =>
-				getBranchTargetOperation({
-					resolvedOperationSource,
-					branchRef,
-				}),
-			Commit: (target) =>
-				getCommitTargetMoveOperation({
-					resolvedOperationSource,
-					commitId: target.commitId,
-					side,
-				}),
-			BaseCommit: () => getTearOffBranchTargetOperation(resolvedOperationSource),
+			Commit: ({ commitId }) => ({ type: "commit", subject: commitId }),
+			Branch: ({ branchRef }) => ({ type: "referenceBytes", subject: branchRef }),
 		}),
 		Match.orElse(() => null),
 	);
+
+	return Match.value({ resolvedOperationSource, target, relativeTo }).pipe(
+		Match.when(
+			{ resolvedOperationSource: { _tag: "Branch" }, relativeTo: { type: "referenceBytes" } },
+			({ resolvedOperationSource, relativeTo }) =>
+				moveBranchOperation({
+					subjectBranch: decodeRefName(resolvedOperationSource.branchRef),
+					targetBranch: decodeRefName(relativeTo.subject),
+					dryRun: false,
+				}),
+		),
+		Match.when(
+			{
+				resolvedOperationSource: { _tag: "Branch" },
+				target: { _tag: "BaseCommit" },
+			},
+			({ resolvedOperationSource }) =>
+				tearOffBranchOperation({
+					subjectBranch: decodeRefName(resolvedOperationSource.branchRef),
+					dryRun: false,
+				}),
+		),
+		Match.whenOr(
+			{ resolvedOperationSource: { _tag: "Commit" }, relativeTo: Match.defined },
+			({ resolvedOperationSource: { commitId }, relativeTo }) =>
+				commitMoveOperation({
+					subjectCommitIds: [commitId],
+					relativeTo,
+					side,
+					dryRun: false,
+				}),
+		),
+		Match.when(
+			{
+				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Change" } },
+				relativeTo: Match.defined,
+			},
+			({ resolvedOperationSource, relativeTo }) =>
+				commitCreateOperation({
+					relativeTo,
+					side,
+					changes: resolvedOperationSource.changes.map(({ change, hunkHeaders }) =>
+						createDiffSpec(change, hunkHeaders),
+					),
+					message: "",
+					dryRun: false,
+				}),
+		),
+		Match.when(
+			{
+				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Commit" } },
+				relativeTo: Match.defined,
+			},
+			({ resolvedOperationSource, relativeTo }) =>
+				commitCreateFromCommittedChangesOperation({
+					sourceCommitId: resolvedOperationSource.parent.commitId,
+					relativeTo,
+					side,
+					changes: resolvedOperationSource.changes.map(({ change, hunkHeaders }) =>
+						createDiffSpec(change, hunkHeaders),
+					),
+					dryRun: false,
+				}),
+		),
+		Match.orElse(() => null),
+	);
+};
