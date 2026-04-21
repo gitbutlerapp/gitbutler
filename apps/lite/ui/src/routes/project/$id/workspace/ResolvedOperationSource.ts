@@ -27,7 +27,6 @@ import {
 } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { decodeRefName } from "../shared";
-import { type OperationSource } from "./OperationSource.ts";
 import { Item } from "#ui/routes/project/$id/workspace/Item.ts";
 
 type TreeChangeWithHunkHeaders = {
@@ -151,50 +150,6 @@ const resolvedOperationSourceFromItem = ({
 				});
 			},
 			Stack: ({ stackId }) => stackResolvedOperationSource({ stackId }),
-		}),
-	);
-
-const resolveOperationSourceFromData = ({
-	operationSource,
-	worktreeChanges,
-	getCommitDetails,
-}: {
-	operationSource: OperationSource;
-	worktreeChanges: WorktreeChanges | undefined;
-	getCommitDetails: (commitId: string) => CommitDetails | undefined;
-}) =>
-	Match.value(operationSource).pipe(
-		Match.tagsExhaustive({
-			Item: (source) =>
-				resolvedOperationSourceFromItem({
-					item: source.item,
-					worktreeChanges,
-					getCommitDetails,
-				}),
-			File: ({ parent, path }) => {
-				const change = Match.value(parent).pipe(
-					Match.tagsExhaustive({
-						Change: () => {
-							if (!worktreeChanges) return null;
-
-							return worktreeChanges.changes.find((candidate) => candidate.path === path) ?? null;
-						},
-						Commit: ({ commitId }) => {
-							const commitDetails = getCommitDetails(commitId);
-							if (!commitDetails) return null;
-
-							return commitDetails.changes.find((candidate) => candidate.path === path) ?? null;
-						},
-					}),
-				);
-
-				if (!change) return null;
-
-				return treeChangesResolvedOperationSource({
-					parent,
-					changes: [{ change, hunkHeaders: [] }],
-				});
-			},
 			Hunk: ({ parent, path, hunkHeader }) => {
 				const change = Match.value(parent).pipe(
 					Match.tagsExhaustive({
@@ -227,12 +182,12 @@ export const resolveOperationSource = ({
 	queryClient,
 	projectId,
 }: {
-	operationSource: OperationSource;
+	operationSource: Item;
 	queryClient: QueryClient;
 	projectId: string;
 }) =>
-	resolveOperationSourceFromData({
-		operationSource,
+	resolvedOperationSourceFromItem({
+		item: operationSource,
 		worktreeChanges: queryClient.getQueryData(changesInWorktreeQueryOptions(projectId).queryKey),
 		getCommitDetails: (commitId) =>
 			queryClient.getQueryData(

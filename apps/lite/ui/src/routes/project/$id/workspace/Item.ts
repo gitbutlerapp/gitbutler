@@ -1,4 +1,6 @@
 import { Match } from "effect";
+import { type FileParent } from "#ui/domain/FileParent.ts";
+import { type HunkHeader } from "@gitbutler/but-sdk";
 
 /** @public */
 export type ChangeItem = { path: string };
@@ -17,6 +19,9 @@ export type CommitItem = StackItem & { commitId: string };
 /** @public */
 export type CommitFileItem = CommitItem & { path: string };
 
+/** @public */
+export type HunkOperationSource = { parent: FileParent; path: string; hunkHeader: HunkHeader };
+
 /**
  * A selectable item in the primary panel.
  */
@@ -27,7 +32,8 @@ export type Item =
 	| ({ _tag: "Branch" } & BranchItem)
 	| ({ _tag: "Commit" } & CommitItem)
 	| ({ _tag: "CommitFile" } & CommitFileItem)
-	| { _tag: "BaseCommit" };
+	| { _tag: "BaseCommit" }
+	| ({ _tag: "Hunk" } & HunkOperationSource);
 
 /** @public */
 export const changesSectionItem: Item = {
@@ -69,6 +75,14 @@ export const commitFileItem = ({ stackId, commitId, path }: CommitFileItem): Ite
 });
 
 /** @public */
+export const hunkItem = ({ parent, path, hunkHeader }: HunkOperationSource): Item => ({
+	_tag: "Hunk",
+	parent,
+	path,
+	hunkHeader,
+});
+
+/** @public */
 export const baseCommitItem: Item = {
 	_tag: "BaseCommit",
 };
@@ -83,6 +97,7 @@ export const itemIdentityKey = (item: Item): string =>
 			Commit: (item) => JSON.stringify(["Commit", item.stackId, item.commitId]),
 			CommitFile: (item) => JSON.stringify(["CommitFile", item.stackId, item.commitId, item.path]),
 			BaseCommit: () => JSON.stringify(["BaseCommit"]),
+			Hunk: (item) => JSON.stringify(["Hunk", item.parent, item.path, item.hunkHeader]),
 		}),
 	);
 

@@ -4,8 +4,7 @@ import uiStyles from "#ui/ui.module.css";
 import { Tooltip, useRender } from "@base-ui/react";
 import { FC } from "react";
 import styles from "./OperationTooltip.module.css";
-import { OperationSource, operationSourceMatchesItem } from "./OperationSource";
-import { Item } from "./Item";
+import { Item, itemEquals } from "./Item";
 import { useAppDispatch } from "#ui/state/hooks.ts";
 import { projectActions } from "#ui/routes/project/$id/state/projectSlice.ts";
 
@@ -42,12 +41,12 @@ export const OperationTooltip: FC<
 	{
 		projectId: string;
 		operation: Operation | null;
-		source?: OperationSource;
+		source?: Item;
 		item: Item;
 		isOperationMode?: boolean;
 	} & useRender.ComponentProps<"div">
 > = ({ projectId, operation, source, item, isOperationMode, render, ...props }) => {
-	const isSource = !!source && operationSourceMatchesItem(source, item);
+	const isSource = !!source && itemEquals(source, item);
 
 	const tooltipLabel = isSource ? (
 		<>Select a target</>

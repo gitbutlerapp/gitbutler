@@ -6,13 +6,9 @@ import { FC, type ReactNode } from "react";
 import { useDraggable } from "./DragAndDrop.tsx";
 import { type DragData } from "./OperationDragAndDrop.tsx";
 import { OperationSourceLabel } from "./OperationSourceLabel.tsx";
-import {
-	itemOperationSource,
-	operationSourceEquals,
-	type OperationSource,
-} from "./OperationSource.ts";
 import { type OperationMode } from "./WorkspaceMode.ts";
 import styles from "./OperationSourceC.module.css";
+import { Item, itemEquals } from "./Item.ts";
 
 const DragPreview = ({ children }: { children: ReactNode }) => (
 	<div className={styles.dragPreview}>{children}</div>
@@ -22,7 +18,7 @@ export const OperationSourceC: FC<
 	{
 		operationMode?: OperationMode | null;
 		projectId: string;
-		source: OperationSource;
+		source: Item;
 		canDrag?: () => boolean;
 	} & useRender.ComponentProps<"div">
 > = ({ operationMode = null, projectId, source, canDrag, render, ...props }) => {
@@ -39,8 +35,7 @@ export const OperationSourceC: FC<
 	});
 
 	const isActiveOperationModeSource =
-		operationMode?.source &&
-		operationSourceEquals(itemOperationSource(operationMode.source), source);
+		operationMode?.source && itemEquals(operationMode.source, source);
 
 	const isActive = isDragging || isActiveOperationModeSource;
 
