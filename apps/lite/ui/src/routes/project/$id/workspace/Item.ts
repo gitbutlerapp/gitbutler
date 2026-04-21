@@ -20,7 +20,7 @@ export type CommitItem = StackItem & { commitId: string };
 export type CommitFileItem = CommitItem & { path: string };
 
 /** @public */
-export type HunkOperationSource = { parent: FileParent; path: string; hunkHeader: HunkHeader };
+export type HunkItem = { parent: FileParent; path: string; hunkHeader: HunkHeader };
 
 /**
  * A selectable item in the primary panel.
@@ -33,7 +33,7 @@ export type Item =
 	| ({ _tag: "Commit" } & CommitItem)
 	| ({ _tag: "CommitFile" } & CommitFileItem)
 	| { _tag: "BaseCommit" }
-	| ({ _tag: "Hunk" } & HunkOperationSource);
+	| ({ _tag: "Hunk" } & HunkItem);
 
 /** @public */
 export const changesSectionItem: Item = {
@@ -75,7 +75,7 @@ export const commitFileItem = ({ stackId, commitId, path }: CommitFileItem): Ite
 });
 
 /** @public */
-export const hunkItem = ({ parent, path, hunkHeader }: HunkOperationSource): Item => ({
+export const hunkItem = ({ parent, path, hunkHeader }: HunkItem): Item => ({
 	_tag: "Hunk",
 	parent,
 	path,
