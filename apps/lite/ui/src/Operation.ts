@@ -418,6 +418,10 @@ export const moveOperationSourceToOperation = ({
 	);
 
 	return Match.value({ resolvedOperationSource, target, relativeTo }).pipe(
+		// This should support `relativeTo`:
+		// https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
+		// https://linear.app/gitbutler/issue/GB-1199/support-moving-branches-onto-commits
+		// https://linear.app/gitbutler/issue/GB-1232/support-moving-branch-before-another-branch
 		Match.when(
 			{ resolvedOperationSource: { _tag: "Branch" }, relativeTo: { type: "referenceBytes" } },
 			({ resolvedOperationSource, relativeTo }) =>
