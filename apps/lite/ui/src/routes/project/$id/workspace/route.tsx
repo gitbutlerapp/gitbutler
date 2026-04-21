@@ -91,7 +91,6 @@ import {
 	type CommitItem,
 	commitItem,
 	itemEquals,
-	itemIdentityKey,
 	type Item,
 	stackItem,
 	hunkItem,
@@ -148,18 +147,15 @@ const useIsItemSelected = ({
 	projectId: string;
 	item: Item;
 	navigationIndex: NavigationIndex;
-}): boolean => {
-	const itemKey = itemIdentityKey(item);
-
-	return useAppSelector((state) => {
+}): boolean =>
+	useAppSelector((state) => {
 		const selectedItem = selectNormalizedSelectedItem(state, {
 			projectId,
 			navigationIndex,
 		});
 
-		return selectedItem !== null && itemIdentityKey(selectedItem) === itemKey;
+		return selectedItem !== null && itemEquals(selectedItem, item);
 	});
-};
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
