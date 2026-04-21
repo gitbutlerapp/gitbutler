@@ -327,7 +327,7 @@ export const useRunOperation = () => {
  * which also includes move operations.
  * https://linear.app/gitbutler/issue/GB-1160/what-should-rubbing-a-branch-into-another-branch-do#comment-db2abdb7
  */
-export const rubOperationSourceToOperation = ({
+export const rubOperation = ({
 	resolvedOperationSource,
 	target,
 }: {
@@ -399,7 +399,7 @@ export const rubOperationSourceToOperation = ({
 		Match.orElse(() => null),
 	);
 
-export const moveOperationSourceToOperation = ({
+export const moveOperation = ({
 	resolvedOperationSource,
 	target,
 	side,

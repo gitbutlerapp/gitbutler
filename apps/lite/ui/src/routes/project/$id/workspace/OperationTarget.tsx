@@ -3,12 +3,7 @@ import {
 	extractInstruction,
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item";
 import { classes } from "#ui/classes.ts";
-import {
-	getInsertionSide,
-	moveOperationSourceToOperation,
-	rubOperationSourceToOperation,
-	type Operation,
-} from "#ui/Operation.ts";
+import { getInsertionSide, moveOperation, rubOperation, type Operation } from "#ui/Operation.ts";
 import { mergeProps, useRender } from "@base-ui/react";
 import { Match, pipe } from "effect";
 import { FC } from "react";
@@ -25,16 +20,16 @@ import { useQueryClient } from "@tanstack/react-query";
 const dropTargetToOperation =
 	(item: Item, resolvedOperationSource: ResolvedOperationSource) =>
 	({ input, element }: GetDataParams[0]): Operation | null => {
-		const combine = rubOperationSourceToOperation({
+		const combine = rubOperation({
 			resolvedOperationSource,
 			target: item,
 		});
-		const insertAbove = moveOperationSourceToOperation({
+		const insertAbove = moveOperation({
 			resolvedOperationSource,
 			target: item,
 			side: "above",
 		});
-		const insertBelow = moveOperationSourceToOperation({
+		const insertBelow = moveOperation({
 			resolvedOperationSource,
 			target: item,
 			side: "below",

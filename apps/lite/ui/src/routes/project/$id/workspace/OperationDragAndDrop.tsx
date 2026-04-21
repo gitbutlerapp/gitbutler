@@ -18,7 +18,7 @@ const parseDropData = (data: unknown): TargetData | null => {
 	return data as TargetData;
 };
 
-export const useMonitorDraggedOperationSource = ({ projectId }: { projectId: string }) => {
+export const useMonitorDraggedItem = ({ projectId }: { projectId: string }) => {
 	const runOperation = useRunOperation();
 
 	useEffect(
