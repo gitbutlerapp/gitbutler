@@ -1,11 +1,11 @@
-import { type Operation } from "#ui/Operation.ts";
-import { Match } from "effect";
-import { itemEquals, type Item } from "./Item.ts";
 import {
 	moveOperationSourceToOperation,
 	rubOperationSourceToOperation,
-	type ResolvedOperationSource,
-} from "./ResolvedOperationSource.ts";
+	type Operation,
+} from "#ui/Operation.ts";
+import { Match } from "effect";
+import { itemEquals, type Item } from "./Item.ts";
+import { type ResolvedOperationSource } from "./ResolvedOperationSource.ts";
 import { type OperationMode } from "./WorkspaceMode.ts";
 
 export const operationModeToOperation = ({

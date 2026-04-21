@@ -3,7 +3,12 @@ import {
 	extractInstruction,
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item";
 import { classes } from "#ui/classes.ts";
-import { getInsertionSide, type Operation } from "#ui/Operation.ts";
+import {
+	getInsertionSide,
+	moveOperationSourceToOperation,
+	rubOperationSourceToOperation,
+	type Operation,
+} from "#ui/Operation.ts";
 import { mergeProps, useRender } from "@base-ui/react";
 import { Match, pipe } from "effect";
 import { FC } from "react";
@@ -12,12 +17,7 @@ import { parseDragData } from "./OperationDragAndDrop.tsx";
 import { type Item } from "./Item.ts";
 import { operationModeToOperation } from "./OperationMode.tsx";
 import { OperationTooltip } from "./OperationTooltip.tsx";
-import {
-	moveOperationSourceToOperation,
-	resolveOperationSource,
-	rubOperationSourceToOperation,
-	type ResolvedOperationSource,
-} from "./ResolvedOperationSource.ts";
+import { resolveOperationSource, type ResolvedOperationSource } from "./ResolvedOperationSource.ts";
 import { type OperationMode } from "./WorkspaceMode.ts";
 import styles from "./OperationTarget.module.css";
 import { useQueryClient } from "@tanstack/react-query";
