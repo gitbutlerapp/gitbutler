@@ -1,9 +1,16 @@
 import { Match } from "effect";
 import { type FileParent } from "#ui/domain/FileParent.ts";
-import { type HunkHeader } from "@gitbutler/but-sdk";
+import { TreeChange } from "@gitbutler/but-sdk";
+import { TreeChangeWithHunkHeaders } from "./ResolvedOperationSource";
+
+export type ChangesSectionItem = {
+	treeChanges: Array<TreeChange>;
+};
 
 /** @public */
-export type ChangeItem = { path: string };
+export type ChangeItem = {
+	treeChange: TreeChange;
+};
 
 /** @public */
 export type StackItem = {
@@ -17,16 +24,21 @@ export type BranchItem = StackItem & {
 /** @public */
 export type CommitItem = StackItem & { commitId: string };
 /** @public */
-export type CommitFileItem = CommitItem & { path: string };
+export type CommitFileItem = CommitItem & {
+	treeChange: TreeChange;
+};
 
 /** @public */
-export type HunkOperationSource = { parent: FileParent; path: string; hunkHeader: HunkHeader };
+export type HunkOperationSource = {
+	parent: FileParent;
+	treeChange: TreeChangeWithHunkHeaders;
+};
 
 /**
  * A selectable item in the primary panel.
  */
 export type Item =
-	| { _tag: "ChangesSection" }
+	| ({ _tag: "ChangesSection" } & ChangesSectionItem)
 	| ({ _tag: "ChangeFile" } & ChangeItem)
 	| ({ _tag: "Stack" } & StackItem)
 	| ({ _tag: "Branch" } & BranchItem)
@@ -36,14 +48,15 @@ export type Item =
 	| ({ _tag: "Hunk" } & HunkOperationSource);
 
 /** @public */
-export const changesSectionItem: Item = {
+export const changesSectionItem = ({ treeChanges }: ChangesSectionItem): Item => ({
 	_tag: "ChangesSection",
-};
+	treeChanges,
+});
 
 /** @public */
-export const changeFileItem = ({ path }: ChangeItem): Item => ({
+export const changeFileItem = ({ treeChange }: ChangeItem): Item => ({
 	_tag: "ChangeFile",
-	path,
+	treeChange,
 });
 
 /** @public */
@@ -67,19 +80,18 @@ export const commitItem = ({ stackId, commitId }: CommitItem): Item => ({
 });
 
 /** @public */
-export const commitFileItem = ({ stackId, commitId, path }: CommitFileItem): Item => ({
+export const commitFileItem = ({ stackId, commitId, treeChange }: CommitFileItem): Item => ({
 	_tag: "CommitFile",
 	stackId,
 	commitId,
-	path,
+	treeChange,
 });
 
 /** @public */
-export const hunkItem = ({ parent, path, hunkHeader }: HunkOperationSource): Item => ({
+export const hunkItem = ({ parent, treeChange }: HunkOperationSource): Item => ({
 	_tag: "Hunk",
 	parent,
-	path,
-	hunkHeader,
+	treeChange,
 });
 
 /** @public */
@@ -87,18 +99,25 @@ export const baseCommitItem: Item = {
 	_tag: "BaseCommit",
 };
 
+/**
+ * Key `Item` with respect to the user interface.
+ */
 export const itemIdentityKey = (item: Item): string =>
 	Match.value(item).pipe(
 		Match.tagsExhaustive({
 			ChangesSection: () => JSON.stringify(["ChangesSection"]),
-			ChangeFile: (item) => JSON.stringify(["ChangeFile", item.path]),
+			ChangeFile: (item) => JSON.stringify(["ChangeFile", item.treeChange]),
 			Stack: (item) => JSON.stringify(["Stack", item.stackId]),
 			Branch: (item) => JSON.stringify(["Branch", item.stackId, item.branchRef]),
 			Commit: (item) => JSON.stringify(["Commit", item.stackId, item.commitId]),
-			CommitFile: (item) => JSON.stringify(["CommitFile", item.stackId, item.commitId, item.path]),
+			CommitFile: (item) =>
+				JSON.stringify(["CommitFile", item.stackId, item.commitId, item.treeChange]),
 			BaseCommit: () => JSON.stringify(["BaseCommit"]),
-			Hunk: (item) => JSON.stringify(["Hunk", item.parent, item.path, item.hunkHeader]),
+			Hunk: (item) => JSON.stringify(["Hunk", item.parent, item.treeChange]),
 		}),
 	);
 
+/**
+ * Determine `Item` equivalence with respect to the user interface. See also `itemIdentityKey`.
+ */
 export const itemEquals = (a: Item, b: Item): boolean => itemIdentityKey(a) === itemIdentityKey(b);

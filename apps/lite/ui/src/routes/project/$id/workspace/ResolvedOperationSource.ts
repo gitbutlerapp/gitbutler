@@ -1,8 +1,4 @@
 import {
-	changesInWorktreeQueryOptions,
-	commitDetailsWithLineStatsQueryOptions,
-} from "#ui/api/queries.ts";
-import {
 	commitAmendOperation,
 	commitCreateFromCommittedChangesOperation,
 	commitCreateOperation,
@@ -17,19 +13,12 @@ import {
 } from "#ui/Operation.ts";
 import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
 import { changeFileParent, commitFileParent, type FileParent } from "#ui/domain/FileParent.ts";
-import { QueryClient } from "@tanstack/react-query";
-import {
-	CommitDetails,
-	InsertSide,
-	WorktreeChanges,
-	type HunkHeader,
-	type TreeChange,
-} from "@gitbutler/but-sdk";
+import { InsertSide, type HunkHeader, type TreeChange } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { decodeRefName } from "../shared";
 import { Item } from "#ui/routes/project/$id/workspace/Item.ts";
 
-type TreeChangeWithHunkHeaders = {
+export type TreeChangeWithHunkHeaders = {
 	change: TreeChange;
 	hunkHeaders: Array<HunkHeader>;
 };
@@ -95,105 +84,35 @@ export const treeChangesResolvedOperationSource = ({
 	changes,
 });
 
-const resolvedOperationSourceFromItem = ({
-	item,
-	worktreeChanges,
-	getCommitDetails,
-}: {
-	item: Item;
-	worktreeChanges: WorktreeChanges | undefined;
-	getCommitDetails: (commitId: string) => CommitDetails | undefined;
-}) =>
+export const resolveOperationSource = (item: Item): ResolvedOperationSource =>
 	Match.value(item).pipe(
 		Match.tagsExhaustive({
 			BaseCommit: () => baseCommitResolvedOperationSource,
 			Branch: ({ branchRef }) => branchResolvedOperationSource({ branchRef }),
-			ChangeFile: ({ path }) => {
-				if (!worktreeChanges) return null;
-
-				const change = worktreeChanges.changes.find((candidate) => candidate.path === path);
-				if (!change) return null;
-
-				return treeChangesResolvedOperationSource({
+			ChangeFile: ({ treeChange }) =>
+				treeChangesResolvedOperationSource({
 					parent: changeFileParent,
-					changes: [{ change, hunkHeaders: [] }],
-				});
-			},
-			ChangesSection: () => {
-				if (!worktreeChanges) return null;
-
-				const changes = worktreeChanges.changes.flatMap(
-					(change): Array<TreeChangeWithHunkHeaders> => [
-						{
-							change,
-							hunkHeaders: [],
-						},
-					],
-				);
-
-				return treeChangesResolvedOperationSource({
+					changes: [{ change: treeChange, hunkHeaders: [] }],
+				}),
+			ChangesSection: ({ treeChanges }) =>
+				treeChangesResolvedOperationSource({
 					parent: changeFileParent,
-					changes,
-				});
-			},
+					changes: treeChanges.map((change) => ({ change, hunkHeaders: [] })),
+				}),
 			Commit: ({ commitId }) => commitResolvedOperationSource({ commitId }),
-			CommitFile: ({ commitId, path }) => {
-				const commitDetails = getCommitDetails(commitId);
-				if (!commitDetails) return null;
-
-				const change = commitDetails.changes.find((candidate) => candidate.path === path);
-				if (!change) return null;
-
-				return treeChangesResolvedOperationSource({
+			CommitFile: ({ commitId, treeChange }) =>
+				treeChangesResolvedOperationSource({
 					parent: commitFileParent({ commitId }),
-					changes: [{ change, hunkHeaders: [] }],
-				});
-			},
+					changes: [{ change: treeChange, hunkHeaders: [] }],
+				}),
 			Stack: ({ stackId }) => stackResolvedOperationSource({ stackId }),
-			Hunk: ({ parent, path, hunkHeader }) => {
-				const change = Match.value(parent).pipe(
-					Match.tagsExhaustive({
-						Change: () => {
-							if (!worktreeChanges) return null;
-
-							return worktreeChanges.changes.find((candidate) => candidate.path === path) ?? null;
-						},
-						Commit: ({ commitId }) => {
-							const commitDetails = getCommitDetails(commitId);
-							if (!commitDetails) return null;
-
-							return commitDetails.changes.find((candidate) => candidate.path === path) ?? null;
-						},
-					}),
-				);
-
-				if (!change) return null;
-
-				return treeChangesResolvedOperationSource({
+			Hunk: ({ parent, treeChange }) =>
+				treeChangesResolvedOperationSource({
 					parent,
-					changes: [{ change, hunkHeaders: [hunkHeader] }],
-				});
-			},
+					changes: [treeChange],
+				}),
 		}),
 	);
-
-export const resolveOperationSource = ({
-	operationSource,
-	queryClient,
-	projectId,
-}: {
-	operationSource: Item;
-	queryClient: QueryClient;
-	projectId: string;
-}) =>
-	resolvedOperationSourceFromItem({
-		item: operationSource,
-		worktreeChanges: queryClient.getQueryData(changesInWorktreeQueryOptions(projectId).queryKey),
-		getCommitDetails: (commitId) =>
-			queryClient.getQueryData(
-				commitDetailsWithLineStatsQueryOptions({ projectId, commitId }).queryKey,
-			),
-	});
 
 /**
  * | SOURCE ↓ / TARGET →    | Changes  | Commit |

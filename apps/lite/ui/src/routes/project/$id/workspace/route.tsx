@@ -62,12 +62,7 @@ import {
 	TreeChange,
 	UnifiedPatch,
 } from "@gitbutler/but-sdk";
-import {
-	useMutation,
-	useQueryClient,
-	useSuspenseQueries,
-	useSuspenseQuery,
-} from "@tanstack/react-query";
+import { useMutation, useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
 import { createRoute } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
@@ -425,8 +420,7 @@ const Hunk: FC<{
 				? (() => {
 						const source = hunkItem({
 							parent: fileParent,
-							path: change.path,
-							hunkHeader: hunk,
+							treeChange: { change, hunkHeaders: [hunk] },
 						});
 						return (
 							<OperationSourceC
@@ -512,7 +506,7 @@ const ChangesPreview: FC<{
 			) : (
 				<ul>
 					{changesWithDiffs.map(([change, diff]) => {
-						const source = changeFileItem({ path: change.path });
+						const source = changeFileItem({ treeChange: change });
 						return (
 							<li key={change.path}>
 								<OperationSourceC
@@ -582,7 +576,11 @@ const CommitPreview: FC<{
 			) : (
 				<ul>
 					{changesWithDiffs.map(([change, diff]) => {
-						const source = commitFileItem({ stackId, commitId, path: change.path });
+						const source = commitFileItem({
+							stackId,
+							commitId,
+							treeChange: change,
+						});
 						return (
 							<li key={change.path}>
 								{editable ? (
@@ -673,8 +671,12 @@ const Preview: FC<{
 				<BranchPreview operationMode={operationMode} projectId={projectId} branchRef={branchRef} />
 			),
 			ChangesSection: () => <ChangesPreview operationMode={operationMode} projectId={projectId} />,
-			ChangeFile: ({ path }) => (
-				<ChangesPreview operationMode={operationMode} projectId={projectId} selectedPath={path} />
+			ChangeFile: ({ treeChange }) => (
+				<ChangesPreview
+					operationMode={operationMode}
+					projectId={projectId}
+					selectedPath={treeChange.path}
+				/>
 			),
 			Commit: (selectedItem) => (
 				<CommitPreview
@@ -685,13 +687,13 @@ const Preview: FC<{
 					editable
 				/>
 			),
-			CommitFile: ({ commitId, path, stackId }) => (
+			CommitFile: ({ commitId, treeChange, stackId }) => (
 				<CommitPreview
 					operationMode={operationMode}
 					projectId={projectId}
 					commitId={commitId}
 					stackId={stackId}
-					selectedPath={path}
+					selectedPath={treeChange.path}
 					editable
 				/>
 			),
@@ -969,7 +971,7 @@ const CommitFileRow: FC<{
 	projectId: string;
 }> = ({ change, operationMode, parentCommitItem, navigationIndex, projectId }) => {
 	const dispatch = useAppDispatch();
-	const item = commitFileItem({ ...parentCommitItem, path: change.path });
+	const item = commitFileItem({ ...parentCommitItem, treeChange: change });
 	const isSelected = useIsItemSelected({ projectId, item, navigationIndex });
 
 	return (
@@ -1082,7 +1084,7 @@ const ChangeFileRow: FC<{
 	projectId,
 }) => {
 	const dispatch = useAppDispatch();
-	const item = changeFileItem({ path: change.path });
+	const item = changeFileItem({ treeChange: change });
 	const isSelected = useIsItemSelected({ projectId, item, navigationIndex });
 
 	const menuItems: Array<NativeMenuItem> = [
@@ -1154,7 +1156,7 @@ const ChangesSectionRow: FC<{
 	workspaceMode: WorkspaceMode;
 }> = ({ changes, navigationIndex, onAbsorbChanges, projectId, workspaceMode }) => {
 	const dispatch = useAppDispatch();
-	const item = changesSectionItem;
+	const item = changesSectionItem({ treeChanges: changes });
 	const isSelected = useIsItemSelected({ projectId, item, navigationIndex });
 
 	const menuItems: Array<NativeMenuItem> = [
@@ -1258,7 +1260,7 @@ const Changes: FC<{
 		worktreeChanges.dependencies?.diffs ?? [],
 	);
 
-	const item = changesSectionItem;
+	const item = changesSectionItem({ treeChanges: worktreeChanges.changes });
 	const isSelected = useIsItemSelected({ projectId, item, navigationIndex });
 
 	return (
@@ -1716,12 +1718,11 @@ const ProjectPage: FC = () => {
 
 	// TODO: handle project not found error. or only run when project is not null? waterfall.
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
+	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
 	const workspaceOutline = useWorkspaceOutline({ projectId, expandedCommitId });
 
 	const navigationIndexUnfiltered = buildNavigationIndex(workspaceOutline);
-
-	const queryClient = useQueryClient();
 
 	const workspaceMode = isValidWorkspaceMode({
 		mode: workspaceModeState,
@@ -1733,11 +1734,7 @@ const ProjectPage: FC = () => {
 	const operationMode = getOperationMode(workspaceMode);
 
 	const resolvedOperationSource = operationMode
-		? resolveOperationSource({
-				operationSource: operationMode.source,
-				queryClient,
-				projectId,
-			})
+		? resolveOperationSource(operationMode.source)
 		: null;
 
 	const navigationIndex = operationMode
@@ -1785,7 +1782,7 @@ const ProjectPage: FC = () => {
 		dispatch(
 			projectActions.enterMoveMode({
 				projectId,
-				source: changesSectionItem,
+				source: changesSectionItem({ treeChanges: worktreeChanges.changes }),
 			}),
 		);
 

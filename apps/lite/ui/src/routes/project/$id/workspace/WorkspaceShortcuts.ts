@@ -1,3 +1,4 @@
+import { changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
 import { getAction, type ShortcutActionBase, type ShortcutBinding } from "#ui/shortcuts.ts";
 import { useRunOperation } from "#ui/Operation.ts";
 import { getFocus, type ProjectLayoutState } from "#ui/routes/project/$id/state/layout.ts";
@@ -31,7 +32,7 @@ import {
 	type NavigationIndex,
 } from "./WorkspaceModel.ts";
 import { OperationMode, type WorkspaceMode } from "./WorkspaceMode.ts";
-import { useQueryClient } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 
 const isTypingTarget = (target: EventTarget | null) => {
 	if (!(target instanceof HTMLElement)) return false;
@@ -699,7 +700,7 @@ export const useWorkspaceShortcuts = ({
 	operationMode: OperationMode | null;
 }) => {
 	const dispatch = useAppDispatch();
-	const queryClient = useQueryClient();
+	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 	const runOperation = useRunOperation();
 
 	const handleItemMoveSelectionAction = (action: ItemMoveSelectionAction, selectedItem: Item) => {
@@ -766,11 +767,16 @@ export const useWorkspaceShortcuts = ({
 					dispatch(
 						projectActions.enterMoveMode({
 							projectId,
-							source: changesSectionItem,
+							source: changesSectionItem({ treeChanges: worktreeChanges.changes }),
 						}),
 					),
 				SelectUnassignedChanges: () =>
-					dispatch(projectActions.selectItem({ projectId, item: changesSectionItem })),
+					dispatch(
+						projectActions.selectItem({
+							projectId,
+							item: changesSectionItem({ treeChanges: worktreeChanges.changes }),
+						}),
+					),
 			}),
 			Match.orElse((action) => {
 				if (isPanelNavigationAction(action)) {
@@ -783,13 +789,9 @@ export const useWorkspaceShortcuts = ({
 		);
 
 	const requestAbsorptionPlanForItem = (selectedItem: Item) => {
-		const resolvedOperationSource = resolveOperationSource({
-			operationSource: selectedItem,
-			queryClient,
-			projectId,
-		});
+		const resolvedOperationSource = resolveOperationSource(selectedItem);
 
-		if (resolvedOperationSource?._tag !== "TreeChanges") return;
+		if (resolvedOperationSource._tag !== "TreeChanges") return;
 		if (resolvedOperationSource.parent._tag !== "Change") return;
 
 		requestAbsorptionPlan({
@@ -875,7 +877,10 @@ export const useWorkspaceShortcuts = ({
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
 					event.preventDefault();
-					handleChangesScopeAction(action, changesSectionItem);
+					handleChangesScopeAction(
+						action,
+						changesSectionItem({ treeChanges: worktreeChanges.changes }),
+					);
 				},
 				Commit: (scope) => {
 					const action = getAction(scope.bindings, event);
@@ -913,19 +918,13 @@ export const useWorkspaceShortcuts = ({
 
 		if (!selectedItem) return;
 
-		const resolvedOperationSource = resolveOperationSource({
-			operationSource: operationMode.source,
-			queryClient,
-			projectId,
-		});
+		const resolvedOperationSource = resolveOperationSource(operationMode.source);
 
-		const operation = resolvedOperationSource
-			? operationModeToOperation({
-					operationMode,
-					resolvedOperationSource,
-					target: selectedItem,
-				})
-			: null;
+		const operation = operationModeToOperation({
+			operationMode,
+			resolvedOperationSource,
+			target: selectedItem,
+		});
 
 		if (!operation) return;
 

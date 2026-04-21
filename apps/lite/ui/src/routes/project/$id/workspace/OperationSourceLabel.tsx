@@ -21,14 +21,17 @@ export const OperationSourceLabel: FC<{
 				const segment = findSegmentByBranchRef({ headInfo, branchRef });
 				return assert(segment?.refName).displayName;
 			},
-			ChangeFile: ({ path }) => path,
+			ChangeFile: ({ treeChange }) => treeChange.path,
 			ChangesSection: () => "Changes",
 			Commit: ({ commitId }) => {
 				const commit = findCommit({ headInfo, commitId });
 				return commit ? <CommitLabel commit={commit} /> : shortCommitId(commitId);
 			},
-			CommitFile: ({ path }) => path,
+			CommitFile: ({ treeChange }) => treeChange.path,
 			Stack: () => "Stack",
-			Hunk: ({ hunkHeader }) => `Hunk ${formatHunkHeader(hunkHeader)}`,
+			Hunk: ({ treeChange }) =>
+				treeChange.hunkHeaders
+					.map((hunkHeader) => `Hunk ${formatHunkHeader(hunkHeader)}`)
+					.join(", "),
 		}),
 	);

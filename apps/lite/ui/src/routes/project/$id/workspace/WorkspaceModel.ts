@@ -29,18 +29,18 @@ type BuildWorkspaceOutlineArgs = {
 	headInfo: RefInfo;
 	changes: Array<TreeChange>;
 	expandedCommitId?: string | null;
-	expandedCommitPaths?: Array<string>;
+	expandedCommitChanges?: Array<TreeChange>;
 };
 
 const buildWorkspaceOutline = ({
 	headInfo,
 	changes,
 	expandedCommitId = null,
-	expandedCommitPaths,
+	expandedCommitChanges,
 }: BuildWorkspaceOutlineArgs): WorkspaceOutline => {
 	const changesSection: WorkspaceSection = {
-		section: changesSectionItem,
-		children: changes.map((change) => changeFileItem({ path: change.path })),
+		section: changesSectionItem({ treeChanges: changes }),
+		children: changes.map((change) => changeFileItem({ treeChange: change })),
 	};
 
 	const segmentChildren = (stackId: string, segment: Segment): Array<Item> =>
@@ -48,11 +48,11 @@ const buildWorkspaceOutline = ({
 			(commit): Array<Item> => [
 				commitItem({ stackId, commitId: commit.id }),
 				...(commit.id === expandedCommitId
-					? (expandedCommitPaths ?? []).map((path) =>
+					? (expandedCommitChanges ?? []).map((change) =>
 							commitFileItem({
 								stackId,
 								commitId: commit.id,
-								path,
+								treeChange: change,
 							}),
 						)
 					: []),
@@ -119,7 +119,7 @@ export const useWorkspaceOutline = ({
 		headInfo,
 		changes: worktreeChanges.changes,
 		expandedCommitId,
-		expandedCommitPaths: expandedCommitDetails?.changes.map((change) => change.path) ?? [],
+		expandedCommitChanges: expandedCommitDetails?.changes ?? [],
 	});
 };
 
