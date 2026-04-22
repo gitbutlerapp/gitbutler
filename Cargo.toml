@@ -112,6 +112,8 @@ members = [
     "crates/but-server",
     # Should be reviewed to mostly use `but-api`, to be renamed to `but-tauri` or something.
     "crates/gitbutler-tauri",
+    # Performance profiling helper binary.
+    "crates/but-profiler",
     # GitButler installation binary
     "crates/but-installer",
     # Documentation binary

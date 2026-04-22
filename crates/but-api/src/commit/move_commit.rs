@@ -6,6 +6,7 @@ use but_rebase::graph_rebase::{
     Editor, LookupStep as _,
     mutate::{InsertSide, RelativeTo},
 };
+use std::time::Instant;
 use tracing::instrument;
 
 use crate::WorkspaceState;
@@ -54,19 +55,43 @@ pub fn commit_move_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitMoveResult> {
+    let operation_started = Instant::now();
     if subject_commit_ids.is_empty() {
         bail!("No commits were provided to move")
     }
 
+    tracing::warn!(
+        subject_commit_count = subject_commit_ids.len(),
+        ?side,
+        ?dry_run,
+        "commit_move_only_with_perm: start"
+    );
+
+    let setup_started = Instant::now();
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    println!(
+        "commit_move_only_with_perm: context prepared {:?}",
+        setup_started.elapsed()
+    );
+    let creating_editor = Instant::now();
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    println!(
+        "commit_move_only_with_perm: editor prepared {:?}",
+        creating_editor.elapsed()
+    );
 
+    let ordering_started = Instant::now();
     let ordered_selectors = editor.order_commit_selectors_by_parentage(subject_commit_ids)?;
     let mut ordered_ids = ordered_selectors
         .iter()
         .map(|selector| editor.lookup_pick(*selector))
         .collect::<anyhow::Result<Vec<_>>>()?;
+    tracing::warn!(
+        ordered_commit_count = ordered_ids.len(),
+        elapsed = ?ordering_started.elapsed(),
+        "commit_move_only_with_perm: commit ordering resolved"
+    );
 
     let ordered_ids = if matches!(side, InsertSide::Above) {
         ordered_ids.reverse();
@@ -80,9 +105,16 @@ pub fn commit_move_only_with_perm(
         .next()
         .expect("non-empty commit list always has a first subject");
 
+    let first_rebase_started = Instant::now();
     let mut rebase =
         but_workspace::commit::move_commit(editor, first_subject, relative_to.clone(), side)?;
+    tracing::warn!(
+        elapsed = ?first_rebase_started.elapsed(),
+        "commit_move_only_with_perm: first commit move completed"
+    );
 
+    let loop_started = Instant::now();
+    let mut moved_in_loop = 0usize;
     for original_subject_id in subjects {
         let remapped_ids = rebase.history.commit_mappings();
         let subject_id = remapped_ids
@@ -106,11 +138,23 @@ pub fn commit_move_only_with_perm(
             remapped_relative_to,
             side,
         )?;
+        moved_in_loop += 1;
     }
+    tracing::warn!(
+        moved_in_loop,
+        elapsed = ?loop_started.elapsed(),
+        "commit_move_only_with_perm: remaining commit moves completed"
+    );
 
-    Ok(CommitMoveResult {
-        workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,
-    })
+    let workspace_started = Instant::now();
+    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
+    tracing::warn!(
+        elapsed = ?workspace_started.elapsed(),
+        total_elapsed = ?operation_started.elapsed(),
+        "commit_move_only_with_perm: workspace state created"
+    );
+
+    Ok(CommitMoveResult { workspace })
 }
 
 /// Moves `subject_commit_ids` to `side` of `relative_to` and records an oplog
@@ -130,15 +174,30 @@ pub fn commit_move(
     side: InsertSide,
     dry_run: DryRun,
 ) -> anyhow::Result<CommitMoveResult> {
+    let operation_started = Instant::now();
+    let lock_wait_started = Instant::now();
     let mut guard = ctx.exclusive_worktree_access();
-    commit_move_with_perm(
+    tracing::warn!(
+        elapsed = ?lock_wait_started.elapsed(),
+        "commit_move: acquired exclusive worktree access"
+    );
+
+    let move_started = Instant::now();
+    let res = commit_move_with_perm(
         ctx,
         subject_commit_ids,
         relative_to,
         side,
         dry_run,
         guard.write_permission(),
-    )
+    );
+    tracing::warn!(
+        elapsed = ?move_started.elapsed(),
+        total_elapsed = ?operation_started.elapsed(),
+        success = res.is_ok(),
+        "commit_move: finished"
+    );
+    res
 }
 
 /// Moves `subject_commit_ids` to `side` of `relative_to` under caller-held
@@ -157,18 +216,41 @@ pub fn commit_move_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitMoveResult> {
+    let operation_started = Instant::now();
+    let snapshot_started = Instant::now();
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
         ctx,
         SnapshotDetails::new(OperationKind::MoveCommit).with_count(subject_commit_ids.len()),
         perm.read_permission(),
         dry_run,
     );
+    tracing::warn!(
+        has_snapshot = maybe_oplog_entry.is_some(),
+        elapsed = ?snapshot_started.elapsed(),
+        "commit_move_with_perm: prepared oplog snapshot"
+    );
 
+    let move_started = Instant::now();
     let res = commit_move_only_with_perm(ctx, subject_commit_ids, relative_to, side, dry_run, perm);
+    tracing::warn!(
+        elapsed = ?move_started.elapsed(),
+        success = res.is_ok(),
+        "commit_move_with_perm: move operation completed"
+    );
+
+    let commit_snapshot_started = Instant::now();
     if let Some(snapshot) = maybe_oplog_entry
         && res.is_ok()
     {
         snapshot.commit(ctx, perm).ok();
+        tracing::warn!(
+            elapsed = ?commit_snapshot_started.elapsed(),
+            "commit_move_with_perm: committed oplog snapshot"
+        );
     }
+    tracing::warn!(
+        total_elapsed = ?operation_started.elapsed(),
+        "commit_move_with_perm: finished"
+    );
     res
 }
