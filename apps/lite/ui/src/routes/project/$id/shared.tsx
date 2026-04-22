@@ -23,9 +23,19 @@ export const commitTitle = (message: string): string => {
 	return title ?? "(no message)";
 };
 
-export const CommitLabel = ({ commit }: { commit: Commit }) => (
+export type CommitConflictDisplay = "none" | "actual" | "predicted";
+
+export const CommitLabel = ({
+	commit,
+	conflictDisplay = commit.hasConflicts ? "actual" : "none",
+}: {
+	commit: Commit;
+	conflictDisplay?: CommitConflictDisplay;
+}) => (
 	<>
 		{commitTitle(commit.message)}
-		{commit.hasConflicts && " ⚠️"}
+		{conflictDisplay !== "none" && (
+			<span style={conflictDisplay === "predicted" ? { opacity: 0.5 } : undefined}> ⚠️</span>
+		)}
 	</>
 );

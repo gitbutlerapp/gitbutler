@@ -1,5 +1,5 @@
 import { Toast } from "@base-ui/react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import {
 	type CommitAmendParams,
@@ -181,6 +181,38 @@ export const operationLabel = (operation: Operation): string =>
 			TearOffBranch: () => "Tear off branch",
 		}),
 	);
+
+export const useDryRunOperation = (projectId: string, operation: Operation | null) => {
+	const queryFn = () => {
+		if (!operation) return;
+
+		return Match.value(operation).pipe(
+			Match.tagsExhaustive({
+				CommitAmend: (x) => window.lite.commitAmend({ ...x, projectId, dryRun: true }),
+				CommitCreate: (x) => window.lite.commitCreate({ ...x, projectId, dryRun: true }),
+				CommitCreateFromCommittedChanges: async () => {
+					throw new Error("TODO");
+				},
+				CommitMove: (x) => window.lite.commitMove({ ...x, projectId, dryRun: true }),
+				CommitMoveChangesBetween: (x) =>
+					window.lite.commitMoveChangesBetween({ ...x, projectId, dryRun: true }),
+				CommitSquash: (x) => window.lite.commitSquash({ ...x, projectId, dryRun: true }),
+				CommitUncommit: async () => {
+					throw new Error("Uncommitting has not been implemented yet.");
+				},
+				CommitUncommitChanges: (x) =>
+					window.lite.commitUncommitChanges({ ...x, projectId, dryRun: true }),
+				MoveBranch: (x) => window.lite.moveBranch({ ...x, projectId, dryRun: true }),
+				TearOffBranch: (x) => window.lite.tearOffBranch({ ...x, projectId, dryRun: true }),
+			}),
+		);
+	};
+
+	return useQuery({
+		queryKey: ["dryRun", projectId, operation],
+		queryFn,
+	});
+};
 
 export const useRunOperation = () => {
 	const toastManager = Toast.useToastManager();
