@@ -6,33 +6,33 @@ import { type OperationMode } from "./WorkspaceMode.ts";
 
 export const operationModeToOperation = ({
 	operationMode,
-	resolvedOperationSource,
+	source,
 	target,
 }: {
 	operationMode: OperationMode;
-	resolvedOperationSource: ResolvedOperationSource;
+	source: ResolvedOperationSource;
 	target: Item;
 }): Operation | null =>
 	Match.value(operationMode).pipe(
 		Match.tagsExhaustive({
-			Rub: () => rubOperation({ resolvedOperationSource, target }),
-			Move: () => moveOperation({ resolvedOperationSource, target, side: "below" }),
+			Rub: () => rubOperation({ source, target }),
+			Move: () => moveOperation({ source, target, side: "below" }),
 		}),
 	);
 
 export const isOperationModeSourceOrTarget = ({
 	item,
 	operationMode,
-	resolvedOperationSource,
+	source,
 }: {
 	item: Item;
 	operationMode: OperationMode;
-	resolvedOperationSource: ResolvedOperationSource | null;
+	source: ResolvedOperationSource | null;
 }): boolean =>
 	itemEquals(operationMode.source, item) ||
-	(!!resolvedOperationSource &&
+	(!!source &&
 		!!operationModeToOperation({
 			operationMode,
-			resolvedOperationSource,
+			source,
 			target: item,
 		}));

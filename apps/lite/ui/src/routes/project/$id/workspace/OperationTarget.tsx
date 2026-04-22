@@ -18,26 +18,26 @@ import styles from "./OperationTarget.module.css";
 import { useQueryClient } from "@tanstack/react-query";
 
 const dropTargetToOperation =
-	(item: Item, resolvedOperationSource: ResolvedOperationSource) =>
+	(item: Item, source: ResolvedOperationSource) =>
 	({ input, element }: GetDataParams[0]): Operation | null => {
 		const combine = rubOperation({
-			resolvedOperationSource,
+			source,
 			target: item,
 		});
 		const insertAbove = moveOperation({
-			resolvedOperationSource,
+			source,
 			target: item,
 			side: "above",
 		});
 		const insertBelow = moveOperation({
-			resolvedOperationSource,
+			source,
 			target: item,
 			side: "below",
 		});
 
 		const instruction = extractInstruction(
 			attachInstruction(
-				{ resolvedOperationSource },
+				{ source },
 				{
 					input,
 					element,
@@ -74,15 +74,13 @@ const useDropTarget = ({ projectId, item }: { projectId: string; item: Item }) =
 
 		const { source } = dragData;
 
-		const resolvedOperationSource = resolveOperationSource({
+		const resolvedSource = resolveOperationSource({
 			operationSource: source,
 			queryClient,
 			projectId,
 		});
 
-		const operation = resolvedOperationSource
-			? dropTargetToOperation(item, resolvedOperationSource)(args)
-			: null;
+		const operation = resolvedSource ? dropTargetToOperation(item, resolvedSource)(args) : null;
 
 		return {
 			source,
@@ -110,16 +108,16 @@ const useOperationModeTarget = ({
 
 	const source = operationMode.source;
 
-	const resolvedOperationSource = resolveOperationSource({
+	const resolvedSource = resolveOperationSource({
 		operationSource: source,
 		queryClient,
 		projectId,
 	});
 
-	const operation = resolvedOperationSource
+	const operation = resolvedSource
 		? operationModeToOperation({
 				operationMode,
-				resolvedOperationSource,
+				source: resolvedSource,
 				target: item,
 			})
 		: null;

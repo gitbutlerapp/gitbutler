@@ -783,19 +783,19 @@ export const useWorkspaceShortcuts = ({
 		);
 
 	const requestAbsorptionPlanForItem = (selectedItem: Item) => {
-		const resolvedOperationSource = resolveOperationSource({
+		const source = resolveOperationSource({
 			operationSource: selectedItem,
 			queryClient,
 			projectId,
 		});
 
-		if (resolvedOperationSource?._tag !== "TreeChanges") return;
-		if (resolvedOperationSource.parent._tag !== "Change") return;
+		if (source?._tag !== "TreeChanges") return;
+		if (source.parent._tag !== "Change") return;
 
 		requestAbsorptionPlan({
 			type: "treeChanges",
 			subject: {
-				changes: resolvedOperationSource.changes.map(({ change }) => change),
+				changes: source.changes.map(({ change }) => change),
 				assignedStackId: null,
 			},
 		});
@@ -913,16 +913,16 @@ export const useWorkspaceShortcuts = ({
 
 		if (!selectedItem) return;
 
-		const resolvedOperationSource = resolveOperationSource({
+		const source = resolveOperationSource({
 			operationSource: operationMode.source,
 			queryClient,
 			projectId,
 		});
 
-		const operation = resolvedOperationSource
+		const operation = source
 			? operationModeToOperation({
 					operationMode,
-					resolvedOperationSource,
+					source,
 					target: selectedItem,
 				})
 			: null;

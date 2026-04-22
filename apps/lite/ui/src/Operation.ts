@@ -328,39 +328,35 @@ export const useRunOperation = () => {
  * https://linear.app/gitbutler/issue/GB-1160/what-should-rubbing-a-branch-into-another-branch-do#comment-db2abdb7
  */
 export const rubOperation = ({
-	resolvedOperationSource,
+	source,
 	target,
 }: {
-	resolvedOperationSource: ResolvedOperationSource;
+	source: ResolvedOperationSource;
 	target: Item;
 }): Operation | null =>
-	Match.value({ resolvedOperationSource, target }).pipe(
-		Match.when(
-			{ resolvedOperationSource: { _tag: "Commit" }, target: { _tag: "Commit" } },
-			({ resolvedOperationSource, target }) =>
-				commitSquashOperation({
-					sourceCommitId: resolvedOperationSource.commitId,
-					destinationCommitId: target.commitId,
-					dryRun: false,
-				}),
+	Match.value({ source, target }).pipe(
+		Match.when({ source: { _tag: "Commit" }, target: { _tag: "Commit" } }, ({ source, target }) =>
+			commitSquashOperation({
+				sourceCommitId: source.commitId,
+				destinationCommitId: target.commitId,
+				dryRun: false,
+			}),
 		),
-		Match.when(
-			{ resolvedOperationSource: { _tag: "Commit" }, target: { _tag: "ChangesSection" } },
-			({ resolvedOperationSource }) =>
-				commitUncommitOperation({
-					commitId: resolvedOperationSource.commitId,
-					assignTo: null,
-				}),
+		Match.when({ source: { _tag: "Commit" }, target: { _tag: "ChangesSection" } }, ({ source }) =>
+			commitUncommitOperation({
+				commitId: source.commitId,
+				assignTo: null,
+			}),
 		),
 		Match.when(
 			{
-				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Change" } },
+				source: { _tag: "TreeChanges", parent: { _tag: "Change" } },
 				target: { _tag: "Commit" },
 			},
-			({ resolvedOperationSource, target }) =>
+			({ source, target }) =>
 				commitAmendOperation({
 					commitId: target.commitId,
-					changes: resolvedOperationSource.changes.map(({ change, hunkHeaders }) =>
+					changes: source.changes.map(({ change, hunkHeaders }) =>
 						createDiffSpec(change, hunkHeaders),
 					),
 					dryRun: false,
@@ -368,14 +364,14 @@ export const rubOperation = ({
 		),
 		Match.when(
 			{
-				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Commit" } },
+				source: { _tag: "TreeChanges", parent: { _tag: "Commit" } },
 				target: { _tag: "ChangesSection" },
 			},
-			({ resolvedOperationSource }) =>
+			({ source }) =>
 				commitUncommitChangesOperation({
-					commitId: resolvedOperationSource.parent.commitId,
+					commitId: source.parent.commitId,
 					assignTo: null,
-					changes: resolvedOperationSource.changes.map(({ change, hunkHeaders }) =>
+					changes: source.changes.map(({ change, hunkHeaders }) =>
 						createDiffSpec(change, hunkHeaders),
 					),
 					dryRun: false,
@@ -383,14 +379,14 @@ export const rubOperation = ({
 		),
 		Match.when(
 			{
-				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Commit" } },
+				source: { _tag: "TreeChanges", parent: { _tag: "Commit" } },
 				target: { _tag: "Commit" },
 			},
-			({ resolvedOperationSource, target }) =>
+			({ source, target }) =>
 				commitMoveChangesBetweenOperation({
-					sourceCommitId: resolvedOperationSource.parent.commitId,
+					sourceCommitId: source.parent.commitId,
 					destinationCommitId: target.commitId,
-					changes: resolvedOperationSource.changes.map(({ change, hunkHeaders }) =>
+					changes: source.changes.map(({ change, hunkHeaders }) =>
 						createDiffSpec(change, hunkHeaders),
 					),
 					dryRun: false,
@@ -400,36 +396,34 @@ export const rubOperation = ({
 	);
 
 export const moveOperation = ({
-	resolvedOperationSource,
+	source,
 	target,
 	side,
 }: {
-	resolvedOperationSource: ResolvedOperationSource;
+	source: ResolvedOperationSource;
 	target: Item;
 	side: InsertSide;
 }) => {
-	const branchMoveOperation = Match.value({ resolvedOperationSource, target }).pipe(
+	const branchMoveOperation = Match.value({ source, target }).pipe(
 		// This should support `relativeTo`:
 		// https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 		// https://linear.app/gitbutler/issue/GB-1199/support-moving-branches-onto-commits
 		// https://linear.app/gitbutler/issue/GB-1232/support-moving-branch-before-another-branch
-		Match.when(
-			{ resolvedOperationSource: { _tag: "Branch" }, target: { _tag: "Branch" } },
-			({ resolvedOperationSource, target }) =>
-				moveBranchOperation({
-					subjectBranch: decodeRefName(resolvedOperationSource.branchRef),
-					targetBranch: decodeRefName(target.branchRef),
-					dryRun: false,
-				}),
+		Match.when({ source: { _tag: "Branch" }, target: { _tag: "Branch" } }, ({ source, target }) =>
+			moveBranchOperation({
+				subjectBranch: decodeRefName(source.branchRef),
+				targetBranch: decodeRefName(target.branchRef),
+				dryRun: false,
+			}),
 		),
 		Match.when(
 			{
-				resolvedOperationSource: { _tag: "Branch" },
+				source: { _tag: "Branch" },
 				target: { _tag: "BaseCommit" },
 			},
-			({ resolvedOperationSource }) =>
+			({ source }) =>
 				tearOffBranchOperation({
-					subjectBranch: decodeRefName(resolvedOperationSource.branchRef),
+					subjectBranch: decodeRefName(source.branchRef),
 					dryRun: false,
 				}),
 		),
@@ -449,26 +443,24 @@ export const moveOperation = ({
 
 	if (!relativeTo) return null;
 
-	return Match.value({ resolvedOperationSource, target }).pipe(
-		Match.whenOr(
-			{ resolvedOperationSource: { _tag: "Commit" } },
-			({ resolvedOperationSource: { commitId } }) =>
-				commitMoveOperation({
-					subjectCommitIds: [commitId],
-					relativeTo,
-					side,
-					dryRun: false,
-				}),
+	return Match.value({ source, target }).pipe(
+		Match.whenOr({ source: { _tag: "Commit" } }, ({ source: { commitId } }) =>
+			commitMoveOperation({
+				subjectCommitIds: [commitId],
+				relativeTo,
+				side,
+				dryRun: false,
+			}),
 		),
 		Match.when(
 			{
-				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Change" } },
+				source: { _tag: "TreeChanges", parent: { _tag: "Change" } },
 			},
-			({ resolvedOperationSource }) =>
+			({ source }) =>
 				commitCreateOperation({
 					relativeTo,
 					side,
-					changes: resolvedOperationSource.changes.map(({ change, hunkHeaders }) =>
+					changes: source.changes.map(({ change, hunkHeaders }) =>
 						createDiffSpec(change, hunkHeaders),
 					),
 					message: "",
@@ -477,14 +469,14 @@ export const moveOperation = ({
 		),
 		Match.when(
 			{
-				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Commit" } },
+				source: { _tag: "TreeChanges", parent: { _tag: "Commit" } },
 			},
-			({ resolvedOperationSource }) =>
+			({ source }) =>
 				commitCreateFromCommittedChangesOperation({
-					sourceCommitId: resolvedOperationSource.parent.commitId,
+					sourceCommitId: source.parent.commitId,
 					relativeTo,
 					side,
-					changes: resolvedOperationSource.changes.map(({ change, hunkHeaders }) =>
+					changes: source.changes.map(({ change, hunkHeaders }) =>
 						createDiffSpec(change, hunkHeaders),
 					),
 					dryRun: false,
