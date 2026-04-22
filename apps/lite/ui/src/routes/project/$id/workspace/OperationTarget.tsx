@@ -37,7 +37,7 @@ const dropTargetToOperation =
 
 		const instruction = extractInstruction(
 			attachInstruction(
-				{ source },
+				{},
 				{
 					input,
 					element,
