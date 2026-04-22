@@ -205,7 +205,7 @@ const runOperation = ({
 					dryRun,
 				});
 
-				if (response.rejectedChanges.length > 0)
+				if (!dryRun && response.rejectedChanges.length > 0)
 					toastManager.add(
 						rejectedChangesToastOptions({
 							newCommit: response.newCommit,
@@ -273,7 +273,7 @@ const runOperation = ({
 					dryRun,
 				});
 
-				if (response.rejectedChanges.length > 0)
+				if (!dryRun && response.rejectedChanges.length > 0)
 					toastManager.add(
 						rejectedChangesToastOptions({
 							newCommit: response.newCommit,
