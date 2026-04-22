@@ -106,7 +106,7 @@ const useOperationModeTarget = ({
 
 	if (!isActiveTarget) return null;
 
-	const source = operationMode.source;
+	const { source } = operationMode;
 
 	const resolvedSource = resolveOperationSource({
 		operationSource: source,
