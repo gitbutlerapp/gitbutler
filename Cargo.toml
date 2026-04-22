@@ -244,7 +244,7 @@ toml = "0.9.10"
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
 tempfile = "3.24"
-rand = "0.9.3"
+rand = "0.10.1"
 notify-rust = "4.11.7"
 git2-hooks = { version = "0.5.0" }
 itertools = "0.14.0"
