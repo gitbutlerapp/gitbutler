@@ -1,5 +1,5 @@
 import { Toast } from "@base-ui/react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
 import {
 	type CommitAmendParams,
@@ -27,27 +27,39 @@ import {
 	CommitUncommitParams,
 } from "#ui/api/mutations.ts";
 import { InsertSide, RelativeTo } from "@gitbutler/but-sdk";
-import { ResolvedOperationSource } from "#ui/routes/project/$id/workspace/ResolvedOperationSource.ts";
+import { Item, itemParent } from "#ui/routes/project/$id/workspace/Item.ts";
+import { resolveDiffSpecs } from "#ui/routes/project/$id/workspace/resolveDiffSpecs.ts";
 import { decodeRefName } from "#ui/routes/project/$id/shared.tsx";
-import { Item } from "#ui/routes/project/$id/workspace/Item.ts";
 
 /** @public */
-export type CommitAmendOperation = Omit<CommitAmendParams, "projectId">;
+export type CommitAmendOperation = Omit<CommitAmendParams, "projectId" | "changes"> & {
+	source: Item;
+};
 /** @public */
-export type CommitCreateOperation = Omit<CommitCreateParams, "projectId">;
+export type CommitCreateOperation = Omit<CommitCreateParams, "projectId" | "changes"> & {
+	source: Item;
+};
 /** @public */
 export type CommitCreateFromCommittedChangesOperation = Omit<CommitInsertBlankParams, "projectId"> &
-	Pick<CommitMoveChangesBetweenParams, "changes" | "sourceCommitId">;
+	Pick<CommitMoveChangesBetweenParams, "sourceCommitId"> & {
+		source: Item;
+	};
 /** @public */
 export type CommitMoveOperation = Omit<CommitMoveParams, "projectId">;
 /** @public */
-export type CommitMoveChangesBetweenOperation = Omit<CommitMoveChangesBetweenParams, "projectId">;
+export type CommitMoveChangesBetweenOperation = Omit<
+	CommitMoveChangesBetweenParams,
+	"projectId" | "changes"
+> & { source: Item };
 /** @public */
 export type CommitSquashOperation = Omit<CommitSquashParams, "projectId">;
 /** @public */
 export type CommitUncommitOperation = Omit<CommitUncommitParams, "projectId">;
 /** @public */
-export type CommitUncommitChangesOperation = Omit<CommitUncommitChangesParams, "projectId">;
+export type CommitUncommitChangesOperation = Omit<
+	CommitUncommitChangesParams,
+	"projectId" | "changes"
+> & { source: Item };
 /** @public */
 export type MoveBranchOperation = Omit<MoveBranchParams, "projectId">;
 /** @public */
@@ -174,6 +186,7 @@ export const operationLabel = (operation: Operation): string =>
 
 export const useRunOperation = () => {
 	const toastManager = Toast.useToastManager();
+	const queryClient = useQueryClient();
 	const commitAmend = useMutation(commitAmendMutationOptions);
 	const commitCreate = useMutation(commitCreateMutationOptions);
 	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
@@ -189,11 +202,18 @@ export const useRunOperation = () => {
 		Match.value(operation).pipe(
 			Match.tagsExhaustive({
 				CommitAmend: (operation) => {
+					const changes = resolveDiffSpecs({
+						source: operation.source,
+						queryClient,
+						projectId,
+					});
+					if (!changes) return;
+
 					commitAmend.mutate(
 						{
 							projectId,
 							commitId: operation.commitId,
-							changes: operation.changes,
+							changes,
 							dryRun: operation.dryRun,
 						},
 						{
@@ -210,11 +230,18 @@ export const useRunOperation = () => {
 					);
 				},
 				CommitMoveChangesBetween: (operation) => {
+					const changes = resolveDiffSpecs({
+						source: operation.source,
+						queryClient,
+						projectId,
+					});
+					if (!changes) return;
+
 					commitMoveChangesBetween.mutate({
 						projectId,
 						sourceCommitId: operation.sourceCommitId,
 						destinationCommitId: operation.destinationCommitId,
-						changes: operation.changes,
+						changes,
 						dryRun: operation.dryRun,
 					});
 				},
@@ -234,21 +261,35 @@ export const useRunOperation = () => {
 					});
 				},
 				CommitUncommitChanges: (operation) => {
+					const changes = resolveDiffSpecs({
+						source: operation.source,
+						queryClient,
+						projectId,
+					});
+					if (!changes) return;
+
 					commitUncommitChanges.mutate({
 						projectId,
 						commitId: operation.commitId,
 						assignTo: operation.assignTo,
-						changes: operation.changes,
+						changes,
 						dryRun: operation.dryRun,
 					});
 				},
 				CommitCreate: (operation) => {
+					const changes = resolveDiffSpecs({
+						source: operation.source,
+						queryClient,
+						projectId,
+					});
+					if (!changes) return;
+
 					commitCreate.mutate(
 						{
 							projectId,
 							relativeTo: operation.relativeTo,
 							side: operation.side,
-							changes: operation.changes,
+							changes,
 							message: operation.message,
 							dryRun: operation.dryRun,
 						},
@@ -266,6 +307,13 @@ export const useRunOperation = () => {
 					);
 				},
 				CommitCreateFromCommittedChanges: (operation) => {
+					const changes = resolveDiffSpecs({
+						source: operation.source,
+						queryClient,
+						projectId,
+					});
+					if (!changes) return;
+
 					// Ideally this would be an atomic backend operation.
 					void (async () => {
 						const insertedCommit = await commitInsertBlank.mutateAsync({
@@ -281,7 +329,7 @@ export const useRunOperation = () => {
 								insertedCommit.workspace.replacedCommits[operation.sourceCommitId] ??
 								operation.sourceCommitId,
 							destinationCommitId: insertedCommit.newCommit,
-							changes: operation.changes,
+							changes,
 							dryRun: operation.dryRun,
 						});
 					})();
@@ -330,10 +378,10 @@ export const rubOperation = ({
 	source,
 	target,
 }: {
-	source: ResolvedOperationSource;
+	source: Item;
 	target: Item;
 }): Operation | null =>
-	Match.value({ source, target }).pipe(
+	Match.value({ source, sourceParent: itemParent(source), target }).pipe(
 		Match.when(
 			{
 				source: { _tag: "Commit" },
@@ -359,39 +407,39 @@ export const rubOperation = ({
 		),
 		Match.when(
 			{
-				source: { _tag: "DiffSpecs", parent: { _tag: "Change" } },
+				sourceParent: { _tag: "Change" },
 				target: { _tag: "Commit" },
 			},
 			({ source, target }) =>
 				commitAmendOperation({
 					commitId: target.commitId,
-					changes: source.changes,
+					source,
 					dryRun: false,
 				}),
 		),
 		Match.when(
 			{
-				source: { _tag: "DiffSpecs", parent: { _tag: "Commit" } },
+				sourceParent: { _tag: "Commit" },
 				target: { _tag: "ChangesSection" },
 			},
-			({ source }) =>
+			({ source, sourceParent }) =>
 				commitUncommitChangesOperation({
-					commitId: source.parent.commitId,
+					commitId: sourceParent.commitId,
 					assignTo: null,
-					changes: source.changes,
+					source,
 					dryRun: false,
 				}),
 		),
 		Match.when(
 			{
-				source: { _tag: "DiffSpecs", parent: { _tag: "Commit" } },
+				sourceParent: { _tag: "Commit" },
 				target: { _tag: "Commit" },
 			},
-			({ source, target }) =>
+			({ source, sourceParent, target }) =>
 				commitMoveChangesBetweenOperation({
-					sourceCommitId: source.parent.commitId,
+					sourceCommitId: sourceParent.commitId,
 					destinationCommitId: target.commitId,
-					changes: source.changes,
+					source,
 					dryRun: false,
 				}),
 		),
@@ -403,7 +451,7 @@ export const moveOperation = ({
 	target,
 	side,
 }: {
-	source: ResolvedOperationSource;
+	source: Item;
 	target: Item;
 	side: InsertSide;
 }) => {
@@ -451,30 +499,30 @@ export const moveOperation = ({
 
 	if (!relativeTo) return null;
 
-	return Match.value(source).pipe(
-		Match.tag("Commit", ({ commitId }) =>
+	return Match.value({ source, sourceParent: itemParent(source) }).pipe(
+		Match.when({ source: { _tag: "Commit" } }, ({ source }) =>
 			commitMoveOperation({
-				subjectCommitIds: [commitId],
+				subjectCommitIds: [source.commitId],
 				relativeTo,
 				side,
 				dryRun: false,
 			}),
 		),
-		Match.when({ _tag: "DiffSpecs", parent: { _tag: "Change" } }, (source) =>
+		Match.when({ sourceParent: { _tag: "Change" } }, ({ source }) =>
 			commitCreateOperation({
 				relativeTo,
 				side,
-				changes: source.changes,
+				source,
 				message: "",
 				dryRun: false,
 			}),
 		),
-		Match.when({ _tag: "DiffSpecs", parent: { _tag: "Commit" } }, (source) =>
+		Match.when({ sourceParent: { _tag: "Commit" } }, ({ source, sourceParent }) =>
 			commitCreateFromCommittedChangesOperation({
-				sourceCommitId: source.parent.commitId,
+				sourceCommitId: sourceParent.commitId,
 				relativeTo,
 				side,
-				changes: source.changes,
+				source,
 				dryRun: false,
 			}),
 		),

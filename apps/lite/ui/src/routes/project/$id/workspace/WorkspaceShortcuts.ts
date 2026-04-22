@@ -23,7 +23,6 @@ import {
 } from "./Item.ts";
 import { resolveAbsorptionTarget } from "./Absorption.tsx";
 import { operationModeToOperation } from "./OperationMode.tsx";
-import { resolveOperationSource } from "./ResolvedOperationSource.ts";
 import {
 	getAdjacent,
 	getNextSection,
@@ -913,19 +912,11 @@ export const useWorkspaceShortcuts = ({
 
 		const { source } = operationMode;
 
-		const resolvedSource = resolveOperationSource({
-			operationSource: source,
-			queryClient,
-			projectId,
+		const operation = operationModeToOperation({
+			operationMode,
+			source,
+			target: selectedItem,
 		});
-
-		const operation = resolvedSource
-			? operationModeToOperation({
-					operationMode,
-					source: resolvedSource,
-					target: selectedItem,
-				})
-			: null;
 
 		if (!operation) return;
 

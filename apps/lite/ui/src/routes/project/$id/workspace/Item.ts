@@ -1,5 +1,5 @@
 import { Match } from "effect";
-import { type FileParent } from "#ui/domain/FileParent.ts";
+import { changeFileParent, commitFileParent, type FileParent } from "#ui/domain/FileParent.ts";
 import { type HunkHeader } from "@gitbutler/but-sdk";
 
 /** @public */
@@ -99,3 +99,15 @@ export const itemIdentityKey = (item: Item): string =>
 	);
 
 export const itemEquals = (a: Item, b: Item): boolean => itemIdentityKey(a) === itemIdentityKey(b);
+
+export const itemParent = (item: Item): FileParent | null =>
+	Match.value(item).pipe(
+		Match.withReturnType<FileParent | null>(),
+		Match.tags({
+			ChangeFile: () => changeFileParent,
+			ChangesSection: () => changeFileParent,
+			CommitFile: ({ commitId }) => commitFileParent({ commitId }),
+			Hunk: ({ parent }) => parent,
+		}),
+		Match.orElse(() => null),
+	);

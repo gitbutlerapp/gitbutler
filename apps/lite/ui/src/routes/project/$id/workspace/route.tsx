@@ -32,7 +32,6 @@ import { AbsorptionDialog, useAbsorption } from "#ui/routes/project/$id/workspac
 import { useMonitorDraggedItem } from "#ui/routes/project/$id/workspace/OperationDragAndDrop.tsx";
 import { isOperationModeSourceOrTarget } from "#ui/routes/project/$id/workspace/OperationMode.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import { resolveOperationSource } from "#ui/routes/project/$id/workspace/ResolvedOperationSource.ts";
 import { OperationTarget } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { OperationSourceLabel } from "#ui/routes/project/$id/workspace/OperationSourceLabel.tsx";
 import {
@@ -62,12 +61,7 @@ import {
 	TreeChange,
 	UnifiedPatch,
 } from "@gitbutler/but-sdk";
-import {
-	useMutation,
-	useQueryClient,
-	useSuspenseQueries,
-	useSuspenseQuery,
-} from "@tanstack/react-query";
+import { useMutation, useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
 import { createRoute } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
@@ -1680,8 +1674,6 @@ const ProjectPage: FC = () => {
 
 	const navigationIndexUnfiltered = buildNavigationIndex(workspaceOutline);
 
-	const queryClient = useQueryClient();
-
 	const workspaceMode = isValidWorkspaceMode({
 		mode: workspaceModeState,
 		navigationIndex: navigationIndexUnfiltered,
@@ -1691,20 +1683,12 @@ const ProjectPage: FC = () => {
 
 	const operationMode = getOperationMode(workspaceMode);
 
-	const resolvedSource = operationMode
-		? resolveOperationSource({
-				operationSource: operationMode.source,
-				queryClient,
-				projectId,
-			})
-		: null;
-
 	const navigationIndex = operationMode
 		? filterNavigationIndex(navigationIndexUnfiltered, (item) =>
 				isOperationModeSourceOrTarget({
 					item,
 					operationMode,
-					source: resolvedSource,
+					source: operationMode.source,
 				}),
 			)
 		: navigationIndexUnfiltered;

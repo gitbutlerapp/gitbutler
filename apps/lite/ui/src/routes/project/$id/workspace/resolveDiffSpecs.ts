@@ -1,0 +1,77 @@
+import {
+	changesInWorktreeQueryOptions,
+	commitDetailsWithLineStatsQueryOptions,
+} from "#ui/api/queries.ts";
+import { createDiffSpec } from "#ui/domain/DiffSpec.ts";
+import { Item } from "#ui/routes/project/$id/workspace/Item.ts";
+import { QueryClient } from "@tanstack/react-query";
+import { CommitDetails, DiffSpec, WorktreeChanges } from "@gitbutler/but-sdk";
+import { Match } from "effect";
+
+const resolvedDiffSpecsFromItem = ({
+	item,
+	worktreeChanges,
+	getCommitDetails,
+}: {
+	item: Item;
+	worktreeChanges: WorktreeChanges | undefined;
+	getCommitDetails: (commitId: string) => CommitDetails | undefined;
+}) =>
+	Match.value(item).pipe(
+		Match.withReturnType<Array<DiffSpec> | null>(),
+		Match.tags({
+			ChangeFile: ({ path }) => {
+				const change = worktreeChanges?.changes.find((candidate) => candidate.path === path);
+				if (!change) return null;
+
+				return [createDiffSpec(change, [])];
+			},
+			ChangesSection: () => {
+				if (!worktreeChanges) return null;
+
+				const changes = worktreeChanges.changes.map((change) => createDiffSpec(change, []));
+				return changes;
+			},
+			CommitFile: ({ commitId, path }) => {
+				const change = getCommitDetails(commitId)?.changes.find(
+					(candidate) => candidate.path === path,
+				);
+				if (!change) return null;
+
+				return [createDiffSpec(change, [])];
+			},
+			Hunk: ({ parent, path, hunkHeader }) => {
+				const changes = Match.value(parent).pipe(
+					Match.tagsExhaustive({
+						Change: () => worktreeChanges?.changes,
+						Commit: ({ commitId }) => getCommitDetails(commitId)?.changes,
+					}),
+				);
+				if (!changes) return null;
+
+				const change = changes.find((candidate) => candidate.path === path);
+				if (!change) return null;
+
+				return [createDiffSpec(change, [hunkHeader])];
+			},
+		}),
+		Match.orElse(() => null),
+	);
+
+export const resolveDiffSpecs = ({
+	source,
+	queryClient,
+	projectId,
+}: {
+	source: Item;
+	queryClient: QueryClient;
+	projectId: string;
+}) =>
+	resolvedDiffSpecsFromItem({
+		item: source,
+		worktreeChanges: queryClient.getQueryData(changesInWorktreeQueryOptions(projectId).queryKey),
+		getCommitDetails: (commitId) =>
+			queryClient.getQueryData(
+				commitDetailsWithLineStatsQueryOptions({ projectId, commitId }).queryKey,
+			),
+	});
