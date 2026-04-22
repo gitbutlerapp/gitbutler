@@ -1,5 +1,5 @@
 import { Toast, UseToastManagerReturnValue } from "@base-ui/react";
-import { QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
 import {
 	type CommitAmendParams,
@@ -14,7 +14,7 @@ import {
 } from "#electron/ipc.ts";
 import { rejectedChangesToastOptions } from "#ui/RejectedChanges.tsx";
 import { CommitUncommitParams } from "#ui/api/mutations.ts";
-import { InsertSide, RelativeTo } from "@gitbutler/but-sdk";
+import { InsertSide, RelativeTo, type WorkspaceState } from "@gitbutler/but-sdk";
 import { Item, itemParent } from "#ui/routes/project/$id/workspace/Item.ts";
 import { resolveDiffSpecs } from "#ui/routes/project/$id/workspace/resolveDiffSpecs.ts";
 import { decodeRefName } from "#ui/routes/project/$id/shared.tsx";
@@ -59,7 +59,9 @@ export type TearOffBranchOperation = Omit<TearOffBranchParams, "dryRun" | "proje
 export type Operation =
 	| ({ _tag: "CommitAmend" } & CommitAmendOperation)
 	| ({ _tag: "CommitCreate" } & CommitCreateOperation)
-	| ({ _tag: "CommitCreateFromCommittedChanges" } & CommitCreateFromCommittedChangesOperation)
+	| ({
+			_tag: "CommitCreateFromCommittedChanges";
+	  } & CommitCreateFromCommittedChangesOperation)
 	| ({ _tag: "CommitMove" } & CommitMoveOperation)
 	| ({ _tag: "CommitMoveChangesBetween" } & CommitMoveChangesBetweenOperation)
 	| ({ _tag: "CommitSquash" } & CommitSquashOperation)
@@ -175,6 +177,8 @@ export const operationLabel = (operation: Operation): string =>
 		}),
 	);
 
+type RunOperationResult = { workspace: WorkspaceState };
+
 const runOperation =
 	({
 		queryClient,
@@ -191,7 +195,7 @@ const runOperation =
 		projectId: string;
 		operation: Operation;
 		dryRun: boolean;
-	}) =>
+	}): Promise<RunOperationResult | undefined> =>
 		Match.value(operation).pipe(
 			Match.tagsExhaustive({
 				CommitAmend: async (operation) => {
@@ -216,6 +220,8 @@ const runOperation =
 								rejectedChanges: response.rejectedChanges,
 							}),
 						);
+
+					return response;
 				},
 				CommitMoveChangesBetween: async (operation) => {
 					const changes = resolveDiffSpecs({
@@ -225,7 +231,7 @@ const runOperation =
 					});
 					if (!changes) return;
 
-					await window.lite.commitMoveChangesBetween({
+					return await window.lite.commitMoveChangesBetween({
 						projectId,
 						sourceCommitId: operation.sourceCommitId,
 						destinationCommitId: operation.destinationCommitId,
@@ -233,14 +239,13 @@ const runOperation =
 						dryRun,
 					});
 				},
-				CommitSquash: async (operation) => {
+				CommitSquash: async (operation) =>
 					await window.lite.commitSquash({
 						projectId,
 						sourceCommitId: operation.sourceCommitId,
 						destinationCommitId: operation.destinationCommitId,
 						dryRun,
-					});
-				},
+					}),
 				CommitUncommit: async () => {
 					throw new Error("Uncommitting has not been implemented yet.");
 				},
@@ -252,7 +257,7 @@ const runOperation =
 					});
 					if (!changes) return;
 
-					await window.lite.commitUncommitChanges({
+					return await window.lite.commitUncommitChanges({
 						projectId,
 						commitId: operation.commitId,
 						assignTo: operation.assignTo,
@@ -284,6 +289,8 @@ const runOperation =
 								rejectedChanges: response.rejectedChanges,
 							}),
 						);
+
+					return response;
 				},
 				CommitCreateFromCommittedChanges: async (operation) => {
 					const changes = resolveDiffSpecs({
@@ -301,7 +308,7 @@ const runOperation =
 						dryRun,
 					});
 
-					await window.lite.commitMoveChangesBetween({
+					return await window.lite.commitMoveChangesBetween({
 						projectId,
 						sourceCommitId:
 							insertedCommit.workspace.replacedCommits[operation.sourceCommitId] ??
@@ -311,32 +318,48 @@ const runOperation =
 						dryRun,
 					});
 				},
-				CommitMove: async (operation) => {
+				CommitMove: async (operation) =>
 					await window.lite.commitMove({
 						projectId,
 						subjectCommitIds: operation.subjectCommitIds,
 						relativeTo: operation.relativeTo,
 						side: operation.side,
 						dryRun,
-					});
-				},
-				MoveBranch: async (operation) => {
+					}),
+				MoveBranch: async (operation) =>
 					await window.lite.moveBranch({
 						projectId,
 						subjectBranch: operation.subjectBranch,
 						targetBranch: operation.targetBranch,
 						dryRun,
-					});
-				},
-				TearOffBranch: async (operation) => {
+					}),
+				TearOffBranch: async (operation) =>
 					await window.lite.tearOffBranch({
 						projectId,
 						subjectBranch: operation.subjectBranch,
 						dryRun,
-					});
-				},
+					}),
 			}),
 		);
+
+export const useDryRunOperation = (projectId: string, operation: Operation | null) => {
+	const toastManager = Toast.useToastManager();
+	const queryClient = useQueryClient();
+	const mutationFn = runOperation({ queryClient, toastManager });
+
+	return useQuery({
+		queryKey: ["dryRunOperation", projectId, operation],
+		enabled: operation !== null,
+		queryFn: () => {
+			if (!operation) return null;
+			return mutationFn({
+				projectId,
+				operation,
+				dryRun: true,
+			});
+		},
+	});
+};
 
 export const useRunOperation = () => {
 	const toastManager = Toast.useToastManager();
@@ -476,7 +499,10 @@ export const moveOperation = ({
 		Match.withReturnType<RelativeTo | null>(),
 		Match.tags({
 			Commit: ({ commitId }) => ({ type: "commit", subject: commitId }),
-			Branch: ({ branchRef }) => ({ type: "referenceBytes", subject: branchRef }),
+			Branch: ({ branchRef }) => ({
+				type: "referenceBytes",
+				subject: branchRef,
+			}),
 		}),
 		Match.orElse(() => null),
 	);

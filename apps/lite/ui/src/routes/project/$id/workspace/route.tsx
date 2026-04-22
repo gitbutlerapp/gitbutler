@@ -16,9 +16,11 @@ import {
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { classes } from "#ui/classes.ts";
+import { getConflictedCommitIds } from "#ui/domain/WorkspaceState.ts";
 import { DependencyIcon, ExpandCollapseIcon, MenuTriggerIcon, PushIcon } from "#ui/icons.tsx";
 import { changeFileParent, commitFileParent, type FileParent } from "#ui/domain/FileParent.ts";
 import { getBranchNameByCommitId, getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
+import { useDryRunOperation } from "#ui/Operation.ts";
 import { ProjectPreviewLayout } from "#ui/routes/project/$id/ProjectPreviewLayout.tsx";
 import {
 	projectActions,
@@ -30,13 +32,17 @@ import {
 } from "#ui/routes/project/$id/state/projectSlice.ts";
 import { AbsorptionDialog, useAbsorption } from "#ui/routes/project/$id/workspace/Absorption.tsx";
 import { useMonitorDraggedItem } from "#ui/routes/project/$id/workspace/OperationDragAndDrop.tsx";
-import { isOperationModeSourceOrTarget } from "#ui/routes/project/$id/workspace/OperationMode.tsx";
+import {
+	isOperationModeSourceOrTarget,
+	operationModeToOperation,
+} from "#ui/routes/project/$id/workspace/OperationMode.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { OperationTarget } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { OperationSourceLabel } from "#ui/routes/project/$id/workspace/OperationSourceLabel.tsx";
 import {
 	formatHunkHeader,
 	CommitLabel,
+	type CommitConflictDisplay,
 	shortCommitId,
 	decodeRefName,
 	encodeRefName,
@@ -707,6 +713,7 @@ const InlineRewordCommit: FC<{
 const CommitRow: FC<
 	{
 		commit: Commit;
+		predictedConflictedCommitIds: Set<string>;
 		inlineRewordCommitFormRef: Ref<HTMLFormElement>;
 		workspaceMode: WorkspaceMode;
 		isExpanded: boolean;
@@ -716,6 +723,7 @@ const CommitRow: FC<
 	} & ComponentProps<"div">
 > = ({
 	commit,
+	predictedConflictedCommitIds,
 	inlineRewordCommitFormRef,
 	workspaceMode,
 	isExpanded,
@@ -755,6 +763,11 @@ const CommitRow: FC<
 		...commit,
 		message: optimisticMessage,
 	};
+	const conflictDisplay: CommitConflictDisplay = predictedConflictedCommitIds.has(commit.id)
+		? "predicted"
+		: commitWithOptimisticMessage.hasConflicts
+			? "actual"
+			: "none";
 
 	const commitInsertBlank = useMutation(commitInsertBlankMutationOptions);
 	const commitDiscard = useMutation(commitDiscardMutationOptions);
@@ -874,7 +887,7 @@ const CommitRow: FC<
 								: undefined
 						}
 					>
-						<CommitLabel commit={commitWithOptimisticMessage} />
+						<CommitLabel commit={commitWithOptimisticMessage} conflictDisplay={conflictDisplay} />
 					</button>
 					{workspaceMode._tag === "Default" && (
 						<>
@@ -956,6 +969,7 @@ const CommitFileRow: FC<{
 
 const CommitC: FC<{
 	commit: Commit;
+	predictedConflictedCommitIds: Set<string>;
 	inlineRewordCommitFormRef: Ref<HTMLFormElement>;
 	operationMode: OperationMode | null;
 	workspaceMode: WorkspaceMode;
@@ -964,6 +978,7 @@ const CommitC: FC<{
 	navigationIndex: NavigationIndex;
 }> = ({
 	commit,
+	predictedConflictedCommitIds,
 	inlineRewordCommitFormRef,
 	operationMode,
 	workspaceMode,
@@ -995,6 +1010,7 @@ const CommitC: FC<{
 		>
 			<CommitRow
 				commit={commit}
+				predictedConflictedCommitIds={predictedConflictedCommitIds}
 				inlineRewordCommitFormRef={inlineRewordCommitFormRef}
 				workspaceMode={workspaceMode}
 				isExpanded={isExpanded}
@@ -1530,6 +1546,7 @@ const SegmentC: FC<{
 	inlineRewordCommitFormRef: Ref<HTMLFormElement>;
 	navigationIndex: NavigationIndex;
 	operationMode: OperationMode | null;
+	predictedConflictedCommitIds: Set<string>;
 	projectId: string;
 	segment: Segment;
 	stackId: string;
@@ -1539,6 +1556,7 @@ const SegmentC: FC<{
 	inlineRewordCommitFormRef,
 	navigationIndex,
 	operationMode,
+	predictedConflictedCommitIds,
 	projectId,
 	segment,
 	stackId,
@@ -1566,6 +1584,7 @@ const SegmentC: FC<{
 					<li key={commit.id}>
 						<CommitC
 							commit={commit}
+							predictedConflictedCommitIds={predictedConflictedCommitIds}
 							inlineRewordCommitFormRef={inlineRewordCommitFormRef}
 							operationMode={operationMode}
 							workspaceMode={workspaceMode}
@@ -1584,6 +1603,7 @@ const StackC: FC<{
 	inlineRenameBranchFormRef: Ref<HTMLFormElement>;
 	inlineRewordCommitFormRef: Ref<HTMLFormElement>;
 	operationMode: OperationMode | null;
+	predictedConflictedCommitIds: Set<string>;
 	projectId: string;
 	stack: Stack;
 	workspaceMode: WorkspaceMode;
@@ -1592,6 +1612,7 @@ const StackC: FC<{
 	inlineRenameBranchFormRef,
 	inlineRewordCommitFormRef,
 	operationMode,
+	predictedConflictedCommitIds,
 	projectId,
 	stack,
 	workspaceMode,
@@ -1636,6 +1657,7 @@ const StackC: FC<{
 								inlineRewordCommitFormRef={inlineRewordCommitFormRef}
 								navigationIndex={navigationIndex}
 								operationMode={operationMode}
+								predictedConflictedCommitIds={predictedConflictedCommitIds}
 								projectId={projectId}
 								segment={segment}
 								stackId={stackId}
@@ -1696,6 +1718,20 @@ const ProjectPage: FC = () => {
 	const selectedItem = useAppSelector((state) =>
 		selectNormalizedSelectedItem(state, { projectId, navigationIndex }),
 	);
+	const operationModeOperation =
+		operationMode && selectedItem
+			? operationModeToOperation({
+					operationMode,
+					source: operationMode.source,
+					target: selectedItem,
+				})
+			: null;
+	const dragOperation = useMonitorDraggedItem({ projectId });
+	const dryRunOperation = dragOperation ?? operationModeOperation;
+	const { data: dryRunResult } = useDryRunOperation(projectId, dryRunOperation);
+	const predictedConflictedCommitIds = dryRunResult
+		? getConflictedCommitIds(dryRunResult.workspace)
+		: new Set<string>();
 
 	const shortcutScope = getScope({ selectedItem, layoutState, workspaceMode });
 
@@ -1706,8 +1742,6 @@ const ProjectPage: FC = () => {
 		confirmAbsorption,
 		clearAbsorptionPlan,
 	} = useAbsorption(projectId);
-
-	useMonitorDraggedItem({ projectId });
 
 	useWorkspaceShortcuts({
 		inlineRenameBranchFormRef,
@@ -1768,6 +1802,7 @@ const ProjectPage: FC = () => {
 						inlineRenameBranchFormRef={inlineRenameBranchFormRef}
 						inlineRewordCommitFormRef={inlineRewordCommitFormRef}
 						operationMode={operationMode}
+						predictedConflictedCommitIds={predictedConflictedCommitIds}
 						projectId={project.id}
 						stack={stack}
 						workspaceMode={workspaceMode}
