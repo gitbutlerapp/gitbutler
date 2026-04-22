@@ -16,20 +16,20 @@ import { type OperationMode } from "./WorkspaceMode.ts";
 import styles from "./OperationTarget.module.css";
 
 const dropTargetToOperation =
-	(item: Item, source: Item) =>
+	(target: Item, source: Item) =>
 	({ input, element }: GetDataParams[0]): Operation | null => {
 		const combine = rubOperation({
 			source,
-			target: item,
+			target,
 		});
 		const insertAbove = moveOperation({
 			source,
-			target: item,
+			target,
 			side: "above",
 		});
 		const insertBelow = moveOperation({
 			source,
-			target: item,
+			target,
 			side: "below",
 		});
 
