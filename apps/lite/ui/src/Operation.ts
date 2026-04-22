@@ -459,7 +459,7 @@ export const moveOperation = ({
 	if (!relativeTo) return null;
 
 	return Match.value(source).pipe(
-		Match.when({ _tag: "Commit" }, ({ commitId }) =>
+		Match.tag("Commit", ({ commitId }) =>
 			commitMoveOperation({
 				subjectCommitIds: [commitId],
 				relativeTo,
