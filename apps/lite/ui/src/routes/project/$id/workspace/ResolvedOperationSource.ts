@@ -135,22 +135,22 @@ const resolvedOperationSourceFromItem = ({
 			},
 			Stack: ({ stackId }) => stackResolvedOperationSource({ stackId }),
 			Hunk: ({ parent, path, hunkHeader }) => {
-				const change = Match.value(parent).pipe(
+				const changes = Match.value(parent).pipe(
 					Match.tagsExhaustive({
 						Change: () => {
 							if (!worktreeChanges) return null;
-
-							return worktreeChanges.changes.find((candidate) => candidate.path === path) ?? null;
+							return worktreeChanges.changes;
 						},
 						Commit: ({ commitId }) => {
 							const commitDetails = getCommitDetails(commitId);
 							if (!commitDetails) return null;
-
-							return commitDetails.changes.find((candidate) => candidate.path === path) ?? null;
+							return commitDetails.changes;
 						},
 					}),
 				);
+				if (!changes) return null;
 
+				const change = changes.find((candidate) => candidate.path === path);
 				if (!change) return null;
 
 				return treeChangesResolvedOperationSource({
