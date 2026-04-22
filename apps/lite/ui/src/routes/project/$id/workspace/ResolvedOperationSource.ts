@@ -107,14 +107,8 @@ const resolvedOperationSourceFromItem = ({
 				if (!worktreeChanges) return null;
 
 				const changes = worktreeChanges.changes.flatMap(
-					(change): Array<TreeChangeWithHunkHeaders> => [
-						{
-							change,
-							hunkHeaders: [],
-						},
-					],
+					(change): Array<TreeChangeWithHunkHeaders> => [{ change, hunkHeaders: [] }],
 				);
-
 				return treeChangesResolvedOperationSource({
 					parent: changeFileParent,
 					changes,
