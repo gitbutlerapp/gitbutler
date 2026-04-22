@@ -335,18 +335,28 @@ export const rubOperation = ({
 	target: Item;
 }): Operation | null =>
 	Match.value({ source, target }).pipe(
-		Match.when({ source: { _tag: "Commit" }, target: { _tag: "Commit" } }, ({ source, target }) =>
-			commitSquashOperation({
-				sourceCommitId: source.commitId,
-				destinationCommitId: target.commitId,
-				dryRun: false,
-			}),
+		Match.when(
+			{
+				source: { _tag: "Commit" },
+				target: { _tag: "Commit" },
+			},
+			({ source, target }) =>
+				commitSquashOperation({
+					sourceCommitId: source.commitId,
+					destinationCommitId: target.commitId,
+					dryRun: false,
+				}),
 		),
-		Match.when({ source: { _tag: "Commit" }, target: { _tag: "ChangesSection" } }, ({ source }) =>
-			commitUncommitOperation({
-				commitId: source.commitId,
-				assignTo: null,
-			}),
+		Match.when(
+			{
+				source: { _tag: "Commit" },
+				target: { _tag: "ChangesSection" },
+			},
+			({ source }) =>
+				commitUncommitOperation({
+					commitId: source.commitId,
+					assignTo: null,
+				}),
 		),
 		Match.when(
 			{
@@ -409,12 +419,17 @@ export const moveOperation = ({
 		// https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 		// https://linear.app/gitbutler/issue/GB-1199/support-moving-branches-onto-commits
 		// https://linear.app/gitbutler/issue/GB-1232/support-moving-branch-before-another-branch
-		Match.when({ source: { _tag: "Branch" }, target: { _tag: "Branch" } }, ({ source, target }) =>
-			moveBranchOperation({
-				subjectBranch: decodeRefName(source.branchRef),
-				targetBranch: decodeRefName(target.branchRef),
-				dryRun: false,
-			}),
+		Match.when(
+			{
+				source: { _tag: "Branch" },
+				target: { _tag: "Branch" },
+			},
+			({ source, target }) =>
+				moveBranchOperation({
+					subjectBranch: decodeRefName(source.branchRef),
+					targetBranch: decodeRefName(target.branchRef),
+					dryRun: false,
+				}),
 		),
 		Match.when(
 			{
@@ -452,35 +467,27 @@ export const moveOperation = ({
 				dryRun: false,
 			}),
 		),
-		Match.when(
-			{
-				source: { _tag: "TreeChanges", parent: { _tag: "Change" } },
-			},
-			({ source }) =>
-				commitCreateOperation({
-					relativeTo,
-					side,
-					changes: source.changes.map(({ change, hunkHeaders }) =>
-						createDiffSpec(change, hunkHeaders),
-					),
-					message: "",
-					dryRun: false,
-				}),
+		Match.when({ source: { _tag: "TreeChanges", parent: { _tag: "Change" } } }, ({ source }) =>
+			commitCreateOperation({
+				relativeTo,
+				side,
+				changes: source.changes.map(({ change, hunkHeaders }) =>
+					createDiffSpec(change, hunkHeaders),
+				),
+				message: "",
+				dryRun: false,
+			}),
 		),
-		Match.when(
-			{
-				source: { _tag: "TreeChanges", parent: { _tag: "Commit" } },
-			},
-			({ source }) =>
-				commitCreateFromCommittedChangesOperation({
-					sourceCommitId: source.parent.commitId,
-					relativeTo,
-					side,
-					changes: source.changes.map(({ change, hunkHeaders }) =>
-						createDiffSpec(change, hunkHeaders),
-					),
-					dryRun: false,
-				}),
+		Match.when({ source: { _tag: "TreeChanges", parent: { _tag: "Commit" } } }, ({ source }) =>
+			commitCreateFromCommittedChangesOperation({
+				sourceCommitId: source.parent.commitId,
+				relativeTo,
+				side,
+				changes: source.changes.map(({ change, hunkHeaders }) =>
+					createDiffSpec(change, hunkHeaders),
+				),
+				dryRun: false,
+			}),
 		),
 		Match.orElse(() => null),
 	);
