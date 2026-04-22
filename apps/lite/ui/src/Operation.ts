@@ -458,8 +458,8 @@ export const moveOperation = ({
 
 	if (!relativeTo) return null;
 
-	return Match.value({ source, target }).pipe(
-		Match.whenOr({ source: { _tag: "Commit" } }, ({ source: { commitId } }) =>
+	return Match.value(source).pipe(
+		Match.whenOr({ _tag: "Commit" }, ({ commitId }) =>
 			commitMoveOperation({
 				subjectCommitIds: [commitId],
 				relativeTo,
@@ -467,7 +467,7 @@ export const moveOperation = ({
 				dryRun: false,
 			}),
 		),
-		Match.when({ source: { _tag: "TreeChanges", parent: { _tag: "Change" } } }, ({ source }) =>
+		Match.when({ _tag: "TreeChanges", parent: { _tag: "Change" } }, (source) =>
 			commitCreateOperation({
 				relativeTo,
 				side,
@@ -478,7 +478,7 @@ export const moveOperation = ({
 				dryRun: false,
 			}),
 		),
-		Match.when({ source: { _tag: "TreeChanges", parent: { _tag: "Commit" } } }, ({ source }) =>
+		Match.when({ _tag: "TreeChanges", parent: { _tag: "Commit" } }, (source) =>
 			commitCreateFromCommittedChangesOperation({
 				sourceCommitId: source.parent.commitId,
 				relativeTo,
