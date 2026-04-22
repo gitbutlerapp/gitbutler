@@ -5,7 +5,6 @@
 	import { standardTheme } from "$lib/richText/config/theme";
 	// import CodeBlockTypeAhead from '$lib/richText/plugins/CodeBlockTypeAhead.svelte';
 	import EmojiPlugin from "$lib/richText/plugins/Emoji.svelte";
-	import IndentPlugin from "$lib/richText/plugins/IndentPlugin.svelte";
 	import InlineCodePlugin from "$lib/richText/plugins/InlineCode.svelte";
 	import PlainTextPastePlugin from "$lib/richText/plugins/PlainTextPastePlugin.svelte";
 	import OnChangePlugin, { type OnChangeCallback } from "$lib/richText/plugins/onChange.svelte";
@@ -288,7 +287,6 @@
 		{/if}
 
 		<RichTextPlugin />
-		<IndentPlugin />
 		<PlainTextPastePlugin />
 		<InlineCodePlugin />
 

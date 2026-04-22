@@ -1,11 +1,8 @@
 import { wrapIfNecessary } from "$lib/richText/linewrap";
-import { handleEnter } from "$lib/richText/plugins/IndentPlugin.svelte";
 import {
 	createEditor,
 	TextNode,
 	type LexicalEditor,
-	COMMAND_PRIORITY_CRITICAL,
-	KEY_ENTER_COMMAND,
 	type NodeKey,
 	type NodeMutation,
 } from "lexical";
@@ -697,9 +694,6 @@ describe("HardWrapPlugin with multi-paragraph structure", () => {
 		it("should allow adding multiple newlines at the end by typing", () => {
 			const maxLength = 72;
 
-			// Register the IndentPlugin's Enter handler (simulating real editor behavior)
-			editor.registerCommand(KEY_ENTER_COMMAND, handleEnter, COMMAND_PRIORITY_CRITICAL);
-
 			// Register the HardWrapPlugin's mutation listener (simulating the plugin being active)
 			editor.registerMutationListener(TextNode, (nodes: Map<NodeKey, NodeMutation>) => {
 				editor.update(
@@ -732,12 +726,18 @@ describe("HardWrapPlugin with multi-paragraph structure", () => {
 
 			// Simulate pressing Enter (like a user would)
 			editor.update(() => {
-				editor.dispatchCommand(KEY_ENTER_COMMAND, null);
+				const selection = getSelection();
+				if (isRangeSelection(selection)) {
+					selection.insertParagraph();
+				}
 			});
 
 			// Press Enter again
 			editor.update(() => {
-				editor.dispatchCommand(KEY_ENTER_COMMAND, null);
+				const selection = getSelection();
+				if (isRangeSelection(selection)) {
+					selection.insertParagraph();
+				}
 			});
 
 			// Verify the result
