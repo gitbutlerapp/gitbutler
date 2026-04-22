@@ -408,26 +408,17 @@ export const moveOperation = ({
 	target: Item;
 	side: InsertSide;
 }) => {
-	const relativeTo: RelativeTo | null = Match.value(target).pipe(
-		Match.withReturnType<RelativeTo | null>(),
-		Match.tags({
-			Commit: ({ commitId }) => ({ type: "commit", subject: commitId }),
-			Branch: ({ branchRef }) => ({ type: "referenceBytes", subject: branchRef }),
-		}),
-		Match.orElse(() => null),
-	);
-
-	return Match.value({ resolvedOperationSource, target, relativeTo }).pipe(
+	const branchMoveOperation = Match.value({ resolvedOperationSource, target }).pipe(
 		// This should support `relativeTo`:
 		// https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
 		// https://linear.app/gitbutler/issue/GB-1199/support-moving-branches-onto-commits
 		// https://linear.app/gitbutler/issue/GB-1232/support-moving-branch-before-another-branch
 		Match.when(
-			{ resolvedOperationSource: { _tag: "Branch" }, relativeTo: { type: "referenceBytes" } },
-			({ resolvedOperationSource, relativeTo }) =>
+			{ resolvedOperationSource: { _tag: "Branch" }, target: { _tag: "Branch" } },
+			({ resolvedOperationSource, target }) =>
 				moveBranchOperation({
 					subjectBranch: decodeRefName(resolvedOperationSource.branchRef),
-					targetBranch: decodeRefName(relativeTo.subject),
+					targetBranch: decodeRefName(target.branchRef),
 					dryRun: false,
 				}),
 		),
@@ -442,9 +433,26 @@ export const moveOperation = ({
 					dryRun: false,
 				}),
 		),
+		Match.orElse(() => null),
+	);
+
+	if (branchMoveOperation) return branchMoveOperation;
+
+	const relativeTo: RelativeTo | null = Match.value(target).pipe(
+		Match.withReturnType<RelativeTo | null>(),
+		Match.tags({
+			Commit: ({ commitId }) => ({ type: "commit", subject: commitId }),
+			Branch: ({ branchRef }) => ({ type: "referenceBytes", subject: branchRef }),
+		}),
+		Match.orElse(() => null),
+	);
+
+	if (!relativeTo) return null;
+
+	return Match.value({ resolvedOperationSource, target }).pipe(
 		Match.whenOr(
-			{ resolvedOperationSource: { _tag: "Commit" }, relativeTo: Match.defined },
-			({ resolvedOperationSource: { commitId }, relativeTo }) =>
+			{ resolvedOperationSource: { _tag: "Commit" } },
+			({ resolvedOperationSource: { commitId } }) =>
 				commitMoveOperation({
 					subjectCommitIds: [commitId],
 					relativeTo,
@@ -455,9 +463,8 @@ export const moveOperation = ({
 		Match.when(
 			{
 				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Change" } },
-				relativeTo: Match.defined,
 			},
-			({ resolvedOperationSource, relativeTo }) =>
+			({ resolvedOperationSource }) =>
 				commitCreateOperation({
 					relativeTo,
 					side,
@@ -471,9 +478,8 @@ export const moveOperation = ({
 		Match.when(
 			{
 				resolvedOperationSource: { _tag: "TreeChanges", parent: { _tag: "Commit" } },
-				relativeTo: Match.defined,
 			},
-			({ resolvedOperationSource, relativeTo }) =>
+			({ resolvedOperationSource }) =>
 				commitCreateFromCommittedChangesOperation({
 					sourceCommitId: resolvedOperationSource.parent.commitId,
 					relativeTo,
