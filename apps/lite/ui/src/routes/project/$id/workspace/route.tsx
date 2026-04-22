@@ -1773,7 +1773,7 @@ const ProjectPage: FC = () => {
 		selectNormalizedSelectedItem(state, { projectId, navigationIndex }),
 	);
 
-	const dryRunOperation =
+	const operationModeOperation =
 		operationMode && source && selectedItem
 			? operationModeToOperation({
 					operationMode,
@@ -1781,6 +1781,8 @@ const ProjectPage: FC = () => {
 					target: selectedItem,
 				})
 			: null;
+	const dragOperation = useMonitorDraggedItem({ projectId });
+	const dryRunOperation = dragOperation ?? operationModeOperation;
 	const { data: dryRunResult } = useDryRunOperation(projectId, dryRunOperation);
 
 	const shortcutScope = getScope({ selectedItem, layoutState, workspaceMode });
@@ -1792,8 +1794,6 @@ const ProjectPage: FC = () => {
 		confirmAbsorption,
 		clearAbsorptionPlan,
 	} = useAbsorption(projectId);
-
-	useMonitorDraggedItem({ projectId });
 
 	useWorkspaceShortcuts({
 		inlineRenameBranchFormRef,
