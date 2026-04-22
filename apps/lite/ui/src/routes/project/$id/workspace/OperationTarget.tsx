@@ -63,7 +63,7 @@ export type TargetData = {
 	operation: Operation | null;
 };
 
-const useDropTarget = ({ item }: { projectId: string; item: Item }) =>
+const useDropTarget = ({ item }: { item: Item }) =>
 	useDroppable((args): TargetData | null => {
 		const dragData = parseDragData(args.source.data);
 		if (!dragData) return null;
@@ -82,7 +82,6 @@ const useOperationModeTarget = ({
 	operationMode,
 	isSelected,
 }: {
-	projectId: string;
 	item: Item;
 	operationMode: OperationMode | null;
 	isSelected: boolean;
@@ -112,9 +111,8 @@ export const OperationTarget: FC<
 		isSelected: boolean;
 	} & useRender.ComponentProps<"div">
 > = ({ item, projectId, operationMode, isSelected, render, ...props }) => {
-	const [dropData, dropRef] = useDropTarget({ projectId, item });
+	const [dropData, dropRef] = useDropTarget({ item });
 	const operationModeTarget = useOperationModeTarget({
-		projectId,
 		item,
 		operationMode,
 		isSelected,
