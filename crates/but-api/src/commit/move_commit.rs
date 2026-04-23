@@ -69,7 +69,7 @@ pub fn commit_move_only_with_perm(
 
     let setup_started = Instant::now();
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (repo, mut ws) = ctx.workspace_mut_with_perm(perm)?;
     println!(
         "commit_move_only_with_perm: context prepared {:?}",
         setup_started.elapsed()

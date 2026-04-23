@@ -1,5 +1,5 @@
 use anyhow::{Context as _, bail};
-use but_core::{DiffSpec, DryRun};
+use but_core::DryRun;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use std::time::Instant;
 
@@ -38,6 +38,27 @@ fn main() -> anyhow::Result<()> {
         "[timing] context open elapsed={:?}",
         open_ctx_started.elapsed()
     );
+
+    // println!("[warmup] Measuring workspace init (cold -> warm)...");
+    // let ws_cold_started = Instant::now();
+    // {
+    //     let mut guard = ctx.exclusive_worktree_access();
+    //     let _ = ctx.workspace_mut_with_perm(guard.write_permission())?;
+    // }
+    // println!(
+    //     "[timing] workspace_mut_with_perm cold elapsed={:?}",
+    //     ws_cold_started.elapsed()
+    // );
+
+    // let ws_warm_started = Instant::now();
+    // {
+    //     let mut guard = ctx.exclusive_worktree_access();
+    //     let _ = ctx.workspace_mut_with_perm(guard.write_permission())?;
+    // }
+    // println!(
+    //     "[timing] workspace_mut_with_perm warm elapsed={:?}",
+    //     ws_warm_started.elapsed()
+    // );
 
     println!("[2/3] Reading head info and branch details...");
     let head_info_started = Instant::now();
@@ -108,6 +129,4 @@ fn main() -> anyhow::Result<()> {
     println!("[timing] total elapsed={:?}", total_started.elapsed());
 
     std::process::exit(0);
-
-    Ok(())
 }
