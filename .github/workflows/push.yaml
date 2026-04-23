@@ -264,7 +264,17 @@ jobs:
   rust-test:
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
-    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-15 # [macOs, ARM64] - default target
+          - platform: ubuntu-22.04 # [linux, x64]
+          - platform: windows-latest # [windows, x64]
+
+    runs-on: ${{ matrix.platform }}
+
     env:
       CARGO_TERM_COLOR: always
       GITBUTLER_TESTS_NO_CLEANUP: "1"
@@ -278,9 +288,10 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
-          shared-key: cargo-test-no-tauri
+          shared-key: cargo-test-no-tauri-${{ matrix.platform }}
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Dependencies for 'keyring'
+        if: runner.os == 'Linux'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
       - run: cargo test --workspace --exclude gitbutler-tauri --exclude but-server --exclude but-api-macros-tests
       # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
