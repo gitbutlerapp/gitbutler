@@ -83,6 +83,9 @@ fn commiting_with_no_unassigned_changes() {
 }
 
 #[test]
+#[cfg(not(target_os = "windows"))]
+/// Note: Fails on Windows as the "volatile ID scrubbing" fails, so the commit IDs differ
+/// TODO: Fix the volatile ID scrubbing
 fn commit_from_unstaged_changes_creates_commit_visible_in_tui() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
@@ -120,6 +123,9 @@ fn commit_from_unstaged_changes_creates_commit_visible_in_tui() {
 }
 
 #[test]
+#[cfg(not(target_os = "windows"))]
+/// Note: Fails on Windows as the "volatile ID scrubbing" fails, so the commit IDs differ
+/// TODO: Fix the volatile ID scrubbing
 fn commit_from_unstaged_changes_with_multiple_hunks_in_same_file_commits_all_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
@@ -242,6 +248,9 @@ fn commit_mode_ignores_commit_target_insert_side_keys() {
 }
 
 #[test]
+#[cfg(not(target_os = "windows"))]
+/// Note: Fails on Windows as the "volatile ID scrubbing" fails, so the commit IDs differ
+/// TODO: Fix the volatile ID scrubbing
 fn commit_to_commit_above_creates_commit_visible_in_tui() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
@@ -282,6 +291,9 @@ fn commit_to_commit_above_creates_commit_visible_in_tui() {
 }
 
 #[test]
+#[cfg(not(target_os = "windows"))]
+/// Note: Fails on Windows as the "volatile ID scrubbing" fails, so the commit IDs differ
+/// TODO: Fix the volatile ID scrubbing
 fn commit_to_commit_below_creates_commit_visible_in_tui() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
