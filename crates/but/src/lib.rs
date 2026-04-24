@@ -405,25 +405,8 @@ async fn match_subcommand(
                         empty,
                     )
                 }
-                #[cfg(feature = "legacy")]
-                Some(branch::Subcommands::Show {
-                    branch_id,
-                    review,
-                    files,
-                    ai,
-                    check,
-                }) => {
-                    let mut ctx = setup::init_ctx(
-                        &args,
-                        InitCtxOptions {
-                            background_sync: BackgroundSync::Enabled { silent: false },
-                            ..Default::default()
-                        },
-                        out,
-                    )?;
-                    command::legacy::branch::show_branches(
-                        &mut ctx, out, branch_id, review, files, ai, check,
-                    )
+                Some(branch::Subcommands::Show { .. }) => {
+                    anyhow::bail!("`but branch show` has been removed. Use `but show` instead.")
                 }
                 #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::New {
