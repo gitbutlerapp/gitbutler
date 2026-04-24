@@ -39,11 +39,11 @@ Shows:
 
 ### `but show <id>`
 
-Details about a commit or branch.
+Details about a commit or branch. For branches, show commits ahead of base.
 
 ```bash
 but show <id>           # Show details
-but show <id> --verbose # Show with full messages and file details
+but show <id> --verbose # Show full commit messages and file details
 ```
 
 ### `but diff [target]`
@@ -114,18 +114,6 @@ Delete a branch.
 ```bash
 but branch delete <id>
 but branch -d <id>      # Short form
-```
-
-### `but branch show <id>`
-
-Show commits ahead of base for a branch.
-
-```bash
-but branch show <id>
-but branch show <id> -f       # Show files modified in each commit with line counts
-but branch show <id> --ai     # Generate AI summary of branch changes
-but branch show <id> --check  # Check if branch merges cleanly into upstream
-but branch show <id> -r       # Fetch and display review information (PRs/MRs)
 ```
 
 ### `but pick <source> [target]`
