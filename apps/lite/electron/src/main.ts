@@ -253,8 +253,6 @@ const createMainWindow = async (): Promise<void> => {
 		},
 	});
 
-	mainWindow.maximize();
-
 	const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 	if (devServerUrl !== undefined) {
 		await mainWindow.loadURL(devServerUrl);
