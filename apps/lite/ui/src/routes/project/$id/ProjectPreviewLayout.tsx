@@ -59,9 +59,9 @@ export const ProjectPreviewLayout: FC<{
 	projectId: string;
 	primaryActiveDescendantId?: string;
 	children: ReactNode;
-	preview: ReactNode | null;
+	show: ReactNode | null;
 	panelElementRef: (panel: PanelType) => (element: HTMLDivElement | null) => void;
-}> = ({ primaryActiveDescendantId, children, panelElementRef, projectId, preview }) => {
+}> = ({ primaryActiveDescendantId, children, panelElementRef, projectId, show }) => {
 	const layoutState = useAppSelector((state) => selectProjectLayoutState(state, projectId));
 	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
 		id: `project:${projectId}:layout`,
@@ -69,11 +69,7 @@ export const ProjectPreviewLayout: FC<{
 	});
 
 	return (
-		<Group
-			className={styles.pageWithPreview}
-			defaultLayout={defaultLayout}
-			onLayoutChange={onLayoutChanged}
-		>
+		<Group className={styles.page} defaultLayout={defaultLayout} onLayoutChange={onLayoutChanged}>
 			<Panel
 				id={"primary" satisfies PanelType}
 				minSize={400}
@@ -87,18 +83,18 @@ export const ProjectPreviewLayout: FC<{
 			>
 				{children}
 			</Panel>
-			{isPanelVisible(layoutState, "preview") && (
+			{isPanelVisible(layoutState, "show") && (
 				<>
-					<Separator className={styles.previewResizeHandle} />
+					<Separator className={styles.panelResizeHandle} />
 					<Panel
-						id={"preview" satisfies PanelType}
+						id={"show" satisfies PanelType}
 						minSize={300}
 						defaultSize="70%"
-						elementRef={panelElementRef("preview")}
+						elementRef={panelElementRef("show")}
 						tabIndex={0}
-						className={classes(styles.panel, styles.previewPanel)}
+						className={classes(styles.panel, styles.showPanel)}
 					>
-						{preview}
+						{show}
 					</Panel>
 				</>
 			)}

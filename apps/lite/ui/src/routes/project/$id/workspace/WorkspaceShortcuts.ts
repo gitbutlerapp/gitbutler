@@ -117,22 +117,22 @@ const itemSelectionBindings: Array<ShortcutBinding<ItemSelectionAction>> = [
 type PanelNavigationAction =
 	| { _tag: "FocusPreviousPanel" }
 	| { _tag: "FocusNextPanel" }
-	| { _tag: "TogglePreview" };
+	| { _tag: "ToggleShow" };
 
 const isPanelNavigationAction = (action: { _tag: string }): action is PanelNavigationAction =>
 	action._tag === "FocusPreviousPanel" ||
 	action._tag === "FocusNextPanel" ||
-	action._tag === "TogglePreview";
+	action._tag === "ToggleShow";
 
 const focusPreviousPanelAction: PanelNavigationAction = { _tag: "FocusPreviousPanel" };
 const focusNextPanelAction: PanelNavigationAction = { _tag: "FocusNextPanel" };
-const togglePreviewAction: PanelNavigationAction = { _tag: "TogglePreview" };
+const toggleShowAction: PanelNavigationAction = { _tag: "ToggleShow" };
 
-export const togglePreviewBinding: ShortcutBinding<PanelNavigationAction> = {
-	id: "primary-panel-toggle-preview",
-	description: "Preview",
+export const toggleShowBinding: ShortcutBinding<PanelNavigationAction> = {
+	id: "primary-panel-toggle-show",
+	description: "Show",
 	keys: ["p"],
-	action: togglePreviewAction,
+	action: toggleShowAction,
 	repeat: false,
 };
 
@@ -151,7 +151,7 @@ const panelNavigationBindings: Array<ShortcutBinding<PanelNavigationAction>> = [
 		action: focusNextPanelAction,
 		repeat: false,
 	},
-	togglePreviewBinding,
+	toggleShowBinding,
 ];
 
 type PrimaryPanelAction =
@@ -411,20 +411,20 @@ const getDefaultModeScopeLabel = (scope: DefaultModeScope): string =>
 		}),
 	);
 
-type PreviewAction = { _tag: "ClosePreview" } | PanelNavigationAction;
+type ShowAction = { _tag: "CloseShow" } | PanelNavigationAction;
 
-const closePreviewAction: PreviewAction = { _tag: "ClosePreview" };
+const closeShowAction: ShowAction = { _tag: "CloseShow" };
 
-const closePreviewBinding: ShortcutBinding<PreviewAction> = {
-	id: "preview-close",
+const closeShowBinding: ShortcutBinding<ShowAction> = {
+	id: "show-close",
 	description: "Close",
 	keys: ["Escape"],
-	action: closePreviewAction,
+	action: closeShowAction,
 	repeat: false,
 };
 
-const previewBindings: Array<ShortcutBinding<PreviewAction>> = [
-	closePreviewBinding,
+const showBindings: Array<ShortcutBinding<ShowAction>> = [
+	closeShowBinding,
 	...panelNavigationBindings,
 ];
 
@@ -636,11 +636,11 @@ const getModeScope = ({
 		}),
 	);
 
-type PreviewScope = {
-	bindings: Array<ShortcutBinding<PreviewAction>>;
+type ShowScope = {
+	bindings: Array<ShortcutBinding<ShowAction>>;
 };
 
-type Scope = ModeScope | ({ _tag: "Preview" } & PreviewScope);
+type Scope = ModeScope | ({ _tag: "Show" } & ShowScope);
 
 const isOperationModeScope = (scope: Scope): scope is OperationModeScope =>
 	Match.value(scope).pipe(
@@ -650,12 +650,12 @@ const isOperationModeScope = (scope: Scope): scope is OperationModeScope =>
 			Default: () => false,
 			RenameBranch: () => false,
 			RewordCommit: () => false,
-			Preview: () => false,
+			Show: () => false,
 		}),
 	);
 
-const previewScope = ({ bindings }: PreviewScope): Scope => ({
-	_tag: "Preview",
+const showScope = ({ bindings }: ShowScope): Scope => ({
+	_tag: "Show",
 	bindings,
 });
 
@@ -670,7 +670,7 @@ export const getScope = ({
 }): Scope | null =>
 	Match.value(focusedPanel).pipe(
 		Match.when(null, () => null),
-		Match.when("preview", () => previewScope({ bindings: previewBindings })),
+		Match.when("show", () => showScope({ bindings: showBindings })),
 		Match.when("primary", () => getModeScope({ selectedItem, workspaceMode })),
 		Match.exhaustive,
 	);
@@ -680,7 +680,7 @@ export const getScopeBindings = (scope: Scope): Array<ShortcutBinding<ShortcutAc
 		Match.tagsExhaustive({
 			Default: ({ scope }) => scope.bindings,
 			Move: ({ bindings }) => bindings,
-			Preview: ({ bindings }) => bindings,
+			Show: ({ bindings }) => bindings,
 			RenameBranch: ({ bindings }) => bindings,
 			RewordCommit: ({ bindings }) => bindings,
 			Rub: ({ bindings }) => bindings,
@@ -692,7 +692,7 @@ export const getScopeLabel = (scope: Scope): string =>
 		Match.tagsExhaustive({
 			Default: ({ scope }) => getDefaultModeScopeLabel(scope),
 			Move: (scope) => getOperationModeScopeLabel(scope),
-			Preview: () => "Preview",
+			Show: () => "Preview (show)",
 			RenameBranch: () => "Rename branch",
 			RewordCommit: () => "Reword commit",
 			Rub: (scope) => getOperationModeScopeLabel(scope),
@@ -780,7 +780,7 @@ export const useWorkspaceShortcuts = ({
 			Match.tagsExhaustive({
 				FocusNextPanel: () => focusAdjacentPanel(1),
 				FocusPreviousPanel: () => focusAdjacentPanel(-1),
-				TogglePreview: () => dispatch(projectActions.togglePanel({ projectId, panel: "preview" })),
+				ToggleShow: () => dispatch(projectActions.togglePanel({ projectId, panel: "show" })),
 			}),
 		);
 
@@ -919,15 +919,15 @@ export const useWorkspaceShortcuts = ({
 			}),
 		);
 
-	const handlePreviewScopeAction = (action: PreviewAction) =>
+	const handleShowScopeAction = (action: ShowAction) =>
 		Match.value(action).pipe(
 			Match.tags({
-				ClosePreview: () => {
-					dispatch(projectActions.hidePanel({ projectId, panel: "preview" }));
+				CloseShow: () => {
+					dispatch(projectActions.hidePanel({ projectId, panel: "show" }));
 					focusPanel("primary");
 				},
-				TogglePreview: () => {
-					dispatch(projectActions.togglePanel({ projectId, panel: "preview" }));
+				ToggleShow: () => {
+					dispatch(projectActions.togglePanel({ projectId, panel: "show" }));
 					focusPanel("primary");
 				},
 			}),
@@ -999,11 +999,11 @@ export const useWorkspaceShortcuts = ({
 			: Match.value(scope).pipe(
 					Match.tagsExhaustive({
 						Default: ({ scope }) => handleDefaultScopeKeyDown(scope, event),
-						Preview: (scope) => {
+						Show: (scope) => {
 							const action = getAction(scope.bindings, event);
 							if (!action) return;
 							event.preventDefault();
-							handlePreviewScopeAction(action);
+							handleShowScopeAction(action);
 						},
 						RenameBranch: (scope) => {
 							const action = getAction(scope.bindings, event);

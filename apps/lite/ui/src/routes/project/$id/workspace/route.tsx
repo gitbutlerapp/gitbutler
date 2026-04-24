@@ -526,7 +526,7 @@ const ChangesFileDiffList: FC<{
 	);
 };
 
-const ChangesPreview: FC<{
+const ChangesShow: FC<{
 	projectId: string;
 	selectedPath?: string;
 }> = ({ projectId, selectedPath }) => {
@@ -552,7 +552,7 @@ const ChangesPreview: FC<{
 	);
 };
 
-const CommitPreview: FC<{
+const CommitShow: FC<{
 	projectId: string;
 	commitId: string;
 	selectedPath?: string | null;
@@ -594,7 +594,7 @@ const CommitPreview: FC<{
 	);
 };
 
-const BranchPreview: FC<{
+const BranchShow: FC<{
 	projectId: string;
 	branchRef: Array<number>;
 }> = ({ projectId, branchRef }) => {
@@ -620,21 +620,21 @@ const BranchPreview: FC<{
 	);
 };
 
-const Preview: FC<{
+const Show: FC<{
 	projectId: string;
 	selectedItem: Item;
 }> = ({ projectId, selectedItem }) =>
 	Match.value(selectedItem).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
-			Branch: ({ branchRef }) => <BranchPreview projectId={projectId} branchRef={branchRef} />,
-			ChangesSection: () => <ChangesPreview projectId={projectId} />,
-			ChangeFile: ({ path }) => <ChangesPreview projectId={projectId} selectedPath={path} />,
+			Branch: ({ branchRef }) => <BranchShow projectId={projectId} branchRef={branchRef} />,
+			ChangesSection: () => <ChangesShow projectId={projectId} />,
+			ChangeFile: ({ path }) => <ChangesShow projectId={projectId} selectedPath={path} />,
 			Commit: ({ commitId, stackId }) => (
-				<CommitPreview projectId={projectId} commitId={commitId} stackId={stackId} />
+				<CommitShow projectId={projectId} commitId={commitId} stackId={stackId} />
 			),
 			CommitFile: ({ commitId, path, stackId }) => (
-				<CommitPreview
+				<CommitShow
 					projectId={projectId}
 					commitId={commitId}
 					stackId={stackId}
@@ -1814,9 +1814,9 @@ const ProjectPage: FC = () => {
 				projectId={projectId}
 				primaryActiveDescendantId={treeItemId(projectId, selectedItem)}
 				panelElementRef={panelElementRef}
-				preview={
-					<Suspense fallback={<div>Loading preview…</div>}>
-						<Preview projectId={projectId} selectedItem={selectedItem} />
+				show={
+					<Suspense fallback={<div>Loading preview (show)…</div>}>
+						<Show projectId={projectId} selectedItem={selectedItem} />
 					</Suspense>
 				}
 			>

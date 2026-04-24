@@ -11,7 +11,7 @@ import {
 	selectProjectLayoutState,
 } from "#ui/routes/project/$id/state/projectSlice.ts";
 import { useAppDispatch, useAppSelector } from "#ui/state/hooks.ts";
-import { togglePreviewBinding } from "#ui/routes/project/$id/workspace/WorkspaceShortcuts.ts";
+import { toggleShowBinding } from "#ui/routes/project/$id/workspace/WorkspaceShortcuts.ts";
 import uiStyles from "#ui/ui.module.css";
 import styles from "./__root.module.css";
 import { listProjectsQueryOptions } from "#ui/api/queries.ts";
@@ -68,13 +68,13 @@ const TopBarActions: FC = () => {
 	return (
 		<div className={styles.topBarActions}>
 			<ShortcutButton
-				binding={togglePreviewBinding}
+				binding={toggleShowBinding}
 				type="button"
 				className={uiStyles.button}
-				aria-pressed={isPanelVisible(layoutState, "preview")}
-				onClick={() => dispatch(projectActions.togglePanel({ projectId, panel: "preview" }))}
+				aria-pressed={isPanelVisible(layoutState, "show")}
+				onClick={() => dispatch(projectActions.togglePanel({ projectId, panel: "show" }))}
 			>
-				{togglePreviewBinding.description}
+				{toggleShowBinding.description}
 			</ShortcutButton>
 		</div>
 	);
