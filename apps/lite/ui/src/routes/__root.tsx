@@ -5,7 +5,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext } from "@tanstack/react-router";
 import { ShortcutButton } from "#ui/ShortcutButton.tsx";
 import { ShortcutsBarPortalContext } from "#ui/routes/project/$id/ShortcutsBar.tsx";
-import { isPreviewPanelVisible } from "#ui/routes/project/$id/state/layout.ts";
+import { isPanelVisible } from "#ui/routes/project/$id/state/layout.ts";
 import {
 	projectActions,
 	selectProjectLayoutState,
@@ -71,8 +71,8 @@ const TopBarActions: FC = () => {
 				binding={togglePreviewBinding}
 				type="button"
 				className={uiStyles.button}
-				aria-pressed={isPreviewPanelVisible(layoutState)}
-				onClick={() => dispatch(projectActions.togglePreview({ projectId }))}
+				aria-pressed={isPanelVisible(layoutState, "preview")}
+				onClick={() => dispatch(projectActions.togglePanel({ projectId, panel: "preview" }))}
 			>
 				{togglePreviewBinding.description}
 			</ShortcutButton>

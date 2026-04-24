@@ -1,8 +1,7 @@
 import { FC, ReactNode, useRef, useSyncExternalStore } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import {
-	getVisiblePanels,
-	isPreviewPanelVisible,
+	isPanelVisible,
 	orderedPanels,
 	Panel as PanelType,
 } from "#ui/routes/project/$id/state/layout.ts";
@@ -64,10 +63,9 @@ export const ProjectPreviewLayout: FC<{
 	panelElementRef: (panel: PanelType) => (element: HTMLDivElement | null) => void;
 }> = ({ primaryActiveDescendantId, children, panelElementRef, projectId, preview }) => {
 	const layoutState = useAppSelector((state) => selectProjectLayoutState(state, projectId));
-	const panelIds = getVisiblePanels(layoutState);
 	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
 		id: `project:${projectId}:layout`,
-		panelIds,
+		panelIds: layoutState.visiblePanels,
 	});
 
 	return (
@@ -89,7 +87,7 @@ export const ProjectPreviewLayout: FC<{
 			>
 				{children}
 			</Panel>
-			{isPreviewPanelVisible(layoutState) && (
+			{isPanelVisible(layoutState, "preview") && (
 				<>
 					<Separator className={styles.previewResizeHandle} />
 					<Panel

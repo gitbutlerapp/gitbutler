@@ -780,7 +780,7 @@ export const useWorkspaceShortcuts = ({
 			Match.tagsExhaustive({
 				FocusNextPanel: () => focusAdjacentPanel(1),
 				FocusPreviousPanel: () => focusAdjacentPanel(-1),
-				TogglePreview: () => dispatch(projectActions.togglePreview({ projectId })),
+				TogglePreview: () => dispatch(projectActions.togglePanel({ projectId, panel: "preview" })),
 			}),
 		);
 
@@ -923,11 +923,11 @@ export const useWorkspaceShortcuts = ({
 		Match.value(action).pipe(
 			Match.tags({
 				ClosePreview: () => {
-					dispatch(projectActions.closePreview({ projectId }));
+					dispatch(projectActions.hidePanel({ projectId, panel: "preview" }));
 					focusPanel("primary");
 				},
 				TogglePreview: () => {
-					dispatch(projectActions.togglePreview({ projectId }));
+					dispatch(projectActions.togglePanel({ projectId, panel: "preview" }));
 					focusPanel("primary");
 				},
 			}),

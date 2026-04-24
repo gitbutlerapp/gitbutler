@@ -120,11 +120,23 @@ const projectSlice = createSlice({
 			const { projectId, commitIds } = action.payload;
 			workspace.setHighlightedCommitIds(ensureProjectState(state, projectId).workspace, commitIds);
 		},
-		closePreview: (state, action: PayloadAction<{ projectId: string }>) => {
-			layout.closePreview(ensureProjectState(state, action.payload.projectId).layout);
+		showPanel: (state, action: PayloadAction<{ projectId: string; panel: layout.Panel }>) => {
+			layout.showPanel(
+				ensureProjectState(state, action.payload.projectId).layout,
+				action.payload.panel,
+			);
 		},
-		togglePreview: (state, action: PayloadAction<{ projectId: string }>) => {
-			layout.togglePreview(ensureProjectState(state, action.payload.projectId).layout);
+		hidePanel: (state, action: PayloadAction<{ projectId: string; panel: layout.Panel }>) => {
+			layout.hidePanel(
+				ensureProjectState(state, action.payload.projectId).layout,
+				action.payload.panel,
+			);
+		},
+		togglePanel: (state, action: PayloadAction<{ projectId: string; panel: layout.Panel }>) => {
+			layout.togglePanel(
+				ensureProjectState(state, action.payload.projectId).layout,
+				action.payload.panel,
+			);
 		},
 	},
 });
