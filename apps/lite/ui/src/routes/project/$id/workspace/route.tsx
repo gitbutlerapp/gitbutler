@@ -990,7 +990,6 @@ const CommitC: FC<{
 		<OperationSourceC
 			projectId={projectId}
 			source={item}
-			canDrag={() => workspaceMode._tag !== "RewordCommit"}
 			id={treeItemId(projectId, item)}
 			role="treeitem"
 			aria-label={commitTitle(commit.message)}
