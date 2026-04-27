@@ -1112,7 +1112,7 @@ const ChangesSectionRow: FC<{
 					void showNativeContextMenu(event, menuItems);
 				}}
 			>
-				Changes
+				Changes ({changes.length})
 			</div>
 			{workspaceMode._tag === "Default" && (
 				<Toolbar.Root aria-label="Changes actions" className={styles.itemRowToolbar}>
