@@ -1329,16 +1329,18 @@ const InlineRenameBranch: FC<{
 	);
 };
 
-const BranchRow: FC<{
-	inlineRenameBranchFormRef: Ref<HTMLFormElement>;
-	workspaceMode: WorkspaceMode;
-	projectId: string;
-	branchName: string;
-	branchRef: Array<number>;
-	stackId: string;
-	navigationIndex: NavigationIndex;
-	focusPanel: (panel: Panel) => void;
-}> = ({
+const BranchRow: FC<
+	{
+		inlineRenameBranchFormRef: Ref<HTMLFormElement>;
+		workspaceMode: WorkspaceMode;
+		projectId: string;
+		branchName: string;
+		branchRef: Array<number>;
+		stackId: string;
+		navigationIndex: NavigationIndex;
+		focusPanel: (panel: Panel) => void;
+	} & ComponentProps<"div">
+> = ({
 	inlineRenameBranchFormRef,
 	workspaceMode,
 	projectId,
@@ -1347,6 +1349,7 @@ const BranchRow: FC<{
 	stackId,
 	navigationIndex,
 	focusPanel,
+	...restProps
 }) => {
 	const dispatch = useAppDispatch();
 	const branchItemV: BranchItem = {
@@ -1418,7 +1421,7 @@ const BranchRow: FC<{
 	];
 
 	return (
-		<ItemRow projectId={projectId} item={item} navigationIndex={navigationIndex}>
+		<ItemRow {...restProps} projectId={projectId} item={item} navigationIndex={navigationIndex}>
 			{isRenaming ? (
 				<InlineRenameBranch
 					branchName={optimisticBranchName}
@@ -1555,17 +1558,22 @@ const BranchSegment: FC<{
 			label={refName.displayName}
 			expanded
 			className={classes(styles.section, styles.segment)}
-			render={<OperationItem projectId={projectId} item={item} />}
 		>
-			<BranchRow
-				inlineRenameBranchFormRef={inlineRenameBranchFormRef}
-				workspaceMode={workspaceMode}
+			<OperationItem
 				projectId={projectId}
-				branchName={refName.displayName}
-				branchRef={refName.fullNameBytes}
-				stackId={stackId}
-				navigationIndex={navigationIndex}
-				focusPanel={focusPanel}
+				item={item}
+				render={
+					<BranchRow
+						inlineRenameBranchFormRef={inlineRenameBranchFormRef}
+						workspaceMode={workspaceMode}
+						projectId={projectId}
+						branchName={refName.displayName}
+						branchRef={refName.fullNameBytes}
+						stackId={stackId}
+						navigationIndex={navigationIndex}
+						focusPanel={focusPanel}
+					/>
+				}
 			/>
 
 			{segment.commits.length === 0 ? (
