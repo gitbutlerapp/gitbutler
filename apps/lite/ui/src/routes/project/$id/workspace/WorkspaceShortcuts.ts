@@ -394,6 +394,7 @@ const getDefaultModeScope = (selectedItem: Item): DefaultModeScope | null =>
 					bindings: branchBindings,
 					context: selectedItem,
 				}),
+			BranchFile: () => null,
 			Hunk: () => null,
 		}),
 	);

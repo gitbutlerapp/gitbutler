@@ -21,6 +21,7 @@ export const OperationSourceLabel: FC<{
 				const segment = findSegmentByBranchRef({ headInfo, branchRef });
 				return assert(segment?.refName).displayName;
 			},
+			BranchFile: ({ path }) => path,
 			ChangeFile: ({ path }) => path,
 			ChangesSection: () => "Changes",
 			Commit: ({ commitId }) => {

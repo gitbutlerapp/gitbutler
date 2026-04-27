@@ -18,7 +18,12 @@ import {
 } from "#ui/api/queries.ts";
 import { classes } from "#ui/classes.ts";
 import { DependencyIcon, ExpandCollapseIcon, MenuTriggerIcon, PushIcon } from "#ui/icons.tsx";
-import { changeFileParent, commitFileParent, type FileParent } from "#ui/domain/FileParent.ts";
+import {
+	branchFileParent,
+	changeFileParent,
+	commitFileParent,
+	type FileParent,
+} from "#ui/domain/FileParent.ts";
 import { getBranchNameByCommitId, getCommonBaseCommitId } from "#ui/domain/RefInfo.ts";
 import {
 	ProjectPreviewLayout,
@@ -105,6 +110,7 @@ import {
 	type Item,
 	stackItem,
 	hunkItem,
+	branchFileItem,
 } from "./Item.ts";
 import {
 	buildNavigationIndex,
@@ -391,47 +397,38 @@ const getDependencyCommitIds = ({
 const Hunk: FC<{
 	patch: Extract<UnifiedPatch, { type: "Patch" }>;
 	projectId: string;
-	fileParent?: FileParent;
+	fileParent: FileParent;
 	change: TreeChange;
 	hunk: DiffHunk;
 	hunkDependencyDiffs?: Array<HunkDependencyDiff>;
 }> = ({ patch, projectId, fileParent, change, hunk, hunkDependencyDiffs }) => {
 	const dependencyCommitIds =
-		fileParent?._tag === "Change" && hunkDependencyDiffs
+		fileParent._tag === "Change" && hunkDependencyDiffs
 			? getDependencyCommitIds({ hunk, hunkDependencyDiffs })
 			: undefined;
-	const headerRow = (
-		<div className={styles.hunkHeaderRow}>
-			{dependencyCommitIds && (
-				<DependencyIndicatorButton projectId={projectId} commitIds={dependencyCommitIds}>
-					<DependencyIcon />
-				</DependencyIndicatorButton>
-			)}
-			<div className={styles.hunkHeader}>{formatHunkHeader(hunk)}</div>
-		</div>
-	);
 
-	const source = fileParent
-		? hunkItem({
-				parent: fileParent,
-				path: change.path,
-				hunkHeader: hunk,
-			})
-		: undefined;
+	const source = hunkItem({
+		parent: fileParent,
+		path: change.path,
+		hunkHeader: hunk,
+	});
 
 	return (
 		<div>
-			{source ? (
-				<OperationSourceC
-					projectId={projectId}
-					source={source}
-					canDrag={() => !patch.subject.isResultOfBinaryToTextConversion}
-				>
-					{headerRow}
-				</OperationSourceC>
-			) : (
-				headerRow
-			)}
+			<OperationSourceC
+				projectId={projectId}
+				source={source}
+				canDrag={() => !patch.subject.isResultOfBinaryToTextConversion}
+			>
+				<div className={styles.hunkHeaderRow}>
+					{dependencyCommitIds && (
+						<DependencyIndicatorButton projectId={projectId} commitIds={dependencyCommitIds}>
+							<DependencyIcon />
+						</DependencyIndicatorButton>
+					)}
+					<div className={styles.hunkHeader}>{formatHunkHeader(hunk)}</div>
+				</div>
+			</OperationSourceC>
 			<HunkDiff change={change} diff={hunk.diff} />
 		</div>
 	);
@@ -440,7 +437,7 @@ const Hunk: FC<{
 const FileDiff: FC<{
 	projectId: string;
 	change: TreeChange;
-	fileParent?: FileParent;
+	fileParent: FileParent;
 	hunkDependencyDiffs?: Array<HunkDependencyDiff>;
 	diff: UnifiedPatch | null;
 }> = ({ projectId, change, fileParent, hunkDependencyDiffs, diff }) =>
@@ -477,7 +474,7 @@ const FileDiff: FC<{
 const ChangesFileDiffList: FC<{
 	changes: Array<TreeChange>;
 	projectId: string;
-	fileParent?: FileParent;
+	fileParent: FileParent;
 	stackId?: string;
 	hunkDependencyDiffsByPath?: Map<string, Array<HunkDependencyDiff>>;
 }> = ({ changes, projectId, fileParent, stackId, hunkDependencyDiffsByPath }) => {
@@ -499,7 +496,11 @@ const ChangesFileDiffList: FC<{
 							? commitFileItem({ stackId, commitId, path: change.path })
 							: undefined,
 					),
-					Match.when(undefined, () => undefined),
+					Match.tag("Branch", ({ branchRef }) =>
+						stackId !== undefined
+							? branchFileItem({ stackId, branchRef, path: change.path })
+							: undefined,
+					),
 					Match.exhaustive,
 				);
 
@@ -597,7 +598,9 @@ const CommitShow: FC<{
 const BranchShow: FC<{
 	projectId: string;
 	branchRef: Array<number>;
-}> = ({ projectId, branchRef }) => {
+	selectedPath?: string;
+	stackId: string;
+}> = ({ projectId, branchRef, selectedPath, stackId }) => {
 	const decodedBranchRef = decodeRefName(branchRef);
 	const [{ data: branchDetails }, { data: branchDiff }] = useSuspenseQueries({
 		queries: [
@@ -611,11 +614,22 @@ const BranchShow: FC<{
 		],
 	});
 
+	const selectedChange =
+		selectedPath !== undefined
+			? branchDiff.changes.find((candidate) => candidate.path === selectedPath)
+			: undefined;
+	const changes = selectedChange ? [selectedChange] : branchDiff.changes;
+
 	return (
 		<div>
 			<h3>{branchDetails.name}</h3>
 			{branchDetails.prNumber != null && <p>PR #{branchDetails.prNumber}</p>}
-			<ChangesFileDiffList changes={branchDiff.changes} projectId={projectId} />
+			<ChangesFileDiffList
+				changes={changes}
+				projectId={projectId}
+				fileParent={branchFileParent({ branchRef })}
+				stackId={stackId}
+			/>
 		</div>
 	);
 };
@@ -627,7 +641,17 @@ const Show: FC<{
 	Match.value(selectedItem).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
-			Branch: ({ branchRef }) => <BranchShow projectId={projectId} branchRef={branchRef} />,
+			BranchFile: ({ branchRef, path, stackId }) => (
+				<BranchShow
+					projectId={projectId}
+					branchRef={branchRef}
+					selectedPath={path}
+					stackId={stackId}
+				/>
+			),
+			Branch: ({ branchRef, stackId }) => (
+				<BranchShow projectId={projectId} branchRef={branchRef} stackId={stackId} />
+			),
 			ChangesSection: () => <ChangesShow projectId={projectId} />,
 			ChangeFile: ({ path }) => <ChangesShow projectId={projectId} selectedPath={path} />,
 			Commit: ({ commitId, stackId }) => (

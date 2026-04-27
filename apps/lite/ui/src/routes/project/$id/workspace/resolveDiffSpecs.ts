@@ -58,6 +58,7 @@ const resolvedDiffSpecsFromItem = ({
 					Match.tagsExhaustive({
 						Change: () => worktreeChanges?.changes,
 						Commit: ({ commitId }) => getCommitDetails(commitId)?.changes,
+						Branch: () => null,
 					}),
 				);
 				if (!changes) return null;
