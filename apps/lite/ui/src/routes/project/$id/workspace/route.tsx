@@ -294,6 +294,20 @@ const ItemRow: FC<
 	);
 };
 
+const ItemRowToolbar: FC<Omit<ComponentProps<typeof Toolbar.Root>, "className">> = ({
+	onClick,
+	...props
+}) => (
+	<Toolbar.Root
+		{...props}
+		className={styles.itemRowToolbar}
+		onClick={(event) => {
+			onClick?.(event);
+			event.stopPropagation();
+		}}
+	/>
+);
+
 const TreeItem: FC<
 	{
 		projectId: string;
@@ -903,7 +917,7 @@ const CommitRow: FC<
 						<CommitLabel commit={commitWithOptimisticMessage} />
 					</div>
 					{workspaceMode._tag === "Default" && (
-						<Toolbar.Root aria-label="Commit actions" className={styles.itemRowToolbar}>
+						<ItemRowToolbar aria-label="Commit actions">
 							<Tooltip.Root
 								open={isExpandCollapseTooltipOpen}
 								// Prevent tooltip from lingering while moving between nearby controls.
@@ -941,7 +955,7 @@ const CommitRow: FC<
 							>
 								<MenuTriggerIcon />
 							</Toolbar.Button>
-						</Toolbar.Root>
+						</ItemRowToolbar>
 					)}
 				</>
 			)}
@@ -1088,7 +1102,7 @@ const ChangesFileRow: FC<{
 				{fileRowLabel(change)}
 			</div>
 			{workspaceMode._tag === "Default" && (
-				<Toolbar.Root aria-label="File actions" className={styles.itemRowToolbar}>
+				<ItemRowToolbar aria-label="File actions">
 					{dependencyCommitIds && (
 						<DependencyIndicatorButton
 							projectId={projectId}
@@ -1108,7 +1122,7 @@ const ChangesFileRow: FC<{
 					>
 						<MenuTriggerIcon />
 					</Toolbar.Button>
-				</Toolbar.Root>
+				</ItemRowToolbar>
 			)}
 		</TreeItem>
 	);
@@ -1146,7 +1160,7 @@ const ChangesSectionRow: FC<{
 				Changes ({changes.length})
 			</div>
 			{workspaceMode._tag === "Default" && (
-				<Toolbar.Root aria-label="Changes actions" className={styles.itemRowToolbar}>
+				<ItemRowToolbar aria-label="Changes actions">
 					<Toolbar.Button type="button" className={styles.itemRowToolbarButton} onClick={onCommit}>
 						Commit
 					</Toolbar.Button>
@@ -1160,7 +1174,7 @@ const ChangesSectionRow: FC<{
 					>
 						<MenuTriggerIcon />
 					</Toolbar.Button>
-				</Toolbar.Root>
+				</ItemRowToolbar>
 			)}
 		</ItemRow>
 	);
@@ -1386,7 +1400,7 @@ const BranchRow: FC<{
 						{optimisticBranchName}
 					</div>
 					{workspaceMode._tag === "Default" && (
-						<Toolbar.Root aria-label="Branch actions" className={styles.itemRowToolbar}>
+						<ItemRowToolbar aria-label="Branch actions">
 							<Toolbar.Button
 								type="button"
 								className={styles.itemRowToolbarButton}
@@ -1405,7 +1419,7 @@ const BranchRow: FC<{
 							>
 								<MenuTriggerIcon />
 							</Toolbar.Button>
-						</Toolbar.Root>
+						</ItemRowToolbar>
 					)}
 				</>
 			)}
@@ -1454,7 +1468,7 @@ const StackRow: FC<
 				Stack
 			</div>
 			{workspaceMode._tag === "Default" && (
-				<Toolbar.Root aria-label="Stack actions" className={styles.itemRowToolbar}>
+				<ItemRowToolbar aria-label="Stack actions">
 					<Toolbar.Button
 						type="button"
 						className={styles.itemRowToolbarButton}
@@ -1465,7 +1479,7 @@ const StackRow: FC<
 					>
 						<MenuTriggerIcon />
 					</Toolbar.Button>
-				</Toolbar.Root>
+				</ItemRowToolbar>
 			)}
 		</ItemRow>
 	);
