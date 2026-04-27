@@ -82,6 +82,7 @@ import {
 	ReactNode,
 	Ref,
 	Suspense,
+	useEffect,
 	useLayoutEffect,
 	useOptimistic,
 	useRef,
@@ -1706,23 +1707,31 @@ const ProjectPage: FC = () => {
 
 	const navigationIndexUnfiltered = buildNavigationIndex(workspaceOutline);
 
-	if (
-		!isValidWorkspaceMode({
-			mode: workspaceMode,
-			navigationIndex: navigationIndexUnfiltered,
-		})
-	)
-		dispatch(projectActions.exitMode({ projectId }));
+	// React allows state updates on render, but not for external stores.
+	// https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+	useEffect(() => {
+		if (
+			!isValidWorkspaceMode({
+				mode: workspaceMode,
+				navigationIndex: navigationIndexUnfiltered,
+			})
+		)
+			dispatch(projectActions.exitMode({ projectId }));
+	}, [workspaceMode, navigationIndexUnfiltered, projectId, dispatch]);
 
 	const selectedItem = useAppSelector((state) => selectProjectSelectedItem(state, projectId));
 
-	if (!navigationIndexIncludes(navigationIndexUnfiltered, selectedItem))
-		dispatch(
-			projectActions.selectItem({
-				projectId,
-				item: changesSectionItem,
-			}),
-		);
+	// React allows state updates on render, but not for external stores.
+	// https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+	useEffect(() => {
+		if (!navigationIndexIncludes(navigationIndexUnfiltered, selectedItem))
+			dispatch(
+				projectActions.selectItem({
+					projectId,
+					item: changesSectionItem,
+				}),
+			);
+	}, [navigationIndexUnfiltered, selectedItem, projectId, dispatch]);
 
 	const operationMode = useAppSelector((state) =>
 		selectProjectOperationModeState(state, projectId),
