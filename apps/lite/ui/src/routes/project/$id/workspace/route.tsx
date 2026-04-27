@@ -395,13 +395,20 @@ const getDependencyCommitIds = ({
 };
 
 const Hunk: FC<{
-	patch: Extract<UnifiedPatch, { type: "Patch" }>;
+	isResultOfBinaryToTextConversion: boolean;
 	projectId: string;
 	fileParent: FileParent;
 	change: TreeChange;
 	hunk: DiffHunk;
 	hunkDependencyDiffs?: Array<HunkDependencyDiff>;
-}> = ({ patch, projectId, fileParent, change, hunk, hunkDependencyDiffs }) => {
+}> = ({
+	isResultOfBinaryToTextConversion,
+	projectId,
+	fileParent,
+	change,
+	hunk,
+	hunkDependencyDiffs,
+}) => {
 	const dependencyCommitIds =
 		fileParent._tag === "Change" && hunkDependencyDiffs
 			? getDependencyCommitIds({ hunk, hunkDependencyDiffs })
@@ -418,7 +425,7 @@ const Hunk: FC<{
 			<OperationSourceC
 				projectId={projectId}
 				source={item}
-				canDrag={() => !patch.subject.isResultOfBinaryToTextConversion}
+				canDrag={() => !isResultOfBinaryToTextConversion}
 			>
 				<div className={styles.hunkHeaderRow}>
 					{dependencyCommitIds && (
@@ -456,7 +463,7 @@ const FileDiff: FC<{
 					{hunks.map((hunk) => (
 						<li key={hunkKey(hunk)}>
 							<Hunk
-								patch={patch}
+								isResultOfBinaryToTextConversion={patch.subject.isResultOfBinaryToTextConversion}
 								projectId={projectId}
 								fileParent={fileParent}
 								change={change}
