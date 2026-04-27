@@ -16,8 +16,7 @@ import { Match } from "effect";
 const OperationModeControls: FC<{
 	projectId: string;
 	operation: Operation | null;
-	isSource: boolean;
-}> = ({ projectId, operation, isSource }) => {
+}> = ({ projectId, operation }) => {
 	const dispatch = useAppDispatch();
 	const runOperation = useRunOperation();
 
@@ -33,7 +32,7 @@ const OperationModeControls: FC<{
 
 	return (
 		<>
-			{!isSource && (
+			{operation && (
 				<button type="button" className={uiStyles.button} onClick={confirm}>
 					Confirm
 				</button>
@@ -64,10 +63,10 @@ export const OperationTooltip: FC<
 		: null;
 
 	const tooltipLabel = isActive ? (
-		isSource ? (
-			<>Select a target</>
-		) : operation ? (
+		operation ? (
 			<>{operationLabel(operation)}</>
+		) : isSource ? (
+			<>Select a target</>
 		) : null
 	) : null;
 
@@ -96,13 +95,7 @@ export const OperationTooltip: FC<
 				<Tooltip.Positioner sideOffset={8}>
 					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip, styles.popup)}>
 						{tooltipLabel}
-						{showControls && (
-							<OperationModeControls
-								projectId={projectId}
-								operation={operation}
-								isSource={isSource}
-							/>
-						)}
+						{showControls && <OperationModeControls projectId={projectId} operation={operation} />}
 					</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
