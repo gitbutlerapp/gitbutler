@@ -12,6 +12,7 @@ export type BranchItem = StackItem & {
 	branchRef: Array<number>;
 };
 
+/** @public */
 export type CommitItem = StackItem & {
 	commitId: string;
 };
