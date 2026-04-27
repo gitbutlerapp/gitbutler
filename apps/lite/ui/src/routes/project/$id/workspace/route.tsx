@@ -99,7 +99,7 @@ import { useAppDispatch, useAppSelector } from "#ui/state/hooks.ts";
 import {
 	branchItem,
 	baseCommitItem,
-	changeFileItem,
+	changesFileItem,
 	changesSectionItem,
 	type BranchItem,
 	commitFileItem,
@@ -530,7 +530,7 @@ const ChangesFileDiffList: FC<{
 			{changesWithDiffs.map(([change, diff]) => {
 				const heading = <h4>{change.path}</h4>;
 				const source = Match.value(fileParent).pipe(
-					Match.tag("Change", () => changeFileItem({ path: change.path })),
+					Match.tag("Change", () => changesFileItem({ path: change.path })),
 					Match.tag("Commit", ({ commitId }) =>
 						stackId !== undefined
 							? commitFileItem({ stackId, commitId, path: change.path })
@@ -693,7 +693,7 @@ const Show: FC<{
 				<BranchShow projectId={projectId} branchRef={branchRef} stackId={stackId} />
 			),
 			ChangesSection: () => <ChangesShow projectId={projectId} />,
-			ChangeFile: ({ path }) => <ChangesShow projectId={projectId} selectedPath={path} />,
+			ChangesFile: ({ path }) => <ChangesShow projectId={projectId} selectedPath={path} />,
 			Commit: ({ commitId, stackId }) => (
 				<CommitShow projectId={projectId} commitId={commitId} stackId={stackId} />
 			),
@@ -1058,7 +1058,7 @@ const CommitC: FC<{
 	);
 };
 
-const ChangeFileRow: FC<{
+const ChangesFileRow: FC<{
 	change: TreeChange;
 	dependencyCommitIds: NonEmptyArray<string> | undefined;
 	navigationIndex: NavigationIndex;
@@ -1073,7 +1073,7 @@ const ChangeFileRow: FC<{
 	workspaceMode,
 	projectId,
 }) => {
-	const item = changeFileItem({ path: change.path });
+	const item = changesFileItem({ path: change.path });
 
 	const menuItems: Array<NativeMenuItem> = [
 		{
@@ -1248,7 +1248,7 @@ const Changes: FC<{
 							: undefined;
 
 						return (
-							<ChangeFileRow
+							<ChangesFileRow
 								key={change.path}
 								change={change}
 								dependencyCommitIds={dependencyCommitIds}

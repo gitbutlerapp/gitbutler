@@ -22,7 +22,7 @@ export const OperationSourceLabel: FC<{
 				return assert(segment?.refName).displayName;
 			},
 			BranchFile: ({ path }) => path,
-			ChangeFile: ({ path }) => path,
+			ChangesFile: ({ path }) => path,
 			ChangesSection: () => "Changes",
 			Commit: ({ commitId }) => {
 				const commit = findCommit({ headInfo, commitId });

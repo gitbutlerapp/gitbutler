@@ -11,12 +11,12 @@ import { RefObject, useEffect, useEffectEvent } from "react";
 import {
 	branchItem,
 	baseCommitItem,
-	changeFileItem,
+	changesFileItem,
 	commitFileItem,
 	commitItem,
 	itemEquals,
 	type BranchItem,
-	type ChangeItem,
+	type ChangesFileItem,
 	changesSectionItem,
 	type CommitFileItem,
 	type CommitItem,
@@ -272,9 +272,9 @@ type BranchDefaultModeScope = {
 	bindings: Array<ShortcutBinding<BranchAction>>;
 	context: BranchItem;
 };
-type ChangeDefaultModeScope = {
+type ChangesFileDefaultModeScope = {
 	bindings: Array<ShortcutBinding<ChangesAction>>;
-	context: ChangeItem;
+	context: ChangesFileItem;
 };
 type ChangesSectionDefaultModeScope = {
 	bindings: Array<ShortcutBinding<ChangesAction>>;
@@ -296,7 +296,7 @@ type StackDefaultModeScope = {
 type DefaultModeScope =
 	| ({ _tag: "BaseCommit" } & BaseCommitDefaultModeScope)
 	| ({ _tag: "Branch" } & BranchDefaultModeScope)
-	| ({ _tag: "ChangeFile" } & ChangeDefaultModeScope)
+	| ({ _tag: "ChangesFile" } & ChangesFileDefaultModeScope)
 	| ({ _tag: "ChangesSection" } & ChangesSectionDefaultModeScope)
 	| ({ _tag: "Commit" } & CommitDefaultModeScope)
 	| ({ _tag: "CommitFile" } & CommitFileDefaultModeScope)
@@ -318,11 +318,11 @@ const branchDefaultModeScope = ({
 	context,
 });
 
-const changeDefaultModeScope = ({
+const changesFileDefaultModeScope = ({
 	bindings,
 	context,
-}: ChangeDefaultModeScope): DefaultModeScope => ({
-	_tag: "ChangeFile",
+}: ChangesFileDefaultModeScope): DefaultModeScope => ({
+	_tag: "ChangesFile",
 	bindings,
 	context,
 });
@@ -365,8 +365,8 @@ const getDefaultModeScope = (selectedItem: Item): DefaultModeScope | null =>
 				baseCommitDefaultModeScope({
 					bindings: primaryPanelBindings,
 				}),
-			ChangeFile: (selectedItem) =>
-				changeDefaultModeScope({
+			ChangesFile: (selectedItem) =>
+				changesFileDefaultModeScope({
 					bindings: changesBindings,
 					context: selectedItem,
 				}),
@@ -404,7 +404,7 @@ const getDefaultModeScopeLabel = (scope: DefaultModeScope): string =>
 		Match.tagsExhaustive({
 			BaseCommit: () => "Base commit",
 			Branch: () => "Branch",
-			ChangeFile: () => "Change",
+			ChangesFile: () => "Change",
 			ChangesSection: () => "Changes",
 			Commit: () => "Commit",
 			CommitFile: () => "Commit file",
@@ -887,11 +887,11 @@ export const useWorkspaceShortcuts = ({
 					event.preventDefault();
 					handleBranchScopeAction(action, scope.context);
 				},
-				ChangeFile: (scope) => {
+				ChangesFile: (scope) => {
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
 					event.preventDefault();
-					handleChangesScopeAction(action, changeFileItem(scope.context));
+					handleChangesScopeAction(action, changesFileItem(scope.context));
 				},
 				ChangesSection: (scope) => {
 					const action = getAction(scope.bindings, event);

@@ -3,7 +3,7 @@ import { changeFileParent, commitFileParent, type FileParent } from "#ui/domain/
 import { type HunkHeader } from "@gitbutler/but-sdk";
 
 /** @public */
-export type ChangeItem = { path: string };
+export type ChangesFileItem = { path: string };
 
 /** @public */
 export type StackItem = {
@@ -31,7 +31,7 @@ export type HunkItem = {
 
 export type Item =
 	| { _tag: "ChangesSection" }
-	| ({ _tag: "ChangeFile" } & ChangeItem)
+	| ({ _tag: "ChangesFile" } & ChangesFileItem)
 	| ({ _tag: "Stack" } & StackItem)
 	| ({ _tag: "Branch" } & BranchItem)
 	| ({ _tag: "BranchFile" } & BranchFileItem)
@@ -46,8 +46,8 @@ export const changesSectionItem: Item = {
 };
 
 /** @public */
-export const changeFileItem = ({ path }: ChangeItem): Item => ({
-	_tag: "ChangeFile",
+export const changesFileItem = ({ path }: ChangesFileItem): Item => ({
+	_tag: "ChangesFile",
 	path,
 });
 
@@ -110,7 +110,7 @@ export const itemIdentityKey = (item: Item): string =>
 	Match.value(item).pipe(
 		Match.tagsExhaustive({
 			ChangesSection: () => JSON.stringify(["ChangesSection"]),
-			ChangeFile: (item) => JSON.stringify(["ChangeFile", item.path]),
+			ChangesFile: (item) => JSON.stringify(["ChangesFile", item.path]),
 			Stack: (item) => JSON.stringify(["Stack", item.stackId]),
 			Branch: (item) => JSON.stringify(["Branch", item.stackId, item.branchRef]),
 			BranchFile: (item) => JSON.stringify(["BranchFile", item.stackId, item.branchRef, item.path]),
@@ -134,7 +134,7 @@ export const itemFileParent = (item: Item): FileParent | null =>
 	Match.value(item).pipe(
 		Match.withReturnType<FileParent | null>(),
 		Match.tags({
-			ChangeFile: () => changeFileParent,
+			ChangesFile: () => changeFileParent,
 			ChangesSection: () => changeFileParent,
 			CommitFile: ({ commitId }) => commitFileParent({ commitId }),
 			Hunk: ({ parent }) => parent,

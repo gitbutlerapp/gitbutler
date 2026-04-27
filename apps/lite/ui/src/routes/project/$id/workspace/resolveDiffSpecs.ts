@@ -33,7 +33,7 @@ const resolvedDiffSpecsFromItem = ({
 	Match.value(item).pipe(
 		Match.withReturnType<Array<DiffSpec> | null>(),
 		Match.tags({
-			ChangeFile: ({ path }) => {
+			ChangesFile: ({ path }) => {
 				const change = worktreeChanges?.changes.find((candidate) => candidate.path === path);
 				if (!change) return null;
 

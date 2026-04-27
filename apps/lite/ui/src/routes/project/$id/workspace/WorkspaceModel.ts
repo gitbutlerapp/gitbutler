@@ -9,7 +9,7 @@ import { type NonEmptyArray } from "effect/Array";
 import {
 	branchItem,
 	baseCommitItem,
-	changeFileItem,
+	changesFileItem,
 	changesSectionItem,
 	type Item,
 	commitItem,
@@ -38,7 +38,7 @@ const buildWorkspaceOutline = ({
 }: BuildWorkspaceOutlineArgs): WorkspaceOutline => {
 	const changesSection: WorkspaceSection = {
 		section: changesSectionItem,
-		children: changes.map((change) => changeFileItem({ path: change.path })),
+		children: changes.map((change) => changesFileItem({ path: change.path })),
 	};
 
 	const segmentChildren = (stackId: string, segment: Segment): Array<Item> =>
