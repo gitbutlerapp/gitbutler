@@ -57,7 +57,7 @@ import {
 	showNativeMenuFromTrigger,
 } from "#ui/native-menu.ts";
 import uiStyles from "#ui/ui.module.css";
-import { Tooltip, useRender } from "@base-ui/react";
+import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import {
@@ -294,6 +294,49 @@ const ItemRow: FC<
 			}}
 		/>
 	);
+};
+
+const TreeItem: FC<
+	{
+		projectId: string;
+		item: Item;
+		label: string;
+		expanded?: boolean;
+		source?: boolean;
+		target?: boolean;
+	} & useRender.ComponentProps<"div">
+> = ({
+	projectId,
+	item,
+	label,
+	expanded,
+	source = false,
+	target = false,
+	render: renderProp,
+	...props
+}) => {
+	const isSelected = useIsItemSelected({ projectId, item });
+
+	let render = renderProp;
+
+	if (target)
+		render = (
+			<OperationTarget projectId={projectId} item={item} isSelected={isSelected} render={render} />
+		);
+
+	if (source) render = <OperationSourceC projectId={projectId} source={item} render={render} />;
+
+	return useRender({
+		render,
+		defaultTagName: "div",
+		props: mergeProps<"div">(props, {
+			id: treeItemId(projectId, item),
+			role: "treeitem",
+			"aria-label": label,
+			"aria-selected": isSelected,
+			"aria-expanded": expanded,
+		}),
+	});
 };
 
 const DependencyIndicatorButton: FC<
@@ -942,16 +985,13 @@ const CommitFileRow: FC<{
 	projectId: string;
 }> = ({ change, parentCommitItem, navigationIndex, projectId }) => {
 	const item = commitFileItem({ ...parentCommitItem, path: change.path });
-	const isSelected = useIsItemSelected({ projectId, item });
 
 	return (
-		<OperationSourceC
+		<TreeItem
 			projectId={projectId}
-			source={item}
-			id={treeItemId(projectId, item)}
-			role="treeitem"
-			aria-label={fileRowLabel(change)}
-			aria-selected={isSelected}
+			item={item}
+			label={fileRowLabel(change)}
+			source
 			render={
 				<ItemRow
 					projectId={projectId}
@@ -962,7 +1002,7 @@ const CommitFileRow: FC<{
 			}
 		>
 			<div className={styles.itemRowLabel}>{fileRowLabel(change)}</div>
-		</OperationSourceC>
+		</TreeItem>
 	);
 };
 
@@ -988,18 +1028,15 @@ const CommitC: FC<{
 	);
 	const commitItemV: CommitItem = { stackId, commitId: commit.id };
 	const item = commitItem(commitItemV);
-	const isSelected = useIsItemSelected({ projectId, item });
 
 	return (
-		<OperationSourceC
+		<TreeItem
 			projectId={projectId}
-			source={item}
-			id={treeItemId(projectId, item)}
-			role="treeitem"
-			aria-label={commitTitle(commit.message)}
-			aria-selected={isSelected}
-			aria-expanded={isExpanded}
-			render={<OperationTarget item={item} projectId={projectId} isSelected={isSelected} />}
+			item={item}
+			label={commitTitle(commit.message)}
+			expanded={isExpanded}
+			source
+			target
 		>
 			<CommitRow
 				commit={commit}
@@ -1027,7 +1064,7 @@ const CommitC: FC<{
 					/>
 				</Suspense>
 			)}
-		</OperationSourceC>
+		</TreeItem>
 	);
 };
 
@@ -1047,7 +1084,6 @@ const ChangeFileRow: FC<{
 	projectId,
 }) => {
 	const item = changeFileItem({ path: change.path });
-	const isSelected = useIsItemSelected({ projectId, item });
 
 	const menuItems: Array<NativeMenuItem> = [
 		{
@@ -1066,13 +1102,11 @@ const ChangeFileRow: FC<{
 	];
 
 	return (
-		<OperationSourceC
+		<TreeItem
 			projectId={projectId}
-			source={item}
-			id={treeItemId(projectId, item)}
-			role="treeitem"
-			aria-label={fileRowLabel(change)}
-			aria-selected={isSelected}
+			item={item}
+			label={fileRowLabel(change)}
+			source
 			render={<ItemRow projectId={projectId} item={item} navigationIndex={navigationIndex} />}
 		>
 			<div
@@ -1106,7 +1140,7 @@ const ChangeFileRow: FC<{
 					</Toolbar.Button>
 				</Toolbar.Root>
 			)}
-		</OperationSourceC>
+		</TreeItem>
 	);
 };
 
@@ -1168,18 +1202,14 @@ const BaseCommit: FC<{
 	navigationIndex: NavigationIndex;
 }> = ({ projectId, commitId, navigationIndex }) => {
 	const item = baseCommitItem;
-	const isSelected = useIsItemSelected({ projectId, item });
 
 	return (
 		<div className={styles.section}>
-			<OperationTarget
+			<TreeItem
 				projectId={projectId}
 				item={item}
-				isSelected={isSelected}
-				id={treeItemId(projectId, item)}
-				role="treeitem"
-				aria-label="Base commit"
-				aria-selected={isSelected}
+				label="Base commit"
+				target
 				render={
 					<ItemRow projectId={projectId} item={item} navigationIndex={navigationIndex}>
 						<div className={classes(styles.itemRowLabel, styles.sectionLabel)}>
@@ -1208,19 +1238,16 @@ const Changes: FC<{
 	);
 
 	const item = changesSectionItem;
-	const isSelected = useIsItemSelected({ projectId, item });
 
 	return (
-		<OperationSourceC
+		<TreeItem
 			projectId={projectId}
-			source={item}
+			item={item}
+			label="Changes"
+			expanded
+			source
+			target
 			className={styles.section}
-			id={treeItemId(projectId, item)}
-			role="treeitem"
-			aria-label="Changes"
-			aria-selected={isSelected}
-			aria-expanded
-			render={<OperationTarget item={item} projectId={projectId} isSelected={isSelected} />}
 		>
 			<ChangesSectionRow
 				changes={worktreeChanges.changes}
@@ -1254,7 +1281,7 @@ const Changes: FC<{
 					})}
 				</div>
 			)}
-		</OperationSourceC>
+		</TreeItem>
 	);
 };
 
@@ -1504,60 +1531,47 @@ const BranchSegment: FC<{
 }) => {
 	const refName = assert(segment.refName);
 	const item = branchItem({ stackId, branchRef: refName.fullNameBytes });
-	const isSelected = useIsItemSelected({ projectId, item });
 
 	return (
-		<OperationSourceC
+		<TreeItem
 			projectId={projectId}
-			source={item}
-			render={
-				<OperationTarget
-					projectId={projectId}
-					item={item}
-					isSelected={isSelected}
-					render={
-						<div
-							id={treeItemId(projectId, item)}
-							role="treeitem"
-							aria-label={refName.displayName}
-							aria-selected={isSelected}
-							aria-expanded
-							className={classes(styles.section, styles.segment)}
-						>
-							<BranchRow
-								inlineRenameBranchFormRef={inlineRenameBranchFormRef}
-								workspaceMode={workspaceMode}
-								projectId={projectId}
-								branchName={refName.displayName}
-								branchRef={refName.fullNameBytes}
-								stackId={stackId}
-								navigationIndex={navigationIndex}
-								focusPanel={focusPanel}
-							/>
+			item={item}
+			label={refName.displayName}
+			expanded
+			source
+			target
+			className={classes(styles.section, styles.segment)}
+		>
+			<BranchRow
+				inlineRenameBranchFormRef={inlineRenameBranchFormRef}
+				workspaceMode={workspaceMode}
+				projectId={projectId}
+				branchName={refName.displayName}
+				branchRef={refName.fullNameBytes}
+				stackId={stackId}
+				navigationIndex={navigationIndex}
+				focusPanel={focusPanel}
+			/>
 
-							{segment.commits.length === 0 ? (
-								<div className={styles.itemRowEmpty}>No commits.</div>
-							) : (
-								<div role="group">
-									{segment.commits.map((commit) => (
-										<CommitC
-											key={commit.id}
-											commit={commit}
-											inlineRewordCommitFormRef={inlineRewordCommitFormRef}
-											workspaceMode={workspaceMode}
-											projectId={projectId}
-											stackId={stackId}
-											navigationIndex={navigationIndex}
-											focusPanel={focusPanel}
-										/>
-									))}
-								</div>
-							)}
-						</div>
-					}
-				/>
-			}
-		/>
+			{segment.commits.length === 0 ? (
+				<div className={styles.itemRowEmpty}>No commits.</div>
+			) : (
+				<div role="group">
+					{segment.commits.map((commit) => (
+						<CommitC
+							key={commit.id}
+							commit={commit}
+							inlineRewordCommitFormRef={inlineRewordCommitFormRef}
+							workspaceMode={workspaceMode}
+							projectId={projectId}
+							stackId={stackId}
+							navigationIndex={navigationIndex}
+							focusPanel={focusPanel}
+						/>
+					))}
+				</div>
+			)}
+		</TreeItem>
 	);
 };
 
@@ -1621,15 +1635,13 @@ const StackC: FC<{
 	// oxlint-disable-next-line typescript/no-non-null-assertion -- [tag:stack-id-required]
 	const stackId = stack.id!;
 	const item = stackItem({ stackId });
-	const isSelected = useIsItemSelected({ projectId, item });
 
 	return (
-		<div
-			id={treeItemId(projectId, item)}
-			role="treeitem"
-			aria-label="Stack"
-			aria-selected={isSelected}
-			aria-expanded
+		<TreeItem
+			projectId={projectId}
+			item={item}
+			label="Stack"
+			expanded
 			className={classes(styles.stack, styles.section)}
 		>
 			<StackRow
@@ -1678,7 +1690,7 @@ const StackC: FC<{
 					);
 				})}
 			</div>
-		</div>
+		</TreeItem>
 	);
 };
 
