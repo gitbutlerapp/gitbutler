@@ -14,6 +14,7 @@ import {
 } from "#electron/ipc.ts";
 import { rejectedChangesToastOptions } from "#ui/RejectedChanges.tsx";
 import {
+	absorbMutationOptions,
 	commitAmendMutationOptions,
 	commitCreateMutationOptions,
 	commitInsertBlankMutationOptions,
@@ -26,11 +27,17 @@ import {
 	tearOffBranchMutationOptions,
 	CommitUncommitParams,
 } from "#ui/api/mutations.ts";
-import { InsertSide, RelativeTo } from "@gitbutler/but-sdk";
+import { AbsorptionTarget, CommitAbsorption, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 import { Item, itemEquals, itemFileParent } from "#ui/routes/project/$id/workspace/Item.ts";
 import { resolveDiffSpecs } from "#ui/routes/project/$id/workspace/resolveDiffSpecs.ts";
 import { decodeRefName } from "#ui/routes/project/$id/shared.tsx";
 
+/** @public */
+export type AbsorbOperation = {
+	source: Item;
+	target: AbsorptionTarget;
+	absorptionPlan: Array<CommitAbsorption>;
+};
 /** @public */
 export type CommitAmendOperation = Omit<CommitAmendParams, "dryRun" | "projectId" | "changes"> & {
 	source: Item;
@@ -69,6 +76,7 @@ export type MoveBranchOperation = Omit<MoveBranchParams, "dryRun" | "projectId">
 export type TearOffBranchOperation = Omit<TearOffBranchParams, "dryRun" | "projectId">;
 
 export type Operation =
+	| ({ _tag: "Absorb" } & AbsorbOperation)
 	| ({ _tag: "CommitAmend" } & CommitAmendOperation)
 	| ({ _tag: "CommitCreate" } & CommitCreateOperation)
 	| ({ _tag: "CommitCreateFromCommittedChanges" } & CommitCreateFromCommittedChangesOperation)
@@ -79,6 +87,12 @@ export type Operation =
 	| ({ _tag: "CommitUncommitChanges" } & CommitUncommitChangesOperation)
 	| ({ _tag: "MoveBranch" } & MoveBranchOperation)
 	| ({ _tag: "TearOffBranch" } & TearOffBranchOperation);
+
+/** @public */
+export const absorbOperation = (operation: AbsorbOperation): Operation => ({
+	_tag: "Absorb",
+	...operation,
+});
 
 /** @public */
 export const commitAmendOperation = (operation: CommitAmendOperation): Operation => ({
@@ -149,6 +163,7 @@ export const tearOffBranchOperation = (operation: TearOffBranchOperation): Opera
 export const operationLabel = (operation: Operation): string =>
 	Match.value(operation).pipe(
 		Match.tagsExhaustive({
+			Absorb: () => "Absorb",
 			CommitAmend: () => "Amend",
 			CommitCreate: ({ side }) =>
 				Match.value(side).pipe(
@@ -190,10 +205,23 @@ export const useRunOperation = () => {
 	const commitUncommitChanges = useMutation(commitUncommitChangesMutationOptions);
 	const moveBranch = useMutation(moveBranchMutationOptions);
 	const tearOffBranch = useMutation(tearOffBranchMutationOptions);
+	const absorb = useMutation(absorbMutationOptions);
 
 	return (projectId: string, operation: Operation): void => {
 		Match.value(operation).pipe(
 			Match.tagsExhaustive({
+				Absorb: (operation) => {
+					if (operation.absorptionPlan.length === 0) return;
+
+					absorb.mutate(
+						{ projectId, absorptionPlan: operation.absorptionPlan },
+						{
+							onSuccess: () => {
+								toastManager.add({ title: "Changes absorbed successfully" });
+							},
+						},
+					);
+				},
 				CommitAmend: (operation) => {
 					const changes = resolveDiffSpecs({
 						source: operation.source,

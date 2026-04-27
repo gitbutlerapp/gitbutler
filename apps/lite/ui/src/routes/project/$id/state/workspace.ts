@@ -9,6 +9,7 @@ import {
 	type Item,
 } from "../workspace/Item.ts";
 import {
+	absorbOperationMode,
 	defaultWorkspaceMode,
 	dragAndDropOperationMode,
 	getOperationMode,
@@ -20,6 +21,7 @@ import {
 	rubOperationMode,
 	type WorkspaceMode,
 } from "../workspace/WorkspaceMode.ts";
+import { AbsorptionTarget, CommitAbsorption } from "@gitbutler/but-sdk";
 
 export type WorkspaceSelectionState = {
 	item: Item;
@@ -51,6 +53,15 @@ export const closeCommitFiles = (state: WorkspaceState) => {
 
 export const enterMoveMode = (state: WorkspaceState, source: Item) => {
 	state.mode = operationWorkspaceMode(moveOperationMode({ source }));
+};
+
+export const enterAbsorbMode = (
+	state: WorkspaceState,
+	source: Item,
+	target: AbsorptionTarget,
+	absorptionPlan: Array<CommitAbsorption>,
+) => {
+	state.mode = operationWorkspaceMode(absorbOperationMode({ source, target, absorptionPlan }));
 };
 
 export const enterRubMode = (state: WorkspaceState, source: Item) => {

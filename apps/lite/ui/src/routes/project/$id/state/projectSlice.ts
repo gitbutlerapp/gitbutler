@@ -4,6 +4,7 @@ import { type BranchItem, type CommitItem, type Item } from "../workspace/Item.t
 import * as layout from "./layout.ts";
 import * as workspace from "./workspace.ts";
 import { OperationType } from "#ui/Operation.ts";
+import { AbsorptionTarget, CommitAbsorption } from "@gitbutler/but-sdk";
 
 type ProjectState = {
 	layout: layout.ProjectLayoutState;
@@ -80,6 +81,19 @@ const projectSlice = createSlice({
 			const { projectId, source } = action.payload;
 			const projectState = ensureProjectState(state, projectId);
 			workspace.enterMoveMode(projectState.workspace, source);
+		},
+		enterAbsorbMode: (
+			state,
+			action: PayloadAction<{
+				projectId: string;
+				source: Item;
+				target: AbsorptionTarget;
+				absorptionPlan: Array<CommitAbsorption>;
+			}>,
+		) => {
+			const { projectId, source, target, absorptionPlan } = action.payload;
+			const projectState = ensureProjectState(state, projectId);
+			workspace.enterAbsorbMode(projectState.workspace, source, target, absorptionPlan);
 		},
 		enterDragAndDropMode: (
 			state,

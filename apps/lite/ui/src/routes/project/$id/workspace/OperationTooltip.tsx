@@ -1,5 +1,5 @@
 import { classes } from "#ui/classes.ts";
-import { getOperation, operationLabel, useRunOperation, type Operation } from "#ui/Operation.ts";
+import { operationLabel, useRunOperation, type Operation } from "#ui/Operation.ts";
 import uiStyles from "#ui/ui.module.css";
 import { Tooltip, useRender } from "@base-ui/react";
 import { FC } from "react";
@@ -8,7 +8,7 @@ import { Item, itemEquals } from "./Item";
 import { useAppDispatch } from "#ui/state/hooks.ts";
 import { projectActions } from "#ui/routes/project/$id/state/projectSlice.ts";
 import {
-	operationModeToOperationType,
+	operationModeToOperation,
 	OperationMode,
 } from "#ui/routes/project/$id/workspace/WorkspaceMode.ts";
 import { Match } from "effect";
@@ -24,7 +24,6 @@ const OperationModeControls: FC<{
 		dispatch(projectActions.exitMode({ projectId }));
 
 		if (!operation) return;
-
 		runOperation(projectId, operation);
 	};
 
@@ -52,13 +51,7 @@ export const OperationTooltip: FC<
 		isActive: boolean;
 	} & useRender.ComponentProps<"div">
 > = ({ projectId, item, operationMode, isActive, render, ...props }) => {
-	const operation = operationMode?.source
-		? getOperation({
-				source: operationMode.source,
-				target: item,
-				operationType: operationModeToOperationType(operationMode),
-			})
-		: null;
+	const operation = operationMode ? operationModeToOperation(operationMode, item) : null;
 
 	const tooltipLabel = isActive ? (
 		operation ? (
@@ -74,6 +67,7 @@ export const OperationTooltip: FC<
 		!!operationMode &&
 		Match.value(operationMode).pipe(
 			Match.tagsExhaustive({
+				Absorb: () => true,
 				DragAndDrop: () => false,
 				Rub: () => true,
 				Move: () => true,

@@ -1,15 +1,26 @@
 import { Match } from "effect";
 import { branchItem, commitItem, itemEquals, type Item } from "./Item.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "./WorkspaceModel.ts";
-import { getOperation, getOperations, OperationType } from "#ui/Operation.ts";
+import {
+	absorbOperation,
+	getOperation,
+	getOperations,
+	OperationType,
+	type AbsorbOperation,
+	type Operation,
+} from "#ui/Operation.ts";
+import { CommitAbsorption } from "@gitbutler/but-sdk";
 
 /** @public */
 export type RubOperationMode = { source: Item };
 /** @public */
 export type MoveOperationMode = { source: Item };
 /** @public */
+export type AbsorbOperationMode = Omit<AbsorbOperation, "_tag">;
+/** @public */
 export type DragAndDropOperationMode = { source: Item; operationType: OperationType | null };
 export type OperationMode =
+	| ({ _tag: "Absorb" } & AbsorbOperationMode)
 	| ({ _tag: "Rub" } & RubOperationMode)
 	| ({ _tag: "Move" } & MoveOperationMode)
 	| ({ _tag: "DragAndDrop" } & DragAndDropOperationMode);
@@ -24,6 +35,18 @@ export const rubOperationMode = ({ source }: RubOperationMode): OperationMode =>
 export const moveOperationMode = ({ source }: MoveOperationMode): OperationMode => ({
 	_tag: "Move",
 	source,
+});
+
+/** @public */
+export const absorbOperationMode = ({
+	source,
+	target,
+	absorptionPlan,
+}: AbsorbOperationMode): OperationMode => ({
+	_tag: "Absorb",
+	source,
+	target,
+	absorptionPlan,
 });
 
 /** @public */
@@ -84,16 +107,52 @@ export const getOperationMode = (mode: WorkspaceMode): OperationMode | null =>
 		Match.orElse(() => null),
 	);
 
-export const operationModeToOperationType = (operationMode: OperationMode): OperationType | null =>
+export const isAbsorptionPlanTargetItem = ({
+	absorptionPlan,
+	item,
+}: {
+	absorptionPlan: Array<CommitAbsorption>;
+	item: Item;
+}): boolean =>
+	absorptionPlan.some((commitAbsorption) =>
+		itemEquals(
+			item,
+			commitItem({
+				stackId: commitAbsorption.stackId,
+				commitId: commitAbsorption.commitId,
+			}),
+		),
+	);
+
+const operationModeToOperationType = (operationMode: OperationMode): OperationType | null =>
 	Match.value(operationMode).pipe(
 		Match.withReturnType<OperationType | null>(),
 		Match.tags({
+			Absorb: () => null,
 			Rub: () => "rub",
 			// We should have the ability to move either above or below.
 			Move: ({ source }) => (source._tag === "Branch" ? "moveAbove" : "moveBelow"),
 			DragAndDrop: ({ operationType }) => operationType,
 		}),
 		Match.exhaustive,
+	);
+
+export const operationModeToOperation = (
+	operationMode: OperationMode,
+	target: Item | null,
+): Operation | null =>
+	Match.value(operationMode).pipe(
+		Match.withReturnType<Operation | null>(),
+		Match.tags({ Absorb: absorbOperation }),
+		Match.orElse((mode) => {
+			if (!target) return null;
+
+			return getOperation({
+				source: mode.source,
+				target,
+				operationType: operationModeToOperationType(mode),
+			});
+		}),
 	);
 
 export const isValidWorkspaceMode = ({
@@ -109,6 +168,17 @@ export const isValidWorkspaceMode = ({
 			Operation: ({ value }) =>
 				Match.value(value).pipe(
 					Match.tagsExhaustive({
+						Absorb: (mode) =>
+							navigationIndexIncludes(navigationIndex, mode.source) &&
+							mode.absorptionPlan.every((commitAbsorption) =>
+								navigationIndexIncludes(
+									navigationIndex,
+									commitItem({
+										stackId: commitAbsorption.stackId,
+										commitId: commitAbsorption.commitId,
+									}),
+								),
+							),
 						Rub: (mode) => navigationIndexIncludes(navigationIndex, mode.source),
 						Move: (mode) => navigationIndexIncludes(navigationIndex, mode.source),
 						// Once we have keyboard selectable hunks, this should check the
@@ -178,6 +248,8 @@ export const includeItemForWorkspaceMode = ({
 			Operation: ({ value }) =>
 				Match.value(value).pipe(
 					Match.tagsExhaustive({
+						Absorb: (mode) =>
+							isAbsorptionPlanTargetItem({ absorptionPlan: mode.absorptionPlan, item }),
 						DragAndDrop: ({ source }) => {
 							const operations = getOperations(source, item);
 							return !!operations.rub || !!operations.moveAbove || !!operations.moveBelow;

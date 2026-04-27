@@ -8,6 +8,7 @@ import {
 	projectActions,
 	selectProjectOperationModeState,
 } from "#ui/routes/project/$id/state/projectSlice.ts";
+import { isAbsorptionPlanTargetItem } from "#ui/routes/project/$id/workspace/WorkspaceMode.ts";
 import { useAppDispatch, useAppSelector } from "#ui/state/hooks.ts";
 import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import {
@@ -162,6 +163,7 @@ export const OperationTarget: FC<
 	const insertTargetOperationType = operationMode
 		? Match.value(operationMode).pipe(
 				Match.tagsExhaustive({
+					Absorb: () => null,
 					DragAndDrop: ({ operationType }) =>
 						isActiveDropTarget && (operationType === "moveAbove" || operationType === "moveBelow")
 							? operationType
@@ -176,6 +178,18 @@ export const OperationTarget: FC<
 		!!operationMode &&
 		Match.value(operationMode).pipe(
 			Match.tagsExhaustive({
+				Absorb: ({ absorptionPlan }) => isAbsorptionPlanTargetItem({ absorptionPlan, item }),
+				DragAndDrop: ({ operationType }) => isActiveDropTarget && operationType === "rub",
+				Rub: () => isSelected,
+				Move: () => isSelected,
+			}),
+		);
+
+	const isMainTargetTooltipActive =
+		!!operationMode &&
+		Match.value(operationMode).pipe(
+			Match.tagsExhaustive({
+				Absorb: () => isSelected,
 				DragAndDrop: ({ operationType }) => isActiveDropTarget && operationType === "rub",
 				Rub: () => isSelected,
 				Move: () => isSelected,
@@ -195,7 +209,7 @@ export const OperationTarget: FC<
 			<OperationTooltip
 				projectId={projectId}
 				item={item}
-				isActive={isMainTargetActive}
+				isActive={isMainTargetTooltipActive}
 				operationMode={operationMode}
 				render={target}
 			/>

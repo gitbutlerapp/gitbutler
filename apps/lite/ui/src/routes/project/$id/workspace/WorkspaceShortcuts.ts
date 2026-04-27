@@ -1,5 +1,5 @@
 import { getAction, type ShortcutActionBase, type ShortcutBinding } from "#ui/shortcuts.ts";
-import { getOperation, useRunOperation } from "#ui/Operation.ts";
+import { useRunOperation } from "#ui/Operation.ts";
 import { type Panel } from "#ui/routes/project/$id/state/layout.ts";
 import {
 	projectActions,
@@ -22,17 +22,16 @@ import {
 	StackItem,
 	stackItem,
 } from "./Item.ts";
-import { resolveAbsorptionTarget } from "./Absorption.tsx";
+import { resolveAbsorptionTarget } from "./Absorption.ts";
 import {
 	getAdjacent,
 	getNextSection,
 	getPreviousSection,
 	type NavigationIndex,
 } from "./WorkspaceModel.ts";
-import { operationModeToOperationType, type WorkspaceMode } from "./WorkspaceMode.ts";
+import { operationModeToOperation, type WorkspaceMode } from "./WorkspaceMode.ts";
 import { useQueryClient } from "@tanstack/react-query";
-import { AbsorptionTarget } from "@gitbutler/but-sdk";
-import { changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
+import { absorptionPlanQueryOptions, changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
 
 const isTypingTarget = (target: EventTarget | null) => {
 	if (!(target instanceof HTMLElement)) return false;
@@ -469,8 +468,13 @@ type RubOperationModeScope = {
 	bindings: Array<ShortcutBinding<OperationModeAction>>;
 	context: Item | null;
 };
+type AbsorbOperationModeScope = {
+	bindings: Array<ShortcutBinding<OperationModeAction>>;
+	context: Item | null;
+};
 
 type OperationModeScope =
+	| ({ _tag: "Absorb" } & AbsorbOperationModeScope)
 	| ({ _tag: "Move" } & MoveOperationModeScope)
 	| ({ _tag: "Rub" } & RubOperationModeScope);
 
@@ -492,9 +496,19 @@ const rubOperationModeScope = ({
 	context,
 });
 
+const absorbOperationModeScope = ({
+	bindings,
+	context,
+}: AbsorbOperationModeScope): OperationModeScope => ({
+	_tag: "Absorb",
+	bindings,
+	context,
+});
+
 const getOperationModeScopeLabel = (scope: OperationModeScope): string =>
 	Match.value(scope).pipe(
 		Match.tagsExhaustive({
+			Absorb: () => "Absorb",
 			Move: () => "Move mode",
 			Rub: () => "Rub mode",
 		}),
@@ -596,6 +610,11 @@ const getModeScope = ({
 			Operation: ({ value }) =>
 				Match.value(value).pipe(
 					Match.tagsExhaustive({
+						Absorb: () =>
+							absorbOperationModeScope({
+								bindings: operationModeBindings,
+								context: selectedItem,
+							}),
 						DragAndDrop: () => null,
 						Move: () =>
 							moveOperationModeScope({
@@ -649,6 +668,7 @@ type Scope = ModeScope | ({ _tag: "Show" } & ShowScope);
 const isOperationModeScope = (scope: Scope): scope is OperationModeScope =>
 	Match.value(scope).pipe(
 		Match.tagsExhaustive({
+			Absorb: () => true,
 			Move: () => true,
 			Rub: () => true,
 			Default: () => false,
@@ -687,6 +707,7 @@ export const getScopeBindings = (scope: Scope): Array<ShortcutBinding<ShortcutAc
 			Show: ({ bindings }) => bindings,
 			RenameBranch: ({ bindings }) => bindings,
 			RewordCommit: ({ bindings }) => bindings,
+			Absorb: ({ bindings }) => bindings,
 			Rub: ({ bindings }) => bindings,
 		}),
 	);
@@ -695,6 +716,7 @@ export const getScopeLabel = (scope: Scope): string =>
 	Match.value(scope).pipe(
 		Match.tagsExhaustive({
 			Default: ({ scope }) => getDefaultModeScopeLabel(scope),
+			Absorb: (scope) => getOperationModeScopeLabel(scope),
 			Move: (scope) => getOperationModeScopeLabel(scope),
 			Show: () => "Preview (show)",
 			RenameBranch: () => "Rename branch",
@@ -709,7 +731,6 @@ export const useWorkspaceShortcuts = ({
 	projectId,
 	scope,
 	navigationIndex,
-	openAbsorptionDialog,
 	openBranchPicker,
 	focusPanel,
 	focusAdjacentPanel,
@@ -719,7 +740,6 @@ export const useWorkspaceShortcuts = ({
 	projectId: string;
 	scope: Scope | null;
 	navigationIndex: NavigationIndex;
-	openAbsorptionDialog: (target: AbsorptionTarget) => void;
 	openBranchPicker: () => void;
 	focusPanel: (panel: Panel) => void;
 	focusAdjacentPanel: (offset: -1 | 1) => void;
@@ -812,7 +832,7 @@ export const useWorkspaceShortcuts = ({
 			}),
 		);
 
-	const openAbsorptionDialogForItem = (selectedItem: Item) => {
+	const enterAbsorbModeForItem = (selectedItem: Item) => {
 		const worktreeChanges = queryClient.getQueryData(
 			changesInWorktreeQueryOptions(projectId).queryKey,
 		);
@@ -824,13 +844,24 @@ export const useWorkspaceShortcuts = ({
 		});
 		if (!target) return;
 
-		openAbsorptionDialog(target);
+		void queryClient
+			.fetchQuery(absorptionPlanQueryOptions({ projectId, target }))
+			.then((absorptionPlan) => {
+				dispatch(
+					projectActions.enterAbsorbMode({
+						projectId,
+						source: selectedItem,
+						target,
+						absorptionPlan,
+					}),
+				);
+			});
 	};
 
 	const handleChangesScopeAction = (action: ChangesAction, selectedItem: Item) =>
 		Match.value(action).pipe(
 			Match.tags({
-				Absorb: () => openAbsorptionDialogForItem(selectedItem),
+				Absorb: () => enterAbsorbModeForItem(selectedItem),
 			}),
 			Match.orElse((action) => handlePrimaryPanelAction(action, selectedItem)),
 		);
@@ -950,16 +981,9 @@ export const useWorkspaceShortcuts = ({
 
 		dispatch(projectActions.exitMode({ projectId }));
 
-		if (!selectedItem) return;
+		const operation = operationModeToOperation(operationMode, selectedItem);
 
-		const operationType = operationModeToOperationType(operationMode);
-		const operation = getOperation({
-			source: operationMode.source,
-			target: selectedItem,
-			operationType,
-		});
 		if (!operation) return;
-
 		runOperation(projectId, operation);
 	};
 

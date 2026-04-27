@@ -38,7 +38,6 @@ import {
 	selectProjectSelectedItem,
 	selectProjectWorkspaceModeState,
 } from "#ui/routes/project/$id/state/projectSlice.ts";
-import { AbsorptionDialog } from "#ui/routes/project/$id/workspace/Absorption.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { OperationTarget } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { OperationSourceLabel } from "#ui/routes/project/$id/workspace/OperationSourceLabel.tsx";
@@ -1079,7 +1078,7 @@ const ChangesFileRow: FC<{
 	change: TreeChange;
 	dependencyCommitIds: NonEmptyArray<string> | undefined;
 	navigationIndex: NavigationIndex;
-	onAbsorbChanges: (target: AbsorptionTarget) => void;
+	onAbsorbChanges: (source: Item, target: AbsorptionTarget) => void;
 	workspaceMode: WorkspaceMode;
 	projectId: string;
 }> = ({
@@ -1097,7 +1096,7 @@ const ChangesFileRow: FC<{
 			_tag: "Item",
 			label: "Absorb",
 			onSelect: () => {
-				onAbsorbChanges({
+				onAbsorbChanges(item, {
 					type: "treeChanges",
 					subject: {
 						changes: [change],
@@ -1159,7 +1158,7 @@ const ChangesFileRow: FC<{
 const ChangesSectionRow: FC<{
 	changes: Array<TreeChange>;
 	navigationIndex: NavigationIndex;
-	onAbsorbChanges: (target: AbsorptionTarget) => void;
+	onAbsorbChanges: (source: Item, target: AbsorptionTarget) => void;
 	onCommit: () => void;
 	projectId: string;
 	workspaceMode: WorkspaceMode;
@@ -1172,7 +1171,7 @@ const ChangesSectionRow: FC<{
 			label: "Absorb",
 			enabled: changes.length > 0,
 			onSelect: () => {
-				onAbsorbChanges({ type: "all" });
+				onAbsorbChanges(item, { type: "all" });
 			},
 		},
 	];
@@ -1241,7 +1240,7 @@ const BaseCommit: FC<{
 
 const Changes: FC<{
 	projectId: string;
-	onAbsorbChanges: (target: AbsorptionTarget) => void;
+	onAbsorbChanges: (source: Item, target: AbsorptionTarget) => void;
 	onCommit: () => void;
 	navigationIndex: NavigationIndex;
 	workspaceMode: WorkspaceMode;
@@ -1815,16 +1814,20 @@ const ProjectPage: FC = () => {
 
 	const shortcutScope = getScope({ selectedItem, focusedPanel, workspaceMode });
 
-	const [absorptionTarget, setAbsorptionTarget] = useState<AbsorptionTarget | null>(null);
-
 	const queryClient = useQueryClient();
-	const openAbsorptionDialog = (target: AbsorptionTarget) => {
-		// Before opening the dialog, warm cache to avoid showing loading states in
-		// the dialog itself. This also ensures we don't show a stale absorption
-		// plan whilst the dialog revalidates.
-		void queryClient.prefetchQuery(absorptionPlanQueryOptions({ projectId, target })).then(() => {
-			setAbsorptionTarget(target);
-		});
+	const enterAbsorbMode = (source: Item, target: AbsorptionTarget) => {
+		void queryClient
+			.fetchQuery(absorptionPlanQueryOptions({ projectId, target }))
+			.then((absorptionPlan) => {
+				dispatch(
+					projectActions.enterAbsorbMode({
+						projectId,
+						source,
+						target,
+						absorptionPlan,
+					}),
+				);
+			});
 	};
 
 	const inlineRenameBranchFormRef = useRef<HTMLFormElement | null>(null);
@@ -1837,7 +1840,6 @@ const ProjectPage: FC = () => {
 		projectId,
 		scope: shortcutScope,
 		navigationIndex,
-		openAbsorptionDialog,
 		openBranchPicker: () => setBranchPickerOpen(true),
 		focusPanel,
 		focusAdjacentPanel,
@@ -1884,7 +1886,7 @@ const ProjectPage: FC = () => {
 				<div className={styles.sections}>
 					<Changes
 						projectId={projectId}
-						onAbsorbChanges={openAbsorptionDialog}
+						onAbsorbChanges={enterAbsorbMode}
 						onCommit={commit}
 						navigationIndex={navigationIndex}
 						workspaceMode={workspaceMode}
@@ -1925,16 +1927,6 @@ const ProjectPage: FC = () => {
 				<PositionedShortcutsBar
 					label={getScopeLabel(shortcutScope)}
 					items={getScopeBindings(shortcutScope)}
-				/>
-			)}
-
-			{absorptionTarget && (
-				<AbsorptionDialog
-					projectId={projectId}
-					target={absorptionTarget}
-					onOpenChange={(open) => {
-						if (!open) setAbsorptionTarget(null);
-					}}
 				/>
 			)}
 
