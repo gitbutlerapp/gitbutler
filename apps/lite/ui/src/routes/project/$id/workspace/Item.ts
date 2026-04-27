@@ -17,7 +17,10 @@ export type StackItem = {
 export type BranchItem = StackItem & {
 	branchRef: Array<number>;
 };
-export type CommitItem = StackItem & { commitId: string };
+
+export type CommitItem = StackItem & {
+	commitId: string;
+};
 
 /** @public */
 export type HunkItem = FileItem & {
