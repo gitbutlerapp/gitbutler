@@ -302,22 +302,25 @@ const TreeItem: FC<
 		item: Item;
 		label: string;
 		expanded?: boolean;
-		target?: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ projectId, item, label, expanded, target, render: renderProp, ...props }) => {
+> = ({ projectId, item, label, expanded, render, ...props }) => {
 	const isSelected = useIsItemSelected({ projectId, item });
 
-	let render = renderProp;
-
-	if (target)
-		render = (
-			<OperationTarget projectId={projectId} item={item} isSelected={isSelected} render={render} />
-		);
-
-	render = <OperationSourceC projectId={projectId} source={item} render={render} />;
-
 	return useRender({
-		render,
+		render: (
+			<OperationSourceC
+				projectId={projectId}
+				source={item}
+				render={
+					<OperationTarget
+						projectId={projectId}
+						item={item}
+						isSelected={isSelected}
+						render={render}
+					/>
+				}
+			/>
+		),
 		defaultTagName: "div",
 		props: mergeProps<"div">(props, {
 			id: treeItemId(projectId, item),
@@ -1024,7 +1027,6 @@ const CommitC: FC<{
 			item={item}
 			label={commitTitle(commit.message)}
 			expanded={isExpanded}
-			target
 		>
 			<CommitRow
 				commit={commit}
@@ -1196,7 +1198,6 @@ const BaseCommit: FC<{
 				projectId={projectId}
 				item={item}
 				label="Base commit"
-				target
 				render={
 					<ItemRow projectId={projectId} item={item} navigationIndex={navigationIndex}>
 						<div className={classes(styles.itemRowLabel, styles.sectionLabel)}>
@@ -1227,14 +1228,7 @@ const Changes: FC<{
 	const item = changesSectionItem;
 
 	return (
-		<TreeItem
-			projectId={projectId}
-			item={item}
-			label="Changes"
-			expanded
-			target
-			className={styles.section}
-		>
+		<TreeItem projectId={projectId} item={item} label="Changes" expanded className={styles.section}>
 			<ChangesSectionRow
 				changes={worktreeChanges.changes}
 				navigationIndex={navigationIndex}
@@ -1524,7 +1518,6 @@ const BranchSegment: FC<{
 			item={item}
 			label={refName.displayName}
 			expanded
-			target
 			className={classes(styles.section, styles.segment)}
 		>
 			<BranchRow
