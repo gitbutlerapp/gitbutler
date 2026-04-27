@@ -92,7 +92,7 @@ export const ProjectPreviewLayout: FC<{
 						defaultSize="70%"
 						elementRef={panelElementRef("show")}
 						tabIndex={0}
-						className={classes(styles.panel, styles.showPanel)}
+						className={styles.panel}
 					>
 						{show}
 					</Panel>
