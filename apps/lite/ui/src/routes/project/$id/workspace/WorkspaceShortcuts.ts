@@ -581,13 +581,13 @@ const getModeScope = ({
 	selectedItem,
 	workspaceMode,
 }: {
-	selectedItem: Item | null;
+	selectedItem: Item;
 	workspaceMode: WorkspaceMode;
 }): ModeScope | null =>
 	Match.value(workspaceMode).pipe(
 		Match.tagsExhaustive({
 			Default: () => {
-				const scope = selectedItem && getDefaultModeScope(selectedItem);
+				const scope = getDefaultModeScope(selectedItem);
 				if (!scope) return null;
 				return defaultModeScope({
 					scope,
@@ -610,7 +610,7 @@ const getModeScope = ({
 					}),
 				),
 			RenameBranch: (workspaceMode) =>
-				selectedItem?._tag === "Branch" &&
+				selectedItem._tag === "Branch" &&
 				itemEquals(
 					selectedItem,
 					branchItem({
@@ -624,7 +624,7 @@ const getModeScope = ({
 						})
 					: null,
 			RewordCommit: (workspaceMode) =>
-				selectedItem?._tag === "Commit" &&
+				selectedItem._tag === "Commit" &&
 				itemEquals(
 					selectedItem,
 					commitItem({
