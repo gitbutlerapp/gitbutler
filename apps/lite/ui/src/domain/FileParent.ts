@@ -1,8 +1,8 @@
 /** @public */
-export type CommitFileParent = { commitId: string };
+export type CommitFileParent = { stackId: string; commitId: string };
 
 /** @public */
-export type BranchFileParent = { branchRef: Array<number> };
+export type BranchFileParent = { stackId: string; branchRef: Array<number> };
 
 export type FileParent =
 	| ({ _tag: "Commit" } & CommitFileParent)
@@ -10,8 +10,9 @@ export type FileParent =
 	| ({ _tag: "Branch" } & BranchFileParent);
 
 /** @public */
-export const commitFileParent = ({ commitId }: CommitFileParent): FileParent => ({
+export const commitFileParent = ({ stackId, commitId }: CommitFileParent): FileParent => ({
 	_tag: "Commit",
+	stackId,
 	commitId,
 });
 
@@ -21,7 +22,8 @@ export const changeFileParent: FileParent = {
 };
 
 /** @public */
-export const branchFileParent = ({ branchRef }: BranchFileParent): FileParent => ({
+export const branchFileParent = ({ stackId, branchRef }: BranchFileParent): FileParent => ({
 	_tag: "Branch",
+	stackId,
 	branchRef,
 });

@@ -515,9 +515,8 @@ const ChangesFileDiffList: FC<{
 	changes: Array<TreeChange>;
 	projectId: string;
 	fileParent: FileParent;
-	stackId?: string;
 	hunkDependencyDiffsByPath?: Map<string, Array<HunkDependencyDiff>>;
-}> = ({ changes, projectId, fileParent, stackId, hunkDependencyDiffsByPath }) => {
+}> = ({ changes, projectId, fileParent, hunkDependencyDiffsByPath }) => {
 	const treeChangeDiffs = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 	}).map((result) => result.data);
@@ -528,31 +527,22 @@ const ChangesFileDiffList: FC<{
 	) : (
 		<ul>
 			{changesWithDiffs.map(([change, diff]) => {
-				const heading = <h4>{change.path}</h4>;
 				const source = Match.value(fileParent).pipe(
 					Match.tag("Change", () => changesFileItem({ path: change.path })),
-					Match.tag("Commit", ({ commitId }) =>
-						stackId !== undefined
-							? commitFileItem({ stackId, commitId, path: change.path })
-							: undefined,
+					Match.tag("Commit", ({ stackId, commitId }) =>
+						commitFileItem({ stackId, commitId, path: change.path }),
 					),
-					Match.tag("Branch", ({ branchRef }) =>
-						stackId !== undefined
-							? branchFileItem({ stackId, branchRef, path: change.path })
-							: undefined,
+					Match.tag("Branch", ({ stackId, branchRef }) =>
+						branchFileItem({ stackId, branchRef, path: change.path }),
 					),
 					Match.exhaustive,
 				);
 
 				return (
 					<li key={change.path}>
-						{source ? (
-							<OperationSourceC projectId={projectId} source={source}>
-								{heading}
-							</OperationSourceC>
-						) : (
-							heading
-						)}
+						<OperationSourceC projectId={projectId} source={source}>
+							<h4>{change.path}</h4>
+						</OperationSourceC>
 						<FileDiff
 							projectId={projectId}
 							change={change}
@@ -607,7 +597,7 @@ const CommitShow: FC<{
 			? commitDetails.changes.find((candidate) => candidate.path === selectedPath)
 			: undefined;
 	const changes = selectedChange ? [selectedChange] : commitDetails.changes;
-	const fileParent = commitFileParent({ commitId });
+	const fileParent = commitFileParent({ stackId, commitId });
 
 	return (
 		<div>
@@ -625,12 +615,7 @@ const CommitShow: FC<{
 					)}
 				</>
 			)}
-			<ChangesFileDiffList
-				changes={changes}
-				fileParent={fileParent}
-				projectId={projectId}
-				stackId={stackId}
-			/>
+			<ChangesFileDiffList changes={changes} fileParent={fileParent} projectId={projectId} />
 		</div>
 	);
 };
@@ -667,8 +652,7 @@ const BranchShow: FC<{
 			<ChangesFileDiffList
 				changes={changes}
 				projectId={projectId}
-				fileParent={branchFileParent({ branchRef })}
-				stackId={stackId}
+				fileParent={branchFileParent({ stackId, branchRef })}
 			/>
 		</div>
 	);

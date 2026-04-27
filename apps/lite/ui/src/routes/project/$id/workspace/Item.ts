@@ -1,5 +1,10 @@
 import { Match } from "effect";
-import { changeFileParent, commitFileParent, type FileParent } from "#ui/domain/FileParent.ts";
+import {
+	branchFileParent,
+	changeFileParent,
+	commitFileParent,
+	type FileParent,
+} from "#ui/domain/FileParent.ts";
 import { type HunkHeader } from "@gitbutler/but-sdk";
 
 /** @public */
@@ -136,7 +141,8 @@ export const itemFileParent = (item: Item): FileParent | null =>
 		Match.tags({
 			ChangesFile: () => changeFileParent,
 			ChangesSection: () => changeFileParent,
-			CommitFile: ({ commitId }) => commitFileParent({ commitId }),
+			CommitFile: ({ stackId, commitId }) => commitFileParent({ stackId, commitId }),
+			BranchFile: ({ stackId, branchRef }) => branchFileParent({ stackId, branchRef }),
 			Hunk: ({ parent }) => parent,
 		}),
 		Match.orElse(() => null),
