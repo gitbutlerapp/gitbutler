@@ -20,7 +20,7 @@ import { classes } from "#ui/classes.ts";
 import { DependencyIcon, ExpandCollapseIcon, MenuTriggerIcon, PushIcon } from "#ui/icons.tsx";
 import {
 	branchFileParent,
-	changeFileParent,
+	changesFileParent,
 	commitFileParent,
 	type FileParent,
 } from "#ui/domain/FileParent.ts";
@@ -444,7 +444,7 @@ const Hunk: FC<{
 	hunkDependencyDiffs,
 }) => {
 	const dependencyCommitIds =
-		fileParent._tag === "Change" && hunkDependencyDiffs
+		fileParent._tag === "Changes" && hunkDependencyDiffs
 			? getDependencyCommitIds({ hunk, hunkDependencyDiffs })
 			: undefined;
 
@@ -564,7 +564,7 @@ const ChangesShow: FC<{
 		<div>
 			<ChangesFileDiffList
 				changes={changes}
-				fileParent={changeFileParent}
+				fileParent={changesFileParent}
 				hunkDependencyDiffsByPath={hunkDependencyDiffsByPath}
 				projectId={projectId}
 			/>
@@ -661,7 +661,7 @@ const Show: FC<{
 			File: ({ parent, path }) =>
 				Match.value(parent).pipe(
 					Match.tagsExhaustive({
-						Change: () => <ChangesShow projectId={projectId} selectedPath={path} />,
+						Changes: () => <ChangesShow projectId={projectId} selectedPath={path} />,
 						Branch: ({ branchRef, stackId }) => (
 							<BranchShow
 								projectId={projectId}
@@ -1054,7 +1054,7 @@ const ChangesFileRow: FC<{
 	workspaceMode,
 	projectId,
 }) => {
-	const item = fileItem({ parent: changeFileParent, path: change.path });
+	const item = fileItem({ parent: changesFileParent, path: change.path });
 
 	const menuItems: Array<NativeMenuItem> = [
 		{

@@ -6,7 +6,7 @@ import {
 import { CommitDetails, Segment, type RefInfo, type TreeChange } from "@gitbutler/but-sdk";
 import { useQueries, useSuspenseQuery } from "@tanstack/react-query";
 import { type NonEmptyArray } from "effect/Array";
-import { changeFileParent, commitFileParent } from "#ui/domain/FileParent.ts";
+import { changesFileParent, commitFileParent } from "#ui/domain/FileParent.ts";
 import {
 	branchItem,
 	baseCommitItem,
@@ -38,7 +38,7 @@ const buildWorkspaceOutline = ({
 }: BuildWorkspaceOutlineArgs): WorkspaceOutline => {
 	const changesSection: WorkspaceSection = {
 		section: changesSectionItem,
-		children: changes.map((change) => fileItem({ parent: changeFileParent, path: change.path })),
+		children: changes.map((change) => fileItem({ parent: changesFileParent, path: change.path })),
 	};
 
 	const segmentChildren = (stackId: string, segment: Segment): Array<Item> =>

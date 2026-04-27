@@ -37,7 +37,7 @@ const resolvedDiffSpecsFromItem = ({
 				Match.value(parent).pipe(
 					Match.withReturnType<Array<DiffSpec> | null>(),
 					Match.tagsExhaustive({
-						Change: () => {
+						Changes: () => {
 							const change = worktreeChanges?.changes.find((candidate) => candidate.path === path);
 							if (!change) return null;
 
@@ -63,7 +63,7 @@ const resolvedDiffSpecsFromItem = ({
 			Hunk: ({ parent, path, hunkHeader }) => {
 				const changes = Match.value(parent).pipe(
 					Match.tagsExhaustive({
-						Change: () => worktreeChanges?.changes,
+						Changes: () => worktreeChanges?.changes,
 						Commit: ({ commitId }) => getCommitDetails(commitId)?.changes,
 						Branch: () => null,
 					}),

@@ -1,5 +1,5 @@
 import { Match } from "effect";
-import { changeFileParent, type FileParent } from "#ui/domain/FileParent.ts";
+import { changesFileParent, type FileParent } from "#ui/domain/FileParent.ts";
 import { type HunkHeader } from "@gitbutler/but-sdk";
 
 /** @public */
@@ -112,7 +112,7 @@ export const itemFileParent = (item: Item): FileParent | null =>
 		Match.withReturnType<FileParent | null>(),
 		Match.tags({
 			File: ({ parent }) => parent,
-			ChangesSection: () => changeFileParent,
+			ChangesSection: () => changesFileParent,
 			Hunk: ({ parent }) => parent,
 		}),
 		Match.orElse(() => null),

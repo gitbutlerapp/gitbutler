@@ -366,7 +366,7 @@ const getDefaultModeScope = (selectedItem: Item): DefaultModeScope | null =>
 			File: (selectedItem) =>
 				Match.value(selectedItem.parent).pipe(
 					Match.tagsExhaustive({
-						Change: () =>
+						Changes: () =>
 							changesFileDefaultModeScope({
 								bindings: changesBindings,
 								context: selectedItem,

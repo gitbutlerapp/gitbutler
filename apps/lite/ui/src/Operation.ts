@@ -393,7 +393,7 @@ const rubOperation = ({ source, target }: { source: Item; target: Item }): Opera
 		),
 		Match.when(
 			{
-				sourceFileParent: { _tag: "Change" },
+				sourceFileParent: { _tag: "Changes" },
 				target: { _tag: "Commit" },
 			},
 			({ source, target }) =>
@@ -490,7 +490,7 @@ const moveOperation = ({
 				side,
 			}),
 		),
-		Match.when({ sourceFileParent: { _tag: "Change" } }, ({ source }) =>
+		Match.when({ sourceFileParent: { _tag: "Changes" } }, ({ source }) =>
 			commitCreateOperation({
 				relativeTo,
 				side,
