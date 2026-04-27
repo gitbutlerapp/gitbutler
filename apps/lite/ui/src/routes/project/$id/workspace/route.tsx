@@ -1225,18 +1225,16 @@ const BaseCommit: FC<{
 					<OperationItem
 						projectId={projectId}
 						item={item}
-						render={
-							<ItemRow projectId={projectId} item={item} navigationIndex={navigationIndex}>
-								<div className={classes(styles.itemRowLabel, styles.sectionLabel)}>
-									{commitId !== undefined
-										? `${shortCommitId(commitId)} (common base commit)`
-										: "(base commit)"}
-								</div>
-							</ItemRow>
-						}
+						render={<ItemRow projectId={projectId} item={item} navigationIndex={navigationIndex} />}
 					/>
 				}
-			/>
+			>
+				<div className={classes(styles.itemRowLabel, styles.sectionLabel)}>
+					{commitId !== undefined
+						? `${shortCommitId(commitId)} (common base commit)`
+						: "(base commit)"}
+				</div>
+			</TreeItem>
 		</div>
 	);
 };
