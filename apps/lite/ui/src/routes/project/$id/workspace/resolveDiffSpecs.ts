@@ -33,25 +33,32 @@ const resolvedDiffSpecsFromItem = ({
 	Match.value(item).pipe(
 		Match.withReturnType<Array<DiffSpec> | null>(),
 		Match.tags({
-			ChangesFile: ({ path }) => {
-				const change = worktreeChanges?.changes.find((candidate) => candidate.path === path);
-				if (!change) return null;
+			File: ({ parent, path }) =>
+				Match.value(parent).pipe(
+					Match.withReturnType<Array<DiffSpec> | null>(),
+					Match.tagsExhaustive({
+						Change: () => {
+							const change = worktreeChanges?.changes.find((candidate) => candidate.path === path);
+							if (!change) return null;
 
-				return [createDiffSpec(change, [])];
-			},
+							return [createDiffSpec(change, [])];
+						},
+						Commit: ({ commitId }) => {
+							const change = getCommitDetails(commitId)?.changes.find(
+								(candidate) => candidate.path === path,
+							);
+							if (!change) return null;
+
+							return [createDiffSpec(change, [])];
+						},
+						Branch: () => null,
+					}),
+				),
 			ChangesSection: () => {
 				if (!worktreeChanges) return null;
 
 				const changes = worktreeChanges.changes.map((change) => createDiffSpec(change, []));
 				return changes;
-			},
-			CommitFile: ({ commitId, path }) => {
-				const change = getCommitDetails(commitId)?.changes.find(
-					(candidate) => candidate.path === path,
-				);
-				if (!change) return null;
-
-				return [createDiffSpec(change, [])];
 			},
 			Hunk: ({ parent, path, hunkHeader }) => {
 				const changes = Match.value(parent).pipe(

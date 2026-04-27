@@ -11,15 +11,13 @@ import { RefObject, useEffect, useEffectEvent } from "react";
 import {
 	branchItem,
 	baseCommitItem,
-	changesFileItem,
-	commitFileItem,
 	commitItem,
+	fileItem,
 	itemEquals,
 	type BranchItem,
-	type ChangesFileItem,
 	changesSectionItem,
-	type CommitFileItem,
 	type CommitItem,
+	type FileItem,
 	type Item,
 	StackItem,
 	stackItem,
@@ -274,7 +272,7 @@ type BranchDefaultModeScope = {
 };
 type ChangesFileDefaultModeScope = {
 	bindings: Array<ShortcutBinding<ChangesAction>>;
-	context: ChangesFileItem;
+	context: FileItem;
 };
 type ChangesSectionDefaultModeScope = {
 	bindings: Array<ShortcutBinding<ChangesAction>>;
@@ -285,7 +283,7 @@ type CommitDefaultModeScope = {
 };
 type CommitFileDefaultModeScope = {
 	bindings: Array<ShortcutBinding<CommitFileAction>>;
-	context: CommitFileItem;
+	context: FileItem;
 };
 
 type StackDefaultModeScope = {
@@ -365,11 +363,22 @@ const getDefaultModeScope = (selectedItem: Item): DefaultModeScope | null =>
 				baseCommitDefaultModeScope({
 					bindings: primaryPanelBindings,
 				}),
-			ChangesFile: (selectedItem) =>
-				changesFileDefaultModeScope({
-					bindings: changesBindings,
-					context: selectedItem,
-				}),
+			File: (selectedItem) =>
+				Match.value(selectedItem.parent).pipe(
+					Match.tagsExhaustive({
+						Change: () =>
+							changesFileDefaultModeScope({
+								bindings: changesBindings,
+								context: selectedItem,
+							}),
+						Commit: () =>
+							commitFileDefaultModeScope({
+								bindings: commitFilesBindings,
+								context: selectedItem,
+							}),
+						Branch: () => null,
+					}),
+				),
 			ChangesSection: () =>
 				changesSectionDefaultModeScope({
 					bindings: changesBindings,
@@ -377,11 +386,6 @@ const getDefaultModeScope = (selectedItem: Item): DefaultModeScope | null =>
 			Commit: (selectedItem) =>
 				commitDefaultModeScope({
 					bindings: commitDefaultBindings,
-					context: selectedItem,
-				}),
-			CommitFile: (selectedItem) =>
-				commitFileDefaultModeScope({
-					bindings: commitFilesBindings,
 					context: selectedItem,
 				}),
 			Stack: (selectedItem) =>
@@ -394,7 +398,6 @@ const getDefaultModeScope = (selectedItem: Item): DefaultModeScope | null =>
 					bindings: branchBindings,
 					context: selectedItem,
 				}),
-			BranchFile: () => null,
 			Hunk: () => null,
 		}),
 	);
@@ -848,14 +851,21 @@ export const useWorkspaceShortcuts = ({
 			Match.orElse((action) => handlePrimaryPanelAction(action, commitItem(selectedItem))),
 		);
 
-	const handleCommitFileScopeAction = (action: CommitFileAction, selectedItem: CommitFileItem) =>
+	const handleCommitFileScopeAction = (action: CommitFileAction, selectedItem: FileItem) =>
 		Match.value(action).pipe(
 			Match.tags({
 				CloseFiles: () => dispatch(projectActions.closeCommitFiles({ projectId })),
-				ToggleFiles: () =>
-					dispatch(projectActions.toggleCommitFiles({ projectId, item: selectedItem })),
+				ToggleFiles: () => {
+					if (selectedItem.parent._tag !== "Commit") return;
+					dispatch(
+						projectActions.toggleCommitFiles({
+							projectId,
+							item: selectedItem.parent,
+						}),
+					);
+				},
 			}),
-			Match.orElse((action) => handlePrimaryPanelAction(action, commitFileItem(selectedItem))),
+			Match.orElse((action) => handlePrimaryPanelAction(action, fileItem(selectedItem))),
 		);
 
 	const handleBranchScopeAction = (action: BranchAction, selectedItem: BranchItem) =>
@@ -891,7 +901,7 @@ export const useWorkspaceShortcuts = ({
 					const action = getAction(scope.bindings, event);
 					if (!action) return;
 					event.preventDefault();
-					handleChangesScopeAction(action, changesFileItem(scope.context));
+					handleChangesScopeAction(action, fileItem(scope.context));
 				},
 				ChangesSection: (scope) => {
 					const action = getAction(scope.bindings, event);

@@ -99,18 +99,16 @@ import { useAppDispatch, useAppSelector } from "#ui/state/hooks.ts";
 import {
 	branchItem,
 	baseCommitItem,
-	changesFileItem,
 	changesSectionItem,
 	type BranchItem,
-	commitFileItem,
 	type CommitItem,
 	commitItem,
+	fileItem,
 	itemEquals,
 	itemIdentityKey,
 	type Item,
 	stackItem,
 	hunkItem,
-	branchFileItem,
 } from "./Item.ts";
 import {
 	buildNavigationIndex,
@@ -527,16 +525,7 @@ const ChangesFileDiffList: FC<{
 	) : (
 		<ul>
 			{changesWithDiffs.map(([change, diff]) => {
-				const source = Match.value(fileParent).pipe(
-					Match.tag("Change", () => changesFileItem({ path: change.path })),
-					Match.tag("Commit", ({ stackId, commitId }) =>
-						commitFileItem({ stackId, commitId, path: change.path }),
-					),
-					Match.tag("Branch", ({ stackId, branchRef }) =>
-						branchFileItem({ stackId, branchRef, path: change.path }),
-					),
-					Match.exhaustive,
-				);
+				const source = fileItem({ parent: fileParent, path: change.path });
 
 				return (
 					<li key={change.path}>
@@ -665,29 +654,34 @@ const Show: FC<{
 	Match.value(selectedItem).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
-			BranchFile: ({ branchRef, path, stackId }) => (
-				<BranchShow
-					projectId={projectId}
-					branchRef={branchRef}
-					selectedPath={path}
-					stackId={stackId}
-				/>
-			),
 			Branch: ({ branchRef, stackId }) => (
 				<BranchShow projectId={projectId} branchRef={branchRef} stackId={stackId} />
 			),
 			ChangesSection: () => <ChangesShow projectId={projectId} />,
-			ChangesFile: ({ path }) => <ChangesShow projectId={projectId} selectedPath={path} />,
+			File: ({ parent, path }) =>
+				Match.value(parent).pipe(
+					Match.tagsExhaustive({
+						Change: () => <ChangesShow projectId={projectId} selectedPath={path} />,
+						Branch: ({ branchRef, stackId }) => (
+							<BranchShow
+								projectId={projectId}
+								branchRef={branchRef}
+								selectedPath={path}
+								stackId={stackId}
+							/>
+						),
+						Commit: ({ commitId, stackId }) => (
+							<CommitShow
+								projectId={projectId}
+								commitId={commitId}
+								stackId={stackId}
+								selectedPath={path}
+							/>
+						),
+					}),
+				),
 			Commit: ({ commitId, stackId }) => (
 				<CommitShow projectId={projectId} commitId={commitId} stackId={stackId} />
-			),
-			CommitFile: ({ commitId, path, stackId }) => (
-				<CommitShow
-					projectId={projectId}
-					commitId={commitId}
-					stackId={stackId}
-					selectedPath={path}
-				/>
 			),
 			BaseCommit: () => null,
 			Hunk: () => null,
@@ -961,7 +955,10 @@ const CommitFileRow: FC<{
 	navigationIndex: NavigationIndex;
 	projectId: string;
 }> = ({ change, parentCommitItem, navigationIndex, projectId }) => {
-	const item = commitFileItem({ ...parentCommitItem, path: change.path });
+	const item = fileItem({
+		parent: commitFileParent(parentCommitItem),
+		path: change.path,
+	});
 
 	return (
 		<TreeItem
@@ -1057,7 +1054,7 @@ const ChangesFileRow: FC<{
 	workspaceMode,
 	projectId,
 }) => {
-	const item = changesFileItem({ path: change.path });
+	const item = fileItem({ parent: changeFileParent, path: change.path });
 
 	const menuItems: Array<NativeMenuItem> = [
 		{
