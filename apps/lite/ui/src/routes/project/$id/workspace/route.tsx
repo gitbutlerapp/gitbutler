@@ -1223,7 +1223,13 @@ const Changes: FC<{
 	const item = changesSectionItem;
 
 	return (
-		<TreeItem projectId={projectId} item={item} label="Changes" expanded className={styles.section}>
+		<TreeItem
+			projectId={projectId}
+			item={item}
+			label={`Changes (${worktreeChanges.changes.length})`}
+			expanded
+			className={styles.section}
+		>
 			<ChangesSectionRow
 				changes={worktreeChanges.changes}
 				navigationIndex={navigationIndex}
