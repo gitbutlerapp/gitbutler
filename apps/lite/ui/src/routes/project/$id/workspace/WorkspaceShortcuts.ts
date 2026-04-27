@@ -664,7 +664,7 @@ export const getScope = ({
 	focusedPanel,
 	workspaceMode,
 }: {
-	selectedItem: Item | null;
+	selectedItem: Item;
 	focusedPanel: Panel | null;
 	workspaceMode: WorkspaceMode;
 }): Scope | null =>

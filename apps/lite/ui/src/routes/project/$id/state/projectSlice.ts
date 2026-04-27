@@ -41,7 +41,7 @@ const projectSlice = createSlice({
 	name: "project",
 	initialState,
 	reducers: {
-		selectItem: (state, action: PayloadAction<{ projectId: string; item: Item | null }>) => {
+		selectItem: (state, action: PayloadAction<{ projectId: string; item: Item }>) => {
 			const { projectId, item } = action.payload;
 			const projectState = ensureProjectState(state, projectId);
 			workspace.selectItem(projectState.workspace, item);

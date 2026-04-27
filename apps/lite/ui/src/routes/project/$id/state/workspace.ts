@@ -2,6 +2,7 @@ import { OperationType } from "#ui/Operation.ts";
 import { Match } from "effect";
 import {
 	branchItem,
+	changesSectionItem,
 	commitItem,
 	type BranchItem,
 	type CommitItem,
@@ -21,11 +22,11 @@ import {
 } from "../workspace/WorkspaceMode.ts";
 
 export type WorkspaceSelectionState = {
-	item: Item | null;
+	item: Item;
 };
 
 const createInitialWorkspaceSelectionState = (): WorkspaceSelectionState => ({
-	item: null,
+	item: changesSectionItem,
 });
 
 export type WorkspaceState = {
@@ -91,9 +92,9 @@ export const openCommitFiles = (state: WorkspaceState, item: CommitItem) => {
 	state.expandedCommitId = item.commitId;
 };
 
-export const selectItem = (state: WorkspaceState, item: Item | null) => {
+export const selectItem = (state: WorkspaceState, item: Item) => {
 	state.selection.item = item;
-	if (!item || !isValidWorkspaceModeForSelectedItem({ mode: state.mode, selectedItem: item }))
+	if (!isValidWorkspaceModeForSelectedItem({ mode: state.mode, selectedItem: item }))
 		state.mode = defaultWorkspaceMode;
 };
 
@@ -132,8 +133,7 @@ export const toggleCommitFiles = (state: WorkspaceState, item: CommitItem) => {
 
 const selectSelection = (state: WorkspaceState): WorkspaceSelectionState => state.selection;
 
-export const selectSelectedItem = (state: WorkspaceState): Item | null =>
-	selectSelection(state).item;
+export const selectSelectedItem = (state: WorkspaceState): Item => selectSelection(state).item;
 
 export const selectMode = (state: WorkspaceState): WorkspaceMode => state.mode;
 

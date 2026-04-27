@@ -90,7 +90,6 @@ import {
 } from "react";
 import { Route as projectRoute } from "#ui/routes/project/$id/route.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/state/hooks.ts";
-import type { RootState } from "#ui/state/store.ts";
 import {
 	branchItem,
 	baseCommitItem,
@@ -134,38 +133,11 @@ import { Panel } from "#ui/routes/project/$id/state/layout.ts";
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
 
-const selectNormalizedSelectedItem = (
-	state: RootState,
-	{
-		projectId,
-		navigationIndex,
-	}: {
-		projectId: string;
-		navigationIndex: NavigationIndex;
-	},
-): Item | null => {
-	const selectedItem = selectProjectSelectedItem(state, projectId);
-	return selectedItem && navigationIndexIncludes(navigationIndex, selectedItem)
-		? selectedItem
-		: (navigationIndex.items[0] ?? null);
-};
-
-const useIsItemSelected = ({
-	projectId,
-	item,
-	navigationIndex,
-}: {
-	projectId: string;
-	item: Item;
-	navigationIndex: NavigationIndex;
-}): boolean =>
+const useIsItemSelected = ({ projectId, item }: { projectId: string; item: Item }): boolean =>
 	useAppSelector((state) => {
-		const selectedItem = selectNormalizedSelectedItem(state, {
-			projectId,
-			navigationIndex,
-		});
+		const selectedItem = selectProjectSelectedItem(state, projectId);
 
-		return selectedItem !== null && itemEquals(selectedItem, item);
+		return itemEquals(selectedItem, item);
 	});
 
 const treeItemId = (projectId: string, item: Item): string =>
@@ -302,7 +274,7 @@ const ItemRow: FC<
 	} & Omit<ComponentProps<typeof ItemRowPresentational>, "inert" | "isSelected">
 > = ({ projectId, item, navigationIndex, onClick, ...props }) => {
 	const dispatch = useAppDispatch();
-	const isSelected = useIsItemSelected({ projectId, item, navigationIndex });
+	const isSelected = useIsItemSelected({ projectId, item });
 
 	return (
 		<ItemRowPresentational
@@ -748,7 +720,7 @@ const CommitRow: FC<
 		commitId: commit.id,
 	};
 	const item = commitItem(commitItemV);
-	const isSelected = useIsItemSelected({ projectId, item, navigationIndex });
+	const isSelected = useIsItemSelected({ projectId, item });
 	const isRewording =
 		isSelected &&
 		workspaceMode._tag === "RewordCommit" &&
@@ -941,7 +913,7 @@ const CommitFileRow: FC<{
 	projectId: string;
 }> = ({ change, parentCommitItem, navigationIndex, projectId }) => {
 	const item = commitFileItem({ ...parentCommitItem, path: change.path });
-	const isSelected = useIsItemSelected({ projectId, item, navigationIndex });
+	const isSelected = useIsItemSelected({ projectId, item });
 
 	return (
 		<OperationSourceC
@@ -987,7 +959,7 @@ const CommitC: FC<{
 	);
 	const commitItemV: CommitItem = { stackId, commitId: commit.id };
 	const item = commitItem(commitItemV);
-	const isSelected = useIsItemSelected({ projectId, item, navigationIndex });
+	const isSelected = useIsItemSelected({ projectId, item });
 
 	return (
 		<OperationSourceC
@@ -1047,7 +1019,7 @@ const ChangeFileRow: FC<{
 	projectId,
 }) => {
 	const item = changeFileItem({ path: change.path });
-	const isSelected = useIsItemSelected({ projectId, item, navigationIndex });
+	const isSelected = useIsItemSelected({ projectId, item });
 
 	const menuItems: Array<NativeMenuItem> = [
 		{
@@ -1168,7 +1140,7 @@ const BaseCommit: FC<{
 	navigationIndex: NavigationIndex;
 }> = ({ projectId, commitId, navigationIndex }) => {
 	const item = baseCommitItem;
-	const isSelected = useIsItemSelected({ projectId, item, navigationIndex });
+	const isSelected = useIsItemSelected({ projectId, item });
 
 	return (
 		<div className={styles.section}>
@@ -1208,7 +1180,7 @@ const Changes: FC<{
 	);
 
 	const item = changesSectionItem;
-	const isSelected = useIsItemSelected({ projectId, item, navigationIndex });
+	const isSelected = useIsItemSelected({ projectId, item });
 
 	return (
 		<OperationSourceC
@@ -1504,7 +1476,7 @@ const BranchSegment: FC<{
 }) => {
 	const refName = assert(segment.refName);
 	const item = branchItem({ stackId, branchRef: refName.fullNameBytes });
-	const isSelected = useIsItemSelected({ projectId, item, navigationIndex });
+	const isSelected = useIsItemSelected({ projectId, item });
 
 	return (
 		<OperationSourceC
@@ -1621,7 +1593,7 @@ const StackC: FC<{
 	// oxlint-disable-next-line typescript/no-non-null-assertion -- [tag:stack-id-required]
 	const stackId = stack.id!;
 	const item = stackItem({ stackId });
-	const isSelected = useIsItemSelected({ projectId, item, navigationIndex });
+	const isSelected = useIsItemSelected({ projectId, item });
 
 	return (
 		<div
@@ -1742,9 +1714,15 @@ const ProjectPage: FC = () => {
 	)
 		dispatch(projectActions.exitMode({ projectId }));
 
-	const selectedItem = useAppSelector((state) =>
-		selectNormalizedSelectedItem(state, { projectId, navigationIndex: navigationIndexUnfiltered }),
-	);
+	const selectedItem = useAppSelector((state) => selectProjectSelectedItem(state, projectId));
+
+	if (!navigationIndexIncludes(navigationIndexUnfiltered, selectedItem))
+		dispatch(
+			projectActions.selectItem({
+				projectId,
+				item: changesSectionItem,
+			}),
+		);
 
 	const operationMode = useAppSelector((state) =>
 		selectProjectOperationModeState(state, projectId),
@@ -1758,7 +1736,7 @@ const ProjectPage: FC = () => {
 						// When entering operation mode, the selected item must still be
 						// selectable otherwise the preview will suddenly appear to change
 						// and the user may lose sight of their source item (e.g. hunk).
-						(selectedItem && itemEquals(selectedItem, item)) ||
+						itemEquals(selectedItem, item) ||
 						// After selection moves, allow returning selection to the source item.
 						(operationMode?.source && itemEquals(operationMode.source, item)) ||
 						includeItemForWorkspaceMode({ mode: workspaceMode, item }),
@@ -1825,14 +1803,12 @@ const ProjectPage: FC = () => {
 		<>
 			<ProjectPreviewLayout
 				projectId={projectId}
-				primaryActiveDescendantId={selectedItem ? treeItemId(projectId, selectedItem) : undefined}
+				primaryActiveDescendantId={treeItemId(projectId, selectedItem)}
 				panelElementRef={panelElementRef}
 				preview={
-					selectedItem && (
-						<Suspense fallback={<div>Loading preview…</div>}>
-							<Preview projectId={projectId} selectedItem={selectedItem} />
-						</Suspense>
-					)
+					<Suspense fallback={<div>Loading preview…</div>}>
+						<Preview projectId={projectId} selectedItem={selectedItem} />
+					</Suspense>
 				}
 			>
 				<div className={styles.sections}>
