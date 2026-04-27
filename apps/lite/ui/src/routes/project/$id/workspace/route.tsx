@@ -319,6 +319,27 @@ const TreeItem: FC<
 	const isSelected = useIsItemSelected({ projectId, item });
 
 	return useRender({
+		render,
+		defaultTagName: "div",
+		props: mergeProps<"div">(props, {
+			id: treeItemId(projectId, item),
+			role: "treeitem",
+			"aria-label": label,
+			"aria-selected": isSelected,
+			"aria-expanded": expanded,
+		}),
+	});
+};
+
+const OperationItem: FC<
+	{
+		projectId: string;
+		item: Item;
+	} & useRender.ComponentProps<"div">
+> = ({ projectId, item, render, ...props }) => {
+	const isSelected = useIsItemSelected({ projectId, item });
+
+	return useRender({
 		render: (
 			<OperationSourceC
 				projectId={projectId}
@@ -334,13 +355,7 @@ const TreeItem: FC<
 			/>
 		),
 		defaultTagName: "div",
-		props: mergeProps<"div">(props, {
-			id: treeItemId(projectId, item),
-			role: "treeitem",
-			"aria-label": label,
-			"aria-selected": isSelected,
-			"aria-expanded": expanded,
-		}),
+		props,
 	});
 };
 
@@ -980,11 +995,17 @@ const CommitFileRow: FC<{
 			item={item}
 			label={fileRowLabel(change)}
 			render={
-				<ItemRow
+				<OperationItem
 					projectId={projectId}
 					item={item}
-					navigationIndex={navigationIndex}
-					className={styles.fileRow}
+					render={
+						<ItemRow
+							projectId={projectId}
+							item={item}
+							navigationIndex={navigationIndex}
+							className={styles.fileRow}
+						/>
+					}
 				/>
 			}
 		>
@@ -1022,6 +1043,7 @@ const CommitC: FC<{
 			item={item}
 			label={commitTitle(commit.message)}
 			expanded={isExpanded}
+			render={<OperationItem projectId={projectId} item={item} />}
 		>
 			<CommitRow
 				commit={commit}
@@ -1091,7 +1113,13 @@ const ChangesFileRow: FC<{
 			projectId={projectId}
 			item={item}
 			label={fileRowLabel(change)}
-			render={<ItemRow projectId={projectId} item={item} navigationIndex={navigationIndex} />}
+			render={
+				<OperationItem
+					projectId={projectId}
+					item={item}
+					render={<ItemRow projectId={projectId} item={item} navigationIndex={navigationIndex} />}
+				/>
+			}
 		>
 			<div
 				className={styles.itemRowLabel}
@@ -1194,13 +1222,19 @@ const BaseCommit: FC<{
 				item={item}
 				label="Base commit"
 				render={
-					<ItemRow projectId={projectId} item={item} navigationIndex={navigationIndex}>
-						<div className={classes(styles.itemRowLabel, styles.sectionLabel)}>
-							{commitId !== undefined
-								? `${shortCommitId(commitId)} (common base commit)`
-								: "(base commit)"}
-						</div>
-					</ItemRow>
+					<OperationItem
+						projectId={projectId}
+						item={item}
+						render={
+							<ItemRow projectId={projectId} item={item} navigationIndex={navigationIndex}>
+								<div className={classes(styles.itemRowLabel, styles.sectionLabel)}>
+									{commitId !== undefined
+										? `${shortCommitId(commitId)} (common base commit)`
+										: "(base commit)"}
+								</div>
+							</ItemRow>
+						}
+					/>
 				}
 			/>
 		</div>
@@ -1229,6 +1263,7 @@ const Changes: FC<{
 			label={`Changes (${worktreeChanges.changes.length})`}
 			expanded
 			className={styles.section}
+			render={<OperationItem projectId={projectId} item={item} />}
 		>
 			<ChangesSectionRow
 				changes={worktreeChanges.changes}
@@ -1520,6 +1555,7 @@ const BranchSegment: FC<{
 			label={refName.displayName}
 			expanded
 			className={classes(styles.section, styles.segment)}
+			render={<OperationItem projectId={projectId} item={item} />}
 		>
 			<BranchRow
 				inlineRenameBranchFormRef={inlineRenameBranchFormRef}
@@ -1622,6 +1658,7 @@ const StackC: FC<{
 			label="Stack"
 			expanded
 			className={classes(styles.stack, styles.section)}
+			render={<OperationItem projectId={projectId} item={item} />}
 		>
 			<StackRow
 				workspaceMode={workspaceMode}
