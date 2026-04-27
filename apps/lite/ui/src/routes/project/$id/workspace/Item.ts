@@ -22,7 +22,12 @@ export type CommitItem = StackItem & { commitId: string };
 export type CommitFileItem = CommitItem & { path: string };
 
 /** @public */
-export type HunkItem = { parent: FileParent; path: string; hunkHeader: HunkHeader };
+export type HunkItem = {
+	parent: FileParent;
+	path: string;
+	hunkHeader: HunkHeader;
+	isResultOfBinaryToTextConversion: boolean;
+};
 
 export type Item =
 	| { _tag: "ChangesSection" }
@@ -83,11 +88,17 @@ export const commitFileItem = ({ stackId, commitId, path }: CommitFileItem): Ite
 });
 
 /** @public */
-export const hunkItem = ({ parent, path, hunkHeader }: HunkItem): Item => ({
+export const hunkItem = ({
+	parent,
+	path,
+	hunkHeader,
+	isResultOfBinaryToTextConversion,
+}: HunkItem): Item => ({
 	_tag: "Hunk",
 	parent,
 	path,
 	hunkHeader,
+	isResultOfBinaryToTextConversion,
 });
 
 /** @public */
@@ -106,7 +117,14 @@ export const itemIdentityKey = (item: Item): string =>
 			Commit: (item) => JSON.stringify(["Commit", item.stackId, item.commitId]),
 			CommitFile: (item) => JSON.stringify(["CommitFile", item.stackId, item.commitId, item.path]),
 			BaseCommit: () => JSON.stringify(["BaseCommit"]),
-			Hunk: (item) => JSON.stringify(["Hunk", item.parent, item.path, item.hunkHeader]),
+			Hunk: (item) =>
+				JSON.stringify([
+					"Hunk",
+					item.parent,
+					item.path,
+					item.hunkHeader,
+					item.isResultOfBinaryToTextConversion,
+				]),
 		}),
 	);
 

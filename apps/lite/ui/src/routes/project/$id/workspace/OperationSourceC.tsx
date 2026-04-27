@@ -16,8 +16,6 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { FC, type ReactNode, useEffect, useEffectEvent, useRef } from "react";
 import { createRoot } from "react-dom/client";
 
-type DraggableParams = Parameters<typeof draggable>[0];
-
 type DragData = {
 	source: Item;
 };
@@ -35,9 +33,8 @@ export const OperationSourceC: FC<
 	{
 		projectId: string;
 		source: Item;
-		canDrag?: () => boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ projectId, source, canDrag: canDragProp, render, ...props }) => {
+> = ({ projectId, source, render, ...props }) => {
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
 	const operationMode = useAppSelector((state) =>
 		selectProjectOperationModeState(state, projectId),
@@ -45,9 +42,6 @@ export const OperationSourceC: FC<
 
 	const dispatch = useAppDispatch();
 	const dragRef = useRef<HTMLElement>(null);
-	const canDrag: NonNullable<DraggableParams["canDrag"]> = useEffectEvent(
-		() => canDragProp?.() ?? true,
-	);
 	const onGenerateDragPreview = useEffectEvent(
 		({ nativeSetDragImage }: { nativeSetDragImage: DataTransfer["setDragImage"] | null }) => {
 			setCustomNativeDragPreview({
@@ -74,7 +68,6 @@ export const OperationSourceC: FC<
 
 		return draggable({
 			element,
-			canDrag,
 			getInitialData: (): DragData => ({ source }),
 			onGenerateDragPreview,
 			onDragStart: () => {

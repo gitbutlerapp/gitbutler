@@ -512,11 +512,17 @@ const moveOperation = ({
 
 export type OperationType = "rub" | "moveAbove" | "moveBelow";
 
+const isOperationSourceEnabled = (source: Item): boolean =>
+	Match.value(source).pipe(
+		Match.when({ _tag: "Hunk", isResultOfBinaryToTextConversion: true }, () => false),
+		Match.orElse(() => true),
+	);
+
 export const getOperations = (
 	source: Item,
 	target: Item,
 ): Record<OperationType, Operation | null> => {
-	if (itemEquals(source, target))
+	if (itemEquals(source, target) || !isOperationSourceEnabled(source))
 		return {
 			rub: null,
 			moveAbove: null,

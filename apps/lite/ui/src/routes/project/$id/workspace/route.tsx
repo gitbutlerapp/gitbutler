@@ -418,15 +418,12 @@ const Hunk: FC<{
 		parent: fileParent,
 		path: change.path,
 		hunkHeader: hunk,
+		isResultOfBinaryToTextConversion,
 	});
 
 	return (
 		<div>
-			<OperationSourceC
-				projectId={projectId}
-				source={item}
-				canDrag={() => !isResultOfBinaryToTextConversion}
-			>
+			<OperationSourceC projectId={projectId} source={item}>
 				<div className={styles.hunkHeaderRow}>
 					{dependencyCommitIds && (
 						<DependencyIndicatorButton projectId={projectId} commitIds={dependencyCommitIds}>
