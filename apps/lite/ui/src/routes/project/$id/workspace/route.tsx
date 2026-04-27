@@ -302,19 +302,9 @@ const TreeItem: FC<
 		item: Item;
 		label: string;
 		expanded?: boolean;
-		source?: boolean;
 		target?: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({
-	projectId,
-	item,
-	label,
-	expanded,
-	source = false,
-	target = false,
-	render: renderProp,
-	...props
-}) => {
+> = ({ projectId, item, label, expanded, target, render: renderProp, ...props }) => {
 	const isSelected = useIsItemSelected({ projectId, item });
 
 	let render = renderProp;
@@ -324,7 +314,7 @@ const TreeItem: FC<
 			<OperationTarget projectId={projectId} item={item} isSelected={isSelected} render={render} />
 		);
 
-	if (source) render = <OperationSourceC projectId={projectId} source={item} render={render} />;
+	render = <OperationSourceC projectId={projectId} source={item} render={render} />;
 
 	return useRender({
 		render,
@@ -991,7 +981,6 @@ const CommitFileRow: FC<{
 			projectId={projectId}
 			item={item}
 			label={fileRowLabel(change)}
-			source
 			render={
 				<ItemRow
 					projectId={projectId}
@@ -1035,7 +1024,6 @@ const CommitC: FC<{
 			item={item}
 			label={commitTitle(commit.message)}
 			expanded={isExpanded}
-			source
 			target
 		>
 			<CommitRow
@@ -1106,7 +1094,6 @@ const ChangeFileRow: FC<{
 			projectId={projectId}
 			item={item}
 			label={fileRowLabel(change)}
-			source
 			render={<ItemRow projectId={projectId} item={item} navigationIndex={navigationIndex} />}
 		>
 			<div
@@ -1245,7 +1232,6 @@ const Changes: FC<{
 			item={item}
 			label="Changes"
 			expanded
-			source
 			target
 			className={styles.section}
 		>
@@ -1538,7 +1524,6 @@ const BranchSegment: FC<{
 			item={item}
 			label={refName.displayName}
 			expanded
-			source
 			target
 			className={classes(styles.section, styles.segment)}
 		>
