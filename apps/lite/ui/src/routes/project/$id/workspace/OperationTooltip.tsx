@@ -52,8 +52,6 @@ export const OperationTooltip: FC<
 		isActive: boolean;
 	} & useRender.ComponentProps<"div">
 > = ({ projectId, item, operationMode, isActive, render, ...props }) => {
-	const isSource = !!operationMode?.source && itemEquals(operationMode.source, item);
-
 	const operation = operationMode?.source
 		? getOperation({
 				source: operationMode.source,
@@ -65,7 +63,7 @@ export const OperationTooltip: FC<
 	const tooltipLabel = isActive ? (
 		operation ? (
 			<>{operationLabel(operation)}</>
-		) : isSource ? (
+		) : !!operationMode?.source && itemEquals(operationMode.source, item) ? (
 			<>Select a target</>
 		) : null
 	) : null;
