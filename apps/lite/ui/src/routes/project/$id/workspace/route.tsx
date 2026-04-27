@@ -1574,7 +1574,7 @@ const BranchlessSegment: FC<{
 	workspaceMode,
 	focusPanel,
 }) => (
-	<div role="group" className={classes(styles.section, styles.segment)}>
+	<div className={classes(styles.section, styles.segment)}>
 		{segment.commits.map((commit) => (
 			<CommitC
 				key={commit.id}
