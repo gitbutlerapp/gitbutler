@@ -407,7 +407,7 @@ const Hunk: FC<{
 			? getDependencyCommitIds({ hunk, hunkDependencyDiffs })
 			: undefined;
 
-	const source = hunkItem({
+	const item = hunkItem({
 		parent: fileParent,
 		path: change.path,
 		hunkHeader: hunk,
@@ -417,7 +417,7 @@ const Hunk: FC<{
 		<div>
 			<OperationSourceC
 				projectId={projectId}
-				source={source}
+				source={item}
 				canDrag={() => !patch.subject.isResultOfBinaryToTextConversion}
 			>
 				<div className={styles.hunkHeaderRow}>
