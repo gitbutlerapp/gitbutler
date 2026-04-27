@@ -3,12 +3,6 @@ import { changesFileParent, type FileParent } from "#ui/domain/FileParent.ts";
 import { type HunkHeader } from "@gitbutler/but-sdk";
 
 /** @public */
-export type FileItem = {
-	parent: FileParent;
-	path: string;
-};
-
-/** @public */
 export type StackItem = {
 	stackId: string;
 };
@@ -23,6 +17,12 @@ export type CommitItem = StackItem & {
 };
 
 /** @public */
+export type FileItem = {
+	parent: FileParent;
+	path: string;
+};
+
+/** @public */
 export type HunkItem = FileItem & {
 	hunkHeader: HunkHeader;
 	isResultOfBinaryToTextConversion: boolean;
@@ -30,24 +30,17 @@ export type HunkItem = FileItem & {
 
 export type Item =
 	| { _tag: "ChangesSection" }
-	| ({ _tag: "File" } & FileItem)
 	| ({ _tag: "Stack" } & StackItem)
 	| ({ _tag: "Branch" } & BranchItem)
 	| ({ _tag: "Commit" } & CommitItem)
-	| { _tag: "BaseCommit" }
-	| ({ _tag: "Hunk" } & HunkItem);
+	| ({ _tag: "File" } & FileItem)
+	| ({ _tag: "Hunk" } & HunkItem)
+	| { _tag: "BaseCommit" };
 
 /** @public */
 export const changesSectionItem: Item = {
 	_tag: "ChangesSection",
 };
-
-/** @public */
-export const fileItem = ({ parent, path }: FileItem): Item => ({
-	_tag: "File",
-	parent,
-	path,
-});
 
 /** @public */
 export const stackItem = ({ stackId }: StackItem): Item => ({
@@ -67,6 +60,13 @@ export const commitItem = ({ stackId, commitId }: CommitItem): Item => ({
 	_tag: "Commit",
 	stackId,
 	commitId,
+});
+
+/** @public */
+export const fileItem = ({ parent, path }: FileItem): Item => ({
+	_tag: "File",
+	parent,
+	path,
 });
 
 /** @public */
