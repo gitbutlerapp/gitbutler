@@ -711,7 +711,21 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 let new_idx = self.graph.add_node(step);
                 self.graph.add_edge(new_idx, target.id, Edge { order: 0 });
 
+                // When the target has both Reference and non-Reference incoming edges
+                // (e.g. a shared merge-base commit), preserve Reference edges so that
+                // other stacks' refs aren't pulled to the newly inserted commit.
+                // When *all* incoming edges are References (e.g. inserting above a
+                // branch tip), redirect them so the new commit becomes part of that stack.
+                let has_pick_parent = edges
+                    .iter()
+                    .any(|(_, _, src)| !matches!(self.graph[*src], Step::Reference { .. }));
+
                 for (edge_id, edge_weight, edge_source) in edges {
+                    if has_pick_parent
+                        && matches!(self.graph[edge_source], Step::Reference { .. })
+                    {
+                        continue;
+                    }
                     self.graph.remove_edge(edge_id);
                     self.graph.add_edge(edge_source, new_idx, edge_weight);
                 }

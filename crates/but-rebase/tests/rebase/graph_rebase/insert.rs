@@ -245,6 +245,86 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     Ok(())
 }
 
+/// Inserting above the merge-base commit (shared by multiple stacks)
+/// should only affect the target stack, not other stacks whose refs also
+/// point to the merge base.
+#[test]
+fn insert_above_merge_base_does_not_affect_empty_stack() -> Result<()> {
+    use super::add_stack_with_segments;
+    use but_testsupport::StackState;
+
+    let (mut repo, _tmpdir, mut meta) = fixture_writable("workspace-one-commit-one-empty")?;
+
+    add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "stack-2", StackState::InWorkspace, &[]);
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   010b439 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * b848287 (stack-1) top
+    |/  
+    | * ea75ec7 (origin/main, main) main diverged
+    |/  
+    * 965998b (stack-2) base
+    ");
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        crate::utils::standard_options(),
+    )?
+    .validated()?;
+
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    // Find stack-2's ref target before the operation
+    let stack_2_ref_before = repo
+        .find_reference("refs/heads/stack-2")?
+        .target()
+        .try_id()
+        .expect("direct ref")
+        .to_owned();
+
+    // Select the merge base commit (shared by both stacks).
+    // This is what the frontend does: relativeTo: Commit(baseCommit), side: "above"
+    let base_commit_id = repo.rev_parse_single("stack-2")?.detach();
+    let selector = editor
+        .select_commit(base_commit_id)
+        .context("Failed to find base commit in editor graph")?;
+
+    // Create a blank commit to insert above the merge base
+    let commit = editor.empty_commit()?;
+    let new_id =
+        editor.new_commit_untracked(commit, but_rebase::commit::DateMode::CommitterUpdateAuthorUpdate)?;
+
+    // Insert above the merge base — this is the actual code path the frontend takes
+    editor.insert(selector, Step::new_untracked_pick(new_id), InsertSide::Above)?;
+
+    let outcome = editor.rebase()?;
+    outcome.materialize()?;
+
+    // Verify stack-2's ref hasn't changed
+    let stack_2_ref_after = repo.reload()?.find_reference("refs/heads/stack-2")?
+        .target()
+        .try_id()
+        .expect("direct ref")
+        .to_owned();
+
+    assert_eq!(
+        stack_2_ref_before, stack_2_ref_after,
+        "stack-2 ref should not change when inserting above the merge base.\n\
+         Before: {stack_2_ref_before}\n\
+         After:  {stack_2_ref_after}\n\
+         The empty stack's ref was moved to the newly inserted commit!"
+    );
+
+    // Also verify the graph looks correct
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?);
+
+    Ok(())
+}
+
 #[test]
 #[ignore]
 fn inserts_violating_fp_protection_should_cause_rebase_failure() -> Result<()> {
