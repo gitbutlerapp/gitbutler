@@ -1,6 +1,6 @@
 use std::{
     cmp::Reverse,
-    collections::{BTreeSet, BinaryHeap, HashMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque},
     ops::{Deref, Index, IndexMut},
 };
 
@@ -104,7 +104,7 @@ impl Graph {
             return Some(a);
         }
 
-        let mut flags: HashMap<SegmentIndex, SegmentFlags> = Default::default();
+        let mut flags = GitMergeGraph::default();
         let bases = self.paint_down_to_common(a, b, &mut flags);
 
         if bases.is_empty() {
@@ -122,7 +122,7 @@ impl Graph {
         &self,
         first: SegmentIndex,
         second: SegmentIndex,
-        flags: &mut HashMap<SegmentIndex, SegmentFlags>,
+        flags: &mut GitMergeGraph,
     ) -> Vec<(SegmentIndex, usize)> {
         // Priority queue ordered by generation (higher generation = closer to root = lower priority).
         // We use Reverse because BinaryHeap is a max-heap and we want segments with *lower* generation
@@ -188,7 +188,7 @@ impl Graph {
     fn remove_redundant(
         &self,
         segments: &[(SegmentIndex, usize)],
-        flags: &mut HashMap<SegmentIndex, SegmentFlags>,
+        flags: &mut GitMergeGraph,
     ) -> Vec<SegmentIndex> {
         if segments.is_empty() {
             return Vec::new();
@@ -709,6 +709,8 @@ impl Graph {
         Ok(())
     }
 }
+
+type GitMergeGraph = BTreeMap<SegmentIndex, SegmentFlags>;
 
 impl Index<SegmentIndex> for Graph {
     type Output = Segment;
