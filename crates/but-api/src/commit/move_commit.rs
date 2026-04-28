@@ -69,10 +69,19 @@ pub fn commit_move_only_with_perm(
 
     let setup_started = Instant::now();
     let mut meta = ctx.meta()?;
-    let (repo, mut ws) = ctx.workspace_mut_with_perm(perm)?;
+    let use_local_only = ctx.settings.feature_flags.mutation_workspace_local_only;
+    let (repo, mut ws) = if use_local_only {
+        ctx.workspace_mut_with_perm_mutation_local_only(perm)?
+    } else {
+        ctx.workspace_mut_with_perm(perm)?
+    };
     println!(
         "commit_move_only_with_perm: context prepared {:?}",
         setup_started.elapsed()
+    );
+    tracing::warn!(
+        use_local_only,
+        "commit_move_only_with_perm: selected mutation workspace accessor"
     );
     let creating_editor = Instant::now();
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
