@@ -836,6 +836,7 @@ pub mod utils {
             hard_limit: None,
             extra_target_commit_id: None,
             dangerously_skip_postprocessing_for_debugging: false,
+            mutation_workspace_local_only: false,
         }
     }
 }

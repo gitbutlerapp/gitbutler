@@ -39,6 +39,7 @@ pub(crate) fn run(args: &Args, graph_args: &GraphArgs) -> Result<()> {
         collect_tags: true,
         hard_limit: graph_args.hard_limit,
         commits_limit_hint: graph_args.limit.flatten(),
+        mutation_workspace_local_only: false,
         commits_limit_recharge_location: graph_args
             .limit_extension
             .iter()

@@ -76,6 +76,108 @@ fn workspace_with_stack_and_local_target() -> anyhow::Result<()> {
 }
 
 #[test]
+fn mutation_workspace_local_only_skips_remote_target_correlation() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    add_workspace(&mut meta);
+
+    let remote_ref: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
+
+    let graph_standard = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    assert!(
+        graph_standard
+            .named_segment_by_ref_name(remote_ref.as_ref())
+            .is_some(),
+        "standard init should include the remote target ref segment"
+    );
+
+    let graph_local_only = Graph::from_head(
+        &repo,
+        &*meta,
+        but_graph::init::Options::mutation_workspace_local_only(),
+    )?
+    .validated()?;
+    assert!(
+        graph_local_only
+            .named_segment_by_ref_name(remote_ref.as_ref())
+            .is_none(),
+        "mutation-local-only init should skip remote ref collection"
+    );
+
+    let ws_local_only = graph_local_only.into_workspace()?;
+    assert!(
+        ws_local_only.target_ref.is_none(),
+        "mutation-local-only workspace should not resolve remote target metadata"
+    );
+
+    insta::assert_snapshot!(graph_workspace(&ws_local_only), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on fafd9d0
+    ├── ≡:2:A on fafd9d0
+    │   └── :2:A
+    │       ├── ·a62b0de (🏘️)
+    │       └── ·120a217 (🏘️)
+    └── ≡:1:main <> origin/main⇡2 on fafd9d0
+        └── :1:main <> origin/main⇡2
+            ├── ·0a415d8 (🏘️)
+            └── ·73ba99d (🏘️)
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn mutation_workspace_local_only_compared_to_full_traversal_snapshot() -> anyhow::Result<()> {
+    // Existing fixture already has everything we need: workspace commit + stack + configured target + remote ref.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    add_workspace(&mut meta);
+
+    let ws_full = Graph::from_head(&repo, &*meta, standard_options())?
+        .validated()?
+        .into_workspace()?;
+    let ws_local_only = Graph::from_head(
+        &repo,
+        &*meta,
+        but_graph::init::Options::mutation_workspace_local_only(),
+    )?
+    .validated()?
+    .into_workspace()?;
+
+    insta::assert_snapshot!(
+        format!(
+            "FULL:\n{}\n\nMUTATION_LOCAL_ONLY:\n{}",
+            graph_workspace(&ws_full),
+            graph_workspace(&ws_local_only)
+        ),
+        @r"
+    FULL:
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fafd9d0
+    ├── ≡:3:A on fafd9d0
+    │   └── :3:A
+    │       ├── ·a62b0de (🏘️)
+    │       └── ·120a217 (🏘️)
+    └── ≡:2:main <> origin/main →:1:⇡1⇣1 on fafd9d0
+        └── :2:main <> origin/main →:1:⇡1⇣1
+            ├── 🟣1f5c47b (✓)
+            ├── ·0a415d8 (🏘️)
+            └── ❄️73ba99d (🏘️|✓)
+
+
+    MUTATION_LOCAL_ONLY:
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on fafd9d0
+    ├── ≡:2:A on fafd9d0
+    │   └── :2:A
+    │       ├── ·a62b0de (🏘️)
+    │       └── ·120a217 (🏘️)
+    └── ≡:1:main <> origin/main⇡2 on fafd9d0
+        └── :1:main <> origin/main⇡2
+            ├── ·0a415d8 (🏘️)
+            └── ·73ba99d (🏘️)
+    "
+    );
+
+    Ok(())
+}
+
+#[test]
 fn workspace_with_only_local_target() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/local-contained-and-target-ahead")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"

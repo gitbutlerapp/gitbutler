@@ -132,7 +132,23 @@ pub struct Context {
     /// A workspace based on any version of `repo`. It's expected to be kept up-to-date
     /// by anyone who changes it.
     /// It also can't be public as it needs several of our cached inputs first.
-    workspace: RefCell<Option<but_graph::projection::Workspace>>,
+    workspace: RefCell<Option<CachedWorkspace>>,
+}
+
+/// Depending on the selected options, the workspace will be traversed
+/// differently.
+/// These are the current modes available for traversal.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum WorkspaceTraversalMode {
+    Full,
+    Mutation,
+    MutationLocalOnly,
+}
+
+/// The cached information. Contains the traversal mode and the projection itself.
+struct CachedWorkspace {
+    mode: WorkspaceTraversalMode,
+    workspace: but_graph::projection::Workspace,
 }
 
 /// A structure that can be passed across thread boundaries.
@@ -575,19 +591,26 @@ impl Context {
         cell::RefMut<'_, but_db::DbHandle>,
     )> {
         let repo = self.repo.get()?;
-        if let Ok(cached) =
-            cell::RefMut::filter_map(self.workspace.try_borrow_mut()?, |opt| opt.as_mut())
-        {
+        if let Ok(cached) = cell::RefMut::filter_map(self.workspace.try_borrow_mut()?, |opt| {
+            opt.as_mut().and_then(|cached| {
+                (cached.mode == WorkspaceTraversalMode::Full).then_some(&mut cached.workspace)
+            })
+        }) {
             let db = self.db.get_cache_mut()?;
             return Ok((repo, cached, db));
         }
         let ws = self.workspace_from_head()?;
         {
             let mut value = self.workspace.try_borrow_mut()?;
-            *value = Some(ws);
+            *value = Some(CachedWorkspace {
+                mode: WorkspaceTraversalMode::Full,
+                workspace: ws,
+            });
         }
-        let ws = cell::RefMut::filter_map(self.workspace.borrow_mut(), |opt| opt.as_mut())
-            .unwrap_or_else(|_| unreachable!("just set the value"));
+        let ws = cell::RefMut::filter_map(self.workspace.borrow_mut(), |opt| {
+            opt.as_mut().map(|cached| &mut cached.workspace)
+        })
+        .unwrap_or_else(|_| unreachable!("just set the value"));
         let db = self.db.get_cache_mut()?;
         Ok((repo, ws, db))
     }
@@ -636,17 +659,25 @@ impl Context {
         cell::Ref<'_, but_graph::projection::Workspace>,
         cell::RefMut<'_, but_db::DbHandle>,
     )> {
-        if let Ok(cached) = cell::Ref::filter_map(self.workspace.try_borrow()?, |opt| opt.as_ref())
-        {
+        if let Ok(cached) = cell::Ref::filter_map(self.workspace.try_borrow()?, |opt| {
+            opt.as_ref().and_then(|cached| {
+                (cached.mode == WorkspaceTraversalMode::Full).then_some(&cached.workspace)
+            })
+        }) {
             return Ok((self.repo.get()?, cached, self.db.get_cache_mut()?));
         }
         let ws = self.workspace_from_head()?;
         {
             let mut value = self.workspace.try_borrow_mut()?;
-            *value = Some(ws);
+            *value = Some(CachedWorkspace {
+                mode: WorkspaceTraversalMode::Full,
+                workspace: ws,
+            });
         }
-        let ws = cell::Ref::filter_map(self.workspace.borrow(), |opt| opt.as_ref())
-            .unwrap_or_else(|_| unreachable!("just set the value"));
+        let ws = cell::Ref::filter_map(self.workspace.borrow(), |opt| {
+            opt.as_ref().map(|cached| &cached.workspace)
+        })
+        .unwrap_or_else(|_| unreachable!("just set the value"));
         Ok((self.repo.get()?, ws, self.db.get_cache_mut()?))
     }
 
@@ -692,19 +723,95 @@ impl Context {
         cell::RefMut<'_, but_graph::projection::Workspace>,
         cell::Ref<'_, but_db::DbHandle>,
     )> {
-        if let Ok(cached) =
-            cell::RefMut::filter_map(self.workspace.try_borrow_mut()?, |opt| opt.as_mut())
-        {
+        if let Ok(cached) = cell::RefMut::filter_map(self.workspace.try_borrow_mut()?, |opt| {
+            opt.as_mut().and_then(|cached| {
+                (cached.mode == WorkspaceTraversalMode::Full).then_some(&mut cached.workspace)
+            })
+        }) {
             return Ok((self.repo.get()?, cached, self.db.get_cache()?));
         }
         let ws = self.workspace_from_head()?;
         {
             let mut value = self.workspace.try_borrow_mut()?;
-            *value = Some(ws);
+            *value = Some(CachedWorkspace {
+                mode: WorkspaceTraversalMode::Full,
+                workspace: ws,
+            });
         }
-        let ws = cell::RefMut::filter_map(self.workspace.borrow_mut(), |opt| opt.as_mut())
-            .unwrap_or_else(|_| unreachable!("just set the value"));
+        let ws = cell::RefMut::filter_map(self.workspace.borrow_mut(), |opt| {
+            opt.as_mut().map(|cached| &mut cached.workspace)
+        })
+        .unwrap_or_else(|_| unreachable!("just set the value"));
         Ok((self.repo.get()?, ws, self.db.get_cache()?))
+    }
+
+    /// Create or return a cached workspace as seen from `HEAD` for mutation operations,
+    /// along with `(&repo, &mut ws)`, given an exclusive `perm`ission.
+    #[instrument(name = "Context::workspace_mut_with_perm", level = "debug", skip_all)]
+    pub fn workspace_mut_with_perm(
+        &self,
+        _perm: &RepoExclusive,
+    ) -> anyhow::Result<(
+        cell::Ref<'_, gix::Repository>,
+        cell::RefMut<'_, but_graph::projection::Workspace>,
+    )> {
+        if let Ok(cached) = cell::RefMut::filter_map(self.workspace.try_borrow_mut()?, |opt| {
+            opt.as_mut().and_then(|cached| {
+                (cached.mode == WorkspaceTraversalMode::Mutation).then_some(&mut cached.workspace)
+            })
+        }) {
+            return Ok((self.repo.get()?, cached));
+        }
+        let ws = self.workspace_from_head_for_mutation()?;
+        {
+            let mut value = self.workspace.try_borrow_mut()?;
+            *value = Some(CachedWorkspace {
+                mode: WorkspaceTraversalMode::Mutation,
+                workspace: ws,
+            });
+        }
+        let ws = cell::RefMut::filter_map(self.workspace.borrow_mut(), |opt| {
+            opt.as_mut().map(|cached| &mut cached.workspace)
+        })
+        .unwrap_or_else(|_| unreachable!("just set the value"));
+        Ok((self.repo.get()?, ws))
+    }
+
+    /// Like [`Self::workspace_mut_with_perm()`], but initializes with mutation-local-only
+    /// graph traversal options to avoid remote correlation work.
+    #[instrument(
+        name = "Context::workspace_mut_with_perm_mutation_local_only",
+        level = "debug",
+        skip_all
+    )]
+    pub fn workspace_mut_with_perm_mutation_local_only(
+        &self,
+        _perm: &RepoExclusive,
+    ) -> anyhow::Result<(
+        cell::Ref<'_, gix::Repository>,
+        cell::RefMut<'_, but_graph::projection::Workspace>,
+    )> {
+        if let Ok(cached) = cell::RefMut::filter_map(self.workspace.try_borrow_mut()?, |opt| {
+            opt.as_mut().and_then(|cached| {
+                (cached.mode == WorkspaceTraversalMode::MutationLocalOnly)
+                    .then_some(&mut cached.workspace)
+            })
+        }) {
+            return Ok((self.repo.get()?, cached));
+        }
+        let ws = self.workspace_from_head_for_mutation_local_only()?;
+        {
+            let mut value = self.workspace.try_borrow_mut()?;
+            *value = Some(CachedWorkspace {
+                mode: WorkspaceTraversalMode::MutationLocalOnly,
+                workspace: ws,
+            });
+        }
+        let ws = cell::RefMut::filter_map(self.workspace.borrow_mut(), |opt| {
+            opt.as_mut().map(|cached| &mut cached.workspace)
+        })
+        .unwrap_or_else(|_| unreachable!("just set the value"));
+        Ok((self.repo.get()?, ws))
     }
 
     /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
@@ -745,24 +852,51 @@ impl Context {
         cell::Ref<'_, but_graph::projection::Workspace>,
         cell::Ref<'_, but_db::DbHandle>,
     )> {
-        if let Ok(cached) = cell::Ref::filter_map(self.workspace.try_borrow()?, |opt| opt.as_ref())
-        {
+        if let Ok(cached) = cell::Ref::filter_map(self.workspace.try_borrow()?, |opt| {
+            opt.as_ref().and_then(|cached| {
+                (cached.mode == WorkspaceTraversalMode::Full).then_some(&cached.workspace)
+            })
+        }) {
             return Ok((self.repo.get()?, cached, self.db.get_cache()?));
         }
         let ws = self.workspace_from_head()?;
         {
             let mut value = self.workspace.try_borrow_mut()?;
-            *value = Some(ws);
+            *value = Some(CachedWorkspace {
+                mode: WorkspaceTraversalMode::Full,
+                workspace: ws,
+            });
         }
-        let ws = cell::Ref::filter_map(self.workspace.borrow(), |opt| opt.as_ref())
-            .unwrap_or_else(|_| unreachable!("just set the value"));
+        let ws = cell::Ref::filter_map(self.workspace.borrow(), |opt| {
+            opt.as_ref().map(|cached| &cached.workspace)
+        })
+        .unwrap_or_else(|_| unreachable!("just set the value"));
         Ok((self.repo.get()?, ws, self.db.get_cache()?))
     }
 
     fn workspace_from_head(&self) -> anyhow::Result<but_graph::projection::Workspace> {
+        self.workspace_from_head_with_options(but_graph::init::Options::limited())
+    }
+
+    fn workspace_from_head_for_mutation(&self) -> anyhow::Result<but_graph::projection::Workspace> {
+        self.workspace_from_head_with_options(but_graph::init::Options::limited())
+    }
+
+    fn workspace_from_head_for_mutation_local_only(
+        &self,
+    ) -> anyhow::Result<but_graph::projection::Workspace> {
+        self.workspace_from_head_with_options(
+            but_graph::init::Options::mutation_workspace_local_only(),
+        )
+    }
+
+    fn workspace_from_head_with_options(
+        &self,
+        options: but_graph::init::Options,
+    ) -> anyhow::Result<but_graph::projection::Workspace> {
         let repo = self.repo.get()?;
         let meta = self.meta_inner()?;
-        let graph = but_graph::Graph::from_head(&repo, &meta, but_graph::init::Options::limited())?;
+        let graph = but_graph::Graph::from_head(&repo, &meta, options)?;
         graph.into_workspace()
     }
 
