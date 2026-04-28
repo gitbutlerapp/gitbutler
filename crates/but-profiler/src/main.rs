@@ -39,26 +39,47 @@ fn main() -> anyhow::Result<()> {
         open_ctx_started.elapsed()
     );
 
-    // println!("[warmup] Measuring workspace init (cold -> warm)...");
-    // let ws_cold_started = Instant::now();
-    // {
-    //     let mut guard = ctx.exclusive_worktree_access();
-    //     let _ = ctx.workspace_mut_with_perm(guard.write_permission())?;
-    // }
-    // println!(
-    //     "[timing] workspace_mut_with_perm cold elapsed={:?}",
-    //     ws_cold_started.elapsed()
-    // );
+    println!("[warmup] Comparing mutation workspace accessors (cold -> warm)...");
 
-    // let ws_warm_started = Instant::now();
-    // {
-    //     let mut guard = ctx.exclusive_worktree_access();
-    //     let _ = ctx.workspace_mut_with_perm(guard.write_permission())?;
-    // }
-    // println!(
-    //     "[timing] workspace_mut_with_perm warm elapsed={:?}",
-    //     ws_warm_started.elapsed()
-    // );
+    {
+        let mut guard = ctx.exclusive_worktree_access();
+        ctx.invalidate_workspace_cache()?;
+        let started = Instant::now();
+        let _ = ctx.workspace_mut_with_perm(guard.write_permission())?;
+        println!(
+            "[timing] workspace_mut_with_perm (normal) cold elapsed={:?}",
+            started.elapsed()
+        );
+    }
+    {
+        let mut guard = ctx.exclusive_worktree_access();
+        let started = Instant::now();
+        let _ = ctx.workspace_mut_with_perm(guard.write_permission())?;
+        println!(
+            "[timing] workspace_mut_with_perm (normal) warm elapsed={:?}",
+            started.elapsed()
+        );
+    }
+
+    {
+        let mut guard = ctx.exclusive_worktree_access();
+        ctx.invalidate_workspace_cache()?;
+        let started = Instant::now();
+        let _ = ctx.workspace_mut_with_perm_mutation_local_only(guard.write_permission())?;
+        println!(
+            "[timing] workspace_mut_with_perm_mutation_local_only cold elapsed={:?}",
+            started.elapsed()
+        );
+    }
+    {
+        let mut guard = ctx.exclusive_worktree_access();
+        let started = Instant::now();
+        let _ = ctx.workspace_mut_with_perm_mutation_local_only(guard.write_permission())?;
+        println!(
+            "[timing] workspace_mut_with_perm_mutation_local_only warm elapsed={:?}",
+            started.elapsed()
+        );
+    }
 
     println!("[2/3] Reading head info and branch details...");
     let head_info_started = Instant::now();

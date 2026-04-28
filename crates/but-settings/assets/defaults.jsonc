@@ -33,6 +33,8 @@
 		"singleBranch": false,
 		/// Enable IRC integration.
 		"irc": false,
+		/// Enable workspace-local-only graph initialization for commit mutations.
+		"mutationWorkspaceLocalOnly": false,
 		/// Control how the filesystem watch should be established.
 		/// Possible values: "auto", "legacy", "modern".
 		"watchMode": "auto"

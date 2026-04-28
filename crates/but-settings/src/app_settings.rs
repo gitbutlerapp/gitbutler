@@ -61,6 +61,8 @@ pub struct FeatureFlags {
     pub single_branch: bool,
     /// Enable IRC integration.
     pub irc: bool,
+    /// Enable workspace-local-only graph initialization for commit mutations.
+    pub mutation_workspace_local_only: bool,
     /// Control how the filesystem watch should be established.
     /// Possible values: "auto", "legacy", "modern".
     /// "auto" automatically picks based on platform heuristics (default).

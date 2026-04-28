@@ -455,6 +455,7 @@ impl Sandbox {
                 rules: true,
                 single_branch: true,
                 irc: false,
+                mutation_workspace_local_only: false,
                 watch_mode: "auto".into(),
             },
             extra_csp: ExtraCsp {

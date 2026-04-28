@@ -21,6 +21,7 @@ pub struct FeatureFlagsUpdate {
     pub rules: Option<bool>,
     pub single_branch: Option<bool>,
     pub irc: Option<bool>,
+    pub mutation_workspace_local_only: Option<bool>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -122,6 +123,7 @@ impl AppSettingsWithDiskSync {
             rules,
             single_branch,
             irc,
+            mutation_workspace_local_only,
         }: FeatureFlagsUpdate,
     ) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
@@ -136,6 +138,9 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(irc) = irc {
             settings.feature_flags.irc = irc;
+        }
+        if let Some(mutation_workspace_local_only) = mutation_workspace_local_only {
+            settings.feature_flags.mutation_workspace_local_only = mutation_workspace_local_only;
         }
         settings.save()
     }
