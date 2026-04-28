@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context as _, bail, ensure};
 use bstr::ByteSlice;
@@ -94,6 +94,11 @@ pub struct Options {
     ///
     /// This should only be used in case post-processing fails and one wants to preview the version before that.
     pub dangerously_skip_postprocessing_for_debugging: bool,
+    /// If `true`, mutation initialization avoids remote-correlation work and focuses on workspace-local traversal.
+    ///
+    /// This mode is intended for low-latency mutation preparation where remote counterpart correlation
+    /// is unnecessary.
+    pub mutation_workspace_local_only: bool,
 }
 
 /// Presets
@@ -104,6 +109,18 @@ impl Options {
         Options {
             collect_tags: false,
             commits_limit_hint: Some(300),
+            ..Default::default()
+        }
+    }
+
+    // Return options optimized for mutation flows that only need workspace-local information.
+    ///
+    /// This skips remote-correlation setup to reduce sensitivity to repository ref/object layout.
+    pub fn mutation_workspace_local_only() -> Self {
+        Options {
+            collect_tags: false,
+            commits_limit_hint: Some(180),
+            mutation_workspace_local_only: true,
             ..Default::default()
         }
     }
@@ -286,6 +303,7 @@ impl Graph {
             commits_limit_recharge_location: mut max_commits_recharge_location,
             hard_limit,
             dangerously_skip_postprocessing_for_debugging,
+            mutation_workspace_local_only,
         } = options;
 
         let max_limit = Limit::new(limit);
@@ -301,26 +319,29 @@ impl Graph {
         let commit_graph = repo.commit_graph_if_enabled()?;
         let mut buf = Vec::new();
 
-        let configured_remote_tracking_branches =
-            remotes::configured_remote_tracking_branches(repo)?;
+        let configured_remote_tracking_branches = if mutation_workspace_local_only {
+            BTreeSet::new()
+        } else {
+            remotes::configured_remote_tracking_branches(repo)?
+        };
         let (workspaces, target_refs) =
             obtain_workspace_infos(repo, ref_name.as_ref().map(|rn| rn.as_ref()), meta)?;
         let refs_by_id = repo.collect_ref_mapping_by_prefix(
-            [
-                "refs/heads/",
-                // Remote refs are special as we collect them into commits to know about them,
-                // just to later remove them unless they are on an actual remote commit.
-                // In that case, we also split the segment there if the previous segment then wouldn't be empty.
-                // Naturally we only pick them up and segment them if they are added by the local tracking branch
-                // that was seen in the walk before.
-                "refs/remotes/",
-            ]
-            .into_iter()
-            .chain(if collect_tags {
-                Some("refs/tags/")
-            } else {
-                None
-            }),
+            ["refs/heads/"]
+                .into_iter()
+                .chain(
+                    // Remote refs are special as we collect them into commits to know about them,
+                    // just to later remove them unless they are on an actual remote commit.
+                    // In that case, we also split the segment there if the previous segment then wouldn't be empty.
+                    // Naturally we only pick them up and segment them if they are added by the local tracking branch
+                    // that was seen in the walk before.
+                    (!mutation_workspace_local_only).then_some("refs/remotes/"),
+                )
+                .chain(if collect_tags {
+                    Some("refs/tags/")
+                } else {
+                    None
+                }),
             &workspaces
                 .iter()
                 .map(|(_, ref_name, _)| ref_name.as_ref())
@@ -334,7 +355,9 @@ impl Graph {
                 .flag_for(tip)
                 .expect("we more than one bitflags for this");
 
-        let symbolic_remote_names: Vec<_> = {
+        let symbolic_remote_names: Vec<_> = if mutation_workspace_local_only {
+            Vec::new()
+        } else {
             let remote_names = repo.remote_names();
             let mut v: Vec<_> = workspaces
                 .iter()
@@ -414,26 +437,30 @@ impl Graph {
         for (ws_tip, ws_ref, ws_meta) in workspaces {
             ws_tips.push(ws_tip);
             ws_metas.push(ws_meta.clone());
-            let target = ws_meta.target_ref.as_ref().and_then(|trn| {
-                let tid = try_refname_to_id(repo, trn.as_ref())
-                    .map_err(|err| {
-                        tracing::warn!("Ignoring non-existing target branch {trn}: {err}");
-                        err
-                    })
-                    .ok()??;
-                let local_info = repo
-                    .upstream_branch_and_remote_for_tracking_branch(trn.as_ref())
-                    .ok()
-                    .flatten()
-                    .and_then(|(local_tracking_name, _remote_name)| {
-                        let ltid = try_refname_to_id(repo, local_tracking_name.as_ref()).ok()??;
-                        if next.is_queued(ltid) {
-                            return None;
-                        }
-                        Some((local_tracking_name, ltid))
-                    });
-                Some((trn.clone(), tid, local_info))
-            });
+            let target = (!mutation_workspace_local_only)
+                .then_some(())
+                .and(ws_meta.target_ref.as_ref())
+                .and_then(|trn| {
+                    let tid = try_refname_to_id(repo, trn.as_ref())
+                        .map_err(|err| {
+                            tracing::warn!("Ignoring non-existing target branch {trn}: {err}");
+                            err
+                        })
+                        .ok()??;
+                    let local_info = repo
+                        .upstream_branch_and_remote_for_tracking_branch(trn.as_ref())
+                        .ok()
+                        .flatten()
+                        .and_then(|(local_tracking_name, _remote_name)| {
+                            let ltid =
+                                try_refname_to_id(repo, local_tracking_name.as_ref()).ok()??;
+                            if next.is_queued(ltid) {
+                                return None;
+                            }
+                            Some((local_tracking_name, ltid))
+                        });
+                    Some((trn.clone(), tid, local_info))
+                });
 
             let (ws_extra_flags, ws_limit) = if Some(&ws_ref) == ref_name.as_ref() {
                 (tip_flags, max_limit)
@@ -628,6 +655,9 @@ impl Graph {
                 let is_remote = segment_name
                     .category()
                     .is_some_and(|c| c == Category::RemoteBranch);
+                if mutation_workspace_local_only && is_remote {
+                    continue;
+                }
                 if segment.ref_info.is_none() && is_remote {
                     segment.ref_info = Some(crate::RefInfo::from_ref(
                         segment_name.clone(),
@@ -747,23 +777,31 @@ impl Graph {
                 items_to_queue_later: remote_items_to_queue_later,
                 maybe_make_id_a_goal_so_remote_can_find_local,
                 limit_to_let_local_find_remote,
-            } = try_queue_remote_tracking_branches(
-                repo,
-                &refs_at_commit_before_removal,
-                &mut graph,
-                &symbolic_remote_names,
-                &configured_remote_tracking_branches,
-                &target_refs,
-                meta,
-                id,
-                limit,
-                &mut goals,
-                &next,
-                &ctx.worktree_by_branch,
-                commit_graph.as_ref(),
-                repo.for_find_only(),
-                &mut buf,
-            )?;
+            } = if mutation_workspace_local_only {
+                RemoteQueueOutcome {
+                    items_to_queue_later: Vec::new(),
+                    maybe_make_id_a_goal_so_remote_can_find_local: CommitFlags::empty(),
+                    limit_to_let_local_find_remote: CommitFlags::empty(),
+                }
+            } else {
+                try_queue_remote_tracking_branches(
+                    repo,
+                    &refs_at_commit_before_removal,
+                    &mut graph,
+                    &symbolic_remote_names,
+                    &configured_remote_tracking_branches,
+                    &target_refs,
+                    meta,
+                    id,
+                    limit,
+                    &mut goals,
+                    &next,
+                    &ctx.worktree_by_branch,
+                    commit_graph.as_ref(),
+                    repo.for_find_only(),
+                    &mut buf,
+                )?
+            };
 
             let segment = &mut graph[segment_idx_for_id];
             let commit_idx_for_possible_fork = segment.commits.len();
