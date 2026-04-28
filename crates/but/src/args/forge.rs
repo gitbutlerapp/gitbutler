@@ -87,6 +87,19 @@ pub mod pr {
             /// Path to the review template file within the repository.
             template_path: Option<String>,
         },
+        /// Open the review URL in the default web browser.
+        /// If no review is specified, you will be prompted to select one from the
+        /// reviews associated with branches in your workspace.
+        Open {
+            /// The target of this operation.
+            /// This can be one or multiple (comma-separated):
+            /// - Branch names,
+            /// - Branch IDs,
+            /// - Stack IDs (in which case, all the reviews associated with the stacked branches are selected),
+            /// - Associated review IDs (i.e. PR numeric IDs or MR numeric IDs, without the symbol).
+            #[clap(value_name = "SELECTOR")]
+            selector: Option<String>,
+        },
     }
 }
 
