@@ -17,8 +17,6 @@ pub struct SquashCommitsOutcome<'ws, 'meta, M: RefMetadata> {
     pub rebase: SuccessfulRebase<'ws, 'meta, M>,
     /// Selector pointing to the squashed replacement commit.
     pub commit_selector: Selector,
-    /// The final squashed commit ID after remapping through all rewrites.
-    pub new_commit: gix::ObjectId,
 }
 
 /// Append `message` to `combined`, inserting enough newlines so there are at
@@ -44,20 +42,6 @@ fn push_message_with_spacing(combined: &mut Vec<u8>, message: &[u8]) {
     }
 
     combined.extend_from_slice(message);
-}
-
-fn resolve_mapped_commit_id(
-    commit_id: gix::ObjectId,
-    rewritten_commits: &BTreeMap<gix::ObjectId, gix::ObjectId>,
-) -> gix::ObjectId {
-    let mut current = commit_id;
-    while let Some(next) = rewritten_commits.get(&current).copied() {
-        if next == current {
-            break;
-        }
-        current = next;
-    }
-    current
 }
 
 /// Reorder commits around `target_commit` so all selected commits become
@@ -112,7 +96,7 @@ fn construct_new_squashed_commit<'ws, 'meta, M: RefMetadata>(
     top_most_commit_id: Selector,
     bottom_most_commit_id: Selector,
     combined_message: Vec<u8>,
-) -> Result<(Editor<'ws, 'meta, M>, Selector, gix::ObjectId)> {
+) -> Result<(Editor<'ws, 'meta, M>, Selector)> {
     let (_, top_most_commit) = editor.find_selectable_commit(top_most_commit_id)?;
     let (bottom_most_selector, bottom_most_commit) =
         editor.find_selectable_commit(bottom_most_commit_id)?;
@@ -126,7 +110,7 @@ fn construct_new_squashed_commit<'ws, 'meta, M: RefMetadata>(
 
     editor.replace(bottom_most_selector, Step::new_pick(new_commit))?;
 
-    Ok((editor, bottom_most_selector, new_commit))
+    Ok((editor, bottom_most_selector))
 }
 
 /// Squash `subject_commit_ids` into `target_commit`.
@@ -143,19 +127,19 @@ fn construct_new_squashed_commit<'ws, 'meta, M: RefMetadata>(
 ///
 pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToCommitSelector>(
     editor: Editor<'ws, 'meta, M>,
-    subject_commit_ids: Vec<S>,
+    subjects: Vec<S>,
     target_commit: T,
 ) -> Result<SquashCommitsOutcome<'ws, 'meta, M>> {
-    if subject_commit_ids.is_empty() {
+    if subjects.is_empty() {
         bail!("Need at least 2 commits to squash")
     }
 
     let (target_commit_selector, target_commit_obj) =
         editor.find_selectable_commit(target_commit)?;
 
-    let mut all_commits = Vec::with_capacity(subject_commit_ids.len() + 1);
+    let mut all_commits = Vec::with_capacity(subjects.len() + 1);
     all_commits.push(target_commit_selector);
-    for subject_commit in subject_commit_ids {
+    for subject_commit in subjects {
         let (subject_commit_selector, _) = editor.find_selectable_commit(subject_commit)?;
         if subject_commit_selector == target_commit_selector {
             bail!("Cannot squash a commit into itself")
@@ -193,21 +177,14 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
         }
     }
 
-    let top_most_commit_id = above_anchor;
-    let bottom_most_commit_id = below_anchor;
-
-    let (editor, bottom_most_selector, new_commit) = construct_new_squashed_commit(
-        editor,
-        top_most_commit_id,
-        bottom_most_commit_id,
-        combined_message,
-    )?;
+    let (editor, bottom_most_selector) =
+        construct_new_squashed_commit(editor, above_anchor, below_anchor, combined_message)?;
 
     let rebase = editor.rebase()?;
     let mut editor = rebase.into_editor();
 
     for commit_selector in ordered_selectors {
-        if commit_selector == bottom_most_commit_id {
+        if commit_selector == below_anchor {
             continue;
         }
         let Ok((selector, _)) = editor.find_selectable_commit(commit_selector) else {
@@ -216,14 +193,9 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
         editor.replace(selector, Step::None)?;
     }
 
-    let rebase = editor.rebase()?;
-    let final_rewritten_commits = rebase.history.commit_mappings();
-    let final_new_commit = resolve_mapped_commit_id(new_commit, &final_rewritten_commits);
-
     Ok(SquashCommitsOutcome {
-        rebase,
+        rebase: editor.rebase()?,
         commit_selector: bottom_most_selector,
-        new_commit: final_new_commit,
     })
 }
 
