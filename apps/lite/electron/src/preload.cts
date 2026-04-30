@@ -154,6 +154,12 @@ const api: LiteElectronApi = {
 		watcherListenerBySubscription.clear();
 		return ipcRenderer.invoke("workspace:watcher-stop-all") as Promise<number>;
 	},
+	onNativeCommand: (callback) => {
+		const listener = (_event: Electron.IpcRendererEvent, command: Parameters<typeof callback>[0]) =>
+			callback(command);
+		ipcRenderer.on("lite:native-command", listener);
+		return () => ipcRenderer.removeListener("lite:native-command", listener);
+	},
 	onUpdateDownloaded: (callback) => {
 		const listener = (_event: Electron.IpcRendererEvent, info: UpdateDownloadedEvent) =>
 			callback(info);

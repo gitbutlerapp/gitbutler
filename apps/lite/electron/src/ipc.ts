@@ -207,6 +207,8 @@ export interface ShowNativeMenuParams {
 	position: NativeMenuPosition;
 }
 
+export type NativeCommand = { type: "branches.apply" };
+
 export interface LiteElectronApi {
 	absorptionPlan: (params: AbsorptionPlanParams) => Promise<Array<CommitAbsorption>>;
 	absorb: (params: AbsorbParams) => Promise<number>;
@@ -243,6 +245,7 @@ export interface LiteElectronApi {
 	watcherSubscribe: (projectId: string, callback: (event: WatcherEvent) => void) => Promise<string>;
 	watcherUnsubscribe: (subscriptionId: string) => Promise<boolean>;
 	watcherStopAll: () => Promise<number>;
+	onNativeCommand: (callback: (command: NativeCommand) => void) => () => void;
 	onUpdateDownloaded: (callback: (info: UpdateDownloadedEvent) => void) => () => void;
 	quitAndInstallUpdate: () => Promise<void>;
 }
@@ -280,6 +283,7 @@ export const liteIpcChannels = {
 	watcherSubscribe: "workspace:watcher-subscribe",
 	watcherUnsubscribe: "workspace:watcher-unsubscribe",
 	watcherStopAll: "workspace:watcher-stop-all",
+	nativeCommand: "lite:native-command",
 	updaterUpdateDownloaded: "updater:update-downloaded",
 	updaterQuitAndInstall: "updater:quit-and-install",
 } as const;

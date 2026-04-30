@@ -2559,7 +2559,7 @@ const TopBarActions: FC = () => {
 	const toggleDetailsHotkey = "D";
 	const applyBranchHotkey = "Shift+A";
 
-	useHotkey(applyBranchHotkey, openApplyBranchPicker, {
+	useHotkey({ key: "" }, openApplyBranchPicker, {
 		meta: { group: "Branches", name: "Apply" },
 	});
 

@@ -5,6 +5,9 @@ import { routeTree } from "#ui/routeTree.ts";
 import { createRoot } from "react-dom/client";
 import "./global.css";
 import { Toast } from "@base-ui/react";
+import { store } from "#ui/store.ts";
+import { Match } from "effect";
+import { projectActions } from "#ui/projects/state.ts";
 
 const toastManager = Toast.createToastManager();
 
@@ -60,6 +63,23 @@ declare module "@tanstack/react-router" {
 		router: typeof router;
 	}
 }
+
+const currentProjectId = (): string | undefined => {
+	const projectMatch = router.state.matches.find((match) => match.routeId === "/project/$id");
+	return projectMatch?.params.id;
+};
+
+window.lite.onNativeCommand((command) => {
+	Match.value(command).pipe(
+		Match.when({ type: "branches.apply" }, () => {
+			const projectId = currentProjectId();
+			if (projectId === undefined) return;
+
+			store.dispatch(projectActions.openApplyBranchPicker({ projectId }));
+		}),
+		Match.exhaustive,
+	);
+});
 
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error("Root element not found");

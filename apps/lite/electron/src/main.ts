@@ -25,9 +25,10 @@ import {
 	type ApplyParams,
 	type ShowNativeMenuParams,
 	type UnapplyStackParams,
-	WatcherSubscribeParams,
-	WatcherUnsubscribeParams,
-	NativeMenuPopupItem,
+	type WatcherSubscribeParams,
+	type WatcherUnsubscribeParams,
+	type NativeMenuPopupItem,
+	type NativeCommand,
 } from "./ipc.js";
 import {
 	absorb,
@@ -115,6 +116,107 @@ const buildNativeMenuTemplate = (
 			submenu: item.submenu ? buildNativeMenuTemplate(item.submenu, onItem) : undefined,
 		};
 	});
+
+const sendNativeCommandToFocusedWindow = (command: NativeCommand): void => {
+	const window = BrowserWindow.getFocusedWindow();
+	if (!window || window.isDestroyed()) return;
+	window.webContents.send(liteIpcChannels.nativeCommand, command);
+};
+
+const macAppMenu: MenuItemConstructorOptions = {
+	label: app.name,
+	submenu: [
+		{ role: "about" },
+		{ type: "separator" },
+		{ role: "services" },
+		{ type: "separator" },
+		{ role: "hide" },
+		{ role: "hideOthers" },
+		{ role: "unhide" },
+		{ type: "separator" },
+		{ role: "quit" },
+	],
+};
+
+const createFileMenu = (isMac: boolean): MenuItemConstructorOptions => ({
+	label: "File",
+	submenu: [isMac ? { role: "close" } : { role: "quit" }],
+});
+
+const createEditMenu = (isMac: boolean): MenuItemConstructorOptions => ({
+	label: "Edit",
+	submenu: [
+		{ role: "undo" },
+		{ role: "redo" },
+		{ type: "separator" },
+		{ role: "cut" },
+		{ role: "copy" },
+		{ role: "paste" },
+		...(isMac
+			? ([
+					{ role: "pasteAndMatchStyle" },
+					{ role: "delete" },
+					{ role: "selectAll" },
+					{ type: "separator" },
+					{
+						label: "Speech",
+						submenu: [{ role: "startSpeaking" }, { role: "stopSpeaking" }],
+					},
+				] satisfies Array<MenuItemConstructorOptions>)
+			: ([
+					{ role: "delete" },
+					{ type: "separator" },
+					{ role: "selectAll" },
+				] satisfies Array<MenuItemConstructorOptions>)),
+	],
+});
+
+const branchMenu: MenuItemConstructorOptions = {
+	label: "Branch",
+	submenu: [
+		{
+			label: "Apply Branch...",
+			accelerator: "CmdOrCtrl+Shift+A",
+			click: () => sendNativeCommandToFocusedWindow({ type: "branches.apply" }),
+		},
+	],
+};
+
+const viewMenu: MenuItemConstructorOptions = {
+	label: "View",
+	submenu: [
+		{ role: "reload" },
+		{ role: "forceReload" },
+		{ role: "toggleDevTools" },
+		{ type: "separator" },
+		{ role: "resetZoom" },
+		{ role: "zoomIn" },
+		{ role: "zoomOut" },
+		{ type: "separator" },
+		{ role: "togglefullscreen" },
+	],
+};
+
+const createWindowMenu = (isMac: boolean): MenuItemConstructorOptions => ({
+	label: "Window",
+	submenu: [isMac ? ({ role: "minimize" } as const) : ({ role: "close" } as const)],
+});
+
+const createApplicationMenuTemplate = (): Array<MenuItemConstructorOptions> => {
+	const isMac = process.platform === "darwin";
+	return [
+		...(isMac ? [macAppMenu] : []),
+		createFileMenu(isMac),
+		createEditMenu(isMac),
+		branchMenu,
+		viewMenu,
+		createWindowMenu(isMac),
+	];
+};
+
+const installApplicationMenu = (): void => {
+	Menu.setApplicationMenu(Menu.buildFromTemplate(createApplicationMenuTemplate()));
+};
 
 const registerIpcHandlers = (): void => {
 	ipcMain.handle(
@@ -308,6 +410,7 @@ void app.whenReady().then(async () => {
 		if (dockIcon !== undefined && app.dock) app.dock.setIcon(dockIcon);
 	}
 	registerIpcHandlers();
+	installApplicationMenu();
 	await createMainWindow();
 
 	app.on("activate", () => {
