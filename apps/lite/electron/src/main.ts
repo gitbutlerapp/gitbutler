@@ -1,5 +1,6 @@
 import { checkForUpdates, registerUpdater } from "./updater.js";
 import WatcherManager from "./watcher.js";
+import { inheritLoginShellEnvironmentIfNeeded } from "./shell-environment.js";
 import {
 	liteIpcChannels,
 	type AbsorbParams,
@@ -307,6 +308,7 @@ void app.whenReady().then(async () => {
 		const dockIcon = getMacDockIcon();
 		if (dockIcon !== undefined && app.dock) app.dock.setIcon(dockIcon);
 	}
+	await inheritLoginShellEnvironmentIfNeeded();
 	registerIpcHandlers();
 	await createMainWindow();
 
