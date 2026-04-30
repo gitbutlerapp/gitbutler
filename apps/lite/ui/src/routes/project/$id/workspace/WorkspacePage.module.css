@@ -5,11 +5,6 @@
 [data-panel] {
 	/* `operationModePreview` is relative to this. */
 	position: relative;
-
-	&:focus {
-		/* The focus state is displayed on the item row instead. */
-		outline: none;
-	}
 }
 
 .outlinePanel {
@@ -39,6 +34,11 @@
 	background-color: var(--color-row-hover-bg);
 }
 
+:where([role="treeitem"]:focus) {
+	/* The focus state is displayed on the item row instead. */
+	outline: none;
+}
+
 .itemRow {
 	display: flex;
 	align-items: start;
@@ -64,8 +64,8 @@
 	background-color: var(--color-item-row-selected-unfocused-bg);
 	color: var(--color-item-row-selected-fg);
 
-	&:has(:where(textarea, input):focus),
-	:where([data-panel]:focus) & {
+	&:where([role="treeitem"]:focus),
+	:where([role="treeitem"]:focus) & {
 		background-color: var(--color-item-row-selected-focused-bg);
 	}
 }

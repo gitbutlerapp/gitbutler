@@ -98,7 +98,6 @@ import {
 	Ref,
 	Suspense,
 	useEffect,
-	useLayoutEffect,
 	useOptimistic,
 	useRef,
 	useState,
@@ -184,7 +183,6 @@ const OutlinePanel: FC<{
 	const dispatch = useAppDispatch();
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
-	const selection = useAppSelector((state) => selectProjectSelection(state, projectId));
 	const focusedPanel = useFocusedProjectPanel(projectId);
 	const operationMode = useAppSelector((state) =>
 		selectProjectOperationModeState(state, projectId),
@@ -201,7 +199,6 @@ const OutlinePanel: FC<{
 		focusedPanel,
 		navigationIndex,
 		projectId,
-		focusPanel,
 	});
 
 	return (
@@ -209,9 +206,8 @@ const OutlinePanel: FC<{
 			id={"outline" satisfies PanelType}
 			minSize={400}
 			elementRef={elementRef}
-			tabIndex={0}
+			tabIndex={-1}
 			role="tree"
-			aria-activedescendant={treeItemId(projectId, selection)}
 			className={classes(styles.panel, styles.outlinePanel)}
 		>
 			<Changes
@@ -337,23 +333,25 @@ const useIsSelected = ({ projectId, operand }: { projectId: string; operand: Ope
 const treeItemId = (projectId: string, operand: Operand): string =>
 	`project-${encodeURIComponent(projectId)}-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
 
+const focusTreeItem = (projectId: string, operand: Operand) => {
+	document.getElementById(treeItemId(projectId, operand))?.focus();
+};
+
 const useOutlineSelectionHotkeys = ({
 	focusedPanel,
 	navigationIndex,
 	projectId,
-	focusPanel,
 }: {
 	focusedPanel: PanelType | null;
 	navigationIndex: NavigationIndex;
 	projectId: string;
-	focusPanel: (panel: PanelType) => void;
 }) => {
 	const dispatch = useAppDispatch();
 	const selection = useAppSelector((state) => selectProjectSelection(state, projectId));
 
 	const selectAndFocus = (newItem: Operand) => {
 		dispatch(projectActions.select({ projectId, selection: newItem }));
-		focusPanel("outline");
+		focusTreeItem(projectId, newItem);
 	};
 
 	const moveSelection = (offset: -1 | 1) => {
@@ -714,26 +712,12 @@ const ItemRowPresentational: FC<
 	{
 		isSelected?: boolean;
 	} & ComponentProps<"div">
-> = ({ className, isSelected, ref: refProp, ...props }) => {
-	const rowRef = useRef<HTMLDivElement | null>(null);
-	const mergedRef = useMergedRefs(rowRef, refProp);
-
-	useLayoutEffect(() => {
-		if (!isSelected) return;
-		rowRef.current?.scrollIntoView({
-			block: "nearest",
-			inline: "nearest",
-		});
-	}, [isSelected]);
-
-	return (
-		<div
-			{...props}
-			ref={mergedRef}
-			className={classes(className, styles.itemRow, isSelected && styles.itemRowSelected)}
-		/>
-	);
-};
+> = ({ className, isSelected, ...props }) => (
+	<div
+		{...props}
+		className={classes(className, styles.itemRow, isSelected && styles.itemRowSelected)}
+	/>
+);
 
 const ItemRow: FC<
 	{
@@ -789,6 +773,7 @@ const TreeItem: FC<
 		props: mergeProps<"div">(props, {
 			id: treeItemId(projectId, operand),
 			role: "treeitem",
+			tabIndex: isSelected ? 0 : -1,
 			"aria-label": label,
 			"aria-selected": isSelected,
 			"aria-expanded": expanded,
@@ -1629,7 +1614,9 @@ const CommitFileRow: FC<{
 	useHotkey(
 		"ArrowLeft",
 		() => {
-			dispatch(projectActions.select({ projectId, selection: commitOperand(parentCommitOperand) }));
+			const parentOperand = commitOperand(parentCommitOperand);
+			dispatch(projectActions.select({ projectId, selection: parentOperand }));
+			focusTreeItem(projectId, parentOperand);
 		},
 		{
 			conflictBehavior: "allow",
@@ -2725,9 +2712,15 @@ export const WorkspacePage: FC = () => {
 		id: `project:${projectId}:layout`,
 		panelIds: panelsState.visiblePanels,
 	});
-	const outlinePanelElementRef = useMergedRefs(panelElementRef("outline"), (el) =>
-		el?.focus({ focusVisible: false }),
-	);
+
+	const selectAndFocus = (newItem: Operand) => {
+		dispatch(projectActions.select({ projectId, selection: newItem }));
+		focusTreeItem(projectId, newItem);
+	};
+
+	const outlinePanelElementRef = useMergedRefs(panelElementRef("outline"), () => {
+		selectAndFocus(changesSectionOperand);
+	});
 
 	// TODO: handle project not found error. or only run when project is not null? waterfall.
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
