@@ -2570,7 +2570,7 @@ const TopBarActions: FC = () => {
 	return (
 		<>
 			<ShortcutButton hotkey={applyBranchHotkey} onClick={openApplyBranchPicker}>
-				Apply
+				Apply branch
 			</ShortcutButton>
 			<ShortcutButton
 				hotkey={toggleDetailsHotkey}
