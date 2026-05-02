@@ -31,8 +31,8 @@ export const MyComponent: FC<Props> = (p) => {
 
 # Concluding your work
 
-Once the work is functionally complete, lint and format it with Oxlint, Prettier, and Knip:
+Once the work is functionally complete, lint and format it with Oxlint, Oxfmt, and Knip:
 
 ```console
-$ nix develop -c bash -c "pnpm oxlint:fix && pnpm exec prettier --write apps/lite && pnpm knip:prod && pnpm knip:non-prod"
+$ nix develop -c bash -c "pnpm oxlint:fix && pnpm exec oxfmt apps/lite && pnpm knip:prod && pnpm knip:non-prod"
 ```
