@@ -1,0 +1,61 @@
+[
+	{
+		"label": "Dev",
+		"command": "pnpm",
+		"args": ["dev:lite"],
+		"reveal": "never"
+	},
+	{
+		"label": "Demos",
+		"command": "pnpm",
+		"args": ["-F", "@gitbutler/lite", "demos"],
+		"reveal": "never"
+	},
+	{
+		"label": "Typecheck",
+		"command": "pnpm",
+		"args": ["-F", "@gitbutler/lite", "check"],
+		"hide": "on_success"
+	},
+	{
+		"label": "Oxlint (fix)",
+		"command": "pnpm",
+		"args": ["oxlint:fix"],
+		"hide": "on_success"
+	},
+	{
+		"label": "Prettier",
+		"command": "pnpm",
+		"args": ["exec", "prettier", "--write", "apps/lite"],
+		"hide": "on_success"
+	},
+	{
+		"label": "Knip (prod) (fix)",
+		"command": "pnpm",
+		"args": ["knip:prod", "--fix"],
+		"hide": "on_success"
+	},
+	{
+		"label": "Knip (non-prod) (fix)",
+		"command": "pnpm",
+		"args": ["knip:non-prod", "--fix"],
+		"hide": "on_success"
+	},
+	// Unclear why we need something before the &&, both here and below.
+	{
+		"label": "Sync",
+		"command": "sh",
+		"args": ["-c", "true && pnpm install && pnpm -F @gitbutler/but-sdk build"],
+		"hide": "on_success"
+	},
+	// Until we have Retcon's example repo for dev as well, or fixtures or something.
+	{
+		"label": "Reset test repo",
+		"command": "sh",
+		"args": [
+			"-c",
+			"true && rm -rf ~/dev/gitbutler/test-repo/ && mkcd ~/dev/gitbutler/test-repo/ && ../create-but-repo.sh"
+		],
+		"hide": "on_success"
+	}
+]
