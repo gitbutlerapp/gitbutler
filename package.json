@@ -70,6 +70,7 @@
 		"eslint-plugin-svelte": "3.15.2",
 		"globals": "^15.15.0",
 		"knip": "^5.87.0",
+		"oxfmt": "^0.56.0",
 		"oxlint": "^1.71.0",
 		"oxlint-tsgolint": "^0.23.0",
 		"postcss": "catalog:postcss",

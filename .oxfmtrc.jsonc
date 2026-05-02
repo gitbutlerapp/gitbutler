@@ -1,0 +1,34 @@
+{
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"useTabs": true,
+	"printWidth": 100,
+	"cssDeclarationSorterOrder": "smacss",
+	"sortPackageJson": false,
+	"ignorePatterns": [
+		".DS_Store",
+		"node_modules",
+		"butler/target",
+		"build",
+		"dist",
+		".svelte-kit",
+		"package",
+		".env",
+		".env.*",
+		"!.env.example",
+		"crates/",
+		"flake*",
+		"pnpm-lock.yaml",
+		"package-lock.json",
+		"*.min.css",
+		"e2e/playwright/fixtures",
+		"packages/but-sdk/src/generated",
+		"packages/but-sdk/**/*.md",
+		"apps/lite/ui/src/routeTree.gen.ts",
+		"apps/lite/resources/icons/macos/icon.icon/icon.json",
+
+		// Everything above here was via --migrate prettier.
+		"*.toml",
+	],
+	// Not quite 1:1 yet, but close!
+	"svelte": false,
+}
