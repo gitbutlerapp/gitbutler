@@ -1,0 +1,21 @@
+[
+	{
+		"label": "Electron (main)",
+		"adapter": "JavaScript",
+		"type": "node",
+		"request": "attach",
+		"address": "localhost",
+		"port": 9229,
+		"cwd": "$ZED_WORKTREE_ROOT",
+		"skipFiles": ["<node_internals>/**"]
+	},
+	{
+		"label": "Electron (renderer)",
+		"adapter": "JavaScript",
+		"type": "chrome",
+		"request": "attach",
+		"address": "localhost",
+		"port": 9222,
+		"webRoot": "$ZED_WORKTREE_ROOT/apps/lite/ui"
+	}
+]
