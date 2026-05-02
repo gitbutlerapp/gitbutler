@@ -28,5 +28,17 @@
 
 		// Everything above here was via --migrate prettier.
 		"*.toml",
-	]
+	],
+	"overrides": [
+		{
+			"files": ["apps/lite/**"],
+			"options": {
+				"sortImports": {
+					"groups": [["builtin"], ["external"], ["internal"], ["parent", "sibling"]],
+					"internalPattern": ["#"],
+				},
+				"jsdoc": true,
+			},
+		},
+	],
 }
