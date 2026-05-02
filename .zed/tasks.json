@@ -24,9 +24,9 @@
 		"hide": "on_success"
 	},
 	{
-		"label": "Prettier",
+		"label": "Oxfmt",
 		"command": "pnpm",
-		"args": ["exec", "prettier", "--write", "apps/lite"],
+		"args": ["exec", "oxfmt", "apps/lite"],
 		"hide": "on_success"
 	},
 	{
