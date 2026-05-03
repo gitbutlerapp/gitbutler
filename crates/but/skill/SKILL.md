@@ -41,7 +41,7 @@ but <mutation> ... --status-after
 
 - Commit: `but commit <branch> -m "<msg>" --changes <id>,<id> --status-after`
 - Commit + create branch: `but commit <branch> -c -m "<msg>" --changes <id> --status-after`
-- Amend: `but amend <file-id> <commit-id> --status-after`
+- Amend: `but amend <file-id>[,<file-id>...] <commit-id> --status-after`
 - Reorder commits: `but move <source-commit-id> <target-commit-id> --status-after` (**commit IDs**, not branch names)
 - Stack branches: `but move <branch-name-or-id> <target-branch-name-or-id> --status-after` (**branch names or branch CLI IDs**)
 - Tear off a branch: `but move <branch-name-or-id> zz --status-after` (`zz` = unassigned; branch name or branch CLI ID)
@@ -62,7 +62,7 @@ but <mutation> ... --status-after
 
 1. `but status -fv` (or `but show <branch-id>`)
 2. Locate file ID and target commit ID.
-3. `but amend <file-id> <commit-id> --status-after`
+3. `but amend <file-id>[,<file-id>...] <commit-id> --status-after`
 
 ### Reorder commits
 

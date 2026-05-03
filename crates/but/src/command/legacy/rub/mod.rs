@@ -1444,6 +1444,8 @@ pub(crate) fn handle_amend(
     // Validate that commit is a commit
     match commit {
         CliId::Commit { commit_id, .. } => {
+            let mut commit_id = commit_id;
+            let mut amended_commit_ids = Vec::new();
             // TODO(dp by st): This is a duplication of the UncommittedToCommitOperation which was previously
             //                 called through `handle()` after validation. The problem is that it does its own locking.
             //                 Since these are all mutations, it would have to be changed to take `perm` as well.
@@ -1455,17 +1457,39 @@ pub(crate) fn handle_amend(
                             OperationKind::AmendCommit,
                             guard.write_permission(),
                         );
-                        amend::uncommitted_to_commit_with_perm(
+                        if let Some(new_commit_id) = amend::uncommitted_to_commit_with_perm(
                             ctx,
                             uncommitted.hunk_assignments.as_ref(),
                             uncommitted.describe(),
                             commit_id,
                             out,
                             guard.write_permission(),
-                        )?;
+                        )? {
+                            commit_id = new_commit_id;
+                            amended_commit_ids.push(Some(new_commit_id));
+                        } else {
+                            amended_commit_ids.push(None);
+                        }
                     }
                     _ => unreachable!("validated beforehand"),
                 }
+            }
+            if let Some(out) = out.for_json() {
+                let last_successful_commit_id = amended_commit_ids
+                    .iter()
+                    .rev()
+                    .copied()
+                    .flatten()
+                    .next()
+                    .map(|c| c.to_string());
+                out.write_value(serde_json::json!({
+                    "ok": true,
+                    "new_commit_id": last_successful_commit_id,
+                    "new_commit_ids": amended_commit_ids
+                        .into_iter()
+                        .map(|commit_id| commit_id.map(|c| c.to_string()))
+                        .collect::<Vec<_>>(),
+                }))?;
             }
         }
         other => {

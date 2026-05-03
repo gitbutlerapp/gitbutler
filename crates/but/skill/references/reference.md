@@ -288,8 +288,8 @@ but squash <branch> --status-after  # Squash then show workspace status
 Amend file into a specific commit. Use when you know exactly which commit the change belongs to.
 
 ```bash
-but amend <file-id> <commit-id>                  # Amend file into specific commit
-but amend <file-id> <commit-id> --status-after   # Amend then show workspace status
+but amend <file-id>[,<file-id>...] <commit-id>                  # Amend file(s) into specific commit
+but amend <file-id>[,<file-id>...] <commit-id> --status-after   # Amend then show workspace status
 ```
 
 **When to use `amend` vs `absorb`:**

@@ -1138,6 +1138,127 @@ Amended [..] → [..]
 }
 
 #[test]
+fn amend_multiple_uncommitted_files_to_commit() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("first-uncommitted.txt", "first\n");
+    env.file("second-uncommitted.txt", "second\n");
+
+    let before = status_json(&env)?;
+    let first_file = unassigned_cli_id_for_file(&before, "first-uncommitted.txt")
+        .expect("first uncommitted file should be present");
+    let second_file = unassigned_cli_id_for_file(&before, "second-uncommitted.txt")
+        .expect("second uncommitted file should be present");
+    let target_commit = branch_commit_ids(&before, "A")[0].clone();
+
+    env.but(format!("amend {first_file},{second_file} {target_commit}"))
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Amended the only hunk in first-uncommitted.txt in the unassigned area → [..]
+Amended the only hunk in second-uncommitted.txt in the unassigned area → [..]
+
+"#]])
+        .stderr_eq(str![""]);
+
+    let after = status_json(&env)?;
+    assert!(
+        branch_commits_contain_file(&after, "A", "first-uncommitted.txt"),
+        "first file should be amended into the target commit"
+    );
+    assert!(
+        branch_commits_contain_file(&after, "A", "second-uncommitted.txt"),
+        "second file should be amended into the target commit"
+    );
+    assert!(
+        !unassigned_contains_file(&after, "first-uncommitted.txt"),
+        "first file should no longer be unassigned"
+    );
+    assert!(
+        !unassigned_contains_file(&after, "second-uncommitted.txt"),
+        "second file should no longer be unassigned"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn amend_multiple_uncommitted_files_to_commit_status_after_json() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("first-uncommitted.txt", "first\n");
+    env.file("second-uncommitted.txt", "second\n");
+
+    let before = status_json(&env)?;
+    let first_file = unassigned_cli_id_for_file(&before, "first-uncommitted.txt")
+        .expect("first uncommitted file should be present");
+    let second_file = unassigned_cli_id_for_file(&before, "second-uncommitted.txt")
+        .expect("second uncommitted file should be present");
+    let target_commit = branch_commit_ids(&before, "A")[0].clone();
+
+    let output = env
+        .but(format!(
+            "--json --status-after amend {first_file},{second_file} {target_commit}"
+        ))
+        .allow_json()
+        .output()?;
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stderr), "");
+
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    let amended_commits = value["result"]["new_commit_ids"]
+        .as_array()
+        .expect("amend result should contain all rewritten commit ids");
+    assert_eq!(amended_commits.len(), 2);
+    assert!(value["result"]["new_commit_id"].as_str().is_some());
+    assert!(value["status"]["stacks"].as_array().is_some());
+
+    let after = status_json(&env)?;
+    assert!(
+        branch_commits_contain_file(&after, "A", "first-uncommitted.txt"),
+        "first file should be amended into the target commit"
+    );
+    assert!(
+        branch_commits_contain_file(&after, "A", "second-uncommitted.txt"),
+        "second file should be amended into the target commit"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn amend_duplicate_uncommitted_file_reports_last_successful_commit_json() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.file("duplicate-uncommitted.txt", "content\n");
+
+    let before = status_json(&env)?;
+    let file_id = unassigned_cli_id_for_file(&before, "duplicate-uncommitted.txt")
+        .expect("uncommitted file should be present");
+    let target_commit = branch_commit_ids(&before, "A")[0].clone();
+
+    let output = env
+        .but(format!("--json amend {file_id},{file_id} {target_commit}"))
+        .allow_json()
+        .output()?;
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stderr), "");
+
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    let amended_commits = value["new_commit_ids"]
+        .as_array()
+        .expect("amend result should contain all attempted commit ids");
+    assert_eq!(amended_commits.len(), 2);
+    assert_eq!(value["new_commit_id"], amended_commits[0]);
+    assert!(amended_commits[1].is_null());
+
+    Ok(())
+}
+
+#[test]
 fn rub_matrix_uncommitted_to_stack_smoke() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
     env.setup_metadata(&["A", "B"])?;

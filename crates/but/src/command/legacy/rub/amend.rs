@@ -18,7 +18,7 @@ pub(crate) fn uncommitted_to_commit_with_perm(
     oid: ObjectId,
     out: &mut OutputChannel,
     perm: &mut RepoExclusive,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<ObjectId>> {
     let first_hunk_assignment = hunk_assignments.first();
     let stack_id = first_hunk_assignment.stack_id;
 
@@ -41,13 +41,8 @@ pub(crate) fn uncommitted_to_commit_with_perm(
             })
             .unwrap_or_default();
         writeln!(out, "Amended {description} → {new_commit}")?;
-    } else if let Some(out) = out.for_json() {
-        out.write_value(serde_json::json!({
-            "ok": true,
-            "new_commit_id": outcome.new_commit.map(|c| c.to_string()),
-        }))?;
     }
-    Ok(())
+    Ok(outcome.new_commit)
 }
 
 fn amend_diff_specs(
