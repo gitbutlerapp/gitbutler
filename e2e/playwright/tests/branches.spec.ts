@@ -643,3 +643,41 @@ test("should be able to unapply a stack", async ({ page, context }, testInfo) =>
 	branchHeaders = getByTestId(page, "branch-header").filter({ hasText: "branch1" });
 	await expect(branchHeaders).toHaveCount(0);
 });
+
+test("should be able to move a branch when origin/master has advanced past the fork point", async ({
+	page,
+	context,
+}, testInfo) => {
+	const workdir = testInfo.outputPath("workdir");
+	const configdir = testInfo.outputPath("config");
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	// Set up project with branches (branch1 and branch3 fork from initial master).
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	// Apply branch1 and branch3 as two separate stacks.
+	await gitbutler.runScript("apply-upstream-branch.sh", ["branch1", "local-clone"]);
+	await gitbutler.runScript("apply-upstream-branch.sh", ["branch3", "local-clone"]);
+
+	// Advance remote master past the fork point. This creates a commit on
+	// origin/master that is ahead of where branch1 and branch3 diverge.
+	await gitbutler.runScript("project-with-remote-branches__add-commit-to-base.sh");
+	// Fetch so that origin/master advances in the local clone, making the
+	// old fork point an unnamed segment in the graph.
+	await gitbutler.runScript("fetch-in-clone.sh", ["local-clone"]);
+
+	// Move branch3 on top of branch1. This should succeed even though the
+	// base segment at the old fork point has no ref name.
+	await gitbutler.runScript("move-branch.sh", ["branch3", "branch1", "local-clone"]);
+
+	await page.goto("/");
+
+	// Should load the workspace
+	await waitForTestId(page, "workspace-view");
+
+	// There should be one stack with both branches
+	const stacks = getByTestId(page, "stack");
+	await expect(stacks).toHaveCount(1);
+
+	const branchHeaders = getByTestId(page, "branch-header");
+	await expect(branchHeaders).toHaveCount(2);
+});

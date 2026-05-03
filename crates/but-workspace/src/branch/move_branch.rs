@@ -375,20 +375,10 @@ fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
 
     let parents_to_disconnect = if let Some(stack_base_segment) = stack_base_segment {
         // Base segment is part of the source stack.
-        let base_segment_ref_name = stack_base_segment
-            .ref_name()
-            .context("Base segment doesn't have a ref name.")?;
-        let reference_selector = editor.select_reference(base_segment_ref_name)?;
-        let selectors = SomeSelectors::new(vec![reference_selector])?;
-        SelectorSet::Some(selectors)
+        select_segment(editor, stack_base_segment)?
     } else if let Some(graph_base_segment) = graph_base_segment {
-        // Base segment is outside of workspace (probably target branch).
-        let ref_name = graph_base_segment
-            .ref_name()
-            .context("Graph base segment doesn't have a ref name.")?;
-        let reference_selector = editor.select_reference(ref_name)?;
-        let selectors = SomeSelectors::new(vec![reference_selector])?;
-        SelectorSet::Some(selectors)
+        // Base segment is outside the stack (e.g. the target branch, or an unnamed fork-point segment).
+        select_segment(editor, graph_base_segment)?
     } else if subject_segment.base_segment_id.is_some() {
         // Base segment could not be found, but there is an ID defined. Error out.
         bail!(
@@ -436,4 +426,48 @@ fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
     let children_to_disconnect = SelectorSet::Some(selectors);
 
     Ok((delimiter, children_to_disconnect, parents_to_disconnect))
+}
+
+/// Select a segment for use as a disconnect point.
+///
+/// Prefers the ref name when available, otherwise falls back to the tip commit.
+/// Fails if the segment has neither (empty and unnamed).
+fn select_segment<M: RefMetadata>(
+    editor: &Editor<'_, '_, M>,
+    segment: &impl SegmentLike,
+) -> anyhow::Result<SelectorSet> {
+    let selector = if let Some(ref_name) = segment.ref_name() {
+        editor.select_reference(ref_name)?
+    } else if let Some(tip) = segment.tip() {
+        editor.select_commit(tip)?
+    } else {
+        bail!("Base segment has neither a ref name nor any commits.");
+    };
+    let selectors = SomeSelectors::new(vec![selector])?;
+    Ok(SelectorSet::Some(selectors))
+}
+
+/// Common interface for selecting a graph segment, abstracting over
+/// [`StackSegment`] (workspace projection) and [`but_graph::Segment`] (raw graph).
+trait SegmentLike {
+    fn ref_name(&self) -> Option<&gix::refs::FullNameRef>;
+    fn tip(&self) -> Option<gix::ObjectId>;
+}
+
+impl SegmentLike for StackSegment {
+    fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
+        self.ref_name()
+    }
+    fn tip(&self) -> Option<gix::ObjectId> {
+        self.tip()
+    }
+}
+
+impl SegmentLike for but_graph::Segment {
+    fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
+        self.ref_name()
+    }
+    fn tip(&self) -> Option<gix::ObjectId> {
+        self.tip()
+    }
 }
