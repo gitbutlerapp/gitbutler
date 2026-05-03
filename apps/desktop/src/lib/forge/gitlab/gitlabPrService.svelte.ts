@@ -100,6 +100,10 @@ export class GitLabPrService implements ForgePrService {
 		await this.api.endpoints.updatePr.mutate({ number, update });
 	}
 
+	async setAutoMerge(projectId: string, reviewId: number, enable: boolean) {
+		await this.backendApi.endpoints.setAutoMergeMR.mutate({ projectId, reviewId, enable });
+	}
+
 	async setDraft(projectId: string, reviewId: number, draft: boolean) {
 		await this.backendApi.endpoints.setDraftMR.mutate({ projectId, reviewId, draft });
 	}

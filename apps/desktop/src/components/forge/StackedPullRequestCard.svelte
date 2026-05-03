@@ -7,6 +7,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import { AsyncButton, TestId } from "@gitbutler/ui";
 
+	import { isDefined } from "@gitbutler/ui/utils/typeguards";
 	import type { MergeMethod } from "$lib/forge/interface/types";
 
 	interface Props {
@@ -26,6 +27,7 @@
 	// TODO: Make these props so we don't need `!`.
 	const repoService = $derived(forge.current.repoService);
 	const prService = $derived(forge.current.prService);
+	const checksService = $derived(forge.current.checks);
 
 	const branchQuery = $derived(stackService.branchByName(projectId, stackId, branchName));
 	const branch = $derived(branchQuery.response);
@@ -34,6 +36,8 @@
 	const isPushed = $derived(branchDetails?.pushStatus !== "completelyUnpushed");
 	const prQuery = $derived(branch?.prNumber ? prService?.get(branch?.prNumber) : undefined);
 	const pr = $derived(prQuery?.response);
+
+	const checksQuery = $derived(checksService?.get(branchName));
 
 	const parentQuery = $derived(stackService.branchParentByName(projectId, stackId, branchName));
 	const parent = $derived(parentQuery.response);
@@ -86,6 +90,11 @@
 			baseBranchService.refreshBaseBranch(projectId),
 		]);
 	}
+
+	async function handleEnableAutoMerge() {
+		if (!pr) return;
+		await prService?.setAutoMerge(projectId, pr.number, true);
+	}
 </script>
 
 <PullRequestCard
@@ -101,10 +110,15 @@
 >
 	{#snippet button({ pr, mergeStatus, reopenStatus, setDraft })}
 		{#if pr.state === "open"}
+			{@const checks = checksQuery?.response}
 			{#if pr.draft}
 				<AsyncButton wide kind="outline" action={() => setDraft(false)}
 					>Ready for review</AsyncButton
 				>
+			{:else if isDefined(checks) && !(checks.completed && checks.success)}
+				<AsyncButton wide style="gray" kind="outline" action={handleEnableAutoMerge}>
+					Enable auto-merge
+				</AsyncButton>
 			{:else}
 				<MergeButton
 					wide

@@ -38,5 +38,6 @@ export interface ForgePrService {
 		prNumber: number,
 		details: { description?: string; state?: "open" | "closed"; targetBase?: string },
 	): Promise<void>;
+	setAutoMerge(projectId: string, prNumber: number, enable: boolean): Promise<void>;
 	setDraft(projectId: string, prNumber: number, draft: boolean): Promise<void>;
 }

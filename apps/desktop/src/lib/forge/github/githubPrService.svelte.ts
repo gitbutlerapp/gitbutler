@@ -107,6 +107,10 @@ export class GitHubPrService implements ForgePrService {
 		await this.api.endpoints.updatePr.mutate({ number, update });
 	}
 
+	async setAutoMerge(projectId: string, reviewId: number, enable: boolean) {
+		await this.backendApi.endpoints.setAutoMerge.mutate({ projectId, reviewId, enable });
+	}
+
 	async setDraft(projectId: string, reviewId: number, draft: boolean) {
 		await this.backendApi.endpoints.setDraft.mutate({ projectId, reviewId, draft });
 	}
