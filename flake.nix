@@ -52,6 +52,15 @@
           # We use different versions of Playwright in different packages... consider also
           # voidus/nix-playwright-browsers.
           export PLAYWRIGHT_BROWSERS_PATH=${pkgs.playwright-driver.browsers}
+
+          # --- FIX: forward SSH agent ---
+          if [ -z "$SSH_AUTH_SOCK" ]; then
+            echo "Starting ssh-agent inside nix shell..."
+            eval "$(ssh-agent -s)"
+            ssh-add ~/.ssh/id_ed25519 2>/dev/null
+          else
+            echo "Using existing SSH agent: $SSH_AUTH_SOCK"
+          fi
         '';
       };
     });
