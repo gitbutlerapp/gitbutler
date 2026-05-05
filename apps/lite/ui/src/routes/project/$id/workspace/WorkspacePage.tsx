@@ -286,19 +286,70 @@ const TopBarActions: FC<{ focusPanel: (panel: PanelType) => void }> = ({ focusPa
 	const openApplyBranchPicker = () => {
 		dispatch(projectActions.openApplyBranchPicker({ projectId }));
 	};
-	const toggleDetails = () => {
-		if (focusedPanel === "details" && isPanelVisible(panelsState, "details")) {
-			const detailsPanelIndex = panelsState.visiblePanels.indexOf("details");
-			const nextPanel = panelsState.visiblePanels[detailsPanelIndex - 1];
-			if (nextPanel !== undefined) focusPanel(nextPanel);
-		}
+	const panelVisible = (panel: PanelType): boolean => isPanelVisible(panelsState, panel);
+	const hidePanel = (panel: PanelType) => {
+		const panelIndex = panelsState.visiblePanels.indexOf(panel);
+		const nextPanel =
+			panelsState.visiblePanels[panelIndex - 1] ?? panelsState.visiblePanels[panelIndex + 1];
+		if (nextPanel !== undefined) focusPanel(nextPanel);
 
-		dispatch(projectActions.togglePanel({ projectId, panel: "details" }));
+		dispatch(projectActions.hidePanel({ projectId, panel }));
 	};
-	const toggleOrFocusDetails = () => {
-		if (!isPanelVisible(panelsState, "details") || focusedPanel === "details") toggleDetails();
-		else focusPanel("details");
+	const togglePanel = (panel: PanelType) => {
+		if (focusedPanel === panel && panelVisible(panel)) hidePanel(panel);
+		else dispatch(projectActions.togglePanel({ projectId, panel }));
 	};
+	const toggleOrFocusPanel = (panel: PanelType) => {
+		if (!panelVisible(panel) || focusedPanel === panel) togglePanel(panel);
+		else focusPanel(panel);
+	};
+
+	const outlinePanelVisible = panelVisible("outline");
+	const filesPanelVisible = panelVisible("files");
+	const detailsPanelVisible = panelVisible("details");
+
+	useHotkey({ key: "" }, () => togglePanel("outline"), {
+		enabled: outlinePanelVisible && focusedPanel !== "outline",
+		conflictBehavior: "allow",
+		meta: {
+			group: "Outline",
+			name: outlinePanelVisible ? "Close" : "Open",
+		},
+	});
+
+	useHotkey("O", () => toggleOrFocusPanel("outline"), {
+		meta: {
+			group: "Outline",
+			name: outlinePanelVisible ? "Close" : "Open",
+			commandPalette: !outlinePanelVisible || focusedPanel === "outline",
+		},
+	});
+
+	useHotkey({ key: "" }, () => togglePanel("files"), {
+		enabled: filesPanelVisible && focusedPanel !== "files",
+		conflictBehavior: "allow",
+		meta: {
+			group: "Files",
+			name: filesPanelVisible ? "Close" : "Open",
+		},
+	});
+
+	useHotkey("F", () => toggleOrFocusPanel("files"), {
+		meta: {
+			group: "Files",
+			name: filesPanelVisible ? "Close" : "Open",
+			commandPalette: !filesPanelVisible || focusedPanel === "files",
+		},
+	});
+
+	useHotkey({ key: "" }, () => togglePanel("details"), {
+		enabled: detailsPanelVisible && focusedPanel !== "details",
+		conflictBehavior: "allow",
+		meta: {
+			group: "Details",
+			name: detailsPanelVisible ? "Close" : "Open",
+		},
+	});
 
 	return (
 		<>
@@ -313,16 +364,16 @@ const TopBarActions: FC<{ focusPanel: (panel: PanelType) => void }> = ({ focusPa
 			<ShortcutButton
 				className={uiStyles.button}
 				hotkey="D"
-				aria-pressed={isPanelVisible(panelsState, "details")}
+				aria-pressed={detailsPanelVisible}
 				hotkeyOptions={{
-					conflictBehavior: "allow",
 					meta: {
 						group: "Details",
-						name: isPanelVisible(panelsState, "details") ? "Close" : "Open",
+						name: detailsPanelVisible ? "Close" : "Open",
+						commandPalette: !detailsPanelVisible || focusedPanel === "details",
 					},
 				}}
-				onClick={toggleDetails}
-				onHotkey={toggleOrFocusDetails}
+				onClick={() => togglePanel("details")}
+				onHotkey={() => toggleOrFocusPanel("details")}
 			>
 				Details
 			</ShortcutButton>
@@ -489,20 +540,24 @@ const WorkspacePage: FC = () => {
 			</ShortcutsBarPortal>
 
 			<Group className={styles.page} defaultLayout={defaultLayout} onLayoutChange={onLayoutChanged}>
-				<OutlinePanel
-					id={"outline" satisfies PanelType}
-					minSize={400}
-					defaultSize={500}
-					groupResizeBehavior="preserve-pixel-size"
-					tabIndex={0}
-					className={styles.panel}
-					elementRef={(el) => el?.focus({ focusVisible: false })}
-					focusPanel={focusPanel}
-					onAbsorbChanges={openAbsorptionDialog}
-				/>
+				{isPanelVisible(panelsState, "outline") && (
+					<OutlinePanel
+						id={"outline" satisfies PanelType}
+						minSize={400}
+						defaultSize={500}
+						groupResizeBehavior="preserve-pixel-size"
+						tabIndex={0}
+						className={styles.panel}
+						elementRef={(el) => el?.focus({ focusVisible: false })}
+						focusPanel={focusPanel}
+						onAbsorbChanges={openAbsorptionDialog}
+					/>
+				)}
 				{isPanelVisible(panelsState, "files") && (
 					<>
-						<Separator className={styles.panelResizeHandle} />
+						{isPanelVisible(panelsState, "outline") && (
+							<Separator className={styles.panelResizeHandle} />
+						)}
 						<FilesPanel
 							id={"files" satisfies PanelType}
 							minSize={400}
@@ -517,7 +572,9 @@ const WorkspacePage: FC = () => {
 				)}
 				{isPanelVisible(panelsState, "details") && (
 					<>
-						<Separator className={styles.panelResizeHandle} />
+						{(isPanelVisible(panelsState, "outline") || isPanelVisible(panelsState, "files")) && (
+							<Separator className={styles.panelResizeHandle} />
+						)}
 						<DetailsPanel
 							id={"details" satisfies PanelType}
 							minSize={400}
