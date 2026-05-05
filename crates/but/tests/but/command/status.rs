@@ -515,7 +515,7 @@ fn status_upstream_summary_without_flag() -> anyhow::Result<()> {
 #[test]
 fn status_upstream_detailed_with_flag() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits")?;
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata_at_target(&["A"], "refs/heads/base")?;
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")
@@ -533,7 +533,7 @@ fn status_upstream_detailed_with_flag() -> anyhow::Result<()> {
 #[test]
 fn status_upstream_detailed_truncates_after_8() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits")?;
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata_at_target(&["A"], "refs/heads/base")?;
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")
@@ -551,7 +551,7 @@ fn status_upstream_detailed_truncates_after_8() -> anyhow::Result<()> {
 #[test]
 fn status_upstream_and_merge_base_messages_truncate_when_unpaged() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-long-messages")?;
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata_at_target(&["A"], "refs/heads/base")?;
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")
@@ -582,7 +582,7 @@ fn status_upstream_merge_status_integrated() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "upstream-integrated-with-updates",
     )?;
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base")?;
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")
@@ -616,7 +616,7 @@ fn status_upstream_prunes_untracked_integrated_branch() -> anyhow::Result<()> {
         "upstream-integrated-with-extra-branch",
     )?;
     // Only register A and B — `extra-untracked` is deliberately omitted.
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base")?;
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")
@@ -660,7 +660,7 @@ fn status_upstream_prunes_metadata_tracked_integrated_branches() -> anyhow::Resu
     )?;
     // Register A, B, and extra-untracked (simulating auto-discovery).
     // extra-untracked-2 remains unregistered.
-    env.setup_metadata(&["A", "B", "extra-untracked"])?;
+    env.setup_metadata_at_target(&["A", "B", "extra-untracked"], "refs/heads/base")?;
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")
@@ -710,6 +710,9 @@ fn status_upstream_prunes_with_different_bases() -> anyhow::Result<()> {
     let env =
         Sandbox::init_scenario_with_target_and_default_settings_slow("upstream-different-bases")?;
     env.setup_metadata(&["A", "B"])?;
+    // This test wants the target sha to be the common ancestor ancestor of the
+    // workspace.
+    env.set_target_sha("refs/heads/base")?;
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")
@@ -799,7 +802,7 @@ fn status_upstream_advanced_target_does_not_leak_branches() -> anyhow::Result<()
 #[test]
 fn status_upstream_merge_status_conflicted() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-conflicted")?;
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata_at_target(&["A"], "refs/heads/base")?;
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")

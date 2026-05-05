@@ -5,7 +5,7 @@ use crate::utils::{CommandExt, Sandbox};
 #[test]
 fn no_empty_branches() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata_at_target(&["A"], "origin/main")?;
 
     env.but("clean")
         .assert()
@@ -21,7 +21,7 @@ No empty branches found.
 #[test]
 fn removes_empty_branch() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata_at_target(&["A"], "origin/main")?;
 
     env.but("branch new empty-branch").assert().success();
 
@@ -40,7 +40,7 @@ fn removes_empty_branch() -> anyhow::Result<()> {
 #[test]
 fn dry_run_does_not_delete() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata_at_target(&["A"], "origin/main")?;
 
     env.but("branch new empty-branch").assert().success();
 
@@ -82,7 +82,7 @@ No empty branches found.
 #[test]
 fn json_output() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata_at_target(&["A"], "origin/main")?;
 
     env.but("branch new empty-branch").assert().success();
 
@@ -108,7 +108,7 @@ fn json_output() -> anyhow::Result<()> {
 #[test]
 fn json_output_dry_run() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata_at_target(&["A"], "origin/main")?;
 
     env.but("branch new empty-branch").assert().success();
 
@@ -134,7 +134,7 @@ fn json_output_dry_run() -> anyhow::Result<()> {
 #[test]
 fn json_output_no_empty_branches() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata_at_target(&["A"], "origin/main")?;
 
     env.but("--json clean")
         .allow_json()

@@ -137,7 +137,7 @@ fn commit_with_nonexistent_branch_fails() -> anyhow::Result<()> {
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
 
     env.file("file.txt", "content");
 
@@ -164,7 +164,7 @@ fn commit_with_create_flag_creates_new_branch() -> anyhow::Result<()> {
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
 
     env.file("new-feature.txt", "new feature");
 
@@ -682,7 +682,7 @@ fn commit_json_mode_with_file_succeeds() -> anyhow::Result<()> {
 #[test]
 fn commit_json_mode_multiple_branches_requires_branch() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
 
     // Create a change
     env.file("new-file.txt", "test content");
@@ -911,7 +911,7 @@ fn commit_with_short_changes_flag() -> anyhow::Result<()> {
 #[test]
 fn commit_with_invalid_file_id_fails() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata_at_target(&["A"], "origin/main")?;
 
     // Create a file so we have something to potentially commit
     env.file("file.txt", "content");
@@ -932,7 +932,7 @@ Error: Invalid file ID(s):
 #[test]
 fn commit_with_wrong_entity_type_fails() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata_at_target(&["A"], "origin/main")?;
 
     // Create a file
     env.file("file.txt", "content");

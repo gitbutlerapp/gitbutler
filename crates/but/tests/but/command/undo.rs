@@ -59,7 +59,7 @@ fn can_undo_discard() -> anyhow::Result<()> {
 #[test]
 fn can_undo_commit() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata_at_target(&["A"], "origin/main")?;
     let path = "new-file.txt";
     env.file(path, "content");
 

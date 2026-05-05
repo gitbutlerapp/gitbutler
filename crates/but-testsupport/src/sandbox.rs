@@ -424,6 +424,21 @@ impl Sandbox {
 
         Ok(out)
     }
+
+    /// Set target sha to a given refspec
+    ///
+    /// Returns the target sha we ended up setting.
+    pub fn set_target_sha(&self, spec: &str) -> anyhow::Result<gix::ObjectId> {
+        let mut meta = self.meta()?;
+        let mut ws = meta.workspace(r(WORKSPACE_REF_NAME))?;
+        let ws_data: &mut but_core::ref_metadata::Workspace = ws.deref_mut();
+        let repo = self.open_repo()?;
+        let target_sha = repo.rev_parse_single(spec)?;
+        ws_data.target_commit_id = Some(target_sha.detach());
+        meta.set_workspace(&ws)?;
+
+        Ok(target_sha.detach())
+    }
 }
 
 impl Sandbox {

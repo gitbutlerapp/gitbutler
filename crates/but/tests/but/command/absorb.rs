@@ -18,7 +18,7 @@ fn find_unassigned_cli_id(status: &serde_json::Value, path: &str) -> Option<Stri
 fn uncommitted_file() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     env.but("--json status -f")
@@ -90,7 +90,7 @@ Hint: you can run `but undo` to undo these changes
 fn uncommitted_hunk() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Verify that the first hunk is j0, and absorb it.
@@ -174,7 +174,7 @@ Hint: you can run `but undo` to undo these changes
 fn committed_hunk() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Verify that the first hunk is j0, and commit it.
@@ -440,7 +440,7 @@ fn concurrent_absorb_of_independent_files_succeeds() -> anyhow::Result<()> {
 fn dry_run_shows_plan_without_changes() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Get initial status
@@ -523,7 +523,7 @@ Dry run complete. No changes were made.
 fn workspace_head_is_refreshed_after_absorb() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Record the workspace commit *before* absorb.

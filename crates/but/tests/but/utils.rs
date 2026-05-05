@@ -100,6 +100,17 @@ impl Sandbox {
     pub fn debug(self) -> ! {
         self.inner.debug();
     }
+
+    /// Create stack metadata for `branch_names`, then pin the workspace target to `target_spec`.
+    pub fn setup_metadata_at_target(
+        &self,
+        branch_names: &[&str],
+        target_spec: &str,
+    ) -> anyhow::Result<Vec<but_core::ref_metadata::StackId>> {
+        let stack_ids = self.inner.setup_metadata(branch_names)?;
+        self.inner.set_target_sha(target_spec)?;
+        Ok(stack_ids)
+    }
 }
 
 /// Invocations
