@@ -15,11 +15,18 @@ export const ShortcutButton: FC<
 		children?: string;
 		hotkey: RegisterableHotkey;
 		hotkeyOptions?: UseHotkeyOptions;
+		/** @default `onClick` */
+		onHotkey?: () => void;
 	}
-> = ({ children, hotkey, hotkeyOptions, ...props }) => {
+> = ({ children, hotkey, hotkeyOptions, onHotkey, ...props }) => {
 	const buttonRef = useRef<HTMLButtonElement>(null);
 
-	useHotkey(hotkey, () => buttonRef.current?.click(), {
+	const handleHotkey = (): void => {
+		if (onHotkey) onHotkey();
+		else buttonRef.current?.click();
+	};
+
+	useHotkey(hotkey, handleHotkey, {
 		...hotkeyOptions,
 		enabled: !props.disabled && hotkeyOptions?.enabled !== false,
 	});
