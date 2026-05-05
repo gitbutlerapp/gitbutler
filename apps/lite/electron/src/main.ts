@@ -70,7 +70,11 @@ import {
 	session,
 	type MenuItemConstructorOptions,
 } from "electron";
-import { REACT_DEVELOPER_TOOLS, installExtension } from "electron-devtools-installer";
+import {
+	REACT_DEVELOPER_TOOLS,
+	REDUX_DEVTOOLS,
+	installExtension,
+} from "electron-devtools-installer";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -463,7 +467,7 @@ void app.whenReady().then(async () => {
 			});
 		});
 	} else {
-		await installExtension(REACT_DEVELOPER_TOOLS);
+		await installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS]);
 
 		if (process.platform === "darwin") {
 			const dockIcon = getMacDockIcon();
