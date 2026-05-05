@@ -2,9 +2,11 @@
 
 use but_core::RefMetadata;
 use but_rebase::graph_rebase::{
-    Editor, LookupStep, SuccessfulRebase, ToCommitSelector, ToSelector,
-    mutate::{InsertSide, SegmentDelimiter, SelectorSet, SomeSelectors},
+    Editor, SuccessfulRebase, ToCommitSelector, ToSelector,
+    mutate::{InsertSide, SegmentDelimiter, SelectorSet},
 };
+
+use crate::graph_manipulation::determine_parent_selector;
 
 /// Move a commit.
 ///
@@ -69,52 +71,4 @@ pub fn move_commit_no_rebase<'ws, 'meta, M: RefMetadata>(
     // Step 3: Insert
     editor.insert_segment(anchor, commit_delimiter, side)?;
     Ok(editor)
-}
-
-/// Determine which parent to disconnect from the subject commit.
-///
-/// Preference rules:
-/// - Prefer a `Pick` parent first. This matches first-parent linear history
-///   semantics, which is the primary ancestry edge we want to detach when
-///   moving a commit within or across stacks.
-/// - If there is no commit parent edge, fall back to a `Reference` parent.
-///
-/// If no explicit parent candidate is available (e.g. truncated history or
-/// root-like scenarios), we use `SelectorSet::All` as a safe fallback,
-/// matching prior behavior for these edge cases.
-fn determine_parent_selector<'ws, 'meta, M: RefMetadata>(
-    editor: &Editor<'ws, 'meta, M>,
-    subject_commit_selector: but_rebase::graph_rebase::Selector,
-) -> Result<SelectorSet, anyhow::Error> {
-    let mut parents = editor.direct_parents(subject_commit_selector)?;
-    parents.sort_by_key(|(_, order)| *order);
-
-    // Prefer parent commit first (linear segment), then reference fallback.
-    let preferred = parents
-        .iter()
-        .find(|(selector, _)| {
-            matches!(
-                editor.lookup_step(*selector),
-                Ok(but_rebase::graph_rebase::Step::Pick(_))
-            )
-        })
-        .or_else(|| {
-            parents.iter().find(|(selector, _)| {
-                matches!(
-                    editor.lookup_step(*selector),
-                    Ok(but_rebase::graph_rebase::Step::Reference { .. })
-                )
-            })
-        })
-        .map(|(selector, _)| *selector);
-
-    let parent_to_disconnect = match preferred {
-        Some(selector) => {
-            let selectors = SomeSelectors::new(vec![selector])?;
-            SelectorSet::Some(selectors)
-        }
-        // No explicit parent available (e.g. root commit/truncated history).
-        None => SelectorSet::All,
-    };
-    Ok(parent_to_disconnect)
 }
