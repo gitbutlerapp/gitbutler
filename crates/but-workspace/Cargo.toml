@@ -51,6 +51,7 @@ itertools.workspace = true
 url = { version = "2.5.4", features = ["serde"] }
 md5.workspace = true
 tracing.workspace = true
+uuid = { workspace = true }
 
 # For SPMC channel
 flume = "0.11.1"
