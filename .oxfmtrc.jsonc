@@ -35,11 +35,11 @@
 		{
 			"files": ["apps/lite/**"],
 			"options": {
-				"sortImports": {
-					"groups": [["builtin"], ["external"], ["internal"], ["parent", "sibling"]],
-					"internalPattern": ["#"],
-				},
-				"jsdoc": true,
+				// "sortImports": {
+				// 	"groups": [["builtin"], ["external"], ["internal"], ["parent", "sibling"]],
+				// 	"internalPattern": ["#"],
+				// },
+				// "jsdoc": true,
 			},
 		},
 	],
