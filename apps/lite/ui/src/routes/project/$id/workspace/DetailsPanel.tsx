@@ -356,31 +356,11 @@ const Details: FC<{
 export const DetailsPanel: FC<
 	{
 		className?: string;
-		focusPanel: (panel: PanelType) => void;
 	} & Omit<PanelProps, "className">
-> = ({ focusPanel, className, ...panelProps }) => {
-	const dispatch = useAppDispatch();
+> = ({ className, ...panelProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const urgentSelection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
 	const selection = useDeferredValue(urgentSelection);
-	const focusedPanel = useFocusedProjectPanel(projectId);
-	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
-
-	useHotkey(
-		"Escape",
-		() => {
-			const detailsPanelIndex = panelsState.visiblePanels.indexOf("details");
-			const nextPanel = panelsState.visiblePanels[detailsPanelIndex - 1];
-			if (nextPanel !== undefined) focusPanel(nextPanel);
-
-			dispatch(projectActions.hidePanel({ projectId, panel: "details" }));
-		},
-		{
-			conflictBehavior: "allow",
-			enabled: focusedPanel === "details",
-			meta: { group: "Details", name: "Close", commandPalette: false },
-		},
-	);
 
 	return (
 		<Panel

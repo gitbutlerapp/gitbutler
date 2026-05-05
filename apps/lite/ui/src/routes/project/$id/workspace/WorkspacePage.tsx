@@ -295,6 +295,10 @@ const TopBarActions: FC<{ focusPanel: (panel: PanelType) => void }> = ({ focusPa
 
 		dispatch(projectActions.togglePanel({ projectId, panel: "details" }));
 	};
+	const toggleOrFocusDetails = () => {
+		if (!isPanelVisible(panelsState, "details") || focusedPanel === "details") toggleDetails();
+		else focusPanel("details");
+	};
 
 	return (
 		<>
@@ -311,12 +315,14 @@ const TopBarActions: FC<{ focusPanel: (panel: PanelType) => void }> = ({ focusPa
 				hotkey="D"
 				aria-pressed={isPanelVisible(panelsState, "details")}
 				hotkeyOptions={{
+					conflictBehavior: "allow",
 					meta: {
 						group: "Details",
 						name: isPanelVisible(panelsState, "details") ? "Close" : "Open",
 					},
 				}}
 				onClick={toggleDetails}
+				onHotkey={toggleOrFocusDetails}
 			>
 				Details
 			</ShortcutButton>
@@ -517,7 +523,6 @@ const WorkspacePage: FC = () => {
 							minSize={400}
 							tabIndex={0}
 							className={styles.panel}
-							focusPanel={focusPanel}
 						/>
 					</>
 				)}
