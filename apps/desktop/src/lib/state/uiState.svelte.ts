@@ -27,6 +27,7 @@ export type RejectionReason =
 	| "workspaceMergeConflict"
 	| "workspaceMergeConflictOfUnrelatedFile"
 	| "cherryPickMergeConflict"
+	| "incompatibleBase"
 	| "noEffectiveChanges"
 	| "worktreeFileMissingForObjectConversion"
 	| "fileToLargeOrBinary"

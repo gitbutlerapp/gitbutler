@@ -6,7 +6,10 @@ use but_rebase::graph_rebase::{
 };
 use but_workspace::commit::commit_create;
 
-use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_description_and_graph as writable_scenario;
+use crate::ref_info::with_workspace_commit::utils::{
+    StackState, add_stack_with_segments,
+    named_writable_scenario_with_description_and_graph as writable_scenario,
+};
 
 fn worktree_changes_as_specs(repo: &gix::Repository) -> Result<Vec<DiffSpec>> {
     Ok(but_core::diff::worktree_changes(repo)?
@@ -231,6 +234,56 @@ fn commit_all_rejected_is_noop() -> Result<()> {
         "the invalid spec should be rejected"
     );
     assert_eq!(outcome.rejected_specs[0].1.path, "does-not-exist");
+
+    Ok(())
+}
+
+/// When stacks have different bases (e.g. one forked before an upstream
+/// change and another after), the workspace merge tree (`HEAD^{tree}`)
+/// contains the upstream version of a file while the older stack's tree
+/// does not.
+///
+/// The cherry-pick in `create_tree` correctly detects this as a conflict:
+/// base (`HEAD^{tree}`) has the upstream content, ours (old stack parent)
+/// has the pre-upstream content, and theirs has the worktree edit — a
+/// genuine three-way conflict.
+#[test]
+fn commit_to_wrong_base_rejects_conflicting_file() -> Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        writable_scenario("two-stacks-modifying-shared-file", |meta| {
+            add_stack_with_segments(meta, 0, "A", StackState::InWorkspace, &[]);
+            add_stack_with_segments(meta, 1, "B", StackState::InWorkspace, &[]);
+        })?;
+
+    // Stack A has the OLD base (before upstream changed file.txt).
+    // Committing a worktree change to file.txt on A should be rejected.
+    let a_ref = repo.find_reference("A")?;
+
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let outcome = commit_create(
+        editor,
+        worktree_changes_as_specs(&repo)?,
+        RelativeToRef::Reference(a_ref.name()),
+        InsertSide::Above,
+        "commit worktree change to stack A",
+        0,
+    )?;
+
+    assert!(
+        !outcome.rejected_specs.is_empty(),
+        "file.txt change should be rejected on the old-base stack"
+    );
+    assert!(
+        outcome.rejected_specs.iter().any(|(reason, spec)| {
+            matches!(
+                reason,
+                but_core::tree::create_tree::RejectionReason::IncompatibleBase
+            ) && spec.path == "file.txt"
+        }),
+        "expected IncompatibleBase for file.txt, got: {:?}",
+        outcome.rejected_specs
+    );
 
     Ok(())
 }

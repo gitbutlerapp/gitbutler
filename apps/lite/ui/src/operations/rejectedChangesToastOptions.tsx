@@ -19,6 +19,8 @@ const readableRejectionReason = (reason: RejectionReason): string => {
 	switch (reason) {
 		case "cherryPickMergeConflict":
 			return "Cherry-pick merge conflict";
+		case "incompatibleBase":
+			return "Incompatible branch base";
 		case "noEffectiveChanges":
 			return "No effective changes";
 		case "workspaceMergeConflict":
