@@ -613,3 +613,11 @@ pub use create_reference::function::create_reference;
 /// Functions and types related to moving branches across stacks.
 pub mod move_branch;
 pub use move_branch::function::{move_branch, tear_off_branch};
+
+/// Functions and types for integrating remote changes into local branches.
+pub mod integrate_branch_upstream;
+pub use integrate_branch_upstream::{
+    BranchIntegrationStrategy, InitialBranchIntegration, IntegrationDivergenceCommit,
+    IntegrationDivergenceDisplay, IntegrationDivergenceTargetRelation, InteractiveIntegrationStep,
+    get_initial_integration_steps_for_branch, integrate_branch_with_steps,
+};
