@@ -33,6 +33,39 @@ mod pre_tool {
 
         Ok(())
     }
+
+    #[test]
+    fn uses_payload_cwd_when_current_dir_is_not_project() -> anyhow::Result<()> {
+        let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+        env.file("test.txt", "content");
+
+        let file_path = env.projects_root().join("test.txt");
+        let input = serde_json::json!({
+            "session_id": "00000000-0000-0000-0000-000000000001",
+            "transcript_path": "/tmp/nonexistent.jsonl",
+            "cwd": env.projects_root().to_string_lossy(),
+            "hook_event_name": "pre-tool-use",
+            "tool_name": "str_replace_editor",
+            "tool_input": {
+                "file_path": file_path.to_string_lossy(),
+                "new_string": "new",
+                "old_string": "old",
+                "replace_all": false
+            }
+        });
+
+        env.but("claude pre-tool")
+            .current_dir(env.app_data_dir())
+            .stdin(input.to_string())
+            .assert()
+            .success()
+            .stdout_eq(snapbox::str![[r#"
+{"continue":true,"stopReason":"","suppressOutput":true}
+
+"#]]);
+
+        Ok(())
+    }
 }
 
 mod post_tool {
@@ -88,10 +121,15 @@ mod stop {
 
         // Create a minimal JSONL transcript with a user record containing cwd
         let transcript_path = env.projects_root().join(".claude_transcript.jsonl");
-        let cwd = env.projects_root().to_string_lossy();
-        let transcript_content = format!(
-            r#"{{"type":"user","cwd":"{cwd}","message":{{"role":"user","content":"test"}}}}"#
-        );
+        let transcript_content = serde_json::json!({
+            "type": "user",
+            "cwd": env.projects_root().to_string_lossy(),
+            "message": {
+                "role": "user",
+                "content": "test"
+            }
+        })
+        .to_string();
         env.file(".claude_transcript.jsonl", &transcript_content);
 
         let input = serde_json::json!({
@@ -133,10 +171,24 @@ mod stop {
         // Create a JSONL transcript with a user record containing cwd and a summary
         let transcript_path = env.projects_root().join(".claude_transcript.jsonl");
         let cwd = env.projects_root().to_string_lossy();
-        let transcript_content = format!(
-            r#"{{"type":"user","cwd":"{cwd}","message":{{"role":"user","content":"Add a new file"}}}}
-{{"type":"summary","summary":"Added new_file.txt with test content","leafUuid":"00000000-0000-0000-0000-000000000002"}}"#
-        );
+        let transcript_content = [
+            serde_json::json!({
+                "type": "user",
+                "cwd": cwd,
+                "message": {
+                    "role": "user",
+                    "content": "Add a new file"
+                }
+            })
+            .to_string(),
+            serde_json::json!({
+                "type": "summary",
+                "summary": "Added new_file.txt with test content",
+                "leafUuid": "00000000-0000-0000-0000-000000000002"
+            })
+            .to_string(),
+        ]
+        .join("\n");
         env.file(".claude_transcript.jsonl", &transcript_content);
 
         let input = serde_json::json!({

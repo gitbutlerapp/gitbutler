@@ -666,6 +666,15 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Claude(claude::Platform),
 
+    /// AI: Codex hooks
+    ///
+    /// Provides lifecycle hook handlers for Codex.
+    ///
+    #[cfg(feature = "legacy")]
+    #[clap(hide = true)]
+    #[clap(verbatim_doc_comment)]
+    Codex(codex::Platform),
+
     /// AI: Cursor hooks
     ///
     /// Provides lifecycle hooks handlers for the Cursor hooks feature.
@@ -1317,6 +1326,22 @@ pub mod claude {
             #[clap(long, short = 'o', default_value = "0")]
             offset: usize,
         },
+    }
+}
+
+pub mod codex {
+    #[derive(Debug, clap::Parser)]
+    pub struct Platform {
+        #[clap(subcommand)]
+        pub cmd: Subcommands,
+    }
+    #[derive(Debug, clap::Subcommand)]
+    pub enum Subcommands {
+        #[clap(alias = "pre-tool-use")]
+        PreTool,
+        #[clap(alias = "post-tool-use")]
+        PostTool,
+        Stop,
     }
 }
 

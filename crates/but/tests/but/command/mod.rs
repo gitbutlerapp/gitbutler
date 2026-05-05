@@ -12,6 +12,8 @@ mod claude;
 #[cfg(feature = "legacy")]
 mod clean;
 #[cfg(feature = "legacy")]
+mod codex;
+#[cfg(feature = "legacy")]
 mod commit;
 mod config;
 #[cfg(feature = "legacy")]

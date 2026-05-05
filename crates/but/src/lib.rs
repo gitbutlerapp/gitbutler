@@ -22,16 +22,18 @@
 #![deny(unsafe_code)]
 #![cfg_attr(not(feature = "legacy"), expect(unused))]
 
-use std::ffi::OsString;
+use std::{ffi::OsString, io::Read};
 
 use anyhow::{Context as _, Result};
 use cfg_if::cfg_if;
 use clap::Parser;
+#[cfg(feature = "legacy")]
+use serde::Deserialize as _;
 
 pub mod args;
 use args::{
-    Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, claude, cursor, forge,
-    update as update_args, worktree,
+    Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, claude, codex, cursor,
+    forge, update as update_args, worktree,
 };
 use but_settings::AppSettings;
 use gix::date::time::CustomFormat;
@@ -203,6 +205,48 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             }
         }
         Some(cmd) => match_subcommand(cmd, args, app_settings, out).await,
+    }
+}
+
+/// Parse the hook payload as a single JSON value.
+#[cfg(feature = "legacy")]
+fn hook_input_json(read: impl Read) -> Result<serde_json::Value> {
+    let mut deserializer = serde_json::Deserializer::from_reader(read);
+    serde_json::Value::deserialize(&mut deserializer)
+        .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {e}"))
+}
+
+#[cfg(feature = "legacy")]
+fn read_stdin() -> Result<String> {
+    let mut input = String::new();
+    std::io::stdin()
+        .lock()
+        .read_to_string(&mut input)
+        .context("Failed to read hook input from stdin")?;
+    Ok(input)
+}
+
+#[cfg(feature = "legacy")]
+fn ctx_from_hook_input(
+    args: &Args,
+    out: &mut OutputChannel,
+    input: &str,
+) -> Result<but_ctx::Context> {
+    let cwd = serde_json::from_str::<serde_json::Value>(input)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("cwd")
+                .and_then(serde_json::Value::as_str)
+                .map(str::trim)
+                .filter(|cwd| !cwd.is_empty())
+                .map(std::path::PathBuf::from)
+        });
+
+    if let Some(cwd) = cwd {
+        but_ctx::Context::discover(cwd)
+    } else {
+        setup::init_ctx(args, InitCtxOptions::default(), out)
     }
 }
 
@@ -458,24 +502,30 @@ async fn match_subcommand(
         #[cfg(feature = "legacy")]
         Subcommands::Claude(claude::Platform { cmd }) => {
             use but_claude::hooks::OutputClaudeJson;
-            let ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             match cmd {
                 claude::Subcommands::PreTool => {
-                    but_claude::hooks::handle_pre_tool_call(ctx, std::io::stdin().lock())
+                    let input = read_stdin()?;
+                    let ctx = ctx_from_hook_input(&args, out, &input)?;
+                    but_claude::hooks::handle_pre_tool_call(ctx, input.as_bytes())
                         .output_claude_json()
                         .emit_metrics(metrics_ctx)
                 }
                 claude::Subcommands::PostTool => {
-                    but_claude::hooks::handle_post_tool_call(ctx, std::io::stdin().lock())
+                    let input = read_stdin()?;
+                    let ctx = ctx_from_hook_input(&args, out, &input)?;
+                    but_claude::hooks::handle_post_tool_call(ctx, input.as_bytes())
                         .output_claude_json()
                         .emit_metrics(metrics_ctx)
                 }
                 claude::Subcommands::Stop => {
-                    but_claude::hooks::handle_stop(ctx, std::io::stdin().lock())
+                    let input = read_stdin()?;
+                    let ctx = ctx_from_hook_input(&args, out, &input)?;
+                    but_claude::hooks::handle_stop(ctx, input.as_bytes())
                         .output_claude_json()
                         .emit_metrics(metrics_ctx)
                 }
                 claude::Subcommands::Last { offset } => {
+                    let ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
                     let message = but_claude::db::get_user_message(&ctx, Some(offset as i64))?;
                     match message {
                         Some(msg) => {
@@ -522,6 +572,20 @@ async fn match_subcommand(
                     Ok(())
                 }
             }
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Codex(codex::Platform { cmd }) => {
+            use but_codex::hooks::OutputCodexJson;
+            let input = hook_input_json(std::io::stdin().lock())?;
+            match cmd {
+                codex::Subcommands::PreTool => but_codex::hooks::handle_pre_tool_call_input(input),
+                codex::Subcommands::PostTool => {
+                    but_codex::hooks::handle_post_tool_call_input(input)
+                }
+                codex::Subcommands::Stop => but_codex::hooks::handle_stop(input),
+            }
+            .output_codex_json()
+            .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {

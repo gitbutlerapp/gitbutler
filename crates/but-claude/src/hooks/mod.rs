@@ -61,6 +61,12 @@ pub struct StructuredPatch {
     pub lines: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum EmptyStructuredPatchAssignment {
+    AssignFile,
+    Skip,
+}
+
 impl From<&StructuredPatch> for HunkHeader {
     fn from(patch: &StructuredPatch) -> Self {
         HunkHeader {
@@ -97,7 +103,78 @@ pub fn handle_session_stop(
 ) -> anyhow::Result<ClaudeHookOutput> {
     let session_id =
         stable_session_id(&ctx, maybe_unused_session_id)?.unwrap_or(maybe_unused_session_id);
+    let transcript = Transcript::from_file(Path::new(transcript_path))?;
+    let summary = transcript.summary().unwrap_or_default();
+    let prompt = transcript.prompt().unwrap_or_default();
 
+    let output = handle_session_stop_flow(
+        ctx,
+        session_id,
+        maybe_unused_session_id,
+        summary,
+        prompt,
+        skip_gui_check,
+        Source::ClaudeCode(session_id.to_string()),
+        false,
+    )?;
+
+    Ok(ClaudeHookOutput {
+        do_continue: true,
+        stop_reason: output.stop_reason,
+        suppress_output: output.suppress_output,
+    })
+}
+
+/// Input for the shared agent stop workflow.
+pub struct AgentSessionStopRequest {
+    /// Stable identifier for the external agent session.
+    pub session_id: Uuid,
+    /// Human-readable summary used for autocommit naming.
+    pub summary: String,
+    /// Original user prompt, if available.
+    pub prompt: String,
+    /// Source stored on generated GitButler actions.
+    pub source: Source,
+    /// Whether rewording and branch renaming must succeed.
+    pub require_reword: bool,
+}
+
+/// Output from the shared agent stop workflow.
+pub struct AgentStopOutput {
+    /// Reason shown to the calling hook integration.
+    pub stop_reason: String,
+    /// Whether the hook output should be hidden by the caller.
+    pub suppress_output: bool,
+}
+
+/// Run the shared hook stop workflow for an external coding agent.
+pub fn handle_agent_session_stop(
+    ctx: Context,
+    request: AgentSessionStopRequest,
+) -> anyhow::Result<AgentStopOutput> {
+    handle_session_stop_flow(
+        ctx,
+        request.session_id,
+        request.session_id,
+        request.summary,
+        request.prompt,
+        false,
+        request.source,
+        request.require_reword,
+    )
+}
+
+#[expect(clippy::too_many_arguments)]
+fn handle_session_stop_flow(
+    ctx: Context,
+    session_id: Uuid,
+    maybe_unused_session_id: Uuid,
+    summary: String,
+    prompt: String,
+    skip_gui_check: bool,
+    source: Source,
+    require_reword: bool,
+) -> anyhow::Result<AgentStopOutput> {
     // ClearLocksGuard ensures all file locks for this session are cleared on drop,
     // including early returns (no changes, GUI check, auto-commit disabled).
     let mut defer = ClearLocksGuard {
@@ -106,7 +183,6 @@ pub fn handle_session_stop(
         file_path: None,
     };
 
-    let transcript = Transcript::from_file(Path::new(transcript_path))?;
     let changes = but_core::diff::ui::worktree_changes(&*defer.ctx.repo.get()?)?.changes;
 
     // This is a naive way of handling this case.
@@ -116,27 +192,21 @@ pub fn handle_session_stop(
     // TODO: Be smarter about this. We could try checking the transcript for any changes associated with this session,
     // that are not committed yet. And only if they are present, we proceed with the changes handling.
     if changes.is_empty() {
-        return Ok(ClaudeHookOutput {
-            do_continue: true,
+        return Ok(AgentStopOutput {
             stop_reason: "No changes detected".to_string(),
             suppress_output: false,
         });
     }
 
-    let summary = transcript.summary().unwrap_or_default();
-    let prompt = transcript.prompt().unwrap_or_default();
-
     if !skip_gui_check && should_exit_early(&defer.ctx, maybe_unused_session_id)? {
-        return Ok(ClaudeHookOutput {
-            do_continue: true,
+        return Ok(AgentStopOutput {
             stop_reason: "Session running in GUI, skipping hook".to_string(),
             suppress_output: true,
         });
     }
 
     if !defer.ctx.settings.claude.auto_commit_after_completion {
-        return Ok(ClaudeHookOutput {
-            do_continue: true,
+        return Ok(AgentStopOutput {
             stop_reason: "No after-hook behaviour required.".to_string(),
             suppress_output: true,
         });
@@ -160,7 +230,7 @@ pub fn handle_session_stop(
         &summary,
         Some(prompt.clone()),
         ActionHandler::HandleChangesSimple,
-        Source::ClaudeCode(session_id.to_string()),
+        source,
         Some(stack_id),
     )?;
 
@@ -249,8 +319,7 @@ pub fn handle_session_stop(
     }
 
     // For now, we just return a response indicating that the tool call was handled
-    Ok(ClaudeHookOutput {
-        do_continue: true,
+    Ok(AgentStopOutput {
         stop_reason: String::default(),
         suppress_output: true,
     })
@@ -340,6 +409,13 @@ pub fn handle_pre_tool_call(
     let input: ClaudePreToolUseInput = serde_json::from_reader(read)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {e}"))?;
 
+    handle_claude_pre_tool_call(ctx, input)
+}
+
+fn handle_claude_pre_tool_call(
+    ctx: Context,
+    input: ClaudePreToolUseInput,
+) -> anyhow::Result<ClaudeHookOutput> {
     let session_id = input.session_id;
     let session_id = stable_session_id(&ctx, session_id)?.unwrap_or(session_id);
 
@@ -360,6 +436,19 @@ pub fn handle_pre_tool_call(
     })
 }
 
+/// Shared pre-tool-call handler that performs file locking for an agent session.
+pub fn lock_agent_file_for_tool_call(
+    sync_ctx: but_ctx::ThreadSafeContext,
+    session_id: Uuid,
+    file_path: &str,
+) -> anyhow::Result<()> {
+    let ctx: Context = sync_ctx.into_thread_local();
+    let resolved_session_id = stable_session_id(&ctx, session_id)?.unwrap_or(session_id);
+    file_lock::obtain_or_insert(&ctx, resolved_session_id, file_path.to_string())?;
+
+    Ok(())
+}
+
 /// SDK variant of pre-tool-call handler that performs file locking.
 /// This is called from the SDK hook and skips the GUI check.
 pub fn lock_file_for_tool_call(
@@ -367,9 +456,7 @@ pub fn lock_file_for_tool_call(
     session_id: Uuid,
     file_path: &str,
 ) -> anyhow::Result<ClaudeHookOutput> {
-    let ctx: Context = sync_ctx.into_thread_local();
-    let resolved_session_id = stable_session_id(&ctx, session_id)?.unwrap_or(session_id);
-    file_lock::obtain_or_insert(&ctx, resolved_session_id, file_path.to_string())?;
+    lock_agent_file_for_tool_call(sync_ctx, session_id, file_path)?;
 
     Ok(ClaudeHookOutput {
         do_continue: true,
@@ -385,6 +472,13 @@ pub fn handle_post_tool_call(
     let input: ClaudePostToolUseInput = serde_json::from_reader(read)
         .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {e}"))?;
 
+    handle_claude_post_tool_call(ctx, input)
+}
+
+fn handle_claude_post_tool_call(
+    ctx: Context,
+    input: ClaudePostToolUseInput,
+) -> anyhow::Result<ClaudeHookOutput> {
     assign_hunks_post_tool_call(
         ctx,
         input.session_id,
@@ -394,13 +488,15 @@ pub fn handle_post_tool_call(
     )
 }
 
-pub fn assign_hunks_post_tool_call(
+/// Shared post-tool-call handler that assigns matching hunks to an agent session.
+pub fn assign_agent_hunks_post_tool_call(
     ctx: Context,
     session_id: Uuid,
     file_path: &str,
     structured_patch: &[StructuredPatch],
     skip_gui_check: bool,
-) -> anyhow::Result<ClaudeHookOutput> {
+    empty_structured_patch_assignment: EmptyStructuredPatchAssignment,
+) -> anyhow::Result<()> {
     let hook_headers: Vec<HunkHeader> = structured_patch.iter().map(|p| p.into()).collect();
 
     let resolved_session_id = stable_session_id(&ctx, session_id)?.unwrap_or(session_id);
@@ -413,11 +509,16 @@ pub fn assign_hunks_post_tool_call(
     };
 
     if !skip_gui_check && should_exit_early(&defer.ctx, session_id)? {
-        return Ok(ClaudeHookOutput {
-            do_continue: true,
-            stop_reason: "Session running in GUI, skipping hook".to_string(),
-            suppress_output: true,
-        });
+        return Ok(());
+    }
+
+    if hook_headers.is_empty()
+        && matches!(
+            empty_structured_patch_assignment,
+            EmptyStructuredPatchAssignment::Skip
+        )
+    {
+        return Ok(());
     }
 
     let relative_file_path = defer.ctx.workdir_or_fail().ok().and_then(|worktree_dir| {
@@ -485,6 +586,25 @@ pub fn assign_hunks_post_tool_call(
         &ws,
         assignment_reqs,
         context_lines,
+    )?;
+
+    Ok(())
+}
+
+pub fn assign_hunks_post_tool_call(
+    ctx: Context,
+    session_id: Uuid,
+    file_path: &str,
+    structured_patch: &[StructuredPatch],
+    skip_gui_check: bool,
+) -> anyhow::Result<ClaudeHookOutput> {
+    assign_agent_hunks_post_tool_call(
+        ctx,
+        session_id,
+        file_path,
+        structured_patch,
+        skip_gui_check,
+        EmptyStructuredPatchAssignment::AssignFile,
     )?;
 
     Ok(ClaudeHookOutput {
@@ -577,19 +697,24 @@ pub trait OutputClaudeJson {
 
 impl OutputClaudeJson for Result<ClaudeHookOutput> {
     fn output_claude_json(self) -> Self {
-        match &self {
-            Ok(output) => println!("{}", serde_json::to_string(output).unwrap_or_default()),
-            Err(e) => eprintln!(
-                "{}",
-                serde_json::to_string(&ClaudeHookOutput {
-                    do_continue: false,
-                    stop_reason: e.to_string(),
-                    suppress_output: false,
-                })
-                .unwrap_or_default()
-            ),
+        match self {
+            Ok(output) => {
+                println!("{}", serde_json::to_string(&output).unwrap_or_default());
+                Ok(output)
+            }
+            Err(e) => {
+                eprintln!(
+                    "{}",
+                    serde_json::to_string(&ClaudeHookOutput {
+                        do_continue: false,
+                        stop_reason: e.to_string(),
+                        suppress_output: false,
+                    })
+                    .unwrap_or_default()
+                );
+                Err(e)
+            }
         }
-        self
     }
 }
 

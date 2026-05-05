@@ -71,7 +71,9 @@ impl Subcommands {
     pub(crate) fn to_metrics_command(&self) -> CommandName {
         use CommandName::*;
 
-        use crate::args::{alias as alias_args, branch, claude, cursor, forge, skill, worktree};
+        use crate::args::{
+            alias as alias_args, branch, claude, codex, cursor, forge, skill, worktree,
+        };
         match self {
             #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
@@ -136,6 +138,12 @@ impl Subcommands {
                 claude::Subcommands::PostTool => ClaudePostTool,
                 claude::Subcommands::Stop => ClaudeStop,
                 claude::Subcommands::Last { .. } => Unknown,
+            },
+            #[cfg(feature = "legacy")]
+            Subcommands::Codex(codex::Platform { cmd }) => match cmd {
+                codex::Subcommands::PreTool => CodexPreTool,
+                codex::Subcommands::PostTool => CodexPostTool,
+                codex::Subcommands::Stop => CodexStop,
             },
             #[cfg(feature = "legacy")]
             Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {

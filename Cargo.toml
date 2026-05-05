@@ -43,6 +43,7 @@ members = [
     "crates/but-workspace", # 📄Workspace abstractions on top of `but-graph`; workspace manipulation.
     # 👉lacks tests, overview in docs, seems hacky. Uses `but-ctx`.
     "crates/but-claude", # 📄Orchestrate `claude` instances
+    "crates/but-codex",  # 📄Integration with Codex
     # 👉but at least one item lacks documentation.
     "crates/but-path", # 📄Provide paths interesting to the application, with global redirects for testing.
     # 👉Lacks tests, and overview, but still useful and simple enough to 'just works'
@@ -163,6 +164,7 @@ but-tools = { path = "crates/but-tools" }
 but-api = { path = "crates/but-api" }
 but-api-macros = { path = "crates/but-api-macros" }
 but-claude = { path = "crates/but-claude" }
+but-codex = { path = "crates/but-codex" }
 but-cursor = { path = "crates/but-cursor" }
 but-gerrit = { path = "crates/but-gerrit" }
 but-cherry-apply = { path = "crates/but-cherry-apply" }

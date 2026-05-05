@@ -812,6 +812,7 @@ dependencies = [
  "but-askpass",
  "but-cherry-apply",
  "but-claude",
+ "but-codex",
  "but-core",
  "but-ctx",
  "but-cursor",
@@ -1083,6 +1084,19 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+ "uuid",
+]
+
+[[package]]
+name = "but-codex"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-action",
+ "but-claude",
+ "but-ctx",
+ "serde",
+ "serde_json",
  "uuid",
 ]
 
