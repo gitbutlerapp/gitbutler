@@ -492,9 +492,13 @@ pub use create_reference::function::create_reference;
 pub mod move_branch;
 pub use move_branch::function::{move_branch, tear_off_branch};
 
+mod segment_disconnect;
+pub(crate) use segment_disconnect::determine_parent_selector;
+
 /// Functions and types for integrating remote changes into local branches.
 pub mod integrate_branch_upstream;
 pub use integrate_branch_upstream::{
     InitialBranchIntegration, IntegrationDivergenceCommit, IntegrationDivergenceDisplay,
     InteractiveIntegrationStep, get_initial_integration_steps_for_branch,
+    integrate_branch_with_steps,
 };

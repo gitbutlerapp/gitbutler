@@ -15,7 +15,7 @@ pub struct Outcome<'ws, 'meta, M: RefMetadata> {
 
 pub(super) mod function {
 
-    use crate::branch::segment_disconnect::get_disconnect_parameters;
+    use crate::branch::segment_disconnect::{DisconnectParameters, get_disconnect_parameters};
     use but_core::RefMetadata;
     use but_core::ref_metadata::StackId;
     use but_rebase::graph_rebase::mutate::SomeSelectors;
@@ -99,14 +99,17 @@ pub(super) mod function {
             .select_reference(lower_bound_ref)
             .context("Failed to find target reference in graph.")?;
 
-        let (subject_delimiter, children_to_disconnect, parents_to_disconnect) =
-            get_disconnect_parameters(
-                &editor,
-                &workspace,
-                source_stack,
-                subject_segment,
-                workspace_head,
-            )?;
+        let DisconnectParameters {
+            delimiter: subject_delimiter,
+            children_to_disconnect,
+            parents_to_disconnect,
+        } = get_disconnect_parameters(
+            &editor,
+            &workspace,
+            source_stack,
+            subject_segment,
+            workspace_head,
+        )?;
 
         editor.disconnect_segment_from(
             subject_delimiter.clone(),
@@ -196,14 +199,17 @@ pub(super) mod function {
             .select_reference(target_segment_ref_name)
             .context("Failed to find target reference in graph.")?;
 
-        let (subject_delimiter, children_to_disconnect, parents_to_disconnect) =
-            get_disconnect_parameters(
-                &editor,
-                &workspace,
-                &source_stack,
-                &subject_segment,
-                workspace_head,
-            )?;
+        let DisconnectParameters {
+            delimiter: subject_delimiter,
+            children_to_disconnect,
+            parents_to_disconnect,
+        } = get_disconnect_parameters(
+            &editor,
+            &workspace,
+            &source_stack,
+            &subject_segment,
+            workspace_head,
+        )?;
 
         let skip_reconnect_step = source_stack.segments.len() == 1;
         editor.disconnect_segment_from(

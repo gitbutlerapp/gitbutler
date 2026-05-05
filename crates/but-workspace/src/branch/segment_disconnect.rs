@@ -2,9 +2,15 @@ use anyhow::{Context, bail};
 use but_core::RefMetadata;
 use but_graph::projection::{Stack, StackSegment};
 use but_rebase::graph_rebase::{
-    Editor, Selector,
+    Editor, LookupStep, Selector, Step,
     mutate::{SegmentDelimiter, SelectorSet, SomeSelectors},
 };
+
+pub(crate) struct DisconnectParameters {
+    pub(crate) delimiter: SegmentDelimiter<Selector, Selector>,
+    pub(crate) children_to_disconnect: SelectorSet,
+    pub(crate) parents_to_disconnect: SelectorSet,
+}
 
 /// Get the right disconnect parameters for the given subject segment and source stack.
 ///
@@ -16,11 +22,7 @@ pub(crate) fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
     source_stack: &Stack,
     subject_segment: &StackSegment,
     workspace_head: gix::ObjectId,
-) -> anyhow::Result<(
-    SegmentDelimiter<Selector, Selector>,
-    SelectorSet,
-    SelectorSet,
-)> {
+) -> anyhow::Result<DisconnectParameters> {
     let index_of_segment = source_stack
         .segments
         .iter()
@@ -91,7 +93,11 @@ pub(crate) fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
         let selectors = SomeSelectors::new(vec![workspace_head_selector])?;
         let children_to_disconnect = SelectorSet::Some(selectors);
 
-        return Ok((delimiter, children_to_disconnect, parents_to_disconnect));
+        return Ok(DisconnectParameters {
+            delimiter,
+            children_to_disconnect,
+            parents_to_disconnect,
+        });
     }
 
     // Segment on top of the subject segment in the stack.
@@ -119,7 +125,44 @@ pub(crate) fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
     let selectors = SomeSelectors::new(vec![child_selector])?;
     let children_to_disconnect = SelectorSet::Some(selectors);
 
-    Ok((delimiter, children_to_disconnect, parents_to_disconnect))
+    Ok(DisconnectParameters {
+        delimiter,
+        children_to_disconnect,
+        parents_to_disconnect,
+    })
+}
+
+/// Determine which parent to disconnect from the subject commit.
+///
+/// Preference rules:
+/// - Prefer a `Pick` parent first, which aligns with linear first-parent ancestry.
+/// - If no commit parent edge is found, fall back to a `Reference` parent.
+///
+/// If no explicit parent candidate exists, return `SelectorSet::All` as a safe fallback.
+pub(crate) fn determine_parent_selector<'ws, 'meta, M: RefMetadata>(
+    editor: &Editor<'ws, 'meta, M>,
+    subject_commit_selector: Selector,
+) -> anyhow::Result<SelectorSet> {
+    let mut parents = editor.direct_parents(subject_commit_selector)?;
+    parents.sort_by_key(|(_, order)| *order);
+
+    let preferred = parents
+        .iter()
+        .find(|(selector, _)| matches!(editor.lookup_step(*selector), Ok(Step::Pick(_))))
+        .or_else(|| {
+            parents.iter().find(|(selector, _)| {
+                matches!(editor.lookup_step(*selector), Ok(Step::Reference { .. }))
+            })
+        })
+        .map(|(selector, _)| *selector);
+
+    match preferred {
+        Some(selector) => {
+            let selectors = SomeSelectors::new(vec![selector])?;
+            Ok(SelectorSet::Some(selectors))
+        }
+        None => Ok(SelectorSet::All),
+    }
 }
 
 /// Select a segment by its ref name if available, otherwise fall back to its tip commit.
