@@ -6,6 +6,47 @@ use but_api_macros::but_api;
 use tracing::instrument;
 use url::Url;
 
+fn clean_env_vars<'a, 'b>(
+    var_names: &'a [&'b str],
+) -> impl Iterator<Item = (&'b str, String)> + 'a {
+    var_names
+        .iter()
+        .filter_map(|name| env::var(name).map(|value| (*name, value)).ok())
+        .map(|(name, value)| {
+            (
+                name,
+                value
+                    .split(':')
+                    .filter(|path| !path.contains("appimage-run") && !path.contains("/tmp/.mount"))
+                    .collect::<Vec<_>>()
+                    .join(":"),
+            )
+        })
+}
+
+fn gui_launch_env_vars() -> impl Iterator<Item = (&'static str, String)> {
+    clean_env_vars(&[
+        "APPDIR",
+        "GDK_PIXBUF_MODULE_FILE",
+        "GIO_EXTRA_MODULES",
+        "GIO_EXTRA_MODULES",
+        "GSETTINGS_SCHEMA_DIR",
+        "GST_PLUGIN_SYSTEM_PATH",
+        "GST_PLUGIN_SYSTEM_PATH_1_0",
+        "GTK_DATA_PREFIX",
+        "GTK_EXE_PREFIX",
+        "GTK_IM_MODULE_FILE",
+        "GTK_PATH",
+        "LD_LIBRARY_PATH",
+        "PATH",
+        "PERLLIB",
+        "PYTHONHOME",
+        "PYTHONPATH",
+        "QT_PLUGIN_PATH",
+        "XDG_DATA_DIRS",
+    ])
+}
+
 pub(crate) fn open_that(target_url: &Url) -> anyhow::Result<()> {
     if ![
         "http",
@@ -25,24 +66,9 @@ pub(crate) fn open_that(target_url: &Url) -> anyhow::Result<()> {
         bail!("Invalid path scheme: {}", target_url.scheme());
     }
 
-    fn clean_env_vars<'a, 'b>(
-        var_names: &'a [&'b str],
-    ) -> impl Iterator<Item = (&'b str, String)> + 'a {
-        var_names
-            .iter()
-            .filter_map(|name| env::var(name).map(|value| (*name, value)).ok())
-            .map(|(name, value)| {
-                (
-                    name,
-                    value
-                        .split(':')
-                        .filter(|path| {
-                            !path.contains("appimage-run") && !path.contains("/tmp/.mount")
-                        })
-                        .collect::<Vec<_>>()
-                        .join(":"),
-                )
-            })
+    #[cfg(target_os = "linux")]
+    if open_editor_url_with_cli_in_wsl(target_url)? {
+        return Ok(());
     }
 
     let mut cmd_errors = Vec::new();
@@ -59,28 +85,7 @@ pub(crate) fn open_that(target_url: &Url) -> anyhow::Result<()> {
     };
 
     for mut cmd in commands {
-        let cleaned_vars = clean_env_vars(&[
-            "APPDIR",
-            "GDK_PIXBUF_MODULE_FILE",
-            "GIO_EXTRA_MODULES",
-            "GIO_EXTRA_MODULES",
-            "GSETTINGS_SCHEMA_DIR",
-            "GST_PLUGIN_SYSTEM_PATH",
-            "GST_PLUGIN_SYSTEM_PATH_1_0",
-            "GTK_DATA_PREFIX",
-            "GTK_EXE_PREFIX",
-            "GTK_IM_MODULE_FILE",
-            "GTK_PATH",
-            "LD_LIBRARY_PATH",
-            "PATH",
-            "PERLLIB",
-            "PYTHONHOME",
-            "PYTHONPATH",
-            "QT_PLUGIN_PATH",
-            "XDG_DATA_DIRS",
-        ]);
-
-        cmd.envs(cleaned_vars);
+        cmd.envs(gui_launch_env_vars());
         cmd.current_dir(env::temp_dir());
         if cmd.status().is_ok() {
             return Ok(());
@@ -92,6 +97,188 @@ pub(crate) fn open_that(target_url: &Url) -> anyhow::Result<()> {
         bail!("Errors occurred: {cmd_errors:?}");
     }
     Ok(())
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Debug, PartialEq, Eq)]
+struct EditorCliInvocation {
+    command: &'static str,
+    args: Vec<String>,
+}
+
+#[cfg(target_os = "linux")]
+fn open_editor_url_with_cli_in_wsl(target_url: &Url) -> anyhow::Result<bool> {
+    use std::process::Command;
+
+    if !is_wsl() {
+        return Ok(false);
+    }
+
+    let Some(invocation) = editor_cli_invocation_from_url(target_url) else {
+        return Ok(false);
+    };
+
+    if which::which(invocation.command).is_err() {
+        return Ok(false);
+    }
+
+    let mut cmd = Command::new(invocation.command);
+    cmd.args(&invocation.args);
+    cmd.envs(gui_launch_env_vars());
+    cmd.current_dir(env::temp_dir());
+
+    tracing::info!(?cmd, "editor command");
+    let status = cmd
+        .status()
+        .with_context(|| format!("Failed to launch editor command {cmd:?}"))?;
+    if !status.success() {
+        bail!(
+            "Editor command '{}' exited with status {status}",
+            invocation.command
+        );
+    }
+
+    Ok(true)
+}
+
+#[cfg(target_os = "linux")]
+fn is_wsl() -> bool {
+    env::var_os("WSL_DISTRO_NAME").is_some()
+        || env::var_os("WSL_INTEROP").is_some()
+        || std::fs::read_to_string("/proc/sys/kernel/osrelease")
+            .or_else(|_| std::fs::read_to_string("/proc/version"))
+            .map(|version| {
+                let version = version.to_ascii_lowercase();
+                version.contains("microsoft") || version.contains("wsl")
+            })
+            .unwrap_or(false)
+}
+
+#[cfg(target_os = "linux")]
+fn editor_cli_invocation_from_url(target_url: &Url) -> Option<EditorCliInvocation> {
+    let command = vscode_like_editor_command(target_url.scheme())?;
+    if target_url.host_str() != Some("file") {
+        return None;
+    }
+
+    let path = urlencoding::decode(target_url.path()).ok()?.into_owned();
+    if path.is_empty() {
+        return None;
+    }
+
+    let (path, line, column) = split_editor_position(&path);
+    let mut args = Vec::new();
+    if target_url
+        .query_pairs()
+        .any(|(key, value)| key == "windowId" && value == "_blank")
+    {
+        args.push("--new-window".to_owned());
+    }
+
+    if let Some(line) = line {
+        args.push("--goto".to_owned());
+        args.push(match column {
+            Some(column) => format!("{path}:{line}:{column}"),
+            None => format!("{path}:{line}"),
+        });
+    } else {
+        args.push(path);
+    }
+
+    Some(EditorCliInvocation { command, args })
+}
+
+#[cfg(target_os = "linux")]
+fn vscode_like_editor_command(scheme: &str) -> Option<&'static str> {
+    match scheme {
+        "vscode" => Some("code"),
+        "vscode-insiders" => Some("code-insiders"),
+        "vscodium" => Some("codium"),
+        "cursor" => Some("cursor"),
+        "windsurf" => Some("windsurf"),
+        "trae" => Some("trae"),
+        _ => None,
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn split_editor_position(path: &str) -> (String, Option<u32>, Option<u32>) {
+    let Some((path_before_last, last)) = path.rsplit_once(':') else {
+        return (path.to_owned(), None, None);
+    };
+
+    let Ok(last_number) = last.parse() else {
+        return (path.to_owned(), None, None);
+    };
+
+    if let Some((path_before_line, line_candidate)) = path_before_last.rsplit_once(':')
+        && let Ok(line_number) = line_candidate.parse()
+    {
+        return (
+            path_before_line.to_owned(),
+            Some(line_number),
+            Some(last_number),
+        );
+    }
+
+    (path_before_last.to_owned(), Some(last_number), None)
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cursor_editor_url_becomes_goto_cli_invocation() {
+        let url = Url::parse("cursor://file/home/robert/project/src/main.rs:42:7").unwrap();
+
+        assert_eq!(
+            editor_cli_invocation_from_url(&url),
+            Some(EditorCliInvocation {
+                command: "cursor",
+                args: vec![
+                    "--goto".to_owned(),
+                    "/home/robert/project/src/main.rs:42:7".to_owned(),
+                ],
+            })
+        );
+    }
+
+    #[test]
+    fn vscode_project_url_becomes_new_window_cli_invocation() {
+        let url = Url::parse("vscode://file/home/robert/project?windowId=_blank").unwrap();
+
+        assert_eq!(
+            editor_cli_invocation_from_url(&url),
+            Some(EditorCliInvocation {
+                command: "code",
+                args: vec!["--new-window".to_owned(), "/home/robert/project".to_owned()],
+            })
+        );
+    }
+
+    #[test]
+    fn editor_url_paths_are_percent_decoded() {
+        let url = Url::parse("vscode://file/home/robert/My%20Project/src/lib.rs:3").unwrap();
+
+        assert_eq!(
+            editor_cli_invocation_from_url(&url),
+            Some(EditorCliInvocation {
+                command: "code",
+                args: vec![
+                    "--goto".to_owned(),
+                    "/home/robert/My Project/src/lib.rs:3".to_owned(),
+                ],
+            })
+        );
+    }
+
+    #[test]
+    fn unsupported_editor_scheme_falls_back_to_url_handler() {
+        let url = Url::parse("zed://file/home/robert/project/src/main.rs:42").unwrap();
+
+        assert_eq!(editor_cli_invocation_from_url(&url), None);
+    }
 }
 
 #[but_api]
