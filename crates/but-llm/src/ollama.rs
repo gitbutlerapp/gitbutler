@@ -6,7 +6,7 @@ use serde::de::DeserializeOwned;
 
 use crate::{
     AI_OLLAMA_ENDPOINT_KEY, AI_OLLAMA_MODEL_NAME_KEY, ChatMessage,
-    client::LLMClient,
+    client::{GitConfigReader, LLMClient, http_client_builder},
     openai_utils::{
         OpenAIClientProvider, response_blocking, stream_response_blocking,
         structured_output_blocking, tool_calling_loop, tool_calling_loop_stream,
@@ -65,22 +65,20 @@ impl OpenAIClientProvider for OllamaProvider {
         let open_ai_config = OpenAIConfig::new()
             .with_api_base(self.config.api_base())
             .with_api_key("ollama");
-        Ok(async_openai::Client::with_config(open_ai_config))
+        Ok(async_openai::Client::with_config(open_ai_config)
+            .with_http_client(http_client_builder().build()?))
     }
 }
 
 impl LLMClient for OllamaProvider {
-    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self>
+    fn from_git_config(config: &impl GitConfigReader) -> Option<Self>
     where
         Self: Sized,
     {
         let endpoint = config
-            .string(AI_OLLAMA_ENDPOINT_KEY)
-            .map(|v| v.to_string())
+            .string_value(AI_OLLAMA_ENDPOINT_KEY)
             .map(OllamaHostConfig::from);
-        let model = config
-            .string(AI_OLLAMA_MODEL_NAME_KEY)
-            .map(|v| v.to_string());
+        let model = config.string_value(AI_OLLAMA_MODEL_NAME_KEY);
         let ollama_config = OllamaConfig {
             host_config: endpoint,
         };

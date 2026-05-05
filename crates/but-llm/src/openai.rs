@@ -10,7 +10,7 @@ use crate::{
     AI_OPENAI_CUSTOM_ENDPOINT_KEY, AI_OPENAI_KEY_OPTION_KEY, AI_OPENAI_MODEL_NAME_KEY,
     AI_OPENAI_SECRET_HANDLE,
     chat::ChatMessage,
-    client::LLMClient,
+    client::{GitConfigReader, LLMClient, http_client_builder},
     key::CredentialsKeyOption,
     openai_utils::{
         OpenAIClientProvider, response_blocking, stream_response_blocking,
@@ -28,10 +28,8 @@ pub enum CredentialsKind {
 }
 
 impl CredentialsKind {
-    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self> {
-        let key_option_str = config
-            .string(AI_OPENAI_KEY_OPTION_KEY)
-            .map(|v| v.to_string())?;
+    fn from_git_config(config: &impl GitConfigReader) -> Option<Self> {
+        let key_option_str = config.string_value(AI_OPENAI_KEY_OPTION_KEY)?;
         let key_option = CredentialsKeyOption::from_str(&key_option_str)?;
         match key_option {
             CredentialsKeyOption::BringYourOwn => Some(CredentialsKind::OwnOpenAiKey),
@@ -129,12 +127,12 @@ impl OpenAIClientProvider for OpenAiProvider {
         match &self.credentials {
             (CredentialsKind::EnvVarOpenAiKey, _) => {
                 let config = self.configure_custom_endpoint(OpenAIConfig::new());
-                Ok(Client::with_config(config))
+                Ok(Client::with_config(config).with_http_client(http_client_builder().build()?))
             }
             (CredentialsKind::OwnOpenAiKey, key) => {
                 let config =
                     self.configure_custom_endpoint(OpenAIConfig::new().with_api_key(key.0.clone()));
-                Ok(Client::with_config(config))
+                Ok(Client::with_config(config).with_http_client(http_client_builder().build()?))
             }
 
             (CredentialsKind::GitButlerProxied, key) => {
@@ -148,9 +146,7 @@ impl OpenAIClientProvider for OpenAiProvider {
                     "X-Auth-Token",
                     key.0.parse().unwrap_or(HeaderValue::from_static("")),
                 );
-                let http_client = reqwest::Client::builder()
-                    .default_headers(headers)
-                    .build()?;
+                let http_client = http_client_builder().default_headers(headers).build()?;
                 Ok(Client::with_config(config).with_http_client(http_client))
             }
         }
@@ -158,17 +154,13 @@ impl OpenAIClientProvider for OpenAiProvider {
 }
 
 impl LLMClient for OpenAiProvider {
-    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self>
+    fn from_git_config(config: &impl GitConfigReader) -> Option<Self>
     where
         Self: Sized,
     {
         let credentials_kind = CredentialsKind::from_git_config(config)?;
-        let model = config
-            .string(AI_OPENAI_MODEL_NAME_KEY)
-            .map(|v| v.to_string());
-        let custom_endpoint = config
-            .string(AI_OPENAI_CUSTOM_ENDPOINT_KEY)
-            .map(|v| v.to_string());
+        let model = config.string_value(AI_OPENAI_MODEL_NAME_KEY);
+        let custom_endpoint = config.string_value(AI_OPENAI_CUSTOM_ENDPOINT_KEY);
 
         OpenAiProvider::with(Some(credentials_kind), model, custom_endpoint)
     }

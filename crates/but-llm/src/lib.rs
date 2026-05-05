@@ -14,7 +14,7 @@ pub use chat::{ChatMessage, StreamToolCallResult, ToolCall, ToolCallContent, Too
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
-use crate::client::LLMClient;
+use crate::client::{GitConfigReader, LLMClient};
 
 pub const AI_MODEL_PROVIDER_KEY: &str = "gitbutler.aiModelProvider";
 pub const AI_OPENAI_KEY_OPTION_KEY: &str = "gitbutler.aiOpenAIKeyOption";
@@ -150,34 +150,18 @@ impl LLMProvider {
         Some(Self { client })
     }
 
-    /// Creates a new LLM provider based on configuration stored in the global Git config.
-    ///
-    /// This method reads the LLM provider settings from Git's configuration system,
-    /// specifically looking for the `gitbutler.aiModelProvider` setting to determine
-    /// which provider to instantiate. It then delegates to the appropriate provider's
-    /// `from_git_config` method to read provider-specific settings like API keys,
-    /// model names, and endpoints.
-    ///
-    /// This is the recommended way to initialize an LLM provider in a Git repository
-    /// context, as it respects user-configured settings and credentials stored in
-    /// their Git configuration.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - A reference to a Git configuration object, typically the global
-    ///   or repository-level config, containing the LLM provider settings.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Some(LLMProvider)` if a valid provider is configured and successfully
-    /// initialized, or `None` if:
-    /// - The `gitbutler.aiModelProvider` setting is not present
-    /// - The configured provider is not supported
-    /// - Provider-specific initialization fails (e.g., missing credentials)
+    /// Creates a new LLM provider based on configuration stored in Git config.
     pub fn from_git_config(config: &gix::config::File<'static>) -> Option<Self> {
-        let provider_str = config
-            .string(AI_MODEL_PROVIDER_KEY)
-            .map(|v| v.to_string())?;
+        Self::from_config(config)
+    }
+
+    /// Creates a new LLM provider from a repository config snapshot.
+    pub fn from_git_config_snapshot(config: &gix::config::Snapshot<'_>) -> Option<Self> {
+        Self::from_config(config)
+    }
+
+    fn from_config(config: &impl GitConfigReader) -> Option<Self> {
+        let provider_str = config.string_value(AI_MODEL_PROVIDER_KEY)?;
         let provider = LLMProviderKind::from_git_config_value(&provider_str);
         match provider {
             Some(LLMProviderKind::OpenAi) => {
@@ -235,6 +219,21 @@ impl LLMProvider {
             LLMClientType::Ollama(client) => client.model(),
             LLMClientType::LMStudio(client) => client.model(),
             LLMClientType::OpenRouter(client) => client.model(),
+        }
+    }
+
+    pub fn model_or_default(&self) -> String {
+        self.model()
+            .unwrap_or_else(|| self.default_model().to_string())
+    }
+
+    pub fn default_model(&self) -> &'static str {
+        match &self.client {
+            LLMClientType::OpenAi(_) => "gpt-5-mini",
+            LLMClientType::Anthropic(_) => "claude-haiku-4-5",
+            LLMClientType::Ollama(_) => "llama3.1",
+            LLMClientType::LMStudio(_) => "local-model",
+            LLMClientType::OpenRouter(_) => "openai/gpt-5-mini",
         }
     }
 

@@ -212,6 +212,11 @@ fn handle_session_stop_flow(
         });
     }
 
+    let llm_opt = llm_provider(&defer.ctx);
+    if require_reword && llm_opt.is_none() {
+        anyhow::bail!("GitButler AI provider is unavailable for Codex autocommit");
+    }
+
     // Create repo and workspace once at the entry point
     let mut guard = defer.ctx.exclusive_worktree_access();
     let stacks = list_stacks(&defer.ctx)?;
@@ -240,7 +245,7 @@ fn handle_session_stop_flow(
     // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if available
     // Alternatively, and probably better - we could spawn a new process to do this
 
-    if let Some(llm) = LLMProvider::default_openai() {
+    if let Some(llm) = llm_opt {
         for branch in &outcome.updated_branches {
             let mut commit_message_mapping = HashMap::new();
 
@@ -256,9 +261,17 @@ fn handle_session_stop_flow(
                         ctx: defer.ctx.to_sync(),
                         trigger: id,
                     };
-                    let reword_result = but_action::reword::commit(&llm, commit_event)
-                        .ok()
-                        .unwrap_or_default();
+                    let reword_result = if require_reword {
+                        but_action::reword::commit(&llm, commit_event)?
+                    } else {
+                        but_action::reword::commit(&llm, commit_event)
+                            .ok()
+                            .unwrap_or_default()
+                    };
+
+                    if require_reword && reword_result.is_none() {
+                        anyhow::bail!("GitButler AI reword did not produce a commit message");
+                    }
 
                     // Update the commit mapping with the new commit ID
                     if let Some(reword_result) = reword_result {
@@ -278,9 +291,25 @@ fn handle_session_stop_flow(
                             stack_id: branch.stack_id,
                             current_branch_name: branch.branch_name.clone(),
                         };
-                        but_action::rename_branch::rename_branch(&mut defer.ctx, &llm, params, id)
+                        if require_reword {
+                            but_action::rename_branch::rename_branch(
+                                &mut defer.ctx,
+                                &llm,
+                                params,
+                                id,
+                            )?
+                        } else {
+                            but_action::rename_branch::rename_branch(
+                                &mut defer.ctx,
+                                &llm,
+                                params,
+                                id,
+                            )
                             .ok()
                             .unwrap_or_else(|| branch.branch_name.clone())
+                        }
+                    } else if require_reword {
+                        anyhow::bail!("GitButler AI reword did not produce a commit message");
                     } else {
                         branch.branch_name.clone()
                     }
@@ -323,6 +352,20 @@ fn handle_session_stop_flow(
         stop_reason: String::default(),
         suppress_output: true,
     })
+}
+
+fn llm_provider(ctx: &Context) -> Option<LLMProvider> {
+    ctx.repo
+        .get()
+        .ok()
+        .and_then(|repo| LLMProvider::from_git_config_snapshot(&repo.config_snapshot()))
+        .or_else(|| {
+            gix::config::File::from_globals()
+                .ok()
+                .and_then(|cfg| LLMProvider::from_git_config(&cfg))
+        })
+        .or_else(LLMProvider::default_anthropic)
+        .or_else(LLMProvider::default_openai)
 }
 
 pub enum RenameEligibility {

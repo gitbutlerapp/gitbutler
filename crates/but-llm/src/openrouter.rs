@@ -8,7 +8,7 @@ use serde::de::DeserializeOwned;
 use crate::{
     AI_OPENROUTER_ENDPOINT_KEY, AI_OPENROUTER_MODEL_NAME_KEY,
     chat::ChatMessage,
-    client::LLMClient,
+    client::{GitConfigReader, LLMClient, http_client_builder},
     openai_utils::{
         OpenAIClientProvider, response_blocking, stream_response_blocking,
         structured_output_blocking, tool_calling_loop, tool_calling_loop_stream,
@@ -31,10 +31,9 @@ impl Default for OpenRouterConfig {
 }
 
 impl OpenRouterConfig {
-    fn from_git_config(config: &gix::config::File<'static>) -> Self {
+    fn from_git_config(config: &impl GitConfigReader) -> Self {
         let api_base = config
-            .string(AI_OPENROUTER_ENDPOINT_KEY)
-            .map(|v| v.to_string())
+            .string_value(AI_OPENROUTER_ENDPOINT_KEY)
             .unwrap_or_else(|| OPENROUTER_API_BASE_DEFAULT.to_string());
 
         Self { api_base }
@@ -81,19 +80,17 @@ impl OpenAIClientProvider for OpenRouterProvider {
             .with_api_base(self.config.api_base.clone())
             .with_api_key(self.api_key.0.clone());
 
-        Ok(Client::with_config(open_ai_config))
+        Ok(Client::with_config(open_ai_config).with_http_client(http_client_builder().build()?))
     }
 }
 
 impl LLMClient for OpenRouterProvider {
-    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self>
+    fn from_git_config(config: &impl GitConfigReader) -> Option<Self>
     where
         Self: Sized,
     {
         let openrouter_config = OpenRouterConfig::from_git_config(config);
-        let model = config
-            .string(AI_OPENROUTER_MODEL_NAME_KEY)
-            .map(|v| v.to_string());
+        let model = config.string_value(AI_OPENROUTER_MODEL_NAME_KEY);
         let api_key = Self::retrieve_api_key()?;
         Some(Self {
             config: openrouter_config,

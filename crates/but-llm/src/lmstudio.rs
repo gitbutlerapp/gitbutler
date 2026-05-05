@@ -7,7 +7,7 @@ use serde::de::DeserializeOwned;
 use crate::{
     AI_LMSTUDIO_ENDPOINT_KEY, AI_LMSTUDIO_MODEL_NAME_KEY,
     chat::ChatMessage,
-    client::LLMClient,
+    client::{GitConfigReader, LLMClient, http_client_builder},
     openai_utils::{
         OpenAIClientProvider, response_blocking, stream_response_blocking,
         structured_output_blocking, tool_calling_loop, tool_calling_loop_stream,
@@ -30,10 +30,9 @@ impl Default for LMStudioConfig {
 }
 
 impl LMStudioConfig {
-    fn from_git_config(config: &gix::config::File<'static>) -> Self {
+    fn from_git_config(config: &impl GitConfigReader) -> Self {
         let api_base = config
-            .string(AI_LMSTUDIO_ENDPOINT_KEY)
-            .map(|v| v.to_string())
+            .string_value(AI_LMSTUDIO_ENDPOINT_KEY)
             .unwrap_or_else(|| LMSTUDIO_API_BASE_DEFAULT.to_string());
 
         Self { api_base }
@@ -63,19 +62,17 @@ impl OpenAIClientProvider for LMStudioProvider {
             .with_api_base(self.config.api_base.clone())
             .with_api_key("lm-studio");
 
-        Ok(Client::with_config(open_ai_config))
+        Ok(Client::with_config(open_ai_config).with_http_client(http_client_builder().build()?))
     }
 }
 
 impl LLMClient for LMStudioProvider {
-    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self>
+    fn from_git_config(config: &impl GitConfigReader) -> Option<Self>
     where
         Self: Sized,
     {
         let lmstudio_config = LMStudioConfig::from_git_config(config);
-        let model = config
-            .string(AI_LMSTUDIO_MODEL_NAME_KEY)
-            .map(|v| v.to_string());
+        let model = config.string_value(AI_LMSTUDIO_MODEL_NAME_KEY);
         Some(Self {
             config: lmstudio_config,
             model,

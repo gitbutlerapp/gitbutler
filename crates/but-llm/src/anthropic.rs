@@ -12,8 +12,10 @@ use serde::de::DeserializeOwned;
 
 use crate::{
     AI_ANTHROPIC_KEY_OPTION_KEY, AI_ANTHROPIC_MODEL_NAME_KEY, AI_ANTHROPIC_SECRET_HANDLE,
-    StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent, chat::ChatMessage,
-    client::LLMClient, key::CredentialsKeyOption,
+    StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent,
+    chat::ChatMessage,
+    client::{GitConfigReader, LLMClient, http_client_builder},
+    key::CredentialsKeyOption,
 };
 
 const ANTHROPIC_API_BASE: &str = "https://api.anthropic.com/v1";
@@ -34,10 +36,8 @@ pub enum CredentialsKind {
 }
 
 impl CredentialsKind {
-    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self> {
-        let key_option_str = config
-            .string(AI_ANTHROPIC_KEY_OPTION_KEY)
-            .map(|v| v.to_string())?;
+    fn from_git_config(config: &impl GitConfigReader) -> Option<Self> {
+        let key_option_str = config.string_value(AI_ANTHROPIC_KEY_OPTION_KEY)?;
         let key_option = CredentialsKeyOption::from_str(&key_option_str)?;
         match key_option {
             CredentialsKeyOption::BringYourOwn => Some(CredentialsKind::OwnAnthropicKey),
@@ -68,9 +68,7 @@ impl AnthropicClient {
             HeaderValue::from_static(ANTHROPIC_VERSION),
         );
 
-        let client = reqwest::Client::builder()
-            .default_headers(headers)
-            .build()?;
+        let client = http_client_builder().default_headers(headers).build()?;
 
         Ok(Self { kind, client })
     }
@@ -177,14 +175,12 @@ impl AnthropicProvider {
 }
 
 impl LLMClient for AnthropicProvider {
-    fn from_git_config(config: &gix::config::File<'static>) -> Option<Self>
+    fn from_git_config(config: &impl GitConfigReader) -> Option<Self>
     where
         Self: Sized,
     {
         let credentials_kind = CredentialsKind::from_git_config(config)?;
-        let model = config
-            .string(AI_ANTHROPIC_MODEL_NAME_KEY)
-            .map(|v| v.to_string());
+        let model = config.string_value(AI_ANTHROPIC_MODEL_NAME_KEY);
         AnthropicProvider::with(Some(credentials_kind), model)
     }
 
