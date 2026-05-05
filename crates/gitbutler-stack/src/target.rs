@@ -42,6 +42,40 @@ impl Target {
             .context("failed to get default commit")?;
         Ok(oid.detach())
     }
+
+    /// The local branch ref that this target tracks (e.g. `refs/heads/master`
+    /// when the remote branch is `origin/master`).
+    pub fn local_ref(&self) -> String {
+        format!("refs/heads/{}", self.branch.branch())
+    }
+
+    /// Resolve `sha` from the local tracking branch, creating it from the
+    /// currently stored `sha` if it doesn't exist yet.
+    ///
+    /// This should be called eagerly after constructing a `Target` from storage
+    /// so that `sha` always reflects the current tip of the local branch.
+    pub fn resolve_sha(&mut self, repo: &gix::Repository) -> Result<()> {
+        let local_ref = self.local_ref();
+        self.sha = match repo.find_reference(&local_ref) {
+            Ok(reference) => reference
+                .try_id()
+                .context("local branch is not a direct reference")?
+                .detach(),
+            Err(_) => {
+                // Local branch doesn't exist — seed it from the stored target SHA
+                // so we preserve the current workspace base while establishing
+                // the ref as the source of truth going forward.
+                repo.reference(
+                    local_ref,
+                    self.sha,
+                    gix::refs::transaction::PreviousValue::MustNotExist,
+                    "gitbutler: create local tracking branch",
+                )?;
+                self.sha
+            }
+        };
+        Ok(())
+    }
 }
 
 impl From<virtual_branches_legacy_types::Target> for Target {
@@ -81,12 +115,16 @@ impl From<Target> for virtual_branches_legacy_types::Target {
 }
 
 pub(crate) fn default_target_base_oid(ctx: &Context) -> Result<gix::ObjectId> {
-    ctx.legacy_meta()?
+    let mut target = ctx
+        .legacy_meta()?
         .data()
         .default_target
-        .as_ref()
-        .map(|target| target.sha)
-        .ok_or_else(|| anyhow!("there is no default target").context(Code::DefaultTargetNotFound))
+        .clone()
+        .ok_or_else(|| {
+            anyhow!("there is no default target").context(Code::DefaultTargetNotFound)
+        })?;
+    target.resolve_sha(&*ctx.repo.get()?)?;
+    Ok(target.sha)
 }
 
 pub(crate) fn default_target_push_remote_name(ctx: &Context) -> Result<String> {

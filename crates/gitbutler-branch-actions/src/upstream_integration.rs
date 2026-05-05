@@ -236,13 +236,22 @@ impl<'a> UpstreamIntegrationContext<'a> {
 
         let (target_ref_name, old_target_id) = {
             let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(permission.read_permission())?;
-            (
-                ws.target_ref_name()
-                    .context("failed to get target reference name")?
-                    .to_owned(),
-                ws.target_base_commit_id()
-                    .context("failed to get target base oid")?,
-            )
+            let ref_name = ws
+                .target_ref_name()
+                .context("failed to get target reference name")?
+                .to_owned();
+            // Use the workspace graph's lower_bound as the known base of the workspace.
+            // This reflects where reconciliation last placed the workspace base and is
+            // immune to external modifications of the local branch ref (e.g. by the merge command).
+            // Fall back to persisted_default_target (resolved from local ref) when lower_bound
+            // is not available.
+            let old_target = ws.lower_bound;
+            drop((_repo, ws, _db));
+            let old_target = match old_target {
+                Some(lb) => lb,
+                None => ctx.persisted_default_target()?.sha,
+            };
+            (ref_name, old_target)
         };
         let new_target = match target_commit_oid {
             Some(oid) => oid,

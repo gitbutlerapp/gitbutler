@@ -1280,8 +1280,8 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
     store.write_reconciled(&repo)?;
 
     let mut store = VirtualBranchesTomlMetadata::from_path(&path)?;
-    // The target was adjusted to fit the computed lower bound, which took the possibly stale
-    // stored value into consideration.
+    // The target SHA is no longer updated in the toml — the local branch ref is the
+    // source of truth. The stored SHA remains the original value.
     insta::assert_debug_snapshot!(store.data().default_target, @r#"
     Some(
         Target {
@@ -1290,7 +1290,7 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
                 branch: "main",
             },
             remote_url: "https://github.com/A2va/dlib-rs",
-            sha: Sha1(3183e43ff482a2c4c8ff531d595453b64f58d90b),
+            sha: Sha1(39b41821d90a6445815f32777ec5dbebb716897f),
             push_remote_name: Some(
                 "origin",
             ),
@@ -1305,11 +1305,10 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
         &store,
         but_graph::init::Options::limited(),
     )?;
+    // After reconciliation, the local branch ref was updated to the computed lower bound,
+    // which changes the workspace base that the graph sees.
     insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?), @"
-    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
-    └── ≡📙:2:main[🌳] <> origin/main →:1: on 3183e43 {1}
-        └── 📙:2:main[🌳] <> origin/main →:1:
-            └── ❄️bce0c5e (🏘️|✓)
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
     ");
 
     let (actual, _uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));

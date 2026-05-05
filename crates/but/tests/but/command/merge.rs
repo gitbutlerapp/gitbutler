@@ -51,9 +51,7 @@ fn merge_first_branch_into_gb_local_and_verify_rebase() -> anyhow::Result<()> {
         .success()
         .stdout_eq(str![[r#"
 
-Found 2 upstream commits on gb-local/main
-   61888c9 Merge branch 'first-branch'
-   549e10c first commit on branch A
+No new upstream commits found
 
 Updating 2 active branches...
 

@@ -488,6 +488,42 @@ mod target {
         pub push_remote_name: Option<String>,
     }
 
+    impl Target {
+        /// The local branch ref that this target tracks (e.g. `refs/heads/master`
+        /// when the remote branch is `origin/master`).
+        pub fn local_ref(&self) -> String {
+            format!("refs/heads/{}", self.branch.branch())
+        }
+
+        /// Resolve `sha` from the local tracking branch, creating it from the
+        /// currently stored `sha` if it doesn't exist yet.
+        ///
+        /// This should be called eagerly after loading a `Target` from storage
+        /// so that `sha` always reflects the current tip of the local branch.
+        pub fn resolve_sha(&mut self, repo: &gix::Repository) -> anyhow::Result<()> {
+            let local_ref = self.local_ref();
+            self.sha = match repo.find_reference(&local_ref) {
+                Ok(reference) => reference
+                    .try_id()
+                    .ok_or_else(|| anyhow::anyhow!("local branch is not a direct reference"))?
+                    .detach(),
+                Err(_) => {
+                    // Local branch doesn't exist — seed it from the stored target SHA
+                    // so we preserve the current workspace base while establishing
+                    // the ref as the source of truth going forward.
+                    repo.reference(
+                        local_ref,
+                        self.sha,
+                        gix::refs::transaction::PreviousValue::MustNotExist,
+                        "gitbutler: create local tracking branch",
+                    )?;
+                    self.sha
+                }
+            };
+            Ok(())
+        }
+    }
+
     impl Serialize for Target {
         fn serialize<S>(&self, serializer: S) -> anyhow::Result<S::Ok, S::Error>
         where

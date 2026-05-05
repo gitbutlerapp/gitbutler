@@ -142,13 +142,16 @@ impl Context {
     pub fn persisted_default_target(
         &self,
     ) -> anyhow::Result<but_meta::virtual_branches_legacy_types::Target> {
-        self.meta_inner()?
+        let mut target = self
+            .meta_inner()?
             .data()
             .default_target
             .clone()
             .ok_or_else(|| {
                 anyhow::anyhow!("there is no default target").context(Code::DefaultTargetNotFound)
-            })
+            })?;
+        target.resolve_sha(&*self.repo.get()?)?;
+        Ok(target)
     }
 
     /// Return a wrapper for metadata that only supports read-only access when presented with the project wide permission

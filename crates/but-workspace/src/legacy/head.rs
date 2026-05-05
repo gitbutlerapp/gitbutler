@@ -50,15 +50,18 @@ pub fn remerged_workspace_tree_v2(
     repo: &gix::Repository,
 ) -> Result<(gix::ObjectId, Vec<Stack>, gix::ObjectId)> {
     let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let target_base_oid = ctx
-        .legacy_meta()?
-        .data()
-        .default_target
-        .as_ref()
-        .map(|target| target.sha)
-        .ok_or_else(|| {
-            anyhow::anyhow!("there is no default target").context(Code::DefaultTargetNotFound)
-        })?;
+    let target_base_oid = {
+        let mut target = ctx
+            .legacy_meta()?
+            .data()
+            .default_target
+            .clone()
+            .ok_or_else(|| {
+                anyhow::anyhow!("there is no default target").context(Code::DefaultTargetNotFound)
+            })?;
+        target.resolve_sha(repo)?;
+        target.sha
+    };
     let mut stacks: Vec<Stack> = vb_state.list_stacks_in_workspace()?;
 
     let target_commit = repo.find_commit(target_base_oid)?;

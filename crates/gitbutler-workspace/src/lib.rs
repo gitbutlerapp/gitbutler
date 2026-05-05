@@ -10,7 +10,7 @@ use but_meta::VirtualBranchesTomlMetadata;
 pub fn workspace_base(ctx: &Context, _perm: &RepoShared) -> Result<gix::ObjectId> {
     let repo = ctx.clone_repo_for_merging()?;
     let meta = ctx.legacy_meta()?;
-    let target_base_oid = legacy_target_base_oid_from_meta(&meta)?;
+    let target_base_oid = legacy_target_base_oid_from_meta(&meta, &repo)?;
     let stack_heads = legacy_workspace_stack_heads_from_meta(&meta, &repo, target_base_oid)?;
     workspace_base_from_heads_and_target(&repo, &stack_heads, target_base_oid)
 }
@@ -22,7 +22,7 @@ pub fn workspace_base_from_heads(
 ) -> Result<gix::ObjectId> {
     let repo = ctx.clone_repo_for_merging()?;
     let meta = ctx.legacy_meta()?;
-    let target_base_oid = legacy_target_base_oid_from_meta(&meta)?;
+    let target_base_oid = legacy_target_base_oid_from_meta(&meta, &repo)?;
     workspace_base_from_heads_and_target(&repo, heads, target_base_oid)
 }
 
@@ -61,18 +61,20 @@ fn legacy_workspace_stack_heads_from_meta(
 }
 
 pub(crate) fn legacy_target_base_oid(ctx: &Context) -> Result<gix::ObjectId> {
+    let repo = ctx.repo.get()?;
     let meta = ctx.legacy_meta()?;
-    legacy_target_base_oid_from_meta(&meta)
+    legacy_target_base_oid_from_meta(&meta, &repo)
 }
 
-fn legacy_target_base_oid_from_meta(meta: &VirtualBranchesTomlMetadata) -> Result<gix::ObjectId> {
-    meta.data()
-        .default_target
-        .as_ref()
-        .map(|target| target.sha)
-        .ok_or_else(|| {
-            anyhow::anyhow!("there is no default target").context(Code::DefaultTargetNotFound)
-        })
+fn legacy_target_base_oid_from_meta(
+    meta: &VirtualBranchesTomlMetadata,
+    repo: &gix::Repository,
+) -> Result<gix::ObjectId> {
+    let mut target = meta.data().default_target.clone().ok_or_else(|| {
+        anyhow::anyhow!("there is no default target").context(Code::DefaultTargetNotFound)
+    })?;
+    target.resolve_sha(repo)?;
+    Ok(target.sha)
 }
 
 pub(crate) fn workspace_base_from_heads_and_target(

@@ -350,15 +350,21 @@ impl Snapshot {
         let mut seen = BTreeSet::new();
 
         if let Some((computed_lower_bound, target)) =
-            ws.lower_bound.zip(self.content.default_target.as_mut())
+            ws.lower_bound.zip(self.content.default_target.as_ref())
         {
             // The computed lower bound takes the stored target hash into consideration.
             // Either the computed one ends up being the stored one, or the computed one has to be used to be the actual base,
             // i.e. the commit that is reachable by all stacks.
-            // If the computed one differs, we should make old code aware by updating the value.
+            // If the computed one differs, update the local branch ref to reflect the new base.
+            // The stored target.sha in the toml is NOT updated — the local branch ref is the source of truth.
             if target.sha != computed_lower_bound {
-                target.sha = computed_lower_bound;
-                self.set_changed_to_necessitate_write();
+                let local_ref = target.local_ref();
+                repo.reference(
+                    local_ref,
+                    computed_lower_bound,
+                    gix::refs::transaction::PreviousValue::Any,
+                    "gitbutler: update local tracking branch to computed lower bound",
+                )?;
             }
         }
 

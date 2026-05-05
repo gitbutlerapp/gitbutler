@@ -471,12 +471,17 @@ fn remote_url_of_target_to_base_branch(ctx: &Context, target: &Target) -> Result
 }
 
 fn default_target(ctx: &Context) -> Result<Target> {
-    ctx.legacy_meta()?
+    let mut target: Target = ctx
+        .legacy_meta()?
         .data()
         .default_target
         .clone()
         .map(Into::into)
-        .ok_or_else(|| anyhow!("there is no default target").context(Code::DefaultTargetNotFound))
+        .ok_or_else(|| {
+            anyhow!("there is no default target").context(Code::DefaultTargetNotFound)
+        })?;
+    target.resolve_sha(&*ctx.repo.get()?)?;
+    Ok(target)
 }
 
 /// Infer the default target from the Git repository without mutating workspace refs.
