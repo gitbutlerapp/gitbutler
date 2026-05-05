@@ -16,7 +16,7 @@ import {
 import { useHotkeys, useHotkeySequence } from "@tanstack/react-hotkeys";
 
 export type Panel = "outline" | "files" | "details";
-export const orderedPanels: Array<Panel> = ["outline", "files", "details"];
+export const allPanels: Array<Panel> = ["outline", "files", "details"];
 
 const getFocusedProjectPanel = (activeElement: Element | null) =>
 	(activeElement?.closest("[data-panel]")?.id as Panel | undefined) ?? null;
@@ -30,14 +30,6 @@ export const useFocusedProjectPanel = (projectId: string): Panel | null => {
 
 export const focusPanel = (panel: Panel) => {
 	document.getElementById(panel)?.focus({ focusVisible: false });
-};
-
-export const focusAdjacentPanel = (offset: -1 | 1) => {
-	const currentPanel = getFocusedProjectPanel(document.activeElement);
-	if (currentPanel === null) return;
-	const nextPanel = orderedPanels[orderedPanels.indexOf(currentPanel) + offset];
-	if (nextPanel === undefined) return;
-	focusPanel(nextPanel);
 };
 
 export const useNavigationIndexHotkeys = ({

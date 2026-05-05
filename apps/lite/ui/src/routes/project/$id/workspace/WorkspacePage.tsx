@@ -8,12 +8,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import { useActiveElement } from "#ui/focus.ts";
-import {
-	focusAdjacentPanel,
-	focusPanel,
-	Panel as PanelType,
-	useFocusedProjectPanel,
-} from "#ui/panels.ts";
+import { focusPanel, Panel as PanelType, useFocusedProjectPanel } from "#ui/panels.ts";
 import { isPanelVisible } from "#ui/panels/state.ts";
 import {
 	projectActions,
@@ -288,9 +283,8 @@ const TopBarActions: FC<{ focusPanel: (panel: PanelType) => void }> = ({ focusPa
 	};
 	const panelVisible = (panel: PanelType): boolean => isPanelVisible(panelsState, panel);
 	const hidePanel = (panel: PanelType) => {
-		const panelIndex = panelsState.visiblePanels.indexOf(panel);
-		const nextPanel =
-			panelsState.visiblePanels[panelIndex - 1] ?? panelsState.visiblePanels[panelIndex + 1];
+		let nextPanel = panelsState.visiblePanels.at(-1);
+		if (nextPanel === panel) nextPanel = panelsState.visiblePanels.at(-2);
 		if (nextPanel !== undefined) focusPanel(nextPanel);
 
 		dispatch(projectActions.hidePanel({ projectId, panel }));
@@ -420,30 +414,6 @@ const ShortcutsBar: FC = () => {
 	);
 };
 
-const usePanelsHotkeys = ({ focusedPanel }: { focusedPanel: PanelType | null }) => {
-	useHotkey(
-		"H",
-		() => {
-			focusAdjacentPanel(-1);
-		},
-		{
-			enabled: focusedPanel !== null,
-			meta: { group: "Panels", name: "Focus previous panel", commandPalette: false },
-		},
-	);
-
-	useHotkey(
-		"L",
-		() => {
-			focusAdjacentPanel(1);
-		},
-		{
-			enabled: focusedPanel !== null,
-			meta: { group: "Panels", name: "Focus next panel", commandPalette: false },
-		},
-	);
-};
-
 const WorkspacePage: FC = () => {
 	const dispatch = useAppDispatch();
 
@@ -477,8 +447,6 @@ const WorkspacePage: FC = () => {
 			meta: { group: "Global", name: "Command palette", commandPalette: false },
 		},
 	);
-
-	usePanelsHotkeys({ focusedPanel });
 
 	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
 		id: `project:${projectId}:layout`,

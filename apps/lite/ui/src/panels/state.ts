@@ -1,11 +1,11 @@
-import { orderedPanels, type Panel } from "#ui/panels.ts";
+import { allPanels, type Panel } from "#ui/panels.ts";
 
 export type PanelsState = {
 	visiblePanels: Array<Panel>;
 };
 
 export const createInitialState = (): PanelsState => ({
-	visiblePanels: [...orderedPanels],
+	visiblePanels: allPanels,
 });
 
 export const initialState: PanelsState = createInitialState();
@@ -15,9 +15,7 @@ export const isPanelVisible = (state: PanelsState, panel: Panel): boolean =>
 
 export const showPanel = (state: PanelsState, panel: Panel) => {
 	if (isPanelVisible(state, panel)) return;
-	state.visiblePanels = orderedPanels.filter(
-		(candidate) => candidate === panel || isPanelVisible(state, candidate),
-	);
+	state.visiblePanels = [...state.visiblePanels, panel];
 };
 
 export const hidePanel = (state: PanelsState, panel: Panel) => {
