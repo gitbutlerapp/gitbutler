@@ -178,6 +178,8 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     let tauri_mod_name = format_ident!("tauri_{}", fn_name);
     let tauri_cmd_name = format_ident!("__cmd__{}", fn_json_name);
     let tauri_orig_cmd_name = format_ident!("__cmd__{}", fn_name);
+    let tauri_command_name_macro = format_ident!("__tauri_command_name_{}", fn_json_name);
+    let tauri_orig_command_name_macro = format_ident!("__tauri_command_name_{}", fn_name);
 
     let (convert_to_json_result_type, json_ty) = if let Some(ResultConversion {
         mode,
@@ -371,6 +373,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         pub mod #tauri_mod_name {
             pub use super::#fn_json_name as #fn_name;
             pub use super::#tauri_cmd_name as #tauri_orig_cmd_name;
+            pub use super::#tauri_command_name_macro as #tauri_orig_command_name_macro;
         }
 
         #napi_fn_block

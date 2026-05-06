@@ -4,9 +4,25 @@ error[E0255]: the name `__cmd__ping_json` is defined multiple times
  9 | #[but_api]
    | ---------- previous definition of the macro `__cmd__ping_json` here
 10 | pub fn ping(name: String) -> anyhow::Result<String> {
-   |        ^^^^ `__cmd__ping_json` reimported here
+   |        -^^^
+   |        |
+   |        `__cmd__ping_json` reimported here
+   |        help: remove unnecessary import
    |
    = note: `__cmd__ping_json` must be defined only once in the macro namespace of this module
+
+error[E0255]: the name `__tauri_command_name_ping_json` is defined multiple times
+  --> tests/ui/fail/tauri_reexport_conflict.rs:10:8
+   |
+ 9 | #[but_api]
+   | ---------- previous definition of the macro `__tauri_command_name_ping_json` here
+10 | pub fn ping(name: String) -> anyhow::Result<String> {
+   |        -^^^
+   |        |
+   |        `__tauri_command_name_ping_json` reimported here
+   |        help: remove unnecessary import
+   |
+   = note: `__tauri_command_name_ping_json` must be defined only once in the macro namespace of this module
 
 error: macro-expanded `macro_export` macros from the current crate cannot be referred to by absolute paths
  --> tests/ui/fail/tauri_reexport_conflict.rs:9:1

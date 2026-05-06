@@ -22,7 +22,7 @@ path = "src/main.rs"
 test = false
 
 [build-dependencies]
-tauri-build = { version = "2.5.5", features = [] }
+tauri-build = { version = "2.6.0", features = [] }
 
 [dependencies]
 but = { workspace = true, optional = true }
@@ -42,7 +42,7 @@ notify-rust.workspace = true
 
 gitbutler-watcher.workspace = true
 gitbutler-project.workspace = true
-tauri = { version = "^2.10.3", features = ["unstable"] }
+tauri = { version = "^2.11.0", features = ["unstable"] }
 tauri-plugin-single-instance = { version = "2.4.0", features = ["deep-link"] }
 tauri-plugin-dialog = "2.7.0"
 tauri-plugin-fs = "2.4.5"
