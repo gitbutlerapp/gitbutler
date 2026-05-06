@@ -223,6 +223,13 @@ fn handle_session_stop_flow(
 
     // If the session stopped, but there's no session persisted in the database, we create a new one.
     // If the session is already persisted, we just retrieve it.
+    if !session_assignment_rule_exists(&defer.ctx, session_id)? {
+        return Ok(AgentStopOutput {
+            stop_reason: String::new(),
+            suppress_output: true,
+        });
+    }
+
     let stack_id =
         get_or_create_session(&mut defer.ctx, guard.write_permission(), session_id, stacks)?;
 
@@ -572,8 +579,55 @@ pub fn assign_agent_hunks_post_tool_call(
     });
 
     let mut guard = defer.ctx.exclusive_worktree_access();
-    let stacks = list_stacks(&defer.ctx)?;
+    let changes = but_core::diff::ui::worktree_changes(&*defer.ctx.repo.get()?)?.changes;
+    let context_lines = defer.ctx.settings.context_lines;
+    let pending_assignments = {
+        let (repo, ws, mut db) = defer
+            .ctx
+            .workspace_and_db_mut_with_perm(guard.read_permission())?;
+        let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
+            db.hunk_assignments_mut()?,
+            &repo,
+            &ws,
+            Some(changes.clone()),
+            context_lines,
+        )?;
 
+        assignments
+            .into_iter()
+            .filter(|a| a.stack_id.is_none())
+            .filter(|a| {
+                let Some(ref relative_file_path) = relative_file_path else {
+                    return false;
+                };
+                let path_matches = a.path.to_lowercase() == relative_file_path.to_lowercase();
+                if hook_headers.is_empty() {
+                    path_matches
+                } else if path_matches {
+                    if let Some(a) = a.hunk_header {
+                        hook_headers
+                            .iter()
+                            .any(|h| h.new_range().intersects(a.new_range()))
+                    } else {
+                        true
+                    }
+                } else {
+                    false
+                }
+            })
+            .map(|a| HunkAssignmentRequest {
+                hunk_header: a.hunk_header,
+                path_bytes: a.path_bytes,
+                target: None,
+            })
+            .collect::<Vec<_>>()
+    };
+
+    if pending_assignments.is_empty() {
+        return Ok(());
+    }
+
+    let stacks = list_stacks(&defer.ctx)?;
     let stack_id = get_or_create_session(
         &mut defer.ctx,
         guard.write_permission(),
@@ -581,41 +635,8 @@ pub fn assign_agent_hunks_post_tool_call(
         stacks,
     )?;
 
-    let changes = but_core::diff::ui::worktree_changes(&*defer.ctx.repo.get()?)?.changes;
-    let context_lines = defer.ctx.settings.context_lines;
-    let (repo, ws, mut db) = defer
-        .ctx
-        .workspace_and_db_mut_with_perm(guard.read_permission())?;
-    let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-        db.hunk_assignments_mut()?,
-        &repo,
-        &ws,
-        Some(changes.clone()),
-        context_lines,
-    )?;
-
-    let assignment_reqs: Vec<HunkAssignmentRequest> = assignments
+    let assignment_reqs: Vec<HunkAssignmentRequest> = pending_assignments
         .into_iter()
-        .filter(|a| a.stack_id.is_none())
-        .filter(|a| {
-            let Some(ref relative_file_path) = relative_file_path else {
-                return false;
-            };
-            let path_matches = a.path.to_lowercase() == relative_file_path.to_lowercase();
-            if hook_headers.is_empty() {
-                path_matches
-            } else if path_matches {
-                if let Some(a) = a.hunk_header {
-                    hook_headers
-                        .iter()
-                        .any(|h| h.new_range().intersects(a.new_range()))
-                } else {
-                    true
-                }
-            } else {
-                false
-            }
-        })
         .map(|a| HunkAssignmentRequest {
             hunk_header: a.hunk_header,
             path_bytes: a.path_bytes,
@@ -623,6 +644,9 @@ pub fn assign_agent_hunks_post_tool_call(
         })
         .collect();
 
+    let (repo, ws, mut db) = defer
+        .ctx
+        .workspace_and_db_mut_with_perm(guard.read_permission())?;
     but_hunk_assignment::assign(
         db.hunk_assignments_mut()?,
         &repo,
@@ -632,6 +656,12 @@ pub fn assign_agent_hunks_post_tool_call(
     )?;
 
     Ok(())
+}
+
+fn session_assignment_rule_exists(ctx: &Context, session_id: Uuid) -> Result<bool> {
+    Ok(crate::rules::list_claude_assignment_rules(ctx)?
+        .into_iter()
+        .any(|rule| rule.session_id == session_id))
 }
 
 pub fn assign_hunks_post_tool_call(

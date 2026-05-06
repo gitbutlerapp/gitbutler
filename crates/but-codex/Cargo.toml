@@ -17,6 +17,7 @@ but-ctx.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+shell-words.workspace = true
 uuid.workspace = true
 
 [lints]

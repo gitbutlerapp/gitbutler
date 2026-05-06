@@ -133,7 +133,7 @@ fn handle_post_tool_call(input: CodexToolUseInput) -> Result<CodexHookOutput> {
             &absolute_path.to_string_lossy(),
             &structured_patch,
             true,
-            EmptyStructuredPatchAssignment::Skip,
+            EmptyStructuredPatchAssignment::AssignFile,
         )?;
     }
 
@@ -143,7 +143,13 @@ fn handle_post_tool_call(input: CodexToolUseInput) -> Result<CodexHookOutput> {
 fn handle_stop_input(input: CodexStopInput) -> Result<CodexHookOutput> {
     let session_id = input.session_id()?;
     let cwd = codex_cwd(input.cwd.as_deref())?;
+    let transcript_path = input.transcript_path.as_deref().map(Path::new);
     let ctx = Context::discover(&cwd)?;
+
+    if let Some(transcript_path) = transcript_path {
+        assign_changed_paths_from_codex_transcript(&cwd, session_id, transcript_path)?;
+    }
+
     let prompt = input
         .transcript_path
         .as_deref()
@@ -170,7 +176,7 @@ fn handle_stop_input(input: CodexStopInput) -> Result<CodexHookOutput> {
             summary,
             prompt,
             source: Source::Codex(session_id.to_string()),
-            require_reword: true,
+            require_reword: false,
         },
     )?;
 
@@ -209,6 +215,37 @@ fn codex_session_id_from_parts(session_id: Option<&str>, turn_id: Option<&str>) 
 
 fn changed_paths_from_tool_input(tool_name: &str, tool_input: &Value) -> Vec<String> {
     let tool_name = tool_name.to_ascii_lowercase();
+    if is_apply_patch_tool(&tool_name) {
+        return changed_paths_from_apply_patch_input(tool_input);
+    }
+
+    if is_shell_tool(&tool_name) {
+        return changed_paths_from_shell_tool_input(tool_input);
+    }
+
+    if !is_file_mutation_tool(&tool_name) {
+        return vec![];
+    }
+
+    changed_paths_from_file_mutation_input(tool_input)
+}
+
+fn is_apply_patch_tool(tool_name: &str) -> bool {
+    tool_name == "apply_patch"
+}
+
+fn is_file_mutation_tool(tool_name: &str) -> bool {
+    matches!(
+        tool_name,
+        "edit" | "multiedit" | "write" | "str_replace_editor"
+    )
+}
+
+fn is_shell_tool(tool_name: &str) -> bool {
+    matches!(tool_name, "bash" | "exec_command" | "shell_command")
+}
+
+fn changed_paths_from_file_mutation_input(tool_input: &Value) -> Vec<String> {
     let mut paths = BTreeSet::new();
     for key in ["file_path", "filePath", "path"] {
         if let Some(path) = tool_input.get(key).and_then(Value::as_str)
@@ -217,13 +254,18 @@ fn changed_paths_from_tool_input(tool_name: &str, tool_input: &Value) -> Vec<Str
             paths.insert(path.to_string());
         }
     }
-    if !paths.is_empty() {
-        return paths.into_iter().collect();
-    }
 
-    if !tool_name.contains("apply_patch") && tool_name != "bash" {
-        return vec![];
-    }
+    paths.into_iter().collect()
+}
+
+fn changed_paths_from_shell_tool_input(tool_input: &Value) -> Vec<String> {
+    tool_command(tool_input)
+        .map(changed_paths_from_shell_command)
+        .unwrap_or_default()
+}
+
+fn changed_paths_from_apply_patch_input(tool_input: &Value) -> Vec<String> {
+    let mut paths = BTreeSet::new();
     let Some(command) = tool_command(tool_input) else {
         return vec![];
     };
@@ -249,12 +291,336 @@ fn changed_paths_from_tool_input(tool_name: &str, tool_input: &Value) -> Vec<Str
     paths.into_iter().collect()
 }
 
+fn changed_paths_from_shell_command(command: &str) -> Vec<String> {
+    let apply_patch_paths =
+        changed_paths_from_apply_patch_input(&Value::String(command.to_string()));
+    if !apply_patch_paths.is_empty() {
+        return apply_patch_paths;
+    }
+
+    let Ok(tokens) = shell_words::split(command) else {
+        return vec![];
+    };
+    let mut paths = BTreeSet::new();
+    collect_shell_command_paths(&tokens, &mut paths);
+    paths.into_iter().collect()
+}
+
+fn collect_shell_command_paths(tokens: &[String], paths: &mut BTreeSet<String>) {
+    let mut segment_start = 0;
+    for (index, token) in tokens.iter().enumerate() {
+        if is_shell_segment_separator(token) {
+            collect_shell_segment_paths(&tokens[segment_start..index], paths);
+            segment_start = index + 1;
+        }
+    }
+    collect_shell_segment_paths(&tokens[segment_start..], paths);
+}
+
+fn collect_shell_segment_paths(segment: &[String], paths: &mut BTreeSet<String>) {
+    collect_output_redirection_targets(segment, paths);
+
+    let mut command_index = 0;
+    while segment
+        .get(command_index)
+        .is_some_and(|token| is_shell_env_assignment(token))
+    {
+        command_index += 1;
+    }
+    let Some(command) = segment
+        .get(command_index)
+        .map(|token| shell_command_name(token))
+    else {
+        return;
+    };
+    let args = &segment[command_index + 1..];
+
+    match command.as_str() {
+        "touch" | "rm" | "unlink" => collect_non_option_paths(args, paths, &[]),
+        "truncate" => collect_non_option_paths(args, paths, &["-s", "--size"]),
+        "mv" => collect_non_option_paths(args, paths, &[]),
+        "cp" | "install" => collect_last_non_option_path(args, paths),
+        "tee" => collect_non_option_paths(args, paths, &[]),
+        "sed" => collect_sed_in_place_paths(args, paths),
+        "perl" => collect_perl_in_place_paths(args, paths),
+        _ => {}
+    }
+}
+
+fn collect_output_redirection_targets(tokens: &[String], paths: &mut BTreeSet<String>) {
+    let mut index = 0;
+    while index < tokens.len() {
+        let token = &tokens[index];
+        if is_output_redirection_operator(token) {
+            if let Some(path) = tokens.get(index + 1) {
+                insert_shell_path(paths, path);
+            }
+            index += 2;
+            continue;
+        }
+        if let Some(path) = output_redirection_target(token) {
+            insert_shell_path(paths, path);
+        }
+        index += 1;
+    }
+}
+
+fn collect_non_option_paths(
+    args: &[String],
+    paths: &mut BTreeSet<String>,
+    option_value_flags: &[&str],
+) {
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        if is_output_redirection_operator(arg) {
+            index += 2;
+            continue;
+        }
+        if output_redirection_target(arg).is_some() {
+            index += 1;
+            continue;
+        }
+        if option_value_flags.iter().any(|flag| arg == flag) {
+            index += 2;
+            continue;
+        }
+        if option_value_flags
+            .iter()
+            .any(|flag| arg.starts_with(&format!("{flag}=")) || short_option_with_value(arg, flag))
+        {
+            index += 1;
+            continue;
+        }
+        if !arg.starts_with('-') {
+            insert_shell_path(paths, arg);
+        }
+        index += 1;
+    }
+}
+
+fn collect_last_non_option_path(args: &[String], paths: &mut BTreeSet<String>) {
+    if let Some(path) = args
+        .iter()
+        .filter(|arg| !arg.starts_with('-'))
+        .filter(|arg| !is_output_redirection_operator(arg))
+        .filter(|arg| output_redirection_target(arg).is_none())
+        .next_back()
+    {
+        insert_shell_path(paths, path);
+    }
+}
+
+fn collect_sed_in_place_paths(args: &[String], paths: &mut BTreeSet<String>) {
+    if !args
+        .iter()
+        .any(|arg| arg == "--in-place" || arg.starts_with("-i"))
+    {
+        return;
+    }
+
+    let mut files = Vec::new();
+    let mut expression_provided_by_flag = false;
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "-e" | "--expression" | "-f" | "--file" => {
+                expression_provided_by_flag = true;
+                index += 2;
+            }
+            "--in-place" => index += 1,
+            _ if arg.starts_with("--in-place=") || arg.starts_with("-i") => index += 1,
+            _ if arg.starts_with('-') => index += 1,
+            _ => {
+                files.push(arg.clone());
+                index += 1;
+            }
+        }
+    }
+
+    let files = if expression_provided_by_flag {
+        files.as_slice()
+    } else {
+        files.get(1..).unwrap_or_default()
+    };
+    for file in files {
+        insert_shell_path(paths, file);
+    }
+}
+
+fn collect_perl_in_place_paths(args: &[String], paths: &mut BTreeSet<String>) {
+    if !args.iter().any(|arg| arg == "-i" || arg.starts_with("-i")) {
+        return;
+    }
+
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        match arg.as_str() {
+            "-e" | "-E" | "-M" | "-I" => index += 2,
+            _ if arg.starts_with('-') => index += 1,
+            _ => {
+                insert_shell_path(paths, arg);
+                index += 1;
+            }
+        }
+    }
+}
+
+fn insert_shell_path(paths: &mut BTreeSet<String>, path: &str) {
+    let path = path.trim();
+    if path.is_empty()
+        || path.starts_with('&')
+        || path == "-"
+        || path.contains('\0')
+        || path.starts_with('$')
+    {
+        return;
+    }
+    paths.insert(path.to_string());
+}
+
+fn shell_command_name(command: &str) -> String {
+    Path::new(command)
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_else(|| command.to_string())
+}
+
+fn is_shell_segment_separator(token: &str) -> bool {
+    matches!(token, ";" | "&&" | "||" | "|")
+}
+
+fn is_shell_env_assignment(token: &str) -> bool {
+    let Some((name, _value)) = token.split_once('=') else {
+        return false;
+    };
+    !name.is_empty()
+        && name
+            .chars()
+            .all(|character| character == '_' || character.is_ascii_alphanumeric())
+        && !name.as_bytes()[0].is_ascii_digit()
+}
+
+fn is_output_redirection_operator(token: &str) -> bool {
+    matches!(token, ">" | ">>" | ">|" | "1>" | "1>>" | "2>" | "2>>")
+}
+
+fn output_redirection_target(token: &str) -> Option<&str> {
+    let redirection_start = token.find('>')?;
+    if redirection_start > 0
+        && !token[..redirection_start]
+            .bytes()
+            .all(|byte| byte.is_ascii_digit())
+    {
+        return None;
+    }
+    let rest = &token[redirection_start..];
+    let target = rest
+        .strip_prefix(">>")
+        .or_else(|| rest.strip_prefix(">|"))
+        .or_else(|| rest.strip_prefix('>'))?;
+    (!target.is_empty()).then_some(target)
+}
+
+fn short_option_with_value(arg: &str, flag: &str) -> bool {
+    flag.len() == 2 && arg.starts_with(flag) && arg.len() > flag.len()
+}
+
 fn tool_command(tool_input: &Value) -> Option<&str> {
     tool_input
         .get("command")
         .and_then(Value::as_str)
         .or_else(|| tool_input.get("cmd").and_then(Value::as_str))
         .or_else(|| tool_input.as_str())
+}
+
+fn assign_changed_paths_from_codex_transcript(
+    cwd: &str,
+    session_id: Uuid,
+    transcript_path: &Path,
+) -> Result<()> {
+    let paths = changed_paths_from_codex_transcript(transcript_path).unwrap_or_default();
+    for path in paths {
+        let absolute_path = absolute_tool_path(cwd, &path);
+        let ctx = Context::discover(cwd)?;
+        assign_agent_hunks_post_tool_call(
+            ctx,
+            session_id,
+            &absolute_path.to_string_lossy(),
+            &[],
+            true,
+            EmptyStructuredPatchAssignment::AssignFile,
+        )?;
+    }
+
+    Ok(())
+}
+
+fn changed_paths_from_codex_transcript(path: &Path) -> Result<Vec<String>> {
+    let file =
+        std::fs::File::open(path).map_err(|e| anyhow::anyhow!("Failed to open file: {e}"))?;
+    let reader = std::io::BufReader::new(file);
+    let mut paths = BTreeSet::new();
+
+    for line in reader.lines() {
+        let line = line.map_err(|e| anyhow::anyhow!("Failed to read line: {e}"))?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        if let Ok(value) = serde_json::from_str::<Value>(&line) {
+            paths.extend(changed_paths_from_codex_transcript_event(&value));
+        }
+    }
+
+    Ok(paths.into_iter().collect())
+}
+
+fn changed_paths_from_codex_transcript_event(value: &Value) -> Vec<String> {
+    let payload = value.get("payload").unwrap_or(value);
+    let Some(tool_name) = payload.get("name").and_then(Value::as_str) else {
+        return vec![];
+    };
+
+    let tool_input = payload
+        .get("input")
+        .cloned()
+        .or_else(|| {
+            payload
+                .get("arguments")
+                .and_then(|arguments| parse_codex_tool_arguments(arguments, payload))
+        })
+        .unwrap_or(Value::Null);
+    let tool_cwd = tool_input
+        .get("workdir")
+        .and_then(Value::as_str)
+        .or_else(|| tool_input.get("cwd").and_then(Value::as_str));
+
+    changed_paths_from_tool_input(tool_name, &tool_input)
+        .into_iter()
+        .map(|path| absolutize_transcript_tool_path(tool_cwd, path))
+        .collect()
+}
+
+fn parse_codex_tool_arguments(arguments: &Value, payload: &Value) -> Option<Value> {
+    match arguments {
+        Value::String(arguments) => serde_json::from_str(arguments)
+            .ok()
+            .or_else(|| Some(Value::String(arguments.clone()))),
+        Value::Object(_) => Some(arguments.clone()),
+        _ => payload.get("input").cloned(),
+    }
+}
+
+fn absolutize_transcript_tool_path(tool_cwd: Option<&str>, path: String) -> String {
+    if Path::new(&path).is_absolute() {
+        return path;
+    }
+
+    tool_cwd
+        .map(|cwd| PathBuf::from(cwd).join(&path).to_string_lossy().to_string())
+        .unwrap_or(path)
 }
 
 fn structured_patches_from_tool_payload(input: &CodexToolUseInput) -> Vec<StructuredPatch> {
@@ -467,7 +833,8 @@ mod tests {
     use serde_json::Value;
 
     use super::{
-        CodexToolUseInput, structured_patches_from_tool_payload, structured_patches_from_value,
+        CodexToolUseInput, changed_paths_from_shell_command, changed_paths_from_tool_input,
+        structured_patches_from_tool_payload, structured_patches_from_value,
     };
 
     #[test]
@@ -505,5 +872,78 @@ mod tests {
         }));
 
         assert!(patches.is_none());
+    }
+
+    #[test]
+    fn reads_paths_for_mutating_file_tools() {
+        let paths =
+            changed_paths_from_tool_input("Edit", &serde_json::json!({"file_path": "src/lib.rs"}));
+
+        assert_eq!(paths, vec!["src/lib.rs".to_string()]);
+    }
+
+    #[test]
+    fn reads_paths_for_apply_patch_tool() {
+        let paths = changed_paths_from_tool_input(
+            "apply_patch",
+            &serde_json::json!({
+                "cmd": "*** Begin Patch\n*** Add File: src/lib.rs\n+pub fn added() {}\n*** End Patch\n"
+            }),
+        );
+
+        assert_eq!(paths, vec!["src/lib.rs".to_string()]);
+    }
+
+    #[test]
+    fn ignores_paths_for_read_only_tools() {
+        let paths = changed_paths_from_tool_input(
+            "mcp__filesystem__read_file",
+            &serde_json::json!({"path": "src/lib.rs"}),
+        );
+
+        assert!(paths.is_empty());
+    }
+
+    #[test]
+    fn reads_paths_for_shell_touch_tool() {
+        let paths = changed_paths_from_tool_input(
+            "Bash",
+            &serde_json::json!({
+                "command": "touch src/lib.rs"
+            }),
+        );
+
+        assert_eq!(paths, vec!["src/lib.rs".to_string()]);
+    }
+
+    #[test]
+    fn reads_paths_for_shell_output_redirection() {
+        let paths = changed_paths_from_shell_command("printf '%s\\n' value > src/lib.rs");
+
+        assert_eq!(paths, vec!["src/lib.rs".to_string()]);
+    }
+
+    #[test]
+    fn reads_apply_patch_paths_from_shell_command() {
+        let paths = changed_paths_from_tool_input(
+            "Bash",
+            &serde_json::json!({
+                "command": "apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: src/lib.rs\n+pub fn added() {}\n*** End Patch\nPATCH\n"
+            }),
+        );
+
+        assert_eq!(paths, vec!["src/lib.rs".to_string()]);
+    }
+
+    #[test]
+    fn ignores_read_only_shell_commands() {
+        let paths = changed_paths_from_tool_input(
+            "Bash",
+            &serde_json::json!({
+                "command": "ls -l src/lib.rs && cat src/lib.rs"
+            }),
+        );
+
+        assert!(paths.is_empty());
     }
 }
