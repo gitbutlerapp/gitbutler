@@ -7,7 +7,7 @@ use anyhow::Result;
 #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
 use but_installer::VersionRequest;
 use but_settings::AppSettings;
-use but_update::{AppName, CheckUpdateStatus, check_status};
+use but_update::{AppName, CheckUpdateStatus, check_status, current_version};
 
 pub fn handle(
     cmd: update::Subcommands,
@@ -50,14 +50,22 @@ fn check_for_updates(out: &mut OutputChannel, app_settings: &AppSettings) -> Res
 fn print_human_output(writer: &mut dyn std::fmt::Write, status: &CheckUpdateStatus) -> Result<()> {
     let t = theme::get();
     if status.up_to_date {
-        writeln!(
-            writer,
-            "{} You're running the latest version ({})",
-            t.sym().success,
-            t.important.paint(&status.latest_version)
-        )?;
+        if let Some(current_version) = current_version() {
+            writeln!(
+                writer,
+                "{} You're running the latest version ({})",
+                t.sym().success,
+                t.important.paint(current_version)
+            )?;
+        } else {
+            writeln!(
+                writer,
+                "{} Update checks are only available for versioned release and nightly builds",
+                t.attention.paint("→")
+            )?;
+        }
     } else {
-        let current_version = option_env!("VERSION").unwrap_or("0.0.0");
+        let current_version = current_version().unwrap_or("dev");
 
         let install_hint = {
             #[cfg(feature = "packaged-but-distribution")]

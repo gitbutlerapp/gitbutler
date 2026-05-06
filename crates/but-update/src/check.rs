@@ -38,8 +38,8 @@ impl std::fmt::Display for AppName {
 /// Returns information about the latest available version, including download URLs and release notes.
 ///
 /// The `CHANNEL` environment variable (set at compile time) determines which release channel to query.
-/// Defaults to `"nightly"` if not set. The `VERSION` environment variable specifies the current version.
-/// Defaults to `"0.0.0"` if not set.
+/// The `VERSION` environment variable specifies the current version. If either value is missing,
+/// the build is treated as a development build and update checking is skipped.
 ///
 /// Returns `None` if the database lock cannot be obtained, indicating another process is performing
 /// the update check.
@@ -65,8 +65,11 @@ pub fn check_status_with_url(
     cache: &mut but_db::AppCacheHandle,
     url_override: Option<&str>,
 ) -> anyhow::Result<Option<CheckUpdateStatus>> {
-    // In development/test builds without CHANNEL set, skip update checking
+    // In development/test builds without CHANNEL set, skip update checking.
     let Some(channel) = option_env!("CHANNEL") else {
+        return Ok(Some(CheckUpdateStatus::default()));
+    };
+    let Some(version) = crate::current_version() else {
         return Ok(Some(CheckUpdateStatus::default()));
     };
 
@@ -78,7 +81,6 @@ pub fn check_status_with_url(
 
     let os = env::consts::OS;
     let arch = env::consts::ARCH;
-    let version = option_env!("VERSION").unwrap_or("0.0.0");
     let creds = secret::retrieve("gitbutler_access_token", secret::Namespace::BuildKind)?;
 
     let mut headers = HeaderMap::new();
@@ -245,7 +247,7 @@ impl Default for CheckUpdateStatus {
     fn default() -> Self {
         Self {
             up_to_date: true,
-            latest_version: "0.0.0".to_string(),
+            latest_version: "dev".to_string(),
             release_notes: None,
             url: None,
             signature: None,

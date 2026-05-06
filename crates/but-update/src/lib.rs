@@ -75,3 +75,15 @@ pub fn is_probably_still_running(cache: &mut but_db::AppCacheHandle) -> bool {
         .flatten()
         .is_none()
 }
+
+/// Return the compile-time application version used for update checks.
+///
+/// Development and local builds intentionally return `None` so they do not
+/// participate in published release-channel update comparisons.
+pub fn current_version() -> Option<&'static str> {
+    let version = option_env!("VERSION")?;
+    if version.is_empty() || version == "0.0.0" {
+        return None;
+    }
+    Some(version)
+}

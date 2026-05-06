@@ -51,6 +51,7 @@ impl AvailableUpdate {
 /// This function checks the cache for a previously performed update check and returns
 /// update information if:
 /// - A cached update check exists
+/// - The current build has a real compile-time `VERSION`
 /// - The cached status indicates an update is available (`up_to_date == false`)
 /// - The update is not currently suppressed
 /// - The available version differs from the current version (not a no-op)
@@ -64,6 +65,17 @@ impl AvailableUpdate {
 /// * `Ok(None)` - No update is available, no cache exists, cache is invalid, update is suppressed, or update is a no-op
 /// * `Err(_)` - Failed to access the cache
 pub fn available_update(cache: &but_db::AppCacheHandle) -> anyhow::Result<Option<AvailableUpdate>> {
+    available_update_for_version(cache, crate::current_version())
+}
+
+fn available_update_for_version(
+    cache: &but_db::AppCacheHandle,
+    current_version: Option<&str>,
+) -> anyhow::Result<Option<AvailableUpdate>> {
+    let Some(current_version) = current_version else {
+        return Ok(None);
+    };
+
     let cached = match cache.update_check().get() {
         Some(cached) => cached,
         None => return Ok(None),
@@ -87,11 +99,8 @@ pub fn available_update(cache: &but_db::AppCacheHandle) -> anyhow::Result<Option
         }
     }
 
-    // Update is available and not suppressed
-    let current_version = option_env!("VERSION").unwrap_or("0.0.0").to_string();
-
     let update = AvailableUpdate {
-        current_version,
+        current_version: current_version.to_string(),
         available_version: cached.status.latest_version,
         release_notes: cached.status.release_notes,
         url: cached.status.url,
@@ -147,4 +156,63 @@ pub fn suppress_update(cache: &mut but_db::AppCacheHandle, hours: u32) -> anyhow
         .update_check_mut()?
         .suppress(hours)
         .map_err(Into::into)
+}
+
+#[cfg(test)]
+mod tests {
+    use but_db::{
+        AppCacheHandle,
+        cache::{CachedCheckResult, CheckUpdateStatus},
+    };
+    use chrono::DateTime;
+
+    use super::available_update_for_version;
+
+    #[test]
+    fn returns_update_when_versions_differ() -> anyhow::Result<()> {
+        let mut cache = in_memory_cache();
+        cache.update_check_mut()?.save(&cached_update("1.2.3"))?;
+
+        let update = available_update_for_version(&cache, Some("1.2.2"))?
+            .expect("update should be available");
+
+        assert_eq!(update.current_version, "1.2.2");
+        assert_eq!(update.available_version, "1.2.3");
+        assert_eq!(
+            update.release_notes,
+            Some("Bug fixes and improvements".to_string())
+        );
+        assert_eq!(update.url, Some("https://example.com/download".to_string()));
+        Ok(())
+    }
+
+    #[test]
+    fn ignores_no_op_update_when_versions_match() -> anyhow::Result<()> {
+        let mut cache = in_memory_cache();
+        cache.update_check_mut()?.save(&cached_update("1.2.3"))?;
+
+        let update = available_update_for_version(&cache, Some("1.2.3"))?;
+
+        assert!(update.is_none());
+        Ok(())
+    }
+
+    fn cached_update(version: &str) -> CachedCheckResult {
+        CachedCheckResult {
+            checked_at: DateTime::from_timestamp(1000000, 0).unwrap(),
+            status: CheckUpdateStatus {
+                up_to_date: false,
+                latest_version: version.to_string(),
+                release_notes: Some("Bug fixes and improvements".to_string()),
+                url: Some("https://example.com/download".to_string()),
+                signature: Some("signature123".to_string()),
+            },
+            suppressed_at: None,
+            suppress_duration_hours: None,
+        }
+    }
+
+    fn in_memory_cache() -> AppCacheHandle {
+        AppCacheHandle::new_at_path(":memory:")
+    }
 }
