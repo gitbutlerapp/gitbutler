@@ -17,6 +17,7 @@ export enum OpenAIModelName {
 	GPT54 = "gpt-5.4",
 	GPT54Mini = "gpt-5.4-mini",
 	GPT54Nano = "gpt-5.4-nano",
+	KimiK26 = "kimi-k2.6",
 }
 
 // https://docs.anthropic.com/en/docs/about-claude/models/overview

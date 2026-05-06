@@ -109,6 +109,10 @@
 			label: "GPT 5.4 Nano (recommended)",
 			value: OpenAIModelName.GPT54Nano,
 		},
+		{
+			label: "Kimi K2.6",
+			value: OpenAIModelName.KimiK26,
+		},
 	];
 
 	const anthropicModelOptions = [

@@ -1446,7 +1446,7 @@ fn build_csp(remote_origin: Option<&str>, port: u16, script_hashes: &[String]) -
              https://app.staging.gitbutler.com \
              https://o4504644069687296.ingest.sentry.io \
              https://github.com https://api.github.com \
-             https://api.openai.com https://api.anthropic.com \
+             https://api.openai.com https://api.anthropic.com https://api.moonshot.ai \
              https://*.gitlab.com https://gitlab.com \
              wss://irc.gitbutler.com:8097 data:"
         ),

@@ -4,6 +4,7 @@ import {
 	SHORT_DEFAULT_PR_TEMPLATE,
 } from "$lib/ai/prompts";
 import OpenAI from "openai";
+import type { ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";
 import type {
 	OpenAIModelName,
 	OpenRouterModelName,
@@ -13,6 +14,17 @@ import type {
 } from "$lib/ai/types";
 
 const DEFAULT_MAX_TOKENS = 1024;
+type MoonshotChatCompletionCreateParamsStreaming = ChatCompletionCreateParamsStreaming & {
+	thinking?: { type: "disabled" };
+};
+
+type MoonshotChatCompletionResponse = {
+	choices?: Array<{
+		message?: {
+			content?: string | null;
+		};
+	}>;
+};
 
 export class OpenAIClient implements AIClient {
 	defaultCommitTemplate = SHORT_DEFAULT_COMMIT_TEMPLATE;
@@ -22,6 +34,7 @@ export class OpenAIClient implements AIClient {
 	private client: OpenAI;
 	private openAIKey: string;
 	private modelName: OpenAIModelName | OpenRouterModelName;
+	private baseURL: string | undefined;
 
 	constructor(
 		openAIKey: string,
@@ -30,20 +43,25 @@ export class OpenAIClient implements AIClient {
 	) {
 		this.openAIKey = openAIKey;
 		this.modelName = modelName;
+		this.baseURL = baseURL;
 		this.client = new OpenAI({ apiKey: openAIKey, dangerouslyAllowBrowser: true, baseURL });
 	}
 
 	async evaluate(prompt: Prompt, options?: AIEvalOptions): Promise<string> {
-		// The 'max_tokens' parameter has been renamed to 'max_completion_tokens' in the OpenAI API.
-		// This change aligns with the updated API specification where 'max_completion_tokens'
-		// specifically controls the maximum number of tokens for the completion portion of the response.
-		// https://platform.openai.com/docs/api-reference/completions/create
-		const response = await this.client.chat.completions.create({
-			max_completion_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
+		const usesMoonshot = this.usesMoonshot();
+		if (usesMoonshot) {
+			return await this.evaluateMoonshot(prompt, options);
+		}
+
+		const tokenLimit = options?.maxTokens ?? DEFAULT_MAX_TOKENS;
+		const request: MoonshotChatCompletionCreateParamsStreaming = {
+			max_completion_tokens: tokenLimit,
 			messages: prompt,
 			model: this.modelName,
 			stream: true,
-		});
+		};
+
+		const response = await this.client.chat.completions.create(request);
 
 		const buffer: string[] = [];
 		for await (const chunk of response) {
@@ -52,5 +70,41 @@ export class OpenAIClient implements AIClient {
 			buffer.push(token);
 		}
 		return buffer.join("");
+	}
+
+	private usesMoonshot() {
+		return this.baseURL?.includes("moonshot.ai") || this.modelName.startsWith("kimi-");
+	}
+
+	private async evaluateMoonshot(prompt: Prompt, options?: AIEvalOptions): Promise<string> {
+		const apiBase = (this.baseURL || "https://api.moonshot.ai/v1").replace(/\/+$/, "");
+		const response = await fetch(`${apiBase}/chat/completions`, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${this.openAIKey}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				max_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
+				messages: prompt,
+				model: this.modelName,
+				stream: false,
+				// Kimi defaults to thinking mode. For short commit and branch summaries,
+				// disable it so the response arrives as normal content.
+				thinking: { type: "disabled" },
+			}),
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			throw new Error(
+				`Moonshot API request failed with HTTP ${response.status}: ${errorText.slice(0, 500)}`,
+			);
+		}
+
+		const data = (await response.json()) as MoonshotChatCompletionResponse;
+		const message = data.choices?.[0]?.message?.content ?? "";
+		options?.onToken?.(message);
+		return message;
 	}
 }
