@@ -2,11 +2,14 @@ use std::borrow::Cow;
 
 use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::but_api;
-use but_core::{branch, ref_metadata::StackId, sync::RepoExclusive};
+use but_core::{RepositoryExt, branch, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
+use but_workspace::legacy::push::{PushBranch, PushStackPlan, PushTarget};
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
-use gitbutler_git::PushResult;
+use gitbutler_git::{GitContextExt as _, PushResult};
 use gitbutler_oplog::SnapshotExt;
+use gitbutler_reference::RemoteRefname;
+use gitbutler_repo::{first_parent_commit_ids_until, hooks};
 use gix::refs::Category;
 use tracing::instrument;
 
@@ -360,15 +363,24 @@ pub fn push_stack(
     run_hooks: bool,
     push_opts: Vec<but_gerrit::PushFlag>,
 ) -> Result<PushResult> {
-    gitbutler_branch_actions::stack::push_stack(
-        ctx,
-        stack_id,
+    let guard = ctx.exclusive_worktree_access();
+    let target = PushTarget::from_context(ctx)?;
+    let options = PushStackOptions {
         with_force,
-        skip_force_push_protection,
-        branch,
+        force_push_protection: !skip_force_push_protection
+            && ctx.legacy_project.force_push_protection,
         run_hooks,
-        push_opts,
-    )
+        push_flags: push_opts,
+    };
+
+    // First fetch, because we don't want to push integrated series.
+    for remote_name in target.remote_names_to_fetch() {
+        ctx.fetch(remote_name, Some("push_stack".into()))?;
+    }
+    let plan =
+        PushStackPlan::from_workspace(ctx, stack_id, &target, &branch, guard.read_permission())?;
+
+    PushStackExecutor::new(ctx, &plan, &target, options)?.execute(ctx)
 }
 
 #[but_api(napi, json::PushResult)]
@@ -390,4 +402,154 @@ pub fn push_stack_legacy(
         run_hooks,
         Vec::new(),
     )
+}
+
+struct PushStackOptions {
+    with_force: bool,
+    force_push_protection: bool,
+    run_hooks: bool,
+    push_flags: Vec<but_gerrit::PushFlag>,
+}
+
+struct PushStackExecutor<'plan> {
+    plan: &'plan PushStackPlan,
+    remote_name: String,
+    target_branch_name: String,
+    gix_repo: gix::Repository,
+    gerrit_mode: bool,
+    run_husky_hooks: bool,
+    options: PushStackOptions,
+}
+
+impl<'plan> PushStackExecutor<'plan> {
+    fn new(
+        ctx: &Context,
+        plan: &'plan PushStackPlan,
+        target: &PushTarget,
+        options: PushStackOptions,
+    ) -> Result<Self> {
+        let gix_repo = ctx.clone_repo_for_merging_non_persisting()?;
+        let gerrit_mode = gix_repo
+            .git_settings()?
+            .gitbutler_gerrit_mode
+            .unwrap_or(false);
+        let run_husky_hooks = ctx.legacy_project.husky_hooks_enabled;
+
+        Ok(Self {
+            plan,
+            remote_name: target.push_remote_name().to_owned(),
+            target_branch_name: target.target_branch_name().to_owned(),
+            gix_repo,
+            gerrit_mode,
+            run_husky_hooks,
+            options,
+        })
+    }
+
+    fn execute(self, ctx: &mut Context) -> Result<PushResult> {
+        let mut result = PushResult {
+            remote: self.remote_name.clone(),
+            branch_to_remote: vec![],
+            branch_sha_updates: vec![],
+        };
+
+        for branch in self.plan.branches() {
+            self.push_branch(ctx, branch)?;
+            append_push_result(&mut result, branch);
+        }
+
+        Ok(result)
+    }
+
+    fn push_branch(&self, ctx: &mut Context, branch: &PushBranch) -> Result<()> {
+        if self.options.run_hooks {
+            self.run_pre_push_hook(branch)?;
+        }
+
+        let gerrit_push_args = self.gerrit_push_args(branch.local_sha());
+        let push_output = ctx.push(
+            branch.local_sha(),
+            branch.remote_refname().to_owned(),
+            self.options.with_force,
+            self.options.force_push_protection,
+            gerrit_push_args.refspec,
+            Some(Some(self.plan.id())),
+            gerrit_push_args.push_opts,
+        )?;
+
+        self.record_gerrit_push_metadata(ctx, &push_output)?;
+
+        Ok(())
+    }
+
+    fn run_pre_push_hook(&self, branch: &PushBranch) -> Result<()> {
+        let remote = self.gix_repo.find_remote(self.remote_name.as_str())?;
+        let url = remote
+            .url(gix::remote::Direction::Push)
+            .or_else(|| remote.url(gix::remote::Direction::Fetch))
+            .map(|url| url.to_bstring().to_string())
+            .with_context(|| format!("Remote named {} didn't have a URL", self.remote_name))?;
+        let remote_refname = RemoteRefname::new(&self.remote_name, branch.name());
+
+        match hooks::pre_push(
+            &self.gix_repo,
+            &self.remote_name,
+            &url,
+            branch.local_sha(),
+            &remote_refname,
+            self.run_husky_hooks,
+        )? {
+            hooks::HookResult::Success | hooks::HookResult::NotConfigured => Ok(()),
+            hooks::HookResult::Failure(error_data) => Err(anyhow::anyhow!(
+                "pre-push hook failed: {}",
+                error_data.error
+            )),
+        }
+    }
+
+    fn gerrit_push_args(&self, head: gix::ObjectId) -> GerritPushArgs {
+        if self.gerrit_mode {
+            GerritPushArgs {
+                refspec: Some(format!("{head}:refs/for/{}", self.target_branch_name)),
+                push_opts: self
+                    .options
+                    .push_flags
+                    .iter()
+                    .map(|flag| flag.to_string())
+                    .collect(),
+            }
+        } else {
+            GerritPushArgs {
+                refspec: None,
+                push_opts: vec![],
+            }
+        }
+    }
+
+    fn record_gerrit_push_metadata(&self, ctx: &Context, push_output: &str) -> Result<()> {
+        if !self.gerrit_mode {
+            return Ok(());
+        }
+
+        let push_output = but_gerrit::parse::push_output(push_output)?;
+        let range = self.plan.gerrit_metadata_range();
+        let candidate_ids = first_parent_commit_ids_until(&self.gix_repo, range.head, range.base)?;
+        but_gerrit::record_push_metadata(ctx, candidate_ids, push_output)
+    }
+}
+
+struct GerritPushArgs {
+    refspec: Option<String>,
+    push_opts: Vec<String>,
+}
+
+fn append_push_result(result: &mut PushResult, branch: &PushBranch) {
+    result
+        .branch_to_remote
+        .push((branch.name().to_owned(), branch.remote_refname().to_owned()));
+    result.branch_sha_updates.push((
+        branch.name().to_owned(),
+        branch.before_sha().to_string(),
+        branch.local_sha().to_string(),
+    ));
 }

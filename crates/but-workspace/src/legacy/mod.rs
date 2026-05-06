@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 pub mod commit_engine;
 pub mod head;
 mod integrated;
+pub mod push;
 mod stacks;
 pub use head::{
     merge_worktree_with_workspace, remerged_workspace_commit_v2, remerged_workspace_tree_v2,

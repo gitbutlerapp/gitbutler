@@ -33,6 +33,7 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             .all()?
             .filter_map(Result::ok)
             .map(|info| info.id)
+            .sorted()
             .collect_vec();
         let upstream_change_ids = upstream_commits
             .iter()
