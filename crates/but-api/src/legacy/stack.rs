@@ -8,7 +8,6 @@ use but_workspace::legacy::push::{PushBranch, PushStackPlan, PushTarget};
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
 use gitbutler_git::{GitContextExt as _, PushResult};
 use gitbutler_oplog::SnapshotExt;
-use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::{first_parent_commit_ids_until, hooks};
 use gix::refs::Category;
 use tracing::instrument;
@@ -489,14 +488,13 @@ impl<'plan> PushStackExecutor<'plan> {
             .or_else(|| remote.url(gix::remote::Direction::Fetch))
             .map(|url| url.to_bstring().to_string())
             .with_context(|| format!("Remote named {} didn't have a URL", self.remote_name))?;
-        let remote_refname = RemoteRefname::new(&self.remote_name, branch.name());
-
         match hooks::pre_push(
             &self.gix_repo,
             &self.remote_name,
             &url,
             branch.local_sha(),
-            &remote_refname,
+            branch.name(),
+            branch.remote_refname(),
             self.run_husky_hooks,
         )? {
             hooks::HookResult::Success | hooks::HookResult::NotConfigured => Ok(()),

@@ -138,14 +138,15 @@ pub fn post_commit(ctx: &Context) -> Result<HookResult> {
 // TODO: double-check this with what should happen according to Git; contribute to `git2-hooks` possibly.
 /// Since git2-hooks doesn't support pre-push yet, we implement it ourselves
 /// following the same pattern as the existing hooks
-/// Use `local_commit` and `remote_tracking_branch` to deduce the refspec information. Note that
-/// this isn't general, but should work for us.
+/// Use `local_branch_name`, `local_commit`, and `remote_tracking_branch` to provide the refspec
+/// information expected on stdin.
 pub fn pre_push(
     repo: &gix::Repository,
     remote_name: &str,
     remote_url: &str,
     local_commit: gix::ObjectId,
-    remote_tracking_branch: &gitbutler_reference::RemoteRefname,
+    local_branch_name: &str,
+    remote_tracking_branch: &gix::refs::FullNameRef,
     run_husky_hooks: bool,
 ) -> Result<HookResult> {
     let hooks_dir = get_hooks_dir(repo);
@@ -186,17 +187,14 @@ pub fn pre_push(
 
     {
         let remote_commit = repo
-            .try_find_reference(&remote_tracking_branch.to_string())?
+            .try_find_reference(remote_tracking_branch)?
             .map(|mut reference| reference.peel_to_id().map(|id| id.detach()))
             .transpose()?
             .unwrap_or_else(|| repo.object_hash().null());
-        // THIS IS WRONG: but is correct in the common case. This also is an issue when the ref is actually pushed,
-        // but we can fix it when moving everything to `gix`.
-        let local_tracking_branch_deduced =
-            format!("refs/heads/{}", remote_tracking_branch.branch());
+        let local_tracking_branch = format!("refs/heads/{local_branch_name}");
         let stdin = child.stdin.as_mut().expect("configured");
         let refspec = format!(
-            "{local_tracking_branch_deduced} {local_commit} {remote_tracking_branch} {remote_commit}\n"
+            "{local_tracking_branch} {local_commit} {remote_tracking_branch} {remote_commit}\n"
         );
         // Hooks may exit before reading stdin if they don't need the refspec info.
         // The actual success/failure is determined by the exit code via wait_with_output() below.

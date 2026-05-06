@@ -6,6 +6,12 @@ use crate::support::RepoWithOrigin;
 use but_testsupport::open_repo;
 use gitbutler_repo::hooks::{HookResult, pre_push};
 
+fn remote_tracking_ref(remote: &str, branch: &str) -> gix::refs::FullName {
+    format!("refs/remotes/{remote}/{branch}")
+        .try_into()
+        .expect("valid remote-tracking ref")
+}
+
 #[test]
 fn pre_push_hook_not_configured() -> anyhow::Result<()> {
     let test_project = RepoWithOrigin::default();
@@ -16,7 +22,8 @@ fn pre_push_hook_not_configured() -> anyhow::Result<()> {
         "origin",
         "https://github.com/test/repo.git",
         repo.object_hash().null(),
-        &gitbutler_reference::RemoteRefname::new("origin", "does-not-matter"),
+        "does-not-matter",
+        remote_tracking_ref("origin", "does-not-matter").as_ref(),
         true,
     );
     assert!(result.is_ok());
@@ -43,7 +50,8 @@ fn pre_push_hook_success() -> anyhow::Result<()> {
         "origin",
         "https://github.com/test/repo.git",
         repo.head_id()?.detach(),
-        &gitbutler_reference::RemoteRefname::new("origin", "master"),
+        "master",
+        remote_tracking_ref("origin", "master").as_ref(),
         true,
     )?;
     assert_eq!(result, HookResult::Success);
@@ -82,7 +90,8 @@ fn pre_push_hook_failure() -> anyhow::Result<()> {
         "origin",
         "https://github.com/test/repo.git",
         repo.head_id()?.detach(),
-        &gitbutler_reference::RemoteRefname::new("origin", "master"),
+        "master",
+        remote_tracking_ref("origin", "master").as_ref(),
         true,
     );
     match result.expect("success") {
@@ -120,7 +129,8 @@ fn pre_push_ignores_husky_core_hooks_path_when_disabled() -> anyhow::Result<()> 
         "origin",
         "https://github.com/test/repo.git",
         repo.head_id()?.detach(),
-        &gitbutler_reference::RemoteRefname::new("origin", "master"),
+        "master",
+        remote_tracking_ref("origin", "master").as_ref(),
         false,
     )?;
     assert_eq!(result, HookResult::NotConfigured);
@@ -131,7 +141,8 @@ fn pre_push_ignores_husky_core_hooks_path_when_disabled() -> anyhow::Result<()> 
         "origin",
         "https://github.com/test/repo.git",
         repo.head_id()?.detach(),
-        &gitbutler_reference::RemoteRefname::new("origin", "master"),
+        "master",
+        remote_tracking_ref("origin", "master").as_ref(),
         true,
     )?;
     assert_eq!(result, HookResult::Success);
@@ -169,7 +180,8 @@ fn pre_push_resolves_relative_core_hooks_path_against_workdir() -> anyhow::Resul
         "origin",
         "https://github.com/test/repo.git",
         repo.head_id()?.detach(),
-        &gitbutler_reference::RemoteRefname::new("origin", "master"),
+        "master",
+        remote_tracking_ref("origin", "master").as_ref(),
         true,
     )?;
     assert_eq!(result, HookResult::Success);
