@@ -1236,6 +1236,52 @@ fn validate_no_change_on_noop() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// When committing a deletion of a file that only exists in another stack's tree
+/// alongside a valid change, the deletion should be rejected as `NoEffectiveChanges`
+/// while the valid change still produces a commit.
+#[test]
+fn deletion_of_file_from_other_stack_is_rejected_per_change() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("two-stacks-with-extra-file");
+
+    // Delete `new-file` which only exists in stack B's tree, not in A.
+    let new_file_path = repo.workdir_path("new-file").expect("non-bare");
+    std::fs::remove_file(&new_file_path)?;
+
+    // Also modify `file` which does exist in stack A's tree.
+    write_sequence(&repo, "file", [(1, 5), (50, 60)])?;
+
+    let parent_commit = repo.rev_parse_single("A")?;
+    let outcome = commit_engine::create_commit(
+        &repo,
+        Destination::NewCommit {
+            parent_commit_id: Some(parent_commit.into()),
+            message: "modify file and delete new-file on stack A".into(),
+            stack_segment: None,
+        },
+        vec![diff_spec(None, "file", []), diff_spec(None, "new-file", [])],
+        CONTEXT_LINES,
+    )?;
+
+    assert!(
+        outcome.new_commit.is_some(),
+        "a commit is created because the file modification is valid"
+    );
+    insta::assert_debug_snapshot!(outcome.rejected_specs, @r#"
+    [
+        (
+            NoEffectiveChanges,
+            DiffSpec {
+                previous_path: None,
+                path: "new-file",
+                hunk_headers: [],
+            },
+        ),
+    ]
+    "#);
+
+    Ok(())
+}
+
 const UI_CONTEXT_LINES: u32 = 3;
 
 mod utils {
