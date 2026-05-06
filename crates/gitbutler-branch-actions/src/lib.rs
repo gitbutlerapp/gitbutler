@@ -13,8 +13,6 @@ pub use actions::{
     set_target_push_remote, unapply_stack, upstream_integration_statuses,
 };
 
-mod r#virtual;
-
 mod branch_manager;
 pub use branch_manager::{BranchManagerExt, CreateBranchFromBranchOutcome};
 

@@ -3920,7 +3920,6 @@ dependencies = [
  "but-ctx",
  "but-error",
  "but-forge",
- "but-gerrit",
  "but-graph",
  "but-hunk-assignment",
  "but-meta",
