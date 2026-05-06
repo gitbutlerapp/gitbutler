@@ -1625,7 +1625,7 @@ export type RejectedChange = {
 };
 
 /** Provide a description of why a [`crate::DiffSpec`] was rejected for application to the tree of a commit. */
-export type RejectionReason = "noEffectiveChanges" | "cherryPickMergeConflict" | "workspaceMergeConflict" | "workspaceMergeConflictOfUnrelatedFile" | "worktreeFileMissingForObjectConversion" | "fileToLargeOrBinary" | "pathNotFoundInBaseTree" | "unsupportedDirectoryEntry" | "unsupportedTreeEntry" | "missingDiffSpecAssociation";
+export type RejectionReason = "noEffectiveChanges" | "cherryPickMergeConflict" | "incompatibleBase" | "workspaceMergeConflict" | "workspaceMergeConflictOfUnrelatedFile" | "worktreeFileMissingForObjectConversion" | "fileToLargeOrBinary" | "pathNotFoundInBaseTree" | "unsupportedDirectoryEntry" | "unsupportedTreeEntry" | "missingDiffSpecAssociation";
 
 /**
  * Specifies a location, usually used to either have something inserted

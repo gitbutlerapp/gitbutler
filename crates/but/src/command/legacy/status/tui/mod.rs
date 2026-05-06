@@ -1610,6 +1610,7 @@ impl App {
                 .map(|(rejection_reason, diff_spec)| {
                     let human_reason = match rejection_reason {
                         RejectionReason::NoEffectiveChanges => "Changes were a no-op",
+                        RejectionReason::IncompatibleBase =>  "Incompatible branch base, rebase target",
                         RejectionReason::CherryPickMergeConflict
                         | RejectionReason::WorkspaceMergeConflict
                         | RejectionReason::WorkspaceMergeConflictOfUnrelatedFile => {

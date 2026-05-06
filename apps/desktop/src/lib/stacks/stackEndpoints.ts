@@ -85,6 +85,7 @@ export const REJECTTION_REASONS = [
 	"workspaceMergeConflict",
 	"workspaceMergeConflictOfUnrelatedFile",
 	"cherryPickMergeConflict",
+	"incompatibleBase",
 	"noEffectiveChanges",
 	"worktreeFileMissingForObjectConversion",
 	"fileToLargeOrBinary",
@@ -105,6 +106,8 @@ export function readableRejectionReason(reason: RejectionReason): string {
 	switch (reason) {
 		case "cherryPickMergeConflict":
 			return "Cherry-pick merge conflict";
+		case "incompatibleBase":
+			return "Incompatible branch base";
 		case "noEffectiveChanges":
 			return "No effective changes";
 		case "workspaceMergeConflict":

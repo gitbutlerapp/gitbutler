@@ -22,6 +22,9 @@ pub mod create_tree {
         NoEffectiveChanges,
         /// The final cherry-pick to bring the new tree down onto the target tree (merge it in) failed with a conflict.
         CherryPickMergeConflict,
+        /// The file at this path has a different version in the workspace base tree (`HEAD^{tree}`)
+        /// than in the target stack's tree, and this base divergence caused the cherry-pick to fail.
+        IncompatibleBase,
         /// The final merge of the workspace commit failed with a conflict.
         WorkspaceMergeConflict,
         /// The final merge of the workspace commit failed with a conflict,
@@ -107,7 +110,11 @@ pub fn create_tree(
                         // Some rejections are OK, and we want to create a commit anyway.
                         || !matches!(
                             c,
-                            Err((RejectionReason::CherryPickMergeConflict,_))
+                            Err((
+                                RejectionReason::CherryPickMergeConflict
+                                    | RejectionReason::IncompatibleBase,
+                                _
+                            ))
                         )
                 }) {
                 changes
@@ -142,12 +149,35 @@ pub fn create_tree(
                     })
                     .collect();
                 if !unresolved_conflicts.is_empty() {
+                    let base_tree = base.attach(repo).object()?.peel_to_tree()?;
+                    let ours_tree = ours.attach(repo).object()?.peel_to_tree()?;
                     for change in changes.iter_mut().filter(|c| {
                         c.as_ref().ok().is_some_and(|change| {
                             unresolved_conflicts.contains(&change.path.as_bstr())
                         })
                     }) {
-                        into_err_spec(change, RejectionReason::CherryPickMergeConflict);
+                        let path = change
+                            .as_ref()
+                            .ok()
+                            .map(|c| c.path.as_bstr())
+                            .expect("filter above ensures Ok");
+                        let path_ref = gix::path::from_bstr(path);
+                        let base_entry_id = base_tree
+                            .lookup_entry_by_path(path_ref.as_ref())
+                            .ok()
+                            .flatten()
+                            .map(|e| e.object_id());
+                        let ours_entry_id = ours_tree
+                            .lookup_entry_by_path(path_ref.as_ref())
+                            .ok()
+                            .flatten()
+                            .map(|e| e.object_id());
+                        let reason = if base_entry_id != ours_entry_id {
+                            RejectionReason::IncompatibleBase
+                        } else {
+                            RejectionReason::CherryPickMergeConflict
+                        };
+                        into_err_spec(change, reason);
                     }
                     continue 'retry;
                 }

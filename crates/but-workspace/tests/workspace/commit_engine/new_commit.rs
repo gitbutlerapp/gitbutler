@@ -960,7 +960,7 @@ fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
         insta::assert_debug_snapshot!(outcome.rejected_specs, @r#"
         [
             (
-                CherryPickMergeConflict,
+                IncompatibleBase,
                 DiffSpec {
                     previous_path: None,
                     path: "file",
@@ -1017,7 +1017,7 @@ fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() ->
         insta::assert_debug_snapshot!(outcome.rejected_specs, @r#"
         [
             (
-                CherryPickMergeConflict,
+                IncompatibleBase,
                 DiffSpec {
                     previous_path: None,
                     path: "file",

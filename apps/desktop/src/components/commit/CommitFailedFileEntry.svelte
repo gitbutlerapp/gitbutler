@@ -21,7 +21,11 @@
 	let isFolded = $state(true);
 
 	function reasonRelatedToDependencyInfo(reason: RejectionReason): boolean {
-		return reason === "cherryPickMergeConflict" || reason === "workspaceMergeConflict";
+		return (
+			reason === "cherryPickMergeConflict" ||
+			reason === "incompatibleBase" ||
+			reason === "workspaceMergeConflict"
+		);
 	}
 </script>
 
