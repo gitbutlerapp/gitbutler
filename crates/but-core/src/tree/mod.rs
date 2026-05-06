@@ -153,6 +153,50 @@ pub fn create_tree(
                 }
                 tree_with_changes = merge_result.tree.write()?.detach();
             }
+            // After the cherry-pick, some changes may have had no effect on the target tree
+            // (e.g. deleting a file that only exists in another stack's tree, not in this
+            // branch). Check each change individually by comparing its path entry between
+            // the target tree and the result tree — if they match, the change was a no-op.
+            // We compare both object_id and mode to catch mode-only changes (e.g. executable bit).
+            // For renames, we also check that the previous_path was actually removed.
+            if needs_cherry_pick {
+                let target = target_tree.attach(repo).object()?.peel_to_tree()?;
+                let result = tree_with_changes.attach(repo).object()?.peel_to_tree()?;
+                fn entries_match(
+                    target: &gix::Tree<'_>,
+                    result: &gix::Tree<'_>,
+                    path: &[u8],
+                ) -> anyhow::Result<bool> {
+                    let target_entry = target.lookup_entry(path.split_str("/"))?;
+                    let result_entry = result.lookup_entry(path.split_str("/"))?;
+                    Ok(target_entry.map(|e| (e.mode(), e.object_id()))
+                        == result_entry.map(|e| (e.mode(), e.object_id())))
+                }
+                for possible_change in changes.iter_mut() {
+                    let spec = match possible_change {
+                        Ok(spec) => spec,
+                        Err(_) => continue,
+                    };
+                    let path_unchanged = entries_match(&target, &result, &spec.path)?;
+                    let previous_path_unchanged = match &spec.previous_path {
+                        Some(p) => entries_match(&target, &result, p)?,
+                        None => true,
+                    };
+                    if path_unchanged && previous_path_unchanged {
+                        into_err_spec(possible_change, RejectionReason::NoEffectiveChanges);
+                    }
+                }
+            }
+            // If every change was individually rejected, there is nothing to commit —
+            // unless some were cherry-pick conflicts, in which case we still create a
+            // commit so the user can see and resolve the conflicts.
+            if changes.iter().all(|c| c.is_err())
+                && !changes
+                    .iter()
+                    .any(|c| matches!(c, Err((RejectionReason::CherryPickMergeConflict, _))))
+            {
+                break 'retry (None, None);
+            }
             break 'retry (
                 Some(tree_with_changes),
                 Some(tree_with_changes_without_cherry_pick),
