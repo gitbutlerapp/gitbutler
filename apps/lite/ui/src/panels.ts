@@ -4,7 +4,7 @@ import { changesSectionOperand, Operand } from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectOutlineModeState,
-	selectProjectPickerDialogState,
+	selectProjectDialogState,
 } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import {
@@ -24,8 +24,8 @@ const getFocusedProjectPanel = (activeElement: Element | null) =>
 export const useFocusedProjectPanel = (projectId: string): Panel | null => {
 	const activeElement = useActiveElement();
 	const focusedPanel = getFocusedProjectPanel(activeElement);
-	const pickerDialog = useAppSelector((state) => selectProjectPickerDialogState(state, projectId));
-	return pickerDialog._tag === "CommandPalette" ? pickerDialog.focusedPanel : focusedPanel;
+	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
+	return dialog._tag === "CommandPalette" ? dialog.focusedPanel : focusedPanel;
 };
 
 export const focusPanel = (panel: Panel) => {

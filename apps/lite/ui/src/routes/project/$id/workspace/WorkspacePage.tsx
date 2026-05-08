@@ -17,8 +17,8 @@ import {
 import { isPanelVisible } from "#ui/panels/state.ts";
 import {
 	projectActions,
+	selectProjectDialogState,
 	selectProjectPanelsState,
-	selectProjectPickerDialogState,
 } from "#ui/projects/state.ts";
 import { AbsorptionDialog } from "#ui/routes/project/$id/workspace/AbsorptionDialog.tsx";
 import { ShortcutsBarPortal, TopBarActionsPortal } from "#ui/portals.tsx";
@@ -423,7 +423,7 @@ const WorkspacePage: FC = () => {
 
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
-	const pickerDialog = useAppSelector((state) => selectProjectPickerDialogState(state, projectId));
+	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 	const focusedPanel = useFocusedProjectPanel(projectId);
 
@@ -441,8 +441,7 @@ const WorkspacePage: FC = () => {
 
 	useCommand(
 		() => {
-			if (pickerDialog._tag === "CommandPalette")
-				dispatch(projectActions.closePickerDialog({ projectId }));
+			if (dialog._tag === "CommandPalette") dispatch(projectActions.closeDialog({ projectId }));
 			else dispatch(projectActions.openCommandPalette({ projectId, focusedPanel }));
 		},
 		{
@@ -471,17 +470,17 @@ const WorkspacePage: FC = () => {
 
 	const setBranchPickerOpen = (open: boolean) => {
 		if (open) dispatch(projectActions.openBranchPicker({ projectId }));
-		else dispatch(projectActions.closePickerDialog({ projectId }));
+		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
 	const setApplyBranchPickerOpen = (open: boolean) => {
 		if (open) dispatch(projectActions.openApplyBranchPicker({ projectId }));
-		else dispatch(projectActions.closePickerDialog({ projectId }));
+		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
 	const setCommandPaletteOpen = (open: boolean) => {
 		if (open) dispatch(projectActions.openCommandPalette({ projectId, focusedPanel }));
-		else dispatch(projectActions.closePickerDialog({ projectId }));
+		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
 	return (
@@ -542,7 +541,7 @@ const WorkspacePage: FC = () => {
 				/>
 			)}
 
-			{Match.value(pickerDialog).pipe(
+			{Match.value(dialog).pipe(
 				Match.tagsExhaustive({
 					None: () => null,
 					ApplyBranchPicker: () => (
