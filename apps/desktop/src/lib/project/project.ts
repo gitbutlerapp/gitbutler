@@ -19,15 +19,15 @@ export type Project = {
 	omit_certificate_check: boolean | undefined;
 	use_diff_context: boolean | undefined;
 	// Produced just for the frontend to determine if the project is open in any window.
-	is_open: boolean;
+	isOpen: boolean;
 	forge_override: ForgeName | undefined;
 	preferred_forge_user: ForgeUser | null;
 	// Gerrit mode enabled for this project, derived from git configuration
-	gerrit_mode: boolean;
+	gerritMode: boolean;
 	/**
 	 * The path to the forge review template, if set in git configuration.
 	 */
-	forge_review_template_path: string | null;
+	forgeReviewTemplatePath: string | null;
 };
 
 export function vscodePath(path: string) {
