@@ -7,7 +7,6 @@ import {
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import { useActiveElement } from "#ui/focus.ts";
 import {
 	focusAdjacentPanel,
 	focusPanel,
@@ -22,44 +21,35 @@ import {
 } from "#ui/projects/state.ts";
 import { AbsorptionDialog } from "#ui/routes/project/$id/workspace/AbsorptionDialog.tsx";
 import { ShortcutsBarPortal, TopBarActionsPortal } from "#ui/portals.tsx";
-import { Keys } from "#ui/ui/Keys.tsx";
-import { ShortcutButton } from "#ui/ui/ShortcutButton.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { isInputElement } from "#ui/commands/hotkeys.ts";
 import { AbsorptionTarget, BranchListing, Segment, Stack } from "@gitbutler/but-sdk";
-import {
-	formatForDisplay,
-	getHotkeyManager,
-	HotkeyOptions,
-	useHotkey,
-	useHotkeyRegistrations,
-	type HotkeyRegistrationView,
-} from "@tanstack/react-hotkeys";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
-import { Match, pipe } from "effect";
+import { Match } from "effect";
 import { FC } from "react";
 import { Group, Separator, useDefaultLayout } from "react-resizable-panels";
 import { branchOperand, type BranchOperand } from "#ui/operands.ts";
-import { PickerDialog, type PickerDialogGroup } from "#ui/ui/PickerDialog/PickerDialog.tsx";
+import { PickerDialog } from "#ui/ui/PickerDialog/PickerDialog.tsx";
 import { DetailsPanel } from "./DetailsPanel.tsx";
 import styles from "./WorkspacePage.module.css";
-import type { CommandGroup } from "#ui/commands/groups.ts";
 import { OutlinePanel } from "#ui/routes/project/$id/workspace/OutlinePanel.tsx";
 import { classes } from "#ui/ui/classes.ts";
+import { CommandPalette } from "#ui/routes/project/$id/workspace/CommandPalette.tsx";
+import {
+	formatForDisplay,
+	HotkeyOptions,
+	useHotkey,
+	useHotkeyRegistrations,
+} from "@tanstack/react-hotkeys";
+import { useActiveElement } from "#ui/focus.ts";
+import { isInputElement } from "#ui/commands/hotkeys.ts";
+import { ShortcutButtonById } from "#ui/ui/ShortcutButton.tsx";
+import type { CommandGroup } from "#ui/commands/groups.ts";
 
 declare module "@tanstack/react-hotkeys" {
 	interface HotkeyMeta {
-		/**
-		 * The component where the hotkey is registered.
-		 */
 		group: CommandGroup;
-		/**
-		 * @default true
-		 *
-		 * Whether or not to display the command and/or hotkey in the command palette.
-		 */
-		commandPalette?: boolean | "hideHotkey";
+		id?: string;
 		/**
 		 * @default true
 		 *
@@ -68,79 +58,6 @@ declare module "@tanstack/react-hotkeys" {
 		shortcutsBar?: boolean;
 	}
 }
-
-type CommandPaletteItem = {
-	id: string;
-	name: string;
-	group: CommandGroup;
-	hotkey?: string;
-};
-
-const groupCommandPaletteItems = (
-	commands: Array<CommandPaletteItem>,
-): Array<PickerDialogGroup<CommandPaletteItem>> => {
-	const groups = new Map<string, Array<CommandPaletteItem>>();
-
-	for (const command of commands) {
-		const groupName = command.group;
-		const group = groups.get(groupName);
-		if (group) group.push(command);
-		else groups.set(groupName, [command]);
-	}
-
-	return globalThis.Array.from(groups.entries())
-		.toSorted(([a], [b]) => a.localeCompare(b))
-		.map(([value, items]) => ({
-			value,
-			items: items.toSorted((a, b) => a.name.localeCompare(b.name)),
-		}));
-};
-
-const CommandPalette: FC<{
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-}> = ({ open, onOpenChange }) => {
-	const { hotkeys } = useHotkeyRegistrations();
-	const items = pipe(
-		hotkeys
-			.flatMap((hotkey): CommandPaletteItem | [] =>
-				hotkey.options.enabled !== false &&
-				hotkey.options.meta?.name !== undefined &&
-				hotkey.options.meta.commandPalette !== false
-					? {
-							id: hotkey.id,
-							name: hotkey.options.meta.name,
-							group: hotkey.options.meta.group,
-							hotkey:
-								hotkey.options.meta.commandPalette === "hideHotkey" ? undefined : hotkey.hotkey,
-						}
-					: [],
-			)
-			.toSorted((a, b) => a.name.localeCompare(b.name)),
-		groupCommandPaletteItems,
-	);
-
-	const runCommand = (hotkey: CommandPaletteItem) => {
-		onOpenChange(false);
-		getHotkeyManager().triggerRegistration(hotkey.id);
-	};
-
-	return (
-		<PickerDialog
-			ariaLabel="Command palette"
-			closeLabel="Close command palette"
-			emptyLabel="No commands found."
-			getItemKey={(x) => x.id}
-			getItemLabel={(x) => x.name}
-			getItemType={(x) => (x.hotkey !== undefined ? <Keys hotkey={x.hotkey} /> : undefined)}
-			items={items}
-			open={open}
-			onOpenChange={onOpenChange}
-			onSelectItem={runCommand}
-			placeholder="Search commands…"
-		/>
-	);
-};
 
 type BranchPickerOption = {
 	id: string;
@@ -299,31 +216,25 @@ const TopBarActions: FC = () => {
 
 		dispatch(projectActions.togglePanel({ projectId, panel: "details" }));
 	};
-
 	return (
 		<>
-			<ShortcutButton
+			<ShortcutButtonById
+				type="button"
 				className={uiStyles.button}
-				hotkey="Shift+A"
-				hotkeyOptions={{ meta: { group: "Branches", name: "Apply" } }}
 				onClick={openApplyBranchPicker}
+				id="apply-branch"
 			>
 				Apply branch
-			</ShortcutButton>
-			<ShortcutButton
+			</ShortcutButtonById>
+			<ShortcutButtonById
+				type="button"
 				className={uiStyles.button}
-				hotkey="D"
 				aria-pressed={isPanelVisible(panelsState, "details")}
-				hotkeyOptions={{
-					meta: {
-						group: "Details",
-						name: isPanelVisible(panelsState, "details") ? "Close" : "Open",
-					},
-				}}
 				onClick={toggleDetails}
+				id="details"
 			>
 				Details
-			</ShortcutButton>
+			</ShortcutButtonById>
 		</>
 	);
 };
@@ -351,7 +262,6 @@ const ShortcutsBar: FC = () => {
 			hotkey.options.meta?.name !== undefined &&
 			hotkey.options.meta.shortcutsBar !== false,
 	);
-
 	if (visibleHotkeys.length === 0) return null;
 
 	return (
@@ -375,7 +285,10 @@ const usePanelsHotkeys = ({ focusedPanel }: { focusedPanel: PanelType | null }) 
 		},
 		{
 			enabled: focusedPanel !== null,
-			meta: { group: "Panels", name: "Focus previous panel", commandPalette: false },
+			meta: {
+				group: "Panels",
+				name: "Focus previous panel",
+			},
 		},
 	);
 
@@ -386,7 +299,10 @@ const usePanelsHotkeys = ({ focusedPanel }: { focusedPanel: PanelType | null }) 
 		},
 		{
 			enabled: focusedPanel !== null,
-			meta: { group: "Panels", name: "Focus next panel", commandPalette: false },
+			meta: {
+				group: "Panels",
+				name: "Focus next panel",
+			},
 		},
 	);
 };
@@ -408,7 +324,7 @@ const WorkspacePage: FC = () => {
 		},
 		{
 			conflictBehavior: "allow",
-			meta: { group: "Global", name: "Command palette", commandPalette: false },
+			meta: { group: "Global", name: "Command palette" },
 		},
 	);
 
@@ -436,11 +352,6 @@ const WorkspacePage: FC = () => {
 
 	const setApplyBranchPickerOpen = (open: boolean) => {
 		if (open) dispatch(projectActions.openApplyBranchPicker({ projectId }));
-		else dispatch(projectActions.closeDialog({ projectId }));
-	};
-
-	const setCommandPaletteOpen = (open: boolean) => {
-		if (open) dispatch(projectActions.openCommandPalette({ projectId, focusedPanel }));
 		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
@@ -508,9 +419,12 @@ const WorkspacePage: FC = () => {
 					BranchPicker: () => (
 						<BranchPicker open onOpenChange={setBranchPickerOpen} onSelectBranch={selectBranch} />
 					),
-					CommandPalette: () => <CommandPalette open onOpenChange={setCommandPaletteOpen} />,
+					CommandPalette: () => null,
 				}),
 			)}
+
+			{/* This is always mounted so the hotkeys are registered. */}
+			<CommandPalette open={dialog._tag === "CommandPalette"} projectId={projectId} />
 		</>
 	);
 };

@@ -66,7 +66,6 @@ import {
 	Stack,
 	TreeChange,
 } from "@gitbutler/but-sdk";
-import { formatForDisplay, useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
@@ -86,12 +85,13 @@ import { Panel, PanelProps } from "react-resizable-panels";
 import styles from "./OutlinePanel.module.css";
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import { WorkspaceItemRow, WorkspaceItemRowToolbar } from "./WorkspaceItemRow.tsx";
-import { moveOperation, useRunOperation } from "#ui/operations/operation.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 import { defaultOutlineSelection } from "#ui/projects/workspace/state.ts";
-import { ShortcutButton } from "#ui/ui/ShortcutButton.tsx";
 import { resolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import { rejectedChangesToastOptions } from "#ui/operations/rejectedChangesToastOptions.tsx";
+import { formatForDisplay, useHotkey } from "@tanstack/react-hotkeys";
+import { moveOperation, useRunOperation } from "#ui/operations/operation.ts";
+import { ShortcutButton } from "#ui/ui/ShortcutButton.tsx";
 
 const sections = (headInfo: RefInfo): NonEmptyArray<Section> => {
 	const changesSection: Section = {
@@ -180,7 +180,6 @@ const useNavigationIndex = (projectId: string) => {
 	useNavigationIndexHotkeys({
 		focusedPanel,
 		navigationIndex,
-		projectId,
 		group: "Outline",
 		panel: "outline",
 		select,
@@ -198,8 +197,6 @@ export const OutlinePanel: FC<{} & PanelProps> = ({ ...panelProps }) => (
 
 const OutlineTreePanel: FC<{} & PanelProps> = ({ ...panelProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const dispatch = useAppDispatch();
-
 	const navigationIndex = useNavigationIndex(projectId);
 
 	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
@@ -209,18 +206,6 @@ const OutlineTreePanel: FC<{} & PanelProps> = ({ ...panelProps }) => {
 	);
 
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
-
-	const openBranchPicker = () => {
-		dispatch(projectActions.openBranchPicker({ projectId }));
-	};
-
-	useHotkeys([
-		{
-			hotkey: "T",
-			callback: openBranchPicker,
-			options: { meta: { group: "Outline", name: "Branch" } },
-		},
-	]);
 
 	return (
 		<Panel
@@ -375,17 +360,17 @@ const InlineRewordCommit: FC<{
 	};
 
 	useHotkey("Enter", () => formRef.current?.requestSubmit(), {
+		// TODO: ?
 		conflictBehavior: "allow",
 		enabled: focusedPanel === "outline",
 		ignoreInputs: false,
-		meta: { group: "Reword commit", name: "Save", commandPalette: false },
+		meta: { group: "Reword commit", name: "Save" },
 	});
 
 	useHotkey("Escape", onExit, {
-		conflictBehavior: "allow",
 		enabled: focusedPanel === "outline",
 		ignoreInputs: false,
-		meta: { group: "Reword commit", name: "Cancel", commandPalette: false },
+		meta: { group: "Reword commit", name: "Cancel" },
 	});
 
 	return (
@@ -586,16 +571,6 @@ const CommitRow: FC<
 		},
 	];
 
-	useHotkey("Enter", startEditing, {
-		conflictBehavior: "allow",
-		enabled:
-			!isCommitMessagePending &&
-			isSelected &&
-			focusedPanel === "outline" &&
-			outlineMode._tag === "Default",
-		meta: { group: "Commit", name: "Reword" },
-	});
-
 	const canMoveCommit =
 		!commitMove.isPending &&
 		isSelected &&
@@ -608,7 +583,6 @@ const CommitRow: FC<
 		meta: {
 			group: "Commit",
 			name: "Move up",
-			commandPalette: false,
 			shortcutsBar: false,
 		},
 	});
@@ -619,44 +593,6 @@ const CommitRow: FC<
 		meta: {
 			group: "Commit",
 			name: "Move down",
-			commandPalette: false,
-			shortcutsBar: false,
-		},
-	});
-
-	useHotkey({ key: "" }, insertBlankCommitAbove, {
-		conflictBehavior: "allow",
-		enabled: isSelected && focusedPanel === "outline" && outlineMode._tag === "Default",
-		meta: {
-			group: "Commit",
-			name: "Add empty commit above",
-			commandPalette: "hideHotkey",
-			shortcutsBar: false,
-		},
-	});
-
-	useHotkey({ key: "" }, insertBlankCommitBelow, {
-		conflictBehavior: "allow",
-		enabled: isSelected && focusedPanel === "outline" && outlineMode._tag === "Default",
-		meta: {
-			group: "Commit",
-			name: "Add empty commit below",
-			commandPalette: "hideHotkey",
-			shortcutsBar: false,
-		},
-	});
-
-	useHotkey({ key: "" }, deleteCommit, {
-		conflictBehavior: "allow",
-		enabled:
-			!commitDiscard.isPending &&
-			isSelected &&
-			focusedPanel === "outline" &&
-			outlineMode._tag === "Default",
-		meta: {
-			group: "Commit",
-			name: "Delete commit",
-			commandPalette: "hideHotkey",
 			shortcutsBar: false,
 		},
 	});
@@ -747,8 +683,6 @@ const ChangesSectionRow: FC<{
 	projectId: string;
 }> = ({ changes, navigationIndex, projectId }) => {
 	const operand = changesSectionOperand;
-	const isSelected = useIsSelected({ projectId, operand });
-	const focusedPanel = useFocusedProjectPanel(projectId);
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const dispatch = useAppDispatch();
@@ -765,16 +699,6 @@ const ChangesSectionRow: FC<{
 	const absorb = () => {
 		openAbsorptionDialog({ type: "all" });
 	};
-
-	useHotkey("A", absorb, {
-		conflictBehavior: "allow",
-		enabled:
-			changes.length > 0 &&
-			isSelected &&
-			focusedPanel === "outline" &&
-			outlineMode._tag === "Default",
-		meta: { group: "Changes", name: "Absorb" },
-	});
 
 	const menuItems: Array<NativeMenuItem> = [
 		{
@@ -908,7 +832,6 @@ const Changes: FC<{
 
 	const operand = changesSectionOperand;
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-	const focusedPanel = useFocusedProjectPanel(projectId);
 	const dispatch = useAppDispatch();
 
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -978,33 +901,6 @@ const Changes: FC<{
 	const selectChanges = () => {
 		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
 	};
-	const selectChangesAndFocusOutline = () => {
-		selectChanges();
-		focusPanel("outline");
-	};
-	const composeCommitMessage = () => {
-		selectChanges();
-		commitTextareaRef.current?.focus();
-	};
-
-	useHotkeys([
-		{
-			hotkey: "Z",
-			callback: selectChangesAndFocusOutline,
-			options: { meta: { group: "Outline", name: "Changes" } },
-		},
-		{
-			hotkey: "Shift+Z",
-			callback: composeCommitMessage,
-			options: { meta: { group: "Outline", name: "Compose commit message" } },
-		},
-	]);
-
-	useHotkey("Enter", () => commitTextareaRef.current?.focus(), {
-		conflictBehavior: "allow",
-		enabled: isSelected && focusedPanel === "outline" && outlineMode._tag === "Default",
-		meta: { group: "Changes", name: "Compose commit message" },
-	});
 
 	return (
 		<TreeItem
@@ -1027,11 +923,6 @@ const Changes: FC<{
 				placeholder="Commit message (optional)"
 				className={styles.commitTextarea}
 				onFocus={selectChanges}
-				onKeyDown={(event) => {
-					if (event.key !== "Escape") return;
-					event.preventDefault();
-					focusPanel("outline");
-				}}
 			/>
 
 			<div className={styles.commitControls}>
@@ -1100,17 +991,17 @@ const InlineRenameBranch: FC<{
 	};
 
 	useHotkey("Enter", () => formRef.current?.requestSubmit(), {
+		// TODO: ?
 		conflictBehavior: "allow",
 		enabled: focusedPanel === "outline",
 		ignoreInputs: false,
-		meta: { group: "Rename branch", name: "Save", commandPalette: false },
+		meta: { group: "Rename branch", name: "Save" },
 	});
 
 	useHotkey("Escape", onExit, {
-		conflictBehavior: "allow",
 		enabled: focusedPanel === "outline",
 		ignoreInputs: false,
-		meta: { group: "Rename branch", name: "Cancel", commandPalette: false },
+		meta: { group: "Rename branch", name: "Cancel" },
 	});
 
 	return (
@@ -1167,8 +1058,6 @@ const BranchRow: FC<
 		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
 		dispatch(projectActions.startRenameBranch({ projectId, branch: branchOperandV }));
 	};
-	const isSelected = useIsSelected({ projectId, operand });
-	const focusedPanel = useFocusedProjectPanel(projectId);
 
 	const endEditing = () => {
 		dispatch(projectActions.exitMode({ projectId }));
@@ -1211,12 +1100,6 @@ const BranchRow: FC<
 			onSelect: startEditing,
 		},
 	];
-
-	useHotkey("Enter", startEditing, {
-		conflictBehavior: "allow",
-		enabled: isSelected && focusedPanel === "outline" && outlineMode._tag === "Default",
-		meta: { group: "Branch", name: "Rename" },
-	});
 
 	return (
 		<ItemRow
@@ -1286,8 +1169,6 @@ const StackRow: FC<
 	} & ComponentProps<"div">
 > = ({ navigationIndex, projectId, stackId, ...restProps }) => {
 	const operand = stackOperand({ stackId });
-	const isSelected = useIsSelected({ projectId, operand });
-	const focusedPanel = useFocusedProjectPanel(projectId);
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const unapplyStack = useMutation(unapplyStackMutationOptions);
@@ -1306,21 +1187,6 @@ const StackRow: FC<
 			onSelect: unapply,
 		},
 	];
-
-	useHotkey({ key: "" }, unapply, {
-		conflictBehavior: "allow",
-		enabled:
-			isSelected &&
-			focusedPanel === "outline" &&
-			outlineMode._tag === "Default" &&
-			!unapplyStack.isPending,
-		meta: {
-			group: "Stack",
-			name: "Unapply stack",
-			commandPalette: "hideHotkey",
-			shortcutsBar: false,
-		},
-	});
 
 	return (
 		<ItemRow

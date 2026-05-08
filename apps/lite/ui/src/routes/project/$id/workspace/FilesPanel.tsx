@@ -1,4 +1,3 @@
-import { useNavigationIndexHotkeys } from "#ui/panels.ts";
 import {
 	absorptionPlanQueryOptions,
 	branchDiffQueryOptions,
@@ -47,14 +46,13 @@ import { decodeRefName } from "#ui/api/ref-name.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
 import { DependencyIndicatorButton } from "#ui/routes/project/$id/workspace/DependencyIndicatorButton.tsx";
-import { useFocusedProjectPanel } from "#ui/panels.ts";
-import { useHotkey } from "@tanstack/react-hotkeys";
 import {
 	buildNavigationIndex,
 	NavigationIndex,
 	navigationIndexIncludes,
 } from "#ui/workspace/navigation-index.ts";
 import { filterNavigationIndexForOutlineMode } from "#ui/outline/mode.ts";
+import { useFocusedProjectPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
 
 const useNavigationIndex = (projectId: string, parent: Operand, files: Array<Operand>) => {
 	const dispatch = useAppDispatch();
@@ -93,7 +91,6 @@ const useNavigationIndex = (projectId: string, parent: Operand, files: Array<Ope
 	useNavigationIndexHotkeys({
 		focusedPanel,
 		navigationIndex,
-		projectId,
 		group: "Files",
 		panel: "files",
 		select,
@@ -476,8 +473,6 @@ const ChangesFileRow: FC<{
 }> = ({ change, dependencyCommitIds, projectId, navigationIndex }) => {
 	const operand = fileOperand({ parent: changesFileParent, path: change.path });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-	const isSelected = useIsSelected({ projectId, operand });
-	const focusedPanel = useFocusedProjectPanel(projectId);
 
 	const dispatch = useAppDispatch();
 	const queryClient = useQueryClient();
@@ -499,12 +494,6 @@ const ChangesFileRow: FC<{
 			},
 		});
 	};
-
-	useHotkey("A", absorb, {
-		conflictBehavior: "allow",
-		enabled: isSelected && focusedPanel === "files" && outlineMode._tag === "Default",
-		meta: { group: "Changes", name: "Absorb" },
-	});
 
 	const menuItems: Array<NativeMenuItem> = [
 		{

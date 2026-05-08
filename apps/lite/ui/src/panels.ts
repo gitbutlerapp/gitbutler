@@ -1,19 +1,15 @@
-import { CommandGroup } from "#ui/commands/groups.ts";
 import { useActiveElement } from "#ui/focus.ts";
-import { changesSectionOperand, Operand } from "#ui/operands.ts";
-import {
-	projectActions,
-	selectProjectOutlineModeState,
-	selectProjectDialogState,
-} from "#ui/projects/state.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import type { CommandGroup } from "#ui/commands/groups.ts";
+import { Operand } from "#ui/operands.ts";
+import { selectProjectDialogState } from "#ui/projects/state.ts";
+import { useAppSelector } from "#ui/store.ts";
 import {
 	getAdjacent,
 	getNextSection,
 	getPreviousSection,
 	NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
-import { useHotkeys, useHotkeySequence } from "@tanstack/react-hotkeys";
+import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
 
 export type Panel = "outline" | "files" | "details";
 export const orderedPanels: Array<Panel> = ["outline", "files", "details"];
@@ -43,7 +39,6 @@ export const focusAdjacentPanel = (offset: -1 | 1) => {
 export const useNavigationIndexHotkeys = ({
 	focusedPanel,
 	navigationIndex,
-	projectId,
 	group,
 	panel,
 	select,
@@ -51,14 +46,11 @@ export const useNavigationIndexHotkeys = ({
 }: {
 	focusedPanel: Panel | null;
 	navigationIndex: NavigationIndex;
-	projectId: string;
 	group: CommandGroup;
 	panel: Panel;
 	select: (newItem: Operand) => void;
 	selection: Operand;
 }) => {
-	const dispatch = useAppDispatch();
-
 	const selectAndFocus = (newItem: Operand) => {
 		select(newItem);
 		focusPanel(panel);
@@ -102,212 +94,123 @@ export const useNavigationIndexHotkeys = ({
 		selectAndFocus(newItem);
 	};
 
-	useHotkeys(
-		[
-			{
-				hotkey: "ArrowUp",
-				callback: selectPreviousItem,
-				options: { meta: { group, name: "Up", commandPalette: false } },
-			},
-			{
-				hotkey: "K",
-				callback: selectPreviousItem,
-				// Hidden until we can combine in shortcuts bar.
-				options: { meta: { group, shortcutsBar: false } },
-			},
-			{
-				hotkey: "ArrowDown",
-				callback: selectNextItem,
-				options: { meta: { group, name: "Down", commandPalette: false } },
-			},
-			{
-				hotkey: "J",
-				callback: selectNextItem,
-				// Hidden until we can combine in shortcuts bar.
-				options: { meta: { group, shortcutsBar: false } },
-			},
-			{
-				hotkey: "Shift+ArrowUp",
-				callback: selectPreviousSection,
-				options: {
-					meta: {
-						group,
-						name: "Previous section",
-						commandPalette: false,
-						shortcutsBar: false,
-					},
-				},
-			},
-			{
-				hotkey: "Shift+K",
-				callback: selectPreviousSection,
-				options: {
-					meta: {
-						group,
-						name: "Previous section",
-						commandPalette: false,
-						shortcutsBar: false,
-					},
-				},
-			},
-			{
-				hotkey: "Shift+ArrowDown",
-				callback: selectNextSection,
-				options: {
-					meta: {
-						group,
-						name: "Next section",
-						commandPalette: false,
-						shortcutsBar: false,
-					},
-				},
-			},
-			{
-				hotkey: "Shift+J",
-				callback: selectNextSection,
-				options: {
-					meta: {
-						group,
-						name: "Next section",
-						commandPalette: false,
-						shortcutsBar: false,
-					},
-				},
-			},
-			{
-				hotkey: "Home",
-				callback: selectFirstItem,
-				options: {
-					meta: {
-						group,
-						name: "First item",
-						commandPalette: false,
-						shortcutsBar: false,
-					},
-				},
-			},
-			{
-				hotkey: "Meta+ArrowUp",
-				callback: selectFirstItem,
-				options: {
-					meta: {
-						group,
-						name: "First item",
-						commandPalette: false,
-						shortcutsBar: false,
-					},
-				},
-			},
-			{
-				hotkey: "End",
-				callback: selectLastItem,
-				options: {
-					meta: {
-						group,
-						name: "Last item",
-						commandPalette: false,
-						shortcutsBar: false,
-					},
-				},
-			},
-			{
-				hotkey: "Meta+ArrowDown",
-				callback: selectLastItem,
-				options: {
-					meta: {
-						group,
-						name: "Last item",
-						commandPalette: false,
-						shortcutsBar: false,
-					},
-				},
-			},
-			{
-				hotkey: "Shift+G",
-				callback: selectLastItem,
-				options: {
-					meta: {
-						group,
-						name: "Last item",
-						commandPalette: false,
-						shortcutsBar: false,
-					},
-				},
-			},
-		],
-		{
-			enabled: focusedPanel === panel,
-			conflictBehavior: "allow",
-		},
-	);
-
-	useHotkeySequence(["G", "G"], selectFirstItem, {
-		enabled: focusedPanel === panel,
+	useHotkey("ArrowUp", selectPreviousItem, {
 		conflictBehavior: "allow",
+		enabled: focusedPanel === panel,
 		meta: {
 			group,
-			name: "First item",
-			commandPalette: false,
+			name: "Move up",
 			shortcutsBar: false,
 		},
 	});
 
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-
-	const enterMoveMode = () => {
-		dispatch(projectActions.enterMoveMode({ projectId, source: selection }));
-		focusPanel("outline");
-	};
-
-	const enterRubMode = (source: Operand) => () => {
-		dispatch(projectActions.enterRubMode({ projectId, source }));
-		focusPanel("outline");
-	};
-
-	const enterCutMode = () => {
-		dispatch(projectActions.enterCutMode({ projectId, source: selection }));
-		focusPanel("outline");
-	};
-
-	const enterCommitMode = () => {
-		dispatch(projectActions.enterMoveMode({ projectId, source: changesSectionOperand }));
-		focusPanel("outline");
-	};
-
-	useHotkeys(
-		[
-			{
-				hotkey: "M",
-				callback: enterMoveMode,
-				options: { meta: { group, name: "Move" } },
-			},
-			{
-				hotkey: "Mod+X",
-				callback: enterCutMode,
-				options: {
-					ignoreInputs: true,
-					meta: { group, name: "Cut" },
-				},
-			},
-			{
-				hotkey: "R",
-				callback: enterRubMode(selection),
-				options: { meta: { group, name: "Rub" } },
-			},
-			{
-				hotkey: "Shift+R",
-				callback: enterRubMode(changesSectionOperand),
-				options: { meta: { group, name: "Rub changes" } },
-			},
-			{
-				hotkey: "C",
-				callback: enterCommitMode,
-				options: { meta: { group, name: "Commit" } },
-			},
-		],
-		{
-			enabled: focusedPanel === panel && outlineMode._tag === "Default",
-			conflictBehavior: "allow",
+	useHotkey("ArrowDown", selectNextItem, {
+		conflictBehavior: "allow",
+		enabled: focusedPanel === panel,
+		meta: {
+			group,
+			name: "Move down",
+			shortcutsBar: false,
 		},
-	);
+	});
+
+	useHotkey("Shift+ArrowUp", selectPreviousSection, {
+		conflictBehavior: "allow",
+		enabled: focusedPanel === panel,
+		meta: {
+			group,
+			name: "Move to previous section",
+			shortcutsBar: false,
+		},
+	});
+
+	useHotkey("Shift+K", selectPreviousSection, {
+		conflictBehavior: "allow",
+		enabled: focusedPanel === panel,
+		meta: {
+			group,
+			name: "Move to previous section",
+			shortcutsBar: false,
+		},
+	});
+
+	useHotkey("Shift+ArrowDown", selectNextSection, {
+		conflictBehavior: "allow",
+		enabled: focusedPanel === panel,
+		meta: {
+			group,
+			name: "Move to next section",
+			shortcutsBar: false,
+		},
+	});
+
+	useHotkey("Shift+J", selectNextSection, {
+		conflictBehavior: "allow",
+		enabled: focusedPanel === panel,
+		meta: {
+			group,
+			name: "Move to next section",
+			shortcutsBar: false,
+		},
+	});
+
+	useHotkey("Home", selectFirstItem, {
+		conflictBehavior: "allow",
+		enabled: focusedPanel === panel,
+		meta: {
+			group,
+			name: "Move to first item",
+			shortcutsBar: false,
+		},
+	});
+
+	useHotkey("Meta+ArrowUp", selectFirstItem, {
+		conflictBehavior: "allow",
+		enabled: focusedPanel === panel,
+		meta: {
+			group,
+			name: "Move to first item",
+			shortcutsBar: false,
+		},
+	});
+
+	useHotkeySequence(["G", "G"], selectFirstItem, {
+		conflictBehavior: "allow",
+		enabled: focusedPanel === panel,
+		meta: {
+			group,
+			name: "Move to first item",
+			shortcutsBar: false,
+		},
+	});
+
+	useHotkey("End", selectLastItem, {
+		conflictBehavior: "allow",
+		enabled: focusedPanel === panel,
+		meta: {
+			group,
+			name: "Move to last item",
+			shortcutsBar: false,
+		},
+	});
+
+	useHotkey("Meta+ArrowDown", selectLastItem, {
+		conflictBehavior: "allow",
+		enabled: focusedPanel === panel,
+		meta: {
+			group,
+			name: "Move to last item",
+			shortcutsBar: false,
+		},
+	});
+
+	useHotkey("Shift+G", selectLastItem, {
+		conflictBehavior: "allow",
+		enabled: focusedPanel === panel,
+		meta: {
+			group,
+			name: "Move to last item",
+			shortcutsBar: false,
+		},
+	});
 };
