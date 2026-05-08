@@ -167,7 +167,7 @@ impl Subcommands {
             | Subcommands::Teardown => Unknown,
             Subcommands::Config(config::Platform { cmd }) => match cmd {
                 Some(config::Subcommands::Forge {
-                    cmd: Some(config::ForgeSubcommand::Auth),
+                    cmd: Some(config::ForgeSubcommand::Auth { .. }),
                 }) => ForgeAuth,
                 Some(config::Subcommands::Forge {
                     cmd: Some(config::ForgeSubcommand::Forget { .. }),

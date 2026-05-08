@@ -45,6 +45,17 @@
 			"passThroughEnv": ["BUILDKITE_ANALYTICS_TOKEN"],
 			"dependsOn": ["package"]
 		},
+		"test:e2e:cli": {
+			"passThroughEnv": [
+				"BUILDKITE_ANALYTICS_TOKEN",
+				"GITHUB_TEST_TOKEN",
+				"GITLAB_TEST_TOKEN",
+				"GITHUB_TEST_REPO",
+				"GITLAB_TEST_REPO",
+				"BUT_BIN"
+			],
+			"cache": false
+		},
 		"test:ct": {
 			"env": ["PLAYWRIGHT_BROWSERS_PATH"],
 			"dependsOn": ["package", "playwright:install:ct"]
