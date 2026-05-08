@@ -60,10 +60,6 @@ import DataSharingService, { DATA_SHARING_SERVICE } from "$lib/support/dataShari
 import { EVENT_CONTEXT, EventContext } from "$lib/telemetry/eventContext";
 import { POSTHOG_WRAPPER, PostHogWrapper } from "$lib/telemetry/posthog";
 import { UPDATER_SERVICE, UpdaterService } from "$lib/updater/updater";
-import {
-	UpstreamIntegrationService,
-	UPSTREAM_INTEGRATION_SERVICE,
-} from "$lib/upstream/upstreamIntegrationService.svelte";
 import { TokenMemoryService } from "$lib/user/tokenMemoryService";
 import { USER_SERVICE, UserService } from "$lib/user/userService.svelte";
 import { WorktreeService, WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
@@ -261,14 +257,6 @@ export function initDependencies(args: {
 	const dependencyService = new DependencyService(worktreeService);
 
 	// ============================================================================
-	// WORKFLOWS
-	// ============================================================================
-
-	const upstreamIntegrationService = new UpstreamIntegrationService(
-		clientState.backendApi,
-		stackService,
-	);
-
 	// ============================================================================
 	// FEEDS & NOTIFICATIONS
 	// ============================================================================
@@ -379,7 +367,6 @@ export function initDependencies(args: {
 		[UNCOMMITTED_SERVICE, uncommittedService],
 		[UPDATER_SERVICE, updaterService],
 		[UPLOADS_SERVICE, uploadsService],
-		[UPSTREAM_INTEGRATION_SERVICE, upstreamIntegrationService],
 		[URL_SERVICE, urlService],
 		[USER_SERVICE, userService],
 		[WORKTREE_SERVICE, worktreeService],

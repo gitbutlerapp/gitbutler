@@ -362,8 +362,6 @@ fn main() -> anyhow::Result<()> {
                 legacy::virtual_branches::tauri_fetch_from_remotes::fetch_from_remotes,
                 legacy::virtual_branches::tauri_normalize_branch_name::normalize_branch_name,
                 legacy::virtual_branches::tauri_upstream_integration_statuses::upstream_integration_statuses,
-                legacy::virtual_branches::tauri_integrate_upstream::integrate_upstream,
-                legacy::virtual_branches::tauri_resolve_upstream_integration::resolve_upstream_integration,
                 legacy::stack::tauri_create_reference::create_reference,
                 legacy::stack::tauri_create_branch::create_branch,
                 legacy::stack::tauri_remove_branch::remove_branch,

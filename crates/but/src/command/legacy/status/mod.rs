@@ -4,6 +4,7 @@ use anyhow::Context as _;
 use assignment::FileAssignment;
 use bstr::{BStr, BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
+use but_api::workspace::upstream_integration::BranchStatus as UpstreamBranchStatus;
 use but_core::{RepositoryExt, TreeStatus, ref_metadata::StackId, ui};
 use but_ctx::Context;
 use but_forge::ForgeReview;
@@ -12,7 +13,6 @@ use but_workspace::{
     ref_info::{Commit, LocalCommit, LocalCommitRelation, Segment},
     ui::PushStatus,
 };
-use gitbutler_branch_actions::upstream_integration::BranchStatus as UpstreamBranchStatus;
 use gitbutler_operating_modes::OperatingMode;
 use gix::date::time::CustomFormat;
 use ratatui::{style::Modifier, text::Span};
@@ -1688,7 +1688,7 @@ impl CliDisplay for but_update::AvailableUpdate {
 async fn compute_branch_merge_statuses(
     ctx: &Context,
 ) -> anyhow::Result<BTreeMap<String, UpstreamBranchStatus>> {
-    use gitbutler_branch_actions::upstream_integration::StackStatuses;
+    use but_api::workspace::upstream_integration::StackStatuses;
 
     // Get upstream integration statuses using the public API
     let statuses =
@@ -1698,7 +1698,7 @@ async fn compute_branch_merge_statuses(
     let mut result = BTreeMap::new();
 
     if let StackStatuses::UpdatesRequired { statuses, .. } = statuses {
-        for (_stack_id, stack_status) in statuses {
+        for stack_status in statuses {
             for branch_status in stack_status.branch_statuses {
                 result.insert(branch_status.name.clone(), branch_status.status);
             }

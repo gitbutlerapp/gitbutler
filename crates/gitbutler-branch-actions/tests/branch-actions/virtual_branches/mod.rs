@@ -101,23 +101,6 @@ impl TestRepo {
         self.simulate_push_branch(&"refs/heads/master".parse().unwrap());
     }
 
-    pub fn reset_hard(&self, oid: Option<gix::ObjectId>) {
-        let repo = self.open();
-        let current_head = repo.head_id().expect("HEAD peels").detach();
-        let target = oid.unwrap_or(current_head);
-        but_core::worktree::safe_checkout(
-            current_head,
-            target,
-            &repo,
-            but_core::worktree::checkout::Options {
-                skip_head_update: true,
-                ..Default::default()
-            },
-        )
-        .unwrap();
-        update_current_head(&repo, target, "reset hard");
-    }
-
     pub fn checkout_commit(&self, commit_oid: gix::ObjectId) {
         let repo = self.open();
         let current_head = repo.head_id().expect("HEAD peels").detach();
@@ -327,7 +310,6 @@ fn set_head_detached(repo: &gix::Repository, target: gix::ObjectId) {
     .expect("HEAD can be detached");
 }
 
-mod apply_virtual_branch;
 mod create_virtual_branch_from_branch;
 mod init;
 mod list;

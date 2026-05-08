@@ -2,14 +2,15 @@ mod json;
 
 use std::{collections::HashMap, fmt::Write};
 
-use but_core::{RepositoryExt, ref_metadata::StackId};
-use but_ctx::Context;
-use gitbutler_branch_actions::upstream_integration::{
+use but_api::workspace::json::{BottomUpdate, BottomUpdateKind};
+use but_api::workspace::upstream_integration::{
     BranchStatus::{self, Conflicted, Empty, Integrated, SafelyUpdatable},
-    Resolution, ResolutionApproach,
+    ResolutionApproach,
     StackStatuses::{UpToDate, UpdatesRequired},
     UpstreamTreeStatus,
 };
+use but_core::{RepositoryExt, ref_metadata::StackId};
+use but_ctx::Context;
 use json::{BaseBranchInfo, BranchStatusInfo, PullCheckOutput, UpstreamCommit, UpstreamInfo};
 use serde::{Deserialize, Serialize};
 
@@ -101,7 +102,7 @@ async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<
             } => {
                 let branch_statuses: Vec<BranchStatusInfo> = statuses
                     .iter()
-                    .flat_map(|(_id, stack_status)| {
+                    .flat_map(|stack_status| {
                         stack_status.branch_statuses.iter().map(|bs| {
                             let (status_str, rebasable) = match bs.status {
                                 SafelyUpdatable => ("updatable", None),
@@ -220,7 +221,7 @@ async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<
                 }
                 if !statuses.is_empty() {
                     writeln!(out, "\n{}", t.important.paint("Branch Status"))?;
-                    for (_id, status) in statuses {
+                    for status in statuses {
                         for bs in status.branch_statuses {
                             let status_text = match bs.status {
                                 SafelyUpdatable => t.success.paint("[ok]"),
@@ -385,10 +386,12 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                 // Analyze branches to update
                 let mut branches_to_update = 0;
                 let mut integrated_branches = vec![];
-                let mut resolutions = vec![];
+                let mut updates: Vec<BottomUpdate> = vec![];
+                let mut resolution_approaches: HashMap<StackId, ResolutionApproach> =
+                    HashMap::new();
 
-                for (maybe_stack_id, status) in &statuses {
-                    let Some(stack_id) = maybe_stack_id else {
+                for status in &statuses {
+                    let Some(stack_id) = &status.stack_id else {
                         if let Some(out) = out.for_human() {
                             writeln!(
                                 out,
@@ -438,12 +441,24 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                         ResolutionApproach::Rebase
                     };
 
-                    let resolution = Resolution {
-                        stack_id: *stack_id,
-                        approach,
-                        delete_integrated_branches: true,
-                    };
-                    resolutions.push(resolution);
+                    resolution_approaches.insert(*stack_id, approach);
+
+                    // Build a BottomUpdate from the stack's bottom_selector for
+                    // the workspace_integrate_upstream API.
+                    if let Some(selector) = &status.bottom_selector {
+                        let selector = match selector {
+                            but_api::workspace::upstream_integration::StackSelector::Commit(id) => {
+                                but_api::commit::json::RelativeTo::Commit(*id)
+                            }
+                            but_api::workspace::upstream_integration::StackSelector::Reference(
+                                r,
+                            ) => but_api::commit::json::RelativeTo::Reference(r.clone()),
+                        };
+                        updates.push(BottomUpdate {
+                            kind: BottomUpdateKind::Rebase,
+                            selector,
+                        });
+                    }
                 }
 
                 if let Some(out) = out.for_human()
@@ -459,34 +474,33 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
 
                 pull_result.integrated_branches = integrated_branches.clone();
 
-                Some((resolutions, statuses))
+                Some((updates, resolution_approaches, statuses))
             }
         }
     };
 
     // Step 3: Actually perform the integration
-    if let Some((resolutions, statuses)) = resolutions {
-        // Store branch information before integration, along with resolution approaches
+    if let Some((updates, resolution_map, statuses)) = resolutions {
+        // Store branch information before integration
         let mut branch_info_map: HashMap<StackId, (String, String)> = HashMap::new();
-        let mut resolution_map: HashMap<StackId, ResolutionApproach> = HashMap::new();
 
-        for (maybe_stack_id, status) in &statuses {
-            if let Some(stack_id) = maybe_stack_id {
+        for status in &statuses {
+            if let Some(stack_id) = status.stack_id {
                 for branch_status in &status.branch_statuses {
                     let status_str = format_branch_status(&branch_status.status);
-                    branch_info_map.insert(*stack_id, (branch_status.name.clone(), status_str));
+                    branch_info_map.insert(stack_id, (branch_status.name.clone(), status_str));
                 }
             }
         }
 
-        // Store resolution approaches before moving resolutions
-        for resolution in &resolutions {
-            resolution_map.insert(resolution.stack_id, resolution.approach);
-        }
-
-        let integration_result =
-            but_api::legacy::virtual_branches::integrate_upstream(ctx.to_sync(), resolutions, None)
-                .await;
+        let integration_result = {
+            let mut ctx = ctx.to_sync().into_thread_local();
+            but_api::workspace::workspace_integrate_upstream(
+                &mut ctx,
+                updates,
+                but_core::DryRun::No,
+            )
+        };
 
         match integration_result {
             Ok(_outcome) => {
@@ -511,8 +525,8 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                                     ..
                                 } = &post_status
                                 {
-                                    post_statuses.iter().any(|(id, status)| {
-                                        id.as_ref() == Some(stack_id)
+                                    post_statuses.iter().any(|status| {
+                                        status.stack_id.as_ref() == Some(stack_id)
                                             && status
                                                 .branch_statuses
                                                 .iter()
@@ -554,7 +568,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                         ..
                     } = &post_status
                     {
-                        post_statuses.iter().any(|(_, status)| {
+                        post_statuses.iter().any(|status| {
                             status.tree_status == UpstreamTreeStatus::Conflicted
                                 || status
                                     .branch_statuses
