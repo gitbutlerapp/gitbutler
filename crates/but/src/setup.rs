@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::{fmt::Write, path::Path};
 
 use crate::theme::{self, Paint};
 use but_core::{WORKSPACE_REF_NAME, sync::LockScope};
@@ -222,7 +222,7 @@ pub fn init_ctx(
 
             // Spawn background sync if there's anything to do
             if sync_operations.has_work() {
-                spawn_background_sync(args, out, last_fetch, sync_operations, silent);
+                spawn_background_sync(&args.current_dir, out, last_fetch, sync_operations, silent);
             }
         }
     }
@@ -231,8 +231,8 @@ pub fn init_ctx(
 }
 
 /// Tracks which background sync operations should be performed.
-#[derive(Debug)]
-struct SyncOperations {
+#[derive(Debug, Copy, Clone)]
+pub(crate) struct SyncOperations {
     fetch: bool,
     pr: bool,
     ci: bool,
@@ -240,13 +240,13 @@ struct SyncOperations {
 }
 
 impl SyncOperations {
-    fn has_work(&self) -> bool {
+    pub(crate) fn has_work(&self) -> bool {
         self.fetch || self.pr || self.ci || self.updates
     }
 }
 
 /// Determines which sync operations should be performed based on intervals and lock availability.
-fn determine_sync_operations(
+pub(crate) fn determine_sync_operations(
     ctx: &Context,
     fetch_interval_minutes: isize,
     last_fetch: Option<std::time::SystemTime>,
@@ -316,14 +316,10 @@ fn determine_sync_operations(
     }
 }
 
-/// Spawns a background process to perform the specified sync operations.
-fn spawn_background_sync(
-    args: &Args,
-    out: &mut OutputChannel,
-    last_fetch: Option<std::time::SystemTime>,
+pub fn build_background_sync_command(
+    current_dir: &Path,
     operations: SyncOperations,
-    silent: bool,
-) {
+) -> Option<tokio::process::Command> {
     let mut cmd = {
         match current_exe_for_but_exec() {
             Ok(but_path) => tokio::process::Command::new(but_path),
@@ -331,13 +327,11 @@ fn spawn_background_sync(
                 tracing::error!(error = %e, "failed to resolve but binary path");
                 // We don't want to cause a crash just because we can't spawn background sync, so we fail
                 // silently instead
-                return;
+                return None;
             }
         }
     };
-    cmd.arg("-C")
-        .arg(&args.current_dir)
-        .arg("refresh-remote-data");
+    cmd.arg("-C").arg(current_dir).arg("refresh-remote-data");
 
     if operations.fetch {
         cmd.arg("--fetch");
@@ -353,9 +347,23 @@ fn spawn_background_sync(
     }
 
     cmd.stderr(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .group()
-        .kill_on_drop(false);
+        .stdout(std::process::Stdio::null());
+
+    Some(cmd)
+}
+
+/// Spawns a background process to perform the specified sync operations.
+fn spawn_background_sync(
+    current_dir: &Path,
+    out: &mut OutputChannel,
+    last_fetch: Option<std::time::SystemTime>,
+    operations: SyncOperations,
+    silent: bool,
+) {
+    let Some(mut cmd) = build_background_sync_command(current_dir, operations) else {
+        return;
+    };
+    cmd.group().kill_on_drop(false);
 
     if cmd.spawn().is_ok() && !silent {
         // Show user feedback about what's happening

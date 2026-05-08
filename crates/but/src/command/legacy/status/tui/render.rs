@@ -6,6 +6,7 @@ use nonempty::NonEmpty;
 use ratatui::{
     Frame,
     prelude::*,
+    text::ToSpan,
     widgets::{Block, BorderType, Borders, List, ListItem},
 };
 use unicode_width::UnicodeWidthStr;
@@ -16,7 +17,7 @@ use crate::{
         output::{BranchLineContent, StatusOutputContent, StatusOutputLineData},
         tui::{Markable, rub::squash_operation_display},
     },
-    theme::Theme,
+    theme::{Paint, Theme},
 };
 
 use super::{
@@ -602,9 +603,30 @@ fn render_hotbar(app: &App, area: Rect, frame: &mut Frame) {
     ])
     .split(area);
 
-    frame.render_widget(mode_span, layout[0]);
+    let mode_area = layout[0];
+    let margin_area = layout[1];
 
-    frame.render_widget(" ", layout[1]);
+    let reloading_text = Span::styled(" Reloading ", app.theme.hint);
+
+    let (key_binds_area, refresh_area) = if app.background_refresh.is_refreshing() {
+        let layout = Layout::horizontal([
+            Constraint::Min(1),
+            Constraint::Length(reloading_text.width() as _),
+        ])
+        .flex(layout::Flex::SpaceBetween)
+        .split(layout[2]);
+        (layout[0], Some(layout[1]))
+    } else {
+        (layout[2], None)
+    };
+
+    if let Some(refresh_area) = refresh_area {
+        frame.render_widget(reloading_text, refresh_area);
+    }
+
+    frame.render_widget(mode_span, mode_area);
+
+    frame.render_widget(" ", margin_area);
 
     match &*app.mode {
         Mode::Normal(..)
@@ -631,7 +653,7 @@ fn render_hotbar(app: &App, area: Rect, frame: &mut Frame) {
                 }
             }
 
-            frame.render_widget(line, layout[2]);
+            frame.render_widget(line, key_binds_area);
         }
         Mode::Command(CommandMode { textarea, kind }) => {
             let command_layout = Layout::horizontal([
@@ -641,7 +663,7 @@ fn render_hotbar(app: &App, area: Rect, frame: &mut Frame) {
                 },
                 Constraint::Min(1),
             ])
-            .split(layout[2]);
+            .split(key_binds_area);
 
             match kind {
                 CommandModeKind::But => {

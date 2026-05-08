@@ -3,6 +3,7 @@
 use std::{
     borrow::Cow,
     ffi::OsString,
+    path::Path,
     process::Command,
     rc::Rc,
     sync::{Arc, atomic::AtomicBool, mpsc::Receiver},
@@ -33,32 +34,19 @@ use crate::{
         status::{
             StatusFlags, StatusOutputLine, TuiLaunchOptions,
             tui::{
-                backstack::{Backstack, BackstackEntry, RememberToUpdateBackstack},
-                branch_picker::{BranchPicker, BranchPickerMessage},
-                confirm::{Confirm, ConfirmMessage},
-                cursor::{Cursor, is_selectable_in_mode},
-                details::{Details, DetailsMessage, RenderNextChunkResult},
-                event_polling::{CrosstermEventPolling, EventPolling, NoopEventPolling},
-                fps::FpsCounter,
-                help::{Help, HelpMessage},
-                highlight::Highlights,
-                key_bind::{
+                background_refresh::BackgroundRefresh, backstack::{Backstack, BackstackEntry, RememberToUpdateBackstack}, branch_picker::{BranchPicker, BranchPickerMessage}, confirm::{Confirm, ConfirmMessage}, cursor::{Cursor, is_selectable_in_mode}, details::{Details, DetailsMessage, RenderNextChunkResult}, event_polling::{CrosstermEventPolling, EventPolling, NoopEventPolling}, fps::FpsCounter, help::{Help, HelpMessage}, highlight::Highlights, key_bind::{
                     KeyBinds, branch_picker_key_binds, confirm_key_binds, default_key_binds,
                     help_key_binds, normal_with_marks_key_binds,
-                },
-                marking::{Markable, Marks},
-                message_on_drop::MessageOnDrop,
-                mode::{
+                }, marking::{Markable, Marks}, message_on_drop::MessageOnDrop, mode::{
                     CommandMode, CommandModeKind, CommitMessageComposer, CommitMode, CommitSource,
                     InlineRewordMode, Mode, ModeDiscriminant, MoveMode, MoveSource, NormalMode,
                     RubMode, RubSource, StackCommitSource, UnassignedCommitSource,
-                },
-                operations::stack_has_assigned_changes,
-                toast::{ToastKind, Toasts},
+                }, operations::stack_has_assigned_changes, toast::{ToastKind, Toasts}
             },
         },
     },
     id::UNASSIGNED,
+    setup::{build_background_sync_command, determine_sync_operations},
     theme::Theme,
     tui::{CrosstermTerminalGuard, HeadlessTerminalGuard, TerminalGuard},
     utils::{DebugAsType, OutputChannel, binary_path::current_exe_for_but_exec},
@@ -87,6 +75,7 @@ mod render;
 mod rub;
 mod rub_from_detail_view;
 mod toast;
+mod background_refresh;
 
 #[cfg(test)]
 mod tests;
@@ -117,6 +106,7 @@ pub(super) async fn render_tui(
     flags: StatusFlags,
     status_lines: Vec<StatusOutputLine>,
     options: TuiLaunchOptions,
+    current_dir: &Path,
 ) -> anyhow::Result<Vec<StatusOutputLine>> {
     let mut app = App::new(status_lines, flags, options);
 
@@ -136,6 +126,7 @@ pub(super) async fn render_tui(
             &mut messages,
             &mut other_messages,
             <Arc<AtomicBool>>::default(),
+            current_dir,
             ctx,
             out,
             mode,
@@ -144,6 +135,18 @@ pub(super) async fn render_tui(
     } else {
         let (_watcher_handle, received_watcher_event) =
             start_watcher(ctx).context("failed to start filesystem watcher")?;
+
+        let sync_operations = determine_sync_operations(ctx, 1, None);
+        if sync_operations.has_work()
+            && let Some(cmd) = build_background_sync_command(current_dir, sync_operations)
+        {
+            std::thread::spawn(move || -> std::io::Result<_> {
+                let mut cmd = cmd.into_std();
+                cmd.spawn()?.wait()?;
+                tracing::info!("REALAOD");
+                Ok(())
+            });
+        }
 
         let mut terminal_guard = CrosstermTerminalGuard::new(true)?;
         let event_polling = CrosstermEventPolling;
@@ -155,6 +158,7 @@ pub(super) async fn render_tui(
             &mut messages,
             &mut other_messages,
             received_watcher_event,
+            current_dir,
             ctx,
             out,
             mode,
@@ -172,6 +176,7 @@ async fn render_loop<T, E>(
     messages: &mut Vec<Message>,
     other_messages: &mut Vec<Message>,
     received_watcher_event: Arc<AtomicBool>,
+    current_dir: &Path,
     ctx: &mut Context,
     out: &mut OutputChannel,
     mode: &OperatingMode,
@@ -199,6 +204,7 @@ where
             messages,
             other_messages,
             &received_watcher_event,
+            Some(current_dir),
             ctx,
             out,
             mode,
@@ -219,6 +225,7 @@ async fn render_loop_once<T, E>(
     messages: &mut Vec<Message>,
     other_messages: &mut Vec<Message>,
     received_watcher_event: &AtomicBool,
+    current_dir: Option<&Path>,
     ctx: &mut Context,
     out: &mut OutputChannel,
     mode: &OperatingMode,
@@ -235,6 +242,7 @@ where
         messages,
         other_messages,
         received_watcher_event,
+        current_dir,
         ctx,
         out,
         mode,
@@ -256,6 +264,7 @@ async fn update<T, E>(
     messages: &mut Vec<Message>,
     other_messages: &mut Vec<Message>,
     received_watcher_event: &AtomicBool,
+    current_dir: Option<&Path>,
     ctx: &mut Context,
     out: &mut OutputChannel,
     mode: &OperatingMode,
@@ -311,6 +320,13 @@ where
             .is_none_or(|timestamp| timestamp.elapsed() > WATCHER_SELF_ECHO_SUPPRESSION)
     {
         messages.push(Message::Reload(None, ReloadCause::Watcher));
+    }
+
+    if let Some(current_dir) = current_dir {
+        app.background_refresh.update(ctx, current_dir);
+        if app.background_refresh.needs_reload() {
+            messages.push(Message::Reload(None, ReloadCause::Watcher));
+        }
     }
 
     // handle messages
@@ -417,6 +433,7 @@ struct App {
     has_focus: bool,
     backstack: Backstack,
     previous_reload_caused_by_mutation_timestamp: Option<Instant>,
+    background_refresh: BackgroundRefresh,
 }
 
 #[derive(Debug)]
@@ -484,6 +501,7 @@ impl App {
             status_width_percentage: 50,
             theme,
             has_focus: true,
+            background_refresh: BackgroundRefresh::new(),
         }
     }
 

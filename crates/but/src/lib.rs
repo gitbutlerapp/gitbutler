@@ -23,6 +23,8 @@
 #![cfg_attr(not(feature = "legacy"), expect(unused))]
 
 use std::ffi::OsString;
+#[cfg(feature = "legacy")]
+use std::path::Path;
 
 use anyhow::{Context as _, Result};
 use cfg_if::cfg_if;
@@ -595,7 +597,7 @@ async fn match_subcommand(
                 },
             )
             .emit_metrics(metrics_ctx);
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
+            maybe_run_status_after(status_after, &result, &mut ctx, out, &args.current_dir).await;
             result
         }
         #[cfg(feature = "legacy")]
@@ -641,6 +643,7 @@ async fn match_subcommand(
                 out,
                 flags,
                 command::legacy::status::StatusRenderMode::Oneshot,
+                &args.current_dir,
             )
             .await
             .emit_metrics(metrics_ctx)
@@ -667,7 +670,8 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: true },
+                    // The TUI starts its own integrated background sync
+                    background_sync: BackgroundSync::Disabled,
                     ..Default::default()
                 },
                 out,
@@ -693,6 +697,7 @@ async fn match_subcommand(
                 out,
                 StatusFlags::for_tui(),
                 StatusRenderMode::Tui(_options),
+                &args.current_dir,
             )
             .await
             .emit_metrics(metrics_ctx)
@@ -720,7 +725,7 @@ async fn match_subcommand(
             )
             .context("Rubbed the wrong way.")
             .emit_metrics(metrics_ctx);
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
+            maybe_run_status_after(status_after, &result, &mut ctx, out, &args.current_dir).await;
             result.show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
@@ -974,7 +979,7 @@ async fn match_subcommand(
                 }
             };
 
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
+            maybe_run_status_after(status_after, &result, &mut ctx, out, &args.current_dir).await;
             result
         }
         #[cfg(feature = "legacy")]
@@ -1062,7 +1067,7 @@ async fn match_subcommand(
             out.begin_status_after(status_after);
             let result = command::legacy::absorb::handle(&mut ctx, out, source.as_deref(), dry_run)
                 .emit_metrics(metrics_ctx);
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
+            maybe_run_status_after(status_after, &result, &mut ctx, out, &args.current_dir).await;
             result
         }
         #[cfg(feature = "legacy")]
@@ -1269,7 +1274,7 @@ async fn match_subcommand(
             let result = command::legacy::rub::handle_uncommit(&mut ctx, out, &source, discard)
                 .context("Failed to uncommit.")
                 .emit_metrics(metrics_ctx);
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
+            maybe_run_status_after(status_after, &result, &mut ctx, out, &args.current_dir).await;
             result.show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
@@ -1287,7 +1292,7 @@ async fn match_subcommand(
             let result = command::legacy::rub::handle_amend(&mut ctx, out, &file, &commit)
                 .context("Failed to amend.")
                 .emit_metrics(metrics_ctx);
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
+            maybe_run_status_after(status_after, &result, &mut ctx, out, &args.current_dir).await;
             result.show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
@@ -1326,7 +1331,7 @@ async fn match_subcommand(
                     .context("Failed to stage.")
                     .emit_metrics(metrics_ctx)
             };
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
+            maybe_run_status_after(status_after, &result, &mut ctx, out, &args.current_dir).await;
             result.show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
@@ -1374,7 +1379,7 @@ async fn match_subcommand(
             )
             .context("Failed to squash commits.")
             .emit_metrics(metrics_ctx);
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
+            maybe_run_status_after(status_after, &result, &mut ctx, out, &args.current_dir).await;
             result.show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
@@ -1396,7 +1401,7 @@ async fn match_subcommand(
             out.begin_status_after(status_after);
             let result = command::r#move::handle(&mut ctx, out, &source, &target, after)
                 .emit_metrics(metrics_ctx);
-            maybe_run_status_after(status_after, &result, &mut ctx, out).await;
+            maybe_run_status_after(status_after, &result, &mut ctx, out, &args.current_dir).await;
             result.show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
@@ -1513,13 +1518,14 @@ async fn maybe_run_status_after(
     result: &anyhow::Result<()>,
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
+    current_dir: &Path,
 ) {
     if !status_after {
         return;
     }
     if result.is_ok() {
         let mutation_json = out.take_json_buffer();
-        run_status_after(ctx, out, mutation_json).await;
+        run_status_after(ctx, out, mutation_json, current_dir).await;
     } else {
         // Mutation failed — don't drain the buffer here. OutputChannel::drop
         // will flush any buffered JSON (e.g. structured illegal_move details)
@@ -1551,6 +1557,7 @@ async fn run_status_after(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     mutation_json: Option<serde_json::Value>,
+    current_dir: &std::path::Path,
 ) {
     use crate::command::legacy::status::StatusFlags;
 
@@ -1561,6 +1568,7 @@ async fn run_status_after(
             out,
             StatusFlags::all_false(),
             command::legacy::status::StatusRenderMode::Oneshot,
+            current_dir,
         )
         .await;
         let status_json = out.take_json_buffer().unwrap_or(serde_json::Value::Null);
@@ -1597,6 +1605,7 @@ async fn run_status_after(
                 ..StatusFlags::all_false()
             },
             command::legacy::status::StatusRenderMode::Oneshot,
+            current_dir,
         )
         .await
         {
