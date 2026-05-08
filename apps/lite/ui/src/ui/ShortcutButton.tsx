@@ -22,6 +22,7 @@ export const ShortcutButton: FC<
 			<Tooltip.Trigger
 				{...props}
 				ref={useMergedRefs(buttonRef, props.ref)}
+				// This is needed to ensure the `disabled` attribute is used.
 				render={<button type="button" disabled={props.disabled} />}
 			/>
 			<Tooltip.Portal>
