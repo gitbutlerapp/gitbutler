@@ -48,6 +48,10 @@ pub(crate) mod state {
                         name: format!("project://{project_id}/git/remote-activity"),
                         payload: serde_json::json!({}),
                     },
+                    Change::WorkspaceStackRefChanged { project_id } => ChangeForFrontend {
+                        name: format!("project://{project_id}/git/workspace-ref-changed"),
+                        payload: serde_json::json!({}),
+                    },
                     Change::WorktreeChanges {
                         project_id,
                         changes,

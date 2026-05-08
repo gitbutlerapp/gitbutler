@@ -1226,6 +1226,72 @@ mod with_workspace {
         );
         Ok(())
     }
+
+    /// Creating a new branch in a workspace that has proper metadata stacks plus
+    /// extra "ghost" stacks in the TOML that don't correspond to any actual git refs.
+    #[test]
+    fn create_branch_with_metadata_stacks() -> anyhow::Result<()> {
+        let (_tmp, repo, mut meta) = named_writable_scenario("ws-ref-ws-commit-two-stacks")?;
+
+        // Register stacks A and B in the metadata (simulating real production state)
+        add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+        add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
+        // Add a "ghost" stack that was previously unapplied/deleted but still in TOML
+        add_stack_with_segments(&mut meta, 3, "deleted-branch", StackState::Inactive, &[]);
+
+        let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+        let ws = graph.into_workspace()?;
+
+        let c_ref = r("refs/heads/C");
+        let ws = but_workspace::branch::create_reference(
+            c_ref,
+            None,
+            &repo,
+            &ws,
+            &mut meta,
+            stack_id_for_name,
+            None,
+        )?;
+
+        ws.find_segment_and_stack_by_refname(c_ref)
+            .expect("C should be a standalone segment");
+
+        Ok(())
+    }
+
+    /// When workspace metadata has a bloated stack (e.g. ["A", "C", "ghost1", ...])
+    /// and the user creates an independent branch named "C", `update_workspace_metadata`
+    /// finds "C" already in A's stack and marks A's stack as Merged instead of creating
+    /// a new independent stack. C should still appear as its own segment.
+    #[test]
+    fn create_independent_branch_reusing_name_from_bloated_stack() -> anyhow::Result<()> {
+        let (_tmp, repo, mut meta) = named_writable_scenario("ws-ref-ws-commit-two-stacks")?;
+
+        // Set up metadata that resembles production: stack A has accumulated
+        // stale branch entries, including one named "C" from a previous dependent branch.
+        add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["C", "ghost1"]);
+        add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
+
+        let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+        let ws = graph.into_workspace()?;
+
+        // Try creating an independent branch "C" — same name as the stale entry in A's stack.
+        let c_ref = r("refs/heads/C");
+        let ws = but_workspace::branch::create_reference(
+            c_ref,
+            None,
+            &repo,
+            &ws,
+            &mut meta,
+            stack_id_for_name,
+            None,
+        )?;
+
+        ws.find_segment_and_stack_by_refname(c_ref)
+            .expect("C should be a standalone segment in the workspace");
+
+        Ok(())
+    }
 }
 
 #[test]
@@ -1806,6 +1872,738 @@ fn journey_anon_workspace() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Creating a new independent branch in a workspace that already contains
+/// two stacks with commits should succeed.
+#[test]
+fn create_independent_branch_in_workspace_with_two_stacks() -> anyhow::Result<()> {
+    let (_tmp, repo, mut meta) = named_writable_scenario("ws-ref-ws-commit-two-stacks")?;
+
+    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let ws = graph.into_workspace()?;
+
+    let c_ref = r("refs/heads/C");
+    let ws = but_workspace::branch::create_reference(
+        c_ref,
+        None,
+        &repo,
+        &ws,
+        &mut meta,
+        stack_id_for_name,
+        None,
+    )?;
+
+    let (stack, segment) = ws
+        .find_segment_and_stack_by_refname(c_ref)
+        .expect("C should be a standalone segment in the workspace");
+    assert!(
+        stack.id.is_some(),
+        "new independent stack should have an ID"
+    );
+    assert_eq!(
+        segment.ref_name().map(|rn| rn.shorten().to_string()),
+        Some("C".to_string()),
+    );
+
+    Ok(())
+}
+
+/// Reproducer: creating a new independent branch when the workspace already
+/// contains an empty stack (one that points at the base commit with no
+/// commits of its own).
+#[test]
+fn create_independent_branch_with_existing_empty_stack() -> anyhow::Result<()> {
+    let (_tmp, repo, mut meta) = named_writable_scenario("ws-with-empty-stack")?;
+
+    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let ws = graph.into_workspace()?;
+
+    // B is an empty stack already pointing at the base commit.
+    // Creating a new independent branch C should succeed.
+    let c_ref = r("refs/heads/C");
+    let result = but_workspace::branch::create_reference(
+        c_ref,
+        None,
+        &repo,
+        &ws,
+        &mut meta,
+        stack_id_for_name,
+        None,
+    );
+
+    let ws = result?;
+    let (stack, segment) = ws
+        .find_segment_and_stack_by_refname(c_ref)
+        .expect("C should be a standalone segment in the workspace");
+    assert!(
+        stack.id.is_some(),
+        "new independent stack should have an ID"
+    );
+    assert_eq!(
+        segment.ref_name().map(|rn| rn.shorten().to_string()),
+        Some("C".to_string()),
+    );
+
+    Ok(())
+}
+
+/// Creating a new independent branch when origin/main has
+/// advanced past the fork point of existing stacks.
+#[test]
+fn create_independent_branch_with_advanced_remote() -> anyhow::Result<()> {
+    let (_tmp, repo, mut meta) =
+        named_writable_scenario("ws-ref-ws-commit-two-stacks-advanced-remote")?;
+
+    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let ws = graph.into_workspace()?;
+
+    let c_ref = r("refs/heads/C");
+    let ws = but_workspace::branch::create_reference(
+        c_ref,
+        None,
+        &repo,
+        &ws,
+        &mut meta,
+        stack_id_for_name,
+        None,
+    )?;
+
+    ws.find_segment_and_stack_by_refname(c_ref)
+        .expect("C should be a standalone segment in the workspace");
+
+    Ok(())
+}
+
+/// Reproducer: creating a new independent branch when there are extra
+/// commits on top of the workspace commit (outside commits).
+#[test]
+fn create_independent_branch_with_advanced_workspace() -> anyhow::Result<()> {
+    let (_tmp, repo, mut meta) = named_writable_scenario("ws-ref-ws-commit-one-stack-ws-advanced")?;
+
+    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let ws = graph.into_workspace()?;
+
+    let c_ref = r("refs/heads/C");
+    let result = but_workspace::branch::create_reference(
+        c_ref,
+        None,
+        &repo,
+        &ws,
+        &mut meta,
+        stack_id_for_name,
+        None,
+    );
+
+    match result {
+        Ok(ws) => {
+            ws.find_segment_and_stack_by_refname(c_ref)
+                .expect("C should be a standalone segment in the workspace");
+        }
+        Err(e) => {
+            let msg = e.to_string();
+            if msg.contains("already belongs to another branch") {
+                panic!("BUG REPRODUCED: {msg}");
+            } else {
+                return Err(e);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Creating a second independent branch at the same base commit as an existing one.
+/// Both branches have metadata at the base, so disambiguation fails during traversal.
+/// The `workspace_upgrades` post-processing must recover by creating separate segments.
+#[test]
+fn create_second_independent_branch_at_same_base() -> anyhow::Result<()> {
+    let (_tmp, repo, mut meta) = named_writable_scenario("ws-ref-ws-commit-two-stacks")?;
+
+    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let ws = graph.into_workspace()?;
+
+    // First, create independent branch D at the base.
+    let d_ref = r("refs/heads/D");
+    let ws = but_workspace::branch::create_reference(
+        d_ref,
+        None,
+        &repo,
+        &ws,
+        &mut meta,
+        stack_id_for_name,
+        None,
+    )?;
+
+    ws.find_segment_and_stack_by_refname(d_ref)
+        .expect("D should be a standalone segment in the workspace");
+
+    // Now create a SECOND independent branch E at the same base commit.
+    let e_ref = r("refs/heads/E");
+    let ws = but_workspace::branch::create_reference(
+        e_ref,
+        None,
+        &repo,
+        &ws,
+        &mut meta,
+        stack_id_for_name,
+        None,
+    )?;
+
+    // E should also appear as its own stack.
+    let (stack, segment) = ws
+        .find_segment_and_stack_by_refname(e_ref)
+        .expect("E should be a standalone segment in the workspace");
+    assert!(
+        stack.id.is_some(),
+        "new independent stack should have an ID"
+    );
+    assert_eq!(
+        segment.ref_name().map(|rn| rn.shorten().to_string()),
+        Some("E".to_string()),
+    );
+
+    Ok(())
+}
+
 fn stack_id_for_name(rn: &gix::refs::FullNameRef) -> StackId {
     StackId::from_number_for_testing(rn.shorten().chars().map(|c| c as u128).sum())
+}
+
+/// Parameterized test infrastructure for `create_reference` across many workspace configurations.
+///
+/// The builder creates a workspace from a fixture, configures metadata with various
+/// levels of "bloat" (ghost entries, stale stacks), and then attempts to create an
+/// independent branch — asserting it succeeds.
+mod parameterized {
+    use but_graph::init::Options;
+    use but_testsupport::graph_workspace;
+
+    use crate::{
+        branch::create_reference::stack_id_for_name,
+        ref_info::with_workspace_commit::utils::{
+            StackState, add_stack_with_segments, named_writable_scenario,
+        },
+        utils::r,
+    };
+
+    /// Which git fixture to use as the base repository structure.
+    #[derive(Debug, Clone, Copy)]
+    enum Fixture {
+        /// Two independent stacks (A, B) each with one commit, forking from M.
+        TwoStacks,
+        /// One stack (B on top of A), both with commits, forking from M.
+        OneStack,
+        /// Two stacks (A with commit, B empty at base), forking from M.
+        EmptyStack,
+        /// Two stacks with origin/main advanced past the fork point.
+        AdvancedRemote,
+    }
+
+    impl Fixture {
+        fn scenario_name(self) -> &'static str {
+            match self {
+                Fixture::TwoStacks => "ws-ref-ws-commit-two-stacks",
+                Fixture::OneStack => "ws-ref-ws-commit-one-stack",
+                Fixture::EmptyStack => "ws-with-empty-stack",
+                Fixture::AdvancedRemote => "ws-ref-ws-commit-two-stacks-advanced-remote",
+            }
+        }
+
+        /// Return the branch names that exist as actual git refs in this fixture
+        /// (excluding main/workspace).
+        fn real_branch_names(self) -> &'static [&'static str] {
+            match self {
+                Fixture::TwoStacks | Fixture::AdvancedRemote | Fixture::EmptyStack => &["A", "B"],
+                Fixture::OneStack => &["A", "B"],
+            }
+        }
+    }
+
+    /// How to configure metadata for each real stack.
+    #[derive(Debug)]
+    struct StackMetaConfig {
+        /// Extra ghost segment names to add to this stack's metadata.
+        ghost_segments: Vec<&'static str>,
+        /// Whether the stack is active or inactive in workspace metadata.
+        in_workspace: bool,
+    }
+
+    impl StackMetaConfig {
+        fn clean() -> Self {
+            StackMetaConfig {
+                ghost_segments: vec![],
+                in_workspace: true,
+            }
+        }
+
+        fn with_ghosts(ghosts: &[&'static str]) -> Self {
+            StackMetaConfig {
+                ghost_segments: ghosts.to_vec(),
+                in_workspace: true,
+            }
+        }
+
+        #[allow(dead_code)]
+        fn inactive() -> Self {
+            StackMetaConfig {
+                ghost_segments: vec![],
+                in_workspace: false,
+            }
+        }
+    }
+
+    /// Configuration for extra stacks that don't correspond to any real git refs.
+    #[derive(Debug)]
+    struct ExtraStack {
+        name: &'static str,
+        segments: Vec<&'static str>,
+        in_workspace: bool,
+    }
+
+    /// Full scenario configuration.
+    #[derive(Debug)]
+    struct Scenario {
+        fixture: Fixture,
+        /// Metadata config for each real branch, indexed by position in `fixture.real_branch_names()`.
+        stack_configs: Vec<StackMetaConfig>,
+        /// Additional stacks in metadata that don't correspond to real git refs.
+        extra_stacks: Vec<ExtraStack>,
+        /// Name of the branch to create.
+        new_branch_name: &'static str,
+    }
+
+    impl Scenario {
+        fn run(&self) -> anyhow::Result<()> {
+            let (_tmp, repo, mut meta) = named_writable_scenario(self.fixture.scenario_name())?;
+            let real_names = self.fixture.real_branch_names();
+
+            // Configure metadata for real stacks.
+            for (i, (name, config)) in real_names.iter().zip(&self.stack_configs).enumerate() {
+                let id = (i + 1) as u128;
+                let state = if config.in_workspace {
+                    StackState::InWorkspace
+                } else {
+                    StackState::Inactive
+                };
+                add_stack_with_segments(&mut meta, id, name, state, &config.ghost_segments);
+            }
+
+            // Add extra stacks.
+            for (i, extra) in self.extra_stacks.iter().enumerate() {
+                let id = (100 + i) as u128;
+                let state = if extra.in_workspace {
+                    StackState::InWorkspace
+                } else {
+                    StackState::Inactive
+                };
+                add_stack_with_segments(&mut meta, id, extra.name, state, &extra.segments);
+            }
+
+            let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+            let ws = graph.into_workspace()?;
+            let before = graph_workspace(&ws);
+
+            let ref_string = format!("refs/heads/{}", self.new_branch_name);
+            let new_ref = r(&ref_string);
+            let result = but_workspace::branch::create_reference(
+                new_ref,
+                None,
+                &repo,
+                &ws,
+                &mut meta,
+                stack_id_for_name,
+                None,
+            );
+
+            match result {
+                Ok(ws) => {
+                    let (_stack, segment) = ws
+                        .find_segment_and_stack_by_refname(new_ref)
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Branch '{}' should be findable in the workspace after creation.\n\
+                             Workspace before:\n{before}\n\
+                             Workspace after:\n{}",
+                                self.new_branch_name,
+                                graph_workspace(&ws),
+                            )
+                        });
+                    assert_eq!(
+                        segment.ref_name().map(|rn| rn.shorten().to_string()),
+                        Some(self.new_branch_name.to_string()),
+                        "Segment ref name should match the created branch"
+                    );
+                    Ok(())
+                }
+                Err(e) => {
+                    panic!(
+                        "create_reference failed for scenario {self:?}:\n  error: {e}\n  \
+                         workspace before:\n{before}",
+                    );
+                }
+            }
+        }
+    }
+
+    // --- Parameterized tests ---
+
+    /// Clean metadata, no ghosts — baseline for each fixture.
+    mod clean_metadata {
+        use super::*;
+
+        #[test]
+        fn two_stacks() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::TwoStacks,
+                stack_configs: vec![StackMetaConfig::clean(), StackMetaConfig::clean()],
+                extra_stacks: vec![],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn one_stack() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::OneStack,
+                stack_configs: vec![StackMetaConfig::clean(), StackMetaConfig::clean()],
+                extra_stacks: vec![],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn empty_stack() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::EmptyStack,
+                stack_configs: vec![StackMetaConfig::clean(), StackMetaConfig::clean()],
+                extra_stacks: vec![],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn advanced_remote() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::AdvancedRemote,
+                stack_configs: vec![StackMetaConfig::clean(), StackMetaConfig::clean()],
+                extra_stacks: vec![],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+    }
+
+    /// Stacks with ghost/stale segment entries that don't correspond to real refs.
+    mod bloated_metadata {
+        use super::*;
+
+        #[test]
+        fn one_ghost_in_first_stack() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::TwoStacks,
+                stack_configs: vec![
+                    StackMetaConfig::with_ghosts(&["ghost1"]),
+                    StackMetaConfig::clean(),
+                ],
+                extra_stacks: vec![],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn many_ghosts_in_first_stack() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::TwoStacks,
+                stack_configs: vec![
+                    StackMetaConfig::with_ghosts(&[
+                        "ghost1", "ghost2", "ghost3", "ghost4", "ghost5",
+                    ]),
+                    StackMetaConfig::clean(),
+                ],
+                extra_stacks: vec![],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn ghosts_in_both_stacks() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::TwoStacks,
+                stack_configs: vec![
+                    StackMetaConfig::with_ghosts(&["ghost1", "ghost2"]),
+                    StackMetaConfig::with_ghosts(&["ghost3", "ghost4"]),
+                ],
+                extra_stacks: vec![],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn new_branch_name_collides_with_ghost() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::TwoStacks,
+                stack_configs: vec![
+                    StackMetaConfig::with_ghosts(&["C", "ghost1"]),
+                    StackMetaConfig::clean(),
+                ],
+                extra_stacks: vec![],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn new_branch_name_collides_with_ghost_in_second_stack() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::TwoStacks,
+                stack_configs: vec![
+                    StackMetaConfig::clean(),
+                    StackMetaConfig::with_ghosts(&["C"]),
+                ],
+                extra_stacks: vec![],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn heavily_bloated_one_stack() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::OneStack,
+                stack_configs: vec![
+                    StackMetaConfig::clean(),
+                    StackMetaConfig::with_ghosts(&[
+                        "g1", "g2", "g3", "g4", "g5", "g6", "g7", "g8", "g9", "g10", "g11", "g12",
+                        "g13", "g14", "g15",
+                    ]),
+                ],
+                extra_stacks: vec![],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn ghost_collides_with_advanced_remote() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::AdvancedRemote,
+                stack_configs: vec![
+                    StackMetaConfig::with_ghosts(&["C", "ghost1"]),
+                    StackMetaConfig::with_ghosts(&["ghost2"]),
+                ],
+                extra_stacks: vec![],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+    }
+
+    /// Extra stacks in metadata that have no real git refs at all.
+    mod extra_stacks {
+        use super::*;
+
+        #[test]
+        fn one_inactive_extra_stack() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::TwoStacks,
+                stack_configs: vec![StackMetaConfig::clean(), StackMetaConfig::clean()],
+                extra_stacks: vec![ExtraStack {
+                    name: "deleted-branch",
+                    segments: vec![],
+                    in_workspace: false,
+                }],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn active_extra_stack_with_new_branch_name() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::TwoStacks,
+                stack_configs: vec![StackMetaConfig::clean(), StackMetaConfig::clean()],
+                extra_stacks: vec![ExtraStack {
+                    name: "C",
+                    segments: vec![],
+                    in_workspace: true,
+                }],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn inactive_extra_stack_with_new_branch_name() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::TwoStacks,
+                stack_configs: vec![StackMetaConfig::clean(), StackMetaConfig::clean()],
+                extra_stacks: vec![ExtraStack {
+                    name: "C",
+                    segments: vec![],
+                    in_workspace: false,
+                }],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn many_inactive_extra_stacks() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::TwoStacks,
+                stack_configs: vec![StackMetaConfig::clean(), StackMetaConfig::clean()],
+                extra_stacks: vec![
+                    ExtraStack {
+                        name: "old1",
+                        segments: vec![],
+                        in_workspace: false,
+                    },
+                    ExtraStack {
+                        name: "old2",
+                        segments: vec!["old2a", "old2b"],
+                        in_workspace: false,
+                    },
+                    ExtraStack {
+                        name: "old3",
+                        segments: vec![],
+                        in_workspace: false,
+                    },
+                ],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn extra_stack_with_ghosts_and_collision() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::TwoStacks,
+                stack_configs: vec![
+                    StackMetaConfig::with_ghosts(&["ghost1"]),
+                    StackMetaConfig::clean(),
+                ],
+                extra_stacks: vec![ExtraStack {
+                    name: "stale-stack",
+                    segments: vec!["C", "another-ghost"],
+                    in_workspace: true,
+                }],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+    }
+
+    /// Combinations: bloated metadata + extra stacks + different fixtures.
+    mod combined {
+        use super::*;
+
+        #[test]
+        fn bloated_plus_inactive_stacks_two_stacks() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::TwoStacks,
+                stack_configs: vec![
+                    StackMetaConfig::with_ghosts(&["C", "ghost1", "ghost2"]),
+                    StackMetaConfig::with_ghosts(&["ghost3"]),
+                ],
+                extra_stacks: vec![
+                    ExtraStack {
+                        name: "old-stack",
+                        segments: vec!["old-seg"],
+                        in_workspace: false,
+                    },
+                    ExtraStack {
+                        name: "another-old",
+                        segments: vec![],
+                        in_workspace: false,
+                    },
+                ],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn bloated_plus_inactive_empty_stack() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::EmptyStack,
+                stack_configs: vec![
+                    StackMetaConfig::with_ghosts(&["C"]),
+                    StackMetaConfig::clean(),
+                ],
+                extra_stacks: vec![ExtraStack {
+                    name: "deleted",
+                    segments: vec!["seg1", "seg2"],
+                    in_workspace: false,
+                }],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn bloated_plus_inactive_advanced_remote() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::AdvancedRemote,
+                stack_configs: vec![
+                    StackMetaConfig::with_ghosts(&["ghost1"]),
+                    StackMetaConfig::with_ghosts(&["C", "ghost2"]),
+                ],
+                extra_stacks: vec![ExtraStack {
+                    name: "archived",
+                    segments: vec![],
+                    in_workspace: false,
+                }],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn collision_in_both_real_and_extra_stack() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::TwoStacks,
+                stack_configs: vec![
+                    StackMetaConfig::with_ghosts(&["C"]),
+                    StackMetaConfig::clean(),
+                ],
+                extra_stacks: vec![ExtraStack {
+                    name: "extra",
+                    segments: vec!["C"],
+                    in_workspace: true,
+                }],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+
+        #[test]
+        fn one_stack_heavily_bloated_with_extras() -> anyhow::Result<()> {
+            Scenario {
+                fixture: Fixture::OneStack,
+                stack_configs: vec![
+                    StackMetaConfig::with_ghosts(&["C", "g1", "g2", "g3"]),
+                    StackMetaConfig::with_ghosts(&["g4", "g5", "g6", "g7", "g8", "g9", "g10"]),
+                ],
+                extra_stacks: vec![
+                    ExtraStack {
+                        name: "inactive1",
+                        segments: vec!["i1a", "i1b", "i1c"],
+                        in_workspace: false,
+                    },
+                    ExtraStack {
+                        name: "inactive2",
+                        segments: vec![],
+                        in_workspace: false,
+                    },
+                ],
+                new_branch_name: "C",
+            }
+            .run()
+        }
+    }
 }

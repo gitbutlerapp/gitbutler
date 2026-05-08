@@ -80,6 +80,10 @@ impl ActiveProjects {
                         name: format!("project://{project_id}/git/remote-activity"),
                         payload: serde_json::json!({}),
                     },
+                    Change::WorkspaceStackRefChanged { project_id } => FrontendEvent {
+                        name: format!("project://{project_id}/git/workspace-ref-changed"),
+                        payload: serde_json::json!({}),
+                    },
                     Change::WorktreeChanges {
                         project_id,
                         ref changes,

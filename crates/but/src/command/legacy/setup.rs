@@ -401,7 +401,36 @@ pub(crate) fn repo(
 
     // switch to gitbutler/workspace if not already there
     if !head_name.starts_with(b"gitbutler/") {
-        but_api::legacy::virtual_branches::switch_back_to_workspace_with_perm(ctx, perm)?;
+        use gitbutler_branch_actions::stack_divergence::{
+            DivergenceApproach, DivergenceResolution, SwitchBackToWorkspaceResult,
+        };
+        let result =
+            but_api::legacy::virtual_branches::switch_back_to_workspace_with_perm(ctx, None, perm)?;
+        if let SwitchBackToWorkspaceResult::Diverged { divergences } = result {
+            if let Some(out) = out.for_human() {
+                writeln!(
+                    out,
+                    "  {}",
+                    t.attention.paint(format!(
+                        "Warning: {} stack ref(s) diverged while outside workspace, excluding them",
+                        divergences.len()
+                    ))
+                )?;
+            }
+            // Auto-exclude all diverged stacks in CLI context.
+            let resolutions: Vec<DivergenceResolution> = divergences
+                .iter()
+                .map(|d| DivergenceResolution {
+                    stack_id: d.stack_id,
+                    approach: DivergenceApproach::Exclude,
+                })
+                .collect();
+            but_api::legacy::virtual_branches::switch_back_to_workspace_with_perm(
+                ctx,
+                Some(resolutions),
+                perm,
+            )?;
+        }
     }
 
     // Install managed hooks to prevent accidental git commits

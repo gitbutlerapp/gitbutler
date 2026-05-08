@@ -168,6 +168,9 @@ export enum TestId {
 	DiscardFileChangesConfirmationModal = "discard-file-changes-confirmation-modal",
 	DiscardFileChangesConfirmationModal_Cancel = "discard-file-changes-confirmation-modal-cancel",
 	DiscardFileChangesConfirmationModal_Discard = "discard-file-changes-confirmation-modal-discard",
+	WorkspaceDivergenceModal = "workspace-divergence-modal",
+	WorkspaceDivergenceModal_DivergenceItem = "workspace-divergence-modal-divergence-item",
+	WorkspaceDivergenceModal_ActionButton = "workspace-divergence-modal-action-button",
 }
 
 export enum ElementId {

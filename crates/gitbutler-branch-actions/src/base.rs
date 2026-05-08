@@ -21,6 +21,10 @@ use crate::{
     VirtualBranchesExt,
     integration::update_workspace_commit,
     remote::{RemoteCommit, commit_to_remote_commit},
+    stack_divergence::{
+        DivergenceResolution, DivergenceStatuses, SwitchBackToWorkspaceResult,
+        apply_divergence_resolutions, detect_diverged_stacks,
+    },
 };
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
@@ -154,8 +158,76 @@ pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
     Ok(true)
 }
 
+#[instrument(skip(ctx, resolutions, perm), err(Debug))]
+fn go_back_to_integration(
+    ctx: &Context,
+    default_target: &Target,
+    resolutions: Option<Vec<DivergenceResolution>>,
+    perm: &mut but_core::sync::RepoExclusive,
+) -> Result<SwitchBackToWorkspaceResult> {
+    // Before checkout or workspace rebuild, detect divergence.
+    // The workspace ref still points to the old workspace commit whose parents
+    // encode the expected stack positions.
+    if resolutions.is_none()
+        && let DivergenceStatuses::DivergedRefs { divergences } = detect_diverged_stacks(ctx)?
+    {
+        return Ok(SwitchBackToWorkspaceResult::Diverged { divergences });
+    }
+
+    // If resolutions were provided, apply them before rebuilding.
+    if let Some(ref resolutions) = resolutions {
+        apply_divergence_resolutions(ctx, resolutions, perm)?;
+    }
+
+    let repo = ctx.repo.get()?;
+    if ctx.settings.feature_flags.cv3 {
+        let workspace_commit_to_checkout =
+            but_workspace::legacy::remerged_workspace_commit_v2(ctx)?;
+        let tree_to_checkout_to_avoid_ref_update =
+            repo.find_commit(workspace_commit_to_checkout)?.tree_id()?;
+        but_core::worktree::safe_checkout(
+            repo.head_id()?.detach(),
+            tree_to_checkout_to_avoid_ref_update.detach(),
+            &repo,
+            but_core::worktree::checkout::Options {
+                uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
+                skip_head_update: false,
+                ..Default::default()
+            },
+        )?;
+    } else {
+        let (mut outcome, conflict_kind) =
+            but_workspace::legacy::merge_worktree_with_workspace(ctx, &repo)?;
+
+        if outcome.has_unresolved_conflicts(conflict_kind) {
+            return Err(anyhow!("Conflicts while going back to gitbutler/workspace"))
+                .context(Marker::ProjectConflict);
+        }
+
+        let final_tree_id = outcome.tree.write()?.detach();
+
+        #[expect(deprecated, reason = "checkout/materialization boundary")]
+        let git2_repo = &*ctx.git2_repo.get()?;
+        let final_tree = git2_repo.find_tree(final_tree_id.to_git2())?;
+        git2_repo
+            .checkout_tree(
+                final_tree.as_object(),
+                Some(git2::build::CheckoutBuilder::new().force()),
+            )
+            .context("failed to checkout tree")?;
+    }
+
+    let base = target_to_base_branch(ctx, default_target)?;
+    update_workspace_commit(ctx, false)?;
+    Ok(SwitchBackToWorkspaceResult::Ok {
+        base_branch: Box::new(base),
+    })
+}
+
+/// Legacy go-back-to-integration without divergence detection.
+/// Used by `set_base_branch` which doesn't support the two-phase flow.
 #[instrument(skip(ctx), err(Debug))]
-fn go_back_to_integration(ctx: &Context, default_target: &Target) -> Result<BaseBranch> {
+fn go_back_to_integration_legacy(ctx: &Context, default_target: &Target) -> Result<BaseBranch> {
     let repo = ctx.repo.get()?;
     if ctx.settings.feature_flags.cv3 {
         let workspace_commit_to_checkout =
@@ -199,6 +271,21 @@ fn go_back_to_integration(ctx: &Context, default_target: &Target) -> Result<Base
     Ok(base)
 }
 
+/// Switch back to workspace with divergence detection.
+///
+/// If `resolutions` is `None`, checks for diverged stack refs before proceeding.
+/// When divergence is found, returns `Diverged` so the caller can present options.
+/// When `resolutions` is `Some`, applies the chosen strategies then proceeds
+/// with the workspace checkout and commit rebuild.
+pub fn switch_back_to_workspace(
+    ctx: &Context,
+    resolutions: Option<Vec<DivergenceResolution>>,
+    perm: &mut but_core::sync::RepoExclusive,
+) -> Result<SwitchBackToWorkspaceResult> {
+    let target = default_target(ctx).context("no default target set")?;
+    go_back_to_integration(ctx, &target, resolutions, perm)
+}
+
 pub(crate) fn set_base_branch(
     ctx: &Context,
     target_branch_ref: &RemoteRefname,
@@ -209,7 +296,9 @@ pub(crate) fn set_base_branch(
     if let Ok(target) = default_target(ctx)
         && target.branch.eq(target_branch_ref)
     {
-        return go_back_to_integration(ctx, &target);
+        // When called from set_base_branch (not the divergence-aware path),
+        // skip divergence detection and proceed directly.
+        return go_back_to_integration_legacy(ctx, &target);
     }
 
     // lookup a branch by name

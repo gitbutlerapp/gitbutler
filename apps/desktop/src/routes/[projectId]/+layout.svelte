@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
+	import WorkspaceDivergenceModal from "$components/divergence/WorkspaceDivergenceModal.svelte";
 	import IrcChatWindow from "$components/irc/IrcChatWindow.svelte";
 	import ProjectSettingsShortcutHandler from "$components/settings/ProjectSettingsShortcutHandler.svelte";
 	import AnalyticsMonitor from "$components/shared/AnalyticsMonitor.svelte";
@@ -94,6 +95,20 @@
 	const worktreeService = inject(WORKTREE_SERVICE);
 
 	const modeQuery = $derived(modeService.mode(projectId));
+
+	// Divergence detection: derived from the headAndMode query (no separate endpoint needed).
+	let divergenceModal = $state<WorkspaceDivergenceModal>();
+	const divergenceQuery = $derived(modeService.divergence(projectId));
+
+	// Show the divergence modal when divergence is first detected.
+	$effect(() => {
+		const statuses = divergenceQuery?.response;
+		if (statuses && statuses.type === "divergedRefs") {
+			untrack(() => {
+				divergenceModal?.show(statuses);
+			});
+		}
+	});
 
 	// =============================================================================
 	// FORGE INTEGRATION (GitHub & GitLab)
@@ -475,6 +490,14 @@
 		<ProblemLoadingRepo {projectId} error={baseError} />
 	{/snippet}
 </ReduxResult>
+
+<WorkspaceDivergenceModal
+	bind:this={divergenceModal}
+	{projectId}
+	onResolved={() => {
+		stackService.invalidateStacksAndDetails();
+	}}
+/>
 
 <IrcChatWindow {projectId} />
 

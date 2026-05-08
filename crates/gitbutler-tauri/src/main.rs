@@ -364,6 +364,8 @@ fn main() -> anyhow::Result<()> {
                 legacy::virtual_branches::tauri_upstream_integration_statuses::upstream_integration_statuses,
                 legacy::virtual_branches::tauri_integrate_upstream::integrate_upstream,
                 legacy::virtual_branches::tauri_resolve_upstream_integration::resolve_upstream_integration,
+                legacy::virtual_branches::tauri_check_workspace_divergence::check_workspace_divergence,
+                legacy::virtual_branches::tauri_resolve_workspace_divergence::resolve_workspace_divergence,
                 legacy::stack::tauri_create_reference::create_reference,
                 legacy::stack::tauri_create_branch::create_branch,
                 legacy::stack::tauri_remove_branch::remove_branch,

@@ -14,9 +14,11 @@ import type {
 	BaseBranchResolutionApproach,
 	BranchListing,
 	BranchListingDetails,
+	DivergenceResolution,
 	IntegrationOutcome,
 	Resolution,
 	StackStatuses,
+	SwitchBackToWorkspaceResult,
 } from "@gitbutler/but-sdk";
 
 export function buildBranchEndpoints(build: BackendEndpointBuilder) {
@@ -57,15 +59,24 @@ export function buildBranchEndpoints(build: BackendEndpointBuilder) {
 				invalidatesList(ReduxTag.StackDetails),
 			],
 		}),
-		switchBackToWorkspace: build.mutation<BaseBranch, { projectId: string }>({
+		switchBackToWorkspace: build.mutation<
+			SwitchBackToWorkspaceResult,
+			{ projectId: string; resolutions?: DivergenceResolution[] }
+		>({
 			extraOptions: { command: "switch_back_to_workspace" },
 			query: (args) => args,
-			invalidatesTags: [
-				invalidatesType(ReduxTag.ForgeProvider),
-				invalidatesType(ReduxTag.BaseBranchData),
-				invalidatesList(ReduxTag.Stacks),
-				invalidatesList(ReduxTag.StackDetails),
-			],
+			invalidatesTags: (result) => {
+				// Only invalidate caches when we actually switched back (not on divergence detection).
+				if (result?.type === "ok") {
+					return [
+						invalidatesType(ReduxTag.ForgeProvider),
+						invalidatesType(ReduxTag.BaseBranchData),
+						invalidatesList(ReduxTag.Stacks),
+						invalidatesList(ReduxTag.StackDetails),
+					];
+				}
+				return [];
+			},
 		}),
 		pushBaseBranch: build.mutation<void, { projectId: string; withForce?: boolean }>({
 			extraOptions: { command: "push_base_branch" },
@@ -140,6 +151,24 @@ export function buildBranchEndpoints(build: BackendEndpointBuilder) {
 			},
 			query: (args) => args,
 			invalidatesTags: [invalidatesList(ReduxTag.UpstreamIntegrationStatus)],
+		}),
+
+		// ── Workspace Divergence ────────────────────────────────────
+		resolveWorkspaceDivergence: build.mutation<
+			void,
+			{ projectId: string; resolutions: DivergenceResolution[] }
+		>({
+			extraOptions: {
+				command: "resolve_workspace_divergence",
+				actionName: "Resolve Workspace Divergence",
+			},
+			query: (args) => args,
+			invalidatesTags: [
+				invalidatesList(ReduxTag.HeadMetadata),
+				invalidatesList(ReduxTag.Stacks),
+				invalidatesList(ReduxTag.StackDetails),
+				invalidatesList(ReduxTag.HeadSha),
+			],
 		}),
 	};
 }

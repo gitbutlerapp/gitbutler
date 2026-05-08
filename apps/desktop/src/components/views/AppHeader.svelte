@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import CreateBranchModal from "$components/branch/CreateBranchModal.svelte";
+	import WorkspaceDivergenceModal from "$components/divergence/WorkspaceDivergenceModal.svelte";
 	import SyncButton from "$components/forge/SyncButton.svelte";
 	import IntegrateUpstreamModal from "$components/upstream/IntegrateUpstreamModal.svelte";
 	import { BACKEND } from "$lib/backend";
@@ -61,12 +62,22 @@
 	);
 	const [switchBackToWorkspace, workspaceSwitch] = baseBranchService.switchBackToWorkspace;
 
+	let divergenceModal = $state<ReturnType<typeof WorkspaceDivergenceModal>>();
+
 	async function switchToWorkspace() {
-		if (base) {
-			await switchBackToWorkspace({
-				projectId,
-			});
+		if (!base) return;
+
+		const result = await switchBackToWorkspace({ projectId });
+
+		if (result?.type === "diverged") {
+			divergenceModal?.showDivergences(result.divergences);
 		}
+	}
+
+	async function resolveDivergenceAndSwitch(
+		resolutions: import("@gitbutler/but-sdk").DivergenceResolution[],
+	) {
+		await switchBackToWorkspace({ projectId, resolutions });
 	}
 
 	const upstreamCommits = $derived(base?.behind ?? 0);
@@ -272,6 +283,11 @@
 </div>
 
 <CreateBranchModal bind:this={createBranchModal} {projectId} />
+<WorkspaceDivergenceModal
+	bind:this={divergenceModal}
+	{projectId}
+	onResolve={resolveDivergenceAndSwitch}
+/>
 
 <style>
 	.chrome-header {

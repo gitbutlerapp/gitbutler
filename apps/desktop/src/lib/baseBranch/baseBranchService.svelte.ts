@@ -118,4 +118,8 @@ export default class BaseBranchService {
 	remoteBranches(projectId: string) {
 		return this.backendApi.endpoints.remoteBranches.useQuery({ projectId });
 	}
+
+	get resolveWorkspaceDivergence() {
+		return this.backendApi.endpoints.resolveWorkspaceDivergence.useMutation();
+	}
 }

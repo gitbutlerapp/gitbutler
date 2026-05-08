@@ -1622,6 +1622,26 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
+        "check_workspace_divergence" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::virtual_branches::check_workspace_divergence_cmd(params);
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "resolve_workspace_divergence" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::virtual_branches::resolve_workspace_divergence_cmd(params);
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
         // GitHub commands (async, not yet migrated)
         "init_github_device_oauth" => {
             let result = github::init_github_device_oauth().await;

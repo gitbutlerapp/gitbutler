@@ -41,6 +41,14 @@ export class ModeService {
 		);
 	}
 
+	/** Reactive query for workspace stack ref divergence, derived from the headAndMode query. */
+	divergence(projectId: string) {
+		return this.backendApi.endpoints.headAndMode.useQuery(
+			{ projectId },
+			{ transform: (response) => response.divergence },
+		);
+	}
+
 	/**
 	 * Force-fetch the current mode, bypassing the cache. This updates the
 	 * cache so that reactive subscribers see the new value immediately.

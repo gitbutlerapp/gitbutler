@@ -23,6 +23,8 @@ pub use base::BaseBranch;
 
 pub mod upstream_integration;
 
+pub mod stack_divergence;
+
 mod integration;
 pub use integration::{
     GITBUTLER_WORKSPACE_COMMIT_TITLE, update_workspace_commit,

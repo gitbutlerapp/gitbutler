@@ -68,15 +68,27 @@ export function buildModeEndpoints(build: BackendEndpointBuilder) {
 				if (!hasBackendExtra(lifecycleApi.extra)) {
 					throw new Error("Redux dependency Backend not found!");
 				}
+				const { invoke, listen } = lifecycleApi.extra.backend;
 				await lifecycleApi.cacheDataLoaded;
-				const unsubscribe = lifecycleApi.extra.backend.listen<HeadAndMode>(
-					`project://${arg.projectId}/git/head`,
-					(event) => {
-						lifecycleApi.updateCachedData(() => event.payload);
-					},
+				let finished = false;
+
+				// Re-invoke the command on events to get fresh data including divergence.
+				async function refresh() {
+					if (finished) return;
+					const result = await invoke<HeadAndMode>("operating_mode", arg);
+					lifecycleApi.updateCachedData(() => result);
+				}
+
+				const unsub1 = listen<unknown>(`project://${arg.projectId}/git/head`, refresh);
+				const unsub2 = listen<unknown>(
+					`project://${arg.projectId}/git/workspace-ref-changed`,
+					refresh,
 				);
+
 				await lifecycleApi.cacheEntryRemoved;
-				unsubscribe();
+				finished = true;
+				unsub1();
+				unsub2();
 			},
 		}),
 		headSha: build.query<HeadSha, { projectId: string }>({

@@ -22,4 +22,9 @@ pub enum Change {
         project_id: ProjectHandleOrLegacyProjectId,
         changes: but_hunk_assignment::WorktreeChanges,
     },
+    /// A workspace stack ref was changed externally (e.g. `git branch -f`).
+    /// The frontend should check for divergence and prompt the user.
+    WorkspaceStackRefChanged {
+        project_id: ProjectHandleOrLegacyProjectId,
+    },
 }

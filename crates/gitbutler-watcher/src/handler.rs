@@ -173,12 +173,25 @@ impl Handler {
                 FETCH_HEAD => {
                     self.emit_app_event(Change::GitFetch(project_id.clone()))?;
                 }
-                // Watch all local branches. Only emit activity if the HEAD points to that ref.
+                // Watch all local branches. Emit activity if HEAD points to that ref,
+                // or workspace divergence if in workspace mode and it's a different ref.
                 _ if file_name.starts_with(LOCAL_REFS_DIR) && file_name == head_ref_name => {
                     self.emit_app_event(Change::GitActivity {
                         project_id: project_id.clone(),
                         head_sha: head_sha.clone(),
                     })?;
+                }
+                // A local branch ref changed that isn't HEAD — may be a workspace stack ref
+                // that was modified externally (e.g. `git branch -f`).
+                _ if file_name.starts_with(LOCAL_REFS_DIR) => {
+                    if matches!(
+                        operating_mode(ctx, perm.read_permission()),
+                        Ok(gitbutler_operating_modes::OperatingMode::OpenWorkspace)
+                    ) {
+                        self.emit_app_event(Change::WorkspaceStackRefChanged {
+                            project_id: project_id.clone(),
+                        })?;
+                    }
                 }
                 // Track remote ref changes to emit a single event after the loop.
                 _ if file_name.starts_with(REMOTE_REFS_DIR) => {

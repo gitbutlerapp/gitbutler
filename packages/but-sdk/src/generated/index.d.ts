@@ -940,6 +940,43 @@ export type DiffSpec = {
   hunkHeaders: Array<HunkHeader>;
 };
 
+/** What the user wants to do with a diverged stack. */
+export type DivergenceApproach = {
+  type: "includeAsIs";
+} | {
+  type: "includeRebase";
+} | {
+  type: "exclude";
+};
+
+/** A user's chosen resolution for a single diverged stack. */
+export type DivergenceResolution = {
+  stackId: string;
+  approach: DivergenceApproach;
+};
+
+/** How a stack ref has diverged from its expected position. */
+export type DivergenceStatus = {
+  type: "deleted";
+} | {
+  conflicted: boolean;
+  type: "movedAboveBase";
+} | {
+  type: "movedBelowBase";
+} | {
+  type: "movedToSameTree";
+};
+
+/** Top-level result of divergence detection. */
+export type DivergenceStatuses = {
+  type: "upToDate";
+} | {
+  type: "divergedRefs";
+  subject: {
+    divergences: Array<StackRefDivergence>;
+  };
+};
+
 /** Holds relevant state required to switch to and from edit mode */
 export type EditModeMetadata = {
   /** The sha of the commit getting edited. */
@@ -1256,6 +1293,8 @@ export type GixTime = {
 export type HeadAndMode = {
   head: string | null;
   operatingMode: OperatingMode;
+  /** Divergence detection result, populated only when in workspace mode. */
+  divergence: DivergenceStatuses | null;
 };
 
 export type HeadSha = {
@@ -1836,6 +1875,20 @@ export type StackHeadInfo = {
   isCheckedOut: boolean;
 };
 
+/** Per-stack divergence info returned to the frontend. */
+export type StackRefDivergence = {
+  /** The stack that diverged. */
+  stackId: string;
+  /** The branch ref name (tip of the stack). */
+  refName: string;
+  /** Where the workspace commit expected this stack's head to be. */
+  expectedOid: string;
+  /** Where the ref actually points now (`None` if the ref was deleted). */
+  actualOid: string | null;
+  /** Classification of the divergence. */
+  status: DivergenceStatus;
+};
+
 /** Represents a reference to an associated virtual branch */
 export type StackReference = {
   /** A non-normalized name of the branch, set by the user */
@@ -1866,6 +1919,22 @@ export type StackStatuses = {
     worktreeConflicts: Array<string>;
     statuses: Array<[string | null, StackStatus]>;
   };
+};
+
+/**
+ * Result of attempting to switch back to the workspace.
+ *
+ * When no divergence is detected (or resolutions were provided and applied),
+ * returns `Ok` with the base branch data. When divergence is detected and
+ * no resolutions were provided, returns `Diverged` so the frontend can
+ * present resolution options before retrying.
+ */
+export type SwitchBackToWorkspaceResult = {
+  baseBranch: BaseBranch;
+  type: "ok";
+} | {
+  divergences: Array<StackRefDivergence>;
+  type: "diverged";
 };
 
 /** Information about the target reference, the one we want to integrate with. */

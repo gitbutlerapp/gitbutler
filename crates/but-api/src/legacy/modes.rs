@@ -15,6 +15,9 @@ use crate::json::Error;
 pub struct HeadAndMode {
     pub head: Option<String>,
     pub operating_mode: OperatingMode,
+    /// Divergence detection result, populated only when in workspace mode.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub divergence: Option<gitbutler_branch_actions::stack_divergence::DivergenceStatuses>,
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(HeadAndMode);
@@ -30,9 +33,25 @@ pub fn operating_mode(ctx: &Context) -> Result<HeadAndMode, Error> {
         _ => None,
     };
 
+    let mode = gitbutler_operating_modes::operating_mode(ctx, guard.read_permission())?;
+
+    // When in workspace mode, check if any stack refs have diverged externally.
+    let divergence = if mode == OperatingMode::OpenWorkspace {
+        match gitbutler_branch_actions::stack_divergence::detect_diverged_stacks(ctx) {
+            Ok(statuses) => Some(statuses),
+            Err(e) => {
+                tracing::warn!("Failed to detect workspace divergence: {e}");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     Ok(HeadAndMode {
         head: head_ref_short,
-        operating_mode: gitbutler_operating_modes::operating_mode(ctx, guard.read_permission())?,
+        operating_mode: mode,
+        divergence,
     })
 }
 

@@ -250,15 +250,20 @@ pub fn integrate_branch_with_steps(
     gitbutler_branch_actions::integrate_branch_with_steps(ctx, stack_id, branch_name, steps)
 }
 
-/// Switch back to the workspace branch state.
+/// Switch back to the workspace branch state with divergence detection.
 ///
-/// This acquires exclusive worktree access from `ctx` before restoring the
-/// workspace branch.
+/// When called without `resolutions`, detects whether any workspace stack refs
+/// have diverged. If divergence is found, returns `Diverged` with details so
+/// the frontend can present resolution options. When called with `resolutions`,
+/// applies the chosen strategies then proceeds with the workspace checkout.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn switch_back_to_workspace(ctx: &mut but_ctx::Context) -> Result<BaseBranch> {
+pub fn switch_back_to_workspace(
+    ctx: &mut but_ctx::Context,
+    resolutions: Option<Vec<gitbutler_branch_actions::stack_divergence::DivergenceResolution>>,
+) -> Result<gitbutler_branch_actions::stack_divergence::SwitchBackToWorkspaceResult> {
     let mut guard = ctx.exclusive_worktree_access();
-    switch_back_to_workspace_with_perm(ctx, guard.write_permission())
+    switch_back_to_workspace_with_perm(ctx, resolutions, guard.write_permission())
 }
 
 #[instrument(skip(perm), err(Debug))]
@@ -267,21 +272,23 @@ pub fn switch_back_to_workspace(ctx: &mut but_ctx::Context) -> Result<BaseBranch
 /// This variant is more composable than [`switch_back_to_workspace`] when the caller already
 /// holds a lock, as it reuses the provided permission token instead of obtaining exclusive access
 /// itself.
+///
+/// Accepts optional divergence resolutions. See [`switch_back_to_workspace`] for details.
 pub fn switch_back_to_workspace_with_perm(
     ctx: &mut but_ctx::Context,
+    resolutions: Option<Vec<gitbutler_branch_actions::stack_divergence::DivergenceResolution>>,
     perm: &mut RepoExclusive,
-) -> Result<BaseBranch> {
-    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)
-        .context("Failed to get base branch data")?;
+) -> Result<gitbutler_branch_actions::stack_divergence::SwitchBackToWorkspaceResult> {
+    let result = gitbutler_branch_actions::base::switch_back_to_workspace(ctx, resolutions, perm)?;
 
-    let branch_name = format!("refs/remotes/{}", base_branch.branch_name)
-        .parse()
-        .context("Invalid branch name")?;
+    if matches!(
+        result,
+        gitbutler_branch_actions::stack_divergence::SwitchBackToWorkspaceResult::Ok { .. }
+    ) {
+        crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(ctx, perm).ok();
+    }
 
-    gitbutler_branch_actions::set_base_branch(ctx, &branch_name, perm)?;
-    crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(ctx, perm).ok();
-
-    Ok(base_branch)
+    Ok(result)
 }
 
 #[but_api]
@@ -727,6 +734,36 @@ pub async fn resolve_upstream_integration(
         &resolved_reviews,
     )?;
     Ok(new_target_id.to_string())
+}
+
+/// Detect whether any workspace stack refs have diverged from the workspace commit.
+///
+/// Returns structured info about which refs moved and how, so the frontend can present
+/// resolution options to the user.
+#[but_api]
+#[instrument(err(Debug))]
+pub fn check_workspace_divergence(
+    ctx: Context,
+) -> Result<gitbutler_branch_actions::stack_divergence::DivergenceStatuses> {
+    gitbutler_branch_actions::stack_divergence::detect_diverged_stacks(&ctx)
+}
+
+/// Apply user-chosen resolutions for diverged stacks and rebuild the workspace commit.
+///
+/// Each resolution specifies a stack and the approach: IncludeAsIs (accept current position),
+/// IncludeRebase (rebase onto target base), or Exclude (remove from workspace).
+#[but_api]
+#[instrument(err(Debug))]
+pub fn resolve_workspace_divergence(
+    mut ctx: Context,
+    resolutions: Vec<gitbutler_branch_actions::stack_divergence::DivergenceResolution>,
+) -> Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::stack_divergence::resolve_diverged_stacks(
+        &ctx,
+        &resolutions,
+        guard.write_permission(),
+    )
 }
 
 /// Resolve all actively applied reviews for the given project and command context

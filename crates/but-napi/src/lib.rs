@@ -120,6 +120,10 @@ fn event_from_change(change: gitbutler_watcher::Change) -> WatcherEvent {
                 WatcherGitRemoteActivityPayload
             )),
         },
+        gitbutler_watcher::Change::WorkspaceStackRefChanged { project_id } => WatcherEvent {
+            name: format!("project://{project_id}/git/workspace-ref-changed"),
+            payload: serde_json::json!({}),
+        },
         gitbutler_watcher::Change::WorktreeChanges {
             project_id,
             changes,
