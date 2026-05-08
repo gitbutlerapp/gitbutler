@@ -3,7 +3,7 @@ import { MouseEvent } from "react";
 
 type NativeMenuAction = () => void | Promise<void>;
 
-export type NativeMenuItemData = {
+type NativeMenuItemData = {
 	label: string;
 	enabled?: boolean;
 	onSelect?: NativeMenuAction;

@@ -13,7 +13,7 @@ import {
 	getPreviousSection,
 	NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
-import { useCommand } from "#ui/commands/manager.ts";
+import { useHotkeys, useHotkeySequence } from "@tanstack/react-hotkeys";
 
 export type Panel = "outline" | "files" | "details";
 export const orderedPanels: Array<Panel> = ["outline", "files", "details"];
@@ -102,42 +102,154 @@ export const useNavigationIndexHotkeys = ({
 		selectAndFocus(newItem);
 	};
 
-	useCommand(selectPreviousItem, {
-		enabled: focusedPanel === panel,
-		layer: "focused-selection-tree",
-		shortcutsBar: { label: "Up" },
-		hotkeys: [{ hotkey: "ArrowUp" }, { hotkey: "K" }],
-	});
+	useHotkeys(
+		[
+			{
+				hotkey: "ArrowUp",
+				callback: selectPreviousItem,
+				options: { meta: { group, name: "Up", commandPalette: false } },
+			},
+			{
+				hotkey: "K",
+				callback: selectPreviousItem,
+				// Hidden until we can combine in shortcuts bar.
+				options: { meta: { group, shortcutsBar: false } },
+			},
+			{
+				hotkey: "ArrowDown",
+				callback: selectNextItem,
+				options: { meta: { group, name: "Down", commandPalette: false } },
+			},
+			{
+				hotkey: "J",
+				callback: selectNextItem,
+				// Hidden until we can combine in shortcuts bar.
+				options: { meta: { group, shortcutsBar: false } },
+			},
+			{
+				hotkey: "Shift+ArrowUp",
+				callback: selectPreviousSection,
+				options: {
+					meta: {
+						group,
+						name: "Previous section",
+						commandPalette: false,
+						shortcutsBar: false,
+					},
+				},
+			},
+			{
+				hotkey: "Shift+K",
+				callback: selectPreviousSection,
+				options: {
+					meta: {
+						group,
+						name: "Previous section",
+						commandPalette: false,
+						shortcutsBar: false,
+					},
+				},
+			},
+			{
+				hotkey: "Shift+ArrowDown",
+				callback: selectNextSection,
+				options: {
+					meta: {
+						group,
+						name: "Next section",
+						commandPalette: false,
+						shortcutsBar: false,
+					},
+				},
+			},
+			{
+				hotkey: "Shift+J",
+				callback: selectNextSection,
+				options: {
+					meta: {
+						group,
+						name: "Next section",
+						commandPalette: false,
+						shortcutsBar: false,
+					},
+				},
+			},
+			{
+				hotkey: "Home",
+				callback: selectFirstItem,
+				options: {
+					meta: {
+						group,
+						name: "First item",
+						commandPalette: false,
+						shortcutsBar: false,
+					},
+				},
+			},
+			{
+				hotkey: "Meta+ArrowUp",
+				callback: selectFirstItem,
+				options: {
+					meta: {
+						group,
+						name: "First item",
+						commandPalette: false,
+						shortcutsBar: false,
+					},
+				},
+			},
+			{
+				hotkey: "End",
+				callback: selectLastItem,
+				options: {
+					meta: {
+						group,
+						name: "Last item",
+						commandPalette: false,
+						shortcutsBar: false,
+					},
+				},
+			},
+			{
+				hotkey: "Meta+ArrowDown",
+				callback: selectLastItem,
+				options: {
+					meta: {
+						group,
+						name: "Last item",
+						commandPalette: false,
+						shortcutsBar: false,
+					},
+				},
+			},
+			{
+				hotkey: "Shift+G",
+				callback: selectLastItem,
+				options: {
+					meta: {
+						group,
+						name: "Last item",
+						commandPalette: false,
+						shortcutsBar: false,
+					},
+				},
+			},
+		],
+		{
+			enabled: focusedPanel === panel,
+			conflictBehavior: "allow",
+		},
+	);
 
-	useCommand(selectNextItem, {
+	useHotkeySequence(["G", "G"], selectFirstItem, {
 		enabled: focusedPanel === panel,
-		layer: "focused-selection-tree",
-		shortcutsBar: { label: "Down" },
-		hotkeys: [{ hotkey: "ArrowDown" }, { hotkey: "J" }],
-	});
-
-	useCommand(selectPreviousSection, {
-		enabled: focusedPanel === panel,
-		layer: "focused-selection-tree",
-		hotkeys: [{ hotkey: "Shift+ArrowUp" }, { hotkey: "Shift+K" }],
-	});
-
-	useCommand(selectNextSection, {
-		enabled: focusedPanel === panel,
-		layer: "focused-selection-tree",
-		hotkeys: [{ hotkey: "Shift+ArrowDown" }, { hotkey: "Shift+J" }],
-	});
-
-	useCommand(selectFirstItem, {
-		enabled: focusedPanel === panel,
-		layer: "focused-selection-tree",
-		hotkeys: [{ hotkey: "Home" }, { hotkey: "Meta+ArrowUp" }, { sequence: ["G", "G"] }],
-	});
-
-	useCommand(selectLastItem, {
-		enabled: focusedPanel === panel,
-		layer: "focused-selection-tree",
-		hotkeys: [{ hotkey: "End" }, { hotkey: "Meta+ArrowDown" }, { hotkey: "Shift+G" }],
+		conflictBehavior: "allow",
+		meta: {
+			group,
+			name: "First item",
+			commandPalette: false,
+			shortcutsBar: false,
+		},
 	});
 
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -162,43 +274,40 @@ export const useNavigationIndexHotkeys = ({
 		focusPanel("outline");
 	};
 
-	useCommand(enterMoveMode, {
-		enabled: focusedPanel === panel && outlineMode._tag === "Default",
-		layer: "focused-selection-tree",
-		commandPalette: { group, label: "Move" },
-		shortcutsBar: { label: "Move" },
-		hotkeys: [{ hotkey: "M" }],
-	});
-
-	useCommand(enterCutMode, {
-		enabled: focusedPanel === panel && outlineMode._tag === "Default",
-		layer: "focused-selection-tree",
-		commandPalette: { group, label: "Cut" },
-		shortcutsBar: { label: "Cut" },
-		hotkeys: [{ hotkey: "Mod+X", ignoreInputs: true }],
-	});
-
-	useCommand(enterRubMode(selection), {
-		enabled: focusedPanel === panel && outlineMode._tag === "Default",
-		layer: "focused-selection-tree",
-		commandPalette: { group, label: "Rub" },
-		shortcutsBar: { label: "Rub" },
-		hotkeys: [{ hotkey: "R" }],
-	});
-
-	useCommand(enterRubMode(changesSectionOperand), {
-		enabled: focusedPanel === panel && outlineMode._tag === "Default",
-		layer: "focused-selection-tree",
-		commandPalette: { group, label: "Rub changes" },
-		shortcutsBar: { label: "Rub changes" },
-		hotkeys: [{ hotkey: "Shift+R" }],
-	});
-
-	useCommand(enterCommitMode, {
-		enabled: focusedPanel === panel && outlineMode._tag === "Default",
-		layer: "focused-selection-tree",
-		commandPalette: { group, label: "Commit" },
-		shortcutsBar: { label: "Commit" },
-		hotkeys: [{ hotkey: "C" }],
-	});
+	useHotkeys(
+		[
+			{
+				hotkey: "M",
+				callback: enterMoveMode,
+				options: { meta: { group, name: "Move" } },
+			},
+			{
+				hotkey: "Mod+X",
+				callback: enterCutMode,
+				options: {
+					ignoreInputs: true,
+					meta: { group, name: "Cut" },
+				},
+			},
+			{
+				hotkey: "R",
+				callback: enterRubMode(selection),
+				options: { meta: { group, name: "Rub" } },
+			},
+			{
+				hotkey: "Shift+R",
+				callback: enterRubMode(changesSectionOperand),
+				options: { meta: { group, name: "Rub changes" } },
+			},
+			{
+				hotkey: "C",
+				callback: enterCommitMode,
+				options: { meta: { group, name: "Commit" } },
+			},
+		],
+		{
+			enabled: focusedPanel === panel && outlineMode._tag === "Default",
+			conflictBehavior: "allow",
+		},
+	);
 };

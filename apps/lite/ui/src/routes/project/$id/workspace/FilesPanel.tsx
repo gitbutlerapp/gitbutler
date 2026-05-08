@@ -48,13 +48,13 @@ import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSour
 import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
 import { DependencyIndicatorButton } from "#ui/routes/project/$id/workspace/DependencyIndicatorButton.tsx";
 import { useFocusedProjectPanel } from "#ui/panels.ts";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import {
 	buildNavigationIndex,
 	NavigationIndex,
 	navigationIndexIncludes,
 } from "#ui/workspace/navigation-index.ts";
 import { filterNavigationIndexForOutlineMode } from "#ui/outline/mode.ts";
-import { useCommand } from "#ui/commands/manager.ts";
 
 const useNavigationIndex = (projectId: string, parent: Operand, files: Array<Operand>) => {
 	const dispatch = useAppDispatch();
@@ -500,20 +500,19 @@ const ChangesFileRow: FC<{
 		});
 	};
 
-	const { contextMenu: absorbContextMenuItem } = useCommand(absorb, {
+	useHotkey("A", absorb, {
+		conflictBehavior: "allow",
 		enabled: isSelected && focusedPanel === "files" && outlineMode._tag === "Default",
-		layer: "focused-selection",
-		commandPalette: { group: "Changes", label: "Absorb" },
-		shortcutsBar: { label: "Absorb" },
-		hotkeys: [{ hotkey: "A" }],
-		contextMenu: {
-			label: "Absorb",
-			// Focus change is too slow / the menu item isn't reactive.
-			enabled: true,
-		},
+		meta: { group: "Changes", name: "Absorb" },
 	});
 
-	const menuItems: Array<NativeMenuItem> = [absorbContextMenuItem];
+	const menuItems: Array<NativeMenuItem> = [
+		{
+			_tag: "Item",
+			label: "Absorb",
+			onSelect: absorb,
+		},
+	];
 
 	return (
 		<TreeItem

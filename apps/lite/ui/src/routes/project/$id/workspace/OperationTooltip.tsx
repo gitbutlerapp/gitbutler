@@ -17,7 +17,6 @@ import { useAppDispatch } from "#ui/store.ts";
 import { projectActions } from "#ui/projects/state.ts";
 import { operationModeToOperationType, OperationMode } from "#ui/outline/mode.ts";
 import { Match } from "effect";
-import { useCommand } from "#ui/commands/manager.ts";
 
 const OperationModeControls: FC<{
 	projectId: string;
@@ -36,36 +35,29 @@ const OperationModeControls: FC<{
 
 	const cancel = () => dispatch(projectActions.exitMode({ projectId }));
 
-	const confirmCommand = useCommand(confirm, {
-		enabled: !!operation,
-		layer: "global",
-		commandPalette: { group: "Operation mode", label: "Confirm" },
-		shortcutsBar: { label: "Confirm" },
-		hotkeys: [{ hotkey: "Enter" }],
-	});
-
-	const cancelCommand = useCommand(cancel, {
-		layer: "global",
-		commandPalette: { group: "Operation mode", label: "Cancel" },
-		shortcutsBar: { label: "Cancel" },
-		hotkeys: [{ hotkey: "Escape" }],
-	});
-
 	return (
 		<>
 			{operation && (
 				<ShortcutButton
 					className={uiStyles.button}
-					hotkeys={confirmCommand.hotkeys}
-					onClick={confirmCommand.commandFn}
+					hotkey="Enter"
+					hotkeyOptions={{
+						conflictBehavior: "allow",
+						meta: { group: "Operation mode", name: "Confirm" },
+					}}
+					onClick={confirm}
 				>
 					Confirm
 				</ShortcutButton>
 			)}
 			<ShortcutButton
 				className={uiStyles.button}
-				hotkeys={cancelCommand.hotkeys}
-				onClick={cancelCommand.commandFn}
+				hotkey="Escape"
+				hotkeyOptions={{
+					conflictBehavior: "allow",
+					meta: { group: "Operation mode", name: "Cancel" },
+				}}
+				onClick={cancel}
 			>
 				Cancel
 			</ShortcutButton>
@@ -90,67 +82,53 @@ const CutOperationControls: FC<{
 
 	const cancel = () => dispatch(projectActions.exitMode({ projectId }));
 
-	const moveAboveCommand = useCommand(() => run(operations.moveAbove), {
-		enabled: !!operations.moveAbove,
-		layer: "global",
-		commandPalette: { group: "Operation mode", label: "Move above" },
-		shortcutsBar: { label: "Move above" },
-		hotkeys: [{ hotkey: "A" }],
-	});
-
-	const rubCommand = useCommand(() => run(operations.rub), {
-		enabled: !!operations.rub,
-		layer: "global",
-		commandPalette: { group: "Operation mode", label: "Rub" },
-		shortcutsBar: { label: "Rub" },
-		hotkeys: [{ hotkey: "Mod+V", ignoreInputs: true }],
-	});
-
-	const moveBelowCommand = useCommand(() => run(operations.moveBelow), {
-		enabled: !!operations.moveBelow,
-		layer: "global",
-		commandPalette: { group: "Operation mode", label: "Move below" },
-		shortcutsBar: { label: "Move below" },
-		hotkeys: [{ hotkey: "B" }],
-	});
-
-	const cancelCommand = useCommand(cancel, {
-		layer: "global",
-		commandPalette: { group: "Operation mode", label: "Cancel" },
-		shortcutsBar: { label: "Cancel" },
-		hotkeys: [{ hotkey: "Escape" }],
-	});
-
 	return (
 		<>
 			<ShortcutButton
 				className={uiStyles.button}
-				hotkeys={moveAboveCommand.hotkeys}
+				hotkey="A"
+				hotkeyOptions={{
+					conflictBehavior: "allow",
+					meta: { group: "Operation mode", name: "Move above" },
+				}}
 				disabled={!operations.moveAbove}
-				onClick={moveAboveCommand.commandFn}
+				onClick={() => run(operations.moveAbove)}
 			>
 				Move above
 			</ShortcutButton>
 			<ShortcutButton
 				className={uiStyles.button}
-				hotkeys={rubCommand.hotkeys}
+				hotkey="Mod+V"
+				hotkeyOptions={{
+					conflictBehavior: "allow",
+					ignoreInputs: true,
+					meta: { group: "Operation mode", name: "Rub" },
+				}}
 				disabled={!operations.rub}
-				onClick={rubCommand.commandFn}
+				onClick={() => run(operations.rub)}
 			>
 				Rub
 			</ShortcutButton>
 			<ShortcutButton
 				className={uiStyles.button}
-				hotkeys={moveBelowCommand.hotkeys}
+				hotkey="B"
+				hotkeyOptions={{
+					conflictBehavior: "allow",
+					meta: { group: "Operation mode", name: "Move below" },
+				}}
 				disabled={!operations.moveBelow}
-				onClick={moveBelowCommand.commandFn}
+				onClick={() => run(operations.moveBelow)}
 			>
 				Move below
 			</ShortcutButton>
 			<ShortcutButton
 				className={uiStyles.button}
-				hotkeys={cancelCommand.hotkeys}
-				onClick={cancelCommand.commandFn}
+				hotkey="Escape"
+				hotkeyOptions={{
+					conflictBehavior: "allow",
+					meta: { group: "Operation mode", name: "Cancel" },
+				}}
+				onClick={cancel}
 			>
 				Cancel
 			</ShortcutButton>
