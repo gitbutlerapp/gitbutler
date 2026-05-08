@@ -37,7 +37,7 @@ import {
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match, Order } from "effect";
-import { FC, useState } from "react";
+import { FC } from "react";
 import { Group, Separator, useDefaultLayout } from "react-resizable-panels";
 import { branchOperand, type BranchOperand } from "#ui/operands.ts";
 import { PickerDialog, type PickerDialogGroup } from "#ui/ui/PickerDialog/PickerDialog.tsx";
@@ -427,15 +427,13 @@ const WorkspacePage: FC = () => {
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 	const focusedPanel = useFocusedProjectPanel(projectId);
 
-	const [absorptionTarget, setAbsorptionTarget] = useState<AbsorptionTarget | null>(null);
-
 	const queryClient = useQueryClient();
 	const openAbsorptionDialog = (target: AbsorptionTarget) => {
 		// Before opening the dialog, warm cache to avoid showing loading states in
 		// the dialog itself. This also ensures we don't show a stale absorption
 		// plan whilst the dialog revalidates.
 		void queryClient.prefetchQuery(absorptionPlanQueryOptions({ projectId, target })).then(() => {
-			setAbsorptionTarget(target);
+			dispatch(projectActions.openAbsorptionDialog({ projectId, target }));
 		});
 	};
 
@@ -531,18 +529,17 @@ const WorkspacePage: FC = () => {
 				)}
 			</Group>
 
-			{absorptionTarget && (
-				<AbsorptionDialog
-					projectId={projectId}
-					target={absorptionTarget}
-					onOpenChange={(open) => {
-						if (!open) setAbsorptionTarget(null);
-					}}
-				/>
-			)}
-
 			{Match.value(dialog).pipe(
 				Match.tagsExhaustive({
+					Absorption: ({ target }) => (
+						<AbsorptionDialog
+							projectId={projectId}
+							target={target}
+							onOpenChange={(open) => {
+								if (!open) dispatch(projectActions.closeDialog({ projectId }));
+							}}
+						/>
+					),
 					None: () => null,
 					ApplyBranchPicker: () => (
 						<ApplyBranchPicker open onOpenChange={setApplyBranchPickerOpen} projectId={projectId} />
