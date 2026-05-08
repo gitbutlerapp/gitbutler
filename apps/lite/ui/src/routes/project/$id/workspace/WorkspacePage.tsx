@@ -427,16 +427,6 @@ const WorkspacePage: FC = () => {
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 	const focusedPanel = useFocusedProjectPanel(projectId);
 
-	const queryClient = useQueryClient();
-	const openAbsorptionDialog = (target: AbsorptionTarget) => {
-		// Before opening the dialog, warm cache to avoid showing loading states in
-		// the dialog itself. This also ensures we don't show a stale absorption
-		// plan whilst the dialog revalidates.
-		void queryClient.prefetchQuery(absorptionPlanQueryOptions({ projectId, target })).then(() => {
-			dispatch(projectActions.openAbsorptionDialog({ projectId, target }));
-		});
-	};
-
 	useCommand(
 		() => {
 			if (dialog._tag === "CommandPalette") dispatch(projectActions.closeDialog({ projectId }));
@@ -500,7 +490,6 @@ const WorkspacePage: FC = () => {
 					tabIndex={0}
 					className={styles.panel}
 					elementRef={(el) => el?.focus({ focusVisible: false })}
-					onAbsorbChanges={openAbsorptionDialog}
 				/>
 				{isPanelVisible(panelsState, "files") && (
 					<>
@@ -512,7 +501,6 @@ const WorkspacePage: FC = () => {
 							groupResizeBehavior="preserve-pixel-size"
 							tabIndex={0}
 							className={classes(styles.panel, styles.panelPadding)}
-							onAbsorbChanges={openAbsorptionDialog}
 						/>
 					</>
 				)}

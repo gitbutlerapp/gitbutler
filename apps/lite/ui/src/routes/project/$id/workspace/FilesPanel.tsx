@@ -1,5 +1,6 @@
 import { useNavigationIndexHotkeys } from "#ui/panels.ts";
 import {
+	absorptionPlanQueryOptions,
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
@@ -34,7 +35,7 @@ import { DependencyIcon, MenuTriggerIcon } from "#ui/ui/icons.tsx";
 import { mergeProps, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
 import { AbsorptionTarget, TreeChange } from "@gitbutler/but-sdk";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Match } from "effect";
 import { ComponentProps, FC, Suspense, useEffect } from "react";
@@ -180,9 +181,8 @@ const CommitFilesTreePanel: FC<{ projectId: string; commit: CommitOperand } & Pa
 const ChangesFilesTreePanel: FC<
 	{
 		projectId: string;
-		onAbsorbChanges: (target: AbsorptionTarget) => void;
 	} & PanelProps
-> = ({ projectId, onAbsorbChanges, ...panelProps }) => {
+> = ({ projectId, ...panelProps }) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
 	const parent = changesSectionOperand;
@@ -214,7 +214,6 @@ const ChangesFilesTreePanel: FC<
 								key={change.path}
 								change={change}
 								dependencyCommitIds={dependencyCommitIds}
-								onAbsorbChanges={onAbsorbChanges}
 								projectId={projectId}
 								navigationIndex={navigationIndex}
 							/>
@@ -273,11 +272,7 @@ const BranchFilesTreePanel: FC<
 	);
 };
 
-export const FilesPanel: FC<
-	{
-		onAbsorbChanges: (target: AbsorptionTarget) => void;
-	} & PanelProps
-> = ({ onAbsorbChanges, ...panelProps }) => {
+export const FilesPanel: FC<{} & PanelProps> = ({ ...panelProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const outlineSelection = useAppSelector((state) =>
@@ -291,11 +286,7 @@ export const FilesPanel: FC<
 					<CommitFilesTreePanel {...panelProps} projectId={projectId} commit={commit} />
 				)),
 				Match.tag("ChangesSection", () => (
-					<ChangesFilesTreePanel
-						{...panelProps}
-						projectId={projectId}
-						onAbsorbChanges={onAbsorbChanges}
-					/>
+					<ChangesFilesTreePanel {...panelProps} projectId={projectId} />
 				)),
 				Match.tag("Branch", ({ stackId, branchRef }) => (
 					<BranchFilesTreePanel
@@ -479,17 +470,28 @@ const ConflictedFileRow: FC<{
 const ChangesFileRow: FC<{
 	change: TreeChange;
 	dependencyCommitIds: Array.NonEmptyArray<string> | undefined;
-	onAbsorbChanges: (target: AbsorptionTarget) => void;
+
 	projectId: string;
 	navigationIndex: NavigationIndex;
-}> = ({ change, dependencyCommitIds, onAbsorbChanges, projectId, navigationIndex }) => {
+}> = ({ change, dependencyCommitIds, projectId, navigationIndex }) => {
 	const operand = fileOperand({ parent: changesFileParent, path: change.path });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 	const isSelected = useIsSelected({ projectId, operand });
 	const focusedPanel = useFocusedProjectPanel(projectId);
 
+	const dispatch = useAppDispatch();
+	const queryClient = useQueryClient();
+	const openAbsorptionDialog = (target: AbsorptionTarget) => {
+		// Before opening the dialog, warm cache to avoid showing loading states in
+		// the dialog itself. This also ensures we don't show a stale absorption
+		// plan whilst the dialog revalidates.
+		void queryClient.prefetchQuery(absorptionPlanQueryOptions({ projectId, target })).then(() => {
+			dispatch(projectActions.openAbsorptionDialog({ projectId, target }));
+		});
+	};
+
 	const absorb = () => {
-		onAbsorbChanges({
+		openAbsorptionDialog({
 			type: "treeChanges",
 			subject: {
 				changes: [change],
