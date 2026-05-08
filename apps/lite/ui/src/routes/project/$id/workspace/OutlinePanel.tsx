@@ -965,7 +965,6 @@ const Changes: FC<{
 
 	const isSelected = useIsSelected({ projectId, operand });
 	const selectChanges = () => {
-		if (isSelected) return;
 		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
 	};
 	const selectChangesAndFocusOutline = () => {
