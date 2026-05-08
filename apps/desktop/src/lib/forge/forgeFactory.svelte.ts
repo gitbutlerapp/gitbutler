@@ -1,9 +1,9 @@
-import { AzureDevOps } from "$lib/forge/azure/azure";
-import { BitBucket } from "$lib/forge/bitbucket/bitbucket";
+import { AZURE_DOMAIN, AzureDevOps } from "$lib/forge/azure/azure";
+import { BitBucket, BITBUCKET_DOMAIN } from "$lib/forge/bitbucket/bitbucket";
 import { DefaultForge } from "$lib/forge/default/default";
-import { GitHub } from "$lib/forge/github/github";
+import { GitHub, GITHUB_DOMAIN } from "$lib/forge/github/github";
 import { GitHubClient } from "$lib/forge/github/githubClient";
-import { GitLab } from "$lib/forge/gitlab/gitlab";
+import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from "$lib/forge/gitlab/gitlab";
 import { InjectionToken } from "@gitbutler/core/context";
 import { deepCompare } from "@gitbutler/shared/compare";
 import type { ForgeProvider } from "$lib/baseBranch/baseBranch";
@@ -113,16 +113,16 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		} = config;
 		this._githubError = githubError;
 		if (repo && baseBranch) {
-			const forgeType = forgeOverride ?? detectedForgeProvider ?? "default";
-			this._determinedForgeType = forgeType;
+			this._determinedForgeType = this.determineForgeType(repo, detectedForgeProvider);
 			this._forge = this.build({
 				repo,
 				pushRepo,
 				baseBranch,
-				forgeType,
 				githubAuthenticated,
 				forgeIsLoading,
 				gitlabAuthenticated,
+				detectedForgeProvider,
+				forgeOverride,
 			});
 		} else {
 			this._determinedForgeType = "default";
@@ -134,19 +134,25 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		repo,
 		pushRepo,
 		baseBranch,
-		forgeType,
 		githubAuthenticated,
 		forgeIsLoading,
 		gitlabAuthenticated,
+		detectedForgeProvider,
+		forgeOverride,
 	}: {
 		repo: RepoInfo;
 		pushRepo?: RepoInfo;
 		baseBranch: string;
-		forgeType: ForgeName;
 		githubAuthenticated?: boolean;
 		forgeIsLoading?: boolean;
 		gitlabAuthenticated?: boolean;
+		detectedForgeProvider: ForgeProvider | undefined;
+		forgeOverride: ForgeName | undefined;
 	}): Forge {
+		let forgeType = this.determineForgeType(repo, detectedForgeProvider);
+		if (forgeType === "default" && forgeOverride) {
+			forgeType = forgeOverride;
+		}
 		const forkStr =
 			pushRepo && pushRepo.hash !== repo.hash ? `${pushRepo.owner}:${pushRepo.name}` : undefined;
 
@@ -190,6 +196,35 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			return new AzureDevOps(baseParams);
 		}
 		return this.default;
+	}
+
+	private determineForgeType(
+		repo: RepoInfo,
+		detectedForgeProvider: ForgeProvider | undefined,
+	): ForgeName {
+		if (detectedForgeProvider) {
+			return detectedForgeProvider;
+		}
+		const domain = repo.domain;
+
+		if (domain.includes(GITHUB_DOMAIN)) {
+			return "github";
+		}
+		if (
+			domain === GITLAB_DOMAIN ||
+			domain.startsWith(GITLAB_SUB_DOMAIN + ".") ||
+			domain.startsWith("xy" + GITLAB_SUB_DOMAIN + ".") // Temporary workaround until we have foerge overrides implemented
+		) {
+			return "gitlab";
+		}
+		if (domain.includes(BITBUCKET_DOMAIN)) {
+			return "bitbucket";
+		}
+		if (domain.includes(AZURE_DOMAIN)) {
+			return "azure";
+		}
+
+		return "default";
 	}
 
 	invalidate(tags: TagDescription<ReduxTag>[]) {

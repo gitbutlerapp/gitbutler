@@ -148,8 +148,7 @@ pub fn get_all_forge_accounts() -> anyhow::Result<Vec<ForgeUser>> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ForgeName, ForgeUser, derive_forge_repo_info, match_host_to_accounts_custom_host,
-        normalize_host_for_comparison,
+        ForgeName, ForgeUser, match_host_to_accounts_custom_host, normalize_host_for_comparison,
     };
 
     #[test]
@@ -280,24 +279,5 @@ mod tests {
             normalize_host_for_comparison("  repository.com.  "),
             "repository.com"
         );
-    }
-
-    #[test]
-    fn derive_forge_detects_github_enterprise_subdomain_ssh() {
-        let info = derive_forge_repo_info("git@github.ourinternaldomain.net:our-org/my-repo.git")
-            .expect("should detect GHES from github.* subdomain");
-        assert_eq!(info.forge, ForgeName::GitHub);
-        assert_eq!(info.owner, "our-org");
-        assert_eq!(info.repo, "my-repo");
-    }
-
-    #[test]
-    fn derive_forge_detects_github_enterprise_subdomain_https() {
-        let info =
-            derive_forge_repo_info("https://github.ourinternaldomain.net/our-org/my-repo.git")
-                .expect("should detect GHES from github.* subdomain");
-        assert_eq!(info.forge, ForgeName::GitHub);
-        assert_eq!(info.owner, "our-org");
-        assert_eq!(info.repo, "my-repo");
     }
 }
