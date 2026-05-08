@@ -4,12 +4,11 @@
 
 use but_hunk_assignment::WorktreeChanges;
 use gitbutler_operating_modes::OperatingMode;
-use schemars::JsonSchema;
 use serde::Serialize;
 
 /// The type of payloads a watcher event can have
-#[derive(Debug, Clone, Serialize, JsonSchema)]
-#[serde(tag = "type", content = "subject", rename_all = "camelCase")]
+#[but_api_macros::but_transport(tag = "type", content = "subject")]
+#[derive(Clone)]
 pub enum WatcherPayload {
     /// Git remote information was fetched.
     GitFetch(WatcherGitFetchPayload),
@@ -23,20 +22,14 @@ pub enum WatcherPayload {
     WorktreeChanges(WatcherWorktreeChangesPayload),
 }
 
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(WatcherPayload);
-
 /// Git fetch event
-#[derive(Debug, Clone, Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Clone)]
 pub struct WatcherGitFetchPayload;
 
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(WatcherGitFetchPayload);
-
 /// Git head (and operating mode) change event
-#[derive(Debug, Clone, Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Clone)]
 pub struct WatcherGitHeadPayload {
     /// The SHA of the repository's HEAD.
     pub head: String,
@@ -44,35 +37,23 @@ pub struct WatcherGitHeadPayload {
     pub operating_mode: OperatingMode,
 }
 
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(WatcherGitHeadPayload);
-
 /// Git files activity. Supplies the head sha
-#[derive(Debug, Clone, Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Clone)]
 pub struct WatcherGitActivityPayload {
     /// The SHA of the repository's HEAD.
     pub head_sha: String,
 }
 
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(WatcherGitActivityPayload);
-
 /// Remote tracking refs changed (e.g. after a push or external git operation).
-#[derive(Debug, Clone, Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Clone)]
 pub struct WatcherGitRemoteActivityPayload;
 
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(WatcherGitRemoteActivityPayload);
-
 /// Worktree files changes.
-#[derive(Debug, Clone, Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Clone)]
 pub struct WatcherWorktreeChangesPayload {
     /// The file changes in the repository.
     pub changes: WorktreeChanges,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(WatcherWorktreeChangesPayload);

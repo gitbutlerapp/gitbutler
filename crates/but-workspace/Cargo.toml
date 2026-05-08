@@ -29,6 +29,7 @@ export-schema = ["dep:schemars", "dep:but-schemars", "but-core/export-schema"]
 
 [dependencies]
 but-core.workspace = true
+but-api-macros.workspace = true
 but-graph.workspace = true
 but-rebase.workspace = true
 but-error.workspace = true

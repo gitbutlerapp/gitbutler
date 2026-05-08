@@ -33,8 +33,8 @@ pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
 ///
 /// Note that the [`errors`](Self::errors) field may contain information about specific failures, while other paths
 /// may have succeeded computing.
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone, Default)]
 pub struct HunkDependencies {
     /// A map from hunk diffs to stack and commit dependencies.
     pub diffs: Vec<(String, DiffHunk, Vec<HunkLock>)>,
@@ -42,8 +42,6 @@ pub struct HunkDependencies {
     // TODO: Does the UI really use whatever partial result that there may be? Should this be a real error?
     pub errors: Vec<crate::CalculationError>,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(HunkDependencies);
 
 impl HunkDependencies {
     /// Calculate all hunk dependencies using a preparepd [`crate::WorkspaceRanges`].
@@ -82,46 +80,29 @@ impl HunkDependencies {
 /// A commit that owns this lock, along with the stack that owns it.
 /// A hunk is locked when it depends on changes in commits that are in your workspace. A hunk can
 /// be locked to more than one branch if it overlaps with more than one committed hunk.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HunkLock {
     /// The ID if available of the stack that contains
     /// [`commit_id`](Self::commit_id).
     pub target: HunkLockTarget,
     /// The commit the hunk applies to.
-    #[serde(with = "but_serde::object_id")]
-    #[cfg_attr(
-        feature = "export-schema",
-        schemars(schema_with = "but_schemars::object_id")
-    )]
     pub commit_id: gix::ObjectId,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(HunkLock);
 
 /// The target of a hunk lock. If a stack is identifiable, then it's StackId
 /// will be provided.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+#[but_api_macros::but_transport(deserialize, tag = "type", content = "subject")]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum HunkLockTarget {
     /// References a stack that has a StackId.
-    Stack(
-        #[cfg_attr(
-            feature = "export-schema",
-            schemars(schema_with = "but_schemars::stack_id")
-        )]
-        StackId,
-    ),
+    Stack(StackId),
     /// The hunk is locked to a stack that we can't reference because it didn't
     /// have a StackId. This is likely because the stack that the change is
     /// locked to doesn't have any associated metadata or doesn't have anything
     /// we can use to associate it with metadata.
     Unidentified,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(HunkLockTarget);
 
 impl From<HunkLockTarget> for Option<StackId> {
     fn from(val: HunkLockTarget) -> Self {

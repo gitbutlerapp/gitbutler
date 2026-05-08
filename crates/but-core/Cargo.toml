@@ -17,6 +17,7 @@ legacy = []
 
 [dependencies]
 but-error.workspace = true
+but-api-macros.workspace = true
 but-project-handle.workspace = true
 but-serde.workspace = true
 

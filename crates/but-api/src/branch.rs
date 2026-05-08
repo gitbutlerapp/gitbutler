@@ -25,9 +25,7 @@ pub mod json {
     use crate::branch::MoveBranchResult as InternalMoveBranchResult;
 
     /// JSON sibling of [`but_workspace::branch::apply::Outcome`].
-    #[derive(Debug, Serialize)]
-    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[serde(rename_all = "camelCase")]
+    #[but_api_macros::but_transport]
     pub struct ApplyOutcome {
         /// Whether the workspace changed while applying the branch.
         pub workspace_changed: bool,
@@ -36,9 +34,6 @@ pub mod json {
         /// Whether the workspace reference had to be created.
         pub workspace_ref_created: bool,
     }
-    #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(ApplyOutcome);
-
     impl<'a> From<but_workspace::branch::apply::Outcome<'a>> for ApplyOutcome {
         fn from(value: but_workspace::branch::apply::Outcome<'a>) -> Self {
             let workspace_changed = value.workspace_changed();
@@ -58,17 +53,12 @@ pub mod json {
         }
     }
 
-    #[derive(Debug, Serialize)]
-    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[serde(rename_all = "camelCase")]
+    #[but_api_macros::but_transport]
     /// JSON transport type for moving a branch.
     pub struct MoveBranchResult {
         /// Workspace state after moving or tearing off a branch.
         pub workspace: crate::json::WorkspaceState,
     }
-    #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(MoveBranchResult);
-
     impl TryFrom<InternalMoveBranchResult> for MoveBranchResult {
         type Error = anyhow::Error;
 

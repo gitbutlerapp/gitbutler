@@ -10,7 +10,12 @@ rust-version.workspace = true
 doctest = false
 
 [features]
-export-schema = ["dep:schemars", "dep:but-schemars", "but-core/export-schema", "but-hunk-dependency/export-schema"]
+export-schema = [
+  "dep:schemars",
+  "dep:but-schemars",
+  "but-core/export-schema",
+  "but-hunk-dependency/export-schema",
+]
 
 [dependencies]
 but-core.workspace = true
@@ -18,6 +23,7 @@ but-graph.workspace = true
 but-hunk-dependency.workspace = true
 but-db.workspace = true
 but-serde.workspace = true
+but-api-macros.workspace = true
 
 gix.workspace = true
 

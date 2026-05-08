@@ -38,6 +38,7 @@ napi = ["dep:napi", "dep:napi-derive", "legacy", "export-schema"]
 path-bytes = []
 ## Generate JSON schemas for TypeScript type generation via schemars.
 export-schema = [
+    "dep:but-schemars",
     "but-error/export-schema",
     "but-workspace/export-schema",
     "but-hunk-assignment/export-schema",
@@ -47,6 +48,7 @@ export-schema = [
     "gitbutler-branch/export-schema",
     "gitbutler-branch-actions/export-schema",
     "gitbutler-edit-mode/export-schema",
+    "but-settings/export-schema",
 ]
 ## Make legacy functionality available.
 legacy = [
@@ -77,6 +79,7 @@ legacy = [
 but-serde.workspace = true
 but-path.workspace = true
 but-api-macros.workspace = true
+but-schemars = { workspace = true, optional = true }
 but-error.workspace = true
 but-core.workspace = true
 but-graph.workspace = true
@@ -140,7 +143,6 @@ open.workspace = true
 url = { version = "2.5", optional = true }
 uuid.workspace = true
 which = "8.0.2"
-but-schemars.workspace = true
 
 [dev-dependencies]
 but-api = { path = ".", features = ["legacy"]}

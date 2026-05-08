@@ -23,26 +23,15 @@ use crate::{
     remote::{RemoteCommit, commit_to_remote_commit},
 };
 
-#[derive(Debug, Serialize, PartialEq, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(PartialEq, Clone)]
 pub struct BaseBranch {
     pub branch_name: String,
     pub remote_name: String,
     pub remote_url: String,
     pub push_remote_name: String,
     pub push_remote_url: String,
-    #[serde(with = "but_serde::object_id")]
-    #[cfg_attr(
-        feature = "export-schema",
-        schemars(schema_with = "but_schemars::object_id")
-    )]
     pub base_sha: gix::ObjectId,
-    #[serde(with = "but_serde::object_id")]
-    #[cfg_attr(
-        feature = "export-schema",
-        schemars(schema_with = "but_schemars::object_id")
-    )]
     pub current_sha: gix::ObjectId,
     pub behind: usize,
     pub upstream_commits: Vec<RemoteCommit>,
@@ -64,8 +53,6 @@ pub struct BaseBranch {
     pub diverged_behind: Vec<gix::ObjectId>,
     pub short_name: String,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(BaseBranch);
 
 impl BaseBranch {
     pub fn compute_short_name(branch_name: &str, remote_name: &str) -> String {

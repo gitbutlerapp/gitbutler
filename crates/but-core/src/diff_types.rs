@@ -4,9 +4,8 @@ use serde::{Deserialize, Serialize};
 use crate::TreeChange;
 
 /// A change that should be used to create a new commit or alter an existing one, along with enough information to know where to find it.
-#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Default, Clone, PartialEq)]
 pub struct DiffSpec {
     /// The previous location of the entry, the source of a rename if there was one.
     #[serde(rename = "previousPathBytes")]
@@ -30,8 +29,6 @@ pub struct DiffSpec {
     /// Otherwise, the whole file is being deleted.
     pub hunk_headers: Vec<HunkHeader>,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(DiffSpec);
 
 impl From<&TreeChange> for DiffSpec {
     fn from(change: &crate::TreeChange) -> Self {
@@ -54,9 +51,8 @@ impl From<TreeChange> for DiffSpec {
 }
 
 /// The header of a hunk that represents a change to a file.
-#[derive(Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize, no_debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub struct HunkHeader {
     /// The 1-based line number at which the previous version of the file started.
     pub old_start: u32,
@@ -67,8 +63,6 @@ pub struct HunkHeader {
     /// The non-zero number of lines included in the new version of the file.
     pub new_lines: u32,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(HunkHeader);
 
 impl From<&crate::unified_diff::DiffHunk> for HunkHeader {
     fn from(

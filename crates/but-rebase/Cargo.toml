@@ -17,6 +17,7 @@ doctest = false
 but-core.workspace = true
 but-gerrit.workspace = true
 but-graph.workspace = true
+but-api-macros.workspace = true
 
 gix = { workspace = true, features = ["revision", "merge"] }
 anyhow.workspace = true

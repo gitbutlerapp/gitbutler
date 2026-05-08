@@ -5,9 +5,8 @@ use serde::Serialize;
 
 use but_workspace::ui::Author;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Clone, PartialEq)]
 pub struct RemoteCommit {
     pub id: String,
     #[cfg_attr(
@@ -26,8 +25,6 @@ pub struct RemoteCommit {
     pub parent_ids: Vec<gix::ObjectId>,
     pub conflicted: bool,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(RemoteCommit);
 
 pub(crate) fn commit_to_remote_commit(commit: &gix::Commit) -> Result<RemoteCommit> {
     let parent_ids = commit.parent_ids().map(|id| id.detach()).collect();

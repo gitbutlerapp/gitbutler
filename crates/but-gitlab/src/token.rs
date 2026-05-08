@@ -53,15 +53,12 @@ pub fn clear_all_gitlab_accounts(storage: &but_forge_storage::Controller) -> Res
     Ok(())
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase", tag = "type", content = "info")]
+#[but_api_macros::but_transport(deserialize, tag = "type", content = "info")]
+#[derive(Clone, PartialEq, Eq)]
 pub enum GitlabAccountIdentifier {
     PatUsername { username: String },
     SelfHosted { username: String, host: String },
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(GitlabAccountIdentifier);
 
 impl GitlabAccountIdentifier {
     pub fn pat(username: &str) -> Self {

@@ -5,8 +5,8 @@ use serde::Serialize;
 /// while preserving the original project structure for persistence.
 ///
 /// Not registered for ts types because it is only consumed while flattened
-#[derive(Debug, Serialize, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[but_api_macros::but_transport(register = false)]
+#[derive(Clone)]
 pub struct Project {
     #[serde(flatten)]
     inner: crate::Project,

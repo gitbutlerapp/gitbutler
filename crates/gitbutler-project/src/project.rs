@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{ProjectHandle, ProjectHandleOrLegacyProjectId, default_true::DefaultTrue};
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone)]
 pub struct ApiProject {
     pub name: String,
     pub description: Option<String>,
@@ -30,17 +30,15 @@ pub struct ApiProject {
     #[serde(default)]
     pub reviews: bool,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(ApiProject);
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize, register = false)]
+#[derive(Clone)]
 pub enum FetchResult {
     Fetched {
+        #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
         timestamp: time::SystemTime,
     },
     Error {
+        #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
         timestamp: time::SystemTime,
         error: String,
     },
@@ -54,21 +52,17 @@ impl FetchResult {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Copy, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[but_api_macros::but_transport(deserialize, register = false)]
+#[derive(Copy, Clone)]
 pub struct CodePushState {
-    #[serde(with = "but_serde::object_id")]
-    #[cfg_attr(
-        feature = "export-schema",
-        schemars(schema_with = "but_schemars::object_id")
-    )]
     pub id: gix::ObjectId,
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub timestamp: time::SystemTime,
 }
 
 /// Not registered for the frontend types because it is consumed flattened
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[but_api_macros::but_transport(deserialize, rename_all = "snake_case", register = false)]
+#[derive(Clone)]
 pub struct Project {
     // TODO: We shouldn't need these IDs and most definitely shouldn't persist them.
     //       A project is a `git_dir`, and from there all other project data can be derived.

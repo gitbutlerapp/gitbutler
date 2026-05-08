@@ -1,14 +1,13 @@
 use anyhow::Result;
 use but_api_macros::but_api;
+use serde::Serialize;
 
 /// Capabilities that vary by how the backend was launched.
 ///
 /// Consumed by the frontend to conditionally show or hide affordances that
 /// only work when the user is on the same machine as the server (e.g. adding
 /// a local project requires a real filesystem path).
-#[derive(Debug, serde::Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(register = false)]
 pub struct ServerCapabilities {
     /// True when the server is reachable from outside localhost (e.g. a
     /// tunnel is active). False in the Tauri desktop app and when

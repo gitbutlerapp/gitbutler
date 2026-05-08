@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "lowercase")]
+#[but_api_macros::but_transport(deserialize, rename_all = "lowercase")]
+#[derive(PartialEq, Clone)]
 /// Supported git forge types
 pub enum ForgeName {
     GitHub,
@@ -10,9 +9,6 @@ pub enum ForgeName {
     Bitbucket,
     Azure,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(ForgeName);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -29,15 +25,17 @@ impl PartialEq for ForgeRepoInfo {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(tag = "provider", rename_all = "lowercase", content = "details")]
+#[but_api_macros::but_transport(
+    deserialize,
+    rename_all = "lowercase",
+    tag = "provider",
+    content = "details"
+)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum ForgeUser {
     GitHub(but_github::GithubAccountIdentifier),
     GitLab(but_gitlab::GitlabAccountIdentifier),
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(ForgeUser);
 
 impl ForgeUser {
     pub fn github(&self) -> Option<&but_github::GithubAccountIdentifier> {

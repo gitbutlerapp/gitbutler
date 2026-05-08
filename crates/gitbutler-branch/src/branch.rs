@@ -24,15 +24,13 @@ pub struct BranchCreateRequest {
 ///   or `feat/one` for `refs/remotes/my/special/remote/feat/one`.
 /// * For virtual branches, it's either the above if there is a `source_refname` or an `upstream`, or it's the normalized
 ///   name of the virtual branch.
+#[but_api_macros::but_transport(no_debug, no_serialize)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct BranchIdentity(
     /// The identity is always a valid reference name, full or partial.
     #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub gix::refs::PartialName,
 );
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(BranchIdentity);
 
 impl Serialize for BranchIdentity {
     fn serialize<S>(&self, s: S) -> std::result::Result<S::Ok, S::Error>

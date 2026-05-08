@@ -132,9 +132,7 @@ mod hex_hash {
 pub use hex_hash::{HexHash, HexHashString};
 
 /// Shared JSON transport type for mutation workspace results.
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
 pub struct WorkspaceState {
     /// Commits that were replaced by the operation. Maps `oldId -> newId`.
     #[cfg_attr(
@@ -145,9 +143,6 @@ pub struct WorkspaceState {
     /// The post-operation workspace view presented to the frontend.
     pub head_info: but_workspace::ui::RefInfo,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(WorkspaceState);
 
 impl TryFrom<crate::WorkspaceState> for WorkspaceState {
     type Error = anyhow::Error;
@@ -416,7 +411,8 @@ fn bstring_schema(generate: &mut schemars::SchemaGenerator) -> schemars::Schema 
 }
 
 /// The full name of a Git reference.
-#[derive(Debug, Clone, schemars::JsonSchema, Serialize)]
+#[but_api_macros::but_transport]
+#[derive(Clone)]
 pub struct FullRefName {
     /// The full name, like `refs/heads/main` or `refs/remotes/origin/foo`.
     /// Note that it might be degenerated if it can't be represented in Unicode.
@@ -426,9 +422,6 @@ pub struct FullRefName {
     #[schemars(schema_with = "bstring_schema")]
     pub full_bytes: bstr::BString,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(FullRefName);
-
 impl From<gix::refs::FullName> for FullRefName {
     fn from(value: gix::refs::FullName) -> Self {
         FullRefName {

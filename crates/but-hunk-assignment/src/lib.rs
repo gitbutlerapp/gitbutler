@@ -25,9 +25,8 @@ use serde::{Deserialize, Serialize};
 use tracing::instrument;
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone)]
 pub struct HunkAssignment {
     /// A stable identifier for the hunk assignment.
     ///   - When a new hunk is first observed (from the uncommitted changes), it is assigned a new id.
@@ -47,10 +46,6 @@ pub struct HunkAssignment {
     pub path_bytes: BString,
     /// The stack to which the hunk is assigned, derived from `branch_ref_bytes`
     /// through workspace projection.
-    #[cfg_attr(
-        feature = "export-schema",
-        schemars(schema_with = "but_schemars::stack_id_opt")
-    )]
     pub stack_id: Option<StackId>,
     /// The assigned branch as a full ref name (e.g. `refs/heads/my-branch`).
     /// This is the source of truth for assignment targeting.
@@ -68,8 +63,6 @@ pub struct HunkAssignment {
     #[serde(skip)]
     pub diff: Option<BString>,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(HunkAssignment);
 
 impl HunkAssignment {
     pub fn from_tree_change(change: &TreeChange, patch: Option<UnifiedPatch>) -> Vec<Self> {
@@ -148,14 +141,13 @@ impl From<HunkAssignment> for but_core::DiffSpec {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(
-    rename_all = "camelCase",
+#[but_api_macros::but_transport(
+    deserialize,
     rename_all_fields = "camelCase",
     tag = "type",
     content = "subject"
 )]
+#[derive(Clone, Default)]
 pub enum AbsorptionTarget {
     Branch {
         branch_name: String,
@@ -166,20 +158,15 @@ pub enum AbsorptionTarget {
     TreeChanges {
         changes: Vec<but_core::ui::TreeChange>,
         // Optionally, the stack to which the changes are assigned
-        #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
         assigned_stack_id: Option<StackId>,
     },
     #[default]
     All,
 }
 
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(AbsorptionTarget);
-
 /// Reason why a file is being absorbed to a particular commit
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "snake_case")]
+#[but_api_macros::but_transport(deserialize, rename_all = "snake_case")]
+#[derive(Clone, PartialEq, Eq)]
 pub enum AbsorptionReason {
     /// File has hunk range overlap with this commit
     HunkDependency,
@@ -188,9 +175,6 @@ pub enum AbsorptionReason {
     /// Default to leftmost stack's topmost commit
     DefaultStack,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(AbsorptionReason);
 
 impl AbsorptionReason {
     pub fn description(&self) -> &str {
@@ -203,34 +187,23 @@ impl AbsorptionReason {
 }
 
 /// Information about a file being absorbed
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone)]
 pub struct FileAbsorption {
     pub path: String,
     pub assignment: HunkAssignment,
 }
 
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(FileAbsorption);
-
 /// Information about absorptions grouped by commit
-#[derive(Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
 pub struct CommitAbsorption {
     #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub stack_id: but_core::ref_metadata::StackId,
-    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
-    #[serde(with = "but_serde::object_id")]
     pub commit_id: gix::ObjectId,
     pub commit_summary: String,
     pub files: Vec<FileAbsorption>,
     pub reason: AbsorptionReason,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(CommitAbsorption);
 
 /// JSON output structure for a file being absorbed
 #[derive(Debug, Serialize)]
@@ -257,14 +230,13 @@ pub struct JsonAbsorbOutput {
 }
 
 /// The target for a hunk assignment request.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(
-    rename_all = "camelCase",
+#[but_api_macros::but_transport(
+    deserialize,
     rename_all_fields = "camelCase",
     tag = "type",
     content = "subject"
 )]
+#[derive(Clone)]
 pub enum HunkAssignmentTarget {
     /// Assign to the topmost branch of the given stack.
     Stack {
@@ -282,12 +254,9 @@ pub enum HunkAssignmentTarget {
         branch_ref_bytes: BString,
     },
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(HunkAssignmentTarget);
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone)]
 /// A request to update a hunk assignment.
 /// If a file has multiple hunks, the UI client should send a list of assignment
 /// requests with the appropriate hunk headers.
@@ -305,12 +274,9 @@ pub struct HunkAssignmentRequest {
     /// Where to assign this hunk. `None` means "unassigned".
     pub target: Option<HunkAssignmentTarget>,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(HunkAssignmentRequest);
 
-#[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Clone)]
 /// Same as `but_core::ui::WorktreeChanges`, but with the addition of hunk assignments.
 pub struct WorktreeChanges {
     #[serde(flatten)]
@@ -328,8 +294,6 @@ pub struct WorktreeChanges {
     )]
     pub dependencies_error: Option<serde_error::Error>,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(WorktreeChanges);
 
 impl From<but_core::ui::WorktreeChanges> for WorktreeChanges {
     fn from(worktree_changes: but_core::ui::WorktreeChanges) -> Self {

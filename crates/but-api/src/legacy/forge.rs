@@ -7,6 +7,7 @@ use but_forge::{
     ForgeName, ReviewTemplateFunctions, available_review_templates, get_review_template_functions,
 };
 use gitbutler_repo::RepoCommands;
+use serde::Serialize;
 use tracing::instrument;
 
 /// (Deprecated) Get the list of PR template paths for the given project and forge.
@@ -70,17 +71,14 @@ pub fn pr_template(
 }
 
 /// Information about the project's review template.
-#[derive(Debug, Clone, serde::Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[but_api_macros::but_transport]
+#[derive(Clone)]
 pub struct ReviewTemplateInfo {
     /// The relative path to the review template within the repository.
     pub path: String,
     /// The content of the review template.
     pub content: String,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(ReviewTemplateInfo);
 
 /// Get the review template content for the given project and relative path.
 ///

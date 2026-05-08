@@ -7,11 +7,14 @@ publish = false
 rust-version.workspace = true
 
 [features]
+default = ["export-schema"]
+export-schema = []
 
 [lib]
 doctest = false
 
 [dependencies]
+but-api-macros.workspace = true
 but-path.workspace = true
 but-utils.workspace = true
 

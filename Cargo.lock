@@ -1120,6 +1120,7 @@ dependencies = [
  "anyhow",
  "boolean-enums",
  "bstr",
+ "but-api-macros",
  "but-error",
  "but-oxidize",
  "but-project-handle",
@@ -1222,8 +1223,10 @@ name = "but-error"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-api-macros",
  "but-schemars",
  "schemars 1.2.1",
+ "serde",
 ]
 
 [[package]]
@@ -1244,6 +1247,7 @@ name = "but-forge"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-api-macros",
  "but-db",
  "but-forge-storage",
  "but-github",
@@ -1293,6 +1297,7 @@ name = "but-github"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-api-macros",
  "but-error",
  "but-forge-storage",
  "but-schemars",
@@ -1311,6 +1316,7 @@ name = "but-gitlab"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-api-macros",
  "but-error",
  "but-forge-storage",
  "but-schemars",
@@ -1348,6 +1354,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-api-macros",
  "but-core",
  "but-db",
  "but-graph",
@@ -1369,6 +1376,7 @@ name = "but-hunk-dependency"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-api-macros",
  "but-core",
  "but-ctx",
  "but-graph",
@@ -1536,6 +1544,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-api-macros",
  "but-core",
  "but-gerrit",
  "but-graph",
@@ -1647,6 +1656,7 @@ name = "but-settings"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-api-macros",
  "but-path",
  "but-schemars",
  "but-utils",
@@ -1740,6 +1750,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-api-macros",
  "but-core",
  "but-ctx",
  "but-error",
@@ -3933,6 +3944,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-api-macros",
  "but-core",
  "but-schemars",
  "gitbutler-reference",
@@ -3948,6 +3960,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-api-macros",
  "but-askpass",
  "but-core",
  "but-ctx",
@@ -4016,6 +4029,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-api-macros",
  "but-core",
  "but-ctx",
  "but-graph",
@@ -4101,6 +4115,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "but-api-macros",
  "but-core",
  "but-ctx",
  "but-schemars",
@@ -4147,6 +4162,7 @@ name = "gitbutler-project"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-api-macros",
  "but-core",
  "but-error",
  "but-forge",

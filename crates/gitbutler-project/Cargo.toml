@@ -17,6 +17,7 @@ but-error.workspace = true
 but-path.workspace = true
 but-serde = { workspace = true, features = ["legacy"] }
 but-core.workspace = true
+but-api-macros.workspace = true
 but-utils = { workspace = true, features = ["legacy"] }
 but-forge.workspace = true
 but-project-handle = { workspace = true, features = ["legacy"] }

@@ -17,6 +17,7 @@ but-core.workspace = true
 but-serde.workspace = true
 but-ctx = { workspace = true }
 but-graph.workspace = true
+but-api-macros.workspace = true
 
 tracing.workspace = true
 anyhow.workspace = true

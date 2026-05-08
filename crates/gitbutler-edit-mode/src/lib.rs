@@ -369,16 +369,13 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     Ok(())
 }
 
-#[derive(Serialize, Debug, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Clone)]
 pub struct ConflictEntryPresence {
     pub ours: bool,
     pub theirs: bool,
     pub ancestor: bool,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(ConflictEntryPresence);
 
 pub(crate) fn starting_index_state(
     ctx: &Context,

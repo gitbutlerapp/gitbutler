@@ -13,6 +13,7 @@ export-schema = ["dep:schemars", "dep:but-schemars"]
 doctest = false
 
 [dependencies]
+but-api-macros.workspace = true
 but-core.workspace = true
 gitbutler-reference.workspace = true
 

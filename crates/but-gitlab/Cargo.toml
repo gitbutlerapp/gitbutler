@@ -20,6 +20,7 @@ doctest = false
 but-secret.workspace = true
 but-forge-storage.workspace = true
 but-error.workspace = true
+but-api-macros.workspace = true
 serde.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true

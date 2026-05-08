@@ -18,9 +18,7 @@ pub mod json {
     use serde::Serialize;
 
     /// The JSON sibling of [but_core::diff::CommitDetails].
-    #[derive(Debug, Serialize)]
-    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[serde(rename_all = "camelCase")]
+    #[but_api_macros::but_transport]
     pub struct CommitDetails {
         /// The commit itself.
         // TODO: make this our own json structure - this one is GUI specific and isn't great
@@ -34,9 +32,6 @@ pub mod json {
         /// Conflicting entries in `commit` as stored in the conflict commit metadata.
         pub conflict_entries: Option<but_core::commit::ConflictEntries>,
     }
-    #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(CommitDetails);
-
     impl From<but_core::diff::CommitDetails> for CommitDetails {
         fn from(value: but_core::diff::CommitDetails) -> Self {
             let but_core::diff::CommitDetails {

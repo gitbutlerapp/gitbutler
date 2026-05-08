@@ -12,18 +12,14 @@ pub mod json {
     use serde::{Deserialize, Serialize};
 
     /// JSON transport type for how a stack bottom should be updated.
-    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[serde(rename_all = "camelCase")]
+    #[but_api_macros::but_transport(deserialize)]
+    #[derive(Clone, Copy)]
     pub enum BottomUpdateKind {
         /// Rebase the selected bottom-most commit onto the target branch.
         Rebase,
         /// Create a merge commit at the top of the selected stack.
         Merge,
     }
-
-    #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(BottomUpdateKind);
 
     impl From<BottomUpdateKind> for but_workspace::BottomUpdateKind {
         fn from(value: BottomUpdateKind) -> Self {
@@ -35,18 +31,14 @@ pub mod json {
     }
 
     /// JSON transport type describing one stack bottom to update.
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[serde(rename_all = "camelCase")]
+    #[but_api_macros::but_transport(deserialize)]
+    #[derive(Clone)]
     pub struct BottomUpdate {
         /// How the selected stack bottom should be updated.
         pub kind: BottomUpdateKind,
         /// The bottom-most commit or empty bottom reference to update.
         pub selector: crate::commit::json::RelativeTo,
     }
-
-    #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(BottomUpdate);
 
     impl From<BottomUpdate> for but_workspace::BottomUpdate {
         fn from(value: BottomUpdate) -> Self {
