@@ -333,7 +333,9 @@ const ShortcutsBar: FC = () => {
 			enabled !== false && shortcutsBar !== undefined && hotkeys !== undefined
 				? hotkeys.flatMap((hk) =>
 						// TODO: Render sequences too.
-						"sequence" in hk || isInputIgnoredHotkey({ activeElement, hotkeyOpts: hk })
+						"sequence" in hk ||
+						hk.enabled === false ||
+						isInputIgnoredHotkey({ activeElement, hotkeyOpts: hk })
 							? []
 							: {
 									label: shortcutsBar.label,
