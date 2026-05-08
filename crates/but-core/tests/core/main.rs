@@ -6,6 +6,7 @@ mod diff;
 mod extract_remote_name_and_short_name;
 mod git_config;
 mod json_samples;
+mod merge;
 mod ref_metadata;
 mod settings;
 mod snapshot;
