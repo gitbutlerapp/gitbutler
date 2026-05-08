@@ -126,6 +126,7 @@ impl TestTui {
                         &mut messages,
                         &mut other_messages,
                         &AtomicBool::default(),
+                        None,
                         &mut ctx,
                         &mut self.out,
                         &self.mode,

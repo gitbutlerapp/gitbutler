@@ -3,6 +3,7 @@
 use std::{
     borrow::Cow,
     ffi::OsString,
+    path::Path,
     process::Command,
     rc::Rc,
     sync::{Arc, atomic::AtomicBool, mpsc::Receiver},
@@ -33,6 +34,7 @@ use crate::{
         status::{
             StatusFlags, StatusOutputLine, TuiLaunchOptions,
             tui::{
+                background_refresh::BackgroundRefresh,
                 backstack::{Backstack, BackstackEntry, RememberToUpdateBackstack},
                 branch_picker::{BranchPicker, BranchPickerMessage},
                 confirm::{Confirm, ConfirmMessage},
@@ -68,6 +70,7 @@ use super::{FilesStatusFlag, output::StatusOutputLineData};
 
 use render::{details_viewport, ensure_cursor_visible, render_app, status_viewport_height};
 
+mod background_refresh;
 mod backstack;
 mod branch_picker;
 mod confirm;
@@ -117,6 +120,7 @@ pub(super) async fn render_tui(
     flags: StatusFlags,
     status_lines: Vec<StatusOutputLine>,
     options: TuiLaunchOptions,
+    current_dir: &Path,
 ) -> anyhow::Result<Vec<StatusOutputLine>> {
     let mut app = App::new(status_lines, flags, options);
 
@@ -136,6 +140,7 @@ pub(super) async fn render_tui(
             &mut messages,
             &mut other_messages,
             <Arc<AtomicBool>>::default(),
+            current_dir,
             ctx,
             out,
             mode,
@@ -155,6 +160,7 @@ pub(super) async fn render_tui(
             &mut messages,
             &mut other_messages,
             received_watcher_event,
+            current_dir,
             ctx,
             out,
             mode,
@@ -172,6 +178,7 @@ async fn render_loop<T, E>(
     messages: &mut Vec<Message>,
     other_messages: &mut Vec<Message>,
     received_watcher_event: Arc<AtomicBool>,
+    current_dir: &Path,
     ctx: &mut Context,
     out: &mut OutputChannel,
     mode: &OperatingMode,
@@ -199,6 +206,7 @@ where
             messages,
             other_messages,
             &received_watcher_event,
+            Some(current_dir),
             ctx,
             out,
             mode,
@@ -219,6 +227,7 @@ async fn render_loop_once<T, E>(
     messages: &mut Vec<Message>,
     other_messages: &mut Vec<Message>,
     received_watcher_event: &AtomicBool,
+    current_dir: Option<&Path>,
     ctx: &mut Context,
     out: &mut OutputChannel,
     mode: &OperatingMode,
@@ -235,6 +244,7 @@ where
         messages,
         other_messages,
         received_watcher_event,
+        current_dir,
         ctx,
         out,
         mode,
@@ -256,6 +266,7 @@ async fn update<T, E>(
     messages: &mut Vec<Message>,
     other_messages: &mut Vec<Message>,
     received_watcher_event: &AtomicBool,
+    current_dir: Option<&Path>,
     ctx: &mut Context,
     out: &mut OutputChannel,
     mode: &OperatingMode,
@@ -311,6 +322,13 @@ where
             .is_none_or(|timestamp| timestamp.elapsed() > WATCHER_SELF_ECHO_SUPPRESSION)
     {
         messages.push(Message::Reload(None, ReloadCause::Watcher));
+    }
+
+    if let Some(current_dir) = current_dir {
+        app.background_refresh.update(ctx, current_dir);
+        if app.background_refresh.needs_reload() {
+            messages.push(Message::Reload(None, ReloadCause::Watcher));
+        }
     }
 
     // handle messages
@@ -417,6 +435,7 @@ struct App {
     has_focus: bool,
     backstack: Backstack,
     previous_reload_caused_by_mutation_timestamp: Option<Instant>,
+    background_refresh: BackgroundRefresh,
 }
 
 #[derive(Debug)]
@@ -484,6 +503,7 @@ impl App {
             status_width_percentage: 50,
             theme,
             has_focus: true,
+            background_refresh: BackgroundRefresh::new(),
         }
     }
 
@@ -2349,6 +2369,7 @@ impl App {
             messages.push(Message::EnterNormalModeAfterConfirmingOperation);
             return Ok(());
         };
+        let kind = *kind;
 
         let Some(input) = textarea.lines().first() else {
             return Ok(());
@@ -2381,6 +2402,11 @@ impl App {
         self.prompt_to_continue(out)?;
 
         if status.success() {
+            if matches!(kind, CommandModeKind::But) {
+                // but commands are likely to be push and pull so force a refresh afterwards
+                self.background_refresh.force_refresh();
+            }
+
             messages.extend([
                 Message::EnterNormalModeAfterConfirmingOperation,
                 Message::Reload(None, ReloadCause::Mutation),

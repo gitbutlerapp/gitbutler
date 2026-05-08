@@ -602,9 +602,13 @@ fn render_hotbar(app: &App, area: Rect, frame: &mut Frame) {
     ])
     .split(area);
 
-    frame.render_widget(mode_span, layout[0]);
+    let mode_area = layout[0];
+    let margin_area = layout[1];
+    let key_binds_area = layout[2];
 
-    frame.render_widget(" ", layout[1]);
+    frame.render_widget(mode_span, mode_area);
+
+    frame.render_widget(" ", margin_area);
 
     match &*app.mode {
         Mode::Normal(..)
@@ -631,7 +635,7 @@ fn render_hotbar(app: &App, area: Rect, frame: &mut Frame) {
                 }
             }
 
-            frame.render_widget(line, layout[2]);
+            frame.render_widget(line, key_binds_area);
         }
         Mode::Command(CommandMode { textarea, kind }) => {
             let command_layout = Layout::horizontal([
@@ -641,7 +645,7 @@ fn render_hotbar(app: &App, area: Rect, frame: &mut Frame) {
                 },
                 Constraint::Min(1),
             ])
-            .split(layout[2]);
+            .split(key_binds_area);
 
             match kind {
                 CommandModeKind::But => {

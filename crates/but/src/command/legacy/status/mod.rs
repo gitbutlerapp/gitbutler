@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{collections::{BTreeMap, HashMap}, path::Path};
 
 use anyhow::Context as _;
 use assignment::FileAssignment;
@@ -186,6 +186,7 @@ pub(crate) async fn worktree(
     out: &mut OutputChannel,
     flags: StatusFlags,
     render_mode: StatusRenderMode,
+    current_dir: &Path,
 ) -> anyhow::Result<()> {
     // Check if we're in edit mode first, before doing any expensive operations
     let mode = but_api::legacy::modes::operating_mode(ctx)?.operating_mode;
@@ -224,7 +225,7 @@ pub(crate) async fn worktree(
             let mut lines = Vec::new();
             let mut output = StatusOutput::Buffer { lines: &mut lines };
             build_status_output(ctx, &status_ctx, &mut output)?;
-            let final_lines = tui::render_tui(ctx, out, &mode, flags, lines, options).await?;
+            let final_lines = tui::render_tui(ctx, out, &mode, flags, lines, options, current_dir).await?;
 
             if !options.skip_status_after
                 && let Some(human_out) = out.for_human()
