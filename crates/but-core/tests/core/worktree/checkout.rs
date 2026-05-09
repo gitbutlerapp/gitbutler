@@ -1086,6 +1086,89 @@ fn partial_commit_with_deletion_plus_insertion_conflicts_on_checkout() -> anyhow
     Ok(())
 }
 
+#[test]
+fn checkout_succeeds_when_source_tree_diverges_from_head() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("mixed-hunk-modifications");
+    // This scenario has uncommitted worktree changes — the condition that
+    // triggers the HEAD tree consistency check.
+    insta::assert_snapshot!(git_status(&repo)?, @r"
+     M file
+    M  file-in-index
+    RM file-to-be-renamed-in-index -> file-renamed-in-index
+     D file-to-be-renamed
+    ?? file-renamed
+    ");
+
+    // Build a target commit that adds a new independent file, so the checkout
+    // doesn't conflict with the existing worktree changes.
+    let (head_commit, new_commit) = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"new-content\n")?;
+            tree.upsert("new-file", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "add 'new-file'",
+    )?;
+
+    // Create a "stale" commit with a different tree to simulate stale workspace
+    // metadata causing `entrypoint_commit()` to return a commit whose tree
+    // differs from actual HEAD^{tree}. This reproduces the "Specified HEAD
+    // didn't match actual HEAD^{tree}" error from production telemetry.
+    let stale_tree = {
+        let mut editor = head_commit.tree()?.edit()?;
+        let blob_id = repo.write_blob(b"stale marker\n")?;
+        editor.upsert("stale-marker", EntryKind::Blob, blob_id)?;
+        editor.write()?.detach()
+    };
+    let stale_commit_id = repo
+        .write_object(gix::objs::Commit {
+            tree: stale_tree,
+            parents: [head_commit.id].into(),
+            message: "stale workspace commit".into(),
+            ..head_commit.decode()?.to_owned()?
+        })?
+        .detach();
+
+    // Pass the stale commit as current_head_id. Its tree differs from what
+    // HEAD^{tree} actually is, but the checkout should still succeed — the
+    // worktree changes are relative to the real HEAD, not the stale commit.
+    let out = safe_checkout(
+        stale_commit_id,
+        new_commit.id,
+        &repo,
+        checkout::Options {
+            skip_head_update: true,
+            ..Default::default()
+        },
+    )?;
+    insta::assert_debug_snapshot!(out, @r#"
+    Outcome {
+        snapshot_tree: None,
+        num_deleted_files: 1,
+        num_added_or_updated_files: 1,
+        head_update: "None",
+    }
+    "#);
+
+    // The new file was checked out.
+    let new_file = repo.workdir_path("new-file").unwrap();
+    assert!(new_file.exists(), "new-file should have been checked out");
+    assert_eq!(std::fs::read_to_string(new_file)?, "new-content\n");
+
+    // The existing worktree changes are preserved.
+    insta::assert_snapshot!(git_status(&repo)?, @r"
+     M file
+    M  file-in-index
+    RM file-to-be-renamed-in-index -> file-renamed-in-index
+     D file-to-be-renamed
+    A  new-file
+    ?? file-renamed
+    ");
+
+    Ok(())
+}
+
 fn overwrite_options() -> checkout::Options {
     checkout::Options {
         uncommitted_changes: UncommitedWorktreeChanges::KeepConflictingInSnapshotAndOverwrite,
