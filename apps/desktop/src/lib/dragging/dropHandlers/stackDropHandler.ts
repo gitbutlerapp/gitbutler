@@ -82,7 +82,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 
 	private acceptsCommitDropData(data: unknown): data is CommitDropData {
 		if (!(data instanceof CommitDropData)) return false;
-		if (data.commit.hasConflicts) return false;
+		if (data.allCommits.some((commit) => commit.hasConflicts)) return false;
 		return true;
 	}
 
@@ -338,8 +338,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 		}
 
 		if (this.acceptsCommitDropData(data)) {
-			await this.ondropCommitData(data);
-			return;
+			return await this.ondropCommitData(data);
 		}
 
 		if (this.acceptsBranchDropData(data)) {
