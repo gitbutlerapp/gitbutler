@@ -7,9 +7,16 @@ use but_core::{
     DiffSpec, RefMetadata,
     ref_metadata::{StackId, StackKind, WorkspaceStack},
     sync::RepoExclusive,
+    worktree::checkout::UncommitedWorktreeChanges,
 };
 use but_ctx::{Context, ThreadSafeContext};
 use but_error::bail_precondition;
+use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
+use but_rebase::graph_rebase::{
+    Editor,
+    mutate::{InsertSide, RelativeToRef},
+};
+use but_workspace::branch::{OnWorkspaceMergeConflict, unapply::WorkspaceDisposition};
 use but_workspace::legacy::ui::{StackEntryNoOpt, StackHeadInfo};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::{
@@ -22,6 +29,7 @@ use gitbutler_branch_actions::{
 };
 use gitbutler_git::GitContextExt as _;
 use gitbutler_operating_modes::ensure_open_workspace_mode;
+use gitbutler_oplog::OplogExt;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, normalize_branch_name as normalize_name};
 use gix::reference::Category;
@@ -552,8 +560,6 @@ mod tests {
     }
 }
 
-#[but_api(napi)]
-#[instrument(err(Debug))]
 /// Take the stack identified by `stack_id` out of the workspace.
 ///
 /// This acquires exclusive worktree access from `ctx` before collecting the
@@ -561,6 +567,8 @@ mod tests {
 ///
 /// See [`unapply_stack_with_perm()`] for how assigned changes are collected before
 /// delegating to the underlying mutation.
+#[but_api(napi)]
+#[instrument(err(Debug))]
 pub fn unapply_stack(ctx: &mut Context, stack_id: StackId) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     unapply_stack_with_perm(ctx, stack_id, guard.write_permission())
@@ -576,6 +584,20 @@ pub fn unapply_stack_with_perm(
     stack_id: StackId,
     perm: &mut RepoExclusive,
 ) -> Result<()> {
+    if ctx.settings.feature_flags.unapply_v3 {
+        return unapply_stack_v3_with_perm(ctx, stack_id, perm);
+    }
+
+    let assigned_diffspec = assigned_diffspec_for_stack(ctx, stack_id, perm)?;
+    gitbutler_branch_actions::unapply_stack(ctx, perm, stack_id, assigned_diffspec)?;
+    Ok(())
+}
+
+fn assigned_diffspec_for_stack(
+    ctx: &mut Context,
+    stack_id: StackId,
+    perm: &mut RepoExclusive,
+) -> Result<Vec<DiffSpec>> {
     let context_lines = ctx.settings.context_lines;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
@@ -593,7 +615,112 @@ pub fn unapply_stack_with_perm(
             .collect::<Vec<DiffSpec>>(),
     );
     drop((repo, ws, db));
-    gitbutler_branch_actions::unapply_stack(ctx, perm, stack_id, assigned_diffspec)?;
+    Ok(assigned_diffspec)
+}
+
+// TODO: this is a copy of a lot of code just to use the new impl.
+// This could be put lower, or maybe there should be a non-legacy version.
+// It's all very early and this is fully generataed just to try it in the real.
+// ALSO: anything special needed for assignments? Probably it shouldn't be worse.
+// BranchManager::unapply() is the lowest point where this could go instead.
+fn unapply_stack_v3_with_perm(
+    ctx: &mut Context,
+    stack_id: StackId,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
+    ensure_open_workspace_mode(ctx, perm.read_permission())
+        .context("Unapplying a stack requires open workspace mode")?;
+
+    let assigned_diffspec = assigned_diffspec_for_stack(ctx, stack_id, perm)?;
+    let stack_branches = stack_branch_names(ctx, stack_id, perm)?;
+    let Some(branch_to_unapply) = stack_branches.first().cloned() else {
+        return Ok(());
+    };
+
+    let trailers = stack_branches
+        .iter()
+        .map(|branch| Trailer::Branch(branch.shorten().to_string()));
+    let details = SnapshotDetails::new(OperationKind::UnapplyBranch).with_trailers(trailers);
+    let _snapshot = ctx.create_snapshot(details, perm).ok();
+
+    commit_assigned_diffspec(ctx, branch_to_unapply.as_ref(), assigned_diffspec, perm)?;
+
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let outcome = but_workspace::branch::unapply(
+        branch_to_unapply.as_ref(),
+        &ws,
+        &repo,
+        &mut meta,
+        but_workspace::branch::unapply::Options {
+            workspace_disposition: WorkspaceDisposition::KeepWorkspaceMergeCommit,
+            uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
+            on_workspace_conflict: OnWorkspaceMergeConflict::AbortAndReportConflictingStacks,
+        },
+    )?;
+    *ws = outcome.workspace.into_owned();
+    Ok(())
+}
+
+fn stack_branch_names(
+    ctx: &mut Context,
+    stack_id: StackId,
+    perm: &mut RepoExclusive,
+) -> Result<Vec<gix::refs::FullName>> {
+    let (_repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let Some(stack) = ws.metadata.as_ref().and_then(|metadata| {
+        metadata
+            .stacks(StackKind::AppliedAndUnapplied)
+            .find(|stack| stack.id == stack_id)
+    }) else {
+        return Err(
+            anyhow!("branch with ID {stack_id} not found").context(but_error::Code::BranchNotFound)
+        );
+    };
+
+    if !stack.is_in_workspace() {
+        return Ok(Vec::new());
+    }
+
+    Ok(stack
+        .branches
+        .iter()
+        .map(|branch| branch.ref_name.clone())
+        .collect())
+}
+
+fn commit_assigned_diffspec(
+    ctx: &mut Context,
+    branch: &gix::refs::FullNameRef,
+    assigned_diffspec: Vec<DiffSpec>,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
+    if assigned_diffspec.is_empty() {
+        return Ok(());
+    }
+
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let outcome = but_workspace::commit::commit_create(
+        editor,
+        assigned_diffspec,
+        RelativeToRef::Reference(branch),
+        InsertSide::Below,
+        "WIP Assignments",
+        ctx.settings.context_lines,
+    )?;
+    if !outcome.rejected_specs.is_empty() {
+        tracing::warn!(
+            ?outcome.rejected_specs,
+            "Failed to commit at least one hunk"
+        );
+    }
+    if outcome.commit_selector.is_some() {
+        outcome.rebase.materialize()?;
+        drop((repo, ws));
+        ctx.reload_repo_and_invalidate_workspace(perm)?;
+    }
     Ok(())
 }
 
