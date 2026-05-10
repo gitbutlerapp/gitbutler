@@ -450,20 +450,33 @@ pub fn assign(
     Ok(())
 }
 
+/// Reconcile persisted hunk assignments with the current worktree state.
+///
+/// `db` is the mutable hunk-assignment store that is read from and updated with
+/// the reconciled assignments. `repo` is used to compute worktree changes and
+/// render hunk patches when `worktree_changes` is not provided. `ws`
+/// supplies the current stack and workspace projection used to derive stack IDs and
+/// validate assignment ownership. `worktree_changes` can provide a caller-owned
+/// worktree change list to re-use for performance, and when it is `None`,
+/// changes are read from `repo`.
+/// `context_lines` controls the amount of diff context used while converting
+/// each worktree change into hunk assignments.
+///
+/// Returns `(assignments, fallback_error)`. `assignments` is the reconciled list
+/// that was also persisted back to `db`. `fallback_error` is a warning channel
+/// for callers: when present, assignment computation recovered by using a less
+/// precise fallback and kept returning usable `assignments`, but the original
+/// error is preserved so callers can log or surface degraded accuracy. It is
+/// `None` when assignment reconciliation completed normally.
 pub fn assignments_with_fallback(
     db: HunkAssignmentsHandleMut,
     repo: &gix::Repository,
-    workspace: &but_graph::Workspace,
+    ws: &but_graph::Workspace,
     worktree_changes: Option<impl IntoIterator<Item = impl Into<but_core::TreeChange>>>,
     context_lines: u32,
 ) -> Result<(Vec<HunkAssignment>, Option<anyhow::Error>)> {
-    let hunk_assignments = reconcile_worktree_changes_with_worktree(
-        db,
-        repo,
-        workspace,
-        worktree_changes,
-        context_lines,
-    )?;
+    let hunk_assignments =
+        reconcile_worktree_changes_with_worktree(db, repo, ws, worktree_changes, context_lines)?;
     Ok((hunk_assignments, None))
 }
 

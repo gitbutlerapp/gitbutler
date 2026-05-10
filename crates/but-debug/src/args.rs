@@ -59,7 +59,7 @@ pub enum ApiSubcommands {
     /// Apply a branch through `but_api::legacy::virtual_branches::create_virtual_branch_from_branch`.
     Apply(ApiApplyArgs),
     /// Unapply a stack through `but_api::legacy::virtual_branches::unapply_stack`.
-    #[command(name = "unapply-stack")]
+    #[command(name = "unapply-stack", visible_alias = "unapply")]
     UnapplyStack(ApiUnapplyStackArgs),
 }
 
