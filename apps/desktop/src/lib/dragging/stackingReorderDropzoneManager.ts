@@ -2,6 +2,7 @@ import { CommitDropData } from "$lib/dragging/dropHandlers/commitDropHandler";
 import { toCommitMovePlacement } from "$lib/stacks/commitMovePlacement";
 import { withStackBusy, type UiState } from "$lib/state/uiState.svelte";
 import { InjectionToken } from "@gitbutler/core/context";
+import { untrack } from "svelte";
 import type { DropzoneHandler } from "$lib/dragging/handler";
 import type { StackService } from "$lib/stacks/stackService.svelte";
 
@@ -33,6 +34,12 @@ export class ReorderCommitDzHandler implements DropzoneHandler {
 	}
 
 	async ondrop(data: CommitDropData) {
+		// Clear the selection if the reordered commit is currently selected — its ID changes after rebase
+		const sourceSelection = untrack(() => this.uiState.lane(data.stackId).selection.current);
+		if (sourceSelection?.commitId === data.commit.id) {
+			this.uiState.lane(data.stackId).selection.set(undefined);
+		}
+
 		const { side, relativeTo } = toCommitMovePlacement({
 			targetBranchName: this.currentSeriesName,
 			targetCommitId: this.commitId,

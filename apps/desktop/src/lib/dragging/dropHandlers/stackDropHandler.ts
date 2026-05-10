@@ -14,6 +14,7 @@ import StackMacros from "$lib/stacks/macros";
 import { getStackName, toMoveBranchWarning } from "$lib/stacks/stack";
 import { withStackBusy } from "$lib/state/uiState.svelte";
 import { ensureValue } from "$lib/utils/validation";
+import { untrack } from "svelte";
 import type { DropResult } from "$lib/dragging/dropResult";
 import type { DropzoneHandler } from "$lib/dragging/handler";
 import type { ForgePrService } from "$lib/forge/interface/forgePrService";
@@ -204,6 +205,15 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 	}
 
 	async ondropCommitData(data: CommitDropData): Promise<DropResult | void> {
+		// Clear the selection from the source lane if any dragged commit was selected
+		const sourceSelection = untrack(() => this.uiState.lane(data.stackId).selection.current);
+		if (
+			sourceSelection?.commitId &&
+			data.allCommits.some((c) => c.id === sourceSelection.commitId)
+		) {
+			this.uiState.lane(data.stackId).selection.set(undefined);
+		}
+
 		const stack = await this.stackService.newStackMutation({
 			projectId: this.projectId,
 			branch: { name: undefined },
