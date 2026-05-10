@@ -1,3 +1,4 @@
+import { createBranchRef } from "$lib/branches/branchUtils";
 import { changesToDiffSpec } from "$lib/commits/utils";
 import {
 	FileChangeDropData,
@@ -11,7 +12,7 @@ import { parseError } from "$lib/error/parser";
 import { unstackPRs, updateStackPrs } from "$lib/forge/shared/prFooter";
 import { toCommitMovePlacement } from "$lib/stacks/commitMovePlacement";
 import StackMacros from "$lib/stacks/macros";
-import { getStackName, toMoveBranchWarning } from "$lib/stacks/stack";
+import { getStackName, toMoveBranchWarning, type Stack } from "$lib/stacks/stack";
 import { withStackBusy } from "$lib/state/uiState.svelte";
 import { ensureValue } from "$lib/utils/validation";
 import { untrack } from "svelte";
@@ -38,6 +39,27 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 		private readonly baseBranchName: string | undefined,
 	) {
 		this.macros = new StackMacros(this.projectId, this.stackService, this.uiState);
+	}
+
+	// Helper function to delete a just-created stack if the operation
+	// after its creation fails, to avoid leaving behind empty stacks.
+	// TODO: eliminate the need for this by performing all operations in a single API call
+	private async deleteStackBranch(stack: Stack) {
+		if (!stack.id) return;
+		const branchName = getStackName(stack);
+		try {
+			await this.stackService.unapply({
+				projectId: this.projectId,
+				stackId: stack.id,
+			});
+			await this.stackService.deleteLocalBranch({
+				projectId: this.projectId,
+				refname: createBranchRef(branchName, undefined),
+				givenName: branchName,
+			});
+		} catch {
+			// Best-effort cleanup — ignore errors
+		}
 	}
 
 	private stackTarget(stackId: string): HunkAssignmentTarget {
@@ -94,14 +116,19 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 				const sourceCommitId = data.selectionId.commitId;
 				if (sourceStackId) {
 					const diffSpec = changesToDiffSpec(await data.treeChanges());
-					await this.macros.moveChangesToNewCommit(
-						ensureValue(stack.id),
-						outcome.newCommit,
-						sourceStackId,
-						sourceCommitId,
-						branchName,
-						diffSpec,
-					);
+					try {
+						await this.macros.moveChangesToNewCommit(
+							ensureValue(stack.id),
+							outcome.newCommit,
+							sourceStackId,
+							sourceCommitId,
+							branchName,
+							diffSpec,
+						);
+					} catch (error) {
+						await this.deleteStackBranch(stack);
+						throw error;
+					}
 				} else {
 					// Should not happen, but just in case
 					throw new Error("Change drop data must specify the source stackId");
@@ -124,10 +151,15 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 						pathBytes: h.pathBytes,
 						target: this.stackTarget(ensureValue(stack.id)),
 					}));
-				await this.diffService.assignHunk({
-					projectId: this.projectId,
-					assignments,
-				});
+				try {
+					await this.diffService.assignHunk({
+						projectId: this.projectId,
+						assignments,
+					});
+				} catch (error) {
+					await this.deleteStackBranch(stack);
+					throw error;
+				}
 			}
 		}
 	}
@@ -150,27 +182,32 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 						? data.change.status.subject.previousPathBytes
 						: null;
 
-				await this.macros.moveChangesToNewCommit(
-					ensureValue(stack.id),
-					outcome.newCommit,
-					data.stackId,
-					data.commitId,
-					branchName,
-					[
-						{
-							previousPathBytes,
-							pathBytes: data.change.pathBytes,
-							hunkHeaders: [
-								{
-									oldStart: data.hunk.oldStart,
-									oldLines: data.hunk.oldLines,
-									newStart: data.hunk.newStart,
-									newLines: data.hunk.newLines,
-								},
-							],
-						},
-					],
-				);
+				try {
+					await this.macros.moveChangesToNewCommit(
+						ensureValue(stack.id),
+						outcome.newCommit,
+						data.stackId,
+						data.commitId,
+						branchName,
+						[
+							{
+								previousPathBytes,
+								pathBytes: data.change.pathBytes,
+								hunkHeaders: [
+									{
+										oldStart: data.hunk.oldStart,
+										oldLines: data.hunk.oldLines,
+										newStart: data.hunk.newStart,
+										newLines: data.hunk.newLines,
+									},
+								],
+							},
+						],
+					);
+				} catch (error) {
+					await this.deleteStackBranch(stack);
+					throw error;
+				}
 				break;
 			}
 			case "worktree": {
@@ -186,19 +223,25 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 				);
 				const assignment = assignmentReactive.current;
 				if (!assignment) {
+					await this.deleteStackBranch(stack);
 					throw new Error("No hunk assignment found for the dropped worktree hunk");
 				}
 
-				await this.diffService.assignHunk({
-					projectId: this.projectId,
-					assignments: [
-						{
-							hunkHeader: assignment.hunkHeader,
-							pathBytes: assignment.pathBytes,
-							target: this.stackTarget(ensureValue(stack.id)),
-						},
-					],
-				});
+				try {
+					await this.diffService.assignHunk({
+						projectId: this.projectId,
+						assignments: [
+							{
+								hunkHeader: assignment.hunkHeader,
+								pathBytes: assignment.pathBytes,
+								target: this.stackTarget(ensureValue(stack.id)),
+							},
+						],
+					});
+				} catch (error) {
+					await this.deleteStackBranch(stack);
+					throw error;
+				}
 				break;
 			}
 		}
@@ -241,6 +284,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 						dryRun: false,
 					});
 				} catch (error) {
+					await this.deleteStackBranch(stack);
 					const { description, message } = parseError(error);
 					result = {
 						type: "warning",
