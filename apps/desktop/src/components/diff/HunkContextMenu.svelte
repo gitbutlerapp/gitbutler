@@ -125,7 +125,7 @@
 		const isWholeFileChange =
 			change.status.type === "Addition" || change.status.type === "Deletion";
 
-		const { workspace } = await stackService.uncommitChanges({
+		await stackService.uncommitChanges({
 			projectId,
 			stackId,
 			commitId,
@@ -138,13 +138,6 @@
 			],
 			dryRun: false,
 		});
-
-		const replacementCommit = workspace.replacedCommits[commitId];
-		const selection = uiState.lane(stackId).selection;
-
-		if (replacementCommit && selection.current?.commitId === commitId) {
-			selection.set({ ...selection.current, commitId: replacementCommit });
-		}
 	}
 
 	export function open(e: MouseEvent | HTMLElement | undefined, item: HunkContextItem) {
