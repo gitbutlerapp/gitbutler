@@ -10,6 +10,8 @@ rust-version.workspace = true
 ignored = [
     # Used only by feature-gated legacy modules.
     "git2",
+    # Used by feature-gated schema export.
+    "schemars",
 ]
 
 [lib]

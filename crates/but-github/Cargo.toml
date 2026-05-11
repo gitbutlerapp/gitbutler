@@ -10,6 +10,9 @@ readme = "../../README.md"
 publish = false
 rust-version.workspace = true
 
+[package.metadata.cargo-machete]
+ignored = ["but-schemars", "schemars"]
+
 [features]
 export-schema = [
   "dep:schemars",
