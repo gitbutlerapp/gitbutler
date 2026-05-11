@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use bstr::ByteSlice as _;
 use but_rebase::graph_rebase::{Editor, LookupStep};
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
@@ -192,6 +192,36 @@ fn squash_reorders_when_subject_is_not_on_top() -> Result<()> {
 }
 
 #[test]
+fn squash_deduplicates_duplicate_subjects() -> Result<()> {
+    let (_tmp, graph, repo, mut _meta, _description) =
+        writable_scenario("reword-three-commits", |_| {})?;
+
+    let subject_id = repo.rev_parse_single("three")?.detach();
+    let target_id = repo.rev_parse_single("two")?.detach();
+
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let outcome = squash_commits(
+        editor,
+        vec![subject_id, subject_id],
+        target_id,
+        squash_commits::MessageCombinationStrategy::KeepBoth,
+    )?;
+
+    let materialized = outcome.rebase.materialize()?;
+    let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
+    let squashed_commit = repo.find_commit(squashed_id)?;
+
+    assert_eq!(
+        squashed_commit.message_raw()?,
+        "commit two\n\ncommit three\n",
+        "duplicate subject commits should only be squashed once"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn squash_same_commit_is_rejected() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
@@ -339,7 +369,7 @@ fn squash_move_subject_below_target_for_shared_file_lineage() -> Result<()> {
 }
 
 #[test]
-fn squash_move_subject_above_target_out_of_order_for_shared_file_lineage_fails() -> Result<()> {
+fn squash_move_subject_above_target_out_of_order_for_shared_file_lineage() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("squash-shared-file-three-commits", |_| {})?;
 
@@ -360,12 +390,10 @@ fn squash_move_subject_above_target_out_of_order_for_shared_file_lineage_fails()
         target_id,
         squash_commits::MessageCombinationStrategy::KeepBoth,
     )
-    .expect_err("must fail when reordering produces conflicts");
-
-    assert!(
-        err.to_string()
-            .contains("became conflicted after reordering"),
-        "error should explain that conflicted commits cannot be squashed"
+    .expect_err("squash should fail before rebase materialization when the merge conflicts");
+    assert_eq!(
+        err.to_string(),
+        "Cannot squash commits that would result in merge conflicts"
     );
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -507,6 +535,258 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
     └── ≡📙:4:B on 85efbe4 {2}
         └── 📙:4:B
     ");
+
+    Ok(())
+}
+
+#[test]
+fn squash_cross_stack_commit_does_not_pull_in_ancestor_tree_state() -> Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        writable_scenario("ws-ref-ws-commit-single-stack-double-stack-files", |meta| {
+            add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+            add_stack_with_segments(meta, 2, "C", StackState::InWorkspace, &["B"]);
+        })?;
+
+    let normalized = visualize_commit_graph_all(&repo)?.replace("  \n", "\n");
+    insta::assert_snapshot!(normalized, @r"
+    *   c47834b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\
+    | * 26e45af (A) A
+    * | 356de85 (C) C
+    * | f25f65c (B) B
+    |/
+    * 893d602 (origin/main, main) M
+    ");
+
+    let mut ws = graph.into_workspace()?;
+    let subject_id = repo.rev_parse_single("C")?.detach();
+    let target_id = repo.rev_parse_single("A")?.detach();
+
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let outcome = squash_commits(
+        editor,
+        vec![subject_id],
+        target_id,
+        squash_commits::MessageCombinationStrategy::KeepBoth,
+    )?;
+
+    let materialized = outcome.rebase.materialize()?;
+    let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
+
+    let file_a = repo
+        .rev_parse_single(format!("{squashed_id}:file-a").as_str())
+        .with_context(|| format!("expected squashed commit {squashed_id} to contain file-a"))?
+        .object()
+        .with_context(|| {
+            format!("expected squashed commit {squashed_id}:file-a to resolve to an object")
+        })?;
+    assert_eq!(file_a.data.as_bstr(), "a\n");
+
+    let file_c = repo
+        .rev_parse_single(format!("{squashed_id}:file-c").as_str())
+        .with_context(|| format!("expected squashed commit {squashed_id} to contain file-c"))?
+        .object()
+        .with_context(|| {
+            format!("expected squashed commit {squashed_id}:file-c to resolve to an object")
+        })?;
+    assert_eq!(file_c.data.as_bstr(), "c\n");
+
+    let missing_file_b = repo
+        .rev_parse_single(format!("{squashed_id}:file-b").as_str())
+        .expect_err("squashing C into A should not pull in B's file");
+    assert!(
+        missing_file_b.to_string().contains("file-b"),
+        "missing file-b error should mention the absent path"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn squash_cross_stack_commit_with_deeper_stacks_does_not_pull_in_ancestor_tree_state() -> Result<()>
+{
+    let (_tmp, graph, repo, mut meta, _description) =
+        writable_scenario("ws-ref-ws-commit-double-stack-triple-stack-files", |meta| {
+            add_stack_with_segments(meta, 1, "D", StackState::InWorkspace, &["A"]);
+            add_stack_with_segments(meta, 2, "E", StackState::InWorkspace, &["B", "C"]);
+        })?;
+
+    let normalized = visualize_commit_graph_all(&repo)?.replace("  \n", "\n");
+    insta::assert_snapshot!(normalized, @r"
+    *   8cf5961 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\
+    | * e352141 (D) D
+    | * 26e45af (A) A
+    * | b9b4be4 (E) E
+    * | 356de85 (C) C
+    * | f25f65c (B) B
+    |/
+    * 893d602 (origin/main, main) M
+    ");
+
+    let a_id = repo.rev_parse_single("A")?.detach();
+    let d_id = repo.rev_parse_single("D")?.detach();
+    let b_id = repo.rev_parse_single("B")?.detach();
+    let c_id = repo.rev_parse_single("C")?.detach();
+    let e_id = repo.rev_parse_single("E")?.detach();
+
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let outcome = squash_commits(
+        editor,
+        vec![e_id],
+        d_id,
+        squash_commits::MessageCombinationStrategy::KeepBoth,
+    )?;
+
+    let materialized = outcome.rebase.materialize()?;
+    let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
+
+    let normalized = visualize_commit_graph_all(&repo)?.replace("  \n", "\n");
+    insta::assert_snapshot!(normalized, @r"
+    *   7dd4136 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\
+    | * 62c025c (D) D
+    | * 26e45af (A) A
+    * | 356de85 (E, C) C
+    * | f25f65c (B) B
+    |/
+    * 893d602 (origin/main, main) M
+    ");
+
+    let file_a = repo
+        .rev_parse_single(format!("{squashed_id}:file-a").as_str())
+        .with_context(|| format!("expected squashed commit {squashed_id} to contain file-a"))?
+        .object()
+        .with_context(|| {
+            format!("expected squashed commit {squashed_id}:file-a to resolve to an object")
+        })?;
+    assert_eq!(
+        file_a.data.as_bstr(),
+        "a\n",
+        "squashed commit should have file A"
+    );
+
+    let file_d = repo
+        .rev_parse_single(format!("{squashed_id}:file-d").as_str())
+        .with_context(|| format!("expected squashed commit {squashed_id} to contain file-d"))?
+        .object()
+        .with_context(|| {
+            format!("expected squashed commit {squashed_id}:file-d to resolve to an object")
+        })?;
+    assert_eq!(
+        file_d.data.as_bstr(),
+        "d\n",
+        "squashed commit should have file D"
+    );
+
+    let file_e = repo
+        .rev_parse_single(format!("{squashed_id}:file-e").as_str())
+        .with_context(|| format!("expected squashed commit {squashed_id} to contain file-e"))?
+        .object()
+        .with_context(|| {
+            format!("expected squashed commit {squashed_id}:file-e to resolve to an object")
+        })?;
+    assert_eq!(
+        file_e.data.as_bstr(),
+        "e\n",
+        "squashed commti should have file E"
+    );
+
+    let missing_file_b = repo
+        .rev_parse_single(format!("{squashed_id}:file-b").as_str())
+        .expect_err("squashing E into D should not pull in B's file");
+    assert!(
+        missing_file_b.to_string().contains("file-b"),
+        "missing file-b error should mention the absent path"
+    );
+
+    let missing_file_c = repo
+        .rev_parse_single(format!("{squashed_id}:file-c").as_str())
+        .expect_err("squashing E into D should not pull in C's file");
+    assert!(
+        missing_file_c.to_string().contains("file-c"),
+        "missing file-c error should mention the absent path"
+    );
+
+    let file_a_in_a = repo
+        .rev_parse_single(format!("{a_id}:file-a").as_str())
+        .with_context(|| format!("expected commit A ({a_id}) to contain file-a"))?
+        .object()
+        .with_context(|| format!("expected commit A ({a_id}):file-a to resolve to an object"))?;
+    assert_eq!(
+        file_a_in_a.data.as_bstr(),
+        "a\n",
+        "commit A should have file A"
+    );
+
+    let file_a_in_d = repo
+        .rev_parse_single(format!("{d_id}:file-a").as_str())
+        .with_context(|| format!("expected commit D ({d_id}) to contain file-a"))?
+        .object()
+        .with_context(|| format!("expected commit D ({d_id}):file-a to resolve to an object"))?;
+    assert_eq!(
+        file_a_in_d.data.as_bstr(),
+        "a\n",
+        "commit D should retain file A"
+    );
+
+    let file_d_in_d = repo
+        .rev_parse_single(format!("{d_id}:file-d").as_str())
+        .with_context(|| format!("expected commit D ({d_id}) to contain file-d"))?
+        .object()
+        .with_context(|| format!("expected commit D ({d_id}):file-d to resolve to an object"))?;
+    assert_eq!(
+        file_d_in_d.data.as_bstr(),
+        "d\n",
+        "commit D should have file D"
+    );
+
+    let file_b_in_b = repo
+        .rev_parse_single(format!("{b_id}:file-b").as_str())
+        .with_context(|| format!("expected commit B ({b_id}) to contain file-b"))?
+        .object()
+        .with_context(|| format!("expected commit B ({b_id}):file-b to resolve to an object"))?;
+    assert_eq!(file_b_in_b.data.as_bstr(), "b\n");
+
+    let file_b_in_c = repo
+        .rev_parse_single(format!("{c_id}:file-b").as_str())
+        .with_context(|| format!("expected commit C ({c_id}) to contain file-b"))?
+        .object()
+        .with_context(|| format!("expected commit C ({c_id}):file-b to resolve to an object"))?;
+    assert_eq!(file_b_in_c.data.as_bstr(), "b\n");
+
+    let file_c_in_c = repo
+        .rev_parse_single(format!("{c_id}:file-c").as_str())
+        .with_context(|| format!("expected commit C ({c_id}) to contain file-c"))?
+        .object()
+        .with_context(|| format!("expected commit C ({c_id}):file-c to resolve to an object"))?;
+    assert_eq!(file_c_in_c.data.as_bstr(), "c\n");
+
+    let file_b_in_e = repo
+        .rev_parse_single(format!("{e_id}:file-b").as_str())
+        .with_context(|| format!("expected commit E ({e_id}) to contain file-b"))?
+        .object()
+        .with_context(|| format!("expected commit E ({e_id}):file-b to resolve to an object"))?;
+    assert_eq!(file_b_in_e.data.as_bstr(), "b\n");
+
+    let file_c_in_e = repo
+        .rev_parse_single(format!("{e_id}:file-c").as_str())
+        .with_context(|| format!("expected commit E ({e_id}) to contain file-c"))?
+        .object()
+        .with_context(|| format!("expected commit E ({e_id}):file-c to resolve to an object"))?;
+    assert_eq!(file_c_in_e.data.as_bstr(), "c\n");
+
+    let file_e_in_e = repo
+        .rev_parse_single(format!("{e_id}:file-e").as_str())
+        .with_context(|| format!("expected commit E ({e_id}) to contain file-e"))?
+        .object()
+        .with_context(|| format!("expected commit E ({e_id}):file-e to resolve to an object"))?;
+    assert_eq!(
+        file_e_in_e.data.as_bstr(),
+        "e\n",
+        "commit E should have file E"
+    );
 
     Ok(())
 }
