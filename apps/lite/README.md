@@ -72,7 +72,12 @@ Electron + React (Vite) + TanStack Router scaffold.
 - `pnpm --filter @gitbutler/lite dev`: run Vite + Electron
 - `pnpm --filter @gitbutler/lite build`: build renderer and Electron code
 - `pnpm --filter @gitbutler/lite check`: TypeScript checks for both targets
-- `pnpm --filter @gitbutler/lite package`: build and package with Electron Builder
+- `pnpm --filter @gitbutler/lite bundle-local`: build and package with Electron Builder locally
+  - On macOS, this is ad-hoc signed and not notarized, so you may need to jump through some hoops to actually run the app.
+  - To test the auto-updater, the `-dev` suffix on the version in `package.json` must be removed
+  - The `but` CLI is _not_ bundled automatically with this script as there's no known case where it needs to be tested. For it to be bundled, you must manually place a `but` binary in `./resources/bin/but`.
+- `pnpm --filter @gitbutler/lite bundle-local-nightly`: build and package with Electron Builder locally, using production-like settings
+  - Same as `bundle-local`, but slower to build as it builds with release optimizations
 
 ## ESLint
 
