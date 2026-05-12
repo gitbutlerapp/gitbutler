@@ -11,8 +11,8 @@ use but_core::{
     commit::{add_conflict_markers, write_conflicted_tree},
 };
 use but_rebase::graph_rebase::{
-    Editor, LookupStep, Selector, Step, SuccessfulRebase, ToSelector,
-    mutate::{InsertSide, SegmentDelimiter, SelectorSet},
+    Editor, ExtraRef, GraphEditorOptions, LookupStep, Selector, Step, SuccessfulRebase, ToSelector,
+    mutate::{SegmentDelimiter, SelectorSet},
 };
 use but_rebase::{commit::DateMode, graph_rebase::commit::MergeCommitChangesOutcome};
 use gix::{prelude::ObjectIdExt as _, remote::Direction};
@@ -44,6 +44,11 @@ pub enum InteractiveIntegrationStep {
         /// Optionally, the message to use for the squash commit.
         message: Option<String>,
     },
+    /// Merge a commit into the previous one.
+    Merge {
+        /// The SHA of the commit to squash.
+        commit_id: gix::ObjectId,
+    },
 }
 
 impl fmt::Display for InteractiveIntegrationStep {
@@ -52,6 +57,7 @@ impl fmt::Display for InteractiveIntegrationStep {
             Self::Skip { commit_id } => write!(f, "skip {commit_id}"),
             Self::Pick { commit_id } => write!(f, "pick {commit_id}"),
             Self::PickUpstream { commit_id } => write!(f, "pick-upstream {commit_id}"),
+            Self::Merge { commit_id } => write!(f, "merge {commit_id}"),
             Self::Squash { commits, message } => {
                 write!(f, "squash")?;
                 for commit_id in commits {
@@ -294,21 +300,28 @@ fn parse_quoted_string(input: &str, line_no: usize) -> Result<String> {
 
 /// Integrate the upstream changes in the order of the provided steps.
 ///
-/// `editor` - The graph editor handle.
-///
 /// `ref_name` - The full reference name of the local branch we're integrating the upstream changes into.
 ///
 /// `steps` - The vector of steps in the application order (parent to child) that describe the actions to perform
 ///   for the integration of the changes.
 pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
     ref_name: &gix::refs::FullNameRef,
     integration: InteractiveIntegration,
+    workspace: &'ws mut but_graph::Workspace,
+    meta: &'meta mut M,
+    repo: &gix::Repository,
 ) -> Result<SuccessfulRebase<'ws, 'meta, M>> {
     if integration.steps.is_empty() {
         bail!("Integration steps cannot be empty")
     }
+    let (_, upstream_ref_name, _) = get_branch_tips_and_upstream(ref_name, repo)?;
 
+    let upstream_ref_name = upstream_ref_name.as_ref();
+    let editor_options = GraphEditorOptions {
+        extra_refs: vec![ExtraRef::immutable(upstream_ref_name)],
+        ..GraphEditorOptions::default()
+    };
+    let mut editor = Editor::create_with_opts(workspace, meta, repo, &editor_options)?;
     let delimiter_child = editor.select_reference(ref_name)?;
     let delimiter_parent = editor.select_commit(integration.merge_base)?;
     let segment_delimiter = SegmentDelimiter {
@@ -383,7 +396,7 @@ fn integration_steps_into_segment_nodes<M: RefMetadata>(
             continue;
         }
 
-        parent_most = editor.insert(parent_most, step, InsertSide::Below)?;
+        parent_most = connect_parent_step(editor, parent_most, step)?;
     }
 
     // Step 3: Append the merge base at the bottom
@@ -394,7 +407,7 @@ fn integration_steps_into_segment_nodes<M: RefMetadata>(
     {
         existing_parent
     } else {
-        editor.insert(parent_most, merge_base_step, InsertSide::Below)?
+        connect_parent_step(editor, parent_most, merge_base_step)?
     };
 
     Ok(SegmentDelimiter {
@@ -424,6 +437,40 @@ fn already_connected_parent_for_step<M: RefMetadata>(
         .find_map(|(parent, _)| (parent == existing_pick).then_some(parent)))
 }
 
+/// Connects `child` to `parent_step`, choosing the smallest available edge order.
+///
+/// Prefers order `0` when free; otherwise picks the next smallest unused order.
+fn connect_parent_step<M: RefMetadata>(
+    editor: &mut Editor<'_, '_, M>,
+    child: Selector,
+    parent_step: Step,
+) -> Result<Selector> {
+    let parent = match parent_step {
+        Step::Pick(pick) => {
+            if let Some(existing_pick) = editor.try_select_commit(pick.id) {
+                existing_pick
+            } else {
+                editor.add_step(Step::Pick(pick))?
+            }
+        }
+        Step::Reference { refname } => editor.select_reference(refname.as_ref())?,
+        Step::None => bail!("BUG: trying to connect to none"),
+    };
+
+    let used_orders = editor
+        .direct_parents(child)?
+        .into_iter()
+        .map(|(_, order)| order)
+        .collect::<HashSet<_>>();
+    let mut order = 0;
+    while used_orders.contains(&order) {
+        order += 1;
+    }
+
+    editor.add_edge(child, parent, order)?;
+    Ok(parent)
+}
+
 /// Converts user-provided integration steps into graph `Step`s in insertion order.
 ///
 /// While translating, it applies graph detachments for skip instructions and prepares
@@ -450,6 +497,28 @@ fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
             }
             InteractiveIntegrationStep::Squash { commits, message } => {
                 out.push(squash_step_for_editor(editor, commits, message.as_deref())?);
+            }
+            InteractiveIntegrationStep::Merge { commit_id } => {
+                let mut merge_commit = editor.empty_commit()?;
+                merge_commit.message = format!("Merge {commit_id} into previous commit").into();
+                let merge_commit =
+                    editor.new_commit_untracked(merge_commit, DateMode::CommitterKeepAuthorKeep)?;
+                let preserved_parents = editor
+                    .find_commit(*commit_id)?
+                    .inner
+                    .parents
+                    .iter()
+                    .copied()
+                    .collect::<Vec<_>>();
+                let mut commit_to_merge = Step::new_untracked_pick(*commit_id);
+                let Step::Pick(pick) = &mut commit_to_merge else {
+                    bail!("BUG: expected merge side parent to be a pick step");
+                };
+                pick.preserved_parents = Some(preserved_parents);
+                let commit_to_merge = editor.add_step(commit_to_merge)?;
+                let merge_commit = editor.add_step(Step::new_untracked_pick(merge_commit))?;
+                editor.add_edge(merge_commit, commit_to_merge, 1)?;
+                out.push(editor.lookup_step(merge_commit)?);
             }
         }
     }
@@ -564,7 +633,7 @@ fn existing_or_new_pick_step<M: RefMetadata>(
                 child: existing,
                 parent: existing,
             },
-            SelectorSet::All,
+            SelectorSet::None,
             parents_to_disconnect,
             true,
         )?;

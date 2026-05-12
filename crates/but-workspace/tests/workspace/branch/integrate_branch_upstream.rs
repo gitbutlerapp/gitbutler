@@ -2,7 +2,6 @@ use std::vec;
 
 use anyhow::{Result, bail};
 use but_core::Commit;
-use but_rebase::graph_rebase::Editor;
 use but_testsupport::{visualize_commit_graph_all, visualize_tree};
 use but_workspace::branch::integrate_branch_upstream::{
     InitialBranchIntegration, IntegrationDivergenceCommit, InteractiveIntegration,
@@ -48,6 +47,10 @@ fn labeled_integration_snapshot(
             }
             InteractiveIntegrationStep::PickUpstream { commit_id } => {
                 out.push_str("pick-upstream ");
+                out.push_str(&label_for(*commit_id, labels));
+            }
+            InteractiveIntegrationStep::Merge { commit_id } => {
+                out.push_str("merge ");
                 out.push_str(&label_for(*commit_id, labels));
             }
             InteractiveIntegrationStep::Squash { commits, message } => {
@@ -150,7 +153,8 @@ fn errors_when_branch_has_no_tracking_branch() -> Result<()> {
 
 #[test]
 fn partitions_diverged_branch_into_application_order() -> Result<()> {
-    let repo = read_only_in_memory_scenario_named("with-remotes-no-workspace", "remote-diverged")?;
+    let mut repo =
+        read_only_in_memory_scenario_named("with-remotes-no-workspace", "remote-diverged")?;
 
     insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @"
     * 1a265a4 (HEAD -> A) local change in A
@@ -163,6 +167,8 @@ fn partitions_diverged_branch_into_application_order() -> Result<()> {
     let local_tip = repo.rev_parse_single("A")?.detach();
     let upstream_tip = repo.rev_parse_single("origin/A")?.detach();
     let merge_base = repo.rev_parse_single("A~1")?.detach();
+    configure_tracking_for_branch_a(&mut repo)?;
+
     let integration = get_initial_integration_steps_for_branch(r("refs/heads/A"), &repo)?;
 
     insta::assert_snapshot!(
@@ -258,6 +264,8 @@ fn matches_rewritten_commit_by_change_id_and_keeps_order() -> Result<()> {
     let remote_only = repo.rev_parse_single("origin/A~1")?.detach();
     let local_and_remote = repo.rev_parse_single("A")?.detach();
     let merge_base = repo.rev_parse_single("A~2")?.detach();
+    configure_tracking_for_branch_a(&mut repo)?;
+
     let integration = get_initial_integration_steps_for_branch(r("refs/heads/A"), &repo)?;
 
     insta::assert_snapshot!(
@@ -290,7 +298,7 @@ fn matches_rewritten_commit_by_change_id_and_keeps_order() -> Result<()> {
 
 #[test]
 fn integrate_branch_with_steps_empty_errors_early() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -310,15 +318,17 @@ fn integrate_branch_with_steps_empty_errors_early() -> Result<()> {
     ");
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let merge_base = repo.rev_parse_single("main")?.detach();
     let integration = InteractiveIntegration {
         merge_base,
         steps: vec![],
     };
 
-    let err = integrate_branch_with_steps(editor, r("refs/heads/B"), integration)
-        .expect_err("expected early validation error for empty integration steps");
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let err =
+        integrate_branch_with_steps(r("refs/heads/B"), integration, &mut ws, &mut meta, &repo)
+            .expect_err("expected early validation error for empty integration steps");
     assert!(
         err.to_string()
             .contains("Integration steps cannot be empty"),
@@ -329,8 +339,8 @@ fn integrate_branch_with_steps_empty_errors_early() -> Result<()> {
 }
 
 #[test]
-fn integrate_upstream_commits_into_local() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+fn integrate_branch_with_merge_step_does_not_require_preceding_commit() -> Result<()> {
+    let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
             |meta| {
@@ -350,12 +360,76 @@ fn integrate_upstream_commits_into_local() -> Result<()> {
     ");
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+
+    let remote_commit_1 = repo.rev_parse_single("origin/A~1")?.detach();
+    let local_and_remote = repo.rev_parse_single("A~2")?.detach();
+    let remote_tip_before = repo.rev_parse_single("origin/A")?.detach();
+    let integration = InteractiveIntegration {
+        merge_base: local_and_remote,
+        steps: vec![
+            InteractiveIntegrationStep::Skip {
+                commit_id: repo.rev_parse_single("A~1")?.detach(),
+            },
+            InteractiveIntegrationStep::Merge {
+                commit_id: remote_commit_1,
+            },
+        ],
+    };
+
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let rebase =
+        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    rebase.materialize()?;
+
+    insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @r"
+    * b74fc70 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   b595e67 (A) Merge 715d7b0b14844b459ef031a7332283932e99a6a5 into previous commit
+    |\
+    | | * 6a17628 (origin/A) remote change in A 2
+    | |/
+    | * 715d7b0 remote change in A 1
+    |/
+    * 621b98a shared local/remote
+    * cfbcc20 (origin/main, main) init-integration
+    ");
+
+    assert_eq!(
+        repo.rev_parse_single("origin/A")?.detach(),
+        remote_tip_before
+    );
+
+    Ok(())
+}
+
+#[test]
+fn integrate_upstream_commits_into_local() -> Result<()> {
+    let (_tmp, graph, mut repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "remote-diverged-with-workspace",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+            },
+        )?;
+
+    insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @"
+    * a7060f8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 8347946 (A) local change in A 2
+    * 86838ae local change in A 1
+    | * 6a17628 (origin/A) remote change in A 2
+    | * 715d7b0 remote change in A 1
+    |/
+    * 621b98a shared local/remote
+    * cfbcc20 (origin/main, main) init-integration
+    ");
+
+    let mut ws = graph.into_workspace()?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
     let remote_commit_2 = repo.rev_parse_single("origin/A")?.detach();
     let remote_commit_1 = repo.rev_parse_single("origin/A~1")?.detach();
+    let remote_tip_before = remote_commit_2;
     let local_and_remote = repo.rev_parse_single("A~2")?.detach();
     let steps = vec![
         InteractiveIntegrationStep::PickUpstream {
@@ -377,7 +451,10 @@ fn integrate_upstream_commits_into_local() -> Result<()> {
         steps,
     };
 
-    let rebase = integrate_branch_with_steps(editor, r("refs/heads/A"), integration)?;
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let rebase =
+        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
     rebase.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -390,12 +467,17 @@ fn integrate_upstream_commits_into_local() -> Result<()> {
     * cfbcc20 (origin/main, main) init-integration
     ");
 
+    assert_eq!(
+        repo.rev_parse_single("origin/A")?.detach(),
+        remote_tip_before
+    );
+
     Ok(())
 }
 
 #[test]
-fn integrate_upstream_commits_into_local_with_remote_on_top() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+fn integrate_upstream_commits_into_local_with_merge_step() -> Result<()> {
+    let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
             |meta| {
@@ -415,7 +497,258 @@ fn integrate_upstream_commits_into_local_with_remote_on_top() -> Result<()> {
     ");
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+
+    let local_commit_2 = repo.rev_parse_single("A")?.detach();
+    let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
+    let remote_commit_1 = repo.rev_parse_single("origin/A~1")?.detach();
+    let local_and_remote = repo.rev_parse_single("A~2")?.detach();
+    let integration = InteractiveIntegration {
+        merge_base: local_and_remote,
+        steps: vec![
+            InteractiveIntegrationStep::Pick {
+                commit_id: local_commit_1,
+            },
+            InteractiveIntegrationStep::Merge {
+                commit_id: remote_commit_1,
+            },
+            InteractiveIntegrationStep::Pick {
+                commit_id: local_commit_2,
+            },
+        ],
+    };
+
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let rebase =
+        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    rebase.materialize()?;
+
+    insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @r"
+    * a74b8e3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * fdc285b (A) local change in A 2
+    *   0d584c5 Merge 715d7b0b14844b459ef031a7332283932e99a6a5 into previous commit
+    |\
+    * | 86838ae local change in A 1
+    | | * 6a17628 (origin/A) remote change in A 2
+    | |/
+    | * 715d7b0 remote change in A 1
+    |/
+    * 621b98a shared local/remote
+    * cfbcc20 (origin/main, main) init-integration
+    ");
+
+    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?.detach())?;
+    let branch_tip_parents = branch_tip.parent_ids().collect::<Vec<_>>();
+    assert_eq!(
+        branch_tip_parents.len(),
+        1,
+        "tip should remain a non-merge commit"
+    );
+
+    let merge_commit_id = branch_tip_parents[0].detach();
+    let merge_commit = repo.find_commit(merge_commit_id)?;
+    assert_eq!(
+        merge_commit.message_raw()?,
+        format!("Merge {remote_commit_1} into previous commit")
+    );
+
+    let merge_parents = merge_commit.parent_ids().collect::<Vec<_>>();
+    assert_eq!(
+        merge_parents.len(),
+        2,
+        "merge step should produce a merge commit"
+    );
+    assert_eq!(
+        merge_parents[1].detach(),
+        remote_commit_1,
+        "merge step should retain the selected remote commit as the second parent"
+    );
+
+    let merged_previous_commit = merge_parents[0].detach();
+    let merged_previous = repo.find_commit(merged_previous_commit)?;
+    assert_eq!(merged_previous.message_raw()?, "local change in A 1\n");
+
+    insta::assert_snapshot!(visualize_tree(merge_commit.tree_id()?), @"4b825dc");
+
+    Ok(())
+}
+
+#[test]
+fn integrate_upstream_commits_into_local_with_all_locals_then_merge_second_remote() -> Result<()> {
+    let (_tmp, graph, mut repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "remote-diverged-with-workspace",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+            },
+        )?;
+
+    let mut ws = graph.into_workspace()?;
+
+    let local_commit_2 = repo.rev_parse_single("A")?.detach();
+    let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
+    let remote_commit_2 = repo.rev_parse_single("origin/A")?.detach();
+    let local_and_remote = repo.rev_parse_single("A~2")?.detach();
+    let integration = InteractiveIntegration {
+        merge_base: local_and_remote,
+        steps: vec![
+            InteractiveIntegrationStep::Pick {
+                commit_id: local_commit_1,
+            },
+            InteractiveIntegrationStep::Pick {
+                commit_id: local_commit_2,
+            },
+            InteractiveIntegrationStep::Merge {
+                commit_id: remote_commit_2,
+            },
+        ],
+    };
+
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let rebase =
+        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    rebase.materialize()?;
+
+    insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @r"
+    * a11c807 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   93bbd52 (A) Merge 6a176285f918d0e4249373b102abe662d4eeeb29 into previous commit
+    |\
+    | * 6a17628 (origin/A) remote change in A 2
+    | * 715d7b0 remote change in A 1
+    * | 8347946 local change in A 2
+    * | 86838ae local change in A 1
+    |/
+    * 621b98a shared local/remote
+    * cfbcc20 (origin/main, main) init-integration
+    ");
+
+    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?.detach())?;
+    assert_eq!(
+        branch_tip.message_raw()?,
+        format!("Merge {remote_commit_2} into previous commit")
+    );
+
+    let merge_parents = branch_tip.parent_ids().collect::<Vec<_>>();
+    assert_eq!(merge_parents.len(), 2, "tip should be a merge commit");
+    assert_eq!(merge_parents[1].detach(), remote_commit_2);
+
+    let first_parent = repo.find_commit(merge_parents[0].detach())?;
+    assert_eq!(first_parent.message_raw()?, "local change in A 2\n");
+
+    Ok(())
+}
+
+#[test]
+fn integrate_upstream_commits_into_local_with_two_merges_in_sequence() -> Result<()> {
+    let (_tmp, graph, mut repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "remote-diverged-with-workspace",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+            },
+        )?;
+
+    let mut ws = graph.into_workspace()?;
+
+    let local_commit_2 = repo.rev_parse_single("A")?.detach();
+    let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
+    let remote_commit_1 = repo.rev_parse_single("origin/A~1")?.detach();
+    let remote_commit_2 = repo.rev_parse_single("origin/A")?.detach();
+    let local_and_remote = repo.rev_parse_single("A~2")?.detach();
+    let integration = InteractiveIntegration {
+        merge_base: local_and_remote,
+        steps: vec![
+            InteractiveIntegrationStep::Pick {
+                commit_id: local_commit_1,
+            },
+            InteractiveIntegrationStep::Merge {
+                commit_id: remote_commit_1,
+            },
+            InteractiveIntegrationStep::Pick {
+                commit_id: local_commit_2,
+            },
+            InteractiveIntegrationStep::Merge {
+                commit_id: remote_commit_2,
+            },
+        ],
+    };
+
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let rebase =
+        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
+    rebase.materialize()?;
+
+    insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @r"
+    * d69c4de (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   ab7f588 (A) Merge 6a176285f918d0e4249373b102abe662d4eeeb29 into previous commit
+    |\
+    | * 6a17628 (origin/A) remote change in A 2
+    * | fdc285b local change in A 2
+    * | 0d584c5 Merge 715d7b0b14844b459ef031a7332283932e99a6a5 into previous commit
+    |\|
+    | * 715d7b0 remote change in A 1
+    * | 86838ae local change in A 1
+    |/
+    * 621b98a shared local/remote
+    * cfbcc20 (origin/main, main) init-integration
+    ");
+
+    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?.detach())?;
+    assert_eq!(
+        branch_tip.message_raw()?,
+        format!("Merge {remote_commit_2} into previous commit")
+    );
+
+    let branch_tip_parents = branch_tip.parent_ids().collect::<Vec<_>>();
+    assert_eq!(branch_tip_parents.len(), 2, "tip should be a merge commit");
+    assert_eq!(
+        branch_tip_parents[1].detach(),
+        remote_commit_2,
+        "second merge should keep the selected commit as second parent"
+    );
+
+    let first_parent = repo.find_commit(branch_tip_parents[0].detach())?;
+    assert_eq!(first_parent.message_raw()?, "local change in A 2\n");
+    let first_parent_parents = first_parent.parent_ids().collect::<Vec<_>>();
+    assert_eq!(
+        first_parent_parents.len(),
+        1,
+        "the picked local commit before the self-merge should remain linear"
+    );
+    let remote_merge = repo.find_commit(first_parent_parents[0].detach())?;
+    assert_eq!(
+        remote_merge.message_raw()?,
+        format!("Merge {remote_commit_1} into previous commit"),
+        "the later merge should preserve the earlier remote merge in first-parent history"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn integrate_upstream_commits_into_local_with_remote_on_top() -> Result<()> {
+    let (_tmp, graph, mut repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "remote-diverged-with-workspace",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+            },
+        )?;
+
+    insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @"
+    * a7060f8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 8347946 (A) local change in A 2
+    * 86838ae local change in A 1
+    | * 6a17628 (origin/A) remote change in A 2
+    | * 715d7b0 remote change in A 1
+    |/
+    * 621b98a shared local/remote
+    * cfbcc20 (origin/main, main) init-integration
+    ");
+
+    let mut ws = graph.into_workspace()?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -442,7 +775,10 @@ fn integrate_upstream_commits_into_local_with_remote_on_top() -> Result<()> {
         steps,
     };
 
-    let rebase = integrate_branch_with_steps(editor, r("refs/heads/A"), integration)?;
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let rebase =
+        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
     rebase.materialize()?;
 
     insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @"
@@ -463,7 +799,7 @@ fn integrate_upstream_commits_into_local_with_remote_on_top() -> Result<()> {
 
 #[test]
 fn integrate_upstream_commits_into_local_with_remote_interlaced() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
             |meta| {
@@ -483,7 +819,6 @@ fn integrate_upstream_commits_into_local_with_remote_interlaced() -> Result<()> 
     ");
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -510,7 +845,10 @@ fn integrate_upstream_commits_into_local_with_remote_interlaced() -> Result<()> 
         steps,
     };
 
-    let rebase = integrate_branch_with_steps(editor, r("refs/heads/A"), integration)?;
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let rebase =
+        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
     rebase.materialize()?;
 
     insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @"
@@ -530,7 +868,7 @@ fn integrate_upstream_commits_into_local_with_remote_interlaced() -> Result<()> 
 
 #[test]
 fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
             |meta| {
@@ -550,7 +888,6 @@ fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote() -> R
     ");
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -577,7 +914,10 @@ fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote() -> R
         steps,
     };
 
-    let rebase = integrate_branch_with_steps(editor, r("refs/heads/A"), integration)?;
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let rebase =
+        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
     rebase.materialize()?;
 
     insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @"
@@ -597,7 +937,7 @@ fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote() -> R
 #[test]
 fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote_and_extra_local_ref()
 -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
             |meta| {
@@ -619,7 +959,6 @@ fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote_and_ex
     ");
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -646,7 +985,10 @@ fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote_and_ex
         steps,
     };
 
-    let rebase = integrate_branch_with_steps(editor, r("refs/heads/A"), integration)?;
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let rebase =
+        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
     rebase.materialize()?;
 
     insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @"
@@ -667,7 +1009,7 @@ fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote_and_ex
 
 #[test]
 fn integrate_upstream_commits_into_local_with_only_remote_commits() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
             |meta| {
@@ -687,7 +1029,6 @@ fn integrate_upstream_commits_into_local_with_only_remote_commits() -> Result<()
     ");
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -714,7 +1055,10 @@ fn integrate_upstream_commits_into_local_with_only_remote_commits() -> Result<()
         steps,
     };
 
-    let rebase = integrate_branch_with_steps(editor, r("refs/heads/A"), integration)?;
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let rebase =
+        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
     rebase.materialize()?;
 
     insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @"
@@ -730,7 +1074,7 @@ fn integrate_upstream_commits_into_local_with_only_remote_commits() -> Result<()
 
 #[test]
 fn integrate_upstream_commits_into_local_with_squashed_local_commits() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
             |meta| {
@@ -739,7 +1083,6 @@ fn integrate_upstream_commits_into_local_with_squashed_local_commits() -> Result
         )?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -764,7 +1107,10 @@ fn integrate_upstream_commits_into_local_with_squashed_local_commits() -> Result
         steps,
     };
 
-    let rebase = integrate_branch_with_steps(editor, r("refs/heads/A"), integration)?;
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let rebase =
+        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
     rebase.materialize()?;
 
     insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @"
@@ -784,7 +1130,7 @@ fn integrate_upstream_commits_into_local_with_squashed_local_commits() -> Result
 
 #[test]
 fn integrate_upstream_commits_into_local_with_squashed_remote_commits() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
             |meta| {
@@ -793,7 +1139,6 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_commits() -> Resul
         )?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -818,7 +1163,10 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_commits() -> Resul
         steps,
     };
 
-    let rebase = integrate_branch_with_steps(editor, r("refs/heads/A"), integration)?;
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let rebase =
+        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
     rebase.materialize()?;
 
     insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @"
@@ -841,7 +1189,7 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_commits() -> Resul
 
 #[test]
 fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_commits() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",
             |meta| {
@@ -850,7 +1198,6 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_commits
         )?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -873,7 +1220,10 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_commits
         steps,
     };
 
-    let rebase = integrate_branch_with_steps(editor, r("refs/heads/A"), integration)?;
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let rebase =
+        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
     rebase.materialize()?;
 
     insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @"
@@ -892,7 +1242,7 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_commits
 
 #[test]
 fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_conflicts() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace-conflicting-squash",
             |meta| {
@@ -909,7 +1259,6 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_conflic
     ");
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
     let local_commit_1 = repo.rev_parse_single("A")?.detach();
     let remote_commit_1 = repo.rev_parse_single("origin/A")?.detach();
@@ -924,13 +1273,16 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_conflic
         steps,
     };
 
-    let rebase = integrate_branch_with_steps(editor, r("refs/heads/A"), integration)?;
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let rebase =
+        integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
     rebase.materialize()?;
 
     insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @"
     * f03fc2c (origin/A, new-origin) remote change in A 1
-    | * 5b134d5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    | * 13b9b63 (A) [conflict] squashed conflicting commits
+    | * 1b052b4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * 20ebfcc (A) [conflict] squashed conflicting commits
     |/
     * 2b73dee (origin/main, main) init-integration
     ");
@@ -951,17 +1303,17 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_conflic
        listed above, resolve the conflicts, and amend the commit.
     "#);
     insta::assert_snapshot!(visualize_tree(branch_tip.tree_id()?), @r#"
-    accf9f2
-    ├── .auto-resolution:cd74779 
-    │   └── shared.txt:100644:9c998f7 "remote\n"
+    450d676
+    ├── .auto-resolution:276d2b4 
+    │   └── shared.txt:100644:4083037 "local\n"
     ├── .conflict-base-0:48e531d 
     │   └── shared.txt:100644:df967b9 "base\n"
     ├── .conflict-files:100644:d0a3da4 "ancestorEntries = [\"shared.txt\"]\nourEntries = [\"shared.txt\"]\ntheirEntries = [\"shared.txt\"]\n"
-    ├── .conflict-side-0:cd74779 
-    │   └── shared.txt:100644:9c998f7 "remote\n"
-    ├── .conflict-side-1:276d2b4 
+    ├── .conflict-side-0:276d2b4 
     │   └── shared.txt:100644:4083037 "local\n"
-    └── shared.txt:100644:9c998f7 "remote\n"
+    ├── .conflict-side-1:cd74779 
+    │   └── shared.txt:100644:9c998f7 "remote\n"
+    └── shared.txt:100644:4083037 "local\n"
     "#);
 
     Ok(())
@@ -994,6 +1346,8 @@ fn initial_steps_remote_diverged_with_workspace_are_in_application_order() -> Re
     let remote_commit_2 = repo.rev_parse_single("origin/A")?.detach();
     let remote_commit_1 = repo.rev_parse_single("origin/A~1")?.detach();
     let merge_base = repo.rev_parse_single("A~2")?.detach();
+    configure_tracking_for_branch_a(&mut repo)?;
+
     let integration = get_initial_integration_steps_for_branch(r("refs/heads/A"), &repo)?;
 
     insta::assert_snapshot!(
@@ -1048,7 +1402,8 @@ fn pick_step_ids(steps: &[InteractiveIntegrationStep]) -> Vec<gix::ObjectId> {
         .map(|step| match step {
             InteractiveIntegrationStep::Pick { commit_id, .. }
             | InteractiveIntegrationStep::Skip { commit_id, .. }
-            | InteractiveIntegrationStep::PickUpstream { commit_id, .. } => *commit_id,
+            | InteractiveIntegrationStep::PickUpstream { commit_id, .. }
+            | InteractiveIntegrationStep::Merge { commit_id, .. } => *commit_id,
             InteractiveIntegrationStep::Squash { commits, .. } => {
                 *commits.last().expect("squash step should contain commits")
             }

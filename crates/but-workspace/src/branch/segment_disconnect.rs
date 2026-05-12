@@ -1,6 +1,6 @@
 use anyhow::{Context, bail};
 use but_core::RefMetadata;
-use but_graph::projection::{Stack, StackSegment};
+use but_graph::workspace::{Stack, StackSegment};
 use but_rebase::graph_rebase::{
     Editor, LookupStep, Selector, Step,
     mutate::{SegmentDelimiter, SelectorSet, SomeSelectors},
@@ -18,7 +18,7 @@ pub(crate) struct DisconnectParameters {
 /// as well as the right segment delimiter to move.
 pub(crate) fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
     editor: &Editor<'ws, 'meta, M>,
-    workspace: &but_graph::projection::Workspace,
+    workspace: &but_graph::Workspace,
     source_stack: &Stack,
     subject_segment: &StackSegment,
     workspace_head: gix::ObjectId,
