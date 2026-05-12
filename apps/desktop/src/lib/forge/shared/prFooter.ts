@@ -138,13 +138,13 @@ function clearFooter(body: string | undefined) {
 function generateFooter(forPrNumber: number, allPrNumbers: number[], symbol: string) {
 	const stackLength = allPrNumbers.length;
 	const stackIndex = allPrNumbers.findIndex((number) => number === forPrNumber);
-	const nth = stackLength - stackIndex;
+	const nth = stackIndex + 1;
 	let footer = "";
 	footer += STACKING_FOOTER_BOUNDARY_TOP + "\n";
 	footer += "---\n";
 	footer += `This is **part ${nth} of ${stackLength} in a stack** made with GitButler:\n`;
-	allPrNumbers.forEach((prNumber, i) => {
-		const current = i === stackIndex;
+	[...allPrNumbers].reverse().forEach((prNumber, i) => {
+		const current = prNumber === forPrNumber;
 		footer += `- <kbd>&nbsp;${stackLength - i}&nbsp;</kbd> ${symbol}${prNumber} ${current ? "👈 " : ""}\n`;
 	});
 	footer += STACKING_FOOTER_BOUNDARY_BOTTOM;

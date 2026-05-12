@@ -1307,7 +1307,7 @@ fn generate_footer(for_pr_number: i64, all_pr_numbers: &[i64], symbol: &str) -> 
         .iter()
         .position(|&n| n == for_pr_number)
         .unwrap_or(0);
-    let nth = stack_length - stack_index;
+    let nth = stack_index + 1;
 
     let mut footer = String::new();
     footer.push_str(STACKING_FOOTER_BOUNDARY_TOP);
@@ -1628,6 +1628,7 @@ mod tests {
 
         assert!(pr_100_line.contains("👈"));
         assert!(pr_100_line.contains("<kbd>&nbsp;1&nbsp;</kbd>"));
+        assert!(footer.contains("part 1 of 3 in a stack"));
     }
 
     #[test]
@@ -1640,6 +1641,7 @@ mod tests {
 
         assert!(pr_102_line.contains("👈"));
         assert!(pr_102_line.contains("<kbd>&nbsp;3&nbsp;</kbd>"));
+        assert!(footer.contains("part 3 of 3 in a stack"));
     }
 
     #[test]
@@ -1669,7 +1671,7 @@ mod tests {
         let all_prs: Vec<i64> = (1..=10).collect();
         let footer = generate_footer(5, &all_prs, "#");
 
-        assert!(footer.contains("part 6 of 10 in a stack"));
+        assert!(footer.contains("part 5 of 10 in a stack"));
 
         // Verify all PRs are listed
         for pr in &all_prs {
