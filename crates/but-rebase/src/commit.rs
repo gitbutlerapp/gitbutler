@@ -1,6 +1,9 @@
 use anyhow::{Context as _, bail};
 use bstr::BStr;
-use but_core::{RepositoryExt, commit::SignCommit};
+use but_core::{
+    ChangeId, RepositoryExt,
+    commit::{Headers, SignCommit},
+};
 use gix::config::Source;
 
 /// What to do with the committer (actor) and the commit time when [creating a new commit](create()).
@@ -82,11 +85,15 @@ pub fn save_author_if_unset_in_repo<'a, 'b>(
 ///
 /// Signatures will be removed automatically if signing is disabled to prevent an amended commit
 /// to use the old signature.
+///
+/// change_id can be used to either ste or override the existing change_id
+/// header.
 pub fn create(
     repo: &gix::Repository,
     mut commit: gix::objs::Commit,
     committer: DateMode,
     sign_commit: SignCommit,
+    change_id: Option<ChangeId>,
 ) -> anyhow::Result<gix::ObjectId> {
     match committer {
         DateMode::CommitterUpdateAuthorKeep => {
@@ -102,6 +109,14 @@ pub fn create(
     if settings.gitbutler_gerrit_mode.unwrap_or(false) {
         but_gerrit::set_trailers(&mut commit);
     }
+
+    if let Some(change_id) = change_id {
+        let mut headers = Headers::try_from_commit(&commit).unwrap_or_else(Headers::empty);
+        headers.change_id = Some(change_id);
+
+        headers.set_in_commit(&mut commit);
+    }
+
     but_core::commit::create(repo, commit, None, sign_commit)
 }
 

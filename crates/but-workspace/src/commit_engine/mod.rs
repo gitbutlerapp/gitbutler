@@ -192,11 +192,13 @@ pub fn create_commit(
                 if let Some(message) = new_message {
                     commit.message = message.into();
                 }
+                let change_id = commit.change_id();
                 Some(but_rebase::commit::create(
                     repo,
                     commit.inner,
                     DateMode::CommitterUpdateAuthorKeep,
                     SignCommit::IfSignCommitsEnabled,
+                    Some(change_id),
                 )?)
             }
         }
@@ -239,5 +241,6 @@ fn create_possibly_signed_commit(
         commit,
         DateMode::CommitterKeepAuthorKeep,
         SignCommit::IfSignCommitsEnabled,
+        None,
     )
 }

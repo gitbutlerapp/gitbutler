@@ -60,7 +60,7 @@ fn squash_top_commit_into_parent() -> Result<()> {
     );
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * 655b033 (HEAD -> three, two) commit two
+    * 38b3243 (HEAD -> three, two) commit two
     | * 16fd221 (origin/two) commit two
     |/  
     * 8b426d0 (one) commit one
@@ -182,7 +182,7 @@ fn squash_reorders_when_subject_is_not_on_top() -> Result<()> {
     );
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * 6426178 (HEAD -> three) commit three
+    * 2b0878f (HEAD -> three) commit three
     | * 16fd221 (origin/two) commit two
     |/  
     * 8b426d0 (two, one) commit one
@@ -287,7 +287,7 @@ fn squash_down_keeps_topmost_tree_for_shared_file_lineage() -> Result<()> {
     assert_eq!(object.data.as_bstr(), "v3\n");
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * 69e6e54 (HEAD -> three, two) commit two
+    * 0ce39ca (HEAD -> three, two) commit two
     * 8df0fa3 (one) commit one
     ");
 
@@ -331,7 +331,7 @@ fn squash_move_subject_below_target_for_shared_file_lineage() -> Result<()> {
     );
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * 4fbac4b (HEAD -> three) commit three
+    * ee4fb63 (HEAD -> three) commit three
     * 8df0fa3 (two, one) commit one
     ");
 
@@ -425,9 +425,9 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
     assert_eq!(squashed_commit.tree_id()?.detach(), subject_tree);
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   e9ad17f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   2dad775 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    * | 82d6f41 (B) B
+    * | 2b6149b (B) B
     |/  
     * 85efbe4 (origin/main, main, A) M
     ");
@@ -437,7 +437,7 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
     │   └── 📙:4:A
     └── ≡📙:3:B on 85efbe4 {2}
         └── 📙:3:B
-            └── ·82d6f41 (🏘️)
+            └── ·2b6149b (🏘️)
     ");
 
     Ok(())
@@ -493,9 +493,9 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
     assert_eq!(squashed_commit.tree_id()?.detach(), subject_tree);
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   b7ec700 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   2e7b9b5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    | * 17e27b0 (A) A
+    | * 80db672 (A) A
     |/  
     * 85efbe4 (origin/main, main, B) M
     ");
@@ -503,7 +503,7 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:3:A on 85efbe4 {1}
     │   └── 📙:3:A
-    │       └── ·17e27b0 (🏘️)
+    │       └── ·80db672 (🏘️)
     └── ≡📙:4:B on 85efbe4 {2}
         └── 📙:4:B
     ");

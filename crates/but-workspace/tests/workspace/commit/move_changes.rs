@@ -93,15 +93,15 @@ fn move_file_from_head_to_parent() -> Result<()> {
     let materialized = outcome.rebase.materialize()?;
     insta::assert_debug_snapshot!(materialized.history.commit_mappings(), @"
     {
-        Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(88ba151b2f14a87051cdbeb3bdf850a6175eb8fe),
-        Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae): Sha1(5f79d8bc78f0fc157cf33456412cfa443c0ae4fc),
+        Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(198bf421399ca45dfc033777ed30ea2241c55ff4),
+        Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae): Sha1(7cb368cce7a1e76a623c8d7dcd03bcff3145f06a),
     }
     ");
 
     // Graph structure should be maintained (commit hashes will change)
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * 5f79d8b (HEAD -> three) commit three
-    * 88ba151 (two) commit two
+    * 7cb368c (HEAD -> three) commit three
+    * 198bf42 (two) commit two
     | * 16fd221 (origin/two) commit two
     |/  
     * 8b426d0 (one) commit one
@@ -159,15 +159,15 @@ fn move_file_from_parent_to_head() -> Result<()> {
     let materialized = outcome.rebase.materialize()?;
     insta::assert_debug_snapshot!(materialized.history.commit_mappings(), @"
     {
-        Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(0f198e0be723143e843ec2e2f9538f4ba815cd62),
-        Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae): Sha1(cffb8daaedf92594a000665b3990714ad04115c7),
+        Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(ebc7217ab9e33830c4f09601dfda826eb2e9fed0),
+        Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae): Sha1(f56f108a3b4bf2a67e554d22deb7a22bd7e93955),
     }
     ");
 
     // Graph structure should be maintained
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * cffb8da (HEAD -> three) commit three
-    * 0f198e0 (two) commit two
+    * f56f108 (HEAD -> three) commit three
+    * ebc7217 (two) commit two
     | * 16fd221 (origin/two) commit two
     |/  
     * 8b426d0 (one) commit one
@@ -223,17 +223,17 @@ fn move_file_between_non_adjacent_commits() -> Result<()> {
     let materialized = outcome.rebase.materialize()?;
     insta::assert_debug_snapshot!(materialized.history.commit_mappings(), @"
     {
-        Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(d9e603c74228d57e22e16431db09647bc281b65a),
-        Sha1(8b426d09509e2a1e924d939055e1e3eb4b6e7fb4): Sha1(9bc8248dd9ea42b08f66103cd43352fcd2f45f3d),
-        Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae): Sha1(cda98e06158943a26336b4584f016938ae72864b),
+        Sha1(16fd22163adbb1118551777970db5fb4b59f6b9d): Sha1(d5ac8ac48b1eb997e273a131a88d57e4b8ae970d),
+        Sha1(8b426d09509e2a1e924d939055e1e3eb4b6e7fb4): Sha1(4ae70a4fccb46431274b7c89b04600d0fe124b0b),
+        Sha1(c9f444cbd4d94f5b90aaa3e6e2e388c876cdbdae): Sha1(114c8f7e7527abaa7f35faaeb0c38c2d7db2c93e),
     }
     ");
 
     // Graph structure should be maintained
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * cda98e0 (HEAD -> three) commit three
-    * d9e603c (two) commit two
-    * 9bc8248 (one) commit one
+    * 114c8f7 (HEAD -> three) commit three
+    * d5ac8ac (two) commit two
+    * 4ae70a4 (one) commit one
     * 16fd221 (origin/two) commit two
     * 8b426d0 commit one
     ");

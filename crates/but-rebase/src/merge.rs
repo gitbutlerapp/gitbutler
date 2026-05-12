@@ -27,7 +27,7 @@ use crate::commit::DateMode;
 /// remain unsigned.
 /// However, if we re-merge a commit that was signed before it's likely a user-commit that should be treated accordingly.
 /// Thanks to this logic, the caller shouldn't have to steer signing.
-pub fn octopus(
+pub(crate) fn octopus(
     repo: &gix::Repository,
     mut target_merge_commit: gix::objs::Commit,
     graph: &mut gix::revwalk::Graph<
@@ -99,6 +99,7 @@ pub fn octopus(
             target_merge_commit,
             DateMode::CommitterUpdateAuthorKeep,
             SignCommit::IfSignCommitsEnabled,
+            None,
         )
     } else {
         crate::commit::update_committer(repo, &mut target_merge_commit)?;

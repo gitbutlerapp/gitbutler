@@ -183,6 +183,7 @@ fn commit_from_unconflicted_tree<'repo>(
         new_commit,
         DateMode::CommitterUpdateAuthorKeep,
         SignCommit::IfSignCommitsEnabled,
+        None,
     )?
     .attach(repo))
 }
@@ -246,6 +247,7 @@ fn commit_from_conflicted_tree<'repo>(
         to_rebase.inner,
         DateMode::CommitterUpdateAuthorKeep,
         SignCommit::IfSignCommitsEnabled,
+        None,
     )?
     .attach(repo))
 }

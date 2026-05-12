@@ -297,6 +297,7 @@ fn rebase(
                                 new_commit,
                                 DateMode::CommitterUpdateAuthorKeep,
                                 SignCommit::IfSignCommitsEnabled,
+                                None,
                             )?);
                         }
                         None => {
@@ -340,6 +341,7 @@ fn rebase(
                     new_commit,
                     DateMode::CommitterUpdateAuthorKeep,
                     SignCommit::IfSignCommitsEnabled,
+                    None,
                 )?;
             }
             RebaseStep::Reference(reference) => {
@@ -388,6 +390,7 @@ fn reword_commit(
         new_commit,
         DateMode::CommitterUpdateAuthorKeep,
         SignCommit::IfSignCommitsEnabled,
+        None,
     )?)
 }
 
@@ -404,6 +407,7 @@ pub fn replace_commit_tree(
         new_commit,
         DateMode::CommitterUpdateAuthorKeep,
         SignCommit::IfSignCommitsEnabled,
+        None,
     )?)
 }
 

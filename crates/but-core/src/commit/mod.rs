@@ -34,6 +34,16 @@ pub struct Headers {
 
 /// Lifecycle
 impl Headers {
+    /// Create a headers structure with both change_id and conflicted unset.
+    ///
+    /// This is only useful if you're going to set one of the properties right after. You _probably_ want to
+    pub fn empty() -> Self {
+        Self {
+            change_id: None,
+            conflicted: None,
+        }
+    }
+
     /// Derive a deterministic synthetic change-id from `commit_id`.
     ///
     /// Useful for when [`Self::change_id`] is `None`.

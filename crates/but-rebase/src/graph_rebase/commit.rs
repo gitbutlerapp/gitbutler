@@ -84,11 +84,13 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         commit: but_core::CommitOwned,
         date_mode: DateMode,
     ) -> Result<gix::ObjectId> {
+        let change_id = commit.change_id();
         create(
             &self.repo,
             commit.inner,
             date_mode,
             SignCommit::IfSignCommitsEnabled,
+            Some(change_id),
         )
     }
 
