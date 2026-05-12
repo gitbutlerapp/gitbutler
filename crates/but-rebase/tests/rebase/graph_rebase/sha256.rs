@@ -43,10 +43,10 @@ fn inserting_a_step_rewrites_sha256_commits() -> Result<()> {
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-inner-merge[🌳]
-        ├── ·f6ce7ad (⌂|1)
-        └── ·174eb34 (⌂|1)
+        ├── ·d165592 (⌂|1)
+        └── ·526ed5b (⌂|1)
             └── ►:1[1]:anon:
-                └── ·3a9910d (⌂|1)
+                └── ·d261f8f (⌂|1)
                     ├── ►:2[2]:A
                     │   └── ·2ff29ff (⌂|1)
                     │       └── ►:4[3]:main
@@ -59,9 +59,9 @@ fn inserting_a_step_rewrites_sha256_commits() -> Result<()> {
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * f6ce7ad (HEAD -> with-inner-merge) on top of inner merge
-    * 174eb34 Merge branch 'B' into with-inner-merge
-    *   3a9910d Commit below the merge commit in SHA-256
+    * d165592 (HEAD -> with-inner-merge) on top of inner merge
+    * 526ed5b Merge branch 'B' into with-inner-merge
+    *   d261f8f Commit below the merge commit in SHA-256
     |\  
     | * 8f04e4a (B) C: new file with 10 lines
     * | 2ff29ff (A) A: 10 lines on top
@@ -71,9 +71,9 @@ fn inserting_a_step_rewrites_sha256_commits() -> Result<()> {
     insta::assert_snapshot!(git_status(&repo)?, @"");
     insta::assert_debug_snapshot!(outcome.history.commit_mappings(), @"
     {
-        Sha256(0f01c778cee8081dcfd51d010dfcf6dca150fad6cd58bc269b9aed22587b97fb): Sha256(f6ce7ad57ab7b0c17f7bfc1da6c4edf4aba97cb7f1e67b9d15d92d0f985d6833),
-        Sha256(49d2a9677ccb3458bef260578f9e49d55402d9f80e4db5f2aae26e17b6a9c4f7): Sha256(3a9910d979f9822da26e98e36907138b7b92ef1722e7fc45d4e4fd66cfb669d2),
-        Sha256(8ab779b6d7ff461b6a09a86724e26c18a4d9d66f733a1cf3c927dc98e6eecbec): Sha256(174eb34a99092bf10f71677a4fc5bba1552cbb452585db415cef91768ba58104),
+        Sha256(0f01c778cee8081dcfd51d010dfcf6dca150fad6cd58bc269b9aed22587b97fb): Sha256(d1655921309ddaa17f3ba486f91d53527165826034828f7d69a6a73f07c089ec),
+        Sha256(8ab779b6d7ff461b6a09a86724e26c18a4d9d66f733a1cf3c927dc98e6eecbec): Sha256(526ed5b4cefd8b2667f031dcb5b3697269f262785132501f993ea1378854cd9e),
+        Sha256(f29a682637fe42213f5eaed09fc76c6d7763cbe1feea1c81039948c352b9b0cf): Sha256(d261f8fae18b61c4ab433516116362020c64b05ea218649dbf85eacbc4ab131d),
     }
     ");
 
@@ -112,11 +112,11 @@ fn replacing_a_step_rewrites_sha256_descendants() -> Result<()> {
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-inner-merge[🌳]
-        └── ·f6f0125 (⌂|1)
+        └── ·d050214 (⌂|1)
             └── ►:1[1]:anon:
-                └── ·fccb3fd (⌂|1)
+                └── ·8b1722f (⌂|1)
                     ├── ►:2[2]:A
-                    │   └── ·b5c16ab (⌂|1)
+                    │   └── ·546b14b (⌂|1)
                     │       └── ►:4[3]:main
                     │           └── 🏁·8dcf66f (⌂|1) ►tags/base
                     └── ►:3[2]:B
@@ -127,19 +127,19 @@ fn replacing_a_step_rewrites_sha256_descendants() -> Result<()> {
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * f6f0125 (HEAD -> with-inner-merge) on top of inner merge
-    *   fccb3fd Merge branch 'B' into with-inner-merge
+    * d050214 (HEAD -> with-inner-merge) on top of inner merge
+    *   8b1722f Merge branch 'B' into with-inner-merge
     |\  
     | * 8f04e4a (B) C: new file with 10 lines
-    * | b5c16ab (A) A: SHA-256 reworded
+    * | 546b14b (A) A: SHA-256 reworded
     |/  
     * 8dcf66f (tag: base, main) base
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
     insta::assert_debug_snapshot!(outcome.history.commit_mappings(), @"
     {
-        Sha256(0f01c778cee8081dcfd51d010dfcf6dca150fad6cd58bc269b9aed22587b97fb): Sha256(f6f0125b1f12060e754ba973e8e630cdb51622c06fa9ebdc76afa5510817e2d3),
-        Sha256(8ab779b6d7ff461b6a09a86724e26c18a4d9d66f733a1cf3c927dc98e6eecbec): Sha256(fccb3fdbafb315097348b7c66fa86a745d923f0f59574cc31650b52f5f1390a2),
+        Sha256(0f01c778cee8081dcfd51d010dfcf6dca150fad6cd58bc269b9aed22587b97fb): Sha256(d0502143e9c3dd325182004472511cde469772f5dc91d1c50792ab681607c125),
+        Sha256(8ab779b6d7ff461b6a09a86724e26c18a4d9d66f733a1cf3c927dc98e6eecbec): Sha256(8b1722f890ea9892fb2989a24a3dc685908b85556e9020d8b16a74b399dd6c01),
     }
     ");
 

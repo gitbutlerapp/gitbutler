@@ -3,7 +3,6 @@
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result, bail};
-use bstr::BString;
 use but_core::{
     RepositoryExt as _,
     commit::{HEADERS_CONFLICTED_FIELD, Headers, SignCommit, TreeKind},
@@ -110,11 +109,13 @@ pub fn cherry_pick(
             // point, it's safe to simply recreate that commit outright.
             //
             // Currently, the only known use case for this is to forcibly sign/unsign root commits.
+            let change_id = target.change_id();
             let commit = crate::commit::create(
                 repo,
                 target.inner,
                 DateMode::CommitterUpdateAuthorKeep,
                 sign_commit,
+                Some(change_id),
             )?;
             Ok(CherryPickOutcome::Commit(commit))
         }
@@ -336,7 +337,6 @@ fn commit_from_unconflicted_tree<'repo>(
 ) -> anyhow::Result<gix::Id<'repo>> {
     let repo = to_rebase.id.repo;
 
-    let headers = to_rebase.headers();
     let change_id = to_rebase.change_id();
     let mut new_commit = to_rebase.inner;
     new_commit.tree = resolved_tree_id.detach();
@@ -348,11 +348,6 @@ fn commit_from_unconflicted_tree<'repo>(
         .find_pos(HEADERS_CONFLICTED_FIELD)
     {
         new_commit.extra_headers.remove(pos);
-    } else if headers.is_none() {
-        let headers = Headers::from_change_id(change_id);
-        new_commit
-            .extra_headers
-            .extend(Vec::<(BString, BString)>::from(&headers));
     }
 
     new_commit.parents = parents.into();
@@ -362,6 +357,7 @@ fn commit_from_unconflicted_tree<'repo>(
         new_commit,
         DateMode::CommitterUpdateAuthorKeep,
         sign_commit,
+        Some(change_id),
     )?
     .attach(repo))
 }
@@ -421,13 +417,15 @@ fn commit_from_conflicted_tree<'repo>(
     // Add conflict markers to the commit message
     to_rebase.inner.message =
         but_core::commit::add_conflict_markers(to_rebase.inner.message.as_ref());
-
     to_rebase.set_headers(&headers);
+
+    let change_id = to_rebase.change_id();
     Ok(crate::commit::create(
         repo,
         to_rebase.inner,
         DateMode::CommitterUpdateAuthorKeep,
         sign_commit,
+        Some(change_id),
     )?
     .attach(repo))
 }

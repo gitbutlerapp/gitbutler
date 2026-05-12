@@ -276,14 +276,14 @@ fn can_undo_repeatedly() -> anyhow::Result<()> {
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    undo(&env, "UpdateCommitMessage", "f4e985f", &status_three);
+    undo(&env, "UpdateCommitMessage", "5129db9", &status_three);
 
     env.but("oplog")
         .args(["list"])
@@ -292,15 +292,15 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-351f999 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+df4a12d 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    undo(&env, "UpdateCommitMessage", "e637109", &status_two);
+    undo(&env, "UpdateCommitMessage", "da67dd1", &status_two);
 
     env.but("oplog")
         .args(["list"])
@@ -309,16 +309,16 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-d6d5c2e 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-351f999 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+22777d1 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+df4a12d 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    undo(&env, "UpdateCommitMessage", "90c8e9b", &status_one);
+    undo(&env, "UpdateCommitMessage", "e23e4fa", &status_one);
 
     env.but("oplog")
         .args(["list"])
@@ -327,12 +327,12 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-b7c6717 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-d6d5c2e 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-351f999 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+e1cac61 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+22777d1 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+df4a12d 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
@@ -357,14 +357,14 @@ fn can_undo_explicit_restore() -> anyhow::Result<()> {
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    restore(&env, "e637109", &status_two);
+    restore(&env, "da67dd1", &status_two);
 
     env.but("oplog")
         .args(["list"])
@@ -373,15 +373,15 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-37400a2 2000-01-02 00:00:00 [RESTORE] Restored from snapshot
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+d540910 2000-01-02 00:00:00 [RESTORE] Restored from snapshot
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    undo(&env, "RestoreFromSnapshot", "37400a2", &status_four);
+    undo(&env, "RestoreFromSnapshot", "d540910", &status_four);
 
     env.but("oplog")
         .args(["list"])
@@ -390,11 +390,11 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-d42878d 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-37400a2 2000-01-02 00:00:00 [RESTORE] Restored from snapshot
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+1cc75b3 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+d540910 2000-01-02 00:00:00 [RESTORE] Restored from snapshot
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
@@ -419,14 +419,14 @@ fn can_undo_perform_operation_then_undo_again() -> anyhow::Result<()> {
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    undo(&env, "UpdateCommitMessage", "f4e985f", &status_three);
+    undo(&env, "UpdateCommitMessage", "5129db9", &status_three);
 
     reword(&env, &new_commit, "three-new")?;
 
@@ -437,16 +437,16 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-9deba9a 2000-01-02 00:00:00 [REWORD] Updated commit message
-351f999 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+a69c9b7 2000-01-02 00:00:00 [REWORD] Updated commit message
+df4a12d 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    undo(&env, "UpdateCommitMessage", "9deba9a", &status_three);
+    undo(&env, "UpdateCommitMessage", "a69c9b7", &status_three);
 
     env.but("oplog")
         .args(["list"])
@@ -455,17 +455,17 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-d83358a 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-9deba9a 2000-01-02 00:00:00 [REWORD] Updated commit message
-351f999 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+8d13d35 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+a69c9b7 2000-01-02 00:00:00 [REWORD] Updated commit message
+df4a12d 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    undo(&env, "UpdateCommitMessage", "e637109", &status_two);
+    undo(&env, "UpdateCommitMessage", "da67dd1", &status_two);
 
     Ok(())
 }
@@ -486,12 +486,12 @@ fn undoing_past_end_of_oplog() -> anyhow::Result<()> {
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    undo(&env, "UpdateCommitMessage", "90c8e9b", &status_one);
+    undo(&env, "UpdateCommitMessage", "e23e4fa", &status_one);
 
     env.but("oplog")
         .args(["list"])
@@ -500,8 +500,8 @@ fn undoing_past_end_of_oplog() -> anyhow::Result<()> {
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-7952170 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+419ccaa 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
@@ -515,9 +515,9 @@ fn undoing_past_end_of_oplog() -> anyhow::Result<()> {
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-dffcebb 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-7952170 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+213dc85 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+419ccaa 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
@@ -547,14 +547,14 @@ fn can_redo() -> anyhow::Result<()> {
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    undo(&env, "UpdateCommitMessage", "f4e985f", &status_three);
+    undo(&env, "UpdateCommitMessage", "5129db9", &status_three);
 
     env.but("oplog")
         .args(["list"])
@@ -563,15 +563,15 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-351f999 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+df4a12d 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    redo(&env, "RestoreFromSnapshotViaUndo", "351f999", &status_four);
+    redo(&env, "RestoreFromSnapshotViaUndo", "df4a12d", &status_four);
 
     env.but("oplog")
         .args(["list"])
@@ -580,11 +580,11 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-470a391 2000-01-02 00:00:00 [REDO] Restored from snapshot
-351f999 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+3452ba9 2000-01-02 00:00:00 [REDO] Restored from snapshot
+df4a12d 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
@@ -614,15 +614,15 @@ fn can_mix_undo_and_redo() -> anyhow::Result<()> {
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    undo(&env, "UpdateCommitMessage", "f4e985f", &status_three);
-    undo(&env, "UpdateCommitMessage", "e637109", &status_two);
+    undo(&env, "UpdateCommitMessage", "5129db9", &status_three);
+    undo(&env, "UpdateCommitMessage", "da67dd1", &status_two);
 
     env.but("oplog")
         .args(["list"])
@@ -631,16 +631,16 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-d6d5c2e 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-351f999 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+22777d1 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+df4a12d 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    redo(&env, "RestoreFromSnapshotViaUndo", "d6d5c2e", &status_three);
+    redo(&env, "RestoreFromSnapshotViaUndo", "22777d1", &status_three);
 
     env.but("oplog")
         .args(["list"])
@@ -649,17 +649,17 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-de4e85a 2000-01-02 00:00:00 [REDO] Restored from snapshot
-d6d5c2e 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-351f999 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+5427f25 2000-01-02 00:00:00 [REDO] Restored from snapshot
+22777d1 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+df4a12d 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    undo(&env, "RestoreFromSnapshotViaRedo", "de4e85a", &status_two);
+    undo(&env, "RestoreFromSnapshotViaRedo", "5427f25", &status_two);
 
     env.but("oplog")
         .args(["list"])
@@ -668,18 +668,18 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-88d2b33 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-de4e85a 2000-01-02 00:00:00 [REDO] Restored from snapshot
-d6d5c2e 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-351f999 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+a7309a9 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5427f25 2000-01-02 00:00:00 [REDO] Restored from snapshot
+22777d1 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+df4a12d 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    undo(&env, "UpdateCommitMessage", "90c8e9b", &status_one);
+    undo(&env, "UpdateCommitMessage", "e23e4fa", &status_one);
 
     env.but("oplog")
         .args(["list"])
@@ -688,19 +688,19 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-7a7ac10 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-88d2b33 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-de4e85a 2000-01-02 00:00:00 [REDO] Restored from snapshot
-d6d5c2e 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-351f999 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+445c1d2 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+a7309a9 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5427f25 2000-01-02 00:00:00 [REDO] Restored from snapshot
+22777d1 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+df4a12d 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    redo(&env, "RestoreFromSnapshotViaUndo", "7a7ac10", &status_two);
+    redo(&env, "RestoreFromSnapshotViaUndo", "445c1d2", &status_two);
 
     env.but("oplog")
         .args(["list"])
@@ -709,20 +709,20 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-73e2f4f 2000-01-02 00:00:00 [REDO] Restored from snapshot
-7a7ac10 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-88d2b33 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-de4e85a 2000-01-02 00:00:00 [REDO] Restored from snapshot
-d6d5c2e 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-351f999 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+5748be7 2000-01-02 00:00:00 [REDO] Restored from snapshot
+445c1d2 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+a7309a9 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5427f25 2000-01-02 00:00:00 [REDO] Restored from snapshot
+22777d1 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+df4a12d 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    redo(&env, "RestoreFromSnapshotViaUndo", "88d2b33", &status_three);
+    redo(&env, "RestoreFromSnapshotViaUndo", "a7309a9", &status_three);
 
     env.but("oplog")
         .args(["list"])
@@ -731,21 +731,21 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-d8203df 2000-01-02 00:00:00 [REDO] Restored from snapshot
-73e2f4f 2000-01-02 00:00:00 [REDO] Restored from snapshot
-7a7ac10 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-88d2b33 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-de4e85a 2000-01-02 00:00:00 [REDO] Restored from snapshot
-d6d5c2e 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-351f999 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+5794c5d 2000-01-02 00:00:00 [REDO] Restored from snapshot
+5748be7 2000-01-02 00:00:00 [REDO] Restored from snapshot
+445c1d2 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+a7309a9 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5427f25 2000-01-02 00:00:00 [REDO] Restored from snapshot
+22777d1 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+df4a12d 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );
 
-    redo(&env, "RestoreFromSnapshotViaUndo", "351f999", &status_four);
+    redo(&env, "RestoreFromSnapshotViaUndo", "df4a12d", &status_four);
 
     env.but("oplog")
         .args(["list"])
@@ -754,17 +754,17 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         .stdout_eq(
             r#"Operations History
 ──────────────────────────────────────────────────
-6f2c4bb 2000-01-02 00:00:00 [REDO] Restored from snapshot
-d8203df 2000-01-02 00:00:00 [REDO] Restored from snapshot
-73e2f4f 2000-01-02 00:00:00 [REDO] Restored from snapshot
-7a7ac10 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-88d2b33 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-de4e85a 2000-01-02 00:00:00 [REDO] Restored from snapshot
-d6d5c2e 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-351f999 2000-01-02 00:00:00 [UNDO] Restored from snapshot
-f4e985f 2000-01-02 00:00:00 [REWORD] Updated commit message
-e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
-90c8e9b 2000-01-02 00:00:00 [REWORD] Updated commit message
+c5e31c1 2000-01-02 00:00:00 [REDO] Restored from snapshot
+5794c5d 2000-01-02 00:00:00 [REDO] Restored from snapshot
+5748be7 2000-01-02 00:00:00 [REDO] Restored from snapshot
+445c1d2 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+a7309a9 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5427f25 2000-01-02 00:00:00 [REDO] Restored from snapshot
+22777d1 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+df4a12d 2000-01-02 00:00:00 [UNDO] Restored from snapshot
+5129db9 2000-01-02 00:00:00 [REWORD] Updated commit message
+da67dd1 2000-01-02 00:00:00 [REWORD] Updated commit message
+e23e4fa 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 "#,
         );

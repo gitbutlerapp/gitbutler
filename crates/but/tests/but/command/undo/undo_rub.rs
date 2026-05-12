@@ -21,7 +21,7 @@ fn undo_squash_commits() -> anyhow::Result<()> {
             .arg("fe")
             .assert()
             .success()
-            .stdout_eq("Squashed 9ac4652 → f66c907\n")
+            .stdout_eq("Squashed 9ac4652 → 37c7b0c\n")
             .stderr_eq("");
 
         Ok(())

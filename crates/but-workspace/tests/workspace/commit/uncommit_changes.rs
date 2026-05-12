@@ -46,7 +46,7 @@ fn uncommit_file_from_head() -> Result<()> {
 
     // Graph structure should be maintained (commit hash will change)
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * 832a93c (HEAD -> three) commit three
+    * 298ab48 (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
     ");
@@ -92,8 +92,8 @@ fn uncommit_file_from_parent() -> Result<()> {
 
     // Graph structure should be maintained
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * 300f366 (HEAD -> three) commit three
-    * 0f198e0 (two) commit two
+    * b5e5f88 (HEAD -> three) commit three
+    * ebc7217 (two) commit two
     | * 16fd221 (origin/two) commit two
     |/  
     * 8b426d0 (one) commit one
@@ -147,9 +147,9 @@ fn uncommit_file_from_root_commit() -> Result<()> {
 
     // Graph structure should be maintained
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * 95fb0e5 (HEAD -> three) commit three
-    * 910d5b1 (two) commit two
-    * 7fcda42 (one) commit one
+    * 5dbf8bd (HEAD -> three) commit three
+    * 9d299c1 (two) commit two
+    * c124928 (one) commit one
     * 16fd221 (origin/two) commit two
     * 8b426d0 commit one
     ");
@@ -212,7 +212,7 @@ fn uncommit_empty_changes_is_noop() -> Result<()> {
 
     // Graph should be unchanged
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * fbb2bd1 (HEAD -> three) commit three
+    * c389dc7 (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
     * 8b426d0 (one) commit one
     ");
