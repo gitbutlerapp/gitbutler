@@ -6,6 +6,7 @@ use anyhow::{Context as _, bail};
 use bstr::{BStr, BString, ByteSlice};
 use but_error::Code;
 use gix::objs::WriteTo;
+use gix::objs::tree::EntryKind;
 use gix::prelude::ObjectIdExt;
 use serde::{Deserialize, Serialize};
 
@@ -703,3 +704,47 @@ pub use conflict::{
     add_conflict_markers, is_conflicted, message_is_conflicted,
     rewrite_conflict_markers_on_message_change, strip_conflict_markers,
 };
+
+/// Write a GitButler conflicted tree that wraps `resolved_tree_id` together
+/// with the conflict side trees and conflict file list.
+pub fn write_conflicted_tree(
+    repo: &gix::Repository,
+    resolved_tree_id: gix::ObjectId,
+    base_tree_id: gix::ObjectId,
+    ours_tree_id: gix::ObjectId,
+    theirs_tree_id: gix::ObjectId,
+    conflict_entries: &ConflictEntries,
+) -> anyhow::Result<gix::ObjectId> {
+    let conflicted_files_string = toml::to_string(conflict_entries)?;
+    let conflicted_files_blob = repo.write_blob(conflicted_files_string.as_bytes())?;
+
+    let mut tree = repo.find_tree(resolved_tree_id)?.edit()?;
+    tree.upsert(
+        TreeKind::Ours.as_tree_entry_name(),
+        EntryKind::Tree,
+        ours_tree_id,
+    )?;
+    tree.upsert(
+        TreeKind::Theirs.as_tree_entry_name(),
+        EntryKind::Tree,
+        theirs_tree_id,
+    )?;
+    tree.upsert(
+        TreeKind::Base.as_tree_entry_name(),
+        EntryKind::Tree,
+        base_tree_id,
+    )?;
+    tree.upsert(
+        TreeKind::AutoResolution.as_tree_entry_name(),
+        EntryKind::Tree,
+        resolved_tree_id,
+    )?;
+    tree.upsert(
+        TreeKind::ConflictFiles.as_tree_entry_name(),
+        EntryKind::Blob,
+        conflicted_files_blob,
+    )?;
+    tree.write()
+        .context("failed to write conflicted tree")
+        .map(|tree_id| tree_id.detach())
+}
