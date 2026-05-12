@@ -1,9 +1,9 @@
 import styles from "./Keys.module.css";
-import { formatForDisplay } from "@tanstack/react-hotkeys";
+import { formatForDisplay, Hotkey } from "@tanstack/react-hotkeys";
 import { FC } from "react";
 
 type Props = {
-	hotkey: Parameters<typeof formatForDisplay>[0];
+	hotkey: Hotkey;
 };
 
 export const Keys: FC<Props> = ({ hotkey }) => (

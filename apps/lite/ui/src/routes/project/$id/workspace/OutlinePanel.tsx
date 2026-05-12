@@ -96,7 +96,7 @@ import {
 } from "#ui/operations/operation.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 import { defaultOutlineSelection } from "#ui/projects/workspace/state.ts";
-import { ShortcutButton } from "#ui/ui/ShortcutButton.tsx";
+import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import { useResolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import { rejectedChangesToastOptions } from "#ui/operations/rejectedChangesToastOptions.tsx";
 import { useCommand } from "#ui/commands/manager.ts";

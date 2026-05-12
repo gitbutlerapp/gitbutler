@@ -8,7 +8,7 @@ import {
 	type OperationType,
 	type OperationsByType,
 } from "#ui/operations/operation.ts";
-import { ShortcutButton } from "#ui/ui/ShortcutButton.tsx";
+import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import uiStyles from "#ui/ui/ui.module.css";
 import { Tooltip, useRender } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";

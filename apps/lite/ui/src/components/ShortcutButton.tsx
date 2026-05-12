@@ -1,5 +1,5 @@
 import styles from "./ShortcutButton.module.css";
-import { Keys } from "#ui/ui/Keys.tsx";
+import { Keys } from "#ui/components/Keys.tsx";
 import { classes } from "#ui/ui/classes.ts";
 import uiStyles from "#ui/ui/ui.module.css";
 import { Tooltip } from "@base-ui/react";

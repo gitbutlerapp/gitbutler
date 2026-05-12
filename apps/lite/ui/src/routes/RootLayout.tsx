@@ -4,7 +4,7 @@ import { CommandRegistrationId } from "#ui/commands/state.ts";
 import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
 import { ShortcutsBarElementContext, TopBarActionsElementContext } from "#ui/portals.tsx";
 import { PickerDialog } from "#ui/ui/PickerDialog/PickerDialog.tsx";
-import { ShortcutButton } from "#ui/ui/ShortcutButton.tsx";
+import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import uiStyles from "#ui/ui/ui.module.css";
 import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
