@@ -102,13 +102,13 @@ import { rejectedChangesToastOptions } from "#ui/operations/rejectedChangesToast
 import { useCommand } from "#ui/commands/manager.ts";
 import { assert } from "#ui/assert.ts";
 
-const NavigationIndexContext = createContext<NavigationIndex | null>(null);
+const NavigationIndexContext = createContext<NavigationIndex | undefined>(undefined);
 
-const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
+const DryRunWorkspaceContext = createContext<WorkspaceState | undefined>(undefined);
 
 const useDryRunCommit = (commitId: string) => {
 	const dryRunWorkspace = use(DryRunWorkspaceContext);
-	if (!dryRunWorkspace) return null;
+	if (!dryRunWorkspace) return undefined;
 
 	const dryRunCommitId = dryRunWorkspace.replacedCommits[commitId] ?? commitId;
 	return findCommit({ headInfo: dryRunWorkspace.headInfo, commitId: dryRunCommitId });
@@ -123,13 +123,13 @@ const sections = (headInfo: RefInfo): NonEmptyArray<Section> => {
 	const segmentChildren = (stackId: string, segment: Segment): Array<Operand> =>
 		segment.commits.map((commit) => commitOperand({ stackId, commitId: commit.id }));
 
-	const segmentSection = (stackId: string, segment: Segment): Section | null => {
+	const segmentSection = (stackId: string, segment: Segment): Section | undefined => {
 		const children = segmentChildren(stackId, segment);
 		const branchRef = segment.refName?.fullNameBytes;
-		if (!branchRef && children.length === 0) return null;
+		if (!branchRef && children.length === 0) return undefined;
 
 		return {
-			section: branchRef ? branchOperand({ stackId, branchRef }) : null,
+			section: branchRef ? branchOperand({ stackId, branchRef }) : undefined,
 			children,
 		};
 	};
@@ -179,16 +179,16 @@ const useNavigationIndex = (projectId: string) => {
 		// Update selection when the commit was replaced.
 		//
 		const updatedSelection = Match.value(selection).pipe(
-			Match.withReturnType<Operand | null>(),
+			Match.withReturnType<Operand | undefined>(),
 			Match.tags({
 				Commit: (selection) => {
 					const newCommitId = replacedCommits[selection.commitId];
-					if (newCommitId === undefined || newCommitId === selection.commitId) return null;
+					if (newCommitId === undefined || newCommitId === selection.commitId) return undefined;
 
 					return commitOperand({ ...selection, commitId: newCommitId });
 				},
 			}),
-			Match.orElse(() => null),
+			Match.orElse(() => undefined),
 		);
 
 		if (updatedSelection && navigationIndexIncludes(navigationIndexUnfiltered, updatedSelection)) {
@@ -263,12 +263,12 @@ const OutlineTreePanel: FC<PanelProps> = ({ ...panelProps }) => {
 	);
 
 	const dryRunOperation = operationMode
-		? (getBinaryOperation({ mode: operationMode, target: selection }) ?? undefined)
+		? getBinaryOperation({ mode: operationMode, target: selection })
 		: undefined;
 
 	// TODO: debounce?
 	const dryRunOperationQuery = useDryRunOperation({ projectId, operation: dryRunOperation });
-	const dryRunWorkspace = dryRunOperationQuery.data?.workspace ?? null;
+	const dryRunWorkspace = dryRunOperationQuery.data?.workspace;
 
 	const { data: headInfo } = useSuspenseQuery(headInfoQueryOptions(projectId));
 
@@ -306,7 +306,7 @@ const OutlineTreePanel: FC<PanelProps> = ({ ...panelProps }) => {
 					</div>
 
 					{Match.value(operationMode).pipe(
-						Match.when(null, () => null),
+						Match.when(undefined, () => null),
 						Match.tag("DragAndDrop", () => null),
 						Match.orElse(({ source }) => (
 							<div className={styles.operationModePreview}>
@@ -1006,7 +1006,7 @@ const Changes: FC<{
 		});
 	});
 
-	const [branchId, setBranchId] = useState<string | null>(null);
+	const [branchId, setBranchId] = useState<string | undefined>(undefined);
 	const branch = branchComboboxItems.find((item) => item.id === branchId) ?? branchComboboxItems[0];
 
 	const changes = useResolveDiffSpecs({
@@ -1044,7 +1044,7 @@ const Changes: FC<{
 	const [open, setOpen] = useState(false);
 
 	const selectBranch = (option: CommitBranchComboboxItem | null) => {
-		setBranchId(option?.id ?? null);
+		setBranchId(option?.id);
 		setOpen(false);
 	};
 	const openBranchCombobox = () => setOpen(true);

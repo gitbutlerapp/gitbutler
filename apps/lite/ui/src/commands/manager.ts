@@ -51,8 +51,8 @@ type CommandTrigger = "commandPalette" | "contextMenu" | "hotkey" | "ui";
 
 export type CommandFn = (scenario: CommandTrigger) => void;
 
-export const CommandFnContext: Context<Map<CommandRegistrationId, CommandFn> | null> =
-	createContext<Map<CommandRegistrationId, CommandFn> | null>(null);
+export const CommandFnContext: Context<Map<CommandRegistrationId, CommandFn> | undefined> =
+	createContext<Map<CommandRegistrationId, CommandFn> | undefined>(undefined);
 
 type HotkeySegment<T extends string> = T extends `${infer Head}+${infer Tail}`
 	? Head | HotkeySegment<Tail>

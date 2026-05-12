@@ -203,17 +203,17 @@ const buildNativeMenuTemplate = (
 	});
 
 // Returns true if the `url` is from an origin we trust to perform privileged actions such as executing IPC commands.
-const isTrustedLocalOrigin = (url: URL | null) =>
-	url !== null &&
+const isTrustedLocalOrigin = (url: URL | undefined) =>
+	url !== undefined &&
 	(app.isPackaged
 		? url.protocol === `${liteProtocolScheme}:` && url.host === liteProtocolHost
 		: url.protocol === "http:" && url.host === "127.0.0.1:5173");
 
-const newUrlOrNull = (url: string): URL | null => {
+const newUrlOrUndefined = (url: string): URL | undefined => {
 	try {
 		return new URL(url);
 	} catch {
-		return null;
+		return undefined;
 	}
 };
 
@@ -225,7 +225,8 @@ const registerIpcHandlers = (): void => {
 			//
 			// See https://www.electronjs.org/docs/latest/tutorial/security#17-validate-the-sender-of-all-ipc-messages
 			const isSenderFrameTrusted =
-				event.senderFrame !== null && isTrustedLocalOrigin(newUrlOrNull(event.senderFrame.url));
+				event.senderFrame !== null &&
+				isTrustedLocalOrigin(newUrlOrUndefined(event.senderFrame.url));
 			if (isSenderFrameTrusted)
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-argument @typescript-eslint/no-unsafe-return
 				return listener(event, ...args);
@@ -505,7 +506,7 @@ void app.whenReady().then(async () => {
 	}
 
 	session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-		const url = newUrlOrNull(webContents.getURL());
+		const url = newUrlOrUndefined(webContents.getURL());
 		if (isTrustedLocalOrigin(url) && trustedOriginDefaultPermissions.includes(permission))
 			return callback(true);
 

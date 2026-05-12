@@ -57,7 +57,7 @@ export default class WatcherManager {
 	 */
 	private senderSubscriptions: Map<number, Set<string>>;
 
-	private static instance: WatcherManager | null = null;
+	private static instance: WatcherManager | undefined = undefined;
 
 	private constructor() {
 		this.projectWatchers = new Map();
@@ -284,7 +284,7 @@ export default class WatcherManager {
 	destroy(): void {
 		try {
 			this.stopAllWatchersForShutdown();
-			WatcherManager.instance = null;
+			WatcherManager.instance = undefined;
 		} catch (error) {
 			// oxlint-disable-next-line no-console
 			console.warn("Failed to stop project watchers during shutdown", error);

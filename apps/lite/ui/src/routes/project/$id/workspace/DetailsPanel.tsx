@@ -223,7 +223,7 @@ const ChangesDetails: FC<{
 const CommitDetails: FC<{
 	projectId: string;
 	commitId: string;
-	selectedPath?: string | null;
+	selectedPath?: string;
 	stackId: string;
 }> = ({ projectId, commitId, selectedPath, stackId }) => {
 	const { data: commitDetails } = useSuspenseQuery(

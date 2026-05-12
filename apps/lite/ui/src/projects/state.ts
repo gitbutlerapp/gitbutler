@@ -11,7 +11,7 @@ type Dialog =
 	| { _tag: "None" }
 	| { _tag: "ApplyBranchPicker" }
 	| { _tag: "BranchPicker" }
-	| { _tag: "CommandPalette"; focusedPanel: Panel | null };
+	| { _tag: "CommandPalette"; focusedPanel?: Panel };
 
 type ProjectState = {
 	dialog: Dialog;
@@ -117,7 +117,7 @@ const projectSlice = createSlice({
 			state,
 			action: PayloadAction<{
 				projectId: string;
-				operationType: OperationType | null;
+				operationType: OperationType | undefined;
 			}>,
 		) => {
 			const { projectId, operationType } = action.payload;
@@ -140,7 +140,7 @@ const projectSlice = createSlice({
 		},
 		setHighlightedCommitIds: (
 			state,
-			action: PayloadAction<{ projectId: string; commitIds: Array<string> | null }>,
+			action: PayloadAction<{ projectId: string; commitIds: Array<string> | undefined }>,
 		) => {
 			const { projectId, commitIds } = action.payload;
 			workspace.setHighlightedCommitIds(ensureProjectState(state, projectId).workspace, commitIds);
@@ -167,7 +167,7 @@ const projectSlice = createSlice({
 			state,
 			action: PayloadAction<{
 				projectId: string;
-				focusedPanel: Panel | null;
+				focusedPanel: Panel | undefined;
 			}>,
 		) => {
 			const { projectId, focusedPanel } = action.payload;

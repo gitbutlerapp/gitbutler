@@ -1,8 +1,8 @@
 import { createContext, FC, ReactNode, useContext } from "react";
 import { createPortal } from "react-dom";
 
-export const TopBarActionsElementContext = createContext<HTMLElement | null>(null);
-export const ShortcutsBarElementContext = createContext<HTMLElement | null>(null);
+export const TopBarActionsElementContext = createContext<HTMLElement | undefined>(undefined);
+export const ShortcutsBarElementContext = createContext<HTMLElement | undefined>(undefined);
 
 export const TopBarActionsPortal: FC<{ children: ReactNode }> = ({ children }) => {
 	const element = useContext(TopBarActionsElementContext);

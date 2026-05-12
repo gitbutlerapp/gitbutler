@@ -81,17 +81,24 @@ const ProjectSelect: FC = () => {
 };
 
 const TopBar: FC<{
-	setTopBarActionsElement: (element: HTMLDivElement | null) => void;
+	setTopBarActionsElement: (element: HTMLDivElement | undefined) => void;
 }> = ({ setTopBarActionsElement }) => (
 	<header className={styles.topBar}>
 		<ProjectSelect />
-		<div ref={setTopBarActionsElement} className={styles.topBarActions} />
+		<div
+			ref={(element) => setTopBarActionsElement(element ?? undefined)}
+			className={styles.topBarActions}
+		/>
 	</header>
 );
 
 export const RootLayout: FC = () => {
-	const [topBarActionsElement, setTopBarActionsElement] = useState<HTMLDivElement | null>(null);
-	const [shortcutsBarElement, setShortcutsBarElement] = useState<HTMLElement | null>(null);
+	const [topBarActionsElement, setTopBarActionsElement] = useState<HTMLDivElement | undefined>(
+		undefined,
+	);
+	const [shortcutsBarElement, setShortcutsBarElement] = useState<HTMLElement | undefined>(
+		undefined,
+	);
 	const cmdMap = useRef<Map<CommandRegistrationId, CommandFn>>(new Map());
 
 	return (
@@ -105,7 +112,10 @@ export const RootLayout: FC = () => {
 							<section className={styles.content}>
 								<Outlet />
 							</section>
-							<footer ref={setShortcutsBarElement} className={styles.shortcutsBarFooter} />
+							<footer
+								ref={(element) => setShortcutsBarElement(element ?? undefined)}
+								className={styles.shortcutsBarFooter}
+							/>
 						</main>
 					</ShortcutsBarElementContext.Provider>
 				</TopBarActionsElementContext.Provider>

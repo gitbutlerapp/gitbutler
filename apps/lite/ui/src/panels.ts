@@ -20,9 +20,9 @@ export type Panel = "outline" | "files" | "details";
 export const orderedPanels: Array<Panel> = ["outline", "files", "details"];
 
 const getFocusedProjectPanel = (activeElement: Element | null) =>
-	(activeElement?.closest("[data-panel]")?.id as Panel | undefined) ?? null;
+	activeElement?.closest("[data-panel]")?.id as Panel | undefined;
 
-export const useFocusedProjectPanel = (projectId: string): Panel | null => {
+export const useFocusedProjectPanel = (projectId: string): Panel | undefined => {
 	const activeElement = useActiveElement();
 	const focusedPanel = getFocusedProjectPanel(activeElement);
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
@@ -35,7 +35,7 @@ export const focusPanel = (panel: Panel) => {
 
 export const focusAdjacentPanel = (offset: -1 | 1) => {
 	const currentPanel = getFocusedProjectPanel(document.activeElement);
-	if (currentPanel === null) return;
+	if (currentPanel === undefined) return;
 	const nextPanel = orderedPanels[orderedPanels.indexOf(currentPanel) + offset];
 	if (nextPanel === undefined) return;
 	focusPanel(nextPanel);
@@ -50,7 +50,7 @@ export const useNavigationIndexHotkeys = ({
 	select,
 	selection,
 }: {
-	focusedPanel: Panel | null;
+	focusedPanel: Panel | undefined;
 	navigationIndex: NavigationIndex;
 	projectId: string;
 	group: CommandGroup;

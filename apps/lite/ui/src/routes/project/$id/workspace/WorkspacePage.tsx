@@ -129,9 +129,9 @@ const segmentToBranchPickerOption = ({
 }: {
 	segment: Segment;
 	stackId: string;
-}): BranchPickerOption | null => {
+}): BranchPickerOption | undefined => {
 	const refName = segment.refName;
-	if (!refName) return null;
+	if (!refName) return undefined;
 
 	return {
 		id: JSON.stringify([stackId, refName.fullNameBytes]),
@@ -359,14 +359,14 @@ const ShortcutsBar: FC = () => {
 	);
 };
 
-const usePanelsHotkeys = ({ focusedPanel }: { focusedPanel: PanelType | null }) => {
+const usePanelsHotkeys = ({ focusedPanel }: { focusedPanel: PanelType | undefined }) => {
 	useCommand(
 		() => {
 			focusAdjacentPanel(-1);
 		},
 		{
 			group: "Panels",
-			enabled: focusedPanel !== null,
+			enabled: focusedPanel !== undefined,
 			shortcutsBar: { label: "Focus previous panel" },
 			hotkeys: [{ hotkey: "H" }],
 		},
@@ -378,7 +378,7 @@ const usePanelsHotkeys = ({ focusedPanel }: { focusedPanel: PanelType | null }) 
 		},
 		{
 			group: "Panels",
-			enabled: focusedPanel !== null,
+			enabled: focusedPanel !== undefined,
 			shortcutsBar: { label: "Focus next panel" },
 			hotkeys: [{ hotkey: "L" }],
 		},

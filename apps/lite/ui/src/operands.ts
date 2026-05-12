@@ -133,15 +133,15 @@ export const operandIdentityKey = (operand: Operand): string =>
 export const operandEquals = (a: Operand, b: Operand): boolean =>
 	operandIdentityKey(a) === operandIdentityKey(b);
 
-export const operandFileParent = (operand: Operand): FileParent | null =>
+export const operandFileParent = (operand: Operand): FileParent | undefined =>
 	Match.value(operand).pipe(
-		Match.withReturnType<FileParent | null>(),
+		Match.withReturnType<FileParent | undefined>(),
 		Match.tags({
 			File: ({ parent }) => parent,
 			ChangesSection: () => changesFileParent,
 			Hunk: ({ parent }) => parent.parent,
 		}),
-		Match.orElse(() => null),
+		Match.orElse(() => undefined),
 	);
 
 const fileParentToOperand = (fileParent: FileParent): Operand =>

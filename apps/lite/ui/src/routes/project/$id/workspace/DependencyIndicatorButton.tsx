@@ -40,7 +40,7 @@ export const DependencyIndicatorButton: FC<
 	};
 	const clearHighlightedCommitIds = () => {
 		setIsTooltipOpen(false);
-		dispatch(projectActions.setHighlightedCommitIds({ projectId, commitIds: null }));
+		dispatch(projectActions.setHighlightedCommitIds({ projectId, commitIds: undefined }));
 	};
 
 	return (

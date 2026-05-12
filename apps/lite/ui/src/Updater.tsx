@@ -5,7 +5,7 @@ import { classes } from "#ui/ui/classes.ts";
 import uiStyles from "#ui/ui/ui.module.css";
 
 export const Updater: FC = () => {
-	const [version, setVersion] = useState<string | null>(null);
+	const [version, setVersion] = useState<string | undefined>(undefined);
 
 	useEffect(() => {
 		const unsubscribeDownloaded = window.lite.onUpdateDownloaded((info) => {
@@ -19,7 +19,7 @@ export const Updater: FC = () => {
 
 	return (
 		<AlertDialog.Root
-			open={version !== null}
+			open={version !== undefined}
 			onOpenChange={() => {
 				// We do not allow dismissing this dialog at this time
 			}}

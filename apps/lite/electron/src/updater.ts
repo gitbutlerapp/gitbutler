@@ -3,7 +3,7 @@ import electronUpdater, { type AppUpdater, type UpdateDownloadedEvent } from "el
 import { liteIpcChannels } from "./ipc.js";
 import { env } from "node:process";
 
-let updaterWindow: BrowserWindow | null = null;
+let updaterWindow: BrowserWindow | undefined = undefined;
 let updaterRegistered = false;
 
 const getAutoUpdater = (): AppUpdater => {

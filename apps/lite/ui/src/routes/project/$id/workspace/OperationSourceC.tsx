@@ -21,8 +21,8 @@ type DragData = {
 	source: Operand;
 };
 
-export const parseDragData = (data: unknown): DragData | null => {
-	if (typeof data !== "object" || data === null || !("source" in data)) return null;
+export const parseDragData = (data: unknown): DragData | undefined => {
+	if (typeof data !== "object" || data === null || !("source" in data)) return undefined;
 	return data as DragData;
 };
 

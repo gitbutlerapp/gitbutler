@@ -25,7 +25,7 @@ import { useMutation } from "@tanstack/react-query";
 
 const OperationModeControls: FC<{
 	projectId: string;
-	operation: Operation | null;
+	operation: Operation | undefined;
 }> = ({ projectId, operation }) => {
 	const dispatch = useAppDispatch();
 	const { mutate: runOperation } = useMutation(useRunOperationMutationOptions());
@@ -199,7 +199,7 @@ export const OperationTooltip: FC<
 	{
 		projectId: string;
 		target: Operand;
-		operationMode: OperationMode | null;
+		operationMode: OperationMode | undefined;
 		isActive: boolean;
 	} & useRender.ComponentProps<"div">
 > = ({ projectId, target, operationMode, isActive, render, ...props }) => {
@@ -210,7 +210,9 @@ export const OperationTooltip: FC<
 						Absorb: ({ absorptionPlan }) => (
 							<OperationModeControls
 								projectId={projectId}
-								operation={absorptionPlan.length > 0 ? absorbOperation({ absorptionPlan }) : null}
+								operation={
+									absorptionPlan.length > 0 ? absorbOperation({ absorptionPlan }) : undefined
+								}
 							/>
 						),
 						DragAndDrop: () => {

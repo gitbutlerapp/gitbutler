@@ -27,7 +27,7 @@ export const findCommit = ({
 }: {
 	headInfo: RefInfo;
 	commitId: string;
-}): Commit | null => {
+}): Commit | undefined => {
 	for (const stack of headInfo.stacks)
 		for (const segment of stack.segments) {
 			const commit = segment.commits.find((candidate) => candidate.id === commitId);
@@ -36,13 +36,16 @@ export const findCommit = ({
 			return commit;
 		}
 
-	return null;
+	return undefined;
 };
 
-const branchRefsEqual = (left: Array<number> | null, right: Array<number> | null): boolean =>
+const branchRefsEqual = (
+	left: Array<number> | undefined,
+	right: Array<number> | undefined,
+): boolean =>
 	left === right ||
-	(left !== null &&
-		right !== null &&
+	(left !== undefined &&
+		right !== undefined &&
 		left.length === right.length &&
 		left.every((value, index) => value === right[index]));
 
@@ -51,11 +54,11 @@ export const findSegmentByBranchRef = ({
 	branchRef,
 }: {
 	headInfo: RefInfo;
-	branchRef: Array<number> | null;
-}): Segment | null => {
+	branchRef: Array<number> | undefined;
+}): Segment | undefined => {
 	for (const stack of headInfo.stacks)
 		for (const segment of stack.segments)
-			if (branchRefsEqual(segment.refName?.fullNameBytes ?? null, branchRef)) return segment;
+			if (branchRefsEqual(segment.refName?.fullNameBytes, branchRef)) return segment;
 
-	return null;
+	return undefined;
 };

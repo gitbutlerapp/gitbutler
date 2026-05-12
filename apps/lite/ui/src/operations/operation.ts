@@ -188,7 +188,7 @@ const runOperation = async ({
 }: {
 	projectId: string;
 	operation: Operation;
-	resolveChanges: (source: Operand) => Promise<Array<DiffSpec> | null>;
+	resolveChanges: (source: Operand) => Promise<Array<DiffSpec> | undefined>;
 	dryRun: boolean;
 }) =>
 	Match.value(operation).pipe(
@@ -202,7 +202,7 @@ const runOperation = async ({
 			},
 			CommitAmend: async (operation) => {
 				const changes = await resolveChanges(operation.source);
-				if (!changes) return null;
+				if (!changes) return undefined;
 				return window.lite.commitAmend({
 					projectId,
 					commitId: operation.commitId,
@@ -212,7 +212,7 @@ const runOperation = async ({
 			},
 			CommitMoveChangesBetween: async (operation) => {
 				const changes = await resolveChanges(operation.source);
-				if (!changes) return null;
+				if (!changes) return undefined;
 				return window.lite.commitMoveChangesBetween({
 					projectId,
 					sourceCommitId: operation.sourceCommitId,
@@ -237,7 +237,7 @@ const runOperation = async ({
 				}),
 			CommitUncommitChanges: async (operation) => {
 				const changes = await resolveChanges(operation.source);
-				if (!changes) return null;
+				if (!changes) return undefined;
 				return window.lite.commitUncommitChanges({
 					projectId,
 					commitId: operation.commitId,
@@ -248,7 +248,7 @@ const runOperation = async ({
 			},
 			CommitCreate: async (operation) => {
 				const changes = await resolveChanges(operation.source);
-				if (!changes) return null;
+				if (!changes) return undefined;
 				return window.lite.commitCreate({
 					projectId,
 					relativeTo: operation.relativeTo,
@@ -260,7 +260,7 @@ const runOperation = async ({
 			},
 			CommitCreateFromCommittedChanges: async (operation) => {
 				const changes = await resolveChanges(operation.source);
-				if (!changes) return null;
+				if (!changes) return undefined;
 
 				// We can't dry run this as it's not an atomic operation. Ideally this
 				// would be an atomic backend operation.
@@ -336,7 +336,7 @@ export const useDryRunOperation = ({
 		enabled: !!operation,
 		queryKey: ["dryRun", projectId, operation, changes],
 		queryFn: () => {
-			if (!operation) return null;
+			if (!operation) return undefined;
 			return runOperation({
 				projectId,
 				operation,
@@ -397,7 +397,13 @@ export const useRunOperationMutationOptions = () => {
  * which also includes move operations.
  * https://linear.app/gitbutler/issue/GB-1160/what-should-rubbing-a-branch-into-another-branch-do#comment-db2abdb7
  */
-const rubOperation = ({ source, target }: { source: Operand; target: Operand }): Operation | null =>
+const rubOperation = ({
+	source,
+	target,
+}: {
+	source: Operand;
+	target: Operand;
+}): Operation | undefined =>
 	Match.value({ source, sourceFileParent: operandFileParent(source), target }).pipe(
 		Match.when(
 			{
@@ -456,7 +462,7 @@ const rubOperation = ({ source, target }: { source: Operand; target: Operand }):
 					source,
 				}),
 		),
-		Match.orElse(() => null),
+		Match.orElse(() => undefined),
 	);
 
 export const moveOperation = ({
@@ -496,21 +502,21 @@ export const moveOperation = ({
 					subjectBranch: decodeRefName(source.branchRef),
 				}),
 		),
-		Match.orElse(() => null),
+		Match.orElse(() => undefined),
 	);
 
 	if (branchMoveOperation) return branchMoveOperation;
 
-	const relativeTo: RelativeTo | null = Match.value(target).pipe(
-		Match.withReturnType<RelativeTo | null>(),
+	const relativeTo: RelativeTo | undefined = Match.value(target).pipe(
+		Match.withReturnType<RelativeTo | undefined>(),
 		Match.tags({
 			Commit: ({ commitId }) => ({ type: "commit", subject: commitId }),
 			Branch: ({ branchRef }) => ({ type: "referenceBytes", subject: branchRef }),
 		}),
-		Match.orElse(() => null),
+		Match.orElse(() => undefined),
 	);
 
-	if (!relativeTo) return null;
+	if (!relativeTo) return undefined;
 
 	return Match.value({ source, sourceFileParent: operandFileParent(source) }).pipe(
 		Match.when({ source: { _tag: "Commit" } }, ({ source }) =>
@@ -536,7 +542,7 @@ export const moveOperation = ({
 				source,
 			}),
 		),
-		Match.orElse(() => null),
+		Match.orElse(() => undefined),
 	);
 };
 
@@ -548,14 +554,14 @@ const isOperationSourceEnabled = (source: Operand): boolean =>
 		Match.orElse(() => true),
 	);
 
-export type OperationsByType = Record<OperationType, Operation | null>;
+export type OperationsByType = Record<OperationType, Operation | undefined>;
 
 export const getOperations = (source: Operand, target: Operand): OperationsByType => {
 	if (operandEquals(source, target) || !isOperationSourceEnabled(source))
 		return {
-			rub: null,
-			moveAbove: null,
-			moveBelow: null,
+			rub: undefined,
+			moveAbove: undefined,
+			moveBelow: undefined,
 		};
 	return {
 		rub: rubOperation({ source, target }),
@@ -567,11 +573,11 @@ export const getOperations = (source: Operand, target: Operand): OperationsByTyp
 export const getOperation = (x: {
 	source: Operand;
 	target: Operand;
-	operationType: OperationType | null;
-}): Operation | null => {
+	operationType: OperationType | undefined;
+}): Operation | undefined => {
 	const { rub, moveAbove, moveBelow } = getOperations(x.source, x.target);
 	return Match.value(x.operationType).pipe(
-		Match.when(null, () => null),
+		Match.when(undefined, () => undefined),
 		Match.when("rub", () => rub),
 		Match.when("moveAbove", () => moveAbove),
 		Match.when("moveBelow", () => moveBelow),

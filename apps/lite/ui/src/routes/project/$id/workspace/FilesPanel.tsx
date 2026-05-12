@@ -56,7 +56,7 @@ import {
 import { useCommand } from "#ui/commands/manager.ts";
 import { assert } from "#ui/assert.ts";
 
-const NavigationIndexContext = createContext<NavigationIndex | null>(null);
+const NavigationIndexContext = createContext<NavigationIndex | undefined>(undefined);
 
 const useNavigationIndex = (projectId: string, parent: Operand, files: Array<Operand>) => {
 	const dispatch = useAppDispatch();

@@ -2,7 +2,7 @@ import { type Operand, operandIdentityKey } from "#ui/operands.ts";
 import { Array } from "effect";
 
 export type Section = {
-	section: Operand | null;
+	section?: Operand;
 	children: Array<Operand>;
 };
 
@@ -80,11 +80,11 @@ export const getAdjacent = ({
 	navigationIndex: NavigationIndex;
 	selection: Operand;
 	offset: -1 | 1;
-}): Operand | null => {
+}): Operand | undefined => {
 	const selectionIndex = navigationIndex.indexByKey.get(operandIdentityKey(selection));
-	if (selectionIndex === undefined) return null;
+	if (selectionIndex === undefined) return undefined;
 
-	return navigationIndex.items[selectionIndex + offset] ?? null;
+	return navigationIndex.items[selectionIndex + offset];
 };
 
 export const getNextSection = ({
@@ -93,16 +93,16 @@ export const getNextSection = ({
 }: {
 	navigationIndex: NavigationIndex;
 	selection: Operand;
-}): Operand | null => {
+}): Operand | undefined => {
 	const selectionIndex = navigationIndex.indexByKey.get(operandIdentityKey(selection));
-	if (selectionIndex === undefined) return null;
+	if (selectionIndex === undefined) return undefined;
 
 	const sectionIndex = navigationIndex.sectionIndexByItemIndex[selectionIndex];
-	if (sectionIndex === undefined) return null;
+	if (sectionIndex === undefined) return undefined;
 	const nextSectionStartIndex = navigationIndex.sectionStartIndexes[sectionIndex + 1];
-	if (nextSectionStartIndex === undefined) return null;
+	if (nextSectionStartIndex === undefined) return undefined;
 
-	return navigationIndex.items[nextSectionStartIndex] ?? null;
+	return navigationIndex.items[nextSectionStartIndex];
 };
 
 export const getPreviousSection = ({
@@ -111,22 +111,22 @@ export const getPreviousSection = ({
 }: {
 	navigationIndex: NavigationIndex;
 	selection: Operand;
-}): Operand | null => {
+}): Operand | undefined => {
 	const selectionIndex = navigationIndex.indexByKey.get(operandIdentityKey(selection));
-	if (selectionIndex === undefined) return null;
+	if (selectionIndex === undefined) return undefined;
 
 	const sectionIndex = navigationIndex.sectionIndexByItemIndex[selectionIndex];
-	if (sectionIndex === undefined) return null;
+	if (sectionIndex === undefined) return undefined;
 	const currentSectionStartIndex = navigationIndex.sectionStartIndexes[sectionIndex];
-	if (currentSectionStartIndex === undefined) return null;
+	if (currentSectionStartIndex === undefined) return undefined;
 
 	if (selectionIndex !== currentSectionStartIndex)
-		return navigationIndex.items[currentSectionStartIndex] ?? null;
+		return navigationIndex.items[currentSectionStartIndex];
 
 	const previousSectionStartIndex = navigationIndex.sectionStartIndexes[sectionIndex - 1];
-	if (previousSectionStartIndex === undefined) return null;
+	if (previousSectionStartIndex === undefined) return undefined;
 
-	return navigationIndex.items[previousSectionStartIndex] ?? null;
+	return navigationIndex.items[previousSectionStartIndex];
 };
 
 export const navigationIndexIncludes = (

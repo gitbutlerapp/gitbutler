@@ -67,12 +67,12 @@ export const enterAbsorbMode = (
 };
 
 export const enterDragAndDropMode = (state: WorkspaceState, source: Operand) => {
-	state.mode = operationOutlineMode(dragAndDropOperationMode({ source, operationType: null }));
+	state.mode = operationOutlineMode(dragAndDropOperationMode({ source }));
 };
 
 export const updateDragAndDropMode = (
 	state: WorkspaceState,
-	operationType: OperationType | null,
+	operationType: OperationType | undefined,
 ) => {
 	Match.value(state.mode).pipe(
 		Match.when({ _tag: "Operation", value: { _tag: "DragAndDrop" } }, (mode) => {
@@ -113,7 +113,10 @@ export const selectFiles = (state: WorkspaceState, selection: Operand) => {
 	state.selection.files = selection;
 };
 
-export const setHighlightedCommitIds = (state: WorkspaceState, commitIds: Array<string> | null) => {
+export const setHighlightedCommitIds = (
+	state: WorkspaceState,
+	commitIds: Array<string> | undefined,
+) => {
 	state.highlightedCommitIds = commitIds ?? [];
 };
 

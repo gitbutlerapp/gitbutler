@@ -30,8 +30,8 @@ type DropData = {
 	target: Operand;
 };
 
-const parseDropData = (data: unknown): DropData | null => {
-	if (typeof data !== "object" || data === null || !("operationType" in data)) return null;
+const parseDropData = (data: unknown): DropData | undefined => {
+	if (typeof data !== "object" || data === null || !("operationType" in data)) return undefined;
 	return data as DropData;
 };
 
@@ -45,7 +45,7 @@ const getDropOperationType = ({
 	target: Operand;
 	input: Parameters<typeof attachInstruction>[1]["input"];
 	element: Parameters<typeof attachInstruction>[1]["element"];
-}): OperationType | null => {
+}): OperationType | undefined => {
 	const { rub, moveAbove, moveBelow } = getOperations(source, target);
 
 	const instruction = extractInstruction(
@@ -62,10 +62,10 @@ const getDropOperationType = ({
 			},
 		),
 	);
-	if (!instruction) return null;
+	if (!instruction) return undefined;
 
 	return Match.value(instruction.operation).pipe(
-		Match.withReturnType<OperationType | null>(),
+		Match.withReturnType<OperationType | undefined>(),
 		Match.when("combine", () => "rub"),
 		Match.when("reorder-before", () => "moveAbove"),
 		Match.when("reorder-after", () => "moveBelow"),
@@ -79,20 +79,22 @@ const useOperationDropTarget = ({ target, projectId }: { target: Operand; projec
 	const dropRef = useRef<HTMLElement>(null);
 	const [isActiveDropTarget, setIsActiveDropTarget] = useState<boolean>(false);
 
-	const getDropData = useEffectEvent(({ input, element, source }: GetDataArgs): DropData | null => {
-		const dragData = parseDragData(source.data);
-		if (!dragData) return null;
+	const getDropData = useEffectEvent(
+		({ input, element, source }: GetDataArgs): DropData | undefined => {
+			const dragData = parseDragData(source.data);
+			if (!dragData) return undefined;
 
-		const operationType = getDropOperationType({
-			source: dragData.source,
-			target,
-			input,
-			element,
-		});
-		if (operationType === null) return null;
+			const operationType = getDropOperationType({
+				source: dragData.source,
+				target,
+				input,
+				element,
+			});
+			if (operationType === undefined) return undefined;
 
-		return { operationType, target };
-	});
+			return { operationType, target };
+		},
+	);
 
 	useEffect(() => {
 		const element = dropRef.current;
@@ -101,7 +103,7 @@ const useOperationDropTarget = ({ target, projectId }: { target: Operand; projec
 		return dropTargetForElements({
 			element,
 			getData: (args) => getDropData(args) ?? {},
-			canDrop: (args) => getDropData(args) !== null,
+			canDrop: (args) => getDropData(args) !== undefined,
 			onDrag: (args) => {
 				const [innerMost] = args.location.current.dropTargets;
 				const isActiveDropTarget = innerMost?.element === args.self.element;
@@ -115,7 +117,7 @@ const useOperationDropTarget = ({ target, projectId }: { target: Operand; projec
 				dispatch(
 					projectActions.updateDragAndDropMode({
 						projectId,
-						operationType: dropData?.operationType ?? null,
+						operationType: dropData?.operationType,
 					}),
 				);
 			},
@@ -166,18 +168,18 @@ export const OperationTarget: FC<
 	const insertTargetOperationType = operationMode
 		? Match.value(operationMode).pipe(
 				Match.tagsExhaustive({
-					Absorb: () => null,
+					Absorb: () => undefined,
 					DragAndDrop: ({ operationType }) =>
 						isActiveDropTarget && (operationType === "moveAbove" || operationType === "moveBelow")
 							? operationType
-							: null,
+							: undefined,
 					Cut: ({ operationType }) =>
 						isSelected && (operationType === "moveAbove" || operationType === "moveBelow")
 							? operationType
-							: null,
+							: undefined,
 				}),
 			)
-		: null;
+		: undefined;
 
 	const isMainTargetActive =
 		!!operationMode &&
@@ -217,7 +219,7 @@ export const OperationTarget: FC<
 				render={targetEl}
 			/>
 
-			{insertTargetOperationType !== null && (
+			{insertTargetOperationType !== undefined && (
 				<OperationTooltip
 					projectId={projectId}
 					target={target}

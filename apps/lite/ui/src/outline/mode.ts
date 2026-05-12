@@ -20,7 +20,7 @@ export type AbsorbOperationMode = {
 /** @public */
 export type CutOperationMode = { source: Operand; operationType: OperationType };
 /** @public */
-export type DragAndDropOperationMode = { source: Operand; operationType: OperationType | null };
+export type DragAndDropOperationMode = { source: Operand; operationType?: OperationType };
 export type OperationMode =
 	| ({ _tag: "Absorb" } & AbsorbOperationMode)
 	| ({ _tag: "Cut" } & CutOperationMode)
@@ -86,18 +86,18 @@ export const renameBranchOutlineMode = ({ operand }: RenameBranchOutlineMode): O
 	operand,
 });
 
-export const getOperationMode = (mode: OutlineMode): OperationMode | null =>
+export const getOperationMode = (mode: OutlineMode): OperationMode | undefined =>
 	Match.value(mode).pipe(
-		Match.withReturnType<OperationMode | null>(),
+		Match.withReturnType<OperationMode | undefined>(),
 		Match.tags({ Operation: ({ value }) => value }),
-		Match.orElse(() => null),
+		Match.orElse(() => undefined),
 	);
 
-const operationModeToOperationType = (operationMode: OperationMode): OperationType | null =>
+const operationModeToOperationType = (operationMode: OperationMode): OperationType | undefined =>
 	Match.value(operationMode).pipe(
-		Match.withReturnType<OperationType | null>(),
+		Match.withReturnType<OperationType | undefined>(),
 		Match.tags({
-			Absorb: () => null,
+			Absorb: () => undefined,
 			Cut: ({ operationType }) => operationType,
 			DragAndDrop: ({ operationType }) => operationType,
 		}),

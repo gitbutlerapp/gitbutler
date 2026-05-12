@@ -31,29 +31,29 @@ const resolvedDiffSpecsFromOperand = ({
 	commitDetails: CommitDetails | undefined;
 }) =>
 	Match.value(operand).pipe(
-		Match.withReturnType<Array<DiffSpec> | null>(),
+		Match.withReturnType<Array<DiffSpec> | undefined>(),
 		Match.tags({
 			File: ({ parent, path }) =>
 				Match.value(parent).pipe(
-					Match.withReturnType<Array<DiffSpec> | null>(),
+					Match.withReturnType<Array<DiffSpec> | undefined>(),
 					Match.tagsExhaustive({
 						Changes: () => {
 							const change = worktreeChanges?.changes.find((candidate) => candidate.path === path);
-							if (!change) return null;
+							if (!change) return undefined;
 
 							return [createDiffSpec(change, [])];
 						},
 						Commit: () => {
 							const change = commitDetails?.changes.find((candidate) => candidate.path === path);
-							if (!change) return null;
+							if (!change) return undefined;
 
 							return [createDiffSpec(change, [])];
 						},
-						Branch: () => null,
+						Branch: () => undefined,
 					}),
 				),
 			ChangesSection: () => {
-				if (!worktreeChanges) return null;
+				if (!worktreeChanges) return undefined;
 
 				const changes = worktreeChanges.changes.map((change) => createDiffSpec(change, []));
 				return changes;
@@ -63,27 +63,27 @@ const resolvedDiffSpecsFromOperand = ({
 					Match.tagsExhaustive({
 						Changes: () => worktreeChanges?.changes,
 						Commit: () => commitDetails?.changes,
-						Branch: () => null,
+						Branch: () => undefined,
 					}),
 				);
-				if (!changes) return null;
+				if (!changes) return undefined;
 
 				const change = changes.find((candidate) => candidate.path === parent.path);
-				if (!change) return null;
+				if (!change) return undefined;
 
 				return [createDiffSpec(change, [hunkHeader])];
 			},
 		}),
-		Match.orElse(() => null),
+		Match.orElse(() => undefined),
 	);
 
 const commitIdFromParent = (parent: FileParent) =>
 	Match.value(parent).pipe(
-		Match.withReturnType<string | null>(),
+		Match.withReturnType<string | undefined>(),
 		Match.tagsExhaustive({
-			Changes: () => null,
+			Changes: () => undefined,
 			Commit: ({ commitId }) => commitId,
-			Branch: () => null,
+			Branch: () => undefined,
 		}),
 	);
 
@@ -96,13 +96,13 @@ export const resolveDiffSpecs = async ({
 	projectId: string;
 	queryClient: QueryClient;
 }) => {
-	if (!source) return null;
+	if (!source) return undefined;
 
 	const fileParent = operandFileParent(source);
-	const commitId = fileParent ? commitIdFromParent(fileParent) : null;
+	const commitId = fileParent ? commitIdFromParent(fileParent) : undefined;
 	const [worktreeChanges, commitDetails] = await Promise.all([
 		queryClient.fetchQuery(changesInWorktreeQueryOptions(projectId)),
-		commitId !== null
+		commitId !== undefined
 			? queryClient.fetchQuery(commitDetailsWithLineStatsQueryOptions({ projectId, commitId }))
 			: Promise.resolve(undefined),
 	]);
@@ -123,16 +123,16 @@ export const useResolveDiffSpecs = ({
 }) => {
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
-	const fileParent = source ? operandFileParent(source) : null;
-	const commitId = fileParent ? commitIdFromParent(fileParent) : null;
+	const fileParent = source ? operandFileParent(source) : undefined;
+	const commitId = fileParent ? commitIdFromParent(fileParent) : undefined;
 	const conditionalQueries = useQueries({
-		queries: (commitId !== null ? [commitId] : []).map((commitId) =>
+		queries: (commitId !== undefined ? [commitId] : []).map((commitId) =>
 			commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 		),
 	});
 	const commitDetails = conditionalQueries[0]?.data;
 
-	if (!source) return null;
+	if (!source) return undefined;
 
 	return resolvedDiffSpecsFromOperand({
 		operand: source,
