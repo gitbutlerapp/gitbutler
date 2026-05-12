@@ -349,7 +349,11 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
 }
 
 impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
-    /// Converts a SuccessfulRebase back into another editor for multi-step operations
+    /// Converts a SuccessfulRebase back into another editor for multi-step operations.
+    ///
+    /// This is the normalization path for callers that want to chain
+    /// additional editor-based operations and need the editor graph plus
+    /// in-memory repository to agree on ancestry.
     pub fn into_editor(self) -> Editor<'ws, 'meta, M> {
         Editor {
             graph: self.graph,

@@ -14,6 +14,7 @@ mod editor_creation;
 mod insert;
 mod insert_segment;
 mod materialize;
+mod merge_commit_changes;
 mod multiple_operations;
 mod order_commit_selectors_by_parentage;
 mod rebase_identities;

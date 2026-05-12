@@ -1,0 +1,416 @@
+#![doc = include_str!("../../docs/merge_commit_changes.md")]
+
+use std::collections::{HashMap, HashSet};
+
+use anyhow::{Context, Result, bail};
+use but_core::{RefMetadata, RepositoryExt};
+use gix::prelude::ObjectIdExt;
+use petgraph::Direction;
+
+use crate::graph_rebase::{Editor, Pick, Step, StepGraphIndex, util::collect_ordered_parents};
+
+/// A selected commit change range that should be merged into an accumulated
+/// tree.
+///
+/// `base_tree_id` is the tree from which `commit_id`'s contribution should be
+/// measured. Merging `base_tree_id..commit_id^{tree}` applies only that
+/// commit's selected change range, not all tree state reachable through its
+/// parents.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlannedCommitChange {
+    /// The selected commit whose change range should be merged.
+    pub commit_id: gix::ObjectId,
+    /// The tree that acts as the base for `commit_id`'s contribution.
+    pub base_tree_id: gix::ObjectId,
+}
+
+/// The result of merging selected commit changes into one tree.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MergeCommitChangesOutcome {
+    /// The resulting tree.
+    ///
+    /// If [`Self::conflict`] is `Some`, this is the auto-resolved tree that
+    /// should be presented as the conflicted commit's visible tree.
+    pub tree_id: gix::ObjectId,
+    /// Details about the last unresolved merge encountered while producing
+    /// [`Self::tree_id`].
+    pub conflict: Option<MergeCommitChangesConflict>,
+}
+
+/// Conflict metadata needed to persist a GitButler conflicted commit from a
+/// merged change-range result.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MergeCommitChangesConflict {
+    /// The merge base tree for the conflicted merge step.
+    pub base_tree_id: gix::ObjectId,
+    /// The accumulated tree on the "ours" side of the conflicted merge step.
+    pub ours_tree_id: gix::ObjectId,
+    /// The selected commit tree on the "theirs" side of the conflicted merge step.
+    pub theirs_tree_id: gix::ObjectId,
+    /// The paths that remained conflicted after auto-resolution.
+    pub conflict_entries: but_core::commit::ConflictEntries,
+}
+
+impl<M: RefMetadata> Editor<'_, '_, M> {
+    /// Return the tree produced by preserving the target commit's full tree
+    /// and then merging only the surviving selected commits' own change
+    /// ranges into it.
+    ///
+    /// See the module docs for the planner and merge semantics.
+    pub fn merge_commit_changes_to_tree(
+        &self,
+        target_commit_id: gix::ObjectId,
+        subject_commit_ids: Vec<gix::ObjectId>,
+        merge_options: gix::merge::tree::Options,
+    ) -> Result<MergeCommitChangesOutcome> {
+        let target_commit = but_core::Commit::from_id(target_commit_id.attach(&self.repo))?;
+        let target_tree_id = target_commit.tree_id_or_auto_resolution()?.detach();
+        let merge_plan =
+            self.plan_commit_changes_for_merge(target_commit_id, subject_commit_ids)?;
+        if merge_plan.is_empty() {
+            let tree_id = target_tree_id;
+            let conflict = if target_commit.is_conflicted() {
+                let (base_tree_id, ours_tree_id, theirs_tree_id) = target_commit
+                    .conflicted_tree_ids()?
+                    .context("conflicted commit is missing conflicted tree sides")?;
+                Some(MergeCommitChangesConflict {
+                    base_tree_id: base_tree_id.detach(),
+                    ours_tree_id: ours_tree_id.detach(),
+                    theirs_tree_id: theirs_tree_id.detach(),
+                    conflict_entries: target_commit
+                        .conflict_entries()?
+                        .context("conflicted commit is missing conflict entries")?,
+                })
+            } else {
+                None
+            };
+            return Ok(MergeCommitChangesOutcome { tree_id, conflict });
+        }
+
+        let mut ours = target_tree_id;
+        let mut conflict = None;
+        let conflict_kind = gix::merge::tree::TreatAsUnresolved::forced_resolution();
+
+        for change in merge_plan {
+            let theirs = but_core::Commit::from_id(change.commit_id.attach(&self.repo))?
+                .tree_id_or_auto_resolution()?
+                .detach();
+            let mut merge = self
+                .repo
+                .merge_trees(
+                    change.base_tree_id,
+                    ours,
+                    theirs,
+                    self.repo.default_merge_labels(),
+                    merge_options.clone(),
+                )
+                .context("failed to merge commit trees")?;
+            let merged_tree_id = merge.tree.write()?.detach();
+            if merge.has_unresolved_conflicts(conflict_kind) {
+                conflict = Some(MergeCommitChangesConflict {
+                    base_tree_id: change.base_tree_id,
+                    ours_tree_id: ours,
+                    theirs_tree_id: theirs,
+                    conflict_entries: but_core::commit::conflict_entries_from_merge_outcome(
+                        &self.repo,
+                        merged_tree_id,
+                        &merge,
+                        conflict_kind,
+                    )?,
+                });
+                ours = merged_tree_id;
+                break;
+            }
+            ours = merged_tree_id;
+        }
+
+        Ok(MergeCommitChangesOutcome {
+            tree_id: ours,
+            conflict,
+        })
+    }
+
+    /// Turn the selected commits into mergeable `base..commit` change ranges
+    /// relative to a target commit.
+    ///
+    /// This planner assumes the editor step graph and the editor's in-memory
+    /// repository describe the same commit topology. The step graph is used to
+    /// traverse selected commits deterministically and to find the target's
+    /// ancestry cone quickly, while first-parent/base semantics still come
+    /// from the commit objects stored in the in-memory repository.
+    ///
+    /// See the module docs for the planner semantics and invariants.
+    ///
+    ///
+    /// Returns a vector of [PlannedCommitChange].
+    pub fn plan_commit_changes_for_merge(
+        &self,
+        target_commit_id: gix::ObjectId,
+        subject_commit_ids: Vec<gix::ObjectId>,
+    ) -> Result<Vec<PlannedCommitChange>> {
+        self.try_select_commit(target_commit_id).with_context(|| {
+            format!("Failed to find commit {target_commit_id} in rebase editor")
+        })?;
+        let selected_commit_ids = deduplicate_commit_ids(subject_commit_ids);
+        if selected_commit_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let selected_commit_set = selected_commit_ids.iter().copied().collect::<HashSet<_>>();
+        let traversal = traverse_graph_for_planning(self, target_commit_id, &selected_commit_set)?;
+
+        for commit_id in &selected_commit_ids {
+            if !traversal
+                .selected_metadata_by_commit
+                .contains_key(commit_id)
+            {
+                bail!("Failed to find commit {commit_id} in rebase editor");
+            }
+        }
+
+        let mut selected_child_count = HashMap::<gix::ObjectId, usize>::with_capacity(
+            traversal.ordered_selected_commit_ids.len(),
+        );
+        for commit_id in traversal.ordered_selected_commit_ids.iter().copied() {
+            selected_child_count.insert(commit_id, 0);
+        }
+        for selected_parent_id in traversal
+            .selected_metadata_by_commit
+            .values()
+            .filter_map(|metadata| metadata.selected_first_parent_id)
+        {
+            if let Some(child_count) = selected_child_count.get_mut(&selected_parent_id) {
+                *child_count += 1;
+            }
+        }
+
+        let mut planned_commit_changes = Vec::new();
+        for commit_id in traversal.ordered_selected_commit_ids {
+            let is_selected_chain_tip = selected_child_count
+                .get(&commit_id)
+                .copied()
+                .unwrap_or_default()
+                == 0;
+            if !is_selected_chain_tip || traversal.target_ancestor_commit_ids.contains(&commit_id) {
+                continue;
+            }
+
+            let base_tree_id = base_tree_id_for_emitted_tip(
+                self,
+                commit_id,
+                &traversal.selected_metadata_by_commit,
+                &traversal.target_ancestor_commit_ids,
+            )?;
+            planned_commit_changes.push(PlannedCommitChange {
+                commit_id,
+                base_tree_id,
+            });
+        }
+
+        Ok(planned_commit_changes)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SelectedCommitPlanningMetadata {
+    first_parent_id: Option<gix::ObjectId>,
+    selected_first_parent_id: Option<gix::ObjectId>,
+}
+
+#[derive(Debug, Default)]
+struct SelectedCommitPlanningTraversal {
+    ordered_selected_commit_ids: Vec<gix::ObjectId>,
+    selected_metadata_by_commit: HashMap<gix::ObjectId, SelectedCommitPlanningMetadata>,
+    target_ancestor_commit_ids: HashSet<gix::ObjectId>,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+enum TraversalMode {
+    #[default]
+    Normal,
+    MarkTargetAncestors,
+}
+
+/// Traverse the editor graph and return information relevant for the planning.
+///
+/// The traversal collects information about:
+/// - Which commits are ancestors of the target commit.
+/// - The deterministic order in which selected commits should be considered.
+///
+/// This walk intentionally uses the editor step graph only as a traversal
+/// structure. Parent/tree semantics are still read from the in-memory
+/// repository commits, so callers must only use this planner when the editor
+/// graph and the in-memory repository represent the same commit topology.
+///
+/// Returns [SelectedCommitPlanningTraversal].
+fn traverse_graph_for_planning<M: RefMetadata>(
+    editor: &Editor<'_, '_, M>,
+    target_commit_id: gix::ObjectId,
+    selected_commit_ids: &HashSet<gix::ObjectId>,
+) -> Result<SelectedCommitPlanningTraversal> {
+    let mut traversal = SelectedCommitPlanningTraversal::default();
+    let mut seen_selected_commit_ids = HashSet::new();
+    let mut seen_normal = HashSet::<StepGraphIndex>::new();
+    let mut seen_target_ancestor_walk = HashSet::<StepGraphIndex>::new();
+
+    let mut roots = editor
+        .graph
+        .externals(Direction::Incoming)
+        .collect::<Vec<StepGraphIndex>>();
+    roots.sort_unstable_by_key(|idx| idx.index());
+
+    for root in roots {
+        let mut stack = vec![(root, false, TraversalMode::Normal)];
+        while let Some((node, expanded, mode)) = stack.pop() {
+            match mode {
+                TraversalMode::Normal => {
+                    if expanded {
+                        if let Step::Pick(Pick { id, .. }) = editor.graph[node] {
+                            if let Some(selected_metadata) = selected_metadata_for_traversed_pick(
+                                editor,
+                                id,
+                                selected_commit_ids,
+                            )? {
+                                traversal
+                                    .selected_metadata_by_commit
+                                    .insert(id, selected_metadata);
+                                if seen_selected_commit_ids.insert(id) {
+                                    traversal.ordered_selected_commit_ids.push(id);
+                                }
+                            }
+
+                            if id == target_commit_id {
+                                traversal.target_ancestor_commit_ids.insert(id);
+                                for parent_idx in collect_ordered_parents(&editor.graph, node) {
+                                    stack.push((
+                                        parent_idx,
+                                        false,
+                                        TraversalMode::MarkTargetAncestors,
+                                    ));
+                                }
+                            }
+                        }
+                        continue;
+                    }
+
+                    if !seen_normal.insert(node) {
+                        continue;
+                    }
+
+                    let parents = collect_ordered_parents(&editor.graph, node);
+                    stack.push((node, true, TraversalMode::Normal));
+                    for parent_idx in parents.into_iter() {
+                        stack.push((parent_idx, false, TraversalMode::Normal));
+                    }
+                }
+                TraversalMode::MarkTargetAncestors => {
+                    if !seen_target_ancestor_walk.insert(node) {
+                        continue;
+                    }
+
+                    if let Step::Pick(Pick { id, .. }) = editor.graph[node] {
+                        traversal.target_ancestor_commit_ids.insert(id);
+                    }
+
+                    for parent_idx in collect_ordered_parents(&editor.graph, node) {
+                        stack.push((parent_idx, false, TraversalMode::MarkTargetAncestors));
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(traversal)
+}
+
+/// Pick repository-backed first-parent metadata for a selected commit.
+///
+/// This intentionally reads the commit object from the editor's in-memory
+/// repository instead of inferring first-parent semantics from the step graph.
+/// The step graph only provides deterministic traversal order and fast target
+/// ancestry discovery. The actual `base..commit` merge ranges must match the
+/// commit DAG that owns the trees and SHAs being merged, so callers are
+/// expected to keep the editor step graph aligned with that in-memory
+/// repository topology.
+fn selected_metadata_for_traversed_pick<M: RefMetadata>(
+    editor: &Editor<'_, '_, M>,
+    commit_id: gix::ObjectId,
+    selected_commit_ids: &HashSet<gix::ObjectId>,
+) -> Result<Option<SelectedCommitPlanningMetadata>> {
+    if !selected_commit_ids.contains(&commit_id) {
+        return Ok(None);
+    }
+
+    let commit = but_core::Commit::from_id(commit_id.attach(&editor.repo))?;
+    let first_parent_id = commit.inner.parents.first().copied();
+    let selected_first_parent_id =
+        first_parent_id.filter(|parent_id| selected_commit_ids.contains(parent_id));
+
+    Ok(Some(SelectedCommitPlanningMetadata {
+        first_parent_id,
+        selected_first_parent_id,
+    }))
+}
+
+/// Get the base tree ID to use for the merger of the given commit.
+///
+/// This function is reponsible for determining the base in the following way:
+/// 1. If the first parent of the commit is an ancestor of the target commit, we return its tree.
+/// 2. If the first parent of the commit is part of the selected commits but is not an ancestor of
+///    the target commit, we check the second parent. We continue until we find a parent that's either
+///    not in the selected commits or is an ancestor of the target commit.
+/// 3. If there is no parent, we return an empty tree.
+fn base_tree_id_for_emitted_tip<M: RefMetadata>(
+    editor: &Editor<'_, '_, M>,
+    tip_commit_id: gix::ObjectId,
+    selected_metadata_by_commit: &HashMap<gix::ObjectId, SelectedCommitPlanningMetadata>,
+    target_ancestor_commit_ids: &HashSet<gix::ObjectId>,
+) -> Result<gix::ObjectId> {
+    let mut current_commit_id = tip_commit_id;
+
+    loop {
+        let metadata = selected_metadata_by_commit
+            .get(&current_commit_id)
+            .with_context(|| {
+                format!("BUG: missing planning metadata for selected commit {current_commit_id}")
+            })?;
+
+        match metadata.selected_first_parent_id {
+            Some(selected_parent_id)
+                if target_ancestor_commit_ids.contains(&selected_parent_id) =>
+            {
+                return tree_id_for_commit(editor, selected_parent_id);
+            }
+            Some(selected_parent_id) => {
+                current_commit_id = selected_parent_id;
+            }
+            None => {
+                return match metadata.first_parent_id {
+                    Some(parent_id) => tree_id_for_commit(editor, parent_id),
+                    None => Ok(gix::ObjectId::empty_tree(editor.repo.object_hash())),
+                };
+            }
+        }
+    }
+}
+
+fn tree_id_for_commit<M: RefMetadata>(
+    editor: &Editor<'_, '_, M>,
+    commit_id: gix::ObjectId,
+) -> Result<gix::ObjectId> {
+    Ok(but_core::Commit::from_id(commit_id.attach(&editor.repo))?
+        .tree_id_or_auto_resolution()?
+        .detach())
+}
+
+/// Remove exact duplicate commit IDs.
+fn deduplicate_commit_ids(commit_ids: Vec<gix::ObjectId>) -> Vec<gix::ObjectId> {
+    let mut seen = HashSet::with_capacity(commit_ids.len());
+    let mut deduplicated = Vec::with_capacity(commit_ids.len());
+    for commit_id in commit_ids {
+        if seen.insert(commit_id) {
+            deduplicated.push(commit_id);
+        }
+    }
+    deduplicated
+}
