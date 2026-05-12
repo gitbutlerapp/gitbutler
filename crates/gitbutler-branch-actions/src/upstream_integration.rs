@@ -568,6 +568,17 @@ pub(crate) fn integrate_upstream(
         let statuses = upstream_integration_statuses(&context)?;
 
         let StackStatuses::UpdatesRequired { statuses, .. } = statuses else {
+            // Even when stacks are up-to-date with the target, the workspace
+            // commit itself may be parented on an older base (e.g. after
+            // `bootstrap_default_target_if_missing` advanced `default_target.sha`
+            // without rebuilding the workspace commit). Rebuild it so the
+            // worktree reflects the current target.
+            let virtual_branches_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+            crate::integration::update_workspace_commit_with_vb_state(
+                &virtual_branches_state,
+                ctx,
+                false,
+            )?;
             return Ok(IntegrationOutcome {
                 deleted_branches: vec![],
             });
