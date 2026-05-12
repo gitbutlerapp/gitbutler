@@ -1,79 +1,11 @@
-use std::path::PathBuf;
-
 use anyhow::{Context as _, Result};
 use bstr::ByteSlice as _;
 use but_core::{
     RepositoryExt,
-    commit::{ConflictEntries, Headers},
+    commit::{Headers, conflict_entries_from_merge_outcome},
 };
 use but_oxidize::{ObjectIdExt as _, OidExt as _};
 use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _};
-
-fn extract_conflicted_files(
-    merged_tree_id: gix::Id<'_>,
-    merge_result: gix::merge::tree::Outcome<'_>,
-    treat_as_unresolved: gix::merge::tree::TreatAsUnresolved,
-) -> Result<ConflictEntries> {
-    use gix::index::entry::Stage;
-    let repo = merged_tree_id.repo;
-    let mut index = repo.index_from_tree(&merged_tree_id)?;
-    merge_result.index_changed_after_applying_conflicts(
-        &mut index,
-        treat_as_unresolved,
-        gix::merge::tree::apply_index_entries::RemovalMode::Mark,
-    );
-    let (mut ancestor_entries, mut our_entries, mut their_entries) =
-        (Vec::new(), Vec::new(), Vec::new());
-    for entry in index.entries() {
-        let stage = entry.stage();
-        let storage = match stage {
-            Stage::Unconflicted => {
-                continue;
-            }
-            Stage::Base => &mut ancestor_entries,
-            Stage::Ours => &mut our_entries,
-            Stage::Theirs => &mut their_entries,
-        };
-
-        let path = entry.path(&index);
-        storage.push(gix::path::from_bstr(path).into_owned());
-    }
-    let mut out = ConflictEntries {
-        ancestor_entries,
-        our_entries,
-        their_entries,
-    };
-
-    // Since we typically auto-resolve with 'ours', it maybe that conflicting entries don't have an
-    // unconflicting counterpart anymore, so they are not applied (which is also what Git does).
-    // So to have something to show for - we *must* produce a conflict, extract paths manually.
-    // TODO(ST): instead of doing this, don't pre-record the paths. Instead redo the merge without
-    //           merge-strategy so that the index entries can be used instead.
-    if !out.has_entries() {
-        fn push_unique(v: &mut Vec<PathBuf>, change: &gix::diff::tree_with_rewrites::Change) {
-            let path = gix::path::from_bstr(change.location()).into_owned();
-            if !v.contains(&path) {
-                v.push(path);
-            }
-        }
-        for conflict in merge_result
-            .conflicts
-            .iter()
-            .filter(|c| c.is_unresolved(treat_as_unresolved))
-        {
-            let (ours, theirs) = conflict.changes_in_resolution();
-            push_unique(&mut out.our_entries, ours);
-            push_unique(&mut out.their_entries, theirs);
-        }
-    }
-    assert_eq!(
-        out.has_entries(),
-        merge_result.has_unresolved_conflicts(treat_as_unresolved),
-        "Must have entries to indicate conflicting files, or bad things will happen later: {:#?}",
-        merge_result.conflicts
-    );
-    Ok(out)
-}
 
 /// Merge two commits together
 ///
@@ -114,8 +46,12 @@ pub fn merge_commits(
     let tree_oid;
     let forced_resolution = gix::merge::tree::TreatAsUnresolved::forced_resolution();
     let is_conflicted = if merge_result.has_unresolved_conflicts(forced_resolution) {
-        let conflicted_files =
-            extract_conflicted_files(merged_tree_id, merge_result, forced_resolution)?;
+        let conflicted_files = conflict_entries_from_merge_outcome(
+            gix_repository,
+            merged_tree_id.detach(),
+            &merge_result,
+            forced_resolution,
+        )?;
 
         // convert files into a string and save as a blob
         let conflicted_files_string = toml::to_string(&conflicted_files)?;
